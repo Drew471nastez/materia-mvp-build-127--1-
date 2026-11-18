@@ -531,6 +531,8 @@ export async function priceCart(db: Db, req: CartRequest): Promise<PricedCart> {
     if (!product) { dropped.push(productId); continue }
     /* A physical product goes through the physical checkout (lib/physical), never this one. */
     if (product.type === "physical") { dropped.push(product.title); continue }
+    /* Nor a plan: a membership or a community's plan is joined from its own page, in its own currency and with its own rules. In a basket a $49 community plan was charged as 49 of the store's currency, once, with no join check. */
+    if (product.type === "membership" || product.type === "community") { dropped.push(product.title); continue }
     if (owned.has(ownedKey(productId, want.variantId))) {
       dropped.push(product.title)
       ownedList.push({ productId, variantId: want.variantId, title: product.title, thumbnailUrl: product.thumbnail_url ?? null })

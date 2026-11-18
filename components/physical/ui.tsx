@@ -202,9 +202,10 @@ export function Card({ title, description, action, help, children, className, id
         */
         <div className="mb-4 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3" data-card-head="">
           {title ? <h2 className={cn(CARD_TITLE, "col-start-1 row-start-1 min-w-0 self-center sm:self-start")}>{title}</h2> : null}
-          {action ? <div className="col-start-2 row-start-1 shrink-0 sm:row-span-3">{action}</div> : null}
+          {action ? <div className={cn("col-start-2 row-start-1 shrink-0", help ? "sm:justify-self-end" : "sm:row-span-3")}>{action}</div> : null}
           {description ? <p className={cn(MUTED, "col-span-2 mt-0.5 min-w-0 sm:col-span-1 sm:col-start-1", action && "max-sm:mt-1.5")}>{description}</p> : null}
-          {help ? <HowItWorks id={help} className="col-span-2 -ml-2 mt-1 justify-self-start sm:col-span-1 sm:col-start-1" /> : null}
+          {/* From 640px "How it works" sits on the right of the head, under the action when there is one; on a phone it stays under the words. */}
+          {help ? <HowItWorks id={help} className={cn("col-span-2 -ml-2 mt-1 justify-self-start sm:col-span-1 sm:col-start-2 sm:-mr-2 sm:ml-0 sm:justify-self-end sm:self-start", action ? "sm:row-start-2 sm:mt-1.5" : "sm:row-start-1 sm:row-span-2 sm:mt-0")} /> : null}
         </div>
       ) : null}
       {children}
@@ -666,7 +667,7 @@ function ModalSheet({ open, onClose, title, children, footer, wide, closeButton 
         <div className={cn("flex items-center justify-between gap-3 px-4 pb-1", closeButton ? "pt-2" : "min-h-11 pt-1")} data-modal-sheet-head="">
           <h2 className="text-[16px] font-semibold text-[#1a1a2e]">{title}</h2>
           {closeButton ? (
-            <button type="button" data-close="" data-sheet-close="" aria-label={tt("Close")} className="grid h-9 w-9 place-items-center rounded-full bg-[#f3f4f6] text-[#6b7280] active:bg-[#e5e7eb]">
+            <button type="button" data-close="" data-sheet-close="" aria-label={tt("Close")} className="relative grid h-9 w-9 place-items-center rounded-full bg-[#f3f4f6] text-[#6b7280] after:absolute after:-inset-1 after:content-[''] active:bg-[#e5e7eb]">
               <X className="h-4 w-4" />
             </button>
           ) : null}

@@ -4,6 +4,7 @@ import { communityOpen, loadCommunity, viewerContext } from "@/lib/communities/s
 import { admin } from "@/lib/communities/server/db"
 import { NO_STORE, sessionUserId } from "@/lib/communities/server/feed"
 import { readJoinForm } from "@/lib/communities/server/join-questions"
+import { signedOutOrRetry } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -27,7 +28,7 @@ export async function GET(_request: Request, { params }: Params) {
   const community = await loadCommunity(db, { id: communityId })
   if (!community || !communityOpen(community) || community.status !== "published" || community.archived_at) return NextResponse.json({ error: "not_found" }, { status: 404, headers: NO_STORE })
   const userId = await sessionUserId()
-  if (!userId) return NextResponse.json({ error: "sign_in" }, { status: 401, headers: NO_STORE })
+  if (!userId) return signedOutOrRetry(NextResponse.json({ error: "sign_in" }, { status: 401, headers: NO_STORE }))
   const viewer = await viewerContext(db, community, userId)
   if (viewer.banned || viewer.status === "banned" || viewer.status === "removed") return NextResponse.json({ error: "banned" }, { status: 403, headers: NO_STORE })
   const form = await readJoinForm(db, community.id)

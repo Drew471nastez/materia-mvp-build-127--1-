@@ -9,7 +9,6 @@ import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-
 import { priceCart } from "@/lib/checkout/pricing"
 import { stripe } from "@/lib/stripe"
 import { accountGoneFromPlatform, releaseConnectedAccount } from "@/lib/payments/stripe/connect"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { UnsupportedFeeCurrencyError } from "@/lib/billing/fee-calculator"
 import { calculatePlatformFeeForCheckout } from "@/lib/billing/platform-fee-server"
@@ -21,6 +20,7 @@ import { siteHostsFor } from "@/lib/checkout/site-hosts"
 import { chargeUnits, lineTotalCents, packExtras, packItems } from "@/lib/checkout/cart-items"
 import { HELD_SESSION_SECONDS, HOLD_COOKIE, holdCouponUse, holderForEmail, isHolder, needsHold, newHolder, releaseCouponHold } from "@/lib/checkout/coupon-holds"
 import { fulfilFreeCart } from "@/lib/checkout/fulfil-cart-session"
+import { claimedBasket, freeBasketSession, type ClaimedBasket } from "@/lib/checkout/free-claim"
 import { ORIGIN_METADATA_KEY, cleanHost, cleanOrigin, encodeOrigin } from "@/lib/orders/order-source"
 import { attributionForCheckout, attributionToMetadata, type Attribution } from "@/lib/attribution/server"
 import { cookies } from "next/headers"
@@ -39,6 +39,7 @@ import { servingSiteOrigin } from "@/lib/checkout/site-checkout-server"
 import { CLAIM_HOLD_SECONDS, SALE_HOLDER_KEY, holdBasket, releaseSales, saleHolderForEmail } from "@/lib/checkout/sales-limit"
 import { soldOutMessage } from "@/lib/products/sales-limit"
 import { stripeIdempotencyKey } from "@/lib/stripe/resilience"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 
@@ -133,7 +134,6 @@ async function safeReturnOrigin(origin: string | null, creatorId: string): Promi
 }
 
 async function handlePOST(request: Request) {
-  const supabase = await createClient()
   const admin = createAdminClient()
 
   let body: {
@@ -148,6 +148,8 @@ async function handlePOST(request: Request) {
     returnUrl?: unknown
     /** The whole cart is being paid for, so the site empties it after (lib/checkout/basket-link). */
     wholeCart?: unknown
+    /** The cart page's press (lib/checkout/attempt-id), sent with a free basket's buyer: the same press sent again is the same basket. */
+    attemptId?: unknown
   }
   try {
     body = await request.json()
@@ -167,20 +169,35 @@ async function handlePOST(request: Request) {
     : null
   if (limited) return limited
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const who = await routeUser({ fresh: true })
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
+
+  /*
+    THE SAME FREE BASKET PRESSED AGAIN (round AX, lib/checkout/free-claim freeBasketSession). Its answer was lost
+    after the basket was written, and the buyer pressed again. The basket that press wrote is the answer, found
+    before the price (its one use code is used now, its downloads are owned now), a code's place or a copy is asked
+    for again, so nothing is written, emailed or counted twice. A page that sends no attempt id works as before.
+  */
+  const basketSession = body.buyer && typeof body.buyer === "object" ? freeBasketSession(body.attemptId, { store: "cart", email: buyerEmailOf(body.buyer, user), items: body.items }) : null
+  const early = await claimedBasket(admin, basketSession)
+  if (early) return claimedBasketAnswer(request, admin, body, early)
+  /* Refused below for something this same press already took (the code's last use, a product now owned): that press's basket is the answer, not the refusal. */
+  const refusedOrClaimed = async (refusal: NextResponse) => {
+    const late = await claimedBasket(admin, basketSession)
+    return late ? claimedBasketAnswer(request, admin, body, late) : refusal
+  }
 
   /* Every price, every line left out, and the code, from the database (lib/checkout/pricing). */
   const handOff = await isPhysicalCommerceEnabled().catch(() => false)
   const priced = await priceCart(admin, { items: body.items, couponCode: body.couponCode, buyerId: user?.id ?? null, handOff })
-  if (priced.ok === false) return NextResponse.json({ error: priced.error }, { status: priced.status })
+  if (priced.ok === false) return refusedOrClaimed(NextResponse.json({ error: priced.error }, { status: priced.status }))
   const { lines, dropped, coupon } = priced
 
   /* One shop, from the data; something that ships; nothing left to buy; under $0.50 (lib/checkout/basket-decision). */
   const decision = basketDecision(priced, { currency: priced.creatorIds.length === 1 ? (await readStoreCurrency(admin, priced.creatorIds[0])).currency : undefined })
   if (decision.kind === "refuse") {
-    return NextResponse.json({ error: decision.error, ...(decision.dropped ? { dropped: decision.dropped } : {}) }, { status: decision.status })
+    return refusedOrClaimed(NextResponse.json({ error: decision.error, ...(decision.dropped ? { dropped: decision.dropped } : {}) }, { status: decision.status }))
   }
   const creatorId = decision.creatorId
 
@@ -264,7 +281,7 @@ async function handlePOST(request: Request) {
     if (config.requireConfirmedEmail && !user?.email_confirmed_at) return NextResponse.json({ error: "Confirm your email address to check out.", code: "email_unconfirmed" }, { status: 403 })
     businessInvoice = config.businessInvoice
   }
-  if (coupon && totalCents === 0) return freeBasket(request, { admin, user, body, priced, creatorId, platformOrigin, siteOrigin: siteServes ? siteOrigin : undefined, origin: { ...sent, surface: "website", site }, attribution: await attributionNow() })
+  if (coupon && totalCents === 0) return freeBasket(request, { admin, user, body, priced, creatorId, platformOrigin, siteOrigin: siteServes ? siteOrigin : undefined, origin: { ...sent, surface: "website", site }, attribution: await attributionNow(), basketSession, refusedOrClaimed })
 
   /* Refused by basketDecision already; said again here so nothing under it can reach Stripe. */
   /* The store's own currency (Settings › Country & Currency), read fresh: every price in the cart is in it, and the card is charged in it. */
@@ -613,12 +630,16 @@ async function freeBasket(
     siteOrigin?: string
     origin: Parameters<typeof encodeOrigin>[0]
     attribution: Attribution
+    /** This press's basket (lib/checkout/free-claim freeBasketSession), or null: a random one, as before. */
+    basketSession: string | null
+    /** A refusal, or the basket this same press already wrote. */
+    refusedOrClaimed: (refusal: NextResponse) => Promise<NextResponse>
   },
 ) {
   const buyer = c.body.buyer && typeof c.body.buyer === "object" ? c.body.buyer : {}
   const firstName = clean(buyer.firstName, 60)
   const lastName = clean(buyer.lastName, 60)
-  const email = (clean(buyer.email, 254) || c.user?.email || "").toLowerCase()
+  const email = buyerEmailOf(buyer, c.user)
   if (!firstName || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || buyer.agreedToTerms !== true) {
     return NextResponse.json({ error: "Enter your name and email, and agree to the Terms, to get your free order.", needsDetails: true }, { status: 400 })
   }
@@ -635,7 +656,7 @@ async function freeBasket(
   const coupon = c.priced.coupon!
   const holder = needsHold(coupon) ? holderForEmail(email) : null
   if (holder && !(await holdCouponUse(c.admin, coupon.id, holder))) {
-    return NextResponse.json({ error: "That code has been used up." }, { status: 400 })
+    return c.refusedOrClaimed(NextResponse.json({ error: "That code has been used up." }, { status: 400 }))
   }
 
   /* LIMIT SALES: a free copy is one of the limited run too, held until its order counts it (lib/checkout/sales-limit). */
@@ -646,7 +667,7 @@ async function freeBasket(
     const copies = await holdBasket(c.admin, c.priced.lines.map((l) => ({ productId: l.item.productId, quantity: l.item.quantity, title: String(l.product.title ?? "") })), c.priced.limited, saleHolder, CLAIM_HOLD_SECONDS)
     if (copies.ok === false) {
       if (holder) await releaseCouponHold(c.admin, coupon.id, holder)
-      return NextResponse.json({ error: soldOutMessage(copies.title), code: "sold_out" }, { status: 409 })
+      return c.refusedOrClaimed(NextResponse.json({ error: soldOutMessage(copies.title), code: "sold_out" }, { status: 409 }))
     }
     heldCopies = copies.held
   }
@@ -666,18 +687,31 @@ async function freeBasket(
     baseUrl: c.platformOrigin,
     request,
     currency: (await readStoreCurrency(c.admin, c.creatorId)).currency,
+    sessionId: c.basketSession,
   })
   if (written.ok === false) {
     await releaseSales(c.admin, heldCopies, saleHolder)
     if (holder) await releaseCouponHold(c.admin, coupon.id, holder)
     return NextResponse.json({ error: "The order could not be saved. Try again in a moment." }, { status: 500 })
   }
+  /* A second send of the same press, at the same moment: the other send wrote the basket's first line and turns the code's place into its use. A place this send took is not used by anything, and goes back. */
+  if (c.basketSession && !written.wroteFirst && holder) await releaseCouponHold(c.admin, coupon.id, holder)
 
+  return freeBasketAnswer({ sessionFingerprint: written.sessionFingerprint, receiptToken: written.receiptToken }, c.platformOrigin, c.siteOrigin, c.priced.dropped)
+}
+
+/** The buyer's address for a free basket: the one typed, or the signed in account's. */
+function buyerEmailOf(buyer: Record<string, unknown>, user: { email?: string | null } | null): string {
+  return (clean(buyer.email, 254) || user?.email || "").toLowerCase()
+}
+
+/** A free basket written (now, or by an earlier send of the same press): its receipt, and the cookie that opens it from this browser. */
+async function freeBasketAnswer(basket: { sessionFingerprint: string; receiptToken: string }, platformOrigin: string, siteOrigin: string | undefined, dropped: unknown) {
   /* The same cookie a paid basket sets, so a guest reaches the downloads again from this browser. */
   const mainDomain = getMainDomain()
   const isLocalhost = mainDomain.includes("localhost")
   const cookieStore = await cookies()
-  cookieStore.set("materia_session", written.sessionFingerprint, {
+  cookieStore.set("materia_session", basket.sessionFingerprint, {
     httpOnly: true,
     secure: !isLocalhost,
     sameSite: "lax",
@@ -688,10 +722,31 @@ async function freeBasket(
 
   return NextResponse.json({
     /* From the shop's own website: the thank you page there (app/checkout/site/thanks). */
-    url: c.siteOrigin && c.siteOrigin !== c.platformOrigin ? `${c.siteOrigin}${siteThanksHref(written.receiptToken, { whole: true })}` : `${c.platformOrigin}/receipt/${encodeURIComponent(written.receiptToken)}`,
+    url: siteOrigin && siteOrigin !== platformOrigin ? `${siteOrigin}${siteThanksHref(basket.receiptToken, { whole: true })}` : `${platformOrigin}/receipt/${encodeURIComponent(basket.receiptToken)}`,
     free: true,
-    dropped: c.priced.dropped,
+    dropped,
   })
+}
+
+/**
+ * The answer to a free basket pressed again (lib/checkout/free-claim): the basket the earlier send wrote, on the
+ * same page it was answered with then, the shop's website when it serves its own checkout, else the platform's.
+ */
+async function claimedBasketAnswer(request: Request, admin: ReturnType<typeof createAdminClient>, body: { returnUrl?: unknown }, basket: ClaimedBasket) {
+  const platformOrigin = `https://${getMainDomain()}`
+  let siteOrigin: string | undefined
+  if (basket.creatorId) {
+    let named: URL | null = null
+    try {
+      named = typeof body.returnUrl === "string" && body.returnUrl ? new URL(body.returnUrl) : null
+    } catch {
+      named = null
+    }
+    const namedOrigin = named ? await safeReturnOrigin(named.origin, basket.creatorId) : null
+    const origin = namedOrigin ?? (await safeReturnOrigin(request.headers.get("origin"), basket.creatorId)) ?? platformOrigin
+    if (origin !== platformOrigin && (await servingSiteOrigin(admin, basket.creatorId, origin))) siteOrigin = origin
+  }
+  return freeBasketAnswer(basket, platformOrigin, siteOrigin, [])
 }
 
 /* Timed for /admin/performance, one request in five (lib/perf/server-timing.ts). */

@@ -10,7 +10,7 @@
  * public-onepage.tsx explains what that did on every scroll.
  */
 import * as React from "react"
-import { NOISE_IMAGE, canonicalPatternId, noiseOpacity, patternStyle } from "@/lib/onepage/wallpaper"
+import { NOISE_IMAGE, canonicalPatternId, noiseOpacity, patternStyle, type WallpaperMediaLook } from "@/lib/onepage/wallpaper"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
 
 type ThemeLike = { background_type?: unknown; background_color?: unknown; background_gradient?: unknown; background_pattern?: unknown; pattern_color?: unknown; pattern_opacity?: unknown } | null | undefined
@@ -228,6 +228,194 @@ export function WallpaperDrift({ gradient, className = "absolute inset-0" }: { g
       <style>{"@keyframes onepageDrift{from{transform:translate3d(calc(var(--drift-x) * -1),calc(var(--drift-y) * -1),0)}to{transform:translate3d(var(--drift-x),var(--drift-y),0)}}@media (prefers-reduced-motion:reduce){[data-wallpaper-drift]{display:none}}"}</style>
     </div>
   )
+}
+
+/*
+  ROUND 17: A WALLPAPER THAT MOVES, FOR GRADIENTS THAT ARE NOT ONE LINE.
+  The owner: Nova "can have the gradient moving in the background, smooth,
+  clean, very cool, natural, subtle"; Backstage "with animation inspiring in
+  the background subtly"; Dusk "with some extremely subtle moving gradient
+  orbs". Drift above only moves a plain linear gradient. These two read the
+  page's own gradient, whatever it is made of:
+
+    orbs   three soft lights in the gradient's own colours, each wandering a
+           slow loop of its own (31s, 37s, 43s, so they never line up)
+    lamp   one light, the gradient's first colour, breathing and swaying
+           like a lamp in a room (9s)
+
+  Only colours the gradient already has, at the strength it already has
+  them, so nothing under the words is a colour the words were not measured
+  against (lib/onepage/contrast pageGrounds reads the same stops). Moved by
+  transform and opacity alone, on the compositor; still for anyone who asked
+  for less motion; stopped while the tab is hidden. The page's gradient stays
+  under it, so a first frame and a reduced motion visitor see the page as it
+  is drawn still.
+*/
+export type GradientMotion = "drift" | "orbs" | "lamp"
+export const GRADIENT_MOTIONS: readonly GradientMotion[] = ["drift", "orbs", "lamp"]
+export function gradientMotionOf(theme: { gradient_motion?: unknown } | null | undefined): GradientMotion {
+  const m = theme?.gradient_motion
+  return m === "orbs" || m === "lamp" ? m : "drift"
+}
+
+/** The colours a gradient is painted in, as written (alpha kept), its fully clear stops and its base left out. */
+export function motionColours(gradient: unknown, base: unknown): string[] {
+  if (typeof gradient !== "string") return []
+  const all = gradient.match(/#[0-9a-f]{8}\b|#[0-9a-f]{6}\b|#[0-9a-f]{3}\b/gi) ?? []
+  const own = String(base || "").toLowerCase()
+  const out: string[] = []
+  for (const c of all) {
+    const v = c.toLowerCase()
+    if (v.length === 9 && v.endsWith("00")) continue
+    if (v === own || out.includes(v)) continue
+    out.push(v)
+  }
+  return out
+}
+
+const ORB_PATHS = [
+  { at: [22, 18], size: 78, ms: 31000, path: [[0, 0], [14, 9], [4, 22], [-10, 8]] },
+  { at: [78, 46], size: 70, ms: 37000, path: [[0, 0], [-16, 6], [-6, -14], [8, -6]] },
+  { at: [36, 82], size: 84, ms: 43000, path: [[0, 0], [12, -12], [24, 4], [6, 10]] },
+]
+
+export function WallpaperMotion({ theme, className = "absolute inset-0" }: { theme: { gradient_motion?: unknown; background_gradient?: unknown; background_color?: unknown }; className?: string }) {
+  const box = React.useRef<HTMLDivElement>(null)
+  React.useEffect(() => {
+    const el = box.current
+    if (!el) return
+    const sync = () => el.style.setProperty("--wm-state", document.hidden ? "paused" : "running")
+    sync()
+    document.addEventListener("visibilitychange", sync)
+    return () => document.removeEventListener("visibilitychange", sync)
+  }, [])
+  const kind = gradientMotionOf(theme)
+  const colours = motionColours(theme.background_gradient, theme.background_color)
+  if (kind === "drift" || colours.length === 0) return null
+  const glow = (c: string) => `radial-gradient(circle at 50% 50%, ${c} 0%, ${c.length === 9 ? c.slice(0, 7) : c}00 70%)`
+  const css =
+    "@keyframes wmLamp{0%{transform:translate3d(-4%,0,0) scale(1);opacity:.78}50%{transform:translate3d(3%,2%,0) scale(1.1);opacity:1}100%{transform:translate3d(-2%,-1%,0) scale(1.04);opacity:.86}}" +
+    ORB_PATHS.map((o, i) => `@keyframes wmOrb${i}{${o.path.map((p, k) => `${Math.round((k / o.path.length) * 100)}%{transform:translate3d(${p[0]}%,${p[1]}%,0)}`).join("")}100%{transform:translate3d(0,0,0)}}`).join("") +
+    "@media (prefers-reduced-motion:reduce){[data-wallpaper-motion] *{animation:none!important}}"
+  return (
+    <div ref={box} aria-hidden data-wallpaper-motion={kind} className={`pointer-events-none overflow-hidden ${className}`}>
+      {kind === "lamp" ? (
+        <div
+          data-keep-transform=""
+          style={{ position: "absolute", left: "-30%", top: "-30%", width: "160%", height: "120%", backgroundImage: glow(colours[0]), animation: "wmLamp 9s cubic-bezier(0.45,0,0.55,1) infinite alternate both", animationPlayState: "var(--wm-state, running)" as never, willChange: "transform, opacity" }}
+        />
+      ) : (
+        ORB_PATHS.slice(0, Math.max(1, Math.min(3, colours.length))).map((o, i) => (
+          <div
+            key={i}
+            data-keep-transform=""
+            style={{
+              position: "absolute",
+              left: `${o.at[0] - o.size / 2}%`,
+              top: `${o.at[1] - o.size / 2}%`,
+              width: `${o.size}%`,
+              aspectRatio: "1",
+              backgroundImage: glow(colours[i % colours.length]),
+              animation: `wmOrb${i} ${o.ms}ms cubic-bezier(0.45,0,0.55,1) infinite both`,
+              animationPlayState: "var(--wm-state, running)" as never,
+              willChange: "transform",
+            }}
+          />
+        ))
+      )}
+      <style>{css}</style>
+    </div>
+  )
+}
+
+/**
+ * The layers a photo or video wallpaper's effect lays over it (round AR,
+ * lib/onepage/wallpaper wallpaperMediaLook): the duotone's two colours, the
+ * halftone's dot screen, the grain, the tint. Each is one plain element in
+ * `box` (the same place as the picture), drawn once; a video under them
+ * plays on and the blend is the compositor's.
+ */
+export function WallpaperEffectLayers({ look, box }: { look: WallpaperMediaLook; box: React.CSSProperties }) {
+  if (!look.layers.length) return null
+  return (
+    <>
+      {look.layers.map((l) => (
+        <div key={l.key} aria-hidden data-wallpaper-effect={l.key} className="pointer-events-none" style={{ ...box, ...l.style }} />
+      ))}
+    </>
+  )
+}
+
+/*
+  ===========================================================================
+   THE PICTURE'S OWN DARK AND LIGHT, READ ONCE (round AR)
+  ===========================================================================
+  White words on a creator's own bright photo at full brightness were white
+  on white. The page cannot know a picture from its theme, so it reads it:
+  the copy the page draws (same origin, through the image optimizer), drawn
+  once into a 24 by 40 canvas when it has loaded, and the pixels at the 10th
+  and 90th percentile of luminance kept. A video is read from its saved
+  frame. Kept per address for the life of the page; a picture that cannot
+  be read (another origin without CORS) gives nothing, and the page draws
+  as it always did. lib/onepage/contrast photoVeil turns the two ends into
+  the veil that makes the words read.
+*/
+type RawEnds = { dark: { r: number; g: number; b: number }; light: { r: number; g: number; b: number } }
+const sampled = new Map<string, Promise<RawEnds | null>>()
+
+export function samplePicture(src: string): Promise<RawEnds | null> {
+  const known = sampled.get(src)
+  if (known) return known
+  const job = new Promise<RawEnds | null>((resolve) => {
+    if (typeof document === "undefined") return resolve(null)
+    const img = new Image()
+    img.crossOrigin = "anonymous"
+    img.decoding = "async"
+    img.onload = () => {
+      try {
+        const w = 24
+        const h = 40
+        const canvas = document.createElement("canvas")
+        canvas.width = w
+        canvas.height = h
+        const ctx = canvas.getContext("2d", { willReadFrequently: true })
+        if (!ctx) return resolve(null)
+        /* As the page draws it: cover, centred. */
+        const s = Math.max(w / img.naturalWidth, h / img.naturalHeight)
+        const dw = img.naturalWidth * s
+        const dh = img.naturalHeight * s
+        ctx.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh)
+        const d = ctx.getImageData(0, 0, w, h).data
+        const px: { r: number; g: number; b: number; l: number }[] = []
+        for (let i = 0; i < d.length; i += 4) px.push({ r: d[i], g: d[i + 1], b: d[i + 2], l: 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2] })
+        px.sort((a, b) => a.l - b.l)
+        const at = (q: number) => px[Math.min(px.length - 1, Math.floor(px.length * q))]
+        resolve({ dark: at(0.1), light: at(0.9) })
+      } catch {
+        resolve(null)
+      }
+    }
+    img.onerror = () => resolve(null)
+    img.src = src
+  })
+  sampled.set(src, job)
+  return job
+}
+
+/** The picture's two ends, once it has been read; null until then, and for a picture that cannot be read. */
+export function usePictureEnds(src: string | null): RawEnds | null {
+  const [ends, setEnds] = React.useState<{ src: string; ends: RawEnds | null } | null>(null)
+  React.useEffect(() => {
+    if (!src) return
+    let live = true
+    void samplePicture(src).then((e) => {
+      if (live) setEnds({ src, ends: e })
+    })
+    return () => {
+      live = false
+    }
+  }, [src])
+  return src && ends?.src === src ? ends.ends : null
 }
 
 /** The Noise switch: grey grain blended over a gradient or a photo, at the strength chosen (5 to 50). */

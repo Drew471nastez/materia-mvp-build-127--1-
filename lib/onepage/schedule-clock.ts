@@ -18,6 +18,12 @@ type Scheduled = { schedule?: { start_at?: string | null; end_at?: string | null
 export function nextScheduleChange(blocks: readonly unknown[] | null | undefined, now: number): number | null {
   let next: number | null = null
   for (const b of blocks || []) {
+    /* A group's own blocks keep schedules too: their start or end changes the page as much as a block of its own. */
+    const children = (b as { type?: unknown; data?: { children?: unknown } } | null)
+    if (children?.type === "group" && Array.isArray(children.data?.children)) {
+      const inner = nextScheduleChange(children.data!.children as unknown[], now)
+      if (inner !== null && (next === null || inner < next)) next = inner
+    }
     const s = (b as Scheduled | null)?.schedule
     if (!s) continue
     for (const iso of [s.start_at, s.end_at]) {

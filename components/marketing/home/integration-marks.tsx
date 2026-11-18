@@ -1,0 +1,212 @@
+/*
+  Brand marks the integrations tiles draw as vectors, sharp at any size.
+
+  Apple Pay: Apple's own mark (the Apple logo and "Pay"), the outline left
+  off because the tile is the black card. Google Pay: Google's four colour
+  G and "Pay" in Google's grey. Stripe: the current lowercase wordmark,
+  not the old "S" icon. Google Ads: its three shapes in Google's colours.
+  Paths from the brands' published SVGs (Wikimedia Commons copies of the
+  Apple Pay, Google Pay and Stripe marks; Simple Icons for the Ads shapes).
+  Landing round 8: TikTok and Google Calendar drawn here too (below).
+*/
+
+import { useId } from "react"
+
+type MarkProps = { className?: string }
+
+export function ApplePayMark({ className }: MarkProps) {
+  return (
+    <svg viewBox="0 0 512 210.2" className={className} aria-hidden="true" focusable="false">
+      <path
+        fill="#ffffff"
+        d="M93.6,27.1C87.6,34.2,78,39.8,68.4,39c-1.2-9.6,3.5-19.8,9-26.1c6-7.3,16.5-12.5,25-12.9C103.4,10,99.5,19.8,93.6,27.1 M102.3,40.9c-13.9-0.8-25.8,7.9-32.4,7.9c-6.7,0-16.8-7.5-27.8-7.3c-14.3,0.2-27.6,8.3-34.9,21.2c-15,25.8-3.9,64,10.6,85c7.1,10.4,15.6,21.8,26.8,21.4c10.6-0.4,14.8-6.9,27.6-6.9c12.9,0,16.6,6.9,27.8,6.7c11.6-0.2,18.9-10.4,26-20.8c8.1-11.8,11.4-23.3,11.6-23.9c-0.2-0.2-22.4-8.7-22.6-34.3c-0.2-21.4,17.5-31.6,18.3-32.2C123.3,42.9,107.7,41.3,102.3,40.9 M182.6,11.9v155.9h24.2v-53.3h33.5c30.6,0,52.1-21,52.1-51.4c0-30.4-21.1-51.2-51.3-51.2H182.6z M206.8,32.3h27.9c21,0,33,11.2,33,30.9c0,19.7-12,31-33.1,31h-27.8V32.3z M336.6,169c15.2,0,29.3-7.7,35.7-19.9h0.5v18.7h22.4V90.2c0-22.5-18-37-45.7-37c-25.7,0-44.7,14.7-45.4,34.9h21.8c1.8-9.6,10.7-15.9,22.9-15.9c14.8,0,23.1,6.9,23.1,19.6v8.6l-30.2,1.8c-28.1,1.7-43.3,13.2-43.3,33.2C298.4,155.6,314.1,169,336.6,169z M343.1,150.5c-12.9,0-21.1-6.2-21.1-15.7c0-9.8,7.9-15.5,23-16.4l26.9-1.7v8.8C371.9,140.1,359.5,150.5,343.1,150.5z M425.1,210.2c23.6,0,34.7-9,44.4-36.3L512,54.7h-24.6l-28.5,92.1h-0.5l-28.5-92.1h-25.3l41,113.5l-2.2,6.9c-3.7,11.7-9.7,16.2-20.4,16.2c-1.9,0-5.6-0.2-7.1-0.4v18.7C417.3,210,423.3,210.2,425.1,210.2z"
+      />
+    </svg>
+  )
+}
+
+export function GooglePayMark({ className }: MarkProps) {
+  return (
+    <svg viewBox="0 -0.5 64 25" className={className} aria-hidden="true" focusable="false">
+      <g transform="translate(0 -0.2) scale(0.41667)">
+        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+      </g>
+      <g fill="#3c4043">
+        <path d="M26,18.669498V0.99999755h5.998c1.0566,0 2.0156,0.23032995 2.8771,0.69098995 0.8615,0.4442 1.5442,1.07761 2.0481,1.90021 0.5202,0.80615 0.7802,1.74392 0.7802,2.81331 0,1.05293 -0.26,1.99069 -0.7802,2.81329 -0.5039,0.8226005 -1.1866,1.4642005 -2.0481,1.9249005 -0.8615,0.4442 -1.8205,0.6663 -2.8771,0.6663h-3.316v6.8605z m2.682,-9.4270005h3.3892c0.6339,0 1.1703,-0.1316 1.6092,-0.3949 0.4389,-0.2796 0.7721,-0.6334 0.9997,-1.06112 0.2438,-0.44421 0.3657,-0.90486 0.3657,-1.38197 0,-0.47711 -0.1219,-0.92955 -0.3657,-1.3573 -0.2276,-0.42775 -0.5608,-0.78147 -0.9997,-1.06116 -0.4389,-0.27968 -0.9753,-0.41953 -1.6092,-0.41953H28.682Z" />
+        <path d="m43.4403,19.064398c-0.9103,0 -1.7067,-0.181 -2.3895,-0.5429 -0.6827,-0.362 -1.2272,-0.8556 -1.6336,-1.4807 -0.3901,-0.6417 -0.5851,-1.3738 -0.5851,-2.1964 0,-0.9048 0.2275,-1.6699 0.6827,-2.295 0.4714,-0.6252 1.089,-1.1023 1.853,-1.4314 0.7802,-0.329 1.6418,-0.4935 2.5845,-0.4935 0.5364,0 1.0241,0.0411 1.463,0.1234 0.4388,0.0658 0.829,0.148 1.1703,0.2467 0.3414,0.0987 0.6096,0.2057 0.8046,0.3209v-0.6664c0,-0.8226005 -0.2926,-1.4806005 -0.8777,-1.9742005 -0.5852,-0.4936 -1.3411,-0.74035 -2.2676,-0.74035 -0.6339,0 -1.2353,0.14805 -1.8043,0.44425 -0.5689,0.2796 -1.0321,0.6663 -1.3898,1.1598l-1.7798,-1.4066c0.3576,-0.51004 0.7883,-0.94602 1.2922,-1.30797 0.5202,-0.36194 1.0972,-0.64163 1.7311,-0.83905 0.634,-0.19743 1.3086,-0.29614 2.0238,-0.29614 1.788,0 3.1696,0.45243 4.1449,1.3573 0.9753,0.88841 1.463,2.13876 1.463,3.7510605v7.8723h-2.5358v-1.5547h-0.1463c-0.2275,0.329 -0.5283,0.6416 -0.9021,0.9378 -0.3576,0.2961 -0.7802,0.5347 -1.2679,0.7156 -0.4876,0.1975 -1.0322,0.2962 -1.6336,0.2962z m0.4633,-2.1717c0.6827,0 1.2841,-0.1645 1.8042,-0.4936 0.5202,-0.329 0.9266,-0.7568 1.2192,-1.2832 0.3088,-0.5429 0.4632,-1.127 0.4632,-1.7522 -0.3738,-0.2138 -0.8127,-0.3866 -1.3166,-0.5182 -0.5039,-0.1481 -1.0485,-0.2221 -1.6336,-0.2221 -1.0566,0 -1.8124,0.2139 -2.2676,0.6416 -0.4551,0.4278 -0.6827,0.9625 -0.6827,1.6041 0,0.5923 0.2113,1.0776 0.634,1.456 0.4388,0.3784 1.0321,0.5676 1.7799,0.5676z" />
+        <path d="m56.5878,23.382998c-0.0487,0.1152 -0.1056,0.2304 -0.1707,0.3455 -0.0487,0.1317 -0.0812,0.2221 -0.0975,0.2715h-2.8039c0.0812,-0.181 0.195,-0.436 0.3413,-0.765 0.1626,-0.3291 0.317,-0.6581 0.4633,-0.9871 0.0975,-0.2139 0.195,-0.4443 0.2926,-0.691 0.1137,-0.2468 0.2275,-0.5018 0.3413,-0.7651 0.1301,-0.2632 0.252,-0.5182 0.3657,-0.765l0.9266,-2.0483 -5.1934,-11.8948105h2.9258l3.5598,8.5880105h0.1219L61.0985,6.0836875H64L57.5631,21.087998c-0.1138,0.2797 -0.2438,0.5758 -0.3901,0.8884 -0.13,0.3126 -0.252,0.5923 -0.3657,0.839 -0.0976,0.2633 -0.1707,0.4525 -0.2195,0.5676z" />
+      </g>
+    </svg>
+  )
+}
+
+export function StripeMark({ className }: MarkProps) {
+  return (
+    <svg viewBox="54 36 360.02 149.84" className={className} aria-hidden="true" focusable="false">
+      <g fill="#ffffff" fillRule="evenodd" clipRule="evenodd">
+        <path d="M414,113.4c0-25.6-12.4-45.8-36.1-45.8c-23.8,0-38.2,20.2-38.2,45.6c0,30.1,17,45.3,41.4,45.3c11.9,0,20.9-2.7,27.7-6.5v-20c-6.8,3.4-14.6,5.5-24.5,5.5c-9.7,0-18.3-3.4-19.4-15.2h48.9C413.8,121,414,115.8,414,113.4z M364.6,103.9c0-11.3,6.9-16,13.2-16c6.1,0,12.6,4.7,12.6,16H364.6z" />
+        <path d="M301.1,67.6c-9.8,0-16.1,4.6-19.6,7.8l-1.3-6.2h-22v116.6l25-5.3l0.1-28.3c3.6,2.6,8.9,6.3,17.7,6.3c17.9,0,34.2-14.4,34.2-46.1C335.1,83.4,318.6,67.6,301.1,67.6z M295.1,136.5c-5.9,0-9.4-2.1-11.8-4.7l-0.1-37.1c2.6-2.9,6.2-4.9,11.9-4.9c9.1,0,15.4,10.2,15.4,23.3C310.5,126.5,304.3,136.5,295.1,136.5z" />
+        <polygon points="223.8,61.7 248.9,56.3 248.9,36 223.8,41.3" />
+        <rect x="223.8" y="69.3" width="25.1" height="87.5" />
+        <path d="M196.9,76.7l-1.6-7.4h-21.6v87.5h25V97.5c5.9-7.7,15.9-6.3,19-5.2v-23C214.5,68.1,202.8,65.9,196.9,76.7z" />
+        <path d="M146.9,47.6l-24.4,5.2l-0.1,80.1c0,14.8,11.1,25.7,25.9,25.7c8.2,0,14.2-1.5,17.5-3.3V135c-3.2,1.3-19,5.9-19-8.9V90.6h19V69.3h-19L146.9,47.6z" />
+        <path d="M79.3,94.7c0-3.9,3.2-5.4,8.5-5.4c7.6,0,17.2,2.3,24.8,6.4V72.2c-8.3-3.3-16.5-4.6-24.8-4.6C67.5,67.6,54,78.2,54,95.9c0,27.6,38,23.2,38,35.1c0,4.6-4,6.1-9.6,6.1c-8.3,0-18.9-3.4-27.3-8v23.8c9.3,4,18.7,5.7,27.3,5.7c20.8,0,35.1-10.3,35.1-28.2C117.4,100.6,79.3,105.9,79.3,94.7z" />
+      </g>
+    </svg>
+  )
+}
+
+export function GoogleAdsMark({ className }: MarkProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" focusable="false">
+      <path fill="#FBBC04" d="M7.5137 4.8438L1.5645 15.1484A4.5 4.5 0 0 1 4 14.4297c2.5597-.0075 4.6248 2.1585 4.4941 4.7148l3.2168-5.5723-3.6094-6.25c-.4499-.7793-.6322-1.6394-.5878-2.4784z" />
+      <path fill="#4285F4" d="M23.4641 16.9287L15.4632 3.072C14.3586 1.1587 11.9121.5028 9.9988 1.6074S7.4295 5.1585 8.5341 7.0718l8.0009 13.8567c1.1046 1.9133 3.5511 2.5679 5.4644 1.4646 1.9134-1.1046 2.568-3.5511 1.4647-5.4644z" />
+      <path fill="#34A853" d="M3.9998 22.9291C1.7908 22.9291 0 21.1383 0 18.9293s1.7908-3.9998 3.9998-3.9998 3.9998 1.7908 3.9998 3.9998-1.7908 3.9998-3.9998 3.9998z" />
+    </svg>
+  )
+}
+
+/*
+  TIKTOK (landing round 8, the owner: "the TikTok icon is incorrect"). The
+  tile drew the note three times through the icon set's colour prop, and the
+  white one never took its colour, so the note came out red with a cyan
+  edge. TikTok's own mark is two notes, cyan (#25F4EE) nudged up and left
+  and red (#FE2C55) nudged down and right, and white exactly where the two
+  overlap. Drawn that way here: the white is the red note clipped to the
+  cyan one, so every fringe is the width TikTok draws it and no wider. The
+  note is TikTok's glyph (Simple Icons, CC0). The clip's id is per instance
+  (useId), because each tile is drawn twice in its row.
+*/
+const TIKTOK_NOTE =
+  "M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"
+/** How far each colour is nudged, in the note's 24 units (about 2.5% of it, as on TikTok's icon). */
+export const TIKTOK_NUDGE = 0.6
+
+export function TikTokMark({ className }: MarkProps) {
+  const id = `tt${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`
+  const cyan = `translate(${-TIKTOK_NUDGE} ${-TIKTOK_NUDGE})`
+  const red = `translate(${TIKTOK_NUDGE} ${TIKTOK_NUDGE})`
+  return (
+    <svg viewBox="-1 -1 26 26" className={className} aria-hidden="true" focusable="false" data-mark="tiktok">
+      <defs>
+        <clipPath id={id}>
+          <path d={TIKTOK_NOTE} transform={cyan} />
+        </clipPath>
+      </defs>
+      <path fill="#25F4EE" d={TIKTOK_NOTE} transform={cyan} />
+      <path fill="#FE2C55" d={TIKTOK_NOTE} transform={red} />
+      <path fill="#FFFFFF" d={TIKTOK_NOTE} transform={red} clipPath={`url(#${id})`} />
+    </svg>
+  )
+}
+
+/*
+  GOOGLE CALENDAR, the 2020 icon in its own colours: the blue frame with its
+  darker top right corner, yellow down the right, green along the foot, the
+  dark green corner, the folded red corner, and the blue 31 on white. It was
+  the one colour Simple Icons glyph, which is not what the app looks like.
+  Drawn on a 200 unit square from Google's published geometry.
+*/
+export function GoogleCalendarMark({ className }: MarkProps) {
+  return (
+    <svg viewBox="0 0 200 200" className={className} aria-hidden="true" focusable="false" data-mark="google-calendar">
+      <path fill="#FFFFFF" d="M152.63 47.37H47.37v105.26h105.26z" />
+      <path fill="#EA4335" d="M152.63 200 200 152.63h-47.37z" />
+      <path fill="#FBBC04" d="M200 47.37h-47.37v105.26H200z" />
+      <path fill="#34A853" d="M152.63 152.63H47.37V200h105.26z" />
+      <path fill="#188038" d="M0 152.63v31.58C0 192.93 7.07 200 15.79 200h31.58v-47.37z" />
+      <path fill="#1967D2" d="M200 47.37V15.79C200 7.07 192.93 0 184.21 0h-31.58v47.37z" />
+      <path fill="#4285F4" d="M152.63 0H15.79C7.07 0 0 7.07 0 15.79v136.84h47.37V47.37h105.26z" />
+      <path
+        fill="#4285F4"
+        d="M68.96 133.96c-3.93-2.66-6.66-6.54-8.14-11.67l9.13-3.76c.83 3.16 2.28 5.61 4.34 7.34 2.05 1.74 4.55 2.59 7.47 2.59 2.99 0 5.55-.91 7.7-2.72 2.15-1.81 3.22-4.12 3.22-6.92 0-2.86-1.13-5.2-3.39-7.01-2.26-1.81-5.09-2.72-8.47-2.72h-5.28v-9.04h4.74c2.92 0 5.38-.79 7.38-2.37 2-1.58 3-3.74 3-6.49 0-2.45-.9-4.39-2.69-5.85-1.79-1.46-4.06-2.2-6.81-2.2-2.69 0-4.82.71-6.4 2.15a12.62 12.62 0 0 0-3.45 5.3l-9.04-3.76c1.2-3.39 3.4-6.39 6.63-8.98 3.23-2.59 7.36-3.9 12.37-3.9 3.71 0 7.05.71 10.01 2.15 2.96 1.43 5.28 3.42 6.96 5.95 1.68 2.54 2.51 5.38 2.51 8.53 0 3.22-.78 5.93-2.33 8.16-1.55 2.23-3.45 3.93-5.71 5.11v.54a17.35 17.35 0 0 1 7.33 5.71c1.9 2.56 2.86 5.62 2.86 9.19 0 3.57-.91 6.76-2.72 9.56-1.81 2.8-4.32 5-7.49 6.6-3.19 1.6-6.77 2.41-10.75 2.41-4.61.01-8.86-1.31-12.79-3.97zM124.98 88.69l-10.03 7.25-5.01-7.61 17.99-12.97h6.9v61.17h-9.85z"
+      />
+    </svg>
+  )
+}
+
+/*
+  LANDING ROUND 11, THE OWNER: "add Instagram, Spotify, Apple Music, YouTube
+  and Meta as well". Spotify and YouTube are their Simple Icons glyphs on
+  the right ground (integrations-section.tsx); the three below need more
+  than one colour, so they are drawn here from the brands' own icons.
+*/
+
+/**
+ * META, the infinity mark in Meta's blue, deepening from the right loop to
+ * the left as Meta draws it (#0082FB to #0064E1), not one flat blue. The
+ * mark's outline is Simple Icons' (CC0). The gradient's id is per instance.
+ */
+const META_PATH =
+  "M6.915 4.03c-1.968 0-3.683 1.28-4.871 3.113C.704 9.208 0 11.883 0 14.449c0 .706.07 1.369.21 1.973a6.624 6.624 0 0 0 .265.86 5.297 5.297 0 0 0 .371.761c.696 1.159 1.818 1.927 3.593 1.927 1.497 0 2.633-.671 3.965-2.444.76-1.012 1.144-1.626 2.663-4.32l.756-1.339.186-.325c.061.1.121.196.183.3l2.152 3.595c.724 1.21 1.665 2.556 2.47 3.314 1.046.987 1.992 1.22 3.06 1.22 1.075 0 1.876-.355 2.455-.843a3.743 3.743 0 0 0 .81-.973c.542-.939.861-2.127.861-3.745 0-2.72-.681-5.357-2.084-7.45-1.282-1.912-2.957-2.93-4.716-2.93-1.047 0-2.088.467-3.053 1.308-.652.57-1.257 1.29-1.82 2.05-.69-.875-1.335-1.547-1.958-2.056-1.182-.966-2.315-1.303-3.454-1.303zm10.16 2.053c1.147 0 2.188.758 2.992 1.999 1.132 1.748 1.647 4.195 1.647 6.4 0 1.548-.368 2.9-1.839 2.9-.58 0-1.027-.23-1.664-1.004-.496-.601-1.343-1.878-2.832-4.358l-.617-1.028a44.908 44.908 0 0 0-1.255-1.98c.07-.109.141-.224.211-.327 1.12-1.667 2.118-2.602 3.358-2.602zm-10.201.553c1.265 0 2.058.791 2.675 1.446.307.327.737.871 1.234 1.579l-1.02 1.566c-.757 1.163-1.882 3.017-2.837 4.338-1.191 1.649-1.81 1.817-2.486 1.817-.524 0-1.038-.237-1.383-.794-.263-.426-.464-1.13-.464-2.046 0-2.221.63-4.535 1.66-6.088.454-.687.964-1.226 1.533-1.533a2.264 2.264 0 0 1 1.088-.285z"
+export function MetaMark({ className }: MarkProps) {
+  const id = `meta${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`
+  return (
+    <svg viewBox="0 3.5 24 17" className={className} aria-hidden="true" focusable="false" data-mark="meta">
+      <defs>
+        <linearGradient id={id} x1="0" y1="0.6" x2="1" y2="0.4">
+          <stop offset="0" stopColor="#0064E1" />
+          <stop offset="0.45" stopColor="#0073EE" />
+          <stop offset="1" stopColor="#0082FB" />
+        </linearGradient>
+      </defs>
+      <path fill={`url(#${id})`} d={META_PATH} />
+    </svg>
+  )
+}
+
+/**
+ * INSTAGRAM'S APP ICON, the whole tile: the warm to violet glow rising from
+ * the bottom left corner (yellow, orange, magenta, purple, blue) and the
+ * white camera outline, rounded square, lens and the dot at its top right,
+ * in Instagram's own proportions.
+ */
+export function InstagramTile({ className }: MarkProps) {
+  const id = `ig${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`
+  return (
+    <svg viewBox="0 0 100 100" className={className} aria-hidden="true" focusable="false" data-mark="instagram">
+      <defs>
+        <radialGradient id={id} cx="0.28" cy="1.08" r="1.3">
+          <stop offset="0" stopColor="#FFDD55" />
+          <stop offset="0.1" stopColor="#FFCB52" />
+          <stop offset="0.36" stopColor="#FF543E" />
+          <stop offset="0.55" stopColor="#E1306C" />
+          <stop offset="0.75" stopColor="#C837AB" />
+          <stop offset="1" stopColor="#4F5BD5" />
+        </radialGradient>
+      </defs>
+      <rect width="100" height="100" fill={`url(#${id})`} />
+      <g fill="none" stroke="#FFFFFF" strokeWidth="6.4">
+        <rect x="23" y="23" width="54" height="54" rx="15.5" />
+        <circle cx="50" cy="50" r="12.8" />
+      </g>
+      <circle cx="65.6" cy="34.4" r="3.9" fill="#FFFFFF" />
+    </svg>
+  )
+}
+
+/**
+ * APPLE MUSIC'S APP ICON, the whole tile: Apple's red, lighter at the top
+ * (#FB5C74 to #FA233B), and the white beamed note. The note is the cut out
+ * of Simple Icons' Apple Music glyph (CC0), drawn on its own.
+ */
+const APPLE_MUSIC_NOTE =
+  "M17.571 10.114v5.712c0 .417-.058.827-.244 1.206-.29.59-.76.962-1.388 1.14-.35.1-.706.157-1.07.173-.95.045-1.773-.6-1.943-1.536a1.88 1.88 0 011.038-2.022c.323-.16.67-.25 1.018-.324.378-.082.758-.153 1.134-.24.274-.063.457-.23.51-.516a.904.904 0 00.02-.193c0-1.815 0-3.63-.002-5.443a.725.725 0 00-.026-.185c-.04-.15-.15-.243-.304-.234-.16.01-.318.035-.475.066-.76.15-1.52.303-2.28.456l-2.325.47-1.374.278c-.016.003-.032.01-.048.013-.277.077-.377.203-.39.49-.002.042 0 .086 0 .13-.002 2.602 0 5.204-.003 7.805 0 .42-.047.836-.215 1.227-.278.64-.77 1.04-1.434 1.233-.35.1-.71.16-1.075.172-.96.036-1.755-.6-1.92-1.544-.14-.812.23-1.685 1.154-2.075.357-.15.73-.232 1.108-.31.287-.06.575-.116.86-.177.383-.083.583-.323.6-.714v-.15c0-2.96 0-5.922.002-8.882 0-.123.013-.25.042-.37.07-.285.273-.448.546-.518.255-.066.515-.112.774-.165.733-.15 1.466-.296 2.2-.444l2.27-.46c.67-.134 1.34-.27 2.01-.403.22-.043.442-.088.663-.106.31-.025.523.17.554.482.008.073.012.148.012.223.002 1.91.002 3.822 0 5.732z"
+export function AppleMusicTile({ className }: MarkProps) {
+  const id = `am${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" focusable="false" data-mark="apple-music">
+      <defs>
+        <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#FB5C74" />
+          <stop offset="1" stopColor="#FA233B" />
+        </linearGradient>
+      </defs>
+      <rect width="24" height="24" fill={`url(#${id})`} />
+      <path fill="#FFFFFF" d={APPLE_MUSIC_NOTE} />
+    </svg>
+  )
+}

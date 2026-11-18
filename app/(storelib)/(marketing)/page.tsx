@@ -1,7 +1,29 @@
 import dynamic from "next/dynamic"
+import { Suspense } from "react"
+import { LandingStory } from "@/components/marketing/landing-story"
+import { ScrollRevealBackdrop, ScrollRevealPanel } from "@/components/marketing/scroll-reveal-panel"
+import { DotField } from "@/components/marketing/home/dot-field"
 import { Hero } from "@/components/marketing/hero"
-import { BentoGrid } from "@/components/marketing/bento-grid"
-import { StatsBar } from "@/components/marketing/stats-bar"
+import { LazySection } from "@/components/marketing/home/lazy-section"
+import { SheetHold } from "@/components/marketing/home/sheet-hold"
+import {
+  LazyEverythingInOnePlace,
+  LazyIdeasComeToLife,
+  LazyBusinessCarousel,
+  LazyCreatorsCarousel,
+  LazyHowItWorks,
+  LazyCheckoutScene,
+  LazyAudienceOwnership,
+  LazyAnalyticsShowcase,
+  LazySellEverywhereMap,
+  LazyIntegrationsSection,
+  LazyAiToolsSection,
+  LazyEarningsCalculator,
+  LazyAppAnywhere,
+  LazyBuildShowcase,
+  LAZY_SECTION_HEIGHTS_CSS,
+  LAZY_SECTION_PHONE_HIDDEN_CSS,
+} from "@/components/marketing/home/lazy-sections"
 import { storelibHomeJsonLd } from "@/lib/seo/structured-data"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 import type { Metadata } from "next"
@@ -16,59 +38,159 @@ export const metadata: Metadata = {
   alternates: { canonical: "https://storelib.com" },
 }
 
-// Below-the-fold sections — dynamically imported to reduce initial JS bundle.
-// Hero + BentoGrid + StatsBar load eagerly (above the fold).
-const ManageSection = dynamic(() => import("@/components/marketing/manage-section").then(m => ({ default: m.ManageSection })))
-const SplitFeaturesSection = dynamic(() => import("@/components/marketing/split-features-section").then(m => ({ default: m.SplitFeaturesSection })))
-const CarouselSection = dynamic(() => import("@/components/marketing/carousel-section").then(m => ({ default: m.CarouselSection })))
-const ToolStackSection = dynamic(() => import("@/components/marketing/tool-stack-section").then(m => ({ default: m.ToolStackSection })))
-const PricingSection = dynamic(() => import("@/components/marketing/pricing-section").then(m => ({ default: m.PricingSection })))
-const FeaturesBadgesSection = dynamic(() => import("@/components/marketing/features-badges-section").then(m => ({ default: m.FeaturesBadgesSection })))
-const FaqSection = dynamic(() => import("@/components/marketing/faq-section").then(m => ({ default: m.FaqSection })))
-const CtaSection = dynamic(() => import("@/components/marketing/cta-section").then(m => ({ default: m.CtaSection })))
-const ProductMarquee = dynamic(() => import("@/components/marketing/product-marquee").then(m => ({ default: m.ProductMarquee })))
+/*
+  THE PAGE, TOP TO BOTTOM (wave 12). The hero is the first screen and loads
+  with the page (landing round 13: the showcase that sat under it moved down,
+  before pricing). Everything else is below the fold:
+
+    sections the server still draws (their words are read by search engines:
+    the possibilities, pricing, the questions, the closing call) are
+    dynamically imported, so their code is a chunk of its own, and the long
+    ones are wrapped in <LazySection>, which lets the browser skip their
+    layout and paint until they come near the screen;
+
+    the grounds (landing round 3, the owner): the page's base is dark, and
+    the light sections ride on white sheets with rounded corners that lap
+    over it and scroll with the page, one stretch on a purple one
+    (ScrollRevealPanel, components/marketing/scroll-reveal-panel.tsx; round
+    8: at every join the lower block carries the rounded corners and the
+    upper one is square; nothing is held):
+
+      dark     the hero, sitting on
+      white    Make the work, ideas, what you can sell (landing round 8), creators, how it works
+      dark     the checkout scene (it draws its own black)
+      white    your audience, your apps, your AI tools, the app (landing round 9)
+      purple   what is working (round 8: it rises over the white as a sheet)
+      white    the map (landing round 9), the possibilities, what you could earn
+      dark     the showcase (landing round 13): pages built on Storelib
+      white    pricing, the questions
+      dark     the closing call, running on into the black footer
+
+    the motion sections from the other wave-12 tracks are mounted near the
+    screen by lazySection() (components/marketing/home/lazy-section): their
+    code is not in the first load at all. The slots below mark where each
+    one goes; the integration wires them.
+*/
+/*
+  Landing round 13 (the owner's iPhone: the page "stutters and glitches"): each of these four is its own Suspense
+  boundary. Their code is a separate file; when one had not arrived by the time React hydrated the page (about half
+  the loads on a phone network), the page's wrapper failed to hydrate (React #418) and React threw the whole server
+  page away and drew it again in the browser: 750 elements rebuilt, the header included, as the visitor started to
+  scroll. With a boundary, a late file only holds its own section's hydration.
+*/
+const ProductMarquee = dynamic(() => import("@/components/marketing/product-marquee").then((m) => ({ default: m.ProductMarquee })))
+const PricingSection = dynamic<{ editorial?: boolean; hideDetailsLink?: boolean }>(() => import("@/components/marketing/pricing-section").then((m) => ({ default: m.PricingSection })))
+const FaqSection = dynamic<{ editorial?: boolean }>(() => import("@/components/marketing/faq-section").then((m) => ({ default: m.FaqSection })))
+const FinalCta = dynamic(() => import("@/components/marketing/home/final-cta").then((m) => ({ default: m.FinalCta })))
 
 export default function StorelibLanding() {
   return (
-    <div className="bg-white overflow-x-hidden">
+    /* Landing round 13: the page is a Suspense boundary of its own. Measured with a phone's network: a hydration pass interrupted inside it resumed with its place in the server's HTML already one step inside this wrapper, and React threw the whole page away (#418). A boundary resumes from its own first element. */
+    <Suspense fallback={null}>
+    <div className="bg-[#050506]" data-home-ground="dark">
       {/* Who Storelib is, the site and the product, as one graph (lib/seo/structured-data.ts). No SearchAction: Google retired it, and /explore?q= is not crawled. */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(storelibHomeJsonLd()) }} />
 
-      {/* HERO SECTION */}
-      <Hero />
+      {/* Each lazy section's placeholder at its measured height (lazy-sections.tsx). */}
+      <style dangerouslySetInnerHTML={{ __html: LAZY_SECTION_HEIGHTS_CSS }} />
+      {/* Landing round 14: no earnings on a phone. A tag of its own: these strings come from a client module, so here they are references the browser resolves, and joining two with + printed a function's source instead. */}
+      <style dangerouslySetInnerHTML={{ __html: LAZY_SECTION_PHONE_HIDDEN_CSS }} />
+      {/* Landing round 12, the owner: the wheel glide was "too smooth and delayed". The page scrolls natively, in real time (tests/home-smooth-wheel-r5.test.ts). */}
+      {/* Landing round 13: the whole landing is one Suspense boundary too, so a section whose file is late during hydration holds only this boundary, never the wrapper (see the four sections above). */}
+      <Suspense fallback={null}>
+      <LandingStory>
+        {/* DARK: 1 HERO. The page simply continues onto the white ground under it (the owner: Make the work must not come up as a drawer). Landing round 13, the owner: the showcase is no longer right under the hero; it is further down, before pricing. */}
+        <ScrollRevealBackdrop>
+          <Hero />
+        </ScrollRevealBackdrop>
 
-      {/* BENTO GRID */}
-      <BentoGrid />
+        {/* WHITE SHEET. Landing round 8: its rounded top lies over the dark block's square foot (the lower block carries the corners). */}
+        <ScrollRevealPanel tone="white">
+          {/* 3 EverythingInOnePlace */}
+          <LazyEverythingInOnePlace />
 
-      {/* STATS BAR */}
-      <StatsBar />
+          {/* 4 IdeasToLife */}
+          <LazyIdeasComeToLife />
 
-      {/* MANAGE YOUR BUSINESS */}
-      <ManageSection />
+          {/* 4b What you can sell (landing round 8: back after round 7 took it off, redesigned) */}
+          <LazyBusinessCarousel />
 
-      {/* PRODUCT CATEGORIES MARQUEE */}
-      <ProductMarquee />
+          {/* 7 CreatorsCarousel */}
+          <LazyCreatorsCarousel />
 
-      {/* SPLIT FEATURE ROWS */}
-      <SplitFeaturesSection />
+          {/* 8 HowItWorks motion graphics + earnings picker */}
+          <LazyHowItWorks />
+        </ScrollRevealPanel>
 
-      {/* CAROUSEL / ONEPAGE TESTIMONIALS */}
-      {/* <CarouselSection /> */}
+        {/* DARK: 9 CheckoutScene. Round 5: nothing is held; the next sheet laps over its foot by its corner and the page scrolls on. */}
+        <ScrollRevealBackdrop>
+          <LazyCheckoutScene />
+        </ScrollRevealBackdrop>
 
-      {/* TOOL STACK COMPARISON */}
-      <ToolStackSection />
+        {/* WHITE SHEET */}
+        <ScrollRevealPanel tone="white">
+          {/* 10 AudienceOwnership */}
+          <LazyAudienceOwnership />
 
-      {/* PRICING */}
-      <PricingSection />
+          {/* 11 Integrations */}
+          <LazyIntegrationsSection />
 
-      {/* FEATURE BADGES */}
-      <FeaturesBadgesSection />
+          {/* 12 Your AI tools work here too (landing round): Claude Code, Codex or Cursor connected to a site, building it as drafts */}
+          <LazyAiToolsSection />
 
-      {/* FAQ */}
-      <FaqSection />
+          {/* 12b RunFromAnywhere. Landing round 9, the owner: it "should be positioned somewhere else", on white: after the apps and the AI tools (what works with a store, then the store in a pocket), and it leads into the numbers. */}
+          <LazyAppAnywhere />
+        </ScrollRevealPanel>
 
-      {/* CTA */}
-      <CtaSection />
+        {/* PURPLE SHEET: 13 AnalyticsShowcase alone (landing round 9: the map left it for the white sheet under it). Landing round 8: it rises over the white above as the page scrolls (transform only, nothing held). */}
+        <ScrollRevealPanel tone="purple" arrive="rise">
+          {/* Round 4: a fine dot grid with a slowly drifting light over the top of the purple, fading out by the cards. */}
+          <DotField tone="purple" fade="bottom" gap={22} style={{ height: "min(100%, 1600px)" }} />
+          <LazyAnalyticsShowcase />
+        </ScrollRevealPanel>
+
+        {/* WHITE SHEET: the map, what you can sell, earnings */}
+        <ScrollRevealPanel tone="white">
+          {/* 14 SellEverywhere world map. Landing round 9, the owner: it sits on white, right after the purple. */}
+          <LazySellEverywhereMap />
+
+          {/* 5 UNLIMITED POSSIBILITIES (frame). Landing round 8: moved here from between the ideas and the creators (the owner: it sat inside "Storelib is for creators"); what you can sell, then what it could earn. Wave 13 perf: each box's height is the section's own, measured at 390 to 1920 wide, so nothing jumps and no gap shows. Wave 18: smaller on a phone (the heading and the photos), measured 324 to 359px from 360 to 767 wide, so below 768 the box is 6.7vw + 310px; from 768 it is as it was. */}
+          <LazySection name="possibilities" minHeight="min(calc(6.7vw + 310px + clamp(0px, (100vw - 767px) * 100000, 100000px)), clamp(380px, 23vw + 254px, 720px))">
+            <Suspense fallback={null}><ProductMarquee /></Suspense>
+          </LazySection>
+
+          {/* 15 EarningsCalculator */}
+          <LazyEarningsCalculator />
+        </ScrollRevealPanel>
+
+        {/* DARK: 2 BUILD SHOWCASE. Landing round 13, the owner: moved from under the hero. After what you could earn and before the price, the pages people build and sell from on Storelib, on a dark ground of its own between two white sheets (its rounded top over the earnings, the pricing sheet's rounded top over its foot). Mounted as it comes near (lazy-sections.tsx). */}
+        <ScrollRevealBackdrop>
+          <LazyBuildShowcase />
+        </ScrollRevealBackdrop>
+
+        {/* WHITE SHEET: pricing, the questions. Landing round 14, the owner: it arrives as a sheet; the showcase above holds (sticky) and this sheet rises over it (components/marketing/home/sheet-hold.tsx). */}
+        <ScrollRevealPanel tone="white">
+          <SheetHold />
+
+          {/* 16 PRICING (kept as it was, without its See full pricing button here). Landing round: plain lines, measured 2043px at 390, 1044 at 768, 997 to 1028 from 1024. */}
+          <LazySection name="pricing" minHeight="max(calc(2043px - clamp(0px, (100vw - 767px) * 100000, 100000px)), 1030px)">
+            <Suspense fallback={null}><PricingSection editorial hideDetailsLink /></Suspense>
+          </LazySection>
+
+          {/* 17 FAQ: the last section (landing round 9, the owner) */}
+          <LazySection name="faq" minHeight="max(calc(795px - clamp(0px, (100vw - 1023px) * 100000, 100000px)), 730px)">
+            <Suspense fallback={null}><FaqSection editorial /></Suspense>
+          </LazySection>
+        </ScrollRevealPanel>
+
+        {/* DARK CLOSE (round 4: no purple): 18 FINAL CTA (frame) alone above the footer (landing round 9, the owner: the questions, then Start selling), running on into the black footer with no seam */}
+        <ScrollRevealBackdrop>
+          <Suspense fallback={null}><FinalCta /></Suspense>
+        </ScrollRevealBackdrop>
+      </LandingStory>
+      </Suspense>
+      {/* 20 FOOTER: components/marketing/footer.tsx, drawn under every marketing page by the layout (ConditionalFooter). */}
     </div>
+    </Suspense>
   )
 }

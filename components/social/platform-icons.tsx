@@ -23,7 +23,7 @@
  */
 
 import { GenIcon, type IconType } from "react-icons"
-import { FaLinkedin } from "@/components/icons/brand-icons.generated"
+import { FaLinkedin } from "@/components/icons/brand/FaLinkedin"
 /* The marks' trees, not `react-icons/si`: see components/social/simple-icon-marks.ts (round 48). */
 import * as marks from "@/components/social/simple-icon-marks"
 

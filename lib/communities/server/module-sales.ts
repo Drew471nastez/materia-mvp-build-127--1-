@@ -28,6 +28,7 @@ import { findProgram, ownedPrograms, programViewer, type ProgramRow } from "./le
 import { pushCommunitySale } from "@/lib/orders/sale-events"
 import type { CheckoutDeps, CheckoutStart, GrantAnswer, StripeSessions } from "./learn-checkout"
 import { stripeIdempotencyKey } from "@/lib/stripe/resilience"
+import { regrantVerdict, stripeRefundCheck, type RefundCheck } from "./refunded-payment"
 
 export const MODULE_SESSION_KIND = "community_module"
 /** A module's price: $1 to $10,000, or none (not sold on its own). */
@@ -165,7 +166,7 @@ export function isModuleSession(session: Pick<Stripe.Checkout.Session, "metadata
 }
 
 /** THE MODULE IS THEIRS, FROM A PAID SESSION: one row per person and module; a second call changes nothing. */
-export async function grantModuleFromSession(db: Db, session: Stripe.Checkout.Session, opts: { userId?: string } = {}): Promise<GrantAnswer> {
+export async function grantModuleFromSession(db: Db, session: Stripe.Checkout.Session, opts: { userId?: string; refundCheck?: RefundCheck } = {}): Promise<GrantAnswer> {
   if (!isModuleSession(session)) return { ok: false, status: 400, error: "not_a_module_session" }
   const m = session.metadata as Record<string, string>
   if (opts.userId && m.buyer_id !== opts.userId) return { ok: false, status: 403, error: "forbidden" }
@@ -187,9 +188,15 @@ export async function grantModuleFromSession(db: Db, session: Stripe.Checkout.Se
     currency: session.currency ?? null,
     revoked_at: null,
   }
-  const { data: existing, error: readError } = await db.from("community_module_access").select("revoked_at").eq("module_id", mod.id).eq("user_id", m.buyer_id).maybeSingle()
+  const { data: existing, error: readError } = await db.from("community_module_access").select("revoked_at, checkout_session_id, payment_intent_id").eq("module_id", mod.id).eq("user_id", m.buyer_id).maybeSingle()
   if (readError) return { ok: false, status: MISSING.has(String(readError.code)) ? 409 : 500, error: MISSING.has(String(readError.code)) ? "not_set_up" : "failed" }
   if (existing && !(existing as { revoked_at: string | null }).revoked_at) return { ok: true, created: false, programId: program.id }
+  /* Round AY: a revoked module opens again only for a payment that is not refunded (./refunded-payment.ts). */
+  if (existing) {
+    const verdict = await regrantVerdict(existing as { checkout_session_id?: string | null; payment_intent_id?: string | null }, { checkoutSessionId: session.id, paymentIntentId: intent }, opts.refundCheck ?? stripeRefundCheck)
+    if (verdict === "refunded") return { ok: false, status: 409, error: "refunded" }
+    if (verdict === "unknown") return { ok: false, status: 503, error: "unknown" }
+  }
   const { error } = existing
     ? await db.from("community_module_access").update({ ...row, created_at: new Date().toISOString() }).eq("module_id", mod.id).eq("user_id", m.buyer_id)
     : await db.from("community_module_access").insert(row)

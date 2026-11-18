@@ -28,7 +28,8 @@ import { agentOnForEveryone } from "./agent-access"
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
 /** Jobs one creator may have running at once. */
-export const MAX_RUNNING_JOBS = 1
+/* Round BB: three AI websites may build at once per store (one per website, enforced by the jobs table). */
+export const MAX_RUNNING_JOBS = 3
 
 /** The Website page's key for one press: 8 to 80 letters, digits and dashes. */
 export function isStartKey(v: unknown): v is string {
@@ -46,6 +47,42 @@ export function startEngine(env: Record<string, string | undefined> = process.en
 export function isMissingColumn(error: { code?: string; message?: string } | null | undefined): boolean {
   if (!error) return false
   return error.code === "42703" || error.code === "PGRST204" || /column .* does not exist|could not find the '[a-z_]+' column/i.test(error.message ?? "")
+}
+
+/*
+  ===========================================================================
+   THE BUILD IN ONE REQUEST, AND WHAT IT IS COUNTED AS (round AW)
+  ===========================================================================
+  app/api/website-builder/themes/[installId]/generate builds a whole website
+  inside one request. It is there for a database without this table (SQL
+  part 380), where the create route answers `fallback` and the editor has no
+  job to follow. Nothing kept it to that: with the table there it still built,
+  and it counted none of what a job counts. A body with any `checkpoint`, even
+  `{}` (which starts from the beginning), was counted as a Continue, forty an
+  hour (LIMITS.siteAi) where a new website is ten a day (LIMITS.siteGenerate),
+  and nothing held it to one build at a time. A build is some thirty model
+  calls and a dozen pictures on Storelib's keys.
+*/
+
+/**
+ * From a one row read of the jobs table: "inline" when the table is not there
+ * (the build runs in the request, as before), "jobs" when it is (every Start
+ * with AI is a job, so nothing starts in the request), "unknown" when the read
+ * failed for another reason (nothing starts: a count that cannot be read never
+ * starts an AI run, lib/sites/rate-limit.ts).
+ */
+export function inlineBuildGate(probe: { error: { code?: string; message?: string } | null }): "inline" | "jobs" | "unknown" {
+  if (!probe.error) return "jobs"
+  return isMissingTable(probe.error) ? "inline" : "unknown"
+}
+
+/**
+ * Which allowance a build in one request is counted in, from the job read out
+ * of what was sent: a Continue only when its checkpoint carried a plan to go
+ * on with. Anything else starts the website from the beginning, and is a new one.
+ */
+export function inlineBuildBucket(resuming: boolean, plan: unknown): "site-generate" | "site-generate-continue" {
+  return resuming && plan ? "site-generate-continue" : "site-generate"
 }
 
 export async function startJobRow(

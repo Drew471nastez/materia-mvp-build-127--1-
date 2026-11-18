@@ -89,6 +89,9 @@ export async function readCommunityVideo(db: Db, communityId: string, videoId: s
   return (data as MediaVideoRow | null) ?? null
 }
 
+/** creatorPlan's answer when the read failed: never read as Free. */
+const PLAN_UNREAD = "\u0000unread"
+
 /** Bytes a creator's community videos hold in Storelib's storage. */
 export async function communityVideoBytes(db: Db, creatorId: string): Promise<number> {
   const { data, error } = await db.from("media_videos").select("size_bytes").eq("creator_id", creatorId).eq("provider", "storage").neq("status", "failed")
@@ -97,7 +100,9 @@ export async function communityVideoBytes(db: Db, creatorId: string): Promise<nu
 }
 
 async function creatorPlan(db: Db, creatorId: string): Promise<string | null> {
-  const { data } = await db.from("creators").select("subscription_plan_id").eq("id", creatorId).maybeSingle()
+  const { data, error } = await db.from("creators").select("subscription_plan_id").eq("id", creatorId).maybeSingle()
+  /* A plan read that failed is not Free's quota (round rel2-auth): the upload is refused with Try again instead. */
+  if (error) return PLAN_UNREAD
   return (data as { subscription_plan_id?: string | null } | null)?.subscription_plan_id ?? null
 }
 
@@ -142,7 +147,9 @@ export async function prepareVideoUpload(db: Db, input: PrepareInput): Promise<{
   if ((pending ?? 0) >= MAX_PENDING_VIDEOS) return fail(429, "too_many", "A few videos are still uploading. Wait for them to finish, then try again.")
 
   if (provider === "storage") {
-    const quota = getPlanLimits(await creatorPlan(db, creatorId)).storageQuotaBytes
+    const plan = await creatorPlan(db, creatorId)
+    if (plan === PLAN_UNREAD) return fail(503, "failed", "Storelib is not answering right now. Try again.")
+    const quota = getPlanLimits(plan).storageQuotaBytes
     const used = (await getCreatorStorageUsage(db, creatorId).catch(() => 0)) + (await communityVideoBytes(db, creatorId))
     if (used + size > quota) return fail(403, "quota", `This would go over the ${Math.round(quota / 1024 ** 3)} GB of storage on this community's plan.`)
   }

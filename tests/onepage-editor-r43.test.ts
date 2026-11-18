@@ -90,12 +90,13 @@ function main() {
     check("a Radix lock is followed, and its own margin not added twice", /useEffect\(\(\) => followDialogLocks\(\), \[\]\)/.test(live) && /html\[data-op-hold\] body\[data-scroll-locked\] \{ overflow: visible !important; margin-right: 0 !important; \}/.test(css))
     /* Changed on purpose (round AL): Calendly's own pop-up is gone; it opens in the block sheet, which keeps the page still with its scrollbar (components/onepage/block-sheet useStillPage). */
     /* Changed on purpose (round AN): music and a PDF open in the block sheet too, so the free checkout is the one centred window left for useHeldPage. */
-    check("the centred windows hold the page on a computer", /useHeldPage\(isPhone === false && quickCheckoutModalOpen/.test(live) && !/showCalendlyModal|spotifyModalOpen|pdfModalData/.test(live) && /useStillPage\(true, rootRef\)/.test(read("components/onepage/block-sheet.tsx")))
+    check("the centred windows hold the page on a computer", /useHeldPage\(isPhone === false && quickCheckoutModalOpen/.test(live) && !/showCalendlyModal|spotifyModalOpen|pdfModalData/.test(live) && /* Round AS: held while the sheet is up, not while kept hidden. */ /useStillPage\((true|!kept), rootRef\)/.test(read("components/onepage/block-sheet.tsx")))
   }
 
   section("6. A block's stats")
   {
-    check("the period is a popover over the stats, not inline", /<DateRangePicker value=\{statsPeriod\} onChange=\{setStatsPeriod\} today=\{statsToday\} overlay \/>/.test(tab) && /if \(phone && !overlay\)/.test(picker) && /data-drp-overlay/.test(picker))
+    /* Changed on purpose (round AT): on a phone the overlay picker is a sheet above the stats sheet; a computer keeps the popover. */
+    check("the period is a popover over the stats, not inline", /<DateRangePicker value=\{statsPeriod\} onChange=\{setStatsPeriod\} today=\{statsToday\} overlay \/>/.test(tab) && /if \(phone\) \{/.test(picker) && /zIndex=\{overlay \? OVERLAY_SHEET_Z : undefined\}/.test(picker) && /data-drp-overlay/.test(picker))
     check("See in Analytics, through the router", /<NextLink\s+href=\{blockAnalyticsHref\(statsPeriod/.test(tab) && /tt\("See in Analytics"\)/.test(tab))
     check("to the OnePage's Top links on the same period", blockAnalyticsHref({ preset: "last_7_days", start: "2026-10-22", end: "2026-10-28" } as never, "clicks") === "/app/analytics?property=onepage&report=links")
     check("a custom period goes with it", blockAnalyticsHref({ preset: "custom", start: "2026-10-01", end: "2026-10-10" } as never, "clicks") === "/app/analytics?property=onepage&range=custom&from=2026-10-01&to=2026-10-10&report=links")
@@ -105,7 +106,7 @@ function main() {
   section("7. The picture's frame")
   {
     check("unset: medium, round, a 1px ring in the text colour at an eighth", avatarPx({}, false) === 114 && avatarPx({}, true) === 121 && avatarRadius({}) === "9999px" && AVATAR_BORDER_DEFAULT === 1 && avatarBorderWidth({}) === 1 && avatarBorderColor({ text_color: "#1a1a2e" }) === "#1a1a2e20")
-    check("sizes, shapes and corners", avatarPx({ avatar_size: "large" }, false) === 140 && avatarPx({ avatar_size: "small" }, true) === 94 && avatarRadius({ avatar_shape: "square" }) === "0px" && avatarRadius({ avatar_shape: "rounded", avatar_radius: 20 }) === "20px" && avatarRadius({ avatar_shape: "rounded" }) === "24px")
+    check("sizes, shapes and corners", /* Changed on purpose (round 17): Small is the old Medium and Large the old Large plus 5%. */ avatarPx({ avatar_size: "large" }, false) === 147 && avatarPx({ avatar_size: "small" }, true) === 121 && avatarRadius({ avatar_shape: "square" }) === "0px" && avatarRadius({ avatar_shape: "rounded", avatar_radius: 20 }) === "20px" && avatarRadius({ avatar_shape: "rounded" }) === "24px")
     check("no ring, and a ring of the creator's colour", avatarBorderWidth({ avatar_border_width: 0 }) === 0 && avatarBorderColor({ avatar_border_color: "#ff0000" }) === "#ff0000" && avatarBorderWidth({ avatar_border_width: 40 }) === 8)
     check("a colour that is not one is not written", avatarBorderColor({ avatar_border_color: "red;background:url(x)", text_color: "#000000" }) === "#00000020")
     check("one look for the picture, its glow and its ring", /const look = avatarLook\(theme as never, isDesktop\)/.test(live) && (live.match(/borderRadius: look\.radius/g) ?? []).length >= 5 && avatarLook({}, false).size === 114)

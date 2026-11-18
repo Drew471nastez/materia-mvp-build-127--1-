@@ -57,7 +57,7 @@ check("main is not turned off", vercel.git?.deploymentEnabled?.main !== false)
 check("the ignored build step is the script", vercel.ignoreCommand === "bash scripts/vercel/ignore-build.sh")
 const build = JSON.parse(readFileSync("package.json", "utf8")).scripts.build as string
 const nativeLimits = readFileSync("scripts/build-limits.env", "utf8")
-check("native build pools use explicit build-only limits, with the Node heap still bounded", build.includes("scripts/build-next.mjs") && build.includes("--max-old-space-size=4096") && readFileSync("scripts/build-next.mjs", "utf8").includes('process.loadEnvFile(new URL("./build-limits.env", import.meta.url))') && /^RAYON_NUM_THREADS=2$/m.test(nativeLimits) && /^TOKIO_WORKER_THREADS=2$/m.test(nativeLimits))
+check("native build pools use explicit build-only limits, with the Node heap still bounded", build.includes("scripts/build-next.mjs") && build.includes("--max-old-space-size=5120") && readFileSync("scripts/build-next.mjs", "utf8").includes('process.loadEnvFile(new URL("./build-limits.env", import.meta.url))') && /^RAYON_NUM_THREADS=1$/m.test(nativeLimits) && /^TOKIO_WORKER_THREADS=1$/m.test(nativeLimits))
 check("every cron is still there", Array.isArray(vercel.crons) && vercel.crons.length >= 12)
 
 const run = (prev: string, cur: string) => {
@@ -80,13 +80,15 @@ const proxy = readCode("proxy.ts")
 /* Changed on purpose (r54): the landing rule names storelib.com's hosts (round 51), so a website's `/` keeps its own ISR header like its subdomain, with no override. */
 check("a built website's homepage on a connected domain is held like its subdomain, not the landing page's hour", !/"public, s-maxage=60, stale-while-revalidate=300"/.test(proxy) && /source: '\/',\s*has: \[\{ type: 'host', value: `\(\?:\$\{STORELIB_HOSTS\}\)` \}\]/.test(config))
 check("and a password page or a market's prices are still never shared", /if \(guardedDomain\) r\.headers\.set\("Cache-Control", "private, no-store"\)/.test(proxy) && /else if \(\/~m-\/\.test\(rewritePath\)\) r\.headers\.set\("Cache-Control", "private, no-cache"\)/.test(proxy))
-check("Supabase pictures are optimized only from storage paths", (config.match(/supabase\.co',\n\s*pathname: '\/storage\/v1\/\*\*'/g) ?? []).length === 2)
+// Changed on purpose (round AW): one pattern per own storage host (OWN_STORAGE_HOSTS), storage paths only; no *.supabase.co.
+check("Supabase pictures are optimized only from storage paths", /\.\.\.OWN_STORAGE_HOSTS\.map\(\(hostname\) => \(\{\s*protocol: 'https',\s*hostname,\s*pathname: '\/storage\/v1\/\*\*',\s*\}\)\)/.test(config) && !/hostname: '\*\.supabase\.co'/.test(config))
 
 console.log("\n3. Polling")
 const detail = readCode("app/(storelib)/app/emails/email-detail.tsx")
 check("an email that is sending is read every 5s, not while the tab is hidden, and at once when it comes back", /if \(!document\.hidden\) refresh\(reportKey\(seed\.id\)\)\s*\}, 5000\)/.test(detail) && /addEventListener\("visibilitychange", back\)/.test(detail))
 const composer = readCode("components/email/compose/composer.tsx")
-check("the composer's send progress the same way", /if \(document\.hidden\) return/.test(composer) && /setInterval\(ask, 5000\)/.test(composer) && /addEventListener\("visibilitychange", ask\)/.test(composer))
+/* Changed on purpose (round 54): 5 s at first, slower if a send waits long (lib/ui/slowing-poll.ts). */
+check("the composer's send progress the same way", /if \(document\.hidden\) return/.test(composer) && /slowingPoll\(\(\) => void ask\(\), 5000\)/.test(composer) && /addEventListener\("visibilitychange", ask\)/.test(composer))
 const links = readCode("components/onepage/tabs/links-tab.tsx")
 check("a music link's missing picture is asked a few times, not every 4s forever, and not while hidden", /const THUMBNAIL_RETRIES = 5/.test(links) && /if \(tries >= THUMBNAIL_RETRIES\) return/.test(links) && /!onepage\?\.draft_blocks \|\| document\.hidden/.test(links))
 

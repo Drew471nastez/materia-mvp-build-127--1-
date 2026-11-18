@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { requestUser } from "@/lib/businesses/server"
+import { requestUser, signedOutAnswer } from "@/lib/businesses/server"
 import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
 import { isProPlan } from "@/lib/home/progress"
 import { seatLimit } from "@/lib/team/roles"
@@ -19,7 +19,7 @@ import { actingStore, inviteMember, listTeam, storesOf, teamScope, type TeamMemb
  */
 export async function GET(req: Request) {
   const user = await requestUser(req)
-  if (!user) return NextResponse.json({ error: "Sign in again." }, { status: 401 })
+  if (!user) return signedOutAnswer(req, NextResponse.json({ error: "Sign in again." }, { status: 401 }))
   const db = createAdminClient()
   const [scoped, stores, acting, { data: me }] = await Promise.all([
     teamScope(db, user.id),
@@ -45,7 +45,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const user = await requestUser(req)
-  if (!user) return NextResponse.json({ error: "Sign in again." }, { status: 401 })
+  if (!user) return signedOutAnswer(req, NextResponse.json({ error: "Sign in again." }, { status: 401 }))
   const limited = await rateLimit({ bucket: "team-invite", subjects: [`user:${user.id}`], windows: LIMITS.teamInvite, message: "Too many invites in a short time. Wait a few minutes and try again." })
   if (limited) return limited
   const body = (await req.json().catch(() => null)) as { email?: unknown; permissions?: unknown; role?: unknown } | null

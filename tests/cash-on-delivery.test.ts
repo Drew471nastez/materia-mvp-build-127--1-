@@ -139,7 +139,8 @@ function main() {
   check("website page: sends action cod", /action: "cod"/.test(sitePage))
   const physPage = read("app/(storelib)/checkout/physical/physical-checkout.tsx")
   check("physical page: offered only when on, everything physical, something to pay", /config\.cashOnDelivery &&\s*!!quote\?\.requiresShipping/.test(physPage) && /every\(\(l\) => l\.type === "physical"\)/.test(physPage))
-  check("physical page: a dropped connection keeps the cash key", /if \(!cashOn\) clientKey\.current = actionKey\(\)/.test(physPage))
+  // Changed on purpose (round AY): a free order keeps its key too, so a retry finds the order it placed; cash still keeps it.
+  check("physical page: a dropped connection keeps the cash key", /if \(!cashOn && quote\.totals\.totalCents !== 0\) clientKey\.current = actionKey\(\)/.test(physPage))
   const success = read("app/(storelib)/checkout/parts/success.tsx")
   check("the overlay says Order placed, never Payment complete", /cash \? ct\("Order placed"\)/.test(success))
   const status = read("app/(storelib)/checkout/physical/order/[token]/order-status-view.tsx")
@@ -220,7 +221,7 @@ function main() {
   {
     const orders = read("lib/physical/orders-server.ts")
     check("refused on delivery: only a cash order still to collect", /export async function refusedOnDelivery/.test(orders) && /order\.payment !== "cod_due"/.test(orders))
-    check("what went out comes back as a return the shop opened, restocked when received", /openReturn\(db, checkoutId, \{ creatorId, by: "creator", items, method: "ship_back", note: "Refused on delivery" \}\)/.test(orders) && /restock: true/.test(orders))
+    check("what went out comes back as a return the shop opened, restocked when received", /openReturn\(db, checkoutId, \{ creatorId, by: "creator", items, method: "ship_back", note: "Refused on delivery", notifyBuyer: false \}\)/.test(orders) && /restock: true/.test(orders))
     check("nothing is refunded; the lines stop being a sale; the order is cancelled with the reason", /cancel_reason: "Refused on delivery"/.test(orders) && /update\(\{ status: "failed" \}\)\.eq\("checkout_id", checkoutId\)\.eq\("payment_method", COD_PAYMENT_METHOD\)/.test(orders))
     const route = read("app/api/physical/orders/[id]/route.ts")
     check("the order route takes it", /case "cash_refused"/.test(route) && /refusedOnDelivery\(/.test(route))

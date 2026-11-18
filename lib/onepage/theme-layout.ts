@@ -190,6 +190,35 @@ export function linearGradientValue(direction: number, color1: string, color2: s
   return `linear-gradient(${normalAngle(direction)}deg, ${color1} 0%, ${color2} 100%)`
 }
 
+/** A linear gradient's angle and stops, read as the Design tab shows them, or null for one it cannot read. */
+export function readLinearGradient(value: string | null | undefined): { direction: number; stops: { color: string; at: string | null }[] } | null {
+  const g = (value || "").trim()
+  if (!/^linear-gradient\(/i.test(g)) return null
+  const angle = g.match(/\(\s*(-?\d+(?:\.\d+)?)deg/i)
+  const stops = [...g.matchAll(/(#[0-9a-f]{3,8}\b|rgba?\([^)]*\))\s*(-?[\d.]+%)?/gi)].map((m) => ({ color: m[1], at: m[2] ?? null }))
+  if (stops.length < 2) return null
+  return { direction: angle ? Number(angle[1]) : 180, stops }
+}
+
+/**
+ * THE GRADIENT WITH ONE THING CHANGED, EVERY OTHER STOP KEPT (the OnePage
+ * production audit, D1). Fifteen themes paint three or four stops (Peach's
+ * pink, Sunset's, Aurora's...), and the Design tab rebuilt every edit as two
+ * stops from the first two colours it found: turning the direction alone took
+ * the pink out of Peach, and "End" showed the middle stop. Now the angle, the
+ * first stop's colour or the last stop's colour is changed in place; a value
+ * this cannot read becomes the plain two stop gradient, as before.
+ */
+export function editLinearGradient(value: string | null | undefined, change: { direction?: number; first?: string; last?: string }, fallback: { direction: number; first: string; last: string }): string {
+  const read = readLinearGradient(value)
+  if (!read) return linearGradientValue(change.direction ?? fallback.direction, change.first ?? fallback.first, change.last ?? fallback.last)
+  const stops = read.stops.map((s) => ({ ...s }))
+  if (change.first) stops[0].color = change.first
+  if (change.last) stops[stops.length - 1].color = change.last
+  const at = (s: { at: string | null }, i: number) => s.at ?? (i === 0 ? "0%" : i === stops.length - 1 ? "100%" : `${Math.round((i / (stops.length - 1)) * 100)}%`)
+  return `linear-gradient(${normalAngle(change.direction ?? read.direction)}deg, ${stops.map((s, i) => `${s.color} ${at(s, i)}`).join(", ")})`
+}
+
 /* ─── Font pairs ──────────────────────────────────────────────────────── */
 
 /**
@@ -278,13 +307,24 @@ export function heroCoverShown(theme: CoverThemeLike): boolean {
 }
 
 /**
+ * Whether the creator's own cover fades into the page at its foot (round AS,
+ * the owner: "add a fade at its bottom so it blends into the page"). On by
+ * default, off with `cover_fade: false` (Design, under the cover). A Hero
+ * made from the cover always fades; a theme's own cover keeps its band.
+ */
+export function coverFades(theme: (CoverThemeLike & { cover_fade?: unknown }) | null | undefined): boolean {
+  if (!theme || theme.cover_profile_layout !== true || coverImageOf(theme) === null) return false
+  return heroCoverShown(theme) || theme.cover_fade !== false
+}
+
+/**
  * The cover band's shape, width over height. The editor's crop frame and the
  * page both read it, so the crop dragged into place is the crop drawn.
  *
  * Round AL: the creator's own cover runs edge to edge, like a theme's, with
  * no rounding. At the old 3:1 a phone's band was 130px, most of it under the
- * profile photo, so it is 5:2 now (156px on a 390px phone, 200px across the
- * computer's 500px card). The crop is stored as percentages, so a cover
+ * profile photo, so it is 5:2 now (156px on a 390px phone, 220px across the
+ * computer's 550px card). The crop is stored as percentages, so a cover
  * saved at 3:1 keeps its point of focus and simply shows a little more.
  */
 export const OWN_COVER_ASPECT = 5 / 2

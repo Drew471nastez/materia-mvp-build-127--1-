@@ -14,6 +14,7 @@ import "server-only"
  * creator's own visits are left out of both (lib/analytics/collect).
  * lib/onepage/link-stats has the rules; this file only reads.
  */
+import { ownerStoreId } from "./page-store"
 import { bucketLabel, bucketStarts, grainFor, type Span } from "@/lib/analytics/buckets"
 import {
   countVisits,
@@ -29,6 +30,8 @@ import { parseProperty } from "@/lib/analytics/properties"
 import { getMainDomain } from "@/lib/url-helpers"
 import { blockIdsCounted, clicksPerBlock } from "@/lib/onepage/link-keys"
 import { blockStats, type BlockStats, type ClickAt } from "@/lib/onepage/link-stats"
+import { blockTipsIn } from "@/lib/onepage/tips-server"
+import { blockTipSummary } from "@/lib/analytics/tip-sources"
 
 const PAGE = 1000
 
@@ -43,11 +46,8 @@ export interface StatsPage {
 
 /** The creator whose events these are: the page's seller, else the owner's creator row. */
 export async function creatorOfPage(admin: Admin, page: StatsPage): Promise<string | null> {
-  const direct = page.seller_id || page.creator_id || null
-  if (direct) return direct
-  if (!page.owner_id) return null
-  const { data } = await admin.from("creators").select("id").eq("user_id", page.owner_id).maybeSingle()
-  return (data as { id?: string } | null)?.id ?? null
+  /* The owner's store, read from owner_id: a page naming another store in its own seller_id read that store's clicks (lib/onepage/page-store). */
+  return ownerStoreId(admin, page.owner_id)
 }
 
 /** The question Analytics would ask for this OnePage over this period. */
@@ -131,7 +131,7 @@ async function pageAndClicks(admin: Admin, page: StatsPage, creatorId: string, w
 export async function readBlockStats(
   admin: Admin,
   page: StatsPage,
-  input: { blockId: string; window: Span; timeZone: string; blockType?: string | null },
+  input: { blockId: string; window: Span; timeZone: string; blockType?: string | null; /** An app block's provider: "tips" reads its tips too (round AS). */ provider?: string | null },
 ): Promise<BlockStats | null> {
   const creatorId = await creatorOfPage(admin, page)
   if (!creatorId) return null
@@ -140,11 +140,12 @@ export async function readBlockStats(
   const labels = starts.map((s) => bucketLabel(s, grain, input.timeZone))
   const blocks = page.draft_blocks ?? page.published_blocks
   const ids = new Set([...blockIdsCounted(blocks, input.blockId), ...blockIdsCounted(page.published_blocks, input.blockId)])
-  const [counted, signups] = await Promise.all([
+  const [counted, signups, tips] = await Promise.all([
     pageAndClicks(admin, page, creatorId, input.window, input.timeZone),
     input.blockType === "email_capture" ? readSignups(admin, page.id, [...ids], input.window) : Promise.resolve(null),
+    input.provider === "tips" ? blockTipsIn(admin, page.id, [input.blockId], input.window) : Promise.resolve(null),
   ])
-  return blockStats({
+  const stats = blockStats({
     window: input.window,
     starts,
     labels,
@@ -154,6 +155,13 @@ export async function readBlockStats(
     signups: signups?.rows ?? null,
     truncated: counted.truncated || !!signups?.truncated,
   })
+  if (!tips) return stats
+  /* In the currency most of them were given in: a store that changed currency keeps its older tips out of the sum. */
+  const byCurrency = new Map<string, number>()
+  for (const t of tips) byCurrency.set(t.currency, (byCurrency.get(t.currency) ?? 0) + 1)
+  const currency = [...byCurrency.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "usd"
+  const summary = blockTipSummary(tips, currency)
+  return { ...stats, tips: { count: summary.count, cents: summary.cents, currency, from: summary.from } }
 }
 
 /**

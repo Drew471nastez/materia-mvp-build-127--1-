@@ -10,6 +10,7 @@ import { signState } from "@/lib/github-sync/core"
 import { ownInstall } from "@/lib/github-sync/own-install"
 import { appAsked, appStart } from "@/lib/connect/app-return"
 import { COOKIE_PATH, VERIFIER_COOKIE, authorizeUrl, callbackUrl, pkce, supabaseOAuthConfig } from "@/lib/website-builder/supabase-connect"
+import { storeUnavailableResponse } from "@/lib/team/server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -17,6 +18,7 @@ export const dynamic = "force-dynamic"
 export async function GET(req: Request) {
   const installId = new URL(req.url).searchParams.get("installId") ?? ""
   const own = await ownInstall(installId)
+  if (own === "unavailable") return storeUnavailableResponse()
   if (!own) return NextResponse.json({ error: "Not found" }, { status: 404 })
   const cfg = supabaseOAuthConfig()
   if (!cfg) return NextResponse.json({ error: "Supabase sign in is not set up on Storelib yet." }, { status: 503 })

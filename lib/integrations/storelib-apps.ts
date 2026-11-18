@@ -115,6 +115,8 @@ export interface AppFacts {
   moreMarkets: boolean | null
   /** A GitHub repository linked, or an agent key that isn't revoked. */
   codeConnected: boolean | null
+  /** Parcels are followed: Storelib's own tracking account is set up, or the store connected its own. Absent or null: not read, so the card says nothing rather than On. */
+  trackingOn?: boolean | null
 }
 
 const has = (n: number | null): AppState | null => (n === null ? null : n > 0 ? "on" : "setup")
@@ -139,8 +141,8 @@ export function appStatesFrom(f: AppFacts): Record<string, AppState | null> {
     "storelib-domain": yes(f.domainLive),
     "storelib-code": yes(f.codeConnected),
     "storelib-reviews": yes(f.reviewsOn, "off"),
-    /* Built in for every store that ships: on by itself. */
-    "courier-tracking": "on",
+    /* On only while something follows the parcels (lib/physical/tracking trackingAvailable). It read On for every store, also on a deployment with no tracking key, above a panel saying "Automatic updates are not on yet". */
+    "courier-tracking": f.trackingOn === undefined || f.trackingOn === null ? null : f.trackingOn ? "on" : "setup",
   }
 }
 

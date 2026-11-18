@@ -55,7 +55,7 @@
  *   node scripts/check-onepage-themes.mjs
  *   SHOTS=/some/dir node scripts/check-onepage-themes.mjs   (pictures)
  *   PARTS=kinds,apply node scripts/check-onepage-themes.mjs  (some parts: blocks, kinds, apply, gallery)
- *   THEMES=editorial,haze PARTS=gallery node scripts/check-onepage-themes.mjs  (the gallery for some themes)
+ *   THEMES=terrazzo,haze PARTS=gallery node scripts/check-onepage-themes.mjs  (the gallery for some themes)
  */
 import { execFileSync } from "node:child_process"
 import { existsSync, mkdirSync, mkdtempSync, readFileSync } from "node:fs"
@@ -141,7 +141,7 @@ const { base, server } = await serveEditorProbe({
 void blocksTheme
 
 /* The newest themes: drawn again with no profile picture in the gallery, and side by side in theme-cards-new.png. */
-const NEW = ["editorial", "terrazzo", "blueprint", "darkroom", "haze"]
+const NEW = ["renaissance", "terrazzo", "blueprint", "darkroom", "haze"]
 const PARTS = new Set((process.env.PARTS || "blocks,kinds,apply,gallery").split(","))
 const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--disable-gpu"] })
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))

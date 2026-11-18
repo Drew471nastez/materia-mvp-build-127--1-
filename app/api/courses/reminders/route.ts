@@ -4,6 +4,7 @@ import { verifyLink } from "@/lib/email-campaigns/link-sign"
 import { isUuid } from "@/lib/courses/access"
 import { STOP_PURPOSE } from "@/lib/courses/nudge"
 import { PRIVATE, sessionUserId } from "@/lib/courses/route-auth"
+import { signedOutOrRetry } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -61,7 +62,7 @@ export async function POST(request: Request) {
   }
 
   const userId = await sessionUserId()
-  if (!userId) return NextResponse.json({ error: "Sign in first." }, { status: 401, headers: PRIVATE })
+  if (!userId) return signedOutOrRetry(NextResponse.json({ error: "Sign in first." }, { status: 401, headers: PRIVATE }))
   let body: { productId?: unknown; emailsOff?: unknown }
   try {
     body = await request.json()

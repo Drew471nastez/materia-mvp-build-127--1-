@@ -101,6 +101,20 @@ function dirBytes(dir, skip = () => false) {
   return total
 }
 
+/** Turbopack lists entry files; Webpack stores [chunk id, file] references on client modules. */
+export function entryChunks(manifest) {
+  const entries = manifest.entryJSFiles
+  const lists = entries && Object.keys(entries).length
+    ? Object.values(entries)
+    : Object.values(manifest.clientModules ?? {}).map((module) => module.chunks ?? [])
+  const files = new Set()
+  for (const list of lists) {
+    if (!Array.isArray(list)) throw new Error("Unknown client-reference chunk format")
+    for (const file of list) if (typeof file === "string" && file.endsWith(".js")) files.add(decodeURIComponent(file))
+  }
+  return files
+}
+
 export function measure(nextDir = NEXT) {
   const build = readJson(join(nextDir, "build-manifest.json"))
   const appPaths = readJson(join(nextDir, "app-path-routes-manifest.json"))
@@ -114,7 +128,7 @@ export function measure(nextDir = NEXT) {
     if (!existsSync(file)) return { route, label, page, missing: `${file} not found` }
     const manifest = loadManifest(file)
     const chunks = new Set(rootMain)
-    for (const list of Object.values(manifest.entryJSFiles ?? {})) for (const c of list) chunks.add(c)
+    for (const file of entryChunks(manifest)) chunks.add(file)
     let raw = 0
     let gzip = 0
     for (const c of chunks) {

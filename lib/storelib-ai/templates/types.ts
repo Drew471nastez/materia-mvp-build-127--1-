@@ -154,6 +154,15 @@ export interface SiteTemplate {
   imageSlots: TemplateImageSlot[]
   bindings: TemplateBinding[]
   design: TemplateDesign
+  /**
+   * A template from the AI source bank (lib/storelib-ai/bank): a real website from the Storelib admin's
+   * library, built of Storelib's own sections and its own code. Its look is Theme settings (colour schemes,
+   * type, buttons, spacing), written as they are before the tokens; never its brand (logo, name, socials,
+   * announcement, policies). Built-in templates have none.
+   */
+  themeSettings?: Record<string, unknown>
+  /** Where a bank template came from, for the agent's notes and the admin. */
+  source?: { kind: "bank"; installId: string; name: string }
 }
 
 /** What the gallery shows of a template: everything but the files and pages. */

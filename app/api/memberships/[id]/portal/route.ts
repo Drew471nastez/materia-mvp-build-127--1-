@@ -6,6 +6,7 @@ import { viewerMembership } from "@/lib/memberships/access"
 import { portalConfiguration, refusalReason } from "@/lib/memberships/billing"
 import { requestViewer } from "@/lib/memberships/viewer"
 import { NOT_SET_UP, siteUrl } from "@/lib/memberships/server"
+import { signedOutOrRetry } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 
@@ -26,7 +27,7 @@ export const runtime = "nodejs"
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const viewer = await requestViewer()
-  if (!viewer) return NextResponse.json({ error: "Sign in to manage your membership." }, { status: 401 })
+  if (!viewer) return signedOutOrRetry(NextResponse.json({ error: "Sign in to manage your membership." }, { status: 401 }), { fresh: true })
   const admin = createAdminClient()
   const read = await viewerMembership(admin, viewer, id)
   if (!read.ok) return NextResponse.json({ error: NOT_SET_UP }, { status: 503 })

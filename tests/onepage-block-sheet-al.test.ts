@@ -46,8 +46,12 @@ console.log("INTERACTION")
   const cal = interactionPatch("calendly", "inline")
   check("Calendly's older fields follow the choice", cal.embed_mode === "embedded" && cal.embed_type === "inline" && interactionPatch("calendly", "direct").embed_mode === "direct_link")
   check("other blocks save only open_mode", JSON.stringify(interactionPatch("video", "sheet")) === JSON.stringify({ open_mode: "sheet" }))
-  for (const t of ["video", "music", "embed", "map", "contact_form", "calendly"] as const) {
+  /* Changed on purpose (round AR): a new music or video block plays on the page (the owner: "music blocks as default show on the page"). */
+  for (const t of ["embed", "map", "contact_form", "calendly"] as const) {
     check(`a new ${t} block opens in the sheet`, blockInteraction(createDefaultBlock(t)) === "sheet")
+  }
+  for (const t of ["video", "music"] as const) {
+    check(`a new ${t} block plays on the page`, blockInteraction(createDefaultBlock(t)) === "inline")
   }
 }
 
@@ -58,16 +62,16 @@ console.log("SHEET")
   check("its history entry is read back by its own key", blockSheetEntryOf({ [BLOCK_SHEET_HISTORY_KEY]: "a:1" }) === "a:1" && blockSheetEntryOf({}) === null && blockSheetEntryOf(null) === null)
   const sheet = read("components/onepage/block-sheet.tsx")
   check("the exported API is kept", /export function useBlockSheet\(\): BlockSheetApi/.test(sheet) && /export function openModeOf\(data: unknown, fallback: OpenMode = "direct"\): OpenMode/.test(sheet) && /export function BlockSheetProvider\(/.test(sheet) && /available: true/.test(sheet))
-  check("the page behind is held still, html and body untouched", /useStillPage\(true, rootRef\)/.test(sheet) && !/documentElement\.style\.overflow|body\.style\.overflow/.test(sheet))
+  check("the page behind is held still, html and body untouched", /* Round AS: a kept sheet (hidden, for the next tap) holds nothing still. */ /useStillPage\(!kept, rootRef\)/.test(sheet) && !/documentElement\.style\.overflow|body\.style\.overflow/.test(sheet))
   check("Back closes it, from an entry of its own", /window\.history\.pushState\(historyWith\(m\)/.test(sheet) && /addEventListener\("popstate", onPop\)/.test(sheet))
-  check("not in the editor's preview, where Back is the editor's", /if \(isOnePagePreview\(\)\) return\s+const m =/.test(sheet))
+  check("not in the editor's preview, where Back is the editor's", /if \(kept \|\| isOnePagePreview\(\)\) return\s+const m =/.test(sheet))
   check("Escape closes it, Tab stays inside", /e\.key === "Escape"/.test(sheet) && /data-focus-guard/.test(sheet) && /addEventListener\("focusin", onFocusIn, true\)/.test(sheet))
   check("reduced motion only fades", /prefers-reduced-motion: reduce/.test(sheet) && /still \? M\.reducedMs : M\.openMs/.test(sheet))
   check("the block's button runs once the sheet and its entry are gone", /if \(!a\.run \|\| !a\.gone \|\| !a\.left\) return/.test(sheet))
   const live = read("components/onepage/public-onepage.tsx")
   check("drawn once around the public page (the preview frame draws the same component)", (live.match(/<BlockSheetProvider\b/g) ?? []).length === 1 && /<PublicOnePage onepage=\{page as never\} \/>/.test(read("components/onepage/preview-document.tsx")))
   check("Calendly's own pop-ups are gone; it opens the sheet", !/showCalendlyModal/.test(live) && /blockSheet\.open\(\{/.test(live))
-  const extra = read("components/onepage/extra-blocks.tsx")
+  const extra = (read("components/onepage/extra-blocks.tsx") + "\n" + read("components/onepage/extra-blocks-editor.tsx"))
   check("the Interaction choice sits in every embedding block's settings", /offersInteraction\(block\.type\) \? <InteractionChoice/.test(extra) && /<ModeChoice/.test(extra))
   check("Calendly's two switches gave way to it", !/Go Directly To Link/.test(read("components/onepage/tabs/links-tab.tsx")))
 }

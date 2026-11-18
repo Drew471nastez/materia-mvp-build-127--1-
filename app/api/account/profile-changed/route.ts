@@ -4,6 +4,10 @@ import { createClient } from "@/lib/supabase/server"
 import { readerForRequest } from "@/lib/auth/route-user"
 import { followProfileIdentity, type FollowClient } from "@/lib/account/profile-follow"
 import { identityChanged } from "@/lib/account/identity-caches"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { creatorPagesChanged } from "@/lib/storefront/creator-page-purge"
+import { onePageChangedFor } from "@/lib/onepage/public-cache"
+import { exactIlike } from "@/lib/onepage/username"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -34,7 +38,7 @@ export const dynamic = "force-dynamic"
 const NO_STORE = { "Cache-Control": "no-store" }
 
 export async function POST(request: NextRequest) {
-  let body: { previousName?: unknown; previousPhoto?: unknown }
+  let body: { previousName?: unknown; previousPhoto?: unknown; previousHandle?: unknown }
   try {
     body = await request.json()
   } catch {
@@ -62,6 +66,33 @@ export async function POST(request: NextRequest) {
 
   /* The creator page's cache and the live website's, expired: the next view has the new name (lib/account/identity-caches). */
   await identityChanged({ userId: user.id, creatorId: followed.creatorId })
+
+  /*
+    AND A NEW HANDLE, BOTH ADDRESSES (round AW). Settings renamed the handle and purged nothing: the CDN went on
+    serving the "not found" it held for the new address (storelib.com/<new>, storelib.me/<new>) for minutes, and the
+    old address's page. identityChanged above clears the addresses of the handle the profile holds now; the old one
+    is cleared here, and only when it is one this account really gave up (username_history), so a caller can never
+    make Storelib purge somebody else's pages.
+  */
+  const previousHandle = typeof body.previousHandle === "string" ? body.previousHandle.trim().slice(0, 64) : ""
+  if (previousHandle) {
+    try {
+      const { data: gaveUp } = await createAdminClient()
+        .from("username_history")
+        .select("old_username")
+        .eq("user_id", user.id)
+        .ilike("old_username", exactIlike(previousHandle.toLowerCase()))
+        .limit(1)
+        .maybeSingle()
+      const old = (gaveUp as { old_username?: string | null } | null)?.old_username
+      if (old) {
+        await creatorPagesChanged({ userId: user.id, handles: [old] })
+        await onePageChangedFor(user.id, [old])
+      }
+    } catch {
+      /* Not read: the CDN's own minutes do it. */
+    }
+  }
 
   return NextResponse.json({ ok: true, followed }, { headers: NO_STORE })
 }

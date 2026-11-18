@@ -53,7 +53,8 @@ import * as React from "react"
 import { ChevronRight, Plus, Search, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { AppMark, INSTAGRAM_FILL, IntegrationMark, brandColor, isMulticolorMark, markOn } from "@/components/onepage/brand-icons"
-import { EXTRA_BLOCK_CATALOG } from "@/components/onepage/extra-blocks"
+import { accentNoActive } from "@/components/ui/depth-button"
+import { EXTRA_BLOCK_CATALOG } from "@/components/onepage/extra-blocks-editor"
 import {
   APP_GLYPHS,
   GlyphBooking,
@@ -95,6 +96,7 @@ import { tt } from "@/lib/i18n/text"
 import { PillTabs } from "@/components/onepage/pill-tabs"
 import { landContent } from "@/lib/ui/pill-switch"
 import { hapticTap, isNativeApp } from "@/lib/native-bridge"
+import { TAP_SLOP_PX } from "@/lib/gestures/use-tap"
 
 /* ─── The + on + Add ──────────────────────────────────────────────────── */
 
@@ -192,15 +194,70 @@ export function AddSheetGate({ children }: { children: (open: boolean) => React.
  * + Add itself. `fromButton` is LinksTab's: no card or group is waiting for
  * the block, so the sheet that is up is this button's, and its + shows it.
  */
+/*
+  ROUND AT, THE OWNER: "when I hover over the plus add button ... it doesn't apply a fade ... because it gets confused
+  by my actual scroll." On a phone a finger that lands on + Add to scroll the list set :active, so the button darkened
+  over 280ms and faded back as the scroll took over, and a short drag could still count as a press. Now:
+    - a mouse's hover tint is only where there is a hover (Tailwind's hover: is `@media (hover: hover)`);
+    - the press tint is data-pressed, set by the pointer, not :active: at once for a mouse, and for a finger only once it
+      has rested ADD_PRESS_DELAY_MS without travelling TAP_SLOP_PX, so a scroll never tints it;
+    - the sheet opens on the click, as before (not on pointerup: the click the browser makes after a touch would land
+      on the sheet's own scrim and close it at once), and a click that ends a gesture which travelled more than
+      TAP_SLOP_PX (lib/gestures/use-tap), or that the browser took over as a scroll, is not a press. Enter and Space
+      still open it.
+*/
+export const ADD_PRESS_DELAY_MS = 90
+
 export function AddBlockButton({ fromButton, className, onPress, children }: { fromButton: boolean; className?: string; onPress: () => void; children: React.ReactNode }) {
   const open = useAddSheetOpen() && fromButton
+  const [pressed, setPressed] = React.useState(false)
+  const press = React.useRef<{ x: number; y: number; timer: number } | null>(null)
+  /* The gesture that ends in the next click travelled, or became a scroll: that click is not a press. */
+  const scrolled = React.useRef(false)
+  const letGo = () => {
+    if (press.current) window.clearTimeout(press.current.timer)
+    press.current = null
+    setPressed(false)
+  }
+  React.useEffect(() => () => {
+    if (press.current) window.clearTimeout(press.current.timer)
+  }, [])
   return (
     <button
       type="button"
       data-add-block=""
       data-open={open ? "" : undefined}
+      data-pressed={pressed ? "" : undefined}
       aria-expanded={open}
-      onClick={() => {
+      onPointerDown={(e) => {
+        scrolled.current = false
+        if (e.pointerType === "mouse" && e.button !== 0) return
+        if (press.current) window.clearTimeout(press.current.timer)
+        const timer = e.pointerType === "mouse" ? 0 : window.setTimeout(() => setPressed(true), ADD_PRESS_DELAY_MS)
+        press.current = { x: e.clientX, y: e.clientY, timer }
+        if (e.pointerType === "mouse") setPressed(true)
+      }}
+      onPointerMove={(e) => {
+        const p = press.current
+        if (p && (Math.abs(e.clientX - p.x) > TAP_SLOP_PX || Math.abs(e.clientY - p.y) > TAP_SLOP_PX)) {
+          scrolled.current = true
+          letGo()
+        }
+      }}
+      onPointerUp={letGo}
+      onPointerCancel={() => {
+        /* The browser took the gesture over: a scroll. */
+        scrolled.current = true
+        letGo()
+      }}
+      onPointerLeave={() => {
+        if (press.current) letGo()
+      }}
+      onClick={(e) => {
+        /* detail 0 is Enter or Space: a key press always opens it. */
+        const wasScroll = scrolled.current && e.detail > 0
+        scrolled.current = false
+        if (wasScroll) return
         /* A light tick in the iOS and Android apps; a browser feels nothing (lib/native-bridge). */
         if (isNativeApp()) hapticTap("light")
         onPress()
@@ -210,6 +267,10 @@ export function AddBlockButton({ fromButton, className, onPress, children }: { f
         className,
         /* Round AN: the colour and the shade settle on the + 's clock (ADD_PLUS_MS on ADD_PLUS_EASE); a press is a tint only, never a scale. */
         "transition-[background-color,box-shadow] duration-[280ms] ease-[cubic-bezier(0.32,0.72,0,1)] data-[open]:bg-[#7c3aed] motion-reduce:transition-none",
+        /* Round AT: no :active tint (a scroll that starts here sets it); the press is data-pressed, above, quick to come and go. */
+        "touch-manipulation",
+        accentNoActive,
+        "data-[pressed]:bg-[#6d28d9] data-[pressed]:shadow-[inset_0_1px_2px_rgba(0,0,0,0.28)] data-[pressed]:duration-100",
       )}
     >
       <AddBlockPlus open={open} />
@@ -340,7 +401,7 @@ const app = (provider: AppProviderId, category: PickerCategory, label: () => str
 }
 
 /* i18n-ignore-start: names of services, and the English words a search also answers to (each entry's own name and line are translated). */
-const BRAND = { sheets: "Google Sheets", kit: "Kit", mailerlite: "MailerLite", brevo: "Brevo", flodesk: "Flodesk", make: "Make", webhook: "Webhook", email: "Klaviyo / Omnisend", threads: "Threads", applemusic: "Apple Music", podcasts: "Apple Podcasts", gforms: "Google Forms", gcal: "Google Calendar", bmac: "Buy Me a Coffee", cashapp: "Cash App", loom: "Loom", bandcamp: "Bandcamp", mixcloud: "Mixcloud", typeform: "Typeform", tally: "Tally", bluesky: "Bluesky", snapchat: "Snapchat", venmo: "Venmo", maps: "Google Maps", calendly: "Calendly", audiomack: "Audiomack", fourthwall: "Fourthwall", bonfire: "Bonfire", cameo: "Cameo", reddit: "Reddit", discord: "Discord" }
+const BRAND = { sheets: "Google Sheets", kit: "Kit", mailerlite: "MailerLite", brevo: "Brevo", flodesk: "Flodesk", make: "Make", webhook: "Webhook", email: "Klaviyo / Omnisend", threads: "Threads", applemusic: "Apple Music", podcasts: "Apple Podcasts", gforms: "Google Forms", gcal: "Google Calendar", bmac: "Buy Me a Coffee", cashapp: "Cash App", loom: "Loom", bandcamp: "Bandcamp", mixcloud: "Mixcloud", typeform: "Typeform", tally: "Tally", bluesky: "Bluesky", snapchat: "Snapchat", venmo: "Venmo", maps: "Google Maps", calendly: "Calendly", audiomack: "Audiomack", fourthwall: "Fourthwall", bonfire: "Bonfire", cameo: "Cameo", reddit: "Reddit", discord: "Discord", luma: "Luma", eventbrite: "Eventbrite" }
 const KEYWORDS = {
   heading: "title section header organize",
   faq: "questions answers help",
@@ -396,7 +457,7 @@ const KEYWORDS = {
   int_webhook: "webhook api json developer",
   int_posts_instagram: "feed carousel reels grid",
   int_posts_tiktok: "feed carousel videos",
-  int_posts_youtube: "channel latest videos feed sync",
+  int_posts_youtube: "youtube videos posts row pick",
   shelf: "all products shop store catalog storelib",
   shelf_digital: "digital product downloads ebooks templates guides files storelib",
   shelf_physical: "merch shop ship storelib",
@@ -438,8 +499,6 @@ const KEYWORDS = {
   app_typeform: "form survey quiz",
   app_discord: "server community chat",
   app_whatsapp_group: "group channel community telegram",
-  app_bonfire: "merch shirts apparel",
-  app_fourthwall: "merch apparel shop",
   app_books: "amazon author book",
   app_affiliate: "affiliate picks products recommend amazon",
   app_tips: "tip donate support ko-fi paypal coffee",
@@ -447,9 +506,15 @@ const KEYWORDS = {
   app_events: "tour concerts tickets shows events dates",
   app_stats: "numbers metrics key figures",
   app_poll: "vote question survey",
+  app_event: "event rsvp party launch meetup workshop tickets countdown",
+  app_luma: "luma lu.ma event calendar embed rsvp",
+  app_eventbrite: "eventbrite event tickets",
+  app_paid: "paid access paywall locked members only premium exclusive",
+  app_reviews: "reviews testimonials trustpilot google rating stars",
   app_contact: "vcard business card phone save contact",
   app_email: "email address mail",
   app_note: "text button paragraph",
+  int_canva: "canva design slides presentation poster flyer deck",
 }
 /* i18n-ignore-end */
 
@@ -486,10 +551,10 @@ export const PICKER_ENTRIES: PickerEntry[] = [
   { id: "shelf_membership", type: "storelib_shelf", category: "commerce", get label() { return tt("Memberships") }, get description() { return tt("Your memberships and their price") }, icon: GlyphStar, tile: TILE.plum, data: { source: "membership" }, keywords: KEYWORDS.shelf_membership },
   { id: "shelf_community", type: "storelib_shelf", category: "commerce", get label() { return tt("Community") }, get description() { return tt("Your Storelib community") }, icon: GlyphPeople, tile: TILE.sky, data: { source: "community", layout: "list" }, keywords: KEYWORDS.shelf_community },
   app("tips", "commerce", () => tt("Tips"), () => tt("Accept tips from your audience"), KEYWORDS.app_tips),
+  app("paid", "commerce", () => tt("Paid access"), () => tt("Text and a link people pay to see"), KEYWORDS.app_paid),
   app("affiliate", "commerce", () => tt("Affiliate products"), () => tt("Earn by sharing products you love"), KEYWORDS.app_affiliate),
   { id: "referral", type: "promo_code", category: "commerce", get label() { return tt("Discount code") }, get description() { return tt("Show a code people can copy") }, icon: GlyphTag, tile: TILE.rose, keywords: KEYWORDS.referral },
-  app("fourthwall", "commerce", () => BRAND.fourthwall, () => tt("Sell your own merch"), KEYWORDS.app_fourthwall),
-  app("bonfire", "commerce", () => BRAND.bonfire, () => tt("Sell shirts and merch"), KEYWORDS.app_bonfire),
+  /* Round AR: Fourthwall and Bonfire are gone from the sheet (the owner: "get rid of Fourthwall, or Bonfire"); a saved one is drawn as a plain link (components/onepage/app-block RetiredView). */
   app("books", "commerce", () => tt("Books"), () => tt("Promote your books"), KEYWORDS.app_books),
   app("discord", "commerce", () => BRAND.discord, () => tt("Invite people to your server"), KEYWORDS.app_discord),
   app("whatsapp_group", "commerce", () => tt("WhatsApp group"), () => tt("Grow your group or channel"), KEYWORDS.app_whatsapp_group),
@@ -505,7 +570,9 @@ export const PICKER_ENTRIES: PickerEntry[] = [
   app("pinterest", "social", () => "Pinterest", () => tt("Show your pins and boards"), KEYWORDS.app_pinterest),
   app("twitch", "social", () => "Twitch", () => tt("Get more viewers for your stream"), KEYWORDS.app_twitch),
   app("reddit", "social", () => BRAND.reddit, () => tt("Show your Reddit profile or a post"), KEYWORDS.app_reddit),
-  app("google_reviews", "social", () => tt("Reviews"), () => tt("Show your Google reviews"), KEYWORDS.app_google_reviews),
+  /* Round AR: one Reviews block for the store's own, Trustpilot's and a Google score; the Google card stays beside it. */
+  app("reviews", "social", () => tt("Reviews"), () => tt("Your Storelib, Google or Trustpilot reviews"), KEYWORDS.app_reviews),
+  app("google_reviews", "social", () => tt("Google reviews"), () => tt("Show your Google reviews"), KEYWORDS.app_google_reviews),
   extra("testimonials", "social", TILE.butter),
   { id: "followers", type: "followers", category: "social", get label() { return tt("Followers") }, get description() { return tt("Your total followers across networks") }, icon: GlyphTestimonials, tile: TILE.mint, keywords: KEYWORDS.followers },
   app("cameo", "social", () => BRAND.cameo, () => tt("Let fans book a personal video"), KEYWORDS.app_cameo),
@@ -524,6 +591,8 @@ export const PICKER_ENTRIES: PickerEntry[] = [
   { id: "int_soundcloud", type: "music", category: "media", label: "SoundCloud", get description() { return tt("Get your music heard on SoundCloud") }, brand: "soundcloud", keywords: KEYWORDS.int_soundcloud },
   app("audiomack", "media", () => BRAND.audiomack, () => tt("Share your songs and albums"), KEYWORDS.app_audiomack),
   app("podcasts", "media", () => tt("Podcasts"), () => tt("Get more listeners and subscribers"), KEYWORDS.app_podcasts),
+  /* Round AR3: a Canva design in Canva's own player (lib/onepage/creator-blocks embedSource "canva"). */
+  { ...embed("int_canva", "Canva", "canva", "canva", () => tt("Show a Canva design on your page"), KEYWORDS.int_canva, GlyphImage), hidden: false },
   { id: "food_menu", type: "food_menu", category: "media", get label() { return tt("Menu") }, get description() { return tt("A food and drinks menu") }, icon: GlyphMenu, tile: TILE.butter, keywords: KEYWORDS.food_menu },
 
   /* Contact: forms, a map, a way to reach you. */
@@ -543,6 +612,9 @@ export const PICKER_ENTRIES: PickerEntry[] = [
 
   /* Events */
   app("events", "events", () => tt("Tour and events"), () => tt("Sell tickets by listing your events"), KEYWORDS.app_events),
+  app("event", "events", () => tt("Event"), () => tt("One event with RSVP and tickets"), KEYWORDS.app_event),
+  app("luma", "events", () => BRAND.luma, () => tt("Show your Luma event or calendar"), KEYWORDS.app_luma),
+  app("eventbrite", "events", () => BRAND.eventbrite, () => tt("Link to your Eventbrite event"), KEYWORDS.app_eventbrite),
   extra("countdown", "events", TILE.cyan, { icon: GlyphCountdown }),
 
   /* Text */
@@ -567,8 +639,8 @@ export const PICKER_ENTRIES: PickerEntry[] = [
   { id: "magnet_discount", type: "lead_magnet", category: "contact", get label() { return tt("Discount for email") }, get description() { return tt("A code they get for their email") }, icon: GlyphEmail, tile: TILE.rose, get data() { return { kind: "discount", title: tt("Get 10% off") } }, keywords: KEYWORDS.magnet_discount, hidden: true },
   { id: "magnet_waitlist", type: "lead_magnet", category: "contact", get label() { return tt("Waitlist") }, get description() { return tt("Collect emails before you launch") }, icon: GlyphEmail, tile: TILE.lime, get data() { return { kind: "waitlist", title: tt("Join the waitlist") } }, keywords: KEYWORDS.magnet_waitlist, hidden: true },
   extra("embed", "media", TILE.stone, { hidden: true }),
-  { id: "posts", type: "social_posts", category: "social", get label() { return tt("Posts") }, get description() { return tt("A row of your latest posts") }, icon: GlyphSocial, tile: TILE.sky, keywords: KEYWORDS.int_posts_youtube, hidden: true },
-  { id: "int_posts_youtube", type: "social_posts", category: "media", get label() { return tt("YouTube channel") }, get description() { return tt("Your latest videos, synced") }, brand: "youtube", data: { network: "youtube" }, keywords: KEYWORDS.int_posts_youtube, hidden: true },
+  { id: "posts", type: "social_posts", category: "social", get label() { return tt("Posts") }, get description() { return tt("Posts you pick, in a row") }, icon: GlyphSocial, tile: TILE.sky, keywords: KEYWORDS.int_posts_youtube, hidden: true },
+  { id: "int_posts_youtube", type: "social_posts", category: "media", get label() { return tt("YouTube videos") }, get description() { return tt("Videos you pick, in a row") }, brand: "youtube", data: { network: "youtube" }, keywords: KEYWORDS.int_posts_youtube, hidden: true },
   { id: "int_posts_instagram", type: "social_posts", category: "social", get label() { return tt("Instagram posts") }, get description() { return tt("Posts and reels in a row") }, brand: "instagram", data: { network: "instagram" }, keywords: KEYWORDS.int_posts_instagram, hidden: true },
   { id: "int_posts_tiktok", type: "social_posts", category: "social", get label() { return tt("TikTok posts") }, get description() { return tt("Your TikToks in a row") }, brand: "tiktok", data: { network: "tiktok" }, keywords: KEYWORDS.int_posts_tiktok, hidden: true },
   embed("int_instagram", "Instagram", "instagram", "instagram", () => tt("Show a post or reel"), KEYWORDS.int_instagram),

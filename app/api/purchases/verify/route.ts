@@ -41,12 +41,12 @@
  * named back so the browser can drop it, and nothing else.
  */
 import { NextResponse, type NextRequest } from "next/server"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { assetAllowedForVariants, canDeliver } from "@/lib/receipts/rules"
 import { guestAccessFromCookieHeader } from "@/lib/receipts/guest-access"
 import { heldGrants } from "@/lib/receipts/guest-access-server"
 import { membershipForProductPage } from "@/lib/memberships/product-page"
+import { routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -92,10 +92,8 @@ export async function POST(request: NextRequest) {
     let hasPurchased = false
 
     try {
-      const supabase = await createClient()
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
+      const who = await routeUser({ fresh: true })
+      const user = who.kind === "user" ? who.user : null
 
       if (user) {
         isLoggedIn = true

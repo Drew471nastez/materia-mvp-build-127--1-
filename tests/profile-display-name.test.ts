@@ -31,7 +31,7 @@ import {
   providerNameOf,
 } from "../lib/profile/display-name"
 import { keepProfileName, type KeepNameDb } from "../lib/profile/keep-name"
-import { WELCOME_PATH, WELCOMED_KEY, cleanBio, throughWelcome, welcomeDone, welcomeHref, welcomeWanted } from "../lib/account/welcome"
+import { WELCOME_PATH, WELCOMED_KEY, cleanBio, isPlainArrival, throughWelcome, welcomeDone, welcomeHref, welcomeWanted } from "../lib/account/welcome"
 import { destinationWithAppOpen, pendingAppOpen } from "../lib/account/app-open"
 import { safeNext } from "../lib/auth/continue"
 import { APP_PATHS, DEFAULT_ANDROID_FINGERPRINTS, DEFAULT_TEAM_ID, WEB_ONLY_SEGMENTS, appLinkConfig, appleAppSiteAssociation, assetLinks, opensInApp } from "../lib/platform/app-links"
@@ -202,6 +202,16 @@ async function main() {
   check("an account from before this existed never", !welcomeWanted({ createdAt: "2026-09-01T00:00:00Z", meta: {}, seller: false, intent: null, now }) && !welcomeWanted({ createdAt: null, meta: {}, seller: false, intent: null, now }))
   check("it carries where they were going, Discover needs no carrying", welcomeHref("/community/clay?join=1") === `${WELCOME_PATH}?next=%2Fcommunity%2Fclay%3Fjoin%3D1` && welcomeHref("/explore") === WELCOME_PATH)
   check("throughWelcome leaves everybody else's way alone", throughWelcome("/app", { createdAt: fresh, meta: {}, seller: true, intent: null, now }) === "/app")
+  /* No question at the door: a new account that came to Storelib itself goes into seller onboarding; one that came for something to buy or join gets the profile slides. */
+  const newBuyer = { createdAt: fresh, meta: {}, seller: false, intent: null, now }
+  check("a plain sign up (nothing carried) goes into seller onboarding", throughWelcome("/explore", { ...newBuyer, from: null }) === "/sell")
+  check("a sign up from the home page or pricing goes into seller onboarding", throughWelcome("/", { ...newBuyer, from: "/" }) === "/sell" && throughWelcome("/pricing", { ...newBuyer, from: "/pricing?x=1" }) === "/sell" && throughWelcome("/features/courses", { ...newBuyer, from: "/features/courses" }) === "/sell")
+  check("a sign up from a community gets the profile slides, then the community", throughWelcome("/community/clay?join=1", { ...newBuyer, from: "/community/clay?join=1" }) === `${WELCOME_PATH}?next=%2Fcommunity%2Fclay%3Fjoin%3D1`)
+  check("a sign up for a download or a product gets the profile slides", throughWelcome("/library", { ...newBuyer, from: "/library" }) === `${WELCOME_PATH}?next=%2Flibrary` && throughWelcome("/p/preset-pack", { ...newBuyer, from: "/p/preset-pack" }) === `${WELCOME_PATH}?next=%2Fp%2Fpreset-pack`)
+  check("a sign up from Discover (the marketplace) is a buyer", !isPlainArrival("/explore") && throughWelcome("/explore", { ...newBuyer, from: "/explore" }) === WELCOME_PATH)
+  check("a creator's shop on its own address is a buyer", !isPlainArrival("https://maya.storelib.com/products/x"))
+  check("where it is not known, the slides as before", throughWelcome("/explore", newBuyer) === WELCOME_PATH)
+  check("an old account or one answered before is never stopped", throughWelcome("/explore", { ...newBuyer, meta: { [WELCOMED_KEY]: true }, from: null }) === "/explore" && throughWelcome("/explore", { ...newBuyer, createdAt: "2026-09-01T00:00:00Z", from: null }) === "/explore")
   check("the onboarding is an auth screen, never somebody's next", safeNext("/onboarding/start", "storelib.com") === null)
   check("the join branch ends in the community, joined by its own ?join=1", welcomeDone("/community/clay?join=1") === "/community/clay?join=1")
   check("  an invite they followed is accepted on arrival", welcomeDone("/community/clay/join?invite=abcdefghijklmnop") === "/community/clay/join?invite=abcdefghijklmnop&accept=1")

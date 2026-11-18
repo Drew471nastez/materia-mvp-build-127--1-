@@ -4,6 +4,7 @@ import { handoffDeps } from "@/lib/handoff/deps"
 import { acceptClaim, metaOf } from "@/lib/handoff/server"
 import { claimPath, tokenShapeOk } from "@/lib/handoff/rules"
 import { fromOwnPage } from "@/lib/team/own-page"
+import { requestUserUnavailable } from "@/lib/businesses/server"
 
 /**
  * ===========================================================================
@@ -37,7 +38,8 @@ export async function POST(request: Request) {
   if (!fromOwnPage(request.headers, request.url)) return back(request, token, "again")
   const deps = handoffDeps()
   const user = await deps.requestUser(request)
-  if (!user) return back(request, token)
+  /* Auth could not say who pressed: back to the link with "Try again", never to sign in (round rel2-auth). */
+  if (!user) return back(request, token, requestUserUnavailable(request) ? "failed" : undefined)
   const limited = await deps.rateLimit({
     bucket: "handoff-claim",
     subjects: [`user:${user.id}`, addressSubject(request)],
@@ -46,6 +48,7 @@ export async function POST(request: Request) {
   })
   if (limited) return back(request, token, "slow")
   const out = await acceptClaim(deps, token, user, metaOf(request))
-  if (out.ok === false) return back(request, token, out.code === "failed" || out.code === "not_set_up" || out.status >= 500 ? "failed" : out.code)
+  /* A link somebody else already used is refused as "used": "accepted" is only ever this press's own success (the page opens the business on it). */
+  if (out.ok === false) return back(request, token, out.code === "failed" || out.code === "not_set_up" || out.status >= 500 ? "failed" : out.code === "accepted" ? "used" : out.code)
   return back(request, token, "accepted")
 }

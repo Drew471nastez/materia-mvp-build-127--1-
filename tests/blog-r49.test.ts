@@ -101,17 +101,21 @@ function main() {
   console.log("\nSwitching categories")
   {
     const nav = code("app/(storelib)/(marketing)/blog/_components/blog-nav.tsx")
-    check("one fill slides under the pills: caps and a middle, each moved by transform", /function Fill\(/.test(nav) && /translate3d\(\$\{x\}px, \$\{y\}px, 0\)/.test(nav) && /scaleX\(\$\{Math\.max\(0, w - 2 \* r \+ 2\)\}\)/.test(nav) && /translate3d\(\$\{x \+ w - r\}px, \$\{y\}px, 0\)/.test(nav))
-    check("  240ms ease out, off with reduced motion, only after the first placement", /transition-transform duration-\[240ms\] ease-\[cubic-bezier\(0\.22,1,0\.36,1\)\] motion-reduce:transition-none/.test(nav) && /animate: animate && was !== null/.test(nav))
-    check("  out of the row's flow (as a flex item it pushed every pill 8px)", /<li aria-hidden className="pointer-events-none absolute left-0 top-0" data-blog-fill="">/.test(nav))
-    check("  until it is measured the current pill draws its own fill (same first paint, no script needed)", /border-\[#1a1a2e\] bg-\[#1a1a2e\] text-white/.test(nav) && /data-\[blog-fill-ready\]:\[&_\[aria-current=page\]>span\]:bg-transparent/.test(nav))
-    check("  nothing but transform and opacity animates (colour only on the pill's text)", !/transition-all|transition-\[width|transition-\[left|transition-\[transform,width/.test(nav) && /transition-\[color,border-color\]/.test(nav))
-    check("  pills are still real links, the list keyed by address", /<Link href=\{href\} scroll=\{false\}/.test(nav) && /<Pill href="\/blog"/.test(nav) && /<Pill href=\{`\/blog\/category\/\$\{c\.slug\}`\}/.test(nav) && /<div key=\{pathname\} className=\{leaving \? "blog-list-out"/.test(nav))
+    /* Changed on purpose (blog round 15): the measured sliding fill disagreed with its pill and cut the current one on the right (the owner's screenshot). Each pill now draws its own fill, easing colour, border, shadow and a press together. */
+    check("each pill draws its own fill: no measured shape under the row", !/function Fill\(/.test(nav) && !/data-blog-fill/.test(nav) && /border-\[#1a1a2e\] bg-\[#1a1a2e\] text-white/.test(nav))
+    check("  200ms ease out on colour, border, shadow and the press, off with reduced motion", /transition-\[background-color,border-color,color,box-shadow,scale\] duration-200 ease-\[cubic-bezier\(0\.22,1,0\.36,1\)\]/.test(nav) && /group-active:scale-\[0\.97\]/.test(nav) && /motion-reduce:transition-none/.test(nav))
+    check("  nothing animates width or position", !/transition-all|transition-\[width|transition-\[left|transition-\[transform,width/.test(nav))
+    check("  the row never clips a pill: it wraps from 640px; on a phone it scrolls with padding on every side", /min-\[640px\]:flex-wrap min-\[640px\]:overflow-visible/.test(nav) && /overflow-x-auto scroll-px-\[var\(--home-edge\)\] px-\[var\(--home-edge\)\] py-1\.5/.test(nav) && !/-m[xlr]-/.test(nav))
+    check("  stuck, the header drops its shadow and the row carries it (no fade over the pills)", /\{stuck \? <style>\{`#platform-header-root\{box-shadow:none!important\}`\}<\/style> : null\}/.test(nav) && /data-\[stuck=true\]:\[box-shadow:var\(--bar-depth\)\]/.test(nav))
+    /* Changed on purpose (landing round 15): the list is keyed by address where it is drawn, in the browser (_components/blog-lists.tsx), not around the page. */
+    check("  pills are still real links, the list keyed by address", /<Link href=\{href\} scroll=\{false\}/.test(nav) && /<Pill href="\/blog"/.test(nav) && /<Pill href=\{`\/blog\/category\/\$\{c\.slug\}`\}/.test(nav) && /<div key=\{pathname\} className=\{moved \? "blog-list-swap" : undefined\} data-blog-client-list="">/.test(code("app/(storelib)/(marketing)/blog/_components/blog-lists.tsx")))
     check("  pressing the pill already shown fades nothing", /if \(e\.currentTarget\.pathname === pathname\) return/.test(nav))
-    check("  the category line keeps 3 lines' height on a phone, 2 from 640px (no jump under the title)", /min-h-\[4\.8em\][^"]*sm:min-h-\[3\.2em\]/.test(nav))
+    /* Changed on purpose (landing round 15): the title and its line are the blog's on every list now, so they never change and need no height kept. */
+    check("  the title and its line never change between lists (no jump under the title)", />Blog<\/h1>/.test(nav) && />\{description\}<\/p>/.test(nav) && !/current\.description/.test(nav))
     const css = read("app/globals.css")
-    check("the old list fades out fast, the new one fades in rising 6px", /\.blog-list-out \{\s*opacity: 0;\s*transition: opacity 120ms/.test(css) && /\.blog-list-swap \{\s*animation: blog-list-swap 220ms cubic-bezier\(0\.22, 1, 0\.36, 1\) backwards;/.test(css) && /from \{ opacity: 0; transform: translate3d\(0, 6px, 0\); \}/.test(css))
-    check("  reduced motion: no fade, no rise", /prefers-reduced-motion: reduce\) \{\s*\.blog-list-out \{ opacity: 1; transition: none; \}\s*\.blog-list-swap, \.blog-title-swap \{ animation: none; \}/.test(css))
+    /* Changed on purpose (landing round 15): no fade out any more (it was the blank while the next page loaded); the new list rises 6px from 30%. */
+    check("no fade out; the new one fades in rising 6px", !/\.blog-list-out \{/.test(css) && /\.blog-list-swap \{\s*animation: blog-list-swap 220ms cubic-bezier\(0\.22, 1, 0\.36, 1\) backwards;/.test(css) && /from \{ opacity: 0\.3; transform: translate3d\(0, 6px, 0\); \}/.test(css))
+    check("  reduced motion: no fade, no rise", /prefers-reduced-motion: reduce\) \{\s*\.blog-list-swap \{ animation: none; \}/.test(css))
   }
 
   console.log(`\n${passed} passed, ${failed} failed\n`)

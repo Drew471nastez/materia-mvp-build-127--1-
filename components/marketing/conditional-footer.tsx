@@ -1,6 +1,8 @@
 "use client"
 
-import { usePathname, useSearchParams } from "next/navigation"
+import { useRoutePath } from "@/lib/navigation/route-path"
+
+import { useSearchParams } from "next/navigation"
 import { useEffect, useState, useSyncExternalStore } from "react"
 import { MarketingFooter } from "@/components/marketing/footer"
 import { ShopCompactFooter } from "@/components/marketing/shop-compact-footer"
@@ -15,7 +17,7 @@ import { isNativeApp } from "@/lib/platform-utils"
 const readSignedIn = () => !!readAuthSnapshot()?.signedIn
 
 export function ConditionalFooter() {
-  const pathname = usePathname()
+  const pathname = useRoutePath()
   const searchParams = useSearchParams()
   const signedIn = useSyncExternalStore(subscribeAuthSnapshot, readSignedIn, () => false)
   const [footerMode, setFooterMode] = useState<"none" | "marketing" | "compact">("none")
@@ -109,6 +111,8 @@ export function ConditionalFooter() {
       pathname === "/alternatives" ||
       pathname.startsWith("/alternatives/") ||
       pathname.startsWith("/sell/") ||
+      /* Landing round 14: the header's list has had /faq since round 13, this one had not, so /faq ended with no footer at all. */
+      pathname.startsWith("/faq") ||
       pathname.startsWith("/privacy") ||
       pathname.startsWith("/terms") ||
       pathname.startsWith("/help") ||

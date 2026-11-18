@@ -80,7 +80,7 @@ async function main() {
   check("the header's name is the one the layout reads", PROFILE_PATH_HEADER === "x-storelib-profile-path")
   const marketing = readCode("app/(storelib)/(marketing)/layout.tsx")
   check("nothing above the layout waits in a Suspense boundary, so the redirect is a real 308 and not a streamed 200",
-    /<main className="flex-1">\{children\}<\/main>/.test(marketing) && (marketing.match(/<Suspense/g) ?? []).length === 1 && /<Suspense fallback=\{null\}>\s*<ConditionalFooter \/>/.test(marketing) && !/<Suspense/.test(readCode("app/(storelib)/layout.tsx")))
+    /* Changed on purpose (landing round 14): the slot goes through DocumentReady, a component that never waits on the server and is not a Suspense boundary. */ /<main className="flex-1">\s*<DocumentReady>\{children\}<\/DocumentReady>\s*<\/main>/.test(marketing) && !/Suspense/.test(readCode("components/marketing/document-ready.tsx").replace(/\/\*[\s\S]*?\*\//g, "")) && (marketing.match(/<Suspense/g) ?? []).length === 1 && /<Suspense fallback=\{null\}>\s*<ConditionalFooter \/>/.test(marketing) && !/<Suspense/.test(readCode("app/(storelib)/layout.tsx")))
 
   const header = readCode("components/marketing/conditional-header.tsx")
   /* Round 12: a person's page is the creator page's template with its own top bar, so Storelib's header is not drawn over /@ or /member (it is one of the screens with their own chrome, decided first, on every domain). */

@@ -45,7 +45,7 @@ const root = process.cwd()
 const code = (p: string) => stripComments(readFileSync(join(root, p), "utf8"))
 
 /* Changed on purpose (round AA1): the hero was remade, and its pictures are listed in lib/marketing/hero-media.ts and drawn through next/image. */
-const hero = ["components/marketing/hero.tsx", "components/marketing/hero-carousel.tsx", "lib/marketing/hero-media.ts"].map(code).join("\n")
+const hero = ["components/marketing/hero.tsx", "components/marketing/hero-video.tsx", "lib/marketing/hero-video.ts"].map(code).join("\n")
 const gallery = code("components/product/product-gallery.tsx")
 const viewer = code("components/product/product-media-viewer.tsx")
 
@@ -58,12 +58,11 @@ console.log("\nThe pictures on the front page's hero\n")
   slides still go through next/image. Neither is ever fetched at full size.
 */
 check(
-  "its images go through the optimizer, or are made at the size they are drawn",
-  /from "next\/image"/.test(code("components/marketing/hero-carousel.tsx")) &&
-    /width=\{360\} height=\{450\}/.test(code("components/marketing/hero.tsx")) &&
-    /tile-\$\{name\}\.webp/.test(code("lib/marketing/hero-media.ts")) &&
-    /resize\(360, 450/.test(code("scripts/hero-shots.mjs")),
-  "they were being fetched at full size",
+  "the cinematic hero uses a local poster with reserved geometry and native video decoding",
+  /width=\{1600\}/.test(code("components/marketing/hero-video.tsx")) &&
+    /height=\{900\}/.test(code("components/marketing/hero-video.tsx")) &&
+    /preload="none"/.test(code("components/marketing/hero-video.tsx")) &&
+    /object-fit: cover/.test(code("components/marketing/hero.tsx")),
 )
 check(
   "the parameters that did nothing are gone",
@@ -81,10 +80,12 @@ check(
  * writes the srcset from the widths it is configured to serve, so the hero
  * must not hand-build one beside it.
  */
-check("no hand-built srcset in the hero", !/srcSet=/.test(hero))
+// Changed on purpose (landing round 9): the poster is the film's first frame, and a phone gets the phone cut's frame: one <source media> naming one file, not a hand-built list of widths.
+check("no hand-built srcset in the hero", !/srcSet=/.test(hero.replace("<source media={HERO_VIDEO.phoneMedia} srcSet={HERO_VIDEO.phonePoster}", "")) && (hero.match(/srcSet=/g) ?? []).length === 1)
 {
   /* The helper the rest of the site uses still snaps to a served width and quality. */
-  const small = optimizedImageUrl("https://x.supabase.co/a.webp", 160, 75)
+  // Changed on purpose (round AW): Storelib's own storage project; the optimizer no longer fetches from any other *.supabase.co (next.config.mjs OWN_STORAGE_HOSTS).
+  const small = optimizedImageUrl("https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/a.webp", 160, 75)
   const widthOf = (u: string) => Number(u.match(/[?&]w=(\d+)/)?.[1])
   check("and the optimizer's helper asks for a quality the config serves", widthOf(small) > 0 && /q=75/.test(small))
 }

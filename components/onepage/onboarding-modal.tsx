@@ -15,19 +15,19 @@ import {
   Check,
   X,
   ChevronLeft,
-  Instagram,
   Youtube,
   Loader2,
   Pencil
 } from "lucide-react"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
+import { SocialIcon } from "@/components/onepage/brand-icons"
 import { isNativeApp } from "@/lib/native-bridge"
-import { THEME_TEMPLATES, preloadThemeThumbs, themeThumbSrc } from "./tabs/design-tab"
-import { ThemePreview } from "./themes/theme-preview"
+import { THEME_TEMPLATES, preloadThemeThumbs, themeSwatchFontsHref, themeThumbSrc } from "./tabs/design-tab"
+import { ThemeSwatch, themeIsHero } from "./themes/theme-swatch"
 import { scaleThemePreviews } from "./themes/preview-scale"
 import { themeLabel } from "./themes/theme-names"
 import { getOnePageDomain } from "@/lib/onepage/address"
-import { CardMark, CheckMark, ChoiceMark } from "./choice-marks"
+import { CardMark, SwatchMark } from "./choice-marks"
 import { AvatarMark } from "@/components/app/app-avatar"
 import { tt, msg } from "@/lib/i18n/text"
 
@@ -106,7 +106,7 @@ const GoalCard = memo(function GoalCard({ goal, selected, onPick }: { goal: (typ
   its picture, both faded and scaled in (./choice-marks), the last pick's
   faded out.
 
-  Round AQ: the picture is the Design tab's own (./themes/theme-preview), the
+  Round AQ: the picture is the Design tab's own (./themes/theme-swatch now), the
   page the template makes laid out at a phone's width and scaled to the card
   by one number on the grid (useThemePreviewScale), with the creator's own
   photo where the page puts it. The onboarding drew its own small card
@@ -114,24 +114,25 @@ const GoalCard = memo(function GoalCard({ goal, selected, onPick }: { goal: (typ
   little about a theme with a cover, products or a hard shadow. Memoised: a
   pick draws the two cards that changed, not all of them.
 */
-/* The page itself, apart from the marks: a pick changes the marks, and this is not drawn again. */
-const TemplatePicture = memo(function TemplatePicture({ template, name, photo }: { template: (typeof THEME_TEMPLATES)[number]; name: string; photo: string | null }) {
-  const c = template.theme_config as (typeof THEME_TEMPLATES)[number]["theme_config"] & Record<string, any>
-  /* A Hero template is drawn with its Hero, as picking it lays the page out. */
-  const look = (template as any).profile_layout === "hero" ? { ...c, header_layout: "hero" } : c
-  return <ThemePreview c={look} name={name} thumb={themeThumbSrc} photo={photo} />
+/*
+  The swatch itself, apart from the marks: a pick changes the marks, and this
+  is not drawn again. It is the Design tab's card
+  (./themes/theme-swatch): the template's wallpaper, "Aa" in its title face
+  and its button. It draws nothing of the person's own, so every step of the
+  onboarding shows the same cards.
+*/
+const TemplatePicture = memo(function TemplatePicture({ template }: { template: (typeof THEME_TEMPLATES)[number] }) {
+  return <ThemeSwatch c={template.theme_config as Record<string, any>} thumb={themeThumbSrc} hero={themeIsHero(template as never)} />
 })
 
 const TemplateCard = memo(function TemplateCard({
   template,
   selected,
   onPick,
-  avatarUrl,
 }: {
   template: (typeof THEME_TEMPLATES)[number]
   selected: boolean
   onPick: (id: string) => void
-  avatarUrl: string | null
 }) {
   const name = themeLabel(template)
   return (
@@ -141,18 +142,19 @@ const TemplateCard = memo(function TemplateCard({
       aria-pressed={selected}
       aria-label={tt("{name} template", { name })}
       data-template-card={template.id}
-      className={cn(
-        "relative flex cursor-pointer flex-col rounded-2xl border border-[#e3e4e8] bg-white p-1.5 text-left transition-[border-color] duration-150 hover:border-[#c9cbd1] [-webkit-tap-highlight-color:transparent]",
-        focusRing,
-      )}
+      /* As the Design tab's card: no box, nothing that moves under the pointer, the hairline darkens. */
+      className="group/theme relative flex cursor-pointer select-none flex-col text-left outline-none [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]"
     >
-      <ChoiceMark on={selected} />
-      <span data-template-frame="" className="relative block aspect-[4/5] overflow-hidden rounded-xl [contain:layout_paint]" style={{ background: template.theme_config.background_color }}>
-        <TemplatePicture template={template} name={name} photo={avatarUrl} />
-        <span aria-hidden className="pointer-events-none absolute inset-0 rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]" />
-        <CheckMark on={selected} className="right-1.5 top-1.5" />
+      <span className="relative block rounded-[18px] group-focus-visible/theme:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]">
+        <span data-template-frame="" className="relative block aspect-[4/5] overflow-hidden rounded-[18px] [contain:layout_paint]" style={{ background: template.theme_config.background_color }}>
+          <TemplatePicture template={template} />
+          {/* Round 17: a Hero theme says so, in the corner, so Classic and Hero read at a glance. Outside the scaled page, so it is crisp. */}
+          <span aria-hidden className="pointer-events-none absolute inset-0 rounded-[18px] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.08)]" />
+          <span aria-hidden className="pointer-events-none absolute inset-0 rounded-[18px] opacity-0 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.22)] transition-opacity duration-150 group-hover/theme:opacity-100" />
+        </span>
+        <SwatchMark on={selected} className="rounded-[21.5px]" />
       </span>
-      <span data-template-name="" className="block truncate px-1.5 pb-1 pt-2 text-[13px] font-medium text-[#1a1a2e]">
+      <span data-template-name="" className={cn("block truncate px-0.5 pt-2 text-[13px] leading-5", selected ? "font-semibold text-[#1a1a2e]" : "font-medium text-[#4b5563]")}>
         {name}
       </span>
     </button>
@@ -359,7 +361,7 @@ interface OnboardingProgress {
 }
 
 export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalProps) {
-  const { onepage, updateProfile, applyThemeLook, updateSocialLinks, addBlock, updateBlock, removeBlock, save } = useOnePage()
+  const { onepage, updateProfile, updateSocialLinks, addBlock, updateBlock, removeBlock, save, applyThemeLook } = useOnePage()
   /*
     FULL SCREEN IN THE APP, AT EVERY WIDTH, like the creator onboarding
     (components/app/creator-onboarding-modal.tsx). Below 640px this has always
@@ -447,6 +449,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
   })
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const avatarInputRef = useRef<HTMLInputElement>(null)
+  /* Round AT: the template cards draw the person's own page so far, one object for the grid, kept until it changes. */
 
   // Step 4 state - initialize from saved progress
   const [selectedTemplate, setSelectedTemplate] = useState(() => {
@@ -473,10 +476,11 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
   const fetchTemplatesAhead = currentStep >= 3
   /*
     The template step's cards share one scale, measured off one card
-    (./themes/theme-preview), as the Design tab's do. A ref callback, since
+    (./themes/theme-swatch), as the Design tab's do. A ref callback, since
     the grid arrives inside the dialog's portal after this component's own
     effects have run.
   */
+  const swatchFontsHref = themeSwatchFontsHref()
   const templateGridRef = useCallback((grid: HTMLDivElement | null) => (grid ? scaleThemePreviews(grid, "[data-template-frame]") : undefined), [])
   useEffect(() => {
     if (!open) return
@@ -701,14 +705,17 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
     const checkAvailability = async () => {
       setCheckingUsername(true)
       try {
-        const { data: existing } = await supabase
-          .from("onepages")
-          .select("id")
-          .eq("slug", slug)
-          .neq("id", onepage?.id || "")
-          .single()
-
-        setUsernameAvailable(!existing)
+        /*
+          Asked of the server (app/api/onepage/address, the check the save
+          runs), never read from other people's pages with the browser key:
+          a signed in account reads only its own OnePage (part 465). Only a
+          name another page or person holds says "taken"; a name the address
+          rules refuse, or a check that could not run, leaves the step open
+          as before.
+        */
+        const res = await fetch(`/api/onepage/address?name=${encodeURIComponent(slug)}`, { cache: "no-store" })
+        const answer = (await res.json().catch(() => null)) as { taken?: boolean } | null
+        setUsernameAvailable(!(res.ok && answer?.taken === true))
       } catch {
         setUsernameAvailable(true)
       } finally {
@@ -932,13 +939,17 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         await updateSocialLinks(socialUpdates)
       }
 
-      // Apply theme with template_id so design tab shows correct selection
+      /*
+        The theme, laid on exactly as the Design tab lays it (round AR,
+        lib/onepage/theme-apply lookFromTemplate): the whole look in one step,
+        Share and Subscribe matched, a Hero theme with its Hero. It was merged
+        into the page's theme here, so a Hero theme picked here came out
+        Classic, and Share and Subscribe kept the default theme's style.
+      */
       const template = THEME_TEMPLATES.find((t) => t.id === selectedTemplate)
       if (template) {
-        /* Round W9: picked the way Design › Themes picks it (lib/onepage/theme-apply lookFromTemplate), so the
-           theme's Share and Subscribe styles and its Hero or Classic header come with it, as they do there. */
         const hero = (template as { profile_layout?: string }).profile_layout === "hero" || (template.theme_config as { header_layout?: string }).header_layout === "hero"
-        applyThemeLook(template as never, hero ? "hero" : (template as { profile_layout?: string }).profile_layout === "classic" ? "classic" : undefined, null)
+        applyThemeLook(template as never, hero ? "hero" : "classic", (THEME_TEMPLATES.find((t) => t.id === onepage?.theme?.template_id) ?? null) as never)
       }
 
       // Create blocks based on goal
@@ -966,14 +977,19 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
           console.log("[OnePage Onboarding] Authenticated user:", currentUser.id)
         }
 
-        // Save to onepages table - update profile, social links, and mark onboarding completed
-        // Use owner_id filter to ensure RLS policy works
+        /*
+          THE NAME AND THE BIO GO WITH THE SAVE BELOW, NOT HERE. This wrote
+          them straight to the row a moment before save(true), and the bio is
+          part of the copy the editor's save is checked against
+          (lib/onepage/edit-version): anybody who typed a bio here had that
+          save refused as "saved somewhere else", so the theme and blocks
+          they had just picked were neither saved nor published. The photo
+          is the profile's (lib/onepage/photo-save) and never this row's.
+          Only what the editor's save does not carry is written here.
+        */
         const { data: updateData, error: updateError } = await supabase
           .from("onepages")
           .update({
-            title: displayName,
-            bio: bio,
-            avatar_url: avatarUrl,
             // Direct columns for backward compatibility
             instagram: instagramUrl,
             tiktok: tiktokUrl,
@@ -1436,7 +1452,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                     <div className="flex-1 space-y-3">
                       {/* Instagram */}
                       <div className="flex items-center gap-3 px-4 sm:px-5 h-[50px] sm:h-[56px] rounded-[14px] bg-[#F3F3F3] border-2 border-transparent focus-within:bg-white focus-within:border-black transition-all">
-                        <Instagram className="w-5 h-5 text-pink-500 shrink-0" />
+                        <SocialIcon platform="instagram" tone="brand" size={20} className="shrink-0" />
                         <input
                           type="text"
                           value={socials.instagram}
@@ -1496,20 +1512,20 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                   */}
                   <div className="w-full max-w-[760px] flex-1 min-h-0 overflow-y-auto overscroll-contain p-1 pb-4">
                     {/*
-                      No webfonts here: the names' faces are 27 requests and
-                      148KB (scripts/check-onepage-onboarding.mjs), the bulk
-                      of the step. Each name falls back to its face's own
-                      kind (a serif, a mono, a script; lib/onepage/fonts
-                      fontStack), and the Design tab loads the faces.
+                      The cards' faces: one request for every template's title
+                      face, cut to the two letters a card sets ("Aa"), a few
+                      kilobytes (the Design tab's own, themeSwatchFontsHref).
+                      The names' whole faces were 27 requests and 148KB here
+                      and are still not loaded.
                     */}
-                    <div ref={templateGridRef} data-template-grid="" className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+                    {swatchFontsHref ? <link rel="stylesheet" href={swatchFontsHref} /> : null}
+                    <div ref={templateGridRef} data-template-grid="" className="grid grid-cols-3 gap-x-3 gap-y-4 sm:grid-cols-5">
                       {THEME_TEMPLATES.map((template) => (
                         <TemplateCard
                           key={template.id}
                           template={template}
                           selected={selectedTemplate === template.id}
                           onPick={setSelectedTemplate}
-                          avatarUrl={avatarUrl}
                         />
                       ))}
                     </div>

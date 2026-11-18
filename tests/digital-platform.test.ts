@@ -78,9 +78,9 @@ check(
 check(
   "the landing page's sections all still exist",
   [
-    "hero", "bento-grid", "stats-bar", "manage-section", "split-features-section",
-    "carousel-section", "tool-stack-section", "pricing-section",
-    "features-badges-section", "faq-section", "cta-section", "product-marquee",
+    /* Changed on purpose (wave 12): the bento, stats, manage and carousel sections left the page and were deleted. */
+    "hero", "build-showcase", "product-marquee", "pricing-section", "faq-section",
+    "home/final-cta", "home/lazy-section", "footer",
   ].every((f) => !gone(`components/marketing/${f}.tsx`)),
 )
 

@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { calculateStorelibFee, UnsupportedFeeCurrencyError, type StorelibFeeResult } from "@/lib/payments/fees/calculate"
 import type { StorelibFeeConfig } from "@/lib/payments/fees/types"
 import { platformChargeCurrencyUpper } from "@/lib/payments/fees/currency-rules"
-import { FREE_MICRO_RATE, FREE_STANDARD_RATE, PAID_MICRO_RATE, PAID_STANDARD_RATE, ratePercentLabel, type StorelibSellerPlan } from "@/lib/payments/fees/config"
+import { FREE_MICRO_RATE, FREE_STANDARD_RATE, PAID_MICRO_RATE, PAID_STANDARD_RATE, SCALE_STANDARD_RATE, ratePercentLabel, type StorelibSellerPlan } from "@/lib/payments/fees/config"
 
 // ────────────────────────────────────────────────────────────────
 // TYPES
@@ -30,12 +30,16 @@ type SellerPlan = "free" | "growth" | "pro"
 
 const PLAN_NAMES: Record<SellerPlan, string> = {
   free: "Free",
-  growth: "Growth",
-  pro: "Professional",
+  growth: "Grow",
+  pro: "Pro",
 }
 
-function toStorelibPlan(plan: SellerPlan): StorelibSellerPlan {
-  return plan === "free" ? "free" : "paid"
+/**
+ * The fee tier for a plan id: Free pays Free's rate, Grow (id `growth`) the
+ * paid rate, and Pro (id `pro`, the engine's "scale" tier) its own, lower one.
+ */
+export function toStorelibPlan(plan: SellerPlan): StorelibSellerPlan {
+  return plan === "pro" ? "scale" : plan === "growth" ? "paid" : "free"
 }
 
 function fromStorelibFee(fee: StorelibFeeResult, planId: SellerPlan): FeeCalculation {
@@ -80,7 +84,10 @@ function resolveSellerPlan(planId: string | null | undefined): SellerPlan {
 //   Pro   $1.00 (100c) → 9.25% = 9c           → 9c
 //   Pro   $4.00 (400c) → 3% = 12c + 25c       → 37c
 //   Pro   $10   (1000c)→ 3% = 30c + 25c       → 55c
-//   (Growth is an old plan id and is charged as Pro.)
+//   Scale $1.00 (100c) → 7.75% = 8c           → 8c
+//   Scale $4.00 (400c) → 1.5% = 6c + 25c      → 31c
+//   Scale $10   (1000c)→ 1.5% = 15c + 25c     → 40c
+//   (Pro is the plan id `growth`; Scale is the plan id `pro`.)
 // ────────────────────────────────────────────────────────────────
 
 export function computeApplicationFee({
@@ -238,7 +245,7 @@ export function getFeeDescription(planId: string): string {
   const descriptions: Record<string, string> = {
     free: `${ratePercentLabel(FREE_STANDARD_RATE)} + $0.25 per sale`,
     growth: `${ratePercentLabel(PAID_STANDARD_RATE)} + $0.25 per sale`,
-    pro: `${ratePercentLabel(PAID_STANDARD_RATE)} + $0.25 per sale`,
+    pro: `${ratePercentLabel(SCALE_STANDARD_RATE)} + $0.25 per sale`,
   }
   return descriptions[planId] || descriptions.free
 }

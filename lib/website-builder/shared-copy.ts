@@ -53,6 +53,8 @@ import { keyedAs } from "./last-good"
 
 /** How often one server refreshes a copy, at most. Also the entry's revalidate. */
 export const SHARED_REFRESH_S = 300
+/** How long a copy is kept before it may be written again when nothing cleared it (round 54). */
+export const SHARED_ENTRY_S = 3600
 /** Characters of JSON a copy may be. Next's limit is 2MB of the entry, which holds the copy as an escaped JSON string. */
 export const SHARED_MAX = 1_400_000
 /** A part of a theme's files, in characters of JSON. */
@@ -80,7 +82,8 @@ function noteWritten(id: string, now: number) {
 }
 
 function entry<T>(label: string, key: string[], tags: string[], produce: () => Promise<T>): Promise<T> {
-  return unstable_cache(keyedAs(`shared-copy:${label}`, produce), ["shared-copy", label, ...key], { tags, revalidate: SHARED_REFRESH_S })()
+  /* Rewritten hourly at most (round 54, Vercel cost): every five minutes a whole site's copy (up to 1.4MB) was written again per server. Its tags (the site's, the shop's) clear it at once on Publish and on every save. */
+  return unstable_cache(keyedAs(`shared-copy:${label}`, produce), ["shared-copy", label, ...key], { tags, revalidate: SHARED_ENTRY_S })()
 }
 
 /** Keep `value` as the copy every server can read. Never throws: a copy not kept is not a page not served. True when it was handed to the cache. */

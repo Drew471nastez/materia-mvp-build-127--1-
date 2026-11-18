@@ -37,12 +37,14 @@ import { notFound, permanentRedirect, redirect } from "next/navigation"
 import ProductPage, { generateMetadata as productMetadata } from "../../p/[slug]/page"
 import { isReservedRootSegment } from "@/lib/routes/reserved-segments"
 import { ProductPageFrame } from "@/components/platform/product-page-frame"
-import { loadCreatorForUser, loadProfileByUsername } from "@/lib/commerce/creator-page-data"
+import { loadCreatorForUserStrict, loadProfileByUsernameStrict } from "@/lib/commerce/creator-page-data"
 import { loadCreator, loadCreatorProfile, loadProductBySlug } from "@/lib/commerce/product-page-data"
-import { productAddressStep, type ProductAddressStep } from "@/lib/commerce/product-address"
+import { resolveProductAddress, type ProductAddressStep } from "@/lib/commerce/product-address"
 import { primaryHostFor } from "@/lib/custom-domains/store"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getProductShareUrl } from "@/lib/url-helpers"
+import { SiteReadError } from "@/lib/website-builder/site-read"
+import { exactIlike } from "@/lib/onepage/username"
 
 export const dynamic = "force-dynamic"
 
@@ -63,21 +65,23 @@ async function resolve(params: PageProps["params"]) {
   return { handle: sellername, slug: productSlug }
 }
 
-/** The handle's new name, from the row a rename writes; null when there is none or it cannot be read. */
+/**
+ * The handle's new name, from the row a rename writes; null when there is
+ * none. A read that failed THROWS, as the creator page's own does: never
+ * "not renamed", which sent an old link on to wherever the slug is sold.
+ */
 async function renamedHandle(handle: string): Promise<string | null> {
-  try {
-    const { data } = await createAdminClient()
-      .from("username_history")
-      .select("new_username")
-      .ilike("old_username", handle)
-      .order("changed_at", { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    const next = (data as { new_username?: string | null } | null)?.new_username || null
-    return next && next.toLowerCase() !== handle.toLowerCase() ? next : null
-  } catch {
-    return null
-  }
+  const { data, error } = await createAdminClient()
+    .from("username_history")
+    .select("new_username")
+    /* Literally: `_` and `%` in an address are not wildcards (exactIlike), as the creator page reads it. */
+    .ilike("old_username", exactIlike(handle))
+    .order("changed_at", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error) throw new SiteReadError("username history", error.message ?? "the read failed")
+  const next = (data as { new_username?: string | null } | null)?.new_username || null
+  return next && next.toLowerCase() !== handle.toLowerCase() ? next : null
 }
 
 /** Where the product with this slug lives when it is not this creator's: its canonical address, or null. */
@@ -92,19 +96,27 @@ async function canonicalElsewhere(slug: string): Promise<string | null> {
 /**
  * Whose product the address names, read once per request for the metadata
  * and the page both (lib/commerce/product-address.ts decides).
+ *
+ * THE OWNER IS READ STRICTLY (round AW), with the creator page's own strict
+ * lookups: a read that got no answer throws (SiteReadError, the shop's error
+ * screen, a 5xx the CDN never keeps) instead of reading as "nobody has this
+ * handle", which answered a real product with a redirect or a 404 that the
+ * CDN then held for every visitor (resolveProductAddress says how). A blip
+ * on a server that read the name a moment ago is answered from that read
+ * (lib/commerce/creator-page-data, round AV).
  */
-const addressOf = cache(async (handle: string, slug: string): Promise<ProductAddressStep> => {
-  const profile = await loadProfileByUsername(handle)
-  const creator = profile?.id ? await loadCreatorForUser(profile.id) : null
-  const owner = creator?.id && profile?.username ? { creatorId: creator.id as string, handle: profile.username as string } : null
-  const mine = owner ? await loadProductBySlug(slug, owner.creatorId) : null
-  const found = mine?.product?.slug ? { slug: mine.product.slug as string, viaHistory: mine.viaHistory } : null
-  /* The handle is a creator's: their product, or a 404. */
-  if (owner) return productAddressStep({ slug, owner, found, renamedTo: null, elsewhere: null })
-  /* Nobody sells under the handle: a renamed account first, then wherever the slug is sold. */
-  const renamedTo = profile ? null : await renamedHandle(handle)
-  return productAddressStep({ slug, owner, found, renamedTo, elsewhere: renamedTo ? null : await canonicalElsewhere(slug) })
-})
+const addressOf = cache(async (handle: string, slug: string): Promise<ProductAddressStep> =>
+  resolveProductAddress(handle, slug, {
+    profile: (name) => loadProfileByUsernameStrict(name),
+    creator: (userId) => loadCreatorForUserStrict(userId),
+    product: async (wanted, creatorId) => {
+      const mine = await loadProductBySlug(wanted, creatorId)
+      return mine?.product?.slug ? { slug: mine.product.slug as string, viaHistory: mine.viaHistory } : null
+    },
+    renamed: renamedHandle,
+    elsewhere: canonicalElsewhere,
+  }),
+)
 
 export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
   const at = await resolve(params)

@@ -178,8 +178,9 @@ function switchScreen() {
   check("the switch's answer carries the session in its own cookies, only after the link is checked and the session made",
     route.indexOf("maySwitch(group, user.id, to)") < route.indexOf("await sessionFor(to)") && route.indexOf("await sessionFor(to)") < route.indexOf("setSessionCookies(res, request, session, arrival)")
       && createRoute.indexOf("createBusinessAccount(user)") < createRoute.indexOf("setSessionCookies(res, request, session)")
-      && /import "server-only"/.test(jar) && /sessionCookieChunks\(key, storedSessionJson\(session\), existing\)/.test(jar)
-      && /res\.cookies\.set\(\{ name: c\.name, value: c\.value, path: "\/", maxAge: SESSION_COOKIE_MAX_AGE, sameSite: "lax", secure, httpOnly: false \}\)/.test(jar)
+      // Changed on purpose (round AX): the chunks go under the __Host- name on HTTPS (host), and a __Host- one is always Secure.
+      && /import "server-only"/.test(jar) && /sessionCookieChunks\(key, storedSessionJson\(session\), pairs\.map\(\(p\) => p\.name\), host\)/.test(jar)
+      && /res\.cookies\.set\(\{ name: c\.name, value: c\.value, path: "\/", maxAge: SESSION_COOKIE_MAX_AGE, sameSite: "lax", secure: secure \|\| isHost\(c\.name\), httpOnly: false \}\)/.test(jar)
       && /name: SWITCH_COOKIE, value: photo \? `\$\{name\}\\n\$\{photo\}` : name, path: "\/app", maxAge: SWITCH_COOKIE_MAX_AGE_S/.test(jar) && /cleanSwitchName\(arrival\.name\)/.test(jar))
   const layout = read("app/(storelib)/app/layout.tsx")
   /* Changed on purpose (round 42 reliability): the layout has a third path, Storelib could not read the profile or the creator row

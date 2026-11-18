@@ -137,7 +137,7 @@ export async function GET(request: Request) {
   const handed = !hasSellerAccess(access) && !teamMember && !carry.next && !carry.intent ? await handedHomeFor(user.id) : null
   const opened = destinationWithAppOpen(handed ?? destinationAfterAuth(carry, access, { teamMember }), user.user_metadata, carry.next)
   if (opened.used) after(() => supabase.auth.updateUser({ data: { [APP_OPEN_USED]: opened.used } }).then(() => undefined))
-  const response = go(throughWelcome(opened.destination, { createdAt: user.created_at, meta: user.user_metadata, seller: hasSellerAccess(access), intent: carry.intent }))
+  const response = go(throughWelcome(opened.destination, { createdAt: user.created_at, meta: user.user_metadata, seller: hasSellerAccess(access), intent: carry.intent, from: handed || teamMember || opened.used ? undefined : carry.next }))
   /* "Account created" or "Welcome back" on the page they land on, from the account's age, not the button pressed (lib/auth/arrival.ts). */
   response.cookies.set(ARRIVAL_COOKIE, arrivalOf(user.created_at), arrivalCookieOptions(url.protocol === "https:"))
   return response

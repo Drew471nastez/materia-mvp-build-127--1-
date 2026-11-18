@@ -93,7 +93,8 @@ export function forgetStoredReferences(): void {
 /** searchReferences over the built in library AND the admin's screenshots. */
 export async function findReferencesIn(db: Db, brief: BriefLike, opts: Omit<SearchOptions, "extra"> = {}): Promise<DesignReference[]> {
   const extra = await storedReferences(db).catch(() => [])
-  return searchReferences(brief, { ...opts, extra })
+  /* Round BB: the admin's own design references only, never the built-in seeds. */
+  return searchReferences(brief, { ...opts, extra, builtIns: false })
 }
 
 /**

@@ -66,7 +66,20 @@ import { isOnePagePreview, showPreviewNotice } from "@/lib/onepage/preview-notic
 import { ProductSheet } from "./product-sheet"
 import { FramedPicture, readPictureShape } from "@/components/ui/framed-picture"
 import { CHECKOUT_HISTORY_KEY, HANDOFF_MAX_MS, PURCHASE_CLOSED, checkoutEntryOf, purchaseStep, sheetShown, type PurchaseLayer, type PurchaseStep } from "@/lib/onepage/purchase-flow"
-import { InstantCheckout, loadProductFacts } from "@/components/checkout/instant-checkout"
+import dynamic from "next/dynamic"
+import { loadProductFacts as readProductFacts } from "@/components/checkout/product-facts"
+/*
+  Round 63: THE CHECKOUT IS FETCHED, NOT SHIPPED. The checkout window and its words in every language were part of
+  every OnePage's first download, for every visitor, buyer or not. It is now its own file, asked for when the
+  block comes near the screen and the browser is idle (the same moment the product's facts are read, below),
+  so it is there before a tap without weighing on the page's first paint.
+*/
+const InstantCheckout = dynamic(() => import("@/components/checkout/instant-checkout").then((m) => m.InstantCheckout), { ssr: false })
+/* The facts are a small read (./product-facts); asking for them also starts the checkout window's file, so it is ready by the tap. */
+const loadProductFacts = (productId: string) => {
+  void import("@/components/checkout/instant-checkout").catch(() => undefined)
+  return readProductFacts(productId)
+}
 import { sheetPalette } from "@/lib/onepage/sheet-theme"
 
 /** The free product quick checkout made before round 10 (public-onepage's own window), kept for the blocks that use it. */
@@ -103,6 +116,21 @@ export const PRODUCT_CTA_HOVER = "op-btn"
 
 /** The card that hands its hover to the button inside it. */
 export const PRODUCT_CARD_HOST = "op-host"
+
+/*
+  A NARROW CARD RESTACKS (the owner: "compact card: price and title overlap the
+  button"). The card is a size container (`@container`), so what it does is
+  decided by its own width, not the screen's: Layout › Size › Half puts a
+  Compact card in 169px on a phone, where the button kept 45% of the row and
+  the price, which cannot shrink, ran on under it. Under 18rem the button
+  takes a line of its own, a side picture goes on top, and the Overlay's words
+  stand over their button. scripts/check-onepage-style-stability.mjs measures
+  every layout at full and half width from 320 to 1280.
+*/
+const NARROW_FULL = "@max-[18rem]:w-full @max-[18rem]:max-w-none"
+const NARROW_COLUMN = "@max-[18rem]:flex-col @max-[18rem]:items-stretch"
+const NARROW_STACK = "@max-[18rem]:flex-col @max-[18rem]:gap-1 @max-[18rem]:text-center"
+const NARROW_HIDE = "@max-[18rem]:hidden"
 
 /*
   WHERE A TAP GOES, AND HOW TO COME BACK (round 11). The OnePage is on
@@ -344,6 +372,18 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
     io.observe(el)
     return () => io.disconnect()
   }, [plan, warm, data.product_id, shipsToCheckout])
+  /*
+    A picture that will not draw (wave 16, the owner's empty navy tiles under Renaissance): the block tries the next
+    one it knows (the creator's own, the cover as uploaded, the card copy), and with none left it is drawn with no
+    picture at all, as a block without one is, never as an empty frame the size of a picture.
+  */
+  const [unloadable, setUnloadable] = React.useState<readonly string[]>([])
+  const dropPicture = React.useCallback((src: string) => setUnloadable((was) => (was.includes(src) ? was : [...was, src])), [])
+  /* Its error, and one that came before the page was hydrated (a picture that is already broken when React finds it). */
+  const pictureFails = (src: string) => ({
+    onError: () => dropPicture(src),
+    ref: (el: HTMLImageElement | null) => { if (el && el.complete && el.naturalWidth === 0 && el.getAttribute("src")) dropPicture(src) },
+  })
 
   if (!data.product_id && !data.product_title) return null
 
@@ -372,7 +412,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
   const title = data.product_title || "Product"
   const description = data.show_description !== false ? plainText(data.product_description) : ""
   /* The creator's own picture for the block, else the product's cover as uploaded (SQL part 377), else its card copy. */
-  const image = data.custom_thumbnail || data.product_cover || data.product_thumbnail || null
+  const image = [data.custom_thumbnail, data.product_cover, data.product_thumbnail].find((u): u is string => !!u && !unloadable.includes(u)) ?? null
   const planPriced = isPlanPriced({ type: data.product_type })
   const money = (cents: number) => (planPriced ? shopMoneyIn(cents, PLAN_CURRENCY) : pageMoney(cents))
   const parts = productPriceParts(data, money)
@@ -419,9 +459,9 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
 
   const priceLine = (cls: string, color: string) =>
     showPrice && !purchased ? (
-      <p className={cn("flex flex-wrap items-baseline gap-x-1.5 tabular-nums", cls)} style={{ color }} data-product-price="">
-        <span>{now}</span>
-        {parts.was ? <s className="text-[0.85em] font-normal opacity-60">{parts.was}</s> : null}
+      <p className={cn("flex min-w-0 max-w-full flex-wrap items-baseline gap-x-1.5 tabular-nums", cls)} style={{ color }} data-product-price="">
+        <span className="min-w-0 max-w-full truncate">{now}</span>
+        {parts.was ? <s className="min-w-0 max-w-full truncate text-[0.85em] font-normal">{parts.was}</s> : null}
       </p>
     ) : null
   const ctaButton = (cls: string, onPhoto = false) => {
@@ -432,17 +472,22 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
       </span>
     )
   }
+  /* Round AR3: Cover (as always), Fit (all of it, on a soft ground) or Full (its own shape, where the layout gives it a box of a set shape). */
+  const fit = data.image_fit === "contain" || data.image_fit === "full" ? data.image_fit : "cover"
   const picture = (cls: string, ratio?: string) =>
-    image ? (
+    !image ? null : fit === "full" && ratio ? (
+      /* eslint-disable-next-line @next/next/no-img-element */
+      <img src={image} alt={title || ""} loading="lazy" decoding="async" data-picture-fit="full" className={cn("block h-auto shrink-0", cls)} {...pictureFails(image)} />
+    ) : (
       /* Round AK: the editor's grey padding is cut off when the picture carries it (components/ui/framed-picture). */
-      <FramedPicture src={image} alt={title} className={cn("shrink-0 bg-black/5", ratio, cls)} imgClassName="object-cover" imgProps={{ loading: "lazy", decoding: "async" }} />
-    ) : null
+      <FramedPicture src={image} alt={title} fit={fit === "cover" ? "cover" : "contain"} className={cn("shrink-0 bg-black/5", ratio, cls)} imgClassName={fit === "cover" ? "object-cover" : "object-contain"} imgProps={{ loading: "lazy", decoding: "async", ...(pictureFails(image) as object), ...({ "data-picture-fit": fit } as object) }} />
+    )
 
   const shell = (children: React.ReactNode, cls: string, style: React.CSSProperties = cardStyle) => (
     <a
       href={href}
       onClick={onClick}
-      className={cn("group/pc block w-full cursor-pointer overflow-hidden text-left outline-none focus-visible:ring-2 focus-visible:ring-offset-2", PRODUCT_CARD_HOST, cls, animationClass)}
+      className={cn("group/pc @container block w-full cursor-pointer overflow-hidden text-left outline-none focus-visible:ring-2 focus-visible:ring-offset-2", PRODUCT_CARD_HOST, cls, animationClass)}
       style={style}
       data-product-block={layout}
       data-product-tap={plan}
@@ -460,28 +505,39 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
         <a
           href={href}
           onClick={onClick}
-          className={cn("op-btn flex w-full cursor-pointer items-center justify-center gap-2 px-4 py-3 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:gap-3 sm:px-5 sm:py-4 sm:text-base", animationClass)}
+          className={cn("op-btn flex w-full cursor-pointer items-center justify-center px-4 py-3 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:px-5 sm:py-4 sm:text-base @container", animationClass)}
           style={themeButton}
           {...hoverAttrs(theme as ButtonThemeLike)}
           data-product-block="button"
           data-product-tap={plan}
           data-stays-here={staysHere}
         >
-          {image ? <FramedPicture src={image} alt={title} frame={1} className="relative h-6 w-6 shrink-0 rounded sm:h-7 sm:w-7" imgClassName="object-cover" /> : null}
-          {presentationOf(block).subtitle ? <span className="relative min-w-0"><span className="op-label block break-words">{cta}</span><BlockSubtitle subtitle={presentationOf(block).subtitle} /></span> : <span className="op-label relative truncate">{cta}</span>}
+          <span className={cn("flex w-full min-w-0 items-center justify-center gap-2 sm:gap-3", NARROW_STACK)}>
+          {image ? <FramedPicture src={image} alt={title} frame={1} className="relative h-6 w-6 shrink-0 rounded sm:h-7 sm:w-7" imgClassName="object-cover" imgProps={pictureFails(image) as object} /> : null}
+          {/*
+            Round AR3: the product's name is on the button too. With button words of the creator's own, they lead and the
+            name is the line under them; without, the name is the button (it said "Get My Guide" for every product).
+          */}
+          <span className="relative min-w-0 max-w-full">
+            <span className="op-label block truncate" data-block-title={data.cta_text?.trim() ? undefined : ""}>{data.cta_text?.trim() || purchased ? cta : title}</span>
+            {/* Round 3: words inside a button are never faded: the button's hover turns them to the fill's words, and a fade under that took Ledger's old price to 4:1. Smaller and lighter in weight instead. */}
+            {data.cta_text?.trim() || purchased ? <span className="block truncate text-[0.82em] font-normal" data-block-title="">{title}</span> : null}
+            <BlockSubtitle subtitle={presentationOf(block).subtitle} />
+          </span>
           {showPrice && !purchased ? (
-            <span className="relative shrink-0 text-sm tabular-nums opacity-75">
+            <span className="relative max-w-full shrink-0 truncate text-sm font-normal tabular-nums" data-product-price="">
               {now}
-              {parts.was ? <s className="ml-1 opacity-70">{parts.was}</s> : null}
+              {parts.was ? <s className={cn("ml-1 text-[0.9em]", NARROW_HIDE)}>{parts.was}</s> : null}
             </span>
           ) : null}
+          </span>
         </a>
       )
       break
     }
     case "row": {
       body = shell(
-        <span className="flex items-center gap-3 p-2.5 sm:p-3">
+        <span className="flex flex-wrap items-center gap-3 p-2.5 sm:p-3">
           {picture("h-12 w-12 sm:h-14 sm:w-14", undefined)}
           <span className="min-w-0 flex-1">
             <ProductTitle block={block}>
@@ -491,7 +547,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
             </ProductTitle>
             {priceLine("text-[13.5px] font-semibold opacity-80", textColor)}
           </span>
-          {ctaButton("h-9 max-w-[45%] shrink-0 px-3.5 text-[13.5px] sm:h-10 sm:px-4 sm:text-sm")}
+          {ctaButton(cn("h-9 max-w-[45%] shrink-0 px-3.5 text-[13.5px] sm:h-10 sm:px-4 sm:text-sm", NARROW_FULL))}
         </span>,
         "",
       )
@@ -499,8 +555,8 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
     }
     case "side": {
       body = shell(
-        <span className="flex items-stretch">
-          {picture("w-[36%] min-h-[132px] sm:w-[34%]", undefined)}
+        <span className={cn("flex items-stretch", NARROW_COLUMN)}>
+          {picture("w-[36%] min-h-[132px] sm:w-[34%] @max-[18rem]:aspect-[16/10] @max-[18rem]:min-h-0 @max-[18rem]:w-full", undefined)}
           <span className="flex min-w-0 flex-1 flex-col gap-1 p-3.5 sm:p-4">
             <ProductTitle block={block}>
               <span className="line-clamp-2 text-[15px] font-semibold leading-snug sm:text-base" style={{ color: textColor }} data-block-title="">
@@ -541,17 +597,18 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
     case "overlay": {
       if (image) {
         body = shell(
-          <span className="relative block aspect-[4/3] w-full">
+          <span className="relative block aspect-[4/3] w-full @max-[18rem]:aspect-[4/5]">
             {picture("absolute inset-0 h-full w-full", undefined)}
-            <span aria-hidden className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0)_35%,rgba(0,0,0,0.72)_100%)]" />
-            <span className="absolute inset-x-0 bottom-0 flex items-end gap-3 p-4">
+            {/* Round 3: the shade reaches 60% where the words start, so white words read on any picture, a white one too. */}
+            <span aria-hidden className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0)_26%,rgba(0,0,0,0.6)_60%,rgba(0,0,0,0.8)_100%)]" />
+            <span className={cn("absolute inset-x-0 bottom-0 flex items-end gap-3 p-4 @max-[18rem]:gap-2 @max-[18rem]:p-3", NARROW_COLUMN)}>
               <span className="min-w-0 flex-1">
                 <ProductTitle block={block}>
-              <span className="line-clamp-2 text-[17px] font-semibold leading-snug text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.3)]" data-block-title="">{title}</span>
+              <span className="line-clamp-2 text-[17px] font-semibold leading-snug text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.3)] @max-[18rem]:text-[15px]" data-block-title="">{title}</span>
             </ProductTitle>
                 {priceLine("mt-0.5 text-[14.5px] font-semibold", "#ffffff")}
               </span>
-              {ctaButton("h-10 max-w-[48%] shrink-0 px-4 text-sm", true)}
+              {ctaButton(cn("h-10 max-w-[48%] shrink-0 px-4 text-sm", NARROW_FULL), true)}
             </span>
           </span>,
           "",
@@ -602,9 +659,9 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
               </span>
             ) : null}
           </span>
-          <span className={cn("inline-flex h-9 shrink-0 items-center gap-1.5 px-3.5 text-[13.5px] font-semibold tabular-nums", PRODUCT_CTA_HOVER)} style={{ ...themeButtonStyle(pillTheme), ...buttonHoverVars(pillTheme) }} {...hoverAttrs(pillTheme)} data-product-cta="">
-            <span className="op-label relative">{showPrice && !purchased ? now : cta}</span>
-            {showPrice && parts.was && !purchased ? <s className="relative text-[12px] font-normal opacity-60">{parts.was}</s> : null}
+          <span className={cn("inline-flex h-9 max-w-[60%] shrink-0 items-center gap-1.5 whitespace-nowrap px-3.5 text-[13.5px] font-semibold tabular-nums", PRODUCT_CTA_HOVER)} style={{ ...themeButtonStyle(pillTheme), ...buttonHoverVars(pillTheme) }} {...hoverAttrs(pillTheme)} data-product-cta="">
+            <span className="op-label relative min-w-0 truncate">{showPrice && !purchased ? now : cta}</span>
+            {showPrice && parts.was && !purchased ? <s className={cn("relative text-[12px] font-normal", NARROW_HIDE)}>{parts.was}</s> : null}
           </span>
         </span>,
         "",

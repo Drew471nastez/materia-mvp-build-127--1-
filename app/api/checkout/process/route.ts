@@ -1,7 +1,6 @@
 import { loadCheckoutConfig } from "@/lib/store/settings-server"
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { createClient } from "@/lib/supabase/server"
 import { nanoid } from "nanoid"
 import { cookies } from "next/headers"
 import { generateReceiptToken } from "@/lib/security"
@@ -19,6 +18,8 @@ import { communityAccessAfterEntitlement } from "@/lib/communities/server/paymen
 import { CLAIM_HOLD_SECONDS, holdSale, limitOf, releaseSale, saleHolderForEmail } from "@/lib/checkout/sales-limit"
 import { soldOutMessage } from "@/lib/products/sales-limit"
 import { timed } from "@/lib/perf/server-timing"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
+import { claimedOrder, freeClaimToken, isClaimRace, type ClaimedOrder } from "@/lib/checkout/free-claim"
 
 export const runtime = "nodejs"
 
@@ -63,12 +64,26 @@ async function handlePOST(request: Request) {
   if (limited) return limited
 
   try {
-    const supabase = await createClient()
     const admin = createAdminClient()
     const cookieStore = await cookies()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const who = await routeUser({ fresh: true })
+    if (who.kind === "unavailable") return authUnavailableResponse()
+    const user = who.kind === "user" ? who.user : null
+
+    /*
+      THE SAME PRESS SENT AGAIN (round AW, lib/checkout/free-claim): its answer was lost after the order was written,
+      and the page said "Try again". The order that press wrote is the answer, found before the price, a code's place
+      or a copy is asked for again, so nothing is written, emailed or counted twice. A page that sends no attempt id
+      claims as before.
+    */
+    const claimToken = freeClaimToken(body.attemptId, { productId: body.productId, variantId: body.variantId, email })
+    const claimed = await claimedOrder(admin, claimToken, body.productId)
+    if (claimed) return claimedAnswer(cookieStore, claimed)
+    /* Refused below for a code or a copy this same press already took: that press's order is the answer, not the refusal. */
+    const refusedOrClaimed = async (refusal: NextResponse) => {
+      const late = await claimedOrder(admin, claimToken, body.productId)
+      return late ? claimedAnswer(cookieStore, late) : refusal
+    }
 
     const priced = await priceOrder(
       admin,
@@ -82,7 +97,7 @@ async function handlePOST(request: Request) {
       },
       "*, creator:creators!inner(id, user_id)",
     )
-    if (priced.ok === false) return NextResponse.json({ error: priced.error, ...(priced.code ? { code: priced.code } : {}) }, { status: priced.status })
+    if (priced.ok === false) return refusedOrClaimed(NextResponse.json({ error: priced.error, ...(priced.code ? { code: priced.code } : {}) }, { status: priced.status }))
     const { product, variant, totals, coupon } = priced
     const creator = product.creator as { id: string; user_id: string | null }
     /* The store's Settings › Checkout: an account first, and a confirmed one (lib/store/checkout-config). The page asks too; this is the rule. */
@@ -105,14 +120,14 @@ async function handlePOST(request: Request) {
     /* The last use of a limited code goes to one buyer, even two at once (lib/checkout/coupon-holds). */
     const holder = needsHold(coupon) ? holderForEmail(email) : null
     if (coupon && holder && !(await holdCouponUse(admin, coupon.id, holder))) {
-      return NextResponse.json({ error: "That code has been used up." }, { status: 400 })
+      return refusedOrClaimed(NextResponse.json({ error: "That code has been used up." }, { status: 400 }))
     }
 
     /* LIMIT SALES: a free copy is still one of the limited run. Held in one locked step before the order is written, and let go once the order counts it (lib/checkout/sales-limit). */
     const saleHolder = limitOf(product) !== null ? saleHolderForEmail(email) : null
     if (saleHolder && !(await holdSale(admin, product.id, saleHolder, 1, CLAIM_HOLD_SECONDS))) {
       if (holder) await releaseCouponHold(admin, coupon?.id, holder)
-      return NextResponse.json({ error: soldOutMessage(product.title), code: "sold_out" }, { status: 409 })
+      return refusedOrClaimed(NextResponse.json({ error: soldOutMessage(product.title), code: "sold_out" }, { status: 409 }))
     }
 
     /* Owning it already still makes a receipt (for a re-download); only the library row is not doubled. */
@@ -126,7 +141,8 @@ async function handlePOST(request: Request) {
 
     const accessToken = nanoid(32)
     const sessionFingerprint = nanoid(32)
-    const receiptToken = generateReceiptToken()
+    /* This press's own token when the page named it (lib/checkout/free-claim), so a second send of it meets the first at the unique receipt token. */
+    const receiptToken = claimToken ?? generateReceiptToken()
 
     const mainDomain = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
     const isLocalhost = mainDomain.includes("localhost")
@@ -173,6 +189,15 @@ async function handlePOST(request: Request) {
     }
 
     let { data: order, error: orderError } = await admin.from("orders").insert(fullOrder).select().single()
+    /* Two sends of the same press at once: the other wrote this order a moment ago. Its order is the answer, and this send's holds go back. */
+    if (orderError && claimToken && isClaimRace(orderError)) {
+      const raced = await claimedOrder(admin, claimToken, product.id)
+      if (raced) {
+        if (holder) await releaseCouponHold(admin, coupon?.id, holder)
+        if (saleHolder) await releaseSale(admin, product.id, saleHolder)
+        return claimedAnswer(cookieStore, raced)
+      }
+    }
     if (orderError) {
       console.error("[checkout/process] full insert failed:", orderError.code, orderError.message)
       /* The columns every database has, and still the variant. */
@@ -328,6 +353,23 @@ async function handlePOST(request: Request) {
 
 function clean(value: unknown, max: number): string {
   return typeof value === "string" ? value.replace(/[\u0000-\u001f\u007f<>]/g, "").trim().slice(0, max) : ""
+}
+
+/** The order this same press already wrote (lib/checkout/free-claim), answered as its first send was: its receipt, and this browser's way back to the downloads. */
+function claimedAnswer(cookieStore: Awaited<ReturnType<typeof cookies>>, order: ClaimedOrder) {
+  if (order.session_fingerprint) {
+    const mainDomain = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
+    const isLocalhost = mainDomain.includes("localhost")
+    cookieStore.set("materia_session", order.session_fingerprint, {
+      httpOnly: true,
+      secure: !isLocalhost,
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 365,
+      path: "/",
+      domain: isLocalhost ? undefined : `.${mainDomain}`,
+    })
+  }
+  return NextResponse.json({ success: true, redirectUrl: `/receipt/${order.receipt_token}?emailSent=1`, orderId: order.id, receiptToken: order.receipt_token, emailSent: true })
 }
 
 /* Timed for /admin/performance, one request in five (lib/perf/server-timing.ts). */

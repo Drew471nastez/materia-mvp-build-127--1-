@@ -49,6 +49,8 @@ const onepage: OnePage = {
   created_at: "2026-01-01T00:00:00Z",
   updated_at: "2026-01-01T00:00:00Z",
   onboarding_completed: true,
+  /* Round AU (scripts/check-onepage-au2.mjs): the server's fingerprint of the copy opened, when a probe names one. */
+  edit_version: (globalThis as any).PROBE_EDIT_VERSION ?? null,
 }
 
 /*
@@ -90,7 +92,11 @@ if (location.pathname.startsWith("/onepage-preview")) {
      two would draw the avatar, the name and the bio twice. */
   const header = { id: "h", type: "header", enabled: true, sort_order: -1, data: { show_avatar: true, show_name: true, show_bio: true } }
   const own = onepage.draft_blocks.filter((b) => !b.schedule && b.type !== "header")
-  const live = { ...onepage, theme: live_theme, blocks: [header, ...own], seller_id: "seller_probe" }
+  /* The theme cards draw no creator any more (components/onepage/themes/theme-swatch), so there is no page of a card's to make. */
+  const made: { title: string; bio: string; avatar_url: string | null; blocks: any[] } | null = null as { title: string; bio: string; avatar_url: string | null; blocks: any[] } | null
+  const live = made
+    ? { ...onepage, title: made.title, bio: made.bio, avatar_url: made.avatar_url, theme: live_theme, blocks: [header, ...made.blocks], seller_id: "seller_probe" }
+    : { ...onepage, theme: live_theme, blocks: [header, ...own], seller_id: "seller_probe" }
   createRoot(document.getElementById("app")!).render(<PublicOnePage onepage={live as any} />)
 } else {
   /* A probe of the keyboard (scripts/check-onepage-addblock-r11.mjs) asks for app/(storelib)/layout.tsx's two publishers of it, so a sheet reads --kb-inset and --vv-h as in the app. */

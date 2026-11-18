@@ -49,14 +49,14 @@ export const kajabi: Competitor = {
   ],
   storelibStrengths: [
     { text: "A free plan that sells, with no monthly fee and no card needed to start.", code: "lib/billing/plans.ts" },
-    { text: `${STORELIB.freeSites} websites on Free and ${STORELIB.proSites} on Pro, each with a store.`, code: "lib/sites/plan.ts" },
+    { text: `${STORELIB.freeSites} websites on Free and ${STORELIB.proSites} on Grow, each with a store.`, code: "lib/sites/plan.ts" },
     { text: "Physical products with stock and shipping, next to your courses.", code: "lib/platform/physical-commerce.ts", flag: "physical", textOff: "A OnePage at storelib.me/yourname for your bio link." },
   ],
   storelibLimits: [
     { text: "Storelib's courses have lessons, video, captions and progress, but no cohorts, quizzes or certificates.", code: "lib/courses/types.ts" },
     { text: "No affiliate program for your products, and no booking calendar for coaching calls.", code: "lib/attribution/touch.ts" },
     { text: `Campaign emails are capped at ${MONTHLY_EMAILS.free.toLocaleString("en-US")} a month on Free and ${MONTHLY_EMAILS.growth.toLocaleString("en-US")} on Pro. Kajabi's marketing emails are unlimited.`, code: "lib/email-campaigns/limits.ts" },
-    { text: `Every sale pays a fee, ${STORELIB.proFee} on Pro at the lowest. At high sales Kajabi's flat price costs less.`, code: "lib/payments/fees/defaults.ts" },
+    { text: `Every sale pays a fee, ${STORELIB.proFee} on Grow at the lowest. At high sales Kajabi's flat price costs less.`, code: "lib/payments/fees/defaults.ts" },
   ],
   features: [
     { id: "monthly", label: "Monthly fee", storelib: SL.monthlyFee, competitor: { value: "yes", text: "$179, $249 or $499 billed monthly", sources: ["kajabi-pricing"], status: "verified" } },
@@ -126,19 +126,19 @@ export const kajabi: Competitor = {
     { title: "Connect Stripe", text: "Storelib pays out through Stripe, so connect a Stripe account before your first sale." },
     { title: "Rebuild courses and products", text: "Add each course as modules and lessons with its videos, and each download with its files and price." },
     { title: "Move your email", text: "Rebuild the welcome emails you rely on as Storelib automations, then tell your list where to find you." },
-    { title: "Switch your domain last", text: "When everything is in place, connect your domain to a Storelib website on Pro and cancel Kajabi once old links have moved." },
+    { title: "Switch your domain last", text: "When everything is in place, connect your domain to a Storelib website on Grow and cancel Kajabi once old links have moved." },
   ],
   moving: {
     products: "Courses are rebuilt on Storelib as modules and lessons, and downloads as products with their files. Coaching and cohort courses have no Storelib version yet.",
     customers: "Storelib has no contact or list import. Email your list about the move from Kajabi before you leave, and rebuild the sequences you need as Storelib automations.",
-    domain: "Your Kajabi site's domain connects to a Storelib website on Pro. Change its DNS when the new site is ready so visitors never land on a gap.",
+    domain: "Your Kajabi site's domain connects to a Storelib website on Grow. Change its DNS when the new site is ready so visitors never land on a gap.",
   },
   movingHelp: { customers: ["/help/email/automations"] },
   faqs: [
     { q: "Why is Kajabi so much more a month than Storelib?", a: `Kajabi charges a flat plan, from $179 a month, and takes no cut of sales. Storelib Free charges nothing a month and takes ${STORELIB.freeFee} a sale. With smaller sales Storelib costs less; with large monthly sales Kajabi's flat price can.` },
     { q: "Does Storelib have funnels and email sequences like Kajabi?", a: "Storelib has emails to your list and automations, but no funnel builder. If multi step funnels are how you sell, Kajabi does that better." },
     { q: "Can I run a course and a community on Storelib?", a: "Yes. Courses have modules, lessons, video, captions and progress, and a community can sit beside them with posts, chat and paid plans.", flag: "communities", aOff: "Courses, yes: modules, lessons, video, captions and progress. Communities are not offered today." },
-    { q: "Does Storelib take a cut where Kajabi does not?", a: `Yes. Kajabi takes no revenue share. Storelib takes ${STORELIB.freeFee} a sale on Free and ${STORELIB.proFee} on Pro. You pay card processing on both.` },
+    { q: "Does Storelib take a cut where Kajabi does not?", a: `Yes. Kajabi takes no revenue share. Storelib takes ${STORELIB.freeFee} a sale on Free and ${STORELIB.proFee} on Grow. You pay card processing on both.` },
   ],
   visuals: ["course", "dashboard", "creator"],
   sources: [

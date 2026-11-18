@@ -98,7 +98,7 @@ async function main() {
     check("  never without an area for that bucket", !ok(["orders"], "product-images", `${STORE}/a.jpg`) && ok(["onepage"], "onepage-assets", `${OWNER}/thumb-1.jpg`) && !ok(["products"], "onepage-assets", `${OWNER}/thumb-1.jpg`))
     check("the buckets and their areas", same(Object.keys(TEAM_BUCKET_AREAS), ["product-images", "store-builder-images", "onepage-assets"]))
     const route = read("app/api/team/upload-url/route.ts")
-    check("the signing route asks the database who is acting, then the path, then signs that path once", /const acting = await actingStore\(admin, user\.id\)/.test(route) && /if \(!acting \|\| !teamUploadPathOk\(acting, body\?\.bucket, body\?\.path\)\)/.test(route) && /createSignedUploadUrl\(path\)/.test(route) && !/upsert/.test(route))
+    check("the signing route asks the database who is acting, then the path, then signs that path once", /* Changed on purpose (rel2-auth): the read that says when it failed, a 503 then. */ /const \{ acting, failed \} = await actingStoreRead\(admin, user\.id\)\s*if \(failed\) return storeUnavailableResponse\(\)/.test(route) && /if \(!acting \|\| !teamUploadPathOk\(acting, body\?\.bucket, body\?\.path\)\)/.test(route) && /createSignedUploadUrl\(path\)/.test(route) && !/upsert/.test(route))
     check("  the owner never gets one (their own folder is theirs)", /if \(!acting \|\|/.test(route))
     const fallback = read("lib/team/upload-fallback.ts")
     check("the browser asks only after storage refused, and every direct upload uses it", /fetch\("\/api\/team\/upload-url"/.test(fallback) && /if \(!\(await teamSignedUpload\(bucket, path, body, type, onProgress\)\)\) throw refused/.test(read("lib/files/upload-video.ts")) && /teamSignedUpload\("product-images", path, upload, upload\.type\)/.test(read("lib/rich-text/upload-image.ts")) && /teamSignedUpload\("product-images", filePath, file, file\.type/.test(read("app/(storelib)/app/products/new/product-editor.tsx")))
@@ -200,7 +200,7 @@ async function main() {
     check("  the domain row is the store's, from the page", /useJson<DomainsAnswer>\(team \? null : "\/api\/domains"\)/.test(read("components/onepage/settings-integrations.tsx")))
     const preview = read("components/onepage/live-preview.tsx")
     check("the preview's owner name and photo come with the page for a member, never from their browser or their own photo", /if \(!ownerId \|\| team\) return/.test(preview) && /team \? \{ displayName: team\.ownerName \?\? null, avatarUrl: team\.ownerAvatar \?\? null \}/.test(preview) && /admin\.from\("profiles"\)\.select\("display_name, avatar_url"\)\.eq\("id", ownerUserId\)/.test(read("app/(storelib)/app/onepage/page.tsx")))
-    check("the free products a lead magnet lists are the store's", /const teamStore = teamStoreForProducts\(\)/.test(read("components/onepage/storelib-blocks.tsx")))
+    check("the free products a lead magnet lists are the store's", /const teamStore = teamStoreForProducts\(\)/.test((read("components/onepage/storelib-blocks.tsx") + "\n" + read("components/onepage/storelib-blocks-editor.tsx"))))
   }
 
   console.log("\nRecord lines name the member")

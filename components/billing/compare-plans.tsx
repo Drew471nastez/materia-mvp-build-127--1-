@@ -7,8 +7,7 @@
  * The comparison under the cards on the upgrade page: the plan names across
  * the top, then groups of rows, the feature on the left and each plan's
  * answer centred under its name. A number or a word where the answer is
- * one; a check in a green disc or a cross in a grey one where it is yes or
- * no. Pro's column is tinted all the way down, so the eye reads down it.
+ * one; a thin check or a thin grey cross where it is yes or no. Pro's column is tinted all the way down, so the eye reads down it.
  *
  * WHAT IT DOES NOW:
  *
@@ -31,13 +30,13 @@
  */
 import { useId, useState } from "react"
 import { Check, ChevronDown, X } from "lucide-react"
-import { formatPlanPrice, planComparison, planDisplayName, PRO_CHECKOUT_PLAN_ID, PRO_PRICE_CENTS, type ComparisonValue } from "@/lib/billing/plans"
+import { formatPlanPrice, planComparison, planDisplayName, PRO_CHECKOUT_PLAN_ID, PRO_PRICE_CENTS, SCALE_CHECKOUT_PLAN_ID, SCALE_PRICE_CENTS, type ComparisonValue } from "@/lib/billing/plans"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 
 const EASE = "ease-[cubic-bezier(0.32,0.72,0,1)]"
-/* The feature, then Free, then Pro: one set of columns for the header, the group titles and the rows. */
-const COLUMNS = "grid grid-cols-[minmax(0,1fr)_76px_84px] sm:grid-cols-[minmax(0,1fr)_152px_152px]"
+/* The feature, then Free, Pro and Scale: one set of columns for the header, the group titles and the rows. */
+const COLUMNS = "grid grid-cols-[minmax(0,1fr)_62px_70px_70px] sm:grid-cols-[minmax(0,1fr)_136px_136px_136px]"
 const PRO_TINT = "bg-[#f6f5ff]"
 
 function Answer({ value }: { value: ComparisonValue }) {
@@ -45,12 +44,12 @@ function Answer({ value }: { value: ComparisonValue }) {
     return <span className="text-[13px] font-medium tabular-nums text-[#374151] sm:text-[14px]">{value}</span>
   }
   return value ? (
-    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#e3f5e9]" role="img" aria-label={tt("Included")}>
-      <Check className="h-3.5 w-3.5 text-[#15803d]" strokeWidth={3} aria-hidden />
+    <span className="inline-flex h-6 w-6 items-center justify-center" role="img" aria-label={tt("Included")}>
+      <Check className="h-[18px] w-[18px] text-[#1a1a2e]" strokeWidth={1.75} aria-hidden />
     </span>
   ) : (
-    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#f1f2f4]" role="img" aria-label={tt("Not included")}>
-      <X className="h-3.5 w-3.5 text-[#9ca3af]" strokeWidth={3} aria-hidden />
+    <span className="inline-flex h-6 w-6 items-center justify-center" role="img" aria-label={tt("Not included")}>
+      <X className="h-4 w-4 text-[#b6bac2]" strokeWidth={1.75} aria-hidden />
     </span>
   )
 }
@@ -62,7 +61,7 @@ function Group({
   onToggle,
 }: {
   title: string
-  rows: { label: string; free: ComparisonValue; pro: ComparisonValue }[]
+  rows: { label: string; free: ComparisonValue; pro: ComparisonValue; scale: ComparisonValue }[]
   open: boolean
   onToggle: () => void
 }) {
@@ -88,6 +87,7 @@ function Group({
           </span>
           <span aria-hidden />
           <span aria-hidden className={PRO_TINT} />
+          <span aria-hidden />
         </button>
       </h3>
       <div id={id} role="region" aria-label={title} className={cn("grid transition-[grid-template-rows] duration-300", EASE, open ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}>
@@ -105,6 +105,10 @@ function Group({
                 <span className={cn("flex items-center justify-center border-t border-[#ebe8ff] px-1.5 text-center transition-colors duration-150 group-hover/row:bg-[#f0eeff]", PRO_TINT)}>
                   <span className="sr-only">{planDisplayName(PRO_CHECKOUT_PLAN_ID)}: </span>
                   <Answer value={row.pro} />
+                </span>
+                <span className="flex items-center justify-center border-t border-[#f0f1f3] px-1.5 text-center transition-colors duration-150 group-hover/row:bg-[#fafafb]">
+                  <span className="sr-only">{planDisplayName(SCALE_CHECKOUT_PLAN_ID)}: </span>
+                  <Answer value={row.scale} />
                 </span>
               </li>
             ))}
@@ -153,6 +157,14 @@ export function ComparePlans() {
               <span className="sm:hidden">{tt("/mo")}</span>
             </span>
           </span>
+          <span className="flex flex-col items-center justify-center py-3.5 text-center sm:py-4">
+            <span className="text-[14px] font-semibold text-[#1a1a2e] sm:text-[16px]">{planDisplayName(SCALE_CHECKOUT_PLAN_ID)}</span>
+            <span className="text-[11.5px] text-[#5f6570] sm:text-[12px]">
+              {formatPlanPrice(SCALE_PRICE_CENTS)}
+              <span className="hidden sm:inline"> {tt("a month")}</span>
+              <span className="sm:hidden">{tt("/mo")}</span>
+            </span>
+          </span>
         </div>
 
         {sections.map((section) => (
@@ -169,6 +181,7 @@ export function ComparePlans() {
           <span className="h-3" />
           <span />
           <span className={PRO_TINT} />
+          <span />
         </div>
       </div>
     </section>

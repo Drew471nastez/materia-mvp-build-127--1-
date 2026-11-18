@@ -3,13 +3,12 @@ import { pageMetadata } from "@/lib/seo/page-metadata"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 import { storelibApplicationJsonLd, storelibBreadcrumbJsonLd, storelibGraph } from "@/lib/seo/structured-data"
 import { PricingPageClient } from "./pricing-client"
-import { CompareStrip } from "@/components/alternatives/compare-strip"
 
 /* Its own title, canonical and card: with none, /pricing was the home page's title and og:url. */
 export const metadata: Metadata = pageMetadata({
   path: "/pricing",
   title: "Pricing",
-  description: "Two plans. Free has no monthly fee and a 5% + $0.25 fee per sale. Pro is $29 a month and lowers the fee to 3% + $0.25, with your own domain and no Storelib branding.",
+  description: "Three plans. Free has no monthly fee and a 5% + $0.25 fee per sale. Grow is $29 a month and lowers the fee to 3% + $0.25, with your own domain and no Storelib branding. Pro is $99 a month, lowers it to 1.5% + $0.25, and has the most websites, storage and AI edits.",
 })
 
 /*
@@ -28,7 +27,7 @@ export default function PricingPage() {
     <>
       {/* The product with its plans as Offers, priced from lib/billing/plans.ts, and where this page sits (lib/seo/structured-data.ts). */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(storelibGraph(storelibApplicationJsonLd(), storelibBreadcrumbJsonLd([{ name: "Pricing", path: "/pricing" }]))) }} />
-      <PricingPageClient compare={<CompareStrip />} />
+      <PricingPageClient />
     </>
   )
 }

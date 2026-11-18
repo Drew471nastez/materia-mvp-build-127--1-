@@ -20,7 +20,10 @@ process.loadEnvFile(new URL("./build-limits.env", import.meta.url))
   }
 }
 
+// Compile production with Webpack workers: Turbopack's retained graph exceeds
+// the 7 GB Vercel Standard machine. Development still uses Next's default.
+// STORELIB_BUILD_WEBPACK=0 keeps Turbopack available for explicit comparisons.
 const require = createRequire(import.meta.url)
 const next = require.resolve("next/dist/bin/next")
-process.argv.splice(1, 1, next, "build")
+process.argv.splice(1, 1, next, "build", ...(process.env.STORELIB_BUILD_WEBPACK === "0" ? ["--turbopack"] : ["--webpack"]))
 require(next)

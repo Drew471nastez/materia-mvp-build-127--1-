@@ -2,13 +2,14 @@ import { NextResponse } from "next/server"
 import { sellerNumberAndRef } from "@/lib/orders/order-number-server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendSellerMessageEmail } from "@/lib/email"
-import { loginEmailFrom, sellerInbox } from "@/lib/seller-inbox"
+import { loginEmailFrom, provenInbox } from "@/lib/seller-inbox"
 import { rateLimit, LIMITS } from "@/lib/api/rate-limit"
 import { CONTACT_MAX_CHARS, cleanMessage } from "@/lib/receipts/contact"
 import { orderNumberOf } from "@/lib/receipts/rules"
 import { viewerMembership } from "@/lib/memberships/access"
 import { requestViewer } from "@/lib/memberships/viewer"
 import { NOT_SET_UP, siteUrl } from "@/lib/memberships/server"
+import { signedOutOrRetry } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 
@@ -16,7 +17,8 @@ export const runtime = "nodejs"
  * POST /api/memberships/<id>/contact  { message }
  *
  * A member writing to the creator, the way a buyer does from a receipt
- * (app/api/receipt/contact): to the creator's own inbox (lib/seller-inbox),
+ * (app/api/receipt/contact): to the creator's own inbox (lib/seller-inbox
+ * provenInbox, an address the store has proven it owns),
  * with Reply-To the member's address, so the creator answers with Reply.
  * The creator's address is never shown to the member. Rate limited per
  * member and per membership.
@@ -24,7 +26,7 @@ export const runtime = "nodejs"
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const viewer = await requestViewer()
-  if (!viewer) return NextResponse.json({ error: "Sign in to write to the creator." }, { status: 401 })
+  if (!viewer) return signedOutOrRetry(NextResponse.json({ error: "Sign in to write to the creator." }, { status: 401 }), { fresh: true })
   let body: { message?: unknown }
   try {
     body = await request.json()
@@ -49,7 +51,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const row = read.value
   if (!row?.creator_id) return NextResponse.json({ error: "That membership could not be found." }, { status: 404 })
 
-  const inbox = await sellerInbox(admin, row.creator_id, loginEmailFrom(admin))
+  const inbox = await provenInbox(admin, row.creator_id, loginEmailFrom(admin))
   if (!inbox) return NextResponse.json({ error: "This creator has no email address to write to yet, so the message was not sent." }, { status: 409 })
 
   /* The member's latest payment names the order, as a receipt's message does; a trial has none yet, so the membership does. */

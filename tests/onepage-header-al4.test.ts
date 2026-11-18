@@ -32,13 +32,15 @@ check("the creator's own cover is 5:2, the shape the crop editor reads too", OWN
 check("no rounding of its own and no inset margin", !/borderRadius: ownCover && !heroCover \? 16/.test(page) && !/ownCover && !heroCover \? "w-full"/.test(page))
 check("no longer pulled 32px above the top of a phone's page", !/"-mx-5 -mt-8 w-\[calc\(100%\+40px\)\]"/.test(page))
 check("fetched first", /loading="eager" fetchPriority="high" decoding="async"/.test(page))
-check("Your files beside the cover upload", /LibraryButton onClick=\{\(\) => setLibrary\(true\)\}/.test(coverEditor) && /<FilesLibraryChooser/.test(coverEditor))
+/* Changed on purpose (round AR): the cover is the editor's one picture row (components/onepage/image-field), which holds Your files and its chooser itself. */
+check("Your files beside the cover upload", /<OnePageImageField/.test(coverEditor) && /<LibraryButton onClick=\{\(\) => setChoosing\(true\)\} \/>/.test(read("components/onepage/image-field.tsx")) && /<FilesLibraryChooser/.test(read("components/onepage/image-field.tsx")))
 check("the cover sits under the profile image layout in Header", design.indexOf('title={tt("Profile image layout")}') > 0 && design.indexOf("<HeaderCoverEditor />") > design.indexOf('title={tt("Profile image layout")}'))
 
 section("The pattern keeps out from behind the header")
 check("the phone page and the computer's card both clear the header", (page.match(/<WallpaperPattern theme=\{safeTheme\}[^>]*clearHeader \/>/g) ?? []).length === 2)
 check("each measures once, with one hook", /useHeaderClearance\(cardRef,/.test(page) && /useHeaderClearance\(phonePageRef,/.test(page))
-check("the social row is marked for it", /data-op-social-row=""/.test(page))
+/* Changed on purpose (round 3, social): the row is the sliding row now, which carries the mark (tests/onepage-social-r3). */
+check("the social row is marked for it", /<SocialRowScroller/.test(page) && /data-op-social-row=""/.test(read("components/onepage/social-row-scroller.tsx")))
 check("measured by layout, not as drawn during the arrival rise", /function layoutTop\(/.test(layers) && /offsetTop/.test(layers))
 
 section("The gradient drifts on the compositor")
@@ -54,7 +56,8 @@ section("The avatar opens, as on the creator pages")
 check("the creator pages' viewer, around the page's photo", /<AvatarLightbox src=\{hasVideo \? null : onePageImageSrc\(profile\.avatar_url, 640\)\}/.test(page))
 
 section("Design: the way back stays in reach")
-check("a sticky slot at the top of an open panel", /<StickyPanelBack panelRef=\{panelRef\}/.test(design) && /className="sticky top-0 z-20 h-0"/.test(design))
+/* Changed on purpose (round AT): the sticky box is the bar's own 56px, given back with a -56px margin, its own layer for good. */
+check("a sticky slot at the top of an open panel", /<StickyPanelBack panelRef=\{panelRef\}/.test(design) && /className="pointer-events-none sticky top-0 z-20 -mb-14 h-14 will-change-transform"/.test(design))
 check("shown by an IntersectionObserver on the panel's header, not a scroll listener", /new IntersectionObserver\(/.test(design) && /io\.observe\(header\)/.test(design))
 check("a Classic theme keeps a creator's Hero", /currentHeaderLayout !== "hero"/.test(design) && !/Update to Classic"\)\}\s*<\/button>[\s\S]{0,400}function WallpaperSection/.test(design))
 

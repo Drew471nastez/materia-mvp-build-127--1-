@@ -134,6 +134,8 @@ async function main() {
   check("the call uses the repo's one OpenAI client and key, and nothing of Anthropic's", /import \{ MissingKeyError, openai \} from "@\/lib\/sites\/agent\/openai-provider"/.test(ai) && /export function openai\(\): OpenAI/.test(code("lib/sites/agent/openai-provider.ts")) && !/anthropic/i.test(ai))
   check("the everyday model at low effort, with a strict JSON schema", /process\.env\.OPENAI_CATEGORY_MODEL \|\| DEFAULT_MODEL/.test(ai) && /reasoning: \{ effort: "low" \}/.test(ai) && /format: \{ type: "json_schema", name: "category", schema: SCHEMA, strict: true \}/.test(ai))
   check("pictures go as URLs, before the words", /type: "input_image" as const, image_url: url/.test(ai) && ai.indexOf('type: "input_image"') < ai.indexOf("<title>"))
+  /* Production, Nov 11: a 400 with pictures attached left the creator with the keyword guess only. */
+  check("a picture the model refuses (a 400) is asked again with the words only, once, and never for a billing refusal", /input\.images\.length > 0 && \(err as \{ status\?: unknown \} \| null\)\?\.status === 400 && !isBillingRefusal\(err\)/.test(ai) && /return ask\(\[\]\)/.test(ai) && (ai.match(/ask\(\[\]\)/g) ?? []).length === 1)
   check("server only: the key can never reach a browser", /^import "server-only"/m.test(readFileSync("lib/products/category-suggest-ai.ts", "utf8")))
 
   console.log(`\n${passed} passed, ${failed} failed`)

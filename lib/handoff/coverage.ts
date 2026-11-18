@@ -47,7 +47,7 @@ export const BUSINESS_TABLES: Readonly<Record<string, string>> = Object.fromEntr
 )
 
 export const MONEY_TABLES: Readonly<Record<string, string>> = Object.fromEntries(
-  ["ledger_events", "payment_disputes", "payment_fee_records", "payment_payouts", "payouts", "refunds", "seller_ledger"].map((t) => [t, MONEY_HISTORY]),
+  ["ledger_events", "onepage_tips", "payment_disputes", "payment_fee_records", "payment_payouts", "payouts", "refunds", "seller_ledger"].map((t) => [t, MONEY_HISTORY]),
 )
 
 export const CONNECTION_TABLES: Readonly<Record<string, string>> = Object.fromEntries(
@@ -91,7 +91,7 @@ export const DETACHED_TABLES: Readonly<Record<string, string>> = {
 
 /** Read by the function and never changed: a running one refuses the handoff. */
 export const CHECKED_TABLES: Readonly<Record<string, string>> = {
-  subscriptions: "A Storelib plan that is still running is billed to the founder's card, so the handoff is refused until it ends.",
+  subscriptions: "A Storelib plan that is still running is billed to the founder's card, so the handoff is refused until it ends. The ended plan's row, which names the founder's billing customer, is removed once the transfer commits (lib/handoff/server finishHandoff), so the new owner's billing starts fresh.",
   memberships: "Live paid memberships are billed into the founder's payout account, so the handoff is refused until they end.",
 }
 

@@ -113,8 +113,29 @@ export const APP_FROM_DARK_MS = 240
 /** A shell that is slow to come is not waited on longer than this: the veil fades off whatever is there. */
 export const APP_FROM_DARK_CAP_MS = 1500
 
-/** Printed in <head>: the veil, before the first paint, on an /app document opened after a dark page in this tab. */
-export const APP_FROM_DARK_BOOT = `(function(){try{if(!/^\\/app(\\/|$)/.test(location.pathname))return;if(sessionStorage.getItem(${JSON.stringify(LOOK_NOW_KEY)})!=="dark")return;var h=document.documentElement;h.classList.add(${JSON.stringify(APP_FROM_DARK_CLASS)});setTimeout(function(){if(!h.classList.contains(${JSON.stringify(APP_FROM_DARK_CLASS)}))return;h.classList.add(${JSON.stringify(APP_FROM_DARK_OUT_CLASS)});setTimeout(function(){h.classList.remove(${JSON.stringify(APP_FROM_DARK_CLASS)},${JSON.stringify(APP_FROM_DARK_OUT_CLASS)})},${APP_FROM_DARK_MS + 60})},${APP_FROM_DARK_CAP_MS})}catch(e){}})();`
+/*
+  ===========================================================================
+   INTO THE DASHBOARD FROM SIGNING IN
+  ===========================================================================
+  The owner: going from log in or sign up into Storelib was "a direct flash". The sign in screens are white, the
+  dashboard's first frames are its header's #111111 over a grey field and a spinner in another place, so the hand off
+  was a hard cut from one to the other. So the sign in screen, once it is handing off (components/auth/auth-resolving-
+  screen.tsx), leaves a mark in this tab's session storage (FROM_SIGN_IN_KEY, a time), and the /app document that opens
+  next starts under the same veil as above, in the sign in screen's own white (APP_FROM_SIGN_IN_CLASS), which fades off
+  once the shell is on the screen. White, then the dashboard coming up out of it: one screen. The mark is read once by
+  the first page that is not a sign in step, whatever it is, and is ignored after FROM_SIGN_IN_MAX_AGE_MS, so a sign in
+  that was abandoned never veils a later visit.
+*/
+/** This tab's mark that a sign in screen handed off (session storage, the time it did). */
+export const FROM_SIGN_IN_KEY = "storelib:from-sign-in"
+/** On <html> beside APP_FROM_DARK_CLASS: the veil is the sign in screen's white, not the header's colour. */
+export const APP_FROM_SIGN_IN_CLASS = "app-from-sign-in"
+export const FROM_SIGN_IN_MAX_AGE_MS = 10 * 60 * 1000
+/** The steps of a sign in, where the mark waits (lib/auth/arrival.ts arrivalWaitsOn, and the app's own callback). */
+export const SIGN_IN_STEP = /^\/(login|signup|onboarding|auth|verify-email|reset-password|welcome|native-start|app\/auth)(\/|$)/
+
+/** Printed in <head>: the veil, before the first paint, on an /app document opened after a dark page or a sign in in this tab. */
+export const APP_FROM_DARK_BOOT = `(function(){try{var p=location.pathname,h=document.documentElement,s=false;try{var t=Number(sessionStorage.getItem(${JSON.stringify(FROM_SIGN_IN_KEY)}));if(t>0&&!${SIGN_IN_STEP.toString()}.test(p)){sessionStorage.removeItem(${JSON.stringify(FROM_SIGN_IN_KEY)});s=Date.now()-t<${FROM_SIGN_IN_MAX_AGE_MS}}}catch(e){}if(!/^\\/app(\\/|$)/.test(p))return;if(!s&&sessionStorage.getItem(${JSON.stringify(LOOK_NOW_KEY)})!=="dark")return;if(s)h.classList.add(${JSON.stringify(APP_FROM_SIGN_IN_CLASS)});h.classList.add(${JSON.stringify(APP_FROM_DARK_CLASS)});setTimeout(function(){if(!h.classList.contains(${JSON.stringify(APP_FROM_DARK_CLASS)}))return;h.classList.add(${JSON.stringify(APP_FROM_DARK_OUT_CLASS)});setTimeout(function(){h.classList.remove(${JSON.stringify(APP_FROM_DARK_CLASS)},${JSON.stringify(APP_FROM_DARK_OUT_CLASS)},${JSON.stringify(APP_FROM_SIGN_IN_CLASS)})},${APP_FROM_DARK_MS + 60})},${APP_FROM_DARK_CAP_MS})}catch(e){}})();`
 
 /*
   No boot for a page with a look of its own any more (round 31): it took the dark look off the whole document, the

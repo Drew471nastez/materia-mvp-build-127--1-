@@ -59,6 +59,12 @@ const PROOFS: [string, RegExp][] = [
   ["a signed-in session, fresh and classified", /await routeUser\((?:\{ (?:fresh: (?:false|true|!opts\.read)|full: true) \})?\)[\s\S]*(?:who|caller|asker|signIn)\.kind === "unavailable"\) return authUnavailableResponse\(\)/],
   /* Round 52: lib/auth/route-user readerForRequest is readCurrentUser's three answers from the request's one read (the token's verified signature first); the route acts only on `current.user`. */
   ["a signed-in session, the request's one read, classified", /await readerForRequest\(\)[\s\S]*if \(!(current\.)?user\b/],
+  /*
+    Round rel2-auth: the routes that asked auth.getUser() themselves now ask Supabase Auth itself through lib/auth/route-user
+    `fresh` (strictUserForRequest: Auth's own answer, retries, never the token's signature alone), keep "could not tell" apart,
+    and act only on `who.user` (null for nobody and for could not tell alike).
+  */
+  ["a signed-in session, Supabase Auth itself (fresh)", /routeUser\(\{ fresh: true \}\)[\s\S]*who\.kind === "user" \? who\.user/],
   ["a helper that leaves the decision to RLS", /\b(resolveSite|getSite)\(/],
   /* requireAdmin() in lib/admin/gate.ts is isAdminAuthenticated with the 401 attached. */
   ["the admin password", /isAdminAuthenticated|await requireAdmin\(\)/],
@@ -90,7 +96,8 @@ const PROOFS: [string, RegExp][] = [
   /* lib/team/server.ts storeIdFor: auth.getUser(), then the store this
      account owns or is an active member of for that area, read from the
      database on every request; 401 or 403 otherwise. */
-  ["the store behind the session, for one area", /await storeIdFor\("[a-z]+"(?:, \{ read: true \})?\)[\s\S]*(if \(store\.ok === false\)|return store\.ok \? store\.creatorId : null)/],
+  /* Changed on purpose (rel2-auth): app/api/invoice returns a refusal other than 401 as itself (503, 403) instead of null; it still acts only on store.creatorId. */
+  ["the store behind the session, for one area", /await storeIdFor\("[a-z]+"(?:, \{ read: true \})?\)[\s\S]*(if \(store\.ok === false\)|return store\.ok \? store\.creatorId : null|if \(store\.ok\) return store\.creatorId)/],
   /* Changed on purpose (round 40 team permissions): lib/team/server.ts requireTeamPermission is auth.getUser() (401 without a session),
      then the store this account owns or is an active member of with that area, read from the database on every request (403 otherwise).
      The same proof as storeIdFor, which wraps it; a route acts only on the gate it got back. */
@@ -121,6 +128,11 @@ const PROOFS: [string, RegExp][] = [
  * already public.
  */
 const PUBLIC_BY_DESIGN: Record<string, string> = {
+  /* Round AR: OnePage visitors and a booker's own link. */
+  "bookings/manage/[token]/route.ts": "A booker's own booking, opened only by the server-signed token from their email (HMAC over the booking id; a changed id or signature is a 404). Reads that one booking, its free times and moves or cancels it; limited per address, reads and writes apart.",
+  "onepage/poll/route.ts": "A vote on a published poll block: the block is read from the live page, one vote per visitor (an http-only cookie stored only as a hash, a unique index), limited per address, robots and prefetches refused, a block outside its schedule refused.",
+  "onepage/rsvp/route.ts": "An RSVP to a published event block: the block is read from the live page, limited per address and per email like a signup, and stored as a lead for that page's owner; nothing is read back.",
+  "onepage/tip/route.ts": "A tip on a published tips block: the amount is checked against the block, the money goes only to the page owner's own connected account (destination charge), limited like a payment; the return only reads back that Checkout Session.",
   "forms/[id]/public/route.ts": "A reusable public form: reads only the validated published snapshot for this exact UUID. Drafts, owners, answers and integration configuration are never returned; anonymous access is intentional.",
   "forms/[id]/slots/route.ts": "A published booking form's free times for this exact UUID: only start and end instants are returned, never who booked or which form; limited per address.",
   "forms/[id]/upload/route.ts": "One visitor file for a file question of a published form: limited per address and form, capped at 4 MB before reading, checked by its bytes, kept in a private bucket; the answer is a reference signed for this form and one submission token, never a link.",

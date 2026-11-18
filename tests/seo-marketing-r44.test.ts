@@ -96,7 +96,7 @@ console.log("\nEach page in scope sets its own")
   check("  and not in the root layout, where every page without one would inherit it", !/canonical/.test(code("app/(storelib)/layout.tsx")))
   const pricingDesc = (pageMetadata({ path: "/pricing", title: "Pricing", description: "x" }) as Any).description
   check("  (a description is the one given)", pricingDesc === "x")
-  check("the pricing description says what the plans cost, as the pricing section does", /\$29 a month/.test(read("app/(storelib)/(marketing)/pricing/page.tsx")) && /5% \+ \$0\.25/.test(read("app/(storelib)/(marketing)/pricing/page.tsx")) && /Pro is \$29 a month and lowers the fee on every sale from 5% to 3%/.test(read("components/marketing/pricing-section.tsx")))
+  check("the pricing description says what the plans cost, as the pricing section does", /\$29 a month/.test(read("app/(storelib)/(marketing)/pricing/page.tsx")) && /5% \+ \$0\.25/.test(read("app/(storelib)/(marketing)/pricing/page.tsx")) && /* Changed on purpose (wave 13): the owner asked for a plain line under "Pricing & Plans"; the prices are on the cards and in the description. */ /Free to start\. Upgrade when you grow\./.test(read("components/marketing/pricing-section.tsx")) && /Pro is \$99 a month/.test(read("app/(storelib)/(marketing)/pricing/page.tsx"))) /* Changed on purpose (pricing round 5): the $99 plan reads "Pro" now. */
 }
 
 console.log("\nLegal documents")
@@ -194,7 +194,9 @@ console.log("\nThe blog's pages")
   check("a cover is drawn, decorative beside its titled link", /<img[^>]*alt=""[^>]*c\.jpg|<img[^>]*c\.jpg[^>]*alt=""/.test(withCover) && /<a[^>]*href="\/blog\/post-1"/.test(withCover))
 
   const index = code("app/(storelib)/(marketing)/blog/_blog-index.tsx")
-  check("the index's title has no em dash and no second | Storelib", /title: first \? "Storelib Blog: guides for selling digital products"/.test(index) && /absolute: true/.test(index) && !/—/.test(index))
+  /* Changed on purpose (landing round 15): the words live in blog/_components/blog-titles.ts, shared with the tab title a category switch writes in the browser. */
+  const titles = code("app/(storelib)/(marketing)/blog/_components/blog-titles.ts")
+  check("the index's title has no em dash and no second | Storelib", /title: blogIndexTitle\(page\)/.test(index) && /page <= 1 \? "Storelib Blog: guides for selling digital products"/.test(titles) && !/—/.test(titles) && /absolute: true/.test(index) && !/—/.test(index))
   check("  and links the feed", /types: BLOG_FEED_ALTERNATE/.test(index))
   const older = code("app/(storelib)/(marketing)/blog/page/[page]/page.tsx")
   /* Measured on the built site (round 44): inside loading.tsx's boundary these answered 200, so they are decided in a layout, before anything streams. */
@@ -203,8 +205,8 @@ console.log("\nThe blog's pages")
   check("no loading.tsx under /blog: a skeleton there sends the 200 before notFound() or a redirect", !existsSync(join(process.cwd(), "app/(storelib)/(marketing)/blog/loading.tsx")) && !existsSync(join(process.cwd(), "app/(storelib)/(marketing)/blog/[slug]/loading.tsx")))
   check("a missing post is a 404 from its layout, before the stream", /if \(!\(await blogPostExists\(slug\)\)\) notFound\(\)/.test(code("app/(storelib)/(marketing)/blog/[slug]/layout.tsx")) && /STATIC_BLOG_SLUGS\.includes\(slug\)/.test(code("lib/blog/post.ts")))
   check("/blog/page/N past the last page is noindex in its own metadata too", /n && n > 1 && \(await blogIndexPage\(n\)\) \? blogIndexMetadata\(n\)/.test(code("app/(storelib)/(marketing)/blog/page/[page]/page.tsx")))
-  check("/blog/page/N: page 1 is a 308 to /blog, a page that does not exist a 404", /if \(n === 1\) permanentRedirect\("\/blog"\)/.test(older) && /if \(!page\) notFound\(\)/.test(older) && /export const revalidate = 60/.test(older))
-  check("the feed route exists and is rebuilt once a minute", /blogRssXml\(await readBlogPosts\(\)\)/.test(code("app/(storelib)/(marketing)/blog/rss.xml/route.ts")) && /application\/rss\+xml/.test(code("app/(storelib)/(marketing)/blog/rss.xml/route.ts")) && /export const revalidate = 60/.test(code("app/(storelib)/(marketing)/blog/rss.xml/route.ts")))
+  check("/blog/page/N: page 1 is a 308 to /blog, a page that does not exist a 404", /if \(n === 1\) permanentRedirect\("\/blog"\)/.test(older) && /if \(!page\) notFound\(\)/.test(older) && /export const revalidate = 3600/.test(older))
+  check("the feed route exists and is rebuilt hourly, cleared at once on publish (round 54)", /blogRssXml\(await readBlogPosts\(\)\)/.test(code("app/(storelib)/(marketing)/blog/rss.xml/route.ts")) && /application\/rss\+xml/.test(code("app/(storelib)/(marketing)/blog/rss.xml/route.ts")) && /export const revalidate = 3600/.test(code("app/(storelib)/(marketing)/blog/rss.xml/route.ts")))
   /* Moved (round 45): /blog/category/<slug>, written in _blog-category.tsx; the old address is a 308 (tests/blog-public-r45.test.ts). */
   const cat = code("app/(storelib)/(marketing)/blog/_blog-category.tsx")
   check("a category's title names it once and the blog once", /`\$\{category\.name\} \| Storelib Blog`/.test(cat) && /absolute: true/.test(cat) && !/—/.test(cat))

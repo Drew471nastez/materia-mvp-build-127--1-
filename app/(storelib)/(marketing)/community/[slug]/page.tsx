@@ -10,7 +10,7 @@ import { meetsRole } from "@/lib/communities/permissions"
 import { welcomeGate } from "@/lib/account/welcome"
 import { communitiesEnabled } from "@/lib/communities/flag"
 import { communityBySlug, sharePreviewable, communityIndexable, loadSalesPage, seoFacts } from "@/lib/communities/server/public"
-import { aboutExtras } from "@/lib/communities/server/about"
+import { publicAboutExtras } from "@/lib/communities/server/about"
 import { admin } from "@/lib/communities/server/db"
 import { leaveReasonsReady } from "@/lib/communities/server/leave-reasons"
 import { jsonLdScript } from "@/lib/seo/json-ld"
@@ -138,7 +138,7 @@ export default async function CommunityPage({
   /* Leaving asks why once part 98 is in (round 12), for a member who can leave; the check is remembered by the server. */
   /* Round 44: by the metadata's own rule, so a page that says noindex (waiting to be deleted, or its creator banned) claims nothing in structured data either. Started beside the reads below. */
   const unlisted = Promise.all([communityDeleting(load.community.id), ownerBanned(load.community.creator_id)]).then(([deleting, banned]) => deleting || banned)
-  const [extras, askWhy, origin] = await Promise.all([aboutExtras(admin(), load.community), load.data.join.canLeave ? leaveReasonsReady(admin()) : Promise.resolve(false), communityDomainOrigin(load.community.id)])
+  const [extras, askWhy, origin] = await Promise.all([publicAboutExtras(load.community), load.data.join.canLeave ? leaveReasonsReady(admin()) : Promise.resolve(false), communityDomainOrigin(load.community.id)])
   const jsonLd = communityJsonLd(load.data.community, communityIndexable(load.community), origin)
   const hidden = await unlisted
   /* A stranger's sales page: its stored copy kept fresh, at most hourly per server (lib/edge/snapshot-capture.ts). */

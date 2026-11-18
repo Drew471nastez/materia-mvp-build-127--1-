@@ -67,9 +67,13 @@ console.log("\nOnePage: the legal text in a sheet, Share and Subscribe as one di
 {
   const live = code("components/onepage/public-onepage.tsx")
   const links = code("components/onepage/onepage-legal-links.tsx")
-  check("the footer's links are the sheet's", /<OnePageLegalLinks dark=\{isDarkBackground\}/.test(live) && /show\("privacy", "cookies"\)/.test(links) && /show\("privacy"\)/.test(links) && /show\("terms"\)/.test(links))
-  check("the text is loaded only when asked for, and warmed on the press", /dynamic\(loadReader, \{\s*ssr: false/.test(links) && /const loadReader = \(\) => import\("@\/components\/legal\/legal-reader"\)/.test(links) && /onPointerDown=\{warm\}/.test(links))
-  check("Report goes to the Help Center's article, not the terms", /publicHelpUrl\("\/policies\/report-a-product"\)/.test(links))
+  /* Changed on purpose (round AS): Cookies opens the sheet's own Cookies tab (the visitor's choices), not the policy at #cookies. */
+  check("the footer's links are the sheet's", /<OnePageLegalLinks dark=\{isDarkBackground\}/.test(live) && /show\("cookies"\)/.test(links) && /show\("privacy"\)/.test(links) && /show\("terms"\)/.test(links))
+  /* Changed on purpose (round AS): the cookie choices and the report form come with the reader, in the same idle fetch. */
+  /* Changed on purpose (round AR): the reader is fetched once the page is idle, and again on hover and the press, so a tap opens it with its text; no next/dynamic and no grey bars (tests/onepage-ar1.test.ts). */
+  check("the text is fetched while idle and warmed on the press, never in the page's first script", /reading \?\?= Promise\.all\(\[import\("@\/components\/legal\/legal-reader"\)/.test(links) && /requestIdleCallback\(run/.test(links) && /onPointerDown=\{warm\}/.test(links))
+  /* Changed on purpose (round AS): Report is a short form in a sheet of the page's own, sent to the team with the page's address (tests/onepage-as2.test.ts). */
+  check("Report opens its own sheet with the form, not the terms", /setReportOpen\(true\)/.test(links) && /<Panels\.ReportForm /.test(links))
   const reader = code("components/legal/legal-reader.tsx")
   check("links inside the sheet stay inside it", /onKind\(m\[1\] as LegalKind, m\[2\]\)/.test(reader) && /href\.startsWith\("#"\)\) return go/.test(reader) && /window\.open\(a\.href, "_blank", "noopener"\)/.test(reader))
 

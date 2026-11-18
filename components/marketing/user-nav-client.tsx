@@ -15,6 +15,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Settings, LogOut, Library, LayoutDashboard, Sparkles } from "lucide-react"
 import Link from "next/link"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
+import { endDeviceSession } from "@/lib/auth/log-out"
 import { nativeLogOut } from "@/lib/native-bridge"
 import { useRouter } from "next/navigation"
 import type { User as SupabaseUser } from "@supabase/supabase-js"
@@ -35,8 +36,8 @@ export function UserNavClient({ user, profile, isCreator }: UserNavClientProps) 
   const router = useRouter()
 
   const handleSignOut = async () => {
-    const supabase = createClient()
-    await supabase.auth.signOut({ scope: "local" })
+    /* The browser's sign out, the server's, then this device forgets the account (lib/auth/log-out). */
+    await endDeviceSession("local", createClient().auth)
     if (isNativePlatform()) {
       nativeLogOut()
     } else {

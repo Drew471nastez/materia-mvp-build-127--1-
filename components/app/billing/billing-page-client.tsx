@@ -167,7 +167,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
     const canceled = searchParams.get("canceled")
 
     if (success === "1" || success === "true") {
-      showNotification("success", tt("You are on Pro now"))
+      showNotification("success", tt("You are on Grow now"))
       window.history.replaceState({}, "", "/app/settings/billing")
       router.refresh()
     } else if (setupSuccess === "1" || setupSuccess === "true") {
@@ -335,7 +335,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
   }
 
   // Use live state (updated by client-side actions). Named for people, not by
-  // id: internal "growth" is sold as Pro, and the earlier "pro" is also Pro.
+  // id: internal "growth" is sold as Grow, and internal "pro" as Pro.
   const currentPlan = withPlanLabel(liveCurrentPlan)
   const subscription = liveSubscription
   const isSubscribed = subscription && (subscription.status === "active" || subscription.status === "trialing" || subscription.status === "past_due")
@@ -502,7 +502,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
                 <div className={cn("mt-auto flex-col gap-2.5 pt-5 sm:flex-row sm:flex-wrap", readOnly ? "hidden" : "flex")}>
                   {(currentPlan.id === "free" || subscription?.status === "canceled") && !isSubscribed && (
                     <Link href="/app/settings/billing/upgrade" className={cn(primaryDepth, "h-10 rounded-xl px-4 text-[14px] no-underline sm:flex-1")}>
-                      {subscription?.status === "canceled" ? tt("Start Pro again") : tt("Upgrade to Pro")}
+                      {subscription?.status === "canceled" ? tt("Start Grow again") : tt("Upgrade to Grow")}
                     </Link>
                   )}
                   {isEnding && (
@@ -511,7 +511,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
                       {tt("Resume plan")}
                     </button>
                   )}
-                  {/* Pro (id "growth") is the top plan on sale, so there is nothing to upgrade to from it. */}
+                  {/* Moving between Grow and Pro is done from the plan cards below (the upgrade page). */}
                   {isSubscribed && (
                     <button type="button" onClick={openCustomerPortal} disabled={portalLoading} className={cn(secondaryDepth, "h-10 rounded-xl px-4 text-[14px] whitespace-nowrap sm:flex-1")}>
                       {portalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
@@ -551,7 +551,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
                   <div className="mt-4 rounded-[14px] border border-dashed border-[#d9dbe0] bg-[#fafafb] px-4 py-6 text-center">
                     <CreditCard className="mx-auto h-6 w-6 text-[#9ca3af]" aria-hidden />
                     <p className="mt-2 text-[14px] font-medium text-[#1a1a2e]">{tt("No card on file")}</p>
-                    <p className="mt-0.5 text-[13px] text-[#6b7280]">{tt("Add one to pay for Pro.")}</p>
+                    <p className="mt-0.5 text-[13px] text-[#6b7280]">{tt("Add one to pay for your plan.")}</p>
                   </div>
                 )}
 
@@ -593,11 +593,11 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
                   {pendingPlan ? <>{tt(", then {name} at {amount}/month", { name: pendingPlan.name, amount: formatPlanPrice(pendingPlan.price_cents) })}</> : null}.
                 </p>
               ) : subscription?.current_period_end && subscription.cancel_at_period_end ? (
-                <p className="text-[13px] text-[#7a5200]">{tt("No more charges. Pro ends on {date}.", { date: formatDateLong(subscription.current_period_end) })}</p>
+                <p className="text-[13px] text-[#7a5200]">{tt("No more charges. {name} ends on {date}.", { name: currentPlan.name, date: formatDateLong(subscription.current_period_end) })}</p>
               ) : subscription?.status === "canceled" ? (
                 <p className="text-[13px] text-[#6b7280]">
                   {tt("Your subscription was canceled.")}{" "}
-                  <Link href="/app/settings/billing/upgrade" className="font-medium text-[#1a1a2e] underline underline-offset-2">{tt("Start Pro again")}</Link>
+                  <Link href="/app/settings/billing/upgrade" className="font-medium text-[#1a1a2e] underline underline-offset-2">{tt("Start Grow again")}</Link>
                 </p>
               ) : (
                 <p className="text-[13px] text-[#6b7280]">{tt("No subscription. Free has no monthly charge.")}</p>
@@ -1013,7 +1013,6 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
   }
 
   const isCanceling = subscription?.cancel_at_period_end === true
-  const isLegacyPro = currentPlan.id === "pro"
 
   const actionFor = (id: OfferedPlanId): PlanCardAction => {
     const offered = offeredPlan(id)
@@ -1028,7 +1027,6 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
     if (isCurrentPlan) label = "Current plan"
     else if (isPendingPlan) label = isFree ? "Downgrade scheduled" : "Switch scheduled"
     else if (isCanceling && isFree) label = "Cancellation scheduled"
-    else if (isLegacyPro && !isFree) label = `Switch to ${offered.name} at ${offered.price}`
     else if (isFree) label = "Downgrade to Free"
     else if (isDowngrade) label = `Downgrade to ${offered.name}`
 
@@ -1053,12 +1051,14 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
       <PlanCards
         heading={
           <div className="mx-auto max-w-[560px] pt-1 text-center sm:pt-2" data-plans-header="">
-            <h2 className="text-[26px] font-bold leading-[1.1] tracking-[-0.02em] text-[#1a1a2e] sm:text-[32px]">{tt("Plans and pricing")}</h2>
-            <p className="mt-2 text-balance text-[14.5px] leading-[1.5] text-[#6b7280] sm:text-[15px]">{tt("Start free. Upgrade when you're ready, and change or cancel anytime.")}</p>
+            <h2 className="text-[22px] font-bold leading-[1.15] tracking-[-0.02em] text-[#1a1a2e] sm:text-[24px]">{tt("Plans and pricing")}</h2>
+            <p className="mt-1.5 text-balance text-[14px] leading-[1.5] text-[#6b7280]">{tt("Start free. Upgrade when you're ready, and change or cancel anytime.")}</p>
           </div>
         }
-        actions={{ free: actionFor("free"), growth: actionFor("growth") }}
+        actions={{ free: actionFor("free"), growth: actionFor("growth"), pro: actionFor("pro") }}
         lead={currentPlan.id === "free" ? "growth" : undefined}
+        /* Inside Settings the cards are the onboarding's compact size: the page-size cards overflowed the panel (the owner: "look how bad it looks"). */
+        compact
       />
     </div>
   )

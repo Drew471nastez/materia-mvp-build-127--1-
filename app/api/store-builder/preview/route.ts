@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { creatorPageStore } from "@/lib/team/creator-page"
-import { readUserForRoute } from "@/lib/auth/route-user"
+import { authUnavailableResponse, readUserForRoute } from "@/lib/auth/route-user"
 
 // GET - Get preview data (draft config) for rendering
 export async function GET(request: Request) {
@@ -16,8 +16,8 @@ export async function GET(request: Request) {
   const supabase = await createClient()
 
   // Verify user owns this creator
-  const { data: { user } } = await readUserForRoute()
-
+  const { data: { user }, unavailable } = await readUserForRoute()
+  if (unavailable) return authUnavailableResponse()
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }

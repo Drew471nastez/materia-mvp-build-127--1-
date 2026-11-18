@@ -69,3 +69,26 @@ export function arrivalWaitsOn(pathname: string): boolean {
 export function arrivalCookieOptions(secure: boolean) {
   return { path: "/", httpOnly: false, sameSite: "lax" as const, secure, maxAge: ARRIVAL_MAX_AGE_SECONDS }
 }
+
+/**
+ * WHERE THE NOTE STANDS: OVER THE PHONE'S BAR, NEVER ON IT. The owner: the
+ * note sat on /app's tab bar on a phone. It only knew the buyer's bar
+ * (--buyer-tabs-h); /app's pill publishes its own top, --app-nav-top (the
+ * pill's height and its lift over the home indicator, app/globals.css), which
+ * the Android exit toast already stands on. Both are the bars' own measured
+ * values, safe area included, so nothing is counted twice.
+ *
+ *   "app"    16px over /app's pill
+ *   "other"  16px over the home indicator, 12px over the buyer's bar or a
+ *            community's join bar, whichever is highest (the same rule as
+ *            components/community/fixed-foot-chrome.ts)
+ */
+export type ArrivalSurface = "app" | "other"
+
+export function arrivalBottom(surface: ArrivalSurface): string {
+  if (surface === "app") return "calc(var(--app-nav-top, env(safe-area-inset-bottom, 0px)) + 16px)"
+  return "max(calc(env(safe-area-inset-bottom, 0px) + 16px), calc(var(--buyer-tabs-h, 0px) + 12px), calc(var(--community-fixed-foot-h, 0px) + 12px))"
+}
+
+/** How long the note takes to come and to go: long enough to read as a movement, short enough not to wait on. */
+export const ARRIVAL_MOVE_MS = 240

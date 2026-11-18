@@ -26,12 +26,13 @@
  * and the admin control says to run it.
  */
 import type { PlanId } from "./plans"
+import { dataOrThrow } from "@/lib/net/service-error"
 
-/** Every tier an admin can assign: what is sold (Free, Pro as `growth`) and the older $99 Pro. */
+/** Every tier an admin can assign, all three on sale: Free, Grow (`growth`, $29) and Pro (`pro`, $99). */
 export const ASSIGNABLE_PLANS: readonly { id: PlanId; label: string }[] = [
   { id: "free", label: "Free" },
-  { id: "growth", label: "Pro" },
-  { id: "pro", label: "Pro, $99 legacy" },
+  { id: "growth", label: "Grow, $29" },
+  { id: "pro", label: "Pro, $99" },
 ]
 
 export function isAssignablePlan(v: unknown): v is PlanId {
@@ -51,15 +52,31 @@ export interface PlanOverride {
 
 type Db = { from: (table: string) => any; rpc?: (fn: string, args: Record<string, unknown>) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
-/** The override in force for a creator, or null (none, or the SQL has not run). Never throws. */
+/** The table or its columns are not there yet (SQL part 252 not run): no override, as before. */
+function overridesMissing(error: { code?: string; message?: string } | null | undefined): boolean {
+  if (!error) return false
+  return ["42P01", "PGRST205", "PGRST204", "42703"].includes(error.code ?? "") || /creator_plan_overrides|does not exist|schema cache/i.test(error.message ?? "")
+}
+
+/**
+ * The override in force for a creator, or null (none, or the SQL has not run).
+ *
+ * Round rel2-auth: a read that FAILED throws a ServiceUnavailable
+ * (lib/net/service-error). It was null, "no override", so a store given Pro
+ * from /admin read as Free for as long as the database was slow; the routes
+ * that show or decide the plan answer 503 Try again instead.
+ */
 export async function readPlanOverride(db: Db, creatorId: string): Promise<PlanOverride | null> {
+  let read: { data: any; error: any; status?: number } // eslint-disable-line @typescript-eslint/no-explicit-any
   try {
-    const { data, error } = await db.from(OVERRIDES_TABLE).select("plan_id, paid_plan_id, paid_status, set_at").eq("creator_id", creatorId).maybeSingle()
-    if (error || !data || !isAssignablePlan(data.plan_id)) return null
-    return { planId: data.plan_id, paidPlanId: data.paid_plan_id ?? null, paidStatus: data.paid_status ?? null, setAt: data.set_at ?? null }
-  } catch {
-    return null
+    read = await db.from(OVERRIDES_TABLE).select("plan_id, paid_plan_id, paid_status, set_at").eq("creator_id", creatorId).maybeSingle()
+  } catch (e) {
+    read = { data: null, error: { message: e instanceof Error ? `${e.name}: ${e.message}` : String(e) } }
   }
+  if (read.error && overridesMissing(read.error)) return null
+  const data = dataOrThrow("plan override", read)
+  if (!data || !isAssignablePlan(data.plan_id)) return null
+  return { planId: data.plan_id, paidPlanId: data.paid_plan_id ?? null, paidStatus: data.paid_status ?? null, setAt: data.set_at ?? null }
 }
 
 /**

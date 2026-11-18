@@ -2,8 +2,8 @@ import { NextResponse } from "next/server"
 import { formatStoreMoney } from "@/lib/store/currency"
 import { createClient } from "@/lib/supabase/server"
 import { stripe } from "@/lib/stripe"
-import { syncChargeRefund } from "@/lib/stripe/refund-sync"
-import { fullyRefunded } from "@/lib/orders/refund-state"
+import { paidElsewhere, syncChargeRefund } from "@/lib/stripe/refund-sync"
+import { fullyRefunded, REFUND_CHANGED, refundChangedMessage, refundEchoStale } from "@/lib/orders/refund-state"
 import { emit } from "@/lib/notify/outbox"
 import { PAST_PROVIDER_REFUND_NOTE, paidThroughAirwallex } from "@/lib/payments/past-provider"
 import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
@@ -105,6 +105,18 @@ export async function POST(request: Request) {
 
     // Validate refund amount
     const maxRefundCents = Math.max(0, (order.amount_cents || 0) - alreadyRefunded)
+    /*
+      WHAT THE DIALOG READ (lib/orders/refund-state refundEchoStale): the page sends what it showed as left to
+      refund. The key below moves on once a refund has gone through, so a press sent again after its answer was
+      lost, or from a tab opened before another refund, would be a second refund of the same part. It finds the
+      order moved on and is refused instead, with what the order holds now. A page that sends nothing refunds as before.
+    */
+    if (refundEchoStale(body.refundable, maxRefundCents)) {
+      return NextResponse.json(
+        { error: refundChangedMessage(alreadyRefunded, (cents) => formatStoreMoney(cents, order.currency)), code: REFUND_CHANGED, refundableCents: maxRefundCents, refundedCents: alreadyRefunded },
+        { status: 409 },
+      )
+    }
     const refundAmountCents = amount === undefined || amount === null ? maxRefundCents : Math.round(Number(amount) * 100)
 
     if (!Number.isFinite(refundAmountCents) || refundAmountCents <= 0) {
@@ -215,13 +227,29 @@ export async function POST(request: Request) {
       }
       /* Refunded in full across several refunds from this page: the library
          entry goes, which a single refund's share cannot see on its own. */
-      if (refundedTotal >= (order.amount_cents || 0) && order.buyer_id && order.product_id) {
+      if (refundedTotal >= (order.amount_cents || 0) && order.buyer_id && order.product_id && !(await paidElsewhere(admin, order))) {
         let revoke = admin.from("entitlements").delete().eq("buyer_id", order.buyer_id).eq("product_id", order.product_id)
         revoke = order.variant_id ? revoke.eq("variant_id", order.variant_id) : revoke.is("variant_id", null)
         await revoke.then(
           () => undefined,
           () => undefined,
         )
+      }
+    }
+
+    /*
+      AN ORDER THAT SHIPS catches up here, on the server: its status and refunded total, the buyer's refund email
+      and, refunded in full before anything shipped, its stock (lib/physical/orders-server restateCheckoutRefunds).
+      It used to wait for the browser to come back and say "refunded", so a tab closed after the press left the
+      order reading Paid and the buyer with no email; a refund in cash has no webhook to do it later either.
+      Keyed throughout: the page's follow-up and Stripe's event after it add nothing.
+    */
+    if (admin && order.checkout_id) {
+      try {
+        const { restateCheckoutRefunds } = await import("@/lib/physical/orders-server")
+        await restateCheckoutRefunds(admin, [String(order.checkout_id)], "creator")
+      } catch (restateErr) {
+        console.error("[Refund] order not restated; the order page or charge.refunded will:", restateErr instanceof Error ? restateErr.message : restateErr)
       }
     }
 

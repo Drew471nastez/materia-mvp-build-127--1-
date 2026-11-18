@@ -24,7 +24,7 @@ export const whop: Competitor = {
   ],
   whyStorelib: [
     { text: "Payouts from Storelib go to your bank through Stripe, and Cash out is free. On Whop each payout method has its own fee.", code: "lib/payments/stripe/payout-regions.ts" },
-    { text: `A store, a website and a bio link that are yours to design: ${STORELIB.freeSites} websites on Free and ${STORELIB.proSites} on Pro${STORELIB.proCustomDomain ? ", your own domain on Pro" : ""}.`, code: "lib/sites/plan.ts" },
+    { text: `A store, a website and a bio link that are yours to design: ${STORELIB.freeSites} websites on Free and ${STORELIB.proSites} on Grow${STORELIB.proCustomDomain ? ", your own domain on Pro" : ""}.`, code: "lib/sites/plan.ts" },
     { text: "Email campaigns and automations to your buyers and subscribers, built into the same dashboard as your orders.", code: "app/(storelib)/app/emails" },
     { text: "Digital products, courses and paid communities sit side by side, so a community is one of the things you sell rather than the whole business.", code: "app/(storelib)/app/courses" },
   ],
@@ -50,7 +50,7 @@ export const whop: Competitor = {
     { text: "Email campaigns, automations, discount codes, bundles and upsells.", code: "app/(storelib)/app/offers" },
   ],
   storelibLimits: [
-    { text: `Storelib's ${STORELIB.freeFee} on Free or ${STORELIB.proFee} on Pro comes before Stripe's processing, so per payment it costs more than Whop's 2.7% + 30¢.`, code: "lib/payments/fees/defaults.ts" },
+    { text: `Storelib's ${STORELIB.freeFee} on Free or ${STORELIB.proFee} on Grow comes before Stripe's processing, so per payment it costs more than Whop's 2.7% + 30¢.`, code: "lib/payments/fees/defaults.ts" },
     { text: "No Discord or Telegram integration.", code: "lib/communities" },
     { text: "No affiliate program for sellers.", code: "lib/attribution/touch.ts" },
     { text: "Payouts go through Stripe to banks in the US, UK, EEA, Canada and Switzerland only.", code: "lib/payments/stripe/payout-regions.ts" },
@@ -104,10 +104,10 @@ export const whop: Competitor = {
   moving: {
     products: "Rebuild downloads and courses as products. A paid membership becomes a paid community plan, billed monthly or yearly.",
     customers: "Members cannot be moved with their payment details. Tell them before their next Whop renewal, with your Storelib link, so nobody pays twice.",
-    domain: "Replace your Whop links with your OnePage or product links. To use a domain of your own, connect it to a Storelib website on Pro.",
+    domain: "Replace your Whop links with your OnePage or product links. To use a domain of your own, connect it to a Storelib website on Grow.",
   },
   faqs: [
-    { q: "Is Storelib cheaper than Whop?", a: `On fees per payment, usually not. Whop takes 2.7% + 30¢ with processing included. Storelib takes ${STORELIB.freeFee} on Free or ${STORELIB.proFee} on Pro, and Stripe's processing comes on top. Whop charges for payouts, which Storelib does not, so the gap is smaller than the card rate alone suggests.` },
+    { q: "Is Storelib cheaper than Whop?", a: `On fees per payment, usually not. Whop takes 2.7% + 30¢ with processing included. Storelib takes ${STORELIB.freeFee} on Free or ${STORELIB.proFee} on Grow, and Stripe's processing comes on top. Whop charges for payouts, which Storelib does not, so the gap is smaller than the card rate alone suggests.` },
     { q: "Can Storelib give buyers access to a Discord server?", a: "No. Storelib has no Discord or Telegram integration. If server access is what you sell, Whop is built for it." },
     {
       q: "Can I run a paid community on Storelib?",

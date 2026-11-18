@@ -61,6 +61,7 @@ import { RegistrarMark } from "@/components/app/settings/registrar-mark"
 import { secondaryDepth } from "@/components/ui/depth-button"
 import { tt } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
+import { slowingPoll } from "@/lib/ui/slowing-poll"
 
 export interface DomainItem {
   id: string
@@ -521,8 +522,8 @@ export function DomainsPanel({
       if (document.visibilityState !== "visible") return
       for (const d of dataRef.current?.domains ?? []) if (d.status === "ssl_provisioning") void check(d, true)
     }
-    const id = window.setInterval(tick, 12000)
-    return () => window.clearInterval(id)
+    /* Slower the longer it waits (round 54, lib/ui/slowing-poll.ts): a certificate that never comes is not asked about every 12 seconds all day. */
+    return slowingPoll(tick, 12000)
   }, [securing, check])
 
   /* ── What it connects to, primary, remove ───────────────────────────── */
@@ -907,7 +908,7 @@ export function DomainsPanel({
         <div className="flex items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] px-4 py-3 shadow-sm sm:px-6 sm:py-3.5 lg:sticky lg:top-3 lg:z-[2]" data-domains-upgrade="">
           <p className="min-w-0 truncate text-[13px] font-medium text-white sm:text-[14px]">
             <span className="sm:hidden">{tt("Upgrade for custom domains")}</span>
-            <span className="hidden sm:inline">{tt("Custom domains are available on the Pro plan.")}</span>
+            <span className="hidden sm:inline">{tt("Custom domains are available on the Grow plan.")}</span>
           </p>
           <a
             href="/app/settings/billing/upgrade"

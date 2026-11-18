@@ -13,6 +13,9 @@ import { CODED_PATH, withCoded, type CodedSection } from "@/lib/website-builder/
 import { createAdminClient } from "@/lib/supabase/admin"
 import { schemasFromSources } from "@/lib/website-builder/storelib-schemas"
 import { sourceMap } from "@/lib/website-builder/theme-file-drafts"
+import { JOBS_TABLE } from "@/lib/website-builder/ai-site/server"
+import { inlineBuildGate } from "@/lib/website-builder/ai-site/start"
+import { AI_LIMIT_UNREADABLE } from "@/lib/sites/rate-limit"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -40,27 +43,51 @@ const BUDGET_MS = 250_000
  * caller's own website's, checked again here, and can only build what a new
  * plan could.
  */
+/** Ten new websites a day, each continued a few times at most: a day of resumes ends here. */
+const RESUMES_A_DAY = { limit: 40, seconds: 86_400 } as const
+
 export async function POST(req: Request, { params }: Params) {
   const { installId } = await params
   if (!isUuid(installId)) return NextResponse.json({ error: "Not found" }, { status: 404 })
   const site = await websiteInstallCaller(installId)
   if (site.error !== null) return NextResponse.json({ error: site.error }, { status: site.status })
   if (!site.isOwner) return NextResponse.json({ error: "Only the store owner can start a website with AI." }, { status: 403 })
+  /*
+    ONLY WITHOUT THE JOBS TABLE (round AW, lib/website-builder/ai-site/start.ts
+    inlineBuildGate). With the table there every Start with AI is a job: one at
+    a time, counted once a build, carried on by its id. A build here is asked
+    for by nothing else, and it was counted as none of that.
+  */
+  const gate = inlineBuildGate(await site.supabase.from(JOBS_TABLE).select("id").limit(1))
+  if (gate === "jobs") return NextResponse.json({ error: "Start this website with AI from the Website page.", code: "use_job" }, { status: 409 })
+  if (gate === "unknown") return NextResponse.json({ error: AI_LIMIT_UNREADABLE }, { status: 503 })
   const body = await req.json().catch(() => ({}))
   const prompt = typeof body?.prompt === "string" ? body.prompt.trim().slice(0, START_PROMPT_MAX) : ""
   if (!prompt) return NextResponse.json({ error: "Describe the website first." }, { status: 400 })
-  const resuming = body?.checkpoint && typeof body.checkpoint === "object"
+  const started = Date.now()
+  let job: Job = newJob({ id: randomUUID(), creatorId: site.creatorId, ownerUserId: site.ownerUserId, installId, prompt })
+  /*
+    A RESUME IS A CHECKPOINT THAT RESUMES. Any object used to count as one, so
+    `checkpoint: {}` was charged to the looser Continue limit (40 an hour)
+    while fromCheckpoint, finding no plan in it, started a whole new website:
+    the three in ten minutes and ten a day of a new one never applied. Now
+    only a checkpoint that carries a plan this route accepts and a step past
+    planning is a resume; anything else is a new website and is counted as
+    one. And resumes have a day's ceiling of their own, since a made up
+    checkpoint with a real plan still writes the code and the pictures.
+  */
+  const carried = body?.checkpoint && typeof body.checkpoint === "object" ? fromCheckpoint(job, body.checkpoint as Record<string, unknown>) : null
+  const resuming = !!carried && !!carried.plan && carried.step !== "plan"
   const limited = await rateLimit({
     bucket: resuming ? "site-generate-continue" : "site-generate",
     subjects: [`creator:${site.creatorId}`],
-    windows: resuming ? LIMITS.siteAi : LIMITS.siteGenerate,
+    windows: resuming ? [...LIMITS.siteAi, RESUMES_A_DAY] : LIMITS.siteGenerate,
     message: "You have started several AI websites in a short time. Wait a few minutes, then try again.",
   })
   if (limited) return limited
 
-  const started = Date.now()
-  let job: Job = newJob({ id: randomUUID(), creatorId: site.creatorId, ownerUserId: site.ownerUserId, installId, prompt })
-  if (resuming) job = await withStoredCode(fromCheckpoint(job, body.checkpoint), installId)
+  /* The event count is carried either way, so a stream that goes on never repeats a number. */
+  if (carried) job = await withStoredCode(carried, installId)
 
   const encoder = new TextEncoder()
   const stream = new ReadableStream<Uint8Array>({

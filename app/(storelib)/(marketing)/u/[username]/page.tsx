@@ -7,7 +7,9 @@ import type React from "react"
 import { applyManualOrder } from "@/lib/store-builder/featured-order"
 import { headerAvatar } from "@/lib/store-builder/header-avatar"
 import { loadCreatorForUser, loadCreatorForUserStrict, loadProfileByUsername, loadProfileByUsernameStrict } from "@/lib/commerce/creator-page-data"
+import { heldForCreatorPage } from "@/lib/commerce/creator-page-held"
 import { SiteReadError } from "@/lib/website-builder/site-read"
+import { isTransientDbError } from "@/lib/website-builder/write-retry"
 import { exactIlike } from "@/lib/onepage/username"
 import { withoutContactEmail } from "@/lib/commerce/contact-email"
 import { primaryHostFor } from "@/lib/custom-domains/store"
@@ -199,23 +201,34 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
 
   const creator = await loadCreatorForUser(profile.id)
 
-  const [publishedConfigForMeta, { data: seoOverride }, publishedProducts, pageHost] = await Promise.all([
+  /*
+    THE OVERRIDE AND THE COUNT, HELD FOR EVERY VISITOR (round rel2-public, lib/commerce/creator-page-held): the same for
+    everybody, keyed by the ids the live lookup above answered (never by the name alone), cleared by every writer of the
+    page and a minute at most. A read that failed is not held.
+  */
+  const readHead = async () => {
+    const [override, publishedProducts] = await Promise.all([
+      supabase
+        .from("seo_overrides")
+        .select("seo_title, seo_description")
+        .eq("type", "creator")
+        .eq("identifier", handle)
+        .maybeSingle(),
+      creator
+        ? supabase
+            .from("products")
+            .select("id", { count: "exact", head: true })
+            .eq("creator_id", creator.id)
+            .eq("status", "published")
+            /* Every type, physical too (round 41): a seller of shipped goods is a seller, and the sitemap counts them the same way. */
+            .then(({ count, error }) => ({ count: count ?? 0, failed: !!error }))
+        : Promise.resolve({ count: 0, failed: false }),
+    ])
+    return { data: override.data as { seo_title?: string | null; seo_description?: string | null } | null, publishedProducts: publishedProducts.count, countFailed: publishedProducts.failed, failed: !!override.error || publishedProducts.failed }
+  }
+  const [publishedConfigForMeta, { data: seoOverride, publishedProducts: countedProducts, countFailed: countReadFailed }, pageHost] = await Promise.all([
     creator ? getPublishedConfig(creator.id, "shop") : Promise.resolve(null),
-    supabase
-      .from("seo_overrides")
-      .select("seo_title, seo_description")
-      .eq("type", "creator")
-      .eq("identifier", handle)
-      .maybeSingle(),
-    creator
-      ? supabase
-          .from("products")
-          .select("id", { count: "exact", head: true })
-          .eq("creator_id", creator.id)
-          .eq("status", "published")
-          /* Every type, physical too (round 41): a seller of shipped goods is a seller, and the sitemap counts them the same way. */
-          .then(({ count }) => count ?? 0)
-      : Promise.resolve(0),
+    creator ? heldForCreatorPage(["creator-page-head", "v1", creator.id, profile.id, handle], creator.id, profile.id, readHead, (h) => h.failed) : readHead(),
     /* Cached (lib/custom-domains/store.ts), and needs only the creator. */
     primaryHostFor(creator?.id, "creator_page"),
   ])
@@ -352,6 +365,14 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
      */
     ...(() => {
       /* And not banned: a ban takes the products down, and a product put back afterwards does not buy the page back. */
+      /*
+        A COUNT THAT WAS NOT READ IS NOT ZERO (round AW). With no held copy (a first visit, after a save or a deploy), a
+        products count that got no answer read as 0, so a real seller's page said noindex, nofollow, and the CDN kept
+        that head for every crawler for five minutes. Not knowing is not "nothing for sale": the count is taken as one
+        for this answer only, so the handle and spam rules and the ban still decide, and the next read that answers
+        decides again.
+      */
+      const publishedProducts = countReadFailed ? Math.max(countedProducts, 1) : countedProducts
       const indexable = creatorIndexable({ publishedProducts, handle, spamState }) && !isBanned(creator)
       return {
         robots: indexable
@@ -501,111 +522,154 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     Follow itself stays.
   */
   /* Whether the viewer follows this creator is no longer read: a creator page has no Follow (r40). */
-  const placePromise = readProfileLocation(createAdminClient(), profile.id)
-  const offPagePromise = offChannel(createAdminClient(), creator.id, "creator_page")
   /*
     THE ADDRESS THE CREATOR TYPED is not read here (round 49): the published
     config has none (lib/store-builder/public-config.ts, round 48), the
     owner's own About form asks /api/creator-page/viewer for it, and a
     buyer's Contact asks /api/creator-contact.
   */
-  const [
-    { data: catalogue, error: productsError },
-    publishedConfig,
-    { data: creatorReviews, error: creatorReviewsError },
-  ] = await Promise.all([
-    supabase
-      .from("products")
-      .select(`
-      *,
-      product_categories (
-        category_id,
-        category:categories (
-          id,
-          name,
-          slug,
-          type
+  /*
+    HELD FOR EVERY VISITOR (round rel2-public, lib/commerce/creator-page-held): the products with their variant prices,
+    the reviews, where they are from, what is off this page, each limited download's standing and each membership's
+    interval are the same for everybody, so they are read once and held, keyed by the creator's and the profile's ids
+    (the lookup above is live, so a renamed account never shows somebody else's page) and cleared by every writer of
+    the page (lib/storefront/creator-page-purge) and every product writer, a minute at most otherwise: the CDN keeps
+    the drawn page that long already. A read that failed is answered for this visit and not held.
+  */
+  const readCatalogue = async () => {
+    const [
+      { data: catalogue, error: productsError, status: productsStatus },
+      { data: creatorReviews, error: creatorReviewsError },
+      place,
+      offPage,
+    ] = await Promise.all([
+      supabase
+        .from("products")
+        .select(`
+        *,
+        product_categories (
+          category_id,
+          category:categories (
+            id,
+            name,
+            slug,
+            type
+          )
         )
-      )
-    `)
-      .eq("creator_id", creator.id)
-      .eq("status", "published")
-      /* The marketplace profile sells what Storelib sells; shipped products live on the creator's own website. */
-      .neq("type", "physical")
-      .order("created_at", { ascending: false }),
+      `)
+        .eq("creator_id", creator.id)
+        .eq("status", "published")
+        /* The marketplace profile sells what Storelib sells; shipped products live on the creator's own website. */
+        .neq("type", "physical")
+        .order("created_at", { ascending: false }),
+      /**
+       * The reviews behind the rating in the meta row. Capped, because the tab
+       * shows the most recent rather than the complete history and a creator
+       * with thousands should not send thousands down the wire to render two
+       * columns of cards.
+       */
+      /*
+        ═══════════════════════════════════════════════════════════════════════
+         `content`, NOT `comment`, AND THE WHOLE QUERY FAILED ON IT
+        ═══════════════════════════════════════════════════════════════════════
+        There is no `comment` column on reviews. PostgREST does not skip a
+        column it does not recognise, it refuses the request:
+
+            HTTP 400
+            42703 column reviews.comment does not exist
+            hint: Perhaps you meant to reference the column "reviews.content".
+
+        So this returned no rows, and a creator page with reviews on it said
+        "No reviews yet". The product page was right the whole time because it
+        asks for `content`, which is why one screen showed a review and the
+        other said there were none.
+      */
+      /*
+        ═══════════════════════════════════════════════════════════════════════
+         `reviewer_name`, AND WHY A REVIEW HERE HAD NO NAME AND A "?" FOR A FACE
+        ═══════════════════════════════════════════════════════════════════════
+        A guest reviews from their receipt link (run-now part 52): the row has
+        no `buyer_id` and carries the first name they bought with in
+        `reviewer_name`. This asked for the profile join alone, so for those
+        reviews the panel had nothing to write and nothing to draw: the name
+        was left off and the circle fell back to a literal question mark.
+
+        Asked for again without it when part 52 has not run, because PostgREST
+        refuses a select naming a column that is not there (42703) rather than
+        skipping it, and that would empty the whole panel.
+      */
+      /*
+        With run-now part 134: `verified`, so an imported review without a name
+        is never called a verified buyer. The rung that answered is remembered
+        per server (lib/supabase/missing-memory.ts, round 54): this page is not
+        cached, and on a database without the part every view was refused once
+        first. Both column lists are written out rather than built from a
+        variable, so tests/review-columns can read them and hold them to the table.
+      */
+      readLadder(
+        "reviews:creator-page",
+        [
+          () => supabase
+            .from("reviews")
+            .select("id, rating, content, created_at, reviewer_name, verified, product:products(title, slug), buyer:profiles!buyer_id(display_name, avatar_url)")
+            .eq("creator_id", creator.id)
+            .order("created_at", { ascending: false })
+            .limit(30),
+          () => supabase
+            .from("reviews")
+            .select("id, rating, content, created_at, reviewer_name, product:products(title, slug), buyer:profiles!buyer_id(display_name, avatar_url)")
+            .eq("creator_id", creator.id)
+            .order("created_at", { ascending: false })
+            .limit(30),
+          () => supabase
+            .from("reviews")
+            .select("id, rating, content, created_at, product:products(title, slug), buyer:profiles!buyer_id(display_name, avatar_url)")
+            .eq("creator_id", creator.id)
+            .order("created_at", { ascending: false })
+            .limit(30),
+        ],
+        missingColumn,
+      ),
+      readProfileLocation(createAdminClient(), profile.id),
+      offChannel(createAdminClient(), creator.id, "creator_page"),
+    ])
+    const pricedCatalogue = catalogue ? await withVariantPrices(supabase,catalogue) : catalogue
+    /* Every product's standing and every membership's interval, read here for the whole catalogue (the page lists a part of it). */
+    const [intervals, standings] = await Promise.all([
+      planIntervals(supabase, (pricedCatalogue ?? []).filter((p) => p.type === "membership").map((p) => p.id)),
+      readStandings((pricedCatalogue ?? []).map((p) => p.id)),
+    ])
+    return {
+      catalogue: pricedCatalogue,
+      /* The answer's HTTP status rides along: a 5xx or 429 from Supabase is no answer, not a refusal (the throw below). */
+      productsError: productsError ? { message: productsError.message, code: productsError.code, status: productsStatus } : null,
+      creatorReviews: (creatorReviews ?? null) as unknown[] | null,
+      creatorReviewsError: creatorReviewsError ? { message: (creatorReviewsError as { message?: string }).message } : null,
+      place,
+      offPage: [...offPage],
+      intervals: [...intervals.entries()],
+      standings: [...standings.entries()],
+    }
+  }
+  const [held, publishedConfig] = await Promise.all([
+    heldForCreatorPage(["creator-page-catalogue", "v1", creator.id, profile.id], creator.id, profile.id, readCatalogue, (r) => !!r.productsError || !!r.creatorReviewsError),
     getPublishedConfig(creator.id, "shop"),
-    /**
-     * The reviews behind the rating in the meta row. Capped, because the tab
-     * shows the most recent rather than the complete history and a creator
-     * with thousands should not send thousands down the wire to render two
-     * columns of cards.
-     */
-    /*
-      ═══════════════════════════════════════════════════════════════════════
-       `content`, NOT `comment`, AND THE WHOLE QUERY FAILED ON IT
-      ═══════════════════════════════════════════════════════════════════════
-      There is no `comment` column on reviews. PostgREST does not skip a
-      column it does not recognise, it refuses the request:
-
-          HTTP 400
-          42703 column reviews.comment does not exist
-          hint: Perhaps you meant to reference the column "reviews.content".
-
-      So this returned no rows, and a creator page with reviews on it said
-      "No reviews yet". The product page was right the whole time because it
-      asks for `content`, which is why one screen showed a review and the
-      other said there were none.
-    */
-    /*
-      ═══════════════════════════════════════════════════════════════════════
-       `reviewer_name`, AND WHY A REVIEW HERE HAD NO NAME AND A "?" FOR A FACE
-      ═══════════════════════════════════════════════════════════════════════
-      A guest reviews from their receipt link (run-now part 52): the row has
-      no `buyer_id` and carries the first name they bought with in
-      `reviewer_name`. This asked for the profile join alone, so for those
-      reviews the panel had nothing to write and nothing to draw: the name
-      was left off and the circle fell back to a literal question mark.
-
-      Asked for again without it when part 52 has not run, because PostgREST
-      refuses a select naming a column that is not there (42703) rather than
-      skipping it, and that would empty the whole panel.
-    */
-    /*
-      With run-now part 134: `verified`, so an imported review without a name
-      is never called a verified buyer. The rung that answered is remembered
-      per server (lib/supabase/missing-memory.ts, round 54): this page is not
-      cached, and on a database without the part every view was refused once
-      first. Both column lists are written out rather than built from a
-      variable, so tests/review-columns can read them and hold them to the table.
-    */
-    readLadder(
-      "reviews:creator-page",
-      [
-        () => supabase
-          .from("reviews")
-          .select("id, rating, content, created_at, reviewer_name, verified, product:products(title, slug), buyer:profiles!buyer_id(display_name, avatar_url)")
-          .eq("creator_id", creator.id)
-          .order("created_at", { ascending: false })
-          .limit(30),
-        () => supabase
-          .from("reviews")
-          .select("id, rating, content, created_at, reviewer_name, product:products(title, slug), buyer:profiles!buyer_id(display_name, avatar_url)")
-          .eq("creator_id", creator.id)
-          .order("created_at", { ascending: false })
-          .limit(30),
-        () => supabase
-          .from("reviews")
-          .select("id, rating, content, created_at, product:products(title, slug), buyer:profiles!buyer_id(display_name, avatar_url)")
-          .eq("creator_id", creator.id)
-          .order("created_at", { ascending: false })
-          .limit(30),
-      ],
-      missingColumn,
-    ),
   ])
+  const { catalogue: pricedCatalogue, productsError, creatorReviews, creatorReviewsError, place } = held
+  /*
+    NO ANSWER FROM THE PRODUCTS READ IS THE SHOP'S ERROR SCREEN, NEVER AN EMPTY SHOP (round AW). With no copy held
+    for it (a first visit, a save's expire, a deploy: new servers hold no last good copy, and the data cache's keys
+    can change with the build), a read that timed out or found the database away drew this store with no products, as a 200, and the CDN
+    kept that page for every visitor for five minutes and replaced its own good copy with it (next.config.mjs
+    EDGE_PAGE; lib/commerce/creator-page-held says why the copy above is not always there). A throw is a 5xx, which
+    Vercel never stores: the CDN goes on serving the last good page, and a visitor with none gets Try again. A read
+    that ANSWERED with an error (a query that is wrong, which a retry will not change) still draws the page as before.
+  */
+  if (productsError && isTransientDbError(productsError, productsError.status)) {
+    throw new SiteReadError("creator page products", productsError.message || productsError.code || "the read failed")
+  }
   const pageHost = await pageHostPromise
-  /* Where the creator is from. No Follow and no Message on a creator page (r40), so nothing reads the follow graph here. */
-  const place = await placePromise
+  /* Where the creator is from (held above). No Follow and no Message on a creator page (r40), so nothing reads the follow graph here. */
   /* Opened from a person's profile inside a community: the way back lands there even with nothing behind (lib/profile/back communityBackTarget). */
   const backTarget = communityBackTarget(back)
   /*
@@ -628,11 +692,10 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
   const newsletterBar = embedded || showsSubscribeBar({ creatorPage: true, fromCommunity: cameFromCommunity({ from, backTarget, referer: null }) })
   /* A product that sells a community tier is on the Communities tab, not in the grid (lib/communities/listing). */
   /* Settings › Sales channels: a product taken off the Creator page is not in its grid; its own link still opens it. */
-  const offPage = catalogue && catalogue.length ? await offPagePromise : new Set<string>()
+  const offPage = new Set<string>(held.offPage)
   /* In the language the address names (?lang=), when the store published it: approved translations of each product laid over (lib/markets/creator-page-language). The proxy sends a visitor who chose one, or whose browser asks for one in a store that shows visitors their own, to that address (round 49). */
   const pageLanguage = embedded ? null : await creatorPageLanguage(creator.id, typeof lang === "string" ? lang : null).catch(() => null)
-  const pricedCatalogue = catalogue ? await withVariantPrices(supabase,catalogue) : catalogue
-  const products = pricedCatalogue ? withoutCommunityProducts(pricedCatalogue).filter((p: { id: string }) => !offPage.has(p.id)).map((p) => (pageLanguage ? (pageLanguage.product(p as unknown as Record<string, unknown>) as unknown as typeof p) : p)) : catalogue
+  const products = pricedCatalogue ? withoutCommunityProducts(pricedCatalogue).filter((p: { id: string }) => !offPage.has(p.id)).map((p) => (pageLanguage ? (pageLanguage.product(p as unknown as Record<string, unknown>) as unknown as typeof p) : p)) : pricedCatalogue
   const communityCards = await communitiesPromise
   const pageAddress = pageHost ? `https://${pageHost}/` : `https://storelib.com/${profile.username || username}`
 
@@ -850,11 +913,9 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
   /* A membership's card says "$9/month", and "/year" for a yearly only plan: read only when the page sells one (lib/memberships/intervals). */
   /* Limit sales: a download whose limited run has gone says Sold out on its card (lib/products/sales-limit), counted on the server, asked beside the intervals. */
   /* Each card's price as the marketplace shows it: the store's currency, or US dollars once it is switched over (lib/money/marketplace-server). */
-  const [intervals, standings, priceOf] = await Promise.all([
-    planIntervals(supabase, (products ?? []).filter((p) => p.type === "membership").map((p) => p.id)),
-    readStandings((products ?? []).map((p) => p.id)),
-    marketplacePricer(createAdminClient(), [creator.id], (products ?? []).map((p) => p.id)),
-  ])
+  const intervals = new Map(held.intervals)
+  const standings = new Map(held.standings)
+  const priceOf = await marketplacePricer(createAdminClient(), [creator.id], (products ?? []).map((p) => p.id))
   const productsData: ProductData[] =
     products?.map((p) => ({
       id: p.id,

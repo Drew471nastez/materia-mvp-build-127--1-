@@ -1,6 +1,6 @@
 import { decimalsOf } from "@/lib/payments/money"
 
-import { codeDefaultFeeConfig } from "./defaults"
+import { codeDefaultFeeConfig, CODE_SCALE_MICRO_RATE, CODE_SCALE_STANDARD_RATE } from "./defaults"
 import { normalizeChargeCurrency, UnsupportedFeeCurrencyError } from "./currency-rules"
 import type { StorelibFeeConfig, StorelibFeeInput, StorelibFeeResult } from "./types"
 
@@ -26,13 +26,20 @@ export function calculateStorelibFeeWithConfig(input: StorelibFeeInput, config: 
   const micro = gross < rule.microThresholdMinor
   const plan = input.sellerPlan
 
-  const percentageRate = micro
-    ? plan === "paid"
-      ? config.paidMicroRate
-      : config.freeMicroRate
-    : plan === "paid"
-      ? config.paidStandardRate
-      : config.freeStandardRate
+  /* Scale's rate from the version when it has one, else the code's (a version stored before Scale had its own rate). */
+  const scaleOk = (r: number | undefined): r is number => typeof r === "number" && Number.isFinite(r) && r >= 0 && r < 1
+  const percentageRate =
+    plan === "scale"
+      ? micro
+        ? scaleOk(config.scaleMicroRate) ? config.scaleMicroRate : CODE_SCALE_MICRO_RATE
+        : scaleOk(config.scaleStandardRate) ? config.scaleStandardRate : CODE_SCALE_STANDARD_RATE
+      : micro
+        ? plan === "paid"
+          ? config.paidMicroRate
+          : config.freeMicroRate
+        : plan === "paid"
+          ? config.paidStandardRate
+          : config.freeStandardRate
 
   const fixedFeeMinor = micro ? 0 : rule.fixedFeeMinor
   const percentageFeeMinor = Math.round(gross * percentageRate)

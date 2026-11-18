@@ -200,7 +200,8 @@ async function main() {
 
     const big = session("big", 300, 5000)
     const writes = sessionCookieWrites(KEY, big, "", true)
-    check(`a big session is split the way the server splits it (${writes.length} chunks)`, writes.length >= 2 && writes[0].startsWith(`${KEY}.0=base64-`))
+    // Changed on purpose (round AX): on HTTPS the chunks go under the session's __Host- name (lib/supabase/host-session.ts).
+    check(`a big session is split the way the server splits it (${writes.length} chunks)`, writes.length >= 2 && writes[0].startsWith(`__Host-${KEY}.0=base64-`))
     check("each chunk is persistent, lax, secure", writes.every((w) => /max-age=34560000; samesite=lax; secure$/.test(w)))
     for (const w of writes) (globalThis as any).document.cookie = w
     const roundTrip = await readSessionFromCookies(KEY, (globalThis as any).document.cookie)
@@ -209,7 +210,8 @@ async function main() {
     const small = session("small", 400)
     for (const w of sessionCookieWrites(KEY, small, (globalThis as any).document.cookie, true)) (globalThis as any).document.cookie = w
     const jar = parseCookieHeader((globalThis as any).document.cookie)
-    check("a shorter session leaves no stale chunk behind", jar.has(KEY) && !jar.has(`${KEY}.0`) && !jar.has(`${KEY}.1`), [...jar.keys()].join(","))
+    // Changed on purpose (round AX): the same, under the __Host- name.
+    check("a shorter session leaves no stale chunk behind", jar.has(`__Host-${KEY}`) && !jar.has(`__Host-${KEY}.0`) && !jar.has(`__Host-${KEY}.1`) && !jar.has(KEY), [...jar.keys()].join(","))
     check("removal expires every piece", sessionCookieRemovals(KEY, (globalThis as any).document.cookie, true).length === 1)
     cookies.clear()
 

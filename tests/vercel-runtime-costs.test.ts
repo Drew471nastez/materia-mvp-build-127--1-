@@ -53,7 +53,8 @@ console.log("\n1. The proxy reads no session for calls that read none")
   check("the creator's payments, the admin, Settings' framed check and everything else still read it", kept.every((p) => !skipsSessionRefresh(p, [])))
   check("the visit and event trackers skip it for a visitor with no sign in", skipsSessionRefresh("/api/track-view", []) && skipsSessionRefresh("/api/track-event", ["visitor_id"]))
   check("and keep it for a signed in creator, whose own visits are left out with a renewed token", !skipsSessionRefresh("/api/track-view", signedIn) && !skipsSessionRefresh("/api/track-event", ["sb-x-auth-token.0"]))
-  check("a sign in is recognised the way own-visit.ts recognises it", carriesSignIn(["sb-ref-auth-token"]) && !carriesSignIn(["visitor_id", "sl_lang"]) && /name\.startsWith\("sb-"\) && name\.includes\("auth-token"\)/.test(read("lib/analytics/own-visit.ts")))
+  // Changed on purpose (round AX): own-visit.ts now calls carriesSignIn itself (one test, which knows the __Host- name).
+  check("a sign in is recognised the way own-visit.ts recognises it", carriesSignIn(["sb-ref-auth-token"]) && carriesSignIn(["__Host-sb-ref-auth-token.0"]) && !carriesSignIn(["visitor_id", "sl_lang"]) && /const signedIn = carriesSignIn\(cookieNames\)/.test(read("lib/analytics/own-visit.ts")))
 
   /* Every route the rule exempts, today and later, is read: none may read the session. */
   const routes: string[] = []
@@ -106,7 +107,8 @@ console.log("\n2. CSP reports: a sample reaches a function")
   check("and still cuts the query and always answers 204", /const cut = raw\.split\(\/\[\?#\]\/\)\[0\]/.test(route) && (route.match(/status: 204/g) ?? []).length >= 2)
   const vercel = JSON.parse(read("vercel.json")) as { headers: Array<{ source: string; headers: Array<{ key: string; value: string }> }> }
   const csp = vercel.headers.flatMap((h) => h.headers.map((x) => ({ source: h.source, ...x }))).find((x) => x.key === "Content-Security-Policy-Report-Only")
-  check("the policy and its report address are unchanged, on every path", !!csp && csp.source === "/(.*)" && csp.value.includes(`report-uri ${CSP_REPORT_PATH}`) && CONTENT_SECURITY_POLICY.includes(`report-uri ${CSP_REPORT_PATH}`))
+  /* Changed on purpose (round 54): sent on storelib.com only (vercel.json has a host), so a creator's theme does not post reports to a function. */
+  check("the policy and its report address are unchanged, on every path of storelib.com", !!csp && csp.source === "/(.*)" && csp.value.includes(`report-uri ${CSP_REPORT_PATH}`) && CONTENT_SECURITY_POLICY.includes(`report-uri ${CSP_REPORT_PATH}`))
 }
 
 console.log("\n3. Speed beacons: one in four, counts scaled back up")

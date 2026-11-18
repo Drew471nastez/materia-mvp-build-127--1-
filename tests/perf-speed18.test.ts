@@ -324,12 +324,29 @@ async function explore() {
   const searchAgain = await visit(() => pageModule.default({ searchParams: Promise.resolve({ q: "market product 1" }) } as never))
   check("a search is one person's words: read live each time, never held", search.trips.some((t) => t.table === "products") && searchAgain.trips.some((t) => t.table === "products"))
 
+  /* Round AU: this instance kept the last catalogue it handed out (lib/explore/catalogue-cache.ts). With the data cache empty and the database failing, a visitor is shown that copy, and nothing is held. */
+  const keptBefore = products((await visit(render)).value).map((p) => p.id)
   nextCache.resetCache()
   useFixture(fixtureWith((f) => {
     f.fail = ["products"]
   }))
+  const lastGood = await visit(render)
+  check("a database that did not answer shows the last good catalogue, held nowhere", keptBefore.length > 50 && JSON.stringify(products(lastGood.value).map((p) => p.id)) === JSON.stringify(keptBefore) && !nextCache.cacheEntries().some((e) => e.key.includes("explore-catalogue")))
+  const { forgetLastGoodCatalogues } = await import("@/lib/explore/catalogue-cache")
+  forgetLastGoodCatalogues()
   const blinked = await visit(render)
-  check("a database that did not answer is never held as an empty Explore", products(blinked.value).length === 0 && !nextCache.cacheEntries().some((e) => e.key.includes("explore-catalogue")))
+  const unavailableFlag = (tree: unknown): boolean => {
+    let found = false
+    const walk = (n: unknown) => {
+      if (found || !n || typeof n !== "object") return
+      const props = (n as { props?: Record<string, unknown> }).props
+      if (props && props.catalogueUnavailable === true) found = true
+      if (props) for (const v of Object.values(props)) Array.isArray(v) ? v.forEach(walk) : walk(v)
+    }
+    walk(tree)
+    return found
+  }
+  check("with no copy anywhere it is never held as an empty Explore, and the grid says the products did not load", products(blinked.value).length === 0 && unavailableFlag(blinked.value) && !nextCache.cacheEntries().some((e) => e.key.includes("explore-catalogue")))
   const empty = await visit(() => cachedExploreCatalogue(async () => [] as unknown[]))
   check("nor is an empty answer", !!empty.error && !nextCache.cacheEntries().some((e) => e.key.includes("explore-catalogue")))
 
@@ -369,14 +386,17 @@ async function profileByName() {
   const nobody = await visit(() => publicProfileByName(db(), "nobody-here"))
   check("nobody by that name is still nobody", nobody.value === null)
   const page = code("app/(storelib)/(marketing)/u/[username]/page.tsx")
-  const batch = page.indexOf("{ data: catalogue, error: productsError }")
+  // Changed on purpose (round AW): the products read also keeps its answer's status, so a 5xx counts as no answer.
+  const batch = page.indexOf("{ data: catalogue, error: productsError, status: productsStatus }")
   /* Changed on purpose (round 38): a creator page reads no follower or following count, so there is no followingPromise to start. */
   /* Changed on purpose (round 40): "on creator pages there should be no follow button", so the page no longer asks whether the viewer follows the creator; location and channels still start with the first batch. */
-  const started = ["const placePromise = readProfileLocation(", "const offPagePromise = offChannel("]
-  check("the creator page starts location and channels with its first batch, not after it", started.every((s) => page.indexOf(s) > 0 && page.indexOf(s) < batch) && /const place = await placePromise/.test(page) /* Changed on purpose (round 49): no headers() on this page any more. */ && /await offPagePromise/.test(page) && !/followingPromise/.test(page))
+  /* Changed on purpose (round rel2-public): location and channels are asked in the products' own batch, which is held for every visitor (lib/commerce/creator-page-held), so a second visitor waits on none of them. */
+  const batchEnd = page.indexOf("])", page.indexOf("offChannel(createAdminClient(), creator.id, \"creator_page\")"))
+  check("the creator page asks location and channels in its first batch, not after it", page.indexOf("readProfileLocation(createAdminClient(), profile.id)") > batch && page.indexOf("offChannel(createAdminClient(), creator.id, \"creator_page\")") > batch && batchEnd > 0 && page.lastIndexOf("await Promise.all([", batch) < batch && !/followingPromise/.test(page) && /heldForCreatorPage\(\["creator-page-catalogue"/.test(page))
   check("and it never asks whether the viewer follows the creator", !/viewerFollowsPromise/.test(page) && !/from\("follows"\)/.test(page))
   const sales = code("lib/communities/server/public.ts")
-  check("a community's sales page asks for its gallery and live numbers beside its tiers, not after its products", sales.indexOf("const galleryAndStats = opts?.light ? null : Promise.all([communityGallery(db, community), communityStats(db, community)])") > 0 && sales.indexOf("const galleryAndStats") < sales.search(/const \[tiers, links, creators[^\]]*\] = await Promise\.all\(\[/) /* Changed on purpose (round 26): the summary and the staff deletion date join the same batch. */ && /galleryAndStats!\.then\(\(\[gallery\]\) => gallery\)/.test(sales) && sales.indexOf("if (community.status === \"draft\" && !staff) return null") < sales.indexOf("const galleryAndStats"))
+  /* Changed on purpose (round rel2-public): the reads every visitor shares moved into readSalesFacts, which is held for a public community (lib/communities/server/public-cache.ts); the creator is read beside it, and the draft check still comes first. */
+  check("a community's sales page asks for its gallery and live numbers beside its tiers, not after its products", sales.indexOf("const galleryAndStats = light ? null : Promise.all([communityGallery(db, community), communityStats(db, community)])") > 0 && sales.indexOf("const galleryAndStats") < sales.search(/const \[tiers, links, summary\] = await Promise\.all\(\[/) && /galleryAndStats!\.then\(\(\[gallery\]\) => gallery\)/.test(sales) && sales.indexOf("if (community.status === \"draft\" && !staff) return null") < sales.indexOf("const held = !given && sharePreviewable(community)"))
   check("the creator page and the member profile both read it this way", /* Changed on purpose (round rel-sites): the creator page reads it bounded and strict (a failed read throws), the same exact-name-first lookup. */ /publicProfileByNameStrict\(stranger\(\), username\)/.test(code("lib/commerce/creator-page-data.ts")) /* Changed on purpose (round 49): read as a stranger, the anon key with no session. */ && /publicProfileByName\(await createClient\(\), username\)/.test(code("lib/profile/member-profile-data.ts")))
 }
 

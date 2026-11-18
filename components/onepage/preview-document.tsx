@@ -47,6 +47,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { PublicOnePage } from "@/components/onepage/public-onepage"
+import { PREVIEW_SHOWN_EVENT } from "@/components/onepage/block-entrance"
 import { answersForBlocks, productIdsInBlocks, resolveProductBlocks, type ProductAnswers, type ProductsDb } from "@/lib/onepage/live-products"
 import { createClient } from "@/lib/supabase/client"
 import { ExtraBlockPreviewContext } from "@/components/onepage/extra-blocks"
@@ -56,9 +57,10 @@ import { familyOf, onePageFontHref } from "@/lib/onepage/fonts"
 import { PriceCurrency } from "@/components/platform/price-currency"
 import { PREVIEW_NOTICE_EVENT, showPreviewNotice, type PreviewNoticeKind } from "@/lib/onepage/preview-notice"
 import { tt } from "@/lib/i18n/text"
+import { blockIdAt, nearestBlock, pickAction, pickStyle, validBlockId, type PickRect } from "@/lib/onepage/preview-select"
 
 /** The writes a visitor's page makes, answered here instead of by the server. */
-const WRITES = /^\/api\/(onepage\/(track|leads|email-capture)|subscribe|checkout\/|download\/|purchases\/)/
+const WRITES = /^\/api\/(onepage\/(track|leads|email-capture)|subscribe|checkout\/|download\/|purchases\/|help\/contact)/
 
 function sandboxWrites() {
   const w = window as Window & { __onepagePreviewSandbox?: boolean }
@@ -187,6 +189,55 @@ function PreviewNoticeHost() {
   )
 }
 
+/**
+ * PICK A BLOCK, INVISIBLY (lib/onepage/preview-select). With the editor's
+ * select mode on, nothing is drawn over the page: the pointer is a hand over
+ * a block and that is all. A click anywhere on a block that is not the open
+ * one is taken before the page hears it (window, capture) and sent to the
+ * editor; a click in the gap between blocks goes to the nearer one. A click
+ * on the open block goes to the page, and the editor is told as well, so
+ * its list glides back to the card.
+ *
+ * An embedded player or map is a document of its own, and a click inside it
+ * never reaches this one, so while select mode is on a block's frames take
+ * no clicks until that block is the open one (the style below; nothing in
+ * how the block looks changes).
+ */
+function BlockPicker({ selected }: { selected: string | null }) {
+  const selectedRef = useRef(selected)
+  selectedRef.current = selected
+  useEffect(() => {
+    const blockAt = (e: MouseEvent): string | null => {
+      const direct = blockIdAt(e.target)
+      if (direct) return direct
+      /* Only on the page round the blocks, never in a sheet or a note drawn over it. */
+      const target = e.target as Element | null
+      if (!target || typeof target.querySelector !== "function" || !target.querySelector("[data-op-block]")) return null
+      const rects: PickRect[] = []
+      document.querySelectorAll<HTMLElement>("[data-op-block]").forEach((el) => {
+        const id = el.getAttribute("data-op-block")
+        if (!id || el.parentElement?.closest("[data-op-block]")) return
+        const r = el.getBoundingClientRect()
+        rects.push({ id, left: r.left, top: r.top, right: r.right, bottom: r.bottom })
+      })
+      return nearestBlock(rects, e.clientX, e.clientY)
+    }
+    const onClick = (e: MouseEvent) => {
+      const hit = blockAt(e)
+      const action = pickAction({ mode: true, selected: selectedRef.current, hit, button: e.button, modified: e.metaKey || e.ctrlKey || e.shiftKey || e.altKey })
+      if (action === "pass" || !hit) return
+      if (action === "select") {
+        e.preventDefault()
+        e.stopImmediatePropagation()
+      }
+      window.parent?.postMessage({ channel: ONEPAGE_PREVIEW_CHANNEL, kind: "select", id: hit } satisfies PreviewMessage, window.location.origin)
+    }
+    window.addEventListener("click", onClick, true)
+    return () => window.removeEventListener("click", onClick, true)
+  }, [])
+  return <style data-op-pick-style="">{pickStyle(selected)}</style>
+}
+
 /*
   A NEW THEME IS DRAWN WITH ITS OWN FACES, NOT A FRAME OF ANOTHER. Picking a
   theme with other fonts drew the page at once in the fallback face, then
@@ -239,6 +290,35 @@ export function OnePagePreviewDocument() {
   /* The store's currency, sent with the page: the live route wraps the page in it (PriceCurrency), so this does too. */
   const [currency, setCurrency] = useState<string | null>(null)
   const drawn = useRef(false)
+  /* Round AR: whether a click picks a block for the editor, and which block is open there. */
+  const [pick, setPick] = useState<{ on: boolean; selected: string | null }>({ on: false, selected: null })
+
+  /*
+    THE PHONE'S ROUNDED SCREEN (round AS, the owner's image 140: the bell
+    sat on the curve and its dot was cut). The editor's phone says how round
+    its screen is, in this page's own pixels (?corner=, components/onepage/
+    live-preview PHONE_SCREEN_RADIUS); the corner buttons read it
+    (app/globals.css [data-onepage-corner]) and sit concentric with the
+    curve. Set before the first paint, so they never move once drawn.
+  */
+  useLayoutEffect(() => {
+    /*
+      ROUND AT: THE FRAME HAS NO NOTCH. The head script marks this document
+      before its first paint (app/(storelib)/layout.tsx); this says it again
+      before the page is drawn, for a document that did not run it, and
+      takes off the app class, whose status bar shield belongs to the screen.
+      --op-safe-top is then 0 here (app/globals.css), so the profile bar is
+      its slim 60px under the editor's own bar.
+    */
+    if (window.self !== window.top) {
+      document.documentElement.setAttribute("data-onepage-embedded", "")
+      document.documentElement.classList.remove("capacitor")
+    }
+  }, [])
+  useLayoutEffect(() => {
+    const corner = Number(new URLSearchParams(window.location.search).get("corner"))
+    if (Number.isFinite(corner) && corner > 0 && corner < 200) document.documentElement.style.setProperty("--onepage-screen-radius", `${corner}px`)
+  }, [])
 
   /*
     WHAT THE CATALOGUE SAYS ABOUT THE PRODUCTS THE PAGE NAMES. Asked again
@@ -310,7 +390,13 @@ export function OnePagePreviewDocument() {
     const onMessage = (e: MessageEvent) => {
       if (e.origin !== window.location.origin || e.source !== parent) return
       const data = e.data as PreviewMessage | null
-      if (!data || data.channel !== ONEPAGE_PREVIEW_CHANNEL || data.kind !== "page") return
+      if (!data || data.channel !== ONEPAGE_PREVIEW_CHANNEL) return
+      /* Round AR: the phone beside the editor picks blocks (lib/onepage/preview-select). */
+      if (data.kind === "select-mode") {
+        setPick({ on: data.on === true, selected: validBlockId(data.selected) ? data.selected : null })
+        return
+      }
+      if (data.kind !== "page") return
       const n = ++latest
       setCurrency(data.currency ?? null)
       const page = data.page
@@ -343,6 +429,9 @@ export function OnePagePreviewDocument() {
       if (done) return
       done = true
       window.parent?.postMessage({ channel: ONEPAGE_PREVIEW_CHANNEL, kind: "drawn" } satisfies PreviewMessage, window.location.origin)
+      /* The editor shows the frame now: the blocks' entrance starts (components/onepage/block-entrance). */
+      ;(window as Window & { __onepagePreviewShown?: boolean }).__onepagePreviewShown = true
+      window.dispatchEvent(new Event(PREVIEW_SHOWN_EVENT))
     }
     const fonts = document.fonts?.ready ?? Promise.resolve()
     /* Fonts that do not come in a second are not waited for. */
@@ -359,6 +448,7 @@ export function OnePagePreviewDocument() {
         <PublicOnePage onepage={page as never} />
       </PriceCurrency>
       <PreviewNoticeHost />
+      {pick.on ? <BlockPicker selected={pick.selected} /> : null}
     </ExtraBlockPreviewContext.Provider>
   )
 }

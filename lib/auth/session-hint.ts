@@ -16,7 +16,7 @@
  * that reads the real session or the signed, httpOnly sl_owned.
  */
 
-const SESSION = /(?:^|;\s*)sb-[^=;]+-auth-token(?:\.\d+)?=[^;]/
+const SESSION = /(?:^|;\s*)(?:__Host-)?sb-[^=;]+-auth-token(?:\.\d+)?=[^;]/
 const GUEST_HINT = /(?:^|;\s*)sl_owned_hint=1(?:;|$)/
 
 function jar(): string {

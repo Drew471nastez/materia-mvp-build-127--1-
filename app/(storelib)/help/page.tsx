@@ -30,7 +30,8 @@ export const metadata: Metadata = {
  * people come for, and how to reach a person.
  */
 /* The physical products guide follows the switch in /admin; the switch also revalidates /help at once. */
-export const revalidate = 60
+/* An hour (round 54, Vercel cost): saving, publishing and a post going live clear these at once (lib/blog/admin-http.ts, went-live.ts; the platform switch clears /help). */
+export const revalidate = 3600
 
 export default async function HelpPage() {
   const physical = await isPhysicalCommerceEnabled()

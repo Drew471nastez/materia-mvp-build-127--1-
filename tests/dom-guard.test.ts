@@ -122,7 +122,8 @@ console.log("\nIt is in place before the app starts")
 console.log("\nThe Products list keeps a changing word as the only child of its element")
 {
   const list = untt(readFileSync(join(process.cwd(), "app/(storelib)/app/products/products-client.tsx"), "utf8"), "app/(storelib)/app/products/products-client.tsx")
-  check("the view's name", /<span>\{v\.label\}<\/span>/.test(list))
+  /* Changed on purpose (products refresh, 6355fb7): the view switcher is gone; where a view's name is drawn it is still the only child of its element. */
+  check("the view's name", !/\{v\.label\}/.test(list) || /<span>\{v\.label\}<\/span>/.test(list))
   check("the footer's count is one string", (/\{`\$\{from \+ 1\}\\u2013\$\{from \+ pageProducts\.length\} of /.test(list) || /\{from \+ 1\}–\{from \+ pageProducts\.length\} of \{/.test(list) /* one tt() message: still one string */) && !/&ndash;\{from/.test(list))
   check("the delete button's word, on both sides", /<span>\{deleteKind === "archive" \? "Archiving" : "Deleting"\}<\/span>/.test(list) && /<span>\{deleteQuestion\(productToDelete\.title, deleteKind\)\.confirm\}<\/span>/.test(list))
   check("a status word", (list.match(/<span>\{statusText\}<\/span>/g) ?? []).length === 2)

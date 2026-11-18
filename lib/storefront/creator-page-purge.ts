@@ -26,6 +26,7 @@ import "server-only"
 import { revalidatePath, revalidateTag } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { creatorTag } from "@/lib/commerce/product-page-cache"
+import { forgetCreatorPageLastGood } from "@/lib/commerce/creator-page-held"
 
 const HANDLE = /^[a-z0-9][a-z0-9._-]{0,63}$/i
 
@@ -93,6 +94,9 @@ export async function creatorPagesChanged(who: {
     /* 1. The data the next render reads, gone, not stale (cachedCreatorProfile is tagged by the person's id). */
     if (creatorId) expire(creatorTag(creatorId))
     if (userId) expire(creatorTag(userId))
+    /* And this instance's last good answers of the page (lib/commerce/creator-page-held, round AU). */
+    if (creatorId) forgetCreatorPageLastGood(creatorId)
+    if (userId) forgetCreatorPageLastGood(userId)
     for (const h of handles) expire(`shop-layout:${h.toLowerCase()}`)
 
     /* 2 and 3. The CDN's copies, by tag (as stored, and lower case: an address may be typed either way) and by path. */

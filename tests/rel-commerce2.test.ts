@@ -234,8 +234,14 @@ async function main() {
     /* Reachability: every Checkout Session this code makes, and what each puts on the session's own metadata. */
     const walk = (d: string): string[] => readdirSync(d).flatMap((f) => { const p = join(d, f); return statSync(p).isDirectory() ? (f === "node_modules" || f.startsWith(".") ? [] : walk(p)) : /\.(ts|tsx)$/.test(f) ? [p] : [] })
     const makers = [...walk(join(process.cwd(), "app")), ...walk(join(process.cwd(), "lib"))].filter((f) => /checkout\.sessions\.create\(/.test(readFileSync(f, "utf8"))).map((f) => f.slice(process.cwd().length + 1)).sort()
-    const known = ["app/api/billing/subscription/create/route.ts", "app/api/checkout/cart/route.ts", "app/api/checkout/stripe-session/route.ts", "lib/communities/server/event-checkout.ts", "lib/communities/server/learn-checkout.ts", "lib/communities/server/library-checkout.ts", "lib/communities/server/module-sales.ts", "lib/physical/checkout-server.ts"]
-    check("the Checkout Session makers are the eight known ones (a new one must be checked against the legacy path)", JSON.stringify(makers) === JSON.stringify(known), makers)
+    const known = ["app/api/billing/subscription/create/route.ts", "app/api/checkout/cart/route.ts", "app/api/checkout/stripe-session/route.ts", "lib/communities/server/event-checkout.ts", "lib/communities/server/learn-checkout.ts", "lib/communities/server/library-checkout.ts", "lib/communities/server/module-sales.ts", "lib/onepage/tips-server.ts", "lib/physical/checkout-server.ts"]
+    /* Changed on purpose (round AR): a OnePage tip is the ninth. Checked against the legacy path below: its session names no product and the webhook takes it first. */
+    check("the Checkout Session makers are the nine known ones (a new one must be checked against the legacy path)", JSON.stringify(makers) === JSON.stringify(known), makers)
+    {
+      const tipsSrc = readFileSync(join(process.cwd(), "lib/onepage/tips-server.ts"), "utf8")
+      const hook = readFileSync(join(process.cwd(), "app/api/stripe/webhook/route.ts"), "utf8")
+      check("  a tip session names no product, and the webhook takes it before the order path", !/product_id/.test(tipsSrc.slice(tipsSrc.indexOf("const metadata"), tipsSrc.indexOf("return {", tipsSrc.indexOf("const metadata")))) && hook.indexOf('kind === "onepage_tip"') > 0 && hook.indexOf('kind === "onepage_tip"') < hook.indexOf('if (event.type === "checkout.session.completed") {'))
+    }
     const wallet = readFileSync(join(process.cwd(), "app/api/checkout/stripe-session/route.ts"), "utf8")
     const walletParams = wallet.slice(wallet.indexOf("const walletParams"), wallet.indexOf("checkout.sessions.create(walletParams"))
     check("  the wallet session carries the product only on its PaymentIntent (payment_intent_data.metadata), not on the session", /payment_intent_data: \{[\s\S]*metadata,/.test(walletParams) && !/^\s{8}metadata[,:]/m.test(walletParams), walletParams.slice(0, 200))

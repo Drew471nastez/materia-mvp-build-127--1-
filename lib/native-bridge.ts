@@ -223,6 +223,11 @@ async function clearNativeHome(): Promise<void> {
 
 // ── Log-out ──────────────────────────────────────────────────────────────────
 
+/** Loaded on Log out only, and dynamically: forget-device-sign-in reaches native-session, which imports this file. */
+function forgetDevice(): Promise<void> {
+  return import("@/lib/auth/forget-device-sign-in").then((m) => m.forgetDeviceSignIn()).catch(() => undefined)
+}
+
 /**
  * Signal the native shell to end the session and return to the welcome screen.
  *
@@ -243,6 +248,8 @@ export function nativeLogOut(): void {
   if (typeof window === "undefined") return
   // Clear cached home so the next login re-determines route from DB
   clearNativeHome()
+  /* And the rest of the account this device kept: the phone's Google sign in, the Preferences session, the carry (lib/auth/forget-device-sign-in.ts). Idempotent; most callers already awaited it through endDeviceSession. */
+  void forgetDevice()
   const br = (window as any).StorelibNative
   if (typeof br?.onLogOut === "function") {
     try { br.onLogOut() } catch { /* ignore */ }
@@ -378,6 +385,7 @@ export async function nativeLogout(
   try { await supabaseClient.auth.signOut({ scope: "local" }) } catch { /* ignore */ }
   try { localStorage.removeItem("sb-native-home") } catch { /* ignore */ }
   forgetLastPlace()
+  await forgetDevice()
   isNative() ? window.location.replace("/welcome") : router.replace("/login")
 }
 

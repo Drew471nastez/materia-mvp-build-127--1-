@@ -148,7 +148,8 @@ async function main() {
     check("a shared page is the CDN's, five minutes fresh, then served at once for a day while drawn again (Changed on purpose (r54))", SHARED_PAGE_CDN === "public, s-maxage=300, stale-while-revalidate=86400")
     check("  the browser still told what any page says (Vercel never passes the CDN header on)", PUBLIC_PAGE_CACHE === "private, no-cache")
     /* Changed on purpose (round AQ): a market's page is kept by the CDN too. Measured live, the CDN keys a rewritten request on the marked address, which names the market (route comment, scratchpad ap/aq1/market-key-probe.txt). */
-    check("  only on a shared page opened as a page, a market's included (the CDN keys on the marked address: round AQ)", /if \(openedAsDocument\(req\.headers\)\) \{\s*const id = found\.site\.creatorId\s*headers\.set\("Vercel-CDN-Cache-Control", SHARED_PAGE_CDN\)/.test(route))
+    /* Changed on purpose (round 54): a client that sends no Sec-Fetch-Dest (a crawler, a monitor) is kept at the CDN too (first-load.ts sharedAtCdn). */
+    check("  only on a shared page opened as a page, a market's included (the CDN keys on the marked address: round AQ)", /if \(sharedAtCdn\(req\.headers\)\) \{\s*const id = found\.site\.creatorId\s*headers\.set\("Vercel-CDN-Cache-Control", SHARED_PAGE_CDN\)/.test(route))
     check("  under the tags the hold is kept under, which Publish and saves expire", route.includes('headers.set("Vercel-Cache-Tag", [creatorSiteTag(id), creatorShopTag(id), siteBlogTag(id)].join(","))'))
     check("  a document and a script's fetch of it are held apart, and the country the selector shows", route.includes('headers.set("Vary", "Sec-Fetch-Dest, X-Vercel-IP-Country")'))
     check("  decided by publicAnswer: a plain 200 page that set no cookie", /const shared = stranger !== null && !ajax && publicAnswer\(/.test(route))

@@ -46,7 +46,8 @@ const code = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
   check("a photo block asks the optimizer for a 1080px copy", block === `/_next/image?url=${encodeURIComponent(stored)}&w=1080&q=88`, block)
   const avatar = onePageImageSrc(stored, 64)
   check("a 64px avatar asks for a 128px copy", /&w=128&/.test(avatar), avatar)
-  const supa = "https://abc.supabase.co/storage/v1/object/public/onepage/a.png"
+  // Changed on purpose (round AW): Storelib's own storage project; the optimizer no longer fetches from any other *.supabase.co (next.config.mjs OWN_STORAGE_HOSTS).
+  const supa = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/onepage/a.png"
   check("a Supabase file is optimized too", onePageImageSrc(supa, 160).startsWith("/_next/image?url="))
   check("an SVG is drawn as it is (the optimizer refuses SVG)", onePageImageSrc("https://storelib.com/media/logo.svg", 320) === "https://storelib.com/media/logo.svg")
   check("a blob: address (a picture still being cropped) is drawn as it is", onePageImageSrc("blob:https://storelib.com/1", 64) === "blob:https://storelib.com/1")

@@ -157,6 +157,9 @@ export function OnePageDialog({
 }) {
   const phone = usePhoneWidth()
   const style = sheetTokens(dark, true)
+  /* Round AS: Tab stays inside the phone's sheet too, as it does in the card (a keyboard on a narrow window, a switch control). */
+  const inner = useRef<HTMLDivElement>(null)
+  useTabTrap(open && phone === true && !centered, inner)
   if (phone === null) return null
   if (phone && !centered) {
     return (
@@ -173,7 +176,7 @@ export function OnePageDialog({
         /* Wave 10 (legible): the sheet is its body's own surface to the bottom edge (safe area too), never a white strip under a themed body. */
         className={dark ? "bg-[var(--opk-surface,#18181c)]" : "bg-[var(--opk-surface,#ffffff)]"}
       >
-        <div style={style} className="text-[var(--sheet-body)]">
+        <div ref={inner} style={style} className="text-[var(--sheet-body)]">
           {children}
         </div>
       </BottomSheet>
@@ -229,13 +232,25 @@ function CenteredCard({
     keptHeader.current = header
   }
 
-  useEffect(() => {
-    if (open) {
+  /*
+    Round AR: it starts moving on the first frame. It used to wait two animation frames before it began (about 35ms
+    with nothing on screen, measured at 104ms from the tap to its first frame at 1440). Now the card is drawn hidden,
+    its starting style is read once (which commits it), and the transition starts in the same layout pass, before
+    that frame is painted.
+  */
+  useLayoutEffect(() => {
+    if (!open) return
+    if (!mounted) {
       setMounted(true)
-      let second = 0
-      const f = requestAnimationFrame(() => { second = requestAnimationFrame(() => setShown(true)) })
-      return () => { cancelAnimationFrame(f); cancelAnimationFrame(second) }
+      return
     }
+    if (!shown) {
+      void panelRef.current?.getBoundingClientRect()
+      setShown(true)
+    }
+  }, [open, mounted, shown])
+  useEffect(() => {
+    if (open) return
     setShown(false)
     const t = window.setTimeout(() => setMounted(false), OUT_MS)
     return () => window.clearTimeout(t)
@@ -254,7 +269,8 @@ function CenteredCard({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") closeRef.current()
       if (e.key === "Tab") {
-        const nodes = Array.from(panelRef.current?.querySelectorAll<HTMLElement>('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex="0"]') ?? []).filter(el => el.getClientRects().length > 0)
+        /* Round AS: not what has been taken out of the order (a hidden pane's buttons, a form's unseen field). */
+        const nodes = Array.from(panelRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []).filter((el) => el.tabIndex >= 0 && el.getClientRects().length > 0)
         const first = nodes[0]
         if (!first) { e.preventDefault(); return }
         const index = nodes.indexOf(document.activeElement as HTMLElement)
@@ -271,7 +287,8 @@ function CenteredCard({
     }
   }, [open, mounted])
 
-  useEffect(() => {
+  /* Round AS: before the paint, so the new content is never drawn for a frame at the old one's place. */
+  useLayoutEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = 0
   }, [scrollKey])
 
@@ -314,6 +331,28 @@ function CenteredCard({
     </div>,
     document.body,
   )
+}
+
+const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex="0"]'
+
+/** Tab and Shift+Tab go round what the sheet holding `ref` can focus, and never out to the page behind it. */
+function useTabTrap(on: boolean, ref: React.RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    if (!on) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return
+      const box = ref.current?.closest<HTMLElement>("[data-sheet-panel]") ?? ref.current
+      if (!box) return
+      const nodes = Array.from(box.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((el) => el.tabIndex >= 0 && el.getClientRects().length > 0)
+      e.preventDefault()
+      if (!nodes.length) return
+      const index = nodes.indexOf(document.activeElement as HTMLElement)
+      const next = index < 0 ? (e.shiftKey ? nodes.length - 1 : 0) : (index + (e.shiftKey ? -1 : 1) + nodes.length) % nodes.length
+      nodes[next].focus({ preventScroll: true })
+    }
+    document.addEventListener("keydown", onKey, true)
+    return () => document.removeEventListener("keydown", onKey, true)
+  }, [on, ref])
 }
 
 const SCROLL_KEYS = new Set([" ", "PageUp", "PageDown", "Home", "End", "ArrowUp", "ArrowDown"])

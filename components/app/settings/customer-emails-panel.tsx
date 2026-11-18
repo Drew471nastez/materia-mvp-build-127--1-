@@ -401,7 +401,7 @@ export function CustomerEmailsPanel({
       {bare ? (
         list
       ) : (
-        <Card title={tt("Customer emails")} description={tt("What your buyers and members get from you, and when: digital products, physical products and communities, each apart. Open one to see it as it is sent and change its words. A reply comes to your contact email.")}>
+        <Card title={tt("Customer emails")} description={tt("The emails your buyers and members get. Open one to edit.")}>
           {list}
         </Card>
       )}

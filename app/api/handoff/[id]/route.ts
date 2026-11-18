@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { handoffDeps } from "@/lib/handoff/deps"
 import { metaOf, renewHandoff, revokeHandoff } from "@/lib/handoff/server"
+import { signedOutAnswer } from "@/lib/businesses/server"
 
 /**
  * One open claim link, from Settings, Team.
@@ -19,7 +20,7 @@ type Params = { params: Promise<{ id: string }> }
 export async function POST(request: Request, { params }: Params) {
   const deps = handoffDeps()
   const user = await deps.requestUser(request)
-  if (!user) return NextResponse.json({ error: "Sign in first." }, { status: 401, headers: NO_STORE })
+  if (!user) return signedOutAnswer(request, NextResponse.json({ error: "Sign in first." }, { status: 401, headers: NO_STORE }))
   const limited = await deps.rateLimit({
     bucket: "handoff-renew",
     subjects: [`user:${user.id}`],
@@ -40,7 +41,7 @@ export async function POST(request: Request, { params }: Params) {
 export async function DELETE(request: Request, { params }: Params) {
   const deps = handoffDeps()
   const user = await deps.requestUser(request)
-  if (!user) return NextResponse.json({ error: "Sign in first." }, { status: 401, headers: NO_STORE })
+  if (!user) return signedOutAnswer(request, NextResponse.json({ error: "Sign in first." }, { status: 401, headers: NO_STORE }))
   const { id } = await params
   const out = await revokeHandoff(deps, user, id, metaOf(request))
   if (out.ok === false) return NextResponse.json({ error: out.error }, { status: out.status, headers: NO_STORE })

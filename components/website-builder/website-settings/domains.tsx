@@ -10,6 +10,7 @@ import type { RecordCheck } from "@/lib/custom-domains/dns-help"
 import { cn } from "@/lib/utils"
 import { handleProblem, normalizeHandle } from "@/lib/website-builder/site-address"
 import { tt } from "@/lib/i18n/text"
+import { slowingPoll } from "@/lib/ui/slowing-poll"
 
 export interface DomainRow {
   id: string
@@ -207,8 +208,8 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
       if (document.visibilityState !== "visible") return
       for (const d of lastDomains ?? []) if (d.status === "ssl_provisioning") void checkRef.current(d, true)
     }
-    const id = window.setInterval(tick, 12000)
-    return () => window.clearInterval(id)
+    /* Slower the longer it waits (round 54, lib/ui/slowing-poll.ts). */
+    return slowingPoll(tick, 12000)
   }, [securing])
 
   return (

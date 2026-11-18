@@ -27,6 +27,9 @@ import { supabaseOnePageLookup } from "@/lib/onepage/address-lookup"
 import { SiteReadError } from "@/lib/website-builder/site-read"
 import { withLiveProducts, type ProductsDb } from "@/lib/onepage/live-products"
 import { withStorelibBlocks } from "@/lib/onepage/storelib-blocks-server"
+import { liveDataDeps, withDataBlocks } from "@/lib/onepage/data-blocks-server"
+import { withoutLocked } from "@/lib/onepage/paid-access"
+import { withOwnerStore } from "@/lib/onepage/page-store"
 import { ONE_PAGE_HOLD_SECONDS, heldRead, onePageNameTag, onePageOwnerTag, onePageShopTag, shopProductsTag } from "@/lib/onepage/public-cache"
 import { creatorDomainsTag } from "@/lib/custom-domains/store"
 
@@ -121,7 +124,21 @@ async function readOnePageOwner(sellerId: string | null, creatorId: string | nul
     displayName: (profile as { display_name?: string | null } | null)?.display_name || null,
     publishedProducts: (products as { count?: number | null }).count ?? 0,
     canonical: handle ? (domain ? getLinksUrlWithCustomDomain(handle, domain) : getLinksShareUrl(handle)) : null,
+    /*
+      Whether the owner's plan pays for the verified badge and a page without
+      the Storelib badge (the OnePage production audit, SEC6): true or false
+      from their creator row, as the save route asks it, or null when the row
+      was not read, which takes nothing away.
+    */
+    paidPlan: row ? planPays(row as { subscription_plan_id?: string | null; subscription_status?: string | null }) : null,
   }
+}
+
+/** Pro (sold as "growth"), or the older Pro, in a state that still entitles: the rule app/api/onepage PUT applies. */
+function planPays(row: { subscription_plan_id?: string | null; subscription_status?: string | null }): boolean {
+  const plan = (row.subscription_plan_id || "free").toLowerCase().trim()
+  const status = (row.subscription_status || "active").toLowerCase()
+  return (plan === "growth" || plan === "pro" || plan === "professional") && ["active", "trialing", "past_due"].includes(status)
 }
 
 export type OnePageOwner = Awaited<ReturnType<typeof readOnePageOwner>>
@@ -146,15 +163,23 @@ const liveBlocksOnce = cache((creatorId: string, blocksJson: string) => {
       const db = createAdminClient()
       const products = await withLiveProducts(db as unknown as ProductsDb, creatorId, JSON.parse(blocksJson) as unknown[])
       /* The shelf, the posts and the follower count, read now (lib/onepage/storelib-blocks-server); a page with none of them reads nothing more. */
-      return withStorelibBlocks(db, creatorId, products)
+      const storelib = await withStorelibBlocks(db, creatorId, products)
+      /*
+        Round AR: tips, tracked stats, Paid access, the store's reviews, an
+        RSS feed, Bandsintown and a store code (lib/onepage/data-blocks-server),
+        and every paid access block's locked part taken out, here, before anything
+        is held or sent (lib/onepage/paid-access).
+      */
+      return withDataBlocks(db, await liveDataDeps(db), creatorId, storelib)
     },
-    ["onepage-live-blocks", "v1", creatorId, fingerprint],
+    ["onepage-live-blocks", "v2", creatorId, fingerprint],
     { tags: [onePageShopTag(creatorId), shopProductsTag(creatorId)], revalidate: ONE_PAGE_HOLD_SECONDS },
   )
 })
 export function liveBlocksFor<T>(creatorId: string, blocks: T): Promise<T> {
   if (blocks === null || blocks === undefined) return withLiveProducts(createAdminClient() as unknown as ProductsDb, creatorId, blocks)
-  return liveBlocksOnce(creatorId, JSON.stringify(blocks)) as Promise<T>
+  /* Never a locked part, whatever the cache holds (lib/onepage/paid-access). */
+  return (liveBlocksOnce(creatorId, JSON.stringify(blocks)) as Promise<T>).then(withoutLocked)
 }
 
 /*
@@ -231,10 +256,19 @@ export const resolveOnePage = cache(async (slug: string): Promise<OnePageAddress
     const answer = await Promise.race([
       heldRead(
         async (): Promise<OnePageAddress<any>> => {
-          const answer = await resolveOnePageAddress<any>(slug, supabaseOnePageLookup<any>(createAdminClient() as never, "*", { attemptMs: ONE_PAGE_LOOKUP_ATTEMPT_MS }))
-          return answer.kind === "page" ? { ...answer, page: publishedOnly(answer.page) } : answer
+          const db = createAdminClient()
+          const answer = await resolveOnePageAddress<any>(slug, supabaseOnePageLookup<any>(db as never, "*", { attemptMs: ONE_PAGE_LOOKUP_ATTEMPT_MS }))
+          if (answer.kind !== "page") return answer
+          /*
+            THE PAGE'S STORE IS ITS OWNER'S (lib/onepage/page-store): the row's own
+            seller_id and creator_id are the owner's to write, so a page could name
+            another creator's store and draw that creator's products, counts and
+            pixels as its own. Read here, once, inside what every visitor is served.
+          */
+          const page = await withOwnerStore(db, publishedOnly(answer.page))
+          return { ...answer, page }
         },
-        ["onepage-address", "v1", slug],
+        ["onepage-address", "v2", slug],
         { tags: [onePageNameTag(slug)], revalidate: ONE_PAGE_HOLD_SECONDS },
       ),
       outOfTime,
@@ -273,6 +307,17 @@ export function publishedShape(
   owner: OnePageOwner,
   extra: { customDomain?: string | null; sellerId?: string | null } = {},
 ) {
+  /*
+    THE TWO PAID SETTINGS ARE DRAWN ONLY FOR A PLAN THAT PAYS FOR THEM. The
+    save route refuses turning them on for a free plan, but the row can be
+    written past it, and a plan that ended kept them: a "Verified business"
+    mark on a free page is a claim nobody verified. A plan known not to pay
+    draws the page without the badge and with the Storelib badge.
+  */
+  const settings = (onepage.settings ?? {}) as Record<string, unknown>
+  if ((owner as { paidPlan?: boolean | null }).paidPlan === false && (settings.verified_badge_enabled === true || settings.show_branding === false)) {
+    onepage = { ...onepage, settings: { ...settings, verified_badge_enabled: false, show_branding: true } }
+  }
   return publicOnePage(onepage, {
     source: "published",
     displayName: owner.displayName,

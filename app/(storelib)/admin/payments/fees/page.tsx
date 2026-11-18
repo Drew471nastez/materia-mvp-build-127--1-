@@ -3,6 +3,7 @@
 import * as React from "react"
 
 import type { StorelibFeeConfig } from "@/lib/payments/fees/types"
+import { SCALE_MICRO_RATE, SCALE_STANDARD_RATE } from "@/lib/payments/fees/config"
 
 import { Banner, Panel } from "../../_console/ui"
 import { adminPaymentsRead } from "../_fetch"
@@ -77,7 +78,7 @@ export default function FeesPage() {
       {!state.tableReady ? <Banner tone="plain">Fee tables not migrated — using code defaults until SQL migration runs.</Banner> : null}
 
       <Panel title="Active fee rules" meta={`Source: ${state.activeSource} · ${state.active.versionKey}`}>
-        <div className="grid gap-4 px-4 py-4 text-[13px] md:grid-cols-2">
+        <div className="grid gap-4 px-4 py-4 text-[13px] md:grid-cols-3">
           <div>
             <p className="text-[#6b6b76]">Free standard</p>
             <p>{(state.active.freeStandardRate * 100).toFixed(2)}% + fixed (standard tier)</p>
@@ -85,10 +86,17 @@ export default function FeesPage() {
             <p>{(state.active.freeMicroRate * 100).toFixed(2)}%</p>
           </div>
           <div>
-            <p className="text-[#6b6b76]">Pro standard</p>
+            <p className="text-[#6b6b76]">Grow standard</p>
             <p>{(state.active.paidStandardRate * 100).toFixed(2)}% + fixed</p>
-            <p className="mt-2 text-[#6b6b76]">Pro micro</p>
+            <p className="mt-2 text-[#6b6b76]">Grow micro</p>
             <p>{(state.active.paidMicroRate * 100).toFixed(2)}%</p>
+          </div>
+          <div>
+            {/* Scale (plan id pro). A version stored before Scale had its own rate has none: the code's rate applies. */}
+            <p className="text-[#6b6b76]">Pro standard</p>
+            <p>{((state.active.scaleStandardRate ?? SCALE_STANDARD_RATE) * 100).toFixed(2)}% + fixed{state.active.scaleStandardRate == null ? " (code default)" : ""}</p>
+            <p className="mt-2 text-[#6b6b76]">Pro micro</p>
+            <p>{((state.active.scaleMicroRate ?? SCALE_MICRO_RATE) * 100).toFixed(2)}%</p>
           </div>
         </div>
         <div className="border-t border-white/[0.08] px-4 py-3">
@@ -101,14 +109,14 @@ export default function FeesPage() {
       {step !== "view" && draft ? (
         <Panel title="Proposed rules">
           <div className="space-y-3 px-4 py-4 text-[13px]">
-            {(["freeStandardRate", "freeMicroRate", "paidStandardRate", "paidMicroRate"] as const).map((key) => (
+            {(["freeStandardRate", "freeMicroRate", "paidStandardRate", "paidMicroRate", "scaleStandardRate", "scaleMicroRate"] as const).map((key) => (
               <label key={key} className="flex items-center justify-between gap-4">
                 <span className="text-[#9b9ba6]">{key}</span>
                 <input
                   type="number"
                   step="0.0001"
                   className="w-32 rounded border border-white/10 bg-[#17171d] px-2 py-1"
-                  value={draft[key]}
+                  value={draft[key] ?? (key === "scaleStandardRate" ? SCALE_STANDARD_RATE : key === "scaleMicroRate" ? SCALE_MICRO_RATE : 0)}
                   onChange={(e) => setDraft({ ...draft, [key]: Number(e.target.value) })}
                 />
               </label>

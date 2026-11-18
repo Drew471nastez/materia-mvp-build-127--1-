@@ -48,7 +48,7 @@ export function SearchCategoriesButton({
       triggerLabel={CATEGORIES_LABEL}
       tooltip={CATEGORIES_LABEL}
       triggerClassName={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-[8px] cursor-pointer select-none",
+        "search-categories-trigger inline-flex shrink-0 items-center justify-center rounded-[8px] cursor-pointer select-none",
         size === "hero" ? "h-10 w-10 sm:h-11 sm:w-11" : "h-9 w-9",
         "outline-none transition-[background-color,color] duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 [-webkit-tap-highlight-color:transparent]",
         open ? "bg-neutral-100 text-[#1a1a2e]" : "text-neutral-500 hover:bg-neutral-100/80 hover:text-[#1a1a2e] active:bg-neutral-100",

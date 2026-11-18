@@ -36,6 +36,7 @@ import type { RecordCheck } from "@/lib/custom-domains/dns-help"
 import { DnsSetup, type DnsCheckResult } from "@/components/domains/dns-setup"
 import Link from "next/link"
 import { Confirm, EditorCard, LinkButton, Notice, buttonPrimary, buttonSecondary, field, send } from "./parts"
+import { slowingPoll } from "@/lib/ui/slowing-poll"
 
 interface PanelDomain {
   id: string
@@ -137,10 +138,10 @@ export function CommunityDomainPanel({ communityId }: { communityId: string }) {
   const securing = domain?.status === "ssl_provisioning" ? domain : null
   React.useEffect(() => {
     if (!securing) return
-    const id = window.setInterval(() => {
+    /* Slower the longer it waits (round 54, lib/ui/slowing-poll.ts). */
+    return slowingPoll(() => {
       if (document.visibilityState === "visible") void check(securing, true)
     }, 12000)
-    return () => window.clearInterval(id)
   }, [securing, check])
 
   const disconnect = async () => {

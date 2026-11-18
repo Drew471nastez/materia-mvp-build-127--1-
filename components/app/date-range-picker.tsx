@@ -858,6 +858,17 @@ export interface DateRangePickerProps {
   overlay?: boolean
 }
 
+/**
+ * Round AT, the owner (image 146): a block's stats on a phone opened the
+ * period as a popover over the stats sheet, cut off at the top of the
+ * screen. On a phone an `overlay` picker is now the same sheet every /app
+ * page uses, on a layer above the sheet it was opened from
+ * (OVERLAY_SHEET_Z, over a sheet's 200), so it is never clipped; a
+ * computer keeps the popover. The choice reaches the page once the sheet
+ * has gone, as on every other phone picker.
+ */
+export const OVERLAY_SHEET_Z = 210
+
 export function DateRangePicker({ value, onChange, today, firstDay, align = "start", className, inline = false, overlay = false }: DateRangePickerProps) {
   const [open, setOpen] = React.useState(false)
   /* A new panel each time it opens, so it always opens on the list. Not
@@ -892,7 +903,7 @@ export function DateRangePicker({ value, onChange, today, firstDay, align = "sta
   }
   const pick = (v: RangeValue) => {
     setOpen(false)
-    if (phone && !inline && !overlay) {
+    if (phone && !inline) {
       pendingPick.current = v
       return
     }
@@ -922,14 +933,14 @@ export function DateRangePicker({ value, onChange, today, firstDay, align = "sta
          the app's CSS, and a change to either restyled the whole document
          on the tap (scripts/check-app-sheets-frames.mjs). The popover on a
          computer still gets both from Radix's trigger. */
-      data-state={phone && !inline && !overlay ? undefined : open ? "open" : "closed"}
+      data-state={phone && !inline ? undefined : open ? "open" : "closed"}
       data-open={open ? "" : undefined}
       /* A period always narrows what is shown: said for whatever reads the row (scripts/check-analytics-filter-chips.mjs). */
       data-filter-set=""
       aria-haspopup="dialog"
-      aria-expanded={phone && !inline && !overlay ? undefined : open}
+      aria-expanded={phone && !inline ? undefined : open}
       title={value.preset === "custom" ? undefined : rangeLabel(value)}
-      onClick={compact && !overlay ? () => setShown(inline ? !open : true) : undefined}
+      onClick={inline || phone ? () => setShown(inline ? !open : true) : undefined}
     >
       <span className="tabular-nums">{valueLabel(value)}</span>
       <ChevronDown className={cn("h-3.5 w-3.5 text-[#6b7280] transition-transform duration-150", open && "rotate-180")} aria-hidden />
@@ -945,12 +956,12 @@ export function DateRangePicker({ value, onChange, today, firstDay, align = "sta
       </div>
     )
   }
-  if (phone && !overlay) {
+  if (phone) {
     return (
       <>
         {trigger}
-        {/* Kept, and built while the page is idle: the tap only slides it up. */}
-        <BottomSheet isOpen={open} onClose={() => setOpen(false)} title={tt("Date range")} keepMounted={onScreen} onClosed={onSheetClosed}>
+        {/* Kept, and built while the page is idle: the tap only slides it up. Over another sheet (overlay), on a layer above it. */}
+        <BottomSheet isOpen={open} onClose={() => setOpen(false)} title={tt("Date range")} keepMounted={onScreen} onClosed={onSheetClosed} zIndex={overlay ? OVERLAY_SHEET_Z : undefined}>
           <PickerPanel value={value} today={today} firstDay={firstDay} compact onPick={pick} restart={restart} ahead={CUSTOM_AHEAD} />
         </BottomSheet>
       </>

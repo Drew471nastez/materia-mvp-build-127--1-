@@ -73,6 +73,8 @@ export interface OnePageTheme {
   cover_crop?: { x: number; y: number; zoom: number } | null
   cover_previous_header_layout?: "classic" | "hero"
   cover_profile_layout?: boolean
+  /* Round AS (lib/onepage/theme-layout coverFades): the creator's own cover fades into the page at its foot. Missing is on. */
+  cover_fade?: boolean
   font_family: string
   // Title customization
   title_font?: string | null
@@ -85,7 +87,7 @@ export interface OnePageTheme {
   /* Round W10 (lib/onepage/name-style): how the name is drawn (outline, gradient, marker, ...). Missing is the theme's own. */
   name_style?: string | null
   bio_size?: "small" | "default" | "large" | null
-  bio_weight?: 400 | 500 | 600 | null
+  bio_weight?: 400 | 500 | 600 | 700 | null
   bio_tracking?: "tight" | "normal" | "wide" | null
   bio_case?: "none" | "upper" | null
   avatar_size?: "small" | "medium" | "large" | null
@@ -105,6 +107,11 @@ export interface OnePageTheme {
   image_brightness?: number // 0-200, default 100
   image_blur?: number // 0-20, default 0
   image_noise?: boolean
+  /* Round AR (lib/onepage/wallpaper wallpaperMediaLook): an effect on a photo or video wallpaper, the Blur effect's px, and a tint over it (0 to 100). Missing is none. */
+  wallpaper_effect?: "none" | "mono" | "blur" | "halftone" | "grain" | "duotone" | null
+  wallpaper_blur?: number | null
+  wallpaper_tint?: string | null
+  wallpaper_tint_strength?: number | null
   // Header layout
   header_layout?: "classic" | "hero"
   // Social icons
@@ -118,14 +125,18 @@ export interface OnePageTheme {
   social_icon_tone?: "brand" | "mono"
   // Animated gradient
   animated_gradient?: boolean
+  /** Round 17: how an animated gradient moves: drift (missing), orbs or lamp. */
+  gradient_motion?: "drift" | "orbs" | "lamp" | null
   /* Round W9 (lib/onepage/theme-skin): the material a theme draws its blocks in and the scene behind them. Missing is none. */
-  theme_skin?: "aero" | "aqua" | "messenger" | "y2k" | "playful" | "grunge" | "aero2" | "aqua2" | "messenger2" | "y2k2" | "playful2" | "grunge2" | "classic98" | "vaporwave" | "arcade" | null
+  theme_skin?: "aero" | "aqua" | "messenger" | "y2k" | "playful" | "grunge" | "aero2" | "aqua2" | "messenger2" | "y2k2" | "playful2" | "grunge2" | "classic98" | "vaporwave" | "arcade" | "renaissance" | "stoicism" | null
   /** Wave 10: the Design groups the creator changed after picking a skinned theme, shown over the skin (lib/onepage/skin-own). */
   skin_own?: string[] | null
 }
 
 export interface OnePageSettings {
   show_branding: boolean
+  /* Hide Storelib branding (a paid plan's switch), saved beside show_branding (lib/onepage/settings-rules SWITCHES). */
+  hide_branding_pro_enabled?: boolean
   seo_title?: string | null
   seo_description?: string | null
   /* The title and description a shared link shows, when not the search ones (lib/onepage/seo). */
@@ -282,6 +293,8 @@ export interface ProductBlockData {
   // Layout and animation options
   layout_type?: BlockLayoutType
   animation_type?: BlockAnimationType
+  /** Round AR3: how the picture sits in its box. Cover crops (as always), contain shows all of it, full is its own shape. */
+  image_fit?: BlockDisplayMode
   // Custom thumbnail (overrides product thumbnail)
   custom_thumbnail?: string | null
   // Button style customization (filled is the only style now)
@@ -333,6 +346,9 @@ export interface ImageItem {
   image_url: string
   alt_text?: string
   title?: string
+  /** Round 3: the line under the title, and the button's words, drawn on the picture's fade (lib/onepage/image-fade). */
+  caption?: string
+  button_label?: string
   link_url?: string | null
   /** What a press on the picture does (lib/forms/actions); fills link_url (lib/onepage/block-action). */
   action?: import("@/lib/forms/actions").NativeAction
@@ -364,6 +380,8 @@ export interface ImageBlockData {
   image_fit?: "cover" | "contain"
   border_radius?: "none" | "sm" | "md" | "lg" | "full"
   show_captions?: boolean
+  /** Round 3: "fade" lays each picture's title, caption and button on a fade over its foot (lib/onepage/image-fade); missing is the plain picture. */
+  image_style?: "plain" | "fade"
   // Interaction
   clickable?: boolean
 }
@@ -401,6 +419,9 @@ export interface EmailCaptureBlockData {
   animation_type?: BlockAnimationType
   // Ask for a first name above the email box
   ask_name?: boolean
+  /** Round AR: ask for a phone number too (lib/onepage/signup-fields), and whether it must be given. */
+  ask_phone?: boolean
+  phone_required?: boolean
   // After they join: a link the success message offers (a free guide, a private video, a group)
   after_signup_url?: string | null
   /** A chat or group the signup leads to (lib/forms/actions); fills after_signup_url. */
@@ -514,13 +535,27 @@ export interface CountdownBlockData {
 
 export interface MapBlockData {
   title?: string | null
+  /** A typed address or a Google Maps link (lib/onepage/map-place). */
   address: string
+  /** A short Google Maps link read once in the editor: the whole link it leads to, for the short link it was read from. */
+  place?: { from: string; url: string } | null
   show_button?: boolean
+  /** Round AR3: how close the map starts (the street, the area, the city) and how tall it is. Missing: the area, medium. */
+  zoom?: "street" | "area" | "city"
+  map_height?: "short" | "medium" | "tall"
 }
 
 export interface VideoBlockData {
+  /** A YouTube, Vimeo or TikTok address, or a video file Storelib holds (an upload, or one from Files). */
   url: string
   title?: string | null
+  /** Round AR3 (lib/onepage/media-layout): player, card or button. Missing: read from open_mode. */
+  layout?: "player" | "card" | "button"
+  /** The picture shown before an uploaded video plays (and on the card). */
+  poster_url?: string | null
+  /** The video starts by itself, muted, once it is on screen: an upload, YouTube or Vimeo. On for a new block. */
+  autoplay?: boolean
+  loop?: boolean
 }
 
 // The blocks drawn by components/onepage/creator-blocks (lib/onepage/creator-blocks.ts holds their rules)
@@ -541,6 +576,10 @@ export interface MusicBlockData {
   /** A Spotify, SoundCloud or Apple Music link. */
   url: string
   title?: string | null
+  /** Round AR3 (lib/onepage/media-layout): player, card or button. Missing: read from open_mode. */
+  layout?: "player" | "card" | "button"
+  /** The cover, read once from the address's public preview (app/api/onepage/link-preview), for the card. */
+  artwork_url?: string | null
 }
 
 export interface TestimonialItem {
@@ -671,6 +710,8 @@ export interface OnePage {
   onboarding_completed?: boolean
   /** The picture a shared link shows (lib/onepage/seo shareImageModeOf): the profile photo unless changed. */
   share_image_mode?: "profile" | "card" | "custom" | null
+  /** Not a column: the server's fingerprint of the copy the editor opened (lib/onepage/edit-version). The editor keeps it apart from the page. */
+  edit_version?: string | null
 }
 
 export interface OnePageTemplate {
@@ -988,7 +1029,9 @@ export function createDefaultBlock(type: OnePageBlockType): OnePageBlock {
     case "video":
       return {
         ...baseBlock,
-        data: { url: "", title: "", open_mode: "sheet" } as VideoBlockData,
+        /* Round AR3: a new video plays on the page (the owner: "play it right on the page"); its Layout offers the card and the button. */
+        /* A new video starts by itself, muted, once it is on screen (the owner: "autoplay on by default"); a block saved before keeps its own choice. */
+        data: { url: "", title: "", layout: "player", open_mode: "inline", autoplay: true } as VideoBlockData,
       }
     case "course":
       return {
@@ -998,7 +1041,8 @@ export function createDefaultBlock(type: OnePageBlockType): OnePageBlock {
     case "music":
       return {
         ...baseBlock,
-        data: { url: "", title: "", open_mode: "sheet" } as MusicBlockData,
+        /* Round AR3, the owner: "a music block, as default, shows on the page when added". The player, on the page. */
+        data: { url: "", title: "", layout: "player", open_mode: "inline" } as MusicBlockData,
       }
     case "testimonials":
       return {

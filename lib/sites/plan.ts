@@ -101,10 +101,10 @@ export function siteGate(
 ): string | null {
   if (siteLimits(plan)[capability]) return null
   const reasons: Record<typeof capability, string> = {
-    customDomain: "Connecting your own domain is available on Pro.",
-    removeBranding: "Removing Storelib branding is available on Pro.",
+    customDomain: "Connecting your own domain is available on Grow.",
+    removeBranding: "Removing Storelib branding is available on Grow.",
     customCode: "Custom code is available on Pro.",
-    premiumTemplates: "Premium templates are available on Pro.",
+    premiumTemplates: "Premium templates are available on Grow.",
     shopify: "Connecting another store is available on Pro.",
   }
   return reasons[capability]

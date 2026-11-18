@@ -365,6 +365,14 @@ export async function backfillSiteCopies(origin: string, urls: string[], until: 
   }
   const paths = sitePagePaths(urls)
   if (!paths.includes("/")) paths.unshift("/")
-  const r = await capturePages(scope, paths.map((path) => ({ host: host as string, path, kind: "site" as const })), { store, fetcher: opts.fetcher, until })
+  /*
+    ONLY THE PAGES JUST WARMED, AFTER A DEPLOY (round 54, Vercel cost). A site
+    that already has copies used to have every page in its index asked again
+    (up to 24), each a render and an ISR write on the new deployment, on every
+    deploy (10 to 20 a day): the largest steady source of ISR writes found.
+    The front page and the pages warmed are taken again; the rest are taken
+    again when they are opened (keepPageFresh) or the site is saved.
+  */
+  const r = await capturePages(scope, paths.map((path) => ({ host: host as string, path, kind: "site" as const })), { store, fetcher: opts.fetcher, until, onlyThese: had !== null })
   return r.kept > 0
 }

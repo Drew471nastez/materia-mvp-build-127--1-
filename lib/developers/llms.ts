@@ -86,7 +86,7 @@ export function llmsTxt(): string {
     planFacts(),
     "",
     `- [Features](${SITE_ORIGIN}/features): what a creator can do with Storelib.`,
-    `- [Pricing](${SITE_ORIGIN}/pricing): the Free and Pro plans and the fee on each sale.`,
+    `- [Pricing](${SITE_ORIGIN}/pricing): the Free, Grow and Pro plans and the fee on each sale.`,
     `- [Help Center](https://help.storelib.com): step by step guides for selling on Storelib: products, shipping, orders and payouts, websites, email and billing.`,
     `- [FAQ](${SITE_ORIGIN}/faq): short answers about getting started, selling, payments and pricing.`,
     `- [Blog](${SITE_ORIGIN}/blog): guides for creators who sell digital products. Feed: ${SITE_ORIGIN}/blog/rss.xml.`,

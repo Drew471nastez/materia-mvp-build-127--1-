@@ -38,6 +38,7 @@ import { CartReturnsNote } from "./theme/shop-commerce"
 import { useAmountMoney, useCartMoney, useStorefront, useWord } from "./theme/storefront-context"
 import { CartOfferSavings, CartOfferSuggestions, offerDiscount, useCartOffers } from "@/components/offers/cart-offers"
 import { cartPathFor } from "@/lib/website-builder/cart-checkout"
+import { attemptIdOf } from "@/lib/checkout/attempt-id"
 import { CART_NOTE_MAX, onWebsiteHost, siteCheckoutHref } from "@/lib/checkout/site-checkout"
 import { useBackFromCache } from "@/hooks/use-back-from-cache"
 import { readCartExtras, writeCartExtras } from "@/lib/website-builder/cart-extras"
@@ -184,6 +185,8 @@ export function CartPageBody({ palette, radius }: { palette: CartPalette; radius
   const [email, setEmail] = useState("")
   const [agreed, setAgreed] = useState(false)
   const showDetails = free || askDetails
+  /* This page's press of the free order (lib/checkout/attempt-id): sent again after a lost answer, the server answers the basket it already wrote (lib/checkout/free-claim). */
+  const freeAttempt = useRef<string | null>(null)
 
   /* The website's own checkout for a cart with something to post (app/checkout/site), which asks for the address and the delivery; null on a preview on storelib.com, or a cart of downloads, which asks the server first. */
   const siteHref = (): string | null =>
@@ -213,7 +216,7 @@ export function CartPageBody({ palette, radius }: { palette: CartPalette; radius
           returnPath: cartPath,
           origin: pageOrigin(),
           ...(applied ? { couponCode: applied.code } : {}),
-          ...(showDetails ? { buyer: { firstName, lastName, email, agreedToTerms: agreed } } : {}),
+          ...(showDetails ? { buyer: { firstName, lastName, email, agreedToTerms: agreed }, attemptId: attemptIdOf(freeAttempt) } : {}),
         }),
       })
       const data = await res.json().catch(() => ({}))

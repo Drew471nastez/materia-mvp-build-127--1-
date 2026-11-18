@@ -1,0 +1,583 @@
+/* Section 11, analytics (landing round 4). Only transform and opacity animate; the globe is one canvas. */
+
+/* Every card is a dark surface with a hairline: the section sits on the purple sheet (landing round 3). */
+.dark {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  height: 100%;
+  border-radius: 27px;
+  background: #0d0d10;
+  color: #fff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+/* Mocks are pictures: nothing in a card answers the pointer. */
+.dark > * {
+  pointer-events: none;
+}
+/*
+  Landing round 7, the owner: nothing purple on the purple sheet, not even
+  light purple. The heading's accent and the line under the title read white
+  and a neutral grey here (the band's own muted colour is a lilac).
+*/
+.section {
+  --band-muted: #dddce3;
+}
+.section :global(.story-heading) {
+  --story-accent: #fff;
+}
+/* Headings and the words beside the globe start where the showcase's heading does: the content edge plus --home-head-inset. */
+.inset {
+  padding-left: var(--home-head-inset, 0px);
+}
+
+/*
+  The entrance (landing round 9, the owner: "the tabs and things should
+  appear smoothly, clean, animated as I scroll down"). A block is hidden
+  only by the script (data-rise="wait", set while it is still below the
+  screen) and comes to rest when it is on screen ("in"): opacity and the
+  translate property, once. Nothing takes or gives up room, so nothing
+  shifts. The reports row is never hidden itself; its six tiles are, and
+  come in 55ms apart.
+*/
+@media (prefers-reduced-motion: no-preference) {
+  .rise[data-rise="wait"] {
+    opacity: 0;
+    translate: 0 16px;
+  }
+  .rise[data-rise="in"] {
+    transition:
+      opacity 600ms cubic-bezier(0.22, 1, 0.36, 1) calc(var(--i, 0) * 80ms),
+      translate 800ms cubic-bezier(0.22, 1, 0.36, 1) calc(var(--i, 0) * 80ms);
+  }
+  .reports[data-rise="wait"] .report {
+    opacity: 0;
+    translate: 0 10px;
+  }
+  .reports[data-rise="in"] .report {
+    transition:
+      opacity 500ms cubic-bezier(0.22, 1, 0.36, 1) calc(60ms + var(--i, 0) * 55ms),
+      translate 700ms cubic-bezier(0.22, 1, 0.36, 1) calc(60ms + var(--i, 0) * 55ms);
+  }
+}
+
+/*
+  The reports (landing round 7: six even tiles, not pills; landing round 8,
+  the owner: "don't make them black. Make them white, glassmorphism with a
+  slight gradient, very nice and smooth and clean"). White at about a
+  seventh over the purple, a little brighter at the top, a light line along
+  the top edge and a hairline all round, white words. Nothing moves, and no
+  backdrop blur: the purple behind is flat, so a blur would add a layer per
+  tile and show nothing.
+*/
+.reports {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  max-width: 480px;
+  padding: 0;
+  list-style: none;
+}
+.report {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  height: 46px;
+  padding: 0 15px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.17) 0%, rgba(255, 255, 255, 0.1) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.16),
+    0 12px 26px -18px rgba(24, 8, 64, 0.55);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  gap: 9px;
+}
+/* Landing round 11, the owner: "smooth, clean icons". One line icon per report, 16px, a step dimmer than its word. */
+.reportIcon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: rgba(255, 255, 255, 0.82);
+}
+.reportLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@media (max-width: 479px) {
+  .reports {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .report {
+    height: 42px;
+    padding: 0 14px;
+    font-size: 13.5px;
+  }
+}
+@media (max-width: 639px) {
+  .dark {
+    border-radius: 21px;
+  }
+  .serp {
+    max-height: 330px;
+  }
+}
+
+/* The globe card: the globe fills the card and runs off its foot, the two small cards over it. */
+/* Landing round 10, the owner (a MacBook Air at 100%, about 1440x800): two rows of 400px cards made the section 1.5 screens tall there. Each card is held to 44% of the screen's height, never under 340px: 352px at 800, 400 as before from 910 high. */
+.globeCard,
+.fixed {
+  height: clamp(340px, 44svh, 400px);
+}
+@media (max-width: 639px) {
+  .globeCard {
+    height: 470px;
+  }
+  .fixed {
+    height: auto;
+  }
+}
+/* The globe's box: the engine centres the globe in it, a little low, as big as it fits; its foot runs under the small cards. */
+.globe {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 5%;
+  bottom: -4%;
+}
+@media (max-width: 639px) {
+  .globe {
+    top: 3%;
+    bottom: 34%;
+  }
+}
+.globe canvas {
+  opacity: 0;
+  transition: opacity 1200ms ease-out;
+}
+[data-platform-in] .globe canvas {
+  opacity: 1;
+}
+
+.live {
+  position: absolute;
+  z-index: 1;
+  left: 18px;
+  top: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+.liveDot {
+  position: relative;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #22c55e;
+}
+.liveDot::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 999px;
+  background: rgba(34, 197, 94, 0.4);
+  animation: ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+@keyframes ping {
+  0% {
+    transform: scale(0.4);
+    opacity: 0.9;
+  }
+  80%,
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+/* The profile and the top places: two solid dark chips side by side, stacked full width on a phone. */
+.overlay {
+  position: absolute;
+  z-index: 1;
+  left: 18px;
+  right: 18px;
+  bottom: 18px;
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  gap: 10px;
+}
+.profile,
+.places {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 17px;
+  background: #17171c;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.09),
+    0 24px 48px -24px rgba(0, 0, 0, 0.8);
+}
+.profile {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 14px;
+  width: 216px;
+  padding: 14px 16px;
+}
+.who {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+.avatar {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 999px;
+  object-fit: cover;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+.figures {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding-top: 11px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.figures > div + div {
+  padding-left: 12px;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+.places {
+  width: 252px;
+  padding: 14px 16px;
+}
+/* Each place's share of her visitors: a hairline track, filled by a static transform. */
+.share {
+  display: block;
+  height: 3px;
+  margin-top: 6px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+}
+.share > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.82);
+  transform-origin: 0 50%;
+}
+@media (max-width: 639px) {
+  .overlay {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .profile {
+    width: auto;
+    flex-direction: row;
+    align-items: center;
+    padding: 12px 14px;
+  }
+  .who {
+    min-width: 0;
+    flex: 1;
+  }
+  .avatar {
+    width: 38px;
+    height: 38px;
+  }
+  .figures {
+    flex: none;
+    padding-top: 0;
+    border-top: 0;
+  }
+  .places {
+    width: auto;
+    padding: 12px 14px;
+  }
+}
+
+/* Landing round 11: each result's favicon in a round well, as a search shows it at night. */
+.faviconWell {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #2a2a31;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+.favicon {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+/* The search results: a night search, one shade above the card, running off its foot. */
+.serp {
+  border-radius: 15px 15px 0 0;
+  position: relative;
+  background: #15151a;
+  padding: 16px 16px 0;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+}
+.serpBar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: #1f1f25;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+/*
+  The dot grid behind the SEO card (the owner's reference: a fine dot grid on
+  a dark ground). One layer a cell larger than the card, faded towards the
+  results, drifting one cell diagonally and starting again: a transform loop,
+  without a seam because the pattern repeats every cell.
+*/
+/*
+  Landing round 12 (perf): the fade is on a still box (.dotsField, where .dots
+  was) and the grid drifts inside it, so the moving layer carries no mask of
+  its own. The drift uncovers only the field's top and left 22px, which lie
+  outside the card.
+*/
+.dotsField {
+  position: absolute;
+  inset: -22px;
+  pointer-events: none;
+  -webkit-mask-image: radial-gradient(90% 70% at 100% 0%, #000 0%, rgba(0, 0, 0, 0.35) 40%, transparent 70%);
+  mask-image: radial-gradient(90% 70% at 100% 0%, #000 0%, rgba(0, 0, 0, 0.35) 40%, transparent 70%);
+}
+.dots {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.09) 0.9px, transparent 1.5px);
+  background-size: 22px 22px;
+  animation: dotsDrift 16s linear infinite;
+}
+@keyframes dotsDrift {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(22px, 22px, 0);
+  }
+}
+
+/*
+  The light behind the engines (landing round 5): two soft tints on one
+  layer twice the card's size that turns once a minute around the card's
+  middle. One transform, very low contrast. Round 7: neutral, a white and a
+  cool grey, nothing violet.
+*/
+/*
+  Landing round 12 (perf): the same two tints on a smaller square, 154% of the
+  card (was 180%: 0.73 of the area). Each tint ends at 70% of its radius, so
+  nothing in them lies further than 76% of the card's width from the middle,
+  and 154% is the smallest square whose inner circle holds all of it at every
+  angle. The stops are the old ones in the new square's terms: same place,
+  same size on screen.
+*/
+.orbit {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 154%;
+  aspect-ratio: 1;
+  margin: -77% 0 0 -77%;
+  background:
+    radial-gradient(25.71% 25.71% at 26.62% 31.3%, rgba(255, 255, 255, 0.07), transparent 70%),
+    radial-gradient(28.05% 28.05% at 73.38% 68.7%, rgba(186, 196, 214, 0.06), transparent 70%);
+  animation: orbit 60s linear infinite;
+}
+@keyframes orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/*
+  The engines (landing round 7, smoother): the names sit side by side on one
+  strip, a step apart, and the strip slides one step a turn: one transform
+  on one layer, eased in and out, the text never scaled. The mask on the
+  row never moves, so a name brightens as it passes the middle and fades at
+  the sides by itself. A plain dark pill marks the middle.
+*/
+.engines {
+  --step: 168px;
+  position: relative;
+  height: 64px;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, rgba(0, 0, 0, 0.28) 24%, #000 42%, #000 58%, rgba(0, 0, 0, 0.28) 76%, transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, rgba(0, 0, 0, 0.28) 24%, #000 42%, #000 58%, rgba(0, 0, 0, 0.28) 76%, transparent 100%);
+}
+@media (max-width: 639px) {
+  .engines {
+    --step: 150px;
+    -webkit-mask-image: linear-gradient(90deg, transparent 6%, rgba(0, 0, 0, 0.2) 27%, #000 40%, #000 60%, rgba(0, 0, 0, 0.2) 73%, transparent 94%);
+    mask-image: linear-gradient(90deg, transparent 6%, rgba(0, 0, 0, 0.2) 27%, #000 40%, #000 60%, rgba(0, 0, 0, 0.2) 73%, transparent 94%);
+  }
+}
+.enginePill {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 196px;
+  height: 64px;
+  margin-left: -98px;
+  border-radius: 999px;
+  background: #1a1a20;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 18px 36px -18px rgba(0, 0, 0, 0.8);
+}
+.strip {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  display: flex;
+  height: 64px;
+  margin-left: calc(var(--step) / -2);
+  transform: translate3d(calc(var(--pos, 5) * var(--step) * -1), 0, 0);
+  transition: transform 1000ms cubic-bezier(0.65, 0, 0.35, 1);
+}
+/* Landing round 12 (perf): its own layer only while the section is live (it slides every 2.6s then), not for good. */
+[data-platform-live="true"] .strip {
+  will-change: transform;
+}
+.strip[data-snap] {
+  transition: none;
+}
+.engine {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: var(--step);
+  height: 64px;
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #fff;
+  white-space: nowrap;
+}
+.engineMark {
+  width: 22px;
+  height: 22px;
+  flex: none;
+}
+
+/*
+  The orbs (landing round 8, the owner: the globe, Nora Vik and top places
+  cards "should have those kind of orbs like 'Ready for Google and AI
+  search' has, but more subtle and clean"; the SEO card too). Each is one
+  small round light, a radial gradient no bigger than its card, drifting
+  slowly between two points by transform alone: no blur filter, no layer
+  larger than the card, paused off screen with the section's other loops
+  (.loop), gone under reduced motion.
+*/
+.orb {
+  position: absolute;
+  z-index: -1;
+  border-radius: 50%;
+  pointer-events: none;
+  /* Landing round 12 (perf): no will-change. A running drift is its own layer anyway; one paused far off screen need not be. */
+  animation: orbDrift 22s ease-in-out infinite alternate;
+}
+.orbGlobeA {
+  left: -8%;
+  top: -30%;
+  width: 62%;
+  aspect-ratio: 1;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.025) 55%, transparent);
+}
+.orbGlobeB {
+  right: -14%;
+  bottom: -38%;
+  width: 56%;
+  aspect-ratio: 1;
+  background: radial-gradient(closest-side, rgba(186, 196, 214, 0.065), rgba(186, 196, 214, 0.02) 55%, transparent);
+  animation-name: orbDriftBack;
+  animation-duration: 26s;
+}
+.orbChip {
+  left: -30%;
+  top: -90%;
+  width: 120%;
+  aspect-ratio: 1;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02) 55%, transparent);
+  animation-duration: 18s;
+}
+.orbChipLate {
+  left: auto;
+  right: -40%;
+  animation-name: orbDriftBack;
+  animation-duration: 20s;
+}
+.orbSearch {
+  right: -10%;
+  top: -36%;
+  width: 58%;
+  aspect-ratio: 1;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.06), rgba(186, 196, 214, 0.02) 55%, transparent);
+}
+@keyframes orbDrift {
+  from {
+    transform: translate3d(-6%, -4%, 0);
+  }
+  to {
+    transform: translate3d(10%, 8%, 0);
+  }
+}
+@keyframes orbDriftBack {
+  from {
+    transform: translate3d(6%, 5%, 0);
+  }
+  to {
+    transform: translate3d(-10%, -6%, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .globe canvas,
+  .strip {
+    transition: none;
+  }
+  .globe canvas {
+    opacity: 1;
+  }
+  .liveDot::after,
+  .dots,
+  .orbit {
+    animation: none;
+  }
+  .orb {
+    animation: none;
+  }
+}

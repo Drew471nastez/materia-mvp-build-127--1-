@@ -2,7 +2,7 @@ import "server-only"
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { permits } from "./permissions"
-import { NO_ACCESS, actingStore, type ActingStore } from "./server"
+import { NO_ACCESS, actingStoreRead, storeUnavailableResponse, type ActingStore } from "./server"
 
 /**
  * ===========================================================================
@@ -57,7 +57,9 @@ export function onePageActorFor(userId: string, session: Client, acting: ActingS
  * when the answer is no.
  */
 export async function onePageActor(session: Client, userId: string): Promise<OnePageActor | NextResponse> {
-  const acting = await actingStore(createAdminClient(), userId).catch(() => null)
+  /* The membership read failed: 503 Try again, never the member's own page in the store's place (round rel2-auth). */
+  const { acting, failed } = await actingStoreRead(createAdminClient(), userId)
+  if (failed) return storeUnavailableResponse()
   const out = onePageActorFor(userId, session, acting, createAdminClient)
   if ("refuse" in out) return NextResponse.json({ error: out.error }, { status: out.refuse, headers: noStore })
   return out

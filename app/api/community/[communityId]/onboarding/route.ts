@@ -3,7 +3,7 @@ import { requireCommunitiesOn } from "@/lib/communities/flag"
 import { requireMember } from "@/lib/communities/server/context"
 import { admin } from "@/lib/communities/server/db"
 import { finishOnboarding, joinRateLimit } from "@/lib/communities/server/join"
-import { createClient } from "@/lib/supabase/server"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -22,9 +22,9 @@ export async function POST(_request: Request, { params }: { params: Promise<{ co
   const off = await requireCommunitiesOn()
   if (off) return off
   const { communityId } = await params
-  const {
-    data: { user },
-  } = await (await createClient()).auth.getUser()
+  const who = await routeUser({ fresh: true })
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
   const db = admin()
   const gate = await requireMember(db, communityId, user?.id ?? null, "view")
   if (gate instanceof NextResponse) return gate

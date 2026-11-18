@@ -4,6 +4,7 @@ import { downloadRateLimit } from "@/lib/storage/download-limits"
 import { isUuid } from "@/lib/courses/access"
 import { PRIVATE, sessionUserId } from "@/lib/courses/route-auth"
 import { FILE_URL_SECONDS, lessonContext, signLessonFile } from "@/lib/courses/server"
+import { signedOutOrRetry } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -20,7 +21,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const { id } = await params
   if (!isUuid(id)) return NextResponse.json({ error: "File not found" }, { status: 404, headers: PRIVATE })
   const userId = await sessionUserId()
-  if (!userId) return NextResponse.json({ error: "Sign in to download this file." }, { status: 401, headers: PRIVATE })
+  if (!userId) return signedOutOrRetry(NextResponse.json({ error: "Sign in to download this file." }, { status: 401, headers: PRIVATE }))
 
   const limited = await downloadRateLimit(request, { userId, assetId: id })
   if (limited) return limited

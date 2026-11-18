@@ -61,7 +61,7 @@ export function TryProStrip() {
     <AnnouncementBarMobile className="hidden md:block">
       <div className="mx-auto flex max-w-[1200px] items-center justify-center gap-2 text-center md:gap-3">
         <span className="text-[12px] md:text-[14px]">
-          <span className={STRIP_TITLE}>{tt("Try Pro")}</span>
+          <span className={STRIP_TITLE}>{tt("Try Grow")}</span>
           <span className={`hidden md:inline ${STRIP_TEXT}`}>{tt(", our most popular plan for content creators and businesses.")}</span>
         </span>
         <Link href="/upgrade" className={STRIP_ACTION}>

@@ -1,6 +1,7 @@
 import type React from "react"
 import { Suspense } from "react"
 import { isBuyerHeaderLight } from "@/lib/platform/buyer-header-theme"
+import { DocumentReady } from "@/components/marketing/document-ready"
 import { ConditionalHeader } from "@/components/marketing/conditional-header"
 import { ConditionalFooter } from "@/components/marketing/conditional-footer"
 import { BuyerTabBar } from "@/components/nav/buyer-tab-bar"
@@ -61,6 +62,8 @@ export default async function MarketingLayout({
       nothing looked broken. A crawler that does not run JavaScript saw an
       empty document, and everybody else saw a blank frame first.
     */
+    /* Landing round 14: nothing here hydrates before the whole document has arrived (components/marketing/document-ready.tsx). */
+    <DocumentReady>
     <div className="flex min-h-svh flex-col marketing-flex-wrapper">
       {/*
         No preconnect here. There was one to cdn.sanity.io, which nothing in
@@ -99,7 +102,14 @@ export default async function MarketingLayout({
         the one mechanism by which anything inside main could paint over the
         footer at all. Both reasons point the same way.
       */}
-      <main className="flex-1">{children}</main>
+      {/* Landing round 14: the page slot goes through a component, not straight into <main>. The page arrives as a
+          piece of its own; when it (or a code file it needs) was late, React began <main> twice and lost its place in
+          the server's HTML (#418, the whole page drawn again). A component that waits for its children is begun again
+          safely; an element is not. Not a Suspense boundary: a redirect from a layout below must stay a real 308
+          (tests/profile-one-page.test.ts). */}
+      <main className="flex-1">
+        <DocumentReady>{children}</DocumentReady>
+      </main>
 
       {/*
         And the footer gets its own stacking context, so it is composited as
@@ -118,5 +128,6 @@ export default async function MarketingLayout({
           those are, and brings the room it takes at the end of the page. */}
       <BuyerTabBar />
     </div>
+    </DocumentReady>
   )
 }

@@ -30,7 +30,7 @@ import { readSwitchArrival, SWITCH_ARRIVAL_SCRIPT, SWITCH_COOKIE } from "@/lib/b
 import { BusinessSwitchArrival } from "@/components/app/business-switch-screen"
 import { communitiesEnabled } from "@/lib/communities/flag"
 import { exploreMarketplaceAnswer } from "@/lib/platform/explore-marketplace"
-import { teamStoreForRequest, teamStoresReadForRequest } from "@/lib/team/server"
+import { teamStoreForRequest, teamStoreReadForRequest, teamStoresReadForRequest } from "@/lib/team/server"
 import { appLanding, ownAccountHref } from "@/lib/team/landing"
 import { TeamBar } from "@/components/app/team-bar"
 import { RAIL_COOKIE, railStateOf, railWidth } from "@/lib/ui/app-rail"
@@ -263,11 +263,13 @@ export default async function AppLayout({
     /* With a ceiling of its own (SHELL_EXTRA_MS): up to three reads one after another for a menu, and the shell waited on the slowest of them. Past it, this business alone, as on an error. */
     within(listBusinesses(user.id), SHELL_EXTRA_MS, []),
     /* Working in a store they were invited to (lib/team): read from the database again on every request. No cookie naming a store: no read. */
-    within(teamStoreForRequest(user.id).catch(() => null), SHELL_ROWS_MS, null),
+    /* Round rel2-auth: a read that failed (or ran past the ceiling) is "failed", never "working in their own account": no gate below is decided from it. */
+    within(teamStoreReadForRequest(user.id), SHELL_ROWS_MS, { team: null, failed: true }),
     /* The stores they are on as a team member, for the account menu's switcher. Past the ceiling, unknown: never "on no team". */
     within(teamStoresReadForRequest(user.id), SHELL_EXTRA_MS, { stores: [], failed: true }),
   ])
-  const [answered, onepage, businesses, team, memberRead] = await shellReads
+  const [answered, onepage, businesses, teamRead, memberRead] = await shellReads
+  const team = teamRead.team
   /* Not answered in time (or failed with no copy): the last good copy this instance read for this person, when it has one. */
   const rows = answered !== TIMED_OUT ? answered : keptShellRows(user.id) ?? TIMED_OUT
   const known = rows !== TIMED_OUT
@@ -313,7 +315,8 @@ export default async function AppLayout({
     could not be read (round 53).
   */
   const ownAccess = !!ownCreator && hasSellerAccess(sellerAccessFrom({ creator: ownCreator, profile: gateCheck }))
-  if (known) {
+  /* The store the team cookie names could not be read: no gate is decided, the page under it has its own boundary (round rel2-auth). */
+  if (known && !teamRead.failed) {
     const landing = appLanding({ acting: !!teamStore, ownAccess, memberships: memberOf.length, path: "/app" })
     if (landing.kind === "adopt") redirect(landing.to)
     /* A login with no store of its own that took a business over opens that business, never onboarding (lib/handoff/home). */

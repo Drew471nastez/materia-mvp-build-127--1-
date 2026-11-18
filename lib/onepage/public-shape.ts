@@ -31,6 +31,7 @@
  *                opened as https. As it was saved, the page drew it as a
  *                path on storelib.me, which is a 404.
  */
+import { withoutRetiredTheme } from "./retired-themes"
 import { isScheduledNow } from "@/lib/onepage/extra-blocks"
 import { syncedSocialPlatforms } from "@/lib/onepage/editor-state"
 import { creatorName, creatorPhoto } from "@/lib/account/identity"
@@ -94,6 +95,19 @@ function drawnBlock(block: any, social: Record<string, unknown>): any {
     const href = linkHref(block.data.url)
     return href === block.data.url ? block : { ...block, data: { ...block.data, url: href } }
   }
+  /* A clickable picture's link typed without its scheme ("instagram.com/mara") opens as https too, not as a 404 under storelib.me. */
+  if (block.type === "image") {
+    const link = linkHref(block.data.link_url)
+    const images = Array.isArray(block.data.images) ? block.data.images : null
+    const nextImages = images?.map((img: any) => {
+      if (!img || typeof img !== "object") return img
+      const href = linkHref(img.link_url)
+      return href === img.link_url ? img : { ...img, link_url: href }
+    })
+    const imagesChanged = !!images && nextImages!.some((img: any, i: number) => img !== images[i])
+    if (link === block.data.link_url && !imagesChanged) return block
+    return { ...block, data: { ...block.data, link_url: link, ...(imagesChanged ? { images: nextImages } : {}) } }
+  }
   if (block.type === "group" && Array.isArray(block.data.children)) {
     const children = block.data.children.map((c: any) => drawnBlock(c, social))
     return children.every((c: any, i: number) => c === block.data.children[i]) ? block : { ...block, data: { ...block.data, children } }
@@ -104,6 +118,29 @@ function drawnBlock(block: any, social: Record<string, unknown>): any {
 /** The blocks as both sides draw them: in their schedule, social rows from the social links, link addresses that open. */
 export function drawnBlocks(blocks: any[], social: Record<string, unknown>, now: number): any[] {
   return blocks.filter((b) => isScheduledNow(b, now)).map((b) => drawnBlock(b, social))
+}
+
+/**
+ * WHAT IS NOT ON THE PAGE IS NOT SENT (the OnePage production audit, P-F3).
+ * A switched off block, and a group's block outside its schedule, were left
+ * out by the page's own component in the browser, after the whole block
+ * list had been sent with the page: a link switched off "until launch" was
+ * in every visitor's page source. They are left out here, groups included,
+ * on both sides: the editor's preview never drew them either, and the
+ * preview and the live page stay one shape (tests/onepage-preview-live-r10).
+ */
+function withoutHidden(blocks: any[], now: number): any[] {
+  const out: any[] = []
+  for (const b of blocks) {
+    if (!b || typeof b !== "object" || b.enabled === false || !isScheduledNow(b, now)) continue
+    if (b.type === "group" && b.data && Array.isArray(b.data.children)) {
+      const children = withoutHidden(b.data.children, now)
+      out.push(children.length === b.data.children.length ? b : { ...b, data: { ...b.data, children } })
+      continue
+    }
+    out.push(b)
+  }
+  return out
 }
 
 export type PublicOnePageData = {
@@ -146,7 +183,8 @@ export function publicOnePage(
   const published = source === "published"
   const profile = (published ? (row.published_profile as Record<string, any> | null) : null) || null
   const settings = row.settings || { show_branding: true, analytics_enabled: true, subscribe_enabled: true }
-  const theme = (published ? row.published_theme : null) || row.theme || FALLBACK_PUBLIC_THEME
+  /* A theme no longer offered (Editorial) is drawn as its successor, the creator's own changes kept (lib/onepage/retired-themes). */
+  const theme = withoutRetiredTheme((published ? row.published_theme : null) || row.theme || FALLBACK_PUBLIC_THEME)
   const blocks = ((published ? row.published_blocks || row.draft_blocks : row.draft_blocks) || []) as any[]
   const social = (published ? row.published_social_links || row.social_links : row.social_links) || {}
   return {
@@ -168,7 +206,7 @@ export function publicOnePage(
     avatar_video_url: profile?.avatar_video_url || row.avatar_video_url || null,
     avatar_video_crop: profile?.avatar_video_crop || (settings as any)?.avatar_video_crop || null,
     theme,
-    blocks: drawnBlocks(blocks, social as Record<string, unknown>, now),
+    blocks: drawnBlocks(withoutHidden(blocks, now), social as Record<string, unknown>, now),
     social_links: social,
     settings: customDomain === undefined ? { ...settings } : { ...settings, custom_domain: customDomain },
     seller_id: sellerId === undefined ? row.seller_id || row.creator_id || null : sellerId,

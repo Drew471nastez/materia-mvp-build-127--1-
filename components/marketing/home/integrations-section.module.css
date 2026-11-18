@@ -1,0 +1,269 @@
+/* Section 13, integrations: two marquee rows of app icons on a light ground. */
+
+/* The section clips its rows without being a scroll box (clip, not hidden;
+   hidden first for browsers without clip), so its heading's scroll-driven
+   inking follows the page (story-heading.tsx, inkedByCss). */
+.clip {
+  overflow: hidden;
+  overflow: clip;
+}
+
+/*
+  The corner dots (landing round 8; round 9: no canvas and no script). A box
+  behind everything in the section, never in the way of a pointer, holding
+  two still SVG layers of dots per corner. Each layer grows slowly out from
+  its corner, turns a few degrees and fades; the second is half a lap behind
+  the first, so the cloud breathes out without a seam. Transform and opacity
+  only, paused off screen with every other loop (platform's .loop).
+*/
+.dots {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  /* How far a cloud reaches from its corner. */
+  --reach: clamp(220px, 30vw, 560px);
+}
+.cloud {
+  position: absolute;
+  display: block;
+  overflow: visible;
+  width: var(--reach);
+  height: calc(var(--reach) * 0.72);
+  animation: breathe 28s linear infinite;
+}
+.cloud[data-corner="0"] {
+  right: calc(var(--reach) * -0.08);
+  top: calc(var(--reach) * -0.1);
+  transform-origin: 100% 0;
+}
+.cloud[data-corner="1"] {
+  left: calc(var(--reach) * -0.08);
+  bottom: calc(var(--reach) * -0.12);
+  transform-origin: 0 100%;
+}
+.cloud[data-layer="1"] {
+  animation-name: breatheBack;
+  animation-delay: -14s;
+}
+@keyframes breathe {
+  0% {
+    opacity: 0;
+    transform: scale(0.78) rotate(-6deg);
+  }
+  24% {
+    opacity: 1;
+  }
+  62% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.22) rotate(6deg);
+  }
+}
+@keyframes breatheBack {
+  0% {
+    opacity: 0;
+    transform: scale(0.78) rotate(5deg);
+  }
+  24% {
+    opacity: 1;
+  }
+  62% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.22) rotate(-5deg);
+  }
+}
+
+/*
+  The rows run the page's full width. Landing round 7, the owner: the icons
+  themselves run edge to edge too ("like the actual icons to be full width"),
+  with only a short fade at each end of the screen; there is no solid white
+  strip past 1210px any more. So that no icon is seen twice, a tile and its
+  gap take at least 1/10.5 of the screen's width (integrations-section.tsx):
+  on a wide screen the gap grows and the icons spread out. The tiles are
+  90px, 67px on a phone (landing round: a fifth smaller).
+  Landing round 11, the owner: "reduce the horizontal gap between each icon
+  a little more". With four more apps a set is longer, so the share drops
+  from 1/10.5 to 1/12 of the screen and no icon is still seen twice: at
+  1440px the gap is about 39px (was 57), on a phone 8px (was 10).
+  Landing round 12, the owner: "a little more". 1/13 of the screen: the
+  shorter set has 14 tiles, so 13 steps still make a full screen and no
+  icon is seen twice. At 1440px the gap is about 21px (was 30), at 1920
+  about 40 (was 52), on a phone 6px (was 8).
+*/
+.rows {
+  position: relative;
+  display: grid;
+  /* The rows' own overlap, given back, so the fades cover every shadow. */
+  padding-block: calc(var(--room) - (var(--row-gap) + 4px) / 2);
+  /* 90px, growing a little past 1600px wide so the icons hold their own across a wide screen. */
+  --tile: clamp(90px, 5.6vw, 116px);
+  /* Landing round 14 (the owner: the gap about half again on a computer): 1/15 of the screen per tile and gap, 10px least. */
+  --gap: max(10px, calc(100vw / 15 - var(--tile)));
+  /* Space between the two rows: the old tile gap, not the spread one. */
+  --row-gap: clamp(20px, 1.6vw, 30px);
+  /* Room above and below each row for a tile's shadow and lift (the row clips sideways). */
+  --room: 24px;
+}
+@media (max-width: 639px) {
+  .rows {
+    --tile: 67px;
+    --gap: max(6px, calc(100vw / 13 - var(--tile)));
+    --row-gap: 10px;
+    --room: 20px;
+  }
+}
+/* The rows fade into the page at both ends of the screen, over their full height, shadows included. */
+.rows::before,
+.rows::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 2;
+  width: clamp(40px, 11vw, 220px);
+  pointer-events: none;
+}
+.rows::before {
+  left: 0;
+  background: linear-gradient(90deg, #fff, rgba(255, 255, 255, 0.8) 18%, rgba(255, 255, 255, 0.5) 42%, rgba(255, 255, 255, 0.2) 70%, rgba(255, 255, 255, 0));
+}
+.rows::after {
+  right: 0;
+  background: linear-gradient(270deg, #fff, rgba(255, 255, 255, 0.8) 18%, rgba(255, 255, 255, 0.5) 42%, rgba(255, 255, 255, 0.2) 70%, rgba(255, 255, 255, 0));
+}
+
+.row {
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  padding-block: var(--room);
+  /* Rows overlap by their room, so the tiles sit --row-gap + 4px apart, not two rooms. */
+  margin-block: calc((var(--row-gap) + 4px - 2 * var(--room)) / 2);
+}
+/* Each tile carries its own gap on the right (no flex gap), so the two
+   copies are two equal halves and one loop is exactly -50%. */
+.track {
+  display: flex;
+  width: max-content;
+  animation: slide var(--dur, 52s) linear infinite;
+}
+.reverse .track {
+  animation-direction: reverse;
+}
+@keyframes slide {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+/* Under a mouse a row glides to a stop (its playback rate is eased in the tsx): no :hover rule freezes it here. */
+
+/*
+  THE TILE IS THE ICON. At rest a tile is flat (no 3D transform), so a row
+  is one composited track. Landing round 4, the owner: no bump under the
+  pointer, and nothing square behind the icon as it turns: the tile does
+  not lift, has no shadow layer of its own, and only the icon's rounded
+  face turns (Web Animations, in the tsx), its back hidden.
+*/
+.tile {
+  position: relative;
+  flex: none;
+  display: block;
+  margin-right: var(--gap);
+  width: var(--tile);
+  height: var(--tile);
+  cursor: default;
+  -webkit-tap-highlight-color: transparent;
+}
+/* Landing round 11 perf: the face has no backface-visibility setting. The turn (FLIP in the tsx) goes from 0 to 90 degrees and on from -90 to 0, so the back of the icon is never shown, and the setting made every icon (and each picture on it) a layer of its own, about 55 layers. */
+.inner {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 24%;
+  box-shadow: 0 10px 22px -14px rgba(17, 17, 26, 0.32);
+}
+/* A hairline only round a light icon, where white would meet the white page. */
+.inner[data-light] {
+  box-shadow:
+    0 0 0 1px rgba(17, 17, 26, 0.07),
+    0 10px 22px -14px rgba(17, 17, 26, 0.32);
+}
+/* A square app icon covers the tile, a hair over, so no edge of its own shows. */
+.cover,
+.whole {
+  position: absolute;
+  inset: -2%;
+  width: 104%;
+  height: 104%;
+  object-fit: cover;
+  user-select: none;
+}
+.contain {
+  width: calc(var(--tile) * var(--scale, 0.64));
+  height: calc(var(--tile) * var(--scale, 0.64));
+  object-fit: contain;
+  user-select: none;
+}
+.vector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(var(--tile) * var(--scale, 0.6));
+}
+.vectorSvg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.mark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 54%;
+  height: 54%;
+}
+.glyph {
+  grid-area: 1 / 1;
+  width: 100%;
+  height: 100%;
+}
+/* The flash a tile carries through its turn. */
+.shine {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(105deg, rgba(255, 255, 255, 0) 30%, rgba(255, 255, 255, 0.55) 50%, rgba(255, 255, 255, 0) 70%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .track {
+    animation: none;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: auto;
+    row-gap: var(--row-gap);
+  }
+  .track > [data-copy] {
+    display: none;
+  }
+  /* Standing still, the icons sit at the close gap again (the spread one is only there to keep a moving row from showing an icon twice). */
+  .tile {
+    margin-right: var(--row-gap);
+  }
+  .rows::before,
+  .rows::after {
+    display: none;
+  }
+}

@@ -2,20 +2,21 @@ import { NextResponse } from "next/server"
 import { requireCommunitiesOn } from "@/lib/communities/flag"
 import { requireMember } from "@/lib/communities/server/context"
 import { admin } from "@/lib/communities/server/db"
-import { createClient } from "@/lib/supabase/server"
 import { readJson } from "@/lib/email-campaigns/route-auth"
 import { manageLimit } from "@/lib/communities/server/creator"
 import { listReports, updateReport } from "@/lib/communities/server/moderation"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 const noStore = { "Cache-Control": "no-store" }
 
-async function signedIn(): Promise<string | null> {
-  const {
-    data: { user },
-  } = await (await createClient()).auth.getUser()
+/* A NextResponse when Supabase Auth could not tell: the route answers it (503 Try again), never treats it as a user id. */
+async function signedIn(): Promise<string | null | NextResponse> {
+  const who = await routeUser({ fresh: true })
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
   return user?.id ?? null
 }
 
@@ -30,7 +31,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ comm
   if (off) return off
   const { communityId } = await params
   const db = admin()
-  const gate = await requireMember(db, communityId, await signedIn(), "review_reports")
+  const me = await signedIn()
+  if (me instanceof NextResponse) return me
+  const gate = await requireMember(db, communityId, me, "review_reports")
   if (gate instanceof NextResponse) return gate
   const url = new URL(request.url)
   const status = url.searchParams.get("status") || "open"
@@ -42,7 +45,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ co
   if (off) return off
   const { communityId } = await params
   const db = admin()
-  const gate = await requireMember(db, communityId, await signedIn(), "review_reports")
+  const me = await signedIn()
+  if (me instanceof NextResponse) return me
+  const gate = await requireMember(db, communityId, me, "review_reports")
   if (gate instanceof NextResponse) return gate
   const limited = await manageLimit(gate.viewer.userId as string)
   if (limited) return limited

@@ -744,6 +744,8 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
   const [firstName, setFirstName] = useState(profile.first_name || profile.display_name?.split(" ")[0] || "")
   const [lastName, setLastName] = useState(profile.last_name || profile.display_name?.split(" ").slice(1).join(" ") || "")
   const [username, setUsername] = useState(profile.username || creator.slug || "")
+  /* The handle and the store address as saved, so Save asks the server to move them only when one would change. */
+  const savedAddress = useRef({ username: profile.username || "", slug: creator.slug || "" })
   /* The Name field's own text while it is being typed (see the field). */
   const [nameDraft, setNameDraft] = useState<string | null>(null)
 
@@ -1220,53 +1222,43 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
     const displayName = `${firstName} ${lastName}`.trim()
 
     try {
-      // Check if username is taken by another user
-      const { data: existingUsers } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("username", cleanUsername)
-        .neq("id", profile.id)
-        .limit(1)
-
-      if (existingUsers && existingUsers.length > 0) {
-        setError(tt("This username is already taken"))
-        setIsLoading(false)
-        return false
-      }
-
-      /* Nor another website's address (Website Settings › Domains), which is
-         a name of the same kind: <name>.storelib.com. Until the address table
-         exists the question fails, and the username goes ahead as before. */
-      if (cleanUsername !== profile.username) {
-        const { data: handleTaken } = await supabase.rpc("website_handle_taken", { p_handle: cleanUsername })
-        if (handleTaken === true) {
-          setError(tt("A website already uses this name"))
+      /*
+        THE HANDLE FIRST, ON THE SERVER (round AX). It is three addresses
+        (storelib.com/<handle>, <handle>.storelib.com, storelib.me/<handle>)
+        and every rule on a name lives in the app: the format, reserved words,
+        names for a fake sign in page, a name somebody gave up, another
+        website's address (lib/profile/move-handle.ts). This page used to
+        write all three columns with the browser key, past those rules; the
+        database now refuses that (supabase/sql/run-now/462). A name taken in
+        the meantime stops the save before anything else moves. Only asked
+        when the handle or the store's address would change.
+      */
+      let previousHandle: string | null = null
+      let onepageWarning: string | null = null
+      if (cleanUsername !== savedAddress.current.username || cleanUsername !== savedAddress.current.slug) {
+        const res = await fetchWithDeadline("/api/profile/username", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: cleanUsername, store: true }),
+        }, WAIT_MS.write).catch(() => null)
+        const moved = res ? ((await res.json().catch(() => null)) as { username?: string; previous?: string | null; onepageMoved?: boolean; error?: string } | null) : null
+        if (!res || !res.ok || !moved?.username) {
+          setError(moved?.error ? tt(moved.error) : tt("That did not save. Try again in a moment."))
+          setShowSaveToast(true)
           setIsLoading(false)
           return false
         }
-      }
-
-      // Track old username for redirects (only if actually changing)
-      const oldUsername = profile.username
-      const renamed = !!oldUsername && oldUsername !== cleanUsername
-      if (renamed) {
-        /* The row behind every "your old link still works" redirect. A
-           Supabase update RESOLVES with an error rather than throwing, so the
-           try/catch this replaces could never have caught one — the error was
-           simply dropped. */
-        const { error: historyError } = await supabase.from("username_history").insert({
-          user_id: profile.id,
-          old_username: oldUsername,
-          new_username: cleanUsername,
-        })
-        if (historyError) console.error("[settings] username_history insert failed:", historyError.message)
+        previousHandle = moved.previous || null
+        savedAddress.current = { username: moved.username, slug: moved.username }
+        if (moved.onepageMoved === false) {
+          onepageWarning = `Your details were saved, but your OnePage address could not be moved to ${getLinksUrlDisplay(moved.username)}. Save again to retry.`
+        }
       }
 
       const { error: profileError } = await supabase
         .from("profiles")
         .update({
           display_name: displayName,
-          username: cleanUsername,
           first_name: firstName,
           last_name: lastName,
           address_line1: addressLine1 || null,
@@ -1281,7 +1273,6 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
       if (profileError) throw profileError
 
       const { error: creatorError } = await supabase.from("creators").update({
-        slug: cleanUsername,
         support_email: cleanSupportEmail || null,
         payout_currency: payoutCurrency,
       }).eq("id", creator.id)
@@ -1290,37 +1281,13 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
       /* Store details shows the same address, from the read Settings kept when it opened: read again, so it opens on this one and its Save cannot put the old one back. */
       if (supportEmail.trim() !== initialSupportEmail.current.trim()) void readFresh("/api/store/settings")
 
-      /**
-       * =====================================================================
-       *  A HANDLE IS THREE ADDRESSES, AND THEY MOVE TOGETHER OR NOT AT ALL
-       * =====================================================================
-       *   storelib.com/<handle>         the creator page  (profiles.username)
-       *   <handle>.storelib.com         the website       (creators.slug)
-       *   storelib.me/<handle>          the OnePage       (onepages.slug)
-       *
-       * The first two are updated above. This is the third, and it used to be
-       * wrapped in `try { } catch {}` marked "non-fatal" — but a Supabase
-       * update resolves with an error instead of throwing, so the catch never
-       * ran and the error was discarded either way. When it failed, the
-       * OnePage kept the old slug while the Share card went on advertising
-       * the new handle, and the address it gave out was a 404.
-       *
-       * It is not fatal, because the name change has already happened by the
-       * time we get here and there is nothing to roll back. It is not silent
-       * either: the save reports what did not move so it can be retried.
-       */
-      let onepageWarning: string | null = null
-      if (renamed) {
-        const { error: onepageError } = await supabase
-          .from("onepages")
-          .update({ slug: cleanUsername })
-          .eq("owner_id", profile.id)
-        if (onepageError) {
-          console.error("[settings] onepage slug sync failed:", onepageError.message)
-          onepageWarning = `Your details were saved, but your OnePage address could not be moved to ${getLinksUrlDisplay(cleanUsername)}. Save again to retry.`
-        }
-      }
-
+      /*
+        A HANDLE IS THREE ADDRESSES, AND THEY MOVE TOGETHER OR NOT AT ALL:
+        the server moved them above (lib/profile/move-handle.ts). A OnePage
+        that could not follow is not fatal, the name has moved and there is
+        nothing to roll back, but it is not silent either: the save reports
+        it so Save can retry it.
+      */
       /**
        * =====================================================================
        *  A NEW NAME REACHES THE TAB TITLE AND THE SHARE CARD, NOT JUST HERE
@@ -1338,12 +1305,14 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
        * supabase/sql/run-now/43 does the same work for every writer.
        */
       const previousName = profile.display_name || ""
-      if (previousName && previousName !== displayName) {
+      const nameChanged = !!previousName && previousName !== displayName
+      /* A new handle too (round AW): the server clears what the CDN kept for the old address and the new one. */
+      if (nameChanged || previousHandle) {
         /* Bounded: the name is saved already, and Save waited on this follow-up with no limit. */
         await fetchWithDeadline("/api/account/profile-changed", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ previousName }),
+          body: JSON.stringify({ ...(nameChanged ? { previousName } : {}), ...(previousHandle ? { previousHandle } : {}) }),
         }, WAIT_MS.write).catch(() => null)
       }
 

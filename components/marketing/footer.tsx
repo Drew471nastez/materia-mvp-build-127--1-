@@ -1,7 +1,9 @@
 "use client"
 
 import Link from "next/link"
-import { useState, useEffect, type FormEvent, type JSX } from "react"
+import dynamic from "next/dynamic"
+import { useState, useEffect, type JSX, type MouseEvent, type ReactNode } from "react"
+import { useLocale } from "@/components/locale-provider"
 import { openCookiePreferences } from "@/lib/consent/client"
 import { isNativeApp } from "@/lib/platform-utils"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
@@ -67,14 +69,18 @@ const SOCIAL_ICONS: Record<StorelibSocialNetwork, { label: string; Icon: (p: { c
 }
 const SOCIAL = STORELIB_SOCIAL.filter((p) => /^https:\/\//.test(p.url) && p.network in SOCIAL_ICONS).map((p) => ({ href: p.url, ...SOCIAL_ICONS[p.network] }))
 
+/* Round 3: the same links as before, in four columns after the large commerce sites' footers (the owner's picture). */
 const PRODUCT = [
   { label: "Home", href: "/" },
-  { label: "Discover", href: "/explore" },
-  { label: "Blog", href: "/blog" },
-  { label: "Sign In", href: "/login" },
+  { label: "Features", href: "/features" },
   { label: "Pricing", href: "/pricing" },
   { label: "Compare", href: "/alternatives" },
-  { label: "Features", href: "/features" },
+  { label: "Sign In", href: "/login" },
+]
+
+const RESOURCES = [
+  { label: "Discover", href: "/explore" },
+  { label: "Blog", href: "/blog" },
   { label: "Developers", href: "/developers" },
 ]
 
@@ -89,61 +95,152 @@ const SELL = SELL_PAGES.filter((u) => !("flag" in u)).map((u) => ({ label: u.nav
 const SUPPORT = [
   /* The Help Center's own address: storelib.com/help is a 308 to it, a hop on every page's footer link. */
   { label: "Help", href: publicHelpUrl() },
+  { label: "FAQ", href: "/faq" },
   /* There is no affiliate page yet; asking by email is the real way in. */
   { label: "Affiliate Program", href: "mailto:team@storelib.com?subject=Affiliate%20Program" },
+  { label: "Contact us", href: "mailto:team@storelib.com" },
+]
+
+/* The legal row along the bottom, with Cookie Preferences beside them. */
+const LEGAL = [
   { label: "Terms of Service", href: "/terms" },
   { label: "Privacy Policy", href: "/privacy" },
 ]
 
-const linkClass = "block text-left text-[14px] leading-6 text-white/55 transition-colors duration-150 hover:text-white"
+const linkClass = "block text-left text-[15px] leading-6 text-white/60 transition-colors duration-150 hover:text-white"
+const legalClass = "text-[14px] leading-6 text-white/60 transition-colors duration-150 hover:text-white"
+
+/*
+  THE APP. The App Store page is the one the rest of the site uses
+  (lib/communities/setup-checklist appStoreUrl, read the same way here so the
+  footer does not carry that module): NEXT_PUBLIC_IOS_APP_STORE_ID, or a full
+  NEXT_PUBLIC_IOS_APP_STORE_URL. Google Play is not live yet: its badge is
+  drawn greyed, marked Coming soon, and is not a link.
+*/
+const IOS_ID = (process.env.NEXT_PUBLIC_IOS_APP_STORE_ID || "").trim()
+const IOS_URL_ENV = (process.env.NEXT_PUBLIC_IOS_APP_STORE_URL || "").trim()
+/* TODO(owner): set NEXT_PUBLIC_IOS_APP_STORE_ID on Vercel; until then the badge points nowhere ("#"). */
+export const APP_STORE_HREF = /^\d+$/.test(IOS_ID) ? `https://apps.apple.com/app/id${IOS_ID}` : /^https:\/\//.test(IOS_URL_ENV) ? IOS_URL_ENV : "#"
+
+/* Apple's mark (Simple Icons, CC0), in the black badge Apple's guidelines describe: white mark and words, a grey hairline. */
+const APPLE_PATH =
+  "M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"
+const PLAY_PATH =
+  "M22.018 13.298l-3.919 2.218-3.515-3.493 3.543-3.521 3.891 2.202a1.49 1.49 0 0 1 0 2.594zM1.337.924a1.486 1.486 0 0 0-.112.568v21.017c0 .217.045.419.124.6l11.155-11.087L1.337.924zm12.207 10.065l3.258-3.238L3.45.195a1.466 1.466 0 0 0-.946-.179l11.04 10.973zm0 2.067l-11 10.933c.298.036.612-.016.906-.183l13.324-7.54-3.23-3.21z"
+
+export function AppStoreBadge({ href = APP_STORE_HREF, className = "" }: { href?: string; className?: string }) {
+  return (
+    <a
+      href={href}
+      {...(href === "#" ? { onClick: (e: MouseEvent<HTMLAnchorElement>) => e.preventDefault() } : { target: "_blank", rel: "noopener" })}
+      aria-label="Download on the App Store"
+      className={`inline-flex h-11 shrink-0 items-center gap-2 rounded-[9px] border border-[#a6a6a6] bg-black pl-2.5 pr-3.5 text-white transition-colors hover:border-white ${className}`}
+      data-app-badge="ios"
+    >
+      <svg viewBox="0 0 24 24" className="h-[26px] w-[26px]" fill="currentColor" aria-hidden="true">
+        <path d={APPLE_PATH} />
+      </svg>
+      <span className="flex flex-col items-start leading-none" aria-hidden="true">
+        <span className="text-[10px] font-medium tracking-[0.01em]">Download on the</span>
+        <span className="mt-[2px] text-[19px] font-semibold tracking-[-0.02em]">App Store</span>
+      </span>
+    </a>
+  )
+}
+
+export function GooglePlayBadge({ className = "" }: { className?: string }) {
+  return (
+    <span
+      role="img"
+      aria-label="Google Play: coming soon"
+      className={`inline-flex h-11 shrink-0 cursor-default select-none items-center gap-2 rounded-[9px] border border-white/15 bg-white/[0.04] pl-2.5 pr-3.5 text-white/45 ${className}`}
+      data-app-badge="android"
+    >
+      <svg viewBox="0 0 24 24" className="h-[22px] w-[22px]" fill="currentColor" aria-hidden="true">
+        <path d={PLAY_PATH} />
+      </svg>
+      <span className="flex flex-col items-start leading-none" aria-hidden="true">
+        <span className="text-[10px] font-medium uppercase tracking-[0.06em]">Coming soon</span>
+        <span className="mt-[2px] text-[17px] font-semibold tracking-[-0.01em]">Google Play</span>
+      </span>
+    </span>
+  )
+}
+
+/* The language picker the header opens (components/platform/language-modal), loaded only when asked for. */
+const LanguageModal = dynamic(() => import("@/components/platform/language-modal").then((m) => m.LanguageModal), { ssr: false })
+
+/* The locale, or English outside a LocaleProvider (a fixture or a probe); the hook's own hooks run either way, in the same order. */
+function useLocaleOrNull() {
+  try {
+    return useLocale()
+  } catch {
+    return null
+  }
+}
+
+function LanguageButton() {
+  const locale = useLocaleOrNull()
+  const language = locale?.language
+  const languages = locale?.languages ?? []
+  const [open, setOpen] = useState(false)
+  const [asked, setAsked] = useState(false)
+  const current = languages.find((l) => l.code === language)?.label ?? "English"
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          setAsked(true)
+          setOpen(true)
+        }}
+        className="-ml-1 inline-flex h-11 items-center gap-2 rounded-md px-1 text-[14px] text-white transition-colors hover:text-white/75"
+        data-footer-language=""
+      >
+        <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="9.25" />
+          <path d="M2.75 12h18.5M12 2.75c2.6 2.6 3.9 5.68 3.9 9.25s-1.3 6.65-3.9 9.25c-2.6-2.6-3.9-5.68-3.9-9.25S9.4 5.35 12 2.75z" />
+        </svg>
+        <span className="sr-only">Language: </span>
+        {current}
+        <svg viewBox="0 0 24 24" className="h-4 w-4 text-white/60" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </button>
+      {asked && locale ? <LanguageModal open={open} onOpenChange={setOpen} /> : null}
+    </>
+  )
+}
+
+function Column({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <nav aria-label={title} className="min-w-0">
+      <h2 className="text-[17px] font-medium tracking-[-0.01em] text-white">{title}</h2>
+      <div className="mt-5 space-y-3">{children}</div>
+    </nav>
+  )
+}
 
 /**
- * The storelib.com footer. The layout people know (logo and contact, Product,
- * Support, the community sign-up), on a near-black with depth: a lit top edge
- * and a soft falloff drawn in globals.css (.storelib-footer), and a sign-up
- * field that sits into the surface rather than on it.
- *
- * The sign-up is real: it posts to /api/newsletter, which stores the address
- * with the time and the wording agreed to. It used to wait half a second and
- * say thanks without keeping anything.
+ * The storelib.com footer. Round 3, the owner's picture: black, the logo at
+ * the left with the app badges under it, the links in four columns, a
+ * hairline, then one row with the language, the legal links and Storelib's
+ * profiles as round icons. The newsletter box is gone (the owner). Drawn on
+ * every marketing page by ConditionalFooter.
  */
 export function MarketingFooter() {
   const [logoHref, setLogoHref] = useState("/")
-  const [email, setEmail] = useState("")
-  const [state, setState] = useState<"idle" | "sending" | "done">("idle")
-  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (isNativeApp()) setLogoHref("/explore")
   }, [])
 
-  const subscribe = async (e: FormEvent) => {
-    e.preventDefault()
-    if (!email.trim() || state === "sending") return
-    setState("sending")
-    setError(null)
-    try {
-      const res = await fetch("/api/newsletter", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim() }),
-      })
-      if (!res.ok) {
-        const data = await res.json().catch(() => null)
-        setError(typeof data?.error === "string" ? data.error : "That did not go through. Try again in a moment.")
-        setState("idle")
-        return
-      }
-      setState("done")
-    } catch {
-      setError("No connection. Try again in a moment.")
-      setState("idle")
-    }
-  }
+  const year = new Date().getFullYear()
 
   return (
     <footer
       className="storelib-footer relative isolate overflow-hidden text-white"
+      data-footer="storelib"
       style={{
         /* Extend dark bg into body's safe-area-inset-bottom padding so
            there is no white strip above the iOS home indicator */
@@ -151,64 +248,44 @@ export function MarketingFooter() {
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
       }}
     >
-      <div className="relative mx-auto max-w-[1400px] px-4 pb-6 pt-12 sm:px-6 md:pb-8 md:pt-16 lg:px-8">
-        <div className="grid grid-cols-2 gap-8 md:grid-cols-6 lg:gap-12">
-          <div className="col-span-2 space-y-6 md:col-span-1">
-            <Link href={logoHref} scroll={true} className="flex flex-wrap items-center gap-3 transition-opacity hover:opacity-80">
-              <StorelibLogo size={40} />
+      <div className="relative mx-auto max-w-[1400px] px-5 pb-8 pt-14 sm:px-8 md:pt-20 lg:px-12">
+        <div className="grid gap-12 lg:grid-cols-12 lg:gap-10">
+          <div className="lg:col-span-3" data-footer-brand="">
+            <Link href={logoHref} scroll={true} aria-label="Storelib" className="inline-flex items-center gap-3 transition-opacity hover:opacity-80">
+              {/* Landing round 11, the owner: "the Storelib icon in the footer should not be outlined like that". Landing round 12, the owner: not the colour picture either, a solid mark. Landing round 13, the owner: a white S on a near black square with some depth, like a dark app icon (StorelibLogo variant "solid"). */}
+              <StorelibLogo size={40} variant="solid" />
               <span className="text-xl font-bold text-white">Storelib</span>
             </Link>
-
-            <div className="space-y-2">
-              <p className="text-sm text-white/50">Copyright {new Date().getFullYear()} Storelib Inc. All rights reserved.</p>
-              <a href="mailto:team@storelib.com" className="text-sm text-white/50 transition-colors hover:text-white">
-                team@storelib.com
-              </a>
+            {/* The app, under the logo: side by side on a phone, one under the other beside the columns. */}
+            <div className="mt-7 flex flex-wrap items-center gap-3 lg:flex-col lg:items-start" data-footer-apps="">
+              <AppStoreBadge />
+              <GooglePlayBadge />
             </div>
-
-            {SOCIAL.length ? (
-              <div className="flex items-center gap-4" data-storelib-social="">
-                {SOCIAL.map(({ label, href, Icon }) => (
-                  <a
-                    key={href}
-                    href={href}
-                    target="_blank"
-                    rel="me noopener"
-                    aria-label={label}
-                    className="flex h-11 w-11 items-center justify-center text-white/85 transition-colors hover:text-white"
-                  >
-                    <Icon className="h-5 w-5" />
-                  </a>
-                ))}
-              </div>
-            ) : null}
           </div>
 
-          <nav aria-label="Product" className="space-y-4">
-            <h2 className="text-sm font-semibold text-white">Product</h2>
-            <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-4 lg:col-span-9 lg:gap-x-10">
+            <Column title="Product">
               {PRODUCT.map((l) => (
                 <Link key={l.label} href={l.href} className={linkClass}>
                   {l.label}
                 </Link>
               ))}
-            </div>
-          </nav>
-
-          <nav aria-label="Sell" className="space-y-4">
-            <h2 className="text-sm font-semibold text-white">Sell</h2>
-            <div className="space-y-3">
+            </Column>
+            <Column title="Sell">
               {SELL.map((l) => (
                 <Link key={l.href} href={l.href} className={linkClass}>
                   {l.label}
                 </Link>
               ))}
-            </div>
-          </nav>
-
-          <nav aria-label="Support" className="space-y-4">
-            <h2 className="text-sm font-semibold text-white">Support</h2>
-            <div className="space-y-3">
+            </Column>
+            <Column title="Resources">
+              {RESOURCES.map((l) => (
+                <Link key={l.label} href={l.href} className={linkClass}>
+                  {l.label}
+                </Link>
+              ))}
+            </Column>
+            <Column title="Support">
               {SUPPORT.map((l) =>
                 l.href.startsWith("mailto:") ? (
                   <a key={l.label} href={l.href} className={linkClass}>
@@ -221,62 +298,46 @@ export function MarketingFooter() {
                 ),
               )}
               {/* One of the Support links: the same class, so the same size,
-                  colour, line height and left edge as the four above it. */}
+                  colour, line height and left edge as the links above it. */}
               <button type="button" onClick={() => openCookiePreferences()} className={`${linkClass} cursor-pointer p-0`} data-cookie-preferences>
                 Cookie Preferences
               </button>
-            </div>
-          </nav>
-
-          <div className="col-span-2 space-y-4">
-            <h2 className="text-sm font-semibold text-white">Join Our Community!</h2>
-            <p className="text-sm text-white/50">Receive weekly assets and future templates for free by joining our community.</p>
-
-            {state === "done" ? (
-              <p className="flex h-12 items-center gap-2 text-sm text-emerald-400" role="status">
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                Thanks for subscribing!
-              </p>
-            ) : (
-              <form onSubmit={subscribe} className="flex gap-2" noValidate>
-                <label htmlFor="footer-email" className="sr-only">
-                  Email
-                </label>
-                <input
-                  id="footer-email"
-                  type="email"
-                  inputMode="email"
-                  autoComplete="email"
-                  required
-                  placeholder="Enter your email..."
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value)
-                    if (error) setError(null)
-                  }}
-                  className="storelib-footer-field h-12 min-w-0 flex-1 rounded-xl px-4 text-[15px] text-white placeholder:text-white/35 focus:outline-none"
-                />
-                <button
-                  type="submit"
-                  disabled={state === "sending"}
-                  className="storelib-footer-cta h-12 shrink-0 rounded-xl px-6 text-[15px] font-semibold text-white disabled:opacity-70"
-                >
-                  {state === "sending" ? "Sending" : "Sign Up"}
-                </button>
-              </form>
-            )}
-            {error ? (
-              <p className="text-[13px] text-red-300" role="alert">
-                {error}
-              </p>
-            ) : null}
+            </Column>
           </div>
         </div>
 
-        <div className="mt-10 border-t border-white/[0.07] pt-5">
-          <p className="text-center text-xs text-white/40">&copy; {new Date().getFullYear()} Storelib. All rights reserved.</p>
+        {/* Under the hairline: the language, the legal links, and Storelib's profiles at the right. One row on a computer, stacked on a phone. */}
+        <div className="mt-14 flex flex-col gap-5 border-t border-white/[0.1] pt-7 md:flex-row md:items-center md:gap-10" data-footer-bottom="">
+          <LanguageButton />
+          <nav aria-label="Legal" className="flex flex-wrap items-center gap-x-8 gap-y-2">
+            {LEGAL.map((l) => (
+              <Link key={l.href} href={l.href} className={legalClass}>
+                {l.label}
+              </Link>
+            ))}
+          </nav>
+          {SOCIAL.length ? (
+            <div className="flex items-center gap-3 md:ml-auto" data-storelib-social="">
+              {SOCIAL.map(({ label, href, Icon }) => (
+                <a
+                  key={href}
+                  href={href}
+                  target="_blank"
+                  rel="me noopener"
+                  aria-label={label}
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-black transition-opacity hover:opacity-80"
+                >
+                  <Icon className="h-5 w-5" />
+                </a>
+              ))}
+            </div>
+          ) : null}
+          <p className={`text-[13px] text-white/45 ${SOCIAL.length ? "" : "md:ml-auto"}`}>
+            &copy; {year} Storelib Inc. All rights reserved.{" "}
+            <a href="mailto:team@storelib.com" className="whitespace-nowrap transition-colors hover:text-white">
+              team@storelib.com
+            </a>
+          </p>
         </div>
       </div>
     </footer>

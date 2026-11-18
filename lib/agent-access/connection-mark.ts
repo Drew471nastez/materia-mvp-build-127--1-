@@ -224,6 +224,25 @@ export const POLL_MAX_MS = 10_000
 export const POLL_IDLE_AFTER_MS = 2 * 60_000
 /** How often an editor left alone asks. */
 export const POLL_IDLE_MS = 30_000
+/*
+  A VISIBLE EDITOR LEFT ALONE (round 54, Vercel cost). The once-a-second read
+  ran for as long as a tab stayed open, used or not: about 28,800 reads (and
+  as many middleware runs) in an eight-hour day for one forgotten editor
+  tab, the largest steady source of function calls found. Now: every second
+  while changes arrive or the person used the editor in the last two
+  minutes, as before; every five seconds after that; every fifteen after ten
+  quiet minutes. A press, a key, the tab shown or the pointer back over it
+  returns to the quick end at once (site-connections.tsx stir and wake).
+*/
+export const POLL_LEFT_ALONE_AFTER_MS = 10 * 60_000
+export const POLL_LEFT_ALONE_MS = 15_000
+
+/** How often a visible editor asks, by how long it has been quiet. */
+export function visiblePollDelay(quietMs: number): number {
+  if (quietMs < POLL_IDLE_AFTER_MS) return POLL_ACTIVE_MS
+  if (quietMs < POLL_LEFT_ALONE_AFTER_MS) return POLL_BASE_MS
+  return POLL_LEFT_ALONE_MS
+}
 
 /**
  * `quietMs` is how long since a change last arrived or the person last came

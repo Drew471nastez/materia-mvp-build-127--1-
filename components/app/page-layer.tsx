@@ -578,6 +578,28 @@ export function forgetPageCopy() {
   pageCopy?.box?.remove()
   pageCopy = null
 }
+
+/**
+ * THE COPY, BROUGHT UP TO DATE INSTEAD (products round 42). Forgetting the
+ * copy after a save made the way back after any edit the slow one: the editor
+ * stood still after Back until the list had been fetched again and drawn,
+ * which is what "going back after editing feels abrupt" was. A page that
+ * knows its own markup can correct its copy instead (the products list:
+ * app/(storelib)/app/products/list-return.ts updateListCopy). `edit` is run on
+ * every kept part, the hidden box laid out ahead included (it holds the same
+ * nodes); when it answers false for any part the copy cannot be made true
+ * and is forgotten, the way back it had before.
+ */
+export function editPageCopy(edit: (part: HTMLElement) => boolean): void {
+  const kept = pageCopy
+  if (!kept) return
+  for (const { copy } of kept.parts) {
+    if (!edit(copy)) {
+      forgetPageCopy()
+      return
+    }
+  }
+}
 function layCopyAhead() {
   const kept = pageCopy
   if (!kept || kept.box?.isConnected) return

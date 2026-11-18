@@ -903,11 +903,8 @@ export function buildThemePreset(def: ThemeDefinition): ThemePreset {
     features("product-features", "What's included", "Everything you get with your purchase", [
       ["download", "Instant download", "Get immediate access to all files after purchase."],
       ["refresh-cw", "Free updates", "Receive all future updates at no extra cost."],
-      ["shield", "Satisfaction guarantee", "Not happy? Get a full refund within 30 days."],
-    ]),
-    testimonials("product-reviews", [
-      ["Absolutely love this product. It saves me hours every week!", "Sarah J.", "Designer"],
-      ["Best purchase I've made this year. Highly recommend!", "Mike R.", "Developer"],
+      /* No refund promise and no reviews here: this is every product's page in a new store, and it printed a thirty day money back promise and two five star quotes marked verified, for a store that had promised and received neither. A store adds its own, or Storelib Reviews shows its real ones. */
+      ["mail", "Help when you need it", "Write to us about your order and we will answer."],
     ]),
     products("product-related", "You might also like", "More from this store.", true),
     footer,

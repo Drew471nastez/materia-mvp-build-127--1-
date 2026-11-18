@@ -1,0 +1,150 @@
+/**
+ * ===========================================================================
+ *  HOME, LANDING ROUND 3: THE LOWER SECTIONS ON THEIR NEW GROUNDS
+ * ===========================================================================
+ * The owner: "white modals on black background looks ugly and weird", tabs
+ * like the ones in "Make the work", nothing drawn inside a mock hoverable or
+ * clickable, and examples that are about half digital products and
+ * communities, half physical products and merch.
+ *
+ *   analytics   on the purple sheet: every card a dark surface with a
+ *               hairline; the search card dark with a night search inside;
+ *               the profile and top places solid dark chips; the reports
+ *               outlined in the ground's ink; nothing answers the pointer.
+ *   map         the product card dark with a light button that still says
+ *               Buy now; the flags a real switch (buttons that choose the
+ *               country); the rest inert; the Example tag off the dots on a
+ *               phone.
+ *   audience    one neutral grey for every card, no violet light and no
+ *               lilac card, no pill row; mocks inert.
+ *   earnings    three digital or community kinds and three printed ones; the
+ *               kinds and the plan switch in the tab family of "Make the
+ *               work" (grey track, white chosen pill).
+ *   pricing     white on the home page, where it shares the white sheet.
+ *   app         no white ring on the purple ground.
+ */
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
+import { createElement } from "react"
+import { renderToStaticMarkup } from "react-dom/server"
+import { AudienceOwnership } from "@/components/marketing/home/audience-ownership"
+import { AnalyticsShowcase } from "@/components/marketing/home/analytics-showcase"
+import { SellEverywhereMap, SELL_COUNTRIES } from "@/components/marketing/home/sell-everywhere-map"
+import { EarningsCalculator, EARN_KINDS, EARNINGS_STYLES, commerceMonth } from "@/components/marketing/home/earnings-calculator"
+import { AppAnywhere } from "@/components/marketing/home/app-anywhere"
+import { PricingSection } from "@/components/marketing/pricing-section"
+import { PILLS_CSS } from "@/components/marketing/home/showcase-mocks/pills"
+
+let passed = 0
+let failed = 0
+function check(name: string, ok: boolean, detail?: unknown) {
+  if (ok) {
+    passed++
+    console.log(`  ok    ${name}`)
+  } else {
+    failed++
+    console.log(`  FAIL  ${name}${detail === undefined ? "" : `\n        ${JSON.stringify(detail).slice(0, 600)}`}`)
+  }
+}
+const root = process.cwd()
+const read = (p: string) => readFileSync(join(root, p), "utf8")
+const DIR = "components/marketing/home"
+const rule = (css: string, sel: string) => css.match(new RegExp(`(?:^|\\})\\s*${sel.replace(/[.[\]"=]/g, "\\$&")}\\s*\\{([^}]*)\\}`, "m"))?.[1] ?? ""
+/** Is a #rrggbb colour a dark surface (every channel under 0x30)? */
+const dark = (hex: string) => /^#[0-9a-f]{6}$/i.test(hex) && [1, 3, 5].every((i) => parseInt(hex.slice(i, i + 2), 16) < 0x30)
+
+console.log("\n── analytics, on the purple sheet ──")
+{
+  const src = read(`${DIR}/analytics-showcase.tsx`)
+  const css = read(`${DIR}/analytics-showcase.module.css`)
+  const html = renderToStaticMarkup(createElement(AnalyticsShowcase))
+  check("no light card left: one dark surface class, with a hairline", !/\.light\b/.test(css) && !/s\.light/.test(src) && /\.dark \{[^}]*background: #0d0d10;[^}]*inset 0 0 0 1px rgba\(255, 255, 255, 0\.08\)/.test(css))
+  check("the search card is dark, and so is the search inside it", /function SearchCard[\s\S]*?\$\{s\.dark\}/.test(src) && dark(css.match(/\.serp \{\s*border-radius[^}]*background: (#[0-9a-f]{6})/)?.[1] ?? "") && dark(css.match(/\.serpBar \{[^}]*background: (#[0-9a-f]{6})/)?.[1] ?? ""))
+  check("the profile and top places are solid dark chips", dark(css.match(/\.profile,\s*\.places \{[^}]*background: (#[0-9a-f]{6})/)?.[1] ?? "") && !/backdrop-filter/.test(css))
+  check("no white or light grey slab in the cards' markup", !/bg-white(?![\/\w])|bg-\[#f[0-9a-f]{5}\]|bg-\[#fff\]/.test(html.replace(/<section[^>]*>/, "")))
+  /* Changed on purpose (landing round 4): fewer reports (six), lit from above with a soft white gradient for depth, as the owner asked; still the ground's ink and a hairline. */
+  /* Changed on purpose (landing round 5): the owner asked for the report pills white, with some depth and a bit of glass. */
+/* Changed on purpose (landing round 7): the owner asked for another shape than the white pills and nothing purple on the purple sheet: six near-black tiles (tests/home-landing-r7-lower.test.ts). */
+  /* Changed on purpose (landing round 8): the owner asked for the reports white, glass with a slight gradient, not black; still six, a hairline, no backdrop blur. */
+  check("the reports are six white glass tiles with a hairline, no backdrop blur", /\.report \{[^}]*background: linear-gradient\(180deg, rgba\(255, 255, 255, 0\.1[0-9]\)[^}]*inset 0 1px 0 rgba\(255, 255, 255, 0\.3\)[^}]*color: #fff;/.test(css) && /\.report \{[^}]*inset 0 0 0 1px rgba\(255, 255, 255, 0\.16\)/.test(css) && !/backdrop-filter/.test(css) && (html.match(/<li class="[^"]*report[^"]*"/g) ?? []).length === 6)
+  /* Changed on purpose (landing round 4): the owner asked for the engine switcher to be pressable; its buttons are the one real control, and only they have a hover. */
+  /* Changed on purpose (landing round 5): the engine switcher is the earlier one again, with no buttons, so nothing in a card answers the pointer. */
+  check("nothing in a card answers the pointer", /\.dark > \* \{\s*pointer-events: none;/.test(css) && !/:hover/.test(css))
+  /* Changed on purpose (landing round 4): sourdough is banned; the sample is a LUT pack (digital). */
+  check("the sample is a LUT pack (digital), not sourdough", html.includes("Fjord LUTs: 24 cinematic looks for Premiere Pro") && !/sourdough/i.test(html))
+}
+
+console.log("\n── the map, on the purple sheet ──")
+{
+  const src = read(`${DIR}/sell-everywhere-map.tsx`)
+  const html = renderToStaticMarkup(createElement(SellEverywhereMap))
+  const prod = rule(src, ".cmm-prod")
+  check("the card is a dark surface with a hairline", dark(rule(src, ".cmm-card").match(/background:(#[0-9a-f]{6})/)?.[1] ?? "") && /inset 0 0 0 1px rgba\(255,255,255,\.08\)/.test(rule(src, ".cmm-card")))
+  check("the product card is dark, not a white slab", dark(prod.match(/background:(#[0-9a-f]{6})/)?.[1] ?? "") && !/background:#fff/.test(prod))
+  /* Changed on purpose (landing round 4): the owner asked for the button in each country's language. */
+  /* Changed on purpose (landing round 9): every layer that swaps carries data-i now (a turn writes attributes instead of rendering), so the span has one more attribute. */
+  check("a light buy button on every card, its words in each country's language", (html.match(/class="cmm-buy" lang="/g) ?? []).length === SELL_COUNTRIES.length && /lang="de"[^>]*>Jetzt kaufen</.test(html)) // Changed on purpose (landing round 11): each card in the stack has its own button.
+  check("the flags are a real switch: one pressed button per country, named", (html.match(/<button type="button" class="cmm-flag"/g) ?? []).length === SELL_COUNTRIES.length && (html.match(/aria-pressed="true"/g) ?? []).length === 1 && html.includes('aria-label="United States"') && /role="group" aria-label="Buyer&#x27;s country"/.test(html))
+  /* Changed on purpose (landing round 8): the lit flag's line times the turn and restarts with every country (keyed by it), so a press starts the turn again from the chosen one with no timer to reset. */
+  /* Changed on purpose (landing round 9): no render per turn. show(i) writes the attributes and starts the line again by giving it the same keyframes under the other name (data-lap). */
+  check("choosing a country restarts the turn from it", /const show = \(i: number\)/.test(src) && /<i className="cmm-time" data-lap="0" onAnimationEnd=\{next\} \/>/.test(src) && /setAttribute\("data-lap", String\(t\.laps % 2\)\)/.test(src) && /\.cmm-time\[data-lap="1"\]\{animation-name:cmm-time-b\}/.test(src))
+  /* Changed on purpose (landing round 5): the Example tag is gone, as the owner asked. */
+  check("the map, the product and the words are inert", /\.cmm-grid,\.cmm-world,\.cmm-stage,\.cmm-copy\{pointer-events:none\}/.test(src)) // Changed on purpose (landing round 11): the products are a stack inside .cmm-stage.
+  check("no Example tag on the card at any width", !/cmm-tag|>Example</.test(src))
+  check("the switch keeps a reduced motion path and a focus ring", /\.cmm-flag:focus-visible\{outline:2px solid/.test(src) && /prefers-reduced-motion:reduce\)\{[\s\S]*\.cmm-flag,/.test(src))
+}
+
+/* Changed on purpose (landing round 15): the owner asked for the audience section as it was before round 14, so audience-ownership.tsx and its stylesheet are f248e7d0a^'s again and the checks round 14 changed here are put back as they were (the four step sequence is gone; tests/home-landing-r14-purple.test.ts). */
+console.log("\n── audience, on the white sheet ──")
+{
+  const src = read(`${DIR}/audience-ownership.tsx`)
+  const css = read(`${DIR}/audience-ownership.module.css`)
+  const html = renderToStaticMarkup(createElement(AudienceOwnership))
+  /* Changed on purpose (landing round 5): one white Contacts card on the white sheet, no grey panel and no light. */
+  check("one white card with a hairline: no violet light, no lilac card", /\.mock \{[^}]*background: #fff;/.test(css) && !/radial-gradient|\.violet|\.stage/.test(css) && !/s\.violet|s\.stage/.test(src))
+  /* Changed on purpose (landing round 4): the owner asked for a lighter structure; what stays yours is one plain line under three plain rows, no pills. */
+  check("what stays yours is a plain line, not pills", /* Changed on purpose (landing round 9): the owner asked for half the words; the point is its five words now. */ html.includes("Download every contact, any time") && !/rounded-full bg-white px-3 py-1\.5/.test(src))  /* Changed on purpose (landing round 5): the line closes the Download row. */
+  check("the picture is inert", /\.mock \{[^}]*pointer-events: none;/.test(css) && /\$\{s\.mock\}/.test(src))  /* Changed on purpose (landing round 7): the picture is also a motion root now (it plays three scenes). */  /* Changed on purpose (landing round 5): one picture now. */
+  /* Changed on purpose (landing round 4): the Storelib logo above the platforms went with the tree. */
+  check("still as the owner left it: Download every contact, real faces", html.includes("Download every contact, any time") && /people\/niamh\.webp/.test(html))  /* Changed on purpose (landing round 7): new faces, the owner asked for different, realistic people. */
+  check("no tabs in the section", !/role="tab"/.test(html))
+}
+
+console.log("\n── earnings, on the white sheet ──")
+{
+  const css = EARNINGS_STYLES.map((s) => s.css).join("\n")
+  const html = renderToStaticMarkup(createElement(EarningsCalculator))
+  const digital = EARN_KINDS.filter((k) => ["download", "course"].includes(k.as))
+  check("half digital and community, half printed", EARN_KINDS.length === 6 && digital.length === 3 && EARN_KINDS.some((k) => k.id === "community") && ["tee", "hoodie", "cap"].every((id) => EARN_KINDS.some((k) => k.id === id)))
+  check("six kinds as one radio group, one chosen", (html.match(/class="cme-kind"/g) ?? []).length === 6 && (html.match(/class="cme-kind"[^>]*|role="radio" aria-checked="true"[^>]*class="cme-kind"/g) ?? []).length >= 6 && /role="radiogroup" aria-label="What you sell" class="cme-kinds"/.test(html))
+  check("a community costs nothing to make: the fee only", commerceMonth("download", 15, 5, "free").production === 0)
+  const pill = rule(PILLS_CSS, ".smk-pill")
+  const chosen = rule(PILLS_CSS, '.smk-pill[aria-selected="true"]')
+  /* Changed on purpose (landing round 4): the owner removed the Free and Pro switch, so the kinds alone carry the tab style. */
+  const kind = css.match(/\.cme-kind\{([^}]*)\}/)?.[1] ?? ""
+  const on = css.match(/\.cme-kind\[aria-checked="true"\]\{([^}]*)\}/)?.[1] ?? ""
+  /* Changed on purpose (landing round 5): the owner disliked the pill tabs here (cut, uneven between desktop and phone); the kinds are even tiles with a 12px corner. */
+  check("the kinds are even tiles, not pills: a 12px corner, 48px tall, never cut", ["border-radius:12px", "height:48px", "background:#f6f6f8"].every((d) => kind.includes(d)) && !/border-radius:999px/.test(kind) && /\.cme-kind>span\{min-width:0;overflow:hidden;text-overflow:ellipsis\}/.test(css))
+  check("the chosen kind: white with an ink outline", /background:#fff/.test(on) && /inset 0 0 0 1\.5px #18181b/.test(on))
+  check("no grey track around them; two across on a narrow phone", !/\.cme-kinds\{[^}]*background/.test(css) && /@media \(max-width:479px\)\{\.cme-kinds\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)\}/.test(css))
+  /* Changed on purpose (landing round 4): no plan switch; the fee the figures use is said once under them. */
+/* Changed on purpose (landing round 7): the owner asked for the fee line under the figures to go. */
+  check("no plan switch, and no fee line under the figures", !/cme-plan/.test(html) && !html.includes("5% + $0.25 a sale"))
+  check("hover only where a pointer hovers; a focus ring; a reduced motion path", /@media \(hover:hover\) and \(pointer:fine\)\{\.cme-kind:hover/.test(css) && /\.cme-kind:focus-visible\{outline:2px solid/.test(css) && /prefers-reduced-motion:reduce\)\{[\s\S]*\.cme-kind,/.test(css)) /* Changed on purpose (landing round 4): the plan switch is gone. */
+}
+
+console.log("\n── pricing and the app ──")
+{
+  const home = renderToStaticMarkup(createElement(PricingSection, { editorial: true, hideDetailsLink: true }))
+  const page = renderToStaticMarkup(createElement(PricingSection, {}))
+  // Changed on purpose (landing round 10): on a short laptop (1024px wide or more, 900px high or less) the home section pads 64px, not 96.
+  /* Changed on purpose (landing round 15): on the home page the sheet shows what is behind its rounded corners, so the section paints no ground of its own (no black wedges). */ check("pricing paints no ground of its own on the home page, with no rules above and below", /<section data-story-section="pricing"[^>]*class="py-20 sm:py-24 \[@media\(min-width:1024px\)_and_\(max-height:900px\)\]:!py-16"[^>]*style="background:transparent"[^>]*id="pricing">/.test(home))
+  // Changed on purpose (landing round 13): the owner: no light grey behind the cards on /pricing either; white, no rules (tests/home-landing-r13-pricing.test.ts).
+  /* Changed on purpose (landing round 15): a little more room under /pricing. */ check("/pricing keeps its own ground", /<section[^>]*class="bg-white pt-\[clamp\(48px,7vw,112px\)\] pb-24 sm:pb-32"[^>]*id="pricing">/.test(page))
+  const app = renderToStaticMarkup(createElement(AppAnywhere))
+  check("the app: no white ring on the purple ground, the short line kept", !/ring-white/.test(app) && app.includes("Your sales, orders and visitors on your phone, wherever you are."))
+  check("the terminal is a picture", /\.ait-term\{[^}]*pointer-events:none/.test(read(`${DIR}/ai-tools-section.tsx`)))
+}
+
+console.log(`\n${passed} passed, ${failed} failed`)
+if (failed) process.exit(1)

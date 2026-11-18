@@ -16,6 +16,7 @@ import { offChannelAmong } from "@/lib/store/channel-filter"
 import { cachedExploreCatalogue } from "@/lib/explore/catalogue-cache"
 import { createPublicReadClient } from "@/lib/supabase/public-read"
 import { cardCreator } from "@/lib/explore/card-creator"
+import { readTwice, type ReadResult } from "@/lib/onepage/bounded-read"
 
 /*
   The list moved to lib/explore/category-pages so that whatever DRAWS a link
@@ -112,8 +113,28 @@ export const dynamic = "force-dynamic"
 
 type Supabase = Awaited<ReturnType<typeof createClient>>
 
-/** How long the catalogue's one read may take before the page stops waiting for it. */
-const CATALOGUE_READ_MS = 6000
+/** How long one try of the catalogue's products read may take, and both tries together. */
+const CATALOGUE_ATTEMPT_MS = 4000
+const CATALOGUE_READ_MS = 7000
+
+type CatalogueRow = {
+  id: string
+  title: string | null
+  slug: string | null
+  description: string | null
+  price_cents: number | null
+  compare_at_cents: number | null
+  pay_what_you_want: boolean | null
+  pwyw_min_price_cents: number | null
+  thumbnail_url: string | null
+  type: string | null
+  category: string | null
+  creator_id: string | null
+  created_at: string | null
+  sales_count: number | null
+  reviews_count: number | null
+  reviews_average: number | null
+}
 
 /*
   THE CATALOGUE THIS PAGE DRAWS, ONE COPY FOR EVERYBODY. The newest hundred
@@ -127,24 +148,31 @@ async function readCategoryCatalogue(supabase: Supabase): Promise<any[]> {
   // Fetch ALL published products - same query as the working /explore page
   // Category filtering is done client-side for relevance-based sorting
   /* A product that sells a community tier is found through its community, not here (lib/communities/listing). */
-  const { data: catalogue, error: productsError } = await excludingCommunityProducts((exclude) => {
-    let q = supabase
-      .from("products")
-      .select("id, title, slug, description, price_cents, compare_at_cents, pay_what_you_want, pwyw_min_price_cents, thumbnail_url, type, category, creator_id, created_at, sales_count, reviews_count, reviews_average")
-      .eq("status", "published")
-      .neq("type", "physical")
-    if (exclude) q = q.is("community_id", null)
-    /*
-      Round AL: production logged "[CategoryPage] Products error: products took longer than 20s" 58 times in a week,
-      each a render held for the whole read deadline. A hundred newest rows answer in well under a second when the
-      database is there; past CATALOGUE_READ_MS the page draws from what it has, and the held copy
-      (lib/explore/catalogue-cache.ts) is never replaced by an empty one.
-    */
-    return q.order("created_at", { ascending: false }).limit(100).abortSignal(AbortSignal.timeout(CATALOGUE_READ_MS))
-  })
+  /*
+    Round AL: production logged "[CategoryPage] Products error: products took longer than 20s" 58 times in a week,
+    each a render held for the whole read deadline, and it was cut to one try of CATALOGUE_READ_MS. Round AU: then
+    "TimeoutError: The operation was aborted due to timeout", one blip and the page had nothing. Now each try ends
+    at CATALOGUE_ATTEMPT_MS and a failed one is asked once more inside CATALOGUE_READ_MS (lib/onepage/bounded-read
+    readTwice); a read that still fails is thrown, and the page shows the last good catalogue
+    (lib/explore/catalogue-cache.ts) or says the products did not load.
+  */
+  const { data: catalogue, error: productsError } = await readTwice(
+    (signal) =>
+      excludingCommunityProducts((exclude) => {
+        let q = supabase
+          .from("products")
+          .select("id, title, slug, description, price_cents, compare_at_cents, pay_what_you_want, pwyw_min_price_cents, thumbnail_url, type, category, creator_id, created_at, sales_count, reviews_count, reviews_average")
+          .eq("status", "published")
+          .neq("type", "physical")
+        if (exclude) q = q.is("community_id", null)
+        return q.order("created_at", { ascending: false }).limit(100).abortSignal(signal)
+      }) as PromiseLike<ReadResult<CatalogueRow[]>>,
+    { attemptMs: CATALOGUE_ATTEMPT_MS, budgetMs: CATALOGUE_READ_MS },
+  )
 
   if (productsError) {
-    console.error("[CategoryPage] Products error:", productsError.message)
+    console.error("[CategoryPage] Products error:", productsError.message ?? productsError.code)
+    throw new Error(`products: ${productsError.message ?? productsError.code ?? "the read failed"}`) // i18n-ignore: for the log
   }
   /* Settings › Sales channels: a product its creator took off Explore is not here. */
   const offExplore = catalogue?.length ? await offChannelAmong(createAdminClient(), catalogue.map((p) => p.id), "marketplace") : new Set<string>()
@@ -221,7 +249,12 @@ export default async function CategoryPage({ params, searchParams }: Props) {
   }
 
   /* Held for a minute and cleared by a product save or a takedown (lib/explore/catalogue-cache.ts). An empty or failed read is drawn as it was and never held. */
-  const productsWithCreators: any[] = await cachedExploreCatalogue(() => readCategoryCatalogue(createPublicReadClient() as unknown as Supabase), "explore-category-catalogue").catch(() => [])
+  /* No catalogue and no last good one: the grid says the products did not load and the browser asks again (components/explore/use-catalogue-retry.ts). */
+  let catalogueUnavailable = false
+  const productsWithCreators: any[] = await cachedExploreCatalogue(() => readCategoryCatalogue(createPublicReadClient() as unknown as Supabase), "explore-category-catalogue").catch(() => {
+    catalogueUnavailable = true
+    return []
+  })
 
   const categoryLabel = CATEGORY_LABELS[category] || category
 
@@ -254,6 +287,7 @@ export default async function CategoryPage({ params, searchParams }: Props) {
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 pt-4 pb-6 sm:pt-5 sm:pb-8">
         <CategoryPageClient
           initialProducts={productsWithCreators}
+          catalogueUnavailable={catalogueUnavailable}
           category={category}
           categoryLabel={categoryLabel}
           initialSubcategory={initialSub}

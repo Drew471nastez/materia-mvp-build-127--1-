@@ -2,10 +2,12 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendEmail, isSmtpConfigured } from "@/lib/mail"
-import { VERIFICATION_CODE_EXPIRY_MINUTES, verificationLimitPaused } from "@/lib/security"
+import { VERIFICATION_CODE_EXPIRY_MINUTES } from "@/lib/security"
 import { readCurrentUser } from "@/lib/auth/current-user"
 import { newCode } from "@/lib/account/codes"
 import { codeEmail } from "@/lib/account/code-email"
+import { emailSubject, rateLimit } from "@/lib/api/rate-limit"
+import { SEND_LIMITS } from "@/lib/auth/email-code"
 
 export const runtime = "nodejs"
 
@@ -71,16 +73,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "That email is already used by another account." }, { status: 400 })
     }
 
-    // At most three sends per fifteen minutes.
-    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString()
-    const { data: recentCodes } = await adminSupabase
-      .from("email_change_codes")
-      .select("id")
-      .eq("user_id", user.id)
-      .gte("created_at", fifteenMinutesAgo)
-    if (!verificationLimitPaused() && recentCodes && recentCodes.length >= 3) {
-      return NextResponse.json({ error: "Too many tries in a short time. Wait 15 minutes and try again." }, { status: 429 })
-    }
+    /*
+      HOW MANY CODES, COUNTED WHERE NOTHING DELETES THEM (round AW). This
+      counted the account's rows in email_change_codes over fifteen minutes,
+      and a few lines below every request deletes the account's unused rows
+      before writing its own, so the count never passed one and the limit
+      never answered. Any signed in account could have Storelib mail any
+      address it typed, as often as it liked, from noreply@storelib.com: a
+      cost per message, and the complaints that put receipts and password
+      resets in spam. Counted now in the shared limiter, per account and per
+      address written to, with the sign up code's numbers (lib/auth/email-code
+      SEND_LIMITS): far above a person pressing Send again, far below a relay.
+    */
+    const limited = await rateLimit({
+      bucket: "change-email",
+      subjects: [`user:${user.id}`, emailSubject(cleanEmail)],
+      windows: SEND_LIMITS.email,
+      message: "Too many codes in a short time. Wait a few minutes and try again.",
+    })
+    if (limited) return limited
 
     if (!isSmtpConfigured()) {
       return NextResponse.json({ error: "Email is not set up on this server. Try again later." }, { status: 503 })

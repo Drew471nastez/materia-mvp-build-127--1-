@@ -75,10 +75,12 @@ console.log("\nThe header's menu sheet opens smoothly")
   const src = read("components/platform/platform-header-client.tsx")
   /* "The animation when I open it needs to be smooth and clean": built ahead and kept on a phone, so the tap is only the slide. */
   /* Round 3: the marketing menu is the only one left in the header (Explore's is the navigator, which keeps its own sheet). */
-  check("the marketing menu sheet is kept on a phone, and only where it can be opened",
-    /isOpen=\{mobileMenuOpen && isMarketingNavRoute\}/.test(src) && /keepMounted=\{belowMd && isMarketingNavRoute\}/.test(src))
+  /* Changed on purpose (wave 18): the marketing menu is full screen, not a sheet (the owner, after the Fourthwall reference); it is still built ahead and kept on a phone, only where it can be opened, and the tap only fades it in. */
+  check("the marketing menu is kept on a phone, and only where it can be opened",
+    /\{isMarketingNavRoute && belowMd \? \(\s*<MarketingPhoneMenu\s+open=\{mobileMenuOpen\}/.test(src))
   check("and the navigator's sheet is kept on a phone too", /keepMounted=\{phone\}/.test(read("components/nav/place-navigator.tsx")))
-  check("the menu button's lines move by opacity and scale only, never width", /transition-\[opacity,scale\]/.test(src) && !/transition-all duration-200 ease-out \$\{\s*isOpen \? "opacity-60 w-4"/.test(src) && !/opacity-60 w-4/.test(src))
+  /* Changed on purpose (wave 18): the lines turn into an X as the reference's do, by transform (translate, rotate, scale) and opacity: still on the compositor, never width. */
+  check("the menu button's lines move by opacity and transform only, never width", /transition-\[opacity,transform\]/.test(src) && /translateY\(7px\)_rotate\(45deg\)/.test(src) && !/transition-all duration-200 ease-out \$\{\s*isOpen \? "opacity-60 w-4"/.test(src) && !/opacity-60 w-4/.test(src))
 }
 
 console.log("\nThe header on /account")

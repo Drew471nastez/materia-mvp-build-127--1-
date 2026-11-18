@@ -1,6 +1,6 @@
 export default function PricingLoading() {
   return (
-    <div className="min-h-screen bg-[#f8f9fa] skeleton-deferred">
+    <div className="min-h-screen bg-white skeleton-deferred">
       <div className="mx-auto max-w-[820px] px-4 sm:px-6 py-20 animate-pulse">
         <div className="h-10 w-64 max-w-full bg-[#eceef1] rounded-lg mx-auto mb-4" />
         <div className="h-5 w-80 max-w-full bg-[#eceef1] rounded mx-auto mb-12" />

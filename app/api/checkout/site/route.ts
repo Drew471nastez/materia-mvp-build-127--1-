@@ -18,6 +18,7 @@ import { holdCouponUse, holderForEmail, needsHold, releaseCouponHold } from "@/l
 import { CLAIM_HOLD_SECONDS, SALE_HOLDER_KEY, holdBasket, releaseSales, saleHolderForEmail } from "@/lib/checkout/sales-limit"
 import { soldOutMessage } from "@/lib/products/sales-limit"
 import { fulfilCartPayment, fulfilFreeCart } from "@/lib/checkout/fulfil-cart-session"
+import { claimedBasket, freeBasketSession, type ClaimedBasket } from "@/lib/checkout/free-claim"
 import { basketTitle, fieldPlan, missingField, noteToMetadata, orderNote, siteGate, siteThanksHref } from "@/lib/checkout/site-checkout"
 import { siteBuyerOfRequest, siteOfRequest, type SiteOfCheckout } from "@/lib/checkout/site-checkout-server"
 import { isPickupOptionId } from "@/lib/physical/pickup"
@@ -592,7 +593,7 @@ async function shippedIntent(request: Request, admin: Admin, site: SiteOfCheckou
     paymentMethods: body.paymentMethods,
     business,
   })
-  if (started.ok === false) return json({ error: started.error, field: started.field ?? null, stock: started.stock ?? null }, started.status)
+  if (started.ok === false) return json({ error: started.error, field: started.field ?? null, stock: started.stock ?? null, code: started.code ?? null }, started.status)
   /* Nothing to pay after all (a code took it to 0): startCheckout has placed it as a free order. Its thank you page, so Place order is never pressed for it a second time. */
   if (started.free) {
     if (!started.receiptToken) return json({ error: "The order could not be placed. Nothing was charged. Try again." }, 500)
@@ -802,7 +803,7 @@ async function cashOnDelivery(request: Request, admin: Admin, site: SiteOfChecko
     business: business?.ok ? business.value : null,
     cashOnDelivery: true,
   })
-  if (started.ok === false) return json({ error: started.error, field: started.field ?? null, stock: started.stock ?? null }, started.status)
+  if (started.ok === false) return json({ error: started.error, field: started.field ?? null, stock: started.stock ?? null, code: started.code ?? null }, started.status)
   /* Nothing to pay after all (a code took it to 0): startCheckout has placed it as a free order, so its thank you page, never a second order. */
   if ((!started.cod && !started.free) || !started.receiptToken) return json({ error: "The order could not be placed. Nothing was charged. Try again." }, 500)
   const { data: co } = await admin.from("commerce_checkouts").select("session_fingerprint").eq("id", started.checkoutId).maybeSingle()
@@ -813,9 +814,34 @@ async function cashOnDelivery(request: Request, admin: Admin, site: SiteOfChecko
 
 async function free(request: Request, admin: Admin, site: SiteOfCheckout, body: Body) {
   const owner = await siteBuyerOfRequest(admin, request, site.creatorId)
+  /*
+    THE SAME FREE BASKET PRESSED AGAIN (round AX, lib/checkout/free-claim freeBasketSession): its answer was lost
+    after the basket was written. That basket is the answer, found before the price (its one use code is used now,
+    its downloads are owned now), a code's place or a copy is asked for again. The email is the one the basket is
+    written to (contactOf): the signed in customer's when the store asks for an account, else the one typed. A page
+    that sends no attempt id works as before.
+  */
+  const sessions = [...new Set([owner?.email ?? "", clean(body.email, 254).toLowerCase()].filter(Boolean))].map((email) => freeBasketSession(body.attemptId, { store: `site:${site.creatorId}`, email, items: body.items }))
+  const claimed = async () => {
+    for (const s of sessions) {
+      const found = await claimedBasket(admin, s)
+      if (found) return found
+    }
+    return null
+  }
+  const answerClaimed = async (basket: ClaimedBasket) =>
+    NextResponse.json({ receiptToken: basket.receiptToken, thanks: siteThanksHref(basket.receiptToken, { whole: body.wholeCart === true }) }, { headers: await withGuestGrant(afterPaidHeaders(site, basket.sessionFingerprint, body.wholeCart === true), request, admin, site, basket.receiptToken) })
+  /* Refused below for something this same press already took: that press's basket is the answer, not the refusal. */
+  const refusedOrClaimed = async (refusal: NextResponse) => {
+    const late = await claimed()
+    return late ? answerClaimed(late) : refusal
+  }
+  const early = await claimed()
+  if (early) return answerClaimed(early)
+
   const { priced, decision, couponError } = await priceSiteCart(admin, site.creatorId, body, owner ? { email: owner.email } : null)
-  if (allOwned(priced)) return json({ error: "You already own this. It's in your downloads.", code: "already_owned" }, 409)
-  if (couponError) return json({ error: couponError, field: "code" }, 400)
+  if (allOwned(priced)) return refusedOrClaimed(json({ error: "You already own this. It's in your downloads.", code: "already_owned" }, 409))
+  if (couponError) return refusedOrClaimed(json({ error: couponError, field: "code" }, 400))
   const ships = decision.kind === "ships"
   const pickup = ships && isPickupOptionId(body.deliveryOptionId)
   const contact = await contactOf(request, admin, site, body, { ships, pickup })
@@ -862,17 +888,17 @@ async function free(request: Request, admin: Admin, site: SiteOfCheckout, body: 
       emailOptIn: contact.optedIn,
       intent: true,
     })
-    if (started.ok === false) return json({ error: started.error, field: started.field ?? null, stock: started.stock ?? null }, started.status)
+    if (started.ok === false) return json({ error: started.error, field: started.field ?? null, stock: started.stock ?? null, code: started.code ?? null }, started.status)
     if (!started.free || !started.receiptToken) return json({ error: "This order isn't free any more. Refresh the page." }, 409)
     const { data: co } = await admin.from("commerce_checkouts").select("session_fingerprint").eq("id", started.checkoutId).maybeSingle()
     return NextResponse.json({ receiptToken: started.receiptToken, thanks: siteThanksHref(started.receiptToken, { whole: wholeCart }) }, { headers: afterPaidHeaders(site, (co as { session_fingerprint?: string } | null)?.session_fingerprint ?? null, wholeCart) })
   }
 
   /* Free by the server's own prices: a code that took it to $0, or products that are free (basketDecision). */
-  if (decision.kind !== "free" || priced.ok === false || priced.totalCents !== 0) return json({ error: "This order isn't free any more. Refresh the page." }, 409)
+  if (decision.kind !== "free" || priced.ok === false || priced.totalCents !== 0) return refusedOrClaimed(json({ error: "This order isn't free any more. Refresh the page." }, 409))
   const coupon = priced.coupon
   const holder = coupon && needsHold(coupon) ? holderForEmail(contact.email) : null
-  if (coupon && holder && !(await holdCouponUse(admin, coupon.id, holder))) return json({ error: "That code has been used up." }, 400)
+  if (coupon && holder && !(await holdCouponUse(admin, coupon.id, holder))) return refusedOrClaimed(json({ error: "That code has been used up." }, 400))
   /* LIMIT SALES: a free copy is one of the limited run too, held until its order counts it (lib/checkout/sales-limit). */
   const saleHolder = priced.lines.some((l) => priced.limited.includes(l.item.productId)) ? saleHolderForEmail(contact.email) : null
   let heldCopies: string[] = []
@@ -880,10 +906,12 @@ async function free(request: Request, admin: Admin, site: SiteOfCheckout, body: 
     const copies = await holdBasket(admin, priced.lines.map((l) => ({ productId: l.item.productId, quantity: l.item.quantity, title: String(l.product.title ?? "") })), priced.limited, saleHolder, CLAIM_HOLD_SECONDS)
     if (copies.ok === false) {
       if (holder && coupon) await releaseCouponHold(admin, coupon.id, holder)
-      return json({ error: soldOutMessage(copies.title), code: "sold_out" }, 409)
+      return refusedOrClaimed(json({ error: soldOutMessage(copies.title), code: "sold_out" }, 409))
     }
     heldCopies = copies.held
   }
+  /* This press's basket, under the email it is written to (lib/checkout/free-claim): the same press sent again writes no line twice. */
+  const basketSession = freeBasketSession(body.attemptId, { store: `site:${site.creatorId}`, email: contact.email, items: body.items })
   const written = await fulfilFreeCart(admin, {
     saleHolder,
     creatorId: site.creatorId,
@@ -901,12 +929,15 @@ async function free(request: Request, admin: Admin, site: SiteOfCheckout, body: 
     consent: contact.optedIn ? "ticked" : "none",
     currency: (await readStoreCurrency(admin, site.creatorId)).currency,
     buyerNote: orderNote(body.buyerNote),
+    sessionId: basketSession,
   })
   if (written.ok === false) {
     await releaseSales(admin, heldCopies, saleHolder)
     if (holder && coupon) await releaseCouponHold(admin, coupon.id, holder)
     return json({ error: "The order could not be saved. Try again in a moment." }, 500)
   }
+  /* A second send of the same press, at the same moment: the other send wrote the basket's first line and turns the code's place into its use. A place this send took is not used by anything, and goes back. */
+  if (basketSession && !written.wroteFirst && holder && coupon) await releaseCouponHold(admin, coupon.id, holder)
   return NextResponse.json({ receiptToken: written.receiptToken, thanks: siteThanksHref(written.receiptToken, { whole: wholeCart }) }, { headers: await withGuestGrant(afterPaidHeaders(site, written.sessionFingerprint, wholeCart), request, admin, site, written.receiptToken) })
 }
 

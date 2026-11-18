@@ -16,7 +16,8 @@ import { join } from "node:path"
 import * as React from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { ESSENTIAL_ENTRY_IDS, PICKER_CATEGORIES, PICKER_ENTRIES, searchEntries } from "@/components/onepage/add-block-picker"
-import { ExtraBlock, extraBlockRow } from "@/components/onepage/extra-blocks"
+import { ExtraBlock } from "@/components/onepage/extra-blocks"
+import { extraBlockRow } from "@/components/onepage/extra-blocks-editor"
 import {
   APP_FRAME_HOSTS,
   APP_PROVIDERS,
@@ -74,9 +75,11 @@ function main() {
     check("a listed entry comes before a search only one of the same name", searchEntries(PICKER_ENTRIES, "instagram")[0]?.id === "app_instagram" && searchEntries(PICKER_ENTRIES, "typeform")[0]?.id === "app_typeform")
     check("services with a block add that block", ["int_youtube:video", "int_spotify:music", "int_booking:calendly", "map:map", "faq:faq", "image:image", "pdf_document:pdf_document", "email_capture:email_capture", "form_quiz:form_quiz", "coaching:calendly", "shelf_course:storelib_shelf", "referral:promo_code"].every((p) => { const [id, type] = p.split(":"); return PICKER_ENTRIES.find((e) => e.id === id)?.type === type }))
     check("Google Maps wears its own four colour pin", PICKER_ENTRIES.find((e) => e.id === "map")?.brand === "google-maps" && /data-mark="google-maps"/.test(read("components/onepage/brand-icons.tsx")))
-    const owner = ["app_instagram", "app_tiktok", "app_x", "app_threads", "app_facebook", "app_snapchat", "app_pinterest", "app_twitch", "app_reddit", "app_rss", "app_cameo", "app_google_reviews", "app_audiomack", "app_podcasts", "app_typeform", "app_discord", "app_bonfire", "app_fourthwall", "app_books", "app_mobile_app", "app_poll", "app_contact", "app_events", "app_stats", "app_note", "app_email", "app_tips", "app_affiliate", "app_whatsapp_group", "app_tiktok_video"]
+    const owner = ["app_instagram", "app_tiktok", "app_x", "app_threads", "app_facebook", "app_snapchat", "app_pinterest", "app_twitch", "app_reddit", "app_rss", "app_cameo", "app_google_reviews", "app_audiomack", "app_podcasts", "app_typeform", "app_discord", "app_books", "app_mobile_app", "app_poll", "app_contact", "app_events", "app_stats", "app_note", "app_email", "app_tips", "app_affiliate", "app_whatsapp_group", "app_tiktok_video"]
     const missing = owner.filter((id) => !listed.some((e) => e.id === id))
     check("the owner's list of apps is in the sheet", missing.length === 0, missing)
+    /* Changed on purpose (round AR): the owner, "get rid of Fourthwall, or Bonfire". Not in the sheet, not found by search; a saved one is drawn as a plain link. */
+    check("Fourthwall and Bonfire are gone from the sheet and from search", !PICKER_ENTRIES.some((e) => e.id === "app_bonfire" || e.id === "app_fourthwall") && !searchEntries(PICKER_ENTRIES, "bonfire").some((e) => e.id.includes("bonfire")) && !searchEntries(PICKER_ENTRIES, "fourthwall").some((e) => e.id.includes("fourthwall")))
     check("every app entry adds an app block of its provider", listed.filter((e) => e.type === "app").every((e) => APP_PROVIDER_IDS.includes((e.data as { provider: never })?.provider)))
     check("a group takes the app blocks too", canGoInGroup("app"))
   }

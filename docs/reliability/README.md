@@ -24,6 +24,20 @@ Related operations docs: [release-safety.md](../operations/release-safety.md),
 [load-testing.md](../operations/load-testing.md),
 [translation-and-crons.md](../operations/translation-and-crons.md).
 
+## Where the five deliverables of the platform audit brief live
+
+The brief asks for five documents by name. They exist under other names, and are kept here instead of being written twice:
+
+| Asked for | Here |
+| --- | --- |
+| PLATFORM_AUDIT.md | [ARCHITECTURE.md](ARCHITECTURE.md) (system map, data stores, crons, failure domains) and [AUDIT.md](AUDIT.md) (every finding with its evidence and root cause) |
+| END_TO_END_MATRIX.md | [END_TO_END_MATRIX.md](END_TO_END_MATRIX.md) |
+| INFRASTRUCTURE_COSTS.md | [../audits/vercel-costs-r54.md](../audits/vercel-costs-r54.md) (what cost money, fixes, before and after, growth table) and [COSTS.md](COSTS.md) |
+| IMPLEMENTATION_PROGRESS.md | [IMPLEMENTATION_LOG.md](IMPLEMENTATION_LOG.md), newest round last |
+| PRODUCTION_READINESS.md | [SECURITY.md](SECURITY.md), [IDOR_SWEEP.md](IDOR_SWEEP.md), [RECOVERY.md](RECOVERY.md), [../operations/release-safety.md](../operations/release-safety.md), [../operations/rollback.md](../operations/rollback.md), and the open items in [MANUAL_ACTIONS.md](MANUAL_ACTIONS.md) |
+
+The opening lines of this file are from Oct 31. Since then the five fix branches were merged and deployed, and rounds 48 to 54 and AL to AW followed; the log has each.
+
 ## The short version
 
 - **Most production errors are the database being slow.** About 1,360

@@ -80,7 +80,8 @@ async function main() {
 
   section("Where the switch is")
   const menu = read("components/platform/platform-header-client.tsx")
-  check("a row of the account menu on a computer and of the account sheet on a phone", (menu.match(/<AppearanceMenuRow /g) || []).length === 2)
+  /* Changed on purpose (wave 18): the marketing pages' full-screen phone menu carries the row too, under Account. */
+  check("a row of the account menu on a computer, of the account sheet on a phone and of the marketing pages' phone menu", (menu.match(/<AppearanceMenuRow /g) || []).length === 3)
   check("the name at the top of the menu opens the profile", /<Link \{\.\.\.go\("\/account"\)\} role="menuitem"[^>]*data-account-who="">/.test(menu))
   const bar = read("components/community/member/top-bar.tsx")
   check("in a community's bar, the sun and moon sits just before the bell, on a computer", /<AppearanceButton className="hidden md:grid" \/>\s*\{me \? <NotificationBell/.test(bar))

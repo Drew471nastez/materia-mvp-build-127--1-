@@ -105,18 +105,19 @@ function fakeDb(tables: Record<string, Row[]>, reads: string[] = []) {
 const ME = "11111111-1111-4111-8111-111111111111"
 const SAM = "22222222-2222-4222-8222-222222222222"
 const CR = "33333333-3333-4333-8333-333333333333"
-const COVER = "https://abc.supabase.co/storage/v1/object/public/covers/x/page.jpg"
+// Changed on purpose (round AW): Storelib's own storage project; the optimizer no longer fetches from any other *.supabase.co (next.config.mjs OWN_STORAGE_HOSTS).
+const COVER = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/covers/x/page.jpg"
 
 async function main() {
   console.log("\nThe cover and the words from their Storelib page")
   {
-    const creators = [{ id: CR, user_id: SAM, onboarding_completed: true, cover_url: "https://abc.supabase.co/old-cover.jpg", bio: "From the creators row." }]
+    const creators = [{ id: CR, user_id: SAM, onboarding_completed: true, cover_url: "https://skgtqglupjcnfhfscink.supabase.co/old-cover.jpg", bio: "From the creators row." }]
     const withHeader = [{ creator_id: CR, page_type: "shop", published_config: { headerSettings: { coverImageUrl: COVER, coverFocalPoint: { x: 30, y: 70 }, coverZoom: 1.4, bio: "Wood fired stoneware." } } }]
     const look = await pageLookOf(fakeDb({ creators, store_builder_configs: withHeader }), SAM)
     check("their page's published cover, with where they placed it", look.cover?.url === COVER && look.cover.crop.x === 30 && look.cover.crop.y === 70 && look.cover.crop.zoom === 1.4, look)
     check("  and the words in their page's header", look.bio === "Wood fired stoneware." && look.hasStorefront === true, look)
     const plain = await pageLookOf(fakeDb({ creators, store_builder_configs: [] }), SAM)
-    check("no published header: the creators row's cover, centred, and its bio", plain.cover?.url === "https://abc.supabase.co/old-cover.jpg" && plain.cover.crop.x === 50 && plain.cover.crop.zoom === 1 && plain.bio === "From the creators row.", plain)
+    check("no published header: the creators row's cover, centred, and its bio", plain.cover?.url === "https://skgtqglupjcnfhfscink.supabase.co/old-cover.jpg" && plain.cover.crop.x === 50 && plain.cover.crop.zoom === 1 && plain.bio === "From the creators row.", plain)
     const odd = await pageLookOf(fakeDb({ creators: [{ ...creators[0], cover_url: "http://insecure/x.jpg", bio: "  " }], store_builder_configs: [{ ...withHeader[0], published_config: { headerSettings: { coverImageUrl: "javascript:alert(1)" } } }] }), SAM)
     check("only an https picture, and no empty words", odd.cover === null && odd.bio === null, odd)
     const none = await pageLookOf(fakeDb({ creators: [] }), SAM)
@@ -139,8 +140,8 @@ async function main() {
     const viewer = { userId: ME, active: true, member: { role: "member", status: "active" }, signedIn: true } as never
     const data = await loadMemberProfile(fakeDb(tables), community, viewer, "sam", Date.UTC(2026, 9, 10))
     check("the profile in the community draws their page's cover and words when their own profile has none", data?.person.coverUrl === COVER && data?.person.coverCrop.x === 30 && data?.person.bio === "Wood fired stoneware." && data?.person.hasStorefront === true, data?.person)
-    const own = await loadMemberProfile(fakeDb({ ...tables, profiles: [tables.profiles[0], { ...tables.profiles[1], bio: "My own words.", cover_url: "https://abc.supabase.co/storage/v1/object/public/covers/x/own.jpg#crop=10,20,1.1" }] }), community, viewer, "sam", Date.UTC(2026, 9, 10))
-    check("  their own cover and bio (Settings) come first", own?.person.coverUrl === "https://abc.supabase.co/storage/v1/object/public/covers/x/own.jpg" && own?.person.coverCrop.x === 10 && own?.person.bio === "My own words.", own?.person)
+    const own = await loadMemberProfile(fakeDb({ ...tables, profiles: [tables.profiles[0], { ...tables.profiles[1], bio: "My own words.", cover_url: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/covers/x/own.jpg#crop=10,20,1.1" }] }), community, viewer, "sam", Date.UTC(2026, 9, 10))
+    check("  their own cover and bio (Settings) come first", own?.person.coverUrl === "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/covers/x/own.jpg" && own?.person.coverCrop.x === 10 && own?.person.bio === "My own words.", own?.person)
   }
 
   console.log("\nThe profile's head")
@@ -181,7 +182,7 @@ async function main() {
 
   console.log("\nList pictures")
   {
-    const html = renderToStaticMarkup(createElement(SoftImg, { src: "https://abc.supabase.co/storage/v1/object/public/thumbs/a.jpg", width: 64, className: "h-full w-full" }))
+    const html = renderToStaticMarkup(createElement(SoftImg, { src: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/thumbs/a.jpg", width: 64, className: "h-full w-full" }))
     check("through the image route at the slot's width, with 1x 2x 3x files", /src="\/_next\/image\?url=[^"]*&amp;w=128&amp;q=88"/.test(html) && /w=64&amp;q=88 64w/.test(html) && /w=128&amp;q=88 128w/.test(html) && /w=256&amp;q=88 256w/.test(html) && /sizes="64px"/.test(html), html)
     check("lazy and decoded off the main thread", /loading="lazy"/.test(html) && /decoding="async"/.test(html))
     /*

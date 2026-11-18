@@ -393,6 +393,14 @@ export const GlyphTextButton = glyph("text-button", (
   </>
 ))
 
+/** A padlock: something paid for to open (round AR, Paid access). */
+export const GlyphLock = glyph("lock", (
+  <>
+    <rect x="5.25" y="10.5" width="13.5" height="9.75" rx="2.25" />
+    <path d="M8.25 10.5V7.5a3.75 3.75 0 0 1 7.5 0v3" />
+  </>
+))
+
 /* The app blocks' marks that are ours, not a company's (lib/onepage/app-blocks APP_PROVIDERS mark). */
 export const APP_GLYPHS: Record<string, Glyph> = {
   tag: GlyphTag,
@@ -404,6 +412,9 @@ export const APP_GLYPHS: Record<string, Glyph> = {
   contact: GlyphContactCard,
   mail: GlyphEmail,
   text: GlyphTextButton,
+  /* Round AR */
+  lock: GlyphLock,
+  star: GlyphStar,
 }
 
 /**

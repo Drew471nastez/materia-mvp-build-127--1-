@@ -192,7 +192,8 @@ function ids() {
 function markets() {
   section("MARKETS: a market's page is kept by the CDN as well")
   const route = code("app/api/site-theme/site/[username]/[[...path]]/route.ts")
-  check("a shared page opened as a page gets the CDN header whatever its market", /if \(openedAsDocument\(req\.headers\)\) \{\s*const id = found\.site\.creatorId\s*headers\.set\("Vercel-CDN-Cache-Control", SHARED_PAGE_CDN\)/.test(route) && !/stranger\?\.market === null/.test(route))
+  /* Changed on purpose (round 54): a client that sends no Sec-Fetch-Dest (a crawler, a monitor) is kept at the CDN too (first-load.ts sharedAtCdn). */
+  check("a shared page opened as a page gets the CDN header whatever its market", /if \(sharedAtCdn\(req\.headers\)\) \{\s*const id = found\.site\.creatorId\s*headers\.set\("Vercel-CDN-Cache-Control", SHARED_PAGE_CDN\)/.test(route) && !/stranger\?\.market === null/.test(route))
   check("  still never a page drawn without a part, nor a HEAD's", /if \(leftOut\.size\) for \(const h of \["Vercel-CDN-Cache-Control", "Vercel-Cache-Tag", SHAREABLE_HEADER\]\) headers\.delete\(h\)/.test(route) && /headers\.delete\("Vercel-CDN-Cache-Control"\)/.test(route))
   check("  the marker it is kept under must match what the proxy said, market included", /told\(SITE_MARKET_HEADER\) !== stranger\.market/.test(route))
 }

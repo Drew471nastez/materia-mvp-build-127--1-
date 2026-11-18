@@ -13,9 +13,9 @@ import type {ProductBlockData} from "./types"
 //                    (./storelib-blocks-server), never from a saved copy.
 //   lead_magnet      a free download, a discount code or a waitlist, given
 //                    for an email in a sheet (app/api/onepage/lead-magnet).
-//   social_posts     a sliding row of posts: a YouTube channel's latest
-//                    videos from its public feed (synced at render), or
-//                    Instagram, TikTok and YouTube posts pasted by address.
+//   social_posts     a sliding row of the Instagram, TikTok and YouTube posts
+//                    the creator pastes by address. Nothing is pulled from a
+//                    profile or a channel by itself: the creator picks.
 //   followers        "1.2M followers" summed over the networks the creator
 //                    names, each with its own count; Bluesky and YouTube can
 //                    be read again from the network (app/api/onepage/followers).
@@ -56,7 +56,8 @@ export interface StorelibShelfBlockData {
   card_style?: "simple" | null
   source: ShelfSource
   title?: string | null
-  layout?: "carousel" | "list" | "grid"
+  /** Round AR: "featured", a community drawn as one large card with its cover, its line and Join. */
+  layout?: "carousel" | "list" | "grid" | "featured"
   /** A carousel's cards in view (round AL). Missing: the width each kind of card always had. */
   carousel_view?: "1" | "1.2" | "1.5" | "2" | null
   /** How many to show, 1 to 12. */
@@ -213,7 +214,7 @@ export interface SocialPostsBlockData {
   thumbnails?:Record<string,string|null>
   network: SocialPostsNetwork
   title?: string | null
-  /** YouTube: a channel's address. Its latest videos come from the channel's public feed, read again every hour. */
+  /** Kept from before posts were picked by hand: no longer read for posts (a channel's videos are not pulled by themselves). */
   channel_url?: string | null
   /** Posts pasted by address, in the creator's order. */
   post_urls?: string[]
@@ -352,6 +353,49 @@ export interface FollowersBlockData {
   style?: "line" | "card"
 }
 
+/* i18n-ignore-start: hosts. */
+const FOLLOWER_HOSTS: Record<string, FollowerNetwork> = {
+  "instagram.com": "instagram", "tiktok.com": "tiktok", "youtube.com": "youtube", "youtu.be": "youtube", "x.com": "twitter", "twitter.com": "twitter",
+  "facebook.com": "facebook", "fb.com": "facebook", "threads.net": "threads", "threads.com": "threads", "bsky.app": "bluesky", "twitch.tv": "twitch",
+  "linkedin.com": "linkedin", "pinterest.com": "pinterest", "snapchat.com": "snapchat", "open.spotify.com": "spotify",
+}
+/* i18n-ignore-end */
+
+/**
+ * ROUND AR3, "TOTAL FOLLOWERS" IN ONE FIELD. The owner: "make the setup for
+ * the total followers more easy ... add user as like @, or link". A pasted
+ * profile address says its network and the account; a bare @handle says only
+ * the account, so the network is asked for (network null). A Bluesky handle
+ * (name.bsky.social) is Bluesky's. Null for anything that is neither.
+ */
+export function detectFollowerInput(raw: string | null | undefined): { network: FollowerNetwork | null; handle: string } | null {
+  const text = (raw || "").trim()
+  if (!text || text.length > 300 || /\s/.test(text)) return null
+  if (/^@?[A-Za-z0-9_.-]+\.bsky\.social$/i.test(text)) return { network: "bluesky", handle: text.replace(/^@/, "").toLowerCase() }
+  if (/^@?[A-Za-z0-9_.]{1,40}$/.test(text) && !/^https?:/i.test(text) && !text.includes("..") && !/\.(com|net|app|tv|be)$/i.test(text)) return { network: null, handle: text.replace(/^@/, "") }
+  let u: URL
+  try {
+    u = new URL(/^https?:\/\//i.test(text) ? text : `https://${text}`)
+  } catch {
+    return null
+  }
+  if (u.protocol !== "https:" && u.protocol !== "http:") return null
+  const host = u.hostname.toLowerCase().replace(/^(www|m|mobile)\./, "")
+  const network = FOLLOWER_HOSTS[host]
+  if (!network) return null
+  const parts = u.pathname.split("/").filter(Boolean)
+  let handle = ""
+  if (network === "youtube") handle = parts[0]?.startsWith("@") ? parts[0] : parts[0] === "channel" || parts[0] === "c" || parts[0] === "user" ? parts[1] || "" : ""
+  else if (network === "bluesky") handle = parts[0] === "profile" ? parts[1] || "" : ""
+  else if (network === "linkedin") handle = parts[0] === "in" || parts[0] === "company" ? parts[1] || "" : ""
+  else if (network === "snapchat") handle = parts[0] === "add" ? parts[1] || "" : parts[0] || ""
+  else if (network === "spotify") handle = parts[0] === "artist" ? parts[1] || "" : ""
+  else handle = parts[0] || ""
+  handle = network === "youtube" ? handle : handle.replace(/^@/, "")
+  if (!handle || !/^@?[A-Za-z0-9_.-]{1,80}$/.test(handle)) return { network, handle: "" }
+  return { network, handle }
+}
+
 export function isFollowerNetwork(v: unknown): v is FollowerNetwork {
   return typeof v === "string" && (FOLLOWER_NETWORKS as readonly string[]).includes(v)
 }
@@ -410,6 +454,12 @@ export interface PromoCodeBlockData {
   description?: string | null
   /** Where the code is used. */
   url?: string | null
+  /**
+   * Round AR: one of the store's own codes (Coupons). The live page's server
+   * reads the code from the coupon each time (lib/onepage/data-blocks-server),
+   * so a code that was changed, switched off, used up or ended is never shown.
+   */
+  coupon_id?: string | null
 }
 
 export function promoCode(raw: unknown): string | null {
@@ -432,7 +482,7 @@ export function storelibBlockHasContent(block: { type: string; data?: unknown })
     case "social_posts": {
       if (Array.isArray(d.items)) return d.items.length > 0
       const data = d as unknown as SocialPostsBlockData
-      return pastedPosts(data).length > 0 || (data.network === "youtube" && youtubeChannel(data.channel_url) !== null)
+      return pastedPosts(data).length > 0
     }
     case "followers":
       return followerTotal((d as unknown as FollowersBlockData).networks) > 0

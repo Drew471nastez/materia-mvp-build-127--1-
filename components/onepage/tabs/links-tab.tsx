@@ -1,16 +1,22 @@
 "use client"
+import { EditorPartBoundary } from "@/components/onepage/editor-part-boundary"
 import {ActionEditor} from "@/components/forms/action-editor"
 import {FormReferenceEditor} from "@/components/forms/form-reference-editor"
 import {actionHref,readAction,whatsappGroupUrl,type ActionType,type NativeAction} from "@/lib/forms/actions"
 
 import {HeaderCoverEditor} from "../header-cover-editor"
 
-import { ArrangePicker, CardsInViewControl, EditorThemeContext, BlockAnimationButton, ANIMATED_BLOCKS, ClassicFeaturedPicker, BlockDescriptionField, BlockEditorTabs, BlockPartContext, BlockStyleControls, LinkImageOptions, LinkLayoutPicker, LinkPreviewControls, SocialShowAs, PartContent, PartHidden, PartTabs } from "../block-settings"
-import { layoutControlsFor, linkLayoutOf, presentationOf } from "@/lib/onepage/block-presentation"
+import { MediaLayoutPicker } from "../media-blocks"
+import { ArrangePicker, PictureFitControl, CardsInViewControl, EditorThemeContext, BlockAnimationButton, ANIMATED_BLOCKS, ClassicFeaturedPicker, BlockDescriptionField, BlockEditorTabs, BlockPartContext, BlockStyleControls, LinkImageOptions, LinkLayoutPicker, LinkPreviewControls, SocialShowAs, PartContent, PartHidden, PartTabs } from "../block-settings"
+import { layoutControlsFor, linkLayoutOf, presentationOf, socialPresentation, socialProfile } from "@/lib/onepage/block-presentation"
 import { editedMark, mergeLinkPreview } from "@/lib/onepage/link-preview"
 
 import { ProfileImage } from "@/components/onepage/profile-image"
-import { ImageUpload } from "@/components/app/image-upload"
+import { growTextareas } from "@/components/onepage/grow-textareas"
+import { PREVIEW_PICK_EVENT, takePreviewPick } from "@/lib/onepage/preview-select"
+import { PhoneNumberField } from "@/components/forms/phone-number-field"
+import { blockActionVars } from "@/lib/onepage/block-action"
+import { countryOfInternational } from "@/lib/account/phone"
 
 import { hapticTap } from "@/lib/native-bridge"
 import { useProductMoney } from "@/components/platform/price-currency"
@@ -168,22 +174,27 @@ import { boundsOf, resolveValue, todayIn, type RangeValue } from "@/lib/date-ran
 import { createClient } from "@/lib/supabase/client"
 import { readFileHeader, scanFile } from "@/lib/storage/security"
 import { precheckUpload } from "@/lib/security/uploads"
-import { BlockBadges, BlockExtras, ExtraBlockEditor, extraBlockRow, isExtraBlock } from "@/components/onepage/extra-blocks"
+import { isExtraBlock } from "@/components/onepage/extra-blocks"
+import { BlockBadges, BlockExtras, ExtraBlockEditor, extraBlockRow } from "@/components/onepage/extra-blocks-editor"
 import { BlockRemoveQuestion, BlockRowDelete, BlockRowDeleteSlot, BlockRowMenu } from "@/components/onepage/block-remove"
+import { foldAway } from "@/components/onepage/leaving-block"
 import { collapseRow } from "@/lib/onepage/row-collapse"
 import { AutoHeight, Reveal, revealSettledTop } from "@/components/onepage/reveal"
 import { ModeChoice, QuietAction, SettingsGroup } from "@/components/onepage/block-settings-kit"
 import { ProductPicker } from "@/components/onepage/product-picker"
+import { givableProductType } from "@/lib/onepage/signup-fields"
 import { AddBlockButton, AddBlockPicker, AddSheetGate, blockPickerTile, isAddSheetOpen, setAddSheetOpen } from "@/components/onepage/add-block-picker"
 import { IconLibrary, IconLibraryGate, setIconLibraryOpen } from "@/components/onepage/icon-library"
 import { GlyphBooking, GlyphDivider, GlyphDocument, GlyphEmail, GlyphForm, GlyphGroup, GlyphHeader, GlyphImage, GlyphLink, GlyphMenu, GlyphProduct, GlyphSocial, GlyphText, type Glyph } from "@/components/onepage/block-icons"
 import { bookingProviderName, bookingSource } from "@/lib/onepage/creator-blocks"
 import { hasRealUrl } from "@/lib/onepage/editor-state"
-import { SignupDestination } from "@/components/onepage/creator-blocks"
+import { SignupDestination } from "@/components/onepage/creator-blocks-editor"
 import { canonicalSocialPlatform } from "@/lib/onepage/social-url"
 import { parseSocialInput, socialFieldIsLink, socialFieldValue, socialFormat } from "@/lib/onepage/social-input"
 import { LinkIcon, SocialIcon, hasLinkIcon, socialPlatformLabel } from "@/components/onepage/brand-icons"
 import { resolveLinkIcon } from "@/components/onepage/link-icons"
+import { rowPictureOf } from "@/lib/onepage/row-picture"
+import { RowPictureView } from "@/components/onepage/row-picture"
 import { tt } from "@/lib/i18n/text"
 import { ONEPAGE_IMAGE_ACCEPT, ONEPAGE_VIDEO_ACCEPT, checkMedia, classifyMedia } from "@/lib/onepage/media-rules"
 import { UploadError, openableImage, prepareImage, uploadErrorText, uploadMessage, uploadOnePageMedia } from "@/lib/onepage/media-upload"
@@ -197,7 +208,7 @@ import { FilesLibraryChooser, LibraryRow, fileFromLibrary } from "@/components/o
 import { ProductEditLinks, ProductLayoutPicker, ProductRowBadge, ProductStateBadge, ProductStateNote, ProductTapSetting, layoutHasCard, useCreatorProducts } from "@/components/onepage/tabs/product-block-editor"
 import { editorProductState, pickableProducts, productLayoutOf, removePlanFor } from "@/lib/onepage/product-block"
 import { EmailLayoutThumb } from "@/components/onepage/email-signup"
-import { connectButtonPatch, emailSignupImage, emailSignupLayout, type EmailSignupLayout } from "@/lib/onepage/email-signup"
+import { connectButtonPatch, emailSignupButtonText, emailSignupImage, emailSignupLayout, type EmailSignupLayout } from "@/lib/onepage/email-signup"
 import { canGoInGroup, deleteFromGroup, findBlockDeep, groupCandidates, moveIntoGroup, moveOutOfGroup, updatePlanDeep } from "@/lib/onepage/group"
 import { GroupExistingBlocks } from "@/components/onepage/group-add-existing"
 
@@ -460,6 +471,36 @@ function isSpotifyUrl(url: string): boolean {
   return normalizedUrl.includes('spotify.com') || normalizedUrl.includes('open.spotify.com')
 }
 
+/**
+ * Round AR: a block's card in the list folds away (its height, the gap after
+ * it and its opacity, components/onepage/leaving-block foldAway), and only
+ * then is the block taken off, so the cards under it glide up instead of
+ * jumping. Without a card to fold (or the motion API), it goes at once.
+ */
+function foldThen(blockId: string, then: () => void): void {
+  const card = typeof document !== "undefined" ? document.querySelector<HTMLElement>(`[data-block-id="${CSS.escape(blockId)}"]`) : null
+  /* The "add here" divider after a card (no height of its own) goes with it, and so does the gap before it. */
+  const divider = card?.nextElementSibling as HTMLElement | null | undefined
+  const motion = card ? foldAway(card, undefined, divider && divider.offsetHeight === 0 && !divider.hasAttribute("data-block-id") ? 2 : 1) : null
+  if (!motion) return then()
+  let done = false
+  const finish = () => {
+    if (done) return
+    done = true
+    then()
+    /* Still there a frame later (the block stayed, or came straight back): it is put back as it was. */
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (!card?.isConnected) return
+      motion.cancel()
+      card.style.overflow = ""
+      card.style.pointerEvents = ""
+    }))
+  }
+  motion.finished.then(finish, finish)
+  /* A background tab never finishes an animation. */
+  window.setTimeout(finish, 400)
+}
+
 export function LinksTab() {
   const sellerMoney = useProductMoney()
   /* A team member edits the store's page; the photo is the owner's account photo, theirs to change (lib/onepage/team-context). */
@@ -491,6 +532,8 @@ export function LinksTab() {
   const [showSocialModal, setShowSocialModal] = useState(false)
   const [selectedSocial, setSelectedSocial] = useState<string | null>(null)
   const [socialUrl, setSocialUrl] = useState("")
+  /* The WhatsApp number's country while it has no digits yet (components/forms/phone-number-field keeps it in the number once there are some). */
+  const [whatsappCountry, setWhatsappCountry] = useState<string | undefined>(undefined)
   const [socialUrlError, setSocialUrlError] = useState<string | null>(null)
   const [showImageLibrary, setShowImageLibrary] = useState(false)
   const [imageBlockId, setImageBlockId] = useState<string | null>(null)
@@ -625,29 +668,51 @@ export function LinksTab() {
   const [reorderMessage, setReorderMessage] = useState("")
   const blocksInOrder = () => [...(onepage?.draft_blocks ?? [])].sort((a, b) => a.sort_order - b.sort_order)
   /* An edit to a block on the page or inside one of its groups (the image library and the thumbnail picker serve both). */
-  const updateBlockDeep = (id: string, updates: Partial<OnePageBlock>) => {
+  const updateBlockDeep = (id: string, given: Partial<OnePageBlock>) => {
+    /*
+      THE BLOCK AS IT IS NOW, AND ONLY THE FIELDS GIVEN (the OnePage production
+      audit, B1). An upload finishing after the sheet was closed wrote back the
+      block as it was when the upload began, title and description typed
+      meanwhile undone, and a block inside a group wrote back the whole group
+      from then: a link moved out of the group during the upload came back in
+      it and stayed on the page too, two blocks with one id. Both the page and
+      the block are read at the moment of the write, and `data` is a patch
+      laid over the block's data as it is now.
+    */
+    const blocks = getLatestOnePage()?.draft_blocks ?? []
+    const source = findBlockDeep(blocks, id)?.block
+    if (!source) return
+    let updates: Partial<OnePageBlock> = given.data ? { ...given, data: { ...(source.data as object), ...(given.data as object) } as OnePageBlock["data"] } : given
     // Thumbnail edits share one source with visual cards, including older cards
     // that stored their picture in presentation.image_url.
-    const source = findBlockDeep(onepage?.draft_blocks ?? [], id)?.block
-    if (source?.type === "link_button" && updates.data && Object.prototype.hasOwnProperty.call(updates.data, "thumbnail_url")) {
+    if (source?.type === "link_button" && updates.data && Object.prototype.hasOwnProperty.call(given.data ?? {}, "thumbnail_url")) {
       const before = source.data as LinkButtonBlockData
       const after = updates.data as LinkButtonBlockData
       if ((before.thumbnail_url !== after.thumbnail_url || source.style?.presentation?.image_url) && before.link_preview?.enabled === after.link_preview?.enabled) {
         updates = { ...updates, style: { ...source.style, ...updates.style, presentation: { ...source.style?.presentation, ...updates.style?.presentation, image_url: undefined } }, data: { ...after, link_preview: { ...after.link_preview, image_hidden: !after.thumbnail_url, image_edited: !!after.thumbnail_url && after.thumbnail_url !== after.link_preview?.image } } }
       }
     }
-    const plan = updatePlanDeep(onepage?.draft_blocks, id, updates)
+    const plan = updatePlanDeep(blocks, id, updates)
     if (plan) updateBlock(plan.id, plan.updates)
   }
   /* Under a Hero header the social icons stay below it, as they always had to. */
   const clampReorder = (id: string, to: number) => {
     const list = blocksInOrder()
     const moving = list.find((b) => b.id === id)
-    if ((onepage?.theme as any)?.header_layout !== "hero" || moving?.type !== "social_row") return to
     const headerIndex = list.findIndex((b) => b.type === "header")
-    if (headerIndex === -1) return to
+    if (headerIndex === -1 || moving?.type === "header") return to
     const from = list.findIndex((b) => b.id === id)
-    return Math.max(to, from < headerIndex ? headerIndex : headerIndex + 1)
+    /*
+      NOTHING GOES ABOVE THE PROFILE (the OnePage production audit, B9). The
+      header card cannot be dragged and new or restored blocks always go under
+      it, but Move up, a drag or the arrow keys put a block above the name and
+      photo, where a Hero header's page drops its top room and the block sat
+      flush under Share and Subscribe. A block already above it (an older page)
+      may stay or move down.
+    */
+    if (from > headerIndex) return Math.max(to, headerIndex + 1)
+    if ((onepage?.theme as any)?.header_layout === "hero" && moving?.type === "social_row") return Math.max(to, headerIndex)
+    return to
   }
   const writeReorder = (id: string, to: number) => {
     const list = blocksInOrder()
@@ -778,6 +843,8 @@ export function LinksTab() {
           /* What the creator typed, cleared, uploaded or removed stays (lib/onepage/link-preview mergeLinkPreview). */
           const meta=await response.json()
           let subtitle:string|undefined
+          /* Round AR3, the owner: "as default the layout of a website should be Card". The first preview of a new link with a picture, on a link no layout was picked for. */
+          const firstPreview=!socialProfile(url)&&!socialPresentation(url)&&!data.link_preview?.url&&!presentationOf(block).variant&&!presentationOf(block).media_mode&&data.layout_type!=="pro"&&!!meta?.image
           landFetched(current=>{
             const source=findBlockDeep(linkPreviewBlocks.current ?? [],blockId)?.block
             /* A title typed while this was on its way is the creator's. */
@@ -786,9 +853,10 @@ export function LinksTab() {
             subtitle=merged.subtitle
             return typing&&merged.data.link_preview?{...merged.data,link_preview:{...merged.data.link_preview,title_edited:current.link_preview?.title_edited}}:merged.data
           })
-          if(subtitle!==undefined){
+          if(subtitle!==undefined||firstPreview){
             const latest=findBlockDeep(getLatestOnePage()?.draft_blocks ?? [],blockId)?.block
-            if(latest&&normalizeUrlInput((latest.data as LinkButtonBlockData).url||"")===url)updateBlock(blockId,{style:{...latest.style,presentation:{...latest.style?.presentation,subtitle}}},{joinLastStep:true})
+            const card=firstPreview&&!!latest&&!presentationOf(latest).variant&&(latest.data as LinkButtonBlockData).layout_type!=="pro"
+            if(latest&&normalizeUrlInput((latest.data as LinkButtonBlockData).url||"")===url)updateBlock(blockId,{style:{...latest.style,presentation:{...latest.style?.presentation,...(subtitle!==undefined?{subtitle}:{}),...(card?{variant:"visual" as const}:{})}}},{joinLastStep:true})
           }
         }
       }catch{}
@@ -1107,6 +1175,44 @@ export function LinksTab() {
     return () => clearInterval(interval)
   }, [onepage?.draft_blocks, autoFetchThumbnail])
 
+  /*
+    ROUND AR: A BLOCK PICKED IN THE PHONE PREVIEW (lib/onepage/preview-select).
+    The editor has opened it already; the list glides to its card once the
+    card's settings have started to open (two frames), the card's top a
+    little under the top of the list's scroller, as a press on the card does.
+  */
+  /* A click on the block that is already open says so too: the list glides back to it however far it was scrolled away. */
+  const [pickTick, setPickTick] = useState(0)
+  useEffect(() => {
+    const onPick = () => setPickTick((n) => n + 1)
+    window.addEventListener(PREVIEW_PICK_EVENT, onPick)
+    return () => window.removeEventListener(PREVIEW_PICK_EVENT, onPick)
+  }, [])
+  useEffect(() => {
+    const id = takePreviewPick(selectedBlockId)
+    if (!id) return
+    setShowArchiveView(false)
+    let raf = requestAnimationFrame(() => {
+      raf = requestAnimationFrame(() => {
+        const el = document.querySelector(`[data-block-id="${CSS.escape(id)}"]`) as HTMLElement | null
+        if (!el) return
+        let scroller: HTMLElement | null = el.parentElement
+        while (scroller && scroller !== document.documentElement) {
+          const oy = window.getComputedStyle(scroller).overflowY
+          if ((oy === "auto" || oy === "scroll") && scroller.scrollHeight > scroller.clientHeight) break
+          scroller = scroller.parentElement
+        }
+        if (!scroller || scroller === document.documentElement) {
+          el.scrollIntoView({ behavior: "smooth", block: "start" })
+          return
+        }
+        const top = scroller.scrollTop + (revealSettledTop(el) - scroller.getBoundingClientRect().top) - 12
+        scroller.scrollTo({ top: Math.max(0, top), behavior: "smooth" })
+      })
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [selectedBlockId, pickTick])
+
   if (!onepage) return null
 
   // Handle thumbnail upload for modal
@@ -1119,12 +1225,11 @@ export function LinksTab() {
       /* Straight to storage under the owner's own folder, with a type storage takes (a HEIC becomes a JPEG): lib/onepage/media-upload. */
       const { url: publicUrl } = await uploadOnePageMedia(file, { prefix: `thumbnail_${thumbnailBlockId}`, want: "image" })
 
-      const block = findBlockDeep(onepage.draft_blocks, thumbnailBlockId)?.block
+      const block = findBlockDeep(getLatestOnePage()?.draft_blocks ?? [], thumbnailBlockId)?.block
       if (block?.type === 'product') {
         // For product blocks, use custom_thumbnail
         updateBlockDeep(thumbnailBlockId, {
           data: {
-            ...block.data,
             custom_thumbnail: publicUrl
           }
         })
@@ -1132,7 +1237,6 @@ export function LinksTab() {
         // For link_button blocks, use thumbnail_url
         updateBlockDeep(thumbnailBlockId, {
           data: {
-            ...block?.data,
             thumbnail_url: publicUrl,
             icon: null
           }
@@ -1154,7 +1258,7 @@ export function LinksTab() {
   // Get thumbnail block data
   const getThumbnailBlockData = () => {
     if (!thumbnailBlockId) return null
-    const block = findBlockDeep(onepage.draft_blocks, thumbnailBlockId)?.block
+    const block = findBlockDeep(getLatestOnePage()?.draft_blocks ?? [], thumbnailBlockId)?.block
     if (!block) return null
     if (block.type === 'link_button') return block.data as LinkButtonBlockData
     if (block.type === 'product') return block.data as ProductBlockData
@@ -1164,7 +1268,7 @@ export function LinksTab() {
   // Get the block type for thumbnail modal
   const getThumbnailBlockType = () => {
     if (!thumbnailBlockId) return null
-    const block = findBlockDeep(onepage.draft_blocks, thumbnailBlockId)?.block
+    const block = findBlockDeep(getLatestOnePage()?.draft_blocks ?? [], thumbnailBlockId)?.block
     return block?.type || null
   }
 
@@ -1231,9 +1335,9 @@ export function LinksTab() {
   /* An icon chosen in the library: on the link at once (the preview redraws with it), and the sheets go. */
   const chooseLinkIcon = (iconId: string) => {
     if (thumbnailBlockId) {
-      const block = findBlockDeep(onepage.draft_blocks, thumbnailBlockId)?.block
+      const block = findBlockDeep(getLatestOnePage()?.draft_blocks ?? [], thumbnailBlockId)?.block
       if (block?.type === 'link_button') {
-        updateBlockDeep(thumbnailBlockId, { data: { ...block.data, icon: iconId, thumbnail_url: null } })
+        updateBlockDeep(thumbnailBlockId, { data: { icon: iconId, thumbnail_url: null } })
       }
     }
     closeThumbnailSheet()
@@ -1697,9 +1801,9 @@ export function LinksTab() {
                     }))
                   }
                 }}
-                /* Round W9: the row folds away first (lib/onepage/row-collapse), then the block goes, so the rows under it glide up instead of jumping. */
-                onRemove={() => collapseRow(reorderListRef.current?.querySelector(`[data-block-id="${CSS.escape(block.id)}"]`), () => { removeBlock(block.id); setShowBlockRemovedNotification(false); requestAnimationFrame(() => setShowBlockRemovedNotification(true)) })}
-                onArchive={() => collapseRow(reorderListRef.current?.querySelector(`[data-block-id="${CSS.escape(block.id)}"]`), () => { archiveBlock(block.id); setShowBlockArchivedNotification(false); requestAnimationFrame(() => setShowBlockArchivedNotification(true)) })}
+                /* Round AR: the card folds away first (components/onepage/leaving-block foldAway), then it is taken off; the preview folds it away too. */
+                onRemove={() => foldThen(block.id, () => { removeBlock(block.id); setShowBlockRemovedNotification(false); requestAnimationFrame(() => setShowBlockRemovedNotification(true)) })}
+                onArchive={() => foldThen(block.id, () => { archiveBlock(block.id); setShowBlockArchivedNotification(false); requestAnimationFrame(() => setShowBlockArchivedNotification(true)) })}
                 onMoveUp={() => {
                   // Prevent social_row from moving above header when Hero layout
                   const headerLayout = (onepage.theme as any)?.header_layout || "classic"
@@ -1713,7 +1817,7 @@ export function LinksTab() {
                 }}
                 onMoveDown={() => moveBlockDown(block.id)}
                 onToggle={() => toggleBlockEnabled(block.id)}
-                isFirst={index === 0 || (block.type === "social_row" && (onepage.theme as any)?.header_layout === "hero" && index === sortedBlocks.findIndex(b => b.type === "header") + 1)}
+                isFirst={index === 0 || index === sortedBlocks.findIndex(b => b.type === "header") + 1}
                 isLast={index === sortedBlocks.length - 1}
                 socialLinks={social_links}
                 onOpenImageLibrary={(blockId, fieldType) => { setImageBlockId(blockId); setImageFieldType(fieldType || null); setShowImageLibrary(true) }}
@@ -1983,6 +2087,25 @@ export function LinksTab() {
                       link is tidied to the right address (lib/onepage/social-input).
                     */}
                     {(() => {
+                      /* WhatsApp is a phone number: the country with its flag and code, the number as written there, checked for that country. A wa.me link pasted before keeps the link field. */
+                      if (selectedSocial === "whatsapp" && !socialFieldIsLink("whatsapp", socialUrl)) {
+                        const kept = /^\d{6,15}$/.test(socialUrl) ? `+${socialUrl}` : socialUrl
+                        return (
+                          <div data-social-phone="">
+                            <PhoneNumberField
+                              label={tt("WhatsApp number")}
+                              phone={kept}
+                              country={(kept && countryOfInternational(kept, whatsappCountry ? [whatsappCountry] : [])) || whatsappCountry}
+                              onChange={(next) => {
+                                setWhatsappCountry(next.country)
+                                setSocialUrl(next.phone)
+                                if (socialUrlError) setSocialUrlError(null)
+                              }}
+                            />
+                            {socialUrlError ? <p className="mt-2 text-xs text-red-600">{socialUrlError}</p> : null}
+                          </div>
+                        )
+                      }
                       const format = socialFormat(selectedSocial ?? "")
                       const pastedLink = format.kind !== "url" && socialFieldIsLink(selectedSocial ?? "", socialUrl)
                       const prefix = format.kind === "url" || pastedLink ? "URL" : format.kind === "email" ? tt("Email") : format.prefix
@@ -2453,18 +2576,16 @@ export function LinksTab() {
                       type="button"
                       onClick={() => {
                         if (thumbnailBlockId) {
-                          const block = findBlockDeep(onepage.draft_blocks, thumbnailBlockId)?.block
+                          const block = findBlockDeep(getLatestOnePage()?.draft_blocks ?? [], thumbnailBlockId)?.block
                           if (block?.type === 'product') {
                             updateBlockDeep(thumbnailBlockId, {
                               data: {
-                                ...block.data,
                                 custom_thumbnail: null
                               }
                             })
                           } else {
                             updateBlockDeep(thumbnailBlockId, {
                               data: {
-                                ...block?.data,
                                 thumbnail_url: null,
                                 icon: null
                               }
@@ -2572,7 +2693,8 @@ export function LinksTab() {
                   id="file-upload-input"
                   accept={
                     imageFieldType === 'digital_product_file' ? undefined
-                    : imageFieldType === 'pdf_file' ? '.pdf,application/pdf'
+                    /* Round AR3: a menu or a document is often a photo of its pages; the same file rules apply (lib/security/uploads). */
+                    : imageFieldType === 'pdf_file' ? '.pdf,application/pdf,image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp'
                     : 'image/*'
                   }
                   disabled={imageUploading}
@@ -2848,12 +2970,11 @@ export function LinksTab() {
                       /* Never saved without an address a visitor can open (see A FILE ON THE PAGE above). */
                       if (!url) throw new Error(tt("Upload failed. Try again."))
 
-                      const block = findBlockDeep(onepage.draft_blocks, imageBlockId)?.block
+                      const block = findBlockDeep(getLatestOnePage()?.draft_blocks ?? [], imageBlockId)?.block
                       if (block) {
                         if (imageFieldType === 'digital_product_file') {
                           updateBlockDeep(imageBlockId, {
                             data: {
-                              ...block.data,
                               digital_product_file_url: url,
                               digital_product_title: file.name.replace(/\.[^/.]+$/, ""),
                               enable_digital_product: true,
@@ -2862,14 +2983,12 @@ export function LinksTab() {
                         } else if (imageFieldType === 'product_image') {
                           updateBlockDeep(imageBlockId, {
                             data: {
-                              ...block.data,
                               product_image: url,
                             }
                           })
                         } else if (imageFieldType === 'pdf_file') {
                           updateBlockDeep(imageBlockId, {
                             data: {
-                              ...block.data,
                               pdf_file_url: url,
                               title: block.data.title || file.name.replace(/\.[^/.]+$/, ""),
                             }
@@ -2877,7 +2996,6 @@ export function LinksTab() {
                         } else if (imageFieldType === 'thumbnail_url') {
                           updateBlockDeep(imageBlockId, {
                             data: {
-                              ...block.data,
                               thumbnail_url: url,
                             }
                           })
@@ -2943,7 +3061,7 @@ export function LinksTab() {
 
                 {/* Show current file/image if exists */}
                 {imageBlockId && (() => {
-                  const block = findBlockDeep(onepage.draft_blocks, imageBlockId)?.block
+                  const block = findBlockDeep(getLatestOnePage()?.draft_blocks ?? [], imageBlockId)?.block
                   if (!block) return null
                   const data = block.data as any
                   const hasFile = imageFieldType === 'digital_product_file' ? data.digital_product_file_url
@@ -2980,7 +3098,6 @@ export function LinksTab() {
                           if (imageFieldType === 'digital_product_file') {
                             updateBlockDeep(imageBlockId, {
                               data: {
-                                ...block.data,
                                 digital_product_file_url: null,
                                 digital_product_title: null,
                                 enable_digital_product: false, // Disable when file is removed
@@ -2989,21 +3106,18 @@ export function LinksTab() {
                           } else if (imageFieldType === 'pdf_file') {
                             updateBlockDeep(imageBlockId, {
                               data: {
-                                ...block.data,
                                 pdf_file_url: null,
                               }
                             })
                           } else if (imageFieldType === 'thumbnail_url') {
                             updateBlockDeep(imageBlockId, {
                               data: {
-                                ...block.data,
                                 thumbnail_url: null,
                               }
                             })
                           } else {
                             updateBlockDeep(imageBlockId, {
                               data: {
-                                ...block.data,
                                 product_image: null,
                               }
                             })
@@ -3030,7 +3144,7 @@ export function LinksTab() {
                     key={img.id}
                     onClick={() => {
                       if (imageBlockId) {
-                        const block = findBlockDeep(onepage.draft_blocks, imageBlockId)?.block
+                        const block = findBlockDeep(getLatestOnePage()?.draft_blocks ?? [], imageBlockId)?.block
                         if (block) {
                           // Handle image_item_${id} field type for multi-image blocks
                           if (imageFieldType && imageFieldType.startsWith('image_item_')) {
@@ -3042,13 +3156,12 @@ export function LinksTab() {
                             )
                             updateBlockDeep(imageBlockId, {
                               data: {
-                                ...block.data,
                                 images: newImages,
                                 image_url: newImages[0]?.image_url || ''
                               }
                             })
                           } else {
-                            updateBlockDeep(imageBlockId, { data: { ...block.data, image_url: img.url } })
+                            updateBlockDeep(imageBlockId, { data: { image_url: img.url } })
                           }
                         }
                       }
@@ -3140,13 +3253,14 @@ export function LinksTab() {
                 void pickAvatarImage(e.dataTransfer.files?.[0])
               }}
               className={cn(
-                "border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer transition-all duration-200",
+                /* Round AR: the Design tab's compact drop area, not a 200px box with a 48px icon (and no grow on drag over). */
+                "border-2 border-dashed rounded-xl px-5 py-6 flex flex-col items-center justify-center cursor-pointer transition-colors duration-150",
                 isDragOver
-                  ? "border-[#1a1a2e] bg-[#f4f4f6] scale-[1.02]"
+                  ? "border-[#1a1a2e] bg-[#f4f4f6]"
                   : "border-gray-300 hover:border-gray-400"
               )}
             >
-              <Upload className={cn("h-12 w-12 mb-4 transition-colors", isDragOver ? "text-[#1a1a2e]" : "text-gray-300")} />
+              <Upload className={cn("h-7 w-7 mb-2.5 transition-colors", isDragOver ? "text-[#1a1a2e]" : "text-gray-300")} />
               <p className={cn("font-medium transition-colors", isDragOver ? "text-[#1a1a2e]" : "text-gray-600")}>
                 {isDragOver ? tt("Drop image here") : tt("Select file to upload,")}
               </p>
@@ -3380,6 +3494,8 @@ function BlockItem({
     "Not on your page", beside PRODUCTS' Unavailable badge (ProductRowBadge).
   */
   const rowProducts = useCreatorProducts(block.type === "product" && !!(block.data as ProductBlockData)?.product_id)
+  /* A shelf's row shows its first product's picture, from the same shared read of the catalogue. */
+  const shelfProducts = useCreatorProducts(block.type === "storelib_shelf")
   const productGone = block.type === "product" && !!(block.data as ProductBlockData)?.product_id && editorProductState((block.data as ProductBlockData).product_id, rowProducts) === "unavailable"
   const [showButtonTextMenu, setShowButtonTextMenu] = useState(false)
   const [showStatsModal, setShowStatsModal] = useState(false)
@@ -3537,8 +3653,13 @@ function BlockItem({
   const preview = getBlockPreview()
   const tile = rowTile(block, preview.icon)
   const Icon = tile.Icon
+  /*
+    Round AT: the block's own picture (lib/onepage/row-picture): a map of the place, a video's still, a song's cover,
+    a link's preview image, the shelf's first product, the creator's photo on the header. A glyph only when there is none.
+  */
+  const picture = rowPictureOf(block, { avatarUrl: onepage?.avatar_url, products: shelfProducts })
   /* The tile's colours, when the row draws its glyph (not a picture or a service's mark). */
-  const tileStyle = !(preview as any).thumbnail_url && !hasLinkIcon((preview as any).iconId) ? tile.style : undefined
+  const tileStyle = !picture && !hasLinkIcon((preview as any).iconId) ? tile.style : undefined
 
   const isHeaderBlock = block.type === "header"
   const isLinkButton = block.type === "link_button"
@@ -3553,7 +3674,6 @@ function BlockItem({
   const hasStats = ROW_COUNT_TYPES.has(block.type)
   /* What its stats are called: a link's, a form's, a document's, or the block's. */
   const statsTitle = isGroup ? tt("Group Stats") : isEmailCapture ? tt("Form Stats") : isPDFDocument ? tt("PDF Stats") : isImage ? tt("Image Stats") : isSocialRow ? tt("Social Stats") : isLinkButton ? tt("Link Stats") : tt("Block stats")
-  const hasThumbnail = (preview as any).thumbnail_url || hasLinkIcon((preview as any).iconId)
 
   return (
     <div
@@ -3613,13 +3733,8 @@ function BlockItem({
             data-row-thumbnail=""
             data-block-fade=""
           >
-            {(preview as any).thumbnail_url ? (
-              <img
-                src={onePageImageSrc((preview as any).thumbnail_url, 80)}
-                alt=""
-                decoding="async"
-                className="w-full h-full object-cover"
-              />
+            {picture ? (
+              <RowPictureView picture={picture} size={40} />
             ) : hasLinkIcon((preview as any).iconId) ? (
               <LinkIcon name={(preview as any).iconId} size={20} className="text-[#1a1a2e]" tone="brand" />
             ) : (
@@ -3634,12 +3749,8 @@ function BlockItem({
           </button>
         ) : (
           <div className={cn("w-10 h-10 rounded-[11px] bg-[#f2f2f4] flex items-center justify-center shrink-0 overflow-hidden", !block.enabled && "opacity-50")} style={tileStyle} data-row-tile={tileStyle ? "" : undefined} data-block-fade="">
-            {(preview as any).thumbnail_url ? (
-              <img
-                src={(preview as any).thumbnail_url}
-                alt=""
-                className="w-full h-full object-cover"
-              />
+            {picture ? (
+              <RowPictureView picture={picture} size={40} />
             ) : hasLinkIcon((preview as any).iconId) ? (
               <LinkIcon name={(preview as any).iconId} size={20} className="text-[#1a1a2e]" tone="brand" />
             ) : (
@@ -3860,7 +3971,9 @@ function BlockItem({
         instead of jumping; a closed card lets its editor go.
       */}
       <Reveal open={isSelected} id={settingsId} returnFocus={titleRef} unmountWhenShut follow className="rounded-b-2xl">
-        <div className="space-y-4 rounded-b-2xl border-t border-[#eef0f2] bg-[#fafafb] p-4" data-block-settings="">
+        {/* Round AU: a throw in one block's settings stays in that block (components/onepage/editor-part-boundary). */}
+        <EditorPartBoundary part={`block ${block.type}`}>
+        <div ref={growTextareas} className="space-y-4 rounded-b-2xl border-t border-[#eef0f2] bg-[#fafafb] p-4" data-block-settings="">
           {/*
             Round AO: nothing above the Settings | Layout tabs. Move and Remove are
             the row's more menu (components/onepage/block-remove BlockRowMenu).
@@ -3878,6 +3991,7 @@ function BlockItem({
             onDeleteChild={onDeleteChild}
           />
         </div>
+        </EditorPartBoundary>
       </Reveal>
     </div>
   )
@@ -3931,7 +4045,8 @@ function BlockEditor({
   const updateBlock = updateBlockOverride || contextUpdateBlock
 
   /* Products for the product block's picker, with their status: read once for the whole editor (./product-block-editor). */
-  const creatorProducts = useCreatorProducts(block.type === "product")
+  /* Round AR: the email signup gives one of these too, so it reads them as well. */
+  const creatorProducts = useCreatorProducts(block.type === "product" || block.type === "email_capture")
   const sellerProductsLocal: SellerProduct[] = creatorProducts ?? []
 
   // Use provided sellerProducts or local fetch
@@ -4270,6 +4385,8 @@ function BlockEditor({
         <div className="space-y-4">
           {/* Eight layouts, each drawn small (./product-block-editor); the live page draws them in components/onepage/product-block. */}
           <ProductLayoutPicker data={data} theme={onepage?.theme} onPick={handleStyleSelect} />
+          {/* Round AR3: Cover, Fit or Full for the product's picture (components/onepage/layout-pickers). */}
+          {layout !== "button" && layout !== "minimal" ? <PictureFitControl value={data.image_fit} onChange={(image_fit) => updateData({ image_fit })} /> : null}
 
           {/* Colours for the layouts drawn on a card of their own (the button and the minimal line wear the theme). */}
           {layoutHasCard(layout) && (
@@ -4333,15 +4450,18 @@ function BlockEditor({
     return (
       <div className="space-y-4">
         <LinkLayoutPicker block={block} theme={onepage?.theme} getBlock={latest} onChange={(updates) => updateBlock(block.id, updates)} />
-        {/* Featured keeps its picture modes; a YouTube link plays in its own frame instead. */}
-        {linkLayoutOf(block) === "featured" && !isYouTubeUrl(linkData.url) ? (
+        {/*
+          Round AR3: every layout that draws the link's picture offers Cover, Fit and Full (the owner: "cover, fit, full").
+          A Featured YouTube link plays in its own frame instead; Classic and the round Profile picture have no box to fit.
+        */}
+        {(["featured", "visual", "cover", "image-first", "tile", "compact"] as string[]).includes(linkLayoutOf(block)) && !!(linkData.thumbnail_url || presentationOf(block).image_url) && !(linkLayoutOf(block) === "featured" && isYouTubeUrl(linkData.url)) ? (
           <div className="space-y-2.5 border-t border-[#eef0f2] pt-4" data-link-display-mode="">
-            <p className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Picture")}</p>
+            <p className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Picture fit")}</p>
             <Segmented
-              label={tt("Picture")}
+              label={tt("Picture fit")}
               value={linkData.display_mode || "cover"}
               options={[
-                { id: "cover", label: tt("Fill"), hint: tt("Crops to fit") },
+                { id: "cover", label: tt("Cover"), hint: tt("Crops to fit") },
                 { id: "contain", label: tt("Fit"), hint: tt("Shows all") },
                 { id: "full", label: tt("Full"), hint: tt("Its own shape") },
               ]}
@@ -4378,7 +4498,7 @@ function BlockEditor({
               itself, so the field is hidden. An old wa.me, t.me or mailto
               address is read as the action it is.
             */}
-            <ActionEditor value={data.action} url={data.url} noneLabel={tt("Web address")} types={LINK_ACTION_TYPES} onChange={action=>updateData({action,url:action?actionHref(action)||"":data.action?"":data.url})}/>
+            <ActionEditor value={data.action} url={data.url} noneLabel={tt("Web address")} types={LINK_ACTION_TYPES} vars={blockActionVars(block, data.action ?? null)} onChange={action=>updateData({action,url:action?actionHref(action)||"":data.action?"":data.url})}/>
             {(() => {
               /* A group invite saved by the old "WhatsApp Group URL" field, which the page never showed: kept, and one press makes it the link's action. */
               const group = whatsappGroupUrl((data as { whatsapp_group_url?: unknown }).whatsapp_group_url)
@@ -4449,6 +4569,8 @@ function BlockEditor({
               <ChevronRight aria-hidden className="h-5 w-5 shrink-0 text-[#1a1a2e]" strokeWidth={1.75} />
             </button>
 
+            {/* Round AR3: more links in this one block, as a list, a grid or a carousel (the Group block, set up from here). */}
+            {!updateBlockOverride ? <MakeGroupRow block={block} /> : null}
             {/* The preview read from the address, and how a social address shows (components/onepage/block-settings). */}
             <LinkPreviewControls block={block} getBlock={() => findBlockDeep(getLatestOnePage()?.draft_blocks, block.id)?.block} onChange={(updates) => updateBlock(block.id, updates)} onRefresh={() => onUrlChangeWithAutoFetch?.(block.id, data.url, { refresh: true })} />
             <SocialShowAs block={block} getBlock={() => findBlockDeep(getLatestOnePage()?.draft_blocks, block.id)?.block} onChange={(updates) => updateBlock(block.id, updates)} />
@@ -4998,6 +5120,27 @@ function BlockEditor({
                 />
               </div>
 
+              {/* Round AR: a phone number too (lib/onepage/signup-fields): checked, kept on the subscriber and sent to your tools. */}
+              <div className="flex min-h-11 items-center justify-between gap-3" data-email-ask-phone="">
+                <div className="min-w-0">
+                  <p className="text-[14px] font-medium text-[#1a1a2e]">{tt("Ask for a phone number")}</p>
+                  <p className="text-[12.5px] leading-snug text-[#6b7280]">{tt("Kept with the subscriber, for texts and calls.")}</p>
+                </div>
+                <Toggle label={tt("Ask for a phone number")}
+                  checked={data.ask_phone === true}
+                  onCheckedChange={(checked) => updateData({ ask_phone: checked })}
+                />
+              </div>
+              {data.ask_phone === true ? (
+                <div className="flex min-h-11 items-center justify-between gap-3 pl-3" data-email-phone-required="">
+                  <p className="text-[14px] text-[#1a1a2e]">{tt("Phone number required")}</p>
+                  <Toggle label={tt("Phone number required")}
+                    checked={data.phone_required === true}
+                    onCheckedChange={(checked) => updateData({ phone_required: checked })}
+                  />
+                </div>
+              ) : null}
+
               {/* After they join: a link (a free guide, a private video, a group chat). A file is under Enable Digital Product. */}
               <div className="space-y-2 border-t border-[#eef0f2] pt-4">
                 <div>
@@ -5092,13 +5235,51 @@ function BlockEditor({
                   />
                 </div>
 
-                {data.enable_digital_product && !data.digital_product_file_url ? (
+                {/*
+                  ROUND AR: A FILE OF YOURS, OR ONE OF YOUR PRODUCTS. The product is read from the published block on
+                  the server and given as a download link to its files (lib/onepage/signup-grant-server), so a course,
+                  a template pack or any digital product works, not only one file uploaded here.
+                */}
+                {data.enable_digital_product ? (
+                  <ModeChoice
+                    label={tt("What people who join get")}
+                    value={(data as { digital_gift?: string }).digital_gift === "product" || data.digital_product_id ? "product" : "file"}
+                    onPick={(id) => {
+                      if (id === "file") updateData({ digital_gift: "file", digital_product_id: null, digital_product_thumbnail: null } as never)
+                      else {
+                        const first = data.digital_product_id ? null : pickableProducts((effectiveSellerProducts ?? []).filter((p) => givableProductType(p.type)))[0]
+                        updateData({ digital_gift: "product", ...(first ? { digital_product_id: first.id, digital_product_title: first.title, digital_product_thumbnail: first.thumbnail_url || null } : {}) } as never)
+                      }
+                    }}
+                    options={[
+                      { id: "file", label: tt("A file you upload"), hint: tt("Any file type") },
+                      { id: "product", label: tt("One of your products"), hint: tt("Access to a digital product you sell") },
+                    ]}
+                  />
+                ) : null}
+
+                {data.enable_digital_product && ((data as { digital_gift?: string }).digital_gift === "product" || data.digital_product_id) ? (
+                  <div className="space-y-2 pt-1" data-signup-product="">
+                    <ProductPicker
+                      products={pickableProducts((effectiveSellerProducts ?? []).filter((p) => givableProductType(p.type)))}
+                      stateOf={(id) => editorProductState(id, effectiveSellerProducts)}
+                      selectedId={data.digital_product_id}
+                      fallback={{ title: data.digital_product_title, thumbnail: data.digital_product_thumbnail }}
+                      state={editorProductState(data.digital_product_id, creatorProducts)}
+                      money={(cents, product) => shopMoney(cents, product)}
+                      onPick={(product) => updateData({ digital_product_id: product.id, digital_product_title: product.title, digital_product_thumbnail: product.thumbnail_url || null })}
+                    />
+                    <p className="text-[12.5px] leading-snug text-[#6b7280]">{tt("Everyone who joins gets a download link to this product's files, by email address. A draft is given once it is published.")}</p>
+                  </div>
+                ) : null}
+
+                {data.enable_digital_product && (data as { digital_gift?: string }).digital_gift !== "product" && !data.digital_product_id && !data.digital_product_file_url ? (
                   <p className="rounded-xl bg-[#fff7ed] px-3 py-2 text-[12.5px] leading-snug text-[#9a4a07]" data-signup-file-missing="">
                     {tt("Upload the file. Until then, people who join get nothing to download.")}
                   </p>
                 ) : null}
 
-                {data.enable_digital_product && (
+                {data.enable_digital_product && (data as { digital_gift?: string }).digital_gift !== "product" && !data.digital_product_id && (
                   <div className="space-y-3 pt-2">
                     {/* Digital Product File Picker */}
                     <div className="space-y-1.5">
@@ -5166,32 +5347,56 @@ function BlockEditor({
                 cards with the picture in a 4:3 frame, the name centred under it, the editor's ChoiceMark.
               */}
               <p className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Layout")}</p>
-              <div role="radiogroup" aria-label={tt("Layout")} className="grid grid-cols-2 gap-2.5 sm:grid-cols-4" data-email-layouts="">
+              {/*
+                Wave 16: four across only where the panel itself has room for four (480px), two otherwise. It went by the
+                window (sm:), so a narrow editor panel on a computer squeezed four cards into it, too small to read.
+              */}
+              <div className="@container">
+              <div role="radiogroup" aria-label={tt("Layout")} className="grid grid-cols-2 gap-2.5 @min-[480px]:grid-cols-4" data-email-layouts="">
                 {emailLayouts.map((option) => {
                   const on = currentEmailLayout === option.id
+                  /*
+                    Wave 16: the picture lies over the card rather than in its button (it is the block itself, made small,
+                    with the block's own fields and buttons, which may not sit inside a button), in the very spot the
+                    card keeps for it: its 4:3 frame, 6px in. The frame's size is the card's alone, so nothing in the
+                    picture can move the card; the picture lets every press and hover through to the button under it.
+                  */
                   return (
-                    <button
-                      key={option.id}
-                      type="button"
-                      role="radio"
-                      aria-checked={on}
-                      data-email-layout-option={option.id}
-                      onClick={() => {
-                        if (on) return
-                        /* Connect says "Connect with" beside your picture, unless the button already has words you chose. */
-                        hapticTap("soft")
-                        updateData({ layout_type: option.id as EmailCaptureLayoutType, ...(option.id === "connect" ? connectButtonPatch(data, tt("Connect with")) ?? {} : {}) })
-                      }}
-                      className="relative flex cursor-pointer flex-col items-stretch rounded-2xl border border-[#e3e4e8] bg-white p-1.5 outline-none transition-[border-color] duration-150 hover:border-[#c9cbd1] focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
-                    >
-                      <ChoiceMark on={on} />
-                      <span className="flex aspect-[4/3] items-center overflow-hidden rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.05)] [&>[data-email-thumb]]:h-full [&>[data-email-thumb]]:rounded-xl">
-                        <EmailLayoutThumb layout={option.id} image={emailImage} theme={onepage?.theme ?? {}} avatar={onepage?.avatar_url ?? null} headline={data.headline} />
+                    <div key={option.id} className="relative">
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={on}
+                        data-email-layout-option={option.id}
+                        onClick={() => {
+                          if (on) return
+                          /* Connect says "Connect with" beside your picture, unless the button already has words you chose. */
+                          hapticTap("soft")
+                          updateData({ layout_type: option.id as EmailCaptureLayoutType, ...(option.id === "connect" ? connectButtonPatch(data, tt("Connect with")) ?? {} : {}) })
+                        }}
+                        className="relative flex w-full cursor-pointer flex-col items-stretch rounded-2xl border border-[#e3e4e8] bg-white p-1.5 outline-none transition-[border-color] duration-150 hover:border-[#c9cbd1] focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
+                      >
+                        <ChoiceMark on={on} />
+                        <span aria-hidden className="block aspect-[4/3] rounded-xl" />
+                        <span className={cn("block truncate py-1.5 text-center text-[12.5px] font-medium transition-colors duration-150", on ? "text-[#1a1a2e]" : "text-[#4b5563]")}>{option.label}</span>
+                      </button>
+                      <span className="pointer-events-none absolute inset-x-1.5 top-1.5 block aspect-[4/3] overflow-hidden rounded-xl [&>[data-email-thumb]]:rounded-xl after:pointer-events-none after:absolute after:inset-0 after:rounded-xl after:shadow-[inset_0_0_0_1px_rgba(0,0,0,0.07)] after:content-['']" data-email-thumb-frame="">
+                        <EmailLayoutThumb
+                          layout={option.id}
+                          image={emailImage}
+                          theme={onepage?.theme ?? {}}
+                          avatar={onepage?.avatar_url ?? null}
+                          name={onepage?.title ?? null}
+                          headline={data.headline}
+                          description={data.description}
+                          buttonText={option.id === "connect" ? emailSignupButtonText({ ...data, ...connectButtonPatch(data, tt("Connect with")) }) : emailSignupButtonText(data)}
+                          placeholder={data.placeholder ?? null}
+                        />
                       </span>
-                      <span className={cn("block py-1.5 text-center text-[12.5px] font-medium", on ? "text-[#1a1a2e]" : "text-[#4b5563]")}>{option.label}</span>
-                    </button>
+                    </div>
                   )
                 })}
+              </div>
               </div>
               {emailImage ? null : (
                 <p className="text-[12.5px] leading-[1.4] text-[#6b7280]">{tt("Add an image in Settings to show it in Featured, Cover, Solid, Simple and Bar.")}</p>
@@ -5208,15 +5413,15 @@ function BlockEditor({
             <HeaderCoverEditor />
             <div className="flex items-center justify-between">
               <Label className="text-xs">{tt("Show Avatar")}</Label>
-              <Toggle label={tt("Show Avatar")} checked={data.show_avatar} onCheckedChange={(checked) => updateData({ show_avatar: checked })} />
+              <Toggle label={tt("Show Avatar")} checked={data.show_avatar !== false} onCheckedChange={(checked) => updateData({ show_avatar: checked })} />
             </div>
             <div className="flex items-center justify-between">
               <Label className="text-xs">{tt("Show Name")}</Label>
-              <Toggle label={tt("Show Name")} checked={data.show_name} onCheckedChange={(checked) => updateData({ show_name: checked })} />
+              <Toggle label={tt("Show Name")} checked={data.show_name !== false} onCheckedChange={(checked) => updateData({ show_name: checked })} />
             </div>
             <div className="flex items-center justify-between">
               <Label className="text-xs">{tt("Show Bio")}</Label>
-              <Toggle label={tt("Show Bio")} checked={data.show_bio} onCheckedChange={(checked) => updateData({ show_bio: checked })} />
+              <Toggle label={tt("Show Bio")} checked={data.show_bio !== false} onCheckedChange={(checked) => updateData({ show_bio: checked })} />
             </div>
           </div>
         )
@@ -5455,9 +5660,20 @@ function BlockEditor({
                       <Input
                         value={img.title || ''}
                         onChange={(e) => updateImage(img.id, { title: e.target.value })}
-                        placeholder={tt("Caption (optional)")}
+                        placeholder={data.image_style === "fade" ? tt("Title (optional)") : tt("Caption (optional)")}
                         className="h-8 text-xs"
                       />
+                      {/* Round 3: on a fade (Layout, Text: On the picture) a picture also takes a line under its title, and a button when it has a link. */}
+                      {data.image_style === "fade" ? (
+                        <Input
+                          value={img.caption || ''}
+                          onChange={(e) => updateImage(img.id, { caption: e.target.value })}
+                          placeholder={tt("Caption (optional)")}
+                          maxLength={160}
+                          className="h-8 text-xs"
+                          data-image-caption-input=""
+                        />
+                      ) : null}
                     </div>
 
                     {/* Link URL for this image */}
@@ -5478,6 +5694,16 @@ function BlockEditor({
                             placeholder="https://..."
                             aria-label={tt("Link URL")}
                             className="h-8 text-xs"
+                          />
+                        ) : null}
+                        {data.image_style === "fade" ? (
+                          <Input
+                            value={img.button_label || ''}
+                            onChange={(e) => updateImage(img.id, { button_label: e.target.value })}
+                            placeholder={tt("Button text (optional)")}
+                            maxLength={40}
+                            className="h-8 text-xs"
+                            data-image-button-input=""
                           />
                         ) : null}
                       </div>
@@ -5511,7 +5737,8 @@ function BlockEditor({
                 />
               </div>
 
-              {/* Show Captions Toggle */}
+              {/* Show Captions Toggle: a fade always shows the words it is given. */}
+              {data.image_style === "fade" ? null : (
               <div className="flex items-center justify-between">
                 <div>
                   <Label className="text-xs font-medium">{tt("Show captions")}</Label>
@@ -5522,6 +5749,7 @@ function BlockEditor({
                   onCheckedChange={(checked) => updateData({ show_captions: checked })}
                 />
               </div>
+              )}
             </PartContent>
 
             <PartContent value="layout" className="mt-0 space-y-4">
@@ -5567,6 +5795,18 @@ function BlockEditor({
 
               <div className="space-y-4 border-t border-[#eef0f2] pt-4" data-image-look="">
                 <p className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Picture")}</p>
+                {/* Round 3: the words under the picture, or on a smooth fade over its foot in the page's colours (lib/onepage/image-fade). */}
+                <LabeledRow label={tt("Text")} hint={data.image_style === "fade" ? tt("Title, caption and a button on a fade at the bottom of each picture.") : undefined}>
+                  <Segmented
+                    label={tt("Text")}
+                    value={data.image_style === "fade" ? "fade" : "plain"}
+                    options={[
+                      { id: "plain", label: tt("Below") },
+                      { id: "fade", label: tt("On the picture") },
+                    ]}
+                    onChange={(image_style) => updateData({ image_style: image_style as ImageBlockData["image_style"] })}
+                  />
+                </LabeledRow>
                 <LabeledRow label={tt("Shape")}>
                   <Segmented
                     label={tt("Shape")}
@@ -6311,7 +6551,8 @@ function BlockEditor({
           </div>
           <div className="space-y-1.5" data-group-image="">
             <Label className="text-xs">{tt("Picture (optional)")}</Label>
-            <ImageUpload bucket="covers" aspectRatio="video" allowRemove value={groupData.image_url || undefined} onChange={(image_url) => updateData({ image_url: image_url || null })} />
+            {/* Round AR: the editor's one compact picture row, not a 16:9 drop box the width of the panel. */}
+            <OnePageImageField value={groupData.image_url} prefix={`group_${block.id}`} thumbClassName="w-24" onChange={(image_url) => updateData({ image_url: image_url || null })} />
           </div>
 
           {/* Canvas / Block List */}
@@ -6343,7 +6584,9 @@ function BlockEditor({
                     const preview = getChildBlockPreview(child)
                     const childTile = rowTile(child, preview.icon)
                     const ChildIcon = childTile.Icon
-                    const childTileStyle = !preview.thumbnail_url && !hasLinkIcon(preview.iconId) ? childTile.style : undefined
+                    /* Round AT: a child's own picture too (lib/onepage/row-picture), as the list's rows draw it. */
+                    const childPicture = rowPictureOf(child)
+                    const childTileStyle = !childPicture && !hasLinkIcon(preview.iconId) ? childTile.style : undefined
                     return (
                       <div key={child.id} data-group-child-item={child.id}>
                       <div
@@ -6369,8 +6612,8 @@ function BlockEditor({
                           <GripVertical className="h-4 w-4" />
                         </div>
                         <div className={cn("w-8 h-8 rounded-[9px] bg-[#f2f2f4] flex items-center justify-center shrink-0 overflow-hidden", !child.enabled && "opacity-50")} style={childTileStyle} data-row-tile={childTileStyle ? "" : undefined} data-block-fade="">
-                          {preview.thumbnail_url ? (
-                            <img src={preview.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                          {childPicture ? (
+                            <RowPictureView picture={childPicture} size={32} imageWidth={64} />
                           ) : hasLinkIcon(preview.iconId) ? (
                             <LinkIcon name={preview.iconId} size={16} className="text-[#1a1a2e]" tone="brand" />
                           ) : (
@@ -6455,13 +6698,17 @@ function BlockEditor({
                 {/* Round AO: move and Remove are the child row's more menu, so nothing sits over its editor. */}
                 {/* Render full BlockEditor for child with custom update function */}
                 {/* Note: onUrlChangeWithAutoFetch is NOT passed because it looks for blocks in main list, not group children */}
+                {/*
+                  Keyed by the child, so opening another child of the group is a fresh editor: the same
+                  image field reused for the next child showed the last one's picture and saved an upload
+                  that finished after the switch to the wrong block. And the field the sheet is for goes
+                  through: without it a PDF's, a menu's or a signup's file button opened the photo picker.
+                */}
                 <BlockEditor
                   block={selectedChild}
+                  key={selectedChild.id}
                   socialLinks={socialLinks}
-                  onOpenImageLibrary={(blockId) => {
-                    // For image library, we need to handle the child block
-                    onOpenImageLibrary(blockId)
-                  }}
+                  onOpenImageLibrary={onOpenImageLibrary}
                   onOpenSocialModal={onOpenSocialModal}
                   onOpenThumbnailModal={(blockId) => {
                     onOpenThumbnailModal?.(blockId)
@@ -6548,6 +6795,12 @@ function BlockEditor({
         {renderLayoutContent()}
         {style}
       </>
+    ) : block.type === "music" || block.type === "video" ? (
+      /* Round AR3: Player, Card or Button (components/onepage/media-blocks), then the shared style rows. */
+      <>
+        <MediaLayoutPicker block={block} theme={onepage?.theme} title={((block.data as { title?: string | null }).title || "").trim() || (block.type === "video" ? tt("Video") : tt("Music"))} image={(block.data as { artwork_url?: string | null; poster_url?: string | null }).artwork_url || (block.data as { poster_url?: string | null }).poster_url || null} updateData={(patch) => updateData(patch as never)} />
+        {style}
+      </>
     ) : PART_AWARE.has(block.type) ? (
       <>
         <BlockPartContext.Provider value="layout">{renderSettingsContent()}</BlockPartContext.Provider>
@@ -6569,6 +6822,50 @@ function BlockEditor({
         layout={layout}
       />
     </EditorThemeContext.Provider>
+  )
+}
+
+/**
+ * SEVERAL LINKS IN ONE BLOCK (round AR3). The owner: "in a link block I can
+ * also add multiple links, which creates a group, and enable carousel and
+ * grid layouts, all from one block, to make it easier for people to set up".
+ * One press makes this link the first of a Group with a new empty link under
+ * it, in one step (one Undo). The link keeps its id, so its clicks keep
+ * counting; the Group's Layout tab is where List, Grid and Carousel are.
+ */
+function MakeGroupRow({ block }: { block: OnePageBlock }) {
+  const { getLatestOnePage, updateOnePage, setSelectedBlockId } = useOnePage()
+  const make = () => {
+    const page = getLatestOnePage()
+    const list = page?.draft_blocks ?? []
+    const at = list.findIndex((b) => b.id === block.id)
+    if (at < 0) return
+    const current = list[at]
+    const group = createDefaultBlock("group")
+    const next = createDefaultBlock("link_button")
+    const grouped: OnePageBlock = {
+      ...group,
+      sort_order: current.sort_order,
+      data: { ...(group.data as GroupBlockData), title: "", layout: "stack", children: [{ ...current, sort_order: 0 }, { ...next, sort_order: 1 }] } as GroupBlockData,
+    }
+    updateOnePage({ draft_blocks: list.map((b, i) => (i === at ? grouped : b)) })
+    setSelectedBlockId(grouped.id)
+  }
+  return (
+    <button
+      type="button"
+      onClick={make}
+      data-make-group=""
+      className="flex min-h-[56px] w-full cursor-pointer items-center gap-3.5 rounded-2xl border border-dashed border-[#d5d7dd] bg-white p-2.5 pr-4 text-left outline-none transition-colors hover:border-[#c9cbd1] focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
+    >
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#f4f4f6] text-[#1a1a2e]">
+        <Layers aria-hidden className="h-4 w-4" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[14px] font-medium text-[#1a1a2e]">{tt("Add more links here")}</span>
+        <span className="block text-[12.5px] text-[#6b7280]">{tt("Show them as a list, a grid or a carousel")}</span>
+      </span>
+    </button>
   )
 }
 

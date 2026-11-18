@@ -23,7 +23,7 @@ type PlanState = {
   plans: { id: string; label: string }[]
 }
 
-const NAMES: Record<string, string> = { free: "Free", growth: "Pro", pro: "Pro, $99 legacy" }
+const NAMES: Record<string, string> = { free: "Free", growth: "Grow", pro: "Pro" }
 const nameOf = (id: string | null | undefined) => NAMES[id ?? "free"] ?? id ?? "Free"
 
 export function PlanPanel({ creatorId, onChanged }: { creatorId: string; onChanged?: () => void }) {
@@ -72,7 +72,7 @@ export function PlanPanel({ creatorId, onChanged }: { creatorId: string; onChang
   }
 
   const o = state?.override ?? null
-  const options = (state?.plans ?? [{ id: "free", label: "Free" }, { id: "growth", label: "Pro" }, { id: "pro", label: "Pro, $99 legacy" }]) as { id: string; label: string }[]
+  const options = (state?.plans ?? [{ id: "free", label: "Free" }, { id: "growth", label: "Grow, $29" }, { id: "pro", label: "Pro, $99" }]) as { id: string; label: string }[]
   const unchanged = o ? pick === o.planId : false
 
   return (

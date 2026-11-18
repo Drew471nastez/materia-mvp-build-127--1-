@@ -10,6 +10,8 @@ import { croppedMediaStyle } from "@/lib/onepage/media-crop"
 import { ownOpen, useOwnMarker } from "@/lib/analytics/own-site"
 import { bottomAboveKeyboard } from "@/lib/ui/keyboard-safe-sheet"
 import { PhonePreview, MobilePreviewContent } from "./live-preview"
+import { PREVIEW_PICK_EVENT } from "@/lib/onepage/preview-select"
+import { InstagramBioShare } from "./instagram-bio-share"
 import { DesignTab } from "./tabs/design-tab"
 import { LinksTab } from "./tabs/links-tab"
 import { ProductsTab } from "./tabs/products-tab"
@@ -51,7 +53,7 @@ import { iconDepth, primaryDepth } from "@/components/ui/depth-button"
 import type { OnePage } from "@/lib/onepage/types"
 import { getLinksShareUrl, getLinksUrlWithCustomDomain } from "@/lib/url-helpers"
 import { creatorPageHostFrom } from "@/lib/custom-domains/client"
-import { openExternal } from "@/lib/native-bridge"
+import { isNativeApp, openExternal } from "@/lib/native-bridge"
 import {
   Dialog,
   DialogContent,
@@ -65,6 +67,8 @@ import { SaveNotification, ToastSpot } from "@/components/ui/save-notification"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { AvatarMark } from "@/components/app/app-avatar"
 import { tt } from "@/lib/i18n/text"
+import { formatDateTime } from "@/lib/i18n/format"
+import { EditorPartBoundary } from "@/components/onepage/editor-part-boundary"
 import { fetchBillingSubscription, planIdOf } from "@/lib/billing/plan-client"
 import { OnePageTeamProvider, useOnePageTeam, useTeamProductsStore, type OnePageTeam } from "@/lib/onepage/team-context"
 
@@ -135,6 +139,8 @@ const EXIT_HREF = "/app"
 
 /** The loader on the way in waits for the preview this long at most. */
 const ARRIVE_CAP_MS = 2500
+/** Round AT: on a phone the Preview's frame is warmed once the editor is idle, or after this long at the latest. */
+const PREVIEW_WARM_MS = 2500
 
 /*
   THE EDITOR'S TWO QUESTIONS, ON THE APP'S OWN SHEET ON A PHONE.
@@ -188,6 +194,44 @@ function EditorQuestion({
         {children}
       </DialogContent>
     </Dialog>
+  )
+}
+
+/**
+ * WORK ON THIS DEVICE THAT NEVER REACHED A SAVE, ON A PAGE SAVED ELSEWHERE
+ * SINCE (round AU, lib/onepage/local-draft). Neither copy is thrown away
+ * unasked: the creator picks. This device's changes come back unsaved, so
+ * the next Save is still theirs to press, and undo takes them away again.
+ * Only a choice answers it: a stray tap outside never throws either away.
+ */
+function DraftQuestionDialog({ at, onAnswer }: { at: number; onAnswer: (useDevice: boolean) => void }) {
+  return (
+    <EditorQuestion open onClose={() => {}} label={tt("Unsaved changes on this device")} desktopWidth="md:max-w-[380px]">
+      <div className="px-6 pt-5 pb-5 text-center md:pt-6" data-draft-question="">
+        <h2 className="text-[17px] font-semibold text-[#1a1a2e] mb-1.5">{tt("Unsaved changes on this device")}</h2>
+        <p className="text-sm text-[#6b7280]">
+          {tt("You made changes here on {when} that were never saved. The page has been saved somewhere else since.", { when: formatDateTime(at) })}
+        </p>
+      </div>
+      <div className="px-5 pb-5 space-y-2.5 md:px-6 md:pb-6">
+        <button
+          type="button"
+          onClick={() => onAnswer(true)}
+          data-draft-use-device=""
+          className="w-full h-12 px-4 bg-[#1a1a2e] text-white font-medium rounded-xl hover:bg-[#2a2a40] active:bg-[#0f0f1c] transition-colors flex items-center justify-center shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_1px_2px_rgba(16,24,40,0.25)]"
+        >
+          {tt("Use the changes from this device")}
+        </button>
+        <button
+          type="button"
+          onClick={() => onAnswer(false)}
+          data-draft-keep-saved=""
+          className="w-full h-12 px-4 bg-white text-[#1a1a2e] font-medium rounded-xl border border-[#e5e7eb] hover:bg-[#fafafa] transition-colors"
+        >
+          {tt("Keep the saved page")}
+        </button>
+      </div>
+    </EditorQuestion>
   )
 }
 
@@ -265,11 +309,11 @@ function ProUpgradeDialog({
   onKeepEditing: () => void
 }) {
   return (
-    <EditorQuestion open={open} onClose={onClose} label={tt("Upgrade to Pro?")} desktopWidth="md:max-w-[420px]">
+    <EditorQuestion open={open} onClose={onClose} label={tt("Upgrade to Grow?")} desktopWidth="md:max-w-[420px]">
       <div className="px-6 pt-5 pb-5 text-center md:pt-6">
-        <h2 className="text-[17px] font-semibold text-[#1a1a2e] mb-1.5">{tt("Upgrade to Pro?")}</h2>
+        <h2 className="text-[17px] font-semibold text-[#1a1a2e] mb-1.5">{tt("Upgrade to Grow?")}</h2>
         <p className="text-sm text-[#6b7280] leading-relaxed">
-          {tt("The verified badge and hiding Storelib branding are part of Pro. Upgrade to save these changes.")}
+          {tt("The verified badge and hiding Storelib branding are part of Grow. Upgrade to save these changes.")}
         </p>
       </div>
 
@@ -281,7 +325,7 @@ function ProUpgradeDialog({
           <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
             <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
           </svg>
-          {tt("Upgrade to Pro")}
+          {tt("Upgrade to Grow")}
         </button>
 
         <button
@@ -386,14 +430,19 @@ function ShareOnePage({
         {tt("Open in a new tab")}
       </button>
 
+      {/* Round 17, the owner: "get rid of the Share to Instagram story option from the share your OnePage modal". */}
+
+      {/* Round AR: the steps for an Instagram bio, opening here under the row (components/onepage/instagram-bio-share). */}
+      <InstagramBioShare slug={onepage.slug} published={onepage.status === "published" || !!onepage.published_at} phone={isPhone} rowClassName={row} />
+
       {!connectedDomain && (
         <button type="button" onClick={() => { window.location.href = "/app/settings?tab=domains" }} className={cn(row, "justify-between")}>
           <span className="flex items-center gap-3">
             <Globe className="h-4 w-4 shrink-0 text-[#6b7280]" />
             {tt("Add a custom domain")}
           </span>
-          <span title={hasPro ? tt("Included in your plan") : tt("Custom domains are part of Pro")} className="rounded-full bg-[#f1f2f4] px-2 py-0.5 text-[11.5px] font-semibold text-[#4b5563]">
-            {hasPro ? tt("Included") : "Pro"}
+          <span title={hasPro ? tt("Included in your plan") : tt("Custom domains are part of Grow")} className="rounded-full bg-[#f1f2f4] px-2 py-0.5 text-[11.5px] font-semibold text-[#4b5563]">
+            {hasPro ? tt("Included") : "Grow"}
           </span>
         </button>
       )}
@@ -457,6 +506,11 @@ function EditorLayout() {
     save,
     saveError,
     updateSettings,
+    retrying,
+    draftQuestion,
+    answerDraftQuestion,
+    draftRestoredAt,
+    discardUnsaved,
   } = useOnePage()
 
   /*
@@ -674,6 +728,15 @@ function EditorLayout() {
     }
   }, [])
 
+  /* Round AR: a block clicked in the phone preview opens in the Links list (lib/onepage/preview-select). */
+  useEffect(() => {
+    const onPick = () => {
+      if (activeTabRef.current !== "links") handleTabChange("links")
+    }
+    window.addEventListener(PREVIEW_PICK_EVENT, onPick)
+    return () => window.removeEventListener(PREVIEW_PICK_EVENT, onPick)
+  }, [handleTabChange])
+
   // Sync tab when browser back/forward changes the hash
   useEffect(() => {
     const onPopState = () => {
@@ -768,7 +831,46 @@ function EditorLayout() {
   useEffect(() => {
     if (showMobilePreview) setMobilePreviewKept(true)
   }, [showMobilePreview])
+  /*
+    ROUND AT, THE OWNER: "make sure that the preview and edit when I click on the one page editor is more smooth and
+    clean." Three things made the switch blink:
+      - the first Preview loaded its frame on the tap: the page's colour, empty, until the frame had drawn;
+      - Edit came back from display:none, so the whole tab was laid out again on the tap;
+      - the tab bar was unmounted and mounted again each way.
+    Now, once the editor has arrived and a phone's main thread is idle, the preview's frame is loaded and drawn, unseen,
+    at its real size (PREVIEW_WARM_MS at the latest), and a press on Preview starts it at once if that has not happened
+    yet. Preview and Edit are then two layers that are both laid out: a switch only changes which one is visible and
+    which one is inert, so nothing is laid out, loaded or mounted on the tap (scripts/check-onepage-at2.mjs times it).
+  */
+  useEffect(() => {
+    if (!arrived || mobilePreviewKept) return
+    if (!window.matchMedia("(max-width: 767px)").matches) return
+    const warm = () => setMobilePreviewKept(true)
+    const w = window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
+    if (w.requestIdleCallback) {
+      const id = w.requestIdleCallback(warm, { timeout: PREVIEW_WARM_MS })
+      return () => w.cancelIdleCallback?.(id)
+    }
+    const t = window.setTimeout(warm, PREVIEW_WARM_MS)
+    return () => window.clearTimeout(t)
+  }, [arrived, mobilePreviewKept])
+  /* Widened past a phone with Preview up (a tablet turned): the editor is the editor again, with its phone beside it. */
+  useEffect(() => {
+    if (!showMobilePreview) return
+    const mq = window.matchMedia("(min-width: 768px)")
+    const back = () => {
+      if (mq.matches) setShowMobilePreview(false)
+    }
+    back()
+    mq.addEventListener("change", back)
+    return () => mq.removeEventListener("change", back)
+  }, [showMobilePreview])
   const [showLinkModal, setShowLinkModal] = useState(false)
+  /* Round AT: Share your OnePage ticks in the iOS and Android apps (lib/native-bridge hapticTap); a browser feels nothing. */
+  const openShare = () => {
+    if (isNativeApp()) hapticTap("light")
+    setShowLinkModal(true)
+  }
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false)
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
   const [isSavingForNav, setIsSavingForNav] = useState(false)
@@ -789,7 +891,7 @@ function EditorLayout() {
     each caller having to remember to.
   */
   useEffect(() => {
-    if (saveError) showSaveFailure(saveError.message)
+    if (saveError) showSaveFailure(tt(saveError.message))
   }, [saveError, showSaveFailure])
 
   // =====================================================
@@ -800,6 +902,15 @@ function EditorLayout() {
   const [showOnboarding, setShowOnboarding] = useState(false) // Start with false, check DB
   const [connectedDomain, setConnectedDomain] = useState<string | null>(null)
   const [userPlan, setUserPlan] = useState<"free" | "growth" | "pro" | null>(null)
+  /*
+    WHETHER THE PLAN WAS READ, NOT GUESSED. A plan request that failed (or has
+    not come back yet) is shown as Free, as before, but it never stops a Save:
+    a paying creator with the Storelib badge hidden was asked to upgrade on
+    every Save while /api/billing/subscription was slow or down, and could not
+    save at all. The server is the one that refuses a paid setting on a free
+    plan (app/api/onepage PUT, which asks the plan itself).
+  */
+  const [planConfirmed, setPlanConfirmed] = useState(false)
 
   /* A team member: the store owner's plan and domain came with the page (lib/onepage/team-context); the two reads below are the member's own account's. */
   const team = useOnePageTeam()
@@ -809,6 +920,7 @@ function EditorLayout() {
     if (team) {
       setConnectedDomain(team.domain)
       setUserPlan(team.plan)
+      setPlanConfirmed(true)
       return
     }
     fetch("/api/domains")
@@ -822,7 +934,11 @@ function EditorLayout() {
 
     /* Shared with Settings and the billing tab (lib/billing/plan-client.ts). currentPlan first: it is the plan in force
        (an admin's override included), where a cancelled subscription's plan_id is the plan that ended. */
-    void fetchBillingSubscription().then((data) => setUserPlan((plan) => planIdOf(data) ?? plan ?? "free"))
+    void fetchBillingSubscription().then((data) => {
+      const id = planIdOf(data)
+      if (id) setPlanConfirmed(true)
+      setUserPlan((plan) => id ?? plan ?? "free")
+    })
   }, [team])
 
   const [onboardingChecked, setOnboardingChecked] = useState(false) // Track if we've checked
@@ -922,7 +1038,7 @@ function EditorLayout() {
 
   // Handle save with Pro plan check
   const handleSaveWithProCheck = useCallback(async () => {
-    const userHasPro = userPlan === "growth" || userPlan === "pro"
+    const userHasPro = !planConfirmed || userPlan === "growth" || userPlan === "pro"
 
     if (hasProFeaturesEnabled() && !userHasPro) {
       setShowProUpgradeDialog(true)
@@ -949,7 +1065,7 @@ function EditorLayout() {
     */
     const result = await save()
     if (result.ok) setSaveToastSequence((prev) => prev + 1)
-  }, [hasProFeaturesEnabled, save, activeTab, userPlan, showSaveFailure])
+  }, [hasProFeaturesEnabled, save, activeTab, userPlan, planConfirmed, showSaveFailure])
 
   // Handle upgrading to Pro — auto-saves non-pro changes, then sends user to pricing page
   const handleUpgradeToPro = useCallback(async () => {
@@ -959,8 +1075,16 @@ function EditorLayout() {
     // If the save failed, stay: leaving now would throw the work away, and the
     // failure is already on screen.
     const result = await save()
-    if (!result.ok) return
+    /*
+      A refusal (400) is the paid setting itself on a free plan: the save can
+      only work after the upgrade, so it is no reason to stay. The work is
+      kept on this device (lib/onepage/local-draft, written as the page goes)
+      and put back when they come back. Any other failure stays, as before:
+      leaving would throw the work away, and the failure is on screen.
+    */
+    if (!result.ok && result.status !== 400) return
     const returnTo = encodeURIComponent(window.location.pathname)
+    leavingRef.current = true
     window.location.href = `/pricing?source=upgrade&returnTo=${returnTo}`
   }, [save])
 
@@ -1133,7 +1257,7 @@ function EditorLayout() {
   }, [router])
 
   const handleSaveAndNavigate = useCallback(async () => {
-    const userHasPro = userPlan === "growth" || userPlan === "pro"
+    const userHasPro = !planConfirmed || userPlan === "growth" || userPlan === "pro"
 
     if (hasProFeaturesEnabled() && !userHasPro) {
       setShowUnsavedDialog(false)
@@ -1169,17 +1293,19 @@ function EditorLayout() {
       leaveTo(pendingNavigation)
     }
     setPendingNavigation(null)
-  }, [save, pendingNavigation, hasProFeaturesEnabled, activeTab, userPlan, showSaveFailure, leave, leaveTo])
+  }, [save, pendingNavigation, hasProFeaturesEnabled, activeTab, userPlan, planConfirmed, showSaveFailure, leave, leaveTo])
 
   const handleDiscardAndNavigate = useCallback(() => {
     setShowUnsavedDialog(false)
+    /* The device's copy goes too, or the next open puts the discarded work back (lib/onepage/context discardUnsaved). */
+    discardUnsaved()
     if (pendingNavigation === "/app") {
       leave()
     } else if (pendingNavigation) {
       leaveTo(pendingNavigation)
     }
     setPendingNavigation(null)
-  }, [pendingNavigation, leave, leaveTo])
+  }, [pendingNavigation, leave, leaveTo, discardUnsaved])
 
   // Handle onboarding completion
   // Note: The onboarding modal already saves everything to the database and calls save()
@@ -1237,10 +1363,11 @@ function EditorLayout() {
     the tab on screen or the preview. Each still renders when the page it
     reads changes.
   */
-  const designPanel = useMemo(() => <DesignTab userPlan={userPlan} />, [userPlan])
-  const linksPanel = useMemo(() => <LinksTab />, [])
-  const productsPanel = useMemo(() => <ProductsTab onGoToLinks={() => handleTabChange("links")} />, [handleTabChange])
-  const phonePreview = useMemo(() => <PhonePreview onDrawn={() => setPreviewDrawn(true)} />, [])
+  /* Round AU: each tab and the preview break on their own (components/onepage/editor-part-boundary), never the whole editor and its Save. */
+  const designPanel = useMemo(() => <EditorPartBoundary part="design"><DesignTab userPlan={userPlan} /></EditorPartBoundary>, [userPlan])
+  const linksPanel = useMemo(() => <EditorPartBoundary part="links"><LinksTab /></EditorPartBoundary>, [])
+  const productsPanel = useMemo(() => <EditorPartBoundary part="products"><ProductsTab onGoToLinks={() => handleTabChange("links")} /></EditorPartBoundary>, [handleTabChange])
+  const phonePreview = useMemo(() => <EditorPartBoundary part="preview"><PhonePreview onDrawn={() => setPreviewDrawn(true)} /></EditorPartBoundary>, [])
 
   if (!onepage) {
     return (
@@ -1293,15 +1420,16 @@ function EditorLayout() {
     /* The last save failed and nothing has been typed since: the button says
        so, and pressing it is the retry. The next edit or save clears it. */
     if (saveState === "error" && isDirty) {
+      /* Round AU: a save that failed for the network is being tried again on its own; pressing still tries now. */
       return (
         <>
           <AlertCircle className="h-4 w-4" />
-          <span className="hidden sm:inline ml-2">{tt("Try again")}</span>
+          <span className="hidden sm:inline ml-2">{retrying ? tt("Not saved, retrying") : tt("Try again")}</span>
         </>
       )
     }
     // Show lightning bolt when the user has pro features active but no paid plan
-    const userHasPro = userPlan === "growth" || userPlan === "pro"
+    const userHasPro = !planConfirmed || userPlan === "growth" || userPlan === "pro"
     const showZap = hasProFeaturesEnabled() && !userHasPro
     return (
       <>
@@ -1365,6 +1493,12 @@ function EditorLayout() {
         show={historyToastSequence > 0}
         message={historyToastMessage}
         duration={2200}
+      />
+      <SaveNotification
+        key={`draft-restored-${draftRestoredAt ?? 0}`}
+        show={draftRestoredAt !== null}
+        message={tt("Unsaved changes restored")}
+        duration={4000}
       />
       <SaveNotification
         key={`save-failed-${saveFailure.sequence}`}
@@ -1534,7 +1668,7 @@ function EditorLayout() {
           <button
             type="button"
             className={cn(iconDepth, "md:hidden h-8 w-8 rounded-[9px] text-[#374151]")}
-            onClick={() => setShowLinkModal(true)}
+            onClick={openShare}
             aria-label={tt("Share your OnePage")}
             title={tt("Share your OnePage")}
             data-onepage-share=""
@@ -1546,6 +1680,7 @@ function EditorLayout() {
           <Button
             onClick={handleSaveWithProCheck}
             disabled={isSaveDisabled}
+            data-onepage-save={saveState === "error" && isDirty ? (retrying ? "retrying" : "failed") : saveState}
             className={cn(
               "h-8 sm:h-9 px-3 sm:px-4 rounded-lg transition-[background-color,color,opacity] duration-200",
               saveState === "saved" && !isDirty
@@ -1563,7 +1698,8 @@ function EditorLayout() {
           {/* Share your OnePage Button - Desktop */}
           <div className="hidden md:block">
             <button
-              onClick={() => setShowLinkModal(true)}
+              onClick={openShare}
+              data-onepage-share-desk=""
               className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg shadow-sm border text-sm font-medium hover:shadow-md hover:bg-gray-50 transition-[background-color,box-shadow] cursor-pointer whitespace-nowrap"
             >
               <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -1580,6 +1716,11 @@ function EditorLayout() {
               !showMobilePreview && "bg-gray-900 hover:bg-gray-800 text-white"
             )}
             onClick={togglePreview}
+            /* The press starts the frame if idle time has not yet (round AT): it is loading by the time the finger lifts. */
+            onPointerDown={() => {
+              if (!mobilePreviewKept) setMobilePreviewKept(true)
+            }}
+            data-onepage-preview-toggle=""
           >
             {showMobilePreview ? (
               <>
@@ -1605,9 +1746,11 @@ function EditorLayout() {
         */}
         <div
           className={cn(
-            "relative flex-1 min-h-0 overflow-hidden bg-white isolate",
-            showMobilePreview ? "hidden" : "block"
+            "relative flex-1 min-h-0 overflow-hidden bg-white isolate block",
+            /* Round AT: laid out under the preview, not taken away, so Edit comes back without a layout. */
+            showMobilePreview && "max-md:invisible"
           )}
+          inert={showMobilePreview || undefined}
           data-onepage-panels=""
         >
           {TAB_ORDER.filter((t) => t === panels.tab || t === panels.leaving || panels.built.includes(t)).map((t) => {
@@ -1652,7 +1795,7 @@ function EditorLayout() {
                   )}
                 >
                   {t === "settings" ? (
-                    <SettingsTab ref={settingsTabRef} pageUrl={pageUrl} onSave={handleSaveWithProCheck} userPlan={userPlan} section={settingsSection.current} jump={settingsJump} onSectionChange={onSettingsSection} />
+                    <EditorPartBoundary part="settings"><SettingsTab ref={settingsTabRef} pageUrl={pageUrl} onSave={handleSaveWithProCheck} userPlan={userPlan} section={settingsSection.current} jump={settingsJump} onSectionChange={onSettingsSection} /></EditorPartBoundary>
                   ) : (
                     <Activity mode={shown ? "visible" : "hidden"}>
                       {t === "design" && designPanel}
@@ -1698,8 +1841,12 @@ function EditorLayout() {
         {/* Mobile Preview - NO phone mockup, just real page content like Linktree.
             Kept once opened (hidden, not unmounted), so its frame is not loaded again. */}
         {(showMobilePreview || mobilePreviewKept) && (
-          <div className={cn("md:hidden flex-1 flex-col overflow-hidden", showMobilePreview ? "flex" : "hidden")}>
-            <MobilePreviewContent />
+          <div
+            className={cn("absolute inset-0 z-[3] flex flex-col overflow-hidden md:hidden", !showMobilePreview && "invisible pointer-events-none")}
+            inert={!showMobilePreview || undefined}
+            data-onepage-mobile-layer={showMobilePreview ? "shown" : "warm"}
+          >
+            <EditorPartBoundary part="preview"><MobilePreviewContent /></EditorPartBoundary>
           </div>
         )}
 
@@ -1765,9 +1912,10 @@ function EditorLayout() {
         ellipsis rather than spill out of a narrow button
         (scripts/check-onepage-tabbar.mjs measures both).
       */}
-      {!showMobilePreview && (
         <div
-          className="md:hidden fixed bottom-0 left-0 right-0 z-20 h-[var(--op-tabbar-h)] border-t border-[#e5e7eb] bg-white shadow-[0_-1px_2px_rgba(16,24,40,0.03),0_-6px_16px_rgba(16,24,40,0.04)]"
+          className={cn("md:hidden fixed bottom-0 left-0 right-0 z-20 h-[var(--op-tabbar-h)] border-t border-[#e5e7eb] bg-white shadow-[0_-1px_2px_rgba(16,24,40,0.03),0_-6px_16px_rgba(16,24,40,0.04)]", showMobilePreview && "invisible")}
+          /* Round AT: kept mounted under Preview, only hidden, so Edit does not build it again. */
+          inert={showMobilePreview || undefined}
           data-onepage-tabbar=""
         >
           {/* 9px under the bar's 1px hairline: 10px over the buttons, as --op-tabbar-h counts it. */}
@@ -1814,7 +1962,6 @@ function EditorLayout() {
             })}
           </div>
         </div>
-      )}
 
       {/*
         SHARE YOUR ONEPAGE. On a phone it is the app's own sheet
@@ -1835,6 +1982,8 @@ function EditorLayout() {
       />
 
       {/* Unsaved Changes Dialog */}
+      {draftQuestion ? <DraftQuestionDialog at={draftQuestion.at} onAnswer={answerDraftQuestion} /> : null}
+
       <UnsavedChangesDialog
         open={showUnsavedDialog}
         onClose={() => { setShowUnsavedDialog(false); setPendingNavigation(null); }}

@@ -54,6 +54,10 @@ export const RESERVED_ROOT_SEGMENTS: readonly string[] = [
   "faq",
   "features",
   "help",
+  /* Round AR: the Instagram bio steps opened from Share's QR code (app/(storelib)/instagram-bio). */
+  "instagram-bio",
+  /* Round AR: a visitor's booking, changed or cancelled from the link in their email (app/(storelib)/booking/[token]). */
+  "booking",
   "l",
   "legal",
   "library",

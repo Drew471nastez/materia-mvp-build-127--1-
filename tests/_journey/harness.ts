@@ -107,6 +107,8 @@ const ROUTES: Record<string, () => Promise<RouteModule>> = {
   "/api/physical/coupons/[id]": () => import("@/app/api/physical/coupons/[id]/route"),
   "/api/payments/[action]": () => import("@/app/api/payments/[action]/route"),
   "/api/checkout/site": () => import("@/app/api/checkout/site/route"),
+  /* Round AX: a built site's cart a code makes free, pressed again (tests/free-basket-retry-ax.test.ts). */
+  "/api/checkout/cart": () => import("@/app/api/checkout/cart/route"),
   "/api/checkout/stripe-session": () => import("@/app/api/checkout/stripe-session/route"),
   /* Round 10: the OnePage's instant checkout pays through these, with its product facts read first (tests/e2e-onepage-instant). */
   "/api/checkout/confirm-payment": () => import("@/app/api/checkout/confirm-payment/route"),
@@ -114,6 +116,8 @@ const ROUTES: Record<string, () => Promise<RouteModule>> = {
   "/api/checkout/confirm-with-pm": () => import("@/app/api/checkout/confirm-with-pm/route"),
   "/api/memberships/confirm": () => import("@/app/api/memberships/confirm/route"),
   "/api/checkout/process": () => import("@/app/api/checkout/process/route"),
+  /* Round AW: a OnePage's free product, claimed again after an answer that never came (tests/double-actions-aw.test.ts). */
+  "/api/checkout/quick-free": () => import("@/app/api/checkout/quick-free/route"),
   "/api/onepage/product": () => import("@/app/api/onepage/product/route"),
   "/api/stripe/revenue-chart": () => import("@/app/api/stripe/revenue-chart/route"),
   "/api/stripe/payouts": () => import("@/app/api/stripe/payouts/route"),
@@ -128,6 +132,8 @@ const ROUTES: Record<string, () => Promise<RouteModule>> = {
   "/api/store/translations/jobs": () => import("@/app/api/store/translations/jobs/route"),
   /* The OnePage's email signup and contact form (tests/e2e-onepage-signup.test.ts). */
   "/api/onepage/leads": () => import("@/app/api/onepage/leads/route"),
+  /* The lead magnet's download form (the OnePage production audit, C1). */
+  "/api/onepage/email-capture": () => import("@/app/api/onepage/email-capture/route"),
   /* The OnePage editor's Save and Publish (tests/e2e-onepage-blocks-r11.test.ts: a group through save, reload and publish). */
   "/api/onepage": () => import("@/app/api/onepage/route"),
   "/api/onepage/publish": () => import("@/app/api/onepage/publish/route"),

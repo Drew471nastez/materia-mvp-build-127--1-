@@ -92,7 +92,8 @@ export default async function CommunitySlugLayout({ children, params }: { childr
   */
   if (page.state === "off" || page.state === "missing" || (page.community && page.state !== "closed" && page.state !== "unknown" && !barVisible(page))) notFound()
   const tracking = storeTracking(page)
-  const visit = visitBeacon(page, (await headers()).get("referer"))
+  /* Round 66: a stranger's page is one CDN copy for every stranger (next.config.mjs STRANGER_QUERY): no visitor's Referer is drawn into it, the beacon reads document.referrer. */
+  const visit = visitBeacon(page, page.viewer ? (await headers()).get("referer") : null)
   if (page.state === "member" && page.community && page.viewer) {
     return (
       <CommunityShell community={page.community} viewer={page.viewer}>

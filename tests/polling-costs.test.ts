@@ -16,6 +16,7 @@ import {
   POLL_IDLE_MS,
   POLL_MAX_MS,
   nextPollDelay,
+  visiblePollDelay,
 } from "@/lib/agent-access/connection-mark"
 import { KEEP_FRESH_MAX } from "@/components/nav/keep-fresh"
 import { SWEEP_HOUR_UTC, isPayoutSweepHour } from "@/lib/notify/payout-weekly"
@@ -50,7 +51,11 @@ console.log("\nBuilder activity")
   check("an hour left alone is about 130 reads, where it was 360", reads(60) <= 130, reads(60))
   const hook = read("components/website-builder/site-connections.tsx")
   check("the quiet clock starts again on a change, a wake, a press or a key", /if \(arrived\) lively = Date\.now\(\)/.test(hook) && /woke = Date\.now\(\)\s*lively = Date\.now\(\)/.test(hook) && /addEventListener\("pointerdown", stir, true\)/.test(hook) && /addEventListener\("keydown", stir, true\)/.test(hook))
-  check("a visible editor asks once a second, so a push is not left until a refresh", /document\.visibilityState === "visible" \? \(arrived && eventsFull \? 200 : POLL_ACTIVE_MS\)/.test(hook))
+  /* Changed on purpose (round 54): once a second while in use, slower when the editor is left alone, quick again on a press or a return. */
+  check("a visible editor asks once a second while in use, so a push is not left until a refresh", /document\.visibilityState === "visible" \? \(arrived && eventsFull \? 200 : visiblePollDelay\(quiet\)\)/.test(hook))
+  check("in use (two minutes) once a second, then every five seconds, every fifteen after ten quiet minutes", visiblePollDelay(0) === 1_000 && visiblePollDelay(119_000) === 1_000 && visiblePollDelay(120_000) === 5_000 && visiblePollDelay(9 * 60_000) === 5_000 && visiblePollDelay(10 * 60_000) === 15_000)
+  check("a press after being left alone reads within a second, without a reschedule per key", /if \(delay > POLL_BASE_MS && !busy && !stopped\) \{\s*delay = POLL_ACTIVE_MS\s*schedule\(delay\)/.test(hook))
+  check("nothing connected and left alone: every thirty seconds", /schedule\(connected \|\| holding \? delay : quiet < POLL_IDLE_AFTER_MS \? POLL_BASE_MS : POLL_IDLE_MS\)/.test(hook))
   check("and the wakes on focus, visibility and the pointer are kept", /addEventListener\("visibilitychange", wake\)/.test(hook) && /addEventListener\("focus", wake\)/.test(hook) && /addEventListener\("pointerenter", wake\)/.test(hook))
   check("every listener is taken off again", /removeEventListener\("pointerdown", stir, true\)/.test(hook) && /removeEventListener\("keydown", stir, true\)/.test(hook))
 }

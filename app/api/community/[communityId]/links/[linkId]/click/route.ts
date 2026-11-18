@@ -6,6 +6,7 @@ import { admin } from "@/lib/communities/server/db"
 import { NO_STORE, sessionUserId } from "@/lib/communities/server/feed"
 import { recordMemberLinkClick, seesMemberLinks } from "@/lib/communities/server/member-shortcuts"
 import { MEMBER_LINK_ID } from "@/lib/communities/member-link-view"
+import { signedOutOrRetry } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest, { params }: Params) {
   const { communityId, linkId } = await params
   if (!MEMBER_LINK_ID.test(linkId)) return NextResponse.json({ error: "not_found" }, { status: 404, headers: NO_STORE })
   const userId = await sessionUserId()
-  if (!userId) return NextResponse.json({ error: "Sign in first." }, { status: 401, headers: NO_STORE })
+  if (!userId) return signedOutOrRetry(NextResponse.json({ error: "Sign in first." }, { status: 401, headers: NO_STORE }))
   const limited = await rateLimit({
     bucket: "community-link-click",
     subjects: [`user:${userId}`, addressSubject(request)],

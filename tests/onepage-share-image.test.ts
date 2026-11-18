@@ -156,8 +156,9 @@ const stubs: Record<string, string> = {
     `export const createClient = async () => ({ ...globalThis.__shareStubs.server, from: (t) => globalThis.__shareStubs.server.from(t), auth: { getUser: async () => ({ data: { user: globalThis.__shareStubs.user }, error: null }) } })\n`,
   ),
   /* Changed on purpose (rel-public): the OnePage's held owner is tagged by the creator's domains (lib/onepage/published-page). */
-  "@/lib/custom-domains/store": stub("domains", `export const primaryHostFor = async () => null\nexport const creatorDomainsTag = (id) => "custom-domains:" + id\n`),
-  "@/lib/website-builder/site-seo-data": stub("site-seo", `export const activeDomainOf = async () => null\n`),
+  /* Changed on purpose (OnePage production audit, S2): the save route publishes in the same write, and what a publish does after it (lib/seo/announce, lib/social/onepage-sync, lib/storefront/creator-page-purge) names these too; not this suite's subject. */
+  "@/lib/custom-domains/store": stub("domains", `export const primaryHostFor = async () => null\nexport const creatorDomainsTag = (id) => "custom-domains:" + id\nexport const isMissingColumn = () => false\nexport const isMissingTable = () => false\n`),
+  "@/lib/website-builder/site-seo-data": stub("site-seo", `export const activeDomainOf = async () => null\nexport const formerSiteAddresses = async () => []\nexport const siteSeo = async () => null\n`),
   /* Round 49 (edge): a OnePage change also refreshes its stored copy (lib/onepage/public-cache, a lazy import of lib/edge/snapshot-capture, which reaches the whole site SEO graph); not this suite's subject, and run after the answer in the app. */
   "@/lib/edge/snapshot-capture": stub("snapshot-capture", `export const later = () => {}\nexport const refreshOnePageSnapshot = async () => {}\nexport const keepPageFresh = () => {}\nexport const refreshSiteSoon = () => {}\nexport const refreshSiteSnapshot = async () => null\nexport const backfillSiteCopies = async () => false\n`),
   "@/lib/onepage/live-products": stub("live", `export const withLiveProducts = async (_db, _id, blocks) => blocks\n`),
@@ -165,7 +166,8 @@ const stubs: Record<string, string> = {
   "@/components/analytics/track-view": stub("track", `export const TrackView = () => null\n`),
   "@/components/attribution/capture-touch": stub("touch", `export const CaptureTouch = () => null\n`),
   "@/lib/onepage/ensure-onepage": stub("ensure", `export const ensureOnePage = async () => null\n`),
-  "@/lib/api/public-fetch": stub("fetch", `export const fetchPublic = async (url) => globalThis.__shareStubs.fetch(url)\n`),
+  /* Changed on purpose (round AR): the page now reaches the OnePage integrations (lib/onepage/integrations/post-public), which name publicLookup and publicUrlProblem; not this suite's subject. */
+  "@/lib/api/public-fetch": stub("fetch", `export const fetchPublic = async (url) => globalThis.__shareStubs.fetch(url)\nexport const publicLookup = () => {}\nexport const publicUrlProblem = () => null\nexport const isPrivateAddress = () => false\nexport const redirectTarget = async () => null\n`),
   "next/navigation": stub("nav", `export const notFound = () => { throw new Error("NOT_FOUND") }\nexport const permanentRedirect = () => {}\nexport const redirect = () => {}\nexport const usePathname = () => "/"\nexport const useRouter = () => ({ push() {}, replace() {}, refresh() {}, back() {}, prefetch() {} })\nexport const useSearchParams = () => new URLSearchParams()\n`),
   "next/og": stub(
     "og",

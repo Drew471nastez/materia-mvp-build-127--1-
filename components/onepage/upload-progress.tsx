@@ -27,11 +27,20 @@ export function useMediaUpload() {
   const [state, setState] = useState<UploadState>({ phase: "idle" })
   const ctrl = useRef<AbortController | null>(null)
   const alive = useRef(true)
+  /*
+    AN UPLOAD OUTLIVES THE FIELD THAT STARTED IT (the OnePage production audit,
+    B3). It was stopped when its field went: switching the block's Settings
+    and Layout tabs, closing the card or opening another block stopped a
+    video or a picture half way, saved nothing and said nothing, because the
+    message went with the field. Now it carries on and is written when it
+    ends, by the block's own id into the page as it is then (the callers'
+    onChange, lib/onepage/context updateBlockData); only Stop or a new file
+    stops it. Nothing is drawn for a field that is gone.
+  */
   useEffect(() => {
     alive.current = true
     return () => {
       alive.current = false
-      ctrl.current?.abort()
     }
   }, [])
 

@@ -38,6 +38,8 @@ import { WALLPAPER_PATTERNS } from "@/lib/onepage/wallpaper"
 import { THEME_SKINS, skinRootProps, skinSceneOf, skinVars, themeSkinOf } from "@/lib/onepage/theme-skin"
 import { readCatalog } from "../scripts/i18n/catalog-file.mjs"
 
+/* Round 17: Grunge is retired (lib/onepage/retired-themes moves its pages to Grunge Zine) and scripts/build-onepage-skins.mjs no longer writes its skin, so the sheet is read for the skins it writes. */
+const WRITTEN_SKINS = THEME_SKINS.filter((s) => s !== "grunge")
 let passed = 0
 let failed = 0
 const failures: string[] = []
@@ -64,9 +66,9 @@ const older = [
 ]
 
 console.log("\nSix themes, valid and each its own")
-check(`the older catalogue was read (${older.length} themes)`, older.length >= 38)
+/* Changed on purpose (round 17): Folio and Midnight retired. */ check(`the older catalogue was read (${older.length} themes)`, older.length >= 35) /* Editorial retired */
 /* Changed on purpose (round W10): THEME_SKINS also holds the second versions and three new skins (tests/onepage-themes-w10.test.ts); the six are its first six. */
-check("six themes, new ids, one for each skin", W9_THEMES.length === 6 && W9_THEMES.every((t) => !older.includes(t.id)) && W9_THEMES.map((t) => t.id).join() === THEME_SKINS.slice(0, 6).join())
+/* Changed on purpose (round 17): Grunge is retired, its skin no longer written; five remain. */ check("six themes, new ids, one for each skin", W9_THEMES.length === 5 && W9_THEMES.every((t) => !older.includes(t.id)) && W9_THEMES.map((t) => t.id).join() === THEME_SKINS.slice(0, 6).filter((s) => s !== "grunge").join())
 check("each theme names its own skin", W9_THEMES.every((t) => (t.theme_config as Record<string, unknown>).theme_skin === t.id))
 check("in the kinds the picker lists", W9_THEMES.every((t) => ["light", "gradient", "dark"].includes(t.category)) && new Set(W9_THEMES.map((t) => t.category)).size === 3)
 
@@ -116,10 +118,10 @@ for (const t of W9_THEMES) {
   check(`${t.name}: and on hover, in its own colours`, ["fill", "pop", "lift"].includes(buttonHover(c as never)) && ratio(c.button_hover_fill, c.button_hover_text) >= 4.5, ratio(c.button_hover_fill, c.button_hover_text).toFixed(2))
 }
 const faces = W9_THEMES.map((t) => familyOf(t.theme_config.title_font))
-check("six title faces, none shared between them", new Set(faces).size === 6, faces.join())
+/* Changed on purpose (round 17): five, with Grunge retired. */ check("six title faces, none shared between them", new Set(faces).size === 5, faces.join())
 const merged = withR40Themes([{ id: "a", category: "light" }, { id: "b", category: "gradient" }, { id: "c", category: "dark" }]).map((t) => t.id).join(",")
 /* Changed on purpose (round W10): the W10 themes follow the six in each kind. */
-check("each joins the end of its kind", merged.includes("gazette,aqua,messenger,playful,grunge,") && merged.includes("halo,aero,") && merged.includes("acid,y2k,"), merged)
+/* Changed on purpose (round 17): Folio and Grunge are retired (lib/onepage/retired-themes), so they leave the catalogue's order. */ check("each joins the end of its kind", merged.includes("gazette,aqua,messenger,playful,") && merged.includes("halo,aero,") && merged.includes("acid,y2k,"), merged)
 
 console.log("\nWhat the skins paint, read on what they paint it")
 const css = read("components/onepage/themes/theme-skins.css")
@@ -135,8 +137,7 @@ const PAINTED: Array<[string, string, string[]]> = [
   ["Y2K's holographic button", "#14112b", ["#ffc2ef", "#bfefff", "#d9cbff", "#c4ffe2", "#ffd9b8"]],
   ["Playful's run of colours", "#161412", ["#ffe066", "#8ee86b", "#ff9fd0", "#c5a8ff", "#8fd3ff", "#ffb36b"]],
   ["Playful's black button", "#ffffff", ["#161412"]],
-  ["Grunge's black bars", "#f1efe8", ["#0d0d0d"]],
-  ["Grunge's paper", "#0d0d0d", ["#f4f3ee"]],
+  /* Changed on purpose (round 17): Grunge is retired and its skin no longer written; Grunge Zine is measured with the W10 skins. */
 ]
 for (const [what, ink, under] of PAINTED) {
   const worst = Math.min(...under.map((u) => ratio(u, ink)))
@@ -154,7 +155,7 @@ check("no skin, no variables and no attribute: a page as it always was", Object.
 const page = read("components/onepage/public-onepage.tsx")
 check("both of the live page's roots carry the skin and its colours", (page.match(/\{\.\.\.skinRootProps\(safeTheme\)\}/g) ?? []).length === 2 && (page.match(/\.\.\.skinVars\(safeTheme\),/g) ?? []).length === 2)
 check("the scene sits where the pattern sits: around the desktop card, in it, and on the phone", (page.match(/<ThemeSkinScene theme=\{safeTheme\} label=\{sellerName\}/g) ?? []).length === 3)
-const card = read("components/onepage/themes/theme-preview.tsx")
+const card = read("components/onepage/themes/theme-swatch.tsx")
 check("a theme card carries the skin and draws its scene, still and without words that would leave the card", /\{\.\.\.skinRootProps\(c\)\}/.test(card) && /\.\.\.skinVars\(c\),/.test(card) && /<ThemeSkinScene theme=\{c\} \/>/.test(card) && !/useState|useEffect/.test(read("components/onepage/themes/theme-skin-scene.tsx")))
 
 console.log("\nThe stylesheet")
@@ -177,15 +178,18 @@ const KINDS: Record<string, string> = {
   "pictures": "[data-op-block] div[class*='aspect-']:has(> img)",
   "any other block in the button's look": ':where([style*="background-clip: padding-box"]',
 }
-for (const skin of THEME_SKINS) {
-  const missing = Object.entries(KINDS).filter(([, sel]) => !css.includes(`[data-op-skin="${skin}"] ${sel}`) && !new RegExp(`\\[data-op-skin="${skin}"\\] :is\\([^{]*${sel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`).test(css)).map(([k]) => k)
+for (const skin of WRITTEN_SKINS) {
+/* Changed on purpose (wave 16): Renaissance boxes only the row and stacked forms' fields; Connect's pill and Personal note's line keep their own shape (the owner: the layout pictures must be accurate). */
+const KIND_ALT: Record<string, string> = { fields: ":is([data-email-form=row],[data-email-form=stacked], [data-onepage-contact] form) :is(input" }
+  const missing = Object.entries(KINDS).filter(([k, sel]) => !(KIND_ALT[k] && css.includes(`[data-op-skin="${skin}"] ${KIND_ALT[k]}`)) && !css.includes(`[data-op-skin="${skin}"] ${sel}`) && !new RegExp(`\\[data-op-skin="${skin}"\\] :is\\([^{]*${sel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`).test(css)).map(([k]) => k)
   check(`${skin}: styles ${Object.keys(KINDS).length} kinds of block`, missing.length === 0, missing.join(", "))
 }
 const scene = read("components/onepage/themes/theme-skin-scene.tsx")
-for (const skin of THEME_SKINS) {
+for (const skin of WRITTEN_SKINS) {
   const pieces = [...(scene.match(new RegExp(`\\n  ${skin}: \\[(.*)\\],`))?.[1] ?? "").matchAll(/\["([a-z-]+)", (\d+)\]/g)].map((m) => m[1])
   const drawn = pieces.every((p) => css.includes(`[data-skin-scene="${skin}"] [data-sk="${p}"]`))
-  check(`${skin}: a scene of ${pieces.length} kinds of piece, each drawn`, pieces.length >= 3 && drawn, pieces.join())
+  /* Changed on purpose (wave 15): Renaissance's scene is the painting alone, whole and still; its frame, sky band and full scrim are gone at the owner's word. */
+  check(`${skin}: a scene of ${pieces.length} kinds of piece, each drawn`, pieces.length >= (skin === "renaissance" ? 1 : 3) && drawn, pieces.join())
 }
 const keyframes = [...css.matchAll(/@keyframes [\w-]+ \{([^@]*?)\}\n/g)].map((m) => m[1]).join(" ")
 const props = [...keyframes.matchAll(/([a-z-]+):/g)].map((m) => m[1])
@@ -206,8 +210,10 @@ const toAero = lookFromTemplate(start, byId("aero"), "classic", plain)
 const ta = toAero.theme as unknown as Record<string, unknown>
 check("every setting of the theme is laid on, its skin with it", Object.entries(byId("aero").theme_config).every(([k, v]) => k === "header_layout" || ta[k] === v) && ta.theme_skin === "aero")
 check("the creator's own logo stays", ta.logo_url === "https://x/logo.png")
-const toGrunge = lookFromTemplate(toAero, byId("grunge"), "classic", byId("aero")).theme as unknown as Record<string, unknown>
-check("from one skin to another, the other's skin", toGrunge.theme_skin === "grunge" && toGrunge.avatar_shape === "square" && toGrunge.avatar_border_color === "#0d0d0d")
+/* Changed on purpose (round 17): Grunge is retired; from Aero to Playful instead. */
+const toGrunge = lookFromTemplate(toAero, byId("playful"), "classic", byId("aero")).theme as unknown as Record<string, unknown>
+const playfulCfg = (byId("playful") as unknown as { theme_config: Record<string, unknown> }).theme_config
+check("from one skin to another, the other's skin", toGrunge.theme_skin === "playful" && toGrunge.avatar_shape === (playfulCfg.avatar_shape ?? null) && toGrunge.avatar_border_color === (playfulCfg.avatar_border_color ?? null))
 const back = lookFromTemplate(toAero, plain, "classic", byId("aero")).theme as unknown as Record<string, unknown>
 check("picking a theme without one takes the skin away, its type and frame too", back.theme_skin === null && back.avatar_border_color === null && back.title_weight === null)
 check("the Messenger rows' text side and icon side come and go with it", (lookFromTemplate(start, byId("messenger"), "classic", plain).theme as any).button_text_align === "left" && (lookFromTemplate(lookFromTemplate(start, byId("messenger"), "classic", plain), plain, "classic", byId("messenger")).theme as any).button_text_align === null)

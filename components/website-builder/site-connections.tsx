@@ -42,6 +42,9 @@ import {
   isGitHubName,
   kindForName,
   nextPollDelay,
+  visiblePollDelay,
+  POLL_IDLE_AFTER_MS,
+  POLL_IDLE_MS,
   type ActivityEvent,
   type ConnectionKind,
   type ConnectionMark,
@@ -421,13 +424,16 @@ export function useSiteActivity({
       /* Visible: about once a second, even when nothing has happened for a while.
          The thirty second idle left a push sitting until the editor was refreshed.
          A full page of the log means more is waiting, so that one is immediate. */
-      delay = document.visibilityState === "visible" ? (arrived && eventsFull ? 200 : POLL_ACTIVE_MS) : (arrived && eventsFull ? 200 : paced)
+      /* Round 54: once a second only while it is in use (connection-mark.ts visiblePollDelay); slower when left alone, quick again on a press, a key or a return. */
+      const quiet = Date.now() - lively
+      delay = document.visibilityState === "visible" ? (arrived && eventsFull ? 200 : visiblePollDelay(quiet)) : (arrived && eventsFull ? 200 : paced)
       if (retry) delay = POLL_ACTIVE_MS
       /* A push being held: read again soon, so it lands as soon as it is in. */
       else if (holding) delay = eventsFull ? 200 : PUSH_HOLD_TICK_MS
       /* The lines just applied waited for a scroll to rest: what came in behind them is read now, not a second after the rest. */
       else if (heldUp) delay = HELD_UP_MS
-      schedule(connected || holding ? delay : POLL_BASE_MS)
+      /* Nothing connected: every five seconds while in use, every thirty when left alone (the brief re-check still finds a new writer each minute). */
+      schedule(connected || holding ? delay : quiet < POLL_IDLE_AFTER_MS ? POLL_BASE_MS : POLL_IDLE_MS)
     }
     let woke = 0
     const wake = () => {
@@ -456,8 +462,9 @@ export function useSiteActivity({
        No read of its own while the quick cadence is already running. */
     const stir = () => {
       lively = Date.now()
-      if (delay > POLL_MAX_MS && !busy && !stopped) {
-        delay = POLL_BASE_MS
+      /* Slowed down for being left alone: read within a second, then the quick cadence (it keeps going while presses keep coming, without a reschedule per key). */
+      if (delay > POLL_BASE_MS && !busy && !stopped) {
+        delay = POLL_ACTIVE_MS
         schedule(delay)
       }
     }

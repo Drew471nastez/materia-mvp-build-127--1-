@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     const { config } = await loadActiveFeeConfig(db)
 
     if (body.mode === "batch") {
-      const plan: StorelibSellerPlan = body.plan === "paid" ? "paid" : "free"
+      const plan: StorelibSellerPlan = body.plan === "scale" || body.plan === "pro" ? "scale" : body.plan === "paid" || body.plan === "growth" ? "paid" : "free"
       const rows = batchSimulate({
         startMinor: Number(body.startMinor),
         endMinor: Number(body.endMinor),
@@ -38,7 +38,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ simulationOnly: true, rows }, { headers: NO_STORE })
     }
 
-    const plan: StorelibSellerPlan = body.plan === "paid" || body.plan === "pro" ? "paid" : "free"
+    /* "pro" is the Scale plan's id (wave 13): its own rate, no longer Pro's. */
+    const plan: StorelibSellerPlan = body.plan === "scale" || body.plan === "pro" ? "scale" : body.plan === "paid" || body.plan === "growth" ? "paid" : "free"
     const kind: SimulationKind = body.kind === "subscription" ? "subscription" : "one_time"
     const refund: RefundScenario =
       body.refund === "full" || body.refund === "partial" ? body.refund : "none"

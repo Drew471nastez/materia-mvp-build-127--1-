@@ -3,7 +3,9 @@ import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { loadSubscriptionView } from "@/lib/billing/subscription-reader"
 import { readPlanOverride } from "@/lib/billing/plan-override"
-import { FREE_STANDARD_RATE, ratePercentLabel } from "@/lib/payments/fees/config"
+import { FREE_STANDARD_RATE, SCALE_STANDARD_RATE, ratePercentLabel } from "@/lib/payments/fees/config"
+import { isServiceUnavailable } from "@/lib/net/service-error"
+import { storeUnavailableResponse } from "@/lib/team/server"
 
 const FREE_PLAN = {
   id: "free",
@@ -18,8 +20,8 @@ const FREE_PLAN = {
 
 const GROWTH_PLAN = {
   id: "growth",
-  // Sold as "Pro". The id stays "growth": it is the $29 Stripe price.
-  name: "Pro",
+  // Sold as "Grow" (pricing round 5; it was "Pro"). The id stays "growth": it is the $29 Stripe price.
+  name: "Grow",
   price_cents: 2900,
   billing_period: "month",
   fee_percent: 0.03,
@@ -29,14 +31,14 @@ const GROWTH_PLAN = {
 }
 
 const PRO_PLAN = {
+  // The $99 plan, sold as "Pro" (pricing round 5; it was "Scale"). The id stays "pro": it is the $99 Stripe price.
   id: "pro",
-  // The earlier $99 plan. No longer offered; kept so its subscribers still resolve.
   name: "Pro",
   price_cents: 9900,
   billing_period: "month",
-  fee_percent: 0.015,
+  fee_percent: SCALE_STANDARD_RATE,
   fee_fixed_cents: 25,
-  features: ["1.5% + $0.25 per sale", "Premium analytics & reports", "Dedicated support", "White-label options", "API access"],
+  features: [`${ratePercentLabel(SCALE_STANDARD_RATE)} + $0.25 per sale`, "Premium analytics & reports", "Dedicated support", "White-label options", "API access"],
   is_active: true,
 }
 
@@ -112,6 +114,8 @@ export async function GET(request: Request) {
       { headers: { "Cache-Control": "private, no-store" } },
     )
   } catch (error) {
+    /* The plan override (or the store) could not be read: 503 Try again, never Free (round rel2-auth). */
+    if (isServiceUnavailable(error)) return storeUnavailableResponse()
     console.error("Error in GET /api/billing/subscription:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }

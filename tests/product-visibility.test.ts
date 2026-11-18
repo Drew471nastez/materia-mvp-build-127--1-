@@ -311,12 +311,16 @@ async function main() {
       "components/website-builder", "components/platform", "components/storefront", "components/product", "hooks",
     ]
     const ALLOWED: Record<string, { count: number; why: string }> = {
+      /* Round AR: OnePage paid access. */
+      "app/api/onepage/access/route.ts": { count: 1, why: "only the id, to confirm the product named by the published block is the page owner's; a buyer keeps access to what they bought even after it is unpublished, and nothing about the product is returned" },
       "app/api/reviews/route.ts": { count: 1, why: "a buyer writing a review of a product they have, whatever its status" },
       "app/api/reviews/stats/route.ts": { count: 1, why: "two numbers for a product page, which is a 404 when the product is not published" },
       "app/api/reviews/storefront/route.ts": { count: 1, why: "the signed in owner's own product, previewed in their builder's canvas, whatever its status" },
       "components/website-builder/theme/render-product.tsx": { count: 1, why: "the pricing columns of a product the page already read as published" },
       "lib/checkout/fulfil-cart-session.ts": { count: 1, why: "titles for a paid order: the buyer paid while it was on sale" },
       "lib/checkout/fulfil-payment.ts": { count: 1, why: "the title on a paid order's receipt" },
+      // Changed on purpose (round AX): a free basket pressed again is answered on its store's website, read from the basket's first line; nothing about the product is shown.
+      "lib/checkout/free-claim.ts": { count: 1, why: "the store of a free basket this same press already wrote, so its answer goes back to that store's website; nothing shown" },
       "lib/explore/read-interests.ts": { count: 1, why: "the categories of what this person bought, to rank published products" },
       "lib/onepage/live-products.ts": { count: 1, why: "reads the status and the flag and applies isPubliclyVisible to each row" },
       "lib/seo/announce.ts": { count: 2, why: "tells search engines an address changed; an archived one then answers 404" },
@@ -356,10 +360,11 @@ async function main() {
   console.log("\n  the surfaces that were wrong, and are not any more")
   {
     const capture = strip(read("app/api/onepage/email-capture/route.ts"))
-    check("the OnePage email capture sends a download only for a published product", /publicOnly\(\s*adminSupabase\s*\.from\("products"\)/.test(capture) && /isPubliclyVisible\(product\)/.test(capture))
-    check("and only one of this page's own creator", /lookup = lookup\.eq\("creator_id", onepage\.seller_id\)/.test(capture))
-    check("and still collects the address when it is not", !/error: "Product not found"/.test(capture) && /if \(deliverable\) \{/.test(capture))
-    check("the lead is recorded with the product it really sent", /digital_product_id: deliverable\?\.id \?\? null/.test(capture))
+    /* Changed on purpose (OnePage production audit, C1): the product is the one the PUBLISHED block names, of the page owner's store (lib/onepage/page-store), free as Instant checkout decides it. */
+    check("the OnePage email capture sends a download only for a published product", /publicOnly\(\s*db\s*\.from\("products"\)/.test(capture) && /isPubliclyVisible\(product\)/.test(capture))
+    check("and only one of this page's own creator", /\.eq\("creator_id", creatorId\)/.test(capture) && /const creatorId = pageCreatorId\(onepage\)/.test(capture) && /withOwnerStore\(/.test(capture))
+    check("and still collects the address when it is not", !/error: "Product not found"/.test(capture) && /: await saveLead\(db, \{/.test(capture))
+    check("the lead is recorded with the product it really sent", /digital_product_id: product\.id/.test(capture))
 
     const wishlist = strip(read("app/api/wishlist/route.ts"))
     check("the storelib.com wishlist lists only what is still on sale", /!isPubliclyVisible\(item\.products/.test(wishlist) && /\n\s*status,\n/.test(wishlist))

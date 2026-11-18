@@ -183,9 +183,11 @@ section("Settings: the team store beside the first reads")
 {
   const src = code("app/(storelib)/app/settings/_server.ts")
   const first = batchAfter(src, /pageUser\(\)/)
-  check("teamStoreForRequest is in the first round", /teamStoreForRequest\(user\.id\)\.catch\(\(\) => null\)/.test(first))
+  /* Changed on purpose (rel2-auth): no .catch(() => null) any more; a failed read throws to Settings' own Try again, never the member's own account. Still in the first round. */
+  check("teamStoreForRequest is in the first round", /teamStoreForRequest\(user\.id\),\n\s*\]\)/.test(first) || /teamStoreForRequest\(user\.id\),/.test(first))
   check("  and not awaited on its own after it", !/await teamStoreForRequest/.test(src))
-  check("a member with no store of their own still gets the Team section", /const stores = await teamStoresForRequest\(user\.id\)/.test(src) && /if \(actingTeam \|\| stores\.length > 0\) return \{ memberOnly: true as const \}/.test(src))
+  /* Changed on purpose (rel2-auth): the read that says when it failed; a failed read is never "on no team", so never onboarding. */
+  check("a member with no store of their own still gets the Team section", /const stores = await teamStoresReadForRequest\(user\.id\)/.test(src) && /if \(actingTeam \|\| stores\.stores\.length > 0\) return \{ memberOnly: true as const \}/.test(src) && /if \(stores\.failed\) throw new ServiceUnavailable/.test(src))
   check("the member's tabs still come from the acting store", /memberSettingsTabs\(actingTeam \? actingTeam\.acting\.permissions : null\)/.test(src))
 }
 

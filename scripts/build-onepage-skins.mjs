@@ -17,7 +17,7 @@
  * its versions with that version's palette (round W10: Aero and Aero
  * Aquarium, Aqua and Aqua Graphite, Messenger and Messenger Olive, Y2K and
  * Y2K Kawaii, Playful and Playful Night, Grunge and Grunge Zine), and the
- * three that stand alone (Classic 98, Vaporwave, Arcade).
+ * three that stand alone (Classic 98, Vaporwave, Arcade), and Renaissance.
  *
  * Every pair of words and the paint a skin puts under them is recorded
  * (`pairs`, exported, and printed by --pairs): tests/onepage-themes-w10.test.ts measures each.
@@ -31,10 +31,12 @@ import { aqua, aquaGraphite } from "./onepage-skins/aqua.mjs"
 import { messenger, messengerOlive } from "./onepage-skins/messenger.mjs"
 import { y2k, y2kKawaii } from "./onepage-skins/y2k.mjs"
 import { playful, playfulNight } from "./onepage-skins/playful.mjs"
-import { grunge, grungeZine } from "./onepage-skins/grunge.mjs"
+import { grungeZine } from "./onepage-skins/grunge.mjs"
 import { classic98 } from "./onepage-skins/classic98.mjs"
 import { vaporwave } from "./onepage-skins/vaporwave.mjs"
 import { arcade } from "./onepage-skins/arcade.mjs"
+import { renaissance } from "./onepage-skins/renaissance.mjs"
+import { stoicism } from "./onepage-skins/stoicism.mjs"
 
 const OUT = join(process.cwd(), "components/onepage/themes/theme-skins.css")
 
@@ -43,7 +45,7 @@ aqua()
 messenger()
 y2k()
 playful()
-grunge()
+/* Round 17: Grunge is retired (lib/onepage/retired-themes moves a page on it to Grunge Zine when read), so its skin is no longer written: the sheet carries what a page can wear. */
 aeroAquarium()
 aquaGraphite()
 messengerOlive()
@@ -53,6 +55,8 @@ grungeZine()
 classic98()
 vaporwave()
 arcade()
+renaissance()
+stoicism()
 
 /* ── All: hover words, motion, theme cards ──────────────────────────── */
 

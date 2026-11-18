@@ -58,10 +58,11 @@ async function main() {
       check("  and no fifth install (the ops suite counts four)", (ci.match(/pnpm install --frozen-lockfile/g) ?? []).length === 4)
     }
 
-    console.log("\nBuild memory: sampled from /proc, a ceiling of 7,600 MB")
+    console.log("\nBuild memory: sampled from /proc, a ceiling of 6,500 MB")
     {
       const src = read("scripts/ci/measure-build.mjs")
-      check("the default ceiling is 7,600 MB", src.includes("BUILD_PEAK_LIMIT_MB || 7600"))
+      /* Changed on purpose (53cc399, the memory-bounded Webpack build): the ceiling came down to 6,500 MB, well inside the 8 GB machine. */
+      check("the default ceiling is 6,500 MB", src.includes("BUILD_PEAK_LIMIT_MB || 6500"))
       check("it walks the whole process tree, not just the first process", src.includes("function tree(root)") && src.includes("/proc/${name}/stat"))
       check("it writes the job summary", src.includes("GITHUB_STEP_SUMMARY"))
       if (existsSync("/proc/self/statm")) {
@@ -88,7 +89,8 @@ async function main() {
       const wanted = ["/", "/pricing", "/explore", "/p/[slug]", "/app", "/website-builder/editor/[installId]", "/w/[username]", "/checkout/site"]
       check("the eight key routes are measured", wanted.every((r) => ROUTES.some((x: { route: string }) => x.route === r)))
       check("  and every one has a budget", wanted.every((r) => typeof budgets.routes[r]?.firstLoadGzipKb === "number"))
-      check("  each about 10% over what was measured", wanted.every((r) => { const b = budgets.routes[r]; return b.firstLoadGzipKb >= b.measuredGzipKb * 1.09 && b.firstLoadGzipKb <= b.measuredGzipKb * 1.11 + 1 }))
+      /* Changed on purpose (53cc399): rebaselined for the memory-bounded build, existing limits kept where the new measurement fits, so a budget is at least about 10% over what was measured. */
+      check("  each at least about 10% over what was measured", wanted.every((r) => { const b = budgets.routes[r]; return b.firstLoadGzipKb >= b.measuredGzipKb * 1.09 }))
       /* Round 12 (PLATPERF): the dashboard's round trips per move and its memory over a long session, held by scripts/check-dashboard-roundtrips.mjs --budget. */
       const dash = (budgets as { dashboard?: { pages?: Record<string, { api: number; dbServer: number; dbBrowser: number }>; heapGrowthMb?: number; domGrowthNodes?: number } }).dashboard
       check("the dashboard has round trip budgets per page, and a ceiling on memory kept over a session", !!dash && ["/app/products", "/app/orders", "/app/analytics", "/app/emails", "/app/settings", "/app"].every((pg) => typeof dash.pages?.[pg]?.dbServer === "number" && typeof dash.pages?.[pg]?.api === "number") && typeof dash.heapGrowthMb === "number" && typeof dash.domGrowthNodes === "number")

@@ -22,14 +22,15 @@ function check(name: string, ok: boolean, detail?: unknown) {
   }
 }
 
-const STORE = "https://abc.supabase.co/storage/v1/object/public"
+// Changed on purpose (round AW): Storelib's own storage project; the optimizer no longer fetches from any other *.supabase.co (next.config.mjs OWN_STORAGE_HOSTS).
+const STORE = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public"
 const q = (u: string, w: number | string) => new URLSearchParams({ u, w: String(w) })
 
 async function main() {
   console.log("\nWhich requests it takes")
   check("a stored upload at one of the widths", readInboxRequest(q(`${STORE}/p/a.webp`, 192)).ok)
   check("not a width outside the set", !readInboxRequest(q(`${STORE}/p/a.webp`, 193)).ok && !readInboxRequest(q(`${STORE}/p/a.webp`, "x")).ok)
-  check("not http", !readInboxRequest(q("http://abc.supabase.co/a.png", 192)).ok)
+  check("not http", !readInboxRequest(q("http://skgtqglupjcnfhfscink.supabase.co/a.png", 192)).ok)
   check("not a host the site's resizer does not take", !readInboxRequest(q("https://example.com/a.png", 192)).ok)
   check("not an internal address", !readInboxRequest(q("https://169.254.169.254/latest/meta-data", 192)).ok && !readInboxRequest(q("https://localhost/a.png", 192)).ok)
   check("not an SVG", !readInboxRequest(q(`${STORE}/l/logo.svg`, 192)).ok)

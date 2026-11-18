@@ -55,8 +55,15 @@ export default function NativeOAuthBridge() {
   // session is verified and content is painted.  Firing here would dismiss
   // the native overlay before NativeAuthGate has confirmed the session,
   // causing the blank/white AuthResolvingScreen to flash briefly.
+  //
+  // Round AT: and never on /native-start, the gate that only decides where to
+  // go. Dropping Android's overlay there showed the gate's plain screen (and
+  // its spinner) for the second or two before the real page, measured at
+  // 1.9 s on a cold 4G start (scripts/check-app-launch-at3.mjs). The page the
+  // gate lands on drops it, as iOS's launch screen already waited for.
   const pathname = usePathname()
   useEffect(() => {
+    if (pathname === "/native-start") return
     if (pathname.startsWith("/app") || pathname.startsWith("/library") || pathname.startsWith("/account/library")) return
     nativeAppReady()
   }, [pathname])

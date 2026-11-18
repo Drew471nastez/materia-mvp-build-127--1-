@@ -33,10 +33,10 @@ export function StartOnboarding({ next, name, username, avatar, bio, joinStep = 
       <div
         data-start-waiting=""
         aria-hidden={open}
-        className="flex min-h-svh w-full items-center justify-center bg-white transition-opacity duration-300 ease-out motion-reduce:transition-none"
+        className="flex min-h-svh w-full items-center justify-center bg-[#0b0b0f] transition-opacity duration-300 ease-out motion-reduce:transition-none"
         style={{ opacity: open ? 0 : 1 }}
       >
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-white/15 border-t-white" />
       </div>
       <CreatorOnboardingModal
         open={open}

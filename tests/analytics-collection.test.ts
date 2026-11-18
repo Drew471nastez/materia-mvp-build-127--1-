@@ -569,15 +569,13 @@ async function main() {
     check("the pipeline never writes the OnePage's own tables", db.rows("onepage_views").length === 0 && db.rows("onepage_clicks").length === 0 && db.writes.every((w) => w === "insert analytics_events"), db.writes)
 
     const route = read("app/api/onepage/track/route.ts")
-    /* Changed on purpose (round 40, tests/onepage-analytics-seo-r40.test.ts): the analytics copy goes first, and
-       onepage_clicks is written only when its answer says a person pressed it (lib/onepage/visit-gate), so the
-       older table no longer counts robots, prefetches, the owner or a flood that Analytics refuses. Its own
-       rule, one per visitor, block and UTC day, is unchanged. */
-    check("the OnePage editor's click count keeps its rule, and is written after the analytics copy says a person pressed it",
-      /\.from\("onepage_clicks"\)\s*\.select\("id"\)\s*\.eq\("onepage_id", onepage_id\)\s*\.eq\("block_id", block_id\)\s*\.eq\("visitor_id", visitorId\)\s*\.gte\("created_at", todayStr\)/.test(route) &&
-        route.indexOf("await recordLinkClick(request, body)") < route.indexOf('await supabase.from("onepage_clicks").insert(') &&
-        /legacyClickAllowed\(outcome\)/.test(route))
-    check("  whose OnePage it is comes from the row, never the page", /from\("onepages"\)\.select\("id, seller_id, creator_id, owner_id"\)\.eq\("id", body\.onepage_id\)/.test(route))
+    /* Changed on purpose (round rel2-public): onepage_clicks is no longer written at all. It is read only before a
+       OnePage's first view event, so a click today was either never read or counted twice beside its link_click
+       event; the analytics copy is the one record, and the older rows are still read as they were. */
+    check("a OnePage click is recorded by the pipeline alone, and writes nothing to the older table",
+      /await recordLinkClick\(request, body\)/.test(route) && !/from\("onepage_clicks"\)|from\("onepage_views"\)/.test(route) && !/lib\/supabase\/server/.test(route))
+    /* Changed on purpose (OnePage production audit, SEC1 and SEC8): a published page's row, and its OWNER's store (lib/onepage/page-store), never the row's own seller_id. */
+    check("  whose OnePage it is comes from the row, never the page", /from\("onepages"\)\.select\("id, owner_id"\)\.eq\("id", body\.onepage_id\)\.eq\("status", "published"\)/.test(route) && /const creatorId = await ownerStoreId\(admin, row\.owner_id\)/.test(route))
     const onePageRoute = read("app/(storelib)/(marketing)/l/[slug]/page.tsx")
     /* Changed on purpose (rel-public): the render no longer writes onepage_views. That table is read only before a
        OnePage's first view event (the check below), and the tracker records that event for every visit. */

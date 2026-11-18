@@ -143,7 +143,8 @@ async function roundTrips() {
   const lib = readCode("lib/onepage/published-page.ts")
   check("the held reads ask nothing about the visitor", !/next\/headers|lib\/supabase\/server|cookies\(|getUser|currentUser/.test(lib))
   check("  three reads held, each for a minute at most, under tags", (lib.match(/heldRead\(/g) ?? []).length === 3 && (lib.match(/revalidate: ONE_PAGE_HOLD_SECONDS/g) ?? []).length === 3)
-  check("  what is held of the row is the published copy (publishedOnly)", /answer\.kind === "page" \? \{ \.\.\.answer, page: publishedOnly\(answer\.page\) \} : answer/.test(lib))
+  /* Changed on purpose (OnePage production audit, SEC1): the held page also carries its owner's store (lib/onepage/page-store withOwnerStore). */
+  check("  what is held of the row is the published copy (publishedOnly)", /if \(answer\.kind !== "page"\) return answer/.test(lib) && /const page = await withOwnerStore\(db, publishedOnly\(answer\.page\)\)/.test(lib))
 }
 
 /* ── PUBLISH ───────────────────────────────────────────────────────────── */
@@ -200,13 +201,180 @@ async function publishing() {
   check("  and the publish is one update of every published field together", (publish.match(/\.update\(publishData\)/g) ?? []).length === 1)
   const put = readCode("app/api/onepage/route.ts")
   check("a draft save clears the live copy only when it changed what the live page reads (settings, address, share picture, photo)",
-    /if \(updates\.settings !== undefined \|\| updates\.slug !== undefined \|\| updates\.share_image_mode !== undefined \|\| photoNow !== undefined\) \{\s*await onePageChangedFor\(ownerId, \[existing\.slug\]\)/.test(put) &&
+    /* Changed on purpose (OnePage production audit, S2): a save that publishes (publish: true) changed the live copy, so it clears it too, under the old address and the one it wrote. */
+    /if \(publishing \|\| updates\.settings !== undefined \|\| updates\.slug !== undefined \|\| updates\.share_image_mode !== undefined \|\| photoNow !== undefined\) \{\s*await onePageChangedFor\(ownerId, \[existing\.slug, \(updated as \{ slug\?: string \| null \} \| null\)\?\.slug\]\)/.test(put) &&
       put.indexOf("await onePageChangedFor(") > put.indexOf("if (error) {"))
   check("a new creator page domain clears it", /if \(moved && userId\) await onePageChangedFor\(userId\)/.test(readCode("lib/custom-domains/store.ts")))
   check("the creator page's publish (its name and photo sync) clears it", (readCode("app/api/store-builder/route.ts").match(/await onePageChangedFor\(page\.profileId\)/g) ?? []).length === 2)
   for (const p of ["app/api/revalidate/route.ts", "app/api/internal/invalidate/route.ts", "lib/products/forget-product.ts", "app/api/store/channels/product/route.ts"]) {
     check(`a product change clears the OnePage's blocks: ${p}`, /onePageProductsChanged\(/.test(readCode(p)))
   }
+}
+
+/* ── A COMMUNITY'S PUBLIC PAGE ─────────────────────────────────────────── */
+
+async function communityPages() {
+  section("A community's public page: the row is read once per visit, everything shown alike is held (lib/communities/server/public-cache)")
+  const { loadSalesPage, topBarData, communityBySlug } = await import("@/lib/communities/server/public")
+  const { memberPage } = await import("@/components/community/member/data")
+  const { publicAboutExtras } = await import("@/lib/communities/server/about")
+  const { communitySummary, communityDeleting } = await import("@/lib/communities/server/community-summary")
+  const { communityPublicChanged, communityPublicTag, communityCreatorTags } = await import("@/lib/communities/server/public-cache")
+  const { creatorTag } = await import("@/lib/commerce/product-page-cache")
+  const { shopProductsTag } = await import("@/lib/onepage/public-cache")
+  nextCache.resetCache()
+  const fixture = buildFixture()
+  useFixture(fixture)
+  const community = fixture.tables.communities[0]
+  const CID = community.id as string
+  community.updated_at = "2026-10-01T09:00:00.000Z"
+  const sold = fixture.tables.products.find((r) => r.creator_id === SITE.creatorId)!
+  fixture.tables.community_tiers.push(
+    { id: "7a000001-0000-4000-8000-000000000001", community_id: CID, name: "Free", description: null, position: 0, kind: "free", billing: null, product_id: null, benefits: [], is_default: true, archived_at: null, created_at: "2026-10-01T09:00:00.000Z", updated_at: "2026-10-01T09:00:00.000Z" },
+    { id: "7a000001-0000-4000-8000-000000000002", community_id: CID, name: "Studio", description: null, position: 1, kind: "paid", billing: "one_time", product_id: sold.id, benefits: [], is_default: false, archived_at: null, created_at: "2026-10-01T09:00:00.000Z", updated_at: "2026-10-01T09:00:00.000Z" },
+  )
+  const slug = community.slug as string
+
+  /* What /community/<slug> and /about read for a stranger: the layout's memberPage, the page's load, the bar, the About facts and the metadata's. */
+  const oneVisit = async () => {
+    const page = await memberPage(slug)
+    const meta = await communityBySlug(slug)
+    const load = await loadSalesPage(slug, null)
+    if (!load) return { state: page.state, meta: !!meta, load: null }
+    const [bar, extras, summary, deleting] = await Promise.all([topBarData(load.community, null), publicAboutExtras(load.community), communitySummary(load.community.id), communityDeleting(load.community.id)])
+    return { state: page.state, meta: !!meta, load: load.data, bar, extras, summary, deleting }
+  }
+  const first = await visit(oneVisit)
+  const communityReads = (trips: { table: string }[]) => trips.filter((t) => t.table === "communities").length
+  /* React's cache (one community read per request for the layout, the page and the metadata) is not per request outside Next; scripts/check-public-roundtrips.mjs measures it on a production build. */
+  check("the first visitor reads the tiers, the creator and the figures", !!first.value?.load && ["community_tiers", "creators", "profiles", "products"].every((t) => tablesOf(first.trips).includes(t)), tablesOf(first.trips))
+  const second = await visit(oneVisit)
+  check("the second visitor reads the community's own row and nothing else", second.trips.length > 0 && second.trips.every((t) => t.table === "communities" && /select=id%2Ccreator_id|select=id,creator_id/.test(t.query)), second.trips.map((t) => `${t.table}${t.query.slice(0, 40)}`))
+  check("  and is shown the same page", JSON.stringify(second.value) === JSON.stringify(first.value))
+  console.log(`        measured: ${first.foreground} round trips for the first visitor, ${second.trips.length} for each after`)
+  check("  the join is worked out for this viewer, from held prices", (first.value?.load?.join as { kind?: string } | undefined)?.kind !== undefined && JSON.stringify(first.value?.load?.community.options.map((o) => o.priceLine)).includes("$"))
+
+  const held = JSON.stringify(nextCache.cacheEntries().map((e) => e.value))
+  check("nothing private of the creator is held (no Stripe account, no email)", !/stripe_account_id|charges_enabled|@fixture\.test|PRIVATE-ROW/.test(held))
+  check("  no entry is keyed by who is looking", nextCache.cacheEntries().every((e) => !/user-token|11111111-1111-4111-8111-111111111111/.test(e.key) || e.key.includes(SITE.creatorId)))
+
+  section("Draft and suspended are decided from the live row: a 404 on the very next request, with nothing cleared")
+  community.status = "draft"
+  const drafted = await visit(oneVisit)
+  check("made a draft: the next stranger gets no page (a 404)", drafted.value?.load === null && drafted.value?.state === "signed_out", drafted.value)
+  community.status = "published"
+  community.suspended_at = "2026-10-02T00:00:00.000Z"
+  const suspended = await visit(oneVisit)
+  check("suspended: the next stranger gets no page either", suspended.value?.load === null)
+  community.suspended_at = null
+  community.deleted_at = "2026-10-02T00:00:00.000Z"
+  const deleted = await visit(oneVisit)
+  check("deleted: the address leads nowhere", deleted.value?.load === null && deleted.value?.state === "missing")
+  community.deleted_at = null
+  const back = await visit(oneVisit)
+  check("restored: the page is back at the next visit", !!back.value?.load)
+
+  section("Every writer clears what it changed")
+  sold.price_cents = 4321
+  const stalePrice = await visit(oneVisit)
+  check("without a clear the held price is served (the minute's backstop)", !JSON.stringify(stalePrice.value).includes("43.21"))
+  nextCache.revalidateTag(shopProductsTag(SITE.creatorId), { expire: 0 })
+  const newPrice = await visit(oneVisit)
+  check("a product saved (the store's product tag, cleared by every product writer) is on the page at the next visit", JSON.stringify(newPrice.value).includes("43.21"))
+  fixture.tables.community_tiers[1].name = "Studio pass"
+  communityPublicChanged(CID)
+  const renamedTier = await visit(oneVisit)
+  check("a staff write (the community's tag, cleared after every gated request) is on the page at the next visit", JSON.stringify(renamedTier.value).includes("Studio pass"))
+  const profile = fixture.tables.profiles.find((r) => r.id === SITE.userId)!
+  profile.display_name = "Maya Renamed"
+  nextCache.revalidateTag(creatorTag(SITE.creatorId), { expire: 0 })
+  const renamedCreator = await visit(oneVisit)
+  check("a new name or photo (identityChanged clears creator:<creator id>) is on the page and its bar at the next visit", JSON.stringify(renamedCreator.value?.bar).includes("Maya Renamed") && JSON.stringify(renamedCreator.value?.load).includes("Maya Renamed"))
+  community.name = "Maya Club Two"
+  community.updated_at = "2026-10-03T09:00:00.000Z"
+  const renamedCommunity = await visit(oneVisit)
+  check("a change to the row itself is a new held entry at once (keyed by updated_at)", JSON.stringify(renamedCommunity.value?.load).includes("Maya Club Two") && renamedCommunity.trips.length > 1)
+  check("the creator's tags are the product page's and the store's own", JSON.stringify(communityCreatorTags(SITE.creatorId)) === JSON.stringify([creatorTag(SITE.creatorId), shopProductsTag(SITE.creatorId)]))
+  check("  and every held entry carries the community's tag", nextCache.cacheEntries().filter((e) => e.key.includes(CID)).every((e) => e.tags.includes(communityPublicTag(CID))))
+
+  section("A failed read and a draft are never held")
+  nextCache.resetCache()
+  const failing = buildFixture()
+  failing.tables.communities[0].updated_at = "2026-10-01T09:00:00.000Z"
+  failing.fail = ["community_tiers"]
+  useFixture(failing)
+  await visit(oneVisit)
+  failing.fail = []
+  const afterFailure = await visit(oneVisit)
+  check("tiers that could not be read are asked again by the next visitor", tablesOf(afterFailure.trips).includes("community_tiers"), tablesOf(afterFailure.trips))
+  nextCache.resetCache()
+  failing.tables.communities[0].status = "draft"
+  await visit(() => loadSalesPage(slug, null))
+  check("a draft community's page is never held", nextCache.cacheEntries().length === 0, nextCache.cacheEntries().map((e) => e.key))
+
+  section("Wiring")
+  const gate = readCode("lib/communities/server/context.ts")
+  const gateEnd = gate.slice(gate.indexOf("export async function requireCreatorCommunity"))
+  check("every gated staff request clears the community's public page once it has answered", /communityPublicChangedAfter\(community\.id, community\.creator_id, community\.slug\)\s*return \{ ok: true, ctx, community/.test(gateEnd) && (gate.match(/communityPublicChangedAfter\(community\.id, community\.creator_id, community\.slug\)/g) ?? []).length === 2)
+  const cache = readCode("lib/communities/server/public-cache.ts")
+  check("  expired at once, never stale: { expire: 0 }", /revalidateTag\(communityPublicTag\(communityId\), \{ expire: 0 \}\)/.test(cache))
+  check("  held a minute at most", /COMMUNITY_PUBLIC_HOLD_SECONDS = 60/.test(cache) && /revalidate: COMMUNITY_PUBLIC_HOLD_SECONDS/.test(cache))
+  const lib = readCode("lib/communities/server/public.ts")
+  check("only a community anybody may see is held; a caller's own database reads its own", /const held = !given && sharePreviewable\(community\)/.test(lib))
+  check("the held reads ask nothing about the visitor", !/userId|viewer/.test(lib.slice(lib.indexOf("async function readSalesFacts"), lib.indexOf("export async function loadSalesPage"))))
+  check("the layout's community is the page's (one read per request)", /communityBySlug\(slug\), currentUserForRequest\(\)/.test(readCode("components/community/member/data.ts")))
+}
+
+/* ── THE CREATOR PAGE ──────────────────────────────────────────────────── */
+
+async function creatorPage() {
+  section("storelib.com/<handle>: who the address is, read live; what it shows everybody, held (lib/commerce/creator-page-held)")
+  const { heldForCreatorPage, creatorPageTags } = await import("@/lib/commerce/creator-page-held")
+  const { creatorTag } = await import("@/lib/commerce/product-page-cache")
+  const { shopProductsTag } = await import("@/lib/onepage/public-cache")
+  nextCache.resetCache()
+  let reads = 0
+  const read = async () => {
+    reads++
+    return { rows: [1, 2, 3], failed: false }
+  }
+  await visit(() => heldForCreatorPage(["t", SITE.creatorId, SITE.userId], SITE.creatorId, SITE.userId, read, (v) => v.failed))
+  await visit(() => heldForCreatorPage(["t", SITE.creatorId, SITE.userId], SITE.creatorId, SITE.userId, read, (v) => v.failed))
+  check("read once, then held for every visitor", reads === 1, reads)
+  nextCache.revalidateTag(creatorTag(SITE.creatorId), { expire: 0 })
+  await visit(() => heldForCreatorPage(["t", SITE.creatorId, SITE.userId], SITE.creatorId, SITE.userId, read, (v) => v.failed))
+  check("  a writer of the page (creatorPagesChanged clears creator:<creator id>) is read at the next visit", reads === 2, reads)
+  let failing = 0
+  const broken = async () => {
+    failing++
+    return { rows: [], failed: true }
+  }
+  await visit(() => heldForCreatorPage(["f", SITE.creatorId, SITE.userId], SITE.creatorId, SITE.userId, broken, (v) => v.failed))
+  await visit(() => heldForCreatorPage(["f", SITE.creatorId, SITE.userId], SITE.creatorId, SITE.userId, broken, (v) => v.failed))
+  check("  a read that failed is answered and never held", failing === 2, failing)
+  check("  its tags are the ones every writer of the page clears (the creator, the person, the store's products)",
+    JSON.stringify(creatorPageTags(SITE.creatorId, SITE.userId)) === JSON.stringify([creatorTag(SITE.creatorId), creatorTag(SITE.userId), shopProductsTag(SITE.creatorId)]) &&
+      /if \(creatorId\) expire\(creatorTag\(creatorId\)\)/.test(readCode("lib/storefront/creator-page-purge.ts")) && /if \(userId\) expire\(creatorTag\(userId\)\)/.test(readCode("lib/storefront/creator-page-purge.ts")))
+
+  const page = readCode("app/(storelib)/(marketing)/u/[username]/page.tsx")
+  check("the profile by the name in the address and its creator are read live, never held (a renamed account never shows somebody else's page)",
+    /const profile = await loadProfileByUsernameStrict\(username\)/.test(page) && /const creator = await loadCreatorForUserStrict\(profile\.id\)/.test(page) && /export const loadProfileByUsernameStrict = cache\(async \(username: string\) => \{[\s\S]{0,120}try \{\s*const row = await publicProfileByNameStrict\(stranger\(\), username\)/.test(readCode("lib/commerce/creator-page-data.ts")) && /export const loadCreatorForUserStrict = cache\(async \(userId: string\) => \{\s*try \{\s*const row = await readPublicRowStrict\(/.test(readCode("lib/commerce/creator-page-data.ts"))) // Changed on purpose (round AV): still read live every request; only a read that FAILED answers from this instance's last good row (tests/platform-issues-av.test.ts)
+  check("  every held read of the page is keyed by the ids that lookup answered, never by the name alone",
+    /heldForCreatorPage\(\["creator-page-catalogue", "v1", creator\.id, profile\.id\], creator\.id, profile\.id, readCatalogue/.test(page) && /heldForCreatorPage\(\["creator-page-head", "v1", creator\.id, profile\.id, handle\], creator\.id, profile\.id, readHead/.test(page))
+  check("  and still reads nobody's cookie or header", !/cookies\(\)|headers\(\)|currentUserForRequest/.test(page))
+  const held = readCode("lib/commerce/creator-page-held.ts")
+  check("  held a minute at most, the CDN's own minute", /CREATOR_PAGE_HOLD_SECONDS = 60/.test(held) && /revalidate: CREATOR_PAGE_HOLD_SECONDS/.test(held))
+
+  section("A creator's community cards are held, and cleared with the community")
+  const lib = readCode("lib/communities/server/public.ts")
+  check("the cards on a creator's page are held under the creator's and the cards' tags", /\["community-cards", "v1", creatorId\], \[communityCardsTag\(creatorId\), \.\.\.communityCreatorTags\(creatorId\)\]/.test(lib))
+  check("  a Storelib suspension or hiding clears the community and its card", /communityPublicChanged\(communityId, \(row as \{ creator_id\?: string \| null \}\)\.creator_id \?\? null, \(row as \{ slug\?: string \| null \}\)\.slug \?\? null\)/.test(readCode("lib/communities/server/admin.ts")))
+
+  section("A OnePage click is one request's worth of work (app/api/onepage/track)")
+  const track = readCode("app/api/onepage/track/route.ts")
+  check("it writes no onepage_clicks or onepage_views row (read only before the first event, which this click is after or would double)", !/from\("onepage_clicks"\)|from\("onepage_views"\)/.test(track) && /await recordLinkClick\(request, body\)/.test(track))
+  check("  and uses only the server's own client, never the visitor's", !/lib\/supabase\/server/.test(track) && /createAdminClient\(\)/.test(track))
+  check("  the older rows are still read before the first event", /"onepage_clicks", "id, block_id, url, visitor_id, created_at"/.test(readCode("lib/analytics/report-read.ts")))
 }
 
 /* ── PRIVATE ───────────────────────────────────────────────────────────── */
@@ -292,7 +460,7 @@ async function privatePages() {
   /* The held OnePage copy carries no viewer input: its keys are the page's own. */
   const lib = readCode("lib/onepage/published-page.ts")
   check("held OnePage entries are keyed by the page alone (name, ids, block fingerprint)",
-    /\["onepage-address", "v1", slug\]/.test(lib) && /\["onepage-owner", "v1", sellerId \?\? "", creatorId \?\? "", ownerId \?\? ""\]/.test(lib) && /\["onepage-live-blocks", "v1", creatorId, fingerprint\]/.test(lib))
+    /* Changed on purpose (OnePage production audit, SEC1): v2, the held page carries its owner's store (lib/onepage/page-store). */ /\["onepage-address", "v2", slug\]/.test(lib) && /\["onepage-owner", "v1", sellerId \?\? "", creatorId \?\? "", ownerId \?\? ""\]/.test(lib) && /* Changed on purpose (round AR): v2, the held blocks now carry the data blocks' fill (lib/onepage/data-blocks-server). */ /\["onepage-live-blocks", "v2", creatorId, fingerprint\]/.test(lib))
 }
 
 /* ── SPIKES AND ABUSE ──────────────────────────────────────────────────── */
@@ -315,7 +483,8 @@ async function spikes() {
   check("a normal reader (a page view every few seconds) never reaches Postgres", Math.floor(LIMITS.track[0].limit * MEMORY_FIRST_SHARE) >= 20)
 
   section("Memory first only where the worst abuse is a figure too high, never for mail, money or a guess")
-  const MEMORY_OK = new Set(["track", "onepage-track", "blog-track", "cart-prices", "public-search", "site-search", "ga-seen", "ai-visit"])
+  // Changed on purpose (round AW): "product-prices" joins the public reads, /api/products/prices limited the way /api/cart/prices is.
+  const MEMORY_OK = new Set(["track", "onepage-track", "blog-track", "cart-prices", "product-prices", "public-search", "site-search", "ga-seen", "ai-visit"])
   const callers: string[] = []
   const walk = (dir: string) => {
     for (const name of readdirSync(dir)) {
@@ -353,6 +522,8 @@ async function spikes() {
 async function main() {
   await roundTrips()
   await publishing()
+  await communityPages()
+  await creatorPage()
   await privatePages()
   await spikes()
   console.log(`\n${passed} passed, ${failed} failed`)

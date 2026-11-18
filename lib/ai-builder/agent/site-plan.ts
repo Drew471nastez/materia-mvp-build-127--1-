@@ -294,6 +294,8 @@ export function completenessIssues(input: CompletenessInput): ValidationIssue[] 
     const mine = stored ? own(stored) : []
     const plannedSections = (planned.get(t.key)?.sections.length ?? 0) > 0
     if (t.key === "product" && t.required) {
+      /* Round BA: a product section of its own beside the theme's built-in one draws the product twice. */
+      if (mine.some((s) => drawsTheProduct(s.type, input.sources)) && (stored ?? []).some((s) => s.type === "product" && !s.hidden)) err("site.product_twice", `The product page draws the product twice: your own product section and Storelib's built-in one (type "product"). Take the built-in one off page "product" with set_page_sections, keeping yours.`)
       if (!mine.some((s) => drawsTheProduct(s.type, input.sources))) err("site.template_product", `The product page (${t.url}) is not designed: place a component of yours on page "product" that draws the product (product.title, product.price, product.images, page.product.settings.variants) with an add to cart button data-storelib-add-to-cart="{{ product.id }}".`)
       continue
     }

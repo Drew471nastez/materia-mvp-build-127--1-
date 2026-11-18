@@ -1,4 +1,7 @@
 import { readFileSync } from "node:fs"
+import { createRequire } from "node:module"
+
+const require = createRequire(import.meta.url)
 /**
  * ===========================================================================
  *  CREATOR PAGES, PRODUCT PAGES AND EXPLORE AT THE EDGE, FOR EVERYBODY (round 49)
@@ -57,7 +60,37 @@ const STORELIB_HOSTS = "(?:www\\.)?storelib\\.com|localhost|127\\.0\\.0\\.1"
  * minute. A save still takes the copy down at once by its tag (lib/storefront/creator-page-purge, lib/onepage/public-cache);
  * the five minutes only bound what no tag names (a count, a review's stars). tests/cdn-r54 pins the lifetime.
  */
+/* The production Supabase project's ref, which names its session cookies (sb-<ref>-auth-token). */
+const PRODUCTION_STORAGE_HOST_REF = "skgtqglupjcnfhfscink"
 export const EDGE_PAGE = "public, s-maxage=300, stale-while-revalidate=86400"
+
+/*
+  A STRANGER'S COMMUNITY PAGE, ONE COPY FOR EVERY STRANGER (round 66). /community/<slug> and its /about were drawn on
+  the server for every request, nothing held. A request with no sign in cookie is drawn the same for everybody (the
+  render reads the session and nothing else of the visitor's; the layout draws no Referer for a stranger), so:
+
+    - a rewrite here (Vercel's own routing, before its CDN) adds STRANGER_QUERY to a stranger's address, which gives
+      the stranger's copy a cache key of its own that a signed in request is never rewritten to;
+    - a header rule here holds that answer at the CDN, a minute fresh and five more while redrawn, under
+      `community-page:<slug>`, which every staff write, a publish and a take down clear
+      (lib/communities/server/public-cache.ts).
+
+  Round 63 tried this from the proxy, and Vercel's CDN ignored cache headers a proxy rewrite carried. Rules in this
+  file are Vercel's routing itself, as the creator page's are (those are HITs). A signed in request carries one of
+  SESSION_COOKIES (the production project's, under its old name and `__Host-`, whole and in chunks): it is never
+  rewritten and never held. Only on storelib.com; never a client side move (`rsc`).
+*/
+export const STRANGER_QUERY = "_sl_pub"
+export const COMMUNITY_STRANGER_CDN = "public, s-maxage=60, stale-while-revalidate=300"
+export const SESSION_COOKIES = (() => {
+  const base = `sb-${PRODUCTION_STORAGE_HOST_REF}-auth-token`
+  const names = [base, ...[0, 1, 2, 3, 4].map((i) => `${base}.${i}`)]
+  return [...names, ...names.map((n) => `__Host-${n}`)]
+})()
+const strangerOnly = () => [
+  { type: 'header', key: 'rsc' },
+  ...SESSION_COOKIES.map((key) => ({ type: 'cookie', key })),
+]
 /* A OnePage's name as its one spelling (lowercase, lib/onepage/username isResolvableOnePageName), never a file the host answers (robots.txt, sitemap.xml). */
 const ONEPAGE_NAME_SEGMENT = "[a-z0-9](?:[a-z0-9_-]|\\.(?!(?:txt|xml|ico|png|jpe?g|svg|webp|webmanifest|json|js|css|map)$))*"
 const NEVER_HELD = [
@@ -75,6 +108,27 @@ const edgeRule = (source, tag) => ({
     { key: 'Vercel-Cache-Tag', value: tag },
   ],
 })
+
+/*
+  THE IMAGE OPTIMIZER FETCHES FROM STORELIB'S OWN STORAGE, NOT ANYBODY'S (round AW). /_next/image fetches whatever
+  address it is handed on a listed host, re-encodes it and keeps it for a year, and every new picture is a billed
+  transformation. The list had `*.supabase.co`: every Supabase project in the world. Anybody could make a free
+  project, fill it with pictures and have storelib.com/_next/image transform and serve them, at Storelib's cost
+  and under Storelib's name. Now the production project, and the project this deployment reads
+  (NEXT_PUBLIC_SUPABASE_URL: a preview's own), each for its storage files only. lib/images/optimized-url.ts
+  (isOptimizableImage) is the other half: a picture on any other project is drawn as it is, never sent here.
+*/
+export const PRODUCTION_STORAGE_HOST = "skgtqglupjcnfhfscink.supabase.co"
+export const OWN_STORAGE_HOSTS = (() => {
+  const hosts = new Set([PRODUCTION_STORAGE_HOST])
+  try {
+    const configured = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || "").hostname.toLowerCase()
+    if (configured) hosts.add(configured)
+  } catch {
+    /* No project configured (a script, a test): the production one alone. */
+  }
+  return [...hosts]
+})()
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -170,20 +224,17 @@ const nextConfig = {
         any Supabase project could be pushed through Storelib's optimizer, and
         each one is a billed image transformation; Storelib's own pictures are
         all under /storage/v1/ (object/public, object/sign, render).
+        And only Storelib's own projects (OWN_STORAGE_HOSTS above): a pattern
+        for *.supabase.co let anybody's project through.
       */
-      {
+      ...OWN_STORAGE_HOSTS.map((hostname) => ({
         protocol: 'https',
-        hostname: 'skgtqglupjcnfhfscink.supabase.co',
+        hostname,
         pathname: '/storage/v1/**',
-      },
+      })),
       {
         protocol: 'https',
         hostname: 'images.unsplash.com',
-      },
-      {
-        protocol: 'https',
-        hostname: '*.supabase.co',
-        pathname: '/storage/v1/**',
       },
       {
         protocol: 'https',
@@ -220,10 +271,33 @@ const nextConfig = {
      */
     qualities: [75, 88, 90],
   },
+  // Development and explicit Turbopack comparisons retain Next's defaults.
+  turbopack: {},
+  webpack(config, { dev }) {
+    if (!dev) {
+      // Serializing this app's filesystem cache produced a 3 GB pack while
+      // the compiler graph was still live, exceeding Standard's 7 GB RAM.
+      config.cache = false
+      // Supabase 2.87.3's compatibility wrapper probes a nonexistent default
+      // export. Use its published ESM entry, preserving the named SDK exports.
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        "@supabase/supabase-js$": require.resolve("@supabase/supabase-js/dist/module/index.js"),
+      }
+    }
+    return config
+  },
   experimental: {
     // Load the large server graph once during route-data/prerender work instead
     // of duplicating it across workers. Runtime routes and checks are unchanged.
     cpus: 1,
+    // Separate compiler workers release their graph before route generation.
+    // Serialize server/edge compiles and tracing to avoid overlapping heaps.
+    webpackBuildWorker: true,
+    webpackMemoryOptimizations: true,
+    serverMinification: true,
+    parallelServerCompiles: false,
+    parallelServerBuildTraces: false,
     /*
      * TURBOPACK DOES NOT MINIFY; scripts/minify-after-build.mjs DOES (round 53).
      * Vercel's 8 GB Standard build machine ran out of memory: Turbopack holds the
@@ -255,6 +329,18 @@ const nextConfig = {
      * peak and 20 s off the compile. Nothing it writes changes.
      */
     turbopackInputSourceMaps: false,
+    /**
+     * A MEMORY TARGET FOR TURBOPACK, off unless STORELIB_TURBOPACK_MEMORY_MB is
+     * set (round AR). Measured on 4 CPUs, cold `pnpm build`, whole process
+     * tree: 8,160 MB with none, 8,244 MB at 3 GB and 8,194 MB at 2 GB, and a
+     * build capped at 7.5 GB was killed at the end of compiling either way. It
+     * does not lower the peak, so it is not on; the build machine was raised
+     * instead. Kept as a switch for the next measurement.
+     */
+    turbopackMemoryLimit: (() => {
+      const mb = Number(process.env.STORELIB_TURBOPACK_MEMORY_MB ?? 0)
+      return Number.isFinite(mb) && mb > 0 ? Math.round(mb * 1024 * 1024) : undefined
+    })(),
     /**
      * AN ADDRESS NO ROUTE MATCHES (round 52): Storelib's pages and the
      * published websites each have a root layout (app/(storelib)/layout.tsx,
@@ -299,6 +385,14 @@ const nextConfig = {
   // `sass` compiles a theme's SCSS in one route (lib/storelib-theme/compat/scss.ts).
   // Bundled, it was one 5.9 MB module the build parsed and minified for that
   // route; Node loads it from node_modules as it is, and the trace ships it.
+  //
+  // Measured and NOT added (wave 12, cold `pnpm build`, 4 CPUs, whole cgroup):
+  // firebase-admin, stripe, openai, @anthropic-ai/sdk, web-push and
+  // sanitize-html as externals peaked at 8,157 and 8,956 MB in two runs against
+  // 8,927 MB without them: inside the run-to-run noise, and killed under a
+  // 7 GiB cap with or without STORELIB_TURBOPACK_MEMORY_MB=3500. And
+  // experimental.turbopackClientSideNestedAsyncChunking: false hangs Next
+  // 16.1.7's build (no CPU at about 6 GB, never finishes).
   serverExternalPackages: ['pdfkit', 'fontkit', 'linebreak', 'png-js', 'sharp', 'esbuild', 'typescript', 'sass', '@sparticuz/chromium', 'puppeteer-core'],
   // Note: Vercel serverless functions have a 4.5MB body size limit.
   // Large file uploads bypass the server via direct-to-storage signed URLs
@@ -315,10 +409,29 @@ const nextConfig = {
     return {
       beforeFiles: [
         { source: "/@:handle", destination: "/member/:handle" },
+        /* Round 66: a stranger's community page to its own cache key (see STRANGER_QUERY above). */
+        ...["/community/:slug", "/community/:slug/about"].map((source) => ({
+          source,
+          has: [{ type: "host", value: "(?:www\\.)?storelib\\.com" }],
+          missing: strangerOnly(),
+          destination: `${source}?${STRANGER_QUERY}=1`,
+        })),
         /* The app links files, built from env vars (lib/platform/app-links.ts): before the public folder, which no longer holds them. */
         { source: "/.well-known/apple-app-site-association", destination: "/api/app-links/apple-app-site-association" },
         { source: "/.well-known/assetlinks.json", destination: "/api/app-links/assetlinks" },
-        ...(storage ? [{ source: "/media/:path*", destination: `${storage}/storage/v1/object/public/:path*` }] : []),
+        /*
+          PICTURES THROUGH app/api/media (round 54, Vercel cost): the same bytes
+          without the storage host's cookie, so the CDN keeps them. ?direct=1
+          (a picture too large for that route) and every other file go straight
+          to storage, as before.
+        */
+        ...(storage
+          ? [
+              { source: "/media/:path*", has: [{ type: "query", key: "direct" }], destination: `${storage}/storage/v1/object/public/:path*` },
+              { source: "/media/:path(.+\\.(?:jpg|jpeg|png|gif|webp|avif|ico|bmp|JPG|JPEG|PNG|GIF|WEBP|AVIF))", destination: "/api/media/:path" },
+              { source: "/media/:path*", destination: `${storage}/storage/v1/object/public/:path*` },
+            ]
+          : []),
       ],
     }
   },
@@ -382,6 +495,16 @@ const nextConfig = {
           ]
         : []),
       edgeRule('/explore/:path*', 'explore'),
+      /* Round 66: the stranger's copy of a community's page and About (STRANGER_QUERY above). */
+      ...['/community/:slug', '/community/:slug/about'].map((source) => ({
+        source,
+        has: [{ type: 'host', value: '(?:www\\.)?storelib\\.com' }],
+        missing: strangerOnly(),
+        headers: [
+          { key: 'Vercel-CDN-Cache-Control', value: COMMUNITY_STRANGER_CDN },
+          { key: 'Vercel-Cache-Tag', value: 'community-page::slug' },
+        ],
+      })),
       /*
         OnePages, storelib.me/<name>: one copy for everybody (round 51, lib/onepage/edge). storelib.me reads no session and
         writes no cookie (proxy.ts), and the page reads nothing of the visitor's. Here and not in the proxy: Next takes the

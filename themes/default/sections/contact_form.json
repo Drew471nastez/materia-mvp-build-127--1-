@@ -113,7 +113,7 @@
       "type": "text",
       "default": "",
       "placeholder": "hello@yoursite.com",
-      "info": "Where messages are emailed. Empty uses your support email from Settings. Every message is also kept in Emails."
+      "info": "Used only when it is your sign in email or a team member's. Otherwise messages go to your sign in email. Every message is also kept in Contacts › Forms."
     },
     {
       "id": "subject_prefix",

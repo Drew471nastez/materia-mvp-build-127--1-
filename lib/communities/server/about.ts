@@ -31,7 +31,8 @@ import "server-only"
 import type { AboutExtras } from "@/components/community/public/types"
 import type { CommunityRow } from "../types"
 import { readPrograms } from "./learn"
-import { missing, reasonOf, type Db } from "./db"
+import { admin, missing, reasonOf, type Db } from "./db"
+import { communityTags, heldCommunityRead, noteHeldReadFailure } from "./public-cache"
 import { recentFaces } from "./wall"
 
 /** Courses shown on the About page; the rest are counted. */
@@ -49,12 +50,16 @@ async function headCount(run: () => PromiseLike<{ count: number | null; error: u
   try {
     const { count, error } = await run()
     if (error) {
-      if (!missing(error as never)) console.error(`[communities] about count: ${reasonOf(error)}`)
+      if (!missing(error as never)) {
+        console.error(`[communities] about count: ${reasonOf(error)}`)
+        noteHeldReadFailure()
+      }
       return null
     }
     return typeof count === "number" ? count : null
   } catch (e) {
     console.error(`[communities] about count: ${reasonOf(e)}`)
+    noteHeldReadFailure()
     return null
   }
 }
@@ -108,6 +113,7 @@ export async function aboutClassroom(db: Db, communityId: string): Promise<About
     }
   } catch (e) {
     console.error(`[communities] about courses: ${reasonOf(e)}`)
+    noteHeldReadFailure()
     return null
   }
 }
@@ -120,10 +126,14 @@ async function creatorBio(db: Db, creatorId: string | null): Promise<string | nu
     const userId = (creator as { user_id?: string | null } | null)?.user_id
     if (!userId) return null
     const { data: profile, error } = await db.from("profiles").select("bio").eq("id", userId).maybeSingle()
-    if (error) return null
+    if (error) {
+      noteHeldReadFailure()
+      return null
+    }
     const bio = ((profile as { bio?: string | null } | null)?.bio || "").replace(/\s+/g, " ").trim()
     return bio ? bio.slice(0, 280) : null
   } catch {
+    noteHeldReadFailure()
     return null
   }
 }
@@ -149,4 +159,21 @@ export async function aboutExtras(db: Db, community: Pick<CommunityRow, "id" | "
     faces: faces.map((f) => ({ id: f.id, name: f.name, avatarUrl: f.avatarUrl })),
     library,
   }
+}
+
+type AboutCommunity = Pick<CommunityRow, "id" | "creator_id" | "created_at" | "classroom_enabled" | "status" | "suspended_at" | "deleted_at" | "updated_at"> & Partial<Pick<CommunityRow, "visibility">>
+
+/**
+ * THE ABOUT FACTS ON A PAGE ANYBODY MAY SEE, held for every visitor for a minute at most (round rel2-public,
+ * ./public-cache.ts): the same for everybody who opens it, keyed by the row's updated_at and cleared by every staff
+ * write and a new name or photo. A draft or a suspended community (its staff's only) is read each time.
+ */
+export function publicAboutExtras(community: AboutCommunity): Promise<AboutExtras> {
+  const open = community.status !== "draft" && community.status !== "suspended" && !community.suspended_at && !community.deleted_at
+  if (!open) return aboutExtras(admin(), community)
+  return heldCommunityRead(
+    () => aboutExtras(admin(), community),
+    ["community-about", "v1", community.id, String(community.updated_at ?? ""), community.visibility ?? ""],
+    communityTags(community),
+  )
 }

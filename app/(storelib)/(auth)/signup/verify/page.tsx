@@ -4,7 +4,7 @@ import { Suspense, useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp"
 import { Loader2, ShieldCheck } from "lucide-react"
-import Image from "next/image"
+import { AuthPhoto, SIGNUP_PHOTO } from "@/components/auth/auth-photo"
 import Link from "next/link"
 import { AuthLogo } from "@/components/auth/auth-logo"
 import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
@@ -328,17 +328,7 @@ function VerifyContent() {
         </div>
       </div>
 
-      <div className="relative hidden lg:block lg:w-1/2 lg:h-[100dvh] shrink-0 overflow-hidden bg-neutral-900">
-        <Image
-          src="https://storelib.com/media/platform%20images/collage%20imags/awapage.png"
-          alt="Verify email banner"
-          fill
-          className="object-cover object-center"
-          sizes="(min-width: 1024px) 50vw, 0px"
-          quality={75}
-          priority
-        />
-      </div>
+      <AuthPhoto src={SIGNUP_PHOTO} />
     </div>
   )
 }

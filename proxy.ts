@@ -38,6 +38,8 @@ import { visitorLanguageDecision } from "@/lib/markets/visitor-language"
 import { siteCheckoutRouteFor } from "@/lib/checkout/site-checkout"
 import { COVER_STILL_POLICY } from "@/lib/website-builder/cover-still"
 import { carriesSignIn, skipsSessionRefresh } from "@/lib/auth/no-session-paths"
+import { cookiePairs, HOST_PREFIX, isGuardedName, outgoingName, plantedExpiries, sessionView, writesHostCookies } from "@/lib/supabase/host-session"
+import { SESSION_COOKIE_MAX_AGE, storedSessionKey } from "@/lib/supabase/session-jar"
 import { CSP_REPORT_PATH, enforcesCsp, keepsCspReport, withEnforcedCsp } from "@/lib/security/csp"
 import { refusesSiteAction, SITE_ACTION_GUARD } from "@/lib/website-builder/site-action-guard"
 import { isSiteIconPath, SITE_ICON_PATH, SITE_MANIFEST_PATH } from "@/lib/website-builder/site-favicon"
@@ -67,7 +69,8 @@ const proxyFetch: typeof fetch = (input, init) => {
       return r
     },
     (e) => {
-      noteDb(false)
+      /* Round 65: a call its own caller called off (a race won elsewhere, a request gone) says nothing about the database. */
+      if (!init?.signal?.aborted || own.aborted) noteDb(false)
       throw e
     },
   )
@@ -1446,7 +1449,8 @@ function isPublishedSiteOrigin(origin: string | null): boolean {
 
 const HOST_ONLY_MARKER = "sb-host-only"
 
-function retireDomainScopedCookies(response: NextResponse, request: NextRequest): void {
+/* `skip` (round AX): names this leaves alone entirely, the session's own on HTTPS (moved to `__Host-` by sealSession) and any that arrived twice. */
+function retireDomainScopedCookies(response: NextResponse, request: NextRequest, skip: (name: string) => boolean = () => false): void {
   if (MAIN_DOMAIN.includes("localhost")) return
   if (request.cookies.has(HOST_ONLY_MARKER)) return
 
@@ -1458,6 +1462,7 @@ function retireDomainScopedCookies(response: NextResponse, request: NextRequest)
   if (auth.length === 0) return
 
   for (const cookie of auth) {
+    if (skip(cookie.name)) continue
     /**
      * THE RE-ISSUE IS CONDITIONAL, and both conditions are bugs that were
      * caught by watching real response headers rather than reading this.
@@ -1538,9 +1543,9 @@ function retireDomainScopedCookies(response: NextResponse, request: NextRequest)
  * this file exists.
  */
 const FRAME_RESERVED_FIRST_SEGMENT = new Set([
-  "access", "account", "account-deletion", "admin", "alternatives", "api", "app", "auth", "blog", "c",
+  "access", "account", "account-deletion", "admin", "alternatives", "api", "app", "auth", "blog", "booking", "c",
   "checkout", "community", "cover-render", "creator-page", "dashboard", "developers", "downloads", "editions", "explore",
-  "faq", "features", "help", "l", "legal", "library", "llms-full.txt", "llms.txt", "login", "member", "native-start",
+  "faq", "features", "help", "instagram-bio", "l", "legal", "library", "llms-full.txt", "llms.txt", "login", "member", "native-start",
   "onboarding", "onepage-preview", "order-help", "p", "pay", "payouts-sheet", "pricing", "privacy", "products", "purchase", "receipt",
   "register", "request", "reset-password", "review", "sell", "signup", "site", "sitemap", "sitemap.xml", "sites", "store",
   "store-builder", "stripe-done", "team", "terms", "theme-preview", "themes", "u", "unsubscribe", "upgrade", "verify-email",
@@ -2758,6 +2763,25 @@ async function routeRequest(request: NextRequest) {
   // Determine if we're on localhost for cookie domain settings
   const isLocalhost = MAIN_DOMAIN.includes("localhost")
 
+  /*
+    THE SESSION UNDER `__Host-` (round AX, lib/supabase/host-session.ts). A published site on <slug>.storelib.com
+    can plant a cookie for the whole domain under the old name and storelib.com is sent it; it can never set a
+    `__Host-` one. Supabase is shown the `__Host-` copy under its own name, an old name only when there is no
+    `__Host-` copy and it arrived once, and its renewals are written under `__Host-` on HTTPS. Read from the
+    raw header: request.cookies keeps one of two cookies with one name, and the second is the planted one.
+  */
+  const sessionKey = storedSessionKey()
+  const arrived = cookiePairs(request.headers.get("cookie"))
+  const hostCookies = writesHostCookies({
+    https: request.nextUrl.protocol === "https:" || (request.headers.get("x-forwarded-proto") || "").startsWith("https"),
+    localhost: isLocalhost || /(^|\.)localhost$/.test(host.split(":")[0]),
+    pairs: arrived,
+    key: sessionKey,
+  })
+  /* After LEGACY_SESSION_CUTOFF_MS a lone old name is expired, never read (round AY). */
+  const viewOptions = { retireLegacy: hostCookies }
+  const arrivedView = sessionView(arrived, sessionKey, [], viewOptions)
+
   /* Which renewal this request started, so the response can wait for it below (watchRenewals). */
   const renewalWatch = watchRenewals(deadlineFetch)
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
@@ -2770,27 +2794,31 @@ async function routeRequest(request: NextRequest) {
     global: { fetch: renewalWatch.fetch },
     cookies: {
       getAll() {
-        return request.cookies.getAll()
+        return sessionView(cookiePairs(request.headers.get("cookie")), sessionKey, [], viewOptions).cookies
       },
       setAll(cookiesToSet) {
         renewalWatch.saved()
-        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+        cookiesToSet.forEach(({ name, value }) => request.cookies.set(outgoingName(name, sessionKey, hostCookies), value))
         // The same response, rebuilt from the request that now carries the
         // renewed cookies (see `respond` above).
         supabaseResponse = respond()
         // Set cookies with domain for cross-subdomain support
         // This ensures PKCE code verifier cookies work across subdomains
         cookiesToSet.forEach(({ name, value, options }) => {
-          supabaseResponse.cookies.set(name, value, {
+          const out = outgoingName(name, sessionKey, hostCookies)
+          supabaseResponse.cookies.set(out, value, {
             ...options,
             // HOST-ONLY. This used to be `.${MAIN_DOMAIN}` for subdomain
             // sharing, which now means every published site at
             // <slug>.storelib.com would be sent the session — and could read
             // it, because this cookie is readable from JavaScript by design.
             domain: undefined,
-            secure: !isLocalhost,
+            secure: out !== name || !isLocalhost,
             sameSite: "lax",
+            ...(out !== name ? { path: "/" } : {}),
           })
+          /* The old name goes with it: never read again beside the `__Host-` copy. */
+          if (out !== name) supabaseResponse.cookies.set(name, "", { path: "/", maxAge: 0, secure: true, sameSite: "lax" })
         })
       },
     },
@@ -2846,6 +2874,47 @@ async function routeRequest(request: NextRequest) {
   }
 
   /*
+    THE MOVE TO `__Host-`, ON THE WAY OUT (round AX). Nobody is signed out by it:
+      - an old-name session that arrived once is copied to `__Host-` with its value as it is, and the old name
+        expired, here and at the domain (where a session from before the cookie was host-only still sits);
+      - an old name beside a `__Host-` copy is expired: it is never read again;
+      - an old name that arrived twice (a site planted one beside the real one) is expired at the domain only,
+        on every path this request could have been sent it on: the site's copy goes and the host's own stays,
+        to be moved over on the next page.
+    Only on a GET or HEAD outside /auth and /api/auth, where no route of ours writes the session in the same
+    answer, and never where Supabase has just written it (its renewal already went under `__Host-`).
+  */
+  const sealSession = (response: NextResponse) => {
+    if (!hostCookies || !sessionKey || MAIN_DOMAIN.includes("localhost")) return
+    const method = request.method
+    const path = request.nextUrl.pathname
+    if ((method !== "GET" && method !== "HEAD") || path.startsWith("/auth/") || path.startsWith("/api/auth/")) return
+    const renewed = response.cookies.getAll().some((c) => c.name.startsWith(HOST_PREFIX))
+    if (!renewed) {
+      for (const c of arrivedView.migrate) {
+        response.cookies.set(HOST_PREFIX + c.name, c.value, { path: "/", maxAge: SESSION_COOKIE_MAX_AGE, secure: true, sameSite: "lax", httpOnly: false })
+        response.cookies.set(c.name, "", { path: "/", maxAge: 0, secure: true, sameSite: "lax" })
+      }
+    }
+    for (const name of arrivedView.shadowed) {
+      if (response.cookies.get(name) === undefined) response.cookies.set(name, "", { path: "/", maxAge: 0, secure: true, sameSite: "lax" })
+    }
+    /* Raw lines last: response.cookies.set rewrites every Set-Cookie it keeps and would drop them. */
+    const domainOnly = [
+      ...plantedExpiries([...arrivedView.shadowed, ...arrivedView.tossed], MAIN_DOMAIN, path),
+      ...(renewed ? [] : plantedExpiries(arrivedView.migrate.map((c) => c.name), MAIN_DOMAIN, "/")),
+    ]
+    for (const line of new Set(domainOnly)) response.headers.append("Set-Cookie", line)
+  }
+  /*
+    retireDomainScopedCookies (the move to host-only, Sept 2026) re-issued every `sb-` cookie that came in under
+    the old name for 400 days, whoever set it, a planted one included. The session's names are left to
+    sealSession on HTTPS, and a name that arrived twice is never re-issued anywhere.
+  */
+  const tossedNames = new Set(arrivedView.tossed)
+  const retireSkips = (name: string) => tossedNames.has(name) || (hostCookies && isGuardedName(name, sessionKey))
+
+  /*
     WHICH CHECK RAN, ON THE RESPONSE (round 49). For /app, /dashboard and /sell
     with a session cookie: "proxy-local" when the token's signature was checked
     here, "proxy-network" when Supabase Auth was asked, and which local check
@@ -2875,7 +2944,8 @@ async function routeRequest(request: NextRequest) {
     if (next) url.searchParams.set("next", next)
     const redirect = NextResponse.redirect(url, 307)
     for (const cookie of supabaseResponse.cookies.getAll()) redirect.cookies.set(cookie)
-    retireDomainScopedCookies(redirect, request)
+    sealSession(redirect)
+    retireDomainScopedCookies(redirect, request, retireSkips)
     /* Decided from who is asking: never a shared cache's (SIGNED_OUT_REDIRECT_CACHE). */
     redirect.headers.set("Cache-Control", SIGNED_OUT_REDIRECT_CACHE)
     return redirect
@@ -2908,7 +2978,8 @@ async function routeRequest(request: NextRequest) {
      */
     const redirect = NextResponse.redirect(url)
     for (const cookie of supabaseResponse.cookies.getAll()) redirect.cookies.set(cookie)
-    retireDomainScopedCookies(redirect, request)
+    sealSession(redirect)
+    retireDomainScopedCookies(redirect, request, retireSkips)
     redirect.headers.set("Cache-Control", SIGNED_OUT_REDIRECT_CACHE)
     return redirect
   }
@@ -3076,7 +3147,8 @@ async function routeRequest(request: NextRequest) {
   // Last thing before the response leaves: retire any `.storelib.com` session
   // cookie this browser is still carrying, re-issued host-only so nobody is
   // signed out by the change.
-  retireDomainScopedCookies(supabaseResponse, request)
+  sealSession(supabaseResponse)
+  retireDomainScopedCookies(supabaseResponse, request, retireSkips)
 
   return supabaseResponse
 }
@@ -3088,5 +3160,13 @@ export const config = {
     proxy can send there. On storelib.com it is passed straight on, before
     any session is read (routeRequest).
   */
-  matcher: ["/((?!_next/static|_next/image|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
+  /*
+    /media/ IS LEFT OUT TOO (round 54, Vercel cost): every public file (a
+    video, a PDF, a font, an .avif) was a middleware run that only passed it
+    on to next.config's rewrite (routeRequest's /media/ line), and the answer
+    could pick up a cookie on the way out (forgetStaleCountry), which keeps
+    the CDN from holding it. vercel.json lets the CDN hold the rewrite's
+    answer as Supabase says (x-vercel-enable-rewrite-caching).
+  */
+  matcher: ["/((?!_next/static|_next/image|media/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
 }

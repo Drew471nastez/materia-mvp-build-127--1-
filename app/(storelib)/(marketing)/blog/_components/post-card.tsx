@@ -34,13 +34,13 @@ export function categoryTint(category: string | null | undefined): { bg: string;
  * category's tint, sized to the box (container units), hidden from screen
  * readers because the card's own title says it.
  */
-export function PostCover({ post, sizes, priority = false, ratio = "aspect-[16/10]" }: { post: BlogPost; sizes: string; priority?: boolean; ratio?: string }) {
+export function PostCover({ post, sizes, priority = false, ratio = "aspect-[16/10]", rounded = "rounded-[20px]" }: { post: BlogPost; sizes: string; priority?: boolean; ratio?: string; /** Its corners; "" inside a card that clips its own. */ rounded?: string }) {
   const src = safeImageUrl(post.cover_image_url)
   const tint = categoryTint(post.category)
   return (
-    <div className={`relative ${ratio} overflow-hidden rounded-2xl ${src ? "bg-[#eef0f3]" : tint.bg} @container`}>
+    <div className={`relative ${ratio} overflow-hidden ${rounded} ${src ? "bg-[#eef0f3]" : tint.bg} @container`}>
       {src ? (
-        <BlogImage src={src} alt="" fill sizes={sizes} priority={priority} className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.015]" />
+        <BlogImage src={src} alt="" fill sizes={sizes} priority={priority} className="object-cover transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.025] motion-reduce:transition-none" />
       ) : (
         <div aria-hidden className="absolute inset-0 flex flex-col justify-between p-[7cqw]" data-blog-cover-fallback="">
           <span className="flex items-center gap-2">
@@ -59,11 +59,16 @@ export function PostCover({ post, sizes, priority = false, ratio = "aspect-[16/1
  * The whole card is one real <a href>, so a crawler and a keyboard both
  * reach the post from it. Cards in a row are the same height: the title
  * holds up to three lines and the excerpt two.
+ *
+ * Blog round 15, the owner: cards in Storelib's own card, as /app draws
+ * one (white, rounded-2xl, a hairline and a soft drop), the picture across
+ * its top. Hovered, the card lifts 2px and its drop deepens; pressed, it
+ * settles back. Transform and shadow only, off with reduced motion.
  */
 export function PostCard({
   post,
   headingLevel = "h2",
-  sizes = "(min-width: 1024px) 380px, (min-width: 640px) 50vw, 100vw",
+  sizes = "(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw",
   priority = false,
 }: {
   post: BlogPost
@@ -80,19 +85,24 @@ export function PostCard({
 }) {
   const H = headingLevel
   return (
-    <article className="group relative flex h-full flex-col" data-blog-card="">
-      <PostCover post={post} sizes={sizes} priority={priority} />
-      <p className="mt-5 flex flex-wrap items-center gap-x-2 text-[14px] text-[#6b7280]">
-        {post.category ? <span className="font-medium text-[#1a1a2e]">{post.category}</span> : null}
-        {post.category && post.published_at ? <span aria-hidden className="text-[#c4c7cd]">·</span> : null}
-        {post.published_at ? <time dateTime={post.published_at}>{shortDate(post.published_at)}</time> : null}
-      </p>
-      <H className="mt-2 line-clamp-3 text-[19px] font-semibold leading-[1.3] tracking-[-0.015em] text-[#1a1a2e] sm:text-[20px]">
-        <Link href={`/blog/${post.slug}`} className="decoration-[#1a1a2e]/30 decoration-1 underline-offset-[3px] after:absolute after:inset-0 after:rounded-2xl group-hover:underline">
-          {post.title}
-        </Link>
-      </H>
-      {post.excerpt ? <p className="mt-2 line-clamp-2 text-[16px] leading-[1.55] text-[#6b7280]">{post.excerpt}</p> : null}
+    <article
+      className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-[translate,box-shadow,border-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:border-[#e5e7eb] hover:shadow-[0_1px_3px_rgba(0,0,0,0.04),0_12px_28px_-14px_rgba(26,26,46,0.22)] active:translate-y-0 active:shadow-[0_1px_3px_rgba(0,0,0,0.05)] focus-within:ring-[3px] focus-within:ring-[#1a1a2e]/20 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+      data-blog-card=""
+    >
+      <PostCover post={post} sizes={sizes} priority={priority} rounded="" />
+      <div className="flex flex-1 flex-col p-5 sm:p-6">
+        <p className="flex flex-wrap items-center gap-x-2 text-[13px] text-[#6b7280]">
+          {post.category ? <span className={`font-medium ${categoryTint(post.category).ink}`}>{post.category}</span> : null}
+          {post.category && post.published_at ? <span aria-hidden className="text-[#c4c7cd]">·</span> : null}
+          {post.published_at ? <time dateTime={post.published_at}>{shortDate(post.published_at)}</time> : null}
+        </p>
+        <H className="mt-2 line-clamp-3 text-balance text-[18px] font-semibold leading-[1.3] tracking-[-0.015em] text-[#1a1a2e] sm:text-[19px]">
+          <Link href={`/blog/${post.slug}`} className="outline-none after:absolute after:inset-0 after:rounded-2xl">
+            {post.title}
+          </Link>
+        </H>
+        {post.excerpt ? <p className="mt-2 line-clamp-2 text-[14px] leading-[1.55] text-[#6b7280]">{post.excerpt}</p> : null}
+      </div>
     </article>
   )
 }

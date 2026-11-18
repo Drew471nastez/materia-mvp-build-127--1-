@@ -109,7 +109,8 @@ export async function loadProductEditor(productId: string | null): Promise<Edito
     answer the /app layout already asked for this request, so the owner pays
     no read here (no cookie, no query).
   */
-  const team = await teamStoreForRequest(user.id).catch(() => null)
+  /* A failed read throws (round rel2-auth): the editor's boundary says Try again, never the member's own account's editor. */
+  const team = await teamStoreForRequest(user.id)
   if (team) {
     productReads.catch(() => {})
     if (!permits(team.acting.permissions, "products")) return { state: "signed-out" }

@@ -9,14 +9,15 @@
  * streaks, barbed line art and the name run down the edge.
  *
  * Plain elements, every one drawn by app/onepage-skins.css
- * ([data-skin-scene=...] [data-sk=...]): no images fetched, no state, no
- * effects, nothing that measures. Whatever moves moves by transform or
+ * ([data-skin-scene=...] [data-sk=...]): no state, no effects, nothing that
+ * measures, and no images fetched except Renaissance's painting, the site's
+ * own file (public/images/onepage-themes/renaissance). Whatever moves moves by transform or
  * opacity alone, slowly, and stands still for a visitor who asked for less
  * motion and inside a theme card.
  *
  * It sits where the page's pattern sits (components/onepage/wallpaper-layers
  * WallpaperPattern): in the phone page, in the desktop card and around it,
- * and in the theme card (components/onepage/themes/theme-preview).
+ * and in the theme card (components/onepage/themes/theme-swatch).
  */
 import type * as React from "react"
 /* The skins' stylesheet (scripts/build-onepage-skins.mjs writes it): only a page that can draw a skin loads it. */
@@ -32,7 +33,8 @@ const PIECES: Record<ThemeSkin, ReadonlyArray<readonly [string, number]>> = {
   playful: [["paper", 1], ["blob", 4], ["doodle", 5]],
   grunge: [["copy", 1], ["streaks", 1], ["halftone", 1], ["barbed", 2], ["code", 1], ["edge", 1]],
   /* Round W10: the second versions, and three that stand alone (scripts/onepage-skins/). */
-  aero2: [["rays", 1], ["caustics", 1], ["sand", 1], ["weed", 2], ["fish", 3], ["bubble", 8], ["glint", 2]],
+  /* Round 17: a lit surface, four plants, five fish and ten bubbles (scripts/onepage-skins/aero.mjs aeroAquarium). */
+  aero2: [["surface", 1], ["rays", 1], ["caustics", 1], ["sand", 1], ["weed", 4], ["fish", 5], ["bubble", 10], ["glint", 2]],
   aqua2: [["brush", 1], ["sheen", 1], ["light", 1]],
   messenger2: [["band", 1], ["ribbon", 2], ["glow", 2]],
   y2k2: [["glow", 3], ["floor", 1], ["dots", 1], ["charm", 6], ["spark", 6]],
@@ -41,6 +43,8 @@ const PIECES: Record<ThemeSkin, ReadonlyArray<readonly [string, number]>> = {
   classic98: [["dither", 1], ["taskbar", 1], ["icon", 2]],
   vaporwave: [["stars", 1], ["sun", 1], ["mountains", 1], ["floor", 1], ["horizon", 1], ["palm", 2], ["vhs", 1]],
   arcade: [["stars", 1], ["twinkle", 5], ["coin", 2], ["hills", 1], ["hud", 1], ["crt", 1]],
+  renaissance: [["painting", 1]],
+  stoicism: [["stone", 1], ["grid", 1], ["construction", 1], ["vignette", 1]],
 }
 
 export function ThemeSkinScene({

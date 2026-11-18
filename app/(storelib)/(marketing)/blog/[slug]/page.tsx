@@ -23,7 +23,8 @@ import { STATIC_POST_BODIES } from "../_components/static-posts"
   reads for the same page. Rebuilt in the background at most once a minute,
   the same minute next.config's `/blog/:path*` rule already gives the CDN.
 */
-export const revalidate = 60
+/* An hour (round 54, Vercel cost): saving, publishing and a post going live clear these at once (lib/blog/admin-http.ts, went-live.ts; the platform switch clears /help). */
+export const revalidate = 3600
 
 /** The byline the editor gives a post by default, and the four code-written posts'. */
 const DEFAULT_BYLINE = "Anisia - Head of Marketing"

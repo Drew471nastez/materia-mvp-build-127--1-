@@ -62,14 +62,14 @@ import { ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Minus, Pause, Pla
 import { cn } from "@/lib/utils"
 import { shopMoneyIn } from "@/lib/store/shop-money"
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
-import { loadProductFacts, type ProductFacts } from "@/components/checkout/instant-checkout"
+import { loadProductFacts, type ProductFacts } from "@/components/checkout/product-facts"
 import { productCheckoutUrl, sheetBuyBlocker, sheetButtonLabel, sheetMaxQuantity } from "@/lib/onepage/product-block"
 import { onePageShippedCheckoutHref } from "@/lib/onepage/shipped-checkout"
 import { onePageOutboundHref, platformHref } from "@/lib/onepage/return-address"
 import { ProductQuestions, SizeChartBody, SizeChartPanel } from "@/components/product/size-chart-panel"
 import { pixelEvent } from "@/lib/analytics/pixels"
 import { choose, pickerOptions, valueAvailable, variantFor, type ProductOptionData } from "@/lib/products/product-page-model"
-import { DOT_STEP_PX, SHEET_GALLERY_RATIO, dotPosition, isSizeOption, mediaFit, optionLook, savedPercent, sheetImageFor, sheetImages, sheetModel, sheetStartChoice, sheetValued, valueSwatch, type SheetModel } from "@/lib/onepage/product-sheet"
+import { DOT_PILL_PX, DOT_PX, SHEET_GALLERY_RATIO, bookFace, dotLights, dotPosition, isSizeOption, mediaFit, optionLook, savedPercent, sheetImageFor, sheetImages, sheetModel, sheetStartChoice, sheetValued, valueSwatch, type SheetModel } from "@/lib/onepage/product-sheet"
 import { mediaOf, type MediaEntry } from "@/lib/media/video"
 import { FramedPicture, useLetterbox } from "@/components/ui/framed-picture"
 import { firstFrameSrc, prefersStill } from "@/lib/onepage/poster-video"
@@ -80,7 +80,7 @@ import type { SizeChart } from "@/lib/size-charts/model"
 
 /** The sheet's main button: lifted a pixel under a mouse (translate), lit by a layer's opacity. */
 const MAIN_BUTTON =
-  "relative isolate flex h-12 items-center justify-center overflow-hidden rounded-xl bg-[#111113] text-[15px] font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.18)] outline-none transition-[translate,opacity] duration-200 ease-out before:absolute before:inset-0 before:bg-white before:opacity-0 before:transition-opacity before:duration-200 hover:-translate-y-px hover:before:opacity-[0.08] active:translate-y-0 focus-visible:ring-2 focus-visible:ring-[#111113]/30 focus-visible:ring-offset-2"
+  "relative isolate flex h-[52px] items-center justify-center overflow-hidden rounded-xl bg-[#111113] text-[16px] font-semibold tracking-[-0.005em] text-white shadow-[0_1px_2px_rgba(0,0,0,0.18)] outline-none transition-[translate,opacity] duration-200 ease-out before:absolute before:inset-0 before:bg-white before:opacity-0 before:transition-opacity before:duration-200 hover:-translate-y-px hover:before:opacity-[0.08] active:translate-y-0 focus-visible:ring-2 focus-visible:ring-[#111113]/30 focus-visible:ring-offset-2"
 
 /** The motion every opening part of the sheet shares: iOS's own curve. */
 const EASE = "ease-[cubic-bezier(0.32,0.72,0,1)]"
@@ -288,6 +288,9 @@ export function ProductSheet({ open, onClose, warm = false, productId, title, im
 
   const bodyFont = font?.body ? { fontFamily: font.body } : undefined
   const titleFont = font?.title ? { fontFamily: font.title } : undefined
+  /* A book face (Renaissance's Cormorant and Garamond) draws small letters small: its title and price a step larger. */
+  const bookTitle = bookFace(font?.title)
+  const bookBody = bookFace(font?.body)
   const desktop = !phone
   const twoColumns = desktop && images.length > 0
 
@@ -300,24 +303,44 @@ export function ProductSheet({ open, onClose, warm = false, productId, title, im
   ) : null
 
   const details = (
-    <div className={cn("space-y-3 px-5 pb-8 pt-4 sm:px-6", twoColumns && "pt-6")} data-product-sheet-details="">
-      <SheetDialogTitle className={cn("text-[20px] font-semibold leading-snug tracking-[-0.01em] text-[#111113]", twoColumns && "pr-8")}>
-        <span style={titleFont}>{p?.title || title}</span>
-      </SheetDialogTitle>
-      {price ? (
-        <p className="flex flex-wrap items-center gap-x-2 gap-y-1" data-product-sheet-price="">
-          <span className="text-[18px] font-semibold tabular-nums text-[#111113]">{price}</span>
-          {was ? <s className="text-[14px] tabular-nums text-[#6b7280]" data-product-sheet-was="">{was}</s> : null}
-          {saved ? (
-            <span className="inline-flex h-6 items-center rounded-full bg-[#111113] px-2 text-[12px] font-semibold tabular-nums text-white" data-product-sheet-sale="">
-              Save {saved}%
-            </span>
-          ) : null}
-          {left && !soldOut ? <span className="rounded-full bg-[#f4f4f6] px-2 py-0.5 text-[12px] font-medium text-[#4b5563]">Only {left} left</span> : null}
-        </p>
-      ) : null}
+    /*
+      Wave 16, the owner: "the title font size, the price, the compare at price and the product info must be the best
+      size: clean, modern". One scale, matched on the store's product page (website-builder product-blocks Price):
+        title        22px (24px in the computer's column), the page's title face, tight leading; in a book face
+                     (bookFace) 25px (28px), medium
+        price        20px semibold (22px in a book face), figures of one width; 6px under the title, one group
+        compare at   15px (17px) in the muted ink, a thin strike
+        Save         a soft pill of the ink (not a filled block louder than the price), 12px semibold
+      then 20px to the options, whose labels are 14px.
+    */
+    <div className={cn("space-y-5 px-5 pb-8 pt-5 sm:px-6", twoColumns && "pt-6")} data-product-sheet-details="">
+      <div className="space-y-1.5" data-product-sheet-head="">
+        <SheetDialogTitle
+          className={cn(
+            "leading-[1.2] text-[#111113] [text-wrap:balance]",
+            bookTitle ? "text-[25px] font-medium tracking-[-0.005em]" : "text-[22px] font-semibold tracking-[-0.015em]",
+            twoColumns && "pr-8",
+            twoColumns && (bookTitle ? "sm:text-[28px]" : "sm:text-[24px]"),
+          )}
+          data-book={bookTitle ? "" : undefined}
+        >
+          <span style={titleFont}>{p?.title || title}</span>
+        </SheetDialogTitle>
+        {price ? (
+          <p className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5" data-product-sheet-price="">
+            <span className={cn("font-semibold leading-7 tabular-nums text-[#111113]", bookBody ? "text-[22px]" : "text-[20px] tracking-[-0.01em]")}>{price}</span>
+            {was ? <s className={cn("leading-7 tabular-nums text-[#6b7280] decoration-1", bookBody ? "text-[17px]" : "text-[15px]")} data-product-sheet-was="">{was}</s> : null}
+            {saved ? (
+              <span className="inline-flex h-[22px] items-center rounded-full bg-[color-mix(in_srgb,var(--opk-ink,#111113)_9%,transparent)] px-2 text-[12px] font-semibold leading-none tabular-nums text-[#111113]" data-product-sheet-sale="">
+                Save {saved}%
+              </span>
+            ) : null}
+            {left && !soldOut ? <span className="inline-flex h-[22px] items-center rounded-full bg-[#f4f4f6] px-2 text-[12px] font-medium leading-none text-[#4b5563]">Only {left} left</span> : null}
+          </p>
+        ) : null}
+      </div>
       {p && p.variants.length > 1 ? (
-        <div className="space-y-4 pt-1" data-product-sheet-options="">
+        <div className="space-y-5" data-product-sheet-options="">
           {options.map((o, i) => (
             <OptionRow
               key={`${o.name}-${i}`}
@@ -333,8 +356,8 @@ export function ProductSheet({ open, onClose, warm = false, productId, title, im
         </div>
       ) : null}
       {p?.ships && !p.soldOut ? (
-        <div className="flex items-center justify-between gap-3 pt-1" data-product-sheet-qty="">
-          <span className="text-[14px] font-medium text-[#374151]">Quantity</span>
+        <div className="flex items-center justify-between gap-3" data-product-sheet-qty="">
+          <span className="text-[14px] font-medium text-[#111113]">Quantity</span>
           <div className="flex h-10 items-center rounded-xl border border-[#e3e4e8]">
             <button type="button" aria-label="One fewer" onClick={() => setQuantity((q) => Math.max(1, q - 1))} disabled={quantity <= 1} className="grid h-10 w-10 place-items-center text-[#111113] transition-opacity disabled:opacity-30" data-product-sheet-qty-less="">
               <Minus aria-hidden className="h-4 w-4" />
@@ -352,28 +375,28 @@ export function ProductSheet({ open, onClose, warm = false, productId, title, im
         <PersonalizationFields
           state={personal}
           productId={p.id}
-          className="space-y-4 pt-2"
+          className="space-y-4"
           look={{ ink: "var(--opk-ink, #111113)", muted: "var(--opk-muted, #6b7280)", line: "var(--opk-line, #e3e4e8)", field: "var(--opk-surface, #ffffff)", radius: 12 }}
         />
       ) : null}
       {failed ? <p className="text-[14px] text-[#6b7280]">{failed}</p> : null}
       {p?.descriptionHtml ? (
         <div
-          className="max-w-none pt-1 text-[15px] leading-relaxed text-[#374151] [&_a]:underline [&_h1]:text-[17px] [&_h1]:font-semibold [&_h2]:text-[16px] [&_h2]:font-semibold [&_h3]:font-semibold [&_img]:my-3 [&_img]:rounded-xl [&_li]:ml-5 [&_ol]:list-decimal [&_p]:my-2 [&_ul]:list-disc"
+          className="max-w-none text-[15px] leading-relaxed text-[#374151] [&_a]:underline [&_h1]:text-[17px] [&_h1]:font-semibold [&_h2]:text-[16px] [&_h2]:font-semibold [&_h3]:font-semibold [&_img]:my-3 [&_img]:rounded-xl [&_li]:ml-5 [&_ol]:list-decimal [&_p]:my-2 [&_ul]:list-disc"
           data-product-sheet-description=""
           /* Sanitised on the server (lib/website-builder/sanitize sanitizeRichText), as every creator text a page shows. */
           dangerouslySetInnerHTML={{ __html: p.descriptionHtml }}
         />
       ) : !p && !failed ? (
-        <div aria-hidden className="space-y-2 pt-1">
+        <div aria-hidden className="space-y-2">
           <div className="h-3.5 w-11/12 rounded-full bg-[#f1f2f4]" />
           <div className="h-3.5 w-4/5 rounded-full bg-[#f1f2f4]" />
           <div className="h-3.5 w-2/3 rounded-full bg-[#f1f2f4]" />
         </div>
       ) : null}
       {/* Round 13: its size chart and its own questions, as its product page shows them. Round 43: beside the size option when it has one. */}
-      {p?.sizeChart && !(valued && options.some((o) => isSizeOption(o.name)) && p.variants.length > 1) ? <SizeChartPanel chart={p.sizeChart} className="mt-1" /> : null}
-      {p?.faqs?.length ? <ProductQuestions faqs={p.faqs} className="pt-2" /> : null}
+      {p?.sizeChart && !(valued && options.some((o) => isSizeOption(o.name)) && p.variants.length > 1) ? <SizeChartPanel chart={p.sizeChart} /> : null}
+      {p?.faqs?.length ? <ProductQuestions faqs={p.faqs} /> : null}
     </div>
   )
 
@@ -386,15 +409,15 @@ export function ProductSheet({ open, onClose, warm = false, productId, title, im
     */
     <div className="relative z-[1] shrink-0 bg-white px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 before:pointer-events-none before:absolute before:inset-x-0 before:-top-6 before:h-6 before:bg-gradient-to-t before:from-[color-mix(in_srgb,var(--opk-surface,#ffffff)_88%,transparent)] before:to-transparent before:content-[''] sm:px-6 sm:pb-5" data-product-sheet-actions="">
       {failed && !p ? (
-        <p className="flex h-12 items-center justify-center rounded-xl bg-[#f4f4f6] text-[15px] font-semibold text-[#6b7280]" data-product-sheet-unavailable="">
+        <p className="flex h-[52px] items-center justify-center rounded-xl bg-[#f4f4f6] text-[16px] font-semibold text-[#6b7280]" data-product-sheet-unavailable="">
           Not for sale right now
         </p>
       ) : p?.soldOut ? (
-        <p className="flex h-12 items-center justify-center rounded-xl bg-[#f4f4f6] text-[15px] font-semibold text-[#6b7280]" data-product-sheet-soldout="">
+        <p className="flex h-[52px] items-center justify-center rounded-xl bg-[#f4f4f6] text-[16px] font-semibold text-[#6b7280]" data-product-sheet-soldout="">
           Sold out
         </p>
       ) : owned && facts?.buyer ? (
-        <a href={platformHref(facts.buyer.library)} className="flex h-12 items-center justify-center rounded-xl bg-[#111113] text-[15px] font-semibold text-white transition-[opacity] duration-150 hover:opacity-90">
+        <a href={platformHref(facts.buyer.library)} className="flex h-[52px] items-center justify-center rounded-xl bg-[#111113] text-[16px] font-semibold tracking-[-0.005em] text-white transition-[opacity] duration-150 hover:opacity-90">
           Open in your library
         </a>
       ) : action === "page" && pageHref ? (
@@ -409,7 +432,8 @@ export function ProductSheet({ open, onClose, warm = false, productId, title, im
           href={checkoutHref ?? "#"}
           onClick={buy}
           aria-disabled={blocker ? true : undefined}
-          className={cn(MAIN_BUTTON, blocker === "loading" && "pointer-events-none opacity-60", (blocker === "choose option" || blocker === "sold out") && "opacity-50")}
+          /* Round 3: a button that cannot be pressed yet says why in its own words ("Choose an option", "Sold out"), at full strength: faded to half it read at 2:1. */
+          className={cn(MAIN_BUTTON, blocker === "loading" && "pointer-events-none", blocker && "cursor-default hover:translate-y-0 hover:before:opacity-0")}
           data-product-sheet-buy=""
           data-product-sheet-action="checkout"
         >
@@ -417,7 +441,7 @@ export function ProductSheet({ open, onClose, warm = false, productId, title, im
         </a>
       )}
       {pageHref && pageLink && action !== "page" && !(failed && !p) ? (
-        <a href={pageHref} className="mt-2 flex h-10 items-center justify-center gap-1.5 text-[13.5px] font-medium text-[#6b7280] transition-colors hover:text-[#111113]" data-product-sheet-page="">
+        <a href={pageHref} className="mt-1.5 flex h-10 items-center justify-center gap-1.5 text-[14px] font-medium text-[#6b7280] transition-colors hover:text-[#111113]" data-product-sheet-page="">
           See full page
           <ExternalLink aria-hidden className="h-3.5 w-3.5" />
         </a>
@@ -454,7 +478,13 @@ export function ProductSheet({ open, onClose, warm = false, productId, title, im
         </div>
       ) : (
         <div ref={body} className="flex min-h-0 flex-col" style={bodyFont} data-product-sheet={productId}>
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain op-subtle-scroll">
+          {/*
+            Wave 16, the owner's screenshot (the editor's phone): the picture stood narrower than the button under it and
+            the thumbnails off centre, because op-subtle-scroll keeps a stable gutter for a scrollbar on a mouse screen,
+            taken from the right of the words. In the sheet there is no bar and no gutter (a phone's own bars float
+            over the page anyway); the fade over the button says there is more.
+          */}
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain op-subtle-scroll [scrollbar-gutter:auto]! [scrollbar-width:none]! [&::-webkit-scrollbar]:hidden" data-product-sheet-scroll="">
             {gallery}
             {details}
           </div>
@@ -495,10 +525,10 @@ function OptionRow({
   return (
     <div data-product-sheet-option={option.name} data-look={asSwatches ? "swatch" : "pill"}>
       {named ? (
-        <div className="mb-2 flex items-baseline justify-between gap-3">
-          <p id={id} className="min-w-0 truncate text-[14px] font-medium text-[#111113]">
+        <div className="mb-2.5 flex items-baseline justify-between gap-3">
+          <p id={id} className="min-w-0 truncate text-[14px] font-semibold leading-5 text-[#111113]">
             {option.name}
-            {current ? <span className="ml-1.5 font-normal text-[#6b7280]">{current}</span> : null}
+            {current ? <span className="ml-2 font-normal text-[#6b7280]">{current}</span> : null}
           </p>
           {sizeChart ? (
             <button
@@ -558,7 +588,8 @@ function OptionRow({
               data-product-sheet-value={value}
               data-unavailable={can ? undefined : ""}
               className={cn(
-                "min-h-10 min-w-11 rounded-xl border px-3.5 text-[14px] font-medium outline-none transition-[border-color,box-shadow,background-color] duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25",
+                /* Wave 16: 44px tall (a thumb's target), at least as wide, figures of one width. */
+                "min-h-11 min-w-12 rounded-xl border px-4 text-[14px] font-medium tabular-nums outline-none transition-[border-color,box-shadow,background-color] duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25",
                 on ? "border-[#111113] bg-white text-[#111113] shadow-[0_0_0_1px_var(--opk-ink,#111113)]" : "border-[#e3e4e8] bg-[#fbfbfc] text-[#374151] hover:border-[#c9ccd2]",
                 !can && "text-[#9ca3af] line-through decoration-1",
               )}
@@ -621,7 +652,7 @@ function Gallery({ images, title, phone, focus = -1, active = true }: { images: 
   */
   const ratio = SHEET_GALLERY_RATIO
   const strip = React.useRef<HTMLDivElement>(null)
-  const lit = React.useRef<HTMLSpanElement>(null)
+  const dots = React.useRef<HTMLDivElement>(null)
   const thumbs = React.useRef<HTMLDivElement>(null)
   const [at, setAt] = React.useState(0)
   const atRef = React.useRef(0)
@@ -638,12 +669,25 @@ function Gallery({ images, title, phone, focus = -1, active = true }: { images: 
     setAt(n)
   }, [])
 
-  /* The lit dot to the scroll, written straight to its style: once per scroll event, no render. */
+  /*
+    The dots to the scroll, written straight to their style: once per scroll event, no render. Wave 16: the dot shown
+    is a pill; each dot's width and strength follow the scroll (dotLights), so the pill flows from one dot to the next
+    with the finger and the capsule keeps its size.
+  */
   const track = React.useCallback(() => {
     const el = strip.current
     if (!el) return
     const pos = dotPosition(el.scrollLeft, el.clientWidth, count)
-    if (lit.current) lit.current.style.translate = `${pos * DOT_STEP_PX}px 0`
+    const row = dots.current
+    if (row) {
+      const lights = dotLights(pos, count)
+      for (let i = 0; i < row.children.length; i++) {
+        const d = row.children[i] as HTMLElement
+        const l = lights[i] ?? 0
+        d.style.width = `${DOT_PX + l * (DOT_PILL_PX - DOT_PX)}px`
+        d.style.opacity = String(0.5 + l * 0.5)
+      }
+    }
     if (heading.current !== null) {
       if (Math.abs(pos - heading.current) > 0.01) return
       heading.current = null
@@ -656,6 +700,8 @@ function Gallery({ images, title, phone, focus = -1, active = true }: { images: 
       const el = strip.current
       if (!el) return
       const n = Math.max(0, Math.min(count - 1, i))
+      /* Reduced motion: the step is made at once, no glide. */
+      if (smooth && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) smooth = false
       heading.current = smooth ? n : null
       el.scrollTo({ left: n * el.clientWidth, behavior: smooth ? "smooth" : "auto" })
       settle(n)
@@ -708,13 +754,18 @@ function Gallery({ images, title, phone, focus = -1, active = true }: { images: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus, count])
 
-  /* The thumbnail of the slide shown stays in view in its row. */
+  /* The thumbnail of the slide shown stays in view in its row: the row moves only when it is (partly) out of view. */
   React.useEffect(() => {
     const row = thumbs.current
     const t = row?.children[at] as HTMLElement | undefined
     if (!row || !t) return
-    const left = t.offsetLeft - (row.clientWidth - t.offsetWidth) / 2
-    row.scrollTo({ left: Math.max(0, left), behavior: "smooth" })
+    const pad = 4
+    const start = t.offsetLeft - pad
+    const end = t.offsetLeft + t.offsetWidth + pad - row.clientWidth
+    const left = start < row.scrollLeft ? start : end > row.scrollLeft ? end : null
+    if (left === null) return
+    const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    row.scrollTo({ left: Math.max(0, left), behavior: still ? "auto" : "smooth" })
   }, [at])
 
   /* The full player's file, asked for while the page is idle when there is a video to play in it. */
@@ -731,8 +782,9 @@ function Gallery({ images, title, phone, focus = -1, active = true }: { images: 
   return (
     <div data-product-sheet-gallery="" data-count={count}>
       <div
-        className="relative isolate mx-auto overflow-hidden rounded-2xl bg-[#f4f4f6]"
-        style={{aspectRatio:String(ratio),width:`min(100%, calc(60dvh * ${ratio}))`}}
+        /* Wave 16, the owner: "the main product image must display full width". It was capped at 60% of the screen's height and centred, so on a short screen (the editor's phone) it stood narrower than the words under it. */
+        className="relative isolate w-full overflow-hidden rounded-2xl bg-[#f4f4f6]"
+        style={{aspectRatio:String(ratio)}}
         tabIndex={many && !phone ? 0 : undefined}
         aria-roledescription={many ? "carousel" : undefined}
         aria-label={many ? `${title}, ${at + 1} of ${count}` : undefined}
@@ -791,13 +843,17 @@ function Gallery({ images, title, phone, focus = -1, active = true }: { images: 
         </div>
         {many ? (
           <>
-            {/* On a dark capsule, so the dots read on a white photo as on a dark one; the lit one rides the scroll. */}
+            {/*
+              Wave 16: on a soft frosted capsule (a dark tint, blurred, with a hairline), so the dots read on a white photo
+              as on a dark one; the dot shown is a pill whose width flows with the scroll (track). Its first frame is
+              written here, the same as track's at rest on the first slide, and never by a render after. White as #fff, not
+              bg-white, which a dark page's sheet repaints in its own surface (app/globals.css .op-sheet).
+            */}
             <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex justify-center transition-opacity duration-200 ease-out starting:opacity-0" data-product-sheet-dots="">
-              <div className="relative flex items-center gap-[6px] rounded-full bg-black/35 px-2 py-[5px]">
+              <div ref={dots} aria-hidden className="flex items-center gap-[5px] rounded-full bg-black/30 px-[7px] py-[6px] shadow-[inset_0_0_0_0.5px_rgba(255,255,255,0.18)] backdrop-blur-md [contain:layout_paint]">
                 {media.map((_, i) => (
-                  <span key={i} className="block h-[6px] w-[6px] rounded-full bg-white/45" />
+                  <span key={i} className="block h-[6px] shrink-0 rounded-full bg-[#fff]" style={{ width: i === 0 ? DOT_PILL_PX : DOT_PX, opacity: i === 0 ? 1 : 0.5 }} data-product-sheet-dot="" />
                 ))}
-                <span ref={lit} aria-hidden className="absolute left-2 top-[5px] block h-[6px] w-[6px] rounded-full bg-white [will-change:translate]" data-product-sheet-dot-on="" />
               </div>
             </div>
             {!phone ? (
@@ -817,12 +873,15 @@ function Gallery({ images, title, phone, focus = -1, active = true }: { images: 
         /*
           Wave 10 (legible), the owner: "find a way to display the product images there the best, keep the format square".
           The row was 56px squares at the left with the rest of the width empty. Now each thumbnail is a fifth of the
-          gallery's width (less the gaps, at most 72px), square, the row centred under the square while it fits (auto
-          margins on its ends, so a longer row still scrolls from its first) and a strip that scrolls beyond five.
+          gallery's width (less the gaps, at most 72px), square, and a strip that scrolls beyond five.
+          Wave 16, the owner: "the photo thumbnails must be left aligned, not centred", "unselected thumbnails must not
+          look dimmed". The row starts at the picture's left edge; every thumbnail at full strength, the one shown
+          marked by a ring alone (the ink, a hair off the picture on the sheet's surface). The row's 4px of padding,
+          taken back by a negative margin, is the ring's room: a scrolling row would cut it off.
           A video's thumbnail is its still, filled, with a small play mark in its corner; without a still, the sheet's
           raised tone with the mark in the middle, never a grey box or a cut-off screenshot of words.
         */
-        <div ref={thumbs} className="mt-2.5 flex gap-2 overflow-x-auto overscroll-x-contain pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" data-sheet-no-drag="" data-product-sheet-thumbs="">
+        <div ref={thumbs} className="-m-1 mt-1.5 flex gap-2 overflow-x-auto overflow-y-hidden p-1 overscroll-x-contain pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" data-sheet-no-drag="" data-product-sheet-thumbs="">
           {media.map((m, i) => {
             const still = m.type === "video" ? m.poster : m.url
             return (
@@ -833,8 +892,8 @@ function Gallery({ images, title, phone, focus = -1, active = true }: { images: 
                 aria-current={i === at ? "true" : undefined}
                 onClick={() => go(i)}
                 className={cn(
-                  "relative aspect-square w-[calc((100%-32px)/5)] max-w-[72px] shrink-0 overflow-hidden rounded-[10px] bg-[#f4f4f6] outline-none transition-opacity duration-200 first:ml-auto last:mr-auto focus-visible:ring-2 focus-visible:ring-[#111113]/30",
-                  i === at ? "opacity-100" : "opacity-60 hover:opacity-90",
+                  "relative aspect-square w-[calc((100%-32px)/5)] max-w-[72px] shrink-0 overflow-hidden rounded-[10px] bg-[#f4f4f6] outline-none transition-[box-shadow] duration-200 ease-out motion-reduce:transition-none focus-visible:shadow-[0_0_0_2px_var(--opk-surface,#ffffff),0_0_0_4px_color-mix(in_srgb,var(--opk-ink,#111113)_40%,transparent)]",
+                  i === at && "shadow-[0_0_0_2px_var(--opk-surface,#ffffff),0_0_0_3.5px_var(--opk-ink,#111113)] focus-visible:shadow-[0_0_0_2px_var(--opk-surface,#ffffff),0_0_0_3.5px_var(--opk-ink,#111113)]",
                 )}
                 data-product-sheet-thumb={m.type}
               >
@@ -849,7 +908,8 @@ function Gallery({ images, title, phone, focus = -1, active = true }: { images: 
                     </span>
                   </span>
                 ) : null}
-                <span aria-hidden className={cn("pointer-events-none absolute inset-0 rounded-[10px] transition-shadow duration-200", i === at ? "shadow-[inset_0_0_0_2px_var(--opk-ink,#111113)]" : "shadow-[inset_0_0_0_1px_rgba(0,0,0,0.08)]")} />
+                {/* A hairline keeps a white picture's edge on a white sheet; the ring outside marks the one shown. */}
+                <span aria-hidden className="pointer-events-none absolute inset-0 rounded-[10px] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.07)]" />
               </button>
             )
           })}

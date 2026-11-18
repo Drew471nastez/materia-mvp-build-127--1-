@@ -12,6 +12,7 @@ import { PACKAGE_PATH_RE, listingRowBySlug, rowToListing } from "@/lib/themes/ma
 import { POST as addRegistryTheme } from "@/app/api/website-builder/themes/add/route"
 import { POST as importThemePackage } from "@/app/api/website-builder/themes/import/route"
 import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
+import { storeUnavailableResponse } from "@/lib/team/server"
 
 export const runtime = "nodejs"
 /* The same work the import does, and its photograph after. */
@@ -56,7 +57,9 @@ export async function POST(req: Request) {
   const listing = row ? rowToListing(row) : builtinListings().find((b) => b.slug === slug) ?? null
   if (!listing || !listing.published) return NextResponse.json({ error: "No theme has this address." }, { status: 404 })
 
-  const plan = listing.tier === "pro" ? await creatorSitePlan(creator.id as string) : "free"
+  /* A plan read that failed is a 503 Try again, never "this theme is for Pro" to a paying store (round rel2-auth). */
+  const plan = listing.tier === "pro" ? await creatorSitePlan(creator.id as string).catch(() => null) : "free"
+  if (plan === null) return storeUnavailableResponse()
   const verdict = addVerdict(listing, plan === "growth" || plan === "pro")
   if (verdict.ok === false) {
     const reason = (verdict as { reason: keyof typeof ADD_REFUSALS }).reason

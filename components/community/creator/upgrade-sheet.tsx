@@ -27,7 +27,7 @@ export function UpgradeSheet({ open, onClose }: { open: boolean; onClose: () => 
     <Dialog
       open={open}
       onClose={onClose}
-      title={tt("Run more communities on Pro")}
+      title={tt("Run more communities on Grow")}
       footer={
         <>
           <button type="button" onClick={onClose} className={cn(buttonSecondary, "h-10 px-4 sm:h-9")}>

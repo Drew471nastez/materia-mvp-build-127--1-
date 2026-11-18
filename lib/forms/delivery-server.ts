@@ -3,7 +3,8 @@ import https from "node:https"
 import type net from "node:net"
 import { publicLookup } from "@/lib/api/public-fetch"
 import { sendEmail, buildFromHeader } from "@/lib/mail"
-import { resolveCreatorIdentity } from "@/lib/email"
+import { resolveCreatorIdentityForUser } from "@/lib/email"
+import { loginEmailFrom, provenInboxForUser } from "@/lib/seller-inbox"
 import { platformEmail } from "@/lib/emails/layout"
 import { openSecret } from "@/lib/physical/secrets"
 import { platformOrigin } from "@/lib/onepage/return-address"
@@ -11,6 +12,9 @@ import { answerText, type Answer } from "./definition"
 import { MAX_ATTEMPTS, retryDelayMs, signWebhook, webhookUrlProblem } from "./webhook"
 import { FORM_UPLOAD_BUCKET } from "./uploads-server"
 import { expireUnpaidBookings } from "./booking-payment"
+import { visitorBookingMail } from "@/lib/bookings/emails"
+import { bookingManagePath } from "@/lib/bookings/manage-token"
+import type { StoredLocation } from "@/lib/bookings/calendar-file"
 
 /*
   EVERYTHING A RESPONSE SENDS, SENT ONCE, RETRIED UNTIL IT IS.
@@ -174,7 +178,9 @@ async function perform(db: Db, job: JobRow): Promise<void> {
   if (error) throw new Error("The response could not be read.")
   if (!sub) throw permanent("The response was deleted.")
   const submission = sub as SubmissionRow
-  const { data: booking } = await db.from("form_bookings").select("id,starts_at,ends_at,status,visitor_timezone").eq("submission_id", submission.id).maybeSingle()
+  /* Round AR: where it happens and how often it moved, for the visitor's .ics; before part 410 those columns are not there. */
+  let { data: booking, error: bookingError } = await db.from("form_bookings").select("id,starts_at,ends_at,status,visitor_timezone,location,reschedule_count").eq("submission_id", submission.id).maybeSingle()
+  if (bookingError) ({ data: booking } = await db.from("form_bookings").select("id,starts_at,ends_at,status,visitor_timezone").eq("submission_id", submission.id).maybeSingle())
   switch (job.provider) {
     case "owner_email":
       return ownerEmail(db, job, submission, booking)
@@ -189,11 +195,11 @@ async function perform(db: Db, job: JobRow): Promise<void> {
   }
 }
 
-type Booking = { id: string; starts_at: string; ends_at: string; status: string; visitor_timezone: string | null } | null
+type Booking = { id: string; starts_at: string; ends_at: string; status: string; visitor_timezone: string | null; location?: StoredLocation | null; reschedule_count?: number | null } | null
 
 function when(iso: string, tz: string | null | undefined): string {
   try {
-    return new Intl.DateTimeFormat("en-GB", { dateStyle: "full", timeStyle: "short", timeZone: tz || "UTC", timeZoneName: "short" }).format(new Date(iso))
+    return new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: tz || "UTC", timeZoneName: "short" }).format(new Date(iso))
   } catch {
     return new Date(iso).toUTCString()
   }
@@ -204,20 +210,37 @@ function answerFacts(answers: Answer[]): { label: string; value: string }[] {
 }
 
 async function ownerEmail(db: Db, job: JobRow, s: SubmissionRow, booking: Booking) {
-  const identity = await resolveCreatorIdentity(db, job.owner_id).catch(() => null)
-  const to = identity?.sellerEmail
+  /*
+    Round AX: a visitor's answers go to an address the store has proven it
+    owns (lib/seller-inbox provenInbox): its support email only when that is
+    the account's or a team member's sign in address, else the account's own.
+    owner_id is the form owner's USER id; resolveCreatorIdentity reads a
+    creators.id, found no store for it, and answered Storelib's own support
+    inbox, so responses never reached the creator.
+  */
+  const inbox = await provenInboxForUser(db, job.owner_id, loginEmailFrom(db)).catch(() => null)
+  const to = inbox?.to
   if (!to || !to.includes("@")) throw permanent("No email address on the account.")
   /* Round 51: the response open in Contacts › Forms (the old Emails › Leads link pointed at a tab that is gone). */
-  const link = `${platformOrigin()}/app/contacts/forms?form=${encodeURIComponent(job.form_id)}&view=responses&response=${encodeURIComponent(s.id)}`
+  /* Round AR: a booking opens in Bookings, its time in the creator's own zone (the form's booking settings). */
+  const link = booking
+    ? `${platformOrigin()}/app/bookings?booking=${encodeURIComponent(booking.id)}`
+    : `${platformOrigin()}/app/contacts/forms?form=${encodeURIComponent(job.form_id)}&view=responses&response=${encodeURIComponent(s.id)}`
   const who = s.contact_name || s.contact_email || "Someone"
-  const subject = booking ? `Booking request: ${s.form_title}`.slice(0, 200) : `New response: ${s.form_title}`.slice(0, 200)
-  const slot = booking ? [{ label: "Requested time", value: `${when(booking.starts_at, null)}${booking.status === "pending" ? " (waiting for your answer)" : ""}` }] : []
+  let ownerZone: string | null = null
+  if (booking) {
+    const { data: f } = await db.from("native_forms").select("published").eq("id", job.form_id).eq("owner_id", job.owner_id).maybeSingle()
+    const tz = (f?.published as { booking?: { timezone?: unknown } } | null)?.booking?.timezone
+    ownerZone = typeof tz === "string" ? tz : null
+  }
+  const subject = booking ? `${booking.status === "confirmed" ? "New booking" : "Booking request"}: ${s.form_title}`.slice(0, 200) : `New response: ${s.form_title}`.slice(0, 200)
+  const slot = booking ? [{ label: booking.status === "confirmed" ? "Time" : "Requested time", value: `${when(booking.starts_at, ownerZone)}${booking.status === "pending" ? " (waiting for your answer)" : ""}` }] : []
   const mail = platformEmail({
     subject,
     heading: subject,
     paragraphs: [`${who} sent ${s.form_title}.`],
     facts: [...slot, ...answerFacts(s.answers)],
-    action: { label: "Open in Leads", url: link },
+    action: { label: booking ? "Open bookings" : "Open in Leads", url: link },
     fallback: false,
   })
   const sent = await sendEmail({ to, subject, html: mail.html, text: mail.text, from: buildFromHeader("Storelib Forms"), replyTo: s.contact_email || undefined, transactional: true, headers: { "X-Storelib-Job": job.id } })
@@ -227,8 +250,47 @@ async function ownerEmail(db: Db, job: JobRow, s: SubmissionRow, booking: Bookin
 async function visitorEmail(db: Db, job: JobRow, s: SubmissionRow, booking: Booking) {
   if (!s.contact_email) throw permanent("The visitor left no email address.")
   if (!booking) throw permanent("There is no booking on this response.")
-  const identity = await resolveCreatorIdentity(db, job.owner_id).catch(() => null)
+  /* Round AY: job.owner_id is the form owner's USER id; the store is found by creators.user_id. */
+  const identity = await resolveCreatorIdentityForUser(db, job.owner_id).catch(() => null)
   const confirmed = job.provider === "booking_confirmed"
+  /*
+    Round AR: a confirmation carries the .ics and "Add to Google Calendar",
+    where it happens, and the signed link to change or cancel; a request
+    received says it waits for the creator (lib/bookings/emails.ts). A
+    booking already cancelled or declined by the time this runs sends
+    nothing of the kind.
+  */
+  if ((confirmed && booking.status === "confirmed") || (job.provider === "visitor_email" && booking.status === "pending")) {
+    const host = identity?.fromName || "Your host"
+    let manageUrl: string | null = null
+    try {
+      manageUrl = `${platformOrigin()}${bookingManagePath(booking.id)}`
+    } catch {}
+    const mail = visitorBookingMail({
+      kind: confirmed ? "confirmed" : "requested",
+      title: s.form_title,
+      booking: { id: booking.id, startsAt: booking.starts_at, endsAt: booking.ends_at, visitorTimezone: booking.visitor_timezone, ownerTimezone: "UTC", location: booking.location || null, sequence: booking.reschedule_count || 0 },
+      hostName: host,
+      hostEmail: identity?.replyTo || identity?.sellerEmail || null,
+      visitorEmail: s.contact_email,
+      manageUrl,
+    })
+    const sent = await sendEmail({
+      to: s.contact_email,
+      subject: mail.subject,
+      html: mail.html,
+      text: mail.text,
+      from: buildFromHeader(host),
+      replyTo: identity?.replyTo || identity?.sellerEmail || undefined,
+      attachments: mail.attachments,
+      transactional: true,
+      keepBounce: true,
+      headers: { "X-Storelib-Job": job.id },
+    })
+    if (!sent.success) throw new Error(sent.error || "The email was not sent.")
+    return
+  }
+  if (confirmed || job.provider === "visitor_email") throw permanent("The booking changed before this email went out.")
   const at = when(booking.starts_at, booking.visitor_timezone)
   const subject = (confirmed ? `Confirmed: ${s.form_title}, ${at}` : `Not available: ${s.form_title}`).slice(0, 200)
   const name = identity?.fromName || "Storelib"
@@ -247,7 +309,7 @@ async function visitorEmail(db: Db, job: JobRow, s: SubmissionRow, booking: Book
     text: mail.text,
     from: buildFromHeader(name),
     /* From the store's own domain when it has one verified; Storelib's when the store has no name to send as. */
-    store: identity?.fromName ? job.owner_id : null,
+    store: identity?.fromName ? identity.creatorId : null,
     replyTo: identity?.replyTo || identity?.sellerEmail || undefined,
     transactional: true,
     keepBounce: true,

@@ -525,7 +525,7 @@ section("One scrollbar track on a computer, always there, never moving")
     const products = code("app/(storelib)/app/products/products-client.tsx")
     check("every /app search field focuses with a light grey hairline and a soft halo, never a black 2px edge or a violet ring",
       within.every((f) => HALO_WITHIN.test(code(f)) && !heavy.test(code(f))) && direct.every((f) => HALO.test(code(f)))
-        && !heavy.test(products) && HALO_WITHIN.test(products) && !/focus-within:ring|focus:ring-\[#8b5cf6\]/.test(products)
+        && !heavy.test(products) && /* Changed on purpose (products refresh, 6355fb7): the Products search is a borderless field inside the toolbar, so it has no box to halo. */ (HALO_WITHIN.test(products) || /<label data-search="" className="flex min-w-0 flex-1/.test(products)) && !/focus-within:ring|focus:ring-\[#8b5cf6\]/.test(products)
         && !/placeholder="Search countries\.\.\."[\s\S]{0,500}focus:ring-\[#8b5cf6\]/.test(code("components/app/settings-form-new.tsx"))
         && /<ChoicePicker/.test(code("components/app/settings/country-picker.tsx")) && !/<input/.test(code("components/app/settings/country-picker.tsx"))
         && /focus-visible:shadow-\[inset_0_0_0_1px_#c9ccd3,0_0_0_3px_rgba\(17,17,19,0\.06\)\]/.test(code("components/app/app-search.tsx")) && !/focus-visible:ring-\[#8b5cf6\]/.test(code("components/app/app-search.tsx")),
@@ -591,7 +591,8 @@ section("Sheets")
   /* Explore's filters: "closing must be smoother". The scrim is a layer while a finger dims it, and a button inside can close the sheet the way a tap outside does, the slide before the parent. */
   check("the scrim is its own layer on every sheet, and a control marked data-sheet-close closes the sheet as a tap outside does",
     /* The scrim also says its own pointer-events now (round 10, NOTHING INHERITED CHANGES ON THE TAP in bottom-sheet). */
-    /style=\{\{ opacity: 0, touchAction: "none", willChange: "opacity", pointerEvents: isOpen \? "auto" : "none" \}\}/.test(sheet)
+    /* Changed on purpose (landing round 12, perf): not while a kept sheet rests (a screen sized layer held for nothing); back in the commit that opens it. */
+      /style=\{\{ opacity: 0, touchAction: "none", willChange: atRest \? undefined : "opacity", pointerEvents: isOpen \? "auto" : "none" \}\}/.test(sheet)
       && /const closer = \(e\.target as HTMLElement \| null\)\?\.closest\?\.\("\[data-sheet-close\]"\)\s*if \(closer && e\.currentTarget\.contains\(closer\)\) requestClose\(\)/.test(sheet)
       && /data-sheet-panel=""\s*tabIndex=\{-1\}\s*onClick=\{onPanelClick\}\s*onClickCapture=\{onPanelCapture\}/.test(sheet))
   check("focus moves after the slide, not on its first frames", /window\.setTimeout\(\(\) => \{\s*const panel = sheetRef\.current/.test(sheet))

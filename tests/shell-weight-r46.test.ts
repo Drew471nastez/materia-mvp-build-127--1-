@@ -135,7 +135,8 @@ check(
   entries.join(", "),
 )
 const shell = graph(entries)
-check("  and the header's own module is in their graph", shell.has(join(ROOT, "components/platform/platform-header-client.tsx")))
+/* Changed on purpose (round 63): the header is fetched where a header is drawn (a dynamic import in conditional-header), so a OnePage, which never draws it, does not download it. */
+check("  and the header's own module is fetched by the layout's header, not in every page's graph", !shell.has(join(ROOT, "components/platform/platform-header-client.tsx")) && /const PlatformHeaderClient = dynamic\(\(\) => import\("@\/components\/platform\/platform-header-client"\)/.test(read("components/marketing/conditional-header.tsx")))
 
 const FETCHED_WHEN_USED: [string, RegExp][] = [
   ["the Supabase client (lib/supabase/client.ts)", /\/lib\/supabase\/client\.ts$/],

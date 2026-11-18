@@ -1,5 +1,7 @@
 import type { CSSProperties } from "react"
 import type { OnePageBlock } from "./types"
+import { embedSource, musicSource } from "./creator-blocks"
+import { BLOCK_ICON_LOOKS, type BlockIconLook } from "./social-look"
 
 /** Optional, versionless JSON additions. No value means the original renderer. */
 export interface BlockPresentation {
@@ -30,6 +32,8 @@ export interface BlockPresentation {
   fade?: boolean
   /** The picture's shape on an image card. */
   aspect?: BlockAspect
+  /** Round 3: how a block draws a service's mark (lib/onepage/social-look BLOCK_ICON_LOOKS). None is "original". */
+  icon_look?: BlockIconLook
 }
 export const LINK_VARIANTS = ["original", "visual", "image-first", "featured", "compact", "profile", "tile"] as const
 export type LinkVariant = (typeof LINK_VARIANTS)[number]
@@ -74,6 +78,7 @@ export function presentationOf(block: Pick<OnePageBlock, "style"> | null | undef
     media_mode: choice(raw.media_mode, ["card", "native"]),
     background: color(raw.background), radius: number(raw.radius, 0, 40), shadow: choice(raw.shadow, BLOCK_SHADOWS),
     fade: typeof raw.fade === "boolean" ? raw.fade : undefined, aspect: choice(raw.aspect, BLOCK_ASPECTS),
+    icon_look: choice(raw.icon_look, BLOCK_ICON_LOOKS),
   }
 }
 export function presentationVars(p: BlockPresentation): CSSProperties {
@@ -123,10 +128,25 @@ export function linkLayoutHasImage(layout: LinkLayout): boolean {
   picked. Product blocks keep their own colour rows, so they get shape only.
 */
 export type LayoutControl = "align" | "title" | "description" | "icon" | "background" | "radius" | "shadow" | "padding"
-export type BlockSurface = "own" | "panel"
+export type BlockSurface = "own" | "panel" | "card"
 const OWN_SURFACE = new Set(["link_button", "product", "storelib_shelf"])
 export function blockSurface(type: string): BlockSurface {
   return OWN_SURFACE.has(type) ? "own" : "panel"
+}
+/*
+  A TIPS BLOCK DRAWS ITS OWN CARD (round 3). Its background, corners,
+  shadow and padding were a "panel" laid round the tip card, so a
+  background drew a card inside a card, and the corners, shadow and padding
+  showed nothing until a background was picked. A Storelib tips block reads
+  them itself (components/onepage/tip-block), so they land on the card and
+  are offered from the start; nothing in app/globals.css draws a panel for it.
+*/
+export function blockSurfaceOf(block: Pick<OnePageBlock, "type" | "data">): BlockSurface {
+  if (block.type === "app") {
+    const d = (block.data ?? {}) as { provider?: unknown; tip_mode?: unknown; url?: unknown }
+    if (d.provider === "tips" && (d.tip_mode === "storelib" || (d.tip_mode !== "link" && !String(d.url ?? "").trim()))) return "card"
+  }
+  return blockSurface(block.type)
 }
 export function layoutControlsFor(type: string): LayoutControl[] {
   if (!PRESENTABLE_BLOCKS.has(type)) return []
@@ -161,8 +181,41 @@ export function socialPresentation(url: string): SocialPresentation | null {
     if(host==="vimeo.com"&&/^\d+$/.test(parts[0]||""))return {platform:"Vimeo",embed:`https://player.vimeo.com/video/${parts[0]}`,aspect:"16 / 9"}
     if(["x.com","twitter.com"].includes(host)&&parts[1]==="status"&&/^\d{5,25}$/.test(parts[2]||""))return {platform:"X",embed:`https://platform.twitter.com/embed/Tweet.html?id=${parts[2]}`,aspect:"auto",height:380}
     if (host === "soundcloud.com" && parts.length >= 2) return {platform:"SoundCloud",embed:`https://w.soundcloud.com/player/?url=${encodeURIComponent(u.origin+u.pathname)}&auto_play=false`,aspect:"auto",height:166}
-    return null
+    return moreEmbeds(u, host, parts)
   } catch { return null }
+}
+
+/*
+  ROUND AR3: MORE ADDRESSES A LINK CAN SHOW IN PLACE. The owner: "the embeds of
+  the links I add don't work, for example if I add an Amazon product ... a
+  book, Calendly, pages, embeds in the sheet". A link to one of these is drawn
+  as its card from the address's public preview (app/api/onepage/link-preview,
+  Open Graph with oEmbed for the services that have it), and "Show it here"
+  draws the service's own embed instead, from the same parsers the embed and
+  music blocks use, so a frame is only ever one of the hosts in frame-src.
+  An address with no embed (Amazon, a book's page, a shop) stays a rich card.
+*/
+const EMBED_PLATFORM: Partial<Record<string, string>> = { typeform: "Typeform", podcasts: "Apple Podcasts", canva: "Canva", loom: "Loom", googleforms: "Google Forms", tally: "Tally", gcal: "Google Calendar", substack: "Substack", mixcloud: "Mixcloud", deezer: "Deezer" }
+function moreEmbeds(u: URL, host: string, parts: string[]): SocialPresentation | null {
+  if (host === "music.apple.com") {
+    const m = musicSource(u.toString())
+    if (m) return { platform: "Apple Music", embed: m.embedUrl, aspect: "auto", height: m.height }
+  }
+  if (host === "calendly.com" && parts.length >= 1 && parts.every((p) => /^[A-Za-z0-9_-]{1,80}$/.test(p))) {
+    return { platform: "Calendly", embed: `https://calendly.com/${parts.join("/")}?embed_type=Inline&hide_gdpr_banner=1`, aspect: "auto", height: 660 }
+  }
+  if ((host === "google.com" || /^google\.[a-z.]{2,6}$/.test(host) || host === "maps.google.com") && (parts[0] === "maps" || host === "maps.google.com")) {
+    const place = parts[0] === "maps" && parts[1] === "place" ? decodeURIComponent(parts[2] || "").replace(/\+/g, " ") : u.searchParams.get("q") || ""
+    if (place.trim() && place.length <= 200) return { platform: "Google Maps", embed: `https://maps.google.com/maps?q=${encodeURIComponent(place.trim())}&z=15&output=embed`, aspect: "auto", height: 300 }
+  }
+  const e = embedSource(u.toString())
+  if (e && EMBED_PLATFORM[e.kind]) return { platform: EMBED_PLATFORM[e.kind]!, embed: e.embedUrl, aspect: e.height ? "auto" : "16 / 9", ...(e.height ? { height: e.height } : {}) }
+  return null
+}
+
+/** A link shown in place that is a form, a booking page or a map: it is used, not watched, so it is not cut short. */
+export function embedIsTool(platform: string): boolean {
+  return ["Typeform", "Calendly", "Google Forms", "Tally", "Google Calendar", "Google Maps"].includes(platform)
 }
 
 /*

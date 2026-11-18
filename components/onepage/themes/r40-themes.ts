@@ -273,50 +273,6 @@ export const R40_THEMES = [
  */
 export const R42_THEMES = [
   {
-    id: "folio",
-    name: "Folio",
-    category: "light",
-    theme_config: {
-      background_type: "solid" as const,
-      background_color: "#f5f2ec",
-      background_gradient: "",
-      background_image_url: "",
-      text_color: "#1d2329",
-      secondary_text_color: "#4d5560",
-      button_color: "#1d2329",
-      button_text_color: "#f5f2ec",
-      button_style: "filled" as const,
-      button_border_radius: 10,
-      button_border_width: 0,
-      button_border_color: "#1d2329",
-      button_shadow: "none",
-      button_hover_animation: "fill",
-      button_hover_fill: "#3a4f63",
-      button_hover_text: "#ffffff",
-      font_family: "'Inter', sans-serif",
-      title_font: "'Newsreader', serif",
-      title_color: "#1d2329",
-      social_icon_color: "#1d2329",
-      social_icon_style: "outline",
-      spacing: "normal" as const,
-      card_width: "standard" as const,
-      header_layout: "classic",
-      laser_glow_enabled: false,
-      background_pattern: "none",
-      block_layout: "list",
-      header_align: "center",
-      cover_image_url: "https://images.unsplash.com/photo-1507400492013-162706c8c05e?w=1600&q=80",
-      product_layout: "grid",
-    },
-    profile_layout: "classic" as const,
-    light_button_text_color: "#1d2329",
-    solid_button_text_color: "#f5f2ec",
-    outline_button_text_color: "#1d2329",
-    glass_button_text_color: "#1d2329",
-    share_style: "white",
-    subscribe_style: "white",
-  },
-  {
     id: "ledger",
     name: "Ledger",
     category: "dark",
@@ -427,35 +383,39 @@ export const AP_THEMES = [
     id: "notebook",
     name: "Notebook",
     category: "light",
+    /* Round 17, the owner: "make the Notebook more good, clean, interesting, cool". Ruled paper with a red margin, drawn in the wallpaper itself so the lines run the whole page, a large handwritten name, inked boxes with a pen shadow that fill with ink. */
     theme_config: {
-      background_type: "solid" as const,
+      background_type: "gradient" as const,
       background_color: "#f8f5ec",
-      background_gradient: "",
+      background_gradient: "linear-gradient(90deg, #f8f5ec00 0px, #f8f5ec00 30px, #f0c4c4 30px, #f0c4c4 32px, #f8f5ec00 32px), repeating-linear-gradient(180deg, #f8f5ec 0px, #f8f5ec 31px, #cdd8ee 31px, #cdd8ee 32px)",
       background_image_url: "",
+      gradient_noise: true,
+      noise_strength: 10,
       text_color: "#1f2a52",
-      secondary_text_color: "#4a5375",
-      button_color: "#1f2a52",
+      secondary_text_color: "#3f4a70",
+      button_color: "#fffdf6",
       button_text_color: "#1f2a52",
       button_style: "outline" as const,
       button_border_radius: 4,
       button_border_width: 2,
       button_border_color: "#1f2a52",
-      button_shadow: "none",
+      button_shadow: "hard",
+      button_shadow_color: "#1f2a52",
       button_hover_animation: "fill",
       button_hover_fill: "#1f2a52",
       button_hover_text: "#f8f5ec",
       font_family: "'Quicksand', sans-serif",
       title_font: "'Caveat', cursive",
       title_color: "#1f2a52",
+      title_weight: 700,
+      title_size: "large",
       social_icon_color: "#1f2a52",
       social_icon_style: "minimal",
       spacing: "normal" as const,
       card_width: "standard" as const,
       header_layout: "classic",
       laser_glow_enabled: false,
-      background_pattern: "lines",
-      pattern_color: "#5b7bd166",
-      pattern_opacity: "low",
+      background_pattern: "none",
       block_layout: "masonry",
       header_align: "left",
     },
@@ -935,54 +895,6 @@ export const W9_THEMES = [
     share_style: "white",
     subscribe_style: "white",
   },
-  {
-    id: "grunge",
-    name: "Grunge",
-    category: "light",
-    theme_config: {
-      background_type: "solid" as const,
-      background_color: "#e7e5de",
-      background_gradient: "",
-      background_image_url: "",
-      text_color: "#0d0d0d",
-      secondary_text_color: "#2e2e2c",
-      button_color: "#f4f3ee",
-      button_text_color: "#0d0d0d",
-      button_style: "filled" as const,
-      button_border_radius: 0,
-      button_border_width: 2,
-      button_border_color: "#0d0d0d",
-      button_shadow: "none",
-      button_hover_animation: "fill",
-      button_hover_fill: "#0d0d0d",
-      button_hover_text: "#f1efe8",
-      font_family: "'JetBrains Mono', monospace",
-      title_font: "'Archivo Black', sans-serif",
-      title_color: "#0d0d0d",
-      social_icon_color: "#0d0d0d",
-      social_icon_style: "outline",
-      spacing: "normal" as const,
-      card_width: "standard" as const,
-      header_layout: "classic",
-      laser_glow_enabled: false,
-      background_pattern: "none",
-      block_layout: "list",
-      header_align: "left",
-      theme_skin: "grunge",
-      title_case: "upper",
-      title_size: "large",
-      avatar_shape: "square",
-      avatar_border_width: 3,
-      avatar_border_color: "#0d0d0d",
-    },
-    profile_layout: "classic" as const,
-    light_button_text_color: "#0d0d0d",
-    solid_button_text_color: "#0d0d0d",
-    outline_button_text_color: "#0d0d0d",
-    glass_button_text_color: "#0d0d0d",
-    share_style: "black",
-    subscribe_style: "black",
-  },
 ]
 
 /**
@@ -993,9 +905,10 @@ export const W9_THEMES = [
  * style, so people have more choices", "a new one Windows 98, and 2 more
  * that are missing, 100% very popular".
  *
- *   Aero Aquarium    Aero's glass under water at night: light shafts,
- *                    rising bubbles, goldfish, weed and sand; goldfish
- *                    orange gel on the products.
+ *   Aero Aquarium    Aero's glass under water at night: soft light shafts,
+ *                    rising bubbles, a few small goldfish, weed and sand; a
+ *                    smooth coral button on the products, the name in
+ *                    Manrope (round op-themes: made quieter and cleaner).
  *   Aqua Graphite    Aqua's sober setting: brushed metal, graphite gel, grey
  *                    window lights.
  *   Messenger Olive  the buddy list in olive green, a sunny gel button.
@@ -1028,7 +941,8 @@ export const W10_THEMES = [
     theme_config: {
       background_type: "gradient" as const,
       background_color: "#06395a",
-      background_gradient: "linear-gradient(180deg, #06324f 0%, #074466 38%, #06395a 70%, #04263f 100%)",
+      /* Round 17: the water lit from above, a teal glow under the surface. */
+      background_gradient: "radial-gradient(90% 34% at 50% 0%, #0b5d80 0%, #0b5d8000 100%), linear-gradient(180deg, #05314d 0%, #08486a 30%, #063a5a 66%, #032237 100%)",
       background_image_url: "",
       text_color: "#eafaff",
       secondary_text_color: "#bfe9f7",
@@ -1037,14 +951,14 @@ export const W10_THEMES = [
       button_style: "filled" as const,
       button_border_radius: 16,
       button_border_width: 1,
-      button_border_color: "#7fd6f5",
+      button_border_color: "#5fb8d6",
       button_shadow: "subtle",
       button_shadow_color: "#00121f",
       button_hover_animation: "pop",
       button_hover_fill: "#ffb04a",
       button_hover_text: "#2e1300",
       font_family: "'Open Sans', sans-serif",
-      title_font: "'Comfortaa', cursive",
+      title_font: "'Manrope', sans-serif",
       title_color: "#ffffff",
       social_icon_color: "#eafaff",
       social_icon_style: "filled",
@@ -1056,7 +970,7 @@ export const W10_THEMES = [
       block_layout: "list",
       header_align: "center",
       theme_skin: "aero2",
-      title_weight: 700,
+      title_weight: 600,
       avatar_border_width: 4,
       avatar_border_color: "#bff4ff",
     },
@@ -1458,12 +1372,138 @@ export const W10_THEMES = [
   },
 ]
 
+/**
+ * ===========================================================================
+ *  STOICISM (ROUND AT, WAS PLASTER IN ROUND AS) AND DUNE (ROUND AT)
+ * ===========================================================================
+ * The owner: "The new theme, plaster, is bad ... It should be called
+ * stoicism and should be more good and clean and like with some background,
+ * more complex", "from the plaster, I like the cover ... you can keep it".
+ *
+ * Stoicism keeps Plaster's cover (public/images/onepage-themes/plaster.svg,
+ * our own drawing of a head in profile, half modelled and half line work)
+ * and its large Instrument Serif set tight and flush left. What was a black
+ * page with one-pixel white outlines is now a page cut in dark stone: faint
+ * pale veins, a fine grain, a geometer's construction drawn very faintly over
+ * the top and a vignette (its skin, scripts/onepage-skins/stoicism.mjs).
+ * Links are solid ivory tablets with a fine inner rule, in spaced capitals,
+ * that turn to stone with ivory words under the pointer; products are rows
+ * on stone panels framed by two hairlines. A page saved on "plaster" is
+ * moved to it when read (lib/onepage/retired-themes), the creator's own
+ * changes kept.
+ *
+ * Dune: "one more theme better with pattern or background, very clean and
+ * smooth". Warm sand that clears to a pale morning at the top, with fine
+ * contour lines over it like a map of the dunes (the Contours pattern), pill
+ * shaped frosted buttons that lift under the pointer, Manrope throughout and
+ * products as tiles. Light, quiet, and unlike any other theme in structure.
+ */
+export const AS_THEMES = [
+  {
+    id: "stoicism",
+    name: "Stoicism",
+    category: "dark",
+    theme_config: {
+      background_type: "solid" as const,
+      background_color: "#0e0e0d",
+      background_gradient: "",
+      background_image_url: "",
+      text_color: "#ece6da",
+      secondary_text_color: "#aaa396",
+      button_color: "#ece6da",
+      button_text_color: "#121110",
+      button_style: "filled" as const,
+      button_border_radius: 0,
+      button_border_width: 1,
+      button_border_color: "#ece6da",
+      button_shadow: "none",
+      button_hover_animation: "fill",
+      button_hover_fill: "#0e0e0d",
+      button_hover_text: "#ece6da",
+      font_family: "'Inter', sans-serif",
+      title_font: "'Instrument Serif', serif",
+      title_color: "#f4efe6",
+      title_size: "large",
+      title_weight: 400,
+      title_tracking: "tight",
+      social_icon_color: "#ece6da",
+      social_icon_style: "outline",
+      spacing: "comfortable" as const,
+      card_width: "standard" as const,
+      header_layout: "classic",
+      laser_glow_enabled: false,
+      background_pattern: "none",
+      block_layout: "list",
+      product_layout: "rows",
+      header_align: "left",
+      avatar_size: "small",
+      avatar_border_width: 1,
+      avatar_border_color: "#ece6da",
+      cover_image_url: "https://storelib.com/images/onepage-themes/plaster.svg",
+      theme_skin: "stoicism",
+    },
+    profile_layout: "classic" as const,
+    light_button_text_color: "#121110",
+    solid_button_text_color: "#121110",
+    outline_button_text_color: "#ece6da",
+    glass_button_text_color: "#ece6da",
+    share_style: "black",
+    subscribe_style: "black",
+  },
+  {
+    id: "dune",
+    name: "Dune",
+    category: "gradient",
+    theme_config: {
+      background_type: "gradient" as const,
+      background_color: "#efe6d8",
+      background_gradient: "linear-gradient(180deg, #f6f3ee 0%, #f1e8db 38%, #e9dac4 100%)",
+      background_image_url: "",
+      text_color: "#2c2219",
+      secondary_text_color: "#5e4f3f",
+      button_color: "#ffffff",
+      button_text_color: "#2c2219",
+      button_style: "glass" as const,
+      button_border_radius: 999,
+      button_border_width: 1,
+      button_border_color: "#ffffffcc",
+      button_shadow: "subtle",
+      button_shadow_color: "#6b5236",
+      button_hover_animation: "lift",
+      font_family: "'Manrope', sans-serif",
+      title_font: "'Manrope', sans-serif",
+      title_color: "#2c2219",
+      title_weight: 700,
+      title_tracking: "tight",
+      social_icon_color: "#2c2219",
+      social_icon_style: "filled",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      header_layout: "classic",
+      laser_glow_enabled: false,
+      background_pattern: "topographic",
+      pattern_color: "#8a6a4430",
+      pattern_opacity: "low",
+      block_layout: "list",
+      product_layout: "grid",
+      header_align: "center",
+    },
+    profile_layout: "classic" as const,
+    light_button_text_color: "#2c2219",
+    solid_button_text_color: "#2c2219",
+    outline_button_text_color: "#2c2219",
+    glass_button_text_color: "#2c2219",
+    share_style: "white",
+    subscribe_style: "white",
+  },
+]
+
 /** The order the kinds are listed in, in All: light, gradient, dark, then pictures, as the catalogue always was. */
 export const THEME_KIND_ORDER = ["light", "gradient", "dark", "image"] as const
 
 /** The catalogue with these (and round 42's) laid into their kinds, each kind keeping its own order and the new ones at its end. */
 export function withR40Themes<T extends { category: string }>(base: readonly T[]): T[] {
-  const all = [...base, ...(R40_THEMES as unknown as T[]), ...(R42_THEMES as unknown as T[]), ...(AP_THEMES as unknown as T[]), ...(W8_THEMES as unknown as T[]), ...(W9_THEMES as unknown as T[]), ...(W10_THEMES as unknown as T[])]
+  const all = [...base, ...(R40_THEMES as unknown as T[]), ...(R42_THEMES as unknown as T[]), ...(AP_THEMES as unknown as T[]), ...(W8_THEMES as unknown as T[]), ...(W9_THEMES as unknown as T[]), ...(W10_THEMES as unknown as T[]), ...(AS_THEMES as unknown as T[])]
   const rank = (c: string) => {
     const i = (THEME_KIND_ORDER as readonly string[]).indexOf(c)
     return i < 0 ? THEME_KIND_ORDER.length : i

@@ -17,10 +17,11 @@ import "server-only"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
-import { FREE_STANDARD_RATE, ratePercentLabel } from "@/lib/payments/fees/config"
+import { FREE_STANDARD_RATE, SCALE_STANDARD_RATE, ratePercentLabel } from "@/lib/payments/fees/config"
 import { subscriptionReader } from "@/lib/billing/subscription-reader"
 import { billingCreatorFor, billingPlanOverrideFor, billingSubscriptionRowFor } from "@/lib/billing/request-reads"
 import { resolveSubscriptionView, STRIPE_READ_TIMEOUT_MS, type SubscriptionsRead } from "@/lib/billing/subscription-state"
+import { routeUser } from "@/lib/auth/route-user"
 
 const FREE_PLAN = {
   id: "free",
@@ -35,8 +36,8 @@ const FREE_PLAN = {
 
 const GROWTH_PLAN = {
   id: "growth",
-  // Sold as "Pro". The id stays "growth": it is the $29 Stripe price.
-  name: "Pro",
+  // Sold as "Grow" (pricing round 5; it was "Pro"). The id stays "growth": it is the $29 Stripe price.
+  name: "Grow",
   price_cents: 2900,
   billing_period: "month",
   fee_percent: 0.03,
@@ -46,14 +47,14 @@ const GROWTH_PLAN = {
 }
 
 const PRO_PLAN = {
+  // The $99 plan, sold as "Pro" (pricing round 5; it was "Scale"). The id stays "pro": it is the $99 Stripe price.
   id: "pro",
-  // The earlier $99 plan. No longer offered; kept so its subscribers still resolve.
   name: "Pro",
   price_cents: 9900,
   billing_period: "month",
-  fee_percent: 0.015,
+  fee_percent: SCALE_STANDARD_RATE,
   fee_fixed_cents: 25,
-  features: ["1.5% + $0.25 per transaction", "Premium analytics & reports", "Dedicated support", "White-label options", "API access"],
+  features: [`${ratePercentLabel(SCALE_STANDARD_RATE)} + $0.25 per transaction`, "Premium analytics & reports", "Dedicated support", "White-label options", "API access"],
   is_active: true,
 }
 
@@ -103,9 +104,8 @@ export async function loadBillingOverview(store?: { creatorId: string }): Promis
   */
   let creatorId = store?.creatorId ?? null
   if (!creatorId) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const who = await routeUser({ fresh: true })
+    const user = who.kind === "user" ? who.user : null
     if (!user) return null
     const { data: own } = await createAdminClient().from("creators").select("id").eq("user_id", user.id).maybeSingle()
     creatorId = (own as { id?: string } | null)?.id ?? null

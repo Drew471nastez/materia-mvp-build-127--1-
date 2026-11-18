@@ -147,23 +147,26 @@ function main() {
   check("the row names its height", !!row, `matched: ${row}`)
   if (row) {
     const n = Number(row)
-    check(`the row is 69.35px, down from ${ORIGINAL}`, n === 69.35)
+    check(`the row is 67.96px, down from ${ORIGINAL}`, n === 67.96)
     /* Three cuts, asked for separately: 3% off the original, 5% off that,
        then 2% off that. The chain is what the numbers below check. */
     check(
-      "which is two percent off the previous 70.75",
-      Math.abs(1 - n / 70.75 - 0.02) < 0.002,
-      `${(100 * (1 - n / 70.75)).toFixed(1)}%`,
+      "which is two percent off the previous 69.35 (round 61)",
+      Math.abs(1 - n / 69.35 - 0.02) < 0.002,
+      `${(100 * (1 - n / 69.35)).toFixed(1)}%`,
     )
-    check("and about ten percent off where it started", Math.abs(1 - n / ORIGINAL - 0.099) < 0.006)
+    check("and about ten percent off where it started", Math.abs(1 - n / ORIGINAL - 0.117) < 0.006)
     void AFTER_FIRST_CUT
   }
   check("the padding rails are untouched", /md:pb-\[3px\]/.test(header) && /padding-top: 3px/.test(read("app/globals.css")))
   /* The SSR placeholder holds the header's space before hydration; if it
      disagrees the page shifts by the difference on every load. */
+  /* Changed on purpose (wave 13 perf): the note named a 70.75px row while the placeholder held 63.3px at every width, so a desktop moved 5.65px when the real header (the 67.96px row and its 1px border) arrived. The placeholder now holds 68.96px from 768px, and the note says so. */
   check(
-    "the SSR placeholder's note names the row's real height",
-    /70\.75px row \(border-box, padding included\)/.test(read("components/marketing/conditional-header.tsx")),
+    "the SSR placeholder's note names the row's real height, and holds it from 768px",
+    /md:h-\[67\.96px\] row \+ its 1px border = 68\.96px/.test(read("components/marketing/conditional-header.tsx")) &&
+      /min\(68\.96px, \(100vw - 767px\) \* 100000\)/.test(read("components/marketing/conditional-header.tsx")) &&
+      (!row || Math.abs(Number(row) + 1 - 68.96) < 0.01),
     "a placeholder that disagrees shifts the page by the difference on every load",
   )
 

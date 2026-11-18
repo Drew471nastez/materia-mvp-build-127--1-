@@ -439,7 +439,7 @@ async function main() {
     const runner = code("lib/website-builder/ai-site/runner.ts")
     check("the runner scopes the site to the job's install and creator", /site: siteIO\(admin, job\.installId, job\.creatorId\)/.test(runner))
     const gen = code("app/api/website-builder/themes/[installId]/generate/route.ts")
-    check("a checkpoint from the browser is believed only as far as this install's stored files say", /withStoredCode\(fromCheckpoint\(job, body\.checkpoint\), installId\)/.test(gen) && /\.eq\("install_id", installId\)\.in\("path"/.test(gen))
+    check("a checkpoint from the browser is believed only as far as this install's stored files say", /fromCheckpoint\(job, body\.checkpoint as Record<string, unknown>\)/.test(gen) && /withStoredCode\(carried, installId\)/.test(gen) && /\.eq\("install_id", installId\)\.in\("path"/.test(gen))
     check("job routes still ask who is calling and scope by creator", /websiteCaller\(\)/.test(code("app/api/website-builder/ai-jobs/[jobId]/route.ts")) && /\.eq\("creator_id", site\.creatorId\)/.test(code("app/api/website-builder/ai-jobs/[jobId]/route.ts")) && /verifyJobToken\(jobId/.test(code("app/api/website-builder/ai-jobs/[jobId]/run/route.ts")))
     const coded = code("lib/website-builder/ai-site/code.ts")
     check("the coder runs on the server through the provider layer; no key is read here", !/process\.env/.test(coded) && /provider: counted\(ref\.provider/.test(coded))

@@ -7,13 +7,14 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useState, useEffect, Suspense, useRef } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
 import { getCanonicalSiteUrl, getMainDomain } from "@/lib/url-helpers"
 import { safeReturnTarget } from "@/lib/auth/return-to"
-import Image from "next/image"
+import { AuthPhoto, SIGNUP_PHOTO } from "@/components/auth/auth-photo"
 import { AuthLogo } from "@/components/auth/auth-logo"
 import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
+import { useMaybeSignedIn } from "@/components/auth/auth-arrival"
 import { AppleSignInButton } from "@/components/auth/apple-sign-in-button"
 import { useAuthGate } from "@/lib/use-auth-gate"
 import { readSessionBounded } from "@/lib/auth/session-read"
@@ -52,6 +53,7 @@ function SignUpFormContent() {
   const [showPassword, setShowPassword] = useState(false)
   const [googleOnlyEmail, setGoogleOnlyEmail] = useState<string | null>(null)
   const { loading: authGateLoading, nativeAuthInProgress } = useAuthGate()
+  const maybeSignedIn = useMaybeSignedIn()
   const redirectTimeoutRef = useRef<number | null>(null)
   /**
    * ---------------------------------------------------------------------------
@@ -219,6 +221,25 @@ function SignUpFormContent() {
       setEmail(prefilledEmail)
     }
   }, [prefilledEmail])
+
+  /*
+    CONTINUE PRESSED FOR THEM. The home page's closing call (landing round 12,
+    components/marketing/home/final-cta.tsx) asks for the email and sends
+    ?email=...&start=1: once the address is in the field this presses
+    Continue once, through the form itself (handleContinue), so it checks the
+    address and moves on to the password, or to Log in with the address kept
+    when the account exists. Never for an invite, never while a session may
+    be there (that page sends a signed in person on), never twice.
+  */
+  const autoStart = searchParams.get("start") === "1"
+  const autoStarted = useRef(false)
+  const formRef = useRef<HTMLFormElement>(null)
+  useEffect(() => {
+    if (!autoStart || autoStarted.current || !prefilledEmail || inviteEmail || maybeSignedIn || authGateLoading || nativeAuthInProgress) return
+    if (showPasswordField || email !== prefilledEmail || !/^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/.test(prefilledEmail.trim())) return
+    autoStarted.current = true
+    formRef.current?.requestSubmit()
+  }, [autoStart, prefilledEmail, inviteEmail, maybeSignedIn, authGateLoading, nativeAuthInProgress, showPasswordField, email])
 
   const handleContinue = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -500,7 +521,7 @@ function SignUpFormContent() {
           provider: "google",
           options: {
             redirectTo: nativeCallbackUrl,
-            /* Nothing extra: Google continues with the account it already has (lib/auth/google-oauth-params.ts). */
+            /* The account chooser, so a person who logged out can pick another account (lib/auth/google-oauth-params.ts). */
             queryParams: GOOGLE_OAUTH_QUERY,
             skipBrowserRedirect: true,
           },
@@ -645,8 +666,8 @@ function SignUpFormContent() {
     setIsAppleRedirecting(false)
   }
 
-  // Block rendering while auth state is resolving or redirect is in progress.
-  if (authGateLoading || nativeAuthInProgress) {
+  /* The form at once for a stranger; the spinner only while a session cookie is checked (components/auth/auth-arrival.tsx). */
+  if (nativeAuthInProgress || (authGateLoading && maybeSignedIn)) {
     return <AuthResolvingScreen message={nativeAuthInProgress ? t("auth.signing_you_in") : undefined} />
   }
 
@@ -658,14 +679,14 @@ function SignUpFormContent() {
     <div data-page="signup" className="flex min-h-svh w-full bg-white lg:h-[100dvh] lg:max-h-[100dvh] lg:overflow-hidden">
       <HtmlClass name="with-page-signup" />
       <div className="flex w-full flex-col justify-start px-6 py-8 sm:py-10 lg:w-1/2 lg:h-[100dvh] lg:overflow-y-auto page-scroll lg:px-16 lg:py-10 xl:px-24 auth-stack auth-shell">
-        <div className="mx-auto w-full max-w-[400px] py-2 sm:py-3 lg:py-4 animate-fade-in-up auth-card">
+        <div className="mx-auto w-full max-w-[400px] py-2 sm:py-3 lg:py-4 auth-card">
           <AuthLogo />
 
           <h1 className="mb-2 text-[32px] font-bold tracking-tight text-neutral-900">{t("auth.signup_title")}</h1>
           {/* Sell on Storelib: says the setup comes next, so nobody wonders whether the click was lost. */}
-          <p className="mb-8 text-[15px] text-neutral-500">{inviteEmail ? `Create your account as ${inviteEmail} to accept the team invite.` : t(carry.intent ? "auth.signup_subtitle_sell" : "auth.signup_subtitle")}</p>
+          <p className="mb-8 text-[15px] text-neutral-500">{inviteEmail ? `Create your account as ${inviteEmail} to accept the invite.` : t(carry.intent ? "auth.signup_subtitle_sell" : "auth.signup_subtitle")}</p>
 
-          <form onSubmit={handleContinue} className="space-y-4">
+          <form ref={formRef} onSubmit={handleContinue} className="space-y-4">
             <div className="space-y-2">
               {/* Named for a screen reader and a browser agent; the placeholder says the same to the eye. */}
               <label htmlFor="email" className="sr-only">
@@ -857,31 +878,19 @@ function SignUpFormContent() {
         </div>
       </div>
 
-      <div className="relative hidden lg:block lg:w-1/2 lg:h-[100dvh] shrink-0 overflow-hidden bg-neutral-900">
-        <Image
-          src="https://storelib.com/media/platform%20images/collage%20imags/awapage.png"
-          alt="Signup banner"
-          fill
-          className="object-cover object-center"
-          sizes="(min-width: 1024px) 50vw, 0px"
-          quality={75}
-          priority
-          fetchPriority="high"
-          decoding="async"
-        />
-      </div>
+      <AuthPhoto src={SIGNUP_PHOTO} />
     </div>
   )
 }
 
-function SignUpFormFallback() {
-  return <AuthResolvingScreen />
-}
-
+/*
+  NO SUSPENSE BOUNDARY HERE ANY MORE (round 3). It was only for the static
+  build, which drew the boundary's spinner as the whole page; the layout now
+  reads the request (components/auth/auth-arrival-server.tsx), so this is
+  drawn per request with the form in it. A boundary would let the server
+  send its spinner first and swap the form in after it: on a slow phone that
+  spinner painted, and was the flash this page is not to have.
+*/
 export default function SignUpPage() {
-  return (
-    <Suspense fallback={<SignUpFormFallback />}>
-      <SignUpFormContent />
-    </Suspense>
-  )
+  return <SignUpFormContent />
 }

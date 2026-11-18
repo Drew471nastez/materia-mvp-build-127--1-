@@ -503,10 +503,10 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: "p", text: "Storelib takes a fee from each sale. The percentage depends on your plan, and $0.25 is added to every order of $4.00 or more." },
       { type: "table", head: ["Plan", "Per sale"], rows: [
         ["Free", "5% + $0.25"],
-        ["Pro", "3% + $0.25"],
+        ["Grow", "3% + $0.25"],
       ] },
-      { type: "p", text: "Orders under $4.00 pay a slightly higher percentage and no $0.25, so a small order never pays more than one at $4.00: 11.25% on Free and 9.25% on Pro. For example, a $10 sale on the Free plan is a fee of $0.75, and a $1 sale is $0.11." },
-      { type: "p", text: "The Pro rate applies while its subscription is active. If you subscribed to an earlier plan, you keep that plan's rate while it stays active. The Payouts page shows the fees taken in any period under Platform Fees, and each sale's panel names the rule its fee came from. See [Plans](/help/account-and-billing/plans) and [Currencies, prices and payouts](/help/orders-and-payouts/currencies-prices-and-payouts)." },
+      { type: "p", text: "Orders under $4.00 pay a slightly higher percentage and no $0.25, so a small order never pays more than one at $4.00: 11.25% on Free and 9.25% on Grow. For example, a $10 sale on the Free plan is a fee of $0.75, and a $1 sale is $0.11." },
+      { type: "p", text: "The Grow rate applies while its subscription is active. If you subscribed to an earlier plan, you keep that plan's rate while it stays active. The Payouts page shows the fees taken in any period under Platform Fees, and each sale's panel names the rule its fee came from. See [Plans](/help/account-and-billing/plans) and [Currencies, prices and payouts](/help/orders-and-payouts/currencies-prices-and-payouts)." },
     ],
   },
   {
@@ -540,7 +540,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: "h", text: "What does Storelib charge per sale?" },
       { type: "table", head: ["Plan", "Orders of $4.00 or more", "Orders under $4.00"], rows: [
         ["Free", "5% + $0.25", "11.25%, no fixed part"],
-        ["Pro", "3% + $0.25", "9.25%, no fixed part"],
+        ["Grow", "3% + $0.25", "9.25%, no fixed part"],
       ] },
       { type: "p", text: "The small order rule keeps tiny sales fair: under $4.00 the $0.25 is dropped and a slightly higher percentage carries it instead, so a $3.99 sale never pays more than a $4.00 one. The same rule applies in every currency, at the equivalent amount (for example 3.68 EUR). The Pro rate applies while your Pro subscription is active or trialing; otherwise the Free rate applies." },
       { type: "h", text: "Where do I see the fee?" },
@@ -708,10 +708,10 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "custom-domain",
     category: "website-builder",
     title: "Connect your own domain",
-    summary: "Point a domain you own at your Storelib website. Part of the Pro plan.",
+    summary: "Point a domain you own at your Storelib website. Part of the Grow plan.",
     keywords: ["domain", "custom domain", "dns", "cname", "a record", "ssl", "https", "www"],
     body: [
-      { type: "p", text: "Custom domains are part of the Pro plan." },
+      { type: "p", text: "Custom domains are part of the Grow plan." },
       { type: "steps", items: [
         "Open Settings from the menu under your profile picture, then the Domains tab.",
         "Add your domain, for example yourname.com.",
@@ -811,10 +811,10 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "plans",
     category: "account-and-billing",
     title: "Plans",
-    summary: "Free and Pro, and what changes between them.",
+    summary: "Free, Grow and Pro, and what changes between them.",
     keywords: ["plan", "plans", "pricing", "free", "growth", "professional", "pro", "upgrade", "subscription", "price"],
     body: [
-      { type: "table", head: ["", "Free", "Pro"], rows: [
+      { type: "table", head: ["", "Free", "Grow"], rows: [
         ["Price", "$0", "$29 a month"],
         ["Fee per sale", "5% + $0.25", "3% + $0.25"],
         ["Custom domain", "No", "Yes"],

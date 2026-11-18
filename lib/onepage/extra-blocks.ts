@@ -17,6 +17,7 @@ import type {
 import { hasRealUrl } from "./editor-state"
 import { dayLabel, viewerZone, wallAt } from "./schedule"
 import { CREATOR_BLOCK_TYPES, creatorBlockHasContent } from "./creator-blocks"
+import { videoFileUrl } from "./media-layout"
 import { STORELIB_BLOCK_TYPES, isStorelibBlock, storelibBlockHasContent } from "./storelib-blocks"
 import { APP_BLOCK_TYPES, appBlockHasContent, isAppBlock } from "./app-blocks"
 
@@ -44,9 +45,11 @@ export function isScheduledNow(block: { schedule?: OnePageBlockSchedule | null }
 }
 
 /** What the editor's row says about a block's schedule, or null when it has none. */
-export function scheduleLabel(block: { schedule?: OnePageBlockSchedule | null }, now: number = Date.now(), timeZone: string = viewerZone()): { text: string; live: boolean } | null {
+export function scheduleLabel(block: { schedule?: OnePageBlockSchedule | null }, now: number = Date.now(), zone?: string): { text: string; live: boolean } | null {
   const s = block.schedule
   if (!s || (!s.start_at && !s.end_at)) return null
+  /* Asked only for a block that has a schedule: every row of the editor calls this on every render (round AU). */
+  const timeZone = zone ?? viewerZone()
   const start = s.start_at ? Date.parse(s.start_at) : NaN
   const end = s.end_at ? Date.parse(s.end_at) : NaN
   /* The day in the zone the picker wrote it in (./schedule), not the device's: a creator whose Settings say New York reads the day they chose. */
@@ -57,7 +60,8 @@ export function scheduleLabel(block: { schedule?: OnePageBlockSchedule | null },
   return { text: "Scheduled", live: true }
 }
 
-export type VideoSource = { kind: "youtube" | "vimeo" | "tiktok"; id: string }
+/** "file": a video Storelib holds (round AR3), its id the address itself (lib/onepage/media-layout videoFileUrl). */
+export type VideoSource = { kind: "youtube" | "vimeo" | "tiktok" | "file"; id: string }
 
 /** The video a pasted address points at, or null for one that cannot play on the page. */
 export function videoSource(raw: string | null | undefined): VideoSource | null {
@@ -69,6 +73,31 @@ export function videoSource(raw: string | null | undefined): VideoSource | null 
   if (vimeo) return { kind: "vimeo", id: vimeo[1] }
   const tiktok = url.match(/tiktok\.com\/@[^/]+\/video\/(\d{8,})/)
   if (tiktok) return { kind: "tiktok", id: tiktok[1] }
+  const file = videoFileUrl(url)
+  if (file) return { kind: "file", id: file }
+  return null
+}
+
+/** A pasted video that can start by itself on the page: muted, as every browser asks of a video that plays without a press. */
+export function videoAutoplays(source: VideoSource | null): boolean {
+  return !!source && (source.kind === "youtube" || source.kind === "vimeo" || source.kind === "file")
+}
+
+/**
+ * The player's address for a YouTube, Vimeo or TikTok video. `muted` is the
+ * autoplay on the page (no press, so the sound is off and it loops quietly
+ * as a muted video does); without it the press that loaded the player is
+ * the press that plays it, with sound.
+ */
+export function videoEmbedUrl(source: VideoSource, opts: { muted?: boolean } = {}): string | null {
+  if (source.kind === "youtube") {
+    const id = encodeURIComponent(source.id)
+    return opts.muted
+      ? `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&mute=1&playsinline=1&rel=0&loop=1&playlist=${id}&enablejsapi=1`
+      : /* enablejsapi: a kept sheet tells it to pause as the sheet goes (lib/onepage/embed-warm pauseFrames). */ `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0&playsinline=1&enablejsapi=1`
+  }
+  if (source.kind === "vimeo") return `https://player.vimeo.com/video/${encodeURIComponent(source.id)}?autoplay=1${opts.muted ? "&muted=1&loop=1&playsinline=1" : ""}`
+  if (source.kind === "tiktok") return null
   return null
 }
 
@@ -120,7 +149,8 @@ export function isBlockShown(block: any, now: number = Date.now()): boolean {
   }
   if (block.type === "image") {
     const images = block.data?.images || (block.data?.image_url ? [{ image_url: block.data.image_url }] : [])
-    return images.length > 0 && !!images[0]?.image_url
+    /* Any picture shows the block: the first one cleared (or added after the second) used to hide all of them. */
+    return images.some((i: { image_url?: unknown } | null) => typeof i?.image_url === "string" && !!i.image_url)
   }
   if(block.type === "form_quiz")return !!block.data?.form_id
   if (block.type === "link_button") return hasRealUrl(block.data?.url)

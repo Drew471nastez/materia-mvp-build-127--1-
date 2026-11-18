@@ -9,7 +9,8 @@ import { BlogIndex, blogIndexMetadata, blogIndexPage } from "../../_blog-index"
   /blog/page/1 is /blog (a 308); a page past the last, or anything that is
   not a page number, is a real 404. Rebuilt at most once a minute, like /blog.
 */
-export const revalidate = 60
+/* An hour (round 54, Vercel cost): saving, publishing and a post going live clear these at once (lib/blog/admin-http.ts, went-live.ts; the platform switch clears /help). */
+export const revalidate = 3600
 
 /* None built ahead: each page is rendered the first time it is asked for, then held like the others. */
 export function generateStaticParams() {

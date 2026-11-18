@@ -111,7 +111,7 @@ function main() {
     const module = read("components/onepage/extra-blocks.tsx")
     check("the blocks take the page's own button look", /export function themeButtonStyle\(theme: OnePageTheme\)/.test(module) && (module.match(/themeButtonStyle\(look\.theme\)/g) ?? []).length >= 3)
     check("a countdown reads the clock only in the browser, so the first drawing matches the server's", /const \[now, setNow\] = React\.useState<number \| null>\(null\)/.test(module))
-    check("a video's player loads on the first press, not with the page", /\{playing \? \(\s*<iframe/.test(module) && /youtube-nocookie\.com\/embed\//.test(module))
+    check("a video's player loads on the first press (or once on screen, muted, when it plays by itself), not with the page", /* Round AS: the video's picture under the player while it loads. */ /\{playing \? \(\s*(<>[\s\S]{0,700}?)?<iframe/.test(module) && /videoEmbedUrl\(source, \{ muted \}\)/.test(module) && /youtube-nocookie\.com\/embed\//.test(read("lib/onepage/extra-blocks.ts")))
     check("the editor's map waits for the typing to stop", /useSettled\(typed, 700, !!look\.preview\)/.test(module)
       && /<ExtraBlockPreviewContext\.Provider value=\{true\}>/.test(read("components/onepage/preview-document.tsx")))
     check("the FAQ opens by its own height", /grid-rows-\[1fr\]/.test(module) && /grid-rows-\[0fr\]/.test(module))
@@ -133,7 +133,8 @@ function main() {
     const live = read("components/onepage/public-onepage.tsx")
     const email = live.slice(live.indexOf('case "email_capture":'), live.indexOf('case "group":'))
     /* Changed on purpose (round 11): one email box for all five layouts (renderEmailForm), not four copies. */
-    check("nothing in the newsletter block is 43px tall on a phone any more", !/py-2\.5 sm:py-3/.test(email) && (email.match(/py-3 text-sm bg-white\/90/g) ?? []).length === 1)
+    /* Changed on purpose (round AR): the boxes are drawn in each layout's shape, at 16px on a phone so iOS never zooms; the one shared email box and the matching extra field are each at least 46px tall (min-h-[46px] py-3), and nothing is py-2.5. */
+    check("nothing in the newsletter block is 43px tall on a phone any more", !/py-2\.5 sm:py-3/.test(email) && (email.match(/min-h-\[46px\] px-3 sm:px-4 py-3 text-\[16px\] sm:text-sm bg-white\/90/g) ?? []).length === 1 && (email.match(/min-h-\[46px\][^"]*bg-white\/90/g) ?? []).length === 2)
     /* Five now, on purpose: the first-name field the block can ask for (round 10) wears the same corners, above the four email boxes. */
     check("and the field wears the button's corners, whatever the theme sets",
       /* Two since round 11: the first-name field and the one email box every layout draws. */
@@ -178,9 +179,10 @@ function main() {
   {
     check("a CSS value is read for its family", familyOf("'Playfair Display', serif") === "Playfair Display" && familyOf("Inter") === "Inter" && familyOf(`"DM Sans", sans-serif`) === "DM Sans" && familyOf(null) === null)
     const href = onePageFontHref("Playfair Display")
-    check("a family is asked for with the weights the blocks use", href === "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&display=swap", String(href))
+    /* Changed on purpose (round 3 of the OnePage design work): every weight the family has from 400 to 900, so the name's Heavy (800) loads a face of its own. */
+    check("a family is asked for with every weight it has from 400 up", href === "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800;900&display=swap", String(href))
     check("a family with one weight is asked for as it is", onePageFontHref("Bebas Neue") === "https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap")
-    check("Lato is not asked for weights it does not have", onePageFontHref("Lato")?.includes("wght@400;700&") === true)
+    check("Lato is not asked for weights it does not have", onePageFontHref("Lato")?.includes("wght@400;700;900&") === true)
     check("a family not on the list is never requested", onePageFontHref("Comic Sans MS") === null && onePageFontHref("x&family=evil") === null && onePageFontHrefs({ font_family: "'x&family=evil', serif" }).length === 0)
     check("body and title, once each", onePageFontHrefs({ font_family: "'Poppins', sans-serif", title_font: "'Poppins', sans-serif" }).length === 1 && onePageFontHrefs({ font_family: "'Inter', sans-serif", title_font: "'Bebas Neue', sans-serif" }).length === 2)
     check("the default Inter is the real Inter now", onePageFontHrefs({ font_family: "Inter" })[0]?.includes("family=Inter:") === true)

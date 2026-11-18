@@ -2667,7 +2667,7 @@ export const CANVAS_BRIDGE = `
     });
     /* A selected section taken off keeps its selection: shown again, it is outlined again and the toolbar comes back to it. */
     reportSoon();
-    if (!m.order) return;
+    if (!m.order) { orderSettled(); return; }
     var y = scrollY;
     var byId = function (id) { return document.getElementById("shopify-section-" + id); };
     var added = [];
@@ -2712,6 +2712,8 @@ export const CANVAS_BRIDGE = `
       delete arriving[id];
       arrive(el, tops);
     });
+    /* The drag's slides, if any, against the page as it is now (THE PATCH IS WHAT THE PAGE IS). */
+    orderSettled();
     if (selected.section) mark(selected.section, selected.block, false);
     reportSoon();
   };
@@ -2875,7 +2877,7 @@ export const CANVAS_BRIDGE = `
     order (its "order", above), and are let go in that moment; put back, they
     slide home.
   */
-  var ordered = { held: {}, ids: null, mo: null, t: 0, home: [] };
+  var ordered = { held: {}, ids: null, lifted: null, live: false, mo: null, t: 0, home: [] };
   var orderEl = function (id) { return document.getElementById("shopify-section-" + id); };
   var orderLetGo = function (h) {
     if (h.style === null) h.el.removeAttribute("style"); else h.el.setAttribute("style", h.style);
@@ -2896,6 +2898,7 @@ export const CANVAS_BRIDGE = `
   var previewOrder = function (m) {
     var still = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
     var slide = "transform 220ms cubic-bezier(0.2, 0, 0, 1)";
+    ordered.live = !!m.ids;
     if (!m.ids) {
       var ids = ordered.ids;
       if (m.end === "commit" && ids) {
@@ -2922,6 +2925,7 @@ export const CANVAS_BRIDGE = `
     ordered.home = [];
     orderStop();
     ordered.ids = m.ids;
+    ordered.lifted = m.lifted || null;
     var els = [];
     for (var i = 0; i < m.ids.length; i++) { var el = orderEl(m.ids[i]); if (el) els.push(el); }
     if (els.length < 2) return;
@@ -2947,13 +2951,39 @@ export const CANVAS_BRIDGE = `
       if (r.id === m.lifted) r.el.setAttribute("data-sl-order-lifted", ""); else r.el.removeAttribute("data-sl-order-lifted");
     }
     /* Its new place in sight, moving the page only as far as it needs. */
-    if (liftedEl && liftedMove) {
+    /* Not for the same order worked out again under a patch (orderSettled): the section has not moved on screen. */
+    if (liftedEl && liftedMove && !m.relaid) {
       var b = liftedEl.getBoundingClientRect();
       var top = b.top + liftedMove;
       var bottom = top + Math.min(b.height, innerHeight * 0.6);
       var by = top < 0 ? top - 24 : bottom > innerHeight ? bottom - innerHeight + 24 : 0;
       if (by) scrollBy({ top: by, left: 0, behavior: still ? "auto" : "smooth" });
     }
+  };
+  /*
+    THE PATCH IS WHAT THE PAGE IS (rel2). The slides above lean on the
+    builder's two messages arriving in a given order, the drop and then the
+    patch, and on the drop arriving at all. A patch first moved the sections
+    under slides still worked out for where they were: the page showed an
+    order nobody asked for until the drop came. A drop never heard (the
+    builder's frame between its refs as the canvas drew again) left them
+    there for good, the canvas wrong until a reload. And a second drag, its
+    slides worked out before the first drag's patch, was shown scrambled
+    once that patch moved the sections under it.
+
+    So once a patch has put its sections in place: when they are in the
+    order the slides show, the slides have nothing left to show and are let
+    go, in the same task as the move; while a finger still holds a section
+    in another order, the slides are worked out again from where the
+    sections are now. A drop on its way still finds the page in order.
+  */
+  var orderSettled = function () {
+    if (!ordered.ids) return;
+    var any = false;
+    for (var k in ordered.held) { any = true; break; }
+    if (!any) return;
+    if (orderInPlace(ordered.ids)) { orderRelease(); return; }
+    if (ordered.live) { try { previewOrder({ ids: ordered.ids, lifted: ordered.lifted, relaid: true }); } catch (err) { orderRelease(); } }
   };
   window.addEventListener("message", function (e) {
     if (window.__slFrom && e.origin !== window.__slFrom) return;

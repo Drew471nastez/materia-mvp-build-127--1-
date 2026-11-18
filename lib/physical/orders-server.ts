@@ -980,7 +980,7 @@ export async function refusedOnDelivery(db: Db, creatorId: string, checkoutId: s
   }
   const items = [...out.entries()].filter(([, q]) => q > 0).map(([orderId, quantity]) => ({ orderId, quantity, restock: true }))
   if (items.length) {
-    const opened = await openReturn(db, checkoutId, { creatorId, by: "creator", items, method: "ship_back", note: "Refused on delivery" })
+    const opened = await openReturn(db, checkoutId, { creatorId, by: "creator", items, method: "ship_back", note: "Refused on delivery", notifyBuyer: false })
     if (opened.ok === false) return opened
   }
   await db.rpc("physical_cancel_unfulfilled", { p_checkout: checkoutId })
@@ -1086,6 +1086,19 @@ export async function noteRefund(db: Db, creatorId: string, checkoutId: string, 
 export async function syncCheckoutRefunds(db: Db, paymentIntentId: string): Promise<number> {
   const { data } = await db.from("orders").select("checkout_id").eq("stripe_payment_intent_id", paymentIntentId)
   const ids = [...new Set(((data ?? []) as { checkout_id: string | null }[]).map((r) => r.checkout_id).filter((x): x is string => !!x))]
+  return restateCheckoutRefunds(db, ids, "webhook")
+}
+
+/**
+ * THE SAME, FOR CHECKOUTS NAMED: what the Refund button's own route runs once
+ * the line is written (app/api/stripe/refund), so the order, the buyer's
+ * email and the stock never wait on the browser coming back to say "refunded"
+ * (a tab closed after the press), nor on a webhook that a refund in cash
+ * never has. Every write is keyed, so the page's follow-up and Stripe's event
+ * after it change nothing more.
+ */
+export async function restateCheckoutRefunds(db: Db, checkoutIds: string[], actor: "creator" | "webhook"): Promise<number> {
+  const ids = [...new Set(checkoutIds.filter((x) => typeof x === "string" && !!x))]
   let done = 0
   for (const checkoutId of ids) {
     const { data: co } = await db.from("commerce_checkouts").select("creator_id, refunded_cents").eq("id", checkoutId).maybeSingle()
@@ -1103,10 +1116,10 @@ export async function syncCheckoutRefunds(db: Db, paymentIntentId: string): Prom
       creatorId,
       kind: "payment.refunded",
       message: `${updated.refundedCents >= updated.totalCents ? "Refunded in full" : "Partly refunded"}: ${formatMinor(updated.refundedCents, String(updated.currency || "USD"), "en")}`,
-      actor: "webhook",
+      actor,
       key: `refund_total:${checkoutId}:${updated.refundedCents}`,
     })
-    await releaseRefundedStock(db, creatorId, updated, "webhook")
+    await releaseRefundedStock(db, creatorId, updated, actor)
     done++
   }
   return done
@@ -1118,7 +1131,7 @@ export async function syncCheckoutRefunds(db: Db, paymentIntentId: string): Prom
 export async function openReturn(
   db: Db,
   checkoutId: string,
-  input: { creatorId: string; by: "creator" | "buyer"; items: { orderId: string; quantity: number; restock?: boolean }[]; reason?: unknown; method?: unknown; note?: unknown },
+  input: { creatorId: string; by: "creator" | "buyer"; items: { orderId: string; quantity: number; restock?: boolean }[]; reason?: unknown; method?: unknown; note?: unknown; /** False for a parcel refused at the door: the buyer sent nothing back and is told so by the cancellation, never "pack the items and send them back". */ notifyBuyer?: boolean },
 ): Promise<Outcome & { returnId?: string }> {
   const order = await loadOrder(db, { creatorId: input.creatorId, checkoutId })
   if (!order) return { ok: false, error: "Order not found.", status: 404 }
@@ -1160,7 +1173,8 @@ export async function openReturn(
   )
   const lineOf = new Map(order.lines.map((l) => [l.orderId, l]))
   const { error: itemsError } = await db.from("commerce_return_items").insert(
-    items.map((i) => ({ return_id: r.id, order_id: i.orderId, quantity: i.quantity, restock: i.restock && lineOf.get(i.orderId)?.type === "physical", restock_location_id: lineOf.get(i.orderId)?.locationId ?? null })),
+    /* "Keep it, no need to send": nothing comes back, so nothing is put back on the shelf. */
+    items.map((i) => ({ return_id: r.id, order_id: i.orderId, quantity: i.quantity, restock: method !== "no_return_needed" && i.restock && lineOf.get(i.orderId)?.type === "physical", restock_location_id: lineOf.get(i.orderId)?.locationId ?? null })),
   )
   if (itemsError) {
     await db.from("commerce_returns").delete().eq("id", r.id)
@@ -1176,7 +1190,7 @@ export async function openReturn(
     key: `return:${r.id}`,
   })
   /* Opened by the store, it is approved at once and says so; asked for by the buyer, they hear their request arrived (Return requested). */
-  await queueReturnEmail(db, checkoutId, input.creatorId, r.id, input.by === "creator" ? "approved" : "requested")
+  if (input.notifyBuyer !== false) await queueReturnEmail(db, checkoutId, input.creatorId, r.id, input.by === "creator" ? "approved" : "requested")
   const updated = await restate(db, input.creatorId, checkoutId)
   return updated ? { ok: true, order: updated, returnId: r.id } : { ok: false, error: "Order not found." }
 }
@@ -1197,7 +1211,9 @@ export async function moveReturn(
   const { data: r } = await db.from("commerce_returns").select("*").eq("id", returnId).eq("creator_id", creatorId).maybeSingle()
   if (!r) return { ok: false, error: "Return not found.", status: 404 }
   const to = String(input.status)
-  if (!(RETURN_FLOW[r.status] ?? []).includes(to)) return { ok: false, error: "A return can't move to that status from here." }
+  /* A return with nothing to send back closes straight from approved: there is no parcel to receive. */
+  const keep = r.method === "no_return_needed"
+  if (!(RETURN_FLOW[r.status] ?? []).includes(to) && !(keep && r.status === "approved" && to === "completed")) return { ok: false, error: "A return can't move to that status from here." }
   const now = new Date().toISOString()
   const patch: Record<string, unknown> = { status: to, updated_at: now }
   if (input.note !== undefined) patch.merchant_note = cleanText(input.note, 1000)
@@ -1213,7 +1229,7 @@ export async function moveReturn(
     const { data: items } = await db.from("commerce_return_items").select("id, order_id, quantity, restock, restock_location_id, restocked_quantity").eq("return_id", returnId)
     let restocked = 0
     for (const i of (items ?? []) as Record<string, any>[]) {
-      const want = input.restock && i.id in input.restock ? input.restock[i.id] : i.restock
+      const want = !keep && (input.restock && i.id in input.restock ? input.restock[i.id] : i.restock)
       if (!want || !i.restock_location_id || i.restocked_quantity >= i.quantity) continue
       const { data: o } = await db.from("orders").select("variant_id").eq("id", i.order_id).maybeSingle()
       if (!o?.variant_id) continue

@@ -27,7 +27,7 @@ import { displayEmail } from "@/lib/businesses/email-alias"
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowUpDown, ChevronLeft, ChevronRight, Download, FileText, ListFilter, MoreHorizontal, Plus, Search, Upload, X } from "lucide-react"
+import { ArrowUpDown, CalendarDays, ChevronLeft, ChevronRight, Download, FileText, ListFilter, MoreHorizontal, Plus, Search, Upload, X } from "lucide-react"
 import { Popover, PopoverTrigger } from "@/components/ui/popover"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
@@ -310,6 +310,8 @@ export function PeopleClient({ query: serverQuery, page: serverPage, communities
 
   const moreMenu: ActionMenuItem[] = [
     ...(phone ? [{ label: tt("Forms"), icon: <FileText className="h-4 w-4" />, href: "/app/contacts/forms", id: "contacts-forms" }] : []),
+    /* Round AR: the bookings every booking form took, beside Forms. */
+    ...(phone ? [{ label: tt("Bookings"), icon: <CalendarDays className="h-4 w-4" />, href: "/app/bookings", id: "contacts-bookings" }] : []),
     { label: tt("Import from a CSV file"), icon: <Upload className="h-4 w-4" />, onClick: () => setImporting(true), separatorBefore: phone, id: "contacts-import" },
     { label: tt("Export these people"), icon: <Download className="h-4 w-4" />, href: exportHref(), id: "contacts-export" },
   ]
@@ -337,6 +339,12 @@ export function PeopleClient({ query: serverQuery, page: serverPage, communities
         title={tt("Contacts")}
         actions={
           <>
+            {phone ? null : (
+              <Link href="/app/bookings" className={buttonSecondary} data-contacts-bookings-link="">
+                <CalendarDays className="h-4 w-4" />
+                {tt("Bookings")}
+              </Link>
+            )}
             {phone ? null : (
               <Link href="/app/contacts/forms" className={buttonSecondary} data-contacts-forms-link="">
                 <FileText className="h-4 w-4" />

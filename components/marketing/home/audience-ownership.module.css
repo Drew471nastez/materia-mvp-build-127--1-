@@ -1,0 +1,326 @@
+/*
+  Section 10, "Your audience belongs to you" (landing round 5: one picture).
+  Two columns from 1024px, the words then the picture under that. Landing
+  round 9: the picture is the list with a new person joining at the top;
+  one strip moves by transform, one wash by opacity, and no box changes size.
+*/
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(28px, 5vw, 48px);
+  align-items: center;
+}
+@media (min-width: 1024px) {
+  .grid {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    gap: clamp(48px, 6vw, 96px);
+  }
+}
+/* The heading and its lines start where the showcase's heading does: the content edge plus --home-head-inset. */
+.words {
+  padding-left: var(--home-head-inset, 0px);
+}
+
+/* Three lines of a few words, a hairline over each. */
+.points {
+  margin: clamp(22px, 3vw, 36px) 0 0;
+  padding: 0;
+  max-width: 440px;
+  list-style: none;
+}
+.points li {
+  padding: 15px 0;
+  border-top: 1px solid #ececf0;
+  font-size: clamp(17px, 1.35vw, 19px);
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: -0.015em;
+  color: #0f0e13;
+}
+.points li:last-child {
+  padding-bottom: 0;
+}
+
+/* The picture: Contacts, a white card with a hairline. Nothing in it answers the pointer. */
+.mock {
+  --rh: 68px;
+  --rows: 4;
+  width: 100%;
+  max-width: 600px;
+  justify-self: center;
+  overflow: hidden;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow:
+    0 0 0 1px #e9e9ee,
+    0 1px 2px rgba(16, 24, 40, 0.04),
+    0 18px 36px -28px rgba(24, 24, 27, 0.2);
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  color: #0f0e13;
+}
+@media (min-width: 1024px) {
+  .mock {
+    justify-self: end;
+  }
+}
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 22px;
+  border-bottom: 1px solid #f0f0f3;
+}
+.headTitle {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.015em;
+}
+.headCount {
+  margin-top: 1px;
+  font-size: 13.5px;
+  line-height: 1.4;
+  color: #6b7280;
+  white-space: nowrap;
+}
+.export {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 7px;
+  height: 38px;
+  padding: 0 14px;
+  overflow: hidden;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #1a1a2e;
+  box-shadow: inset 0 0 0 1px #e2e4e8;
+  transition: color 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+/*
+  Landing round 15 (the owner: the buttons' hover should grow from the
+  right, smooth and clean). The fill is a layer under the label that scales
+  in from the right edge (transform-origin right, scaleX), so the hover is a
+  transform on the compositor and nothing is laid out again. The mock takes
+  no pointer except here and on the platform marks.
+*/
+.export::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: #1a1a2e;
+  transform: scaleX(0);
+  transform-origin: right center;
+  transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.export svg {
+  transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (hover: hover) and (pointer: fine) {
+  .export,
+  .mark {
+    pointer-events: auto;
+  }
+  .export:hover {
+    color: #fff;
+  }
+  .export:hover::before {
+    transform: scaleX(1);
+  }
+  .export:hover svg {
+    transform: translate3d(0, 2px, 0);
+  }
+}
+
+/*
+  THE LIST: a box exactly --rows rows tall, clipping one strip. The strip
+  starts five rows up (showing the first four people) and comes down a row
+  at a time; after five it shows the first four again, and the loop starts
+  over on the same picture.
+*/
+.window {
+  position: relative;
+  height: calc(var(--rh) * var(--rows));
+  overflow: hidden;
+  contain: layout paint;
+}
+.track {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  transform: translate3d(0, calc(var(--rh) * -5), 0);
+  /* One easing for every step: it applies between each pair of keyframes. */
+  animation: aud-roll 16s cubic-bezier(0.3, 0, 0.1, 1) 1.4s infinite both paused;
+}
+.row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 14px;
+  box-sizing: border-box;
+  height: var(--rh);
+  padding: 0 22px;
+  border-bottom: 1px solid #f4f4f6;
+}
+.face {
+  display: block;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  object-fit: cover;
+  background: #eceaf0;
+}
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15.5px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.via {
+  font-size: 13.5px;
+  color: #6b7280;
+  white-space: nowrap;
+}
+/* The newest person's row, for a moment after they land: a soft violet wash under the strip. */
+.fresh {
+  position: absolute;
+  inset: 0 0 auto;
+  height: var(--rh);
+  background: #f4effe;
+  opacity: 0;
+  animation: aud-fresh 3.2s linear 1.4s infinite both paused;
+}
+.mock[data-live] .track,
+.mock[data-live] .fresh {
+  animation-play-state: running;
+}
+/* A row comes down over the first quarter of each 3.2s step, then rests. */
+@keyframes aud-roll {
+  0% {
+    transform: translate3d(0, calc(var(--rh) * -5), 0);
+  }
+  5%,
+  20% {
+    transform: translate3d(0, calc(var(--rh) * -4), 0);
+  }
+  25%,
+  40% {
+    transform: translate3d(0, calc(var(--rh) * -3), 0);
+  }
+  45%,
+  60% {
+    transform: translate3d(0, calc(var(--rh) * -2), 0);
+  }
+  65%,
+  80% {
+    transform: translate3d(0, calc(var(--rh) * -1), 0);
+  }
+  85%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+@keyframes aud-fresh {
+  0% {
+    opacity: 0;
+  }
+  12% {
+    opacity: 0;
+  }
+  32%,
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Under the list: the five email platforms, in their own marks. */
+.foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 22px;
+  border-top: 1px solid #f0f0f3;
+  background: #fff;
+}
+.footLabel {
+  font-size: 13.5px;
+  color: #6b7280;
+  white-space: nowrap;
+}
+.marks {
+  display: flex;
+  gap: 8px;
+}
+.mark {
+  display: block;
+  width: 30px;
+  height: 30px;
+  overflow: hidden;
+  border-radius: 8px;
+  box-shadow: 0 0 0 1px rgba(16, 24, 40, 0.08);
+  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+/* Round 15: a mark under the pointer rises a little, one eased transform. */
+@media (hover: hover) and (pointer: fine) {
+  .mark:hover {
+    transform: translate3d(0, -2px, 0) scale(1.06);
+  }
+}
+
+@media (max-width: 639px) {
+  .mock {
+    --rh: 62px;
+    --rows: 3;
+    border-radius: 18px;
+  }
+  .head {
+    padding: 15px 16px;
+  }
+  .row {
+    grid-template-columns: 40px minmax(0, 1fr) auto;
+    column-gap: 12px;
+    padding: 0 16px;
+  }
+  .face {
+    width: 40px;
+    height: 40px;
+  }
+  .name {
+    font-size: 15px;
+  }
+  .foot {
+    padding: 12px 16px;
+  }
+  .mark {
+    width: 28px;
+    height: 28px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .track,
+  .fresh {
+    animation: none;
+  }
+  .export,
+  .export::before,
+  .export svg,
+  .mark {
+    transition: none;
+  }
+}

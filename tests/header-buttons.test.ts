@@ -53,7 +53,8 @@ console.log("\n1 and 2. the logged out row on a computer")
   /* Changed on purpose: 158acdef (light buyer header theme) takes the row's colours from lib/platform/header-chrome.ts, the dark bar's still white at 15%. */
   const chromeSrc = readCode("lib/platform/header-chrome.ts")
   check("a thin vertical rule first", /data-guest-divider=""[^>]*className=\{cn\("ml-1 h-6 w-px", chrome\.guestDivider\)\}/.test(row) && /guestDivider: "bg-white\/15"/.test(chromeSrc))
-  check("Sell on Storelib is a plain text link to /sell", /link\("\/sell"\)/.test(row) && /Sell on Storelib/.test(row) && !/data-guest-sell=""[^>]*bg-violet/.test(row))
+  /* Changed on purpose: round 3 sends a stranger's Sell on Storelib straight to /signup?intent=sell, where /sell itself would send them, without /sell's spinner on the way (scripts/check-auth-arrival-r3.mjs). */
+  check("Sell on Storelib is a plain text link to sign up for selling", /link\(GUEST_SELL\)/.test(row) && /const GUEST_SELL = withCarry\("\/signup", \{ intent: SELL_INTENT \}\)/.test(header) && /Sell on Storelib/.test(row) && !/data-guest-sell=""[^>]*bg-violet/.test(row))
   /* Changed on purpose: 158acdef (light buyer header theme) moved the outline's colour into lib/platform/header-chrome.ts, the dark bar's still white at 30%. */
   check("Log in is outlined, to /login, and only where asked for", /\{withLogin && \(\s*<Link\s+\{\.\.\.link\("\/login"\)\}/.test(row) && /data-guest-login=""[\s\S]{0,40}className=\{cn\("[^"]*rounded-action border [^"]*", chrome\.guestLogin/.test(row) && /guestLogin: "border-white\/30 /.test(chromeSrc))
   check("Sign up is filled Storelib purple, to /signup", /link\("\/signup"\)/.test(row) && /data-guest-signup=""[\s\S]{0,140}rounded-action bg-violet-600/.test(row) && />\s*Sign up\s*</.test(row))
@@ -71,28 +72,28 @@ check("both computer rows wait with an invisible copy of the logged out row", (h
 check("the stand in cannot be reached or read", /aria-hidden=\{placeholder \|\| undefined\}/.test(header) && /inert=\{placeholder \|\| undefined\}/.test(header))
 check("no grey pills: the old skeleton is gone", !/HeaderActionsSkeleton|<Skeleton\b/.test(header))
 
-console.log("\n3. the hero's button and search")
+console.log("\n3. the cinematic hero signup")
 {
-  /* Changed on purpose (round AA1, the owner's remake from a reference): one button and the marketplace search, under the subheading. */
   const hero = readCode("components/marketing/hero.tsx")
-  const actions = hero.slice(hero.indexOf("data-hero-actions"), hero.indexOf("<HeroCarousel"))
-  check("they are under the subheading", hero.indexOf("data-hero-actions") > hero.indexOf("The e-commerce platform for creators"))
-  /* Changed on purpose (round AC1): both take one CONTROL class list (52px, full width on a phone), which carries the corner. */
-  check("the button and the search field take the Log in button's corner", (actions.match(/\$\{CONTROL\}/g) ?? []).length === 2 && /const CONTROL = "[^"]*\brounded-action\b/.test(hero))
-  check("and neither is a pill", !/rounded-full/.test(actions))
+  const css = hero
+  check("signup stays below the description", hero.indexOf("<HeroCta") > hero.indexOf("cinematic-description"))
+  check("signup and search use one shared corner and the marketplace is a link", /--hero-control-radius: 12px/.test(css) && /className="cinematic-marketplace"/.test(readCode("components/marketing/hero-cta.tsx")) && !/role="search"/.test(hero))
 }
+
 
 console.log("\n4 and 5. the phone menu, logged out")
 {
   const sheet = fn(header, "GuestSheetActions")
   check("one component for both menus", sheet.length > 0)
   check("Sign up first, filled purple, not blue", /data-menu-sign-up=""[^>]*bg-violet-600/.test(sheet) && !/blue-|#2563eb|#3b82f6|#4f46e5/i.test(sheet))
-  check("Discover outlined with its compass, to /explore", /go\("\/explore"\)\}\s*data-menu-discover=""[^>]*border border-/.test(sheet) && /<Compass /.test(sheet))
-  check("or Log in outlined, to /login", /go\("\/login"\)\}\s*data-menu-log-in=""[^>]*border border-/.test(sheet))
-  check("Sell on Storelib as purple text, to /sell", /go\("\/sell"\)\}\s*data-menu-sell=""[^>]*text-violet-600/.test(sheet))
+  /* Changed on purpose (wave 18): the owner's full-screen menu lists "Sign up / Log in" at its foot, as the reference has Log in over Start now; Discover is a row of the menu's list (below). */
+  check("Log in always there, outlined in the bar's colours, to /login", /go\("\/login"\)\}\s*data-menu-log-in=""[^>]*sheetOutline\(light\)/.test(sheet) && /const sheetOutline = [\s\S]{0,120}border border-\[#d0d4db\][\s\S]{0,200}border border-white/.test(header))
+  check("Log in above Sign up, the one to press nearest the thumb", sheet.indexOf("data-menu-log-in") < sheet.indexOf("data-menu-sign-up"))
+  check("Sell on Storelib as purple text, to sign up for selling", /go\(GUEST_SELL\)\}\s*data-menu-sell=""[^>]*text-violet-600/.test(sheet))
   check("the buttons take the shared corner", /SHEET_BUTTON =\s*"[^"]*rounded-action/.test(header))
   /* Changed on purpose: e6a207bd (admin toggle to hide Discover) offers Discover only while the marketplace is on, and Log in in its place otherwise. */
-  check("the marketing menu has Discover", /<GuestSheetActions second=\{exploreMarketplaceOn \? "discover" : "login"\}/.test(header))
+  /* Changed on purpose (wave 18): Discover moved from the foot's buttons into the full-screen menu's list, still only while the marketplace is on. */
+  check("the marketing menu has Discover", /<GuestSheetActions link=\{guestLink\} light=\{buyerHeaderLight\}/.test(header) && /exploreMarketplaceOn \? \[\{ href: "\/explore", label: "Discover"/.test(header))
   /* Round 3: Explore's hamburger is the navigator, whose signed out foot is Log in and Start creating (lib/nav/places-shared navigatorModel). */
   check("Explore's menu is the navigator, with Log in and Start creating", /<PlaceNavigator\b/.test(header) && /key: "log-in", label: "Log in", href: "\/login"/.test(readCode("lib/nav/places-shared.ts")))
   check("and neither keeps the old Sign in and black Discover pair", !/data-menu-sign-in|bg-gray-900 text-white/.test(header))
@@ -112,7 +113,8 @@ console.log("\n6. signed in")
     /export const sellingLabel = \(state: SellerState\) => \(state === "started" \? "Finish setting up your store" : "Become a seller"\)/.test(header) && /setSellerState\(access\.state\)/.test(header))
   check("a profile that could not be read does not undo what the creators row says",
     /if \(profileErr\) \{[\s\S]{0,700}?const state = sellerAccessFrom\(\{ creator: creatorData, profile: null \}\)\.state\s*setIsCreator\(state === "seller"\)\s*setHasCompletedSellerOnboarding\(state === "seller"\)/.test(header))
-  check("it is a calm row, not a badge: a pale violet ground, the height of its neighbours", /data-become-seller=""\s*className="[^"]*rounded-xl bg-\[#f5f3ff\] px-4 py-3\.5 text-base font-medium text-violet-700/.test(header))
+  /* Changed on purpose (wave 18): at the foot of the dark full-screen menu a pale violet slab was the loudest thing there; it is the outlined button of the bar's colours with the store in purple. */
+  check("it is a calm row, not a badge: the outlined button, the height of its neighbours", /data-become-seller=""\s*className=\{cn\(SHEET_BUTTON, "gap-2\.5", sheetOutline\(light\)\)\}/.test(header))
   /* Round 7: the phone's account sheet is its own component (AccountSheet), shared with a community's bar, and takes the seller answer as `seller`. */
   check("a seller gets Dashboard there instead", (header.match(/hasCompletedSellerOnboarding \? \(/g) ?? []).length + (fn(header, "AccountSheet").match(/\{seller \? \(/g) ?? []).length >= 3 && /<AccountSheet[\s\S]{0,500}seller=\{hasCompletedSellerOnboarding\}/.test(header))
   /*
@@ -179,13 +181,14 @@ console.log("\n7. the logo, a touch smaller in headers only")
   const m = header.match(/HEADER_LOGO = \{ desktop: ([\d.]+), marketingPhone: ([\d.]+), phone: ([\d.]+) \}/)
   const [d, mp, p] = (m?.slice(1) ?? []).map(Number)
   const five = (was: number, now: number) => Math.abs(now - was * 0.95) < 0.02
-  check("the site header: another ~5% under the last header sizes", !!m && five(41.8, d) && five(39.9, mp) && five(36.1, p), m?.slice(1))
+  check("the site header: another ~5% under the last header sizes", !!m && five(39.71, d) && five(37.91, mp) && five(34.3, p), m?.slice(1))
   check("every logo in the site header draws at one of them", (header.match(/<StorelibLogo size=\{HEADER_LOGO\.(desktop|marketingPhone|phone)\}/g) ?? []).length === 4 && !/<StorelibLogo size=\{\d/.test(header))
   check("the /app top bar: 27 becomes 25.65", /<StorelibLogo size=\{25\.65\} priority \/>/.test(readCode("components/app/sidebar.tsx")) && five(27, 25.65))
   check("and its still copy matches it", /<StorelibLogo size=\{25\.65\} alt="" \/>/.test(readCode("components/app/shell-header-still.tsx")))
   check("the public wishlist's header: 32 becomes 30.4", /<StorelibLogo size=\{30\.4\} \/>/.test(readCode("components/wishlist/public-wishlist-shell.tsx")) && five(32, 30.4))
   check("by size, not by a CSS scale on the logo", !/scale|matrix/.test(readCode("components/brand/storelib-logo.tsx")))
-  check("and the footer keeps its size", /<StorelibLogo size=\{40\} \/>/.test(readCode("components/marketing/footer.tsx")))
+  // Changed on purpose (landing round 11): the footer's logo is the app icon again (the owner: not outlined), still 40px.
+  check("and the footer keeps its size", /<StorelibLogo size=\{40\} variant="solid" \/>/.test(readCode("components/marketing/footer.tsx"))) // Changed on purpose (landing round 12): the footer draws the solid mark, still 40px.
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

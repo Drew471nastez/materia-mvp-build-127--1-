@@ -49,7 +49,7 @@ export const APP_PAGES: readonly AppPage[] = [
   { get label() { return tt("Settings") }, href: "/app/settings", group: "Settings", get words() { return tt("profile account") } },
   { get label() { return tt("Payments") }, href: "/app/settings/payments", group: "Settings", get words() { return tt("stripe paypal connect") } },
   { get label() { return tt("Billing") }, href: "/app/settings/billing", group: "Settings", get words() { return tt("plan subscription invoices payment methods") } },
-  { get label() { return tt("Upgrade to Pro") }, href: "/app/settings/billing/upgrade", group: "Settings", get words() { return tt("plan pricing") } },
+  { get label() { return tt("Upgrade to Grow") }, href: "/app/settings/billing/upgrade", group: "Settings", get words() { return tt("plan pricing") } },
 
   /*
     EVERY PLACE INSIDE A PAGE (round 42). The tabs, sections and subpages
@@ -80,6 +80,7 @@ export const APP_PAGES: readonly AppPage[] = [
   { get label() { return tt("Messages") }, href: "/app/contacts/forms", group: "Pages", get under() { return tt("Contacts") }, get words() { return tt("inbox replies contact form") } },
   { get label() { return tt("Leads") }, href: "/app/contacts?filter=leads", group: "Pages", get under() { return tt("Contacts") }, get words() { return tt("forms quiz answers responses whatsapp") } },
   { get label() { return tt("Forms") }, href: "/app/contacts/forms", group: "Pages", get under() { return tt("Contacts") }, get words() { return tt("form quiz questions booking contact") } },
+  { get label() { return tt("Bookings") }, href: "/app/bookings", group: "Pages", get under() { return tt("Contacts") }, get words() { return tt("appointments calendar meetings calls google calendar reschedule") } },
   { get label() { return tt("Automations") }, href: "/app/emails?tab=flows", group: "Pages", get under() { return tt("Emails") }, get words() { return tt("flows welcome abandoned cart sequence") } },
   { get label() { return tt("Customer emails") }, href: "/app/emails?tab=customer", group: "Pages", get under() { return tt("Emails") }, get words() { return tt("receipt order confirmation shipping notification") } },
   { get label() { return tt("Sent emails") }, href: "/app/emails?tab=published", group: "Pages", get under() { return tt("Emails") }, get words() { return tt("campaigns newsletters opens clicks") } },

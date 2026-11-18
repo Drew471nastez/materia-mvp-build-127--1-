@@ -1,0 +1,1171 @@
+"use client"
+
+/**
+ * ===========================================================================
+ *  HOW IT WORKS: THE DASHBOARD, TIPS AND YOUR OWN DOMAIN (home, section 8)
+ * ===========================================================================
+ * LANDING ROUND 12, THE OWNER: the pictures in this section did not look like
+ * the rest of the page. "Smooth, clean, non AI looking", full width, sitting
+ * straight on the section with no grey box or panel around each one. So:
+ *
+ *   business   Storelib's own /app dashboard, drawn as it really is
+ *              (components/app/dashboard-client, sidebar, sidebar-desktop-nav,
+ *              metric-tab): the dark header, the rail, the greeting, the four
+ *              figures and the revenue chart. A full row of its own. Seen for
+ *              the first time, the figures roll up from nothing and the line
+ *              draws itself; then, while it is on screen, visitors come in
+ *              and now and then an order, and each figure ticks to its new
+ *              value. Every number follows from the others: conversion is
+ *              orders over visitors, revenue is the orders at their prices.
+ *   tips       a creator page: a visitor picks $5 in the tip block,
+ *              pays on the checkout sheet, and the block says thank you, in
+ *              the words the real block uses (components/onepage/tip-block).
+ *   domain     a store's front page as four photographs and its line, with
+ *              a big address field over it: www.fernlyn.com types itself in,
+ *              ".com" in blue, and a green check comes in once it is done.
+ *
+ * LANDING ROUND 13, THE OWNER: go back to round 11's structure and keep
+ * round 12's pictures inside it. So the row is round 11's again (narrow,
+ * wide, narrow from 1100px: tips, the dashboard, the domain; the wide card
+ * leading its own row from 640px; one column on a phone), each picture in a
+ * quiet grey stage with round corners and a caption under it. The pictures
+ * are fitted to those shapes: the tip page rises from the stage's foot, the
+ * domain is sized by its card's width, and the dashboard is laid out at a
+ * width of its own and scaled whole into its stage (useDashFit), never cut.
+ *
+ * LANDING ROUND 14, THE OWNER: each picture covers its whole card, with no
+ * outlined frame inside it, and the cards have an extremely subtle depth (a
+ * hairline and a soft shadow, no grey stage). The cards keep one shape on
+ * every screen: a narrow card is 4:5 and the wide one 5:3, so a phone shows
+ * the same picture as a laptop, only smaller (from 1100px the row's height
+ * is the narrow cards' 4:5, the wide card takes it).
+ *   tips       Ines Duarte's creator page, edge to edge: a landscape
+ *              filmmaker (made up) in place of Ruben Linde, whom the owner
+ *              did not like, with a real photograph for her cover.
+ *   business   the dashboard covers its card: laid out at the computer's
+ *              width with its sidebar, scaled to the card's width, and as
+ *              tall as the card at that scale (the chart takes the extra
+ *              height), so nothing is cut and there is no frame around it.
+ *   domain     /pricing's domain reel (app/(storelib)/(marketing)/pricing/
+ *              domain-reel.tsx, imported as it is), filling the card: one
+ *              name with different endings, a row at a time.
+ *
+ * LANDING ROUND 15, THE OWNER:
+ *   business   closer to the real /app home: the page behind the cards is
+ *              the app's #f8f9fa with the rail on white, Inter, conversion
+ *              as a whole percent (dashboard-client rounds it), and the
+ *              chart's show and hide chevron in the corner of the figures.
+ *   tips       her cover photograph (the owner disliked it) is now drawn: red
+ *              mesas under a low sun, in reds only (TipCover). The loop is
+ *              cleaned of its bumps: the $3 / $5 reset happens while the
+ *              picker is fully hidden (it used to snap while fading back in),
+ *              the checkout sheet rests far enough below the card that its
+ *              shadow no longer shows as a grey band at the foot, and every
+ *              amount is set in tabular figures.
+ *   domain     its ground a little more graded, in the reel's own lilacs.
+ *   cards      on a phone each card's corners are 2px tighter (16px).
+ *
+ * LANDING ROUND 16, THE OWNER:
+ *   tips       smoother and cleaner, and a better cover photograph (HOW_COVER:
+ *              a film camera at a valley's edge, the valley on its screen).
+ *              The chosen amount is one dark pill that glides from $3 to $5
+ *              (it was two pills crossfading), the button's words roll
+ *              rather than swap, the taps are softer and stay inside their
+ *              buttons, and the loop is 12s with room between the steps.
+ *   domain     the reel glides (domain-reel.tsx has why it stepped).
+ *
+ * LANDING ROUND 17, THE OWNER: a different creator for Take tips, and a
+ * better cover. Finn Hollis (made up), who films surfing, in place of Ines
+ * Duarte; his cover a surfer on a wave under misty mountains at first
+ * light. Both real photographs (HOW_SHOP, HOW_COVER).
+ *
+ * One shop runs through the dashboard and the tips: Finn Hollis, who films
+ * surfing and sells section 3's two products (made up; Unsplash
+ * photographs for his cover and his face).
+ *
+ * THE GROUND. Behind the heading a field of faint dots flows by itself and,
+ * where a mouse is, lights violet around it and parts (HowField, a small
+ * canvas). It covers the head of the section only, is drawn at no more than
+ * 1.5 device pixels a CSS pixel, and runs only while on screen.
+ *
+ * WHAT MOVES. Transform and opacity only. The dashboard's figures are
+ * odometers: each digit a column of numerals moved by a transform, so a
+ * figure changing never lays anything out. The loops (.cmh-a, and the domain
+ * reel's .ev-loop) run only while
+ * their card is near the screen and the tab is visible (data-commerce-live);
+ * what plays once waits for a third of the card to be on screen (data-seen,
+ * .cmh-o). The dashboard's ticker reads the same attribute, so it stops off
+ * screen too. Reduced motion: every picture's finished frame, still.
+ *
+ * A PICTURE TAKES NO POINTER: no links, no buttons, nothing to tab to; the
+ * pictures stay aria-hidden, so a swipe over them is only ever a page scroll.
+ *
+ * TRUE TO THE PRODUCT. The dashboard's labels and layout are the app's own.
+ * Tips are the OnePage tip block: three amounts and Other, "Tip $5", paid
+ * through checkout, "Thank you for the $5 tip." (lib/onepage/tips). A domain
+ * a creator owns serves their website (lib/custom-domains/hostname
+ * DOMAIN_PURPOSES); connecting one is on Grow (lib/sites/plan customDomain,
+ * the "growth" plan); Storelib reads the DNS and waits for the certificate
+ * itself (app/api/domains/verify).
+ */
+import { useEffect, useLayoutEffect, useRef, type ReactNode, type RefObject } from "react"
+import type { SectionStyle } from "./lazy-section"
+import { StorelibLogo } from "@/components/brand/storelib-logo"
+import { DomainReel, DOMAIN_CSS, DOMAIN_NAME } from "@/app/(storelib)/(marketing)/pricing/domain-reel"
+import type { DomainPurpose } from "@/lib/custom-domains/hostname"
+import { mountDotField } from "./dot-field-mount"
+import { HOW_FIELD } from "./dot-field-engine"
+
+/* The dashboard's logo loads like the section's other pictures: lazily, decoded off the main thread. */
+const LOGO_LAZY = { loading: "lazy", decoding: "async" } as const
+
+const HOW = "/home/how"
+
+/** Landing round 12 (the owner: a better heading). What the three pictures below are, in their order. */
+export const HOW_HEADING = { lead: "See every sale as it happens.", rest: "Add tips and your own domain." } as const
+
+/** The creator the dashboard and the tips belong to (made up; landing round 17, in place of Ines Duarte, who had replaced Ruben Linde). */
+export const HOW_SHOP = {
+  creator: "Finn Hollis",
+  first: "Finn",
+  handle: "finnhollis",
+  /** What his creator page says under his name. */
+  line: "Surf films and colour grades",
+  /**
+   * His face: Logan Voss on Unsplash (Unsplash Licence), photo-1758743527495-c83d280a73f2, cut square round
+   * his face. Two widths: the tip page's avatar is 18.2% of its card (5.2em at 3.5cqw), about 84px on the
+   * widest narrow card, so 320 covers a 2x or 3x screen.
+   */
+  avatar: `${HOW}/finn-avatar-160.webp`,
+  avatarSrcSet: `${HOW}/finn-avatar-160.webp 160w, ${HOW}/finn-avatar-320.webp 320w`,
+  /** The avatar's width: 18.2% of the narrow card (a phone's column, half the row from 640px, a quarter from 1100px). */
+  avatarSizes: "(min-width: 1100px) 5vw, (min-width: 640px) 9vw, 17vw",
+} as const
+
+/**
+ * Landing round 17, the owner: a new creator and a cover that fits him (round 16's camera at a valley's
+ * edge went with Ines Duarte). A surfer turning on a wave under misty mountains at first light: Tim
+ * Marshall on Unsplash (Unsplash Licence), photo-1526342122811-2a9c8512023d, cut to the cover's own shape
+ * (100:42.5) with the surfer in the lower left third, clear of the avatar that laps over the cover's foot
+ * in the middle. Two widths, 600 and 1000, the larger for a 2x screen at the widest narrow card (about
+ * 500px, at 1099px).
+ */
+export const HOW_COVER = {
+  src: `${HOW}/finn-cover-1000.webp`,
+  srcSet: `${HOW}/finn-cover-600.webp 600w, ${HOW}/finn-cover-1000.webp 1000w`,
+  width: 1000,
+  height: 425,
+  /** The narrow card's width: a phone's column, half the row from 640px, a quarter of it from 1100px. */
+  sizes: "(min-width: 1100px) 25vw, (min-width: 640px) 50vw, 100vw",
+} as const
+
+/** The address the domain card's reel starts on (the reel's own name, with ".com", as a buyer types it), and what a domain a creator owns serves (lib/custom-domains DOMAIN_PURPOSES). */
+export const HOW_DOMAIN = {
+  host: `${DOMAIN_NAME}.com`,
+  typed: `www.${DOMAIN_NAME}.com`,
+  purpose: "website" satisfies DomainPurpose,
+} as const
+
+/**
+ * The three cards, in the row's order: narrow, wide, narrow (landing round 13,
+ * the owner: back to round 11's row of grey stages with their captions, round
+ * 12's pictures inside them). From 640px to 1099px the wide card leads on a
+ * row of its own with the two narrow ones under it; on a phone, one column.
+ */
+export const HOW_CARDS = [
+  { key: "tips", wide: false, title: "Take tips", line: "Visitors pick an amount on your page and pay through checkout." },
+  { key: "business", wide: true, title: "Understand your business", line: "Visitors, revenue, orders and conversion, as they come in." },
+  { key: "domain", wide: false, title: "Use your own domain", line: "On Grow, point a domain you own at your site. HTTPS is set up for you." },
+] as const
+
+/**
+ * Each card runs its loops only while that card is near the screen and the
+ * tab is visible (data-commerce-live), and plays what happens once the first
+ * time a third of its picture is on screen (data-seen). Both are attributes
+ * on the card that the CSS (and the dashboard's ticker) read.
+ */
+function useCardsLive(grid: RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    const root = grid.current
+    if (!root) return
+    const cards = [...root.querySelectorAll<HTMLElement>(".cmh-card")]
+    const near = new Set<Element>()
+    const apply = () => {
+      for (const t of cards) t.toggleAttribute("data-commerce-live", near.has(t) && !document.hidden)
+    }
+    if (typeof IntersectionObserver !== "function") {
+      for (const t of cards) {
+        near.add(t)
+        t.setAttribute("data-seen", "")
+      }
+      apply()
+      return
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) near.add(e.target)
+          else near.delete(e.target)
+        }
+        apply()
+      },
+      { rootMargin: "120px 0px" },
+    )
+    const once = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (!e.isIntersecting) continue
+          ;(e.target.closest(".cmh-card") ?? e.target).setAttribute("data-seen", "")
+          once.unobserve(e.target)
+        }
+      },
+      { threshold: 0.35 },
+    )
+    for (const t of cards) {
+      io.observe(t)
+      once.observe(t.querySelector(".cmh-stage") ?? t)
+    }
+    document.addEventListener("visibilitychange", apply)
+    return () => {
+      io.disconnect()
+      once.disconnect()
+      document.removeEventListener("visibilitychange", apply)
+    }
+  }, [grid])
+}
+
+/* ── the dot field behind the heading ── */
+/** Distance between dots, the largest device pixel ratio drawn, and how the dots look on white (the engine's, dot-field-engine.ts; the worker cannot import this file). */
+export { HOW_FIELD }
+
+/**
+ * A field of faint dots on the white ground. An even grid; a slow wave of two
+ * long sines bent into each other shades it, so bands of dots drift across
+ * like a current; a soft violet light wanders through it on its own and,
+ * while a mouse is over the section, glides after the mouse (a dt-timed lerp,
+ * no jump), the dots under it parting a little. The fade toward the cards and
+ * the sides is each dot's own brightness, worked out on resize, so there is
+ * no mask to composite.
+ *
+ * Landing round 6: it is drawn by the shared engine (dot-field-engine.ts) in a
+ * worker, on canvases the page hands over (dot-field-mount.ts), so the page's
+ * thread draws nothing: it only tells the engine when the field is on screen,
+ * its size, and (a mouse only, at most once a frame) where the mouse is over
+ * the section. Reduced motion: one still frame.
+ */
+function HowField({ host }: { host: RefObject<HTMLElement | null> }) {
+  const boxRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const box = boxRef.current
+    const section = host.current
+    if (!box || !section) return
+    return mountDotField(box, { kind: "how", gap: HOW_FIELD.gap, pointer: section })
+  }, [host])
+  return <div ref={boxRef} className="cmh-field" aria-hidden="true" />
+}
+
+export function HowItWorks() {
+  const section = useRef<HTMLElement>(null)
+  const grid = useRef<HTMLDivElement>(null)
+  useCardsLive(grid)
+  const pictures: Record<(typeof HOW_CARDS)[number]["key"], ReactNode> = {
+    business: <DashScene />,
+    tips: <TipScene />,
+    domain: <DomainReel />,
+  }
+  return (
+    <section ref={section} className="cmh" data-how-section="" aria-labelledby="cmh-title">
+      <style href="w12-commerce-how" precedence="default">
+        {HOW_CSS}
+      </style>
+      <style href={HOW_DOMAIN_STYLE.href} precedence="default">
+        {HOW_DOMAIN_STYLE.css}
+      </style>
+      <HowField host={section} />
+      <div className="cmh-in home-wrap">
+        <h2 id="cmh-title" className="cmh-h">
+          {HOW_HEADING.lead} <span className="cmh-h-mute">{HOW_HEADING.rest}</span>
+        </h2>
+        <div ref={grid} className="cmh-grid">
+          {HOW_CARDS.map((c) => (
+            <article key={c.key} className={`cmh-card ${c.wide ? "cmh-wide" : "cmh-narrow"}`} data-card={c.key}>
+              <div className="cmh-stage" data-ground={c.key} aria-hidden="true">
+                {pictures[c.key]}
+              </div>
+              <h3 className="cmh-cap-t">{c.title}</h3>
+              <p className="cmh-cap">{c.line}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   1. THE DASHBOARD (landing round 12): /app's home as it is drawn there.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/** Section 3's two products, at their prices: what an order on the dashboard is. */
+export const HOW_PRODUCTS = [
+  { id: "luts", name: "Cine Tones LUT Pack", priceCents: 2900 },
+  { id: "tee", name: "Midnight Studio Tee", priceCents: 3200 },
+] as const
+
+/** The last seven days, Nov 10 to Nov 16 (today), as [LUT packs, tees] sold a day. */
+export const HOW_WEEK: readonly (readonly [number, number])[] = [
+  [3, 0], [1, 2], [4, 0], [1, 1], [2, 2], [3, 2], [2, 1],
+]
+export const HOW_WEEK_DAYS = ["Nov 10", "Nov 11", "Nov 12", "Nov 13", "Nov 14", "Nov 15", "Nov 16"] as const
+/** What each day sold, in whole dollars (the chart's line). */
+export const HOW_DAY_DOLLARS = HOW_WEEK.map(([l, t]) => (l * HOW_PRODUCTS[0].priceCents + t * HOW_PRODUCTS[1].priceCents) / 100)
+
+/**
+ * The dashboard's figures for the last 7 days, and the 7 days before them (example figures, made up).
+ * Orders and revenue are the week above; conversion is orders over visitors
+ * (the app's "Orders per visitor"), each change is against the week before.
+ */
+export const HOW_DASH = {
+  visitors: 846,
+  pageViews: 2140,
+  orders: HOW_WEEK.reduce((a, [l, t]) => a + l + t, 0),
+  revenue: HOW_DAY_DOLLARS.reduce((a, b) => a + b, 0),
+  prev: { visitors: 742, orders: 20, revenue: 610 },
+  allTime: { orders: 327, revenue: 9842 },
+  live: 5,
+} as const
+export const howConversion = (orders: number, visitors: number) => (orders / visitors) * 100
+/** A change against the period before, as the app rounds it. */
+export const howChange = (now: number, before: number) => Math.round(((now - before) / before) * 100)
+
+/**
+ * What comes in while the dashboard is on screen, one step every
+ * HOW_TICK_MS: the visitors who arrived, and on some steps an order of one
+ * product. It stops after the last step, before any figure needs another
+ * digit (visitors stay under 1,000, revenue under $1,000).
+ */
+export const HOW_TICKS: readonly { visitors: number; order?: "luts" | "tee" }[] = [
+  { visitors: 2 }, { visitors: 1 }, { visitors: 1, order: "luts" }, { visitors: 2 }, { visitors: 1 }, { visitors: 2 },
+  { visitors: 1, order: "tee" }, { visitors: 1 }, { visitors: 2 }, { visitors: 1 }, { visitors: 1, order: "luts" }, { visitors: 2 },
+  { visitors: 1 }, { visitors: 2 }, { visitors: 1 }, { visitors: 1, order: "luts" }, { visitors: 2 }, { visitors: 1 },
+  { visitors: 1 }, { visitors: 2, order: "tee" }, { visitors: 1 }, { visitors: 2 }, { visitors: 1 }, { visitors: 1, order: "luts" },
+]
+export const HOW_TICK_MS = 1900
+/** The live count beside the period, step by step. */
+const LIVE_STEPS = [5, 6, 6, 7, 6, 5, 4, 5, 6, 5, 4, 4]
+
+/** The figures, as the dashboard writes them (dashboard-client: a whole amount without .00; conversion a whole percent). */
+type DashFigures = { visitors: number; orders: number; revenue: number; live: number }
+const fmtDash = (f: DashFigures) => ({
+  visitors: String(f.visitors),
+  revenue: `$${f.revenue}`,
+  orders: String(f.orders),
+  /* Landing round 15: as the dashboard writes it (dashboard-client: Math.round of the rate). */
+  conversion: `${Math.round(howConversion(f.orders, f.visitors))}%`,
+  live: String(f.live),
+})
+const DASH_START: DashFigures = { visitors: HOW_DASH.visitors, orders: HOW_DASH.orders, revenue: HOW_DASH.revenue, live: HOW_DASH.live }
+export const HOW_DASH_TEXT = fmtDash(DASH_START)
+
+/* The chart: the week's revenue as the dashboard draws it (morph-lines: a 2px violet line over a 15% to 0 fill, the end dot ringed in white). */
+const CHART_TOP = 160
+const CHART_TICKS = [0, 40, 80, 120, 160]
+/** A smooth line through the points (monotone, so it never overshoots), in a 1000 x 100 box. */
+function smoothPath(ys: readonly number[], top: number) {
+  const n = ys.length
+  const pts = ys.map((v, i) => [(i / (n - 1)) * 1000, 100 - (v / top) * 100] as const)
+  const d = pts.map((_, i) => (i === 0 ? pts[1][1] - pts[0][1] : i === n - 1 ? pts[n - 1][1] - pts[n - 2][1] : (pts[i + 1][1] - pts[i - 1][1]) / 2))
+  const dx = 1000 / (n - 1)
+  /* Flatten the slope at a turn, so the line does not overshoot a peak. */
+  for (let i = 1; i < n - 1; i++) {
+    const a = pts[i][1] - pts[i - 1][1]
+    const b = pts[i + 1][1] - pts[i][1]
+    if (a * b <= 0) d[i] = 0
+  }
+  let p = `M${pts[0][0]} ${pts[0][1].toFixed(2)}`
+  for (let i = 0; i < n - 1; i++) {
+    const [x0, y0] = pts[i]
+    const [x1, y1] = pts[i + 1]
+    p += `C${(x0 + dx / 3).toFixed(1)} ${(y0 + d[i] / 3).toFixed(2)} ${(x1 - dx / 3).toFixed(1)} ${(y1 - d[i + 1] / 3).toFixed(2)} ${x1} ${y1.toFixed(2)}`
+  }
+  return p
+}
+const CHART_LINE = smoothPath(HOW_DAY_DOLLARS, CHART_TOP)
+const CHART_AREA = `${CHART_LINE}L1000 100L0 100Z`
+const CHART_END_Y = 100 - (HOW_DAY_DOLLARS[HOW_DAY_DOLLARS.length - 1] / CHART_TOP) * 100
+
+/* The rail's icons: Solar's linear glyphs and the app's own (components/app/sidebar-desktop-nav), 24 unit box, 1.5 stroke. */
+const ICON_PATHS: Record<string, string[]> = {
+  products: [
+    "M15.5777 3.38197L17.5777 4.43152C19.7294 5.56066 20.8052 6.12523 21.4026 7.13974C22 8.15425 22 9.41667 22 11.9415V12.0585C22 14.5833 22 15.8458 21.4026 16.8603C20.8052 17.8748 19.7294 18.4393 17.5777 19.5685L15.5777 20.618C13.8221 21.5393 12.9443 22 12 22C11.0557 22 10.1779 21.5393 8.42229 20.618L6.42229 19.5685C4.27063 18.4393 3.19479 17.8748 2.5974 16.8603C2 15.8458 2 14.5833 2 12.0585V11.9415C2 9.41667 2 8.15425 2.5974 7.13974C3.19479 6.12523 4.27063 5.56066 6.42229 4.43152L8.42229 3.38197C10.1779 2.46066 11.0557 2 12 2C12.9443 2 13.8221 2.46066 15.5777 3.38197Z",
+    "M21 7.5L17 9.5M12 12L3 7.5M12 12V21.5M12 12C12 12 14.7426 10.6287 16.5 9.75C16.6953 9.65237 17 9.5 17 9.5M17 9.5V13M17 9.5L7.5 4.5",
+  ],
+  analytics: [
+    "M2 12C2 7.28595 2 4.92893 3.46447 3.46447C4.92893 2 7.28595 2 12 2C16.714 2 19.0711 2 20.5355 3.46447C22 4.92893 22 7.28595 22 12C22 16.714 22 19.0711 20.5355 20.5355C19.0711 22 16.714 22 12 22C7.28595 22 4.92893 22 3.46447 20.5355C2 19.0711 2 16.714 2 12Z",
+    "M7 18V9M12 18V6M17 18V13",
+  ],
+  orders: [
+    "M16.755 2H7.24502C6.08614 2 5.50671 2 5.03939 2.16261C4.15322 2.47096 3.45748 3.18719 3.15795 4.09946C3 4.58055 3 5.17705 3 6.37006V20.3742C3 21.2324 3.985 21.6878 4.6081 21.1176C4.97417 20.7826 5.52583 20.7826 5.8919 21.1176L6.375 21.5597C7.01659 22.1468 7.98341 22.1468 8.625 21.5597C9.26659 20.9726 10.2334 20.9726 10.875 21.5597C11.5166 22.1468 12.4834 22.1468 13.125 21.5597C13.7666 20.9726 14.7334 20.9726 15.375 21.5597C16.0166 22.1468 16.9834 22.1468 17.625 21.5597L18.1081 21.1176C18.4742 20.7826 19.0258 20.7826 19.3919 21.1176C20.015 21.6878 21 21.2324 21 20.3742V6.37006C21 5.17705 21 4.58055 20.842 4.09946C20.5425 3.18719 19.8468 2.47096 18.9606 2.16261C18.4933 2 17.9139 2 16.755 2Z",
+    "M10.5 11L17 11M7 11H7.5M7 7.5H7.5M7 14.5H7.5M10.5 7.5H17M10.5 14.5H17",
+  ],
+  creator: [
+    "M11 9a2 2 0 1 1-4 0a2 2 0 1 1 4 0Z",
+    "M13 15C13 16.1046 13 17 9 17C5 17 5 16.1046 5 15C5 13.8954 6.79086 13 9 13C11.2091 13 13 13.8954 13 15Z",
+    "M2 12C2 8.22876 2 6.34315 3.17157 5.17157C4.34315 4 6.22876 4 10 4H14C17.7712 4 19.6569 4 20.8284 5.17157C22 6.34315 22 8.22876 22 12C22 15.7712 22 17.6569 20.8284 18.8284C19.6569 20 17.7712 20 14 20H10C6.22876 20 4.34315 20 3.17157 18.8284C2 17.6569 2 15.7712 2 12Z",
+    "M19 12H15M19 9H14M19 15H16",
+  ],
+  website: [
+    "M2 12C2 7.28595 2 4.92893 3.46447 3.46447C4.92893 2 7.28595 2 12 2C16.714 2 19.0711 2 20.5355 3.46447C22 4.92893 22 7.28595 22 12C22 16.714 22 19.0711 20.5355 20.5355C19.0711 22 16.714 22 12 22C7.28595 22 4.92893 22 3.46447 20.5355C2 19.0711 2 16.714 2 12Z",
+    "M2 9.5H22M9 21L9 10M12 6H12.0001M9 6H9.0001M6 6H6.0001",
+  ],
+  onepage: [
+    "M4 10C4 6.22876 4 4.34315 5.17157 3.17157C6.34315 2 8.22876 2 12 2C15.7712 2 17.6569 2 18.8284 3.17157C20 4.34315 20 6.22876 20 10V14C20 17.7712 20 19.6569 18.8284 20.8284C17.6569 22 15.7712 22 12 22C8.22876 22 6.34315 22 5.17157 20.8284C4 19.6569 4 17.7712 4 14V10Z",
+    "M9 7.75H15M9 11.75H15M9 15.75H15",
+  ],
+  contacts: [
+    "M11 9a2 2 0 1 1-4 0a2 2 0 1 1 4 0Z",
+    "M13 15C13 16.1046 13 17 9 17C5 17 5 16.1046 5 15C5 13.8954 6.79086 13 9 13C11.2091 13 13 13.8954 13 15Z",
+    "M2 12C2 8.22876 2 6.34315 3.17157 5.17157C4.34315 4 6.22876 4 10 4H14C17.7712 4 19.6569 4 20.8284 5.17157C22 6.34315 22 8.22876 22 12C22 15.7712 22 17.6569 20.8284 18.8284C19.6569 20 17.7712 20 14 20H10C6.22876 20 4.34315 20 3.17157 18.8284C2 17.6569 2 15.7712 2 12Z",
+    "M19 12H15M19 9H14M19 15H16",
+  ],
+  emails: [
+    "M2 12C2 8.22876 2 6.34315 3.17157 5.17157C4.34315 4 6.22876 4 10 4H14C17.7712 4 19.6569 4 20.8284 5.17157C22 6.34315 22 8.22876 22 12C22 15.7712 22 17.6569 20.8284 18.8284C19.6569 20 17.7712 20 14 20H10C6.22876 20 4.34315 20 3.17157 18.8284C2 17.6569 2 15.7712 2 12Z",
+    "M6 8L8.1589 9.79908C9.99553 11.3296 10.9139 12.0949 12 12.0949C13.0861 12.0949 14.0045 11.3296 15.8411 9.79908L18 8",
+  ],
+  integrations: [
+    "M14.5 6.5H17.5M17.5 6.5H20.5M17.5 6.5V9.5M17.5 6.5V3.5",
+    "M2.5 6.5C2.5 4.61438 2.5 3.67157 3.08579 3.08579C3.67157 2.5 4.61438 2.5 6.5 2.5C8.38562 2.5 9.32843 2.5 9.91421 3.08579C10.5 3.67157 10.5 4.61438 10.5 6.5C10.5 8.38562 10.5 9.32843 9.91421 9.91421C9.32843 10.5 8.38562 10.5 6.5 10.5C4.61438 10.5 3.67157 10.5 3.08579 9.91421C2.5 9.32843 2.5 8.38562 2.5 6.5Z",
+    "M13.5 17.5C13.5 15.6144 13.5 14.6716 14.0858 14.0858C14.6716 13.5 15.6144 13.5 17.5 13.5C19.3856 13.5 20.3284 13.5 20.9142 14.0858C21.5 14.6716 21.5 15.6144 21.5 17.5C21.5 19.3856 21.5 20.3284 20.9142 20.9142C20.3284 21.5 19.3856 21.5 17.5 21.5C15.6144 21.5 14.6716 21.5 14.0858 20.9142C13.5 20.3284 13.5 19.3856 13.5 17.5Z",
+    "M2.5 17.5C2.5 15.6144 2.5 14.6716 3.08579 14.0858C3.67157 13.5 4.61438 13.5 6.5 13.5C8.38562 13.5 9.32843 13.5 9.91421 14.0858C10.5 14.6716 10.5 15.6144 10.5 17.5C10.5 19.3856 10.5 20.3284 9.91421 20.9142C9.32843 21.5 8.38562 21.5 6.5 21.5C4.61438 21.5 3.67157 21.5 3.08579 20.9142C2.5 20.3284 2.5 19.3856 2.5 17.5Z",
+  ],
+  payouts: [
+    "M9.4 8.6C6 10.4 2.75 13.5 2.75 17C2.75 20.6 5.2 22 9.3 22H14.7C18.8 22 21.25 20.6 21.25 17C21.25 13.5 18 10.4 14.6 8.6",
+    "M8.4 8.6H15.6",
+    "M10.1 8.6L8.1 4.6C7.6 3.6 8.5 2.6 9.5 2.9C10.3 3.2 11.1 3.4 12 3.4C12.9 3.4 13.7 3.2 14.5 2.9C15.5 2.6 16.4 3.6 15.9 4.6L13.9 8.6",
+    "M12 18.57C13.05 18.57 13.9 17.86 13.9 16.98C13.9 16.11 13.05 15.4 12 15.4C10.95 15.4 10.1 14.69 10.1 13.82C10.1 12.94 10.95 12.23 12 12.23M12 18.57C10.95 18.57 10.1 17.86 10.1 16.98M12 18.57V19.2M12 11.6V12.23M12 12.23C13.05 12.23 13.9 12.94 13.9 13.82",
+  ],
+}
+/** The house, filled with its door cut out: the row you are on (sidebar-desktop-nav HomeFillIcon). */
+const HOME_FILL =
+  "M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8z"
+
+/** The rail, in the app's order (components/app/sidebar mainNavItems; Integrations after Emails). */
+export const HOW_RAIL = [
+  { key: "dashboard", label: "Dashboard" },
+  { key: "products", label: "Products" },
+  { key: "analytics", label: "Analytics" },
+  { key: "orders", label: "Orders" },
+  { key: "creator", label: "Creator Page" },
+  { key: "website", label: "Website" },
+  { key: "onepage", label: "OnePage" },
+  { key: "contacts", label: "Contacts" },
+  { key: "emails", label: "Emails" },
+  { key: "integrations", label: "Integrations" },
+  { key: "payouts", label: "Payouts" },
+] as const
+
+function RailIcon({ k }: { k: string }) {
+  if (k === "dashboard") {
+    return (
+      <svg viewBox="0 0 24 24" fill="currentColor" fillRule="evenodd">
+        <path d={HOME_FILL} />
+      </svg>
+    )
+  }
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+      {ICON_PATHS[k].map((d, i) => (
+        <path key={i} d={d} />
+      ))}
+    </svg>
+  )
+}
+
+/** Lucide's line glyphs the app's header and tabs draw. */
+const Lucide = ({ d, className }: { d: string[]; className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    {d.map((p, i) => (
+      <path key={i} d={p} />
+    ))}
+  </svg>
+)
+const L_CHEVRON = ["m6 9 6 6 6-6"]
+const L_CHEVRON_UP = ["m18 15-6-6-6 6"]
+const L_SEARCH = ["M19 11a8 8 0 1 1-16 0a8 8 0 1 1 16 0Z", "m21 21-4.3-4.3"]
+const L_BELL = ["M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9", "M10.3 21a1.94 1.94 0 0 0 3.4 0"]
+const L_GEAR = [
+  "M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z",
+  "M15 12a3 3 0 1 1-6 0a3 3 0 1 1 6 0Z",
+]
+const L_EXTERNAL = ["M15 3h6v6", "M10 14 21 3", "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"]
+const L_TREND = ["M22 7 13.5 15.5 8.5 10.5 2 17", "M16 7h6v6"]
+
+/** Cells in an odometer's column: the numerals three times over, so a digit can always roll the way the number moves. */
+const ODO_CELLS = 30
+/**
+ * A figure as an odometer: every digit a clipped window on a column of
+ * numerals, the column moved by a transform. Drawn at its finished value;
+ * the dashboard's ticker (useDashLive) rolls it from there. Anything that is
+ * not a digit ($, the point, %) stands still.
+ */
+function Odo({ name, text }: { name: string; text: string }) {
+  return (
+    <span className="cmh-odo" data-odo={name}>
+      {[...text].map((ch, i) =>
+        /\d/.test(ch) ? (
+          <span key={i} className="cmh-odo-d">
+            <span className="cmh-odo-col" style={{ transform: `translate3d(0,${(-(10 + +ch) * 100) / ODO_CELLS}%,0)` }} data-pos={10 + +ch}>
+              {Array.from({ length: ODO_CELLS }, (_, k) => (
+                <span key={k}>{k % 10}</span>
+              ))}
+            </span>
+          </span>
+        ) : (
+          <span key={i} className="cmh-odo-s">
+            {ch}
+          </span>
+        ),
+      )}
+    </span>
+  )
+}
+
+/**
+ * The dashboard's motion. Before the card is first seen, every figure stands
+ * at nothing (each column at its first 0, the figure faded); seen, the
+ * columns roll forward to their values, the leftmost first. Then one step of
+ * HOW_TICKS every HOW_TICK_MS while the card is live, each figure rolling to
+ * its new value, until the steps run out. Reduced motion: the finished
+ * figures, still, as drawn.
+ */
+function useDashLive(root: RefObject<HTMLDivElement | null>) {
+  useLayoutEffect(() => {
+    const el = root.current
+    const card = el?.closest<HTMLElement>(".cmh-card")
+    if (!el || !card) return
+    if (typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
+    const cols = (name: string) => [...el.querySelectorAll<HTMLElement>(`[data-odo="${name}"] .cmh-odo-col`)]
+    const place = (col: HTMLElement, pos: number, ms: number) => {
+      col.style.transitionDuration = `${ms}ms`
+      col.style.transform = `translate3d(0,${(-pos * 100) / ODO_CELLS}%,0)`
+      col.dataset.pos = String(pos)
+    }
+    /* Nothing yet: every column on its first 0, at once. */
+    for (const col of el.querySelectorAll<HTMLElement>(".cmh-odo-col")) place(col, 0, 0)
+    el.setAttribute("data-empty", "")
+
+    let figures = { ...DASH_START }
+    /* A figure to its new text: each digit rolls the way the number went, by the shorter count of cells, never past the column. */
+    const roll = (name: keyof ReturnType<typeof fmtDash>, text: string, up: boolean, ms: number) => {
+      const digits = [...text].filter((c) => /\d/.test(c)).map(Number)
+      cols(name).forEach((col, i) => {
+        const pos = Number(col.dataset.pos ?? 0)
+        const cur = pos % 10
+        const d = digits[i]
+        if (d === undefined || d === cur) return
+        let to = pos - cur + d
+        if (up && d < cur) to += 10
+        if (!up && d > cur) to -= 10
+        /* Back to the middle band first, unseen, when a roll would leave the column. */
+        if (to >= ODO_CELLS || to < 0) {
+          const home = 10 + cur
+          place(col, home, 0)
+          void col.offsetHeight
+          to = home - cur + d + (up && d < cur ? 10 : !up && d > cur ? -10 : 0)
+        }
+        place(col, to, ms)
+      })
+    }
+
+    let filled = false
+    let step = 0
+    const fill = () => {
+      if (filled) return
+      filled = true
+      el.removeAttribute("data-empty")
+      const text = fmtDash(figures)
+      ;(Object.keys(text) as (keyof typeof text)[]).forEach((name, n) => {
+        const list = cols(name)
+        const digits = [...text[name]].filter((c) => /\d/.test(c)).map(Number)
+        list.forEach((col, i) => {
+          col.style.transitionDelay = `${120 + n * 90 + i * 60}ms`
+          place(col, 10 + digits[i], 1500 + i * 120)
+        })
+      })
+      window.setTimeout(() => {
+        for (const col of el.querySelectorAll<HTMLElement>(".cmh-odo-col")) col.style.transitionDelay = ""
+      }, 2600)
+    }
+    const tick = () => {
+      if (!filled || step >= HOW_TICKS.length || !card.hasAttribute("data-commerce-live")) return
+      const s = HOW_TICKS[step]
+      const before = fmtDash(figures)
+      const prevConv = howConversion(figures.orders, figures.visitors)
+      figures = {
+        visitors: figures.visitors + s.visitors,
+        orders: figures.orders + (s.order ? 1 : 0),
+        revenue: figures.revenue + (s.order ? HOW_PRODUCTS.find((p) => p.id === s.order)!.priceCents / 100 : 0),
+        live: LIVE_STEPS[(step + 1) % LIVE_STEPS.length],
+      }
+      step++
+      const after = fmtDash(figures)
+      if (after.visitors !== before.visitors) roll("visitors", after.visitors, true, 700)
+      if (after.orders !== before.orders) roll("orders", after.orders, true, 800)
+      if (after.revenue !== before.revenue) roll("revenue", after.revenue, true, 900)
+      if (after.conversion !== before.conversion) roll("conversion", after.conversion, howConversion(figures.orders, figures.visitors) > prevConv, 800)
+      if (after.live !== before.live) roll("live", after.live, Number(after.live) > Number(before.live), 500)
+    }
+
+    /* Filled the first time the card is seen (useCardsLive's data-seen), whichever comes first: the attribute or this effect. */
+    const mo = new MutationObserver(() => {
+      if (card.hasAttribute("data-seen")) fill()
+    })
+    mo.observe(card, { attributes: true, attributeFilter: ["data-seen"] })
+    if (card.hasAttribute("data-seen")) fill()
+    const timer = window.setInterval(tick, HOW_TICK_MS)
+    return () => {
+      mo.disconnect()
+      window.clearInterval(timer)
+    }
+  }, [root])
+}
+
+/**
+ * Landing round 14, the owner: the dashboard covers its card, no frame around
+ * it, still showing the live figures. It is laid out at a width of its own
+ * (HOW_DASH_FIT: about 1.35 times its card, never narrower than 1040, so the
+ * computer's layout with its sidebar is what every screen shows, nor wider
+ * than 1120), scaled by one transform to the card's width, and made as tall
+ * as the card is at that scale (--db-h), the chart taking whatever height is
+ * left. So it fills the card exactly: nothing cut off, no band around it.
+ * Measured once on mount, before paint, and again only when the card changes
+ * size; never in a frame.
+ */
+export const HOW_DASH_FIT = { perStage: 1.35, min: 1040, max: 1120 } as const
+function useDashFit(fit: RefObject<HTMLDivElement | null>) {
+  useLayoutEffect(() => {
+    const box = fit.current
+    const stage = box?.closest<HTMLElement>(".cmh-stage")
+    if (!box || !stage) return
+    let lastW = -1
+    let lastH = -1
+    const measure = () => {
+      /* The card's exact size (a fraction of a pixel counts: rounded down, a hairline of the card would show at its edge), and half a pixel over, which its corners clip. */
+      const r = stage.getBoundingClientRect()
+      const sw = r.width + 0.5
+      const sh = r.height + 0.5
+      if (r.width < 1 || r.height < 1 || (sw === lastW && sh === lastH)) return
+      lastW = sw
+      lastH = sh
+      const F = HOW_DASH_FIT
+      const w = Math.round(Math.min(F.max, Math.max(F.min, sw * F.perStage)))
+      const s = sw / w
+      box.style.setProperty("--db-w", `${w}px`)
+      box.style.setProperty("--db-h", `${(sh / s).toFixed(2)}px`)
+      box.style.setProperty("--db-s", s.toFixed(5))
+      box.setAttribute("data-fit", "")
+    }
+    measure()
+    if (typeof ResizeObserver !== "function") return
+    const ro = new ResizeObserver(measure)
+    ro.observe(stage)
+    return () => ro.disconnect()
+  }, [fit])
+}
+
+function DashScene() {
+  const fit = useRef<HTMLDivElement>(null)
+  useDashFit(fit)
+  return (
+    <div className="cmh-sc cmh-dbs">
+      <div ref={fit} className="cmh-db-fit">
+        <DashBoard />
+      </div>
+    </div>
+  )
+}
+
+function DashBoard() {
+  const root = useRef<HTMLDivElement>(null)
+  useDashLive(root)
+  const t = HOW_DASH_TEXT
+  const tabs = [
+    { key: "visitors", label: "Visitors", odo: t.visitors, change: howChange(HOW_DASH.visitors, HOW_DASH.prev.visitors), foot: `${(HOW_DASH.pageViews / 1000).toFixed(1)}K page views` },
+    { key: "revenue", label: "Revenue", odo: t.revenue, change: howChange(HOW_DASH.revenue, HOW_DASH.prev.revenue), foot: `$${HOW_DASH.allTime.revenue.toLocaleString("en-US")} all time`, on: true },
+    { key: "orders", label: "Orders", odo: t.orders, change: howChange(HOW_DASH.orders, HOW_DASH.prev.orders), foot: `${HOW_DASH.allTime.orders} all time` },
+    {
+      key: "conversion",
+      label: "Conversion Rate",
+      odo: t.conversion,
+      change: howChange(howConversion(HOW_DASH.orders, HOW_DASH.visitors), howConversion(HOW_DASH.prev.orders, HOW_DASH.prev.visitors)),
+      foot: "Orders per visitor",
+    },
+  ]
+  return (
+    <div ref={root} className="cmh-db">
+      {/* The header (components/app/sidebar): who you are, the search, the bell and settings, the logo. */}
+      <div className="cmh-db-top">
+        <span className="cmh-db-me">
+          <img src={HOW_SHOP.avatar} srcSet={HOW_SHOP.avatarSrcSet} sizes={HOW_SHOP.avatarSizes} alt="" width={160} height={160} loading="lazy" decoding="async" />
+          <span>{HOW_SHOP.creator}</span>
+          <Lucide d={L_CHEVRON} className="cmh-db-chev" />
+        </span>
+        <span className="cmh-db-search">
+          <Lucide d={L_SEARCH} />
+          <span>Search orders, customers, products</span>
+          <kbd>⌘K</kbd>
+        </span>
+        <span className="cmh-db-tools">
+          <Lucide d={L_BELL} />
+          <Lucide d={L_GEAR} className="cmh-db-gear" />
+          <i />
+          <StorelibLogo size={26} {...LOGO_LAZY} />
+          <b>Storelib</b>
+        </span>
+      </div>
+      <div className="cmh-db-body">
+        <span className="cmh-db-rail">
+          {HOW_RAIL.map((r) => (
+            <span key={r.key} className="cmh-db-row" data-on={r.key === "dashboard" ? "" : undefined}>
+              <RailIcon k={r.key} />
+              {r.label}
+            </span>
+          ))}
+        </span>
+        <span className="cmh-db-main">
+          <span className="cmh-db-in">
+            <span className="cmh-db-head">
+              <span className="cmh-db-hl">
+                <span className="cmh-db-hrow">
+                  <b className="cmh-db-hi">Good morning, {HOW_SHOP.first}</b>
+                  <span className="cmh-db-meta">
+                    <span className="cmh-db-period">
+                      Last 7 days
+                      <Lucide d={L_CHEVRON} />
+                    </span>
+                    <span className="cmh-db-live">
+                      <i />
+                      <Odo name="live" text={t.live} /> live
+                    </span>
+                  </span>
+                </span>
+                <span className="cmh-db-sub">Here&apos;s what&apos;s happening with your store</span>
+              </span>
+              <span className="cmh-db-handle">
+                @{HOW_SHOP.handle}
+                <Lucide d={L_EXTERNAL} />
+              </span>
+            </span>
+            <span className="cmh-db-card">
+              <span className="cmh-db-tabs">
+                {tabs.map((tab) => (
+                  <span key={tab.key} className="cmh-db-tab" data-tab={tab.key} data-on={tab.on ? "" : undefined}>
+                    <span className="cmh-db-tl">{tab.label}</span>
+                    <span className="cmh-db-tv">
+                      <b>
+                        <Odo name={tab.key} text={tab.odo} />
+                      </b>
+                      <span className="cmh-db-up">
+                        <Lucide d={L_TREND} />
+                        {tab.change}%
+                      </span>
+                    </span>
+                    <span className="cmh-db-tf">{tab.foot}</span>
+                  </span>
+                ))}
+                {/* The chart's show and hide toggle, in the corner of the figures (dashboard-client, ChevronUp while the chart is open). */}
+                <span className="cmh-db-fold">
+                  <Lucide d={L_CHEVRON_UP} />
+                </span>
+              </span>
+              <span className="cmh-db-chart">
+                <span className="cmh-db-plot">
+                  {CHART_TICKS.map((v) => (
+                    <span key={v} className="cmh-db-grid" style={{ bottom: `${(v / CHART_TOP) * 100}%` }}>
+                      <small>${v}</small>
+                    </span>
+                  ))}
+                  <span className="cmh-db-clip">
+                    <span className="cmh-o cmh-db-wipe">
+                      <span className="cmh-o cmh-db-unwipe">
+                        <svg viewBox="0 0 1000 100" preserveAspectRatio="none">
+                          <defs>
+                            <linearGradient id="cmh-db-fill" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.15} />
+                              <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <path d={CHART_AREA} fill="url(#cmh-db-fill)" />
+                          <path d={CHART_LINE} fill="none" stroke="#8b5cf6" strokeWidth={2} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+                        </svg>
+                      </span>
+                    </span>
+                  </span>
+                  <i className="cmh-o cmh-db-dot" style={{ top: `${CHART_END_Y.toFixed(2)}%` }} />
+                </span>
+                <span className="cmh-db-days">
+                  {HOW_WEEK_DAYS.map((d) => (
+                    <span key={d}>{d}</span>
+                  ))}
+                </span>
+              </span>
+            </span>
+          </span>
+        </span>
+      </div>
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   2. TIPS (landing round 12): a creator page, a tip picked, paid and
+   thanked for. One loop (12 seconds since landing round 16), every step a
+   transform or an opacity:
+   $3 is chosen, a tap lands on $5 and it is chosen, the button reads
+   "Tip $5"; a tap on it, the checkout sheet rises over the page, a tap on
+   Pay, the sheet goes down and the block says thank you; then it is as it
+   was, changed only while hidden.
+   ═══════════════════════════════════════════════════════════════════════════ */
+/** The amounts on his tip block (the block's defaults, lib/onepage/tips TIP_DEFAULT_AMOUNTS) and the one picked. */
+export const TIP_AMOUNTS = ["$3", "$5", "$10"] as const
+export const HOW_TIP = { picked: "$5", from: "$3", title: "Leave a tip", subtitle: "Toward the next film", thanks: "Thank you for the $5 tip." } as const
+export const HOW_TIP_LOOP_S = 12
+
+function TipScene() {
+  return (
+    <div className="cmh-sc cmh-tp">
+      <div className="cmh-tp-page">
+        <span className="cmh-tp-cover">
+          <img src={HOW_COVER.src} srcSet={HOW_COVER.srcSet} sizes={HOW_COVER.sizes} alt="" width={HOW_COVER.width} height={HOW_COVER.height} loading="lazy" decoding="async" />
+        </span>
+        <span className="cmh-tp-who">
+          <img src={HOW_SHOP.avatar} srcSet={HOW_SHOP.avatarSrcSet} sizes={HOW_SHOP.avatarSizes} alt="" width={160} height={160} loading="lazy" decoding="async" />
+          <b>{HOW_SHOP.creator}</b>
+          <span>{HOW_SHOP.line}</span>
+        </span>
+        <span className="cmh-tp-block">
+          <b className="cmh-tp-t">{HOW_TIP.title}</b>
+          <span className="cmh-tp-s">{HOW_TIP.subtitle}</span>
+          <span className="cmh-tp-swap">
+            <span className="cmh-a cmh-tp-pick">
+              <span className="cmh-tp-chips">
+                {[...TIP_AMOUNTS, "Other"].map((a) => (
+                  <span key={a} className="cmh-tp-chip" data-amount={a}>
+                    <span>{a}</span>
+                    {a === HOW_TIP.picked ? <i className="cmh-a cmh-tp-tap cmh-tp-tap1" /> : null}
+                  </span>
+                ))}
+                {/* The chosen amount: one dark pill that glides from $3 to $5, the white amounts inside it held still against it. */}
+                <i className="cmh-a cmh-tp-sel">
+                  <i className="cmh-a cmh-tp-sel-in">
+                    {[...TIP_AMOUNTS, "Other"].map((a) => (
+                      <span key={a}>{a}</span>
+                    ))}
+                  </i>
+                </i>
+              </span>
+              <span className="cmh-a cmh-tp-btn">
+                <span className="cmh-a cmh-tp-l3">Tip {HOW_TIP.from}</span>
+                <span className="cmh-a cmh-tp-l5">Tip {HOW_TIP.picked}</span>
+                <i className="cmh-a cmh-tp-tap cmh-tp-tap2" />
+              </span>
+            </span>
+            <span className="cmh-a cmh-tp-thx">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 12.5 10 17.5 19 7.5" />
+              </svg>
+              {HOW_TIP.thanks}
+            </span>
+          </span>
+        </span>
+        {/* The checkout, over the page: dimmed behind, the sheet from the foot. */}
+        <i className="cmh-a cmh-tp-scrim" />
+        <span className="cmh-a cmh-tp-sheet">
+          <i className="cmh-tp-grab" />
+          <span className="cmh-tp-for">
+            <img src={HOW_SHOP.avatar} srcSet={HOW_SHOP.avatarSrcSet} sizes={HOW_SHOP.avatarSizes} alt="" width={160} height={160} loading="lazy" decoding="async" />
+            Tip for {HOW_SHOP.creator}
+          </span>
+          <b className="cmh-tp-amt">$5.00</b>
+          <span className="cmh-a cmh-tp-pay">
+            Pay $5.00
+            <i className="cmh-a cmh-tp-tap cmh-tp-tap3" />
+          </span>
+          <span className="cmh-tp-lock">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <rect x="5" y="11" width="14" height="10" rx="2" />
+              <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+            </svg>
+            Paid securely through Stripe
+          </span>
+        </span>
+      </div>
+    </div>
+  )
+}
+
+/* ── the stylesheet ── */
+const EASE = "cubic-bezier(.22,1,.36,1)"
+const pc = (s: number, loop: number) => `${+((s / loop) * 100).toFixed(3)}%`
+const T = (s: number) => pc(s, HOW_TIP_LOOP_S)
+/**
+ * When the block goes back to $3: in the middle of the time the picker is fully hidden (landing round 16:
+ * out by 6.45s, back from 10.3s).
+ */
+export const TIP_RESET_S = 8
+/** Landing round 16: the glides (the chosen amount, the button's words) start and end at rest. */
+const GLIDE = "cubic-bezier(.65,0,.35,1)"
+/** Where the checkout sheet rests: below the card by its own height and its shadow's reach, so no shade shows at the foot. */
+const SHEET_DOWN = "calc(100% + 3em)"
+const HOW_CSS = `
+/* Its own box: no data-story-section. The same --home-pad top and bottom. A stacking context, so the dot field sits behind the words and never behind the page. */
+.cmh{position:relative;isolation:isolate;background:#fff;color:#18181b;padding-block:var(--home-pad,clamp(48px,5.6vw,80px))}
+/* The page's shared box (globals.css .home-wrap), restated with the same values so the section holds its edges on its own. */
+.cmh-in{box-sizing:border-box;width:100%;max-width:var(--home-max,2020px);margin-inline:auto;padding-inline:var(--home-edge,clamp(20px,5.15vw,84px))}
+/* The dots behind the heading: the head of the section only, gone by the pictures (the fade is each dot's own brightness). */
+.cmh-field{position:absolute;z-index:-1;left:0;right:0;top:0;height:min(100%,clamp(420px,46vw,640px));overflow:clip;pointer-events:none}
+.cmh-field canvas{position:absolute;left:0;display:block;width:100%;opacity:0;transition:opacity .9s ease-out}
+.cmh-field canvas[data-drawn]{opacity:1}
+/* Section 3's heading: two tones, the lead dark and the rest grey; it starts --home-head-inset in from the pictures' edge. */
+.cmh-h{margin:0 0 clamp(32px,4.4vw,60px);padding-left:var(--home-head-inset,14px);font-size:clamp(34px,4.6vw,64px);font-weight:500;line-height:1.05;letter-spacing:-.045em;color:#18181b;text-wrap:balance}
+.cmh-h-mute{display:block;color:#8e8c96}
+@media(max-width:767px){.cmh-h{padding-left:var(--home-head-inset,0px)}}
+/* Landing round 13, the owner: round 11's structure again. One column on a phone. From 640px the wide card leads on a row of its own with the two narrow cards under it. From 1100px one row: narrow, wide, narrow, the wide card twice a narrow one. */
+.cmh-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:40px}
+@media(min-width:640px) and (max-width:1099px){
+  .cmh-grid{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:clamp(16px,2vw,28px);row-gap:44px}
+  .cmh-wide{grid-column:1/-1;order:-1}
+}
+@media(min-width:1100px){.cmh-grid{grid-template-columns:minmax(0,1fr) minmax(0,2fr) minmax(0,1fr);column-gap:clamp(16px,1.5vw,28px)}}
+/* Landing round 14: the grid is the query container its cards are sized from; --cmh-gap is its column gap in the one row from 1100px. */
+.cmh-grid.cmh-grid{container-type:inline-size;--cmh-gap:clamp(16px,1.5vw,28px)}
+.cmh-card{min-width:0}
+/* Landing round 14, the owner: the picture covers the whole card, no frame or grey ground inside it, and the card has an extremely subtle depth: a hairline and a soft, low shadow. */
+.cmh-stage{position:relative;pointer-events:none;user-select:none;-webkit-user-select:none;aspect-ratio:4/5;border-radius:18px;background:#fff;overflow:hidden;isolation:isolate;container-type:inline-size;font-family:inherit;box-shadow:0 0 0 1px rgba(24,24,27,.055),0 1px 2px rgba(24,24,27,.04),0 14px 34px -24px rgba(24,24,27,.16)}
+/* Landing round 15, the owner: on a phone every card's corners 2px tighter. */
+@media(max-width:767px){.cmh-stage{border-radius:16px}}
+/* One shape on every screen (the owner: a phone shows the cards as a laptop does): narrow 4:5, wide 5:3. */
+.cmh-wide .cmh-stage{aspect-ratio:5/3}
+/* From 1100px, one row: every card as tall as a narrow card is at 4:5 (a quarter of the row less its gaps, times 5/4); the wide card's shape follows, about 5:3. */
+@media(min-width:1100px){.cmh-stage,.cmh-wide .cmh-stage{aspect-ratio:auto;height:calc((100cqw - 2 * var(--cmh-gap)) / 4 * 1.25)}}
+/* The caption: a title and one short line under it. */
+.cmh-cap-t{margin:22px 0 0;font-size:18px;font-weight:500;line-height:1.3;letter-spacing:-.015em;color:#18181b}
+.cmh-cap{margin:6px 0 0;max-width:46ch;font-size:15px;line-height:1.5;color:#7c7a84;text-wrap:pretty}
+@media(min-width:768px){.cmh-cap-t{font-size:19px}.cmh-cap{font-size:15.5px}}
+
+/* Every loop is one of these, so going live restyles only the moving parts (a class, never * or a tag, in the rule keyed on data-commerce-live). */
+.cmh-a{animation-duration:8s;animation-timing-function:${EASE};animation-iteration-count:infinite;animation-fill-mode:both;animation-play-state:paused!important}
+[data-commerce-live] .cmh-a{animation-play-state:running!important}
+/* What plays once, the first time its card is seen. */
+/* Landing round 11 perf: fill backwards, not both. Each bar's last keyframe is its resting style, so after it has risen there is nothing to hold, and a finished animation that still held a fill kept a layer for each of the 60 bars for good. */
+.cmh-o{animation-duration:.7s;animation-timing-function:${EASE};animation-fill-mode:backwards;animation-play-state:paused}
+[data-seen] .cmh-o{animation-play-state:running}
+.cmh-sc{position:absolute;inset:0;line-height:1.3;color:#18181b}
+
+/* ── 1. the dashboard: /app's home in its own sizes (dashboard-client, sidebar, metric-tab), laid out at --db-w and scaled whole into its stage (useDashFit) ── */
+/* Landing round 14: from the card's top left, the card's width once scaled, and as tall as the card at that scale (useDashFit); no frame of its own, the card's corners clip it. */
+.cmh-db-fit{position:absolute;left:0;top:0;width:var(--db-w,1040px);height:var(--db-h,650px);container-type:inline-size;transform-origin:0 0;transform:scale(var(--db-s,.6))}
+.cmh-db{position:relative;display:flex;flex-direction:column;height:100%;overflow:hidden;background:#f8f9fa;font-family:var(--font-inter,Inter),Inter,ui-sans-serif,system-ui,sans-serif;font-size:14px;line-height:1.35;color:#1a1a2e}
+.cmh-db img{display:block}
+.cmh-db svg{display:block;flex:none}
+.cmh-db-top{flex:none;display:flex;align-items:center;gap:16px;height:58px;padding:0 20px;background:#131316;color:#fff}
+.cmh-db-me{display:flex;align-items:center;gap:10px;flex:none;padding:6px 10px}
+.cmh-db-me img{width:28px;height:28px;border-radius:50%;object-fit:cover;box-shadow:0 0 0 1px rgba(255,255,255,.2)}
+.cmh-db-me>span{font-size:13px;font-weight:500;color:rgba(255,255,255,.9)}
+.cmh-db-chev{width:14px;height:14px;color:rgba(255,255,255,.5)}
+.cmh-db-search{flex:1;display:flex;align-items:center;gap:10px;max-width:480px;height:36px;margin:0 auto;padding:0 16px;border-radius:999px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.1);box-sizing:border-box;min-width:0}
+.cmh-db-search svg{width:16px;height:16px;color:rgba(255,255,255,.5)}
+.cmh-db-search span{flex:1;min-width:0;font-size:13px;color:rgba(255,255,255,.6);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmh-db-search kbd{font:inherit;font-size:11px;padding:1px 6px;border-radius:4px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:rgba(255,255,255,.5)}
+.cmh-db-tools{display:flex;align-items:center;gap:14px;flex:none;color:rgba(255,255,255,.75)}
+.cmh-db-tools svg{width:19px;height:19px;stroke-width:1.5}
+.cmh-db-tools>i{width:1px;height:20px;background:rgba(255,255,255,.15)}
+.cmh-db-tools img{width:26px;height:26px;border-radius:7px;background:#895ffe;margin-right:-4px}
+.cmh-db-tools b{font-size:15px;font-weight:600;color:#fff}
+.cmh-db-body{flex:1;min-height:0;display:flex;align-items:stretch}
+/* The rail: 240px, its rows 38px, 15px type at 470, the row you are on #e8e8e8 at 575 (sidebar-desktop-nav ROW and its colours). */
+.cmh-db-rail{flex:none;display:flex;flex-direction:column;gap:0;width:240px;box-sizing:border-box;padding:12px 7px 20px;border-right:1px solid rgba(229,229,229,.6);background:#fff}
+.cmh-db-row{display:flex;align-items:center;gap:8px;height:38px;padding:0 14px;border-radius:12px;font-size:15px;font-weight:470;letter-spacing:-.01em;color:#666;white-space:nowrap}
+.cmh-db-row svg{width:20px;height:20px}
+.cmh-db-row[data-on]{background:#e8e8e8;color:#202020;font-weight:575;box-shadow:0 1px 2px rgba(16,18,27,.07),inset 0 0 0 1px rgba(16,18,27,.045)}
+.cmh-db-main{flex:1;min-width:0;display:flex;flex-direction:column}
+.cmh-db-in{flex:1;display:flex;flex-direction:column;width:100%;max-width:1200px;margin:0 auto;padding:24px 32px 32px;box-sizing:border-box}
+.cmh-db-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:32px}
+.cmh-db-hl{display:block;min-width:0}
+.cmh-db-hrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px}
+.cmh-db-hi{font-size:26px;font-weight:600;letter-spacing:-.025em;color:#1a1a2e;white-space:nowrap}
+.cmh-db-meta{display:flex;align-items:center;gap:10px}
+.cmh-db-period{display:flex;align-items:center;gap:6px;height:38px;padding:0 14px;border-radius:12px;border:1px solid #e5e7eb;box-sizing:border-box;background:#fff;font-size:14px;font-weight:500;color:#1a1a2e;white-space:nowrap}
+.cmh-db-period svg{width:14px;height:14px;color:#6b7280}
+.cmh-db-live{display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:8px;background:#f3f4f6;font-size:13px;font-weight:500;color:#059669;white-space:nowrap}
+.cmh-db-live>i{width:8px;height:8px;border-radius:50%;background:#10b981;box-shadow:0 0 6px rgba(16,185,129,.6)}
+.cmh-db-sub{display:block;margin-top:4px;font-size:14px;color:#6b7280}
+.cmh-db-handle{flex:none;display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;border:1px solid #e5e7eb;font-size:13px;font-weight:500;color:#374151}
+.cmh-db-handle svg{width:13px;height:13px;color:#9ca3af}
+.cmh-db-card{flex:1;min-height:0;display:flex;flex-direction:column;background:#fff;border-radius:16px;border:1px solid rgba(229,231,235,.6);box-shadow:0 1px 3px rgba(0,0,0,.04);overflow:hidden}
+.cmh-db-tabs{position:relative;display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+.cmh-db-fold{position:absolute;right:8px;top:8px;display:grid;place-items:center;width:28px;height:28px;border-radius:8px;color:#6b7280}
+.cmh-db-fold svg{width:16px;height:16px}
+.cmh-db-tab{position:relative;display:block;min-width:0;padding:14px 16px;background:#fff}
+.cmh-db-tab+.cmh-db-tab{border-left:1px solid rgba(229,231,235,.6)}
+.cmh-db-tab[data-on]{background:#f9fafb}
+.cmh-db-tab[data-on]::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1.5px;background:#d1d5db}
+.cmh-db-tl{display:block;font-size:13px;font-weight:500;color:#4b5563;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmh-db-tab[data-on] .cmh-db-tl{color:#1a1a2e}
+.cmh-db-tv{display:flex;align-items:baseline;gap:6px;margin-top:2px;min-width:0}
+.cmh-db-tv>b{font-size:22px;font-weight:700;letter-spacing:-.025em;color:#1a1a2e}
+.cmh-db-up{display:inline-flex;align-items:center;gap:2px;font-size:11px;font-weight:500;color:#059669;transition:opacity .5s ease-out .9s}
+.cmh-db-up svg{width:12px;height:12px}
+.cmh-db-tf{display:block;font-size:11px;color:#9ca3af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* The odometer: one numeral tall, each digit's column moved by a transform; tabular figures, so no digit changes the width. */
+.cmh-odo{display:inline-flex;font-variant-numeric:tabular-nums;transition:opacity .5s ease-out}
+.cmh-odo-d{position:relative;display:inline-block;height:1.2em;line-height:1.2em;overflow:hidden;vertical-align:bottom}
+.cmh-odo-col{display:flex;flex-direction:column;transition-property:transform;transition-timing-function:cubic-bezier(.2,.8,.2,1)}
+.cmh-odo-col>span{display:block;height:1.2em}
+.cmh-odo-s{display:inline-block;height:1.2em;line-height:1.2em;vertical-align:bottom}
+.cmh-db[data-empty] .cmh-odo{opacity:0}
+.cmh-db[data-empty] .cmh-db-up{opacity:0;transition:none}
+/* The chart (dashboard-client DashboardTrendChart): 200px, the plot from 10px down to 30px above the foot, dashed #f3f4f6 lines, 11px #9ca3af labels. */
+.cmh-db-chart{flex:1;min-height:0;display:flex;flex-direction:column;position:relative;border-top:1px solid rgba(229,231,235,.6);padding:16px 16px 8px}
+/* The chart takes the height the card leaves it (160px at the dashboard's own size, more on a taller card). */
+.cmh-db-plot{position:relative;display:block;flex:1;min-height:120px;margin:10px 10px 0 44px}
+.cmh-db-grid{position:absolute;left:0;right:0;height:0;border-top:1px dashed #f3f4f6}
+.cmh-db-grid small{position:absolute;right:calc(100% + 8px);top:-7px;font-size:11px;line-height:14px;color:#9ca3af;font-variant-numeric:tabular-nums;white-space:nowrap}
+.cmh-db-clip{position:absolute;inset:-4px 0;overflow:hidden}
+.cmh-db-wipe,.cmh-db-unwipe{position:absolute;inset:0;display:block;animation-duration:1.6s;animation-delay:.35s;animation-timing-function:cubic-bezier(.45,0,.2,1)}
+.cmh-db-wipe{animation-name:cmh-db-wipe}
+.cmh-db-unwipe{animation-name:cmh-db-unwipe}
+@keyframes cmh-db-wipe{from{transform:translate3d(-100%,0,0)}to{transform:translate3d(0,0,0)}}
+@keyframes cmh-db-unwipe{from{transform:translate3d(100%,0,0)}to{transform:translate3d(0,0,0)}}
+.cmh-db-clip svg{position:absolute;left:0;top:4px;width:100%;height:calc(100% - 8px);overflow:visible}
+.cmh-db-dot{position:absolute;right:0;width:11px;height:11px;margin:-5.5px -5.5px 0 0;border-radius:50%;background:#8b5cf6;box-shadow:0 0 0 2px #fff;box-sizing:border-box;animation-name:cmh-db-dot;animation-delay:1.85s;animation-duration:.45s}
+@keyframes cmh-db-dot{from{opacity:0;transform:scale(.4)}to{opacity:1;transform:scale(1)}}
+.cmh-db-days{flex:none;display:flex;justify-content:space-between;margin:12px 0 0 28px;font-size:11px;color:#9ca3af;white-space:nowrap}
+/* Narrower than a laptop's /app: the rail goes, as it does under 768px in the app, and the search gives way. */
+@container (max-width:1020px){.cmh-db-rail{display:none}.cmh-db-in{padding:24px 24px 28px}}
+@container (max-width:760px){.cmh-db-search{visibility:hidden}.cmh-db-tools{display:none}.cmh-db-handle{display:none}}
+/* A phone: the app's phone header (who you are, the bell), the period and the live count on their own row, the four figures two by two. */
+@container (max-width:600px){
+  .cmh-db-top{height:56px;padding:0 10px;justify-content:space-between}
+  .cmh-db-search{display:none}
+  .cmh-db-tools{display:flex}
+  .cmh-db-tools .cmh-db-gear,.cmh-db-tools>i,.cmh-db-tools img,.cmh-db-tools b{display:none}
+  .cmh-db-me{padding:4px}
+  .cmh-db-in{padding:18px 16px 18px}
+  .cmh-db-head{margin-bottom:18px}
+  .cmh-db-hl{display:flex;flex-direction:column}
+  .cmh-db-hrow{display:contents}
+  .cmh-db-hi{font-size:22px}
+  .cmh-db-sub{order:1}
+  .cmh-db-meta{order:2;margin-top:14px}
+  .cmh-db-period{height:36px;padding:0 12px;font-size:13px}
+  .cmh-db-live{height:36px;box-sizing:border-box;border-radius:12px;padding:0 10px;font-size:12px}
+  .cmh-db-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cmh-db-tab{padding:12px}
+  .cmh-db-tab:nth-child(3){border-left:0}
+  .cmh-db-tab:nth-child(n+3){border-top:1px solid rgba(229,231,235,.6)}
+  .cmh-db-tl{font-size:12px}
+  .cmh-db-tv>b{font-size:19px}
+  .cmh-db-chart{padding:12px 8px 6px}
+  .cmh-db-plot{height:118px;margin-left:40px}
+  .cmh-db-days{margin-left:24px;font-size:10px}
+  .cmh-db-days span:nth-child(even){visibility:hidden}
+}
+
+/* ── 2. tips: his creator page, a $5 tip picked, paid and thanked for. Landing round 14: the page is the card, edge to edge, sized by the card's width alone, so it looks the same on every screen. ── */
+.cmh-tp{font-size:3.5cqw}
+.cmh-tp-page{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;overflow:hidden;background:#fff}
+.cmh-tp-cover{position:relative;display:block;flex:none;width:100%;height:34%;background:#c9c3bb;overflow:hidden}
+/* Landing round 16: the cover is a photograph again (round 17: his), cut to this box's shape. */
+.cmh-tp-cover img{display:block;width:100%;height:100%;object-fit:cover;object-position:50% 50%}
+.cmh-tp-who{position:relative;display:flex;flex-direction:column;align-items:center;margin-top:-2.6em;text-align:center}
+.cmh-tp-who img{display:block;width:5.2em;height:5.2em;border-radius:50%;object-fit:cover;background:#e7e5ee;box-shadow:0 0 0 .22em #fff}
+.cmh-tp-who b{margin-top:.55em;font-size:1.25em;font-weight:600;letter-spacing:-.02em}
+.cmh-tp-who span{margin-top:.2em;font-size:.86em;color:#71717a}
+/* The tip block, the card variant of components/onepage/tip-block: title, a line, four amounts, the button. */
+.cmh-tp-block{display:flex;flex-direction:column;width:min(88%,25em);margin-block:auto;padding:1.15em 1.2em 1.2em;box-sizing:border-box;border-radius:1.1em;background:#fff;box-shadow:0 0 0 1px #ececf0,0 .4em 1.2em -.6em rgba(24,24,27,.18)}
+.cmh-tp-t{font-size:1.02em;font-weight:600;letter-spacing:-.01em}
+.cmh-tp-s{margin-top:.15em;font-size:.84em;color:#71717a}
+.cmh-tp-swap{display:grid;margin-top:.9em}
+.cmh-tp-pick,.cmh-tp-thx{grid-area:1/1}
+.cmh-tp-pick{display:flex;flex-direction:column;gap:.6em;animation-name:cmh-tp-pick}
+.cmh-tp-chips{position:relative;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.5em}
+.cmh-tp-chip{position:relative;display:grid;place-items:center;height:2.5em;border-radius:.75em;background:#f4f4f5;font-size:.92em;font-weight:600;font-variant-numeric:tabular-nums;color:#27272a}
+/*
+  Landing round 16: the chosen amount is one dark pill, a chip wide, that glides from $3 to $5 (it was two
+  pills, one fading out as the other faded in). Inside it the four amounts in white, laid out as the chips
+  are and moved the other way by the same distance, so they stand still while the pill passes over them.
+  A chip and its gap: the pill's own width and .5em; the inner row is four chips and three gaps wide, so
+  the same distance is a quarter of it and .125em.
+*/
+.cmh-tp-sel{position:absolute;left:0;top:0;width:calc((100% - 1.5em) / 4);height:100%;border-radius:.69em;background:#18181b;overflow:hidden;font-style:normal;animation-name:cmh-tp-sel}
+.cmh-tp-sel-in{position:absolute;left:0;top:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.5em;width:calc(400% + 1.5em);height:100%;font-style:normal;animation-name:cmh-tp-sel-in}
+.cmh-tp-sel-in>span{display:grid;place-items:center;font-size:.92em;font-weight:600;font-variant-numeric:tabular-nums;color:#fff}
+.cmh-tp-btn{position:relative;display:grid;place-items:center;height:2.9em;border-radius:.8em;background:#18181b;color:#fff;font-size:.95em;font-weight:600;font-variant-numeric:tabular-nums;overflow:hidden;animation-name:cmh-tp-press}
+.cmh-tp-l3,.cmh-tp-l5{grid-area:1/1}
+.cmh-tp-l3{animation-name:cmh-tp-l3}
+.cmh-tp-l5{opacity:0;animation-name:cmh-tp-l5}
+.cmh-tp-thx{display:flex;align-items:center;justify-content:center;gap:.5em;min-height:100%;font-size:.98em;font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap;color:#18181b;opacity:0;animation-name:cmh-tp-thx}
+.cmh-tp-thx svg{flex:none;width:1.5em;height:1.5em;padding:.25em;box-sizing:border-box;border-radius:50%;background:#dcfce7;color:#15803d}
+/* A tap: a soft ring that opens and fades where the finger lands. */
+.cmh-tp-tap{position:absolute;left:50%;top:50%;width:2.6em;height:2.6em;margin:-1.3em 0 0 -1.3em;border-radius:50%;background:rgba(24,24,27,.16);opacity:0;z-index:3}
+.cmh-tp-btn .cmh-tp-tap,.cmh-tp-pay .cmh-tp-tap{background:rgba(255,255,255,.3)}
+.cmh-tp-tap1{animation-name:cmh-tp-tap1}
+.cmh-tp-tap2{animation-name:cmh-tp-tap2}
+.cmh-tp-tap3{animation-name:cmh-tp-tap3}
+.cmh-tp-scrim{position:absolute;inset:0;background:rgba(9,9,11,.32);opacity:0;animation-name:cmh-tp-scrim}
+/* Landing round 14: the card is the phone's screen, so the sheet spans it. */
+.cmh-tp-sheet{position:absolute;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;padding:.7em 1.4em 1.4em;box-sizing:border-box;border-radius:1.4em 1.4em 0 0;background:#fff;box-shadow:0 -1em 3em -1.5em rgba(0,0,0,.35);transform:translate3d(0,${SHEET_DOWN},0);animation-name:cmh-tp-sheet}
+.cmh-tp-grab{width:2.6em;height:.3em;border-radius:1em;background:#e4e4e7}
+.cmh-tp-for{display:flex;align-items:center;gap:.5em;margin-top:1em;font-size:.9em;font-weight:500;color:#52525b}
+.cmh-tp-for img{width:1.7em;height:1.7em;border-radius:50%;object-fit:cover}
+.cmh-tp-amt{margin-top:.35em;font-size:2.3em;font-weight:700;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+.cmh-tp-pay{position:relative;display:grid;place-items:center;width:100%;height:3em;margin-top:.8em;border-radius:.85em;background:#18181b;color:#fff;font-size:.95em;font-weight:600;font-variant-numeric:tabular-nums;overflow:hidden;animation-name:cmh-tp-paypress}
+.cmh-tp-lock{display:flex;align-items:center;gap:.4em;margin-top:.75em;font-size:.78em;color:#71717a}
+.cmh-tp-lock svg{width:1.1em;height:1.1em}
+.cmh-tp-pick,.cmh-tp-sel,.cmh-tp-sel-in,.cmh-tp-btn,.cmh-tp-l3,.cmh-tp-l5,.cmh-tp-thx,.cmh-tp-tap,.cmh-tp-scrim,.cmh-tp-sheet,.cmh-tp-pay{animation-duration:${HOW_TIP_LOOP_S}s}
+.cmh-tp-sel,.cmh-tp-sel-in,.cmh-tp-l3,.cmh-tp-l5{animation-timing-function:${GLIDE}}
+.cmh-tp-sheet{animation-timing-function:cubic-bezier(.32,.72,0,1)}
+.cmh-tp-tap{animation-timing-function:cubic-bezier(.2,.6,.3,1)}
+/*
+  Landing round 16, one 12 second loop with room between the steps: a tap on $5 (1.4s) and the pill glides
+  over (1.5 to 2.1s) as the button's words roll from "Tip $3" to "Tip $5"; a tap on the button (3s), the
+  sheet rises (3.3s); a tap on Pay (5.2s), the sheet goes (5.7s) and the block says thank you (6.35s) until
+  10s; it is set back to $3 at 8s while the picker is hidden, and the picker returns from 10.3s.
+*/
+@keyframes cmh-tp-sel{0%,${T(1.5)}{transform:translate3d(0,0,0)}${T(2.1)},${T(TIP_RESET_S)}{transform:translate3d(calc(100% + .5em),0,0)}${T(TIP_RESET_S + 0.01)},100%{transform:translate3d(0,0,0)}}
+@keyframes cmh-tp-sel-in{0%,${T(1.5)}{transform:translate3d(0,0,0)}${T(2.1)},${T(TIP_RESET_S)}{transform:translate3d(calc(-25% - .125em),0,0)}${T(TIP_RESET_S + 0.01)},100%{transform:translate3d(0,0,0)}}
+@keyframes cmh-tp-l3{0%,${T(1.5)}{opacity:1;transform:translate3d(0,0,0)}${T(1.85)},${T(TIP_RESET_S)}{opacity:0;transform:translate3d(0,-.7em,0)}${T(TIP_RESET_S + 0.01)},100%{opacity:1;transform:translate3d(0,0,0)}}
+@keyframes cmh-tp-l5{0%,${T(1.75)}{opacity:0;transform:translate3d(0,.7em,0)}${T(2.15)},${T(TIP_RESET_S)}{opacity:1;transform:translate3d(0,0,0)}${T(TIP_RESET_S + 0.01)},100%{opacity:0;transform:translate3d(0,.7em,0)}}
+@keyframes cmh-tp-tap1{0%,${T(1.35)}{opacity:0;transform:scale(.5)}${T(1.45)}{opacity:1;transform:scale(.6)}${T(2.0)},100%{opacity:0;transform:scale(1.6)}}
+@keyframes cmh-tp-tap2{0%,${T(2.95)}{opacity:0;transform:scale(.5)}${T(3.05)}{opacity:1;transform:scale(.6)}${T(3.6)},100%{opacity:0;transform:scale(2)}}
+@keyframes cmh-tp-tap3{0%,${T(5.15)}{opacity:0;transform:scale(.5)}${T(5.25)}{opacity:1;transform:scale(.6)}${T(5.8)},100%{opacity:0;transform:scale(2)}}
+@keyframes cmh-tp-press{0%,${T(3.0)}{transform:scale(1)}${T(3.14)}{transform:scale(.98)}${T(3.45)},100%{transform:scale(1)}}
+@keyframes cmh-tp-paypress{0%,${T(5.2)}{transform:scale(1)}${T(5.34)}{transform:scale(.98)}${T(5.65)},100%{transform:scale(1)}}
+@keyframes cmh-tp-scrim{0%,${T(3.3)}{opacity:0}${T(3.8)},${T(5.7)}{opacity:1}${T(6.2)},100%{opacity:0}}
+@keyframes cmh-tp-sheet{0%,${T(3.3)}{transform:translate3d(0,${SHEET_DOWN},0)}${T(3.95)},${T(5.7)}{transform:translate3d(0,0,0)}${T(6.3)},100%{transform:translate3d(0,${SHEET_DOWN},0)}}
+@keyframes cmh-tp-pick{0%,${T(6.1)}{opacity:1}${T(6.45)},${T(10.3)}{opacity:0}${T(10.9)},100%{opacity:1}}
+@keyframes cmh-tp-thx{0%,${T(6.35)}{opacity:0;transform:translate3d(0,.35em,0)}${T(6.85)},${T(10.0)}{opacity:1;transform:translate3d(0,0,0)}${T(10.4)},100%{opacity:0;transform:translate3d(0,0,0)}}
+
+/* ── 3. your own domain: /pricing's domain reel (DomainReel; its own sheet, DOMAIN_CSS, is drawn beside this one as HOW_DOMAIN_STYLE), filling the card. Its loops run only while the card is live, like the others. ── */
+.cmh-stage .pz-d{position:absolute;inset:0;height:auto;border-radius:0;contain:strict}
+/* Landing round 15, the owner: a little more gradient on this card's ground, in the reel's own lilacs (/pricing keeps its own). */
+.cmh-stage .pz-d{background:radial-gradient(75% 55% at 50% 50%,#f8f5ff 0%,rgba(248,245,255,0) 100%),radial-gradient(60% 45% at 0% 0%,rgba(255,255,255,.7) 0%,rgba(255,255,255,0) 100%),linear-gradient(165deg,#f0ebff 0%,#e4dbff 52%,#d7caff 100%)}
+.cmh-card:not([data-commerce-live]) .ev-loop{animation-play-state:paused}
+
+@media (prefers-reduced-motion:reduce){
+  .cmh-a{animation:none!important}
+  .cmh-o{animation:none!important}
+  .cmh-field canvas{transition:none}
+  .cmh-tp-l5,.cmh-tp-thx{opacity:1}
+  .cmh-tp-l3,.cmh-tp-pick{opacity:0}
+  .cmh-stage .ev-loop{animation:none!important}
+}
+@media(scripting:none){.cmh-o{animation:none}}
+`
+
+/** This section's stylesheet, as it draws it: put in place while idle, before it mounts (lazy-section.tsx, SectionStyle). */
+export const HOW_IT_WORKS_STYLES: readonly SectionStyle[] = [{ href: "w12-commerce-how", precedence: "default", css: HOW_CSS }]
+/** The domain reel's own sheet, as /pricing writes it (domain-reel.tsx DOMAIN_CSS), kept apart from this section's: the section draws it beside its own (a hoisted <style>, put in place when the card is drawn), and tests/home-landing-r13-pricing.test.ts holds what is in it. */
+export const HOW_DOMAIN_STYLE: SectionStyle = { href: "w14-how-domain-reel", precedence: "default", css: DOMAIN_CSS }
+

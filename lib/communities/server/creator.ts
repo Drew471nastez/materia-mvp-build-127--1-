@@ -39,7 +39,7 @@ import { taggedSearchPattern } from "@/lib/businesses/email-alias"
 import { priceLine } from "../format"
 import { LENGTHS, MAX_SPACES } from "../limits"
 import { allowedActions, can, meetsRole, type CommunityAction, type RolePermissions } from "../permissions"
-import { slugify, slugWithSuffix, validSlug, validSpaceSlug } from "../slug"
+import { newSlugAllowed, slugify, slugWithSuffix, validSlug, validSpaceSlug } from "../slug"
 import { COMMUNITY_COLUMNS, COMMUNITY_VISIBILITIES, EVENT_COLUMNS, EVENT_COLUMNS_PRICED, MEMBER_COLUMNS, NOTIFY_LEVELS, PAID_SOURCES, SPACE_COLUMNS, isOneOf, type AccessRuleJson, type CommunityRow, type EventRow, type MemberRow, type MemberStatus, type Role, type SpaceRow } from "../types"
 import { accessColumnsFor, accessWords, privacyOf } from "../access-model"
 import {
@@ -180,7 +180,8 @@ export const creatorCommunityPage = cache(async (id: string): Promise<CreatorPag
   /* Supabase did not answer in time: the layout's gate recovers the session in the browser (lib/auth/page-user.ts). */
   if (!user) return "no-session"
   /* Round 40: working in a store as a member of its team (lib/team). The owner pays no read here: no cookie, no query. */
-  const team = await teamStoreForRequest(user.id).catch(() => null)
+  /* A failed read throws (round rel2-auth): the page's boundary says Try again, never the member's own account in the store's place. */
+  const team = await teamStoreForRequest(user.id)
   if (team) return permits(team.acting.permissions, "community") ? teamStaffContext(admin(), key, user.id, team.acting, team.store) : null
   return staffContext(admin(), key, user.id, creatorForRequest(user.id))
 })
@@ -340,7 +341,8 @@ export async function loadCreatorCommunities(db: Db, creatorId: string, userId: 
   const [owned, staff, plan] = await Promise.all([
     db.from("communities").select(LIST_COLUMNS).eq("creator_id", creatorId).is("deleted_at", null).order("created_at", { ascending: false }).limit(100),
     opts.team ? Promise.resolve({ data: [] }) : db.from("community_members").select("community_id, role").eq("user_id", userId).eq("status", "active").in("role", ["admin", "moderator"]).limit(100),
-    creatorSitePlan(creatorId),
+    /* The caller's service role client, as the community gates hand theirs in (lib/sites/plan-server). */
+    creatorSitePlan(creatorId, db),
   ])
   const limit: CommunityLimitView = { max: communityLimitFor(plan), owned: 0 }
   if (owned.error) {
@@ -435,7 +437,10 @@ export async function loadCreatorCommunities(db: Db, creatorId: string, userId: 
  * taken back, so a paid community never exists without a price.
  */
 export async function createFromFlow(db: Db, a: { creatorId: string; userId: string; input: CreateInput & Partial<Pick<WizardInput, "slug" | "spaceName" | "welcome">> }): Promise<Result<{ community: CommunityRow }>> {
-  if (!(await communityRoom(db, a.creatorId)).ok) return no(402, PLAN_LIMIT_ERROR)
+  /* The plan could not be read: 503 Try again, never "your plan is full" to a paying store (round rel2-auth, lib/sites/plan-server). */
+  const room = await communityRoom(db, a.creatorId).catch(() => null)
+  if (!room) return no(503, "Storelib is not answering right now. Try again.")
+  if (!room.ok) return no(402, PLAN_LIMIT_ERROR)
   const { access, visibility } = accessForType(a.input.type)
   const made = await createCommunity(db, {
     creatorId: a.creatorId,
@@ -457,9 +462,11 @@ export async function createFromFlow(db: Db, a: { creatorId: string; userId: str
     return no(500, "The community could not be made. Try again.")
   }
   /* Round 26: two tabs making one at the same moment both passed the room check; the later one is taken back here. */
-  if (!(await madeWithinLimit(db, a.creatorId, made.community.id))) {
+  /* The plan could not be read the second time: taken back with Try again, never kept past a plan nobody could check (round rel2-auth). */
+  const within = await madeWithinLimit(db, a.creatorId, made.community.id).catch(() => null)
+  if (within !== true) {
     await db.from("communities").delete().eq("id", made.community.id)
-    return no(402, PLAN_LIMIT_ERROR)
+    return within === null ? no(503, "Storelib is not answering right now. Try again.") : no(402, PLAN_LIMIT_ERROR)
   }
   let community = made.community
   if (a.input.description) {
@@ -731,6 +738,8 @@ export async function updateSettings(db: Db, a: { community: CommunityRow; role:
     const slug = typeof b.slug === "string" ? b.slug.trim().toLowerCase() : ""
     if (!validSlug(slug)) return no(400, "An address is 3 to 48 lowercase letters, numbers and single hyphens.", "slug")
     if (slug !== c.slug) {
+      /* A new address only: the one a community has is kept whatever it says (round AW, ../slug newSlugAllowed). */
+      if (!newSlugAllowed(slug)) return no(400, "That address cannot be used. Try another.", "slug")
       const { data: taken } = await db.from("communities").select("id").eq("slug", slug).maybeSingle()
       if (taken) return no(409, "That address is taken.", "slug")
       /* Another community's old address stays theirs, so a link shared to it never opens this one (./slug-history.ts). */
@@ -1037,15 +1046,50 @@ async function ownRule(db: Db, communityId: string, rule: AccessRuleJson): Promi
   return r
 }
 
-export async function loadSpaces(db: Db, communityId: string): Promise<SpaceView[]> {
-  const { data, error } = await db.from("community_spaces").select(SPACE_COLUMNS).eq("community_id", communityId).order("position", { ascending: true }).limit(MAX_SPACES + 10)
-  if (error) return []
-  const rows = (data as SpaceRow[] | null) ?? []
+/** The function this database does not have yet (run-now part 443 not run): PostgREST says PGRST202, Postgres 42883. */
+function noCountsFunction(error: { code?: string; message?: string } | null | undefined): boolean {
+  const c = String(error?.code ?? "")
+  return c === "PGRST202" || c === "42883" || /could not find the function/i.test(error?.message ?? "")
+}
+
+/**
+ * HOW MANY POSTS EACH SPACE HOLDS, IN ONE READ (round rel2-db). It was two
+ * exact counts per space, side by side: a community with 30 spaces sent 60
+ * counts for one page of its admin. public.community_space_counts (run-now
+ * part 443) answers every space of the community in one grouped read with the
+ * same rule: a space's feed posts, and a chat space's messages beside them.
+ * Where the part has not run, the counts are asked as before. Any other
+ * failure reads as 0 for every space, which is what each old count answered
+ * when it failed: the page still opens, and no second burst of counts goes to
+ * a database that is already not answering.
+ */
+async function spaceCounts(db: Db, communityId: string, rows: SpaceRow[]): Promise<{ posts: number[]; chats: number[] }> {
+  if (rows.length === 0) return { posts: [], chats: [] }
+  const { data, error } = await db.rpc("community_space_counts", { p_community_id: communityId })
+  if (!error && Array.isArray(data)) {
+    const by = new Map((data as Array<{ space_id: string; posts: number | string | null; messages: number | string | null }>).map((r) => [r.space_id, r]))
+    return {
+      posts: rows.map((s) => Number(by.get(s.id)?.posts ?? 0) || 0),
+      chats: rows.map((s) => (s.kind === "chat" ? Number(by.get(s.id)?.messages ?? 0) || 0 : 0)),
+    }
+  }
+  if (error && !noCountsFunction(error)) {
+    console.error("[communities] space counts not read:", error.code ?? "", error.message ?? "")
+    return { posts: rows.map(() => 0), chats: rows.map(() => 0) }
+  }
   /* A chat space's messages are counted beside its posts, not in a round after them (round 32), and used when it has no posts. */
   const [posts, chats] = await Promise.all([
     Promise.all(rows.map((s) => count(db.from("community_feed_posts").select("id", { count: "exact", head: true }).eq("space_id", s.id)))),
     Promise.all(rows.map((s) => (s.kind === "chat" ? count(db.from("community_messages").select("id", { count: "exact", head: true }).eq("space_id", s.id)) : Promise.resolve(0)))),
   ])
+  return { posts, chats }
+}
+
+export async function loadSpaces(db: Db, communityId: string): Promise<SpaceView[]> {
+  const { data, error } = await db.from("community_spaces").select(SPACE_COLUMNS).eq("community_id", communityId).order("position", { ascending: true }).limit(MAX_SPACES + 10)
+  if (error) return []
+  const rows = (data as SpaceRow[] | null) ?? []
+  const { posts, chats } = await spaceCounts(db, communityId, rows)
   const messages = rows.map((_, i) => (posts[i] === 0 ? chats[i] : 0))
   return rows.map((s, i) => ({
     id: s.id,

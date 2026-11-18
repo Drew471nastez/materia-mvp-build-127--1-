@@ -35,7 +35,9 @@ import { preparePublicImage } from "@/lib/storage/public-image"
 import { generateStoragePath } from "@/lib/storage/validation"
 import { PUBLIC_BUCKET } from "@/lib/storage/plans"
 import { avoidReservedProductSlug } from "@/lib/commerce/reserved-slugs"
+import { importImageUrl, type LinkProduct, type LinkSource } from "./product-link"
 import { GUMROAD_API, descriptionImages, gumroadImageUrl, slugFromTitle, type ImportItem } from "./gumroad"
+import { duplicateIndex, type ExistingProduct } from "./duplicates"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -153,6 +155,22 @@ export async function importedProducts(db: Db, creatorId: string, ids: string[])
   return { ready: true, map }
 }
 
+/* ── is it already in the store? (./duplicates) ─────────────────────── */
+
+/**
+ * What the duplicate check reads: the store's products (id, title, address)
+ * and, for this platform, which of its ids became which product. A store
+ * before part 344 has no links, and the titles and addresses still match.
+ */
+export async function duplicatesFor(db: Db, creatorId: string, source: LinkSource) {
+  const { data } = await db.from("products").select("id, title, slug").eq("creator_id", creatorId).limit(5000)
+  const products = ((data ?? []) as ExistingProduct[]).filter((p) => p && typeof p.id === "string")
+  const imported = new Map<string, string>()
+  const links = await db.from(LINKS_TABLE).select("external_id, product_id").eq("creator_id", creatorId).eq("source", source).limit(5000)
+  for (const r of (links.error ? [] : links.data ?? []) as { external_id: string; product_id: string | null }[]) if (r.product_id) imported.set(r.external_id, r.product_id)
+  return duplicateIndex(products, imported)
+}
+
 /* ── pictures ─────────────────────────────────────────────────────────── */
 
 /** The bytes of one Gumroad picture, or null. Gumroad's CDN only, never a redirect. */
@@ -169,11 +187,21 @@ export async function fetchGumroadImage(raw: string): Promise<Uint8Array | null>
 }
 
 export interface ImportDeps {
+  source?: LinkSource
+  linkProduct?: LinkProduct
+  /** Link imports may copy only supported platform CDNs through the public-address fetch. */
+  imageUrl?: (url: string) => string | null
   /** The network for pictures; a test hands in its own. Called only with allowlisted URLs. */
   fetchImage?: (url: string) => Promise<Uint8Array | null>
   /** After a picture is stored (the route screens it in the background). */
   afterUpload?: (where: { bucket: string; path: string; bytes: Uint8Array }) => void
   now?: () => number
+  /**
+   * The seller saw "Already in your products" and asked for a copy anyway:
+   * a product imported before is made again, without its import link, so the
+   * original keeps it. Without this an earlier import answers `exists`.
+   */
+  copy?: boolean
 }
 
 async function copyImages(db: Db, creatorId: string, urls: string[], deps: ImportDeps): Promise<{ copied: Map<string, string>; paths: string[]; failed: number }> {
@@ -181,7 +209,8 @@ async function copyImages(db: Db, creatorId: string, urls: string[], deps: Impor
   const paths: string[] = []
   let failed = 0
   const fetchImage = deps.fetchImage ?? fetchGumroadImage
-  const queue = [...new Set(urls)].filter((u) => gumroadImageUrl(u) === u)
+  const allowedImage = deps.imageUrl ?? gumroadImageUrl
+  const queue = [...new Set(urls)].filter((u) => allowedImage(u) === u)
   failed += [...new Set(urls)].length - queue.length
   const worker = async () => {
     for (let url = queue.shift(); url; url = queue.shift()) {
@@ -236,14 +265,15 @@ export type ImportOutcome =
 
 type Claim = { kind: "claimed"; id: string } | { kind: "exists"; productId: string } | { kind: "busy" } | { kind: "not_ready" } | { kind: "failed" }
 
-async function claim(db: Db, creatorId: string, userId: string, gumroadId: string, now: number): Promise<Claim> {
+async function claim(db: Db, creatorId: string, userId: string, gumroadId: string, now: number, source: LinkSource = "gumroad"): Promise<Claim> {
   const stamp = new Date(now).toISOString()
-  const ins = await db.from(LINKS_TABLE).insert({ creator_id: creatorId, source: "gumroad", external_id: gumroadId, created_by: userId, updated_at: stamp }).select("id").single()
+  const ins = await db.from(LINKS_TABLE).insert({ creator_id: creatorId, source, external_id: gumroadId, created_by: userId, updated_at: stamp }).select("id").single()
   if (!ins.error && ins.data?.id) return { kind: "claimed", id: ins.data.id }
-  if (ins.error && missingTable(ins.error)) return { kind: "not_ready" }
+  /* 23514: the source check from before part 469 (shopify) or 470 (payhip) refuses the platform. */
+  if (ins.error && (missingTable(ins.error) || (source !== "gumroad" && String(ins.error.code) === "23514"))) return { kind: "not_ready" }
   if (ins.error && String(ins.error.code) !== "23505") return { kind: "failed" }
 
-  const { data: row, error } = await db.from(LINKS_TABLE).select("id, product_id, updated_at").eq("creator_id", creatorId).eq("source", "gumroad").eq("external_id", gumroadId).maybeSingle()
+  const { data: row, error } = await db.from(LINKS_TABLE).select("id, product_id, updated_at").eq("creator_id", creatorId).eq("source", source).eq("external_id", gumroadId).maybeSingle()
   if (error || !row) return { kind: "failed" }
   if (row.product_id) {
     const { data: product } = await db.from("products").select("id").eq("id", row.product_id).eq("creator_id", creatorId).maybeSingle()
@@ -273,14 +303,16 @@ async function freeSlug(db: Db, creatorId: string, title: string): Promise<strin
  */
 export async function importGumroadItem(db: Db, ctx: { creatorId: string; userId: string }, item: ImportItem, deps: ImportDeps = {}): Promise<ImportOutcome> {
   const now = deps.now?.() ?? Date.now()
-  const c = await claim(db, ctx.creatorId, ctx.userId, item.gumroadId, now)
+  const claimed = await claim(db, ctx.creatorId, ctx.userId, item.gumroadId, now, deps.source)
+  /* A copy asked for: no claim of its own, the original's link stays where it is. */
+  const c: Claim = claimed.kind === "exists" && deps.copy ? { kind: "claimed", id: "" } : claimed
   if (c.kind === "exists") return { status: "exists", productId: c.productId }
   if (c.kind === "busy") return { status: "busy" }
   if (c.kind === "not_ready") return { status: "error", error: "not_ready" }
   if (c.kind === "failed") return { status: "error", error: "save_failed" }
 
   const release = async (paths: string[]) => {
-    await db.from(LINKS_TABLE).delete().eq("id", c.id).is("product_id", null)
+    if (c.id) await db.from(LINKS_TABLE).delete().eq("id", c.id).is("product_id", null)
     if (paths.length) {
       try {
         await db.storage.from(PUBLIC_BUCKET).remove(paths)
@@ -290,14 +322,15 @@ export async function importGumroadItem(db: Db, ctx: { creatorId: string; userId
     }
   }
 
-  const inline = descriptionImages(item.descriptionHtml)
-  const { copied, paths, failed } = await copyImages(db, ctx.creatorId, [...item.images, ...inline], deps)
+  const inline = deps.linkProduct ? [...item.descriptionHtml.matchAll(/<img\b[^>]*src=["']([^"']+)["']/gi)].map((m) => m[1].replace(/&amp;/g, "&")).filter((u) => !!(deps.imageUrl ?? importImageUrl)(u)) : descriptionImages(item.descriptionHtml)
+  const { copied, paths, failed } = await copyImages(db, ctx.creatorId, [...item.images, ...inline, ...(deps.linkProduct?.variants.map((v) => v.image).filter((u): u is string => !!u) ?? [])], deps)
   const gallery = item.images.map((u) => copied.get(u)).filter((u): u is string => !!u)
   const description = importedDescription(item.descriptionHtml, copied)
 
   const row = {
     creator_id: ctx.creatorId,
-    type: "digital",
+    type: deps.linkProduct?.type ?? "digital",
+    ...(deps.linkProduct ? { category: deps.linkProduct.category, vendor: deps.linkProduct.vendor, requires_shipping: deps.linkProduct.type === "physical", tags: deps.linkProduct.tags } : {}),
     title: item.title,
     slug: await freeSlug(db, ctx.creatorId, item.title),
     description,
@@ -333,16 +366,41 @@ export async function importGumroadItem(db: Db, ctx: { creatorId: string; userId
         pay_what_you_want: v.payWhatYouWant,
         pwyw_min_price_cents: v.payWhatYouWant ? v.priceCents : null,
         pwyw_suggested_price_cents: null,
+        ...(deps.linkProduct ? {
+          option1: deps.linkProduct.variants[position]?.options?.[0] ?? null,
+          option2: deps.linkProduct.variants[position]?.options?.[1] ?? null,
+          option3: deps.linkProduct.variants[position]?.options?.[2] ?? null,
+          sku: deps.linkProduct.variants[position]?.sku ?? null,
+          compare_at_price_cents: deps.linkProduct.variants[position]?.compareAtCents ?? null,
+          image_url: copied.get(deps.linkProduct.variants[position]?.image ?? "") ?? null,
+        } : {}),
       })),
     )
     if (error) variantsSaved = false
+  }
+  if (deps.linkProduct?.options.length) {
+    const { error } = await db.from("product_options").insert(deps.linkProduct.options.map((o, i) => ({ product_id: productId, position: i + 1, name: o.name, values: o.values })))
+    if (error) variantsSaved = false
+  }
+  // A link import is complete only if its options and every variant were saved.
+  if (deps.linkProduct && !variantsSaved) {
+    const removed = await db.from("products").delete().eq("id", productId).eq("creator_id", ctx.creatorId)
+    if (!removed.error) await release(paths)
+    return { status: "error", error: "save_failed" }
   }
   /* Tags in a write of their own: a database before part 78 has no column, and the product stands without them. */
   if (item.tags.length) await db.from("products").update({ tags: item.tags }).eq("id", productId).eq("creator_id", ctx.creatorId)
 
   /* Asked twice: a claim left without its product would let a later run make a second one. */
   const link = { product_id: productId, updated_at: new Date(now).toISOString() }
-  const first = await db.from(LINKS_TABLE).update(link).eq("id", c.id)
-  if (first?.error) await db.from(LINKS_TABLE).update(link).eq("id", c.id)
+  const first = c.id ? await db.from(LINKS_TABLE).update(link).eq("id", c.id) : null
+  if (first?.error) {
+    const second = await db.from(LINKS_TABLE).update(link).eq("id", c.id)
+    if (second?.error && deps.linkProduct) {
+      const removed = await db.from("products").delete().eq("id", productId).eq("creator_id", ctx.creatorId)
+      if (!removed.error) await release(paths)
+      return { status: "error", error: "save_failed" }
+    }
+  }
   return { status: "imported", productId, imagesCopied: copied.size, imagesFailed: failed, variantsSaved }
 }

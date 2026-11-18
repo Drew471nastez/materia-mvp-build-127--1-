@@ -52,7 +52,7 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 
 export const REVEAL_OPEN_MS = 300
-export const REVEAL_CLOSE_MS = 280
+export const REVEAL_CLOSE_MS = 340
 /** iOS's sheet curve: leaves quickly, lands softly (components/ui/bottom-sheet SHEET_EASE). */
 export const REVEAL_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
 /**
@@ -60,7 +60,13 @@ export const REVEAL_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
  * 305px panel lost 250px in its first three frames (scripts/check-onepage-r41.mjs),
  * which reads as a snap, not a close.
  */
-export const REVEAL_CLOSE_EASE = "cubic-bezier(0.45, 0, 0.2, 1)"
+/*
+  Round 17, the owner: "the open form, when we want to collapse it, make sure it's more smooth and clean". Measured
+  (scripts/check-onepage-r41.mjs), the close on (0.45, 0, 0.2, 1) over 280ms dropped 51px of a 305px panel in one
+  frame at its middle: a snap you can see. A gentler middle over 340ms keeps every frame's step small, and what is
+  inside is gone in the first half, so the box closes empty rather than cutting through words.
+*/
+export const REVEAL_CLOSE_EASE = "cubic-bezier(0.37, 0, 0.3, 1)"
 /** An open box glides to a new height only when it changes by this much. */
 export const FOLLOW_MIN_PX = 40
 
@@ -138,7 +144,7 @@ export function Reveal({
     const a = box.animate([{ height: `${from}px` }, { height: `${to}px` }], { duration: ms, easing: open ? REVEAL_EASE : REVEAL_CLOSE_EASE })
     const fade = inner.animate(
       open ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 1 }, { opacity: 0 }],
-      { duration: open ? ms : ms * 0.6, easing: "cubic-bezier(0.4, 0, 0.2, 1)", delay: open ? 40 : 0, fill: "backwards" },
+      { duration: open ? ms : ms * 0.5, easing: open ? "cubic-bezier(0.4, 0, 0.2, 1)" : "cubic-bezier(0.2, 0, 0.4, 1)", delay: open ? 40 : 0, fill: "backwards" },
     )
     animRef.current = [a, fade]
     a.onfinish = done
@@ -150,15 +156,32 @@ export function Reveal({
       With `follow` the open waits two frames, at its first height, and then
       plays from the start.
     */
+    /*
+      Round AR (the owner's image 137: a Digital products block opened on an
+      empty white body). The wait below used to ask "is the height still
+      mine?" and gave up when it was not. But the editor inside often grows
+      in those two frames (a shelf's products arrive), the observer under
+      this aims a new height animation, and the fade, paused at opacity 0
+      with fill backwards, was never played again: the settings were there,
+      at opacity 0, for good. Now the fade is played whenever it is still
+      this open's, and a watchdog finishes any fade still paused once the
+      open's time is up, so what is inside can never stay invisible.
+    */
     if (open && follow) {
       a.pause()
       fade.pause()
       requestAnimationFrame(() => requestAnimationFrame(() => {
-        if (animRef.current[0] !== a) return
-        a.play()
+        if (!animRef.current.includes(fade)) return
+        if (animRef.current[0] === a && a.playState === "paused") a.play()
         fade.play()
         if (opening.current) opening.current.began = performance.now()
       }))
+    }
+    if (open) {
+      window.setTimeout(() => {
+        if (fade.playState === "paused" || fade.playState === "running") fade.finish()
+        if (innerRef.current && box.dataset.reveal === "open") innerRef.current.style.opacity = "1"
+      }, ms + 400)
     }
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 

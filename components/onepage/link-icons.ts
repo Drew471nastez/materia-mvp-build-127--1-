@@ -222,6 +222,7 @@ export const LINK_BRAND_ICONS = [
   "google-forms",
   "google-calendar",
   "mixcloud",
+  "canva",
 ] as const
 
 export type LinkBrandIcon = (typeof LINK_BRAND_ICONS)[number]
@@ -291,6 +292,7 @@ const BRAND_LABELS: Record<LinkBrandIcon, string> = {
   "google-forms": "Google Forms",
   "google-calendar": "Google Calendar",
   mixcloud: "Mixcloud",
+  canva: "Canva",
 }
 
 export function linkIconLabel(key: string): string {
@@ -342,6 +344,7 @@ const URL_MARKS: ReadonlyArray<[LinkBrandIcon, readonly string[]]> = [
   ["vimeo", ["vimeo.com"]],
   ["threads", ["threads.net", "threads.com"]],
   ["notion", ["notion.so", "notion.site"]],
+  ["canva", ["canva.com", "canva.site"]],
 ]
 
 export function linkIconFromUrl(url: string | null | undefined): LinkBrandIcon | null {

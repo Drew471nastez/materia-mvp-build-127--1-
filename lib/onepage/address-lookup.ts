@@ -90,14 +90,13 @@ export function supabaseOnePageLookup<Row = Record<string, unknown>>(
     },
 
     async pageOfAccount(accountId) {
-      /* Found by the creator it names (seller_id, then creator_id), then by the login that owns it. */
-      const creator = must((await supabase.from("creators").select("id").eq("user_id", accountId).limit(1).maybeSingle()) as Answer<{ id: string }>)
-      if (creator?.id) {
-        const bySeller = must((await published().eq("seller_id", creator.id).limit(1).maybeSingle()) as Answer<Row>)
-        if (bySeller) return bySeller
-        const byCreator = must((await published().eq("creator_id", creator.id).limit(1).maybeSingle()) as Answer<Row>)
-        if (byCreator) return byCreator
-      }
+      /*
+        Found by the login that owns it, and only by that. It was found by the
+        creator it names first (seller_id, then creator_id), but those are the
+        owner's own columns to write: a page naming somebody else's store was
+        served at that person's username. owner_id is the one the table pins
+        to the signed in account (lib/onepage/page-store).
+      */
       return must((await published().eq("owner_id", accountId).limit(1).maybeSingle()) as Answer<Row>)
     },
 

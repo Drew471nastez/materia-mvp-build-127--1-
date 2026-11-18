@@ -2573,7 +2573,8 @@ check(
     const missing: string[] = []
 
     for (let display = 1; display <= 2000; display += 7) {
-      const url = optimizedImageUrl("https://x.supabase.co/storage/v1/object/public/avatars/a.jpg", display)
+      // Changed on purpose (round AW): Storelib's own storage project, not any *.supabase.co; another project is never sent to the optimizer (next.config.mjs OWN_STORAGE_HOSTS).
+      const url = optimizedImageUrl("https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/avatars/a.jpg", display)
       const w = Number(new URLSearchParams(url.split("?")[1]).get("w"))
       if (!allowed.has(w)) {
         missing.push(`display ${display}px asks the optimizer for w=${w}, which it rejects`)
@@ -2597,8 +2598,11 @@ check(
      */
     if (isOptimizableImage("https://cdn.shopify.com/x/legacy.jpg"))
       missing.push("an unconfigured host is treated as optimizable — <Image> will throw and take the page down")
-    if (!isOptimizableImage("https://abc.supabase.co/storage/v1/object/public/covers/c.jpg"))
+    // Changed on purpose (round AW): Storelib's own storage project is recognised; any other Supabase project is drawn as it is, never through the optimizer.
+    if (!isOptimizableImage("https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/covers/c.jpg"))
       missing.push("Supabase storage is no longer recognised — every real cover would skip the optimizer")
+    if (isOptimizableImage("https://abc.supabase.co/storage/v1/object/public/covers/c.jpg"))
+      missing.push("another Supabase project is sent to the optimizer, which no longer fetches from it")
     if (!isOptimizableImage("/placeholder.jpg")) missing.push("our own /public images are no longer optimizable")
     if (isOptimizableImage("//evil.example.com/x.jpg")) missing.push("a protocol-relative URL is treated as local")
     if (optimizedImageUrl("blob:http://localhost/abc", 128) !== "blob:http://localhost/abc")

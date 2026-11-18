@@ -16,13 +16,13 @@
  * looked up in the database; anything else goes back to storelib.com.
  */
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getMainDomain } from "@/lib/url-helpers"
 import { classifySiteHost, siteOwnerOfHost } from "@/lib/site-accounts/hosts"
 import { originOf, privateResponse } from "@/lib/site-accounts/respond"
 import { ownerHandOff } from "@/lib/site-password/enter"
 import { passReturnPath } from "@/lib/site-password/gate"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -34,8 +34,10 @@ export async function GET(request: Request) {
   if (!site) return privateResponse(NextResponse.redirect(main, 303))
   const back = passReturnPath(url.searchParams.get("return"))
 
-  const supabase = await createClient()
-  const { data: auth } = await supabase.auth.getUser()
+  /* Supabase Auth itself, as before (round rel2-auth). Auth not answering: back to the site, never to sign in for nothing. */
+  const who = await routeUser({ fresh: true })
+  if (who.kind === "unavailable") return privateResponse(authUnavailableResponse())
+  const auth = { user: who.kind === "user" ? who.user : null }
   if (!auth.user) {
     const here = `/api/site-password/owner?${new URLSearchParams({ host: site.host, ...(back !== "/" ? { return: back } : {}) }).toString()}`
     return privateResponse(NextResponse.redirect(`${main}/login?next=${encodeURIComponent(here)}`, 303))

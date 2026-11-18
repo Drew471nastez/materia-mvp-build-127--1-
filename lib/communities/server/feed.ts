@@ -1261,18 +1261,15 @@ export { displayName }
 
 /* ── For the member routes ─────────────────────────────────────────────── */
 
-/** The signed in person's id from the request's session, or null. */
+/**
+ * The signed in person's id, Supabase Auth itself as before (lib/auth/route-user requestUserId, `fresh`),
+ * or null. null also when Supabase Auth could not say (round rel2-auth):
+ * requireMember and the routes that refuse on null answer through
+ * signedOutOrRetry, so that is a 503 Try again, never "sign_in".
+ */
 export async function sessionUserId(): Promise<string | null> {
-  try {
-    const { createClient } = await import("@/lib/supabase/server")
-    const supabase = await createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    return user?.id ?? null
-  } catch {
-    return null
-  }
+  const { requestUserId } = await import("@/lib/auth/route-user")
+  return requestUserId()
 }
 
 /** A request's JSON body, or {} when there is none or it is not JSON. */

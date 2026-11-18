@@ -20,7 +20,8 @@ const POST = "55555555-5555-4555-8555-000000000001"
 const product = (n) => ({
   id: `33333333-3333-4333-8333-00000000000${n}`, creator_id: CREATOR, seller_id: CREATOR, title: `Loop Pack ${n}`, slug: `loop-pack-${n}`, description: "Loops, made in Cluj.", price_cents: 2900, currency: "usd",
   status: "published", archived: false, type: "digital", product_type: "digital", thumbnail_url: null, gallery_urls: [], images: [], created_at: at, updated_at: at,
-  product_categories: [], creators: { user_id: USER }, reviews_count: 0, reviews_average: 0, sales_count: 1, category: "music", pay_what_you_want: false, pwyw_min_price_cents: null, compare_at_cents: null, whats_included: [], faqs: [],
+  /* The embeds the stub cannot make (it ignores `select`): checkout's creators(user_id) and Explore's creator:creators(...). Without `creator` every Explore card lost its creator. */
+  product_categories: [], creators: { user_id: USER }, creator: { id: CREATOR, user_id: USER, slug: HANDLE, niche_tags: [] }, community_id: null, reviews_count: 0, reviews_average: 0, sales_count: 1, category: "music", pay_what_you_want: false, pwyw_min_price_cents: null, compare_at_cents: null, whats_included: [], faqs: [],
 })
 export const products = [1, 2, 3].map(product)
 

@@ -1,5 +1,6 @@
 /**
- * The pictures on storelib.com's front page hero, in one place.
+ * Shared Storelib demo screenshots used by comparison/alternatives pages.
+ * Retained after the cinematic homepage replaced the screenshot hero.
  *
  * Every one is a real Storelib screen with made up content (round AD5): two
  * demo stores shown on a computer and a phone (Pale Hours, streetwear basics,

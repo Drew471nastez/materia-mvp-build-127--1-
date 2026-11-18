@@ -41,12 +41,13 @@ import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
 import { randomBytes } from "node:crypto"
 import { unpackItems, packedTotalCents, apportionFee, lineTotalCents, type PackedItem } from "./cart-items"
 import { cartLineFollowups, fulfilCartLine, recordCartCustomer, type FulfilContext, type FulfilledLine } from "./fulfil-cart-item"
-import { beginFollowups, resumeFollowups, type FollowupKind, type Followups } from "./followups"
+import { beginFollowups, resumeFollowups, sent, type FollowupKind, type Followups } from "./followups"
 import { isMissingColumn, recordCouponUse } from "./coupons"
 import { ORIGIN_METADATA_KEY, decodeOrigin, orderOriginFrom } from "@/lib/orders/order-source"
 import { attributionFromMetadata } from "@/lib/attribution/server"
 import { paymentFacts, recordSale, sameSecret } from "./fulfil-payment"
 import { cartFingerprint, cartReceiptToken } from "./cart-tokens"
+import { isFreeBasketSession } from "./free-claim"
 import { businessFromMetadata, businessFromStripe, type BusinessDetails } from "./business"
 import { invoiceFilename, invoiceForOrder, renderInvoicePdf, type OrderRow } from "./invoice"
 import { raiseSaleEvents } from "@/lib/orders/sale-events"
@@ -77,8 +78,11 @@ export async function fulfilCartSession(
     session = await stripe.checkout.sessions.retrieve(sessionId, {
       expand: ["payment_intent", "payment_intent.latest_charge", "payment_intent.latest_charge.transfer"],
     })
-  } catch {
-    return { ok: false, status: 404, reason: "not_found" }
+  } catch (e) {
+    /* Only "Stripe has no such session" is a 404. Stripe busy or unreachable is a 503, so the webhook answers 500 and Stripe sends the event again: a paid basket was dropped for good when this read failed once. */
+    const code = (e as { statusCode?: number; type?: string })?.statusCode
+    if (code === 404 || (e as { type?: string })?.type === "StripeInvalidRequestError") return { ok: false, status: 404, reason: "not_found" }
+    return { ok: false, status: 503, reason: "failed" }
   }
   if (!isCartSession(session)) return { ok: false, status: 400, reason: "unreadable" }
   if (session.payment_status !== "paid") return { ok: false, status: 409, reason: "unpaid" }
@@ -335,7 +339,7 @@ async function writeBasket(
     /** The language the checkout was in, for the buyer's receipt email. */
     buyerLang?: string | null
   },
-): Promise<{ created: boolean; receiptToken: string | null; complete: boolean }> {
+): Promise<{ created: boolean; receiptToken: string | null; complete: boolean; wroteFirst?: boolean }> {
   /* The fee, apportioned once for the whole basket over what each line was
      charged, so the parts provably sum to what Stripe took, whichever caller
      writes which line. */
@@ -408,7 +412,7 @@ async function writeBasket(
       failed++
     }
   }
-  return { created: created.length > 0, receiptToken, complete: failed === 0 }
+  return { created: created.length > 0, receiptToken, complete: failed === 0, wroteFirst: created.some((l) => l.index === 0) }
 }
 
 /** The lines over the limit this call wrote, and any an earlier call wrote whose refund is still owed. */
@@ -461,9 +465,14 @@ export async function fulfilFreeCart(
     currency?: string | null
     /** What the buyer wrote for the shop at the website's checkout. */
     buyerNote?: string | null
+    /**
+     * The basket's session id for this press of the page (./free-claim freeBasketSession), so the same
+     * press sent again writes no line twice; absent, a random one, as before.
+     */
+    sessionId?: string | null
   },
-): Promise<{ ok: true; receiptToken: string; sessionFingerprint: string; complete: boolean } | { ok: false }> {
-  const sessionId = `free_${randomBytes(18).toString("base64url")}`
+): Promise<{ ok: true; receiptToken: string; sessionFingerprint: string; complete: boolean; wroteFirst: boolean } | { ok: false }> {
+  const sessionId = isFreeBasketSession(b.sessionId) ? b.sessionId : `free_${randomBytes(18).toString("base64url")}`
   let device: FulfilContext["device"] = { country: null, countryCode: null, deviceType: null, os: null, browser: null }
   if (b.request) {
     const { collectOrderDeviceInfo } = await import("@/lib/device-info")
@@ -509,7 +518,8 @@ export async function fulfilFreeCart(
     buyerNote: b.buyerNote ?? null,
   })
   if (!written.receiptToken) return { ok: false }
-  return { ok: true, receiptToken: written.receiptToken, sessionFingerprint, complete: written.complete }
+  /* wroteFirst: this send wrote the basket's first line, so its code's place became the use; a send that did not leaves its place to the route to give back. */
+  return { ok: true, receiptToken: written.receiptToken, sessionFingerprint, complete: written.complete, wroteFirst: written.wroteFirst === true }
 }
 
 type FollowedLine = FulfilledLine & { index: number; f: Followups }
@@ -605,21 +615,25 @@ async function sideEffects(
        session and lists them with one total. */
     if (ctx.buyerEmail) {
       const first = s.created.find((l) => l.index === 0)!
+      /* Not sent is a failed step, so the sweep sends it (./followups.ts sent). */
       await once("buyer email", async () =>
-        sendBuyerDownloadEmail(admin, {
-          attachments: s.paidTotal > 0 ? await basketPdf(admin, ctx.sessionId, s) : undefined,
-          orderId: first.orderId,
-          creatorId: ctx.creatorId,
-          buyerEmail: ctx.buyerEmail as string,
-          buyerFirstName: ctx.buyerFirstName ?? "",
-          productTitle: titles.get(first.productId) ?? "Your purchase",
-          receiptToken: s.receiptToken,
-          sellerReplyTo: sellerEmail,
-          baseUrl: s.baseUrl,
-          receiptBaseUrl: s.buyerBaseUrl ?? null,
-          lang: s.buyerLang ?? null,
-          amountCents: s.paidTotal,
-        }),
+        sent(
+          await sendBuyerDownloadEmail(admin, {
+            attachments: s.paidTotal > 0 ? await basketPdf(admin, ctx.sessionId, s) : undefined,
+            orderId: first.orderId,
+            creatorId: ctx.creatorId,
+            buyerEmail: ctx.buyerEmail as string,
+            buyerFirstName: ctx.buyerFirstName ?? "",
+            productTitle: titles.get(first.productId) ?? "Your purchase",
+            receiptToken: s.receiptToken,
+            sellerReplyTo: sellerEmail,
+            baseUrl: s.baseUrl,
+            receiptBaseUrl: s.buyerBaseUrl ?? null,
+            lang: s.buyerLang ?? null,
+            amountCents: s.paidTotal,
+          }),
+          "The buyer's receipt",
+        ),
       )
     }
     /* The seller's push is raiseSaleEvents' own, once per purchase. */
@@ -658,20 +672,23 @@ async function sideEffects(
     discountCents: s.items[l.index]?.discountCents ?? 0,
   }))
   for (const line of s.created) {
-    await line.f.once("seller email", () =>
-      sendSellerNotificationEmail(admin, {
-        orderId: line.orderId,
-        creatorId: ctx.creatorId,
-        sellerEmail,
-        productTitle: titles.get(line.productId) ?? "Your purchase",
-        buyerFirstName: ctx.buyerFirstName ?? "",
-        buyerLastName: ctx.buyerLastName ?? "",
-        buyerEmail: ctx.buyerEmail ?? "",
-        amountCents: line.amountCents,
-        feeCents: 0,
-        baseUrl: s.baseUrl,
-        sale: { couponCode: s.couponCode, lines: saleLines, buyerNote: s.buyerNote ?? null },
-      }),
+    await line.f.once("seller email", async () =>
+      sent(
+        await sendSellerNotificationEmail(admin, {
+          orderId: line.orderId,
+          creatorId: ctx.creatorId,
+          sellerEmail,
+          productTitle: titles.get(line.productId) ?? "Your purchase",
+          buyerFirstName: ctx.buyerFirstName ?? "",
+          buyerLastName: ctx.buyerLastName ?? "",
+          buyerEmail: ctx.buyerEmail ?? "",
+          amountCents: line.amountCents,
+          feeCents: 0,
+          baseUrl: s.baseUrl,
+          sale: { couponCode: s.couponCode, lines: saleLines, buyerNote: s.buyerNote ?? null },
+        }),
+        "The seller's new order email",
+      ),
     )
   }
 }

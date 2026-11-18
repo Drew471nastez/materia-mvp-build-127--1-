@@ -1,6 +1,5 @@
 import { cookies } from "next/headers"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getMainDomain } from "@/lib/url-helpers"
 import { siteHostsFor } from "@/lib/checkout/site-hosts"
@@ -11,6 +10,7 @@ import { physicalJson, readBody } from "@/lib/physical/auth"
 import { abandonCheckout, startCheckout } from "@/lib/physical/checkout-server"
 import { loadCheckoutConfig, loadStoreName } from "@/lib/store/settings-server"
 import { cartVisitorOf, visitorHash } from "@/lib/cart-uploads/sign"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -39,10 +39,9 @@ export async function POST(request: Request) {
   })
   if (limited) return limited
 
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const who = await routeUser({ fresh: true })
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
   const db = createAdminClient()
   const platformOrigin = `https://${getMainDomain()}`
   const shopId = typeof body.shopId === "string" ? body.shopId : null
@@ -94,7 +93,7 @@ export async function POST(request: Request) {
       return v ? visitorHash(v) : null
     })(),
   })
-  if (started.ok === false) return physicalJson({ error: started.error, field: started.field ?? null, stock: started.stock ?? null }, started.status)
+  if (started.ok === false) return physicalJson({ error: started.error, field: started.field ?? null, stock: started.stock ?? null, code: started.code ?? null }, started.status)
   /* Written at once, with no payment form: the buyer's session sees the order. */
   if (started.free || started.cod) {
     const { data: co } = await db.from("commerce_checkouts").select("session_fingerprint").eq("id", started.checkoutId).maybeSingle()

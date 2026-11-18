@@ -21,16 +21,22 @@ import React from "react"
 import { createRoot } from "react-dom/client"
 import { LocaleProvider } from "@/components/locale-provider"
 import { PlatformHeaderClient } from "@/components/platform/platform-header-client"
+import { BodyScrollRestorer } from "@/components/body-scroll-restorer"
 import { Hero } from "@/components/marketing/hero"
 import { BuyerTabBar } from "@/components/nav/buyer-tab-bar"
 
 const params = new URLSearchParams(location.hash.slice(1))
 const w = window as any
-w.__nav = { path: params.get("path") || "/explore", subs: new Set<() => void>() }
+w.__nav = {
+  path: params.get("path") || "/explore",
+  subs: new Set<() => void>(),
+}
 w.__who = params.get("who") || "guest"
 const tone = params.get("tone")
-const buyerHeaderLight = tone === "light" ? true : tone === "dark" ? false : undefined
-if (params.get("look") === "dark") document.documentElement.setAttribute("data-sl-dark", "")
+const buyerHeaderLight =
+  tone === "light" ? true : tone === "dark" ? false : undefined
+if (params.get("look") === "dark")
+  document.documentElement.setAttribute("data-sl-dark", "")
 try {
   localStorage.clear()
 } catch {
@@ -39,13 +45,17 @@ try {
 
 createRoot(document.getElementById("app")!).render(
   <LocaleProvider>
+    <BodyScrollRestorer />
     <PlatformHeaderClient buyerHeaderLight={buyerHeaderLight} />
     {w.__nav.path === "/" ? (
       <main className="bg-white">
         <Hero />
+        <div data-scroll-probe="" style={{ height: 1800 }} />
       </main>
     ) : (
-      <main className="min-h-[1400px] bg-[#f8f9fa] p-6 text-[15px] text-neutral-500">A buyer page under the header.</main>
+      <main className="min-h-[1400px] bg-[#f8f9fa] p-6 text-[15px] text-neutral-500">
+        A buyer page under the header.
+      </main>
     )}
     {/* The phone's buyer tab bar, where it belongs (not on the homepage), so the sheets can be seen over it. */}
     <BuyerTabBar />

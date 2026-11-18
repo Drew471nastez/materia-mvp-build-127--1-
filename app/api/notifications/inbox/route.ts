@@ -6,6 +6,7 @@ import { admin } from "@/lib/communities/server/db"
 import { sessionUserId } from "@/lib/communities/server/feed"
 import { listInbox, unreadCount } from "@/lib/notifications/user-inbox"
 import { isInboxFilter } from "@/lib/notifications/user-inbox-shared"
+import { signedOutOrRetry } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -30,7 +31,7 @@ const NO_STORE = { "Cache-Control": "private, no-store" }
  */
 export async function GET(request: Request) {
   const userId = await sessionUserId()
-  if (!userId) return NextResponse.json({ error: "sign_in" }, { status: 401, headers: NO_STORE })
+  if (!userId) return signedOutOrRetry(NextResponse.json({ error: "sign_in" }, { status: 401, headers: NO_STORE }))
   const limited = await rateLimit({ bucket: "notifications-inbox", subjects: [`user:${userId}`], windows: [{ limit: 120, seconds: 60 }, { limit: 2000, seconds: 3600 }], message: "Too many refreshes just now. Try again in a minute." })
   if (limited) return limited
   const params = new URL(request.url).searchParams

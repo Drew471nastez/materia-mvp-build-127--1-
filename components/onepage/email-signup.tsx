@@ -9,8 +9,8 @@
  * address, the name, the hidden field, the send to /api/onepage/leads, the
  * download after) and hands its form in; this draws what is around it.
  * The editor's preview is the live page in a frame, so it is this drawing
- * too, and the editor's Layout tab draws a small copy of each from
- * EmailLayoutThumb below, in the page's own colours.
+ * too, and the editor's Layout tab draws each, made small, with
+ * EmailLayoutThumb below (wave 16: this very view, scaled down).
  *
  * Every layout looks finished without an image: where the picture goes, a
  * soft mail mark (Featured), a soft band (Cover), or nothing at all (Classic,
@@ -20,9 +20,15 @@
  */
 
 import * as React from "react"
-import { Mail } from "lucide-react"
+import { ArrowRight, Mail } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { boldColors, tintOf, type EmailSignupLayout } from "@/lib/onepage/email-signup"
+import { boldColors, emailSignupStacked, tintOf, type EmailSignupLayout } from "@/lib/onepage/email-signup"
+import { readableInk, readableTheme, signupCard } from "@/lib/onepage/contrast"
+import { buttonThemeOn } from "@/lib/onepage/button-style"
+import { pressableProps, type PressableProps } from "@/lib/onepage/block-look"
+import { fontStack } from "@/lib/onepage/fonts"
+import { skinRootProps, skinVars } from "@/lib/onepage/theme-skin"
+import { ThemeSkinScene } from "@/components/onepage/themes/theme-skin-scene"
 
 type SignupTheme = {
   text_color?: string
@@ -88,6 +94,7 @@ export function EmailSignupView({
   animationClass,
   avatar = null,
   buttonStyle,
+  buttonPress,
   buttonText,
 }: {
   layout: EmailSignupLayout
@@ -106,11 +113,15 @@ export function EmailSignupView({
   avatar?: { src: string | null; name: string } | null
   /** Round 43: the page's own button and its words, for Bar's button that opens the form. */
   buttonStyle?: React.CSSProperties
+  /** Round AR: the page's hover for that button (lib/onepage/block-look pressableProps: its class and data attributes). */
+  buttonPress?: { className: string; "data-hover": string; "data-shadow": string }
   buttonText?: string
 }) {
   const [barOpen, setBarOpen] = React.useState(false)
   const barForm = React.useRef<HTMLDivElement>(null)
   const ink = theme.text_color || "#111113"
+  /* Round AR: the card's tint, chosen with its words (lib/onepage/contrast signupCard); the words' own colour unless that leaves them unreadable. */
+  const cardTint = (theme as { signup_tint?: string }).signup_tint || ink
   const soft = theme.secondary_text_color || ink
   const accent = theme.button_color || "#1a1a2e"
   const bold = boldColors(ink)
@@ -153,7 +164,7 @@ export function EmailSignupView({
   /* Round 43: Letter, a note from the creator, signed with their picture and name. */
   if (layout === "letter") {
     return (
-      <div data-email-layout="letter" className={cn("w-full rounded-xl p-5 sm:rounded-2xl sm:p-6", animationClass)} style={{ backgroundColor: tintOf(ink, 4), boxShadow: `inset 0 0 0 1px ${tintOf(ink, 8)}` }}>
+      <div data-email-layout="letter" className={cn("w-full rounded-xl p-5 sm:rounded-2xl sm:p-6", animationClass)} style={{ backgroundColor: tintOf(cardTint, 4), boxShadow: `inset 0 0 0 1px ${tintOf(ink, 8)}` }}>
         <div className="mb-3.5 flex items-center gap-2.5">
           <Face avatar={avatar} ink={ink} size={36} />
           {avatar?.name ? (
@@ -178,7 +189,7 @@ export function EmailSignupView({
   if (layout === "bar") {
     const open = barOpen || submitted
     return (
-      <div data-email-layout="bar" data-open={open ? "" : undefined} className={cn("w-full rounded-xl px-3 py-3 sm:rounded-2xl sm:px-4", animationClass)} style={{ backgroundColor: tintOf(ink, 5) }}>
+      <div data-email-layout="bar" data-open={open ? "" : undefined} className={cn("w-full rounded-xl px-3 py-3 sm:rounded-2xl sm:px-4", animationClass)} style={{ backgroundColor: tintOf(cardTint, 5) }}>
         <div className="flex items-center gap-3">
           {image ? <img src={image} alt={headline} className="h-10 w-10 shrink-0 rounded-full object-cover" /> : <Face avatar={avatar} ink={ink} size={40} />}
           <div className="min-w-0 flex-1">
@@ -202,7 +213,9 @@ export function EmailSignupView({
               /* Into the box once it is there: the keyboard comes up with the form. */
               window.setTimeout(() => barForm.current?.querySelector<HTMLInputElement>("input[type=email]")?.focus({ preventScroll: true }), 220)
             }}
-            className={cn("h-9 shrink-0 px-4 text-[13.5px] font-medium transition-[opacity,scale] duration-200", open ? "pointer-events-none scale-95 opacity-0" : "opacity-100")}
+            className={cn(buttonPress?.className, "h-9 shrink-0 px-4 text-[13.5px] font-medium transition-[opacity,scale] duration-200", open ? "pointer-events-none scale-95 opacity-0" : "opacity-100")}
+            data-hover={buttonPress?.["data-hover"]}
+            data-shadow={buttonPress?.["data-shadow"]}
             style={{ ...buttonStyle, borderRadius: buttonStyle?.borderRadius ?? 999 }}
             data-email-bar-open=""
           >
@@ -221,7 +234,7 @@ export function EmailSignupView({
 
   if (layout === "pro") {
     return (
-      <div data-email-layout="pro" className={cn("w-full rounded-xl p-4 sm:rounded-2xl sm:p-5", animationClass)} style={{ backgroundColor: tintOf(ink, 5) }}>
+      <div data-email-layout="pro" className={cn("w-full rounded-xl p-4 sm:rounded-2xl sm:p-5", animationClass)} style={{ backgroundColor: tintOf(cardTint, 5) }}>
         <div className="mb-3 flex items-center gap-3 sm:gap-4">
           {image ? (
             <img src={image} alt={headline} className="h-14 w-14 shrink-0 rounded-xl object-cover sm:h-16 sm:w-16" />
@@ -241,11 +254,11 @@ export function EmailSignupView({
 
   if (layout === "cover") {
     return (
-      <div data-email-layout="cover" className={cn("w-full overflow-hidden rounded-xl sm:rounded-2xl", animationClass)} style={{ backgroundColor: tintOf(ink, 5) }}>
+      <div data-email-layout="cover" className={cn("w-full overflow-hidden rounded-xl sm:rounded-2xl", animationClass)} style={{ backgroundColor: tintOf(cardTint, 5) }}>
         {image ? (
           <img src={image} alt={headline} className="block aspect-[2/1] w-full object-cover" />
         ) : (
-          <div aria-hidden data-email-band="" className="grid h-24 place-items-center" style={{ backgroundColor: tintOf(ink, 6) }}>
+          <div aria-hidden data-email-band="" className="grid h-24 place-items-center" style={{ backgroundColor: tintOf(cardTint, 6) }}>
             <MailMark color={ink} size="lg" />
           </div>
         )}
@@ -293,7 +306,7 @@ export function EmailSignupView({
 
   /* Classic: as the block has always looked. */
   return (
-    <div data-email-layout="default" className={cn("w-full rounded-xl p-5 sm:rounded-2xl sm:p-6", animationClass)} style={{ backgroundColor: tintOf(ink, 5) }}>
+    <div data-email-layout="default" className={cn("w-full rounded-xl p-5 sm:rounded-2xl sm:p-6", animationClass)} style={{ backgroundColor: tintOf(cardTint, 5) }}>
       {title(ink, "center", "mb-1")}
       {words(soft, "center", "mb-4")}
       {renderForm({ stacked: stackedForm, inverted: null })}
@@ -302,145 +315,218 @@ export function EmailSignupView({
   )
 }
 
-/**
- * A layout's small picture for the editor's Layout tab, drawn in the page's
- * own colours and with its image when it has one, so it looks like what
- * choosing it gives. 56px tall: three fit across a phone.
+
+/*
+ * ===========================================================================
+ *  WAVE 16: EACH LAYOUT'S PICTURE IS THE BLOCK ITSELF, MADE SMALL
+ * ===========================================================================
+ * The owner: "the layout thumbnail previews of the join-my-newsletter block
+ * must be accurate, with no shifting layout or weirdness" (Featured and Bar
+ * cut "Join my newsletter" off at the right). The pictures were drawn apart
+ * from the block, in 7px words that reflowed with the card's width, so they
+ * drifted from what each layout draws and ran out of room in narrow cards.
+ *
+ * Each picture is now EmailSignupView, the very drawing the live page makes,
+ * laid out at a phone's real size (a 358px block, as on a 390px phone, with 12px of page round it: STAGE_W)
+ * with the page's colours as the live page works them out (readableTheme,
+ * signupCard, buttonThemeOn: public-onepage's email_capture), the page's
+ * font, wallpaper and skin, the block's own headline, description, image,
+ * button words and placeholder, and the creator's picture and name. Then it
+ * is scaled down as one picture (a transform, so nothing reflows and every
+ * word keeps its real proportions) to fit its frame: the frame's width, or
+ * its height for a tall layout (Cover with a picture). The frame's size is
+ * set by the picker alone, so a picture loading, a font arriving or the
+ * theme changing only changes the scale, never the card.
+ *
+ * Nothing in it can be pressed or reached: it is inert and hidden from
+ * assistive technology, its fields are read-only and its buttons dead.
  */
-export function EmailLayoutThumb({ layout, image, theme, avatar = null, headline = null }: { layout: EmailSignupLayout; image: string | null; theme: SignupTheme & { background_color?: string }; avatar?: string | null; headline?: string | null }) {
-  const accent = theme.button_color || "#1a1a2e"
-  const ink = theme.text_color || "#111113"
-  const bold = boldColors(ink)
-  const page = theme.background_color && /^#|^rgb|^hsl/.test(theme.background_color) ? theme.background_color : "#ffffff"
-  const line = (w: string, strong = false, color = ink) => (
-    <span className={cn("block h-1 rounded-full", w)} style={{ backgroundColor: color, opacity: strong ? 0.7 : 0.3 }} />
-  )
-  /* Round AQ: the block's own headline, small, where the strong line was; the line only while it has none. */
-  const head = (w: string, color = ink) =>
-    headline?.trim() ? (
-      <span className={cn("block min-w-0 max-w-full truncate text-[7px] font-semibold leading-none", w === "w-1/2" || w === "w-3/5" ? "text-center" : "")} style={{ color }}>
-        {headline.trim()}
-      </span>
-    ) : (
-      line(w, true, color)
-    )
-  const row = (inverted = false, stacked = false) =>
-    stacked ? (
-      <span className="mt-1 flex flex-col gap-[3px]">
-        <span className="block h-[9px] rounded-[2px] bg-white ring-1 ring-black/5" />
-        <span className="block h-[9px] rounded-[2px] ring-1 ring-black/10" style={{ backgroundColor: inverted ? bold.on : accent }} />
-      </span>
-    ) : (
-      <span className="mt-1 flex gap-[3px]">
-        <span className="block h-[9px] flex-1 rounded-[2px] bg-white ring-1 ring-black/5" />
-        <span className="block h-[9px] w-[30%] rounded-[2px] ring-1 ring-black/10" style={{ backgroundColor: accent }} />
-      </span>
-    )
-  const mark = (cls: string) =>
-    image ? (
-      <img src={image} alt="" className={cn("shrink-0 object-cover", cls)} />
-    ) : (
-      <span className={cn("grid shrink-0 place-items-center", cls)} style={{ backgroundColor: tintOf(ink, 10), color: ink }}>
-        <Mail className="h-2.5 w-2.5" strokeWidth={2} />
-      </span>
-    )
+const STAGE_W = 382
+const STAGE_PAD = 12
+/* The live page's own defaults under a saved theme (public-onepage mergedTheme). */
+const LIVE_DEFAULTS = {
+  background_type: "solid",
+  background_color: "#ffffff",
+  text_color: "#000000",
+  secondary_text_color: "#666666",
+  button_color: "#000000",
+  button_text_color: "#ffffff",
+  button_style: "filled",
+  button_border_radius: 8,
+  button_border_width: 0,
+  button_border_color: "#000000",
+  font_family: "Inter",
+}
 
-  const face = (cls: string) =>
-    avatar ? <img src={avatar} alt="" className={cn("shrink-0 rounded-full object-cover", cls)} /> : <span className={cn("block shrink-0 rounded-full", cls)} style={{ backgroundColor: tintOf(ink, 22) }} />
+type ThumbTheme = SignupTheme & { background_color?: string; background_type?: string; background_gradient?: string; background_image_url?: string; font_family?: string; [key: string]: unknown }
 
-  let card: React.ReactNode
-  if (layout === "connect") {
-    card = (
-      <span className="flex w-full flex-col items-center gap-[4px]">
-        {head("w-1/2")}
-        <span className="flex h-[14px] w-full items-center rounded-full bg-white pl-1.5 pr-[2px] ring-1 ring-black/10">
-          <span className="block h-[2px] w-1/3 rounded-full bg-black/20" />
-          <span className="ml-auto flex h-[10px] items-center gap-[2px] rounded-full pl-1 pr-[1px]" style={{ backgroundColor: "#ececef" }}>
-            <span className="block h-[2px] w-2.5 rounded-full bg-black/45" />
-            {face("h-2 w-2")}
-          </span>
-        </span>
-      </span>
-    )
-  } else if (layout === "letter") {
-    card = (
-      <span className="block w-full rounded-[5px] p-1.5" style={{ backgroundColor: tintOf(ink, 5) }}>
-        <span className="flex items-center gap-1">
-          {face("h-2.5 w-2.5")}
-          {line("w-1/3")}
-        </span>
-        <span className="mt-[3px] flex flex-col gap-[3px]">{head("w-4/5")}</span>
-        <span className="mt-[5px] flex items-end gap-1 border-b pb-[2px]" style={{ borderColor: tintOf(ink, 35) }}>
-          <span className="block h-[2px] flex-1" />
-          <span className="block h-[3px] w-3 rounded-full" style={{ backgroundColor: ink, opacity: 0.75 }} />
-        </span>
-      </span>
-    )
-  } else if (layout === "bar") {
-    card = (
-      <span className="flex w-full items-center gap-1 rounded-[5px] p-1.5" style={{ backgroundColor: tintOf(ink, 6) }}>
-        {image ? <img src={image} alt="" className="h-3.5 w-3.5 shrink-0 rounded-full object-cover" /> : face("h-3.5 w-3.5")}
-        <span className="flex flex-1 flex-col gap-[3px]">{head("w-4/5")}{line("w-1/2")}</span>
-        <span className="block h-[9px] w-[26%] rounded-full ring-1 ring-black/10" style={{ backgroundColor: accent }} />
-      </span>
-    )
-  } else if (layout === "pro") {
-    card = (
-      <span className="block w-full rounded-[5px] p-1.5" style={{ backgroundColor: tintOf(ink, 6) }}>
-        <span className="flex items-center gap-1">
-          {mark("h-4 w-4 rounded-[3px]")}
-          <span className="flex flex-1 flex-col gap-[3px]">{head("w-4/5")}{line("w-1/2")}</span>
-        </span>
-        {row()}
-      </span>
-    )
-  } else if (layout === "cover") {
-    card = (
-      <span className="block w-full overflow-hidden rounded-[5px]" style={{ backgroundColor: tintOf(ink, 6) }}>
-        {image ? (
-          <img src={image} alt="" className="block h-3.5 w-full object-cover" />
-        ) : (
-          <span className="grid h-3.5 place-items-center" style={{ backgroundColor: tintOf(ink, 9), color: ink }}>
-            <Mail className="h-2 w-2" strokeWidth={2.2} />
-          </span>
-        )}
-        <span className="flex flex-col items-center gap-[3px] px-1.5 pb-1.5 pt-1">
-          {head("w-3/5")}
-          <span className="w-full">{row(false, true)}</span>
-        </span>
-      </span>
-    )
-  } else if (layout === "bold") {
-    card = (
-      <span className="flex w-full flex-col items-center gap-[3px] rounded-[5px] p-1.5" style={{ backgroundColor: bold.fill }}>
-        {image ? <img src={image} alt="" className="h-2.5 w-2.5 rounded-full object-cover" /> : null}
-        {head("w-3/5", bold.on)}
-        {line("w-2/5", false, bold.on)}
-        <span className="w-full">{row(true, true)}</span>
-      </span>
-    )
-  } else if (layout === "minimal") {
-    card = (
-      <span className="block w-full px-0.5">
-        <span className="flex items-center gap-1">
-          {image ? <img src={image} alt="" className="h-3.5 w-3.5 shrink-0 rounded-[3px] object-cover" /> : null}
-          <span className="flex flex-1 flex-col gap-[3px]">{head("w-3/5")}{line("w-2/5")}</span>
-        </span>
-        {row()}
-      </span>
-    )
-  } else {
-    card = (
-      <span className="flex w-full flex-col items-center gap-[3px] rounded-[5px] p-1.5" style={{ backgroundColor: tintOf(ink, 6) }}>
-        {head("w-3/5")}
-        {line("w-2/5")}
-        <span className="w-full">{row()}</span>
-      </span>
+/** The form as the live page draws it for each shape (public-onepage renderEmailFields), with nothing that takes a press or a key. */
+function StillForm({ options, theme, ink, placeholder, buttonText, press }: { options: EmailSignupFormOptions; theme: ThumbTheme; ink: string; placeholder: string | null; buttonText: string; press: PressableProps }) {
+  const { stacked, inverted, outlined, shape, avatar } = options
+  if (shape === "pill") {
+    return (
+      <div className="flex h-[52px] items-center gap-1.5 rounded-full bg-white py-1.5 pl-4 pr-1.5" style={{ boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${ink} 14%, transparent), 0 1px 2px rgba(16,24,40,0.05)` }} data-email-form="pill">
+        <input type="email" readOnly tabIndex={-1} placeholder={placeholder ?? "Your email"} className="h-full min-w-0 flex-1 bg-transparent text-[16px] text-[#111113] outline-none placeholder:text-[#8b8f98] sm:text-[15px]" />
+        <button type="submit" tabIndex={-1} className="inline-flex h-10 max-w-[58%] shrink-0 items-center gap-2 rounded-full bg-[#ececef] pl-4 pr-1 text-[14px] font-medium text-[#111113]" data-email-connect="">
+          <span className="truncate">{buttonText}</span>
+          {avatar?.src ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={avatar.src} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover shadow-[0_0_0_2px_#fff]" data-email-connect-face="" />
+          ) : (
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white text-[13px] font-semibold text-[#111113]" data-email-connect-face="">
+              {(avatar?.name || "").trim().charAt(0).toUpperCase() || "@"}
+            </span>
+          )}
+        </button>
+      </div>
     )
   }
+  if (shape === "line") {
+    return (
+      <div className="flex items-center gap-3 border-b-[1.5px]" style={{ borderColor: `color-mix(in srgb, ${ink} 28%, transparent)`, color: ink }} data-email-form="line">
+        <input type="email" readOnly tabIndex={-1} placeholder={placeholder ?? "Your email"} className="h-12 min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:opacity-55 sm:text-[15px]" style={{ color: ink }} />
+        <button type="submit" tabIndex={-1} className="inline-flex h-12 shrink-0 items-center gap-1.5 text-[14.5px] font-semibold" style={{ color: ink }} data-email-send="">
+          {buttonText}
+          <ArrowRight aria-hidden className="h-4 w-4" />
+        </button>
+      </div>
+    )
+  }
+  const submit = inverted
+    ? pressableProps({ ...theme, button_style: "filled", button_color: inverted.fill, button_text_color: inverted.text, button_border_color: inverted.fill, button_border_width: 0, button_shadow: "none" } as never, true)
+    : press
   return (
-    <span aria-hidden data-email-thumb={layout} className="flex h-[60px] w-full items-center overflow-hidden rounded-lg px-2.5" style={{ backgroundColor: page }}>
-      {card}
+    <div className={stacked ? "flex flex-col gap-2" : "flex flex-row items-stretch gap-2"} data-email-form={stacked ? "stacked" : "row"}>
+      <input
+        type="email"
+        readOnly
+        tabIndex={-1}
+        placeholder={placeholder ?? "Enter your email"}
+        className={cn("min-h-[46px] border-0 bg-white/90 px-3 py-3 text-[16px] outline-none sm:px-4 sm:text-sm", stacked ? "w-full" : "min-w-0 flex-1", inverted && "ring-1 ring-black/10")}
+        style={{ color: "#000", borderRadius: press.style.borderRadius, backgroundColor: inverted ? "#fff" : undefined, boxShadow: outlined ? `inset 0 0 0 1px color-mix(in srgb, ${theme.text_color || "#111113"} 18%, transparent)` : undefined }}
+      />
+      <button type="submit" tabIndex={-1} className={cn(submit.className, "whitespace-nowrap px-4 py-3 text-sm font-medium sm:px-5", stacked ? "w-full" : "shrink-0")} style={submit.style} data-hover="none" data-shadow={submit["data-shadow"]} data-email-submit="">
+        {buttonText}
+      </button>
+    </div>
+  )
+}
+
+export function EmailLayoutThumb({
+  layout,
+  image,
+  theme,
+  avatar = null,
+  name = null,
+  headline = null,
+  description = null,
+  buttonText = "Subscribe",
+  placeholder = null,
+}: {
+  layout: EmailSignupLayout
+  image: string | null
+  theme: ThumbTheme
+  /** The creator's picture (Connect, Letter and Bar draw it). */
+  avatar?: string | null
+  /** The page's name, which Letter signs with. */
+  name?: string | null
+  headline?: string | null
+  description?: string | null
+  buttonText?: string
+  placeholder?: string | null
+}) {
+  const frame = React.useRef<HTMLSpanElement>(null)
+  const stage = React.useRef<HTMLDivElement>(null)
+
+  /* The live page's colours for the block (public-onepage, case "email_capture"). */
+  const safe = readableTheme({ ...LIVE_DEFAULTS, ...theme } as ThumbTheme & typeof LIVE_DEFAULTS)
+  const { tint, ink, grounds } = signupCard(safe as never)
+  const signupTheme = { ...safe, text_color: ink, signup_tint: tint, secondary_text_color: safe.secondary_text_color ? readableInk(safe.secondary_text_color, grounds) : safe.secondary_text_color }
+  const press = pressableProps(buttonThemeOn(safe as never, grounds), true)
+  const words = buttonText || "Subscribe"
+  const face = { src: avatar || null, name: (name || "").trim() }
+
+  /* The page behind the block: its colour, gradient or photo, and a skin's scene and look. */
+  const ground = safe.background_color || "#ffffff"
+  const paint =
+    safe.background_type === "gradient" && safe.background_gradient
+      ? safe.background_gradient
+      : safe.background_type === "image" && safe.background_image_url
+        ? `center / cover no-repeat url("${String(safe.background_image_url).replace(/"/g, "%22")}") ${ground}`
+        : ground
+
+  /* One scale, the largest that shows the whole block: set straight on the frame, so no render follows a measure. */
+  React.useLayoutEffect(() => {
+    const f = frame.current
+    const s = stage.current
+    if (!f || !s) return
+    let last = ""
+    const fit = () => {
+      const w = f.clientWidth
+      const h = f.clientHeight
+      const sh = s.offsetHeight
+      if (!w || !h || !sh) return
+      const next = String(Math.min(w / STAGE_W, h / sh))
+      if (next !== last) {
+        last = next
+        f.style.setProperty("--email-thumb-scale", next)
+      }
+    }
+    fit()
+    if (typeof ResizeObserver !== "function") return
+    const ro = new ResizeObserver(fit)
+    ro.observe(f)
+    ro.observe(s)
+    return () => ro.disconnect()
+  }, [])
+
+  return (
+    <span
+      ref={frame}
+      aria-hidden
+      inert
+      data-email-thumb={layout}
+      data-tp-page=""
+      {...skinRootProps(safe as never)}
+      className="pointer-events-none relative block h-full w-full select-none overflow-hidden"
+      style={{ ...skinVars(safe as never), background: ground }}
+    >
+      {/* The wallpaper and a skin's scene at the block's own scale, so a cloud or a bubble is as big beside it as on the page, and a gradient spread over a phone's screen as the page spreads it (the picture shows its top). */}
+      <span
+        className="absolute left-0 top-0 block origin-top-left"
+        style={{ width: "calc(100% / var(--email-thumb-scale, 0.36))", height: "max(calc(100% / var(--email-thumb-scale, 0.36)), 844px)", transform: "scale(var(--email-thumb-scale, 0.36))", background: paint }}
+      >
+        <ThemeSkinScene theme={safe as never} />
+      </span>
+      <div
+        ref={stage}
+        className="absolute left-1/2 top-1/2 origin-center text-left"
+        style={{
+          width: STAGE_W,
+          padding: STAGE_PAD,
+          transform: "translate(-50%, -50%) scale(var(--email-thumb-scale, 0.36))",
+          fontFamily: fontStack(safe.font_family),
+          color: ink,
+          lineHeight: 1.5,
+        }}
+      >
+        <EmailSignupView
+          layout={layout}
+          headline={headline?.trim() || ""}
+          description={description}
+          image={image}
+          theme={signupTheme}
+          stackedForm={emailSignupStacked(layout, words)}
+          renderForm={(options) => <StillForm options={options} theme={safe} ink={ink} placeholder={placeholder} buttonText={words} press={press} />}
+          submitted={false}
+          successMessage=""
+          afterSignup={null}
+          avatar={face}
+          buttonStyle={press.style}
+          buttonPress={{ className: press.className, "data-hover": "none", "data-shadow": press["data-shadow"] }}
+          buttonText={words}
+        />
+      </div>
     </span>
   )
 }

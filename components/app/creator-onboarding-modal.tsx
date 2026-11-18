@@ -30,12 +30,13 @@ import { useRouter } from "next/navigation"
 import { PricingSection } from "@/components/marketing/pricing-section"
 import { JoinSocialBrandIcon } from "@/components/onboarding/join-social-brands"
 import { STORELIB_LOGO_SHADOW_JOIN } from "@/lib/brand/logo"
-import { isNativeApp } from "@/lib/native-bridge"
+import { hapticTap, isNativeApp } from "@/lib/native-bridge"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { ActivitySpinner } from "@/components/ui/activity-spinner"
 import { secondaryDepth } from "@/components/ui/depth-button"
 import { pickPhoto } from "@/lib/native-camera"
 import { TextSwap } from "@/components/ui/text-swap"
+import { OnboardingBackdrop } from "@/components/onboarding/film-backdrop"
 import { AvatarMark, DefaultAvatarGlyph } from "@/components/app/app-avatar"
 import type { OnboardingResume } from "@/lib/account/onboarding-resume"
 import { cleanName } from "@/lib/profile/display-name"
@@ -63,9 +64,41 @@ import { msg, tt } from "@/lib/i18n/text"
   two pages on top of each other. The footer's buttons, the progress bar and
   the setup screen's lines move on the same curve.
 */
-const STEP_IN_MS = 280
+/** The store address a store name makes: accents folded, at most the 30 characters a handle may have. */
+function storeSlugFrom(name: string): string {
+  return slugifyHandle(name, 30)
+}
+
+/*
+  THE STORE'S HANDLE IS CLAIMED ON THE SERVER (round AX). It becomes
+  storelib.com/<handle>, <handle>.storelib.com and storelib.me/<handle>, and
+  every rule on a name (reserved words, names for a fake sign in page, a name
+  somebody gave up, another website's address) is the server's
+  (lib/profile/move-handle.ts claimStoreHandle). This setup used to write the
+  name straight into profiles.username and creators.slug from the browser,
+  unchecked; the database now refuses that (supabase/sql/run-now/462). The
+  server answers with the handle it gave, which is the one on screen when it
+  is free, else the account's own, else a free one made from it. Null when it
+  could not be reached: the setup goes on and /api/onboarding/finalize claims
+  one for the store it makes.
+*/
+async function claimStoreHandle(wanted: string): Promise<string | null> {
+  try {
+    const res = await fetch("/api/profile/username", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: wanted, store: true, claim: true }),
+    })
+    const data = (await res.json().catch(() => null)) as { username?: string } | null
+    return res.ok && data?.username ? data.username : null
+  } catch {
+    return null
+  }
+}
+
+const STEP_IN_MS = 220
 const STEP_OUT_MS = 160
-const STEP_SHIFT = 16
+const STEP_SHIFT = 8
 /** Each piece of the setup screen rising into place (see SETUP ARRIVES). */
 const SETUP_RISE_MS = 520
 const MOTION_EASE = "cubic-bezier(0.22, 1, 0.36, 1)"
@@ -95,6 +128,8 @@ const HEADING_BLOCK = "text-center mb-6 sm:mb-7"
 /** The step panel's edges: faded only where there is more to scroll to (see updateScrollEdges), over SCROLL_EDGE_FADE. */
 const SCROLL_EDGE_MASK = "linear-gradient(to bottom, transparent 0, #000 var(--fade-top, 0px), #000 calc(100% - var(--fade-bottom, 0px)), transparent 100%)"
 const SCROLL_EDGE_FADE = "12px"
+/* What scrolls under the top row fades into the film over --fade-top (set from the scroll), never cut in a hard line. Nothing fades at the foot. */
+const TOP_EDGE_MASK = "linear-gradient(to bottom, transparent 0, #000 var(--fade-top, 0px), #000 100%)"
 
 /*
   A LITTLE DEPTH, AND NO MORE. A field is a well: the same grey, with a
@@ -106,8 +141,8 @@ const SCROLL_EDGE_FADE = "12px"
 const FIELD_REST = "bg-[#f4f4f5] shadow-[inset_0_0_0_1px_rgba(17,24,39,0.05),inset_0_1px_2px_rgba(17,24,39,0.05)]"
 const FIELD_WELL = "border-2 border-transparent bg-[#f4f4f5] shadow-[inset_0_0_0_1px_rgba(17,24,39,0.05),inset_0_1px_2px_rgba(17,24,39,0.05)] transition-[background-color,border-color,box-shadow] duration-200 focus-within:border-[#6b7280] focus-within:bg-white focus-within:shadow-[inset_0_0_0_1px_rgba(107,114,128,0.12)]"
 const AVATAR_RING = "shadow-[0_0_0_1px_rgba(17,24,39,0.08),0_2px_8px_-2px_rgba(17,24,39,0.14)]"
-const JOIN_STEP_IN_MS = 320
-const JOIN_STEP_SHIFT = 10
+const JOIN_STEP_IN_MS = 220
+const JOIN_STEP_SHIFT = 8
 
 type JoinSocialId = "tiktok" | "instagram" | "youtube" | "bluesky" | "twitter" | "linkedin"
 
@@ -169,12 +204,94 @@ function SocialToggleBadge({ on }: { on: boolean }) {
   on a phone the setup is the whole screen and nothing behind it shows, so
   the picture is not even fetched there.
 */
-const ONBOARDING_GROUND = "!bg-[#0e0e11] sm:[background-image:radial-gradient(ellipse_at_50%_50%,rgba(10,10,14,0.18)_0%,rgba(10,10,14,0.5)_62%,rgba(10,10,14,0.86)_100%),url(/images/onboarding/seller-ground.webp)] sm:[background-size:cover,cover] sm:[background-position:center,center] sm:[background-repeat:no-repeat]"
-const NEXT_ON = "bg-purple-600 text-white hover:bg-purple-700 shadow-[0_1px_2px_rgba(76,29,149,0.28),0_4px_12px_-4px_rgba(124,58,237,0.45),inset_0_1px_0_rgba(255,255,255,0.18)]"
+const ONBOARDING_GROUND = "!bg-[#0b0b0f]"
+const NEXT_ON = "bg-[#7c3aed] text-white hover:bg-[#6d28d9] shadow-[0_1px_2px_rgba(76,29,149,0.28),0_4px_12px_-4px_rgba(124,58,237,0.45),inset_0_1px_0_rgba(255,255,255,0.18)]"
 const BACK_LOOK = "bg-white text-[#374151] shadow-[0_0_0_1px_#e5e7eb,0_1px_2px_rgba(17,24,39,0.06)] hover:bg-[#f9fafb]"
 const CATEGORY_PILL = "h-11 px-4 sm:px-5 rounded-[10px] text-[14px] font-medium transition-[background-color,color,box-shadow]"
 const CATEGORY_OFF = "bg-white text-[#374151] shadow-[0_0_0_1px_#e5e7eb,0_1px_2px_rgba(17,24,39,0.05)] hover:shadow-[0_0_0_1px_#d1d5db,0_1px_2px_rgba(17,24,39,0.08)]"
 const CATEGORY_ON = "bg-[#1a1a2e] text-white shadow-[0_0_0_1px_#1a1a2e,0_2px_6px_-1px_rgba(26,26,46,0.35)]"
+
+/*
+  THE FULL SCREEN SETUP (the owner, with Shopify's setup as the reference):
+  no oversized modal. The words sit on the darkened film, white, and what
+  is to be filled in sits under them on one floating white card, with Back
+  and Continue at its foot on every step. The page scrolls as a whole when
+  a step is taller than the window, so nothing is ever cut off at any zoom.
+*/
+const VIEW_TITLE = "text-[28px] font-semibold leading-[1.12] tracking-[-0.025em] text-white text-balance sm:text-[38px]"
+const VIEW_SUB = "mx-auto mt-2.5 max-w-[460px] text-[15px] leading-[22px] text-white/70 text-balance sm:text-[16px] sm:leading-6"
+const FLOAT_CARD = "rounded-[22px] bg-white shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_30px_70px_-30px_rgba(0,0,0,0.65),0_8px_24px_-12px_rgba(0,0,0,0.35)]"
+const GOAL_PILL = "inline-flex h-12 flex-auto items-center justify-center gap-1.5 rounded-full px-3.5 text-[14px] font-medium transition-[background-color,color,box-shadow,scale] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.97] motion-reduce:transition-none min-[400px]:gap-2 min-[400px]:px-4 min-[400px]:text-[15px] transition-[background-color,color,box-shadow] duration-200 [-webkit-tap-highlight-color:transparent] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c3aed]/40 focus-visible:ring-offset-2 sm:h-12 sm:pl-4 sm:pr-5"
+const GOAL_OFF = "bg-[#f4f4f6] text-[#1a1a2e] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),inset_0_0_0_1px_rgba(17,24,39,0.06),0_1px_2px_rgba(17,24,39,0.06)] hover:bg-[#ececf0]"
+const GOAL_ON = "bg-[#1a1a2e] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_4px_10px_-4px_rgba(26,26,46,0.5)]"
+const NAV_NEXT = "inline-flex h-12 min-w-0 flex-1 items-center justify-center rounded-full px-6 text-[15px] font-semibold transition-[background-color,box-shadow,scale] duration-200 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c3aed]/40 focus-visible:ring-offset-2 motion-reduce:transition-none"
+const NAV_NEXT_OFF = "bg-[#e5e7eb] text-[#9ca3af] cursor-not-allowed"
+const NAV_BACK = "inline-flex h-12 shrink-0 items-center justify-center gap-1 rounded-full bg-white px-5 text-[15px] font-medium text-[#374151] shadow-[0_0_0_1px_#e5e7eb,0_1px_2px_rgba(17,24,39,0.05)] transition-[background-color,box-shadow,scale] duration-200 active:scale-[0.98] motion-reduce:transition-none hover:bg-[#f9fafb] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c3aed]/40 focus-visible:ring-offset-2"
+const FIELD = cn("flex h-[52px] w-full items-center gap-3 rounded-[12px] px-4 text-left", "border-2 border-transparent bg-[#f4f4f5] shadow-[inset_0_0_0_1px_rgba(17,24,39,0.05)] transition-[background-color,border-color] duration-200 focus-within:border-[#6b7280] focus-within:bg-white")
+
+/** What they came to do: the first step. Several at once. Saved on the account (storelib_goals) so the dashboard can start from it. */
+const SELL_GOALS = [
+  { id: "sell_online", label: msg("Sell online") },
+  { id: "digital_products", label: msg("Digital products") },
+  { id: "courses", label: msg("Courses") },
+  { id: "community", label: msg("Communities") },
+  { id: "services", label: msg("Services") },
+  { id: "link_in_bio", label: msg("Link in bio") },
+  { id: "other", label: msg("Other") },
+] as const
+type SellGoal = (typeof SELL_GOALS)[number]["id"]
+/* Two to a row, a short one beside a longer one, each as wide as its words: the row is filled, nothing is cut. */
+const GOAL_ROWS: SellGoal[][] = [["courses", "digital_products"], ["sell_online", "community"], ["services", "link_in_bio"], ["other"]]
+const GOALS_KEY = "storelib_goals"
+/** An X handle from what was typed, without the @ or an address round it. */
+function xHandle(soc: { twitter?: string }): string {
+  return (soc.twitter || "").trim().replace(/^https?:\/\/(www\.)?(x|twitter)\.com\//i, "").replace(/^@+/, "").split(/[/?#]/)[0]
+}
+/**
+ * THE PLUS THAT BECOMES A CHECK. Both marks are drawn in one 16px cell; the
+ * plus turns a quarter and shrinks away as the check grows and settles in,
+ * on opacity, rotate and scale only, so a tap reads as one movement.
+ */
+/**
+ * The account's picture at the right of its field: a faint ring while it is
+ * asked for, then the picture fading and settling in. Nothing when the
+ * network gave none, so the field stays as it was.
+ */
+function SocialFace({ preview }: { preview?: { state: "loading" } | { state: "found"; avatar: string; name: string | null } | { state: "none" } }) {
+  const [loaded, setLoaded] = useState(false)
+  const avatar = preview?.state === "found" ? preview.avatar : null
+  useEffect(() => setLoaded(false), [avatar])
+  return (
+    <span aria-hidden={!avatar} data-onboarding-social-face={preview?.state ?? ""} className="relative grid h-7 w-7 shrink-0 place-items-center">
+      {preview?.state === "loading" ? <span className="h-5 w-5 animate-spin rounded-full border-2 border-[#e5e7eb] border-t-[#9ca3af] motion-reduce:animate-none" /> : null}
+      {avatar ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={avatar}
+          alt={preview?.state === "found" && preview.name ? preview.name : ""}
+          referrerPolicy="no-referrer"
+          onLoad={() => setLoaded(true)}
+          onError={() => setLoaded(false)}
+          className={cn("h-7 w-7 rounded-full object-cover shadow-[0_0_0_1px_rgba(17,24,39,0.08),0_1px_3px_rgba(17,24,39,0.15)] transition-[opacity,scale] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none", loaded ? "scale-100 opacity-100" : "scale-75 opacity-0")}
+        />
+      ) : null}
+    </span>
+  )
+}
+
+function GoalMark({ on }: { on: boolean }) {
+  const ease = "transition-[opacity,rotate,scale] duration-[260ms] ease-[cubic-bezier(0.34,1.4,0.64,1)] motion-reduce:transition-none"
+  return (
+    <span aria-hidden className="relative inline-block h-4 w-4 shrink-0">
+      <Plus className={cn("absolute inset-0 h-4 w-4", ease, on ? "rotate-90 scale-50 opacity-0" : "rotate-0 scale-100 opacity-100")} strokeWidth={2.25} />
+      <Check className={cn("absolute inset-0 h-4 w-4", ease, on ? "rotate-0 scale-100 opacity-100" : "-rotate-45 scale-50 opacity-0")} strokeWidth={2.5} />
+    </span>
+  )
+}
+
+/** What was typed on /sell, kept for this tab so a reload or a slip of Back loses nothing. */
+const SELL_DRAFT_STORAGE = "storelib_sell_draft"
+
 
 // Primary categories (first 16)
 const PRIMARY_CATEGORIES: string[] = [
@@ -602,10 +719,8 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   const updateScrollEdges = useCallback(() => {
     const el = stepScrollRef.current
     if (!el) return
-    const above = el.scrollTop > 1
-    const below = el.scrollTop + el.clientHeight < el.scrollHeight - 1
-    el.style.setProperty("--fade-top", above ? SCROLL_EDGE_FADE : "0px")
-    el.style.setProperty("--fade-bottom", below ? SCROLL_EDGE_FADE : "0px")
+    /* The top edge only, and as much of it as has been scrolled (0 to 32px), so the fade grows with the scroll instead of switching on. */
+    el.style.setProperty("--fade-top", `${Math.min(32, Math.max(0, el.scrollTop))}px`)
   }, [])
   useEffect(() => {
     const el = stepScrollRef.current
@@ -627,7 +742,21 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   const [checkingUsername, setCheckingUsername] = useState(false)
   const [usernameFocused, setUsernameFocused] = useState(false)
 
-  // Step 2: Category
+  /*
+    WHOSE ACCOUNT IS IT. Each social field shows, at its right, the picture of
+    the account typed in (app/api/onboarding/social-preview), so a person sees
+    it is theirs. Asked 600ms after typing stops, once per value; an answer
+    for a value that has since changed is dropped.
+  */
+  type SocialPreview = { state: "loading" } | { state: "found"; avatar: string; name: string | null } | { state: "none" }
+  const [socialPreviews, setSocialPreviews] = useState<Partial<Record<JoinSocialId, SocialPreview & { value: string }>>>({})
+  const previewAsked = useRef<Partial<Record<JoinSocialId, string>>>({})
+
+  // Step 1: Goals
+  const [goals, setGoals] = useState<SellGoal[]>([])
+  const toggleGoal = (id: SellGoal) => setGoals((cur) => (cur.includes(id) ? cur.filter((g) => g !== id) : [...cur, id]))
+
+  // Category (no longer asked; kept for a setup begun before, and for a Stripe return)
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [showCategoryModal, setShowCategoryModal] = useState(false)
   const [categorySearch, setCategorySearch] = useState("")
@@ -642,6 +771,34 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     twitter: "",
     linkedin: "",
   })
+  useEffect(() => {
+    if (start || preview) return
+    const timers: ReturnType<typeof setTimeout>[] = []
+    for (const id of ["instagram", "tiktok", "youtube", "twitter"] as const) {
+      const value = (socials[id] || "").trim()
+      if (previewAsked.current[id] === value) continue
+      if (!value || value.replace(/^@+/, "").length < 2) {
+        previewAsked.current[id] = value
+        setSocialPreviews((cur) => ({ ...cur, [id]: undefined }))
+        continue
+      }
+      timers.push(setTimeout(() => {
+        previewAsked.current[id] = value
+        setSocialPreviews((cur) => ({ ...cur, [id]: { state: "loading", value } }))
+        fetch(`/api/onboarding/social-preview?network=${id}&handle=${encodeURIComponent(value)}`, { cache: "no-store" })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((data: { avatar?: string | null; name?: string | null } | null) => {
+            if (previewAsked.current[id] !== value) return
+            setSocialPreviews((cur) => ({ ...cur, [id]: data?.avatar ? { state: "found", avatar: data.avatar, name: data.name ?? null, value } : { state: "none", value } }))
+          })
+          .catch(() => {
+            if (previewAsked.current[id] === value) setSocialPreviews((cur) => ({ ...cur, [id]: { state: "none", value } }))
+          })
+      }, 600))
+    }
+    return () => timers.forEach(clearTimeout)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- one look up per changed value
+  }, [socials.instagram, socials.tiktok, socials.youtube, socials.twitter])
   const [openSocial, setOpenSocial] = useState<null | JoinSocialId>(null)
   const [socialPanel, setSocialPanel] = useState<null | JoinSocialId>(null)
   const [socialPanelShown, setSocialPanelShown] = useState(false)
@@ -1150,6 +1307,40 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, resume, resumeFromStripe])
 
+  /*
+    WHAT WAS TYPED STAYS. Back never cleared anything (the fields live here),
+    and now a reload of /sell in the same tab opens on the same step with the
+    same words, until the store is set up.
+  */
+  const draftReadRef = useRef(false)
+  useEffect(() => {
+    if (!open || start || preview || resumeFromStripe || draftReadRef.current) return
+    draftReadRef.current = true
+    if (resume && resume.step > 1) return
+    try {
+      const raw = sessionStorage.getItem(SELL_DRAFT_STORAGE)
+      if (!raw) return
+      const d = JSON.parse(raw) as { step?: number; goals?: unknown[]; displayName?: string; bio?: string; socials?: Record<string, string>; slugFollows?: boolean }
+      if (Array.isArray(d.goals)) setGoals(d.goals.filter((g): g is SellGoal => SELL_GOALS.some((x) => x.id === g)))
+      if (typeof d.displayName === "string" && d.displayName.trim()) {
+        if (d.slugFollows) slugFollowsName.current = true
+        setDisplayName(d.displayName)
+      }
+      if (typeof d.bio === "string") setBio(d.bio)
+      if (d.socials) setSocials(restoreJoinSocials(d.socials))
+      if (d.step === 2 || d.step === 3 || d.step === 4) setCurrentStep(d.step)
+    } catch {
+      /* a draft that cannot be read is no draft */
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+  useEffect(() => {
+    if (!open || start || preview || !draftReadRef.current || currentStep < 1 || currentStep > 4) return
+    try {
+      sessionStorage.setItem(SELL_DRAFT_STORAGE, JSON.stringify({ step: currentStep, goals, displayName, bio, socials, slugFollows: slugFollowsName.current }))
+    } catch {}
+  }, [open, start, preview, currentStep, goals, displayName, bio, socials])
+
   // Resume onboarding after a Stripe redirect (user paid for Growth/Pro).
   // Restore saved form state from localStorage and jump straight to the setup step.
   useEffect(() => {
@@ -1172,6 +1363,8 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
       if (saved.avatarUrl !== undefined) setAvatarUrl(saved.avatarUrl)
       if (saved.socials) setSocials(restoreJoinSocials(saved.socials as Record<string, string>))
       if (saved.selectedCategory !== undefined) setSelectedCategory(saved.selectedCategory)
+      const savedGoals = Array.isArray(saved.goals) ? (saved.goals as unknown[]).filter((g): g is SellGoal => SELL_GOALS.some((x) => x.id === g)) : []
+      setGoals(savedGoals)
       // Start setup immediately with the saved data so we don't depend on React
       // state being updated synchronously.
       startSetup({
@@ -1180,6 +1373,8 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
         avatarUrl: saved.avatarUrl,
         socials: saved.socials,
         selectedCategory: saved.selectedCategory,
+        goals: savedGoals,
+        handle: typeof saved.handle === "string" ? saved.handle : undefined,
       })
     } catch {
       // Malformed localStorage — fall back to plan step
@@ -1197,7 +1392,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     // Persist form state in case of unexpected page loss (not strictly needed for free)
     try {
       localStorage.setItem("storelib_onboarding_state", JSON.stringify({
-        displayName, bio, avatarUrl, socials, selectedCategory, planId: "free",
+        displayName, bio, avatarUrl, socials, selectedCategory, goals, planId: "free", handle: getSlug(),
       }))
     } catch {}
     startSetup()
@@ -1208,14 +1403,18 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     if (planCheckoutLoading) return
     setPlanCheckoutLoading(planId)
 
-    const _slug = displayName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "creator"
+    const wanted = getSlug() || "creator"
+    let _slug = wanted
 
     // Persist form state so we can restore it when the user returns from Stripe.
-    try {
-      localStorage.setItem("storelib_onboarding_state", JSON.stringify({
-        displayName, bio, avatarUrl, socials, selectedCategory, planId,
-      }))
-    } catch {}
+    const remember = () => {
+      try {
+        localStorage.setItem("storelib_onboarding_state", JSON.stringify({
+          displayName, bio, avatarUrl, socials, selectedCategory, goals, planId, handle: _slug,
+        }))
+      } catch {}
+    }
+    remember()
 
     try {
       // The billing API requires a creators record. At this onboarding stage none
@@ -1234,6 +1433,9 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
         .maybeSingle()
 
       if (!existingCreator) {
+        /* The server gives the handle first: a store row may only carry the account's own (part 462). */
+        _slug = (await claimStoreHandle(wanted)) || wanted
+        remember()
         const { error: createError } = await supabase
           .from("creators")
           .insert({
@@ -1315,23 +1517,29 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   useEffect(() => {
     const slug = !slugFollowsName.current && seededSlug.current
       ? seededSlug.current
-      : displayName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
+      : storeSlugFrom(displayName)
     if (!slug) {
       setUsernameAvailable(null)
       return
     }
+    /* Too short to be a handle: the server makes one from it when the store is set up (claimStoreHandle), so the name never stops here. */
+    if (slug.length < 3) {
+      setUsernameAvailable(true)
+      return
+    }
 
+    /*
+      The same question the save asks (GET /api/profile/username): taken
+      anywhere a handle lives, or a name the rules refuse. It used to ask
+      only whether a OnePage had the name.
+    */
     const checkAvailability = async () => {
       setCheckingUsername(true)
       try {
-        // Check onepages table
-        const { data: existing } = await supabase
-          .from("onepages")
-          .select("id")
-          .eq("slug", slug)
-          .single()
-
-        setUsernameAvailable(!existing)
+        const res = await fetch(`/api/profile/username?handle=${encodeURIComponent(slug)}`, { cache: "no-store" })
+        const data = (await res.json().catch(() => null)) as { available?: boolean } | null
+        /* Not answered (signed out, offline, rate limited): the setup claims a free one in the end. */
+        setUsernameAvailable(res.ok && data && typeof data.available === "boolean" ? data.available : true)
       } catch {
         setUsernameAvailable(true)
       } finally {
@@ -1346,7 +1554,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   // Get slug from display name
   const getSlug = () => {
     if (!slugFollowsName.current && seededSlug.current) return seededSlug.current
-    return displayName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
+    return storeSlugFrom(displayName)
   }
 
   const uploadAvatarBlob = async (blob: Blob, previewUrl?: string) => {
@@ -1524,10 +1732,10 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
       case 1:
         return displayName.trim().length > 0 && usernameAvailable === true
       case 2:
-        return true // Category is optional
+        return true // What brings them here: any, all or none
       case 3:
         return true // Socials are optional
-      // Step 4 (plan) has its own card buttons — Next is not shown there
+      // Step 4 (plan) has its own card buttons, Continue is not shown there
       default:
         return false
     }
@@ -1541,9 +1749,9 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
       case 1:
         return displayName.trim().length > 0 && usernameAvailable === true
       case 2:
-        return true // Can skip category
+        return true
       case 3:
-        return true // Can skip socials
+        return true
       default:
         return false
     }
@@ -1727,8 +1935,10 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     displayName?: string
     bio?: string
     avatarUrl?: string | null
-    socials?: { instagram: string; tiktok: string; youtube: string }
+    socials?: { instagram: string; tiktok: string; youtube: string; twitter?: string }
     selectedCategory?: string | null
+    goals?: SellGoal[]
+    handle?: string
   }) => {
     // Resolve effective values — override data wins over React state.
     const _dn = overrideData?.displayName ?? displayName
@@ -1736,7 +1946,16 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     const _av = overrideData?.avatarUrl !== undefined ? overrideData.avatarUrl : avatarUrl
     const _soc = overrideData?.socials ?? socials
     const _cat = overrideData?.selectedCategory !== undefined ? overrideData.selectedCategory : selectedCategory
-    const _slug = _dn.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
+    /* The address on screen, or the one saved before the Stripe redirect; the server says which one it is (claimStoreHandle). */
+    const wanted = overrideData?.handle || (overrideData ? storeSlugFrom(_dn) : getSlug())
+    let _slug = wanted
+
+    /* What they came to do, on the account, for the dashboard to start from. Never in the way of the setup. */
+    const _goals = overrideData?.goals ?? goals
+    void supabase.auth.updateUser({ data: { [GOALS_KEY]: _goals } }).catch(() => undefined)
+    try {
+      sessionStorage.removeItem(SELL_DRAFT_STORAGE)
+    } catch {}
 
     /* From the plan step it crossfades like any other step; back from Stripe it is simply there. */
     showStep(5, "right", !overrideData)
@@ -1754,6 +1973,9 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error(tt("Not authenticated"))
 
+      /* The handle first, on the server: it moves the username, an existing store's address and its OnePage together. */
+      _slug = (await claimStoreHandle(wanted)) || wanted
+
       // Get creator ID (use maybeSingle to not throw error if no record exists)
       const { data: creator } = await supabase
         .from("creators")
@@ -1767,7 +1989,6 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
         .update({
           is_creator: true,
           welcome_completed: true,
-          username: _slug,
           display_name: _dn,
           avatar_url: _av,
         })
@@ -1778,7 +1999,6 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
         await supabase
           .from("creators")
           .update({
-            slug: _slug,
             bio: _bio,
             niche_tags: _cat ? [_cat] : [],
             onboarding_completed: true,
@@ -1798,7 +2018,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
             instagram: { enabled: !!_soc.instagram, url: _soc.instagram ? `https://instagram.com/${_soc.instagram.replace('@', '')}` : "" },
             tiktok: { enabled: !!_soc.tiktok, url: _soc.tiktok ? `https://tiktok.com/@${_soc.tiktok.replace('@', '')}` : "" },
             youtube: { enabled: !!_soc.youtube, url: _soc.youtube || "" },
-            twitter: { enabled: false, url: "" },
+            twitter: { enabled: !!xHandle(_soc), url: xHandle(_soc) ? `https://x.com/${xHandle(_soc)}` : "" },
             spotify: { enabled: false, url: "" },
           }
         }
@@ -1873,6 +2093,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
           instagram: _soc.instagram ? `https://instagram.com/${_soc.instagram.replace('@', '')}` : null,
           tiktok: _soc.tiktok ? `https://tiktok.com/@${_soc.tiktok.replace('@', '')}` : null,
           youtube: _soc.youtube || null,
+          twitter: xHandle(_soc) ? `https://x.com/${xHandle(_soc)}` : null,
         }
 
         if (onepage) {
@@ -1936,6 +2157,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
             instagram: _soc.instagram ? `https://instagram.com/${_soc.instagram.replace('@', '')}` : null,
             tiktok: _soc.tiktok ? `https://tiktok.com/@${_soc.tiktok.replace('@', '')}` : null,
             youtube: _soc.youtube || null,
+            twitter: xHandle(_soc) ? `https://x.com/${xHandle(_soc)}` : null,
           }
 
           // Create onepage record with social data
@@ -1973,7 +2195,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               instagram: { enabled: !!_soc.instagram, url: _soc.instagram ? `https://instagram.com/${_soc.instagram.replace('@', '')}` : "" },
               tiktok: { enabled: !!_soc.tiktok, url: _soc.tiktok ? `https://tiktok.com/@${_soc.tiktok.replace('@', '')}` : "" },
               youtube: { enabled: !!_soc.youtube, url: _soc.youtube || "" },
-              twitter: { enabled: false, url: "" },
+              twitter: { enabled: !!xHandle(_soc), url: xHandle(_soc) ? `https://x.com/${xHandle(_soc)}` : "" },
               spotify: { enabled: false, url: "" },
             }
           }
@@ -2064,7 +2286,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   // Progress bar width (5 steps total; the join branch its own two or three, the first question a sliver)
   const progressWidth = isJoinStep(currentStep)
     ? ((Math.max(0, joinSteps.indexOf(currentStep)) + 1) / joinSteps.length) * 100
-    : (currentStep / 5) * 100
+    : (Math.min(currentStep, 4) / 4) * 100
 
   // Filter categories for search
   const allCategories = [...PRIMARY_CATEGORIES, ...EXTENDED_CATEGORIES]
@@ -2081,54 +2303,46 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
         {/* Slide 1: name, photo, socials. Username and bio are the next slide. */}
         {step === JOIN_NAME && (
           <div className="mx-auto flex w-full max-w-[min(100%,600px)] flex-col items-center text-center font-sans" data-onboarding-join="profile">
-            <h1 className="text-[28px] font-bold leading-[1.15] tracking-[-0.03em] text-[#1a1a2e] sm:text-[30px]">{tt("Create a profile")}</h1>
-            <p className="mt-1.5 text-[15px] leading-6 text-[#6b7280]">{tt("Add a name, photo and links to get started.")}</p>
-            {/* Avatar stays on the column centerline; photo control sits to its right on sm+ without shifting the circle. */}
-            <div className="relative mt-5 w-full">
-              <div className="flex justify-center">
-                <button
-                  type="button"
-                  onClick={openJoinPhoto}
-                  disabled={uploadingAvatar}
-                  data-onboarding-join-photo=""
-                  aria-label={avatarUrl ? tt("Change photo") : tt("Add a photo")}
-                  className={cn(
-                    "relative block h-[84px] w-[84px] shrink-0 overflow-hidden rounded-full bg-[#eceef1] text-[#9ca3af] transition-[box-shadow,scale] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.98] motion-reduce:transition-none",
-                    AVATAR_RING,
-                    "[-webkit-tap-highlight-color:transparent]",
-                  )}
-                >
-                  {avatarUrl ? (
-                    <img src={avatarUrl} alt="" className="absolute inset-0 h-full w-full object-cover motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200" />
-                  ) : (
-                    <span className="absolute inset-0 text-[#b0b5bd]">
-                      <DefaultAvatarGlyph fill />
-                    </span>
-                  )}
-                  {uploadingAvatar ? (
-                    <span className="absolute inset-0 grid place-items-center bg-white/70 backdrop-blur-[1px]">
-                      <ActivitySpinner size={22} className="text-[#4b5563]" />
-                    </span>
-                  ) : null}
-                </button>
-              </div>
+            {/* The same row as the seller's page step: the photo, and a slim button beside it. */}
+            <div className="mb-1 flex w-full items-center gap-4 text-left">
               <button
                 type="button"
                 onClick={openJoinPhoto}
                 disabled={uploadingAvatar}
-                data-onboarding-join-photo-add=""
-                className={cn(
-                  secondaryDepth,
-                  "mx-auto mt-2.5 h-7 gap-1 rounded-full px-2 text-[11px] font-medium text-[#4b5563]",
-                  "sm:absolute sm:left-[calc(50%+54px)] sm:top-[42px] sm:mx-0 sm:mt-0 sm:-translate-y-1/2",
-                )}
+                data-onboarding-join-photo=""
+                aria-label={avatarUrl ? tt("Change photo") : tt("Add a photo")}
+                className={cn("relative block h-16 w-16 shrink-0 overflow-hidden rounded-full bg-[#eceef1] transition-[scale] duration-200 active:scale-[0.97] [-webkit-tap-highlight-color:transparent] sm:h-[72px] sm:w-[72px]", AVATAR_RING)}
               >
-                <ImagePlus className="h-2.5 w-2.5" strokeWidth={2} aria-hidden />
-                {avatarUrl ? tt("Change") : tt("Add")}
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="" className="absolute inset-0 h-full w-full object-cover motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200" />
+                ) : (
+                  <span className="absolute inset-0 text-[#b0b5bd]"><DefaultAvatarGlyph fill /></span>
+                )}
+                {uploadingAvatar ? (
+                  <span className="absolute inset-0 grid place-items-center bg-white/70">
+                    <ActivitySpinner size={20} className="text-[#4b5563]" />
+                  </span>
+                ) : null}
               </button>
+              <div className="min-w-0">
+                <button
+                  type="button"
+                  onClick={openJoinPhoto}
+                  disabled={uploadingAvatar}
+                  data-onboarding-join-photo-add=""
+                  className="group -my-1.5 inline-flex h-11 items-center disabled:opacity-60 [-webkit-tap-highlight-color:transparent]"
+                >
+                  <span className="inline-flex h-8 items-center gap-1.5 rounded-full bg-white px-3 text-[13px] font-medium text-[#1a1a2e] shadow-[0_0_0_1px_#e5e7eb,0_1px_2px_rgba(17,24,39,0.05)] transition-[background-color,scale] duration-200 group-hover:bg-[#f9fafb] group-active:scale-[0.97] motion-reduce:transition-none">
+                    <ImagePlus className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+                    {avatarUrl ? tt("Change photo") : tt("Add a photo")}
+                  </span>
+                </button>
+                <p className="mt-1 text-[13px] text-[#6b7280]">{tt("Shown on your profile.")}</p>
+              </div>
             </div>
-            <label className={cn("mt-5 flex h-[52px] w-full items-center rounded-[10px] px-4 text-left", FIELD_WELL)}>
+            <label className={cn(FIELD, "mt-3")}>
               <span className="sr-only">{tt("Your name")}</span>
+              <User className="h-5 w-5 shrink-0 text-[#9ca3af]" aria-hidden />
               <input
                 type="text"
                 value={joinName}
@@ -2224,9 +2438,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
             <span className={cn("relative mb-3 block h-[72px] w-[72px] overflow-hidden rounded-full bg-[#eceef1] text-[#9ca3af]", AVATAR_RING)}>
               {avatarUrl ? <img src={avatarUrl} alt="" className="absolute inset-0 h-full w-full object-cover motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200" /> : <DefaultAvatarGlyph fill />}
             </span>
-            <h1 className="text-[28px] font-bold leading-[1.15] tracking-[-0.03em] text-[#1a1a2e] sm:text-[32px]">{tt("Pick a username")}</h1>
-            <p className="mt-1.5 text-[15px] leading-6 text-[#6b7280]">{tt("Claim your unique Storelib link.")}</p>
-            <label className={cn("mt-4 flex h-[52px] w-full items-center gap-1.5 rounded-[10px] px-4 text-left", FIELD_WELL)}>
+            <label className={cn("mt-1 flex h-[52px] w-full items-center gap-1.5 rounded-[10px] px-4 text-left", FIELD_WELL)}>
               <span className="sr-only">{tt("Username")}</span>
               <AtSign className="h-[18px] w-[18px] shrink-0 text-[#9ca3af]" strokeWidth={2} aria-hidden />
               <input
@@ -2270,13 +2482,9 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
 
         {step === JOIN_NOTIFY && (
           <div className="mx-auto flex w-full max-w-[min(100%,560px)] flex-col items-center text-center font-sans" data-onboarding-join="notify" data-push-answer={pushAnswer ?? ""}>
-            <span className="mb-5 flex h-16 w-16 items-center justify-center rounded-[18px] bg-[#f4f4f5] text-[#1a1a2e] shadow-[inset_0_0_0_1px_rgba(17,24,39,0.05),0_1px_2px_rgba(17,24,39,0.05)]">
+            <span className="mb-4 flex h-16 w-16 items-center justify-center rounded-[18px] bg-[#f4f4f5] text-[#1a1a2e] shadow-[inset_0_0_0_1px_rgba(17,24,39,0.05),0_1px_2px_rgba(17,24,39,0.05)]">
               <Bell className="h-7 w-7" strokeWidth={1.8} />
             </span>
-            <div className={HEADING_BLOCK}>
-              <h1 className={HEADING}>{tt("Don't miss a thing")}</h1>
-              <p className={SUBHEADING}>{tt("Get notified about replies, messages, updates and things you follow.")}</p>
-            </div>
             {pushAnswer === "granted" ? (
               <p className="inline-flex h-12 items-center gap-2 text-[15px] font-medium text-[#1a1a2e]">
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#16a34a]">
@@ -2312,300 +2520,185 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
           </div>
         )}
 
-        {/* Step 1: Let's get started */}
-        {step === 1 && (
-          <div className="flex flex-col items-center">
-            <div className={HEADING_BLOCK}>
-              <h1 className={HEADING}>
-                {tt("Let's set up your page")}
-              </h1>
-              <p className={SUBHEADING}>
-                {tt("For a store, a community or digital products. You can change it any time.")}
-              </p>
-            </div>
-
-            {/* Input fields */}
-            <div className="w-full max-w-[600px] space-y-3 sm:space-y-4">
-              {/* Username input - with shop bag icon */}
-              <div className="relative">
-                <div className={cn(
-                  "flex items-center gap-3 px-5 h-[56px] rounded-[10px] transition-[background-color,box-shadow]",
-                  usernameFocused
-                    ? "bg-white shadow-[0_0_0_2px_#1a1a2e]"
-                    : FIELD_REST
-                )}>
-                  <User className="w-5 h-5 text-gray-400 shrink-0" />
-                  <input
-                    type="text"
-                    value={displayName}
-                    onChange={(e) => {
-                      slugFollowsName.current = true
-                      setDisplayName(e.target.value)
-                    }}
-                    onFocus={() => setUsernameFocused(true)}
-                    onBlur={() => setUsernameFocused(false)}
-                    placeholder={tt("Your name or brand")}
-                    className="flex-1 text-base outline-none bg-transparent"
-                    autoFocus={false}
-                    autoComplete="off"
-                  />
-                  {checkingUsername && (
-                    <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
-                  )}
-                  {!checkingUsername && usernameAvailable === true && displayName && (
-                    <Check className="w-5 h-5 text-green-500" />
-                  )}
-                  {!checkingUsername && usernameAvailable === false && displayName && (
-                    <X className="w-5 h-5 text-red-500" />
-                  )}
-                </div>
-                {usernameAvailable === false && (
-                  <p className="text-red-500 text-xs mt-1.5 ml-1">{tt("This name is not available")}</p>
-                )}
-              </div>
-
-              {/* URL preview */}
-              <div className={cn("flex items-center gap-3 px-5 h-[56px] rounded-[10px]", FIELD_REST)}>
-                <svg className="w-5 h-5 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                </svg>
-                <span className="text-base">
-                  <span className="text-black font-medium">{getSlug() || "username"}</span>
-                  <span className="text-gray-400">{".storelib.com"}</span>
-                </span>
-              </div>
-
-              {/* Bio input */}
-              <div className={cn("flex items-start gap-3 px-5 py-4 min-h-[56px] rounded-[10px]", FIELD_WELL)}>
-                <svg className="w-5 h-5 text-gray-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <textarea
-                  value={bio}
-                  onChange={(e) => setBio(e.target.value)}
-                  placeholder={tt("Tell us a few words about you...")}
-                  rows={2}
-                  className="flex-1 text-base outline-none bg-transparent resize-none"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Step 2: Store Category */}
+        {/* Step 1: what they came to do. Pills, several at once (Shopify's setup is the reference). */}
         {step === 2 && (
-          <div className="flex flex-col items-center">
-            <div className={HEADING_BLOCK}>
-              <h1 className={HEADING}>
-                {tt("What do you make?")}
-              </h1>
-              <p className={SUBHEADING}>
-                {tt("Pick what fits best. It helps people find you.")}
-              </p>
-            </div>
-
-            {/* Category pills */}
-            {/*
-              Each category a white pill on a hairline, the chosen one
-              near black; the ring is a shadow, not a border, so
-              choosing one changes its colour and not its size.
-              "Other" sits with "See more" at the end of the pills,
-              where the choice is made: in the row of buttons at the
-              bottom it read as a way through the step, beside Skip.
-            */}
-            <div data-onboarding-categories="" className="w-full max-w-[650px] flex flex-wrap justify-center gap-2.5 sm:gap-3">
-              {PRIMARY_CATEGORIES.map((category) => (
-                <button
-                  key={category}
-                  type="button"
-                  aria-pressed={selectedCategory === category}
-                  onClick={() => setSelectedCategory(selectedCategory === category ? null : category)}
-                  className={cn(CATEGORY_PILL, selectedCategory === category ? CATEGORY_ON : CATEGORY_OFF)}
-                >
-                  {tt(category)}
-                </button>
-              ))}
-
-              {/* Show selected extended category inline so user can see it */}
-              {selectedCategory && !PRIMARY_CATEGORIES.includes(selectedCategory) && (
-                <button
-                  key={selectedCategory}
-                  type="button"
-                  aria-pressed="true"
-                  onClick={() => setSelectedCategory(null)}
-                  className={cn(CATEGORY_PILL, CATEGORY_ON)}
-                >
-                  {tt(selectedCategory)}
-                </button>
-              )}
-
-              {/* See more and Other, together, so a wrap never parts them. */}
-              <div className="flex items-center">
-                <button
-                  type="button"
-                  aria-expanded={showCategoryModal}
-                  data-onboarding-more=""
-                  onClick={() => setShowCategoryModal((v) => !v)}
-                  className="h-11 px-3.5 text-[14px] font-medium text-[#4b5563] transition-colors hover:text-[#1a1a2e]"
-                >
-                  {showCategoryModal ? tt("See less") : tt("See more")}
-                </button>
-                <span aria-hidden="true" className="h-4 w-px bg-[#e5e7eb]" />
-                <button
-                  type="button"
-                  data-onboarding-other=""
-                  onClick={() => {
-                    setSelectedCategory(null)
-                    handleNext()
-                  }}
-                  className="h-11 px-3.5 text-[14px] font-medium text-[#4b5563] transition-colors hover:text-[#1a1a2e]"
-                >
-                  {tt("Other")}
-                </button>
-              </div>
-            </div>
-
-            {/*
-              ROUND AH: EVERY CATEGORY, IN THE STEP ITSELF. "See more" opened a
-              second dialog over the setup, whose list could not be scrolled on
-              a phone (the setup's own scroll lock held it). It opens here
-              instead, under the pills: a search and the rest, in the step's
-              own scroll, so a finger or a wheel moves it like the rest of the
-              page.
-            */}
-            {showCategoryModal ? (
-              <div data-onboarding-all-categories="" className="mt-5 w-full max-w-[650px] rounded-[12px] bg-[#f8f9fa] p-3 shadow-[inset_0_0_0_1px_rgba(16,24,40,0.06)] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-top-1 motion-safe:duration-200">
-                <div className="flex h-11 items-center gap-2.5 rounded-[10px] bg-white px-3.5 shadow-[0_0_0_1px_#e5e7eb]">
-                  <Search className="h-4 w-4 shrink-0 text-gray-400" />
-                  <input
-                    type="text"
-                    value={categorySearch}
-                    onChange={(e) => setCategorySearch(e.target.value)}
-                    placeholder={tt("Search categories...")}
-                    className="min-w-0 flex-1 bg-transparent text-[15px] outline-none"
-                  />
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {filteredCategories.map((category) => (
+          <div data-onboarding-goals="" role="group" aria-label={tt("What brings you here")} className="flex flex-col gap-2 sm:gap-2.5">
+            {GOAL_ROWS.map((row) => (
+              <div key={row.join()} data-onboarding-goal-row="" className="flex gap-2 sm:gap-2.5">
+                {row.map((id) => {
+                  const g = SELL_GOALS.find((x) => x.id === id)!
+                  const on = goals.includes(g.id)
+                  return (
                     <button
-                      key={category}
+                      key={g.id}
                       type="button"
-                      aria-pressed={selectedCategory === category}
+                      aria-pressed={on}
+                      data-onboarding-goal={g.id}
                       onClick={() => {
-                        setSelectedCategory(selectedCategory === category ? null : category)
-                        setCategorySearch("")
+                        hapticTap("soft")
+                        toggleGoal(g.id)
                       }}
-                      className={cn("h-9 rounded-[8px] px-3 text-[13.5px] font-medium transition-[background-color,color,box-shadow]", selectedCategory === category ? CATEGORY_ON : CATEGORY_OFF)}
+                      className={cn(GOAL_PILL, row.length === 1 && "flex-none px-5", on ? GOAL_ON : GOAL_OFF)}
                     >
-                      {tt(category)}
+                      <GoalMark on={on} />
+                      <span className="whitespace-nowrap">{tt(g.label)}</span>
                     </button>
-                  ))}
-                  {filteredCategories.length === 0 ? <p className="px-1 py-2 text-[13.5px] text-[#6b7280]">{tt("No category matches. Pick Other.")}</p> : null}
-                </div>
+                  )
+                })}
               </div>
-            ) : null}
+            ))}
           </div>
         )}
 
-        {/* Step 3: Socials & Profile */}
-        {step === 3 && (
-          <div className="flex flex-col items-center">
-            <div className={HEADING_BLOCK}>
-              <h1 className={HEADING}>
-                {tt("Add your socials")}
-              </h1>
-              <p className={SUBHEADING}>
-                {tt("These will appear on your OnePage")}
-              </p>
-            </div>
-
-            <div className="w-full max-w-[600px] flex flex-col sm:flex-row gap-4 sm:gap-8">
-              {/* Avatar section */}
-              <div className="flex flex-col items-center shrink-0">
-                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-[#F3F3F3] flex items-center justify-center overflow-hidden border-2 border-gray-200">
-                  {avatarUrl ? (
-                    <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-2xl sm:text-3xl font-bold text-gray-400">
-                      {displayName.trim() ? displayName.charAt(0).toUpperCase() : <AvatarMark name="" size={96} />}
-                    </span>
-                  )}
-                </div>
+        {/* Step 2: who they are. Photo, name, address, a line about them; prefilled from Google or Apple. */}
+        {step === 1 && (
+          <div data-onboarding-identity="" className="flex flex-col gap-3">
+            <div className="mb-1 flex items-center gap-4">
+              <button
+                type="button"
+                onClick={openJoinPhoto}
+                disabled={uploadingAvatar}
+                data-onboarding-photo=""
+                aria-label={avatarUrl ? tt("Change photo") : tt("Add a photo")}
+                className={cn("relative block h-16 w-16 shrink-0 overflow-hidden rounded-full bg-[#eceef1] transition-[scale] duration-200 active:scale-[0.97] [-webkit-tap-highlight-color:transparent] sm:h-[72px] sm:w-[72px]", AVATAR_RING)}
+              >
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                ) : (
+                  <span className="absolute inset-0 grid place-items-center text-[#b0b5bd]"><AvatarMark name={displayName} size={72} /></span>
+                )}
+                {uploadingAvatar ? (
+                  <span className="absolute inset-0 grid place-items-center bg-white/70">
+                    <ActivitySpinner size={20} className="text-[#4b5563]" />
+                  </span>
+                ) : null}
+              </button>
+              <div className="min-w-0">
                 <button
-                  onClick={() => avatarInputRef.current?.click()}
-                  className="mt-2 sm:mt-3 flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900"
+                  type="button"
+                  onClick={openJoinPhoto}
+                  disabled={uploadingAvatar}
+                  data-onboarding-photo-button=""
+                  className="group -my-1.5 inline-flex h-11 items-center disabled:opacity-60 [-webkit-tap-highlight-color:transparent]"
                 >
-                  <Pencil className="w-4 h-4" />
-                  {tt("Edit")}
+                  <span className="inline-flex h-8 items-center gap-1.5 rounded-full bg-white px-3 text-[13px] font-medium text-[#1a1a2e] shadow-[0_0_0_1px_#e5e7eb,0_1px_2px_rgba(17,24,39,0.05)] transition-[background-color,scale] duration-200 group-hover:bg-[#f9fafb] group-active:scale-[0.97] motion-reduce:transition-none">
+                    <ImagePlus className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+                    {avatarUrl ? tt("Change photo") : tt("Add a photo")}
+                  </span>
                 </button>
-                <input
-                  ref={avatarInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleAvatarSelect}
-                  className="hidden"
-                />
-              </div>
-
-              {/* Social inputs */}
-              <div className="flex-1 space-y-3">
-                {/* Instagram */}
-                <div className={cn("flex items-center gap-3 px-4 sm:px-5 h-[52px] sm:h-[56px] rounded-[10px]", FIELD_WELL)}>
-                  <Instagram className="w-5 h-5 text-pink-500 shrink-0" />
-                  <span className="text-sm sm:text-base text-gray-500 select-none shrink-0 -mr-2">@</span>
-                  <input
-                    type="text"
-                    value={socials.instagram}
-                    onChange={(e) => setSocials({ ...socials, instagram: e.target.value.replace(/@/g, "") })}
-                    placeholder="username"
-                    className="flex-1 text-sm sm:text-base outline-none bg-transparent"
-                  />
-                </div>
-
-                {/* TikTok */}
-                <div className={cn("flex items-center gap-3 px-4 sm:px-5 h-[52px] sm:h-[56px] rounded-[10px]", FIELD_WELL)}>
-                  <JoinSocialBrandIcon id="tiktok" className="h-5 w-5 shrink-0 text-[#1a1a2e]" />
-                  <span className="text-sm sm:text-base text-gray-500 select-none shrink-0 -mr-2">@</span>
-                  <input
-                    type="text"
-                    value={socials.tiktok}
-                    onChange={(e) => setSocials({ ...socials, tiktok: e.target.value.replace(/@/g, "") })}
-                    placeholder="username"
-                    className="flex-1 text-sm sm:text-base outline-none bg-transparent"
-                  />
-                </div>
-
-                {/* YouTube */}
-                <div className={cn("flex items-center gap-3 px-4 sm:px-5 h-[52px] sm:h-[56px] rounded-[10px]", FIELD_WELL)}>
-                  <Youtube className="w-5 h-5 text-red-500 shrink-0" />
-                  <input
-                    type="text"
-                    value={socials.youtube}
-                    onChange={(e) => setSocials({ ...socials, youtube: e.target.value })}
-                    placeholder="youtube.com/@username"
-                    className="flex-1 text-sm sm:text-base outline-none bg-transparent"
-                  />
-                </div>
+                <p className="mt-1 text-[13px] text-[#6b7280]">{tt("Shown on your page and your store.")}</p>
               </div>
             </div>
+
+            <label className={FIELD} data-onboarding-name="">
+              <span className="sr-only">{tt("Your name or brand")}</span>
+              <User className="h-5 w-5 shrink-0 text-[#9ca3af]" aria-hidden />
+              <input
+                type="text"
+                value={displayName}
+                onChange={(e) => {
+                  slugFollowsName.current = true
+                  setDisplayName(e.target.value)
+                }}
+                onFocus={() => setUsernameFocused(true)}
+                onBlur={() => setUsernameFocused(false)}
+                placeholder={tt("Your name or brand")}
+                maxLength={60}
+                autoComplete="name"
+                className="min-w-0 flex-1 bg-transparent text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af]"
+              />
+              {checkingUsername ? <Loader2 className="h-5 w-5 shrink-0 animate-spin text-[#9ca3af]" aria-hidden /> : null}
+              {!checkingUsername && usernameAvailable === true && displayName.trim() ? <Check className="h-5 w-5 shrink-0 text-[#16a34a]" aria-label={tt("Available")} /> : null}
+              {!checkingUsername && usernameAvailable === false && displayName.trim() ? <X className="h-5 w-5 shrink-0 text-[#dc2626]" aria-label={tt("Taken")} /> : null}
+            </label>
+            {usernameAvailable === false && displayName.trim() ? (
+              <p role="alert" className="-mt-1 px-1 text-[13px] text-[#dc2626]">{tt("This name is not available")}</p>
+            ) : null}
+
+            <div className={cn(FIELD, "bg-[#f8f8f9]")} data-onboarding-address="">
+              <svg className="h-5 w-5 shrink-0 text-[#9ca3af]" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+              </svg>
+              <span className="min-w-0 truncate text-[16px]" aria-live="polite">
+                <span className="font-medium text-[#1a1a2e]">{getSlug() || tt("yourname")}</span>
+                <span className="text-[#9ca3af]">{".storelib.com"}</span>
+              </span>
+            </div>
+
+            <label className={cn(FIELD, "h-auto items-start py-3")}>
+              <span className="sr-only">{tt("Tell people what you do or create")}</span>
+              <textarea
+                value={bio}
+                onChange={(e) => setBio(e.target.value.slice(0, 160))}
+                placeholder={tt("Tell people what you do or create")}
+                rows={2}
+                maxLength={160}
+                className="min-h-[48px] w-full resize-none bg-transparent text-[16px] leading-6 text-[#1a1a2e] outline-none placeholder:text-[#9ca3af]"
+              />
+            </label>
+            {joinError ? <p role="alert" className="px-1 text-[13px] text-[#dc2626]">{joinError}</p> : null}
           </div>
         )}
 
-        {/* Step 4: Choose a Plan */}
-        {step === 4 && (
-          <div className="flex flex-col">
-            <div className={HEADING_BLOCK}>
-              <h1 className={HEADING}>
-                {tt("Choose your plan")}
-              </h1>
-              <p className={SUBHEADING}>
-                {tt("Start free and upgrade when you need to.")}
-              </p>
-            </div>
+        {/* Step 3: where people already follow them. Compact, one line each, all optional. */}
+        {step === 3 && (
+          <div data-onboarding-socials="" className="flex flex-col gap-2.5">
+            {(
+              [
+                ["instagram", "Instagram", "username", true],
+                ["tiktok", "TikTok", "username", true],
+                ["youtube", "YouTube", "youtube.com/@channel", false],
+                ["twitter", "X", "username", true],
+              ] as const
+            ).map(([id, label, placeholder, at]) => (
+              <label key={id} className={cn(FIELD, "h-[50px] gap-2.5")} data-onboarding-social={id}>
+                <span className="sr-only">{label}</span>
+                <JoinSocialBrandIcon id={id} className="h-5 w-5 shrink-0 text-[#1a1a2e]" />
+                {at ? <span className="-mr-1.5 select-none text-[16px] text-[#9ca3af]">@</span> : null}
+                <input
+                  type="text"
+                  value={socials[id]}
+                  onChange={(e) => setSocials({ ...socials, [id]: at ? e.target.value.replace(/@/g, "") : e.target.value })}
+                  placeholder={placeholder}
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  className="min-w-0 flex-1 bg-transparent text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af]"
+                />
+                <SocialFace preview={socialPreviews[id]} />
+              </label>
+            ))}
+          </div>
+        )}
 
+        {/*
+          Step 4: the plans, whole. The heading and its line at the left and
+          Monthly / Yearly at the right from 768px; every card at its full
+          height, with the page itself scrolling when the window is shorter.
+        */}
+        {step === 4 && (
+          <div data-onboarding-plans="" className="[--plan-bleed:16px] sm:[--plan-bleed:24px]">
             <PricingSection
               compact
               hideDetailsLink
+              compactHeading={
+                <div className="flex items-start gap-3 text-left sm:gap-4">
+                  <button
+                    type="button"
+                    onClick={handleBack}
+                    disabled={!!planCheckoutLoading}
+                    data-onboarding-back=""
+                    aria-label={tt("Back")}
+                    className="mt-0.5 grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/10 text-white ring-1 ring-white/15 transition-colors duration-200 hover:bg-white/[0.16] disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 sm:mt-1"
+                  >
+                    <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
+                  </button>
+                  <div className="min-w-0">
+                    <h1 className={cn(VIEW_TITLE, "text-left")}>{tt("Choose your plan")}</h1>
+                    <p className="mt-2 text-[15px] leading-[22px] text-white/70 sm:text-[16px] sm:leading-6">{tt("Start free and upgrade when you need to.")}</p>
+                  </div>
+                </div>
+              }
               onboardingCallbacks={{
                 onPlanSelect: (planId) => {
                   if (planId === "free") handleSelectFree()
@@ -2614,7 +2707,8 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                 loadingPlan: planCheckoutLoading,
                 ctaLabels: {
                   free: tt("Start free"),
-                  growth: tt("Get Pro"),
+                  growth: tt("Get Grow"),
+                  pro: tt("Get Pro"),
                 },
               }}
             />
@@ -2726,6 +2820,112 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     </>
   )
 
+  /** The words over each step, white on the film. The plans carry their own, at the left of their card. */
+  const viewHead = (step: number): { title: string; sub: string } | null => {
+    switch (step) {
+      case 1:
+        return { title: tt("Let's get started"), sub: tt("Your name, your Storelib address and a photo.") }
+      case 2:
+        return { title: tt("What brings you here?"), sub: tt("Pick all that apply.") }
+      case 3:
+        return { title: tt("Where do people follow you?"), sub: tt("Add the accounts you post on. Each one is optional.") }
+      case JOIN_NAME:
+        return { title: tt("Create a profile"), sub: tt("Add a name, photo and links to get started.") }
+      case JOIN_SOCIAL:
+        return { title: tt("Pick a username"), sub: tt("Claim your unique Storelib link.") }
+      case JOIN_NOTIFY:
+        return { title: tt("Don't miss a thing"), sub: tt("Get notified about replies, messages, updates and things you follow.") }
+      default:
+        return null
+    }
+  }
+
+  /** Back and Continue, at the foot of every card. The notifications slide declines with Not now in Back's place. */
+  const renderNav = (step: number) => {
+    if (step === 5 || step === JOIN_DONE) return null
+    const back = backFrom(step)
+    const busy = joinSaving || askingPush
+    const plan = step === 4
+    const ready = canProceed() || busy
+    return (
+      <div data-onboarding-footer="" className={cn("flex items-center gap-3", plan ? "mt-6 sm:mt-8" : "mt-6 sm:mt-7")}>
+        {step === JOIN_NOTIFY ? (
+          <button type="button" onClick={handleSkip} disabled={!canSkip()} data-onboarding-not-now="" className={NAV_BACK}>
+            {tt("Not now")}
+          </button>
+        ) : back !== null ? (
+          <button
+            type="button"
+            onClick={() => {
+              hapticTap("soft")
+              handleBack()
+            }}
+            disabled={busy || (plan && !!planCheckoutLoading)}
+            data-onboarding-back=""
+            className={NAV_BACK}
+          >
+            <ChevronLeft className="-ml-1 h-4 w-4 shrink-0" strokeWidth={2.25} aria-hidden />
+            {tt("Back")}
+          </button>
+        ) : null}
+        {plan ? null : (
+          <button
+            type="button"
+            onClick={() => {
+              if (ready) hapticTap("light")
+              void handleNext()
+            }}
+            data-onboarding-next=""
+            {...(step === JOIN_NOTIFY ? { "data-onboarding-allow-push": "" } : {})}
+            disabled={!ready}
+            aria-busy={busy || undefined}
+            className={cn(NAV_NEXT, ready ? NEXT_ON : NAV_NEXT_OFF)}
+          >
+            {busy ? <ActivitySpinner size={20} className="mx-auto text-white" /> : step === JOIN_NOTIFY ? tt("Turn on notifications") : tt("Continue")}
+          </button>
+        )}
+      </div>
+    )
+  }
+
+  /**
+   * ONE STEP AS IT IS SEEN: its words on the film, then its card with Back
+   * and Continue at the foot. The plans are one wide card (the cards whole,
+   * heading at the left, Monthly and Yearly at the right); setting up and
+   * "You're all set" are one small card in the middle.
+   */
+  const renderView = (step: number) => {
+    if (step === 4) {
+      return (
+        <div data-onboarding-view="plans" className="mx-auto w-full max-w-[1056px]">
+          {renderStep(step)}
+        </div>
+      )
+    }
+    if (step === 5 || step === JOIN_DONE) {
+      return (
+        <section data-onboarding-view="moment" className={cn(FLOAT_CARD, "mx-auto w-full max-w-[460px] px-6 py-8")}>
+          {renderStep(step)}
+        </section>
+      )
+    }
+    const head = viewHead(step)
+    return (
+      <div data-onboarding-view={step} className="mx-auto w-full max-w-[600px]">
+        {head ? (
+          <header className="mb-6 text-center sm:mb-8">
+            <h1 className={VIEW_TITLE}>{head.title}</h1>
+            <p className={VIEW_SUB}>{head.sub}</p>
+          </header>
+        ) : null}
+        <section className={cn(FLOAT_CARD, "p-4 sm:p-7")}>
+          {renderStep(step)}
+          {renderNav(step)}
+        </section>
+      </div>
+    )
+  }
+
   return (
     <>
       <style>{`@keyframes onboard-line{0%{translate:-120% 0}100%{translate:280% 0}}`}</style>
@@ -2734,345 +2934,99 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
           <p className="rounded-full bg-[#1a1a2e] px-4 py-2.5 text-[14px] font-medium text-white shadow-[0_10px_30px_-12px_rgba(17,24,39,0.45)] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-top-2 motion-safe:duration-300">{joinNote}</p>
         </div>
       ) : null}
-      {!nativeFullScreen && <GroundMark open={open} />}
       <Dialog open={open} onOpenChange={() => {}}>
         <DialogContent
           className={cn(
-            "p-0 gap-0 overflow-hidden border-0",
-            nativeFullScreen
-              ? // The app: the whole screen at every width (see nativeFullScreen above)
-                "fixed inset-0 top-0 left-0 w-screen h-[100dvh] max-w-none translate-x-0 translate-y-0 rounded-none"
-              : cn(
-                  /*
-                    Desktop: the 1040 by 610 card, and never wider or taller
-                    than the window it is in. It was 930 by 540; "increase the
-                    whole modal a bit so it expands a little more on the
-                    screen, but without touching the edges" made it about 12%
-                    larger each way. The card was once 930px from 640px up, so
-                    on a 768px tablet held upright it hung 81px off each side:
-                    Back and Next were off the screen. It keeps its size where
-                    there is room and takes the window's, less 24px on every
-                    side, where there is not (a 1280 by 720 laptop keeps 55px
-                    above and below it; a short window keeps 24px).
-                  */
-                  isJoinStep(currentStep) && currentStep !== JOIN_DONE
-                    ? "sm:w-[min(930px,calc(100vw-48px))] sm:max-w-[min(930px,calc(100vw-48px))] sm:h-[min(540px,calc(100dvh-48px))] sm:max-h-[calc(100dvh-48px)] sm:rounded-[18px]"
-                    : "sm:w-[min(930px,calc(100vw-48px))] sm:max-w-[min(930px,calc(100vw-48px))] sm:h-[min(540px,calc(100dvh-48px))] sm:max-h-[calc(100dvh-48px)] sm:rounded-[18px]",
-                  // Mobile: true fullscreen experience
-                  "w-[calc(100%-24px)] max-w-none max-sm:fixed max-sm:inset-0 max-sm:top-0 max-sm:left-0 max-sm:w-screen max-sm:h-[100dvh] max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none",
-                  /* Round AH: a card that sits on the page with some weight, a hairline and a long soft shadow, the way Shopify's setup sits. */
-                  "shadow-[0_0_0_1px_rgba(16,24,40,0.06),0_2px_4px_rgba(16,24,40,0.04),0_32px_80px_-28px_rgba(16,24,40,0.32)]",
-                ),
-            // Hide the close button
-            "[&>button]:hidden",
-            /* Focus lands on the dialog itself when the button pressed goes with its step; that is not a place to draw a ring round the screen. */
-            "outline-none focus:outline-none focus-visible:outline-none"
+            /* The whole window at every width: the film fills it and the steps sit on it. */
+            "fixed inset-0 left-0 top-0 h-[100dvh] w-screen max-w-none sm:max-w-none translate-x-0 translate-y-0 gap-0 overflow-clip rounded-none border-0 bg-transparent p-0 shadow-none",
+            "[&>button]:hidden outline-none focus:outline-none focus-visible:outline-none",
           )}
           onInteractOutside={(e) => e.preventDefault()}
           onEscapeKeyDown={(e) => e.preventDefault()}
           onOpenAutoFocus={(e) => e.preventDefault()}
-          /*
-            ROUND AH: DEPTH BEHIND IT, NOT A WHITE FADE. The setup opens on a
-            light grey ground with two soft washes of light, Storelib's violet
-            at the top left and ink at the foot, so the card has something to
-            stand on.
-          */
           overlayClassName={ONBOARDING_GROUND}
         >
-          <div data-onboarding-card="" className={cn(
-            "flex flex-col h-full bg-white max-sm:bg-[linear-gradient(180deg,#f5f3fb_0px,#ffffff_260px)]",
-            nativeFullScreen
-              ? "max-h-[100dvh] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
-              /* The card's own limit, window included: a short window kept the column 610px tall inside a shorter card, and Back and Next were cut off under its edge. */
-              : cn(
-                  "max-sm:max-h-[100dvh] max-sm:pt-[env(safe-area-inset-top)] max-sm:pb-[env(safe-area-inset-bottom)]",
-                  "sm:h-full sm:max-h-[min(540px,calc(100dvh-48px))]",
-                ),
-          )}>
+          <OnboardingBackdrop />
+          <div data-onboarding-card="" data-own-look="" data-native={nativeFullScreen || undefined} className="absolute inset-0 flex flex-col font-sans">
             {/*
-              ═══════════════════════════════════════════════════════════════
-               THE TOP ROW: THE WAY BACK, THE PROGRESS, AND NOTHING TOUCHING
-              ═══════════════════════════════════════════════════════════════
-              The way back to the first business was placed absolutely at the
-              left while the bar was centred in the whole width, so the two
-              knew nothing about each other. On a 390px phone the bar begins
-              at 115px and the button could reach 212px: a name of any length
-              ran under the bar. They were not even on the same line, the
-              button's middle at 26px and the bar's at 19px.
-
-              One row of three columns now (1fr auto 1fr). The bar is the
-              middle column, centred between the edges whatever is beside it;
-              the button has the column to its left and cannot leave it, so
-              however long the name is it truncates instead of reaching the
-              bar; the third column is the first one's width, which is what
-              keeps the bar in the middle of the row rather than in the
-              middle of what is left. A phone shows the arrow alone, its
-              44px press, with the name as its label: at 320px there is no
-              room for a name beside a 160px bar, and a name cut to five
-              letters says less than the arrow does. From 640px the name is
-              beside it. scripts/check-onboarding.mjs measures the gap, the
-              middles and the press at six widths.
-
-              What went wrong is kept out of the row: an error under an
-              absolutely placed button used to be drawn over the heading.
+              THE TOP ROW. Storelib at the left, the progress in the middle of
+              the window whatever is beside it (1fr auto 1fr), and the way out
+              at the right. No Skip anywhere: Back and Continue are on the card.
             */}
-            <div className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 pt-3 sm:gap-4 sm:px-6 sm:pt-7">
+            <div className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 pb-2 pt-[max(12px,env(safe-area-inset-top))] sm:px-8 sm:pt-6">
               <div className="flex min-w-0 items-center justify-start">
-                {isJoinStep(currentStep) && currentStep !== JOIN_DONE ? (
-                  <span className="inline-flex shrink-0" data-onboarding-join-mark="">
-                    <StorelibLogo size={36} style={{ boxShadow: STORELIB_LOGO_SHADOW_JOIN }} />
-                  </span>
-                ) : null}
-                {!switchBack && leave && (
-                  <a
-                    href={leave.href}
-                    onClick={(e) => {
-                      /* A way out that has something to say first (/onboarding/start marks the question answered), then the same address. */
-                      if (!leave.onLeave) return
-                      e.preventDefault()
-                      const go = () => window.location.assign(leave.href)
-                      Promise.race([leave.onLeave().catch(() => undefined), new Promise((r) => setTimeout(r, 2000))]).then(go, go)
-                    }}
-                    data-onboarding-leave=""
-                    aria-label={leave.label}
-                    className="inline-flex h-11 min-w-0 max-w-full items-center justify-center gap-1.5 rounded-lg text-[13px] font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 max-sm:w-11 sm:h-10 sm:justify-start sm:px-2"
-                  >
-                    <ArrowLeft className="h-[18px] w-[18px] shrink-0" />
-                    <span className="hidden truncate sm:inline">{leave.label}</span>
-                  </a>
-                )}
-                {switchBack && (
+                <StorelibLogo size={36} alt="Storelib" className="block h-8 w-8 shadow-[0_6px_18px_-6px_rgba(0,0,0,0.6)] sm:h-9 sm:w-9" />
+              </div>
+              <div
+                data-onboarding-progress=""
+                role="progressbar"
+                aria-label={tt("Setup progress")}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(progressWidth)}
+                className="h-[5px] w-[132px] overflow-hidden rounded-full bg-white/20 sm:h-[6px] sm:w-[200px]"
+              >
+                <div
+                  data-onboarding-progress-fill=""
+                  className="h-full w-full rounded-full bg-white motion-reduce:!transition-none"
+                  style={{ translate: `${progressWidth - 100}% 0`, transition: `translate 420ms ${MOTION_EASE}` }}
+                />
+              </div>
+              <div className="flex min-w-0 items-center justify-end">
+                {switchBack && currentStep !== 5 ? (
                   <button
                     type="button"
                     onClick={goBackToFirstBusiness}
                     disabled={switchingBack}
                     data-onboarding-switch-back=""
                     aria-label={tt("Back to {name}", { name: switchBack.name })}
-                    className="inline-flex h-11 min-w-0 max-w-full items-center justify-center gap-1.5 rounded-lg text-[13px] font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 disabled:opacity-60 max-sm:w-11 sm:h-10 sm:justify-start sm:px-2"
+                    className="inline-flex h-11 min-w-0 max-w-full items-center gap-1.5 rounded-full px-3 text-[14px] font-medium text-white/75 transition-colors duration-200 hover:bg-white/10 hover:text-white disabled:opacity-60 sm:px-4"
                   >
-                    {switchingBack ? <Loader2 className="h-[18px] w-[18px] shrink-0 animate-spin" /> : <ArrowLeft className="h-[18px] w-[18px] shrink-0" />}
+                    {switchingBack ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> : <ArrowLeft className="h-4 w-4 shrink-0" />}
                     <span className="hidden truncate sm:inline">{switchBack.name}</span>
                   </button>
-                )}
+                ) : null}
               </div>
-              <div data-onboarding-progress="" className="h-[6px] w-[160px] overflow-hidden rounded-full bg-gray-200 sm:h-[8px] sm:w-[200px]">
-                {/*
-                  A full length fill slid in from the left, clipped by the track,
-                  so the bar grows on `translate` alone (no layout, nothing
-                  squashed: its round end stays round), on the steps' curve.
-                */}
-                <div
-                  data-onboarding-progress-fill=""
-                  className="h-full w-full rounded-full bg-purple-600 motion-reduce:!transition-none"
-                  style={{ translate: `${progressWidth - 100}% 0`, transition: `translate 480ms ${MOTION_EASE}` }}
-                />
-              </div>
-              <div aria-hidden="true" />
             </div>
             {switchBackError && (
-              <p role="alert" className="shrink-0 px-3 pt-1.5 text-center text-[12px] text-red-600 sm:px-6">{switchBackError}</p>
+              <p role="alert" className="shrink-0 px-4 pt-1 text-center text-[13px] text-red-300 sm:px-8">{switchBackError}</p>
             )}
 
             {/*
-              ONE STEP LEAVES, THE NEXT ARRIVES, AND THE BOX AROUND THEM
-              HOLDS STILL. This was `transition-all` on the scroller itself:
-              every step carries its own bottom padding, so changing step
-              animated the padding, the height and the scroll box as well as
-              the fade, none of which the compositor can do on its own, and
-              the panel it all happens in is the one being scrolled. Now the
-              scroller is fixed and only what is inside it moves, on opacity
-              and `translate`, the two a phone animates without laying out
-              or drawing a frame again. The leaving step and the arriving one
-              share one grid cell for the moment they crossfade, so the cell
-              is as tall as the taller of them and nothing under it moves. A
-              person who has asked for less motion gets the change with no
-              movement at all.
-            */}
-            {/*
-              THE EDGES OF WHAT SCROLLS FADE, THEY ARE NOT CUT. Whatever runs
-              past an edge fades out over 12px, and only at an edge that has
-              more behind it: the top is sharp until something has scrolled
-              under it. The two values are set on the element from the scroll
-              itself (no render per scroll). There was also a 64px white veil
-              with blurred bands over the foot; it washed out the plans and
-              their buttons, and is gone.
-
-              THE PLANS SCROLL AT EVERY WIDTH. Two plan cards with their lines
-              and buttons are about 380px taller than the 540px card, and the
-              panel was overflow hidden from 640px up, so on a laptop the
-              Start free and Get Pro buttons sat under the card's edge where
-              no wheel, trackpad or key could reach them. The probe set
-              scrollTop from script, which works on a hidden box, so it never
-              saw it. The other steps fit and stay still on a computer.
+              ONE SCROLL, THE PAGE'S OWN. The step is centred when it fits and
+              the page scrolls when it does not (a short laptop, a zoomed
+              window, a phone with the keyboard up), so a card is never cut
+              off and nothing fades over its foot. The leaving step and the
+              arriving one share one grid cell while they crossfade (200ms or
+              so, opacity and translate only), so nothing under them jumps.
             */}
             <div
               ref={stepScrollRef}
               onScroll={updateScrollEdges}
               data-onboarding-scroller=""
-              style={{ maskImage: SCROLL_EDGE_MASK, WebkitMaskImage: SCROLL_EDGE_MASK }}
-              className={cn(
-                "min-h-0 overscroll-contain px-4 pt-5 sm:px-10 sm:pt-4",
-                "flex-1",
-                isJoinStep(currentStep) ? "overflow-hidden" : currentStep === 4 ? "overflow-y-auto" : "max-sm:overflow-y-auto sm:overflow-hidden",
-                (currentStep === 1 || currentStep === 3 || isJoinStep(currentStep)) && "max-sm:pb-4",
-                currentStep === 2 && "max-sm:pb-2",
-                currentStep === 4 && "pb-4 sm:pb-6",
-              )}
+              style={{ maskImage: TOP_EDGE_MASK, WebkitMaskImage: TOP_EDGE_MASK }}
+              className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.25)_transparent]"
             >
-            <div data-onboarding-steps="" className="grid min-h-full">
-              {leavingStep && (
-                <div
-                  key={leavingStep.step}
-                  ref={stepLeaveRef}
-                  data-onboarding-leaving={leavingStep.step}
-                  aria-hidden="true"
-                  inert
-                  className="pointer-events-none [grid-area:1/1]"
-                  /* Where it was on screen: the panel is back at its top for the new step, so the old one is held where it was scrolled to. */
-                  style={{ marginTop: -leavingStep.offset }}
-                >
-                  {renderStep(leavingStep.step)}
-                </div>
-              )}
-              <div key={currentStep} ref={stepEnterRef} data-onboarding-step={currentStep} className="[grid-area:1/1]">
-                {renderStep(currentStep)}
-              </div>
-            </div>
-            </div>
-
-            {/*
-              THE ROW OF BUTTONS FITS THE NARROWEST PHONE SOLD. On the
-              category step it was four of them, Back, Other, Skip and Next,
-              and at 320px (an iPhone SE, and any phone with the text size
-              turned up) they came to 368px: Next hung off the right edge.
-              Other now sits with See more among the categories.
-              Under 384px, which is the width the roomy row stops fitting at,
-              each one gives up some of its side padding and Next some of its
-              floor: 291px, with 8px between any two, at 320. The words and
-              the heights do not change, so the press stays 44px and nothing
-              reads as a different button.
-            */}
-            {/*
-              ONE ROW OF BUTTONS FOR EVERY STEP. It used to be three: Back,
-              Skip and Next on the first three steps, Back alone on the plan
-              step, and a 64px gap on the last, each swapped in whole as the
-              step changed, so Back popped in on step 2, Skip and Next
-              vanished on the plan step, and the panel above grew 4 to 8px as
-              setup began. Now the row is always there at the same height
-              and each button fades in or out with its step, on the step's
-              own curve, and cannot be pressed or reached by Tab while it is
-              gone.
-            */}
-            <div
-              data-onboarding-footer=""
-              aria-hidden={currentStep === 5 || undefined}
-              className={cn(
-                "px-4 sm:px-12 pt-2 shrink-0 max-[384px]:px-3 pb-5 sm:pb-4",
-                isJoinStep(currentStep) && currentStep !== JOIN_DONE ? "" : "flex items-center justify-between",
-              )}
-            >
-              {isJoinStep(currentStep) && currentStep !== JOIN_DONE ? (
-                <div
-                  className={cn(
-                    "flex w-full min-w-0 items-center gap-3 max-sm:grid motion-reduce:transition-none sm:mx-auto sm:max-w-[min(100%,600px)] sm:justify-center",
-                    backFrom(currentStep) !== null ? "max-sm:grid-cols-[auto_minmax(0,1fr)]" : "max-sm:grid-cols-[minmax(0,1fr)]",
+              <div className="flex min-h-full flex-col items-center px-4 pb-[max(24px,env(safe-area-inset-bottom))] pt-[clamp(12px,4.5svh,40px)] sm:px-6 sm:pb-12 sm:pt-[clamp(24px,9svh,112px)]">
+                <div data-onboarding-steps="" className="relative w-full min-w-0 [&>*]:[backface-visibility:hidden] [&>*]:[transform:translateZ(0)]">
+                  {leavingStep && (
+                    <div
+                      key={leavingStep.step}
+                      ref={stepLeaveRef}
+                      data-onboarding-leaving={leavingStep.step}
+                      aria-hidden="true"
+                      inert
+                      className="pointer-events-none absolute inset-x-0 top-0"
+                      style={{ marginTop: -leavingStep.offset }}
+                    >
+                      {renderView(leavingStep.step)}
+                    </div>
                   )}
-                >
-                  <button
-                    type="button"
-                    onClick={handleBack}
-                    disabled={joinSaving || backFrom(currentStep) === null}
-                    data-onboarding-back=""
-                    aria-hidden={backFrom(currentStep) === null}
-                    tabIndex={backFrom(currentStep) === null ? -1 : 0}
-                    className={cn(
-                      "inline-flex min-h-[50px] min-w-0 items-center gap-1 overflow-hidden rounded-xl px-4 py-3 text-sm font-medium transition-[max-width,opacity,padding] duration-[340ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none active:scale-[0.98] disabled:cursor-not-allowed sm:min-h-0",
-                      DEPTH,
-                      DEPTH_PRESS,
-                      "text-[#374151] hover:bg-[#f9fafb]",
-                      backFrom(currentStep) === null ? "pointer-events-none max-w-0 px-0 opacity-0" : "max-w-[120px] opacity-100",
-                    )}
-                  >
-                    <ChevronLeft className="h-4 w-4 shrink-0" strokeWidth={2.25} aria-hidden />
-                    {tt("Back")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleNext}
-                    data-onboarding-next=""
-                    {...(currentStep === JOIN_NOTIFY ? { "data-onboarding-allow-push": "" } : {})}
-                    disabled={!canProceed() && !(joinSaving || askingPush)}
-                    style={{ transition: `background-color 220ms ${MOTION_EASE}, transform 220ms ${MOTION_EASE}, box-shadow 220ms ${MOTION_EASE}` }}
-                    className={cn(
-                      "inline-flex min-h-[50px] w-full min-w-0 items-center justify-center rounded-xl font-semibold text-[15px] motion-reduce:!transition-none active:scale-[0.98] sm:h-12 sm:w-auto sm:min-w-[220px] sm:px-10 sm:py-0 min-[1440px]:min-w-[280px]",
-                      canProceed() || joinSaving || askingPush ? NEXT_ON : "bg-gray-200 text-gray-400 cursor-not-allowed",
-                    )}
-                  >
-                    {joinSaving || askingPush ? (
-                      <ActivitySpinner size={20} className="mx-auto text-white" />
-                    ) : currentStep === JOIN_NOTIFY ? (
-                      tt("Turn on notifications")
-                    ) : (
-                      tt("Continue")
-                    )}
-                  </button>
+                  <div key={currentStep} ref={stepEnterRef} data-onboarding-step={currentStep} className="relative">
+                    {renderView(currentStep)}
+                  </div>
                 </div>
-              ) : (
-                <>
-                  <div className="flex items-center gap-3 max-[384px]:gap-2">
-                    <button
-                      type="button"
-                      onClick={handleBack}
-                      disabled={backFrom(currentStep) === null || (currentStep === 4 && !!planCheckoutLoading) || joinSaving}
-                      data-onboarding-back=""
-                      style={fadeWith(backFrom(currentStep) !== null, `background-color 150ms, box-shadow 150ms, color 150ms`)}
-                      className={cn("px-5 sm:px-6 py-3 text-sm font-medium rounded-[10px] max-[384px]:px-4 disabled:cursor-not-allowed motion-reduce:!transition-none", BACK_LOOK, currentStep === 4 && planCheckoutLoading && "text-[#9ca3af]")}
-                    >
-                      {tt("Back")}
-                    </button>
-                  </div>
-                  <div
-                    className="flex items-center gap-3 sm:gap-4 max-[384px]:gap-2 motion-reduce:!transition-none"
-                    style={fadeWith((currentStep >= 1 && currentStep <= 3) || (isJoinStep(currentStep) && currentStep !== JOIN_DONE))}
-                  >
-                    <button
-                      type="button"
-                      onClick={handleSkip}
-                      disabled={!canSkip()}
-                      style={fadeWith(canSkip(), "color 150ms")}
-                      data-onboarding-skip=""
-                      className="px-4 sm:px-6 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 max-[384px]:px-2.5 motion-reduce:!transition-none"
-                    >
-                      {currentStep === JOIN_NOTIFY ? tt("Not now") : tt("Skip")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleNext}
-                      data-onboarding-next=""
-                      {...(currentStep === JOIN_NOTIFY ? { "data-onboarding-allow-push": "" } : {})}
-                      disabled={(currentStep > 3 && !isJoinStep(currentStep)) || currentStep < 1 || !canProceed()}
-                      style={{ transition: `background-color 200ms ${MOTION_EASE}, transform 200ms ${MOTION_EASE}, box-shadow 200ms ${MOTION_EASE}` }}
-                      className={cn(
-                        "px-7 sm:px-8 py-3 rounded-xl font-semibold text-sm sm:text-sm min-w-[110px] sm:min-w-[140px] max-[384px]:min-w-0 max-[384px]:px-3 max-[384px]:text-[13px] motion-reduce:!transition-none active:scale-[0.98]",
-                        currentStep === JOIN_NOTIFY && "min-w-0 px-4 sm:px-6",
-                        (currentStep > 3 && !isJoinStep(currentStep)) || canProceed() || (isJoinStep(currentStep) && (joinSaving || askingPush))
-                          ? NEXT_ON
-                          : "bg-gray-200 text-gray-400 cursor-not-allowed",
-                      )}
-                    >
-                      {isJoinStep(currentStep) && (joinSaving || askingPush) ? (
-                        <ActivitySpinner size={20} className="mx-auto text-white" />
-                      ) : currentStep === JOIN_NOTIFY ? (
-                        tt("Turn on notifications")
-                      ) : currentStep === JOIN_NAME || currentStep === JOIN_SOCIAL ? (
-                        tt("Continue")
-                      ) : (
-                        tt("Next")
-                      )}
-                    </button>
-                  </div>
-                </>
-              )}
+              </div>
             </div>
           </div>
           {photoSheet ? (

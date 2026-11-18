@@ -81,7 +81,8 @@ function main() {
     check("  and every other card stays lazy", tags.slice(1).every(lazy), tags.slice(1))
     const image = code("app/(storelib)/(marketing)/blog/_components/blog-image.tsx")
     check("  a Storelib file gets the same priority through next/image", (image.match(/<Image [^>]*priority=\{priority\}/g) ?? []).length === 2)
-    check("  and the card hands it to its cover", /<PostCover post=\{post\} sizes=\{sizes\} priority=\{priority\} \/>/.test(code("app/(storelib)/(marketing)/blog/_components/post-card.tsx")))
+    /* Changed on purpose (blog round 15): the cover sits flush in the card, which rounds its own corners. */
+    check("  and the card hands it to its cover", /<PostCover post=\{post\} sizes=\{sizes\} priority=\{priority\} rounded="" \/>/.test(code("app/(storelib)/(marketing)/blog/_components/post-card.tsx")))
     const author = code("app/(storelib)/(marketing)/blog/_blog-author.tsx")
     check("an author's first card has priority, only the first", /posts\.map\(\(post, i\) => \(\s*<PostCard key=\{post\.id\} post=\{post\} headingLevel="h3" priority=\{i === 0\} \/>/.test(author))
     const card = renderToStaticMarkup(createElement(PostCard, { post: post(9, HOTLINK) }))
@@ -94,8 +95,10 @@ function main() {
     const tags = imgs(html)
     check("the large post's picture is the one with priority; the cards under it stay lazy", tags.length === 3 && eager(tags[0]) && tags.slice(1).every(lazy), tags)
     const own = renderToStaticMarkup(createElement(BlogListing, { posts: [post(1, OWN), post(2, OWN)], activeCategory: null, featured: true }))
-    check("  with its sizes, phone first at the full column", /sizes="\(min-width: 1240px\) 680px, \(min-width: 1024px\) 56vw, 100vw"/.test(imgs(own)[0] ?? ""), imgs(own))
-    check("  the cards below it carry the three column sizes", /sizes="\(min-width: 1024px\) 380px, \(min-width: 640px\) 50vw, 100vw"/.test(imgs(own)[1] ?? ""))
+    // Changed on purpose (landing round 14): the lists take the landing's shared width (max 2020px), so the large picture is 56vw at any width from 1024px and the cards are a quarter, a third or a half of the screen.
+    check("  with its sizes, phone first at the full column", /sizes="\(min-width: 1024px\) 56vw, 100vw"/.test(imgs(own)[0] ?? ""), imgs(own))
+    /* Changed on purpose (blog round 15): three to a row at most, so no quarter width size. */
+    check("  the cards below it carry the three and two column sizes", /sizes="\(min-width: 1024px\) 33vw, \(min-width: 640px\) 50vw, 100vw"/.test(imgs(own)[1] ?? ""))
     const view = code("app/(storelib)/(marketing)/blog/_components/article-view.tsx")
     /* Changed on purpose (round 47): the cover is the reading column's width (720px), in the 1200x630 shape share cards are made in, so a cover with words on it is not cropped. */
     /* Changed on purpose (round 49): the reading column is 760px from 1200px, so the cover asks for 760px there. */

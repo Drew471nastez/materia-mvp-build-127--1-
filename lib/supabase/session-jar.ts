@@ -7,6 +7,7 @@
 */
 import { combineChunks, createChunks, isChunkLike } from "@supabase/ssr/dist/main/utils/chunker.js"
 import { stringFromBase64URL, stringToBase64URL } from "@supabase/ssr/dist/main/utils/base64url.js"
+import { cookiePairs, HOST_PREFIX, holdsHostSession, sessionView, type SessionViewOptions } from "./host-session"
 
 /**
  * ===========================================================================
@@ -60,7 +61,8 @@ import { stringFromBase64URL, stringToBase64URL } from "@supabase/ssr/dist/main/
 
 /**
  * The key supabase-js stores the session under, `sb-<project ref>-auth-token`,
- * which is also the cookie's name. Derived from the project URL the same way
+ * which is also the cookie's name (behind `__Host-` on HTTPS since round AX,
+ * lib/supabase/host-session.ts). Derived from the project URL the same way
  * supabase-js derives it, never hardcoded.
  */
 export function storedSessionKey(): string | null {
@@ -95,9 +97,13 @@ export function parseCookieHeader(cookieHeader: string): Map<string, string> {
   return jar
 }
 
-/** The session stored in the cookie jar under `key`, as the JSON supabase-js stores, or null. */
-export async function readSessionFromCookies(key: string, cookieHeader: string): Promise<string | null> {
-  const jar = parseCookieHeader(cookieHeader)
+/**
+ * The session stored in the cookie jar under `key`, as the JSON supabase-js stores, or null. Read through
+ * sessionView (lib/supabase/host-session.ts, round AX): the `__Host-` copy when there is one, and never an
+ * old name that arrived twice.
+ */
+export async function readSessionFromCookies(key: string, cookieHeader: string, opts: SessionViewOptions = {}): Promise<string | null> {
+  const jar = new Map(sessionView(cookiePairs(cookieHeader), key, [], opts).cookies.map((c) => [c.name, c.value] as const))
   const raw = await combineChunks(key, (name) => jar.get(name) ?? null)
   if (!raw) return null
   if (raw.startsWith(BASE64_PREFIX)) {
@@ -113,33 +119,46 @@ export async function readSessionFromCookies(key: string, cookieHeader: string):
 /**
  * The Set-Cookie strings (for `document.cookie =`) that store `value` under
  * `key` the way the server does, and expire any chunk of an older, longer
- * value that the new one no longer needs.
+ * value that the new one no longer needs. On HTTPS, or wherever a `__Host-`
+ * copy already is, under the `__Host-` name with every old-name chunk
+ * expired (lib/supabase/host-session.ts, round AX); on http://localhost
+ * under the old name, as before.
  */
 export function sessionCookieWrites(key: string, value: string, cookieHeader: string, secure: boolean): string[] {
-  const attrs = `; path=/; max-age=${SESSION_COOKIE_MAX_AGE}; samesite=lax${secure ? "; secure" : ""}`
-  const gone = `; path=/; max-age=0; samesite=lax${secure ? "; secure" : ""}`
-  const { set, expire } = sessionCookieChunks(key, value, parseCookieHeader(cookieHeader).keys())
-  return [...set.map((c) => `${c.name}=${encodeURIComponent(c.value)}${attrs}`), ...expire.map((name) => `${name}=${gone}`)]
+  const pairs = cookiePairs(cookieHeader)
+  const host = secure || holdsHostSession(pairs, key)
+  /* A `__Host-` cookie is refused without Secure, its expiry included. */
+  const tail = (name: string) => `; samesite=lax${secure || name.startsWith(HOST_PREFIX) ? "; secure" : ""}`
+  const { set, expire } = sessionCookieChunks(key, value, pairs.map((p) => p.name), host)
+  return [...set.map((c) => `${c.name}=${encodeURIComponent(c.value)}; path=/; max-age=${SESSION_COOKIE_MAX_AGE}${tail(c.name)}`), ...expire.map((name) => `${name}=; path=/; max-age=0${tail(name)}`)]
 }
 
 /**
  * The same cookies as name and value, for a server response to set (app/api/
  * businesses/switch): the chunks that hold `value` under `key`, and the names
  * of older chunks among `existing` to expire. The value is not URI encoded
- * here; the response's own cookie writer does that.
+ * here; the response's own cookie writer does that. `host` (round AX): the
+ * chunks go under the `__Host-` name, and every old-name chunk is expired.
  */
-export function sessionCookieChunks(key: string, value: string, existing: Iterable<string>): { set: { name: string; value: string }[]; expire: string[] } {
-  const set = createChunks(key, BASE64_PREFIX + stringToBase64URL(value)).map((c) => ({ name: c.name, value: c.value }))
+export function sessionCookieChunks(key: string, value: string, existing: Iterable<string>, host = false): { set: { name: string; value: string }[]; expire: string[] } {
+  const prefix = host ? HOST_PREFIX : ""
+  const set = createChunks(key, BASE64_PREFIX + stringToBase64URL(value)).map((c) => ({ name: prefix + c.name, value: c.value }))
   const keep = new Set(set.map((c) => c.name))
   const expire: string[] = []
-  for (const name of existing) if (isChunkLike(name, key) && !keep.has(name)) expire.push(name)
+  for (const name of new Set(existing)) if (isSessionChunk(name, key) && !keep.has(name)) expire.push(name)
   return { set, expire }
 }
 
-/** Expire every cookie that holds part of the session under `key`. */
+/** A chunk of the session under `key`, under the old name or the `__Host-` one. */
+function isSessionChunk(name: string, key: string): boolean {
+  return isChunkLike(name.startsWith(HOST_PREFIX) ? name.slice(HOST_PREFIX.length) : name, key)
+}
+
+/** Expire every cookie that holds part of the session under `key`, under either name. */
 export function sessionCookieRemovals(key: string, cookieHeader: string, secure: boolean): string[] {
-  const gone = `; path=/; max-age=0; samesite=lax${secure ? "; secure" : ""}`
-  return [...parseCookieHeader(cookieHeader).keys()].filter((name) => isChunkLike(name, key)).map((name) => `${name}=${gone}`)
+  return [...new Set(cookiePairs(cookieHeader).map((p) => p.name))]
+    .filter((name) => isSessionChunk(name, key))
+    .map((name) => `${name}=; path=/; max-age=0; samesite=lax${secure || name.startsWith(HOST_PREFIX) ? "; secure" : ""}`)
 }
 
 function expiresAt(session: string | null): number {

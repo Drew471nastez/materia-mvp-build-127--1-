@@ -42,7 +42,7 @@ const layout = code("app/(storelib)/(marketing)/layout.tsx")
 check("no cookie, no header, no session", !REQUEST_READS.test(layout), layout.match(REQUEST_READS)?.[0])
 check("the header colour is the platform setting, held 30 seconds for everybody", /await isBuyerHeaderLight\(\)/.test(layout) && /revalidate: 30/.test(read("lib/platform/buyer-header-theme.ts")) && /unstable_cache\(/.test(read("lib/platform/buyer-header-theme.ts")))
 check("and the header is told to answer the homepage question from the route", /<ConditionalHeader platformHomeFromRoute buyerHeaderLight=\{buyerHeaderLight\} \/>/.test(layout))
-check("the same frame as before: header, main, the footer in its one Suspense, the tab bar", /<main className="flex-1">\{children\}<\/main>/.test(layout) && (layout.match(/<Suspense/g) ?? []).length === 1 && /<BuyerTabBar \/>/.test(layout))
+check("the same frame as before: header, main, the footer in its one Suspense, the tab bar", /* Changed on purpose (landing round 14): the page slot goes through DocumentReady (no Suspense), so a late page never restarts <main>. */ /<main className="flex-1">\s*<DocumentReady>\{children\}<\/DocumentReady>\s*<\/main>/.test(layout) && (layout.match(/<Suspense/g) ?? []).length === 1 && /<BuyerTabBar \/>/.test(layout))
 
 console.log("\nThe homepage header is still in the first paint, and still only on Storelib's domain")
 const header = code("components/marketing/conditional-header.tsx")
@@ -66,12 +66,13 @@ const pricing = code("app/(storelib)/(marketing)/pricing/pricing-client.tsx")
 check("who is signed in is the header's record of the session, read after hydration", /useSyncExternalStore\(subscribeAuthSnapshot, readSignedIn, \(\) => false\)/.test(pricing))
 check("the upgrade mode is read from the address before the browser paints again", /useLayoutEffect\(\(\) => setQuery\(readUpgradeQuery\(\)\), \[\]\)/.test(pricing) && /new URLSearchParams\(window\.location\.search\)/.test(pricing))
 check("returnTo is decoded once more, as the server did, and a bad escape does not throw", /try \{ returnTo = decodeURIComponent\(raw\) \} catch \{ returnTo = raw \}/.test(pricing))
-check("the heading the upgrade mode renames is inside a scroll-in that starts hidden", /<AnimateOnScroll variant="blur-in">[\s\S]{0,400}headingOverride/.test(code("components/marketing/pricing-section.tsx")) && /"blur-in":\s*\{ opacity: 0/.test(read("components/marketing/bento-grid.tsx")))
+check("the heading the upgrade mode renames is inside a scroll-in that starts hidden", /<AnimateOnScroll variant="blur-in">[\s\S]{0,400}headingOverride/.test(code("components/marketing/pricing-section.tsx")) && /"blur-in":\s*\{ opacity: 0/.test(read("components/marketing/animate-on-scroll.tsx")))
 
 console.log("\nThe blog is rebuilt at most once a minute")
 for (const p of ["app/(storelib)/(marketing)/blog/page.tsx", "app/(storelib)/(marketing)/blog/[slug]/page.tsx", "app/(storelib)/(marketing)/blog/category/[slug]/page.tsx"]) {
   const src = code(p)
-  check(`${p}: revalidate 60, not force-dynamic`, /export const revalidate = 60/.test(src) && !/force-dynamic/.test(src))
+  /* Changed on purpose (round 54): an hour; publishing and saving clear it at once (lib/blog/admin-http.ts, went-live.ts). */
+  check(`${p}: revalidate 3600, not force-dynamic`, /export const revalidate = 3600/.test(src) && !/force-dynamic/.test(src))
   check(`${p}: posts from the admin client, which reads no cookie`, !/from "@\/lib\/supabase\/server"/.test(src) && !/next\/headers/.test(src))
 }
 check("next.config gives the CDN the same minute for /blog", /source: '\/blog\/:path\*',\s*headers: \[\s*\{ key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=300' \}/.test(read("next.config.mjs")))

@@ -135,7 +135,7 @@ function main() {
     const design = read("components/onepage/tabs/design-tab.tsx")
     check("Design › Social icons: Brand colours or One colour", /tt\("Brand colours"\)/.test(design) && /tt\("One colour"\)/.test(design) && /updateTheme\(\{ social_icon_tone: choice\.id \}/.test(design))
     const live = read("components/onepage/public-onepage.tsx")
-    check("the live page (and so the preview) draws the choice; a page saved before it stays one colour", /social_icon_tone === "brand" \? "brand" : "mono"/.test(live) && /tone=\{socialTone\}/.test(live))
+    check("the live page (and so the preview) draws the choice; a page saved before it stays one colour", /socialIconToneOf\(theme as never\)/.test(live) && /tone=\{socialTone\}/.test(live) && /social_icon_tone === "brand" \? "brand" : "mono"/.test(read("lib/onepage/social-look.ts")))
     check("a new page starts on brand colours", /social_icon_tone: "brand"/.test(read("lib/onepage/ensure-onepage.ts")))
     const tab = read("components/onepage/tabs/links-tab.tsx")
     check("the editor's social sheet, chips and rows draw the brand marks on a white tile", (tab.match(/tone="brand"/g) ?? []).length >= 6 && !/markOn\(/.test(tab))

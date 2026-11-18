@@ -7,8 +7,9 @@ import { effectivePlanId, readPlanOverride } from "@/lib/billing/plan-override"
 import { UpgradePageClient } from "@/components/app/billing/upgrade-page-client"
 import { teamPageStore } from "@/lib/team/server"
 import { TeamAreaClosed } from "@/components/app/team-area-closed"
-import { FREE_STANDARD_RATE, ratePercentLabel } from "@/lib/payments/fees/config"
+import { FREE_STANDARD_RATE, SCALE_STANDARD_RATE, ratePercentLabel } from "@/lib/payments/fees/config"
 import { msg } from "@/lib/i18n/text"
+import { dataOrThrow, isServiceUnavailable } from "@/lib/net/service-error"
 
 const FREE_PLAN = {
   id: "free",
@@ -24,8 +25,8 @@ const FREE_PLAN = {
 
 const GROWTH_PLAN = {
   id: "growth",
-  // Sold as "Pro". The id stays "growth": it is the $29 Stripe price.
-  name: "Pro",
+  // Sold as "Grow" (pricing round 5; it was "Pro"). The id stays "growth": it is the $29 Stripe price.
+  name: "Grow",
   price_cents: 2900,
   billing_period: "month",
   fee_percent: 0.03,
@@ -36,15 +37,15 @@ const GROWTH_PLAN = {
 }
 
 const PRO_PLAN = {
+  // The $99 plan, sold as "Pro" (pricing round 5; it was "Scale"). The id stays "pro": it is the $99 Stripe price.
   id: "pro",
-  // The earlier $99 plan. No longer offered; kept so its subscribers still resolve.
   name: "Pro",
   price_cents: 9900,
   billing_period: "month",
-  fee_percent: 0.015,
+  fee_percent: SCALE_STANDARD_RATE,
   fee_fixed_cents: 25,
   // i18n-ignore-next-line
-  features: ["1.5% + $0.25 per transaction", msg("Premium analytics"), msg("Dedicated support"), msg("White-label"), msg("API access")],
+  features: [`${ratePercentLabel(SCALE_STANDARD_RATE)} + $0.25 per transaction`, msg("Premium analytics"), msg("Dedicated support"), msg("White-label"), msg("API access")],
   is_active: true,
 }
 
@@ -65,11 +66,15 @@ export default async function UpgradePage() {
   let cancelAtPeriodEnd = false
 
   try {
-    const { data: creator } = await createAdminClient()
-      .from("creators")
-      .select("id, subscription_plan_id, subscription_status, stripe_customer_id")
-      .eq(access.kind === "store" ? "id" : "user_id", access.kind === "store" ? access.creatorId : access.userId)
-      .maybeSingle()
+    /* A read that failed throws (round rel2-auth): it was "no store", and a seller was sent to /sell. */
+    const creator = dataOrThrow(
+      "upgrade creator", // i18n-ignore: a label for the log
+      await createAdminClient()
+        .from("creators")
+        .select("id, subscription_plan_id, subscription_status, stripe_customer_id")
+        .eq(access.kind === "store" ? "id" : "user_id", access.kind === "store" ? access.creatorId : access.userId)
+        .maybeSingle(),
+    )
 
     if (!creator) {
       redirect("/sell")
@@ -100,6 +105,11 @@ export default async function UpgradePage() {
     /* redirect("/sell") throws Next's own error: it goes on to Next, not into this catch's fallback. */
     unstable_rethrow(error)
     console.error("Upgrade page data loading error:", error)
+    /*
+      Round rel2-auth: the store or its plan could not be read. Drawn anyway, this page showed a paying store as Free
+      with every plan on offer, a second checkout included. The page's boundary says Try again instead.
+    */
+    if (isServiceUnavailable(error)) throw error
   }
 
   return (

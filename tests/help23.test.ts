@@ -232,7 +232,7 @@ check("  and each topic the newest of its articles", /lastModified: newestOf\(\.
 check("robots let search engines read /help", PLATFORM_DISALLOW.length > 5 && !PLATFORM_DISALLOW.some((d) => d.startsWith("/help")) && /allow: "\/"/.test(read("app/robots.ts")))
 check("the old Units and packages address sends people on, for good", HELP_MOVED["physical-products/tax-and-units"] === "physical-products/units-and-packages" && /permanentRedirect\(`\/help\/\$\{moved\}`\)/.test(page) && /HELP_MOVED\)\.map/.test(page))
 check("  and isn't listed twice in the sitemap", !ALL_HELP_ARTICLES.some((a) => a.slug === "tax-and-units"))
-check("pages are built ahead (static) and revalidate", /export const revalidate = 60/.test(page) && /dynamicParams = false/.test(page))
+check("pages are built ahead (static) and revalidate", /export const revalidate = 3600/.test(page) && /dynamicParams = false/.test(page))
 
 /* ── 6. The Help Center's pages ───────────────────────────────────────── */
 console.log("\n6. The Help Center's pages")

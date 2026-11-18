@@ -37,7 +37,8 @@ import { Check, ChevronRight, Copy, Download, Mail, Phone, Globe, MapPin, Star, 
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { boxRadius, buttonPadScale, pressableProps } from "@/lib/onepage/block-look"
-import { themeButtonStyle } from "@/lib/onepage/button-style"
+import { onCardButtonTheme, themeButtonStyle } from "@/lib/onepage/button-style"
+import { chipColors } from "@/lib/onepage/contrast"
 import { getOrCreateSessionId, getOrCreateVisitorId } from "@/lib/analytics-utils"
 import { socialLinkId } from "@/lib/onepage/link-keys"
 import {
@@ -50,6 +51,7 @@ import {
   appStores,
   appTarget,
   contactVCard,
+  isRetiredAppProvider,
   eventDay,
   itemHref,
   parseAppUrl,
@@ -69,7 +71,14 @@ import { noteTracked } from "@/components/onepage/block-activity"
 import { CompactInstagramPost } from "@/components/onepage/compact-post"
 import { AppMark, INSTAGRAM_FILL, isMulticolorMark, markOn } from "@/components/onepage/brand-icons"
 import { APP_GLYPHS, RoundTile } from "@/components/onepage/block-icons"
+import { BlockIconLookScope, BlockMarkTile, useBlockIconLook } from "@/components/onepage/block-mark"
+import { blockIconLookOf } from "@/lib/onepage/social-look"
+import { presentationOf } from "@/lib/onepage/block-presentation"
 import type { OnePageBlock, OnePageTheme } from "@/lib/onepage/types"
+import { DataEventView, DataFeedList, DataPollView, DataReviewsView, DataStatsView, DataPaidView } from "@/components/onepage/data-blocks"
+import { DataTipsView } from "@/components/onepage/tip-block"
+import { tipModeOf } from "@/lib/onepage/tips"
+import { useFrameLoading } from "@/components/onepage/embed-shell"
 
 type Scale = "small" | "normal" | "live"
 
@@ -79,17 +88,19 @@ export interface AppBlockLook {
   /** The editor's preview: nothing is counted there. */
   preview?: boolean
   onepageId?: string | null
+  /** Round AR: the page's seller, for the editor's preview to ask for what the live page is given (app/api/onepage/blocks-live). */
+  sellerId?: string | null
   /** Inside a group or a carousel, where a button keeps still. */
   still?: boolean
 }
 
 /* i18n-ignore-start: CSS values and the stores' own names. */
-const MIX: Record<number, string> = Object.fromEntries([10, 12, 14, 16, 35].map((n) => [n, `color-mix(in srgb, currentColor ${n}%, transparent)`]))
+export const MIX: Record<number, string> = Object.fromEntries([7, 10, 12, 14, 16, 35].map((n) => [n, `color-mix(in srgb, currentColor ${n}%, transparent)`]))
 const STORE_NAME = { ios: "App Store", android: "Google Play" } as const
 /* i18n-ignore-end */
 
 const k = (scale: Scale) => (scale === "small" ? 0.8 : 1)
-const px = (n: number, scale: Scale) => `${Math.round(n * k(scale) * 10) / 10}px`
+export const px = (n: number, scale: Scale) => `${Math.round(n * k(scale) * 10) / 10}px`
 
 /* ─── Names and words ─────────────────────────────────────────────────── */
 
@@ -116,6 +127,12 @@ export function appProviderName(id: AppProviderId): string {
       return tt("Stats")
     case "poll":
       return tt("Poll")
+    case "event":
+      return tt("Event")
+    case "paid":
+      return tt("Paid access")
+    case "reviews":
+      return tt("Reviews")
     case "contact":
       return tt("Contact details")
     case "email":
@@ -167,7 +184,10 @@ export function appDefaultButton(p: AppProvider): string {
     case "mobile_app":
       return tt("Get the app")
     case "events":
+    case "event":
       return tt("Tickets")
+    case "paid":
+      return tt("Get access")
     case "contact":
       return tt("Save contact")
     case "email":
@@ -180,7 +200,7 @@ export function appDefaultButton(p: AppProvider): string {
 /* ─── Counting a tap ──────────────────────────────────────────────────── */
 
 /** The page's own click count (as public-onepage trackClick), sent with keepalive so a link that leaves still counts. Nothing from the editor. */
-function useTrack(look: AppBlockLook) {
+export function useTrack(look: AppBlockLook) {
   const { onepageId, preview } = look
   return React.useCallback(
     (linkId: string, url: string) => {
@@ -217,6 +237,11 @@ function useTrack(look: AppBlockLook) {
 export function AppTileMark({ provider, size, mark }: { provider: AppProvider; size: number; mark?: string | null }) {
   const key = mark || provider.mark
   const glyph = APP_GLYPHS[key]
+  /* Round 3: Layout › Icon style. Original is the service's own tile below; the others are the social row's looks (./block-mark). */
+  const chosen = useBlockIconLook()
+  if (chosen !== "original" && !glyph) {
+    return <BlockMarkTile look={chosen} size={size} inner={Math.round(size * 0.5)} draw={(tone, inner) => <AppMark id={key} size={inner} color="currentColor" tone={tone} />} />
+  }
   const multi = isMulticolorMark(key)
   const fill = provider.color === "instagram" ? INSTAGRAM_FILL : multi ? "#ffffff" : provider.color
   const ink = provider.color === "instagram" ? "#ffffff" : multi ? "#1a1a2e" : markOn(provider.color)
@@ -249,6 +274,8 @@ export function AppEmbedView({ embed, href, title, radius, compact = false, fall
   const host = React.useSyncExternalStore(noHost, readHost, serverHost)
   const [loaded, setLoaded] = React.useState(false)
   const [failed, setFailed] = React.useState(false)
+  /* Round AS: at once in the sheet (./embed-shell). */
+  const loading = useFrameLoading()
   React.useEffect(() => {
     if (loaded || embed.embedKind) return
     const t = window.setTimeout(() => setFailed(true), 15000)
@@ -284,7 +311,7 @@ export function AppEmbedView({ embed, href, title, radius, compact = false, fall
       <iframe
         title={title}
         src={src}
-        loading="lazy"
+        loading={loading}
         onLoad={() => setLoaded(true)}
         allow="autoplay; encrypted-media; picture-in-picture; clipboard-write; fullscreen"
         allowFullScreen
@@ -298,30 +325,62 @@ export function AppEmbedView({ embed, href, title, radius, compact = false, fall
 
 /* ─── Pieces in the page's colours ───────────────────────────────────── */
 
-function useParts(look: AppBlockLook) {
+export function useParts(look: AppBlockLook) {
   const surface = React.useMemo(() => themeButtonStyle(look.theme), [look.theme])
   const radius = boxRadius(look.theme)
   const press = pressableProps(look.theme, look.still)
   const pad = buttonPadScale(look.theme)
-  /* A button on the card: the card's colours the other way round. */
-  const ink = (surface.color as string) || look.theme.button_text_color || "#ffffff"
-  const paper = (surface.backgroundColor as string) || look.theme.button_color || "#1a1a2e"
-  return { surface, radius, press, pad, ink, paper }
+  /* Round AR: a chip on the card (an event's date, a tip amount) in colours that read on it (lib/onepage/contrast chipColors). */
+  const chip = React.useMemo(() => chipColors(look.theme), [look.theme])
+  /* Round AR: the page's button made to read on the card (lib/onepage/button-style onCardButtonTheme), for the card's own buttons. */
+  const onCard = React.useMemo(() => onCardButtonTheme(look.theme), [look.theme])
+  return { surface, radius, press, pad, chip, onCard }
 }
 
-function CardButton({ label, look, onClick, href, wide = false }: { label: string; look: AppBlockLook; onClick?: (e: React.MouseEvent) => void; href?: string | null; wide?: boolean }) {
-  const { ink, paper } = useParts(look)
-  const cls = cn("inline-flex shrink-0 items-center justify-center rounded-full font-semibold", wide && "w-full")
-  const style: React.CSSProperties = { background: ink, color: paper, fontSize: px(13, look.scale), padding: `${px(8, look.scale)} ${px(14, look.scale)}`, minHeight: px(36, look.scale) }
+/*
+  A BUTTON ON THE CARD IS THE PAGE'S BUTTON (round AR). It was a pill in the
+  card's colours turned round, whatever the page's buttons were: square
+  corners, a border, a hard shadow and the hover never reached it, and on an
+  Outline or Glass page its fill was the card's "transparent", so its words
+  were drawn in no colour at all. It is the page's button now, made to read
+  on the card the way a product card's is (lib/onepage/button-style
+  cardButtonTheme), with the page's hover (pressableProps).
+*/
+export function CardButton({
+  label,
+  look,
+  onClick,
+  href,
+  wide = false,
+  big = false,
+  disabled = false,
+  data,
+}: {
+  label: string
+  look: AppBlockLook
+  onClick?: (e: React.MouseEvent) => void
+  href?: string | null
+  wide?: boolean
+  /** The block's one main action (a tip's Send): 15px words, 48px tall. */
+  big?: boolean
+  disabled?: boolean
+  /** Extra data attributes the block's tests and probes look for. */
+  data?: Record<`data-${string}`, string>
+}) {
+  const theme = React.useMemo(() => onCardButtonTheme(look.theme), [look.theme])
+  const press = pressableProps(theme, look.still)
+  const cls = cn(press.className, "inline-flex shrink-0 items-center justify-center font-semibold disabled:opacity-60", wide && "w-full")
+  const style: React.CSSProperties = { ...press.style, fontSize: px(big ? 15 : 13, look.scale), padding: `${px(8, look.scale)} ${px(14, look.scale)}`, minHeight: px(big ? 48 : 36, look.scale) }
+  const attrs = { "data-hover": press["data-hover"], "data-shadow": press["data-shadow"], "data-app-cta": "", ...data }
   if (href) {
     return (
-      <a href={href} target="_blank" rel="noopener noreferrer" onClick={onClick} className={cls} style={style} data-app-cta="">
+      <a href={href} target="_blank" rel="noopener noreferrer" onClick={onClick} className={cls} style={style} {...attrs}>
         {label}
       </a>
     )
   }
   return (
-    <button type="button" onClick={onClick} className={cls} style={style} data-app-cta="">
+    <button type="button" onClick={onClick} disabled={disabled} className={cls} style={style} {...attrs}>
       {label}
     </button>
   )
@@ -330,17 +389,35 @@ function CardButton({ label, look, onClick, href, wide = false }: { label: strin
 /* ─── The block ───────────────────────────────────────────────────────── */
 
 export function AppBlock({ block, look }: { block: OnePageBlock; look: AppBlockLook }) {
+  /* Round 3: every mark this block draws, in every layout, wears the Icon style picked for it (./block-mark). */
+  return (
+    <BlockIconLookScope look={blockIconLookOf(presentationOf(block).icon_look)}>
+      <AppBlockBody block={block} look={look} />
+    </BlockIconLookScope>
+  )
+}
+
+function AppBlockBody({ block, look }: { block: OnePageBlock; look: AppBlockLook }) {
   const data = (block.data ?? {}) as AppBlockData
   const provider = providerOf(data)
+  if (isRetiredAppProvider(data.provider)) return <RetiredView block={block} data={data} look={look} />
   switch (provider.shape) {
     case "items":
       return appItems(data).length ? <ItemsView block={block} data={data} provider={provider} look={look} /> : <LinkView block={block} data={data} provider={provider} look={look} />
     case "events":
       return <EventsView block={block} data={data} provider={provider} look={look} />
     case "stats":
-      return <StatsView data={data} provider={provider} look={look} />
+      /* Round AR: counted up into view, from typed or tracked numbers (./data-blocks). */
+      return <DataStatsView block={block} data={data} look={look} />
     case "poll":
-      return <PollView block={block} data={data} look={look} />
+      /* Round AR: votes kept on the server, one each, with the totals after (./data-blocks). */
+      return <DataPollView block={block} data={data} look={look} />
+    case "event":
+      return <DataEventView block={block} data={data} look={look} />
+    case "paid":
+      return <DataPaidView block={block} data={data} look={look} />
+    case "review_wall":
+      return <DataReviewsView block={block} data={data} look={look} />
     case "contact":
       return <ContactView block={block} data={data} provider={provider} look={look} />
     case "app":
@@ -350,11 +427,46 @@ export function AppBlock({ block, look }: { block: OnePageBlock; look: AppBlockL
     case "note":
       return <NoteView block={block} data={data} look={look} />
     default:
+      /* Round AR: tips through Storelib checkout, and an RSS feed's latest posts under its card (./data-blocks). */
+      if (provider.id === "tips" && tipModeOf(data) === "storelib") return <DataTipsView block={block} data={data} look={look} />
+      if (provider.id === "rss")
+        return (
+          <>
+            <LinkView block={block} data={data} provider={provider} look={look} />
+            <DataFeedList block={block} data={data} look={look} />
+          </>
+        )
       return <LinkView block={block} data={data} provider={provider} look={look} />
   }
 }
 
 type ViewProps = { block: OnePageBlock; data: AppBlockData; provider: AppProvider; look: AppBlockLook }
+
+/**
+ * A SAVED FOURTHWALL OR BONFIRE BLOCK (round AR): the services are gone from
+ * the sheet, and a block saved with one is drawn as the page's plain buttons,
+ * its shop first and then each item with an address, with no service mark.
+ */
+function RetiredView({ block, data, look }: Omit<ViewProps, "provider">) {
+  const track = useTrack(look)
+  const parts = useParts(look)
+  const shop = appTarget(data)?.href ?? parseAppUrl(data.url)?.toString() ?? null
+  const host = shop ? new URL(shop).hostname.replace(/^www\./, "") : ""
+  const links = [
+    ...(shop ? [{ id: "shop", title: data.title?.trim() || data.button_text?.trim() || host, href: shop }] : []),
+    ...appItems(data).map((i) => ({ id: i.id, title: i.title || "", href: itemHref(i) })).filter((i): i is { id: string; title: string; href: string } => !!i.href && !!i.title),
+  ]
+  if (!links.length) return null
+  return (
+    <div data-onepage-app="retired" className="flex w-full flex-col" style={{ gap: px(10, look.scale) }}>
+      {links.map((l) => (
+        <a key={l.id} href={l.href} target="_blank" rel="noopener noreferrer" onClick={() => track(l.id === "shop" ? block.id : socialLinkId(block.id, l.id), l.href)} data-hover={parts.press["data-hover"]} data-shadow={parts.press["data-shadow"]} className={cn(parts.press.className, "flex w-full items-center justify-center font-medium")} style={{ ...parts.press.style, padding: `${px(14 * parts.pad, look.scale)} ${px(20, look.scale)}`, fontSize: px(15, look.scale) }}>
+          <span className="op-label relative truncate" data-block-title={l.id === "shop" ? "" : undefined}>{l.title}</span>
+        </a>
+      ))}
+    </div>
+  )
+}
 
 /** The sheet's own light card for a page with nothing to embed: the mark, the name, the handle. */
 function SheetSummary({ provider, data, handle, children }: { provider: AppProvider; data: AppBlockData; handle?: string | null; children?: React.ReactNode }) {
@@ -380,6 +492,9 @@ function SheetSummary({ provider, data, handle, children }: { provider: AppProvi
  * how it is drawn; the Interaction what a tap does.
  */
 function LinkView({ block, data, provider, look }: ViewProps) {
+  /* Round 3: a cover in the service's colour is the Original look; another Icon style draws the cover in the page's own colours. */
+  const ownCover = useBlockIconLook() === "original"
+  const coverFill = provider.color === "instagram" ? INSTAGRAM_FILL : provider.color
   const sheet = useBlockSheet()
   const track = useTrack(look)
   const parts = useParts(look)
@@ -426,10 +541,69 @@ function LinkView({ block, data, provider, look }: ViewProps) {
 
   const fallbackCard = <LinkCard {...{ provider, data, look, title, line, button, href, tap, parts }} />
 
+  /*
+    Round AR3, the owner: "the layouts of the TikTok block, some of them are not
+    working at all ... single, carousel, profile card, classic". Single and
+    Carousel used to fall back to the Card when the address was a profile with
+    no post to play, so three of the five drew the same. Now Single without a
+    post is the profile as one large card, and Carousel always slides: the
+    posts, then the profile as its last card.
+  */
+  const spotlight = (
+    <div data-onepage-app={provider.id} data-app-layout="single" data-app-spotlight="" className="flex w-full flex-col overflow-hidden" style={{ ...parts.surface, borderRadius: parts.radius, padding: px(10, look.scale), gap: px(12, look.scale) }}>
+      <span className="relative block w-full overflow-hidden" style={{ aspectRatio: "4 / 3", borderRadius: Math.max(6, parts.radius - 6), background: ownCover ? coverFill : MIX[7] }}>
+        {data.image_url ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img src={data.image_url} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+        ) : (
+          <span className="absolute inset-0 grid place-items-center">
+            <AppTileMark provider={provider} size={Math.round(72 * k(look.scale))} mark={markFor(data)} />
+          </span>
+        )}
+      </span>
+      <span className="min-w-0 px-1 text-left">
+        <span className="block truncate font-semibold" style={{ fontSize: px(17, look.scale) }} data-block-title="">{title}</span>
+        {line ? <span className="block truncate opacity-75" style={{ fontSize: px(13, look.scale) }}>{line}</span> : null}
+      </span>
+      <CardButton label={button} look={look} href={href} onClick={tap} wide />
+    </div>
+  )
+  const profileSlide = (
+    <div key="profile" data-app-profile-slide="" className="flex h-full flex-col items-center justify-center text-center" style={{ ...parts.surface, borderRadius: parts.radius, padding: `${px(20, look.scale)} ${px(14, look.scale)}`, gap: px(10, look.scale), minHeight: px(220, look.scale) }}>
+      {data.image_url ? (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img src={data.image_url} alt="" loading="lazy" className="rounded-full object-cover" style={{ width: px(56, look.scale), height: px(56, look.scale) }} />
+      ) : (
+        <AppTileMark provider={provider} size={Math.round(52 * k(look.scale))} mark={markFor(data)} />
+      )}
+      <span className="min-w-0 max-w-full">
+        <span className="block truncate font-semibold" style={{ fontSize: px(15, look.scale) }} data-block-title="">{title}</span>
+        {line ? <span className="block truncate opacity-75" style={{ fontSize: px(12.5, look.scale) }}>{line}</span> : null}
+      </span>
+      <CardButton label={button} look={look} href={href} onClick={tap} />
+    </div>
+  )
+
   if (layout === "single" || layout === "carousel") {
-    if (!embeds.length) return fallbackCard
     const radius = Math.min(Math.max(parts.radius, 10), 16)
-    if (layout === "single" || embeds.length === 1) {
+    if (layout === "single" && !embeds.length) return spotlight
+    if (layout === "carousel") {
+      const titled = !!data.title?.trim() && embeds.length > 0
+      return (
+        <div data-onepage-app={provider.id} data-app-layout="carousel" className="w-full">
+          {titled ? <p className="mb-2 text-center font-semibold" style={{ color: look.theme.text_color, fontSize: px(15, look.scale) }} data-block-title="">{data.title}</p> : null}
+          <div className="op-rail flex snap-x snap-mandatory items-stretch gap-3 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {embeds.map((e) => (
+              <div key={e.embed.src} className="w-[78%] max-w-[320px] shrink-0 snap-start">
+                <AppEmbedView embed={e.embed} href={e.href} title={title} radius={radius} compact fallback={null} />
+              </div>
+            ))}
+            <div className="w-[62%] max-w-[260px] shrink-0 snap-start">{profileSlide}</div>
+          </div>
+        </div>
+      )
+    }
+    if (layout === "single") {
       return (
         <div data-onepage-app={provider.id} data-app-layout="single" className="flex w-full flex-col" style={{ gap: px(8, look.scale) }}>
           {data.title?.trim() ? <p className="text-center font-semibold" style={{ color: look.theme.text_color, fontSize: px(15, look.scale) }} data-block-title="">{data.title}</p> : null}
@@ -437,18 +611,6 @@ function LinkView({ block, data, provider, look }: ViewProps) {
         </div>
       )
     }
-    return (
-      <div data-onepage-app={provider.id} data-app-layout="carousel" className="w-full">
-        {data.title?.trim() ? <p className="mb-2 text-center font-semibold" style={{ color: look.theme.text_color, fontSize: px(15, look.scale) }} data-block-title="">{data.title}</p> : null}
-        <div className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {embeds.map((e) => (
-            <div key={e.embed.src} className="w-[85%] max-w-[340px] shrink-0 snap-start">
-              <AppEmbedView embed={e.embed} href={e.href} title={title} radius={radius} compact fallback={null} />
-            </div>
-          ))}
-        </div>
-      </div>
-    )
   }
 
   if (layout === "classic") {
@@ -483,13 +645,13 @@ function LinkView({ block, data, provider, look }: ViewProps) {
         data-onepage-app={provider.id}
         data-app-layout="featured"
         className="relative block w-full overflow-hidden"
-        style={{ borderRadius: parts.radius, aspectRatio: "16 / 10", background: provider.color === "instagram" ? INSTAGRAM_FILL : provider.color }}
+        style={{ borderRadius: parts.radius, aspectRatio: "16 / 10", background: ownCover ? coverFill : look.theme.button_color || "#111113" }}
       >
         {data.image_url ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img src={data.image_url} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
         ) : (
-          <span className="absolute inset-0 grid place-items-center" style={{ color: isMulticolorMark(provider.mark) ? "#1a1a2e" : markOn(provider.color) }}>
+          <span className="absolute inset-0 grid place-items-center" style={{ color: !ownCover ? look.theme.button_text_color || "#ffffff" : isMulticolorMark(provider.mark) ? "#1a1a2e" : markOn(provider.color) }}>
             {provider.shape === "reviews" && rating ? (
               <span className="flex flex-col items-center gap-1">
                 <span className="font-bold tabular-nums" style={{ fontSize: px(44, look.scale), lineHeight: 1 }}>{rating.toFixed(1)}</span>
@@ -589,8 +751,9 @@ function ItemsView({ block, data, provider, look }: ViewProps) {
         body: (
           <div className="flex flex-col items-center gap-3 py-4 text-center text-[#111113]">
             {item.image_url ? (
+              /* Round R3: its height is set before it loads, so the words under it are where they stay on the sheet's first frame. */
               /* eslint-disable-next-line @next/next/no-img-element */
-              <img src={item.image_url} alt="" className="max-h-[50vh] w-auto max-w-full rounded-2xl object-contain" />
+              <img src={item.image_url} alt="" data-sheet-picture="" className="h-[min(50vh,360px)] w-auto max-w-full rounded-2xl object-contain" />
             ) : null}
             <p className="text-[18px] font-semibold">{item.title}</p>
             {item.note ? <p className="text-[14px] text-[#6b7280]">{item.note}</p> : null}
@@ -602,10 +765,17 @@ function ItemsView({ block, data, provider, look }: ViewProps) {
     }
   }
 
+  /* Round AR3: Cover, Fit or Full (the picture's own shape) for the list's pictures. */
+  const fit = data.image_fit === "contain" || data.image_fit === "full" ? data.image_fit : "cover"
   const picture = (item: AppItem, cls: string) =>
     item.image_url ? (
-      /* eslint-disable-next-line @next/next/no-img-element */
-      <img src={item.image_url} alt="" loading="lazy" className={cn("block object-cover", cls)} />
+      fit === "full" && /aspect-/.test(cls) ? (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img src={item.image_url} alt="" loading="lazy" data-picture-fit="full" className={cn("block h-auto", cls.replace(/aspect-\S+/g, ""))} />
+      ) : (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img src={item.image_url} alt="" loading="lazy" data-picture-fit={fit} className={cn("block", fit === "cover" ? "object-cover" : "object-contain", cls)} style={fit === "contain" ? { background: MIX[10] } : undefined} />
+      )
     ) : (
       <span className={cn("grid place-items-center", cls)} style={{ background: MIX[10] }}>
         <AppTileMark provider={provider} size={Math.round(36 * k(look.scale))} />
@@ -664,7 +834,7 @@ function ItemsView({ block, data, provider, look }: ViewProps) {
   return (
     <div data-onepage-app={provider.id} data-app-layout={layout} className="w-full">
       {heading}
-      <div className={carousel ? "-mx-1 flex snap-x snap-mandatory overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" : "grid grid-cols-2"} style={{ gap: px(10, look.scale) }}>
+      <div className={carousel ? "op-rail flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" : "grid grid-cols-2"} style={{ gap: px(10, look.scale) }}>
         {items.map((item) => {
           const href = itemHref(item)
           return (
@@ -701,7 +871,7 @@ function EventsView({ block, data, provider, look }: Omit<ViewProps, "provider">
   return (
     <div data-onepage-app="events" data-app-layout={layout} className="w-full">
       {data.title?.trim() ? <p className="mb-2 text-center font-semibold" style={{ color: look.theme.text_color, fontSize: px(15, look.scale) }} data-block-title="">{data.title}</p> : null}
-      <div className={carousel ? "-mx-1 flex snap-x snap-mandatory overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" : "flex flex-col"} style={{ gap: px(10, look.scale) }}>
+      <div className={carousel ? "op-rail flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" : "flex flex-col"} style={{ gap: px(10, look.scale) }}>
         {events.map((ev) => {
           const day = eventDay(ev.date, locale)
           const href = ev.sold_out ? null : itemHref(ev)
@@ -712,10 +882,11 @@ function EventsView({ block, data, provider, look }: Omit<ViewProps, "provider">
               className={cn("flex items-center", carousel && "w-[80%] shrink-0 snap-start")}
               style={card ? { ...parts.surface, borderRadius: parts.radius, padding: px(12, look.scale), gap: px(12, look.scale) } : { ...parts.press.style, borderRadius: parts.radius, padding: `${px(10, look.scale)} ${px(12, look.scale)}`, gap: px(12, look.scale) }}
             >
-              <span className="flex shrink-0 flex-col items-center justify-center rounded-xl text-center" style={{ width: px(46, look.scale), height: px(50, look.scale), background: MIX[12] }}>
+              <span className="flex shrink-0 flex-col items-center justify-center rounded-xl text-center" style={{ width: px(46, look.scale), height: px(50, look.scale), ...parts.chip }} data-event-day="">
                 {day ? (
                   <>
-                    <span className="font-semibold tracking-[0.04em] opacity-80" style={{ fontSize: px(10.5, look.scale) }}>{day.month}</span>
+                    {/* Round AR: the month at full strength, on a chip in colours that read on the card (lib/onepage/contrast chipColors). */}
+                    <span className="font-semibold tracking-[0.04em]" style={{ fontSize: px(10.5, look.scale) }}>{day.month}</span>
                     <span className="font-bold tabular-nums leading-none" style={{ fontSize: px(19, look.scale) }}>{day.day}</span>
                   </>
                 ) : (
@@ -724,10 +895,11 @@ function EventsView({ block, data, provider, look }: Omit<ViewProps, "provider">
               </span>
               <span className="min-w-0 flex-1 text-left">
                 <span className="block truncate font-semibold" style={{ fontSize: px(15, look.scale) }}>{ev.title}</span>
-                {ev.venue ? (
+                {ev.venue || ev.time ? (
                   <span className="flex items-center gap-1 truncate opacity-75" style={{ fontSize: px(12.5, look.scale) }}>
-                    <MapPin aria-hidden className="shrink-0" style={{ width: px(12, look.scale), height: px(12, look.scale) }} />
-                    <span className="truncate">{ev.venue}</span>
+                    {ev.venue ? <MapPin aria-hidden className="shrink-0" style={{ width: px(12, look.scale), height: px(12, look.scale) }} /> : null}
+                    {/* Round AR: the time it starts, beside the place. */}
+                    <span className="truncate">{[ev.time && /^\d{1,2}:\d{2}$/.test(ev.time) ? ev.time : null, ev.venue].filter(Boolean).join(" · ")}</span>
                   </span>
                 ) : null}
               </span>
@@ -744,98 +916,7 @@ function EventsView({ block, data, provider, look }: Omit<ViewProps, "provider">
   )
 }
 
-/* ─── Stats ───────────────────────────────────────────────────────────── */
-
-function StatsView({ data, look }: Omit<ViewProps, "block">) {
-  const parts = useParts(look)
-  const stats = appItems(data)
-  const layout = appLayoutOf(data)
-  if (!stats.length) return null
-  const tile = (s: AppItem, big = false) => (
-    <div key={s.id} data-app-stat={s.id} className="flex flex-col items-center justify-center text-center" style={{ ...parts.surface, borderRadius: parts.radius, padding: `${px(big ? 22 : 14, look.scale)} ${px(10, look.scale)}` }}>
-      <span className="font-bold tabular-nums tracking-[-0.02em]" style={{ fontSize: px(big ? 40 : 26, look.scale), lineHeight: 1.05 }}>{s.value}</span>
-      <span className="mt-1 opacity-75" style={{ fontSize: px(12.5, look.scale) }}>{s.title}</span>
-    </div>
-  )
-  return (
-    <div data-onepage-app="stats" data-app-layout={layout} className="w-full">
-      {data.title?.trim() ? <p className="mb-2 text-center font-semibold" style={{ color: look.theme.text_color, fontSize: px(15, look.scale) }} data-block-title="">{data.title}</p> : null}
-      {layout === "single" ? (
-        tile(stats[0], true)
-      ) : layout === "carousel" ? (
-        <div className="-mx-1 flex snap-x snap-mandatory overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ gap: px(10, look.scale) }}>
-          {stats.map((s) => (
-            <div key={s.id} className="w-[42%] shrink-0 snap-start">{tile(s)}</div>
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-2" style={{ gap: px(10, look.scale) }}>{stats.map((s) => tile(s))}</div>
-      )}
-    </div>
-  )
-}
-
-/* ─── A poll ──────────────────────────────────────────────────────────── */
-
-const pollKey = (blockId: string) => `storelib:onepage:poll:${blockId}`
-
-/**
- * A QUESTION AND TWO TO SIX ANSWERS. A vote is counted as a tap on that
- * answer (`<block>__vote-<answer>`), so the creator reads the answers in
- * the block's figures, and this browser remembers it voted. Visitors are not
- * shown a running total: that needs a table of votes the page does not have.
- */
-function PollView({ block, data, look }: Omit<ViewProps, "provider">) {
-  const track = useTrack(look)
-  const parts = useParts(look)
-  const options = pollOptions(data)
-  const [voted, setVoted] = React.useState<string | null>(null)
-  React.useEffect(() => {
-    try {
-      setVoted(window.localStorage.getItem(pollKey(block.id)))
-    } catch {
-      /* Private window: the poll asks again, nothing else changes. */
-    }
-  }, [block.id])
-  if (!data.poll_question?.trim() || options.length < 2) return null
-  const vote = (id: string) => {
-    if (voted) return
-    setVoted(id)
-    track(socialLinkId(block.id, `vote-${id}`), "#poll")
-    try {
-      window.localStorage.setItem(pollKey(block.id), id)
-    } catch {
-      /* Remembered for this visit only. */
-    }
-  }
-  return (
-    <div data-onepage-app="poll" data-app-layout="card" className="w-full text-left" style={{ ...parts.surface, borderRadius: parts.radius, padding: px(14, look.scale) }}>
-      <p className="font-semibold" style={{ fontSize: px(15.5, look.scale) }} data-block-title="">{data.poll_question}</p>
-      <div role="radiogroup" aria-label={data.poll_question} className="mt-3 flex flex-col" style={{ gap: px(8, look.scale) }}>
-        {options.map((o) => {
-          const on = voted === o.id
-          return (
-            <button
-              key={o.id}
-              type="button"
-              role="radio"
-              aria-checked={on}
-              disabled={!!voted}
-              onClick={() => vote(o.id)}
-              data-poll-option={o.id}
-              className={cn("flex w-full items-center justify-between rounded-full border text-left font-medium transition-[background-color,opacity] duration-150 disabled:cursor-default", voted && !on && "opacity-60")}
-              style={{ borderColor: MIX[35], background: on ? MIX[16] : "transparent", padding: `${px(10, look.scale)} ${px(14, look.scale)}`, fontSize: px(14, look.scale) }}
-            >
-              <span className="truncate">{o.label}</span>
-              {on ? <Check aria-hidden className="shrink-0" style={{ width: px(16, look.scale), height: px(16, look.scale) }} /> : null}
-            </button>
-          )
-        })}
-      </div>
-      {voted ? <p className="mt-2.5 opacity-75" style={{ fontSize: px(12.5, look.scale) }} data-poll-thanks="">{tt("Thanks for voting")}</p> : null}
-    </div>
-  )
-}
+/* Round AR: Stats and the poll are drawn by ./data-blocks (DataStatsView, DataPollView). */
 
 /* ─── Contact details ─────────────────────────────────────────────────── */
 
@@ -1094,7 +1175,15 @@ export function appBlockRow(block: OnePageBlock): { title: string; subtitle: str
       return { title: data.title?.trim() || name, subtitle: appEmail(data.email) || tt("Add an email address"), icon }
     case "note":
       return { title: data.title?.trim() || data.text?.trim().slice(0, 40) || name, subtitle: name, icon }
+    /* Round AR */
+    case "event":
+      return { title: data.title?.trim() || name, subtitle: data.event_start ? name : tt("Add the date"), icon }
+    case "paid":
+      return { title: data.title?.trim() || name, subtitle: data.paid_product_id ? name : tt("Choose the product that opens it"), icon }
+    case "review_wall":
+      return { title: data.title?.trim() || name, subtitle: name, icon }
     default:
+      if (provider.id === "tips" && tipModeOf(data) === "storelib") return { title: data.title?.trim() || name, subtitle: tt("Through Storelib checkout"), icon }
       return { title: data.title?.trim() || target?.handle || name, subtitle: target ? name : tt("Add your {name} address", { name }), icon }
   }
 }

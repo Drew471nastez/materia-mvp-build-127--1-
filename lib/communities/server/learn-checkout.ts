@@ -37,6 +37,7 @@ import { type Db } from "./db"
 import { findProgram, grantProgram, ownedPrograms, programViewer, type ProgramRow } from "./learn"
 import { pushCommunitySale } from "@/lib/orders/sale-events"
 import { stripeIdempotencyKey } from "@/lib/stripe/resilience"
+import { stripeRefundCheck, type RefundCheck } from "./refunded-payment"
 
 export const PROGRAM_SESSION_KIND = "community_program"
 
@@ -186,7 +187,7 @@ export type GrantAnswer = { ok: true; created: boolean; programId: string } | { 
  * community it names, for the buyer it names (and, from the sheet, that
  * buyer must be the one asking).
  */
-export async function grantFromSession(db: Db, session: Stripe.Checkout.Session, opts: { userId?: string } = {}): Promise<GrantAnswer> {
+export async function grantFromSession(db: Db, session: Stripe.Checkout.Session, opts: { userId?: string; refundCheck?: RefundCheck } = {}): Promise<GrantAnswer> {
   if (!isProgramSession(session)) return { ok: false, status: 400, error: "not_a_program_session" }
   const m = session.metadata as Record<string, string>
   if (opts.userId && m.buyer_id !== opts.userId) return { ok: false, status: 403, error: "forbidden" }
@@ -203,8 +204,10 @@ export async function grantFromSession(db: Db, session: Stripe.Checkout.Session,
     paymentIntentId: intent,
     amountCents: typeof session.amount_total === "number" ? session.amount_total : null,
     currency: session.currency ?? null,
+    refundCheck: opts.refundCheck ?? stripeRefundCheck,
   })
-  if (done.ok === false) return { ok: false, status: done.error === "not_set_up" ? 409 : 500, error: done.error }
+  /* Round AY: a refunded payment is a final no (409, so Stripe stops sending it); Stripe not answering is "try again" (503). */
+  if (done.ok === false) return { ok: false, status: done.error === "not_set_up" || done.error === "refunded" ? 409 : done.error === "unknown" ? 503 : 500, error: done.error }
   if (done.created) pushCommunitySale(db, { communityId: m.community_id, buyerId: m.buyer_id, title: program.title || "A program", amountCents: session.amount_total, currency: session.currency ?? null, saleId: session.id })
   return { ok: true, created: done.created, programId: program.id }
 }

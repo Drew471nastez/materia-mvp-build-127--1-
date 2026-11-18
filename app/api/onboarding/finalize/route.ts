@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { ensureStorePublished } from "@/lib/store-builder/ensure-store-published"
 import { ensureOnePage } from "@/lib/onepage/ensure-onepage"
+import { routeUser, signedOutOrRetry } from "@/lib/auth/route-user"
+import { creatorPagesChanged } from "@/lib/storefront/creator-page-purge"
+import { onePageChangedFor } from "@/lib/onepage/public-cache"
+import { claimStoreHandle } from "@/lib/profile/move-handle"
+import { isValidUsername } from "@/lib/reserved-words"
 
 /**
  * POST /api/onboarding/finalize
@@ -31,10 +35,10 @@ export async function POST(request: NextRequest) {
     // Verify the caller is authenticated via cookie-based session (web browsers).
     // Capacitor apps store the session in Preferences (not cookies), so the server
     // client may return null. In that case, fall back to the Authorization header.
-    const supabase = await createClient()
     let userId: string | null = null
 
-    const { data: { user } } = await supabase.auth.getUser()
+    const who = await routeUser({ fresh: true })
+    const user = who.kind === "user" ? who.user : null
     if (user) {
       userId = user.id
     } else {
@@ -49,7 +53,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!userId) {
-      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 })
+      return signedOutOrRetry(NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 }))
     }
 
     const admin = createAdminClient()
@@ -101,11 +105,20 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
       }
     } else {
-      // INSERT — no creator record yet; build a safe, unique slug
-      const baseSlug = (creatorSlug || "creator")
+      /*
+        INSERT: no creator record yet. The store's address is the account's
+        handle, claimed through the same rules as every other name
+        (lib/profile/move-handle.ts claimStoreHandle: format, reserved words,
+        a fake sign in page's name, taken anywhere a handle lives). It used to
+        be whatever creatorSlug the request sent, so a name like paypal-login
+        became paypal-login.storelib.com.
+      */
+      const claimed = await claimStoreHandle(admin, userId, typeof creatorSlug === "string" ? creatorSlug : "")
+      const sent = String(creatorSlug || "")
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "") || "creator"
+        .replace(/^-|-$/g, "")
+      const baseSlug = claimed.ok ? claimed.username : isValidUsername(sent).valid ? sent : "creator"
 
       // Resolve slug conflicts by appending a short random suffix
       let slug = baseSlug
@@ -177,6 +190,16 @@ export async function POST(request: NextRequest) {
       // Non-critical — the store builder can still be published later manually
       console.error("[finalize] store auto-publish error:", autoPublishErr)
     }
+
+    /*
+      THE NEW STORE'S ADDRESSES, TAKEN DOWN FROM EVERY CACHE (round AW). Opened before this moment,
+      storelib.com/<handle> answered the member profile's 308 or a 404 and storelib.me/<handle> a 404, and the CDN
+      keeps those for every visitor (next.config.mjs EDGE_PAGE, measured live: the second ask is a HIT), as Next's
+      data cache keeps a OnePage's "nothing here" for a minute. Every other publish clears them; this one did not,
+      so a creator who had looked at their link saw "not found" on it for minutes after finishing. Both never throw.
+    */
+    await creatorPagesChanged({ userId })
+    await onePageChangedFor(userId)
 
     return NextResponse.json({ ok: true, nextPath: "/app" })
   } catch (err) {

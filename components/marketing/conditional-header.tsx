@@ -1,8 +1,20 @@
 "use client"
 
-import { usePathname, useSelectedLayoutSegment } from "next/navigation"
+import { useRoutePath } from "@/lib/navigation/route-path"
+
+import { useSelectedLayoutSegment } from "next/navigation"
 import { useEffect, useState, Suspense } from "react"
-import { PlatformHeaderClient } from "@/components/platform/platform-header-client"
+import dynamic from "next/dynamic"
+/*
+  Round 63: THE HEADER'S CODE IS FETCHED WHERE A HEADER IS DRAWN. This file is in the layout of every page under
+  (marketing), a OnePage on storelib.me among them, and a plain import put the whole platform header (the account
+  menu, the bell, search and the sign in client) in the first download of every OnePage, which never draws it.
+  The server still draws the header wherever it shows (ssr stays on), so storelib.com looks the same; a page
+  without one no longer carries it. While it loads on a move between pages, the same bar holds its place.
+*/
+const PlatformHeaderClient = dynamic(() => import("@/components/platform/platform-header-client").then((m) => m.PlatformHeaderClient), {
+  loading: () => <HeaderPlaceholder />,
+})
 import { extractUsernameFromHost, isCustomDomain, isSellerPage } from "@/lib/url-helpers"
 import { isDiscoverMode } from "@/lib/isDiscoverMode"
 import { BUYER_HEADER_DARK_BG, hasConcaveEdge } from "@/lib/platform/header-chrome"
@@ -20,15 +32,18 @@ function HeaderPlaceholder({ buyerHeaderLight = false, concave = false }: { buye
   // so the page moved when the real header replaced it. The phone row is now
   // 11.3 + 42 + 10.3 + 1 = 64.6px, and the safe-area form is the same sum
   // with the inset in place of the 11.3px floor.
-  // mobile:  max(64.6px, safe-area + 53.3px)
-  // desktop: a 70.75px row (border-box, padding included) + 1px measured
+  // mobile:  max(63.3px, safe-area + 52.65px) (round 61: 10.65 + 42 + 9.65 + 1)
+  // desktop: the md:h-[67.96px] row + its 1px border = 68.96px, from 768px wide
+  // (the last term: a step that is 68.96px from 768px and nothing below it).
+  // Wave 13: the placeholder kept the phone's 63.3px on a desktop, so the page
+  // moved down 5.65px when the real header arrived (CLS 0.0039 at 1440).
   return (
     <>
     <div
       id="platform-header-root"
       data-header-tone={buyerHeaderLight ? "light" : "dark"}
       className={buyerHeaderLight ? "sticky top-0 z-40 w-full bg-white" : "sticky top-0 z-40 w-full bg-[#16161a]"}
-      style={{ minHeight: 'max(64.6px, calc(env(safe-area-inset-top, 0px) + 53.3px))' }}
+      style={{ minHeight: 'max(63.3px, calc(env(safe-area-inset-top, 0px) + 52.65px), min(68.96px, (100vw - 767px) * 100000))' }}
       aria-hidden
     >
       {/* The band under the clock in this bar's colour, as the bar it stands in for says (platform-header-client). */}
@@ -166,7 +181,7 @@ export function ConditionalHeader({
    */
   onPlatformDomain?: boolean
 }) {
-  const pathname = usePathname()
+  const pathname = useRoutePath()
   /* null when the page under this layout is its own page.tsx (Next's page segment), "u" for /u/<name>, and so on. */
   const segmentBelow = useSelectedLayoutSegment()
   const onPlatformDomain = hostSaysPlatform || (platformHomeFromRoute && segmentBelow === null)

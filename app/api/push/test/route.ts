@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { rateLimit } from "@/lib/api/rate-limit"
 import { pushRequestUser } from "@/lib/push/request-user"
+import { authUnavailableResponse } from "@/lib/auth/route-user"
 import { sendPushToUser } from "@/lib/push/sender"
 import { testAnswer } from "@/lib/push/test-result"
 
@@ -24,7 +25,8 @@ const NO_STORE = { "Cache-Control": "private, no-store" }
  * from the body. Rate limited so it cannot be used to buzz a phone.
  */
 export async function POST(req: Request) {
-  const { user } = await pushRequestUser(req)
+  const { user, unavailable } = await pushRequestUser(req)
+  if (!user && unavailable) return authUnavailableResponse()
   if (!user) return NextResponse.json({ error: "sign_in" }, { status: 401, headers: NO_STORE })
   const limited = await rateLimit({ bucket: "push-test", subjects: [`user:${user.id}`], windows: [{ limit: 5, seconds: 60 }, { limit: 40, seconds: 86400 }], message: "That is a lot of tests. Try again in a minute." })
   if (limited) return limited

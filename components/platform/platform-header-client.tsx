@@ -1,14 +1,17 @@
 "use client"
 
+import { useRoutePath } from "@/lib/navigation/route-path"
+
 import { endDeviceSession } from "@/lib/auth/log-out"
 import { AppearanceMenuRow } from "@/components/platform/appearance-switch"
+import { MARKETING_MENU_ID, MENU_ROW, MENU_SUB_ROW, MarketingPhoneMenu, MenuGroup, menuTone, rise as menuRise } from "@/components/platform/marketing-phone-menu"
 import { displayEmail, emailLocalPart } from "@/lib/businesses/email-alias"
 import { hasConsent } from "@/lib/consent/client"
 import type React from "react"
 
 import Link from "next/link"
 import dynamic from "next/dynamic"
-import { usePathname, useRouter } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react"
 import { createPortal } from "react-dom"
 import type { User } from "@supabase/supabase-js"
@@ -36,6 +39,8 @@ import { useLocale } from "@/components/locale-provider"
 import "@/lib/i18n/locale-words-shell"
 import { readAuthSnapshot, writeAuthSnapshot, clearAuthSnapshot, subscribeAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { headerAuthBack } from "@/lib/auth/return-to"
+import { SELL_INTENT, withCarry } from "@/lib/auth/continue"
+import { warmAuthPhoto } from "@/components/auth/auth-photo"
 import { hasStoredSessionToken, signedOutForSure, storedSessionKey } from "@/lib/auth/session-read"
 import { hasSellerAccess, sellerAccessFrom, type SellerState } from "@/lib/account/seller-access"
 import { useShellAvatar } from "@/lib/account/avatar-store"
@@ -122,9 +127,14 @@ function useBelowMd(): boolean {
  * same look they had: no title, three quarters of the screen at most, and
  * hidden from the width the header stops drawing its hamburger.
  *
+ * Wave 18: the marketing pages' hamburger menu is not a sheet any more (it
+ * is full screen, components/platform/marketing-phone-menu.tsx); the account
+ * sheet and the profile bar's sheet still are this one.
+ *
  * `contentKey` still resets the scroll when the menu swaps its category list
  * for a sub-list, through the sheet's own `scrollKey`.
  */
+
 function MobileBottomSheet({
   isOpen,
   onClose,
@@ -182,17 +192,49 @@ function MobileBottomSheet({
   it is drawn. Latest pass: ~5% under 41.8 / 39.9 / 36.1. Footers and sign-in
   keep their sizes.
 */
-export const HEADER_LOGO = { desktop: 39.71, marketingPhone: 37.91, phone: 34.3 } as const
+/* Round 60, the owner: "reduce the size of the Storelib logo next to the Storelib text a little bit,
+   extremely just a little bit". About 5% off each, and the wordmark beside it is left as it is. */
+export const HEADER_LOGO = { desktop: 37.72, marketingPhone: 36.01, phone: 32.59 } as const
+
+/**
+ * HOME, PRESSED ON THE HOME PAGE, GOES TO ITS TOP. It used to reload the
+ * page (window.location.href = "/"), which threw the reader back to a blank
+ * screen and a fresh hero to read the page they were already on. Now it is
+ * the browser's own smooth scroll, which runs on the compositor in Chrome and
+ * Safari rather than in a JavaScript loop, so it stays smooth while the page
+ * is still drawing, stops the moment the reader scrolls themselves, and
+ * becomes an instant jump for anybody who asked for less motion. A press with
+ * a modifier (a new tab, a new window) is left to the link.
+ */
+export function scrollHomeToTop(e: React.MouseEvent<HTMLElement>, targetPath: string, pathname: string | null): boolean {
+  /* Landing round 14: the browser's own address decides "already here", not only the caller's. A caller holding a stale pathname turned Home on /faq into a scroll of /faq and a loading cover that never left. */
+  if (targetPath !== "/" || pathname !== "/" || (typeof window !== "undefined" && window.location.pathname !== "/")) return false
+  if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return false
+  e.preventDefault()
+  const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+  window.scrollTo({ top: 0, left: 0, behavior: still ? "auto" : "smooth" })
+  return true
+}
 
 /** A focus ring that reads on the black bar. */
 const DARK_FOCUS =
   "outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111113]"
 
 /** Where a header link goes, and the click that gets it there (canonical host, native shell). */
-export type HeaderLink = (path: string) => { href: string; onClick: (e: React.MouseEvent<HTMLElement>) => void; prefetch?: false }
+export type HeaderLink = (path: string) => { href: string; onClick: (e: React.MouseEvent<HTMLElement>) => void; prefetch?: false; onPointerEnter?: () => void }
 
 /* Log in and Sign up are read when pressed, not on sight: on a stranger's Explore every copy of each asked the server for its page, five Sign ups at once (round 54, scripts/check-cdn-r54.mjs). */
 const READ_ON_PRESS = /^\/(?:login|signup)(?:[/?#]|$)/
+
+/*
+  SELL ON STORELIB, FOR SOMEBODY SIGNED OUT, GOES STRAIGHT TO SIGN UP (round 3).
+  /sell sends a stranger to exactly this address (lib/auth/continue.ts
+  sellDecision), but only after a server round trip of its own that showed
+  /sell's spinner first: a white screen between the press and the form. The
+  buttons that carry it are only drawn for somebody the header knows is
+  signed out; a session it missed is sent on by the sign up page anyway.
+*/
+const GUEST_SELL = withCarry("/signup", { intent: SELL_INTENT })
 
 /*
   ═══════════════════════════════════════════════════════════════════════════
@@ -231,7 +273,7 @@ function GuestHeaderActions({
       <span aria-hidden data-guest-divider="" className={cn("ml-1 h-6 w-px", chrome.guestDivider)} />
       {/* "Sell" alone on a tablet, where the bar has no room for three words; the name stays whole for a screen reader. */}
       <Link
-        {...link("/sell")}
+        {...link(GUEST_SELL)}
         data-guest-sell=""
         aria-label="Sell on Storelib"
         className={cn("ml-5 whitespace-nowrap rounded-md px-2 py-2 text-[15px] font-medium transition-colors", chrome.guestSell, chrome.focus)}
@@ -439,7 +481,7 @@ export function DesktopAccountMenu({
   /** Drawn right under who is signed in (a community's member links, round 26); its rows carry role="menuitem". */
   under?: React.ReactNode
 }) {
-  const pathname = usePathname()
+  const pathname = useRoutePath()
   const { t } = useLocale()
   const [open, setOpen] = useState(false)
   const [present, setPresent] = useState(false)
@@ -779,39 +821,43 @@ export function AccountSheet({
 
 /*
   ═══════════════════════════════════════════════════════════════════════════
-   THE LOGGED OUT BUTTONS IN THE PHONE MENU
+   THE BUTTONS AT THE FOOT OF THE PHONE MENU
   ═══════════════════════════════════════════════════════════════════════════
   The owner's picture (image 23), in Storelib's purple rather than the blue
   it was drawn in: a filled Sign up, an outlined second button, and "Sell on
-  Storelib" as a purple line of text under them. On the marketing pages the
-  second button is Discover with its compass; on Explore and the pages that
-  share its header it is Log in, because Discover is where you already are.
-  46px buttons, 6px apart, labels at 16px, and the text link a 44px row of
-  its own so it is as easy to hit as the buttons above it.
+  Storelib" as a purple line of text under them. 46px buttons, 6px apart,
+  labels at 16px, and the text link a 44px row of its own so it is as easy
+  to hit as the buttons above it.
+
+  Wave 18 (the owner: a full-screen menu like the Fourthwall reference, with
+  the actions at the bottom): the buttons sit at the foot of the panel in
+  the bar's own colours. The outlined one is always Log in (the owner's
+  list: "Sign up / Log in"), above the filled Sign up so the one to press
+  is nearest the thumb, as the reference has Log in over Start now.
+  Discover, which was the outlined button while the marketplace is on, is
+  a row of the menu's list now, with Home, Blog, Pricing and FAQ.
 */
 const SHEET_BUTTON =
   "flex h-[46px] w-full touch-manipulation items-center justify-center rounded-action text-[16px] transition-colors duration-100 [-webkit-tap-highlight-color:transparent] outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
-function GuestSheetActions({ second, link, onDone }: { second: "discover" | "login"; link: HeaderLink; onDone: () => void }) {
+/* The outlined button on either bar: a hairline and the ink of the bar. */
+const sheetOutline = (light: boolean) =>
+  light
+    ? "border border-[#d0d4db] bg-white font-medium text-[#1a1a2e] hover:bg-[#f7f7f9] active:bg-[#f1f2f4] focus-visible:ring-offset-white"
+    : "border border-white/[0.16] bg-white/[0.04] font-medium text-white hover:bg-white/[0.08] active:bg-white/[0.1] focus-visible:ring-offset-[#16161a]"
+function GuestSheetActions({ link, onDone, light }: { link: HeaderLink; onDone: () => void; light: boolean }) {
   const go = (path: string) => {
     const { href, onClick } = link(path)
     return { href, onClick: (e: React.MouseEvent<HTMLElement>) => { onClick(e); onDone() } }
   }
   return (
-    <div data-guest-sheet={second} className="flex flex-col gap-1.5">
+    <div data-guest-sheet="" className="flex flex-col gap-1.5">
+      <Link {...go("/login")} data-menu-log-in="" className={cn(SHEET_BUTTON, sheetOutline(light))}>
+        Log in
+      </Link>
       <Link {...go("/signup")} data-menu-sign-up="" className={cn(SHEET_BUTTON, "bg-violet-600 font-[550] text-white hover:bg-violet-700 active:bg-violet-700")}>
         Sign up
       </Link>
-      {second === "discover" ? (
-        <Link {...go("/explore")} data-menu-discover="" className={cn(SHEET_BUTTON, "gap-3 border border-[#d0d4db] bg-white font-medium text-[#1a1a2e] hover:bg-[#f7f7f9] active:bg-[#f1f2f4]")}>
-          <Compass aria-hidden className="h-5 w-5" strokeWidth={1.9} />
-          Discover
-        </Link>
-      ) : (
-        <Link {...go("/login")} data-menu-log-in="" className={cn(SHEET_BUTTON, "border border-[#d0d4db] bg-white font-medium text-[#1a1a2e] hover:bg-[#f7f7f9] active:bg-[#f1f2f4]")}>
-          Log in
-        </Link>
-      )}
-      <Link {...go("/sell")} data-menu-sell="" className={cn(SHEET_BUTTON, "h-11 font-medium text-violet-600 active:bg-violet-50")}>
+      <Link {...go(GUEST_SELL)} data-menu-sell="" className={cn(SHEET_BUTTON, "h-11 font-medium", light ? "text-violet-600 active:bg-violet-50" : "text-violet-300 active:bg-white/[0.06]")}>
         Sell on Storelib
       </Link>
     </div>
@@ -823,6 +869,10 @@ function GuestSheetActions({ second, link, onDone }: { second: "discover" | "log
   noticeable without being a badge: a pale violet row among the plain ones,
   its words in the purple, a store rather than a sparkle. It goes to /sell,
   which decides what a buyer who wants to sell sees next.
+
+  Wave 18: at the foot of the full-screen menu it is the outlined button of
+  the bar's colours with the store in purple, as quiet as Log in is for a
+  visitor; on the dark bar a pale violet slab was the loudest thing there.
 */
 /*
   WHAT THE WAY INTO SELLING SAYS, by the account's seller state, the same
@@ -834,7 +884,7 @@ function GuestSheetActions({ second, link, onDone }: { second: "discover" | "log
 */
 export const sellingLabel = (state: SellerState) => (state === "started" ? "Finish setting up your store" : "Become a seller")
 
-function BecomeSellerRow({ link, onDone, state = "none" }: { link: HeaderLink; onDone: () => void; state?: SellerState }) {
+function BecomeSellerRow({ link, onDone, state = "none", light }: { link: HeaderLink; onDone: () => void; state?: SellerState; light: boolean }) {
   const { href, onClick } = link("/sell")
   return (
     <Link
@@ -842,13 +892,10 @@ function BecomeSellerRow({ link, onDone, state = "none" }: { link: HeaderLink; o
       onClick={(e) => { onClick(e); onDone() }}
       data-seller-state={state}
       data-become-seller=""
-      className="flex touch-manipulation items-center justify-between rounded-xl bg-[#f5f3ff] px-4 py-3.5 text-base font-medium text-violet-700 transition-colors hover:bg-[#ede9fe] active:bg-[#ede9fe] [-webkit-tap-highlight-color:transparent] outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+      className={cn(SHEET_BUTTON, "gap-2.5", sheetOutline(light))}
     >
-      <span className="flex items-center gap-3">
-        <Store aria-hidden className="h-5 w-5 text-[#8b5cf6]" />
-        <span>{sellingLabel(state)}</span>
-      </span>
-      <ChevronRight aria-hidden className="h-5 w-5 text-violet-400" />
+      <Store aria-hidden className={cn("h-[18px] w-[18px]", light ? "text-violet-600" : "text-violet-300")} strokeWidth={1.9} />
+      <span>{sellingLabel(state)}</span>
     </Link>
   )
 }
@@ -950,13 +997,19 @@ export function CountBadge({ count, className }: { count: number; className?: st
  * header laid the header out again on every frame of the sheet's slide,
  * which is the one moment nothing else should be asking for a frame.
  */
+/*
+ * Wave 18 (the owner's full-screen menu, after the Fourthwall reference): the
+ * three lines become an X as it opens. The outer two slide to the middle
+ * (7px: a 2px line and a 5px gap) and turn 45 degrees, the middle one fades;
+ * transform and opacity only, as before.
+ */
 function AnimatedHamburger({ isOpen }: { isOpen: boolean }) {
-  const line = "block h-0.5 w-[23px] rounded-full bg-current transition-[opacity,scale] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none"
+  const line = "block h-0.5 w-[23px] rounded-full bg-current transition-[opacity,transform] duration-[260ms] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none"
   return (
     <div className="w-[23px] h-[23px] flex flex-col justify-center items-center gap-[5px]" data-hamburger={isOpen ? "open" : "closed"}>
-      <span className={cn(line, isOpen ? "opacity-60" : "opacity-100")} />
-      <span className={cn(line, isOpen ? "opacity-60 scale-x-[0.6957]" : "opacity-100 scale-x-100")} />
-      <span className={cn(line, isOpen ? "opacity-60" : "opacity-100")} />
+      <span className={cn(line, isOpen ? "[transform:translateY(7px)_rotate(45deg)_scaleX(0.92)]" : "[transform:none]")} />
+      <span className={cn(line, isOpen ? "opacity-0 [transform:scaleX(0.4)]" : "opacity-100 [transform:none]")} />
+      <span className={cn(line, isOpen ? "[transform:translateY(-7px)_rotate(-45deg)_scaleX(0.92)]" : "[transform:none]")} />
     </div>
   )
 }
@@ -1019,7 +1072,7 @@ export function PlatformHeaderClient({
   buyerHeaderLight?: boolean
 }) {
   const router = useRouter()
-  const pathname = usePathname()
+  const pathname = useRoutePath()
   /* Not useSearchParams: that suspends the whole bar, so the account page painted an empty header and the real one arrived late. */
   const { t } = useLocale()
   const exploreMarketplaceOn = useExploreMarketplaceEnabled()
@@ -1199,6 +1252,7 @@ export function PlatformHeaderClient({
   const [searchResults, setSearchResults] = useState<QuickHit[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const menuButtonRef = useRef<HTMLButtonElement | null>(null)
   const [mobileProfileOpen, setMobileProfileOpen] = useState(false)
   /* The "..." sheet of the phone's profile bar, and what its Share profile row last did (see PROFILE BAR below). */
   const [profileBarOpen, setProfileBarOpen] = useState(false)
@@ -1206,6 +1260,8 @@ export function PlatformHeaderClient({
   const [shareNote, setShareNote] = useState<"copied" | "failed" | null>(null)
   /* Below 768px, where the header opens sheets rather than dropdowns. */
   const belowMd = useBelowMd()
+  /* The phone menu belongs to the phone's bar: a window widened past it closes it. */
+  useEffect(() => { if (!belowMd) setMobileMenuOpen(false) }, [belowMd])
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   /**
    * The language picker, opened from either account menu.
@@ -1853,17 +1909,88 @@ export function PlatformHeaderClient({
     const el = headerRootRef.current
     if (!el) return
     let was: boolean | null = null
-    const read = () => {
-      const now = window.scrollY > 2
+    const set = (now: boolean) => {
       if (now === was) return
       was = now
       if (now) el.setAttribute("data-scrolled", "")
       else el.removeAttribute("data-scrolled")
     }
-    read()
-    window.addEventListener("scroll", read, { passive: true })
-    return () => window.removeEventListener("scroll", read)
+    /*
+      Round 62: NO SCROLL LISTENER AND NO scrollY. Reading scrollY makes the
+      browser bring style and layout up to date on the spot, so whenever
+      anything else had just changed (a section arriving, an observer
+      writing an attribute) the read after each frame became a full restyle:
+      58ms of one frame at 4x CPU on the home page. A 3px marker at the top
+      of the document says the same thing: once it is off screen the page is
+      scrolled past 2px. The browser answers that on its own schedule and
+      nothing is read.
+    */
+    if (typeof IntersectionObserver !== "function") {
+      const read = () => set(window.scrollY > 2)
+      read()
+      window.addEventListener("scroll", read, { passive: true })
+      return () => window.removeEventListener("scroll", read)
+    }
+    const marker = document.createElement("div")
+    marker.setAttribute("aria-hidden", "true")
+    marker.setAttribute("data-scroll-marker", "")
+    marker.style.cssText = "position:absolute;top:0;left:0;width:1px;height:3px;pointer-events:none;visibility:hidden"
+    document.body.prepend(marker)
+    const io = new IntersectionObserver(([entry]) => set(!entry.isIntersecting))
+    io.observe(marker)
+    return () => {
+      io.disconnect()
+      marker.remove()
+    }
   }, [])
+  /*
+    ON THE HOME PAGE THE BAR'S CALL COMES IN ONCE THE HERO'S HAS GONE (landing
+    round 5, the owner: "The Start Now button should appear in the header very
+    smoothly after I get over with the scroll under the hero section"). While
+    the hero's own buttons are on screen the bar's Start now (a phone) and
+    Sign up (a computer) are faded out where they stand, holding their room,
+    so nothing in the bar moves and the bar never changes height; once the
+    hero's buttons have gone under the bar they fade and rise in (the CSS is
+    the hero's, components/marketing/hero.tsx). One observer and an attribute
+    on the bar: no scroll listener, no state, no re-render.
+
+    Landing round 9, the owner: on a phone "the Start now button should
+    appear after I go past the second section (the showcase under the hero),
+    very smooth and clean, unobservable". So on a phone (the bar's phone row,
+    below 768px) the thing watched is the showcase, and the button comes in
+    when its foot has gone under the bar; a computer still watches the hero's
+    buttons. The same observer watches both and the width is asked when it
+    reports, so a turned phone needs no listener.
+
+    Landing round 14, the owner: on a computer (768px and wider) Sign up no
+    longer waits; it stands beside Log in from the top of the page. The
+    attribute still drives the phone's Start now (hero.tsx).
+  */
+  useEffect(() => {
+    const el = headerRootRef.current
+    if (!el || pathname !== "/") return
+    const cta = document.querySelector("[data-home-hero] .cinematic-actions")
+    if (!cta || typeof IntersectionObserver !== "function") {
+      el.setAttribute("data-home-cta", "shown")
+      return () => el.removeAttribute("data-home-cta")
+    }
+    /* Landing round 13: the showcase moved down the page (before pricing), so a phone watches the hero's buttons like a computer does. */
+    /* The bar's own height, read once: a block counts as gone when all of it is under the bar. */
+    const top = Math.round(el.offsetHeight)
+    const gone = new Map<Element, boolean>()
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) gone.set(entry.target, !entry.isIntersecting && entry.boundingClientRect.top < (entry.rootBounds?.top ?? top))
+        el.setAttribute("data-home-cta", gone.get(cta) ? "shown" : "hidden")
+      },
+      { rootMargin: `-${top}px 0px 0px 0px` },
+    )
+    io.observe(cta)
+    return () => {
+      io.disconnect()
+      el.removeAttribute("data-home-cta")
+    }
+  }, [pathname])
   /*
     THE DESKTOP FIELD'S LINE IS THE BOTTOM OF THIS BAR. "It needs to appear
     smooth, when I start scrolling down past the initial search bar under the
@@ -2038,11 +2165,12 @@ export function PlatformHeaderClient({
       }
       router.push(targetPath)
     },
-    [shouldForceCanonicalNav, navigateToCanonical, router],
+    [shouldForceCanonicalNav, navigateToCanonical, router, pathname],
   )
 
   const onCanonicalNav = useCallback(
     (e: React.MouseEvent<HTMLElement>, targetPath: string) => {
+      if (scrollHomeToTop(e, targetPath, pathname)) return
       if (targetPath !== pathname) startNavigationLoading()
       // When on a seller subdomain (e.g. sellername.storelib.com), ALL navigation
       // to non-seller routes (/library, /app, /explore, /signup, etc.) MUST use
@@ -2077,7 +2205,19 @@ export function PlatformHeaderClient({
       */
       if (e.defaultPrevented) router.push(targetPath)
     },
-    [navigateToCanonical, shouldForceCanonicalNav, router],
+    /*
+      PATHNAME IS A DEPENDENCY (landing round 14, the owner: "on /faq I try to
+      go Home, it shows loading and doesn't load the page at all; I have to
+      hard refresh"). It was left out, and nothing else here changes on a
+      client navigation, so this callback kept the address the header first
+      rendered at. Open the site on "/", press FAQ, press Home: the stale
+      pathname still said "/", scrollHomeToTop took Home for "already here",
+      cancelled the link and scrolled /faq to its top, while the loading line
+      (route-loading-bar, which saw a link to another page) put the slow-page
+      cover up until its 10 second give up. scrollHomeToTop now reads the
+      address the browser is at as well, so a stale caller cannot do it again.
+    */
+    [navigateToCanonical, shouldForceCanonicalNav, router, pathname],
   )
 
   const getCanonicalOrRelativePath = useCallback((targetPath: string) => {
@@ -2086,7 +2226,7 @@ export function PlatformHeaderClient({
 
   /* The href and the click for one path, in the form the buttons above take. */
   const headerLink: HeaderLink = useCallback(
-    (path: string) => ({ href: getCanonicalOrRelativePath(path), onClick: (e: React.MouseEvent<HTMLElement>) => onCanonicalNav(e, path), ...(READ_ON_PRESS.test(path) ? { prefetch: false as const } : {}) }),
+    (path: string) => ({ href: getCanonicalOrRelativePath(path), onClick: (e: React.MouseEvent<HTMLElement>) => onCanonicalNav(e, path), ...(READ_ON_PRESS.test(path) ? { prefetch: false as const, onPointerEnter: () => warmAuthPhoto(path) } : {}) }),
     [getCanonicalOrRelativePath, onCanonicalNav],
   )
   /*
@@ -2218,7 +2358,8 @@ export function PlatformHeaderClient({
             drawn the band is its colour, from the server's HTML on. */}
         {buyerHeaderLight ? null : <style>{`:root{--native-band:${BUYER_HEADER_DARK_BG}}`}</style>}
     <header className={cn(chrome.header, !(isNativePlatform() && isSellerOrProductPage) && chrome.headerBorder)}>
-      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
+      {/* data-landing-width: on the home page the row takes the showcase's own width (app/globals.css, --landing-*). */}
+      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8" data-landing-width={pathname === "/" ? "" : undefined}>
         <div
           /*
             THREE PERCENT OFF, MEASURED ON THE DEPLOYED PAGE RATHER THAN
@@ -2234,6 +2375,7 @@ export function PlatformHeaderClient({
                 74.5px   3.2% off
                 70.75px  another 5% off that
                 69.35px  and a further 2%
+                67.96px  and 2% more (round 61)
 
             and the measured root is one pixel more than whichever of those
             the row is set to. The padding is left alone on purpose — it holds
@@ -2242,7 +2384,7 @@ export function PlatformHeaderClient({
           */
           /* pb-[10.3px]: the phone half of the 5% cut, the other half being the
              padding-top in .platform-header-row. The md rails are untouched. */
-          className="platform-header-row flex md:h-[69.35px] items-center justify-between gap-4 pb-[10.3px] md:pb-[3px]"
+          className="platform-header-row flex md:h-[67.96px] items-center justify-between gap-4 pb-[9.65px] md:pb-[3px]"
         >
           {/* Desktop Homepage Layout - same style for /, /features, /pricing, /blog */}
           {isMarketingNavRoute ? (
@@ -2250,7 +2392,7 @@ export function PlatformHeaderClient({
               {/* Homepage Desktop Header */}
               <div className="hidden md:flex items-center justify-between w-full">
                 {/* Left - Logo - refreshes main page */}
-                <Link href="/" onClick={(e) => { e.preventDefault(); if (isNativePlatform()) { router.push("/") } else { window.location.href = "/" } }} className="shrink-0 flex items-center gap-2">
+                <Link href="/" onClick={(e) => { if (scrollHomeToTop(e, "/", pathname)) return; e.preventDefault(); if (isNativePlatform()) { router.push("/") } else { window.location.href = "/" } }} className="shrink-0 flex items-center gap-2">
                   <StorelibLogo size={HEADER_LOGO.desktop} priority />
                   <span className={chrome.wordmark}>Storelib</span>
                 </Link>
@@ -2258,7 +2400,7 @@ export function PlatformHeaderClient({
                 {/* Center - Nav Links (show for all users). On a tablet they
                     close up and Home goes (the logo is Home), so the owner's
                     four on the right still fit beside them at 768px. */}
-                <nav className="flex items-center gap-1 lg:gap-2">
+                <nav data-marketing-nav="" className="flex items-center gap-1 lg:gap-2">
                   {[
                     { href: "/", label: "Home", active: pathname === '/', wide: true },
                     ...(exploreMarketplaceOn
@@ -2274,9 +2416,10 @@ export function PlatformHeaderClient({
                       href={item.href}
                       onClick={(e) => onCanonicalNav(e, item.href)}
                       className={cn(
-                        "px-3 lg:px-4 py-2 text-[14px] lg:text-[15px] font-medium rounded-full border transition-[background-color,border-color,color,scale] duration-180 ease-out",
+                        /* Landing round 7, the owner: every link plain and full strength, a size up; only a hover dims one. */
+                        "px-3 lg:px-4 py-2 text-[15px] lg:text-[16px] font-medium transition-colors duration-150 ease-out motion-reduce:transition-none outline-none focus-visible:underline focus-visible:underline-offset-4",
                         "wide" in item && item.wide && "hidden lg:inline",
-                        item.active ? chrome.navActive : chrome.navIdle,
+                        buyerHeaderLight ? "text-[#1a1a2e] hover:text-[#1a1a2e]/60" : "text-white hover:text-white/65",
                       )}
                     >
                       {item.label}
@@ -2342,15 +2485,68 @@ export function PlatformHeaderClient({
               <div className="md:hidden flex min-h-[42px] items-center justify-between w-full">
                 {/* Left - Logo */}
                 <div className="flex items-center gap-0">
-                  <Link href="/" onClick={(e) => { e.preventDefault(); if (isNativePlatform()) { router.push("/") } else { window.location.href = "/" } }} className="shrink-0 flex items-center gap-1.5">
+                  <Link href="/" onClick={(e) => { if (scrollHomeToTop(e, "/", pathname)) return; e.preventDefault(); if (isNativePlatform()) { router.push("/") } else { window.location.href = "/" } }} className="shrink-0 flex items-center gap-1.5">
                     <StorelibLogo size={HEADER_LOGO.marketingPhone} priority />
                     <span className={chrome.wordmarkPhone}>Storelib</span>
                   </Link>
                 </div>
 
-                {/* Right - Only hamburger (glassmorphism) with animation */}
+                {/*
+                  Right. On the home page (landing round 3, the owner's picture):
+                  a white "Start now" pill beside the menu for a visitor, the
+                  person's photo there instead once signed in (it opens the
+                  account sheet, as on the buyer pages). Both come from what
+                  this header already knows (the auth snapshot, then the
+                  session read): nothing new is fetched. The slot is 42px
+                  tall either way and sits at the row's right end, so the
+                  logo and the menu do not move when the answer arrives; a
+                  first visit holds the pill's place unseen until then.
+                */}
+                <div className="flex items-center gap-2.5" data-home-phone-actions={pathname === "/" ? "" : undefined}>
+                {pathname === "/" ? (
+                  user ? (
+                    <button
+                      type="button"
+                      onClick={() => setMobileProfileOpen(true)}
+                      className="flex h-[42px] w-[42px] items-center justify-center rounded-full cursor-pointer"
+                      aria-label="Open profile menu"
+                      data-home-phone-avatar=""
+                    >
+                      <AppAvatar
+                        src={avatarUrl}
+                        name={(displayName || "").trim()}
+                        alt=""
+                        size={34}
+                        className={
+                          buyerHeaderLight
+                            ? "shadow-[0_0_0_1px_rgba(16,24,40,0.08),0_1px_2px_rgba(16,24,40,0.14)]"
+                            : "shadow-[0_0_0_1px_rgba(255,255,255,0.16),0_1px_2px_rgba(0,0,0,0.5)]"
+                        }
+                      />
+                    </button>
+                  ) : (
+                    <Link
+                      {...guestLink(GUEST_SELL)}
+                      data-home-phone-start=""
+                      data-placeholder={loading ? "" : undefined}
+                      aria-hidden={loading || undefined}
+                      tabIndex={loading ? -1 : undefined}
+                      className={cn(
+                        "inline-flex h-[38px] touch-manipulation items-center whitespace-nowrap rounded-full px-4 text-[14px] font-semibold transition-colors [-webkit-tap-highlight-color:transparent]",
+                        buyerHeaderLight ? "bg-[#1a1a2e] text-white active:bg-black" : "bg-white text-black active:bg-white/85",
+                        chrome.focus,
+                        loading && "invisible",
+                      )}
+                    >
+                      Start now
+                    </Link>
+                  )
+                ) : null}
                 <button
+                  ref={menuButtonRef}
                   type="button"
+                  aria-expanded={mobileMenuOpen}
+                  aria-controls={MARKETING_MENU_ID}
                   onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                   /* A 40px disc is under the 44px a thumb reliably hits, and this one sits in the corner of the screen where a hand is least accurate. The pseudo-element extends the TOUCH target 8px in every direction without moving the disc, so a near miss still opens the menu. `touch-manipulation` drops the browser's double-tap-to-zoom wait, which is the other half of "it sometimes does not register". */
                   className={cn("relative flex h-10 w-10 touch-manipulation items-center justify-center rounded-[10px] transition-[background-color,border-color,box-shadow] duration-150 cursor-pointer before:absolute before:-inset-2 before:content-[''] [-webkit-tap-highlight-color:transparent]", chrome.menuBtn, chrome.hamburger)}
@@ -2358,6 +2554,7 @@ export function PlatformHeaderClient({
                 >
                   <AnimatedHamburger isOpen={mobileMenuOpen} />
                 </button>
+                </div>
               </div>
             </>
           ) : (
@@ -2709,138 +2906,156 @@ export function PlatformHeaderClient({
         at the left instead, which brings its own sheet, so this one is only
         ever opened, and only ever kept, on the marketing pages.
 
-        BUILT AHEAD AND KEPT, on a phone. "The animation when I open it needs
-        to be smooth and clean." Kept, it waits below the screen on its own
-        layer and the tap only slides it up, as the account sheet and the
-        app's sheets do (components/ui/bottom-sheet.tsx).
+        WAVE 18, FULL SCREEN, NOT A SHEET (components/platform/marketing-phone-menu.tsx,
+        the owner after the Fourthwall reference): the X in the bar, a panel
+        in the bar's colours under it, a calm list, the actions at the foot.
+        Every state the sheet had is here: a visitor's Log in, Sign up and
+        Sell on Storelib; the wait while the session is read; somebody signed
+        in with their photo and name (their profile), Dashboard for a seller
+        or the way into selling, their account's Settings, Language, Help and
+        Dark mode under Account, and Log out. Discover, Home, Blog, Pricing
+        and FAQ for everybody (not in the Capacitor app, whose links go to
+        storelib.com). Built once on a phone, kept, and only faded in.
       */}
-      <MobileBottomSheet
-        isOpen={mobileMenuOpen && isMarketingNavRoute}
-        onClose={() => setMobileMenuOpen(false)}
-        keepMounted={belowMd && isMarketingNavRoute}
-      >
-        {isMarketingNavRoute && (
-        <div className="px-4 pb-6">
-          {/* A guest: the owner's three, Sign up, Discover, Sell on Storelib (image 23). */}
-          {/*
+      {isMarketingNavRoute && belowMd ? (
+        <MarketingPhoneMenu
+          open={mobileMenuOpen}
+          onClose={() => setMobileMenuOpen(false)}
+          light={buyerHeaderLight}
+          headerRef={headerRootRef}
+          buttonRef={menuButtonRef}
+          /*
             NOT A GUESS WHILE IT IS BEING ASKED. A first visit has no record of
             who is signed in, so until the session has been read this showed a
             visitor's Sign up to somebody signed in. The two buttons' places,
-            grey, for that short wait only (the header stops waiting after
+            faint, for that short wait only (the header stops waiting after
             2.5 seconds whatever happens).
-          */}
-          {!user && loading ? (
-            <div className="px-1 pt-3 pb-2 border-b border-[#eef0f2]" data-menu-loading="" aria-hidden>
-              <div className="flex flex-col gap-1.5">
-                <span className="h-[46px] rounded-action bg-[#f1f2f4]" />
-                <span className="h-[46px] rounded-action bg-[#f4f5f7]" />
+          */
+          foot={!user && loading ? (
+              <div className="flex flex-col gap-1.5" data-menu-loading="" aria-hidden {...menuRise(7)}>
+                <span className={cn("h-[46px] rounded-action", buyerHeaderLight ? "bg-[#f1f2f4]" : "bg-white/[0.06]")} />
+                <span className={cn("h-[46px] rounded-action", buyerHeaderLight ? "bg-[#f4f5f7]" : "bg-white/[0.04]")} />
+                <span className="h-11" />
               </div>
-            </div>
-          ) : !user ? (
-            <div className="px-1 pt-3 pb-2 border-b border-[#eef0f2]">
-              <GuestSheetActions second={exploreMarketplaceOn ? "discover" : "login"} link={guestLink} onDone={() => setMobileMenuOpen(false)} />
-            </div>
-          ) : null}
-
-          {/* Signed in, on the homepage and the marketing pages */}
-          {user && isMarketingNavRoute && (
-            <div className="pt-1 pb-4 border-b border-gray-200">
-              {/* Who is signed in, and the way to their account. */}
-              <Link
-                {...headerLink("/account")}
-                onClick={(e) => { onCanonicalNav(e, "/account"); setMobileMenuOpen(false) }}
-                data-account-link=""
-                className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl mb-3 active:bg-gray-100 transition-colors [-webkit-tap-highlight-color:transparent]"
-              >
-                <AppAvatar src={avatarUrl} name={(displayName || "").trim()} alt="" size={42} className="border border-gray-200" />
-                <span className="flex-1 min-w-0">
-                  <span className="block text-sm font-medium text-gray-900 truncate">{displayName}</span>
-                  <span className="block text-xs text-gray-500 truncate">{displayEmail(user.email) || "Your account"}</span>
-                </span>
-                <ChevronRight aria-hidden className="h-5 w-5 text-gray-400" />
-              </Link>
-              <div className="flex flex-col gap-1.5">
+            ) : !user ? (
+              <div {...menuRise(7)}>
+                <GuestSheetActions link={guestLink} light={buyerHeaderLight} onDone={() => setMobileMenuOpen(false)} />
+              </div>
+            ) : (
+              <div className="flex flex-col gap-1.5" {...menuRise(7)}>
                 {hasCompletedSellerOnboarding ? (
                   <Link
                     {...headerLink("/app")}
                     onClick={(e) => { onCanonicalNav(e, "/app"); setMobileMenuOpen(false) }}
                     data-sheet-dashboard=""
-                    className={cn(SHEET_BUTTON, "gap-2 bg-violet-600 font-[550] text-white hover:bg-violet-700 active:bg-violet-700")}
+                    className={cn(SHEET_BUTTON, "gap-2 bg-violet-600 font-[550] text-white hover:bg-violet-700 active:bg-violet-700", !buyerHeaderLight && "focus-visible:ring-offset-[#16161a]")}
                   >
                     <LayoutDashboard aria-hidden className="h-[18px] w-[18px]" />
                     Dashboard
                   </Link>
                 ) : (
-                  <BecomeSellerRow link={headerLink} state={sellerState} onDone={() => setMobileMenuOpen(false)} />
+                  <BecomeSellerRow link={headerLink} state={sellerState} light={buyerHeaderLight} onDone={() => setMobileMenuOpen(false)} />
                 )}
-                {exploreMarketplaceOn ? (
-                  <Link
-                    {...headerLink("/explore")}
-                    onClick={(e) => { onCanonicalNav(e, "/explore"); setMobileMenuOpen(false) }}
-                    className={cn(SHEET_BUTTON, "gap-3 border border-[#d0d4db] bg-white font-medium text-[#1a1a2e] hover:bg-[#f7f7f9] active:bg-[#f1f2f4]")}
-                  >
-                    <Compass aria-hidden className="h-5 w-5" strokeWidth={1.9} />
-                    Discover
-                  </Link>
-                ) : null}
+                <button
+                  type="button"
+                  onClick={() => { setMobileMenuOpen(false); void handleLogout() }}
+                  data-account-item="log-out"
+                  className={cn(SHEET_BUTTON, "h-11 gap-2 font-medium", buyerHeaderLight ? "text-[#6b7280] active:bg-[#f1f2f4] focus-visible:ring-offset-white" : "text-white/60 active:bg-white/[0.06] focus-visible:ring-offset-[#16161a]")}
+                >
+                  <LogOut aria-hidden className="h-[17px] w-[17px]" strokeWidth={1.75} />
+                  Log out
+                </button>
               </div>
-            </div>
-          )}
-
-          {/* Menu Links - On Homepage and Marketing Pages (hidden in Capacitor: links go to storelib.com) */}
-          {isMarketingNavRoute && !isNativePlatform() && (
-            <div className="mb-4 pb-4 border-b border-gray-200 mt-4">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2 pt-2">Menu</h3>
-              <div className="space-y-0.5">
-                <Link
-                  href="/"
-                  onClick={(e) => { e.preventDefault(); setMobileMenuOpen(false); if (isNativePlatform()) { router.push("/") } else { window.location.href = "/" } }}
-                  className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
-                >
-                  <span>Home</span>
-                  <ChevronRight className="h-5 w-5 text-gray-400" />
-                </Link>
-                {exploreMarketplaceOn ? (
-                  <Link
-                    href="/explore"
-                    onClick={(e) => { onCanonicalNav(e, "/explore"); setMobileMenuOpen(false) }}
-                    className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
-                  >
-                    <span>Discover</span>
-                    <ChevronRight className="h-5 w-5 text-gray-400" />
-                  </Link>
+            )}
+        >
+          {(() => {
+            const tone = menuTone(buyerHeaderLight)
+            const close = () => setMobileMenuOpen(false)
+            const pages = [
+              { href: "/", label: "Home", current: pathname === "/" },
+              ...(exploreMarketplaceOn ? [{ href: "/explore", label: "Discover", current: false }] : []),
+              { href: "/blog", label: "Blog", current: isBlogRoute },
+              { href: "/pricing", label: "Pricing", current: pathname === "/pricing" },
+              { href: "/faq", label: "FAQ", current: isFaqRoute },
+            ]
+            let i = 0
+            return (
+              <>
+                {/* Who is signed in, and the way to their account (their profile). */}
+                {user ? (
+                  <>
+                    <Link
+                      {...headerLink("/account")}
+                      onClick={(e) => { onCanonicalNav(e, "/account"); close() }}
+                      data-account-link=""
+                      className={cn("flex min-h-[60px] items-center gap-3 rounded-md transition-opacity duration-150 active:opacity-60 [-webkit-tap-highlight-color:transparent]", tone.focus)}
+                      {...menuRise(i++)}
+                    >
+                      <AppAvatar src={avatarUrl} name={(displayName || "").trim()} alt="" size={40} className={buyerHeaderLight ? "ring-1 ring-black/[0.06]" : "ring-1 ring-white/[0.12]"} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[16px] font-medium">{displayName}</span>
+                        <span className={cn("block truncate text-[13px]", tone.muted)}>{profile?.username ? `@${profile.username}` : displayEmail(user.email) || "Your account"}</span>
+                      </span>
+                      <ChevronRight aria-hidden className={cn("h-5 w-5", tone.muted)} strokeWidth={1.75} />
+                    </Link>
+                    <div aria-hidden className={cn("my-2 h-px", tone.rule)} {...menuRise(i++)} />
+                  </>
                 ) : null}
-                <Link
-                  href="/blog"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
-                >
-                  <span>Blog</span>
-                  <ChevronRight className="h-5 w-5 text-gray-400" />
-                </Link>
-                <Link
-                  href="/pricing"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
-                >
-                  <span>Pricing</span>
-                  <ChevronRight className="h-5 w-5 text-gray-400" />
-                </Link>
-                <Link
-                  href="/faq"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
-                >
-                  <span>FAQ</span>
-                  <ChevronRight className="h-5 w-5 text-gray-400" />
-                </Link>
-              </div>
-            </div>
-          )}
 
-        </div>
-        )}
-      </MobileBottomSheet>
+                {!isNativePlatform() ? (
+                  <nav aria-label="Storelib">
+                    <ul>
+                      {pages.map((page) => (
+                        <li key={page.href} {...menuRise(i++)}>
+                          <Link
+                            href={page.href}
+                            aria-current={page.current ? "page" : undefined}
+                            onClick={(e) => {
+                              close()
+                              /* Home reloads the landing from its top, as the logo does (scrollHomeToTop when it is already here). */
+                              if (page.href === "/") {
+                                if (scrollHomeToTop(e, "/", pathname)) return
+                                e.preventDefault()
+                                if (isNativePlatform()) router.push("/")
+                                else window.location.href = "/"
+                                return
+                              }
+                              onCanonicalNav(e, page.href)
+                            }}
+                            data-menu-page={page.label.toLowerCase()}
+                            className={cn(MENU_ROW, tone.row, tone.focus, "rounded-md")}
+                          >
+                            {page.label}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </nav>
+                ) : null}
+
+                {/* The account's own rows, folded away until asked for (the reference's groups). */}
+                {user ? (
+                  <MenuGroup label="Account" name="account" tone={tone} i={i++}>
+                    <Link {...headerLink("/account/settings")} onClick={(e) => { onCanonicalNav(e, "/account/settings"); close() }} data-account-item="settings" className={cn(MENU_SUB_ROW, tone.sub, tone.focus, "rounded-md")}>
+                      <Settings aria-hidden className={cn("h-[18px] w-[18px]", tone.muted)} strokeWidth={1.75} />
+                      Settings
+                    </Link>
+                    <button type="button" onClick={() => { close(); setLanguageOpen(true) }} data-account-item="language" className={cn(MENU_SUB_ROW, tone.sub, tone.focus, "rounded-md")}>
+                      <Globe aria-hidden className={cn("h-[18px] w-[18px]", tone.muted)} strokeWidth={1.75} />
+                      {t("settings.language")}
+                    </button>
+                    <Link {...headerLink("/help")} onClick={(e) => { onCanonicalNav(e, "/help"); close() }} data-account-item="help" className={cn(MENU_SUB_ROW, tone.sub, tone.focus, "rounded-md")}>
+                      <LifeBuoy aria-hidden className={cn("h-[18px] w-[18px]", tone.muted)} strokeWidth={1.75} />
+                      Help
+                    </Link>
+                    <AppearanceMenuRow className={cn(MENU_SUB_ROW, tone.sub, tone.focus, "rounded-md")} iconClassName={cn("h-[18px] w-[18px]", tone.muted)} />
+                  </MenuGroup>
+                ) : null}
+              </>
+            )
+          })()}
+        </MarketingPhoneMenu>
+      ) : null}
 
       {/*
         THE PROFILE BAR'S SHEET (PROFILE BAR above): Share profile, Settings,

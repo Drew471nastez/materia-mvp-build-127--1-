@@ -127,7 +127,7 @@ async function main() {
   console.log("\nThe checkout says nothing about a typed email")
   {
     const route = code("app/api/memberships/checkout/route.ts")
-    check("a guest is not looked up by the email they type", !/buyer_email\.eq\."\$\{email/.test(route) && /if \(user\) \{\n\s+const owner = ownerFilter\(\{ id: user\.id, email: \(user\.email \?\? ""\)\.toLowerCase\(\) \|\| null, emailConfirmed: !!user\.email_confirmed_at \}\)/.test(route))
+    check("a guest is not looked up by the email they type", !/buyer_email\.eq\."\$\{email/.test(route) && /* Changed on purpose (round AW): by its address only when the account proved it (lib/memberships/viewer.ts provenViewer). */ /if \(user\) \{[\s\S]{0,200}const proven = await provenViewer\(\{ id: user\.id, email: \(user\.email \?\? ""\)\.toLowerCase\(\) \|\| null, emailConfirmed: !!user\.email_confirmed_at \}, admin\)\n\s+const owner = ownerFilter\(proven!\)/.test(route))
     check("  a guest's half-finished payment is continued only when the page names its own row, for the same email", /typeof body\.previousMembershipId === "string" && UUID\.test\(body\.previousMembershipId\)/.test(route) && /mine && mine\.buyer_email === email && mine\.status === "incomplete"/.test(route))
     check("a signed in member is still refused before paying", /code: "already_member"/.test(route) && /const hadTrial = rows\.some/.test(route))
     const confirm = code("app/api/memberships/confirm/route.ts")

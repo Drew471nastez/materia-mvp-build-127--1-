@@ -22,7 +22,7 @@ type SimResult = {
 }
 
 export default function SimulatorPage() {
-  const [plan, setPlan] = React.useState<"free" | "paid">("free")
+  const [plan, setPlan] = React.useState<"free" | "paid" | "scale">("free")
   const [currency, setCurrency] = React.useState("USD")
   const [grossMinor, setGrossMinor] = React.useState(399)
   const [result, setResult] = React.useState<SimResult | null>(null)
@@ -69,9 +69,10 @@ export default function SimulatorPage() {
           <Toolbar>
             <label className="text-[12px] text-[#9b9ba6]">
               Plan
-              <select className="ml-2 rounded border border-white/10 bg-[#17171d] px-2 py-1 text-[13px]" value={plan} onChange={(e) => setPlan(e.target.value as "free" | "paid")}>
+              <select className="ml-2 rounded border border-white/10 bg-[#17171d] px-2 py-1 text-[13px]" value={plan} onChange={(e) => setPlan(e.target.value as "free" | "paid" | "scale")}>
                 <option value="free">Free</option>
-                <option value="paid">Pro</option>
+                <option value="paid">Grow</option>
+                <option value="scale">Pro</option>
               </select>
             </label>
             <label className="text-[12px] text-[#9b9ba6]">

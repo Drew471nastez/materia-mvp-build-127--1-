@@ -339,18 +339,14 @@ check("Orders' bar, gutter and 1200px column, on every width (no 7% and 3% from 
   /<PaneBar width=\{LIST_WIDTH\} className=\{LIST_BAR\}>/.test(list) && /from "\.\.\/orders\/order-parts"/.test(list) && /cn\("mx-auto pb-6", LIST_WIDTH, GUTTER\)/.test(list)
     && !/PAGE_WIDTH|PAGE_GUTTER|PAGE_BAR|BAR_BUTTON_SIZE/.test(list) && !/lg:h-\[|xl:h-\[|lg:text-\[/.test(list))
 /* "On desktop larger screens, make the page just 7% bigger, a little bit." Then: "just make the products page 3% bigger". Real sizes, never zoom or a transform. */
-check("Orders' and Emails' sizes: a 24px title (28px from 640px), the toolbar's 48px row, Emails' 36px heading and 56px rows, a 40px picture, Orders' 44px footer",
-  /<h1 className="min-w-0 truncate text-\[24px\] font-bold text-\[#1a1a2e\] sm:text-\[28px\]">/.test(list)
-    && /data-toolbar="" className="flex h-12 items-center gap-2 border-b border-\[#eef0f2\] px-2"/.test(list)
-    && /<tr className="h-9 text-left text-\[12px\] font-medium text-\[#4b5563\]">/.test(list)
-    && /className="group h-14 cursor-pointer"/.test(list) && /"h-10 w-10 rounded-\[9px\]"/.test(list)
-    && /"flex h-11 items-center justify-between gap-3 border-t border-\[#eef0f2\] bg-\[#fafafb\] px-3"/.test(list)
-    && !/zoom:|\[zoom|scale-\[1\.0|scale\(1\.0/.test(list))
+check("Products keeps its title, table and row sizes with a 56px touch toolbar",
+  /<h1 className="min-w-0 truncate text-\[24px\]/.test(list) && /data-toolbar="" className="flex min-h-14/.test(list) && /className="group h-14 cursor-pointer"/.test(list) && /"h-10 w-10 rounded-\[9px\]"/.test(list))
+
 /* "In the Products page the New product button at the top should be purple." Then it went near black with every primary (7ea799ec), and: "the New product button needs to be purple there, both on mobile and desktop." */
-check("New product is the one violet button, the shared violet depth (accentDepth, not a copy), at Orders' 32px with a plus, and a 44px press on a phone, on every width",
-  /const NEW_LOOK = cn\(accentDepth, "h-8 gap-1\.5 rounded-lg px-3 text-\[13px\]"\)/.test(list) && /data-new-product=""[\s\S]{0,280}className=\{cn\(NEW_LOOK, BAR_PRESS\)\}\s*>\s*<Plus className="h-4 w-4" aria-hidden \/>\s*<span>\{t\("products\.newProduct"\)\}<\/span>\s*<\/Link>/.test(list)
-    && /import \{ accentDepth \} from "@\/components\/ui\/depth-button"/.test(list) && !/primaryDepth|buttonAccent|buttonPrimary/.test(list) && !/bg-\[#8b5cf6\]/.test(list)
-    && /const BAR_PRESS = "relative before:absolute before:-inset-y-1\.5 before:inset-x-0 before:content-\[''\] sm:before:hidden"/.test(list))
+/* Changed on purpose (products round 15): "give the + Add button a purple background, white icon and text, smooth and clean hover and press". The bar's Add is ADD_LOOK, the /app violet; Create product in the empty list keeps NEW_LOOK. */
+check("Add product is violet and stays still under a press",
+  /const NEW_LOOK = "[^"\n]*rounded-full bg-white/.test(list) && /const ADD_LOOK = "[^"\n]*rounded-full bg-\[#8b5cf6\][^"\n]*text-white[^"\n]*hover:bg-\[#7c3aed\][^"\n]*active:bg-\[#6d28d9\]/.test(list) && /className=\{ADD_LOOK\}\s*>\s*<Plus className="h-4 w-4" strokeWidth=\{2\.25\} aria-hidden/.test(list) && /<span>Add product<\/span>/.test(list) && !/active:scale/.test((list.match(/const ADD_LOOK = "([^"\n]*)"/)?.[1] ?? "")) && !/accentDepth/.test(list))
+
 /* "Make sure the three dots button in the products page has the same depth as the three dots button in the edit product page." */
 /* "Reduce the products page's overall scale by about 10%": the more button came down with it, the depth stayed. Then Preview joined it at the same size. */
 /* "The three dots button has too much depth, reduce it a little": the editor's and the list's together, so they still match. */
@@ -375,32 +371,23 @@ check("in the app View goes through openExternal to the phone's browser, and a p
 check("a product with no public page (a draft, an archived one) has View off in the menu, with why",
   /const live = productStatus\(product\) === "live"/.test(list) && /\{ label: labels\.view, disabled: true, hint: "Publish to view" \}/.test(list))
 /* "The download icon should be next to the New product button." */
-check("Export is Orders' secondary button in the bar, the Download icon alone on a phone, before New product; neither it nor New product is in the bar of an empty shop",
-  /aria-label="Export products" data-export="" className=\{cn\(buttonSecondary, BAR_PRESS, "max-sm:w-8 max-sm:px-0"\)\}>\s*<Download className="h-4 w-4" \/>\s*<span className="hidden sm:inline">Export<\/span>/.test(list)
-    && /\{products\.length > 0 \? \(\s*<div className="flex shrink-0 items-center gap-2">\s*<Link href="\/app\/products\/collections" data-products-collections="" className=\{cn\(buttonSecondary, "max-md:hidden"\)\}>\s*Collections\s*<\/Link>\s*<ResponsiveActionMenu/.test(list)
-    && list.indexOf('data-export=""') < list.indexOf('data-new-product=""') && list.indexOf('data-export=""') > list.indexOf("<PaneBar"))
+check("Export uses Analytics circular icon button before Add",
+  /data-export="" className=\{HEAD_ICON_BUTTON\}/.test(list) && /<Download className="h-4 w-4"/.test(list) && list.indexOf('data-export=""') < list.indexOf('data-new-product=""') && /HEAD_ICON_BUTTON.*analytics\/head-button/.test(list))
+
 check("nothing floats: no fixed New product over the list or the navigation pill", !/fixed[^"]*bottom-/.test(list.slice(list.indexOf("<PaneBar"), list.indexOf("deleteModalOpen && productToDelete"))))
 /* "On desktop large screens, the search input is different from that row thing ... make it that way: like mobile." */
-check("search is Orders': a Search button at the right of the tabs opens one boxed field with Cancel, in the toolbar's own row",
-  /data-search-open="" aria-label="Search products"[^>]*onClick=\{openSearch\}/.test(list) && /<label data-search="" className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-lg border border-\[#d5d7dd\]/.test(list)
-    && /placeholder="Search products"/.test(list) && /max-sm:text-\[16px\]/.test(list) && /data-search-cancel=""[^>]*onClick=\{closeSearch\}/.test(list)
-    && (list.match(/type="search"/g) ?? []).length === 1 && (list.match(/<label data-search=""/g) ?? []).length === 1 && /const \[searching, setSearching\] = useState\(\(\) => !!resumed\?\.search\)/.test(list))
+check("Search replaces the toolbar title with a full-width input and back control",
+  /<ArrowLeft className="h-5 w-5"/.test(list) && /data-search-cancel=""[^>]*onClick=\{closeSearch\}/.test(list) && /<label data-search="" className="flex min-w-0 flex-1/.test(list) && /placeholder="Search products"/.test(list) && (list.match(/type="search"/g) ?? []).length === 1)
+
 /* "The actual products should not have that thing with search products there. It should be integrated in the rows there." */
-check("on every width the list is one card whose first row is Orders' toolbar: the views as tabs, Search, then Sort; nothing above it",
-  /className=\{cn\(card, "relative mt-4 overflow-hidden"\)\}/.test(list) && /data-products-list=""/.test(list)
-    && list.indexOf('data-toolbar=""') > list.indexOf('aria-label="Products"\n') && list.indexOf("<ViewTabs") < list.indexOf('data-search-open=""') && list.indexOf('data-search-open=""') < list.indexOf('aria-label="Sort"')
-    && /<div role="tablist" aria-label="Views" data-views="" className="orders-strip -my-2 flex min-w-0 items-center gap-0\.5 overflow-x-auto py-2">/.test(list)
-    && /active \? "bg-\[#eceef1\] text-\[#1a1a2e\]" : "text-\[#4b5563\] hover:bg-\[#f4f5f7\]"/.test(list)
-    && /className=\{cn\(iconButton, "shrink-0 max-sm:h-9 max-sm:w-9 data-open:bg-\[#eceef1\]", sort !== "newest" && "bg-\[#eceef1\] text-\[#1a1a2e\]"\)\}\s*>\s*<ArrowUpDown className="h-4 w-4" \/>/.test(list)
-    && !list.slice(list.indexOf('data-toolbar=""'), list.indexOf('data-list=""')).includes("Export products")
-    /* The name in a span of its own since a browser translator swapped the bare text node and the view kept saying "All" (lib/ui/dom-guard, tests/dom-guard.test.ts). */
-    && /<span>\{v\.label\}<\/span>/.test(list))
+check("A single toolbar exposes search, filters and sort with no status tabs",
+  /data-products-list=""/.test(list) && /<ProductFilters value=\{filters\}/.test(list) && !/<ViewTabs|role="tablist"/.test(list) && list.indexOf('data-search-open=""') < list.indexOf('<ProductFilters'))
+
 /* "Instead of the download icon where it currently is, put the sort by icon, which opens the mobile bottom sheet with only the sort by options. The view (All, Active, Draft, Archived) bottom sheet ... opens a bottom sheet with only the view options." */
 const pickSheet = code("app/(storelib)/app/products/pick-sheet.tsx")
-check("Sort opens a sheet (a dropdown from 768px) of the orders alone; the views are tabs; no checkbox (nothing to select)",
-  /<PickSheet\s+name="sort"\s+title="Sort by"\s+options=\{SORTS\}\s+value=\{sort\}\s+onPick=\{pickSort\}/.test(list)
-    && /const pickSort = \(next: string\) => sortBy\(next as Sort\)/.test(list) && /<ViewTabs views=\{views\} value=\{view\} onPick=\{showView\} \/>/.test(list)
-    && !/viewAndSortItems|section: "Sort by"/.test(list) && !/type="checkbox"/.test(list))
+check("Sort remains its own picker while status and stock belong to the filter sheet",
+  /<PickSheet name="sort" title="Sort by" options=\{SORTS\} value=\{sort\} onPick=\{pickSort\}/.test(list) && /matchesProductFilters\(product, filters\)/.test(list) && /<ProductFilters/.test(list))
+
 check("both are the shared bottom sheet, drawn up to 768px, the one on marked with a check and in semibold, 48px rows",
   /import \{ BottomSheet \} from "@\/components\/ui\/bottom-sheet"/.test(pickSheet) && /<BottomSheet\s[\s\S]*hideFrom="md"/.test(pickSheet)
     && /role="option"\s+aria-selected=\{on\}/.test(pickSheet) && /\{on \? <Check className="h-4 w-4" strokeWidth=\{2\.25\} \/> : null\}/.test(pickSheet) && /on && "font-semibold"/.test(pickSheet) && /min-h-\[48px\]/.test(pickSheet))
@@ -411,7 +398,9 @@ check("the press only flips the sheet's own state, and a pick reaches the page o
     && /export const PickSheet = React\.memo\(/.test(pickSheet) && /const PickRows = React\.memo\(/.test(pickSheet))
 check("Escape clears the field, and so does its clear button; a second Escape closes it", /if \(searchQuery\) search\(""\)\s*else closeSearch\(\)/.test(list) && /aria-label="Clear search"[\s\S]{0,400}onClick=\{clearSearch\}/.test(list))
 check("one toolbar for every width, so no container query to stack a field over the views", !/@container|@min-\[700px\]/.test(list) && (list.match(/data-toolbar=""/g) ?? []).length === 1)
-check("the views are All, Active, Draft and Archived, All open first, with no counts", /useState<View>\(resumed\?\.view \?\? "all"\)/.test(list) && /value: "all"[\s\S]{0,80}value: "active"[\s\S]{0,80}value: "draft"[\s\S]{0,80}value: "archived"/.test(list) && !/tabCounts/.test(list))
+check("Filter selection starts empty and resumes when returning to the list",
+  /useState<ProductFilterValue>\(resumed\?\.filters \?\? \{ statuses: \[\], stock: \[\] \}\)/.test(list) && !/tabCounts|<ViewTabs/.test(list))
+
 check("the sort's dropdown from 768px is the app's dropdown under its button",
   /import \{ PickerRow, onRowsKey, pickerSurface \} from "@\/components\/app\/date-range-picker"/.test(pickSheet)
     && /<Popover open=\{menu\} onOpenChange=\{setMenu\}>\s*<PopoverTrigger asChild>\{opener\}<\/PopoverTrigger>/.test(pickSheet) && /className=\{cn\(pickerSurface, /.test(pickSheet)
@@ -419,7 +408,7 @@ check("the sort's dropdown from 768px is the app's dropdown under its button",
 check("which one a press opens is read at the press (768px), a phone's stopping Radix's toggle and opening the sheet as before; the arrows on the button open the dropdown; focus starts on the one that is on",
   /const WIDE = "\(min-width: 768px\)"/.test(pickSheet) && /if \(isWide\(\)\) return\s*(\/\*[^*]*\*\/\s*)?e\.preventDefault\(\)\s*picked\.current = null/.test(pickSheet)
     && /e\.key !== "ArrowDown" && e\.key !== "ArrowUp"/.test(pickSheet) && /querySelector<HTMLElement>\("\[data-row\]\[data-checked\]"\)/.test(pickSheet)
-    && /"data-open": menu \? "" : undefined/.test(pickSheet) && /data-open:bg-\[#eceef1\]/.test(list))
+    && /"data-open": menu \? "" : undefined/.test(pickSheet) && /data-sort=""/.test(list))
 check("a pick from the dropdown reaches the page at once, only for a change, and the sort's lines up with Sort's right edge",
   /const choose = React\.useCallback\(\(next: string, current: string\) => \{\s*setMenu\(false\)\s*if \(next !== current\) onPickRef\.current\(next\)/.test(pickSheet) && /onPick=\{pickSort\}\s*align="end"/.test(list))
 check("sort by newest, oldest, title, price and sales", ["newest", "oldest", "title_asc", "title_desc", "price_desc", "price_asc", "sales"].every((s) => list.includes(`value: "${s}"`)) && /\.sort\(compare\(sort\)\)/.test(list))
@@ -434,7 +423,9 @@ check("table rows are 56px, the whole row opens the product, and nothing from a 
 check("the table's heading is Emails' faint grey band", /<th scope="col" className="border-b border-\[#eef0f2\] bg-\[#fafbfb\] pl-4 pr-3 font-medium">Product<\/th>/.test(list))
 check("numbers right aligned in figures of one width, Sales from 1024px", /px-3 text-right font-medium tabular-nums text-\[#1a1a2e\]/.test(list) && /hidden w-\[96px\] border-b border-\[#eef0f2\] bg-\[#fafbfb\] px-3 text-right font-medium lg:table-cell">Sales/.test(list))
 check("fifty to a page, with the footer's count and arrows, the count left off a phone with one page", /const PAGE_SIZE = 50/.test(list) && /data-footer=""/.test(list) && /aria-label="Next page"/.test(list) && /pages === 1 && "max-md:hidden"/.test(list))
-check("every phone press is 44px however small it is drawn", /className=\{cn\(ROW_MENU, "h-11 w-11"\)\}/.test(list) && (list.match(/BAR_PRESS/g) ?? []).length >= 4 && /max-sm:h-9 max-sm:text-\[15px\]/.test(list))
+check("Toolbar controls and row menus retain 44px touch targets",
+  /className=\{cn\(ROW_MENU, "h-11 w-11"\)\}/.test(list) && (list.match(/h-11 w-11/g) ?? []).length >= 5)
+
 check("the product actions are all still there: view, share, archive or restore, duplicate, delete", /t\("common\.view"\)/.test(list) && /api\.current\?\.share\(product\)/.test(list) && /api\.current\?\.archive\(product\)/.test(list) && /api\.current\?\.duplicate\(product\)/.test(list) && /api\.current\?\.remove\(product\)/.test(list)
   && /share: handleShare,\s*archive: handleArchive,\s*duplicate: handleDuplicate,\s*remove: handleDeleteClick,/.test(list) && /generateProductsCSV/.test(list) && /generateProductsPDF/.test(list))
 /* The phone's sheets: "fast loading, 200 fps smooth, not laggy at all". A sort or a new view moves the rows the page has; it does not draw them again. */
@@ -455,7 +446,9 @@ check("a row once drawn keeps its element: every product shown since the page op
     && !/pageProducts\.map\(\(product\)/.test(list))
 check("an empty view hides the lists rather than unmounting them", /\{drawn\.length > 0 \? \(/.test(list) && /\{pageProducts\.length === 0 \? \(\s*<div data-empty=""/.test(list))
 check("the hairlines follow the rows shown, not the rows in the page", /\[li:not\(\[hidden\]\)~&\]:border-t/.test(list) && /\[tr:not\(\[hidden\]\)~tr>&\]:border-t/.test(list) && !/\[&\+li\]|\[&\+tr>td\]|divide-y/.test(list))
-check("a change of view is measured before and played after, in a layout effect", /listShot\.current = shootList\(sectionRef\.current\)/.test(list) && /useLayoutEffect\(\(\) => \{\s*const before = listShot\.current\s*listShot\.current = null\s*playList\(sectionRef\.current, before\)\s*\}, \[view\]\)/.test(list))
+check("Applying filters measures rows before the change and animates after commit",
+  /listShot\.current = shootList\(sectionRef\.current\)/.test(list) && /playList\(sectionRef\.current, before\)\s*\}, \[filters\]\)/.test(list) && /setFilters\(next\); setPage\(1\)/.test(list))
+
 const motion = code("app/(storelib)/app/products/list-motion.ts")
 check("rows that stay glide on transform, rows that come fade in from 6px, 16ms apart for the first six",
   /\{ transform: `translateY\(\$\{dy\}px\)` \}, \{ transform: "translateY\(0\)" \}/.test(motion) && /\{ opacity: 0, transform: "translateY\(6px\)" \}, \{ opacity: 1, transform: "translateY\(0\)" \}/.test(motion)
@@ -477,7 +470,9 @@ check("each picture is its own size, decoded off the main thread, on grey", /wid
       && /"h-10 w-10 rounded-\[9px\]"/.test(list) && /sizes=\{THUMB_SIZES\[size\]\}/.test(list)
       && /srcSet=\{srcSet \|\| undefined\}/.test(list) && /optimizedSrcSet\(src, THUMB_FILES\[size\], THUMB_QUALITY\)/.test(list) && !/from "next\/image"/.test(list), { q, listed })
 }
-check("the list comes back as it was left: its view, order, search and page, kept for the tab", /let leftAt: \{ view: View; sort: Sort; search: string; page: number \} \| null = null/.test(list) && /leftAt = \{ view, sort, search: searchQuery, page \}/.test(list))
+check("Returning to the list preserves filters, sort, search and page",
+  /filters\?: ProductFilterValue/.test(list) && /leftAt = \{ sort, search: searchQuery, page, filters \}/.test(list))
+
 /* "The remembered list state should only be restored on a return from the editor (or browser back to the list), not when the Products page is opened fresh." */
 check("but only on a return: a fresh visit from the sidebar or the pill starts at All, Newest, no search, page one",
   /* Whether it is a return is read once, on the first render: the same answer resumes the list and holds the stage's landing (tests/return-navigation). */
@@ -822,15 +817,48 @@ console.log("\nRound 41: a product opens untouched, and Back drops it at once")
       && /const move = moveByHand\(layer, false, LAYER_LEAVE_MS, false\)/.test(lyr)
       && /move\.finished\.then\(send, send\)/.test(lyr)
       && /\{ to: PRODUCTS_HREF \}/.test(ret))
-  /* After a save, a status change or a delete the copy would show the row as it was: it is forgotten, and Back drops at the commit over the real list. */
-  check("a save, a publish or unpublish, and a delete each forget the list's copy",
+  /* Changed on purpose (products round 42): forgetting the copy on every save made Back after any edit wait for the list to be fetched and drawn again with the editor standing still. Now a save and a publish or unpublish correct the edited row in the copy, and a delete removes the row; only what cannot be made exactly right (a product the list never had, a new cover or kind, an archive instead of a delete) still forgets it. */
+  const ret42 = code("app/(storelib)/app/products/list-return.ts")
+  check("a save updates the list's copy; a delete removes the row",
     /export function forgetPageCopy\(\) \{\s*pageCopy\?\.box\?\.remove\(\)\s*pageCopy = null\s*\}/.test(lyr)
-      && /const markSaved = useCallback\(\(sent: DirtyFields, sentCards: CardDrafts, savedSlug\?: string\) => \{\s*forgetPageCopy\(\)/.test(ed)
-      && /announceChange\(\{ product: productId \}\)\s*forgetPageCopy\(\)\s*await forgetProduct\(productId, slug\)/.test(ed)
-      && /releaseUnsaved\(\)\s*forgetPageCopy\(\)\s*leavingRef\.current = true[\s\S]{0,200}returnToProducts\(router, null\)/.test(ed))
+      && /export function editPageCopy\(edit: \(part: HTMLElement\) => boolean\): void \{/.test(lyr)
+      && /const markSaved = useCallback\(\(sent: DirtyFields, sentCards: CardDrafts, savedSlug\?: string\) => \{\s*setSavedForm\(/.test(ed)
+      && /markSaved\(sentForm, sentCards, savedSlug\)\s*syncListCopy\(productId, true\)/.test(ed)
+      && /markSaved\(sentForm, sentCards, result\.slug\)\s*syncListCopy\(productId, false\)/.test(ed)
+      && /if \(!idBefore \|\| !was \|\| !now \|\| now\.thumb !== was\.thumb \|\| now\.type !== was\.type\) \{\s*listedRef\.current = null\s*forgetPageCopy\(\)/.test(ed)
+      && /announceChange\(\{ product: productId \}\)\s*updateListCopy\(\{ id: productId, live: newStatus === "published" \}\)/.test(ed)
+      && /releaseUnsaved\(\)\s*removeFromListCopy\(productId, gone\)\s*leavingRef\.current = true[\s\S]{0,200}returnToProducts\(router, null\)/.test(ed)
+      && /export function updateListCopy\(change: ListRowChange\): void \{\s*editPageCopy\(/.test(ret42)
+      && /export function removeFromListCopy\(id: string, deleted: boolean\): void \{\s*if \(!deleted\) \{\s*forgetPageCopy\(\)/.test(ret42))
   check("without a copy the way back is the drop at the commit, as before", /const kept = pageCopy && to && pageCopy\.path === to \? pageCopy : null/.test(lyr) && /if \(layer && kept && layerMotionOn\(true\)\) \{/.test(lyr))
   check("the copy goes in the commit that brings the page, and the mark a frame later so the stage lands nothing",
     /if \(want\.under\) \{\s*want\.under\.remove\(\)/.test(lyr) && /requestAnimationFrame\(\(\) => \{\s*if \(html\.dataset\.layerHand !== undefined && html\.dataset\.layerMotion === "leave"\)/.test(lyr))
+}
+
+console.log("\nRound 42: the tap, the ends, the Import keyboard, the filter")
+{
+  const css = readFileSync("app/globals.css", "utf8")
+  const add = list.match(/const ADD_LOOK = "([^"\n]*)"/)?.[1] ?? ""
+  check("Add's hover is for a mouse only, and there is no hover shadow for the touch rule to strip",
+    /pointer-fine:hover:bg-\[#7c3aed\]/.test(add) && !/(^|\s)hover:/.test(add) && !/hover:shadow/.test(add))
+  check("Add's press is one shade on a touch screen, on its own ease, with the shell's dim off",
+    /(^|\s)active:bg-\[#7c3aed\]/.test(add)
+      && /html\.capacitor \[data-new-product\] \{\s*transition: background-color 150ms ease-out;\s*\}/.test(css)
+      && /html\.capacitor \[data-new-product\]:active \{\s*opacity: 1;/.test(css))
+  check("the list's own scroller keeps its rubber band (contain), sideways none",
+    /<div data-elastic-pane="" className="orders-pane /.test(list)
+      && /html\.app-layout \.app-content-scroll > \.page-scroll\[data-elastic-pane\] \{\s*overscroll-behavior-x: none;\s*overscroll-behavior-y: contain;\s*\}/.test(css))
+  const imp = code("app/(storelib)/app/products/new/link-import-form.tsx")
+  const kinds42 = code("app/(storelib)/app/products/new/kind-chooser.tsx")
+  check("on a phone the Import tap focuses the link field in the tap itself, with the keyboard's room laid out first",
+    /if \(phone\) flushSync\(\(\) => step\(true\)\)/.test(kinds42) && /<LinkImportForm focusNow=\{phone\}/.test(kinds42)
+      && /if \(!focusNow \|\| !waiting\) return\s*openRoom\(false\)\s*field\.current\?\.focus\(\{ preventScroll: true \}\)/.test(imp)
+      && /max\(0px, calc\(\$\{expectedKeyboard\(/.test(imp) && /KEYBOARD_FLOOR_FRACTION/.test(imp) && !/localStorage/.test(imp))
+  check("the sheet's growth is a clip reveal (the field is in place from the first frame), shrinking plays on the height",
+    /panel\.animate\(\[\{ clipPath: `inset\(\$\{to - from\}px/.test(imp) && /panel\.animate\(\[\{ height: `\$\{from\}px` \}, \{ height: `\$\{to\}px` \}\]/.test(imp) && /glidePanel\(panel, from, STEP_GLIDE_MS\)/.test(kinds42))
+  const filters = code("app/(storelib)/app/products/product-filters.tsx")
+  check("the filter control is the toolbar's own icon button with the list-filter mark",
+    /className=\{cn\(iconButton, "h-11 w-11 shrink-0 rounded-full/.test(filters) && /<ListFilter className="h-5 w-5"/.test(filters) && !/<Filter /.test(filters))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

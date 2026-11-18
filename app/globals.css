@@ -273,6 +273,11 @@ html.app-from-dark::after {
     background-color: #131316;
   }
 }
+/* FROM A SIGN IN (lib/appearance/site-appearance FROM_SIGN_IN_KEY): the same veil in the sign in screen's own white, so
+   the white screen is followed by white and the dashboard comes up out of it, never a hard cut to the header's colour. */
+html.app-from-dark.app-from-sign-in::after {
+  background-color: #ffffff;
+}
 html.app-from-dark.app-from-dark-out::after {
   opacity: 0;
 }
@@ -751,46 +756,78 @@ html.capacitor body {
     touch-action: pan-y pinch-zoom;
   }
 
+  /* Site scrollbar: muted rounded thumb on charcoal rather than a white
+   * gutter. Keep native scrolling and overflow:auto so short pages do not
+   * reserve an empty rail. Dedicated editor scrollers retain their own styles. */
+  html {
+    scrollbar-width: thin;
+    scrollbar-color: #777777 #292929;
+  }
   /*
-    AND NO SCROLLBAR PROPERTIES ON <html>.
+    EVERY SCROLLER INSIDE THE PAGE: ONE SLIM, QUIET BAR (round 3).
 
-    A slim bar was styled here at first, and the note further down this file
-    says why that was wrong: every scrollbar property, `scrollbar-width` and
-    `scrollbar-color` and the ::-webkit-scrollbar rules alike, opts an element
-    OUT of the platform's overlay scrollbar and into a classic one that
-    reserves a column of layout. On macOS that would have put the empty
-    column straight back the moment a page had anything to scroll, which is
-    the exact complaint being fixed.
+    `scrollbar-color` is INHERITED. Set on <html> for the page's own bar, the
+    charcoal track above reached every element that scrolls: the Share your
+    OnePage dialog, /app's sheets, panels and dropdowns, each drawing a black
+    track at the platform's full width (`scrollbar-width` is not inherited),
+    and, since Chrome 121, ignoring the ::-webkit-scrollbar rules written for
+    them, because a standard value now applied. The page's own bar is read
+    from the root alone, so it keeps the charcoal; everything under <body>
+    is given its own:
 
-    Left alone, the platform floats its own bar over the content and reserves
-    nothing. The slim bar stays where it belongs: `.wb-slim-scroll`, on the
-    editor's own light panels, where a reserved column is invisible.
+      - the thumb in the surface's own text colour at a quarter strength, so
+        it is a light grey on a white dialog and a dark grey on a dark sheet
+        with no rule per theme (`currentColor` is resolved per element);
+      - no track at all;
+      - thin, at zero specificity (:where), so any class that hides a bar
+        (`scrollbar-hide`, [scrollbar-width:none], .page-scroll on a phone) or
+        draws its own (.wb-slim-scroll, .site-slim-scroll) still wins.
 
-    Round 13 brings a slim bar back for pointer screens only, by the two
-    standard properties and nothing else (the rule under this note): the
-    owner asked for one slim, light grey bar everywhere, the same one /app's
-    scrollers already draw.
+    Pointer screens only, as before: a touch screen keeps the platform's own
+    overlay indicator. scripts/check-app-scrollbars-r3.mjs measures it.
   */
-
-  /*
-    THE PAGE'S SCROLLBAR: SLIM, LIGHT GREY, NO TRACK (round 13, ask 26: "the
-    page scrollbar everywhere: slim, light grey, modern, and the post
-    panel's"). Where a pointer drives the page, the window's bar (and the
-    opened post's panel, and the notifications list) is the thin one in a
-    light grey on a clear track, by the two standard properties only. No
-    ::-webkit-scrollbar rules: those are what took a classic, full width bar
-    with a reserved column, and a browser that knows the standard pair
-    ignores them anyway. A page that has nothing to scroll still reserves
-    nothing (`overflow-y: auto` above); the community's frame keeps its
-    own stable gutter so its columns never move. Touch screens keep no bar
-    at all (the rule under this one).
-  */
+  body {
+    scrollbar-color: auto;
+  }
   @media (hover: hover) and (pointer: fine) {
-    html,
-    [data-post-overlay-scroll],
-    [data-bell-list] {
+    body {
+      scrollbar-color: rgba(120, 120, 128, 0.4) transparent;
+      scrollbar-color: color-mix(in srgb, currentColor 26%, transparent) transparent;
+    }
+    :where(body *) {
       scrollbar-width: thin;
-      scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
+    }
+  }
+
+  /* Safari versions without the standard scrollbar properties. Modern
+   * browsers use the standard thin bar above; no JavaScript scroll wrapper. */
+  html::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+    background: #292929;
+  }
+  html::-webkit-scrollbar-track,
+  html::-webkit-scrollbar-corner {
+    background: #292929;
+  }
+  html::-webkit-scrollbar-thumb {
+    background: #777777;
+    border: 1px solid #292929;
+    border-radius: 999px;
+    background-clip: padding-box;
+  }
+  html::-webkit-scrollbar-thumb:hover {
+    background-color: #929292;
+  }
+  html::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+  @media (forced-colors: active) {
+    html,
+    body {
+      scrollbar-color: auto;
     }
   }
 
@@ -1053,6 +1090,16 @@ html.capacitor body {
   .onepage-live .flex.flex-col > .w-full > p:only-child {
     overflow: hidden;
   }
+  /* Round AR: small print never fainter than the page can afford. The page
+     writes --op-small-print (lib/onepage/contrast smallPrintAlpha): the least
+     opacity at which its words still read at 4.5:1 on every ground. A
+     description at 60% on Sunset's terracotta did not. Never below the
+     class's own value, so a light or dark page keeps its look. */
+  .onepage-live .opacity-60 { opacity: max(0.6, var(--op-small-print, 0)); }
+  .onepage-live .opacity-70 { opacity: max(0.7, var(--op-small-print, 0)); }
+  .onepage-live .opacity-75 { opacity: max(0.75, var(--op-small-print, 0)); }
+  .onepage-live .opacity-80 { opacity: max(0.8, var(--op-small-print, 0)); }
+  .onepage-live .opacity-85 { opacity: max(0.85, var(--op-small-print, 0)); }
 
   .onepage-no-scrollbar {
     scrollbar-width: none;
@@ -1583,29 +1630,22 @@ html.capacitor body {
     laid out again in its frames. The fill sliding between the pills is in
     app/(marketing)/blog/_components/blog-nav.tsx. With reduced motion the
     list simply changes.
+    Landing round 15, the owner: it still flashed. A pill now redraws the
+    list in the browser with nothing to wait for (blog/_components/
+    blog-lists.tsx), so the fade out, which left a blank while the next
+    page loaded, and the title's fade, now that the title never changes,
+    are gone. Only the new list's 220ms fade and rise is left, and it starts
+    at 30% rather than nothing, so the cards never blink out for a frame.
   */
-  .blog-list-out {
-    opacity: 0;
-    transition: opacity 120ms cubic-bezier(0.4, 0, 1, 1);
-  }
   .blog-list-swap {
     animation: blog-list-swap 220ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
   }
   @keyframes blog-list-swap {
-    from { opacity: 0; transform: translate3d(0, 6px, 0); }
+    from { opacity: 0.3; transform: translate3d(0, 6px, 0); }
     to { opacity: 1; transform: none; }
   }
-  /* The category's name and line above the pills: a plain fade, nothing moves. */
-  .blog-title-swap {
-    animation: blog-title-swap 220ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
-  }
-  @keyframes blog-title-swap {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
   @media (prefers-reduced-motion: reduce) {
-    .blog-list-out { opacity: 1; transition: none; }
-    .blog-list-swap, .blog-title-swap { animation: none; }
+    .blog-list-swap { animation: none; }
   }
 
   /*
@@ -2730,12 +2770,15 @@ html.capacitor .subscribe-bar-spacer {
 
 /* Glow - pulsing shadow effect, in the button's own colour (--op-accent, set by
    lib/onepage/button-style.ts); a block without it glows near-black. It was violet. */
+/* Round AS: the owner saw white buttons glowing white on dark pages. The Glow is the creator's pick, so it stays,
+   as a quiet breath at the button's edge: a 1px ring and a 10px glow at a quarter strength at its widest, where it
+   was a 20px and a 30px cloud at 55% and 35% (scripts/check-onepage-glow-as1.mjs). */
 @keyframes onepage-glow {
   0%, 100% {
-    box-shadow: 0 0 5px color-mix(in srgb, var(--op-accent, #1a1a2e) 30%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--op-accent, #1a1a2e) 14%, transparent);
   }
   50% {
-    box-shadow: 0 0 20px color-mix(in srgb, var(--op-accent, #1a1a2e) 55%, transparent), 0 0 30px color-mix(in srgb, var(--op-accent, #1a1a2e) 35%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--op-accent, #1a1a2e) 26%, transparent), 0 0 10px color-mix(in srgb, var(--op-accent, #1a1a2e) 24%, transparent);
   }
 }
 
@@ -2809,9 +2852,25 @@ html.capacitor .subscribe-bar-spacer {
 .op-btn {
   position: relative;
   isolation: isolate;
-  transition-property: translate, scale, opacity, color;
+  transition-property: translate, scale, opacity;
   transition-duration: 200ms;
   transition-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+/* ONLY A HOVER THAT CHANGES THE WORDS' COLOUR ANIMATES IT (the owner: buttons whose words "flash and change colours
+   on their own"). `color` was transitioned on every button, so any change of it that was not a hover animated too:
+   a theme picked in the editor (the words crossing over the new fill for 200ms, unreadable on the way), the
+   legibility guard's corrections, the creator's own colours raised over a skin. Fill and Pop change the words on
+   hover, so they alone carry it; every other change of colour is a cut. */
+.op-btn:is([data-hover="fill"], [data-hover="pop"]) {
+  transition-property: translate, scale, opacity, color;
+}
+/* AND NOTHING ANIMATES WHILE THE PAGE TAKES ON A LOOK: its first paint, hydration, and a theme or colour arriving
+   in the editor's preview (components/onepage/public-onepage data-op-still, for two frames). */
+.onepage-live[data-op-still],
+.onepage-live[data-op-still] *,
+.onepage-live[data-op-still] *::before,
+.onepage-live[data-op-still] *::after {
+  transition: none !important;
 }
 .op-btn::before {
   content: "";
@@ -2826,11 +2885,15 @@ html.capacitor .subscribe-bar-spacer {
   transition-duration: 200ms;
   transition-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);
 }
+/* Round AS: the Glow hover, tighter and fainter (a 2px ring at 14%, a 16px shadow at 30%), so a white button on a dark page is lit, not haloed. */
 .op-btn[data-hover="glow"]::before {
   box-shadow:
-    0 0 0 3px color-mix(in srgb, var(--op-accent, #1a1a2e) 16%, transparent),
-    0 8px 28px -6px color-mix(in srgb, var(--op-accent, #1a1a2e) 45%, transparent);
+    0 0 0 2px color-mix(in srgb, var(--op-accent, #1a1a2e) 14%, transparent),
+    0 6px 16px -6px color-mix(in srgb, var(--op-accent, #1a1a2e) 30%, transparent);
 }
+/* Lift's slight tint. ROUND 3: it was the words' own colour (currentColor) at 5%, which moves the fill toward the
+   words, always against them: Graphite's light words on its glass read 4.4:1 at rest and 3.6:1 under the pointer.
+   It is the words' opposite now (relative colour syntax), so the tint can only part them further. */
 .op-btn:not(.animate-onepage-swipe)::after {
   content: "";
   position: absolute;
@@ -2840,6 +2903,7 @@ html.capacitor .subscribe-bar-spacer {
   z-index: -1;
   opacity: 0;
   background: currentColor;
+  background: rgb(from currentColor calc(255 - r) calc(255 - g) calc(255 - b));
   transition-property: opacity;
   transition-duration: 200ms;
   transition-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);
@@ -2902,7 +2966,7 @@ html.capacitor .subscribe-bar-spacer {
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="lift"][data-shadow="hard"] { translate: -2px -2px; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="lift"]::before { opacity: 1; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="lift"]:not(.animate-onepage-swipe)::after { opacity: 0.05; }
-  :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="fade"] { opacity: 0.8; }
+  :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="fade"] { opacity: var(--op-fade, 0.8); }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="zoom"] { scale: 1.03; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="glow"]::before { opacity: 1; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="fill"] { color: var(--op-fill-text, inherit) !important; }
@@ -2967,6 +3031,47 @@ iframe:is([src*="youtube.com/embed"], [src*="youtube-nocookie.com/embed"], [src*
   animation-delay: 1s;
 }
 
+/* SOCIAL ICONS THE CREATOR STYLED AFTER PICKING A SKINNED THEME (lib/onepage/skin-own "socials"): the marks in the
+   colours they chose (Brand colours, One colour), not the skin's recolouring of them (Grunge, Classic 98, Arcade
+   draw every mark black or white through a filter). The tile itself is raised by honourOwnStyles. */
+[data-op-skin][data-sk-own~="socials"] [data-op-social-icon] svg { filter: none !important; }
+
+/* A BLOCK ARRIVES AS IT COMES INTO VIEW (components/onepage/block-entrance). Held while it is out of sight, then
+   faded up from 10px below, opacity and translate only; "done" once it has, so nothing replays. "wait" also stops the first
+   screen's fade the server drew, which would otherwise play out of sight. */
+.onepage-live [data-op-enter="wait"] {
+  opacity: 0;
+  animation: none !important;
+}
+.onepage-live [data-op-enter="done"] {
+  animation: none !important;
+}
+.onepage-live [data-op-enter="in"] {
+  animation: op-block-enter 460ms cubic-bezier(0.2, 0.7, 0.2, 1) var(--op-enter-delay, 0ms) both !important;
+}
+@keyframes op-block-enter {
+  from { opacity: 0; translate: 0 10px; }
+  to { opacity: 1; translate: 0 0; }
+}
+/* THE BLOCK ANIMATIONS (Pulse, Bounce, Shake, Glow, Swipe) keep moving under a press: the press's own keyframe
+   (data-op-pressing, below) replaced the block's, which then restarted from its first frame when let go. */
+html[data-op-press] .animate-onepage-pulse[data-op-pressing]:not(#op) { animation: onepage-pulse 2.5s ease-in-out infinite; }
+html[data-op-press] .animate-onepage-bounce[data-op-pressing]:not(#op) { animation: onepage-bounce 2.5s ease-in-out infinite; }
+html[data-op-press] .animate-onepage-shake[data-op-pressing]:not(#op) { animation: onepage-shake 3.5s ease-in-out infinite; }
+html[data-op-press] .animate-onepage-glow[data-op-pressing]:not(#op) { animation: onepage-glow 2s ease-in-out infinite; }
+/* Nothing arrives and nothing loops for anyone who asked for less motion. */
+@media (prefers-reduced-motion: reduce) {
+  .onepage-live [data-onepage-enter],
+  .onepage-live [data-op-enter] { animation: none !important; opacity: 1; }
+  .animate-onepage-pulse,
+  .animate-onepage-bounce,
+  .animate-onepage-shake,
+  .animate-onepage-glow,
+  .animate-onepage-swipe::after { animation: none !important; }
+  .animate-onepage-swipe::after { opacity: 0; }
+  html[data-op-press] :is(.animate-onepage-pulse, .animate-onepage-bounce, .animate-onepage-shake, .animate-onepage-glow)[data-op-pressing]:not(#op) { animation: none; }
+}
+
 /* ===========================================================================
    OnePage round 40: block layouts, the header's alignment, the themed
    product sheet and checkout window, and the page's own scrollbar
@@ -3013,6 +3118,30 @@ iframe:is([src*="youtube.com/embed"], [src*="youtube-nocookie.com/embed"], [src*
 [data-op-align="left"] [data-op-header] > h1 { justify-content: flex-start; text-align: left; }
 [data-op-align="left"] [data-op-header] > :is(p, img) { margin-left: 0; margin-right: 0; text-align: left; }
 [data-op-align="left"] [data-op-socials] { justify-content: flex-start; }
+[data-op-align="left"] .op-social-track[data-op-socials] { margin-inline-start: 0; }
+
+/*
+  ROUND 3: THE SOCIAL ROW SLIDES WHEN IT DOES NOT FIT (components/onepage/social-row-scroller). Centred while it fits;
+  past that the full column, the browser's own momentum, a soft snap to each icon, no scrollbar, and the edge with
+  more behind it fading out. The track's padding keeps a tile's ring and shadow inside the clip.
+*/
+.op-social-scroll {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: 6px;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  touch-action: pan-x pan-y;
+}
+.op-social-scroll::-webkit-scrollbar { display: none; }
+.op-social-track { display: flex; align-items: center; gap: 10px; width: max-content; margin-inline: auto; padding: 4px 6px; }
+.op-social-track > * { scroll-snap-align: start; }
+.op-social-scroll[data-fade="end"] { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 36px), transparent); }
+.op-social-scroll[data-fade="start"] { -webkit-mask-image: linear-gradient(90deg, transparent, #000 36px); mask-image: linear-gradient(90deg, transparent, #000 36px); }
+.op-social-scroll[data-fade="both"] { -webkit-mask-image: linear-gradient(90deg, transparent, #000 36px, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(90deg, transparent, #000 36px, #000 calc(100% - 36px), transparent); }
 
 /* ROUND 43: A WINDOW OVER A OnePage LEAVES THE PAGE WHERE IT IS (lib/onepage/page-hold). While a window holds the page, <html> stops it scrolling and keeps the scrollbar's room; a Radix dialog's own body lock would hide the bar a second time and add its width as a margin, so here it does neither. */
 html[data-op-hold] body[data-scroll-locked] { overflow: visible !important; margin-right: 0 !important; }
@@ -4324,6 +4453,17 @@ html.app-layout .app-content-scroll > .dashboard-scroll-container,
 html.app-layout .app-content-scroll > .sales-scroll-container {
   overscroll-behavior: none;
 }
+/* A PAGE THAT ASKS FOR ITS RUBBER BAND BACK (products round 42, the Products
+   list: app/(storelib)/app/products/products-client.tsx). `contain`, not
+   `none`: the flick that reaches either end gives and springs back on this
+   box, in its own ground, and still never chains to the shell's scroller or
+   the document behind the black bar. Horizontal stays `none` (the back
+   swipe). The pull to refresh at the top is unchanged: it holds the box
+   still itself while a pull is under the finger (hooks/use-pull-to-refresh). */
+html.app-layout .app-content-scroll > .page-scroll[data-elastic-pane] {
+  overscroll-behavior-x: none;
+  overscroll-behavior-y: contain;
+}
 
 /* ── Keyboard-aware scroll container height ──────────────────────────────────
  *
@@ -5061,7 +5201,8 @@ html.capacitor {
     rails: 13 -> 11.3 here and 12 -> 10.3 on the row. Splitting it keeps the
     contents centred in the bar rather than sliding them up.
   */
-  padding-top: max(env(safe-area-inset-top, 0px), 11.3px);
+  /* Round 61: 2% more off the 64.6px bar, again split between the rails: 11.3 -> 10.65, 10.3 -> 9.65. */
+  padding-top: max(env(safe-area-inset-top, 0px), 10.65px);
 }
 @media (min-width: 768px) {
   .platform-header-row {
@@ -5603,6 +5744,17 @@ html.capacitor .orders-list [data-phone-row] a:active {
     transition-delay: 130ms;
     transition-duration: 60ms;
   }
+}
+/* The Products bar's Add (products round 42): its press is one shade deeper on its own ease (ADD_LOOK), so the shell's
+   72% dim, which snapped in with no easing on a violet button, is not drawn over it, and the shell's
+   `transition: opacity` on every control (above) does not leave the colour to change in one frame. */
+html.capacitor [data-new-product] {
+  transition: background-color 150ms ease-out;
+}
+html.capacitor [data-new-product]:active {
+  opacity: 1;
+  transition-delay: 0ms;
+  transition-duration: 90ms;
 }
 /* Settings' tabs on a phone: a swipe along the row never dims the pill it started on (round 22, components/app/settings-form-new.tsx). */
 html.capacitor [data-settings-tabs] button:active {
@@ -9706,11 +9858,11 @@ html[data-editor-drawer-open]::-webkit-scrollbar {
 [data-block-presentation][data-title-color] :is(.op-label,[data-block-title],h2,h3) { color: var(--op-block-title-color) !important; }
 [data-block-presentation][data-icon-size] .op-btn svg { width: var(--op-block-icon-size); height: var(--op-block-icon-size); }
 [data-block-presentation][data-icon-color] .op-btn svg { color: var(--op-block-icon-color) !important; }
-[data-block-presentation][data-block-gap] .op-btn { gap: var(--op-block-gap); }
-[data-block-presentation][data-block-padding] .op-btn:not([data-visual-link-action]) { padding: var(--op-block-padding); }
-[data-block-align="left"] :is(.op-btn,.op-label,h2,h3) { text-align:left; }
-[data-block-align="right"] :is(.op-btn,.op-label,h2,h3) { text-align:right; }
-[data-block-align="center"] :is(.op-btn,.op-label,h2,h3) { text-align:center; }
+[data-block-presentation][data-block-gap]:not([data-block-surface="card"]) .op-btn { gap: var(--op-block-gap); }
+[data-block-presentation][data-block-padding]:not([data-block-surface="card"]) .op-btn:not([data-visual-link-action]) { padding: var(--op-block-padding); }
+[data-block-align="left"]:not([data-block-surface="card"]) :is(.op-btn,.op-label,h2,h3) { text-align:left; }
+[data-block-align="right"]:not([data-block-surface="card"]) :is(.op-btn,.op-label,h2,h3) { text-align:right; }
+[data-block-align="center"]:not([data-block-surface="card"]) :is(.op-btn,.op-label,h2,h3) { text-align:center; }
 /* The shared Layout tab's surface (components/onepage/block-settings). A block with a button or card of its own wears it there; any other block gets a panel once it has a background. */
 [data-block-surface="own"][data-block-bg] :is(.op-btn,.op-card):not([data-visual-link-action]) { background: var(--op-block-bg) !important; }
 [data-block-surface="own"][data-block-radius] :is(.op-btn,.op-card):not([data-visual-link-action]) { border-radius: var(--op-block-radius) !important; }
@@ -9724,7 +9876,8 @@ html[data-editor-drawer-open]::-webkit-scrollbar {
 [data-block-size="tall"] :is([data-visual-link],[data-visual-link-action]) { height:100%; }
 [data-block-size="tall"] [data-visual-link-action] > span { height:100%; min-height:280px; }
 /* Round AP: a link button half the column wide, as the Mixed layout draws every link. Its icon sat 20px in with the label kept 48px clear of it on both sides, which left a word or two of room: "Latest work" broke into four lines. It is a tile now, as Grid's are: the icon over the words, the words the button's whole width, the two halves of a row the same height. */
-[data-mixed-blocks] > [data-block-size="half"]:has(.op-btn) > * { height:100%; }
+/* The button (or the block that holds it) fills its half, as the half next to it does. Written with the :has() on the last part, not `[data-block-size="half"]:has(.op-btn) > *`: a :has() before a combinator whose last part is `*` is tried on every element's parent, so Chromium restyled the whole document on every element added anywhere (the home page's sections, 260 elements, cost 390 ms to add at 4x CPU instead of 50). */
+[data-mixed-blocks] > [data-block-size="half"] > :is(.op-btn, :has(.op-btn)) { height:100%; }
 [data-mixed-blocks] > [data-block-size="half"] .op-btn { height:100%; flex-direction:column; justify-content:center; gap:8px; padding-inline:12px; }
 [data-mixed-blocks] > [data-block-size="half"] .op-btn > :not(div) { position:static; }
 [data-mixed-blocks] > [data-block-size="half"] .op-btn > div { padding-inline:0; align-items:center; text-align:center; }
@@ -9777,3 +9930,386 @@ html[data-editor-drawer-open]::-webkit-scrollbar {
 [data-story-track] { scrollbar-width: none; -webkit-overflow-scrolling: touch; }
 [data-story-track]::-webkit-scrollbar { display: none; }
 [data-story-track][data-dragging] { scroll-snap-type: none; cursor: grabbing; user-select: none; }
+
+/* ===========================================================================
+   OnePage round AR: the press, the hero as the page scrolls, a block leaving
+   ===========================================================================
+   THE PRESS. components/onepage/press-feel marks <html> while a OnePage is
+   drawn and sets data-op-pressing on the button, link or row under a finger
+   or a mouse from pointerdown: it sinks at once and springs back when let go
+   (data-op-letgo). Scale and opacity only, the compositor's. Unlayered, so it
+   is the one press every button shares, whatever its own utilities say. A
+   big card sinks less than a small button. */
+/* :not(#op) only lifts the weight above the hover rules (.op-btn[data-hover]:active), so every button sinks the same. */
+/* Round 3: the press sinks, it no longer fades. At 90% a button's words lost a tenth of their contrast for as long as
+   it was held (Neon's product title read 3.1:1 under a finger); the sink alone is the answer. */
+html[data-op-press] [data-op-pressing]:not(#op) {
+  scale: 0.965;
+  opacity: 1;
+  transition: scale 60ms cubic-bezier(0.2, 0, 0, 1), opacity 60ms linear;
+  /* Already part way down on the very first frame: a transition's first frame is still the resting size. */
+  animation: op-press-in 60ms cubic-bezier(0.2, 0, 0, 1);
+}
+@keyframes op-press-in {
+  from { scale: 0.982; }
+  to { scale: 0.965; }
+}
+html[data-op-press] :is(.op-card, [data-press="soft"])[data-op-pressing]:not(#op),
+html[data-op-press] [data-op-pressing="soft"]:not(#op) {
+  scale: 0.985;
+  animation: none;
+}
+html[data-op-press] [data-op-letgo] {
+  transition: scale 220ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 220ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Standing still, a press is a ring round the button, not a fade over its words. */
+  html[data-op-press] [data-op-pressing]:not(#op) { scale: none; opacity: 1; outline: 2px solid color-mix(in srgb, currentColor 45%, transparent); outline-offset: 2px; transition-duration: 0ms; animation: none; }
+  html[data-op-press] [data-op-letgo] { transition-duration: 120ms; }
+}
+
+/* Something that looks like loading only once it has taken half a second (round AR, the sheets). */
+@keyframes op-late-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* THE HERO AS THE PAGE SCROLLS (components/onepage/hero-scroll). The hero's
+   own box is the timeline: from when its top leaves the top of the screen to
+   when its foot does. The picture is held back and grows a little, a dark
+   layer fades over it, and the name over it fades out, so the page slides up
+   over the picture. Transform and opacity only; a browser without scroll
+   timelines gets the same curve from hero-scroll's fallback. */
+@keyframes op-hero-shift {
+  from { translate: 0 0; scale: 1; }
+  to { translate: 0 35%; scale: 1.06; }
+}
+@keyframes op-hero-dim {
+  from { opacity: 0; }
+  to { opacity: 0.55; }
+}
+/* Round AS: the name stays until the bar forms over it (components/onepage/hero-scroll), then hands over. */
+@keyframes op-hero-title {
+  0%, 62% { opacity: 1; }
+  92%, 100% { opacity: 0; }
+}
+@supports (animation-timeline: view()) {
+  [data-hero-scroll] { view-timeline: --op-hero block; }
+  [data-hero-scroll] [data-hero-shift] {
+    transform-origin: 50% 0;
+    animation: op-hero-shift linear both;
+    animation-timeline: --op-hero;
+    animation-range: exit 0% exit 100%;
+  }
+  [data-hero-scroll] [data-hero-scrim] {
+    animation: op-hero-dim linear both;
+    animation-timeline: --op-hero;
+    animation-range: exit 0% exit 100%;
+  }
+  [data-hero-scroll] [data-hero-title] {
+    animation: op-hero-title linear both;
+    animation-timeline: --op-hero;
+    animation-range: exit 0% exit 100%;
+  }
+}
+[data-hero-scroll] [data-hero-shift] { transform-origin: 50% 0; }
+@media (prefers-reduced-motion: reduce) {
+  [data-hero-scroll] :is([data-hero-shift], [data-hero-title]) { animation: none !important; translate: none !important; scale: none !important; }
+}
+
+/* A ROW THAT SLIDES SIDEWAYS RUNS TO THE PAGE'S EDGE (round AS). Every
+   carousel on a OnePage (a group's, a shelf's, posts, reviews, stats, an app's,
+   testimonials, the picture slider) is a scroller, and a scroller clips. It
+   used to clip a few px outside the column, so a card was cut by a hard line
+   20px in from the screen (28px in from the computer's card) and a shadow or
+   ring was cut at the top and the side. The row now reaches the column's own
+   edge (--op-gutter, the page's side padding, set by components/onepage/
+   public-onepage), snaps its first card back in line with the column
+   (scroll-padding), and has room above and below for a shadow: a card is cut
+   only by the screen or the card's own rounded edge. Inside a half width
+   block or a pair, where the edge is a neighbour, it keeps a few px. */
+/*
+  Round 17, the owner: "why do some blocks that don't need vertical scrolling scroll". A box that scrolls sideways
+  (overflow-x: auto) has its other direction computed to auto as well, so a rail whose cards stood a few px taller
+  than its room (a shadow, a hover lift, a hard shadow's offset) became a scroller up and down too, and caught the
+  page's own scroll under a finger or a wheel. A rail scrolls sideways only; what does not fit above and below is
+  cut where it was already cut (an auto box clips there too), and the page's scroll passes through.
+*/
+.op-rail {
+  width: auto;
+  margin-inline: calc(-1 * var(--op-gutter, 4px));
+  padding-inline: var(--op-gutter, 4px);
+  scroll-padding-inline: var(--op-gutter, 4px);
+  overflow-y: hidden;
+  margin-block: -10px;
+  padding-block: 10px;
+}
+:is([data-block-size="half"], [data-block-size="tall"], [data-link-tile], [data-product-pair] > *, [data-group-grid] > *) { --op-gutter: 4px; }
+
+/* ROUND AT: THE ONEPAGE'S OWN TOP INSET. The notch on a phone and in the apps (env), and nothing inside the editor's
+   preview frame (data-onepage-embedded, set in app/(storelib)/layout.tsx before the first paint): the frame sits under
+   the editor's bar, but WebKit gives a frame the screen's insets, so the bar below was padded by the notch there and
+   drew a second, taller band (the owner's image 145). The page's top bar, corner buttons, sheets and lightbox read it. */
+:root {
+  --op-safe-top: env(safe-area-inset-top, 0px);
+}
+:root[data-onepage-embedded] {
+  --op-safe-top: 0px;
+}
+
+/* THE PROFILE BAR (components/onepage/hero-scroll HeroTopBar, round AS; round
+   R3). 60px across a phone, under the status bar; on a computer 56px, the
+   card's own top: the card's width, its 40px corners at the top of the window.
+   No ring and no shadow: the page's own colour, and a soft fade of that colour
+   at its foot, so the content slides under it without a line. Its height is
+   read by the bar's own row (--op-bar-h); lib/onepage/feel names the same
+   numbers (BAR_PHONE_PX, BAR_DESKTOP_PX, BAR_MORPH_PX, CARD_RADIUS_PX). */
+/*
+  Round 17, the owner: "I still don't like the way the header is there ... look how bad it looks on desktop". It was a
+  solid band of the page's colour with a fade hung under it, so on a computer the content stopped at a hard strip.
+  It is frosted now: the page's colour at 82% over a blur of what slides under it, and its own foot fades out (a mask,
+  not a second layer), so there is no edge anywhere, on a phone or a computer. The words keep the page's title colour,
+  and 82% of the page's own colour over a blurred picture still reads as that colour.
+*/
+.op-topbar {
+  --op-bar-h: 60px;
+  --op-bar-foot: calc(env(safe-area-inset-top, 0px) + var(--op-bar-h));
+  background-color: color-mix(in srgb, var(--op-bar-bg, #ffffff) 82%, transparent) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  backdrop-filter: blur(18px) saturate(1.4);
+}
+/* Its foot: the same frosted colour carried on 16px and faded out, so the content slides under it with no line. */
+.op-topbar::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: 100%;
+  height: 16px;
+  pointer-events: none;
+  background-color: color-mix(in srgb, var(--op-bar-bg, #ffffff) 82%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-mask-image: linear-gradient(to bottom, #000, transparent);
+  mask-image: linear-gradient(to bottom, #000, transparent);
+}
+@media (min-width: 48rem) {
+  /* ON A COMPUTER THE BAR IS SOLID, IN THE PAGE'S COLOUR, AND THE CONTENT FADES INTO IT. The owner: "the header ...
+     is getting cutted and it looks bad". The frosted bar showed the content blurred through it and its blur stopped
+     on a straight line, where a photo's sharp edges began, so the content read as cut. Now the bar is the page's
+     own colour and its foot is a 36px fade of that colour, with no blur to end. */
+  .op-topbar {
+    --op-bar-h: 56px;
+    --op-bar-foot: var(--op-bar-h);
+    background-color: var(--op-bar-bg, #ffffff) !important;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .op-topbar::after {
+    height: 36px;
+    background: linear-gradient(to bottom, var(--op-bar-bg, #ffffff), transparent);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+}
+/* Where no stylesheet draws it, the script writes it a frame at a time: a short ease covers the step. */
+.op-topbar:not([data-op-topbar-css]) { transition: opacity 120ms linear; }
+.op-topbar:not([data-op-topbar-css]) > [data-op-topbar-button] { transition: transform 120ms ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .op-topbar, .op-topbar > [data-op-topbar-button] { transition: none !important; }
+}
+
+/* Drawn by the compositor from the name's own place (a view timeline the script names on it): the bar forms while the
+   name's foot travels the last 80px (BAR_MORPH_PX) to the bar's foot, exactly as lib/onepage/feel barMorph says,
+   in step with the scroll on every frame, and runs backwards on the way up. */
+:root { timeline-scope: --op-bar-anchor; }
+@keyframes op-bar-form { from { opacity: 0; } to { opacity: 1; } }
+@keyframes op-bar-settle { from { transform: translate3d(0, 10px, 0) scale(0.94); } to { transform: none; } }
+.op-topbar[data-op-topbar-css] {
+  animation: op-bar-form linear both;
+  animation-timeline: --op-bar-anchor;
+  animation-range: cover calc(100% - var(--op-bar-foot) - 80px) cover calc(100% - var(--op-bar-foot));
+}
+.op-topbar[data-op-topbar-css] > [data-op-topbar-button] {
+  animation: op-bar-settle linear both;
+  animation-timeline: --op-bar-anchor;
+  animation-range: cover calc(100% - var(--op-bar-foot) - 80px) cover calc(100% - var(--op-bar-foot));
+}
+@media (prefers-reduced-motion: reduce) {
+  .op-topbar[data-op-topbar-css] > [data-op-topbar-button] { animation: none; }
+}
+
+/* THE CARD KEEPS ITS CORNERS AT THE TOP OF THE WINDOW (round R3). On a
+   computer, once the card's top has scrolled past the window's, the card is
+   cut there with its own 40px corners, so the bar above sits in the card's
+   rounded top and the wallpaper shows in the corners, not the content
+   scrolling under them. A scroll timeline on the page, so it moves with the
+   scroll on the compositor; --op-card-top is where the card starts (written
+   by HeroTopBar, 32px by default). Its shadow is drawn by the box around it,
+   which this does not cut. */
+/* Round R3 cut the card with 40px corners at the top of the window as it scrolled. The owner saw the wallpaper in
+   those corners and a block's straight edges running into the curve as the page "getting cutted": the card now
+   passes the window's top square, under the bar, which is its own full width (components/onepage/hero-scroll). */
+
+/* The header's search tail follows its dark field; Explore's light field keeps its own look. */
+[data-header-tone="dark"] [data-header-search-tail] > div > span[aria-hidden] { background-color:rgba(255,255,255,.15); }
+[data-header-tone="dark"] [data-header-search-tail] .search-categories-trigger { color:rgba(255,255,255,.68); background-color:transparent; }
+[data-header-tone="dark"] [data-header-search-tail] .search-categories-trigger:hover,
+[data-header-tone="dark"] [data-header-search-tail] .search-categories-trigger:focus-visible,
+[data-header-tone="dark"] [data-header-search-tail] .search-categories-trigger[aria-expanded="true"] { color:#fff; background-color:rgba(255,255,255,.09); }
+
+[data-header-tone="dark"] [data-header-search-tail] > button { color:rgba(255,255,255,.6); }
+[data-header-tone="dark"] [data-header-search-tail] > button:hover { color:#fff; background-color:rgba(255,255,255,.07); }
+
+/* Editorial homepage system: native scrolling, scoped surfaces and shared type. */
+.story-heading {
+  --story-ink:#18181b; --story-muted:#777780; --story-accent:#7c3aed;
+  margin:0; font-size:clamp(36px,5vw,76px); font-weight:500;
+  line-height:1.09; letter-spacing:-.055em; text-wrap:pretty;
+  transform:translate3d(0,calc((1 - var(--story-progress,0))*12px),0);
+}
+.story-heading[data-story-dark] {--story-ink:#fafafa;--story-muted:#a3a0ac;--story-accent:#bca3ff}
+.story-heading [data-story-word] {
+  --word-target:var(--story-ink);
+  --word-fill:clamp(0%,calc((var(--story-progress,0) * var(--word-count) - var(--word-index)) * 100%),100%);
+  color:var(--story-muted);
+}
+.story-heading [data-story-accent] {--word-target:var(--story-accent)}
+@supports (background-clip:text) or (-webkit-background-clip:text) {
+  .story-heading [data-story-word] {
+    background:linear-gradient(90deg,var(--word-target) var(--word-fill),var(--story-muted) var(--word-fill));
+    background-clip:text; -webkit-background-clip:text; color:transparent;
+  }
+}
+/* Wave 13: one vertical rhythm for the home page. Every section's top and bottom padding is --home-pad, so two sections meet with the same gap everywhere (it was 120 to 128px a side, and 240px where a section and its inner box both padded). */
+[data-landing-story] {--landing-gutter:clamp(22px,6vw,96px);--home-pad:clamp(48px,5.6vw,80px);background:#fff;color:#18181b}
+/* Landing round 7: one width for every home section, taken from the showcase under the hero (build-showcase.tsx): the same side edge, the same cap, and headings set in by the same inset. */
+:root {--home-edge:clamp(20px,5.15vw,84px);--home-max:2020px;--home-head-inset:14px}
+@media (max-width:767px) {:root {--home-head-inset:0px}}
+.home-wrap {box-sizing:border-box;width:100%;max-width:var(--home-max);margin-inline:auto;padding-inline:var(--home-edge)}
+[data-landing-story] [data-story-section] {padding-block:var(--home-pad)}
+[data-landing-story] .story-section-heading {max-width:1000px;margin:0 0 48px;text-align:left}
+[data-landing-story] .story-section-heading > p {max-width:62ch;margin:24px 0 0;font-size:clamp(16px,1.4vw,19px);line-height:1.65;text-wrap:pretty}
+[data-landing-story] [data-story-section="split"] {overflow:clip}
+[data-landing-story] [data-story-section="split"] .story-heading {font-size:clamp(36px,4.4vw,64px)}
+[data-landing-story] [data-story-section="tools"] {background:#f0ebff;border-radius:clamp(28px,4vw,56px)}
+[data-landing-story] [data-story-section="tools"] .story-tools-panel {background:transparent;border:0;padding-top:0;padding-bottom:0}
+[data-landing-story] [data-story-section="pricing"] {background:#fff;border:0}
+[data-landing-story] [data-story-section="faq"] {background:#f7f7f9;border-radius:clamp(28px,4vw,56px)}
+[data-landing-story] [data-story-section="faq"] .story-heading {font-size:clamp(36px,4.3vw,62px)}
+@media(max-width:767px){
+  [data-landing-story] .story-section-heading {margin-bottom:32px}
+  .story-heading {font-size:clamp(36px,9vw,48px)}
+}
+@media(prefers-reduced-motion:reduce){
+  .story-heading {transform:none;--story-progress:1!important}
+}
+/* Scroll-driven inking (components/marketing/story-heading.tsx, inkedByCss): the
+   heading rises 12px and its words ink over the same stretch of scroll, from
+   the moment its top shows (12px in: it still sits 12px lower) to 64px + 70%
+   of the screen + a quarter of its own height. The rise is its own animation
+   so the compositor runs it; the ink (a number the words read) is on the
+   inner span. Landing round 11 (the owner: "more smooth, clean, buttery; not
+   fast or too direct"): it began 76px in and ended at 68%, about 90px less
+   scroll on a phone, and each word's own ramp is wider (WORD_SPREAD). */
+@property --story-progress {syntax:"<number>";inherits:true;initial-value:0}
+@supports (animation-timeline:view()) {
+  @media (prefers-reduced-motion:no-preference) {
+    .story-heading:not([data-story-js]) {view-timeline:--story-heading block;animation:story-heading-rise linear both;animation-timeline:--story-heading;animation-range:cover 12px entry calc(25% + 64px + 70svh)}
+    .story-heading:not([data-story-js]) > span {animation:story-heading-ink linear both;animation-timeline:--story-heading;animation-range:cover 12px entry calc(25% + 64px + 70svh)}
+  }
+}
+@keyframes story-heading-rise {from{transform:translate3d(0,12px,0)}to{transform:translate3d(0,0,0)}}
+@keyframes story-heading-ink {from{--story-progress:0}to{--story-progress:1}}
+@media(forced-colors:active){.story-heading [data-story-word]{background:none;color:CanvasText}}
+[data-landing-story] [data-story-section][data-story-in-view="false"] [data-story-continuous],
+[data-landing-story][data-story-paused] [data-story-continuous] {animation-play-state:paused!important;will-change:auto!important}
+@media(prefers-reduced-motion:reduce){[data-landing-story] [data-story-continuous]{animation:none!important}}
+[data-landing-story] [data-story-section] > div {max-width:1400px;margin-inline:auto;padding-inline:var(--landing-gutter)}
+.story-eyebrow {display:inline-flex;margin:0 0 24px!important;padding:7px 12px;border:1px solid #e3daf8;border-radius:999px;background:#f6f2ff;color:#62429d;font-size:12px!important;font-weight:500;letter-spacing:.04em;line-height:1.4!important}
+/* Editorial reveals rise vertically; sideways entrances can widen the page
+   while they wait offscreen, particularly on 320px devices. */
+[data-landing-story] [data-story-reveal][data-story-visible="false"] {transform:translate3d(0,18px,0)!important}
+@media(prefers-reduced-motion:reduce){[data-landing-story] [data-story-reveal]{opacity:1!important;transform:none!important;transition:none!important}}
+/*
+  THE ONEPAGE'S CORNER BUTTONS, SHARE AND SUBSCRIBE (round AS, the owner's
+  image 140: the bell sat on the phone's rounded corner and its dot was cut).
+  Two things push them in, and the larger wins:
+
+    the screen's curve   the editor's phone hands its screen radius to the
+                         page (--onepage-screen-radius, components/onepage/
+                         preview-document); a 40px button then sits concentric
+                         with the curve, radius minus half the button
+    the device           a notch, the status bar in the app shell, or a
+                         landscape phone's rounded side: env(safe-area-inset-*),
+                         0 in a browser, so nothing branches on the device
+
+  A browser page with neither keeps the old 16px (24px from 640px).
+*/
+:root, [data-onepage-corner] {
+  --onepage-corner-edge: max(16px, calc(var(--onepage-screen-radius, 0px) - 20px));
+}
+[data-onepage-corner] {
+  top: max(var(--onepage-corner-edge), calc(var(--op-safe-top, 0px) + 8px));
+}
+/* Wave 15: where a classic header starts on a phone (components/onepage/public-onepage clearOfShare): 20px below the
+   buttons' foot, read from the same edge, so the picture never crowds Share or the bell, centred or flush left. */
+:root {
+  --onepage-classic-top: calc(max(var(--onepage-corner-edge), calc(var(--op-safe-top, 0px) + 8px)) + 40px + 20px);
+}
+[data-onepage-corner="left"] {
+  left: max(var(--onepage-corner-edge), calc(env(safe-area-inset-left, 0px) + 8px));
+}
+[data-onepage-corner="right"] {
+  right: max(var(--onepage-corner-edge), calc(env(safe-area-inset-right, 0px) + 8px));
+}
+@media (min-width: 640px) {
+  :root, [data-onepage-corner] {
+    --onepage-corner-edge: max(24px, calc(var(--onepage-screen-radius, 0px) - 22px));
+  }
+  :root {
+    --onepage-classic-top: calc(max(var(--onepage-corner-edge), calc(var(--op-safe-top, 0px) + 8px)) + 44px + 20px);
+  }
+}
+@media (min-width: 768px) {
+  /* Share sits 2px above Subscribe and a little further in, as it always has. */
+  [data-onepage-corner="left"] {
+    top: max(22px, calc(var(--op-safe-top, 0px) + 8px));
+    left: max(32px, calc(env(safe-area-inset-left, 0px) + 8px));
+  }
+}
+
+/* The rounded showcase overlaps the video, rather than rounding the hero. */
+body:has([data-home-hero="cinematic"]) [data-landing-story] {background:linear-gradient(#090909 0 100px,transparent 100px)}
+
+@media(forced-colors:none){.build-showcase .story-heading [data-story-word]{--word-front:calc(var(--word-fill)*1.24 - 12%);background:linear-gradient(90deg,var(--word-target) calc(var(--word-front) - 6%),var(--story-muted) calc(var(--word-front) + 6%));background-clip:text;-webkit-background-clip:text}}
+
+/*
+  ===========================================================================
+   THE HOME PAGE'S ONE WIDTH
+  ===========================================================================
+  Round 60, the owner, at 33% zoom: "the header is not aligned horizontally
+  in width with the section under the hero". It was not at any zoom. The bar
+  was max-width 1400 with its own padding; the showcase under the hero is
+  max-width 1980 with a 6vw gutter and a 14px inset to the first card, so
+  measured on the page the bar started 49px left of the first card at 1440
+  wide and 212px right of it at 2880. Both read these numbers now, so the
+  logo's left edge is the first card's left edge and the last control's
+  right edge is the last card's right edge, at every width and zoom.
+*/
+:root {
+  --landing-max: 1980px;
+  --landing-gutter: clamp(22px, 6vw, 96px);
+  /* Round 61: the showcase and the header over it, 2% wider than the 6vw gutter gave (measured at 390 to 1920). */
+  --showcase-gutter: clamp(20px, 5.15vw, 84px);
+  --showcase-max: 2020px;
+  --landing-card-inset: 14px;
+}
+@media (min-width: 768px) {
+  #platform-header-root [data-landing-width] {
+    max-width: var(--showcase-max);
+    padding-inline: calc(var(--showcase-gutter) + var(--landing-card-inset));
+  }
+}
+

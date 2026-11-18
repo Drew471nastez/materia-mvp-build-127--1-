@@ -12,6 +12,7 @@ import { NextResponse } from "next/server"
 import { open } from "@/lib/ai-keys/crypto"
 import { ownInstall } from "@/lib/github-sync/own-install"
 import { COOKIE_PATH, TOKEN_COOKIE, listProjects, projectConnection, supabaseOAuthConfig } from "@/lib/website-builder/supabase-connect"
+import { storeUnavailableResponse } from "@/lib/team/server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -39,6 +40,7 @@ function forget(res: NextResponse) {
 export async function GET(req: Request) {
   const installId = new URL(req.url).searchParams.get("installId") ?? ""
   const own = await ownInstall(installId)
+  if (own === "unavailable") return storeUnavailableResponse()
   if (!own) return NextResponse.json({ error: "Not found" }, { status: 404, headers: NO_STORE })
   const configured = supabaseOAuthConfig() !== null
   const token = configured ? tokenFor(req, own.installId) : null
@@ -51,6 +53,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const body = (await req.json().catch(() => ({}))) as { installId?: unknown; ref?: unknown }
   const own = await ownInstall(typeof body.installId === "string" ? body.installId : "")
+  if (own === "unavailable") return storeUnavailableResponse()
   if (!own) return NextResponse.json({ error: "Not found" }, { status: 404, headers: NO_STORE })
   const token = tokenFor(req, own.installId)
   if (!token) return NextResponse.json({ error: "The Supabase sign in has run out. Connect again." }, { status: 401, headers: NO_STORE })

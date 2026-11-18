@@ -96,8 +96,15 @@ export function isBillingRefusal(err: unknown): boolean {
 export async function askAiForCategory(input: SuggestInput): Promise<string | null> {
   if (Date.now() < pausedUntil) return null
 
-  try {
-    const response = await openai().responses.create(
+  /*
+    A PICTURE THE MODEL COULD NOT TAKE IS NOT A FAILED SUGGESTION. A 400 with
+    pictures attached is nearly always one of them (an address OpenAI could
+    not download, a format it does not read): production, Nov 11, two 400s in
+    two seconds for one product, and the creator got the keyword guess only.
+    The title and description are asked again on their own, once.
+  */
+  const ask = (images: string[]) =>
+    openai().responses.create(
       {
         model: MODEL,
         instructions: SYSTEM[input.kind ?? "digital"],
@@ -106,7 +113,7 @@ export async function askAiForCategory(input: SuggestInput): Promise<string | nu
             role: "user",
             content: [
               /* Pictures before the words that talk about them. */
-              ...input.images.map((url) => ({ type: "input_image" as const, image_url: url, detail: "low" as const })),
+              ...images.map((url) => ({ type: "input_image" as const, image_url: url, detail: "low" as const })),
               {
                 type: "input_text" as const,
                 text: `<title>${input.title || "(none)"}</title>\n<description>${input.text || "(none)"}</description>\n\nWhich group and category is this product?`,
@@ -121,6 +128,14 @@ export async function askAiForCategory(input: SuggestInput): Promise<string | nu
       /* The editor does not wait on this, but a request left hanging holds a function open. */
       { timeout: 25_000, maxRetries: 1 },
     )
+
+  try {
+    const response = await ask(input.images).catch((err: unknown) => {
+      const refusedPicture = input.images.length > 0 && (err as { status?: unknown } | null)?.status === 400 && !isBillingRefusal(err)
+      if (!refusedPicture) throw err
+      console.warn("[category-suggestion] the model refused a picture; asking with the words only")
+      return ask([])
+    })
     if (response.incomplete_details?.reason === "max_output_tokens") return null
     const refused = response.output.some((item) => item.type === "message" && item.content.some((block) => block.type === "refusal"))
     if (refused) return null

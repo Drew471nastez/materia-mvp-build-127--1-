@@ -23,6 +23,11 @@ export interface BlockSheetRequest {
   shareUrl?: string | null
   /** Let the body use the sheet's full height (an embed) instead of its natural height (a form). */
   fill?: boolean
+  /**
+   * Round AS: no bar at the foot; the body draws its own main button (the tip sheet's Continue, full width) and a
+   * round Close sits at the top right instead. Swipe, the dimmed page, Escape and Back close it as ever.
+   */
+  footless?: boolean
   /** Told once when the sheet starts to close, however it was closed. */
   onClose?: () => void
   /**
@@ -37,14 +42,50 @@ export interface BlockSheetRequest {
 export interface BlockSheetApi {
   open: (request: BlockSheetRequest) => void
   close: () => void
+  /**
+   * Round AS: start a sheet's content hidden, before the tap lands (a mouse
+   * resting on the button, a finger coming down on it), so an embed in it is
+   * already loading when the sheet rises (lib/onepage/embed-warm). Never for
+   * content that plays on its own. Does nothing where no sheet is drawn.
+   */
+  prewarm: (request: BlockSheetRequest) => void
   /** False where no provider is drawn (a block rendered on its own): callers then go to the address directly. */
   available: boolean
 }
 
-const NONE: BlockSheetApi = { open: () => {}, close: () => {}, available: false }
+const NONE: BlockSheetApi = { open: () => {}, close: () => {}, prewarm: () => {}, available: false }
 
 export const BlockSheetContext = createContext<BlockSheetApi>(NONE)
 
+/**
+ * True inside the sheet's body: a post drawn there shows whole
+ * (components/onepage/compact-post), and a frame there loads at once rather
+ * than lazily (round AS), since the sheet is on screen the moment it exists.
+ */
+export const InBlockSheetContext = createContext(false)
+
+export function useInBlockSheet(): boolean {
+  return useContext(InBlockSheetContext)
+}
+
 export function useBlockSheet(): BlockSheetApi {
   return useContext(BlockSheetContext)
+}
+
+/**
+ * BACK INSIDE THE SHEET (round AR). Something in the sheet with steps (a
+ * form, a booking) takes Back while it has a step to go back to: the
+ * browser's Back, Android's back gesture and the sheet's own history entry
+ * then move it a step back instead of closing the sheet. `take` returns the
+ * function that gives Back up again. The handler answers true when it used
+ * the press. Null where no sheet is drawn around it.
+ */
+export interface SheetBackApi {
+  take: (handler: () => boolean) => () => void
+}
+
+export const SheetBackContext = createContext<SheetBackApi | null>(null)
+
+export function useSheetBack(): SheetBackApi | null {
+  return useContext(SheetBackContext)
 }

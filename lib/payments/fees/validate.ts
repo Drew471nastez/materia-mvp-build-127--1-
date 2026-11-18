@@ -11,6 +11,8 @@ export function validateFeeConfig(config: StorelibFeeConfig): FeeValidationIssue
     ["freeMicroRate", config.freeMicroRate],
     ["paidStandardRate", config.paidStandardRate],
     ["paidMicroRate", config.paidMicroRate],
+    ...(config.scaleStandardRate != null ? [["scaleStandardRate", config.scaleStandardRate] as [string, number]] : []),
+    ...(config.scaleMicroRate != null ? [["scaleMicroRate", config.scaleMicroRate] as [string, number]] : []),
   ]
   for (const [field, rate] of rates) {
     if (!Number.isFinite(rate) || rate < 0) issues.push({ field, message: "Rate cannot be negative." })

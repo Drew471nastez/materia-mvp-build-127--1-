@@ -32,6 +32,8 @@ import { readPublicRow } from "@/lib/security/public-rows"
 import { readPublishedProductPageConfig, readPublishedStoreConfig } from "@/lib/store-builder/public-config"
 import { sanitizeDescription } from "@/lib/rich-text/sanitize"
 import { createPublicReadClient } from "@/lib/supabase/public-read"
+import { siteRead } from "@/lib/website-builder/site-read"
+import type { ReadResult } from "@/lib/onepage/bounded-read"
 import {
 
   cachedCreator,
@@ -104,15 +106,28 @@ export const loadProductBySlug = cache(async (slug: string, owner?: string | nul
     per request. product-page-cache.ts explains the two caches and why the
     fallback below is not optional.
   */
-  const shared = await cachedProductBySlug(slug, owner)
+  /* A failed shared read is not "no product" (round AU): it is read again below. */
+  const shared = await cachedProductBySlug(slug, owner).catch(() => null)
   if (shared) return { product: withSafeDescription(shared), viaHistory: false }
 
   const supabase = createPublicReadClient()
 
-  let currentQuery = supabase.from("products").select(PRODUCT_SELECT).eq("slug", slug).eq("status", "published")
-  if (owner) currentQuery = currentQuery.eq("creator_id", owner)
-  const { data: currentRows } = await currentQuery.order("created_at", { ascending: true }).limit(1)
-  const current = Array.isArray(currentRows) ? currentRows[0] : null
+  /*
+    BOUNDED, ASKED TWICE, AND A FAILURE IS NOT A 404 (round AU). This read
+    ignored its error, so a database that did not answer within the 20 second
+    read deadline made a real product a 404, which the CDN then kept
+    (next.config.mjs EDGE_PAGE) and a crawler read as gone. Now each try ends
+    at 4 seconds and a failed one is asked once more (lib/website-builder/
+    site-read siteRead); still failing, it throws SiteReadError and the shop's
+    error screen offers Try again (app/(marketing)/[sellername]/error.tsx).
+    Only a read that answered and found nothing is "no such product".
+  */
+  const currentRows = await siteRead<unknown[]>("product", (signal) => {
+    let currentQuery = supabase.from("products").select(PRODUCT_SELECT).eq("slug", slug).eq("status", "published")
+    if (owner) currentQuery = currentQuery.eq("creator_id", owner)
+    return currentQuery.order("created_at", { ascending: true }).limit(1).abortSignal(signal) as unknown as PromiseLike<ReadResult<unknown[]>>
+  })
+  const current = (Array.isArray(currentRows) ? currentRows[0] : null) as { id: string; price_cents?: number | null } | null
 
   if (current) return { product: withSafeDescription((await withVariantPrices(supabase,[current]))[0]), viaHistory: false }
 

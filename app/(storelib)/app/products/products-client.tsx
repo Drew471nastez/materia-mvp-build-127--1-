@@ -5,7 +5,7 @@ import { forgetProduct } from "@/lib/products/forget-client"
 import { deleteProduct, deleteQuestion, isStale, previewProductDelete, rememberDeleted, rememberStatus, takeNotice, withChanges, type DeleteKind } from "@/lib/products/delete-client"
 import { memo, useCallback, useState, useRef, useEffect, useLayoutEffect, useMemo, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from "react"
 import Link from "next/link"
-import { ArrowUpDown, ChevronLeft, ChevronRight, Download, Plus, Search, X } from "lucide-react"
+import { ArrowLeft, MoreVertical, ChevronLeft, ChevronRight, Download, Plus, Search, X } from "lucide-react"
 import { getCanonicalSiteUrl, getProductUrl } from "@/lib/url-helpers"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { PickSheet } from "./pick-sheet"
@@ -15,7 +15,9 @@ import { useRouter } from "next/navigation"
 import { useStoreCurrency } from "@/lib/store/currency-context"
 import { productPriceCurrency } from "@/lib/money/product-currency"
 import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar, RowMenuButton, StatusBadge, buttonSecondary, card, formatMoney, iconButton } from "../orders/order-parts"
-import { accentDepth } from "@/components/ui/depth-button"
+import { HEAD_ICON_BUTTON } from "@/components/app/analytics/head-button"
+import { ProductFilters } from "./product-filters"
+import { matchesProductFilters, type ProductFilterValue } from "@/lib/products/admin-filters"
 import { isNativeApp, openExternal } from "@/lib/native-bridge"
 import { editorAnswered, isReturning, listShown, openEditor, takeEdited, warmEditor, warmInTurn, whenIdle, WAIT_LONGEST_MS, WAIT_TICK_MS } from "./list-return"
 import { getAppNavigation, holdLanding } from "@/lib/ui/app-navigation"
@@ -48,6 +50,8 @@ interface Product {
   archived?: boolean
   description?: string | null
   includes_community?: boolean
+  inventory_count?: number | null
+  max_purchases?: number | null
   sales_count?: number | null
 }
 
@@ -55,12 +59,26 @@ interface Product {
  * ORDERS' AND EMAILS' LIST, FOR PRODUCTS. The page wears the same parts as
  * Orders and Emails (../orders/order-parts): the 1200px column and its bar,
  * the 24px title (28px from 640px), a white card whose first row is the
- * toolbar (the views as tabs, Search, Sort), and rows drawn the way those
+ * toolbar (Search, Filters and Sort), and rows drawn the way those
  * lists draw them. Only what a product has that an order does not is its
- * own: the picture, and New product in violet (the owner: "The New product
- * button needs to be purple there, both on mobile and desktop").
+ * own: the picture, product metadata and illustrated creation sheet.
  */
-const NEW_LOOK = cn(accentDepth, "h-8 gap-1.5 rounded-lg px-3 text-[13px]")
+/**
+ * Products round 15: the bar's Add in the /app violet, white plus and word.
+ *
+ * A TAP IS ONE QUIET STEP, NOT A FLASH (products round 42). On the iPhone a
+ * tap on Add lit three things at once: the shell's press dim
+ * (`html.capacitor a:active`, 72% opacity) snapped in with no easing because
+ * opacity was not in this button's transition, the press colour jumped two
+ * shades, and app/globals.css's touch rule for anything carrying
+ * `hover:shadow` set every transition here to 0ms and stripped the shadow
+ * while iOS kept :hover stuck on the button after the tap. So: hover is for
+ * a mouse only (`pointer-fine:`), there is no hover shadow for the touch
+ * rule to find, a press is one shade deeper on a 90ms ease, and the dim is
+ * turned off for this button (globals.css, [data-new-product]).
+ */
+const ADD_LOOK = "inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-[#8b5cf6] pl-3 pr-3.5 text-[14px] font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_1px_2px_rgba(76,29,149,0.22)] outline-none transition-[background-color] duration-150 ease-out pointer-fine:hover:bg-[#7c3aed] active:bg-[#7c3aed] pointer-fine:active:bg-[#6d28d9] active:duration-[90ms] focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/40 focus-visible:ring-offset-2 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent] [touch-action:manipulation]"
+const NEW_LOOK = "inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-white px-3.5 text-[14px] font-medium text-[#1a1a2e] shadow-[0_0_0_1px_rgba(17,24,39,0.08),0_1px_2px_rgba(17,24,39,0.05)] outline-none transition-[background-color] duration-150 hover:bg-[#f8f9fa] focus-visible:ring-2 focus-visible:ring-violet-300 motion-reduce:transition-none"
 /** A phone's press is 44px tall around a 32px bar button, as Orders' Export is. */
 const BAR_PRESS = "relative before:absolute before:-inset-y-1.5 before:inset-x-0 before:content-[''] sm:before:hidden"
 
@@ -116,7 +134,7 @@ const PAGE_SIZE = 50
  * comes back as it was left, at the scroll the stage puts back. A fresh
  * visit, from the sidebar or the pill, and a full load start from nothing.
  */
-let leftAt: { view: View; sort: Sort; search: string; page: number } | null = null
+let leftAt: { sort: Sort; search: string; page: number; filters?: ProductFilterValue } | null = null
 
 /** The edited row's tint as the list comes back, fading out once the editor has gone. */
 const EDITED_TINT = "#f3effe"
@@ -275,7 +293,6 @@ const generateProductsCSV = (products: Product[], formatPrice: (cents: number, p
   URL.revokeObjectURL(url)
 }
 
-type View = "all" | "active" | "draft" | "archived"
 type Sort = "newest" | "oldest" | "title_asc" | "title_desc" | "price_desc" | "price_asc" | "sales"
 
 const SORTS: Array<{ value: Sort; label: string }> = [
@@ -287,15 +304,6 @@ const SORTS: Array<{ value: Sort; label: string }> = [
   { value: "price_asc", get label() { return tt("Price low to high") } },
   { value: "sales", get label() { return tt("Best selling") } },
 ]
-
-/** Which view a product is in besides All: All is everything that is not archived. */
-function inView(p: Product, view: View): boolean {
-  if (view === "archived") return isArchived(p)
-  if (isArchived(p)) return false
-  if (view === "active") return p.status === "published"
-  if (view === "draft") return p.status !== "published"
-  return true
-}
 
 function compare(sort: Sort) {
   const created = (p: Product) => Date.parse(p.created_at) || 0
@@ -339,15 +347,15 @@ export function ProductsClient({ products: initialProducts, creatorUsername, cre
     if (returning) holdLanding()
   }, [returning])
   const [resumed] = useState(() => (returning ? leftAt : null))
-  const [view, setView] = useState<View>(resumed?.view ?? "all")
+  const [filters, setFilters] = useState<ProductFilterValue>(resumed?.filters ?? { statuses: [], stock: [] })
   const [sort, setSort] = useState<Sort>(resumed?.sort ?? "newest")
   const [page, setPage] = useState(resumed?.page ?? 1)
   const [searchQuery, setSearchQuery] = useState(resumed?.search ?? "")
-  /* The toolbar is the views or the search field, as on Orders; a list that comes back searched comes back with the field open. */
+  /* A searched list comes back with the search field open. */
   const [searching, setSearching] = useState(() => !!resumed?.search)
   useEffect(() => {
-    leftAt = { view, sort, search: searchQuery, page }
-  }, [view, sort, searchQuery, page])
+    leftAt = { sort, search: searchQuery, page, filters }
+  }, [sort, searchQuery, page, filters])
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [productToDelete, setProductToDelete] = useState<Product | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -371,18 +379,6 @@ export function ProductsClient({ products: initialProducts, creatorUsername, cre
     { label: tt("Export as PDF"), onClick: exportPDF },
   ]
 
-  /* Polaris's order, and as on Orders only the views with something in them, plus the open one. The view's button is there even with All alone, as it always was on a phone: the toolbar keeps its shape. */
-  const views = useMemo(
-    () =>
-      ([
-        { value: "all", label: t("products.all") },
-        { value: "active", label: t("products.active") },
-        { value: "draft", label: t("products.draft") },
-        { value: "archived", label: t("products.archived") },
-      ] as Array<{ value: View; label: string }>).filter((v) => v.value === "all" || v.value === view || products.some((p) => inView(p, v.value))),
-    [t, view, products],
-  )
-
   /* One timer: a second notice restarts it, rather than the first one's timer hiding the second early. */
   const notificationTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => () => {
@@ -397,9 +393,9 @@ export function ProductsClient({ products: initialProducts, creatorUsername, cre
   const filteredProducts = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
     return products
-      .filter((product) => inView(product, view) && (!query || product.title.toLowerCase().includes(query)))
+      .filter((product) => matchesProductFilters(product, filters) && (!query || product.title.toLowerCase().includes(query)))
       .sort(compare(sort))
-  }, [products, view, searchQuery, sort])
+  }, [products, filters, searchQuery, sort])
 
   const pages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE))
   const pageNow = Math.min(page, pages)
@@ -443,7 +439,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername, cre
     const before = listShot.current
     listShot.current = null
     playList(sectionRef.current, before)
-  }, [view])
+  }, [filters])
 
   /**
    * Archive takes a product off every page; Restore brings it back as a
@@ -615,12 +611,6 @@ export function ProductsClient({ products: initialProducts, creatorUsername, cre
   }
 
   /* A new view, search or order starts from its first page. */
-  const showView = (next: View) => {
-    if (next === view) return
-    listShot.current = shootList(sectionRef.current)
-    setView(next)
-    setPage(1)
-  }
   const sortBy = (next: Sort) => {
     setSort(next)
     setPage(1)
@@ -635,7 +625,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername, cre
     search("")
     searchInputRef.current?.focus({ preventScroll: true })
   }
-  /* Search opens the field in place of the views, focused; Cancel empties it and brings the views back. */
+  /* Search takes the toolbar; Back clears it and returns to the catalogue. */
   const openSearch = () => {
     setSearching(true)
     requestAnimationFrame(() => searchInputRef.current?.focus({ preventScroll: true }))
@@ -910,19 +900,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername, cre
     }
   })
 
-  const emptyTitle = searchQuery
-    ? tt("No products match")
-    : products.length === 0
-      ? tt("No products yet")
-      : view === "archived"
-        ? tt("No archived products")
-        : view === "draft"
-          ? tt("No drafts")
-          : view === "active"
-            ? tt("No active products")
-            : tt("Every product is archived")
-
-  const viewLabel = views.find((v) => v.value === view)?.label ?? t("products.all")
+  const emptyTitle = searchQuery ? tt("No products match") : products.length === 0 ? tt("No products yet") : tt("No products match these filters")
 
   /*
     THE BANNER THAT ARRIVES LATE. ReadinessBanner asks the server once the
@@ -953,8 +931,20 @@ export function ProductsClient({ products: initialProducts, creatorUsername, cre
     return () => observer.disconnect()
   }, [])
 
+  /*
+    THE LIST GIVES AT BOTH ENDS (products round 42). "Scrolling stops hard,
+    not elastic." The pane carried `overscroll-behavior: none` from the
+    shell's rule for every page that scrolls itself, and on iOS 16 and later
+    `none` on a scroller takes its rubber band away: a flick hit the top or
+    the bottom and stopped dead. With a few products the pane is only a
+    title's height taller than the screen, so a flick went from the big title
+    to the toolbar in one frame and back, which read as the header jumping
+    between two layouts. data-elastic-pane is `contain` (app/globals.css):
+    the band comes back on this box, in its own #f8f9fa, and still never
+    chains to the shell or the document.
+  */
   return (
-    <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter">
+    <div data-elastic-pane="" className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter">
       {notification.visible && (
         <div className="fixed top-[calc(68px+env(safe-area-inset-top)+12px)] md:top-[calc(58px+env(safe-area-inset-top)+14px)] left-1/2 -translate-x-1/2 z-[100] animate-in fade-in-0 slide-in-from-top-2 duration-300">
           <div className={`px-4 py-3 rounded-xl shadow-lg ${notification.type === "error" ? "bg-rose-600" : "bg-[#1a1a2e]"} text-white text-[13px] font-medium whitespace-nowrap max-w-[calc(100vw-2rem)] overflow-hidden text-ellipsis`}>
@@ -988,9 +978,9 @@ export function ProductsClient({ products: initialProducts, creatorUsername, cre
               title={tt("Export")}
               align="end"
               trigger={
-                <button type="button" aria-label={tt("Export products")} data-export="" className={cn(buttonSecondary, BAR_PRESS, "max-sm:w-8 max-sm:px-0")}>
+                <button type="button" aria-label={tt("Export products")} data-export="" className={HEAD_ICON_BUTTON}>
                   <Download className="h-4 w-4" />
-                  <span className="hidden sm:inline">{tt("Export")}</span>
+
                 </button>
               }
               items={exportItems}
@@ -1003,10 +993,10 @@ export function ProductsClient({ products: initialProducts, creatorUsername, cre
               onTouchStart={warmNew}
               onPointerDown={warmNew}
               onFocus={warmNew}
-              className={cn(NEW_LOOK, BAR_PRESS)}
+              className={ADD_LOOK}
             >
-              <Plus className="h-4 w-4" aria-hidden />
-              <span>{t("products.newProduct")}</span>
+              <Plus className="h-4 w-4" strokeWidth={2.25} aria-hidden />
+              <span>{tt("Add product")}</span>
             </Link>
           </div>
         ) : null}
@@ -1023,68 +1013,25 @@ export function ProductsClient({ products: initialProducts, creatorUsername, cre
           data-products-list=""
           className={cn(card, "relative mt-4 overflow-hidden")}
         >
-          {/*
-            THE TOOLBAR, ORDERS' TO THE LETTER: one 48px row, the same height
-            whether searching or not. The views as tabs (only the ones with
-            something in them, plus the open one), then Search and Sort at
-            the right. Search swaps the tabs for a boxed field and Cancel.
-            Sort opens the orders alone (./pick-sheet: a sheet on a phone,
-            the app's dropdown from 768px).
-          */}
           {products.length > 0 ? (
-            <div data-toolbar="" className="flex h-12 items-center gap-2 border-b border-[#eef0f2] px-2">
+            <div data-toolbar="" className="flex min-h-14 items-center gap-2 border-b border-[#eef0f2] px-3 py-1.5 sm:px-4">
               {searching ? (
                 <>
-                  <label data-search="" className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-lg border border-[#d5d7dd] bg-white px-2.5 transition-[border-color,box-shadow] duration-150 focus-within:border-[#c9ccd3] focus-within:shadow-[0_0_0_3px_rgba(17,17,19,0.06)] max-sm:h-9">
-                    <Search className="h-4 w-4 shrink-0 text-[#6b7280]" aria-hidden />
-                    <input
-                      ref={searchInputRef}
-                      type="search"
-                      enterKeyHint="search"
-                      aria-label={tt("Search products")}
-                      value={searchQuery}
-                      onChange={(e) => search(e.target.value)}
-                      onKeyDown={searchKey}
-                      placeholder={tt("Search products")}
-                      className="min-w-0 flex-1 bg-transparent text-[13px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] max-sm:text-[16px] [&::-webkit-search-cancel-button]:hidden"
-                    />
-                    {searchQuery ? (
-                      <button type="button" aria-label={tt("Clear search")} className="grid h-6 w-6 shrink-0 cursor-pointer place-items-center text-[#9ca3af] hover:text-[#4b5563]" onClick={clearSearch}>
-                        <X className="h-4 w-4" />
-                      </button>
-                    ) : null}
+                  <button type="button" data-search-cancel="" aria-label={tt("Close search")} className={cn(iconButton, "h-11 w-11 shrink-0 rounded-full")} onClick={closeSearch}><ArrowLeft className="h-5 w-5" /></button>
+                  <label data-search="" className="flex min-w-0 flex-1 items-center gap-2">
+                    <span className="sr-only">{tt("Search products")}</span>
+                    <input ref={searchInputRef} type="search" enterKeyHint="search" value={searchQuery} onChange={(e) => search(e.target.value)} onKeyDown={searchKey} placeholder={tt("Search products")} className="h-11 min-w-0 flex-1 bg-transparent text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#777b85] [&::-webkit-search-cancel-button]:hidden" />
+                    {searchQuery ? <button type="button" aria-label={tt("Clear search")} className={cn(iconButton, "h-11 w-11 rounded-full")} onClick={clearSearch}><X className="h-4 w-4" /></button> : null}
                   </label>
-                  <button type="button" data-search-cancel="" className="h-8 shrink-0 cursor-pointer rounded-lg px-2.5 text-[13px] font-medium text-[#1a1a2e] hover:bg-[#f1f2f4] max-sm:h-9 max-sm:text-[15px]" onClick={closeSearch}>
-                    {tt("Cancel")}
-                  </button>
                 </>
               ) : (
                 <>
-                  <ViewTabs views={views} value={view} onPick={showView} />
-                  <button type="button" data-search-open="" aria-label={tt("Search products")} title={tt("Search products")} className={cn(iconButton, "ml-auto shrink-0 max-sm:h-9 max-sm:w-9")} onClick={openSearch}>
-                    <Search className="h-4 w-4" />
-                  </button>
+                  <span className="min-w-0 flex-1 text-[16px] font-medium text-[#1a1a2e]">{tt("Products")}</span>
+                  <button type="button" data-search-open="" aria-label={tt("Search products")} title={tt("Search products")} className={cn(iconButton, "h-11 w-11 shrink-0 rounded-full")} onClick={openSearch}><Search className="h-5 w-5" /></button>
                 </>
               )}
-              <PickSheet
-                name="sort"
-                title={tt("Sort by")}
-                options={SORTS}
-                value={sort}
-                onPick={pickSort}
-                align="end"
-                trigger={
-                  <button
-                    type="button"
-                    aria-label={tt("Sort")}
-                    title={tt("Sort")}
-                    data-sort=""
-                    className={cn(iconButton, "shrink-0 max-sm:h-9 max-sm:w-9 data-open:bg-[#eceef1]", sort !== "newest" && "bg-[#eceef1] text-[#1a1a2e]")}
-                  >
-                    <ArrowUpDown className="h-4 w-4" />
-                  </button>
-                }
-              />
+              <ProductFilters value={filters} onApply={(next) => { listShot.current = shootList(sectionRef.current); setFilters(next); setPage(1) }} />
+              {!searching ? <PickSheet name="sort" title={tt("Sort by")} options={SORTS} value={sort} onPick={pickSort} align="end" trigger={<button type="button" aria-label={tt("Sort products")} title={tt("Sort products")} data-sort="" className={cn(iconButton, "h-11 w-11 shrink-0 rounded-full data-open:bg-[#eceef1]", sort !== "newest" && "bg-[#eceef1]")}><MoreVertical className="h-5 w-5" /></button>} /> : null}
             </div>
           ) : null}
 
@@ -1161,7 +1108,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername, cre
                   ? tt("Try another name, or clear the search.")
                   : products.length === 0
                     ? tt("Add something to sell, like a preset pack, a course or an ebook. It goes on your page and your website.")
-                    : view === "archived"
+                    : filters.statuses.length === 1 && filters.statuses[0] === "archived"
                       ? tt("A product you archive is kept here, off your page, until you restore it.")
                       : tt("Nothing in this view right now.")}
               </p>
@@ -1181,8 +1128,8 @@ export function ProductsClient({ products: initialProducts, creatorUsername, cre
                 </Link>
               ) : null}
               {!searchQuery && products.length === 0 ? (
-                <Link href="/app/products/import/gumroad" data-import-gumroad="" className="mt-3 text-[13px] font-medium text-[#6b7280] underline-offset-2 hover:text-[#1a1a2e] hover:underline max-sm:py-2 max-sm:text-[14px]">
-                  {tt("Import from Gumroad")}
+                <Link href="/app/products/new" onClick={(e) => askNew(e)} data-import-products="" className="mt-3 text-[13px] font-medium text-[#6b7280] underline-offset-2 hover:text-[#1a1a2e] hover:underline max-sm:py-2 max-sm:text-[14px]">
+                  {tt("Import products")}
                 </Link>
               ) : null}
             </div>
@@ -1299,32 +1246,7 @@ const BANNER_IN_MS = 320
  * pill, a strip that scrolls sideways when a language makes it wider than
  * the phone. A pick is played by ./list-motion.
  */
-function ViewTabs({ views, value, onPick }: { views: Array<{ value: View; label: string }>; value: View; onPick: (next: View) => void }) {
-  return (
-    <div role="tablist" aria-label={tt("Views")} data-views="" className="orders-strip -my-2 flex min-w-0 items-center gap-0.5 overflow-x-auto py-2">
-      {views.map((v) => {
-        const active = v.value === value
-        return (
-          <button
-            key={v.value}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            data-view={v.value}
-            onClick={() => onPick(v.value)}
-            className={cn(
-              "h-8 shrink-0 cursor-pointer whitespace-nowrap rounded-lg px-3 text-[13px] font-medium transition-colors duration-100 [-webkit-tap-highlight-color:transparent] max-sm:h-9 max-sm:text-[15px]",
-              active ? "bg-[#eceef1] text-[#1a1a2e]" : "text-[#4b5563] hover:bg-[#f4f5f7]",
-            )}
-          >
-            {/* Its own element: see TRANSLATED TEXT below. */}
-            <span>{v.label}</span>
-          </button>
-        )
-      })}
-    </div>
-  )
-}
+
 
 /** What the rows call on, read at the moment of a press: the page keeps it current (rowApi). */
 interface RowApi {
@@ -1441,11 +1363,10 @@ const PhoneRow = memo(function PhoneRow({
           <span data-price="" className="shrink-0 text-[16px] font-medium tabular-nums text-[#1a1a2e]"><PriceOf cents={product.price_cents} type={product.type} /></span>
         </span>
         <span data-meta="" className="mt-1 flex h-[22px] min-w-0 items-center gap-2">
-          <StatusBadge tone={STATUS_TONE[status]} className="shrink-0">
-            <span>{statusText}</span>
-          </StatusBadge>
-          {product.sales_count ? (
-            <span className="truncate text-[14px] tabular-nums text-[#6b7280]">{tt("{value} sold", { value: product.sales_count.toLocaleString(appLocale()) })}</span>
+          {/* The status in slots the way back can correct in the list's kept copy (./list-return updateListCopy). */}
+          <span data-row-status="phone" className="contents">{status !== "live" ? <span data-status-badge={status} className="contents"><StatusBadge tone={STATUS_TONE[status]} className="shrink-0"><span>{statusText}</span></StatusBadge></span> : null}</span>
+          {(product.sales_count ?? 0) >= 0 ? (
+            <span className="truncate text-[14px] tabular-nums text-[#6b7280]">{tt("{value} sold", { value: (product.sales_count ?? 0).toLocaleString(appLocale()) })}</span>
           ) : null}
         </span>
       </span>
@@ -1507,6 +1428,7 @@ const TableRow = memo(function TableRow({
           <Link
             href={href}
             onClick={(e) => api.current?.open(product.id)(e)}
+            data-name=""
             className="min-w-0 truncate font-medium text-[#1a1a2e] outline-none hover:underline focus-visible:underline"
           >
             {product.title || tt("Untitled draft")}
@@ -1514,14 +1436,12 @@ const TableRow = memo(function TableRow({
         </div>
       </td>
       <td className={cn(cell, "whitespace-nowrap px-3")}>
-        <StatusBadge tone={STATUS_TONE[status]}>
-          <span>{statusText}</span>
-        </StatusBadge>
+        <span data-row-status="table" className="contents">{status !== "live" ? <span data-status-badge={status} className="contents"><StatusBadge tone={STATUS_TONE[status]}><span>{statusText}</span></StatusBadge></span> : <span className="sr-only">{statusText}</span>}</span>
       </td>
       <td className={cn(cell, "hidden whitespace-nowrap px-3 text-right tabular-nums text-[#4b5563] lg:table-cell")}>
-        {product.sales_count ? product.sales_count.toLocaleString(appLocale()) : <span className="text-[#9ca3af]">0</span>}
+        {product.sales_count ? (product.sales_count ?? 0).toLocaleString(appLocale()) : <span className="text-[#9ca3af]">0</span>}
       </td>
-      <td className={cn(cell, "whitespace-nowrap px-3 text-right font-medium tabular-nums text-[#1a1a2e]")}><PriceOf cents={product.price_cents} type={product.type} /></td>
+      <td data-price="" className={cn(cell, "whitespace-nowrap px-3 text-right font-medium tabular-nums text-[#1a1a2e]")}><PriceOf cents={product.price_cents} type={product.type} /></td>
       <td className={cn(cell, "pr-2 text-right")}>
         <div data-row-actions="" className="flex items-center justify-end">
           {opening ? <OpeningMark /> : (
@@ -1619,7 +1539,7 @@ function Thumb({ src, title, size }: { src: string | null; title: string; size: 
           className="h-full w-full object-cover"
         />
       ) : (
-        <span aria-hidden className={cn("flex h-full items-center justify-center font-semibold text-[#9ca3af]", phone ? "text-[18px]" : "text-[15px]")}>
+        <span aria-hidden data-thumb-letter="" className={cn("flex h-full items-center justify-center font-semibold text-[#9ca3af]", phone ? "text-[18px]" : "text-[15px]")}>
           {letter}
         </span>
       )}

@@ -9,7 +9,7 @@ export const runtime = "nodejs"
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const me = await signedInCreator()
-  if (!me) return NextResponse.json({ error: "Sign in again." }, { status: 401 })
+  if (me instanceof Response) return me
   const { data: flow } = await me.supabase.from("email_flows").select("id, status").eq("id", id).eq("creator_id", me.creatorId).maybeSingle()
   if (!flow) return NextResponse.json({ error: "This flow no longer exists." }, { status: 404 })
   if (flow.status !== "active") return NextResponse.json({ error: "Turn the flow on to try again." }, { status: 409 })

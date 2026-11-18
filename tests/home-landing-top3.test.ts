@@ -1,0 +1,151 @@
+/**
+ * ===========================================================================
+ *  HOME, LANDING ROUND 3: THE TOP SECTIONS
+ * ===========================================================================
+ * components/marketing/home/everything-in-one-place.tsx ("Make the work"),
+ * ideas-come-to-life.tsx, business-carousel.tsx with
+ * showcase-mocks/business-mocks.tsx, and components/marketing/product-marquee.tsx.
+ *
+ * The owner, round 3:
+ *   - "Build a store that looks like you": no storelib.me/name address, no
+ *     white header with a URL over a OnePage; a OnePage there is a real one
+ *     as a phone shows it; nothing in the strip can be hovered or clicked.
+ *   - The Storelib support example is not a payout that has not reached the
+ *     bank; none of the three requests is about missing money.
+ *   - The digital product is an actual digital product with a name like one
+ *     (a LUT pack), not "a cover with a landscape". The same for the
+ *     business section's digital product.
+ *   - He likes the tabs of "Make the work": the other sections' tabs are of
+ *     that family (a grey pill track, 30px tabs, the chosen one white), with
+ *     no coloured icon chips.
+ *   - "One store for everything you sell" stands on white: dark text, the
+ *     stage in the soft grey of "Make the work".
+ *   - About half of the examples are things that ship.
+ */
+import { existsSync, readFileSync, statSync } from "node:fs"
+import { join } from "node:path"
+import { createElement } from "react"
+import { renderToStaticMarkup } from "react-dom/server"
+import {
+  EverythingInOnePlace,
+  EVERYTHING_SLIDES,
+  EVERYTHING_STORES,
+  EVERYTHING_STYLES,
+  EVERYTHING_SUPPORT,
+} from "@/components/marketing/home/everything-in-one-place"
+/* Changed on purpose (landing round 4): the ideas section has three thin pill tabs again (IDEAS_TABS), the business section a Notion template as its digital product. */
+import { IdeasComeToLife, IDEAS_TABS } from "@/components/marketing/home/ideas-come-to-life"
+/* Changed on purpose (landing round 7): "One store for everything you sell" (business-carousel and its business-mocks) is off the home page and deleted, so nothing of it is read here. */
+import { MARQUEE_ROWS } from "@/components/marketing/product-marquee"
+
+let passed = 0
+let failed = 0
+const failures: string[] = []
+function check(name: string, ok: boolean, detail?: unknown) {
+  if (ok) {
+    passed++
+    console.log(`  ok    ${name}`)
+  } else {
+    failed++
+    failures.push(name)
+    console.log(`  FAIL  ${name}${detail === undefined ? "" : `\n        ${JSON.stringify(detail).slice(0, 600)}`}`)
+  }
+}
+const root = process.cwd()
+const read = (p: string) => readFileSync(join(root, p), "utf8")
+const rule = (css: string, selector: string) => {
+  const at = css.indexOf(`${selector}{`)
+  return at < 0 ? "" : css.slice(at, css.indexOf("}", at) + 1)
+}
+const src = {
+  everything: read("components/marketing/home/everything-in-one-place.tsx"),
+  ideas: read("components/marketing/home/ideas-come-to-life.tsx"),
+}
+const everything = renderToStaticMarkup(createElement(EverythingInOnePlace))
+const evCss = EVERYTHING_STYLES[0]?.css ?? ""
+const strip = everything.slice(everything.indexOf('class="ev-vis ev-s"'), everything.indexOf('class="ev-cap"', everything.indexOf('class="ev-vis ev-s"')))
+
+console.log("\n── Build a store that looks like you: stores and real OnePages, a picture only ──")
+check("no storelib.me address in the section, in its markup or its source", !/storelib\.me/i.test(everything) && !/storelib\.me/i.test(src.everything))
+check("no address of any kind in the strip (no URL bar over a page)", !/https?:|www\.|\.com|\.me\b|ev-(op|st)-(url|bar-url|chrome|address)/i.test(strip.replace(/src="[^"]*"/g, "")))
+/* Changed on purpose (landing round 4): the owner asked for stores, communities on a phone and OnePages with their share and subscribe buttons, each card whole, and a strip that can be dragged. So the pictures between the stores are OnePages and a community at a phone's first screen (EVERYTHING_SHOTS, public/home/everything/strip), and the strip takes the pointer (only the strip: the cards inside take none) and drifts as a Web Animation from script. tests/home-landing-topa4.test.ts pins the rest. */
+/* Changed on purpose (landing round 6): the owner's reference picture replaced the creator pages, OnePages and community in the strip with merch stores and creators' link pages taking turns, tall cards that run off the picture's foot (tests/home-landing-r6-everything pins them). */
+check("link pages stand between the stores", EVERYTHING_STORES.filter((s) => s.kind === "link").length >= 3)
+/* Changed on purpose (landing round 8): a seventh page, a profile OnePage, so the pages no longer strictly take turns; no two stores ever stand side by side. */
+check("a store, then a link page, taking turns", EVERYTHING_STORES.every((item, i) => item.kind !== "merch" || EVERYTHING_STORES[(i + 1) % EVERYTHING_STORES.length].kind !== "merch"))
+check(
+  "each picture is local, exists and is small",
+  EVERYTHING_STORES.flatMap((s) => (s.kind === "merch" ? s.products.map((p) => p.src) : s.kind === "link" ? [s.ground, s.avatar, ...s.products] : s.kind === "product" ? [s.avatar, s.cover] : [])) /* Changed on purpose (landing round 14): Liam Bailey's product page brings his photo and cover; Satori Studio's picture is the showcase's own (public/home/showcase). */.every((u) => {
+    const file = join(root, "public", u)
+    return u.startsWith("/home/everything/stores/") && existsSync(file) && statSync(file).size < 120_000
+  }),
+)
+// Changed on purpose (landing round 14): each page once (every page wraps round on its own since round 8).
+check("the strip draws every page once", (strip.match(/class="ev-st ev-(mc|lp|pp|shot)"/g) ?? []).length === EVERYTHING_STORES.length)
+check("the cards in the strip take no pointer, and nothing is selectable", /pointer-events:none/.test(rule(evCss, ".ev-s-slot")) && /user-select:none/.test(rule(evCss, ".ev-s")))
+check("the strip is hidden from assistive tech and holds nothing that takes focus", /class="ev-vis ev-s" aria-hidden="true"/.test(everything) && !/<(a|button|input|select|textarea)\b|tabindex/i.test(strip))
+check("no hover style on anything in the strip", !/\.ev-(s|st|op)[\w-]*[^{}]*:hover/.test(evCss))
+/* Changed on purpose (landing round 7): the loop runs 0 to one set and is entered at the strip's offset, so it never runs past the second copy. */
+/* Changed on purpose (landing round 8): each page wraps round on its own, one compositor loop a page from one offset on the document's clock (tests/home-landing-r8-everything). */
+check("the strip still drifts in one loop, by one turn of all the pages", /\[\{ transform: `translate3d\(\$\{\(turn - pitch - base\[i\]\)\.toFixed\(2\)\}px,0,0\)` \}, \{ transform: `translate3d\(\$\{\(-pitch - base\[i\]\)\.toFixed\(2\)\}px,0,0\)` \}\]/.test(src.everything) && /class="ev-s-track"/.test(everything))
+
+console.log("\n── Support: three requests, none about missing money ──")
+/* Changed on purpose (landing round 4): the owner wants the support card's UI as it was before round 2 (one thread at a time, photos and Storelib's mark), without the From buyers / Storelib switch. Three true requests still take turns, none about money. */
+const supportWords = EVERYTHING_SUPPORT.map((r) => [r.sub, r.ask, r.reply].join(" ")).join(" ")
+check("three requests taking turns", EVERYTHING_SUPPORT.length === 3 && (everything.match(/class="ev-c-thread ev-loop"/g) ?? []).length === 3)
+check("no request about a payout or a bank", !/payout|bank|hasn't arrived|\$\d/i.test(supportWords), supportWords.match(/payout|bank|\$\d[\d,.]*/gi))
+/* Changed on purpose (landing round 5): no "Storelib support" / "From a buyer" labels over the threads (the owner); Storelib answers with its mark (replyAv null), the creator answers a buyer with their photo. */
+check("the first request is to support, about bringing subscribers over", EVERYTHING_SUPPORT[0].replyAv === null && /subscribers/i.test(EVERYTHING_SUPPORT[0].sub) && /CSV/.test(EVERYTHING_SUPPORT[0].reply))
+check("a buyer's request is there too", EVERYTHING_SUPPORT.some((r) => r.replyAv !== null))
+
+console.log("\n── The digital product is a real one ──")
+const digital = EVERYTHING_SLIDES.find((s) => s.tab === "Digital")
+/* Changed on purpose (landing round 6): the owner: "LUT pack without the 12, just LUT pack". */
+check("it is a LUT pack, named like one", digital?.name === "Cine Tones LUT Pack" && digital.kind === "luts")
+check("its numbers add up", digital?.stats.map(([, v]) => v).join() === "$29.00,386,$11,194.00" && 29 * 386 === 11194)
+/* Changed on purpose (landing round 5): the owner found the pack's panel "too complex and non realistic"; it is the cover a seller uploads, one photo split flat and graded with the pack's name (tests/home-landing-r5-top). */
+/* Changed on purpose (landing round 6): the owner wanted the cover "more clean and smooth, more bold, black, modern": one graded still on black and the name, big (tests/home-landing-r6-everything). */
+check("drawn as the pack's cover: a graded still and its name, no panel", /class="ev-lut-still"/.test(everything) && !/ev-lut-look/.test(everything) && !everything.includes("CT_04_Dusk.cube"))
+check("no book cover and no guide left in the product card", !/ev-p-book|ev-p-guide|Sourdough at Home<\/p>|page guide/i.test(everything) && !existsSync(join(root, "public/home/everything/guide-bread.webp")))
+/* Changed on purpose (landing round 6): the cover's still is lut-still.webp, a wide frame. */
+check("its one photo exists and is small", existsSync(join(root, "public/home/everything/lut-still.webp")) && statSync(join(root, "public/home/everything/lut-still.webp")).size < 120_000)
+/* Changed on purpose (landing round 7): "One store for everything you sell" (business-carousel and its business-mocks) is off the home page and deleted, so nothing of it is read here. */
+check("no cookbook cover left anywhere", !existsSync(join(root, "public/home/showcase/ss-bowl.webp")))
+
+console.log("\n── Tabs of one family (the tabs of Make the work) ──")
+const family = (r: string) => /height:30px/.test(r) && /padding:0 13px/.test(r) && /border-radius:999px/.test(r) && /color:#55525c/.test(r) && /font-size:13px/.test(r) && /font-weight:500/.test(r)
+check("Make the work's tab is the reference", family(rule(evCss, ".ev-tab")) && /\.ev-tab\[data-on\]\{color:#18181b\}/.test(evCss) && /\.ev-tab::before\{[^}]*background:#fff/.test(evCss))
+/* Changed on purpose (landing round 4): real tabs (aria-selected) above the picture. */
+// Changed on purpose (landing round 6): the owner wants the ideas tabs "with pill shapes like how it was before": the family again, a grey track, the chosen one white.
+check("ideas: tabs in place of the dots, the chosen one dark", /\.ideas-tab\[aria-selected="true"\]\{color:#18181b\}/.test(src.ideas) && !/ideas-dot/.test(src.ideas))
+check("ideas: the same family as Make the work's tabs, on a grey pill track", family(rule(src.ideas, ".ideas-tab")) && /\.ideas-tabs\{[^}]*border-radius:999px;background:#f1f1f2/.test(src.ideas) && /\.ideas-tab::before\{[^}]*background:#fff/.test(src.ideas))
+const ideas = renderToStaticMarkup(createElement(IdeasComeToLife))
+check("ideas: one tab an editor, each named in full", (ideas.match(/class="ideas-tab"/g) ?? []).length === IDEAS_TABS.length && IDEAS_TABS.every((s) => ideas.includes(`<span>${s.title}</span>`)))
+/* Changed on purpose (landing round 4): the ideas tabs now sit above the picture, so only the tab row is read. */
+check("no icons and no coloured chips in the tabs", !/<svg|<img/.test(ideas.slice(ideas.indexOf('class="ideas-tabs"'), ideas.indexOf('class="ideas-stage"'))))
+
+console.log("\n── One store for everything you sell: back (landing round 8) ──")
+/* Changed on purpose (landing round 8): the owner, "Keep the One store for everything you sell section, of course": it is back, redesigned, after the ideas section (tests/home-landing-r8-business.test.ts pins it). */
+check("the section and its product pages are back", existsSync(join(root, "components/marketing/home/business-carousel.tsx")) && existsSync(join(root, "components/marketing/home/showcase-mocks/business-mocks.tsx")))
+check("the editors' previews take no pointer either", /\.ideas-mock\{[^}]*pointer-events:none/.test(src.ideas))
+check("no hover style inside any mock", !/:hover/.test(read("components/marketing/home/showcase-mocks/builder-mocks.tsx")))
+
+console.log("\n── Half of the examples ship in a box ──")
+const PHYSICAL = /^(Merch|T-shirts|Hoodies|Vinyl records|Mugs|Tote bags|Posters|Candles|Art prints|Ceramics|Zines|Hats|Jewelry|Signed books|Phone cases|Stickers)$/
+const chips = MARQUEE_ROWS.flatMap((r) => r.items.map((c) => c.label))
+const physical = chips.filter((c) => PHYSICAL.test(c)).length
+// Changed on purpose (landing round 11): the owner asked for more digital products and no ceramics or totes; a few physical ones stay.
+check("the possibilities: mostly digital with a few physical, in two rows", MARQUEE_ROWS.length === 2 && physical >= 2 && physical / chips.length <= 0.25, { physical, of: chips.length })
+check("no chip twice", new Set(chips).size === chips.length)
+/* Changed on purpose (landing round 6): the strip shows merch stores and creators' link pages as the owner's reference does; the product card above still shows merch, a download, a course and a community. */
+check("the strip's stores sell physical pieces, priced", EVERYTHING_STORES.some((s) => s.kind === "merch" && s.products.every((p) => /^\$\d+$/.test(p.price))))
+
+console.log("\n── The words ──")
+const words = [EVERYTHING_SUPPORT.map((r) => `${r.sub} ${r.ask} ${r.reply}`).join(" "), chips.join(" "), EVERYTHING_SLIDES.map((s) => s.name).join(" ")].join(" ")
+check("no em dashes, no banned words, no fans", !/—/.test(words) && !/\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform|passive income|fans?)\b/i.test(words))
+
+console.log(`\n${passed} passed, ${failed} failed`)
+if (failed) {
+  console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)
+  process.exit(1)
+}

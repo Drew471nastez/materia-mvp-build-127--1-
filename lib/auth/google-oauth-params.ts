@@ -10,26 +10,26 @@
  *
  * Nothing in Storelib has ever used a Google token: nothing reads
  * `provider_token` or `provider_refresh_token`, because the session is
- * Supabase's. So the only thing those two did was put the "Storelib wants
- * access to your Google Account" screen in front of somebody who signed in
- * last week, on every single sign in. `prompt=consent` also tells Google not
- * to continue quietly with a session it already has, which is most of what
- * "it opens like a private window, it never knows me" is.
+ * Supabase's. So those two only put the "Storelib wants access to your
+ * Google Account" screen in front of somebody who signed in last week.
+ * Neither is asked for.
  *
- * Asking for neither: Google continues with the account it already has when
- * there is one, shows the chooser when there are several, and asks to agree
- * only the first time. The same on the web, in the app, and on both pages.
+ * WHAT IS ASKED FOR: `prompt=select_account`. Asking for nothing let Google
+ * continue quietly with the account the browser already had, so after Log
+ * out, Continue with Google put the person straight back into the account
+ * they had just left, with no way to pick another one or make a new one
+ * (the owner: "it signs me back into the previous account"). The chooser is
+ * one tap on the account they want; it is not the consent screen, which
+ * Google still shows only the first time. The same on the web, in the app's
+ * browser sheet, and on both pages.
  *
  * Pure, so the server route and the two pages can all read it.
  */
 
-/**
- * The query Google gets for a sign in. Empty on purpose; `undefined` where a
- * caller wants to pass nothing at all (Apple refuses Google's parameters).
- */
-export const GOOGLE_OAUTH_QUERY: Record<string, string> = {}
+/** The query Google gets for a sign in: always the account chooser, never consent. */
+export const GOOGLE_OAUTH_QUERY: Record<string, string> = { prompt: "select_account" }
 
-/** What a provider's sign in should carry, or undefined for "nothing". */
+/** What a provider's sign in should carry, or undefined for "nothing" (Apple refuses Google's parameters). */
 export function oauthQueryFor(provider: string): Record<string, string> | undefined {
   return provider === "google" ? GOOGLE_OAUTH_QUERY : undefined
 }

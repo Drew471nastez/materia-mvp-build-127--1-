@@ -184,13 +184,104 @@ export function shouldHideSplashOn(pathname: string, authInProgress: boolean): b
 
 let splashDown = false
 
+/** The fade every landing uses: one number, so the dashboard, welcome, the library and the rest come in alike. */
+export const SPLASH_FADE_MS = 250
+
+type SplashLike = { hide?: (o: { fadeOutDuration: number }) => Promise<unknown> }
+
+/**
+ * ROUND AT: THE LAUNCH SCREEN IS TAKEN DOWN WITHOUT A DOWNLOAD. The shell
+ * injects its plugins as Capacitor.Plugins before any page loads (as
+ * app/native-start reads App's launch URL), so the splash is hidden through
+ * that and the @capacitor/splash-screen chunk is fetched only when it is not
+ * there. That chunk was asked for at the very moment the page was ready, a
+ * round trip of launch screen on a 4G phone.
+ */
 export async function hideSplashOnce(): Promise<void> {
   if (splashDown || !isNativeShell()) return
   splashDown = true
   try {
+    const injected = (window as unknown as { Capacitor?: { Plugins?: { SplashScreen?: SplashLike } } }).Capacitor?.Plugins?.SplashScreen
+    if (injected?.hide) {
+      await injected.hide({ fadeOutDuration: SPLASH_FADE_MS })
+      return
+    }
     const { SplashScreen } = await import("@capacitor/splash-screen")
-    await SplashScreen.hide({ fadeOutDuration: 250 })
+    await SplashScreen.hide({ fadeOutDuration: SPLASH_FADE_MS })
   } catch {
     /* no splash plugin in this shell: the launch screen is the system's own */
   }
+}
+
+/** Test seam: forget that the launch screen came down. */
+export function resetSplashMemory(): void {
+  splashDown = false
+  capArmed = false
+}
+
+/** Whether this document already asked for the launch screen to come down. */
+export function splashIsDown(): boolean {
+  return splashDown
+}
+
+/**
+ * ===========================================================================
+ *  ROUND AU: THE LAUNCH SCREEN ALWAYS COMES DOWN
+ * ===========================================================================
+ * The launch screen is taken down by the page that lands (above), so a
+ * landing that never draws kept it up for good: a start whose /app answer
+ * never came (a dead cell, a captive portal), a page that threw at launch
+ * (/app's error screen is drawn under the launch screen, and /app times its
+ * own), the session gate's "Cannot reach the server" screen. The app looked
+ * frozen on its logo and the only way out was to kill it
+ * (scripts/check-app-network-au1.mjs: never, before this).
+ *
+ * releaseLaunchScreen() is for a screen that is final even though it is not
+ * the page: an error, a retry, no connection. Both shells' screens come down
+ * (iOS SplashScreen, Android's overlay).
+ *
+ * armSplashCap() is the ceiling for everything else: SPLASH_CAP_MS after the
+ * first page of this document ran, whatever is under it comes up. A sign in
+ * being finished (nativeAuthInProgress) holds it to SPLASH_AUTH_CAP_MS, as
+ * the session gate's own safety already does.
+ */
+export const SPLASH_CAP_MS = 12_000
+export const SPLASH_AUTH_CAP_MS = 20_000
+let capArmed = false
+
+function androidReady(): void {
+  try {
+    ;(window as unknown as { StorelibNative?: { appReady?: () => void } }).StorelibNative?.appReady?.()
+  } catch {
+    /* no Android overlay in this shell */
+  }
+}
+
+function authInProgress(): boolean {
+  try {
+    return sessionStorage.getItem("nativeAuthInProgress") === "1"
+  } catch {
+    return false
+  }
+}
+
+export function releaseLaunchScreen(): void {
+  if (typeof window === "undefined" || !isNativeShell()) return
+  androidReady()
+  void hideSplashOnce()
+}
+
+export function armSplashCap(): void {
+  if (capArmed || typeof window === "undefined" || !isNativeShell()) return
+  capArmed = true
+  const startedAt = Date.now()
+  const check = () => {
+    if (splashDown) return
+    if (authInProgress() && Date.now() - startedAt < SPLASH_AUTH_CAP_MS) {
+      window.setTimeout(check, SPLASH_AUTH_CAP_MS - (Date.now() - startedAt))
+      return
+    }
+    releaseLaunchScreen()
+  }
+  window.setTimeout(check, SPLASH_CAP_MS)
 }

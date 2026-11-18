@@ -5,6 +5,8 @@ import { openai } from "@/lib/sites/agent/openai-provider"
 import { failureKind } from "@/lib/sites/agent/plain-errors"
 import { createClient } from "@/lib/supabase/server"
 import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
+import { rateLimit } from "@/lib/api/rate-limit"
+import { metaDescriptionInput } from "@/lib/seo/meta-description-input"
 
 // A product's meta description: ChatGPT when it can, the extraction below
 // when it cannot.
@@ -15,6 +17,17 @@ export async function POST(request: NextRequest) {
   if (who.kind === "unavailable") return authUnavailableResponse()
   const user = who.kind === "user" ? who.user : null
   if (!user) return NextResponse.json({ error: "Sign in to use this." }, { status: 401 })
+  /* Each call is a paid model call (round 54): counted per account, far above what writing descriptions needs. */
+  const limited = await rateLimit({
+    bucket: "ai-seo",
+    subjects: [`user:${user.id}`],
+    windows: [
+      { limit: 30, seconds: 600 },
+      { limit: 300, seconds: 86_400 },
+    ],
+    message: "That is a lot of descriptions in a short time. Try again in a few minutes.",
+  })
+  if (limited) return limited
 
   try {
     const { description, title } = await request.json()
@@ -63,10 +76,12 @@ async function generateWithAI(text: string, title: string): Promise<string | nul
   }
 
   try {
+    /* The start of the description, never the whole of it: one call used to send whatever size it was sent (lib/seo/meta-description-input.ts, round AW). */
+    const sent = metaDescriptionInput(title, text)
     const prompt = `Write the meta description search results show for a digital product.
 
-Product title: ${title}
-Product description: ${text}
+Product title: ${sent.title}
+Product description: ${sent.text}
 
 Rules:
 - At most 155 characters.

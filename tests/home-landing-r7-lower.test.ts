@@ -1,0 +1,144 @@
+/**
+ * ===========================================================================
+ *  HOME, LANDING ROUND 7: THE LOWER SECTIONS, AS THE OWNER ASKED
+ * ===========================================================================
+ *   analytics  the reports are one near-black panel of six even cells, not
+ *              white pills; nothing purple on the purple sheet (heading
+ *              accent, muted line, share bars, the light behind the
+ *              engines); "Ready for Google and AI search" slides one strip
+ *              by one transform, eased, the text never scaled.
+ *   dots       the field on the purple and under the closing call is an
+ *              even grid with a slow current of light flowing through it
+ *              by itself and a light that glides after the mouse; neutral
+ *              white on the purple; one canvas, DPR capped, paused off
+ *              screen, still under reduced motion.
+ *   earnings   no "After Storelib's 5% + $0.25 ... Stripe's card processing
+ *              fee is separate." line; the photograph a little wider.
+ *   audience   Contacts plays growth chart, then Synced with, then Export,
+ *              in one fixed box, one attribute a turn; five new faces.
+ *   width      every section here in the page's one width (--home-edge,
+ *              --home-max), headings set in by --home-head-inset.
+ */
+import { existsSync, readFileSync, statSync } from "node:fs"
+import { join } from "node:path"
+import { createElement } from "react"
+import { renderToStaticMarkup } from "react-dom/server"
+import { AudienceOwnership, AUDIENCE_PEOPLE } from "@/components/marketing/home/audience-ownership"
+import { AnalyticsShowcase } from "@/components/marketing/home/analytics-showcase"
+import { SellEverywhereMap, SELL_EVERYWHERE_STYLES } from "@/components/marketing/home/sell-everywhere-map"
+import { EarningsCalculator, EARNINGS_STYLES } from "@/components/marketing/home/earnings-calculator"
+import { AiToolsSection, AI_TOOLS_STYLES } from "@/components/marketing/home/ai-tools-section"
+import { DOT_FIELD_CSS, DOT_FIELD_MAX_DPR, DOT_FIELD_TONES, dotFieldFlow, dotFieldPoints } from "@/components/marketing/home/dot-field"
+
+let passed = 0
+let failed = 0
+function check(name: string, ok: boolean, detail?: unknown) {
+  if (ok) {
+    passed++
+    console.log(`  ok    ${name}`)
+  } else {
+    failed++
+    console.log(`  FAIL  ${name}${detail === undefined ? "" : `\n        ${JSON.stringify(detail).slice(0, 600)}`}`)
+  }
+}
+const root = process.cwd()
+const read = (p: string) => readFileSync(join(root, p), "utf8")
+const DIR = "components/marketing/home"
+const text = (html: string) => html.replace(/<style[\s\S]*?<\/style>/g, "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ")
+const BANNED = /\b(unlock|elevate|seamless(ly)?|powerful|effortless(ly)?|supercharge|transform(s|ing)?)\b|—/i
+const BANNED_SAMPLES = /sourdough|weeknight pasta|golden hour|wheel throwing|drawing basics|saturday run club|dust & tape|elena ruiz|payout|\bfans?\b/i
+/** Any violet or lilac written as a colour: the brand purples and their light tints. */
+const PURPLE = /#(8b5cf6|7c3aed|6d28d9|5b21b6|a78bfa|c4b5fd|ddd6fe|ede9fe|8b7cf6|cdc2f7)\b|rgba\((139, ?124, ?246|196, ?181, ?253|167, ?139, ?250|221, ?214, ?254|237, ?233, ?254|91, ?33, ?182)/i
+
+console.log("\n── analytics: other shapes, nothing purple on the purple ──")
+{
+  const src = read(`${DIR}/analytics-showcase.tsx`)
+  const css = read(`${DIR}/analytics-showcase.module.css`)
+  const html = renderToStaticMarkup(createElement(AnalyticsShowcase))
+  const words = text(html)
+  check("six reports as even tiles, three across, two on a phone", (html.match(/<li class="[^"]*report[^"]*"/g) ?? []).length === 6 && /\.reports \{[^}]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);[^}]*gap: 8px;/.test(css) && /@media \(max-width: 479px\) \{\s*\.reports \{\s*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/.test(css))
+  /* Changed on purpose (landing round 8): the owner asked for the tiles white glass, not black; still square-ish, no icons. */
+  check("no pills: the cells are white glass, square-ish, one line icon each", /\.report \{[^}]*border-radius: 12px;[^}]*background: linear-gradient\(180deg, rgba\(255, 255, 255,/.test(css) && !/\.report \{[^}]*border-radius: 999px/.test(css) && !/linear-gradient\(180deg, rgba\(255, 255, 255, 0\.98\)/.test(css) && /from "lucide-react"/.test(src)) // Changed on purpose (landing round 11): the owner asked for "smooth, clean icons" in the reports.
+  check("nothing purple in the section's colours", !PURPLE.test(css) && !PURPLE.test(src), (css + src).match(PURPLE))
+  check("the heading's accent white and the line under the title neutral here", /\.section :global\(\.story-heading\) \{\s*--story-accent: #fff;/.test(css) && /\.section \{\s*--band-muted: #dddce3;/.test(css) && /\$\{s\.section\}/.test(src))
+  check("the engines: one strip, three sets, moved by one custom property, no React state", /const STRIP = \[\.\.\.ENGINES, \.\.\.ENGINES, \.\.\.ENGINES\]/.test(src) && /el\.style\.setProperty\("--pos"/.test(src) && !/useState/.test(src) && (html.match(/class="[^"]*strip[^"]*"/g) ?? []).length === 1)
+  check("the strip moves by transform alone, eased in and out, never scaling its text", /\.strip \{[^}]*transform: translate3d\(calc\(var\(--pos, 5\) \* var\(--step\) \* -1\), 0, 0\);[^}]*transition: transform 1000ms cubic-bezier\(0\.65, 0, 0\.35, 1\);/.test(css) && !/scale\(0\.84\)/.test(css) && !/\.engine \{[^}]*transition/.test(css))
+  check("the jump back one set is unseen: no transition, then on", /\.strip\[data-snap\] \{\s*transition: none;/.test(css) && /pos\.current -= EN/.test(src))
+  check("the names brighten in the middle through a mask that does not move", /\.engines \{[^}]*mask-image: linear-gradient\(90deg, transparent 0, rgba\(0, 0, 0, 0\.28\) 24%, #000 42%, #000 58%/.test(css))
+  check("still under reduced motion and off screen", /if \(!el \|\| !live \|\| reduced\) return/.test(src) && /prefers-reduced-motion: reduce\) \{\s*\.globe canvas,\s*\.strip \{\s*transition: none;/.test(css))
+  check("every engine named for a screen reader", words.includes("Read by Google, ChatGPT, Claude, Perplexity, Gemini."))
+  check("in the page's one width, the headings set in", /<div className="home-wrap">/.test(src) && /\.inset \{\s*padding-left: var\(--home-head-inset, 0px\);/.test(css) && !/max-w-\[1400px\]/.test(src))
+  check("no banned words", !BANNED.test(words) && !BANNED_SAMPLES.test(words))
+}
+
+console.log("\n── the dot field: even, flowing, following the mouse ──")
+{
+  const src = ["dot-field.tsx", "dot-field-engine.ts", "dot-field-mount.ts", "dot-field-driver.ts"].map((f) => read(`components/marketing/home/${f}`)).join("\n") /* Changed on purpose (landing round 6 perf): the field is drawn by the shared engine in a worker (dot-field-engine.ts, dot-field-mount.ts, dot-field-driver.ts); these pins read the four files together. */
+  const page = read("app/(storelib)/(marketing)/page.tsx")
+  const cta = read(`${DIR}/final-cta.tsx`)
+  const pts = dotFieldPoints(1200, 600, 18)
+  const cols = Math.floor(1200 / 18) + 1
+  const rows = Math.floor(600 / 18) + 1
+  check("an even grid, centred: every point of it, the same margin both sides", pts.length / 4 === cols * rows && Math.abs(pts[0] - (1200 - pts[(cols - 1) * 4])) < 0.001 && Math.abs(pts[4] - pts[0] - 18) < 0.001)
+  const flows = [0, 4000, 9000].map((t) => dotFieldFlow(300, 200, t))
+  check("a current of its own: the flow at a point changes with time, within 0..1", new Set(flows.map((f) => f.toFixed(3))).size === 3 && flows.every((f) => f >= 0 && f <= 1), flows)
+  // Changed on purpose (landing round 8): the closing call's dots a little more visible (dark 0.19 / 0.46), the purple unchanged.
+  // Changed on purpose (landing round 11): the closing call is brighter (0.34 / 0.68), the purple sheet 0.17 / 0.4.
+  check("subtle, and neutral white on the purple", DOT_FIELD_TONES.purple.rgb === "255,255,255" && DOT_FIELD_TONES.purple.rest <= 0.17 && DOT_FIELD_TONES.purple.lit <= 0.4 && DOT_FIELD_TONES.dark.rest <= 0.35 && DOT_FIELD_TONES.dark.lit <= 0.7) // Changed on purpose (landing round 11): the owner: the purple's dots "more visible".
+  check("follows the mouse with a lerp, wanders by itself without one", /f\.lightX \+= \(tx - f\.lightX\) \* k/.test(src) && /pointerType !== "mouse"/.test(src) && /pathX: \[0\.5, 0\.32, 0\.00011\]/.test(src))
+  // Changed on purpose (landing round 11): at most 2 device pixels a CSS pixel, so the dots are crisp on a phone.
+  check("one canvas at no more than 2 device pixels per CSS pixel", DOT_FIELD_MAX_DPR === 2 && /Math\.min\(f\.cfg\.maxDpr/.test(src) && /document\.createElement\("canvas"\)/.test(src))
+  // Changed on purpose (landing round 8): the light wanders on its own now, so it draws at up to 60 a second whenever it runs (at 30 it stepped).
+  check("at most 60 frames a second, evenly", /f\.last && t - f\.last < f\.cfg\.frameMs\[/.test(src) && /dots\[j\+\+\] = x \* 0\.0052 \+ y \* 0\.0033/.test(src))
+  check("paused off screen and in a hidden tab, one still frame under reduced motion, no state, no layout read in the loop", /IntersectionObserver/.test(src) && /visibilitychange/.test(src) && /if \(fine && !reduced\)/.test(src) && !/useState/.test(src) && !/getBoundingClientRect/.test(src.slice(src.indexOf("const drawTile"), src.indexOf("const settle"))))
+  check("on the purple sheet, a little sparser there, and under the closing call", /<DotField tone="purple" fade="bottom" gap=\{22\}/.test(page) && /<DotField fade="close" scatter \/>/.test(cta)) // Changed on purpose (landing round 8): the closing call's field fades out before its foot.
+  check("the field keeps its CSS: behind, no pointer, no CSS animation", /\.dotf\{position:absolute;inset:0;z-index:-1;[^}]*pointer-events:none/.test(DOT_FIELD_CSS) && !/@keyframes/.test(DOT_FIELD_CSS))
+  check("the closing call in the page's one width", /padding:clamp\(76px,8\.4vw,128px\) var\(--home-edge,/.test(cta)) // Changed on purpose (landing round 11): a little less height.
+}
+
+console.log("\n── earnings: no fee line, a wider photograph ──")
+{
+  const src = read(`${DIR}/earnings-calculator.tsx`)
+  const css = EARNINGS_STYLES.map((s) => s.css).join("\n")
+  const html = renderToStaticMarkup(createElement(EarningsCalculator))
+  const words = text(html)
+  check("the line is gone", !/card processing fee is separate/.test(words) && !/After Storelib/.test(words) && !/cme-note/.test(html + css) && !/FREE_TERMS/.test(src))
+  check("the photograph's column wider from 1280px (.82 of 2, was .62)", /@media \(min-width:1280px\)\{\s*\.cme-card\{grid-template-columns:minmax\(0,\.82fr\) minmax\(0,2fr\)\}/.test(css))
+  check("the photograph still local, sized and lazy", /<div class="cme-photo"><img src="\/home\/earnings\/night-flash-tee-640\.webp"[^>]*sizes="\(min-width: 1280px\) 28vw/.test(html))
+  check("in the page's one width, beating the old 1400px column, its heading set in", /\.cme-wrap,\[data-landing-story\] \.cme>\.cme-wrap\{[^}]*max-width:var\(--home-max,2020px\);[^}]*padding:0 var\(--home-edge,/.test(css) && /\.cme \.story-section-heading\{padding-left:var\(--home-head-inset,0px\)\}/.test(css))
+}
+
+/* Changed on purpose (landing round 15): the owner asked for the audience section as it was before round 14, so audience-ownership.tsx and its stylesheet are f248e7d0a^'s again and the checks round 14 changed here are put back as they were (the four step sequence is gone; tests/home-landing-r14-purple.test.ts). */
+console.log("\n── audience: growth, synced with, export; real faces ──")
+{
+  const src = read(`${DIR}/audience-ownership.tsx`)
+  const css = read(`${DIR}/audience-ownership.module.css`)
+  const html = renderToStaticMarkup(createElement(AudienceOwnership))
+  const words = text(html)
+  /* Changed on purpose (landing round 9): the owner found the three scenes "too much text and complex" and the section stuttering as it came on screen. The chart, the export file and the scene names are gone; the picture is the list with a new person joining (tests/home-landing-r9-white.test.ts). */
+  check("the three scenes are gone", !/data-scene|contacts\.csv|Downloaded|Growth/.test(html) && !/\.scene\b|\.cover\b|\.steps\b/.test(css) && !/setInterval/.test(src))
+  check("still Synced with, the five platforms in their own marks, and Export CSV", words.includes("Synced with") && words.includes("Export CSV") && ["Klaviyo", "Omnisend", "Brevo", "MailerLite", "Kit"].every((n) => html.includes(n)) && (html.match(/class="[^"]*mark[^"]*"><svg/g) ?? []).length === 5)
+  /* Changed on purpose (landing round 15): round 9's section again, with hovers that move by transform (Export CSV's words also turn white). */
+  check("only opacity and transform move", [...css.matchAll(/transition:([^;]+);/g)].every((m) => m[1].split(/,(?![^(]*\))/).every((t) => /^\s*(transform|color|none)\b/.test(t))) && [...css.matchAll(/@keyframes [\w-]+ \{([\s\S]*?)\n\}/g)].every((m) => !/(width|height|left|top|margin|padding|filter|box-shadow|background)\s*:/.test(m[1])))
+  check("plays only on screen with the tab visible; still under reduced motion", /new IntersectionObserver/.test(src) && /document\.hidden/.test(src) && /@media \(prefers-reduced-motion: reduce\)/.test(css))
+  const faces = AUDIENCE_PEOPLE.map((p) => p.photo)
+  check("five new faces, small webp files, none of the old stock profiles", faces.length === 5 && faces.every((f) => existsSync(join(root, "public/home/audience/people", `${f}.webp`)) && statSync(join(root, "public/home/audience/people", `${f}.webp`)).size < 40 * 1024) && !faces.some((f) => ["sofia", "jonah", "aiko", "liam", "priya"].includes(f)), faces)
+  check("the old portraits are gone from the folder", ["sofia", "jonah", "aiko", "liam", "priya", "amara", "ines", "leo"].every((f) => !existsSync(join(root, "public/home/audience/people", `${f}.webp`))))
+  check("in the page's one width, the words set in", /className=\{`\$\{s\.grid\} home-wrap`\}/.test(src) && /\.words \{\s*padding-left: var\(--home-head-inset, 0px\);/.test(css))
+  check("no banned words or samples", !BANNED.test(words) && !BANNED_SAMPLES.test(words))
+}
+
+console.log("\n── the map and the AI tools: the one width ──")
+{
+  const map = SELL_EVERYWHERE_STYLES.map((s) => s.css).join("\n")
+  const ai = AI_TOOLS_STYLES.map((s) => s.css).join("\n")
+  const mapHtml = renderToStaticMarkup(createElement(SellEverywhereMap))
+  const aiHtml = renderToStaticMarkup(createElement(AiToolsSection))
+  check("map: in the one width, its heading set in", /\.cmm-wrap,\[data-landing-story\] \.cmm>\.cmm-wrap\{[^}]*max-width:var\(--home-max,2020px\);[^}]*padding:0 var\(--home-edge,/.test(map) && /\.cmm-head\{[^}]*padding-left:var\(--home-head-inset,0px\)\}/.test(map) && /class="cmm-wrap"/.test(mapHtml))
+  /* Changed on purpose (landing round 9): the map is on a white sheet now and draws its own white ground and dark heading, whose accent is the page's violet as on every white sheet; the black card itself still has nothing purple. */
+  check("map: nothing purple in the card; the heading is the white sheet's own", !PURPLE.test(map.replace("--story-accent:#7c3aed", "")) && /\[data-landing-story\] \.cmm \.cmm-head \.story-heading\{--story-ink:#18181b;--story-muted:#777780;--story-accent:#7c3aed\}/.test(map), map.match(PURPLE))
+  check("AI tools: in the one width", /\.ait-wrap,\[data-landing-story\] \.ait>\.ait-wrap\{[^}]*max-width:var\(--home-max,2020px\);[^}]*padding:0 var\(--home-edge,/.test(ai) && /class="ait-wrap"/.test(aiHtml))
+}
+
+console.log(`\n${passed} passed, ${failed} failed`)
+if (failed) process.exit(1)

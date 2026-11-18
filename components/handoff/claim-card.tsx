@@ -1,15 +1,21 @@
 import Link from "next/link"
-import { JOIN_BTN_PRIMARY, JOIN_BTN_QUIET } from "@/components/team/join-actions"
-import { Plain, StoreCard } from "@/components/team/join-card"
+import { AUTH_BTN_PRIMARY, AUTH_BTN_SECONDARY, AUTH_LINK, AuthFoot, AuthHeading, AuthStore } from "@/components/auth/auth-split"
 import { AcceptOwnership, OpenBusiness, SwitchAccount } from "@/components/handoff/claim-actions"
-import { BLOCKER_TEXT_FOR_RECIPIENT, GOES_WITH_IT, STAYS_BEHIND, claimSignInHref, type ClaimState } from "@/lib/handoff/rules"
+import { BLOCKER_TEXT_FOR_RECIPIENT, claimPath, claimSignInHref, type ClaimState, type FounderAccess } from "@/lib/handoff/rules"
 
 /**
- * The claim page's cards (app/(storelib)/team/claim/[token]), one per state
- * of the link (lib/handoff/rules claimStateOf). The team invite's frame and
- * card (components/team/join-card): the page grey, one white card with the
- * hairline border, the business's photo and name at the top, the near black
- * primary button the auth pages use. Kept apart from the page so the suite
+ * ===========================================================================
+ *  THE CLAIM PAGE, ONE ANSWER PER STATE OF THE LINK
+ * ===========================================================================
+ * Drawn inside the log in page's layout (components/auth/auth-split), so the
+ * person taking a business over meets Storelib's own sign in screen, not a
+ * page of its own. It speaks as the Storelib Team ("Storelib Team invited you
+ * to take it over"), never as the founder's personal note: the founder's
+ * name is not on it. What it shows is what they need to decide: which
+ * business (its photo, name and address), what comes with it, what they set
+ * up themselves (payouts and a plan), and one button. Every state of the link
+ * (lib/handoff/rules claimStateOf) has its heading and its next step. Kept
+ * apart from the page so the suite and scripts/check-business-handoff.mjs
  * can draw every state without a database.
  */
 
@@ -19,7 +25,6 @@ export interface ClaimPreview {
   products: number
   websites: number
   domains: string[]
-  sender: string | null
 }
 
 const NOTES: Record<string, string> = {
@@ -32,151 +37,192 @@ export function ClaimNote({ kind }: { kind: string }) {
   const text = NOTES[kind]
   if (!text) return null
   return (
-    <p role="alert" className="mt-4 rounded-xl border border-[#fecaca] bg-[#fef2f2] px-3.5 py-2.5 text-[13.5px] leading-5 text-[#991b1b]" data-claim-note={kind}>
+    <p role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-[14px] leading-5 text-red-800" data-claim-note={kind}>
       {text}
     </p>
   )
 }
 
+const FOUNDER_WORDS: Record<FounderAccess, string> = { full: "full access", content: "content access", support: "support access" }
+
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 
-/** What the business is and what comes with it: read only. */
-export function ClaimPreviewBox({ preview, keepFounder }: { preview: ClaimPreview; keepFounder?: boolean }) {
-  const addresses: [string, string][] = []
-  if (preview.onePageAddress) addresses.push(["OnePage", preview.onePageAddress])
-  if (preview.storeAddress) addresses.push(["Store", preview.storeAddress])
-  if (preview.domains.length) addresses.push([preview.domains.length === 1 ? "Domain" : "Domains", preview.domains.join(", ")])
-  const sender = preview.sender || "The sender"
+function includes(preview: ClaimPreview): string {
+  const parts = [plural(preview.products, "product", "products")]
+  if (preview.websites) parts.push(plural(preview.websites, "website", "websites"))
+  return `${parts.join(", ")}, orders, customers and settings`
+}
+
+/**
+ * Which business, and what comes with it: one box, read only. The business's
+ * own row first (photo, name, address), then the rows that move with it, then
+ * the two things the new owner sets up themselves.
+ */
+export function ClaimPreviewBox({ business, preview, keepFounder, founderAccess }: { business: { name: string; avatarUrl: string | null }; preview: ClaimPreview | null; keepFounder?: boolean; founderAccess?: FounderAccess }) {
+  const rows: [string, string, boolean?][] = []
+  if (preview?.onePageAddress && preview.onePageAddress !== preview.storeAddress) rows.push(["OnePage", preview.onePageAddress])
+  if (preview?.domains.length) rows.push([preview.domains.length === 1 ? "Domain" : "Domains", preview.domains.join(", ")])
+  if (preview) rows.push(["Includes", includes(preview)])
+  rows.push(["Payouts", "Connect your own after you accept", true])
+  rows.push(["Plan", "You choose your own", true])
   return (
-    <div className="rounded-xl border border-[#eef0f2] bg-[#f8f9fa] px-4 py-3.5" data-claim-preview="">
-      {addresses.length ? (
-        <dl className="space-y-1.5">
-          {addresses.map(([k, v]) => (
-            <div key={k} className="flex gap-3 text-[13.5px] leading-5">
-              <dt className="w-[72px] shrink-0 text-[#6b7280]">{k}</dt>
-              <dd className="min-w-0 font-medium text-[#1a1a2e] [overflow-wrap:anywhere]">{v}</dd>
-            </div>
-          ))}
-        </dl>
+    <div className="overflow-hidden rounded-xl border border-neutral-200" data-claim-preview="">
+      <div className="bg-neutral-50 px-4 py-3">
+        <AuthStore name={business.name} avatarUrl={business.avatarUrl} line={preview?.storeAddress ?? preview?.onePageAddress ?? null} />
+      </div>
+      <dl className="divide-y divide-neutral-100 border-t border-neutral-200">
+        {rows.map(([k, v, quiet]) => (
+          <div key={k} className="flex gap-3 px-4 py-2.5 text-[14px] leading-5">
+            <dt className="w-[76px] shrink-0 text-neutral-500">{k}</dt>
+            <dd className={`min-w-0 [overflow-wrap:anywhere] ${quiet ? "text-neutral-500" : "text-neutral-900"}`}>{v}</dd>
+          </div>
+        ))}
+      </dl>
+      {keepFounder ? (
+        <p className="border-t border-neutral-200 px-4 py-2.5 text-[13px] leading-5 text-neutral-500" data-claim-founder="">
+          The person who set it up stays on your team with {FOUNDER_WORDS[founderAccess ?? "full"]}, never payouts or billing. You can remove them in Settings, Team.
+        </p>
       ) : null}
-      <p className={`${addresses.length ? "mt-2.5 border-t border-[#eef0f2] pt-2.5" : ""} text-[13.5px] leading-5 text-[#374151]`} data-claim-counts="">
-        {plural(preview.products, "product", "products")}
-        {preview.websites ? `, ${plural(preview.websites, "website", "websites")}` : ""}
-      </p>
-      <p className="mt-3 text-[13px] font-medium text-[#1a1a2e]">Comes with it</p>
-      <ul className="mt-1.5 space-y-1">
-        {GOES_WITH_IT.map((line) => (
-          <li key={line} className="text-[13px] leading-5 text-[#374151]">{line}</li>
-        ))}
-      </ul>
-      <p className="mt-3 text-[13px] font-medium text-[#1a1a2e]">Stays with {sender}</p>
-      <ul className="mt-1.5 space-y-1">
-        {STAYS_BEHIND.map((line) => (
-          <li key={line} className="text-[13px] leading-5 text-[#6b7280]">{line.replace("The sender's", `${sender}'s`)}</li>
-        ))}
-      </ul>
-      {keepFounder ? <p className="mt-3 border-t border-[#eef0f2] pt-2.5 text-[12.5px] leading-[18px] text-[#6b7280]">{sender} stays on your team. You can remove them in Settings, Team.</p> : null}
     </div>
   )
 }
 
-export function ClaimCard({ state, token, note, signedIn, preview }: { state: ClaimState; token: string; note: string; signedIn: boolean; preview: ClaimPreview | null }) {
+function shortDate(iso: string | null | undefined): string | null {
+  const t = iso ? Date.parse(iso) : NaN
+  return Number.isFinite(t) ? new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).format(t) : null
+}
+
+function foot(email: string | null, expiresAt: string | null | undefined) {
+  const until = shortDate(expiresAt)
+  if (!email && !until) return null
+  return (
+    <AuthFoot>
+      {email ? <>For {email}. </> : null}
+      {until ? <>Works once, until {until}.</> : <>Works once.</>}
+    </AuthFoot>
+  )
+}
+
+export function ClaimCard({
+  state,
+  token,
+  note,
+  signedIn,
+  preview,
+  expiresAt = null,
+  founderAccess = "full",
+}: {
+  state: ClaimState
+  token: string
+  note: string
+  signedIn: boolean
+  preview: ClaimPreview | null
+  expiresAt?: string | null
+  founderAccess?: FounderAccess
+}) {
   const home = signedIn ? "/app" : "/"
   const homeLabel = signedIn ? "Go to my dashboard" : "Go to Storelib"
-  const quietHome = <Link href={home} className={JOIN_BTN_QUIET}>{homeLabel}</Link>
-  const card = (business: { name: string; avatarUrl: string | null }, eyebrow: string, title: string, children: React.ReactNode) => (
-    <StoreCard store={{ id: "", name: business.name, avatarUrl: business.avatarUrl }} eyebrow={eyebrow} title={title}>
-      {children}
-    </StoreCard>
+  const quietHome = <Link href={home} className={AUTH_BTN_SECONDARY}>{homeLabel}</Link>
+  const done = (title: string, sub: string, action: React.ReactNode = quietHome) => (
+    <div data-claim-state={state.kind}>
+      <AuthHeading title={title} sub={sub} />
+      {"business" in state ? <div className="mb-6"><AuthStore name={state.business.name} avatarUrl={state.business.avatarUrl} line={preview?.storeAddress ?? null} /></div> : null}
+      {action}
+    </div>
   )
-  const line = (text: string) => <p className="text-center text-[14px] leading-[21px] text-[#6b7280]">{text}</p>
+  const invited = "Storelib Team invited you to take over this business as its owner."
   switch (state.kind) {
     case "invalid":
-      return <Plain title="This link is not complete" body="Part of it is missing. Open it from the email again, or copy the whole link.">{quietHome}</Plain>
+      return done("This link is not complete", "Part of it is missing. Open it from the email again, or copy the whole link.")
     case "gone":
-      return <Plain title="This link doesn't work" body="It may have been replaced by a newer link. Ask the person who sent it for the latest one.">{quietHome}</Plain>
+      return done("This link doesn't work", "It may have been replaced by a newer link. Ask whoever sent it for the latest one.")
     case "revoked":
-      return card(state.business, "Link cancelled", "This link was cancelled", <>{line("The person who sent it cancelled it. Ask them for a new one if you still need it.")}<div className="mt-5">{quietHome}</div></>)
+      return done("This link was cancelled", "Ask whoever sent it for a new one if you still need it.")
     case "expired":
-      return card(state.business, "Link expired", "This link has expired", <>{line(`Ask the person who sent it for a new link to ${state.business.name}.`)}<div className="mt-5">{quietHome}</div></>)
+      return done("This link has expired", `Ask whoever sent it for a new link to ${state.business.name}.`)
     case "stale":
-      return card(state.business, "Not available", "This business can't be handed over", <>{line("It is no longer with the person who sent the link. Ask them what happened.")}<div className="mt-5">{quietHome}</div></>)
+      return done("This business can't be handed over", "It is no longer with the person who sent the link. Ask them what happened.")
     case "accepted":
       return state.mine
-        ? card(state.business, "It's yours", `${state.business.name} is yours`, (
-            <>
-              {line("Connect your payout account in Settings, Payments to get paid. You can open it any time from your account menu.")}
-              <div className="mt-5">
-                <OpenBusiness userId={state.businessUserId} name={state.business.name} auto={note === "accepted"} />
-              </div>
-            </>
-          ))
-        : card(state.business, "Link used", "This link has been used", <>{line("Someone already accepted it. If that wasn't you, ask the person who sent it.")}<div className="mt-5">{quietHome}</div></>)
+        ? done(`${state.business.name} is yours`, "Connect your payout account in Settings, Payments to get paid. You can open it any time from your account menu.", <OpenBusiness userId={state.businessUserId} name={state.business.name} auto={note === "accepted"} />)
+        : done("This link has been used", "Someone already accepted it. If that wasn't you, ask whoever sent it.")
     case "own":
-      return card(state.business, "Your business", "You're the one handing this over", <>{line("This link is for someone else. Send it to them, or manage it in Settings, Team.")}<div className="mt-5"><Link href="/app/settings?tab=team" className={JOIN_BTN_PRIMARY}>Open Team settings</Link></div></>)
+      return done("This is your handover link", "Send it to the person taking the business over. You can resend or cancel it in Settings, Team.", <Link href="/app/settings?tab=team" className={AUTH_BTN_PRIMARY}>Open Team settings</Link>)
     case "signed_out":
-      return card(state.business, "Business handover", `Take over ${state.business.name}`, (
-        <>
-          {preview ? <ClaimPreviewBox preview={preview} /> : null}
-          <div className="mt-5 space-y-2">
-            <a href={claimSignInHref(token, { signup: true })} className={JOIN_BTN_PRIMARY} data-claim="signup">Create account to accept</a>
-            <a href={claimSignInHref(token, { signup: false })} className={JOIN_BTN_QUIET} data-claim="login">Already on Storelib? Log in</a>
+      return (
+        <div data-claim-state={state.kind}>
+          <AuthHeading title={`Manage ${state.business.name}`} sub={invited} />
+          <ClaimPreviewBox business={state.business} preview={preview} />
+          <div className="mt-6">
+            <a href={claimSignInHref(token, { signup: true })} className={AUTH_BTN_PRIMARY} data-claim="signup">Create account to accept</a>
           </div>
-        </>
-      ))
-    case "wrong_email":
-      return card(state.business, "Business handover", `Take over ${state.business.name}`, (
-        <>
-          <p className="text-center text-[14px] leading-[21px] text-[#6b7280]" data-claim="wrong-email">
-            This link was sent to <span className="font-medium text-[#1a1a2e] [overflow-wrap:anywhere]">{state.email}</span>
-            {state.signedInAs ? <>, and you're signed in as <span className="font-medium text-[#1a1a2e] [overflow-wrap:anywhere]">{state.signedInAs}</span></> : null}. Sign in with that email to accept.
+          <p className="mt-6 text-center text-[14px] text-neutral-500">
+            Already on Storelib?{" "}
+            <a href={claimSignInHref(token, { signup: false })} className={AUTH_LINK} data-claim="login">Log in</a>
           </p>
+          {foot(state.email, expiresAt)}
+        </div>
+      )
+    case "wrong_email":
+      return (
+        <div data-claim-state={state.kind}>
+          <AuthHeading
+            title={`Manage ${state.business.name}`}
+            sub={
+              <span data-claim="wrong-email">
+                This invite is for <span className="font-medium text-neutral-900 [overflow-wrap:anywhere]">{state.email}</span>
+                {state.signedInAs ? <>, and you're signed in as <span className="font-medium text-neutral-900 [overflow-wrap:anywhere]">{state.signedInAs}</span></> : null}. Log in with that email to accept.
+              </span>
+            }
+          />
           {note ? <ClaimNote kind={note} /> : null}
-          <div className="mt-5"><SwitchAccount token={token} email={state.email} /></div>
-        </>
-      ))
+          <SwitchAccount token={token} email={state.email} label="Switch account" />
+        </div>
+      )
     case "verify_email":
-      return card(state.business, "Business handover", "Confirm your email first", (
-        <>
-          {line(`${state.signedInAs ? `We need to know ${state.signedInAs} is yours` : "We need to know your email is yours"} before a business can be handed to it.`)}
-          <div className="mt-5 space-y-2">
-            <a href={`/signup/verify?userId=${encodeURIComponent(state.userId)}&next=${encodeURIComponent(`/team/claim/${token}`)}`} className={JOIN_BTN_PRIMARY} data-claim="verify">Confirm my email</a>
+      return (
+        <div data-claim-state={state.kind}>
+          <AuthHeading title="Confirm your email first" sub={`${state.signedInAs ? `We need to know ${state.signedInAs} is yours` : "We need to know your email is yours"} before a business can be handed to it.`} />
+          <div className="space-y-3">
+            <a href={`/signup/verify?userId=${encodeURIComponent(state.userId)}&next=${encodeURIComponent(claimPath(token))}`} className={AUTH_BTN_PRIMARY} data-claim="verify">Confirm my email</a>
             <SwitchAccount token={token} email={null} label="Use another account" quiet />
           </div>
-        </>
-      ))
+        </div>
+      )
     case "limit":
-      return card(state.business, "Business handover", "You have three businesses already", (
-        <>
-          {line(`One login can have three businesses. Remove one of yours, or accept ${state.business.name} with another account.`)}
+      return (
+        <div data-claim-state={state.kind}>
+          <AuthHeading title="You have three businesses already" sub={`One login can have three. Remove one of yours, or accept ${state.business.name} with another account.`} />
           {note ? <ClaimNote kind={note} /> : null}
-          <div className="mt-5 space-y-2">
+          <div className="space-y-3">
             <SwitchAccount token={token} email={null} label="Use another account" />
             {quietHome}
           </div>
-        </>
-      ))
+        </div>
+      )
     case "not_ready":
-      return card(state.business, "Business handover", "Almost ready", (
-        <>
-          {line(`${preview?.sender || "The sender"} has something left to do before you can take it over. The link keeps working.`)}
-          <ul className="mt-3 space-y-1.5 rounded-xl border border-[#fde68a] bg-[#fffbeb] px-3.5 py-2.5" data-claim-blockers="">
+      return (
+        <div data-claim-state={state.kind}>
+          <AuthHeading title="Almost ready" sub={`${state.business.name} can be taken over once this is done. The link keeps working.`} />
+          <ul className="mb-6 space-y-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2.5" data-claim-blockers="">
             {state.blockers.map((b) => (
-              <li key={b} className="text-[13px] leading-5 text-[#92400e]">{BLOCKER_TEXT_FOR_RECIPIENT[b]}</li>
+              <li key={b} className="text-[14px] leading-5 text-amber-900">{BLOCKER_TEXT_FOR_RECIPIENT[b]}</li>
             ))}
           </ul>
-          <div className="mt-5"><a href={`/team/claim/${encodeURIComponent(token)}`} className={JOIN_BTN_QUIET}>Check again</a></div>
-        </>
-      ))
+          <a href={claimPath(token)} className={AUTH_BTN_SECONDARY}>Check again</a>
+        </div>
+      )
     case "ready":
-      return card(state.business, "Business handover", `Take over ${state.business.name}`, (
-        <>
-          {preview ? <ClaimPreviewBox preview={preview} keepFounder={state.keepFounder} /> : null}
+      return (
+        <div data-claim-state={state.kind}>
+          <AuthHeading title={`Manage ${state.business.name}`} sub={invited} />
           {note ? <ClaimNote kind={note} /> : null}
-          <div className="mt-5">
+          <ClaimPreviewBox business={state.business} preview={preview} keepFounder={state.keepFounder} founderAccess={founderAccess} />
+          <div className="mt-6">
             <AcceptOwnership token={token} />
           </div>
-        </>
-      ))
+          {foot(state.email, expiresAt)}
+        </div>
+      )
   }
 }

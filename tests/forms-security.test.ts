@@ -93,7 +93,9 @@ check("the sealed webhook secret is kept on save and never sent to the browser",
 
 check("public reads strip the gated link and quiz results; the owner's routes stay owner-scoped", () => {
   const pub = readFileSync("app/api/forms/[id]/public/route.ts", "utf8")
-  assert.match(pub, /publicDefinition\(validateDefinition\(data\.published\)\)/)
+  /* Changed on purpose (round AR): the checked definition is named once, so the booking's price can be read from it; what is sent is still publicDefinition of it. */
+  assert.match(pub, /const definition = validateDefinition\(data\.published\)/)
+  assert.match(pub, /definition: publicDefinition\(definition\)/)
   const page = readFileSync("app/(storelib)/request/forms/[id]/page.tsx", "utf8")
   assert.match(page, /publicDefinition\(/)
   for (const file of ["app/api/leads/route.ts", "app/api/leads/[id]/route.ts", "app/api/leads/export/route.ts", "app/api/leads/[id]/files/[upload]/route.ts", "app/api/forms/[id]/route.ts", "app/api/forms/[id]/webhook/route.ts", "app/api/bookings/[id]/route.ts"]) {

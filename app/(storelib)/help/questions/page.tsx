@@ -19,7 +19,8 @@ export const metadata: Metadata = {
 }
 
 /* The physical questions follow the switch in /admin, like the rest of the physical guide. */
-export const revalidate = 60
+/* An hour (round 54, Vercel cost): saving, publishing and a post going live clear these at once (lib/blog/admin-http.ts, went-live.ts; the platform switch clears /help). */
+export const revalidate = 3600
 
 /**
  * /help/questions: the questions stores and buyers ask, by topic, each with

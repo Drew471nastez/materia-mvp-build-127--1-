@@ -83,6 +83,7 @@ export async function readAppFacts(db: Db, creatorId: string, physical: boolean)
     requireAccount: checkout ? checkout.requireAccount : null,
     moreMarkets,
     codeConnected,
+    trackingOn: await import("@/lib/physical/tracking/accounts-server").then((m) => m.trackingAvailable(db, creatorId)).then((t) => t.on, () => null),
   }
   return { facts, codeHref }
 }

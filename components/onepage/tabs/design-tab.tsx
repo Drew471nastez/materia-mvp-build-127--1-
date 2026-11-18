@@ -7,6 +7,7 @@ import { ProfileImage } from "@/components/onepage/profile-image"
 import type React from "react"
 
 import { useOnePage } from "@/lib/onepage/context"
+import type { LinkButtonBlockData } from "@/lib/onepage/types"
 import { onePageImageSrc } from "@/lib/onepage/display-image"
 import * as ReactModule from "react"
 import { useEffect, useLayoutEffect, useState, useRef, useCallback, startTransition, memo } from "react"
@@ -14,6 +15,7 @@ import { flushSync } from "react-dom"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { SocialIcon } from "@/components/onepage/brand-icons"
+import { pageGroundIsLight, socialIconStyleOf, socialIconToneOf, socialIsBrandDisc, socialMarkColorOf, socialTileStyle } from "@/lib/onepage/social-look"
 import {
   ArrowLeft,
   AtSign,
@@ -52,13 +54,14 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { usePhone } from "@/components/app/date-range-picker"
 import { secondaryDepth } from "@/components/ui/depth-button"
-import { familyOf, fontStack, onePageFontHref, onePageFontSampleHref } from "@/lib/onepage/fonts"
-import { AVATAR_BORDER_MAX, AVATAR_RADIUS_DEFAULT, AVATAR_RADIUS_MAX, avatarBorderWidth, avatarRadius, avatarShapeOf, avatarSizeOf, bioWeightOf, caseOf, textSizeOf, titleWeightOf, trackingOf } from "@/lib/onepage/header-style"
+import { familyOf, fontStack, onePageFontCutHref, onePageFontHref, onePageFontSampleHref, realWeight } from "@/lib/onepage/fonts"
+import { AVATAR_BORDER_MAX, AVATAR_RADIUS_DEFAULT, AVATAR_RADIUS_MAX, avatarBorderWidth, avatarRadius, avatarShapeOf, avatarSizeOf, bioFamilyOf, bioWeightOf, caseOf, drawnTitleWeight, textSizeOf, titleFamilyOf, titleWeightOf, trackingOf } from "@/lib/onepage/header-style"
 import { PILL_FROM, PILL_RADIUS, type ButtonHover, buttonAlign, buttonFill, buttonHover, buttonHoverVars, buttonIconSide, buttonShadow, buttonShape, buttonSize, themeButtonStyle } from "@/lib/onepage/button-style"
 import { normalizeHex } from "@/lib/onepage/color"
 import { NAME_STYLES, nameColours, nameStyleCss, nameStyleOf, type NameStyle } from "@/lib/onepage/name-style"
-import { WALLPAPER_PATTERNS, canonicalPatternId, isAutoInk, isPatternId, patternStyle, resolvedPatternInk, wallpaperIsDark, type PatternOpacity } from "@/lib/onepage/wallpaper"
-import { WallpaperPattern } from "@/components/onepage/wallpaper-layers"
+import { WALLPAPER_PATTERNS, canonicalPatternId, isAutoInk, isPatternId, patternStyle, resolvedPatternInk, wallpaperIsDark, wallpaperMediaLook, type PatternOpacity } from "@/lib/onepage/wallpaper"
+import { WallpaperEffectLayers, WallpaperPattern, gradientMotionOf } from "@/components/onepage/wallpaper-layers"
+import { WallpaperEffects } from "@/components/onepage/themes/wallpaper-effects"
 import { PillTabs } from "@/components/onepage/pill-tabs"
 import { LAYER_LEAVE_MS, LAYER_MOTION_EASE, LAYER_MOTION_MS, LAYER_PHONE, startWhenFramesFlow } from "@/components/app/page-layer"
 import { CONTENT_IN_EASE, CONTENT_IN_FROM, CONTENT_IN_MS } from "@/lib/ui/pill-switch"
@@ -87,14 +90,17 @@ import { tt } from "@/lib/i18n/text"
 import { Rich } from "@/lib/i18n/rich"
 /* Round 40: five more themes, the Layout panel, font pairs, the gradient's direction and the wallpaper library (components/onepage/themes). */
 import { withR40Themes } from "@/components/onepage/themes/r40-themes"
-import { ThemePreview } from "@/components/onepage/themes/theme-preview"
+import { RENAISSANCE_THEMES } from "@/components/onepage/themes/renaissance-theme"
+import { orderThemes, themeGroupOf, type ThemeGroupId } from "@/components/onepage/themes/theme-order"
+import { SWATCH_LETTERS, ThemeSwatch, themeIsHero } from "@/components/onepage/themes/theme-swatch"
+import { MOOD_THEMES } from "@/components/onepage/themes/mood-themes"
 import { useThemePreviewScale } from "@/components/onepage/themes/preview-scale"
 import { themeLabel } from "@/components/onepage/themes/theme-names"
 import { LayoutSection } from "@/components/onepage/themes/layout-section"
 import { FontPairs } from "@/components/onepage/themes/font-pairs"
 import { GradientDirection } from "@/components/onepage/themes/gradient-direction"
 import { WallpaperLibrary } from "@/components/onepage/themes/wallpaper-library"
-import { blockLayoutOf, blockSpacingOf, coverImageOf, linearGradientValue } from "@/lib/onepage/theme-layout"
+import { blockLayoutOf, blockSpacingOf, coverImageOf, editLinearGradient, readLinearGradient } from "@/lib/onepage/theme-layout"
 
 type DesignSection = "header" | "theme" | "layout" | "wallpaper" | "text" | "buttons" | "socials" | "footer"
 
@@ -132,6 +138,8 @@ const FONTS = [
   { name: "Fraunces", category: "serif", get style() { return tt("Soft & Warm") }, value: "'Fraunces', serif" },
   { name: "Newsreader", category: "serif", get style() { return tt("Editorial & Calm") }, value: "'Newsreader', serif" },
   { name: "Bodoni Moda", category: "serif", get style() { return tt("Fashion & Sharp") }, value: "'Bodoni Moda', serif" },
+  /* Renaissance's book face (components/onepage/themes/renaissance-theme). */
+  { name: "EB Garamond", category: "serif", get style() { return tt("Classic & Readable") }, value: "'EB Garamond', serif" },
   { name: "Big Shoulders", category: "display", get style() { return tt("Tall & Condensed") }, value: "'Big Shoulders', sans-serif" },
   { name: "Geist Mono", category: "mono", get style() { return tt("Code & Tech") }, value: "'Geist Mono', monospace" },
 ]
@@ -167,6 +175,7 @@ const TITLE_FONTS = [
   { name: "Fraunces", value: "'Fraunces', serif" },
   { name: "Newsreader", value: "'Newsreader', serif" },
   { name: "Bodoni Moda", value: "'Bodoni Moda', serif" },
+  { name: "Cormorant Garamond", value: "'Cormorant Garamond', serif" },
   { name: "Bricolage Grotesque", value: "'Bricolage Grotesque', sans-serif" },
   { name: "Big Shoulders", value: "'Big Shoulders', sans-serif" },
   { name: "Geist", value: "'Geist', sans-serif" },
@@ -212,9 +221,10 @@ const SOCIAL_STYLES = [
   Graphite (graphite with soft glass cards), Midnight, Space and Neon (the
   one loud one). Image: Nature and Fusion (a warm grain). Round 11 added
   five made pieces, each with its own pattern or photograph, type and
-  buttons: Editorial and Terrazzo (light), Blueprint (dark), Darkroom and
-  Haze (image); the note above each says what it is and where its photo
-  comes from. No violet: Blocks
+  buttons: Terrazzo (light), Blueprint (dark), Darkroom and Haze (image);
+  the note above each says what it is and where its photo comes from.
+  Editorial was the fifth; the owner asked for it to go, and a page
+  that wore it drawn as Paper (lib/onepage/retired-themes). No violet: Blocks
   was a violet to pink gradient, Aurora violet glass, Night a violet black
   with lilac buttons and Fusion a violet swirl; each is now its own thing
   under the same name, so a page that chose one keeps the id it saved. What
@@ -222,6 +232,24 @@ const SOCIAL_STYLES = [
   theme's bio and text read at 4.5:1 or more on what is behind them
   (scripts/check-onepage-themes.mjs). Only settings the editor already has,
   so each can be changed piece by piece.
+
+  ROUND AR: A DIFFERENT STRUCTURE EACH, NOT A RECOLOUR. Seventeen of these
+  were the same page (a classic header, centred, a list of rounded buttons)
+  in another colour. Each now also sets how its page is built, with the
+  settings round 40 and 42 gave themes (lib/onepage/theme-layout), so no two
+  of the catalogue share a structure (tests/onepage-ar5.test.ts):
+    a Hero (the photo full bleed)  Sunset, Aurora (with Midnight, Neon, Cobalt)
+    a cover picture                Night, Ocean (with Folio)
+    links as tiles two to a row    Studio, Riso, Blocks, Fusion, Neon
+    links as picture cards         Paper, Sage, Space, Nature
+    links Mixed (halves)           Terrazzo, Peach, Graphite
+    links Compact                  Astrid, Blueprint, Aurora
+    flush left, an index           Olive, Haze
+    products as tiles or rows      Studio, Terrazzo, Riso, Blocks, Space, Nature;
+                                   Sunset, Sage, Olive, Paper, Blueprint
+    Air keeps the plain list, with large buttons and room to breathe.
+  Their colours are as they were. lib/onepage/theme-apply resets all of it on
+  the next pick; a Hero a theme set is taken back by a Classic theme.
 */
 const BASE_THEME_TEMPLATES = [
   {
@@ -283,11 +311,12 @@ const BASE_THEME_TEMPLATES = [
       title_font: "'DM Sans', sans-serif",
       title_color: "#111827",
       social_icon_color: "#374151",
-      spacing: "normal" as const,
+      spacing: "comfortable" as const,
       card_width: "standard" as const,
-      laser_glow_enabled: true,
+      laser_glow_enabled: false, /* Round AS: a ring is the creator's to turn on (Header), never a theme's: Air drew a white glow round every photo. */
       laser_glow_color: "#dbdbdb",
       laser_glow_intensity: "medium",
+      button_size: "large",
     },
     // White cards on a cool grey: dark text for outline and glass buttons
     light_button_text_color: "#111827",
@@ -321,6 +350,9 @@ const BASE_THEME_TEMPLATES = [
       header_layout: "classic",
       background_pattern: "none",
       laser_glow_enabled: false,
+      block_layout: "grid",
+      header_align: "left",
+      product_layout: "grid",
     },
     profile_layout: "classic" as const,
     light_button_text_color: "#1c1917",
@@ -331,24 +363,31 @@ const BASE_THEME_TEMPLATES = [
     id: "paper",
     name: "Paper",
     category: "light",
+    /* Round 17, the owner: "make the Paper theme more good, clean, rich, cool". A sheet lit from the top left, its far corner a shade deeper, grain in the paper, an editorial serif name, cards that lift. */
     theme_config: {
-      background_type: "solid" as const,
-      background_color: "#f3eee4",
-      background_gradient: "",
+      background_type: "gradient" as const,
+      background_color: "#f2ecdf",
+      background_gradient: "radial-gradient(110% 55% at 0% 0%, #fffdf7 0%, #fffdf700 62%), radial-gradient(90% 50% at 100% 100%, #e3d8c4 0%, #e3d8c400 72%), linear-gradient(180deg, #f5f0e5 0%, #eee6d6 100%)",
       background_image_url: "",
-      text_color: "#23201b",
-      secondary_text_color: "#5e574c",
-      button_color: "#fbf8f2",
-      button_text_color: "#23201b",
+      gradient_noise: true,
+      noise_strength: 14,
+      text_color: "#221e18",
+      secondary_text_color: "#5a5246",
+      button_color: "#fdfaf3",
+      button_text_color: "#221e18",
       button_style: "filled" as const,
       button_border_radius: 6,
       button_border_width: 1,
-      button_border_color: "#ddd5c6",
-      button_shadow: "none",
+      button_border_color: "#d9cfbd",
+      button_shadow: "subtle",
+      button_shadow_color: "#6b5236",
+      button_hover_animation: "lift",
       font_family: "'DM Sans', sans-serif",
-      title_font: "'Source Serif Pro', serif",
-      title_color: "#23201b",
-      social_icon_color: "#23201b",
+      title_font: "'Newsreader', serif",
+      title_color: "#221e18",
+      title_weight: 500,
+      title_tracking: "tight",
+      social_icon_color: "#8c3f24",
       spacing: "normal" as const,
       card_width: "standard" as const,
       header_layout: "classic",
@@ -356,12 +395,15 @@ const BASE_THEME_TEMPLATES = [
       background_pattern: "paper",
       pattern_color: "#8a7a5c40",
       pattern_opacity: "low",
+      block_layout: "cards",
+      header_align: "left",
+      product_layout: "rows",
     },
     profile_layout: "classic" as const,
-    light_button_text_color: "#23201b",
-    solid_button_text_color: "#23201b",
-    outline_button_text_color: "#23201b",
-    glass_button_text_color: "#23201b",
+    light_button_text_color: "#221e18",
+    solid_button_text_color: "#221e18",
+    outline_button_text_color: "#221e18",
+    glass_button_text_color: "#221e18",
     share_style: "white",
     subscribe_style: "white",
   },
@@ -435,6 +477,8 @@ const BASE_THEME_TEMPLATES = [
       background_pattern: "dots",
       pattern_color: "#2340c750",
       pattern_opacity: "low",
+      block_layout: "grid",
+      product_layout: "grid",
     },
     profile_layout: "classic" as const,
     light_button_text_color: "#2340c7",
@@ -474,56 +518,13 @@ const BASE_THEME_TEMPLATES = [
       background_pattern: "grid",
       pattern_opacity: "low",
       pattern_color: "#11111140",
+      block_layout: "grid",
+      product_layout: "grid",
     },
     solid_button_text_color: "#111111",
     outline_button_text_color: "#111111",
     glass_button_text_color: "#111111",
     light_button_text_color: "#111111",
-    share_style: "black",
-    subscribe_style: "black",
-  },
-  /*
-    EDITORIAL: a magazine's page. Newsprint with the faint dot screen of
-    print (the Halftone pattern), the name set big in a high contrast
-    display face, words in a book serif, and buttons as solid ink bars
-    with square ends. The one colour is vermilion, in the social icons.
-  */
-  {
-    id: "editorial",
-    name: "Editorial",
-    category: "light",
-    theme_config: {
-      background_type: "solid" as const,
-      background_color: "#f2ede3",
-      background_gradient: "",
-      background_image_url: "",
-      text_color: "#15130f",
-      secondary_text_color: "#4a443a",
-      button_color: "#15130f",
-      button_text_color: "#f6f2ea",
-      button_style: "filled" as const,
-      button_border_radius: 0,
-      button_border_width: 0,
-      button_border_color: "#15130f",
-      button_shadow: "none",
-      font_family: "'Source Serif Pro', serif",
-      title_font: "'Abril Fatface', cursive",
-      title_color: "#15130f",
-      social_icon_color: "#c2361f",
-      social_icon_style: "outline",
-      spacing: "normal" as const,
-      card_width: "standard" as const,
-      header_layout: "classic",
-      laser_glow_enabled: false,
-      background_pattern: "halftone",
-      pattern_color: "#15130f2e",
-      pattern_opacity: "low",
-    },
-    profile_layout: "classic" as const,
-    solid_button_text_color: "#f6f2ea",
-    outline_button_text_color: "#15130f",
-    glass_button_text_color: "#15130f",
-    light_button_text_color: "#15130f",
     share_style: "black",
     subscribe_style: "black",
   },
@@ -563,6 +564,8 @@ const BASE_THEME_TEMPLATES = [
       background_pattern: "terrazzo",
       pattern_color: "#b8664a",
       pattern_opacity: "medium",
+      block_layout: "masonry",
+      product_layout: "grid",
     },
     profile_layout: "classic" as const,
     solid_button_text_color: "#2a231e",
@@ -579,7 +582,7 @@ const BASE_THEME_TEMPLATES = [
     theme_config: {
       background_type: "gradient" as const,
       background_color: "#8f3b28",
-      background_gradient: "linear-gradient(180deg, #ab5036 0%, #8f3b28 55%, #5e2617 100%)",
+      background_gradient: "linear-gradient(180deg, #9c472f 0%, #8f3b28 55%, #5e2617 100%)",
       background_image_url: "",
       text_color: "#ffffff",
       secondary_text_color: "#ffeee4",
@@ -601,7 +604,10 @@ const BASE_THEME_TEMPLATES = [
       background_pattern: "grain",
       pattern_opacity: "low",
       pattern_color: "#ffffff90",
+      header_layout: "hero",
+      product_layout: "rows",
     },
+    profile_layout: "hero" as const,
     share_style: "white",
     subscribe_style: "white",
     solid_button_text_color: "#8a3320",
@@ -632,6 +638,7 @@ const BASE_THEME_TEMPLATES = [
       social_icon_color: "#431407",
       spacing: "normal" as const,
       card_width: "standard" as const,
+      block_layout: "masonry",
     },
     light_button_text_color: "#431407",
     share_style: "white",
@@ -665,6 +672,8 @@ const BASE_THEME_TEMPLATES = [
       header_layout: "classic",
       laser_glow_enabled: false,
       background_pattern: "none",
+      block_layout: "cards",
+      product_layout: "rows",
     },
     profile_layout: "classic" as const,
     light_button_text_color: "#1f2a1f",
@@ -703,6 +712,8 @@ const BASE_THEME_TEMPLATES = [
       background_pattern: "waves",
       pattern_opacity: "low",
       pattern_color: "#428ad790",
+      cover_image_url: "https://images.unsplash.com/photo-1557683316-973673baf926?w=1600&q=80",
+      button_size: "large",
     },
     // Ocean theme uses white share/subscribe button styles
     share_style: "white",
@@ -734,42 +745,56 @@ const BASE_THEME_TEMPLATES = [
       spacing: "normal" as const,
       card_width: "standard" as const,
       animated_gradient: false,
+      header_layout: "hero",
+      block_layout: "compact",
     },
+    profile_layout: "hero" as const,
   },
   {
     id: "olive",
     name: "Olive",
     category: "dark",
+    /* Round 17, the owner: "make the Olive one more cool, rich, more differentiating". A brass light in the top corner, a contour map in brass, a display serif in pale gold, cream buttons that fill with brass. */
     theme_config: {
-      background_type: "solid" as const,
-      background_color: "#2e3526",
-      background_gradient: "",
+      background_type: "gradient" as const,
+      background_color: "#2c3324",
+      background_gradient: "radial-gradient(80% 46% at 100% 0%, #4d4f2a 0%, #4d4f2a00 72%), radial-gradient(70% 40% at 0% 100%, #1f2518 0%, #1f251800 72%), linear-gradient(170deg, #343d29 0%, #2a3121 55%, #22281b 100%)",
       background_image_url: "",
-      text_color: "#efe9d8",
-      secondary_text_color: "#b9b39f",
-      button_color: "#efe9d8",
-      button_text_color: "#2e3526",
+      gradient_noise: true,
+      noise_strength: 12,
+      text_color: "#efe9d6",
+      secondary_text_color: "#c7c1a8",
+      button_color: "#ece4c8",
+      button_text_color: "#262d1d",
       button_style: "filled" as const,
       button_border_radius: 24,
       button_border_width: 0,
-      button_border_color: "#efe9d8",
+      button_border_color: "#ece4c8",
       button_shadow: "none",
+      button_hover_animation: "fill",
+      button_hover_fill: "#d9c98a",
+      button_hover_text: "#1f2416",
       font_family: "'DM Sans', sans-serif",
-      title_font: "'Crimson Text', serif",
-      title_color: "#efe9d8",
-      social_icon_color: "#efe9d8",
+      title_font: "'DM Serif Display', serif",
+      title_color: "#ebe0b6",
+      title_weight: 400,
+      social_icon_color: "#ebe0b6",
       spacing: "normal" as const,
       card_width: "standard" as const,
       header_layout: "classic",
       laser_glow_enabled: false,
-      background_pattern: "linen",
-      pattern_color: "#efe9d830",
+      background_pattern: "topographic",
+      pattern_color: "#d9c98a2e",
       pattern_opacity: "low",
+      header_align: "left",
+      button_text_align: "left",
+      button_icon_position: "right",
+      product_layout: "rows",
     },
     profile_layout: "classic" as const,
-    solid_button_text_color: "#2e3526",
-    outline_button_text_color: "#efe9d8",
-    glass_button_text_color: "#efe9d8",
+    solid_button_text_color: "#262d1d",
+    outline_button_text_color: "#efe9d6",
+    glass_button_text_color: "#efe9d6",
     share_style: "glassmorphism",
     subscribe_style: "glassmorphism",
   },
@@ -797,9 +822,12 @@ const BASE_THEME_TEMPLATES = [
       social_icon_color: "#a1a1aa",
       spacing: "normal" as const,
       card_width: "standard" as const,
-      laser_glow_enabled: true,
+      laser_glow_enabled: false,
       laser_glow_color: "#303030",
       laser_glow_intensity: "medium",
+      block_layout: "compact",
+      button_size: "compact",
+      header_align: "left",
     },
     // Astrid theme uses glassmorphism for share/subscribe icons
     share_style: "glassmorphism",
@@ -829,9 +857,10 @@ const BASE_THEME_TEMPLATES = [
       social_icon_color: "#c9c4b8",
       spacing: "normal" as const,
       card_width: "standard" as const,
-      laser_glow_enabled: true,
+      laser_glow_enabled: false,
       laser_glow_color: "#2b3542",
       laser_glow_intensity: "medium",
+      cover_image_url: "https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=1600&q=80",
     },
     share_style: "glassmorphism",
     subscribe_style: "glassmorphism",
@@ -865,47 +894,10 @@ const BASE_THEME_TEMPLATES = [
       background_pattern: "grain",
       pattern_color: "#ffffff90",
       pattern_opacity: "low",
+      block_layout: "masonry",
+      header_align: "left",
     },
     profile_layout: "classic" as const,
-    share_style: "glassmorphism",
-    subscribe_style: "glassmorphism",
-  },
-  {
-    id: "midnight",
-    name: "Midnight",
-    category: "dark",
-    theme_config: {
-      background_type: "solid" as const,
-      background_color: "#020617",
-      background_gradient: "",
-      background_image_url: "",
-      text_color: "#f8fafc",
-      secondary_text_color: "#94a3b8",
-      button_color: "rgba(255, 255, 255, 0.1)",
-      button_text_color: "#ffffff",
-      button_style: "glass" as const,
-      button_border_radius: 10,
-      button_border_width: 1,
-      button_border_color: "#182b49",
-      button_shadow: "subtle",
-      font_family: "'Inter', sans-serif",
-      title_font: "'Oswald', sans-serif",
-      title_color: "#f8fafc",
-      social_icon_color: "#3b82f6",
-      spacing: "normal" as const,
-      card_width: "standard" as const,
-      // Midnight theme: hero layout, laser glow off, zoom button animation
-      header_layout: "hero",
-      laser_glow_enabled: false,
-      button_hover_animation: "zoom",
-      // Midnight only allows stars pattern - stars enabled by default with white color
-      allowed_patterns: ["none", "stars"],
-      background_pattern: "stars",
-      pattern_color: "#ffffff",
-      pattern_opacity: "medium",
-    },
-    profile_layout: "hero" as const,
-    // Midnight theme uses glassmorphism for share/subscribe buttons
     share_style: "glassmorphism",
     subscribe_style: "glassmorphism",
   },
@@ -938,6 +930,8 @@ const BASE_THEME_TEMPLATES = [
       spacing: "normal" as const,
       card_width: "standard" as const,
       header_layout: "classic",
+      block_layout: "cards",
+      product_layout: "grid",
     },
     profile_layout: "classic" as const,
     // Space theme uses black share/subscribe button styles
@@ -971,6 +965,7 @@ const BASE_THEME_TEMPLATES = [
       card_width: "standard" as const,
       header_layout: "hero",
       background_pattern: "none",
+      block_layout: "grid",
     },
     profile_layout: "hero" as const,
     // Neon theme uses glassmorphism for share/subscribe buttons
@@ -1015,6 +1010,10 @@ const BASE_THEME_TEMPLATES = [
       background_pattern: "blueprint",
       pattern_color: "#ffffff38",
       pattern_opacity: "medium",
+      block_layout: "compact",
+      header_align: "left",
+      button_size: "compact",
+      product_layout: "rows",
     },
     profile_layout: "classic" as const,
     solid_button_text_color: "#123b66",
@@ -1051,6 +1050,8 @@ const BASE_THEME_TEMPLATES = [
       image_brightness: 32,
       image_noise: true,
       noise_strength: 30,
+      block_layout: "cards",
+      product_layout: "grid",
     },
   },
   {
@@ -1084,6 +1085,8 @@ const BASE_THEME_TEMPLATES = [
       image_brightness: 36,
       image_noise: true,
       noise_strength: 40,
+      block_layout: "grid",
+      header_align: "left",
     },
     profile_layout: "classic" as const,
     // Fusion theme uses glassmorphism for share/subscribe buttons
@@ -1176,6 +1179,9 @@ const BASE_THEME_TEMPLATES = [
       header_layout: "classic",
       image_brightness: 108,
       image_noise: false,
+      header_align: "left",
+      button_text_align: "left",
+      button_icon_position: "right",
     },
     profile_layout: "classic" as const,
     solid_button_text_color: "#1d2124",
@@ -1188,7 +1194,9 @@ const BASE_THEME_TEMPLATES = [
 ]
 
 /* Round 40: Gallery, Swiss, Ember, Lagoon and Atlas (components/onepage/themes/r40-themes), each laid into its kind. */
-export const THEME_TEMPLATES = withR40Themes(BASE_THEME_TEMPLATES)
+/* Renaissance (components/onepage/themes/renaissance-theme), and the picker's order: the best and most chosen first, in groups (components/onepage/themes/theme-order). */
+/* The painted wallpapers (components/onepage/themes/mood-themes) join after the kinds are laid out; the picker's order places each (theme-order). */
+export const THEME_TEMPLATES = orderThemes([...withR40Themes([...BASE_THEME_TEMPLATES, ...(RENAISSANCE_THEMES as unknown as typeof BASE_THEME_TEMPLATES)]), ...(MOOD_THEMES as unknown as typeof BASE_THEME_TEMPLATES)])
 
 /** The gradient a page starts from when it has none of its own: warm, and nothing like the old violet default. */
 const DEFAULT_GRADIENT = "linear-gradient(160deg, #f0a8b8 0%, #b2846c 100%)"
@@ -1653,6 +1661,17 @@ function reducedMotion() {
   room and moves nothing under it. Whether to show it is one
   IntersectionObserver on the panel's header against the editor's scroll
   box, never a scroll listener.
+
+  ROUND AT, THE OWNER: on a phone "it glitches and stutters" while a panel
+  scrolls. The slot was 0px tall with the bar hung out of it (absolute), and
+  the bar slid 8px as well as fading: each time it came or went mid scroll,
+  iOS made the bar a layer of its own for the slide, placed from the main
+  thread a frame behind the scroll, and dropped it again after, so it
+  jumped. Now the sticky box is the bar's own height (56px, given back with a
+  -56px margin, so it still takes no room), it is its own layer for good
+  (will-change), nothing in it is a blur, and a change is opacity only, which
+  the compositor draws with the scroll. scripts/check-onepage-at2.mjs scrolls
+  a panel at 390 and counts frames over 25ms and the bar's height.
 */
 function StickyPanelBack({ panelRef, section, title, onBack }: { panelRef: React.RefObject<HTMLDivElement | null>; section: DesignSection; title: string; onBack: () => void }) {
   const [stuck, setStuck] = useState(false)
@@ -1673,13 +1692,13 @@ function StickyPanelBack({ panelRef, section, title, onBack }: { panelRef: React
     return () => io.disconnect()
   }, [panelRef, section])
   return (
-    <div data-sticky-back-slot="" className="sticky top-0 z-20 h-0">
+    <div data-sticky-back-slot="" className="pointer-events-none sticky top-0 z-20 -mb-14 h-14 will-change-transform">
       <div
         data-sticky-back={stuck ? "shown" : "hidden"}
         aria-hidden={stuck ? undefined : true}
         inert={!stuck}
-        className="absolute inset-x-0 top-0 border-b border-[#eef0f2] bg-white transition-[opacity,translate] duration-[180ms] ease-out motion-reduce:transition-none"
-        style={{ opacity: stuck ? 1 : 0, translate: stuck ? "0 0" : "0 -8px", pointerEvents: stuck ? undefined : "none" }}
+        className="h-14 border-b border-[#eef0f2] bg-white transition-opacity duration-[180ms] ease-out will-change-[opacity] motion-reduce:transition-none"
+        style={{ opacity: stuck ? 1 : 0, pointerEvents: stuck ? "auto" : "none" }}
       >
         <div className="mx-auto flex h-14 w-full max-w-xl items-center gap-2.5 px-4 md:px-6">
           <button
@@ -2410,10 +2429,16 @@ function HeaderSection() {
   )
 }
 
-/* The theme names, each drawn in its theme's title face: one request cut to the letters of the names, as the language spells them (round AP). */
-const THEME_NAME_FAMILIES = [...new Set(THEME_TEMPLATES.map((t) => familyOf(t.theme_config.title_font || t.theme_config.font_family)).filter((f): f is string => !!f))]
-/* In capitals too (round W8): Gazette, Halo and Acid set their names in capitals, and a letter missing from the cut is drawn in another face. */
-export const themeNameFontsHref = () => { const names = THEME_TEMPLATES.map((t) => themeLabel(t)).join(""); return onePageFontSampleHref(THEME_NAME_FAMILIES, names + names.toUpperCase()) }
+/*
+  THE CARDS' FACES. Each card sets "Aa" in its theme's title face, at the
+  weight the theme sets its name in (components/onepage/themes/theme-swatch).
+  One request for every face, cut to those two letters in both cases (a theme
+  that sets its name in capitals draws "AA"), so sixty faces cost a few
+  kilobytes. It no longer carries the creator's own words or the body faces:
+  a card draws neither now.
+*/
+const THEME_SWATCH_FACES = THEME_TEMPLATES.map((t) => ({ family: familyOf(t.theme_config.title_font || t.theme_config.font_family), weight: drawnTitleWeight(t.theme_config as never) }))
+export const themeSwatchFontsHref = () => onePageFontCutHref(THEME_SWATCH_FACES, SWATCH_LETTERS + SWATCH_LETTERS.toUpperCase())
 
 /**
  * A THEME, AS A SMALL PAGE. The cards were one grey skeleton in eighteen
@@ -2437,7 +2462,8 @@ export const themeNameFontsHref = () => { const names = THEME_TEMPLATES.map((t) 
 const THEME_THUMB_WIDTH = 320
 
 /** A photo theme's card picture: the optimizer's 640px copy, the same address the card asks for. */
-export const themeThumbSrc = (url: string) => optimizedImageUrl(url, THEME_THUMB_WIDTH, 75)
+/* Round AS: a drawn SVG (Plaster's cover) is drawn as it is: the optimizer refuses SVG (lib/onepage/display-image). */
+export const themeThumbSrc = (url: string) => (/\.svg(?:[?#]|$)/i.test(url) ? url : optimizedImageUrl(url, THEME_THUMB_WIDTH, 75))
 
 /*
   EVERY CARD'S PHOTO IS IN AND DECODED BEFORE THE THEME PAGE IS OPENED. The
@@ -2496,8 +2522,7 @@ const HIDDEN_GRID: React.CSSProperties = { position: "absolute", top: 0, left: 0
 const ThemeCard = memo(function ThemeCard({ template, selected, shown, copy, onPick }: { template: typeof THEME_TEMPLATES[number]; selected: boolean; shown: boolean; copy: boolean; onPick: (template: typeof THEME_TEMPLATES[number]) => void }) {
   const c = template.theme_config as typeof THEME_TEMPLATES[number]["theme_config"] & Record<string, any>
   const name = themeLabel(template)
-  /* A Hero theme's card is drawn with its Hero, as picking it lays the page out (handleApplyTemplate). */
-  const look = (template as any).profile_layout === "hero" ? { ...c, header_layout: "hero" } : c
+  const hero = themeIsHero(template as never)
   return (
     <button
       type="button"
@@ -2508,29 +2533,44 @@ const ThemeCard = memo(function ThemeCard({ template, selected, shown, copy, onP
       data-theme-card={copy ? undefined : template.id}
       data-theme-copy={copy ? template.id : undefined}
       data-theme-shown={shown ? "" : undefined}
-      className={cn(
-        "group/theme relative flex cursor-pointer flex-col rounded-2xl border bg-white p-1.5 text-left outline-none transition-[border-color] duration-150 focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] [-webkit-tap-highlight-color:transparent]",
-        choiceOff,
-      )}
+      /*
+        The card is the swatch and its name, with no box round them. Nothing
+        here has a hover of its own that moves or resizes anything: the
+        pointer only darkens the swatch's hairline (an opacity), so a card
+        under the pointer holds still.
+      */
+      className="group/theme relative flex cursor-pointer select-none flex-col text-left outline-none [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]"
     >
-      <ChoiceMark on={selected} />
       {/*
-        Round AP: the page itself, laid out at a phone's width with the live
-        page's own numbers and scaled to the card as one picture
-        (components/onepage/themes/theme-preview). Its own layer of layout and
-        paint, so nothing inside it is worked out again for the rest of the grid.
+        The swatch (components/onepage/themes/theme-swatch): the theme's
+        wallpaper, "Aa" in its title face and its button, drawn at a phone's
+        width and scaled to the card as one picture. Its own layer of layout
+        and paint, so nothing inside it is worked out again for the rest of the grid.
       */}
-      <span data-theme-frame="" className="relative block aspect-[5/7] overflow-hidden rounded-xl [contain:layout_paint]" style={{ background: c.background_color }}>
-        <ThemePreview c={look} name={name} thumb={themeThumbSrc} />
-        <span aria-hidden className="pointer-events-none absolute inset-0 rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]" />
-        <CheckMark on={selected} className="right-1.5 top-1.5" />
+      <span className="relative block rounded-[18px] group-focus-visible/theme:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]">
+        <span data-theme-frame="" className="relative block aspect-[4/5] overflow-hidden rounded-[18px] [contain:layout_paint]" style={{ background: c.background_color }}>
+          <ThemeSwatch c={c} thumb={themeThumbSrc} hero={hero} />
+          {/* Round 17: a Hero theme says so, in the corner, so Classic and Hero read at a glance. Outside the scaled page, so it is crisp. */}
+          <span aria-hidden className="pointer-events-none absolute inset-0 rounded-[18px] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.08)]" />
+          <span aria-hidden data-theme-hover="" className="pointer-events-none absolute inset-0 rounded-[18px] opacity-0 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.22)] transition-opacity duration-150 group-hover/theme:opacity-100" />
+        </span>
+        {/* Picked: the dark ring round the swatch, outside it, faded in (components/onepage/choice-marks). */}
+        <SwatchMark on={selected} className="rounded-[21.5px]" />
       </span>
-      <span className={cn("block truncate px-1.5 pb-1 pt-2 text-[13px] font-medium transition-colors duration-[180ms]", selected ? "text-[#1a1a2e]" : "text-[#4b5563]")}>{name}</span>
+      <span data-theme-name="" className={cn("block truncate px-0.5 pt-2 text-[13px] leading-5 transition-colors duration-[180ms]", selected ? "font-semibold text-[#1a1a2e]" : "font-medium text-[#4b5563]")}>{name}</span>
     </button>
   )
 })
 
 type ThemeFilter = "all" | "light" | "dark" | "gradient" | "image"
+/* The names of All's groups (components/onepage/themes/theme-order). */
+const THEME_GROUP_LABELS: Record<ThemeGroupId, () => string> = {
+  clean: () => tt("Clean"),
+  dark: () => tt("Dark"),
+  colour: () => tt("Colour"),
+  photo: () => tt("Photo"),
+  styled: () => tt("Eras and styles"),
+}
 const THEME_KINDS: readonly { id: ThemeFilter; label: string }[] = [
   { id: "all", get label() { return tt("All") } },
   { id: "light", get label() { return tt("Light") } },
@@ -2695,10 +2735,11 @@ function ThemeSection() {
   const { onepage, updateBlock, applyThemeLook } = useOnePage()
   const [filter, setFilter] = useState<ThemeFilter>("all")
   const { gridRef, pickFilter } = useSteadyFilter(filter, setFilter)
-  const nameFontsHref = themeNameFontsHref()
+  /* The cards' faces: one small request (themeSwatchFontsHref). */
+  const nameFontsHref = themeSwatchFontsHref()
   /*
-    Round AP: every card draws the page at a phone's width, scaled to the
-    card (components/onepage/themes/theme-preview). The cards of every kind
+    Round AP: every card is drawn at a phone's width and scaled to the
+    card (components/onepage/themes/theme-swatch). The cards of every kind
     are the same width, so one is measured, once and when the panel's width
     changes, and the scale is one number on the grid that every card reads.
   */
@@ -2723,7 +2764,14 @@ function ThemeSection() {
       fade, and a creator who chose Hero keeps it. The theme's Classic still
       applies to a page that is Classic already.
     */
-    const needsClassicLayout = !wantsHeroLayout && templateLayout === "classic" && currentHeaderLayout !== "hero"
+    /*
+      Round AR: a Hero the last theme put there is that theme's, not the
+      creator's, so a Classic theme takes it back (Sunset to Air was a Hero
+      Air). One the creator chose on a Classic theme stays, as above.
+    */
+    const previous = THEME_TEMPLATES.find((t) => t.id === theme.template_id) as { profile_layout?: string; theme_config?: { header_layout?: string } } | undefined
+    const heroFromTheme = previous?.profile_layout === "hero" || previous?.theme_config?.header_layout === "hero"
+    const needsClassicLayout = !wantsHeroLayout && (templateLayout === "classic" || !templateLayout) && (currentHeaderLayout !== "hero" || heroFromTheme)
 
     /* The whole look in one step: nothing of the old theme left behind, Share
        and Subscribe matched, every block's own colours cleared (lib/onepage/theme-apply). */
@@ -2741,7 +2789,7 @@ function ThemeSection() {
         const firstLinkButton = draft_blocks.find(b => b.type === "link_button" && b.enabled)
         if (firstLinkButton) {
           updateBlock(firstLinkButton.id, {
-            data: { ...(firstLinkButton.data || {}), animation_type: "swipe" }
+            data: { ...((firstLinkButton.data || {}) as LinkButtonBlockData), animation_type: "swipe" }
           })
         }
       }
@@ -2791,14 +2839,22 @@ function ThemeSection() {
           <div
             key={kind.id}
             data-theme-kind-grid={kind.id}
-            className="grid grid-cols-2 content-start gap-3 sm:grid-cols-3"
+            className="grid grid-cols-3 content-start gap-x-3 gap-y-4 sm:grid-cols-4"
             style={kind.id === filter ? undefined : HIDDEN_GRID}
             data-theme-kind-shown={kind.id === filter ? "" : undefined}
             aria-hidden={kind.id !== filter ? true : undefined}
           >
-            {THEME_TEMPLATES.filter((t) => kind.id === "all" || t.category === kind.id).map((template) => (
-              <ThemeCard key={template.id} template={template} selected={theme.template_id === template.id} shown={kind.id === filter} copy={kind.id !== "all"} onPick={onPick} />
-            ))}
+            {THEME_TEMPLATES.filter((t) => kind.id === "all" || t.category === kind.id).map((template, i, list) => {
+              /* All is in groups, each named once where it starts (components/onepage/themes/theme-order); a kind is one group already. */
+              const group = kind.id === "all" ? themeGroupOf(template.id) : null
+              const starts = group && (i === 0 || themeGroupOf(list[i - 1].id) !== group)
+              return (
+                <ReactModule.Fragment key={template.id}>
+                  {starts ? <h3 data-theme-group={group} className="col-span-full pt-4 text-[13px] font-semibold text-[#1a1a2e] first:pt-0">{THEME_GROUP_LABELS[group]()}</h3> : null}
+                  <ThemeCard template={template} selected={theme.template_id === template.id} shown={kind.id === filter} copy={kind.id !== "all"} onPick={onPick} />
+                </ReactModule.Fragment>
+              )
+            })}
           </div>
         ))}
       </div>
@@ -2839,13 +2895,13 @@ function WallpaperSection() {
   const currentHeaderLayout = (theme as any).header_layout || "classic"
 
   // Parse current gradient to extract colors and direction
+  /* Start is the first stop and End the last, however many lie between (lib/onepage/theme-layout readLinearGradient). */
   const parseGradient = (gradient: string) => {
-    const directionMatch = gradient.match(/(\d+)deg/)
-    const colorMatches = gradient.match(/#[a-fA-F0-9]{6}|#[a-fA-F0-9]{3}/g)
+    const read = readLinearGradient(gradient)
     return {
-      direction: directionMatch ? parseInt(directionMatch[1]) : 135,
-      color1: colorMatches?.[0] || "#f0a8b8",
-      color2: colorMatches?.[1] || "#b2846c"
+      direction: read ? read.direction : 135,
+      color1: read?.stops[0]?.color || "#f0a8b8",
+      color2: read?.stops[read.stops.length - 1]?.color || "#b2846c",
     }
   }
 
@@ -2878,8 +2934,14 @@ function WallpaperSection() {
     setPendingImageFile(null)
   }
 
+  /* Only what was changed: the angle, the first colour or the last; the theme's other stops stay (lib/onepage/theme-layout editLinearGradient). */
   const handleGradientChange = (direction: number, color1: string, color2: string) => {
-    updateTheme({ background_gradient: linearGradientValue(direction, color1, color2) })
+    const change = {
+      ...(direction !== gradientInfo.direction ? { direction } : {}),
+      ...(color1 !== gradientInfo.color1 ? { first: color1 } : {}),
+      ...(color2 !== gradientInfo.color2 ? { last: color2 } : {}),
+    }
+    updateTheme({ background_gradient: editLinearGradient(theme.background_gradient || DEFAULT_GRADIENT, change, { direction, first: color1, last: color2 }) })
   }
 
   /* The chosen picture shows at once from the device and goes up behind its progress; the uploaded one replaces it once it has loaded. */
@@ -2970,6 +3032,9 @@ function WallpaperSection() {
   const bgType = theme.background_type as "solid" | "gradient" | "image" | "video"
   const coverImage = localImage || theme.background_image_url || ""
   const wallpaperVideoUrl: string = (theme as any).background_video_url || ""
+  /* Round AR: the photo's and the video's effect, as the page draws them. */
+  const imageLook = wallpaperMediaLook(theme as any, "image")
+  const videoLook = wallpaperMediaLook(theme as any, "video")
   const currentPattern = (theme as any).background_pattern || "none"
   const patternRaw: string = (theme as any).pattern_color || "#00000090"
   /* The pattern colour carries its own strength as two hex digits on the end (#00000090). The picker has no alpha, so it is kept aside and put back. */
@@ -3120,7 +3185,7 @@ function WallpaperSection() {
       {bgType === "gradient" && (
         <>
           <PanelSection>
-            <div className="h-24 w-full rounded-2xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.05)]" style={{ background: `linear-gradient(${gradientInfo.direction}deg, ${gradientInfo.color1} 0%, ${gradientInfo.color2} 100%)` }} />
+            <div className="h-24 w-full rounded-2xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.05)]" style={{ background: theme.background_gradient || DEFAULT_GRADIENT }} />
             <div className="mt-5 space-y-3">
               <ColorRow label={tt("Start")} value={gradientInfo.color1} onChange={(color) => handleGradientChange(gradientInfo.direction, color, gradientInfo.color2)} />
               <ColorRow label={tt("End")} value={gradientInfo.color2} onChange={(color) => handleGradientChange(gradientInfo.direction, gradientInfo.color1, color)} />
@@ -3163,6 +3228,18 @@ function WallpaperSection() {
           </PanelSection>
           <PanelSection>
             <SwitchRow label={tt("Animate")} description={tt("The colours drift slowly across the page")} checked={theme.animated_gradient || false} onChange={(checked) => updateTheme({ animated_gradient: checked })} />
+            {/* Round 17: how it moves. Drift moves a straight gradient; Orbs and Glow move any gradient, in its own colours (components/onepage/wallpaper-layers WallpaperMotion). */}
+            {theme.animated_gradient ? (
+              <SettingRow label={tt("Motion")} className="mt-4" stackOnPhone>
+                <Segmented
+                  className="w-full sm:w-[260px]"
+                  label={tt("Motion")}
+                  value={gradientMotionOf(theme as never)}
+                  options={[{ id: "drift", label: tt("Drift") }, { id: "orbs", label: tt("Orbs") }, { id: "lamp", label: tt("Glow") }] as const}
+                  onChange={(id) => updateTheme({ gradient_motion: id === "drift" ? null : id } as never)}
+                />
+              </SettingRow>
+            ) : null}
             <div className="mt-5">{noiseRows("gradient_noise")}</div>
           </PanelSection>
           {patternSection}
@@ -3175,7 +3252,9 @@ function WallpaperSection() {
             {coverImage ? (
               /* The picture, with Replace and Delete on it. While a new one goes up it shows at once from the device, with the progress and Stop over it, and stays until the uploaded one has loaded: no blank frame, no jump. */
               <div data-wallpaper-cover="image" className="relative aspect-video overflow-hidden rounded-2xl bg-[#f1f2f4] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.05)]">
-                <img key={coverImage} src={onePageImageSrc(coverImage, 400)} alt={tt("Wallpaper")} decoding="async" className="h-full w-full object-cover" style={{ filter: `brightness(${(theme as any).image_brightness || 100}%) blur(${(theme as any).image_blur || 0}px)` }} />
+                <img key={coverImage} src={onePageImageSrc(coverImage, 400)} alt={tt("Wallpaper")} decoding="async" className="h-full w-full object-cover" style={{ filter: imageLook.filter, scale: String(imageLook.scale) }} />
+                {/* Round AR: the effect's layers, as the page lays them (lib/onepage/wallpaper wallpaperMediaLook). */}
+                <WallpaperEffectLayers look={imageLook} box={{ position: "absolute", inset: 0 }} />
                 {imageUp.busy ? (
                   <div className="absolute inset-x-0 bottom-0 bg-[linear-gradient(to_top,rgba(0,0,0,0.6),rgba(0,0,0,0))] px-3 pb-3 pt-10">
                     <UploadProgress state={imageUp.state} onCancel={cancelWallpaperImage} tone="dark" />
@@ -3212,7 +3291,8 @@ function WallpaperSection() {
             <PanelSection>
               <div className="space-y-5">
                 <RangeRow label={tt("Brightness")} value={(theme as any).image_brightness || 100} min={20} max={150} step={5} onChange={(v) => updateTheme({ image_brightness: v } as any)} unit="%" />
-                <RangeRow label={tt("Blur")} value={(theme as any).image_blur || 0} min={0} max={20} step={1} onChange={(v) => updateTheme({ image_blur: v } as any)} unit="px" />
+                {/* Round AR: None, Mono, Blur, Halftone, Grain or Duotone, and a tint (components/onepage/themes/wallpaper-effects). Blur is one of them now. */}
+                <WallpaperEffects theme={theme as any} kind="image" src={onePageImageSrc(theme.background_image_url, 200)} onChange={(patch) => updateTheme(patch as any)} />
                 <div>{noiseRows("image_noise")}</div>
               </div>
             </PanelSection>
@@ -3231,7 +3311,8 @@ function WallpaperSection() {
             <div className="space-y-5">
               {/* The video as the page draws it (the same crop), with Replace and Delete on it, like the picture. */}
               <div data-wallpaper-cover="video" className="relative mx-auto aspect-[9/16] w-[min(100%,210px)] overflow-hidden rounded-2xl bg-[#111113] shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
-                <video key={wallpaperVideoUrl} src={wallpaperVideoUrl} className="h-full w-full object-cover" style={{ filter: `brightness(${(theme as any).video_brightness || 100}%)`, ...(croppedMediaStyle((theme as any).background_video_crop) as React.CSSProperties | undefined) }} autoPlay loop muted playsInline preload="metadata" />
+                <video key={wallpaperVideoUrl} src={wallpaperVideoUrl} className="h-full w-full object-cover" style={{ filter: videoLook.filter, scale: String(videoLook.scale), ...(croppedMediaStyle((theme as any).background_video_crop) as React.CSSProperties | undefined) }} autoPlay loop muted playsInline preload="metadata" />
+                <WallpaperEffectLayers look={videoLook} box={{ position: "absolute", inset: 0 }} />
                 <div className="absolute inset-x-0 bottom-3 flex justify-center gap-2">
                   <button type="button" data-wallpaper-replace="" onClick={pickWallpaperVideo} className={cn(secondaryDepth, "h-10 rounded-full px-4 text-[13.5px]")}>
                     <Upload className="h-4 w-4" />
@@ -3249,6 +3330,7 @@ function WallpaperSection() {
                   onChange={(id) => updateTheme({ video_brightness: Number(id) } as any)}
                 />
               </SettingRow>
+              <WallpaperEffects theme={theme as any} kind="video" src={videoPoster((theme as any).background_video_crop)} onChange={(patch) => updateTheme(patch as any)} />
             </div>
           ) : (
             <button type="button" data-wallpaper-upload="video" onClick={pickWallpaperVideo} className="flex w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-[#d9dbe0] px-4 py-8 text-[#1a1a2e] [@media(hover:hover)]:hover:bg-[#f7f7f8]">
@@ -3604,6 +3686,28 @@ function TypeRows({
   onChange: (patch: Record<string, unknown>) => void
 }) {
   const weight = which === "title" ? titleWeightOf(theme) : bioWeightOf(theme)
+  /*
+    Only the weights the chosen face really has (lib/onepage/fonts realWeight):
+    Medium on Lato would draw its Regular, and every weight of Bebas Neue is
+    the one it has, so those choices are not offered twice. The one picked is
+    the one that draws what the page draws.
+  */
+  const family = which === "title" ? titleFamilyOf(theme) : bioFamilyOf(theme)
+  const seen = new Set<number>()
+  const offered = weights.filter((w) => {
+    const real = realWeight(family, Number(w.id))
+    if (seen.has(real)) return false
+    seen.add(real)
+    return true
+  })
+  const drawn = realWeight(family, weight)
+  /* The nearest on offer, so a bio saved as Semibold (600) before Bold was offered shows as Bold, the heavier on a tie. */
+  const picked = offered.reduce<string | null>((best, w) => {
+    if (best === null) return w.id
+    const d = Math.abs(realWeight(family, Number(w.id)) - drawn)
+    const bd = Math.abs(realWeight(family, Number(best)) - drawn)
+    return d < bd || (d === bd && Number(w.id) > Number(best)) ? w.id : best
+  }, null) ?? String(weight)
   /* Wide enough for four weights' names side by side. */
   const row = "w-full sm:w-[308px]"
   return (
@@ -3618,13 +3722,17 @@ function TypeRows({
         />
       </SettingRow>
       <SettingRow label={tt("Weight")} stackOnPhone>
-        <Segmented
-          className={row}
-          label={tt("Weight")}
-          value={String(weight)}
-          options={weights}
-          onChange={(id) => onChange({ [`${which}_weight`]: Number(id) === (which === "title" ? 700 : 400) ? null : Number(id) })}
-        />
+        {offered.length > 1 ? (
+          <Segmented
+            className={row}
+            label={tt("Weight")}
+            value={picked}
+            options={offered}
+            onChange={(id) => onChange({ [`${which}_weight`]: Number(id) === (which === "title" ? 700 : 400) ? null : Number(id) })}
+          />
+        ) : (
+          <p className="text-[13.5px] text-[#6b7280]" data-one-weight="">{tt("This font has one weight")}</p>
+        )}
       </SettingRow>
       <SettingRow label={tt("Letter spacing")} stackOnPhone>
         <Segmented
@@ -3671,7 +3779,7 @@ function HeaderTypeSections() {
         <TypeRows
           which="bio"
           theme={theme}
-          weights={[{ id: "400", label: tt("Regular") }, { id: "500", label: tt("Medium") }, { id: "600", label: tt("Semibold") }]}
+          weights={[{ id: "400", label: tt("Regular") }, { id: "500", label: tt("Medium") }, { id: "700", label: tt("Bold") }]}
           onChange={(patch) => updateTheme(patch as never)}
         />
       </PanelSection>
@@ -3701,9 +3809,10 @@ function AvatarFrameSection() {
           <Segmented
             className={row}
             label={tt("Profile image size")}
-            value={avatarSizeOf(theme)}
-            options={[{ id: "small", label: tt("Small") }, { id: "medium", label: tt("Medium") }, { id: "large", label: tt("Large") }] as const}
-            onChange={(id) => updateTheme({ avatar_size: id === "medium" ? null : id } as never)}
+            /* Round 17: two sizes. Small is the default and is saved as none, so every page that never chose one stays Small. */
+            value={avatarSizeOf(theme) === "large" ? "large" : "small"}
+            options={[{ id: "small", label: tt("Small") }, { id: "large", label: tt("Large") }] as const}
+            onChange={(id) => updateTheme({ avatar_size: id === "small" ? null : id } as never)}
           />
         </SettingRow>
         <SettingRow label={tt("Shape")} stackOnPhone>
@@ -3952,7 +4061,8 @@ function ButtonsSection() {
         </div>
         {shape === "rounded" ? (
           <div className="mt-5">
-            <RangeRow label={tt("Corners")} value={Math.min(radius, 24)} min={2} max={24} step={2} onChange={(v) => updateTheme({ button_border_radius: v })} unit="px" />
+            {/* A theme's own corners can be rounder than 24 (Terrazzo and Haze are 28): the slider shows them and can go back to them (the OnePage production audit, D6). */}
+            <RangeRow label={tt("Corners")} value={radius} min={2} max={Math.max(24, radius)} step={2} onChange={(v) => updateTheme({ button_border_radius: v })} unit="px" />
           </div>
         ) : null}
       </PanelSection>
@@ -4095,8 +4205,7 @@ function SocialsSection() {
   const { onepage, updateTheme } = useOnePage()
   if (!onepage) return null
   const { theme } = onepage
-  const socialStyle = (theme as any).social_icon_style || "filled"
-  const socialColor = (theme as any).social_icon_color || theme.text_color
+  const socialStyle = socialIconStyleOf(theme as never)
 
   return (
     <div>
@@ -4109,13 +4218,11 @@ function SocialsSection() {
                 {["instagram", "youtube"].map((platform) => (
                   <span
                     key={platform}
-                    className="grid h-7 w-7 place-items-center rounded-full"
-                    style={{
-                      backgroundColor: style.id === "filled" ? `${socialColor}22` : style.id === "minimal" ? "rgba(255,255,255,0.22)" : "transparent",
-                      border: style.id === "outline" ? `1.5px solid ${socialColor}` : "none",
-                    }}
+                    className="grid h-7 w-7 place-items-center"
+                    /* The tile the page draws (lib/onepage/social-look), in this page's colours. */
+                    style={socialTileStyle({ ...(theme as object), social_icon_style: style.id } as never, { onLight: pageGroundIsLight(theme as never) })}
                   >
-                    <SocialIcon platform={platform} size={13} color={socialColor} />
+                    <SocialIcon platform={platform} size={13} color={socialMarkColorOf({ ...(theme as object), social_icon_style: style.id } as never)} tone={socialIconToneOf(theme as never)} />
                   </span>
                 ))}
               </div>
@@ -4139,8 +4246,8 @@ function SocialsSection() {
             <ChoiceCard key={choice.id} selected={((theme as any).social_icon_tone === "brand" ? "brand" : "mono") === choice.id} onClick={() => updateTheme({ social_icon_tone: choice.id } as any)} label={choice.label}>
               <div className="flex h-[60px] items-center justify-center gap-1.5 rounded-xl" style={{ background: theme.background_type === "gradient" && theme.background_gradient ? theme.background_gradient : theme.background_color || "#f7f7f8" }}>
                 {["instagram", "youtube", "spotify"].map((platform) => (
-                  <span key={platform} className="grid h-7 w-7 place-items-center rounded-full" style={{ backgroundColor: socialStyle === "filled" ? `${socialColor}22` : "transparent" }}>
-                    <SocialIcon platform={platform} size={13} color={socialColor} tone={choice.id} />
+                  <span key={platform} className="grid h-7 w-7 place-items-center" style={socialTileStyle({ ...(theme as object), social_icon_tone: choice.id } as never, { onLight: pageGroundIsLight(theme as never) })}>
+                    <SocialIcon platform={platform} size={13} color={socialMarkColorOf({ ...(theme as object), social_icon_tone: choice.id } as never)} tone={choice.id} />
                   </span>
                 ))}
               </div>
@@ -4154,7 +4261,8 @@ function SocialsSection() {
           value={(theme as any).social_icon_color || null}
           emptyLabel={tt("Text colour")}
           fallback={theme.text_color}
-          onChange={(color) => updateTheme({ social_icon_color: color } as any)}
+          /* A colour picked while the icons wear their brands' own discs is a colour the creator wants to see (the OnePage production audit, D5): the icons take it, in one colour, instead of nothing changing. */
+          onChange={(color) => updateTheme({ social_icon_color: color, ...(socialIsBrandDisc(theme as never) ? { social_icon_tone: "mono" } : {}) } as any)}
           onClear={() => updateTheme({ social_icon_color: null } as any)}
           suggestions={["#000000", "#ffffff", "#1a1a2e", theme.text_color, theme.button_color, "#e1306c"]}
         />
@@ -4192,14 +4300,14 @@ function FooterSection({ userPlan }: { userPlan?: "free" | "growth" | "pro" | nu
             description={userHasPaidPlan ? tt("Removes “on Storelib” from the foot of your page") : tt("Preview it here; saving it needs a paid plan")}
             checked={hideBrandingEnabled}
             onChange={handleHideBrandingChange}
-            extra={<ProMark title={userHasPaidPlan ? tt("Included in your plan") : "Pro"} />}
+            extra={<ProMark title={userHasPaidPlan ? tt("Included in your plan") : "Grow"} />}
           />
           <SwitchRow
             label={tt("Verified badge")}
             description={userHasPaidPlan ? tt("A check mark beside your name") : tt("A check mark beside your name. Saving it needs a paid plan")}
             checked={verifiedEnabled}
             onChange={handleVerifiedBadgeChange}
-            extra={<ProMark title={userHasPaidPlan ? tt("Included in your plan") : "Pro"} />}
+            extra={<ProMark title={userHasPaidPlan ? tt("Included in your plan") : "Grow"} />}
           />
         </div>
       </PanelSection>

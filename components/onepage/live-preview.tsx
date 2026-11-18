@@ -27,12 +27,19 @@ import { useOnePage } from "@/lib/onepage/context"
 import { publicOnePageFromDraft, type PublicOnePageData } from "@/lib/onepage/public-shape"
 import { ONEPAGE_PREVIEW_CHANNEL, ONEPAGE_PREVIEW_PATH, type PreviewMessage } from "@/lib/onepage/preview-channel"
 import { cn } from "@/lib/utils"
+import { notePreviewPick, PREVIEW_PICK_EVENT, validBlockId } from "@/lib/onepage/preview-select"
+import { Clock } from "lucide-react"
+import { tt } from "@/lib/i18n/text"
+import { isScheduledNow, scheduleLabel } from "@/lib/onepage/extra-blocks"
+import type { OnePageBlock } from "@/lib/onepage/types"
 import { createClient } from "@/lib/supabase/client"
 import { acceptAvatarRead, avatarReadToken, useShellAvatar } from "@/lib/account/avatar-store"
 import { useStoreCurrencyIfSet } from "@/lib/store/currency-context"
 
 /** How long a frame has to say it is ready before it is loaded once more. */
 const FRAME_READY_MS = 6000
+/** A frame out of sight is sent the page once edits have paused this long. */
+const HIDDEN_SEND_MS = 250
 
 /** The width the page is drawn at: a phone's, the one the live page is designed at. */
 export const PREVIEW_PHONE_WIDTH = 390
@@ -105,9 +112,65 @@ export function useOwnerProfile(ownerId: string | undefined) {
 function usePreviewPage(): PublicOnePageData | null {
   const { onepage } = useOnePage()
   const owner = useOwnerProfile(onepage?.owner_id)
+  /* Round AR: shaped again each minute while a block is scheduled, so it comes and goes on time here as it does live. */
+  const scheduled = !!onepage?.draft_blocks?.some((b) => !!b?.schedule)
+  const [minute, setMinute] = useState(0)
+  useEffect(() => {
+    if (!scheduled) return
+    const t = window.setInterval(() => setMinute((m) => m + 1), 60_000)
+    return () => window.clearInterval(t)
+  }, [scheduled])
   return useMemo(
     () => (onepage ? publicOnePageFromDraft(onepage as never, { displayName: owner.displayName, liveAvatarUrl: owner.avatarUrl }) : null),
-    [onepage, owner.displayName, owner.avatarUrl],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [onepage, owner.displayName, owner.avatarUrl, minute],
+  )
+}
+
+/**
+ * ROUND AR: WHAT THE SCHEDULE HIDES RIGHT NOW. A block outside its show
+ * from / until window is left out of the preview exactly as it is left out
+ * of the live page (lib/onepage/public-shape), so the preview says so, on a
+ * small note over its foot: how many, and when the next one starts. Read
+ * again every minute, so a block whose time has come appears and the note
+ * goes without a reload.
+ */
+function useScheduledAway(): { count: number; next: string | null } {
+  const { onepage } = useOnePage()
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(Date.now()), 60_000)
+    return () => window.clearInterval(t)
+  }, [])
+  return useMemo(() => {
+    const all: OnePageBlock[] = []
+    for (const b of (onepage?.draft_blocks ?? []) as OnePageBlock[]) {
+      all.push(b)
+      const kids = (b.data as { children?: OnePageBlock[] } | null)?.children
+      if (b.type === "group" && Array.isArray(kids)) all.push(...kids)
+    }
+    const away = all.filter((b) => b?.enabled !== false && b?.schedule && !isScheduledNow(b, now))
+    const soonest = away
+      .map((b) => ({ b, start: Date.parse(b.schedule?.start_at || "") }))
+      .filter((x) => !Number.isNaN(x.start) && x.start > now)
+      .sort((a, c) => a.start - c.start)[0]
+    return { count: away.length, next: soonest ? scheduleLabel(soonest.b, now)?.text ?? null : null }
+  }, [onepage?.draft_blocks, now])
+}
+
+function ScheduledNote() {
+  const { count, next } = useScheduledAway()
+  if (!count) return null
+  return (
+    <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex justify-center px-3" data-preview-scheduled={count}>
+      <span className="inline-flex max-w-full items-center gap-1.5 truncate rounded-full bg-[#1a1a2e]/85 px-3 py-1.5 text-[11.5px] font-medium text-white shadow-[0_4px_14px_rgba(0,0,0,0.18)] backdrop-blur-sm">
+        <Clock aria-hidden className="h-3 w-3 shrink-0" />
+        <span className="truncate">
+          {tt("{count, plural, one {# scheduled block hidden now} other {# scheduled blocks hidden now}}", { count })}
+          {next ? ` · ${next}` : ""}
+        </span>
+      </span>
+    </div>
   )
 }
 
@@ -130,7 +193,13 @@ export function LivePreviewFrame({
   scale = 1,
   onDrawn,
   title = "Preview of your OnePage",
+  pick,
+  corner,
 }: {
+  /** Round AS: how round the screen around the frame is, in screen pixels; the page's corner buttons keep clear of it. */
+  corner?: number
+  /** Round AR: the phone beside the editor picks blocks (lib/onepage/preview-select): which is open, and what a pick does. */
+  pick?: { selected: string | null; onPick: (id: string) => void }
   page: PublicOnePageData | null
   /** The frame's own viewport, in CSS pixels. */
   width: number | string
@@ -175,6 +244,15 @@ export function LivePreviewFrame({
   const onDrawnRef = useRef(onDrawn)
   onDrawnRef.current = onDrawn
 
+  const pickRef = useRef(pick)
+  pickRef.current = pick
+  const sendPick = useCallback(() => {
+    const win = frame.current?.contentWindow
+    if (!win || !ready.current) return
+    const p = pickRef.current
+    win.postMessage({ channel: ONEPAGE_PREVIEW_CHANNEL, kind: "select-mode", on: !!p, selected: p?.selected ?? null } satisfies PreviewMessage, window.location.origin)
+  }, [])
+
   const send = useCallback(() => {
     const win = frame.current?.contentWindow
     if (!win || !ready.current || !latest.current) return
@@ -190,6 +268,9 @@ export function LivePreviewFrame({
         /* Also after the frame reloads on its own (a new build): it asks again. */
         ready.current = true
         send()
+        sendPick()
+      } else if (data.kind === "select") {
+        if (validBlockId(data.id)) pickRef.current?.onPick(data.id)
       } else if (data.kind === "drawn") {
         setDrawn(true)
         onDrawnRef.current?.()
@@ -197,7 +278,14 @@ export function LivePreviewFrame({
     }
     window.addEventListener("message", onMessage)
     return () => window.removeEventListener("message", onMessage)
-  }, [send])
+  }, [send, sendPick])
+
+  /* Round AR: the frame hears which block is open as soon as it changes. */
+  const pickOn = !!pick
+  const pickSelected = pick?.selected ?? null
+  useEffect(() => {
+    sendPick()
+  }, [pickOn, pickSelected, sendPick])
 
   /*
     A FRAME THAT NEVER ANSWERS IS LOADED ONCE MORE. A document that did not
@@ -208,15 +296,29 @@ export function LivePreviewFrame({
     holds nothing up.
   */
   const [attempt, setAttempt] = useState(0)
+  /* The screen's corner in the page's own pixels (it is drawn at `scale`), for the corner buttons (components/onepage/preview-document). */
+  const cornerQuery = corner ? `&corner=${Math.round((corner / scale) * 10) / 10}` : ""
   useEffect(() => {
     if (attempt > 0) return
     const id = window.setTimeout(() => { if (!ready.current) setAttempt(1) }, FRAME_READY_MS)
     return () => window.clearTimeout(id)
   }, [attempt])
 
-  /* Every change, at most once a frame. */
+  /*
+    Every change, at most once a frame, while the frame can be seen. A frame
+    kept warm out of sight (the phone's preview while the editor is shown, or
+    the phone beside the editor at a width that hides it) draws the page once
+    the typing pauses instead: it used to draw the whole page, and measure every
+    word's legibility over it, on every letter typed, about half of what one
+    keystroke cost on a phone slowed 4x (scripts/check-onepage-au2.mjs).
+  */
   useEffect(() => {
     if (!ready.current) return
+    const el = frame.current
+    if (el && typeof el.checkVisibility === "function" && !el.checkVisibility({ visibilityProperty: true } as CheckVisibilityOptions)) {
+      const id = window.setTimeout(send, HIDDEN_SEND_MS)
+      return () => window.clearTimeout(id)
+    }
     const id = requestAnimationFrame(send)
     return () => cancelAnimationFrame(id)
   }, [page, currency, send])
@@ -232,7 +334,7 @@ export function LivePreviewFrame({
     >
       <iframe
         ref={frame}
-        src={attempt ? `${ONEPAGE_PREVIEW_PATH}&again=${attempt}` : ONEPAGE_PREVIEW_PATH}
+        src={`${ONEPAGE_PREVIEW_PATH}${cornerQuery}${attempt ? `&again=${attempt}` : ""}`}
         title={title}
         /*
           THE PREVIEW CANNOT TAKE THE EDITOR ANYWHERE (round 11). No
@@ -263,6 +365,8 @@ export function LivePreviewFrame({
 /* The phone's own screen, inside its 10px bezel. */
 const SCREEN_W = 287
 const SCREEN_H = 607
+/** The screen's own corner radius: drawn here once, and handed to the page so its corner buttons sit clear of it (round AS). */
+export const PHONE_SCREEN_RADIUS = 34
 const SCALE = SCREEN_W / PREVIEW_PHONE_WIDTH
 const FRAME_H = Math.round(SCREEN_H / SCALE)
 
@@ -273,6 +377,23 @@ const FRAME_H = Math.round(SCREEN_H / SCALE)
 export function PhonePreview({ className, onDrawn }: { className?: string; onDrawn?: () => void }) {
   const page = usePreviewPage()
   const shown = useMedia("(min-width: 768px)")
+  /*
+    ROUND AR: CLICK A BLOCK IN THE PHONE TO EDIT IT. The editor opens it
+    (lib/onepage/context selectedBlockId) and shows it in the Links list
+    (components/onepage/onepage-editor and tabs/links-tab hear the event).
+  */
+  const { selectedBlockId, setSelectedBlockId } = useOnePage()
+  const pick = useMemo(
+    () => ({
+      selected: selectedBlockId,
+      onPick: (id: string) => {
+        notePreviewPick(id)
+        setSelectedBlockId(id)
+        window.dispatchEvent(new CustomEvent(PREVIEW_PICK_EVENT, { detail: { id } }))
+      },
+    }),
+    [selectedBlockId, setSelectedBlockId],
+  )
   const side = (style: React.CSSProperties) => (
     <div aria-hidden className="absolute w-[3px] bg-[#1a1a1a]" style={style} />
   )
@@ -286,8 +407,9 @@ export function PhonePreview({ className, onDrawn }: { className?: string; onDra
       {side({ left: -2, top: 125, height: 44, borderRadius: "2px 0 0 2px" })}
       {side({ left: -2, top: 180, height: 44, borderRadius: "2px 0 0 2px" })}
       {side({ right: -2, top: 145, height: 55, borderRadius: "0 2px 2px 0" })}
-      <div className="relative overflow-hidden" style={{ width: SCREEN_W, height: SCREEN_H, borderRadius: 34, background: pageColour(page), isolation: "isolate" }}>
-        {shown && <LivePreviewFrame page={page} width={PREVIEW_PHONE_WIDTH} height={FRAME_H} scale={SCALE} onDrawn={onDrawn} />}
+      <div className="relative overflow-hidden" style={{ width: SCREEN_W, height: SCREEN_H, borderRadius: PHONE_SCREEN_RADIUS, background: pageColour(page), isolation: "isolate" }}>
+        {shown && <LivePreviewFrame page={page} width={PREVIEW_PHONE_WIDTH} height={FRAME_H} scale={SCALE} onDrawn={onDrawn} pick={pick} corner={PHONE_SCREEN_RADIUS} />}
+        {shown ? <ScheduledNote /> : null}
       </div>
     </div>
   )
@@ -304,6 +426,7 @@ export function MobilePreviewContent({ onDrawn }: { onDrawn?: () => void }) {
   return (
     <div className="relative min-h-0 flex-1 overflow-hidden" data-onepage-mobile-preview="" style={{ background: pageColour(page) }}>
       {shown && <LivePreviewFrame page={page} width="100%" height="100%" onDrawn={onDrawn} />}
+      {shown ? <ScheduledNote /> : null}
     </div>
   )
 }

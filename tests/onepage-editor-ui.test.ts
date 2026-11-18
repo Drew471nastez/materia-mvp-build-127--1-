@@ -99,7 +99,7 @@ function main() {
     check("times read as people say them", timeLabel(18, 5) === "6:05 PM" && timeLabel(0, 0) === "12:00 AM")
     check("the zone is named with its offset", zoneLabel(zone, Date.parse("2030-07-01T00:00:00Z")) === "Europe/Bucharest, GMT+3" && zoneLabel("Asia/Kolkata", 0) === "Asia/Kolkata, GMT+5:30" && zoneLabel("UTC") === "UTC")
 
-    const extras = read("components/onepage/extra-blocks.tsx")
+    const extras = (read("components/onepage/extra-blocks.tsx") + "\n" + read("components/onepage/extra-blocks-editor.tsx"))
     check("no datetime-local box is left in the block settings", !/datetime-local/.test(extras))
     check("the schedule is Show from and Hide after, each a day and a time", /<DateTimeField label="Show from"/.test(extras) && /<DateTimeField label="Hide after"/.test(extras))
     check("the end knows its start, so days before it are quieter", /after=\{s\?\.start_at\}/.test(extras))
@@ -292,7 +292,7 @@ function main() {
     check("the picked marks move on opacity and the scale property, named as such", /transition-\[opacity,scale\]/.test(marks) && !/transition-\[opacity,transform\]/.test(marks))
     check("a card, a segment, a theme and a pattern wear the mark instead of swapping classes",
       /<ChoiceMark on=\{selected\} \/>/.test(kit) && /<ChoiceMark on=\{on\} \/>/.test(kit) && !/selected \? choiceOn : choiceOff/.test(kit)
-      && /<CheckMark on=\{selected\}/.test(design) && /<CheckMark on=\{on\} small/.test(design) && !/on \? choiceOn : choiceOff/.test(design))
+      && /* Changed on purpose (the theme swatch round): a picked theme wears the ring outside its swatch, as a picked colour does. */ /<SwatchMark on=\{selected\} className="rounded-\[21\.5px\]" \/>/.test(design) && /<CheckMark on=\{on\} small/.test(design) && !/on \? choiceOn : choiceOff/.test(design))
     /* The kinds of theme are the editor's one pill-tab row now (components/onepage/pill-tabs): one pill slides between them instead of each chip fading its own fill. */
     check("a chip's fill and a swatch's ring fade too", /<PillTabs\s+dataRow="theme-kinds"/.test(design) && /<SwatchMark on=\{theme\.background_gradient === grad\}/.test(design) && /<SwatchMark on=\{on\} className="rounded-full" \/>/.test(read("components/onepage/color-picker.tsx")))
     /*
@@ -300,7 +300,7 @@ function main() {
       sliding size control was the only one of its kind, and its size fought the Layout tab's Title size. Its
       size is now the kit's Segmented in Layout (block-settings BlockStyleControls), and the sliding one is gone.
     */
-    check("a heading's size is the kit's Segmented in Layout, one control", !/data-segment-thumb=""/.test(read("components/onepage/extra-blocks.tsx")) && !/function Segmented/.test(read("components/onepage/extra-blocks.tsx"))
+    check("a heading's size is the kit's Segmented in Layout, one control", !/data-segment-thumb=""/.test((read("components/onepage/extra-blocks.tsx") + "\n" + read("components/onepage/extra-blocks-editor.tsx"))) && !/function Segmented/.test((read("components/onepage/extra-blocks.tsx") + "\n" + read("components/onepage/extra-blocks-editor.tsx")))
       && /block\.type === "heading" \? \(/.test(read("components/onepage/block-settings.tsx")) && /onChange=\{\(size\) => write\(\{ title_size: undefined \}, \{ size \}\)\}/.test(read("components/onepage/block-settings.tsx")))
     /*
       EVERY SHEET ON A PHONE IS THE SHARED ONE. The name and bio, the
@@ -356,9 +356,8 @@ function main() {
       page's own, avatarLook's size both ways and never shrunk, and nothing in
       the card is worked out from the card's height.
     */
-    const preview = read("components/onepage/themes/theme-preview.tsx")
-    check("a theme card's avatar is the page's fixed square box that cannot be stretched or squashed",
-      /<ThemePreview\b/.test(card) && /data-theme-avatar=""[\s\S]{0,120}className="relative block shrink-0 shadow-lg"[\s\S]{0,80}width: look\.size,\s*height: look\.size,/.test(preview) && !/w-\[22%\]/.test(card))
+    const preview = read("components/onepage/themes/theme-swatch.tsx")
+    /* Changed on purpose (the theme swatch round): the checks here described the page-sized theme card (the creator's page at a card's scale, components/onepage/themes/theme-preview). The owner asked for that card to go; a card is a swatch now (components/onepage/themes/theme-swatch) and tests/onepage-swatch-themes.test.ts checks it. Removed: "a theme card's avatar is..."; "the onboarding's theme cards keep...". */
     /* Changed on purpose (round AL): 2. Theme's "Update to Classic" question, with its little page, is gone; a Classic theme keeps a creator's Hero now. */
     check("the layout pictures in the Header panel are circles that cannot shrink", (design.match(/data-layout-avatar="" className="(h-7 w-7|w-10 h-10) aspect-square shrink-0 rounded-full/g) ?? []).length === 2)
     check("the live page's avatar keeps its own square box in the column", /data-page-avatar="" style=\{\{ width: avatarSize, height: avatarSize, aspectRatio: "1 \/ 1", flexShrink: 0/.test(read("components/onepage/public-onepage.tsx")))
@@ -367,7 +366,6 @@ function main() {
     const onboarding = read("components/onepage/onboarding-modal.tsx")
     /* One card at every width now (the phone's grid and the computer's carousel were two copies of it), so one circle, sized once. */
     /* Changed on purpose (round AQ): the onboarding's cards are the Design tab's preview, whose avatar (checked above) is the theme's own shape at its own size, the creator's photo in it. */
-    check("the onboarding's theme cards keep the creator's picture in the preview's own avatar", /<ThemePreview c=\{look\} name=\{name\} thumb=\{themeThumbSrc\} photo=\{photo\} \/>/.test(onboarding) && /\{photo \? <img src=\{photo\}[^>]*className="block h-full w-full object-cover" \/> : null\}/.test(read("components/onepage/themes/theme-preview.tsx")))
   }
 
   section("+ Add")

@@ -1,0 +1,110 @@
+/*
+  Section 15, the app (landing round 11: round 8's photograph and points,
+  on the white sheet). The section draws its own white ground, so it reads
+  the same on any sheet. Only transform and opacity move: the reveal (platform
+  .reveal) and the photograph's fade once it is decoded.
+*/
+
+.section {
+  background: #fff;
+  color: #18181b;
+}
+
+/* The photograph first and large on a computer, the words beside it; on a phone the words lead and the photograph follows. */
+.grid {
+  display: grid;
+  align-items: center;
+  gap: 40px;
+}
+.copy {
+  min-width: 0;
+  order: -1;
+  padding-left: var(--home-head-inset, 0px);
+}
+@media (min-width: 1024px) {
+  .grid {
+    grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr);
+    gap: clamp(48px, 5.5vw, 96px);
+  }
+  .copy {
+    order: 0;
+    padding-left: 0;
+  }
+}
+
+.lede {
+  font-size: clamp(16px, 1.4vw, 19px);
+  line-height: 1.6;
+  color: #6b6874;
+}
+
+/* The three points: titles only, divided by faint hairlines, no marks. */
+.points {
+  max-width: 460px;
+  margin-bottom: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid rgba(24, 24, 27, 0.09);
+}
+.point {
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(24, 24, 27, 0.09);
+  font-size: clamp(17px, 1.5vw, 20px);
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  line-height: 1.35;
+  color: #18181b;
+}
+
+/*
+  The photograph, at its own 4:3 shape so the box is there before the file.
+  The box is a still grey (the photo's own denim, lightened) with a hairline;
+  the picture fades in over it once decoded (data-ready), never half drawn.
+*/
+.photo {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: clamp(19px, 2.4vw, 31px);
+  background: #e9ecf1;
+  box-shadow: inset 0 0 0 1px rgba(24, 24, 27, 0.05);
+  transform: translateZ(0);
+}
+.img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 650ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.photo[data-ready] .img {
+  opacity: 1;
+}
+@media (scripting: none) {
+  .img {
+    opacity: 1;
+  }
+}
+
+.badge {
+  transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+/* On white, the Coming soon label needs an edge of its own. */
+.soon {
+  box-shadow: 0 0 0 1px rgba(24, 24, 27, 0.14);
+}
+@media (hover: hover) and (pointer: fine) {
+  a.badge:hover {
+    transform: translate3d(0, -2px, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .badge,
+  .img {
+    transition: none;
+  }
+}

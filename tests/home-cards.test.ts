@@ -83,7 +83,8 @@ function main() {
   check("the plan by the name Billing uses", /planDisplayName\(id\)/.test(cards))
   check("its lines from the table the pricing cards read", /OFFERED_PLANS\.find/.test(cards))
   check("Free has lines to show", (OFFERED_PLANS.find((p) => p.id === "free")?.features.length ?? 0) >= 5)
-  check("Upgrade to Pro on Free, to the upgrade page", /"Upgrade to Pro"/.test(cards) && /"\/app\/settings\/billing\/upgrade"/.test(cards))
+  /* Changed on purpose (pricing round 5): the $29 plan is named Grow. */
+  check("Upgrade to Grow on Free, to the upgrade page", /"Upgrade to Grow"/.test(cards) && /"\/app\/settings\/billing\/upgrade"/.test(cards))
   check("never No plan or Subscribe to plan", !/No plan|Subscribe to plan/.test(cards))
   check("each check is one light grey circle, the same size on every line", /data-plan-check="" className="home-plan-check mt-px flex h-\[18px\] w-\[18px\]/.test(cards) && /text-\[#6b7280\]/.test(cards.slice(cards.indexOf("data-plan-check"))))
   const checkCss = homeCss.slice(homeCss.indexOf(".home-plan-check {"), homeCss.indexOf("}", homeCss.indexOf(".home-plan-check {")))

@@ -32,6 +32,8 @@
  * "pro" keeps its stored name, so a page saved with it before is unchanged.
  */
 
+import { TEXT_MIN, fadeThatReads, type Rgba } from "./contrast"
+
 export const EMAIL_SIGNUP_LAYOUT_IDS = ["default", "pro", "cover", "bold", "minimal", "connect", "letter", "bar"] as const
 export type EmailSignupLayout = (typeof EMAIL_SIGNUP_LAYOUT_IDS)[number]
 
@@ -58,6 +60,26 @@ export function emailSignupStacked(layout: EmailSignupLayout, buttonText: string
   /* The pill and the line keep the box and the button in one row, whatever the words. */
   if (layout === "connect" || layout === "letter") return false
   return buttonText.length > 12
+}
+
+/**
+ * Wave 16: the words on the block's button before anyone has joined, as the
+ * live page writes them (components/onepage/public-onepage getButtonText):
+ * the creator's own words, else the preset's, else the saved text. The
+ * editor's Layout picker draws its small pictures with these, so a long
+ * button stacks there exactly as it stacks on the page.
+ */
+const BUTTON_PRESET_WORDS: Record<string, string> = {
+  subscribe: "Subscribe",
+  join: "Join Now",
+  get_access: "Get Access",
+  download: "Download",
+  sign_up: "Sign Up",
+  unlock: "Unlock Now",
+}
+export function emailSignupButtonText(data: { button_preset?: string | null; custom_button_text?: string | null; button_text?: string | null } | null | undefined): string {
+  if (data?.button_preset === "custom" && data.custom_button_text) return data.custom_button_text
+  return BUTTON_PRESET_WORDS[data?.button_preset || "subscribe"] || (data?.button_text ?? "Subscribe")
 }
 
 /**
@@ -101,4 +123,49 @@ export function emailSignupShowsAvatar(layout: EmailSignupLayout): boolean {
 export function connectButtonPatch(data: { button_preset?: string | null; custom_button_text?: string | null }, words: string): { button_preset: "custom"; custom_button_text: string } | null {
   const standard = (!data.button_preset || data.button_preset === "subscribe") && !(data.custom_button_text ?? "").trim()
   return standard ? { button_preset: "custom", custom_button_text: words } : null
+}
+
+/**
+ * Round AS, the owner: "Subscribe should be disabled until a valid email is
+ * entered, then become clickable with a smooth state change." Whether what
+ * is typed is an address the signup would take: something, an @, a host
+ * with a dot and two letters after it, no spaces, at most 254 characters.
+ * Every OnePage signup and subscribe button reads this (the email block in
+ * each layout, the header's Subscribe sheet, the free gift's form); the
+ * servers still check for themselves. Pure.
+ */
+const SIGNUP_EMAIL = /^[^\s@<>()[\]\\,;:"]+@[^\s@<>()[\]\\,;:"]+\.[^\s@<>()[\]\\,;:".]{2,}$/
+
+export function signupEmailReady(raw: unknown): boolean {
+  if (typeof raw !== "string") return false
+  const v = raw.trim()
+  return v.length <= 254 && SIGNUP_EMAIL.test(v)
+}
+
+/**
+ * The page's own button (.op-btn) waiting for an address: faded by a filter,
+ * eased with the button's own timing (app/globals.css .op-btn, which drops to
+ * no time under reduced motion), and back to itself once `ready`.
+ *
+ * Round 3, the owner: invisible words on buttons "in every state", disabled
+ * among them. A fixed 45% took a theme's 5:1 button to 2:1 (Default's
+ * Subscribe read at 3.7:1 while it waited, Renaissance's at 4.4:1). Given the
+ * button's words, its fill (none for words alone) and what it sits on, the
+ * fade is only as deep as keeps the words at 4.5:1 with a step to spare
+ * (waitFade): a button with room to spare still fades to 45%, one with none
+ * does not fade, and the cursor says it waits.
+ */
+export function signupWait(ready: boolean, look?: WaitLook): { filter?: string; transitionProperty: string } {
+  const fade = ready ? 1 : look ? waitFade(look) : 0.45
+  return { ...(fade < 0.999 ? { filter: `opacity(${fade})` } : {}), transitionProperty: "translate, scale, opacity, color, filter" }
+}
+
+/** `painted`: a theme's skin paints the button in colours of its own (lib/onepage/theme-skin), which these are not: it does not fade. */
+export type WaitLook = { words: unknown; fill?: unknown; grounds: readonly Rgba[]; painted?: unknown }
+
+/** The deepest fade (45% at the most) at which the waiting button's words still read at 4.5:1 plus one (lib/onepage/contrast fadeThatReads). */
+export function waitFade({ words, fill, grounds, painted }: WaitLook): number {
+  /* Round 3: Vaporwave's and Grunge Zine's painted Subscribe faded to 3.2:1 by colours worked out for a button they do not draw. */
+  if (painted) return 1
+  return fadeThatReads(words, fill, grounds, TEXT_MIN + 1, 0.45)
 }

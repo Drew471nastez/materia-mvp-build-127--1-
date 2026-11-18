@@ -106,15 +106,15 @@ function renderBlock(b: Block, anchor: string | undefined, postTitle: string, sn
     case "p":
       return <Html as="p" html={b.html ?? (b.text ? escapeHtml(b.text) : "")} className={`mt-[1.25em] first:mt-0 ${BODY}`} />
     case "h2":
-      return <Html as="h2" id={anchor} html={b.html ?? escapeHtml(b.text ?? "")} className="mt-14 scroll-mt-28 text-[27px] font-semibold leading-[1.2] tracking-[-0.022em] text-[#1a1a2e] first:mt-0 sm:mt-16 sm:text-[32px]" />
+      return <Html as="h2" id={anchor} html={b.html ?? escapeHtml(b.text ?? "")} className="mt-14 scroll-mt-28 text-balance text-[28px] font-medium leading-[1.15] tracking-[-0.035em] text-[#1a1a2e] first:mt-0 sm:mt-16 sm:text-[34px]" />
     case "h3":
       return <Html as="h3" id={anchor} html={b.html ?? escapeHtml(b.text ?? "")} className="mt-10 scroll-mt-28 text-[21px] font-semibold leading-[1.3] tracking-[-0.012em] text-[#1a1a2e] sm:text-[23px]" />
     case "hr":
       return <hr className="mx-auto my-12 w-24 border-0 border-t border-[#d4d7dc]" />
     case "quote":
       return (
-        <blockquote className="my-10 border-l-2 border-[#1a1a2e] pl-5 sm:pl-6">
-          <Html as="p" html={b.html ?? escapeHtml(b.text ?? "")} className={`text-[20px] leading-[1.55] tracking-[-0.01em] text-[#1a1a2e] sm:text-[22px] ${INLINE}`} />
+        <blockquote className="my-12 border-l-[3px] border-[#7c3aed] pl-5 sm:pl-7">
+          <Html as="p" html={b.html ?? escapeHtml(b.text ?? "")} className={`text-[21px] font-medium leading-[1.45] tracking-[-0.02em] text-[#1a1a2e] sm:text-[24px] ${INLINE}`} />
         </blockquote>
       )
     case "ul":
@@ -133,7 +133,7 @@ function renderBlock(b: Block, anchor: string | undefined, postTitle: string, sn
       if (!src) return null
       return (
         <figure className="my-10">
-          <BlogImage src={src} alt={b.alt ?? ""} sizes="(min-width: 768px) 720px, calc(100vw - 32px)" className="h-auto w-full rounded-2xl bg-[#f1f2f4]" />
+          <BlogImage src={src} alt={b.alt ?? ""} sizes="(min-width: 768px) 720px, calc(100vw - 32px)" className="h-auto w-full rounded-[clamp(14px,1.8vw,20px)] bg-[#f5f5f6]" />
           {b.caption ? <Caption>{b.caption}</Caption> : null}
         </figure>
       )
@@ -252,9 +252,9 @@ function renderBlock(b: Block, anchor: string | undefined, postTitle: string, sn
     case "code":
       return (
         <figure className="my-8">
-          <div className="overflow-hidden rounded-xl border border-[#e5e7eb] bg-[#f8f9fa]">
-            {b.lang ? <div className="border-b border-[#e5e7eb] px-4 py-2 font-mono text-[14px] text-[#4b5563]">{b.lang}</div> : null}
-            <pre className="overflow-x-auto p-4 text-[14px] leading-[1.65]">
+          <div className="overflow-hidden rounded-2xl bg-[#f5f5f6]">
+            {b.lang ? <div className="border-b border-[#e9e9ee] px-5 py-2.5 font-mono text-[14px] text-[#55535c]">{b.lang}</div> : null}
+            <pre className="overflow-x-auto px-5 py-4 text-[14px] leading-[1.7]">
               <code className="font-mono text-[#1a1a2e]">{b.text ?? ""}</code>
             </pre>
           </div>
@@ -273,11 +273,11 @@ function renderBlock(b: Block, anchor: string | undefined, postTitle: string, sn
       const href = safeLink(b.url)
       if (!b.title && !b.body) return null
       return (
-        <aside className="my-10 rounded-2xl bg-[#1a1a2e] px-6 py-7 text-white sm:px-8" data-blog-cta-block="">
+        <aside className="my-10 rounded-[20px] bg-[#1a1a2e] px-6 py-7 text-white sm:px-8" data-blog-cta-block="">
           {b.title ? <p className="text-[22px] font-semibold leading-tight tracking-[-0.015em]">{b.title}</p> : null}
           {b.body ? <p className="mt-2 text-[16px] leading-relaxed text-white/70">{b.body}</p> : null}
           {href && b.label ? (
-            <a href={href} className="mt-5 inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-white px-5 text-[15px] font-semibold text-[#1a1a2e] transition-colors hover:bg-[#ede9fe]">
+            <a href={href} className="mt-5 inline-flex min-h-[44px] items-center gap-2 rounded-full bg-white px-5 text-[15px] font-semibold text-[#1a1a2e] transition-colors hover:bg-[#ede9fe]">
               {b.label}
               <span aria-hidden>&rarr;</span>
             </a>

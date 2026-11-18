@@ -16,7 +16,14 @@
  * reached. For scope "global" both are true only when Supabase Auth itself
  * ended every session; otherwise nothing was ended, on purpose.
  *
- * Browser only. No imports: the caller hands in its own client's `auth`.
+ * Then this device forgets the account (lib/auth/forget-device-sign-in.ts):
+ * the phone's own Google sign in, the app's Preferences copy of the session,
+ * the cached home and any OAuth carry, so Continue with Google or Apple asks
+ * which account instead of reopening the one just left. For "everywhere"
+ * only once it ended.
+ *
+ * Browser only. No static imports: the caller hands in its own client's
+ * `auth`, and the forgetting is loaded when a Log out happens.
  */
 
 type SignOut = { signOut: (options: { scope: "local" | "global" }) => Promise<{ error: unknown }> }
@@ -27,6 +34,7 @@ export async function endDeviceSession(
   scope: "local" | "global",
   auth: SignOut,
   fetchImpl: typeof fetch = (input, init) => fetch(input, init),
+  forget: () => Promise<void> = () => import("@/lib/auth/forget-device-sign-in").then((m) => m.forgetDeviceSignIn()),
 ): Promise<{ ended: boolean; everywhere: boolean }> {
   const browser = await auth
     .signOut({ scope })
@@ -41,6 +49,8 @@ export async function endDeviceSession(
     .then(async (res) => (res.ok ? (((await res.json().catch(() => ({}))) as { auth?: boolean }) ?? {}) : null))
     .catch(() => null)
   const everywhere = scope === "global" && (browser || server?.auth === true)
+  /* This device was asked to log out: it forgets the account whatever Auth answered. "Everywhere" that did not happen keeps it. */
+  if (scope === "local" || everywhere) await forget().catch(() => undefined)
   /* "Everywhere" that Auth did not do ends nothing (the route keeps the cookie too), so the person can ask again. */
   return { ended: scope === "global" ? everywhere : browser || !!server, everywhere }
 }

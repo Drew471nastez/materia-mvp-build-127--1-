@@ -48,6 +48,7 @@ import { isNativeApp, nativeLogOut } from "@/lib/native-bridge"
 import { openStorelibPage, warmStorelibPages } from "@/lib/navigation/cross-section"
 import { prefetchHref } from "@/lib/nav/prefetch-policy"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
+import { afterResume } from "@/lib/ui/resume"
 import { APP_PAGE_KEPT_MS, isPhoneShell, prefetchAppPage, useShownPath, useShownSearch } from "@/lib/ui/app-navigation"
 import { STEP_ASIDE, STEP_ASIDE_MOTION, useFootBarUp } from "@/lib/ui/foot-bars"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
@@ -206,7 +207,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
   */
   useEffect(() => {
     if (pathname.startsWith("/app/settings")) return
-    if (isPhoneShell() && Date.now() - settingsWarmedAt < 4 * 60_000) return
+    /* At most once every four minutes on a computer too (round 54, Vercel cost): the router keeps it five, and each warm was a whole server render after every page change. */
+    if (Date.now() - settingsWarmedAt < 4 * 60_000) return
     const t = window.setTimeout(() => {
       settingsWarmedAt = Date.now()
       prefetchAppPage(router, "/app/settings")
@@ -224,11 +226,17 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     }
     const w = window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
     const idle = w.requestIdleCallback ? w.requestIdleCallback(warm, { timeout: 5000 }) : window.setTimeout(warm, 2500)
+    /* Round AU: after the app has settled, not in the instant it comes back (lib/ui/resume). */
+    let resumed = () => {}
     const onVisible = () => {
-      if (document.visibilityState === "visible" && warmedAt && Date.now() - warmedAt > APP_PAGE_KEPT_MS) warm()
+      if (document.visibilityState === "visible" && warmedAt && Date.now() - warmedAt > APP_PAGE_KEPT_MS) {
+        resumed()
+        resumed = afterResume(warm)
+      }
     }
     document.addEventListener("visibilitychange", onVisible)
     return () => {
+      resumed()
       if (w.cancelIdleCallback) w.cancelIdleCallback(idle)
       else window.clearTimeout(idle)
       document.removeEventListener("visibilitychange", onVisible)

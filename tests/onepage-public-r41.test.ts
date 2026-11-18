@@ -126,7 +126,8 @@ section("Share: the card from before, with the creator's photo")
   /* Changed on purpose (wave 10, legible): the share band melts into the sheet (shareBandBlend) and the grip wears its first colour (shareBandTop); tests/onepage-legible-w10.test.ts pins them. */
   check("a bottom sheet on a phone and the centred card from 640px, with no surface of its own behind the band", /<OnePageDialog [^>]*\bbare phoneTop=\{shareBandTop\(band\)\} header=\{header\}>/.test(share) && !/\bcentered\b/.test(share.slice(share.indexOf("<OnePageDialog"))))
   check("the creator's photo, or their video, large in the band", /<AppAvatar waitForPhoto src=\{onePageImageSrc\(avatarUrl, 160\)\}/.test(share) && /<PosterVideo src=\{avatarVideoUrl\}/.test(share))
-  check("the four places and the Storelib card, as before", ["Copy link", '"X"', '"Facebook"', '"WhatsApp"', "Create your own page", "Build your store with Storelib", ">Join<"].every((w) => share.includes(w)))
+  /* Changed on purpose (round 3, social): Facebook gave way to Share to Instagram Story (tests/onepage-social-r3). */
+  check("the four places and the Storelib card, as before", /* Changed on purpose (round 17): no Instagram story; Facebook is back. */ ["Copy link", '"X"', '"Facebook"', '"WhatsApp"', "Create your own page", "Build your store with Storelib", ">Join<"].every((w) => share.includes(w)))
   check("a share never leaves the editor's preview", (share.match(/isOnePagePreview\(\)/g) ?? []).length >= 2)
   check("its buttons do not grow on hover", !/hover:scale/.test(share))
   const page = code("components/onepage/public-onepage.tsx")
@@ -169,7 +170,7 @@ section("Products: what a tap does, what the sheet's button does")
   check("two or more options: none chosen for the buyer", /sheetStartChoice\(sheetModel\(f\.product\)\)/.test(sheet))
   check("an unpublished product says it is not for sale, with no button", /Not for sale right now/.test(sheet))
   /* Changed on purpose, round 43: the same room above on a phone, beside the words in two columns on a computer. */
-  check("the pictures sit inside the sheet under the handle, with their own corners", /* Changed on purpose (round W8): the square gallery takes the title's side padding, px-5 (px-6 on a computer). */ /"px-5 pt-2 sm:px-6 sm:pt-5"\}>\s*<Gallery/.test(sheet) && /* Changed on purpose (r53): the box is also its own stacking context (isolate) for the dots and arrows over the scroll. */ /relative isolate (mx-auto )?overflow-hidden rounded-2xl bg-\[#f4f4f6\]/.test(sheet))
+  check("the pictures sit inside the sheet under the handle, with their own corners", /* Changed on purpose (round W8): the square gallery takes the title's side padding, px-5 (px-6 on a computer). */ /"px-5 pt-2 sm:px-6 sm:pt-5"\}>\s*<Gallery/.test(sheet) && /* Changed on purpose (r53): the box is also its own stacking context (isolate) for the dots and arrows over the scroll. */ /* Changed on purpose (wave 16): the full width (w-full), not centred under a height cap. */ /relative isolate (mx-auto |w-full )?overflow-hidden rounded-2xl bg-\[#f4f4f6\]/.test(sheet))
   const route = code("app/api/onepage/product/route.ts")
   check("the product's facts carry its shop and its limit, and leave out options taken off", /shopId: creatorId/.test(route) && /maxQuantity:/.test(route) && /filter\(\(v\) => v\.active !== false\)/.test(route))
   const block = code("components/onepage/product-block.tsx")

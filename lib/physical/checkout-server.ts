@@ -47,7 +47,7 @@ import { soldOutMessage } from "@/lib/products/sales-limit"
 import { recordCouponUse } from "@/lib/checkout/coupons"
 import { paymentFacts, recordSale } from "@/lib/checkout/fulfil-payment"
 import { recordCartCustomer, type FulfilContext } from "@/lib/checkout/fulfil-cart-item"
-import { beginFollowups, resumeFollowups, type Followups } from "@/lib/checkout/followups"
+import { beginFollowups, resumeFollowups, sent, type Followups } from "@/lib/checkout/followups"
 import { calculatePlatformFeeForCheckout } from "@/lib/billing/platform-fee-server"
 import { minimumChargeMinor } from "@/lib/store/selling-currency"
 import { readStoreCurrency } from "@/lib/store/selling-currency-server"
@@ -224,6 +224,34 @@ async function personalizedLines(db: Db, lines: PricedLine[]): Promise<{ ok: tru
   return { ok: true, answers }
 }
 
+const FREE_IN_PROGRESS_MS = 2 * 60_000
+export const FREE_IN_PROGRESS = "Your order is still being placed. Wait a moment and press again."
+
+/**
+ * The free order an earlier send of this same key placed (round AY), or null when the key wrote none. A free
+ * checkout still being written (its first send has not finished) is waited for briefly; one still unfinished
+ * after that answers with no receipt, which the caller says as "still being placed", never a second order.
+ * Never throws: an unread row is "none", as before.
+ */
+export async function freeOrderOfKey(db: Db, shopId: string, clientKey: string, waits = 3, waitMs = 400): Promise<{ id: string; receiptToken: string | null } | null> {
+  try {
+    for (let i = 0; ; i++) {
+      const { data, error } = await db.from("commerce_checkouts").select("id, status, provider, receipt_token, expires_at").eq("creator_id", shopId).eq("client_key", clientKey).maybeSingle()
+      const row = data as { id?: string; status?: string; provider?: string; receipt_token?: string | null; expires_at?: string | null } | null
+      if (error || !row?.id || row.provider !== "free") return null
+      if (row.status === "paid" && row.receipt_token) return { id: row.id, receiptToken: row.receipt_token }
+      if (row.status !== "pending") return null
+      /* Started more than a couple of minutes ago and never placed: not in progress, the caller's own answer stands. */
+      const startedAt = new Date(String(row.expires_at ?? "")).getTime() - HOLD_MINUTES * 60_000
+      if (!Number.isFinite(startedAt) || Date.now() - startedAt > FREE_IN_PROGRESS_MS) return null
+      if (i >= waits) return { id: row.id, receiptToken: null }
+      await new Promise((r) => setTimeout(r, waitMs))
+    }
+  } catch {
+    return null
+  }
+}
+
 export async function startCheckout(db: Db, input: StartInput): Promise<StartResult> {
   const config = input.config ?? DEFAULT_CHECKOUT
   /* Settings › Checkout, checked here as well as on the page: an account first, and a confirmed one. */
@@ -242,8 +270,19 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
   if (input.cashOnDelivery === true && input.shopId) {
     const { data: placed } = await db.from("commerce_checkouts").select("id, status, receipt_token").eq("creator_id", input.shopId).eq("client_key", codClientKey(clientKey)).maybeSingle()
     if (placed?.status === "paid" && placed.receipt_token) {
-      return { ok: true, url: `${input.platformOrigin}/checkout/physical/order/${encodeURIComponent(placed.receipt_token as string)}`, checkoutId: placed.id as string, free: false, cod: true, receiptToken: placed.receipt_token as string }
+      return { ok: true, url: `${input.platformOrigin}/checkout/physical/order/${encodeURIComponent(placed.receipt_token as string)}?paid=1`, checkoutId: placed.id as string, free: false, cod: true, receiptToken: placed.receipt_token as string }
     }
+  }
+
+  /*
+    GET IT FREE AGAIN, after an answer that never arrived (round AY): a free order that ships is placed in the
+    first press (completeCheckout below), under the page's key for that press. The same key again is that
+    order, found before the cart is priced, so a retry never writes a second order, a second use of its code
+    or a second stock hold. The key is the page's own (random, per store): nobody else's press can name it.
+  */
+  if (input.cashOnDelivery !== true && input.shopId) {
+    const placed = await freeOrderOfKey(db, input.shopId, clientKey)
+    if (placed) return placed.receiptToken ? { ok: true, url: `${input.platformOrigin}/checkout/physical/order/${encodeURIComponent(placed.receiptToken)}?paid=1`, checkoutId: placed.id, free: true, receiptToken: placed.receiptToken } : { ok: false, status: 409, error: FREE_IN_PROGRESS, code: "in_progress" }
   }
 
   /* THE BUYER'S PICTURES ON THE LINES (lib/cart-uploads): each must be this browser's own upload to this store. One copied from another cart or store stops here. */
@@ -394,7 +433,7 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
     .maybeSingle()
   /* Place order pressed twice: the order the first press placed. */
   if (existing && cod && existing.status === "paid" && existing.receipt_token) {
-    return { ok: true, url: `${input.platformOrigin}/checkout/physical/order/${encodeURIComponent(existing.receipt_token as string)}`, checkoutId: existing.id as string, free: false, cod: true, receiptToken: existing.receipt_token as string }
+    return { ok: true, url: `${input.platformOrigin}/checkout/physical/order/${encodeURIComponent(existing.receipt_token as string)}?paid=1`, checkoutId: existing.id as string, free: false, cod: true, receiptToken: existing.receipt_token as string }
   }
   if (existing) {
     if (existing.status === "paid") return { ok: false, status: 409, error: "This order has already been paid." }
@@ -487,11 +526,16 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
         for (let i = 0; i < 3; i++) {
           const { data: won } = await db.from("commerce_checkouts").select("id, status, receipt_token").eq("creator_id", priced.creatorId).eq("client_key", rowKey).maybeSingle()
           if (won?.status === "paid" && won.receipt_token) {
-            return { ok: true, url: `${input.platformOrigin}/checkout/physical/order/${encodeURIComponent(won.receipt_token as string)}`, checkoutId: won.id as string, free: false, cod: true, receiptToken: won.receipt_token as string }
+            return { ok: true, url: `${input.platformOrigin}/checkout/physical/order/${encodeURIComponent(won.receipt_token as string)}?paid=1`, checkoutId: won.id as string, free: false, cod: true, receiptToken: won.receipt_token as string }
           }
           if (won && won.status !== "pending") break
           await new Promise((r) => setTimeout(r, 400))
         }
+      }
+      /* A free order the other send is placing (round AY): its order, or "still being placed", never a refusal that makes the next press a second order. */
+      if (free) {
+        const placed = await freeOrderOfKey(db, priced.creatorId, rowKey)
+        if (placed) return placed.receiptToken ? { ok: true, url: `${input.platformOrigin}/checkout/physical/order/${encodeURIComponent(placed.receiptToken)}?paid=1`, checkoutId: placed.id, free: true, receiptToken: placed.receiptToken } : { ok: false, status: 409, error: FREE_IN_PROGRESS, code: "in_progress" }
       }
       return { ok: false, status: 409, error: "Refresh the page and try again." }
     }
@@ -534,7 +578,13 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
     .filter((l) => l.type === "physical" && l.trackInventory && l.variantId && l.locationId)
     .map((l) => ({ variant_id: l.variantId, location_id: l.locationId, quantity: l.quantity, oversell: l.inventoryPolicy === "continue" }))
   if (holds.length) {
-    const { error: holdError } = await db.rpc("physical_reserve", { p_checkout: checkoutId, p_lines: holds, p_expires: expiresAt.toISOString() })
+    /*
+      One hold per option and place. The same option on two lines (two engravings, or once plain and once added by a
+      bundle) used to be sent as two holds, which the database refuses as a repeat (its key is the checkout, the
+      option and the place), so that cart read "Could not hold the stock" on every press and could never be paid.
+    */
+    const merged = mergeHolds(holds as Record<string, unknown>[])
+    const { error: holdError } = await db.rpc("physical_reserve", { p_checkout: checkoutId, p_lines: merged, p_expires: expiresAt.toISOString() })
     if (holdError) {
       await db.from("commerce_checkouts").update({ status: "failed", cancel_reason: "Out of stock", updated_at: new Date().toISOString() }).eq("id", checkoutId)
       const m = /^out_of_stock:([0-9a-f-]{36}):(\d+)/.exec(holdError.message ?? "")
@@ -588,7 +638,7 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
       }
       return { ok: false, status: 500, error: "The order could not be saved. Try again in a moment." }
     }
-    return { ok: true, url: `${input.platformOrigin}/checkout/physical/order/${encodeURIComponent(receiptToken)}`, checkoutId, free: !cod, cod, receiptToken }
+    return { ok: true, url: `${input.platformOrigin}/checkout/physical/order/${encodeURIComponent(receiptToken)}?paid=1`, checkoutId, free: !cod, cod, receiptToken }
   }
 
   if (input.intent) {
@@ -937,8 +987,11 @@ export async function completeStripeSession(db: Db, sessionId: string, baseUrl: 
   let session: Stripe.Checkout.Session
   try {
     session = await stripe.checkout.sessions.retrieve(sessionId, { expand: ["payment_intent", "payment_intent.latest_charge"] })
-  } catch {
-    return { ok: false, status: 404, reason: "not_found" }
+  } catch (e) {
+    /* Only "Stripe has no such session" is a 404. Stripe busy or unreachable is a 503, so the webhook answers 500 and Stripe sends the event again: a paid order was dropped for good when this read failed once. */
+    const code = (e as { statusCode?: number; type?: string })?.statusCode
+    if (code === 404 || (e as { type?: string })?.type === "StripeInvalidRequestError") return { ok: false, status: 404, reason: "not_found" }
+    return { ok: false, status: 503, reason: "failed" }
   }
   if (!isPhysicalSession(session)) return { ok: false, status: 400, reason: "not_found" }
   if (session.payment_status !== "paid") return { ok: false, status: 409, reason: "unpaid" }
@@ -984,7 +1037,9 @@ export async function completeCheckout(
     buyerName?: string | null
   },
 ): Promise<CompleteResult> {
-  const { data: co } = await db.from("commerce_checkouts").select("*").eq("id", c.checkoutId).maybeSingle()
+  const { data: co, error: readError } = await db.from("commerce_checkouts").select("*").eq("id", c.checkoutId).maybeSingle()
+  /* A read that failed is not "no such checkout": answered 503 so the webhook is sent again. */
+  if (readError) return { ok: false, status: 503, reason: "failed" }
   if (!co) return { ok: false, status: 404, reason: "not_found" }
   const lines = (Array.isArray(co.lines) ? co.lines : []) as LineSnapshot[]
   if (lines.length === 0) return { ok: false, status: 422, reason: "failed" }
@@ -1007,7 +1062,13 @@ export async function completeCheckout(
     .in("status", ["pending", "expired", "failed"])
     .select("id")
   const owns = Array.isArray(flipped) && flipped.length > 0
-  if (!owns && co.status !== "paid") return { ok: false, status: 409, reason: "failed" }
+  if (!owns && co.status !== "paid") {
+    /* The other caller (the webhook, or the buyer's return) paid it between this call's read and its update: read again before answering. The loser used to answer "failed" for an order that exists, and the buyer landed on "We couldn't confirm your order". */
+    const { data: nowRow } = await db.from("commerce_checkouts").select("status, stripe_session_id").eq("id", c.checkoutId).maybeSingle()
+    if (nowRow?.status !== "paid" && nowRow?.status !== "partially_refunded" && nowRow?.status !== "refunded") return { ok: false, status: 409, reason: "failed" }
+    co.status = nowRow.status
+    co.stripe_session_id = nowRow.stripe_session_id ?? co.stripe_session_id
+  }
   const sessionId = owns ? c.sessionId : (co.stripe_session_id ?? c.sessionId)
   const fingerprint = cartFingerprint(sessionId)
 
@@ -1323,22 +1384,26 @@ async function onceForOrder(
   if (first) {
     await f.once("seller email", async () => {
       const sellerEmail = await resolveSellerEmail(db, co.creator_id)
-      await sendSellerNotificationEmail(db, {
-        orderId: first.orderId,
-        creatorId: co.creator_id,
-        sellerEmail,
-        productTitle: s.lines[first.index]?.title ?? "An order",
-        buyerFirstName: s.firstName ?? "",
-        buyerLastName: s.lastName ?? "",
-        buyerEmail: co.buyer_email ?? "",
-        amountCents: first.amountCents,
-        feeCents: 0,
-        baseUrl: s.baseUrl,
-        sale: {
-          couponCode: co.coupon_code ?? null,
-          lines: s.created.map((l) => ({ orderId: l.orderId, quantity: s.lines[l.index]?.quantity ?? null, discountCents: s.lines[l.index]?.discount_cents ?? 0 })),
-        },
-      })
+      /* Not sent is a failed step, so the sweep sends it (lib/checkout/followups.ts sent). */
+      sent(
+        await sendSellerNotificationEmail(db, {
+          orderId: first.orderId,
+          creatorId: co.creator_id,
+          sellerEmail,
+          productTitle: s.lines[first.index]?.title ?? "An order",
+          buyerFirstName: s.firstName ?? "",
+          buyerLastName: s.lastName ?? "",
+          buyerEmail: co.buyer_email ?? "",
+          amountCents: first.amountCents,
+          feeCents: 0,
+          baseUrl: s.baseUrl,
+          sale: {
+            couponCode: co.coupon_code ?? null,
+            lines: s.created.map((l) => ({ orderId: l.orderId, quantity: s.lines[l.index]?.quantity ?? null, discountCents: s.lines[l.index]?.discount_cents ?? 0 })),
+          },
+        }),
+        "The seller's new order email",
+      )
     })
   }
 }
@@ -1365,4 +1430,16 @@ async function keepLineTax(db: Db, orderId: string, t: { cents: number; country:
     const { error: labelError } = await db.from("orders").update({ tax_label: t.label }).eq("id", orderId)
     if (labelError) console.warn("[physical] tax_label not kept:", labelError.code)
   }
+}
+
+/** Holds for the same option at the same place, added into one (startCheckout). Any other field is the first one's. */
+export function mergeHolds(holds: Record<string, unknown>[]): Record<string, unknown>[] {
+  const by = new Map<string, Record<string, unknown>>()
+  for (const h of holds) {
+    const key = `${String(h.variant_id ?? h.variantId ?? "")}|${String(h.location_id ?? h.locationId ?? "")}`
+    const had = by.get(key)
+    if (had) had.quantity = Number(had.quantity ?? 0) + Number(h.quantity ?? 0)
+    else by.set(key, { ...h })
+  }
+  return [...by.values()]
 }

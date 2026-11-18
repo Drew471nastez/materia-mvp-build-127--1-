@@ -2,7 +2,7 @@
 
 import { withSkinOwn } from "./skin-own"
 import type React from "react"
-import { createContext, useContext, useState, useCallback, useMemo, useRef, useLayoutEffect } from "react"
+import { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef, useLayoutEffect } from "react"
 import { useShellAvatar } from "@/lib/account/avatar-store"
 import { useOnePageTeam } from "./team-context"
 import type {
@@ -15,6 +15,7 @@ import type {
   GroupBlockData,
 } from "./types"
 import { defaultTheme, defaultSettings, defaultSocialLinks, createDefaultBlock } from "./types"
+import { withoutRetiredThemes } from "./retired-themes"
 import { lookFromTemplate, type ThemeTemplateLike } from "./theme-apply"
 import {
   canStepBack,
@@ -25,6 +26,9 @@ import {
   editKey,
   recordEdit,
   replaceCurrent,
+  retryableSave,
+  retryDelay,
+  saveRequestBody,
   serializeSaves,
   startHistory,
   stepBack,
@@ -33,7 +37,13 @@ import {
   type SaveResult,
 } from "./editor-state"
 
+import { clearDraft, deviceStore, draftDecision, draftFieldsOf, readDraft, withDraft, writeDraft, type LocalDraft } from "./local-draft"
+import { sentBaseVersion } from "./edit-version"
+
 export type { SaveResult } from "./editor-state"
+
+/** Unsaved work is written to the device this long after the last edit (lib/onepage/local-draft). */
+const DRAFT_WRITE_MS = 400
 
 type ActiveSection = "profile" | "theme" | "blocks" | "socials" | "leads" | "settings"
 type SaveState = "idle" | "saving" | "saved" | "error"
@@ -120,6 +130,16 @@ interface OnePageContextType {
 
   save: (force?: boolean) => Promise<SaveResult>
   publish: () => Promise<SaveResult>
+  /** A save failed for the network or the server and will be tried again on its own (round AU). */
+  retrying: boolean
+  /** Unsaved work kept on this device from before the page was saved somewhere else: the editor asks which to keep. */
+  draftQuestion: { at: number } | null
+  /** The creator's answer: true puts this device's changes back (unsaved), false keeps the saved page. */
+  answerDraftQuestion: (useDevice: boolean) => void
+  /** When unsaved work kept on the device was put back on opening, for the editor to say so once. */
+  draftRestoredAt: number | null
+  /** The creator chose Discard on the way out: the unsaved work is dropped from the device too, and leaving does not write it back. */
+  discardUnsaved: () => void
 
   loadTemplates: () => Promise<void>
 }
@@ -182,7 +202,17 @@ async function serverError(res: Response): Promise<string | null> {
   }
 }
 
-export function OnePageProvider({ children, initialOnePage }: OnePageProviderProps) {
+export function OnePageProvider({ children, initialOnePage: givenOnePage }: OnePageProviderProps) {
+  /* A page still on a theme no longer offered (Editorial) opens on its successor, the creator's own changes kept; the next save keeps it (lib/onepage/retired-themes). */
+  const initialOnePage = useMemo(() => withoutRetiredThemes(givenOnePage), [givenOnePage])
+  /*
+    Which copy of the page this editor's next save starts from (lib/onepage/edit-version).
+    Read once from what the server opened and kept here, never from the page itself:
+    the page's own edit_version stays as it was opened, so undo cannot move it.
+  */
+  const baseVersionRef = useRef<string | null>(sentBaseVersion(givenOnePage?.edit_version))
+  /* The last save was refused because the page was saved somewhere else: the next Save is the creator choosing to keep this copy. */
+  const overrideConflictRef = useRef(false)
   const [onepage, setOnePageState] = useState<OnePage | null>(initialOnePage || null)
   const team = useOnePageTeam()
   const shellAvatar = useShellAvatar(onepage?.avatar_url, onepage?.owner_id)
@@ -247,9 +277,26 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
     markDirtyRef.current()
   }, [])
   const markDirtyRef = useRef<() => void>(() => {})
+  /* The automatic retry of a save that failed for the network (round AU): its timer, how many tries so far, and whether the button says so. */
+  const retryRef = useRef<{ timer: number; attempt: number }>({ timer: 0, attempt: 0 })
+  const retryingRef = useRef(false)
+  const [retrying, setRetrying] = useState(false)
+  const stopRetryRef = useRef<() => void>(() => {})
+  stopRetryRef.current = () => {
+    if (retryRef.current.timer) window.clearTimeout(retryRef.current.timer)
+    retryRef.current = { timer: 0, attempt: 0 }
+    if (retryingRef.current) {
+      retryingRef.current = false
+      setRetrying(false)
+    }
+  }
+  /* A retry runs quietly: its failure does not put the toast up again every few seconds. */
+  const quietSaveRef = useRef(false)
 
   const markDirty = useCallback(() => {
     editRevisionRef.current += 1
+    /* Typing after a failed save is a new page: it is sent by the next Save, not by a retry of the old one. */
+    if (retryRef.current.timer || retryingRef.current) stopRetryRef.current()
     setIsDirty(true)
     // A new edit is what the Save button is about now, not the last result
     setSaveState((s) => (s === "saved" || s === "error" ? "idle" : s))
@@ -303,6 +350,8 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
     if (!snapshot) return { ok: false, error: describeSaveFailure(0, null), status: null }
     const sentRevision = editRevisionRef.current
     const archived = latestArchivedBlocksRef.current
+    const quiet = quietSaveRef.current
+    quietSaveRef.current = false
     forceSaveRef.current = false
     setSaveState("saving")
 
@@ -310,40 +359,68 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
       const message = describeSaveFailure(status, serverMessage)
       console.error("OnePage save failed:", status ?? "no response", serverMessage || "")
       setSaveState("error")
-      setSaveError({ message, at: Date.now() })
+      /*
+        A retry is quiet only while it will be tried again. One that will not
+        (a conflict, a refusal) is said: a quiet retry that met "saved
+        somewhere else" used to arm the next Save to overwrite the other
+        device's page without the creator ever being told.
+      */
+      if (!quiet || !retryableSave(status)) setSaveError({ message, at: Date.now() })
       return { ok: false, error: message, serverMessage: serverMessage || undefined, status }
     }
 
     try {
-      // Step 1: Save draft to database (include archived_blocks)
+      /*
+        ONE REQUEST SAVES AND PUBLISHES (the OnePage production audit, S1 and
+        S2): app/api/onepage PUT with publish: true writes the draft and the
+        live copy in the same checked write. The blocks, archive, look and bio
+        go whole, checked against the copy this editor started from; the name,
+        address, settings, social links, video and share picture only where
+        this editor changed them since its last save (saveRequestBody), so an
+        editor left open never puts back what another screen changed since.
+        The crop of the profile video is in settings, never sent on its own.
+      */
+      const body = saveRequestBody(snapshot, archived, savedFieldsRef.current, overrideConflictRef.current ? null : baseVersionRef.current)
       const saveResponse = await fetch("/api/onepage", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...snapshot,
-          archived_blocks: archived,
-        }),
+        body: JSON.stringify(body),
       })
-      if (!saveResponse.ok) return fail(saveResponse.status, await serverError(saveResponse))
+      if (!saveResponse.ok) {
+        if (saveResponse.status === 409) overrideConflictRef.current = true
+        return fail(saveResponse.status, await serverError(saveResponse))
+      }
+      const saved = (await saveResponse.json().catch(() => null)) as { edit_version?: unknown; published?: unknown; published_at?: unknown } | null
+      /* The version is in a header too, so an answer whose body was cut off does not leave the next save unchecked. */
+      baseVersionRef.current = sentBaseVersion(saveResponse.headers.get("X-OnePage-Edit-Version")) ?? sentBaseVersion(saved?.edit_version)
+      overrideConflictRef.current = false
 
-      // Step 2: Publish with the SAME data we just saved
-      const publishResponse = await fetch("/api/onepage/publish", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: snapshot.id,
-          draft_blocks: snapshot.draft_blocks,
-          theme: snapshot.theme,
-          title: snapshot.title,
-          bio: snapshot.bio,
-          avatar_url: snapshot.avatar_url,
-          avatar_video_url: snapshot.avatar_video_url,
-          avatar_video_crop: (snapshot.settings as any)?.avatar_video_crop || null,
-          social_links: snapshot.social_links,
-        }),
-      })
-      if (!publishResponse.ok) return fail(publishResponse.status, await serverError(publishResponse))
-      const data = await publishResponse.json().catch(() => ({}))
+      /*
+        A server from before one-request saves answers without publishing: published the way it was, with the same copy.
+        Its answer has no X-OnePage-Edit-Version, which a server that publishes in the same write always sends, so a
+        body cut off on the way back is not taken for an old server (and the page published twice, from this copy).
+      */
+      const publishedHere = saved?.published === true || saveResponse.headers.get("X-OnePage-Edit-Version") !== null
+      let publishedAt: unknown = saved?.published === true ? saved.published_at : null
+      if (!publishedHere) {
+        const publishResponse = await fetch("/api/onepage/publish", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: snapshot.id,
+            draft_blocks: snapshot.draft_blocks,
+            theme: snapshot.theme,
+            title: snapshot.title,
+            bio: snapshot.bio,
+            avatar_video_url: snapshot.avatar_video_url,
+            avatar_video_crop: (snapshot.settings as any)?.avatar_video_crop || null,
+            social_links: snapshot.social_links,
+          }),
+        })
+        if (!publishResponse.ok) return fail(publishResponse.status, await serverError(publishResponse))
+        publishedAt = ((await publishResponse.json().catch(() => ({}))) as { published_at?: unknown })?.published_at
+      }
+      const data = { published_at: typeof publishedAt === "string" ? publishedAt : undefined }
 
       /* What went live is the copy that was sent, not the draft as it is
          now: anything typed during the request is still only a draft. */
@@ -380,6 +457,39 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
 
   /* A save on its way: undo cannot call the page saved while the row is about to become something else. */
   const savingRef = useRef(false)
+
+  /*
+    A SAVE THAT FAILED FOR THE NETWORK IS TRIED AGAIN (round AU). On a train,
+    in a lift, or with the app sent to the background mid save, the creator
+    pressed Save and got "No connection", and the page stayed unsaved until
+    they noticed and pressed it again. Now a failure with no answer, or a busy
+    or broken server, is tried again after 2s, 5s, 10s, 20s, 40s and then
+    every minute, and at once when the connection or the app comes back. Only
+    the save they asked for: an edit made since stops it (markDirty), and that
+    edit waits for the next Save. A refusal (signed out, a field, a conflict)
+    is never retried. The work is on the device meanwhile (lib/onepage/local-draft).
+  */
+  const saveNowRef = useRef<() => void>(() => {})
+  const afterSaveRef = useRef<(result: SaveResult, sentRevision: number) => void>(() => {})
+  afterSaveRef.current = (result, sentRevision) => {
+    if (result.ok || !retryableSave(result.status ?? null) || editRevisionRef.current !== sentRevision) {
+      stopRetryRef.current()
+      return
+    }
+    const failedRevision = sentRevision
+    const attempt = retryRef.current.attempt
+    if (retryRef.current.timer) window.clearTimeout(retryRef.current.timer)
+    const timer = window.setTimeout(() => {
+      retryRef.current.timer = 0
+      if (editRevisionRef.current !== failedRevision) return stopRetryRef.current()
+      saveNowRef.current()
+    }, retryDelay(attempt))
+    retryRef.current = { timer, attempt: attempt + 1 }
+    if (!retryingRef.current) {
+      retryingRef.current = true
+      setRetrying(true)
+    }
+  }
   const requestSave = useMemo(
     () =>
       serializeSaves<SaveResult>(
@@ -678,6 +788,8 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
     const blocks = [...prev.draft_blocks]
     const index = blocks.findIndex((b) => b.id === blockId)
     if (index <= 0) return
+    /* Never above the profile header, and the header is never moved (the OnePage production audit, B9). */
+    if (blocks[index - 1].type === "header" || blocks[index].type === "header") return
     ;[blocks[index - 1], blocks[index]] = [blocks[index], blocks[index - 1]]
     commit({ ...prev, draft_blocks: renumber(blocks) }, null)
   }, [commit])
@@ -688,6 +800,8 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
     const blocks = [...prev.draft_blocks]
     const index = blocks.findIndex((b) => b.id === blockId)
     if (index === -1 || index >= blocks.length - 1) return
+    /* The header itself is not moved; a block above it (an older page) moving down goes below it, which is right. */
+    if (blocks[index].type === "header") return
     ;[blocks[index], blocks[index + 1]] = [blocks[index + 1], blocks[index]]
     commit({ ...prev, draft_blocks: renumber(blocks) }, null)
   }, [commit])
@@ -772,10 +886,128 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
     } else if (!forceSaveRef.current && editRevisionRef.current === savedRevisionRef.current) {
       return { ok: true }
     }
-    return requestSave()
+    /* The revision this save is for: a failure is retried only while nothing has been typed since (afterSaveRef). */
+    const sent = editRevisionRef.current
+    const result = await requestSave()
+    afterSaveRef.current(result, sent)
+    return result
   }, [requestSave])
 
   const publish = useCallback(() => save(true), [save])
+  saveNowRef.current = () => {
+    quietSaveRef.current = true
+    void save()
+  }
+
+  /*
+    BACK ONLINE, OR BACK IN THE APP: a retry that is waiting goes now. Coming
+    back to the editor asks nothing else of the server, so a phone that wakes
+    the app twenty times a day sends nothing when there is nothing to send.
+  */
+  const writeDraftNowRef = useRef<() => void>(() => {})
+  useEffect(() => {
+    const retryNow = () => {
+      if (!retryRef.current.timer) return
+      window.clearTimeout(retryRef.current.timer)
+      retryRef.current.timer = 0
+      saveNowRef.current()
+    }
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") retryNow()
+      /* Going to the background is often the last moment an app gets: the unsaved work is written now, not in 400ms. */
+      else writeDraftNowRef.current()
+    }
+    const onLeave = () => writeDraftNowRef.current()
+    window.addEventListener("online", retryNow)
+    document.addEventListener("visibilitychange", onVisibility)
+    window.addEventListener("pagehide", onLeave)
+    return () => {
+      window.removeEventListener("online", retryNow)
+      document.removeEventListener("visibilitychange", onVisibility)
+      window.removeEventListener("pagehide", onLeave)
+      if (retryRef.current.timer) window.clearTimeout(retryRef.current.timer)
+    }
+  }, [])
+
+  /* ── Unsaved work kept on the device (lib/onepage/local-draft) ── */
+  const [draftQuestion, setDraftQuestion] = useState<{ at: number } | null>(null)
+  const draftQuestionRef = useRef<LocalDraft | null>(null)
+  const [draftRestoredAt, setDraftRestoredAt] = useState<number | null>(null)
+
+  /* The kept work laid over the page as one ordinary edit: unsaved, and one undo takes it away. */
+  const applyDraft = useCallback((draft: LocalDraft) => {
+    const current = latestOnepageRef.current
+    if (!current) return
+    const kept = draft.fields.archived_blocks
+    if (Array.isArray(kept)) putArchive(kept as OnePageBlock[])
+    commit(withDraft(current, draft), null)
+  }, [commit, putArchive])
+
+  /* Opening the editor: is there work on this device that never reached a save? Asked once. */
+  const draftCheckedRef = useRef(false)
+  useEffect(() => {
+    if (draftCheckedRef.current) return
+    draftCheckedRef.current = true
+    const initial = latestOnepageRef.current
+    if (!initial?.id) return
+    const draft = readDraft(deviceStore(), initial.id)
+    if (!draft) return
+    const decision = draftDecision(draft, initial, baseVersionRef.current)
+    if (decision === "none") {
+      clearDraft(deviceStore(), initial.id)
+    } else if (decision === "restore") {
+      applyDraft(draft)
+      setDraftRestoredAt(Date.now())
+    } else {
+      draftQuestionRef.current = draft
+      setDraftQuestion({ at: draft.at })
+    }
+  }, [applyDraft])
+
+  const answerDraftQuestion = useCallback((useDevice: boolean) => {
+    const draft = draftQuestionRef.current
+    draftQuestionRef.current = null
+    setDraftQuestion(null)
+    if (!draft) return
+    if (useDevice) applyDraft(draft)
+    else clearDraft(deviceStore(), draft.pageId)
+  }, [applyDraft])
+
+  /*
+    DISCARD MEANS DISCARD (the OnePage production audit, S5). Choosing
+    Discard on the way out left the device's copy of the unsaved work in
+    place, and pagehide wrote it again on the way out, so the next open said
+    "Unsaved changes restored" and the next Save published what was thrown
+    away. The copy is dropped, and the page counts as saved so nothing is
+    written back while leaving.
+  */
+  const discardUnsaved = useCallback(() => {
+    const page = latestOnepageRef.current
+    savedRevisionRef.current = editRevisionRef.current
+    looseEditRef.current = false
+    draftQuestionRef.current = null
+    if (page?.id) clearDraft(deviceStore(), page.id)
+  }, [])
+
+  const writeDraftNow = useCallback(() => {
+    const page = latestOnepageRef.current
+    if (!page?.id || draftQuestionRef.current) return
+    if (editRevisionRef.current === savedRevisionRef.current && !looseEditRef.current) return
+    writeDraft(deviceStore(), { v: 1, pageId: page.id, base: baseVersionRef.current, at: Date.now(), fields: draftFieldsOf(page, latestArchivedBlocksRef.current), saved: savedFieldsRef.current })
+  }, [])
+  writeDraftNowRef.current = writeDraftNow
+
+  /* A moment after each edit while the page is unsaved; cleared once it is saved (or undone back to the saved page). */
+  const pageId = onepage?.id
+  useEffect(() => {
+    if (!pageId) return
+    if (!isDirty) {
+      if (!draftQuestionRef.current && editRevisionRef.current === savedRevisionRef.current) clearDraft(deviceStore(), pageId)
+      return
+    }
+    const id = window.setTimeout(writeDraftNow, DRAFT_WRITE_MS)
+    return () => window.clearTimeout(id)
+  }, [onepage, pageId, isDirty, writeDraftNow])
 
   const loadTemplates = useCallback(async () => {
     try {
@@ -839,6 +1071,11 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
         redo,
         save,
         publish,
+        retrying,
+        draftQuestion,
+        answerDraftQuestion,
+        draftRestoredAt,
+        discardUnsaved,
         loadTemplates,
       }}
     >

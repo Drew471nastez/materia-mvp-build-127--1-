@@ -53,10 +53,12 @@ console.log("\nBoth pages ask for it, and signup no longer signs in inside the W
   check("  and only a browser, never the app's own window, is sent to Google", !/window\.location\.href = `\$\{canonicalUrl\}\$\{withCarry\("\/auth\/start\?provider=google"[\s\S]{0,40}\n\s*\}\s*\n\s*if \(Capacitor/.test(signup))
 }
 
-console.log("\nGoogle is not asked to forget the person every time\n")
+console.log("\nGoogle shows its account chooser, and never the consent screen every time\n")
 {
   const params = read("lib/auth/google-oauth-params.ts")
-  check("nothing extra is asked for, so Google continues with the account it has", /export const GOOGLE_OAUTH_QUERY: Record<string, string> = \{\}/.test(params))
+  /* Changed on purpose: after Log out, Continue with Google went straight back into the account just left. The chooser is asked for; consent is not. */
+  check("the account chooser is asked for, so a person who logged out can pick another account", oauthQueryFor("google")?.prompt === "select_account" && !/consent/.test(JSON.stringify(oauthQueryFor("google"))))
+  check("  the phone's own sheet asks for the chooser too", /forcePrompt: true, autoSelectEnabled: false/.test(sign))
   check("  no sign in anywhere still forces the consent screen", !/access_type: "offline"/.test(login + signup + read("app/(storelib)/auth/start/route.ts") + read("lib/native-bridge.ts")))
   check("  on the web too, through the same one decision", /oauthQueryFor\(provider\)/.test(read("app/(storelib)/auth/start/route.ts")))
   check("  and Apple is still asked for nothing", oauthQueryForApple() === undefined)

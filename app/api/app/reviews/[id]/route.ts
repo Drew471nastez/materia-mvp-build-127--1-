@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { teamStoreIdFor } from "@/lib/team/server"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sellersReview } from "@/lib/reviews/access"
 import { refreshReviewStats } from "@/lib/reviews/store"
@@ -8,6 +7,7 @@ import { isVerifiedReview, readPhotos } from "@/lib/reviews/app-settings"
 import { removeReviewPhotos } from "@/lib/reviews/photos-server"
 import { isModeration, type ModeratedRow } from "@/lib/reviews/manage"
 import { forgetReviewsManage, moderateReview } from "@/lib/reviews/manage-server"
+import { routeUser, signedOutOrRetry } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -54,10 +54,8 @@ const answer = (body: unknown, status = 200) => NextResponse.json(body, { status
 type Params = { params: Promise<{ id: string }> }
 
 async function seller(id: string) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const who = await routeUser({ fresh: true })
+  const user = who.kind === "user" ? who.user : null
   const db = createAdminClient()
   return { db, found: await sellersReview(db, id, user?.id ?? null, await teamStoreIdFor(user?.id ?? null, "products")) }
 }
@@ -65,7 +63,7 @@ async function seller(id: string) {
 export async function PATCH(request: NextRequest, { params }: Params) {
   const { id } = await params
   const { db, found } = await seller(id)
-  if (!found.ok) return answer({ error: found.error }, found.status)
+  if (!found.ok) return signedOutOrRetry(answer({ error: found.error }, found.status))
   let body: Record<string, unknown> = {}
   try {
     body = (await request.json()) as Record<string, unknown>
@@ -82,7 +80,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 export async function DELETE(_request: NextRequest, { params }: Params) {
   const { id } = await params
   const { db, found } = await seller(id)
-  if (!found.ok) return answer({ error: found.error }, found.status)
+  if (!found.ok) return signedOutOrRetry(answer({ error: found.error }, found.status))
   const review = found.review as typeof found.review & { photos?: unknown; verified?: unknown }
   if (isVerifiedReview(review)) {
     return answer({ error: "A verified buyer's review can't be deleted. Hide it on your website, or report it to Storelib." }, 403)

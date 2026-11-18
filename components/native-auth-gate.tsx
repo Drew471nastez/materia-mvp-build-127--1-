@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
 import { nativeAppReadyForce } from "@/lib/native-bridge"
+import { hideSplashOnce, releaseLaunchScreen } from "@/lib/native-chrome"
 import { hasStoredSessionToken } from "@/lib/auth/session-read"
 import { isSignedOutAnswer } from "@/lib/auth/auth-error"
 import { postSessionSync } from "@/lib/auth/session-sync"
@@ -253,6 +254,15 @@ export function NativeAuthGate({
     clearRecoveries()
     requestAnimationFrame(() => {
       nativeAppReadyForce()
+      /*
+        ROUND AT: AND iOS's LAUNCH SCREEN WITH IT. Android's overlay came down
+        here for every page under this gate, but iOS's launch screen only on
+        the dashboard's home (its own hook): a start that resumed on any
+        other /app page (Products, Orders, a product) had nothing taking it
+        down. components/platform/native-chrome.tsx leaves /app to the page,
+        so the gate that knows the page is drawn does it, once.
+      */
+      void hideSplashOnce()
     })
   }, [blocked, authChecked])
 
@@ -281,6 +291,8 @@ export function NativeAuthGate({
   */
   useEffect(() => {
     if (!stuck) return
+    /* Round AU: the retry screen is final, and it was drawn under the launch screen, which only a drawn page took down: an app that sat on its logo for good. */
+    releaseLaunchScreen()
     try {
       void fetch("/api/client-errors", {
         method: "POST",

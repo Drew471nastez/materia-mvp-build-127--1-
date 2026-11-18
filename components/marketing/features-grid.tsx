@@ -1,6 +1,6 @@
 "use client"
 
-import { AnimateOnScroll } from "./bento-grid"
+import { AnimateOnScroll } from "./animate-on-scroll"
 
 function MockStoreBuilder() {
   return (

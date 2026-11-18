@@ -173,6 +173,21 @@ export function openedAsDocument(headers: Headers): boolean {
   return headers.get("sec-fetch-dest") === "document"
 }
 
+/*
+  KEPT AT THE CDN FOR A CLIENT THAT SAYS NOTHING TOO (round 54). A crawler
+  (Googlebot, Bing), an uptime monitor, a link preview or an older browser
+  sends no Sec-Fetch-Dest at all, so its every visit to a published website
+  was a whole render in a function (x-vercel-cache: MISS each time; one
+  monitor alone opened andrewrullz.storelib.com/collections/all every
+  minute). Its answer is the stranger's page as written, the same for every
+  such client, and the CDN keys it apart from a page and from a script's
+  fetch (the route's Vary names Sec-Fetch-Dest), so it may be kept there
+  under the same tags Publish clears. What it is sent does not change.
+*/
+export function sharedAtCdn(headers: Headers): boolean {
+  return openedAsDocument(headers) || !headers.has("sec-fetch-dest")
+}
+
 /** The live page's markup with its body's CSS gathered at the end of its head and its flags lazy. */
 export function readierFirstLoad(html: string): FirstLoadResult {
   let headEnd = -1

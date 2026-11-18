@@ -22,12 +22,52 @@
  * Splash hide is NOT called here.  The destination page hides it.
  */
 
-import { useEffect } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { sanitizeNativeHome } from "@/lib/native-bridge"
 import { isResumablePlace, readLastPlace, startTarget } from "@/lib/native-resume"
 import { landInPlace } from "@/lib/native-start-landing"
+import { hasStoredSessionToken, storedSessionKey } from "@/lib/auth/session-read"
 import { useExploreMarketplaceEnabled } from "@/components/platform/explore-marketplace-context"
+import { releaseLaunchScreen } from "@/lib/native-chrome"
+import { deviceOffline } from "@/lib/native-offline"
+import { tt } from "@/lib/i18n/text"
+
+/**
+ * ROUND AU: A START THAT CANNOT LAND SAYS SO. The gate hands over to the page
+ * and the launch screen stays up until that page draws. On a phone that was
+ * offline by then, or whose page never answered, nothing drew: the launch
+ * screen stayed up for good, or (the router falling back to a document load
+ * that failed) Android's own "Webpage not available" page replaced the app
+ * (scripts/check-app-network-au1.mjs). Now:
+ *   offline   no hand over is tried; the launch screen comes down on "No
+ *             internet connection" with Try again, and the start goes on by
+ *             itself the moment the phone is back online
+ *   failed    the router's fallback document load is held back and the
+ *             page asked for once; unreachable, the same screen
+ *   slow      past STALL_MS still on the gate, the launch screen comes down
+ *             on "Still loading" with Try again; the page that is on its way
+ *             still replaces it when it arrives
+ */
+const STALL_MS = 10_000
+const REACH_MS = 6_000
+
+/** Whether the page answers at all (any status: a redirect to sign in is an answer). */
+async function reachable(target: string): Promise<boolean> {
+  if (deviceOffline()) return false
+  const stop = new AbortController()
+  const timer = window.setTimeout(() => stop.abort(), REACH_MS)
+  try {
+    await fetch(target, { method: "HEAD", cache: "no-store", credentials: "same-origin", redirect: "manual", signal: stop.signal })
+    return true
+  } catch {
+    return false
+  } finally {
+    window.clearTimeout(timer)
+  }
+}
+
+type Trouble = "offline" | "slow" | "unreachable" | null
 
 /**
  * A START THAT COMES BACK HERE IS NOT TRIED TWICE. A kept page that answers
@@ -80,14 +120,134 @@ function documentOpenedHere(): boolean {
  */
 let startUsed = false
 
+/**
+ * ROUND AT: NOBODY SIGNED IN GOES STRAIGHT TO WELCOME. A phone holding no
+ * session anywhere (not in localStorage, not in the session cookie, not in
+ * Preferences, where the app keeps its backup) used to download the whole
+ * Supabase client to be told "no session", then the Preferences plugin to be
+ * told it again, before /welcome was even asked for: about a second and a
+ * half of launch screen on a 4G phone (scripts/check-app-launch-at3.mjs).
+ * The outcome is the same /welcome; only the evidence is read without a
+ * download. Preferences is asked through the bridge the shell injects, as the
+ * launch URL is above. "unknown" (no bridge, a plugin that did not answer)
+ * never takes the shortcut: the full reads below decide, as before.
+ */
+async function preferencesHoldSession(): Promise<boolean | "unknown"> {
+  const key = storedSessionKey()
+  if (!key) return "unknown"
+  const prefs = (window as unknown as {
+    Capacitor?: { Plugins?: { Preferences?: { get?: (o: { key: string }) => Promise<{ value?: string | null } | null> } } }
+  }).Capacitor?.Plugins?.Preferences
+  if (!prefs?.get) return "unknown"
+  try {
+    const [whole, first] = await Promise.all([prefs.get({ key }), prefs.get({ key: `${key}.0` })])
+    return Boolean(whole?.value || first?.value)
+  } catch {
+    return "unknown"
+  }
+}
+
 export default function NativeStartPage() {
   const exploreOn = useExploreMarketplaceEnabled()
   const router = useRouter()
+  /* One hand over per visit, even if the effect runs again (Discover's switch answering late): never two router.replace calls. */
+  const landed = useRef(false)
+  /*
+    ROUND AT: NO SPINNER UNDER THE LAUNCH SCREEN. On a start the launch screen
+    stays up until the page this sends to has drawn (iOS: SplashScreen.hide,
+    Android: StorelibNative.appReady, neither called here), so a spinner here
+    was a second loader, and on Android, where the overlay used to drop on
+    this screen, it was seen. A visit ("/" from inside the app) has no launch
+    screen over it, so it keeps the late spinner.
+  */
+  const [visit, setVisit] = useState(false)
+  /* Round AU: what stopped the start, if anything, and where it was going. */
+  const [trouble, setTrouble] = useState<Trouble>(null)
+  const goingTo = useRef<string | null>(null)
+  const stall = useRef<number | undefined>(undefined)
+
+  /** Hand over to `target` in this document, and watch that it arrives. */
+  const handOver = useCallback(
+    (target: string) => {
+      goingTo.current = target
+      window.clearTimeout(stall.current)
+      if (deviceOffline()) {
+        setTrouble("offline")
+        releaseLaunchScreen()
+        return
+      }
+      setTrouble(null)
+      landInPlace(target, router)
+      stall.current = window.setTimeout(() => {
+        if (window.location.pathname !== "/native-start") return
+        setTrouble(deviceOffline() ? "offline" : "slow")
+        releaseLaunchScreen()
+      }, STALL_MS)
+    },
+    [router],
+  )
+
+  /* Back online with a start waiting: it goes on by itself. Unmounted (the page arrived): nothing left to watch. */
   useEffect(() => {
-    let didRedirect = false
+    const online = () => {
+      if (trouble === "offline" && goingTo.current) handOver(goingTo.current)
+    }
+    window.addEventListener("online", online)
+    return () => window.removeEventListener("online", online)
+  }, [trouble, handOver])
+  useEffect(() => () => window.clearTimeout(stall.current), [])
+
+  /*
+    THE ROUTER'S FALLBACK IS ASKED FIRST. When the page's payload cannot be
+    fetched, the router loads the address as a document instead, and when
+    that fails too Android's web view draws its own error page in place of
+    the app. While the gate is up, that document load waits until the page
+    has answered once; it goes ahead only if it did. In Android's web view and
+    iOS 26 (the Navigation API); elsewhere WKWebView keeps the gate on screen
+    and the stall above ends it.
+  */
+  useEffect(() => {
+    const nav = (window as unknown as { navigation?: EventTarget }).navigation
+    if (!nav?.addEventListener) return
+    let allowed: string | null = null
+    const onNavigate = (event: Event) => {
+      const e = event as Event & { cancelable?: boolean; hashChange?: boolean; destination?: { sameDocument?: boolean; url?: string } }
+      const target = goingTo.current
+      if (!target || !e.cancelable || e.hashChange || e.destination?.sameDocument) return
+      const url = e.destination?.url ?? ""
+      if (url === allowed) return
+      let path = ""
+      try {
+        const u = new URL(url)
+        if (u.origin !== window.location.origin) return
+        path = u.pathname + u.search
+      } catch {
+        return
+      }
+      if (path !== target) return
+      e.preventDefault()
+      void reachable(target).then((ok) => {
+        if (window.location.pathname !== "/native-start") return
+        if (ok) {
+          allowed = url
+          window.location.replace(url)
+          return
+        }
+        window.clearTimeout(stall.current)
+        setTrouble(deviceOffline() ? "offline" : "unreachable")
+        releaseLaunchScreen()
+      })
+    }
+    nav.addEventListener("navigate", onNavigate)
+    return () => nav.removeEventListener("navigate", onNavigate)
+  }, [])
+
+  useEffect(() => {
     /* Where a signed in start goes for this home: the kept page, else the home's own default. */
-    const kept = !startUsed && documentOpenedHere() && !startedJustNow()
+    const isStart = !startUsed && documentOpenedHere()
+    const kept = isStart && !startedJustNow()
     startUsed = true
+    if (!isStart) setVisit(true)
     const go = (home: string | null | undefined) => startTarget({ last: kept ? readLastPlace() : null, home, exploreOn })
 
     /**
@@ -105,15 +265,15 @@ export default function NativeStartPage() {
     const HANDOFF_OK = ["/welcome", "/login", "/signup", "/reset-password", "/auth/"]
 
     function safeRedirect(url: string) {
-      if (didRedirect) return
+      if (landed.current) return
       /* A tap on a push already chose the page (lib/push/client.ts): that navigation stands. */
       if ((window as unknown as { __storelibPushTap?: string }).__storelibPushTap) return
       const isHandoff = HANDOFF_OK.some((h) => url === h || url.startsWith(h))
       const target = isHandoff || isResumablePlace(url) ? url : sanitizeNativeHome(url)
       if (target === "/native-start" || target.startsWith("/native-start")) return
-      didRedirect = true
-      /* In this document, not a second one: see lib/native-start-landing.ts. */
-      landInPlace(target, router)
+      landed.current = true
+      /* In this document, not a second one: see lib/native-start-landing.ts. Watched, and held while offline (handOver). */
+      handOver(target)
     }
 
     async function resolve() {
@@ -208,6 +368,16 @@ export default function NativeStartPage() {
         }
       } catch { /* ignore */ }
 
+      // ── Layer 1b: nothing stored anywhere, so nobody is signed in ─────────
+      // See preferencesHoldSession above: the same /welcome the layers below
+      // end on, without downloading them first.
+      try {
+        if (!hasStoredSessionToken() && (await preferencesHoldSession()) === false) {
+          safeRedirect("/welcome")
+          return
+        }
+      } catch { /* the full reads below decide */ }
+
       // ── Layer 2: Supabase SDK session + DB role resolution ────────────────
       try {
         const { createClient } = await import("@/lib/supabase/client")
@@ -278,7 +448,7 @@ export default function NativeStartPage() {
     // unreachable, Preferences stuck, etc.), force a redirect so the user is
     // never stuck on the spinner indefinitely.
     const timeout = setTimeout(() => {
-      if (didRedirect) return
+      if (landed.current) return
       console.warn("[native-start] resolve() timed out after 8 s: forcing redirect")
       try {
         const cachedHome = localStorage.getItem("sb-native-home")
@@ -293,7 +463,7 @@ export default function NativeStartPage() {
     resolve().finally(() => clearTimeout(timeout))
 
     return () => clearTimeout(timeout)
-  }, [exploreOn, router])
+  }, [exploreOn, router, handOver])
 
   return (
     <>
@@ -331,7 +501,29 @@ export default function NativeStartPage() {
           paddingBottom: "72px",
         }}
       >
-        <div className="ns-spinner" />
+        {trouble ? (
+          <div data-native-start-trouble={trouble} role="alert" style={{ width: "100%", maxWidth: 360, padding: "0 24px", textAlign: "center", fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, sans-serif" }}>
+            <h1 style={{ margin: 0, fontSize: 20, lineHeight: 1.3, fontWeight: 700, color: "#1a1a2e" }}>
+              {trouble === "offline" ? tt("No internet connection") : trouble === "unreachable" ? tt("Cannot reach Storelib") : tt("Still loading")}
+            </h1>
+            <p style={{ margin: "8px 0 0", fontSize: 14, lineHeight: 1.5, color: "#6b7280" }}>
+              {trouble === "offline" ? tt("Storelib opens as soon as your phone is back online.") : trouble === "unreachable" ? tt("Check your connection and try again.") : tt("The connection is slow right now.")}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                /* The launch screen is down by now: the spinner says it is trying. */
+                setVisit(true)
+                if (goingTo.current) handOver(goingTo.current)
+              }}
+              style={{ marginTop: 20, height: 44, width: "100%", border: 0, borderRadius: 999, background: "#1a1a2e", color: "#ffffff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}
+            >
+              {tt("Try again")}
+            </button>
+          </div>
+        ) : visit ? (
+          <div className="ns-spinner" data-native-start-spinner="" />
+        ) : null}
       </div>
     </>
   )

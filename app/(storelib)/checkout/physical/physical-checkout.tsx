@@ -426,7 +426,8 @@ export function PhysicalCheckout({
         return
       }
       if (!res.ok || typeof data.url !== "string" || !data.url) {
-        clientKey.current = actionKey()
+        /* A free order still being placed by the last press keeps its key: pressing again finds it (round AY). */
+        if (data.code !== "in_progress") clientKey.current = actionKey()
         setPayError({ message: typeof data.error === "string" ? data.error : "Could not start the payment.", field: typeof data.field === "string" ? data.field : null })
         setPaying(false)
         if (res.status === 409) setItems((x) => (x ? [...x] : x))
@@ -442,7 +443,8 @@ export function PhysicalCheckout({
       window.location.href = data.url
     } catch {
       /* A cash order may have been placed without the answer arriving: the same key again finds it rather than placing a second. */
-      if (!cashOn) clientKey.current = actionKey()
+      /* A free order the same (round AY, lib/physical/checkout-server freeOrderOfKey): the same key finds the order it placed. */
+      if (!cashOn && quote.totals.totalCents !== 0) clientKey.current = actionKey()
       setPayError({ message: "Could not reach the checkout. Check your connection and try again.", field: null })
       setPaying(false)
     }

@@ -30,6 +30,8 @@
  *
  *   PROBE_CSS=source node scripts/check-header-states.mjs
  */
+import { createServer } from "node:http"
+import { extname, resolve } from "node:path"
 import { build } from "esbuild"
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
@@ -68,7 +70,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
 export const useLinkStatus = () => ({ pending: false })`,
   /* A root-relative picture (the logo) is read from public/, so the screenshots show it. */
   "next/image": `import React from "react"
-const PUBLIC = ${JSON.stringify("file://" + join(root, "public"))}
+const PUBLIC = ""
 export default function Image({ src, alt, fill, priority, preload, sizes, unoptimized, className, style, ...rest }) {
   const url = typeof src === "string" ? (src.startsWith("/") ? PUBLIC + src : src) : ""
   return React.createElement("img", { src: url, alt, className, style: fill ? { position: "absolute", inset: 0, width: "100%", height: "100%", ...style } : style, ...rest })
@@ -135,7 +137,17 @@ writeFileSync(join(stubs, "index.html"), `<!doctype html><html class="light"><he
 <style>${faces}</style><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif;background:#f8f9fa}</style></head>
 <body><div id="app"></div><script>${js.replace(/<\/script/gi, "<\\/script")}</script></body></html>`)
 
-const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--disable-gpu", "--hide-scrollbars", "--allow-file-access-from-files"] })
+const server=createServer((req,res)=>{
+  const path=new URL(req.url,'http://local').pathname
+  const file=path==='/index.html'?join(stubs,'index.html'):resolve(root,'public','.'+decodeURIComponent(path))
+  if(file!==join(stubs,'index.html')&&!file.startsWith(join(root,'public')+'/')){res.writeHead(403);return res.end()}
+  if(!existsSync(file)){res.writeHead(404);return res.end()}
+  res.setHeader('content-type',({'.html':'text/html; charset=utf-8','.png':'image/png','.svg':'image/svg+xml','.webp':'image/webp'})[extname(file)]||'application/octet-stream');res.end(readFileSync(file))
+})
+await new Promise(r=>server.listen(0,'127.0.0.1',r))
+const origin=`http://127.0.0.1:${server.address().port}`
+process.on('exit',()=>rmSync(stubs,{recursive:true,force:true}))
+const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", ...(process.env.HEADER_ONLY === "marketing" ? ["--blink-settings=primaryPointerType=4,availablePointerTypes=4,primaryHoverType=2,availableHoverTypes=2"] : []), "--disable-gpu", "--hide-scrollbars", "--allow-file-access-from-files"] })
 const PHONE = (width) => ({ width, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 })
 const DESK = (width) => ({ width, height: 900, deviceScaleFactor: 1 })
 
@@ -144,7 +156,7 @@ async function open(vp, path, who) {
   const errors = []
   p.on("pageerror", (e) => errors.push(e.message))
   await p.setViewport(vp)
-  await p.goto(`file://${join(stubs, "index.html")}#path=${encodeURIComponent(path)}&who=${who}`)
+  await p.goto(`${origin}/index.html#path=${encodeURIComponent(path)}&who=${who}`)
   await p.evaluate(() => document.fonts.ready)
   await sleep(700)
   if (errors.length) fail(`The page threw (${path}, ${who}): ${errors[0]}`)
@@ -202,6 +214,55 @@ const isViolet = (c) => !!c && (VIOLET_600.test(c) || /oklch\(0\.54/.test(c))
 const r8 = (b) => b && b.radius === "8px"
 
 /* ------------------------------------------------------------------ */
+if(process.env.HEADER_ONLY==='mobile-scroll'){
+  const p=await open(PHONE(390),'/','guest')
+  await sleep(400)
+  const initialHeader=await p.evaluate(()=>({bg:getComputedStyle(document.querySelector('#platform-header-root')).backgroundColor,heroTop:document.querySelector('[data-home-hero]').getBoundingClientRect().top,transition:getComputedStyle(document.querySelector('#platform-header-root')).transitionProperty}))
+  expect(initialHeader.bg==='rgba(0, 0, 0, 0)' && Math.abs(initialHeader.heroTop)<1 && initialHeader.transition.includes('background-color'),'transparent header overlays the hero from the first layout',initialHeader)
+  await p.evaluate(()=>scrollTo(0,150));await sleep(400)
+  expect(await p.$eval('#platform-header-root',e=>getComputedStyle(e).backgroundColor)==='rgb(16, 16, 18)','scrolling fades the homepage header to solid')
+  await p.evaluate(()=>scrollTo(0,0));await sleep(400)
+  const heroHeight=await p.$eval('[data-home-hero]',e=>e.getBoundingClientRect().height)
+  for(const height of [844,650,900]){
+    await p.setViewport({width:390,height,isMobile:true,hasTouch:true,deviceScaleFactor:2})
+    for(const y of [0,220,440,50,0]){
+      await p.evaluate(y=>scrollTo(0,y),y);await sleep(100)
+      const r=await p.evaluate(()=>({top:document.querySelector('#platform-header-root').getBoundingClientRect().top,y:scrollY,h:document.querySelector('[data-home-hero]').getBoundingClientRect().height}))
+      expect(Math.abs(r.top)<1 && Math.abs(r.y-y)<2 && r.h===heroHeight,'mobile header stays pinned, page scrolls both ways and hero geometry stays fixed',r)
+    }
+  }
+  await p.tap('button[aria-label="Open menu"]');await sleep(500)
+  expect(await p.$$eval('[role="dialog"]',els=>els.some(e=>e.getAttribute('aria-hidden')!=='true'&&getComputedStyle(e).visibility!=='hidden'&&e.getBoundingClientRect().height>0)),'real mobile menu opens')
+  await p.keyboard.press('Escape');await sleep(650)
+  expect(await p.$$eval('[role="dialog"]',els=>els.every(e=>e.getAttribute('aria-hidden')==='true'||!e.getClientRects().length)),'real mobile menu closes')
+  await p.evaluate(()=>scrollTo(0,400));await sleep(120);await p.evaluate(()=>scrollTo(0,0));await sleep(120)
+  expect(await p.evaluate(()=>scrollY===0 && getComputedStyle(document.body).overflowY!=='hidden'),'upward scrolling remains available after menu close')
+  await p.close();await browser.close();await new Promise(r=>server.close(r));rmSync(stubs,{recursive:true,force:true});process.exit(broken?1:0)
+}
+if(process.env.HEADER_ONLY==='marketing'){
+  for(const path of ['/','/pricing']){
+    const p=await open(DESK(1440),path,'guest')
+    if(path==='/'){
+      const top=await p.evaluate(()=>({heroTop:document.querySelector('[data-home-hero]').getBoundingClientRect().top,bg:getComputedStyle(document.querySelector('#platform-header-root')).backgroundColor,sell:!!document.querySelector('a[href="/sell"]'),divider:getComputedStyle(document.querySelector('[data-guest-divider]')).display}))
+      expect(Math.abs(top.heroTop)<1 && top.bg==='rgba(0, 0, 0, 0)' && top.sell && top.divider!=='none','desktop header overlays video transparently and keeps Sell on Storelib',top)
+      await p.evaluate(()=>scrollTo(0,160));await sleep(400)
+      expect(await p.$eval('#platform-header-root',e=>getComputedStyle(e).backgroundColor)==='rgb(16, 16, 18)','desktop header becomes solid after scrolling')
+      await p.evaluate(()=>scrollTo(0,0));await sleep(400)
+    }
+    const selector='[data-marketing-nav] a[href="/blog"]'
+    const links=await p.$$eval('[data-marketing-nav] a',els=>els.map(e=>({radius:getComputedStyle(e).borderRadius,bg:getComputedStyle(e).backgroundColor,transition:getComputedStyle(e).transitionProperty})))
+    expect(links.length>=4&&links.every(n=>n.radius==='0px'&&n.bg==='rgba(0, 0, 0, 0)'&&n.transition.includes('color')),`${path}: plain marketing links, no pills, color transitions`,links)
+    const before=await p.$eval(selector,e=>getComputedStyle(e).color)
+    await p.hover(selector);await sleep(250)
+    const hover=await p.$eval(selector,e=>({color:getComputedStyle(e).color,bg:getComputedStyle(e).backgroundColor,hover:e.matches(":hover"),fine:matchMedia("(pointer:fine)").matches,canHover:matchMedia("(hover:hover)").matches}))
+    expect(hover.color!==before&&hover.bg==='rgba(0, 0, 0, 0)',`${path}: hover brightens without adding a background`,hover)
+    await p.mouse.move(0,800);await sleep(250)
+    expect(await p.$eval(selector,e=>getComputedStyle(e).color)===before,`${path}: hover out restores the original tone`)
+    await p.screenshot({path:join(shots,path==='/'?'marketing-home.png':'marketing-pricing.png'),clip:{x:0,y:0,width:1440,height:110}})
+    await p.close()
+  }
+  await browser.close();await new Promise(r=>server.close(r));rmSync(stubs,{recursive:true,force:true});process.exit(broken?1:0)
+}
 console.log("\ncomputer, 1280")
 const measured = {}
 for (const path of ["/", "/explore"]) {
@@ -211,6 +272,11 @@ for (const path of ["/", "/explore"]) {
     measured[`${path}|${who}`] = d
     await p.screenshot({ path: join(shots, `desk-1280-${path === "/" ? "home" : "explore"}-${who}.png`), clip: { x: 0, y: 0, width: 1280, height: path === "/" ? 760 : 140 } })
     const tag = `${path} ${who}:`
+    if(path==='/'){
+      const nav=await p.$$eval('[data-marketing-nav] a',els=>els.map(e=>({radius:getComputedStyle(e).borderRadius,bg:getComputedStyle(e).backgroundColor,transition:getComputedStyle(e).transitionProperty})))
+      expect(nav.length>0&&nav.every(n=>n.radius==='0px'&&n.bg==='rgba(0, 0, 0, 0)'&&n.transition.split(',').map(s=>s.trim()).includes('color')),`${tag} marketing links brighten with a color transition and no pills`,nav)
+    }
+
     expect(!d.text.some((t) => /start selling/i.test(t)), `${tag} no Start selling anywhere in the bar`, d.text)
     expect(d.overflow.doc <= 0 && d.overflow.row <= 0 && d.overflow.rightmost <= 0, `${tag} nothing wider than the window`, d.overflow)
     expect(d.logo.length === 1 && Math.abs(d.logo[0] - 41.8) < 0.05, `${tag} the logo is 41.8px (5% under 44)`, d.logo)
@@ -252,13 +318,13 @@ for (const path of ["/", "/explore"]) {
     }
     if (path === "/" && who === "guest") {
       const hero = await p.evaluate(() => {
-        const box = document.querySelector("[data-hero-actions]")
+        const box = document.querySelector(".cinematic-actions")
         /* The owner's remake (round AA1): one button and the marketplace search, under the subheading. */
-        const links = [...box.querySelectorAll("a, input")].map((a) => ({ text: (a.textContent || a.placeholder).trim(), radius: getComputedStyle(a).borderTopLeftRadius, top: a.getBoundingClientRect().top }))
-        const sub = [...document.querySelectorAll("p")].find((x) => /e-commerce platform for creators/.test(x.textContent))
+        const links = [...box.querySelectorAll(".cinematic-desktop-signup, .cinematic-search input")].map((a) => ({ text: (a.textContent || a.placeholder).trim(), radius: getComputedStyle(a).borderTopLeftRadius, top: a.getBoundingClientRect().top }))
+        const sub = [...document.querySelectorAll("p")].find((x) => /Everything you need to create/.test(x.textContent))
         return { links, subBottom: sub?.getBoundingClientRect().bottom }
       })
-      expect(hero.links.length === 2 && hero.links.every((l) => l.radius === d.login.radius), "/ hero: Start Now and the search field take the Log in button's corner, not a pill", hero.links.map((l) => `${l.text} ${l.radius}`))
+      expect(hero.links.length === 2 && hero.links.every((l) => l.radius === "12px"), "/ hero: signup and search share the requested 12px corner", hero.links.map((l) => `${l.text} ${l.radius}`))
       expect(hero.links.every((l) => l.top >= hero.subBottom), "/ hero: both under the subheading", { controls: hero.links.map((l) => Math.round(l.top)), sub: Math.round(hero.subBottom) })
     }
     await p.close()
@@ -356,6 +422,11 @@ console.log("\nphone, 390: the account sheet from the photo")
 for (const who of ["buyer", "seller"]) {
   for (const path of ["/explore"]) {
     const tag = `${path} ${who}:`
+    if(path==='/'){
+      const nav=await p.$$eval('[data-marketing-nav] a',els=>els.map(e=>({radius:getComputedStyle(e).borderRadius,bg:getComputedStyle(e).backgroundColor,transition:getComputedStyle(e).transitionProperty})))
+      expect(nav.length>0&&nav.every(n=>n.radius==='0px'&&n.bg==='rgba(0, 0, 0, 0)'&&n.transition.split(',').map(s=>s.trim()).includes('color')),`${tag} marketing links brighten with a color transition and no pills`,nav)
+    }
+
     const p = await open(PHONE(390), path, who)
     const s = await openSheet(p, "account")
     await p.screenshot({ path: join(shots, `phone-390-explore-${who}-account.png`) })
@@ -393,6 +464,7 @@ for (const width of [360, 430]) {
 }
 
 await browser.close()
+await new Promise(r=>server.close(r))
 rmSync(stubs, { recursive: true, force: true })
 console.log(`\nshots: ${shots}`)
 console.log(broken ? `\n${broken} failed\n` : "\nall passed\n")

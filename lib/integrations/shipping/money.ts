@@ -1,22 +1,27 @@
 /**
  * A provider's price as a string ("7.58", "1200") into minor units, the
  * way Storelib keeps money. Pure, so tests read it as it is.
+ *
+ * How many decimals a currency has is asked of the one place the checkout
+ * asks (lib/markets/money minorUnits), never of a list kept here: a list of
+ * its own once read a Taiwan dollar and a CFP franc differently from the
+ * checkout, so a carrier's price in one of them reached the order a hundred
+ * times off, and a dinar's (three decimals) ten times.
  */
+import { minorUnits } from "@/lib/markets/money"
 
-/* Currencies with no minor unit: "1200" yen is 1200, not 120000. */
-const ZERO_DECIMAL = new Set(["JPY", "KRW", "VND", "CLP", "ISK", "HUF", "TWD", "UGX", "XAF", "XOF", "PYG"])
+const scaleOf = (currency: string) => 10 ** minorUnits(currency)
 
 export function toMinor(amount: unknown, currency: unknown): number | null {
   const n = typeof amount === "number" ? amount : Number(String(amount ?? "").trim())
   if (!Number.isFinite(n) || n < 0 || n > 1_000_000) return null
-  const cc = String(currency ?? "USD").toUpperCase()
-  return Math.round(ZERO_DECIMAL.has(cc) ? n : n * 100)
+  return Math.round(n * scaleOf(cleanCurrency(currency)))
 }
 
 /** And back: minor units written the way a provider reads them, "50.25", or "1200" for a currency with no minor unit. */
 export function fromMinor(cents: number, currency: unknown): string {
-  const cc = cleanCurrency(currency)
-  return ZERO_DECIMAL.has(cc) ? String(Math.round(cents)) : (Math.round(cents) / 100).toFixed(2)
+  const digits = minorUnits(cleanCurrency(currency))
+  return (Math.round(cents) / 10 ** digits).toFixed(digits)
 }
 
 export function cleanCurrency(currency: unknown): string {
@@ -28,7 +33,7 @@ export function cleanCurrency(currency: unknown): string {
 export function formatMinor(cents: number, currency: string): string {
   const cc = cleanCurrency(currency)
   try {
-    return new Intl.NumberFormat("en-US", { style: "currency", currency: cc }).format(ZERO_DECIMAL.has(cc) ? cents : cents / 100)
+    return new Intl.NumberFormat("en-US", { style: "currency", currency: cc }).format(cents / scaleOf(cc))
   } catch {
     return `${(cents / 100).toFixed(2)} ${cc}`
   }
