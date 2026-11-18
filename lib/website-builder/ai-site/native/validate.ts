@@ -398,9 +398,17 @@ function buttonsThatGoNowhere(
         /*
           Round 56: words that ask to get in touch (an enquiry, a call, a quote) on a button into the shop
           (../../action-words.ts). It goes to the site's contact or booking page when it has one;
-          with none, it is not drawn and the generator is told.
+          with none, it is not drawn and the generator is told. A button bound to a product opens
+          that product's page, so words that ask to get in touch are never right on it.
         */
-        if (partner.role !== "link" || typeof address !== "string" || !intoShop(address) || !asksToTalk(words)) continue
+        if (!asksToTalk(words)) continue
+        if (partner.role === "binding") {
+          settings[t.id] = ""
+          if (wroteText) issues.push({ path: `${at}.settings.${t.id}`, message: `"${words.slice(0, 40)}" asks the visitor to get in touch, and the button opens a product's page; give it words that fit the product, or leave "${t.id}" empty` })
+          else notes.push(`${at}: "${t.id}" left out, its default asks to get in touch and the button opens a product`)
+          continue
+        }
+        if (partner.role !== "link" || typeof address !== "string" || !intoShop(address)) continue
         const page = requestPage([...links].map((l) => l.replace(/^\//, "")))
         if (page) {
           settings[partner.id] = `/${page}`

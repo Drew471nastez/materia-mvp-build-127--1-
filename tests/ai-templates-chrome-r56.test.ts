@@ -169,6 +169,11 @@ async function main() {
   const pages = [{ key: "home", sections: [{ id: "h1", type: "ai_ardenp_header", settings: { cta_label: "Book an intro call", cta_url: "/products", notice_url: "/products", notice: "Next cohort" }, blocks: [] } as unknown as SectionInstance] }]
   const calls = actionRepairs(said, pages)
   check("scripted repair: the button's address, and only that, to /contact", JSON.stringify(calls) === JSON.stringify([["set_section_settings", { page: "home", sectionId: "h1", settings: { cta_url: "/contact" } }]]), calls)
+  const escaped = JSON.stringify([{ content: JSON.stringify({ reason: said }) }])
+  check("scripted repair: read from the refusal as it sits in the turns (quotes escaped twice)", JSON.stringify(actionRepairs(escaped, pages)) === JSON.stringify(calls), actionRepairs(escaped, pages))
+  const noPage = said.replace("Point it at the site's /contact page.", "Point it at the page that takes the request (a contact page with a form, or a booking page).")
+  const words = actionRepairs(noPage, pages, ["Book an intro call", "See how we work"])
+  check("scripted repair: with no such page, the words become the site's own words for the shop", JSON.stringify(words) === JSON.stringify([["set_section_settings", { page: "home", sectionId: "h1", settings: { cta_label: "See how we work" } }]]), words)
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) process.exit(1)

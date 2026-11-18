@@ -207,6 +207,21 @@ export async function runAgentScenario(w: AiWorld, sc: EvalScenario, opts: Agent
   }
 
   const step = (f: (req: { turns: unknown[] }) => ScriptStep) => (req: { turns: unknown[] }) => f(req)
+  /* Refused? A careful model fixes what finish names that it knows how to: an empty product frame. */
+  const repair = step((req) => {
+    const said = JSON.stringify(req.turns.slice(-1))
+    const paths = [...new Set([...said.matchAll(/(sections\/ai_[a-z0-9_]+\.storelib): [a-z0-9-]+: The section draws an empty <div class/g)].map((m) => m[1]))]
+    const files = sourcesNow()
+    const calls: Call[] = paths.flatMap((path) => {
+      const fixed = files[path] ? guardProductMedia(files[path]) : null
+      return fixed ? [["write_file", { path, content: fixed }] as Call] : []
+    })
+    /* Round 56: an enquiry button that goes to the shop (render.action_mismatch) goes to the page finish names. */
+    const repairPages = Object.entries(installPages(w, installId)).map(([key, p]) => ({ key, sections: (p.draft ?? p.sections) as SectionInstance[] }))
+    const repairs = actionRepairs(said, repairPages, deck.ctas)
+    calls.push(...repairs)
+    return { text: calls.length ? "Fixing what finish found." : "", calls: [...calls, ["finish", { summary: `${deck.brand}: the whole site, adapted, checked again.` }]] }
+  })
   const script: Script = [
     { text: "Looking at what is real first.", calls: [["list_capabilities", {}], ["list_pages", {}]] },
     step(() => {
@@ -233,19 +248,10 @@ export async function runAgentScenario(w: AiWorld, sc: EvalScenario, opts: Agent
     step((req) => ({ text: "Placing the pages.", calls: pageCalls(req) })),
     { calls: [["validate", {}], ["render_check", { page: "home" }]] },
     { calls: [["finish", { summary: `${deck.brand}: the whole site, adapted from its starting point, every picture slot filled and the products bound.` }]] },
-    /* Refused? A careful model fixes what finish names that it knows how to: an empty product frame. */
-    step((req) => {
-      const said = JSON.stringify(req.turns.slice(-1))
-      const paths = [...new Set([...said.matchAll(/(sections\/ai_[a-z0-9_]+\.storelib): [a-z0-9-]+: The section draws an empty <div class/g)].map((m) => m[1]))]
-      const files = sourcesNow()
-      const calls: Call[] = paths.flatMap((path) => {
-        const fixed = files[path] ? guardProductMedia(files[path]) : null
-        return fixed ? [["write_file", { path, content: fixed }] as Call] : []
-      })
-      /* Round 56: a booking or enquiry button that goes to the shop (render.action_mismatch) goes to the page finish names. */
-      calls.push(...actionRepairs(said.replace(/\\"/g, '"'), Object.entries(installPages(w, installId)).map(([key, p]) => ({ key, sections: (p.draft ?? p.sections) as SectionInstance[] }))))
-      return { text: calls.length ? "Fixing what finish found." : "", calls: [...calls, ["finish", { summary: `${deck.brand}: the whole site, adapted, checked again.` }]] }
-    }),
+    /* Round 56: up to the loop's three repair rounds; a long refusal reaches the model cut, so what it did not see is fixed on the next round. */
+    repair,
+    repair,
+    repair,
   ]
   const scripted = opts.models ? null : scriptModels(script, { clock: w.clock })
   w.scripts.set(jobId, scripted ?? { models: opts.models!, run: { calls: 0, requests: [], asked: [] } })
