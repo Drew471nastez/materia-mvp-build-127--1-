@@ -28,7 +28,7 @@
  */
 
 /** The brain's version: bumps when any record, the ranking or the block format changes. */
-export const BRAIN_VERSION = "r1.1"
+export const BRAIN_VERSION = "r1.2"
 
 export const BRAIN_KINDS = ["technique", "pattern", "recipe", "standard"] as const
 export type BrainKind = (typeof BRAIN_KINDS)[number]

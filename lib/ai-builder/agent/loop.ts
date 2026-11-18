@@ -204,12 +204,14 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
     const shown = pictured.length ? await referenceSource.images(pictured).catch(() => []) : []
     cp.references = refs.map((r) => r.id)
     cp.referenceImages = shown.map((x) => x.id)
+    let recent: { directions: string[]; recipes: string[] } = { directions: [], recipes: [] }
     if (!scoped) {
       try {
         const hints = refs.map((r) => ({ id: r.id, styles: r.styleTags, industries: r.industries }))
-        const plan = planDirection(job, caps, hints)
+        recent = await (deps.recentDesigns?.().catch(() => ({ directions: [], recipes: [] })) ?? Promise.resolve({ directions: [], recipes: [] }))
+        const plan = planDirection(job, caps, hints, recent)
         cp.brief = plan.brief
-        cp.direction = { primary: plan.choice.primary.id, secondary: plan.choice.secondary?.id ?? null, typeSystem: plan.choice.typeSystem.id, seed: plan.choice.seed, ...(hints.length ? { refs: hints } : {}), ...(plan.prefer.length ? { prefer: plan.prefer } : {}), ...(plan.preferType ? { preferType: plan.preferType } : {}) }
+        cp.direction = { primary: plan.choice.primary.id, secondary: plan.choice.secondary?.id ?? null, typeSystem: plan.choice.typeSystem.id, seed: plan.choice.seed, ...(hints.length ? { refs: hints } : {}), ...(plan.prefer.length ? { prefer: plan.prefer } : {}), ...(plan.preferType ? { preferType: plan.preferType } : {}), ...(plan.avoid.length ? { avoid: plan.avoid } : {}) }
         directions = plan.seeds
         direction = { brief: plan.brief, choice: plan.choice }
       } catch {
@@ -217,7 +219,8 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
       }
     }
     const contract = scoped ? await contractBlock(deps.store) : ""
-    const design = await jobDesignBrief({ job, caps, files, references: { list: refs, withImages: cp.referenceImages }, ...(direction ? { direction } : {}), ...(contract ? { contract } : {}) }).catch(() => null)
+    const design = await jobDesignBrief({ job, caps, files, references: { list: refs, withImages: cp.referenceImages }, ...(direction ? { direction } : {}), ...(contract ? { contract } : {}), ...(recent.recipes.length ? { avoidRecipes: recent.recipes } : {}) }).catch(() => null)
+    if (design?.brain?.recipeId) cp.recipe = design.brain.recipeId
     /*
       TEMPLATE FIRST (round P, P5, ./templates.ts): a NEW website starts from the closest starting template
       (P2's chooseTemplate + applyTemplate, with the brief and direction just chosen), then the agent adapts it.

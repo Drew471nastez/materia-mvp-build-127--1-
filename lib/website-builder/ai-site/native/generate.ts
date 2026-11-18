@@ -25,6 +25,8 @@
  * are versioned (NATIVE_PROMPT_VERSION) and recorded on the job.
  */
 import { surfaceRules } from "@/lib/storelib-ai/surfaces"
+import { DESIGN_STANDARD } from "@/lib/storelib-ai/design-rules"
+import type { SiteFingerprint } from "@/lib/ai-builder/novelty"
 import { describeCapabilities } from "../capabilities"
 import type { DesignTokens } from "@/lib/ai-builder/types"
 import { extractJson } from "../../agent/creative-plan"
@@ -35,7 +37,7 @@ import { nativeTool, NATIVE_TOOL } from "./schema"
 import { placeable, siteLinks, validateNativeSite } from "./validate"
 import { NATIVE_LIMITS, type NativeContext, type NativeIssue, type NativeMapping, type NativeSite } from "./types"
 
-export const NATIVE_PROMPT_VERSION = "native-r2.1"
+export const NATIVE_PROMPT_VERSION = "native-r56"
 /** Repair turns after the first answer, at most. */
 export const NATIVE_MAX_REPAIRS = 2
 export const NATIVE_CALL_TIMEOUT_MS = 170_000
@@ -116,6 +118,8 @@ export interface NativeGenerateInput {
   designMd?: string | null
   /** Types offered; default: every registry type possible for this creator. */
   types?: string[]
+  /** Round 56: the platform's most recent sites' fingerprints, named in the prompt so this one steers clear of them. */
+  recent?: SiteFingerprint[]
 }
 
 export interface NativeGenerateDeps {
@@ -157,10 +161,10 @@ export const NATIVE_RULES = `You are the creative director and the writer of a s
 HOW TO ANSWER
 - Call ${NATIVE_TOOL} once with the whole site. Settings and block settings are [{id, value}] pairs using ONLY the ids in the library line for that type, values as text.
 - A choice setting takes one of its listed values exactly. A range takes a number inside its range. A link takes one of the SITE LINKS exactly. A [product] takes a product's address from STORE FACTS, a [product_list] its ids joined by commas, a [collection] a collection id, a [form] one of the FORMS. An [image] takes one of the CREATOR'S PICTURES, or leave it out and brief the picture in "images" (it is found or made after).
-- Pages: "home" first with 8 to 12 sections, then two to five more pages with 3 to 6 sections each. Never a product, shop, cart, search, account or blog page: the store draws those. The header and footer are the site's frame, never in a page's list.
+- Pages: "home" first with 6 to 12 sections (as many as this business's story needs; cut a filler before adding one), then two to five more pages with 3 to 6 sections each. Never a product, shop, cart, search, account or blog page: the store draws those. The header and footer are the site's frame, never in a page's list.
 - Sections with blocks get their blocks filled with real content: as many as the content really has, at least two, about as many as the library line says to aim for.
 - Theme: a design preset as the tested base, then its palette (all seven colours, or every one "" to keep the preset's), two fonts the theme loads, and a few Theme settings. Follow the DESIGN BRAIN and ART DIRECTION below; the colours asked for in the request win.
-- Vary the composition: no two neighbouring sections of the same kind, a rhythm of colour bands (scheme light, alt, dark), one clear main action repeated where it helps.
+- Compose it: no two neighbouring sections of the same kind; colour bands (scheme) where the story turns, not in a fixed light, alt, dark rotation; one clear main action repeated where it helps. The SECTION IDEAS and the art direction are starting material: where they disagree with what would make this site better, decide.
 
 THE WORDS
 - Specific to this business: its craft, its place, its people, what it actually sells. A line that would fit any business is wrong.
@@ -187,6 +191,7 @@ export function nativeSystem(ctx: NativeContext, types: string[]): string {
   const t = ctx.registry.theme
   return [
     `${NATIVE_RULES}`,
+    DESIGN_STANDARD,
     surfaceRules("classic"),
     `THE LIBRARY (${NATIVE_REGISTRY_VERSION}): type: name. what it is | settings | blocks\n${describeRegistry(ctx.registry, types)}`,
     `THEME TOKENS\n- presets: ${t.presets.map((p) => `${p.id} (${p.mood.slice(0, 3).join(", ")})`).join("; ")}\n- palette keys: ${t.palette.join(", ")}\n- theme settings: ${t.settings.map((s) => (s.values ? `${s.id}(${s.values.join("|")})` : `${s.id}(${s.min ?? ""}-${s.max ?? ""})`)).join(" ")}\n- fonts: any listed in the tool's font enums`,
@@ -199,8 +204,9 @@ export function nativeTurn(input: NativeGenerateInput, offered: string[] = Objec
   const brainBlock = typeof input.brain?.block === "string" ? input.brain.block.slice(0, 4000) : ""
   const plan = strategyPlan(hints, offered)
   const strategy = plan.length
-    ? `STARTING SECTION PLAN for the home page (the recipe's spine, in order; use the first listed type unless the content calls for the next one, and add sections where the business needs more):\n${plan.map((st, i) => `  ${i + 1}. ${st.title} (${st.role}): ${st.types.join(" or ")}`).join("\n")}${hints?.rhythm ? `\nRhythm: ${hints.rhythm}` : ""}`
+    ? `SECTION IDEAS for the home page (ingredients, not an order or a quota: choose the ones this site needs, order them for this visitor, pick whichever listed type suits the content, and add what only this business would have):\n${plan.map((st) => `  - ${st.title} (${st.role}): ${st.types.join(" or ")}`).join("\n")}${hints?.rhythm ? `\nRhythm: ${hints.rhythm}` : ""}`
     : ""
+  const recent = recentBlock(input.recent ?? [])
   const t = hints?.tokens
   const tokens = t ? `TOKENS (applied to Theme settings after you answer; your palette and fonts, when you give them, win): background ${t.colors.background}, surface ${t.colors.surface}, text ${t.colors.text}, accent ${t.colors.accent} with ${t.colors.accentText} on it, border ${t.colors.border}${t.colors.inverse ? `, contrast band ${t.colors.inverse.background}` : ""}; corners ${t.radius.small}/${t.radius.medium}px; motion ${t.motion.tier ?? t.motion.level}.` : ""
   const type = hints?.typePairing?.display ? `Type pairing: ${hints.typePairing.display} / ${hints.typePairing.body}.` : ""
@@ -209,10 +215,22 @@ export function nativeTurn(input: NativeGenerateInput, offered: string[] = Objec
     brainBlock || hints ? `DESIGN BRAIN${typeof input.brain?.version === "string" ? ` (${input.brain.version})` : ""}\n${[brainBlock, strategy, tokens, type, hints?.spacing ? `Spacing: ${hints.spacing}.` : "", hints?.motionTier ? `Motion: ${hints.motionTier}.` : "", hints?.imageDirection ? `Imagery: ${hints.imageDirection}.` : ""].filter(Boolean).join("\n")}` : "",
     input.direction ? `ART DIRECTION\n${input.direction.slice(0, 6000)}` : "",
     input.designMd ? `THE SITE'S DESIGN.md (its design contract; follow its tokens and rules)\n${input.designMd.slice(0, 5000)}` : "",
+    recent,
     storeBlock(input.ctx, "/<its key>"),
   ]
     .filter(Boolean)
     .join("\n\n")
+}
+
+/**
+ * Round 56: the structure of the platform's last few sites, so this one does not repeat it (the agent engine's novelty
+ * pressure, for the native engine). Section roles, hero shape, palette and type buckets only: nothing of another
+ * creator's content. Pure.
+ */
+export function recentBlock(recent: SiteFingerprint[]): string {
+  const list = recent.slice(0, 5)
+  if (!list.length) return ""
+  return `RECENT SITES ON THIS PLATFORM (other businesses; do not make a near copy of their structure)\n${list.map((f) => `  - opens ${f.hero.replace(/^builtin:/, "with ")}; home ${f.order.slice(0, 9).join(", ")}; palette ${f.palette}; type ${f.type}`).join("\n")}\nKeep what this business needs, and make the opening, the order and the palette surface its own.`
 }
 
 function repairTurn(base: string, previous: string, issues: NativeIssue[]): string {

@@ -118,6 +118,12 @@ export interface DesignBrainOptions {
   avoidRecipes?: string[]
   /** Cap for the block. Default BRAIN_BLOCK_MAX_CHARS. */
   maxChars?: number
+  /**
+   * Round 56: a seed for this site (the creator and install, or the job). With one, the home order is varied per site
+   * (varySpine): an opener that fits the business, the middle reordered, sometimes one pattern swapped for another of
+   * its role that fits. Without one the recipe's own order, as before.
+   */
+  seed?: string
 }
 
 export const BRAIN_BLOCK_MAX_CHARS = 3_800
@@ -200,7 +206,7 @@ function blockFor(brain: Omit<DesignBrain, "block">, recipe: Recipe, picks: { te
     `- Space: sections ${h.spacing.sectionY}px (dense ${h.spacing.sectionYDense}, airy ${h.spacing.sectionYAiry}), page ${h.spacing.pageWidth}px, gutter ${h.spacing.gutter}px, steps ${h.spacing.steps.join(" ")}; corners ${h.tokens.radius.small}/${h.tokens.radius.medium}/${h.tokens.radius.large}px; shadow ${h.tokens.shadow}. ${recipe.surfaces}`,
     `- Motion: ${h.motionTier}. ${recipe.motion}`,
     `- Images: ${recipe.image.direction} Ratios ${recipe.image.ratios.join(", ")}. ${recipe.image.crop}`,
-    `- Home spine: ${h.sectionStrategy.home.map((s, i) => `${i + 1}. ${s.title}`).join("; ")}. ${recipe.rhythm}`,
+    `- Home ingredients (choose, order and add to them for this site; not a fixed spine): ${h.sectionStrategy.home.map((s) => s.title).join("; ")}. ${recipe.rhythm}`,
     `- Avoid: ${recipe.avoid.join("; ")}.`,
     `Starting tokens (send as set_tokens, then adjust with intent): ${JSON.stringify({ typeScale: h.tokens.typeScale, radius: h.tokens.radius, spacing: h.tokens.spacing, shadow: h.tokens.shadow, motion: h.tokens.motion, custom: h.tokens.custom })}`,
   ]
@@ -222,6 +228,61 @@ function blockFor(brain: Omit<DesignBrain, "block">, recipe: Recipe, picks: { te
   return text.length > max ? `${text.slice(0, max - 12)}\n[shortened]` : text
 }
 
+/* ── variety (round 56) ────────────────────────────────────────────────── */
+
+/** FNV-1a with a murmur finish: a stable unsigned number for a string. */
+function hash(s: string): number {
+  let h = 0x811c9dc5
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i)
+    h = Math.imul(h, 0x01000193)
+  }
+  h ^= h >>> 16
+  h = Math.imul(h, 0x85ebca6b)
+  h ^= h >>> 13
+  h = Math.imul(h, 0xc2b2ae35)
+  h ^= h >>> 16
+  return h >>> 0
+}
+
+const stepOf = (p: Pattern): SectionStep => ({ patternId: p.id, title: p.title, role: p.role, nativeSections: [...p.nativeSections], compositions: [...p.compositions] })
+
+/**
+ * The recipe's home order, varied per site by `seed`. Deterministic for a seed. The opener stays an opener that fits
+ * the business (the recipe's, or another hero pattern made for this business), the closer stays last, the middle is
+ * reordered (no two accents side by side), and about one site in two swaps one middle pattern for another interior
+ * pattern made for this business. Pure.
+ */
+export function varySpine(home: SectionStep[], seed: string, kind: string, exclude: (p: Pattern) => boolean = () => false): SectionStep[] {
+  if (home.length < 3 || !seed) return home.map((s) => ({ ...s, nativeSections: [...s.nativeSections], compositions: [...s.compositions] }))
+  const rnd = (salt: string, n: number) => (n <= 0 ? 0 : hash(`${seed}::${salt}`) % n)
+  const fits = (p: Pattern) => !exclude(p) && (p.businesses.includes(kind) || p.businesses.length === 0) && !(p.fitsPoorly ?? []).includes(kind)
+  const first = home[0]
+  const last = home[home.length - 1]
+  const closes = last.role === "closer"
+  let middle = home.slice(1, closes ? -1 : undefined)
+  /* The opener: the recipe's or another hero made for this business. */
+  const heroes = PATTERNS.filter((p) => p.role === "hero" && fits(p) && p.businesses.includes(kind))
+  const openers = [first, ...heroes.filter((p) => p.id !== first.patternId).map(stepOf)]
+  const opener = first.role === "hero" ? openers[rnd("opener", openers.length)] : first
+  /* One middle pattern swapped for an interior one made for this business that the spine does not have. */
+  const used = new Set(home.map((s) => s.patternId))
+  const spare = PATTERNS.filter((p) => p.role === "interior" && fits(p) && p.businesses.includes(kind) && !used.has(p.id))
+  if (spare.length && middle.length >= 3 && rnd("swap?", 2) === 0) {
+    const at = rnd("swap-at", middle.length)
+    if (middle[at].role === "interior") middle = middle.map((s, i) => (i === at ? stepOf(spare[rnd("swap-with", spare.length)]) : s))
+  }
+  /* The middle reordered: a seeded shuffle, then accents pulled apart. */
+  const keyed = middle.map((s, i) => ({ s, k: hash(`${seed}::order::${s.patternId}::${i}`) })).sort((a, b) => a.k - b.k).map((x) => x.s)
+  for (let i = 1; i < keyed.length; i++) {
+    if (keyed[i].role === "accent" && keyed[i - 1].role === "accent") {
+      const j = keyed.findIndex((x, k) => k > i && x.role !== "accent")
+      if (j > 0) [keyed[i], keyed[j]] = [keyed[j], keyed[i]]
+    }
+  }
+  return [opener, ...keyed, ...(closes ? [last] : [])].map((s) => ({ ...s, nativeSections: [...s.nativeSections], compositions: [...s.compositions] }))
+}
+
 /* ── the brain ─────────────────────────────────────────────────────────── */
 
 const cache = new Map<string, DesignBrain>()
@@ -232,7 +293,7 @@ export function designBrainFor(input: BriefInput, opts: DesignBrainOptions = {})
   const brief = toBrief(input)
   const direction = opts.direction ?? null
   const max = Math.max(800, Math.min(8_000, opts.maxChars ?? BRAIN_BLOCK_MAX_CHARS))
-  const key = JSON.stringify([BRAIN_VERSION, brief.prompt, brief.business.kind, brief.objective, brief.motion, brief.style, brief.assets.missing, direction && { p: direction.primary.id, s: direction.secondary?.id, f: direction.fonts, c: direction.palette, r: direction.radius, t: direction.typeSystem?.id }, opts.avoidRecipes ?? [], max])
+  const key = JSON.stringify([BRAIN_VERSION, brief.prompt, brief.business.kind, brief.objective, brief.motion, brief.style, brief.assets.missing, direction && { p: direction.primary.id, s: direction.secondary?.id, f: direction.fonts, c: direction.palette, r: direction.radius, t: direction.typeSystem?.id }, opts.avoidRecipes ?? [], max, opts.seed ?? ""])
   const had = cache.get(key)
   if (had) {
     cache.delete(key)
@@ -244,8 +305,12 @@ export function designBrainFor(input: BriefInput, opts: DesignBrainOptions = {})
   const words = [brief.prompt, brief.business.label, brief.offer ?? "", brief.audience ?? "", ...brief.style.moods, ...brief.style.requested, brief.style.era ?? ""].join(" ")
   const q: BrainQuery = { text: words, business: brief.business.kind, objective: brief.objective, directions }
 
-  /* 1. The recipe: business fit, the art direction, the brief's words; recently used ones pushed down. */
-  const avoid = new Set(opts.avoidRecipes ?? [])
+  /*
+    1. The recipe: business fit, the art direction, the brief's words; recently used ones pushed down. Round 56: only
+    when another recipe made for this business exists, so a trade with one recipe keeps it.
+  */
+  const fitting = RECIPES.filter((r) => r.businesses.includes(brief.business.kind)).length
+  const avoid = new Set(fitting > 1 ? (opts.avoidRecipes ?? []) : [])
   const recipes = rankBrain(RECIPES, q)
     .map((r) => (avoid.has(r.record.id) ? { ...r, score: r.score * 0.3 - 6, why: [...r.why, "used recently"] } : r))
     .sort((a, b) => b.score - a.score || a.record.id.localeCompare(b.record.id))
@@ -261,7 +326,8 @@ export function designBrainFor(input: BriefInput, opts: DesignBrainOptions = {})
   const home: SectionStep[] = recipe.sections
     .map((id) => PATTERNS.find((p) => p.id === id))
     .filter((p): p is Pattern => !!p && !(noProducts && p.id === "pat_shop-edit"))
-    .map((p) => ({ patternId: p.id, title: p.title, role: p.role, nativeSections: [...p.nativeSections], compositions: [...p.compositions] }))
+    .map(stepOf)
+  const varied = opts.seed ? varySpine(home, opts.seed, brief.business.kind, (p) => noProducts && p.id === "pat_shop-edit") : home
 
   /* 4. The rest, ranked with the recipe's words added, then diversified. */
   const q2: BrainQuery = { ...q, text: `${words} ${recipe.tags.join(" ")} ${recipe.image.direction}`, prefer: recipe.sections }
@@ -290,7 +356,7 @@ export function designBrainFor(input: BriefInput, opts: DesignBrainOptions = {})
       source: fonts.source,
     },
     spacing: { steps: [...recipe.steps], sectionY: recipe.spacing.sectionY, sectionYDense: Math.round(recipe.spacing.sectionY * 0.6), sectionYAiry: Math.round(recipe.spacing.sectionY * 1.4), gutter: recipe.spacing.gutter, pageWidth: recipe.spacing.pageWidth, measure: "62ch" },
-    sectionStrategy: { home, rhythm: recipe.rhythm, maxSplits: 2, minShapes: 4 },
+    sectionStrategy: { home: varied, rhythm: recipe.rhythm, maxSplits: 2, minShapes: 4 },
     motionTier: tier,
     imageDirection: { ...recipe.image, ratios: [...recipe.image.ratios] },
   }

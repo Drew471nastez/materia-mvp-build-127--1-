@@ -42,6 +42,7 @@ import { versionOf } from "./version"
 import { createVisualCritic } from "../visual-critic/critic"
 import { keepReviewShot } from "../visual-critic/storage"
 import { readFingerprints, type SiteFingerprint } from "../novelty"
+import { recentSiteDesigns } from "../recent-designs"
 import { findReferencesIn, referenceImagesFrom } from "@/lib/storelib-ai/references/store"
 import { findPhoto, generateImage, imageCostCeiling, imageServices, type ImageDeps } from "@/lib/storelib-ai/images/generate"
 import { readKeys } from "@/lib/ai-keys/store"
@@ -235,6 +236,11 @@ export async function agentDeps(job: { creatorId: string; ownerUserId: string | 
     /* P1: pictures made (OpenAI, else Gemini) or found (Pexels) for this creator, into the owner's files. */
     images: jobImages(job, { ownKeys: !extra.models }),
     recentFingerprints: recentAgentFingerprints(admin),
+    /* Round 56: the directions and recipes the platform's last sites used (both engines), so the next one leans away. */
+    recentDesigns: async () => {
+      const r = await recentSiteDesigns(admin)()
+      return { directions: r.directions, recipes: r.recipes }
+    },
     /* O1: the built in references and the admin's screenshots (design_references, part 431); their pictures for the plan phase. */
     references: {
       search: ({ query, industry, limit }) => findReferencesIn(admin as unknown as Parameters<typeof findReferencesIn>[0], { text: query, industry }, { limit: limit ?? 4 }),
