@@ -169,7 +169,15 @@ export function localeChip(p: string, id: string, opts: { up?: boolean } = {}): 
 
 /** The chip's look: quiet text with a hairline on hover, a small two column panel. */
 export function localeChipCss(p: string): string {
-  const has = `:has([data-storelib-locale-list]:not([hidden]) [data-storelib-locale-option]:not([hidden]), [data-storelib-currency-list]:not([hidden]) [data-storelib-currency-option]:not([hidden]))`
+  /*
+    Shown once the host has written two or more choices into a list. The host
+    copies the hidden pattern option and takes the hook off the copies
+    (site-chrome-hooks fillOptions marks them data-storelib-option-item), so
+    asking for a visible [data-storelib-locale-option] never matched and the
+    chip was hidden on every site, two languages and three currencies or not
+    (measured in round 56).
+  */
+  const has = `:has([data-storelib-locale-list]:not([hidden]) [data-storelib-option-item]:not([hidden]), [data-storelib-currency-list]:not([hidden]) [data-storelib-option-item]:not([hidden]))`
   return `
 .${p}-loc { position: relative; display: inline-flex; }
 .${p}-loc:not(${has}) { display: none; }

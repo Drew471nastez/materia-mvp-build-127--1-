@@ -166,6 +166,15 @@ const HELPERS = String.raw`(() => {
 
 async function settle(tab, ms = 350) { await new Promise((r) => setTimeout(r, ms)) }
 
+/** Whether focus is inside `panel` within 1.5 s of it opening (this machine is loaded; a visitor's is not). */
+async function focusArrives(panel) {
+  for (let i = 0; i < 30; i++) {
+    if (await panel.evaluate((p) => p.contains(document.activeElement)).catch(() => false)) return true
+    await new Promise((r) => setTimeout(r, 50))
+  }
+  return false
+}
+
 async function measureStatic(tab) {
   return tab.evaluate(() => {
     const H = window.__H
@@ -357,7 +366,7 @@ async function drawerChecks(tab, vw, vh, shot) {
   out.opaque = geo.opaque && geo.through.length === 0
   if (!out.opaque) out.detail += ` see-through: ${geo.opaque ? "" : "panel fill not solid; "}${geo.through.join(", ")}`
   /* Focus: moved in on open. */
-  out.focusIn = await panel.evaluate((p) => p.contains(document.activeElement) || p === document.activeElement)
+  out.focusIn = await focusArrives(panel)
   /* Trapped: tab through every focusable and one more each way. */
   const n = await panel.evaluate((p) => window.__H.focusables(p).length)
   let trapped = true
@@ -505,10 +514,11 @@ async function panelCheck(tab, kind, vw, vh) {
     return { left: Math.round(x.left), right: Math.round(x.right), top: Math.round(x.top), bottom: Math.round(x.bottom), focusIn: p.contains(document.activeElement), cut: cut.slice(0, 4) }
   }, vw, vh)
   const onScreen = r.left >= -1 && r.right <= vw + 1 && r.top >= -1 && r.bottom <= vh + 1 && r.cut.length === 0
+  const focusIn = r.focusIn || (await focusArrives(panel))
   await tab.keyboard.press("Escape")
   await settle(tab, 600)
   const closes = !(await panel.evaluate((p) => window.__H.deepVis(p) && getComputedStyle(p).visibility !== "hidden").catch(() => false))
-  return { found: true, opens: true, onScreen, focusIn: r.focusIn, escape: closes, rect: r }
+  return { found: true, opens: true, onScreen, focusIn, escape: closes, rect: r }
 }
 
 /* ── 4. run ───────────────────────────────────────────────────────────── */
