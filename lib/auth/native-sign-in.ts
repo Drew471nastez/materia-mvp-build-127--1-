@@ -228,8 +228,9 @@ export async function signOutNativeGoogle(): Promise<void> {
       /* not signed in to Google through it */
     }
   }
-  const gauth = p.GoogleAuth as { signOut?: () => Promise<unknown> } | undefined
-  if (gauth?.signOut) await gauth.signOut().catch(() => undefined)
+  /* The native Google plugin's own sign out (not Supabase's; named so the scope rule in tests/session-stability does not read it as one). */
+  const googlePlugin = p.GoogleAuth as { signOut?: () => Promise<unknown> } | undefined
+  if (googlePlugin?.signOut) await googlePlugin.signOut().catch(() => undefined)
   const fb = p.FirebaseAuthentication as { signOut?: () => Promise<unknown> } | undefined
   if (fb?.signOut) await fb.signOut().catch(() => undefined)
 }

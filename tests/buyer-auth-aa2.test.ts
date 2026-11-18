@@ -107,7 +107,8 @@ async function main() {
   const note = readCode("components/auth/arrival-note.tsx")
   check("the note clears its cookie as it reads it, so it is said once", /document\.cookie = `\$\{ARRIVAL_COOKIE\}=; path=\/; max-age=0/.test(note))
   check("  is a status for a screen reader", /role="status"/.test(note))
-  check("  stands over the phone's tab bar", /var\(--buyer-tabs-h/.test(note))
+  /* Changed on purpose (sign in round, onboarding round 4): the note's height is lib/auth/arrival arrivalBottom, over the buyer tab bar and the /app pill alike. */
+  check("  stands over the phone's tab bar", /var\(--buyer-tabs-h/.test(note + readCode("lib/auth/arrival.ts")) && /arrivalBottom\(/.test(note))
   check("  is mounted once, in the root layout", /<ArrivalNote \/>/.test(readCode("app/(storelib)/layout.tsx")))
   for (const lang of ["es", "fr", "de", "pt-BR", "it", "pl"]) {
     const cat = readSource(`lib/i18n/catalog/${lang}.ts`)
