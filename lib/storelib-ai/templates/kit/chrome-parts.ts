@@ -175,9 +175,10 @@ export function localeChipCss(p: string): string {
     (site-chrome-hooks fillOptions marks them data-storelib-option-item), so
     asking for a visible [data-storelib-locale-option] never matched and the
     chip was hidden on every site, two languages and three currencies or not
-    (measured in round 56).
+    (measured in round 56). A visible option under either name counts.
   */
-  const has = `:has([data-storelib-locale-list]:not([hidden]) [data-storelib-option-item]:not([hidden]), [data-storelib-currency-list]:not([hidden]) [data-storelib-option-item]:not([hidden]))`
+  const opt = (hook: string) => `:is([data-storelib-option-item], [${hook}]):not([hidden])`
+  const has = `:has([data-storelib-locale-list]:not([hidden]) ${opt("data-storelib-locale-option")}, [data-storelib-currency-list]:not([hidden]) ${opt("data-storelib-currency-option")})`
   return `
 .${p}-loc { position: relative; display: inline-flex; }
 .${p}-loc:not(${has}) { display: none; }

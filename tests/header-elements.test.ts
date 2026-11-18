@@ -379,7 +379,8 @@ function main() {
     /style: ctaButton\.style/.test(header) && /data-sl-button="primary"\s*data-button=""\s*style=\{cta\.style\}/.test(header))
   check("the desktop button reads the header's scheme after its overrides, never an unrelated theme colour",
     /const scheme = sectionColors\(\{ \.\.\.section, settings: \{ \.\.\.s, color_scheme: schemeKey \} \}, theme\)/.test(header)
-      && /const ctaButton = schemeButton\(scheme, "primary", \{ background: str\(s\.cta_color\), text: str\(s\.cta_text_color\) \}\)/.test(header)
+      /* Changed on purpose (r56): the same scheme button, its label made readable on its fill, and the starting website's leftover indigo ignored. */
+      && /const ctaButton = legibleHeaderButton\(schemeButton\(scheme, "primary", staleIndigo \? \{\} : \{ background: str\(s\.cta_color\), text: str\(s\.cta_text_color\) \}\), scheme\)/.test(header)
       && !/theme\.primary_color \|\| "#6366f1"/.test(header))
 
   console.log(`\n${passed} passed, ${failed} failed`)

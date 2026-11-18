@@ -645,6 +645,8 @@ export function useStorefrontHooks({
     const onToggle = (e: Event) => {
       const el = e.target
       if (!(el instanceof HTMLElement) || !el.hasAttribute("popover")) return
+      /* A panel of the site's own (cart, search, menu) is lifted into the top layer as a popover by ./own-panel-layer.ts and already holds the page and the keyboard itself. */
+      if (el.matches(OWN_PANELS)) return
       const open = (e as Event & { newState?: string }).newState === "open"
       if (open && drawerLike(el)) setPopDrawer(el)
       else if (!open) setPopDrawer((cur) => (cur === el ? null : cur))

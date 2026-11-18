@@ -571,8 +571,11 @@ section("The header, the announcement bar, and the space between them")
      *
      * The theme's `overflow-wrap: anywhere` cannot reach it: an item that is
      * not allowed to shrink never gets down to its min-content width at all.
+     *
+     * Changed on purpose (r56): the ceiling is 200px, so a site's own main
+     * action is read whole; it still shrinks and still has one.
      */
-    /"ml-1 min-w-0 max-w-\[160px\] truncate font-semibold/.test(source),
+    /"ml-1 min-w-0 max-w-\[200px\] truncate font-semibold/.test(source),
   )
   check(
     "and the entrance animation leaves the chrome alone",

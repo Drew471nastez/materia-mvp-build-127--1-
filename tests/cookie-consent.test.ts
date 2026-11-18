@@ -132,8 +132,9 @@ function main() {
   check("on a phone the group wraps centred",
     /stack: "flex w-full flex-wrap items-baseline justify-center/.test(seller) && /responsive: "flex w-full flex-wrap items-baseline justify-center[^"]*sm:justify-end/.test(seller))
   const siteFooter = read("components/website-builder/sections/renderers/FooterSection.tsx")
+  /* Changed on purpose (r56): the links on that line are 44px tall now, so the line centres them rather than aligning baselines. */
   check("a built site's footer puts it on the copyright's line as an equal, not a fainter afterthought",
-    /data-footer-bottom[\s\S]{0,500}?<span>\{str\(s\.copyright[\s\S]*?<nav aria-label="Policies"[\s\S]*?Cookie preferences/.test(siteFooter) && /"flex min-w-0 flex-wrap items-baseline/.test(siteFooter) && !/ml-3 underline-offset-2 opacity-80/.test(siteFooter))
+    /data-footer-bottom[\s\S]{0,500}?<span>\{str\(s\.copyright[\s\S]*?<nav aria-label="Policies"[\s\S]*?Cookie preferences/.test(siteFooter) && /"flex min-w-0 flex-wrap items-center/.test(siteFooter) && !/ml-3 underline-offset-2 opacity-80/.test(siteFooter))
   check("storelib.com's footer draws it with the Support links' class",
     /className=\{`\$\{linkClass\} cursor-pointer p-0`\} data-cookie-preferences/.test(read("components/marketing/footer.tsx")))
   check("the privacy policy lists every cookie from the same list, and can change the choice",

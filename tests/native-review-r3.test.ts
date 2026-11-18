@@ -237,8 +237,14 @@ async function main() {
   check("the page was drawn and measured with the page's own scripts off", r.status === "measured" && r.jsDisabled, { status: r.status, reason: r.reason })
   check("no vision model: measured only, said so", r.label === "Measured on a laptop and a phone, not looked over by the reviewer" && /no vision model/.test(r.reason ?? ""))
   const overflow = r.found.find((d) => d.kind === "overflow" && d.sectionId === "eb1")
-  check("OVERFLOW at 390 found in the ebook showcase (a hard gate)", !!overflow && overflow.gate && overflow.viewport === "mobile", r.found.map((d) => `${d.kind}:${d.sectionId}`))
-  check("…and fixed by a patch: its mockup set to flat", r.applied.some((p) => p.path === sectionPath("home", "eb1", "settings", "mockup_style") && (p as { value: unknown }).value === "flat") && !r.remaining.some((d) => d.kind === "overflow"), { applied: r.applied, remaining: kinds(r.remaining) })
+  /*
+    Changed on purpose (r56): the ebook showcase's tilted cover now takes 84% of
+    its column, so it no longer sticks out of a phone and there is nothing for
+    the review to flatten. Overflow found and reported is still covered below
+    (BOUNDED: an overflow no setting causes).
+  */
+  check("the ebook showcase's tilted cover no longer overflows at 390 (round 56)", !overflow, r.found.map((d) => `${d.kind}:${d.sectionId}`))
+  check("…so its tilt is kept and nothing overflows after the review", !r.applied.some((p) => p.path === sectionPath("home", "eb1", "settings", "mockup_style")) && !r.remaining.some((d) => d.kind === "overflow"),{ applied: r.applied, remaining: kinds(r.remaining) })
   check("an EMPTY (broken) picture found", r.found.some((d) => d.kind === "image-broken" && d.sectionId === "sc1"))
   check("…its picture setting emptied, the words kept", r.site.pages.home.find((s) => s.id === "sc1")!.settings.image === "" && !r.site.pages.home.find((s) => s.id === "sc1")!.hidden && !r.remaining.some((d) => d.kind === "image-broken"))
   check("CONTRAST found (light grey on white is unreadable, a gate)", r.found.some((d) => d.kind === "contrast" && d.sectionId === "rt1" && d.gate))
