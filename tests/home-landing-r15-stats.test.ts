@@ -20,13 +20,11 @@ import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
-import { BuildShowcase, SHOWCASE_STATS, SHOWCASE_STYLES, SHOWCASE_THEME_COUNT } from "@/components/marketing/build-showcase"
+import * as Showcase from "@/components/marketing/build-showcase"
+import { BuildShowcase, SHOWCASE_STYLES } from "@/components/marketing/build-showcase"
 import * as Builder from "@/components/marketing/home/showcase-mocks/builder-mocks"
 import { IDEAS_TABS, IdeasComeToLife } from "@/components/marketing/home/ideas-come-to-life"
 import { ProductMarquee } from "@/components/marketing/product-marquee"
-import { THEME_TEMPLATES } from "@/components/onepage/tabs/design-tab"
-import { CROSS_BORDER_REGION } from "@/lib/payments/stripe/payout-regions"
-import { MAX_UPLOAD_BYTES } from "@/lib/security/uploads/policy"
 
 let passed = 0
 let failed = 0
@@ -47,31 +45,13 @@ const css = SHOWCASE_STYLES[0].css
 const src = code(read("components/marketing/build-showcase.tsx"))
 const html = renderToStaticMarkup(createElement(BuildShowcase))
 
-console.log("\n── 1. No numbers under the heading; three true ones under the pictures ──")
+console.log("\n── 1. No numbers under the heading, and none under the pictures ──")
 const top = html.slice(html.indexOf('class="build-showcase-top"'), html.indexOf('class="build-showcase-viewport"'))
 check("nothing numbered under the heading: no row, no figure", top.length > 0 && !/<dl|data-stat/.test(top) && !/\d/.test(top.replace(/<[^>]+>/g, "").replace(/&#x27;/g, "")), top.replace(/<[^>]+>/g, " "))
-check("the row stands after the rail, inside the section's card", /class="build-showcase-viewport"[\s\S]*<\/div><\/div><dl class="build-showcase-stats">[\s\S]*<\/dl><\/div><\/section>$/.test(html))
-check("79 OnePage themes: the Design tab's own list", SHOWCASE_THEME_COUNT === THEME_TEMPLATES.length && SHOWCASE_STATS[0].value === 79 && SHOWCASE_STATS[0].label === "OnePage themes")
-check("34 countries a creator can be paid out in (Stripe's cross border region)", SHOWCASE_STATS[1].value === CROSS_BORDER_REGION.size && SHOWCASE_STATS[1].value === 34)
-check("10 GB, the largest product file the upload routes take", SHOWCASE_STATS[2].value * 1024 ** 3 === MAX_UPLOAD_BYTES.product_file && SHOWCASE_STATS[2].value === 10 && SHOWCASE_STATS[2].suffix === " GB")
-check("different numbers from the row under the heading (currencies, languages, $0)", !/CURRENCY_FEE_RULES|SITE_LANGUAGE_CODES|SHOWCASE_FREE_MONTHLY_CENTS/.test(src) && SHOWCASE_STATS.every((s) => s.value > 0))
-check(
-  "the server draws the final numbers, each label under its number, the unit after the counting box",
-  /<dl class="build-showcase-stats"><div><dt>OnePage themes<\/dt><dd><span data-stat="" style="width:2ch">79<\/span><\/dd><\/div><div><dt>Countries you get paid in<\/dt><dd><span data-stat="" style="width:2ch">34<\/span><\/dd><\/div><div><dt>Largest file you can sell<\/dt><dd><span data-stat="" style="width:2ch">10<\/span><span class="build-showcase-unit">GB<\/span><\/dd><\/div><\/dl>/.test(html),
-  html.slice(html.indexOf("<dl"), html.indexOf("</dl>") + 5),
-)
-check("the numbers on one line across the row, whatever the labels' lengths", /\.build-showcase-stats>div \{[^}]*justify-content:flex-start/.test(css) && /\.build-showcase-unit \{margin-left:\.16em\}/.test(css))
-check("thin vertical lines between them, none before the first", /\.build-showcase-stats>div\+div \{border-left:1px solid rgba\(255,255,255,\.12\)\}/.test(css) && !/\.build-showcase-stats>div \{[^}]*border/.test(css))
-check("three across at every width, centred, big light numbers over a small grey label", /\.build-showcase-stats \{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\);[^}]*text-align:center\}/.test(css) && /\.build-showcase-stats dd \{order:-1;[^}]*font-weight:300[^}]*white-space:nowrap\}/.test(css) && /\.build-showcase-stats dt \{[^}]*color:#a1a1aa/.test(css) && !/build-showcase-stats/.test(css.slice(css.indexOf("@media(max-width:767px){.build-showcase{"))))
-check("the numbers in tabular figures in a box as wide as the final figures, so counting moves nothing", /\.build-showcase-stats \[data-stat\] \{display:inline-block;font-variant-numeric:tabular-nums/.test(css) && /style=\{\{ width: `\$\{text\.length\}ch` \}\}/.test(src))
-
-console.log("\n── The count ──")
-const stats = src.slice(src.indexOf("function ShowcaseStats"), src.indexOf("export function BuildShowcase"))
-check("counts once, when half the row is seen: one observer, disconnected at once", /new IntersectionObserver/.test(stats) && /io\.disconnect\(\)\s*const start/.test(stats) && /threshold: 0\.5/.test(stats))
-check("one requestAnimationFrame loop for 1.6s, eased out (quartic), then it stops", /const COUNT_MS = 1600/.test(src) && /show\(1 - Math\.pow\(1 - t, 4\)\)/.test(stats) && /if \(t < 1\) raf = requestAnimationFrame\(step\)/.test(stats) && (stats.match(/requestAnimationFrame\(/g) ?? []).length === 2)
-check("writes textContent only, and only when it changes; no React state per frame", /if \(n\.textContent !== text\) n\.textContent = text/.test(stats) && !/useState/.test(stats))
-check("reduced motion, or a row already on screen, keeps the final numbers the server drew", /prefers-reduced-motion: reduce\)"\)\.matches\) return/.test(stats) && /if \(box\.top < window\.innerHeight && box\.bottom > 0\) return/.test(stats))
-check("leaving mid count puts the final numbers back", /return \(\) => \{\s*io\.disconnect\(\)\s*cancelAnimationFrame\(raf\)\s*show\(1\)/.test(stats))
+// Changed on purpose (landing round 17): the owner asked for the row of three numbers under the pictures to go completely, with its count up, its styles and its constants.
+check("no row of numbers under the pictures: the section ends on the rail", !/<dl|data-stat|build-showcase-stats|build-showcase-unit/.test(html) && /class="build-showcase-viewport"[\s\S]*<\/div><\/div><\/div><\/section>$/.test(html))
+// Changed on purpose (landing round 17): no stats constants, no count up loop, no styles left behind.
+check("no stats constants, count up or styles left", !("SHOWCASE_STATS" in Showcase) && !("SHOWCASE_THEME_COUNT" in Showcase) && !/ShowcaseStats|COUNT_MS|IntersectionObserver|CROSS_BORDER_REGION|MAX_UPLOAD_BYTES/.test(src) && !/build-showcase-stats|build-showcase-unit/.test(css))
 
 console.log("\n── 2. The phone rail: about 1.1 cards on screen ──")
 const phone = css.slice(css.indexOf("@media(max-width:767px){.build-showcase{"))
@@ -101,9 +81,10 @@ const um = renderToStaticMarkup(createElement(ProductMarquee))
 check("no line under the heading, at any width", !/um-sub|Whatever you make/.test(um) && /<header class="um-head"><h2[\s\S]*?<\/h2><\/header>/.test(um), um.slice(um.indexOf("<header"), um.indexOf("</header>") + 9))
 
 console.log("\n── Words ──")
-const words = SHOWCASE_STATS.map((s) => s.label).join(" ") + " " + IDEAS_TABS[0].alt
+const words = IDEAS_TABS[0].alt
 check("no banned words, no em dashes", !BANNED.test(words) && !/—/.test(read("components/marketing/build-showcase.tsx") + read("components/marketing/product-marquee.tsx")))
-check("no claims about other people's sales", !/served|earned|entrepreneurs|creators paid|\bM\+|\bB\+/i.test(SHOWCASE_STATS.map((s) => s.label).join(" ")))
+// Changed on purpose (landing round 17): the numbers are gone, so the section's text is what must claim no one's sales.
+check("no claims about other people's sales", !/served|earned|entrepreneurs|creators paid|\bM\+|\bB\+/i.test(html.replace(/<[^>]+>/g, " ")))
 check("this suite runs with the push tests, after round 14's", /"tests\/home-landing-r14-everything\.test\.ts",[\s\S]{0,600}"tests\/home-landing-r15-stats\.test\.ts"/.test(read("scripts/run-push-tests.mjs").replace(/\/\*[\s\S]*?\*\//g, "")))
 
 console.log(`\n${passed} passed, ${failed} failed`)

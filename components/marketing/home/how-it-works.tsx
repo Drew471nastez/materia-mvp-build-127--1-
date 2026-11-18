@@ -74,9 +74,14 @@
  *              buttons, and the loop is 12s with room between the steps.
  *   domain     the reel glides (domain-reel.tsx has why it stepped).
  *
- * One shop runs through the dashboard and the tips: Ines Duarte, who films
- * landscapes and sells section 3's two products (made up; Unsplash
- * photographs for her cover and her face).
+ * LANDING ROUND 17, THE OWNER: a different creator for Take tips, and a
+ * better cover. Finn Hollis (made up), who films surfing, in place of Ines
+ * Duarte; his cover a surfer on a wave under misty mountains at first
+ * light. Both real photographs (HOW_SHOP, HOW_COVER).
+ *
+ * One shop runs through the dashboard and the tips: Finn Hollis, who films
+ * surfing and sells section 3's two products (made up; Unsplash
+ * photographs for his cover and his face).
  *
  * THE GROUND. Behind the heading a field of faint dots flows by itself and,
  * where a mouse is, lights violet around it and parts (HowField, a small
@@ -119,27 +124,35 @@ const HOW = "/home/how"
 /** Landing round 12 (the owner: a better heading). What the three pictures below are, in their order. */
 export const HOW_HEADING = { lead: "See every sale as it happens.", rest: "Add tips and your own domain." } as const
 
-/** The creator the dashboard and the tips belong to (made up; landing round 14, in place of Ruben Linde). */
+/** The creator the dashboard and the tips belong to (made up; landing round 17, in place of Ines Duarte, who had replaced Ruben Linde). */
 export const HOW_SHOP = {
-  creator: "Ines Duarte",
-  first: "Ines",
-  handle: "inesduarte",
-  /** What her creator page says under her name. */
-  line: "Landscape films and colour grades",
-  /** Her face (Unsplash, cropped square, 160px). */
-  avatar: `${HOW}/ines-avatar.webp`,
+  creator: "Finn Hollis",
+  first: "Finn",
+  handle: "finnhollis",
+  /** What his creator page says under his name. */
+  line: "Surf films and colour grades",
+  /**
+   * His face: Logan Voss on Unsplash (Unsplash Licence), photo-1758743527495-c83d280a73f2, cut square round
+   * his face. Two widths: the tip page's avatar is 18.2% of its card (5.2em at 3.5cqw), about 84px on the
+   * widest narrow card, so 320 covers a 2x or 3x screen.
+   */
+  avatar: `${HOW}/finn-avatar-160.webp`,
+  avatarSrcSet: `${HOW}/finn-avatar-160.webp 160w, ${HOW}/finn-avatar-320.webp 320w`,
+  /** The avatar's width: 18.2% of the narrow card (a phone's column, half the row from 640px, a quarter from 1100px). */
+  avatarSizes: "(min-width: 1100px) 5vw, (min-width: 640px) 9vw, 17vw",
 } as const
 
 /**
- * Landing round 16, the owner: a better photograph for her cover, real and hers (round 15's drawn mesas
- * read as a drawing). A film camera on its tripod at a valley's edge at first light, the valley on its
- * screen: Andrea Badino on Unsplash (Unsplash Licence), photo-1653108826787-766c449f2cd2, cut to the
- * cover's own shape (100:42.5) with the camera to the left of her face. Two widths, 600 and 1000, the
- * larger for a 2x screen at the widest narrow card (about 500px, at 1099px).
+ * Landing round 17, the owner: a new creator and a cover that fits him (round 16's camera at a valley's
+ * edge went with Ines Duarte). A surfer turning on a wave under misty mountains at first light: Tim
+ * Marshall on Unsplash (Unsplash Licence), photo-1526342122811-2a9c8512023d, cut to the cover's own shape
+ * (100:42.5) with the surfer in the lower left third, clear of the avatar that laps over the cover's foot
+ * in the middle. Two widths, 600 and 1000, the larger for a 2x screen at the widest narrow card (about
+ * 500px, at 1099px).
  */
 export const HOW_COVER = {
-  src: `${HOW}/ines-cover-1000.webp`,
-  srcSet: `${HOW}/ines-cover-600.webp 600w, ${HOW}/ines-cover-1000.webp 1000w`,
+  src: `${HOW}/finn-cover-1000.webp`,
+  srcSet: `${HOW}/finn-cover-600.webp 600w, ${HOW}/finn-cover-1000.webp 1000w`,
   width: 1000,
   height: 425,
   /** The narrow card's width: a phone's column, half the row from 640px, a quarter of it from 1100px. */
@@ -693,7 +706,7 @@ function DashBoard() {
       {/* The header (components/app/sidebar): who you are, the search, the bell and settings, the logo. */}
       <div className="cmh-db-top">
         <span className="cmh-db-me">
-          <img src={HOW_SHOP.avatar} alt="" width={160} height={160} loading="lazy" decoding="async" />
+          <img src={HOW_SHOP.avatar} srcSet={HOW_SHOP.avatarSrcSet} sizes={HOW_SHOP.avatarSizes} alt="" width={160} height={160} loading="lazy" decoding="async" />
           <span>{HOW_SHOP.creator}</span>
           <Lucide d={L_CHEVRON} className="cmh-db-chev" />
         </span>
@@ -813,7 +826,7 @@ function DashBoard() {
    Pay, the sheet goes down and the block says thank you; then it is as it
    was, changed only while hidden.
    ═══════════════════════════════════════════════════════════════════════════ */
-/** The amounts on her tip block (the block's defaults, lib/onepage/tips TIP_DEFAULT_AMOUNTS) and the one picked. */
+/** The amounts on his tip block (the block's defaults, lib/onepage/tips TIP_DEFAULT_AMOUNTS) and the one picked. */
 export const TIP_AMOUNTS = ["$3", "$5", "$10"] as const
 export const HOW_TIP = { picked: "$5", from: "$3", title: "Leave a tip", subtitle: "Toward the next film", thanks: "Thank you for the $5 tip." } as const
 export const HOW_TIP_LOOP_S = 12
@@ -826,7 +839,7 @@ function TipScene() {
           <img src={HOW_COVER.src} srcSet={HOW_COVER.srcSet} sizes={HOW_COVER.sizes} alt="" width={HOW_COVER.width} height={HOW_COVER.height} loading="lazy" decoding="async" />
         </span>
         <span className="cmh-tp-who">
-          <img src={HOW_SHOP.avatar} alt="" width={160} height={160} loading="lazy" decoding="async" />
+          <img src={HOW_SHOP.avatar} srcSet={HOW_SHOP.avatarSrcSet} sizes={HOW_SHOP.avatarSizes} alt="" width={160} height={160} loading="lazy" decoding="async" />
           <b>{HOW_SHOP.creator}</b>
           <span>{HOW_SHOP.line}</span>
         </span>
@@ -870,7 +883,7 @@ function TipScene() {
         <span className="cmh-a cmh-tp-sheet">
           <i className="cmh-tp-grab" />
           <span className="cmh-tp-for">
-            <img src={HOW_SHOP.avatar} alt="" width={160} height={160} loading="lazy" decoding="async" />
+            <img src={HOW_SHOP.avatar} srcSet={HOW_SHOP.avatarSrcSet} sizes={HOW_SHOP.avatarSizes} alt="" width={160} height={160} loading="lazy" decoding="async" />
             Tip for {HOW_SHOP.creator}
           </span>
           <b className="cmh-tp-amt">$5.00</b>
@@ -1059,11 +1072,11 @@ const HOW_CSS = `
   .cmh-db-days span:nth-child(even){visibility:hidden}
 }
 
-/* ── 2. tips: her creator page, a $5 tip picked, paid and thanked for. Landing round 14: the page is the card, edge to edge, sized by the card's width alone, so it looks the same on every screen. ── */
+/* ── 2. tips: his creator page, a $5 tip picked, paid and thanked for. Landing round 14: the page is the card, edge to edge, sized by the card's width alone, so it looks the same on every screen. ── */
 .cmh-tp{font-size:3.5cqw}
 .cmh-tp-page{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;overflow:hidden;background:#fff}
 .cmh-tp-cover{position:relative;display:block;flex:none;width:100%;height:34%;background:#c9c3bb;overflow:hidden}
-/* Landing round 16: her cover is a photograph again, cut to this box's shape. */
+/* Landing round 16: the cover is a photograph again (round 17: his), cut to this box's shape. */
 .cmh-tp-cover img{display:block;width:100%;height:100%;object-fit:cover;object-position:50% 50%}
 .cmh-tp-who{position:relative;display:flex;flex-direction:column;align-items:center;margin-top:-2.6em;text-align:center}
 .cmh-tp-who img{display:block;width:5.2em;height:5.2em;border-radius:50%;object-fit:cover;background:#e7e5ee;box-shadow:0 0 0 .22em #fff}

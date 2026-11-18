@@ -55,7 +55,8 @@ check("no phone only shape any more (round 13's 16:10 dashboard stage, the 440 a
 check("no outlined frame inside a card: no tip page inset, no dashboard corner or shadow, no store front", /inset:0/.test(rule(".cmh-tp-page")) && !/border-radius|box-shadow/.test(rule(".cmh-tp-page")) && !/border-radius|box-shadow/.test(rule(".cmh-db")) && !how.includes("cmh-dm-"))
 
 console.log("\n2. Take tips: Ines Duarte, edge to edge")
-check("a different creator: Ines Duarte, no Ruben Linde anywhere", HOW_SHOP.creator === "Ines Duarte" && text.includes("Ines Duarte") && text.includes("Good morning, Ines") && !/Ruben|Linde/.test(how + src))
+// Changed on purpose (landing round 17): the owner disliked Ines Duarte and her cover; Finn Hollis, a surf filmmaker, under a surfing cover (tests/home-landing-r17-small.test.ts).
+check("a different creator: Finn Hollis, no Ruben Linde and no Ines Duarte anywhere", HOW_SHOP.creator === "Finn Hollis" && text.includes("Finn Hollis") && text.includes("Good morning, Finn") && !/Ruben|Linde|Ines|Duarte/.test(how))
 /* Changed on purpose (landing round 15): her cover is drawn in reds, not a photograph; her face stays a file. */
 check("her cover and her face are local webp files under 30 KB, drawn lazily", [HOW_SHOP.avatar].every((p) => existsSync(`public${p}`) && statSync(`public${p}`).size < 30 * 1024 && how.includes(`src="${p}"`)) && !existsSync("public/home/how/linde-turning.webp") && !existsSync("public/home/how/linde-avatar.webp"))
 check("the page is sized by the card's width alone, so a phone shows what a laptop does", /font-size:3\.5cqw/.test(rule(".cmh-tp")) && /left:0;right:0;bottom:0/.test(rule(".cmh-tp-sheet")))

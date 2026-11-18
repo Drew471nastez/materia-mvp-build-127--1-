@@ -1,8 +1,6 @@
 "use client"
 
-import { useEffect, useRef, type CSSProperties } from "react"
-import { CROSS_BORDER_REGION } from "@/lib/payments/stripe/payout-regions"
-import { MAX_UPLOAD_BYTES } from "@/lib/security/uploads/policy"
+import type { CSSProperties } from "react"
 import { useShowcaseMotion } from "./use-showcase-motion"
 import { useShowcaseField } from "./showcase-field"
 import { StoryHeading } from "./story-heading"
@@ -149,96 +147,10 @@ export const SHOWCASE_EXAMPLES = GROUPS.flat()
 export const SHOWCASE_HEADING = "Build your page, sell your products, and manage everything in one place."
 
 /*
-  LANDING ROUND 15, THE OWNER: a row of three numbers, after Squarespace's
-  "14M+ Entrepreneurs Served" row (big light numbers, a small line under
-  each, centred on the dark ground), three across on a phone too.
-  Later in round 15 the owner: no numbers under the heading at all; the
-  numbers stand under the pictures, with thin vertical lines between them,
-  count up smoothly, and are different ones. Each is a fact about the
-  product read from the code that makes it true, never a figure about other
-  people's sales:
-    79     the OnePage themes the Design tab offers
-           (components/onepage/tabs/design-tab.tsx THEME_TEMPLATES; too big a
-           module to load here, so tests/home-landing-r15-stats.test.ts holds
-           SHOWCASE_THEME_COUNT equal to its length).
-    34     the countries Stripe can pay a creator out in from Storelib: the
-           US, the UK, the EEA, Canada and Switzerland
-           (lib/payments/stripe/payout-regions.ts CROSS_BORDER_REGION).
-    10 GB  the largest product file the upload routes take, on every plan
-           (lib/security/uploads/policy.ts MAX_UPLOAD_BYTES.product_file).
+  LANDING ROUND 17, THE OWNER: the row of three numbers under the pictures
+  (round 15's OnePage themes, countries you get paid in, largest file) is
+  gone, with its count up. The section ends on the rail's captions.
 */
-export const SHOWCASE_THEME_COUNT = 79
-export const SHOWCASE_STATS: readonly { value: number; suffix?: string; label: string }[] = [
-  { value: SHOWCASE_THEME_COUNT, label: "OnePage themes" },
-  { value: CROSS_BORDER_REGION.size, label: "Countries you get paid in" },
-  { value: MAX_UPLOAD_BYTES.product_file / 1024 ** 3, suffix: " GB", label: "Largest file you can sell" },
-]
-/** How long the numbers take to count up, once the row is on screen. */
-const COUNT_MS = 1600
-
-/**
- * The numbers count up once, when the row comes into view: one requestAnimationFrame loop, only for those 1.6s,
- * writing each number's textContent, eased out so the last steps land softly. Each number sits in a box as wide as its
- * final figures in tabular figures, so a changing figure moves nothing around it; a unit (GB) stands after the box. The server draws the final numbers, which is what reduced motion keeps, and
- * a row already on screen when it mounts keeps them too rather than jumping back to zero.
- */
-function ShowcaseStats() {
-  const root = useRef<HTMLDListElement>(null)
-  useEffect(() => {
-    const el = root.current
-    if (!el || typeof IntersectionObserver === "undefined") return
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
-    const box = el.getBoundingClientRect()
-    if (box.top < window.innerHeight && box.bottom > 0) return
-    const nums = [...el.querySelectorAll<HTMLElement>("[data-stat]")]
-    const show = (k: number) =>
-      nums.forEach((n, i) => {
-        const s = SHOWCASE_STATS[i]
-        const text = `${Math.round(s.value * k)}`
-        if (n.textContent !== text) n.textContent = text
-      })
-    show(0)
-    let raf = 0
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (!entries.some((e) => e.isIntersecting)) return
-        io.disconnect()
-        const start = performance.now()
-        const step = (now: number) => {
-          const t = Math.min(1, (now - start) / COUNT_MS)
-          show(1 - Math.pow(1 - t, 4))
-          if (t < 1) raf = requestAnimationFrame(step)
-        }
-        raf = requestAnimationFrame(step)
-      },
-      { threshold: 0.5 },
-    )
-    io.observe(el)
-    return () => {
-      io.disconnect()
-      cancelAnimationFrame(raf)
-      show(1)
-    }
-  }, [])
-  return (
-    <dl ref={root} className="build-showcase-stats">
-      {SHOWCASE_STATS.map((s) => {
-        const text = `${s.value}`
-        return (
-          <div key={s.label}>
-            <dt>{s.label}</dt>
-            <dd>
-              <span data-stat="" style={{ width: `${text.length}ch` }}>
-                {text}
-              </span>
-              {s.suffix ? <span className="build-showcase-unit">{s.suffix.trim()}</span> : null}
-            </dd>
-          </div>
-        )
-      })}
-    </dl>
-  )
-}
 
 /** Each desktop page is a complete wide–OnePage–wide composition. */
 export function BuildShowcase() {
@@ -333,8 +245,6 @@ export function BuildShowcase() {
             ))}
           </div>
         </div>
-        {/* Landing round 15, later: the numbers under the pictures. */}
-        <ShowcaseStats />
       </div>
     </section>
   )
@@ -370,19 +280,6 @@ const CSS = `
 .build-showcase-top {margin:0 calc(var(--showcase-gutter,clamp(20px,5.15vw,84px)) + var(--landing-card-inset,14px)) clamp(38px,4.8vw,65px)}
 .build-showcase h2 {max-width:none;margin:0;font-size:clamp(32px,3.4vw,58px);text-wrap:balance;line-height:1.13}
 .build-showcase .story-heading {--story-muted:#66666e}
-/*
-  Landing round 15, later (the owner): the three numbers under the pictures, "very smooth and clean", a thin vertical line
-  between each two (a 1px border, 12% white), three across at every width. The label is a dt drawn under its number
-  (order), so a screen reader hears the label first. The row keeps the rail's gutters, and its numbers stay on one line
-  at 320px.
-*/
-.build-showcase-stats {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));max-width:1040px;margin:clamp(48px,5vw,80px) auto 0;padding:0 var(--showcase-gutter,clamp(20px,5.15vw,84px));box-sizing:border-box;text-align:center}
-.build-showcase-stats>div {display:flex;flex-direction:column;align-items:center;justify-content:flex-start;min-width:0;padding:clamp(4px,.6vw,10px) clamp(6px,2vw,32px)}
-.build-showcase-stats>div+div {border-left:1px solid rgba(255,255,255,.12)}
-.build-showcase-stats dd {order:-1;display:flex;align-items:baseline;justify-content:center;margin:0;font-size:clamp(34px,4.6vw,72px);font-weight:300;line-height:1;letter-spacing:-.035em;color:#fafafa;white-space:nowrap}
-.build-showcase-stats [data-stat] {display:inline-block;font-variant-numeric:tabular-nums;text-align:right}
-.build-showcase-unit {margin-left:.16em}
-.build-showcase-stats dt {margin-top:clamp(10px,1vw,14px);font-size:clamp(12px,1.05vw,15px);font-weight:500;line-height:1.3;color:#a1a1aa;text-wrap:balance}
 .build-showcase-help {position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 /* Landing round 9: no fading mask on the rail (a mask over a moving layer is drawn again every frame of a drag); the rail is cut at the gutter. */
 .build-showcase-viewport {position:relative;overflow:hidden;margin-inline:var(--showcase-gutter,clamp(20px,5.15vw,84px))}
