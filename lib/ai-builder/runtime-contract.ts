@@ -174,12 +174,21 @@ export interface RuntimeCapabilities {
  *   ADD TO CART    data-storelib-add-to-cart="<product id>" with
  *                  data-variant-id, data-title, data-price, data-image,
  *                  data-url, data-kind, data-quantity. Buy now is a link to
- *                  checkout_url.
+ *                  checkout_url. With no data-quantity, the one
+ *                  name="quantity" box in the same card counts; with no
+ *                  data-variant-id, the picked name="variant" radio or
+ *                  <option> (its value the option's id) does (round 56).
  *   WISHLIST       data-storelib-wishlist="<product id>" (aria-pressed is set).
  *   ACCOUNT        no hook: a link to routes.account_url (sign in and sign up
  *                  are one page), routes.cart_url, routes.search_url.
  *   FORMS          data-storelib-form="subscribe|contact|native",
- *                  data-storelib-native-form="<form id>".
+ *                  data-storelib-native-form="<form id>". A contact form
+ *                  sends name, email, subject and message, and every other
+ *                  named field under its label (or its fieldset's legend),
+ *                  never a file. A form that goes nowhere, a contact form
+ *                  with nothing beyond a name and an email, and a sign up
+ *                  or contact form with no email box or with a file box are
+ *                  refused by the render check (render.form, round 56).
  *
  * A plain opener with no panel of the site's own on the page (a bag with no
  * cart panel, a search button with no search panel) opens the built-in one,
@@ -225,6 +234,8 @@ export const HEADLESS_HOOK_GUIDE = `A free site draws its own header, footer, ca
 - A published form or booking form in the page: <div data-storelib-native-form="{{ settings.form.id }}" data-presentation="inline"></div>. Inline, it takes the text colour of the place it stands in and mixes its lines, fields and button from that, so put it on a flat ground with readable text and it belongs to the section; card, expandable and modal bring their own white surface. Never restyle its inside.
 - Fields: every <input> and <textarea> has a placeholder and a label (<label for>, a <label> around it, or aria-label); it may be visually hidden.
 - Add to cart: <button data-storelib-add-to-cart="{{ block.id }}" data-title data-price data-image data-url data-kind>; Buy now is a link to checkout_url. Wishlist: data-storelib-wishlist="<product id>". Account: a link to {{ routes.account_url }}.
+- Quantity and options, no script: put ONE <input type="number" name="quantity" min="1" max="99" value="1"> (or a <select name="quantity">) in the same card or form as the add button and the page adds that many of a shipped product (a download stays at one). Options: radios or a <select> named "variant" in the same card, each value the option's id, with data-price and data-variant-name on each radio or <option>; the add button then names no data-variant-id of its own. A box beside two different products is ignored.
+- Forms: <form data-storelib-form="contact"> sends a message to the creator: <input name="name">, <input type="email" name="email">, <textarea name="message">, optional <input name="subject"> and an unticked <input type="checkbox" name="consent">. Any other named field (phone, date, a <select> of services, ticked boxes) reaches the creator too, one line each under its label (a group of boxes under its <legend>). <form data-storelib-form="subscribe"> with an email box adds to the creator's subscribers. data-storelib-form="native" posts to its own action. No file box in a contact or sign up form (it sends words only); for files, bookings or longer questions place a published form with data-storelib-native-form. A form that goes nowhere (no hook, no action, no email box), a contact form with only a name and an email, or one with no email box is refused by the render check. A search box is a <form role="search" action="/search"> with <input type="search" name="q">.
 - Without a panel of your own, data-storelib-cart and data-storelib-search open Storelib's built-in drawer and window.`
 
 /* ── 3. sandboxed script ──────────────────────────────────────────────── */
