@@ -214,7 +214,7 @@ ${scrollCss("hd", "hd__bar", "hd__logo", { notes: "hd__notes" })}
   .hd--pill .hd__bar { grid-template-columns: auto minmax(0, 1fr) auto; }
   .hd--pill .hd__lead { order: -1; }
   .hd--pill .hd__nav { justify-self: center; padding: 4px; border: 1px solid var(--s-border); border-radius: 999px; background: color-mix(in srgb, var(--s-bg) 88%, var(--s-text)); }
-  .hd--pill .hd__top { min-height: 40px; padding: 0 16px; border-radius: 999px; transition: background-color 200ms ease; }
+  .hd--pill .hd__top { min-height: 44px; padding: 0 16px; border-radius: 999px; transition: background-color 200ms ease; }
   .hd--pill .hd__top::after { display: none; }
   .hd--pill .hd__top:hover, .hd--pill .hd__links li:has(:popover-open) .hd__top { background: var(--s-bg); }
   .hd--minimal .hd__nav { display: none; }

@@ -2787,9 +2787,15 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
              * item that is not allowed to shrink never gets down to its
              * min-content width in the first place. So it shrinks, it has a
              * ceiling, and anything past that is an ellipsis.
+             *
+             * Round 56: from 1024px, 44px tall, and up to 200px so a site's
+             * own main action ("Commission a story") is read whole. At 768
+             * the menu and the button did not fit side by side (up to 83px
+             * past the edge, measured), and a tablet reaches the action in
+             * the page itself.
              */
-            "ml-1 min-w-0 max-w-[160px] truncate font-semibold px-3 py-1.5 text-[13px]",
-            hasDeviceMode ? (forceMobile ? "hidden" : "") : "hidden md:inline-block",
+            "ml-1 min-w-0 max-w-[200px] truncate font-semibold px-3 py-3 text-[13px] leading-5",
+            hasDeviceMode ? (forceMobile ? "hidden" : "") : "hidden lg:inline-block",
           )}
           /**
            * The header offered a CTA colour and a CTA label colour and painted

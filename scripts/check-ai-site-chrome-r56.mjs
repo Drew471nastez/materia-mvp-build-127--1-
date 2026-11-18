@@ -284,7 +284,7 @@ async function menuButton(tab) {
     return c.find((e) => /menu|navigation|open nav/i.test(`${e.getAttribute("aria-label") || ""} ${e.textContent || ""}`) && !/close|search|cart|bag|currency|language/i.test(e.getAttribute("aria-label") || "")) ||
       c.find((e) => e.hasAttribute("popovertarget") && /menu|nav|drawer/.test(e.getAttribute("popovertarget"))) || c.find((e) => e.matches("[data-menu-button], [data-storelib-menu]")) ||
       /* A button with its own word ("Index") whose popover holds the site's links. */
-      c.find((e) => { const id = e.getAttribute("popovertarget"); const t = id && document.getElementById(id); return !!t && !/search|cart|bag|loc|currency|language/i.test(id) && t.querySelectorAll("a[href]").length >= 2 }) || null
+      c.find((e) => { const id = e.getAttribute("popovertarget"); const t = id && document.getElementById(id); return !!t && !e.closest("nav") && !/search|cart|bag|loc|currency|language|mega/i.test(id) && t.querySelectorAll("a[href]").length >= 2 }) || null
   })
 }
 
