@@ -140,7 +140,7 @@ export const SITE_STORIES: SiteStory[] = [
   {
     id: "agency",
     name: "Design, brand or creative agency",
-    match: /\b(?:agency|design studio|creative studio|branding|brand(?:ing)? design|brand studio|web design|digital studio|consultancy studio|art direction)\b/i,
+    match: /\b(?:agency|design studio|creative studio|branding|brand(?:ing)? design(?:er)?|brand identity|brand studio|graphic design(?:er)?|web design(?:er)?|digital studio|consultancy studio|art direct(?:ion|or))\b/i,
     objective: "enquire",
     action: "an enquiry: the contact form, or a mailto link the creator gave",
     motion: "expressive",
@@ -271,7 +271,7 @@ export const SITE_STORIES: SiteStory[] = [
   {
     id: "local-professional",
     name: "Local professional or trade",
-    match: /\b(?:accountant|lawyer|solicitor|dentist|clinic|plumber|electrician|builder|cleaner|cleaning|locksmith|mechanic|garage|salon|barber|hairdresser|tutor(?:ing)?|therap(?:ist|y)|counsell?or|vet|estate agent|consultant)\b/i,
+    match: /\b(?:accountant|lawyer|solicitor|dentist|clinic|plumber|electrician|builder|cleaner|cleaning|locksmith|mechanic|garage|salon|barber|hairdresser|tutor(?:ing)?|therap(?:ist|y)|counsell?or|vet|estate agent|consult(?:ant|ants|ancy|ing)|advisory|advis[eo]rs?|(?:business|executive|leadership|career|life) coach(?:es|ing)?|professional services)\b/i,
     objective: "enquire",
     action: "call or the contact form; the address and hours only if given",
     motion: "quiet",

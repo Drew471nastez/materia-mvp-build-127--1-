@@ -43,7 +43,12 @@ const words = (s: string) => ` ${s.toLowerCase().replace(/[^a-z0-9&]+/g, " ").tr
 function score(t: SiteTemplate, brief: BriefLike, choice: Pick<DirectionChoice, "primary" | "secondary"> | null, avoid: string[]): { n: number; why: string[] } {
   let n = 0
   const why: string[] = []
-  if (brief.story && t.stories.includes(brief.story)) {
+  /*
+    Round 56: "local professional" is a catch-all story (an accountant, a salon, a consultancy); it brings a template
+    only for a trade the template was made for, so a barber's template never starts a consultancy.
+  */
+  const broadStory = brief.story === "local-professional" && !t.industries.includes(brief.business.kind)
+  if (brief.story && t.stories.includes(brief.story) && !broadStory) {
     n += 6
     why.push(`tells the ${brief.story} story`)
   }

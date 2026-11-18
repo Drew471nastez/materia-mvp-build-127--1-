@@ -148,12 +148,12 @@ const KIND_WORDS: [BusinessKind, string[]][] = [
   ["film", ["filmmaker", "film maker", "director", "videographer", "cinematographer", "production company", "film"]],
   ["photography", ["photographer", "photography", "photo studio", "wedding photos"]],
   ["architecture", ["architect", "architecture", "interior design", "interior designer", "landscape architect"]],
-  ["agency", ["agency", "design studio", "creative studio", "branding studio", "studio for brands", "consultancy for brands"]],
+  ["agency", ["agency", "design studio", "creative studio", "branding studio", "studio for brands", "consultancy for brands", "brand designer", "brand identity designer", "graphic designer", "web designer", "freelance designer", "art director"]],
   ["jewellery", ["jewellery", "jewelry", "rings", "earrings", "necklace", "watches"]],
   ["fashion", ["fashion", "clothing", "apparel", "streetwear", "menswear", "womenswear", "boutique", "label"]],
   ["hospitality", ["hotel", "guesthouse", "b&b", "bed and breakfast", "cabin", "villa", "airbnb", "hostel", "resort"]],
   ["saas", ["saas", "software", "app ", "startup", "platform", "api", "developer tool", "dashboard"]],
-  ["professional", ["accountant", "accounting", "bookkeeping", "lawyer", "solicitor", "law firm", "consultant", "consulting", "financial advisor", "tax", "plumber", "electrician", "builder", "cleaning"]],
+  ["professional", ["accountant", "accounting", "bookkeeping", "lawyer", "solicitor", "law firm", "consultant", "consultants", "consulting", "consultancy", "advisory", "advisor", "adviser", "business coach", "executive coach", "leadership coach", "career coach", "life coach", "financial advisor", "tax", "plumber", "electrician", "builder", "cleaning"]],
   ["education", ["course", "courses", "tutor", "tutoring", "teacher", "lessons", "academy", "school", "workshop", "language"]],
   ["art-gallery", ["gallery", "artist", "painter", "illustrator", "sculptor", "art prints", "exhibition"]],
   ["craft", ["ceramics", "pottery", "handmade", "woodwork", "leather", "knitting", "maker"]],
@@ -249,10 +249,68 @@ const OBJECTIVE_WORDS: [Objective, string[]][] = [
   ["buy", ["sell", "selling", "shop", "store", "storefront", "buy", "checkout", "products", "merch", "packs"]],
   ["donate", ["donate", "donation", "donations", "fundraise"]],
   ["join", ["sign up", "signup", "enrol", "enroll", "membership", "subscribe", "join"]],
-  ["enquire", ["enquiry", "inquiry", "quote", "contact", "hire", "commission", "leads"]],
+  ["enquire", ["enquiry", "enquiries", "enquire", "inquiry", "inquiries", "quote", "contact", "hire", "commission", "commissions", "leads"]],
   ["view-work", ["portfolio", "showreel", "gallery of work", "case studies"]],
   ["listen", ["listen", "stream", "tracks", "episodes"]],
 ]
+
+/**
+ * Round 56: which of the actions a creator names leads, per trade. A photographer who takes commissions and "sells a
+ * few prints" leads with the commission; a skincare brand that also books consultations leads with the shop. An
+ * action the creator names always beats one they did not; among those they named, the trade's order decides.
+ */
+const SERVICE_FIRST: Objective[] = ["enquire", "book", "view-work", "join", "buy", "listen", "read", "visit", "donate"]
+const BOOK_FIRST: Objective[] = ["book", "enquire", "join", "buy", "visit", "view-work", "listen", "read", "donate"]
+const BUY_FIRST: Objective[] = ["buy", "join", "book", "enquire", "listen", "read", "view-work", "visit", "donate"]
+const KIND_PRIORITY: Partial<Record<BusinessKind, Objective[]>> = {
+  photography: SERVICE_FIRST,
+  film: SERVICE_FIRST,
+  architecture: SERVICE_FIRST,
+  agency: SERVICE_FIRST,
+  professional: ["book", "enquire", "join", "view-work", "buy", "listen", "read", "visit", "donate"],
+  "art-gallery": ["enquire", "buy", "view-work", "book", "join", "listen", "read", "visit", "donate"],
+  fitness: BOOK_FIRST,
+  wellness: BOOK_FIRST,
+  "barber-tattoo": BOOK_FIRST,
+  hospitality: BOOK_FIRST,
+  restaurant: ["book", "visit", "buy", "enquire", "join", "listen", "read", "view-work", "donate"],
+  fashion: BUY_FIRST,
+  jewellery: BUY_FIRST,
+  craft: BUY_FIRST,
+  "home-goods": BUY_FIRST,
+  outdoor: BUY_FIRST,
+  "music-producer": BUY_FIRST,
+}
+
+/** The main action among those the creator named, by the trade's order (else the order the words list them). */
+export function leadingObjective(kind: BusinessKind, named: Objective[]): Objective | null {
+  if (!named.length) return null
+  const order = KIND_PRIORITY[kind]
+  if (!order) return named[0]
+  return [...named].sort((a, b) => order.indexOf(a) - order.indexOf(b))[0]
+}
+
+/**
+ * The call to action in the creator's own words, when they named the thing ("book an intro call" is "Book an intro
+ * call", "commission enquiries" is "Enquire about a commission"). Null: the trade's or the objective's default.
+ */
+export function ctaFromWords(prompt: string, objective: Objective): string | null {
+  const t = prompt.toLowerCase()
+  if (objective === "book") {
+    const m = /\bbook(?:ed|ing)?\s+(?:in\s+)?(?:an?\s+|the\s+|your\s+|their\s+)?((?:free|intro(?:ductory)?|first|discovery|short|private|trial)\s+)?(call|consultation|session|shoot|appointment|table|class|visit|tour|stay|fitting|treatment|lesson|chat)s?\b/.exec(t)
+    const rev = /\b(?:an?|the)\s+((?:free|intro(?:ductory)?|first|discovery|short|private|trial)\s+)?(call|consultation|session|shoot|appointment|class|fitting|treatment|lesson)\s+(?:(?:people|visitors|clients|customers|they|you)\s+)?can\s+book\b/.exec(t)
+    const hit = m ?? rev
+    if (hit) {
+      const phrase = `${hit[1] ? hit[1].trim() + " " : ""}${hit[2]}`
+      return `Book ${/^[aeiou]/.test(phrase) ? "an" : "a"} ${phrase}`
+    }
+  }
+  if (objective === "enquire") {
+    if (/\bcommissions?\b/.test(t)) return "Enquire about a commission"
+    if (/\b(?:quote|estimate)s?\b/.test(t)) return "Ask for a quote"
+  }
+  return null
+}
 
 const CTA: Record<Objective, string> = {
   book: "Book a session",
@@ -448,7 +506,7 @@ export function briefFrom(prompt: string, options?: BriefOptions | null, caps?: 
   const objectives = OBJECTIVE_WORDS.filter(([, list]) => found(text, list).length).map(([o]) => o)
   const bookingForms = (caps?.forms ?? []).filter((f) => f.booking || f.kind === "booking").length
   const products = caps?.products?.length ?? 0
-  let objective: Objective = objectives[0] ?? KIND_OBJECTIVE[kind]
+  let objective: Objective = leadingObjective(kind, objectives) ?? KIND_OBJECTIVE[kind]
   /* A store that sells and a request to sell: buying wins over a generic contact. */
   if (!objectives.length && products > 0 && (kind === "general" || kind === "creator")) objective = "buy"
   if (!objectives.length) assumptions.push(`The main action is assumed to be "${objective}" for a ${KIND_LABEL[kind]}.`)
@@ -501,7 +559,7 @@ export function briefFrom(prompt: string, options?: BriefOptions | null, caps?: 
   const pages = [...new Set(["home", ...(options?.preferences?.pages ?? []).map((p) => String(p).toLowerCase().replace(/[^a-z0-9-]+/g, "-")).filter(Boolean), ...KIND_PAGES[kind]])].slice(0, 10)
   if (constraints.includes("one page")) pages.splice(1)
 
-  const cta = objective === KIND_OBJECTIVE[kind] && KIND_CTA[kind] ? KIND_CTA[kind]! : CTA[objective]
+  const cta = ctaFromWords(words, objective) ?? (objective === KIND_OBJECTIVE[kind] && KIND_CTA[kind] ? KIND_CTA[kind]! : CTA[objective])
 
   return {
     prompt: words,
