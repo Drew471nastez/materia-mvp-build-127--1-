@@ -97,12 +97,12 @@ export function quantityNear(button: Element, stop: Element): string | null {
  */
 function fieldNear<T extends Element>(button: Element, stop: Element, name: string, pick: (all: T[]) => T | null): T | null {
   const own = button.getAttribute(H.addToCart)
-  for (let at: Element | null = button.parentElement; at && stop.contains(at); at = at.parentElement) {
+  let next: Element | null = button.parentElement
+  while (next && stop.contains(next)) {
+    const at: Element = next
+    next = at === stop ? null : at.parentElement
     const all = Array.from(at.querySelectorAll<T>(`input[name="${name}"], select[name="${name}"]`))
-    if (all.length === 0) {
-      if (at === stop) break
-      continue
-    }
+    if (all.length === 0) continue
     if (Array.from(at.querySelectorAll(`[${H.addToCart}]`)).some((b) => b.getAttribute(H.addToCart) !== own)) return null
     return pick(all)
   }

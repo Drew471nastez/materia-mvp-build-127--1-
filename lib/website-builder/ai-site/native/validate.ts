@@ -32,6 +32,7 @@ import { sanitizeSections } from "../../sanitize-sections"
 import { copyProblem } from "../../agent/review"
 import { unavailableBecause, type ImageAspect } from "../../agent/site-plan"
 import { realNumbers } from "../capabilities"
+import { candidatesOf, resolveSectionHash, type SectionLike } from "../../section-anchors"
 import type { SectionInstance } from "../../types"
 import { ALIASES, CHROME_ALIASES, type NativeSetting, type NativeSectionDef } from "./registry"
 import { NATIVE_LIMITS, type NativeBlock, type NativeContext, type NativeIssue, type NativeLimits, type NativeMapping, type NativePage, type NativeScheme, type NativeSection, type NativeSite, type NativeValidation } from "./types"
@@ -337,6 +338,87 @@ function checkTheme(raw: unknown, ctx: NativeContext, issues: NativeIssue[]): Na
 }
 
 /**
+ * ===========================================================================
+ *  A BUTTON THAT GOES NOWHERE IS NOT DRAWN (round 56)
+ * ===========================================================================
+ * A section draws a button when its words setting (button_text, link_text,
+ * cta_text) has words, and points it at the setting beside it (button_url,
+ * link, a product). That address is what the generator wrote, or the
+ * schema's default when it wrote none: "Browse the shop" to /products on a
+ * store that sells nothing, a pricing plan's "Choose" with no product (drawn
+ * as href="#"), "#timetable" on a page with no such section. Each is a
+ * button a visitor presses for nothing.
+ *
+ * Here every such pair is read once the whole page is known, the way the
+ * live page reads it: a #anchor is resolved against this page's sections with
+ * resolveSectionHash (lib/website-builder/section-anchors.ts), a page or
+ * product address against the site's own links, a product binding by having
+ * one. A pair that does not resolve has its words cleared, so the template
+ * does not draw the button at all. When the generator wrote the words or the
+ * address, it is told (an issue for the repair turn); a schema default that
+ * does not fit this store is only a note.
+ */
+function partnerOf(textId: string, settings: NativeSetting[]): NativeSetting | null {
+  const m = /^(.*)_text$/.exec(textId)
+  if (!m) return null
+  const ids = m[1] === "link" ? ["link_url", "link"] : [`${m[1]}_url`]
+  for (const id of ids) {
+    const s = settings.find((x) => x.id === id && (x.role === "link" || x.role === "binding"))
+    if (s) return s
+  }
+  return null
+}
+
+function buttonsThatGoNowhere(
+  sections: NativeSection[],
+  where: { spath: string; blocks: string[] }[],
+  ctx: NativeContext,
+  links: Set<string>,
+  issues: NativeIssue[],
+  notes: string[],
+): void {
+  const candidates = candidatesOf(sections as unknown as SectionLike[])
+  const resolves = (s: NativeSetting, v: unknown): boolean => {
+    if (typeof v !== "string" || !v.trim()) return false
+    if (s.role === "binding") return true
+    if (v.startsWith("#")) return resolveSectionHash(v, candidates) !== null
+    return links.has(v)
+  }
+  const pass = (settings: Record<string, unknown>, defs: NativeSetting[], at: string) => {
+    for (const t of defs) {
+      const partner = partnerOf(t.id, defs)
+      if (!partner) continue
+      const wroteText = Object.prototype.hasOwnProperty.call(settings, t.id)
+      const words = wroteText ? settings[t.id] : t.default
+      if (typeof words !== "string" || !words.trim()) continue
+      const wroteUrl = Object.prototype.hasOwnProperty.call(settings, partner.id)
+      const address = wroteUrl ? settings[partner.id] : partner.default
+      if (resolves(partner, address)) continue
+      settings[t.id] = ""
+      const shown = typeof address === "string" && address ? `"${address}"` : "nothing"
+      if (wroteUrl && typeof address === "string" && address.startsWith("#")) {
+        settings[partner.id] = ""
+        issues.push({ path: `${at}.settings.${partner.id}`, message: `${shown} is not a section on this page; link to a section that is on it (by its type or heading), or to one of the site's pages` })
+      } else if (wroteText) {
+        issues.push({ path: `${at}.settings.${partner.id}`, message: `"${t.id}" has words but "${partner.id}" goes to ${shown}; give it ${partner.role === "binding" ? "one of the store's products" : `one of the site's links (${[...links].slice(0, 8).join(", ") || "it has none"}) or a section on this page`}, or leave "${t.id}" empty` })
+      } else {
+        notes.push(`${at}: "${t.id}" left out, its default goes to ${shown}, which this site does not have`)
+      }
+    }
+  }
+  sections.forEach((s, i) => {
+    const def = ctx.registry.sections[s.type]
+    if (!def) return
+    const at = where[i]?.spath ?? s.id
+    pass(s.settings, def.settings, at)
+    s.blocks.forEach((b, j) => {
+      const bdef = def.blocks.find((x) => x.type === b.type)
+      if (bdef) pass(b.settings, bdef.settings, where[i]?.blocks[j] ?? `${at}.blocks[${j}]`)
+    })
+  })
+}
+
+/**
  * The whole site, checked. Never throws: anything unreadable is an issue and
  * the site keeps what was valid. Pure apart from sanitizeSections.
  */
@@ -388,6 +470,8 @@ export function validateNativeSite(raw: unknown, ctx: NativeContext): NativeVali
     const ppath = `pages[${p.at}]`
     if (p.sections.length > max) issues.push({ path: `${ppath}.sections`, message: `${p.sections.length} sections, the most on this page is ${max}` })
     const sections: NativeSection[] = []
+    /* Where each kept section and block was in the answer, for the repair turn's paths. */
+    const where: { spath: string; blocks: string[] }[] = []
     p.sections.slice(0, max).forEach((sr, si) => {
       const spath = `${ppath}.sections[${si}]`
       const o = (sr && typeof sr === "object" ? sr : {}) as Record<string, unknown>
@@ -427,19 +511,14 @@ export function validateNativeSite(raw: unknown, ctx: NativeContext): NativeVali
         const c = checkValue(s, v, `${spath}.settings.${sid}`, env)
         if (c.ok) settings[sid] = c.value
       }
-      /* A button with words and nowhere to go goes to the site's main action. */
-      for (const s of def.settings) {
-        const m = /^(.*)_text$/.exec(s.id)
-        if (!m || typeof settings[s.id] !== "string" || !(settings[s.id] as string)) continue
-        const url = def.settings.find((x) => x.id === `${m[1]}_url` && x.role === "link")
-        if (url && !settings[url.id]) issues.push({ path: `${spath}.settings.${url.id}`, message: `"${s.id}" has words but "${url.id}" goes nowhere; give it one of the site's links` })
-      }
+      /* A button with words and nowhere to go: see buttonsThatGoNowhere, once the whole page is known (round 56). */
       /* A heading the section is designed with (its default has words) is required; an optional one (a marquee's) is not. */
       const heading = def.settings.find((s) => s.id === "heading" && s.generated && typeof s.default === "string" && s.default.trim() !== "")
       if (heading && !(typeof settings.heading === "string" && settings.heading)) issues.push({ path: `${spath}.settings.heading`, message: `${type} needs a heading` })
 
       /* ── blocks ── */
       const blocks: NativeBlock[] = []
+      const blockPaths: string[] = []
       const rawBlocks = Array.isArray(o.blocks) ? o.blocks : []
       const maxBlocks = Math.min(def.maxBlocks ?? limits.maxBlocks, limits.maxBlocks)
       if (rawBlocks.length > maxBlocks) issues.push({ path: `${spath}.blocks`, message: `${rawBlocks.length} blocks, ${type} holds at most ${maxBlocks} here` })
@@ -464,12 +543,15 @@ export function validateNativeSite(raw: unknown, ctx: NativeContext): NativeVali
         }
         if (!Object.values(bsettings).some((v) => (typeof v === "string" ? v.trim() : v !== undefined && v !== null))) return
         blocks.push({ id: `${btype}-${id}-n${bi.toString(36)}`, type: btype, settings: bsettings })
+        blockPaths.push(bpath)
       })
       const writable = def.blocks.filter((b) => b.settings.some((s) => s.generated && s.role === "copy"))
       if (writable.length && def.presetBlocks > 0 && blocks.length < 2) issues.push({ path: `${spath}.blocks`, message: `${type} needs at least 2 blocks with real content (it is designed around ${def.presetBlocks}); it has ${blocks.length}` })
       const scheme = (SCHEMES as string[]).includes(str(o.scheme)) ? (str(o.scheme) as NativeScheme) : "light"
       sections.push({ id, type, purpose: str(o.purpose, 300), scheme, settings, blocks, images: readImages(o.images, def, spath, issues) })
+      where.push({ spath, blocks: blockPaths })
     })
+    buttonsThatGoNowhere(sections, where, ctx, links, issues, notes)
     if (p.key === "home" && sections.length < limits.homeMinSections) issues.push({ path: `${ppath}.sections`, message: `the home page has ${sections.length} usable sections; it needs at least ${limits.homeMinSections}` })
     site.pages.push({ key: p.key, title: p.title, purpose: p.purpose, sections })
   }
