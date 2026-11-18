@@ -356,7 +356,7 @@ async function main() {
     save: (j) => saveJob(admin, j),
   })
   const row = w.j.rows("ai_site_jobs").find((r) => r.id === jobId)
-  check("the job ran on the real store and saved its row", (ran.status === "complete" || ran.status === "partial") && row?.step === "done" && !!row?.plan?.native && row?.state?.native?.promptVersion === "native-r2.1", { status: ran.status, error: ran.error, step: row?.step })
+  check("the job ran on the real store and saved its row", (ran.status === "complete" || ran.status === "partial") && row?.step === "done" && !!row?.plan?.native && row?.state?.native?.promptVersion === "native-r56" /* Changed on purpose (r56) */, { status: ran.status, error: ran.error, step: row?.step })
   const pages = installPages(w, installId)
   const draftHome = (pages.home?.draft ?? []) as { id: string; type: string; settings: Record<string, unknown>; blocks?: { settings: Record<string, unknown> }[] }[]
   check("  drafts only: the live sections are untouched", draftHome.some((s) => s.type === "hero_media") && !(pages.home?.sections ?? []).some((s: { type: string }) => s.type === "hero_media"))
