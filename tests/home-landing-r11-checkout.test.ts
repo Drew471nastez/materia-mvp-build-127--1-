@@ -59,7 +59,8 @@ const words = (html: string) => html.replace(/<style[\s\S]*?<\/style>/g, "").rep
 const card = (id: string) => co.slice(co.indexOf(`data-k="${id}"`), co.indexOf("</article>", co.indexOf(`data-k="${id}"`)))
 const stage = co.slice(co.indexOf('class="cmc-stage"'), co.indexOf('class="cmc-cards"'))
 const tl = css.slice(css.indexOf("@supports (animation-timeline:view()){"), css.indexOf(" * The cards: no ground of their own"))
-const desk = css.slice(css.indexOf("@media (min-width:900px){\n  .cmc-stage{"))
+// Changed on purpose (landing round 17): the stage's numbers are on the track.
+const desk = css.slice(css.indexOf("@media (min-width:900px){\n  .cmc-track{"))
 const phoneCss = css.slice(css.lastIndexOf("@media (max-width:899px){", css.indexOf(".cmc-bento{grid-template-columns:minmax(0,1fr)")), css.indexOf("@keyframes cdx-scroll"))
 const em = (prop: string, rule: string) => Number(rule.match(new RegExp(`${prop}:(-?[\\d.]+)em`))?.[1] ?? NaN)
 const ruleIn = (sheet: string, sel: string) => sheet.match(new RegExp(`(?:^|[\\n{}])\\s*${sel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\{([^}]*)\\}`))?.[1] ?? ""
@@ -71,7 +72,8 @@ check("the ring is its own 3D space, drawn before the phone and under it (z 2 to
 // Changed on purpose (landing round 12): the shade now fades too, but only after the phone has gone (80 to 86svh after the phone's 48 to 80), so it still never lets a product through a fading phone.
 /* Changed on purpose (landing round 15): the shade goes 20svh sooner (60 to 66svh), with the cards. */
 // Changed on purpose (landing round 16): the shade fades as a transition after the phone (data-cmc-back), not on the scroll.
-check("  under the phone, its shape in solid black, in the phone's own box under it, fading only once the phone is gone", /<div class="cmc-phone-wrap"><div class="cmc-world"><div class="cmc-rise"><span class="cmc-shade" aria-hidden="true"><\/span><div class="cmc-phone"/.test(stage) && (stage.match(/cmc-shade/g) ?? []).length === 1 && /\.cmc-shade\{position:absolute;inset:0;display:block;border-radius:calc\(var\(--pw\) \* \.178\);background:#000;pointer-events:none\}/.test(css) && /\.cmc\[data-cmc-back\] \.cmc-shade\{opacity:0;transition-delay:\.6s\}/.test(css))
+// Changed on purpose (landing round 17): the shade waits .7s.
+check("  under the phone, its shape in solid black, in the phone's own box under it, fading only once the phone is gone", /<div class="cmc-phone-wrap"><div class="cmc-world"><div class="cmc-rise"><span class="cmc-shade" aria-hidden="true"><\/span><div class="cmc-phone"/.test(stage) && (stage.match(/cmc-shade/g) ?? []).length === 1 && /\.cmc-shade\{position:absolute;inset:0;display:block;border-radius:calc\(var\(--pw\) \* \.178\);background:#000;pointer-events:none\}/.test(css) && /\.cmc\[data-cmc-back\] \.cmc-shade\{opacity:0;transition-delay:\.7s\}/.test(css))
 check("  the phone's world holds no products and no 3D: nothing can be sorted in front of its screen", !/class="cmc-world">[^]*?class="cmc-o"/.test(stage.slice(stage.indexOf('class="cmc-phone-wrap"'))) && !/\.cmc-world\{[^}]*preserve-3d/.test(css))
 check("  set back by its radius, so its nearest point is level with the phone, then leaning and turning", /\.cmc-orbit\{position:absolute;left:50%;top:var\(--cy\);width:0;height:0;transform-style:preserve-3d;transform:translate3d\(0,0,calc\(var\(--r\) \* -1\)\) rotateX\(var\(--tilt\)\) rotateY\(0deg\)\}/.test(css))
 // Changed on purpose (wave 18): on a phone the ring is 50vw (up to 300px) with larger products, so they float round the phone on screen instead of off its edges (the reference).
@@ -116,7 +118,8 @@ console.log("\n2. The phone: big as the section arrives, smaller under a two row
 // Changed on purpose (landing round 14): on a phone (under 900px) the phone is drawn settled from the first frame (--big:1), 50vw wide at most; the big start is the computer's alone.
 /* Changed on purpose (landing round 15): the big phone starts 12svh under its settled place, not 40svh down. */
 // Changed on purpose (landing round 16): a fifth of a computer's screen settled and five thirds of it big (the owner's reference); 1.6 times on a phone.
-check("the settled phone is the room one screen leaves under the headline on a phone, a fifth of the screen on a computer; the big one a multiple of it", /--pe:min\(50vw,230px,calc\(\(100svh - var\(--hd\) - var\(--tt\) - var\(--fs\) \* 2\.1 - var\(--gap\) - var\(--pb\)\) \/ 2\.07\)\)/.test(css) && /--pw:calc\(var\(--pe\) \* var\(--big\)\)/.test(css) && /--big:1\.667;--ps:0\.6;--y0:12svh;/.test(desk) && /--pe:clamp\(220px,20vw,440px\);/.test(css) && /--big:1\.6;--ps:0\.625;/.test(css))
+// Changed on purpose (landing round 17): on a computer the width is also capped by the room under the heading.
+check("the settled phone is the room one screen leaves under the headline on a phone, a fifth of the screen on a computer; the big one a multiple of it", /--pe:min\(50vw,230px,calc\(\(100svh - var\(--hd\) - var\(--tt\) - var\(--fs\) \* 2\.1 - var\(--gap\) - var\(--pb\)\) \/ 2\.07\)\)/.test(css) && /--pw:calc\(var\(--pe\) \* var\(--big\)\)/.test(css) && /--big:1\.667;--ps:0\.6;/.test(desk) && /--pe:min\(clamp\(220px,20vw,440px\),/.test(css) && /--big:1\.6;--ps:0\.625;/.test(css))
 check("  the phone's box is the big phone's; the world carries it from big and low to settled, one transform", /\.cmc-phone-wrap\{position:absolute;z-index:3;left:50%;top:0;width:var\(--pw\);height:calc\(var\(--pw\) \* 2\.07\);margin-left:calc\(var\(--pw\) \/ -2\)\}/.test(css) && /\.cmc-world\{position:relative;width:100%;height:100%;transform-origin:50% 0;transform:translate3d\(0,var\(--y1\),0\) scale\(var\(--ps\)\)\}/.test(css) && /^from\{transform:translate3d\(0,var\(--y0\),0\) scale\(1\)\}to\{transform:translate3d\(0,var\(--y1\),0\) scale\(var\(--ps\)\)\}$/.test(keyframes("cmc-settle")))
 /* Changed on purpose (landing round 15): from 84svh before the hold to 14svh into it, as the section comes up. */
 // Changed on purpose (landing round 16): from 88svh before the hold, t squared, at every width.
@@ -127,7 +130,8 @@ const rows = [...co.matchAll(/<span class="cmc-row">([\s\S]*?)<\/span>(?= ?<span
 check("the headline is two rows, each kept whole: \"Checkout that turns\" / \"a tap into a sale\"", rows.length === 2 && rows[0] === "Checkout that turns" && rows[1] === "a tap into a sale" && words(co.slice(co.indexOf("<h2"), co.indexOf("</h2>"))).replace(/\s+/g, " ").trim() === CHECKOUT_HEADING && /\.cmc-row\{display:block;white-space:nowrap;/.test(css)) /* Changed on purpose (landing round 15): each row also clips its words as they rise out of it */
 /* Changed on purpose (landing round 15): the words rise as the section comes up. */
 // Changed on purpose (landing round 16): the heading rises in as one box, on the timeline.
-check("  the heading rises in on the timeline, as one box", (co.match(/class="cmc-w" data-w="\d"/g) ?? []).length === 8 && /\.cmc-copy\{animation:cmc-head linear both;animation-timeline:--cmc-t;animation-range:contain -16svh contain 68svh\}/.test(tl))
+// Changed on purpose (landing round 17): the words rise one after another on a timer.
+check("  the heading's words rise one after another", (co.match(/class="cmc-w" data-w="\d"/g) ?? []).length === 8 && /\.cmc-w\{transition:opacity \.7s ease,transform 1s/.test(css))
 
 console.log("\n3. Bring back the ones who almost bought: the email (round 12: the Recovered chart gone)")
 const rec = card("recover")

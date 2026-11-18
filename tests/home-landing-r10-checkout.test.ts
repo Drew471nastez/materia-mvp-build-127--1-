@@ -62,14 +62,17 @@ console.log("\n1. The stage stays held behind the cards")
 const track = co.slice(co.indexOf('class="cmc-track"'))
 check("one track holds the stage and then the cards", /^class="cmc-track"><div class="cmc-stage">/.test(track) && track.indexOf('class="cmc-cards"') > track.indexOf('class="cmc-phone-wrap"') && /<\/ul><\/div><\/div><\/div><\/section>$/.test(co))
 // Changed on purpose (landing round 16): the stage is held at every width (under the header on a phone); the track carries the timeline where scroll timelines exist.
-check("  the stage is held at every width and the track carries the timeline where scroll timelines exist", /\.cmc\[data-story-section\] > \.cmc-track\.cmc-track\{view-timeline:--cmc-t block\}/.test(tl) && /\.cmc-stage\{position:sticky;top:var\(--hd\)\}\s*\.cmc-track > \.cmc-cards\{margin-top:40svh\}\s*@media \(min-width:900px\)\{\s*\.cmc-stage\{top:0\}/.test(css))
+// Changed on purpose (landing round 17): the cards start from the phone's foot.
+check("  the stage is held at every width and the track carries the timeline where scroll timelines exist", /\.cmc\[data-story-section\] > \.cmc-track\.cmc-track\{view-timeline:--cmc-t block\}/.test(tl) && /\.cmc-stage\{position:sticky;top:var\(--hd\)\}\s*\.cmc-track > \.cmc-cards\{margin-top:calc\(var\(--foot\)/.test(css) && /@media \(min-width:900px\)\{\s*\.cmc-stage\{top:0\}/.test(css))
 /* Changed on purpose (landing round 15): 80svh of hold before the cards, not 100svh. */
 // Changed on purpose (landing round 16): the cards start 40svh after the held stage and come up over it on the page's own scroll.
-check("  the cards start 40svh after the held stage, above it (z 5)", /\.cmc-track > \.cmc-cards\{margin-top:40svh\}/.test(css) && /\.cmc-cards\{position:relative;z-index:5;margin-top:-8svh\}/.test(css))
+// Changed on purpose (landing round 17): the cards start from the phone's foot.
+check("  the cards start from the phone's foot, above the stage (z 5)", /\.cmc-track > \.cmc-cards\{margin-top:calc\(var\(--foot\) \+ var\(--over\)/.test(css) && /\.cmc-cards\{position:relative;z-index:5;margin-top:-8svh\}/.test(css))
 check("  no height on the track: it is the stage's and the cards' own", !/\.cmc-track\.cmc-track\{[^}]*height:(?!auto)/.test(css))
 /* Changed on purpose (landing round 15): the settle and the words run from 84svh before the hold; the phone sinks behind the cards to the track's end (contain 100%), the one range in percent. */
 // Changed on purpose (landing round 16): two ranges, both svh of scroll: the phone's settle and the heading.
-check("the timeline's ranges are svh of scroll, so the entrance keeps its pace", /\.cmc-world\{animation:cmc-settle cubic-bezier\(\.333,0,\.667,\.333\) both;animation-timeline:--cmc-t;animation-range:contain -88svh contain -8svh\}/.test(tl) && /\.cmc-copy\{animation:cmc-head linear both;animation-timeline:--cmc-t;animation-range:contain -16svh contain 68svh\}/.test(tl) && !/contain [\d.]+%/.test(tl))
+// Changed on purpose (landing round 17): the phone's sink replaces the heading on the timeline.
+check("the timeline's ranges are svh of scroll, so the entrance keeps its pace", /\.cmc-world\{animation:cmc-settle cubic-bezier\(\.333,0,\.667,\.333\) both;animation-timeline:--cmc-t;animation-range:contain -88svh contain -8svh\}/.test(tl) && /\.cmc-phone-wrap\{animation:cmc-sink cubic-bezier\(\.4,0,\.6,1\) both;animation-timeline:--cmc-t;animation-range:contain 10svh contain 54svh\}/.test(tl) && !/contain [\d.]+%/.test(tl))
 
 console.log("\n2. As the cards come up, the phone and the ring step back")
 // Changed on purpose (landing round 11): the ring is its own 3D space under the phone now, and both step back to 45% (the cards are solid, the products show only in the gaps).
@@ -81,7 +84,8 @@ check("the phone's box and the ring's box get a little smaller and the ring fade
 check("  the 3D space itself is never faded or filtered (that would flatten it)", !/\.cmc-(world|orbit|o)\{[^}]*(opacity|filter|mask|overflow)/.test(css) && !/\.cmc-(world|orbit|o)\{animation:cmc-(recede|out|in)/.test(css))
 /* Changed on purpose (landing round 15): 20svh sooner, with the cards. */
 // Changed on purpose (landing round 16): the heading fades from 44 to 68svh, as the cards come up.
-check("  the headline fades before the cards reach it", /\.cmc-copy\{animation:cmc-head linear both;animation-timeline:--cmc-t;animation-range:contain -16svh contain 68svh\}/.test(tl) && /@keyframes cmc-head\{[^@]*100%\{opacity:0;/.test(css))
+// Changed on purpose (landing round 17): the heading fades as the phone goes soft (data-cmc-back).
+check("  the headline fades before the cards reach it", /\.cmc\[data-cmc-back\] \.cmc-copy\{opacity:0;/.test(css))
 /* Changed on purpose (wave 17): the stage wakes a screen ahead (it popped in on an iPhone recording); still paused off screen beyond that and in a hidden tab. */
 // Changed on purpose (landing round 12): the ring wakes half a screen ahead (the page audit), and its clock loops pause once the cards have come up half a screen past the top (data-cmc-covered); the scroll still turns it.
 check("the ring keeps turning behind the cards: its loop still runs on the stage's own observer, paused off screen", /\.cmc:not\(\[data-cmc-covered\]\) \.cmc-stage\[data-commerce-live\] \.cmc-o\{animation-play-state:running;will-change:transform\}/.test(css) && /const \[stageRef\] = useCommerceLive<HTMLDivElement>\("50% 0px", false\)/.test(src) && /<div ref=\{stageRef\} className="cmc-stage">/.test(src))
@@ -116,7 +120,8 @@ check("  the phone's copy comes up faint behind the cards, the products still le
 check("  the card demos' own phone is not touched", !/(^|[^>] )\.cmc-phone\{animation/.test(css) && !/\.cmv-phone \.cmc-phone\{[^}]*animation/.test(css))
 // Changed on purpose (landing round 12): cmc-in-half is gone with the phone's copy.
 // Changed on purpose (landing round 16): the section's scroll keyframes are cmc-settle and cmc-head.
-check("every new keyframe moves opacity and transform only", onlyCompositor(keyframes("cmc-settle")) && onlyCompositor(keyframes("cmc-head").replace(/;animation-timing-function:[^;}]*/g, "")))
+// Changed on purpose (landing round 17): cmc-sink replaces cmc-head.
+check("every new keyframe moves opacity and transform only", onlyCompositor(keyframes("cmc-settle")) && onlyCompositor(keyframes("cmc-sink")))
 // Changed on purpose (landing round 16): one more will-change, on the phone while the section is near (one raster as it scales).
 check("no filter, blur or backdrop filter anywhere in the section, and one more will-change, only while near", !/filter|blur\(/.test(css.replace(/\/\*[\s\S]*?\*\//g, "")) && (css.match(/will-change:/g) ?? []).length === 2)
 check("nothing per frame in script: no scroll listener, rAF, layout read, timer or state", !/addEventListener\("scroll"|requestAnimationFrame|getBoundingClientRect\(|offsetTop|setTimeout|setInterval|useState/.test(code(src)))
@@ -138,7 +143,8 @@ check("  a phone draws the computer's 48 x 42 picture, scaled", /\.cmc-vis\{heig
 // Changed on purpose (landing round 11): the settled phone's width (--pe) is the room one screen leaves under a two row headline; the big phone it starts as is a multiple of it.
 // Changed on purpose (landing round 15): under 900px the stage is held under the header, so it is the screen less the header there; from 900px one screen as before.
 // Changed on purpose (landing round 16): on a computer the settled phone is a fifth of the screen wide (the owner's reference).
-check("the stage itself stays one small screen tall (svh), the phone sized from it", /\.cmc-stage\{position:relative;height:calc\(100svh - var\(--hd\)\);/.test(css) && /\.cmc-stage\{height:100svh;--hd:69px;/.test(css) && /--pe:min\(50vw,230px,calc\(\(100svh - var\(--hd\) - var\(--tt\) - var\(--fs\) \* 2\.1 - var\(--gap\) - var\(--pb\)\) \/ 2\.07\)\)/.test(css) && /--pe:clamp\(220px,20vw,440px\);/.test(css))
+// Changed on purpose (landing round 17): the stage's numbers are on the track; on a computer the phone is also capped by the room under the heading.
+check("the stage itself stays one small screen tall (svh), the phone sized from it", /\.cmc-stage\{position:relative;height:calc\(100svh - var\(--at\)\);/.test(css) && /\.cmc-track\{--hd:69px;--top:var\(--hd\);--at:0px;/.test(css) && /--pe:min\(50vw,230px,calc\(\(100svh - var\(--hd\) - var\(--tt\) - var\(--fs\) \* 2\.1 - var\(--gap\) - var\(--pb\)\) \/ 2\.07\)\)/.test(css) && /--pe:min\(clamp\(220px,20vw,440px\),/.test(css))
 
 console.log("\n6. Reduced motion and no scroll timelines")
 // Changed on purpose (landing round 11): the copies' rule is shared with cmc-far.
