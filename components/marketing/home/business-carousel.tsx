@@ -121,12 +121,12 @@ type Kind = {
 export const BUSINESS_SLIDES: readonly Kind[] = [
   {
     id: "digital",
-    /* Round 17, the owner: a name and a line that say at a glance what this is (a file, sent when they pay), and a new picture (business-mocks.tsx). */
+    /* Round 17, the owner: a name and a line that say at a glance what this is (a file, sent when they pay). Round 18: several products in the picture, not one (business-mocks.tsx); the name and line still fit. */
     label: "Digital downloads",
     tab: "Downloads",
     line: "E-books and files, sent the moment they pay",
     Scene: DigitalScene,
-    alt: "A digital download on Storelib: Ancestral Kitchen, a PDF cookbook by Ruth Calder, $34. Buy is pressed and turns into Paid, the buyer's receipt email comes in, the PDF lands in it, Download now is pressed and the file is downloaded.",
+    alt: "Digital downloads on Storelib: Ancestral Kitchen, an e-book, $34; Daily Mobility, a video course, $79; Cine Tones, a LUT pack, $29; Drums One Shots, a sample pack, $19; Creator Planner, a Notion template, $12; Pricing Your Work, a PDF guide, $15. They glide up one by one past an Instant download tag, and each one's price turns into Delivered as it passes.",
   },
   {
     id: "physical",

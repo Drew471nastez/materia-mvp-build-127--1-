@@ -79,7 +79,8 @@ console.log("\nMoving scenes, transform and opacity only")
   // Changed on purpose (landing round 13): physical is the line of store designs walking (bt-walk).
   // Changed on purpose (landing round 14): the download moment plays when a product is bought, and the store designs glide by Web Animations.
   /* Changed on purpose (landing round 15): the digital moment is the library's list stepping down a row at each purchase. */
-  check("each scene has its own moment", [/* Changed on purpose (landing round 16): the book opening. */ /* Changed on purpose (landing round 17): the file flying into the buyer's email. */ /\.dl-fly\{animation:dl-fly/, /\.bp-bar i\{animation:bz-play/, /\.bs-post\{animation:bz-rise/, /\.bs-ring-day\{animation:bz-day/].every((r) => r.test(BUSINESS_MOCK_CSS)))
+  // Changed on purpose (landing round 18): the column of products gliding past the Instant download tag.
+  check("each scene has its own moment", [/* Changed on purpose (landing round 16): the book opening. */ /* Changed on purpose (landing round 17): the file flying into the buyer's email. */ /\.dz-card\{animation:dz-ride/, /\.bp-bar i\{animation:bz-play/, /\.bs-post\{animation:bz-rise/, /\.bs-ring-day\{animation:bz-day/].every((r) => r.test(BUSINESS_MOCK_CSS)))
   check("the moments run only on the chosen scene (and the one fading out)", /className=\{on \? "biz-slide bz-on" : "biz-slide"\}/.test(read(SECTION)) && /const on = state === "active" \|\| state === "leaving"/.test(read(SECTION)))
   // Changed on purpose (landing round 14): the shelf answers a pointer with transitions, on opacity and transform only.
   check("nothing in the scenes is a transition (every change is one of those keyframes)", (BUSINESS_MOCK_CSS.match(/transition:[^;}]*/g) ?? []).every((t) => /^transition:((opacity|transform|visibility)[^,]*,?)+$/.test(t.replace(/\([^)]*\)/g, ""))))
@@ -91,7 +92,8 @@ console.log("\nThe five examples")
   const brain = renderToStaticMarkup(createElement(DigitalScene))
   // Changed on purpose (landing round 12): the owner disliked the row of covers; digital is one e-book, Slow Mornings, on its page.
   // Changed on purpose (landing round 13): the owner named the mobility course and Ancestral Kitchen for the digital card.
-  check("digital: the mobility course and Ancestral Kitchen, no Second Brain tablet", /* Changed on purpose (landing round 16): Ancestral Kitchen alone. */ brain.includes("Ancestral Kitchen") && brain.includes("dg-kitchen-cover.webp") && !/Second Brain|bs-tablet|bz-brain/.test(code(MOCKS)))
+  // Changed on purpose (landing round 18): both again, among six products, with covers cut as dz-*.webp.
+  check("digital: the mobility course and Ancestral Kitchen, no Second Brain tablet", /* Changed on purpose (landing round 16): Ancestral Kitchen alone. */ brain.includes("Ancestral Kitchen") && brain.includes("Daily Mobility") && brain.includes("dz-kitchen.webp") && !/Second Brain|bs-tablet|bz-brain/.test(code(MOCKS)))
   const phones = renderToStaticMarkup(createElement(TeeScene))
   // Changed on purpose (landing round 12): the owner disliked the tee, cap, tote and print; physical is Night Face Oil on a warm ground.
   // Changed on purpose (landing round 13): physical is a line of store designs on a quiet ground.
