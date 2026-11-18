@@ -585,7 +585,7 @@ function LoginFormContent() {
             // Preferences and survives the SFSafariViewController /
             // Chrome Custom Tab round-trip.
             redirectTo: nativeCallbackUrl,
-            /* Nothing extra: Google continues with the account it already has (lib/auth/google-oauth-params.ts). */
+            /* The account chooser, so a person who logged out can pick another account (lib/auth/google-oauth-params.ts). */
             queryParams: GOOGLE_OAUTH_QUERY,
             skipBrowserRedirect: true,
           },

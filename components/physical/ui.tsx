@@ -667,7 +667,7 @@ function ModalSheet({ open, onClose, title, children, footer, wide, closeButton 
         <div className={cn("flex items-center justify-between gap-3 px-4 pb-1", closeButton ? "pt-2" : "min-h-11 pt-1")} data-modal-sheet-head="">
           <h2 className="text-[16px] font-semibold text-[#1a1a2e]">{title}</h2>
           {closeButton ? (
-            <button type="button" data-close="" data-sheet-close="" aria-label={tt("Close")} className="grid h-9 w-9 place-items-center rounded-full bg-[#f3f4f6] text-[#6b7280] active:bg-[#e5e7eb]">
+            <button type="button" data-close="" data-sheet-close="" aria-label={tt("Close")} className="relative grid h-9 w-9 place-items-center rounded-full bg-[#f3f4f6] text-[#6b7280] after:absolute after:-inset-1 after:content-[''] active:bg-[#e5e7eb]">
               <X className="h-4 w-4" />
             </button>
           ) : null}

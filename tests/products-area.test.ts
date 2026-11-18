@@ -817,15 +817,48 @@ console.log("\nRound 41: a product opens untouched, and Back drops it at once")
       && /const move = moveByHand\(layer, false, LAYER_LEAVE_MS, false\)/.test(lyr)
       && /move\.finished\.then\(send, send\)/.test(lyr)
       && /\{ to: PRODUCTS_HREF \}/.test(ret))
-  /* After a save, a status change or a delete the copy would show the row as it was: it is forgotten, and Back drops at the commit over the real list. */
-  check("a save, a publish or unpublish, and a delete each forget the list's copy",
+  /* Changed on purpose (products round 42): forgetting the copy on every save made Back after any edit wait for the list to be fetched and drawn again with the editor standing still. Now a save and a publish or unpublish correct the edited row in the copy, and a delete removes the row; only what cannot be made exactly right (a product the list never had, a new cover or kind, an archive instead of a delete) still forgets it. */
+  const ret42 = code("app/(storelib)/app/products/list-return.ts")
+  check("a save updates the list's copy; a delete removes the row",
     /export function forgetPageCopy\(\) \{\s*pageCopy\?\.box\?\.remove\(\)\s*pageCopy = null\s*\}/.test(lyr)
-      && /const markSaved = useCallback\(\(sent: DirtyFields, sentCards: CardDrafts, savedSlug\?: string\) => \{\s*forgetPageCopy\(\)/.test(ed)
-      && /announceChange\(\{ product: productId \}\)\s*forgetPageCopy\(\)\s*await forgetProduct\(productId, slug\)/.test(ed)
-      && /releaseUnsaved\(\)\s*forgetPageCopy\(\)\s*leavingRef\.current = true[\s\S]{0,200}returnToProducts\(router, null\)/.test(ed))
+      && /export function editPageCopy\(edit: \(part: HTMLElement\) => boolean\): void \{/.test(lyr)
+      && /const markSaved = useCallback\(\(sent: DirtyFields, sentCards: CardDrafts, savedSlug\?: string\) => \{\s*setSavedForm\(/.test(ed)
+      && /markSaved\(sentForm, sentCards, savedSlug\)\s*syncListCopy\(productId, true\)/.test(ed)
+      && /markSaved\(sentForm, sentCards, result\.slug\)\s*syncListCopy\(productId, false\)/.test(ed)
+      && /if \(!idBefore \|\| !was \|\| !now \|\| now\.thumb !== was\.thumb \|\| now\.type !== was\.type\) \{\s*listedRef\.current = null\s*forgetPageCopy\(\)/.test(ed)
+      && /announceChange\(\{ product: productId \}\)\s*updateListCopy\(\{ id: productId, live: newStatus === "published" \}\)/.test(ed)
+      && /releaseUnsaved\(\)\s*removeFromListCopy\(productId, gone\)\s*leavingRef\.current = true[\s\S]{0,200}returnToProducts\(router, null\)/.test(ed)
+      && /export function updateListCopy\(change: ListRowChange\): void \{\s*editPageCopy\(/.test(ret42)
+      && /export function removeFromListCopy\(id: string, deleted: boolean\): void \{\s*if \(!deleted\) \{\s*forgetPageCopy\(\)/.test(ret42))
   check("without a copy the way back is the drop at the commit, as before", /const kept = pageCopy && to && pageCopy\.path === to \? pageCopy : null/.test(lyr) && /if \(layer && kept && layerMotionOn\(true\)\) \{/.test(lyr))
   check("the copy goes in the commit that brings the page, and the mark a frame later so the stage lands nothing",
     /if \(want\.under\) \{\s*want\.under\.remove\(\)/.test(lyr) && /requestAnimationFrame\(\(\) => \{\s*if \(html\.dataset\.layerHand !== undefined && html\.dataset\.layerMotion === "leave"\)/.test(lyr))
+}
+
+console.log("\nRound 42: the tap, the ends, the Import keyboard, the filter")
+{
+  const css = readFileSync("app/globals.css", "utf8")
+  const add = list.match(/const ADD_LOOK = "([^"\n]*)"/)?.[1] ?? ""
+  check("Add's hover is for a mouse only, and there is no hover shadow for the touch rule to strip",
+    /pointer-fine:hover:bg-\[#7c3aed\]/.test(add) && !/(^|\s)hover:/.test(add) && !/hover:shadow/.test(add))
+  check("Add's press is one shade on a touch screen, on its own ease, with the shell's dim off",
+    /(^|\s)active:bg-\[#7c3aed\]/.test(add)
+      && /html\.capacitor \[data-new-product\] \{\s*transition: background-color 150ms ease-out;\s*\}/.test(css)
+      && /html\.capacitor \[data-new-product\]:active \{\s*opacity: 1;/.test(css))
+  check("the list's own scroller keeps its rubber band (contain), sideways none",
+    /<div data-elastic-pane="" className="orders-pane /.test(list)
+      && /html\.app-layout \.app-content-scroll > \.page-scroll\[data-elastic-pane\] \{\s*overscroll-behavior-x: none;\s*overscroll-behavior-y: contain;\s*\}/.test(css))
+  const imp = code("app/(storelib)/app/products/new/link-import-form.tsx")
+  const kinds42 = code("app/(storelib)/app/products/new/kind-chooser.tsx")
+  check("on a phone the Import tap focuses the link field in the tap itself, with the keyboard's room laid out first",
+    /if \(phone\) flushSync\(\(\) => step\(true\)\)/.test(kinds42) && /<LinkImportForm focusNow=\{phone\}/.test(kinds42)
+      && /if \(!focusNow \|\| !waiting\) return\s*openRoom\(false\)\s*field\.current\?\.focus\(\{ preventScroll: true \}\)/.test(imp)
+      && /max\(0px, calc\(\$\{expectedKeyboard\(/.test(imp) && /KEYBOARD_FLOOR_FRACTION/.test(imp) && !/localStorage/.test(imp))
+  check("the sheet's growth is a clip reveal (the field is in place from the first frame), shrinking plays on the height",
+    /panel\.animate\(\[\{ clipPath: `inset\(\$\{to - from\}px/.test(imp) && /panel\.animate\(\[\{ height: `\$\{from\}px` \}, \{ height: `\$\{to\}px` \}\]/.test(imp) && /glidePanel\(panel, from, STEP_GLIDE_MS\)/.test(kinds42))
+  const filters = code("app/(storelib)/app/products/product-filters.tsx")
+  check("the filter control is the toolbar's own icon button with the list-filter mark",
+    /className=\{cn\(iconButton, "h-11 w-11 shrink-0 rounded-full/.test(filters) && /<ListFilter className="h-5 w-5"/.test(filters) && !/<Filter /.test(filters))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

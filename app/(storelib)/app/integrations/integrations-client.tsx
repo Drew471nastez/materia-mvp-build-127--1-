@@ -32,7 +32,8 @@ export function IntegrationsClient({ initial = null }: { initial?: DirectoryInit
         <h1 className="text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">{tt("Integrations")}</h1>
         <HowItWorks id="integrations" className="-mr-2" />
       </PaneBar>
-      <div className={cn("mx-auto pt-1 pb-24 md:pb-8", LIST_WIDTH, GUTTER)}>
+      {/* Room under the last card for the phone's navigation pill and, in the iOS app, the home indicator under it (0 in a browser). */}
+      <div className={cn("mx-auto pt-1 pb-[calc(6rem+env(safe-area-inset-bottom,0px))] md:pb-8", LIST_WIDTH, GUTTER)}>
         {/* The directory reads ?integration= to open one's page, and ?category=&q=&status=&by= for the list. */}
         <Suspense fallback={null}>
           <IntegrationsDirectory page initial={initial} />

@@ -66,7 +66,10 @@ import {
 } from "./editor-form"
 import { LeaveButton, PRESS_CONTENT_OUT, PRESS_SPINNER_IN, SAVED_CHECK_MS, SaveButton, barIconButton, secondaryDepth, type SavePhase } from "./editor-buttons"
 import { StatusBadge, iconButton } from "../../orders/order-parts"
-import { PRODUCTS_HREF, returnToProducts, useListOrigin, warmProducts } from "../list-return"
+import { PRODUCTS_HREF, removeFromListCopy, returnToProducts, updateListCopy, useListOrigin, warmProducts } from "../list-return"
+import { formatMoney } from "../../orders/order-parts"
+import { productPriceCurrency } from "@/lib/money/product-currency"
+import { useStoreCurrency } from "@/lib/store/currency-context"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { askBeforeLeaving } from "@/lib/ui/leave-guard"
 import { num } from "@/lib/forms/dirty"
@@ -324,6 +327,36 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
   /* The form's first frame is the saved product (./editor-form.ts). Read once:
      a server render after a save hands new props that must not reset it. */
   const [initial] = useState(() => initialForm(loaded, startAs))
+  /*
+    WHAT THE PRODUCTS LIST DRAWS FOR THIS PRODUCT, and what the last save sent
+    (products round 42). After a save, a publish or an unpublish the row in
+    the list's kept copy is corrected from these (../list-return
+    updateListCopy), so Back drops the editor over the list at once instead
+    of waiting for it to be fetched and drawn again.
+  */
+  const listStore = useStoreCurrency()
+  type ListedRow = { title: string; cents: number; thumb: string | null; type: string | null }
+  const listedRef = useRef<(ListedRow & { live: boolean }) | null>(
+    loaded ? { title: loaded.product.title ?? "", cents: loaded.product.price_cents ?? 0, thumb: loaded.product.thumbnail_url ?? null, type: loaded.product.type ?? null, live: loaded.product.status === "published" } : null,
+  )
+  const sentRowRef = useRef<ListedRow | null>(null)
+  /** After a save (`live`: what the save made it). A product the list never had, or a new cover or kind, forgets the copy instead. */
+  const syncListCopy = (idBefore: string | null | undefined, live: boolean) => {
+    const was = listedRef.current
+    const now = sentRowRef.current
+    if (!idBefore || !was || !now || now.thumb !== was.thumb || now.type !== was.type) {
+      listedRef.current = null
+      forgetPageCopy()
+      return
+    }
+    updateListCopy({
+      id: idBefore,
+      title: now.title !== was.title ? now.title || tt("Untitled draft") : undefined,
+      priceText: now.cents !== was.cents ? (now.cents > 0 ? formatMoney(now.cents, productPriceCurrency({ type: now.type }, listStore)) : "Free") : undefined,
+      live: live !== was.live ? live : undefined,
+    })
+    listedRef.current = { ...now, live }
+  }
   const editProductId = loaded?.product.id ?? null
   /* The variants could not be read when the page was drawn (./load-editor.ts): the form shows none, and a save must not take that as all of them removed. */
   const variantsUnread = useRef(!!loaded?.variantsUnread)
@@ -806,8 +839,6 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
   }, [digitalFiles])
   /** After a save: what was sent is what is saved, the form and every card. Changes made while it saved stay changes. */
   const markSaved = useCallback((sent: DirtyFields, sentCards: CardDrafts, savedSlug?: string) => {
-    /* The list as it was is not the list any more: Back drops over the real one (page-layer forgetPageCopy). */
-    forgetPageCopy()
     setSavedForm({ ...sent, slug: savedSlug ?? sent.slug, digitalFiles: savedFormRef.current.digitalFiles.map((f) => sent.digitalFiles.find((x) => x.file_path === f.file_path) ?? f) })
     setCards((c) => cardsSaved(c, sentCards))
     setReleasedAt(null)
@@ -1056,6 +1087,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
         pwyw_min_price_cents: payWhatYouWant && pwywMinPrice ? Math.round(Number.parseFloat(pwywMinPrice) * 100) : null,
         pwyw_suggested_price_cents: payWhatYouWant && pwywSuggestedPrice ? Math.round(Number.parseFloat(pwywSuggestedPrice) * 100) : null,
       }
+      /* What the list will draw for it once this lands (syncListCopy). */
+      sentRowRef.current = { title: productData.title, cents: productData.price_cents, thumb: productData.thumbnail_url ?? null, type: productData.type }
 
       let finalProductId = productId
 
@@ -1942,6 +1975,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       if (created) nudgeNotifications("product")
       setIsPublished(true)
       markSaved(sentForm, sentCards, savedSlug)
+      syncListCopy(productId, true)
       setSavedTitle(title)
       setSavedThisVisit(true)
       flashSaved()
@@ -2047,6 +2081,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
     }
     setIsPublished(false)
     markSaved(sentForm, sentCards, result.slug)
+    syncListCopy(productId, false)
     setSavedTitle(title)
     setSavedThisVisit(true)
     flashSaved()
@@ -2076,8 +2111,9 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       if (updateError) throw updateError
 
       announceChange({ product: productId })
-      /* The list's row has a new status: its copy from before is not used for the way back (page-layer forgetPageCopy). */
-      forgetPageCopy()
+      /* The list's row has a new status: its badge is corrected in the list's kept copy (../list-return updateListCopy). */
+      updateListCopy({ id: productId, live: newStatus === "published" })
+      if (listedRef.current) listedRef.current = { ...listedRef.current, live: newStatus === "published" }
       /* Off the page or back on it: what is cached of it is dropped either way (app/api/products/forget). */
       await forgetProduct(productId, slug)
       setIsPublished(!isPublished)
@@ -2115,8 +2151,10 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
     const sure = await ask({ ...deleteQuestion(savedTitle, kind), cancel: tt("Cancel") })
     if (!sure) return
     setDeleting(true)
+    let gone = false
     try {
       const result = await deleteProduct(productId)
+      gone = result.outcome === "deleted"
       if (result.outcome === "deleted") {
         if (isPublished && slug) announceChange({ removedProduct: slug })
         rememberDeleted(productId)
@@ -2131,9 +2169,9 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       showToast(err instanceof Error && err.message ? err.message : tt("Could not delete the product"))
       return
     }
-    /* Nothing left to save: the way out asks nothing. The row is gone or archived, so the list's copy is not used either. */
+    /* Nothing left to save: the way out asks nothing. A deleted row leaves the list's kept copy; one archived instead forgets the copy. */
     releaseUnsaved()
-    forgetPageCopy()
+    removeFromListCopy(productId, gone)
     leavingRef.current = true
     startTransition(() => setLeaving(true))
     startNavigationLoading(PRODUCTS_HREF)

@@ -31,6 +31,10 @@
  *      (lib/native-oauth.ts). This is what every current build does, and it
  *      is now what BOTH pages do, with the same sheet.
  *
+ * EITHER WAY GOOGLE SHOWS ITS ACCOUNT CHOOSER, and Log out signs the phone's
+ * own Google sheet out too (lib/auth/forget-device-sign-in.ts), so a person
+ * who logged out can pick another account or make a new one.
+ *
  * WHY STEP 2 ARRIVES LOGGED OUT, which is the thing that reads as a private
  * window: since iOS 11, SFSafariViewController keeps its own cookies, apart
  * from Safari's, so the Google session on the phone is not in it and the
@@ -97,7 +101,18 @@ async function nativeGoogleIdToken(): Promise<string | null> {
     | undefined
   if (social?.login) {
     await social.initialize({ google: { webClientId: WEB_CLIENT_ID, iOSClientId: IOS_CLIENT_ID || undefined } })
-    const res = (await social.login({ provider: "google", options: { scopes: ["email", "profile"] } })) as {
+    /*
+     * THE CHOOSER, EVERY TIME. Without these a phone that had signed in once
+     * went straight back into that account after Log out: Credential
+     * Manager picks the only account by itself (`autoSelectEnabled`), and
+     * Google's iOS sheet continues with the one it remembers unless
+     * `forcePrompt` is set. `prompt` is the same ask for the plugin's web
+     * path (lib/auth/google-oauth-params.ts).
+     */
+    const res = (await social.login({
+      provider: "google",
+      options: { scopes: ["email", "profile"], forcePrompt: true, autoSelectEnabled: false, filterByAuthorizedAccounts: false, prompt: "select_account" },
+    })) as {
       result?: { idToken?: string | null; profile?: unknown }
     }
     return res?.result?.idToken ?? null
@@ -184,4 +199,37 @@ export async function signInWithNativeGoogle(
     /* A plugin that is there but cannot run (no client id, no Play services) is the sheet's job now. */
     return { result: "unavailable", message }
   }
+}
+
+/**
+ * LOG OUT OF THE PHONE'S OWN GOOGLE SHEET TOO. Supabase's sign out ends the
+ * Storelib session, but the native plugin keeps its own signed in Google
+ * account (Credential Manager's choice on Android, GIDSignIn's current user
+ * on iOS), and the next Continue with Google went straight back into it.
+ * Every plugin this build may carry is told to forget it. Never throws: a
+ * build without a plugin, or one that was never initialised, has nothing to
+ * forget. Nothing here reads or logs a token.
+ */
+export async function signOutNativeGoogle(): Promise<void> {
+  const p = plugins()
+  const social = p.SocialLogin as
+    | { initialize?: (o: unknown) => Promise<unknown>; logout?: (o: unknown) => Promise<unknown> }
+    | undefined
+  if (social?.logout) {
+    /* The plugin refuses a logout for a provider it was not initialised with in this launch of the app. */
+    try {
+      await social.initialize?.({ google: { webClientId: WEB_CLIENT_ID, iOSClientId: IOS_CLIENT_ID || undefined } })
+    } catch {
+      /* already initialised */
+    }
+    try {
+      await social.logout({ provider: "google" })
+    } catch {
+      /* not signed in to Google through it */
+    }
+  }
+  const gauth = p.GoogleAuth as { signOut?: () => Promise<unknown> } | undefined
+  if (gauth?.signOut) await gauth.signOut().catch(() => undefined)
+  const fb = p.FirebaseAuthentication as { signOut?: () => Promise<unknown> } | undefined
+  if (fb?.signOut) await fb.signOut().catch(() => undefined)
 }

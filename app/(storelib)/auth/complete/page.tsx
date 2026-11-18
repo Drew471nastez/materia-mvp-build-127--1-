@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client"
 import { safeReturnTarget } from "@/lib/auth/return-to"
 import { getMainDomain } from "@/lib/url-helpers"
 import { Suspense } from "react"
+import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
 
 function AuthCompleteContent() {
   const router = useRouter()
@@ -154,27 +155,14 @@ function AuthCompleteContent() {
     return () => clearTimeout(hardTimeout)
   }, [router, searchParams])
 
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900 mx-auto"></div>
-        <p className="mt-4 text-neutral-600">{status}</p>
-      </div>
-    </div>
-  )
+  /* The same white hand off screen as login and signup, so the way into Storelib is one screen (components/auth/auth-resolving-screen.tsx). */
+  return <AuthResolvingScreen message={status} />
 }
 
 export default function AuthCompletePage() {
   return (
     <Suspense
-      fallback={
-        <div className="flex min-h-screen items-center justify-center bg-background">
-          <div className="text-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900 mx-auto"></div>
-            <p className="mt-4 text-neutral-600">Loading...</p>
-          </div>
-        </div>
-      }
+      fallback={<AuthResolvingScreen />}
     >
       <AuthCompleteContent />
     </Suspense>

@@ -13,10 +13,11 @@
  *
  * Products round 15:
  *
- *   NO KEYBOARD ON THE WAY IN. The link field takes the focus by itself only
- *   where there is no on screen keyboard (a fine pointer); on a phone the
- *   keyboard comes when the field is tapped, with the sheet already still
- *   (lib/ui/keyboard-safe-sheet).
+ *   THE CURSOR IN THE LINK ON THE WAY IN. On a computer the field takes the
+ *   focus a frame after the dialog settles. Changed in round 42: on a phone
+ *   the Import tap itself focuses it, so the keyboard rises with the sheet
+ *   (THE KEYBOARD COMES WITH THE STEP, below); it used to wait for a second
+ *   tap, which is what made the page pan under the status bar.
  *
  *   THE TYPE IS A SEGMENTED CONTROL, the product editor's own (./editor-
  *   controls Segmented), not the browser's select.
@@ -33,7 +34,7 @@
  * stop under reduced motion.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { ArrowLeft, Check, Link2, Loader2, Search } from "lucide-react"
 import { SiGumroad } from "@/components/icons/brand/SiGumroad"
 import { SiShopify } from "@/components/icons/brand/SiShopify"
@@ -41,7 +42,7 @@ import { SiPayhip } from "@/components/icons/brand/SiPayhip"
 import { PRIMARY_BUTTON } from "../../analytics/add-reports"
 import { Checkbox, buttonSecondary, formatMoney } from "../../orders/order-parts"
 import { Segmented } from "./editor-controls"
-import { KEYBOARD_CHANGE_EVENT } from "@/lib/ui/keyboard-safe-sheet"
+import { KEYBOARD_CHANGE_EVENT, KEYBOARD_FLOOR_FRACTION } from "@/lib/ui/keyboard-safe-sheet"
 import { useInSheet } from "@/components/ui/sheet-dialog"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
@@ -84,6 +85,75 @@ function sourceOf(value: string): LinkSource | null {
   return null
 }
 
+/*
+  ===========================================================================
+   THE KEYBOARD COMES WITH THE STEP, AND HAS ITS ROOM (products round 42)
+  ===========================================================================
+  "Tapping Import, then the link field: the sheet flashes, collapses, pops,
+  and the whole page moves up under the status bar." The Import step is short,
+  so on a phone its field sat in the bottom third of the screen, where the
+  keyboard was about to be. A web view will not let a focused field sit under
+  its keyboard: iOS panned the whole page up to show it (the white band under
+  the clock, the sheet under the status bar), then the sheet lifted itself for
+  the keyboard as well, and the app's own scroll guard pulled the page back.
+  Three moves for one tap.
+
+  Now, on a phone, the Import tap itself puts the focus in the field
+  (./kind-chooser, `focusNow`: inside the tap's own handler, which is what
+  lets iOS open its keyboard), so the keyboard rises together with the sheet
+  instead of on a second tap. While the field has the focus, the column holds
+  the keyboard's room under the form, laid out in the same frame as the focus,
+  so the field is already above the keys when the web view looks for it and
+  there is nothing to pan to. As the keyboard arrives the room gives way by
+  exactly its height (`--kb-inset`, on the curve the sheet's own padding
+  takes): the keyboard fills the room, no white is left, and the field does
+  not move. When the field lets go, the room closes with the keyboard.
+
+  How tall the keyboard will be is the last one reported this visit, or half
+  the screen, the floor every sheet already relies on (lib/ui/keyboard-safe-
+  sheet KEYBOARD_FLOOR_FRACTION). A shorter keyboard leaves a margin of the
+  sheet's own white over it; a taller one lifts the sheet the difference,
+  smoothly. Never the field under keys.
+*/
+const KEYBOARD_ROOM_MOVE = "height 250ms cubic-bezier(0.32, 0.72, 0, 1)"
+let knownKeyboard = 0
+function rememberKeyboard(px: number) {
+  if (px > 120) knownKeyboard = Math.round(px)
+}
+function expectedKeyboard(screen: number): number {
+  /* A number from another screen size (a rotated phone) is not this one's. */
+  return knownKeyboard > 120 && knownKeyboard < screen * 0.7 ? knownKeyboard : Math.round(screen * KEYBOARD_FLOOR_FRACTION)
+}
+/** A phone's sheet: a finger, no mouse, the width the sheets take their phone layout at. */
+function onPhone() {
+  return !!window.matchMedia?.("(hover: none) and (pointer: coarse)").matches && window.innerWidth < 768
+}
+/**
+ * A panel's height change, played from `from` on the sheet's curve. The panel stays on the bottom edge; only its top
+ * moves.
+ *
+ * GROWING IS A REVEAL, NOT A RESIZE. When the sheet grows for the link field (the Import step, the room for the
+ * keyboard), the field must be where it ends up from the very frame it takes the focus: a web view finds the caret
+ * as the keyboard comes, and a caret still low in a sheet that is still growing is under the keys, which is the pan
+ * this is all for. So the panel takes its new height at once, and its top edge is drawn gliding up from where it was
+ * with a clip (clip-path moves nothing and lays nothing out): the form is uncovered in place. Shrinking has no field
+ * to protect (the keyboard is going or gone) and plays on the height.
+ */
+export function glidePanel(panel: HTMLElement, from: number, ms: number) {
+  if (typeof panel.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+  const to = panel.getBoundingClientRect().height
+  if (Math.abs(to - from) < 1) return
+  panel.getAnimations().filter((a) => (a.effect as KeyframeEffect | null)?.getKeyframes().some((k) => k.height || k.clipPath)).forEach((a) => a.cancel())
+  const ease = "cubic-bezier(0.32, 0.72, 0, 1)"
+  if (to > from) {
+    const r = getComputedStyle(panel).borderTopLeftRadius || "0px"
+    panel.animate([{ clipPath: `inset(${to - from}px 0 -200px 0 round ${r} ${r} 0 0)` }, { clipPath: `inset(0px 0 -200px 0 round ${r} ${r} 0 0)` }], { duration: ms, easing: ease })
+  } else {
+    panel.animate([{ height: `${from}px` }, { height: `${to}px` }], { duration: ms, easing: ease })
+  }
+}
+export const KEYBOARD_ROOM_GLIDE_MS = 360
+
 /* ── shared looks ─────────────────────────────────────────────────────── */
 
 const BUTTON = cn(PRIMARY_BUTTON, "h-12 w-full gap-2 rounded-xl text-[15px] transition-[background-color,opacity] duration-200 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none")
@@ -108,7 +178,7 @@ async function post(body: Record<string, unknown>, signal: AbortSignal) {
   return { response, data: (data ?? {}) as Record<string, unknown> & { error?: string } }
 }
 
-export function LinkImportForm({ onBack, onImported, onImportedMany }: { onBack: () => void; onImported: (productId: string) => void; onImportedMany?: () => void }) {
+export function LinkImportForm({ onBack, onImported, onImportedMany, focusNow = false }: { onBack: () => void; onImported: (productId: string) => void; onImportedMany?: () => void; /** A phone's Import tap: take the focus in this commit, inside the tap (the keyboard comes with the step). */ focusNow?: boolean }) {
   const [url, setUrl] = useState("")
   const [product, setProduct] = useState<LinkProduct | null>(null)
   const [catalog, setCatalog] = useState<Catalog | null>(null)
@@ -127,7 +197,57 @@ export function LinkImportForm({ onBack, onImported, onImportedMany }: { onBack:
   const physical = usePhysicalCommerceEnabled()
   const inSheet = useInSheet()
   useEffect(() => () => controller.current?.abort(), [])
-  /* A computer's cursor goes straight to the link; a phone waits for a tap (NO KEYBOARD ON THE WAY IN). */
+  /* THE KEYBOARD'S ROOM, above: written straight onto the element, in the frame the focus comes or goes, never through a render. */
+  const room = useRef<HTMLDivElement>(null)
+  const waiting = inSheet && !product && !catalog && !done && !outcomes
+  const openRoom = (glide: boolean) => {
+    const el = room.current
+    const panel = el?.closest<HTMLElement>("[data-sheet-panel]")
+    if (!el || !panel || !onPhone()) return
+    const from = panel.getBoundingClientRect().height
+    el.style.transition = "none"
+    el.style.height = `max(0px, calc(${expectedKeyboard(Math.round(panel.getBoundingClientRect().bottom))}px - var(--kb-inset, 0px)))`
+    if (glide) glidePanel(panel, from, KEYBOARD_ROOM_GLIDE_MS)
+    /* From the next frame on, the room follows the keyboard on the sheet's curve. */
+    requestAnimationFrame(() => { if (room.current === el) el.style.transition = KEYBOARD_ROOM_MOVE })
+  }
+  const closeRoom = () => {
+    const el = room.current
+    if (!el) return
+    el.style.transition = KEYBOARD_ROOM_MOVE
+    el.style.height = "0px"
+  }
+  /* The tap on Import (./kind-chooser) asks for the focus in its own handler: the room first, so the field is laid out above the keys when it takes it. */
+  useLayoutEffect(() => {
+    if (!focusNow || !waiting) return
+    openRoom(false)
+    field.current?.focus({ preventScroll: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, for the step the tap opened
+  }, [])
+  useEffect(() => {
+    const input = field.current
+    if (!waiting || !input) return
+    /* A tap on the field later (after the keyboard was put away): the room opens with a glide, in the focus's own frame. */
+    const onFocus = () => {
+      if (room.current && room.current.style.height && room.current.style.height !== "0px") return
+      openRoom(true)
+    }
+    const onBlur = () => closeRoom()
+    input.addEventListener("focus", onFocus)
+    input.addEventListener("blur", onBlur)
+    return () => {
+      input.removeEventListener("focus", onFocus)
+      input.removeEventListener("blur", onBlur)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the field's own listeners, while it waits for a link
+  }, [waiting])
+  useEffect(() => {
+    if (!inSheet) return
+    const heard = (e: Event) => rememberKeyboard(Number((e as CustomEvent<{ inset?: number }>).detail?.inset))
+    window.addEventListener(KEYBOARD_CHANGE_EVENT, heard)
+    return () => window.removeEventListener(KEYBOARD_CHANGE_EVENT, heard)
+  }, [inSheet])
+  /* A computer's cursor goes straight to the link, a frame later; a phone's came in the Import tap itself (focusNow). */
   useEffect(() => {
     if (!window.matchMedia("(pointer: fine)").matches) return
     /* A frame later: the dialog's focus trap first settles the focus the Import button took with it. */
@@ -248,6 +368,7 @@ export function LinkImportForm({ onBack, onImported, onImportedMany }: { onBack:
         </div>
         {!product && !catalog ? <button type="submit" disabled={!!busy || !url.trim()} className={cn(BUTTON, "mt-3")}>{busy ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : null}{busy === "preview" ? tt("Reading…") : tt("Continue")}</button> : null}
       </form>
+      {waiting ? <div ref={room} aria-hidden data-keyboard-room="" style={{ height: 0 }} className="motion-reduce:!transition-none" /> : null}
 
       {product ? <div data-link-preview="" className={cn("mt-4 space-y-4", ENTER)}>
         <div className={cn(SURFACE, "flex items-center gap-3 p-2.5")}>

@@ -646,6 +646,8 @@ const SUITES = [
   "tests/navigation-and-collections.test.ts",
   "tests/collections-ui.test.ts",
   "tests/native-google-sign-in.test.ts",
+  /* Log out forgets the account on the device and Google asks which account; the arrival note stands over the phone's bar; a sign in hands off to /app under one white veil. */
+  "tests/sign-out-and-arrival.test.ts",
   "tests/editor-feel.test.ts",
   "tests/value-pills-menus.test.ts",
   "tests/code-backups.test.ts",

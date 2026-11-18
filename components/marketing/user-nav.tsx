@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
+import { endDeviceSession } from "@/lib/auth/log-out"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -35,8 +36,8 @@ export function UserNav({ user, profile, isCreator }: UserNavProps) {
 
   const handleSignOut = async () => {
     setIsLoading(true)
-    const supabase = createClient()
-    await supabase.auth.signOut({ scope: "local" })
+    /* The browser's sign out, the server's, then this device forgets the account (lib/auth/log-out). */
+    await endDeviceSession("local", createClient().auth)
     if (isNativePlatform()) {
       window.location.replace("/welcome")
     } else {

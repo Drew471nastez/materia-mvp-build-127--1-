@@ -8,7 +8,7 @@
 import { useCallback, useSyncExternalStore } from "react"
 import { flushSync } from "react-dom"
 import { intoAppStillUp } from "@/lib/navigation/into-app-still"
-import { APPEARANCE_KEY, APP_FROM_DARK_CLASS, APP_FROM_DARK_MS, APP_FROM_DARK_OUT_CLASS, DARK_ATTR, LEGACY_APPEARANCE_KEY, LOOK_NOW_KEY, isAppearance, themedPath, type Appearance } from "./site-appearance"
+import { APPEARANCE_KEY, APP_FROM_DARK_CLASS, APP_FROM_SIGN_IN_CLASS, APP_FROM_DARK_MS, APP_FROM_DARK_OUT_CLASS, DARK_ATTR, LEGACY_APPEARANCE_KEY, LOOK_NOW_KEY, isAppearance, themedPath, type Appearance } from "./site-appearance"
 
 const listeners = new Set<() => void>()
 /** A page's own look for people who never chose (a community whose creator picked dark); see setPageDefaultAppearance. */
@@ -181,7 +181,7 @@ export function revealAppFromDark() {
   const html = document.documentElement
   if (!html.classList.contains(APP_FROM_DARK_CLASS) || html.classList.contains(APP_FROM_DARK_OUT_CLASS)) return
   html.classList.add(APP_FROM_DARK_OUT_CLASS)
-  window.setTimeout(() => html.classList.remove(APP_FROM_DARK_CLASS, APP_FROM_DARK_OUT_CLASS), APP_FROM_DARK_MS + 60)
+  window.setTimeout(() => html.classList.remove(APP_FROM_DARK_CLASS, APP_FROM_DARK_OUT_CLASS, APP_FROM_SIGN_IN_CLASS), APP_FROM_DARK_MS + 60)
 }
 
 /* ── A page's own default (a community whose creator picked dark) ─────────── */

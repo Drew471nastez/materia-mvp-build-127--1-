@@ -1,11 +1,12 @@
 "use client"
 
 import { memo, useEffect, useState } from "react"
-import { Filter } from "lucide-react"
+import { ListFilter } from "lucide-react"
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from "../analytics/add-reports"
 import { hapticTap } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
+import { iconButton } from "../orders/order-parts"
 import { tt } from "@/lib/i18n/text"
 import type { ProductFilterValue, ProductListStatus, StockFilter } from "@/lib/products/admin-filters"
 
@@ -74,9 +75,17 @@ export const ProductFilters = memo(function ProductFilters({ value, onApply }: {
     else onApply(next)
   }
   return <>
-    <button type="button" data-product-filters="" aria-label={count ? tt("Filters ({value})", { value: count }) : tt("Filters")} aria-haspopup="dialog" aria-expanded={open} onClick={() => { hapticTap("soft"); setDraft(value); setPending(null); setPhone(window.matchMedia("(max-width: 767px)").matches); setOpen(true) }} className={cn("relative grid h-11 w-11 shrink-0 place-items-center rounded-full text-[#4b5563] outline-none transition-colors hover:bg-[#f1f2f4] focus-visible:ring-2 focus-visible:ring-violet-300", count > 0 && "bg-[#eceef1] text-[#1a1a2e]")}>
-      <Filter className="h-5 w-5" />
-      {count > 0 ? <span aria-hidden className="absolute right-1 top-1 h-2 w-2 rounded-full bg-[#8b5cf6]" /> : null}
+    {/*
+      THE CONTROL, AS ITS NEIGHBOURS (products round 42). It sat between
+      Search and Sort as the only one drawn on its own terms: a funnel, a
+      transition with no duration, a dot laid over the corner when a filter
+      was on. Now it is the toolbar's own round 44px button (Search's and
+      Sort's iconButton) with the list-filter mark at the same 20px and 2px
+      stroke as theirs; a filter in force tints it in the /app violet rather
+      than pinning a dot to it, and the label still says how many.
+    */}
+    <button type="button" data-product-filters="" data-active={count > 0 ? "" : undefined} aria-label={count ? tt("Filters ({value})", { value: count }) : tt("Filters")} title={tt("Filters")} aria-haspopup="dialog" aria-expanded={open} onClick={() => { hapticTap("soft"); setDraft(value); setPending(null); setPhone(window.matchMedia("(max-width: 767px)").matches); setOpen(true) }} className={cn(iconButton, "h-11 w-11 shrink-0 rounded-full outline-none [-webkit-tap-highlight-color:transparent] focus-visible:ring-2 focus-visible:ring-violet-300", count > 0 && "bg-[#f3effe] text-[#6d28d9] hover:bg-[#ece5fd] active:bg-[#e4dafc]")}>
+      <ListFilter className="h-5 w-5" strokeWidth={2} aria-hidden />
     </button>
     <SheetDialog open={open} onClose={() => setOpen(false)} phone={phone} label={tt("Filters")} showCloseButton={false} sheet={{ fill: false, maxHeight: "90dvh", onClosed: () => { if (pending) { onApply(pending); setPending(null) } } }} className="max-w-[420px] gap-0 rounded-2xl sm:max-w-[420px] border-[#e5e7eb] bg-white p-0 shadow-[0_24px_64px_-16px_rgba(17,24,39,0.28),0_2px_6px_rgba(17,24,39,0.06)]" dialog={{ "aria-describedby": undefined }}>
       <div data-filters-sheet="" className="px-3 pb-[calc(env(safe-area-inset-bottom,0px)+16px)] pt-1 md:px-3 md:pt-4">

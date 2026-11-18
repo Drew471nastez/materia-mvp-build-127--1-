@@ -115,7 +115,8 @@ function loadedFor(id: string): LoadedProduct {
       call_to_action: "Buy Now",
       category: CATEGORIES[n % 3],
       pay_what_you_want: false,
-      video_url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      /* `window.__fixtureNoVideo` (scripts/check-products-touch.mjs): no film first, so a save keeps the cover the list shows. */
+      video_url: (window as unknown as { __fixtureNoVideo?: boolean }).__fixtureNoVideo ? null : "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
       thumbnail_url: pic(260),
       gallery_urls: [pic(260), pic(20)],
       whats_included: ["40 presets", "Before and after files"],

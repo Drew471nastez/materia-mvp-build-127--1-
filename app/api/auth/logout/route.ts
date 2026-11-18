@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server"
 import { cookies } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
 import { HOST_PREFIX, plantedExpiries } from "@/lib/supabase/host-session"
+import { CARRY_COOKIE } from "@/lib/auth/continue"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -87,6 +88,9 @@ export async function POST(request: NextRequest) {
       legacy.push(c.name)
     }
   }
+
+  /* The carry of a Continue with Google or Apple that was started and never finished (app/(storelib)/auth/start) was this account's too. */
+  if (jar.get(CARRY_COOKIE)) jar.set(CARRY_COOKIE, "", { path: "/", maxAge: 0 })
 
   const headers = { "Cache-Control": "no-store" }
   const res = form ? NextResponse.redirect(new URL("/", request.url), { status: 303, headers }) : NextResponse.json({ ok: true, auth }, { headers })

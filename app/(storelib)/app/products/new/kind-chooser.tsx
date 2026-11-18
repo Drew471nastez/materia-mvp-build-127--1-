@@ -36,6 +36,7 @@
  */
 
 import * as React from "react"
+import { flushSync } from "react-dom"
 import { useRouter } from "next/navigation"
 import { ChevronRight, X } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -49,7 +50,7 @@ import { NEW_PRODUCT_HREF, editorHref, kindHref, kindOptions, type ProductKind }
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { tt, msg } from "@/lib/i18n/text"
 
-import { ImportArt, LinkImportForm } from "./link-import-form"
+import { ImportArt, LinkImportForm, glidePanel } from "./link-import-form"
 
 type Router = ReturnType<typeof useRouter>
 
@@ -161,6 +162,9 @@ export function KindList({ onChoose, onImport }: { onChoose: (kind: ProductKind)
   )
 }
 
+/** How long the sheet takes to glide between the kinds and the Import form. */
+export const STEP_GLIDE_MS = 360
+
 export const GUMROAD_IMPORT_HREF = "/app/products/import/gumroad"
 
 const CLOSE =
@@ -235,6 +239,43 @@ const NewProductChooser = React.memo(function NewProductChooser({ control }: { c
     if (!phone) go()
   }
   const close = () => setOpen(false)
+  /*
+    ONE SHEET THAT CHANGES SIZE, NOT TWO SHEETS (products round 42). Import and
+    Back swap what the sheet holds in one commit, and the panel took its new
+    height in that frame: four tall rows going to a short form dropped the
+    sheet's top edge 170px at once ("it collapses"). The height it had is kept
+    across the swap and the panel glides to its new one on the sheet's own
+    curve. The panel stays on the bottom edge throughout, so nothing under it
+    shows; only its top moves. Layout per frame on one panel for STEP_GLIDE_MS, nothing
+    under reduced motion.
+  */
+  const stepFrom = React.useRef<number | null>(null)
+  const step = (next: boolean) => {
+    const panel = body.current?.closest<HTMLElement>("[data-sheet-panel]")
+    stepFrom.current = phone && panel ? panel.getBoundingClientRect().height : null
+    setImporting(next)
+  }
+  React.useLayoutEffect(() => {
+    const from = stepFrom.current
+    stepFrom.current = null
+    const panel = body.current?.closest<HTMLElement>("[data-sheet-panel]")
+    if (from === null || !panel) return
+    glidePanel(panel, from, STEP_GLIDE_MS)
+  }, [importing])
+  /*
+    IMPORT BRINGS THE KEYBOARD WITH IT, on a phone (products round 42). The
+    step is committed inside the tap's own handler (flushSync), and the form
+    puts the focus in its link field in that commit (LinkImportForm
+    focusNow): a focus inside a tap is the one iOS answers with its keyboard,
+    so the keyboard rises while the sheet glides, rather than on a second tap
+    that made the page pan. A computer's dialog focuses the field itself a
+    frame later, as it did.
+  */
+  const toImport = () => {
+    hapticTap("soft")
+    if (phone) flushSync(() => step(true))
+    else step(true)
+  }
   const heading = <div className="flex shrink-0 items-center justify-between gap-3 bg-white px-5 pb-3 pt-2 md:px-0 md:pt-0">
     <SheetDialogTitle className="text-[17px] font-semibold leading-6 text-[#1a1a2e]">{importing ? tt("Import product") : tt(CHOOSER_TITLE)}</SheetDialogTitle>
     <button type="button" onClick={close} aria-label={tt("Close")} className={CLOSE}><X className="h-4 w-4" /></button>
@@ -265,7 +306,7 @@ const NewProductChooser = React.memo(function NewProductChooser({ control }: { c
     >
       <div ref={body} data-new-product-chooser="" className="min-h-0 px-5 pb-3 md:pt-5">
         {!phone ? heading : null}
-        {importing ? <LinkImportForm onBack={() => setImporting(false)} onImported={(id) => { target.current = `/app/products/${id}`; prefetchAppPage(router, target.current); setOpen(false); if (!phone) go() }} onImportedMany={() => { setOpen(false); router.refresh() }} /> : <KindList onChoose={choose} onImport={() => { hapticTap("soft"); setImporting(true) }} />}
+        {importing ? <LinkImportForm focusNow={phone} onBack={() => step(false)} onImported={(id) => { target.current = `/app/products/${id}`; prefetchAppPage(router, target.current); setOpen(false); if (!phone) go() }} onImportedMany={() => { setOpen(false); router.refresh() }} /> : <KindList onChoose={choose} onImport={toImport} />}
       </div>
     </SheetDialog>
   )

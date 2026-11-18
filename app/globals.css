@@ -273,6 +273,11 @@ html.app-from-dark::after {
     background-color: #131316;
   }
 }
+/* FROM A SIGN IN (lib/appearance/site-appearance FROM_SIGN_IN_KEY): the same veil in the sign in screen's own white, so
+   the white screen is followed by white and the dashboard comes up out of it, never a hard cut to the header's colour. */
+html.app-from-dark.app-from-sign-in::after {
+  background-color: #ffffff;
+}
 html.app-from-dark.app-from-dark-out::after {
   opacity: 0;
 }
@@ -4448,6 +4453,17 @@ html.app-layout .app-content-scroll > .dashboard-scroll-container,
 html.app-layout .app-content-scroll > .sales-scroll-container {
   overscroll-behavior: none;
 }
+/* A PAGE THAT ASKS FOR ITS RUBBER BAND BACK (products round 42, the Products
+   list: app/(storelib)/app/products/products-client.tsx). `contain`, not
+   `none`: the flick that reaches either end gives and springs back on this
+   box, in its own ground, and still never chains to the shell's scroller or
+   the document behind the black bar. Horizontal stays `none` (the back
+   swipe). The pull to refresh at the top is unchanged: it holds the box
+   still itself while a pull is under the finger (hooks/use-pull-to-refresh). */
+html.app-layout .app-content-scroll > .page-scroll[data-elastic-pane] {
+  overscroll-behavior-x: none;
+  overscroll-behavior-y: contain;
+}
 
 /* ── Keyboard-aware scroll container height ──────────────────────────────────
  *
@@ -5728,6 +5744,17 @@ html.capacitor .orders-list [data-phone-row] a:active {
     transition-delay: 130ms;
     transition-duration: 60ms;
   }
+}
+/* The Products bar's Add (products round 42): its press is one shade deeper on its own ease (ADD_LOOK), so the shell's
+   72% dim, which snapped in with no easing on a violet button, is not drawn over it, and the shell's
+   `transition: opacity` on every control (above) does not leave the colour to change in one frame. */
+html.capacitor [data-new-product] {
+  transition: background-color 150ms ease-out;
+}
+html.capacitor [data-new-product]:active {
+  opacity: 1;
+  transition-delay: 0ms;
+  transition-duration: 90ms;
 }
 /* Settings' tabs on a phone: a swipe along the row never dims the pill it started on (round 22, components/app/settings-form-new.tsx). */
 html.capacitor [data-settings-tabs] button:active {

@@ -7,11 +7,14 @@
  *
  *   SHAPE     a sheet on the phone's bottom edge, full width; a dialog in
  *             the middle of a computer's window, at most 520px wide
- *   ROWS      a digital product and a video course, and Paid community
- *             only while communities are switched on; never Membership
- *             (memberships are communities now). Each with its drawing,
- *             its name and one line; every row at least 56px tall, nothing
- *             scrolls sideways
+ *   ROWS      a digital product, a video course and Import, whatever the
+ *             communities switch says (a community is made from the
+ *             Community page now, ./product-kinds); never Membership.
+ *             Each with its drawing and its name; every row at least 56px
+ *             tall, nothing scrolls sideways. Changed on purpose (products
+ *             round 42): this probe still asked for "What are you
+ *             selling?", Paid community and no Import row, none of which
+ *             the chooser has had for several rounds
  *   MOTION    the phone's sheet rises, every frame higher than
  *             the last, at a 4x slower CPU; the longest gap between frames
  *             is reported
@@ -19,8 +22,10 @@
  *             Home move it; Escape closes and the focus is back on New product
  *   ANSWERS   Digital product and Video course open their editors
  *             (/app/products/new?type=digital, ?type=course) by the router;
- *             Paid community opens /app/community/new; nothing is posted
- *             anywhere by a pick; both editors were fetched ahead
+ *             Import opens the link form in place and goes nowhere, with
+ *             the link field focused (on a phone in the tap itself, so the
+ *             keyboard comes with it); nothing is posted anywhere by a
+ *             pick; both editors were fetched ahead
  *   PAGE      /app/products/new with no kind: the same answers, and a pick
  *             replaces the page with its editor
  *
@@ -94,6 +99,18 @@ const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-
 async function openPage(vp, hash = "sheet") {
   const p = await browser.newPage()
   await p.setViewport(vp)
+  /* A computer has a mouse. This headless Chromium answers (pointer: fine) with false even when told otherwise, and the
+     link form asks it before focusing its field on a computer, so on the computer sizes the page is answered for it. */
+  if (!vp.hasTouch) {
+    await p.evaluateOnNewDocument(() => {
+      const real = window.matchMedia.bind(window)
+      window.matchMedia = (q) => {
+        const m = real(q)
+        if (q.trim() !== "(pointer: fine)") return m
+        return { matches: true, media: q, onchange: null, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, dispatchEvent: () => false }
+      }
+    })
+  }
   const errors = []
   p.on("pageerror", (e) => errors.push(String(e).slice(0, 200)))
   await p.setRequestInterception(true)
@@ -138,7 +155,8 @@ for (const [label, vp, phone] of [
   for (const on of [false, true]) {
   const tag = `${label}-communities-${on ? "on" : "off"}`
   const sheet = on ? "sheet-on" : "sheet"
-  const want = on ? "digital,course,community" : "digital,course"
+  /* The communities switch no longer adds an answer: the same rows either way. */
+  const want = "digital,course,import"
   console.log(`\n${tag}`)
   /* ── SHAPE, ROWS, MOTION ─────────────────────────────────────────── */
   {
@@ -199,9 +217,10 @@ for (const [label, vp, phone] of [
     expect(rows.map((r) => r.kind).join() === want, `ROWS: ${want}`, rows.map((r) => r.kind))
     expect(!rows.some((r) => /membership/i.test(`${r.kind} ${r.text}`)), "ROWS: no Membership anywhere", rows.map((r) => r.text))
     expect(rows.every((r) => r.h >= 56 && r.art), "ROWS: each at least 56px tall, with its drawing", rows.map((r) => r.h))
-    expect(/Digital product/.test(rows[0]?.text) && /Video course/.test(rows[1]?.text) && (!on || /Paid community/.test(rows[2]?.text)), "ROWS: the names and their lines", rows.map((r) => r.text))
-    const title = await p.evaluate(() => document.querySelector("[data-new-product-chooser]")?.innerText.split("\n")[0])
-    expect(title === "What are you selling?", "the question", title)
+    expect(/Digital product/.test(rows[0]?.text) && /Video course/.test(rows[1]?.text) && /Import/.test(rows[2]?.text), "ROWS: the names", rows.map((r) => r.text))
+    /* The title is the sheet's header on a phone and the dialog's first line on a computer. */
+    const title = await p.evaluate(() => (document.querySelector("[data-new-product-chooser]")?.closest("[role=dialog]")?.querySelector("h2")?.textContent ?? "").trim())
+    expect(title === "Create new product", "the question", title)
     const fit = await p.evaluate(() => ({ scroll: document.scrollingElement.scrollWidth, width: innerWidth }))
     expect(fit.scroll <= fit.width, "FIT: nothing scrolls sideways", fit)
     const prefetched = await p.evaluate(() => (window.__nav || []).filter((n) => n.kind === "prefetch").map((n) => n.href))
@@ -227,7 +246,7 @@ for (const [label, vp, phone] of [
       await p.keyboard.press(key)
       order.push(await focused())
     }
-    const keysWant = on ? "digital,course,community,digital,community,community,digital" : "digital,course,digital,course,digital,course,digital"
+    const keysWant = "digital,course,import,digital,import,import,digital"
     expect(order.join(",") === keysWant, "KEYS: first answer focused; down, down, down (wraps), up (wraps), End, Home", order)
     await p.keyboard.press("Escape")
     await sleep(400)
@@ -247,7 +266,6 @@ for (const [label, vp, phone] of [
   for (const [kind, goes] of [
     ["digital", "push /app/products/new?type=digital"],
     ["course", "push /app/products/new?type=course"],
-    ...(on ? [["community", "push /app/community/new"]] : []),
   ]) {
     const { p, errors } = await openPage(vp, sheet)
     await sleep(150)
@@ -265,6 +283,24 @@ for (const [label, vp, phone] of [
     await p.close()
   }
 
+  /* Import: the link form in place, nowhere to go, the field focused (a phone: in the tap's own task). */
+  {
+    const { p, errors } = await openPage(vp, sheet)
+    await sleep(150)
+    await p.click("[data-new-product]")
+    await settled(p)
+    await p.evaluate(() => window.addEventListener("click", () => { window.__importFocus = document.activeElement?.id ?? null }, { once: true }))
+    if (phone) await p.tap(`[data-new-product-chooser] [data-kind="import"]`)
+    else await p.click(`[data-new-product-chooser] [data-kind="import"]`)
+    await sleep(400)
+    const state = await p.evaluate(() => ({ form: !!document.querySelector("[data-new-product-chooser] [data-link-import]"), inTap: window.__importFocus, now: document.activeElement?.id ?? null, posts: window.__posts.length }))
+    const went = await nav(p)
+    expect(state.form && went.length === 0 && state.posts === 0, "ANSWERS: Import opens the link form in place, goes nowhere, posts nothing", { ...state, went })
+    expect(phone ? state.inTap === "product-import-url" : state.now === "product-import-url", phone ? "ANSWERS: Import puts the focus in the link field in the tap itself (the keyboard comes with it)" : "ANSWERS: Import puts the focus in the link field", state)
+    expect(errors.length === 0, "no errors on the page", errors)
+    await p.close()
+  }
+
   /* ── PAGE ─────────────────────────────────────────────────────────── */
   {
     const { p, errors } = await openPage(vp, on ? "page-on" : "page")
@@ -276,12 +312,12 @@ for (const [label, vp, phone] of [
       focus: document.activeElement?.getAttribute("data-kind") ?? null,
       scroll: document.scrollingElement.scrollWidth,
     }))
-    expect(page.title === "What are you selling?" && page.kinds.join() === want && page.scroll <= vp.width, "PAGE: the same question and answers", page)
+    expect(page.title === "Create new product" && page.kinds.join() === want && page.scroll <= vp.width, "PAGE: the same question and answers", page)
     if (!phone) expect(page.focus === "digital", "PAGE: the first answer has the focus on a computer", page.focus)
     await p.screenshot({ path: join(shots, `${tag}-page.png`) })
-    await p.click(`[data-kind-page] [data-kind="${on ? "community" : "course"}"]`)
+    await p.click(`[data-kind-page] [data-kind="course"]`)
     await sleep(200)
-    const replaced = on ? "replace /app/community/new" : "replace /app/products/new?type=course"
+    const replaced = "replace /app/products/new?type=course"
     expect((await nav(p)).join() === replaced, `PAGE: a pick replaces the page with where it goes (${replaced.slice(8)})`, await nav(p))
     expect(errors.length === 0, "no errors on the page", errors)
     await p.close()

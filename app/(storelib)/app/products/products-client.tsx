@@ -63,8 +63,21 @@ interface Product {
  * lists draw them. Only what a product has that an order does not is its
  * own: the picture, product metadata and illustrated creation sheet.
  */
-/** Products round 15: the bar's Add in the /app violet, white plus and word; a deeper violet on hover and press, with steady geometry under the finger. */
-const ADD_LOOK = "inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-[#8b5cf6] pl-3 pr-3.5 text-[14px] font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_1px_2px_rgba(76,29,149,0.22)] outline-none transition-[background-color,box-shadow] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-[#7c3aed] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_2px_6px_rgba(124,58,237,0.28)] active:bg-[#6d28d9] active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.2)] focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/40 focus-visible:ring-offset-2 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]"
+/**
+ * Products round 15: the bar's Add in the /app violet, white plus and word.
+ *
+ * A TAP IS ONE QUIET STEP, NOT A FLASH (products round 42). On the iPhone a
+ * tap on Add lit three things at once: the shell's press dim
+ * (`html.capacitor a:active`, 72% opacity) snapped in with no easing because
+ * opacity was not in this button's transition, the press colour jumped two
+ * shades, and app/globals.css's touch rule for anything carrying
+ * `hover:shadow` set every transition here to 0ms and stripped the shadow
+ * while iOS kept :hover stuck on the button after the tap. So: hover is for
+ * a mouse only (`pointer-fine:`), there is no hover shadow for the touch
+ * rule to find, a press is one shade deeper on a 90ms ease, and the dim is
+ * turned off for this button (globals.css, [data-new-product]).
+ */
+const ADD_LOOK = "inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-[#8b5cf6] pl-3 pr-3.5 text-[14px] font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_1px_2px_rgba(76,29,149,0.22)] outline-none transition-[background-color] duration-150 ease-out pointer-fine:hover:bg-[#7c3aed] active:bg-[#7c3aed] pointer-fine:active:bg-[#6d28d9] active:duration-[90ms] focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/40 focus-visible:ring-offset-2 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent] [touch-action:manipulation]"
 const NEW_LOOK = "inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-white px-3.5 text-[14px] font-medium text-[#1a1a2e] shadow-[0_0_0_1px_rgba(17,24,39,0.08),0_1px_2px_rgba(17,24,39,0.05)] outline-none transition-[background-color] duration-150 hover:bg-[#f8f9fa] focus-visible:ring-2 focus-visible:ring-violet-300 motion-reduce:transition-none"
 /** A phone's press is 44px tall around a 32px bar button, as Orders' Export is. */
 const BAR_PRESS = "relative before:absolute before:-inset-y-1.5 before:inset-x-0 before:content-[''] sm:before:hidden"
@@ -918,8 +931,20 @@ export function ProductsClient({ products: initialProducts, creatorUsername, cre
     return () => observer.disconnect()
   }, [])
 
+  /*
+    THE LIST GIVES AT BOTH ENDS (products round 42). "Scrolling stops hard,
+    not elastic." The pane carried `overscroll-behavior: none` from the
+    shell's rule for every page that scrolls itself, and on iOS 16 and later
+    `none` on a scroller takes its rubber band away: a flick hit the top or
+    the bottom and stopped dead. With a few products the pane is only a
+    title's height taller than the screen, so a flick went from the big title
+    to the toolbar in one frame and back, which read as the header jumping
+    between two layouts. data-elastic-pane is `contain` (app/globals.css):
+    the band comes back on this box, in its own #f8f9fa, and still never
+    chains to the shell or the document.
+  */
   return (
-    <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter">
+    <div data-elastic-pane="" className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter">
       {notification.visible && (
         <div className="fixed top-[calc(68px+env(safe-area-inset-top)+12px)] md:top-[calc(58px+env(safe-area-inset-top)+14px)] left-1/2 -translate-x-1/2 z-[100] animate-in fade-in-0 slide-in-from-top-2 duration-300">
           <div className={`px-4 py-3 rounded-xl shadow-lg ${notification.type === "error" ? "bg-rose-600" : "bg-[#1a1a2e]"} text-white text-[13px] font-medium whitespace-nowrap max-w-[calc(100vw-2rem)] overflow-hidden text-ellipsis`}>
@@ -1338,7 +1363,8 @@ const PhoneRow = memo(function PhoneRow({
           <span data-price="" className="shrink-0 text-[16px] font-medium tabular-nums text-[#1a1a2e]"><PriceOf cents={product.price_cents} type={product.type} /></span>
         </span>
         <span data-meta="" className="mt-1 flex h-[22px] min-w-0 items-center gap-2">
-          {status !== "live" ? <StatusBadge tone={STATUS_TONE[status]} className="shrink-0"><span>{statusText}</span></StatusBadge> : null}
+          {/* The status in slots the way back can correct in the list's kept copy (./list-return updateListCopy). */}
+          <span data-row-status="phone" className="contents">{status !== "live" ? <span data-status-badge={status} className="contents"><StatusBadge tone={STATUS_TONE[status]} className="shrink-0"><span>{statusText}</span></StatusBadge></span> : null}</span>
           {(product.sales_count ?? 0) >= 0 ? (
             <span className="truncate text-[14px] tabular-nums text-[#6b7280]">{tt("{value} sold", { value: (product.sales_count ?? 0).toLocaleString(appLocale()) })}</span>
           ) : null}
@@ -1402,6 +1428,7 @@ const TableRow = memo(function TableRow({
           <Link
             href={href}
             onClick={(e) => api.current?.open(product.id)(e)}
+            data-name=""
             className="min-w-0 truncate font-medium text-[#1a1a2e] outline-none hover:underline focus-visible:underline"
           >
             {product.title || tt("Untitled draft")}
@@ -1409,12 +1436,12 @@ const TableRow = memo(function TableRow({
         </div>
       </td>
       <td className={cn(cell, "whitespace-nowrap px-3")}>
-        {status !== "live" ? <StatusBadge tone={STATUS_TONE[status]}><span>{statusText}</span></StatusBadge> : <span className="sr-only">{statusText}</span>}
+        <span data-row-status="table" className="contents">{status !== "live" ? <span data-status-badge={status} className="contents"><StatusBadge tone={STATUS_TONE[status]}><span>{statusText}</span></StatusBadge></span> : <span className="sr-only">{statusText}</span>}</span>
       </td>
       <td className={cn(cell, "hidden whitespace-nowrap px-3 text-right tabular-nums text-[#4b5563] lg:table-cell")}>
         {product.sales_count ? (product.sales_count ?? 0).toLocaleString(appLocale()) : <span className="text-[#9ca3af]">0</span>}
       </td>
-      <td className={cn(cell, "whitespace-nowrap px-3 text-right font-medium tabular-nums text-[#1a1a2e]")}><PriceOf cents={product.price_cents} type={product.type} /></td>
+      <td data-price="" className={cn(cell, "whitespace-nowrap px-3 text-right font-medium tabular-nums text-[#1a1a2e]")}><PriceOf cents={product.price_cents} type={product.type} /></td>
       <td className={cn(cell, "pr-2 text-right")}>
         <div data-row-actions="" className="flex items-center justify-end">
           {opening ? <OpeningMark /> : (
@@ -1512,7 +1539,7 @@ function Thumb({ src, title, size }: { src: string | null; title: string; size: 
           className="h-full w-full object-cover"
         />
       ) : (
-        <span aria-hidden className={cn("flex h-full items-center justify-center font-semibold text-[#9ca3af]", phone ? "text-[18px]" : "text-[15px]")}>
+        <span aria-hidden data-thumb-letter="" className={cn("flex h-full items-center justify-center font-semibold text-[#9ca3af]", phone ? "text-[18px]" : "text-[15px]")}>
           {letter}
         </span>
       )}

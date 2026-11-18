@@ -55,7 +55,7 @@ export async function GET(request: Request) {
   // the callback won't find the cookie → "invalid flow state" error.
   const callbackOrigin = origin
 
-  /* Nothing extra for Google any more, so it continues with the account it has: lib/auth/google-oauth-params.ts. Apple refuses Google's parameters either way. */
+  /* Google gets its account chooser, so a person who logged out can pick another account: lib/auth/google-oauth-params.ts. Apple refuses Google's parameters either way. */
   const googleQueryParams = oauthQueryFor(provider)
 
   const { data, error } = await supabase.auth.signInWithOAuth({

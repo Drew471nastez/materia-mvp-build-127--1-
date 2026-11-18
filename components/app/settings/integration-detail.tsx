@@ -49,10 +49,29 @@ import { tt } from "@/lib/i18n/text"
 import { PageIntegrationsSection } from "@/components/onepage/page-integrations"
 import { isPageIntegration } from "@/lib/onepage/integrations/catalog"
 
-/* A card with a little depth: the hairline, a contact shadow and a soft one under it. */
-const DEPTH = "rounded-2xl border border-[#e5e7eb]/70 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-14px_rgba(16,24,40,0.14)]"
-const SECTION_HEAD = "border-b border-[#f1f2f4] px-4 py-3.5 sm:px-6"
+/*
+  A CARD, AS EVERY /app CARD ON A PHONE (the mobile pass, the owner: "more
+  native, iOS, clean, Shopify like"). On a phone a grouped white card on the
+  page's grey, with the /app hairline and contact shadow and its sides from
+  --app-card-x, so the page reads as one settings screen with Products and
+  Coupons. From 640px it keeps a little depth: the hairline, a contact shadow
+  and a soft one under it.
+*/
+const DEPTH = "rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:border-[#e5e7eb]/70 sm:shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-14px_rgba(16,24,40,0.14)]"
+const PAD = "app-card-x py-4 sm:py-5"
+const SECTION_HEAD = "border-b border-[#f1f2f4] app-card-x py-3.5"
 const H3 = "text-[15px] font-semibold text-[#1a1a2e]"
+/* One row of a grouped list (Status, At a glance): 44px a row on a phone, as a settings screen's rows are; the rows' own rhythm from 640px. */
+const ROW = "flex min-h-11 items-center justify-between gap-4 py-2 sm:min-h-0 sm:items-baseline"
+/*
+  A PHONE'S PRESSES INSIDE A PANEL. The panels in the setup card are shared
+  (GA's check, a provider's key, Klaviyo's sync) and draw 40px buttons, the
+  computer's size. Inside this page, on a phone, each is 44px, the same as
+  the page's own; their 40px stays wherever else they are drawn.
+*/
+const PANEL_PRESS = "max-sm:[&_:is(button,a).h-10]:h-11 max-sm:[&_:is(button,a).h-9]:h-11"
+/* A small press that keeps its look and gets a 44px target around it (the following bar's buttons, where a taller one would move the bar). */
+const HIT = "relative after:absolute after:-inset-1 after:content-['']"
 
 /*
   THE BANNER'S COLOUR. The service's own brand colour where it is known (its
@@ -388,11 +407,11 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
 
   const setup = (
     <>
-      <section ref={setupRef} className={cn(DEPTH, "scroll-mt-4 overflow-hidden")} aria-labelledby="integration-install" data-integration-install="">
+      <section ref={setupRef} className={cn(DEPTH, "scroll-mt-4 overflow-hidden", PANEL_PRESS)} aria-labelledby="integration-install" data-integration-install="">
         <div className={SECTION_HEAD}>
           <h3 id="integration-install" className={H3}>{notifyOnly ? tt("Get notified") : installed ? tt("Settings") : tt("Set up")}</h3>
         </div>
-        <div className="px-4 py-4 sm:px-6 sm:py-5">
+        <div className={PAD}>
           <div key={panelKey}>{panel}</div>
         </div>
         {steps.length > 0 ? (
@@ -404,7 +423,7 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
           <button
             type="button"
             onClick={() => setHowTo(true)}
-            className="group flex h-12 w-full items-center gap-3 border-t border-[#f1f2f4] px-4 text-left outline-none transition-colors duration-150 hover:bg-[#f8f9fa] active:bg-[#f1f2f4] focus-visible:bg-[#f8f9fa] sm:h-11 sm:px-6 [-webkit-tap-highlight-color:transparent]"
+            className="group flex h-12 w-full items-center gap-3 border-t border-[#f1f2f4] app-card-x text-left outline-none transition-colors duration-150 hover:bg-[#f8f9fa] active:bg-[#f1f2f4] focus-visible:bg-[#f8f9fa] sm:h-11 [-webkit-tap-highlight-color:transparent]"
             data-integration-steps-open=""
           >
             <span className="min-w-0 flex-1 text-[13.5px] font-medium text-[#1a1a2e]">{tt("How to set it up")}</span>
@@ -415,11 +434,11 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
       </section>
       {item.kind === "tracker" && (item.trackerId === "klaviyo" || item.trackerId === "omnisend") && !notifyOnly ? (
         /* The key that sends subscribers and orders, apart from the onsite ID above (lib/integrations/marketing). */
-        <section className={cn(DEPTH, "overflow-hidden")} aria-labelledby="integration-sync" data-integration-sync="">
+        <section className={cn(DEPTH, "overflow-hidden", PANEL_PRESS)} aria-labelledby="integration-sync" data-integration-sync="">
           <div className={SECTION_HEAD}>
             <h3 id="integration-sync" className={H3}>{tt("Subscribers and orders")}</h3>
           </div>
-          <div className="px-4 py-4 sm:px-6 sm:py-5" key={panelKey}>
+          <div className={PAD} key={panelKey}>
             <MarketingSyncPanel provider={item.trackerId} onChanged={onMarketing} />
           </div>
         </section>
@@ -442,7 +461,7 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
   ]
   const statusSection =
     (installed || lastError) && diag.length > 0 && (item.kind !== "app" || item.appId === "marketing_sync") ? (
-      <section className={cn(DEPTH, "px-4 py-4 sm:px-6 sm:py-5")} aria-labelledby="integration-status" data-integration-status="">
+      <section className={cn(DEPTH, PAD)} aria-labelledby="integration-status" data-integration-status="">
         <div className="flex items-center justify-between gap-3">
           <h3 id="integration-status" className={H3}>{tt("Status")}</h3>
           <span className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#1a1a2e]">
@@ -450,9 +469,9 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
             {standing.label}
           </span>
         </div>
-        <dl className="mt-3 divide-y divide-[#f1f2f4]">
+        <dl className="mt-1.5 divide-y divide-[#f1f2f4] sm:mt-3">
           {diag.map((d) => (
-            <div key={d.label} className="flex items-baseline justify-between gap-4 py-2 first:pt-0 last:pb-0">
+            <div key={d.label} className={cn(ROW, "sm:first:pt-0 max-sm:last:-mb-2 sm:last:pb-0")}>
               <dt className="shrink-0 text-[13px] text-[#6b7280]">{d.label}</dt>
               <dd className={cn("min-w-0 break-words text-right text-[13.5px] font-medium", d.tone === "red" ? "text-[#b42318]" : "text-[#1a1a2e]")}>{d.value}</dd>
             </div>
@@ -468,18 +487,18 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
   const more = item.lead ? item.about : item.about.slice(1)
   const overview = (
     <section className={cn(DEPTH, "overflow-hidden")} aria-labelledby="integration-about" data-integration-about="">
-      <div className="px-4 py-4 sm:px-6 sm:py-5">
+      <div className={PAD}>
         <h3 id="integration-about" className={H3}>{tt("What it does")}</h3>
         <p className="mt-2 text-[14px] leading-[21px] text-[#4b5563]">{item.lead ?? item.about[0]}</p>
         {item.paused ? <Notice tone="gray" className="mt-3">{tt("{name} is paused on Storelib for now. Anything already set up keeps its settings.", { name: item.name })}</Notice> : null}
       </div>
       {more.length > 0 ? (
         <details className="group border-t border-[#f1f2f4]" data-integration-details="">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-[13.5px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#f8f9fa] sm:px-6 [&::-webkit-details-marker]:hidden">
+          <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 app-card-x py-3 text-[13.5px] font-medium text-[#1a1a2e] outline-none transition-colors duration-150 hover:bg-[#f8f9fa] active:bg-[#f1f2f4] focus-visible:bg-[#f8f9fa] sm:min-h-11 [-webkit-tap-highlight-color:transparent] [&::-webkit-details-marker]:hidden">
             {tt("How it works")}
-            <ChevronDown className="h-4 w-4 shrink-0 text-[#9ca3af] transition-transform duration-200 group-open:rotate-180" aria-hidden />
+            <ChevronDown className="h-4 w-4 shrink-0 text-[#9ca3af] transition-transform duration-200 ease-[cubic-bezier(0.2,0,0,1)] group-open:rotate-180 motion-reduce:transition-none" aria-hidden />
           </summary>
-          <div className="space-y-2 px-4 pb-5 text-[14px] leading-[21px] text-[#4b5563] sm:px-6">
+          <div className="space-y-2 app-card-x pb-5 text-[14px] leading-[21px] text-[#4b5563]">
             {more.map((p) => (
               <p key={p}>{p}</p>
             ))}
@@ -490,7 +509,7 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
   )
 
   const data = (
-    <section className={cn(DEPTH, "px-4 py-4 sm:px-6 sm:py-5")} aria-labelledby="integration-data" data-integration-data="">
+    <section className={cn(DEPTH, PAD)} aria-labelledby="integration-data" data-integration-data="">
       <h3 id="integration-data" className={H3}>{tt("Your data")}</h3>
       <ul className="mt-2 space-y-2 text-[14px] leading-[21px] text-[#4b5563]">
         {item.data.map((d) => (
@@ -506,26 +525,26 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
   const glanceRows = item.glance.filter((g) => g.label !== "Status")
   const glance = (
     /* Stuck under the following bar when there is one, so its title is never under it. */
-    <aside className={cn(DEPTH, "h-fit px-4 py-4 sm:px-5 lg:sticky", barOn ? "lg:top-[80px]" : "lg:top-4")} aria-labelledby="integration-glance" data-integration-glance="">
+    <aside className={cn(DEPTH, "h-fit app-card-x py-4 sm:px-5 lg:sticky", barOn ? "lg:top-[80px]" : "lg:top-4")} aria-labelledby="integration-glance" data-integration-glance="">
       <h3 id="integration-glance" className={H3}>{tt("At a glance")}</h3>
-      <dl className="mt-3 divide-y divide-[#f1f2f4]">
-        <div className="flex items-baseline justify-between gap-3 py-2 first:pt-0">
+      <dl className="mt-1.5 divide-y divide-[#f1f2f4] sm:mt-3">
+        <div className={cn(ROW, "gap-3 sm:first:pt-0")}>
           <dt className="text-[13px] text-[#6b7280]">{tt("Category")}</dt>
           <dd className="text-right text-[13.5px] font-medium text-[#1a1a2e]">{CATEGORY_NAMES[item.category]}</dd>
         </div>
-        <div className="flex items-baseline justify-between gap-3 py-2">
+        <div className={cn(ROW, "gap-3")}>
           <dt className="text-[13px] text-[#6b7280]">{tt("Status")}</dt>
           <dd className="text-right text-[13.5px] font-medium text-[#1a1a2e]">{standing.label}</dd>
         </div>
         {glanceRows.map((g) => (
-          <div key={g.label} className="flex items-baseline justify-between gap-3 py-2">
+          <div key={g.label} className={cn(ROW, "gap-3")}>
             <dt className="shrink-0 text-[13px] text-[#6b7280]">{g.label}</dt>
             <dd className="text-right text-[13.5px] font-medium text-[#1a1a2e]">{g.value}</dd>
           </div>
         ))}
       </dl>
       {item.docsUrl ? (
-        <a href={item.docsUrl} target="_blank" rel="noopener noreferrer" className={cn(BTN_SECONDARY, "mt-3 h-10 w-full rounded-xl")}>
+        <a href={item.docsUrl} target="_blank" rel="noopener noreferrer" className={cn(BTN_SECONDARY, "mt-3 h-11 w-full rounded-xl sm:h-10")}>
           {tt("{name} help", { name: item.name })}
           <ExternalLink className="h-3.5 w-3.5" aria-hidden />
         </a>
@@ -534,12 +553,12 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
   )
 
   const danger = plan ? (
-    <section className={cn(DEPTH, "flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-5")} aria-labelledby="integration-remove" data-integration-remove="">
+    <section className={cn(DEPTH, PAD, "flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between")} aria-labelledby="integration-remove" data-integration-remove="">
       <div className="min-w-0">
         <h3 id="integration-remove" className={H3}>{plan.verb === "turn_off" ? tt("Turn off {name}", { name: item.name }) : plan.verb === "remove" ? tt("Remove {name}", { name: item.name }) : tt("Disconnect {name}", { name: item.name })}</h3>
         <p className="mt-1 text-[13.5px] leading-[20px] text-[#6b7280]">{plan.consequence}</p>
       </div>
-      <button type="button" className={cn(BTN_DANGER, "shrink-0")} disabled={busy} onClick={() => setConfirming(true)}>
+      <button type="button" className={cn(BTN_DANGER, "h-11 w-full shrink-0 rounded-xl sm:h-10 sm:w-auto sm:rounded-lg")} disabled={busy} onClick={() => setConfirming(true)}>
         {verbLabel}
       </button>
     </section>
@@ -550,7 +569,8 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
   const Body = view?.Body
 
   /* ---- the actions in the header ---- */
-  const BTN = "h-10 flex-1 rounded-xl px-4 sm:flex-none"
+  /* 44px on a phone, where the two share the row; the computer's 40px from 640px. */
+  const BTN = "h-11 flex-1 rounded-xl px-4 sm:h-10 sm:flex-none"
   /* The one thing to do on the page, when there is one: Connect, Install, Turn on, or Tell me when it's ready. */
   const primaryLabel = notifyOnly ? tt("Tell me when it's ready") : !verb ? null : busy && oneTapInstall(item) ? tt("Turning on") : verb === "Turn on" ? tt("Turn on") : verb === "Connect" ? tt("Connect") : tt("Install")
   const pressPrimary = () => {
@@ -589,7 +609,7 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
         </button>
       ) : (
         <>
-          <span className={cn("inline-flex h-10 items-center gap-1.5 rounded-xl px-3.5 text-[13.5px] font-semibold", status === "built_in" ? "bg-[#f1f5f9] text-[#334155]" : status === "needs_attention" ? "bg-[#fffaeb] text-[#b54708]" : status === "error" ? "bg-[#fef3f2] text-[#b42318]" : "bg-[#ecfdf3] text-[#067647]")} data-integration-installed="">
+          <span className={cn("inline-flex h-11 items-center gap-1.5 rounded-xl px-3.5 text-[13.5px] font-semibold sm:h-10", status === "built_in" ? "bg-[#f1f5f9] text-[#334155]" : status === "needs_attention" ? "bg-[#fffaeb] text-[#b54708]" : status === "error" ? "bg-[#fef3f2] text-[#b42318]" : "bg-[#ecfdf3] text-[#067647]")} data-integration-installed="">
             {status === "installed" || status === "built_in" ? <Check className="h-4 w-4" aria-hidden /> : null}
             {status === "built_in" ? tt("Built in") : status === "needs_attention" ? tt("Needs attention") : status === "error" ? tt("Not working") : tt("Installed")}
           </span>
@@ -637,7 +657,7 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
                   type="button"
                   onClick={onBack}
                   aria-label={tt("Back to integrations")}
-                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#4b5563] outline-none transition-colors hover:bg-[#f1f2f4] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 [-webkit-tap-highlight-color:transparent]"
+                  className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#4b5563] outline-none transition-colors after:absolute after:-inset-1 after:content-[''] hover:bg-[#f1f2f4] active:bg-[#eceef1] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 [-webkit-tap-highlight-color:transparent]"
                   data-integration-pin-back=""
                 >
                   <ChevronLeft className="h-[18px] w-[18px]" aria-hidden />
@@ -653,12 +673,12 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
                   data-integration-pin-action-slot={actionOut ? "shown" : "hidden"}
                 >
                   {barAction === "primary" ? (
-                    <button type="button" disabled={busy} onClick={pressPrimary} className={cn(BTN_PRIMARY, "h-9 shrink-0 rounded-lg px-3.5")} data-integration-pin-action="">
+                    <button type="button" disabled={busy} onClick={pressPrimary} className={cn(BTN_PRIMARY, "h-9 shrink-0 rounded-lg px-3.5", HIT)} data-integration-pin-action="">
                       {primaryLabel}
                       {verb && verb !== "Turn on" ? <ArrowRight className="h-4 w-4" aria-hidden /> : null}
                     </button>
                   ) : (
-                    <button type="button" onClick={toSetup} className={cn(BTN_SECONDARY, "h-9 shrink-0 rounded-lg px-3")} data-integration-pin-action="">
+                    <button type="button" onClick={toSetup} className={cn(BTN_SECONDARY, "h-9 shrink-0 rounded-lg px-3", HIT)} data-integration-pin-action="">
                       <Settings2 className="h-4 w-4" aria-hidden />
                       {tt("Settings")}
                     </button>
@@ -669,7 +689,8 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
           </div>
         </div>
       ) : null}
-      <div className="space-y-4 sm:space-y-5" data-integration-page={item.id}>
+      {/* The page comes in on a 200ms fade (opacity only, so nothing fixed inside it loses its place), none under reduced motion. */}
+      <div className="space-y-3 motion-safe:animate-[app-page-enter_200ms_cubic-bezier(0.2,0,0,1)_backwards] sm:space-y-5" data-integration-page={item.id}>
         {onBack ? (
           /* The mark is what the bar watches: 64px under the link's foot, so it crosses into the bar's room as the link's last pixel leaves the top. */
           <div className="relative">
@@ -677,12 +698,12 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
               type="button"
               onClick={onBack}
               className={cn(
-                "-ml-2 inline-flex h-9 items-center gap-1 rounded-full pl-1.5 pr-3 text-[13.5px] font-medium text-[#4b5563] outline-none transition-[background-color,color,opacity] duration-200 ease-[cubic-bezier(0.2,0,0,1)] hover:bg-[#f1f2f4] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]",
+                "-ml-2 inline-flex h-11 items-center gap-1 rounded-full pl-1.5 pr-3 text-[14px] font-medium text-[#4b5563] outline-none transition-[background-color,color,opacity] duration-200 ease-[cubic-bezier(0.2,0,0,1)] hover:bg-[#f1f2f4] active:bg-[#eceef1] sm:h-10 sm:text-[13.5px] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]",
                 barShown ? "opacity-0" : "opacity-100",
               )}
               data-integration-back={barShown ? "away" : "here"}
             >
-              <ChevronLeft className="h-4 w-4" aria-hidden />
+              <ChevronLeft className="h-[18px] w-[18px] sm:h-4 sm:w-4" aria-hidden />
               {tt("Back to integrations")}
             </button>
             <span ref={backMark} aria-hidden className="pointer-events-none absolute left-0 h-px w-px" style={{ top: `calc(100% + ${PIN_ROOM - 1}px)` }} data-integration-back-mark="" />
@@ -691,15 +712,15 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
 
         <header className={cn(DEPTH, "overflow-hidden")} data-integration-header="">
           <div aria-hidden className="h-[84px] sm:h-[112px]" style={bannerStyle(bannerColor(item))} data-integration-banner="" />
-          <div className="px-4 pb-4 sm:px-7 sm:pb-6">
+          <div className="app-card-x pb-4 sm:px-7 sm:pb-6">
             <div className="-mt-9 inline-flex rounded-[18px] bg-white p-1.5 shadow-[0_1px_2px_rgba(16,24,40,0.06),0_6px_16px_-6px_rgba(16,24,40,0.18)] ring-1 ring-[#e5e7eb]/70 sm:-mt-11">
               <Mark item={item} size={60} />
             </div>
             <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between lg:gap-8">
               <div className="min-w-0 max-w-[680px]">
                 {/* The page's title where it is a page of its own (no Integrations title above it any more). */}
-                <Title className="text-[24px] font-bold leading-tight tracking-[-0.02em] text-[#1a1a2e] sm:text-[30px]">{item.name}</Title>
-                <p className="mt-1.5 text-[14.5px] leading-[22px] text-[#4b5563]">{item.summary}</p>
+                <Title className="text-[24px] font-bold leading-[30px] tracking-[-0.02em] text-[#1a1a2e] sm:text-[30px] sm:leading-tight">{item.name}</Title>
+                <p className="mt-1 text-[14.5px] leading-[21px] text-[#4b5563] sm:mt-1.5 sm:leading-[22px]">{item.summary}</p>
                 {/*
                   ONE LINE (round 27, the owner: "Reviews, Made by Storelib, Connected, Working on your store" was too much
                   text): the category, who made it and where it stands. The sentence under it only when it says something
@@ -719,7 +740,7 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
                   </p>
                 ) : null}
                 {!Body ? (
-                  <button type="button" onClick={() => setDetails(true)} className="-ml-1 mt-1.5 inline-flex h-8 items-center gap-0.5 rounded-lg pl-1 pr-1.5 text-[13px] font-medium text-[#4b5563] outline-none transition-colors hover:bg-[#f1f2f4] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 [-webkit-tap-highlight-color:transparent]" data-integration-details-open="">
+                  <button type="button" onClick={() => setDetails(true)} className="-mb-2 -ml-1.5 mt-0.5 inline-flex h-11 items-center gap-0.5 rounded-lg pl-1.5 pr-2 text-[13.5px] font-medium text-[#4b5563] outline-none transition-colors hover:bg-[#f1f2f4] hover:text-[#1a1a2e] active:bg-[#eceef1] focus-visible:ring-2 sm:-mb-1 sm:mt-1 sm:h-10 sm:text-[13px] focus-visible:ring-[#1a1a2e]/15 [-webkit-tap-highlight-color:transparent]" data-integration-details-open="">
                     {tt("Details")}
                     <ChevronRight className="h-3.5 w-3.5" aria-hidden />
                   </button>
@@ -748,7 +769,7 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
                     onFocus={() => warm(t.id)}
                     onTouchStart={() => warm(t.id)}
                     data-integration-tab={t.id}
-                    className={cn("relative inline-flex h-11 shrink-0 items-center gap-1.5 px-3 text-[13.5px] font-medium transition-colors [-webkit-tap-highlight-color:transparent]", on ? "text-[#1a1a2e]" : "text-[#6b7280] hover:text-[#1a1a2e]")}
+                    className={cn("relative inline-flex h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 px-3 text-[13.5px] font-medium transition-colors duration-150 [-webkit-tap-highlight-color:transparent]", on ? "text-[#1a1a2e]" : "text-[#6b7280] hover:text-[#1a1a2e]")}
                   >
                     {t.label}
                     {t.count ? <span className="rounded-full bg-[#f3f4f6] px-1.5 text-[11.5px] tabular-nums text-[#4b5563]">{t.count}</span> : null}
@@ -833,7 +854,7 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
             {glanceRows.length ? (
               <dl className="divide-y divide-[#f1f2f4] border-t border-[#f1f2f4]">
                 {glanceRows.map((g) => (
-                  <div key={g.label} className="flex items-baseline justify-between gap-3 py-2">
+                  <div key={g.label} className={cn(ROW, "gap-3")}>
                     <dt className="shrink-0 text-[13px] text-[#6b7280]">{g.label}</dt>
                     <dd className="text-right text-[13.5px] font-medium text-[#1a1a2e]">{g.value}</dd>
                   </div>
@@ -841,7 +862,7 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
               </dl>
             ) : null}
             {item.docsUrl ? (
-              <a href={item.docsUrl} target="_blank" rel="noopener noreferrer" className={cn(BTN_SECONDARY, "h-10 w-full rounded-xl")}>
+              <a href={item.docsUrl} target="_blank" rel="noopener noreferrer" className={cn(BTN_SECONDARY, "h-11 w-full rounded-xl sm:h-10")}>
                 {tt("{name} help", { name: item.name })}
                 <ExternalLink className="h-3.5 w-3.5" aria-hidden />
               </a>
@@ -855,10 +876,10 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
           title={plan?.verb === "turn_off" ? tt("Turn off {name}?", { name: item.name }) : plan?.verb === "remove" ? tt("Remove {name}?", { name: item.name }) : tt("Disconnect {name}?", { name: item.name })}
           footer={
             <div className="flex w-full justify-end gap-2">
-              <button type="button" className={BTN_SECONDARY} onClick={() => setConfirming(false)} disabled={busy}>
+              <button type="button" className={cn(BTN_SECONDARY, "flex-1 sm:flex-none")} onClick={() => setConfirming(false)} disabled={busy}>
                 {tt("Cancel")}
               </button>
-              <button type="button" className={BTN_DANGER} disabled={busy} onClick={() => void takeOff()} data-integration-uninstall-confirm="">
+              <button type="button" className={cn(BTN_DANGER, "flex-1 sm:flex-none")} disabled={busy} onClick={() => void takeOff()} data-integration-uninstall-confirm="">
                 {busy ? tt("Working on it") : verbLabel}
               </button>
             </div>
@@ -1059,7 +1080,7 @@ function NotifyMe({ item, askTick = 0 }: { item: Integration; askTick?: number }
         </p>
       ) : (
         <div className="flex justify-end">
-          <button type="button" className={BTN_PRIMARY} disabled={state === "sending"} onClick={() => void ask()}>
+          <button type="button" className={cn(BTN_PRIMARY, "h-11 w-full rounded-xl sm:h-10 sm:w-auto sm:rounded-lg")} disabled={state === "sending"} onClick={() => void ask()}>
             {state === "sending" ? tt("Sending") : tt("Tell me when it's ready")}
           </button>
         </div>
@@ -1130,7 +1151,7 @@ function CopyValue({ label, value }: { label: string; value: string }) {
         <button
           type="button"
           onClick={async () => setCopied(await copyText(value))}
-          className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3 text-[13px] font-medium text-[#1a1a2e] shadow-[0_0_0_1px_#e5e7eb] transition-colors hover:bg-[#f3f4f6] active:bg-[#eceef1] [-webkit-tap-highlight-color:transparent]"
+          className="inline-flex h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-white px-3 text-[13px] font-medium text-[#1a1a2e] shadow-[0_0_0_1px_#e5e7eb] transition-colors sm:h-10 hover:bg-[#f3f4f6] active:bg-[#eceef1] [-webkit-tap-highlight-color:transparent]"
           aria-label={copied ? tt("Copied") : tt("Copy {label}", { label })}
           data-integration-copy-button={copied ? "copied" : "idle"}
         >

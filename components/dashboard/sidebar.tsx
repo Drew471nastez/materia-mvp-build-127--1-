@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils"
 import { LayoutDashboard, LogOut, Download, Menu, Heart, Compass, Settings, Sparkles, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
+import { endDeviceSession } from "@/lib/auth/log-out"
 import { useRouter } from "next/navigation"
 import { useState, useEffect, useCallback } from "react"
 import { isNativeApp, nativeLogOut } from "@/lib/native-bridge"
@@ -52,8 +53,8 @@ export function DashboardSidebar() {
   }, [])
 
   const handleSignOut = async () => {
-    const supabase = createClient()
-    await supabase.auth.signOut({ scope: "local" })
+    /* The browser's sign out, the server's, then this device forgets the account (lib/auth/log-out). */
+    await endDeviceSession("local", createClient().auth)
     setMobileMenuOpen(false)
     if (isNativePlatform()) {
       nativeLogOut()

@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
-import { moveLayer } from "@/components/app/page-layer"
+import { editPageCopy, forgetPageCopy, moveLayer } from "@/components/app/page-layer"
 import { backThen } from "@/lib/navigation/go-back"
 import { isAnswerFor, isTraversing, markTraversal, prefetchAppPage } from "@/lib/ui/app-navigation"
 
@@ -309,4 +309,91 @@ export function takeEdited(): string | null {
   const id = edited
   edited = null
   return id
+}
+
+/*
+  ===========================================================================
+   THE LIST UNDER THE EDITOR IS THE LIST AS IT NOW IS (products round 42)
+  ===========================================================================
+  The way back drops the editor over a copy of the list kept from the press
+  that opened it (components/app/page-layer, THE PAGE A LAYER WAS OPENED
+  FROM). A save, a publish or an unpublish used to throw that copy away,
+  because its row showed the old title, price or status, so every Back after
+  an edit waited for the list to be fetched and drawn again with the editor
+  standing still: the abrupt way back. Now the editor tells the list what
+  changed and the row in the copy is corrected, so Back always has the list
+  to show at once, and the real list that replaces it matches it.
+
+  Only what can be made exactly right is corrected: the name, the price as
+  the list words it, and whether the row carries a status badge. Anything
+  else (a new cover, a new kind of product, a product the copy never had, a
+  draft badge with none in the copy to take its look from) and the copy is
+  forgotten, as before. A delete takes the row out of the copy; a product
+  archived instead of deleted forgets it.
+*/
+export type ListRowChange = {
+  id: string
+  title?: string
+  /** The price as the row writes it ("Free", or the money). */
+  priceText?: string
+  /** On sale (no badge) or not (a draft's badge). */
+  live?: boolean
+}
+
+/** The list's own part of the copy, or null for a part that is the shell's chrome. False: not the products list at all. */
+function listIn(part: HTMLElement): HTMLElement | null | false {
+  const list = part.querySelector<HTMLElement>("[data-products-list]")
+  if (list) return list
+  return part.classList.contains("app-content-scroll") ? false : null
+}
+
+export function updateListCopy(change: ListRowChange): void {
+  editPageCopy((part) => {
+    const list = listIn(part)
+    if (list === null) return true
+    if (list === false) return false
+    const rows = Array.from(list.querySelectorAll<HTMLElement>(`[data-row="${CSS.escape(change.id)}"]`))
+    if (rows.length === 0) return false
+    for (const row of rows) {
+      if (change.title !== undefined) {
+        for (const n of Array.from(row.querySelectorAll<HTMLElement>("[data-name]"))) n.textContent = change.title
+        row.querySelector("[data-row-link]")?.setAttribute("aria-label", change.title)
+        /* A row with no picture draws the name's first letter: a new first letter is a new picture. */
+        const letter = row.querySelector<HTMLElement>("[data-thumb-letter]")
+        if (letter && letter.textContent !== (Array.from(change.title.trim())[0] || "").toUpperCase()) return false
+      }
+      if (change.priceText !== undefined) {
+        for (const n of Array.from(row.querySelectorAll<HTMLElement>("[data-price]"))) n.textContent = change.priceText
+      }
+      if (change.live !== undefined) {
+        for (const slot of Array.from(row.querySelectorAll<HTMLElement>("[data-row-status]"))) {
+          const has = slot.querySelector("[data-status-badge]") !== null
+          if (change.live && has) slot.replaceChildren()
+          if (!change.live && !has) {
+            /* A draft's badge, as another draft row in the copy draws it, in the same kind of slot. */
+            const kind = slot.dataset.rowStatus
+            const model = Array.from(list.querySelectorAll<HTMLElement>(`[data-row-status="${kind}"] [data-status-badge="draft"]`))[0]
+            if (!model) return false
+            slot.replaceChildren(model.cloneNode(true))
+          }
+        }
+      }
+    }
+    return true
+  })
+}
+
+/** A deleted product: its row leaves the copy. Archived instead (it had sales): the copy is forgotten. */
+export function removeFromListCopy(id: string, deleted: boolean): void {
+  if (!deleted) {
+    forgetPageCopy()
+    return
+  }
+  editPageCopy((part) => {
+    const list = listIn(part)
+    if (list === null) return true
+    if (list === false) return false
+    for (const row of Array.from(list.querySelectorAll<HTMLElement>(`[data-row="${CSS.escape(id)}"]`))) row.remove()
+    return true
+  })
 }
