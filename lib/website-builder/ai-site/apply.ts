@@ -207,16 +207,28 @@ const ACTION_PAGES: [RegExp, (title: string) => string][] = [
   [/\b(contact|get in touch|hire|work with)/i, () => "Get in touch"],
 ]
 
+/** A main action that is buying something. */
+const BUYING = /\b(shop|buy|order|purchase|browse|store|cart)\b/i
+
+/** Words that fit the header's button whole (it cuts at 160px, about twenty characters). */
+const BUTTON_WORDS = 20
+
 /**
- * The header button's words and page (round 56): Shop now where the site sells (published products), else the
- * page a visitor books or enquires through, else none. Pure.
+ * The header button's words and page (round 56). The plan's main action decides: a site whose main action is
+ * buying and that has published products gets it (or Shop now) to /products; a site whose main action is
+ * booking, commissioning or enquiring gets it to the page a visitor does that on, even when the store also has
+ * products (a photographer with a few prints, a consultant with a guide); a site with neither gets no button.
+ * Pure.
  */
 export function headerAction(plan: SitePlan, site: SiteState, shop: boolean): { label: string; url: string } | null {
-  if (shop) return { label: "Shop now", url: "/products" }
+  const conversion = (plan.conversion ?? "").replace(/\s+/g, " ").trim()
+  const buying = !conversion || BUYING.test(conversion)
+  const fits = conversion.length > 0 && conversion.length <= BUTTON_WORDS
+  if (shop && buying) return { label: fits ? conversion : "Shop now", url: "/products" }
   const pages = plan.pages.filter((p) => p.key !== "home" && site.pages[p.key])
   for (const [re, label] of ACTION_PAGES) {
     const page = pages.find((p) => re.test(`${p.key} ${p.title}`))
-    if (page) return { label: label(page.title).slice(0, 24), url: pagePath(page.key) }
+    if (page) return { label: fits && !buying ? conversion : label(page.title).slice(0, BUTTON_WORDS), url: pagePath(page.key) }
   }
   return null
 }
