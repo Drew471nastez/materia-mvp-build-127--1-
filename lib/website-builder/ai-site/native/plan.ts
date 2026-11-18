@@ -22,6 +22,7 @@ import type { NativeRegistry } from "./registry"
 import type { NativeSection, NativeSite } from "./types"
 import type { DesignTokens } from "@/lib/ai-builder/types"
 import { tokensToThemeSettings } from "@/lib/ai-builder/tokens"
+import { mutedAndBorderFor, repairPalette } from "@/lib/storelib-ai/palette-contrast"
 
 /**
  * A SitePlan that carries the native site it was made from, and the design brain's tokens with the native site's own
@@ -55,6 +56,7 @@ export function toSitePlan(site: NativeSite, reg: NativeRegistry, presets: reado
   const ps = (preset?.settings ?? {}) as Record<string, unknown>
   const heading = site.theme.fonts.heading || (typeof ps.font_heading === "string" ? ps.font_heading : "Inter")
   const body = site.theme.fonts.body || (typeof ps.font_body === "string" ? ps.font_body : "Inter")
+  const checked = brainTokens ? readableTokens(mergeTokens(brainTokens, site)) : null
   return {
     preset: preset?.id ?? site.theme.preset,
     adjustments: { ...site.theme.settings },
@@ -74,9 +76,9 @@ export function toSitePlan(site: NativeSite, reg: NativeRegistry, presets: reado
       ),
     })),
     chrome: null,
-    corrections,
+    corrections: [...corrections, ...(checked?.moves ?? []).map((m) => `palette: ${m}`)],
     native: site,
-    tokens: brainTokens ? mergeTokens(brainTokens, site) : null,
+    tokens: checked?.tokens ?? null,
   }
 }
 
@@ -88,11 +90,19 @@ export function mergeTokens(brain: DesignTokens, site: NativeSite): DesignTokens
   const t: DesignTokens = JSON.parse(JSON.stringify(brain))
   const p = site.theme.palette
   if (p.background) {
+    const text = p.text || t.colors.text
+    /*
+      Round 56: the brain's muted and border were chosen for the brain's own background. Under another background they
+      are mixed again from this palette's own text and ground, so they belong to it (and read: palette-contrast.ts).
+    */
+    const own = p.background.toLowerCase() === t.colors.background.toLowerCase() ? { muted: t.colors.muted, border: t.colors.border } : mutedAndBorderFor({ background: p.background, text })
     t.colors = {
       ...t.colors,
       background: p.background,
       surface: p.surface || t.colors.surface,
-      text: p.text || t.colors.text,
+      text,
+      muted: own.muted,
+      border: own.border,
       accent: p.accent || p.button || t.colors.accent,
       accentText: p.button_text || t.colors.accentText,
     }
@@ -101,6 +111,15 @@ export function mergeTokens(brain: DesignTokens, site: NativeSite): DesignTokens
   if (site.theme.fonts.heading) t.fonts = { ...t.fonts, heading: site.theme.fonts.heading }
   if (site.theme.fonts.body) t.fonts = { ...t.fonts, body: site.theme.fonts.body }
   return t
+}
+
+/**
+ * Tokens whose every visitor-read pair is readable (lib/storelib-ai/palette-contrast.ts): lightness moved, hue kept,
+ * the brand colour kept for fills and large type; each move in plain words for the job's corrections. Pure.
+ */
+export function readableTokens(t: DesignTokens): { tokens: DesignTokens; moves: string[] } {
+  const fixed = repairPalette(t.colors)
+  return { tokens: { ...t, colors: fixed.colors }, moves: fixed.moves }
 }
 
 /**

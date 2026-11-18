@@ -179,6 +179,17 @@ export function inverseButton(accent: string, accentText: string, inverse: { bac
   return { background: inverse.text, text: inverse.background }
 }
 
+/** Of `options`, the label that reads best on `fill`. */
+export function labelOn(fill: string, options: string[]): string {
+  const all = [...options, "#ffffff", "#111111"]
+  return all.reduce((best, x) => (contrastOf(x, fill) > contrastOf(best, fill) + 0.001 ? x : best), all[0])
+}
+
+/** The dark band's links: the brand colour where it reads on the band (4.5:1), else the band's own accent (round 56). */
+export function bandAccent(c: { brand?: string }, inv: { background: string; accent: string }): string {
+  return c.brand && contrastOf(c.brand, inv.background) >= 4.5 ? c.brand : inv.accent
+}
+
 /** The band a palette without one gets: its ink as the paper and its paper as the ink, so `site_inverse` always exists with buttons of the site's own. */
 export function derivedInverse(c: { background: string; text: string }): { background: string; text: string; accent: string } {
   return { background: c.text, text: c.background, accent: c.background }
@@ -255,14 +266,17 @@ export function tokensToThemeSettings(tokens: DesignTokens, current?: Record<str
     /* Always a band of the site's own, its buttons the site's accent or its paper (inverseButton), never a tint (round Q). */
     const inv = c.inverse ?? derivedInverse(c)
     const btn = inverseButton(c.accent, c.accentText, inv)
-    schemes[SITE_INVERSE_SCHEME] = withHover({ ...keep(SITE_INVERSE_SCHEME), ...scheme(str(keep(SITE_INVERSE_SCHEME).name, "Site inverse"), inv.background, inv.text, inv.text, inv.text, inv.accent, inv.background, inv.text), background_secondary: inv.background, secondary_button_background: inv.background, primary_button_background: btn.background, primary_button_border: btn.background, primary_button_text: btn.text })
+    schemes[SITE_INVERSE_SCHEME] = withHover({ ...keep(SITE_INVERSE_SCHEME), ...scheme(str(keep(SITE_INVERSE_SCHEME).name, "Site inverse"), inv.background, inv.text, inv.text, inv.text, bandAccent(c, inv), inv.background, inv.text), background_secondary: inv.background, secondary_button_background: inv.background, primary_button_background: btn.background, primary_button_border: btn.background, primary_button_text: btn.text })
   } else {
     schemes.white = scheme("Main", c.background, c.text, c.text, c.muted, c.accent, c.accentText, c.border)
     schemes.light = { ...scheme("Surface", c.surface, c.text, c.text, c.muted, c.accent, c.accentText, c.border), background_secondary: c.background }
-    schemes.highlight = scheme("Accent", c.accent, c.accentText, c.accentText, c.accentText, c.accentText, c.accent, c.accentText)
+    /* Round 56: the accent band is the brand colour as chosen (a large fill, safe), with a label that reads on it. */
+    const fill = c.brand ?? c.accent
+    const label = c.brand ? labelOn(c.brand, [c.accentText, c.text, c.background]) : c.accentText
+    schemes.highlight = scheme("Accent", fill, label, label, label, label, fill, label)
     if (c.inverse) {
       const btn = inverseButton(c.accent, c.accentText, c.inverse)
-      schemes.black = { ...scheme("Inverse", c.inverse.background, c.inverse.text, c.inverse.text, c.inverse.text, c.inverse.accent, c.inverse.background, c.inverse.text), primary_button_background: btn.background, primary_button_border: btn.background, primary_button_text: btn.text }
+      schemes.black = { ...scheme("Inverse", c.inverse.background, c.inverse.text, c.inverse.text, c.inverse.text, bandAccent(c, c.inverse), c.inverse.background, c.inverse.text), primary_button_background: btn.background, primary_button_border: btn.background, primary_button_text: btn.text }
     }
   }
 
@@ -295,6 +309,9 @@ export function tokensToThemeSettings(tokens: DesignTokens, current?: Record<str
   if (tokens.shadow) out.card_shadow = tokens.shadow
   if (tokens.typeScale) out.typography_styles = typeScaleStyles(tokens.typeScale, current)
   const custom: Record<string, string> = { ...customTokens(current) }
+  /* Round 56: the brand colour as chosen, for large type and decoration (var(--t-brand)); gone when the accent is the brand again. */
+  if (c.brand) custom.brand = c.brand
+  else delete custom.brand
   for (const [name, value] of Object.entries(tokens.custom ?? {})) {
     const clean = cleanTokenValue(value)
     if (TOKEN_NAME.test(name) && clean !== null && !(SCALE_TOKENS as readonly string[]).includes(name)) custom[name] = clean
@@ -330,6 +347,7 @@ export function themeSettingsToTokens(theme: Record<string, unknown> | null | un
       accent: str(main.accent, str(t.primary_color, "#1f2937")),
       accentText: str(main.primary_button_text, "#ffffff"),
       border: str(main.border, "#e2e8f0"),
+      ...(typeof customTokens(t).brand === "string" && /^#[0-9a-f]{3,8}$/i.test(customTokens(t).brand) ? { brand: customTokens(t).brand } : {}),
       ...(site ? (Object.keys(inverse).length ? { inverse: { background: str(inverse.background, "#000000"), text: str(inverse.text, "#ffffff"), accent: str(inverse.accent, "#ffffff") } } : {}) : inverse.name === "Inverse" ? { inverse: { background: str(inverse.background, "#000000"), text: str(inverse.text, "#ffffff"), accent: str(inverse.accent, "#ffffff") } } : {}),
     },
     fonts: { heading: str(t.font_heading, "Inter"), body: str(t.font_body, "Inter"), ...(str(t.font_accent, "") ? { accent: str(t.font_accent, "") } : {}) },

@@ -22,7 +22,7 @@
  */
 import { automaticHover, type ColorScheme } from "@/lib/storelib-theme/color-schemes"
 import { ANIMATION_STYLES, CUSTOM_TOKENS_SETTING, SHADOW_LEVELS, type DesignTokens, type ValidationIssue } from "../types"
-import { SCALE_TOKENS, SITE_INVERSE_SCHEME, SITE_SCHEME, derivedInverse, inverseButton, typeScaleStyles } from "../tokens"
+import { SCALE_TOKENS, SITE_INVERSE_SCHEME, SITE_SCHEME, bandAccent, derivedInverse, inverseButton, typeScaleStyles } from "../tokens"
 import type { TokensMapper } from "./ports"
 import { isMotionTier, pageTransitionFor, tierFromLevel, MOTION_TIER_SETTING } from "@/lib/storelib-ai/motion"
 
@@ -76,7 +76,7 @@ export const tokensToThemeSettings: TokensMapper = (tokens: Partial<DesignTokens
         accent tint, which was the stray light blue on dark sections.
       */
       const inv = c.inverse && HEX.test(c.inverse.background) && HEX.test(c.inverse.text) && HEX.test(c.inverse.accent) ? c.inverse : derivedInverse(c)
-      const band = scheme("Site inverse", { background: inv.background, surface: inv.background, text: inv.text, muted: inv.text, accent: inv.accent, accentText: inv.background, border: inv.text })
+      const band = scheme("Site inverse", { background: inv.background, surface: inv.background, text: inv.text, muted: inv.text, accent: HEX.test(String(c.brand ?? "")) ? bandAccent(c, inv) : inv.accent, accentText: inv.background, border: inv.text })
       const btn = inverseButton(c.accent, c.accentText, inv)
       const buttons = { ...band, primary_button_background: btn.background, primary_button_border: btn.background, primary_button_text: btn.text }
       schemes[SITE_INVERSE_SCHEME] = { ...buttons, ...automaticHover(buttons) }
@@ -147,6 +147,8 @@ export const tokensToThemeSettings: TokensMapper = (tokens: Partial<DesignTokens
   }
   const custom: Record<string, string> = {}
   const wantCustom: Record<string, unknown> = { ...(tokens.custom ?? {}) }
+  /* Round 56: the brand colour as chosen, kept for large type and decoration when the accent moved to be read (palette-contrast.ts). */
+  if (tokens.colors && HEX.test(String(tokens.colors.brand ?? ""))) wantCustom.brand = tokens.colors.brand
   for (const [name, value] of Object.entries(wantCustom)) {
     const v = String(value ?? "").trim()
     if ((SCALE_TOKENS as readonly string[]).includes(name)) warn("token.name", `"${name}" is one of the site's own scale tokens (--t-${name}), read from Theme settings. Pick another name.`)
