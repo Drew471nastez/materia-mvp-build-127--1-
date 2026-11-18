@@ -62,7 +62,8 @@ console.log("\n1. The entrance: the phone first, then the headline, then the car
 // Changed on purpose (landing round 10): the track holds the stage and the cards (its height is theirs), so the stage holds a screen and then stays behind the cards.
 /* Changed on purpose (landing round 15): the hold before the cards is 80svh, not 100svh. */
 // Changed on purpose (landing round 16): held at every width (the scene settled where scroll timelines are missing), the cards 40svh after it.
-check("the stage holds about one screen, by sticky", /\.cmc-track\.cmc-track\{view-timeline:--cmc-t block\}/.test(tl) && /\.cmc-stage\{position:sticky;top:var\(--hd\)\}\s*\.cmc-track > \.cmc-cards\{margin-top:40svh\}\s*@media \(min-width:900px\)\{\s*\.cmc-stage\{top:0\}/.test(css) && /\.cmc-track\.cmc-track\{[^}]*padding:0\}/.test(base) && /\.cmc-stage\{position:relative;height:calc\(100svh - var\(--hd\)\);/.test(base) && /\.cmc-stage\{height:100svh;--hd:69px;/.test(css))
+// Changed on purpose (landing round 17): the numbers are on the track, the cards from the phone's foot.
+check("the stage holds about one screen, by sticky", /\.cmc-track\.cmc-track\{view-timeline:--cmc-t block\}/.test(tl) && /\.cmc-stage\{position:sticky;top:var\(--hd\)\}\s*\.cmc-track > \.cmc-cards\{margin-top:calc\(var\(--foot\) \+ var\(--over\) - 100svh \+ var\(--at\) - var\(--cpad\)\)\}\s*@media \(min-width:900px\)\{\s*\.cmc-stage\{top:0\}/.test(css) && /\.cmc-track\.cmc-track\{[^}]*padding:0\}/.test(base) && /\.cmc-stage\{position:relative;height:calc\(100svh - var\(--at\)\);/.test(base) && /\.cmc-track\{--hd:69px;/.test(css))
 // Changed on purpose (landing round 10): the ranges are svh of scroll (the track is longer: it holds the cards too).
 // Changed on purpose (landing round 11): the owner: the phone starts big, rising from the stage's foot, and settles smaller under a two row headline; one transform on the world, from the big phone to the settled one.
 /* Changed on purpose (landing round 15): the phone settles and the words rise while the section comes up the screen (from 84svh before the hold to 14svh into it), so the section never arrives as a black block. */
@@ -71,11 +72,13 @@ check("the phone starts big and settles smaller, as the section comes up and int
 // Changed on purpose (landing round 11): the settled phone is the room left under the two row headline; the big one a multiple of it.
 // Changed on purpose (landing round 14): on a phone the phone is 50vw (up to 230px), so the products going round it stay on screen beside it.
 // Changed on purpose (landing round 16): a fifth of the screen on a computer.
-check("  the phone: settled up to 50vw on a phone, a fifth of the screen on a computer; it starts bigger", /--pe:min\(50vw,230px,calc\(\(100svh - var\(--hd\) - var\(--tt\) - var\(--fs\) \* 2\.1 - var\(--gap\) - var\(--pb\)\) \/ 2\.07\)\)/.test(css) && /--pe:clamp\(220px,20vw,440px\);/.test(css) && /--pw:calc\(var\(--pe\) \* var\(--big\)\)/.test(css))
+// Changed on purpose (landing round 17): on a computer the width is also capped by the room under the heading.
+check("  the phone: settled up to 50vw on a phone, a fifth of the screen on a computer; it starts bigger", /--pe:min\(50vw,230px,calc\(\(100svh - var\(--hd\) - var\(--tt\) - var\(--fs\) \* 2\.1 - var\(--gap\) - var\(--pb\)\) \/ 2\.07\)\)/.test(css) && /--pe:min\(clamp\(220px,20vw,440px\),/.test(css) && /--pw:calc\(var\(--pe\) \* var\(--big\)\)/.test(css))
 // Changed on purpose (landing round 10): the same ranges in svh of scroll.
 /* Changed on purpose (landing round 15): the words rise as the headline's row comes on screen, not in the hold. */
 // Changed on purpose (landing round 16): the heading fades and rises in as one box, from 16svh before the hold.
-check("the headline is not there when the section arrives: it fades and rises in on the timeline as the phone lands", /\.cmc-copy\{animation:cmc-head linear both;animation-timeline:--cmc-t;animation-range:contain -16svh contain 68svh\}/.test(tl) && /0%\{opacity:0;/.test(keyframes("cmc-head")))
+// Changed on purpose (landing round 17): the words wait down in their rows, armed below the screen, and rise one after another as the stage comes up.
+check("the headline is not there when the section arrives: its words rise in one after another as the stage comes up", /\.cmc\[data-cmc-armed\]:not\(\[data-cmc-words\]\) \.cmc-w\{opacity:0;/.test(css) && /function useWords/.test(src))
 check("  one headline, in the stage, over the phone", (co.match(/<h2 /g) ?? []).length === 1 && /<h2 id="cmc-title"/.test(stage) && words(stage).includes("Checkout that turns a tap into a sale"))
 // Changed on purpose (landing round 10): the cards are inside the track; their fallback overlap is their base rule.
 // Changed on purpose (landing round 11): the finished scene is the world's settled transform.
@@ -83,7 +86,8 @@ check("without scroll timelines, or with reduced motion: the finished scene, not
 check("  every timeline rule is inside prefers-reduced-motion: no-preference", css.lastIndexOf("@media (prefers-reduced-motion:no-preference){", css.indexOf("@supports (animation-timeline:view()){")) > css.indexOf(".cmc-face{display:block"))
 // Changed on purpose (landing round 10): the overlap is written as the cards' start inside the track.
 // Changed on purpose (landing round 16): the cards 40svh after the held stage.
-check("then the cards slide up over the phone, one after another (an observer and transitions)", /\.cmc-card\{transition:opacity \.7s ease,transform 1s cubic-bezier\(\.16,1,\.3,1\);transition-delay:calc\(var\(--ci\) \* \.09s\)\}/.test(css) && /\.cmc-track > \.cmc-cards\{margin-top:40svh\}/.test(css))
+// Changed on purpose (landing round 17): the cards start from the phone's foot.
+check("then the cards slide up over the phone, one after another (an observer and transitions)", /\.cmc-card\{transition:opacity \.7s ease,transform 1s cubic-bezier\(\.16,1,\.3,1\);transition-delay:calc\(var\(--ci\) \* \.09s\)\}/.test(css) && /\.cmc-track > \.cmc-cards\{margin-top:calc\(var\(--foot\) \+ var\(--over\) - 100svh \+ var\(--at\) - var\(--cpad\)\)\}/.test(css))
 check("nothing per frame in script: no scroll listener, no rAF, no layout read, no timers, no state", !/addEventListener\("scroll"|requestAnimationFrame|getBoundingClientRect\(|offsetTop|setTimeout|setInterval|useState/.test(code(src)))
 check("every keyframe in the section moves transform and opacity only", [...css.matchAll(/@keyframes ([\w-]+)\{([\s\S]*?\})\}/g)].filter((m) => /^(cm|cdx|cv|pc|ap|tp)/.test(m[1])).every((m) => onlyCompositor(m[2])))
 

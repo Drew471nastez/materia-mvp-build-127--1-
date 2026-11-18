@@ -1636,6 +1636,8 @@ const SUITES = [
   "tests/home-landing-r17-small.test.ts",
   /* Landing round 17, business: digital is "Digital downloads", a PDF bought, landing in the buyer's receipt email and downloaded, on transform and opacity only, once a turn, paused off screen; on a phone the store designs stand smaller and inside their card, one each side, nothing past the card's edge. */
   "tests/home-landing-r17-business.test.ts",
+  /* Landing round 17, checkout: the heading's words rise one after another out of their rows again (time based, armed only below the screen); the settled phone seen whole on a computer; the first card meets the phone's foot 10svh (phone) or 18svh (computer) into the track, worked out from the phone's own numbers; the phone sinks under the cards with the scroll and goes soft a third of the way in; still two scroll linked transforms. */
+  "tests/home-landing-r17-checkout.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

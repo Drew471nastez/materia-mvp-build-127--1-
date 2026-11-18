@@ -212,7 +212,8 @@ console.log("\nCommerce: motion and performance rules")
   /* Changed on purpose (landing round 9): held only where scroll timelines exist. */
   // Changed on purpose (landing round 10): the cards are inside the track, starting the overlap short of the stage's foot, so the stage stays held behind them.
   // Changed on purpose (landing round 16): held at every width (under the header on a phone), the cards CARDS_AT (40svh) after the stage, coming up over it.
-  check("checkout: a held stage, and the cards coming up over it", /\.cmc-stage\{position:sticky;top:var\(--hd\)\}/.test(src.checkout) && /\.cmc-track > \.cmc-cards\{margin-top:\$\{CARDS_AT\}\}/.test(src.checkout))
+  // Changed on purpose (landing round 17): the cards start from the phone's foot (--foot, --over).
+  check("checkout: a held stage, and the cards coming up over it", /\.cmc-stage\{position:sticky;top:var\(--hd\)\}/.test(src.checkout) && /\.cmc-track > \.cmc-cards\{margin-top:calc\(var\(--foot\) \+ var\(--over\)/.test(src.checkout))
   check("checkout: no purple glow under the phone, no purple card art", !/rgba\(124,58,237/.test(src.checkout) && !/#8b5cf6,#4338ca/.test(src.checkout))
   // Changed on purpose (landing round 11): the settled phone's width is --pe, the big one a multiple of it, both from the viewport.
   check("checkout: the phone is sized from the viewport alone (nothing measured, so it never shifts)", !/ResizeObserver|--cmc-copy|offsetHeight/.test(src.checkout) && /--pe:min\(/.test(src.checkout))

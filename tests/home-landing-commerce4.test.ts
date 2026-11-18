@@ -130,7 +130,8 @@ check("the phone is there from the start and slides up once as the section comes
   // Changed on purpose (landing round 8): a scroll timeline turns the objects (transform only); the phone, the words and the cards still come in by observer and transition.
   // Changed on purpose (landing round 9): the owner's choreography: the phone comes first, big; the stage holds about a screen while the scroll brings it down and reveals the headline (a scroll timeline of transform and opacity); the cards still come in by observer and transition.
   // Changed on purpose (landing round 16): the heading fades and rises in as one box (cmc-head), not word by word.
-  assert.ok(/\.cmc-world\{animation:cmc-settle [^;]*both;animation-timeline:--cmc-t/.test(coCss) && /\.cmc-copy\{animation:cmc-head [^;]*both;animation-timeline:--cmc-t;/.test(coCss) && !/\.cmc-card[^{]*\{[^}]*animation-timeline/.test(coCss))
+  // Changed on purpose (landing round 17): the phone's box sinks on the timeline; the heading's words rise on a timer.
+  assert.ok(/\.cmc-world\{animation:cmc-settle [^;]*both;animation-timeline:--cmc-t/.test(coCss) && /\.cmc-phone-wrap\{animation:cmc-sink [^;]*both;animation-timeline:--cmc-t;/.test(coCss) && !/\.cmc-card[^{]*\{[^}]*animation-timeline/.test(coCss))
   /* Changed on purpose (landing round 7): the phone rises from lower (34%) when its own box comes up the screen, so the rise is seen. */
   // Changed on purpose (landing round 9): no rise by observer; the phone is big and centred when the section arrives and comes down with the scroll.
   // Changed on purpose (landing round 11): the phone starts big and low (--y0) and settles smaller.
@@ -144,7 +145,8 @@ check("the cards come up over the phone with the page", () => {
   // Changed on purpose (landing round 10): the cards are inside the track (so the stage stays held behind them), 44svh under the stage's foot: the same 56svh overlap.
   /* Changed on purpose (landing round 15): 80svh of hold before the cards, not 100svh. */
   // Changed on purpose (landing round 16): the cards start 40svh after the held stage at every width and come up over it on the page's own scroll.
-  assert.ok(/\.cmc-track > \.cmc-cards\{margin-top:40svh\}/.test(coCss) && /\.cmc-cards\{[^}]*z-index:5/.test(coCss))
+  // Changed on purpose (landing round 17): the cards start where the first card meets the settled phone's foot (--foot, --over).
+  assert.ok(/\.cmc-track > \.cmc-cards\{margin-top:calc\(var\(--foot\) \+ var\(--over\)/.test(coCss) && /\.cmc-cards\{[^}]*z-index:5/.test(coCss))
 })
 check("the scroll never steps through a payment on the phone", () => {
   const phone = co.slice(co.indexOf('class="cmc-stage"'), co.indexOf('class="cmc-cards"'))
@@ -157,7 +159,8 @@ check("one observer, no scroll listener, no layout read, no orbit", () => {
   const src = read(CO)
   // Changed on purpose (landing round 12): a second observer (useNear) in the checkout scene; still no scroll listener, rAF or layout read.
   /* Changed on purpose (landing round 15): two more observers set off the phone's two steps (useStepScene). */
-  assert.ok((src.match(/new IntersectionObserver/g) ?? []).length === 4 && !/addEventListener\("scroll"|requestAnimationFrame|getBoundingClientRect\(/.test(src))
+  // Changed on purpose (landing round 17): six, useWords adds the words' arm and play.
+  assert.ok((src.match(/new IntersectionObserver/g) ?? []).length === 6 && !/addEventListener\("scroll"|requestAnimationFrame|getBoundingClientRect\(/.test(src))
   /* Changed on purpose (landing round 7): the ring is back (cmc-orbit, cmc-lap), still without a blur filter. */
   assert.ok(!/filter:\s*blur/.test(src))
 })
