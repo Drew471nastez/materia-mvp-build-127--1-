@@ -22,12 +22,74 @@ import type { DesignPreset } from "../../design-presets"
 import type { Capabilities } from "../capabilities"
 import type { ModelRef, Spend } from "../models"
 import { nativeRegistry, type NativeRegistry } from "./registry"
-import { generateNativeSite, readBrainHints, type NativeResult } from "./generate"
+import { generateNativeSite, readBrainHints, strategyPlan, type NativeResult } from "./generate"
 import { toSitePlan, type NativeSitePlan } from "./plan"
 import type { NativeForm, NativeImage, NativeMapping } from "./types"
 import { NO_RECENT, type RecentDesigns } from "@/lib/ai-builder/recent-designs"
-import { noveltyIssues, siteFingerprint, type SiteFingerprint } from "@/lib/ai-builder/novelty"
+import { fingerprintSimilarity, noveltyIssues, siteFingerprint, NOVELTY_THRESHOLD, type SiteFingerprint } from "@/lib/ai-builder/novelty"
+import type { DirectionChoice } from "@/lib/storelib-ai/direction/choose"
 import { DEFAULT_THEME_SOURCES } from "@/themes/default/sources.generated"
+
+/**
+ * Round 56: the direction and the design brain for a native site, with the novelty pressure the agent engine has,
+ * applied before the model is asked. Without recent sites: the direction chosen as before and the brain seeded per
+ * site. With them: a few seeded home orders (varySpine) are drawn and the one least like any recent site is offered;
+ * when even that is a near copy (O3's threshold), the next fitting direction is tried the same way and the less alike
+ * of the two kept. The SECTION IDEAS and palette a model follows then do not lead it back to the last site.
+ * Deterministic for the site. Pure but for the brain it is given.
+ */
+export function nativeDesign(
+  brief: CreativeBrief,
+  o: { siteSeed: string; prefer: { prefer?: string[]; preferType?: string }; avoidDirections: string[]; avoidRecipes: string[]; recent: SiteFingerprint[]; offered: string[]; brainOf: (brief: CreativeBrief, opts: DesignBrainOptions) => unknown },
+): { choice: DirectionChoice; brain: unknown; nearest: number | null } {
+  const pick = (choice: DirectionChoice) => {
+    try {
+      const seeds = o.recent.length ? Array.from({ length: SPINE_CANDIDATES }, (_, k) => (k ? `${o.siteSeed}#${k}` : o.siteSeed)) : [o.siteSeed]
+      const candidates = seeds.map((seed) => o.brainOf(brief, { direction: choice, avoidRecipes: o.avoidRecipes, seed }))
+      const brain = leastLikeRecent(candidates, (b) => brainFingerprint(b, o.offered), o.recent)
+      const nearest = o.recent.length ? Math.max(...o.recent.map((r) => fingerprintSimilarity(brainFingerprint(brain, o.offered), r))) : null
+      return { choice, brain, nearest }
+    } catch {
+      return { choice, brain: null, nearest: null }
+    }
+  }
+  const first = pick(chooseDirection(brief, [], { seed: o.siteSeed, ...o.prefer, ...(o.avoidDirections.length ? { avoid: o.avoidDirections } : {}) }))
+  if (first.nearest === null || first.nearest < NOVELTY_THRESHOLD) return first
+  /* The next fitting direction (O2's secondary or first alternate that fits or suits this business), chosen the same way with it preferred. */
+  const kind = brief.business.kind
+  const alt = [first.choice.secondary, ...first.choice.alternates].find((d) => !!d && d.id !== first.choice.primary.id && [...d.fits, ...d.suits].includes(kind) && !o.avoidDirections.includes(d.id))
+  if (!alt) return first
+  const next = chooseDirection(brief, [], { seed: o.siteSeed, ...(o.prefer.preferType ? { preferType: o.prefer.preferType } : {}), prefer: [alt.id], avoid: [...o.avoidDirections, first.choice.primary.id] })
+  if (next.primary.id === first.choice.primary.id) return first
+  const second = pick(next)
+  return second.nearest !== null && second.nearest < first.nearest ? second : first
+}
+
+/** Seeded home orders drawn when recent sites are known (round 56). */
+export const SPINE_CANDIDATES = 6
+
+/** The fingerprint a site built from a brain's SECTION IDEAS would have: each idea's first offered type, in order, on the brain's tokens. Pure. */
+export function brainFingerprint(brain: unknown, offered: string[]): SiteFingerprint {
+  const hints = readBrainHints((brain as { hints?: unknown } | null)?.hints)
+  const home = strategyPlan(hints, offered).map((s) => ({ type: s.types[0] }))
+  return siteFingerprint({ home, sources: DEFAULT_THEME_SOURCES, tokens: (hints?.tokens ?? null) as never })
+}
+
+/** Of `candidates`, the one whose fingerprint is least like its nearest recent site (the first on a tie). Pure. */
+export function leastLikeRecent<T>(candidates: T[], fpOf: (c: T) => SiteFingerprint, recent: SiteFingerprint[]): T {
+  if (candidates.length <= 1 || !recent.length) return candidates[0]
+  let best = candidates[0]
+  let bestScore = Infinity
+  for (const c of candidates) {
+    const fp = fpOf(c)
+    const nearest = Math.max(...recent.map((r) => fingerprintSimilarity(fp, r)))
+    if (nearest < bestScore - 1e-9) {
+      best = c
+      bestScore = nearest
+    }
+  }
+  return best
+}
 
 /** A native site's fingerprint as the platform compares sites: home's sections, the default theme's sources for them, the plan's tokens. Pure. */
 export function nativeFingerprint(plan: NativeSitePlan): SiteFingerprint {
@@ -136,12 +198,9 @@ export async function nativePlan(input: NativePlanInput, deps: NativeEngineDeps)
   } catch {
     prefer = {}
   }
-  const choice = chooseDirection(brief, [], { seed: siteSeed, ...prefer, ...(avoidDirections.length ? { avoid: avoidDirections } : {}) })
-  try {
-    brain = brainOf(brief, { direction: choice, avoidRecipes, seed: siteSeed })
-  } catch {
-    brain = null
-  }
+  const designed = nativeDesign(brief, { siteSeed, prefer, avoidDirections, avoidRecipes, recent: platform.fingerprints, offered: Object.keys(registry.sections), brainOf })
+  const choice = designed.choice
+  brain = designed.brain
   const seed = input.jobId.replace(/-/g, "").slice(0, 8)
   const result = await generateNativeSite(
     {
