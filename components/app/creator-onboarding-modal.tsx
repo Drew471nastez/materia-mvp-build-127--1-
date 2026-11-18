@@ -30,7 +30,7 @@ import { useRouter } from "next/navigation"
 import { PricingSection } from "@/components/marketing/pricing-section"
 import { JoinSocialBrandIcon } from "@/components/onboarding/join-social-brands"
 import { STORELIB_LOGO_SHADOW_JOIN } from "@/lib/brand/logo"
-import { isNativeApp } from "@/lib/native-bridge"
+import { hapticTap, isNativeApp } from "@/lib/native-bridge"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { ActivitySpinner } from "@/components/ui/activity-spinner"
 import { secondaryDepth } from "@/components/ui/depth-button"
@@ -128,6 +128,8 @@ const HEADING_BLOCK = "text-center mb-6 sm:mb-7"
 /** The step panel's edges: faded only where there is more to scroll to (see updateScrollEdges), over SCROLL_EDGE_FADE. */
 const SCROLL_EDGE_MASK = "linear-gradient(to bottom, transparent 0, #000 var(--fade-top, 0px), #000 calc(100% - var(--fade-bottom, 0px)), transparent 100%)"
 const SCROLL_EDGE_FADE = "12px"
+/* What scrolls under the top row fades into the film over --fade-top (set from the scroll), never cut in a hard line. Nothing fades at the foot. */
+const TOP_EDGE_MASK = "linear-gradient(to bottom, transparent 0, #000 var(--fade-top, 0px), #000 100%)"
 
 /*
   A LITTLE DEPTH, AND NO MORE. A field is a well: the same grey, with a
@@ -219,12 +221,12 @@ const CATEGORY_ON = "bg-[#1a1a2e] text-white shadow-[0_0_0_1px_#1a1a2e,0_2px_6px
 const VIEW_TITLE = "text-[28px] font-semibold leading-[1.12] tracking-[-0.025em] text-white text-balance sm:text-[38px]"
 const VIEW_SUB = "mx-auto mt-2.5 max-w-[460px] text-[15px] leading-[22px] text-white/70 text-balance sm:text-[16px] sm:leading-6"
 const FLOAT_CARD = "rounded-[22px] bg-white shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_30px_70px_-30px_rgba(0,0,0,0.65),0_8px_24px_-12px_rgba(0,0,0,0.35)]"
-const GOAL_PILL = "inline-flex h-12 flex-auto items-center justify-center gap-1.5 rounded-full px-3.5 text-[14px] font-medium min-[400px]:gap-2 min-[400px]:px-4 min-[400px]:text-[15px] transition-[background-color,color,box-shadow] duration-200 [-webkit-tap-highlight-color:transparent] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c3aed]/40 focus-visible:ring-offset-2 sm:h-12 sm:pl-4 sm:pr-5"
+const GOAL_PILL = "inline-flex h-12 flex-auto items-center justify-center gap-1.5 rounded-full px-3.5 text-[14px] font-medium transition-[background-color,color,box-shadow,scale] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.97] motion-reduce:transition-none min-[400px]:gap-2 min-[400px]:px-4 min-[400px]:text-[15px] transition-[background-color,color,box-shadow] duration-200 [-webkit-tap-highlight-color:transparent] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c3aed]/40 focus-visible:ring-offset-2 sm:h-12 sm:pl-4 sm:pr-5"
 const GOAL_OFF = "bg-[#f4f4f6] text-[#1a1a2e] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),inset_0_0_0_1px_rgba(17,24,39,0.06),0_1px_2px_rgba(17,24,39,0.06)] hover:bg-[#ececf0]"
 const GOAL_ON = "bg-[#1a1a2e] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_4px_10px_-4px_rgba(26,26,46,0.5)]"
 const NAV_NEXT = "inline-flex h-12 min-w-0 flex-1 items-center justify-center rounded-full px-6 text-[15px] font-semibold transition-[background-color,box-shadow,scale] duration-200 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c3aed]/40 focus-visible:ring-offset-2 motion-reduce:transition-none"
 const NAV_NEXT_OFF = "bg-[#e5e7eb] text-[#9ca3af] cursor-not-allowed"
-const NAV_BACK = "inline-flex h-12 shrink-0 items-center justify-center gap-1 rounded-full bg-white px-5 text-[15px] font-medium text-[#374151] shadow-[0_0_0_1px_#e5e7eb,0_1px_2px_rgba(17,24,39,0.05)] transition-[background-color,box-shadow] duration-200 hover:bg-[#f9fafb] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c3aed]/40 focus-visible:ring-offset-2"
+const NAV_BACK = "inline-flex h-12 shrink-0 items-center justify-center gap-1 rounded-full bg-white px-5 text-[15px] font-medium text-[#374151] shadow-[0_0_0_1px_#e5e7eb,0_1px_2px_rgba(17,24,39,0.05)] transition-[background-color,box-shadow,scale] duration-200 active:scale-[0.98] motion-reduce:transition-none hover:bg-[#f9fafb] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c3aed]/40 focus-visible:ring-offset-2"
 const FIELD = cn("flex h-[52px] w-full items-center gap-3 rounded-[12px] px-4 text-left", "border-2 border-transparent bg-[#f4f4f5] shadow-[inset_0_0_0_1px_rgba(17,24,39,0.05)] transition-[background-color,border-color] duration-200 focus-within:border-[#6b7280] focus-within:bg-white")
 
 /** What they came to do: the first step. Several at once. Saved on the account (storelib_goals) so the dashboard can start from it. */
@@ -235,15 +237,58 @@ const SELL_GOALS = [
   { id: "community", label: msg("Communities") },
   { id: "services", label: msg("Services") },
   { id: "link_in_bio", label: msg("Link in bio") },
+  { id: "other", label: msg("Other") },
 ] as const
 type SellGoal = (typeof SELL_GOALS)[number]["id"]
 /* Two to a row, a short one beside a longer one, each as wide as its words: the row is filled, nothing is cut. */
-const GOAL_ROWS: SellGoal[][] = [["courses", "digital_products"], ["sell_online", "community"], ["services", "link_in_bio"]]
+const GOAL_ROWS: SellGoal[][] = [["courses", "digital_products"], ["sell_online", "community"], ["services", "link_in_bio"], ["other"]]
 const GOALS_KEY = "storelib_goals"
 /** An X handle from what was typed, without the @ or an address round it. */
 function xHandle(soc: { twitter?: string }): string {
   return (soc.twitter || "").trim().replace(/^https?:\/\/(www\.)?(x|twitter)\.com\//i, "").replace(/^@+/, "").split(/[/?#]/)[0]
 }
+/**
+ * THE PLUS THAT BECOMES A CHECK. Both marks are drawn in one 16px cell; the
+ * plus turns a quarter and shrinks away as the check grows and settles in,
+ * on opacity, rotate and scale only, so a tap reads as one movement.
+ */
+/**
+ * The account's picture at the right of its field: a faint ring while it is
+ * asked for, then the picture fading and settling in. Nothing when the
+ * network gave none, so the field stays as it was.
+ */
+function SocialFace({ preview }: { preview?: { state: "loading" } | { state: "found"; avatar: string; name: string | null } | { state: "none" } }) {
+  const [loaded, setLoaded] = useState(false)
+  const avatar = preview?.state === "found" ? preview.avatar : null
+  useEffect(() => setLoaded(false), [avatar])
+  return (
+    <span aria-hidden={!avatar} data-onboarding-social-face={preview?.state ?? ""} className="relative grid h-7 w-7 shrink-0 place-items-center">
+      {preview?.state === "loading" ? <span className="h-5 w-5 animate-spin rounded-full border-2 border-[#e5e7eb] border-t-[#9ca3af] motion-reduce:animate-none" /> : null}
+      {avatar ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={avatar}
+          alt={preview?.state === "found" && preview.name ? preview.name : ""}
+          referrerPolicy="no-referrer"
+          onLoad={() => setLoaded(true)}
+          onError={() => setLoaded(false)}
+          className={cn("h-7 w-7 rounded-full object-cover shadow-[0_0_0_1px_rgba(17,24,39,0.08),0_1px_3px_rgba(17,24,39,0.15)] transition-[opacity,scale] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none", loaded ? "scale-100 opacity-100" : "scale-75 opacity-0")}
+        />
+      ) : null}
+    </span>
+  )
+}
+
+function GoalMark({ on }: { on: boolean }) {
+  const ease = "transition-[opacity,rotate,scale] duration-[260ms] ease-[cubic-bezier(0.34,1.4,0.64,1)] motion-reduce:transition-none"
+  return (
+    <span aria-hidden className="relative inline-block h-4 w-4 shrink-0">
+      <Plus className={cn("absolute inset-0 h-4 w-4", ease, on ? "rotate-90 scale-50 opacity-0" : "rotate-0 scale-100 opacity-100")} strokeWidth={2.25} />
+      <Check className={cn("absolute inset-0 h-4 w-4", ease, on ? "rotate-0 scale-100 opacity-100" : "-rotate-45 scale-50 opacity-0")} strokeWidth={2.5} />
+    </span>
+  )
+}
+
 /** What was typed on /sell, kept for this tab so a reload or a slip of Back loses nothing. */
 const SELL_DRAFT_STORAGE = "storelib_sell_draft"
 
@@ -674,10 +719,8 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   const updateScrollEdges = useCallback(() => {
     const el = stepScrollRef.current
     if (!el) return
-    const above = el.scrollTop > 1
-    const below = el.scrollTop + el.clientHeight < el.scrollHeight - 1
-    el.style.setProperty("--fade-top", above ? SCROLL_EDGE_FADE : "0px")
-    el.style.setProperty("--fade-bottom", below ? SCROLL_EDGE_FADE : "0px")
+    /* The top edge only, and as much of it as has been scrolled (0 to 32px), so the fade grows with the scroll instead of switching on. */
+    el.style.setProperty("--fade-top", `${Math.min(32, Math.max(0, el.scrollTop))}px`)
   }, [])
   useEffect(() => {
     const el = stepScrollRef.current
@@ -699,6 +742,16 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   const [checkingUsername, setCheckingUsername] = useState(false)
   const [usernameFocused, setUsernameFocused] = useState(false)
 
+  /*
+    WHOSE ACCOUNT IS IT. Each social field shows, at its right, the picture of
+    the account typed in (app/api/onboarding/social-preview), so a person sees
+    it is theirs. Asked 600ms after typing stops, once per value; an answer
+    for a value that has since changed is dropped.
+  */
+  type SocialPreview = { state: "loading" } | { state: "found"; avatar: string; name: string | null } | { state: "none" }
+  const [socialPreviews, setSocialPreviews] = useState<Partial<Record<JoinSocialId, SocialPreview & { value: string }>>>({})
+  const previewAsked = useRef<Partial<Record<JoinSocialId, string>>>({})
+
   // Step 1: Goals
   const [goals, setGoals] = useState<SellGoal[]>([])
   const toggleGoal = (id: SellGoal) => setGoals((cur) => (cur.includes(id) ? cur.filter((g) => g !== id) : [...cur, id]))
@@ -718,6 +771,34 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     twitter: "",
     linkedin: "",
   })
+  useEffect(() => {
+    if (start || preview) return
+    const timers: ReturnType<typeof setTimeout>[] = []
+    for (const id of ["instagram", "tiktok", "youtube", "twitter"] as const) {
+      const value = (socials[id] || "").trim()
+      if (previewAsked.current[id] === value) continue
+      if (!value || value.replace(/^@+/, "").length < 2) {
+        previewAsked.current[id] = value
+        setSocialPreviews((cur) => ({ ...cur, [id]: undefined }))
+        continue
+      }
+      timers.push(setTimeout(() => {
+        previewAsked.current[id] = value
+        setSocialPreviews((cur) => ({ ...cur, [id]: { state: "loading", value } }))
+        fetch(`/api/onboarding/social-preview?network=${id}&handle=${encodeURIComponent(value)}`, { cache: "no-store" })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((data: { avatar?: string | null; name?: string | null } | null) => {
+            if (previewAsked.current[id] !== value) return
+            setSocialPreviews((cur) => ({ ...cur, [id]: data?.avatar ? { state: "found", avatar: data.avatar, name: data.name ?? null, value } : { state: "none", value } }))
+          })
+          .catch(() => {
+            if (previewAsked.current[id] === value) setSocialPreviews((cur) => ({ ...cur, [id]: { state: "none", value } }))
+          })
+      }, 600))
+    }
+    return () => timers.forEach(clearTimeout)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- one look up per changed value
+  }, [socials.instagram, socials.tiktok, socials.youtube, socials.twitter])
   const [openSocial, setOpenSocial] = useState<null | JoinSocialId>(null)
   const [socialPanel, setSocialPanel] = useState<null | JoinSocialId>(null)
   const [socialPanelShown, setSocialPanelShown] = useState(false)
@@ -2222,52 +2303,46 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
         {/* Slide 1: name, photo, socials. Username and bio are the next slide. */}
         {step === JOIN_NAME && (
           <div className="mx-auto flex w-full max-w-[min(100%,600px)] flex-col items-center text-center font-sans" data-onboarding-join="profile">
-            {/* Avatar stays on the column centerline; photo control sits to its right on sm+ without shifting the circle. */}
-            <div className="relative w-full">
-              <div className="flex justify-center">
-                <button
-                  type="button"
-                  onClick={openJoinPhoto}
-                  disabled={uploadingAvatar}
-                  data-onboarding-join-photo=""
-                  aria-label={avatarUrl ? tt("Change photo") : tt("Add a photo")}
-                  className={cn(
-                    "relative block h-[84px] w-[84px] shrink-0 overflow-hidden rounded-full bg-[#eceef1] text-[#9ca3af] transition-[box-shadow,scale] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.98] motion-reduce:transition-none",
-                    AVATAR_RING,
-                    "[-webkit-tap-highlight-color:transparent]",
-                  )}
-                >
-                  {avatarUrl ? (
-                    <img src={avatarUrl} alt="" className="absolute inset-0 h-full w-full object-cover motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200" />
-                  ) : (
-                    <span className="absolute inset-0 text-[#b0b5bd]">
-                      <DefaultAvatarGlyph fill />
-                    </span>
-                  )}
-                  {uploadingAvatar ? (
-                    <span className="absolute inset-0 grid place-items-center bg-white/70 backdrop-blur-[1px]">
-                      <ActivitySpinner size={22} className="text-[#4b5563]" />
-                    </span>
-                  ) : null}
-                </button>
-              </div>
+            {/* The same row as the seller's page step: the photo, and a slim button beside it. */}
+            <div className="mb-1 flex w-full items-center gap-4 text-left">
               <button
                 type="button"
                 onClick={openJoinPhoto}
                 disabled={uploadingAvatar}
-                data-onboarding-join-photo-add=""
-                className={cn(
-                  secondaryDepth,
-                  "mx-auto mt-2.5 h-11 gap-1.5 rounded-full px-3.5 text-[13px] font-medium text-[#4b5563]",
-                  "sm:absolute sm:left-[calc(50%+54px)] sm:top-[42px] sm:mx-0 sm:mt-0 sm:-translate-y-1/2",
-                )}
+                data-onboarding-join-photo=""
+                aria-label={avatarUrl ? tt("Change photo") : tt("Add a photo")}
+                className={cn("relative block h-16 w-16 shrink-0 overflow-hidden rounded-full bg-[#eceef1] transition-[scale] duration-200 active:scale-[0.97] [-webkit-tap-highlight-color:transparent] sm:h-[72px] sm:w-[72px]", AVATAR_RING)}
               >
-                <ImagePlus className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-                {avatarUrl ? tt("Change") : tt("Add")}
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="" className="absolute inset-0 h-full w-full object-cover motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200" />
+                ) : (
+                  <span className="absolute inset-0 text-[#b0b5bd]"><DefaultAvatarGlyph fill /></span>
+                )}
+                {uploadingAvatar ? (
+                  <span className="absolute inset-0 grid place-items-center bg-white/70">
+                    <ActivitySpinner size={20} className="text-[#4b5563]" />
+                  </span>
+                ) : null}
               </button>
+              <div className="min-w-0">
+                <button
+                  type="button"
+                  onClick={openJoinPhoto}
+                  disabled={uploadingAvatar}
+                  data-onboarding-join-photo-add=""
+                  className="group -my-1.5 inline-flex h-11 items-center disabled:opacity-60 [-webkit-tap-highlight-color:transparent]"
+                >
+                  <span className="inline-flex h-8 items-center gap-1.5 rounded-full bg-white px-3 text-[13px] font-medium text-[#1a1a2e] shadow-[0_0_0_1px_#e5e7eb,0_1px_2px_rgba(17,24,39,0.05)] transition-[background-color,scale] duration-200 group-hover:bg-[#f9fafb] group-active:scale-[0.97] motion-reduce:transition-none">
+                    <ImagePlus className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+                    {avatarUrl ? tt("Change photo") : tt("Add a photo")}
+                  </span>
+                </button>
+                <p className="mt-1 text-[13px] text-[#6b7280]">{tt("Shown on your profile.")}</p>
+              </div>
             </div>
-            <label className={cn("mt-5 flex h-[52px] w-full items-center rounded-[10px] px-4 text-left", FIELD_WELL)}>
+            <label className={cn(FIELD, "mt-3")}>
               <span className="sr-only">{tt("Your name")}</span>
+              <User className="h-5 w-5 shrink-0 text-[#9ca3af]" aria-hidden />
               <input
                 type="text"
                 value={joinName}
@@ -2459,10 +2534,13 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                       type="button"
                       aria-pressed={on}
                       data-onboarding-goal={g.id}
-                      onClick={() => toggleGoal(g.id)}
-                      className={cn(GOAL_PILL, on ? GOAL_ON : GOAL_OFF)}
+                      onClick={() => {
+                        hapticTap("soft")
+                        toggleGoal(g.id)
+                      }}
+                      className={cn(GOAL_PILL, row.length === 1 && "flex-none px-5", on ? GOAL_ON : GOAL_OFF)}
                     >
-                      {on ? <Check className="h-4 w-4 shrink-0" strokeWidth={2.5} aria-hidden /> : <Plus className="h-4 w-4 shrink-0" strokeWidth={2.25} aria-hidden />}
+                      <GoalMark on={on} />
                       <span className="whitespace-nowrap">{tt(g.label)}</span>
                     </button>
                   )
@@ -2500,12 +2578,15 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                   type="button"
                   onClick={openJoinPhoto}
                   disabled={uploadingAvatar}
-                  className="inline-flex h-11 items-center gap-1.5 rounded-full bg-white px-4 text-[14px] font-medium text-[#1a1a2e] shadow-[0_0_0_1px_#e5e7eb,0_1px_2px_rgba(17,24,39,0.05)] transition-colors duration-200 hover:bg-[#f9fafb] disabled:opacity-60"
+                  data-onboarding-photo-button=""
+                  className="group -my-1.5 inline-flex h-11 items-center disabled:opacity-60 [-webkit-tap-highlight-color:transparent]"
                 >
-                  <ImagePlus className="h-4 w-4" strokeWidth={2} aria-hidden />
-                  {avatarUrl ? tt("Change photo") : tt("Add a photo")}
+                  <span className="inline-flex h-8 items-center gap-1.5 rounded-full bg-white px-3 text-[13px] font-medium text-[#1a1a2e] shadow-[0_0_0_1px_#e5e7eb,0_1px_2px_rgba(17,24,39,0.05)] transition-[background-color,scale] duration-200 group-hover:bg-[#f9fafb] group-active:scale-[0.97] motion-reduce:transition-none">
+                    <ImagePlus className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+                    {avatarUrl ? tt("Change photo") : tt("Add a photo")}
+                  </span>
                 </button>
-                <p className="mt-1.5 text-[13px] text-[#6b7280]">{tt("Shown on your page and your store.")}</p>
+                <p className="mt-1 text-[13px] text-[#6b7280]">{tt("Shown on your page and your store.")}</p>
               </div>
             </div>
 
@@ -2545,11 +2626,11 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
             </div>
 
             <label className={cn(FIELD, "h-auto items-start py-3")}>
-              <span className="sr-only">{tt("A few words about you")}</span>
+              <span className="sr-only">{tt("Tell people what you do or create")}</span>
               <textarea
                 value={bio}
                 onChange={(e) => setBio(e.target.value.slice(0, 160))}
-                placeholder={tt("A few words about you")}
+                placeholder={tt("Tell people what you do or create")}
                 rows={2}
                 maxLength={160}
                 className="min-h-[48px] w-full resize-none bg-transparent text-[16px] leading-6 text-[#1a1a2e] outline-none placeholder:text-[#9ca3af]"
@@ -2584,6 +2665,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                   spellCheck={false}
                   className="min-w-0 flex-1 bg-transparent text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af]"
                 />
+                <SocialFace preview={socialPreviews[id]} />
               </label>
             ))}
           </div>
@@ -2774,7 +2856,10 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
         ) : back !== null ? (
           <button
             type="button"
-            onClick={handleBack}
+            onClick={() => {
+              hapticTap("soft")
+              handleBack()
+            }}
             disabled={busy || (plan && !!planCheckoutLoading)}
             data-onboarding-back=""
             className={NAV_BACK}
@@ -2786,7 +2871,10 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
         {plan ? null : (
           <button
             type="button"
-            onClick={handleNext}
+            onClick={() => {
+              if (ready) hapticTap("light")
+              void handleNext()
+            }}
             data-onboarding-next=""
             {...(step === JOIN_NOTIFY ? { "data-onboarding-allow-push": "" } : {})}
             disabled={!ready}
@@ -2916,10 +3004,11 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               ref={stepScrollRef}
               onScroll={updateScrollEdges}
               data-onboarding-scroller=""
+              style={{ maskImage: TOP_EDGE_MASK, WebkitMaskImage: TOP_EDGE_MASK }}
               className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.25)_transparent]"
             >
               <div className="flex min-h-full flex-col items-center px-4 pb-[max(24px,env(safe-area-inset-bottom))] pt-[clamp(12px,4.5svh,40px)] sm:px-6 sm:pb-12 sm:pt-[clamp(24px,9svh,112px)]">
-                <div data-onboarding-steps="" className="relative w-full min-w-0">
+                <div data-onboarding-steps="" className="relative w-full min-w-0 [&>*]:[backface-visibility:hidden] [&>*]:[transform:translateZ(0)]">
                   {leavingStep && (
                     <div
                       key={leavingStep.step}

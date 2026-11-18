@@ -88,7 +88,7 @@ function main() {
   /* Changed on purpose: 71769f95 (join card matches OnePage size) made the card 930 by 540, clamped to the window, and its column's limit follows it. */
   /* Changed on purpose (the full screen redesign): the setup is the whole window at every width, on the home page's film, so the app and the browser are the same screen. */
   check("no fixed card: the steps sit in one page scroll on the film, scrolled when they do not fit, so nothing is cut off at any zoom",
-    /data-onboarding-scroller=""\s*className="min-h-0 flex-1 overflow-y-auto overscroll-contain/.test(creator) && /data-onboarding-steps="" className="relative w-full min-w-0"/.test(creator)
+    /data-onboarding-scroller=""\s*(style=\{\{ maskImage: TOP_EDGE_MASK, WebkitMaskImage: TOP_EDGE_MASK \}\}\s*)?className="min-h-0 flex-1 overflow-y-auto overscroll-contain/.test(creator) && /data-onboarding-steps="" className="relative w-full min-w-0[ "]/.test(creator)
       && /<OnboardingBackdrop \/>/.test(creator) && /heroVideoSource\(\)/.test(readFileSync(join(process.cwd(), "components/onboarding/film-backdrop.tsx"), "utf8")) && !/sm:(w|h|max-h)-\[(930|540)px\]/.test(creator) && !/sm:w-\[min\(930px/.test(creator))
   /* Changed on purpose: 0be8bd1a (two slide first run) lets Next drop its minimum width and set smaller type under 384px, instead of keeping 88px. */
   check("Back and Continue share the row by flex, so the narrowest phone fits them: Continue takes what Back leaves",
@@ -162,7 +162,7 @@ function main() {
     /data-onboarding-view="plans" className="mx-auto w-full max-w-\[1056px\]"/.test(creator) && /compactHeading=\{/.test(creator) && /aria-label="Back"/.test(creator))
   check("the top row has no way out: no Not now", !/data-onboarding-leave/.test(creator))
   check("the steps sit from the top and the leaving one takes no room, so nothing jumps when the next is taller or shorter",
-    /data-onboarding-steps="" className="relative w-full min-w-0"/.test(creator) && /className="pointer-events-none absolute inset-x-0 top-0"/.test(creator) && !/my-auto grid/.test(creator))
+    /data-onboarding-steps="" className="relative w-full min-w-0[ "]/.test(creator) && /className="pointer-events-none absolute inset-x-0 top-0"/.test(creator) && !/my-auto grid/.test(creator))
   check("the page comes first and starts the setup: Let's get started", creator.indexOf("data-onboarding-identity") > -1 && /\{step === 1 && \(\s*<div data-onboarding-identity/.test(creator) && /Let's get started/.test(creator))
   check("what brings them here is two pills to a row, a short one beside a longer one, each as wide as its words", /const GOAL_ROWS: SellGoal\[\]\[\] = \[/.test(creator) && /data-onboarding-goal-row="" className="flex gap-2 sm:gap-2\.5"/.test(creator) && /inline-flex h-12 flex-auto/.test(creator) && /What brings you here\?/.test(creator))
   const cards = read("components/billing/plan-cards.tsx")

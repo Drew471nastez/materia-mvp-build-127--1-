@@ -108,7 +108,8 @@ const LOOK = `(() => {
     /* Each card inside the window with its margin: overflow hidden would clip a card without any sideways scroll to show for it. */
     offEdge: [...(step?.querySelectorAll("section") ?? [])].map(r).filter((b) => b.x < 8 || b.right > innerWidth - 8),
     small: presses.filter((p) => p.h < 44 && !/^(Monthly|Yearly)/.test(p.text)),
-    mask: scroller ? getComputedStyle(scroller).maskImage : "none",
+    fadeTop: scroller ? (scroller.style.getPropertyValue("--fade-top") || "0px") : "0px",
+    scrollTop: scroller ? scroller.scrollTop : 0,
   }
 })()`
 
@@ -141,7 +142,7 @@ for (const [label, viewport] of SIZES) {
     if (l.offEdge.length) problems.push(`${at} ${name} has a card past the window's edge: ${JSON.stringify(l.offEdge)}`)
     if (l.skip) problems.push(`${at} ${name} still has a Skip`)
     if (l.small.length) problems.push(`${at} ${name} has presses under 44px: ${JSON.stringify(l.small)}`)
-    if (l.mask && l.mask !== "none") problems.push(`${at} ${name} fades its scroll edge (${l.mask})`)
+    if (l.fadeTop !== "0px" && l.scrollTop === 0) problems.push(`${at} ${name} fades its top edge before anything has scrolled (${l.fadeTop})`)
     return l
   }
   const next = async () => {
