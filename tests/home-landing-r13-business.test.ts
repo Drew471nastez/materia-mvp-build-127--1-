@@ -34,7 +34,7 @@ const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "")
 const SECTION = "components/marketing/home/business-carousel.tsx"
 const MOCKS = "components/marketing/home/showcase-mocks/business-mocks.tsx"
 const { BUSINESS_HEADING, BUSINESS_SUB, BUSINESS_ACCENT, BUSINESS_ACCENT_COLOR, BUSINESS_SLIDES, BUSINESS_STYLES, BusinessCarousel } = Section
-const { BUSINESS_MOCK_CSS, DigitalScene, PhysicalScene, ClubScene, DIGITAL_BOOK, STORE_DESIGNS, STORE_DESIGN_WIDTHS, STORE_STEP_S, STORE_GLIDE_S } = Mocks
+const { BUSINESS_MOCK_CSS, DigitalScene, PhysicalScene, ClubScene, DIGITAL_FILE, STORE_DESIGNS, STORE_DESIGN_WIDTHS, STORE_STEP_S, STORE_GLIDE_S } = Mocks
 const css = (BUSINESS_STYLES.find((s) => s.href === "w12-biz")?.css ?? "").replace(/\/\*[\s\S]*?\*\//g, "")
 const mocks = BUSINESS_MOCK_CSS.replace(/\/\*[\s\S]*?\*\//g, "").replace(/calc\(([-\d.]+)\*var\(--u\)\)/g, "$1u")
 const phoneAt = mocks.indexOf("@media(max-width:767px)")
@@ -67,8 +67,8 @@ console.log("\nDigital: the mobility course and Ancestral Kitchen")
   // Changed on purpose (landing round 14): the owner disliked the digital card's ground and motion; it is a shelf of six downloads (tests/home-landing-r14-business.test.ts). The two products stay on it.
   /* Changed on purpose (landing round 15): the shelf is gone; the two are the first bought on the product page (DIGITAL_FLOW). */
   /* Changed on purpose (landing round 16): the scene is Ancestral Kitchen alone, a book that opens (tests/home-landing-r16-business.test.ts); its cover is cut from the earlier rounds' picture. */
-  check("the two products, priced, from one store", `${DIGITAL_BOOK.name} ${DIGITAL_BOOK.price}` === "Ancestral Kitchen $34" && digital.includes("by Ruth Calder"))
-  check("their pictures are the earlier rounds' own, small", ["dg-kitchen-cover", "dg-kitchen-soup"].every((n) => digital.includes(`/home/showcase/${n}.webp`) && statSync(`public/home/showcase/${n}.webp`).size < 60_000))
+  check("the two products, priced, from one store", /* Changed on purpose (landing round 17): DIGITAL_FILE, the one file sold. */ `${DIGITAL_FILE.name} ${DIGITAL_FILE.price}` === "Ancestral Kitchen $34" && digital.includes("by Ruth Calder"))
+  check("their pictures are the earlier rounds' own, small", /* Changed on purpose (landing round 17): only the cover now (the soup was the book's open page). */ ["dg-kitchen-cover"].every((n) => digital.includes(`/home/showcase/${n}.webp`) && statSync(`public/home/showcase/${n}.webp`).size < 60_000))
   check("Slow Mornings, Night Face Oil and their photographs are gone", !/Slow Mornings|Night Face Oil|bz-ebook|bz-eggs|bz-oil|be-cover|be-page|bo-thumb/.test(code(MOCKS) + code(SECTION)) && ["bz-ebook", "bz-eggs", "bz-oil"].every((n) => !existsSync(`public/home/showcase/${n}.webp`)))
 }
 

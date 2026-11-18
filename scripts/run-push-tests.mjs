@@ -1634,6 +1634,8 @@ const SUITES = [
   "tests/home-landing-r16-checkout.test.ts",
   /* Landing round 17, small: the showcase's row of numbers gone with its count up; Get Grow turns into an outline button on hover and focus (white fill, purple line and label), no ring round its disc; Take tips belongs to Finn Hollis, a surf filmmaker, under a surfing cover. */
   "tests/home-landing-r17-small.test.ts",
+  /* Landing round 17, business: digital is "Digital downloads", a PDF bought, landing in the buyer's receipt email and downloaded, on transform and opacity only, once a turn, paused off screen; on a phone the store designs stand smaller and inside their card, one each side, nothing past the card's edge. */
+  "tests/home-landing-r17-business.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]
