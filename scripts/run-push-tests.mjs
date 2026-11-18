@@ -1568,6 +1568,8 @@ const SUITES = [
   "tests/home-landing-r11-checkout.test.ts",
   /* Landing round 11, stability: no section above the screen changes height in front of a Safari reader (no scroll anchoring there): real heights kept exactly, server-drawn boxes measured while idle, and a box that changes above the screen held by the scroll in the same frame (by its own top margin mid-fling). */
   "tests/home-landing-r11-stability.test.ts",
+  /* Phone performance pass: a built section is skipped (content-visibility: auto) only while more than four screens away and drawn again three screens before it arrives, so a scroll does not re-layerize the whole page every frame; nothing is switched near the screen. */
+  "tests/home-far-skip.test.ts",
   /* Landing round 12, top: the website builder's first site is the owner's GodBless store (offer bar, red wordmark, a summer photo hero, New Collection on light grey), still moving on to loudlib; the strip's digital store is Jonah Wells, a guitar teacher, laid out like a real store with photographs of what he sells. */
   "tests/home-landing-r12-top.test.ts",
   /* Landing round 12 (purple): the search results' favicons drawn as small marks (a fjord, a film strip, three lights), not letters; the map's turn on one 1.1s clock with an ease that leaves at rest, opaque cards at depths in one 3D stack, nothing reflowing; edge to edge on a phone. */

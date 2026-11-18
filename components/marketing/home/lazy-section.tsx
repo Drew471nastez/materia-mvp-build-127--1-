@@ -45,6 +45,7 @@
  * get the section mounted at once.
  */
 
+import { skipWhenFar } from "./far-skip"
 import { startTransition, useEffect, useRef, useState, useSyncExternalStore, type ComponentType, type CSSProperties, type ReactNode } from "react"
 
 /**
@@ -639,7 +640,14 @@ export function lazySection<P extends object>(load: () => Promise<ComponentType<
       return el ? holdAbove(el) : undefined
     }, [])
 
+    /* Built, it is skipped while it is more than four screens away (far-skip.ts). */
+    useEffect(() => {
+      const el = ref.current
+      return Section && el ? skipWhenFar(el) : undefined
+    }, [Section])
+
     /*
+     * (Since the phone performance pass: skipped again, but only while more than four screens away, see far-skip.ts.)
      * Landing round 12: A MOUNTED SECTION IS NEVER SKIPPED. It was content-visibility: auto, switched to visible a
      * few screens ahead and back as it left: every switch made the browser work out the whole section's style and
      * layout again (measured at 4x CPU in a fling down the page: 1.5s of style and layout, in tasks of up to 200ms),
@@ -682,7 +690,13 @@ export function LazySection({
   useEffect(() => {
     const el = ref.current
     if (sticky || !el) return
-    return holdAbove(el)
+    const unhold = holdAbove(el)
+    /* Skipped while it is more than four screens away, like a built section (far-skip.ts). */
+    const unskip = skipWhenFar(el)
+    return () => {
+      unhold()
+      unskip()
+    }
   }, [sticky])
   void minHeight
   return (

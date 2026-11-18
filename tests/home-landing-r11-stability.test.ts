@@ -61,7 +61,8 @@ console.log("\nServer-drawn boxes are measured while idle, not left at their gue
   /* Changed on purpose (landing round 12): built sections are never skipped, so this machinery is gone. */ check("no settling line for server-drawn boxes", !/unsettled/.test(src))
   /* Changed on purpose (landing round 12): there is no settling line any more. */ check("no settling line is started", !/settleLater/.test(src))
   /* Changed on purpose (landing round 12, the owner's iPhone recording of the page stuttering and popping): a server-drawn box is only held (WebKit has no scroll anchoring). */
-  check("every LazySection box is held where the browser does not anchor the scroll", /if \(sticky \|\| !el\) return\s+return holdAbove\(el\)/.test(src))
+  /* Changed on purpose (phone performance pass): the box is also skipped while it is more than four screens away (far-skip.ts), so the hold is one of two things the effect sets up. */
+  check("every LazySection box is held where the browser does not anchor the scroll", /if \(sticky \|\| !el\) return\s+const unhold = holdAbove\(el\)/.test(src) && /unhold\(\)/.test(src))
 }
 
 console.log("\nA box that changes height above the screen moves nothing on it")

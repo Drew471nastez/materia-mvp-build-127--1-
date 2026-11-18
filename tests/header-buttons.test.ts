@@ -59,7 +59,8 @@ console.log("\n1 and 2. the logged out row on a computer")
   check("Log in is outlined, to /login, and only where asked for", /\{withLogin && \(\s*<Link\s+\{\.\.\.link\("\/login"\)\}/.test(row) && /data-guest-login=""[\s\S]{0,40}className=\{cn\("[^"]*rounded-action border [^"]*", chrome\.guestLogin/.test(row) && /guestLogin: "border-white\/30 /.test(chromeSrc))
   check("Sign up is filled Storelib purple, to /signup", /link\("\/signup"\)/.test(row) && /data-guest-signup=""[\s\S]{0,140}rounded-action bg-violet-600/.test(row) && />\s*Sign up\s*</.test(row))
   check("both buttons take the shared corner, and nothing in it is a pill", (row.match(/rounded-action/g) ?? []).length === 2 && !/rounded-full/.test(row))
-  check("the marketing pages carry Log in", (header.match(/<GuestHeaderActions withLogin link=\{guestLink\}/g) ?? []).length === 2)
+  /* Changed on purpose (onboarding round 5): the signed in row also holds an invisible reserve copy of the logged out row, so the links hold still on a reload. */
+  check("the marketing pages carry Log in", (header.match(/<GuestHeaderActions withLogin link=\{guestLink\}/g) ?? []).length === 3 && /data-header-reserve=""/.test(header))
   check("Explore's header leaves it out", (header.match(/<GuestHeaderActions withLogin=\{false\} link=\{guestLink\}/g) ?? []).length === 2)
   check("no Start selling anywhere in the header", !/start[ _]selling/i.test(header), (header.match(/.{0,40}start[ _]selling.{0,40}/gi) ?? []).join(" | "))
   check("the library icon is still on Explore's bar, the heart is not", !/data-header-wishlist/.test(header) && /aria-label=\{t\("library"\)\}/.test(header))
@@ -68,7 +69,8 @@ console.log("\n1 and 2. the logged out row on a computer")
 
 console.log("\n   before the session is known")
 /* Changed on purpose: 158acdef (light buyer header theme) hands every row the bar's colours as chrome. */
-check("both computer rows wait with an invisible copy of the logged out row", (header.match(/<GuestHeaderActions [^>]*placeholder chrome=\{chrome\} \/>/g) ?? []).length === 2 && /placeholder && "invisible"/.test(header))
+/* Changed on purpose (onboarding round 5): three, the third is the signed in row's reserve. */
+check("both computer rows wait with an invisible copy of the logged out row", (header.match(/<GuestHeaderActions [^>]*placeholder chrome=\{chrome\} \/>/g) ?? []).length === 3 && /placeholder && "invisible"/.test(header))
 check("the stand in cannot be reached or read", /aria-hidden=\{placeholder \|\| undefined\}/.test(header) && /inert=\{placeholder \|\| undefined\}/.test(header))
 check("no grey pills: the old skeleton is gone", !/HeaderActionsSkeleton|<Skeleton\b/.test(header))
 

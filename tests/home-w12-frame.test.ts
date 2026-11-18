@@ -166,7 +166,8 @@ async function main() {
     check("the code is fetched ahead from just after the first paint, not on Save-Data", /requestIdleCallback/.test(src) && !/addEventListener\("load"/.test(src) && /saveData/.test(src))
     const kept = renderToStaticMarkup(createElement(LazySection, { name: "faq", minHeight: "900px", children: createElement("h2", null, "Questions") }))
     /* Changed on purpose (landing round 12, the owner's iPhone recording of the page stuttering and popping): a server-drawn section is never skipped either. */
-    check("LazySection keeps the server's markup and is never skipped", /<h2>Questions<\/h2>/.test(kept) && !/content-visibility/.test(kept) && !/contain-intrinsic-size/.test(kept))
+    /* Changed on purpose (phone performance pass): the server's markup carries no skipping; far-skip.ts skips it in the browser only more than four screens away. */
+    check("LazySection keeps the server's markup and is never skipped as drawn", /<h2>Questions<\/h2>/.test(kept) && !/content-visibility/.test(kept) && !/contain-intrinsic-size/.test(kept))
     const sticky = renderToStaticMarkup(createElement(LazySection, { sticky: true, children: createElement("div", null, "x") }))
     check("but no containment for a section with a sticky child", !/content-visibility/.test(sticky))
   }
@@ -220,7 +221,8 @@ async function main() {
   {
     const src = code("components/marketing/home/lazy-section.tsx")
     /* Changed on purpose (landing round 12, the owner's iPhone recording of the page stuttering and popping): a built section is never skipped. */
-    check("a mounted lazy section stays in its box and is never skipped", /data-lazy-mounted=""/.test(src) && !/contentVisibility: "auto"/.test(src))
+    /* Changed on purpose (phone performance pass): skipped only more than four screens away, by far-skip.ts (tests/home-far-skip.test.ts). */
+    check("a mounted lazy section stays in its box and is never skipped near the screen", /data-lazy-mounted=""/.test(src) && !/contentVisibility: "auto"/.test(src))
     /* Changed on purpose (wave 14): laid out in slices (layOutInSlices), then its height kept as before. */
     /* Changed on purpose (landing round 11): the real height is kept exactly, unrounded (keepHeight), so a box drawn again is not a fraction of a pixel off. */
     /* Changed on purpose (landing round 12, the owner's iPhone recording of the page stuttering and popping): no slicing and no kept height: a built section is laid out once. */
