@@ -1648,6 +1648,8 @@ const SUITES = [
   "tests/home-landing-r17-checkout.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
+  /* Round 56 (c, function): a contact form's other fields reach the creator under their labels (same endpoint, limits and honeypot); forms that go nowhere, unknown kinds, native with no action, sign up or contact with no email box or a file box, contact with only a name and an email are render.form errors, and every shipped form passes; the quantity box and the picked option beside an add button; the native engine draws no button whose address does not resolve on its page; the generator is told. scripts/check-ai-site-function-r56.mjs proves each in Chromium, live and in the canvas. */
+  "tests/ai-site-function-r56.test.ts",
 ]
 
 /**
