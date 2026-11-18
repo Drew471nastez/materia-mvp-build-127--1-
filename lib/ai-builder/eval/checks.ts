@@ -39,7 +39,9 @@ import { artDirection } from "@/lib/storelib-ai/direction/directions"
 import { chooseDirection, isDisplaySerif } from "@/lib/storelib-ai/direction/choose"
 import { parseDesignMd, DESIGN_MD_PATH } from "@/lib/storelib-ai/direction/design-md"
 import { layoutStoryFor, skeletonMatch } from "@/lib/storelib-ai/layout/stories"
-import { conceptClicheIssues, AI_DEFAULT_INDIGO } from "@/lib/ai-builder/slop"
+import { conceptClicheIssues, AI_DEFAULT_INDIGO, evaluateSlop, SLOP_WARNING_BUDGET } from "@/lib/ai-builder/slop"
+import { palettePairs } from "@/lib/storelib-ai/palette-contrast"
+import { templateById } from "@/lib/storelib-ai/templates/registry"
 import { siteFingerprint, fingerprintSimilarity, NOVELTY_THRESHOLD, type SiteFingerprint } from "@/lib/ai-builder/novelty"
 import { contrastOf, themeSettingsToTokens } from "@/lib/ai-builder/tokens"
 import { DESIGN_CONTRACT_SETTING } from "@/lib/ai-builder/design-contract"
@@ -274,6 +276,41 @@ export function checkTokens(site: EvalSite): EvalCheck {
   return ok("tokens.coherent", notes.join(", "))
 }
 
+/* ── round 56: the palette's pairs and the AI look ─────────────────────── */
+
+/** The nine pairs a visitor reads (lib/storelib-ai/palette-contrast.ts palettePairs) on the site's Theme settings. */
+export function checkPalette(site: EvalSite): EvalCheck {
+  const t = siteTokens(site)
+  const pairs = palettePairs(t.colors)
+  const under = pairs.filter((p) => !p.ok)
+  const worst = [...pairs].sort((a, b) => a.ratio / a.min - b.ratio / b.min)[0]
+  const brand = t.colors.brand ? `; brand ${t.colors.brand} kept for fills and large type, accent ${t.colors.accent} for text and buttons` : ""
+  if (under.length) return bad("palette.contrast", `${under.length} of ${pairs.length} pairs under their minimum: ${under.map((p) => `${p.label} ${p.fg} on ${p.bg} ${p.ratio}:1 (needs ${p.min})`).join(" | ")}`)
+  return ok("palette.contrast", `${pairs.length} of ${pairs.length} pairs readable; the closest is ${worst.label} at ${worst.ratio}:1 (needs ${worst.min})${brand}`)
+}
+
+/**
+ * The AI look over the site's OWN files (an agent site's components; a native site is Storelib's sections, which the
+ * check does not judge), with what the starting template shipped with reported but not counted (round 56).
+ */
+export function checkSlopLook(site: EvalSite): EvalCheck {
+  const own = Object.entries(site.sources).filter(([p, t]) => /^sections\/ai_/.test(p) && t.trim())
+  if (!own.length) return ok("slop.look", "no components of its own: Storelib's sections, judged by their own suites")
+  const home = site.pages.find((p) => p.key === "home")?.sections ?? []
+  const input = { sources: own.map(([path, content]) => ({ path, content })), tokens: siteTokens(site), sections: bodyOf(home).map((s) => ({ type: s.type })), brief: site.scenario.prompt }
+  const tpl = site.template ? templateById(site.template) : undefined
+  const baseline = tpl ? [...new Set(evaluateSlop({ sources: Object.entries(tpl.files).map(([path, content]) => ({ path, content })), tokens: tpl.tokens }).findings.filter((f) => f.severity === "warn").map((f) => f.rule))] : []
+  const report = evaluateSlop(input, (site.concept as VisualConcept | null) ?? null)
+  const errors = report.findings.filter((f) => f.severity === "error")
+  const warns = report.findings.filter((f) => f.severity === "warn")
+  const counted = warns.filter((f) => !baseline.includes(f.rule))
+  const inherited = [...new Set(warns.filter((f) => baseline.includes(f.rule)).map((f) => f.rule))]
+  const detail = `${errors.length} P0, ${counted.length} counted P1 of ${SLOP_WARNING_BUDGET} allowed${inherited.length ? ` (from the starting template, not counted: ${inherited.join(", ")})` : ""}${counted.length ? `; counted: ${[...new Set(counted.map((f) => f.rule))].join(", ")}` : ""}`
+  if (errors.length || counted.length > SLOP_WARNING_BUDGET) return bad("slop.look", `${detail}${errors.length ? ` · ${errors.slice(0, 3).map((f) => f.message.slice(0, 120)).join(" | ")}` : ""}`)
+  if (counted.length > SLOP_WARNING_BUDGET / 2) return warn("slop.look", detail)
+  return ok("slop.look", detail)
+}
+
 /* ── novelty across the six ───────────────────────────────────────────── */
 
 function rgb(hex: string): [number, number, number] | null {
@@ -371,6 +408,8 @@ export function evaluateSites(sites: EvalSite[]): EvalResult[] {
       checkSections(site),
       checkNovelty(site, tables.get(site.engine) ?? []),
       checkTokens(site),
+      checkPalette(site),
+      checkSlopLook(site),
       checkEditor(site),
       checkPublish(site),
     ]
