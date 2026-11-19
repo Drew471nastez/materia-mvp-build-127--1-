@@ -15,7 +15,7 @@ import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { usePageMoney } from "@/components/platform/price-currency"
 import { platformHref } from "@/lib/onepage/return-address"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
-import { pixelLead } from "@/lib/analytics/pixels"
+import { newLeadEventId, pixelLead } from "@/lib/analytics/pixels"
 import { tt } from "@/lib/i18n/text"
 import { SocialIcon } from "@/components/onepage/brand-icons"
 import { tiktokPlayerUrl } from "@/lib/onepage/creator-blocks"
@@ -361,6 +361,7 @@ function LeadMagnetView({ block, look }: { block: OnePageBlock; look: StorelibBl
     setError(null)
     setSending(true)
     const params = new URLSearchParams(window.location.search)
+    const leadId = newLeadEventId()
     const common = {
       onepage_id: look.onepageId,
       block_id: block.id,
@@ -373,6 +374,8 @@ function LeadMagnetView({ block, look }: { block: OnePageBlock; look: StorelibBl
       utm_medium: params.get("utm_medium"),
       utm_campaign: params.get("utm_campaign"),
       origin: pageOrigin(),
+      /* The Lead's id, the same for the pixels below and the server's own Lead (lib/analytics/pixels newLeadEventId). */
+      event_id: leadId,
     }
     try {
       const res = await fetch(kind === "download" ? "/api/onepage/email-capture" : "/api/onepage/lead-magnet", {
@@ -385,7 +388,7 @@ function LeadMagnetView({ block, look }: { block: OnePageBlock; look: StorelibBl
       const result: MagnetDone = { code: typeof out.code === "string" ? out.code : null, ended: out.ended === true, downloadLink: typeof out.downloadLink === "string" ? out.downloadLink : null }
       setDone(result)
       /* Round 41: the store's pixels hear the signup (lib/analytics/pixels pixelLead). */
-      pixelLead(window, { form: "lead_magnet", eventId: typeof out.lead_id === "string" ? out.lead_id : null })
+      pixelLead(window, { form: "lead_magnet", eventId: typeof out.lead_id === "string" ? out.lead_id : leadId })
       try {
         window.localStorage.setItem(storeKey, JSON.stringify(result))
       } catch {

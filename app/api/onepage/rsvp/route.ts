@@ -66,7 +66,7 @@ export async function POST(request: Request) {
   if (creatorId && body.keep_posted === true) {
     const source = contactSourceFrom({ request, surface: "onepage", form: "lead_magnet", sent: {} })
     await addSubscriber(db, creatorId, { email, name, onepageId: page.id, consentText: "Asked for news when answering an RSVP on OnePage", source, sent: body.origin })
-    after(() => deliverSignup(db, creatorId, pageSignup({ email, name, form: "rsvp", detail: event.title ?? null, blockId, onepageId: page.id, pageUrl: request.headers.get("referer") })))
+    after(() => deliverSignup(db, creatorId, pageSignup({ email, name, form: "rsvp", detail: event.title ?? null, blockId, onepageId: page.id, pageUrl: request.headers.get("referer"), eventId: typeof body.event_id === "string" ? body.event_id : null })))
   }
   return NextResponse.json({ success: true, already: !saved.fresh })
 }

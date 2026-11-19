@@ -47,6 +47,7 @@ import {
   postEmbedFromUrl,
 } from "@/lib/communities/post-media"
 import { checkMedia } from "@/lib/communities/server/feed"
+import { NATIVE_FRAME_SRC } from "@/lib/security/csp"
 import { COMMENT_FILES_REFUSED, checkCommentMedia, mediaLine } from "@/lib/communities/server/comments"
 import { HIGHLIGHT, HIGHLIGHT_FADE_MS, HIGHLIGHT_HOLD_MS, HIGHLIGHT_MS } from "@/components/community/member/arrive"
 import { withAnswer } from "@/components/community/member/poll"
@@ -155,7 +156,8 @@ async function main() {
   })())
   check("each site has its name", EMBED_NAMES.youtube === "YouTube" && EMBED_NAMES.vimeo === "Vimeo" && EMBED_NAMES.loom === "Loom")
   const csp = read("lib/security/csp.ts")
-  check("the frame policy lets Loom's player in (the header, vercel.json and the app's own)", /"https:\/\/www\.loom\.com"/.test(csp) && /frame-src [^;]*https:\/\/www\.loom\.com/.test(read("vercel.json")) && /https:\/\/player\.vimeo\.com https:\/\/www\.loom\.com/.test(read("proxy.ts")))
+  /* Changed on purpose (OnePage integrations audit): the app's frame list is lib/security/csp NATIVE_FRAME_SRC now, every frame-src host but bare js.stripe.com, which proxy.ts sends as NATIVE_FRAME_POLICY. */
+  check("the frame policy lets Loom's player in (the header, vercel.json and the app's own)", /"https:\/\/www\.loom\.com"/.test(csp) && /frame-src [^;]*https:\/\/www\.loom\.com/.test(read("vercel.json")) && NATIVE_FRAME_SRC.includes("https://www.loom.com") && NATIVE_FRAME_SRC.includes("https://player.vimeo.com") && /NATIVE_FRAME_POLICY\)/.test(read("proxy.ts")))
   const linkField = code("components/community/member/media-link.tsx")
   check("a typed or pasted address gets https:// and must be one with a dot in its host; a video field says what it takes", read("components/community/member/media-link.tsx").includes("? t : `https://${t}`") && linkField.includes('return u.hostname.includes(".") ? u.toString() : null') && linkField.includes('VIDEO_HINT = "Paste a YouTube, Vimeo or Loom link."'))
   check("the field: Paste from the clipboard, the site's mark, a live preview read by the server, Upload beside it for a video", /navigator\.clipboard\.readText\(\)/.test(linkField) && /<ProviderMark provider=\{embed\.provider\}/.test(linkField) && /\/posts\/link-preview`/.test(linkField) && /data-composer-video-upload=""/.test(linkField))

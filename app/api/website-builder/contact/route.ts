@@ -13,7 +13,8 @@
  * many addresses stops at the creator's inbox rather than in it.
  */
 import { syncPlatformsSoon } from "@/lib/contacts/checkout-contact"
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest, NextResponse, after } from "next/server"
+import { deliverSignup, pageSignup } from "@/lib/onepage/integrations/deliver-server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { rateLimit, addressSubject, emailSubject } from "@/lib/api/rate-limit"
 import { contactSourceFrom, recordContactSource } from "@/lib/contacts/contact-source"
@@ -77,6 +78,16 @@ export async function POST(req: NextRequest) {
         recipientName: msg.name || undefined,
         source: source as never,
       })
+      /*
+        A OnePage's contact form, its "keep me updated" box ticked: the creator's own tools for that page (Mailchimp,
+        Kit, a Zapier or Sheets hook..., lib/onepage/integrations) get the new subscriber, as every other signup on the
+        page does. Only reached for a sender who ticked it and was not on the list already (lib/site-contact/handle).
+      */
+      if (msg.page === "onepage") {
+        const eventId = raw && typeof raw === "object" && typeof (raw as Record<string, unknown>).event_id === "string" ? ((raw as Record<string, unknown>).event_id as string) : null
+        const pageUrl = req.headers.get("referer")
+        after(() => deliverSignup(db, msg.creatorId, pageSignup({ email: msg.email, name: msg.name || null, form: "contact", pageUrl, eventId })))
+      }
     },
     source: (msg) => {
       const detail = contactSourceFrom({ request: req, surface: "website", form: "contact", sent, page: msg.page })

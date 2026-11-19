@@ -31,7 +31,7 @@ import { signupEmailReady } from "@/lib/onepage/email-signup"
 import type React from "react"
 import { useEffect, useRef, useState } from "react"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
-import { pixelLead } from "@/lib/analytics/pixels"
+import { newLeadEventId, pixelLead } from "@/lib/analytics/pixels"
 import { Check } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { onePageImageSrc } from "@/lib/onepage/display-image"
@@ -108,16 +108,18 @@ export function OnePageSubscribeSheet({
     setError("")
     setBusy(true)
     try {
+      /* One id for the pixels' Lead and the server's (lib/analytics/pixels newLeadEventId). */
+      const leadId = newLeadEventId()
       const res = await fetch("/api/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: address, source: "onepage", source_id: onepageId, creator_id: sellerId, origin: pageOrigin() }),
+        body: JSON.stringify({ email: address, source: "onepage", source_id: onepageId, creator_id: sellerId, origin: pageOrigin(), event_id: leadId }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error || "That did not go through. Try again.")
       setDone(true)
       /* Round 41: the store's pixels hear the signup (lib/analytics/pixels pixelLead). */
-      pixelLead(window, { form: "subscribe" })
+      pixelLead(window, { form: "subscribe", eventId: leadId })
     } catch (err) {
       setError(err instanceof Error ? err.message : "That did not go through. Try again.")
     } finally {

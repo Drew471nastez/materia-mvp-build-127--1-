@@ -988,7 +988,8 @@ export function LinksTab() {
             const currentData = onepage?.draft_blocks.find(b => b.id === blockId)?.data as LinkButtonBlockData
             if (currentData) {
               const videoIdMatch = url.match(/video\/(\d+)/)
-              const videoId = videoIdMatch ? videoIdMatch[1] : null
+              /* A short vm.tiktok.com link: the id TikTok's oEmbed named (app/api/onepage/tiktok), so the page plays it. */
+              const videoId = videoIdMatch ? videoIdMatch[1] : typeof tiktokData.videoId === "string" && /^\d{10,25}$/.test(tiktokData.videoId) ? tiktokData.videoId : null
               landFetched((currentData) => ({
                   url,
                   thumbnail_url: thumbnailUrl || currentData.thumbnail_url,

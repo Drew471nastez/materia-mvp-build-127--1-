@@ -120,6 +120,12 @@ export const ONEPAGE_HOST_API: readonly { path: RegExp; methods: readonly string
   /* Storelib's own speed, measured on the OnePage (lib/perf/config.ts BEACON_PATH): no visitor data. */
   { path: /^\/api\/public\/m\/?$/, methods: ["POST"] },
   /*
+    The store's Google Analytics tag saying Google took a hit (lib/store/ga.ts gaSeenJs), which Settings › Integrations
+    shows as "Receiving data". A public beacon with the creator and the ID only. Off this list it was a 404 on
+    storelib.me, so a store whose visits come through its OnePage never saw Google Analytics as receiving.
+  */
+  { path: /^\/api\/store\/ga-seen\/?$/, methods: ["POST"] },
+  /*
     The product sheet and Instant checkout (components/onepage/product-sheet.tsx,
     components/checkout/instant-checkout.tsx): a published product's public
     facts, a code checked, and the purchase through the same routes the

@@ -109,7 +109,8 @@ function NameWords({ theme, title }: { theme: unknown; title: string }) {
     </span>
   )
 }
-import { bookingProviderName, bookingSource, tiktokPlayerUrl } from "@/lib/onepage/creator-blocks"
+import { bookingProviderName, bookingSource, tiktokPlayerUrl, tiktokVideoIdFrom } from "@/lib/onepage/creator-blocks"
+import { youtubeIdFrom } from "@/lib/blog/embed"
 import { BookingFrame } from "@/components/onepage/embed-frame"
 import { BlockSheetProvider, useBlockSheet } from "@/components/onepage/block-sheet"
 import { MusicPlayer, appleMusicEmbedUrl, musicSheetRequest, spotifyEmbedUrl } from "@/components/onepage/music-sheet"
@@ -2862,11 +2863,7 @@ function CoreBlockRenderer({
   }
 
   // Extract TikTok video ID from URL
-  const getTikTokVideoId = (url: string): string | null => {
-    if (!url) return null
-    const match = url.match(/video\/(\d+)/)
-    return match ? match[1] : null
-  }
+  const getTikTokVideoId = (url: string): string | null => tiktokVideoIdFrom(url)
 
   const appleMusicRequest = (data: LinkButtonBlockData) => ({ blockId: block.id, ...musicSheetRequest({ service: "apple_music", url: data.url, title: data.label || "Apple Music" }) })
   const openAppleMusicModal = (data: LinkButtonBlockData) => {
@@ -3467,29 +3464,13 @@ function CoreBlockRenderer({
       if (data.layout_type === 'pro' || linkDrawnAsCard(theme, data)) {
         const displayMode = data.display_mode || 'cover'
 
-        // Check if this is a YouTube URL and extract video ID
-        const getYouTubeVideoId = (url: string): string | null => {
-          if (!url) return null
-          try {
-            if (url.includes('youtube.com/watch')) {
-              const urlObj = new URL(url)
-              return urlObj.searchParams.get('v')
-            } else if (url.includes('youtu.be/')) {
-              const match = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/)
-              return match ? match[1] : null
-            }
-          } catch {
-            return null
-          }
-          return null
-        }
-
-        const youtubeVideoId = getYouTubeVideoId(data.url)
+        /* The video's id from any address YouTube gives one in (watch, youtu.be, shorts, live, embed, m.), eleven characters or nothing (lib/blog/embed youtubeIdFrom). Only watch and youtu.be were read, so a Short or a live link drew no player. */
+        const youtubeVideoId = /youtu/i.test(data.url || "") ? youtubeIdFrom(data.url) : null
         const youtubeMode = data.youtube_mode || 'embed_video'
         const youtubeShowPlayButton = data.youtube_show_play_button === true
 
         // Determine which video ID to use based on mode
-        const effectiveVideoId = youtubeMode === 'embed_latest' && data.youtube_latest_video_id
+        const effectiveVideoId = youtubeMode === 'embed_latest' && data.youtube_latest_video_id && /^[A-Za-z0-9_-]{11}$/.test(data.youtube_latest_video_id)
           ? data.youtube_latest_video_id
           : youtubeVideoId
 
@@ -3587,7 +3568,8 @@ function CoreBlockRenderer({
         const proShouldOpenAppleMusicModal = isAppleMusicUrl(data.url) && proAppleMusicMode === 'audio_preview' && pageSheet.available && !!appleMusicEmbedUrl(data.url)
 
         // TikTok embed handling
-        const tiktokVideoId = getTikTokVideoId(data.url) || data.tiktok_video_id
+        /* A short vm.tiktok.com link has no id in it: the editor keeps the one TikTok's oEmbed names (app/api/onepage/tiktok), digits only. */
+        const tiktokVideoId = getTikTokVideoId(data.url) || (typeof data.tiktok_video_id === "string" && /^\d{10,25}$/.test(data.tiktok_video_id) ? data.tiktok_video_id : null)
         const shouldEmbedTikTok = isTikTokVideoUrl(data.url) && data.tiktok_show_embed !== false && tiktokVideoId
         /* Round 42: TikTok's player (the video alone, 9:16), not its post card, which is taller than the box and scrolled inside it. */
         const tiktokEmbedUrl = tiktokVideoId ? tiktokPlayerUrl(tiktokVideoId, false) : data.tiktok_embed_url || null
@@ -5276,6 +5258,8 @@ function CoreBlockRenderer({
       /* A Calendly or a Cal.com page (lib/onepage/creator-blocks bookingSource), on https; anything older is drawn as it was saved. */
       /* An older booking page that is neither still opens, but only as an http(s) address: never javascript: (lib/onepage/safe-urls). */
       const calendlyUrl = bookingSource(data.calendly_url)?.url ?? openableUrl(linkHref(data.calendly_url))
+      /* Only Calendly and Cal.com pages are drawn in a frame (they allow it, and frame-src lists them). Any other booking page (TidyCal, Zoom, a site's own) refuses a frame, so it opens in its own tab rather than as a blank sheet or block. */
+      const bookingFramable = !!bookingSource(data.calendly_url)
 
       // Button styles for Calendly block (matching other blocks)
       const buttonShadow = (theme as any).button_shadow || "none"
@@ -5326,7 +5310,7 @@ function CoreBlockRenderer({
         // Track the click
         trackClick(block.id, calendlyUrl)
 
-        if (interaction === "direct" || !blockSheet.available) {
+        if (interaction === "direct" || !blockSheet.available || !bookingFramable) {
           window.open(calendlyUrl, '_blank', 'noopener')
           return
         }
@@ -5346,7 +5330,7 @@ function CoreBlockRenderer({
       const pageHover = { "data-hover": buttonHover(theme), "data-shadow": themeButtonShadow(theme) }
 
       // Check if inline embed mode
-      const isInlineEmbed = interaction === "inline" && calendlyUrl
+      const isInlineEmbed = interaction === "inline" && bookingFramable && calendlyUrl
 
       // Inline embed layout
       if (isInlineEmbed) {

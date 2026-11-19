@@ -6,6 +6,7 @@ import { Check, ChevronRight, Loader2, Star } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { usePageMoney } from "@/components/platform/price-currency"
 import { sendContactMessage } from "@/lib/website-builder/contact-client"
+import { newLeadEventId, pixelLead } from "@/lib/analytics/pixels"
 import { CONTACT_LIMITS, EMBED_PROVIDER_NAME, embedFrameUrl, embedSource, MUSIC_PROVIDER_NAME, cleanTestimonials, contactInputError, courseHref, lessonsLabel, musicSource } from "@/lib/onepage/creator-blocks"
 import type { ContactFormBlockData, CourseBlockData, EmbedBlockData, MusicBlockData, OnePageBlock, OnePageTheme, TestimonialsBlockData } from "@/lib/onepage/types"
 import { tt } from "@/lib/i18n/text"
@@ -274,6 +275,8 @@ function ContactFormView({ data, look }: { data: ContactFormBlockData; look: Cre
     }
     setError(null)
     setState("sending")
+    /* One id for the pixels' Lead and, when the box was ticked, the server's (lib/analytics/pixels newLeadEventId). */
+    const leadId = newLeadEventId()
     const out = await sendContactMessage({
       creatorId: look.sellerId,
       name,
@@ -283,9 +286,12 @@ function ContactFormView({ data, look }: { data: ContactFormBlockData; look: Cre
       company,
       elapsed: Date.now() - shownAt.current,
       page: "onepage",
+      eventId: leadId,
     })
     if (out.ok) {
       setState("sent")
+      /* A message from the page is a lead for the store's pixels (Meta Lead, TikTok SubmitForm, GA4 generate_lead), as a signup is. */
+      pixelLead(window, { form: "contact", eventId: leadId })
     } else {
       setState("idle")
       setError("error" in out ? out.error : tt("Write a message first."))
