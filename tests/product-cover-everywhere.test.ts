@@ -172,6 +172,10 @@ console.log("PLACES")
   check("the store card passes the original on", /cover_original_url: product\.cover_original_url \?\? null/.test(read("components/storefront/storefront-product-card.tsx")))
   check("the library's list and a product's own library page", /originalCoversOf\(admin, productIds\)/.test(read("lib/library/get-library-downloads.ts")) && /withOriginalCoverRow\(\{ thumbnail_url: product\.thumbnail_url \?\? null, cover_original_url: product\.cover_original_url \?\? null \}\)/.test(read("app/(storelib)/account/library/products/[id]/page.tsx")))
   check("a website's checkout lines", /originalCoversOf\(db, priced\.lines\.map\(\(l\) => l\.item\.productId\)\)/.test(read("lib/checkout/site-quote-server.ts")))
+  {
+    const page = read("app/(storelib)/(marketing)/p/[slug]/page.tsx")
+    check("the product page reached from Explore keeps Explore's 16:9 card with its bars, and the trim leaves it alone", /const fromExplore = layout === "discover"/.test(page) && /fromExplore\s*\?\s*storedGallery\s*:\s*withOriginalCover\(/.test(page) && /data-cover-padded=\{fromExplore \? "keep" : undefined\}/.test(page))
+  }
   check("checkout, the product page and the OnePage keep theirs (round AK)", /thumbnail_url: productCover\(product\)/.test(read("app/(storelib)/checkout/page.tsx")) && /withOriginalCover\(/.test(read("app/(storelib)/(marketing)/p/[slug]/page.tsx")) && /withOriginalCover\(/.test(read("app/api/onepage/product/route.ts")))
   const tile = read("app/(storelib)/app/products/new/media-grid.tsx")
   check("the editor's tile shows the picture as uploaded, filling the tile", /: item\.original \|\| item\.url/.test(tile) && /square && item\.type === "image" \? "object-contain" : "object-cover"/.test(tile))
