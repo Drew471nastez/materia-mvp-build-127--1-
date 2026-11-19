@@ -94,6 +94,7 @@ import { RENAISSANCE_THEMES } from "@/components/onepage/themes/renaissance-them
 import { orderThemes, themeGroupOf, type ThemeGroupId } from "@/components/onepage/themes/theme-order"
 import { SWATCH_LETTERS, ThemeSwatch, themeIsHero } from "@/components/onepage/themes/theme-swatch"
 import { MOOD_THEMES } from "@/components/onepage/themes/mood-themes"
+import { DARK_CLEAN_THEMES } from "@/components/onepage/themes/dark-clean-themes"
 import { useThemePreviewScale } from "@/components/onepage/themes/preview-scale"
 import { themeLabel } from "@/components/onepage/themes/theme-names"
 import { LayoutSection } from "@/components/onepage/themes/layout-section"
@@ -1196,7 +1197,7 @@ const BASE_THEME_TEMPLATES = [
 /* Round 40: Gallery, Swiss, Ember, Lagoon and Atlas (components/onepage/themes/r40-themes), each laid into its kind. */
 /* Renaissance (components/onepage/themes/renaissance-theme), and the picker's order: the best and most chosen first, in groups (components/onepage/themes/theme-order). */
 /* The painted wallpapers (components/onepage/themes/mood-themes) join after the kinds are laid out; the picker's order places each (theme-order). */
-export const THEME_TEMPLATES = orderThemes([...withR40Themes([...BASE_THEME_TEMPLATES, ...(RENAISSANCE_THEMES as unknown as typeof BASE_THEME_TEMPLATES)]), ...(MOOD_THEMES as unknown as typeof BASE_THEME_TEMPLATES)])
+export const THEME_TEMPLATES = orderThemes([...withR40Themes([...BASE_THEME_TEMPLATES, ...(RENAISSANCE_THEMES as unknown as typeof BASE_THEME_TEMPLATES)]), ...(MOOD_THEMES as unknown as typeof BASE_THEME_TEMPLATES), ...(DARK_CLEAN_THEMES as unknown as typeof BASE_THEME_TEMPLATES)])
 
 /** The gradient a page starts from when it has none of its own: warm, and nothing like the old violet default. */
 const DEFAULT_GRADIENT = "linear-gradient(160deg, #f0a8b8 0%, #b2846c 100%)"
