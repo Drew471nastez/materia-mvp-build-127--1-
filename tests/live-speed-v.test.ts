@@ -70,7 +70,8 @@ setRtt(0)
 const settle = () => Promise.allSettled(nextCache.pending.splice(0))
 
 /** The most round trips a first visitor's page view may cost; the next visitor's is zero. */
-const FIRST_VIEW_BUDGET = 30
+/* Changed on purpose (round AL): +1, each product card's cover as uploaded (lib/products/cover originalCoversOf), read beside the card's other reads in cardsFromRows, never in a row. */
+const FIRST_VIEW_BUDGET = 31
 /** The longest chain of reads a first view may wait on, and the round trip it is measured with (round 36). */
 const FIRST_VIEW_CHAIN = 9
 const CHAIN_RTT = 200

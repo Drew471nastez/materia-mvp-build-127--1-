@@ -38,7 +38,8 @@ const STATIC_TYPES = { ".webp": "image/webp", ".avif": "image/avif", ".png": "im
  * for a call, given the request and its body; null leaves it to the stubs
  * below. It is how a probe sees what Save sent and what a signup posted.
  */
-export async function serveEditorProbe({ root = process.cwd(), entry = "scripts/render-onepage-editor.tsx", pathname = "/app/onepage", blocks = null, theme = {}, liveTheme = null, statics = {}, throttle = null, api = null, fail = (m) => { throw new Error(m) } } = {}) {
+/* `head` (round AL, scripts/check-product-cover-ratio.mjs): markup for the page's <head>, after its styles, as a layout's own head scripts. */
+export async function serveEditorProbe({ root = process.cwd(), entry = "scripts/render-onepage-editor.tsx", pathname = "/app/onepage", blocks = null, theme = {}, liveTheme = null, statics = {}, throttle = null, api = null, head = "", fail = (m) => { throw new Error(m) } } = {}) {
   const dir = join(root, `.onepage-probe-${process.pid}`)
   mkdirSync(dir, { recursive: true })
   writeFileSync(join(dir, "navigation.js"), `export const usePathname = () => ${JSON.stringify(pathname)}
@@ -91,7 +92,7 @@ export function createClient() { return { auth: { getUser: async () => ({ data: 
   const devtoolsHook = `window.__commits=0;window.__REACT_DEVTOOLS_GLOBAL_HOOK__={isDisabled:false,supportsFiber:true,renderers:new Map(),inject(){return 1},onCommitFiberRoot(){window.__commits++},onCommitFiberUnmount(){},onPostCommitFiberRoot(){},onScheduleFiberRoot(){},checkDCE(){}};`
   const globals = `window.process={env:{NODE_ENV:"production"}};window.PROBE_THEME=${JSON.stringify(theme)};${blocks ? `window.PROBE_BLOCKS=${JSON.stringify(blocks)};` : ""}${liveTheme ? `window.PROBE_LIVE_THEME=${JSON.stringify(liveTheme)};` : ""}`
   const html = `<!doctype html><html class="app-layout"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
-    `<style>${interFaces(root)}</style><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style>` +
+    `<style>${interFaces(root)}</style><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style>${head}` +
     `</head><body><div id="app"></div><script>${devtoolsHook}${globals}</script><script>${bundle}</script></body></html>`
   const folders = { "/images/": join(root, "public/images"), ...statics }
   /* One pipe for every throttled file: the time the next chunk may leave. */

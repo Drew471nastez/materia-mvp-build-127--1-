@@ -33,6 +33,8 @@ interface ProductCardProps {
     pay_what_you_want?: boolean | null
     pwyw_min_price_cents?: number | null
     thumbnail_url?: string | null
+    /** The cover as uploaded (SQL part 377): a store's own grid draws it; Explore keeps the 16:9 copy. */
+    cover_original_url?: string | null
     type: string
     /* A membership's billing interval, when its plan was read: "$9/month" or "$90/year" (lib/pricing/list-price). */
     price_interval?: "month" | "year" | null
@@ -183,7 +185,9 @@ export const ProductCard = memo(function ProductCard({
   */
   const coverRef = useRef<HTMLImageElement>(null)
   const fromServer = useDrawnByServer()
-  const coverSrc = product?.thumbnail_url || ""
+  /* Outside Explore, the cover as uploaded when the row has it (products.cover_original_url, lib/products/cover.ts). */
+  const coverUrl = (!discoverLayout && product?.cover_original_url) || product?.thumbnail_url || ""
+  const coverSrc = coverUrl
   const [cover, setCover] = useState<"drawn" | "wait" | "in">(() =>
     priority || fromServer || drawnCovers.has(coverSrc) ? "drawn" : "wait",
   )
@@ -338,8 +342,14 @@ export const ProductCard = memo(function ProductCard({
         {product.thumbnail_url ? (
           <Image
             ref={coverRef}
-            src={product.thumbnail_url}
+            src={coverUrl}
             alt={product.title || "Product"}
+            /*
+              Round AL: Explore and the marketplace (discoverLayout) show the shop's 16:9 copy, grey padding and all, so
+              every card there is the same shape. A creator's own store grid (discoverLayout false) fills its card
+              with the picture as uploaded; a padded copy with no original is trimmed by the page (lib/images/cover-trim).
+            */
+            data-cover-trim={discoverLayout ? "keep" : undefined}
             fill
             sizes={leanSizesValue ?? sizes}
             className={

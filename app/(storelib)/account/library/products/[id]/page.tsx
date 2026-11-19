@@ -2,6 +2,7 @@ import { personName } from "@/lib/profile/display-name"
 import { notFound } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { withOriginalCoverRow } from "@/lib/products/cover"
 import { fillOwnedProduct } from "@/lib/library/owned-products"
 import { pageUser } from "@/lib/auth/page-user"
 import { accessStateOf, canDeliver, decideAccess, orderNumberOf, overallState, type AccessState } from "@/lib/receipts/rules"
@@ -129,7 +130,8 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
   const data: LibraryProductData = {
     productId: id,
     title: product.title || "Product",
-    thumbnailUrl: product.thumbnail_url || null,
+    /* The cover as uploaded when the row has it (products(*) reads it once SQL part 377 has run), not Explore's 16:9 copy. */
+    thumbnailUrl: withOriginalCoverRow({ thumbnail_url: product.thumbnail_url ?? null, cover_original_url: product.cover_original_url ?? null }).thumbnail_url || null,
     productSlug: product.slug || null,
     archived: !!product.status && product.status !== "published",
     purchasedAt,

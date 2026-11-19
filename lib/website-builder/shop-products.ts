@@ -70,6 +70,7 @@ import { plainDescription } from "@/lib/products/plain-description"
 import { SHOP_CURRENCY, shopMoneyIn } from "@/lib/store/shop-money"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { NO_ROWS, readLadder } from "@/lib/supabase/missing-memory"
+import { originalCoversOf, withOriginalCoverRow } from "@/lib/products/cover"
 import { oncePerClient } from "@/lib/supabase/per-client"
 
 /** One product, in the shape a block has. */
@@ -476,7 +477,7 @@ export async function cardsFromRows(db: unknown, rows: ProductRow[], creatorId?:
   const physical = rows.filter((r) => r.type === "physical").map((r) => r.id)
   const ids = rows.map((r) => r.id)
   /* In batches, so a long shop does not ask for hundreds of ids in one address. */
-  const [shown, variants, options, stock, standings, fields, ratings, asks] = await Promise.all([
+  const [shown, variants, options, stock, standings, fields, ratings, asks, originals] = await Promise.all([
     /* In the store's own currency (Settings › Country & Currency), the one its prices are in. */
     currency ?? (creatorId ? readStoreCurrency(db, creatorId).then((c) => c.currency) : SHOP_CURRENCY),
     variantsInBatches(db as Db, ids),
@@ -487,8 +488,10 @@ export async function cardsFromRows(db: unknown, rows: ProductRow[], creatorId?:
     creatorId ? ratingsOf(db as Db, creatorId, ids).catch(() => null) : null,
     /* Personalization (SQL part 307, lib/products/personalization): only a product that ships asks; none when the column is not there. */
     physical.length ? personalizationOf(db, physical).catch(() => null) : null,
+    /* Round AL: the cover as uploaded (SQL part 377), so a website's sections draw the picture and not the 16:9 copy Explore uses. */
+    originalCoversOf(db, ids),
   ])
-  const cards = rows.map((r) => toCard(r, variants, options, shown))
+  const cards = rows.map((r) => toCard(originals.has(r.id) ? withOriginalCoverRow(r, originals.get(r.id)) : r, variants, options, shown))
   /* Laid over in the order they always were: stock, sales limits, custom fields, stars. */
   const stocked = stock ? withStockFacts(rows, cards, stock) : cards
   const capped = standings ? withStandings(stocked, standings) : stocked

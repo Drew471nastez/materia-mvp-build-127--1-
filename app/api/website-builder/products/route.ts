@@ -1,3 +1,4 @@
+import { rowsWithOriginalCovers } from "@/lib/products/cover"
 import { NextResponse } from "next/server"
 import { websiteCaller } from "@/lib/team/website"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -107,7 +108,9 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Failed to fetch products" }, { status: 500 })
     }
 
-    return NextResponse.json({ products: products ?? [] })
+    /* Round AL: the builder draws each cover as uploaded, as the live website does (lib/products/cover.ts); Explore keeps its 16:9 copy. */
+    const rows = (products ?? []) as unknown as { id: string; thumbnail_url?: string | null; gallery_urls?: unknown }[]
+    return NextResponse.json({ products: await rowsWithOriginalCovers(supabase, rows) })
   } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }

@@ -8,6 +8,7 @@ import { StuckLayerGuard } from "@/components/platform/stuck-layer-guard"
 import { ViewportVars } from "@/components/viewport-vars"
 import { SiteNativeShell } from "@/components/website-builder/site-native-shell"
 import { IMAGE_FALLBACK_SCRIPT } from "@/lib/media/image-fallback"
+import { COVER_TRIM_SCRIPT } from "@/lib/images/cover-trim"
 import { STORELIB_PAGE_LANG } from "@/lib/seo/page-language"
 import { SITE_SHELL_SCRIPT } from "@/lib/website-builder/site-shell-script"
 import { CheckoutLinkOrigin } from "@/components/website-builder/checkout-link-origin"
@@ -111,6 +112,8 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: SITE_SHELL_SCRIPT }} />
         {/* A picture that fails is tried another way, then hidden; never a broken icon (lib/media/image-fallback). */}
         <script dangerouslySetInnerHTML={{ __html: IMAGE_FALLBACK_SCRIPT }} />
+        {/* A product's padded 16:9 copy shows its picture without the grey bars (lib/images/cover-trim, round AL). */}
+        <script dangerouslySetInnerHTML={{ __html: COVER_TRIM_SCRIPT }} />
         {/* The page being left stays until the next is drawn, then they cross-fade (lib/website-builder/live-navigation.ts). Before the page, so the next one has it when it is drawn. */}
         <style data-storelib-navigation dangerouslySetInnerHTML={{ __html: VIEW_TRANSITION_CSS }} />
         {/* No transition in an app's web view or on a slow phone, where it froze the page between two; a press ends one (live-navigation.ts). */}

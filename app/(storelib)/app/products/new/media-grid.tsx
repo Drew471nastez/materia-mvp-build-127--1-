@@ -168,7 +168,13 @@ function MediaTile({ item, index, onRemove, shape }: { item: MediaItem; index: n
   const kind = kindOf(item)
   /* A video file: its stored first frame when it has one, else the video's own first frame (a <video> below). */
   const poster = item.type === "video" ? videoPosterUrl(item.url) : null
-  const src = item.type === "youtube" ? `https://img.youtube.com/vi/${parseYouTubeUrl(item.url)}/hqdefault.jpg` : item.type === "video" ? (poster ?? "") : item.url
+  /*
+    Round AL: a photo's tile shows the picture as it was uploaded (`original`, products.cover_original_url), filling
+    the tile, never the 16:9 copy with its grey padding that only Explore's cards use. A padded copy with no original
+    (a product saved before SQL part 377, or a gallery photo after the first) is trimmed by the page itself
+    (lib/images/cover-trim) and fills the tile the same way.
+  */
+  const src = item.type === "youtube" ? `https://img.youtube.com/vi/${parseYouTubeUrl(item.url)}/hqdefault.jpg` : item.type === "video" ? (poster ?? "") : item.original || item.url
   const srcSet = src ? optimizedSrcSet(src, TILE_FILES, PORTRAIT_QUALITY) : ""
   const length = item.type === "video" ? durationText(videoDuration(item.url)) : ""
 
@@ -210,6 +216,7 @@ function MediaTile({ item, index, onRemove, shape }: { item: MediaItem; index: n
           loading={index < TILES_EAGER ? undefined : "lazy"}
           decoding="async"
           className={cn("h-full w-full", square && item.type === "image" ? "object-contain" : "object-cover")}
+          data-media-picture=""
           draggable={false}
         />
         )}

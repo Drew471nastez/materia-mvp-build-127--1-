@@ -211,6 +211,8 @@ export function FeaturedBannerCarousel({ products, overlay }: FeaturedBannerCaro
                 <Image
                   src={product.thumbnail_url}
                   alt={product.title || "Featured product"}
+                  /* Explore keeps the shop's 16:9 copy as it is (lib/images/cover-trim). */
+                  data-cover-trim="keep"
                   fill
                   sizes="100vw"
                   className="object-cover"
