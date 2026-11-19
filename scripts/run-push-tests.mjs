@@ -1776,6 +1776,8 @@ const STRICT_SUITES = [
   "tests/product-sheet-r53.test.ts",
   /* Round AK: the product sheet closes before the checkout opens on top (one state, one backdrop, focus held, Back and Escape close the checkout alone), the checkout's head is the product's own picture, and the product editor's grey padding is cut off in the sheet and the checkout. scripts/check-onepage-checkout-stack.mjs measures it. */
   "tests/onepage-checkout-stack.test.ts",
+  /* The owner, on phones and in the iOS app: the checkout a tap turns into, smoother and not laggy. The window draws from the facts the page already read (the finger going down starts a fresh read it shares), its placeholder is the form's own shape, it rises from the foot of a phone's screen and goes back down (transform only, still under reduced motion), every Buy gives under the finger and ticks once, and Stripe.js is asked for as it opens. scripts/check-checkout-mobile.mjs measures it. */
+  "tests/checkout-mobile-smooth.test.ts",
   /* Round AL: a block opened in a sheet like Linktree's (rise, fade and slight scale in 300ms, back in 250ms, the page held still, Escape and Back, focus kept), the Interaction choice on the blocks that embed something (saved ones stay on the page), and Instagram posts folded in Instagram's own units with View full post on the fade. scripts/check-onepage-block-sheet.mjs measures them. */
   "tests/onepage-block-sheet-al.test.ts",
   "tests/onepage-sheets-an3.test.ts",

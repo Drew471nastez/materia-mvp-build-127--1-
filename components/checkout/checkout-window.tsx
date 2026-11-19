@@ -46,7 +46,23 @@ export function useBodyLock(on: boolean) {
  * leaves does nothing. Opening is just as short (150ms), so the picker feels quick rather than slow.
  */
 export const EXIT_MS = 140
-export function useExit(onClose: () => void): [boolean, () => void] {
+/**
+ * ON A PHONE THE WINDOW IS A SHEET (the owner: "smoother, higher fps, not laggy"). It fills the screen there, and it
+ * used to fade in from 8px below in 200ms and fade out the same way, which read as a page blinking in rather than
+ * something that came up from the tap. Now it rises from the foot of the screen over the page dimming behind it and
+ * goes back down when closed, on the app's own sheet curve (components/ui/bottom-sheet SHEET_EASE), transform and
+ * opacity only so the compositor plays it while the page is busy drawing the form and Stripe arrives. The keyframes
+ * are .checkout-sheet in app/globals.css, for the same width this names; a computer keeps its centred window.
+ */
+export const PHONE_OPEN_MS = 280
+export const PHONE_EXIT_MS = 220
+export const PHONE_WIDTH = "(max-width: 639.98px)"
+export function windowExitMs(): number {
+  if (typeof window === "undefined") return EXIT_MS
+  return window.matchMedia?.(PHONE_WIDTH).matches ? PHONE_EXIT_MS : EXIT_MS
+}
+
+export function useExit(onClose: () => void, exitMs: () => number = () => EXIT_MS): [boolean, () => void] {
   const [leaving, setLeaving] = React.useState(false)
   const ref = React.useRef(onClose)
   ref.current = onClose
@@ -54,7 +70,7 @@ export function useExit(onClose: () => void): [boolean, () => void] {
     setLeaving((was) => {
       if (!was) {
         const reduced = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
-        window.setTimeout(() => ref.current(), reduced ? 0 : EXIT_MS)
+        window.setTimeout(() => ref.current(), reduced ? 0 : exitMs())
       }
       return true
     })
@@ -210,13 +226,16 @@ export interface CheckoutWindowProps {
   children: React.ReactNode
 }
 
+const useBeforePaint = typeof window === "undefined" ? React.useEffect : React.useLayoutEffect
+
 export function CheckoutWindow({ mark, title, subtitle, onBack, backLabel = "All plans", onClose, busy = false, dark = false, themed = false, dataName = "community-checkout", labelId, returnFocus, children }: CheckoutWindowProps) {
   useBodyLock(true)
   const [mounted, setMounted] = React.useState(false)
-  React.useEffect(() => setMounted(true), [])
+  /* Before the first paint, not after it: the window is on the frame the tap is answered in, not one later. */
+  useBeforePaint(() => setMounted(true), [])
   const panel = React.useRef<HTMLDivElement>(null)
   useFocusTrap(panel, mounted, returnFocus)
-  const [leaving, closeAnimated] = useExit(onClose)
+  const [leaving, closeAnimated] = useExit(onClose, windowExitMs)
   const closeIfIdle = React.useCallback(() => {
     if (!busy) closeAnimated()
   }, [busy, closeAnimated])
@@ -225,7 +244,7 @@ export function CheckoutWindow({ mark, title, subtitle, onBack, backLabel = "All
   if (!mounted) return null
   return createPortal(
     <div className={cn("fixed inset-0 z-[130] flex items-stretch justify-center sm:items-center sm:p-6", themed && "op-sheet")} {...{ [`data-${dataName}`]: "" }} data-community-theme={dark && !themed ? "dark" : undefined} data-leaving={leaving ? "" : undefined}>
-      <div aria-hidden className={cn("absolute inset-0 hidden bg-[#0b0b12]/55 animate-in fade-in duration-150 transition-opacity sm:block motion-reduce:animate-none", leaving && "opacity-0 duration-[140ms]")} onClick={closeIfIdle} />
+      <div aria-hidden className={cn("checkout-sheet-scrim absolute inset-0 bg-[#0b0b12]/55 transition-opacity sm:animate-in sm:fade-in sm:duration-150 motion-reduce:animate-none", leaving && "sm:opacity-0 sm:duration-[140ms]")} onClick={closeIfIdle} />
       <div
         ref={panel}
         role="dialog"
@@ -233,8 +252,8 @@ export function CheckoutWindow({ mark, title, subtitle, onBack, backLabel = "All
         aria-labelledby={labelId}
         tabIndex={-1}
         className={cn(
-          "relative flex h-full w-full flex-col overflow-hidden bg-white outline-none animate-in fade-in slide-in-from-bottom-2 duration-200 ease-out transition-[opacity,translate] motion-reduce:animate-none sm:h-auto sm:max-h-[min(94vh,900px)] sm:max-w-[520px] sm:rounded-[20px] sm:shadow-[0_24px_64px_-12px_rgba(16,24,40,0.35)]",
-          leaving && "translate-y-2 opacity-0 duration-[140ms] ease-in",
+          "checkout-sheet relative flex h-full w-full flex-col overflow-hidden bg-white outline-none transition-[opacity,translate] sm:animate-in sm:fade-in sm:slide-in-from-bottom-2 sm:duration-200 sm:ease-out motion-reduce:animate-none sm:h-auto sm:max-h-[min(94vh,900px)] sm:max-w-[520px] sm:rounded-[20px] sm:shadow-[0_24px_64px_-12px_rgba(16,24,40,0.35)]",
+          leaving && "sm:translate-y-2 sm:opacity-0 sm:duration-[140ms] sm:ease-in",
         )}
       >
         <div className="relative shrink-0 border-b border-[#eef0f2] bg-[#f8f9fa] px-5 pb-5 pt-[max(0.75rem,env(safe-area-inset-top))] sm:rounded-t-[20px] sm:px-8 sm:pt-4" data-checkout-head="">

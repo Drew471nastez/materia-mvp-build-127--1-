@@ -78,9 +78,9 @@ import { PersonalizationFields, usePersonalization } from "@/components/personal
 import { filledAnswers } from "@/lib/products/personalization"
 import type { SizeChart } from "@/lib/size-charts/model"
 
-/** The sheet's main button: lifted a pixel under a mouse (translate), lit by a layer's opacity. */
+/** The sheet's main button: lifted a pixel under a mouse (translate), lit by a layer's opacity; pressed in a little under a finger (scale). */
 const MAIN_BUTTON =
-  "relative isolate flex h-[52px] items-center justify-center overflow-hidden rounded-xl bg-[#111113] text-[16px] font-semibold tracking-[-0.005em] text-white shadow-[0_1px_2px_rgba(0,0,0,0.18)] outline-none transition-[translate,opacity] duration-200 ease-out before:absolute before:inset-0 before:bg-white before:opacity-0 before:transition-opacity before:duration-200 hover:-translate-y-px hover:before:opacity-[0.08] active:translate-y-0 focus-visible:ring-2 focus-visible:ring-[#111113]/30 focus-visible:ring-offset-2"
+  "relative isolate flex h-[52px] items-center justify-center overflow-hidden rounded-xl bg-[#111113] text-[16px] font-semibold tracking-[-0.005em] text-white shadow-[0_1px_2px_rgba(0,0,0,0.18)] outline-none [-webkit-tap-highlight-color:transparent] transition-[translate,opacity,scale] duration-200 ease-out active:scale-[0.98] active:duration-75 motion-reduce:active:scale-100 before:absolute before:inset-0 before:bg-white before:opacity-0 before:transition-opacity before:duration-200 hover:-translate-y-px hover:before:opacity-[0.08] active:translate-y-0 focus-visible:ring-2 focus-visible:ring-[#111113]/30 focus-visible:ring-offset-2"
 
 /** The motion every opening part of the sheet shares: iOS's own curve. */
 const EASE = "ease-[cubic-bezier(0.32,0.72,0,1)]"
