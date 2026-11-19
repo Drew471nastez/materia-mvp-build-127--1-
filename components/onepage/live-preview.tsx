@@ -21,7 +21,7 @@
  * round.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import { useOnePageTeam } from "@/lib/onepage/team-context"
 import { useOnePage } from "@/lib/onepage/context"
 import { publicOnePageFromDraft, type PublicOnePageData } from "@/lib/onepage/public-shape"
@@ -35,6 +35,8 @@ import type { OnePageBlock } from "@/lib/onepage/types"
 import { createClient } from "@/lib/supabase/client"
 import { acceptAvatarRead, avatarReadToken, useShellAvatar } from "@/lib/account/avatar-store"
 import { useStoreCurrencyIfSet } from "@/lib/store/currency-context"
+import { useFormsList } from "@/lib/forms/forms-list"
+import { builderDraftsVersion, formIdsInBlocks, previewFormsFor, subscribeBuilderDrafts, type PreviewForm } from "@/lib/forms/preview-forms"
 
 /** How long a frame has to say it is ready before it is loaded once more. */
 const FRAME_READY_MS = 6000
@@ -183,6 +185,27 @@ function pageColour(page: PublicOnePageData | null): string {
 }
 
 /**
+ * THE FORMS THE PAGE OPENS, AS THEY ARE BEING EDITED (lib/forms/preview-forms).
+ * The frame used to read each form as a visitor does, the published copy, once:
+ * a question changed in the builder never reached the phone. The page's forms
+ * now go with the page, from the creator's own list and, for the form open in
+ * the builder, from the builder itself, so an edit shows within a frame.
+ */
+function usePreviewForms(page: PublicOnePageData | null): { forms: PreviewForm[]; settled: boolean; key: string } {
+  const blocks = page?.blocks
+  const ids = useMemo(() => formIdsInBlocks(blocks), [blocks])
+  const idsKey = ids.join(",")
+  const list = useFormsList(ids.length > 0)
+  const version = useSyncExternalStore(subscribeBuilderDrafts, builderDraftsVersion, builderDraftsVersion)
+  const settled = ids.length === 0 || !list.loading
+  return useMemo(() => {
+    const forms = previewFormsFor(idsKey ? idsKey.split(",") : [], list.forms)
+    return { forms, settled, key: `${settled ? 1 : 0}:${JSON.stringify(forms)}` }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idsKey, list.forms, settled, version])
+}
+
+/**
  * The frame itself: loads the preview document, hands it the page when it is
  * ready and every time the page changes, and says when it has first drawn.
  */
@@ -217,6 +240,9 @@ export function LivePreviewFrame({
   const currency = useStoreCurrencyIfSet()
   const latestCurrency = useRef(currency)
   latestCurrency.current = currency
+  const forms = usePreviewForms(page)
+  const latestForms = useRef(forms)
+  latestForms.current = forms
   const [drawn, setDrawn] = useState(false)
   /*
     THE PHONE IS ZOOMED, NOT SCALED (round 42, "the straight top and bottom
@@ -253,9 +279,21 @@ export function LivePreviewFrame({
     win.postMessage({ channel: ONEPAGE_PREVIEW_CHANNEL, kind: "select-mode", on: !!p, selected: p?.selected ?? null } satisfies PreviewMessage, window.location.origin)
   }, [])
 
+  const sentForms = useRef("")
+  const sendForms = useCallback(() => {
+    const win = frame.current?.contentWindow
+    if (!win || !ready.current) return
+    const f = latestForms.current
+    if (f.key === sentForms.current) return
+    sentForms.current = f.key
+    win.postMessage({ channel: ONEPAGE_PREVIEW_CHANNEL, kind: "forms", forms: f.forms, settled: f.settled } satisfies PreviewMessage, window.location.origin)
+  }, [])
+
   const send = useCallback(() => {
     const win = frame.current?.contentWindow
     if (!win || !ready.current || !latest.current) return
+    /* The forms first, so a page that opens one finds it already there. */
+    sendForms()
     win.postMessage({ channel: ONEPAGE_PREVIEW_CHANNEL, kind: "page", page: latest.current, currency: latestCurrency.current } satisfies PreviewMessage, window.location.origin)
   }, [])
 
@@ -267,6 +305,7 @@ export function LivePreviewFrame({
       if (data.kind === "ready") {
         /* Also after the frame reloads on its own (a new build): it asks again. */
         ready.current = true
+        sentForms.current = ""
         send()
         sendPick()
       } else if (data.kind === "select") {
@@ -279,6 +318,13 @@ export function LivePreviewFrame({
     window.addEventListener("message", onMessage)
     return () => window.removeEventListener("message", onMessage)
   }, [send, sendPick])
+
+  /* A form edited in the builder: the frame hears it in the next frame, whether or not the page changed. */
+  useEffect(() => {
+    if (!ready.current) return
+    const id = requestAnimationFrame(sendForms)
+    return () => cancelAnimationFrame(id)
+  }, [forms.key, sendForms])
 
   /* Round AR: the frame hears which block is open as soon as it changes. */
   const pickOn = !!pick

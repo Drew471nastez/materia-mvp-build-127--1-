@@ -1,8 +1,10 @@
 "use client"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import { v4 as uuid } from "uuid"
 import { platformOrigin } from "@/lib/onepage/return-address"
-import { actionLabel } from "@/lib/forms/actions"
+import { actionHref, actionLabel, formVars } from "@/lib/forms/actions"
+import { previewFormState, previewFormsSnapshot, subscribePreviewForms, whenPreviewForm, type PreviewForm } from "@/lib/forms/preview-forms"
+import { tt } from "@/lib/i18n/text"
 import { bookingDurations, formSteps, isChoice, isMulti, pickResult, validDate, type FormField, type PublicForm } from "@/lib/forms/definition"
 import { generateSlots, type Slot } from "@/lib/forms/slots"
 import { formsRequest } from "@/lib/forms/client"
@@ -77,6 +79,12 @@ export function publicFormRead(formId: string): boolean {
 }
 
 export function prefetchPublicForm(formId: string): Promise<Loaded> {
+  /* In the editor's preview the form is the one being edited, given by the editor (lib/forms/preview-forms); read over the network only when it can not give it. */
+  if (previewFormState(previewFormsSnapshot(), formId)) return whenPreviewForm(formId).then((form) => (form ? { form, missing: false, error: null } : readOnce(formId)))
+  return readOnce(formId)
+}
+
+function readOnce(formId: string): Promise<Loaded> {
   const known = loadedForms.get(formId)
   if (known) return Promise.resolve({ form: known, missing: false, error: null })
   let p = reading.get(formId)
@@ -113,8 +121,19 @@ export function PublicFormRenderer({
   /** The title the sheet around the form already shows: the form's own heading is then for screen readers only, never said twice. */
   shownTitle?: string
 }) {
-  const [form, setForm] = useState<PublicForm | null>(() => initial || (formId ? loadedForms.get(formId) : undefined) || null),
-    [loading, setLoading] = useState(() => !initial && !(formId && loadedForms.has(formId))),
+  /*
+    THE EDITOR'S PREVIEW DRAWS THE FORM BEING EDITED (lib/forms/preview-forms).
+    There the form comes from the editor, edit by edit, and nothing is read
+    until the editor has said it can not give it; outside it (the live page)
+    this is null and the published copy is read, as a visitor's always was.
+    A form handed in whole (`initial`, the builder's own preview) is drawn as
+    given.
+  */
+  const previewSnap = useSyncExternalStore(subscribePreviewForms, previewFormsSnapshot, previewFormsSnapshot)
+  const fromEditor = initial || !formId ? null : previewFormState(previewSnap, formId)
+  const readMode = fromEditor ? (fromEditor.form ? "editor" : "wait") : "read"
+  const [readForm, setForm] = useState<PublicForm | null>(() => initial || (formId ? loadedForms.get(formId) : undefined) || null),
+    [reading, setLoading] = useState(() => !initial && !(formId && loadedForms.has(formId))),
     [values, setValues] = useState<Record<string, Value>>({}),
     [files, setFiles] = useState<Record<string, FileState>>({}),
     [step, setStep] = useState(0),
@@ -129,6 +148,9 @@ export function PublicFormRenderer({
     /* Round AR: the booking step's own two views (month, then that day's times) and the chosen length; internal state, never the address. */
     [slotDay, setSlotDay] = useState<string | null>(null),
     [length, setLength] = useState<number | null>(null)
+  const form: PublicForm | null = fromEditor ? fromEditor.form : readForm
+  const loading = fromEditor ? !fromEditor.form : reading
+  const editorForm: PreviewForm | null = fromEditor?.form ?? null
   const started = useRef(Date.now()),
     key = useRef(uuid()),
     trap = useRef<HTMLInputElement>(null),
@@ -142,8 +164,10 @@ export function PublicFormRenderer({
 
   useEffect(() => {
     if (initial?.id === formId) return
+    /* The editor gives it, or is about to: nothing to read. */
+    if (readMode !== "read") return
     /* Read already (the press that opened it started it): drawn from the first frame, nothing to wait for. */
-    if (retry === 0 && form?.id === formId) return
+    if (retry === 0 && readForm?.id === formId) return
     let live = true
     setLoading(true)
     setError(null)
@@ -163,7 +187,7 @@ export function PublicFormRenderer({
       live = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formId, initial?.id, retry])
+  }, [formId, initial?.id, retry, readMode])
 
   const d = form?.definition
   const steps = useMemo(() => (d ? formSteps(d, values) : []), [d, values])
@@ -277,10 +301,13 @@ export function PublicFormRenderer({
     for (const f of steps.flat()) if (values[f.id] !== undefined) answers[f.id] = values[f.id]
     if (preview) {
       const result = d.mode === "quiz" ? pickResult(d.results, previewScore(d.fields, answers)) : null
+      /* What comes next is shown as the visitor will see it: a result's or the form's next step as its button (inside the editor's frame it says it opens on the live page). */
+      const then = result?.action || (d.completion.kind === "action" ? d.completion.action : undefined)
       setDone({
-        message: d.completion.message,
-        href: null,
-        action_type: null,
+        message: d.completion.message || "Thanks. Your answers have been received.",
+        href: then ? actionHref(then, formVars(d.fields, answers)) : null,
+        action_type: then?.type || null,
+        action_label: then ? actionLabel(then) : null,
         result: result ? { title: result.title, message: result.message } : null,
         gated: d.completion.kind === "gated" ? { url: "", label: d.completion.gated?.label || "Open" } : null,
         booking: slot ? { starts_at: slot.start, status: d.booking?.approval ? "pending" : "confirmed" } : null,
@@ -291,25 +318,42 @@ export function PublicFormRenderer({
     setBusy(true)
     setError(null)
     try {
-      const r = await fetch(`${platformOrigin()}/api/forms/${encodeURIComponent(formId)}/submit`, {
-        method: "POST",
-        credentials: "omit",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          revision: form.revision,
-          submission_id: key.current,
-          answers,
-          consent,
-          marketing,
-          website: trap.current?.value || "",
-          started_at: started.current,
-          source,
-          source_url: window.location.href,
-          source_block: sourceBlock || undefined,
-          ...(d.booking && slot ? { slot: slot.start, timezone: zone, duration: minutes } : {}),
-        }),
-      })
-      const b = await r.json()
+      const send = (revision: number) =>
+        fetch(`${platformOrigin()}/api/forms/${encodeURIComponent(formId)}/submit`, {
+          method: "POST",
+          credentials: "omit",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            revision,
+            submission_id: key.current,
+            answers,
+            consent,
+            marketing,
+            website: trap.current?.value || "",
+            started_at: started.current,
+            source,
+            source_url: window.location.href,
+            source_block: sourceBlock || undefined,
+            ...(d.booking && slot ? { slot: slot.start, timezone: zone, duration: minutes } : {}),
+          }),
+        })
+      let r = await send(form.revision)
+      let b = await r.json().catch(() => ({}))
+      /*
+        PUBLISHED WHILE THE VISITOR WAS ANSWERING. The page read the form once;
+        the creator published a new version since, and the server keeps answers
+        only against the version it has (app/api/forms/[id]/submit). The new
+        version is read and the same answers sent once more: the server checks
+        them against it, and the visitor sees the form as it is now.
+      */
+      if (r.status === 409 && b.form_changed) {
+        const fresh = await readPublicForm(formId)
+        if (fresh.form) {
+          setForm(fresh.form)
+          r = await send(fresh.form.revision)
+          b = await r.json().catch(() => ({}))
+        }
+      }
       if (r.status === 409 && b.slot_taken) {
         /* Someone was quicker: back to that day's times, read again, the taken time gone. */
         setSlot(null)
@@ -365,7 +409,13 @@ export function PublicFormRenderer({
       noValidate
     >
       <header>
-        {preview ? <p className="mb-3 text-xs text-[var(--sheet-muted,#6b7280)]">Preview. Responses are not saved.</p> : null}
+        {preview ? (
+          <p className="mb-3 text-xs text-[var(--sheet-muted,#6b7280)]" data-form-preview-note={editorForm?.published || ""}>
+            Preview. Responses are not saved.
+            {/* The editor's preview shows the form as it is being edited: said plainly when that is not what visitors see yet. */}
+            {editorForm?.published === "changed" ? ` ${tt("Changes not published yet. Visitors see the published version.")}` : editorForm?.published === "draft" ? ` ${tt("Not published yet. Visitors can answer once you publish it.")}` : ""}
+          </p>
+        ) : null}
         <h2 ref={heading} tabIndex={-1} className={`text-xl font-semibold outline-none ${shownTitle && shownTitle.trim().toLowerCase() === (d.title || "").trim().toLowerCase() ? "sr-only" : ""}`}>
           {d.title}
         </h2>
@@ -716,8 +766,20 @@ function Completion({ done, zone, preview }: { done: Done; zone: string; preview
   const label = done.action_label || (done.action_type ? actionLabel({ type: done.action_type } as never) : "Continue")
   const b = done.booking
   const token = b?.manage_url ? b.manage_url.split("/booking/")[1] : null
+  /* The button that sent the form is gone: focus comes here, so a keyboard or a screen reader is not left on nothing. */
+  const own = useRef<HTMLElement>(null)
+  useEffect(() => {
+    own.current?.focus({ preventScroll: true })
+  }, [])
   return (
-    <section role="status" className="space-y-4 py-2 text-left text-[var(--sheet-ink,#1a1a2e)]" data-form-complete="">
+    /* The thanks settles in where the questions were (a 240ms fade and a 6px rise), never a cut; still under reduced motion. */
+    <section
+      ref={own}
+      tabIndex={-1}
+      role="status"
+      className="space-y-4 py-2 text-left text-[var(--sheet-ink,#1a1a2e)] outline-none motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-1.5 motion-safe:duration-[240ms] motion-safe:ease-out"
+      data-form-complete=""
+    >
       {done.result ? (
         <div className="space-y-1">
           <h2 className="text-xl font-semibold">{done.result.title}</h2>
