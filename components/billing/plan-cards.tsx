@@ -144,11 +144,9 @@ function DarkArrow() {
  * the purple with a purple arrow, set in at the button's right end so the
  * label stays centred like the other two. It nudges right on hover.
  *
- * Landing round 17, the owner: round 15's white outline round the disc is
- * gone. On hover the button itself turns into an outline button (.plan-grow
- * in PLAN_BUTTON_CSS) and the disc stays a solid white circle; a purple
- * hairline on its own edge fades in with it, so the circle still reads on
- * the white.
+ * Landing round 19, the owner: on hover and focus only this disc takes an
+ * outline, a white ring just outside it (.plan-grow in PLAN_BUTTON_CSS); the
+ * button stays solid purple.
  */
 function DiscArrow({ compact }: { compact?: boolean }) {
   return (
@@ -191,9 +189,9 @@ function PlanButton({ action, featured, compact }: { action: PlanCardAction; fea
   const kind = action.settled ? "settled" : featured ? "purple" : "dark"
   /*
     Landing round 15, the owner: a faint light crosses a live dark button on hover (PLAN_BUTTON_CSS).
-    Landing round 17, the owner: Get Grow turns into an outline button on hover instead (.plan-grow), so it carries no light.
+    Landing round 19, the owner: Get Grow stays purple and carries the light too; only its white disc takes a ring (.plan-grow).
   */
-  const shine = disc ? " plan-grow" : live ? " plan-shine" : ""
+  const shine = disc ? " plan-shine plan-grow" : live ? " plan-shine" : ""
 
   if (action.href && !action.disabled && !action.settled) {
     return (
@@ -474,14 +472,19 @@ export function PlanCards({
   backwards. Only where there is a pointer that hovers, and never under
   reduced motion.
 
-  GET GROW (onboarding round 5, the owner: "only the white circle should
-  have the outline, not the whole Get Grow button"). On hover or keyboard
-  focus the button stays purple, a shade deeper, and the white disc takes a
-  soft white outline on its own edge; the button itself never gets a line.
-  Keyboard focus also keeps the usual focus ring outside the button. 250ms
-  on an ease out, no transition under reduced motion, hover only where a
-  pointer hovers so a tap never leaves it stuck. These rules sit outside
-  Tailwind's layers, so they win over the button's utility classes.
+  GET GROW (landing round 19, the owner: "only the white circle should
+  have the outline, not the whole Get Grow button"). The button stays solid
+  purple with a white label on hover and focus, and carries the same faint
+  light as Start free and Get Pro. Only the white disc changes: a 1.5px
+  white ring, 2px clear of its edge, fades and grows in round it (opacity
+  0 at scale .86 to 1 at scale 1, 300ms on an ease out). The ring is the
+  disc's ::after, drawn by a still 1.5px shadow (Chrome rounds a 1.5px
+  border down to 1px), and only its opacity and scale move, on the
+  compositor; no shadow is animated. At 34px plus the gap and the line it is 41px
+  across, concentric with the button's 44px round end, so it never touches
+  the edge. Keyboard focus shows the ring and the button's usual focus ring
+  outside it. Hover only where a pointer hovers, so a tap on a phone never
+  leaves it stuck; under reduced motion it only fades, no growth.
 */
 const PLAN_BUTTON_CSS = `
 .plan-shine{overflow:hidden;isolation:isolate}
@@ -489,15 +492,12 @@ const PLAN_BUTTON_CSS = `
 @media (hover:hover) and (prefers-reduced-motion:no-preference){
   .plan-shine:hover::before{translate:175% 0;opacity:1;transition:translate 1.6s cubic-bezier(.45,.05,.35,1),opacity .4s ease}
 }
-.plan-grow{transition:background-color .25s cubic-bezier(.22,1,.36,1),box-shadow .25s cubic-bezier(.22,1,.36,1)}
-.plan-grow .plan-disc{box-shadow:0 0 0 0 rgba(255,255,255,0),0 1px 2px rgba(46,16,101,.18);transition:box-shadow .25s cubic-bezier(.22,1,.36,1)}
-.plan-grow:focus-visible{background-color:#6d28d9;box-shadow:0 0 0 4px rgba(124,58,237,.22)}
-.plan-grow:focus-visible .plan-disc{box-shadow:0 0 0 3px rgba(255,255,255,.38),0 1px 2px rgba(46,16,101,.18)}
+.plan-grow .plan-disc::after{content:"";position:absolute;inset:-2px;border-radius:9999px;box-shadow:0 0 0 1.5px rgba(255,255,255,.9);pointer-events:none;opacity:0;scale:.86;transition:opacity .3s cubic-bezier(.22,1,.36,1),scale .3s cubic-bezier(.22,1,.36,1)}
+.plan-grow:focus-visible .plan-disc::after{opacity:1;scale:1}
 @media (hover:hover){
-  .plan-grow:hover{background-color:#6d28d9}
-  .plan-grow:hover .plan-disc{box-shadow:0 0 0 3px rgba(255,255,255,.38),0 1px 2px rgba(46,16,101,.18)}
+  .plan-grow:hover .plan-disc::after{opacity:1;scale:1}
 }
-@media (prefers-reduced-motion:reduce){.plan-grow,.plan-grow .plan-disc{transition:none}}
+@media (prefers-reduced-motion:reduce){.plan-grow .plan-disc::after{scale:none;transition:opacity .15s linear}}
 `
 
 /**
