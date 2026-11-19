@@ -35,6 +35,7 @@ import { pollShowsResults, type PollTally } from "@/lib/onepage/poll"
 import { countDuration, easeOutCubic, parseStatValue, statAnimationOf, statFrame, type StatAnimation } from "@/lib/onepage/stat-count"
 import { readTrustBox, reviewSourceOf, starShares, trustBoxSrc } from "@/lib/onepage/reviews-block"
 import { showPreviewNotice } from "@/lib/onepage/preview-notice"
+import { newLeadEventId, pixelLead } from "@/lib/analytics/pixels"
 import type { OnePageBlock } from "@/lib/onepage/types"
 
 type Props = { block: OnePageBlock; data: AppBlockData; look: AppBlockLook }
@@ -480,15 +481,20 @@ function RsvpForm({ blockId, look, title }: { blockId: string; look: AppBlockLoo
     }
     setState("busy")
     setError(null)
+    /* One id for the pixels' Lead and the server's (lib/analytics/pixels newLeadEventId). */
+    const leadId = newLeadEventId()
     try {
       const r = await fetch("/api/onepage/rsvp", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ onepage_id: look.onepageId, block_id: blockId, name, email, keep_posted: keep, company: trap, elapsed: Date.now() - shownAt.current }),
+        body: JSON.stringify({ onepage_id: look.onepageId, block_id: blockId, name, email, keep_posted: keep, company: trap, elapsed: Date.now() - shownAt.current, event_id: leadId }),
       })
       const d = await r.json().catch(() => null)
-      if (r.ok) setState("done")
-      else {
+      if (r.ok) {
+        setState("done")
+        /* An RSVP is a lead for the store's pixels too (Meta Lead, TikTok SubmitForm, GA4 generate_lead), as every other form on the page is. */
+        pixelLead(window, { form: "rsvp", eventId: leadId })
+      } else {
         setState("idle")
         setError(typeof d?.error === "string" ? d.error : tt("That did not go through. Try again."))
       }

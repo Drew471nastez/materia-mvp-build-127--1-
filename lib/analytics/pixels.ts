@@ -159,6 +159,17 @@ export async function paidEventId(ref: string): Promise<string> {
 const EVENT_ID = /^[A-Za-z0-9_-]{1,64}$/
 
 /**
+ * A lead's event id, made in the browser before the form is sent: the form
+ * sends it with the signup (event_id) and the pixels are told it, so Meta's
+ * and TikTok's browser Lead and the server's own Lead for the same signup
+ * (lib/analytics/destinations forwardLead, by pageSignup's eventId) are one
+ * lead to each service rather than two.
+ */
+export function newLeadEventId(): string {
+  return `lead-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`
+}
+
+/**
  * A signup on the page (the email signup, a lead magnet, Subscribe): GA4
  * generate_lead, Tag Manager's data layer, Meta Lead, TikTok SubmitForm,
  * Pinterest lead. `eventId` is the lead's own id when the server gave one,
@@ -169,7 +180,7 @@ export function pixelLead(win: Window | undefined, p: { form: string; eventId?: 
   if (!win) return
   const w = win as PixelWindow
   const form = /^[a-z_]{1,32}$/.test(p.form) ? p.form : "signup"
-  const eventId = p.eventId && EVENT_ID.test(p.eventId) ? p.eventId : `lead-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
+  const eventId = p.eventId && EVENT_ID.test(p.eventId) ? p.eventId : newLeadEventId()
   try {
     if (typeof w.gtag === "function") w.gtag("event", "generate_lead", { lead_source: form, event_id: eventId })
     else if (Array.isArray(w.dataLayer)) w.dataLayer.push({ event: "generate_lead", lead_source: form, event_id: eventId })

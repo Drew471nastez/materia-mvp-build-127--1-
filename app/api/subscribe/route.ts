@@ -192,7 +192,7 @@ export async function POST(request: NextRequest) {
       }
 
       /* A OnePage's subscribe button: its connected tools get the signup too (lib/onepage/integrations). */
-      if (source === "onepage") after(() => deliverSignup(adminSupabase, resolvedCreatorId, pageSignup({ email: normalizedEmail, name, form: "subscribe", onepageId: typeof source_id === "string" ? source_id : null, pageUrl: request.headers.get("referer") })))
+      if (source === "onepage") after(() => deliverSignup(adminSupabase, resolvedCreatorId, pageSignup({ email: normalizedEmail, name, form: "subscribe", onepageId: typeof source_id === "string" ? source_id : null, pageUrl: request.headers.get("referer"), eventId: typeof body.event_id === "string" ? body.event_id : null })))
 
       return NextResponse.json({
         success: true,
@@ -261,7 +261,7 @@ export async function POST(request: NextRequest) {
       console.error("[subscribe] Email flow trigger error (non-fatal):", flowErr)
     }
 
-    if (source === "onepage") after(() => deliverSignup(adminSupabase, resolvedCreatorId, pageSignup({ email: normalizedEmail, name, form: "subscribe", onepageId: typeof source_id === "string" ? source_id : null, pageUrl: request.headers.get("referer") })))
+    if (source === "onepage") after(() => deliverSignup(adminSupabase, resolvedCreatorId, pageSignup({ email: normalizedEmail, name, form: "subscribe", onepageId: typeof source_id === "string" ? source_id : null, pageUrl: request.headers.get("referer"), eventId: typeof body.event_id === "string" ? body.event_id : null })))
     /* Any other newsletter signup: a lead for the store's analytics tools (lib/analytics/destinations); a OnePage's goes through deliverSignup above. */
     else {
       const pageUrl = request.headers.get("referer")

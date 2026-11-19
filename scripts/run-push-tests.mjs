@@ -1675,6 +1675,8 @@ const STRICT_SUITES = [
   "tests/onepage-blocks-r40.test.ts",
   /* Round 41: every OnePage integration end to end with a fake transport (Mailchimp, Kit, beehiiv, MailerLite, Brevo, Flodesk, the webhooks), one delivery per signup, Klaviyo and Omnisend at once, the pixels' Lead, ViewContent, InitiateCheckout and Purchase, the directory's order on the first paint, SQL 323 and 324. */
   "tests/onepage-integrations-r41.test.ts",
+  /* The OnePage integrations audit: the live page carries the store's tags and the preview none, Meta and TikTok's page view once however often their tag runs, every form on the page (signup, lead magnet, subscribe, RSVP, contact) a Lead by the id it sends the server, a OnePage contact form's ticked box forwarded to the connected tools, YouTube Shorts and live links and TikTok vm links played, a booking page that refuses a frame opened in its tab, Google's seen beacon on storelib.me, the app's WebView frame list taking every OnePage player, and a saved pixel expiring the OnePage's CDN copy. */
+  "tests/onepage-integrations.test.ts",
   /* Round 10: a OnePage email signup and contact message through the real routes, to the one subscriber list (tests/_journey). */
   "tests/e2e-onepage-signup.test.ts",
   /* Round 11: a signup from each of the five layouts on a page served on storelib.me, and a group through Save, reload and Publish (tests/_journey). */

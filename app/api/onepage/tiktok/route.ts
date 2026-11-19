@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { deadlineFetch } from "@/lib/net/deadline"
 import { embedAddress } from "@/lib/onepage/embed-address"
 import { embedLookupRefusal } from "@/lib/onepage/embed-gate"
+import { tiktokPlayerUrl, tiktokVideoIdFrom } from "@/lib/onepage/creator-blocks"
 
 /* A provider that does not answer is given up on after EMBED_FETCH_MS, not at the platform's 300 seconds: the lookup answers without those details, as it does when the provider says no. */
 const EMBED_FETCH_MS = 8_000
@@ -72,21 +73,9 @@ async function fetchTikTokMetadata(url: string): Promise<{
       thumbnailUrl = data.thumbnail_url || null
       embedHtml = data.html || null
 
-      // Extract embed URL from HTML if available
-      if (embedHtml) {
-        const srcMatch = embedHtml.match(/src="([^"]+)"/)
-        if (srcMatch) {
-          embedUrl = srcMatch[1]
-        }
-      }
-
-      // Construct embed URL if we have the video info
-      if (!embedUrl) {
-        const { videoId, username } = extractTikTokInfo(url)
-        if (videoId && username) {
-          embedUrl = `https://www.tiktok.com/embed/v2/${videoId}`
-        }
-      }
+      /* The player for the video the answer names (lib/onepage/creator-blocks tiktokVideoIdFrom), never the first src="" in it, which is TikTok's embed.js. */
+      const id = tiktokVideoIdFrom(url, embedHtml)
+      if (id) embedUrl = tiktokPlayerUrl(id, false)
     }
   } catch (e) {
     console.error('TikTok oEmbed error:', e)
@@ -159,7 +148,8 @@ export async function GET(request: NextRequest) {
     const { title, authorName, thumbnailUrl, embedUrl, embedHtml } = await fetchTikTokMetadata(url)
 
     return NextResponse.json({
-      videoId: tiktokInfo.videoId,
+      /* A short vm.tiktok.com link has no id in it: the one TikTok's oEmbed names, so the page can play it. */
+      videoId: tiktokInfo.videoId ?? tiktokVideoIdFrom(url, embedHtml),
       username: tiktokInfo.username,
       title,
       authorName,

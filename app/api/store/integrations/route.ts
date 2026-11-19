@@ -5,6 +5,7 @@ import { recordActivity } from "@/lib/activity/log-server"
 import { TRACKERS, type TrackerId } from "@/lib/store/tracking"
 import { INTEGRATIONS } from "@/lib/integrations/catalog"
 import { cachedCatalogOverrides } from "@/lib/integrations/overrides-server"
+import { onePageProductsChanged } from "@/lib/onepage/public-cache"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -41,6 +42,12 @@ export async function PUT(request: Request) {
   }
   const out = await saveTrackerId(c.db, c.creatorId, body.id, body.value)
   if (!out.ok) return physicalJson({ error: out.error }, out.status)
+  /*
+    The store's OnePage carries these tags, and storelib.me/<name> is one copy for everybody at the CDN (lib/onepage/edge):
+    a pixel added or removed waited out that copy (five minutes, and a stale one after). Expired with the store's other
+    OnePage data now, so the next visit carries the change (lib/onepage/public-cache).
+  */
+  await onePageProductsChanged(c.creatorId).catch(() => undefined)
   const tracker = TRACKERS[body.id as TrackerId]
   if (tracker) await recordActivity(c.db, c, { action: typeof body.value === "string" && body.value.trim() ? "integration.installed" : "integration.removed", subjectType: "integration", subjectId: tracker.id, subjectLabel: tracker.name })
   return physicalJson({ tracking: out.tracking, ready: true })

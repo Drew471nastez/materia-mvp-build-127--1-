@@ -37,6 +37,8 @@ export interface ContactInput {
   page: string
   /** Which section sent it, so the server can find the creator's own inbox setting. */
   sectionId?: string
+  /** The Lead's id the page's pixels were told (lib/analytics/pixels newLeadEventId), so the server's own Lead for a OnePage signup is the same lead. */
+  eventId?: string
 }
 
 /** "page.contact" to "contact", "index" to "home". */
@@ -65,6 +67,7 @@ export async function sendContactMessage(input: ContactInput): Promise<ContactRe
         page: input.page,
         section_id: input.sectionId,
         origin: pageOrigin(),
+        ...(input.eventId ? { event_id: input.eventId } : {}),
       }),
     })
     if (res.ok) return { ok: true }

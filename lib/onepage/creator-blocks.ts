@@ -419,6 +419,22 @@ export function bookingHeightFromMessage(origin: string, data: unknown): number 
   return frameHeight(m.payload?.height)
 }
 
+/** The id of the TikTok video a link is for, from the link or, for a short link, from TikTok's oEmbed answer. */
+export function tiktokVideoIdFrom(url: string | null | undefined, oembedHtml?: string | null): string | null {
+  /* A video's own address: tiktok.com/@name/video/<id> (and m., www.). */
+  const own = /tiktok\.com\/(?:@[^/?#]+\/)?video\/(\d{10,25})(?:[/?#]|$)/i.exec(url || "")
+  if (own) return own[1]
+  /*
+    A short link (vm.tiktok.com/…, tiktok.com/t/…) has no id in it. TikTok's
+    oEmbed answer names it: data-video-id="…" on its blockquote, and the
+    video's own address in cite="…". The first src="…" in that answer is
+    TikTok's embed.js, never a player, which is what used to be kept.
+  */
+  const html = oembedHtml || ""
+  const named = /data-video-id="(\d{10,25})"/.exec(html) ?? /cite="https:\/\/www\.tiktok\.com\/@[^"/]+\/video\/(\d{10,25})/.exec(html)
+  return named ? named[1] : null
+}
+
 /**
  * TikTok's own player (round 42): the video alone, 9:16, filling its frame.
  * The old /embed/v2 address is TikTok's whole post card (the video, then the
