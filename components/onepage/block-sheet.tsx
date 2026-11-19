@@ -59,7 +59,7 @@ import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { sheetTokens, useStillPage } from "@/components/onepage/onepage-dialog"
 import { BLOCK_SHEET_HISTORY_KEY, SHEET_MOTION, SWIPE, blockSheetEntryOf, swipeDecision } from "@/lib/onepage/block-sheet"
-import type { ButtonThemeLike } from "@/lib/onepage/button-style"
+import { buttonHover, type ButtonThemeLike } from "@/lib/onepage/button-style"
 import { isOnePagePreview, showPreviewNotice } from "@/lib/onepage/preview-notice"
 import { backInFlight, backThen } from "@/lib/navigation/go-back"
 import { KEYBOARD_CHANGE_EVENT, readPublishedKeyboardInset } from "@/lib/ui/keyboard-safe-sheet"
@@ -69,7 +69,7 @@ import { keepableSheet, pauseFrames } from "@/lib/onepage/embed-warm"
 export type OpenMode = "sheet" | "direct"
 
 /* The contract (the request, the API, the context and its hook) lives in ./block-sheet-context (round AN), so asking for the sheet does not load it. */
-import { BlockSheetContext, InBlockSheetContext, SheetBackContext, type BlockSheetApi, type BlockSheetRequest, type SheetBackApi } from "./block-sheet-context"
+import { BlockSheetContext, InBlockSheetContext, PageHoverContext, SheetBackContext, popupOpenAt, type BlockSheetApi, type BlockSheetRequest, type SheetBackApi } from "./block-sheet-context"
 export { BlockSheetContext, type BlockSheetApi, type BlockSheetRequest } from "./block-sheet-context"
 
 export function useBlockSheet(): BlockSheetApi {
@@ -190,13 +190,17 @@ export function BlockSheetProvider({
   const gone = useCallback((key: number, keep: boolean) => {
     setSheets((list) => list.flatMap((x) => (x.key !== key || x.state !== "closing" ? [x] : keep ? [{ ...x, state: "kept" as const }] : [])))
   }, [])
+  /* Round 24: the page's "On hover", for the buttons drawn in the sheet's colours (PageHoverContext). */
+  const hover = theme ? buttonHover(theme) : null
   return (
     <BlockSheetContext.Provider value={api}>
       <PageThemeContext.Provider value={theme}>
-        {children}
-        {sheets.map((x) => (
-          <BlockSheetView key={x.key} sheetKey={x.key} request={x.request} open={x.state === "open"} kept={x.state === "kept"} session={x.session} dark={dark} onClose={api.close} onGone={gone} />
-        ))}
+        <PageHoverContext.Provider value={hover}>
+          {children}
+          {sheets.map((x) => (
+            <BlockSheetView key={x.key} sheetKey={x.key} request={x.request} open={x.state === "open"} kept={x.state === "kept"} session={x.session} dark={dark} onClose={api.close} onGone={gone} />
+          ))}
+        </PageHoverContext.Provider>
       </PageThemeContext.Provider>
     </BlockSheetContext.Provider>
   )
@@ -268,6 +272,8 @@ const BlockSheetView = memo(function BlockSheetView({
   const panelRef = useRef<HTMLDivElement>(null)
   const backdropRef = useRef<HTMLDivElement>(null)
   const opener = useRef<HTMLElement | null>(null)
+  /* Round 24: the main button at the foot plays the page's "On hover" in the sheet's colours (.op-sheet-btn). */
+  const hover = useContext(PageHoverContext) ?? "none"
   /*
     What runs once the sheet is gone AND its history entry with it: the block's own button, when it opens something
     else on the page. Whichever of the two comes last runs it (refs, so a Back that lands after unmount still does).
@@ -823,6 +829,8 @@ const BlockSheetView = memo(function BlockSheetView({
     const f = requestAnimationFrame(() => panel?.focus({ preventScroll: true }))
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        /* Round 24: an open dropdown in the sheet (components/forms/form-select) closes itself first; the sheet stays. */
+        if (popupOpenAt(e.target)) return
         e.stopPropagation()
         closeRef.current()
         return
@@ -1009,7 +1017,8 @@ const BlockSheetView = memo(function BlockSheetView({
                 rel={external ? "noopener noreferrer" : undefined}
                 onClick={pressCta}
                 {...tag("data-block-sheet-cta")}
-                className="flex h-11 min-w-0 max-w-[60%] items-center gap-2 rounded-full bg-[var(--sheet-ink)] px-4 text-[14px] font-semibold text-[var(--sheet-on-ink)] transition-[scale] duration-150 active:scale-[0.97] outline-none focus-visible:ring-2 focus-visible:ring-[var(--sheet-ink)] focus-visible:ring-offset-2"
+                className="op-btn op-sheet-btn flex h-11 min-w-0 max-w-[60%] items-center gap-2 rounded-full bg-[var(--sheet-ink)] px-4 text-[14px] font-semibold text-[var(--sheet-on-ink)] active:scale-[0.97] outline-none focus-visible:ring-2 focus-visible:ring-[var(--sheet-ink)] focus-visible:ring-offset-2"
+                data-hover={hover}
               >
                 {cta.icon ? <span aria-hidden className="grid h-5 w-5 shrink-0 place-items-center [&>svg]:h-[18px] [&>svg]:w-[18px]">{cta.icon}</span> : null}
                 <span className="truncate">{cta.label}</span>
@@ -1019,7 +1028,8 @@ const BlockSheetView = memo(function BlockSheetView({
                 type="button"
                 onClick={pressCta}
                 {...tag("data-block-sheet-cta")}
-                className="flex h-11 min-w-0 max-w-[60%] items-center gap-2 rounded-full bg-[var(--sheet-ink)] px-4 text-[14px] font-semibold text-[var(--sheet-on-ink)] transition-[scale] duration-150 active:scale-[0.97] outline-none focus-visible:ring-2 focus-visible:ring-[var(--sheet-ink)] focus-visible:ring-offset-2"
+                className="op-btn op-sheet-btn flex h-11 min-w-0 max-w-[60%] items-center gap-2 rounded-full bg-[var(--sheet-ink)] px-4 text-[14px] font-semibold text-[var(--sheet-on-ink)] active:scale-[0.97] outline-none focus-visible:ring-2 focus-visible:ring-[var(--sheet-ink)] focus-visible:ring-offset-2"
+                data-hover={hover}
               >
                 {cta.icon ? <span aria-hidden className="grid h-5 w-5 shrink-0 place-items-center [&>svg]:h-[18px] [&>svg]:w-[18px]">{cta.icon}</span> : null}
                 <span className="truncate">{cta.label}</span>

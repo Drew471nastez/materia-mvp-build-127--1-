@@ -94,7 +94,7 @@ export interface LegacyQuickCheckout {
 export interface OnePageProductBlockProps {
   block: OnePageBlock
   theme: OnePageTheme
-  /** Inside a group or carousel: the theme's own hover is off there, as for every button. */
+  /** Inside a group or carousel. Round 24: the card's button plays the page's hover there too, as every button does; kept for callers. */
   quiet?: boolean
   /** Drawn as one of two tiles side by side. */
   inPair?: boolean
@@ -192,7 +192,7 @@ function ProductTitle({ block, children }: { block: OnePageBlock; children: Reac
   return subtitle ? <span className="flex min-w-0 flex-col">{children}<BlockSubtitle subtitle={subtitle} /></span> : <>{children}</>
 }
 
-export function OnePageProductBlock({ block, theme, quiet = false, inPair = false, seller, pageMoney, plainText, trackClick, animationClass, quick }: OnePageProductBlockProps) {
+export function OnePageProductBlock({ block, theme, inPair = false, seller, pageMoney, plainText, trackClick, animationClass, quick }: OnePageProductBlockProps) {
   const data = block.data as ProductBlockData
   /* One state for both windows (lib/onepage/purchase-flow): the sheet, the handoff while it leaves, the checkout. */
   const [layer, setLayer] = React.useState<PurchaseLayer>(PURCHASE_CLOSED)
@@ -405,8 +405,8 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
   const cardStyle: React.CSSProperties = ownBackground
     ? { borderRadius: `${radius}px`, backgroundColor: ownBackground, border: "none", boxShadow: shadowCss }
     : { ...themeButtonStyle(theme as ButtonThemeLike), borderRadius: `${radius}px`, color: undefined }
-  /* The hover a button here plays: the page's, still inside a group or carousel as every button is there. */
-  const hoverKind = quiet ? "none" : buttonHover(theme as ButtonThemeLike)
+  /* The hover a button here plays: the page's, in a group or a carousel too (round 24). */
+  const hoverKind = buttonHover(theme as ButtonThemeLike)
   const hoverAttrs = (t: ButtonThemeLike) => ({ "data-hover": hoverKind, "data-shadow": themeShadowKind(t) })
   /* The button inside a card: the page's button, made to read on the card (cardButtonTheme). */
   const ctaTheme = (onPhoto = false) =>

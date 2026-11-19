@@ -221,7 +221,8 @@ function main() {
   const dialog = read("components/onepage/onepage-dialog.tsx")
   check("it is the shared dialog, opened by the bell", /<OnePageSubscribeSheet\s+open=\{isOpen\}\s+onClose=\{\(\) => setIsOpen\(false\)\}/.test(live))
   check("a press on the scrim closes it", /onClick=\{onClose\}\s+className="absolute inset-0 bg-black\/45"/.test(dialog))
-  check("Escape closes it too", /if \(e\.key === "Escape"\) closeRef\.current\(\)/.test(dialog))
+  /* Changed on purpose (round 24): an open dropdown in the card takes its own Escape first (popupOpenAt). */
+check("Escape closes it too", /if \(e\.key === "Escape" && !popupOpenAt\(e\.target\)\) closeRef\.current\(\)/.test(dialog))
   check("and it still eases out rather than vanishing", /window\.setTimeout\(\(\) => setMounted\(false\), OUT_MS\)/.test(dialog))
 
   console.log("\nA slide is the right width on its first frame")

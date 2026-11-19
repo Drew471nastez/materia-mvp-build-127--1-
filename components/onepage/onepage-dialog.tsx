@@ -40,6 +40,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { cn } from "@/lib/utils"
+import { popupOpenAt } from "@/components/onepage/block-sheet-context"
 
 const LIGHT = {
   "--sheet-bg": "#ffffff",
@@ -267,7 +268,8 @@ function CenteredCard({
     const before = document.activeElement as HTMLElement | null
     const f = requestAnimationFrame(() => panelRef.current?.focus({ preventScroll: true }))
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeRef.current()
+      /* Round 24: an open dropdown in the card (components/forms/form-select) closes itself first; the card stays. */
+      if (e.key === "Escape" && !popupOpenAt(e.target)) closeRef.current()
       if (e.key === "Tab") {
         /* Round AS: not what has been taken out of the order (a hidden pane's buttons, a form's unseen field). */
         const nodes = Array.from(panelRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []).filter((el) => el.tabIndex >= 0 && el.getClientRects().length > 0)

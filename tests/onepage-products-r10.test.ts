@@ -156,7 +156,7 @@ async function main() {
     kept and checked here: pointing at the card plays the button's hover; the card itself never moves or recolours.
   */
   const css = read("app/globals.css")
-  check("the button rises and tints when the card is pointed at", /export const PRODUCT_CTA_HOVER = "op-btn"/.test(read("components/onepage/product-block.tsx")) && /PRODUCT_CARD_HOST/.test(block) && /\.op-host:hover \.op-btn\)\[data-hover="lift"\] \{ translate: 0 -2px; \}/.test(css) && /\.op-host:hover \.op-btn\)\[data-hover="lift"\]::before \{ opacity: 1; \}/.test(css))
+  check("the button rises and tints when the card is pointed at", /export const PRODUCT_CTA_HOVER = "op-btn"/.test(read("components/onepage/product-block.tsx")) && /PRODUCT_CARD_HOST/.test(block) && /\.op-host:hover \.op-btn\)\[data-hover="lift"\] \{ translate: 0 -3px; \}/ /* Changed on purpose (round 24): Lift rises 3px. */.test(css) && /\.op-host:hover \.op-btn\)\[data-hover="lift"\]::before \{ opacity: 1; \}/.test(css))
   check("its motion names the real properties (translate, opacity)", /\.op-btn \{[^}]*transition-property: translate, scale, opacity/.test(css) && !/transition-all/.test(block))
   check("the card itself has no hover that moves or recolours it", !/group\/pc[^"]*hover:(scale|-translate|opacity|bg-)/.test(block) && !/hoverEffect/.test(block) && !/\.op-host:hover \{/.test(css))
   check("hover only where the device hovers, so no stuck hover on a phone", /@media \(hover: hover\) and \(pointer: fine\) \{\s*:is\(\.op-btn:hover, \.op-demo:hover \.op-btn, \.op-host:hover \.op-btn\)/.test(css))

@@ -26,9 +26,10 @@ async function main() {
   const ssr = renderToString(React.createElement(AppAvatar, { src: next, name: "Owner", size: 64, kind: "mark", waitForPhoto: true }))
   assert.ok(ssr.includes("opacity:1"), "Server HTML must show the image without waiting for hydration")
   assert.ok(!ssr.includes("&url=%2F_next%2Fimage"), "Server avatar must not nest optimizer URLs")
-  assert.equal(buttonHover({ button_hover_animation: "pop" }, true), "fill")
-  assert.equal(buttonHover({ button_hover_animation: "fill" }, true), "fill")
-  assert.equal(buttonHover({ button_hover_animation: "lift" }, true), "none")
+  /* Changed on purpose (round 24): a button in a group or a carousel plays the page's own hover, so there is no stationary form to ask for. */
+  assert.equal(buttonHover({ button_hover_animation: "pop" }), "pop")
+  assert.equal(buttonHover({ button_hover_animation: "fill" }), "fill")
+  assert.equal(buttonHover({ button_hover_animation: "lift" }), "lift")
   const optimized = optimizedImageUrl(next, 160)
   assert.equal(originalAvatarUrl(optimized), next)
   assert.equal(originalAvatarUrl("https://other.example/_next/image?url=%2Fportrait.png&w=128"), "https://other.example/_next/image?url=%2Fportrait.png&w=128")

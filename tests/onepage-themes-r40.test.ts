@@ -109,7 +109,7 @@ check("a hand edited value cannot break the page", v({ ...base, button_hover_fil
 check("Fill and lift (pop) is read", buttonHover({ button_hover_animation: "pop" }) === "pop")
 const css = read("app/globals.css")
 const opBlock = css.slice(css.indexOf("OnePage hover: buttons, cards and media"), css.indexOf("/* Button shine animation")).replace(/\/\*[\s\S]*?\*\//g, "")
-check("pop rises with translate and fills with opacity, pointer devices only", /\[data-hover="pop"\] \{ translate: 0 -2px; color: var\(--op-fill-text/.test(opBlock) && /\[data-hover="pop"\]:not\(\.animate-onepage-swipe\)::after \{ opacity: 1; \}/.test(opBlock))
+check("pop rises with translate and fills with opacity, pointer devices only", /\[data-hover="pop"\] \{ translate: 0 -3px; color: var\(--op-fill-text/ /* Changed on purpose (round 24): Fill and lift rises 3px, as Lift does. */.test(opBlock) && /\[data-hover="pop"\]:not\(\.animate-onepage-swipe\)::after \{ opacity: 1; \}/.test(opBlock))
 check("no hover rule transitions or sets transform", !/transform: (translate|scale)/.test(opBlock) && !/transition-property:[^;]*transform/.test(opBlock))
 check("pop's fill layer is Fill's", /\.op-btn:is\(\[data-hover="fill"\], \[data-hover="pop"\]\):not\(\.animate-onepage-swipe\)::after \{\s*background: var\(--op-fill, currentColor\);/.test(opBlock))
 

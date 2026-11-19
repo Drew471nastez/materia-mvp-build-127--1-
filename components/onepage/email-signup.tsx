@@ -393,7 +393,7 @@ function StillForm({ options, theme, ink, placeholder, buttonText, press }: { op
     )
   }
   const submit = inverted
-    ? pressableProps({ ...theme, button_style: "filled", button_color: inverted.fill, button_text_color: inverted.text, button_border_color: inverted.fill, button_border_width: 0, button_shadow: "none" } as never, true)
+    ? pressableProps({ ...theme, button_style: "filled", button_color: inverted.fill, button_text_color: inverted.text, button_border_color: inverted.fill, button_border_width: 0, button_shadow: "none" } as never)
     : press
   return (
     <div className={stacked ? "flex flex-col gap-2" : "flex flex-row items-stretch gap-2"} data-email-form={stacked ? "stacked" : "row"}>
@@ -442,7 +442,7 @@ export function EmailLayoutThumb({
   const safe = readableTheme({ ...LIVE_DEFAULTS, ...theme } as ThumbTheme & typeof LIVE_DEFAULTS)
   const { tint, ink, grounds } = signupCard(safe as never)
   const signupTheme = { ...safe, text_color: ink, signup_tint: tint, secondary_text_color: safe.secondary_text_color ? readableInk(safe.secondary_text_color, grounds) : safe.secondary_text_color }
-  const press = pressableProps(buttonThemeOn(safe as never, grounds), true)
+  const press = pressableProps(buttonThemeOn(safe as never, grounds))
   const words = buttonText || "Subscribe"
   const face = { src: avatar || null, name: (name || "").trim() }
 

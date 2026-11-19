@@ -64,6 +64,27 @@ export const BlockSheetContext = createContext<BlockSheetApi>(NONE)
  */
 export const InBlockSheetContext = createContext(false)
 
+/**
+ * THE PAGE'S "ON HOVER" (round 24), for the buttons a OnePage draws in the sheet's own colours rather than the page's
+ * button (the sheet's main button, a form's Send): they play the same choice (`.op-btn` with `.op-sheet-btn`,
+ * app/globals.css). Null where no OnePage is drawn around them (a website's form, the creator page), which keep their
+ * own look.
+ */
+/**
+ * True when a key went to a control whose own popup is open (a dropdown's list, components/forms/form-select): the
+ * sheet or card round it leaves Escape to that control, which closes its list and keeps the sheet up.
+ */
+export function popupOpenAt(target: EventTarget | null): boolean {
+  const el = target as Element | null
+  return !!el?.closest?.('[aria-haspopup="listbox"][aria-expanded="true"]')
+}
+
+export const PageHoverContext = createContext<string | null>(null)
+
+export function usePageHover(): string | null {
+  return useContext(PageHoverContext)
+}
+
 export function useInBlockSheet(): boolean {
   return useContext(InBlockSheetContext)
 }

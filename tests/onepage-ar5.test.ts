@@ -188,7 +188,7 @@ for (const k of ["wallpaper_effect", "wallpaper_blur", "wallpaper_tint", "wallpa
 console.log("\nEvery block's buttons are the page's buttons")
 const app = read("components/onepage/app-block.tsx")
 /* Changed on purpose (round AR): CardButton reads the one rule for a button on a card, onCardButtonTheme (lib/onepage/button-style), which is cardButtonTheme with the card's own surface. */
-check("an app block's button is the page's button, made to read on its card", /function CardButton[\s\S]{0,900}onCardButtonTheme\(look\.theme\)[\s\S]{0,200}pressableProps\(theme, look\.still\)/.test(app) && /const out = cardButtonTheme\(theme, \{ surface, cardText: theme\.button_text_color as string \}\)/.test(read("lib/onepage/button-style.ts")) /* Changed on purpose (round AR, Classic 98): it falls back to a solid button where no words read. */)
+check("an app block's button is the page's button, made to read on its card", /function CardButton[\s\S]{0,900}onCardButtonTheme\(look\.theme\)[\s\S]{0,200}pressableProps\(theme\)/.test(app) /* Changed on purpose (round 24): no still flag, the page's hover in a group or a carousel too. */ && /const out = cardButtonTheme\(theme, \{ surface, cardText: theme\.button_text_color as string \}\)/.test(read("lib/onepage/button-style.ts")) /* Changed on purpose (round AR, Classic 98): it falls back to a solid button where no words read. */)
 check("it carries the page's hover", /"data-hover": press\["data-hover"\]/.test(app) && /cn\(press\.className,/.test(app))
 check("it no longer turns the card's colours round by hand", !/background: ink, color: paper/.test(app))
 
@@ -317,13 +317,13 @@ console.log("\nRound AR7: the signup, the chips and the cards' own buttons read 
   check("Subscribe, Download, the after-signup link and Bar's button take the page's button (pressableProps, its hover)", /const emailPress = pressableProps\(buttonThemeOn\(theme, signupGrounds\)/.test(email) && (email.match(/\{\.\.\.submitAttrs\}/g) ?? []).length === 2 && /buttonPress=\{\{ className: emailPress\.className/.test(email) && !/hover:opacity-90/.test(email))
   check("the signup's words are held to its card", /theme=\{signupTheme\}/.test(email) && /const pageInk = signupInk/.test(email))
   const data = read("components/onepage/data-blocks.tsx")
-  check("poll options are the page's button made to read on the card", /const option = pressableProps\(parts\.onCard, look\.still\)/.test(data) && /className=\{cn\(option\.className/.test(data))
+  check("poll options are the page's button made to read on the card", /const option = pressableProps\(parts\.onCard\)/ /* Changed on purpose (round 24): no still flag. */.test(data) && /className=\{cn\(option\.className/.test(data))
   /* Round AS: the tips card is its own file; its amounts are the card's own words turned round (contrast measured by scripts/check-onepage-tips-as.mjs), Send is the page's button. */
   const tips = read("components/onepage/tip-block.tsx")
   check("tip amounts read on the card and Send is the page's button; nothing reads a part that is gone", /inkOn\(pickedFill,/.test(tips) && /data=\{\{ "data-tip-send": "" \}\}/.test(tips) && /<CardButton/.test(tips) && !/parts\.(ink|paper)\b/.test(tips) && !/parts\.(ink|paper)\b/.test(data))
   check("an event's date chip reads on the card, in both event blocks", /: parts\.chip\)/.test(data) && /\.\.\.parts\.chip/.test(read("components/onepage/app-block.tsx")))
   const shelf = read("components/onepage/storelib-blocks.tsx")
-  check("a discount code's Copy is the page's button", /const copyPress = pressableProps\(onCardButtonTheme\(look\.theme\), look\.still\)/.test(shelf) && !/border-dashed border-current\/40/.test(shelf))
+  check("a discount code's Copy is the page's button", /const copyPress = pressableProps\(onCardButtonTheme\(look\.theme\)\)/ /* Changed on purpose (round 24): no still flag. */.test(shelf) && !/border-dashed border-current\/40/.test(shelf))
 }
 
 console.log("\nWords in every language")

@@ -3434,15 +3434,16 @@ function CoreBlockRenderer({
       /*
         THE BUTTON, from lib/onepage/button-style.ts: the same drawing every
         button block and the Design tab's samples use. Its hover (data-hover)
-        is the page's choice, drawn by `.op-btn` in app/globals.css; a link
-        inside a carousel or a group keeps still, as it always has.
+        is the page's choice, drawn by `.op-btn` in app/globals.css, inside a
+        carousel or a group too (round 24: kept still there, every choice but
+        Fill looked like it did nothing on a page made of groups).
       */
       const buttonStyles: React.CSSProperties = { ...themeButtonStyle(theme), ...buttonHoverVars(theme) }
       const size = buttonSize(theme)
       const align = buttonAlign(theme)
       const iconSide = buttonIconSide(theme)
       const buttonHoverAttrs = {
-        "data-hover": buttonHover(theme, isInsideCarousel || isInsideGroup),
+        "data-hover": buttonHover(theme),
         "data-shadow": themeButtonShadow(theme),
         "data-align": align,
         /* Round W8: the size, for the Grid and Mixed tiles (app/globals.css), whose height is the tile's own. */
@@ -4297,7 +4298,7 @@ function CoreBlockRenderer({
       */
       const { tint: signupTint, ink: signupInk, grounds: signupGrounds } = signupCard(theme)
       const signupTheme = { ...theme, text_color: signupInk, signup_tint: signupTint, secondary_text_color: theme.secondary_text_color ? readableInk(theme.secondary_text_color, signupGrounds) : theme.secondary_text_color }
-      const emailPress = pressableProps(buttonThemeOn(theme, signupGrounds), isInsideCarousel)
+      const emailPress = pressableProps(buttonThemeOn(theme, signupGrounds))
       const emailButtonStyles: React.CSSProperties = emailPress.style
       const emailButtonAttrs = { "data-hover": emailPress["data-hover"], "data-shadow": emailPress["data-shadow"] }
 
@@ -4656,7 +4657,7 @@ function CoreBlockRenderer({
         }
         /* Round AR: Bold's button is the page's button too (corners, hover), filled with the card's own pair turned round. */
         const submitPress = inverted
-          ? pressableProps({ ...theme, button_style: "filled", button_color: inverted.fill, button_text_color: inverted.text, button_border_color: inverted.fill, button_border_width: 0, button_shadow: "none" }, isInsideCarousel)
+          ? pressableProps({ ...theme, button_style: "filled", button_color: inverted.fill, button_text_color: inverted.text, button_border_color: inverted.fill, button_border_width: 0, button_shadow: "none" })
           : emailPress
         const submitStyles: React.CSSProperties = submitPress.style
         const submitAttrs = { "data-hover": submitPress["data-hover"], "data-shadow": submitPress["data-shadow"] }
@@ -4948,9 +4949,9 @@ function CoreBlockRenderer({
       }
 
       const textColor = theme.button_text_color
-      /* Round 41: the page's own hover (Design › Buttons), as a link button has it, still inside a group or a carousel. */
+      /* Round 41: the page's own hover (Design › Buttons), as a link button has it; round 24: in a group or a carousel too. */
       const hoverEffect = "op-btn"
-      const pageHover = { "data-hover": buttonHover(theme, isInsideCarousel || isInsideGroup), "data-shadow": themeButtonShadow(theme) }
+      const pageHover = { "data-hover": buttonHover(theme), "data-shadow": themeButtonShadow(theme) }
 
       // Featured (Pro) layout with thumbnail, title, description
       if (isPro) {
@@ -5154,9 +5155,9 @@ function CoreBlockRenderer({
       }
 
       const textColor = theme.button_text_color
-      /* Round 41: the page's own hover (Design › Buttons), as a link button has it, still inside a group or a carousel. */
+      /* Round 41: the page's own hover (Design › Buttons), as a link button has it; round 24: in a group or a carousel too. */
       const hoverEffect = "op-btn"
-      const pageHover = { "data-hover": buttonHover(theme, isInsideCarousel || isInsideGroup), "data-shadow": themeButtonShadow(theme) }
+      const pageHover = { "data-hover": buttonHover(theme), "data-shadow": themeButtonShadow(theme) }
 
       // Featured (Pro) layout with thumbnail, title, description
       if (isPro) {
@@ -5340,9 +5341,9 @@ function CoreBlockRenderer({
       }
 
       const textColor = theme.button_text_color
-      /* Round 41: the page's own hover (Design › Buttons), as a link button has it, still inside a group or a carousel. */
+      /* Round 41: the page's own hover (Design › Buttons), as a link button has it; round 24: in a group or a carousel too. */
       const hoverEffect = "op-btn"
-      const pageHover = { "data-hover": buttonHover(theme, isInsideCarousel || isInsideGroup), "data-shadow": themeButtonShadow(theme) }
+      const pageHover = { "data-hover": buttonHover(theme), "data-shadow": themeButtonShadow(theme) }
 
       // Check if inline embed mode
       const isInlineEmbed = interaction === "inline" && calendlyUrl

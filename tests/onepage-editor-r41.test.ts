@@ -131,7 +131,8 @@ function main() {
     const html = (block: OnePageBlock, still = false) => renderToStaticMarkup(React.createElement(ExtraBlock, { block, look: { theme, scale: "live", still } }))
     const map = html(b("m", "map", { address: "1 Main St", show_button: true }))
     check("Open in Maps is the page's button and answers with its hover", /class="op-btn[^"]*"/.test(map) && /data-hover="glow"/.test(map) && /--op-accent:#0e7c66/.test(map.replace(/\s/g, "")))
-    check("and stays still inside a group, as a link does", /data-hover="none"/.test(html(b("m", "map", { address: "1 Main St", show_button: true }), true)))
+    /* Changed on purpose (round 24): inside a group it plays the page's hover too ("On hover does nothing" was, in part, every grouped button kept still). */
+    check("and plays the page's hover inside a group too", /data-hover="glow"/.test(html(b("m", "map", { address: "1 Main St", show_button: true }), true)))
     check("Large makes its padding larger", buttonPadScale(theme) > 1 && /padding:16\.8px 16px/.test(map), map.match(/padding:[^;"]+/g)?.join(" | "))
     check("the map frame stops at 22px on a Pill page (was an oval)", /border-radius:22px/.test(map.replace(/\s/g, "")) && boxRadius(theme) === 22)
     const faq = html(b("f", "faq", { items: [{ id: "q", question: "Shipping?", answer: "Yes" }] }))
@@ -146,7 +147,7 @@ function main() {
     const magnet = html(b("l", "lead_magnet", { kind: "waitlist", title: "Join the waitlist", button_text: "Join" }))
     check("a lead magnet is the page's button with its hover", /data-onepage-magnet="waitlist"/.test(magnet) && /data-hover="glow"/.test(magnet))
     check("a colour saved as rgb() or #abc still makes a wash", tintOf("rgb(1,2,3)", 6).includes("rgb(1,2,3) 6%") && tintOf("#abc", 6).includes("#abc 6%"))
-    check("pressableProps is the link's own hover pair", pressableProps(theme).className === "op-btn" && pressableProps(theme)["data-hover"] === "glow" && pressableProps(theme, true)["data-hover"] === "none")
+    check("pressableProps is the link's own hover pair", pressableProps(theme).className === "op-btn" && pressableProps(theme)["data-hover"] === "glow") /* Changed on purpose (round 24): no still flag that silences it. */
 
     const pdf = live.slice(live.indexOf('    case "pdf_document": {'), live.indexOf('    case "course":'))
     check("PDF, Menu and Booking answer with the page's hover (they had a fixed fade)", (pdf.match(/const hoverEffect = "op-btn"/g) ?? []).length === 3 && (pdf.match(/\{\.\.\.pageHover\}/g) ?? []).length === 6 && (pdf.match(/\.\.\.buttonHoverVars\(theme\),/g) ?? []).length === 3 && !/hover:opacity-90/.test(pdf))

@@ -47,7 +47,6 @@ export function MediaCard({
   theme,
   scale,
   onepageId,
-  still,
   kind,
   mode,
   title,
@@ -73,7 +72,7 @@ export function MediaCard({
   sheet: () => Omit<BlockSheetRequest, "blockId">
 }) {
   const api = useBlockSheet()
-  const press = pressableProps(theme, still)
+  const press = pressableProps(theme)
   const surface = themeButtonStyle(theme)
   const ink = (surface.color as string) || theme.button_text_color || "#ffffff"
   const paper = (surface.backgroundColor as string) || theme.button_color || "#1a1a2e"

@@ -213,7 +213,7 @@ export function DataPollView({ block, data, look }: Props) {
     bars are a shade that the option's words read on (lib/onepage/contrast
     chipColors), not the words' own colour laid under them.
   */
-  const option = pressableProps(parts.onCard, look.still)
+  const option = pressableProps(parts.onCard)
   const shade = { on: chipColors(parts.onCard, 24), off: chipColors(parts.onCard, 12) }
   return (
     <div data-onepage-app="poll" data-app-layout="card" className="w-full text-left" style={{ ...parts.surface, borderRadius: parts.radius, padding: px(14, look.scale) }}>

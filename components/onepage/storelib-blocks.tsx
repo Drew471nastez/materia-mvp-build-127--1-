@@ -338,7 +338,7 @@ function LeadMagnetView({ block, look }: { block: OnePageBlock; look: StorelibBl
 
   const image = data.image_url || (kind === "download" ? data.product_thumbnail : null) || null
   const button = (data.button_text ?? "").trim() || tt(leadMagnetButton(kind))
-  const press = pressableProps(look.theme, look.still)
+  const press = pressableProps(look.theme)
   const radius = radiusOf(look.theme)
   const line = data.description?.trim() || (kind === "discount" && data.coupon_label ? tt("{value} with your email", { value: data.coupon_label }) : kind === "download" && data.product_title ? data.product_title : null)
 
@@ -654,7 +654,7 @@ function PromoCodeView({ block, look }: { block: OnePageBlock; look: StorelibBlo
     border, shadow and hover. It was a dashed box in the card's words
     whatever the page's buttons were.
   */
-  const copyPress = pressableProps(onCardButtonTheme(look.theme), look.still)
+  const copyPress = pressableProps(onCardButtonTheme(look.theme))
   return (
     <div data-onepage-code="" className="w-full" style={{ ...look.button, borderRadius: radius, padding: px(12, look.scale) }}>
       <div className="flex items-center" style={{ gap: px(10, look.scale) }}>

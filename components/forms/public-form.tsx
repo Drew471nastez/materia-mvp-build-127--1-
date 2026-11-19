@@ -8,7 +8,8 @@ import { tt } from "@/lib/i18n/text"
 import { bookingDurations, formSteps, isChoice, isMulti, pickResult, validDate, type FormField, type PublicForm } from "@/lib/forms/definition"
 import { generateSlots, type Slot } from "@/lib/forms/slots"
 import { formsRequest } from "@/lib/forms/client"
-import { useSheetBack } from "@/components/onepage/block-sheet-context"
+import { usePageHover, useSheetBack } from "@/components/onepage/block-sheet-context"
+import { FormSelect } from "./form-select"
 import { BookingPicker, type SlotLoader } from "./booking-picker"
 
 /*
@@ -23,6 +24,8 @@ import { BookingPicker, type SlotLoader } from "./booking-picker"
 
 const input =
   "w-full min-w-0 rounded-xl border border-[var(--form-line,#dfe2e7)] bg-[var(--form-field,#fff)] px-3 py-2.5 text-[15px] text-[var(--sheet-ink,#1a1a2e)] outline-none placeholder:text-[#9ca3af] focus:border-[var(--sheet-ink,#1a1a2e)] focus:ring-2 focus:ring-[var(--sheet-ink,#1a1a2e)]/10"
+/* Round 24: the dropdown's button is the field, at 16px on a phone so iOS does not zoom into the sheet when it is pressed. */
+const selectInput = input.replace("text-[15px]", "text-[16px] sm:text-[15px]")
 const button =
   "inline-flex min-h-11 items-center justify-center rounded-xl bg-[var(--sheet-ink,#1a1a2e)] px-5 py-3 text-sm font-semibold text-[var(--sheet-on-ink,#fff)] disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
 const tile =
@@ -237,6 +240,7 @@ export function PublicFormRenderer({
     Nothing navigates. Each step slides in from the side it comes from.
   */
   const sheetBack = useSheetBack()
+  const pageHover = usePageHover()
   const stepRef = useRef({ current, done: !!done })
   stepRef.current = { current, done: !!done }
   const [came, setCame] = useState<"next" | "back" | null>(null)
@@ -464,9 +468,10 @@ export function PublicFormRenderer({
           }}
         />
       ) : null}
+      {/* Round 24: above what follows (the consent, Send), so a dropdown's open list is drawn over them, not under. */}
       {/* Round AR: each step of questions settles in, from the side it came from (a 200ms fade and slide), so Next and Back read as moving, never as a cut. */}
       {!onSlots ? (
-        <div key={`step-${current}`} className={`space-y-5 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200 ${came === "back" ? "motion-safe:slide-in-from-left-3" : came === "next" ? "motion-safe:slide-in-from-right-3" : "motion-safe:slide-in-from-bottom-1"}`} data-form-step={current}>
+        <div key={`step-${current}`} className={`relative z-[2] space-y-5 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200 ${came === "back" ? "motion-safe:slide-in-from-left-3" : came === "next" ? "motion-safe:slide-in-from-right-3" : "motion-safe:slide-in-from-bottom-1"}`} data-form-step={current}>
           {d.booking && slot ? (
             <div className="flex items-center justify-between gap-3 rounded-xl bg-[color-mix(in_srgb,var(--sheet-ink,#1a1a2e)_6%,transparent)] px-3 py-2 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200" data-booking-chosen="">
               <span className="min-w-0 text-sm font-medium">{fullLabel(slot.start, zone)}</span>
@@ -514,7 +519,13 @@ export function PublicFormRenderer({
         ) : null}
         {/* On the month or the times, a time chosen is the step's own Next; the button waits until there is one. */}
         {onSlots && !last && !slot ? null : (
-          <button type="submit" className={button} disabled={busy || Object.values(files).some((f) => f.busy)}>
+          <button
+            type="submit"
+            /* Round 24: on a OnePage, Send plays the page's "On hover" in the sheet's colours (app/globals.css .op-sheet-btn). */
+            className={pageHover ? `${button} op-btn op-sheet-btn` : button}
+            data-hover={pageHover ?? undefined}
+            disabled={busy || Object.values(files).some((f) => f.busy)}
+          >
             {busy ? "Sending…" : last ? d.button_text || "Send" : "Next"}
           </button>
         )}
@@ -649,7 +660,7 @@ function Question({
   }
   return (
     <div className="min-w-0 space-y-2" data-question={field.id}>
-      <label htmlFor={id} className="block text-sm font-medium">
+      <label htmlFor={id} id={`${id}-label`} className="block text-sm font-medium">
         {field.label}
         {field.required ? <span aria-hidden="true"> *</span> : null}
       </label>
@@ -657,14 +668,17 @@ function Question({
       {field.type === "textarea" ? (
         <textarea {...common} rows={4} maxLength={4000} onChange={(e) => onChange(e.target.value)} />
       ) : field.type === "dropdown" ? (
-        <select {...common} onChange={(e) => onChange(e.target.value)}>
-          <option value="">Choose…</option>
-          {field.options?.map((o) => (
-            <option key={o.id} value={o.id}>
-              {o.label}
-            </option>
-          ))}
-        </select>
+        /* Round 24: the form's own list in the form's colours, not the system's menu (./form-select). The value is still the option's id. */
+        <FormSelect
+          id={id}
+          labelId={`${id}-label`}
+          className={selectInput}
+          describedBy={help}
+          required={field.required}
+          value={typeof value === "string" ? value : ""}
+          options={field.options || []}
+          onChange={(v) => onChange(v)}
+        />
       ) : (
         <input
           {...common}

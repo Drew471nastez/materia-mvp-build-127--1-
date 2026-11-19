@@ -56,7 +56,8 @@ check("the ring a creator picks is tighter and has no second halo", /const glowS
 const css = read("app/globals.css")
 const keyframes = css.slice(css.indexOf("@keyframes onepage-glow"), css.indexOf("@keyframes onepage-swipe"))
 check("the Glow animation is faint: no blur past 10px and nothing over 26%", !/\b(1[1-9]|[2-9]\d)px/.test(keyframes) && !/\) (2[7-9]|[3-9]\d)%/.test(keyframes))
-check("the Glow hover is faint", /\.op-btn\[data-hover="glow"\]::before \{\s*box-shadow:\s*0 0 0 2px [^;]*14%[^;]*0 6px 16px -6px [^;]*30%/.test(css))
+/* Changed on purpose (round 24): at 14% and 30% a white button on a dark page showed no change; a 3px ring at 24% and a 20px light at 45%, still round the button. */
+check("the Glow hover is lit, not a halo", /\.op-btn\[data-hover="glow"\]::before \{\s*box-shadow:\s*0 0 0 3px [^;]*24%[^;]*0 6px 20px -4px [^;]*45%/.test(css))
 const skins = read("components/onepage/themes/theme-skins.css")
 check("Aero's name and words keep their emboss, not a white cloud", !/0 0 22px rgba\(255,255,255,\.85\)/.test(skins) && !/0 0 14px rgba\(255,255,255,\.8\)/.test(skins) && !/0 0 34px rgba\(255,255,255/.test(skins))
 check("the probes and these tests are registered", read("scripts/run-push-tests.mjs").includes("tests/onepage-as1.test.ts"))

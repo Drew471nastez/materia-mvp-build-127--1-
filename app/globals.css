@@ -2848,7 +2848,19 @@ html.capacitor .subscribe-bar-spacer {
    buttonHoverVars() in lib/onepage/button-style.ts. Pointer devices only: a
    phone's tap never leaves a button stuck lifted.
    .op-demo:hover drives the same rules for the samples in the Design tab, and
-   .op-host:hover for the button inside a product card (the card stays still). */
+   .op-host:hover for the button inside a product card (the card stays still).
+   ROUND 24, the owner: "On hover does nothing", in the editor's phone, in
+   Preview and live. Three things made it so: every button inside a group or a
+   carousel (and a picture link, a product card there) was handed "none"; the
+   sheet's own buttons and a form's Send were never .op-btn; and on a dark
+   page Lift was a 2px rise under a black shadow on black, Glow a 14% ring.
+   Now every button plays the choice wherever it is (lib/onepage/button-style
+   buttonHover), the sheet's buttons too (.op-sheet-btn, the sheet's colours),
+   Lift rises 3px under a shadow the page can show, Glow is a ring you can see,
+   Fill keeps a hairline so a fill the colour of the page still reads as a
+   button, and Underline draws on buttons with no .op-label (a card's button)
+   by fading the line's colour in. A keyboard's :focus-visible gets the same
+   answer, outside the pointer query, so it works on every device. */
 .op-btn {
   position: relative;
   isolation: isolate;
@@ -2886,10 +2898,12 @@ html.capacitor .subscribe-bar-spacer {
   transition-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 /* Round AS: the Glow hover, tighter and fainter (a 2px ring at 14%, a 16px shadow at 30%), so a white button on a dark page is lit, not haloed. */
+/* Round 24: lit enough to see. At 14% and 30% a white button on a dark page showed no change at all; a 3px ring at 24%
+   and a 20px light at 45% read as a glow and still stay round the button, not a halo across the page. */
 .op-btn[data-hover="glow"]::before {
   box-shadow:
-    0 0 0 2px color-mix(in srgb, var(--op-accent, #1a1a2e) 14%, transparent),
-    0 6px 16px -6px color-mix(in srgb, var(--op-accent, #1a1a2e) 30%, transparent);
+    0 0 0 3px color-mix(in srgb, var(--op-accent, #1a1a2e) 24%, transparent),
+    0 6px 20px -4px color-mix(in srgb, var(--op-accent, #1a1a2e) 45%, transparent);
 }
 /* Lift's slight tint. ROUND 3: it was the words' own colour (currentColor) at 5%, which moves the fill toward the
    words, always against them: Graphite's light words on its glass read 4.4:1 at rest and 3.6:1 under the pointer.
@@ -2910,6 +2924,8 @@ html.capacitor .subscribe-bar-spacer {
 }
 .op-btn:is([data-hover="fill"], [data-hover="pop"]):not(.animate-onepage-swipe)::after {
   background: var(--op-fill, currentColor);
+  /* Round 24: a hairline in the hover's words, so a fill the colour of the page (a white button on white, a dark one on dark) still reads as a button. */
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--op-fill-text, currentColor) 30%, transparent);
 }
 /* A highlighted link's swipe already owns ::after. Its hover fill uses
    the shadow layer, so the chosen colours still work without losing it. */
@@ -2921,8 +2937,39 @@ html.capacitor .subscribe-bar-spacer {
   align-self: center;
   max-width: 100%;
 }
+/* Round 24: a label cut to one line (a product card's button, .truncate) clips what hangs under it, so the line had
+   nowhere to show. The label takes 4px more room under its words and gives it back outside: the line sits inside its
+   box and nothing around it moves. */
+.op-btn[data-hover="underline"] .op-label.truncate {
+  padding-bottom: 4px;
+  margin-bottom: -4px;
+}
+.op-btn[data-hover="underline"] .op-label.truncate::after {
+  bottom: 1px;
+}
 .op-btn[data-hover="underline"][data-align="left"] .op-label {
   align-self: flex-start;
+}
+/* Round 24: a button with no label span (a product card's button, a picture link, the sheet's buttons) underlines its
+   own words: the line is there at rest in a clear colour and only its colour changes. A picture link underlines its
+   title, not its subtitle. */
+.op-btn[data-hover="underline"]:not(:has(.op-label)):not(:has([data-block-title])),
+.op-btn[data-hover="underline"]:not(:has(.op-label)) [data-block-title] {
+  text-decoration-line: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 4px;
+  text-decoration-color: transparent;
+  transition-property: translate, scale, opacity, text-decoration-color;
+  transition-duration: 220ms;
+  transition-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+/* THE SHEET'S BUTTONS (round 24): the block sheet's main button and a form's Send wear the sheet's colours, not the
+   page's button, so the hover takes the sheet's pair: Fill turns the ink button to the sheet's paper and its words to
+   ink, Glow lights it in ink. */
+.op-sheet-btn {
+  --op-fill: var(--sheet-on-ink, #ffffff);
+  --op-fill-text: var(--sheet-ink, #1a1a2e);
+  --op-accent: var(--sheet-ink, #1a1a2e);
 }
 .op-btn[data-hover="underline"] .op-label::after {
   content: "";
@@ -2962,8 +3009,8 @@ html.capacitor .subscribe-bar-spacer {
   transition-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 @media (hover: hover) and (pointer: fine) {
-  :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="lift"] { translate: 0 -2px; }
-  :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="lift"][data-shadow="hard"] { translate: -2px -2px; }
+  :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="lift"] { translate: 0 -3px; }
+  :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="lift"][data-shadow="hard"] { translate: -3px -3px; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="lift"]::before { opacity: 1; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="lift"]:not(.animate-onepage-swipe)::after { opacity: 0.05; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="fade"] { opacity: var(--op-fade, 0.8); }
@@ -2973,14 +3020,31 @@ html.capacitor .subscribe-bar-spacer {
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="fill"]:not(.animate-onepage-swipe)::after { opacity: 1; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn).animate-onepage-swipe[data-hover="fill"]::before { opacity: 1; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="underline"] .op-label::after { scale: 1 1; }
-  :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="pop"] { translate: 0 -2px; color: var(--op-fill-text, inherit) !important; }
-  :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="pop"][data-shadow="hard"] { translate: -2px -2px; }
+  :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="underline"]:not(:has(.op-label)):not(:has([data-block-title])) { text-decoration-color: currentColor; }
+  :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="underline"]:not(:has(.op-label)) [data-block-title] { text-decoration-color: currentColor; }
+  :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="pop"] { translate: 0 -3px; color: var(--op-fill-text, inherit) !important; }
+  :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="pop"][data-shadow="hard"] { translate: -3px -3px; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="pop"]::before { opacity: 1; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="pop"]:not(.animate-onepage-swipe)::after { opacity: 1; }
+  :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn).animate-onepage-swipe[data-hover="pop"]::before { opacity: 1; }
   .op-btn[data-hover]:not([data-hover="none"]):active { scale: 0.985; translate: 0 0; }
   .op-card:hover::after { opacity: 1; }
   .op-card:hover .op-media { scale: 1.03; }
 }
+/* THE KEYBOARD GETS THE SAME ANSWER (round 24). A button reached with Tab plays the page's hover, on any device: the
+   focus ring says where focus is, the hover says it is the page's button. Not for a mouse click (:focus-visible). */
+:is(.op-btn:focus-visible, .op-host:focus-visible .op-btn)[data-hover="lift"] { translate: 0 -3px; }
+:is(.op-btn:focus-visible, .op-host:focus-visible .op-btn)[data-hover="lift"][data-shadow="hard"] { translate: -3px -3px; }
+:is(.op-btn:focus-visible, .op-host:focus-visible .op-btn):is([data-hover="lift"], [data-hover="glow"], [data-hover="pop"])::before { opacity: 1; }
+:is(.op-btn:focus-visible, .op-host:focus-visible .op-btn)[data-hover="zoom"] { scale: 1.03; }
+:is(.op-btn:focus-visible, .op-host:focus-visible .op-btn):is([data-hover="fill"], [data-hover="pop"]) { color: var(--op-fill-text, inherit) !important; }
+:is(.op-btn:focus-visible, .op-host:focus-visible .op-btn):is([data-hover="fill"], [data-hover="pop"]):not(.animate-onepage-swipe)::after { opacity: 1; }
+:is(.op-btn:focus-visible, .op-host:focus-visible .op-btn).animate-onepage-swipe:is([data-hover="fill"], [data-hover="pop"])::before { opacity: 1; }
+:is(.op-btn:focus-visible, .op-host:focus-visible .op-btn)[data-hover="pop"] { translate: 0 -3px; }
+:is(.op-btn:focus-visible, .op-host:focus-visible .op-btn)[data-hover="pop"][data-shadow="hard"] { translate: -3px -3px; }
+:is(.op-btn:focus-visible, .op-host:focus-visible .op-btn)[data-hover="underline"] .op-label::after { scale: 1 1; }
+:is(.op-btn:focus-visible, .op-host:focus-visible .op-btn)[data-hover="underline"]:not(:has(.op-label)):not(:has([data-block-title])) { text-decoration-color: currentColor; }
+:is(.op-btn:focus-visible, .op-host:focus-visible .op-btn)[data-hover="underline"]:not(:has(.op-label)) [data-block-title] { text-decoration-color: currentColor; }
 /* Round 41: a post or player from another service draws its own light document. A frame whose color-scheme differs
    from its document gets an opaque canvas (a white band beside the card on a dark page); `normal` matches theirs, so
    the canvas stays transparent and only their card shows (components/onepage/embed-frame, THE CANVAS). */
@@ -2989,7 +3053,7 @@ iframe:is([src*="youtube.com/embed"], [src*="youtube-nocookie.com/embed"], [src*
 }
 @media (prefers-reduced-motion: reduce) {
   .op-btn, .op-media { transition-duration: 0ms; }
-  .op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn { translate: none !important; scale: none !important; }
+  .op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn, .op-btn:focus-visible, .op-host:focus-visible .op-btn { translate: none !important; scale: none !important; }
   .op-card:hover .op-media { scale: none; }
 }
 

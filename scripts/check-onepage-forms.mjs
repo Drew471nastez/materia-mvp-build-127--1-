@@ -155,7 +155,13 @@ try {
     const labels = await labelsIn(frame)
     console.log("   questions:", JSON.stringify(labels))
     check(JSON.stringify(labels) === JSON.stringify(["Cum te numești? *", "Care este adresa ta de email? *", "Cum ai prefera să lucrăm? *"]), "the sheet draws the block's form: its three Romanian questions, in order, each marked required")
-    const options = await frame.$$eval("[data-block-sheet-panel] select option", (o) => o.map((x) => x.textContent))
+    /* Changed on purpose (round 24): the dropdown is the form's own combobox (components/forms/form-select), not a <select>. */
+    await frame.$eval("[data-block-sheet-panel] [role=combobox]", (b) => b.click())
+    await sleep(250)
+    const options = [await frame.$eval("[data-block-sheet-panel] [role=combobox]", (b) => b.textContent.trim()), ...(await frame.$$eval("[data-block-sheet-panel] [role=option]", (o) => o.map((x) => x.textContent.trim())))]
+    /* A second press closes it (a programmatic click does not focus the button, so Escape would go to the sheet). */
+    await frame.$eval("[data-block-sheet-panel] [role=combobox]", (b) => b.click())
+    await sleep(200)
     check(JSON.stringify(options) === JSON.stringify(["Choose…", "Online", "La sală"]), `the dropdown offers the form's own options (${options.join(", ")})`)
     const ever = await frame.evaluate(() => [...window.__ever])
     check(!ever.some((t) => /Your name|How can I help/.test(t)), "the template's questions were never drawn, at any frame")
@@ -183,11 +189,16 @@ try {
     check(intro.includes("Spune-mi câteva lucruri despre tine."), "the intro shows")
     /* Walk to the last step: the button is the form's own. */
     for (const value of [["input", "Ana"], ["input", "ana@example.ro"], ["select", "sala"]]) {
-      await frame.evaluate(([tag, v]) => {
+      if (value[0] === "select") {
+        /* Changed on purpose (round 24): the dropdown is picked as a visitor picks it, the combobox and then a row. */
+        await frame.$eval("[data-block-sheet-panel] [data-native-form] [data-question] [role=combobox]", (b) => b.click())
+        await sleep(250)
+        await frame.$eval(`[data-block-sheet-panel] [role=option][data-option="${value[1]}"]`, (o) => o.click())
+      } else await frame.evaluate(([tag, v]) => {
         const el = document.querySelector(`[data-block-sheet-panel] [data-native-form] [data-question] ${tag}`)
-        const setter = Object.getOwnPropertyDescriptor(tag === "select" ? HTMLSelectElement.prototype : HTMLInputElement.prototype, "value").set
+        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set
         setter.call(el, v)
-        el.dispatchEvent(new Event(tag === "select" ? "change" : "input", { bubbles: true }))
+        el.dispatchEvent(new Event("input", { bubbles: true }))
       }, value)
       await frame.$eval("[data-block-sheet-panel] [data-native-form] button[type=submit]", (b) => b.click())
       await sleep(260)
@@ -244,7 +255,10 @@ try {
     }
     await page.type("[data-block-sheet-panel] [data-question=name] input", "Ana Pop")
     await page.type("[data-block-sheet-panel] [data-question=email] input", "ana@example.ro")
-    await page.select("[data-block-sheet-panel] [data-question=how] select", "sala")
+    /* Changed on purpose (round 24): the form's own dropdown, not a <select>. */
+    await page.click("[data-block-sheet-panel] [data-question=how] [role=combobox]")
+    await sleep(250)
+    await page.click("[data-block-sheet-panel] [role=option][data-option=sala]")
     await page.$eval("[data-block-sheet-panel] [data-native-form] label input[type=checkbox]", (c) => c.click())
     await page.$eval("[data-block-sheet-panel] [data-native-form] button[type=submit]", (b) => b.click())
     await page.waitForSelector("[data-block-sheet-panel] [data-form-complete]", { timeout: 5000 })

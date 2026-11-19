@@ -2483,6 +2483,9 @@
 @media (hover: hover) and (pointer: fine) {
   [data-op-skin] :is(.op-btn:hover, .op-host:hover .op-btn):is([data-hover="fill"], [data-hover="pop"]) { color: var(--op-fill-text, inherit) !important; text-shadow: none; }
 }
+
+/* Round 24: a button reached with Tab plays the same hover (app/globals.css, THE KEYBOARD GETS THE SAME ANSWER). */
+[data-op-skin] :is(.op-btn:focus-visible, .op-host:focus-visible .op-btn):is([data-hover="fill"], [data-hover="pop"]) { color: var(--op-fill-text, inherit) !important; text-shadow: none; }
 @keyframes sk-spin { to { rotate: 360deg; } }
 @keyframes sk-drift { from { translate: -24px 0; } to { translate: 30px 0; } }
 @keyframes sk-bob { from { translate: 0 0; } to { translate: 6px -22px; } }

@@ -61,7 +61,7 @@ export function FadeWords({
   const colours = React.useMemo(() => fadeColours(theme), [theme])
   const press = React.useMemo(() => {
     const g = parseColor(colours.ground)
-    return pressableProps(g ? buttonThemeOn(theme, [g]) : theme, true)
+    return pressableProps(g ? buttonThemeOn(theme, [g]) : theme)
   }, [theme, colours.ground])
   if (!words.title && !words.caption && !words.button) return null
   const edge = /^0(px)?$/.test(radius.trim()) ? "0px" : radius

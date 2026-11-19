@@ -239,7 +239,7 @@ export function DataTipsView({ block, data: given, look }: Props) {
   /* ── Pills: no card, the title over a row of the page's own buttons, one per amount ── */
   if (tipStyle === "pills") {
     const pillTheme = ownBg ? onCardButtonTheme(cardTheme) : look.theme
-    const press = pressableProps(pillTheme, look.still)
+    const press = pressableProps(pillTheme)
     /* Every pill the same width (Other too), sharing the row up to a comfortable size. */
     const pill = (): React.CSSProperties => ({
       ...press.style,
@@ -289,7 +289,7 @@ export function DataTipsView({ block, data: given, look }: Props) {
 
   /* ── Button: one of the page's own buttons that opens the amount sheet ── */
   if (tipStyle === "button") {
-    const press = pressableProps(cardTheme, look.still)
+    const press = pressableProps(cardTheme)
     const open = () => (sheet.available ? openSheet(shownPick) : void send(shownPick))
     return (
       <div {...common} className="w-full">
