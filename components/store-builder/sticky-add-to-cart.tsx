@@ -18,6 +18,7 @@ import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { useProductTopBarShown } from "@/lib/store-builder/product-top-bar"
 import { useRouter } from "next/navigation"
 import { carryTouches } from "@/lib/attribution/browser"
+import { hapticTap } from "@/lib/native-bridge"
 import { intervalOf, perInterval } from "@/lib/pricing/list-price"
 import { tint } from "@/lib/appearance/site-paint"
 import { useSitePaint } from "@/lib/appearance/site-paint-context"
@@ -228,6 +229,8 @@ export function EditorStickyAddToCart({
     if (isPurchased) {
       return
     }
+    /* A light tick on Buy, inside the press (components/checkout/buy-button does the same). */
+    hapticTap("light")
     let checkoutUrl = `/checkout?productId=${product.id}`
     if (product.selectedVariantId) {
       checkoutUrl += `&variantId=${product.selectedVariantId}`
@@ -381,7 +384,7 @@ export function EditorStickyAddToCart({
             size="sm"
             type="button"
             className={cn(
-              "shrink-0 font-medium cursor-pointer",
+              "shrink-0 font-medium cursor-pointer touch-manipulation [-webkit-tap-highlight-color:transparent] active:scale-[0.97] active:duration-75 motion-reduce:active:scale-100 motion-reduce:active:opacity-85",
               isMobile ? "h-10 px-5 text-sm" : "h-11 px-7 text-[15px]"
             )}
             onClick={isEditorPreview ? handleInteractiveClick : handleButtonClick}

@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation"
 import { trackFunnelStep } from "@/lib/analytics-utils"
 import { usePressPending } from "@/lib/navigation/press-pending"
 import { carryTouches } from "@/lib/attribution/browser"
+import { hapticTap } from "@/lib/native-bridge"
 
 interface BuyButtonProps {
   productId: string
@@ -74,6 +75,8 @@ export function BuyButton({
 
   const handleClick = () => {
     if (inEditorFrame || loading) return
+    /* A light tick on the press, inside it (iOS plays WebKit's only there). */
+    hapticTap("light")
     startLoading()
 
     /* Counted on the way, never waited for: the press used to sit on this request before going anywhere. */
@@ -99,7 +102,8 @@ export function BuyButton({
     <Button
       type="button"
       size="lg"
-      className="w-full font-medium min-h-[48px] cursor-pointer relative z-10"
+      /* Pressed under the finger at once (a phone has no hover to show it), and still under reduced motion as a dim. */
+      className="w-full font-medium min-h-[48px] cursor-pointer relative z-10 touch-manipulation [-webkit-tap-highlight-color:transparent] active:scale-[0.98] active:duration-75 motion-reduce:active:scale-100 motion-reduce:active:opacity-85"
       style={{
         backgroundColor: paint(backgroundColor || "#2563eb", "bg"),
         color: textColor || "#ffffff",

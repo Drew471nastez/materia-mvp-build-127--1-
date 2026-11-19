@@ -217,8 +217,10 @@ function CompactPayInner({ dueTodayCents, currency, label, payLabel, disabled, d
   const loading = !stripe || !card.ready
   return (
     <div data-compact-pay="">
+      {/* The wallet's row arrives once Stripe has asked the device, in the card field's place and with its 12px
+          above, so Pay under them stays where it was drawn (scripts/check-checkout-mobile.mjs). */}
       {wallet ? (
-        <div role="radiogroup" aria-label="Payment method" className="grid grid-cols-2 gap-2.5" data-pay-methods="">
+        <div role="radiogroup" aria-label="Payment method" className="mt-3 grid grid-cols-2 gap-2.5" data-pay-methods="">
           {(["wallet", "card"] as const).map((m) => {
             const on = method === m
             return (
@@ -274,7 +276,7 @@ function CompactPayInner({ dueTodayCents, currency, label, payLabel, disabled, d
         type="button"
         onClick={method === "wallet" && wallet ? payByWallet : payByCard}
         disabled={busy || disabled || (method === "card" && loading)}
-        className="mt-4 inline-flex h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-[#1a1a2e] px-5 text-[16px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_2px_rgba(16,24,40,0.2)] outline-none transition-[background-color,opacity] duration-150 hover:bg-[#2a2a40] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/30 focus-visible:ring-offset-2 disabled:cursor-default disabled:opacity-60"
+        className="mt-4 inline-flex h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-[#1a1a2e] px-5 text-[16px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_2px_rgba(16,24,40,0.2)] outline-none transition-[background-color,opacity,scale] duration-150 [-webkit-tap-highlight-color:transparent] hover:bg-[#2a2a40] active:scale-[0.985] active:duration-75 motion-reduce:active:scale-100 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/30 focus-visible:ring-offset-2 disabled:cursor-default disabled:opacity-60"
         data-pay-submit=""
       >
         {busy ? <span aria-hidden className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white motion-reduce:animate-none" /> : null}

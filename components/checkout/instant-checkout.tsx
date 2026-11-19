@@ -53,7 +53,8 @@ import { displayEmail } from "@/lib/businesses/email-alias"
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export { loadProductFacts, type ProductFacts } from "./product-facts"
-import { loadProductFacts, type ProductFacts } from "./product-facts"
+import { FACTS_FRESH_MS, loadProductFacts, peekProductFacts, type ProductFacts } from "./product-facts"
+import { getStripePromise } from "./parts/stripe-loader"
 
 async function postJson<T>(url: string, body: unknown): Promise<{ ok: boolean; status: number; data: T & { error?: string; code?: string; url?: string } }> {
   const r = await requestJson<T & { error?: string; code?: string; url?: string }>(url, { method: "POST", json: body, timeoutMs: WAIT_MS.pay })
@@ -88,9 +89,11 @@ export interface InstantCheckoutProps {
   onBack?: (() => void) | null
   /** The OnePage to come back to, for a way out to the checkout page (lib/onepage/return-address). */
   back?: string | null
+  /** What the block shows: a free product. Only shapes the placeholder while the facts arrive, and skips Stripe. */
+  free?: boolean
 }
 
-export function InstantCheckout({ productId, title, sellerName, sellerAvatar, productImage, returnFocus, variantId: initialVariant = null, dark = false, themed = false, origin, onClose, onBack = null, back = null }: InstantCheckoutProps) {
+export function InstantCheckout({ productId, title, sellerName, sellerAvatar, productImage, returnFocus, variantId: initialVariant = null, dark = false, themed = false, origin, onClose, onBack = null, back = null, free: freeHint = false }: InstantCheckoutProps) {
   /*
     IN THE EDITOR'S PREVIEW NOTHING IS CHARGED (round 11). The window opens
     exactly as it does live, so the creator sees it, and Pay says it is a
@@ -98,15 +101,23 @@ export function InstantCheckout({ productId, title, sellerName, sellerAvatar, pr
     is sent (components/onepage/preview-document answers the writes anyway).
   */
   const [preview] = React.useState(isOnePagePreview)
-  const [facts, setFacts] = React.useState<ProductFacts | null>(null)
+  /*
+    THE FIELDS ON THE FIRST FRAME. The block read the facts before the tap; the window draws from that answer at once
+    and its own fresh read (below) replaces it, so it no longer opens onto a skeleton that gives way, 200px lower, a
+    round trip later (scripts/check-checkout-mobile.mjs).
+  */
+  const [seed] = React.useState(() => peekProductFacts(productId))
+  const [facts, setFacts] = React.useState<ProductFacts | null>(seed)
   const [loadError, setLoadError] = React.useState<string | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
   const [done, setDone] = React.useState<{ receiptToken: string; free: boolean; email: string } | null>(null)
-  const [email, setEmail] = React.useState("")
-  const [name, setName] = React.useState("")
+  const [email, setEmail] = React.useState(() => (seed?.buyer ? displayEmail(seed.buyer.email) || "" : ""))
+  const [name, setName] = React.useState(() => seed?.buyer?.name ?? "")
   const [optIn, setOptIn] = React.useState(false)
-  const [variantId, setVariantId] = React.useState<string | null>(initialVariant)
+  const [variantId, setVariantId] = React.useState<string | null>(() =>
+    seed && seed.product.variants.length && !seed.product.variants.some((v) => v.id === initialVariant) ? seed.product.variants[0].id : initialVariant,
+  )
   const [codeOpen, setCodeOpen] = React.useState(false)
   const [code, setCode] = React.useState("")
   const [codeBusy, setCodeBusy] = React.useState(false)
@@ -114,9 +125,26 @@ export function InstantCheckout({ productId, title, sellerName, sellerAvatar, pr
   const [applied, setApplied] = React.useState<{ code: string; label: string; discountCents: number } | null>(null)
   const started = React.useRef<{ paymentIntentId: string; clientSecret: string } | null>(null)
 
+  /*
+    THE TAP DRAWS THE WINDOW, THE NEXT FRAME DRAWS THE FORM. The whole form in the tap's own task kept the window off
+    the screen for another 30 to 40ms of a phone's time; now the window and its placeholder (the form's exact shape)
+    go up at once, and the form takes their place a frame into the rise, while the window is still low on the screen,
+    as a transition that does not hold the frames of the rise. Nothing moves when it lands.
+  */
+  const [drawn, setDrawn] = React.useState(false)
+  React.useEffect(() => {
+    const raf = window.requestAnimationFrame(() => React.startTransition(() => setDrawn(true)))
+    return () => window.cancelAnimationFrame(raf)
+  }, [])
+
+  /* Stripe.js asked for as the window opens, in parallel with its motion and the facts, not after them. */
+  React.useEffect(() => {
+    if (!freeHint && !isOnePagePreview()) void getStripePromise().catch(() => undefined)
+  }, [freeHint])
+
   React.useEffect(() => {
     let live = true
-    loadProductFacts(productId, true)
+    loadProductFacts(productId, FACTS_FRESH_MS)
       .then((f) => {
         if (!live) return
         setFacts(f)
@@ -284,12 +312,35 @@ export function InstantCheckout({ productId, title, sellerName, sellerAvatar, pr
         <div className="space-y-3 py-4 text-center" data-checkout-unavailable="">
           <p className="text-[14.5px] text-[#4b5563]">{loadError}</p>
         </div>
-      ) : !facts || !product ? (
-        <div aria-hidden className="space-y-3">
-          <div className="h-[92px] rounded-xl bg-[#f3f4f6]" />
-          <div className="h-12 rounded-xl bg-[#f3f4f6]" />
-          <div className="h-12 rounded-xl bg-[#f7f7f8]" />
-          <div className="h-[52px] rounded-xl bg-[#eceef1]" />
+      ) : !facts || !product || !drawn ? (
+        /*
+          THE FORM'S OWN SHAPE WHILE THE FACTS ARRIVE: the same blocks at the same heights as the fields below (the
+          headings' own words, unseen, so their lines are as tall), so nothing under it moves when they land. Four
+          grey bars of other sizes used to give way to a form 200px taller (scripts/check-checkout-mobile.mjs).
+        */
+        <div aria-hidden className="space-y-5" data-instant-skeleton="">
+          <div className="space-y-2.5">
+            <p className="text-[14.5px] font-semibold"><span className="rounded-[6px] bg-[#f1f2f4] text-transparent">Your details</span></p>
+            <div className="h-12 rounded-xl bg-[#f3f4f6]" />
+            <div className="h-12 rounded-xl bg-[#f3f4f6]" />
+          </div>
+          <div className="h-[50px] rounded-xl bg-[#f7f7f8]" />
+          {/* An inline box in a line of the page's own size, as the real "Have a code?" sits, so the line is as tall. */}
+          <div>
+            <span className="inline-flex items-center gap-1 rounded-[5px] bg-[#f1f2f4] text-[13px] font-medium text-transparent">Have a code?<span className="h-3.5 w-3.5" /></span>
+          </div>
+          {freeHint ? (
+            <div className="h-[52px] rounded-xl bg-[#eceef1]" />
+          ) : (
+            <div>
+              <p className="mb-2 text-[14.5px] font-semibold"><span className="rounded-[6px] bg-[#f1f2f4] text-transparent">Payment method</span></p>
+              <div className="mt-3 h-12 rounded-xl bg-[#f3f4f6]" />
+              <div className="mt-4 h-[52px] rounded-xl bg-[#eceef1]" />
+            </div>
+          )}
+          <p className="invisible text-center text-[11.5px] leading-relaxed">
+            {freeHint ? "By getting it" : "By paying"} you agree to the Terms. Your receipt and access come by email.
+          </p>
         </div>
       ) : done ? (
         <div role="status" className="rounded-2xl border border-[#e5e7eb] px-5 py-6 text-center" data-checkout-done="">
@@ -429,7 +480,7 @@ export function InstantCheckout({ productId, title, sellerName, sellerAvatar, pr
               type="button"
               onClick={takeFree}
               disabled={busy}
-              className="inline-flex h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-[#1a1a2e] px-5 text-[16px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_2px_rgba(16,24,40,0.2)] outline-none transition-[background-color,opacity] duration-150 hover:bg-[#2a2a40] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/30 focus-visible:ring-offset-2 disabled:cursor-default disabled:opacity-60"
+              className="inline-flex h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-[#1a1a2e] px-5 text-[16px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_2px_rgba(16,24,40,0.2)] outline-none transition-[background-color,opacity,scale] duration-150 [-webkit-tap-highlight-color:transparent] hover:bg-[#2a2a40] active:scale-[0.985] active:duration-75 motion-reduce:active:scale-100 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/30 focus-visible:ring-offset-2 disabled:cursor-default disabled:opacity-60"
               data-pay-submit=""
             >
               {busy ? <span aria-hidden className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white motion-reduce:animate-none" /> : null}

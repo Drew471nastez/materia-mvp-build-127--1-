@@ -3156,6 +3156,35 @@ html[data-op-hold] body[data-scroll-locked] { overflow: visible !important; marg
   inherits: false;
 }
 
+/* THE CHECKOUT WINDOW ON A PHONE RISES AS A SHEET (components/checkout/checkout-window PHONE_OPEN_MS, PHONE_EXIT_MS,
+   PHONE_WIDTH). Up from the foot of the screen over the page dimming behind it, and back down on close: transform and
+   opacity only, so the compositor plays it while the main thread draws the form and takes Stripe in. A computer keeps
+   its centred window (the sm: classes on the same elements). scripts/check-checkout-mobile.mjs. */
+@keyframes checkout-sheet-in { from { transform: translate3d(0, 100%, 0); } }
+@keyframes checkout-sheet-out { to { transform: translate3d(0, 100%, 0); } }
+@keyframes checkout-sheet-scrim-in { from { opacity: 0; } }
+@keyframes checkout-sheet-scrim-out { to { opacity: 0; } }
+@media (max-width: 639.98px) {
+  .checkout-sheet { animation: checkout-sheet-in 280ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+  .checkout-sheet-scrim { animation: checkout-sheet-scrim-in 280ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+  [data-leaving] > .checkout-sheet { animation: checkout-sheet-out 220ms cubic-bezier(0.4, 0, 1, 1) both; }
+  [data-leaving] > .checkout-sheet-scrim { animation: checkout-sheet-scrim-out 220ms cubic-bezier(0.4, 0, 1, 1) both; }
+}
+@media (max-width: 639.98px) and (prefers-reduced-motion: reduce) {
+  .checkout-sheet, .checkout-sheet-scrim, [data-leaving] > .checkout-sheet, [data-leaving] > .checkout-sheet-scrim { animation: none; }
+}
+
+/* A FINGER ON A ONEPAGE BUTTON PRESSES IT. The hover rules above are for a mouse alone, so on a phone a tap on Buy
+   showed nothing until whatever it opened was drawn. Now the button gives a little under the finger at once (60ms in,
+   the button's own 200ms back out), and inside a product card the card's button does. scripts/check-checkout-mobile.mjs. */
+@media (hover: none) {
+  :is(.op-btn, .op-host .op-btn) { -webkit-tap-highlight-color: transparent; }
+  :is(.op-btn:active, .op-host:active .op-btn) { scale: 0.97; transition-duration: 60ms; }
+}
+@media (hover: none) and (prefers-reduced-motion: reduce) {
+  :is(.op-btn:active, .op-host:active .op-btn) { scale: none; opacity: 0.85; transition-duration: 0ms; }
+}
+
 /* THE SHEET AND THE WINDOW IN THE PAGE'S COLOURS. The variables are on :root (sheetRootCss); the class is on the sheet, the checkout window and the free checkout. */
 /* Round W9 (opblocks): in the page's own typeface too, as the block sheets are (components/onepage/onepage-dialog sheetTokens). */
 :where(.op-sheet) { font-family: var(--opk-font, inherit); }

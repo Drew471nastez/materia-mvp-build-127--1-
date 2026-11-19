@@ -67,7 +67,8 @@ import { ProductSheet } from "./product-sheet"
 import { FramedPicture, readPictureShape } from "@/components/ui/framed-picture"
 import { CHECKOUT_HISTORY_KEY, HANDOFF_MAX_MS, PURCHASE_CLOSED, checkoutEntryOf, purchaseStep, sheetShown, type PurchaseLayer, type PurchaseStep } from "@/lib/onepage/purchase-flow"
 import dynamic from "next/dynamic"
-import { loadProductFacts as readProductFacts } from "@/components/checkout/product-facts"
+import { FACTS_FRESH_MS, loadProductFacts as readProductFacts } from "@/components/checkout/product-facts"
+import { hapticTap } from "@/lib/native-bridge"
 /*
   Round 63: THE CHECKOUT IS FETCHED, NOT SHIPPED. The checkout window and its words in every language were part of
   every OnePage's first download, for every visitor, buyer or not. It is now its own file, asked for when the
@@ -268,6 +269,8 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
   */
   const buy = React.useCallback(
     (variantId: string | null) => {
+      /* A light tick as Buy is pressed, inside the press (iOS plays WebKit's only there): lib/native-bridge hapticTap. */
+      hapticTap("light")
       step({ type: "buy", variantId })
       const mark = `${block.id}:${Date.now().toString(36)}`
       try {
@@ -454,6 +457,16 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
       showPreviewNotice("link")
     }
   }
+  /*
+    THE FINGER GOING DOWN STARTS THE CHECKOUT (the owner, on a phone: "not laggy"). A tap's press comes 50 to 150ms
+    before its click; on it, the window's file is asked for (already there, normally) and the product's facts read
+    afresh, so the window opening on the click shares that read (FACTS_FRESH_MS) instead of starting its own then.
+  */
+  const warmTap = () => {
+    if (plan !== "instant" || !data.product_id || legacyQuick) return
+    void import("@/components/checkout/instant-checkout").catch(() => undefined)
+    void readProductFacts(data.product_id, FACTS_FRESH_MS).catch(() => undefined)
+  }
   /* A tap that opens something on this page: the platform's loading line must not start for it (components/navigation/route-loading-bar). */
   const staysHere = legacyQuick || ((plan === "sheet" || plan === "instant") && !!data.product_id) ? "" : undefined
 
@@ -487,6 +500,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
     <a
       href={href}
       onClick={onClick}
+      onPointerDown={warmTap}
       className={cn("group/pc @container block w-full cursor-pointer overflow-hidden text-left outline-none focus-visible:ring-2 focus-visible:ring-offset-2", PRODUCT_CARD_HOST, cls, animationClass)}
       style={style}
       data-product-block={layout}
@@ -505,6 +519,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
         <a
           href={href}
           onClick={onClick}
+          onPointerDown={warmTap}
           className={cn("op-btn flex w-full cursor-pointer items-center justify-center px-4 py-3 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:px-5 sm:py-4 sm:text-base @container", animationClass)}
           style={themeButton}
           {...hoverAttrs(theme as ButtonThemeLike)}
@@ -739,6 +754,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
           onBack={checkout.fromSheet ? checkoutBack : null}
           returnFocus={() => trigger.current}
           back={back}
+          free={parts.free}
         />
       ) : null}
     </>
