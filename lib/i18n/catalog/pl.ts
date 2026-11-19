@@ -13575,7 +13575,9 @@ const words: Record<string, string> = {
  "Ships": "Wysyłka",
  "This store sells in {value}; your store uses {value2}. Match the currencies before importing.": "Ten sklep sprzedaje w {value}, a Twój sklep używa {value2}. Ujednolij waluty przed importem.",
  "Each comes in as a draft. Files are not copied.": "Każdy trafia jako szkic. Pliki nie są kopiowane.",
- "Go to slide {n}": "Przejdź do slajdu {n}"
+ "Go to slide {n}": "Przejdź do slajdu {n}",
+ "Changes not published yet. Visitors see the published version.": "Zmiany nie są jeszcze opublikowane. Odwiedzający widzą opublikowaną wersję.",
+ "Not published yet. Visitors can answer once you publish it.": "Jeszcze nie opublikowano. Odwiedzający będą mogli odpowiedzieć, gdy to opublikujesz."
 }
 
 export default words

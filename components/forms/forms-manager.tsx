@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
 import { formsRequest } from "@/lib/forms/client"
+import { noteBuilderDraft } from "@/lib/forms/preview-forms"
 import { formPath } from "@/lib/forms/actions"
 import { platformOrigin } from "@/lib/onepage/return-address"
 import {
@@ -274,6 +275,12 @@ export function FormEditor({
     const t = window.setTimeout(() => setNote(null), 3200)
     return () => window.clearTimeout(t)
   }, [note])
+  /* The OnePage editor's preview shows this form as it stands now, each edit within a frame (lib/forms/preview-forms); closing hands it back to the saved draft. */
+  const formId = saved.id
+  useEffect(() => {
+    noteBuilderDraft(formId, draft)
+  }, [formId, draft])
+  useEffect(() => () => noteBuilderDraft(formId, null), [formId])
   const change = (patch: Partial<FormDefinition>) => {
     setDraft((d) => ({ ...d, ...patch }))
     setDirty(true)

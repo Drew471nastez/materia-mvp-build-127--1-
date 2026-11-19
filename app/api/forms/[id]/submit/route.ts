@@ -76,7 +76,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return formError(new Error("The form could not be read. Try again."), 503, PUBLIC_HEADERS)
     }
     if (!form?.published) return formError(new Error("This form is not available."), 404, PUBLIC_HEADERS)
-    if (body.revision !== form.revision) return formError(new Error("This form has changed. Reload it before sending."), 409, PUBLIC_HEADERS)
+    /* `form_changed`: the page reads the new version and sends the same answers once more (components/forms/public-form). */
+    if (body.revision !== form.revision) return json({ error: "This form has changed. Reload it before sending.", form_changed: true }, 409)
     const definition = validateDefinition(form.published)
     const valid = validateAnswers(definition, body.answers)
 
