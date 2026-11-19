@@ -92,6 +92,9 @@ const NAMES: Record<string, () => string> = {
   mesa: () => ttx("theme", "Mesa"),
   cosmos: () => ttx("theme", "Cosmos"),
   shore: () => ttx("theme", "Shore"),
+  /* The two dark Clean themes (components/onepage/themes/dark-clean-themes). */
+  velvet: () => ttx("theme", "Velvet"),
+  basalt: () => ttx("theme", "Basalt"),
 }
 
 /** A theme's name in the reader's language. */

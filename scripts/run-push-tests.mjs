@@ -969,6 +969,8 @@ const SUITES = [
   "tests/onepage-as1.test.ts",
   /* Round AT (track 1): every theme card draws the account's own page (its name, photo or monogram, socials, links, products and newsletter, samples for the rest; components/onepage/themes/preview-account), links as the page's .op-btn with the theme's hover, nothing selectable; Plaster is Stoicism (a stone skin, ivory tablets, its cover kept, saved pages moved with their own changes) and Dune is new. scripts/check-onepage-theme-previews-as1.mjs measures the cards against the live page. */
   "tests/onepage-at1.test.ts",
+  /* The two dark Clean themes, Velvet and Basalt (components/onepage/themes/dark-clean-themes): their place at the end of Clean, every colour pair at 4.5:1 in every button style and under the pointer, a structure of their own, faces the page loads, names in six languages; scripts/check-onepage-dark-themes.mjs measures a whole page of each on pixels at 390 and 1280. */
+  "tests/onepage-dark-themes.test.ts",
   /* The theme swatch round: a theme card is a swatch (its wallpaper, "Aa" in its title face, its button), with no account and no hover that moves it, and nineteen themes whose wallpapers are painted in CSS (components/onepage/themes/theme-swatch, mood-themes). */
   "tests/onepage-swatch-themes.test.ts",
   "tests/onepage-themes-w8.test.ts",

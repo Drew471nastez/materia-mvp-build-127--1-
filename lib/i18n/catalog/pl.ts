@@ -12499,6 +12499,8 @@ const words: Record<string, string> = {
  "theme::Mesa": "Mesa",
  "theme::Cosmos": "Kosmos",
  "theme::Shore": "Brzeg",
+ "theme::Velvet": "Aksamit",
+ "theme::Basalt": "Bazalt",
  "Latest video": "Najnowszy film",
  "Starter guide": "Przewodnik na start",
  "One to one session": "Sesja indywidualna",
