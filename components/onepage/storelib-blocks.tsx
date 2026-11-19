@@ -574,7 +574,7 @@ function PostsView({ block, look }: { block: OnePageBlock; look: StorelibBlockLo
       <div className={raw.layout==="grid"?(cardish?"grid grid-cols-2 gap-3":"grid grid-cols-[repeat(auto-fit,minmax(min(100%,280px),1fr))] gap-3"):raw.layout==="list"||raw.layout==="single"?"flex flex-col gap-3":"op-rail flex snap-x snap-mandatory items-start overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"} style={{ gap: px(10, look.scale) }}>
         {loading
           ? [0, 1, 2].map((i) => <span key={i} aria-hidden className="block shrink-0 animate-pulse rounded-xl bg-[rgba(127,127,127,0.14)] motion-reduce:animate-none" style={{ width: "100%", maxHeight: tall || raw.network === "instagram" ? 380 : undefined, aspectRatio: tall ? "9 / 16" : raw.network === "instagram" ? "326 / 470" : "16 / 9" }} />)
-          : (raw.layout==="single"?items.slice(0,1):items).map((item) => <div key={`${item.kind}:${item.id}`} className={raw.layout&&raw.layout!=="carousel"?(cardish?"min-w-0":"min-w-0 flex justify-center"):"w-full min-w-0 shrink-0 snap-start"}>
+          : (raw.layout==="single"?items.slice(0,1):items).map((item) => <div key={`${item.kind}:${item.id}`} className={raw.layout&&raw.layout!=="carousel"?(cardish?"min-w-0":"min-w-0 flex justify-center"):cardish?"w-[86%] min-w-0 shrink-0 snap-start":"w-full min-w-0 shrink-0 snap-start"}>
             {cardish?<VisualLinkCard block={{id:item.id,type:"link_button",enabled:true,sort_order:0,data:{url:item.url,label:item.title||item.kind},style:{presentation:postCardLook(raw,raw.thumbnails?.[item.url]||item.thumb||undefined)}}} theme={look.theme} onClick={()=>{}}/>:<PostSlide item={{...item,thumb:raw.thumbnails?.[item.url]||item.thumb}} look={look}/>} </div>)}
       </div>
     </div>

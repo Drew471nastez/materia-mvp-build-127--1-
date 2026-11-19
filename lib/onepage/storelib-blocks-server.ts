@@ -1,5 +1,6 @@
 import "server-only"
 import {withVariantPrices} from "@/lib/pricing/variant-price"
+import { rowsWithOriginalCovers } from "@/lib/products/cover"
 
 /**
  * ===========================================================================
@@ -116,7 +117,9 @@ export async function shelfItems(db: Db, creatorId: string, source: ShelfSource,
     )
     /* Picked: in the creator's order, every one of them (up to SHELF_LIMIT_MAX, which `ids` already is). */
     if (ids) rows.sort((a, b) => ids.indexOf(String(a.id).toLowerCase()) - ids.indexOf(String(b.id).toLowerCase()))
-    const picked = await withVariantPrices<Record<string,unknown>&{id:string}>(db,rows.slice(0,ids ? ids.length : limit).map(row=>({...row,id:String(row.id)})))
+    /* Round 19: a shelf's cards show the cover as uploaded (lib/products/cover), not the 16:9 copy with its grey padding. */
+    const priced = await withVariantPrices<Record<string,unknown>&{id:string}>(db,rows.slice(0,ids ? ids.length : limit).map(row=>({...row,id:String(row.id)})))
+    const picked = await rowsWithOriginalCovers(db, priced as (typeof priced[number] & { thumbnail_url?: string | null })[])
     const memberships = picked.filter((r) => r.type === "membership").map((r) => String(r.id))
     const intervals = memberships.length ? await planIntervals(db as never, memberships) : new Map()
     return picked.map((r) => ({

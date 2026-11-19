@@ -118,6 +118,7 @@ import { PdfOnPage, PdfPages } from "@/components/onepage/pdf-pages"
 import { blockInteraction } from "@/lib/onepage/block-sheet"
 import { isOnePagePreview, showPreviewNotice } from "@/lib/onepage/preview-notice"
 import { useMouseDragRows, useMouseDragScroll } from "@/components/onepage/drag-scroll"
+import { RAIL_DOT_MAX, RAIL_DOT_MIN, useRailPager, useRails } from "@/components/onepage/rail"
 import { BUTTON_ICON_CLASS, BUTTON_ICON_INSET, BUTTON_SIZE_CLASS, buttonAlign, buttonBackground, buttonHover, buttonHoverVars, buttonIconSide, buttonShadow as themeButtonShadow, buttonShape, buttonSize, buttonThemeOn, themeButtonStripFill, themeButtonStyle } from "@/lib/onepage/button-style"
 import { EmailSignupView, type EmailSignupFormOptions } from "@/components/onepage/email-signup"
 import { checkSignupPhone, signupExtraFields } from "@/lib/onepage/signup-fields"
@@ -909,6 +910,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
   const sellerName = personName({ name: title })
   /* Round AP: every row on the page that slides sideways follows a mouse as it follows a finger (components/onepage/drag-scroll). */
   useMouseDragRows()
+  /* Round 19: every such row's soft edges, and a trackpad that glides it to a slide instead of fighting its snap (components/onepage/rail). */
+  useRails()
   /* Round AR: every button and row on the page, and in every sheet over it, answers a press at once (components/onepage/press-feel). */
   usePressFeel()
 
@@ -2013,10 +2016,6 @@ function GroupBlockRenderer({
   isDesktop: boolean
   settings?: { filled_icons?: boolean }
 }) {
-  const [currentIndex, setCurrentIndex] = useState(0)
-  const [isHovering, setIsHovering] = useState(false)
-  const [canScrollLeft, setCanScrollLeft] = useState(false)
-  const [canScrollRight, setCanScrollRight] = useState(true)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
   const inEditorPreview = useContext(ExtraBlockPreviewContext)
@@ -2037,60 +2036,18 @@ function GroupBlockRenderer({
 
   const itemWidthPercent = getCarouselItemWidth()
 
-  // Handle scroll to update current index - use requestAnimationFrame for smooth updates
-  const handleScroll = useCallback(() => {
-    if (!scrollContainerRef.current) return
-    requestAnimationFrame(() => {
-      if (!scrollContainerRef.current) return
-      const container = scrollContainerRef.current
-      const scrollPosition = container.scrollLeft
-      const containerWidth = container.clientWidth
-      const scrollWidth = container.scrollWidth
-      const itemWidth = carouselSlideWidth(container, itemWidthPercent)
-      const newIndex = Math.round(scrollPosition / (itemWidth + gap))
-      
-      setCurrentIndex(Math.min(Math.max(0, newIndex), enabledChildren.length - 1))
-      setCanScrollLeft(scrollPosition > 5)
-      setCanScrollRight(scrollPosition < scrollWidth - containerWidth - 5)
-    })
-  }, [itemWidthPercent, gap, enabledChildren.length])
-
-  // Initial scroll state check
-  useEffect(() => {
-    handleScroll()
-  }, [handleScroll])
-
-  // Scroll to specific index
-  const scrollToIndex = (index: number) => {
-    if (!scrollContainerRef.current) return
-    const container = scrollContainerRef.current
-    const itemWidth = carouselSlideWidth(container, itemWidthPercent)
-    const targetScroll = index * (itemWidth + gap)
-    container.scrollTo({ left: targetScroll, behavior: 'smooth' })
-  }
-
-  // Navigate to previous slide
-  const goToPrev = (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    const newIndex = Math.max(0, currentIndex - 1)
-    scrollToIndex(newIndex)
-  }
-
-  // Navigate to next slide
-  const goToNext = (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    const newIndex = Math.min(enabledChildren.length - 1, currentIndex + 1)
-    scrollToIndex(newIndex)
-  }
+  /*
+    ROUND 19: THE DOTS AND ARROWS FOLLOW THE SCROLL WITHOUT REACT.
+    The index and the two "can scroll" flags were React state set from the scroll: each time the slide changed, every
+    block in the row rendered again in the middle of the swipe (4 to 6 commits a swipe, measured), and the arrows were
+    mounted and unmounted at the ends. components/onepage/rail useRailPager writes the dots' widths and the arrows'
+    data-hidden straight from the scroll, steps between the places the row really stops (measured, not computed
+    from a width and a gap), and under reduced motion jumps instead of gliding.
+  */
+  const pager = useRailPager(scrollContainerRef, enabledChildren.length)
 
   /* A mouse drags the row in real time, as a finger swipes it (components/onepage/drag-scroll, round 42). */
   useMouseDragScroll(scrollContainerRef)
-
-  const handleMouseLeave = () => {
-    setIsHovering(false)
-  }
 
   /*
     THERE ARE NO TOUCH HANDLERS HERE ON PURPOSE.
@@ -2114,39 +2071,50 @@ function GroupBlockRenderer({
       width: `calc(${itemWidthPercent}% - ${gap}px)`,
       minWidth: `calc(${itemWidthPercent}% - ${gap}px)`,
     }
+    /*
+      ROUND 19, THE ARROWS. They were a white circle with the icon in the theme's button colour, so on a page whose
+      buttons are white the arrow was white on white: an empty circle (the owner's 19 and 21). Now always a near
+      black icon on a near white circle with a hairline ring, readable on every theme and every picture; 36px, inside
+      the soft edge, so they sit over the fade and not over a card's words; shown on hover with a mouse and focus.
+    */
+    const arrow = (side: "prev" | "next") => (
+      <button
+        type="button"
+        ref={side === "prev" ? pager.prevRef : pager.nextRef}
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); pager.step(side === "prev" ? -1 : 1) }}
+        aria-label={side === "prev" ? tt("Previous") : tt("Next")}
+        data-rail-arrow={side}
+        data-hidden=""
+        className={cn(
+          "absolute top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full",
+          "bg-white/95 text-[#111111] shadow-[0_2px_10px_rgba(0,0,0,0.22)] ring-1 ring-black/10",
+          "opacity-0 transition-opacity duration-200 ease-out motion-reduce:transition-none",
+          "group-data-[pointer]/rail:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
+          "data-[hidden]:pointer-events-none data-[hidden]:!opacity-0",
+          side === "prev" ? "left-2" : "right-2"
+        )}
+      >
+        {side === "prev" ? <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2.25} /> : <ChevronRight aria-hidden className="h-5 w-5" strokeWidth={2.25} />}
+      </button>
+    )
 
     return (
-      <div
-        className="w-full relative"
-        onMouseEnter={() => setIsHovering(true)}
-        onMouseLeave={handleMouseLeave}
-      >
-        {/* Soft edges: the scroller itself fades out at both sides (its mask below), so the slides melt into any page background. */}
-
-        {/* Left Arrow Navigation - Desktop only, smooth fade in */}
-        {isDesktop && canScrollLeft && (
-          <button
-            onClick={goToPrev}
-            className={cn(
-              "absolute left-2 top-1/2 -translate-y-1/2 z-20",
-              "w-10 h-10 rounded-full",
-              "bg-white/95 shadow-lg",
-              "flex items-center justify-center",
-              "transition-all duration-300 ease-out",
-              "hover:opacity-80",
-              isHovering ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-2 pointer-events-none"
-            )}
-            style={{ color: theme.button_color }}
-          >
-            <ChevronLeft className="w-6 h-6" />
-          </button>
-        )}
+      <div className="w-full">
+        {/* A mouse over the row shows its arrows; said on the element, not in state and not by (hover: hover), which a laptop with a touch screen may not report. */}
+        <div
+          className="group/rail relative w-full"
+          onPointerEnter={(e) => { if (e.pointerType === "mouse") e.currentTarget.setAttribute("data-pointer", "") }}
+          onPointerLeave={(e) => e.currentTarget.removeAttribute("data-pointer")}
+        >
+        {isDesktop && enabledChildren.length > 1 ? arrow("prev") : null}
 
         {/* Scrollable Container - use negative margins to allow shadow overflow */}
         <div
           ref={scrollContainerRef}
           data-group-carousel=""
           className="op-rail scrollbar-hide snap-x snap-mandatory select-none cursor-grab data-[dragging]:cursor-grabbing"
+          /* Round 19: soft edges are every row's now (app/globals.css .op-rail); the group's Soft edges setting makes them longer. */
+          data-rail-fade={data.carousel_fade_edges ? "wide" : undefined}
           /*
             ROOM FOR EVERY EDGE (round 42, "buttons still have cut borders").
             A scroller clips on all four sides, and the first slide used to
@@ -2164,17 +2132,16 @@ function GroupBlockRenderer({
             scrollbarWidth: 'none',
             msOverflowStyle: 'none',
             overflowX: 'auto',
+            overscrollBehaviorX: 'contain',
             /* Round AS: to the column's edge sideways (app/globals.css .op-rail); the room above and below stays. */
             marginTop: -CAROUSEL_ROOM,
             marginBottom: -CAROUSEL_ROOM,
             paddingTop: CAROUSEL_ROOM + 12,
             paddingBottom: CAROUSEL_ROOM + 20,
-            ...(data.carousel_fade_edges ? { maskImage: SOFT_EDGES, WebkitMaskImage: SOFT_EDGES } : {}),
           }}
-          onScroll={handleScroll}
         >
           <div
-            className="flex"
+            className="flex items-stretch"
             style={{
               gap: `${gap}px`,
             }}
@@ -2182,12 +2149,14 @@ function GroupBlockRenderer({
             {enabledChildren.map((child) => (
               <div
                 key={child.id}
-                className="shrink-0 snap-start"
+                className="flex shrink-0 snap-start flex-col"
                 /* A row inside a slide stays inside it. */
                 style={{ ...itemStyle, ["--op-gutter" as string]: "4px" }}
+                data-rail-slide=""
                 data-sensitive-label={sensitiveLabel(child)}
               >
-                <div className="w-full" style={{ overflow: 'visible' }}>
+                {/* Round 19: the slides of a row are one height, the tallest's (a short card stretches to it). */}
+                <div className="flex w-full flex-1 flex-col [&>:first-child]:flex-1" style={{ overflow: 'visible' }}>
                   {inEditorPreview && isIncompleteLink(child) ? (
                     <IncompleteLinkPlaceholder label={(child.data as LinkButtonBlockData)?.label} theme={theme} />
                   ) : (
@@ -2209,40 +2178,23 @@ function GroupBlockRenderer({
           </div>
         </div>
 
-        {/* Right Arrow Navigation - Desktop only, smooth fade in */}
-        {isDesktop && canScrollRight && (
-          <button
-            onClick={goToNext}
-            className={cn(
-              "absolute right-2 top-1/2 -translate-y-1/2 z-20",
-              "w-10 h-10 rounded-full",
-              "bg-white/95 shadow-lg",
-              "flex items-center justify-center",
-              "transition-all duration-300 ease-out",
-              "hover:opacity-80",
-              isHovering ? "opacity-100 translate-x-0" : "opacity-0 translate-x-2 pointer-events-none"
-            )}
-            style={{ color: theme.button_color }}
-          >
-            <ChevronRight className="w-6 h-6" />
-          </button>
-        )}
+        {isDesktop && enabledChildren.length > 1 ? arrow("next") : null}
+        </div>
 
-
-        {/* Dots navigation - clickable, updates based on scroll position */}
-        {enabledChildren.length > 1 && (
-          <div className="flex justify-center gap-2 mt-3">
-            {enabledChildren.map((_, index) => (
+        {/*
+          The dots: one per place the row can stop, painted from the scroll (useRailPager). Fixed sizes whose widths
+          always add up to the same, so the row of dots never moves; each a 24px tap target around a 6px mark.
+        */}
+        {pager.count > 1 && (
+          <div ref={pager.dotsRef} className="mt-3 flex h-6 items-center justify-center gap-1.5" data-rail-dots="">
+            {Array.from({ length: pager.count }, (_, index) => (
               <button
                 key={index}
-                onClick={() => scrollToIndex(index)}
-                className={cn(
-                  "h-2 rounded-full transition-all duration-300",
-                  index === currentIndex ? "w-5" : "w-2"
-                )}
-                style={{
-                  backgroundColor: index === currentIndex ? theme.text_color : `${theme.text_color}40`,
-                }}
+                type="button"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); pager.goTo(index) }}
+                aria-label={tt("Go to slide {n}", { n: index + 1 })}
+                className="relative h-1.5 shrink-0 rounded-full before:absolute before:-inset-x-1 before:-inset-y-[9px] before:content-['']"
+                style={{ width: index === 0 ? RAIL_DOT_MAX : RAIL_DOT_MIN, opacity: index === 0 ? 1 : 0.4, backgroundColor: theme.text_color }}
               />
             ))}
           </div>
@@ -2309,8 +2261,6 @@ function GroupBlockRenderer({
 
 /** The room a group carousel's scroller keeps around its slides: the widest glow or hard shadow a button draws, and a lift. */
 const CAROUSEL_ROOM = 16
-/* A group carousel's soft edges, as a mask: no colour of its own, so it suits any page background. */
-const SOFT_EDGES = "linear-gradient(to right, transparent 0, #000 var(--op-gutter, 28px), #000 calc(100% - var(--op-gutter, 28px)), transparent 100%)"
 
 /**
  * A COLLECTION'S OPTIONAL PICTURE AND LINE (GroupBlockData image_url and
@@ -2337,11 +2287,6 @@ function CollectionIntro({ data, theme }: { data: GroupBlockData; theme: OnePage
       ) : null}
     </div>
   )
-}
-
-/** One slide's width, asked of the slide itself (the scroller's padding is not the slides' room). */
-function carouselSlideWidth(container: HTMLElement, percent: number): number {
-  return (container.firstElementChild?.firstElementChild as HTMLElement | null)?.offsetWidth || (container.clientWidth * percent) / 100
 }
 
 // Public Image Carousel Component with transform-based positioning for smooth, reliable swiping

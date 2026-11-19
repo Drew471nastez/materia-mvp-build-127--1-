@@ -13574,7 +13574,8 @@ const words: Record<string, string> = {
  "{count} variants": "{count} varianti",
  "Ships": "Con spedizione",
  "This store sells in {value}; your store uses {value2}. Match the currencies before importing.": "Questo negozio vende in {value}; il tuo negozio usa {value2}. Allinea le valute prima di importare.",
- "Each comes in as a draft. Files are not copied.": "Ognuno arriva come bozza. I file non vengono copiati."
+ "Each comes in as a draft. Files are not copied.": "Ognuno arriva come bozza. I file non vengono copiati.",
+ "Go to slide {n}": "Vai alla slide {n}"
 }
 
 export default words

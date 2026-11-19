@@ -10075,6 +10075,34 @@ html[data-op-press] [data-op-letgo] {
 }
 :is([data-block-size="half"], [data-block-size="tall"], [data-link-tile], [data-product-pair] > *, [data-group-grid] > *) { --op-gutter: 4px; }
 
+/*
+  ROUND 19, SOFT EDGES ON EVERY ROW. The owner: the next card "sliced", a dark fade "that then cuts off". A row now
+  fades out at a side only while there is more of it that way: components/onepage/rail marks the row
+  (data-more-start, data-more-end) as it scrolls, and the fade is a mask, no colour of its own, so it suits a dark, a
+  light, a picture, a video or a gradient page alike. The fade runs over the page's side padding and a little into
+  the column (a nested row: 4px and a little). A group's Soft edges setting (carousel_fade_edges) asks for a longer
+  one. Registered lengths, so the fade grows in and out instead of switching; still under reduced motion.
+*/
+@property --op-fade-start { syntax: "<length>"; inherits: false; initial-value: 0px; }
+@property --op-fade-end { syntax: "<length>"; inherits: false; initial-value: 0px; }
+.op-rail {
+  --op-fade-start: 0px;
+  --op-fade-end: 0px;
+  transition: --op-fade-start 220ms ease-out, --op-fade-end 220ms ease-out;
+}
+/* A row that does not slide (everything fits) has no mask at all: nothing to composite. */
+.op-rail:is([data-more-start], [data-more-end]) {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--op-fade-start), #000 calc(100% - var(--op-fade-end)), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 var(--op-fade-start), #000 calc(100% - var(--op-fade-end)), transparent 100%);
+}
+.op-rail[data-more-start] { --op-fade-start: calc(var(--op-gutter, 4px) + 20px); }
+.op-rail[data-more-end] { --op-fade-end: calc(var(--op-gutter, 4px) + 20px); }
+.op-rail[data-rail-fade="wide"][data-more-start] { --op-fade-start: calc(var(--op-gutter, 4px) + 52px); }
+.op-rail[data-rail-fade="wide"][data-more-end] { --op-fade-end: calc(var(--op-gutter, 4px) + 52px); }
+@media (prefers-reduced-motion: reduce) {
+  .op-rail { transition: none; scroll-behavior: auto !important; }
+}
+
 /* ROUND AT: THE ONEPAGE'S OWN TOP INSET. The notch on a phone and in the apps (env), and nothing inside the editor's
    preview frame (data-onepage-embedded, set in app/(storelib)/layout.tsx before the first paint): the frame sits under
    the editor's bar, but WebKit gives a frame the screen's insets, so the bar below was padded by the notch there and

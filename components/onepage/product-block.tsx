@@ -1,5 +1,6 @@
 "use client"
 
+import { withOriginalCover } from "@/lib/products/cover"
 import { BlockSubtitle } from "./block-presentation"
 import { presentationOf } from "@/lib/onepage/block-presentation"
 
@@ -359,7 +360,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
         const go = () => {
           setWarm(true)
           /* The picture's shape (its padding, lib/images/letterbox) read now, so the sheet opens in the right frame. */
-          const picture = data.custom_thumbnail || data.product_cover || data.product_thumbnail
+          const picture = withOriginalCover([data.custom_thumbnail, data.product_cover, data.product_thumbnail], { thumbnail_url: data.product_thumbnail, cover_original_url: data.product_cover })[0]
           if (picture) void readPictureShape(picture)
           if (plan === "instant") void loadProductFacts(data.product_id).catch(() => undefined)
           if (shipsToCheckout)
@@ -415,7 +416,12 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
   const title = data.product_title || "Product"
   const description = data.show_description !== false ? plainText(data.product_description) : ""
   /* The creator's own picture for the block, else the product's cover as uploaded (SQL part 377), else its card copy. */
-  const image = [data.custom_thumbnail, data.product_cover, data.product_thumbnail].find((u): u is string => !!u && !unloadable.includes(u)) ?? null
+  /*
+    Round 19: a block whose own picture is the product's 16:9 card copy (picked from the product's pictures) shows
+    the cover as uploaded in its place (lib/products/cover withOriginalCover), so no grey padding reaches a card in
+    a carousel or a group. The card copy stays last, for an original that will not load.
+  */
+  const image = withOriginalCover([data.custom_thumbnail, data.product_cover, data.product_thumbnail], { thumbnail_url: data.product_thumbnail, cover_original_url: data.product_cover }).concat(data.product_thumbnail || []).find((u) => !unloadable.includes(u)) ?? null
   const planPriced = isPlanPriced({ type: data.product_type })
   const money = (cents: number) => (planPriced ? shopMoneyIn(cents, PLAN_CURRENCY) : pageMoney(cents))
   const parts = productPriceParts(data, money)
