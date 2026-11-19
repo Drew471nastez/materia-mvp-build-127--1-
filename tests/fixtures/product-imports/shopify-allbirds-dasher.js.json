@@ -1,0 +1,210 @@
+{
+ "id": 6885126766672,
+ "title": "Women's Tree Dasher 2 - Natural White/True Navy (Natural White Sole)",
+ "handle": "womens-tree-dashers-natural-white-true-navy",
+ "description": "<p>The Tree Dasher 2 is the next evolution of our everyday active shoe with more responsive foam, extra grip, and an improved fit to keep you moving, and nature winning.</p>",
+ "published_at": "2026-09-25T16:49:45-07:00",
+ "created_at": "2023-10-20T01:32:10-07:00",
+ "vendor": "Allbirds",
+ "type": "Shoes",
+ "tags": [
+  "allbirds::carbon-score => 5.48",
+  "allbirds::cfId => color-womens-tree-dashers2-ntl-wht-tr-nvy-ntl-wht-ne",
+  "allbirds::complete => true",
+  "allbirds::edition => limited",
+  "allbirds::gender => womens",
+  "allbirds::hue => blue",
+  "allbirds::hue => white",
+  "allbirds::master => womens-tree-dashers",
+  "allbirds::material => tree",
+  "allbirds::price-tier => msrp",
+  "allbirds::silhouette => dasher",
+  "allbirdskit::kit-discount-20whQOueHm7zwKfR8Csr2c => 23",
+  "allbirdskit::kit-id => 20whQOueHm7zwKfR8Csr2c",
+  "allbirdskit::kit-size-20whQOueHm7zwKfR8Csr2c => 2",
+  "bfcm-womens",
+  "FINAL SALE",
+  "loop::returnable => true",
+  "OOS DNS",
+  "shoprunner",
+  "tier-1",
+  "WRENTHAM OUTLETS",
+  "YCRF_womens-perform-shoes",
+  "YGroup_ygroup_womens-tree-dashers"
+ ],
+ "price": 9800,
+ "price_min": 9800,
+ "price_max": 9800,
+ "available": true,
+ "price_varies": false,
+ "compare_at_price": 14000,
+ "compare_at_price_min": 14000,
+ "compare_at_price_max": 14000,
+ "compare_at_price_varies": false,
+ "variants": [
+  {
+   "id": 40342206546000,
+   "title": "5",
+   "option1": "5",
+   "option2": null,
+   "option3": null,
+   "sku": "A10573W050",
+   "requires_shipping": true,
+   "taxable": true,
+   "featured_image": null,
+   "available": false,
+   "name": "Women's Tree Dasher 2 - Natural White/True Navy (Natural White Sole) - 5",
+   "public_title": "5",
+   "options": [
+    "5"
+   ],
+   "price": 9800,
+   "weight": 600,
+   "compare_at_price": 14000,
+   "inventory_quantity": 0,
+   "inventory_management": "shopify",
+   "inventory_policy": "deny",
+   "barcode": "196942071441",
+   "quantity_rule": {
+    "min": 1,
+    "max": null,
+    "increment": 1
+   },
+   "quantity_price_breaks": [],
+   "requires_selling_plan": false,
+   "selling_plan_allocations": []
+  },
+  {
+   "id": 40342206578768,
+   "title": "5.5",
+   "option1": "5.5",
+   "option2": null,
+   "option3": null,
+   "sku": "A10573W055",
+   "requires_shipping": true,
+   "taxable": true,
+   "featured_image": null,
+   "available": true,
+   "name": "Women's Tree Dasher 2 - Natural White/True Navy (Natural White Sole) - 5.5",
+   "public_title": "5.5",
+   "options": [
+    "5.5"
+   ],
+   "price": 9800,
+   "weight": 622,
+   "compare_at_price": 14000,
+   "inventory_quantity": 1,
+   "inventory_management": "shopify",
+   "inventory_policy": "deny",
+   "barcode": "196942071458",
+   "quantity_rule": {
+    "min": 1,
+    "max": null,
+    "increment": 1
+   },
+   "quantity_price_breaks": [],
+   "requires_selling_plan": false,
+   "selling_plan_allocations": []
+  },
+  {
+   "id": 40342206611536,
+   "title": "6",
+   "option1": "6",
+   "option2": null,
+   "option3": null,
+   "sku": "A10573W060",
+   "requires_shipping": true,
+   "taxable": true,
+   "featured_image": null,
+   "available": false,
+   "name": "Women's Tree Dasher 2 - Natural White/True Navy (Natural White Sole) - 6",
+   "public_title": "6",
+   "options": [
+    "6"
+   ],
+   "price": 9800,
+   "weight": 644,
+   "compare_at_price": 14000,
+   "inventory_quantity": 0,
+   "inventory_management": "shopify",
+   "inventory_policy": "deny",
+   "barcode": "196942071465",
+   "quantity_rule": {
+    "min": 1,
+    "max": null,
+    "increment": 1
+   },
+   "quantity_price_breaks": [],
+   "requires_selling_plan": false,
+   "selling_plan_allocations": []
+  }
+ ],
+ "images": [
+  "//cdn.shopify.com/s/files/1/1104/4168/files/A10572M080_Natural_White_True_Navy_Natural_White_LEFT.png?v=1721155508",
+  "//cdn.shopify.com/s/files/1/1104/4168/files/A10572M080_Natural_White_True_Navy_Natural_White_BACK.png?v=1721155508",
+  "//cdn.shopify.com/s/files/1/1104/4168/files/A10572M080_Natural_White_True_Navy_Natural_White_TOP.png?v=1721155508",
+  "//cdn.shopify.com/s/files/1/1104/4168/files/A10572M080_Natural_White_True_Navy_Natural_White_BOTTOM.png?v=1721155508",
+  "//cdn.shopify.com/s/files/1/1104/4168/files/A10572M080_Natural_White_True_Navy_Natural_White_PAIR.png?v=1721155508",
+  "//cdn.shopify.com/s/files/1/1104/4168/files/A10572M080_Natural_White_True_Navy_Natural_White_ANGLE.png?v=1721155508"
+ ],
+ "featured_image": "//cdn.shopify.com/s/files/1/1104/4168/files/A10572M080_Natural_White_True_Navy_Natural_White_LEFT.png?v=1721155508",
+ "options": [
+  {
+   "name": "Size",
+   "position": 1,
+   "values": [
+    "5",
+    "5.5",
+    "6",
+    "6.5",
+    "7",
+    "7.5",
+    "8",
+    "8.5",
+    "9",
+    "9.5",
+    "10",
+    "10.5",
+    "11"
+   ]
+  }
+ ],
+ "url": "/products/womens-tree-dashers-natural-white-true-navy",
+ "media": [
+  {
+   "alt": null,
+   "id": 24729436717136,
+   "position": 1,
+   "preview_image": {
+    "aspect_ratio": 1.0,
+    "height": 2400,
+    "width": 2400,
+    "src": "https://cdn.shopify.com/s/files/1/1104/4168/files/A10572M080_Natural_White_True_Navy_Natural_White_LEFT.png?v=1721155508"
+   },
+   "aspect_ratio": 1.0,
+   "height": 2400,
+   "media_type": "image",
+   "src": "https://cdn.shopify.com/s/files/1/1104/4168/files/A10572M080_Natural_White_True_Navy_Natural_White_LEFT.png?v=1721155508",
+   "width": 2400
+  },
+  {
+   "alt": null,
+   "id": 24729436749904,
+   "position": 2,
+   "preview_image": {
+    "aspect_ratio": 1.0,
+    "height": 2400,
+    "width": 2400,
+    "src": "https://cdn.shopify.com/s/files/1/1104/4168/files/A10572M080_Natural_White_True_Navy_Natural_White_BACK.png?v=1721155508"
+   },
+   "aspect_ratio": 1.0,
+   "height": 2400,
+   "media_type": "image",
+   "src": "https://cdn.shopify.com/s/files/1/1104/4168/files/A10572M080_Natural_White_True_Navy_Natural_White_BACK.png?v=1721155508",
+   "width": 2400
+  }
+ ],
+ "requires_selling_plan": false,
+ "selling_plan_groups": [],
+ "_captured": "GET https://www.allbirds.com/products/womens-tree-dashers-natural-white-true-navy.js on 2026-11-19, trimmed: the first 3 of 13 variants, the first 2 media; images complete"
+}

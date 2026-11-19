@@ -1,0 +1,205 @@
+{
+ "api_version": 1,
+ "id": "WalKAmuY-liJb6dY4KvSkQ==",
+ "permalink": "catpin",
+ "name": "CatPin - Blender Add-on for Splitting 3D Models for Printing",
+ "native_type": "digital",
+ "url": "https://alexsokol.gumroad.com/l/catpin",
+ "thumbnail_url": "https://public-files.gumroad.com/a0wz8ly669d8y8ibl732iqpz2hvz",
+ "created_at": "2026-07-20T13:18:40Z",
+ "updated_at": "2026-11-15T10:03:42Z",
+ "seller": {
+  "id": "521818834642",
+  "name": "AlexSokol",
+  "avatar_url": "https://public-files.gumroad.com/qiu3bv6wkh4cl1413y3445yhtl23",
+  "profile_url": "https://alexsokol.gumroad.com/",
+  "is_verified": false
+ },
+ "price_cents": 3000,
+ "currency_code": "usd",
+ "price_formatted": "$30",
+ "display_price": {
+  "price": "$21",
+  "price_cents": 2100,
+  "currency_code": "usd",
+  "localized": false,
+  "original_price": "$30",
+  "original_price_cents": 3000,
+  "options": [
+   {
+    "id": "TpUfCdKtM1nonSDWR-S5QQ==",
+    "name": "Basic ",
+    "price": "$21",
+    "price_cents": 2100,
+    "currency_code": "usd",
+    "localized": false,
+    "original_price": "$30",
+    "original_price_cents": 3000
+   },
+   {
+    "id": "OjHJZHk_r9Nl86rDgSfurg==",
+    "name": "CatPin + Thanks",
+    "price": "$31.50",
+    "price_cents": 3150,
+    "currency_code": "usd",
+    "localized": false,
+    "original_price": "$45",
+    "original_price_cents": 4500
+   },
+   {
+    "id": "znOaE8MkB3pb5t8P06BSjQ==",
+    "name": "ProMax",
+    "price": "$70",
+    "price_cents": 7000,
+    "currency_code": "usd",
+    "localized": false,
+    "original_price": "$100",
+    "original_price_cents": 10000
+   }
+  ]
+ },
+ "is_pay_what_you_want": false,
+ "suggested_price_cents": null,
+ "is_recurring_billing": false,
+ "is_tiered_membership": false,
+ "recurrences": null,
+ "free_trial": null,
+ "description_html": "<h1>Blender Add-on for Splitting 3D Models for Printing</h1><h2>Cut. Connect. Print.</h2><p><strong>Fast cutting, automatic connectors, and non-destructive cut planning for Blender.</strong></p><p>CatPin helps you split Blender models into printable parts, add matching connectors, and export the final parts for 3D printing.</p><p>Choose <strong>Draft Mode</strong> for full control or <strong>Easy Mode</strong> for fast automatic cuts.</p><h2><strong>Latest Tutorial</strong></h2><div class=\"tiptap__raw\" data-title=\"CatPin_Tutorial\" data-url=\"https://kinescope.io/embed/e05c4f37-bd48-47f3-ac1f-d4",
+ "summary": null,
+ "covers": [
+  {
+   "url": "https://public-files.gumroad.com/6n216pue46n81v3a0jzep1bolinr",
+   "original_url": "https://public-files.gumroad.com/tzdnqbbf3ax6vjnx6jdcw7j042xi",
+   "thumbnail": null,
+   "id": "5b8ed8e52dd5dff29f54102769e2f652",
+   "type": "image",
+   "filetype": "png",
+   "width": 670,
+   "height": 376,
+   "native_width": 2560,
+   "native_height": 1440
+  },
+  {
+   "url": "https://public-files.gumroad.com/3z32yzrik5kjvkvshc4rzmgx0tod",
+   "original_url": "https://public-files.gumroad.com/tbgwrvf4m89uo42uekh9lbvbary6",
+   "thumbnail": null,
+   "id": "a422f8eb5507432ff5300b53e2c433bd",
+   "type": "image",
+   "filetype": "png",
+   "width": 670,
+   "height": 418,
+   "native_width": 2400,
+   "native_height": 1500
+  },
+  {
+   "url": "https://public-files.gumroad.com/ylfz4tgs7qkb010wzfx2pmkd34ld",
+   "original_url": "https://public-files.gumroad.com/ylfz4tgs7qkb010wzfx2pmkd34ld",
+   "thumbnail": "https://public-files.gumroad.com/f0dm8dgssuwyjgv7o7d6hyr3ax6t",
+   "id": "0ee80b49fbac10c338e21ddd907fbf29",
+   "type": "video",
+   "filetype": "mp4",
+   "width": 670,
+   "height": 376,
+   "native_width": 1920.0,
+   "native_height": 1080.0
+  },
+  {
+   "url": "https://public-files.gumroad.com/y3gs338ylzd2xg21z1dlpbm20i8c",
+   "original_url": "https://public-files.gumroad.com/y3gs338ylzd2xg21z1dlpbm20i8c",
+   "thumbnail": "https://public-files.gumroad.com/5saxbv8w3m52u0sg3izusyi9zk70",
+   "id": "35ed2f44e911f5058419275e18db8413",
+   "type": "video",
+   "filetype": "mp4",
+   "width": 670,
+   "height": 376,
+   "native_width": 1920.0,
+   "native_height": 1080.0
+  },
+  {
+   "url": "https://public-files.gumroad.com/cw9kbsfepcxp2i3clucplpto06fy",
+   "original_url": "https://public-files.gumroad.com/cw9kbsfepcxp2i3clucplpto06fy",
+   "thumbnail": "https://public-files.gumroad.com/4z7n8spozc5zf05l3agmxp5nqv5o",
+   "id": "679599ebb2374c1851795a8ba6a2e117",
+   "type": "video",
+   "filetype": "mp4",
+   "width": 670,
+   "height": 376,
+   "native_width": 1920.0,
+   "native_height": 1080.0
+  },
+  {
+   "url": "https://public-files.gumroad.com/ortsnyax1ua1gyt46tlaf6rg72q1",
+   "original_url": "https://public-files.gumroad.com/ortsnyax1ua1gyt46tlaf6rg72q1",
+   "thumbnail": "https://public-files.gumroad.com/0u9usbm8x98obwmjnz95qevdbr07",
+   "id": "3d97ffa622953adc94386b7bdb8e43d2",
+   "type": "video",
+   "filetype": "mp4",
+   "width": 670,
+   "height": 376,
+   "native_width": 1920.0,
+   "native_height": 1080.0
+  },
+  {
+   "url": "https://public-files.gumroad.com/00j39d6zpm7wsbnvdie6nbejkbkv",
+   "original_url": "https://public-files.gumroad.com/00j39d6zpm7wsbnvdie6nbejkbkv",
+   "thumbnail": "https://public-files.gumroad.com/rwt16jcnl6ogd0xrohcgnoulhqvy",
+   "id": "f1d73f164dda8c233e1800899d392862",
+   "type": "video",
+   "filetype": "mp4",
+   "width": 670,
+   "height": 376,
+   "native_width": 1920.0,
+   "native_height": 1080.0
+  },
+  {
+   "url": "https://public-files.gumroad.com/w5dpx2ofiqakcp16932omph4l0mx",
+   "original_url": "https://public-files.gumroad.com/w5dpx2ofiqakcp16932omph4l0mx",
+   "thumbnail": "https://public-files.gumroad.com/km5293a02tk3rsa7em4vpnihx82f",
+   "id": "f1341d94f9bd672c265cc56a87d19b26",
+   "type": "video",
+   "filetype": "mp4",
+   "width": 670,
+   "height": 376,
+   "native_width": 1920.0,
+   "native_height": 1080.0
+  }
+ ],
+ "options": [
+  {
+   "id": "TpUfCdKtM1nonSDWR-S5QQ==",
+   "name": "Basic ",
+   "quantity_left": null,
+   "description": "For one person. For Hobby and Work\n",
+   "price_difference_cents": 0,
+   "recurrence_price_values": null,
+   "is_pwyw": false,
+   "duration_in_minutes": null
+  },
+  {
+   "id": "OjHJZHk_r9Nl86rDgSfurg==",
+   "name": "CatPin + Thanks",
+   "quantity_left": null,
+   "description": "This Add-On + a personal thank-you letter from me and Highlight Instagram",
+   "price_difference_cents": 1500,
+   "recurrence_price_values": null,
+   "is_pwyw": false,
+   "duration_in_minutes": null
+  },
+  {
+   "id": "znOaE8MkB3pb5t8P06BSjQ==",
+   "name": "ProMax",
+   "quantity_left": null,
+   "description": "Business License\nDesigned for studios\nOne purchase covers all five team members.\n",
+   "price_difference_cents": 7000,
+   "recurrence_price_values": null,
+   "is_pwyw": false,
+   "duration_in_minutes": null
+  }
+ ],
+ "quantity_remaining": null,
+ "is_quantity_enabled": false,
+ "is_sales_limited": false,
+ "is_published": true,
+ "is_physical": false,
+ "_captured": "GET https://alexsokol.gumroad.com/l/catpin.json on 2026-11-19, trimmed: reviews, ratings, refund policy and attributes removed, description cut at 600 characters"
+}

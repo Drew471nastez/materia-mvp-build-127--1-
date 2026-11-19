@@ -1375,7 +1375,7 @@ const SUITES = [
   /* Products › Import from Gumroad: the API's products as drafts (prices, currencies never converted, pay what you want, option combinations), pictures copied from Gumroad's CDN hosts only, descriptions through the allow list, once per Gumroad id (SQL part 344), the token in one header and nowhere else, the Products permission. */
   "tests/gumroad-import.test.ts",
   "tests/product-link-import.test.ts",
-  /* Products › Import from a link: Shopify (.js, .json and a store's /products.json), Gumroad (ProductPage props, Inertia) and Payhip pages read from realistic fixtures, the server half with a stand-in fetcher (the .json fallback, a moved store, a password page), and a Payhip draft end to end (SQL part 470). */
+  /* Products › Import from a link: Shopify (.js, .json and a store's /products.json), Gumroad (ProductPage props, Inertia) and Payhip pages read from realistic fixtures, the server half with a stand-in fetcher (the .json fallback, a moved store, a password page), and a Payhip draft end to end (SQL part 470). Also tests/fixtures/product-imports, written key for key from Gumroad's own source (ProductProps, as_json_for_api) and Shopify's Ajax product: covers, a null option difference, the thumbnail when there is no cover, bundles refused, a store's 429 said as that, imported addresses (scripts/check-product-imports.mjs reads the same files and live pages). */
   "tests/product-import-sources.test.ts",
   /* Onboarding round 4: the socials step shows the picture of the account typed in (lib/onboarding/social-preview, app/api/onboarding/social-preview). */
   "tests/onboarding-social-preview.test.ts",

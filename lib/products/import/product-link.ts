@@ -103,6 +103,25 @@ export function importLink(raw: unknown): ImportLink {
   throw new Error("Open the product on Shopify, Gumroad or Payhip and paste its product page link.")
 }
 
+/**
+ * A bot check answered instead of the page: Cloudflare's block page ("Attention Required! | Cloudflare", which is
+ * what payhip.com answers a server with a 403) or its challenge ("Just a moment...", the cf-mitigated: challenge
+ * header). Nothing is tried to get past it; the seller is told plainly what happened.
+ */
+export function botWall(status: number, headers: Headers, html: string): boolean {
+  if (headers.get("cf-mitigated") === "challenge") return true
+  if (status !== 403 && status !== 429 && status !== 503 && status !== 200) return false
+  const head = html.slice(0, 20_000)
+  return /<title>\s*(?:Just a moment\.\.\.|Attention Required! \| Cloudflare)\s*<\/title>/i.test(head) || (status !== 200 && /\/cdn-cgi\/challenge-platform\/|cf-error-details|cf-chl-/i.test(head))
+}
+
+/** What the seller is told when a platform's bot check answered instead of the product. */
+export function botWallMessage(source: LinkSource): string {
+  if (source === "payhip") return "Payhip's bot protection blocked Storelib from reading this page, so it cannot be imported from its link. Create a new product and copy its title, price, description and pictures from Payhip."
+  const name = source === "gumroad" ? "Gumroad" : "The store"
+  return `${name} answered with a bot check instead of the product page. Try again later, or create a new product and copy its details across.`
+}
+
 /** Payhip's picture bucket. Pictures shown through payhip.com/cdn-cgi/image/... are read from the address inside. */
 export const PAYHIP_IMAGE_HOSTS: ReadonlySet<string> = new Set(["pe56d.s3.amazonaws.com"])
 
@@ -266,7 +285,13 @@ function embeddedJson(html: string): unknown[] {
   return out
 }
 
-export function parseGumroadProduct(html: string, url: string): LinkProduct {
+/**
+ * A Gumroad product from its public JSON (GET /l/<permalink>.json, ProductPresenter::PublicApiProps, `json`) when
+ * there is one, else from the page's embedded props. Its JSON-LD is not read for the price: Gumroad writes it in the
+ * visitor's currency (a EUR 35.00 product read from the US says USD 38.38), and its picture is a small copy of the
+ * first cover.
+ */
+export function parseGumroadProduct(html: string, url: string, json?: unknown): LinkProduct {
   const schemas = structuredProducts(html)
   const schema = schemas.find((p) => text(p.url).replace(/\/$/, "") === url.replace(/\/$/, "")) ?? schemas[0]
   // Gumroad embeds its public product props in JSON. Never execute page scripts. The first product found is the page's own.
@@ -279,30 +304,36 @@ export function parseGumroadProduct(html: string, url: string): LinkProduct {
     if (text(candidate.name) && (candidate.price_cents !== undefined || candidate.price !== undefined)) { embedded = candidate; found = true; return }
     for (const [k, x] of Object.entries(r)) if (["props", "pageProps", "data", "product", "product_information"].includes(k)) visit(x, depth + 1)
   }
-  for (const json of embeddedJson(html)) visit(json)
-  const offer = offersOf(record(schema))[0] ?? {}
+  for (const doc of [...(json === undefined ? [] : [json]), ...embeddedJson(html)]) visit(doc)
   const title = text(embedded.name) || text(schema?.name)
-  const currency = (text(embedded.currency_code) || text(embedded.currency) || text(offer.priceCurrency)).toUpperCase()
+  const currency = (text(embedded.currency_code) || text(embedded.currency)).toUpperCase()
   const embeddedPrice = amount(embedded.price_cents, 1)
-  const price = (embeddedPrice === null ? null : gumroadToHundredths(embeddedPrice, currency)) ?? amount(offer.price) ?? amount(offer.lowPrice)
-  if (!title || price === null || price > 100_000_000 || !/^[A-Z]{3}$/.test(currency)) throw new Error("Gumroad did not expose this product's price and details. Make sure the product is public and try again.")
+  /* Changed on purpose: no price from the JSON-LD offer, which is the visitor's converted price, not the seller's. */
+  const price = embeddedPrice === null ? null : gumroadToHundredths(embeddedPrice, currency)
+  if (!found || !title || price === null || price > 100_000_000 || !/^[A-Z]{3}$/.test(currency)) throw new Error("Gumroad did not expose this product's price and details. Make sure the product is public and try again.")
   if (embedded.is_tiered_membership || embedded.subscription_duration || embedded.is_recurring_billing || embedded.is_legacy_subscription || embedded.native_type === "membership") throw new Error("Subscription products must be created as a paid community.")
+  /* A bundle is other products sold together (antiwork/gumroad ProductPresenter::ProductProps bundle_products); its own draft would have nothing to deliver. The account importer refuses it the same way (./gumroad unsupportedOf). */
+  if (embedded.native_type === "bundle" || array(embedded.bundle_products).length) throw new Error("Gumroad bundles cannot be imported. Import each product in the bundle on its own.")
   const versions = array(embedded.options).length ? array(embedded.options) : array(embedded.variants).length ? array(embedded.variants) : array(embedded.versions)
   let variantRows: unknown[] = versions
   if (versions.length === 1 && Array.isArray(record(versions[0]).options)) variantRows = array(record(versions[0]).options)
   if (variantRows.length > 100) throw new Error("This product has more than 100 variants.")
+  const productPwyw = !!embedded.pwyw || embedded.customizable_price === true || embedded.is_pay_what_you_want === true
   const variants: LinkVariant[] = variantRows.map((v) => {
     const r = record(v)
-    const difference = amount(r.price_difference_cents ?? r.price_difference, 1)
+    /* Variant#to_option always sends price_difference_cents; a null one is no difference, not an unknown price. */
+    const difference = "price_difference_cents" in r && r.price_difference_cents === null ? 0 : amount(r.price_difference_cents ?? r.price_difference, 1)
     const absolute = amount(r.price_cents, 1)
     const cents = absolute !== null ? gumroadToHundredths(absolute, currency) : difference !== null ? price + gumroadToHundredths(difference, currency) : null
     if (cents === null || cents > 100_000_000) throw new Error("Gumroad did not expose all version prices. Use the account importer for this product.")
-    return { name: (text(r.name) || text(r.title) || "Standard").slice(0, 200), priceCents: cents, payWhatYouWant: r.is_pay_what_you_want === true || r.is_pwyw === true }
+    /* A pay what you want product lets the buyer pay more for every version (Gumroad's checkout: product.customizable_price || option.is_pwyw), each version's price its minimum. */
+    return { name: (text(r.name) || text(r.title) || "Standard").slice(0, 200), priceCents: cents, payWhatYouWant: r.is_pay_what_you_want === true || r.is_pwyw === true || productPwyw }
   })
-  const schemaImages = typeof schema?.image === "string" ? [schema.image] : schema?.image
-  const images = imageList([...array(embedded.covers), ...array(embedded.preview_urls), ...array(schemaImages)])
+  const covers = imageList([...array(embedded.covers), ...array(embedded.preview_urls)])
+  /* No cover: the product's thumbnail, its square card picture, as the account importer does (./gumroad mapGumroadProduct). */
+  const images = covers.length ? covers : imageList([text(embedded.thumbnail_url)].filter(Boolean))
   const description = text(embedded.description_html) || text(embedded.description) || text(schema?.description)
-  return { source: "gumroad", externalId: text(embedded.id) || text(schema?.productID) || new URL(url).hostname + new URL(url).pathname, url, title: entities(title).slice(0, 200), descriptionHtml: description, priceCents: price, currency, payWhatYouWant: !!embedded.pwyw || embedded.customizable_price === true || embedded.is_pay_what_you_want === true, images: images.slice(0, 20), variants, options: [], category: (text(embedded.category) || text(schema?.category)).slice(0, 150) || null, vendor: null, tags: array(embedded.tags).map(text).filter(Boolean).slice(0, 50), type: embedded.is_physical || embedded.require_shipping ? "physical" : embedded.native_type === "course" ? "course" : "digital", warnings: ["Downloadable files and private course lessons cannot be fetched from a public link. Upload your files in the editor before publishing.", ...(!variants.length ? ["Only versions exposed by Gumroad's public page can be imported."] : []), ...(images.length > 20 ? ["Only the first 20 gallery images will be copied."] : [])] }
+  return { source: "gumroad", externalId: text(embedded.id) || text(schema?.productID) || new URL(url).hostname + new URL(url).pathname, url, title: entities(title).slice(0, 200), descriptionHtml: description, priceCents: price, currency, payWhatYouWant: productPwyw, images: images.slice(0, 20), variants, options: [], category: (text(embedded.category) || text(schema?.category)).slice(0, 150) || null, vendor: null, tags: array(embedded.tags).map(text).filter(Boolean).slice(0, 50), type: embedded.is_physical || embedded.require_shipping ? "physical" : embedded.native_type === "course" ? "course" : "digital", warnings: ["Downloadable files and private course lessons cannot be fetched from a public link. Upload your files in the editor before publishing.", ...(!variants.length ? ["Only versions exposed by Gumroad's public page can be imported."] : []), ...(images.length > 20 ? ["Only the first 20 gallery images will be copied."] : [])] }
 }
 
 /**

@@ -12,13 +12,15 @@
  *   Payhip   payhip.com/b/<key> with JSON-LD and og:/product: meta tags.
  */
 import { strict as assert } from "node:assert"
+import { readFileSync } from "node:fs"
 import {
   importImageUrl, importLink, metaContent, parseGumroadProduct, parsePayhipProduct, parseShopifyCatalog,
   parseShopifyProduct, productLink, shopifyCurrency, shopifyJsonProduct, type LinkProduct,
 } from "../lib/products/import/product-link"
 import { LinkImportError, fetchProductLink, fetchShopifyCatalog, type Fetcher } from "../lib/products/import/product-link-server"
 import { handleFromUrl } from "../lib/products/import/duplicates"
-import { importGumroadItem } from "../lib/products/import/gumroad-server"
+import { fetchGumroadProducts, importGumroadItem } from "../lib/products/import/gumroad-server"
+import { mapGumroadProduct } from "../lib/products/import/gumroad"
 import { fakeDb } from "./_fake-db"
 
 let checks = 0
@@ -253,11 +255,12 @@ await check("server: a password page, a missing product, a page that is not Shop
   await assert.rejects(fetchProductLink("https://woo.example/products/mug", fetcher({ "https://woo.example/products/mug": { body: "<html></html>" } })), (e: unknown) => e instanceof LinkImportError && /does not share/.test((e as Error).message))
   await assert.rejects(fetchProductLink(`${SHOP}/products/busy`, fetcher({ [`${SHOP}/products/busy`]: { status: 429, body: "" } })), /limiting requests/)
 })
-await check("server: Gumroad and Payhip pages are parsed from the one page read", async () => {
+/* Changed on purpose: Gumroad's public JSON (/l/<permalink>.json) is asked for after its page; a 404 there leaves the page's own props. */
+await check("server: a Payhip page is parsed from the one page read; a Gumroad page without its JSON from its props", async () => {
   const asked: string[] = []
   const g = await fetchProductLink(GUMROAD_URL, fetcher({ [GUMROAD_URL]: { body: GUMROAD_PAGE } }, asked))
   const p = await fetchProductLink(PAYHIP_URL, fetcher({ [PAYHIP_URL]: { body: PAYHIP_PAGE } }, asked))
-  assert.equal(g.source, "gumroad"); assert.equal(p.source, "payhip"); assert.equal(asked.length, 2)
+  assert.equal(g.source, "gumroad"); assert.equal(g.priceCents, 2400); assert.equal(p.source, "payhip"); assert.deepEqual(asked, [GUMROAD_URL, `${GUMROAD_URL}.json`, PAYHIP_URL])
 })
 await check("server: a Shopify catalog reads the home page for its currency and /products.json page by page", async () => {
   const asked: string[] = []
@@ -292,5 +295,119 @@ await check("a Payhip product becomes one draft with its two offers as variants,
 const before470 = fakeDb({ products: [], product_import_links: [] }, { failInsert: { product_import_links: { code: "23514", message: "new row violates check constraint \"product_import_links_source_check\"" } } })
 const notReady = await importGumroadItem(before470, { creatorId, userId }, item(payhip), { source: "payhip", linkProduct: payhip })
 await check("before SQL part 470 a Payhip import says the database needs its update, and writes nothing", () => assert.deepEqual(notReady, { status: "error", error: "not_ready" }))
+
+/* ── fixtures on disk (tests/fixtures/product-imports) ────────────────────
+ * Real pages, captured on 2026-11-19 and trimmed (each file says from where
+ * and what was cut), except gumroad-api-products.json: the API needs a
+ * seller's token, so that one is written key for key from Gumroad's own
+ * source (Product::AsJson as_json_for_api, slim, ten a page).
+ *   gumroad-feline-page.html        free, pay what you want, five versions,
+ *                                   a YouTube cover (its thumbnail host is not ours)
+ *   gumroad-layla-page.html         EUR 35.00; its JSON-LD says USD 38.38,
+ *                                   the visitor's converted price
+ *   gumroad-bundle-page.html        a bundle (native_type "bundle")
+ *   gumroad-catpin-landing.html     a custom landing page: no props in it
+ *   gumroad-catpin.json             that product's public JSON, /l/catpin.json
+ *   shopify-allbirds-dasher.js.json /products/<handle>.js, compare-at prices
+ *   shopify-allbirds-dasher-page.html  its currency lines
+ *   shopify-kith-products-page.json /products.json, two products on sale
+ *   payhip-cloudflare-403.html      what payhip.com answers a server
+ * scripts/check-product-imports.mjs reads the same files, and live pages. */
+const fixture = (name: string) => readFileSync(`tests/fixtures/product-imports/${name}`, "utf8")
+
+await check("Gumroad, real page: free and pay what you want carried to every version, covers on Gumroad's CDN only", () => {
+  const p = parseGumroadProduct(fixture("gumroad-feline-page.html"), "https://juliawinterpaw.gumroad.com/l/Feline")
+  assert.equal(p.title, "Winterpaw Feline ~ VRChat + VTuber"); assert.equal(p.priceCents, 0); assert.equal(p.currency, "USD"); assert.equal(p.payWhatYouWant, true)
+  /* Changed on purpose: versions of a pay what you want product are pay what you want too (Gumroad's checkout: customizable_price || is_pwyw). */
+  assert.deepEqual(p.variants.map((v) => [v.name, v.priceCents, v.payWhatYouWant]), [["Feline Avatar", 4500, true], ["Techwear + Casual Clothing Packs", 2400, true], ["Techwear Clothing Pack", 1500, true], ["Casual Clothing Pack", 1500, true], ["Extras", 0, true]])
+  assert.equal(p.images.length, 5, "six covers, the YouTube one's thumbnail on i.ytimg.com left behind")
+  assert.ok(p.images.every((u) => u.startsWith("https://public-files.gumroad.com/")))
+})
+await check("Gumroad, real page: the seller's EUR price, not the JSON-LD's converted USD, and no small copy of the first cover", () => {
+  const html = fixture("gumroad-layla-page.html")
+  assert.ok(/"priceCurrency":"USD"/.test(html) && /"price":38\.38/.test(html), "the capture's JSON-LD is in the visitor's currency")
+  const p = parseGumroadProduct(html, "https://heartmarksman.gumroad.com/l/Layla_by_Heartmarksman")
+  assert.equal(p.currency, "EUR"); assert.equal(p.priceCents, 3500); assert.equal(p.payWhatYouWant, true)
+  /* Changed on purpose: the JSON-LD image (the first cover at 670px) is no longer added beside the covers. */
+  assert.equal(p.images.length, 8)
+  /* Changed on purpose: a page with JSON-LD only is refused, rather than imported at a converted price. */
+  assert.throws(() => parseGumroadProduct(fixture("gumroad-catpin-landing.html"), "https://alexsokol.gumroad.com/l/catpin"), /did not expose/)
+})
+await check("Gumroad, real public JSON: a landing page product comes in whole, its sale price ignored", () => {
+  const json = JSON.parse(fixture("gumroad-catpin.json"))
+  const p = parseGumroadProduct(fixture("gumroad-catpin-landing.html"), "https://alexsokol.gumroad.com/l/catpin", json)
+  assert.equal(p.externalId, "WalKAmuY-liJb6dY4KvSkQ=="); assert.equal(p.priceCents, 3000, "the seller's price, not display_price's $21 sale")
+  assert.deepEqual(p.variants.map((v) => [v.name.trim(), v.priceCents]), [["Basic", 3000], ["CatPin + Thanks", 4500], ["ProMax", 10000]])
+  assert.equal(p.images.length, 8)
+})
+await check("Gumroad, real bundle page: refused like the account importer refuses it; a product with no cover brings its thumbnail", () => {
+  assert.throws(() => parseGumroadProduct(fixture("gumroad-bundle-page.html"), "https://daribodrawing.gumroad.com/l/all_practice_cards"), /bundles cannot be imported/)
+  const page = (product: Record<string, unknown>) => `<div id="app" data-page="${attr({ component: "Products/Show", props: { product: { ...GUMROAD_PROPS.product, ...product } } })}"></div>`
+  assert.deepEqual(parseGumroadProduct(page({ covers: [], thumbnail_url: "https://public-files.gumroad.com/thumb.png" }), GUMROAD_URL).images, ["https://public-files.gumroad.com/thumb.png"])
+  /* Variant#to_option always sends price_difference_cents; a null one is no difference (it used to refuse the product). */
+  assert.equal(parseGumroadProduct(page({ options: [{ name: "A", price_difference_cents: null }] }), GUMROAD_URL).variants[0].priceCents, 2400)
+})
+await check("server: Gumroad's public JSON is asked for after the page, on the seller's own host", async () => {
+  const asked: string[] = []
+  const at = "https://alexsokol.gumroad.com/l/catpin"
+  const p = await fetchProductLink("https://gumroad.com/l/catpin", fetcher({ "https://gumroad.com/l/catpin": { body: fixture("gumroad-catpin-landing.html"), url: at }, [`${at}.json`]: { body: fixture("gumroad-catpin.json") } }, asked))
+  assert.deepEqual(asked, ["https://gumroad.com/l/catpin", `${at}.json`]); assert.equal(p.variants.length, 3)
+})
+await check("Payhip's Cloudflare block, as payhip.com answers a server, is said as that", async () => {
+  const blocked = fetcher({ [PAYHIP_URL]: { status: 403, body: fixture("payhip-cloudflare-403.html") } })
+  await assert.rejects(fetchProductLink(PAYHIP_URL, blocked), (e: unknown) => e instanceof LinkImportError && /bot protection/.test(e.message) && /copy its title, price/.test(e.message))
+  const challenge = (async (href: string) => Object.defineProperty(new Response("<title>Just a moment...</title>", { status: 403, headers: { "cf-mitigated": "challenge" } }), "url", { value: href })) as unknown as Fetcher
+  await assert.rejects(fetchProductLink(GUMROAD_URL, challenge), /Gumroad answered with a bot check/)
+})
+await check("Gumroad API fixture: prices in the store's currency only, variants, whole-unit yen, and what cannot come in", () => {
+  const page = JSON.parse(fixture("gumroad-api-products.json")) as { products: unknown[] }
+  const eur = page.products.map((x) => mapGumroadProduct(x, "EUR"))
+  assert.equal(eur[0]?.priceCents, 2900); assert.deepEqual(eur[0]?.variants.map((v) => v.priceCents), [2900, 4400]); assert.deepEqual(eur[0]?.images, ["https://public-files.gumroad.com/vq1lw0n2h3cover.jpg"])
+  assert.equal(eur[1]?.priceCents, null); assert.ok(eur[1]?.notes.includes("currency"))
+  assert.equal(mapGumroadProduct(page.products[1], "JPY")?.priceCents, 50000); assert.equal(mapGumroadProduct(page.products[1], "JPY")?.payWhatYouWant, true)
+  assert.deepEqual(eur.slice(2).map((c) => [c?.unsupported, c?.published]), [["membership", true], ["bundle", true], [null, false]])
+})
+await check("Gumroad API: a page with next_page_key is followed, and stops when Gumroad stops", async () => {
+  const asked: string[] = []
+  const first = fixture("gumroad-api-products.json")
+  const listed = await fetchGumroadProducts("probe_TOKEN_0123456789abcdefghij", { fetchImpl: (async (href: string) => { asked.push(href); return new Response(asked.length === 1 ? first : JSON.stringify({ success: true, products: [{ id: "last==", name: "Last" }] }), { status: 200 }) }) as unknown as typeof fetch })
+  assert.ok(listed.ok); assert.equal(listed.ok && listed.products.length, 6); assert.equal(listed.ok && listed.truncated, false)
+  assert.equal(new URL(asked[1]).searchParams.get("page_key"), "MjAyNi0xMC0wMVQxMDowMDowMFp8MTIzNDU=")
+})
+const ALLBIRDS = "https://www.allbirds.com/products/womens-tree-dashers-natural-white-true-navy"
+await check("Shopify, real .js: compare-at prices, SKUs, every image on Shopify's CDN in order, the currency from the theme", () => {
+  const raw = JSON.parse(fixture("shopify-allbirds-dasher.js.json"))
+  const p = parseShopifyProduct(raw, fixture("shopify-allbirds-dasher-page.html"), ALLBIRDS)
+  assert.equal(p.currency, "USD"); assert.equal(p.priceCents, 9800); assert.equal(p.type, "physical"); assert.equal(p.vendor, "Allbirds"); assert.equal(p.category, "Shoes")
+  assert.deepEqual(p.images, raw.images.map((u: string) => `https:${u}`))
+  assert.deepEqual(p.variants.map((v) => [v.name, v.priceCents, v.compareAtCents, v.sku]), [["5", 9800, 14000, "A10573W050"], ["5.5", 9800, 14000, "A10573W055"], ["6", 9800, 14000, "A10573W060"]])
+})
+await check("Shopify, real /products.json: units become hundredths, sale products and a one-size product listed", () => {
+  const items = parseShopifyCatalog([JSON.parse(fixture("shopify-kith-products-page.json"))], "https://kith.com")
+  assert.deepEqual(items.map((i) => [i.url, i.priceCents, i.variants, i.type]), [["https://kith.com/products/mgrp282x060212-0212", 66000, 3, "physical"], ["https://kith.com/products/aajs3931", 6500, 3, "physical"], ["https://kith.com/products/g52455l00-dr", 4500, 1, "physical"]])
+  const sale = parseShopifyProduct(shopifyJsonProduct(JSON.parse(fixture("shopify-kith-products-page.json")).products[1]), '<script>Shopify.currency = {"active":"USD","rate":"1.0"};</script>', "https://kith.com/products/aajs3931")
+  assert.equal(sale.variants[0].compareAtCents, 13000); assert.equal(sale.priceCents, 6500)
+})
+await check("server: a store limiting its .js answers is said as that, and marked to stop a list import", async () => {
+  /* Changed on purpose: a 429 on /products/<handle>.js used to read as "This store does not share its product details", and the list import went on failing every product after it. */
+  await assert.rejects(fetchProductLink(`${SHOP}/products/linen-apron`, fetcher({ [`${SHOP}/products/linen-apron`]: { body: SHOPIFY_HEAD }, [`${SHOP}/products/linen-apron.js`]: { status: 429, body: "" } })), (e: unknown) => e instanceof LinkImportError && e.retryLater && /limiting requests/.test(e.message))
+  await assert.rejects(fetchProductLink(`${SHOP}/products/busy`, fetcher({ [`${SHOP}/products/busy`]: { status: 503, body: "" } })), (e: unknown) => e instanceof LinkImportError && e.retryLater)
+  await assert.rejects(fetchProductLink(`${SHOP}/products/gone`, fetcher({})), (e: unknown) => e instanceof LinkImportError && !e.retryLater)
+})
+
+const slugTables = () => ({ products: [] as Record<string, unknown>[], product_variants: [] as Record<string, unknown>[], product_options: [] as Record<string, unknown>[], product_import_links: [] as Record<string, unknown>[] })
+async function importedSlug(p: LinkProduct) {
+  const t = slugTables()
+  const r = await importGumroadItem(fakeDb(t, { unique: { product_import_links: [["creator_id", "source", "external_id"]] } }), { creatorId, userId }, item(p), { source: p.source, linkProduct: p, imageUrl: () => null, fetchImage: async () => null })
+  assert.equal(r.status, "imported")
+  return t.products[0].slug
+}
+await check("addresses: a Shopify product keeps its handle, accents are read as their letters, a title with no Latin letters takes the platform's own key", async () => {
+  const shop = parseShopifyProduct(JSON.parse(fixture("shopify-allbirds-dasher.js.json")), fixture("shopify-allbirds-dasher-page.html"), ALLBIRDS)
+  assert.equal(await importedSlug(shop), "womens-tree-dashers-natural-white-true-navy")
+  /* Changed on purpose: "Café Crème" used to become caf-cr-me. */
+  assert.equal(await importedSlug({ ...payhip, externalId: "payhip:c1", title: "Café Crème Presets" }), "cafe-creme-presets")
+  assert.equal(await importedSlug({ ...payhip, externalId: "payhip:c2", title: "漢字カード" }), "qw3rt")
+})
 
 console.log(`\n${checks} checks passed`)

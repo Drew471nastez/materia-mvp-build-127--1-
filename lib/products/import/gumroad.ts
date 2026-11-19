@@ -293,9 +293,11 @@ export function mapGumroadProduct(p: unknown, storeCurrency: string): ImportCand
   }
 }
 
-/** The address a product gets from its title, the product editor's way. */
+/** The address a product gets from its title, the product editor's way, with accents read as their letters ("Café" is cafe, not caf). */
 export function slugFromTitle(title: string): string {
   return title
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
