@@ -15,6 +15,29 @@ export const u = (css: string) =>
 /** Optimized Unsplash photos, downloaded and re-encoded (public/home/showcase). */
 export const pic = (name: string) => `/home/showcase/${name}.webp`
 
+/*
+  Landing round 19 (perf on a phone): the mocks draw these photographs a few times smaller than the files, and a
+  browser decodes the whole file whatever it draws (stz-hero.webp, 1800 x 800, was shown 268px wide on a phone). Each
+  has smaller copies (scripts/build-home-image-variants.mjs writes them: <name>-<width>.webp) and the width it is drawn
+  at, measured at 390, 768, 1024, 1440 and 1920px wide, so the browser takes the smallest copy that is still sharp.
+  Every name here is drawn in one place (builder-mocks.tsx), so its size is that place's.
+*/
+export const PIC_SETS: Record<string, { widths: readonly number[]; sizes: string }> = {
+  /* The Steez store's two slideshow photos: 69% of a phone's width, 55% of a wider screen's. */
+  "stz-hero": { widths: [480, 960], sizes: "(max-width:767px) 69vw, 55vw" },
+  "stz-summer": { widths: [480, 960], sizes: "(max-width:767px) 69vw, 55vw" },
+  /* Its product shots: 17% of a phone, 13.5% wider. */
+  "stz-p-hoodie": { widths: [240], sizes: "(max-width:767px) 17vw, 14vw" },
+  "stz-p-raw": { widths: [240], sizes: "(max-width:767px) 17vw, 14vw" },
+  "stz-p-grey": { widths: [240], sizes: "(max-width:767px) 17vw, 14vw" },
+  "stz-p-faith": { widths: [240], sizes: "(max-width:767px) 17vw, 14vw" },
+  /* The community mock's cover and the two photos in its post, and the OnePage mock's video still (phone measured; a wider screen given as much again). */
+  "st-banner": { widths: [240, 480], sizes: "20vw" },
+  "st-pull": { widths: [360], sizes: "30vw" },
+  "st-squat": { widths: [360], sizes: "30vw" },
+  "lp-f2": { widths: [240], sizes: "19vw" },
+}
+
 export function Pic({
   n,
   w,
@@ -28,10 +51,13 @@ export function Pic({
   className?: string
   style?: CSSProperties
 }) {
+  const set = PIC_SETS[n]
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={pic(n)}
+      srcSet={set ? [...set.widths.map((x) => `/home/showcase/${n}-${x}.webp ${x}w`), `${pic(n)} ${w}w`].join(", ") : undefined}
+      sizes={set?.sizes}
       alt=""
       width={w}
       height={h}

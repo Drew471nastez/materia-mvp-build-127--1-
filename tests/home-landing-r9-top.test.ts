@@ -171,7 +171,9 @@ check("nothing new moves", !/\.gb[^{]*\{[^}]*(animation|transition)/.test(BUILDE
 
 console.log("\n── 8. The Strength Room is intact ──")
 const cm = renderToStaticMarkup(createElement(CommunityMock))
-check("its markup is what round 8 drew, to the byte", createHash("sha256").update(cm).digest("hex") === "8774fce177ad3c3da91226068e54ba4916f973accb30e9089f39713e84f0cb8f", createHash("sha256").update(cm).digest("hex"))
+// Changed on purpose (landing round 19): its photos offer smaller copies (srcset and sizes); without those two attributes it is what round 8 drew, to the byte.
+const cmBare = cm.replace(/ (srcset|sizes)="[^"]*"/gi, "")
+check("its markup is what round 8 drew, to the byte", createHash("sha256").update(cmBare).digest("hex") === "8774fce177ad3c3da91226068e54ba4916f973accb30e9089f39713e84f0cb8f", createHash("sha256").update(cmBare).digest("hex"))
 const cx = BUILDER_CSS.slice(BUILDER_CSS.indexOf(".cx{"))
 check("its styles are what round 8 drew", createHash("sha256").update(cx).digest("hex") === "f8aee363c14a9b53af8b57b1eb559827dab709087e343398b8b0f76e3aadd50c", createHash("sha256").update(cx).digest("hex"))
 

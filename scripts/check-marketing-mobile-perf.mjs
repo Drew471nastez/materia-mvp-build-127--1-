@@ -30,6 +30,9 @@
  *            back at the top: main thread task ms, layouts, style recalcs,
  *            rAF callbacks, paints (from a trace), so anything still moving
  *            off the screen shows as work
+ *   TOP 10s  ten seconds at the top after the load, nothing touched: main thread busy, main frames, paints, and
+ *            React commits counted through a stand-in devtools hook (components rendered, how many in the header,
+ *            and the elements whose own state changed)
  *   VIDEO    each <video>: source, preload, decoded size against shown size,
  *            paused when off the screen, and its media bytes
  *
@@ -77,6 +80,38 @@ const OBSERVE = () => {
       w.__shifts.push({ v: e.value, t: Math.round(e.startTime), y: Math.round(scrollY), nodes: (e.sources || []).map((s) => `${describe(s.node)} ${Math.round(s.previousRect.y)}->${Math.round(s.currentRect.y)} h${Math.round(s.previousRect.height)}->${Math.round(s.currentRect.height)}`) })
     }
   }).observe({ type: "layout-shift", buffered: true })
+  /*
+    React commits, counted by a stand-in for the devtools hook, walked the way React DevTools walks them: a child list
+    that is the same object as in the last commit bailed out whole and is skipped, and a component counts as rendered
+    when it is new or carries React's PerformedWork flag. (Reading that flag on every fiber, without the skip, counts
+    fibers that rendered in some earlier commit: that is where "the header renders 95 components every two seconds"
+    came from.) Per commit: components rendered, how many of them are in the header, and the elements whose own state
+    changed (where the render started).
+  */
+  w.__commits = []
+  const hostOf = (f) => { let n = f; while (n && !(n.stateNode instanceof Element)) n = n.child; return n?.stateNode ?? null }
+  const isComponent = (f) => f.tag === 0 || f.tag === 1 || f.tag === 11 || f.tag === 14 || f.tag === 15
+  w.__REACT_DEVTOOLS_GLOBAL_HOOK__ = {
+    isDisabled: false, supportsFiber: true, renderers: new Map(),
+    inject(r) { this.renderers.set(this.renderers.size + 1, r); return this.renderers.size },
+    onScheduleFiberRoot() {}, onCommitFiberUnmount() {}, onPostCommitFiberRoot() {}, checkDCE() {},
+    onCommitFiberRoot(_id, root) {
+      let n = 0, header = 0
+      const origins = new Set()
+      const visit = (next, prev) => {
+        if (isComponent(next) && (!prev || (next.flags & 1) === 1)) {
+          n++
+          const el = hostOf(next)
+          if (el?.closest?.("#platform-header-root")) header++
+          if (prev && prev.memoizedProps === next.memoizedProps) origins.add(el ? `${el.tagName.toLowerCase()}.${String(el.className?.baseVal ?? el.className ?? "").slice(0, 36)}` : "?")
+        }
+        if (prev && next.child === prev.child) return
+        for (let c = next.child; c; c = c.sibling) visit(c, prev ? c.alternate : null)
+      }
+      try { visit(root.current, root.current.alternate) } catch { /* a tree shape this walk does not know */ }
+      if (n) w.__commits.push({ t: performance.now(), n, header, origins: [...origins].slice(0, 4) })
+    },
+  }
   /* Every rAF callback any script registers, counted, so an idle page that keeps asking for frames shows it. */
   const raf = w.requestAnimationFrame.bind(w)
   w.requestAnimationFrame = (cb) => raf((t) => { w.__raf++; cb(t) })
@@ -119,7 +154,8 @@ const MOTION = () => {
 
 const IMAGES = () => {
   const dpr = devicePixelRatio
-  return [...document.images].filter((i) => i.complete && i.naturalWidth > 0).map((i) => {
+  /* Not an SVG: it is drawn at the size shown, whatever its natural size says, so it is never "decoded too large". */
+  return [...document.images].filter((i) => i.complete && i.naturalWidth > 0 && !/\.svg(\?|$)/i.test(i.currentSrc || i.src)).map((i) => {
     const r = i.getBoundingClientRect()
     const shown = Math.round(r.width * dpr) * Math.round(r.height * dpr)
     const decoded = i.naturalWidth * i.naturalHeight
@@ -213,6 +249,12 @@ async function run(path) {
     await wait(5000)
     const loadLong = await page.evaluate(() => window.__long.map((l) => l.d))
     const loadIdle = await idleWindow(page, cdp)
+    /* Ten seconds more at the top with nothing touched: React renders (all, and the header's) and main thread busy. */
+    const c0 = await page.evaluate(() => window.__commits.length)
+    const topLong = await idleWindow(page, cdp, 10000)
+    const topCommits = await page.evaluate((c) => window.__commits.slice(c), c0)
+    const loadCommits = await page.evaluate((c) => window.__commits.slice(0, c), c0)
+    const renders = { loadCommits: loadCommits.length, loadComponents: loadCommits.reduce((s, c) => s + c.n, 0), loadHeader: loadCommits.reduce((s, c) => s + c.header, 0), commits: topCommits.length, components: topCommits.reduce((s, c) => s + c.n, 0), header: topCommits.reduce((s, c) => s + c.header, 0), origins: [...new Set(topCommits.flatMap((c) => c.origins))].slice(0, 8), busyMs: topLong.mainBusyMs, mainFrames: topLong.mainFrames, paints: topLong.paints }
     const motionTop = await page.evaluate(MOTION)
 
     /* The touch scroll, top to foot, in finger strokes of 600px. */
@@ -252,7 +294,7 @@ async function run(path) {
       bytes: Object.fromEntries(Object.entries(bytes).map(([k, v]) => [k, Math.round(v / 1024)])), media,
       images,
       motion: { top: motionTop, seen: motionSeen, foot: motionFoot },
-      idle: { load: loadIdle, foot: idleFoot, top: idleTop },
+      idle: { load: loadIdle, foot: idleFoot, top: idleTop }, renders,
       videos: { foot: videosFoot, top: videosTop },
     }
   } finally {
@@ -286,6 +328,10 @@ for (const path of PAGES) {
   const off = uniq(runs[0].motion.foot.concat(runs[0].motion.top)).filter((a) => !a.onScreen && a.infinite)
   console.log(`          ${off.length} infinite animations running off screen (at the foot, at the top):`)
   for (const a of off.slice(0, 15)) console.log(`          ${a.name} [${a.props.join(",")}] ${a.el}`)
+  console.log(`top 10s   main busy ${m((r) => r.renders.busyMs)}ms (${r1(m((r) => r.renders.busyMs) / 100)}%)  main frames ${m((r) => r.renders.mainFrames)}  paints ${m((r) => r.renders.paints)}  React commits ${m((r) => r.renders.commits)}, components rendered ${m((r) => r.renders.components)}, in the header ${m((r) => r.renders.header)}`)
+  console.log(`          before that, from navigation: ${m((r) => r.renders.loadCommits)} commits, ${m((r) => r.renders.loadComponents)} components rendered, ${m((r) => r.renders.loadHeader)} in the header`)
+  for (const o of runs[0].renders.origins) console.log(`          state changed in ${o}`)
+  console.log(`decoded   ${r1(m((r) => r.images.reduce((s, i) => s + i.decodedMp, 0)))} MP median, ${m((r) => r.images.filter((i) => i.ratio > 2.5).length)} images >2.5x`)
   for (const k of ["load", "foot", "top"]) { const i = runs[0].idle[k]; console.log(`idle ${k.padEnd(5)}task ${i.taskMs}ms  script ${i.scriptMs}ms  layouts ${i.layouts}  styles ${i.styles}  rAF ${i.raf}  paints ${i.paints} (${i.paintMs}ms)  worker ${i.workerMs}ms  main frames ${i.mainFrames}  main busy ${i.mainBusyMs}ms  / 2s`) }
   for (const v of runs[0].videos.foot) console.log(`video     at foot: ${v.src} preload=${v.preload} ${v.decoded} shown ${v.shown} paused=${v.paused} onScreen=${v.onScreen}`)
   for (const v of runs[0].videos.top) console.log(`video     at top:  ${v.src} ${v.decoded} shown ${v.shown} paused=${v.paused} ready=${v.readyState}`)

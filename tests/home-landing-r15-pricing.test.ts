@@ -63,7 +63,8 @@ console.log("\n2. /pricing's products tile")
   check("/pricing draws the product slides without the download notice", /sell: <ProductSlides delivery=\{false\} \/>/.test(bento))
   const calm = renderToStaticMarkup(createElement(ProductSlides, { delivery: false }))
   check("  so no notice, no file name, no download line", !/ev-p-dl/.test(calm) && !calm.includes(DELIVERY_FILE) && !/Download link/.test(calm))
-  check("  the Digital slide and its tab are still there", /Cine Tones LUT Pack/.test(calm) && /<span class="ev-tab-label">Digital<\/span>/.test(calm) && /data-no-delivery=""/.test(calm))
+  // Changed on purpose (landing round 19): the tab's label is two inks that cross fade (opacity, not a painted colour transition).
+  check("  the Digital slide and its tab are still there", /Cine Tones LUT Pack/.test(calm) && /<span class="ev-tab-label"><span class="ev-tab-ink">Digital<\/span>/.test(calm) && /data-no-delivery=""/.test(calm))
   check("  on a phone the card stands where it does on a computer", /@media\(max-width:479px\)\{\.pz-bento \[data-no-delivery\] \.ev-p-stage\{top:44%\}\}/.test(BENTO_CSS))
   const home = renderToStaticMarkup(createElement(ProductSlides))
   // Changed on purpose (landing round 18): the owner wants no download notice on the home page either, so it is off by default.
