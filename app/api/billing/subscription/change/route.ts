@@ -4,6 +4,7 @@ import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
 import { stripeIdentityKey } from "@/lib/stripe/resilience"
+import { UPGRADE_NOT_FINISHED, UPGRADE_PRORATION, startPlanUpgrade, upgradeLanded, type UpgradedSub } from "@/lib/billing/plan-upgrade"
 
 const PLAN_ORDER: Record<string, number> = { free: 0, growth: 1, pro: 2 }
 
@@ -25,11 +26,6 @@ function getPlanIdFromPriceId(priceId: string | undefined): "growth" | "pro" | "
   if (priceId.includes("SzBXS")) return "pro"
   return "free"
 }
-
-/* How an upgrade is billed: the difference for the rest of the period, invoiced and charged at once (see the preview below). */
-const UPGRADE_PRORATION = "always_invoice" as const
-/* What a creator is told when the card did not pay for an upgrade. Nothing changed. */
-const UPGRADE_NOT_PAID = "Your card was not charged, so your plan did not change. Update your card in Billing and try again."
 
 function isUpgrade(currentPlanId: string, newPlanId: string): boolean {
   return (PLAN_ORDER[newPlanId] ?? 0) > (PLAN_ORDER[currentPlanId] ?? 0)
@@ -132,7 +128,7 @@ export async function POST(request: Request) {
   try {
     /* The store's rows, by the store's id (lib/team/money), for the owner and a team member alike. */
     const supabase = createAdminClient()
-    const { newPlanId, previewOnly } = await request.json()
+    const { newPlanId, previewOnly, finish } = await request.json()
 
     if (!newPlanId) {
       return NextResponse.json({ error: "Plan ID is required" }, { status: 400 })
@@ -276,6 +272,58 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Subscription item not found" }, { status: 400 })
     }
 
+    /*
+      THE PLAN IS ON THE RECORD ONLY ONCE STRIPE HAS IT PAID: after a card that paid at once, or (finish) after the
+      dialog confirmed a held upgrade with the bank. A finish is believed only when the subscription itself is on the
+      new price with nothing held (lib/billing/plan-upgrade upgradeLanded), never because the page says so.
+    */
+    const recordUpgrade = async (paid: UpgradedSub) => {
+      /* Stripe takes neither with a held change, so they follow it here. Never failing the upgrade, which is made. */
+      const settled = (await stripe.subscriptions
+        .update(subscriptionRecord.stripe_subscription_id, {
+          cancel_at_period_end: false,
+          metadata: { creator_id: creator.id, plan_id: newPlanId, pending_plan_id: "" },
+        })
+        .catch(() => null)) as UpgradedSub | null
+      const updatedSubscription = (settled ?? paid) as any
+      const updatedPeriod = getSubscriptionPeriod(updatedSubscription)
+
+      await createAdminClient()
+        .from("subscriptions")
+        .update({
+          plan_id: newPlanId,
+          status: updatedSubscription.status,
+          current_period_start: safeTimestamp(updatedPeriod.periodStart),
+          current_period_end: safeTimestamp(updatedPeriod.periodEnd),
+          pending_plan_id: null,
+          cancel_at_period_end: false,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", subscriptionRecord.id)
+
+      await createAdminClient()
+        .from("creators")
+        .update({ subscription_plan_id: newPlanId, subscription_status: updatedSubscription.status })
+        .eq("id", creator.id)
+
+      /* A team member's change to the owner's plan is on the record with their name (lib/team/areas). */
+      await recordTeamAction(who, who.userId, "billing_manage", "billing_plan_changed", { plan_id: newPlanId })
+      return updatedSubscription
+    }
+
+    if (finish === true && !previewOnly) {
+      if (!upgradeLanded(stripeSubscription, stripePriceId)) {
+        return NextResponse.json({ error: UPGRADE_NOT_FINISHED, code: "upgrade_not_paid" }, { status: 409 })
+      }
+      const done = await recordUpgrade(stripeSubscription)
+      return NextResponse.json({
+        success: true,
+        type: "upgrade",
+        message: "Upgrade applied and paid for the rest of this billing cycle.",
+        nextBillingDate: safeTimestamp(getSubscriptionPeriod(done).periodEnd),
+      })
+    }
+
     const currentPlanId = getPlanIdFromPriceId(subItem.price.id) || creator.subscription_plan_id || "free"
     const upgrading = isUpgrade(currentPlanId, newPlanId)
 
@@ -317,51 +365,22 @@ export async function POST(request: Request) {
     }
 
     if (upgrading) {
-      // Clear cancel_at_period_end if set (re-upgrade after scheduled cancel)
-      /* Charged now, and only changed when it is paid: error_if_incomplete leaves the subscription as it was when the card is declined or needs the bank, and Stripe answers with an error instead. */
-      let updatedSubscription: Awaited<ReturnType<typeof stripe.subscriptions.update>>
-      try {
-        updatedSubscription = await stripe.subscriptions.update(subscriptionRecord.stripe_subscription_id, {
-          items: [{ id: subItem.id, price: stripePriceId }],
-          proration_behavior: UPGRADE_PRORATION,
-          payment_behavior: "error_if_incomplete",
-          cancel_at_period_end: false,
-          metadata: {
-            creator_id: creator.id,
-            plan_id: newPlanId,
-            pending_plan_id: "",
-          },
-        })
-      } catch (payError: any) {
-        if (payError?.type === "StripeCardError" || payError?.statusCode === 402) {
-          return NextResponse.json({ error: UPGRADE_NOT_PAID, code: "upgrade_not_paid" }, { status: 402 })
-        }
-        throw payError
+      /*
+        Charged now, and only changed when it is paid (lib/billing/plan-upgrade): a card that pays at once is recorded
+        here; one the bank wants to confirm (3-D Secure) goes back to the dialog with the payment's secret, and the
+        dialog finishes once Stripe.js has confirmed it; a declined card changes nothing.
+      */
+      const outcome = await startPlanUpgrade(
+        { update: (id, params) => stripe.subscriptions.update(id, params as never) as unknown as Promise<UpgradedSub> },
+        { subscriptionId: subscriptionRecord.stripe_subscription_id, itemId: subItem.id, priceId: stripePriceId },
+      )
+      if (outcome.kind === "declined") {
+        return NextResponse.json({ error: outcome.error, code: "upgrade_not_paid" }, { status: 402 })
       }
-
-      // Get updated period from the updated subscription
-      const updatedPeriod = getSubscriptionPeriod(updatedSubscription as any)
-
-      await createAdminClient()
-        .from("subscriptions")
-        .update({
-          plan_id: newPlanId,
-          status: updatedSubscription.status,
-          current_period_start: safeTimestamp(updatedPeriod.periodStart),
-          current_period_end: safeTimestamp(updatedPeriod.periodEnd),
-          pending_plan_id: null,
-          cancel_at_period_end: false,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", subscriptionRecord.id)
-
-      await createAdminClient()
-        .from("creators")
-        .update({ subscription_plan_id: newPlanId, subscription_status: updatedSubscription.status })
-        .eq("id", creator.id)
-
-      /* A team member's change to the owner's plan is on the record with their name (lib/team/areas). */
-      await recordTeamAction(who, who.userId, "billing_manage", "billing_plan_changed", { plan_id: newPlanId })
+      if (outcome.kind === "needs_action") {
+        return NextResponse.json({ success: true, type: "upgrade", needsAction: { clientSecret: outcome.clientSecret } })
+      }
+      await recordUpgrade(outcome.subscription)
       return NextResponse.json({
         success: true,
         type: "upgrade",

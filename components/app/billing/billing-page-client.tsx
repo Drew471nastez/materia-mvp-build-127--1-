@@ -24,6 +24,7 @@ import { tt } from "@/lib/i18n/text"
 import { fetchBillingSubscription } from "@/lib/billing/plan-client"
 import { Rich } from "@/lib/i18n/rich"
 import { appLocale, zoned } from "@/lib/i18n/format"
+import { getStripePromise } from "@/components/checkout/parts/stripe-loader"
 
 const TABS = [
   { id: "general", get label() { return tt("General") }, icon: Settings },
@@ -733,8 +734,19 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
             try {
               if (isSubscribed) {
                 const response = await fetch("/api/billing/subscription/change", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ newPlanId: showUpgradeModal.planId }) })
-                const result = await response.json()
+                let result = await response.json()
                 if (!response.ok) { throw new Error(result.error || tt("Failed to change plan")) }
+                /* The bank wants to confirm the upgrade's payment (3-D Secure): Stripe's own window, then the server finishes once Stripe shows it paid. Until then the plan has not changed. */
+                if (result.needsAction?.clientSecret) {
+                  const stripe = await getStripePromise()
+                  const confirmed = stripe ? await stripe.confirmCardPayment(result.needsAction.clientSecret) : null
+                  if (!confirmed || confirmed.error) {
+                    throw new Error(`${confirmed?.error?.message ?? tt("Your bank did not approve the payment.")} ${tt("Your plan did not change.")}`)
+                  }
+                  const finished = await fetch("/api/billing/subscription/change", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ newPlanId: showUpgradeModal.planId, finish: true }) })
+                  result = await finished.json()
+                  if (!finished.ok) { throw new Error(result.error || tt("Failed to change plan")) }
+                }
                 showNotification("success", result.message || tt("Now on {planName}", { planName: showUpgradeModal.planName }))
                 // Optimistically update state
                 if (result.type === "downgrade") {

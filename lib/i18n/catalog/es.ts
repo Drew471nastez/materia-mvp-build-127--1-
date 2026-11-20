@@ -13582,7 +13582,9 @@ const words: Record<string, string> = {
  "Not published yet. Visitors can answer once you publish it.": "Aún sin publicar. Los visitantes podrán responder cuando lo publiques.",
  "Could not be checked": "No se pudo comprobar",
  "Could not check what is connected.": "No se pudo comprobar qué está conectado.",
- "Could not check what is connected. Try again in a moment.": "No se pudo comprobar qué está conectado. Inténtalo de nuevo en un momento."
+ "Could not check what is connected. Try again in a moment.": "No se pudo comprobar qué está conectado. Inténtalo de nuevo en un momento.",
+ "Your bank did not approve the payment.": "Tu banco no aprobó el pago.",
+ "Your plan did not change.": "Tu plan no ha cambiado."
 }
 
 export default words

@@ -7,7 +7,8 @@
  *      cancel it, or move it to a dearer plan charged to their card.
  *   2. A plan upgrade that was never charged. Billing's upgrade used create_prorations: the plan changed at once and
  *      nothing was invoiced until the next renewal, while the dialog said "You'll be charged {amount} today". Moving
- *      to Free afterwards (cancel at period end) meant the difference was never charged at all.
+ *      to Free afterwards (cancel at period end) meant the difference was never charged at all. Now it is invoiced
+ *      at once and held until paid (pending_if_incomplete), with 3-D Secure confirmed in the dialog.
  *   3. A guest basket written to whoever opened Stripe's return address. fulfilCartSession took the account signed
  *      in on storelib.com as the buyer, so a basket paid for another address went into that account's library, and
  *      which account got it depended on whether the browser or the webhook wrote the orders first.
@@ -111,6 +112,8 @@ async function main() {
   const { stripe } = await import("@/lib/stripe")
   const { fulfilCartSession } = await import("@/lib/checkout/fulfil-cart-session")
   const { packItems } = await import("@/lib/checkout/cart-items")
+  const { startPlanUpgrade, upgradeLanded } = await import("@/lib/billing/plan-upgrade")
+  const { paidPlanFromSubscription, paidPlanFromPrice } = await import("@/lib/billing/subscription-state")
 
   /* ───────────────────────────────────────────────────────────────────── */
   console.log("\n1. A community subscription is found by an address only when the account proved it")
@@ -154,18 +157,58 @@ async function main() {
   /* ───────────────────────────────────────────────────────────────────── */
   console.log("\n2. A plan upgrade is charged when it is made, and only applied when it is paid")
   {
+    /* The live price ids the plan sync reads (lib/billing/subscription-state). */
+    const PRO = "price_1SzBXSBYevnBVyznYjXfOOXX"
+    const GROWTH = "price_1SzBWaBYevnBVyznNCTOXDoS"
+    const input = { subscriptionId: "sub_1", itemId: "si_1", priceId: PRO }
+    const asked: Record<string, unknown>[] = []
+
+    /* Paid at once: Stripe answers the subscription on the new price, nothing held. */
+    const paid = await startPlanUpgrade({ update: async (_id, params) => (asked.push(params), { id: "sub_1", status: "active", items: { data: [{ price: { id: PRO } }] } }) }, input)
+    check("paid at once: answered paid, with the subscription on the new price", paid.kind === "paid" && upgradeLanded((paid as { subscription: Row }).subscription, PRO))
+    check("  invoiced now (always_invoice) and held until paid (pending_if_incomplete)", asked[0]?.proration_behavior === "always_invoice" && asked[0]?.payment_behavior === "pending_if_incomplete")
+    check("  nothing Stripe refuses with a held change (no metadata, no cancel_at_period_end)", !("metadata" in asked[0]) && !("cancel_at_period_end" in asked[0]))
+    check("  and the invoice's payment secret is asked for", JSON.stringify(asked[0]?.expand) === JSON.stringify(["latest_invoice.confirmation_secret"]))
+
+    /* 3-D Secure: Stripe holds the change and the invoice waits for the bank. */
+    const held = { id: "sub_1", status: "active", pending_update: { subscription_items: [{ price: PRO }] }, items: { data: [{ price: { id: GROWTH } }] }, latest_invoice: { confirmation_secret: { client_secret: "pi_3ds_secret_x" } } }
+    const action = await startPlanUpgrade({ update: async () => held }, input)
+    check("requires action: the secret goes back for the dialog to confirm", action.kind === "needs_action" && (action as { clientSecret: string }).clientSecret === "pi_3ds_secret_x")
+    check("  while it is held, the upgrade has not landed (a finish is refused)", !upgradeLanded(held, PRO))
+    check("  and the plan sync reads the old plan from the unchanged price, so the webhook marks nothing early", paidPlanFromSubscription({ ...held, metadata: { plan_id: "pro" } } as never) === "growth" && paidPlanFromPrice(GROWTH) === "growth")
+    const confirmed = { id: "sub_1", status: "active", items: { data: [{ price: { id: PRO } }] } }
+    check("  once the bank confirmed, Stripe shows the new price with nothing held, and the finish records it", upgradeLanded(confirmed, PRO))
+
+    /* Declined: Stripe's card error, or a held change with nothing to confirm. */
+    const declined = await startPlanUpgrade({ update: async () => { throw Object.assign(new Error("Your card was declined."), { type: "StripeCardError", code: "card_declined", raw: { message: "Your card was declined." } }) } }, input)
+    check("declined: answered declined, with the card's words and that nothing changed", declined.kind === "declined" && /Your card was declined\./.test((declined as { error: string }).error) && /plan did not change/.test((declined as { error: string }).error))
+    const noSecret = await startPlanUpgrade({ update: async () => ({ ...held, latest_invoice: { confirmation_secret: null } }) }, input)
+    check("  a held change with no payment to confirm is declined too", noSecret.kind === "declined")
+    let other: unknown = null
+    try {
+      await startPlanUpgrade({ update: async () => { throw Object.assign(new Error("timeout"), { type: "StripeConnectionError" }) } }, input)
+    } catch (e) {
+      other = e
+    }
+    check("  anything else is thrown, never read as a decline", other instanceof Error)
+
     const route = code("app/api/billing/subscription/change/route.ts")
     const upgrade = route.slice(route.indexOf("if (upgrading) {"), route.indexOf("// Downgrade: schedule"))
-    check("upgrades are invoiced now (always_invoice), never left for the next renewal", /const UPGRADE_PRORATION = "always_invoice" as const/.test(route) && !/create_prorations/.test(route))
-    check("  the preview is that same invoice, so the dialog's 'charged today' is what is charged", /proration_behavior: upgrading \? UPGRADE_PRORATION : "none"/.test(route))
-    check("  the update itself uses it", /proration_behavior: UPGRADE_PRORATION,/.test(upgrade))
-    check("  and is not applied when the card does not pay (error_if_incomplete)", /payment_behavior: "error_if_incomplete"/.test(upgrade))
-    const writes = upgrade.indexOf('.from("subscriptions")')
-    const refused = upgrade.indexOf('status: 402')
-    check("  a declined card answers 402 before anything is written to the plan", refused > 0 && writes > refused && /code: "upgrade_not_paid"/.test(upgrade))
-    check("  the new plan's own price is still read for the next renewal", /stripe\.prices\.retrieve\(stripePriceId\)/.test(route))
+    check("the route never leaves an upgrade for the next renewal", !/create_prorations/.test(route) && !/error_if_incomplete/.test(route))
+    check("  the preview is the invoice made now, so 'charged today' is what is charged", /proration_behavior: upgrading \? UPGRADE_PRORATION : "none"/.test(route))
+    check("  the upgrade goes through startPlanUpgrade", /await startPlanUpgrade\(/.test(upgrade))
+    check("  declined answers 402 and writes nothing", /outcome\.kind === "declined"\) \{\s*return NextResponse\.json\(\{ error: outcome\.error, code: "upgrade_not_paid" \}, \{ status: 402 \}\)/.test(upgrade) && upgrade.indexOf('outcome.kind === "declined"') < upgrade.indexOf("recordUpgrade("))
+    check("  requires action answers the secret and writes nothing", /outcome\.kind === "needs_action"\) \{\s*return NextResponse\.json\(\{ success: true, type: "upgrade", needsAction: \{ clientSecret: outcome\.clientSecret \} \}\)/.test(upgrade) && upgrade.indexOf('outcome.kind === "needs_action"') < upgrade.indexOf("recordUpgrade("))
+    check("  a finish records the plan only when Stripe shows it landed", /if \(finish === true && !previewOnly\) \{\s*if \(!upgradeLanded\(stripeSubscription, stripePriceId\)\) \{[\s\S]*?status: 409/.test(route))
+    check("  metadata and cancel_at_period_end follow the paid change", /const recordUpgrade = async[\s\S]*?cancel_at_period_end: false,\s*metadata: \{ creator_id: creator\.id, plan_id: newPlanId, pending_plan_id: "" \}/.test(route))
     check("the route exports only its handler (Next refuses other exports from a route file)", (read("app/api/billing/subscription/change/route.ts").match(/^export /gm) ?? []).length === 1)
-    check("the dialog still promises a charge today, which is now true", /You'll be charged \{amount\} today/.test(read("components/app/billing/billing-page-client.tsx")))
+    const dialog = code("components/app/billing/billing-page-client.tsx")
+    check("the dialog confirms a held upgrade with Stripe.js, then asks the route to finish", /if \(result\.needsAction\?\.clientSecret\) \{[\s\S]*?stripe\.confirmCardPayment\(result\.needsAction\.clientSecret\)[\s\S]*?finish: true/.test(dialog))
+    check("  a bank that says no shows its words and that the plan did not change, and no finish is asked", /if \(!confirmed \|\| confirmed\.error\) \{\s*throw new Error\(/.test(dialog) && /tt\("Your plan did not change\."\)/.test(dialog))
+    for (const lang of ["es", "fr", "de", "pt-BR", "it", "pl"]) {
+      const cat = read(`lib/i18n/catalog/${lang}.ts`)
+      check(`  its words in ${lang}`, /"Your bank did not approve the payment\.":/.test(cat) && /"Your plan did not change\.":/.test(cat))
+    }
   }
 
   /* ───────────────────────────────────────────────────────────────────── */
