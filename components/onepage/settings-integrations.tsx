@@ -38,7 +38,7 @@ import { ChevronRight, Globe } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { INTEGRATIONS } from "@/lib/integrations/catalog"
-import { PageIntegrationsSection } from "@/components/onepage/page-integrations"
+import { PageIntegrationsSection, UnreadNote } from "@/components/onepage/page-integrations"
 
 type Tracking = Partial<Record<string, string | null>>
 type MarketingRow = { provider: "klaviyo" | "omnisend"; connected: boolean; listName?: string | null }
@@ -48,21 +48,32 @@ const PAGE_TAGS = INTEGRATIONS.filter((i) => i.kind === "tracker" && i.trackerId
 /** Shown as "not set up" when the store has none: the three most asked for. */
 const SUGGESTED = new Set(["ga4", "meta_pixel", "tiktok_pixel"])
 
-function useJson<T>(url: string | null): T | null | undefined {
+function useJsonRetry<T>(url: string | null): [T | null | undefined, () => Promise<void>] {
   /* undefined while reading, null when it could not be read. A null address reads nothing. */
   const [value, setValue] = React.useState<T | null | undefined>(undefined)
-  React.useEffect(() => {
+  const liveRef = React.useRef(true)
+  const read = React.useCallback(async () => {
     if (!url) return
-    let live = true
-    fetch(url)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => live && setValue(d as T | null))
-      .catch(() => live && setValue(null))
-    return () => {
-      live = false
+    try {
+      const r = await fetch(url, { cache: "no-store" })
+      const d = r.ok ? ((await r.json().catch(() => null)) as T | null) : null
+      if (liveRef.current) setValue(d)
+    } catch {
+      if (liveRef.current) setValue(null)
     }
   }, [url])
-  return value
+  React.useEffect(() => {
+    liveRef.current = true
+    void read()
+    return () => {
+      liveRef.current = false
+    }
+  }, [read])
+  return [value, read]
+}
+
+function useJson<T>(url: string | null): T | null | undefined {
+  return useJsonRetry<T>(url)[0]
 }
 
 function Row({ href, logo, name, status, on, data }: { href: string; logo: string | null; name: string; status: string; on: boolean; data?: string }) {
@@ -92,8 +103,8 @@ const listBox = "divide-y divide-[#f1f2f4] overflow-hidden rounded-xl border bor
 
 /** Settings › Integrations, as it reaches this page: the tags it loads and the email tools its signups go to. */
 export function OnePageIntegrations() {
-  const tags = useJson<{ tracking?: Tracking }>("/api/store/integrations")
-  const tools = useJson<{ marketing?: MarketingRow[] }>("/api/store/integrations/marketing")
+  const [tags, retryTags] = useJsonRetry<{ tracking?: Tracking }>("/api/store/integrations")
+  const [tools, retryTools] = useJsonRetry<{ marketing?: MarketingRow[] }>("/api/store/integrations/marketing")
   const tracking = tags?.tracking ?? {}
   const set = PAGE_TAGS.filter((i) => typeof tracking[i.trackerId!] === "string" && tracking[i.trackerId!])
   const shown = set.length ? set : PAGE_TAGS.filter((i) => SUGGESTED.has(i.trackerId!))
@@ -114,6 +125,9 @@ export function OnePageIntegrations() {
         <p className="text-[13px] font-medium text-[#374151]">{tt("Analytics and ads")}</p>
         {loading ? (
           <div aria-hidden className="h-[168px] animate-pulse rounded-xl bg-[#f4f4f6]" />
+        ) : tags === null ? (
+          /* The read failed: never "Not set up" about tags that may well be on the live page. */
+          <UnreadNote onRetry={retryTags} />
         ) : (
           <div className={listBox}>
             {shown.map((i) => {
@@ -138,6 +152,9 @@ export function OnePageIntegrations() {
         <p className="text-[13px] font-medium text-[#374151]">{tt("Email tools")}</p>
         {loading ? (
           <div aria-hidden className="h-[112px] animate-pulse rounded-xl bg-[#f4f4f6]" />
+        ) : tools === null ? (
+          /* The read failed: never "Not connected" about a Klaviyo that is getting every signup. */
+          <UnreadNote onRetry={retryTools} />
         ) : (
           <div className={listBox}>
             {emailTools.map((t) => (

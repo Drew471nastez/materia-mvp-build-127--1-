@@ -52,6 +52,8 @@ import { hapticTap } from "@/lib/native-bridge"
 import { iconDepth, primaryDepth } from "@/components/ui/depth-button"
 import type { OnePage } from "@/lib/onepage/types"
 import { getLinksShareUrl, getLinksUrlWithCustomDomain } from "@/lib/url-helpers"
+/* The address that is live, not one typed and not yet saved (lib/onepage/editor-state liveSlug). */
+import { liveSlug } from "@/lib/onepage/editor-state"
 import { creatorPageHostFrom } from "@/lib/custom-domains/client"
 import { isNativeApp, openExternal } from "@/lib/native-bridge"
 import {
@@ -352,6 +354,7 @@ function ShareOnePage({
   onClose,
   onepage,
   pageUrl,
+  slug,
   copied,
   onCopy,
   onOpen,
@@ -362,6 +365,8 @@ function ShareOnePage({
   onClose: () => void
   onepage: OnePage
   pageUrl: string
+  /** The live address's handle, the one pageUrl is made from. */
+  slug: string
   copied: boolean
   onCopy: () => void
   onOpen: () => void
@@ -414,7 +419,7 @@ function ShareOnePage({
           </div>
         )}
         <h3 className="text-[15px] font-semibold" style={{ color: theme.text_color }}>{onepage.title || tt("Your name")}</h3>
-        <p className="mt-0.5 text-[12.5px]" style={{ color: `${theme.text_color}99` }}>/{onepage.slug}</p>
+        <p className="mt-0.5 text-[12.5px]" style={{ color: `${theme.text_color}99` }}>/{slug}</p>
       </div>
 
       <div className="flex items-center gap-2 rounded-xl border border-[#e5e7eb] bg-[#f7f7f8] py-1.5 pl-4 pr-1.5">
@@ -433,7 +438,7 @@ function ShareOnePage({
       {/* Round 17, the owner: "get rid of the Share to Instagram story option from the share your OnePage modal". */}
 
       {/* Round AR: the steps for an Instagram bio, opening here under the row (components/onepage/instagram-bio-share). */}
-      <InstagramBioShare slug={onepage.slug} published={onepage.status === "published" || !!onepage.published_at} phone={isPhone} rowClassName={row} />
+      <InstagramBioShare slug={slug} published={onepage.status === "published" || !!onepage.published_at} phone={isPhone} rowClassName={row} />
 
       {!connectedDomain && (
         <button type="button" onClick={() => { window.location.href = "/app/settings?tab=domains" }} className={cn(row, "justify-between")}>
@@ -511,6 +516,7 @@ function EditorLayout() {
     answerDraftQuestion,
     draftRestoredAt,
     discardUnsaved,
+    getSavedSettings,
   } = useOnePage()
 
   /*
@@ -1378,7 +1384,9 @@ function EditorLayout() {
   }
 
   // Always the external, shareable address: storelib.me/{handle}, or <domain>/links on a creator page domain
-  const pageUrl = connectedDomain ? getLinksUrlWithCustomDomain(onepage.slug, connectedDomain) : getLinksShareUrl(onepage.slug)
+  /* The address as last saved: one typed in Settings and not saved yet, or refused as taken, is not live (lib/onepage/editor-state liveSlug). */
+  const shareSlug = liveSlug(getSavedSettings()?.slug, onepage.slug)
+  const pageUrl = connectedDomain ? getLinksUrlWithCustomDomain(shareSlug, connectedDomain) : getLinksShareUrl(shareSlug)
 
   const copyLink = async () => {
     await navigator.clipboard.writeText(pageUrl)
@@ -1974,6 +1982,7 @@ function EditorLayout() {
         onClose={() => setShowLinkModal(false)}
         onepage={onepage}
         pageUrl={pageUrl}
+        slug={shareSlug}
         copied={copied}
         onCopy={copyLink}
         onOpen={viewLive}

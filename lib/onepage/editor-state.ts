@@ -239,6 +239,23 @@ export function hasRealUrl(url: unknown): boolean {
   return rest.length > 0
 }
 
+/* ──────────────────────────── Page address ───────────────────────────── */
+
+/**
+ * THE ADDRESS THE EDITOR SHARES IS THE ONE THAT IS LIVE.
+ *
+ * A new address typed in Settings is put in the page when the tab is left or
+ * Save is pressed, and it is live only once a save takes it. Copy link, Open
+ * in a new tab and the share sheet read the page's own slug, so in between
+ * (or after a save refused it as taken) they handed out an address that went
+ * nowhere, or to somebody else's page. They read the address as last saved;
+ * the page's own slug only when no save is known yet.
+ */
+export function liveSlug(savedSlug: unknown, draftSlug: unknown): string {
+  if (typeof savedSlug === "string" && savedSlug.trim() !== "") return savedSlug
+  return typeof draftSlug === "string" ? draftSlug : ""
+}
+
 /* ───────────────────────────── Social row ────────────────────────────── */
 
 /** One entry of SocialRowBlockData["platforms"] in ./types.ts. */
