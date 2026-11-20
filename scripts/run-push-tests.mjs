@@ -699,6 +699,8 @@ const SUITES = [
   "tests/money-rows-server-only.test.ts",
   "tests/private-columns.test.ts",
   "tests/ledger-and-deletion.test.ts",
+  /* OnePage tips on the seller's balance (part 471): a paid tip is one sale on the ledger (amount less the fee Stripe kept, in the wallet's currency), posted once whichever of the webhook and the visitor's return comes first; a refund or a dispute takes it back as an order's does; part 471 posts the tips from before once; Payouts lists them as "Tip from <name or Anonymous>". */
+  "tests/tips-ledger.test.ts",
   /* Background jobs run once and stop (a Stripe event taken before it is handled, a job cut off every time ends), and run-now part 189 */
   "tests/jobs-and-isolation.test.ts",
   /* A job, a store's translation and an order line, each done once (a lost job lease writes nothing, the hourly translate claim, run-now part 190) */

@@ -30,6 +30,13 @@ import "server-only"
  * the part has run the tip is still paid and confirmed from Stripe; it is
  * only not kept here.
  *
+ * THE BALANCE (part 471). The same call posts the tip to the seller's
+ * ledger (lib/onepage/tips-ledger postTipSale), under `tip:<session>`, so
+ * Payouts counts it as Stripe pays it, once whichever of the two comes
+ * first. A post the database refused is said (`posted: "failed"`): the
+ * webhook answers 500 so Stripe sends it again; the visitor is still
+ * thanked, because they paid.
+ *
  * WHERE IT CAME FROM (round AS, run-now part 442). The page says which way
  * in (the block's card or its amount sheet), its own host and the site the
  * visitor came from; lib/onepage/tips tipSource keeps only those shapes, with
@@ -47,6 +54,7 @@ import { liveAppBlockData, pageCreatorId, publishedBlocksOf } from "./page-block
 import { withOwnerStore } from "./page-store"
 import type { PlatformFee } from "@/lib/communities/server/learn-checkout"
 import { stripeIdempotencyKey } from "@/lib/stripe/resilience"
+import { postTipSale, type TipLedgerDeps, type TipPost } from "./tips-ledger"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -199,7 +207,7 @@ export function isTipSession(session: Pick<Stripe.Checkout.Session, "metadata">)
   return m.kind === TIP_SESSION_KIND && typeof m.onepage_id === "string" && UUID.test(m.onepage_id) && typeof m.creator_id === "string" && typeof m.block_id === "string"
 }
 
-export type TipRecord = { ok: true; created: boolean; stored: boolean; amountCents: number; currency: string; onepageId: string } | { ok: false; status: number; error: string }
+export type TipRecord = { ok: true; created: boolean; stored: boolean; amountCents: number; currency: string; onepageId: string; /** The seller's ledger (lib/onepage/tips-ledger): posted now, already there, not yet possible, or refused. */ posted?: TipPost | "failed" } | { ok: false; status: number; error: string }
 
 /** The source a paid session carries, read back in its shapes (a session from before round AS has none: the OnePage, by its card). */
 export function sessionTipSource(metadata: Record<string, string> | null | undefined): TipSource {
@@ -224,7 +232,7 @@ const MISSING = new Set(["42P01", "PGRST205", "42703", "PGRST204"])
  * a session id from the page is read back from Stripe, never believed),
  * paid, and for the page the return names. Twice is once.
  */
-export async function recordTipFromSession(db: Db, session: Stripe.Checkout.Session, expected?: { onepageId?: string }): Promise<TipRecord> {
+export async function recordTipFromSession(db: Db, session: Stripe.Checkout.Session, expected?: { onepageId?: string }, ledger?: TipLedgerDeps): Promise<TipRecord> {
   if (!isTipSession(session)) return { ok: false, status: 400, error: "not_a_tip" }
   const m = session.metadata as Record<string, string>
   if (expected?.onepageId && m.onepage_id !== expected.onepageId) return { ok: false, status: 403, error: "forbidden" }
@@ -256,14 +264,23 @@ export async function recordTipFromSession(db: Db, session: Stripe.Checkout.Sess
       if (MISSING.has(error.code)) return { ok: true, created: false, stored: false, amountCents: amount, currency, onepageId: m.onepage_id }
       return { ok: false, status: 500, error: "not_saved" }
     }
-    return { ok: true, created: Array.isArray(data) && data.length > 0, stored: true, amountCents: amount, currency, onepageId: m.onepage_id }
+    const created = Array.isArray(data) && data.length > 0
+    /* On the seller's balance, once, whichever of the webhook and the return gets here first (part 471). */
+    let posted: TipPost | "failed"
+    try {
+      posted = await postTipSale(db, { ...row, id: created ? ((data[0] as { id?: string }).id ?? null) : null }, ledger)
+    } catch (e) {
+      console.error("[onepage-tip] ledger:", e instanceof Error ? e.message.slice(0, 200) : "unknown")
+      posted = "failed"
+    }
+    return { ok: true, created, stored: true, amountCents: amount, currency, onepageId: m.onepage_id, posted }
   } catch {
     return { ok: false, status: 500, error: "not_saved" }
   }
 }
 
 /** The return's question: the session read from Stripe again, never trusted from the page, for the page it says. */
-export async function confirmTip(db: Db, stripe: TipStripe, a: { sessionId: unknown; onepageId: unknown }): Promise<TipRecord> {
+export async function confirmTip(db: Db, stripe: TipStripe, a: { sessionId: unknown; onepageId: unknown }, ledger?: TipLedgerDeps): Promise<TipRecord> {
   const id = typeof a.sessionId === "string" && /^cs_[A-Za-z0-9_]{8,255}$/.test(a.sessionId) ? a.sessionId : null
   if (!id || typeof a.onepageId !== "string" || !UUID.test(a.onepageId)) return { ok: false, status: 400, error: "bad_session" }
   let session: Stripe.Checkout.Session
@@ -272,7 +289,7 @@ export async function confirmTip(db: Db, stripe: TipStripe, a: { sessionId: unkn
   } catch {
     return { ok: false, status: 502, error: "stripe" }
   }
-  return recordTipFromSession(db, session, { onepageId: a.onepageId })
+  return recordTipFromSession(db, session, { onepageId: a.onepageId }, ledger)
 }
 
 export type TipRow = { id: string; block_id: string; amount_cents: number; currency: string; tipper_name: string | null; message: string | null; created_at: string; source?: string | null; source_detail?: Partial<TipSource> | null }

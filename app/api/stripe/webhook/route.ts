@@ -131,6 +131,8 @@ function periodEndOf(sub: any): number | null {
  *               buyer's refund email and its stock (lib/physical/
  *               orders-server syncCheckoutRefunds), after the lines are
  *               written and never before
+ *   a tip       a OnePage tip's refund off the seller's balance, once per
+ *               refund (lib/onepage/tips-ledger syncTipRefunds)
  */
 async function settleChargeRefund(charge: Stripe.Charge): Promise<{ applied: number; skipped: number }> {
   const intentId = typeof charge.payment_intent === "string" ? charge.payment_intent : (charge.payment_intent?.id ?? null)
@@ -148,6 +150,10 @@ async function settleChargeRefund(charge: Stripe.Charge): Promise<{ applied: num
     await (await import("@/lib/forms/booking-payment-server")).bookingRefunded(supabaseAdmin, intentId).catch(() => false)
   }
   const done = await syncChargeRefund(supabaseAdmin, stripe, charge)
+  /* A OnePage tip has no order: its refund comes off the balance as an order's does (lib/onepage/tips-ledger, part 471). */
+  const tipped = await (await import("@/lib/onepage/tips-ledger")).syncTipRefunds(supabaseAdmin, stripe, charge)
+  done.applied += tipped.applied
+  done.skipped += tipped.skipped
   if (intentId) {
     const { syncCheckoutRefunds } = await import("@/lib/physical/orders-server")
     const intent = intentId
@@ -423,7 +429,8 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
   /*
     A TIP ON A ONEPAGE (lib/onepage/tips-server.ts, round AR): its own
     sessions, marked by metadata.kind "onepage_tip" and naming no product,
-    so nothing below takes one for an order. Paid: one row in onepage_tips,
+    so nothing below takes one for an order. Paid: one row in onepage_tips
+    and one sale on the seller's ledger (`tip:<session>`, part 471),
     whichever of this and the visitor's return comes first. A server
     failure answers 500 so Stripe retries.
   */
@@ -437,6 +444,11 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
         if (done.ok === false && done.status >= 500) {
           console.error("[Webhook] tip not recorded:", session.id, done.error)
           return NextResponse.json({ error: "Tip not recorded yet" }, { status: 500 })
+        }
+        /* Kept, but not yet on the seller's balance: Stripe sends it again and only the post runs (lib/onepage/tips-ledger). */
+        if (done.ok && done.posted === "failed") {
+          console.error("[Webhook] tip not on the ledger yet:", session.id)
+          return NextResponse.json({ error: "Tip not on the balance yet" }, { status: 500 })
         }
         return NextResponse.json({ received: true })
       }
@@ -1796,6 +1808,8 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
           opened_at: new Date(dispute.created * 1000).toISOString(),
         })
 
+        /* A OnePage tip: on the balance before the dispute takes it back, and marked disputed (lib/onepage/tips-ledger). */
+        if (!inquiry) await (await import("@/lib/onepage/tips-ledger")).noteTipDispute(supabaseAdmin, paymentIntentId, "opened")
         if (!inquiry) await takeBack()
 
         /* The sale's rows: marked disputed only when money moved (an inquiry leaves them sales), and named in the email either way. */
@@ -1849,6 +1863,9 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
         const moneyDone = !!existingClosed
 
         await saveDispute(supabaseAdmin, { stripe_dispute_id: dispute.id, status: dispute.status, inquiry, outcome: outcomeOf(dispute.status), closed_at: new Date().toISOString() })
+
+        /* A OnePage tip reads paid again when won, disputed when lost (lib/onepage/tips-ledger). */
+        if (!inquiry) await (await import("@/lib/onepage/tips-ledger")).noteTipDispute(supabaseAdmin, paymentIntentId, dispute.status === "won" ? "won" : "lost")
 
         if (dispute.status === "won") {
           /* What was taken back goes back: Storelib's own record of it, or Stripe's reversals of the transfer. */
@@ -1979,6 +1996,7 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
         await saveDispute(supabaseAdmin, { stripe_dispute_id: dispute.id, status: dispute.status, inquiry, evidence_due_by: evidenceDueBy })
         /* An inquiry the bank turned into a chargeback on the same case: the money moves now, once. */
         if (!inquiry && !isClosed(dispute.status)) {
+          await (await import("@/lib/onepage/tips-ledger")).noteTipDispute(supabaseAdmin, paymentIntentId, "opened")
           const taken = await takeBack()
           if (taken && paymentIntentId) {
             try {

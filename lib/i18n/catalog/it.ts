@@ -13582,7 +13582,10 @@ const words: Record<string, string> = {
  "Not published yet. Visitors can answer once you publish it.": "Non ancora pubblicato. I visitatori potranno rispondere quando lo pubblichi.",
  "Could not be checked": "Impossibile verificare",
  "Could not check what is connected.": "Impossibile verificare cosa è collegato.",
- "Could not check what is connected. Try again in a moment.": "Impossibile verificare cosa è collegato. Riprova tra un momento."
+ "Could not check what is connected. Try again in a moment.": "Impossibile verificare cosa è collegato. Riprova tra un momento.",
+ "Tip from {name}": "Mancia da {name}",
+ "Anonymous": "Anonimo",
+ "You keep": "Ti resta"
 }
 
 export default words
