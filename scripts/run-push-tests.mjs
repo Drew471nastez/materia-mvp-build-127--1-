@@ -1685,6 +1685,8 @@ const STRICT_SUITES = [
   "tests/onepage-integrations-2.test.ts",
   /* Round 10: a OnePage email signup and contact message through the real routes, to the one subscriber list (tests/_journey). */
   "tests/e2e-onepage-signup.test.ts",
+  /* OnePage editor fixes 2: a product deleted while the editor is open is not a conflict and never comes back (lib/onepage/product-removals), Settings › Integrations shows Mailchimp, Zapier and Make working from the OnePage's own connections, and a OnePage's old address redirects to its new one (SQL part 472, lib/onepage/old-addresses), all through the real routes (tests/_journey). */
+  "tests/onepage-editor-fixes-2.test.ts",
   /* Round 11: a signup from each of the five layouts on a page served on storelib.me, and a group through Save, reload and Publish (tests/_journey). */
   "tests/e2e-onepage-blocks-r11.test.ts",
   /* ShippyPro: the adapter against recorded and documented answers, and the marketplace card in each state (components/physical/integrations-marketplace.tsx only type-checks strict) */

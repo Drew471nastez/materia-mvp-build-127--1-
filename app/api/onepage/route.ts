@@ -15,6 +15,9 @@ import { withSafeLinkValues, withSafeUrls } from "@/lib/onepage/safe-urls"
 import { openLocked, sealLocked } from "@/lib/onepage/locked-seal"
 import { ownerStoreId } from "@/lib/onepage/page-store"
 import { onePageEditVersion, sentBaseVersion } from "@/lib/onepage/edit-version"
+import { removedSince, withoutProducts, withoutRemovalsKey } from "@/lib/onepage/product-removals"
+import { productIdsInBlocks } from "@/lib/onepage/live-products"
+import { claimOldAddress, rememberOldAddress } from "@/lib/onepage/old-addresses"
 import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 /* A plain sentence the editor shows as it is (lib/onepage/editor-state describeSaveFailure). */
@@ -117,6 +120,29 @@ export async function GET() {
 }
 
 /** PostgREST's "no such column" (PGRST204), or Postgres's own (42703), for this column. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/*
+  THE PRODUCTS A SAVE NAMES THAT NO LONGER EXIST. A deleted product's blocks
+  are taken off the page on the server (lib/products/forget-product); an
+  editor that was open still holds them, and its save must not put them
+  back. Asked of the products table by id alone, with the service key, so a
+  team member's session reads the same answer. Fail open: a read that does
+  not answer takes nothing out.
+*/
+async function goneProducts(blocks: unknown[]): Promise<string[]> {
+  const ids = [...new Set(blocks.flatMap((list) => productIdsInBlocks(list)))].filter((id) => UUID.test(id))
+  if (ids.length === 0) return []
+  try {
+    const { data, error } = await createAdminClient().from("products").select("id").in("id", ids)
+    if (error || !Array.isArray(data)) return []
+    const found = new Set((data as Array<{ id?: unknown }>).map((r) => String(r.id ?? "").toLowerCase()))
+    return ids.filter((id) => !found.has(id.toLowerCase()))
+  } catch {
+    return []
+  }
+}
+
 function missingColumn(error: { code?: string; message?: string }, column: string): boolean {
   return (error.code === "PGRST204" || error.code === "42703") && (error.message ?? "").includes(column)
 }
@@ -206,19 +232,31 @@ export async function PUT(request: Request) {
         { error: "This page was saved somewhere else since you opened it", conflict: true },
         { status: 409, headers: { "Cache-Control": "no-store" } },
       )
+    /* Products the server took off the page since this editor's base (lib/onepage/product-removals): taken out of what it sends too. */
+    let removedProducts: string[] = []
     if (base && draft_blocks !== undefined) {
       let read = await db
         .from("onepages")
-        .select("draft_blocks, archived_blocks, theme, bio, updated_at")
+        .select("draft_blocks, archived_blocks, theme, bio, settings, updated_at")
         .eq("id", id)
         .eq("owner_id", ownerId)
         .maybeSingle()
       /* A database without onepages.updated_at: the check as it was, without the hold. */
       if (read.error && missingColumn(read.error, "updated_at")) {
-        read = await db.from("onepages").select("draft_blocks, archived_blocks, theme, bio").eq("id", id).eq("owner_id", ownerId).maybeSingle()
+        read = await db.from("onepages").select("draft_blocks, archived_blocks, theme, bio, settings").eq("id", id).eq("owner_id", ownerId).maybeSingle()
       }
       const { data: current, error: currentError } = read
-      if (!currentError && current && onePageEditVersion(current) !== base) return conflictAnswer()
+      /*
+        A PRODUCT DELETED WHILE THIS EDITOR WAS OPEN IS NOT A CONFLICT. Its
+        blocks were taken off on the server, which moved the version; when
+        nothing but such removals lies between the base and the row, the save
+        goes ahead without those products. Anything else is a conflict.
+      */
+      if (!currentError && current) {
+        const since = removedSince((current as { settings?: unknown }).settings, base, onePageEditVersion(current))
+        if (since === null) return conflictAnswer()
+        removedProducts = since
+      }
       const at = (current as { updated_at?: unknown } | null)?.updated_at
       if (!currentError && typeof at === "string" && at) checkedAt = at
     }
@@ -294,16 +332,28 @@ export async function PUT(request: Request) {
     }
     /* What the live page reads for a shelf or a posts row is never kept in the draft (lib/onepage/storelib-blocks stripResolved). */
     /* And a paid block's locked part is sealed before it is stored (lib/onepage/locked-seal): the table's rows can be read with the public key. */
-    if (draft_blocks !== undefined) updates.draft_blocks = sealLocked(withSafeUrls(stripResolved(draft_blocks)))
+    /*
+      AND A DELETED PRODUCT NEVER COMES BACK. The products removed since the
+      base, and any the blocks name that no longer exist (a second Save after
+      a conflict sends no base), are taken out of the blocks and the archive
+      before they are written. The answer names them, so the editor drops
+      them from its own copy.
+    */
+    if (draft_blocks !== undefined || archived_blocks !== undefined) {
+      const gone = await goneProducts([draft_blocks, archived_blocks].filter((x) => Array.isArray(x)) as unknown[])
+      removedProducts = [...new Set([...removedProducts, ...gone])]
+    }
+    if (draft_blocks !== undefined) updates.draft_blocks = sealLocked(withSafeUrls(stripResolved(withoutProducts(draft_blocks, removedProducts))))
     if (nextSlug !== undefined) updates.slug = nextSlug
-    if (archived_blocks !== undefined) (updates as any).archived_blocks = sealLocked(withSafeUrls(archived_blocks))
+    if (archived_blocks !== undefined) (updates as any).archived_blocks = sealLocked(withSafeUrls(withoutProducts(archived_blocks, removedProducts)))
     if (isShareImageMode(share_image_mode)) updates.share_image_mode = share_image_mode
     
     // PROPERLY MERGE SETTINGS - don't overwrite, merge with existing
     if (settings !== undefined || avatar_video_crop !== undefined) {
       const existingSettings = (existing.settings as any) || {}
       /* Every setting checked (lib/onepage/settings-rules); one that cannot be made right refuses the save with the reason. */
-      const checked = settings === undefined || settings === null ? { ok: true as const, value: {} as Record<string, any> } : checkSettingsPatch(settings, existingSettings)
+      /* The product removals are the server's own note (lib/onepage/product-removals): an editor's copy never replaces them. */
+      const checked = settings === undefined || settings === null ? { ok: true as const, value: {} as Record<string, any> } : checkSettingsPatch(withoutRemovalsKey(settings), existingSettings)
       if (!checked.ok) return refuse(checked.error)
       const newSettings = checked.value as Record<string, any>
 
@@ -427,6 +477,20 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "Failed to update" }, { status: 500 })
     }
 
+    /*
+      A NEW ADDRESS LEAVES THE OLD ONE LEADING HERE (lib/onepage/old-addresses,
+      SQL part 472): storelib.me/{old} and the old links redirect to the new
+      one. And the new address is this page's now, so any history that named
+      it (this page's own, or another page's) is dropped. Written with the
+      service key: the table is server only. Neither ever fails the save.
+    */
+    const savedSlug = (updated as { slug?: string | null } | null)?.slug ?? null
+    if (updates.slug !== undefined && savedSlug && existing.slug && savedSlug.toLowerCase() !== String(existing.slug).toLowerCase()) {
+      const admin = createAdminClient()
+      await claimOldAddress(admin, savedSlug)
+      await rememberOldAddress(admin, { oldSlug: String(existing.slug), onepageId: id, ownerId })
+    }
+
     /* The copy taken at the last publish takes the same photo, so the live
        page changes with the profile rather than at the next publish. */
     if (photoNow !== undefined) {
@@ -472,7 +536,7 @@ export async function PUT(request: Request) {
     /* The copy this save wrote, for the editor's next save to name as its base (also as a header, for an answer whose body is cut off). */
     const editVersion = onePageEditVersion(updated as Parameters<typeof onePageEditVersion>[0])
     return NextResponse.json(
-      { onepage: updated, edit_version: editVersion, ...(publishedAt ? { published: true, published_at: publishedAt } : {}) },
+      { onepage: updated, edit_version: editVersion, ...(publishedAt ? { published: true, published_at: publishedAt } : {}), ...(removedProducts.length > 0 ? { removed_products: removedProducts } : {}) },
       { headers: editVersion ? { "X-OnePage-Edit-Version": editVersion } : undefined },
     )
   } catch (error) {

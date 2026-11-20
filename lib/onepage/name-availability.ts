@@ -10,7 +10,9 @@
  * username second (lib/onepage/published-page findPublishedOnePage), so a
  * name is taken when ANOTHER page has it as its address or ANOTHER person
  * has it as their username, in any case: `Mara` and `mara` are one address.
- * The person's own page and own username are never in the way.
+ * The person's own page and own username are never in the way. An address
+ * another creator's page left in the last 30 days is taken too (it still
+ * redirects to their page); one the person's own page left is free for them.
  *
  * Read with the service client: the owner's own client cannot see other
  * people's pages under RLS, which is why an older check never found a clash.
@@ -20,6 +22,7 @@
 import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { exactIlike } from "@/lib/onepage/username"
+import { oldAddressHeld } from "@/lib/onepage/old-addresses"
 
 export type NameTaken = "free" | "taken" | "unknown"
 
@@ -35,7 +38,16 @@ export async function onePageNameTaken(name: string, own: { onepageId?: string |
       admin.from("profiles").select("id").ilike("username", pattern).neq("id", own.userId).limit(1).maybeSingle(),
     ])
     if (page.error || person.error) return "unknown"
-    return page.data || person.data ? "taken" : "free"
+    if (page.data || person.data) return "taken"
+    /*
+      AN ADDRESS ANOTHER CREATOR JUST LEFT (lib/onepage/old-addresses, SQL
+      part 472). It still sends their visitors on to their page, so it is
+      taken for anybody else for 30 days; the creator who left it can take
+      it back at once. Before the SQL runs there is no history and it is free.
+    */
+    const held = await oldAddressHeld(admin, name, own.userId)
+    if (held === "unknown") return "unknown"
+    return held === "held" ? "taken" : "free"
   } catch {
     return "unknown"
   }

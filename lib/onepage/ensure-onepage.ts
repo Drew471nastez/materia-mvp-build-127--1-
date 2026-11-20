@@ -314,5 +314,21 @@ export async function ensureOnePage(
     }
   }
 
+  /*
+    A NEW PAGE TAKES ITS ADDRESS FROM ANY HISTORY THAT NAMED IT (lib/onepage/
+    old-addresses, SQL part 472): an address another page left now belongs to
+    this one, so it never redirects away from a real page. Never fails this.
+  */
+  const madeSlug = created ? (created as { slug?: unknown }).slug : null
+  if (created && typeof madeSlug === "string" && madeSlug) {
+    try {
+      const { createAdminClient } = await import("@/lib/supabase/admin")
+      const { claimOldAddress } = await import("@/lib/onepage/old-addresses")
+      await claimOldAddress(createAdminClient(), madeSlug)
+    } catch {
+      /* A database without the keys or the table: nothing to release. */
+    }
+  }
+
   return created as Record<string, unknown> | null
 }

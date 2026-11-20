@@ -191,7 +191,8 @@ function main() {
     check("undo or redo onto the page as saved marks it clean", /!looseEditRef\.current && !savingRef\.current && savedFieldsRef\.current !== null && savedFields\(restored\) === savedFieldsRef\.current/.test(restore) && /setIsDirty\(false\)/.test(restore))
     check("never while a save is on its way", /savingRef\.current = true[\s\S]{0,80}return await runSave\(\)[\s\S]{0,60}savingRef\.current = false/.test(ctx))
     check("anything else marks it unsaved", /else \{\s*markDirty\(\)/.test(restore))
-    check("a save records the page it sent as the saved one", /savedFieldsRef\.current = savedFields\(snapshot\)/.test(ctx))
+    /* Changed on purpose (OnePage editor fixes 2): the page it sent, less any product the server took off as deleted (removed_products), which the editor drops from its copy too. */
+    check("a save records the page it sent as the saved one", /savedFieldsRef\.current = savedFields\(sent\)/.test(ctx) && /const sent: OnePage = removed\.length > 0 \? \{ \.\.\.snapshot, draft_blocks: withoutProducts\(snapshot\.draft_blocks, removed\) \} : snapshot/.test(ctx))
     check("a fill nobody typed on a clean page is part of the saved page", /else if \(editRevisionRef\.current === savedRevisionRef\.current\) savedFieldsRef\.current = savedFields\(next\)/.test(ctx))
     check("a field that keeps its own text until Save keeps the page unsaved through undo", /markDirty: markLooseDirty/.test(ctx) && /looseEditRef\.current = true/.test(ctx))
     check("the saved fields include the blocks, the theme, the settings and the archive", /savedFields\(page: OnePage\)[\s\S]{0,400}p\.theme, p\.settings, p\.social_links, p\.draft_blocks, p\.archived_blocks/.test(ctx))

@@ -253,7 +253,8 @@ async function main() {
     check("the editor's rows and settings do too", (tab.match(/isExtraBlock\(block\) \? extraBlockRow\(block\)/g) ?? []).length === 2 && /if \(isExtraBlock\(block\)\) return <ExtraBlockEditor/.test(tab))
     check("the live page fills shelves, posts and counts on the server", /withStorelibBlocks\(db, creatorId, products\)/.test(read("lib/onepage/published-page.ts")))
     /* Changed on purpose (OnePage production audit, XSS-1 and SEC2): the stripped blocks are also cleaned of addresses that run script (lib/onepage/safe-urls) and a paid block's locked part is sealed (lib/onepage/locked-seal). */
-    check("a saved draft never keeps them", /updates\.draft_blocks = sealLocked\(withSafeUrls\(stripResolved\(draft_blocks\)\)\)/.test(read("app/api/onepage/route.ts")))
+    /* Changed on purpose (OnePage editor fixes 2): a deleted product's blocks are taken out first (lib/onepage/product-removals withoutProducts); the strip, the cleaning and the seal are as they were. */
+    check("a saved draft never keeps them", /updates\.draft_blocks = sealLocked\(withSafeUrls\(stripResolved\(withoutProducts\(draft_blocks, removedProducts\)\)\)\)/.test(read("app/api/onepage/route.ts")))
     const picker = read("components/onepage/add-block-picker.tsx")
     check("Tally, Klaviyo and Omnisend wear their own marks", /"int_tally"[^\n]*"tally"\)/.test(picker) && /id: "int_email"[^\n]*mark: "klaviyo"/.test(picker) && /id: "int_omnisend"[^\n]*mark: "omnisend"/.test(picker))
     check("every tool is a block", PAGE_INTEGRATIONS.every((p) => new RegExp(`tool\\("int_${p}"`).test(picker)))
