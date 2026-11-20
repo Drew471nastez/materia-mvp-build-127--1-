@@ -83,7 +83,7 @@ console.log("\nMoving scenes, transform and opacity only")
   check("each scene has its own moment", [/* Changed on purpose (landing round 16): the book opening. */ /* Changed on purpose (landing round 17): the file flying into the buyer's email. */ /\.dz-card\{animation:dz-ride/, /\.bp-bar i\{animation:bz-play/, /\.bs-post\{animation:bz-rise/, /\.bs-ring-day\{animation:bz-day/].every((r) => r.test(BUSINESS_MOCK_CSS)))
   check("the moments run only on the chosen scene (and the one fading out)", /className=\{on \? "biz-slide bz-on" : "biz-slide"\}/.test(read(SECTION)) && /const on = state === "active" \|\| state === "leaving"/.test(read(SECTION)))
   // Changed on purpose (landing round 14): the shelf answers a pointer with transitions, on opacity and transform only.
-  check("nothing in the scenes is a transition (every change is one of those keyframes)", (BUSINESS_MOCK_CSS.match(/transition:[^;}]*/g) ?? []).every((t) => /^transition:((opacity|transform|visibility)[^,]*,?)+$/.test(t.replace(/\([^)]*\)/g, ""))))
+  check("nothing in the scenes is a transition (every change is one of those keyframes)", (BUSINESS_MOCK_CSS.match(/transition:[^;}]*/g) ?? ([] as string[])).every((t) => /^transition:((opacity|transform|visibility)[^,]*,?)+$/.test(t.replace(/\([^)]*\)/g, ""))))
 }
 
 console.log("\nThe five examples")

@@ -374,7 +374,7 @@ async function main() {
     /* The fields moved to size-chart-form.tsx, shared by the dialog and the chart's own page. */
     const editor = code("components/physical/size-chart-form.tsx")
     check("the chart editor has Also show it on, with chips for collections and categories", /tt\("Also show it on"\)/.test(editor) && /data-chart-collection=/.test(editor) && /data-chart-category=/.test(editor) && /aria-pressed=\{on\}/.test(editor))
-    check("  no hover that fires on touch", (editor.slice(editor.indexOf("function AlsoShowOn")).match(/\S*hover:bg\S*/g) ?? []).every((m) => m.includes("[@media(hover:hover)]:hover:")))
+    check("  no hover that fires on touch", (editor.slice(editor.indexOf("function AlsoShowOn")).match(/\S*hover:bg\S*/g) ?? ([] as string[])).every((m) => m.includes("[@media(hover:hover)]:hover:")))
     check("the product card says where an inherited chart comes from", /data-size-chart-inherited=/.test(code("components/physical/size-chart-card.tsx")))
     check("a collection's change reaches product pages too", /sizeChartsChanged\(c\.creatorId\)/.test(code("app/api/collections/route.ts")) && (code("app/api/collections/[id]/route.ts").match(/sizeChartsChanged\(c\.creatorId\)/g) ?? []).length === 2)
     check("  and so does a new chart", /sizeChartsChanged\(c\.creatorId\)/.test(code("app/api/size-charts/route.ts")))

@@ -168,7 +168,7 @@ console.log("\n3e. The domain reel")
   check("a box class of the caller's own", /<div class="my-card pz-d" aria-hidden="true">/.test(renderToStaticMarkup(createElement(DomainReel, { className: "my-card" }))))
   // Changed on purpose (landing round 16): no holds, a 2.6s glide a row that starts and ends at rest (tests/home-landing-r16-how.test.ts).
   check("smoother: 3s steps, the move 40% of each on a soft curve", /animation:pz-reel 18\.2s cubic-bezier\(\.7,0,\.3,1\) infinite/.test(DOMAIN_CSS))
-  check("still transform only", (DOMAIN_CSS.match(/@keyframes [\s\S]*?\}\}/g) ?? []).every((k) => !/(top|left|height|width|margin|opacity|filter)\s*:/.test(k.replace(/transform:[^}]*/g, ""))))
+  check("still transform only", (DOMAIN_CSS.match(/@keyframes [\s\S]*?\}\}/g) ?? ([] as string[])).every((k) => !/(top|left|height|width|margin|opacity|filter)\s*:/.test(k.replace(/transform:[^}]*/g, ""))))
   // Changed on purpose (landing round 16): the pointer no longer moves, so only the lists stop.
   check("still under reduced motion", /@media \(prefers-reduced-motion:reduce\)\{\.pz-d-track\{animation:none/.test(DOMAIN_CSS))
 }
