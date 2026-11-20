@@ -251,7 +251,8 @@ check("ratings: past PostgREST's 1,000 rows the next page is read; before part 1
   assert.equal(db.calls.filter((c) => c.table === "reviews").length, 2)
   const old = new FakeDb()
   old.errors["reviews:select"] = { code: "42703" }
-  old.tables.products = [{ id: "p1", creator_id: "c", reviews_count: 7, reviews_average: 4.29 }, { id: "p2", creator_id: "c", reviews_count: 0, reviews_average: 0 }]
+  /* Changed on purpose (merge): the fallback reads published products only, like every public read (tests/product-visibility). */
+  old.tables.products = [{ id: "p1", creator_id: "c", status: "published", reviews_count: 7, reviews_average: 4.29 }, { id: "p2", creator_id: "c", status: "published", reviews_count: 0, reviews_average: 0 }]
   const m2 = await cardRatings(old, "c", ["p1", "p2"], appOn())
   assert.deepEqual(m2.get("p1"), { count: 7, average: 4.3 })
   assert.equal(m2.has("p2"), false)
@@ -807,7 +808,8 @@ check("part 475: idempotent, server only connections, owner read bookings, one r
   assert.match(sql, /if not exists \(select 1 from pg_policies where schemaname = 'public' and tablename = 'external_bookings' and policyname = 'external_bookings_owner_read'\)/)
   assert.match(sql, /using \(owner_id = auth\.uid\(\)\)/)
   assert.match(sql, /constraint external_bookings_once unique \(owner_id, source, external_id\)/)
-  assert.doesNotMatch(read("supabase/sql/run-now/99_check_after.sql"), /p475/, "the check is the owner's to add")
+  /* Changed on purpose (merge): the part's column is now in the check after. */
+  assert.match(read("supabase/sql/run-now/99_check_after.sql"), /as p475_external_bookings/)
 })
 
 ;(async () => {

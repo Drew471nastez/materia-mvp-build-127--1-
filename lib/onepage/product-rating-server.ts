@@ -75,7 +75,7 @@ export async function cardRatings(
 
 /** Before part 134: the counts the products keep. */
 async function keptCounts(db: Db, creatorId: string, ids: string[]): Promise<Map<string, CardRating>> {
-  const { data, error } = await db.from("products").select("id, reviews_count, reviews_average").eq("creator_id", creatorId).in("id", ids)
+  const { data, error } = await db.from("products").select("id, reviews_count, reviews_average").eq("creator_id", creatorId).eq("status", "published").in("id", ids)
   const out = new Map<string, CardRating>()
   if (error) return out
   for (const r of (data ?? []) as { id: string; reviews_count?: unknown; reviews_average?: unknown }[]) {

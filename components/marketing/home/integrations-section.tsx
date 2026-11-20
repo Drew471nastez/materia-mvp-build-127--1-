@@ -188,6 +188,8 @@ const ROWS: App[][] = [
     /* A OnePage's signups go to these (lib/onepage/integrations), so they are apps a store connects today. */
     { name: "Zapier", bg: "#fff1e8", logo: "/integrations/zapier.svg", scale: 0.6 },
     { name: "Make", bg: "#f4ebff", logo: "/integrations/make.svg", scale: 0.6 },
+    /* A paying member's role in the creator's Discord server (lib/community-roles). */
+    { name: "Discord", bg: "#ffffff", logo: "/integrations/discord.svg", scale: 0.6 },
   ],
   [
     { name: "Printify", bg: "#a9f86c", logo: "/home/apps/printify.webp", fit: "cover" },
@@ -208,6 +210,8 @@ const ROWS: App[][] = [
     { name: "AfterShip", bg: "#ff6b2b", icon: SiAftership, color: "#ffffff" },
     { name: "EasyPost", bg: "#ffffff", logo: "/home/apps/easypost.svg", scale: 0.6 },
     { name: "Mailchimp", bg: "#ffe01b", logo: "/integrations/mailchimp.svg", scale: 0.6 },
+    /* A paying member's place in the creator's private Telegram group or channel (lib/community-roles). */
+    { name: "Telegram", bg: "#ffffff", logo: "/integrations/telegram.svg", scale: 0.6 },
   ],
 ]
 

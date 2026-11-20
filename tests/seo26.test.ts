@@ -390,7 +390,8 @@ async function main() {
     /* Only the member area's server read and the editor's own paths may name the column. */
     const allowed = [/^lib\/communities\/server\/member-shortcuts\.ts$/, /^lib\/communities\/member-links\.ts$/, /^lib\/communities\/server\/creator[\w-]*\.ts$/, /^lib\/communities\/server\/page-editor[\w-]*\.ts$/, /^lib\/communities\/server\/page-fields\.ts$/, /^lib\/admin\/sql-parts\.generated\.ts$/, /^components\/community\/creator\//, /^app\/app\//, /^app\/api\/app\//, /^lib\/communities\/(view-types|types)\.ts$/, /^components\/community\/creator\/view-types\.ts$/]
     const walk = (dir: string): string[] => (existsSync(dir) ? readdirSync(dir).flatMap((f) => { const p = join(dir, f); return statSync(p).isDirectory() ? walk(p) : /\.(ts|tsx)$/.test(f) ? [p] : [] }) : [])
-    const naming = ["app", "components", "lib"].flatMap(walk).filter((p) => /member_links/.test(code(p)))
+    /* Changed on purpose (Discord and Telegram access): discord_member_links is another table (a buyer's linked Discord account, lib/community-roles), not the community's member_links column. */
+    const naming = ["app", "components", "lib"].flatMap(walk).filter((p) => /(?<!discord_)\bmember_links|(?<![\w])member_links/.test(code(p).replace(/discord_member_links/g, "")))
     const stray = naming.filter((p) => !allowed.some((re) => re.test(p)))
     check("no public page, public API or shared read names member_links (only the member area's server read and the editor)", stray.length === 0, stray)
     const shell = code("components/community/member/shell.tsx")

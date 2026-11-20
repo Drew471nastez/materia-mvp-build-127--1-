@@ -119,7 +119,8 @@ const names = PLATFORM_INTEGRATION_APPS.map((a) => a.name)
 check("  and no app twice", new Set(names).size === names.length)
 check("the three added are real connections: a OnePage's signups to Google Sheets, its SoundCloud embed, a website's GitHub sync", ["Google Sheets", "SoundCloud", "GitHub"].every((n) => names.includes(n)) && Object.values(PAGE_INTEGRATION_NAME).includes("Google Sheets") && existsSync(join(root, "app/api/onepage/soundcloud")) && existsSync(join(root, "app/api/github/connect")))
 const coming = INTEGRATIONS.filter((i) => i.comingSoon).map((i) => i.name)
-check("  and nothing the integrations page lists as Coming soon (Zapier, Make, Mailchimp stay off)", !names.some((n) => coming.includes(n)) && !names.includes("Zapier") && !names.includes("Mailchimp"), names.filter((n) => coming.includes(n)))
+/* Changed on purpose (OnePage editor fixes 2): Zapier, Make and Mailchimp take a OnePage's signups today and are no longer Coming soon, so they are on the page like every app a store can connect. */
+check("  and nothing the integrations page lists as Coming soon", !names.some((n) => coming.includes(n)), names.filter((n) => coming.includes(n)))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)

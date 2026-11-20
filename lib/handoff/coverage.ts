@@ -34,7 +34,7 @@ export const BUSINESS_TABLES: Readonly<Record<string, string>> = Object.fromEntr
     "email_campaigns", "email_events", "email_flow_jobs", "email_flow_runs", "email_flow_sends", "email_flows", "email_recipients", "email_segments", "email_templates", "email_usage",
     "file_details", "fulfillments", "fulfilment_variant_links", "inventory_levels", "inventory_locations", "inventory_movements", "inventory_reservations", "inventory_transfers",
     "media_videos", "membership_plans", "membership_posts", "notification_creator_state", "notification_events", "notification_jobs", "notification_preferences", "notifications",
-    "onepages", "order_cases", "orders", "physical_carrier_prefs", "physical_readiness_state",
+    "onepages", "order_cases", "orders", "external_bookings", "physical_carrier_prefs", "physical_readiness_state",
     "product_channel_listings", "product_collections", "product_import_links", "product_page_configs", "product_size_charts", "product_slug_history", "product_translation_settings", "product_variant_costs", "products",
     "review_authors", "review_drafts", "review_imports", "review_reports", "review_requests", "review_uploads", "review_widget_configs", "reviews",
     "sales_channels", "scheduled_flow_emails", "seller_notifications", "shipping_labels", "shipping_packages", "shipping_profiles", "shipping_rates", "shipping_zones",
@@ -51,7 +51,7 @@ export const MONEY_TABLES: Readonly<Record<string, string>> = Object.fromEntries
 )
 
 export const CONNECTION_TABLES: Readonly<Record<string, string>> = Object.fromEntries(
-  ["analytics_destinations", "commerce_integrations", "commerce_tracking_accounts", "email_sending_domains", "integration_requests", "marketing_sync_items", "onepage_integrations"].map((t) => [t, CONNECTIONS]),
+  ["analytics_destinations", "commerce_integrations", "commerce_tracking_accounts", "email_sending_domains", "integration_requests", "marketing_sync_items", "onepage_integrations", "discord_connections", "discord_role_mappings", "telegram_chats", "telegram_chat_mappings", "telegram_link_codes", "external_booking_connections"].map((t) => [t, CONNECTIONS]),
 )
 
 export const PEOPLE_TABLES: Readonly<Record<string, string>> = Object.fromEntries(
@@ -60,12 +60,12 @@ export const PEOPLE_TABLES: Readonly<Record<string, string>> = Object.fromEntrie
     "community_event_rsvps", "community_event_tickets", "community_invite_uses", "community_join_answers", "community_leave_reasons", "community_library_activity", "community_library_purchases",
     "community_member_badges", "community_member_blocks", "community_member_days", "community_member_hours", "community_member_link_clicks", "community_members", "community_module_access",
     "community_notifications", "community_onboarding_progress", "community_point_events", "community_poll_votes", "community_program_access", "community_reactions", "community_setup_progress",
-    "community_space_reads", "entitlements", "library_items", "membership_post_reads", "wishlist_items",
+    "community_space_reads", "discord_access_grants", "discord_member_links", "entitlements", "library_items", "membership_post_reads", "telegram_access_grants", "wishlist_items",
   ].map((t) => [t, PEOPLE]),
 )
 
 export const RECORD_TABLES: Readonly<Record<string, string>> = {
-  ...Object.fromEntries(["account_deletions", "admin_moderation_log", "file_security_events", "payment_audit_log", "payment_connection_events", "upload_events"].map((t) => [t, RECORDS])),
+  ...Object.fromEntries(["account_deletions", "admin_moderation_log", "file_security_events", "payment_audit_log", "payment_connection_events", "upload_events", "discord_access_log", "telegram_access_log"].map((t) => [t, RECORDS])),
   plan_cancellations: "Why the founder once cancelled a plan. Storelib's record of the founder's billing, kept as written and never shown to the new owner.",
   invoices: "The founder's plan invoices. Billing reads them through the business's billing customer, which the handoff detaches, so the new owner never sees them; the rows are kept for the founder's records.",
   business_handoffs: "The handoff itself. The function marks it accepted, with who took it and what was detached, and it stays as the record.",

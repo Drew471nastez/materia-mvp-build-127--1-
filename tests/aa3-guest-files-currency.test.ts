@@ -151,7 +151,8 @@ async function guest() {
   // Changed on purpose (round AX): a free basket pressed again is answered with the grant too (app/api/checkout/site free, answerClaimed), so three writes.
   check("a website's paid and free checkouts write the grant on the website's host", (site.match(/await withGuestGrant\(afterPaidHeaders\(/g) ?? []).length === 3)
   const complete = read("app/api/checkout/cart/complete/route.ts")
-  check("paying on storelib.com for a website's basket goes back through the handoff for a guest", /user \? paidReturnUrl\(back\) : rememberOnSiteUrl\(paidReturnUrl\(back\), result\.receiptToken\)/.test(complete))
+  /* Changed on purpose (major issues 3): only a buyer whose library holds the orders skips the handoff; anybody else signed in on storelib.com goes through it like a guest. */
+  check("paying on storelib.com for a website's basket goes back through the handoff for a guest", /const inLibrary = !!user && result\.buyerId === user\.id/.test(complete) && /inLibrary \? paidReturnUrl\(back\) : rememberOnSiteUrl\(paidReturnUrl\(back\), result\.receiptToken\)/.test(complete))
   const ownedRoute = read("app/api/site-account/owned/route.ts")
   check("a built website's product block asks for a guest too, this site's shop only", /guestOwns\(db, raw, \{ creatorId: site\.creatorId \}, ids\)/.test(ownedRoute) && /siteOfRequest\(db, request\)/.test(ownedRoute))
   check("  and asks only when the hint says there is something", /sl_signed_in\|sl_owned_hint/.test(read("components/website-builder/sections/renderers/ProductSection.tsx")))

@@ -42,6 +42,8 @@ function check(label: string, ok: boolean, detail?: string) {
 
 /** How a route may establish who is asking. */
 const PROOFS: [string, RegExp][] = [
+  /* Changed on purpose (Discord and Telegram access): lib/community-roles/route-helpers buyer() is routeUser({ full: true }) with its three answers; the route returns before acting for "anonymous" (and "unavailable"), and acts only on the buyer it returned. */
+  ["a signed-in buyer (community roles)", /const who = await buyer\(\)[\s\S]*who === "anonymous"\) return /],
   ["a signed-in session", /auth\.getUser\(\)/],
   /* Round 49: lib/auth/request-scope readUserForRoute is the request's one read (Supabase Auth, or the token's verified signature while Auth is slow), in getUser()'s shape, for a read-only GET; the route acts only on `user`. */
   ["a signed-in session, the request's one read", /await readUserForRoute\(\)[\s\S]*if \(!user\)/],
@@ -128,6 +130,8 @@ const PROOFS: [string, RegExp][] = [
  * already public.
  */
 const PUBLIC_BY_DESIGN: Record<string, string> = {
+  /* Discord and Telegram access (lib/community-roles): the join buttons a OnePage block shows. */
+  "community-roles/options/route.ts": "Which Join buttons a published block offers for the products it names: for a signed-out visitor only the button labels and the store's public product ids, never a server, chat, invite or member; a signed-in buyer's own access state is read with their session (buyer()). No writes.",
   /* Round AR: OnePage visitors and a booker's own link. */
   "bookings/manage/[token]/route.ts": "A booker's own booking, opened only by the server-signed token from their email (HMAC over the booking id; a changed id or signature is a 404). Reads that one booking, its free times and moves or cancels it; limited per address, reads and writes apart.",
   "onepage/poll/route.ts": "A vote on a published poll block: the block is read from the live page, one vote per visitor (an http-only cookie stored only as a hash, a unique index), limited per address, robots and prefetches refused, a block outside its schedule refused.",
