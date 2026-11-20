@@ -346,6 +346,40 @@ function PaidSettings({ data, set }: { data: AppBlockData; set: Set }) {
   )
 }
 
+/* ─── Discord, members only ─────────────────────────────────────────── */
+
+/** A Discord block for buyers only (lib/community-roles): owners of the product join through Storelib, everyone else sees Buy. */
+function DiscordMembersSettings({ data, set }: { data: AppBlockData; set: Set }) {
+  const products = useCreatorProducts(true)
+  const money = useProductMoney()
+  const on = typeof data.members_product_id === "string" || data.members_product_id === null
+  const pickable = pickableProducts(products ?? []).filter((p) => p.type !== "physical")
+  return (
+    <div className="space-y-4" data-discord-members-settings="">
+      <SwitchLine
+        label={tt("Members only")}
+        note={tt("Owners of a product join the server through Storelib and get its role. Everyone else sees Buy.")}
+        checked={on}
+        onChange={(v) => set({ members_product_id: v ? (data.members_product_id ?? null) : undefined })}
+      />
+      {on ? (
+        <div className="space-y-2">
+          <span className={fieldLabel}>{tt("The product that lets people in")}</span>
+          <ProductPicker
+            products={pickable}
+            stateOf={(id) => editorProductState(id, products)}
+            selectedId={data.members_product_id ?? undefined}
+            state={editorProductState(data.members_product_id ?? undefined, products)}
+            money={(cents, product) => money(cents, product)}
+            onPick={(p) => set({ members_product_id: p.id })}
+          />
+          <p className={hint}>{tt("Choose its role in Settings › Integrations › Discord. Your invite link is not shown on the page.")}</p>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 /* ─── Reviews ─────────────────────────────────────────────────────────── */
 
 function ReviewSettings({ data, set }: { data: AppBlockData; set: Set }) {
@@ -445,6 +479,8 @@ export function DataBlockSettings({ block, data, set }: { block: OnePageBlock; d
       return <EventSettings block={block} data={data} set={set} />
     case "paid":
       return <PaidSettings data={data} set={set} />
+    case "discord":
+      return <DiscordMembersSettings data={data} set={set} />
     case "reviews":
       return <ReviewSettings data={data} set={set} />
     case "rss":

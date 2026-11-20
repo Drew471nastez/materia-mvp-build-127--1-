@@ -8,6 +8,7 @@ import { communitiesEnabled } from "@/lib/communities/flag"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { LibrarySplashInit } from "@/components/library/splash-init"
 import { LibraryHome } from "@/components/library/library-home"
+import { CommunityJoinButtons } from "@/components/community-roles/join-buttons"
 import { fullUserForRequest } from "@/lib/auth/request-scope"
 
 export const dynamic = "force-dynamic"
@@ -73,6 +74,8 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
   return (
     <div>
       <LibrarySplashInit />
+      {/* Discord servers and Telegram groups the buyer's purchases come with (lib/community-roles); nothing when there are none. */}
+      <CommunityJoinButtons className="mb-4" back="/account/library" />
       <LibraryHome
         items={items}
         creators={creators}

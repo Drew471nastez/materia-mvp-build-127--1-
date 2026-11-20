@@ -29,7 +29,7 @@
 import { PROVIDERS, type ProviderId, type ProviderInfo } from "@/lib/physical/providers"
 import { TRACKERS, TRACKER_ORDER, type TrackerId } from "@/lib/store/tracking"
 
-export type IntegrationCategory = "reviews" | "analytics" | "advertising" | "email" | "automation" | "shipping" | "print_on_demand" | "dropshipping" | "fulfillment" | "suppliers"
+export type IntegrationCategory = "reviews" | "analytics" | "advertising" | "email" | "automation" | "community" | "shipping" | "print_on_demand" | "dropshipping" | "fulfillment" | "suppliers"
 
 export const CATEGORY_NAMES: Record<IntegrationCategory, string> = {
   reviews: "Reviews",
@@ -37,13 +37,14 @@ export const CATEGORY_NAMES: Record<IntegrationCategory, string> = {
   advertising: "Advertising",
   email: "Email marketing",
   automation: "Automation",
+  community: "Community",
   shipping: "Shipping",
   print_on_demand: "Print on demand",
   dropshipping: "Dropshipping",
   fulfillment: "Fulfillment",
   suppliers: "Suppliers",
 }
-export const CATEGORY_ORDER: IntegrationCategory[] = ["reviews", "analytics", "advertising", "email", "automation", "shipping", "print_on_demand", "dropshipping", "fulfillment", "suppliers"]
+export const CATEGORY_ORDER: IntegrationCategory[] = ["reviews", "analytics", "advertising", "email", "automation", "community", "shipping", "print_on_demand", "dropshipping", "fulfillment", "suppliers"]
 
 export interface Integration {
   id: string
@@ -56,7 +57,7 @@ export interface Integration {
   physical: boolean
   kind: "tracker" | "commerce" | "listed" | "app"
   /** Made by Storelib and run inside it (kind "app"): its settings are its Set up card. */
-  appId?: "storelib_reviews" | "courier_tracking" | "analytics_destinations" | "marketing_sync"
+  appId?: "storelib_reviews" | "courier_tracking" | "analytics_destinations" | "marketing_sync" | "discord_roles" | "telegram_access"
   /** appId marketing_sync: which email platform the sync card connects (lib/integrations/marketing/platforms.ts). */
   marketingProvider?: "brevo" | "mailerlite" | "kit"
   trackerId?: TrackerId
@@ -574,10 +575,76 @@ const ANALYTICS_APPS: Integration[] = [
   },
 ]
 
+/**
+ * DISCORD AND TELEGRAM FOR PAYING MEMBERS (lib/community-roles): Storelib's
+ * own bots. Discord gives a role in the creator's server to everyone who owns
+ * a product, membership or tier, and takes it back when access ends;
+ * Telegram does the same with a private group or channel by one use invites.
+ * The card's page is the setup (components/app/settings/community-access-panel).
+ * Without Storelib's keys it says Not available yet.
+ */
+const COMMUNITY_APPS: Integration[] = [
+  {
+    id: "discord",
+    name: "Discord",
+    category: "community",
+    logo: "/integrations/discord.svg",
+    builtIn: false,
+    physical: false,
+    kind: "app",
+    appId: "discord_roles",
+    summary: "Give buyers and members a role in your Discord server.",
+    about: [
+      "Add Storelib's bot to your server and choose which product, membership or community tier gives which role. After paying, your buyer presses Join the Discord on their receipt, in their library or on your OnePage, and is added to the server with the role.",
+      "The role is taken back when access ends: a membership that is cancelled and runs out, one Stripe gives up charging, a refund in full or a lost dispute. A member whose card fails keeps it for the seven days Storelib keeps their access.",
+      "Storelib's bot can only give roles below its own. If a role is above it, this page says so and how to move it.",
+    ],
+    glance: [
+      { label: "Made by", value: "Storelib" },
+      { label: "Works with", value: "Products, memberships and community tiers" },
+      { label: "You add", value: "Storelib's bot to your server" },
+      { label: "Price", value: "Free on Storelib" },
+    ],
+    data: [
+      "Discord gets nothing about your buyers. Storelib keeps each buyer's Discord account id and name, and their Discord sign in, encrypted on Storelib's servers, only to add them to your server.",
+      "The bot asks for Manage Roles and Create Invite in your server. It reads no messages.",
+    ],
+    docsUrl: "https://support.discord.com/hc/en-us/articles/214836687-Role-Management-101",
+  },
+  {
+    id: "telegram",
+    name: "Telegram",
+    category: "community",
+    logo: "/integrations/telegram.svg",
+    builtIn: false,
+    physical: false,
+    kind: "app",
+    appId: "telegram_access",
+    summary: "Let buyers and members into a private Telegram group or channel.",
+    about: [
+      "Make Storelib's bot an admin of your private group or channel and link it with a one time code. Choose which product, membership or community tier opens it. Your buyer presses Join the Telegram group and gets an invite that works for one person, for a day.",
+      "When access ends, the member is removed from the chat. They are not banned: if they pay again, they can join again.",
+    ],
+    glance: [
+      { label: "Made by", value: "Storelib" },
+      { label: "Works with", value: "Private groups and channels" },
+      { label: "You add", value: "Storelib's bot as an admin" },
+      { label: "Price", value: "Free on Storelib" },
+    ],
+    data: [
+      "Telegram gets nothing about your buyers. Storelib keeps the Telegram account each invite was used by, so it can remove them later. Invites are stored encrypted.",
+      "The bot needs Invite users via link and Ban users. It does not read the chat's messages, only joins, leaves and the /link message.",
+    ],
+    docsUrl: "https://telegram.org/faq#q-how-do-i-create-a-group",
+  },
+]
+
 /** The top of a page, short (round I4: "don't have that much text"). Only where the first paragraph runs long. */
 const LEAD: Record<string, string> = {
   shippypro: "Labels and rates from the carriers on your own ShippyPro account. Coming soon: it has not been run against a real ShippyPro account yet.",
   "storelib-reviews": "Buyers get an email asking for a review. Reviews show on your website with stars.",
+  discord: "A role in your Discord server for everyone who buys or joins, taken back when their access ends.",
+  telegram: "Your private Telegram group or channel, opened by a purchase and closed when access ends.",
   "send-analytics": "Page views, purchases, refunds and signups from Storelib's server to Google Analytics 4, Meta, PostHog or your own system.",
   "courier-tracking": "Every parcel is followed with its carrier. Your buyer sees each scan and hears when it's out for delivery and delivered.",
   aftership: "Follow your parcels with your own AfterShip account instead of Storelib's.",
@@ -606,7 +673,7 @@ const LEAD: Record<string, string> = {
 */
 const NOT_LISTED = new Set(["manual", "supplier_email", "csv"])
 
-export const INTEGRATIONS: Integration[] = [...STORELIB_APPS, ...ANALYTICS_APPS, ...TRACKING_APPS, ...TRACKER_ORDER.map(fromTracker), ...MARKETING_APPS, ...PROVIDERS.filter((p) => !NOT_LISTED.has(p.id)).map(fromProvider), ...LISTED.map(fromListed)].map((i) => (LEAD[i.id] ? { ...i, lead: LEAD[i.id] } : i))
+export const INTEGRATIONS: Integration[] = [...STORELIB_APPS, ...ANALYTICS_APPS, ...COMMUNITY_APPS, ...TRACKING_APPS, ...TRACKER_ORDER.map(fromTracker), ...MARKETING_APPS, ...PROVIDERS.filter((p) => !NOT_LISTED.has(p.id)).map(fromProvider), ...LISTED.map(fromListed)].map((i) => (LEAD[i.id] ? { ...i, lead: LEAD[i.id] } : i))
 
 /** Where a card stands, in the words it shows (badges and the Install section). */
 export type IntegrationStatus = "built_in" | "installed" | "needs_attention" | "error" | "available" | "coming_soon"

@@ -75,7 +75,7 @@ import { BlockIconLookScope, BlockMarkTile, useBlockIconLook } from "@/component
 import { blockIconLookOf } from "@/lib/onepage/social-look"
 import { presentationOf } from "@/lib/onepage/block-presentation"
 import type { OnePageBlock, OnePageTheme } from "@/lib/onepage/types"
-import { DataEventView, DataFeedList, DataPollView, DataReviewsView, DataStatsView, DataPaidView } from "@/components/onepage/data-blocks"
+import { DataEventView, DataFeedList, DataPollView, DataReviewsView, DataStatsView, DataPaidView, DataDiscordMembersView } from "@/components/onepage/data-blocks"
 import { DataTipsView } from "@/components/onepage/tip-block"
 import { tipModeOf } from "@/lib/onepage/tips"
 import { useFrameLoading } from "@/components/onepage/embed-shell"
@@ -427,6 +427,8 @@ function AppBlockBody({ block, look }: { block: OnePageBlock; look: AppBlockLook
     case "note":
       return <NoteView block={block} data={data} look={look} />
     default:
+      /* A Discord block set to members only: Join for owners, Buy for everyone else (./data-blocks, lib/community-roles). */
+      if (provider.id === "discord" && data.members_product_id) return <DataDiscordMembersView block={block} data={data} look={look} />
       /* Round AR: tips through Storelib checkout, and an RSS feed's latest posts under its card (./data-blocks). */
       if (provider.id === "tips" && tipModeOf(data) === "storelib") return <DataTipsView block={block} data={data} look={look} />
       if (provider.id === "rss")

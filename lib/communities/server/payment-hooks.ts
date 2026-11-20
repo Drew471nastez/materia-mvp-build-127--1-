@@ -22,6 +22,8 @@ type Db = any
 
 export async function communityAccessAfterMembership(db: Db, row: { product_id: string | null; buyer_id: string | null } | null, opts: { fresh?: boolean } = {}): Promise<void> {
   try {
+    /* Discord and Telegram first: they return at once and run after the response, and need no community. */
+    await communityRoles((m) => m.communityRolesAfterMembership(db, row))
     if (!row?.product_id || !row.buyer_id) return
     const { syncCommunityAccessForMembership } = await import("./membership")
     await syncCommunityAccessForMembership(db, row, opts)
@@ -35,10 +37,24 @@ export async function communityAccessAfterEntitlement(
   e: { userId: string | null | undefined; productId: string | null | undefined; orderId?: string | null; granted: boolean },
 ): Promise<void> {
   try {
+    await communityRoles((m) => m.communityRolesAfterEntitlement(db, { userId: e.userId, productId: e.productId }))
     if (!e.userId || !e.productId) return
     const { syncCommunityAccessForEntitlement } = await import("./membership")
     await syncCommunityAccessForEntitlement(db, { userId: e.userId, productId: e.productId, orderId: e.orderId ?? null, granted: e.granted })
   } catch (err) {
     console.error("[communities] access after a library change not updated:", err instanceof Error ? err.message : err)
+  }
+}
+
+/**
+ * DISCORD ROLES AND TELEGRAM CHATS (lib/community-roles) follow the same two
+ * signals. Loaded only when it runs, it returns at once with neither set up,
+ * and hands its work to after(), so the payment is answered first. Never throws.
+ */
+async function communityRoles(fn: (m: typeof import("@/lib/community-roles/hooks")) => Promise<void>): Promise<void> {
+  try {
+    await fn(await import("@/lib/community-roles/hooks"))
+  } catch (e) {
+    console.error("[community-roles] access change not queued:", e instanceof Error ? e.message : e)
   }
 }

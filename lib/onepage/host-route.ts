@@ -104,6 +104,8 @@ export interface OnePageRouteInput {
 export const ONEPAGE_HOST_API: readonly { path: RegExp; methods: readonly string[] }[] = [
   /* A view or a click on a block. */
   { path: /^\/api\/onepage\/track\/?$/, methods: ["POST"] },
+  /* A members only Discord block asking whether this visitor owns its product (lib/community-roles): Join or Buy. */
+  { path: /^\/api\/community-roles\/options\/?$/, methods: ["GET"] },
   /* The page's view in Analytics, and a step towards a sale (components/analytics/track-view, lib/analytics/page-tracker). */
   { path: /^\/api\/track-view\/?$/, methods: ["POST"] },
   { path: /^\/api\/track-event\/?$/, methods: ["POST"] },

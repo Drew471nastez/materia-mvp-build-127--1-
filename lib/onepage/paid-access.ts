@@ -41,6 +41,12 @@ export function withoutLocked<T>(blocks: T): T {
       const { digital_product_file_url: file, ...rest } = data
       return { ...b, data: { ...rest, digital_product_has_file: typeof file === "string" && !!file.trim() } }
     }
+    /* A members only Discord block: owners are added by Storelib (lib/community-roles), so its invite address stays off the page. */
+    if (b.type === "app" && data?.provider === "discord" && typeof data.members_product_id === "string" && data.members_product_id && "url" in data) {
+      const { url: _invite, ...rest } = data
+      void _invite
+      return { ...b, data: rest }
+    }
     if (!isPaidBlock(b) || !data) return raw
     const clean: Record<string, unknown> = { ...data }
     for (const k of LOCKED_FIELDS) delete clean[k]
