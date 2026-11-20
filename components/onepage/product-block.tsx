@@ -83,6 +83,8 @@ const loadProductFacts = (productId: string) => {
   return readProductFacts(productId)
 }
 import { sheetPalette } from "@/lib/onepage/sheet-theme"
+import { cleanRating } from "@/lib/onepage/product-rating"
+import { CardRatingLine, ratingAria } from "./rating-stars"
 
 /** The free product quick checkout made before round 10 (public-onepage's own window), kept for the blocks that use it. */
 export interface LegacyQuickCheckout {
@@ -428,6 +430,13 @@ export function OnePageProductBlock({ block, theme, inPair = false, seller, page
   const interval = intervalOf({ type: data.product_type, price_interval: data.product_price_interval })
   const now = parts.free ? "Free" : `${parts.prefix === "from" ? "From " : ""}${perInterval(parts.now, interval)}`
   const showPrice = data.show_price !== false
+  /*
+    STORELIB REVIEWS' STARS (lib/onepage/product-rating): written onto the block by the server with the product, so the
+    line is in the first HTML. Under the title in the cards that have room for a line (Compact, Row, Side, Tile, Card,
+    Overlay); not on the one line Button or on Minimal, which have none.
+  */
+  const rating = cleanRating(data.product_rating)
+  const ratingLine = (color: string, cls = "") => (rating ? <CardRatingLine rating={rating} color={color} className={cls} /> : null)
 
   /* ── The older free quick checkout, for the blocks that turned it on before instant checkout existed ── */
   const legacyQuick = !instant && parts.free && data.quick_checkout === true && !!quick
@@ -512,7 +521,7 @@ export function OnePageProductBlock({ block, theme, inPair = false, seller, page
       data-product-block={layout}
       data-product-tap={plan}
       data-stays-here={staysHere}
-      aria-label={`${title}${showPrice ? `, ${now}` : ""}`}
+      aria-label={`${title}${showPrice ? `, ${now}` : ""}${rating ? `, ${ratingAria(rating.average, rating.count)}` : ""}`}
     >
       {children}
     </a>
@@ -566,6 +575,7 @@ export function OnePageProductBlock({ block, theme, inPair = false, seller, page
               {title}
             </span>
             </ProductTitle>
+            {ratingLine(textColor, "mt-0.5")}
             {priceLine("text-[13.5px] font-semibold opacity-80", textColor)}
           </span>
           {ctaButton(cn("h-9 max-w-[45%] shrink-0 px-3.5 text-[13.5px] sm:h-10 sm:px-4 sm:text-sm", NARROW_FULL))}
@@ -589,6 +599,7 @@ export function OnePageProductBlock({ block, theme, inPair = false, seller, page
                 {description}
               </span>
             ) : null}
+            {ratingLine(textColor)}
             {priceLine("mt-auto pt-1 text-[14.5px] font-semibold", textColor)}
             {ctaButton("mt-2 h-10 w-full px-3 text-sm")}
           </span>
@@ -607,6 +618,7 @@ export function OnePageProductBlock({ block, theme, inPair = false, seller, page
               {title}
             </span>
             </ProductTitle>
+            {ratingLine(textColor, "mt-0.5")}
             {priceLine("text-[13.5px] font-semibold opacity-85", textColor)}
             <span className="mt-auto pt-2.5">{ctaButton("h-9 w-full px-2 text-[13.5px]")}</span>
           </span>
@@ -627,6 +639,7 @@ export function OnePageProductBlock({ block, theme, inPair = false, seller, page
                 <ProductTitle block={block}>
               <span className="line-clamp-2 text-[17px] font-semibold leading-snug text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.3)] @max-[18rem]:text-[15px]" data-block-title="">{title}</span>
             </ProductTitle>
+                {ratingLine("#ffffff", "mt-1 [text-shadow:0_1px_2px_rgba(0,0,0,0.3)]")}
                 {priceLine("mt-0.5 text-[14.5px] font-semibold", "#ffffff")}
               </span>
               {ctaButton(cn("h-10 max-w-[48%] shrink-0 px-4 text-sm", NARROW_FULL), true)}
@@ -655,6 +668,7 @@ export function OnePageProductBlock({ block, theme, inPair = false, seller, page
                 {description}
               </span>
             ) : null}
+            {ratingLine(textColor)}
             {priceLine("text-base font-semibold", textColor)}
             <span className="block pt-1.5">{ctaButton("h-11 w-full px-4 text-sm sm:text-base")}</span>
           </span>
@@ -707,6 +721,7 @@ export function OnePageProductBlock({ block, theme, inPair = false, seller, page
                   {description}
                 </span>
               ) : null}
+              {ratingLine(textColor)}
               {priceLine("text-sm font-semibold sm:text-base", textColor)}
             </span>
           </span>
@@ -730,6 +745,7 @@ export function OnePageProductBlock({ block, theme, inPair = false, seller, page
           title={title}
           image={image}
           priceText={showPrice ? now : null}
+          rating={rating}
           ctaText={data.cta_text || "Buy now"}
           instant={instant && !shipsProduct(data.product_type)}
           onBuy={buy}

@@ -77,6 +77,9 @@ import { ProductLightbox, preloadLightboxPlayer } from "./product-lightbox"
 import { PersonalizationFields, usePersonalization } from "@/components/personalization/personalization-fields"
 import { filledAnswers } from "@/lib/products/personalization"
 import type { SizeChart } from "@/lib/size-charts/model"
+import { tt } from "@/lib/i18n/text"
+import { cleanRating, ratingLabel, type CardRating, type SheetReviews } from "@/lib/onepage/product-rating"
+import { Stars, ratingAria } from "./rating-stars"
 
 /** The sheet's main button: lifted a pixel under a mouse (translate), lit by a layer's opacity; pressed in a little under a finger (scale). */
 const MAIN_BUTTON =
@@ -124,11 +127,13 @@ export interface ProductSheetProps {
   priceOnButton?: boolean
   /** Round 43: the page's typefaces (lib/onepage/fonts fontStack), for the words and for the title. */
   font?: { body?: string; title?: string } | null
+  /** Storelib Reviews' rating the card already shows (lib/onepage/product-rating), drawn under the price at once. */
+  rating?: CardRating | null
 }
 
 const EMPTY_MODEL: SheetModel = { options: [], variants: [] }
 
-export function ProductSheet({ open, onClose, warm = false, productId, title, image, priceText, ctaText, instant, onBuy, onClosed, onCheckoutLink, back = null, action = "checkout", pageLink = true, priceOnButton = false, font = null }: ProductSheetProps) {
+export function ProductSheet({ open, onClose, warm = false, productId, title, image, priceText, ctaText, instant, onBuy, onClosed, onCheckoutLink, back = null, action = "checkout", pageLink = true, priceOnButton = false, font = null, rating = null }: ProductSheetProps) {
   const phone = usePhoneWidth()
   /*
     GONE MEANS GONE (round AK). The checkout opens once the sheet has left (lib/onepage/purchase-flow), so `onClosed`
@@ -243,6 +248,22 @@ export function ProductSheet({ open, onClose, warm = false, productId, title, im
   const checkoutHref = cartPath ? platformHref(cartPath) : checkoutPath ? onePageOutboundHref(checkoutPath, back) : null
   const pageHref = p?.pageUrl && p.pageUrl !== "#" ? onePageOutboundHref(p.pageUrl, back) : null
   const free = price === "Free"
+  /*
+    STORELIB REVIEWS IN THE SHEET. Under the price: the card's own rating at once (it came with the page), then the
+    product's as the facts say it, so the line is there from the first frame whenever the card had stars. With the
+    facts: the newest reviews after the description, and See all to the product page's reviews.
+  */
+  const reviews = p?.reviews ?? null
+  const shownRating = p ? cleanRating(reviews) : cleanRating(rating)
+  const allReviewsHref = reviews?.allUrl ? onePageOutboundHref(reviews.allUrl, back) : null
+  const reviewsRef = React.useRef<HTMLElement>(null)
+  const toReviews = () => {
+    const el = reviewsRef.current
+    if (!el) return
+    const still = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    el.scrollIntoView({ block: "start", behavior: still ? "auto" : "smooth" })
+    el.focus({ preventScroll: true })
+  }
   /* The first option still to choose, by its own name: "Choose a size". */
   const missing = blocker === "choose option" ? options.find((_, i) => !choice[i]) ?? null : null
   const words = p?.ships ? "Check out" : free ? "Get it free" : "Buy now"
@@ -338,6 +359,17 @@ export function ProductSheet({ open, onClose, warm = false, productId, title, im
             {left && !soldOut ? <span className="inline-flex h-[22px] items-center rounded-full bg-[#f4f4f6] px-2 text-[12px] font-medium leading-none text-[#4b5563]">Only {left} left</span> : null}
           </p>
         ) : null}
+        {shownRating ? (
+          reviews && reviews.items.length ? (
+            <button type="button" onClick={toReviews} className="-mx-1 flex min-h-[32px] items-center gap-1.5 rounded-md px-1 text-left text-[14px] text-[#111113] outline-none transition-opacity [@media(hover:hover)]:hover:opacity-80 focus-visible:ring-2 focus-visible:ring-[#111113]/30" aria-label={ratingAria(shownRating.average, shownRating.count)} data-product-sheet-rating={ratingLabel(shownRating.average)}>
+              <SheetRatingInner rating={shownRating} />
+            </button>
+          ) : (
+            <p role="img" className="flex min-h-[32px] items-center gap-1.5 text-[14px] text-[#111113]" aria-label={ratingAria(shownRating.average, shownRating.count)} data-product-sheet-rating={ratingLabel(shownRating.average)}>
+              <SheetRatingInner rating={shownRating} />
+            </p>
+          )
+        ) : null}
       </div>
       {p && p.variants.length > 1 ? (
         <div className="space-y-5" data-product-sheet-options="">
@@ -397,6 +429,7 @@ export function ProductSheet({ open, onClose, warm = false, productId, title, im
       {/* Round 13: its size chart and its own questions, as its product page shows them. Round 43: beside the size option when it has one. */}
       {p?.sizeChart && !(valued && options.some((o) => isSizeOption(o.name)) && p.variants.length > 1) ? <SizeChartPanel chart={p.sizeChart} /> : null}
       {p?.faqs?.length ? <ProductQuestions faqs={p.faqs} /> : null}
+      {reviews && reviews.items.length ? <SheetReviewList reviews={reviews} href={allReviewsHref} sectionRef={reviewsRef} /> : null}
     </div>
   )
 
@@ -492,6 +525,58 @@ export function ProductSheet({ open, onClose, warm = false, productId, title, im
         </div>
       )}
     </SheetDialog>
+  )
+}
+
+/* ── Storelib Reviews: the rating line under the price, and the newest reviews ── */
+
+export function SheetRatingInner({ rating }: { rating: CardRating }) {
+  return (
+    <>
+      <Stars value={rating.average} size={15} />
+      <span aria-hidden className="font-semibold tabular-nums">{ratingLabel(rating.average)}</span>
+      <span aria-hidden className="text-[#6b7280] tabular-nums">{tt("{count, plural, one {# review} other {# reviews}}", { count: rating.count })}</span>
+    </>
+  )
+}
+
+/**
+ * The newest reviews, as the product page lists them (components/reviews/reviews-list) and adapted to the sheet: no
+ * cards inside the sheet, one hairline between reviews, the stars, the words clamped to four lines, who and when. See
+ * all opens the product page at its reviews.
+ */
+export function SheetReviewList({ reviews, href, sectionRef }: { reviews: SheetReviews; href: string | null; sectionRef: React.Ref<HTMLElement> }) {
+  return (
+    <section ref={sectionRef} tabIndex={-1} aria-labelledby="product-sheet-reviews-title" className="scroll-mt-4 border-t border-[#f1f2f4] pt-5 outline-none" data-product-sheet-reviews="">
+      <div className="flex items-baseline justify-between gap-3">
+        <h3 id="product-sheet-reviews-title" className="text-[16px] font-semibold text-[#111113]">
+          {tt("Reviews")}
+        </h3>
+        <p role="img" aria-label={ratingAria(reviews.average, reviews.count)} className="flex shrink-0 items-center gap-1.5 text-[13.5px] text-[#111113]">
+          <span aria-hidden className="font-semibold tabular-nums">{ratingLabel(reviews.average)}</span>
+          <Stars value={reviews.average} size={13} />
+          <span aria-hidden className="text-[#6b7280] tabular-nums">({reviews.count.toLocaleString("en-US")})</span>
+        </p>
+      </div>
+      <ul className="mt-1 divide-y divide-[#f1f2f4]">
+        {reviews.items.map((r) => (
+          <li key={r.id} className="py-4" data-product-sheet-review={r.id}>
+            <p role="img" aria-label={tt("{value} out of 5", { value: String(r.rating) })} className="flex">
+              <Stars value={r.rating} size={13} />
+            </p>
+            {r.title ? <p className="mt-1.5 text-[14.5px] font-semibold leading-snug text-[#111113]">{r.title}</p> : null}
+            {r.body ? <p className="mt-1 line-clamp-4 whitespace-pre-line text-[14.5px] leading-relaxed text-[#374151]">{r.body}</p> : null}
+            <p className="mt-2 text-[12.5px] text-[#6b7280]">{[r.author, r.date, r.verified ? tt("Verified buyer") : null].filter(Boolean).join(" · ")}</p>
+          </li>
+        ))}
+      </ul>
+      {href ? (
+        <a href={href} className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-[#e3e4e8] text-[14px] font-medium text-[#111113] transition-colors [@media(hover:hover)]:hover:bg-[#f7f7f8]" data-product-sheet-reviews-all="">
+          {tt("See all {count, plural, one {# review} other {# reviews}}", { count: reviews.count })}
+          <ChevronRight aria-hidden className="h-4 w-4" />
+        </a>
+      ) : null}
+    </section>
   )
 }
 

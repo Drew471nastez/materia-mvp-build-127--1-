@@ -28,6 +28,9 @@ import { SiteReadError } from "@/lib/website-builder/site-read"
 import { withLiveProducts, type ProductsDb } from "@/lib/onepage/live-products"
 import { withStorelibBlocks } from "@/lib/onepage/storelib-blocks-server"
 import { liveDataDeps, withDataBlocks } from "@/lib/onepage/data-blocks-server"
+import { withProductRatings } from "@/lib/onepage/product-rating-server"
+import { creatorTag } from "@/lib/commerce/product-page-cache"
+import { reviewsAppTag } from "@/lib/reviews/app-server"
 import { withoutLocked } from "@/lib/onepage/paid-access"
 import { withOwnerStore } from "@/lib/onepage/page-store"
 import { ONE_PAGE_HOLD_SECONDS, heldRead, onePageNameTag, onePageOwnerTag, onePageShopTag, shopProductsTag } from "@/lib/onepage/public-cache"
@@ -165,15 +168,21 @@ const liveBlocksOnce = cache((creatorId: string, blocksJson: string) => {
       /* The shelf, the posts and the follower count, read now (lib/onepage/storelib-blocks-server); a page with none of them reads nothing more. */
       const storelib = await withStorelibBlocks(db, creatorId, products)
       /*
+        Storelib Reviews' stars on every product card, the shelves' too (lib/onepage/product-rating-server): one read
+        for the whole page, held here with the products, so a card is drawn with its stars in the first HTML.
+      */
+      const rated = await withProductRatings(db, creatorId, storelib)
+      /*
         Round AR: tips, tracked stats, Paid access, the store's reviews, an
         RSS feed, Bandsintown and a store code (lib/onepage/data-blocks-server),
         and every paid access block's locked part taken out, here, before anything
         is held or sent (lib/onepage/paid-access).
       */
-      return withDataBlocks(db, await liveDataDeps(db), creatorId, storelib)
+      return withDataBlocks(db, await liveDataDeps(db), creatorId, rated)
     },
-    ["onepage-live-blocks", "v2", creatorId, fingerprint],
-    { tags: [onePageShopTag(creatorId), shopProductsTag(creatorId)], revalidate: ONE_PAGE_HOLD_SECONDS },
+    /* v3: with the cards' ratings. A review written, answered or hidden clears creatorTag (lib/reviews/store forgetReviewPages); the app's settings, reviewsAppTag. */
+    ["onepage-live-blocks", "v3", creatorId, fingerprint],
+    { tags: [onePageShopTag(creatorId), shopProductsTag(creatorId), creatorTag(creatorId), reviewsAppTag(creatorId)], revalidate: ONE_PAGE_HOLD_SECONDS },
   )
 })
 export function liveBlocksFor<T>(creatorId: string, blocks: T): Promise<T> {
