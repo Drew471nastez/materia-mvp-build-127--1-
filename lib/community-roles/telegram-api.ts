@@ -7,8 +7,7 @@
  * parameters.retry_after } out. Every call takes `fetch` as an argument, so
  * the tests replay the documented answers and never reach Telegram.
  *
- * The methods (checked against the Bot API types published as
- * @grammyjs/types 5.0.0, methods.d.ts and manage.d.ts):
+ * The methods (checked against core.telegram.org/bots/api, 2026-11-20):
  *
  *   getMe                   the bot's username, for the setup screen
  *   getChat                 a linked chat's title and type
@@ -20,6 +19,8 @@
  *   banChatMember           then
  *   unbanChatMember         { only_if_banned: true }: removed, not banned for
  *                           good, so a buyer who pays again can come back
+ *                           (supergroups and channels; a basic group's ban
+ *                           does not keep anyone out, and it has no unban)
  *   sendMessage             the reply to /link
  *   deleteMessage           the /link message, so the code is not left in the chat
  *
@@ -136,9 +137,16 @@ export async function revokeInvite(fetcher: Fetch, config: TelegramConfig, chatI
   await telegramCall(fetcher, config, "revokeChatInviteLink", { chat_id: chatId, invite_link: link })
 }
 
-/** Out of the chat, free to come back by a new invite: banned, then unbanned only if still banned. */
-export async function removeMember(fetcher: Fetch, config: TelegramConfig, chatId: number, userId: number): Promise<void> {
+/**
+ * Out of the chat, free to come back by a new invite: banned, then unbanned
+ * only if still banned. The Bot API says a ban keeps a user out "in the case
+ * of supergroups and channels" and that unbanChatMember is for "a supergroup
+ * or channel": in a basic group the ban alone removes them and does not keep
+ * them out, so no unban is sent there.
+ */
+export async function removeMember(fetcher: Fetch, config: TelegramConfig, chatId: number, userId: number, chatType: string | null = null): Promise<void> {
   await telegramCall(fetcher, config, "banChatMember", { chat_id: chatId, user_id: userId, revoke_messages: false })
+  if (chatType === "group") return
   await telegramCall(fetcher, config, "unbanChatMember", { chat_id: chatId, user_id: userId, only_if_banned: true })
 }
 

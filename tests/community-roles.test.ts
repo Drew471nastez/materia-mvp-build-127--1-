@@ -29,7 +29,7 @@ import { readFileSync } from "node:fs"
 process.env.COMMERCE_SECRETS_KEY = process.env.COMMERCE_SECRETS_KEY || "test-only-key-for-community-roles"
 
 import { discordConfig, telegramConfig, anyProviderEnabled } from "../lib/community-roles/config"
-import { installUrl, joinUrl, roleProblem, roleProblemText, kindOf, BOT_PERMISSIONS, type Fetch } from "../lib/community-roles/discord-api"
+import { installUrl, joinUrl, roleProblem, roleProblemText, kindOf, exchangeCode, canManageServer, BOT_PERMISSIONS, ADMINISTRATOR, MANAGE_GUILD, type Fetch } from "../lib/community-roles/discord-api"
 import { webhookSecretOk, linkCommandOf, memberChangeOf, hashOf } from "../lib/community-roles/telegram-api"
 import { makeState, readState, safeBack } from "../lib/community-roles/oauth-state"
 import { backoffMs, MAX_ATTEMPTS, recheckAccess, runDue, settleAccess, type Deps } from "../lib/community-roles/engine"
@@ -469,6 +469,29 @@ check("the install answer: the person who added the bot must own the server or h
   assert.equal(install.searchParams.get("scope"), "bot applications.commands identify", "identify, so the token says who authorised it")
 })
 
+check("Discord's documented install answer: the token carries the server, @everyone's id is the server's", async () => {
+  /* The shape of docs.discord.com/developers/topics/oauth2, Extended Bot Authorization Access Token Example (ids made consistent). */
+  const { fetch, calls } = stubFetch((c) =>
+    c.url.endsWith("/oauth2/token")
+      ? { status: 200, body: { token_type: "Bearer", guild: { id: GUILD, name: "SomeTest", owner_id: OWNER_DISCORD, icon: null, roles: [{ id: GUILD, name: "@everyone", position: 0, managed: false, permissions: 49794241, permissions_new: "49794241" }] }, access_token: "zMndOe7jFLXGawdlxMOdNvXjjOce5X", scope: "bot applications.commands identify", expires_in: 604800, refresh_token: "mgp8qnvBwJcmadwgCYKyYD5CAzGAX4" } }
+      : undefined,
+  )
+  const t = await exchangeCode(fetch, discordConfig(ENV)!, "code", "https://storelib.com/api/community-roles/discord/callback")
+  assert.equal(t.guild?.id, GUILD)
+  assert.equal(t.scope, "bot applications.commands identify")
+  assert.equal(calls[0].body?.grant_type, "authorization_code")
+  assert.ok(calls[0].headers.Authorization.startsWith("Basic "), "client id and secret as HTTP Basic")
+  /* The bits as documented: ADMINISTRATOR 1 << 3, MANAGE_GUILD 1 << 5, MANAGE_ROLES 1 << 28, CREATE_INSTANT_INVITE 1 << 0. */
+  assert.equal(ADMINISTRATOR, BigInt(8))
+  assert.equal(MANAGE_GUILD, BigInt(32))
+  assert.equal(BOT_PERMISSIONS, "268435457")
+  /* @everyone is the role whose id is the server's: Manage Server on it gives it to everyone. */
+  const roles = [{ id: GUILD, name: "@everyone", position: 0, managed: false, permissions: "32" }]
+  assert.equal(canManageServer({ id: GUILD, ownerId: null }, roles, STRANGER_DISCORD, []), true)
+  assert.equal(canManageServer({ id: GUILD, ownerId: null }, [{ ...roles[0], permissions: "1024" }], STRANGER_DISCORD, []), false)
+  assert.equal(canManageServer({ id: GUILD, ownerId: STRANGER_DISCORD }, [{ ...roles[0], permissions: "0" }], STRANGER_DISCORD, []), true, "the owner")
+})
+
 check("the callback route refuses a state it did not sign", () => {
   const route = read("app/api/community-roles/discord/callback/route.ts")
   assert.ok(route.includes("readState(url.searchParams.get(\"state\"), nonce, who.userId)"))
@@ -864,6 +887,21 @@ check("telegram: the bot losing its admin rights blocks removal with words the c
   const g = grants(w, "telegram_access_grants")[0]
   assert.equal(g.status, "blocked")
   assert.match(g.last_error, /admin of "Night Owls chat" with Invite users and Ban users/)
+})
+
+check("telegram: in a basic group the ban alone removes; unban is for supergroups and channels", async () => {
+  const { fetch, calls } = telegram()
+  const w = world(fetch)
+  await linkedChat(w)
+  w.db.tables.telegram_chats[0].chat_type = "group"
+  w.db.tables.entitlements.push({ buyer_id: BUYER, product_id: PRODUCT })
+  const inv = await joinTelegram(w.deps, { userId: BUYER, email: null }, PRODUCT, null)
+  await handleTelegramUpdate(w.deps, { chat_member: { chat: { id: CHAT, type: "group" }, old_chat_member: { status: "left", user: { id: 42 } }, new_chat_member: { status: "member", user: { id: 42 } }, invite_link: { invite_link: E(inv).link ?? "" } } })
+  w.db.tables.entitlements = []
+  await communityRolesAfterEntitlement(w.db, { userId: BUYER, productId: PRODUCT }, w.deps)
+  assert.equal(calls.filter((c) => c.url.endsWith("/banChatMember")).length, 1)
+  assert.equal(calls.filter((c) => c.url.endsWith("/unbanChatMember")).length, 0)
+  assert.equal(grants(w, "telegram_access_grants")[0].status, "revoked")
 })
 
 check("telegram: member updates read right", () => {

@@ -540,7 +540,7 @@ export async function handleTelegramUpdate(deps: Deps, update: unknown): Promise
     }
     /* Access ended between the invite and the join: out again. */
     try {
-      await removeMember(deps.fetch, config, change.chatId, change.userId)
+      await removeMember(deps.fetch, config, change.chatId, change.userId, change.chatType)
     } catch (e) {
       if (!(e instanceof TelegramError)) throw e
     }

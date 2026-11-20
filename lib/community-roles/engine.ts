@@ -443,14 +443,16 @@ function telegramFailure(e: unknown, chatTitle: string | null): Outcome {
   }
 }
 
-async function chatTitle(db: Db, chatId: number): Promise<string | null> {
+async function chatOf(db: Db, chatId: number): Promise<{ title: string | null; type: string | null }> {
   try {
-    const { data } = await db.from("telegram_chats").select("title").eq("chat_id", chatId).maybeSingle()
-    return (data as { title?: string | null } | null)?.title ?? null
+    const { data } = await db.from("telegram_chats").select("title, chat_type").eq("chat_id", chatId).maybeSingle()
+    const c = data as { title?: string | null; chat_type?: string | null } | null
+    return { title: c?.title ?? null, type: c?.chat_type ?? null }
   } catch {
-    return null
+    return { title: null, type: null }
   }
 }
+const chatTitle = async (db: Db, chatId: number) => (await chatOf(db, chatId)).title
 
 export async function runTelegramGrant(deps: Deps, g: TelegramGrant): Promise<string> {
   const config = telegramConfig(deps.env)
@@ -458,7 +460,7 @@ export async function runTelegramGrant(deps: Deps, g: TelegramGrant): Promise<st
   const { db } = deps
   /* In is never pushed: the buyer's Join makes their invite (inviteFor). A pending "in" waits for it. */
   if (g.want === "in") return finish(deps, "telegram", g, { status: g.telegram_user_id ? "granted" : "needs_link" })
-  const title = await chatTitle(db, g.chat_id)
+  const { title, type } = await chatOf(db, g.chat_id)
   try {
     /* An invite they never used is closed first, so it cannot be used after access ended. */
     const link = openSecret(g.invite_link_sealed)
@@ -473,7 +475,7 @@ export async function runTelegramGrant(deps: Deps, g: TelegramGrant): Promise<st
       const { data: others } = await db.from(TELEGRAM_GRANTS).select("id").eq("chat_id", g.chat_id).eq("telegram_user_id", g.telegram_user_id).eq("want", "in").neq("id", g.id).limit(1)
       if (!(Array.isArray(others) && others.length > 0)) {
         try {
-          await removeMember(deps.fetch, config, g.chat_id, Number(g.telegram_user_id))
+          await removeMember(deps.fetch, config, g.chat_id, Number(g.telegram_user_id), type)
         } catch (e) {
           if (!(e instanceof TelegramError && e.kind === "user_missing")) throw e
         }

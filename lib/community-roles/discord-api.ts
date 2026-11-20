@@ -6,9 +6,11 @@
  * privileged intents. Every call takes `fetch` as an argument, so the tests
  * replay Discord's documented answers and never reach Discord.
  *
- * The calls, each with the documented endpoint
- * (github.com/discord/discord-api-docs, developers/resources/guild.mdx,
- * developers/topics/oauth2.mdx, developers/topics/permissions.mdx):
+ * The calls, each with the documented endpoint (checked 2026-11-20 against
+ * docs.discord.com/developers: resources/guild, topics/oauth2 "Advanced Bot
+ * Authorization" and its Extended Bot Authorization token example with
+ * `guild`, topics/permissions "The @everyone role has the same ID as the
+ * guild it belongs to" and the bit flags):
  *
  *   install      GET  discord.com/oauth2/authorize  scope "bot applications.commands identify",
  *                     permissions MANAGE_ROLES | CREATE_INSTANT_INVITE,
