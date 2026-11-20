@@ -274,6 +274,7 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "469", file: "469_shopify_product_imports.sql", sha256: "1d40026de1baac51872973f55093479ec1df5486f387c90cceda6e8ef36cf10f" },
   { part: "470", file: "470_payhip_product_imports.sql", sha256: "a75c1e2b5ea792096f11ab1ba57c99afcde4023204199b6696d064a9047d7722" },
   { part: "471", file: "471_tips_in_ledger.sql", sha256: "9e916552c45e0ba7e3edfb96c0545b6677d05442849314ac2c80193742951acd" },
+  { part: "472", file: "472_onepage_old_addresses.sql", sha256: "533dfb74376c4529e69135b71d46662669a991389cd9a4a165f649b8a78658d5" },
   { part: "473", file: "473_discord_member_roles.sql", sha256: "5a57d785f913171f6947b71d476c36da65e578e575d58e225bb7e9d89f1fecf5" },
   { part: "474", file: "474_telegram_member_access.sql", sha256: "c55e4bd8ec60a006bc7856746ab625e77d0c887b9864dc90ef8017af1a781d8b" },
   { part: "475", file: "475_external_bookings.sql", sha256: "3efd489141136b408bddb6a0016561b8b4d2b1ed1946a084c50fcfb8f2d0603b" },
