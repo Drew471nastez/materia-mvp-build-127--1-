@@ -19,7 +19,7 @@ import "server-only"
 import { randomBytes } from "node:crypto"
 import { sealSecret } from "@/lib/physical/secrets"
 import { discordConfig, telegramConfig } from "./config"
-import { DiscordError, botUser, currentUser, getGuild, guildRoles, memberRoles, roleProblem, roleProblemText, type DiscordTokens, type DiscordRole } from "./discord-api"
+import { DiscordError, botUser, canManageServer, currentUser, getGuild, guildRoles, memberRoles, roleProblem, roleProblemText, type DiscordTokens, type DiscordRole } from "./discord-api"
 import { TelegramError, botRights, getMe, hashOf, linkCommandOf, makeLinkCode, memberChangeOf, normaliseCode, removeMember, sendMessage, deleteMessage, showCode } from "./telegram-api"
 import { hasAccess } from "./access"
 import { GRANT_COLUMNS_DISCORD, GRANT_COLUMNS_TELEGRAM, DISCORD_GRANTS, TELEGRAM_GRANTS, inviteFor, runDue, settleAccess, tableMissing, type Deps, type DiscordGrant, type TelegramGrant } from "./engine"
@@ -147,21 +147,42 @@ export async function loadDiscordSetup(deps: Deps, creatorId: string): Promise<D
 }
 
 /**
- * The bot's install came back. The server is the one Discord names in the
- * code's token answer when there is one (the guild_id in the address is
- * only a hint, Discord says), and it must be one the bot can read now. A
- * server another store connected stays theirs.
+ * The bot's install came back. The server is ONLY the one Discord names in
+ * the code's token answer (`guild`): the ?guild_id in the address is a hint
+ * anybody can type, so it is never read, and an answer without `guild`
+ * stores nothing. The person who authorised the install (the token's
+ * identify scope) must own that server or have Manage Server in it, checked
+ * with the bot's own view of the server, so nobody can bind a server they do
+ * not run. A server another store connected stays theirs.
  */
-export async function connectDiscordServer(deps: Deps, creatorId: string, userId: string, answer: { tokens: DiscordTokens | null; guildIdHint: string | null }): Promise<Result<{ guildName: string }>> {
+export const DISCORD_SERVER_NOT_CONFIRMED = "Discord didn't confirm which server you added the bot to. Try again."
+export const DISCORD_NOT_MANAGER = "You need Manage Server in that Discord server, or to own it, to connect it to your store."
+
+export async function connectDiscordServer(deps: Deps, creatorId: string, userId: string, answer: { tokens: DiscordTokens | null }): Promise<Result<{ guildName: string }>> {
   const config = discordConfig(deps.env)
   if (!config) return fail("Discord is not available yet.", 404)
-  const guildId = answer.tokens?.guild?.id ?? answer.guildIdHint
-  if (!guildId || !SNOWFLAKE.test(guildId)) return fail("Discord did not say which server the bot was added to. Try again.")
+  const guildId = answer.tokens?.guild?.id ?? null
+  if (!answer.tokens || !guildId || !SNOWFLAKE.test(guildId)) return fail(DISCORD_SERVER_NOT_CONFIRMED)
   let guild
+  let installer
+  try {
+    installer = await currentUser(deps.fetch, answer.tokens.accessToken)
+  } catch {
+    return fail(DISCORD_SERVER_NOT_CONFIRMED)
+  }
   try {
     guild = await getGuild(deps.fetch, config, guildId)
   } catch {
     return fail("Storelib's bot is not in that server. Add it again and pick the server.")
+  }
+  try {
+    const owner = guild.ownerId === installer.id
+    if (!owner) {
+      const [roles, theirs] = await Promise.all([guildRoles(deps.fetch, config, guildId), memberRoles(deps.fetch, config, guildId, installer.id)])
+      if (theirs === null || !canManageServer(guild, roles, installer.id, theirs)) return fail(DISCORD_NOT_MANAGER, 403)
+    }
+  } catch {
+    return fail("Discord did not answer. Try again in a moment.", 502)
   }
   const { data: taken, error: readError } = await deps.db.from("discord_connections").select("creator_id").eq("guild_id", guildId).maybeSingle()
   if (readError) return tableMissing(readError) ? fail(NEEDS_SQL_DISCORD, 503) : fail("That could not be saved. Try again.", 500)

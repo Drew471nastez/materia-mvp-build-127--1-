@@ -10,9 +10,13 @@
  * (github.com/discord/discord-api-docs, developers/resources/guild.mdx,
  * developers/topics/oauth2.mdx, developers/topics/permissions.mdx):
  *
- *   install      GET  discord.com/oauth2/authorize  scope "bot applications.commands",
+ *   install      GET  discord.com/oauth2/authorize  scope "bot applications.commands identify",
  *                     permissions MANAGE_ROLES | CREATE_INSTANT_INVITE,
- *                     response_type=code: back with ?code&guild_id&permissions
+ *                     response_type=code: a full code grant (identify is outside
+ *                     bot and applications.commands), whose token answer names
+ *                     the server the bot was added to (`guild`) and whose
+ *                     access token says who authorised it. The ?guild_id in the
+ *                     address is only a hint (Discord says so) and is never read.
  *   join         GET  discord.com/oauth2/authorize  scope "identify guilds.join"
  *   token        POST /oauth2/token                 authorization_code / refresh_token,
  *                     client id and secret as HTTP Basic
@@ -42,7 +46,7 @@ export const CALLBACK_PATH = "/api/community-roles/discord/callback"
 
 /** MANAGE_ROLES (1 << 28) and CREATE_INSTANT_INVITE (1 << 0). Add Guild Member needs the second. */
 export const BOT_PERMISSIONS = String((1 << 28) + 1)
-export const INSTALL_SCOPES = ["bot", "applications.commands"]
+export const INSTALL_SCOPES = ["bot", "applications.commands", "identify"]
 export const JOIN_SCOPES = ["identify", "guilds.join"]
 
 const CALL_MS = 8_000
@@ -204,12 +208,13 @@ export interface DiscordGuild {
   id: string
   name: string
   icon: string | null
+  ownerId: string | null
 }
 
 export async function getGuild(fetcher: Fetch, config: DiscordConfig, guildId: string): Promise<DiscordGuild> {
   const { body } = await call(fetcher, `/guilds/${encodeURIComponent(guildId)}`, { method: "GET", auth: bot(config) })
-  const b = (body ?? {}) as { id?: unknown; name?: unknown; icon?: unknown }
-  return { id: String(b.id ?? guildId), name: typeof b.name === "string" ? b.name : "", icon: typeof b.icon === "string" ? b.icon : null }
+  const b = (body ?? {}) as { id?: unknown; name?: unknown; icon?: unknown; owner_id?: unknown }
+  return { id: String(b.id ?? guildId), name: typeof b.name === "string" ? b.name : "", icon: typeof b.icon === "string" ? b.icon : null, ownerId: typeof b.owner_id === "string" ? b.owner_id : null }
 }
 
 export interface DiscordRole {
@@ -217,12 +222,14 @@ export interface DiscordRole {
   name: string
   position: number
   managed: boolean
+  /** The role's permission bit set, as Discord sends it (a decimal string). */
+  permissions: string
 }
 
 export async function guildRoles(fetcher: Fetch, config: DiscordConfig, guildId: string): Promise<DiscordRole[]> {
   const { body } = await call(fetcher, `/guilds/${encodeURIComponent(guildId)}/roles`, { method: "GET", auth: bot(config) })
   return (Array.isArray(body) ? body : [])
-    .map((r: { id?: unknown; name?: unknown; position?: unknown; managed?: unknown }) => ({ id: String(r.id ?? ""), name: typeof r.name === "string" ? r.name : "", position: Number(r.position) || 0, managed: r.managed === true }))
+    .map((r: { id?: unknown; name?: unknown; position?: unknown; managed?: unknown; permissions?: unknown }) => ({ id: String(r.id ?? ""), name: typeof r.name === "string" ? r.name : "", position: Number(r.position) || 0, managed: r.managed === true, permissions: typeof r.permissions === "string" && /^\d{1,40}$/.test(r.permissions) ? r.permissions : "0" }))
     .filter((r) => /^[0-9]{5,25}$/.test(r.id))
 }
 
@@ -262,6 +269,24 @@ export async function removeRole(fetcher: Fetch, config: DiscordConfig, guildId:
     auth: bot(config),
     headers: { "X-Audit-Log-Reason": "Storelib: paid access ended" },
   })
+}
+
+/* ── Who may connect a server ────────────────────────────────────────────── */
+
+/** ADMINISTRATOR (1 << 3) and MANAGE_GUILD (1 << 5), developers/topics/permissions.mdx. */
+export const ADMINISTRATOR = BigInt(1) << BigInt(3)
+export const MANAGE_GUILD = BigInt(1) << BigInt(5)
+
+/**
+ * Whether a member's roles give Manage Server: the server's owner, or a role
+ * (including @everyone, whose id is the server's) with Administrator or
+ * Manage Server. Channel overwrites never grant server permissions.
+ */
+export function canManageServer(guild: { id: string; ownerId: string | null }, roles: DiscordRole[], userId: string, memberRoleIds: string[]): boolean {
+  if (guild.ownerId && guild.ownerId === userId) return true
+  let bits = BigInt(0)
+  for (const r of roles) if (r.id === guild.id || memberRoleIds.includes(r.id)) bits |= BigInt(r.permissions || "0")
+  return (bits & ADMINISTRATOR) !== BigInt(0) || (bits & MANAGE_GUILD) !== BigInt(0)
 }
 
 /* ── The role hierarchy, checked before it fails ─────────────────────────── */

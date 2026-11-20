@@ -22,9 +22,10 @@ export const maxDuration = 30
  * server signed for the signed in person, under ten minutes old, with the
  * nonce this browser was given; anything else goes back with "expired".
  *
- *   install   the creator added the bot: the code is exchanged (the answer
- *             names the server), the server checked with the bot's own
- *             token, and saved for their store
+ *   install   the creator added the bot: the code is exchanged, and only
+ *             the server the answer names is taken (never the address's
+ *             guild_id); the person who authorised it must own the server
+ *             or have Manage Server there; then it is saved for their store
  *   join      the buyer let Storelib add them: their tokens sealed and kept,
  *             then added to the server with the role, and sent to it
  *
@@ -52,6 +53,7 @@ export async function GET(request: Request) {
   if (state.kind === "install") {
     const c = await shopCaller("store", { strict: true })
     if (c instanceof NextResponse) return clearNonce(backTo(back, "discord", "error", "Sign in as the store's owner and try again."))
+    /* Only Discord's token answer names the server; the ?guild_id in the address is never read (lib/community-roles/setup connectDiscordServer). */
     let tokens: DiscordTokens | null = null
     if (code && code.length < 200) {
       try {
@@ -60,8 +62,7 @@ export async function GET(request: Request) {
         tokens = null
       }
     }
-    const hint = url.searchParams.get("guild_id")
-    const r = await connectDiscordServer(realDeps(c.db), c.creatorId, c.userId, { tokens, guildIdHint: hint })
+    const r = await connectDiscordServer(realDeps(c.db), c.creatorId, c.userId, { tokens })
     if (!r.ok) return clearNonce(backTo(back, "discord", "error", r.error))
     await recordActivity(c.db, c, { action: "integration.installed", subjectType: "integration", subjectId: "discord", subjectLabel: "Discord" }).catch(() => undefined)
     return clearNonce(backTo(back, "discord", "connected"))

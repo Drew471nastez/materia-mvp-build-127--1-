@@ -251,6 +251,10 @@ const ROLE = "333333333333333333"
 const BOT_ROLE = "444444444444444444"
 const BOT_USER = "555555555555555555"
 const BUYER_DISCORD = "666666666666666666"
+const OWNER_DISCORD = "121212121212121212"
+const MANAGER_DISCORD = "131313131313131313"
+const STRANGER_DISCORD = "141414141414141414"
+const MODS = "151515151515151515"
 const CREATOR = "aaaaaaaa-0000-4000-8000-000000000001"
 const OWNER_USER = "aaaaaaaa-0000-4000-8000-000000000002"
 const BUYER = "bbbbbbbb-0000-4000-8000-000000000001"
@@ -261,22 +265,29 @@ const DAY = 86_400_000
 
 /** Discord as a server where the bot's role is above "Members". */
 function discordServer(over: (c: Call) => Answer | undefined = () => undefined, members: Record<string, string[]> = {}) {
-  const memberRoles: Record<string, string[]> = { [BOT_USER]: [BOT_ROLE], ...members }
+  const memberRoles: Record<string, string[]> = { [BOT_USER]: [BOT_ROLE], [MANAGER_DISCORD]: [MODS], [STRANGER_DISCORD]: [ROLE], ...members }
+  const who: Record<string, string> = { "creator-access": OWNER_DISCORD, "manager-access": MANAGER_DISCORD, "stranger-access": STRANGER_DISCORD }
   return stubFetch((c) => {
     const o = over(c)
     if (o) return o
     const path = c.url.replace("https://discord.com/api/v10", "")
     if (path === "/oauth2/token") return { status: 200, body: { access_token: "user-access", refresh_token: "user-refresh", expires_in: 604800, scope: "identify guilds.join", token_type: "Bearer" } }
-    if (path === "/users/@me") return c.headers.Authorization?.startsWith("Bot ") ? { status: 200, body: { id: BOT_USER, username: "Storelib" } } : { status: 200, body: { id: BUYER_DISCORD, username: "mara", global_name: "Mara" } }
-    if (path === `/guilds/${GUILD}`) return { status: 200, body: { id: GUILD, name: "Night Owls", icon: null } }
+    if (path === "/users/@me") {
+      const auth = c.headers.Authorization ?? ""
+      if (auth.startsWith("Bot ")) return { status: 200, body: { id: BOT_USER, username: "Storelib" } }
+      const id = who[auth.replace("Bearer ", "")] ?? BUYER_DISCORD
+      return { status: 200, body: { id, username: id === BUYER_DISCORD ? "mara" : "someone", global_name: id === BUYER_DISCORD ? "Mara" : null } }
+    }
+    if (path === `/guilds/${GUILD}`) return { status: 200, body: { id: GUILD, name: "Night Owls", icon: null, owner_id: OWNER_DISCORD } }
     if (path === `/guilds/${GUILD}/roles`)
       return {
         status: 200,
         body: [
-          { id: GUILD, name: "@everyone", position: 0, managed: false },
-          { id: ROLE, name: "Members", position: 1, managed: false },
-          { id: BOT_ROLE, name: "Storelib", position: 2, managed: true },
-          { id: "777777777777777777", name: "Admins", position: 3, managed: false },
+          { id: GUILD, name: "@everyone", position: 0, managed: false, permissions: "1024" },
+          { id: ROLE, name: "Members", position: 1, managed: false, permissions: "1024" },
+          { id: MODS, name: "Mods", position: 1, managed: false, permissions: "32" },
+          { id: BOT_ROLE, name: "Storelib", position: 2, managed: true, permissions: "268435457" },
+          { id: "777777777777777777", name: "Admins", position: 3, managed: false, permissions: "8" },
         ],
       }
     const member = /^\/guilds\/\d+\/members\/(\d+)$/.exec(path)
@@ -312,8 +323,11 @@ function world(fetch: Fetch, env: Row = ENV, now = Date.parse("2026-11-20T12:00:
   return { db, deps, tick: (ms: number) => (clock += ms), at: () => clock }
 }
 
+/** Discord's answer to the install's code: the creator's token (identify) and, when Discord sent it, the server. */
+const installTokens = (accessToken: string, guild: { id: string; name: string | null; icon: string | null } | null = { id: GUILD, name: "Night Owls", icon: null }) => ({ accessToken, refreshToken: null, expiresAt: 0, scope: "bot applications.commands identify", guild })
+
 async function connected(w: ReturnType<typeof world>) {
-  const r = await connectDiscordServer(w.deps, CREATOR, OWNER_USER, { tokens: { accessToken: "x", refreshToken: null, expiresAt: 0, scope: "bot", guild: { id: GUILD, name: "Night Owls", icon: null } }, guildIdHint: null })
+  const r = await connectDiscordServer(w.deps, CREATOR, OWNER_USER, { tokens: installTokens("creator-access") })
   assert.ok(r.ok, JSON.stringify(r))
   const m = await saveDiscordMapping(w.deps, CREATOR, { productId: PRODUCT, roleId: ROLE })
   assert.ok(m.ok, JSON.stringify(m))
@@ -396,11 +410,11 @@ check("the install state: only this account, this browser, unaltered and within 
   assert.equal(safeBack("/account/library"), "/account/library")
 })
 
-check("the install screen asks for bot and applications.commands with Manage Roles and Create Invite", () => {
+check("the install screen asks for bot, applications.commands and identify with Manage Roles and Create Invite", () => {
   const config = discordConfig(ENV)!
   const u = new URL(installUrl(config, "https://storelib.com/api/community-roles/discord/callback", "s"))
   assert.equal(u.origin + u.pathname, "https://discord.com/oauth2/authorize")
-  assert.equal(u.searchParams.get("scope"), "bot applications.commands")
+  assert.equal(u.searchParams.get("scope"), "bot applications.commands identify")
   assert.equal(BOT_PERMISSIONS, String(268435456 + 1))
   assert.equal(u.searchParams.get("permissions"), "268435457")
   assert.equal(u.searchParams.get("response_type"), "code")
@@ -409,18 +423,50 @@ check("the install screen asks for bot and applications.commands with Manage Rol
   assert.equal(j.searchParams.get("scope"), "identify guilds.join")
 })
 
-check("the install answer: the server Discord names, the bot in it, one store a server", async () => {
+check("the install answer: only the server Discord's token answer names, one store a server", async () => {
   const { fetch } = discordServer()
   const w = world(fetch)
-  const r = await connectDiscordServer(w.deps, CREATOR, OWNER_USER, { tokens: { accessToken: "x", refreshToken: null, expiresAt: 0, scope: "bot", guild: { id: GUILD, name: "Night Owls", icon: null } }, guildIdHint: "999999999999999999" })
-  assert.ok(r.ok)
-  assert.equal(w.db.tables.discord_connections[0].guild_id, GUILD, "the token's server, not the hint")
-  const notIn = await connectDiscordServer(w.deps, CREATOR, OWNER_USER, { tokens: null, guildIdHint: "999999999999999999" })
-  assert.ok(!notIn.ok && /not in that server/.test(E(notIn).error))
-  const other = await connectDiscordServer(w.deps, "aaaaaaaa-0000-4000-8000-0000000000ff", OWNER_USER, { tokens: null, guildIdHint: GUILD })
+  const r = await connectDiscordServer(w.deps, CREATOR, OWNER_USER, { tokens: installTokens("creator-access") })
+  assert.ok(r.ok, JSON.stringify(r))
+  assert.equal(w.db.tables.discord_connections[0].guild_id, GUILD)
+  const other = await connectDiscordServer(w.deps, "aaaaaaaa-0000-4000-8000-0000000000ff", OWNER_USER, { tokens: installTokens("creator-access") })
   assert.ok(!other.ok && E(other).status === 409, "another store cannot take a connected server")
-  const none = await connectDiscordServer(w.deps, CREATOR, OWNER_USER, { tokens: null, guildIdHint: "not-a-snowflake" })
-  assert.ok(!none.ok)
+})
+
+check("the install answer: no guild in Discord's token answer is refused and stores nothing", async () => {
+  const { fetch } = discordServer()
+  const w = world(fetch)
+  const noGuild = await connectDiscordServer(w.deps, CREATOR, OWNER_USER, { tokens: installTokens("creator-access", null) })
+  assert.ok(!noGuild.ok && E(noGuild).error === "Discord didn't confirm which server you added the bot to. Try again.")
+  const noTokens = await connectDiscordServer(w.deps, CREATOR, OWNER_USER, { tokens: null })
+  assert.ok(!noTokens.ok && E(noTokens).error === "Discord didn't confirm which server you added the bot to. Try again.", "the exchange failed")
+  const bad = await connectDiscordServer(w.deps, CREATOR, OWNER_USER, { tokens: installTokens("creator-access", { id: "not-a-snowflake", name: null, icon: null }) })
+  assert.ok(!bad.ok)
+  assert.equal((w.db.tables.discord_connections ?? []).length, 0, "nothing stored")
+})
+
+check("the install answer: a guild_id in the address is ignored", async () => {
+  const { fetch } = discordServer()
+  const w = world(fetch)
+  /* The hint names this server; Discord's answer names none. The hint is not a way in. */
+  const r = await connectDiscordServer(w.deps, CREATOR, OWNER_USER, { tokens: installTokens("creator-access", null), guildIdHint: GUILD } as Parameters<typeof connectDiscordServer>[3])
+  assert.ok(!r.ok)
+  assert.equal((w.db.tables.discord_connections ?? []).length, 0)
+  const route = read("app/api/community-roles/discord/callback/route.ts")
+  assert.ok(!/searchParams\.get\("guild_id"\)/.test(route), "the callback never reads ?guild_id")
+  assert.ok(route.includes("connectDiscordServer(realDeps(c.db), c.creatorId, c.userId, { tokens })"))
+})
+
+check("the install answer: the person who added the bot must own the server or have Manage Server", async () => {
+  const { fetch } = discordServer()
+  const w = world(fetch)
+  const stranger = await connectDiscordServer(w.deps, CREATOR, OWNER_USER, { tokens: installTokens("stranger-access") })
+  assert.ok(!stranger.ok && E(stranger).status === 403 && /Manage Server/.test(E(stranger).error), "a member without Manage Server is refused")
+  assert.equal((w.db.tables.discord_connections ?? []).length, 0)
+  const manager = await connectDiscordServer(w.deps, CREATOR, OWNER_USER, { tokens: installTokens("manager-access") })
+  assert.ok(manager.ok, "a role with Manage Server is enough")
+  const install = new URL(installUrl(discordConfig(ENV)!, "https://storelib.com/cb", "s"))
+  assert.equal(install.searchParams.get("scope"), "bot applications.commands identify", "identify, so the token says who authorised it")
 })
 
 check("the callback route refuses a state it did not sign", () => {
@@ -611,10 +657,10 @@ check("idempotent: a role another purchase still gives is kept when one ends", a
 
 check("the role hierarchy: a role above the bot cannot be mapped, with how to fix it", async () => {
   const roles = [
-    { id: GUILD, name: "@everyone", position: 0, managed: false },
-    { id: ROLE, name: "Members", position: 1, managed: false },
-    { id: BOT_ROLE, name: "Storelib", position: 2, managed: true },
-    { id: "777777777777777777", name: "Admins", position: 3, managed: false },
+    { id: GUILD, name: "@everyone", position: 0, managed: false, permissions: "0" },
+    { id: ROLE, name: "Members", position: 1, managed: false, permissions: "0" },
+    { id: BOT_ROLE, name: "Storelib", position: 2, managed: true, permissions: "268435457" },
+    { id: "777777777777777777", name: "Admins", position: 3, managed: false, permissions: "8" },
   ]
   assert.equal(roleProblem(roles, [BOT_ROLE], ROLE, GUILD), null)
   assert.equal(roleProblem(roles, [BOT_ROLE], "777777777777777777", GUILD), "above_bot")
