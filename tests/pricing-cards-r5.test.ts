@@ -130,15 +130,18 @@ console.log("\n── Lines and description ──")
     check(`${plan.name}: the description is 5 to 7 words ("${plan.summary}")`, words >= 5 && words <= 7, words)
   }
   const all = Object.values(lines).flat().map((l) => l.text)
-  check("card rates, never fees", all.some((t) => /card rates/i.test(t)) && !all.some((t) => /\bfees?\b/i.test(t)))
-  check("each rate is the fee table's", lines.free.some((l) => l.text === `Card rates: ${getFeeDescription("free").replace(" per sale", "")}`) && lines.growth.some((l) => l.text === `Lower card rates: ${getFeeDescription("growth").replace(" per sale", "")}`) && lines.pro.some((l) => l.text === `Lowest card rates: ${getFeeDescription("pro").replace(" per sale", "")}`))
+  /* Changed on purpose (pricing tooltip): the lines say "Rates from 3% + $0.25" so each stays one row on a phone; "Card rates" is the title of the tip behind the circle. */
+  check("card rates, never fees", all.some((t) => /\brates (from|: )/i.test(t)) && /tt\("Card rates"\)/.test(read("components/billing/card-rates-tip.tsx")) && !all.some((t) => /\bfees?\b/i.test(t)))
+  /* Changed on purpose (pricing tooltip): each rate line starts from the plan's lowest rate, Free's and Grow's on a physical sale. */
+  check("each rate is the fee table's", lines.free.some((l) => l.text === `Rates from ${getFeeDescription("free", "physical").replace(" per sale", "")}`) && lines.growth.some((l) => l.text === `Rates from ${getFeeDescription("growth", "physical").replace(" per sale", "")}`) && lines.pro.some((l) => l.text === `Lowest rates: ${getFeeDescription("pro").replace(" per sale", "")}`))
   check("no storage numbers or technical limits", !all.some((t) => /\b\d+\s*(GB|MB|TB)\b|pages each|\d+\s*AI edits|file storage/i.test(t)), all)
   check("Grow's card adds to Free, Pro's to Grow", lines.growth[0].text === "Everything in Free" && lines.pro[0].text === "Everything in Grow")
   check("no banned words or em dashes in the lines or descriptions", ![...all, ...OFFERED_PLANS.map((p) => p.summary)].some((t) => BANNED.test(t)))
   /* Changed on purpose (pricing: Grow $14, physical rates). */
-  /* A rate is drawn whole ("5%\u00a0+\u00a0$0.25", components/billing/plan-cards keepRateWhole), and the physical rate as the line's second row. */
-  const drawn = compact.replace(/\u00a0/g, " ")
-  check("one set of lines on every surface: the compact cards draw the same", Object.values(lines).flat().every((l) => drawn.includes(l.text.replace(/&/g, "&amp;")) && (!l.detail || drawn.includes(l.detail))))
+  /* Changed on purpose (pricing tooltip): a rate is drawn whole ("5%\u00a0+\u00a0$0.25", components/billing/plan-cards keepRateWhole) in one run with its info circle, so the line's text is read without the tags; no second row. */
+  const drawn = compact.replace(/<[^>]+>/g, "").replace(/\u00a0/g, " ")
+  check("one set of lines on every surface: the compact cards draw the same", Object.values(lines).flat().every((l) => drawn.includes(l.text.replace(/&/g, "&amp;"))) && !/data-plan-line-detail/.test(compact))
+  check("every card's rate line carries its info circle", (compact.match(/data-plan-info=""/g) ?? []).length === 3)
 }
 
 console.log("\n── Contact sales ──")

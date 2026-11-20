@@ -13517,9 +13517,10 @@ const words: Record<string, string> = {
  "Your creator page and 2 websites": "Sua página de criador e 2 sites",
  "Get paid straight to your bank": "Receba direto na sua conta bancária",
  "Email your customers": "Envie emails para seus clientes",
- "Card rates: 5% + $0.25": "Taxas de cartão: 5% + $0.25",
- "Lower card rates: 3% + $0.25": "Taxas de cartão menores: 3% + $0.25",
- "Lowest card rates: 1.5% + $0.25": "As menores taxas de cartão: 1.5% + $0.25",
+ "Rates from 3% + $0.25": "Taxas a partir de 3% + $0.25",
+ "Rates from 1.5% + $0.25": "Taxas a partir de 1.5% + $0.25",
+ "Lowest rates: 1.5% + $0.25": "Menores taxas: 1.5% + $0.25",
+ "Card rates": "Taxas de cartão",
  "Verified badge on your page": "Selo de verificado na sua página",
  "Up to 10 websites": "Até 10 sites",
  "The most room for your files": "O maior espaço para seus arquivos",
@@ -13678,8 +13679,8 @@ const words: Record<string, string> = {
  "{digital} per digital sale, {physical} per physical sale": "{digital} por venda digital, {physical} por venda física",
  "Grow costs {proPrice} a month and takes {value}% less of every digital sale and {value3}% less of every physical one. Once you sell about ${value2} a month of digital products, the lower fee alone covers the plan, and everything past that is yours.": "O Grow custa {proPrice} por mês e fica com {value}% a menos de cada venda digital e {value3}% a menos de cada venda física. Quando você vende cerca de ${value2} por mês em produtos digitais, só a taxa menor já paga o plano, e tudo o que passar disso é seu.",
  "Storelib's fee for your plan and what you sell. Digital products: {freeFee} on Free, {proFee} on Grow, {scaleFee} on Pro. Products that ship: {freePhysical} on Free, {proPhysical} on Grow, {scalePhysical} on Pro. Then Stripe's card processing fee, which Stripe charges on every plan. There is nothing else.": "A taxa da Storelib do seu plano, conforme o que você vende. Produtos digitais: {freeFee} no Grátis, {proFee} no Grow, {scaleFee} no Pro. Produtos enviados: {freePhysical} no Grátis, {proPhysical} no Grow, {scalePhysical} no Pro. Depois, a taxa de processamento de cartão da Stripe, cobrada em todos os planos. Não há mais nada.",
- "3% + $0.25 on physical products": "3% + $0.25 em produtos físicos",
- "1.5% + $0.25 on physical products": "1.5% + $0.25 em produtos físicos"
+ "Card rates by product type": "Taxas de cartão por tipo de produto",
+ "Sales under {amount} pay a small-order rate with no fixed fee.": "Vendas abaixo de {amount} pagam uma taxa de pedido pequeno sem taxa fixa."
 }
 
 export default words

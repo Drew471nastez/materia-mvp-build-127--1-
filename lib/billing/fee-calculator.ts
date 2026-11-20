@@ -319,6 +319,16 @@ export function fixedFeeLabel(): string {
   return `$${(CURRENCY_FEE_RULES.USD.fixedFeeMinor / 100).toFixed(2)}`
 }
 
+/** "$4.00": the USD sale under which the small-order rate applies, with no fixed part. */
+export function smallOrderThresholdLabel(): string {
+  return `$${(CURRENCY_FEE_RULES.USD.microThresholdMinor / 100).toFixed(2)}`
+}
+
+/** The kind of sale a plan charges least on at the standard rate: digital when both are the same. */
+export function lowestRateKind(planId: string): StorelibProductKind {
+  return standardRateFor(planId, "physical") < standardRateFor(planId, "digital") ? "physical" : "digital"
+}
+
 /** "5% + $0.25": a plan's rate on one kind of sale, with the fixed part. */
 export function cardRateLabel(planId: string, kind: StorelibProductKind = "digital"): string {
   return `${ratePercentLabel(standardRateFor(planId, kind))} + ${fixedFeeLabel()}`

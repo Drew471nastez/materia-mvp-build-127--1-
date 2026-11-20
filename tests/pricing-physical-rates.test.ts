@@ -22,7 +22,7 @@ import { calculateStorelibFeeWithConfig } from "@/lib/payments/fees/engine"
 import { validateFeeConfig } from "@/lib/payments/fees/validate"
 import { clearActiveFeeConfigCache, loadActiveFeeConfig } from "@/lib/payments/fees/active"
 import type { StorelibFeeConfig, StorelibProductKind, StorelibSellerPlan } from "@/lib/payments/fees/types"
-import { cardRateLabel, computeApplicationFee, getFeeDescription, getFeePreview, physicalPartCents, productKindOf, sameRateForBothKinds } from "@/lib/billing/fee-calculator"
+import { cardRateLabel, computeApplicationFee, getFeeDescription, getFeePreview, lowestRateKind, physicalPartCents, productKindOf, sameRateForBothKinds, smallOrderThresholdLabel } from "@/lib/billing/fee-calculator"
 import { MAX_PLAN_LINES, planLineText, publicPlanLines } from "@/components/marketing/pricing-lines"
 import { OFFERED_PLANS, PRO_PRICE_CENTS, PRO_YEARLY_MONTHLY_CENTS, PRO_YEARLY_TOTAL_CENTS, YEARLY_SAVING_PERCENT, formatPlanPrice, planComparison, planQuestions, pricedFor, withCodePrice } from "@/lib/billing/plans"
 import { LEGACY_GROWTH_PRICE_ID, growthPriceId, growthPriceIds, legacyGrowthPriceIds, planFromPriceId } from "@/lib/billing/stripe-prices"
@@ -164,14 +164,26 @@ console.log("\n4. The card lines and the comparison")
 {
   const lines = publicPlanLines()
   const rate = (id: "free" | "growth" | "pro") => lines[id].find((l) => l.icon === "rate")!
-  check("Free: Card rates: 5% + $0.25, with 3% + $0.25 physical", rate("free").text === "Card rates: 5% + $0.25" && rate("free").detail === "3% + $0.25 on physical products", rate("free"))
-  check("Grow: Lower card rates: 3% + $0.25, with 1.5% + $0.25 physical", rate("growth").text === "Lower card rates: 3% + $0.25" && rate("growth").detail === "1.5% + $0.25 on physical products", rate("growth"))
-  check("Pro: one rate for both, no detail", rate("pro").text === "Lowest card rates: 1.5% + $0.25" && rate("pro").detail === undefined && sameRateForBothKinds("pro") && !sameRateForBothKinds("free"))
+  /* Changed on purpose (pricing tooltip): no second row under the rate line. One row from the plan's lowest rate, the rates by kind behind an info circle. */
+  check("Free: Rates from 3% + $0.25", rate("free").text === "Rates from 3% + $0.25", rate("free"))
+  check("Grow: Rates from 1.5% + $0.25", rate("growth").text === "Rates from 1.5% + $0.25", rate("growth"))
+  check("Pro: one rate for both, said without from", rate("pro").text === "Lowest rates: 1.5% + $0.25" && sameRateForBothKinds("pro") && !sameRateForBothKinds("free"))
+  check("each line starts from the plan's lowest rate", (["free", "growth", "pro"] as const).every((id) => rate(id).text.endsWith(cardRateLabel(id, lowestRateKind(id)))) && lowestRateKind("free") === "physical" && lowestRateKind("growth") === "physical" && lowestRateKind("pro") === "digital")
+  check("the tip's rates by kind, digital first, Pro the same on both", JSON.stringify((["free", "growth", "pro"] as const).map((id) => [rate(id).rates?.digital, rate(id).rates?.physical])) === JSON.stringify([["5% + $0.25", "3% + $0.25"], ["3% + $0.25", "1.5% + $0.25"], ["1.5% + $0.25", "1.5% + $0.25"]]))
+  check("the small-order note's line is the fee rule's $4.00", (["free", "growth", "pro"] as const).every((id) => rate(id).rates?.smallOrderUnder === "$4.00") && smallOrderThresholdLabel() === "$4.00")
+  check("no line has a second part any more", (["free", "growth", "pro"] as const).every((id) => lines[id].every((l) => !("detail" in l))))
   check("no card gains a line: six each, at most MAX_PLAN_LINES", (["free", "growth", "pro"] as const).every((id) => lines[id].length === 6 && lines[id].length <= MAX_PLAN_LINES), (["free", "growth", "pro"] as const).map((id) => lines[id].length))
-  check("as one sentence", planLineText(rate("free")) === "Card rates: 5% + $0.25, 3% + $0.25 on physical products")
+  check("as one sentence", planLineText(rate("free")) === "Rates from 3% + $0.25: 5% + $0.25 on digital products, 3% + $0.25 on physical products", planLineText(rate("free")))
   check("written from the fee rules, never typed", cardRateLabel("free", "physical") === "3% + $0.25" && cardRateLabel("growth", "physical") === "1.5% + $0.25" && getFeeDescription("growth") === "3% + $0.25 per sale" && getFeeDescription("growth", "physical") === "1.5% + $0.25 per sale")
   const cards = read("components/billing/plan-cards.tsx")
-  check("the card draws the detail on the same line, muted and kept whole", /data-plan-line-detail=""/.test(cards) && /whitespace-nowrap/.test(cards) && /tt\(line\.detail\)/.test(cards))
+  const tip = read("components/billing/card-rates-tip.tsx")
+  check("the card draws no second row, and the rate and the circle as one unbreakable run", !/data-plan-line-detail/.test(cards) && /<span className="whitespace-nowrap">[\s\S]*?<CardRatesTip rates=\{rates\} \/>/.test(cards))
+  check("the circle: a labelled button with aria-expanded, aria-controls and aria-describedby", /aria-label=\{tt\("Card rates by product type"\)\}/.test(tip) && /aria-expanded=/.test(tip) && /aria-controls=/.test(tip) && /aria-describedby=/.test(tip))
+  check("the tip is titled Card rates, so the word is still said", /<p className="crt-title">\{tt\("Card rates"\)\}<\/p>/.test(tip) && tip.indexOf('tt("Card rates")') < tip.indexOf('tt("Digital products")'))
+  check("the tip: role tooltip, portaled and fixed, digital before physical", /role="tooltip"/.test(tip) && /createPortal\(/.test(tip) && /\.crt-tip\{position:fixed/.test(tip) && tip.indexOf('tt("Digital products")') < tip.indexOf('tt("Physical products")'))
+  check("opens on hover only where a fine pointer hovers, closes on Escape, outside and scroll", /\(hover: hover\) and \(pointer: fine\)/.test(tip) && /e\.key === "Escape"/.test(tip) && /addEventListener\("pointerdown", onDown, true\)/.test(tip) && /addEventListener\("scroll", onScroll, true\)/.test(tip))
+  check("a 24px press area, 44px on a coarse pointer, and no motion under reduced motion", /\.crt-btn::before\{[^}]*width:24px;height:24px/.test(tip) && /@media \(pointer:coarse\)\{\.crt-btn::before\{width:44px;height:44px\}\}/.test(tip) && /@media \(prefers-reduced-motion:reduce\)/.test(tip) && /opacity \.16s ease-out,translate \.16s/.test(tip))
+  check("a press on the circle never picks the plan in the onboarding", /closest\("\[data-plan-action\], \[data-plan-info\]"\)/.test(cards) && /e\.stopPropagation\(\)/.test(tip))
   const selling = planComparison()[0].rows
   const dig = selling.find((r) => r.label === "Fee per digital sale")
   const phy = selling.find((r) => r.label === "Fee per physical sale")

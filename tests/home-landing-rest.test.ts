@@ -94,7 +94,8 @@ console.log("\n── Pricing ──")
   const pro = siteLimits(PRO_CHECKOUT_PLAN_ID)
   const scale = siteLimits(SCALE_CHECKOUT_PLAN_ID)
   const rateOf = (id: string) => getFeeDescription(id).replace(" per sale", "")
-  check("each rate is the fee table's", has("free", `Card rates: ${rateOf("free")}`) && has(PRO_CHECKOUT_PLAN_ID, `Lower card rates: ${rateOf(PRO_CHECKOUT_PLAN_ID)}`) && has(SCALE_CHECKOUT_PLAN_ID, `Lowest card rates: ${rateOf(SCALE_CHECKOUT_PLAN_ID)}`))
+  /* Changed on purpose (pricing tooltip): Free's and Grow's lines start from their lowest rate, a physical sale's. */
+  check("each rate is the fee table's", has("free", `Rates from ${getFeeDescription("free", "physical").replace(" per sale", "")}`) && has(PRO_CHECKOUT_PLAN_ID, `Rates from ${getFeeDescription(PRO_CHECKOUT_PLAN_ID, "physical").replace(" per sale", "")}`) && has(SCALE_CHECKOUT_PLAN_ID, `Lowest rates: ${rateOf(SCALE_CHECKOUT_PLAN_ID)}`))
   const rate = (s: string) => Number(/([\d.]+)%/.exec(s)?.[1])
   check("lower and lowest are so", rate(getFeeDescription(PRO_CHECKOUT_PLAN_ID)) < rate(getFeeDescription("free")) && rate(getFeeDescription(SCALE_CHECKOUT_PLAN_ID)) < rate(getFeeDescription(PRO_CHECKOUT_PLAN_ID)))
   check("Free's websites are its own number", has("free", `Your creator page and ${free.maxSites} websites`))
@@ -123,7 +124,8 @@ console.log("\n── Pricing ──")
     "Sales and visitor analytics": exists("app/(storelib)/app/analytics/page.tsx"),
   }
   /* Changed on purpose (landing round 14): Grow's and Pro's sixth lines are read from the storage and site tables. */
-  const fromTables = (l: string) => /card rates: [\d.]+% \+ \$0\.25$/i.test(l) || /^Your creator page and \d+ websites$/.test(l) || /^Up to \d+ websites$/.test(l) || ["Your own domain", "No Storelib branding", "The most AI edits each month", "The most room for your files", "More room for your files", "The most pages on each website"].includes(l)
+  /* Changed on purpose (pricing tooltip): "Rates from 3% + $0.25" and "Lowest rates: 1.5% + $0.25". */
+  const fromTables = (l: string) => /^(Lowest )?rates(:| from) [\d.]+% \+ \$0\.25$/i.test(l) || /^Your creator page and \d+ websites$/.test(l) || /^Up to \d+ websites$/.test(l) || ["Your own domain", "No Storelib branding", "The most AI edits each month", "The most room for your files", "More room for your files", "The most pages on each website"].includes(l)
   for (const l of all) check(`"${l}" is from a table or backed by the code`, fromTables(l) || shared[l] === true)
   check("nothing the old cards were warned off (custom code, Shopify, API, priority, physical)", !all.some((l) => /custom code|shopify|api|priority|white.?label|physical/i.test(l)))
 

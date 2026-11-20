@@ -82,7 +82,8 @@ console.log("\n1b. Six true lines on every card, on every surface")
   check("the analytics the line names exist", read("app/(storelib)/app/analytics/page.tsx").length > 0)
   const compact = renderToStaticMarkup(createElement(PricingSection, { compact: true }))
   /* Changed on purpose (pricing: Grow $14, physical rates). */
-  check("the compact cards (onboarding) draw the same six", Object.values(lines).flat().every((l) => compact.replace(/\u00a0/g, " ").includes(l.text)))
+  /* Changed on purpose (pricing tooltip): the rate and its info circle are one run of their own, so the text is read without the tags. */
+  check("the compact cards (onboarding) draw the same six", Object.values(lines).flat().every((l) => compact.replace(/<[^>]+>/g, "").replace(/\u00a0/g, " ").includes(l.text)))
   for (const f of ["components/app/billing/billing-page-client.tsx", "components/app/billing/upgrade-page-client.tsx", "components/onepage/tabs/settings-tab.tsx", "components/marketing/pricing-section.tsx"]) {
     check(`${f} draws the shared cards, no lines of its own`, /<PlanCards\b/.test(read(f)) && !/lines=\{/.test(read(f)))
   }

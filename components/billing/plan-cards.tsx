@@ -66,7 +66,8 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import { SWAP_EASE, SWAP_MS, TextSwap } from "@/components/ui/text-swap"
-import { publicPlanLines, type PlanLineIcon } from "@/components/marketing/pricing-lines"
+import { publicPlanLines, type PlanLineIcon, type PlanLineRates } from "@/components/marketing/pricing-lines"
+import { CardRatesTip } from "@/components/billing/card-rates-tip"
 import { OFFERED_PLANS, PRO_CHECKOUT_PLAN_ID, YEARLY_BILLING_LIVE, YEARLY_SAVING_PERCENT, pricedFor, type BillingInterval, type OfferedPlan, type OfferedPlanId } from "@/lib/billing/plans"
 import { tt } from "@/lib/i18n/text"
 
@@ -124,6 +125,20 @@ const PLAN_LINES = publicPlanLines()
  * so no "$0.25" is left alone on a row (scripts/check-pricing-rate-line.mjs).
  */
 const keepRateWhole = (text: string) => text.replace(/(\d%) \+ /g, "$1\u00a0+\u00a0")
+
+/** The rate line's words, then its last run (the rate, kept whole) and the info circle together, so they wrap as one. */
+function RateText({ text, rates }: { text: string; rates: PlanLineRates }) {
+  const cut = text.lastIndexOf(" ")
+  return (
+    <>
+      {cut > 0 ? text.slice(0, cut + 1) : null}
+      <span className="whitespace-nowrap">
+        {cut > 0 ? text.slice(cut + 1) : text}
+        <CardRatesTip rates={rates} />
+      </span>
+    </>
+  )
+}
 
 /**
  * MONTHLY AND YEARLY ARE BOTH ALREADY THERE. Every line that differs between
@@ -267,7 +282,7 @@ function PlanCard({
     <article
       data-plan-card={plan.id}
       data-plan-featured={featured ? "" : undefined}
-      onClick={pick ? (e) => { if (!(e.target as Element).closest("[data-plan-action]")) pick() } : undefined}
+      onClick={pick ? (e) => { if (!(e.target as Element).closest("[data-plan-action], [data-plan-info]")) pick() } : undefined}
       className={`flex w-full flex-col rounded-[22px] bg-white p-[5px] ring-[1.1px] ring-[#e7e7e9] ${
         onFilm
           ? featured
@@ -330,19 +345,13 @@ function PlanCard({
             <li key={line.text} data-plan-line={line.icon} className={`flex items-start gap-3 ${compact ? "text-[13.5px]" : "text-[14.5px]"} leading-[20px] text-[#27272a]`}>
               <LineIcon className="mt-[2px] h-4 w-4 shrink-0 text-[#3f3f46]" strokeWidth={1.5} aria-hidden="true" />
               {/*
-                The physical rate, where a plan's differs from its digital one, is part of the same line: a smaller,
-                muted second row under the rate (measured by scripts/check-pricing-rate-line.mjs at 390, 768 and
-                1280: the rate and its physical part never fit one row on a card, so it is always the row under it,
-                whole, rather than sometimes beside it and sometimes not).
+                Pricing tooltip round, the owner: the rate line is one row, from the plan's lowest rate, with a small
+                info circle right after it that opens the rates by kind (./card-rates-tip). The rate and the circle
+                are one unbreakable run, so the circle is never left alone on a row
+                (scripts/check-pricing-rate-line.mjs at 390, 768 and 1280).
               */}
               <span className="[text-wrap:pretty]">
-                {keepRateWhole(tt(line.text))}
-                {line.detail ? (
-                  <span data-plan-line-detail="" className={`mt-0.5 block ${compact ? "text-[12.5px] leading-[18px]" : "text-[13px] leading-[18px]"} text-[#71717a]`}>
-                    <span className="sr-only">, </span>
-                    {keepRateWhole(tt(line.detail))}
-                  </span>
-                ) : null}
+                {line.rates ? <RateText text={keepRateWhole(tt(line.text))} rates={line.rates} /> : keepRateWhole(tt(line.text))}
               </span>
             </li>
           )
