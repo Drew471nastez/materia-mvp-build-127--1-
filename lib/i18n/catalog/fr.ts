@@ -13601,8 +13601,8 @@ const words: Record<string, string> = {
  "Added by you in Cal.com": "Ajouté par vous dans Cal.com",
  "Open Bookings": "Ouvrir Réservations",
  "Personal access token": "Jeton d'accès personnel",
- "In Calendly, open Integrations & apps, then API and webhooks, and make a personal access token. Calendly sends bookings to other apps on its paid plans only.": "Dans Calendly, ouvrez Integrations & apps, puis API and webhooks, et créez un jeton d'accès personnel. Calendly n'envoie les réservations à d'autres apps que sur ses offres payantes.",
- "In Cal.com, open Settings, Developer, API keys and make a key. Storelib adds the webhook with it and removes it when you disconnect.": "Dans Cal.com, ouvrez Settings, Developer, API keys et créez une clé. Storelib ajoute le webhook avec elle et le retire quand vous déconnectez.",
+ "In Calendly, open the Profile menu, then Developer, then Personal access tokens. Make a token with the users:read, scheduled_events:read and webhooks:write scopes.": "Dans Calendly, ouvrez le menu du profil, puis Developer, puis Personal access tokens. Créez un jeton avec les autorisations users:read, scheduled_events:read et webhooks:write.",
+ "In Cal.com, open Settings, Security, API keys and make a key. Storelib adds the webhook with it and removes it when you disconnect.": "Dans Cal.com, ouvrez Settings, Security, API keys et créez une clé. Storelib ajoute le webhook avec elle et le retire quand vous déconnectez.",
  "Add the webhook myself instead": "Ajouter le webhook moi-même",
  "Booked on {provider}. Move or cancel it there and it changes here too.": "Réservé sur {provider}. Déplacez-le ou annulez-le là-bas et il change ici aussi."
 }

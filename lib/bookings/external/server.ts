@@ -197,7 +197,7 @@ function refusal(provider: ExternalProvider, a: Answer): string {
   const name = EXTERNAL_PROVIDER_NAME[provider]
   if (a.status === 0) return `${name} did not answer. Try again in a moment.`
   if (a.status === 401) return provider === "calendly" ? "Calendly did not accept that token. Make a new personal access token and paste it." : "Cal.com did not accept that key."
-  if (a.status === 403) return provider === "calendly" ? "Calendly refused the webhook. Webhooks need a paid Calendly plan (Standard or higher)." : "Cal.com refused the webhook for this key."
+  if (a.status === 403) return provider === "calendly" ? "Calendly refused it. Make a token with the users:read, scheduled_events:read and webhooks:write scopes." : "Cal.com refused the webhook for this key."
   return `${name} answered with an error (${a.status}). Try again.`
 }
 

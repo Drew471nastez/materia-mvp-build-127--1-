@@ -107,8 +107,8 @@ const secondary = "inline-flex h-11 items-center justify-center gap-1.5 rounded-
 const listBox = "divide-y divide-[#f1f2f4] overflow-hidden rounded-xl border border-[#e8e8ec] bg-white"
 
 const DOCS: Record<ExternalProvider, string> = {
-  calendly: "https://developer.calendly.com/how-to-authenticate-with-personal-access-tokens",
-  calcom: "https://cal.com/docs/core-features/webhooks",
+  calendly: "https://developer.calendly.com/docs/authentication/how-to-authenticate-with-personal-access-tokens",
+  calcom: "https://cal.com/docs/developing/guides/automation/webhooks",
 }
 
 function CopyRow({ label, value }: { label: string; value: string }) {
@@ -269,8 +269,8 @@ export function ExternalBookingPanel({ provider, onChanged }: { provider: Extern
           </button>
           <p className="text-[12.5px] leading-snug text-[#6b7280]">
             {provider === "calendly"
-              ? tt("In Calendly, open Integrations & apps, then API and webhooks, and make a personal access token. Calendly sends bookings to other apps on its paid plans only.")
-              : tt("In Cal.com, open Settings, Developer, API keys and make a key. Storelib adds the webhook with it and removes it when you disconnect.")}{" "}
+              ? tt("In Calendly, open the Profile menu, then Developer, then Personal access tokens. Make a token with the users:read, scheduled_events:read and webhooks:write scopes.")
+              : tt("In Cal.com, open Settings, Security, API keys and make a key. Storelib adds the webhook with it and removes it when you disconnect.")}{" "}
             <a href={DOCS[provider]} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 font-medium text-[#1a1a2e] underline underline-offset-2">
               {tt("{name} help", { name })}
               <ExternalLink aria-hidden className="h-3 w-3" />

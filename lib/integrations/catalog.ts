@@ -503,7 +503,7 @@ function bookingApp(id: "calendly" | "cal-com", provider: "calendly" | "calcom",
     about: [
       `Each booking made on your ${name} shows in Bookings with who booked, their email, the time and their time zone, and you get a notification as you do for a booking form. A booking moved or cancelled on ${name} changes in Bookings too, and you get an email when the person who booked did it.`,
       calendly
-        ? "Connect with a personal access token. Storelib adds a webhook to your Calendly account with it and removes it when you disconnect. Calendly sends bookings to other apps on its paid plans only."
+        ? "Connect with a personal access token. Storelib adds a webhook to your Calendly account with it and removes it when you disconnect. It works on every Calendly plan, Free included."
         : "Connect with an API key and Storelib adds the webhook to your Cal.com account, and removes it when you disconnect. Or add the webhook yourself with the address and secret Storelib gives you.",
       `Moving or cancelling is done on ${name}. Bookings that came in stay in Storelib after you disconnect.`,
     ],

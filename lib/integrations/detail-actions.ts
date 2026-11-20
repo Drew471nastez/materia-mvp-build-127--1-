@@ -145,8 +145,8 @@ export function setupSteps(item: Integration): string[] {
   if (item.kind === "app" && item.appId === "marketing_sync") return [`Create an API key in ${item.name} and paste it below.`, item.marketingProvider === "kit" ? "Pick the tag your subscribers get." : item.marketingProvider === "mailerlite" ? "Pick the group your subscribers join." : "Pick the list your subscribers join.", "New subscribers go there within a minute. Unsubscribes come back."]
   if (item.kind === "app" && item.appId === "booking_sync")
     return item.bookingProvider === "calendly"
-      ? ["In Calendly, open Integrations & apps, then API and webhooks, and make a personal access token.", "Paste it below and press Connect. Storelib adds the webhook.", "New Calendly bookings show in Bookings."]
-      : ["In Cal.com, open Settings, Developer, API keys and make a key.", "Paste it below and press Connect, or add the webhook yourself with the address and secret Storelib gives you.", "New Cal.com bookings show in Bookings."]
+      ? ["In Calendly, open the Profile menu, then Developer, then Personal access tokens. Make a token with the users:read, scheduled_events:read and webhooks:write scopes.", "Paste it below and press Connect. Storelib adds the webhook.", "New Calendly bookings show in Bookings."]
+      : ["In Cal.com, open Settings, Security, API keys and make a key.", "Paste it below and press Connect, or add the webhook yourself with the address and secret Storelib gives you.", "New Cal.com bookings show in Bookings."]
   if (item.kind === "app") return []
   if (item.kind === "tracker" && item.trackerId) {
     const t = TRACKERS[item.trackerId]

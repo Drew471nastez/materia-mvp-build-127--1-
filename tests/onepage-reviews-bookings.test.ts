@@ -30,6 +30,7 @@ import { SheetReviewList } from "../components/onepage/product-sheet"
 import {
   CALENDLY_API,
   REPLAY_TOLERANCE_S,
+  CALCOM_REPLAY_TOLERANCE_S,
   calcomChange,
   calcomFresh,
   calcomSignature,
@@ -351,7 +352,9 @@ check("Cal.com: X-Cal-Signature-256 over the raw body; createdAt read after it h
   assert.deepEqual(verifyCalcom("zz", raw, KEY), { ok: false, reason: "malformed" })
   assert.deepEqual(verifyCalcom(undefined, raw, KEY), { ok: false, reason: "missing" })
   assert.equal(calcomFresh({ createdAt: new Date(NOW - 60_000).toISOString() }, NOW), true)
-  assert.equal(calcomFresh({ createdAt: new Date(NOW - (REPLAY_TOLERANCE_S + 5) * 1000).toISOString() }, NOW), false)
+  /* createdAt is when the booking changed and stays on a delivery sent again: an hour old is a retry, not a replay. */
+  assert.equal(calcomFresh({ createdAt: new Date(NOW - 3600_000).toISOString() }, NOW), true)
+  assert.equal(calcomFresh({ createdAt: new Date(NOW - (CALCOM_REPLAY_TOLERANCE_S + 5) * 1000).toISOString() }, NOW), false)
   assert.equal(calcomFresh({}, NOW), false)
 })
 
@@ -360,26 +363,69 @@ check("credentials are checked for shape before anything is asked", () => {
   assert.equal(credentialProblem("calendly", "eyJ".padEnd(60, "a")), null)
   assert.notEqual(credentialProblem("calcom", "sk_live_123"), null)
   assert.equal(credentialProblem("calcom", "cal_live_0123456789abcdef0123"), null)
+  assert.equal(credentialProblem("calcom", "cal_0123456789abcdef0123"), null, "a test mode key starts cal_ only")
 })
 
 /* ─────────────────────────── mapping ─────────────────────────── */
 
 const INVITEE = `${CALENDLY_API}/scheduled_events/EV1/invitees/INV1`
+/*
+  Shaped as Calendly documents an invitee webhook (developer.calendly.com, Get sample webhook data: the envelope's
+  event, created_at, created_by and payload; InviteePayload with uri, email, first_name, last_name, name, status,
+  timezone, event, rescheduled, old_invitee, new_invitee, cancel_url, reschedule_url and scheduled_event{uri, name,
+  status, start_time, end_time, event_type, location}).
+*/
 const calendlyCreated = (over: Record<string, unknown> = {}) => ({
   event: "invitee.created",
-  created_at: new Date(NOW).toISOString(),
+  created_at: "2026-11-20T11:59:58.123456Z",
+  created_by: `${CALENDLY_API}/users/U1`,
   payload: {
     uri: INVITEE,
     email: "Ana@Example.com",
+    first_name: null,
+    last_name: null,
     name: "Ana Lima",
-    timezone: "Europe/Lisbon",
     status: "active",
+    questions_and_answers: [],
+    timezone: "Europe/Lisbon",
+    event: `${CALENDLY_API}/scheduled_events/EV1`,
+    created_at: "2026-11-20T11:59:58.123456Z",
+    updated_at: "2026-11-20T11:59:58.123456Z",
+    tracking: {},
+    text_reminder_number: null,
     rescheduled: false,
     old_invitee: null,
-    scheduled_event: { uri: `${CALENDLY_API}/scheduled_events/EV1`, name: "Intro call", start_time: "2026-12-01T10:00:00.000000Z", end_time: "2026-12-01T10:30:00.000000Z", location: { type: "zoom", join_url: "https://zoom.us/j/1" } },
+    new_invitee: null,
+    cancel_url: "https://calendly.com/cancellations/INV1",
+    reschedule_url: "https://calendly.com/reschedulings/INV1",
+    routing_form_submission: null,
+    payment: null,
+    no_show: null,
+    reconfirmation: null,
+    scheduling_method: null,
+    invitee_scheduled_by: null,
+    scheduled_event: {
+      uri: `${CALENDLY_API}/scheduled_events/EV1`,
+      name: "Intro call",
+      status: "active",
+      start_time: "2026-12-01T10:00:00.000000Z",
+      end_time: "2026-12-01T10:30:00.000000Z",
+      event_type: `${CALENDLY_API}/event_types/ET1`,
+      location: { type: "zoom", status: "pushed", join_url: "https://zoom.us/j/1" },
+      invitees_counter: { total: 1, active: 1, limit: 1 },
+      created_at: "2026-11-20T11:59:58.123456Z",
+      updated_at: "2026-11-20T11:59:58.123456Z",
+      event_memberships: [{ user: `${CALENDLY_API}/users/U1` }],
+      event_guests: [],
+    },
     ...over,
   },
 })
+/* invitee.canceled is the same InviteePayload with status canceled and a cancellation {canceled_by, reason, canceler_type, created_at}. */
+const calendlyCanceled = (over: Record<string, unknown> = {}) => {
+  const c = calendlyCreated({ status: "canceled", ...over })
+  return { ...c, event: "invitee.canceled" }
+}
 
 check("Calendly: invitee.created, invitee.canceled, and a reschedule as a move", () => {
   const c = calendlyChange(calendlyCreated())
@@ -391,9 +437,13 @@ check("Calendly: invitee.created, invitee.canceled, and a reschedule as a move",
   assert.equal(c.booking.startsAt, "2026-12-01T10:00:00.000Z")
   assert.equal(c.booking.timezone, "Europe/Lisbon")
   assert.equal(c.booking.location, "https://zoom.us/j/1")
-  const cancel = calendlyChange({ event: "invitee.canceled", payload: { uri: INVITEE, cancellation: { canceled_by: "Ana Lima", reason: "Ill", canceler_type: "invitee" } } })
+  const cancel = calendlyChange(calendlyCanceled({ cancellation: { canceled_by: "Ana Lima", reason: "Ill", canceler_type: "invitee", created_at: "2026-11-20T12:00:00.000000Z" } }))
   assert.deepEqual(cancel, { kind: "cancelled", key: `calendly:cancelled:${INVITEE}`, externalId: INVITEE, reason: "Ill", by: "Ana Lima", byHost: false })
-  const away = calendlyChange({ event: "invitee.canceled", payload: { uri: INVITEE, rescheduled: true, new_invitee: `${INVITEE}2` } })
+  /* The event's own cancellation when the invitee's is not there. */
+  const viaEvent = calendlyChange(calendlyCanceled({ scheduled_event: { ...calendlyCreated().payload.scheduled_event, status: "canceled", cancellation: { canceled_by: "Sam", reason: null, canceler_type: "host" } } }))
+  assert.equal(viaEvent.kind === "cancelled" && viaEvent.byHost, true)
+  /* Rescheduled: invitee.canceled with rescheduled true and new_invitee, then invitee.created with old_invitee (Webhook Payloads for Rescheduled Events). */
+  const away = calendlyChange(calendlyCanceled({ rescheduled: true, new_invitee: `${INVITEE}2` }))
   assert.deepEqual(away, { kind: "moved_away", key: `calendly:moved:${INVITEE}`, externalId: INVITEE, to: `${INVITEE}2` })
   const moved = calendlyChange(calendlyCreated({ uri: `${INVITEE}2`, old_invitee: INVITEE }))
   assert.equal(moved.kind === "created" && moved.rescheduledFrom, INVITEE)
@@ -401,10 +451,39 @@ check("Calendly: invitee.created, invitee.canceled, and a reschedule as a move",
   assert.equal(calendlyChange(calendlyCreated({ timezone: "Not/AZone" })).kind === "created" && (calendlyChange(calendlyCreated({ timezone: "Not/AZone" })) as any).booking.timezone, null)
 })
 
+/*
+  Shaped as Cal.com's Webhooks guide documents version 2021-10-20 (cal.com/docs, Webhook payload reference): the
+  envelope {triggerEvent, createdAt, payload}; BOOKING_CREATED with title, type, startTime, endTime, organizer,
+  attendees [{email, name, firstName, lastName, timeZone}], location ("integrations:..."), uid, videoCallData,
+  eventTitle, length, bookingId, status; BOOKING_CANCELLED with cancellationReason and status CANCELLED;
+  BOOKING_RESCHEDULED with the new uid and rescheduleId, rescheduleUid, rescheduleStartTime, rescheduleEndTime.
+*/
 const calcomBody = (trigger: string, over: Record<string, unknown> = {}, createdAt = new Date(NOW).toISOString()) => ({
   triggerEvent: trigger,
   createdAt,
-  payload: { uid: "bk_1", bookingId: 41, title: "30 min between Sam and Ana", type: "30min", eventTitle: "30 min", startTime: "2026-12-02T09:00:00.000Z", endTime: "2026-12-02T09:30:00.000Z", organizer: { email: "sam@studio.com", timeZone: "Europe/Berlin" }, attendees: [{ name: "Ana", email: "ana@example.com", timeZone: "America/Sao_Paulo" }], ...over },
+  payload: {
+    bookerUrl: "https://cal.com",
+    title: "30 min between Sam and Ana",
+    startTime: "2026-12-02T09:00:00Z",
+    endTime: "2026-12-02T09:30:00Z",
+    additionalNotes: "",
+    type: "30min",
+    description: "",
+    eventTypeId: 123,
+    organizer: { id: 1, name: "Sam", email: "sam@studio.com", username: "sam", timeZone: "Europe/Berlin", language: { locale: "en" }, timeFormat: "h:mma", utcOffset: 60 },
+    attendees: [{ email: "ana@example.com", name: "Ana", firstName: "Ana", lastName: "", timeZone: "America/Sao_Paulo", language: { locale: "en" }, utcOffset: -180 }],
+    responses: {},
+    location: "integrations:daily",
+    iCalUID: "bk_1@Cal.com",
+    iCalSequence: 0,
+    uid: "bk_1",
+    videoCallData: { type: "daily_video", id: "room", password: "x", url: "https://app.cal.com/video/bk_1" },
+    eventTitle: "30 min",
+    length: 30,
+    bookingId: 41,
+    status: "ACCEPTED",
+    ...over,
+  },
 })
 
 check("Cal.com: BOOKING_CREATED, BOOKING_CANCELLED (host or attendee), BOOKING_RESCHEDULED, PING", () => {
@@ -412,14 +491,19 @@ check("Cal.com: BOOKING_CREATED, BOOKING_CANCELLED (host or attendee), BOOKING_R
   assert.equal(c.kind, "created")
   if (c.kind === "created") {
     assert.equal(c.booking.externalId, "bk_1")
+    assert.equal(c.booking.externalEventId, "41")
+    assert.equal(c.booking.location, "https://app.cal.com/video/bk_1")
+    assert.equal(c.booking.startsAt, "2026-12-02T09:00:00.000Z")
     assert.equal(c.booking.eventName, "30 min")
     assert.equal(c.booking.inviteeName, "Ana")
     assert.equal(c.booking.timezone, "America/Sao_Paulo")
     assert.equal(c.rescheduledFrom, null)
   }
-  assert.deepEqual(calcomChange(calcomBody("BOOKING_CANCELLED", { cancellationReason: "Clash", cancelledBy: "sam@studio.com" })), { kind: "cancelled", key: "calcom:cancelled:bk_1", externalId: "bk_1", reason: "Clash", by: "sam@studio.com", byHost: true })
+  const noRoom = calcomChange(calcomBody("BOOKING_CREATED", { videoCallData: undefined }))
+  assert.equal(noRoom.kind === "created" && noRoom.booking.location, null, "an app id such as integrations:daily is never shown as a place")
+  assert.deepEqual(calcomChange(calcomBody("BOOKING_CANCELLED", { status: "CANCELLED", cancellationReason: "Clash", cancelledBy: "sam@studio.com" })), { kind: "cancelled", key: "calcom:cancelled:bk_1", externalId: "bk_1", reason: "Clash", by: "sam@studio.com", byHost: true })
   assert.equal((calcomChange(calcomBody("BOOKING_CANCELLED", { cancelledBy: "ana@example.com" })) as any).byHost, false)
-  const r = calcomChange(calcomBody("BOOKING_RESCHEDULED", { uid: "bk_2", rescheduleUid: "bk_1" }))
+  const r = calcomChange(calcomBody("BOOKING_RESCHEDULED", { uid: "bk_2", bookingId: 42, rescheduleId: 41, rescheduleUid: "bk_1", rescheduleStartTime: "2026-12-02T09:00:00Z", rescheduleEndTime: "2026-12-02T09:30:00Z" }))
   assert.equal(r.kind === "created" && r.rescheduledFrom, "bk_1")
   assert.deepEqual(calcomChange({ triggerEvent: "PING", payload: {} }), { kind: "ignored", reason: "ping" })
 })
@@ -487,7 +571,7 @@ check("Calendly: cancel only from confirmed, told once, the owner emailed when t
   const { bells, mails, deps } = told()
   const created = JSON.stringify(calendlyCreated())
   await hook(db, CONN, created, { "calendly-webhook-signature": signCalendly(created) }, deps)
-  const cancel = JSON.stringify({ event: "invitee.canceled", payload: { uri: INVITEE, cancellation: { canceled_by: "Ana Lima", reason: "Ill", canceler_type: "invitee" } } })
+  const cancel = JSON.stringify(calendlyCanceled({ cancellation: { canceled_by: "Ana Lima", reason: "Ill", canceler_type: "invitee", created_at: "2026-11-20T12:00:00.000000Z" } }))
   await hook(db, CONN, cancel, { "calendly-webhook-signature": signCalendly(cancel) }, deps)
   await hook(db, CONN, cancel, { "calendly-webhook-signature": signCalendly(cancel) }, deps)
   const row = db.tables.external_bookings[0]
@@ -498,7 +582,7 @@ check("Calendly: cancel only from confirmed, told once, the owner emailed when t
   assert.equal(mails[0].to, "owner@studio.com")
   const host = JSON.stringify(calendlyCreated({ uri: `${INVITEE}H` }))
   await hook(db, CONN, host, { "calendly-webhook-signature": signCalendly(host) }, deps)
-  const hostCancel = JSON.stringify({ event: "invitee.canceled", payload: { uri: `${INVITEE}H`, cancellation: { canceler_type: "host" } } })
+  const hostCancel = JSON.stringify(calendlyCanceled({ uri: `${INVITEE}H`, cancellation: { canceled_by: "Sam", reason: null, canceler_type: "host", created_at: "2026-11-20T12:00:00.000000Z" } }))
   await hook(db, CONN, hostCancel, { "calendly-webhook-signature": signCalendly(hostCancel) }, deps)
   assert.equal(mails.length, 1, "the host cancelled it themselves: no email to them")
 })
@@ -511,8 +595,8 @@ check("Calendly: a reschedule keeps the old booking as moved, the new one confir
     return hook(db, CONN, raw, { "calendly-webhook-signature": signCalendly(raw) }, deps)
   }
   await send(calendlyCreated())
-  await send({ event: "invitee.canceled", payload: { uri: INVITEE, rescheduled: true, new_invitee: `${INVITEE}2` } })
-  await send(calendlyCreated({ uri: `${INVITEE}2`, old_invitee: INVITEE, scheduled_event: { name: "Intro call", start_time: "2026-12-03T10:00:00Z", end_time: "2026-12-03T10:30:00Z" } }))
+  await send(calendlyCanceled({ rescheduled: true, new_invitee: `${INVITEE}2` }))
+  await send(calendlyCreated({ uri: `${INVITEE}2`, old_invitee: INVITEE, scheduled_event: { ...calendlyCreated().payload.scheduled_event, uri: `${CALENDLY_API}/scheduled_events/EV2`, start_time: "2026-12-03T10:00:00.000000Z", end_time: "2026-12-03T10:30:00.000000Z" } }))
   const [old, now] = db.tables.external_bookings
   assert.equal(old.status, "rescheduled")
   assert.equal(old.rescheduled_to, `${INVITEE}2`)
@@ -552,7 +636,7 @@ check("Cal.com end to end: signed, fresh, idempotent; a replayed old createdAt r
   assert.equal((await send(calcomBody("BOOKING_CREATED"))).status, 200)
   assert.equal(db.tables.external_booking_connections[0].status, "connected", "a pasted webhook is connected from its first signed call")
   assert.equal((await send(calcomBody("BOOKING_CREATED"))).body.duplicate, true)
-  const stale = await send(calcomBody("BOOKING_CREATED", { uid: "bk_9" }, new Date(NOW - 3600_000).toISOString()))
+  const stale = await send(calcomBody("BOOKING_CREATED", { uid: "bk_9" }, new Date(NOW - 2 * 86_400_000).toISOString()))
   assert.equal(stale.status, 401)
   assert.equal(db.tables.external_bookings.length, 1)
   await send(calcomBody("BOOKING_RESCHEDULED", { uid: "bk_2", rescheduleUid: "bk_1", startTime: "2026-12-04T09:00:00.000Z", endTime: "2026-12-04T09:30:00.000Z" }))
@@ -599,8 +683,9 @@ check("Calendly connect: the account read, a user scoped subscription with a sig
   const db = new FakeDb()
   const token = "eyJ".padEnd(80, "k")
   const p = fakeProvider({
-    [`GET ${CALENDLY_API}/users/me`]: { status: 200, body: { resource: { uri: `${CALENDLY_API}/users/U1`, current_organization: `${CALENDLY_API}/organizations/O1`, email: "sam@studio.com" } } },
-    [`POST ${CALENDLY_API}/webhook_subscriptions`]: { status: 201, body: { resource: { uri: `${CALENDLY_API}/webhook_subscriptions/SUB9` } } },
+    [`GET ${CALENDLY_API}/users/me`]: { status: 200, body: { resource: { uri: `${CALENDLY_API}/users/U1`, name: "Sam", slug: "sam", email: "sam@studio.com", scheduling_url: "https://calendly.com/sam", timezone: "Europe/Berlin", current_organization: `${CALENDLY_API}/organizations/O1` } } },
+    /* Create Webhook Subscription's 201: { resource: WebhookSubscription } with uri, callback_url, state, events, scope, organization, user. */
+    [`POST ${CALENDLY_API}/webhook_subscriptions`]: { status: 201, body: { resource: { uri: `${CALENDLY_API}/webhook_subscriptions/SUB9`, callback_url: "https://storelib.com/x", state: "active", events: ["invitee.created", "invitee.canceled"], scope: "user", organization: `${CALENDLY_API}/organizations/O1`, user: `${CALENDLY_API}/users/U1`, group: null, creator: `${CALENDLY_API}/users/U1` } } },
   })
   const out = await connectExternal(db, { creatorId: "creator-1", ownerId: "owner-1" }, { provider: "calendly", token }, "https://storelib.com", p.ask)
   assert.deepEqual(out, { ok: true })
@@ -620,6 +705,9 @@ check("Calendly connect: the account read, a user scoped subscription with a sig
   assert.equal(sealed.signing, sub.signing_key)
   const refused = await connectExternal(new FakeDb(), { creatorId: "c", ownerId: "o" }, { provider: "calendly", token }, "https://storelib.com", fakeProvider({ [`GET ${CALENDLY_API}/users/me`]: { status: 401, body: null } }).ask)
   assert.equal(refused.ok, false)
+  /* A token without the scopes: Calendly answers 403 (InsufficientScopeError), and the creator is told which scopes. */
+  const scopeless = await connectExternal(new FakeDb(), { creatorId: "c", ownerId: "o" }, { provider: "calendly", token }, "https://storelib.com", fakeProvider({ [`GET ${CALENDLY_API}/users/me`]: { status: 403, body: { title: "Insufficient scope" } } }).ask)
+  assert.match(scopeless.ok === false ? scopeless.error : "", /users:read, scheduled_events:read and webhooks:write/)
 })
 
 check("disconnect removes the provider's webhook with the stored token, then the connection; bookings stay", async () => {
@@ -652,9 +740,13 @@ check("disconnect removes the provider's webhook with the stored token, then the
 check("Cal.com connect: with a key the webhook is made and deleted by id; without, address and secret once", async () => {
   const key = "cal_live_0123456789abcdef0123"
   const db = new FakeDb()
-  const p = fakeProvider({ "POST https://api.cal.com/v2/webhooks": { status: 201, body: { status: "success", data: { id: 77 } } } })
+  /* UserWebhookOutputResponseDto: { status, data: { id (a number), subscriberUrl, triggers, active, ... } }. */
+  const p = fakeProvider({ "POST https://api.cal.com/v2/webhooks": { status: 201, body: { status: "success", data: { id: 77, userId: 5, subscriberUrl: "https://storelib.com/x", triggers: ["BOOKING_CREATED", "BOOKING_CANCELLED", "BOOKING_RESCHEDULED"], active: true, payloadTemplate: null, version: "2021-10-20" } } } })
   assert.deepEqual(await connectExternal(db, { creatorId: "creator-1", ownerId: "owner-1" }, { provider: "calcom", apiKey: key }, "https://storelib.com", p.ask), { ok: true })
   const body = JSON.parse(p.asked[0].body!)
+  assert.equal(p.asked[0].headers.authorization, `Bearer ${key}`)
+  assert.equal(body.active, true)
+  assert.match(body.subscriberUrl, /^https:\/\/storelib\.com\/api\/bookings\/external\/hook\/calcom\//)
   assert.deepEqual(body.triggers, ["BOOKING_CREATED", "BOOKING_CANCELLED", "BOOKING_RESCHEDULED"])
   assert.equal(body.secret, openConnection(db.tables.external_booking_connections[0].secret_ciphertext)!.signing)
   const d = fakeProvider({ "DELETE https://api.cal.com/v2/webhooks/77": { status: 200, body: null } })

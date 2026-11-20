@@ -2,6 +2,14 @@
  * ===========================================================================
  *  CALENDLY AND CAL.COM BOOKINGS, WITHOUT A DATABASE OR A NETWORK
  * ===========================================================================
+ * Checked against the providers' own docs on 2026-11-20:
+ *   developer.calendly.com: Create and Delete Webhook Subscription, Get
+ *   Current User, Webhook Signatures, Webhook Errors, the invitee webhook
+ *   payload and Webhook Payloads for Rescheduled Events (FAQ: webhooks are on
+ *   every Calendly plan, Free included);
+ *   cal.com/docs: API v2 Create and Delete a webhook, API keys, and the
+ *   Webhooks guide (payload reference, verifying x-cal-signature-256).
+ *
  * A OnePage's Booking block can link to or embed Calendly or Cal.com. A
  * booking made there now reaches Storelib: the provider calls a webhook
  * address Storelib made for the store (one unguessable `hook` per store and
@@ -24,7 +32,7 @@
  *              Developer › Webhooks). Each call carries X-Cal-Signature-256,
  *              the HMAC SHA-256 hex of the raw body with that secret; the
  *              body's createdAt, read only after the signature holds, must be
- *              within REPLAY_TOLERANCE_S.
+ *              within CALCOM_REPLAY_TOLERANCE_S.
  *
  * Everything here is pure (the HMACs are node:crypto), so the tests read
  * exactly what is asked of each provider and how each event is understood.
@@ -36,6 +44,14 @@ export { EXTERNAL_PROVIDERS, EXTERNAL_PROVIDER_NAME, isExternalProvider, type Ex
 
 /** How far a signed call's time may be from now, either way: older is a replay. */
 export const REPLAY_TOLERANCE_S = 5 * 60
+
+/**
+ * Cal.com's signature carries no time of its own, so its replay check is the body's createdAt: the moment the
+ * booking changed, which Cal.com's docs describe as part of the event's identity (it does not move when a delivery
+ * is sent again). Five minutes would refuse a delivery Cal.com queued or sent again, so the window is a day; within
+ * it a replay changes nothing, because every write is idempotent (./server applyChange).
+ */
+export const CALCOM_REPLAY_TOLERANCE_S = 24 * 60 * 60
 
 /** The largest webhook body read. Calendly's and Cal.com's are a few kilobytes. */
 export const MAX_HOOK_BYTES = 256 * 1024
@@ -104,19 +120,19 @@ export function verifyCalcom(header: string | null | undefined, raw: string, sec
   return sameHex(sig, calcomSignature(secret, raw)) ? { ok: true } : { ok: false, reason: "mismatch" }
 }
 
-/** A signed Cal.com body is a replay when its createdAt is missing or more than REPLAY_TOLERANCE_S from now. */
+/** A signed Cal.com body is a replay when its createdAt is missing or more than CALCOM_REPLAY_TOLERANCE_S from now. */
 export function calcomFresh(body: unknown, nowMs: number = Date.now()): boolean {
   const at = Date.parse(String((body as { createdAt?: unknown } | null)?.createdAt ?? ""))
-  return Number.isFinite(at) && Math.abs(nowMs - at) <= REPLAY_TOLERANCE_S * 1000
+  return Number.isFinite(at) && Math.abs(nowMs - at) <= CALCOM_REPLAY_TOLERANCE_S * 1000
 }
 
 /* ─── What a store connects with ──────────────────────────────────────── */
 
-/** A Calendly personal access token is a long JWT; a Cal.com API key starts cal_live_ or cal_test_. */
+/** A Calendly personal access token is a long JWT; a Cal.com API key starts cal_ (test) or cal_live_ (live), per its docs. */
 export function credentialProblem(provider: ExternalProvider, value: string): string | null {
   const v = value.trim()
-  if (provider === "calendly") return /^[A-Za-z0-9._-]{40,4000}$/.test(v) ? null : "Paste a Calendly personal access token (Integrations & apps › API and webhooks)."
-  return /^cal_(live|test)_[A-Za-z0-9]{16,200}$/.test(v) ? null : "A Cal.com API key starts with cal_live_."
+  if (provider === "calendly") return /^[A-Za-z0-9._-]{40,4000}$/.test(v) ? null : "Paste a Calendly personal access token (Profile menu › Developer › Personal access tokens)."
+  return /^cal_[A-Za-z0-9_]{16,250}$/.test(v) ? null : "A Cal.com API key starts with cal_ (Settings › Security › API keys)."
 }
 
 export interface ProviderRequest {
@@ -247,7 +263,8 @@ export function calendlyChange(body: unknown): ExternalChange {
   if (!invitee) return { kind: "ignored", reason: "no invitee" }
   if (event === "invitee.canceled") {
     if (p.rescheduled === true) return { kind: "moved_away", key: `calendly:moved:${invitee}`, externalId: invitee, to: text(p.new_invitee, 500) }
-    const c = obj(p.cancellation)
+    /* The invitee's own cancellation, else the event's (both are in Calendly's invitee payload). */
+    const c = obj(p.cancellation ?? obj(p.scheduled_event).cancellation)
     return { kind: "cancelled", key: `calendly:cancelled:${invitee}`, externalId: invitee, reason: text(c.reason, 500), by: text(c.canceled_by, 200), byHost: c.canceler_type === "host" }
   }
   if (event !== "invitee.created") return { kind: "ignored", reason: `event ${String(event).slice(0, 40)}` }
@@ -306,7 +323,8 @@ export function calcomChange(body: unknown): ExternalChange {
       startsAt,
       endsAt,
       timezone: zone(attendee.timeZone) ?? zone(obj(p.organizer).timeZone),
-      location: text(obj(p.videoCallData).url, 500) ?? text(p.location, 500),
+      /* The meeting link, else the place; never an app id such as "integrations:daily". */
+      location: text(obj(p.videoCallData).url, 500) ?? (typeof p.location === "string" && !/^integrations:/i.test(p.location) ? text(p.location, 500) : null),
     },
   }
 }
