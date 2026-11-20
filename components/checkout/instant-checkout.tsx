@@ -518,6 +518,10 @@ export function InstantCheckout({ productId, title, sellerName, sellerAvatar, pr
             {free ? "By getting it" : "By paying"} you agree to the{" "}
             <a href={platformHref("/terms")} target="_blank" rel="noopener" className="underline decoration-[#d1d5db] underline-offset-2 hover:text-[#1a1a2e]">
               Terms
+            </a>{" "}
+            and the{" "}
+            <a href={platformHref("/refund-policy")} target="_blank" rel="noopener" className="underline decoration-[#d1d5db] underline-offset-2 hover:text-[#1a1a2e]">
+              Refund policy
             </a>
             . Your receipt and access come by email.
           </p>

@@ -126,6 +126,7 @@ function isKnownPlatformPath(p: string): boolean {
     p.startsWith("/developers") ||
     p.startsWith("/privacy") ||
     p.startsWith("/terms") ||
+    p.startsWith("/refund-policy") ||
     p.startsWith("/help") ||
     p.startsWith("/account-deletion")
   )

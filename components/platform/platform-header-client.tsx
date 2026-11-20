@@ -2093,7 +2093,7 @@ export function PlatformHeaderClient({
     has its own help search a few pixels under it. They take the reading
     header now; Help keeps its own search, inside the page.
   */
-  const isReadRoute = pathname === "/help" || pathname.startsWith("/help/") || pathname === "/terms" || pathname === "/privacy"
+  const isReadRoute = pathname === "/help" || pathname.startsWith("/help/") || pathname === "/terms" || pathname === "/privacy" || pathname === "/refund-policy"
   /* The comparison pages read like the pricing page they sit beside (lib/alternatives). */
   const isCompareRoute = pathname === "/alternatives" || pathname.startsWith("/alternatives/")
   /* The use case pages (/sell/<use-case>, app/(marketing)/sell/[slug]) are marketing pages too; /sell itself is the sign up entry. */

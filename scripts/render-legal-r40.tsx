@@ -1,7 +1,7 @@
 /**
  * ROUND 40, for scripts/check-legal-r40.mjs. The real components:
  *
- *   ?view=terms | privacy        the page (components/legal/legal-page) with its text
+ *   ?view=terms | privacy | refunds   the page (components/legal/legal-page) with its text
  *   ?view=share | subscribe      a OnePage's Share or Subscribe dialog, open (components/onepage/share-sheet, subscribe-sheet)
  *   ?view=legal                  a OnePage's footer links, with Terms opened in its sheet (components/onepage/onepage-legal-links)
  *   ?view=panels                 PillPanels with `fit`: a short panel shown over a tall one
@@ -12,6 +12,7 @@ import { createRoot } from "react-dom/client"
 import { LegalPage } from "@/components/legal/legal-page"
 import { TERMS_TOC, TermsBody } from "@/components/legal/terms-body"
 import { PRIVACY_TOC, PrivacyBody } from "@/components/legal/privacy-body"
+import { REFUND_TOC, RefundBody } from "@/components/legal/refund-body"
 import { OnePageShareSheet } from "@/components/onepage/share-sheet"
 import { OnePageSubscribeSheet } from "@/components/onepage/subscribe-sheet"
 import { OnePageLegalLinks } from "@/components/onepage/onepage-legal-links"
@@ -66,6 +67,7 @@ function App() {
   const [open, setOpen] = useState(true)
   if (view === "terms") return <LegalPage kind="terms" toc={TERMS_TOC}><TermsBody /></LegalPage>
   if (view === "privacy") return <LegalPage kind="privacy" toc={PRIVACY_TOC}><PrivacyBody /></LegalPage>
+  if (view === "refunds") return <LegalPage kind="refunds" toc={REFUND_TOC}><RefundBody /></LegalPage>
   if (view === "share")
     return (
       <Page>

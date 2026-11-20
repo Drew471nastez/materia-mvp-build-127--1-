@@ -1546,7 +1546,7 @@ const FRAME_RESERVED_FIRST_SEGMENT = new Set([
   "access", "account", "account-deletion", "admin", "alternatives", "api", "app", "auth", "blog", "booking", "c",
   "checkout", "community", "cover-render", "creator-page", "dashboard", "developers", "downloads", "editions", "explore",
   "faq", "features", "help", "instagram-bio", "l", "legal", "library", "llms-full.txt", "llms.txt", "login", "member", "native-start",
-  "onboarding", "onepage-preview", "order-help", "p", "pay", "payouts-sheet", "pricing", "privacy", "products", "purchase", "receipt",
+  "onboarding", "onepage-preview", "order-help", "p", "pay", "payouts-sheet", "pricing", "privacy", "products", "purchase", "receipt", "refund-policy",
   "register", "request", "reset-password", "review", "sell", "signup", "site", "sitemap", "sitemap.xml", "sites", "store",
   "store-builder", "stripe-done", "team", "terms", "theme-preview", "themes", "u", "unsubscribe", "upgrade", "verify-email",
   "w", "website-builder", "welcome", "wishlist",

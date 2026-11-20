@@ -1,844 +1,740 @@
 /*
   THE TEXT ITSELF, written once. It is drawn by the page at /terms and by the
-  sheet a OnePage opens from its footer (components/legal/legal-sheet.tsx), so the
-  two can never say different things. Colours are read from --legal-* variables
-  with Storelib's light values as the fallback: the sheet sets them for a dark page.
+  sheet a OnePage opens from its footer (components/onepage/onepage-legal-links),
+  so the two can never say different things. Colours are read from --legal-*
+  variables with Storelib's light values as the fallback: the sheet sets them
+  for a dark page.
+
+  Every price, rate and limit is read from the code that charges or enforces it
+  (lib/legal/figures), never typed here. Anything only Storelib's owner can
+  supply is a <Placeholder>, left visibly open. A draft for review by counsel.
 */
-import { LINK, Section, SubSection, Ul } from "./legal-parts"
-import { cardRateLabel } from "@/lib/billing/fee-calculator"
+import { LINK, Placeholder, Section, SubSection, Table, Ul } from "./legal-parts"
+import {
+  FIXED_FEE,
+  MEMBERSHIP_GRACE_DAYS,
+  PAYOUT_REGIONS,
+  SMALL_ORDER_LINE,
+  STATEMENT_PREFIX,
+  aiEditsSentence,
+  emailLimitsSentence,
+  feeRows,
+  paidPlansSentence,
+} from "@/lib/legal/figures"
 
 export const TERMS_TOC = [
-  { id: "s1",  label: "1. Introduction and Acceptance" },
-  { id: "s2",  label: "2. Definitions" },
-  { id: "s3",  label: "3. Eligibility" },
-  { id: "s4",  label: "4. Account Registration and Security" },
-  { id: "s5",  label: "5. Subscription Plans and Billing" },
-  { id: "s6",  label: "6. Seller Terms" },
-  { id: "s7",  label: "7. Buyer Terms" },
-  { id: "s8",  label: "8. Payments, Payouts and Stripe" },
-  { id: "s9",  label: "9. Refund Policy" },
-  { id: "s10", label: "10. Intellectual Property" },
-  { id: "s11", label: "11. Prohibited Conduct" },
-  { id: "s12", label: "12. Account Suspension and Termination" },
-  { id: "s13", label: "13. Disclaimers" },
-  { id: "s14", label: "14. Limitation of Liability" },
-  { id: "s15", label: "15. Indemnification" },
-  { id: "s16", label: "16. Dispute Resolution" },
-  { id: "s17", label: "17. Affiliate Program" },
-  { id: "s18", label: "18. Discover Marketplace" },
-  { id: "s19", label: "19. Mobile Applications" },
-  { id: "s20", label: "20. Confidentiality" },
-  { id: "s21", label: "21. Export Compliance" },
-  { id: "s22", label: "22. Force Majeure" },
-  { id: "s23", label: "23. Severability" },
-  { id: "s24", label: "24. Entire Agreement" },
-  { id: "s25", label: "25. Assignment" },
-  { id: "s26", label: "26. Waiver" },
-  { id: "s27", label: "27. Notices" },
-  { id: "s28", label: "28. Contact Information" },
+  { id: "s1", label: "1. About these terms" },
+  { id: "s2", label: "2. Words we use" },
+  { id: "s3", label: "3. Who can use Storelib" },
+  { id: "s4", label: "4. Your account" },
+  { id: "s5", label: "5. Plans and billing" },
+  { id: "s6", label: "6. Storelib's fee on sales" },
+  { id: "s7", label: "7. Selling on Storelib" },
+  { id: "s8", label: "8. Payments, payouts and balances" },
+  { id: "s9", label: "9. Refunds, disputes and chargebacks" },
+  { id: "s10", label: "10. Buying on Storelib" },
+  { id: "s11", label: "11. Your content and our rights" },
+  { id: "s12", label: "12. Copyright and other complaints" },
+  { id: "s13", label: "13. Rules everyone follows" },
+  { id: "s14", label: "14. Integrations and other services" },
+  { id: "s15", label: "15. Storelib AI" },
+  { id: "s16", label: "16. Explore" },
+  { id: "s17", label: "17. The Storelib apps" },
+  { id: "s18", label: "18. Suspension, closing and deleting accounts" },
+  { id: "s19", label: "19. Disclaimers" },
+  { id: "s20", label: "20. Limits on liability" },
+  { id: "s21", label: "21. Indemnity" },
+  { id: "s22", label: "22. Disputes with Storelib and governing law" },
+  { id: "s23", label: "23. Changes" },
+  { id: "s24", label: "24. General terms" },
+  { id: "s25", label: "25. Contact" },
 ]
 
+const INK = "font-semibold text-[var(--legal-ink,#1a1a2e)]"
+const LOUD = "uppercase font-medium text-[var(--legal-ink,#1a1a2e)]"
+
 export function TermsBody() {
+  const fees = feeRows()
   return (
     <>
-      <Section id="s1" title="1. Introduction and Acceptance of Terms">
+      <Section id="s1" title="1. About these terms">
         <p>
-          Welcome to Storelib. These Terms of Service (&ldquo;Terms,&rdquo; &ldquo;Agreement&rdquo;) constitute a legally binding
-          agreement between you and Storelib Inc. (&ldquo;Storelib,&rdquo; &ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;) governing your access to
-          and use of the Storelib platform, including the website at storelib.com, all associated subdomains,
-          the Storelib iOS application, the Storelib Android application, and all related tools, features,
-          APIs, and services (collectively, the &ldquo;Services&rdquo;).
+          These Terms of service are the agreement between you and Storelib Inc. (&ldquo;Storelib&rdquo;, &ldquo;we&rdquo;,
+          &ldquo;us&rdquo;) for using storelib.com, its subdomains, storelib.me, the websites, creator pages, OnePages,
+          communities and checkouts Storelib hosts, the Storelib apps and every other Storelib service (together,
+          &ldquo;Storelib&rdquo; or the &ldquo;Services&rdquo;).
         </p>
         <p>
-          By creating an account, accessing, or using our Services in any way, you acknowledge that you have
-          read, understood, and agree to be bound by these Terms, as well as our{" "}
-          <a href="/privacy" className={LINK}>Privacy Policy</a>,
-          which is incorporated herein by reference. If you do not agree to these Terms, you must not use our
-          Services.
+          By creating an account, selling, buying or otherwise using Storelib you agree to these terms. They include
+          our <a href="/privacy" className={LINK}>Privacy policy</a> and our{" "}
+          <a href="/refund-policy" className={LINK}>Refund policy</a>. If you sell, the{" "}
+          <a href="https://stripe.com/connect-account/legal" target="_blank" rel="noopener noreferrer" className={LINK}>
+            Stripe Connected Account Agreement
+          </a>{" "}
+          also applies to you (section 8). If you do not agree, do not use Storelib.
         </p>
         <p>
-          We reserve the right to modify these Terms at any time. When we make material changes, we will
-          update the &ldquo;Last Updated&rdquo; date at the top of this page and may notify you by email or through a
-          prominent notice on the Services. Your continued use of the Services after any such modification
-          constitutes your acceptance of the modified Terms. It is your responsibility to review these Terms
-          periodically.
+          Some parts of these terms apply only to creators who sell, and some only to buyers; the headings say which.
+          If you are a consumer, nothing in these terms takes away rights that the law of the country you live in gives
+          you and that cannot be excluded by contract.
         </p>
       </Section>
 
-      <Section id="s2" title="2. Definitions">
-        <p>Throughout these Terms, the following definitions apply:</p>
-        <div className="space-y-3 mt-3">
+      <Section id="s2" title="2. Words we use">
+        <div className="mt-3 space-y-3">
           {[
-            ['"Platform"', 'means the Storelib website (storelib.com), all associated subdomains (e.g., yourstore.storelib.com), the Storelib iOS and Android mobile applications, and all related services, tools, and features.'],
-            ['"User"', 'means any individual or entity that accesses or uses the Platform, including Sellers, Buyers, and general visitors.'],
-            ['"Seller"', '(also referred to as "Creator" or "Entrepreneur") means a User who creates an account on Storelib to list, market, and sell digital products, manage a storefront, operate a OnePage link-in-bio, capture email subscribers, or otherwise use the Platform\'s seller tools.'],
-            ['"Buyer"', '(also referred to as "Customer") means a User who browses, purchases, downloads, or otherwise acquires digital products from Sellers through the Platform.'],
-            ['"Digital Products"', 'means any digital goods, files, downloads, templates, courses, ebooks, presets, sample packs, design assets, software, plugins, or other digital content listed for sale or distribution on the Platform.'],
-            ['"Store"', 'means the customizable online storefront provided to Sellers on the Platform for listing and selling Digital Products.'],
-            ['"OnePage"', 'means the link-in-bio page feature provided to Sellers on the Platform for showcasing links, social profiles, products, and collecting email subscribers.'],
-            ['"Discover"', 'means the public marketplace section of the Platform where Buyers can browse and discover Digital Products from various Sellers.'],
-            ['"Content"', 'means all text, images, graphics, audio, video, data, files, product listings, reviews, messages, and other materials that Users upload, post, transmit, or make available through the Platform.'],
-            ['"Stripe Connect"', 'means the payment processing service provided by Stripe, Inc. ("Stripe") that Storelib uses to process transactions between Buyers and Sellers.'],
-          ].map(([term, def], i) => (
-            <p key={i}>
-              <span className="font-semibold text-[var(--legal-ink,#1a1a2e)]">{term}</span>{" "}{def}
+            ["Creator", "an account holder who uses Storelib to sell, publish a store, website, creator page, OnePage or community, or collect subscribers. Also called a seller."],
+            ["Buyer", "anyone who buys, claims a free product, books, tips, joins a paid community or subscribes to a membership from a creator through Storelib, with or without an account."],
+            ["Product", "anything a creator offers through Storelib: a download, a course, a membership, a community plan or event ticket, a booking or service, a tip, or a physical product that ships."],
+            ["Store", "a creator's products and the places they are sold: their creator page at storelib.com/<name>, their websites, their OnePage, their communities and Explore."],
+            ["Explore", "Storelib's public marketplace, where buyers browse products from many creators."],
+            ["Content", "anything you upload, write or publish on Storelib: text, pictures, files, videos, product listings, reviews, messages and emails."],
+            ["Stripe", "Stripe, Inc. and its affiliates, which process payments for Storelib and hold creators' payout accounts through Stripe Connect."],
+          ].map(([term, def]) => (
+            <p key={term}>
+              <span className={INK}>&ldquo;{term}&rdquo;</span> means {def}
             </p>
           ))}
         </div>
       </Section>
 
-      <Section id="s3" title="3. Eligibility">
-        <SubSection title="3.1 Age Requirement">
+      <Section id="s3" title="3. Who can use Storelib">
+        <Ul items={[
+          "You must be at least 18, or the age of majority where you live if that is higher, to open an account or to sell. A younger person may buy only with the involvement of a parent or guardian, who is responsible for the purchase.",
+          "You must be able to enter a binding contract, and if you use Storelib for a business, you confirm you may bind that business to these terms.",
+          "You must not be located in, or ordinarily resident in, a country or region under comprehensive sanctions, and must not be on a sanctions list maintained by the United States, the European Union, the United Kingdom or the United Nations.",
+          "You may not use Storelib if we have closed an account of yours before for breaking these terms, unless we agree in writing.",
+          `Payouts are available only to creators with a bank account in a country Stripe can pay out to from Storelib, currently ${PAYOUT_REGIONS}.`,
+        ]} />
+      </Section>
+
+      <Section id="s4" title="4. Your account">
+        <SubSection title="4.1 Opening an account">
           <p>
-            You must be at least 18 years of age (or the age of legal majority in your jurisdiction, whichever
-            is greater) to create an account and use the Services. By creating an account, you represent and
-            warrant that you meet this age requirement. If you are under the required age, you must not use our
-            Services.
+            You sign up with an email address and a password or a one time code, or with Google or Apple. Give accurate
+            details and keep them up to date, including the email address we write to.
           </p>
         </SubSection>
-        <SubSection title="3.2 Legal Capacity">
+        <SubSection title="4.2 Keeping it safe">
           <p>
-            By using the Services, you represent and warrant that you have the full legal right, power, and
-            authority to enter into this Agreement, to perform your obligations under this Agreement, and to
-            comply with all applicable local, state, national, and international laws, rules, and regulations.
+            Keep your sign in details private. You are responsible for what happens under your account. Tell us at once
+            at <a href="mailto:support@storelib.com" className={LINK}>support@storelib.com</a> if you think someone
+            else has used it. Settings, Security can sign you out on every device.
           </p>
         </SubSection>
-        <SubSection title="3.3 Account Restrictions">
+        <SubSection title="4.3 Team members and businesses">
           <p>
-            You may not use the Services if you have been previously suspended or removed from the Platform,
-            or if you are prohibited from using the Services under applicable law. Storelib reserves the right
-            to refuse service to anyone for any reason at any time.
+            A creator can invite team members to work on their store and can hold more than one store. Team members act
+            for the store owner, and the owner is responsible for what they do. Whoever owns a store may hand it over to
+            another account through Storelib; the store&apos;s orders, balance and history go with it.
+          </p>
+        </SubSection>
+        <SubSection title="4.4 One person, honest accounts">
+          <p>
+            Do not open accounts to get around a suspension, a limit, a fee or these terms, and do not pretend to be
+            someone else.
           </p>
         </SubSection>
       </Section>
 
-      <Section id="s4" title="4. Account Registration and Security">
-        <SubSection title="4.1 Account Creation">
+      <Section id="s5" title="5. Plans and billing">
+        <SubSection title="5.1 The plans">
           <p>
-            To access certain features of the Services, you must create an account. You may register using
-            your email address and password, or through supported third-party authentication providers (such
-            as Google or Apple Sign-In). You agree to provide accurate, current, and complete information
-            during registration and to update such information as necessary to keep it accurate and complete.
+            Storelib has a Free plan with no monthly fee, and two paid plans: {paidPlansSentence()}. What each plan
+            includes is on the <a href="/pricing" className={LINK}>pricing page</a>. Prices are in US dollars and do
+            not include any tax that applies to them.
           </p>
         </SubSection>
-        <SubSection title="4.2 Account Types">
+        <SubSection title="5.2 Renewal">
           <p>
-            Storelib offers different account types, including Seller accounts and Buyer accounts. The
-            features available to you depend on your account type and subscription plan. Account types and
-            their associated features may be modified by Storelib at any time.
+            A paid plan renews automatically every month on the day you started it, and the card on file is charged
+            through Stripe each time, until you cancel. By choosing a paid plan you authorise those charges.
           </p>
         </SubSection>
-        <SubSection title="4.3 Account Security">
+        <SubSection title="5.3 Upgrading">
           <p>
-            You are solely responsible for maintaining the confidentiality and security of your account
-            credentials, including your password. You agree to notify Storelib immediately at{" "}
-            <a href="mailto:team@storelib.com" className={LINK}>team@storelib.com</a>{" "}
-            if you become aware of any unauthorized access to or use of your account. Storelib is not liable
-            for any loss or damage arising from your failure to protect your account credentials. You are
-            responsible for all activities that occur under your account, whether or not authorized by you.
+            An upgrade is charged at once: you pay the difference for the rest of the current month, worked out by
+            Stripe to the second. The new plan starts only once that payment succeeds. If your bank asks you to confirm
+            the payment and you do not, or the card is declined, nothing changes and you stay on your plan.
           </p>
         </SubSection>
-        <SubSection title="4.4 One Account Per Person">
+        <SubSection title="5.4 Downgrading and cancelling">
           <p>
-            Each individual or entity may only maintain one Seller account on the Platform unless explicitly
-            authorized by Storelib. Creating multiple accounts to circumvent Platform rules, fees, or
-            restrictions is strictly prohibited and may result in the termination of all associated accounts.
+            A downgrade to a cheaper paid plan, or to Free, takes effect at the end of the month you have paid for; you
+            keep your current plan until then. Cancelling works the same way: the plan stays until the end of the paid
+            month, then your account moves to Free and its fee. Your products, pages and orders stay as they are,
+            except for features your new plan does not include (for example a custom domain). You can cancel in
+            Billing at any time.
+          </p>
+        </SubSection>
+        <SubSection title="5.5 Failed payments">
+          <p>
+            If a renewal payment fails, Stripe tries the card again over the following days and we tell you. You keep
+            your plan while it retries. If the payment still fails, the subscription ends and your account moves to
+            Free.
+          </p>
+        </SubSection>
+        <SubSection title="5.6 Refunds of plan fees">
+          <p>
+            Plan fees are not refunded, in full or in part, when you cancel or downgrade, except where the law requires
+            it or we charged you by mistake. Paid plans are sold for use in business. See the{" "}
+            <a href="/refund-policy" className={LINK}>Refund policy</a>.
+          </p>
+        </SubSection>
+        <SubSection title="5.7 Price changes">
+          <p>
+            We may change plan prices. We will tell you by email at least{" "}
+            <Placeholder>notice period for price changes: to be confirmed by Storelib</Placeholder> before a higher
+            price applies to you, and it applies from your next renewal after that. If you do not want to pay it, cancel
+            before then. If you subscribed to a plan or price we no longer offer, you keep it while your subscription
+            stays active, unless we tell you otherwise with the same notice.
           </p>
         </SubSection>
       </Section>
 
-      <Section id="s5" title="5. Subscription Plans, Fees, and Billing">
-        <SubSection title="5.1 Subscription Plans">
+      <Section id="s6" title="6. Storelib's fee on sales">
+        <p>
+          Storelib takes a fee from each sale paid through Storelib. The rate depends on your plan and on whether the
+          product ships. On an order of {SMALL_ORDER_LINE} or more, the fee is the rate below plus {FIXED_FEE} for the
+          order:
+        </p>
+        {/* Every rate from the fee rules checkout charges by (lib/billing/fee-calculator, through lib/legal/figures), never typed. */}
+        <Table
+          head={["Plan", "Price", "Digital products", "Products that ship"]}
+          rows={fees.map((f) => [f.name, f.price, f.digital, f.physical])}
+        />
+        <p>
+          On an order under {SMALL_ORDER_LINE} the {FIXED_FEE} is dropped and a higher rate applies instead, so a small
+          order never pays more than one at {SMALL_ORDER_LINE}:{" "}
+          {fees.map((f) => `${f.name} ${f.smallDigital} for digital and ${f.smallPhysical} for physical`).join("; ")}.
+          Orders in another currency use the same rules at an equivalent amount, set per currency in our fee rules.
+        </p>
+        <Ul items={[
+          "An order with both kinds of product pays each product's own rate, with one fixed fee for the order. Delivery, cash on delivery charges and tax on an order that ships pay the rate for products that ship.",
+          "Digital includes downloads, courses, memberships, communities, event tickets, bookings and tips.",
+          "A paid plan's rate applies while its subscription is active; otherwise the Free rate applies.",
+          "The fee is kept back from the payment before your share reaches your balance. Payouts shows the fee on every sale and the rule it came from.",
+          "Storelib's fee is not returned when a sale is refunded or lost in a dispute.",
+          "Today Storelib pays Stripe's card processing cost on Storelib sales out of its fee. Stripe may charge you separately under your agreement with Stripe, for example when it converts a sale into your payout currency.",
+          "Orders paid in cash on delivery do not pass through Storelib and pay no fee.",
+        ]} />
+        <p>
+          We may change the fee with notice as described in section 23. A change applies to sales made after it takes
+          effect.
+        </p>
+      </Section>
+
+      <Section id="s7" title="7. Selling on Storelib">
+        <SubSection title="7.1 You are the seller">
           <p>
-            Storelib offers multiple subscription plans for Sellers, including a free plan and paid plans.
-            Each plan provides different features, email limits, and transaction fee rates. The current plans
-            and their features are described on our{" "}
-            <a href="https://storelib.com/pricing" className={LINK}>Pricing page</a>.
-            Storelib reserves the right to change plan features, pricing, and fee structures at any time with
-            reasonable notice to affected Users.
+            When you sell through Storelib, the contract of sale is between you and the buyer. You are the seller, and
+            you are responsible for your products, your listings, delivering what you sold, customer service, refunds,
+            returns and the rights buyers have under consumer law. Storelib provides the software and takes the payment
+            for you through Stripe; Storelib is not the seller, is not a merchant of record, and does not take title to
+            your products.
           </p>
         </SubSection>
-        <SubSection title="5.2 Transaction Fees">
+        <SubSection title="7.2 Taxes">
           <p>
-            Storelib charges a platform transaction fee on each sale made through the Platform. The fee
-            varies based on the Seller&apos;s current subscription plan:
+            You are responsible for working out, charging, reporting and paying any tax due on your sales (sales tax,
+            VAT, GST and the like). Settings, Taxes lets you set the rates your store charges; Storelib charges what
+            you set, never a rate it made up, and does not file or pay tax for you. Where Storelib turns on Stripe Tax
+            for memberships, Stripe calculates that tax; responsibility for paying it stays with you unless the law
+            makes Storelib responsible. We may share sales information with tax authorities where the law requires it.
           </p>
-          {/* The rates from the fee rules checkout charges by (lib/billing/fee-calculator), so the terms cannot quote an old one. */}
+        </SubSection>
+        <SubSection title="7.3 Listings and delivery">
           <Ul items={[
-            `Free Plan: ${cardRateLabel("free", "digital")} per transaction for digital products, ${cardRateLabel("free", "physical")} per transaction for physical products`,
-            `Grow Plan: ${cardRateLabel("growth", "digital")} per transaction for digital products, ${cardRateLabel("growth", "physical")} per transaction for physical products`,
-            `Pro Plan: ${cardRateLabel("pro", "digital")} per transaction for digital and physical products`,
+            "Describe each product accurately: what it is, what the buyer gets, any license terms, delivery times and costs, and anything that limits its use.",
+            "Upload complete, working files free of malware. Storelib checks uploads and may block a file it finds harmful.",
+            "Downloads are delivered by email and in the buyer's library as soon as payment succeeds. Buyers keep access to what they bought even if you archive the product later.",
+            "Ship physical products within the time you state, with tracking where you can, and keep your stock and delivery settings right.",
+            "Deliver bookings, events and services as described, at the time agreed.",
           ]} />
+        </SubSection>
+        <SubSection title="7.4 Your refund and return policy">
           <p>
-            Sellers who subscribed to a plan that is no longer offered keep that plan&apos;s transaction fee
-            rate for as long as that subscription remains active.
-          </p>
-          <p>
-            Transaction fees are automatically deducted from each sale via Stripe Connect&apos;s application fee
-            mechanism before the remaining amount is deposited into the Seller&apos;s connected Stripe account.
-            Storelib&apos;s transaction fees are separate from any fees charged by Stripe for payment processing.
+            You decide your refund policy and, for products that ship, your return window, and you show them to buyers
+            before they pay. Whatever you decide cannot take away buyers&apos; rights under the law. The{" "}
+            <a href="/refund-policy" className={LINK}>Refund policy</a> explains how refunds work on Storelib and what
+            applies when you have not stated a policy.
           </p>
         </SubSection>
-        <SubSection title="5.3 Subscription Billing">
+        <SubSection title="7.5 Consumer law">
           <p>
-            Paid subscription plans are billed on a monthly recurring basis. By subscribing to a paid plan,
-            you authorize Storelib to charge your designated payment method on a recurring monthly basis until
-            you cancel. All subscription fees are quoted in U.S. dollars (USD) unless otherwise stated.
+            You give buyers the information the law requires before they pay and after (who you are, how to contact
+            you, the total price, cancellation and withdrawal rights). If you sell to consumers in the EEA or the UK,
+            they usually have 14 days to withdraw from a purchase. Storelib currently asks for the buyer&apos;s consent
+            to start at once, and their acknowledgement that the right then ends, only at the checkout of community
+            memberships; for other products you are responsible for handling withdrawal requests.
           </p>
         </SubSection>
-        <SubSection title="5.4 Plan Changes">
+        <SubSection title="7.6 What you must not sell">
+          <Ul items={[
+            "Anything illegal where you or your buyers are, or that infringes someone's copyright, trademark, privacy or other rights",
+            "Stolen, pirated or resold content you have no right to sell, including products bought on Storelib or elsewhere",
+            "Malware, spyware, or tools made for hacking, phishing, spam or fraud",
+            "Sexual content involving minors, in any form, and content that sexually exploits anyone",
+            "Content that promotes violence, terrorism, hatred or harassment of people for who they are",
+            "Weapons, explosives, drugs, controlled substances and drug paraphernalia, prescription medicines, tobacco and nicotine products",
+            "Personal data, accounts, credentials or identity documents of other people",
+            "Get rich quick schemes, pyramid schemes, misleading financial or health claims, and products whose main purpose is to deceive",
+            "Gambling, lotteries and securities, unless we have agreed in writing",
+            "Anything Stripe's restricted business list does not allow",
+          ]} />
+          <p>We may remove a product or listing that breaks this section or that we reasonably believe is unlawful.</p>
+        </SubSection>
+        <SubSection title="7.7 Reviews">
           <p>
-            You may upgrade, downgrade, or cancel your subscription plan at any time through your account
-            settings. Upgrades take effect immediately, and you will be charged the prorated difference for
-            the remainder of the current billing cycle. Downgrades and cancellations take effect at the end
-            of the current billing cycle.
+            Storelib Reviews lets buyers rate what they bought. Do not write, buy or reward reviews of your own products,
+            and do not import reviews that are not genuine reviews of that product by its buyers. We may remove reviews
+            that break these terms.
           </p>
         </SubSection>
-        <SubSection title="5.5 No Refunds on Subscriptions">
+        <SubSection title="7.8 Email you send">
           <p>
-            Subscription fees are non-refundable except as required by applicable law. If you cancel your
-            subscription, you will continue to have access to paid features until the end of your current
-            billing period, after which your account will revert to the free plan.
+            You may email only people who subscribed to you or bought from you, and you must comply with anti spam law
+            (for example CAN-SPAM, the GDPR and the ePrivacy rules, and CASL). Every campaign carries an unsubscribe
+            link, and Storelib stops sending to anyone who uses it. Campaign emails per calendar month, by plan:{" "}
+            {emailLimitsSentence()}.
           </p>
         </SubSection>
-        <SubSection title="5.6 Taxes">
+        <SubSection title="7.9 Buyer data">
           <p>
-            You are responsible for all applicable taxes, duties, and levies associated with your use of the
-            Services, including sales tax, VAT, GST, and any other taxes that may apply to your transactions.
-            Storelib may collect and remit taxes on your behalf where required by law.
+            You receive your buyers&apos; and subscribers&apos; names, email addresses and, for orders that ship, delivery
+            details. You are the controller of that data under data protection law and must use it only as the law
+            allows and as your own privacy notice says. Storelib processes it for you as described in the{" "}
+            <a href="/privacy#s10" className={LINK}>Privacy policy</a> and our data processing terms{" "}
+            <Placeholder>link to Storelib&apos;s data processing agreement: to be published by Storelib</Placeholder>.
           </p>
         </SubSection>
-        <SubSection title="5.7 Stripe Connected Account Agreement">
+        <SubSection title="7.10 Domains, websites and pages">
           <p>
-            Payment processing for Sellers is provided by Stripe and is subject to the{" "}
+            On plans that include it you can connect your own domain. You must own or have the right to use it and keep
+            it registered; we are not responsible for problems at your registrar. You are responsible for everything on
+            your store, websites, creator page, OnePage and communities, including the policies they show.
+          </p>
+        </SubSection>
+        <SubSection title="7.11 Physical products and partners">
+          <p>
+            If you ship goods yourself or through a partner you connect (a print on demand, dropshipping, fulfilment or
+            shipping service), you remain the seller. Storelib sends each paid order to the partner you chose, as you
+            set it up; the partner&apos;s own terms apply between you and them. You can offer cash on delivery on
+            orders where everything ships; that money is between you and the buyer.
+          </p>
+        </SubSection>
+        <SubSection title="7.12 Communities, memberships, events and bookings">
+          <p>
+            Memberships and community plans renew until the member cancels; you set their price, what they include and
+            their refund policy, which the checkout shows. A member whose renewal fails keeps access for{" "}
+            {MEMBERSHIP_GRACE_DAYS} days while the card is retried. Event tickets and bookings follow the refund window
+            and cancellation terms you set for them.
+          </p>
+        </SubSection>
+        <SubSection title="7.13 Imports">
+          <p>
+            You may import your own products and reviews from other platforms (for example Gumroad, Shopify or
+            Payhip). Import only what you own or have the right to use.
+          </p>
+        </SubSection>
+      </Section>
+
+      <Section id="s8" title="8. Payments, payouts and balances">
+        <SubSection title="8.1 Stripe">
+          <p>
+            Payments on Storelib are processed by Stripe through Stripe Connect. To sell you set up a payout account
+            with Stripe through Storelib and agree to the{" "}
             <a href="https://stripe.com/connect-account/legal" target="_blank" rel="noopener noreferrer" className={LINK}>
               Stripe Connected Account Agreement
-            </a>, which includes the{" "}
+            </a>
+            , which includes the{" "}
             <a href="https://stripe.com/legal/ssa" target="_blank" rel="noopener noreferrer" className={LINK}>
               Stripe Services Agreement
-            </a>. By setting up payments on Storelib you agree to those terms, as they may be modified by
-            Stripe from time to time, and you authorize Storelib to instruct Stripe on payments, payouts,
-            refunds and reversals relating to your sales. Storelib is not a bank, a payment institution or a
-            money transmitter, and does not hold your funds on deposit. Continuing to receive payments
-            through the Services is conditional on your agreement with Stripe remaining in force.
+            </a>
+            . You authorise Storelib to give Stripe instructions about your payments, payouts, refunds and reversals.
+            Storelib is not a bank or a money transmitter and does not hold your money; your balance is held by
+            Stripe.
           </p>
         </SubSection>
-        <SubSection title="5.8 Identity Verification">
+        <SubSection title="8.2 Identity verification">
           <p>
-            Before a Seller can accept payments, applicable law and the card networks require that the
-            Seller&apos;s identity is verified. Stripe collects and verifies identity information and
-            documents, which may include a government issued identity document, a photograph or selfie
-            processed with biometric technology, a date of birth, an address, and for a business its
-            registration and beneficial ownership details. Storelib stores none of it. Where the Seller
-            photographs a document in the Storelib application, Storelib transmits that photograph to
-            Stripe over an encrypted connection and does not retain it; everything else, including any
-            selfie and any biometric comparison, is collected by and provided directly to Stripe. See
-            the <a href="/privacy" className={LINK}>Privacy Policy</a>.
-          </p>
-          <p>
-            Verification is required, not optional. Checkout remains closed and payouts remain unavailable
-            until verification is complete, and Stripe may require further information at any time as a
-            Seller&apos;s activity changes. Where required information is not provided by the deadline given,
-            charges or payouts may be paused or the connected account may be closed.
+            The law and the card networks require Stripe to verify who you are before you can be paid. Stripe may ask
+            for an identity document, a photo of your face compared with it, your date of birth, address, tax number
+            and, for a business, its registration and owners. Storelib passes what you type or photograph to Stripe
+            and does not keep it (see the <a href="/privacy#s5" className={LINK}>Privacy policy</a>). Until
+            verification is complete, checkout stays closed and payouts are unavailable, and Stripe may ask for more at
+            any time.
           </p>
         </SubSection>
-        <SubSection title="5.9 Settlement, Holds, and Payouts">
+        <SubSection title="8.3 How a sale is paid">
           <p>
-            Funds from a sale are not available immediately. Each payment settles after a period set by
-            Stripe for the Seller&apos;s country and account, after which the amount becomes available in the
-            Seller&apos;s balance, and the Seller may request a payout to their bank account. Payouts are
-            made in the currency of the connected account. Storelib does not guarantee any settlement or
-            arrival time, and Stripe may hold, delay or reverse funds where required by law, by the card
-            networks, or for risk reasons.
+            Each sale is charged on Storelib&apos;s Stripe account and your share, the payment less Storelib&apos;s fee,
+            is transferred to your Stripe account in the same charge. The buyer&apos;s bank statement shows{" "}
+            {STATEMENT_PREFIX}* followed by your store&apos;s name, or the name you choose in Settings, Payments.
           </p>
         </SubSection>
-        <SubSection title="5.10 Chargebacks, Disputes, and Negative Balances">
+        <SubSection title="8.4 Balance and Cash out">
           <p>
-            A Buyer may dispute a payment with their card issuer. Where that happens, the disputed amount is
-            withdrawn by the card networks while the dispute is decided, and Storelib may reverse the
-            corresponding amount from the Seller&apos;s share of that sale, up to the amount the Seller
-            received for it. Storelib responds to disputes on the Seller&apos;s behalf and may include
-            evidence the Seller supplies; the Seller&apos;s card issuer, not Storelib or Stripe, decides the
-            outcome. If the dispute is resolved in the Seller&apos;s favour, the reversed amount is returned
-            to their balance.
+            Your share is pending until Stripe makes it available, which depends on your country and account and is
+            often about seven days for a new account. Payouts shows the date for each sale. You send your available
+            balance to your bank with Cash out; it usually arrives in a few business days. Payouts are in your Stripe
+            account&apos;s currency. We do not guarantee settlement or arrival times.
           </p>
+        </SubSection>
+        <SubSection title="8.5 Holds and reserves">
           <p>
-            Sellers remain responsible for refunds, chargebacks and related fees arising from their sales.
-            Where these exceed the Seller&apos;s available balance, the balance may become negative and is
-            recovered from subsequent sales; payouts are unavailable while a balance is negative. Storelib
-            may suspend payouts or close a connected account where chargeback levels are excessive or where
-            it reasonably suspects fraud.
+            Storelib or Stripe may hold or delay a payout, or keep part of your balance back for a period, where we
+            reasonably need to: to cover likely refunds or disputes, while we look into suspected fraud or a breach of
+            these terms, when your products have not been delivered, or when the law, the card networks or Stripe
+            require it. We will tell you why unless the law or a risk of fraud prevents us.
+          </p>
+        </SubSection>
+        <SubSection title="8.6 A balance below zero">
+          <p>
+            A refund, a reversal or a lost dispute can take your balance below zero. You owe that amount. It is
+            recovered from your next sales before anything else is paid out, and Cash out is unavailable until your
+            balance is above zero. If it is not recovered within a reasonable time, we may ask Stripe to debit the
+            bank account on file where the law allows, or recover it from you in other lawful ways.
           </p>
         </SubSection>
       </Section>
 
-      <Section id="s6" title="6. Seller Terms">
-        <SubSection title="6.1 Seller Obligations">
-          <p>As a Seller on Storelib, you agree to:</p>
-          <Ul items={[
-            "Provide accurate and truthful information in your account profile, store, product listings, and all Content you publish on the Platform.",
-            "Ensure that all Digital Products you list for sale are of adequate quality, function as described, and meet the reasonable expectations of Buyers.",
-            "Respond to Buyer inquiries and support requests in a timely and professional manner.",
-            "Comply with all applicable laws, regulations, and third-party rights in connection with your use of the Platform and the sale of your Digital Products.",
-            "Not engage in deceptive, misleading, or fraudulent practices of any kind.",
-          ]} />
-        </SubSection>
-        <SubSection title="6.2 Product Listings">
-          <p>
-            Sellers may create product listings that include a title, description, pricing, cover images,
-            product gallery images, and digital files for download. All product listings must accurately
-            represent the Digital Product being offered. Storelib reserves the right to remove, modify, or
-            restrict any product listing that violates these Terms, our content policies, or applicable law.
-          </p>
-        </SubSection>
-        <SubSection title="6.3 Pricing">
-          <p>
-            Sellers set their own prices for their Digital Products. Prices must be displayed in a clear and
-            accurate manner. Sellers may offer discount codes, sales, and promotions at their discretion.
-            Sellers may also offer free products (priced at $0.00), which still require Buyers to provide
-            their email address for delivery.
-          </p>
-        </SubSection>
-        <SubSection title="6.4 Digital Product Delivery">
-          <p>
-            When a Buyer purchases a Digital Product, Storelib automatically delivers the product via email
-            with download links and a receipt page. Sellers are responsible for ensuring that all uploaded
-            files are complete, functional, and free from viruses or malware.
-          </p>
-        </SubSection>
-        <SubSection title="6.5 Intellectual Property">
-          <p>
-            Sellers represent and warrant that they own or have obtained all necessary rights, licenses,
-            permissions, and consents to list, sell, and distribute their Digital Products on the Platform.
-            If Storelib receives a notice of intellectual property infringement regarding a Seller&apos;s product
-            (including a DMCA takedown notice), Storelib may remove the product from the Platform immediately
-            and may suspend or terminate the Seller&apos;s account in cases of repeated infringement.
-          </p>
-        </SubSection>
-        <SubSection title="6.6 Prohibited Products">
-          <p>Sellers must not list or sell any of the following on the Platform:</p>
-          <Ul items={[
-            "Products that infringe upon any third-party intellectual property rights",
-            "Stolen, pirated, or illegally obtained content",
-            "Products that contain malware, viruses, spyware, or other harmful code",
-            "Products that promote hate, violence, discrimination, harassment, or illegal activity",
-            "Products that contain child sexual abuse material or exploitation content of any kind",
-            "Products that are misleading, deceptive, or fraudulent",
-            "Products that violate any applicable law or regulation",
-            "Weapons, drugs, controlled substances, or any illegal items",
-            "Personal data, credentials, or private information of other individuals",
-            "Products designed to facilitate spam, phishing, or other malicious activities",
-            "Resale of products originally purchased on Storelib or other platforms without the original creator's explicit permission",
-          ]} />
-        </SubSection>
-        <SubSection title="6.7 Email System Usage">
-          <p>Sellers who use Storelib&apos;s built-in email system agree to:</p>
-          <Ul items={[
-            "Only send emails to users who have voluntarily subscribed or purchased a product (no purchased or scraped email lists).",
-            "Include truthful and non-misleading content in all emails.",
-            "Comply with all applicable anti-spam laws, including CAN-SPAM, GDPR, and CASL.",
-            "Not send emails that contain malware, phishing attempts, or deceptive content.",
-            "Respect the email sending limits associated with their subscription plan.",
-          ]} />
-        </SubSection>
-        <SubSection title="6.8 Store and OnePage Content">
-          <p>
-            Sellers are responsible for all Content displayed on their Store and OnePage pages. Sellers must
-            not include content that violates these Terms, applicable law, or third-party rights.
-          </p>
-        </SubSection>
-        <SubSection title="6.9 Custom Domains">
-          <p>
-            Sellers on eligible plans may connect a custom domain to their Storelib store. Sellers are
-            responsible for owning or having the right to use the custom domain and for maintaining the domain
-            registration. Storelib is not responsible for any issues arising from the Seller&apos;s custom domain
-            configuration, expiration, or transfer.
-          </p>
-        </SubSection>
-      </Section>
-
-      <Section id="s7" title="7. Buyer Terms">
-        <SubSection title="7.1 Purchasing Digital Products">
-          <p>
-            When you purchase a Digital Product on Storelib, you are entering into a transaction with the
-            Seller of that product, not with Storelib. Storelib acts as the platform that facilitates the
-            transaction between you and the Seller, processing payments through Stripe Connect on behalf of
-            the Seller.
-          </p>
-        </SubSection>
-        <SubSection title="7.2 License to Digital Products">
-          <p>
-            Unless otherwise specified by the Seller, when you purchase a Digital Product, you receive a
-            personal, non-exclusive, non-transferable, revocable license to use the Digital Product for your
-            own personal or commercial purposes as described in the product listing. You may not resell,
-            redistribute, sublicense, or share the Digital Product with third parties unless the Seller&apos;s
-            license terms explicitly permit such use.
-          </p>
-        </SubSection>
-        <SubSection title="7.3 Download Access">
-          <p>
-            After purchasing a Digital Product, you will receive download access via email and/or through a
-            receipt page on the Platform. Download links may be subject to expiration and/or download limits.
-            It is your responsibility to download your purchased products within the available timeframe.
-          </p>
-        </SubSection>
-        <SubSection title="7.4 Reviews and Ratings">
-          <p>
-            Buyers may submit reviews and ratings for Digital Products they have purchased. Reviews must be
-            honest, accurate, and based on your genuine experience with the product. Storelib reserves the
-            right to remove reviews that violate these Terms.
-          </p>
-        </SubSection>
-        <SubSection title="7.5 No Buyer Account Required">
-          <p>
-            Buyers may complete purchases without creating a full account. An email address is required for
-            all transactions (including free products) to facilitate delivery and communication.
-          </p>
-        </SubSection>
-      </Section>
-
-      <Section id="s8" title="8. Payments, Payouts, and Stripe Connect">
-        <SubSection title="8.1 Payment Processing">
-          <p>
-            All payments on the Platform are processed through Stripe Connect. Storelib does not directly
-            process, handle, or store Buyer payment card information. By making a purchase, you agree to
-            Stripe&apos;s terms of service and privacy policy. Accepted payment methods include credit cards,
-            debit cards, Apple Pay, Google Pay, and other methods supported by Stripe.
-          </p>
-        </SubSection>
-        <SubSection title="8.2 Seller Payouts">
-          <p>
-            To receive payouts, Sellers must connect a Stripe account via Stripe Connect. Storelib
-            automatically deducts the applicable platform transaction fee from each sale before the remaining
-            amount is transferred to the Seller&apos;s connected Stripe account. Payouts are processed according
-            to Stripe&apos;s standard payout schedule for the Seller&apos;s region.
-          </p>
-        </SubSection>
-        <SubSection title="8.3 Payout Holds and Disputes">
-          <p>Storelib and/or Stripe may hold, delay, or reverse payouts in the following circumstances:</p>
-          <Ul items={[
-            "A Buyer initiates a payment dispute (chargeback) with their bank or card issuer",
-            "Suspected fraudulent activity on the Seller's account",
-            "Violation of these Terms or Stripe's terms of service",
-            "Required by law or regulation",
-            "A refund is issued for a transaction",
-          ]} />
-        </SubSection>
-        <SubSection title="8.4 Currency">
-          <p>
-            All prices and fees on the Platform are denominated in U.S. dollars (USD) unless otherwise
-            stated. Currency conversion for international transactions is handled by Stripe.
-          </p>
-        </SubSection>
-      </Section>
-
-      <Section id="s9" title="9. Refund Policy">
-        <SubSection title="9.1 Digital Products Are Non-Refundable by Default">
-          <p>
-            Due to the nature of digital products (which can be downloaded and copied immediately upon
-            purchase), all sales on Storelib are final by default.
-          </p>
-        </SubSection>
-        <SubSection title="9.2 Seller-Initiated Refunds">
-          <p>
-            Sellers may, at their sole discretion, issue refunds to Buyers. Sellers can process refunds
-            through their Storelib dashboard, which initiates the refund through Stripe Connect.
-          </p>
-        </SubSection>
-        <SubSection title="9.3 Exceptions and Buyer Protection">
-          <p>A Buyer may request a refund or file a complaint if:</p>
-          <Ul items={[
-            "The Digital Product was not delivered or the download link did not work",
-            "The Digital Product was materially different from what was described in the listing",
-            "The Digital Product contained malware or harmful code",
-            "The transaction was unauthorized or fraudulent",
-          ]} />
-          <p>
-            In such cases, Buyers should first contact the Seller directly. If unresolved, the Buyer may
-            contact Storelib at{" "}
-            <a href="mailto:team@storelib.com" className={LINK}>team@storelib.com</a>{" "}
-            for assistance.
-          </p>
-        </SubSection>
-        <SubSection title="9.4 Chargeback Policy">
-          <p>
-            If a Buyer files a chargeback with their bank, the chargeback will be processed through Stripe.
-            The Seller is responsible for any chargeback fees imposed by Stripe. Storelib encourages Buyers
-            to contact the Seller or Storelib support before filing a chargeback.
-          </p>
-        </SubSection>
-      </Section>
-
-      <Section id="s10" title="10. Intellectual Property">
-        <SubSection title="10.1 Storelib&apos;s Intellectual Property">
-          <p>
-            The Platform, including its design, code, functionality, branding, logos, trademarks, and all
-            proprietary content created by Storelib, is the exclusive property of Storelib Inc. and is
-            protected by copyright, trademark, and other intellectual property laws.
-          </p>
-        </SubSection>
-        <SubSection title="10.2 User Content License">
-          <p>
-            By uploading, posting, or making Content available through the Platform, you grant Storelib a
-            non-exclusive, worldwide, royalty-free, sublicensable license to use, display, reproduce,
-            distribute, and transmit such Content solely for the purposes of operating, providing, promoting,
-            and improving the Services. You retain all ownership rights to your Content.
-          </p>
-        </SubSection>
-        <SubSection title="10.3 DMCA and Copyright Infringement">
-          <p>
-            If you believe that your copyrighted work has been used in a way that constitutes copyright
-            infringement, you may submit a DMCA notification to:{" "}
-            <a href="mailto:legal@storelib.com" className={LINK}>legal@storelib.com</a>.
-            Your notice must include a description of the copyrighted work, the location of the infringing
-            material, your contact information, a good faith belief statement, and your signature under
-            penalty of perjury.
-          </p>
-        </SubSection>
-        <SubSection title="10.4 Counter-Notification">
-          <p>
-            If you believe that your Content was removed by mistake or misidentification, you may submit a
-            counter-notification to{" "}
-            <a href="mailto:legal@storelib.com" className={LINK}>legal@storelib.com</a>{" "}
-            containing the required information under the DMCA.
-          </p>
-        </SubSection>
-      </Section>
-
-      <Section id="s11" title="11. Prohibited Conduct">
-        <p>You agree not to engage in any of the following activities while using the Platform:</p>
+      <Section id="s9" title="9. Refunds, disputes and chargebacks">
+        <p>
+          How refunds work is in the <a href="/refund-policy" className={LINK}>Refund policy</a>, which is part of these
+          terms. In short:
+        </p>
         <Ul items={[
-          "Violating any applicable law, regulation, or third-party right",
-          "Using the Services for any fraudulent, deceptive, or illegal purpose",
-          "Impersonating any person or entity, or falsely stating your affiliation",
-          "Interfering with, disrupting, or attempting to gain unauthorized access to the Platform, its servers, or networks",
-          "Using automated tools, bots, scrapers, or crawlers without our express written permission",
-          "Attempting to reverse engineer, decompile, or disassemble any part of the Platform",
-          "Uploading, transmitting, or distributing any viruses, malware, spyware, or other harmful code",
-          "Harassing, threatening, bullying, or intimidating other Users",
-          "Collecting or harvesting personal information of other Users without their consent",
-          "Using the Platform to send spam, unsolicited communications, or bulk messaging",
-          "Circumventing any security features, access controls, or usage limits of the Platform",
-          "Creating multiple accounts to evade bans, suspensions, fees, or other Platform restrictions",
-          "Manipulating reviews, ratings, search results, or analytics data",
-          "Using the Platform in any manner that infringes upon the rights of Storelib or any third party",
+          "Creators refund their own sales from Orders, in full or in part. The refunded amount is taken from the creator's share; Storelib's fee is not returned.",
+          "A full refund of a digital product closes the buyer's access to it. A partial refund does not.",
+          "Storelib may refund a buyer on a creator's behalf where the law, the card network rules or these terms require it, for example when a product was never delivered, and recovers the amount from the creator's balance.",
+        ]} />
+        <SubSection title="9.1 Disputes and chargebacks">
+          <p>
+            A buyer may ask their bank to reverse a payment. Because the payment was taken on Storelib&apos;s Stripe
+            account, Storelib answers the bank, using evidence the creator adds under Disputes in Payouts. While the
+            case is open, the creator&apos;s share of that sale is taken back from their balance; it is returned if the
+            bank decides for the creator. If the creator loses, the amount stays with the buyer and the buyer&apos;s
+            access to a digital product they bought once ends. The bank decides, not Storelib or Stripe.
+          </p>
+          <p>
+            Today Storelib pays the dispute fee Stripe charges. We may pass it on to creators after notice under
+            section 23. A membership is not ended automatically by a dispute; the creator or Storelib may end the
+            member&apos;s access. We may restrict selling or payouts for a creator with a high rate of disputes or
+            refunds, and may close the account of a buyer who files disputes in bad faith.
+          </p>
+        </SubSection>
+      </Section>
+
+      <Section id="s10" title="10. Buying on Storelib">
+        <SubSection title="10.1 Who you buy from">
+          <p>
+            You buy from the creator, not from Storelib. The creator is responsible for the product, its delivery and
+            its description, and for any refund or return. The checkout names the store you are buying from. Some
+            checkouts ask you to tick a box to agree to these terms and the Refund policy, and to the creator&apos;s own
+            policy where they show one.
+          </p>
+        </SubSection>
+        <SubSection title="10.2 Prices and payment">
+          <p>
+            The checkout shows the total you pay, with delivery and tax where they apply, before you pay. Payment is
+            taken by Stripe; Storelib never sees your full card number. On a creator&apos;s own website prices are in the
+            store&apos;s currency; on storelib.com they are in US dollars, converted from the creator&apos;s price at the
+            day&apos;s rate where needed.
+          </p>
+        </SubSection>
+        <SubSection title="10.3 Getting what you bought">
+          <Ul items={[
+            "Downloads and courses: by email, on the receipt page, and in your library if you have an account. Download links are limited to protect the creator, and the limits are well above normal use.",
+            "Memberships and communities: access while the membership is active, until you cancel or it ends.",
+            "Physical products: shipped by the creator or their partner; your order page shows tracking. Before an order is in progress you can cancel it from the order page.",
+          ]} />
+        </SubSection>
+        <SubSection title="10.4 License">
+          <p>
+            Unless the creator&apos;s listing says otherwise, a digital product is licensed to you for your own personal
+            use, not sold. You may not share, resell or publish it. The creator&apos;s own license terms, where they give
+            them, decide what else you may do.
+          </p>
+        </SubSection>
+        <SubSection title="10.5 Help with an order">
+          <p>
+            Use Need help with this order? on your receipt or order page to reach the store. If the store has not
+            answered within three days on a question about the goods or a refund, you can ask Storelib to step in from
+            the same place. Our <a href="/refund-policy" className={LINK}>Refund policy</a> says what to expect.
+          </p>
+        </SubSection>
+        <SubSection title="10.6 Reviews">
+          <p>
+            You may review what you bought. Reviews must be honest and about your own experience. We may remove a review
+            that breaks these terms.
+          </p>
+        </SubSection>
+      </Section>
+
+      <Section id="s11" title="11. Your content and our rights">
+        <SubSection title="11.1 Your content stays yours">
+          <p>
+            You keep ownership of your content. You give Storelib a worldwide, nonexclusive, royalty free license to
+            host, store, copy, adapt (for example resize, translate or format), display and distribute your content,
+            and to show it in Explore, in search results and in Storelib&apos;s own promotion of your store, only as
+            needed to run, improve and promote Storelib. The license ends when you delete the content or your account,
+            except for copies buyers already have, content others have shared, and backups kept for a limited time.
+          </p>
+        </SubSection>
+        <SubSection title="11.2 You have the rights">
+          <p>
+            You confirm you own or have permission for all content you publish, including music, fonts, pictures and
+            anything an AI produced for you, and that it does not break the law or these terms.
+          </p>
+        </SubSection>
+        <SubSection title="11.3 Storelib's rights">
+          <p>
+            Storelib&apos;s software, design, themes, brand and documentation belong to Storelib and its licensors. You
+            may use them only to use Storelib as these terms allow. A theme you get from Storelib may be used for your
+            own store on Storelib. If you send us ideas or feedback, we may use them without paying you.
+          </p>
+        </SubSection>
+      </Section>
+
+      <Section id="s12" title="12. Copyright and other complaints">
+        <p>
+          If you believe content on Storelib infringes your copyright, send a notice to{" "}
+          <a href="mailto:legal@storelib.com" className={LINK}>legal@storelib.com</a> with:
+        </p>
+        <Ul items={[
+          "the work you say is infringed, and the address of the content on Storelib",
+          "your name, postal address, telephone number and email address",
+          "a statement that you believe in good faith the use is not authorised by the owner, its agent or the law",
+          "a statement, under penalty of perjury, that your notice is accurate and that you are the owner or authorised to act for them",
+          "your physical or electronic signature",
+        ]} />
+        <p>
+          Storelib&apos;s designated agent under the US Digital Millennium Copyright Act is{" "}
+          <Placeholder>name and postal address of the DMCA designated agent, registered with the US Copyright Office: to be confirmed by Storelib</Placeholder>.
+        </p>
+        <p>
+          We remove or disable the content and tell the person who posted it. They may send a counter notice to the
+          same address with the content&apos;s address, a statement under penalty of perjury that it was removed by
+          mistake, their name, address and telephone number, consent to the jurisdiction of the courts where they
+          live (or, outside the US, any court where Storelib may be found), and their signature. We may restore the
+          content after 10 business days unless the complainant tells us they have gone to court. We close the
+          accounts of repeat infringers.
+        </p>
+        <p>
+          To report anything else that breaks the law or these terms, use Report on the product or page, or write to{" "}
+          <a href="mailto:support@storelib.com" className={LINK}>support@storelib.com</a>. We look at every report and
+          tell you what we decided where we can.
+        </p>
+      </Section>
+
+      <Section id="s13" title="13. Rules everyone follows">
+        <p>You agree not to:</p>
+        <Ul items={[
+          "break the law, or help anyone else do so, through Storelib",
+          "deceive or defraud anyone, or pretend to be someone else",
+          "harass, threaten or abuse anyone",
+          "send spam or messages people did not ask for",
+          "collect other people's personal data without a lawful basis",
+          "upload malware, or try to get into accounts, systems or data that are not yours",
+          "test, scan or overload Storelib's systems, or get around its security, limits or fees",
+          "scrape Storelib or use bots against it without our written permission, except for search engines following robots.txt",
+          "copy, decompile or reverse engineer Storelib except as the law allows",
+          "manipulate reviews, rankings, analytics or Explore",
+          "use Storelib to build a competing service from its content or data",
         ]} />
       </Section>
 
-      <Section id="s12" title="12. Account Suspension and Termination">
-        <SubSection title="12.1 Termination by You">
-          <p>
-            You may delete your account at any time through your account settings or by contacting us at{" "}
-            <a href="mailto:team@storelib.com" className={LINK}>team@storelib.com</a>.
-            If you have an active paid subscription, cancellation does not entitle you to a refund of any
-            prepaid fees.
-          </p>
-        </SubSection>
-        <SubSection title="12.2 Suspension or Termination by Storelib">
-          <p>
-            Storelib reserves the right to suspend, restrict, or terminate your account at any time, with or
-            without notice, including for violation of these Terms, engaging in fraudulent or illegal
-            activity, repeated copyright infringement, failure to complete Stripe Connect verification, or
-            extended inactivity.
-          </p>
-        </SubSection>
-        <SubSection title="12.3 Effect of Termination">
-          <p>Upon termination of your account:</p>
-          <Ul items={[
-            "Your access to the Platform and all associated features will be immediately revoked",
-            "Your store, product listings, and OnePage will be taken offline",
-            "Any pending payouts may be held for a reasonable period to account for potential chargebacks, refunds, or disputes",
-            "Buyers who previously purchased your products will retain access to their purchased downloads for a reasonable period",
-          ]} />
-        </SubSection>
-        <SubSection title="12.4 Survival">
-          <p>
-            The following sections survive termination of your account: Definitions, Intellectual Property,
-            Disclaimers, Limitation of Liability, Indemnification, Governing Law, and any other provisions
-            that by their nature should survive termination.
-          </p>
-        </SubSection>
-      </Section>
-
-      <Section id="s13" title="13. Disclaimers">
-        <SubSection title='13.1 "As Is" Basis'>
-          <p className="uppercase font-medium text-[var(--legal-ink,#1a1a2e)]">
-            The Services are provided on an &ldquo;as is&rdquo; and &ldquo;as available&rdquo; basis without warranties of any
-            kind, either express or implied. To the fullest extent permitted by applicable law, Storelib
-            disclaims all warranties, including but not limited to implied warranties of merchantability,
-            fitness for a particular purpose, and non-infringement.
-          </p>
-        </SubSection>
-        <SubSection title="13.2 No Guarantee">
-          <p>Storelib does not warrant or guarantee that:</p>
-          <Ul items={[
-            "The Services will be uninterrupted, timely, secure, or error-free",
-            "The results obtained from the use of the Services will be accurate or reliable",
-            "Any defects in the Services will be corrected",
-            "Any specific level of sales, revenue, or traffic will be achieved by Sellers",
-          ]} />
-        </SubSection>
-        <SubSection title="13.3 Third-Party Content">
-          <p>
-            Storelib does not endorse, guarantee, or assume responsibility for any Digital Products, Content,
-            or services offered by Sellers on the Platform. Buyers acknowledge that they are purchasing
-            Digital Products from independent Sellers and that Storelib is not the seller of those products.
-          </p>
-        </SubSection>
-      </Section>
-
-      <Section id="s14" title="14. Limitation of Liability">
-        <SubSection title="14.1 Exclusion of Damages">
-          <p className="uppercase font-medium text-[var(--legal-ink,#1a1a2e)]">
-            To the maximum extent permitted by applicable law, in no event shall Storelib, its officers,
-            directors, employees, agents, or affiliates be liable for any indirect, incidental, special,
-            consequential, exemplary, or punitive damages, including but not limited to damages for loss of
-            profits, revenue, goodwill, data, or other intangible losses, arising out of or related to your
-            use of or inability to use the Services.
-          </p>
-        </SubSection>
-        <SubSection title="14.2 Cap on Liability">
-          <p className="uppercase font-medium text-[var(--legal-ink,#1a1a2e)]">
-            To the maximum extent permitted by applicable law, Storelib&apos;s total aggregate liability to you
-            for all claims arising out of or related to these Terms or the Services shall not exceed the
-            greater of (A) the amount you paid to Storelib in subscription fees during the twelve (12) months
-            preceding the claim, or (B) one hundred U.S. dollars ($100.00).
-          </p>
-        </SubSection>
-      </Section>
-
-      <Section id="s15" title="15. Indemnification">
+      <Section id="s14" title="14. Integrations and other services">
         <p>
-          You agree to indemnify, defend, and hold harmless Storelib, its officers, directors, employees,
-          agents, and affiliates from and against any and all claims, liabilities, damages, losses, costs,
-          and expenses (including reasonable attorneys&apos; fees) arising out of or related to:
+          You can connect other services to your store: analytics and advertising tags, email platforms, print on
+          demand and shipping partners, calendars, Discord and Telegram, webhooks and others. When you connect one, you
+          tell Storelib to send it the data the integration needs, and that service&apos;s own terms and privacy
+          policy apply to you. Storelib does not control them and is not responsible for them. If you add tracking
+          tags to your website, you are responsible for having a lawful basis and the consent the law requires; the{" "}
+          <a href="/privacy#s6" className={LINK}>Privacy policy</a> explains what Storelib does to help.
+        </p>
+      </Section>
+
+      <Section id="s15" title="15. Storelib AI">
+        <p>
+          Storelib AI builds and edits websites, pages, text and pictures from what you ask. To answer, Storelib sends
+          your request and the store content it needs to the AI provider that runs the model (see the{" "}
+          <a href="/privacy#s8" className={LINK}>Privacy policy</a>). You may also connect your own Anthropic or OpenAI
+          key, in which case your agreement with that provider applies to its use.
         </p>
         <Ul items={[
-          "Your use of or access to the Services",
-          "Your violation of these Terms or any applicable law or regulation",
-          "Your Content, including any Digital Products you list or sell on the Platform",
-          "Your infringement of any intellectual property or other rights of any third party",
-          "Any dispute between you and another User (including disputes between Sellers and Buyers)",
-          "Any tax liability arising from your use of the Services",
+          "AI output can be wrong, can look like other people's work and can repeat what others received. Check it before you publish it; you are responsible for what you publish.",
+          "Do not use Storelib AI to make content these terms forbid, or to make claims about real products, prices or reviews that are not true.",
+          `AI edits a month, by plan: ${aiEditsSentence()}.`,
         ]} />
       </Section>
 
-      <Section id="s16" title="16. Dispute Resolution">
-        <SubSection title="16.1 Disputes Between Buyers and Sellers">
-          <p>
-            Disputes regarding Digital Products, including product quality, description accuracy, delivery,
-            and refunds, are primarily between the Buyer and the Seller. Storelib encourages parties to
-            resolve disputes directly. Storelib may, at its sole discretion, mediate disputes, but is under
-            no obligation to do so.
-          </p>
-        </SubSection>
-        <SubSection title="16.2 Disputes with Storelib">
-          <p>
-            If you have a dispute with Storelib, you agree to first attempt to resolve it informally by
-            contacting us at{" "}
-            <a href="mailto:team@storelib.com" className={LINK}>team@storelib.com</a>.
-            If the dispute is not resolved within thirty (30) days, either party may pursue formal resolution.
-          </p>
-        </SubSection>
-        <SubSection title="16.3 Governing Law">
-          <p>
-            These Terms and any disputes arising out of or related to these Terms or the Services shall be
-            governed by and construed in accordance with the laws of the State of Delaware, United States,
-            without regard to its conflict of laws principles.
-          </p>
-        </SubSection>
-        <SubSection title="16.4 Arbitration Agreement">
-          <p>
-            Any dispute that cannot be resolved informally shall be resolved by binding arbitration
-            administered under the rules of the American Arbitration Association (AAA). The arbitration
-            shall be conducted in the English language. The arbitrator&apos;s award shall be final and binding
-            and may be entered as a judgment in any court of competent jurisdiction.
-          </p>
-        </SubSection>
-        <SubSection title="16.5 Class Action Waiver">
-          <p className="uppercase font-medium text-[var(--legal-ink,#1a1a2e)]">
-            To the fullest extent permitted by applicable law, you agree that any dispute resolution
-            proceedings will be conducted only on an individual basis and not in a class, consolidated, or
-            representative action.
-          </p>
-        </SubSection>
-      </Section>
-
-      <Section id="s17" title="17. Affiliate Program">
-        <SubSection title="17.1 Overview">
-          <p>
-            Storelib offers an affiliate program that allows Users to earn commissions by referring new
-            Sellers to the Platform. Participation is subject to additional terms communicated at the time
-            of enrollment.
-          </p>
-        </SubSection>
-        <SubSection title="17.2 Affiliate Conduct">
-          <p>
-            Affiliates must not use deceptive, misleading, or fraudulent methods to generate referrals,
-            including misleading advertising, impersonation, spam, cookie stuffing, self-referrals, or any
-            form of artificial traffic generation. Storelib reserves the right to revoke affiliate status
-            and withhold commissions for violations.
-          </p>
-        </SubSection>
-        <SubSection title="17.3 Commission Payments">
-          <p>
-            Affiliate commissions are paid out according to the schedule and terms specified in the affiliate
-            program documentation. Storelib reserves the right to modify commission rates, payment schedules,
-            and program terms at any time with reasonable notice.
-          </p>
-        </SubSection>
-      </Section>
-
-      <Section id="s18" title="18. Discover Marketplace">
-        <SubSection title="18.1 Public Listings">
-          <p>
-            Products listed on the Storelib Discover marketplace are publicly visible to all visitors. By
-            listing a product on the Platform, Sellers consent to their product appearing in the Discover
-            section, in search results, and in any promotional materials for the Platform.
-          </p>
-        </SubSection>
-        <SubSection title="18.2 Ranking and Display">
-          <p>
-            Storelib determines the order and display of products in the Discover section at its sole
-            discretion. Factors may include product quality, ratings, sales history, recency, and relevance.
-            Storelib does not guarantee any specific placement or visibility for any product.
-          </p>
-        </SubSection>
-        <SubSection title="18.3 Removal from Discover">
-          <p>
-            Storelib reserves the right to remove any product from the Discover section at any time for any
-            reason, including violation of these Terms, quality concerns, or complaints from Users.
-          </p>
-        </SubSection>
-      </Section>
-
-      <Section id="s19" title="19. Mobile Applications">
-        <SubSection title="19.1 App Store Terms">
-          <p>
-            The Storelib iOS and Android applications are available through the Apple App Store and Google
-            Play Store, respectively. Your use of these applications is also subject to the terms and
-            conditions of the applicable app store. In the event of a conflict between these Terms and the
-            app store terms, these Terms shall control to the extent permitted by the app store.
-          </p>
-        </SubSection>
-        <SubSection title="19.2 App Updates">
-          <p>
-            We may release updates to our mobile applications from time to time. Some updates may be required
-            for continued use of the app. You agree to install updates as they become available to ensure the
-            best experience and security.
-          </p>
-        </SubSection>
-        <SubSection title="19.3 Push Notifications">
-          <p>
-            Our mobile applications may send push notifications related to your account activity, sales,
-            orders, and Platform updates. You can manage push notification preferences through your device
-            settings at any time.
-          </p>
-        </SubSection>
-      </Section>
-
-      <Section id="s20" title="20. Confidentiality">
-        <SubSection title="20.1 Confidential Information">
-          <p>
-            In the course of using the Platform, you may receive confidential information from Storelib or
-            from other Users. Confidential information includes business strategies, technical information,
-            financial data, and non-public product or feature information shared by Storelib.
-          </p>
-        </SubSection>
-        <SubSection title="20.2 Obligations">
-          <p>
-            You agree to keep all confidential information strictly confidential and not to disclose it to
-            any third party without prior written consent. You agree to use confidential information only for
-            the purposes for which it was disclosed.
-          </p>
-        </SubSection>
-      </Section>
-
-      <Section id="s21" title="21. Export Compliance">
+      <Section id="s16" title="16. Explore">
         <p>
-          You agree to comply with all applicable export and re-export control laws and regulations,
-          including the Export Administration Regulations, trade and economic sanctions maintained by the
-          U.S. Treasury Department&apos;s Office of Foreign Assets Control (OFAC), and the International Traffic
-          in Arms Regulations. You represent and warrant that you are not located in, under the control of,
-          or a national or resident of any country to which the United States has embargoed goods or services.
+          Published digital products can appear on Explore, Storelib&apos;s marketplace, unless you turn Explore off for
+          a product in its sales channels. Physical products are sold on your own website only. We decide what Explore
+          shows and in what order, using things like relevance, recency, ratings and sales, and we may leave out or
+          remove a product at any time. Placement is not guaranteed and is not paid for.
         </p>
       </Section>
 
-      <Section id="s22" title="22. Force Majeure">
+      <Section id="s17" title="17. The Storelib apps">
         <p>
-          Storelib shall not be liable for any failure or delay in performing its obligations under these
-          Terms if such failure or delay results from circumstances beyond Storelib&apos;s reasonable control,
-          including but not limited to acts of God, natural disasters, war, terrorism, pandemics, government
-          actions, power failures, internet disruptions, or failures of third-party service providers
-          (including Stripe).
+          The Storelib app for iPhone and iPad is available from Apple&apos;s App Store, and the App Store&apos;s terms
+          also apply to it. Apple is not responsible for the app or its support. The app may send push notifications
+          you can turn off in your device settings, and some updates may be needed to keep using it.
         </p>
       </Section>
 
-      <Section id="s23" title="23. Severability">
-        <p>
-          If any provision of these Terms is found to be invalid, illegal, or unenforceable by a court of
-          competent jurisdiction, such invalidity shall not affect any other provision, which shall remain
-          in full force and effect. The invalid provision shall be modified to the minimum extent necessary
-          to make it valid, legal, and enforceable while preserving its original intent.
-        </p>
-      </Section>
-
-      <Section id="s24" title="24. Entire Agreement">
-        <p>
-          These Terms, together with the Privacy Policy and any other legal notices or agreements published
-          by Storelib on the Platform, constitute the entire agreement between you and Storelib regarding
-          your use of the Services. These Terms supersede all prior agreements, communications, and
-          understandings, whether written or oral, regarding the subject matter hereof.
-        </p>
-      </Section>
-
-      <Section id="s25" title="25. Assignment">
-        <p>
-          You may not assign, transfer, or delegate your rights or obligations under these Terms without
-          Storelib&apos;s prior written consent. Storelib may freely assign, transfer, or delegate its rights
-          and obligations under these Terms without restriction and without notice to you.
-        </p>
-      </Section>
-
-      <Section id="s26" title="26. Waiver">
-        <p>
-          The failure of Storelib to enforce any provision of these Terms shall not constitute a waiver of
-          such provision or any other provision. No waiver of any term shall be deemed a further or
-          continuing waiver of such term or any other term.
-        </p>
-      </Section>
-
-      <Section id="s27" title="27. Notices">
-        <p>
-          Storelib may provide you with notices, including those regarding changes to these Terms, by email
-          to the address associated with your account, by posting on the Platform, or by push notification
-          through our mobile applications. You are responsible for ensuring that your email address on file
-          is accurate and current.
-        </p>
-      </Section>
-
-      <Section id="s28" title="28. Contact Information">
-        <p>
-          If you have any questions, concerns, or feedback regarding these Terms of Service, please contact
-          us:
-        </p>
-        <div className="bg-[var(--legal-panel,#f8f9fa)] rounded-2xl p-4 mt-3 space-y-1 text-[14px]">
+      <Section id="s18" title="18. Suspension, closing and deleting accounts">
+        <SubSection title="18.1 Deleting your account">
           <p>
-            <span className="font-medium text-[var(--legal-ink,#1a1a2e)]">General:</span>{" "}
-            <a href="mailto:team@storelib.com" className={LINK}>team@storelib.com</a>
+            You can delete your account in Settings, Security, confirmed with a code we email you. A creator with money
+            pending, available, on its way or owed, or a dispute still open, settles it first. An account that has
+            sold, been paid out or been billed is retired rather than wiped: the store goes offline, your personal
+            details are erased, and the orders, refunds, payouts and invoices are kept as financial records. Buyers keep
+            what they bought. Cancel a paid plan first so you are not charged again; deleting does not refund plan
+            fees.
+          </p>
+        </SubSection>
+        <SubSection title="18.2 What we may do">
+          <p>
+            We may remove content, limit features, pause payouts, suspend or close an account, or refuse service, where
+            we reasonably believe it is needed: for a breach of these terms, fraud or a risk of it, illegal content, a
+            legal or regulatory request, a high rate of disputes, failure to complete verification, or to protect
+            buyers, creators, Storelib or others. Where we can, we tell you first, give the reason and let you respond.
+            You can ask us to look again at a decision by writing to{" "}
+            <a href="mailto:support@storelib.com" className={LINK}>support@storelib.com</a>.
+          </p>
+        </SubSection>
+        <SubSection title="18.3 After an account closes">
+          <Ul items={[
+            "The store, websites and pages go offline and new sales stop.",
+            "Money owed to you is paid out once refunds, disputes and holds that apply have been settled. Money you owe stays owed.",
+            "Buyers keep access to products they already bought, unless the product is removed for breaking the law or these terms.",
+            "Sections that by their nature should continue, such as fees owed, licenses buyers hold, disclaimers, limits on liability, indemnity and disputes, continue.",
+          ]} />
+        </SubSection>
+      </Section>
+
+      <Section id="s19" title="19. Disclaimers">
+        <p className={LOUD}>
+          Storelib is provided &ldquo;as is&rdquo; and &ldquo;as available&rdquo;. To the fullest extent the law allows,
+          Storelib gives no warranties, express or implied, including of merchantability, fitness for a particular
+          purpose, title and non infringement, and does not promise that Storelib will be uninterrupted, secure or free
+          of errors, or that you will make any sales.
+        </p>
+        <p>
+          Storelib does not make, check or guarantee creators&apos; products and is not responsible for them. Some
+          countries do not allow these exclusions; there, they apply only as far as the law allows.
+        </p>
+      </Section>
+
+      <Section id="s20" title="20. Limits on liability">
+        <p className={LOUD}>
+          To the fullest extent the law allows, Storelib and its officers, employees and suppliers are not liable for
+          indirect, incidental, special, consequential or punitive damages, or for lost profits, revenue, data or
+          goodwill, arising from Storelib or these terms. Storelib&apos;s total liability for all claims is limited to the
+          greater of the fees you paid Storelib (plan fees and Storelib&apos;s fees on your sales) in the twelve months
+          before the claim, and one hundred US dollars.
+        </p>
+        <p>
+          Nothing in these terms limits liability for death or personal injury caused by negligence, for fraud, or for
+          anything else the law does not allow to be limited. If you are a consumer in the EEA or the UK, Storelib is
+          responsible for loss you suffer that is a foreseeable result of our breach of these terms or our negligence.
+        </p>
+      </Section>
+
+      <Section id="s21" title="21. Indemnity">
+        <p>
+          If you sell on Storelib, you will defend and compensate Storelib, its officers and employees against claims,
+          losses, fines and reasonable costs (including legal fees) from third parties or authorities that arise from
+          your products, your content, your sales and taxes, your use of buyer data, or your breach of these terms or
+          the law. This does not apply to the extent a claim is caused by Storelib. Consumers who only buy do not give
+          this indemnity.
+        </p>
+      </Section>
+
+      <Section id="s22" title="22. Disputes with Storelib and governing law">
+        <SubSection title="22.1 Talk to us first">
+          <p>
+            If you have a problem with Storelib, write to{" "}
+            <a href="mailto:legal@storelib.com" className={LINK}>legal@storelib.com</a> and give us 30 days to try to
+            put it right before starting any claim.
+          </p>
+        </SubSection>
+        <SubSection title="22.2 Governing law">
+          <p>
+            These terms are governed by the laws of the State of Delaware, United States, without regard to its conflict
+            of laws rules{" "}
+            <Placeholder>governing law and venue: confirm with counsel that Delaware matches Storelib&apos;s place of incorporation</Placeholder>
+            . If you are a consumer, you also keep the protection of the mandatory laws of the country where you live,
+            and you may bring a claim in its courts.
+          </p>
+        </SubSection>
+        <SubSection title="22.3 Arbitration and class actions">
+          <p>
+            Except for claims in small claims court and claims about intellectual property, any dispute between you and
+            Storelib that is not resolved informally will be decided by binding individual arbitration administered by
+            the American Arbitration Association under its rules, in English. You may opt out of this section within
+            30 days of first accepting these terms by writing to legal@storelib.com.
+          </p>
+          <p className={LOUD}>
+            To the fullest extent the law allows, you and Storelib bring claims only individually, not as a plaintiff or
+            class member in a class, consolidated or representative action.
           </p>
           <p>
-            <span className="font-medium text-[var(--legal-ink,#1a1a2e)]">Legal Inquiries:</span>{" "}
+            This section 22.3 does not apply to consumers in the EEA, the UK or Switzerland, or anywhere else the law
+            does not allow it.
+          </p>
+        </SubSection>
+      </Section>
+
+      <Section id="s23" title="23. Changes">
+        <p>
+          We may change Storelib, its features and these terms. If a change to these terms or to our fees materially
+          affects you, we will tell you by email or in Storelib at least{" "}
+          <Placeholder>notice period for changes to the terms and fees: to be confirmed by Storelib</Placeholder>{" "}
+          before it takes effect, unless it is needed sooner for legal or security reasons. If you do not agree, you
+          can stop using Storelib and close your account before the change takes effect; continuing to use Storelib
+          after that means you accept it. The date at the top of this page shows when these terms last changed.
+        </p>
+      </Section>
+
+      <Section id="s24" title="24. General terms">
+        <Ul items={[
+          "Entire agreement: these terms, with the Privacy policy, the Refund policy and any terms shown for a specific feature, are the whole agreement between you and Storelib about Storelib.",
+          "Severability: if part of these terms cannot be enforced, the rest still applies, and that part is applied as far as it can be.",
+          "No waiver: if we do not enforce a term straight away, we can still enforce it later.",
+          "Assignment: you may not transfer these terms without our written consent, except by handing over a store through Storelib. We may transfer them to a company that takes over Storelib, and we will tell you.",
+          "Events beyond control: neither of us is responsible for delays or failures caused by events outside reasonable control, such as outages of providers, networks or payment systems, disasters, war or government action.",
+          "Confidential information: keep non public information Storelib shares with you, for example about features not yet released, confidential.",
+          "Notices: we send notices to the email address on your account or show them in Storelib. You send notices to legal@storelib.com.",
+          "Language: these terms are written in English; a translation is for convenience, and the English text applies if they differ, unless the law requires otherwise.",
+          "No third party rights: nobody else may enforce these terms, except as the law gives them that right.",
+        ]} />
+      </Section>
+
+      <Section id="s25" title="25. Contact">
+        <div className="mt-3 space-y-1 rounded-2xl bg-[var(--legal-panel,#f8f9fa)] p-4 text-[14px]">
+          <p>
+            <span className="font-medium text-[var(--legal-ink,#1a1a2e)]">Legal and copyright:</span>{" "}
             <a href="mailto:legal@storelib.com" className={LINK}>legal@storelib.com</a>
           </p>
           <p>
-            <span className="font-medium text-[var(--legal-ink,#1a1a2e)]">Website:</span>{" "}
-            <a href="https://storelib.com" className={LINK}>https://storelib.com</a>
+            <span className="font-medium text-[var(--legal-ink,#1a1a2e)]">Support, billing and refunds:</span>{" "}
+            <a href="mailto:support@storelib.com" className={LINK}>support@storelib.com</a>
+          </p>
+          <p>
+            <span className="font-medium text-[var(--legal-ink,#1a1a2e)]">Privacy:</span>{" "}
+            <a href="mailto:privacy@storelib.com" className={LINK}>privacy@storelib.com</a>
+          </p>
+          <p>
+            <span className="font-medium text-[var(--legal-ink,#1a1a2e)]">Company:</span> Storelib Inc.,{" "}
+            <Placeholder>registered address and company number: to be confirmed by Storelib</Placeholder>
           </p>
         </div>
-        <p className="mt-4 text-[13.5px] text-[var(--legal-muted,#6b7280)]">
-          &copy; 2026 Storelib Inc. All rights reserved. storelib.com
-        </p>
       </Section>
     </>
   )

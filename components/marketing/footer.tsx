@@ -105,6 +105,7 @@ const SUPPORT = [
 const LEGAL = [
   { label: "Terms of Service", href: "/terms" },
   { label: "Privacy Policy", href: "/privacy" },
+  { label: "Refund Policy", href: "/refund-policy" },
 ]
 
 const linkClass = "block text-left text-[15px] leading-6 text-white/60 transition-colors duration-150 hover:text-white"

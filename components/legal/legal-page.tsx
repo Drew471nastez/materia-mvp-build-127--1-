@@ -1,11 +1,11 @@
 /**
  * ===========================================================================
- *  TERMS OF SERVICE AND PRIVACY POLICY, LAID OUT AS THE HELP CENTER IS
+ *  TERMS OF SERVICE, PRIVACY POLICY AND REFUND POLICY, LAID OUT AS THE HELP CENTER IS
  * ===========================================================================
- * Under Storelib's own header (app/terms/layout, app/privacy/layout), the
+ * Under Storelib's own header (app/terms, app/privacy, app/refund-policy layouts), the
  * page opens on the Help Center's band (components/help/help-hero): Storelib's
  * ink with its two soft shapes, and in it the document's name and the date it
- * last changed. A row under the band moves between the two documents.
+ * took effect and last changed. A row under the band moves between the three documents.
  *
  * Then one reading column, set like a Help article, with the contents beside
  * it on a wide screen, kept in view with the section being read marked
@@ -40,19 +40,21 @@ export function LegalPage({ kind, toc, children }: { kind: LegalKind; toc: { id:
           <p className="text-[13.5px] font-medium text-white/60">Storelib legal</p>
           <h1 className="mt-2 text-[32px] font-bold leading-[1.1] tracking-[-0.02em] sm:text-[44px]">{doc.title}</h1>
           <p className="mt-4 text-[14px] text-white/70">
+            Effective <time dateTime={doc.effective}>{legalDate(doc.effective)}</time>
+            <span aria-hidden className="mx-2 text-white/35">·</span>
             Last updated <time dateTime={doc.updated}>{legalDate(doc.updated)}</time>
           </p>
         </div>
       </header>
 
       <nav aria-label="Legal documents" className="border-b border-[#eef0f2]">
-        <div className={`${WIDTH} flex gap-6`}>
+        <div className={`${WIDTH} flex gap-5 overflow-x-auto [scrollbar-width:none] sm:gap-6`}>
           {(Object.keys(LEGAL_DOCS) as LegalKind[]).map((k) => (
             <Link
               key={k}
               href={LEGAL_DOCS[k].href}
               aria-current={k === kind ? "page" : undefined}
-              className="relative py-3.5 text-[14px] font-medium text-[#6b7280] transition-colors hover:text-[#1a1a2e] aria-[current=page]:text-[#1a1a2e] aria-[current=page]:after:absolute aria-[current=page]:after:inset-x-0 aria-[current=page]:after:-bottom-px aria-[current=page]:after:h-[2px] aria-[current=page]:after:rounded-full aria-[current=page]:after:bg-[#1a1a2e]"
+              className="relative shrink-0 whitespace-nowrap py-3.5 text-[14px] font-medium text-[#6b7280] transition-colors hover:text-[#1a1a2e] aria-[current=page]:text-[#1a1a2e] aria-[current=page]:after:absolute aria-[current=page]:after:inset-x-0 aria-[current=page]:after:-bottom-px aria-[current=page]:after:h-[2px] aria-[current=page]:after:rounded-full aria-[current=page]:after:bg-[#1a1a2e]"
             >
               {LEGAL_DOCS[k].title}
             </Link>

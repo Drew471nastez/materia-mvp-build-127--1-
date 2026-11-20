@@ -115,6 +115,7 @@ export function ConditionalFooter() {
       pathname.startsWith("/faq") ||
       pathname.startsWith("/privacy") ||
       pathname.startsWith("/terms") ||
+      pathname.startsWith("/refund-policy") ||
       pathname.startsWith("/help") ||
       pathname.startsWith("/account-deletion") ||
       pathname.startsWith("/member")

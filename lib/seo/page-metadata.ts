@@ -71,9 +71,10 @@ export function pageMetadata(input: PageMetadataInput): Metadata {
 const LEGAL_DESCRIPTIONS: Record<LegalKind, string> = {
   terms: "The agreement between you and Storelib Inc. for using storelib.com, the Storelib apps and every store, site and OnePage on them.",
   privacy: "What Storelib Inc. collects, why, who it is shared with, how long it is kept and the choices you have.",
+  refunds: "How refunds work on Storelib: plan fees, purchases from creators, downloads, memberships, returns, chargebacks and the EU right of withdrawal.",
 }
 
-/** /terms and /privacy: their title, description, canonical and card. */
+/** /terms, /privacy and /refund-policy: their title, description, canonical and card. */
 export function legalMetadata(kind: LegalKind): Metadata {
   const doc = LEGAL_DOCS[kind]
   return pageMetadata({ path: doc.href, title: doc.title, description: LEGAL_DESCRIPTIONS[kind] })
