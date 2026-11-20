@@ -229,7 +229,7 @@ async function onePages() {
     check("a failed lookup THROWS (the error screen), never { kind: missing }", isSiteReadError(e), String(e))
   }
   {
-    fakeSupabase({ onepages: () => json(200, []), profiles: () => json(200, []), creators: () => json(200, []), username_history: () => json(200, []), onepage_slug_history: () => json(200, []) })
+    fakeSupabase({ onepages: () => json(200, []), profiles: () => json(200, []), creators: () => json(200, []), username_history: () => json(200, []), onepage_slug_history: () => json(200, []), /* Changed on purpose (part 472): the old addresses table is read first. */ onepage_old_addresses: () => json(200, []) })
     const a = await resolveOnePage("lima")
     check("a name that answered nothing is still missing", a.kind === "missing", a)
   }
