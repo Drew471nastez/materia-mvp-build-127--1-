@@ -2954,8 +2954,10 @@ function WallpaperSection() {
     })
     const result = await imageUp.upload(file, { prefix: "wallpaper", want: "image" })
     if (!result) {
+      /* Only this upload's own preview: a second picture chosen meanwhile keeps its own. */
       setLocalImage((old) => {
-        if (old) URL.revokeObjectURL(old)
+        if (old !== preview) return old
+        URL.revokeObjectURL(preview)
         return null
       })
       return

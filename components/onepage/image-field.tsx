@@ -144,7 +144,8 @@ export function OnePageImageField({
   }
 
   const pick = (url: string, hint?: PickHint) => {
-    up.clear()
+    /* An upload still going up is stopped: it finished later and put its picture back over this one. */
+    up.cancel()
     const shown = hint?.thumb || url
     showLocal(shown)
     void measurePicture(url).then((size) => changeRef.current(url, size))
