@@ -137,6 +137,10 @@ const ROUTES: Record<string, () => Promise<RouteModule>> = {
   /* The OnePage editor's Save and Publish (tests/e2e-onepage-blocks-r11.test.ts: a group through save, reload and publish). */
   "/api/onepage": () => import("@/app/api/onepage/route"),
   "/api/onepage/publish": () => import("@/app/api/onepage/publish/route"),
+  /* A product deleted while the OnePage editor is open, the OnePage's own integrations as Settings › Integrations reads them, and an address's live check (tests/onepage-editor-fixes-2.test.ts). */
+  "/api/products/delete": () => import("@/app/api/products/delete/route"),
+  "/api/onepage/integrations": () => import("@/app/api/onepage/integrations/route"),
+  "/api/store/integrations/installed": () => import("@/app/api/store/integrations/installed/route"),
   "/api/website-builder/contact": () => import("@/app/api/website-builder/contact/route"),
   /* Round 13: a buyer's photo for a personalization field, kept as a cart upload, and opened by the browser that sent it (tests/e2e-personalization.test.ts). */
   "/api/cart/uploads/[ref]/[name]": () => import("@/app/api/cart/uploads/[ref]/[name]/route"),

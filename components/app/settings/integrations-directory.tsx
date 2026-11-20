@@ -35,6 +35,7 @@ import { BTN_PRIMARY, BTN_SECONDARY, Field, Modal, Notice, TextInput, api, peekG
 import type { IntegrationState } from "@/components/physical/integrations-marketplace"
 import { Mark, tileColor } from "@/components/app/settings/integration-mark"
 import { IntegrationDetail, bannerColor } from "@/components/app/settings/integration-detail"
+import { usePageIntegrations } from "@/components/onepage/page-integrations"
 import { CATEGORY_NAMES, CATEGORY_ORDER, visibleIntegrations, type Integration, type IntegrationCategory, type IntegrationStatus } from "@/lib/integrations/catalog"
 import { applyCatalogOverrides, type CatalogOverride } from "@/lib/integrations/overrides"
 import { providerInfo } from "@/lib/physical/providers"
@@ -360,8 +361,20 @@ export function IntegrationsDirectory({ page = false, only = null, initial: serv
     void api<{ integrations: IntegrationState[] }>("/api/physical/integrations").then((r) => setStates(r.ok ? r.data.integrations : []))
   }, [physical])
 
+  /*
+    MAILCHIMP, ZAPIER AND MAKE ON THE ONEPAGE'S SIGNUPS: read from the same
+    place, with the same read, as the OnePage editor's Settings › Integrations
+    (GET /api/onepage/integrations through components/onepage/page-integrations),
+    so a connection made on either screen shows on both.
+  */
+  const pageIntegrations = usePageIntegrations()
+  const pageConnection = React.useCallback(
+    (i: Integration) => (i.kind === "app" && i.appId === "onepage_signups" ? (pageIntegrations?.integrations.find((x) => x.provider === i.pageIntegration && x.connected) ?? null) : null),
+    [pageIntegrations],
+  )
   const installed = React.useCallback(
     (i: Integration): boolean => {
+      if (i.kind === "app" && i.appId === "onepage_signups") return !!pageConnection(i)
       /* AfterShip only with the store's own AfterShip account, never its 17TRACK one. */
       if (i.id === "aftership") return ownTracking === "aftership"
       /* Brevo, MailerLite and Kit: connected with a key, like Klaviyo's sync. */
@@ -373,7 +386,7 @@ export function IntegrationsDirectory({ page = false, only = null, initial: serv
       const s = states?.find((x) => x.provider === i.providerId)
       return !!s && s.status !== "disconnected"
     },
-    [tracking, states, appsOn, marketing, ownTracking],
+    [tracking, states, appsOn, marketing, ownTracking, pageConnection],
   )
 
   /* One word for where each stands, read off what is really saved: never an installed state that isn't. */
@@ -388,10 +401,11 @@ export function IntegrationsDirectory({ page = false, only = null, initial: serv
         if (s && s.status !== "disconnected") return s.lastError ? "needs_attention" : "installed"
       } else if (i.kind === "tracker" && marketing?.some((m) => m.provider === i.trackerId && m.connected && m.lastError)) return "needs_attention"
       else if (i.kind === "app" && i.appId === "marketing_sync" && marketing?.some((m) => m.provider === i.marketingProvider && m.connected && m.lastError)) return "needs_attention"
+      else if (pageConnection(i)?.lastError) return "needs_attention"
       else if (installed(i)) return "installed"
       return i.comingSoon ? "coming_soon" : "available"
     },
-    [states, installed, marketing],
+    [states, installed, marketing, pageConnection],
   )
 
   const root = React.useRef<HTMLDivElement>(null)

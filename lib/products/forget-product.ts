@@ -20,7 +20,9 @@ import "server-only"
  *   those against the product row now (lib/onepage/live-products.ts), so a
  *   visitor is right whatever happens here, but the creator's own editor
  *   draws the draft, and a block naming a product that no longer exists is
- *   something to pick up and move, not to look at. It is taken out.
+ *   something to pick up and move, not to look at. It is taken out, and the
+ *   move is noted so an editor open on the page meanwhile is not told the
+ *   page was saved somewhere else (lib/onepage/product-removals).
  *
  * WHAT THIS IS NOT. It never deletes a product, an order, or anything else a
  * creator owns. It drops cache entries and takes a deleted product's blocks
@@ -38,6 +40,8 @@ import { onePageProductsChanged } from "@/lib/onepage/public-cache"
 
 import { creatorTag, productTag } from "@/lib/commerce/product-page-cache"
 import { withoutProduct } from "@/lib/onepage/live-products"
+import { onePageEditVersion } from "@/lib/onepage/edit-version"
+import { withRemovalNoted } from "@/lib/onepage/product-removals"
 import { creatorShopTag, revalidatePublishedSite } from "@/lib/website-builder/published-site"
 import { exploreCatalogueTakenDown } from "@/lib/explore/catalogue-cache"
 
@@ -93,27 +97,70 @@ export async function forgetProductOnPages(admin: Admin, creatorId: string, prod
   try {
     const owners = [`seller_id.eq.${creatorId}`, `creator_id.eq.${creatorId}`]
     if (ownerId) owners.push(`owner_id.eq.${ownerId}`)
-    const { data, error } = await admin
-      .from("onepages")
-      .select("id, draft_blocks, published_blocks")
-      .or(owners.join(","))
-    if (error || !data) return 0
+    const read = (columns: string) => admin.from("onepages").select(columns).or(owners.join(","))
+    /*
+      Widest first. A database without onepages.updated_at goes without the
+      hold below; one without the archive or the settings column, without
+      the note (the page's blocks are still taken out, as before).
+    */
+    let data: unknown = null
+    let error: unknown = true
+    for (const columns of [`${PAGE_COLUMNS}, updated_at`, PAGE_COLUMNS, "id, draft_blocks, published_blocks"]) {
+      ;({ data, error } = await read(columns))
+      if (!error) break
+    }
+    if (error || !Array.isArray(data)) return 0
     let changed = 0
-    for (const page of data as Array<{ id: string; draft_blocks: unknown; published_blocks: unknown }>) {
-      const draft = withoutProduct(page.draft_blocks, productId)
-      const published = withoutProduct(page.published_blocks, productId)
-      const update: Record<string, unknown> = {}
-      if (JSON.stringify(draft) !== JSON.stringify(page.draft_blocks)) update.draft_blocks = draft
-      if (JSON.stringify(published) !== JSON.stringify(page.published_blocks)) update.published_blocks = published
-      if (Object.keys(update).length === 0) continue
-      const { error: writeError } = await admin.from("onepages").update(update).eq("id", page.id)
-      if (!writeError) changed++
+    for (const page of data as PageRow[]) {
+      if (await forgetOnPage(admin, page, productId)) changed++
     }
     return changed
   } catch (e) {
     console.error("[forget-product] onepage cleanup failed:", (e as Error).message)
     return 0
   }
+}
+
+const PAGE_COLUMNS = "id, draft_blocks, published_blocks, archived_blocks, theme, bio, settings"
+type PageRow = { id: string; draft_blocks: unknown; published_blocks: unknown; archived_blocks?: unknown; theme?: unknown; bio?: unknown; settings?: unknown; updated_at?: string | null }
+
+/*
+  ONE PAGE, WITHOUT TAKING AN EDITOR'S SAVE AWAY (lib/onepage/product-removals).
+  The write names the updated_at it read, so an editor's Save that landed in
+  between is never replaced by the older blocks read here: the page is read
+  again and tried once more. And the move is noted in the page's settings
+  (from version, to version, product), so the editor that was open on the old
+  version saves without being told the page was saved somewhere else.
+*/
+async function forgetOnPage(admin: Admin, first: PageRow, productId: string): Promise<boolean> {
+  let page: PageRow | null = first
+  for (let attempt = 0; page && attempt < 3; attempt++) {
+    const draft = withoutProduct(page.draft_blocks, productId)
+    const published = withoutProduct(page.published_blocks, productId)
+    const update: Record<string, unknown> = {}
+    const draftChanged = JSON.stringify(draft) !== JSON.stringify(page.draft_blocks)
+    if (draftChanged) update.draft_blocks = draft
+    if (JSON.stringify(published) !== JSON.stringify(page.published_blocks)) update.published_blocks = published
+    if (Object.keys(update).length === 0) return false
+    const from = onePageEditVersion(page)
+    const to = onePageEditVersion({ ...page, draft_blocks: draft })
+    /* Only over the settings read here: a read without them never writes a page's settings. */
+    if (draftChanged && from && to && from !== to && "settings" in page) {
+      update.settings = withRemovalNoted(page.settings, { from, to, product_id: productId, at: new Date().toISOString() })
+    }
+    const held = typeof page.updated_at === "string" && page.updated_at !== ""
+    /* Moved on, as an editor's save moves it (app/api/onepage), so a save that checked the row before this write finds nothing to write and asks again. */
+    if (held) update.updated_at = new Date(Math.max(Date.now(), Date.parse(page.updated_at as string) + 1)).toISOString()
+    let q = admin.from("onepages").update(update).eq("id", page.id)
+    if (held) q = q.eq("updated_at", page.updated_at)
+    const { data: wrote, error: writeError } = await q.select("id")
+    if (writeError) return false
+    if (!held || (Array.isArray(wrote) && wrote.length > 0)) return true
+    /* An editor saved in between: read the page as it is now and take the product out of that. */
+    const { data: again }: { data: unknown } = await admin.from("onepages").select(`${PAGE_COLUMNS}, updated_at`).eq("id", page.id).maybeSingle()
+    page = (again as PageRow | null) ?? null
+  }
+  return false
 }
 
 /**

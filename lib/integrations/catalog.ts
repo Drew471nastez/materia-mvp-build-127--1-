@@ -58,11 +58,13 @@ export interface Integration {
   physical: boolean
   kind: "tracker" | "commerce" | "listed" | "app"
   /** Made by Storelib and run inside it (kind "app"): its settings are its Set up card. */
-  appId?: "storelib_reviews" | "courier_tracking" | "analytics_destinations" | "marketing_sync" | "discord_roles" | "telegram_access" | "booking_sync"
+  appId?: "storelib_reviews" | "courier_tracking" | "analytics_destinations" | "marketing_sync" | "discord_roles" | "telegram_access" | "booking_sync" | "onepage_signups"
   /** appId marketing_sync: which email platform the sync card connects (lib/integrations/marketing/platforms.ts). */
   marketingProvider?: "brevo" | "mailerlite" | "kit"
   /** appId booking_sync: whose bookings come in (lib/bookings/external). */
   bookingProvider?: "calendly" | "calcom"
+  /** appId onepage_signups: which of the OnePage's own connections this card is (lib/onepage/integrations, GET /api/onepage/integrations). */
+  pageIntegration?: "mailchimp" | "zapier" | "make"
   trackerId?: TrackerId
   providerId?: ProviderId
   summary: string
@@ -377,9 +379,6 @@ const LISTED: { id: string; name: string; category: IntegrationCategory; physica
   { id: "spocket", logo: "/integrations/spocket.png", name: "Spocket", category: "dropshipping", physical: true, summary: "Suppliers in the US and Europe, shipped straight to your buyer.", about: "Spocket lists products from suppliers mostly in the US and Europe and ships them to your buyers.", docsUrl: "https://www.spocket.co/" },
   { id: "autods", logo: "/integrations/autods.png", name: "AutoDS", category: "dropshipping", physical: true, summary: "Product imports, price and stock monitoring, automatic orders.", about: "AutoDS imports products, keeps their price and stock in step with the supplier and orders them automatically.", docsUrl: "https://www.autods.com/" },
   { id: "syncee", logo: "/integrations/syncee.png", name: "Syncee", category: "dropshipping", physical: true, summary: "Wholesale and dropshipping suppliers from one marketplace.", about: "Syncee connects you with wholesale and dropshipping suppliers and keeps their catalogue in sync.", docsUrl: "https://syncee.com/" },
-  { id: "mailchimp", logo: "/integrations/mailchimp.svg", name: "Mailchimp", category: "email", physical: false, summary: "Your subscribers and buyers in your Mailchimp audience.", about: "Mailchimp would receive your Storelib subscribers and buyers in one of your audiences, with their consent.", docsUrl: "https://mailchimp.com/developer/" },
-  { id: "zapier", logo: "/integrations/zapier.svg", name: "Zapier", category: "automation", physical: false, summary: "Send new orders and subscribers to thousands of apps.", about: "Zapier would start your Zaps from Storelib events: a new order, a new subscriber, a refund.", docsUrl: "https://zapier.com/" },
-  { id: "make", logo: "/integrations/make.svg", name: "Make", category: "automation", physical: false, summary: "Visual automations started by your store's events.", about: "Make would start your scenarios from Storelib events, like a new order or a new subscriber.", docsUrl: "https://www.make.com/" },
 ]
 
 function fromListed(l: (typeof LISTED)[number]): Integration {
@@ -701,6 +700,9 @@ const LEAD: Record<string, string> = {
   brevo: "Your subscribers and every order go to Brevo. Unsubscribes come back.",
   mailerlite: "Your subscribers go to MailerLite, buyers and refunds as groups. Unsubscribes come back.",
   kit: "Your subscribers go to Kit, buyers and refunds as tags. Unsubscribes come back.",
+  mailchimp: "Everyone who signs up on your OnePage joins your Mailchimp audience as it happens.",
+  zapier: "Each signup on your OnePage starts your Zap, through a signed webhook.",
+  make: "Each signup on your OnePage starts your Make scenario, through a signed webhook.",
   printful: "Products you sell as print on demand go to Printful when they're paid. Tracking comes back to the order.",
   printify: "Products you sell as print on demand go to Printify when they're paid. Tracking comes back to the order.",
   gelato: "Products you sell as print on demand go to Gelato when they're paid, printed close to your buyer. Tracking comes back.",
@@ -721,7 +723,97 @@ const LEAD: Record<string, string> = {
 */
 const NOT_LISTED = new Set(["manual", "supplier_email", "csv"])
 
-export const INTEGRATIONS: Integration[] = [...STORELIB_APPS, ...BOOKING_APPS, ...ANALYTICS_APPS, ...COMMUNITY_APPS, ...TRACKING_APPS, ...TRACKER_ORDER.map(fromTracker), ...MARKETING_APPS, ...PROVIDERS.filter((p) => !NOT_LISTED.has(p.id)).map(fromProvider), ...LISTED.map(fromListed)].map((i) => (LEAD[i.id] ? { ...i, lead: LEAD[i.id] } : i))
+/**
+ * A ONEPAGE'S SIGNUPS, AS THEY HAPPEN (lib/onepage/integrations). Mailchimp,
+ * Zapier and Make were listed here as Coming soon while the OnePage editor
+ * already connected all three. They are the same connection in both places:
+ * one row per store in onepage_integrations (SQL part 315), read and changed
+ * through /api/onepage/integrations, so Settings and the editor agree.
+ *
+ * What they get, and only that: each signup on the store's OnePage (the
+ * email signup, a lead magnet, the subscribe button, an RSVP, and a contact
+ * form or form whose updates box was ticked), sent by
+ * lib/onepage/integrations/deliver-server. Orders, the website's and the
+ * checkout's signups are not sent to them, and the copy says so.
+ */
+const ONEPAGE_SIGNUPS = "each signup on your OnePage (the email signup, a lead magnet, the subscribe button, an RSVP, and a contact form or form where they ticked the box for updates)"
+function onePageApp(id: "mailchimp" | "zapier" | "make", name: string, category: IntegrationCategory, logo: string, summary: string, about: string[], youAdd: string, data: string[], docsUrl: string): Integration {
+  return {
+    id,
+    name,
+    category,
+    logo,
+    builtIn: false,
+    physical: false,
+    kind: "app",
+    appId: "onepage_signups",
+    pageIntegration: id,
+    summary,
+    about,
+    glance: [
+      { label: "Works with", value: "Your OnePage" },
+      { label: "You add", value: youAdd },
+      { label: "Price", value: `Free on Storelib; ${name}'s own pricing applies` },
+    ],
+    data,
+    docsUrl,
+  }
+}
+const WEBHOOK_DATA = (name: string) => [
+  `Sent to ${name} for each signup: its email, name and first name, which form it came from, the lead magnet or form title when there is one, the page's address and, when the form asked for it, the phone number.`,
+  `Each event is signed with HMAC SHA-256 in the X-Storelib-Signature header, with the signing secret Storelib gives you when you connect.`,
+  `Nothing about your orders, buyers or other subscribers is sent.`,
+]
+const ONEPAGE_APPS: Integration[] = [
+  onePageApp(
+    "mailchimp",
+    "Mailchimp",
+    "email",
+    "/integrations/mailchimp.svg",
+    "Your OnePage signups in your Mailchimp audience.",
+    [
+      `Connect Mailchimp with an API key and choose an audience. From then on, ${ONEPAGE_SIGNUPS} joins that audience as it happens.`,
+      "Someone who unsubscribed in Mailchimp stays unsubscribed. Turn on double opt in and Mailchimp asks each new signup to confirm first; add a tag and every signup gets it.",
+      "Signups on your website, at checkout and in a community are not sent to Mailchimp.",
+    ],
+    "An API key and an audience",
+    [
+      "Sent to Mailchimp for each signup: the email address, the first name when one was given, and your tag.",
+      "Your Mailchimp key is checked with Mailchimp, stored encrypted on Storelib's server and never sent back to your browser: only its last four characters show.",
+    ],
+    "https://mailchimp.com/developer/",
+  ),
+  onePageApp(
+    "zapier",
+    "Zapier",
+    "automation",
+    "/integrations/zapier.svg",
+    "Start a Zap with each signup on your OnePage.",
+    [
+      `Paste the address of a Zapier catch hook and ${ONEPAGE_SIGNUPS} is sent to it as it happens, as an onepage.signup event. A test event goes to it when you connect.`,
+      "Orders and signups on your website or at checkout are not sent to Zapier.",
+    ],
+    "A Webhooks by Zapier address",
+    WEBHOOK_DATA("Zapier"),
+    "https://zapier.com/",
+  ),
+  onePageApp(
+    "make",
+    "Make",
+    "automation",
+    "/integrations/make.svg",
+    "Start a Make scenario with each signup on your OnePage.",
+    [
+      `Paste the address of a Make custom webhook and ${ONEPAGE_SIGNUPS} is sent to it as it happens, as an onepage.signup event. A test event goes to it when you connect.`,
+      "Orders and signups on your website or at checkout are not sent to Make.",
+    ],
+    "A Make custom webhook address",
+    WEBHOOK_DATA("Make"),
+    "https://www.make.com/",
+  ),
+]
+
+export const INTEGRATIONS: Integration[] = [...STORELIB_APPS, ...BOOKING_APPS, ...ANALYTICS_APPS, ...COMMUNITY_APPS, ...TRACKING_APPS, ...TRACKER_ORDER.map(fromTracker), ...MARKETING_APPS, ...PROVIDERS.filter((p) => !NOT_LISTED.has(p.id)).map(fromProvider), ...LISTED.map(fromListed), ...ONEPAGE_APPS].map((i) => (LEAD[i.id] ? { ...i, lead: LEAD[i.id] } : i))
 
 /** Where a card stands, in the words it shows (badges and the Install section). */
 export type IntegrationStatus = "built_in" | "installed" | "needs_attention" | "error" | "available" | "coming_soon"

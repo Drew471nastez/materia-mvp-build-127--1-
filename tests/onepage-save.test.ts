@@ -226,7 +226,8 @@ async function main() {
     check("save answers with a result", /save: \(force\?: boolean\) => Promise<SaveResult>/.test(ctx))
     check("save runs through the queue, not an early return", /serializeSaves<SaveResult>/.test(ctx) && !/if \(isSaving\.current\)/.test(ctx))
     check("clean only if unchanged since the snapshot", /if \(cleanAfterSave\(sentRevision, editRevisionRef\.current\)\) setIsDirty\(false\)/.test(ctx))
-    check("what went live is the copy that was sent", /published_blocks: snapshot\.draft_blocks/.test(ctx) && !/published_blocks: prev\.draft_blocks/.test(ctx))
+    /* Changed on purpose (OnePage editor fixes 2): the copy that was sent, less any product the server took off as deleted (sent = snapshot when none was). */
+    check("what went live is the copy that was sent", /published_blocks: sent\.draft_blocks/.test(ctx) && /\? \{ \.\.\.snapshot, draft_blocks: withoutProducts\(snapshot\.draft_blocks, removed\) \} : snapshot/.test(ctx) && !/published_blocks: prev\.draft_blocks/.test(ctx))
     check("the server's message is read", /await serverError\(saveResponse\)/.test(ctx))
   }
 

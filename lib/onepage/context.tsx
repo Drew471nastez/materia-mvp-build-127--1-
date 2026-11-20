@@ -39,6 +39,8 @@ import {
 
 import { clearDraft, deviceStore, draftDecision, draftFieldsOf, readDraft, withDraft, writeDraft, type LocalDraft } from "./local-draft"
 import { sentBaseVersion } from "./edit-version"
+import { withoutProducts } from "./product-removals"
+import { onProductDeleted } from "@/lib/products/deleted-signal"
 
 export type { SaveResult } from "./editor-state"
 
@@ -390,7 +392,16 @@ export function OnePageProvider({ children, initialOnePage: givenOnePage }: OneP
         if (saveResponse.status === 409) overrideConflictRef.current = true
         return fail(saveResponse.status, await serverError(saveResponse))
       }
-      const saved = (await saveResponse.json().catch(() => null)) as { edit_version?: unknown; published?: unknown; published_at?: unknown } | null
+      const saved = (await saveResponse.json().catch(() => null)) as { edit_version?: unknown; published?: unknown; published_at?: unknown; removed_products?: unknown } | null
+      /*
+        Products deleted while this editor was open: the server took them out
+        of what it saved (app/api/onepage removed_products), and this copy
+        drops them too, every other edit kept, so the next save is the same.
+      */
+      const removedRaw = saved?.removed_products
+      const removed = Array.isArray(removedRaw) ? removedRaw.filter((x): x is string => typeof x === "string" && x !== "") : []
+      dropProductsRef.current(removed)
+      const sent: OnePage = removed.length > 0 ? { ...snapshot, draft_blocks: withoutProducts(snapshot.draft_blocks, removed) } : snapshot
       /* The version is in a header too, so an answer whose body was cut off does not leave the next save unchecked. */
       baseVersionRef.current = sentBaseVersion(saveResponse.headers.get("X-OnePage-Edit-Version")) ?? sentBaseVersion(saved?.edit_version)
       overrideConflictRef.current = false
@@ -430,7 +441,7 @@ export function OnePageProvider({ children, initialOnePage: givenOnePage }: OneP
           ...latest,
           status: "published",
           published_at: data?.published_at ?? latest.published_at,
-          published_blocks: snapshot.draft_blocks,
+          published_blocks: sent.draft_blocks,
           published_theme: snapshot.theme,
           published_profile: {
             title: snapshot.title,
@@ -445,7 +456,7 @@ export function OnePageProvider({ children, initialOnePage: givenOnePage }: OneP
         setOnePageState(published)
       }
       savedRevisionRef.current = sentRevision
-      savedFieldsRef.current = savedFields(snapshot)
+      savedFieldsRef.current = savedFields(sent)
       if (cleanAfterSave(sentRevision, editRevisionRef.current)) looseEditRef.current = false
       if (cleanAfterSave(sentRevision, editRevisionRef.current)) setIsDirty(false)
       setSaveState("saved")
@@ -740,6 +751,30 @@ export function OnePageProvider({ children, initialOnePage: givenOnePage }: OneP
     latestArchivedBlocksRef.current = archived
     setArchivedBlocks(archived)
   }, [])
+
+  /*
+    A PRODUCT DELETED WHILE THE EDITOR IS OPEN (lib/onepage/product-removals).
+    Its blocks are taken out of this copy, on the page and in the archive, as
+    a silent step: nothing else the creator changed is touched, and a page
+    with nothing unsaved stays saved. Said live by the screen that deleted it
+    (lib/products/deleted-signal), and by the next save's answer otherwise.
+  */
+  const dropProductsRef = useRef<(ids: string[]) => void>(() => {})
+  dropProductsRef.current = (ids) => {
+    const prev = latestOnepageRef.current
+    if (!prev || ids.length === 0) return
+    const blocks = withoutProducts(prev.draft_blocks, ids)
+    const archived = withoutProducts(latestArchivedBlocksRef.current, ids)
+    const archiveChanged = JSON.stringify(archived) !== JSON.stringify(latestArchivedBlocksRef.current)
+    const blocksChanged = JSON.stringify(blocks) !== JSON.stringify(prev.draft_blocks)
+    if (!archiveChanged && !blocksChanged) return
+    if (archiveChanged) putArchive(archived)
+    const next = { ...prev, draft_blocks: blocks } as OnePage & { archived_blocks?: unknown }
+    if (archiveChanged && "archived_blocks" in prev) next.archived_blocks = archived
+    commit(next, null, { silent: true })
+    if (selectedBlockId && !JSON.stringify(blocks).includes(JSON.stringify(selectedBlockId))) setSelectedBlockId(null)
+  }
+  useEffect(() => onProductDeleted((productId) => dropProductsRef.current([productId])), [])
 
   const archiveBlock = useCallback((blockId: string) => {
     const prev = latestOnepageRef.current

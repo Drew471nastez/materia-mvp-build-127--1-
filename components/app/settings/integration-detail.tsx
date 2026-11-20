@@ -48,7 +48,7 @@ import { EXTERNAL_BOOKINGS_PATH, installVerb, oneTapInstall, removalPlan, setupS
 import { ExternalBookingPanel, reloadExternalConnections } from "@/components/bookings/external-bookings"
 import { integrationAppView, tabFor } from "@/components/app/settings/integration-apps"
 import { tt } from "@/lib/i18n/text"
-import { PageIntegrationsSection } from "@/components/onepage/page-integrations"
+import { PageIntegrationsSection, reloadPageIntegrations } from "@/components/onepage/page-integrations"
 import { isPageIntegration } from "@/lib/onepage/integrations/catalog"
 
 /*
@@ -370,6 +370,8 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
       }
     }
     await readFresh(plan.refresh)
+    /* The OnePage's own connections are read once for both screens (components/onepage/page-integrations): asked again, so the card and the editor say the same. */
+    if (item.appId === "onepage_signups") await reloadPageIntegrations()
     setPanelKey((k) => k + 1)
     setBusy(false)
     setConfirming(false)
@@ -405,6 +407,9 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
   ) : item.kind === "app" && item.appId === "booking_sync" && item.bookingProvider ? (
     /* Calendly and Cal.com: the same panel as the OnePage editor's (components/bookings/external-bookings). */
     <ExternalBookingPanel provider={item.bookingProvider} onChanged={(on) => onApp(`booking_sync:${item.bookingProvider}`, on)} />
+  ) : item.kind === "app" && item.appId === "onepage_signups" && item.pageIntegration ? (
+    /* Mailchimp, Zapier and Make: connected here with the same card, the same API and the same read as the OnePage editor's Settings › Integrations. */
+    <PageIntegrationsSection only={[item.pageIntegration]} />
   ) : item.kind === "app" && item.appId === "courier_tracking" ? (
     <TrackingAppPanel onChanged={(own) => onApp("courier_tracking", own)} />
   ) : item.kind === "app" && item.appId === "analytics_destinations" ? (

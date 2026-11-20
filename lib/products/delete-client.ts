@@ -1,6 +1,7 @@
 "use client"
 
 import { tt } from "@/lib/i18n/text"
+import { announceProductDeleted } from "@/lib/products/deleted-signal"
 
 /**
  * ===========================================================================
@@ -46,7 +47,11 @@ export async function deleteProduct(productId: string): Promise<DeleteOutcome> {
     | { ok?: boolean; outcome?: string; error?: string; message?: string; status?: string; archived?: boolean; slug?: string | null }
     | null
   if (!res.ok || !body?.ok) throw new Error(body?.error || tt("Could not delete the product"))
-  if (body.outcome === "deleted") return { outcome: "deleted", status: String(body.status ?? ""), slug: body.slug ?? null }
+  if (body.outcome === "deleted") {
+    /* An open OnePage editor drops the product's block now (lib/products/deleted-signal). */
+    announceProductDeleted(productId)
+    return { outcome: "deleted", status: String(body.status ?? ""), slug: body.slug ?? null }
+  }
   if (body.outcome === "archived") {
     return {
       outcome: "archived",

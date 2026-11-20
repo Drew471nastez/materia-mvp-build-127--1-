@@ -161,7 +161,8 @@ const stubs: Record<string, string> = {
   "@/lib/website-builder/site-seo-data": stub("site-seo", `export const activeDomainOf = async () => null\nexport const formerSiteAddresses = async () => []\nexport const siteSeo = async () => null\n`),
   /* Round 49 (edge): a OnePage change also refreshes its stored copy (lib/onepage/public-cache, a lazy import of lib/edge/snapshot-capture, which reaches the whole site SEO graph); not this suite's subject, and run after the answer in the app. */
   "@/lib/edge/snapshot-capture": stub("snapshot-capture", `export const later = () => {}\nexport const refreshOnePageSnapshot = async () => {}\nexport const keepPageFresh = () => {}\nexport const refreshSiteSoon = () => {}\nexport const refreshSiteSnapshot = async () => null\nexport const backfillSiteCopies = async () => false\n`),
-  "@/lib/onepage/live-products": stub("live", `export const withLiveProducts = async (_db, _id, blocks) => blocks\n`),
+  /* Changed on purpose (OnePage editor fixes 2): the save route also asks which products its blocks name (productIdsInBlocks) and takes deleted ones out (withoutProduct, through lib/onepage/product-removals). */
+  "@/lib/onepage/live-products": stub("live", `export const withLiveProducts = async (_db, _id, blocks) => blocks\nexport const productIdsInBlocks = () => []\nexport const withoutProduct = (blocks) => blocks\n`),
   "@/components/onepage/public-onepage": stub("public", `export const PublicOnePage = () => null\n`),
   "@/components/analytics/track-view": stub("track", `export const TrackView = () => null\n`),
   "@/components/attribution/capture-touch": stub("touch", `export const CaptureTouch = () => null\n`),

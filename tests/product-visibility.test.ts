@@ -322,6 +322,8 @@ async function main() {
       // Changed on purpose (round AX): a free basket pressed again is answered on its store's website, read from the basket's first line; nothing about the product is shown.
       "lib/checkout/free-claim.ts": { count: 1, why: "the store of a free basket this same press already wrote, so its answer goes back to that store's website; nothing shown" },
       "lib/explore/read-interests.ts": { count: 1, why: "the categories of what this person bought, to rank published products" },
+      // Changed on purpose (OnePage editor fixes 2): the editor's save asks which products its blocks name still exist, so a deleted one is never saved back; only ids come back, nothing is shown.
+      "app/api/onepage/route.ts": { count: 1, why: "which products a save's blocks name still exist, by id only; nothing is shown" },
       "lib/onepage/live-products.ts": { count: 1, why: "reads the status and the flag and applies isPubliclyVisible to each row" },
       "lib/seo/announce.ts": { count: 2, why: "tells search engines an address changed; an archived one then answers 404" },
       "lib/site-accounts/account-data.ts": { count: 2, why: "a website customer's own orders, which they keep" },
