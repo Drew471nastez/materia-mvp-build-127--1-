@@ -32,10 +32,14 @@ export async function GET() {
   }
   /* Klaviyo and Omnisend connected with a key count as installed whatever the store sells (lib/integrations/marketing). */
   const { data: marketingRows } = await c.db.from("commerce_integrations").select("provider, status, last_error").eq("creator_id", c.creatorId).in("provider", ["klaviyo", "omnisend", "brevo", "mailerlite", "kit"])
+  /* Calendly and Cal.com connected for bookings (lib/bookings/external, part 475; before it, none). */
+  const { data: bookingRows } = await c.db.from("external_booking_connections").select("provider").eq("creator_id", c.creatorId)
+  const bookings = new Set(((bookingRows ?? []) as { provider: string }[]).map((r) => r.provider))
   const marketing = ((marketingRows ?? []) as { provider: string; status: string; last_error: string | null }[]).filter((m) => m.status === "connected")
   /* The directory as /admin left it (lib/integrations/overrides.ts): a hidden one is not in the sidebar either, and its name is the admin's. */
   const installed = applyCatalogOverrides(INTEGRATIONS, overrides, physical).filter((i) => {
     if (i.kind === "app" && i.appId === "marketing_sync") return marketing.some((m) => m.provider === i.marketingProvider)
+    if (i.kind === "app" && i.appId === "booking_sync") return !!i.bookingProvider && bookings.has(i.bookingProvider)
     if (i.kind === "app") return i.appId === "storelib_reviews" && reviewsApp?.settings.enabled === true
     if (i.kind === "tracker") return !!(i.trackerId && ((tracking as Record<string, string>)[i.trackerId] || marketing.some((m) => m.provider === i.trackerId)))
     /* A Coming soon provider with a key kept from before is not installed: it does nothing. */

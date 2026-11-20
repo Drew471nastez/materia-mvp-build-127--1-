@@ -29,10 +29,11 @@
 import { PROVIDERS, type ProviderId, type ProviderInfo } from "@/lib/physical/providers"
 import { TRACKERS, TRACKER_ORDER, type TrackerId } from "@/lib/store/tracking"
 
-export type IntegrationCategory = "reviews" | "analytics" | "advertising" | "email" | "automation" | "community" | "shipping" | "print_on_demand" | "dropshipping" | "fulfillment" | "suppliers"
+export type IntegrationCategory = "reviews" | "analytics" | "advertising" | "email" | "automation" | "scheduling" | "community" | "shipping" | "print_on_demand" | "dropshipping" | "fulfillment" | "suppliers"
 
 export const CATEGORY_NAMES: Record<IntegrationCategory, string> = {
   reviews: "Reviews",
+  scheduling: "Scheduling",
   analytics: "Analytics",
   advertising: "Advertising",
   email: "Email marketing",
@@ -44,7 +45,7 @@ export const CATEGORY_NAMES: Record<IntegrationCategory, string> = {
   fulfillment: "Fulfillment",
   suppliers: "Suppliers",
 }
-export const CATEGORY_ORDER: IntegrationCategory[] = ["reviews", "analytics", "advertising", "email", "automation", "community", "shipping", "print_on_demand", "dropshipping", "fulfillment", "suppliers"]
+export const CATEGORY_ORDER: IntegrationCategory[] = ["reviews", "analytics", "advertising", "email", "automation", "scheduling", "community", "shipping", "print_on_demand", "dropshipping", "fulfillment", "suppliers"]
 
 export interface Integration {
   id: string
@@ -57,9 +58,11 @@ export interface Integration {
   physical: boolean
   kind: "tracker" | "commerce" | "listed" | "app"
   /** Made by Storelib and run inside it (kind "app"): its settings are its Set up card. */
-  appId?: "storelib_reviews" | "courier_tracking" | "analytics_destinations" | "marketing_sync" | "discord_roles" | "telegram_access"
+  appId?: "storelib_reviews" | "courier_tracking" | "analytics_destinations" | "marketing_sync" | "discord_roles" | "telegram_access" | "booking_sync"
   /** appId marketing_sync: which email platform the sync card connects (lib/integrations/marketing/platforms.ts). */
   marketingProvider?: "brevo" | "mailerlite" | "kit"
+  /** appId booking_sync: whose bookings come in (lib/bookings/external). */
+  bookingProvider?: "calendly" | "calcom"
   trackerId?: TrackerId
   providerId?: ProviderId
   summary: string
@@ -481,6 +484,49 @@ const MARKETING_APPS: Integration[] = [
 ]
 
 /**
+ * CALENDLY AND CAL.COM BOOKINGS (lib/bookings/external, run-now part 475): a
+ * OnePage's Booking block links to or embeds them, and with this their
+ * bookings show in Bookings beside the store's own, with the same bell.
+ */
+function bookingApp(id: "calendly" | "cal-com", provider: "calendly" | "calcom", name: string, logo: string, docsUrl: string): Integration {
+  const calendly = provider === "calendly"
+  return {
+    id,
+    name,
+    category: "scheduling",
+    logo,
+    builtIn: false,
+    physical: false,
+    kind: "app",
+    appId: "booking_sync",
+    bookingProvider: provider,
+    summary: `Bookings made on ${name} show in Storelib's Bookings.`,
+    about: [
+      `Each booking made on your ${name} shows in Bookings with who booked, their email, the time and their time zone, and you get a notification as you do for a booking form. A booking moved or cancelled on ${name} changes in Bookings too, and you get an email when the person who booked did it.`,
+      calendly
+        ? "Connect with a personal access token. Storelib adds a webhook to your Calendly account with it and removes it when you disconnect. It works on every Calendly plan, Free included."
+        : "Connect with an API key and Storelib adds the webhook to your Cal.com account, and removes it when you disconnect. Or add the webhook yourself with the address and secret Storelib gives you.",
+      `Moving or cancelling is done on ${name}. Bookings that came in stay in Storelib after you disconnect.`,
+    ],
+    glance: [
+      { label: "Works with", value: "Every store" },
+      { label: "You add", value: calendly ? "A personal access token" : "An API key, or a webhook you add" },
+      { label: "Price", value: `Free on Storelib; ${name}'s own pricing applies` },
+    ],
+    data: [
+      `Coming from ${name}: each booking's event name, time and time zone, and the name and email of who booked. Nothing is sent to ${name}.`,
+      `Your ${calendly ? "token" : "key"} and the webhook's signing secret are stored encrypted on Storelib's server and never sent back to your browser. Every booking ${name} sends is checked against that secret before it is read.`,
+    ],
+    docsUrl,
+  }
+}
+
+const BOOKING_APPS: Integration[] = [
+  bookingApp("calendly", "calendly", "Calendly", "/integrations/calendly.svg", "https://developer.calendly.com/"),
+  bookingApp("cal-com", "calcom", "Cal.com", "/integrations/cal-com.svg", "https://cal.com/docs"),
+]
+
+/**
  * COURIER TRACKING (lib/physical/tracking): built into Storelib for every
  * store that ships, with Storelib's own tracking account. AfterShip is also
  * listed under its own name, because that is what stores search for: its page
@@ -645,6 +691,8 @@ const LEAD: Record<string, string> = {
   "storelib-reviews": "Buyers get an email asking for a review. Reviews show on your website with stars.",
   discord: "A role in your Discord server for everyone who buys or joins, taken back when their access ends.",
   telegram: "Your private Telegram group or channel, opened by a purchase and closed when access ends.",
+  calendly: "Bookings made on your Calendly show in Bookings, with a notification for each.",
+  "cal-com": "Bookings made on your Cal.com show in Bookings, with a notification for each.",
   "send-analytics": "Page views, purchases, refunds and signups from Storelib's server to Google Analytics 4, Meta, PostHog or your own system.",
   "courier-tracking": "Every parcel is followed with its carrier. Your buyer sees each scan and hears when it's out for delivery and delivered.",
   aftership: "Follow your parcels with your own AfterShip account instead of Storelib's.",
@@ -673,7 +721,7 @@ const LEAD: Record<string, string> = {
 */
 const NOT_LISTED = new Set(["manual", "supplier_email", "csv"])
 
-export const INTEGRATIONS: Integration[] = [...STORELIB_APPS, ...ANALYTICS_APPS, ...COMMUNITY_APPS, ...TRACKING_APPS, ...TRACKER_ORDER.map(fromTracker), ...MARKETING_APPS, ...PROVIDERS.filter((p) => !NOT_LISTED.has(p.id)).map(fromProvider), ...LISTED.map(fromListed)].map((i) => (LEAD[i.id] ? { ...i, lead: LEAD[i.id] } : i))
+export const INTEGRATIONS: Integration[] = [...STORELIB_APPS, ...BOOKING_APPS, ...ANALYTICS_APPS, ...COMMUNITY_APPS, ...TRACKING_APPS, ...TRACKER_ORDER.map(fromTracker), ...MARKETING_APPS, ...PROVIDERS.filter((p) => !NOT_LISTED.has(p.id)).map(fromProvider), ...LISTED.map(fromListed)].map((i) => (LEAD[i.id] ? { ...i, lead: LEAD[i.id] } : i))
 
 /** Where a card stands, in the words it shows (badges and the Install section). */
 export type IntegrationStatus = "built_in" | "installed" | "needs_attention" | "error" | "available" | "coming_soon"

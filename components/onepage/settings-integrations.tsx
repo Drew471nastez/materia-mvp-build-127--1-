@@ -39,6 +39,7 @@ import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { INTEGRATIONS } from "@/lib/integrations/catalog"
 import { PageIntegrationsSection, UnreadNote } from "@/components/onepage/page-integrations"
+import { ExternalBookingsSection } from "@/components/bookings/external-bookings"
 
 type Tracking = Partial<Record<string, string | null>>
 type MarketingRow = { provider: "klaviyo" | "omnisend"; connected: boolean; listName?: string | null }
@@ -174,6 +175,9 @@ export function OnePageIntegrations() {
 
       {/* Round 40: Mailchimp, Kit, beehiiv, Zapier, Make, Sheets and a webhook, connected here, each sent every signup as it happens (./page-integrations). */}
       <PageIntegrationsSection />
+
+      {/* Calendly and Cal.com, which the Booking block links or embeds: their bookings come into Bookings (lib/bookings/external). */}
+      <ExternalBookingsSection />
 
       <a
         href="/app/integrations"

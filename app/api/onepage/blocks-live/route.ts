@@ -4,6 +4,7 @@ import { rateLimit, addressSubject } from "@/lib/api/rate-limit"
 import { isUuid } from "@/lib/physical/auth"
 import { resolveStorelibBlock } from "@/lib/onepage/storelib-blocks-server"
 import { liveDataDeps, withDataBlocks } from "@/lib/onepage/data-blocks-server"
+import { withProductRatings } from "@/lib/onepage/product-rating-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -52,7 +53,9 @@ export async function POST(request: Request) {
           const [filled] = await withDataBlocks(db, await liveDataDeps(db), sellerId, [given])
           return { id: b.id, data: (filled as { data?: Record<string, unknown> }).data ?? null }
         }
-        const out = await resolveStorelibBlock(db, sellerId, given)
+        const resolved = await resolveStorelibBlock(db, sellerId, given)
+        /* A shelf's cards with their Storelib Reviews stars, as the live page draws them (public: the store's shown reviews). */
+        const [out] = resolved.type === "storelib_shelf" ? await withProductRatings(db, sellerId, [resolved]) : [resolved]
         return { id: b.id, data: out.data ?? null }
       } catch {
         return { id: b.id, data: null }

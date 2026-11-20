@@ -47,6 +47,8 @@ export interface ShelfItem extends VariantPriceFacts {
   interval?: "month" | "year" | null
   /** "Free", "$19/month", "1,204 members": a community's line, said by the community. */
   meta?: string | null
+  /** Storelib Reviews' rating, filled on the server with the item (lib/onepage/product-rating-server). */
+  rating?: { average: number; count: number } | null
 }
 
 export interface StorelibShelfBlockData {

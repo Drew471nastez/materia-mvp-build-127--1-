@@ -18,6 +18,7 @@ import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 import { newLeadEventId, pixelLead } from "@/lib/analytics/pixels"
 import { tt } from "@/lib/i18n/text"
 import { SocialIcon } from "@/components/onepage/brand-icons"
+import { CardRatingLine } from "@/components/onepage/rating-stars"
 import { tiktokPlayerUrl } from "@/lib/onepage/creator-blocks"
 import { compactCount, followerTotal, leadMagnetButton, leadMagnetKind, leadMagnetReady, pastedPosts, promoCode, shelfLimit, shelfPickedIds, shelfSource, shelfUsesProductCards, type FollowerNetwork, type FollowersBlockData, type LeadMagnetBlockData, type PromoCodeBlockData, type ShelfItem, type SocialPostItem, type SocialPostsBlockData, type StorelibShelfBlockData } from "@/lib/onepage/storelib-blocks"
 import type { OnePageBlock, OnePageTheme } from "@/lib/onepage/types"
@@ -213,7 +214,7 @@ function ShelfView({ block, look }: { block: OnePageBlock; look: StorelibBlockLo
           ))}
         </div>
       ) : shelfUsesProductCards(data) && shelfSource(data.source)!=="community" ? <div className={data.layout==="carousel"?"op-rail flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden":data.layout==="grid"?"grid grid-cols-2 gap-3":"flex flex-col gap-3"}>
-       {items.map(item=><div key={item.id} className={data.layout==="carousel"?"w-[85%] shrink-0 snap-start":"min-w-0"} style={data.layout==="carousel"&&shelfSlideWidth(data.carousel_view,12)?{width:shelfSlideWidth(data.carousel_view,12)!}:undefined}><OnePageProductBlock block={{id:`${block.id}:${item.id}`,type:"product",enabled:true,sort_order:0,data:{show_price:true,show_description:true,cta_text:tt("View product"),style:"callout",...data.product_settings,...data.product_overrides?.[item.id],product_id:item.id,product_title:item.title,product_thumbnail:item.image,product_slug:item.href.split('/').filter(Boolean).pop(),product_type:item.kind,product_price_cents:item.price_cents,product_variant_min_cents:item.variant_min_price_cents,product_variant_max_cents:item.variant_max_price_cents,product_variant_count:item.variant_count,product_single_variant_id:item.single_variant_id}}} theme={look.theme} quiet={look.still} inPair={data.layout==="grid"} seller={{name:"",avatarUrl:null}} pageMoney={money} plainText={s=>s?.replace(/<[^>]*>/g,'')||''} trackClick={()=>{}} animationClass="" quick={null}/></div>)}
+       {items.map(item=><div key={item.id} className={data.layout==="carousel"?"w-[85%] shrink-0 snap-start":"min-w-0"} style={data.layout==="carousel"&&shelfSlideWidth(data.carousel_view,12)?{width:shelfSlideWidth(data.carousel_view,12)!}:undefined}><OnePageProductBlock block={{id:`${block.id}:${item.id}`,type:"product",enabled:true,sort_order:0,data:{show_price:true,show_description:true,cta_text:tt("View product"),style:"callout",...data.product_settings,...data.product_overrides?.[item.id],product_id:item.id,product_title:item.title,product_thumbnail:item.image,product_slug:item.href.split('/').filter(Boolean).pop(),product_type:item.kind,product_price_cents:item.price_cents,product_variant_min_cents:item.variant_min_price_cents,product_variant_max_cents:item.variant_max_price_cents,product_variant_count:item.variant_count,product_single_variant_id:item.single_variant_id,product_rating:item.rating??null}}} theme={look.theme} quiet={look.still} inPair={data.layout==="grid"} seller={{name:"",avatarUrl:null}} pageMoney={money} plainText={s=>s?.replace(/<[^>]*>/g,'')||''} trackClick={()=>{}} animationClass="" quick={null}/></div>)}
       </div> : list ? (        <div className="flex flex-col" style={{ gap: px(8, look.scale) }}>
           {items.map((item) => (
             <a key={item.id} href={platformHref(item.href)} className="op-card flex w-full items-center no-underline transition-[scale] duration-150 active:scale-[0.99]" style={{ ...look.button, borderRadius: radius, padding: px(8, look.scale), gap: px(12, look.scale) }}>
@@ -223,6 +224,7 @@ function ShelfView({ block, look }: { block: OnePageBlock; look: StorelibBlockLo
               </span>
               <span className="min-w-0 flex-1 text-left">
                 <span className="block truncate font-semibold" style={{ fontSize: px(14.5, look.scale) }}>{item.title}</span>
+                <CardRatingLine rating={item.rating} className="mt-0.5" />
                 {priceLine(item, money) ? <span className="mt-0.5 block truncate opacity-75" style={{ fontSize: px(12.5, look.scale) }}>{priceLine(item, money)}</span> : null}
               </span>
               <ChevronRight aria-hidden className="shrink-0 opacity-60" style={{ width: px(16, look.scale), height: px(16, look.scale) }} />
@@ -242,6 +244,7 @@ function ShelfView({ block, look }: { block: OnePageBlock; look: StorelibBlockLo
               </span>
               <span className="block text-left" style={{ padding: `${px(8, look.scale)} ${px(4, look.scale)} ${px(4, look.scale)}` }}>
                 <span className="line-clamp-2 block font-semibold leading-snug" style={{ fontSize: px(13.5, look.scale), minHeight: px(36, look.scale) }}>{item.title}</span>
+                <CardRatingLine rating={item.rating} className="mt-1" size={11} />
                 <span className="mt-1 block truncate opacity-75" style={{ fontSize: px(12.5, look.scale), minHeight: px(16, look.scale) }}>{priceLine(item, money) ?? ""}</span>
               </span>
             </a>

@@ -22,6 +22,8 @@ import { storeOriginFor } from "@/lib/physical/order-link-server"
 import { getMainDomain } from "@/lib/url-helpers"
 import { readLadder } from "@/lib/supabase/missing-memory"
 import { routeUser } from "@/lib/auth/route-user"
+import { storefrontReviews } from "@/lib/reviews/storefront-server"
+import { allReviewsUrl, sheetReviewsFrom, type SheetReviews } from "@/lib/onepage/product-rating"
 
 /**
  * GET /api/onepage/product?id=<productId>
@@ -61,7 +63,7 @@ export async function GET(request: Request) {
   const creatorId = String(p.creator_id ?? "")
 
   const supabase = await createClient()
-  const [userRead, variantsRead, creatorRead, store, config, taxSetup, storeName, standing, sizeChart, section, storeOrigin] = await Promise.all([
+  const [userRead, variantsRead, creatorRead, store, config, taxSetup, storeName, standing, sizeChart, section, storeOrigin, reviewsRead] = await Promise.all([
     /* Supabase Auth itself, as the getUser() this replaced (round rel2-auth): for who is looking only; Auth not answering shows the sheet as to a visitor. */
     routeUser({ fresh: true }).then((who) => ({ data: { user: who.kind === "user" ? who.user : null } })),
     /* Round 41: with `active`, so an option taken off a product that ships is not offered in the sheet; without it where the column is missing. */
@@ -87,6 +89,12 @@ export async function GET(request: Request) {
     p.type === "physical" ? productSectionData(admin, p as unknown as ProductSectionRow).catch(() => null) : Promise.resolve(null),
     /* Round 49: the store's website, whose checkout a product that ships is paid on (lib/onepage/shipped-checkout). None: storelib.com. */
     p.type === "physical" ? storeOriginFor(admin, creatorId).catch(() => null) : Promise.resolve(null),
+    /*
+      Storelib Reviews: the product's rating and its newest reviews, the ones its website shows (lib/reviews/
+      storefront-server, held a minute per store and cleared by every review change). The app off, or no review:
+      nothing, and the sheet shows no reviews part.
+    */
+    storefrontReviews(creatorId, { id, title: typeof p.title === "string" ? p.title : null }).catch(() => null),
   ])
   const user = userRead.data.user
   const creator = creatorRead.data as { id: string; user_id: string; slug: string | null } | null
@@ -146,6 +154,10 @@ export async function GET(request: Request) {
   /* Round AK: the cover as uploaded (SQL part 377) in the card copy's place; select("*") brings it once it exists. */
   const images = withOriginalCover([...(thumb ? [thumb] : []), ...gallery], p as { thumbnail_url?: string | null; cover_original_url?: string | null }).slice(0, 12)
   const meta = (user?.user_metadata ?? {}) as { full_name?: string; name?: string }
+  const reviews: SheetReviews | null =
+    reviewsRead?.enabled && !reviewsRead.sample && reviewsRead.product?.id === id
+      ? sheetReviewsFrom(reviewsRead.product.summary, reviewsRead.product.items, allReviewsUrl(productPageUrl(typeof p.slug === "string" ? p.slug : null)))
+      : null
 
   return NextResponse.json(
     {
@@ -177,6 +189,8 @@ export async function GET(request: Request) {
         /* Round 43: Size, Colour and the rest (with the seller's swatches), and what the buyer is asked to write or upload. */
         options: section?.options ?? [],
         personalization: section?.personalization ?? [],
+        /* Storelib Reviews (lib/onepage/product-rating): the average, how many, the newest three and where all of them are. */
+        reviews,
       },
       seller: {
         name: storeName || personName({ name: prof?.display_name, username: prof?.username, slug: creator?.slug }),

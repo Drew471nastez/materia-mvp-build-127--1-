@@ -6,6 +6,7 @@
 import type { CheckoutTax } from "@/lib/tax/rules"
 import type { PersonalizationField } from "@/lib/products/personalization"
 import type { SizeChart } from "@/lib/size-charts/model"
+import type { SheetReviews } from "@/lib/onepage/product-rating"
 
 export interface ProductFacts {
   product: {
@@ -51,6 +52,8 @@ export interface ProductFacts {
     options?: { name: string; values: string[]; swatches?: Record<string, string> }[]
     /** Round 43: what the buyer is asked to write or upload (lib/products/personalization). */
     personalization?: PersonalizationField[]
+    /** Storelib Reviews: the rating, the newest few and where all of them are (lib/onepage/product-rating). Null with the app off or no review. */
+    reviews?: SheetReviews | null
   }
   seller: { name: string; avatarUrl: string | null }
   checkout: { instant: boolean; reason: string | null; url: string; tax: CheckoutTax | null; marketingOptIn: boolean; lastNameRequired: boolean }

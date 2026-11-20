@@ -13650,7 +13650,29 @@ const words: Record<string, string> = {
  "You have the members' role.": "Vous avez le rôle des membres.",
  "Comes with your purchase: the members' Discord.": "Inclus avec votre achat : le Discord des membres.",
  "You are in the group.": "Vous êtes dans le groupe.",
- "Comes with your purchase: a private Telegram group.": "Inclus avec votre achat : un groupe Telegram privé."
+ "Comes with your purchase: a private Telegram group.": "Inclus avec votre achat : un groupe Telegram privé.",
+ "{value} out of 5, {count, plural, one {# review} other {# reviews}}": "{value} sur 5, {count, plural, one {# avis} other {# avis}}",
+ "See all {count, plural, one {# review} other {# reviews}}": "Voir {count, plural, one {l'avis} other {les # avis}}",
+ "Waiting for the first booking": "En attente de la première réservation",
+ "Last booking {date}": "Dernière réservation : {date}",
+ "Bookings made on your Calendly show in Bookings, and you get a notification when one is made, moved or cancelled.": "Les réservations faites sur votre Calendly s'affichent dans Réservations, et vous recevez une notification quand l'une est créée, déplacée ou annulée.",
+ "Bookings made on your Cal.com show in Bookings, and you get a notification when one is made, moved or cancelled.": "Les réservations faites sur votre Cal.com s'affichent dans Réservations, et vous recevez une notification quand l'une est créée, déplacée ou annulée.",
+ "Connected. New bookings show in Bookings.": "Connecté. Les nouvelles réservations s'affichent dans Réservations.",
+ "Disconnected. Delete the webhook in Cal.com too, under Settings, Developer, Webhooks.": "Déconnecté. Supprimez aussi le webhook dans Cal.com, sous Settings, Developer, Webhooks.",
+ "Disconnected. Bookings already here stay.": "Déconnecté. Les réservations déjà ici restent.",
+ "Disconnected here, but {name} did not remove its webhook. Remove it in {name}.": "Déconnecté ici, mais {name} n'a pas retiré son webhook. Retirez-le dans {name}.",
+ "Connecting needs SQL part 475 run in Supabase first.": "Pour connecter, exécutez d'abord la partie SQL 475 dans Supabase.",
+ "In Cal.com, open Settings, Developer, Webhooks and add a webhook with this address and secret. Tick Booking created, Booking cancelled and Booking rescheduled.": "Dans Cal.com, ouvrez Settings, Developer, Webhooks et ajoutez un webhook avec cette adresse et ce secret. Cochez Booking created, Booking cancelled et Booking rescheduled.",
+ "Subscriber URL": "Subscriber URL",
+ "Secret, shown once": "Secret, affiché une seule fois",
+ "The row says Connected once Cal.com sends its first booking.": "La ligne indique Connecté dès que Cal.com envoie sa première réservation.",
+ "Added by you in Cal.com": "Ajouté par vous dans Cal.com",
+ "Open Bookings": "Ouvrir Réservations",
+ "Personal access token": "Jeton d'accès personnel",
+ "In Calendly, open the Profile menu, then Developer, then Personal access tokens. Make a token with the users:read, scheduled_events:read and webhooks:write scopes.": "Dans Calendly, ouvrez le menu du profil, puis Developer, puis Personal access tokens. Créez un jeton avec les autorisations users:read, scheduled_events:read et webhooks:write.",
+ "In Cal.com, open Settings, Security, API keys and make a key. Storelib adds the webhook with it and removes it when you disconnect.": "Dans Cal.com, ouvrez Settings, Security, API keys et créez une clé. Storelib ajoute le webhook avec elle et le retire quand vous déconnectez.",
+ "Add the webhook myself instead": "Ajouter le webhook moi-même",
+ "Booked on {provider}. Move or cancel it there and it changes here too.": "Réservé sur {provider}. Déplacez-le ou annulez-le là-bas et il change ici aussi."
 }
 
 export default words

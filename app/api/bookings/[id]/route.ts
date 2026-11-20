@@ -6,6 +6,7 @@ import { queueJobs, runFormJobs } from "@/lib/forms/delivery-server"
 import { cancelBooking, moveBooking, readOwnedBooking, readContext } from "@/lib/bookings/server"
 import { announce } from "@/lib/bookings/announce-server"
 import { locationWords } from "@/lib/bookings/calendar-file"
+import { readExternalBooking } from "@/lib/bookings/external/list"
 
 /*
   GET   /api/bookings/<id>   one booking with who booked and their answers
@@ -31,7 +32,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   if (actor instanceof NextResponse) return actor
   try {
     const booking = await readOwnedBooking(actor.db, actor.user.id, id)
-    if (!booking) return formError(new Error("Booking not found."), 404)
+    if (!booking) {
+      /* A booking made on Calendly or Cal.com (run-now part 475, lib/bookings/external): shown, changed only there. */
+      const external = await readExternalBooking(actor.db, actor.user.id, id)
+      if (external) return NextResponse.json({ booking: external }, { headers: NO_STORE })
+      return formError(new Error("Booking not found."), 404)
+    }
     const ctx = await readContext(actor.db, booking)
     return NextResponse.json(
       {

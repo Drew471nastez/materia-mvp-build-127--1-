@@ -323,6 +323,8 @@ export interface ProductBlockData {
   product_compare_at_cents?: number | null
   product_pwyw?: boolean | null
   product_pwyw_min_cents?: number | null
+  /** Storelib Reviews' rating, written by the server when the page is drawn (lib/onepage/product-rating-server); never saved. */
+  product_rating?: { average: number; count: number } | null
 }
 
 export interface SocialRowBlockData {
