@@ -46,12 +46,27 @@ import type { PageIntegrationView } from "@/lib/onepage/integrations/connect-ser
 
 type Answer = { integrations: PageIntegrationView[]; ready: boolean }
 
-/* One read for every row on the screen, kept until a change. */
+/*
+  One read for every row on the screen. It used to be kept for the whole
+  visit and read only when nothing was kept: a tool disconnected in another
+  tab, or a key the provider revoked (its lastError), still read Connected
+  until a reload. A row that mounts now shows what is kept at once and asks
+  again when it is older than FRESH_MS, one request for all the rows.
+*/
+const FRESH_MS = 30_000
 let cached: Answer | null = null
+let readAt = 0
+let reading: Promise<Answer | null> | null = null
 const listeners = new Set<(a: Answer | null) => void>()
 function publish(a: Answer | null) {
   cached = a
+  readAt = a ? Date.now() : 0
   listeners.forEach((l) => l(a))
+}
+/** Asks again; rows already asking share the one request. */
+export function reloadPageIntegrations(): Promise<Answer | null> {
+  if (!reading) reading = reload().finally(() => { reading = null })
+  return reading
 }
 async function reload(): Promise<Answer | null> {
   try {
@@ -67,12 +82,17 @@ async function reload(): Promise<Answer | null> {
   }
 }
 
+/**
+ * undefined while the first read is on its way, null when it could not be
+ * read. Null is NOT "nothing connected": the rows say they could not check,
+ * and a sheet offers no Connect over a connection it could not see.
+ */
 export function usePageIntegrations(): Answer | null | undefined {
   const [value, setValue] = React.useState<Answer | null | undefined>(cached ?? undefined)
   React.useEffect(() => {
     const l = (a: Answer | null) => setValue(a)
     listeners.add(l)
-    if (!cached) void reload()
+    if (!cached || Date.now() - readAt > FRESH_MS) void reloadPageIntegrations()
     return () => {
       listeners.delete(l)
     }
@@ -185,8 +205,9 @@ export function statusLine(v: PageIntegrationView | undefined): { text: string; 
   return { text: where ? tt("Connected, {value}", { value: where }) : tt("Connected"), on: true, bad: false }
 }
 
-export function IntegrationRow({ provider, view, onOpen, loading = false }: { provider: PageIntegration; view: PageIntegrationView | undefined; onOpen: () => void; loading?: boolean }) {
-  const s = statusLine(view)
+export function IntegrationRow({ provider, view, onOpen, loading = false, unread = false }: { provider: PageIntegration; view: PageIntegrationView | undefined; onOpen: () => void; loading?: boolean; unread?: boolean }) {
+  /* The read failed: what is connected is not known, so the row never says "Not connected" about it. */
+  const s = unread ? { text: tt("Could not be checked"), on: false, bad: false } : statusLine(view)
   return (
     <button type="button" data-page-integration={provider} data-on={s.on ? "" : undefined} onClick={onOpen} className="flex min-h-[56px] w-full items-center gap-3 px-3.5 py-2.5 text-left transition-colors [@media(hover:hover)]:hover:bg-[#fafafb]">
       <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-[10px] bg-white shadow-[inset_0_0_0_1px_rgba(16,24,40,0.08)]">
@@ -369,7 +390,7 @@ export function IntegrationSheet({ provider, open, onClose }: { provider: PageIn
 
   const name = PAGE_INTEGRATION_NAME[provider]
   const choosing = !!keyed && lists !== null
-  const s = statusLine(view)
+  const s = all === null ? { text: tt("Could not be checked"), on: false, bad: false } : statusLine(view)
 
   return (
     <SheetDialog open={open} onClose={onClose} phone={phone} label={name} onOpenAutoFocus={(e) => e.preventDefault()} className="flex flex-col gap-0 overflow-hidden rounded-[20px] border-[#ececf1] bg-white p-0 sm:max-w-[440px]">
@@ -399,7 +420,20 @@ export function IntegrationSheet({ provider, open, onClose }: { provider: PageIn
 
               {all && all.ready === false ? <p className="rounded-xl bg-[#fff7ed] p-3 text-[13px] text-[#9a3412]">{tt("Connecting needs SQL part 315 run in Supabase first.")}</p> : null}
 
-              {view?.connected && !choosing ? (
+              {all === null ? (
+                /*
+                  WHAT IS CONNECTED COULD NOT BE READ. The sheet used to take that
+                  for "not connected" and offer Connect: a creator who pressed it
+                  replaced a working key, and for a webhook, its signing secret.
+                */
+                <div className="flex flex-col gap-3" data-integration-unread="">
+                  <p role="alert" className="rounded-xl bg-[#fff7ed] p-3 text-[13px] leading-relaxed text-[#9a3412]">{tt("Could not check what is connected. Try again in a moment.")}</p>
+                  <button type="button" className={primary} disabled={!!busy} onClick={async () => { setBusy("reload"); await reloadPageIntegrations(); setBusy(null) }}>
+                    {busy === "reload" ? <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> : null}
+                    {tt("Try again")}
+                  </button>
+                </div>
+              ) : view?.connected && !choosing ? (
                 <div className="space-y-3">
                   <dl className="divide-y divide-[#f1f2f4] rounded-xl border border-[#e8e8ec] text-[13.5px]">
                     <div className="flex justify-between gap-3 px-3.5 py-2.5">
@@ -476,7 +510,7 @@ export function IntegrationSheet({ provider, open, onClose }: { provider: PageIn
               {view?.lastError && !error ? <p className="rounded-xl bg-[#fff7ed] p-3 text-[13px] leading-relaxed text-[#9a3412]">{view.lastError}</p> : null}
               {error ? <p role="alert" className="text-[13px] leading-relaxed text-[#b42318]">{error}</p> : null}
               {note ? <p role="status" className="flex items-center gap-1.5 text-[13px] text-[#15803d]"><Check aria-hidden className="h-4 w-4" />{note}</p> : null}
-              {!view?.connected || provider === "webhook" ? (
+              {all !== null && (!view?.connected || provider === "webhook") ? (
                 <button type="button" className={quiet} onClick={() => setSetup(true)} data-integration-setup-open="">
                   {hook && provider !== "webhook" ? tt("How to get the address") : provider === "webhook" ? tt("What is sent") : tt("Where to find the key")}
                   <ChevronRight aria-hidden className="h-3.5 w-3.5" />
@@ -491,6 +525,32 @@ export function IntegrationSheet({ provider, open, onClose }: { provider: PageIn
 }
 
 const listBox = "divide-y divide-[#f1f2f4] overflow-hidden rounded-xl border border-[#e8e8ec] bg-white"
+
+/** Under a list whose read failed: says so, and asks again. Shared with Settings › Integrations' other two lists (./settings-integrations). */
+export function UnreadNote({ onRetry }: { onRetry: () => unknown }) {
+  const [busy, setBusy] = React.useState(false)
+  return (
+    <div className="flex items-center justify-between gap-3" data-integrations-unread="">
+      <p role="alert" className="min-w-0 text-[12.5px] leading-snug text-[#9a3412]">{tt("Could not check what is connected.")}</p>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true)
+          try {
+            await onRetry()
+          } finally {
+            setBusy(false)
+          }
+        }}
+        className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-xl px-3 text-[13px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#f3f4f6] disabled:opacity-50"
+      >
+        {busy ? <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> : null}
+        {tt("Try again")}
+      </button>
+    </div>
+  )
+}
 
 /**
  * UNDER AN EMAIL SIGNUP'S SETTINGS: the tools its signups go to as they
@@ -527,9 +587,10 @@ export function PageIntegrationsSection({ only }: { only?: readonly PageIntegrat
       <p className="text-[13px] font-medium text-[#374151]">{tt("Sent as they sign up")}</p>
       <div className={listBox} aria-busy={all === undefined}>
         {shown.map((p) => (
-          <IntegrationRow key={p} provider={p} view={all?.integrations.find((i) => i.provider === p)} loading={all === undefined} onOpen={() => setOpen(p)} />
+          <IntegrationRow key={p} provider={p} view={all?.integrations.find((i) => i.provider === p)} loading={all === undefined} unread={all === null} onOpen={() => setOpen(p)} />
         ))}
       </div>
+      {all === null ? <UnreadNote onRetry={reloadPageIntegrations} /> : null}
       {open ? <IntegrationSheet provider={open} open={!!open} onClose={() => setOpen(null)} /> : null}
     </section>
   )

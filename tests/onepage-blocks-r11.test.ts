@@ -192,7 +192,7 @@ async function main() {
     const settings = read("components/onepage/tabs/settings-tab.tsx")
     const mod = read("components/onepage/settings-integrations.tsx")
     check("an Integrations section, made by settings-integrations", /\{ id: "integrations", get label\(\) \{ return tt\("Integrations"\) \} \}/.test(settings) && /integrations: card\("integrations", <OnePageIntegrations \/>\)/.test(settings))
-    check("it reads what Storelib keeps: the tags, the email tools, the domain", /useJson<\{ tracking\?: Tracking \}>\("\/api\/store\/integrations"\)/.test(mod) && /"\/api\/store\/integrations\/marketing"/.test(mod) && /* Changed on purpose (round 41 team): a team member is told the store's domain with the page instead */
+    check("it reads what Storelib keeps: the tags, the email tools, the domain", /* Changed on purpose (round op-editor): read with a Try again, so a failed read is said instead of "Not set up" */ /useJsonRetry<\{ tracking\?: Tracking \}>\("\/api\/store\/integrations"\)/.test(mod) && /"\/api\/store\/integrations\/marketing"/.test(mod) && /* Changed on purpose (round 41 team): a team member is told the store's domain with the page instead */
 /useJson<DomainsAnswer>\(team \? null : "\/api\/domains"\)/.test(mod))
     check("and only reads them: nothing here writes a setting", !/method: "(PUT|POST|PATCH|DELETE)"/.test(mod))
     check("each row opens that integration's own page, with its own logo", /href=\{`\/app\/integrations\?integration=\$\{i\.id\}`\}/.test(mod) && /logo=\{i\.logo\}/.test(mod))

@@ -792,6 +792,8 @@ const SUITES = [
   "tests/explore-show-all.test.ts",
   "tests/onepage-stability.test.ts",
   "tests/onepage-save.test.ts",
+  /* Round op-editor: the editor shares the live address, not one typed and not saved; a stopped or replaced upload writes nothing; a failed read of integrations is said, never "Not connected" (scripts/check-onepage-editor-bugs.mjs). */
+  "tests/onepage-editor-bugs.test.ts",
   "tests/marketing-image-quality.test.ts",
   "tests/keyboard-safe-sheet.test.ts",
   "tests/analytics-chart-skeleton.test.ts",

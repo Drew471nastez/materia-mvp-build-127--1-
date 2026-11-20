@@ -13579,7 +13579,10 @@ const words: Record<string, string> = {
  "Each comes in as a draft. Files are not copied.": "Jedes kommt als Entwurf. Dateien werden nicht kopiert.",
  "Go to slide {n}": "Zu Folie {n}",
  "Changes not published yet. Visitors see the published version.": "Änderungen noch nicht veröffentlicht. Besucher sehen die veröffentlichte Version.",
- "Not published yet. Visitors can answer once you publish it.": "Noch nicht veröffentlicht. Besucher können antworten, sobald du es veröffentlichst."
+ "Not published yet. Visitors can answer once you publish it.": "Noch nicht veröffentlicht. Besucher können antworten, sobald du es veröffentlichst.",
+ "Could not be checked": "Konnte nicht geprüft werden",
+ "Could not check what is connected.": "Es konnte nicht geprüft werden, was verbunden ist.",
+ "Could not check what is connected. Try again in a moment.": "Es konnte nicht geprüft werden, was verbunden ist. Versuche es gleich noch einmal."
 }
 
 export default words
