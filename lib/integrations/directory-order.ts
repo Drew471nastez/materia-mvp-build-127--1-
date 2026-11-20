@@ -78,3 +78,22 @@ export function weave<T>(items: T[], laneOf: (item: T) => Lane): T[] {
   }
   return placed.map((p) => p.item)
 }
+
+/*
+  RIGHT AFTER KLAVIYO (the owner: "instead of Google Tag Manager next to
+  Klaviyo, Printify, then Printful, then TikTok Pixel, Google Ads, and Storelib
+  Reviews"). Applied to the one list every pill reads, so no card moves when a
+  pill is pressed; Google Tag Manager and the rest follow in their own order.
+  Storelib Reviews is listed by both of its ids (the integration card and the
+  app), whichever this directory holds.
+*/
+export const AFTER_KLAVIYO: string[] = ["printify", "printful", "tiktok-pixel", "google-ads", "storelib-reviews", "storelib_reviews"]
+
+/** Moves the pinned cards, in their order, to just after the anchor card. With no anchor in the list, nothing moves. */
+export function pinAfter<T>(items: T[], idOf: (item: T) => string, anchor = "klaviyo", pinned: string[] = AFTER_KLAVIYO): T[] {
+  if (!items.some((i) => idOf(i) === anchor)) return items
+  const lead = pinned.flatMap((id) => items.filter((i) => idOf(i) === id))
+  const rest = items.filter((i) => !pinned.includes(idOf(i)))
+  const at = rest.findIndex((i) => idOf(i) === anchor) + 1
+  return [...rest.slice(0, at), ...lead, ...rest.slice(at)]
+}

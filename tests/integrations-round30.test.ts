@@ -8,7 +8,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { CATEGORY_ORDER, visibleIntegrations, type IntegrationCategory } from "@/lib/integrations/catalog"
-import { LANE_ORDER, PILL_HEAD, pillOrder, weave, type Lane } from "@/lib/integrations/directory-order"
+import { AFTER_KLAVIYO, LANE_ORDER, PILL_HEAD, pillOrder, pinAfter, weave, type Lane } from "@/lib/integrations/directory-order"
 import { untt } from "./i18n-source"
 
 let passed = 0
@@ -80,6 +80,20 @@ console.log("\nHow it works\n")
   check("in the page's bar, across from the title, at every width", /<PaneBar width=\{LIST_WIDTH\} className=\{LIST_BAR\}>\s*<h1[^>]*>[^<]*<\/h1>\s*<HowItWorks id="integrations" className="-mr-2" \/>/.test(page))
   check("no line under the title", !/Storelib apps and the services you already use/.test(page) && !/data-integrations-lede/.test(page))
   check("no pill shaped button after the line any more", !/<HowItWorks id="integrations" className="-ml-2" \/>/.test(page))
+}
+
+console.log("\nRight after Klaviyo (the owner's run)\n")
+{
+  const ids = ["meta-pixel", "klaviyo", "google-tag-manager", "printful", "zapier", "google-ads", "printify", "tiktok-pixel", "storelib-reviews", "mailchimp"]
+  const out = pinAfter(ids, (x) => x)
+  check("Printify, Printful, TikTok Pixel, Google Ads, Storelib Reviews follow Klaviyo in that order, Google Tag Manager after them", out.join() === "meta-pixel,klaviyo,printify,printful,tiktok-pixel,google-ads,storelib-reviews,google-tag-manager,zapier,mailchimp", out)
+  check("no card is lost or doubled", [...out].sort().join() === [...ids].sort().join())
+  check("with no Klaviyo in the list nothing moves", pinAfter(["a", "printful", "b"], (x) => x).join() === "a,printful,b")
+  check("the run is the owner's", AFTER_KLAVIYO.slice(0, 5).join() === "printify,printful,tiktok-pixel,google-ads,storelib-reviews")
+  const dir = read("components/app/settings/integrations-directory.tsx")
+  check("the directory applies it to the one list every pill reads", /const entries: Entry\[\] = pinAfter\(ranked, \(e\) => e\.id\)/.test(dir))
+  const listed = visibleIntegrations(true).map((i) => i.id)
+  check("every pinned id is a card in the catalog", ["klaviyo", "printify", "printful", "tiktok-pixel", "google-ads", "storelib-reviews"].every((id) => listed.includes(id)))
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

@@ -44,7 +44,7 @@ import { hasBuiltInArt } from "@/components/app/settings/integration-mark"
 import { activeFilterCount, inPill, passesFilters, pillCounts, readDirectoryState, visibleIn, writeDirectoryState, matchesQuery, type CardFacets, type DirectoryState, type MakerFilter, type StatusFilter } from "@/lib/integrations/directory-filter"
 import { storelibApps, type AppState, type StorelibApp } from "@/lib/integrations/storelib-apps"
 import { tt } from "@/lib/i18n/text"
-import { pillOrder, weave, type DirectoryPill, type Lane } from "@/lib/integrations/directory-order"
+import { pillOrder, pinAfter, weave, type DirectoryPill, type Lane } from "@/lib/integrations/directory-order"
 import { NAV_ENTER_EASE, NAV_ENTER_MS, holdLanding, isTraversing, prefetchAppPage } from "@/lib/ui/app-navigation"
 
 /* All, then the pills the owner placed, then every other category (lib/integrations/directory-order). */
@@ -713,12 +713,14 @@ export function IntegrationsDirectory({ page = false, only = null, initial: serv
     this list filtered, so it is its own most used first too.
   */
   const scoreOf = (e: Entry) => scores?.[e.id] ?? (e.kind === "app" ? scores?.[`app:${e.id}`] : undefined) ?? 0
-  const entries: Entry[] = scores
+  const ranked: Entry[] = scores
     ? woven
         .map((e, at) => ({ e, at }))
         .sort((a, b) => Number(later(a.e)) - Number(later(b.e)) || scoreOf(b.e) - scoreOf(a.e) || a.at - b.at)
         .map(({ e }) => e)
     : woven
+  /* The owner's run after Klaviyo: Printify, Printful, TikTok Pixel, Google Ads, Storelib Reviews (lib/integrations/directory-order pinAfter). */
+  const entries: Entry[] = pinAfter(ranked, (e) => e.id)
   /* Storelib's own: its apps and the parts of Storelib shown as integrations (Reviews, Courier tracking, the webhook). All holds them as well as every service. */
   const isStorelib = (e: Entry) => e.kind === "app" || hasBuiltInArt(e.id)
   /*
