@@ -26,6 +26,7 @@
  * Everything the server did not send is not here: a member without access
  * gets the posts' titles and dates only, and a banner to join again.
  */
+import { CommunityJoinButtons } from "@/components/community-roles/join-buttons"
 import * as React from "react"
 import Link from "next/link"
 import { ArrowLeft, Check, ChevronDown, MoreHorizontal } from "lucide-react"
@@ -408,6 +409,8 @@ export function MemberPage({ page, welcome = false, cardUpdated = false, now: fi
   /* ── The side: what members get, included, the creator, payments ───── */
   const side = (
     <div className="space-y-3">
+      {/* The members' Discord server or Telegram group, when the creator set one up (lib/community-roles). */}
+      {m.access ? <CommunityJoinButtons productIds={[page.product.id]} back={`/account/library/memberships/${m.id}`} /> : null}
       {page.benefits.length > 0 || page.product.description ? (
         <SideCard title="What members get" id="member-benefits">
           {page.benefits.length > 0 ? (

@@ -298,6 +298,10 @@ export function IntegrationsDirectory({ page = false, only = null, initial: serv
     void api<{ destinations?: { connected: boolean }[] }>("/api/analytics/destinations").then((r) => {
       if (r.ok) setAppsOn((a) => ({ ...a, analytics_destinations: (r.data.destinations ?? []).some((d) => d.connected) }))
     })
+    /* Discord and Telegram are installed once a server or a chat is connected (lib/community-roles). */
+    void api<{ discord?: { connected: boolean }; telegram?: { connected: boolean } }>("/api/community-roles/status").then((r) => {
+      if (r.ok) setAppsOn((a) => ({ ...a, discord_roles: r.data.discord?.connected === true, telegram_access: r.data.telegram?.connected === true }))
+    })
   }, [])
   /* Storelib's own apps and the Essentials: On, Off or Set up, read off the store (lib/integrations/storelib-apps). */
   type AppsRead = { states: Record<string, AppState | null>; hrefs: Record<string, string> }

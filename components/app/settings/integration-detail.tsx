@@ -43,6 +43,7 @@ import { ReviewsAppPanel } from "@/components/app/settings/reviews-app-panel"
 import { TrackingAppPanel } from "@/components/app/settings/tracking-app-panel"
 import { GaConnect } from "@/components/app/settings/ga-connect"
 import { MarketingSyncPanel, type MarketingState } from "@/components/app/settings/marketing-sync-panel"
+import { CommunityAccessPanel } from "@/components/app/settings/community-access-panel"
 import { installVerb, oneTapInstall, removalPlan, setupSteps, type ActionCall } from "@/lib/integrations/detail-actions"
 import { integrationAppView, tabFor } from "@/components/app/settings/integration-apps"
 import { tt } from "@/lib/i18n/text"
@@ -99,6 +100,8 @@ const BRAND: Record<string, string> = {
   mailchimp: "#ffe01b",
   brevo: "#0b996e",
   zapier: "#ff4f00",
+  discord: "#5865f2",
+  telegram: "#26a5e4",
   hotjar: "#ff3c00",
   "snapchat-pixel": "#fffc00",
   "reddit-pixel": "#ff4500",
@@ -109,6 +112,7 @@ const CATEGORY_TINT: Record<IntegrationCategory, string> = {
   advertising: "#3d84f5",
   email: "#e2557a",
   automation: "#f08a24",
+  community: "#5865f2",
   shipping: "#3d84f5",
   print_on_demand: "#1fa971",
   dropshipping: "#0f9fb5",
@@ -389,6 +393,9 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
   ) : item.kind === "app" && item.appId === "marketing_sync" && item.marketingProvider ? (
     /* Brevo, MailerLite and Kit: the same sync card as Emails › Platforms. */
     <MarketingSyncPanel provider={item.marketingProvider} onChanged={onMarketing} />
+  ) : item.kind === "app" && (item.appId === "discord_roles" || item.appId === "telegram_access") ? (
+    /* Storelib's own bots: connect, map products to a role or a chat, and each member's access (lib/community-roles). */
+    <CommunityAccessPanel provider={item.appId === "discord_roles" ? "discord" : "telegram"} onChanged={(on) => onApp(item.appId!, on)} />
   ) : item.kind === "app" && item.appId === "courier_tracking" ? (
     <TrackingAppPanel onChanged={(own) => onApp("courier_tracking", own)} />
   ) : item.kind === "app" && item.appId === "analytics_destinations" ? (

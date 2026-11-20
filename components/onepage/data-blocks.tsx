@@ -26,11 +26,11 @@ import { ArrowUpRight, CalendarPlus, Check, Lock, MapPin, Star } from "lucide-re
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { useBlockSheet } from "@/components/onepage/block-sheet"
-import { CardButton, MIX, px, useParts, useTrack, type AppBlockLook } from "@/components/onepage/app-block"
+import { AppTileMark, CardButton, MIX, px, useParts, useTrack, type AppBlockLook } from "@/components/onepage/app-block"
 import { pressableProps } from "@/lib/onepage/block-look"
 import { chipColors } from "@/lib/onepage/contrast"
 import { socialLinkId } from "@/lib/onepage/link-keys"
-import { appItems, appLayoutOf, pollOptions, type AppBlockData, type AppItem } from "@/lib/onepage/app-blocks"
+import { APP_PROVIDERS, appItems, appLayoutOf, pollOptions, type AppBlockData, type AppItem } from "@/lib/onepage/app-blocks"
 import { pollShowsResults, type PollTally } from "@/lib/onepage/poll"
 import { countDuration, easeOutCubic, parseStatValue, statAnimationOf, statFrame, type StatAnimation } from "@/lib/onepage/stat-count"
 import { readTrustBox, reviewSourceOf, starShares, trustBoxSrc } from "@/lib/onepage/reviews-block"
@@ -757,6 +757,80 @@ export function DataPaidView({ block, data: given, look }: Props) {
             )}
           </p>
         ) : null}
+      </div>
+    </div>
+  )
+}
+
+/* ─── Discord, members only ─────────────────────────────────────────── */
+
+/**
+ * A Discord block set to members only (lib/community-roles): Join the
+ * Discord for whoever owns the chosen product (Storelib adds them to the
+ * server with the role, after checking the purchase again), Buy for everyone
+ * else, with "Already a member?" for an owner this browser cannot see yet.
+ * The invite address is never in the page.
+ */
+export function DataDiscordMembersView({ block, data: given, look }: Props) {
+  const data = useFilled(block, given, look, given.members_ready !== undefined)
+  const parts = useParts(look)
+  const track = useTrack(look)
+  const [option, setOption] = React.useState<{ state: string; href: string } | null>(null)
+  const productId = typeof data.members_product_id === "string" ? data.members_product_id : null
+  React.useEffect(() => {
+    if (look.preview || !productId) return
+    let live = true
+    fetch(`/api/community-roles/options?products=${encodeURIComponent(productId)}`, { credentials: "same-origin", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { options?: Array<{ provider: string; state: string; href: string }> } | null) => {
+        const o = d?.options?.find((x) => x.provider === "discord")
+        if (live && o) setOption({ state: o.state, href: o.href })
+      })
+      .catch(() => {})
+    return () => {
+      live = false
+    }
+  }, [look.preview, productId])
+
+  if (data.members_ready === false) return null
+  const owner = option && (option.state === "join" || option.state === "joined")
+  const title = data.title?.trim() || tt("Members' Discord")
+  const buy = data.members_checkout || null
+  return (
+    <div data-onepage-app="discord-members" data-members-owner={owner ? "" : undefined} className="w-full text-left" style={{ ...parts.surface, borderRadius: parts.radius, padding: px(16, look.scale) }}>
+      <div className="flex items-start" style={{ gap: px(12, look.scale) }}>
+        <AppTileMark provider={APP_PROVIDERS.discord} size={Math.round(40 * (look.scale === "small" ? 0.8 : 1))} />
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold leading-snug" style={{ fontSize: px(16, look.scale) }} data-block-title="">{title}</p>
+          <p className="mt-1 opacity-80" style={{ fontSize: px(13.5, look.scale) }}>{data.subtitle?.trim() || (data.members_title ? tt("For members of {name}", { name: data.members_title }) : tt("For members"))}</p>
+        </div>
+      </div>
+      <div className="mt-3 flex flex-col" style={{ gap: px(8, look.scale) }}>
+        {owner ? (
+          <CardButton wide look={look} label={option!.state === "joined" ? tt("Open Discord") : tt("Join the Discord")} href={option!.href} onClick={() => track(socialLinkId(block.id, "join"), option!.href)} />
+        ) : (
+          <>
+            <CardButton
+              wide
+              look={look}
+              label={data.button_text?.trim() || (data.members_price ? tt("Join for {price}", { price: data.members_price }) : tt("Get access"))}
+              href={look.preview ? null : buy}
+              onClick={(e) => {
+                if (look.preview || !buy) {
+                  e.preventDefault()
+                  showPreviewNotice("payment")
+                  return
+                }
+                track(block.id, buy)
+              }}
+            />
+            {option ? (
+              <a href={option.href} className="text-center font-medium opacity-80 underline-offset-2 transition-opacity hover:underline hover:opacity-100" style={{ fontSize: px(13, look.scale), minHeight: px(36, look.scale), lineHeight: px(36, look.scale) }} data-members-join="">
+                {tt("Already a member? Join the Discord")}
+              </a>
+            ) : null}
+          </>
+        )}
       </div>
     </div>
   )

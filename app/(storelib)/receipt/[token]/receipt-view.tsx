@@ -1,5 +1,6 @@
 "use client"
 
+import { CommunityJoinButtons } from "@/components/community-roles/join-buttons"
 import { OrderHelp } from "@/components/support/order-help"
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react"
 import Link from "next/link"
@@ -939,6 +940,9 @@ export function ReceiptView({
             </div>
           )
         ) : null}
+
+        {/* The Discord server or Telegram group a product here comes with (lib/community-roles): nothing when none does. */}
+        {receipt.state === "open" ? <CommunityJoinButtons className="mt-4" tone="receipt" productIds={receipt.items.filter((i) => i.state === "open").map((i) => i.productId)} /> : null}
 
         {single && single.state === "open" ? (
           /* `#review` is where an automated review request lands (lib/automations/merge-fields review_url). */
