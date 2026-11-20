@@ -17,6 +17,8 @@ import { filesForSubmission } from "@/lib/forms/uploads-server"
 import { jobsFor, queueJobs, runFormJobs, type IntegrationSettings, type JobProvider } from "@/lib/forms/delivery-server"
 import { bookingCheckoutToken } from "@/lib/forms/booking-payment"
 import { platformOrigin } from "@/lib/onepage/return-address"
+import { keepFormOptIn, type FormSurface } from "@/lib/forms/opt-in-server"
+import { contactSourceFrom } from "@/lib/contacts/contact-source"
 
 /*
   POST /api/forms/<id>/submit, the only way a response is kept.
@@ -210,6 +212,26 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const visitorJob = booked && mailVisitor ? [{ provider: (booked.status === "confirmed" ? "booking_confirmed" : "visitor_email") as JobProvider, state: "ready" }] : []
       const jobs = await queueJobs(db, { ownerId: form.owner_id, formId: id, submissionId: lead, jobs: [...jobsFor(form.integration_settings as IntegrationSettings), ...visitorJob] })
       const bookingId = booked?.id
+      /*
+        "Send me occasional updates" ticked: the person on the creator's list, the welcome flow, the email platforms and,
+        on a OnePage, the page's own tools (lib/forms/opt-in-server). It was kept on the response and reached none of them.
+        Where they joined from is read from this request now; the rest runs after the reply.
+      */
+      const optIn = row.consent.marketing && valid.email
+        ? {
+            ownerId: form.owner_id as string,
+            formId: id,
+            formTitle: definition.title,
+            email: valid.email,
+            name: valid.name,
+            phone: valid.phone,
+            surface: source as FormSurface,
+            pageUrl: sourceUrl,
+            eventId: token,
+            source: contactSourceFrom({ request, surface: source === "onepage" ? "onepage" : source === "website" ? "website" : source === "creator_page" ? "profile" : undefined }),
+          }
+        : null
+      if (optIn) after(() => keepFormOptIn(db, optIn).then(() => undefined))
       after(async () => {
         if (bookingId) {
           /* The bell, the phone and Google Calendar, in one place (lib/bookings/announce.ts). */

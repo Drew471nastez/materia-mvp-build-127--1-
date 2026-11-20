@@ -238,6 +238,15 @@ export function analyticsConsentJs(): string {
  * it. `src` is loaded as a script; `inline` runs once. Nothing here comes
  * from the store but the IDs, and each is checked again here.
  */
+/**
+ * NEVER IN A FRAME, FOR EVERY TAG. Google's tag has always stopped in a frame (the editor's canvas, the creator page
+ * workspace, a same origin preview: the owner looking at their own page is not a visit). Meta, TikTok, Pinterest,
+ * Clarity, Tag Manager, Klaviyo and Omnisend did not, so the same framed page counted a PageView, a page and a Clarity
+ * recording for each of them. Each one now runs only in the top window.
+ */
+export const TOP_WINDOW_ONLY = "try{if(window.self!==window.top)return}catch(e){return}"
+const topOnly = (js: string) => `(function(){${TOP_WINDOW_ONLY}${js}})();`
+
 export function trackingTags(stored: unknown, opts: { creatorId?: string | null; asks?: boolean } = {}): { key: string; src?: string; inline?: string }[] {
   const t = readTracking(stored)
   const tags: { key: string; src?: string; inline?: string }[] = []
@@ -267,7 +276,7 @@ export function trackingTags(stored: unknown, opts: { creatorId?: string | null;
         so no gtag block above) the container's Google tags started with no consent state at all, so a visitor's No on
         the banner reached none of them. The same defaults and updates as the gtag block (lib/store/ga.ts gaConsentJs).
       */
-      inline: `${gtagIds.length ? "" : `window.dataLayer=window.dataLayer||[];window.gtag=window.gtag||function(){dataLayer.push(arguments)};${gaConsentJs(opts.asks !== false)}`}(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer',${JSON.stringify(t.gtm)});`,
+      inline: topOnly(`${gtagIds.length ? "" : `window.dataLayer=window.dataLayer||[];window.gtag=window.gtag||function(){dataLayer.push(arguments)};${gaConsentJs(opts.asks !== false)}`}(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer',${JSON.stringify(t.gtm)});`),
     })
   }
   const mk = marketingConsentJs(opts.asks !== false)
@@ -279,20 +288,20 @@ export function trackingTags(stored: unknown, opts: { creatorId?: string | null;
   if (t.meta_pixel) {
     tags.push({
       key: "meta",
-      inline: `!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');${mk}if(!window[${JSON.stringify(`__slFb${t.meta_pixel}`)}]){window[${JSON.stringify(`__slFb${t.meta_pixel}`)}]=1;if(!__slMkOk(__slMkAsks))fbq('consent','revoke');fbq('init',${JSON.stringify(t.meta_pixel)});fbq('track','PageView');try{window.addEventListener('storelib:consent-changed',function(){fbq('consent',__slMkOk(__slMkAsks)?'grant':'revoke')})}catch(e){}}`,
+      inline: topOnly(`!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');${mk}if(!window[${JSON.stringify(`__slFb${t.meta_pixel}`)}]){window[${JSON.stringify(`__slFb${t.meta_pixel}`)}]=1;if(!__slMkOk(__slMkAsks))fbq('consent','revoke');fbq('init',${JSON.stringify(t.meta_pixel)});fbq('track','PageView');try{window.addEventListener('storelib:consent-changed',function(){fbq('consent',__slMkOk(__slMkAsks)?'grant':'revoke')})}catch(e){}}`),
     })
   }
   if (t.tiktok_pixel) {
     tags.push({
       key: "tiktok",
-      inline: `!function(w,d,t){w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie","holdConsent","revokeConsent","grantConsent"];ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.instance=function(t){for(var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e};ttq.load=function(e,n){var i="https://analytics.tiktok.com/i18n/pixel/events.js";ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=i,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=n||{};var o=d.createElement("script");o.type="text/javascript",o.async=!0,o.src=i+"?sdkid="+e+"&lib="+t;var a=d.getElementsByTagName("script")[0];a.parentNode.insertBefore(o,a)};${mk}if(w[${JSON.stringify(`__slTt${t.tiktok_pixel}`)}])return;w[${JSON.stringify(`__slTt${t.tiktok_pixel}`)}]=1;if(!__slMkOk(__slMkAsks))ttq.holdConsent();ttq.load(${JSON.stringify(t.tiktok_pixel)});ttq.page();try{w.addEventListener('storelib:consent-changed',function(){__slMkOk(__slMkAsks)?ttq.grantConsent():ttq.revokeConsent()})}catch(e){}}(window,document,'ttq');`,
+      inline: topOnly(`!function(w,d,t){w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie","holdConsent","revokeConsent","grantConsent"];ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.instance=function(t){for(var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e};ttq.load=function(e,n){var i="https://analytics.tiktok.com/i18n/pixel/events.js";ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=i,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=n||{};var o=d.createElement("script");o.type="text/javascript",o.async=!0,o.src=i+"?sdkid="+e+"&lib="+t;var a=d.getElementsByTagName("script")[0];a.parentNode.insertBefore(o,a)};${mk}if(w[${JSON.stringify(`__slTt${t.tiktok_pixel}`)}])return;w[${JSON.stringify(`__slTt${t.tiktok_pixel}`)}]=1;if(!__slMkOk(__slMkAsks))ttq.holdConsent();ttq.load(${JSON.stringify(t.tiktok_pixel)});ttq.page();try{w.addEventListener('storelib:consent-changed',function(){__slMkOk(__slMkAsks)?ttq.grantConsent():ttq.revokeConsent()})}catch(e){}}(window,document,'ttq');`),
     })
   }
   if (t.pinterest_tag) {
     tags.push({
       key: "pinterest",
       /* Pinterest has no consent call of its own: it loads once there is a yes (marketingConsentJs). */
-      inline: `${mk}(function(){var go=function(){if(window.__slPinOn||!__slMkOk(__slMkAsks))return;window.__slPinOn=1;!function(e){if(!window.pintrk){window.pintrk=function(){window.pintrk.queue.push(Array.prototype.slice.call(arguments))};var n=window.pintrk;n.queue=[],n.version="3.0";var t=document.createElement("script");t.async=!0,t.src=e;var r=document.getElementsByTagName("script")[0];r.parentNode.insertBefore(t,r)}}("https://s.pinimg.com/ct/core.js");pintrk('load',${JSON.stringify(t.pinterest_tag)});pintrk('page');};go();try{window.addEventListener('storelib:consent-changed',go)}catch(e){}})();`,
+      inline: topOnly(`${mk}(function(){var go=function(){if(window.__slPinOn||!__slMkOk(__slMkAsks))return;window.__slPinOn=1;!function(e){if(!window.pintrk){window.pintrk=function(){window.pintrk.queue.push(Array.prototype.slice.call(arguments))};var n=window.pintrk;n.queue=[],n.version="3.0";var t=document.createElement("script");t.async=!0,t.src=e;var r=document.getElementsByTagName("script")[0];r.parentNode.insertBefore(t,r)}}("https://s.pinimg.com/ct/core.js");pintrk('load',${JSON.stringify(t.pinterest_tag)});pintrk('page');};go();try{window.addEventListener('storelib:consent-changed',go)}catch(e){}})();`),
     })
   }
   if (t.clarity) {
@@ -303,7 +312,7 @@ export function trackingTags(stored: unknown, opts: { creatorId?: string | null;
         was told. clarity('consentv2', { analytics_Storage, ad_Storage }) with the visitor's Analytics and Marketing
         answers, and again when they change; Clarity keeps no cookie while analytics is denied.
       */
-      inline: `(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window,document,"clarity","script",${JSON.stringify(t.clarity)});${mk}${analyticsConsentJs()}(function(){var g=function(v){return v?'granted':'denied'};var u=function(){window.clarity('consentv2',{ad_Storage:g(__slMkOk(__slMkAsks)),analytics_Storage:g(__slAnOk(__slMkAsks))})};u();try{window.addEventListener('storelib:consent-changed',u)}catch(e){}})();`,
+      inline: topOnly(`(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window,document,"clarity","script",${JSON.stringify(t.clarity)});${mk}${analyticsConsentJs()}(function(){var g=function(v){return v?'granted':'denied'};var u=function(){window.clarity('consentv2',{ad_Storage:g(__slMkOk(__slMkAsks)),analytics_Storage:g(__slAnOk(__slMkAsks))})};u();try{window.addEventListener('storelib:consent-changed',u)}catch(e){}})();`),
     })
   }
   /*
@@ -314,13 +323,13 @@ export function trackingTags(stored: unknown, opts: { creatorId?: string | null;
   if (t.klaviyo) {
     tags.push({
       key: "klaviyo",
-      inline: `${mk}(function(){var go=function(){if(window.__slKlOn||!__slMkOk(__slMkAsks))return;window.__slKlOn=1;var e=document.createElement("script");e.async=!0;e.src=${JSON.stringify(`https://static.klaviyo.com/onsite/js/klaviyo.js?company_id=${encodeURIComponent(t.klaviyo)}`)};var s=document.getElementsByTagName("script")[0];s.parentNode.insertBefore(e,s)};go();try{window.addEventListener('storelib:consent-changed',go)}catch(e){}})();`,
+      inline: topOnly(`${mk}(function(){var go=function(){if(window.__slKlOn||!__slMkOk(__slMkAsks))return;window.__slKlOn=1;var e=document.createElement("script");e.async=!0;e.src=${JSON.stringify(`https://static.klaviyo.com/onsite/js/klaviyo.js?company_id=${encodeURIComponent(t.klaviyo)}`)};var s=document.getElementsByTagName("script")[0];s.parentNode.insertBefore(e,s)};go();try{window.addEventListener('storelib:consent-changed',go)}catch(e){}})();`),
     })
   }
   if (t.omnisend) {
     tags.push({
       key: "omnisend",
-      inline: `${mk}(function(){var go=function(){if(window.__slOmOn||!__slMkOk(__slMkAsks))return;window.__slOmOn=1;window.omnisend=window.omnisend||[];omnisend.push(["brandID",${JSON.stringify(t.omnisend)}]);omnisend.push(["track","$pageViewed"]);var e=document.createElement("script");e.type="text/javascript",e.async=!0,e.src="https://omnisnippet1.com/inshop/launcher-v2.js";var s=document.getElementsByTagName("script")[0];s.parentNode.insertBefore(e,s)};go();try{window.addEventListener('storelib:consent-changed',go)}catch(e){}})();`,
+      inline: topOnly(`${mk}(function(){var go=function(){if(window.__slOmOn||!__slMkOk(__slMkAsks))return;window.__slOmOn=1;window.omnisend=window.omnisend||[];omnisend.push(["brandID",${JSON.stringify(t.omnisend)}]);omnisend.push(["track","$pageViewed"]);var e=document.createElement("script");e.type="text/javascript",e.async=!0,e.src="https://omnisnippet1.com/inshop/launcher-v2.js";var s=document.getElementsByTagName("script")[0];s.parentNode.insertBefore(e,s)};go();try{window.addEventListener('storelib:consent-changed',go)}catch(e){}})();`),
     })
   }
   return tags

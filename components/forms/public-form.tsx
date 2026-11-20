@@ -8,6 +8,7 @@ import { tt } from "@/lib/i18n/text"
 import { bookingDurations, formSteps, isChoice, isMulti, pickResult, validDate, type FormField, type PublicForm } from "@/lib/forms/definition"
 import { generateSlots, type Slot } from "@/lib/forms/slots"
 import { formsRequest } from "@/lib/forms/client"
+import { pixelLead } from "@/lib/analytics/pixels"
 import { usePageHover, useSheetBack } from "@/components/onepage/block-sheet-context"
 import { FormSelect } from "./form-select"
 import { BookingPicker, type SlotLoader } from "./booking-picker"
@@ -366,6 +367,8 @@ export function PublicFormRenderer({
         throw new Error(b.error)
       }
       if (!r.ok) throw new Error(b.error || "Your answers were not saved. Try again.")
+      /* The store's pixels hear the response as a Lead, as every other form on a OnePage does, by the response's own id (the server's Lead for a ticked opt-in carries the same one, lib/forms/opt-in-server). */
+      pixelLead(window, { form: d.booking ? "booking" : "form", eventId: key.current })
       setDone(b)
       onSubmitted?.(answers, d.fields)
     } catch (e) {

@@ -1679,6 +1679,8 @@ const STRICT_SUITES = [
   "tests/onepage-integrations-r41.test.ts",
   /* The OnePage integrations audit: the live page carries the store's tags and the preview none, Meta and TikTok's page view once however often their tag runs, every form on the page (signup, lead magnet, subscribe, RSVP, contact) a Lead by the id it sends the server, a OnePage contact form's ticked box forwarded to the connected tools, YouTube Shorts and live links and TikTok vm links played, a booking page that refuses a frame opened in its tab, Google's seen beacon on storelib.me, the app's WebView frame list taking every OnePage player, and a saved pixel expiring the OnePage's CDN copy. */
   "tests/onepage-integrations.test.ts",
+  /* The OnePage integrations audit, pass two: a native form's or booking's "Send me occasional updates" onto the list, the welcome, the email platforms and the page's own tools by the response's id; that form a pixel Lead by the same id; Meta, TikTok, Pinterest, Clarity, Tag Manager, Klaviyo and Omnisend quiet in a frame. */
+  "tests/onepage-integrations-2.test.ts",
   /* Round 10: a OnePage email signup and contact message through the real routes, to the one subscriber list (tests/_journey). */
   "tests/e2e-onepage-signup.test.ts",
   /* Round 11: a signup from each of the five layouts on a page served on storelib.me, and a group through Save, reload and Publish (tests/_journey). */
