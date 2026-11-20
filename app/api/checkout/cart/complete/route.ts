@@ -45,7 +45,7 @@ export async function GET(request: Request) {
     const who = await routeUser({ fresh: true })
     const user = who.kind === "user" ? who.user : null
 
-    const result = await fulfilCartSession(createAdminClient(), sessionId, { baseUrl: platform, request, viewerId: user?.id ?? null })
+    const result = await fulfilCartSession(createAdminClient(), sessionId, { baseUrl: platform, request })
     if (result.ok === false) {
       const why = result.reason === "unpaid" ? "unpaid" : result.reason === "unreadable" ? "unreadable" : "failed"
       return NextResponse.redirect(`${platform}/explore?checkout=${why}`)
@@ -74,8 +74,9 @@ export async function GET(request: Request) {
       hosts: searchParams.get("return") ? await siteHostsFor(result.creatorId) : [],
       mainDomain,
     })
-    /* Through /api/receipt/remember on that website's own host first, so the browser that paid keeps the purchase there (lib/receipts/guest-access.ts). Not for a signed in buyer, whose library holds it. */
-    if (back) return NextResponse.redirect(user ? paidReturnUrl(back) : rememberOnSiteUrl(paidReturnUrl(back), result.receiptToken))
+    /* Through /api/receipt/remember on that website's own host first, so the browser that paid keeps the purchase there (lib/receipts/guest-access.ts). Not for a signed in buyer whose library holds it: the orders are on this account, not only somebody signed in here. */
+    const inLibrary = !!user && result.buyerId === user.id
+    if (back) return NextResponse.redirect(inLibrary ? paidReturnUrl(back) : rememberOnSiteUrl(paidReturnUrl(back), result.receiptToken))
 
     return NextResponse.redirect(`${platform}/receipt/${encodeURIComponent(result.receiptToken)}`)
   } catch (error) {

@@ -26,6 +26,11 @@ function getPlanIdFromPriceId(priceId: string | undefined): "growth" | "pro" | "
   return "free"
 }
 
+/* How an upgrade is billed: the difference for the rest of the period, invoiced and charged at once (see the preview below). */
+const UPGRADE_PRORATION = "always_invoice" as const
+/* What a creator is told when the card did not pay for an upgrade. Nothing changed. */
+const UPGRADE_NOT_PAID = "Your card was not charged, so your plan did not change. Update your card in Billing and try again."
+
 function isUpgrade(currentPlanId: string, newPlanId: string): boolean {
   return (PLAN_ORDER[newPlanId] ?? 0) > (PLAN_ORDER[currentPlanId] ?? 0)
 }
@@ -276,23 +281,30 @@ export async function POST(request: Request) {
 
     const { periodStart, periodEnd } = getSubscriptionPeriod(stripeSubscription)
 
+    /*
+      AN UPGRADE IS PAID FOR WHEN IT IS MADE (UPGRADE_PRORATION). It was made with create_prorations, which only
+      leaves the difference waiting for the next renewal invoice: the plan changed at once, nothing was charged, the
+      dialog had said "You'll be charged {amount} today", and a creator who then moved to Free (cancel at period end,
+      which never invoices again) kept the dearer plan for the rest of the period without paying for it. The preview
+      is the invoice made now (always_invoice), so the amount shown is the amount charged.
+    */
     // Stripe SDK v20: use createPreview instead of retrieveUpcoming
     const upcomingInvoice = await stripe.invoices.createPreview({
       subscription: stripeSubscription.id,
       subscription_details: {
         items: [{ id: subItem.id, price: stripePriceId }],
-        proration_behavior: upgrading ? "create_prorations" : "none",
+        proration_behavior: upgrading ? UPGRADE_PRORATION : "none",
       },
     })
 
     const amountDueNowCents = upgrading ? Math.max(0, upcomingInvoice.amount_due || 0) : 0
 
     const nextBillingDate = safeTimestamp(periodEnd)
+    /* The new plan's own price from its renewal line; an upgrade's preview holds only the difference charged now, so its price is read from Stripe. */
+    const renewalLine = upcomingInvoice.lines.data.find((line: any) => line.price?.id === stripePriceId && !line.proration) as any
     const nextAmountCents = subItem.price.id === stripePriceId
       ? subItem.price.unit_amount || 0
-      : upcomingInvoice.lines.data
-          .find((line: any) => line.price?.id === stripePriceId && !line.proration)
-          ?.amount || 0
+      : renewalLine?.amount || (upgrading ? (await stripe.prices.retrieve(stripePriceId)).unit_amount || 0 : 0)
 
     if (previewOnly) {
       return NextResponse.json({
@@ -306,16 +318,26 @@ export async function POST(request: Request) {
 
     if (upgrading) {
       // Clear cancel_at_period_end if set (re-upgrade after scheduled cancel)
-      const updatedSubscription = await stripe.subscriptions.update(subscriptionRecord.stripe_subscription_id, {
-        items: [{ id: subItem.id, price: stripePriceId }],
-        proration_behavior: "create_prorations",
-        cancel_at_period_end: false,
-        metadata: {
-          creator_id: creator.id,
-          plan_id: newPlanId,
-          pending_plan_id: "",
-        },
-      })
+      /* Charged now, and only changed when it is paid: error_if_incomplete leaves the subscription as it was when the card is declined or needs the bank, and Stripe answers with an error instead. */
+      let updatedSubscription: Awaited<ReturnType<typeof stripe.subscriptions.update>>
+      try {
+        updatedSubscription = await stripe.subscriptions.update(subscriptionRecord.stripe_subscription_id, {
+          items: [{ id: subItem.id, price: stripePriceId }],
+          proration_behavior: UPGRADE_PRORATION,
+          payment_behavior: "error_if_incomplete",
+          cancel_at_period_end: false,
+          metadata: {
+            creator_id: creator.id,
+            plan_id: newPlanId,
+            pending_plan_id: "",
+          },
+        })
+      } catch (payError: any) {
+        if (payError?.type === "StripeCardError" || payError?.statusCode === 402) {
+          return NextResponse.json({ error: UPGRADE_NOT_PAID, code: "upgrade_not_paid" }, { status: 402 })
+        }
+        throw payError
+      }
 
       // Get updated period from the updated subscription
       const updatedPeriod = getSubscriptionPeriod(updatedSubscription as any)
@@ -343,7 +365,7 @@ export async function POST(request: Request) {
       return NextResponse.json({
         success: true,
         type: "upgrade",
-        message: "Upgrade applied immediately with Stripe proration.",
+        message: "Upgrade applied and paid for the rest of this billing cycle.",
         amountDueTodayCents: Math.max(0, upcomingInvoice.amount_due || 0),
         nextBillingDate,
         nextAmountCents: Math.abs(nextAmountCents),

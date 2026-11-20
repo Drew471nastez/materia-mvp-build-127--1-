@@ -38,6 +38,8 @@ const SUITES = [
   "tests/platform-reliability-aw.test.ts",
   /* Round AV: a seller Stripe has not approved transfers-only accounts for is told why (not "try again"); a store's address answers from the last good lookup when the database is slow, not with a 500 */
   "tests/platform-issues-av.test.ts",
+  /* Three major issues: a community subscription found by an unproven address, a plan upgrade never charged, a guest basket written to whoever opened the return address. */
+  "tests/major-issues-3.test.ts",
   /* Round AW (track B, paid calls): an email change's and an account deletion's codes counted where the route's own delete cannot erase them; the OnePage music and video lookups signed in, counted and on the service's own address only; Start with AI counted as a new website by the in-request build (only without the jobs table) and by Start over; the meta description model sent the start of a description; the decide route's model counted, the rules answering over the limit. */
   "tests/paid-calls-aw.test.ts",
   /* Round AW (abuse): a banned store sends no campaign mail and its AI-built site answers as no site; new AI site and community addresses are refused phishing names; storelib.com/media/ answers are sandboxed, so a stored SVG never runs as storelib.com. */
