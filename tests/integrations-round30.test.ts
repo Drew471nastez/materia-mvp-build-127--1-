@@ -24,10 +24,12 @@ console.log("\nThe pills\n")
 {
   const order = pillOrder(() => 1)
   /* Changed on purpose (round K4, Andrew: "Installed/Connected becomes a pill filter"): the Connected list above the cards is gone, so Installed moves beside All; the categories keep the owner's order. */
-  check("All, Installed, Reviews, Analytics, Storelib apps, Advertising, Email marketing, Automation, then the rest in the catalog's order", order.join() === "all,installed,reviews,analytics,storelib,advertising,email,automation,shipping,print_on_demand,dropshipping,fulfillment,suppliers", order)
+  /* Changed on purpose (Calendly and Cal.com bookings): Scheduling, their category, follows Automation. */
+  check("All, Installed, Reviews, Analytics, Storelib apps, Advertising, Email marketing, Automation, then the rest in the catalog's order", order.join() === "all,installed,reviews,analytics,storelib,advertising,email,automation,scheduling,shipping,print_on_demand,dropshipping,fulfillment,suppliers", order)
   const none = pillOrder(() => 0)
   check("a category with nothing in it has no pill; All, Installed and Storelib apps always do", none.join() === "all,installed,storelib", none)
-  check("the lanes follow the pills", LANE_ORDER.join() === "reviews,analytics,storelib,advertising,email,automation,shipping,print_on_demand,dropshipping,fulfillment,suppliers" && PILL_HEAD[0] === "all")
+  /* Changed on purpose (Calendly and Cal.com bookings): the Scheduling lane after Automation. */
+  check("the lanes follow the pills", LANE_ORDER.join() === "reviews,analytics,storelib,advertising,email,automation,scheduling,shipping,print_on_demand,dropshipping,fulfillment,suppliers" && PILL_HEAD[0] === "all")
 }
 
 console.log("\nAll, mixed\n")

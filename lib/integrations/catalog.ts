@@ -44,7 +44,7 @@ export const CATEGORY_NAMES: Record<IntegrationCategory, string> = {
   fulfillment: "Fulfillment",
   suppliers: "Suppliers",
 }
-export const CATEGORY_ORDER: IntegrationCategory[] = ["reviews", "scheduling", "analytics", "advertising", "email", "automation", "shipping", "print_on_demand", "dropshipping", "fulfillment", "suppliers"]
+export const CATEGORY_ORDER: IntegrationCategory[] = ["reviews", "analytics", "advertising", "email", "automation", "scheduling", "shipping", "print_on_demand", "dropshipping", "fulfillment", "suppliers"]
 
 export interface Integration {
   id: string

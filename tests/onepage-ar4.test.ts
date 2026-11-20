@@ -272,7 +272,8 @@ async function main() {
     const other = (await withDataBlocks(memoryDb({ products: [{ id: PRODUCT, status: "published", creator_id: "someone-else" }] }), deps, CREATOR, [paid])) as OnePageBlock[]
     check("somebody else's product opens nothing (the block is left out)", (other[0].data as AppBlockData).paid_ready === false && !appBlockHasContent(other[0]))
     const live = code(read("lib/onepage/published-page.ts"))
-    check("every live page's blocks go through it, cached or not", /withDataBlocks\(db, await liveDataDeps\(db\), creatorId, storelib\)/.test(live) && /\.then\(withoutLocked\)/.test(live))
+    /* Changed on purpose (Storelib Reviews on OnePage cards): the blocks reach it with their ratings on (lib/onepage/product-rating-server). */
+    check("every live page's blocks go through it, cached or not", /withDataBlocks\(db, await liveDataDeps\(db\), creatorId, rated\)/.test(live) && /\.then\(withoutLocked\)/.test(live))
     const route = code(read("app/api/onepage/access/route.ts"))
     check("access is checked on the server: the owner, a buyer's entitlement or order, or this browser's receipt", /ownsProduct\(db, user\.id, productId\)/.test(route) && /guestOwns\(db, guestAccessFromCookieHeader/.test(route) && /user\.id === page\.owner_id/.test(route))
     check("the product is the block's, from the published page, and the page creator's own", /liveAppBlockData<[^>]*>\(publishedBlocksOf\(page\), body\.block_id, "paid"\)/.test(route) && /\.eq\("id", productId\)\.eq\("creator_id", creatorId\)/.test(route))

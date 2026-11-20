@@ -125,6 +125,8 @@ import { useEffect, useMemo, useRef, type CSSProperties, type ComponentType } fr
 import { StoryHeading } from "@/components/marketing/story-heading"
 import { SiAftership } from "@/components/icons/brand/SiAftership"
 import { SiBrevo } from "@/components/icons/brand/SiBrevo"
+import { SiCalendly } from "@/components/icons/brand/SiCalendly"
+import { SiCaldotcom } from "@/components/icons/brand/SiCaldotcom"
 import { SiPinterest } from "@/components/icons/brand/SiPinterest"
 import { SiGooglesheets } from "@/components/icons/brand/SiGooglesheets"
 import { SiGithub } from "@/components/icons/brand/SiGithub"
@@ -176,6 +178,8 @@ const ROWS: App[][] = [
     { name: "Pinterest Tag", bg: "#e60023", icon: SiPinterest, color: "#ffffff" },
     { name: "Printful", bg: "#ffffff", logo: "/integrations/printful.svg", scale: 0.74 },
     { name: "Shippo", bg: "#2f4450", logo: "/home/apps/shippo.webp", fit: "cover" },
+    /* Bookings made on Calendly and Cal.com come into Bookings (lib/bookings/external). */
+    { name: "Calendly", bg: "#006bff", icon: SiCalendly, color: "#ffffff", scale: 0.58 },
     { name: "Google Ads", bg: "#ffffff", mark: GoogleAdsMark, scale: 0.54 },
     { name: "Spotify", bg: "#000000", icon: SiSpotify, color: "#1ed760", scale: 0.62 },
     { name: "MailerLite", bg: "#ffffff", tile: MailerLiteLogo },
@@ -184,6 +188,7 @@ const ROWS: App[][] = [
     { name: "Printify", bg: "#a9f86c", logo: "/home/apps/printify.webp", fit: "cover" },
     { name: "Google Calendar", bg: "#ffffff", mark: GoogleCalendarMark, scale: 0.56 },
     { name: "Kit", bg: "#44b1ff", tile: KitLogo },
+    { name: "Cal.com", bg: "#111113", icon: SiCaldotcom, color: "#ffffff", scale: 0.64 },
     { name: "SoundCloud", bg: "#ff5500", icon: SiSoundcloud, color: "#ffffff", scale: 0.66 },
     { name: "Tag Manager", bg: "#ffffff", logo: "/integrations/google-tag-manager.svg", scale: 0.56 },
     { name: "ShipStation", bg: "#11003a", logo: "/home/apps/shipstation.svg", fit: "cover" },
