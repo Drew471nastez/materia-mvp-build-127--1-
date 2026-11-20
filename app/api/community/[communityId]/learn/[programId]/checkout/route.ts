@@ -51,7 +51,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ com
   const deps = {
     stripe,
     ready: (creatorId: string) => checkoutReadyForCreator(creatorId),
-    fee: (cents: number, creatorId: string, currency: string) => calculatePlatformFeeForCheckout(cents, creatorId, db, currency),
+    fee: (cents: number, creatorId: string, currency: string) => calculatePlatformFeeForCheckout(cents, creatorId, db, currency, "digital"),
     chargeCurrency: platformChargeCurrency(),
   }
   /* Round AG: { moduleId } buys one module of the program on its own (lib/communities/server/module-sales.ts); the id only picks which, the price is the server's. */

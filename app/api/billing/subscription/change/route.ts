@@ -4,13 +4,15 @@ import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
 import { stripeIdentityKey } from "@/lib/stripe/resilience"
+import { growthPriceId, planFromPriceId, proPriceId } from "@/lib/billing/stripe-prices"
+import { GROW_PRICE_NOT_READY, growPriceMatchesShown } from "@/lib/billing/grow-price-guard"
 import { UPGRADE_NOT_FINISHED, UPGRADE_PRORATION, startPlanUpgrade, upgradeLanded, type UpgradedSub } from "@/lib/billing/plan-upgrade"
 
 const PLAN_ORDER: Record<string, number> = { free: 0, growth: 1, pro: 2 }
 
-// LIVE Stripe Price IDs
-const PRICE_GROWTH = process.env.PRICE_GROWTH_MONTHLY || "price_1SzBWaBYevnBVyznNCTOXDoS"
-const PRICE_PRO = process.env.PRICE_PRO_MONTHLY || "price_1SzBXSBYevnBVyznYjXfOOXX"
+// LIVE Stripe Price IDs (lib/billing/stripe-prices): Grow is the $14 price in PRICE_GROWTH_MONTHLY.
+const PRICE_GROWTH = growthPriceId()
+const PRICE_PRO = proPriceId()
 
 function getStripePriceId(planId: string): string | null {
   if (planId === "growth") return PRICE_GROWTH
@@ -18,13 +20,9 @@ function getStripePriceId(planId: string): string | null {
   return null
 }
 
+/* Every Grow price is `growth`, the $29 one subscribers keep until they are moved included (lib/billing/stripe-prices). */
 function getPlanIdFromPriceId(priceId: string | undefined): "growth" | "pro" | "free" {
-  if (!priceId) return "free"
-  if (priceId === PRICE_GROWTH) return "growth"
-  if (priceId === PRICE_PRO) return "pro"
-  if (priceId.includes("SzBWa")) return "growth"
-  if (priceId.includes("SzBXS")) return "pro"
-  return "free"
+  return planFromPriceId(priceId) ?? "free"
 }
 
 function isUpgrade(currentPlanId: string, newPlanId: string): boolean {
@@ -247,6 +245,10 @@ export async function POST(request: Request) {
     const stripePriceId = getStripePriceId(newPlanId)
     if (!stripePriceId) {
       return NextResponse.json({ error: "No Stripe price configured for this plan" }, { status: 400 })
+    }
+    /* A move to Grow is only ever to the price every card shows (lib/billing/grow-price-guard); nothing is changed while Stripe's says otherwise. */
+    if (newPlanId === "growth" && !(await growPriceMatchesShown(stripe, stripePriceId))) {
+      return NextResponse.json({ error: GROW_PRICE_NOT_READY, code: "price_not_ready" }, { status: 503 })
     }
 
     const { data: subscriptionRecord } = await supabase

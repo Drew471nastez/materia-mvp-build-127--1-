@@ -60,7 +60,7 @@ export function TextSwap<K extends string>({
   /*
     ONLY THE PART THAT CHANGES MOVES. When every version is words, what they
     start with in common stays put as plain text and only the rest swaps:
-    $29 to $22 rolls the 9 into a 2 under a $2 that holds still, and "per
+    $14 to $11 rolls the 4 into a 1 under a $1 that holds still, and "per
     month" gains ", billed yearly" without "per month" fading at all. The
     split never falls inside a word.
   */

@@ -81,7 +81,8 @@ console.log("\n1b. Six true lines on every card, on every surface")
   check("Pro's sixth: The most pages on each website, because its pages are the most", lines.pro[5]?.text === "The most pages on each website" && pro.maxPages > grow.maxPages && pro.maxPages > free.maxPages)
   check("the analytics the line names exist", read("app/(storelib)/app/analytics/page.tsx").length > 0)
   const compact = renderToStaticMarkup(createElement(PricingSection, { compact: true }))
-  check("the compact cards (onboarding) draw the same six", Object.values(lines).flat().every((l) => compact.includes(l.text)))
+  /* Changed on purpose (pricing: Grow $14, physical rates). */
+  check("the compact cards (onboarding) draw the same six", Object.values(lines).flat().every((l) => compact.replace(/\u00a0/g, " ").includes(l.text)))
   for (const f of ["components/app/billing/billing-page-client.tsx", "components/app/billing/upgrade-page-client.tsx", "components/onepage/tabs/settings-tab.tsx", "components/marketing/pricing-section.tsx"]) {
     check(`${f} draws the shared cards, no lines of its own`, /<PlanCards\b/.test(read(f)) && !/lines=\{/.test(read(f)))
   }
@@ -150,7 +151,8 @@ console.log("\n3c. The order, and the bento a plain section")
 console.log("\n3d. The compare table's sticky row: one compact row")
 {
   const cmp = renderToStaticMarkup(createElement(ComparePlans, { actions }))
-  check("name and price share one line, the button beside them", /<div role="columnheader" class="pz-cmp-plan" data-pz-plan="growth"><span class="pz-cmp-id"><span class="pz-cmp-name">Grow<\/span><span class="pz-cmp-price">\$29<span class="pz-cmp-per">\/month<\/span><\/span><\/span><a [^>]*class="pz-cmp-btn pz-cmp-btn-on"[^>]*><span class="pz-cmp-btn-t">Get Grow<\/span>/.test(cmp))
+  /* Changed on purpose (pricing: Grow $14, physical rates). */
+  check("name and price share one line, the button beside them", /<div role="columnheader" class="pz-cmp-plan" data-pz-plan="growth"><span class="pz-cmp-id"><span class="pz-cmp-name">Grow<\/span><span class="pz-cmp-price">\$14<span class="pz-cmp-per">\/month<\/span><\/span><\/span><a [^>]*class="pz-cmp-btn pz-cmp-btn-on"[^>]*><span class="pz-cmp-btn-t">Get Grow<\/span>/.test(cmp))
   /* Changed on purpose (landing round 15): the owner wants each plan's button on a second line under its name and price in the row that sticks. */
   check("the button on a second line under the name and price", /\.pz-cmp-plan\{display:flex;min-width:0;flex-direction:column;align-items:flex-start;gap:8px\}/.test(COMPARE_CSS))
   check("little padding (10px, 12px from 768px)", /\.pz-cmp-plans\{padding:10px 0\}/.test(COMPARE_CSS) && /\.pz-cmp-plans\{padding:12px 0\}/.test(COMPARE_CSS))

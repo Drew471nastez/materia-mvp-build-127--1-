@@ -76,7 +76,7 @@ export async function POST(request: Request) {
     {
       stripe,
       ready: (creatorId) => checkoutReadyForCreator(creatorId),
-      fee: (cents, creatorId, currency) => calculatePlatformFeeForCheckout(cents, creatorId, db, currency),
+      fee: (cents, creatorId, currency) => calculatePlatformFeeForCheckout(cents, creatorId, db, currency, "digital"),
       currency: async (creatorId) => (await readStoreCurrency(db, creatorId)).currency,
       minimum: (currency) => minimumChargeMinor(currency),
     },

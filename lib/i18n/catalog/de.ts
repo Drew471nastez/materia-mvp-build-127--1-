@@ -13672,7 +13672,14 @@ const words: Record<string, string> = {
  "In Calendly, open the Profile menu, then Developer, then Personal access tokens. Make a token with the users:read, scheduled_events:read and webhooks:write scopes.": "Öffne in Calendly das Profilmenü, dann Developer, dann Personal access tokens. Erstelle einen Token mit den Berechtigungen users:read, scheduled_events:read und webhooks:write.",
  "In Cal.com, open Settings, Security, API keys and make a key. Storelib adds the webhook with it and removes it when you disconnect.": "Öffne in Cal.com Settings, Security, API keys und erstelle einen Schlüssel. Storelib fügt damit den Webhook hinzu und entfernt ihn, wenn du trennst.",
  "Add the webhook myself instead": "Webhook lieber selbst hinzufügen",
- "Booked on {provider}. Move or cancel it there and it changes here too.": "Gebucht über {provider}. Verschiebe oder storniere es dort, dann ändert es sich auch hier."
+ "Booked on {provider}. Move or cancel it there and it changes here too.": "Gebucht über {provider}. Verschiebe oder storniere es dort, dann ändert es sich auch hier.",
+ "Fee per digital sale": "Gebühr pro digitalem Verkauf",
+ "Fee per physical sale": "Gebühr pro physischem Verkauf",
+ "{digital} per digital sale, {physical} per physical sale": "{digital} pro digitalem Verkauf, {physical} pro physischem Verkauf",
+ "Grow costs {proPrice} a month and takes {value}% less of every digital sale and {value3}% less of every physical one. Once you sell about ${value2} a month of digital products, the lower fee alone covers the plan, and everything past that is yours.": "Grow kostet {proPrice} im Monat und nimmt {value} % weniger von jedem digitalen Verkauf und {value3} % weniger von jedem physischen. Ab etwa ${value2} Umsatz mit digitalen Produkten pro Monat deckt allein die niedrigere Gebühr den Plan, und alles darüber gehört dir.",
+ "Storelib's fee for your plan and what you sell. Digital products: {freeFee} on Free, {proFee} on Grow, {scaleFee} on Pro. Products that ship: {freePhysical} on Free, {proPhysical} on Grow, {scalePhysical} on Pro. Then Stripe's card processing fee, which Stripe charges on every plan. There is nothing else.": "Die Storelib-Gebühr deines Plans, je nachdem, was du verkaufst. Digitale Produkte: {freeFee} bei Free, {proFee} bei Grow, {scaleFee} bei Pro. Produkte, die verschickt werden: {freePhysical} bei Free, {proPhysical} bei Grow, {scalePhysical} bei Pro. Dazu Stripes Kartengebühr, die Stripe in jedem Plan berechnet. Sonst nichts.",
+ "3% + $0.25 on physical products": "3% + $0.25 für physische Produkte",
+ "1.5% + $0.25 on physical products": "1.5% + $0.25 für physische Produkte"
 }
 
 export default words

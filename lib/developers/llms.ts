@@ -10,7 +10,7 @@
  */
 import { DEV_PAGES, FRAMEWORK_NAME, HUB_NAME, SITE_ORIGIN, devPath } from "./pages"
 import { OFFERED_PLANS } from "@/lib/billing/plans"
-import { getFeeDescription } from "@/lib/billing/fee-calculator"
+import { cardRateLabel, getFeeDescription, sameRateForBothKinds } from "@/lib/billing/fee-calculator"
 
 export function llmsTxt(): string {
   const link = (slug: string) => `${SITE_ORIGIN}${devPath(slug)}`
@@ -101,8 +101,8 @@ export function llmsTxt(): string {
   ].join("\n")
 }
 
-/** One line: each plan on sale, its monthly price and Storelib's fee per sale. Stripe's processing fee is on top on every plan. */
+/** One line: each plan on sale, its monthly price and Storelib's fee per sale, digital and, where it differs, for a product that ships. Stripe's processing fee is on top on every plan. */
 export function planFacts(): string {
-  const plans = OFFERED_PLANS.map((p) => `${p.name}: ${p.priceCents === 0 ? "no monthly fee" : `${p.price} a month`}, ${getFeeDescription(p.id)}`)
+  const plans = OFFERED_PLANS.map((p) => `${p.name}: ${p.priceCents === 0 ? "no monthly fee" : `${p.price} a month`}, ${getFeeDescription(p.id)}${sameRateForBothKinds(p.id) ? "" : ` (${cardRateLabel(p.id, "physical")} for a product that ships)`}`)
   return `Plans, in US dollars: ${plans.join("; ")}. Stripe's payment processing fee applies on every plan.`
 }

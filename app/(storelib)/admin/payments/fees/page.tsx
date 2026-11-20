@@ -4,9 +4,14 @@ import * as React from "react"
 
 import type { StorelibFeeConfig } from "@/lib/payments/fees/types"
 import { SCALE_MICRO_RATE, SCALE_STANDARD_RATE } from "@/lib/payments/fees/config"
-
+import { codeDefaultFeeConfig } from "@/lib/payments/fees/defaults"
 import { Banner, Panel } from "../../_console/ui"
 import { adminPaymentsRead } from "../_fetch"
+
+/* Physical sales' own rates (lib/payments/fees/defaults). A version stored before they existed has none: the code's apply. */
+const PHYSICAL_KEYS = ["freePhysicalStandardRate", "freePhysicalMicroRate", "paidPhysicalStandardRate", "paidPhysicalMicroRate", "scalePhysicalStandardRate", "scalePhysicalMicroRate"] as const
+const CODE_DEFAULTS = codeDefaultFeeConfig()
+const physicalRate = (config: StorelibFeeConfig, key: (typeof PHYSICAL_KEYS)[number]) => `${(((config[key] ?? CODE_DEFAULTS[key]) as number) * 100).toFixed(2)}%${config[key] == null ? " (code default)" : ""}`
 
 type FeesState = {
   active: StorelibFeeConfig
@@ -98,6 +103,18 @@ export default function FeesPage() {
             <p className="mt-2 text-[#6b6b76]">Pro micro</p>
             <p>{((state.active.scaleMicroRate ?? SCALE_MICRO_RATE) * 100).toFixed(2)}%</p>
           </div>
+          <div>
+            <p className="text-[#6b6b76]">Free physical</p>
+            <p>{physicalRate(state.active, "freePhysicalStandardRate")} + fixed, micro {physicalRate(state.active, "freePhysicalMicroRate")}</p>
+          </div>
+          <div>
+            <p className="text-[#6b6b76]">Grow physical</p>
+            <p>{physicalRate(state.active, "paidPhysicalStandardRate")} + fixed, micro {physicalRate(state.active, "paidPhysicalMicroRate")}</p>
+          </div>
+          <div>
+            <p className="text-[#6b6b76]">Pro physical</p>
+            <p>{physicalRate(state.active, "scalePhysicalStandardRate")} + fixed, micro {physicalRate(state.active, "scalePhysicalMicroRate")}</p>
+          </div>
         </div>
         <div className="border-t border-white/[0.08] px-4 py-3">
           <button type="button" className="text-[13px] text-[#8b5cf6]" onClick={() => setStep(step === "view" ? "edit" : "view")}>
@@ -109,14 +126,14 @@ export default function FeesPage() {
       {step !== "view" && draft ? (
         <Panel title="Proposed rules">
           <div className="space-y-3 px-4 py-4 text-[13px]">
-            {(["freeStandardRate", "freeMicroRate", "paidStandardRate", "paidMicroRate", "scaleStandardRate", "scaleMicroRate"] as const).map((key) => (
+            {(["freeStandardRate", "freeMicroRate", "paidStandardRate", "paidMicroRate", "scaleStandardRate", "scaleMicroRate", ...PHYSICAL_KEYS] as const).map((key) => (
               <label key={key} className="flex items-center justify-between gap-4">
                 <span className="text-[#9b9ba6]">{key}</span>
                 <input
                   type="number"
                   step="0.0001"
                   className="w-32 rounded border border-white/10 bg-[#17171d] px-2 py-1"
-                  value={draft[key] ?? (key === "scaleStandardRate" ? SCALE_STANDARD_RATE : key === "scaleMicroRate" ? SCALE_MICRO_RATE : 0)}
+                  value={draft[key] ?? (key === "scaleStandardRate" ? SCALE_STANDARD_RATE : key === "scaleMicroRate" ? SCALE_MICRO_RATE : CODE_DEFAULTS[key] ?? 0)}
                   onChange={(e) => setDraft({ ...draft, [key]: Number(e.target.value) })}
                 />
               </label>

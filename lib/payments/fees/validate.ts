@@ -13,6 +13,10 @@ export function validateFeeConfig(config: StorelibFeeConfig): FeeValidationIssue
     ["paidMicroRate", config.paidMicroRate],
     ...(config.scaleStandardRate != null ? [["scaleStandardRate", config.scaleStandardRate] as [string, number]] : []),
     ...(config.scaleMicroRate != null ? [["scaleMicroRate", config.scaleMicroRate] as [string, number]] : []),
+    /* Physical rates are optional too: a version without them charges the code's physical rates (lib/payments/fees/engine). */
+    ...(["freePhysicalStandardRate", "freePhysicalMicroRate", "paidPhysicalStandardRate", "paidPhysicalMicroRate", "scalePhysicalStandardRate", "scalePhysicalMicroRate"] as const)
+      .filter((k) => config[k] != null)
+      .map((k) => [k, config[k] as number] as [string, number]),
   ]
   for (const [field, rate] of rates) {
     if (!Number.isFinite(rate) || rate < 0) issues.push({ field, message: "Rate cannot be negative." })

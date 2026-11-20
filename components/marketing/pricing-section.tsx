@@ -8,7 +8,7 @@ import { AnimateOnScroll } from "./animate-on-scroll"
 import { PlanCards, type PlanCardAction } from "@/components/billing/plan-cards"
 import { PRO_CHECKOUT_PLAN_ID, SCALE_CHECKOUT_PLAN_ID, type OfferedPlanId } from "@/lib/billing/plans"
 
-/** The paid plans a checkout can be started for: Grow (`growth`, $29) and Pro (`pro`, $99). */
+/** The paid plans a checkout can be started for: Grow (`growth`, $14) and Pro (`pro`, $99). */
 export type PaidCheckoutPlanId = typeof PRO_CHECKOUT_PLAN_ID | typeof SCALE_CHECKOUT_PLAN_ID
 
 /**

@@ -179,7 +179,7 @@ console.log("\nStorelib's own structured data")
   const offers = storelibPlanOffers() as Any[]
   const prices = offers.map((o) => o.price)
   check("every price in the markup is the price in lib/billing/plans.ts", JSON.stringify(prices) === JSON.stringify(OFFERED_PLANS.map((p) => (p.priceCents / 100).toFixed(2))), prices)
-  check("  Free at 0.00 and Pro at its monthly price, in US dollars", prices[0] === "0.00" && prices.includes(schemaPrice(PRO_PRICE_CENTS)) && schemaPrice(PRO_PRICE_CENTS) === "29.00" && offers.every((o) => o.priceCurrency === "USD"))
+  check("  Free at 0.00 and Pro at its monthly price, in US dollars", prices[0] === "0.00" && prices.includes(schemaPrice(PRO_PRICE_CENTS)) && /* Changed on purpose (pricing: Grow $14, physical rates). */ schemaPrice(PRO_PRICE_CENTS) === "14.00" && offers.every((o) => o.priceCurrency === "USD"))
   const pro = offers.find((o) => o.price !== "0.00")
   check("  Pro billed monthly, and its unit price agrees", pro.priceSpecification.billingDuration === "P1M" && pro.priceSpecification.price === pro.price)
   check("  each offer named as the card names it", offers.every((o, i) => o.name === OFFERED_PLANS[i].name))
@@ -226,7 +226,8 @@ console.log("\nEach public platform page names itself")
     if (f === "app/(storelib)/(marketing)/features/layout.tsx") return { f, path: FEATURES_PATH, title: FEATURES_TITLE, description: FEATURES_DESCRIPTION }
     const s = code(f)
     const block = /pageMetadata\(\{([\s\S]*?)\}\)/.exec(s)?.[1] ?? ""
-    return { f, path: /path: "([^"]+)"/.exec(block)?.[1], title: /title: "([^"]+)"/.exec(block)?.[1], description: /description: "([^"]+)"/.exec(block)?.[1] }
+    /* Changed on purpose (pricing: Grow $14, physical rates). */ /* /pricing writes its description from the price and fee rules, as a template. */
+    return { f, path: /path: "([^"]+)"/.exec(block)?.[1], title: /title: "([^"]+)"/.exec(block)?.[1], description: /description: (?:"([^"]+)"|`([^`]+)`)/.exec(block)?.slice(1).find(Boolean) }
   })
   check("each page sets its path, title and description through pageMetadata (canonical, Open Graph and the X card come with it)", facts.every((x) => x.path && x.title && x.description), facts)
   const root = code("app/(storelib)/layout.tsx")
@@ -292,7 +293,7 @@ console.log("\nThe Help Center's metadata")
 console.log("\nllms.txt says what Storelib costs, from the plans table")
 {
   const facts = planFacts()
-  check("each plan with its price and its fee", OFFERED_PLANS.every((p) => facts.includes(p.name) && facts.includes(getFeeDescription(p.id))) && facts.includes("$29 a month") && facts.includes("no monthly fee"))
+  check("each plan with its price and its fee", OFFERED_PLANS.every((p) => facts.includes(p.name) && facts.includes(getFeeDescription(p.id))) && /* Changed on purpose (pricing: Grow $14, physical rates). */ facts.includes("$14 a month") && facts.includes("1.5% + $0.25 for a product that ships") && facts.includes("no monthly fee"))
   const map = llmsTxt()
   check("in the Storelib section, with the features page", map.includes(facts) && map.indexOf(facts) > map.indexOf("## Storelib") && map.includes("](https://storelib.com/features)"))
   check("the summary names what can be sold and where", /digital products, courses, memberships and physical products/.test(map) && /OnePage/.test(map))

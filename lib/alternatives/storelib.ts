@@ -13,6 +13,7 @@
  */
 import { calculateStorelibFee } from "@/lib/payments/fees/calculate"
 import { ratePercentLabel } from "@/lib/payments/fees/config"
+import type { StorelibProductKind } from "@/lib/payments/fees/types"
 import { PRO_CHECKOUT_PLAN_ID } from "@/lib/billing/plans"
 import { FEES, PLANS, proBreakEvenDollars as factsBreakEven } from "@/lib/marketing/facts"
 import type { Rate, Source } from "./types"
@@ -33,6 +34,9 @@ export const STORELIB = {
   /** "5% + $0.25" */
   freeFee: PLANS.free.feeLabel,
   proFee: PLANS.pro.feeLabel,
+  /** "3% + $0.25": a product that ships, which pays its own, lower rate on Free and Grow. */
+  freePhysicalFee: PLANS.free.physicalFeeLabel,
+  proPhysicalFee: PLANS.pro.physicalFeeLabel,
   freeSites: PLANS.free.websites,
   proSites: PLANS.pro.websites,
   freeStorage: PLANS.free.storage,
@@ -49,9 +53,9 @@ export function proBreakEvenDollars(): number {
   return factsBreakEven()
 }
 
-/** Storelib's fee on one sale of `priceCents` in US dollars, exactly as checkout charges it. */
-export function storelibFeeCents(priceCents: number, plan: StorelibPlanId): number {
-  return calculateStorelibFee({ grossMinor: priceCents, currency: "USD", sellerPlan: plan === "free" ? "free" : "paid" }).totalStorelibFeeMinor
+/** Storelib's fee on one sale of `priceCents` in US dollars, exactly as checkout charges it. The comparison pages sell downloads, so digital unless said. */
+export function storelibFeeCents(priceCents: number, plan: StorelibPlanId, productKind: StorelibProductKind = "digital"): number {
+  return calculateStorelibFee({ grossMinor: priceCents, currency: "USD", sellerPlan: plan === "free" ? "free" : "paid", productKind }).totalStorelibFeeMinor
 }
 
 /**

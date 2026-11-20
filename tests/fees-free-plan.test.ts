@@ -41,7 +41,8 @@ console.log("\nOne rule")
 check("the code rule is 5% on Free and 11.25% under the small-order line", cfg.freeStandardRate === 0.05 && cfg.freeMicroRate === 0.1125)
 check("the exported constants are the same numbers", FREE_STANDARD_RATE === cfg.freeStandardRate && FREE_MICRO_RATE === cfg.freeMicroRate && PAID_STANDARD_RATE === cfg.paidStandardRate && PAID_MICRO_RATE === cfg.paidMicroRate)
 /* Changed on purpose (wave 13): owner set Scale to 1.5% + $0.25, a new rule, so a new version key. */
-check("the rule has a new version key, so orders show which rule charged them", CODE_FEE_RULE_VERSION === "2026-11-storelib-v4-scale-1-5pct" && cfg.versionKey === CODE_FEE_RULE_VERSION)
+/* Changed on purpose (pricing: Grow $14, physical rates). */
+check("the rule has a new version key, so orders show which rule charged them", CODE_FEE_RULE_VERSION === "2026-11-storelib-v5-physical-rates" && cfg.versionKey === CODE_FEE_RULE_VERSION)
 check("Scale's code rule is 1.5%, and 7.75% under the small-order line", cfg.scaleStandardRate === 0.015 && cfg.scaleMicroRate === 0.0775 && SCALE_STANDARD_RATE === cfg.scaleStandardRate && SCALE_MICRO_RATE === cfg.scaleMicroRate)
 check("rates read the way people read them", ratePercentLabel(0.05) === "5%" && ratePercentLabel(0.1125) === "11.25%" && ratePercentLabel(0.0925) === "9.25%" && ratePercentLabel(0.03) === "3%")
 
@@ -98,7 +99,8 @@ check("part 80 sets the two Free rates and nothing else", /'freeStandardRate', 0
 check("part 80 retires the old version before making this one active", part80.indexOf("SET status = 'retired' WHERE status = 'active'") > 0 && part80.indexOf("SET status = 'retired'") < part80.indexOf("INSERT INTO public.storelib_fee_rule_versions"))
 check("part 80 never writes over a version once it exists", /IF EXISTS \(SELECT 1 FROM public\.storelib_fee_rule_versions WHERE version_key = '2026-10-storelib-v3-free-5pct'\) THEN .*RETURN; END IF;/.test(part80))
 const embedded = /COALESCE\(v_old_cfg, '(\{.*?\})'::jsonb\)/.exec(part80)?.[1]
-const { scaleStandardRate: _s, scaleMicroRate: _m, ...cfgBeforeScale } = cfg
+/* Changed on purpose (pricing: Grow $14, physical rates). */
+const { scaleStandardRate: _s, scaleMicroRate: _m, freePhysicalStandardRate: _fp, freePhysicalMicroRate: _fpm, paidPhysicalStandardRate: _pp, paidPhysicalMicroRate: _ppm, scalePhysicalStandardRate: _sp, scalePhysicalMicroRate: _spm, ...cfgBeforeScale } = cfg
 check("the defaults part 80 falls back on are the code's, apart from the version key and the Scale rates added after it", !!embedded && JSON.stringify(JSON.parse(embedded)) === JSON.stringify({ ...cfgBeforeScale, versionKey: PART80_VERSION }))
 check("a stored version from before Scale had its own rate still charges Scale 1.5% + the fixed fee", calculateStorelibFeeWithConfig({ grossMinor: 1000, currency: "USD", sellerPlan: "scale" }, { ...cfgBeforeScale, versionKey: PART80_VERSION }).totalStorelibFeeMinor === 40)
 check("its migration mirror is the same file", read("supabase/migrations/20261024_free_plan_fee_5pct.sql") === part80)

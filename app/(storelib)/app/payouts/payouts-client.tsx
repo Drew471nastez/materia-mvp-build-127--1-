@@ -212,12 +212,15 @@ function fmt(minor: number, currency = "usd") {
  * Free, Grow and Pro plans would each charge for this amount and currency
  * (lib/payments/fees), matched against the fee Stripe actually took. Only a
  * match is named; a fee from an older rule just reads "Storelib fee".
+ * A product that ships is matched against the physical rates, which are
+ * lower on Free and Grow (lib/payments/fees/defaults).
  */
-function feeRuleOf(amountMinor: number, feeMinor: number, currency: string): string | null {
+function feeRuleOf(amountMinor: number, feeMinor: number, currency: string, productType?: string | null): string | null {
   if (!(amountMinor > 0) || !(feeMinor >= 0)) return null
+  const productKind = productType === "physical" ? "physical" : "digital"
   for (const plan of ["free", "paid", "scale"] as const) {
     try {
-      const r = calculateStorelibFee({ grossMinor: amountMinor, currency: currency.toUpperCase(), sellerPlan: plan })
+      const r = calculateStorelibFee({ grossMinor: amountMinor, currency: currency.toUpperCase(), sellerPlan: plan, productKind })
       if (r.totalStorelibFeeMinor !== feeMinor) continue
       const name = plan === "free" ? tt("Free plan") : plan === "scale" ? tt("Pro plan") : tt("Grow plan")
       return r.pricingTier === "micro"
@@ -1903,7 +1906,7 @@ function OrderDetailsModal({
   if (!order || !mounted) return null;
 
   const net = order.amount_cents - (order.fee_cents || 0);
-  const feeRule = order.amount_cents > 0 ? feeRuleOf(order.amount_cents, order.fee_cents || 0, currency) : null;
+  const feeRule = order.amount_cents > 0 ? feeRuleOf(order.amount_cents, order.fee_cents || 0, currency, order.product?.type) : null;
   const buyerName = customerNameOf(order);
   const buyerEmail =
     displayEmail(emailOverrides[order.id] || order.buyer?.email || order.buyer_email || order.customer_email);

@@ -17,7 +17,8 @@ import "server-only"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
-import { FREE_STANDARD_RATE, SCALE_STANDARD_RATE, ratePercentLabel } from "@/lib/payments/fees/config"
+import { FREE_STANDARD_RATE, PAID_STANDARD_RATE, SCALE_STANDARD_RATE, ratePercentLabel } from "@/lib/payments/fees/config"
+import { PRO_PRICE_CENTS, withCodePrice } from "@/lib/billing/plans"
 import { subscriptionReader } from "@/lib/billing/subscription-reader"
 import { billingCreatorFor, billingPlanOverrideFor, billingSubscriptionRowFor } from "@/lib/billing/request-reads"
 import { resolveSubscriptionView, STRIPE_READ_TIMEOUT_MS, type SubscriptionsRead } from "@/lib/billing/subscription-state"
@@ -36,13 +37,13 @@ const FREE_PLAN = {
 
 const GROWTH_PLAN = {
   id: "growth",
-  // Sold as "Grow" (pricing round 5; it was "Pro"). The id stays "growth": it is the $29 Stripe price.
+  // Sold as "Grow" (pricing round 5; it was "Pro"). The id stays "growth": the Grow Stripe price, $14.
   name: "Grow",
-  price_cents: 2900,
+  price_cents: PRO_PRICE_CENTS,
   billing_period: "month",
-  fee_percent: 0.03,
+  fee_percent: PAID_STANDARD_RATE,
   fee_fixed_cents: 25,
-  features: ["3% + $0.25 per transaction", "Advanced analytics & reports", "Priority email support", "Custom domain support"],
+  features: [`${ratePercentLabel(PAID_STANDARD_RATE)} + $0.25 per transaction`, "Advanced analytics & reports", "Priority email support", "Custom domain support"],
   is_active: true,
 }
 
@@ -132,7 +133,8 @@ export async function loadBillingOverview(store?: { creatorId: string }): Promis
   ])
 
   if (!creator) return null
-  if (dbPlans?.length) plans = dbPlans
+  /* The stored rows, at the price checkout charges (lib/billing/plans withCodePrice): a row still saying $29 never reaches the page. */
+  if (dbPlans?.length) plans = dbPlans.map(withCodePrice)
 
   /*
     A READ: NO CUSTOMER IS CREATED HERE AND NOTHING IS WRITTEN. This used to

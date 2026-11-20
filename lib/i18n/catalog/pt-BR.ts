@@ -13672,7 +13672,14 @@ const words: Record<string, string> = {
  "In Calendly, open the Profile menu, then Developer, then Personal access tokens. Make a token with the users:read, scheduled_events:read and webhooks:write scopes.": "No Calendly, abra o menu do perfil, depois Developer e depois Personal access tokens. Crie um token com os escopos users:read, scheduled_events:read e webhooks:write.",
  "In Cal.com, open Settings, Security, API keys and make a key. Storelib adds the webhook with it and removes it when you disconnect.": "No Cal.com, abra Settings, Security, API keys e crie uma chave. O Storelib adiciona o webhook com ela e o remove quando você desconecta.",
  "Add the webhook myself instead": "Prefiro adicionar o webhook eu mesmo",
- "Booked on {provider}. Move or cancel it there and it changes here too.": "Agendado no {provider}. Remarque ou cancele lá e muda aqui também."
+ "Booked on {provider}. Move or cancel it there and it changes here too.": "Agendado no {provider}. Remarque ou cancele lá e muda aqui também.",
+ "Fee per digital sale": "Taxa por venda digital",
+ "Fee per physical sale": "Taxa por venda física",
+ "{digital} per digital sale, {physical} per physical sale": "{digital} por venda digital, {physical} por venda física",
+ "Grow costs {proPrice} a month and takes {value}% less of every digital sale and {value3}% less of every physical one. Once you sell about ${value2} a month of digital products, the lower fee alone covers the plan, and everything past that is yours.": "O Grow custa {proPrice} por mês e fica com {value}% a menos de cada venda digital e {value3}% a menos de cada venda física. Quando você vende cerca de ${value2} por mês em produtos digitais, só a taxa menor já paga o plano, e tudo o que passar disso é seu.",
+ "Storelib's fee for your plan and what you sell. Digital products: {freeFee} on Free, {proFee} on Grow, {scaleFee} on Pro. Products that ship: {freePhysical} on Free, {proPhysical} on Grow, {scalePhysical} on Pro. Then Stripe's card processing fee, which Stripe charges on every plan. There is nothing else.": "A taxa da Storelib do seu plano, conforme o que você vende. Produtos digitais: {freeFee} no Grátis, {proFee} no Grow, {scaleFee} no Pro. Produtos enviados: {freePhysical} no Grátis, {proPhysical} no Grow, {scalePhysical} no Pro. Depois, a taxa de processamento de cartão da Stripe, cobrada em todos os planos. Não há mais nada.",
+ "3% + $0.25 on physical products": "3% + $0.25 em produtos físicos",
+ "1.5% + $0.25 on physical products": "1.5% + $0.25 em produtos físicos"
 }
 
 export default words

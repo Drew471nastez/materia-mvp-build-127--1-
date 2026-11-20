@@ -24,6 +24,7 @@ import type { SectionStyle } from "./lazy-section"
 import { startTransition, useEffect, useRef, useState, type ReactNode } from "react"
 import { calculateStorelibFee } from "@/lib/payments/fees/calculate"
 import { CURRENCY_FEE_RULES } from "@/lib/payments/fees/currency-rules"
+import { PRO_PRICE_CENTS } from "@/lib/billing/plans"
 
 /* ── Products ────────────────────────────────────────────────────────── */
 
@@ -55,17 +56,18 @@ export function commerceProduct(id: CommerceKind): CommerceProduct {
   return COMMERCE_PRODUCTS.find((p) => p.id === id) ?? COMMERCE_PRODUCTS[0]
 }
 
-/** Pro's monthly price in cents. tests/home-w12-commerce.test.ts holds it equal to lib/billing/plans PRO_PRICE_CENTS. */
-export const COMMERCE_PRO_MONTHLY_CENTS = 2900
+/** Grow's monthly price in cents, read from lib/billing/plans (tests/home-w12-commerce.test.ts holds them equal). */
+export const COMMERCE_PRO_MONTHLY_CENTS = PRO_PRICE_CENTS
 
 /** How many currencies checkout can charge in: the fee rules are written per currency. */
 export const COMMERCE_CURRENCY_COUNT = Object.keys(CURRENCY_FEE_RULES).length
 
 export type CommercePlan = "free" | "pro"
 
-/** One sale, as checkout works out Storelib's fee for it (USD). */
+/** One sale, as checkout works out Storelib's fee for it (USD). Merch ships, so it pays the physical card rate; a download or a course the digital one. */
 export function commerceSale(priceCents: number, kind: CommerceKind, plan: CommercePlan = "free") {
-  const fee = calculateStorelibFee({ grossMinor: priceCents, currency: "USD", sellerPlan: plan === "free" ? "free" : "paid" }).totalStorelibFeeMinor
+  const productKind = commerceProduct(kind).baseCents > 0 ? "physical" : "digital"
+  const fee = calculateStorelibFee({ grossMinor: priceCents, currency: "USD", sellerPlan: plan === "free" ? "free" : "paid", productKind }).totalStorelibFeeMinor
   const baseCents = commerceProduct(kind).baseCents
   return { priceCents, feeCents: fee, baseCents, profitCents: priceCents - fee - baseCents }
 }

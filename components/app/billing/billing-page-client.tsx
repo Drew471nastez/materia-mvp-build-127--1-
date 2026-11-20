@@ -17,6 +17,7 @@ import { PlanCards, type PlanCardAction } from "@/components/billing/plan-cards"
 import { CancelPlanDialog } from "@/components/app/billing/cancel-plan-dialog"
 import type { CancelReason } from "@/lib/billing/cancel-reasons"
 import { formatPlanPrice, offeredPlan, withPlanLabel, type OfferedPlanId, type PlanId } from "@/lib/billing/plans"
+import { cardRateLabel } from "@/lib/billing/fee-calculator"
 import { StatusBadge, card as CARD } from "@/app/(storelib)/app/orders/order-parts"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { cn } from "@/lib/utils"
@@ -341,8 +342,9 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
   const subscription = liveSubscription
   const isSubscribed = subscription && (subscription.status === "active" || subscription.status === "trialing" || subscription.status === "past_due")
   const planPrice = formatPlanPrice(currentPlan.price_cents || 0)
-  /* "3% + $0.25": the rate as the plan cards write it, with no trailing zero. */
-  const feeDisplay = `${Number((currentPlan.fee_percent * 100).toFixed(2))}% + $${(currentPlan.fee_fixed_cents / 100).toFixed(2)}`
+  /* "3% + $0.25": the rates as the plan cards write them, from the fee rules checkout charges by (lib/billing/fee-calculator), for a digital sale and a product that ships. */
+  const feeDisplay = cardRateLabel(currentPlan.id, "digital")
+  const physicalFeeDisplay = cardRateLabel(currentPlan.id, "physical")
 
   // Detect pending downgrade (scheduled plan change)
   const pendingPlanId = subscription?.pending_plan_id || null
@@ -466,8 +468,12 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
 
                 <dl className="mt-4 divide-y divide-[#f0f1f3] border-y border-[#f0f1f3] text-[14px]">
                   <div className="flex items-center justify-between gap-3 py-2.5">
-                    <dt className="text-[#6b7280]">{tt("Fee per sale")}</dt>
+                    <dt className="text-[#6b7280]">{tt("Fee per digital sale")}</dt>
                     <dd className="font-medium text-[#1a1a2e] tabular-nums">{feeDisplay}</dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 py-2.5">
+                    <dt className="text-[#6b7280]">{tt("Fee per physical sale")}</dt>
+                    <dd className="font-medium text-[#1a1a2e] tabular-nums">{physicalFeeDisplay}</dd>
                   </div>
                   {subscription?.current_period_end && subscription.status !== "canceled" ? (
                     <div className="flex items-center justify-between gap-3 py-2.5">

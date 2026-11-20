@@ -15,7 +15,7 @@ export const money = (cents: number) => {
 
 /**
  * "Forty sales of $25 a month is $1,000. Gumroad keeps $120 of it. Storelib
- * Free keeps $60, and Pro keeps $40 plus its $29 price." The competitor's
+ * Free keeps $60, and Grow keeps $40 plus its $14 price." The competitor's
  * own cut only, before card processing, which both sides pay.
  */
 export function monthOfFees(input: { priceDollars: number; sales: number; name: string; rate: Rate; monthlyCents?: number }): string {
@@ -25,5 +25,5 @@ export function monthOfFees(input: { priceDollars: number; sales: number; name: 
   const free = storelibFeeCents(price, "free") * input.sales
   const pro = storelibFeeCents(price, "growth") * input.sales
   const plan = input.monthlyCents ? ` including its plan` : ""
-  return `${input.sales} sales of ${money(price)} a month is ${money(gross)}. ${input.name} keeps ${money(theirs)} of it${plan}, before card processing. Storelib Free keeps ${money(free)}, and Pro keeps ${money(pro)} plus its ${STORELIB.proPrice} price. Card processing applies on both.`
+  return `${input.sales} sales of ${money(price)} a month is ${money(gross)}. ${input.name} keeps ${money(theirs)} of it${plan}, before card processing. Storelib Free keeps ${money(free)}, and Grow keeps ${money(pro)} plus its ${STORELIB.proPrice} price. Card processing applies on both.`
 }

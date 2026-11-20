@@ -6,6 +6,13 @@ import Link from "next/link"
 import { useState } from "react"
 import { publicHelpUrl } from "@/lib/help/paths"
 import { AnimateOnScroll } from "./animate-on-scroll"
+import { PRO_CHECKOUT_PLAN_ID, PRO_PRICE_CENTS, SCALE_CHECKOUT_PLAN_ID, SCALE_PRICE_CENTS, formatPlanPrice } from "@/lib/billing/plans"
+import { cardRateLabel } from "@/lib/billing/fee-calculator"
+
+/* The prices and rates as checkout charges them (lib/billing/plans, lib/billing/fee-calculator), never typed. */
+const GROW_PRICE = formatPlanPrice(PRO_PRICE_CENTS)
+const PRO_PRICE = formatPlanPrice(SCALE_PRICE_CENTS)
+const rates = (id: string) => `${cardRateLabel(id, "digital")} on digital products and ${cardRateLabel(id, "physical")} on products that ship`
 
 const FAQS = [
   {
@@ -22,7 +29,11 @@ const FAQS = [
   },
   {
     q: "Can I use my own domain?",
-    a: "Yes, on Grow ($29 a month) and Pro ($99 a month). Your store lives at yourname.com.",
+    a: `Yes, on Grow (${GROW_PRICE} a month) and Pro (${PRO_PRICE} a month). Your store lives at yourname.com.`,
+  },
+  {
+    q: "What does Storelib take from a sale?",
+    a: `Free: ${rates("free")}. Grow: ${rates(PRO_CHECKOUT_PLAN_ID)}. Pro: ${cardRateLabel(SCALE_CHECKOUT_PLAN_ID)} on both. Stripe's card processing fee is on top, on every plan.`,
   },
   {
     q: "How fast do I get paid?",

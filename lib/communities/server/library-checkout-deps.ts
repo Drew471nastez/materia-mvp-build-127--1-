@@ -24,7 +24,7 @@ export async function libraryCheckoutDeps(db: Db): Promise<LibraryCheckoutDeps> 
   return {
     stripe,
     ready: (creatorId) => checkoutReadyForCreator(creatorId),
-    fee: (cents, creatorId, currency) => calculatePlatformFeeForCheckout(cents, creatorId, db, currency),
+    fee: (cents, creatorId, currency) => calculatePlatformFeeForCheckout(cents, creatorId, db, currency, "digital"),
     /* Settings › Taxes, for a store that taxes downloads, the way the product checkout works it out (app/api/checkout/stripe-session). */
     tax: async (creatorId, productId, amountCents, country) => {
       const view = rules.checkoutTaxFor(await tax.loadTaxForCheckout(db, creatorId), productId, country)

@@ -24,6 +24,9 @@ export async function POST(request: NextRequest) {
     const db = createAdminClient()
     const { config } = await loadActiveFeeConfig(db)
 
+    /* Physical sales have their own rates (lib/payments/fees/defaults); anything else is digital. */
+    const productKind = body.productKind === "physical" ? ("physical" as const) : ("digital" as const)
+
     if (body.mode === "batch") {
       const plan: StorelibSellerPlan = body.plan === "scale" || body.plan === "pro" ? "scale" : body.plan === "paid" || body.plan === "growth" ? "paid" : "free"
       const rows = batchSimulate({
@@ -32,6 +35,7 @@ export async function POST(request: NextRequest) {
         incrementMinor: Number(body.incrementMinor),
         currency: String(body.currency || "USD"),
         sellerPlan: plan,
+        productKind,
         config,
         safetyEffectivePercent: body.safetyEffectivePercent != null ? Number(body.safetyEffectivePercent) : undefined,
       })
@@ -48,6 +52,7 @@ export async function POST(request: NextRequest) {
       sellerPlan: plan,
       grossMinor: Math.floor(Number(body.grossMinor)),
       currency: String(body.currency || "USD"),
+      productKind,
       kind,
       refund,
       partialRefundMinor: body.partialRefundMinor != null ? Math.floor(Number(body.partialRefundMinor)) : undefined,

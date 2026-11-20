@@ -439,7 +439,8 @@ async function intent(request: Request, admin: Admin, site: SiteOfCheckout, body
   }
   let fee: Awaited<ReturnType<typeof calculatePlatformFeeForCheckout>>
   try {
-    fee = await calculatePlatformFeeForCheckout(goodsCharged, site.creatorId, admin, chargeCurrency)
+    /* Digital only here: a cart that ships is the held physical checkout (startCheckout below), which says its own physical part. */
+    fee = await calculatePlatformFeeForCheckout(goodsCharged, site.creatorId, admin, chargeCurrency, "digital")
   } catch (e) {
     if (holder) await releaseCouponHold(admin, coupon?.id, holder)
     await releaseSales(admin, heldCopies, saleHolder)

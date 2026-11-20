@@ -18,7 +18,7 @@ import { nanoid } from "nanoid"
 import { cookies } from "next/headers"
 import { generateReceiptToken } from "@/lib/security"
 import { collectOrderDeviceInfo } from "@/lib/device-info"
-import { UnsupportedFeeCurrencyError } from "@/lib/billing/fee-calculator"
+import { UnsupportedFeeCurrencyError, productKindOf } from "@/lib/billing/fee-calculator"
 import { calculatePlatformFeeForCheckout } from "@/lib/billing/platform-fee-server"
 import { ORIGIN_METADATA_KEY, SOURCE_METADATA_KEY, channelOf, encodeOrigin, orderSourceFromRequest, originOf } from "@/lib/orders/order-source"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
@@ -220,7 +220,8 @@ async function handlePOST(request: Request) {
   const chargeCurrency = storeCurrency.toLowerCase()
   let fee: Awaited<ReturnType<typeof calculatePlatformFeeForCheckout>>
   try {
-    fee = await calculatePlatformFeeForCheckout(totals.totalCents, creator.id, admin, chargeCurrency)
+    /* The product's own kind: priceOrder refuses one that ships, so this is digital, said from the row rather than assumed. */
+    fee = await calculatePlatformFeeForCheckout(totals.totalCents, creator.id, admin, chargeCurrency, productKindOf(product.type))
   } catch (e) {
     if (e instanceof UnsupportedFeeCurrencyError) {
       return NextResponse.json({ error: "This currency is not available for checkout yet." }, { status: 400 })

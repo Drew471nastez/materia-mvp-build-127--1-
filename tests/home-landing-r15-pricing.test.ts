@@ -77,7 +77,8 @@ console.log("\n3. The questions")
   const html = renderToStaticMarkup(createElement(FaqSection, { editorial: true }))
   check("no grey panel and no dots: the ground's stylesheet is gone", !/faq-ground|FAQ_GROUND_CSS|radial-gradient|#f1f1f3/.test(src) && !/faq-ground/.test(html))
   check("the section is on the page's own background, padded as in round 14", /<section data-story-section="faq" data-faq-plain="" class="py-20 sm:py-28 home-wrap/.test(html) && /style="background:transparent"/.test(html))
-  check("the rows keep their soft grey and open as before", /\.faq-rows \.faq-item\{border-bottom:0;border-radius:10px;background:#f5f5f6\}/.test(src) && /\.faq-a\{display:grid;grid-template-rows:0fr;transition:grid-template-rows \.4s cubic-bezier\(\.22,1,\.36,1\)\}/.test(src) && (html.match(/class="faq-item"/g) ?? []).length === 7)
+  /* Changed on purpose (pricing: Grow $14, physical rates). */ /* Eight questions: "What does Storelib take from a sale?" lists the digital and physical rates. */
+  check("the rows keep their soft grey and open as before", /\.faq-rows \.faq-item\{border-bottom:0;border-radius:10px;background:#f5f5f6\}/.test(src) && /\.faq-a\{display:grid;grid-template-rows:0fr;transition:grid-template-rows \.4s cubic-bezier\(\.22,1,\.36,1\)\}/.test(src) && (html.match(/class="faq-item"/g) ?? []).length === 8)
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

@@ -20,7 +20,7 @@
  * tests/home-landing-rest.test.ts to the code that provides it. A plan gets no
  * line its tables do not give it.
  */
-import { getFeeDescription } from "@/lib/billing/fee-calculator"
+import { cardRateLabel, sameRateForBothKinds } from "@/lib/billing/fee-calculator"
 import { PRO_CHECKOUT_PLAN_ID, SCALE_CHECKOUT_PLAN_ID, type OfferedPlanId, type PlanId } from "@/lib/billing/plans"
 import { siteLimits } from "@/lib/sites/plan"
 import { PLAN_LIMITS } from "@/lib/storage/plans"
@@ -31,6 +31,18 @@ export type PlanLineIcon = "products" | "page" | "bank" | "mail" | "rate" | "eve
 export interface PlanLine {
   icon: PlanLineIcon
   text: string
+  /**
+   * A short second part of the same line, drawn smaller and muted as a row
+   * under the text (components/billing/plan-cards). The rate line uses it
+   * for the physical rate where a plan's differs from its digital one, so
+   * the card says both without a seventh line.
+   */
+  detail?: string
+}
+
+/** A line as one sentence, for anything that reads the lines as text: "Card rates: 5% + $0.25, 3% + $0.25 on physical products". */
+export function planLineText(line: PlanLine): string {
+  return line.detail ? `${line.text}, ${line.detail}` : line.text
 }
 
 /**
@@ -40,8 +52,15 @@ export interface PlanLine {
  */
 export const MAX_PLAN_LINES = 6
 
-/* "5% + $0.25": the rate a sale pays, without "per sale", so every line stays one line. */
-const fee = (id: PlanId) => getFeeDescription(id).replace(/ per (sale|transaction)$/, "")
+/*
+  "5% + $0.25": the rate a digital sale pays, without "per sale". A product
+  that ships pays its own rate on Free and Grow (lib/payments/fees/defaults),
+  said in the line's detail: "3% + $0.25 on physical products". Pro pays the same on
+  both, so its line has no detail. Both are written from the fee rules
+  (lib/billing/fee-calculator cardRateLabel), never typed.
+*/
+const fee = (id: PlanId) => cardRateLabel(id, "digital")
+const physicalDetail = (id: PlanId): Pick<PlanLine, "detail"> => (sameRateForBothKinds(id) ? {} : { detail: `${cardRateLabel(id, "physical")} on physical products` })
 const sites = (n: number) => (n === 1 ? "1 website" : `${n} websites`)
 
 /** The lines for each plan's card, written from the plan tables, six at most. */
@@ -55,14 +74,14 @@ export function publicPlanLines(): Record<OfferedPlanId, PlanLine[]> {
     { icon: "page", text: `Your creator page and ${sites(free.maxSites)}` },
     { icon: "bank", text: "Get paid straight to your bank" },
     { icon: "mail", text: "Email your customers" },
-    { icon: "rate", text: `Card rates: ${fee("free")}` },
+    { icon: "rate", text: `Card rates: ${fee("free")}`, ...physicalDetail("free") },
     /* Landing round 14: the compare table's "Sales and visitor analytics", on every plan (app/(storelib)/app/analytics). */
     { icon: "analytics", text: "Sales and visitor analytics" },
   ]
 
   const growLines: PlanLine[] = [
     { icon: "everything", text: "Everything in Free" },
-    { icon: "rate", text: `Lower card rates: ${fee(PRO_CHECKOUT_PLAN_ID)}` },
+    { icon: "rate", text: `Lower card rates: ${fee(PRO_CHECKOUT_PLAN_ID)}`, ...physicalDetail(PRO_CHECKOUT_PLAN_ID) },
   ]
   if (grow.customDomain) growLines.push({ icon: "domain", text: "Your own domain" })
   if (grow.removeBranding) growLines.push({ icon: "brand", text: "No Storelib branding" })
@@ -72,7 +91,7 @@ export function publicPlanLines(): Record<OfferedPlanId, PlanLine[]> {
 
   const proLines: PlanLine[] = [
     { icon: "everything", text: "Everything in Grow" },
-    { icon: "rate", text: `Lowest card rates: ${fee(SCALE_CHECKOUT_PLAN_ID)}` },
+    { icon: "rate", text: `Lowest card rates: ${fee(SCALE_CHECKOUT_PLAN_ID)}`, ...physicalDetail(SCALE_CHECKOUT_PLAN_ID) },
   ]
   if (pro.maxSites > grow.maxSites) proLines.push({ icon: "sites", text: `Up to ${sites(pro.maxSites)}` })
   if (PLAN_LIMITS[SCALE_CHECKOUT_PLAN_ID].storageQuotaBytes > PLAN_LIMITS[PRO_CHECKOUT_PLAN_ID].storageQuotaBytes) proLines.push({ icon: "files", text: "The most room for your files" })

@@ -46,10 +46,13 @@ export function SaleExample({ priceCents, what, per }: { priceCents: number; wha
       <ul className="mt-4 max-w-[760px] space-y-1.5 text-[14px] leading-[1.6] text-[#4b5563]">
         <li>Stripe&apos;s card processing fee is separate and applies on both plans. It depends on the card and the country.</li>
         <li>
-          Orders under {FEES.smallOrderBelow} pay {ratePercentLabel(PLANS.free.smallOrderRate)} on Free or {ratePercentLabel(PLANS.pro.smallOrderRate)} on Pro, with no {FEES.fixed}.
+          Orders under {FEES.smallOrderBelow} pay {ratePercentLabel(PLANS.free.smallOrderRate)} on Free or {ratePercentLabel(PLANS.pro.smallOrderRate)} on {PLANS.pro.name}, with no {FEES.fixed}.
         </li>
         <li>
-          Pro&apos;s lower fee covers its {PLANS.pro.price} price once you sell about ${proBreakEvenDollars().toLocaleString("en-US")} a month.{" "}
+          A product that ships pays less: {PLANS.free.physicalFeeLabel} on Free, {PLANS.pro.physicalFeeLabel} on {PLANS.pro.name}.
+        </li>
+        <li>
+          {PLANS.pro.name}&apos;s lower fee covers its {PLANS.pro.price} price once you sell about ${proBreakEvenDollars().toLocaleString("en-US")} a month.{" "}
           <Link href="/pricing" className="font-medium text-[#1a1a2e] underline underline-offset-2">
             See pricing
           </Link>

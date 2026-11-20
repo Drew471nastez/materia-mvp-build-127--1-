@@ -17,7 +17,7 @@ import { SignupDestination } from "@/components/onepage/creator-blocks-editor"
 import { getLinksShareUrl, getOnePageDomain } from "@/lib/url-helpers"
 import { BADGE_TYPES, checkPageSlug } from "@/lib/onepage/settings-rules"
 import { PRO_CHECKOUT_PLAN_ID, SCALE_CHECKOUT_PLAN_ID, formatPlanPrice, offeredPlan, planDisplayName, type OfferedPlanId, type PlanId } from "@/lib/billing/plans"
-import { getFeeDescription } from "@/lib/billing/fee-calculator"
+import { cardRateLabel } from "@/lib/billing/fee-calculator"
 import { PlanCards, type PlanCardAction } from "@/components/billing/plan-cards"
 import { StatusBadge, card as APP_CARD } from "@/app/(storelib)/app/orders/order-parts"
 import { tt } from "@/lib/i18n/text"
@@ -563,8 +563,12 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
             </div>
             <dl className="mt-4 divide-y divide-[#f0f1f3] border-y border-[#f0f1f3] text-[14px]">
               <div className="flex items-center justify-between gap-3 py-2.5">
-                <dt className="text-[#6b7280]">{tt("Fee per sale")}</dt>
-                <dd className="text-right font-medium text-[#1a1a2e] tabular-nums">{getFeeDescription(currentPlanKey).replace(/ per sale$/, "")}</dd>
+                <dt className="text-[#6b7280]">{tt("Fee per digital sale")}</dt>
+                <dd className="text-right font-medium text-[#1a1a2e] tabular-nums">{cardRateLabel(currentPlanKey, "digital")}</dd>
+              </div>
+              <div className="flex items-center justify-between gap-3 py-2.5">
+                <dt className="text-[#6b7280]">{tt("Fee per physical sale")}</dt>
+                <dd className="text-right font-medium text-[#1a1a2e] tabular-nums">{cardRateLabel(currentPlanKey, "physical")}</dd>
               </div>
             </dl>
             <div className="mt-5 flex">

@@ -3,12 +3,15 @@ import { pageMetadata } from "@/lib/seo/page-metadata"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 import { storelibApplicationJsonLd, storelibBreadcrumbJsonLd, storelibGraph } from "@/lib/seo/structured-data"
 import { PricingPageClient } from "./pricing-client"
+import { PRO_CHECKOUT_PLAN_ID, PRO_PRICE_CENTS, SCALE_CHECKOUT_PLAN_ID, SCALE_PRICE_CENTS, formatPlanPrice } from "@/lib/billing/plans"
+import { cardRateLabel } from "@/lib/billing/fee-calculator"
 
 /* Its own title, canonical and card: with none, /pricing was the home page's title and og:url. */
 export const metadata: Metadata = pageMetadata({
   path: "/pricing",
   title: "Pricing",
-  description: "Three plans. Free has no monthly fee and a 5% + $0.25 fee per sale. Grow is $29 a month and lowers the fee to 3% + $0.25, with your own domain and no Storelib branding. Pro is $99 a month, lowers it to 1.5% + $0.25, and has the most websites, storage and AI edits.",
+  /* Every price and rate from the tables checkout charges by (lib/billing/plans, lib/billing/fee-calculator), never typed. */
+  description: `Three plans. Free has no monthly fee and a ${cardRateLabel("free")} fee per digital sale, ${cardRateLabel("free", "physical")} on products that ship. Grow is ${formatPlanPrice(PRO_PRICE_CENTS)} a month and lowers it to ${cardRateLabel(PRO_CHECKOUT_PLAN_ID)} (${cardRateLabel(PRO_CHECKOUT_PLAN_ID, "physical")} physical), with your own domain and no Storelib branding. Pro is ${formatPlanPrice(SCALE_PRICE_CENTS)} a month, lowers it to ${cardRateLabel(SCALE_CHECKOUT_PLAN_ID)}, and has the most websites, storage and AI edits.`,
 })
 
 /*

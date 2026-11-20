@@ -9,10 +9,12 @@ import { stripeIdempotencyKey } from "@/lib/stripe/resilience"
 import { readSubscriptionRow, subscriptionReader } from "@/lib/billing/subscription-reader"
 import { alreadyPayingVerdict } from "@/lib/billing/subscription-state"
 import { trustedReturnUrl } from "@/lib/billing/return-url"
+import { growthPriceId, proPriceId } from "@/lib/billing/stripe-prices"
+import { GROW_PRICE_NOT_READY, growPriceMatchesShown } from "@/lib/billing/grow-price-guard"
 
-// LIVE Stripe Price IDs
-const PRICE_GROWTH = process.env.PRICE_GROWTH_MONTHLY || "price_1SzBWaBYevnBVyznNCTOXDoS"
-const PRICE_PRO = process.env.PRICE_PRO_MONTHLY || "price_1SzBXSBYevnBVyznYjXfOOXX"
+// LIVE Stripe Price IDs (lib/billing/stripe-prices): Grow is the $14 price in PRICE_GROWTH_MONTHLY.
+const PRICE_GROWTH = growthPriceId()
+const PRICE_PRO = proPriceId()
 
 function getStripePriceId(planId: string): string | null {
   if (planId === "growth") return PRICE_GROWTH
@@ -72,6 +74,11 @@ export async function POST(request: Request) {
     }
     if (verdict === "unknown") {
       return NextResponse.json({ error: "We couldn't check your current plan with Stripe. Nothing was charged. Try again in a minute.", code: "billing_unavailable" }, { status: 503 })
+    }
+
+    /* Grow is sold at the price every card shows (lib/billing/grow-price-guard): while the Stripe price charges anything else, nothing is started. */
+    if (planId === "growth" && !(await growPriceMatchesShown(stripe, stripePriceId))) {
+      return NextResponse.json({ error: GROW_PRICE_NOT_READY, code: "price_not_ready" }, { status: 503 })
     }
 
     // Validate or create Stripe customer (handles test→live key migration)

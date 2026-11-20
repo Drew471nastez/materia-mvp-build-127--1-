@@ -405,7 +405,8 @@ async function handlePOST(request: Request) {
   const chargeCurrency = storeCurrency.toLowerCase()
   let fee: Awaited<ReturnType<typeof calculatePlatformFeeForCheckout>>
   try {
-    fee = await calculatePlatformFeeForCheckout(totalCents, creatorId, admin, chargeCurrency)
+    /* A basket here is digital only: anything that ships went on to the physical checkout above (lib/physical). */
+    fee = await calculatePlatformFeeForCheckout(totalCents, creatorId, admin, chargeCurrency, "digital")
   } catch (e) {
     if (e instanceof UnsupportedFeeCurrencyError) {
       return NextResponse.json({ error: "This currency is not available for checkout yet." }, { status: 400 })

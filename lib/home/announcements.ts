@@ -14,7 +14,7 @@
  *    95  first-product   nothing to sell yet
  *    85  first-sale      the first sale came in this week
  *    80  milestone       a round number of sales or money passed this week
- *    70  upgrade-saving  on Pro the last 30 days' fees and the $29 plan would
+ *    70  upgrade-saving  on Grow the last 30 days' fees and the Grow price would
  *                        have cost at least $10 less than Free's fees did
  *    65  share           ready to sell and nothing sold: share the link
  *    60  website         products, and no website published
@@ -153,7 +153,15 @@ export function salesSummary(rows: OrderRow[], now: number, before: { count: num
   const sales = groupOrders(rows)
     .filter(isSale)
     /* A sale stamped after `now` came in live after the page took its clock (or the clocks disagree a little): it happened now. */
-    .map((o) => ({ id: o.id, at: Math.min(now, Date.parse(o.createdAt)), cents: moneyOf(o).net }))
+    /* What of the sale is physical goods pays the physical card rate (lib/payments/fees/defaults). */
+    .map((o) => {
+      const net = moneyOf(o).net
+      const gross = o.lines.reduce((n, r) => n + Math.max(0, r.amount_cents || 0), 0)
+      /* The line's product type when the row carries it, else whether it came through the physical checkout. */
+      const shippedGross = o.lines.reduce((n, r) => n + ((r.product?.type != null ? r.product.type === "physical" : !!r.physical_fulfillment) ? Math.max(0, r.amount_cents || 0) : 0), 0)
+      const physicalCents = gross > 0 ? Math.round((net * shippedGross) / gross) : 0
+      return { id: o.id, at: Math.min(now, Date.parse(o.createdAt)), cents: net, physicalCents }
+    })
     .filter((s) => Number.isFinite(s.at))
     .sort((a, b) => a.at - b.at)
 
@@ -171,8 +179,8 @@ export function salesSummary(rows: OrderRow[], now: number, before: { count: num
       last30.cents += s.cents
       /* The fee is taken per payment (lib/billing/fee-calculator), so it is worked out per sale, on each plan. */
       if (s.cents > 0) {
-        last30.feeFreeCents += computeApplicationFee({ unitAmount: s.cents, sellerPlan: "free" })
-        last30.feeProCents += computeApplicationFee({ unitAmount: s.cents, sellerPlan: "growth" })
+        last30.feeFreeCents += computeApplicationFee({ unitAmount: s.cents, sellerPlan: "free", productKind: { physicalCents: s.physicalCents } })
+        last30.feeProCents += computeApplicationFee({ unitAmount: s.cents, sellerPlan: "growth", productKind: { physicalCents: s.physicalCents } })
       }
     }
     /* A round number this sale passed, this week. The first sale is its own announcement, so it passes nothing here. */
@@ -213,7 +221,7 @@ export const NO_SALES: SalesSummary = { count: 0, cents: 0, first: null, last30:
 
 /* ─── Words ────────────────────────────────────────────────────────────── */
 
-/** $29, $29.50, $1,240: cents only when there are some, and never on $1,000 or more, where they are noise. */
+/** $14, $14.50, $1,240: cents only when there are some, and never on $1,000 or more, where they are noise. */
 export function money(cents: number, currency = "USD"): string {
   const whole = Math.round(cents) % 100 === 0 || Math.abs(cents) >= 100_000
   const dollars = whole ? Math.round(cents / 100) : cents / 100

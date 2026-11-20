@@ -6,6 +6,7 @@ import { useState, useRef, useEffect } from "react"
 import { AnimateOnScroll } from "./animate-on-scroll"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
+import { PRO_PRICE_CENTS, formatPlanPrice } from "@/lib/billing/plans"
 
 const COMPARE_IMAGE =
   "https://storelib.com/media/platform%20images/Visits%20(12).webp"
@@ -265,7 +266,7 @@ export function ToolStackSection({ editorial = false }: { editorial?: boolean } 
                 </div>
                 <div className="shrink-0 text-right">
                   <span className="text-[17px] sm:text-lg font-bold text-neutral-900">Free to start</span>
-                  <p className="text-[12px] text-neutral-400 mt-0.5">or $29/mo</p>
+                  <p className="text-[12px] text-neutral-400 mt-0.5">or {formatPlanPrice(PRO_PRICE_CENTS)}/mo</p>
                 </div>
               </div>
             </div>

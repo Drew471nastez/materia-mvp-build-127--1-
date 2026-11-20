@@ -184,12 +184,12 @@ export function storelibWebSiteJsonLd() {
   }
 }
 
-/** "29.00", the way schema.org writes a price: a number, a dot, no currency sign. */
+/** "14.00", the way schema.org writes a price: a number, a dot, no currency sign. */
 export function schemaPrice(cents: number): string {
   return (Math.round(cents) / 100).toFixed(2)
 }
 
-/** Each plan on sale, from OFFERED_PLANS: Free at 0, Pro and Scale at their monthly prices. */
+/** Each plan on sale, from OFFERED_PLANS: Free at 0, Grow and Pro at their monthly prices (lib/billing/plans PRO_PRICE_CENTS, SCALE_PRICE_CENTS). */
 export function storelibPlanOffers() {
   return OFFERED_PLANS.map((plan) => ({
     "@type": "Offer",

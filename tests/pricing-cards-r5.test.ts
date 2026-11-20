@@ -88,10 +88,12 @@ console.log("\n── Three plans, Grow in the middle ──")
 console.log("\n── Names: Free, Grow, Pro ──")
 {
   check("named Free, Grow and Pro", OFFERED_PLANS.map((p) => p.name).join() === "Free,Grow,Pro", OFFERED_PLANS.map((p) => p.name))
-  check("priced $0, $29 and $99", OFFERED_PLANS.map((p) => p.price).join() === "$0,$29,$99")
+  /* Changed on purpose (pricing: Grow $14, physical rates). */
+  check("priced $0, $14 and $99", OFFERED_PLANS.map((p) => p.price).join() === "$0,$14,$99")
   check("the pills name them", ["Free", "Grow", "Pro"].every((n) => new RegExp(`<h3[^>]*>${n}</h3>`).test(html)))
   check("planDisplayName: growth is Grow, pro (and professional) is Pro", planDisplayName("growth") === "Grow" && planDisplayName("pro") === "Pro" && planDisplayName("professional") === "Pro" && planDisplayName("free") === "Free")
-  check("the admin picker names them Grow and Pro", ASSIGNABLE_PLANS.map((p) => p.label).join() === "Free,Grow, $29,Pro, $99")
+  /* Changed on purpose (pricing: Grow $14, physical rates). */
+  check("the admin picker names them Grow and Pro", ASSIGNABLE_PLANS.map((p) => p.label).join() === "Free,Grow, $14,Pro, $99")
   check("no Scale left on a plan surface", !/\bScale\b/.test(html + compact) && !OFFERED_PLANS.some((p) => /\bScale\b/.test([p.name, p.summary, ...p.features].join(" "))))
   const fees = read("lib/billing/fee-calculator.ts")
   check("the fee calculator's names are Grow and Pro", /growth: "Grow",\s*pro: "Pro",/.test(fees))
@@ -105,7 +107,8 @@ console.log("\n── Internal ids and prices unchanged ──")
 {
   check("offered ids are free, growth, pro", OFFERED_PLAN_IDS.join() === "free,growth,pro")
   check("Grow checks out as growth, Pro as pro", PRO_CHECKOUT_PLAN_ID === "growth" && SCALE_CHECKOUT_PLAN_ID === "pro")
-  check("the Stripe prices: 2900 and 9900 cents", PRO_PRICE_CENTS === 2900 && SCALE_PRICE_CENTS === 9900)
+  /* Changed on purpose (pricing: Grow $14, physical rates). */
+  check("the Stripe prices: 1400 and 9900 cents", PRO_PRICE_CENTS === 1400 && SCALE_PRICE_CENTS === 9900)
   const section = read("components/marketing/pricing-section.tsx")
   check("the pricing section still starts checkout with the constants", /onPlanSelect\(PRO_CHECKOUT_PLAN_ID\)/.test(section) && /onPlanSelect\(SCALE_CHECKOUT_PLAN_ID\)/.test(section))
   check("its buttons read Get Grow and Get Pro", /\[PRO_CHECKOUT_PLAN_ID\]: "Get Grow"/.test(section) && /\[SCALE_CHECKOUT_PLAN_ID\]: "Get Pro"/.test(section))
@@ -132,7 +135,10 @@ console.log("\n── Lines and description ──")
   check("no storage numbers or technical limits", !all.some((t) => /\b\d+\s*(GB|MB|TB)\b|pages each|\d+\s*AI edits|file storage/i.test(t)), all)
   check("Grow's card adds to Free, Pro's to Grow", lines.growth[0].text === "Everything in Free" && lines.pro[0].text === "Everything in Grow")
   check("no banned words or em dashes in the lines or descriptions", ![...all, ...OFFERED_PLANS.map((p) => p.summary)].some((t) => BANNED.test(t)))
-  check("one set of lines on every surface: the compact cards draw the same", Object.values(lines).flat().every((l) => compact.includes(l.text.replace(/&/g, "&amp;"))))
+  /* Changed on purpose (pricing: Grow $14, physical rates). */
+  /* A rate is drawn whole ("5%\u00a0+\u00a0$0.25", components/billing/plan-cards keepRateWhole), and the physical rate as the line's second row. */
+  const drawn = compact.replace(/\u00a0/g, " ")
+  check("one set of lines on every surface: the compact cards draw the same", Object.values(lines).flat().every((l) => drawn.includes(l.text.replace(/&/g, "&amp;")) && (!l.detail || drawn.includes(l.detail))))
 }
 
 console.log("\n── Contact sales ──")

@@ -813,6 +813,7 @@ const SUITES = [
   "tests/storage-upload-routes.test.ts",
   "tests/pricing-plans.test.ts",
   "tests/pricing-cards-r5.test.ts",
+  "tests/pricing-physical-rates.test.ts",
   "tests/app-search.test.ts",
   "tests/notifications-panel.test.ts",
   "tests/notify-unsubscribe.test.ts",
