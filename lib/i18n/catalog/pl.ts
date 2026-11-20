@@ -13584,7 +13584,10 @@ const words: Record<string, string> = {
  "Could not check what is connected.": "Nie udało się sprawdzić, co jest połączone.",
  "Could not check what is connected. Try again in a moment.": "Nie udało się sprawdzić, co jest połączone. Spróbuj ponownie za chwilę.",
  "Your bank did not approve the payment.": "Twój bank nie zatwierdził płatności.",
- "Your plan did not change.": "Twój plan się nie zmienił."
+ "Your plan did not change.": "Twój plan się nie zmienił.",
+ "Tip from {name}": "Napiwek od {name}",
+ "Anonymous": "Anonim",
+ "You keep": "Zostaje dla Ciebie"
 }
 
 export default words
