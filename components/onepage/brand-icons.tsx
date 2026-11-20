@@ -615,6 +615,8 @@ const INTEGRATION_ICONS: Record<string, { brand?: IconType; draw?: (p: MarkProps
   meta: { brand: SiMeta, color: "#0866FF" },
   ga: { brand: SiGoogleanalytics, color: "#E37400" },
   calcom: { brand: SiCaldotcom, color: "#111113" },
+  /* Calendly and Cal.com bookings (lib/bookings/external): their rows in Settings › Integrations and the OnePage editor. */
+  calendly: { brand: SiCalendly, color: "#006BFF" },
   webhook: { color: "#111113", line: true },
 }
 

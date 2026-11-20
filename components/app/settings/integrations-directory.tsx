@@ -294,6 +294,10 @@ export function IntegrationsDirectory({ page = false, only = null, initial: serv
     void api<{ settings: { enabled: boolean } }>("/api/store/reviews-app").then((r) => {
       if (r.ok) setAppsOn((a) => ({ ...a, storelib_reviews: r.data.settings?.enabled === true }))
     })
+    /* Calendly and Cal.com are installed while connected (lib/bookings/external): keyed booking_sync:<provider>. */
+    void api<{ connections?: { provider: string; connected: boolean }[] }>("/api/bookings/external").then((r) => {
+      if (r.ok) setAppsOn((a) => ({ ...a, ...Object.fromEntries((r.data.connections ?? []).map((c) => [`booking_sync:${c.provider}`, c.connected])) }))
+    })
     /* Send analytics is installed while any tool is connected (lib/analytics/destinations). */
     void api<{ destinations?: { connected: boolean }[] }>("/api/analytics/destinations").then((r) => {
       if (r.ok) setAppsOn((a) => ({ ...a, analytics_destinations: (r.data.destinations ?? []).some((d) => d.connected) }))
@@ -358,6 +362,7 @@ export function IntegrationsDirectory({ page = false, only = null, initial: serv
       if (i.id === "aftership") return ownTracking === "aftership"
       /* Brevo, MailerLite and Kit: connected with a key, like Klaviyo's sync. */
       if (i.kind === "app" && i.appId === "marketing_sync") return !!marketing?.some((m) => m.provider === i.marketingProvider && m.connected)
+      if (i.kind === "app" && i.appId === "booking_sync") return !!appsOn[`booking_sync:${i.bookingProvider}`]
       if (i.kind === "app") return !!(i.appId && appsOn[i.appId])
       if (i.kind === "tracker") return !!(i.trackerId && (tracking?.[i.trackerId] || marketing?.some((m) => m.provider === i.trackerId && m.connected)))
       if (i.kind !== "commerce" || i.comingSoon) return false
