@@ -1,124 +1,163 @@
 {
   "sections": {
-    "page_heading_1": {
-      "type": "page-heading",
+    "faq": {
+      "type": "faq-contact-card",
       "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976"
+        "color_scheme": "default",
+        "section_width": "fluid_container",
+        "first_item_open": true,
+        "allow_multiple_open": false,
+        "open_icon": "plus",
+        "card_position": "right",
+        "card_sticky": true,
+        "padding_top": 72,
+        "padding_bottom": 88,
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 56
       },
       "blocks": {
-        "heading_1": {
+        "heading": {
           "type": "heading",
           "settings": {
-            "page_title": "Sizing and FAQ"
+            "text": "Help with your order"
           }
         },
-        "description_2": {
-          "type": "description",
-          "settings": {
-            "description": "<p>Sizing, shipping and returns.</p>"
-          }
-        }
-      },
-      "block_order": [
-        "heading_1",
-        "description_2"
-      ]
-    },
-    "faq_pro_2": {
-      "type": "faq-pro",
-      "settings": {
-        "color_scheme": "default"
-      },
-      "blocks": {
-        "heading_1": {
-          "type": "heading",
-          "settings": {
-            "text": "Before you order"
-          }
-        },
-        "subheading_2": {
+        "subheading": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Still stuck? Send us a message.</p>"
+            "text": "<p>Shipping, sizing, returns and what the shop pays for.</p>"
           }
         },
-        "faq_item_3": {
+        "faq_1": {
           "type": "faq_item",
           "settings": {
-            "question": "When will my order ship?",
-            "answer": "<p>Everything is printed after you order. It ships within five working days and you get a tracking link.</p>"
+            "question": "How long does an order take?",
+            "answer": "<p>Orders leave the kitchen within three working days. The delivery time for your country is shown at checkout, and a tracking link follows by email.</p>"
           }
         },
-        "faq_item_4": {
+        "faq_2": {
           "type": "faq_item",
           "settings": {
-            "question": "What sizes do you have?",
-            "answer": "<p>Tees and hoodies come in XS to 3XL. The size chart on each product has chest and length measurements.</p>"
+            "question": "Do you ship outside the UK?",
+            "answer": "<p>Yes, to most countries. Any duties for your country are shown at checkout before you pay.</p>"
           }
         },
-        "faq_item_5": {
+        "faq_3": {
           "type": "faq_item",
           "settings": {
-            "question": "Can I return merch?",
-            "answer": "<p>Yes, within 30 days if it is unworn. Misprints and damaged items are replaced free.</p>"
+            "question": "Can I send something back?",
+            "answer": "<p>Unworn clothes can come back within 30 days. A mug or print that arrives broken is replaced: send a photo of it.</p>"
           }
         },
-        "faq_item_6": {
+        "faq_4": {
           "type": "faq_item",
           "settings": {
-            "question": "Do you ship worldwide?",
-            "answer": "<p>Yes. Delivery prices for your country are shown at checkout.</p>"
+            "question": "How do the tees fit?",
+            "answer": "<p>Regular fit, true to size. Each product page has a size guide in centimetres, measured flat.</p>"
           }
         },
-        "button_7": {
+        "faq_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Is the hoodie oversized?",
+            "answer": "<p>Roomy, not oversized. Size down for a closer fit, or stay true to size to wear it over a tee.</p>"
+          }
+        },
+        "faq_6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Will it shrink?",
+            "answer": "<p>The cotton is washed before printing. Wash cold, hang it to dry and it keeps its size and print.</p>"
+          }
+        },
+        "faq_7": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Does my order support the channel?",
+            "answer": "<p>Yes. The shop pays for the ingredients, the studio rent and the editor. That is how the episodes stay free and ad light.</p>"
+          }
+        },
+        "faq_8": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Will sold out pieces come back?",
+            "answer": "<p>The tees, hoodie, cap and mug are reprinted between seasons. Limited pieces like the Season 4 apron are made once.</p>"
+          }
+        },
+        "faq_9": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I send a photo of my soup?",
+            "answer": "<p>Please do. Use the contact page or tag #bowlclub. A few end up in the Sunday episode.</p>"
+          }
+        },
+        "faq_10": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I change my order?",
+            "answer": "<p>Write within a day of ordering and we will change the size or the address before it is packed.</p>"
+          }
+        },
+        "faq_11": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do you sell wholesale?",
+            "answer": "<p>For cafes and kitchen shops, yes. Use the contact page and tell us where you are.</p>"
+          }
+        },
+        "card": {
+          "type": "card_text",
+          "settings": {
+            "heading": "Still stuck?",
+            "text": "<p>Write to the kitchen. A real person answers, usually within two working days.</p>"
+          }
+        },
+        "button": {
           "type": "button",
           "settings": {
-            "label": "Contact us",
-            "link": "/pages/contact"
-          }
-        }
-      },
-      "block_order": [
-        "heading_1",
-        "subheading_2",
-        "faq_item_3",
-        "faq_item_4",
-        "faq_item_5",
-        "faq_item_6",
-        "button_7"
-      ]
-    },
-    "image_and_video_text_3": {
-      "type": "Image-and-video-text",
-      "settings": {
-        "color_scheme": "scheme-7dae8b89-7a81-4c2c-b8e2-92533766f8ca",
-        "image": "shopify://shop_images/merch-hangers.webp",
-        "image_alt": "T-shirts on wooden hangers",
-        "image_position": "right"
-      },
-      "blocks": {
-        "heading_1": {
-          "type": "heading",
-          "settings": {
-            "text": "Not sure about your size?"
+            "label": "Contact the shop",
+            "link": "/pages/contact",
+            "style": "primary",
+            "full_width": true
           }
         },
-        "subheading_2": {
-          "type": "subheading",
+        "line_1": {
+          "type": "contact_line",
           "settings": {
-            "text": "<p>Measure a tee you already own and compare it with the chart on the product page.</p>"
+            "label": "Email",
+            "text": "shop@example.com"
+          }
+        },
+        "line_2": {
+          "type": "contact_line",
+          "settings": {
+            "label": "Not on",
+            "text": "Sundays, that is filming day"
           }
         }
       },
       "block_order": [
-        "heading_1",
-        "subheading_2"
+        "heading",
+        "subheading",
+        "faq_1",
+        "faq_2",
+        "faq_3",
+        "faq_4",
+        "faq_5",
+        "faq_6",
+        "faq_7",
+        "faq_8",
+        "faq_9",
+        "faq_10",
+        "faq_11",
+        "card",
+        "button",
+        "line_1",
+        "line_2"
       ]
     }
   },
   "order": [
-    "page_heading_1",
-    "faq_pro_2",
-    "image_and_video_text_3"
+    "faq"
   ]
 }

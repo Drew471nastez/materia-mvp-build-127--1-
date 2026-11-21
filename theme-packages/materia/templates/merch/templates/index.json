@@ -1,510 +1,642 @@
 {
   "sections": {
-    "heroproduct1_1": {
-      "type": "heroproduct1",
+    "hero": {
+      "type": "hero-product2",
       "settings": {
-        "media_height_desktop": 620,
-        "media_height_mobile": 360,
-        "content_max_width": 500,
+        "color_scheme": "scheme-soup-tomato",
+        "section_width": "full_width",
+        "image_position": "right",
+        "media_width": 52,
+        "content_gap": 22,
         "content_align_desktop": "left",
-        "content_align_mobile": "center",
-        "content_padding_left_desktop": 80,
-        "content_padding_right_desktop": 80,
-        "content_padding_left_mobile": 20,
-        "content_padding_right_mobile": 10,
-        "mobile_media_content_gap": 0,
-        "mobile_padding_top": 30,
-        "mobile_padding_bottom": 30,
-        "block_spacing": 20,
-        "full_width": true,
-        "content_width": 136,
-        "enable_custom_style": false,
-        "enable_custom_fonts": false,
-        "color_scheme": "default",
-        "image_position": "right"
+        "content_align_mobile": "left",
+        "media_radius": 0,
+        "media_radius_mobile": 0,
+        "bg_type": "img",
+        "body_bg_image": "shopify://shop_images/merch-hero.webp",
+        "body_bg_image_mobile": "shopify://shop_images/merch-hero-phone.webp",
+        "image_alt": "The Stir Clockwise tee, the ladle cap and the slurp test mug on tomato red",
+        "media_height": 600,
+        "media_fit": "cover",
+        "media_position_x": 50,
+        "media_position_y": 50,
+        "animation": "fade_up",
+        "padding_top": 0,
+        "padding_bottom": 0,
+        "section_padding_x": 64,
+        "section_gap": 40,
+        "image_position_mobile": "bottom",
+        "media_height_mobile": 320,
+        "padding_top_mobile": 36,
+        "padding_bottom_mobile": 0,
+        "section_padding_x_mobile": 20,
+        "section_gap_mobile": 28
       },
       "blocks": {
-        "heading_1": {
-          "type": "heading",
+        "heading": {
+          "type": "section_heading",
           "settings": {
-            "heading": "The new drop is here",
-            "custom_font": false,
-            "font": "assistant_n4",
-            "enable_custom_font_weight": false,
-            "font_weight": "700",
-            "font_size_desktop": 64,
-            "font_size_mobile": 38,
-            "line_height_desktop": 1.2,
-            "line_height_mobile": 1.2
+            "heading_text": "Stir clockwise. Dress accordingly.",
+            "heading_font_size": 66,
+            "heading_font_size_mobile": 40,
+            "line_height": 1.05
           }
         },
-        "paragraph_2": {
-          "type": "paragraph",
+        "para": {
+          "type": "section_para",
           "settings": {
-            "text": "Heavyweight tees, hoodies and caps. Printed to order and sent in five days.",
-            "custom_font": false,
-            "font": "assistant_n4",
-            "font_size_desktop": 18,
-            "font_size_mobile": 16,
-            "line_height_desktop": 1.5,
-            "line_height_mobile": 1.5
+            "p_text": "Hoodies, tees, the ladle cap and the slurp test mug from the Soup Season kitchen. Every order helps pay for the next episode.",
+            "p_font_size": 18,
+            "p_font_size_mobile": 16
           }
         },
-        "button_3": {
+        "button": {
           "type": "button",
           "settings": {
-            "button_label": "Shop the drop",
+            "button_text": "Shop Season 4",
             "button_link": "/collections/all",
-            "custom_font": false,
-            "font": "assistant_n4",
-            "font_size_desktop": 14,
-            "font_size_mobile": 13,
-            "padding_vertical": 12,
-            "padding_horizontal": 25,
-            "padding_vertical_mobile": 10,
-            "padding_horizontal_mobile": 20,
-            "border_radius": 6,
-            "border_radius_mobile": 6
-          }
-        },
-        "image_4": {
-          "type": "image",
-          "settings": {
-            "hero_image": "shopify://shop_images/merch-hero-tee.webp"
+            "use_theme_button": true,
+            "padding_vertical": 16,
+            "padding_horizontal": 28
           }
         }
       },
       "block_order": [
-        "heading_1",
-        "paragraph_2",
-        "button_3",
-        "image_4"
+        "heading",
+        "para",
+        "button"
       ]
     },
-    "scrolling_text_2": {
+    "jokes": {
       "type": "scrolling-text",
       "settings": {
-        "text_size": 80,
-        "text_size_mobile": 40,
-        "font_weight": "700",
-        "duration": 40,
-        "direction": "normal",
-        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9"
+        "color_scheme": "scheme-soup-navy",
+        "section_width": "full_width",
+        "separator": "custom",
+        "separator_text": "~",
+        "item_gap": 48,
+        "repeat_count": 4,
+        "base_font": "heading",
+        "text_size": 46,
+        "text_size_mobile": 26,
+        "font_weight": "theme",
+        "line_height": 135,
+        "duration": 50,
+        "padding_top": 20,
+        "padding_bottom": 22,
+        "padding_top_mobile": 14,
+        "padding_bottom_mobile": 16,
+        "item_gap_mobile": 28,
+        "separator_size": 40
       },
       "blocks": {
-        "word_1": {
+        "w1": {
           "type": "word",
           "settings": {
-            "text": "Tees.",
+            "text": "Stir clockwise",
             "use_outline_text": false
           }
         },
-        "word_2": {
+        "w2": {
           "type": "word",
           "settings": {
-            "text": "Hoodies.",
-            "use_outline_text": true
-          }
-        },
-        "word_3": {
-          "type": "word",
-          "settings": {
-            "text": "Caps.",
+            "text": "Taste it first",
             "use_outline_text": false
           }
         },
-        "word_4": {
+        "w3": {
           "type": "word",
           "settings": {
-            "text": "Crewnecks.",
-            "use_outline_text": true
-          }
-        },
-        "word_5": {
-          "type": "word",
-          "settings": {
-            "text": "Tees.",
+            "text": "Salt at the end",
             "use_outline_text": false
           }
         },
-        "word_6": {
+        "w4": {
           "type": "word",
           "settings": {
-            "text": "Hoodies.",
-            "use_outline_text": true
+            "text": "Slurp test passed",
+            "use_outline_text": false
+          }
+        },
+        "w5": {
+          "type": "word",
+          "settings": {
+            "text": "Bowl Club forever",
+            "use_outline_text": false
           }
         }
       },
       "block_order": [
-        "word_1",
-        "word_2",
-        "word_3",
-        "word_4",
-        "word_5",
-        "word_6"
+        "w1",
+        "w2",
+        "w3",
+        "w4",
+        "w5"
       ]
     },
-    "products_listing_3": {
-      "type": "products-listing",
+    "season": {
+      "type": "products-grid",
       "settings": {
+        "heading": "Season 4",
+        "text": "<p>The whole line, drawn between episodes and printed in small runs.</p>",
         "items_to_show": 8,
+        "show_add_to_cart": false,
+        "button_label": "See everything",
+        "button_link": "/collections/all",
         "items_per_row": 4,
-        "color_scheme": "default"
+        "items_per_row_mobile": 2,
+        "column_gap": 20,
+        "header_alignment": "left",
+        "color_scheme": "default",
+        "section_width": "fluid_container",
+        "padding_top": 72,
+        "padding_bottom": 64
+      }
+    },
+    "apron": {
+      "type": "promo-banner-4",
+      "settings": {
+        "color_scheme": "scheme-soup-navy",
+        "section_width": "container",
+        "layout": "image_left",
+        "text_align": "left",
+        "vertical_alignment": "center",
+        "card_style": "flat",
+        "card_radius": 8,
+        "image": "shopify://shop_images/merch-apron.webp",
+        "image_aspect_ratio": "square",
+        "enable_image_zoom": false,
+        "enable_badge_pulse": false,
+        "card_gap": 40,
+        "card_padding": 24,
+        "content_gap": 18,
+        "padding_top_desktop": 88,
+        "padding_bottom_desktop": 88,
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 56
       },
       "blocks": {
-        "eyebrow_1": {
+        "badge": {
+          "type": "badge",
+          "settings": {
+            "text": "Made once",
+            "position": "top-left",
+            "enable_custom_style": true,
+            "bg": "#c63a25",
+            "color": "#fff6e8"
+          }
+        },
+        "eyebrow": {
           "type": "eyebrow",
           "settings": {
-            "text": "Out now"
+            "text": "Season 4 only"
           }
         },
-        "heading_2": {
+        "heading": {
           "type": "heading",
           "settings": {
-            "text": "This drop"
+            "text": "The apron from the show",
+            "size_desktop": 48,
+            "size_mobile": 32
           }
         },
-        "subheading_3": {
+        "description": {
+          "type": "description",
+          "settings": {
+            "text": "<p>Navy cotton canvas, tomato straps and two brass rings. It is the one Marlo wears in every Season 4 episode, and it retires when the season does.</p>"
+          }
+        },
+        "buttons": {
+          "type": "buttons",
+          "settings": {
+            "primary_label": "Get the apron",
+            "primary_link": "/collections/all",
+            "secondary_label": "About the channel",
+            "secondary_link": "/pages/about"
+          }
+        }
+      },
+      "block_order": [
+        "badge",
+        "eyebrow",
+        "heading",
+        "description",
+        "buttons"
+      ]
+    },
+    "bundles": {
+      "type": "slideshow-cards",
+      "settings": {
+        "color_scheme": "scheme-soup-cream",
+        "section_width": "fluid_container",
+        "card_style": "below",
+        "card_width": 32,
+        "gap": 20,
+        "show_arrows": false,
+        "show_dots": false,
+        "image_ratio": "square",
+        "heading_size": "medium",
+        "padding_top": 80,
+        "padding_bottom": 72,
+        "card_width_mobile": 82,
+        "gap_mobile": 12,
+        "padding_top_mobile": 52,
+        "padding_bottom_mobile": 48
+      },
+      "blocks": {
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "heading": "Bundles, for less than apart"
+          }
+        },
+        "c1": {
+          "type": "card",
+          "settings": {
+            "image": "shopify://shop_images/merch-bundle-box.webp",
+            "heading": "The Bowl Club box",
+            "text": "Hoodie, slurp test mug and the sticker sheet. $90 together, $100 apart.",
+            "button_label": "Shop the box",
+            "button_link": "/collections/all"
+          }
+        },
+        "c2": {
+          "type": "card",
+          "settings": {
+            "image": "shopify://shop_images/merch-bundle-desk.webp",
+            "heading": "The desk set",
+            "text": "Slurp test mug and the Sunday Broth print. $46 together, $52 apart.",
+            "button_label": "Shop the set",
+            "button_link": "/collections/all"
+          }
+        },
+        "c3": {
+          "type": "card",
+          "settings": {
+            "image": "shopify://shop_images/merch-bundle-starter.webp",
+            "heading": "First episode kit",
+            "text": "Stir Clockwise tee and the sticker sheet. $38 together, $42 apart.",
+            "button_label": "Shop the kit",
+            "button_link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "heading",
+        "c1",
+        "c2",
+        "c3"
+      ]
+    },
+    "channel": {
+      "type": "video-playlist",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "content_align": "left",
+        "list_position": "beside",
+        "video_ratio": "landscape",
+        "video_fit": "cover",
+        "media_radius": 8,
+        "autoplay_next": false,
+        "padding_top_desktop": 88,
+        "padding_bottom_desktop": 88,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56
+      },
+      "blocks": {
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "On the channel"
+          }
+        },
+        "subheading": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Available until the next one lands.</p>"
+            "text": "<p>A new episode every Sunday on <a href=\"https://www.youtube.com\">YouTube</a>. Shorter cuts on <a href=\"https://www.tiktok.com\">TikTok</a> and <a href=\"https://www.instagram.com\">Instagram</a>, and the podcast, Seconds, on <a href=\"https://open.spotify.com\">Spotify</a>.</p>"
           }
         },
-        "button_4": {
+        "clip_1": {
+          "type": "clip",
+          "settings": {
+            "poster": "shopify://shop_images/merch-ep-stir.webp",
+            "title": "Ep. 112: The three hour Sunday broth",
+            "caption": "Marlo stirs clockwise for three hours so you do not have to."
+          }
+        },
+        "clip_2": {
+          "type": "clip",
+          "settings": {
+            "poster": "shopify://shop_images/merch-ep-tomato.webp",
+            "title": "Ep. 111: Tomato soup, no cream",
+            "caption": "Roasted tomatoes, one onion and a lot of patience."
+          }
+        },
+        "clip_3": {
+          "type": "clip",
+          "settings": {
+            "poster": "shopify://shop_images/merch-ep-steam.webp",
+            "title": "Ep. 110: The slurp test, explained",
+            "caption": "Why every episode ends with the same noise."
+          }
+        },
+        "clip_4": {
+          "type": "clip",
+          "settings": {
+            "poster": "shopify://shop_images/merch-ep-market.webp",
+            "title": "Ep. 109: What to buy at the market in October",
+            "caption": "A walk round the stalls with a list and a bag."
+          }
+        }
+      },
+      "block_order": [
+        "heading",
+        "subheading",
+        "clip_1",
+        "clip_2",
+        "clip_3",
+        "clip_4"
+      ]
+    },
+    "community": {
+      "type": "social-shop-grid",
+      "settings": {
+        "color_scheme": "scheme-soup-cream",
+        "section_width": "fluid_container",
+        "header_alignment": "left",
+        "display_mode": "grid",
+        "columns": 4,
+        "columns_mobile": 2,
+        "column_gap": 10,
+        "image_ratio": "square",
+        "show_arrow": false,
+        "show_handle": false,
+        "show_product": false,
+        "tile_radius": 6,
+        "overlay_strength": 0,
+        "hover_style": "zoom",
+        "padding_top": 80,
+        "padding_bottom": 80
+      },
+      "blocks": {
+        "eyebrow": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "#bowlclub"
+          }
+        },
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "Bowl Club kitchens"
+          }
+        },
+        "subheading": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Sample photos for now. Swap in the bowls and mugs your viewers send you.</p>"
+          }
+        },
+        "button": {
           "type": "button",
           "settings": {
-            "text": "Shop all merch",
-            "link": "/collections/all"
+            "label": "Send us yours",
+            "link": "/pages/contact"
+          }
+        },
+        "tile_1": {
+          "type": "tile",
+          "settings": {
+            "image": "shopify://shop_images/merch-fan-bowl-jeans.webp",
+            "platform": "none"
+          }
+        },
+        "tile_2": {
+          "type": "tile",
+          "settings": {
+            "image": "shopify://shop_images/merch-fan-mug-garden.webp",
+            "platform": "none"
+          }
+        },
+        "tile_3": {
+          "type": "tile",
+          "settings": {
+            "image": "shopify://shop_images/merch-fan-bowls-table.webp",
+            "platform": "none"
+          }
+        },
+        "tile_4": {
+          "type": "tile",
+          "settings": {
+            "image": "shopify://shop_images/merch-fan-two-mugs.webp",
+            "platform": "none"
+          }
+        },
+        "tile_5": {
+          "type": "tile",
+          "settings": {
+            "image": "shopify://shop_images/merch-fan-bowl-hands.webp",
+            "platform": "none"
+          }
+        },
+        "tile_6": {
+          "type": "tile",
+          "settings": {
+            "image": "shopify://shop_images/merch-fan-garnish.webp",
+            "platform": "none"
+          }
+        },
+        "tile_7": {
+          "type": "tile",
+          "settings": {
+            "image": "shopify://shop_images/merch-fan-mug-window.webp",
+            "platform": "none"
+          }
+        },
+        "tile_8": {
+          "type": "tile",
+          "settings": {
+            "image": "shopify://shop_images/merch-fan-soup-wood.webp",
+            "platform": "none"
           }
         }
       },
       "block_order": [
-        "eyebrow_1",
-        "heading_2",
-        "subheading_3",
-        "button_4"
+        "eyebrow",
+        "heading",
+        "subheading",
+        "button",
+        "tile_1",
+        "tile_2",
+        "tile_3",
+        "tile_4",
+        "tile_5",
+        "tile_6",
+        "tile_7",
+        "tile_8"
       ]
     },
-    "image_with_text_bento_4": {
-      "type": "image-with-text-bento",
+    "faq": {
+      "type": "faq-tabs",
       "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976"
+        "color_scheme": "default",
+        "section_width": "full_width",
+        "tab_1_label": "Shipping",
+        "tab_2_label": "Sizing",
+        "tab_3_label": "The channel",
+        "open_first": true,
+        "allow_multiple_open": false,
+        "header_align": "center",
+        "padding_top_desktop": 88,
+        "padding_bottom_desktop": 88,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Made to be worn out"
+            "text": "Before you order",
+            "tag": "h2"
           }
         },
-        "subheading_2": {
+        "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Thick cotton, proper prints, no shortcuts.</p>"
+            "text": "<p>Shipping, sizing and where the money goes.</p>"
           }
         },
-        "text_card_3": {
-          "type": "text_card",
+        "faq_1": {
+          "type": "faq_item",
           "settings": {
-            "heading": "240gsm cotton",
-            "body": "<p>Heavy enough to hold its shape wash after wash.</p>",
-            "col_span_desktop": "1",
-            "row_span_desktop": "1",
-            "card_style": "inverse",
-            "caption": "Fabric"
+            "tab": "1",
+            "question": "How long does an order take?",
+            "answer": "<p>Orders leave the kitchen within three working days. The delivery time for your country is shown at checkout, and a tracking link follows by email.</p>"
           }
         },
-        "text_card_4": {
-          "type": "text_card",
+        "faq_2": {
+          "type": "faq_item",
           "settings": {
-            "heading": "Screen printed",
-            "body": "<p>Ink pressed into the fabric, so it does not crack or peel.</p>",
-            "col_span_desktop": "1",
-            "row_span_desktop": "1",
-            "card_style": "tint",
-            "caption": "Print"
+            "tab": "1",
+            "question": "Do you ship outside the UK?",
+            "answer": "<p>Yes, to most countries. Any duties for your country are shown at checkout before you pay.</p>"
           }
         },
-        "image_card_5": {
-          "type": "image_card",
+        "faq_3": {
+          "type": "faq_item",
           "settings": {
-            "col_span_desktop": "1",
-            "row_span_desktop": "2",
-            "image": "shopify://shop_images/merch-folded-tees.webp"
+            "tab": "1",
+            "question": "Can I send something back?",
+            "answer": "<p>Unworn clothes can come back within 30 days. A mug or print that arrives broken is replaced: send a photo of it.</p>"
           }
         },
-        "image_card_6": {
-          "type": "image_card",
+        "faq_4": {
+          "type": "faq_item",
           "settings": {
-            "col_span_desktop": "1",
-            "row_span_desktop": "2",
-            "image": "shopify://shop_images/merch-hoodie.webp"
+            "tab": "2",
+            "question": "How do the tees fit?",
+            "answer": "<p>Regular fit, true to size. Each product page has a size guide in centimetres, measured flat.</p>"
           }
         },
-        "image_card_7": {
-          "type": "image_card",
+        "faq_5": {
+          "type": "faq_item",
           "settings": {
-            "col_span_desktop": "1",
-            "row_span_desktop": "1",
-            "image": "shopify://shop_images/merch-cap.webp"
+            "tab": "2",
+            "question": "Is the hoodie oversized?",
+            "answer": "<p>Roomy, not oversized. Size down for a closer fit, or stay true to size to wear it over a tee.</p>"
           }
         },
-        "text_card_8": {
-          "type": "text_card",
+        "faq_6": {
+          "type": "faq_item",
           "settings": {
-            "heading": "Printed to order",
-            "body": "<p>Made when you buy it and sent within five working days.</p>",
-            "col_span_desktop": "1",
-            "row_span_desktop": "1",
-            "card_style": "inverse",
-            "caption": "Delivery"
+            "tab": "2",
+            "question": "Will it shrink?",
+            "answer": "<p>The cotton is washed before printing. Wash cold, hang it to dry and it keeps its size and print.</p>"
           }
         },
-        "image_card_9": {
-          "type": "image_card",
+        "faq_7": {
+          "type": "faq_item",
           "settings": {
-            "col_span_desktop": "1",
-            "row_span_desktop": "1",
-            "image": "shopify://shop_images/merch-sweatshirt.webp"
+            "tab": "3",
+            "question": "Does my order support the channel?",
+            "answer": "<p>Yes. The shop pays for the ingredients, the studio rent and the editor. That is how the episodes stay free and ad light.</p>"
+          }
+        },
+        "faq_8": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "3",
+            "question": "Will sold out pieces come back?",
+            "answer": "<p>The tees, hoodie, cap and mug are reprinted between seasons. Limited pieces like the Season 4 apron are made once.</p>"
+          }
+        },
+        "faq_9": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "3",
+            "question": "Can I send a photo of my soup?",
+            "answer": "<p>Please do. Use the contact page or tag #bowlclub. A few end up in the Sunday episode.</p>"
           }
         }
       },
       "block_order": [
         "heading_1",
-        "subheading_2",
-        "text_card_3",
-        "text_card_4",
-        "image_card_5",
-        "image_card_6",
-        "image_card_7",
-        "text_card_8",
-        "image_card_9"
+        "subheading_1",
+        "faq_1",
+        "faq_2",
+        "faq_3",
+        "faq_4",
+        "faq_5",
+        "faq_6",
+        "faq_7",
+        "faq_8",
+        "faq_9"
       ]
     },
-    "steps_5": {
-      "type": "steps",
-      "settings": {
-        "color_scheme": "scheme-7dae8b89-7a81-4c2c-b8e2-92533766f8ca"
-      },
-      "blocks": {
-        "heading_1": {
-          "type": "heading",
-          "settings": {
-            "text": "How a drop works"
-          }
-        },
-        "subheading_2": {
-          "type": "subheading",
-          "settings": {
-            "text": "<p>Three steps from order to doorstep.</p>"
-          }
-        },
-        "step_3": {
-          "type": "step",
-          "settings": {
-            "title": "Pick your size",
-            "description": "<p>Check the size chart and add it to your cart.</p>"
-          }
-        },
-        "step_4": {
-          "type": "step",
-          "settings": {
-            "title": "We print it",
-            "description": "<p>Your order is printed and checked by hand.</p>"
-          }
-        },
-        "step_5": {
-          "type": "step",
-          "settings": {
-            "title": "It ships",
-            "description": "<p>Sent within five working days, with tracking.</p>"
-          }
-        }
-      },
-      "block_order": [
-        "heading_1",
-        "subheading_2",
-        "step_3",
-        "step_4",
-        "step_5"
-      ]
-    },
-    "reviews2_6": {
-      "type": "reviews2",
-      "settings": {
-        "color_scheme": "default"
-      },
-      "blocks": {
-        "eyebrow_1": {
-          "type": "eyebrow",
-          "settings": {
-            "text": "Reviews"
-          }
-        },
-        "heading_2": {
-          "type": "heading",
-          "settings": {
-            "text": "From the community"
-          }
-        },
-        "subheading_3": {
-          "type": "subheading",
-          "settings": {
-            "text": "<p>Replace these with reviews from your own customers.</p>"
-          }
-        },
-        "review_4": {
-          "type": "review",
-          "settings": {
-            "body": "Write what this customer said about your product.",
-            "name": "Customer name",
-            "role": ""
-          }
-        },
-        "review_5": {
-          "type": "review",
-          "settings": {
-            "body": "Write what this customer said about your product.",
-            "name": "Customer name",
-            "role": ""
-          }
-        },
-        "review_6": {
-          "type": "review",
-          "settings": {
-            "body": "Write what this customer said about your product.",
-            "name": "Customer name",
-            "role": ""
-          }
-        },
-        "review_7": {
-          "type": "review",
-          "settings": {
-            "body": "Write what this customer said about your product.",
-            "name": "Customer name",
-            "role": ""
-          }
-        },
-        "review_8": {
-          "type": "review",
-          "settings": {
-            "body": "Write what this customer said about your product.",
-            "name": "Customer name",
-            "role": ""
-          }
-        },
-        "review_9": {
-          "type": "review",
-          "settings": {
-            "body": "Write what this customer said about your product.",
-            "name": "Customer name",
-            "role": ""
-          }
-        }
-      },
-      "block_order": [
-        "eyebrow_1",
-        "heading_2",
-        "subheading_3",
-        "review_4",
-        "review_5",
-        "review_6",
-        "review_7",
-        "review_8",
-        "review_9"
-      ]
-    },
-    "faq_7": {
-      "type": "faq",
-      "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976"
-      },
-      "blocks": {
-        "heading_1": {
-          "type": "heading",
-          "settings": {
-            "text": "Sizing, shipping, returns"
-          }
-        },
-        "subheading_2": {
-          "type": "subheading",
-          "settings": {
-            "text": "<p>Quick answers before you order.</p>"
-          }
-        },
-        "faq_item_3": {
-          "type": "faq_item",
-          "settings": {
-            "question": "When will my order ship?",
-            "answer": "<p>Everything is printed after you order. It ships within five working days and you get a tracking link.</p>"
-          }
-        },
-        "faq_item_4": {
-          "type": "faq_item",
-          "settings": {
-            "question": "What sizes do you have?",
-            "answer": "<p>Tees and hoodies come in XS to 3XL. The size chart on each product has chest and length measurements.</p>"
-          }
-        },
-        "faq_item_5": {
-          "type": "faq_item",
-          "settings": {
-            "question": "Can I return merch?",
-            "answer": "<p>Yes, within 30 days if it is unworn. Misprints and damaged items are replaced free.</p>"
-          }
-        },
-        "faq_item_6": {
-          "type": "faq_item",
-          "settings": {
-            "question": "Do you ship worldwide?",
-            "answer": "<p>Yes. Delivery prices for your country are shown at checkout.</p>"
-          }
-        }
-      },
-      "block_order": [
-        "heading_1",
-        "subheading_2",
-        "faq_item_3",
-        "faq_item_4",
-        "faq_item_5",
-        "faq_item_6"
-      ]
-    },
-    "newsletter_8": {
+    "notify": {
       "type": "newsletter",
       "settings": {
-        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "color_scheme": "scheme-soup-butter",
+        "section_width": "full_width",
+        "heading": "Get the restock email",
+        "email_placeholder": "Your email",
         "btn_text": "Notify me",
-        "note": "One email per drop. Unsubscribe any time."
+        "note": "One email when a season lands or a piece comes back. Nothing in between.",
+        "header_alignment": "center",
+        "form_layout": "horizontal",
+        "padding_top": 72,
+        "padding_bottom": 72
       },
       "blocks": {
-        "heading_1": {
+        "heading": {
           "type": "heading",
           "settings": {
-            "text": "Do not miss the next drop"
+            "text": "Get the restock email"
           }
         },
-        "subheading_2": {
+        "subheading": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Get an email the minute new merch goes live.</p>"
+            "text": "<p>Season 5 starts filming in January. Hear about it before the first episode.</p>"
           }
         }
       },
       "block_order": [
-        "heading_1",
-        "subheading_2"
+        "heading",
+        "subheading"
       ]
     }
   },
   "order": [
-    "heroproduct1_1",
-    "scrolling_text_2",
-    "products_listing_3",
-    "image_with_text_bento_4",
-    "steps_5",
-    "reviews2_6",
-    "faq_7",
-    "newsletter_8"
+    "hero",
+    "jokes",
+    "season",
+    "apron",
+    "bundles",
+    "channel",
+    "community",
+    "faq",
+    "notify"
   ]
 }

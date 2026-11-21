@@ -1,168 +1,209 @@
 {
   "sections": {
-    "heroproduct1_1": {
-      "type": "heroproduct1",
+    "intro": {
+      "type": "Image-and-video-text",
       "settings": {
-        "media_height_desktop": 520,
-        "media_height_mobile": 300,
-        "content_max_width": 500,
-        "content_align_desktop": "left",
-        "content_align_mobile": "center",
-        "content_padding_left_desktop": 80,
-        "content_padding_right_desktop": 80,
-        "content_padding_left_mobile": 20,
-        "content_padding_right_mobile": 10,
-        "mobile_media_content_gap": 0,
-        "mobile_padding_top": 30,
-        "mobile_padding_bottom": 30,
-        "block_spacing": 20,
-        "full_width": true,
-        "content_width": 136,
-        "enable_custom_style": false,
-        "enable_custom_fonts": false,
-        "color_scheme": "scheme-7dae8b89-7a81-4c2c-b8e2-92533766f8ca",
-        "image_position": "left"
+        "section_width": "container",
+        "reset_spacing": true,
+        "text_column_width": 50,
+        "content_align": "left",
+        "content_gap": 16,
+        "media_type": "image",
+        "aspect_w": 4,
+        "aspect_h": 3,
+        "image_fit": "cover",
+        "image_radius": 8,
+        "enable_overlay": false,
+        "gap_desktop": 64,
+        "padding_top_desktop": 88,
+        "padding_bottom_desktop": 88,
+        "side_padding_desktop": 32,
+        "content_align_mobile": "left",
+        "mobile_order": "media_first",
+        "gap_mobile": 28,
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 48,
+        "side_padding_mobile": 20,
+        "color_scheme": "default",
+        "image_position": "right",
+        "image": "shopify://shop_images/merch-on-set.webp"
       },
       "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "About the channel",
+            "size": 13
+          }
+        },
         "heading_1": {
           "type": "heading",
           "settings": {
-            "heading": "Merch made properly",
-            "custom_font": false,
-            "font": "assistant_n4",
-            "enable_custom_font_weight": false,
-            "font_weight": "700",
-            "font_size_desktop": 44,
-            "font_size_mobile": 32,
-            "line_height_desktop": 1.2,
-            "line_height_mobile": 1.2
+            "text": "One pot of soup a week, filmed in a small kitchen",
+            "tag": "h1",
+            "size_desktop": 46,
+            "size_mobile": 32
           }
         },
-        "paragraph_2": {
-          "type": "paragraph",
+        "subheading_1": {
+          "type": "subheading",
           "settings": {
-            "text": "Tell your fans who you are and why you make merch. Keep it short and in your own voice.",
-            "custom_font": false,
-            "font": "assistant_n4",
-            "font_size_desktop": 18,
-            "font_size_mobile": 16,
-            "line_height_desktop": 1.5,
-            "line_height_mobile": 1.5
+            "text": "<p>Soup Season started as Marlo filming Sunday lunch on a phone propped against the kettle. Now it is a weekly episode, a short podcast and a group of viewers who call themselves the Bowl Club.</p><p>Every episode ends the same way: a slurp, a verdict, and usually more salt.</p>",
+            "size_desktop": 17,
+            "size_mobile": 16
           }
         },
-        "button_3": {
+        "button_1": {
           "type": "button",
           "settings": {
-            "button_label": "Shop all merch",
-            "button_link": "/collections/all",
-            "custom_font": false,
-            "font": "assistant_n4",
-            "font_size_desktop": 14,
-            "font_size_mobile": 13,
-            "padding_vertical": 12,
-            "padding_horizontal": 25,
-            "padding_vertical_mobile": 10,
-            "padding_horizontal_mobile": 20,
-            "border_radius": 6,
-            "border_radius_mobile": 6
-          }
-        },
-        "image_4": {
-          "type": "image",
-          "settings": {
-            "hero_image": "shopify://shop_images/merch-yellow-set.webp"
+            "label": "Watch on YouTube",
+            "button_style": "primary",
+            "use_theme_button": true,
+            "link": "https://www.youtube.com"
           }
         }
       },
       "block_order": [
+        "eyebrow_1",
         "heading_1",
-        "paragraph_2",
-        "button_3",
-        "image_4"
+        "subheading_1",
+        "button_1"
       ]
     },
-    "text_columns_2": {
+    "facts": {
       "type": "text-columns",
       "settings": {
-        "color_scheme": "default"
+        "color_scheme": "scheme-soup-navy",
+        "section_width": "fluid_container",
+        "reset_spacing": true,
+        "content_alignment": "left",
+        "columns_desktop": 3,
+        "columns_tablet": 2,
+        "column_gap": 48,
+        "header_gap": 40,
+        "show_dividers": true,
+        "item_heading_size": 24,
+        "padding_top": 80,
+        "padding_bottom": 80,
+        "show_on_mobile": true,
+        "mobile_layout": "stack",
+        "item_heading_size_mobile": 21,
+        "padding_top_mobile": 52,
+        "padding_bottom_mobile": 52
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "How we make it"
+            "text": "What the shop pays for"
+          }
+        },
+        "column_1": {
+          "type": "column",
+          "settings": {
+            "label": "Every Sunday",
+            "heading": "The ingredients",
+            "text": "<p>Each episode is cooked for real and eaten after. The shop buys the vegetables, the bones and the bread.</p>"
           }
         },
         "column_2": {
           "type": "column",
           "settings": {
-            "label": "Blanks",
-            "heading": "Heavy cotton",
-            "text": "<p>Say which garments you print on and why.</p>"
+            "label": "Monday to Friday",
+            "heading": "An editor",
+            "text": "<p>Three hours of stirring becomes twenty minutes you want to watch. That is Jo's job, and the shop pays for it.</p>"
           }
         },
         "column_3": {
           "type": "column",
           "settings": {
-            "label": "Print",
-            "heading": "Printed to order",
-            "text": "<p>Explain how each piece is printed.</p>"
-          }
-        },
-        "column_4": {
-          "type": "column",
-          "settings": {
-            "label": "Waste",
-            "heading": "No dead stock",
-            "text": "<p>Nothing is made until somebody buys it.</p>"
+            "label": "All year",
+            "heading": "The studio kitchen",
+            "text": "<p>A rented kitchen with good light and a stove that takes a 20 litre pot. Without the shop it would be the flat again.</p>"
           }
         }
       },
       "block_order": [
         "heading_1",
+        "column_1",
         "column_2",
-        "column_3",
-        "column_4"
+        "column_3"
       ]
     },
-    "image_and_video_text_3": {
+    "where": {
       "type": "Image-and-video-text",
       "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "image": "shopify://shop_images/merch-tees-rack.webp",
-        "image_alt": "T-shirts in several colours on a rail"
+        "section_width": "container",
+        "reset_spacing": true,
+        "text_column_width": 50,
+        "content_align": "left",
+        "content_gap": 16,
+        "media_type": "image",
+        "aspect_w": 4,
+        "aspect_h": 3,
+        "image_fit": "cover",
+        "image_radius": 8,
+        "enable_overlay": false,
+        "gap_desktop": 64,
+        "padding_top_desktop": 88,
+        "padding_bottom_desktop": 88,
+        "side_padding_desktop": 32,
+        "content_align_mobile": "left",
+        "mobile_order": "media_first",
+        "gap_mobile": 28,
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 48,
+        "side_padding_mobile": 20,
+        "color_scheme": "scheme-soup-cream",
+        "image_position": "left",
+        "image": "shopify://shop_images/merch-ladle-mic.webp"
       },
       "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Where to watch and listen",
+            "size": 13
+          }
+        },
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Every drop is limited"
+            "text": "Sundays at noon, wherever you watch",
+            "tag": "h2",
+            "size_desktop": 40,
+            "size_mobile": 30
           }
         },
-        "subheading_2": {
+        "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Designs are on sale until the next drop. After that they are gone.</p>"
+            "text": "<p>Full episodes on <a href=\"https://www.youtube.com\">YouTube</a>. Thirty second versions on <a href=\"https://www.tiktok.com\">TikTok</a> and <a href=\"https://www.instagram.com\">Instagram</a>. Seconds, the podcast where Marlo answers your questions, is on <a href=\"https://open.spotify.com\">Spotify</a> on Wednesdays.</p>",
+            "size_desktop": 17,
+            "size_mobile": 16
           }
         },
-        "button_3": {
+        "button_1": {
           "type": "button",
           "settings": {
-            "label": "See what is out now",
+            "label": "Shop Season 4",
+            "button_style": "primary",
+            "use_theme_button": true,
             "link": "/collections/all"
           }
         }
       },
       "block_order": [
+        "eyebrow_1",
         "heading_1",
-        "subheading_2",
-        "button_3"
+        "subheading_1",
+        "button_1"
       ]
     }
   },
   "order": [
-    "heroproduct1_1",
-    "text_columns_2",
-    "image_and_video_text_3"
+    "intro",
+    "facts",
+    "where"
   ]
 }

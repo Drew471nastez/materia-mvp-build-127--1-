@@ -1,41 +1,75 @@
 # Picture credits
 
-Every starter picture in these templates is a photograph from Unsplash, used under the Unsplash License
+Every starter photograph in these templates is from Unsplash, used under the Unsplash License
 (https://unsplash.com/license): free to use, commercially too, with no permission or credit required.
 Each was downloaded from the address beside it, resized and saved as WebP. None is from Unsplash+.
 No picture came with the Materia theme's own starter content.
 
-The four "Drawn for this template" pictures in the Templates shop are sample template screens drawn for Storelib
-(a planner, a budget, a calendar and a board, with made up entries). They are Storelib's own.
+Rows marked "Drawn for this template" were drawn for Storelib and are Storelib's own: the Templates shop's sample
+template screens, the Merch shop's product mockups, hero and bundles, and Storelib Default's digital covers.
+Some Storelib Default product pictures are Unsplash photographs with the studio's drawn prints laid over them;
+their rows say so.
 
 Rows marked "cover only" are sample product pictures for the listing covers (scripts/theme-templates/shops.ts).
 They are not part of a template and are never added to a creator's website.
 
 | Template | File | Source | License |
 | --- | --- | --- | --- |
-| default | assets/default-hero-interior.webp | https://images.unsplash.com/photo-1586023492125-27b2c045efd7 | Unsplash License |
-| default | assets/default-living-room.webp | https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e | Unsplash License |
-| default | assets/default-green-sofa.webp | https://images.unsplash.com/photo-1555041469-a586c61ea9bc | Unsplash License |
-| default (cover only) | scripts/theme-templates/products/default/default-aloe-pot.webp | https://images.unsplash.com/photo-1485955900006-10f4d324d411 | Unsplash License |
-| default (cover only) | scripts/theme-templates/products/default/default-pendant-lamp.webp | https://images.unsplash.com/photo-1513506003901-1e6a229e2d15 | Unsplash License |
-| default (cover only) | scripts/theme-templates/products/default/default-white-watch.webp | https://images.unsplash.com/photo-1523275335684-37898b6baf30 | Unsplash License |
-| clothing | assets/clothing-hero-knitwear.webp | https://images.unsplash.com/photo-1558769132-cb1aea458c5e | Unsplash License |
-| clothing | assets/clothing-rail.webp | https://images.unsplash.com/photo-1490481651871-ab68de25d43d | Unsplash License |
-| clothing | assets/clothing-jackets.webp | https://images.unsplash.com/photo-1551488831-00ddcb6c6bd3 | Unsplash License |
-| clothing | assets/clothing-knit-top.webp | https://images.unsplash.com/photo-1434389677669-e08b4cac3105 | Unsplash License |
-| clothing | assets/clothing-bomber.webp | https://images.unsplash.com/photo-1591047139829-d91aecb6caea | Unsplash License |
-| clothing | assets/clothing-dress.webp | https://images.unsplash.com/photo-1496747611176-843222e1e57c | Unsplash License |
-| clothing | assets/clothing-rack-warm.webp | https://images.unsplash.com/photo-1445205170230-053b83016050 | Unsplash License |
-| clothing | assets/clothing-rack-prints.webp | https://images.unsplash.com/photo-1512436991641-6745cdb1723f | Unsplash License |
-| clothing | assets/clothing-street-coat.webp | https://images.unsplash.com/photo-1485968579580-b6d095142e6e | Unsplash License |
-| merch | assets/merch-hero-tee.webp | https://images.unsplash.com/photo-1521572163474-6864f9cf17ab | Unsplash License |
-| merch | assets/merch-folded-tees.webp | https://images.unsplash.com/photo-1562157873-818bc0726f68 | Unsplash License |
-| merch | assets/merch-cap.webp | https://images.unsplash.com/photo-1588850561407-ed78c282e89b | Unsplash License |
-| merch | assets/merch-hoodie.webp | https://images.unsplash.com/photo-1556821840-3a63f95609a7 | Unsplash License |
-| merch | assets/merch-sweatshirt.webp | https://images.unsplash.com/photo-1620799140408-edc6dcb6d633 | Unsplash License |
-| merch | assets/merch-tees-rack.webp | https://images.unsplash.com/photo-1489987707025-afc232f7ea0f | Unsplash License |
-| merch | assets/merch-hangers.webp | https://images.unsplash.com/photo-1523381210434-271e8be1f52b | Unsplash License |
-| merch | assets/merch-yellow-set.webp | https://images.unsplash.com/photo-1515886657613-9f3515b0c78f | Unsplash License |
+| default | assets/default-press.webp | https://images.unsplash.com/photo-1777751776405-f12e57b7a855 | Unsplash License |
+| default | assets/default-lino.webp | https://images.unsplash.com/photo-1730134426941-1def6b725da3 | Unsplash License |
+| default | assets/default-ink-bench.webp | https://images.unsplash.com/photo-1784807742828-33e7526ca2ea | Unsplash License |
+| default | assets/default-tools.webp | https://images.unsplash.com/photo-1534769549239-a38ef6ace900 | Unsplash License |
+| default | assets/default-studio.webp | https://images.unsplash.com/photo-1777446696345-ad217d3a9a7e | Unsplash License |
+| default | assets/default-course-tall.webp | Drawn for this template | Storelib |
+| default | assets/default-print-field.webp | Drawn for this template | Storelib |
+| default (cover only) | scripts/theme-templates/products/default/default-sun-print.webp | https://images.unsplash.com/photo-1630734277837-ebe62757b6e0, with prints drawn for this template | Unsplash License |
+| default (cover only) | scripts/theme-templates/products/default/default-tote.webp | https://images.unsplash.com/photo-1574365569389-a10d488ca3fb, with a print drawn for this template | Unsplash License |
+| default (cover only) | scripts/theme-templates/products/default/default-sketch-pad.webp | https://images.unsplash.com/photo-1573848953384-3be02021eb0b, with a stamp drawn for this template | Unsplash License |
+| default (cover only) | scripts/theme-templates/products/default/default-brushes.webp | Drawn for this template | Storelib |
+| default (cover only) | scripts/theme-templates/products/default/default-wallpapers.webp | Drawn for this template | Storelib |
+| default (cover only) | scripts/theme-templates/products/default/default-course.webp | Drawn for this template | Storelib |
+| clothing | assets/clothing-hero-stairwell.webp | https://images.unsplash.com/photo-1704918968076-cc20b900508f | Unsplash License |
+| clothing | assets/clothing-outerwear-concrete.webp | https://images.unsplash.com/photo-1764298493462-071f7e39b02c | Unsplash License |
+| clothing | assets/clothing-tailoring-studio.webp | https://images.unsplash.com/photo-1715559522419-db7face19c1c | Unsplash License |
+| clothing | assets/clothing-knit-turtleneck.webp | https://images.unsplash.com/photo-1784653193092-43c8a20f92dd | Unsplash License |
+| clothing | assets/clothing-look-camel-suit.webp | https://images.unsplash.com/photo-1634052358355-17b73d9f0501 | Unsplash License |
+| clothing | assets/clothing-look-check-coat.webp | https://images.unsplash.com/photo-1759852909799-c00a5c24fb43 | Unsplash License |
+| clothing | assets/clothing-look-black-trench.webp | https://images.unsplash.com/photo-1663343683182-70885ae0a792 | Unsplash License |
+| clothing | assets/clothing-studio-rail.webp | https://images.unsplash.com/photo-1788500304966-2c60274a5de7 | Unsplash License |
+| clothing (cover only) | scripts/theme-templates/products/clothing/clothing-wool-overcoat.webp | https://images.unsplash.com/photo-1619603364904-c0498317e145 | Unsplash License |
+| clothing (cover only) | scripts/theme-templates/products/clothing/clothing-merino-half-zip.webp | https://images.unsplash.com/photo-1768696082055-1f2360d7ee15 | Unsplash License |
+| clothing (cover only) | scripts/theme-templates/products/clothing/clothing-linen-overshirt.webp | https://images.unsplash.com/photo-1756700413359-1b74664152c2 | Unsplash License |
+| clothing (cover only) | scripts/theme-templates/products/clothing/clothing-long-blazer.webp | https://images.unsplash.com/photo-1779400202380-ae490bd3b995 | Unsplash License |
+| clothing (cover only) | scripts/theme-templates/products/clothing/clothing-boxy-tee.webp | https://images.unsplash.com/photo-1780566759997-6a4eabceaa10 | Unsplash License |
+| clothing (cover only) | scripts/theme-templates/products/clothing/clothing-wool-blazer.webp | https://images.unsplash.com/photo-1612275857880-57d3b7676179 | Unsplash License |
+| merch | assets/merch-hero.webp | Drawn for this template | Storelib |
+| merch | assets/merch-hero-phone.webp | Drawn for this template | Storelib |
+| merch | assets/merch-apron.webp | Drawn for this template | Storelib |
+| merch | assets/merch-bundle-box.webp | Drawn for this template | Storelib |
+| merch | assets/merch-bundle-desk.webp | Drawn for this template | Storelib |
+| merch | assets/merch-bundle-starter.webp | Drawn for this template | Storelib |
+| merch | assets/merch-on-set.webp | https://images.unsplash.com/photo-1758522487757-44485b009cf5 | Unsplash License |
+| merch | assets/merch-ladle-mic.webp | https://images.unsplash.com/photo-1758522489348-6e33d0e14669 | Unsplash License |
+| merch | assets/merch-ep-stir.webp | https://images.unsplash.com/photo-1636647511603-f46efb36c327 | Unsplash License |
+| merch | assets/merch-ep-steam.webp | https://images.unsplash.com/photo-1761936763596-4bcb3c7a22e7 | Unsplash License |
+| merch | assets/merch-ep-tomato.webp | https://images.unsplash.com/photo-1629978444632-9f63ba0eff47 | Unsplash License |
+| merch | assets/merch-ep-market.webp | https://images.unsplash.com/photo-1752753956566-7e80e1da16a2 | Unsplash License |
+| merch | assets/merch-fan-bowl-jeans.webp | https://images.unsplash.com/photo-1764015939059-2c5dee249315 | Unsplash License |
+| merch | assets/merch-fan-bowl-hands.webp | https://images.unsplash.com/photo-1701109876066-7fc0c08da447 | Unsplash License |
+| merch | assets/merch-fan-mug-garden.webp | https://images.unsplash.com/photo-1583735600976-09529a4c1369 | Unsplash License |
+| merch | assets/merch-fan-mug-window.webp | https://images.unsplash.com/photo-1598892482641-6ec7e0042b7d | Unsplash License |
+| merch | assets/merch-fan-bowls-table.webp | https://images.unsplash.com/photo-1476718406336-bb5a9690ee2a | Unsplash License |
+| merch | assets/merch-fan-soup-wood.webp | https://images.unsplash.com/photo-1605909388460-74ec8b204127 | Unsplash License |
+| merch | assets/merch-fan-garnish.webp | https://images.unsplash.com/photo-1759689975472-c302b63b3b71 | Unsplash License |
+| merch | assets/merch-fan-two-mugs.webp | https://images.unsplash.com/photo-1604881988758-f76ad2f7aac1 | Unsplash License |
+| merch (cover only) | scripts/theme-templates/products/merch/merch-stir-tee.webp | Drawn for this template | Storelib |
+| merch (cover only) | scripts/theme-templates/products/merch/merch-wordmark-hoodie.webp | Drawn for this template | Storelib |
+| merch (cover only) | scripts/theme-templates/products/merch/merch-ladle-cap.webp | Drawn for this template | Storelib |
+| merch (cover only) | scripts/theme-templates/products/merch/merch-slurp-mug.webp | Drawn for this template | Storelib |
+| merch (cover only) | scripts/theme-templates/products/merch/merch-taste-tee.webp | Drawn for this template | Storelib |
+| merch (cover only) | scripts/theme-templates/products/merch/merch-sticker-sheet.webp | Drawn for this template | Storelib |
+| merch (cover only) | scripts/theme-templates/products/merch/merch-broth-print.webp | Drawn for this template | Storelib |
+| merch (cover only) | scripts/theme-templates/products/merch/merch-season-apron.webp | Drawn for this template | Storelib |
 | digital | assets/digital-hero-studio.webp | https://images.unsplash.com/photo-1598488035139-bdbb2231ce04 | Unsplash License |
 | digital | assets/digital-studio-room.webp | https://images.unsplash.com/photo-1511379938547-c1f69419868d | Unsplash License |
 | digital | assets/digital-decks.webp | https://images.unsplash.com/photo-1470225620780-dba8ba36b745 | Unsplash License |

@@ -4,12 +4,12 @@
       "type": "main-collection-heading",
       "settings": {
         "height": "adapt",
-        "alignment": "center",
-        "padding_top": 40,
+        "alignment": "left",
+        "padding_top": 48,
         "color_scheme": "default",
         "reset_spacing": true,
         "section_width": "fluid_container",
-        "padding_bottom": 24,
+        "padding_bottom": 20,
         "show_collection_image": false
       },
       "name": "main-collection-heading",
@@ -39,7 +39,7 @@
       "type": "main-collection-product",
       "settings": {
         "sorting": true,
-        "column_gap": 30,
+        "column_gap": 20,
         "pagination": "default",
         "padding_top": 0,
         "color_scheme": "default",
@@ -61,25 +61,72 @@
       },
       "name": "main-collection-product",
       "blocks": {
-        "block-mvmkffsh-1-pcnzc": {
+        "categories": {
           "type": "categories",
           "settings": {
-            "title": "Category"
+            "title": "Kind"
           }
         },
-        "block-mvmkfj68-2-iqqos": {
+        "filter": {
           "type": "filter",
           "settings": {}
         }
       },
       "block_order": [
-        "block-mvmkffsh-1-pcnzc",
-        "block-mvmkfj68-2-iqqos"
+        "categories",
+        "filter"
+      ]
+    },
+    "help": {
+      "type": "scrolling-text",
+      "settings": {
+        "color_scheme": "scheme-soup-navy",
+        "section_width": "full_width",
+        "separator": "custom",
+        "separator_text": "~",
+        "item_gap": 40,
+        "repeat_count": 4,
+        "base_font": "heading",
+        "text_size": 30,
+        "text_size_mobile": 22,
+        "font_weight": "theme",
+        "line_height": 135,
+        "duration": 50,
+        "padding_top": 16,
+        "padding_bottom": 18,
+        "padding_top_mobile": 12,
+        "padding_bottom_mobile": 14
+      },
+      "blocks": {
+        "w1": {
+          "type": "word",
+          "settings": {
+            "text": "Ships in three working days"
+          }
+        },
+        "w2": {
+          "type": "word",
+          "settings": {
+            "text": "Size guide on every tee"
+          }
+        },
+        "w3": {
+          "type": "word",
+          "settings": {
+            "text": "Every order pays for an episode"
+          }
+        }
+      },
+      "block_order": [
+        "w1",
+        "w2",
+        "w3"
       ]
     }
   },
   "order": [
     "main-collection-heading",
-    "main-collection-product"
+    "main-collection-product",
+    "help"
   ]
 }
