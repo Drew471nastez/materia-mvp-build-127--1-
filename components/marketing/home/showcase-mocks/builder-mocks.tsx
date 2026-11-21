@@ -183,8 +183,15 @@ function ShopCard({ p, cls, w = 480, h = 480 }: { p: Product; cls: string; w?: n
  * character), and the page follows character by character. On the page the heading wears the editor's outline
  * (`.wx-hd`, canvas-hover.tsx's 2px blue round the one thing a click opened).
  */
+/*
+ * Landing round 19 (perf on a phone): the new words were one span per character, each with its own animation and,
+ * in the field, its own caret: 44 animations restyled on every main frame of a scroll while the section was on
+ * screen. Now the words are one run of text behind a window (.wx-win, clipped sideways) that opens one character at a
+ * time: the window steps left to right and the text inside steps the other way by the same amount, so the letters
+ * stand still and only the window's edge moves (two transforms, step-end at each character's edge, TYPE_EDGES). The
+ * field has one caret that steps along the same edges. Five animations in all, the same picture.
+ */
 function Edit({ was, now, field = false }: { was: string; now: string; field?: boolean }) {
-  const beat = (TYPE_S / now.length).toFixed(4)
   return (
     <span className={field ? "wx-edit wx-edit-f" : "wx-edit"}>
       {!field && <i className="wx-hd" />}
@@ -193,11 +200,10 @@ function Edit({ was, now, field = false }: { was: string; now: string; field?: b
         {was}
       </span>
       <span className="wx-now" aria-hidden="true">
-        {[...now].map((c, i) => (
-          <i key={i} style={{ animationDelay: `${(i * Number(beat)).toFixed(3)}s` }}>
-            {c}
-          </i>
-        ))}
+        <span className="wx-win">
+          <span className="wx-txt">{now}</span>
+        </span>
+        {field && <i className="wx-car" />}
       </span>
     </span>
   )
@@ -1151,10 +1157,111 @@ function cursorKeys(name: string, [x, y]: readonly number[], plan: (typeof EDIT_
 const shown = (name: string, on: number, off = WB_T, fade = 0.12) =>
   `@keyframes ${name}{0%,${k(on)}{opacity:0}${k(on + fade)},${off >= WB_T ? "100%" : k(off)}{opacity:1}${off >= WB_T ? "" : `${k(off + fade)},100%{opacity:0}`}}`
 
-/** The caret after character i stays until the next one comes; after the last it stays a little longer. */
-function caretKeys(n: number) {
-  const w = TYPE_S / n
-  return `@keyframes sxk-ed-car-${n}{0%,${k(S.type)}{opacity:0}${k(S.type + 0.02)},${k(S.type + w)}{opacity:1}${k(S.type + w + 0.02)},100%{opacity:0}}`
+/**
+ * Landing round 19: where each character of the new words ends, in ems of its own type, measured off the drawn
+ * mock in Chromium (the same at 390 and 1440 wide to within .004em): the page's heading in STZ Instrument 600 at
+ * -.034em, the field's in Inter. The last edge is the whole run's width.
+ */
+export const TYPE_EDGES = {
+  page: [1.035, 1.2614, 1.8204, 2.1764, 2.7135, 3.0695, 3.2286, 3.9498, 4.301, 4.864, 5.4512, 5.6103, 5.8085, 6.3346, 6.9156],
+  field: [0.9853, 1.2286, 1.8192, 2.1466, 2.7296, 3.1059, 3.3875, 4.1096, 4.486, 5.0858, 5.6978, 5.9793, 6.2792, 6.8897, 7.5093],
+} as const
+/** The window's room past the run on each side, so no letter's ink is clipped once the words are in. */
+const WIN_PAD = 0.1
+/** When character i comes in: the old per-character beat (TYPE_S over the characters), as before. */
+const charAt = (i: number) => S.type + 0.01 + (i * TYPE_S) / STZ_EDIT.now.length
+const em = (n: number) => `${+n.toFixed(4)}em`
+/**
+ * The typing (landing round 19): the window (`win`) and the text in it (`txt`) step together at each character's
+ * edge, the window to the left of it by what is not typed yet, the text back by the same; `car` is the field's caret
+ * after the newest character, as long as it lasted after each (until the next comes) and a little longer after the
+ * last. step-end: each keyframe's value holds until the next, a jump like a key press.
+ */
+function typeKeys(id: "page" | "field") {
+  const xs = TYPE_EDGES[id]
+  const end = xs[xs.length - 1] + WIN_PAD
+  const off = (x: number) => (x >= xs[xs.length - 1] ? 0 : end - x)
+  const tr = (d: number) => (d ? `translateX(${em(d)})` : "none")
+  const win = [`${k(charAt(0) - 0.01)}{opacity:0;transform:${tr(-off(xs[0]))}}`, ...xs.map((x, i) => `${k(charAt(i))}{opacity:1;transform:${tr(-off(x))}}`)]
+  const txt = [`${k(charAt(0) - 0.01)}{transform:${tr(off(xs[0]))}}`, ...xs.map((x, i) => `${k(charAt(i))}{transform:${tr(off(x))}}`)]
+  const keys = [
+    `@keyframes sxk-ty-${id}-win{0%,${win.join("")}100%{opacity:1;transform:none}}`,
+    `@keyframes sxk-ty-${id}-txt{0%,${txt.join("")}100%{transform:none}}`,
+  ]
+  if (id === "field") {
+    const last = xs[xs.length - 1]
+    const car = [`${k(charAt(0) - 0.01)}{opacity:0;transform:translateX(${em(xs[0])})}`, ...xs.map((x, i) => `${k(charAt(i))}{opacity:1;transform:translateX(${em(x)})}`), `${k(charAt(xs.length - 1) + 0.9)}{opacity:0;transform:translateX(${em(last)})}`]
+    keys.push(`@keyframes sxk-ty-field-car{0%,${car.join("")}100%{opacity:0;transform:translateX(${em(last)})}}`)
+  }
+  return keys.join("\n")
+}
+
+/**
+ * Landing round 19 (perf on a phone): a running animation is restyled on every main frame while it is in its active
+ * time, even where its keyframes only hold a value; one that is waiting out its delay, or done and holding its end, is
+ * not (Chromium, 4x CPU: 300 holding animations cost 3.8ms of style a frame, the same 300 waiting out a delay 0.1ms).
+ * Every moment of the website builder is written in shares of the whole moment (k), most of them holding for most of
+ * it. This rewrites each one that plays once (`1 both`) into the stretches where its value changes: the first starts
+ * where the value first changes (an animation-delay up to it) and each ends where a hold of HOLD_S or more begins; the
+ * next takes over where that hold ends (`forwards`, so until then the last one's end stays), and the last ends where
+ * the value last changes. The same values at the same times, so the same picture, but at any moment only the few that
+ * are changing are restyled. A hold is cut only where its keyframe names every property the animation moves, so no
+ * property's implied in-between is lost.
+ */
+const HOLD_S = 0.5
+export function windowed(css: string, total = WB_T) {
+  const once = new Set([...css.matchAll(/(sxk-[\w-]+) var\(--bm-t\) \S+ 1 both/g)].map((m) => m[1]))
+  const parts = new Map<string, { delay: number; dur: number }[]>()
+  const r3 = (n: number) => +n.toFixed(3)
+  const props = (decl: string) => decl.split(";").map((d) => d.split(":")[0].trim()).filter((p) => p && p !== "animation-timing-function")
+  const out = css.replace(/@keyframes ([\w-]+)\{((?:[^{}]*\{[^{}]*\})*)\}/g, (all, name: string, body: string) => {
+    if (!once.has(name)) return all
+    const frames: { p: number; decl: string }[] = []
+    for (const [, sel, decl] of body.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      for (const s of sel.split(",")) {
+        const t = s.trim()
+        frames.push({ p: t === "from" ? 0 : t === "to" ? 100 : parseFloat(t), decl })
+      }
+    }
+    frames.sort((a, b) => a.p - b.p)
+    const every = new Set(frames.flatMap((f) => props(f.decl)))
+    const full = (f: { decl: string }) => props(f.decl).length === every.size
+    /* Cut at each run of equal keyframes that names every property: [from, to] index pairs of the stretches between. */
+    const runs: [number, number][] = []
+    for (let i = 0; i < frames.length; ) {
+      let j = i
+      while (j + 1 < frames.length && frames[j + 1].decl === frames[i].decl) j++
+      runs.push([i, j])
+      i = j + 1
+    }
+    const cuts = runs.filter(([i, j], n) => full(frames[i]) && (n === 0 || n === runs.length - 1 || ((frames[j].p - frames[i].p) / 100) * total >= HOLD_S))
+    const first = cuts[0]?.[0] === 0 ? cuts[0][1] : 0
+    const lastRun = cuts[cuts.length - 1]
+    const last = lastRun?.[1] === frames.length - 1 ? lastRun[0] : frames.length - 1
+    const bounds: [number, number][] = []
+    let from = first
+    for (const [i, j] of cuts) {
+      if (i <= from || j >= last + 1 || i > last) continue
+      bounds.push([from, i])
+      from = j
+    }
+    bounds.push([from, last])
+    const spans = bounds.filter(([a, b]) => frames[b].p > frames[a].p)
+    if (!spans.length || (spans.length === 1 && frames[spans[0][0]].p === 0 && frames[spans[0][1]].p === 100)) return all
+    parts.set(name, spans.map(([a, b]) => ({ delay: r3((frames[a].p / 100) * total), dur: r3(((frames[b].p - frames[a].p) / 100) * total) })))
+    return spans
+      .map(([a, b], n) => {
+        const s0 = frames[a].p
+        const len = frames[b].p - s0
+        const kept = frames.slice(a, b + 1).map((f) => `${r3(((f.p - s0) / len) * 100)}%{${f.decl}}`)
+        return `@keyframes ${n ? `${name}-w${n + 1}` : name}{${kept.join("")}}`
+      })
+      .join("\n")
+  })
+  return out.replace(/(sxk-[\w-]+) var\(--bm-t\) (\S+) 1 both/g, (all, name: string, ease: string) => {
+    const w = parts.get(name)
+    return w ? w.map((t, n) => `${n ? `${name}-w${n + 1}` : name} ${t.dur}s ${ease} ${t.delay}s 1 ${n ? "forwards" : "both"}`).join(",") : all
+  })
 }
 
 const ONCE = "var(--bm-t) var(--bm-ease) 1 both"
@@ -1165,14 +1272,17 @@ const motion = (sel: string, anim: string) => `@media(prefers-reduced-motion:no-
 /** The site's moment. */
 function siteMotion(id: "stz", at: string, panels: string, page: string, below: string) {
   const plan = EDIT_PLAN[id]
-  const n = STZ_EDIT.now.length
+  const TYPE = "var(--bm-t) step-end 1 both"
   return [
     motion(`${at} .wx-hd`, `sxk-${id}-hd ${STEP}`),
     motion(`${at} .wx-was,${panels} .wx-was`, `sxk-ed-was ${STEP}`),
-    motion(`${at} .wx-now i,${panels} .wx-now i`, `sxk-ed-ch ${STEP}`),
+    /* Landing round 19: the typing, five animations (typeKeys). */
+    motion(`${at} .wx-win`, `sxk-ty-page-win ${TYPE}`),
+    motion(`${at} .wx-txt`, `sxk-ty-page-txt ${TYPE}`),
+    motion(`${panels} .wx-win`, `sxk-ty-field-win ${TYPE}`),
+    motion(`${panels} .wx-txt`, `sxk-ty-field-txt ${TYPE}`),
+    motion(`${panels} .wx-car`, `sxk-ty-field-car ${TYPE}`),
     motion(`${panels} .wx-mark`, `sxk-ed-mark ${STEP}`),
-    motion(`${panels} .wx-now i::after`, `sxk-ed-car-${n} ${STEP}`),
-    motion(`${panels} .wx-now i:last-child::after`, `sxk-ed-car-last ${STEP}`),
     motion(`${panels} .wx-in-ed::after`, `sxk-ed-focus ${STEP}`),
     motion(`${panels} .wx-pa`, `sxk-${id}-pa ${ONCE}`),
     motion(`${at} .wx-ring`, `sxk-ed-pick ${STEP}`),
@@ -1202,8 +1312,12 @@ const EDIT_CSS = [
   `.wx-hd{position:absolute;inset:-.08em -.22em;border-radius:4u;box-shadow:0 0 0 2u #3b82f6;opacity:0;pointer-events:none}`,
   `.wx-was{position:relative;z-index:0}`,
   `.wx-mark{position:absolute;z-index:-1;inset:-.1em -.04em;background:rgba(59,130,246,.3);opacity:0}`,
-  `.wx-now i{position:relative;font-style:inherit;opacity:0}`,
-  `.wx-edit-f .wx-now i::after{content:"";position:absolute;right:-.06em;top:.05em;bottom:.02em;width:1.2u;background:currentColor;opacity:0}`,
+  /* Landing round 19: the new words behind their window, hidden at rest; the window reaches WIN_PAD past the run on each side (its margin gives that room back), clipped sideways only, so nothing of a letter's height is cut. */
+  `.wx-now{position:relative}`,
+  `.wx-win{display:block;overflow-x:clip;padding:0 ${WIN_PAD}em;margin:0 -${WIN_PAD}em;opacity:0}`,
+  `.wx-txt{display:block}`,
+  /* The field's caret: where round 15 drew it after each character (.06em past its edge, 1.2u wide, .05em under the type's top and .02em over its foot), now one caret at the run's start that the keyframes move along the edges. */
+  `.wx-car{position:absolute;left:calc(.06em - 1.2u);top:.148em;bottom:.147em;width:1.2u;background:currentColor;opacity:0;pointer-events:none}`,
   motion(`[data-mock-live] .wx-tree .wx-hl .wx-row-on`, `sxk-ed-row ${STEP}`),
   motion(`[data-mock-live] .wx-cur-stz`, `sxk-cur-stz ${ONCE}`),
   siteMotion("stz", STZ, PS, ".stz-page", ".stz-grid,.stz-all,.stz-summer"),
@@ -1214,13 +1328,12 @@ const EDIT_CSS = [
   shown("sxk-ed-focus", S.focus, S.picked),
   shown("sxk-ed-mark", S.focus + 0.02, S.type - 0.04, 0.04),
   `@keyframes sxk-ed-was{0%,${k(S.type - 0.02)}{opacity:1}${k(S.type)},100%{opacity:0}}`,
-  `@keyframes sxk-ed-ch{0%,${k(S.type)}{opacity:0}${k(S.type + 0.02)},100%{opacity:1}}`,
   `@keyframes sxk-ed-ext{0%,${k(S.drag)}{transform:scaleY(0)}${k(S.dragged)},100%{transform:none}}`,
-  caretKeys(STZ_EDIT.now.length),
-  `@keyframes sxk-ed-car-last{0%,${k(S.type)}{opacity:0}${k(S.type + 0.02)},${k(S.type + 0.9)}{opacity:1}${k(S.type + 0.92)},100%{opacity:0}}`,
+  typeKeys("page"),
+  typeKeys("field"),
 ].join("\n")
 
-/* Publish, twice a moment (on the moment's loop): the button pressed, its panel, Publish changes pressed, Publishing, Published, the panel away. */
+/* Publish, twice a moment: the button pressed, its panel, Publish changes pressed, Publishing, Published, the panel away. Landing round 19: once, as the rest of the moment plays (it looped, so a tab chosen by hand, or held under a mouse, pressed Publish again by itself every 11.6s with no pointer), and windowed like the edit. */
 const twice = (name: string, a: number, b: number, c: number, d: number) =>
   `@keyframes ${name}{0%,${k(a)}{opacity:0}${k(a + 0.02)},${k(b)}{opacity:1}${k(b + 0.02)},${k(c)}{opacity:0}${k(c + 0.02)},${k(d)}{opacity:1}${k(d + 0.02)},100%{opacity:0}}`
 const PUBLISH_CSS = [
@@ -1249,8 +1362,15 @@ const PUBLISH_CSS = [
       ["[data-mock-live] .wx-spin", "sxk-wx-spin", "linear"],
       ["[data-mock-live] .wx-publish i", "sxk-wx-dot", "linear"],
     ] as const
-  ).map(([sel, name, ease]) => motion(sel, `${name} var(--bm-t) ${ease} infinite both`)),
+  ).map(([sel, name, ease]) => motion(sel, `${name} var(--bm-t) ${ease} 1 both`)),
 ].join("\n")
+
+/**
+ * The website builder's moment as it is written, every keyframe a share of the whole moment (WB_T) and every animation
+ * the moment's length: what BUILDER_CSS carries, before windowed() cuts each into the stretches where it moves
+ * (landing round 19). The timeline is read here; the picture is the same.
+ */
+export const BUILDER_MOMENT_CSS = u(`${EDIT_CSS}\n${PUBLISH_CSS}`)
 
 export const BUILDER_CSS = u(`
 .bm{position:absolute;inset:0;background:#fff;color:#1a1a2e;font-family:var(--font-inter,Inter),Inter,sans-serif;font-size:13u;--bm-t:${T}s;--bm-ease:cubic-bezier(.45,0,.2,1)}
@@ -1401,8 +1521,8 @@ export const BUILDER_CSS = u(`
 .wx-pub-go>span{grid-area:1/1;display:flex;align-items:center;justify-content:center;gap:8u}
 .wx-go-b,.wx-go-c{opacity:0}
 .wx-spin{width:16u!important;height:16u!important}
-${EDIT_CSS}
-${PUBLISH_CSS}
+${windowed(EDIT_CSS)}
+${windowed(PUBLISH_CSS)}
 
 /* ---------- OnePage editor */
 .ope{background:#fff}

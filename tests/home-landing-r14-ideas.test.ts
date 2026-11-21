@@ -23,7 +23,7 @@ import { join } from "node:path"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import * as Ideas from "@/components/marketing/home/ideas-come-to-life"
-import { BUILDER_CSS, EDIT_AT, STZ_EDIT, SteezSite, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
+import { BUILDER_CSS, BUILDER_MOMENT_CSS, EDIT_AT, STZ_EDIT, SteezSite, TYPE_EDGES, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
 
 let passed = 0
 let failed = 0
@@ -86,28 +86,31 @@ check("no progress bar under them, View all straight after", !/stz-progress/.tes
 console.log("\n── 2. The moment: select the heading, type over it, Publish ──")
 // Changed on purpose (landing round 15): the owner asked for the builder to show only Steez; loudlib, its second scene and its boxes are gone (tests/home-landing-r15-stats.test.ts).
 check("the edit: Summer Madness '26 to Winter Drop '26", STZ_EDIT.was === "Summer Madness '26" && STZ_EDIT.now === "Winter Drop '26")
-const typed = (html: string, now: string) => [...html.matchAll(/<span class="wx-now" aria-hidden="true">([\s\S]*?)<\/span>/g)].map((m) => [...m[1].matchAll(/<i style="animation-delay:([\d.]+)s">([^<]*)<\/i>/g)]).find((c) => c.map((x) => x[2]).join("").replace(/&#x27;/g, "'") === now)
-const st = typed(stz, STZ_EDIT.now)
+/* Changed on purpose (landing round 19, perf on a phone): the new words are one run behind a window that opens a character at a time (builder-mocks.tsx Edit, typeKeys), no longer one span and one animation per character; the beats are the window's steps, one per character's edge (TYPE_EDGES), each [its keyframe, its time after typing starts]. */
+const typedRun = /<span class="wx-now" aria-hidden="true"><span class="wx-win"><span class="wx-txt">Winter Drop &#x27;26<\/span><\/span><\/span>/.test(stz)
+const st = [...(BUILDER_MOMENT_CSS.match(/@keyframes sxk-ty-page-win\{([\s\S]*?)\}\}/)?.[1] ?? "").matchAll(/([\d.]+)%\{opacity:1;/g)].filter((m) => Number(m[1]) < 100).map((m) => [m[0], String((Number(m[1]) / 100) * 11.6 - 2.05)])
 /* Changed on purpose (landing round 15): the heading wears the editor's outline on the page; its words are selected in the panel's Heading field, where the typing happens, and the page follows. All typed within 1.2s. */
-check("Steez's heading: the editor's outline, the old words, the new ones one character at a time", /<b><span class="wx-edit"><i class="wx-hd"><\/i><span class="wx-was">Summer Madness &#x27;26<\/span>/.test(stz) && !!st && st.length === STZ_EDIT.now.length)
+check("Steez's heading: the editor's outline, the old words, the new ones one character at a time", /<b><span class="wx-edit"><i class="wx-hd"><\/i><span class="wx-was">Summer Madness &#x27;26<\/span>/.test(stz) && typedRun && st.length === STZ_EDIT.now.length && TYPE_EDGES.page.length === STZ_EDIT.now.length)
 check("each character a beat later than the one before, all typed within 1.2s", !!st && st.every((c, i) => i === 0 || Number(c[1]) > Number(st[i - 1][1])) && Number(st[st.length - 1][1]) < 1.2)
 // Changed on purpose (landing round 15): the owner asked for the builder to show only Steez; loudlib, its second scene and its boxes are gone (tests/home-landing-r15-stats.test.ts).
 check("without the builder, the site is just the site: the old words, nothing to type", /<b>Summer Madness &#x27;26<\/b>/.test(renderToStaticMarkup(createElement(SteezSite))))
-check("at rest (and with reduced motion) the old words stand, the new ones are hidden", !/opacity/.test(rule(BUILDER_CSS, ".wx-was")) && /opacity:0/.test(rule(BUILDER_CSS, ".wx-now i")) && /opacity:0/.test(rule(BUILDER_CSS, ".wx-mark")))
+/* Changed on purpose (landing round 19): the new words are hidden at rest by their window (.wx-win), not character by character. */
+check("at rest (and with reduced motion) the old words stand, the new ones are hidden", !/opacity/.test(rule(BUILDER_CSS, ".wx-was")) && /opacity:0/.test(rule(BUILDER_CSS, ".wx-win")) && /opacity:0/.test(rule(BUILDER_CSS, ".wx-mark")))
 /* Changed on purpose (landing round 15): the selection is in the panel's field, a lighter blue on white. */
 check("the selection is the browser's blue, behind the words", /background:rgba\(59,130,246,\.3\)/.test(rule(BUILDER_CSS, ".wx-mark")) && /z-index:-1/.test(rule(BUILDER_CSS, ".wx-mark")))
+/* Changed on purpose (landing round 19, perf on a phone): BUILDER_CSS carries each once-only animation cut to the stretches where it moves (windowed), so the moment's timeline, in shares of 11.6s, is read from the moment as written, BUILDER_MOMENT_CSS (tests/home-landing-r19-perf2.test.ts pins that the two give the same values at the same times). */
 const kf = (name: string) => {
-  const at = BUILDER_CSS.indexOf(`@keyframes ${name}{`)
-  return at < 0 ? "" : BUILDER_CSS.slice(at, BUILDER_CSS.indexOf("}}", at) + 2)
+  const at = BUILDER_MOMENT_CSS.indexOf(`@keyframes ${name}{`)
+  return at < 0 ? "" : BUILDER_MOMENT_CSS.slice(at, BUILDER_MOMENT_CSS.indexOf("}}", at) + 2)
 }
 /* Changed on purpose (landing round 15): the moment is 11.6s: the heading outlined from 0.7s and clicked at 1s (the row lit), the field clicked at 1.8s (the words selected), typing from 2.05s; Publish at 3.85s and Publish changes at 4.6s; the products picked at 6.7s and the slider dragged from 7.5s to 8.5s; Publish again at 9.15s and 9.9s. Pinned in tests/home-landing-r15-showcase.test.ts. */
 const at = (sec: number) => `${+((sec / 11.6) * 100).toFixed(2)}%`
-check("the row lights on the first click (1s), the words are selected in the field (1.8s), typing from 2.05s", kf("sxk-ed-row").startsWith(`@keyframes sxk-ed-row{0%,${at(1)}{opacity:0}`) && kf("sxk-ed-mark").startsWith(`@keyframes sxk-ed-mark{0%,${at(1.82)}{opacity:0}`) && kf("sxk-ed-ch").startsWith(`@keyframes sxk-ed-ch{0%,${at(2.05)}{opacity:0}`))
+check("the row lights on the first click (1s), the words are selected in the field (1.8s), typing from 2.05s", kf("sxk-ed-row").startsWith(`@keyframes sxk-ed-row{0%,${at(1)}{opacity:0}`) && kf("sxk-ed-mark").startsWith(`@keyframes sxk-ed-mark{0%,${at(1.82)}{opacity:0}`) && kf("sxk-ty-page-win").startsWith(`@keyframes sxk-ty-page-win{0%,${at(2.05)}{opacity:0;`))
 // Changed on purpose (landing round 15): the owner asked for the builder to show only Steez; loudlib, its second scene and its boxes are gone (tests/home-landing-r15-stats.test.ts).
 check("the pointer clicks the heading, the field, then Publish and Publish changes, twice, where the panel's own keyframes press", ["sxk-cur-stz"].every((n) => [1, 1.8, 3.9, 4.65, 9.2, 9.95].every((t) => kf(n).includes(`${at(t)}{transform:`) && kf(n).split(`${at(t)}{transform:`)[1].split("}")[0].endsWith("scale(.86)"))) && kf("sxk-wx-press").includes(`${at(3.92)}{transform:scale(.94)}`) && kf("sxk-wx-press").includes(`${at(9.22)}{transform:scale(.94)}`))
 check("Publish's targets are where the button and Publish changes are drawn", kf("sxk-cur-stz").includes(`translate(${U(1214 - EDIT_AT.stz[0])},${U(21 - EDIT_AT.stz[1])})`) && kf("sxk-cur-stz").includes(`translate(${U(1150 - EDIT_AT.stz[0])},${U(298 - EDIT_AT.stz[1])})`))
 // Changed on purpose (landing round 15): the owner asked for the builder to show only Steez; loudlib, its second scene and its boxes are gone (tests/home-landing-r15-stats.test.ts).
-check("Steez plays once when the tab opens, so the finished edit stays", /\[data-mock-live\] \.wx-cur-stz\{animation:sxk-cur-stz var\(--bm-t\) var\(--bm-ease\) 1 both\}/.test(BUILDER_CSS) && !/wx-cur-ll|data-scene/.test(BUILDER_CSS))
+check("Steez plays once when the tab opens, so the finished edit stays", /\[data-mock-live\] \.wx-cur-stz\{animation:sxk-cur-stz var\(--bm-t\) var\(--bm-ease\) 1 both\}/.test(BUILDER_MOMENT_CSS) && !/wx-cur-ll|data-scene/.test(BUILDER_CSS))
 check("every animation of the edit is under reduced motion's no-preference and moves only opacity or transform", [...BUILDER_CSS.matchAll(/@keyframes (sxk-ed-[\w-]+|sxk-cur-\w+|sxk-(?:stz|ll)-[\w-]+)\{([\s\S]*?)\}\}/g)].every((m) => !/[{;](?!opacity|transform|animation-timing-function)[a-z-]+:/.test(m[2])) && [...BUILDER_CSS.matchAll(/animation:sxk-(ed|cur|stz|ll)-/g)].length === [...BUILDER_CSS.matchAll(/@media\(prefers-reduced-motion:no-preference\)\{[^@]*animation:sxk-(ed|cur|stz|ll)-/g)].length)
 // Changed on purpose (landing round 15): the owner asked for the builder to show only Steez; loudlib, its second scene and its boxes are gone (tests/home-landing-r15-stats.test.ts).
 check("one pointer, over the panel", /<span class="wx-curs"><svg class="bm-cursor wx-cur wx-cur-stz"/.test(wb()) && !/wx-cur-ll/.test(wb()) && /z-index:30/.test(rule(BUILDER_CSS, ".wx-curs")))
@@ -115,7 +118,7 @@ function wb() {
   return renderToStaticMarkup(createElement(WebsiteBuilderMock))
 }
 /* Changed on purpose (landing round 15): the canvas scrolls after the first Published, mid moment, then the products are picked. */
-check("after Published the canvas scrolls down to the products, once, and stays", /\[data-mock-live\] \.stz \.stz-page\{animation:sxk-stz-scroll var\(--bm-t\) var\(--bm-ease\) 1 both\}/.test(BUILDER_CSS) && kf("sxk-stz-scroll").startsWith(`@keyframes sxk-stz-scroll{0%,${at(5.7)}{transform:none}${at(6.6)},100%{transform:translateY(`))
+check("after Published the canvas scrolls down to the products, once, and stays", /\[data-mock-live\] \.stz \.stz-page\{animation:sxk-stz-scroll var\(--bm-t\) var\(--bm-ease\) 1 both\}/.test(BUILDER_MOMENT_CSS) && kf("sxk-stz-scroll").startsWith(`@keyframes sxk-stz-scroll{0%,${at(5.7)}{transform:none}${at(6.6)},100%{transform:translateY(`))
 // Changed on purpose (landing round 15): the owner asked for the builder to show only Steez; loudlib, its second scene and its boxes are gone (tests/home-landing-r15-stats.test.ts).
 check("one ring, one row lit", (wb().match(/class="wx-sel wx-ring"/g) ?? []).length === 1 && (wb().match(/wx-hl/g) ?? []).length === 1 && !/wx-ring-[ab]|wx-hl-[ab]/.test(wb() + BUILDER_CSS))
 

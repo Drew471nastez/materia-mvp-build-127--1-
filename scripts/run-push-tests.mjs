@@ -1663,6 +1663,8 @@ const SUITES = [
   "tests/home-landing-r19-grow.test.ts",
   /* Landing round 19, perf: on a touch screen only the creators rail's fast legs (a coast, a nudge) are the page's frames; the drift and its ease in and out run on the compositor (a frame of the drift written from script re-layered the whole page); scripts/check-home-sections-perf.mjs measures the page section by section. */
   "tests/home-landing-r19-perf.test.ts",
+  /* Landing round 19, perf2: the website builder's typing is one run behind a window that opens a character at a time (five animations, was 44), its once-only animations cut to the stretches where they move (a delay up to each, so a held value is never restyled), Publish plays once with the moment; the same picture at the same times. */
+  "tests/home-landing-r19-perf2.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

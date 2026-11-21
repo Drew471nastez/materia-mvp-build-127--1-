@@ -155,7 +155,8 @@ assert.ok(!ideas.includes("data-mock-live=\""), "nothing animates before the sec
 const builders = read(`${MOCKS}/builder-mocks.tsx`)
 // Animations attach only under [data-mock-live], only without reduced motion, and never via * or :has().
 /* Changed on purpose (landing round 15): the website builder's moment writes its rules from its timeline (builder-mocks.tsx siteMotion, PUBLISH_CSS), so the rules are counted in the stylesheet it produces, BUILDER_CSS, not in the file's text. */
-const animRules = [...BUILDER_CSS.matchAll(/\{animation:([\w-]+) var\(--bm-t\)/g)]
+/* Changed on purpose (landing round 19, perf on a phone): the website builder's once-only animations carry their own duration and delay (builder-mocks.tsx windowed), so a rule's length is seconds or the moment's. */
+const animRules = [...BUILDER_CSS.matchAll(/\{animation:([\w-]+) (?:var\(--bm-t\)|[\d.]+s)/g)]
 /* Changed on purpose (wave 13): each editor has one quiet scripted moment (select a section and publish; switch a block on and save; write and post), fewer moving parts than before. */
 assert.ok(animRules.length >= 15, `${animRules.length} animation rules`)
 assert.equal((BUILDER_CSS.match(/@media\(prefers-reduced-motion:no-preference\)\{\[data-mock-live\]/g) || []).length, animRules.length)
