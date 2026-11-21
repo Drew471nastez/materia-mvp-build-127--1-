@@ -1,0 +1,643 @@
+<script src="{{ 'live-features-a.js' | asset_url }}" defer="defer"></script>
+{% render 'theme-type' %}
+{%- comment -%} Runtime, once per page (the CSS and hero-image-one.js from layout/theme.storelib, every other script from the tags at the top of this file): shopify/assets/live-features-a.js. {%- endcomment -%}
+{%- comment -%}
+  Materia Themes. Benefits Bar Pro: a row of benefits, each an icon, a title,
+  a short line and an optional link, with an optional heading block.
+  Colours follow the colour scheme until Enable custom styling is on; fonts
+  follow the theme until Use custom fonts is on. The values below are CSS
+  variables on the root, and live-features-a.js works out the same ones when
+  a setting changes in the builder.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign scheme = s.color_scheme.id | default: s.color_scheme | default: 'scheme-1'
+  assign own = s.custom_text_colors
+  assign icon_style = s.icon_style | default: 'rounded_square'
+  assign mobile = s.mobile_layout | default: 'two_column'
+  assign icon_names = 'shipping_fast,truck,box,route,map_marker_alt,headset,envelope,comments,question_circle,lock,shield_alt,check_circle,award,gem,star,thumbs-up,undo_alt,sync_alt,calendar_check,clock,handshake,seedling,recycle,globe,wallet,credit_card,gift,lightbulb,handholdingheart' | split: ','
+-%}
+{% render 'features-a-root', section: section, part: 'css' %}
+{% render 'features-a-root', section: section, part: 'fonts' %}
+<style>
+  :is(#_, .bbp) .bbp__heading { margin: 0 0 1.25rem; text-align: var(--bbp-align); color: var(--bbp-hc, var(--color-heading)); line-height: 1.2; font-size: var(--bbp-hm); }
+  :is(#_, .bbp) .bbp__list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: stretch; }
+  :is(#_, .bbp) .bbp__item { position: relative; min-width: 0; }
+  :is(#_, .bbp) .bbp__link { display: flex; align-items: center; justify-content: var(--bbp-justify); gap: 1rem; min-height: 44px; text-decoration: none; color: inherit; height: 100%; padding: .5rem; border-radius: 8px; transition: transform .25s ease; }
+  :is(#_, .bbp) a.bbp__link:hover { transform: translateY(-3px); }
+  :is(#_, .bbp) .bbp__icon { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: var(--bbp-icon-size); height: var(--bbp-icon-size); color: var(--bbp-icon-color); }
+  :is(#_, .bbp[data-icon-style="circle"], .bbp[data-icon-style="rounded_square"]) .bbp__icon { width: calc(var(--bbp-icon-size) + 22px); height: calc(var(--bbp-icon-size) + 22px); padding: 11px; background-color: var(--bbp-icon-bg); border-radius: 12px; }
+  :is(#_, .bbp[data-icon-style="circle"]) .bbp__icon { border-radius: 50%; }
+  :is(#_, .bbp) .bbp__icon svg { width: 100%; height: 100%; display: block; fill: currentColor; stroke: currentColor; stroke-width: var(--bbp-stroke); stroke-linejoin: round; overflow: visible; }
+  :is(#_, .bbp) .bbp__icon img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  :is(#_, .bbp) .bbp__text { min-width: 0; text-align: var(--bbp-align); display: flex; flex-direction: column; gap: 3px; }
+  :is(#_, .bbp) .bbp__title { display: block; margin: 0; font-size: var(--bbp-ts-m); line-height: 1.3; color: var(--bbp-title); }
+  :is(#_, .bbp) .bbp__subtitle { display: block; margin: 0; font-size: var(--bbp-ss-m); line-height: 1.35; color: var(--bbp-sub); opacity: var(--bbp-sub-o); }
+  :is(#_, .bbp[data-dividers="true"]) .bbp__item:not(:last-child)::after { content: ""; position: absolute; top: 12%; bottom: 12%; right: calc(var(--bbp-gap) / -2); width: 1px; background-color: var(--bbp-divider); pointer-events: none; }
+  @media (max-width: 767px) {
+    :is(#_, .bbp[data-dividers="true"][data-mobile="two_column"]) .bbp__item:nth-child(2n)::after { display: none; }
+    :is(#_, .bbp[data-mobile="one_column"]) .bbp__list { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+    :is(#_, .bbp[data-mobile="one_column"]) .bbp__link { justify-content: flex-start; }
+    :is(#_, .bbp[data-mobile="one_column"]) .bbp__text { text-align: left; }
+    :is(#_, .bbp[data-dividers="true"][data-mobile="one_column"]) .bbp__item:not(:last-child)::after { top: auto; bottom: -7px; right: 0; left: 0; width: auto; height: 1px; }
+    :is(#_, .bbp[data-mobile="carousel_scroll"]) .bbp__list { grid-auto-flow: column; grid-template-columns: none; grid-auto-columns: minmax(62%, 1fr); gap: var(--bbp-gap); overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; padding-bottom: 6px; scrollbar-width: none; }
+    :is(#_, .bbp[data-mobile="carousel_scroll"]) .bbp__list::-webkit-scrollbar { display: none; }
+    :is(#_, .bbp[data-mobile="carousel_scroll"]) .bbp__item { scroll-snap-align: start; }
+    :is(#_, .bbp[data-mobile="carousel_scroll"]) .bbp__item::after { display: none; }
+  }
+  @media (min-width: 768px) {
+    :is(#_, .bbp) .bbp__heading { font-size: var(--bbp-hd); }
+    :is(#_, .bbp) .bbp__list { grid-template-columns: repeat(var(--bbp-cols), minmax(0, 1fr)); gap: var(--bbp-gap); }
+    :is(#_, .bbp) .bbp__title { font-size: var(--bbp-ts-d); }
+    :is(#_, .bbp) .bbp__subtitle { font-size: var(--bbp-ss-d); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    :is(#_, .bbp) .bbp__link { transition: none; }
+    :is(#_, .bbp) a.bbp__link:hover { transform: none; }
+  }
+</style>
+<div class="bbp color-{{ scheme }} gradient"
+  {% render 'features-a-root', section: section, part: 'attrs', type: 'benefits-bar-pro', width: s.width, width_default: 'fluid_container' %}
+  data-icon-style="{{ icon_style }}" data-mobile="{{ mobile }}" data-dividers="{% if s.show_dividers %}true{% else %}false{% endif %}"
+  style="{% render 'features-a-root', section: section, part: 'vars', no_bg: true, pt_m: s.padding_top, pb_m: s.padding_bottom, pt_d: s.padding_top, pb_d: s.padding_bottom %}--bbp-cols: {{ s.columns_desktop | default: 4 }};--bbp-gap: {{ s.item_gap | default: 0 }}px;--bbp-icon-size: {{ s.icon_size | default: 30 }}px;--bbp-stroke: {{ s.icon_stroke | default: 1 | minus: 1 | times: 10 }}px;--bbp-align: {% if s.align == 'center' %}center{% else %}left{% endif %};--bbp-justify: {% if s.align == 'center' %}center{% else %}flex-start{% endif %};--bbp-icon-color: {% if own %}{% render 'scheme-color', color: s.icon_color, fallback: 'var(--color-heading)' %}{% else %}var(--color-heading){% endif %};--bbp-icon-bg: {% if own %}{% render 'scheme-color', color: s.icon_bg_color, fallback: 'color-mix(in srgb, var(--color-heading) 7%, transparent)' %}{% else %}color-mix(in srgb, var(--color-heading) 7%, transparent){% endif %};--bbp-divider: {% if own %}{% render 'scheme-color', color: s.divider_color, fallback: 'var(--color-border)' %}{% else %}var(--color-border){% endif %};--bbp-title: {% if own %}{% render 'scheme-color', color: s.title_color, fallback: 'var(--color-heading)' %}{% else %}var(--color-heading){% endif %};--bbp-sub: {% if own %}{% render 'scheme-color', color: s.subtitle_color, fallback: 'var(--color-text)' %}{% else %}var(--color-text){% endif %};--bbp-sub-o: {% if own and s.subtitle_color != blank %}1{% else %}0.7{% endif %};--bbp-ts-d: {{ s.title_size_d | default: 15 }}px;--bbp-ts-m: {{ s.title_size_m | default: 14 }}px;--bbp-ss-d: {{ s.subtitle_size_d | default: 13 }}px;--bbp-ss-m: {{ s.subtitle_size_m | default: 12 }}px;">
+  {%- if request.design_mode -%}{%- for n in icon_names -%}<template data-fa-icon="{{ n }}">{% render 'features-a-bbp-icon', name: n %}</template>{%- endfor -%}{%- endif -%}
+  <div class="bbp__inner fa-inner">
+    {%- for block in section.blocks -%}
+      {%- if block.type == 'heading' -%}
+        {%- assign b = block.settings -%}
+        <h2 class="bbp__heading fa-h" data-fa-block="{{ block.id }}" data-fa-type="heading"{% if request.design_mode %} data-fa-settings="{{ b | json | escape }}"{% endif %} style="--bbp-hd: {{ b.heading_size_d | default: 30 }}px;--bbp-hm: {{ b.heading_size_m | default: 22 }}px;--bbp-hc: {% if b.enable_custom_style %}{% render 'scheme-color', color: b.heading_color, fallback: 'var(--color-heading)' %}{% else %}var(--color-heading){% endif %};"{% if b.heading == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ b.heading }}</h2>
+      {%- endif -%}
+    {%- endfor -%}
+    <ul class="bbp__list" role="list"{% if mobile == 'carousel_scroll' %} tabindex="0"{% endif %}>
+      {%- for block in section.blocks -%}
+        {%- if block.type == 'benefit' -%}
+          {%- assign b = block.settings -%}
+          {%- assign aria = b.title | default: '' | strip_html -%}
+          <li class="bbp__item" data-fa-block="{{ block.id }}" data-fa-type="benefit"{% if request.design_mode %} data-fa-settings="{{ b | json | escape }}"{% endif %} {{ block.shopify_attributes }}>
+            {%- if b.link != blank -%}<a class="bbp__link" data-fa-nolink="div" href="{{ b.link | url }}"{% if aria != blank %} aria-label="{{ aria | escape }}"{% endif %}>{%- else -%}<div class="bbp__link" data-fa-nolink="div">{%- endif -%}
+              <span class="bbp__icon" aria-hidden="true">
+                {%- if b.icon_image != blank -%}
+                  {{- b.icon_image | image_url: width: 120 | image_tag: loading: 'lazy', widths: '60,90,120', alt: '', width: 120, height: 120 -}}
+                {%- else -%}
+                  {%- render 'features-a-bbp-icon', name: b.icon -%}
+                {%- endif -%}
+              </span>
+              <div class="bbp__text">
+                <h3 class="bbp__title fa-h"{% if b.title == blank %} hidden{% endif %}>{{ b.title | escape }}</h3>
+                <p class="bbp__subtitle fa-t"{% if b.subtitle == blank %} hidden{% endif %}>{{ b.subtitle }}</p>
+              </div>
+            {%- if b.link != blank -%}</a>{%- else -%}</div>{%- endif -%}
+          </li>
+        {%- endif -%}
+      {%- endfor -%}
+    </ul>
+  </div>
+</div>{% schema %}
+{
+  "name": "Benefits Bar Pro",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "scheme-1"
+    },
+    {
+      "type": "select",
+      "id": "width",
+      "label": "Section width",
+      "default": "fluid_container",
+      "options": [
+        {
+          "value": "container",
+          "label": "Container"
+        },
+        {
+          "value": "fluid_container",
+          "label": "Fluid container"
+        },
+        {
+          "value": "stretch_width",
+          "label": "Stretched"
+        },
+        {
+          "value": "full_width",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "range",
+      "id": "columns_desktop",
+      "label": "Columns (desktop)",
+      "min": 2,
+      "max": 6,
+      "step": 1,
+      "default": 4
+    },
+    {
+      "type": "select",
+      "id": "align",
+      "label": "Alignment",
+      "default": "left",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "item_gap",
+      "label": "Gap between items",
+      "min": 0,
+      "max": 64,
+      "step": 2,
+      "unit": "px",
+      "default": 24
+    },
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "type": "checkbox",
+      "id": "custom_text_colors",
+      "label": "Enable custom styling",
+      "default": false,
+      "info": "Off: colours follow the colour scheme."
+    },
+    {
+      "type": "color",
+      "id": "title_color",
+      "label": "Title",
+      "visible_if": "{{ section.settings.custom_text_colors }}"
+    },
+    {
+      "type": "color",
+      "id": "subtitle_color",
+      "label": "Subtitle",
+      "visible_if": "{{ section.settings.custom_text_colors }}"
+    },
+    {
+      "type": "color",
+      "id": "icon_color",
+      "label": "Icon",
+      "visible_if": "{{ section.settings.custom_text_colors }}"
+    },
+    {
+      "type": "color",
+      "id": "icon_bg_color",
+      "label": "Icon background",
+      "visible_if": "{{ section.settings.custom_text_colors and section.settings.icon_style != 'none' }}"
+    },
+    {
+      "type": "color",
+      "id": "divider_color",
+      "label": "Dividers",
+      "visible_if": "{{ section.settings.custom_text_colors and section.settings.show_dividers }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_dividers",
+      "label": "Show dividers",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "icon_style",
+      "label": "Icon background shape",
+      "default": "rounded_square",
+      "options": [
+        {
+          "value": "none",
+          "label": "None (icon only)"
+        },
+        {
+          "value": "circle",
+          "label": "Circle background"
+        },
+        {
+          "value": "rounded_square",
+          "label": "Rounded square background"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "icon_size",
+      "label": "Icon size",
+      "min": 16,
+      "max": 64,
+      "step": 2,
+      "unit": "px",
+      "default": 30
+    },
+    {
+      "type": "range",
+      "id": "icon_stroke",
+      "label": "Icon thickness",
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "default": 2
+    },
+    {
+      "type": "header",
+      "content": "Typography"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_fonts",
+      "label": "Use custom fonts",
+      "default": false,
+      "info": "Off: fonts follow Theme settings > Typography."
+    },
+    {
+      "type": "font_picker",
+      "id": "heading_font",
+      "label": "Title font",
+      "default": "helvetica_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "font_picker",
+      "id": "body_font",
+      "label": "Text font",
+      "default": "helvetica_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "range",
+      "id": "title_size_d",
+      "label": "Title size (desktop)",
+      "min": 10,
+      "max": 32,
+      "step": 1,
+      "unit": "px",
+      "default": 15
+    },
+    {
+      "type": "range",
+      "id": "subtitle_size_d",
+      "label": "Subtitle size (desktop)",
+      "min": 9,
+      "max": 26,
+      "step": 1,
+      "unit": "px",
+      "default": 13
+    },
+    {
+      "type": "header",
+      "content": "Desktop spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 120,
+      "step": 2,
+      "unit": "px",
+      "default": 24
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 120,
+      "step": 2,
+      "unit": "px",
+      "default": 24
+    },
+    {
+      "type": "header",
+      "content": "Mobile"
+    },
+    {
+      "type": "select",
+      "id": "mobile_layout",
+      "label": "Mobile layout",
+      "default": "two_column",
+      "options": [
+        {
+          "value": "one_column",
+          "label": "One column"
+        },
+        {
+          "value": "two_column",
+          "label": "Two columns"
+        },
+        {
+          "value": "carousel_scroll",
+          "label": "Horizontal scroll"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "title_size_m",
+      "label": "Title size (mobile)",
+      "min": 10,
+      "max": 28,
+      "step": 1,
+      "unit": "px",
+      "default": 14
+    },
+    {
+      "type": "range",
+      "id": "subtitle_size_m",
+      "label": "Subtitle size (mobile)",
+      "min": 9,
+      "max": 22,
+      "step": 1,
+      "unit": "px",
+      "default": 12
+    }
+  ],
+  "blocks": [
+    {
+      "type": "benefit",
+      "name": "Benefit",
+      "settings": [
+        {
+          "type": "select",
+          "id": "icon",
+          "label": "Icon",
+          "default": "shipping_fast",
+          "options": [
+            {
+              "value": "shipping_fast",
+              "label": "Fast shipping"
+            },
+            {
+              "value": "truck",
+              "label": "Free delivery"
+            },
+            {
+              "value": "box",
+              "label": "Package"
+            },
+            {
+              "value": "route",
+              "label": "Trackable orders"
+            },
+            {
+              "value": "map_marker_alt",
+              "label": "Location"
+            },
+            {
+              "value": "headset",
+              "label": "Support / headset"
+            },
+            {
+              "value": "envelope",
+              "label": "Email"
+            },
+            {
+              "value": "comments",
+              "label": "Live chat"
+            },
+            {
+              "value": "question_circle",
+              "label": "FAQ / help"
+            },
+            {
+              "value": "lock",
+              "label": "Secure checkout"
+            },
+            {
+              "value": "shield_alt",
+              "label": "Buyer protection"
+            },
+            {
+              "value": "check_circle",
+              "label": "Guarantee"
+            },
+            {
+              "value": "award",
+              "label": "Top deals / award"
+            },
+            {
+              "value": "gem",
+              "label": "Premium quality"
+            },
+            {
+              "value": "star",
+              "label": "Top rated"
+            },
+            {
+              "value": "thumbs-up",
+              "label": "Customer approved"
+            },
+            {
+              "value": "undo_alt",
+              "label": "Easy returns"
+            },
+            {
+              "value": "sync_alt",
+              "label": "Exchange / sync"
+            },
+            {
+              "value": "calendar_check",
+              "label": "Money-back guarantee"
+            },
+            {
+              "value": "clock",
+              "label": "24/7 / clock"
+            },
+            {
+              "value": "handshake",
+              "label": "Trust / handshake"
+            },
+            {
+              "value": "seedling",
+              "label": "Eco-friendly"
+            },
+            {
+              "value": "recycle",
+              "label": "Recycled"
+            },
+            {
+              "value": "globe",
+              "label": "Worldwide"
+            },
+            {
+              "value": "wallet",
+              "label": "Payment options"
+            },
+            {
+              "value": "credit_card",
+              "label": "Buy now, pay later"
+            },
+            {
+              "value": "gift",
+              "label": "Gift"
+            },
+            {
+              "value": "lightbulb",
+              "label": "Innovative"
+            },
+            {
+              "value": "handholdingheart",
+              "label": "Ethical brand"
+            }
+          ]
+        },
+        {
+          "type": "image_picker",
+          "id": "icon_image",
+          "label": "Icon image",
+          "info": "Shown instead of the icon."
+        },
+        {
+          "type": "text",
+          "id": "title",
+          "label": "Title",
+          "default": "Free Shipping"
+        },
+        {
+          "type": "inline_richtext",
+          "id": "subtitle",
+          "label": "Subtitle",
+          "default": "Say who it applies to"
+        },
+        {
+          "type": "url",
+          "id": "link",
+          "label": "Link"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "name": "Heading",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "inline_richtext",
+          "id": "heading",
+          "label": "Heading",
+          "default": "Why shop with us"
+        },
+        {
+          "type": "select",
+          "id": "heading_tag",
+          "label": "Heading tag",
+          "default": "h2",
+          "options": [
+            {
+              "value": "h2",
+              "label": "H2"
+            },
+            {
+              "value": "h3",
+              "label": "H3"
+            },
+            {
+              "value": "h4",
+              "label": "H4"
+            },
+            {
+              "value": "p",
+              "label": "Paragraph"
+            }
+          ],
+          "hidden": true,
+          "info": "Legacy: the heading is an h2.",
+          "visible_if": "{{ false }}"
+        },
+        {
+          "type": "range",
+          "id": "heading_size_d",
+          "label": "Size (desktop)",
+          "min": 16,
+          "max": 72,
+          "step": 1,
+          "unit": "px",
+          "default": 30
+        },
+        {
+          "type": "range",
+          "id": "heading_size_m",
+          "label": "Size (mobile)",
+          "min": 14,
+          "max": 48,
+          "step": 1,
+          "unit": "px",
+          "default": 22
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "heading_color",
+          "label": "Colour",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        }
+      ]
+    }
+  ],
+  "max_blocks": 10,
+  "presets": [
+    {
+      "name": "Benefits Bar Pro",
+      "category": "Features",
+      "blocks": [
+        {
+          "type": "benefit",
+          "settings": {
+            "icon": "shipping_fast",
+            "title": "Free shipping",
+            "subtitle": "Tracked to your door"
+          }
+        },
+        {
+          "type": "benefit",
+          "settings": {
+            "icon": "headset",
+            "title": "Real support",
+            "subtitle": "Answers from our team"
+          }
+        },
+        {
+          "type": "benefit",
+          "settings": {
+            "icon": "lock",
+            "title": "Secure checkout",
+            "subtitle": "Encrypted payments"
+          }
+        },
+        {
+          "type": "benefit",
+          "settings": {
+            "icon": "undo_alt",
+            "title": "Easy returns",
+            "subtitle": "A simple return process"
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,363 @@
+{
+  "sections": {
+    "hero_image1_1": {
+      "type": "hero-image1",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "image": "shopify://shop_images/clothing-hero-knitwear.webp",
+        "image_alt": "Knitwear in neutral tones on a wooden rail",
+        "content_align": "left",
+        "vertical_align": "bottom",
+        "min_height_desktop": 720,
+        "min_height_mobile": 560,
+        "overlay_opacity": 42
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Autumn collection"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Soft layers for colder days",
+            "enable_custom_style": true,
+            "size_desktop": 84,
+            "size_mobile": 44
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Knitwear, shirting and outerwear in wool, cotton and linen.</p>"
+          }
+        },
+        "primary_button_4": {
+          "type": "primary_button",
+          "settings": {
+            "label": "Shop new in",
+            "link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "primary_button_4"
+      ]
+    },
+    "products_carousel_2": {
+      "type": "products-carousel",
+      "settings": {
+        "color_scheme": "default",
+        "items_to_show": 8,
+        "items_per_row": 4
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "New this week"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Just arrived in the studio.</p>"
+          }
+        },
+        "view_all_3": {
+          "type": "view_all",
+          "settings": {
+            "label": "View all",
+            "position": "header",
+            "link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "view_all_3"
+      ]
+    },
+    "hero_collage_3": {
+      "type": "hero-collage",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "image_aspect_ratio": "portrait"
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "The lookbook"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Wear it three ways"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>One wardrobe, layered for work, weekends and evenings out.</p>"
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "text": "Shop the collection",
+            "link": "/collections/all"
+          }
+        },
+        "image_5": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/clothing-jackets.webp",
+            "alt": "Jackets and coats on a rail"
+          }
+        },
+        "image_6": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/clothing-rail.webp",
+            "alt": "Shirts and dresses on a hanging rail"
+          }
+        },
+        "image_7": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/clothing-dress.webp",
+            "alt": "A printed summer dress"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4",
+        "image_5",
+        "image_6",
+        "image_7"
+      ]
+    },
+    "marquee_bar_4": {
+      "type": "marquee-bar",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9"
+      },
+      "blocks": {
+        "marquee_1": {
+          "type": "marquee",
+          "settings": {
+            "text": "Natural fibres"
+          }
+        },
+        "marquee_2": {
+          "type": "marquee",
+          "settings": {
+            "text": "Made in small runs"
+          }
+        },
+        "marquee_3": {
+          "type": "marquee",
+          "settings": {
+            "text": "Free returns"
+          }
+        },
+        "marquee_4": {
+          "type": "marquee",
+          "settings": {
+            "text": "Repairs for life"
+          }
+        }
+      },
+      "block_order": [
+        "marquee_1",
+        "marquee_2",
+        "marquee_3",
+        "marquee_4"
+      ]
+    },
+    "image_and_video_text_5": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "default",
+        "image": "shopify://shop_images/clothing-rack-warm.webp",
+        "image_alt": "Linen shirts in warm colours",
+        "image_position": "left"
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Materials"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Cut from cloth that lasts"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>We use linen, organic cotton and undyed wool, and we name the mill on every label.</p>"
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "Our story",
+            "link": "/pages/about"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
+    },
+    "products_listing_6": {
+      "type": "products-listing",
+      "settings": {
+        "items_to_show": 4,
+        "items_per_row": 4,
+        "color_scheme": "default"
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Wardrobe staples"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "The pieces we always restock"
+          }
+        },
+        "button_3": {
+          "type": "button",
+          "settings": {
+            "text": "Shop all",
+            "link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "button_3"
+      ]
+    },
+    "testimonials4_7": {
+      "type": "testimonials4",
+      "settings": {
+        "color_scheme": "scheme-7dae8b89-7a81-4c2c-b8e2-92533766f8ca"
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Reviews"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "From our customers"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Replace these with reviews from your own customers.</p>"
+          }
+        },
+        "testimonial_4": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Write what this customer said about your product.",
+            "name": "Customer name",
+            "role": ""
+          }
+        },
+        "testimonial_5": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Write what this customer said about your product.",
+            "name": "Customer name",
+            "role": ""
+          }
+        },
+        "testimonial_6": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Write what this customer said about your product.",
+            "name": "Customer name",
+            "role": ""
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "testimonial_4",
+        "testimonial_5",
+        "testimonial_6"
+      ]
+    },
+    "newsletter_split_8": {
+      "type": "newsletter-split",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "image": "shopify://shop_images/clothing-knit-top.webp",
+        "image_alt": "A cream knitted top on a hanger",
+        "image_ratio": "portrait",
+        "btn_text": "Join",
+        "note": "A few emails a month. Unsubscribe any time."
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "First look at every collection"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Join the list for early access and private sales.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2"
+      ]
+    }
+  },
+  "order": [
+    "hero_image1_1",
+    "products_carousel_2",
+    "hero_collage_3",
+    "marquee_bar_4",
+    "image_and_video_text_5",
+    "products_listing_6",
+    "testimonials4_7",
+    "newsletter_split_8"
+  ]
+}

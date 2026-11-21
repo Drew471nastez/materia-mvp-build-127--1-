@@ -1,0 +1,672 @@
+<script src="{{ 'live-announcements.js' | asset_url }}" defer="defer"></script>
+{%- comment -%} Runtime: shopify/assets/live-announcements.js (loaded by the layout on every page) runs the marquee per instance, pauses it off screen and applies live edits. {%- endcomment -%}
+{% render 'theme-type' %}
+{%- liquid
+  assign st = section.settings
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign __ti_scroll_animation = settings.scroll_animation | default: 'none'
+  assign fonts = st.enable_custom_fonts
+  assign custom = st.enable_custom_style
+-%}
+{%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
+{%- if section.settings.reveal == false -%}<span data-ti-no-reveal hidden></span>{%- endif -%}
+{%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' and section.settings.reveal != false -%}
+<style>
+  #shopify-section-{{ section.id }}.scroll-trigger {
+    --animation-duration: {{ settings.animation_duration | default: 700 }}ms;
+    --animation-delay: {{ settings.animation_delay | default: 0 }}ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-{{ section.id }}');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', {{ settings.scroll_animation | json }});
+  })();
+</script>
+{%- endif -%}
+{%- render 'announce-frame', section: section, z: 5 -%}
+{%- if fonts -%}<style>{{ st.body_font | font_face: font_display: 'swap' }}{%- for block in section.blocks -%}{%- if block.settings.enable_custom_fonts -%}{{ block.settings.font | font_face: font_display: 'swap' }}{%- endif -%}{%- endfor -%}</style>{%- else -%}{%- for block in section.blocks -%}{%- if block.settings.enable_custom_fonts -%}<style>{{ block.settings.font | font_face: font_display: 'swap' }}</style>{%- endif -%}{%- endfor -%}{%- endif -%}
+{% stylesheet %}   
+  .scrolling-marquee-1 .scrolling__marquee {
+    overflow: hidden;
+    padding-block: var(--scrolling-padding-top, 14px) var(--scrolling-padding-bottom, 14px);
+    gap: var(--scrolling-item-gap, 40px);
+    background: var(--scrolling-background-color, #FFDD00);
+    display: flex;
+    margin-inline: auto;
+    max-width: var(--scrolling-section-width, 1920px);
+    width: 100%;
+  }
+
+  .scrolling-marquee-1 .scrolling__marquee a { color: inherit; }
+
+  .scrolling-marquee-1 .scrolling__marquee-wrapper {
+    animation: scrollingMarqueeRightToLeft var(--scrolling-animation-duration, 30s) linear infinite;
+    gap: var(--scrolling-item-gap, 40px);
+    width: max-content;
+    flex-shrink: 0;
+    display: flex;
+    animation-direction: var(--scrolling-animation-direction, reverse);
+  }
+
+  .scrolling-marquee-1 .scrolling__marquee:hover .scrolling__marquee-wrapper {
+    animation-play-state: var(--scrolling-pause-on-hover, paused);
+  }
+
+  @keyframes scrollingMarqueeRightToLeft {
+    0%   { transform: translateX(0); }
+    100% { transform: translateX(calc((-100% - var(--scrolling-item-gap)))); }
+  }
+
+  .scrolling-marquee-1 .scrolling__marquee-item {
+    font-size: var(--scrolling-text-size, 48px);
+    font-weight: var(--scrolling-font-weight, 400);
+    color: var(--scrolling-text-color, #000000);
+    white-space: nowrap;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  .scrolling-marquee-1 .scrolling__marquee-item a { text-decoration: none; }
+
+  .scrolling-marquee-1 .scrolling__marquee-img {
+    width: 60px;
+  }
+
+  /* SVG support (per-block size, optional colorize, vertical offset) */
+  .scrolling-marquee-1 .scrolling__marquee-item--icon {
+    transform: translateY(var(--svg-icon-offset-y, 0px)); /* why: allow per-block vertical positioning */
+    will-change: transform;
+  }
+
+  .scrolling-marquee-1 .scrolling__marquee-svg-wrap svg {
+    width: var(--svg-size-mobile, 24px);
+    height: auto;
+  }
+  @media screen and (min-width: 768px) {
+    .scrolling-marquee-1 .scrolling__marquee-svg-wrap svg {
+      width: var(--svg-size-desktop, 24px);
+    }
+  }
+
+  /* Only recolor when explicitly enabled; never force fills */
+  .scrolling-marquee-1 .scrolling__marquee-svg-wrap[data-colorize="true"] svg:not([fill="none"]),
+  .scrolling-marquee-1 .scrolling__marquee-svg-wrap[data-colorize="true"] svg [fill]:not([fill="none"]) {
+    fill: var(--svg-color, currentColor) !important;
+  }
+  .scrolling-marquee-1 .scrolling__marquee-svg-wrap[data-colorize="true"] svg[stroke]:not([stroke="none"]),
+  .scrolling-marquee-1 .scrolling__marquee-svg-wrap[data-colorize="true"] svg [stroke]:not([stroke="none"]) {
+    stroke: var(--svg-color, currentColor) !important;
+  }
+  .scrolling-marquee-1 .scrolling__marquee-svg-wrap { display: flex; align-items: center; justify-content: center; line-height: 0; }
+{% endstylesheet %}
+
+<style>
+  #scrolling-{{ section.id }} { --scrolling-item-gap: var(--an-gap-m); --scrolling-padding-top: var(--an-pt-m); --scrolling-padding-bottom: var(--an-pb-m); --scrolling-text-size: var(--an-fs-m); font-family: var(--an-bf); font-weight: var(--scrolling-font-weight); }
+  #scrolling-{{ section.id }} .scrolling__marquee-block { display: contents; }
+  #scrolling-{{ section.id }} .scrolling__marquee-block > .scrolling__marquee-item { font-family: var(--an-b-f, inherit); }
+  #scrolling-{{ section.id }} .scrolling__marquee-item :is(p, strong, em, a, span) { font: inherit; color: inherit; margin: 0; }
+  #scrolling-{{ section.id }} .scrolling__marquee-img { height: auto; display: block; }
+  #scrolling-{{ section.id }}[data-paused] .scrolling__marquee-wrapper { animation-play-state: paused !important; }
+  @media screen and (min-width: 768px) {
+    #scrolling-{{ section.id }} { --scrolling-item-gap: var(--an-gap-d); --scrolling-padding-top: var(--an-pt-d); --scrolling-padding-bottom: var(--an-pb-d); --scrolling-text-size: var(--an-fs-d); }
+  }
+  {%- comment -%} Reveal on scroll when the theme has no scroll animation of its own; never in the builder. {%- endcomment %}
+  @keyframes scrollingMarqueeReveal { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  #scrolling-{{ section.id }}[data-own-reveal='true'] { animation: scrollingMarqueeReveal 700ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+  @supports (animation-timeline: view()) {
+    #scrolling-{{ section.id }}[data-own-reveal='true'] { animation-duration: auto; animation-timeline: view(); animation-range: entry 0% entry 80%; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #scrolling-{{ section.id }}, #scrolling-{{ section.id }}[data-own-reveal='true'] { animation: none; }
+    #scrolling-{{ section.id }} .scrolling__marquee { overflow-x: auto; }
+    #scrolling-{{ section.id }} .scrolling__marquee-wrapper { animation: none; }
+    #scrolling-{{ section.id }} .scrolling__marquee-wrapper[aria-hidden='true'] { display: none; }
+  }
+</style>
+{%- liquid
+  assign weight = st.text_weight
+  if weight == 'theme' or weight == blank
+    capture weight
+      render 'announce-font', font: st.body_font, on: fonts, fallback: 'var(--body-weight, 500)', weight: true
+    endcapture
+  endif
+  assign own_reveal = false
+  if st.reveal and __ti_scroll_animation == 'none'
+    unless request.design_mode
+      assign own_reveal = true
+    endunless
+  endif
+  assign repeats = st.repeat_count | default: 1
+  if repeats < 1
+    assign repeats = 1
+  endif
+-%}
+{%- capture an_vars -%}
+--an-fs-m: {{ st.mobile_text_size }}px;--an-fs-d: {{ st.desktop_text_size }}px;--an-gap-m: {{ st.mobile_item_gap }}px;--an-gap-d: {{ st.desktop_item_gap }}px;--an-pt-m: {{ st.mobile_top_padding }}px;--an-pt-d: {{ st.desktop_top_padding }}px;--an-pb-m: {{ st.mobile_bottom_padding }}px;--an-pb-d: {{ st.desktop_bottom_padding }}px;
+--scrolling-background-color: {% if custom %}{% if st.background_gradient != blank %}{{ st.background_gradient }}{% else %}{% render 'scheme-color', color: st.background_color, fallback: 'var(--color-background)' %}{% endif %}{% else %}var(--color-background){% endif %};
+--scrolling-text-color: {% if custom %}{% render 'scheme-color', color: st.text_color, fallback: 'var(--color-text)' %}{% else %}var(--color-text){% endif %};
+--scrolling-animation-duration: {% if st.duration > 0 %}{{ st.duration }}{% else %}30{% endif %}s;--scrolling-section-width: {% if st.inner_width > 0 %}{{ st.inner_width }}px{% else %}none{% endif %};
+--scrolling-pause-on-hover: {% if st.pause_on_hover %}paused{% else %}running{% endif %};--scrolling-animation-direction: {% if st.direction == 'normal' %}normal{% else %}reverse{% endif %};
+--scrolling-font-weight: {{ weight | strip }};--an-bf: {% render 'announce-font', font: st.body_font, on: fonts, fallback: 'var(--body-font)' %};
+{%- endcapture -%}
+
+
+<div id="scrolling-{{ section.id }}" class="scrolling-{{ section.id }} scrolling-marquee-1 color-{{ color_scheme }} gradient" data-an-root="marquee-bar" data-an-section="{{ section.id }}"{% if request.design_mode %} data-an-settings="{{ section.settings | json | escape }}"{% endif %}{% if request.design_mode %} data-an-defaults="&#123;&quot;color_scheme&quot;:&quot;default-color-scheme&quot;,&quot;section_width&quot;:&quot;full_width&quot;,&quot;reset_spacing&quot;:true,&quot;inner_width&quot;:1920,&quot;enable_custom_style&quot;:false,&quot;enable_custom_fonts&quot;:false,&quot;body_font&quot;:&quot;assistant_n4&quot;,&quot;text_weight&quot;:&quot;theme&quot;,&quot;desktop_text_size&quot;:20,&quot;reveal&quot;:true,&quot;duration&quot;:30,&quot;direction&quot;:&quot;reverse&quot;,&quot;pause_on_hover&quot;:true,&quot;repeat_count&quot;:3,&quot;desktop_item_gap&quot;:40,&quot;desktop_top_padding&quot;:14,&quot;desktop_bottom_padding&quot;:14,&quot;section_margin_top_desktop&quot;:0,&quot;section_margin_bottom_desktop&quot;:0,&quot;mobile_text_size&quot;:16,&quot;mobile_item_gap&quot;:10,&quot;mobile_top_padding&quot;:14,&quot;mobile_bottom_padding&quot;:14,&quot;section_margin_top_mobile&quot;:0,&quot;section_margin_bottom_mobile&quot;:0&#125;"{% endif %}{% if request.design_mode %} data-an-block-defaults="&#123;&quot;marquee&quot;:&#123;&quot;text&quot;:&quot;Write your message&quot;,&quot;enable_custom_style&quot;:false,&quot;enable_svg_icon_color&quot;:false,&quot;enable_custom_fonts&quot;:false,&quot;font&quot;:&quot;assistant_n4&quot;,&quot;svg_icon_size_desktop&quot;:40,&quot;svg_icon_size_mobile&quot;:20,&quot;svg_icon_vertical_offset&quot;:5&#125;&#125;"{% endif %} data-an-theme-anim="{{ __ti_scroll_animation | escape }}" data-width="{{ st.section_width | default: 'full_width' }}" data-reset="{% if st.reset_spacing %}true{% else %}false{% endif %}" data-own-reveal="{{ own_reveal }}" data-pause-hover="{% if st.pause_on_hover %}true{% else %}false{% endif %}" data-sticky-announcement="false"{% if fonts %} data-own-font data-own-weight{% endif %} style="{{ an_vars | strip_newlines }}">
+  <div{% if st.html_id != blank %} id="{{ st.html_id | handleize }}"{% endif %} class="{{ 'scrolling__marquee ' | append: st.html_class | replace: ',', ' ' | strip }}" data-an-track>
+    {%- for i in (1..repeats) -%}
+      <div class="scrolling__marquee-wrapper"{% if forloop.first %} data-an-group{% else %} aria-hidden="true" data-an-copies{% endif %}>
+        {%- if forloop.first -%}{%- render 'announce-marquee-items', section: section, copy: false -%}{%- else -%}{%- render 'announce-marquee-items', section: section, copy: true -%}{%- endif -%}
+      </div>
+    {%- endfor -%}
+  </div>
+</div>
+{% schema %}
+{
+  "enabled_on": {
+    "groups": [
+      "header",
+      "template"
+    ]
+  },
+  "name": "Marquee Bar",
+  "tag": "section",
+  "class": "scrollingbar section-edge-bleed",
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Section width",
+      "default": "full_width",
+      "options": [
+        {
+          "value": "container",
+          "label": "Default"
+        },
+        {
+          "value": "fluid_container",
+          "label": "Fluid container"
+        },
+        {
+          "value": "stretch_width",
+          "label": "Stretched"
+        },
+        {
+          "value": "full_width",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "reset_spacing",
+      "label": "Remove default space between sections",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Content"
+    },
+    {
+      "type": "paragraph",
+      "content": "Each Marquee block is one item: text, an image or an SVG icon. Drag blocks to reorder them."
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "number",
+      "id": "inner_width",
+      "label": "Strip max width (px)",
+      "default": 1920,
+      "info": "0 for no limit"
+    },
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_style",
+      "label": "Enable custom styling",
+      "default": false,
+      "info": "Off: colours follow the colour scheme."
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "Background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color_background",
+      "id": "background_gradient",
+      "label": "Background gradient",
+      "info": "Used instead of the background colour",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "header",
+      "content": "Typography"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_fonts",
+      "label": "Enable custom fonts",
+      "default": false,
+      "info": "Off: the text follows Theme settings > Typography."
+    },
+    {
+      "type": "font_picker",
+      "id": "body_font",
+      "label": "Text font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "select",
+      "id": "text_weight",
+      "label": "Text weight",
+      "options": [
+        {
+          "value": "theme",
+          "label": "Theme"
+        },
+        {
+          "value": "100",
+          "label": "Thin"
+        },
+        {
+          "value": "200",
+          "label": "Extra Light"
+        },
+        {
+          "value": "300",
+          "label": "Light"
+        },
+        {
+          "value": "400",
+          "label": "Regular"
+        },
+        {
+          "value": "500",
+          "label": "Medium"
+        },
+        {
+          "value": "600",
+          "label": "Semi Bold"
+        },
+        {
+          "value": "700",
+          "label": "Bold"
+        },
+        {
+          "value": "800",
+          "label": "Extra Bold"
+        },
+        {
+          "value": "900",
+          "label": "Black"
+        }
+      ],
+      "default": "theme"
+    },
+    {
+      "type": "range",
+      "id": "desktop_text_size",
+      "label": "Text size (desktop)",
+      "min": 5,
+      "max": 145,
+      "step": 5,
+      "default": 20,
+      "unit": "px"
+    },
+    {
+      "type": "header",
+      "content": "Animation"
+    },
+    {
+      "type": "checkbox",
+      "id": "reveal",
+      "label": "Reveal on scroll",
+      "default": true
+    },
+    {
+      "type": "number",
+      "id": "duration",
+      "label": "Loop duration (seconds)",
+      "default": 30,
+      "info": "Lower is faster. Stops for visitors who reduce motion."
+    },
+    {
+      "type": "select",
+      "id": "direction",
+      "label": "Direction",
+      "options": [
+        {
+          "label": "To left",
+          "value": "normal"
+        },
+        {
+          "label": "To right",
+          "value": "reverse"
+        }
+      ],
+      "default": "reverse"
+    },
+    {
+      "type": "checkbox",
+      "id": "pause_on_hover",
+      "label": "Pause on hover",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "repeat_count",
+      "label": "Copies of the items",
+      "min": 1,
+      "max": 5,
+      "step": 1,
+      "default": 3,
+      "info": "Enough copies to fill a wide screen with no gap."
+    },
+    {
+      "type": "header",
+      "content": "Desktop spacing"
+    },
+    {
+      "type": "range",
+      "id": "desktop_item_gap",
+      "label": "Gap between items (desktop)",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "default": 40,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "desktop_top_padding",
+      "min": 0,
+      "max": 200,
+      "step": 2,
+      "unit": "px",
+      "label": "Top padding (desktop)",
+      "default": 14
+    },
+    {
+      "type": "range",
+      "id": "desktop_bottom_padding",
+      "min": 0,
+      "max": 200,
+      "step": 2,
+      "unit": "px",
+      "label": "Bottom padding (desktop)",
+      "default": 14
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_desktop",
+      "label": "Top margin (desktop)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_desktop",
+      "label": "Bottom margin (desktop)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0
+    },
+    {
+      "type": "header",
+      "content": "Mobile"
+    },
+    {
+      "type": "range",
+      "id": "mobile_text_size",
+      "label": "Text size (mobile)",
+      "min": 8,
+      "max": 64,
+      "step": 1,
+      "default": 16,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "mobile_item_gap",
+      "label": "Gap between items (mobile)",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "default": 10,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "mobile_top_padding",
+      "min": 0,
+      "max": 100,
+      "step": 2,
+      "unit": "px",
+      "label": "Top padding (mobile)",
+      "default": 14
+    },
+    {
+      "type": "range",
+      "id": "mobile_bottom_padding",
+      "min": 0,
+      "max": 100,
+      "step": 2,
+      "unit": "px",
+      "label": "Bottom padding (mobile)",
+      "default": 14
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_mobile",
+      "label": "Top margin (mobile)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_mobile",
+      "label": "Bottom margin (mobile)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0
+    },
+    {
+      "type": "header",
+      "content": "Advanced"
+    },
+    {
+      "type": "text",
+      "id": "html_id",
+      "label": "HTML ID"
+    },
+    {
+      "type": "text",
+      "id": "html_class",
+      "label": "HTML class",
+      "info": "Comma separated list of classes."
+    }
+  ],
+  "blocks": [
+    {
+      "type": "marquee",
+      "name": "Marquee",
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "type": "inline_richtext",
+          "id": "text",
+          "label": "Text",
+          "default": "Write your message"
+        },
+        {
+          "type": "image_picker",
+          "id": "image",
+          "label": "Image",
+          "info": "Shown when there is no SVG icon"
+        },
+        {
+          "type": "textarea",
+          "id": "svg_icon",
+          "label": "SVG icon code",
+          "info": "Used instead of the image"
+        },
+        {
+          "type": "header",
+          "content": "Appearance"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "text_color",
+          "label": "Text",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_svg_icon_color",
+          "label": "Recolour the SVG icon",
+          "default": false,
+          "visible_if": "{{ block.settings.svg_icon != blank }}"
+        },
+        {
+          "type": "color",
+          "id": "svg_icon_color",
+          "label": "SVG icon colour",
+          "visible_if": "{{ block.settings.svg_icon != blank and block.settings.enable_svg_icon_color }}"
+        },
+        {
+          "type": "header",
+          "content": "Typography"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_fonts",
+          "label": "Enable custom font",
+          "default": false
+        },
+        {
+          "type": "font_picker",
+          "id": "font",
+          "label": "Font",
+          "default": "assistant_n4",
+          "visible_if": "{{ block.settings.enable_custom_fonts }}"
+        },
+        {
+          "type": "header",
+          "content": "Icon size"
+        },
+        {
+          "type": "range",
+          "id": "svg_icon_size_desktop",
+          "label": "SVG icon size (desktop)",
+          "min": 0,
+          "max": 160,
+          "step": 10,
+          "default": 40,
+          "unit": "px",
+          "visible_if": "{{ block.settings.svg_icon != blank }}"
+        },
+        {
+          "type": "range",
+          "id": "svg_icon_size_mobile",
+          "label": "SVG icon size (mobile)",
+          "min": 0,
+          "max": 120,
+          "step": 10,
+          "default": 20,
+          "unit": "px",
+          "visible_if": "{{ block.settings.svg_icon != blank }}"
+        },
+        {
+          "type": "range",
+          "id": "svg_icon_vertical_offset",
+          "label": "SVG icon vertical offset",
+          "min": -100,
+          "max": 100,
+          "step": 5,
+          "default": 5,
+          "unit": "px",
+          "visible_if": "{{ block.settings.svg_icon != blank }}"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Marquee Bar",
+      "category": "Announcements",
+      "blocks": [
+        {
+          "type": "marquee",
+          "settings": {
+            "text": "Your first message"
+          }
+        },
+        {
+          "type": "marquee",
+          "settings": {
+            "text": "Your second message"
+          }
+        },
+        {
+          "type": "marquee",
+          "settings": {
+            "text": "Your third message"
+          }
+        },
+        {
+          "type": "marquee",
+          "settings": {
+            "text": "Your fourth message"
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

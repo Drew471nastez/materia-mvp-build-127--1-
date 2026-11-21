@@ -1,0 +1,1322 @@
+{% render 'theme-type' %}
+{%- liquid
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+-%}
+{%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
+{%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
+<style>
+  #shopify-section-{{ section.id }}.scroll-trigger {
+    --animation-duration: {{ settings.animation_duration | default: 700 }}ms;
+    --animation-delay: {{ settings.animation_delay | default: 0 }}ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-{{ section.id }}');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', {{ settings.scroll_animation | json }});
+  })();
+</script>
+{%- endif -%}
+<style data-rs-bulletproof>
+  {%- if section.settings.reset_spacing -%}
+    /* reset_spacing: bulletproof override of ALL section spacing mechanisms */
+    #shopify-section-{{ section.id }},
+    #shopify-section-{{ section.id }} > .section,
+    #shopify-section-{{ section.id }} > section,
+    #shopify-section-{{ section.id }} > div,
+    #shopify-section-{{ section.id }} > div > .section {
+      margin-top: 0 !important;
+      margin-bottom: 0 !important;
+    }
+    #shopify-section-{{ section.id }} + .shopify-section,
+    #shopify-section-{{ section.id }} + section,
+    .shopify-section + #shopify-section-{{ section.id }} {
+      margin-top: 0 !important;
+    }
+  {%- endif -%}
+</style>
+{%- comment -%}
+  Materia Themes. Image With Icons.
+  An image beside text blocks and a row of icon features (library icon,
+  pasted SVG or an uploaded image). Colours follow the colour scheme;
+  custom colours and fonts are opt-in. Every value is a --tg-* / --iwi-*
+  variable written again live by media-live-text-grid.js.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Cg fill=%22%23808080%22 fill-opacity=%220.5%22%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22/%3E%3C/g%3E%3C/svg%3E'
+  assign image_block = section.blocks | where: 'type', 'image' | first
+  assign row_block = section.blocks | where: 'type', 'features_row' | first
+  assign ib = image_block.settings
+  case st.content_align
+    when 'center'
+      assign ai = 'center'
+      assign ta = 'center'
+    when 'right'
+      assign ai = 'flex-end'
+      assign ta = 'right'
+    else
+      assign ai = 'flex-start'
+      assign ta = 'left'
+  endcase
+  case st.content_align_mobile
+    when 'center'
+      assign ai_m = 'center'
+      assign ta_m = 'center'
+    when 'right'
+      assign ai_m = 'flex-end'
+      assign ta_m = 'right'
+    else
+      assign ai_m = 'flex-start'
+      assign ta_m = 'left'
+  endcase
+  case st.icon_radius_style
+    when 'rounded'
+      assign icon_r = '8px'
+    when 'square'
+      assign icon_r = '0px'
+    else
+      assign icon_r = '999px'
+  endcase
+-%}
+<style data-tg-margins>{% render 'media-tg-base', st: st, sid: sid, bp: 900, part: 'margins' %}</style>
+<style>
+{% render 'media-tg-base', st: st, sid: sid, bp: 900 %}
+#shopify-section-{{ sid }} .iwi__grid { display: flex; flex-direction: column; align-items: center; gap: var(--iwi-gap-m); }
+#shopify-section-{{ sid }} .iwi__media, #shopify-section-{{ sid }} .iwi__text { width: 100%; min-width: 0; }
+#shopify-section-{{ sid }} .iwi__media { overflow: hidden; border-radius: var(--iwi-r); aspect-ratio: var(--iwi-ar); background: color-mix(in srgb, var(--color-text) 8%, var(--color-background)); }
+#shopify-section-{{ sid }} .iwi__media img { width: 100%; height: 100%; display: block; object-fit: var(--iwi-fit); }
+#shopify-section-{{ sid }} .iwi__text { display: flex; flex-direction: column; gap: var(--iwi-cgap); align-items: var(--iwi-ai-m); text-align: var(--iwi-ta-m); }
+#shopify-section-{{ sid }} .iwi__text > * { margin: 0; max-width: 100%; }
+#shopify-section-{{ sid }} .iwi__eyebrow { font-size: var(--tg-size, 12px); font-weight: var(--subheading-weight, 700); letter-spacing: 2px; text-transform: uppercase; line-height: 1.2; color: var(--tg-c, inherit); }
+#shopify-section-{{ sid }} .iwi .iwi__heading { font-size: var(--tg-size-m); line-height: var(--heading-line-height, 1.1); color: var(--tg-c, var(--color-heading)); }
+#shopify-section-{{ sid }} .iwi__subheading { font-size: var(--tg-size-m); line-height: 1.6; max-width: 560px; color: var(--tg-c, inherit); }
+#shopify-section-{{ sid }} .iwi__subheading p { margin: 0 0 .5em; }
+#shopify-section-{{ sid }} .iwi__subheading > :last-child { margin-bottom: 0; }
+#shopify-section-{{ sid }} .iwi__btn { width: var(--tg-btn-w, auto); }
+#shopify-section-{{ sid }} .iwi__features { display: grid; width: 100%; grid-template-columns: repeat(var(--iwi-fc-m), minmax(0, 1fr)); gap: var(--iwi-fg-m); margin-top: var(--iwi-fmt); }
+#shopify-section-{{ sid }} .iwi__feature { display: flex; flex-direction: column; align-items: var(--iwi-ai-m); text-align: var(--iwi-ta-m); gap: 8px; min-width: 0; }
+#shopify-section-{{ sid }} .iwi__icon {
+  flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; overflow: hidden;
+  width: var(--iwi-icon); height: var(--iwi-icon); border-radius: var(--iwi-icon-r);
+  background: var(--iwi-icon-bg, var(--color-heading)); color: var(--iwi-icon-fg, var(--color-background));
+}
+#shopify-section-{{ sid }} .iwi__icon svg { width: var(--iwi-glyph); height: var(--iwi-glyph); display: block; }
+#shopify-section-{{ sid }} .iwi__icon img { width: 100%; height: 100%; object-fit: contain; display: block; }
+#shopify-section-{{ sid }} .iwi__feature-label { font-size: var(--iwi-lsize); font-weight: var(--iwi-lw); line-height: 1.3; color: var(--iwi-label, inherit); overflow-wrap: anywhere; }
+@media (min-width: 900px) {
+  #shopify-section-{{ sid }} .iwi__grid { flex-direction: var(--iwi-dir); gap: var(--iwi-gap-d); }
+  #shopify-section-{{ sid }} .iwi__text { flex: 0 0 var(--iwi-tw); width: auto; align-items: var(--iwi-ai-d); text-align: var(--iwi-ta-d); }
+  #shopify-section-{{ sid }} .iwi__media { flex: 1 1 0; width: auto; }
+  #shopify-section-{{ sid }} .iwi .iwi__heading, #shopify-section-{{ sid }} .iwi__subheading { font-size: var(--tg-size-d); }
+  #shopify-section-{{ sid }} .iwi__features { grid-template-columns: repeat(var(--iwi-fc-d), minmax(0, 1fr)); gap: var(--iwi-fg-d); }
+  #shopify-section-{{ sid }} .iwi__feature { align-items: var(--iwi-ai-d); text-align: var(--iwi-ta-d); }
+}
+</style>
+{%- capture features -%}
+  <div class="iwi__features"{% if row_block %} {{ row_block.shopify_attributes }}{% endif %}>
+    {%- for feat in section.blocks -%}
+      {%- if feat.type == 'feature' -%}
+        {%- assign fs = feat.settings -%}
+        <div class="iwi__feature" data-block-id="{{ feat.id }}" data-tg-block="{{ feat.id }}" data-tg-type="feature"{% if request.design_mode %} data-tg-settings="{{ fs | json | escape }}"{% endif %}{% if fs.enable_custom_style %} style="--iwi-icon-bg:{% render 'scheme-color', color: fs.icon_bg, fallback: 'initial' %};--iwi-icon-fg:{% render 'scheme-color', color: fs.icon_color, fallback: 'initial' %};--iwi-label:{% render 'scheme-color', color: fs.label_color, fallback: 'initial' %};"{% endif %} {{ feat.shopify_attributes }}>
+          <span class="iwi__icon" aria-hidden="true">
+            {%- case fs.icon_type -%}
+              {%- when 'image' -%}
+                {%- if fs.icon_image != blank -%}<img src="{{ fs.icon_image | image_url: width: 200 }}" alt="" width="88" height="88" loading="lazy">{%- endif -%}
+              {%- when 'svg' -%}
+                {%- if fs.icon_svg contains '<svg' -%}{{ fs.icon_svg }}{%- endif -%}
+              {%- else -%}
+                {%- render 'hp-icon', icon: fs.icon_library -%}
+            {%- endcase -%}
+          </span>
+          <span class="iwi__feature-label"{% if fs.label == blank %} hidden{% endif %}>{{ fs.label | escape }}</span>
+        </div>
+      {%- endif -%}
+    {%- endfor -%}
+  </div>
+{%- endcapture -%}
+<div id="iwi-{{ sid }}" class="tg iwi section sec__image-with-icons color-{{ color_scheme }} gradient" data-tg-root="icons"{% render 'media-tg-own', st: st %} data-tg-section="{{ sid }}" data-tg-placeholder="{{ placeholder }}"{% if request.design_mode %} data-tg-settings="{{ st | json | escape }}"{% endif %}{% if request.design_mode %} data-tg-defaults='{"color_scheme":"default-color-scheme","section_width":"container","reset_spacing":true,"image_position":"left","content_align":"left","text_column_width":50,"gap_desktop":64,"content_gap":16,"features_columns_desktop":"4","features_gap_desktop":22,"features_margin_top":8,"icon_size":44,"icon_radius_style":"round","icon_glyph_size":50,"feature_label_size":13,"feature_label_weight":"500","enable_custom_style":false,"enable_custom_fonts":false,"heading_font":"assistant_n4","body_font":"assistant_n4","padding_top_desktop":100,"padding_bottom_desktop":100,"side_padding_desktop":8,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"content_align_mobile":"left","gap_mobile":32,"features_columns_mobile":"2","features_gap":18,"padding_top_mobile":60,"padding_bottom_mobile":60,"side_padding_mobile":20,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0}'{% endif %}{% if request.design_mode %} data-tg-block-defaults='{"image":{"aspect_w":4,"aspect_h":3,"fit":"cover","radius":12},"eyebrow":{"text":"Why we are different","enable_custom_style":false,"size":12},"heading":{"text":"Why shop with us","tag":"h2","enable_custom_style":false,"size_desktop":44,"size_mobile":32},"subheading":{"text":"\u003cp>Name the reasons customers pick your store, one short label under each icon.\u003c/p>","enable_custom_style":false,"size_desktop":17,"size_mobile":15},"features_row":{},"feature":{"label":"Feature","icon_type":"library","icon_library":"check_circle","enable_custom_style":false},"button":{"label":"Shop now","full_width":false,"uppercase":false,"enable_custom_style":false,"use_theme_button":true,"padding_x":26,"padding_y":14,"radius":8,"border_width":1,"font_size":14,"font_weight":"600"}}'{% endif %}
+  style="{% render 'media-tg-vars', st: st, text_color: true %}--iwi-dir:{% if st.image_position == 'right' %}row-reverse{% else %}row{% endif %};--iwi-ai-d:{{ ai }};--iwi-ta-d:{{ ta }};--iwi-ai-m:{{ ai_m }};--iwi-ta-m:{{ ta_m }};--iwi-tw:{{ st.text_column_width | default: 50 }}%;--iwi-gap-d:{{ st.gap_desktop | default: 64 }}px;--iwi-gap-m:{{ st.gap_mobile | default: 32 }}px;--iwi-cgap:{{ st.content_gap | default: 16 }}px;--iwi-fc-d:{{ st.features_columns_desktop | default: 4 }};--iwi-fc-m:{{ st.features_columns_mobile | default: 2 }};--iwi-fg-d:{{ st.features_gap_desktop | default: 22 }}px;--iwi-fg-m:{{ st.features_gap | default: 18 }}px;--iwi-fmt:{{ st.features_margin_top | default: 8 }}px;--iwi-icon:{{ st.icon_size | default: 44 }}px;--iwi-icon-r:{{ icon_r }};--iwi-glyph:{{ st.icon_glyph_size | default: 50 }}%;--iwi-lsize:{{ st.feature_label_size | default: 13 }}px;--iwi-lw:{{ st.feature_label_weight | default: '500' }};{% if st.enable_custom_style %}--iwi-icon-bg:{% render 'scheme-color', color: st.icon_bg, fallback: 'initial' %};--iwi-icon-fg:{% render 'scheme-color', color: st.icon_color, fallback: 'initial' %};--iwi-label:{% render 'scheme-color', color: st.feature_label_color, fallback: 'initial' %};{% endif %}">
+  <div class="tg__inner iwi__inner">
+    <div class="iwi__grid">
+      <div class="iwi__media"{% if image_block %} data-tg-block="{{ image_block.id }}" data-tg-type="image"{% if request.design_mode %} data-tg-settings="{{ ib | json | escape }}"{% endif %} {{ image_block.shopify_attributes }}{% endif %} style="--iwi-ar:{{ ib.aspect_w | default: 4 }} / {{ ib.aspect_h | default: 3 }};--iwi-r:{{ ib.radius | default: 12 }}px;--iwi-fit:{{ ib.fit | default: 'cover' }};">
+        {%- if ib.image != blank -%}
+          <img src="{{ ib.image | image_url: width: 1400 }}" srcset="{{ ib.image | image_url: width: 600 }} 600w, {{ ib.image | image_url: width: 900 }} 900w, {{ ib.image | image_url: width: 1400 }} 1400w" sizes="(min-width: 900px) 50vw, 100vw" alt="{{ ib.image.alt | escape }}" width="{{ ib.image.width | default: 1400 }}" height="{{ ib.image.height | default: 1050 }}" loading="lazy" decoding="async">
+        {%- else -%}
+          <img class="tg__ph" src="{{ placeholder }}" alt="" width="400" height="300" loading="lazy" decoding="async">
+        {%- endif -%}
+      </div>
+      <div class="iwi__text">
+        {%- for block in section.blocks -%}
+          {%- assign bs = block.settings -%}
+          {%- capture data -%}data-block-id="{{ block.id }}" data-tg-block="{{ block.id }}" data-tg-type="{{ block.type }}"{% if request.design_mode %} data-tg-settings="{{ bs | json | escape }}"{% endif %} {{ block.shopify_attributes }}{%- endcapture -%}
+          {%- capture color -%}{% if bs.enable_custom_style %}--tg-c:{% render 'scheme-color', color: bs.color, fallback: 'initial' %};{% endif %}{%- endcapture -%}
+          {%- case block.type -%}
+            {%- when 'eyebrow' -%}
+              <p class="iwi__eyebrow" {{ data }} style="--tg-size:{{ bs.size | default: 12 }}px;{{ color }}"{% if bs.text == blank %} hidden{% endif %}>{{ bs.text | escape }}</p>
+            {%- when 'heading' -%}
+              <h2 class="tg__h iwi__heading" {{ data }} style="--tg-size-d:{{ bs.size_desktop | default: 44 }}px;--tg-size-m:{{ bs.size_mobile | default: 32 }}px;{{ color }}"{% if bs.text == blank %} hidden{% endif %}>{{ bs.text }}</h2>
+            {%- when 'subheading' -%}
+              <div class="iwi__subheading" {{ data }} style="--tg-size-d:{{ bs.size_desktop | default: 17 }}px;--tg-size-m:{{ bs.size_mobile | default: 15 }}px;{{ color }}"{% if bs.text == blank %} hidden{% endif %}>{{ bs.text }}</div>
+            {%- when 'features_row' -%}
+              {{ features }}
+            {%- when 'button' -%}
+              {%- liquid
+                assign custom_btn = true
+                if bs.use_theme_button
+                  assign custom_btn = false
+                endif
+                assign btn_case = blank
+                if bs.uppercase
+                  assign btn_case = 'uppercase'
+                elsif custom_btn
+                  assign btn_case = 'none'
+                endif
+              -%}
+              {%- if bs.link != blank -%}<a href="{{ bs.link | url }}"{% else %}<button type="button"{% endif %} class="iwi__btn" data-theme-button="primary" data-sl-button{% if custom_btn %} data-own-shape{% if bs.font_weight != blank %} data-own-weight{% endif %}{% endif %} {{ data }}{% if bs.label == blank %} hidden{% endif %} style="{% if bs.enable_custom_style %}{% render 'button-overrides', bg: bs.bg, text: bs.color, border: bs.border_color, hover_bg: bs.bg_hover, hover_text: bs.color_hover, hover_border: bs.border_color_hover %}{% endif %}{% render 'button-overrides', custom: custom_btn, radius: bs.radius, padding_y: bs.padding_y, padding_x: bs.padding_x, font_size: bs.font_size, weight: bs.font_weight, border_width: bs.border_width, transform: btn_case %}{% if bs.full_width %}--tg-btn-w:100%;{% endif %}">{{ bs.label | escape }}{% if bs.link != blank %}</a>{% else %}</button>{% endif %}
+          {%- endcase -%}
+        {%- endfor -%}
+        {%- unless row_block -%}{{ features }}{%- endunless -%}
+      </div>
+    </div>
+  </div>
+  {%- if request.design_mode -%}
+    {%- assign icon_names = 'truck,package,plane,globe,return,refresh,clock,calendar,shield,shield_check,lock,credit_card,badge_check,check,check_circle,star,award,heart,gift,leaf,recycle,sparkles,lightning,fire,percent,tag,chat,headset' | split: ',' -%}
+    {%- for name in icon_names -%}<template data-tg-icon="{{ name }}">{%- render 'hp-icon', icon: name -%}</template>{%- endfor -%}
+  {%- endif -%}
+</div>{% schema %}
+{
+  "name": "Image With Icons",
+  "tag": "section",
+  "class": "section sec__image-with-icons",
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Section width",
+      "default": "container",
+      "options": [
+        {
+          "value": "container",
+          "label": "Default"
+        },
+        {
+          "value": "fluid_container",
+          "label": "Fluid container"
+        },
+        {
+          "value": "stretch_width",
+          "label": "Stretched"
+        },
+        {
+          "value": "full_width",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "reset_spacing",
+      "label": "Remove space between sections",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "select",
+      "id": "image_position",
+      "label": "Image side",
+      "default": "left",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "content_align",
+      "label": "Text alignment",
+      "default": "left",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "text_column_width",
+      "label": "Text column width",
+      "min": 30,
+      "max": 70,
+      "step": 1,
+      "unit": "%",
+      "default": 50
+    },
+    {
+      "type": "range",
+      "id": "gap_desktop",
+      "label": "Gap between columns",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 64
+    },
+    {
+      "type": "range",
+      "id": "content_gap",
+      "label": "Gap between blocks",
+      "min": 0,
+      "max": 60,
+      "step": 2,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "header",
+      "content": "Icons"
+    },
+    {
+      "type": "select",
+      "id": "features_columns_desktop",
+      "label": "Icons per row",
+      "default": "4",
+      "options": [
+        {
+          "value": "2",
+          "label": "2 columns"
+        },
+        {
+          "value": "3",
+          "label": "3 columns"
+        },
+        {
+          "value": "4",
+          "label": "4 columns"
+        },
+        {
+          "value": "5",
+          "label": "5 columns"
+        },
+        {
+          "value": "6",
+          "label": "6 columns"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "features_gap_desktop",
+      "label": "Gap between icons",
+      "min": 4,
+      "max": 60,
+      "step": 2,
+      "unit": "px",
+      "default": 22
+    },
+    {
+      "type": "range",
+      "id": "features_margin_top",
+      "label": "Space above icons",
+      "min": 0,
+      "max": 60,
+      "step": 2,
+      "unit": "px",
+      "default": 8
+    },
+    {
+      "type": "range",
+      "id": "icon_size",
+      "label": "Icon tile size",
+      "min": 24,
+      "max": 80,
+      "step": 2,
+      "unit": "px",
+      "default": 44
+    },
+    {
+      "type": "select",
+      "id": "icon_radius_style",
+      "label": "Icon tile shape",
+      "default": "round",
+      "options": [
+        {
+          "value": "round",
+          "label": "Round (pill)"
+        },
+        {
+          "value": "rounded",
+          "label": "Rounded square (8px)"
+        },
+        {
+          "value": "square",
+          "label": "Square"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "icon_glyph_size",
+      "label": "Icon size in tile",
+      "min": 30,
+      "max": 90,
+      "step": 5,
+      "unit": "%",
+      "default": 50
+    },
+    {
+      "type": "range",
+      "id": "feature_label_size",
+      "label": "Label size",
+      "min": 10,
+      "max": 18,
+      "step": 1,
+      "unit": "px",
+      "default": 13
+    },
+    {
+      "type": "select",
+      "id": "feature_label_weight",
+      "label": "Label weight",
+      "default": "500",
+      "options": [
+        {
+          "value": "400",
+          "label": "Regular (400)"
+        },
+        {
+          "value": "500",
+          "label": "Medium (500)"
+        },
+        {
+          "value": "600",
+          "label": "Semibold (600)"
+        }
+      ]
+    },
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_style",
+      "label": "Enable custom styling",
+      "default": false
+    },
+    {
+      "type": "color",
+      "id": "section_bg",
+      "label": "Background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "icon_bg",
+      "label": "Icon tile",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "icon_color",
+      "label": "Icon",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "feature_label_color",
+      "label": "Icon label",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "header",
+      "content": "Typography"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_fonts",
+      "label": "Enable custom fonts",
+      "default": false
+    },
+    {
+      "type": "font_picker",
+      "id": "heading_font",
+      "label": "Heading font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "font_picker",
+      "id": "body_font",
+      "label": "Body font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "header",
+      "content": "Desktop spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top_desktop",
+      "label": "Top padding",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 100
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom_desktop",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 100
+    },
+    {
+      "type": "range",
+      "id": "side_padding_desktop",
+      "label": "Side padding",
+      "min": 0,
+      "max": 80,
+      "step": 2,
+      "unit": "px",
+      "default": 8
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_desktop",
+      "label": "Top margin",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_desktop",
+      "label": "Bottom margin",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "header",
+      "content": "Mobile"
+    },
+    {
+      "type": "select",
+      "id": "content_align_mobile",
+      "label": "Text alignment (mobile)",
+      "default": "left",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "gap_mobile",
+      "label": "Gap between columns (mobile)",
+      "min": 0,
+      "max": 80,
+      "step": 2,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "select",
+      "id": "features_columns_mobile",
+      "label": "Icons per row (mobile)",
+      "default": "2",
+      "options": [
+        {
+          "value": "1",
+          "label": "1 column"
+        },
+        {
+          "value": "2",
+          "label": "2 columns"
+        },
+        {
+          "value": "3",
+          "label": "3 columns"
+        },
+        {
+          "value": "4",
+          "label": "4 columns"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "features_gap",
+      "label": "Gap between icons (mobile)",
+      "min": 4,
+      "max": 60,
+      "step": 2,
+      "unit": "px",
+      "default": 18
+    },
+    {
+      "type": "range",
+      "id": "padding_top_mobile",
+      "label": "Top padding (mobile)",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 60
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom_mobile",
+      "label": "Bottom padding (mobile)",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 60
+    },
+    {
+      "type": "range",
+      "id": "side_padding_mobile",
+      "label": "Side padding (mobile)",
+      "min": 0,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_mobile",
+      "label": "Top margin (mobile)",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_mobile",
+      "label": "Bottom margin (mobile)",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    }
+  ],
+  "blocks": [
+    {
+      "type": "image",
+      "name": "Image",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "image_picker",
+          "id": "image",
+          "label": "Image"
+        },
+        {
+          "type": "header",
+          "content": "Layout"
+        },
+        {
+          "type": "range",
+          "id": "aspect_w",
+          "label": "Ratio width",
+          "min": 1,
+          "max": 16,
+          "step": 1,
+          "default": 4
+        },
+        {
+          "type": "range",
+          "id": "aspect_h",
+          "label": "Ratio height",
+          "min": 1,
+          "max": 16,
+          "step": 1,
+          "default": 3
+        },
+        {
+          "type": "select",
+          "id": "fit",
+          "label": "Image fit",
+          "default": "cover",
+          "options": [
+            {
+              "value": "cover",
+              "label": "Cover"
+            },
+            {
+              "value": "contain",
+              "label": "Contain"
+            }
+          ]
+        },
+        {
+          "type": "range",
+          "id": "radius",
+          "label": "Image corner radius",
+          "min": 0,
+          "max": 60,
+          "step": 1,
+          "unit": "px",
+          "default": 12
+        }
+      ]
+    },
+    {
+      "type": "eyebrow",
+      "name": "Eyebrow",
+      "limit": 2,
+      "settings": [
+        {
+          "type": "text",
+          "id": "text",
+          "label": "Text",
+          "default": "Why we are different"
+        },
+        {
+          "type": "header",
+          "content": "Appearance"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Text",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "header",
+          "content": "Typography"
+        },
+        {
+          "type": "range",
+          "id": "size",
+          "label": "Text size",
+          "min": 9,
+          "max": 18,
+          "step": 1,
+          "unit": "px",
+          "default": 12
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "name": "Heading",
+      "limit": 2,
+      "settings": [
+        {
+          "type": "inline_richtext",
+          "id": "text",
+          "label": "Heading",
+          "default": "Why shop with us"
+        },
+        {
+          "type": "select",
+          "id": "tag",
+          "label": "HTML tag",
+          "default": "h2",
+          "options": [
+            {
+              "value": "h1",
+              "label": "H1"
+            },
+            {
+              "value": "h2",
+              "label": "H2"
+            },
+            {
+              "value": "h3",
+              "label": "H3"
+            }
+          ],
+          "hidden": true,
+          "info": "Kept for saved content. The heading renders as h2.",
+          "visible_if": "{{ false }}"
+        },
+        {
+          "type": "header",
+          "content": "Appearance"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Heading",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "header",
+          "content": "Typography"
+        },
+        {
+          "type": "range",
+          "id": "size_desktop",
+          "label": "Size (desktop)",
+          "min": 22,
+          "max": 80,
+          "step": 1,
+          "unit": "px",
+          "default": 44
+        },
+        {
+          "type": "range",
+          "id": "size_mobile",
+          "label": "Size (mobile)",
+          "min": 18,
+          "max": 56,
+          "step": 1,
+          "unit": "px",
+          "default": 32
+        }
+      ]
+    },
+    {
+      "type": "subheading",
+      "name": "Subheading",
+      "limit": 2,
+      "settings": [
+        {
+          "type": "richtext",
+          "id": "text",
+          "label": "Text",
+          "default": "<p>Name the reasons customers pick your store, one short label under each icon.</p>"
+        },
+        {
+          "type": "header",
+          "content": "Appearance"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Text",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "header",
+          "content": "Typography"
+        },
+        {
+          "type": "range",
+          "id": "size_desktop",
+          "label": "Size (desktop)",
+          "min": 12,
+          "max": 24,
+          "step": 1,
+          "unit": "px",
+          "default": 17
+        },
+        {
+          "type": "range",
+          "id": "size_mobile",
+          "label": "Size (mobile)",
+          "min": 11,
+          "max": 20,
+          "step": 1,
+          "unit": "px",
+          "default": 15
+        }
+      ]
+    },
+    {
+      "type": "features_row",
+      "name": "Features row (anchor)",
+      "limit": 1,
+      "settings": []
+    },
+    {
+      "type": "feature",
+      "name": "Feature",
+      "settings": [
+        {
+          "type": "text",
+          "id": "label",
+          "label": "Label",
+          "default": "Feature"
+        },
+        {
+          "type": "header",
+          "content": "Icon"
+        },
+        {
+          "type": "select",
+          "id": "icon_type",
+          "label": "Icon source",
+          "default": "library",
+          "options": [
+            {
+              "value": "library",
+              "label": "Built-in icon library"
+            },
+            {
+              "value": "svg",
+              "label": "Custom SVG (paste markup)"
+            },
+            {
+              "value": "image",
+              "label": "Image upload"
+            }
+          ]
+        },
+        {
+          "type": "select",
+          "id": "icon_library",
+          "label": "Icon",
+          "default": "check_circle",
+          "options": [
+            {
+              "value": "truck",
+              "label": "Truck"
+            },
+            {
+              "value": "package",
+              "label": "Package"
+            },
+            {
+              "value": "plane",
+              "label": "Plane"
+            },
+            {
+              "value": "globe",
+              "label": "Globe"
+            },
+            {
+              "value": "return",
+              "label": "Return"
+            },
+            {
+              "value": "refresh",
+              "label": "Refresh"
+            },
+            {
+              "value": "clock",
+              "label": "Clock"
+            },
+            {
+              "value": "calendar",
+              "label": "Calendar"
+            },
+            {
+              "value": "shield",
+              "label": "Shield"
+            },
+            {
+              "value": "shield_check",
+              "label": "Shield with check"
+            },
+            {
+              "value": "lock",
+              "label": "Lock"
+            },
+            {
+              "value": "credit_card",
+              "label": "Credit card"
+            },
+            {
+              "value": "badge_check",
+              "label": "Verified badge"
+            },
+            {
+              "value": "check",
+              "label": "Check"
+            },
+            {
+              "value": "check_circle",
+              "label": "Check circle"
+            },
+            {
+              "value": "star",
+              "label": "Star"
+            },
+            {
+              "value": "award",
+              "label": "Award"
+            },
+            {
+              "value": "heart",
+              "label": "Heart"
+            },
+            {
+              "value": "gift",
+              "label": "Gift"
+            },
+            {
+              "value": "leaf",
+              "label": "Leaf"
+            },
+            {
+              "value": "recycle",
+              "label": "Recycle"
+            },
+            {
+              "value": "sparkles",
+              "label": "Sparkles"
+            },
+            {
+              "value": "lightning",
+              "label": "Lightning"
+            },
+            {
+              "value": "fire",
+              "label": "Fire"
+            },
+            {
+              "value": "percent",
+              "label": "Percent"
+            },
+            {
+              "value": "tag",
+              "label": "Tag"
+            },
+            {
+              "value": "chat",
+              "label": "Chat"
+            },
+            {
+              "value": "headset",
+              "label": "Headset"
+            }
+          ],
+          "visible_if": "{{ block.settings.icon_type == 'library' }}"
+        },
+        {
+          "type": "textarea",
+          "id": "icon_svg",
+          "label": "Custom SVG",
+          "visible_if": "{{ block.settings.icon_type == 'svg' }}"
+        },
+        {
+          "type": "image_picker",
+          "id": "icon_image",
+          "label": "Icon image",
+          "visible_if": "{{ block.settings.icon_type == 'image' }}"
+        },
+        {
+          "type": "header",
+          "content": "Appearance"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "icon_bg",
+          "label": "Icon tile",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "icon_color",
+          "label": "Icon",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "label_color",
+          "label": "Label",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        }
+      ]
+    },
+    {
+      "type": "button",
+      "name": "Button",
+      "limit": 3,
+      "settings": [
+        {
+          "type": "text",
+          "id": "label",
+          "label": "Label",
+          "default": "Shop now"
+        },
+        {
+          "type": "url",
+          "id": "link",
+          "label": "Link"
+        },
+        {
+          "type": "header",
+          "content": "Layout"
+        },
+        {
+          "type": "checkbox",
+          "id": "full_width",
+          "label": "Full width",
+          "default": false
+        },
+        {
+          "type": "checkbox",
+          "id": "uppercase",
+          "label": "Uppercase",
+          "default": false
+        },
+        {
+          "type": "header",
+          "content": "Appearance"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "bg",
+          "label": "Background",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Text",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "border_color",
+          "label": "Border",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "bg_hover",
+          "label": "Background on hover",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "color_hover",
+          "label": "Text on hover",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "border_color_hover",
+          "label": "Border on hover",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "header",
+          "content": "Shape"
+        },
+        {
+          "type": "checkbox",
+          "id": "use_theme_button",
+          "label": "Use theme button style",
+          "default": true
+        },
+        {
+          "type": "range",
+          "id": "padding_x",
+          "label": "Horizontal padding",
+          "min": 8,
+          "max": 60,
+          "step": 1,
+          "unit": "px",
+          "default": 26,
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        },
+        {
+          "type": "range",
+          "id": "padding_y",
+          "label": "Vertical padding",
+          "min": 6,
+          "max": 40,
+          "step": 1,
+          "unit": "px",
+          "default": 14,
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        },
+        {
+          "type": "range",
+          "id": "radius",
+          "label": "Corner radius",
+          "min": 0,
+          "max": 100,
+          "step": 1,
+          "unit": "px",
+          "default": 8,
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        },
+        {
+          "type": "range",
+          "id": "border_width",
+          "label": "Border width",
+          "min": 0,
+          "max": 4,
+          "step": 1,
+          "unit": "px",
+          "default": 1,
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        },
+        {
+          "type": "range",
+          "id": "font_size",
+          "label": "Font size",
+          "min": 11,
+          "max": 22,
+          "step": 1,
+          "unit": "px",
+          "default": 14,
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        },
+        {
+          "type": "select",
+          "id": "font_weight",
+          "label": "Font weight",
+          "default": "600",
+          "options": [
+            {
+              "value": "500",
+              "label": "Medium (500)"
+            },
+            {
+              "value": "600",
+              "label": "Semibold (600)"
+            },
+            {
+              "value": "700",
+              "label": "Bold (700)"
+            }
+          ],
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Image With Icons",
+      "category": "Image and video",
+      "blocks": [
+        {
+          "type": "image"
+        },
+        {
+          "type": "heading",
+          "settings": {
+            "text": "Why shop with us"
+          }
+        },
+        {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Name the reasons customers pick your store, one short label under each icon.</p>"
+          }
+        },
+        {
+          "type": "features_row"
+        },
+        {
+          "type": "feature",
+          "settings": {
+            "label": "Secure checkout",
+            "icon_library": "shield_check"
+          }
+        },
+        {
+          "type": "feature",
+          "settings": {
+            "label": "Tracked shipping",
+            "icon_library": "truck"
+          }
+        },
+        {
+          "type": "feature",
+          "settings": {
+            "label": "Responsibly made",
+            "icon_library": "leaf"
+          }
+        },
+        {
+          "type": "feature",
+          "settings": {
+            "label": "Made to last",
+            "icon_library": "sparkles"
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,90 @@
+{
+  "sections": {
+    "page_heading_1": {
+      "type": "page-heading",
+      "settings": {
+        "color_scheme": "default"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "page_title": "Sizing and FAQ"
+          }
+        },
+        "description_2": {
+          "type": "description",
+          "settings": {
+            "description": "<p>Fit, delivery, returns and care.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_2"
+      ]
+    },
+    "faq_side_image_2": {
+      "type": "faq-side-image",
+      "settings": {
+        "color_scheme": "default",
+        "image": "shopify://shop_images/clothing-bomber.webp",
+        "image_position": "right"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Before you order"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>If your question is not here, write to us.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How does your sizing run?",
+            "answer": "<p>Our pieces are cut true to size. Each product page has a size guide with measurements in centimetres.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How long does delivery take?",
+            "answer": "<p>Three to five working days. Express delivery is offered at checkout.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I return or exchange?",
+            "answer": "<p>Yes, within 30 days. The piece must be unworn with its tags attached.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How should I wash linen and wool?",
+            "answer": "<p>Wash linen cool and hang it to dry. Wash wool by hand, or use a wool cycle, and dry it flat.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6"
+      ]
+    }
+  },
+  "order": [
+    "page_heading_1",
+    "faq_side_image_2"
+  ]
+}

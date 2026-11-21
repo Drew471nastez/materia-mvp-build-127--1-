@@ -1,0 +1,36 @@
+{%- comment -%}
+  Materia Themes. Developed By Materia Themes.
+{%- endcomment -%}
+{%- liquid
+  assign t = template | split: '.' | first
+-%}
+{% if settings.scroll_animation != 'none' %}
+  <script src="{{ 'animation.js' | asset_url }}" defer="defer"></script>
+{%- endif %}
+<script src="{{ 'tingle.min.js' | asset_url }}" defer="defer"></script>
+<script src="{{ 'cart-discount.js' | asset_url }}" defer="defer"></script>
+<script src="{{ 'theme.js' | asset_url }}"  defer="defer" type="module"></script>
+<script src="{{ 'materia-experience.js' | asset_url }}" defer="defer"></script>
+<script src="{{ 'product-card-settings.js' | asset_url }}" defer="defer"></script>
+<script src="{{ 'size-chart.js' | asset_url }}" defer="defer"></script>
+{% if settings.perf_nav != false and request.design_mode != true %}
+  <script src="{{ 'theme-navigation.js' | asset_url }}" defer="defer"></script>
+{% endif %}
+<script src="{{ 'cart-variant-edit.js' | asset_url }}" defer="defer"></script>
+{%- case t -%}
+  {%- when 'collection' -%}
+    {%- comment -%} Sort, filters and load more. ('when' takes no 'and': it is a plain case.) {%- endcomment -%}
+    <script src="{{ 'collection.js' | asset_url }}" defer="defer"></script>
+  {%- when 'product' -%}
+    <script src="{{ 'main-product.js' | asset_url }}" defer="defer"></script>
+    {%- comment -%} The 360 viewer (107 KB) only for a product that has 360 images (alt text "image-360"), as the gallery draws them. {%- endcomment -%}
+    {%- assign has_360 = false -%}
+    {%- for media in product.media -%}
+      {%- if media.alt == 'image-360' -%}{%- assign has_360 = true -%}{%- break -%}{%- endif -%}
+    {%- endfor -%}
+    {%- if has_360 -%}
+      <script src="{{ 'js-cloudimage-360-view.min.js' | asset_url }}" defer="defer"></script>
+    {%- endif -%}
+  {%- when 'search' -%}
+    <script src="{{ 'collection.js' | asset_url }}" defer="defer"></script>
+{%- endcase -%}

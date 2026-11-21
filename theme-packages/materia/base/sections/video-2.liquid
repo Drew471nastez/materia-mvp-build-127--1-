@@ -1,0 +1,358 @@
+<script src="{{ 'media-live-image-video.js' | asset_url }}" defer="defer"></script>
+{% render 'theme-type' %}
+{%- liquid
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+-%}
+{%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
+{%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
+<style>
+  #shopify-section-{{ section.id }}.scroll-trigger {
+    --animation-duration: {{ settings.animation_duration | default: 700 }}ms;
+    --animation-delay: {{ settings.animation_delay | default: 0 }}ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-{{ section.id }}');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', {{ settings.scroll_animation | json }});
+  })();
+</script>
+{%- endif -%}
+<style data-rs-bulletproof data-iv-reset{% unless section.settings.reset_spacing %} media="not all"{% endunless %}>
+  #shopify-section-{{ section.id }},
+  #shopify-section-{{ section.id }} > .section,
+  #shopify-section-{{ section.id }} > section,
+  #shopify-section-{{ section.id }} > div,
+  #shopify-section-{{ section.id }} > div > .section {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+  }
+  #shopify-section-{{ section.id }} + .shopify-section,
+  #shopify-section-{{ section.id }} + section,
+  .shopify-section + #shopify-section-{{ section.id }} {
+    margin-top: 0 !important;
+  }
+</style>
+{%- comment -%}
+  Materia Themes. Video 2: one video, uploaded or from a URL (MP4, YouTube,
+  Vimeo), or a cover image. Every value below is a CSS variable on the root,
+  so media-live-image-video.js changes it live without a redraw.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign custom = st.enable_custom_style
+  assign play_style = st.play_button_style | default: 'circle'
+-%}
+{%- capture iv_bg -%}{%- if custom -%}{%- render 'scheme-color', color: st.section_bg, fallback: 'var(--color-background)' -%}{%- else -%}var(--color-background){%- endif -%}{%- endcapture -%}
+{%- capture iv_overlay -%}{%- if custom -%}{%- render 'scheme-color', color: st.overlay_color, fallback: 'var(--color-background)' -%}{%- else -%}var(--color-background){%- endif -%}{%- endcapture -%}
+<style>
+  #shopify-section-{{ sid }} { isolation: isolate; position: relative; }
+  #shopify-section-{{ sid }} .vid2, #shopify-section-{{ sid }} .vid2 * { box-sizing: border-box; }
+  #shopify-section-{{ sid }} .vid2 { display: block; width: 100%; margin-inline: auto; background: var(--iv-bg); padding: var(--iv-pt-m) var(--iv-px-m) var(--iv-pb-m); }
+  #shopify-section-{{ sid }} .vid2--w-container { max-width: calc(var(--page-width, 1300px) + 3rem); }
+  #shopify-section-{{ sid }} .vid2--w-fluid_container { max-width: calc(var(--fluid-container-width, 1500px) + 3rem); }
+  #shopify-section-{{ sid }} .vid2__inner { width: 100%; margin-inline: auto; }
+  #shopify-section-{{ sid }} :is(.vid2--w-container, .vid2--w-fluid_container) .vid2__inner { max-width: var(--page-width, 1300px); }
+  #shopify-section-{{ sid }} .vid2__media { position: relative; width: 100%; aspect-ratio: var(--iv-ratio); border-radius: var(--iv-radius); overflow: hidden; }
+  #shopify-section-{{ sid }} .vid2--bleed { padding-left: 0; padding-right: 0; max-width: none; }
+  #shopify-section-{{ sid }} .vid2--bleed .vid2__inner { max-width: none; }
+  #shopify-section-{{ sid }} .vid2--bleed .vid2__media { border-radius: 0; }
+  @media (min-width: 768px) {
+    #shopify-section-{{ sid }} .vid2 { padding: var(--iv-pt-d) var(--iv-px-d) var(--iv-pb-d); }
+    #shopify-section-{{ sid }} .vid2--bleed { padding-left: 0; padding-right: 0; }
+  }
+  @media (min-width: 1200px) {
+    #shopify-section-{{ sid }} .vid2--w-stretch_width:not(.vid2--bleed) { padding-left: max(3rem, var(--iv-px-d)); padding-right: max(3rem, var(--iv-px-d)); }
+  }
+</style>
+<div id="vid2-{{ sid }}" class="vid2 section sec__video-2 color-{{ color_scheme }} gradient vid2--w-{{ st.section_width | default: 'full_width' }}{% if st.full_bleed %} vid2--bleed{% endif %}" data-section-id="{{ sid }}"
+  data-iv="video-2" data-iv-section="{{ sid }}" data-iv-settings="{{ st | json | escape }}" data-iv-defaults='{"color_scheme":"default-color-scheme","section_width":"full_width","reset_spacing":true,"full_bleed":false,"aspect_w":16,"aspect_h":9,"autoplay":true,"muted":true,"loop":true,"show_controls":false,"show_mute_btn":true,"play_button_style":"circle","enable_custom_style":false,"overlay_opacity":0,"radius":16,"padding_top_desktop":60,"padding_bottom_desktop":60,"side_padding_desktop":32,"padding_top_mobile":40,"padding_bottom_mobile":40,"side_padding_mobile":20}'
+  style="--iv-bg:{{ iv_bg }};--iv-pt-d:{{ st.padding_top_desktop }}px;--iv-pb-d:{{ st.padding_bottom_desktop }}px;--iv-px-d:{{ st.side_padding_desktop }}px;--iv-pt-m:{{ st.padding_top_mobile }}px;--iv-pb-m:{{ st.padding_bottom_mobile }}px;--iv-px-m:{{ st.side_padding_mobile }}px;--iv-ratio:{{ st.aspect_w | default: 16 }} / {{ st.aspect_h | default: 9 }};--iv-radius:{{ st.radius }}px;--iv-overlay:{{ iv_overlay }};--iv-overlay-o:{{ st.overlay_opacity | default: 0 | divided_by: 100.0 }}">
+  <div class="vid2__inner">
+    <div class="vid2__media" data-vid2-media>
+      {%- render 'media-iv-player', sid: sid, video: st.video, url: st.video_url, poster: st.poster, autoplay: st.autoplay, loop: st.loop, controls: st.show_controls, muted: st.muted, label: st.video_alt, title: '', play_style: play_style, mute_btn: st.show_mute_btn, lazy: false, fit: 'cover' -%}
+    </div>
+  </div>
+</div>{% schema %}
+{
+  "name": "Video 2",
+  "tag": "section",
+  "class": "section sec__video-2",
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Section width",
+      "default": "full_width",
+      "options": [
+        {
+          "value": "container",
+          "label": "Default"
+        },
+        {
+          "value": "fluid_container",
+          "label": "Fluid container"
+        },
+        {
+          "value": "stretch_width",
+          "label": "Stretched"
+        },
+        {
+          "value": "full_width",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "reset_spacing",
+      "label": "Remove the theme's space between sections",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "checkbox",
+      "id": "full_bleed",
+      "label": "Edge to edge",
+      "default": false,
+      "info": "The video fills the screen width with no side padding or corners."
+    },
+    {
+      "type": "range",
+      "id": "aspect_w",
+      "label": "Shape width",
+      "min": 1,
+      "max": 32,
+      "step": 1,
+      "default": 16,
+      "info": "With Shape height, sets the shape: 16 and 9 is widescreen."
+    },
+    {
+      "type": "range",
+      "id": "aspect_h",
+      "label": "Shape height",
+      "min": 1,
+      "max": 32,
+      "step": 1,
+      "default": 9
+    },
+    {
+      "type": "header",
+      "content": "Video"
+    },
+    {
+      "type": "video",
+      "id": "video",
+      "label": "Video",
+      "info": "Uploaded videos play first."
+    },
+    {
+      "type": "url",
+      "id": "video_url",
+      "label": "Video URL",
+      "info": "An MP4 file, YouTube or Vimeo link, used when no video is uploaded."
+    },
+    {
+      "type": "image_picker",
+      "id": "poster",
+      "label": "Cover image",
+      "info": "Shown before the video plays, or alone when there is no video."
+    },
+    {
+      "type": "text",
+      "id": "video_alt",
+      "label": "Video description",
+      "info": "Read by screen readers."
+    },
+    {
+      "type": "checkbox",
+      "id": "autoplay",
+      "label": "Autoplay",
+      "default": true,
+      "info": "Starts muted while on screen. Not for visitors who ask for reduced motion."
+    },
+    {
+      "type": "checkbox",
+      "id": "muted",
+      "label": "Muted",
+      "default": true,
+      "info": "Autoplay always starts muted.",
+      "visible_if": "{{ section.settings.autoplay == false }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "loop",
+      "label": "Loop",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_controls",
+      "label": "Player controls",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "show_mute_btn",
+      "label": "Sound button",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "play_button_style",
+      "label": "Play button",
+      "default": "circle",
+      "options": [
+        {
+          "value": "circle",
+          "label": "Filled"
+        },
+        {
+          "value": "outline",
+          "label": "Outline"
+        },
+        {
+          "value": "none",
+          "label": "None"
+        }
+      ],
+      "visible_if": "{{ section.settings.show_controls == false }}"
+    },
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_style",
+      "label": "Enable custom styling",
+      "default": false,
+      "info": "Off: colours follow the colour scheme."
+    },
+    {
+      "type": "color",
+      "id": "section_bg",
+      "label": "Section background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "overlay_color",
+      "label": "Overlay colour",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "range",
+      "id": "overlay_opacity",
+      "label": "Overlay opacity",
+      "min": 0,
+      "max": 90,
+      "step": 5,
+      "unit": "%",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "radius",
+      "label": "Video corner radius",
+      "min": 0,
+      "max": 40,
+      "step": 1,
+      "unit": "px",
+      "default": 16,
+      "visible_if": "{{ section.settings.full_bleed == false }}"
+    },
+    {
+      "type": "header",
+      "content": "Desktop spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top_desktop",
+      "label": "Top padding (desktop)",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 60
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom_desktop",
+      "label": "Bottom padding (desktop)",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 60
+    },
+    {
+      "type": "range",
+      "id": "side_padding_desktop",
+      "label": "Side padding (desktop)",
+      "min": 0,
+      "max": 80,
+      "step": 2,
+      "unit": "px",
+      "default": 32,
+      "visible_if": "{{ section.settings.full_bleed == false }}"
+    },
+    {
+      "type": "header",
+      "content": "Mobile"
+    },
+    {
+      "type": "range",
+      "id": "padding_top_mobile",
+      "label": "Top padding (mobile)",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom_mobile",
+      "label": "Bottom padding (mobile)",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "side_padding_mobile",
+      "label": "Side padding (mobile)",
+      "min": 0,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "default": 20,
+      "visible_if": "{{ section.settings.full_bleed == false }}"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Video 2",
+      "category": "Image and video"
+    }
+  ]
+}
+{% endschema %}

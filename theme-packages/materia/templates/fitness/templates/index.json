@@ -1,0 +1,462 @@
+{
+  "sections": {
+    "hero_image1_1": {
+      "type": "hero-image1",
+      "settings": {
+        "color_scheme": "default",
+        "image": "shopify://shop_images/fitness-hero-barbell.webp",
+        "image_alt": "A lifter with a barbell across her shoulders, in black and white",
+        "content_align": "left",
+        "vertical_align": "center",
+        "min_height_desktop": 760,
+        "min_height_mobile": 600,
+        "overlay_opacity": 48
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Online coaching and programs"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Get strong. Stay strong.",
+            "enable_custom_style": true,
+            "size_desktop": 128,
+            "size_mobile": 64
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Training plans written by a coach, built around the time you have.</p>"
+          }
+        },
+        "primary_button_4": {
+          "type": "primary_button",
+          "settings": {
+            "label": "See the programs",
+            "link": "/collections/all"
+          }
+        },
+        "secondary_button_5": {
+          "type": "secondary_button",
+          "settings": {
+            "label": "How coaching works",
+            "link": "/pages/about"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "primary_button_4",
+        "secondary_button_5"
+      ]
+    },
+    "marquee_bar_2": {
+      "type": "marquee-bar",
+      "settings": {
+        "color_scheme": "scheme-6da511c0-ea26-4213-b3d3-e09320840636"
+      },
+      "blocks": {
+        "marquee_1": {
+          "type": "marquee",
+          "settings": {
+            "text": "Strength"
+          }
+        },
+        "marquee_2": {
+          "type": "marquee",
+          "settings": {
+            "text": "Conditioning"
+          }
+        },
+        "marquee_3": {
+          "type": "marquee",
+          "settings": {
+            "text": "Mobility"
+          }
+        },
+        "marquee_4": {
+          "type": "marquee",
+          "settings": {
+            "text": "Nutrition"
+          }
+        }
+      },
+      "block_order": [
+        "marquee_1",
+        "marquee_2",
+        "marquee_3",
+        "marquee_4"
+      ]
+    },
+    "hero_benefits_3": {
+      "type": "hero-benefits",
+      "settings": {
+        "use_content_blocks": true,
+        "color_scheme": "default",
+        "image_position": "right"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "heading": "Training that fits your week.",
+            "accent_word": "your week."
+          }
+        },
+        "image_2": {
+          "type": "image",
+          "settings": {
+            "image_desktop": "shopify://shop_images/fitness-pull-up.webp",
+            "alt": "A man doing a pull up, seen from behind"
+          }
+        },
+        "benefit_3": {
+          "type": "benefit",
+          "settings": {
+            "icon_type": "library",
+            "icon_library": "shield",
+            "title": "A plan for you",
+            "description": "<p>Sessions set to your level and schedule.</p>"
+          }
+        },
+        "benefit_4": {
+          "type": "benefit",
+          "settings": {
+            "icon_type": "library",
+            "icon_library": "zap",
+            "title": "Clear progress",
+            "description": "<p>Every lift tracked, week by week.</p>"
+          }
+        },
+        "benefit_5": {
+          "type": "benefit",
+          "settings": {
+            "icon_type": "library",
+            "icon_library": "sparkle",
+            "title": "Video for every move",
+            "description": "<p>See how each exercise is done.</p>"
+          }
+        },
+        "benefit_6": {
+          "type": "benefit",
+          "settings": {
+            "icon_type": "library",
+            "icon_library": "heart",
+            "title": "A coach who answers",
+            "description": "<p>Ask a question and get a real reply.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "image_2",
+        "benefit_3",
+        "benefit_4",
+        "benefit_5",
+        "benefit_6"
+      ]
+    },
+    "products_listing_4": {
+      "type": "products-listing",
+      "settings": {
+        "items_to_show": 3,
+        "items_per_row": 3,
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976"
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Programs"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Pick your program"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Buy once, train for as long as you like.</p>"
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "text": "All programs",
+            "link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
+    },
+    "image_with_text_multirow_5": {
+      "type": "image-with-text-multirow",
+      "settings": {
+        "color_scheme": "default"
+      },
+      "blocks": {
+        "row_1": {
+          "type": "row",
+          "settings": {
+            "caption": "Strength",
+            "heading": "Lift more, safely",
+            "image": "shopify://shop_images/fitness-deadlift.webp",
+            "body": "<p>Squat, deadlift, press and pull, with loads that climb at the right pace.</p>",
+            "btn_label": "Strength programs",
+            "btn_link": "/collections/all"
+          }
+        },
+        "row_2": {
+          "type": "row",
+          "settings": {
+            "caption": "Conditioning",
+            "heading": "Build an engine",
+            "image": "shopify://shop_images/fitness-ropes.webp",
+            "body": "<p>Short, hard sessions that raise your work rate without wrecking recovery.</p>",
+            "btn_label": "Conditioning programs",
+            "btn_link": "/collections/all"
+          }
+        },
+        "row_3": {
+          "type": "row",
+          "settings": {
+            "caption": "Mobility",
+            "heading": "Move without pain",
+            "image": "shopify://shop_images/fitness-stretch.webp",
+            "body": "<p>Ten minutes a day to keep hips, shoulders and back working properly.</p>",
+            "btn_label": "Mobility programs",
+            "btn_link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "row_1",
+        "row_2",
+        "row_3"
+      ]
+    },
+    "steps_6": {
+      "type": "steps",
+      "settings": {
+        "color_scheme": "scheme-7dae8b89-7a81-4c2c-b8e2-92533766f8ca"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "How coaching works"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Three steps to your first session.</p>"
+          }
+        },
+        "step_3": {
+          "type": "step",
+          "settings": {
+            "title": "Tell us about you",
+            "description": "<p>Your goals, your training history and your week.</p>"
+          }
+        },
+        "step_4": {
+          "type": "step",
+          "settings": {
+            "title": "Get your plan",
+            "description": "<p>A program with video for every exercise.</p>"
+          }
+        },
+        "step_5": {
+          "type": "step",
+          "settings": {
+            "title": "Train and check in",
+            "description": "<p>Log your sessions and hear back from your coach.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "step_3",
+        "step_4",
+        "step_5"
+      ]
+    },
+    "testimonials_7": {
+      "type": "testimonials",
+      "settings": {
+        "color_scheme": "default"
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Results"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "From people who train with us"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Replace these with words from your own clients.</p>"
+          }
+        },
+        "testimonial_4": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Write what this customer said about your product.</p>",
+            "name": "Client name",
+            "role": ""
+          }
+        },
+        "testimonial_5": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Write what this customer said about your product.</p>",
+            "name": "Client name",
+            "role": ""
+          }
+        },
+        "testimonial_6": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Write what this customer said about your product.</p>",
+            "name": "Client name",
+            "role": ""
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "testimonial_4",
+        "testimonial_5",
+        "testimonial_6"
+      ]
+    },
+    "faq_side_image_8": {
+      "type": "faq-side-image",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "image": "shopify://shop_images/fitness-gym.webp",
+        "image_position": "left"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Before you start"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Common questions about the programs.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do I need a gym?",
+            "answer": "<p>Each program lists the equipment it needs. Some need a full gym, others a pair of dumbbells.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "I am a beginner. Where do I start?",
+            "answer": "<p>Start with the foundation program. It teaches the main lifts and builds up slowly.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How do I get the program?",
+            "answer": "<p>You get a PDF and video links straight after checkout, and a copy by email.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How long are the sessions?",
+            "answer": "<p>Most sessions take 45 to 60 minutes, three or four times a week.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6"
+      ]
+    },
+    "richtext2_9": {
+      "type": "richtext2",
+      "settings": {
+        "color_scheme": "scheme-6da511c0-ea26-4213-b3d3-e09320840636",
+        "badge_text": "Ready?"
+      },
+      "blocks": {
+        "title_1": {
+          "type": "title",
+          "settings": {
+            "title_text": "Your first session starts today"
+          }
+        },
+        "description_2": {
+          "type": "description",
+          "settings": {
+            "description_text": "Pick a program and get the plan in your inbox in a minute."
+          }
+        },
+        "button_3": {
+          "type": "button",
+          "settings": {
+            "button_text": "See the programs",
+            "button_link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "title_1",
+        "description_2",
+        "button_3"
+      ]
+    }
+  },
+  "order": [
+    "hero_image1_1",
+    "marquee_bar_2",
+    "hero_benefits_3",
+    "products_listing_4",
+    "image_with_text_multirow_5",
+    "steps_6",
+    "testimonials_7",
+    "faq_side_image_8",
+    "richtext2_9"
+  ]
+}

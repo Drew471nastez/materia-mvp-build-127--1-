@@ -1,0 +1,1394 @@
+<script src="{{ 'live-announcements.js' | asset_url }}" defer="defer"></script>
+{%- comment -%} Runtime: shopify/assets/live-announcements.js (loaded by the layout on every page) applies live edits and runs the close button. {%- endcomment -%}
+{% render 'theme-type' %}
+{%- liquid
+  assign st = section.settings
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign __ti_scroll_animation = settings.scroll_animation | default: 'none'
+  assign fonts = st.enable_custom_fonts
+  assign custom = st.enable_custom_style
+-%}
+{%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
+{%- if section.settings.reveal == false -%}<span data-ti-no-reveal hidden></span>{%- endif -%}
+{%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' and section.settings.reveal != false -%}
+<style>
+  #shopify-section-{{ section.id }}.scroll-trigger {
+    --animation-duration: {{ settings.animation_duration | default: 700 }}ms;
+    --animation-delay: {{ settings.animation_delay | default: 0 }}ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-{{ section.id }}');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', {{ settings.scroll_animation | json }});
+  })();
+</script>
+{%- endif -%}
+{%- render 'announce-frame', section: section -%}
+{%- if fonts -%}<style>{{ st.body_font | font_face: font_display: 'swap' }}</style>{%- elsif st.enable_custom_font -%}
+<style>
+  @import url('https://fonts.googleapis.com/css2?family={{ st.custom_font | replace: ' ', '+' }}&display=swap');
+</style>
+{%- endif -%}
+{%- for block in section.blocks -%}{%- if block.settings.enable_custom_fonts and block.settings.font.family != blank -%}<style>{{ block.settings.font | font_face: font_display: 'swap' }}</style>{%- endif -%}{%- endfor -%}
+{%- liquid
+  assign ab_align = st.content_alignment | default: 'center'
+  case ab_align
+    when 'left'
+      assign ab_justify = 'flex-start'
+      assign ab_text_align = 'start'
+    when 'right'
+      assign ab_justify = 'flex-end'
+      assign ab_text_align = 'end'
+    else
+      assign ab_justify = 'center'
+      assign ab_text_align = 'center'
+  endcase
+  assign sid = section.id
+-%}
+<style>
+  #shopify-section-{{ sid }} .unique-announcement-bar { position: relative; display: flex; align-items: center; justify-content: var(--ab-justify); gap: var(--ab-gap); flex-wrap: wrap; padding: 8px var(--ab-px-m); min-height: var(--ab-h-m); font-size: var(--ab-fs-m); row-gap: 6px; text-align: var(--ab-ta); letter-spacing: var(--ab-ls); text-transform: var(--ab-tt); font-family: var(--ab-ff); font-weight: var(--ab-fw); background: var(--ab-bg); color: var(--ab-text); border-bottom: var(--ab-bw) solid var(--ab-border); }
+  #shopify-section-{{ sid }} .unique-announcement-bar a:not([data-theme-button]) { color: var(--b-c, var(--ab-text)) !important; text-decoration: none; }
+  #shopify-section-{{ sid }} .unique-announcement-bar a:not([data-theme-button]):hover { text-decoration: underline; }
+  #shopify-section-{{ sid }} .unique-announcement-bar .ab-msg { flex: 0 1 auto; margin: 0; transition: none; color: var(--b-c, var(--ab-text)); font-family: var(--b-f, inherit); font-weight: var(--b-w, var(--ab-fw)); }
+  #shopify-section-{{ sid }} .unique-announcement-bar .ab-msg__d { display: none; }
+  #shopify-section-{{ sid }} .unique-announcement-bar .ab-button { white-space: nowrap; flex-shrink: 0; }
+  #shopify-section-{{ sid }} .unique-announcement-bar .close-button { position: absolute; inset-inline-end: 4px; top: 50%; transform: translateY(-50%); display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin: 0; background: none; border: none; box-shadow: none; color: var(--ab-text) !important; font-size: 20px; font-family: inherit; cursor: pointer; padding: 0; line-height: 1; z-index: 1; border-radius: 4px; }
+  #shopify-section-{{ sid }} .unique-announcement-bar[data-close-m='false'] .close-button { display: none; }
+  @media (max-width: 767px) {
+    #shopify-section-{{ sid }} .unique-announcement-bar [data-vis='desktop'], #shopify-section-{{ sid }} .unique-announcement-bar[data-show='display_only_desktop'] { display: none !important; }
+  }
+  @media (min-width: 768px) {
+    #shopify-section-{{ sid }} .unique-announcement-bar { min-height: var(--ab-h-d); font-size: var(--ab-fs-d); padding: 0 var(--ab-px); row-gap: var(--ab-gap); }
+    #shopify-section-{{ sid }} .unique-announcement-bar .ab-msg__d { display: inline; }
+    #shopify-section-{{ sid }} .unique-announcement-bar .ab-msg__m { display: none; }
+    #shopify-section-{{ sid }} .unique-announcement-bar .close-button { inset-inline-end: 20px; margin-inline-end: -14px; }
+    #shopify-section-{{ sid }} .unique-announcement-bar[data-close-m] .close-button { display: inline-flex; }
+    #shopify-section-{{ sid }} .unique-announcement-bar[data-close-d='false'] .close-button { display: none; }
+    #shopify-section-{{ sid }} .unique-announcement-bar [data-vis='mobile'], #shopify-section-{{ sid }} .unique-announcement-bar[data-show='display_mobile'] { display: none !important; }
+  }
+  #shopify-section-{{ sid }} .unique-announcement-bar[data-show='display_none'] { display: none; }
+  #shopify-section-{{ sid }} .unique-announcement-bar .close-button:hover { background: color-mix(in srgb, currentColor 10%, transparent); }
+</style>
+{%- capture ab_vars -%}
+--ab-bg: {% if st.background_type == 'gradient' %}linear-gradient({{ st.gradient_angle }}deg, {% if custom %}{% render 'scheme-color', color: st.gradient_start_color, fallback: 'var(--color-background)' %}{% else %}var(--color-background){% endif %}, {% if custom %}{% render 'scheme-color', color: st.gradient_end_color, fallback: 'var(--color-primary)' %}{% else %}var(--color-primary){% endif %}){% else %}{% if custom %}{% render 'scheme-color', color: st.background_color, fallback: 'var(--color-background)' %}{% else %}var(--color-background){% endif %}{% endif %};
+--ab-text: {% if custom %}{% render 'scheme-color', color: st.text_color, fallback: 'var(--color-text)' %}{% else %}var(--color-text){% endif %};
+--ab-border: {% if custom %}{% render 'scheme-color', color: st.border_color, fallback: 'var(--color-border)' %}{% else %}var(--color-border){% endif %};--ab-bw: {% if st.show_border_bottom %}{{ st.border_width | default: 1 }}px{% else %}0px{% endif %};
+--ab-justify: {{ ab_justify }};--ab-ta: {{ ab_text_align }};--ab-gap: {{ st.content_gap | default: 0 }}px;--ab-px: {{ st.bar_padding_x | default: 0 }}px;--ab-px-m: {% if st.show_close_button_mobile %}36px{% else %}14px{% endif %};
+--ab-ls: {{ st.letter_spacing | default: 0 }}px;--ab-tt: {{ st.text_transform | default: 'none' }};
+--ab-ff: {% if fonts %}{% render 'announce-font', font: st.body_font, on: true, fallback: 'inherit' %}{% elsif st.enable_custom_font %}"{{ st.custom_font }}"{% else %}inherit{% endif %};
+--ab-fw: {% if st.enable_custom_font_weight %}{{ st.message_font_weight | default: 400 }}{% elsif fonts %}{% render 'announce-font', font: st.body_font, on: true, fallback: 'var(--body-weight, inherit)', weight: true %}{% else %}var(--body-weight, inherit){% endif %};
+--ab-fs-d: {{ st.font_size }}px;--ab-fs-m: {{ st.mobile_font_size }}px;--ab-h-d: {{ st.bar_height }}px;--ab-h-m: {{ st.mobile_bar_height }}px;
+{%- endcapture -%}
+{%- assign own_font = false -%}{%- if fonts or st.enable_custom_font -%}{%- assign own_font = true -%}{%- endif -%}
+<section id="announcement-bar-{{ sid }}" class="unique-announcement-bar color-{{ color_scheme }} gradient" data-an-root="announcement-bar-basic" data-an-section="{{ sid }}"{% if request.design_mode %} data-an-settings="{{ section.settings | json | escape }}"{% else %} data-an-close-days="{% if section.settings.close_persistence_days == nil %}1{% else %}{{ section.settings.close_persistence_days }}{% endif %}"{% endif %}{% if request.design_mode %} data-an-defaults="&#123;&quot;color_scheme&quot;:&quot;default-color-scheme&quot;,&quot;section_width&quot;:&quot;full_width&quot;,&quot;display_section_on&quot;:&quot;display_all&quot;,&quot;reset_spacing&quot;:true,&quot;message&quot;:&quot;&quot;,&quot;message_mobile&quot;:&quot;&quot;,&quot;link&quot;:&quot;/&quot;,&quot;open_in_new_tab&quot;:false,&quot;content_alignment&quot;:&quot;center&quot;,&quot;content_gap&quot;:12,&quot;bar_padding_x&quot;:20,&quot;background_type&quot;:&quot;solid&quot;,&quot;gradient_angle&quot;:90,&quot;show_border_bottom&quot;:false,&quot;border_width&quot;:1,&quot;enable_custom_style&quot;:false,&quot;enable_custom_fonts&quot;:false,&quot;body_font&quot;:&quot;assistant_n4&quot;,&quot;enable_custom_font&quot;:false,&quot;custom_font&quot;:&quot;Roboto&quot;,&quot;font_size&quot;:15,&quot;enable_custom_font_weight&quot;:false,&quot;message_font_weight&quot;:&quot;400&quot;,&quot;button_font_weight&quot;:&quot;600&quot;,&quot;letter_spacing&quot;:0,&quot;text_transform&quot;:&quot;none&quot;,&quot;reveal&quot;:true,&quot;show_close_button&quot;:true,&quot;show_close_button_mobile&quot;:true,&quot;close_label&quot;:&quot;Close announcement&quot;,&quot;close_persistence_days&quot;:1,&quot;bar_height&quot;:53,&quot;section_margin_top_desktop&quot;:0,&quot;section_margin_bottom_desktop&quot;:0,&quot;mobile_font_size&quot;:15,&quot;mobile_bar_height&quot;:49,&quot;section_margin_top_mobile&quot;:0,&quot;section_margin_bottom_mobile&quot;:0&#125;"{% endif %}{% if request.design_mode %} data-an-block-defaults="&#123;&quot;message&quot;:&#123;&quot;text&quot;:&quot;Write your announcement here&quot;,&quot;open_in_new_tab&quot;:false,&quot;visibility&quot;:&quot;all&quot;,&quot;enable_custom_style&quot;:false,&quot;enable_custom_fonts&quot;:false,&quot;font&quot;:&quot;assistant_n4&quot;&#125;,&quot;button&quot;:&#123;&quot;label&quot;:&quot;Shop now&quot;,&quot;open_in_new_tab&quot;:false,&quot;visibility&quot;:&quot;all&quot;,&quot;style&quot;:&quot;filled&quot;,&quot;enable_custom_style&quot;:false,&quot;use_theme_button&quot;:true,&quot;font_size&quot;:14,&quot;radius&quot;:50,&quot;padding_x&quot;:18,&quot;padding_y&quot;:8,&quot;enable_custom_fonts&quot;:false,&quot;font&quot;:&quot;assistant_n4&quot;&#125;&#125;"{% endif %} data-an-fallback-href="{{ routes.all_products_collection_url | default: '/collections/all' }}" data-width="{{ st.section_width | default: 'full_width' }}" data-reset="{% if st.reset_spacing %}true{% else %}false{% endif %}" data-show="{{ st.display_section_on | default: 'display_all' }}" data-close-d="{% if st.show_close_button %}true{% else %}false{% endif %}" data-close-m="{% if st.show_close_button_mobile %}true{% else %}false{% endif %}" data-close-days="{{ st.close_persistence_days | default: 0 }}" data-sticky-announcement="false"{% if own_font %} data-own-font{% endif %}{% if own_font or st.enable_custom_font_weight %} data-own-weight{% endif %} aria-label="Announcement" style="{{ ab_vars | strip_newlines }}">
+  {%- if section.blocks.size > 0 -%}
+    {%- for block in section.blocks -%}
+      {%- assign bs = block.settings -%}
+      {%- capture vis -%}{{ bs.visibility | default: 'all' }}{%- endcapture -%}
+      {%- capture tab -%}{% if bs.open_in_new_tab %} target="_blank" rel="noopener"{% endif %}{%- endcapture -%}
+      {%- assign bfont = false -%}{%- if bs.enable_custom_fonts and bs.font.family != blank -%}{%- assign bfont = true -%}{%- endif -%}
+      {%- case block.type -%}
+        {%- when 'message' -%}
+          {%- capture msg_attrs -%}class="ab-msg" data-an-no-link="SPAN" data-vis="{{ vis }}" {% render 'announce-block', block: block %}{% if bfont %} data-own-font data-own-weight{% endif %}{% if bs.text == blank and bs.text_mobile == blank %} hidden{% endif %} style="{% if bs.enable_custom_style %}--b-c: {% render 'scheme-color', color: bs.color, fallback: 'var(--ab-text)' %};{% endif %}{% if bfont %}--b-f: {% render 'announce-font', font: bs.font, on: true, fallback: 'inherit' %};--b-w: {{ bs.font.weight | default: 400 }};{% endif %}"{%- endcapture -%}
+          {%- capture msg_inner -%}<span class="ab-msg__d">{{ bs.text | escape }}</span><span class="ab-msg__m">{% if bs.text_mobile != blank %}{{ bs.text_mobile | escape }}{% else %}{{ bs.text | escape }}{% endif %}</span>{%- endcapture -%}
+          {%- if bs.link != blank -%}<a href="{{ bs.link | url }}"{{ tab }} {{ msg_attrs }}>{{ msg_inner }}</a>{%- else -%}<span {{ msg_attrs }}>{{ msg_inner }}</span>{%- endif -%}
+        {%- when 'button' -%}
+          {%- capture btn_style -%}
+            {%- if bs.style == 'outline' -%}--mb-bg: transparent;{%- endif -%}
+            {%- if bs.enable_custom_style -%}{%- if bs.style == 'outline' -%}{%- render 'button-overrides', text: bs.text_color, border: bs.text_color, hover_bg: bs.bg_hover, hover_text: bs.color_hover -%}{%- else -%}{%- render 'button-overrides', bg: bs.bg_color, text: bs.text_color, hover_bg: bs.bg_hover, hover_text: bs.color_hover -%}{%- endif -%}{%- endif -%}
+            {%- if bs.use_theme_button == false -%}--mb-radius: {{ bs.radius }}px;--mb-padding-y: {{ bs.padding_y }}px;--mb-padding-x: {{ bs.padding_x }}px;--mb-font-size: {{ bs.font_size }}px;{%- endif -%}
+            {%- if st.enable_custom_font_weight -%}--mb-weight: {{ st.button_font_weight | default: 600 }};{%- endif -%}
+            {%- if bfont -%}--mb-font: {% render 'announce-font', font: bs.font, on: true, fallback: 'inherit' %};{%- endif -%}
+          {%- endcapture -%}
+          {%- assign href = bs.link | default: routes.all_products_collection_url | default: '/collections/all' -%}
+          <a href="{{ href | url }}"{{ tab }} class="ab-button" data-theme-button="{% if bs.style == 'outline' %}secondary{% else %}primary{% endif %}" data-sl-button data-vis="{{ vis }}" {% render 'announce-block', block: block %}{% if bs.use_theme_button == false %} data-own-shape{% endif %}{% if st.enable_custom_font_weight %} data-own-weight{% endif %}{% if bfont %} data-own-font{% endif %}{% if bs.label == blank %} hidden{% endif %} style="{{ btn_style | strip }}">{{ bs.label | escape }}</a>
+      {%- endcase -%}
+    {%- endfor -%}
+  {%- else -%}
+    {%- comment -%} No blocks yet: the section's own (legacy) message. {%- endcomment -%}
+    {%- capture legacy_inner -%}<span class="ab-msg__d">{{ st.message | escape }}</span><span class="ab-msg__m">{% if st.message_mobile != blank %}{{ st.message_mobile | escape }}{% else %}{{ st.message | escape }}{% endif %}</span>{%- endcapture -%}
+    {%- if st.link != blank -%}
+      <a href="{{ st.link | url }}" class="ab-msg" data-an-legacy="message" data-an-no-link="SPAN"{% if st.message == blank and st.message_mobile == blank %} hidden{% endif %}{% if st.open_in_new_tab %} target="_blank" rel="noopener"{% endif %}>{{ legacy_inner }}</a>
+    {%- else -%}
+      <span class="ab-msg" data-an-legacy="message" data-an-no-link="SPAN"{% if st.message == blank and st.message_mobile == blank %} hidden{% endif %}>{{ legacy_inner }}</span>
+    {%- endif -%}
+  {%- endif -%}
+  <button type="button" class="close-button" data-an-close aria-label="{{ st.close_label | default: 'Close announcement' | escape }}"><span aria-hidden="true">&times;</span></button>
+</section>
+{%- unless request.design_mode -%}
+<script>
+  (function () {
+    var bar = document.getElementById('announcement-bar-{{ sid }}');
+    try { var until = +localStorage.getItem('announcementBarClosedUntil:{{ sid }}') || 0; if (until && Date.now() < until) bar.hidden = true; if (sessionStorage.getItem('announcementBarClosed:{{ sid }}') === '1') bar.hidden = true; } catch (e) {}
+  })();
+</script>
+{%- endunless -%}
+{% schema %}
+{
+  "enabled_on": {
+    "groups": [
+      "header",
+      "template"
+    ]
+  },
+  "name": "Announcement Bar Basic ",
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Section width",
+      "default": "full_width",
+      "options": [
+        {
+          "value": "container",
+          "label": "Default"
+        },
+        {
+          "value": "fluid_container",
+          "label": "Fluid container"
+        },
+        {
+          "value": "stretch_width",
+          "label": "Stretched"
+        },
+        {
+          "value": "full_width",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "display_section_on",
+      "label": "Show on",
+      "default": "display_all",
+      "options": [
+        {
+          "value": "display_all",
+          "label": "All devices"
+        },
+        {
+          "value": "display_only_desktop",
+          "label": "Desktop only"
+        },
+        {
+          "value": "display_mobile",
+          "label": "Mobile only"
+        },
+        {
+          "value": "display_none",
+          "label": "Hidden"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "reset_spacing",
+      "label": "Remove default space between sections",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Content"
+    },
+    {
+      "type": "paragraph",
+      "content": "Add Message and Button blocks. Each block can show on all devices, desktop only or mobile only."
+    },
+    {
+      "type": "textarea",
+      "id": "message",
+      "label": "Announcement text (Desktop)",
+      "default": "",
+      "info": "Legacy: used only when the section has no blocks.",
+      "hidden": true,
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "textarea",
+      "id": "message_mobile",
+      "label": "Announcement text (Mobile)",
+      "default": "",
+      "hidden": true,
+      "info": "Legacy: used only when the section has no blocks.",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "url",
+      "id": "link",
+      "label": "Message link",
+      "default": "/",
+      "hidden": true,
+      "info": "Legacy: used only when the section has no blocks.",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "open_in_new_tab",
+      "label": "Open message link in new tab",
+      "default": false,
+      "hidden": true,
+      "info": "Legacy: used only when the section has no blocks.",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "select",
+      "id": "content_alignment",
+      "label": "Alignment",
+      "default": "center",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "content_gap",
+      "label": "Gap between items",
+      "min": 0,
+      "max": 40,
+      "step": 1,
+      "unit": "px",
+      "default": 12
+    },
+    {
+      "type": "range",
+      "id": "bar_padding_x",
+      "label": "Side padding (desktop)",
+      "min": 0,
+      "max": 60,
+      "step": 1,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "type": "select",
+      "id": "background_type",
+      "label": "Background",
+      "default": "solid",
+      "options": [
+        {
+          "value": "solid",
+          "label": "Solid color"
+        },
+        {
+          "value": "gradient",
+          "label": "Gradient"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "gradient_angle",
+      "label": "Gradient angle",
+      "min": 0,
+      "max": 360,
+      "step": 10,
+      "unit": "deg",
+      "default": 90,
+      "visible_if": "{{ section.settings.background_type == 'gradient' }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_border_bottom",
+      "label": "Bottom border",
+      "default": false
+    },
+    {
+      "type": "range",
+      "id": "border_width",
+      "label": "Border width",
+      "min": 1,
+      "max": 10,
+      "step": 1,
+      "unit": "px",
+      "default": 1,
+      "visible_if": "{{ section.settings.show_border_bottom }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_style",
+      "label": "Enable custom styling",
+      "default": false,
+      "info": "Off: colours follow the colour scheme."
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "Background colour",
+      "visible_if": "{{ section.settings.enable_custom_style and section.settings.background_type == 'solid' }}"
+    },
+    {
+      "type": "color",
+      "id": "gradient_start_color",
+      "label": "Gradient start",
+      "visible_if": "{{ section.settings.enable_custom_style and section.settings.background_type == 'gradient' }}"
+    },
+    {
+      "type": "color",
+      "id": "gradient_end_color",
+      "label": "Gradient end",
+      "visible_if": "{{ section.settings.enable_custom_style and section.settings.background_type == 'gradient' }}"
+    },
+    {
+      "type": "color",
+      "id": "border_color",
+      "label": "Border",
+      "visible_if": "{{ section.settings.enable_custom_style and section.settings.show_border_bottom }}"
+    },
+    {
+      "type": "header",
+      "content": "Typography"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_fonts",
+      "label": "Enable custom fonts",
+      "default": false,
+      "info": "Off: the bar follows Theme settings > Typography."
+    },
+    {
+      "type": "font_picker",
+      "id": "body_font",
+      "label": "Font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_font",
+      "label": "Enable custom font",
+      "default": false,
+      "hidden": true,
+      "info": "Legacy: a Google font by name, used while Enable custom fonts is off.",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "select",
+      "id": "custom_font",
+      "label": "Custom Fonts",
+      "default": "Roboto",
+      "options": [
+        {
+          "value": "Roboto",
+          "label": "Roboto"
+        },
+        {
+          "value": "Open Sans",
+          "label": "Open Sans"
+        },
+        {
+          "value": "Lato",
+          "label": "Lato"
+        },
+        {
+          "value": "Montserrat",
+          "label": "Montserrat"
+        },
+        {
+          "value": "Oswald",
+          "label": "Oswald"
+        },
+        {
+          "value": "Source Sans Pro",
+          "label": "Source Sans Pro"
+        },
+        {
+          "value": "Raleway",
+          "label": "Raleway"
+        },
+        {
+          "value": "Yanone Kaffeesatz",
+          "label": "Yanone Kaffeesatz"
+        },
+        {
+          "value": "Merriweather",
+          "label": "Merriweather"
+        },
+        {
+          "value": "PT Sans",
+          "label": "PT Sans"
+        },
+        {
+          "value": "Noto Sans",
+          "label": "Noto Sans"
+        },
+        {
+          "value": "Nunito",
+          "label": "Nunito"
+        },
+        {
+          "value": "Ubuntu",
+          "label": "Ubuntu"
+        },
+        {
+          "value": "Poppins",
+          "label": "Poppins"
+        },
+        {
+          "value": "Playfair Display",
+          "label": "Playfair Display"
+        },
+        {
+          "value": "Slabo 27px",
+          "label": "Slabo 27px"
+        },
+        {
+          "value": "Lora",
+          "label": "Lora"
+        },
+        {
+          "value": "Fira Sans",
+          "label": "Fira Sans"
+        },
+        {
+          "value": "Libre Baskerville",
+          "label": "Libre Baskerville"
+        },
+        {
+          "value": "Indie Flower",
+          "label": "Indie Flower"
+        },
+        {
+          "value": "Bebas Neue",
+          "label": "Bebas Neue"
+        },
+        {
+          "value": "Cabin",
+          "label": "Cabin"
+        },
+        {
+          "value": "Cinzel",
+          "label": "Cinzel"
+        },
+        {
+          "value": "Dosis",
+          "label": "Dosis"
+        },
+        {
+          "value": "Exo 2",
+          "label": "Exo 2"
+        },
+        {
+          "value": "Fjalla One",
+          "label": "Fjalla One"
+        },
+        {
+          "value": "Gilda Display",
+          "label": "Gilda Display"
+        },
+        {
+          "value": "Heebo",
+          "label": "Heebo"
+        },
+        {
+          "value": "Karla",
+          "label": "Karla"
+        },
+        {
+          "value": "Muli",
+          "label": "Muli"
+        },
+        {
+          "value": "Noto Serif",
+          "label": "Noto Serif"
+        },
+        {
+          "value": "Quicksand",
+          "label": "Quicksand"
+        },
+        {
+          "value": "Roboto Slab",
+          "label": "Roboto Slab"
+        },
+        {
+          "value": "Signika",
+          "label": "Signika"
+        },
+        {
+          "value": "Titillium Web",
+          "label": "Titillium Web"
+        },
+        {
+          "value": "Varela Round",
+          "label": "Varela Round"
+        },
+        {
+          "value": "Work Sans",
+          "label": "Work Sans"
+        },
+        {
+          "value": "Zilla Slab",
+          "label": "Zilla Slab"
+        },
+        {
+          "value": "Asap",
+          "label": "Asap"
+        },
+        {
+          "value": "Cairo",
+          "label": "Cairo"
+        },
+        {
+          "value": "DM Sans",
+          "label": "DM Sans"
+        },
+        {
+          "value": "Eczar",
+          "label": "Eczar"
+        },
+        {
+          "value": "Fira Mono",
+          "label": "Fira Mono"
+        },
+        {
+          "value": "Gentium Basic",
+          "label": "Gentium Basic"
+        },
+        {
+          "value": "Hind",
+          "label": "Hind"
+        },
+        {
+          "value": "Jost",
+          "label": "Jost"
+        },
+        {
+          "value": "Kreon",
+          "label": "Kreon"
+        },
+        {
+          "value": "Lexend",
+          "label": "Lexend"
+        },
+        {
+          "value": "Mukta",
+          "label": "Mukta"
+        },
+        {
+          "value": "Noto Sans JP",
+          "label": "Noto Sans JP"
+        },
+        {
+          "value": "Overpass",
+          "label": "Overpass"
+        },
+        {
+          "value": "Qwigley",
+          "label": "Qwigley"
+        },
+        {
+          "value": "Sen",
+          "label": "Sen"
+        },
+        {
+          "value": "Teko",
+          "label": "Teko"
+        },
+        {
+          "value": "Ultra",
+          "label": "Ultra"
+        },
+        {
+          "value": "Vollkorn",
+          "label": "Vollkorn"
+        },
+        {
+          "value": "ZCOOL XiaoWei",
+          "label": "ZCOOL XiaoWei"
+        },
+        {
+          "value": "ABeeZee",
+          "label": "ABeeZee"
+        },
+        {
+          "value": "Acme",
+          "label": "Acme"
+        },
+        {
+          "value": "Balsamiq Sans",
+          "label": "Balsamiq Sans"
+        },
+        {
+          "value": "Caveat",
+          "label": "Caveat"
+        },
+        {
+          "value": "Engagement",
+          "label": "Engagement"
+        },
+        {
+          "value": "Fredoka One",
+          "label": "Fredoka One"
+        },
+        {
+          "value": "Gloria Hallelujah",
+          "label": "Gloria Hallelujah"
+        },
+        {
+          "value": "Irish Grover",
+          "label": "Irish Grover"
+        },
+        {
+          "value": "Kalam",
+          "label": "Kalam"
+        },
+        {
+          "value": "Marck Script",
+          "label": "Marck Script"
+        },
+        {
+          "value": "Neucha",
+          "label": "Neucha"
+        },
+        {
+          "value": "Patrick Hand",
+          "label": "Patrick Hand"
+        },
+        {
+          "value": "Rock Salt",
+          "label": "Rock Salt"
+        },
+        {
+          "value": "Tangerine",
+          "label": "Tangerine"
+        },
+        {
+          "value": "Unica One",
+          "label": "Unica One"
+        },
+        {
+          "value": "Vibur",
+          "label": "Vibur"
+        },
+        {
+          "value": "Wallpoet",
+          "label": "Wallpoet"
+        },
+        {
+          "value": "Yellowtail",
+          "label": "Yellowtail"
+        },
+        {
+          "value": "Zilla Slab Highlight",
+          "label": "Zilla Slab Highlight"
+        },
+        {
+          "value": "Alice",
+          "label": "Alice"
+        },
+        {
+          "value": "Alfa Slab One",
+          "label": "Alfa Slab One"
+        },
+        {
+          "value": "Amatic SC",
+          "label": "Amatic SC"
+        },
+        {
+          "value": "Archivo Narrow",
+          "label": "Archivo Narrow"
+        },
+        {
+          "value": "Baloo 2",
+          "label": "Baloo 2"
+        },
+        {
+          "value": "Bangers",
+          "label": "Bangers"
+        },
+        {
+          "value": "Bellefair",
+          "label": "Bellefair"
+        },
+        {
+          "value": "Big Shoulders Display",
+          "label": "Big Shoulders Display"
+        },
+        {
+          "value": "Black Han Sans",
+          "label": "Black Han Sans"
+        },
+        {
+          "value": "Bowlby One SC",
+          "label": "Bowlby One SC"
+        },
+        {
+          "value": "Bungee",
+          "label": "Bungee"
+        },
+        {
+          "value": "Cardo",
+          "label": "Cardo"
+        },
+        {
+          "value": "Chonburi",
+          "label": "Chonburi"
+        },
+        {
+          "value": "Cinzel Decorative",
+          "label": "Cinzel Decorative"
+        },
+        {
+          "value": "Contrail One",
+          "label": "Contrail One"
+        },
+        {
+          "value": "Cormorant Garamond",
+          "label": "Cormorant Garamond"
+        },
+        {
+          "value": "Courgette",
+          "label": "Courgette"
+        },
+        {
+          "value": "Crimson Pro",
+          "label": "Crimson Pro"
+        },
+        {
+          "value": "Cuprum",
+          "label": "Cuprum"
+        },
+        {
+          "value": "Delius",
+          "label": "Delius"
+        },
+        {
+          "value": "Delius Swash Caps",
+          "label": "Delius Swash Caps"
+        },
+        {
+          "value": "Doppio One",
+          "label": "Doppio One"
+        },
+        {
+          "value": "EB Garamond SC",
+          "label": "EB Garamond SC"
+        },
+        {
+          "value": "Expletus Sans",
+          "label": "Expletus Sans"
+        },
+        {
+          "value": "Faustina",
+          "label": "Faustina"
+        },
+        {
+          "value": "Fjord One",
+          "label": "Fjord One"
+        },
+        {
+          "value": "Frank Ruhl Libre",
+          "label": "Frank Ruhl Libre"
+        },
+        {
+          "value": "Frijole",
+          "label": "Frijole"
+        },
+        {
+          "value": "Glegoo",
+          "label": "Glegoo"
+        },
+        {
+          "value": "Goblin One",
+          "label": "Goblin One"
+        },
+        {
+          "value": "Grenze Gotisch",
+          "label": "Grenze Gotisch"
+        },
+        {
+          "value": "Habibi",
+          "label": "Habibi"
+        },
+        {
+          "value": "Henny Penny",
+          "label": "Henny Penny"
+        },
+        {
+          "value": "IM Fell DW Pica",
+          "label": "IM Fell DW Pica"
+        },
+        {
+          "value": "IM Fell English",
+          "label": "IM Fell English"
+        },
+        {
+          "value": "IM Fell French Canon",
+          "label": "IM Fell French Canon"
+        },
+        {
+          "value": "IM Fell Great Primer",
+          "label": "IM Fell Great Primer"
+        }
+      ],
+      "hidden": true,
+      "info": "Legacy: a Google font by name, used while Enable custom fonts is off.",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "range",
+      "id": "font_size",
+      "label": "Text size (desktop)",
+      "min": 12,
+      "max": 36,
+      "step": 1,
+      "unit": "px",
+      "default": 15
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_font_weight",
+      "label": "Custom font weight",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "message_font_weight",
+      "label": "Message weight",
+      "default": "400",
+      "options": [
+        {
+          "value": "300",
+          "label": "Light (300)"
+        },
+        {
+          "value": "400",
+          "label": "Normal (400)"
+        },
+        {
+          "value": "500",
+          "label": "Medium (500)"
+        },
+        {
+          "value": "600",
+          "label": "Semibold (600)"
+        },
+        {
+          "value": "700",
+          "label": "Bold (700)"
+        },
+        {
+          "value": "800",
+          "label": "Extra bold (800)"
+        },
+        {
+          "value": "900",
+          "label": "Black (900)"
+        }
+      ],
+      "visible_if": "{{ section.settings.enable_custom_font_weight }}"
+    },
+    {
+      "type": "select",
+      "id": "button_font_weight",
+      "label": "Button weight",
+      "default": "600",
+      "options": [
+        {
+          "value": "300",
+          "label": "Light (300)"
+        },
+        {
+          "value": "400",
+          "label": "Normal (400)"
+        },
+        {
+          "value": "500",
+          "label": "Medium (500)"
+        },
+        {
+          "value": "600",
+          "label": "Semibold (600)"
+        },
+        {
+          "value": "700",
+          "label": "Bold (700)"
+        },
+        {
+          "value": "800",
+          "label": "Extra bold (800)"
+        },
+        {
+          "value": "900",
+          "label": "Black (900)"
+        }
+      ],
+      "visible_if": "{{ section.settings.enable_custom_font_weight }}"
+    },
+    {
+      "type": "range",
+      "id": "letter_spacing",
+      "label": "Letter spacing",
+      "min": 0,
+      "max": 8,
+      "step": 1,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "select",
+      "id": "text_transform",
+      "label": "Text case",
+      "default": "none",
+      "options": [
+        {
+          "value": "none",
+          "label": "Normal"
+        },
+        {
+          "value": "uppercase",
+          "label": "UPPERCASE"
+        },
+        {
+          "value": "lowercase",
+          "label": "lowercase"
+        },
+        {
+          "value": "capitalize",
+          "label": "Capitalize"
+        }
+      ]
+    },
+    {
+      "type": "header",
+      "content": "Animation"
+    },
+    {
+      "type": "checkbox",
+      "id": "reveal",
+      "label": "Reveal on scroll",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_close_button",
+      "label": "Close button (desktop)",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_close_button_mobile",
+      "label": "Close button (mobile)",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "close_label",
+      "label": "Close button label",
+      "default": "Close announcement",
+      "info": "Read by screen readers.",
+      "visible_if": "{{ section.settings.show_close_button or section.settings.show_close_button_mobile }}"
+    },
+    {
+      "type": "range",
+      "id": "close_persistence_days",
+      "label": "Stay closed for (days)",
+      "min": 0,
+      "max": 30,
+      "step": 1,
+      "default": 1,
+      "info": "0 keeps it closed until the browser tab closes.",
+      "visible_if": "{{ section.settings.show_close_button or section.settings.show_close_button_mobile }}"
+    },
+    {
+      "type": "header",
+      "content": "Desktop spacing"
+    },
+    {
+      "type": "range",
+      "id": "bar_height",
+      "label": "Bar height (desktop)",
+      "min": 30,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 53
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_desktop",
+      "label": "Top margin (desktop)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_desktop",
+      "label": "Bottom margin (desktop)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "header",
+      "content": "Mobile"
+    },
+    {
+      "type": "range",
+      "id": "mobile_font_size",
+      "label": "Text size (mobile)",
+      "min": 10,
+      "max": 30,
+      "step": 1,
+      "unit": "px",
+      "default": 15
+    },
+    {
+      "type": "range",
+      "id": "mobile_bar_height",
+      "label": "Bar height (mobile)",
+      "min": 30,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 49
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_mobile",
+      "label": "Top margin (mobile)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_mobile",
+      "label": "Bottom margin (mobile)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    }
+  ],
+  "blocks": [
+    {
+      "type": "message",
+      "name": "Message",
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "type": "textarea",
+          "id": "text",
+          "label": "Text",
+          "default": "Write your announcement here"
+        },
+        {
+          "type": "textarea",
+          "id": "text_mobile",
+          "label": "Text on mobile",
+          "info": "Optional. Leave empty to use the text above."
+        },
+        {
+          "type": "url",
+          "id": "link",
+          "label": "Link"
+        },
+        {
+          "type": "checkbox",
+          "id": "open_in_new_tab",
+          "label": "Open link in a new tab",
+          "default": false
+        },
+        {
+          "type": "header",
+          "content": "Layout"
+        },
+        {
+          "type": "select",
+          "id": "visibility",
+          "label": "Show on",
+          "default": "all",
+          "options": [
+            {
+              "value": "all",
+              "label": "All devices"
+            },
+            {
+              "value": "desktop",
+              "label": "Desktop only"
+            },
+            {
+              "value": "mobile",
+              "label": "Mobile only"
+            }
+          ]
+        },
+        {
+          "type": "header",
+          "content": "Appearance"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Text",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "header",
+          "content": "Typography"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_fonts",
+          "label": "Enable custom font",
+          "default": false
+        },
+        {
+          "type": "font_picker",
+          "id": "font",
+          "label": "Font",
+          "default": "assistant_n4",
+          "visible_if": "{{ block.settings.enable_custom_fonts }}"
+        }
+      ]
+    },
+    {
+      "type": "button",
+      "name": "Button",
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "type": "text",
+          "id": "label",
+          "label": "Label",
+          "default": "Shop now"
+        },
+        {
+          "type": "url",
+          "id": "link",
+          "label": "Link"
+        },
+        {
+          "type": "checkbox",
+          "id": "open_in_new_tab",
+          "label": "Open link in a new tab",
+          "default": false
+        },
+        {
+          "type": "header",
+          "content": "Layout"
+        },
+        {
+          "type": "select",
+          "id": "visibility",
+          "label": "Show on",
+          "default": "all",
+          "options": [
+            {
+              "value": "all",
+              "label": "All devices"
+            },
+            {
+              "value": "desktop",
+              "label": "Desktop only"
+            },
+            {
+              "value": "mobile",
+              "label": "Mobile only"
+            }
+          ]
+        },
+        {
+          "type": "select",
+          "id": "style",
+          "label": "Style",
+          "default": "filled",
+          "options": [
+            {
+              "value": "filled",
+              "label": "Filled"
+            },
+            {
+              "value": "outline",
+              "label": "Outline"
+            }
+          ]
+        },
+        {
+          "type": "header",
+          "content": "Appearance"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false,
+          "info": "Off: the button follows Theme settings > Buttons."
+        },
+        {
+          "type": "color",
+          "id": "bg_color",
+          "label": "Background",
+          "visible_if": "{{ block.settings.enable_custom_style and block.settings.style == 'filled' }}"
+        },
+        {
+          "type": "color",
+          "id": "text_color",
+          "label": "Text and border",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "bg_hover",
+          "label": "Background on hover",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "color_hover",
+          "label": "Text on hover",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "checkbox",
+          "id": "use_theme_button",
+          "label": "Theme button size and shape",
+          "default": true
+        },
+        {
+          "type": "range",
+          "id": "font_size",
+          "label": "Text size",
+          "min": 10,
+          "max": 24,
+          "step": 1,
+          "unit": "px",
+          "default": 14,
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        },
+        {
+          "type": "range",
+          "id": "radius",
+          "label": "Corner radius",
+          "min": 0,
+          "max": 50,
+          "step": 1,
+          "unit": "px",
+          "default": 50,
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        },
+        {
+          "type": "range",
+          "id": "padding_x",
+          "label": "Horizontal padding",
+          "min": 6,
+          "max": 40,
+          "step": 1,
+          "unit": "px",
+          "default": 18,
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        },
+        {
+          "type": "range",
+          "id": "padding_y",
+          "label": "Vertical padding",
+          "min": 2,
+          "max": 24,
+          "step": 1,
+          "unit": "px",
+          "default": 8,
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        },
+        {
+          "type": "header",
+          "content": "Typography"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_fonts",
+          "label": "Enable custom font",
+          "default": false
+        },
+        {
+          "type": "font_picker",
+          "id": "font",
+          "label": "Font",
+          "default": "assistant_n4",
+          "visible_if": "{{ block.settings.enable_custom_fonts }}"
+        }
+      ]
+    }
+  ],
+  "max_blocks": 8,
+  "presets": [
+    {
+      "name": "Announcement Bar Basic ",
+      "category": "Announcements",
+      "blocks": [
+        {
+          "type": "message",
+          "settings": {
+            "text": "Write your announcement here",
+            "text_mobile": "Your announcement"
+          }
+        },
+        {
+          "type": "button",
+          "settings": {
+            "label": "Shop now"
+          }
+        }
+      ]
+    }
+  ],
+  "class": "section-edge-bleed"
+}
+{% endschema %}

@@ -1,0 +1,384 @@
+{
+  "sections": {
+    "hero_split_media_1": {
+      "type": "hero-split-media",
+      "settings": {
+        "color_scheme": "default",
+        "image": "shopify://shop_images/ebooks-hero-open-book.webp",
+        "image_alt": "An open book beside a coffee and a pair of glasses",
+        "image_position": "left",
+        "min_height_desktop": 620
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "The new book"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Put your book title here"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>One or two sentences that say what the book is about and who it is for.</p>"
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "text": "Get the ebook",
+            "link": "/collections/all"
+          }
+        },
+        "button_5": {
+          "type": "button",
+          "settings": {
+            "text": "Read a sample",
+            "button_style": "secondary",
+            "link": "/pages/about"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4",
+        "button_5"
+      ]
+    },
+    "quotebanner_2": {
+      "type": "quotebanner",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976"
+      },
+      "blocks": {
+        "quote_1": {
+          "type": "quote",
+          "settings": {
+            "quote_text": "Add a line from a reader or a review of your book."
+          }
+        },
+        "author_2": {
+          "type": "author",
+          "settings": {
+            "author_name": "Reader name",
+            "author_role": "Where the review appeared"
+          }
+        }
+      },
+      "block_order": [
+        "quote_1",
+        "author_2"
+      ]
+    },
+    "products_listing_3": {
+      "type": "products-listing",
+      "settings": {
+        "items_to_show": 3,
+        "items_per_row": 3,
+        "color_scheme": "default"
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "The shelf"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "All the books"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Ebooks in EPUB and PDF, yours to keep.</p>"
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "text": "See every title",
+            "link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
+    },
+    "image_with_text_steps_4": {
+      "type": "image-with-text-steps",
+      "settings": {
+        "color_scheme": "scheme-7dae8b89-7a81-4c2c-b8e2-92533766f8ca",
+        "image": "shopify://shop_images/ebooks-book-stack.webp",
+        "image_alt": "A stack of open books on a tan background",
+        "image_position": "right"
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Inside the book"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "What you will read"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Give readers a feel for the chapters.</p>"
+          }
+        },
+        "step_4": {
+          "type": "step",
+          "settings": {
+            "title": "Part one",
+            "description": "<p>Say what the first part covers.</p>"
+          }
+        },
+        "step_5": {
+          "type": "step",
+          "settings": {
+            "title": "Part two",
+            "description": "<p>Say what the second part covers.</p>"
+          }
+        },
+        "step_6": {
+          "type": "step",
+          "settings": {
+            "title": "Part three",
+            "description": "<p>Say how the book ends, without giving it away.</p>"
+          }
+        },
+        "button_7": {
+          "type": "button",
+          "settings": {
+            "label": "Get the ebook",
+            "url": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "step_4",
+        "step_5",
+        "step_6",
+        "button_7"
+      ]
+    },
+    "image_and_video_text_5": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "default",
+        "image": "shopify://shop_images/ebooks-writing.webp",
+        "image_alt": "Hands typing on a laptop",
+        "image_position": "left"
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "About the author"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Written by your name"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>A short biography: what you write about, where your work has appeared and where you live.</p>"
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "More about the author",
+            "link": "/pages/about"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
+    },
+    "testimonials_6": {
+      "type": "testimonials",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976"
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Readers"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "What readers say"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Replace these with words from your own readers.</p>"
+          }
+        },
+        "testimonial_4": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Write what this customer said about your product.</p>",
+            "name": "Reader name",
+            "role": ""
+          }
+        },
+        "testimonial_5": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Write what this customer said about your product.</p>",
+            "name": "Reader name",
+            "role": ""
+          }
+        },
+        "testimonial_6": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Write what this customer said about your product.</p>",
+            "name": "Reader name",
+            "role": ""
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "testimonial_4",
+        "testimonial_5",
+        "testimonial_6"
+      ]
+    },
+    "faq_7": {
+      "type": "faq",
+      "settings": {
+        "color_scheme": "default"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Formats and delivery"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>How the ebooks reach you.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Which formats do I get?",
+            "answer": "<p>Every ebook comes as EPUB and PDF. EPUB works on most e-readers and phones, PDF on anything.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How do I read it on a Kindle?",
+            "answer": "<p>Use Send to Kindle with the EPUB file. It appears in your library in a few minutes.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "When do I get the files?",
+            "answer": "<p>Straight away. The download link is on the confirmation page and in your receipt email.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I buy a copy as a gift?",
+            "answer": "<p>Yes. Forward the receipt email, or write to us and we will send the files to them.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6"
+      ]
+    },
+    "newsletter_split_8": {
+      "type": "newsletter-split",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "image": "shopify://shop_images/ebooks-library.webp",
+        "image_alt": "A long library aisle lit by hanging bulbs",
+        "image_position": "right",
+        "image_ratio": "landscape",
+        "btn_text": "Send me chapter one",
+        "note": "One letter a month. Unsubscribe any time."
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Read the first chapter free"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Join the letter and get chapter one in your inbox today.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2"
+      ]
+    }
+  },
+  "order": [
+    "hero_split_media_1",
+    "quotebanner_2",
+    "products_listing_3",
+    "image_with_text_steps_4",
+    "image_and_video_text_5",
+    "testimonials_6",
+    "faq_7",
+    "newsletter_split_8"
+  ]
+}

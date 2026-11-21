@@ -1,0 +1,1822 @@
+<script src="{{ 'live-page-popups.js' | asset_url }}" defer="defer"></script>
+{% render 'theme-type' %}
+{%- comment -%}
+  Materia Themes. Promotional Newsletter 2: an icon, a line above the
+  heading, a heading, a line of text, a signup form (Storelib Subscribers)
+  and a "no thanks" link beside a picture, as a popup in a native <dialog>
+  (snippets/page-popup-dialog) or drawn in the page ("Show as a popup" off).
+  Every setting reaches the page as a CSS variable (a phone and a desktop
+  value each where it has both), an attribute or a text on its element, so
+  shopify/assets/live-page-popups.js applies a builder edit in place, the
+  same as this Liquid draws it. Each block is always drawn (hidden while
+  empty or off) so it can be changed live.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign pn_is_popup = true
+  if st.render_as_popup == false
+    assign pn_is_popup = false
+  endif
+-%}
+{%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' and pn_is_popup == false -%}
+<style>
+  #shopify-section-{{ sid }}.scroll-trigger {
+    --animation-duration: {{ settings.animation_duration | default: 700 }}ms;
+    --animation-delay: {{ settings.animation_delay | default: 0 }}ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-{{ sid }}');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', {{ settings.scroll_animation | json }});
+  })();
+</script>
+{%- endif -%}
+<style>
+  #shopify-section-{{ sid }} {
+    position: static;
+    font-weight: var(--body-weight, inherit);
+    margin-top: {{ st.section_margin_top_mobile | default: 0 }}px;
+    margin-bottom: {{ st.section_margin_bottom_mobile | default: 0 }}px;
+  }
+  @media (min-width: 768px) {
+    #shopify-section-{{ sid }} {
+      margin-top: {{ st.section_margin_top_desktop | default: 0 }}px;
+      margin-bottom: {{ st.section_margin_bottom_desktop | default: 0 }}px;
+    }
+  }
+  #shopify-section-{{ sid }}:has(> [data-pn-reset]) { margin-top: 0 !important; margin-bottom: 0 !important; }
+  #shopify-section-{{ sid }}:has(> [data-pn-reset]) + .shopify-section,
+  .shopify-section + #shopify-section-{{ sid }}:has(> [data-pn-reset]) { margin-top: 0 !important; }
+  :where(#shopify-section-{{ sid }}) { font-family: var(--body-font, inherit); }
+  :where(#shopify-section-{{ sid }}) :where(button, input, textarea, select, optgroup) { font-family: inherit; }
+  :where(#shopify-section-{{ sid }}) :is(h1, h2, h3, h4, h5, h6) { font-weight: var(--heading-weight, inherit); font-family: var(--heading-font, inherit); }
+</style>
+{% stylesheet %}
+	.loudz-newsletter-3 * {
+		margin: 0;
+		padding: 0;
+	}
+
+	.loudz-newsletter-3 a {
+		color: inherit;
+	}
+
+	.loudz-newsletter-3 .loudz__popup {
+		opacity: 0;
+		visibility: hidden;
+		pointer-events: none;
+		align-items: center;
+		justify-content: center;
+		height: calc(var(--sl-vh, 1vh) * 100);
+		position: fixed;
+		inset: 0;
+		z-index: 2147483647;
+		transition: opacity 0.3s ease, visibility 0s linear 0.3s;
+	}
+
+	/* drawn in the page ("Show as a popup" off) */
+	.loudz-newsletter-3[data-pg-inline] dialog[data-pg-dialog] { display: contents !important; }
+	.loudz-newsletter-3[data-pg-inline] .loudz__popup { position: static; opacity: 1; visibility: visible; pointer-events: auto; height: auto; padding-block: 24px; }
+	.loudz-newsletter-3[data-pg-inline] .loudz__popup::after,
+	.loudz-newsletter-3[data-pg-inline] .loudz__close { display: none; }
+	.loudz-newsletter-3[data-pg-inline] .loudz__popup .loudz__container { transform: none; }
+	.loudz-newsletter-3 [hidden] { display: none !important; }
+	.loudz-newsletter-3 .loudz__icon-art { display: contents; }
+
+	.loudz-newsletter-3 .loudz__popup.active {
+		visibility: visible;
+		pointer-events: auto;
+		opacity: 1;
+		transition-delay: 0s;
+	}
+	.loudz-newsletter-3 .loudz__popup .loudz__container {
+		transform: translateY(16px) scale(.98);
+		transition: transform .35s cubic-bezier(.2,.8,.2,1);
+	}
+	.loudz-newsletter-3 .loudz__popup.active .loudz__container { transform: none; }
+
+	.loudz-newsletter-3 .loudz__popup:after {
+    content: "";
+  position: fixed;       /* fixes it to the viewport */
+  top: 0;                /* anchor to top */
+  left: 0;               /* anchor to left */
+  width: 100%;           /* span entire width */
+  height: 100%;          /* span entire height */
+  background-color: var(--loudz-overlay-color, #000000);
+  opacity: var(--loudz-overlay-opacity, 0.5);
+  z-index: -1;
+	}
+	
+	.loudz-newsletter-3 .loudz__container {
+		position: relative;
+		padding-block: var(--loudz-padding-top, 0px) var(--loudz-padding-bottom, 0px);
+		background: var(--loudz-section-background, #FFFFFF);
+		max-width: var(--loudz-section-width, 790px);
+		flex-direction: var(--loudz-image-position, row);
+		gap: var(--loudz-horizontal-gap, 50px);
+		margin-inline: auto;
+		padding-inline: 20px;
+		width: calc(100% - 40px);
+		justify-content: center;
+		align-items: center;
+		max-height: calc(var(--sl-vh, 1vh) * 90);
+		overflow-y: auto;
+		overscroll-behavior: contain;
+		border-radius: var(--loudz-popup-border-radius, 0px);
+	}
+
+	.loudz-newsletter-3 .loudz__container::-webkit-scrollbar {
+  	display: none;	
+	}	
+
+	.loudz-newsletter-3 .loudz__container.active {
+		opacity: 1;
+		visibility: visible;
+	}
+	
+	.loudz-newsletter-3 .loudz__flex {
+		display: flex;
+	}
+
+	.loudz-newsletter-3 .loudz__icon {
+		width: var(--loudz-icon-width, 72px);
+		font-size: 0;
+		color: var(--loudz-svg-color, #000000);
+	}
+
+	/* Centered icon variant — used by block-driven render */
+	.loudz-newsletter-3 .loudz__icon--centered {
+		width: var(--pn-icon-size, 72px);
+		height: var(--pn-icon-size, 72px);
+		max-width: var(--loudz-icon-width, 100%);
+		max-height: var(--loudz-icon-width, none);
+		color: var(--pn-icon-color, currentColor);
+		margin-left: auto;
+		margin-right: auto;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+	.loudz-newsletter-3 .loudz__icon--centered svg,
+	.loudz-newsletter-3 .loudz__icon--centered img,
+	.loudz-newsletter-3 .loudz__icon--centered .loudz__logo {
+		width: 100%;
+		height: 100%;
+		object-fit: contain;
+		max-height: var(--pn-icon-size, 72px);
+	}
+	.loudz-newsletter-3 .loudz__logo-fallback {
+		font-weight: 800;
+		font-size: 18px;
+		color: var(--pn-icon-color, currentColor);
+		text-align: center;
+	}
+
+	.loudz-newsletter-3 .loudz__icon.loudz-svg-custom {
+		width: var(--loudz-svg-size, 72px);
+		height: var(--loudz-svg-size, 72px);
+	}
+
+	.loudz-newsletter-3 .loudz__icon svg {
+		width: 100%;
+		height: 100%;
+		object-fit: contain;
+		stroke: currentColor;
+	}
+	
+	.loudz-newsletter-3 .loudz__top-text {
+		font-size: var(--loudz-top-text-size, 18px);
+		font-weight: var(--loudz-top-text-weight, 400);
+		color: var(--loudz-heading-color, #000000);
+		text-align: center;
+		margin-bottom: var(--loudz-top-text-to-heading-gap, 8px);
+	}
+	
+	.loudz-newsletter-3 .loudz__form {
+		background: var(--loudz-section-background, #FFFFFF);
+		flex: 1 1 0;
+		min-width: 0;
+		max-width: 100%;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		position: static;
+		padding: 0;
+	}
+	@media screen and (min-width: 768px) {
+		.loudz-newsletter-3 .loudz__form {
+			max-width: 420px;
+		}
+	}
+	
+	.loudz-newsletter-3 .loudz__form .loudz__popup-link {
+		color: var(--loudz-popup-link-color, #000000);
+		font-size: 16px;
+		font-weight: 400;
+		margin-top: 20px;
+		cursor: pointer;
+		transition: opacity var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease), color var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease);
+	}
+	
+	.loudz-newsletter-3 .loudz__form .loudz__popup-link a {
+		border-bottom: 1px solid currentColor;
+		text-decoration: none;
+		color: inherit;
+	}
+	
+	.loudz-newsletter-3 .loudz__form .loudz__popup-link:hover {
+		opacity: 0.7;
+	}
+	
+	.loudz-newsletter-3 .loudz__overlay {
+		background-color: var(--loudz-overlay-color);
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		opacity: 0;
+		transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+		visibility: hidden;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		z-index: -1;
+	}
+	
+	.loudz-newsletter-3 .loudz__overlay.active {
+		opacity: var(--loudz-overlay-opacity, 1);
+		visibility: visible;
+	}
+	
+	.loudz-newsletter-3 .loudz__form form {
+		margin-top: var(--loudz-form-top-space, 32px);
+		width: 100%;
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+	}
+	/* The phone-field snippet renders inside a wrapper div; tighten its own
+	   internal spacing so it sits as a single visual row in the form column. */
+	.loudz-newsletter-3 .loudz__form form .cpnb-phone { margin: 0; }
+	.loudz-newsletter-3 .loudz__form form input[type="email"] { margin-top: 0; margin-bottom: 0; }
+	.loudz-newsletter-3 .loudz__form form .loudz__submit-button { margin-top: calc(var(--loudz-button-top-space, 12px) - 12px); }
+	
+	.loudz-newsletter-3 .loudz__heading {
+		font-size: var(--loudz-heading-size, 24px);
+		font-weight: var(--loudz-heading-text-weight, 500);
+		color: var(--loudz-heading-color, #000000);
+		margin-top: var(--loudz-heading-top-space, 16px);
+		text-align: center;
+	}
+	
+	.loudz-newsletter-3 .loudz__heading a {
+		color: inherit;
+	}
+	
+	.loudz-newsletter-3 p {
+		font-size: var(--loudz-description-size, 16px);
+		font-weight: var(--loudz-description-text-weight, 400);
+		color: var(--loudz-description-color, var(--color-text));
+		margin-top: var(--loudz-description-top-space, 16px);
+		text-align: center;
+	}
+
+	.loudz-newsletter-3 .loudz__icon img,
+	.loudz-newsletter-3 .loudz__icon svg {
+		width: 100%;
+		height: 100%;
+		object-fit: contain;
+	}
+	
+	.loudz-newsletter-3 input[type="email"] {
+		width: 100%;
+		color: var(--loudz-input-color, #000000);
+		font-size: var(--loudz-input-text-size, 16px);
+		font-weight: var(--loudz-input-text-weight, 400);
+		border: var(--loudz-input-border-thickness, 1px) solid var(--loudz-input-border-color, #808080);
+		border-radius: var(--loudz-input-border-radius, 0px);
+		background: var(--loudz-input-background-color, var(--input-bg));
+		min-height: var(--loudz-input-height, 0px);
+		padding: var(--loudz-input-padding, 16px 12px);
+		transition: border-color var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease), box-shadow var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease);
+	}
+	.loudz-newsletter-3 input[type="email"]:focus-visible {
+		outline: none;
+		border-color: var(--color-heading);
+		box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-heading) 25%, transparent);
+	}
+	
+	.loudz-newsletter-3 input[type="email"]::placeholder {
+		color: var(--loudz-input-placeholder-color);
+	}
+	
+	/* The submit is a theme button (theme-button-contract.css): Theme settings >
+	   Buttons draw it. Colours set on the block, and the shape when the theme
+	   style is off, reach it as --mb-* tokens; an unset token falls back to the
+	   theme. */
+	.loudz-newsletter-3 .loudz__submit-button {
+		width: 100%;
+		margin-top: var(--loudz-button-top-space, 12px);
+		cursor: pointer;
+		--mb-bg: var(--loudz-button-background-color);
+		--mb-text: var(--loudz-button-text-color);
+		--mb-hover-bg: var(--loudz-button-background-color-hover);
+		--mb-hover-text: var(--loudz-button-text-color-hover);
+		--mb-radius: var(--loudz-button-border-radius);
+		--mb-font-size: var(--loudz-button-text-size);
+		--mb-weight: var(--loudz-button-text-weight);
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.loudz-newsletter-3 .loudz__popup,
+		.loudz-newsletter-3 .loudz__container,
+		.loudz-newsletter-3 .loudz__popup-link,
+		.loudz-newsletter-3 input[type="email"],
+		.loudz-newsletter-3 .loudz__popup .loudz__container { transition: none; transform: none; }
+	}
+	
+	.loudz-newsletter-3 .loudz__image-wrapper {
+		background-color: color-mix(in srgb, var(--color-heading) 6%, var(--color-background));
+		position: relative;
+		aspect-ratio: 1 / 1;
+		align-self: stretch;
+		overflow: hidden;
+		/* Mobile: escape the popup's 20px inline padding so the image is flush
+		   with the popup edges (full-bleed on the top of the popup). */
+		width: calc(100% + 40px);
+		margin-inline: -20px;
+		margin-top: calc(var(--loudz-padding-top, 0px) * -1);
+	}
+
+	.loudz-newsletter-3 .loudz__image-wrapper svg,
+	.loudz-newsletter-3 .loudz__image-wrapper img {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		object-position: center;
+	}
+	
+	.loudz-newsletter-3 .loudz__close {
+		color: var(--color-heading);
+		width: 44px;
+		height: 44px;
+		padding: 0;
+		border: 0;
+		border-radius: 50%;
+		background: transparent;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		position: absolute;
+		top: 16px;
+		right: 16px;
+		cursor: pointer;
+		z-index: 2;
+	}
+	.loudz-newsletter-3 .loudz__close:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
+	.loudz-newsletter-3 .loudz__close:focus-visible,
+	.loudz-newsletter-3 .loudz__popup-link:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+	.loudz-newsletter-3 .loudz__close .icon-close { width: 16px; height: 16px; }
+	.loudz-newsletter-3 .loudz__popup-link { background: none; border: 0; font: inherit; cursor: pointer; min-height: 44px; padding: 8px 12px; }
+	.loudz-newsletter-3 .loudz__placeholder { width: 100%; height: 100%; background: color-mix(in srgb, var(--color-heading) 8%, var(--color-background)); fill: color-mix(in srgb, var(--color-text) 30%, transparent); }
+	
+	@media screen and (min-width: 768px) {
+		.loudz-newsletter-3 .loudz__form {
+			padding-block: 40px;
+			position: relative;
+		}
+
+		.loudz-newsletter-3 .loudz__image-wrapper {
+			aspect-ratio: auto;
+			flex: 1 1 0;
+			min-width: 0;
+			max-width: 50%;
+			align-self: stretch;
+			/* Desktop: image is the side panel — flush to its popup edge.
+			   The container has padding-inline: 20px; we counter the side
+			   that the image is on so the image hits the popup edge. */
+			width: calc(50% + 20px);
+			margin-inline: 0;
+			margin-top: 0;
+		}
+		/* When image is on the LEFT of the form (default flex-direction: row),
+		   escape the container's left padding. When on the right (row-reverse),
+		   escape the right padding. The image-position CSS var drives this. */
+		.loudz-newsletter-3 .loudz__container[style*="row-reverse"] .loudz__image-wrapper,
+		.loudz-newsletter-3 .loudz__container { /* default row */ }
+		.loudz-newsletter-3 .loudz__container .loudz__image-wrapper:first-child { margin-left: -20px; }
+		.loudz-newsletter-3 .loudz__container .loudz__image-wrapper:last-child { margin-right: -20px; }
+
+		.loudz-newsletter-3 .loudz__close {
+			top: 12px;
+			right: 8px;
+		}
+	}
+{% endstylesheet %}
+
+{%- liquid
+  assign block_top = section.blocks | where: 'type', 'top_text' | first
+  assign block_heading = section.blocks | where: 'type', 'heading' | first
+  assign block_description = section.blocks | where: 'type', 'description' | first
+  assign block_image = section.blocks | where: 'type', 'image' | first
+  assign block_form = section.blocks | where: 'type', 'form' | first
+  assign block_button = section.blocks | where: 'type', 'button' | first
+  assign block_dismiss = section.blocks | where: 'type', 'dismiss' | first
+  assign tb = block_top.settings
+  assign hb = block_heading.settings
+  assign db = block_description.settings
+  assign ib = block_image.settings
+  assign fb = block_form.settings
+  assign bb = block_button.settings
+  assign pn_custom = false
+  if st.enable_custom_style == true
+    assign pn_custom = true
+  endif
+  assign c_bg = ''
+  assign c_grad = ''
+  assign c_overlay = ''
+  assign c_link = ''
+  assign c_in = ''
+  assign c_inbg = ''
+  assign c_inbd = ''
+  assign c_inph = ''
+  if pn_custom
+    assign c_bg = st.background_color
+    assign c_grad = st.background_gradient
+    assign c_overlay = st.overlay_color
+    assign c_link = st.popup_link_color
+    assign c_in = st.input_color
+    assign c_inbg = st.input_background_color
+    assign c_inbd = st.input_border_color
+    assign c_inph = st.input_placeholder_color
+  endif
+  assign c_h = ''
+  if hb.enable_custom_style == true
+    assign c_h = hb.color
+  endif
+  assign c_d = ''
+  if db.enable_custom_style == true
+    assign c_d = db.color
+  endif
+  assign c_i = ''
+  if ib.enable_custom_style == true
+    assign c_i = ib.icon_color
+  endif
+  assign c_bbg = ''
+  assign c_btx = ''
+  assign c_bbgh = ''
+  assign c_btxh = ''
+  if bb.enable_custom_style == true
+    assign c_bbg = bb.button_background
+    assign c_btx = bb.button_text_color
+    assign c_bbgh = bb.button_background_hover
+    assign c_btxh = bb.button_text_hover
+  endif
+  assign pn_use_theme_button = true
+  if bb.use_theme_button == false
+    assign pn_use_theme_button = false
+  endif
+  assign pn_use_theme_fields = true
+  if st.use_theme_fields == false
+    assign pn_use_theme_fields = false
+  endif
+  assign pn_preview = false
+  if st.enable_edit_mode or st.enable_customization_mode
+    assign pn_preview = true
+  endif
+  assign pn_days = 1
+  if st.hide_days > 0
+    assign pn_days = st.hide_days
+  endif
+  assign pn_placeholder_text = fb.placeholder_text | default: 'Email address'
+  assign pn_icon_source = ib.icon_source | default: 'default_svg'
+  assign pn_preset_icon = ib.preset_icon | default: 'envelope'
+-%}
+<style>
+  /* phone first, then the desktop value of each pair (the root holds both) */
+  #loudz-{{ sid }} {
+    --loudz-padding-top: var(--pn-pt-m); --loudz-padding-bottom: var(--pn-pb-m); --loudz-icon-width: var(--pn-icon-w-m); --loudz-heading-top-space: var(--pn-h-top-m);
+    --loudz-heading-size: var(--pn-h-size-m); --loudz-description-top-space: var(--pn-d-top-m); --loudz-description-size: var(--pn-d-size-m); --loudz-form-top-space: var(--pn-f-top-m);
+    --loudz-input-text-size: var(--pn-in-size-m); --loudz-button-top-space: var(--pn-b-top-m); --loudz-button-text-size: var(--pn-b-size-m); --loudz-horizontal-gap: var(--pn-gap);
+    --loudz-image-position: var(--pn-img-pos-m); --loudz-top-text-size: var(--pn-t-size-m);
+  }
+  @media screen and (min-width: 768px) {
+    #loudz-{{ sid }} {
+      --loudz-padding-top: var(--pn-pt-d); --loudz-padding-bottom: var(--pn-pb-d); --loudz-icon-width: var(--pn-icon-w-d); --loudz-heading-top-space: var(--pn-h-top-d);
+      --loudz-heading-size: var(--pn-h-size-d); --loudz-description-top-space: var(--pn-d-top-d); --loudz-description-size: var(--pn-d-size-d); --loudz-form-top-space: var(--pn-f-top-d);
+      --loudz-input-text-size: var(--pn-in-size-d); --loudz-button-top-space: var(--pn-b-top-d); --loudz-button-text-size: var(--pn-b-size-d);
+      --loudz-image-position: var(--pn-img-pos-d); --loudz-top-text-size: var(--pn-t-size-d);
+    }
+  }
+  @media screen and (min-width: 1024px) {
+    #loudz-{{ sid }} .loudz__form.loudz__flex { margin-left: 0; transform: translateX(-12px); }
+  }
+</style>
+{%- capture pn_vars -%}
+--pn-pt-m: {{ st.mobile_top_padding | default: 0 }}px; --pn-pb-m: {{ st.mobile_bottom_padding | default: 0 }}px; --pn-pt-d: {{ st.desktop_top_padding | default: 0 }}px; --pn-pb-d: {{ st.desktop_bottom_padding | default: 0 }}px;
+ --pn-icon-w-m: {{ st.mobile_icon_width | default: 72 }}px; --pn-icon-w-d: {{ st.desktop_icon_width | default: 72 }}px; --pn-h-top-m: {{ st.mobile_heading_top_space | default: 0 }}px; --pn-h-top-d: {{ st.desktop_heading_top_space | default: 0 }}px;
+ --pn-h-size-m: {{ hb.size_mobile | default: 24 }}px; --pn-h-size-d: {{ hb.size_desktop | default: 29 }}px; --pn-d-top-m: {{ st.mobile_top_space | default: 0 }}px; --pn-d-top-d: {{ st.desktop_top_space | default: 0 }}px;
+ --pn-d-size-m: {{ db.size_mobile | default: 16 }}px; --pn-d-size-d: {{ db.size_desktop | default: 16 }}px; --pn-f-top-m: {{ st.mobile_form_top_space | default: 0 }}px; --pn-f-top-d: {{ st.desktop_form_top_space | default: 0 }}px;
+ --pn-in-size-m: {{ fb.input_size_mobile | default: 16 }}px; --pn-in-size-d: {{ fb.input_size_desktop | default: 16 }}px; --pn-b-top-m: {{ st.mobile_button_top_space | default: 0 }}px; --pn-b-top-d: {{ st.desktop_button_top_space | default: 0 }}px;
+ {%- unless pn_use_theme_button %} --pn-b-size-m: {{ bb.button_size_mobile | default: 16 }}px; --pn-b-size-d: {{ bb.button_size_desktop | default: 16 }}px; --loudz-button-border-radius: {{ bb.button_border_radius | default: 0 }}px; --btn-anim-duration: {{ bb.hover_transition | default: 250 }}ms; --loudz-button-text-weight: {{ bb.button_weight | default: 700 }};{% endunless %}
+ --pn-gap: {{ st.desktop_gap_between_image_form | default: 0 }}px; --pn-img-pos-m: {{ st.mobile_image_position | default: 'column' }}; --pn-img-pos-d: {{ st.desktop_image_position | default: 'row' }}; --pn-t-size-m: {{ tb.size_mobile | default: 18 }}px; --pn-t-size-d: {{ tb.size_desktop | default: 18 }}px;
+ --loudz-section-width: {{ st.inner_width | default: 790 }}px; --loudz-section-background: {% if c_grad != blank %}{{ c_grad }}{% else %}{% render 'scheme-color', color: c_bg, fallback: 'var(--color-background)' %}{% endif %}; --loudz-overlay-color: {% render 'scheme-color', color: c_overlay, fallback: '#000000' %}; --loudz-overlay-opacity: {{ st.overlay_opacity | default: 0 | divided_by: 100.0 }};
+ --loudz-heading-text-weight: {% if hb.weight == 'theme' %}var(--heading-weight, 700){% else %}{{ hb.weight | default: 700 }}{% endif %}; --loudz-heading-color: {% render 'scheme-color', color: c_h, fallback: 'var(--color-heading)' %}; --loudz-description-text-weight: {{ db.weight | default: 400 }}; --loudz-description-color: {% render 'scheme-color', color: c_d, fallback: 'var(--color-text)' %};
+ --loudz-input-color: {% render 'scheme-color', color: c_in, fallback: 'var(--input-color)' %}; --loudz-input-background-color: {% render 'scheme-color', color: c_inbg, fallback: 'var(--input-bg)' %}; --loudz-input-text-weight: {{ fb.input_weight | default: 400 }}; --loudz-input-border-color: {% render 'scheme-color', color: c_inbd, fallback: 'var(--color-border)' %}; --loudz-input-placeholder-color: {% render 'scheme-color', color: c_inph, fallback: 'var(--input-placeholder-color)' %};
+ {%- if pn_use_theme_fields %} --loudz-input-border-radius: var(--input-border-radius, 6px); --loudz-input-border-thickness: var(--inputs-border-width, 1px); --loudz-input-height: var(--input-height, 0px); --loudz-input-padding: var(--input-padding, 16px 12px);{% else %} --loudz-input-border-radius: {{ st.input_border_radius | default: 0 }}px; --loudz-input-border-thickness: {{ st.input_border_thickness | default: 0 }}px; --mt-select-radius: {{ st.input_border_radius | default: 0 }}px; --field-border-widths: {{ st.input_border_thickness | default: 0 }}px;{% if fb.input_size_mobile != blank and fb.input_size_desktop != blank %} --mt-field-font-size: var(--loudz-input-text-size);{% endif %}{% if fb.input_size_mobile != blank %} --mt-field-font-size-mobile: {{ fb.input_size_mobile }}px;{% endif %}{% if fb.input_weight != blank %} --mt-field-weight: {{ fb.input_weight }};{% endif %}{% endif %}
+ {%- if pn_custom %} --mt-select-bg: {% render 'scheme-color', color: c_inbg, fallback: 'var(--input-bg)' %}; --mt-select-text: {% render 'scheme-color', color: c_in, fallback: 'var(--input-color)' %}; --mt-select-border: {% render 'scheme-color', color: c_inbd, fallback: 'var(--color-border)' %};{% endif %}
+ --loudz-button-width: {{ st.button_width | default: 100 }}%; --loudz-button-text-color: {% render 'scheme-color', color: c_btx, fallback: 'var(--btn-primary-color)' %}; --loudz-button-background-color: {% render 'scheme-color', color: c_bbg, fallback: 'var(--btn-primary-bg-color)' %}; --loudz-button-text-color-hover: {% render 'scheme-color', color: c_btxh, fallback: 'var(--btn-primary-hover-color)' %}; --loudz-button-background-color-hover: {% render 'scheme-color', color: c_bbgh, fallback: 'var(--btn-primary-hover-bg-color)' %};
+ --loudz-popup-link-color: {% render 'scheme-color', color: c_link, fallback: 'var(--color-text)' %}; --loudz-popup-border-radius: {{ st.popup_border_radius | default: 0 }}px; --loudz-top-text-weight: {{ tb.weight | default: 400 }}; --loudz-top-text-to-heading-gap: {{ st.top_text_to_heading_gap | default: 0 }}px;
+{%- render 'page-popup-fonts', st: st -%}
+{%- endcapture -%}
+{%- capture pn_config -%}
+  {"design": {{ request.design_mode | json }}, "preview": {{ pn_preview | json }},
+   "trigger": {"mode": {{ st.open_mode | default: 'delay' | json }}, "delay": {{ st.popup_delay | default: 0 | json }}, "idle": {{ st.inactivity_s | default: 10 | json }}, "scroll": {{ st.scroll_pct | default: 50 | json }}, "views": {{ st.page_views | default: 2 | json }}, "exit": {{ st.exit_intent | json }} },
+   "frequency": {"mode": "after_days", "days": {{ pn_days | json }}, "session": {{ st.once_per_session | json }} } }
+{%- endcapture -%}
+{% render 'page-popup-dialog', sid: sid, st: st %}
+<div id="loudz-{{ sid }}" class="loudz-newsletter-3 loudz-{{ sid }} color-{{ color_scheme }}" data-pg-root="promonewsletterpopup-2" data-pg-section="{{ sid }}"{% if request.design_mode %} data-pg-settings="{{ st | json | escape }}"{% endif %}{% if st.enable_custom_fonts %} data-pg-fonts data-own-font{% endif %}{% unless pn_is_popup %} data-pg-inline{% endunless %}{% if st.reset_spacing %} data-pn-reset{% endif %} data-pg-shop="{{ shop.name | escape }}"
+     data-popup-root="{{ sid }}" data-popup-config="{{ pn_config | strip_newlines | escape }}"{% if pn_is_popup %} aria-hidden="true"{% endif %}
+     style="{{ pn_vars | strip_newlines | strip }}">
+	<dialog class="pg-dialog" data-pg-dialog aria-labelledby="loudz-title-{{ sid }}">
+	<div class="loudz__popup loudz__flex" data-pg-frame>
+		<div class="loudz__container loudz__flex" data-pg-card tabindex="-1">
+			<button type="button" class="loudz__close" data-popup-close aria-label="{{ 'accessibility.close' | t }}">
+				<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" class="icon icon-close" fill="none" viewBox="0 0 18 17">
+					<path d="M.865 15.978a.5.5 0 00.707.707l7.433-7.431 7.579 7.282a.501.501 0 00.846-.37.5.5 0 00-.153-.351L9.712 8.546l7.417-7.416a.5.5 0 10-.707-.708L8.991 7.853 1.413.573a.5.5 0 10-.693.72l7.563 7.268-7.418 7.417z" fill="currentColor"/>
+				</svg>
+			</button>
+			<div class="loudz__image-wrapper" data-pn-image>
+				<template data-pg-ph>{{ 'lifestyle-1' | placeholder_svg_tag: 'loudz__img loudz__placeholder' }}</template>
+				{%- if st.image != blank -%}
+					{{ st.image | image_url: width: 900 | image_tag: loading: 'lazy', class: 'loudz__img', alt: st.image.alt | default: shop.name, sizes: '(min-width: 768px) 50vw, 100vw', widths: '360,540,720,900' }}
+				{%- else -%}
+					{{ 'lifestyle-1' | placeholder_svg_tag: 'loudz__img loudz__placeholder' }}
+				{%- endif -%}
+			</div>
+
+			<div class="loudz__form loudz__flex">
+				{%- if block_image != blank -%}
+				<div class="loudz__icon loudz__icon--centered{% if ib.custom_svg_code != blank and pn_icon_source == 'custom_svg' %} loudz-svg-custom{% endif %}" data-pg-block="{{ block_image.id }}" data-pg-type="image"{% if request.design_mode %} data-pg-settings="{{ ib | json | escape }}"{% endif %}{% if ib.disable_icon %} hidden{% endif %}
+				     style="--pn-icon-size: {{ ib.icon_size | default: 72 }}px; --pn-icon-color: {% render 'scheme-color', color: c_i, fallback: 'var(--color-heading)' %};"
+				     {{ block_image.shopify_attributes }}>
+					{%- assign pn_names = 'envelope,gift,star,heart,percent,sparkle,fire,bell,lock,tag' | split: ',' -%}{%- for pn_name in pn_names -%}<template data-pn-icon="{{ pn_name }}">{%- render 'cpnb-preset-icon', name: pn_name -%}</template>{%- endfor -%}
+					<template data-pn-icon="theme_logo">{%- if settings.logo != blank -%}{{ settings.logo | image_url: width: 400 | image_tag: loading: 'lazy', alt: shop.name, class: 'loudz__logo' }}{%- else -%}<span class="loudz__logo-fallback">{{ shop.name }}</span>{%- endif -%}</template>
+					<template data-pn-icon="default_svg"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M10 9.66679L11.3846 11.0001L14.5 8.00012M3.02832 10.0001L10.2246 14.8167C10.8661 15.2444 11.1869 15.4582 11.5336 15.5413C11.8399 15.6147 12.1593 15.6147 12.4657 15.5413C12.8124 15.4582 13.1332 15.2444 13.7747 14.8167L20.971 10.0001M10.2981 4.06892L4.49814 7.71139C3.95121 8.05487 3.67775 8.2266 3.4794 8.45876C3.30385 8.66424 3.17176 8.90317 3.09111 9.16112C3 9.45256 3 9.77548 3 10.4213V16.8001C3 17.9202 3 18.4803 3.21799 18.9081C3.40973 19.2844 3.71569 19.5904 4.09202 19.7821C4.51984 20.0001 5.0799 20.0001 6.2 20.0001H17.8C18.9201 20.0001 19.4802 20.0001 19.908 19.7821C20.2843 19.5904 20.5903 19.2844 20.782 18.9081C21 18.4803 21 17.9202 21 16.8001V10.4213C21 9.77548 21 9.45256 20.9089 9.16112C20.8282 8.90317 20.6962 8.66424 20.5206 8.45876C20.3223 8.2266 20.0488 8.05487 19.5019 7.71139L13.7019 4.06891C13.0846 3.68129 12.776 3.48747 12.4449 3.41192C12.152 3.34512 11.848 3.34512 11.5551 3.41192C11.224 3.48747 10.9154 3.68129 10.2981 4.06892Z" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"></path></svg></template>
+					<div class="loudz__icon-art" data-pn-icon-art>
+					{%- case pn_icon_source -%}
+						{%- when 'theme_logo' -%}
+							{%- if settings.logo != blank -%}{{ settings.logo | image_url: width: 400 | image_tag: loading: 'lazy', alt: shop.name, class: 'loudz__logo' }}{%- else -%}<span class="loudz__logo-fallback">{{ shop.name }}</span>{%- endif -%}
+						{%- when 'upload' -%}
+							{%- if ib.icon != blank -%}{{ ib.icon | image_url: width: 400 | image_tag: loading: 'lazy', alt: shop.name }}{%- else -%}{%- render 'cpnb-preset-icon', name: pn_preset_icon -%}{%- endif -%}
+						{%- when 'custom_svg' -%}
+							{%- if ib.custom_svg_code != blank -%}{{ ib.custom_svg_code }}{%- else -%}{%- render 'cpnb-preset-icon', name: pn_preset_icon -%}{%- endif -%}
+						{%- when 'preset' -%}
+							{%- render 'cpnb-preset-icon', name: pn_preset_icon -%}
+						{%- else -%}
+							<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M10 9.66679L11.3846 11.0001L14.5 8.00012M3.02832 10.0001L10.2246 14.8167C10.8661 15.2444 11.1869 15.4582 11.5336 15.5413C11.8399 15.6147 12.1593 15.6147 12.4657 15.5413C12.8124 15.4582 13.1332 15.2444 13.7747 14.8167L20.971 10.0001M10.2981 4.06892L4.49814 7.71139C3.95121 8.05487 3.67775 8.2266 3.4794 8.45876C3.30385 8.66424 3.17176 8.90317 3.09111 9.16112C3 9.45256 3 9.77548 3 10.4213V16.8001C3 17.9202 3 18.4803 3.21799 18.9081C3.40973 19.2844 3.71569 19.5904 4.09202 19.7821C4.51984 20.0001 5.0799 20.0001 6.2 20.0001H17.8C18.9201 20.0001 19.4802 20.0001 19.908 19.7821C20.2843 19.5904 20.5903 19.2844 20.782 18.9081C21 18.4803 21 17.9202 21 16.8001V10.4213C21 9.77548 21 9.45256 20.9089 9.16112C20.8282 8.90317 20.6962 8.66424 20.5206 8.45876C20.3223 8.2266 20.0488 8.05487 19.5019 7.71139L13.7019 4.06891C13.0846 3.68129 12.776 3.48747 12.4449 3.41192C12.152 3.34512 11.848 3.34512 11.5551 3.41192C11.224 3.48747 10.9154 3.68129 10.2981 4.06892Z" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+					{%- endcase -%}
+					</div>
+				</div>
+				{%- endif -%}
+				{%- if block_top != blank -%}
+				<div class="loudz__top-text" data-pg-block="{{ block_top.id }}" data-pg-type="top_text"{% if request.design_mode %} data-pg-settings="{{ tb | json | escape }}"{% endif %}{% unless tb.enabled %} hidden{% endunless %} {{ block_top.shopify_attributes }}>{{ tb.text }}</div>
+				{%- endif -%}
+				<h2 class="loudz__heading" id="loudz-title-{{ sid }}"{% unless hb.weight == 'theme' %} data-own-weight{% endunless %}{% if block_heading != blank %} data-pg-block="{{ block_heading.id }}" data-pg-type="heading"{% if request.design_mode %} data-pg-settings="{{ hb | json | escape }}"{% endif %} {{ block_heading.shopify_attributes }}{% endif %}>{{ hb.text }}</h2>
+				<p{% if block_description != blank %} data-pg-block="{{ block_description.id }}" data-pg-type="description"{% if request.design_mode %} data-pg-settings="{{ db | json | escape }}"{% endif %} {{ block_description.shopify_attributes }}{% endif %}>{{ db.text }}</p>
+				<form class="loudz__signup" data-storelib-form="subscribe"{% if block_form != blank %} data-pg-block="{{ block_form.id }}" data-pg-type="form"{% if request.design_mode %} data-pg-settings="{{ fb | json | escape }}"{% endif %}{% endif %}>
+					<input type="email" name="email" autocomplete="email" required placeholder="{{ pn_placeholder_text | escape }}" aria-label="{{ pn_placeholder_text | default: 'Email' | escape }}" data-popup-autofocus>
+					{%- liquid
+					  assign pn_phone_req = 'false'
+					  if fb.phone_required
+					    assign pn_phone_req = 'true'
+					  endif
+					  assign pn_phone_off = true
+					  if block_form != blank and fb.collect_phone
+					    assign pn_phone_off = false
+					  endif
+					-%}
+					{%- render 'cpnb-phone-field', scope: sid, default_country: fb.phone_default_country, phone_placeholder: fb.phone_placeholder, required: pn_phone_req, off: pn_phone_off -%}
+					<button class="loudz__submit-button btn-primary" type="submit" data-theme-button="primary" data-sl-button{% unless pn_use_theme_button %} data-own-shape{% endunless %}{% if block_button != blank %} data-pg-block="{{ block_button.id }}" data-pg-type="button"{% if request.design_mode %} data-pg-settings="{{ bb | json | escape }}"{% endif %} {{ block_button.shopify_attributes }}{% endif %}>{{ bb.button_text | default: 'Subscribe Now!' }}</button>
+				</form>
+				{%- if block_dismiss != blank -%}
+					<button type="button" class="loudz__popup-link" data-popup-close data-pg-block="{{ block_dismiss.id }}" data-pg-type="dismiss"{% if request.design_mode %} data-pg-settings="{{ block_dismiss.settings | json | escape }}"{% endif %}{% if block_dismiss.settings.text == blank %} hidden{% endif %} {{ block_dismiss.shopify_attributes }}>{{ block_dismiss.settings.text }}</button>
+				{%- endif -%}
+			</div>
+		</div>
+	</div>
+	</dialog>
+</div>
+
+<script src="{{ 'materia-popups.js' | asset_url }}" defer="defer"></script>
+<script>
+(function(){
+  var SID = {{ section.id | json }};
+  function setup(P){
+    var root = document.getElementById('loudz-' + SID);
+    if (!root || root.__pn2 || root.hasAttribute('data-pg-inline')) return;
+    root.__pn2 = true;
+    var CFG = JSON.parse(root.getAttribute('data-popup-config') || '{}');
+    var popup = root.querySelector('.loudz__popup');
+    var box = root.querySelector('.loudz__container');
+    var form = root.querySelector('form');
+    var api = P.register({
+      id: SID, root: root, dialog: box, backdrop: popup,
+      design: CFG.design, preview: CFG.preview, trigger: CFG.trigger, frequency: CFG.frequency,
+      open: function(){ popup.classList.add('active'); box.classList.add('active'); },
+      close: function(){ popup.classList.remove('active'); box.classList.remove('active'); }
+    });
+    // Signed up (Storelib marks the form done): not offered again for 30 days.
+    if (form) new MutationObserver(function(){
+      if (form.getAttribute('data-state') === 'done' && api) api.done(30);
+    }).observe(form, { attributes: true, attributeFilter: ['data-state'] });
+    window['openPromoNewsletter_' + SID] = function(){ api.show(); };
+    window['closePromoNewsletter_' + SID] = function(){ api.hide(); };
+  }
+  function boot(){ (window.MateriaPopupsQueue = window.MateriaPopupsQueue || []).push(setup); }
+  boot();
+  function reload(e){ if (e.detail && String(e.detail.sectionId) === SID) boot(); }
+  document.addEventListener('storelib:section-load', reload);
+  document.addEventListener('shopify:section:load', reload);
+})();
+</script>
+{% schema %}
+{
+  "name": "Promotional Newsletter 2",
+  "class": "loudz-section loudz-newsletter-3",
+  "tag": "section",
+  "enabled_on": {
+    "groups": [
+      "custom.overlay"
+    ]
+  },
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "header",
+      "content": "Trigger"
+    },
+    {
+      "type": "checkbox",
+      "id": "render_as_popup",
+      "label": "Show as a popup",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "open_mode",
+      "label": "Opens",
+      "default": "delay",
+      "options": [
+        {
+          "value": "immediate",
+          "label": "On page load"
+        },
+        {
+          "value": "delay",
+          "label": "After a delay"
+        },
+        {
+          "value": "scroll",
+          "label": "On scroll"
+        },
+        {
+          "value": "exit",
+          "label": "On exit intent"
+        },
+        {
+          "value": "inactivity",
+          "label": "When idle"
+        },
+        {
+          "value": "pageviews",
+          "label": "After page views"
+        },
+        {
+          "value": "manual",
+          "label": "From a link"
+        }
+      ]
+    },
+    {
+      "type": "number",
+      "id": "popup_delay",
+      "label": "Delay (seconds)",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "inactivity_s",
+      "label": "Idle for",
+      "min": 0,
+      "max": 120,
+      "step": 5,
+      "unit": "s",
+      "default": 10,
+      "visible_if": "{{ section.settings.open_mode == 'inactivity' }}"
+    },
+    {
+      "type": "range",
+      "id": "scroll_pct",
+      "label": "Scrolled",
+      "min": 10,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "default": 50,
+      "visible_if": "{{ section.settings.open_mode == 'scroll' }}"
+    },
+    {
+      "type": "range",
+      "id": "page_views",
+      "label": "Page views",
+      "min": 1,
+      "max": 10,
+      "step": 1,
+      "default": 2,
+      "visible_if": "{{ section.settings.open_mode == 'pageviews' }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "exit_intent",
+      "label": "Also open on exit intent",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "Behaviour"
+    },
+    {
+      "type": "range",
+      "id": "hide_days",
+      "label": "Hide after closing for",
+      "min": 0,
+      "max": 30,
+      "step": 1,
+      "unit": "d",
+      "default": 2
+    },
+    {
+      "type": "checkbox",
+      "id": "once_per_session",
+      "label": "Once per session",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_edit_mode",
+      "label": "Show in the builder",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_customization_mode",
+      "label": "Keep open in the builder",
+      "default": true,
+      "hidden": true,
+      "info": "Legacy: the same as Show in the builder.",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "header",
+      "content": "Image"
+    },
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "Image"
+    },
+    {
+      "type": "select",
+      "id": "desktop_image_position",
+      "label": "Image",
+      "options": [
+        {
+          "value": "row",
+          "label": "Left"
+        },
+        {
+          "value": "row-reverse",
+          "label": "Right"
+        },
+        {
+          "value": "column",
+          "label": "Above"
+        },
+        {
+          "value": "column-reverse",
+          "label": "Below"
+        }
+      ],
+      "default": "row"
+    },
+    {
+      "type": "select",
+      "id": "mobile_image_position",
+      "label": "Image on phones",
+      "options": [
+        {
+          "value": "column",
+          "label": "Above"
+        },
+        {
+          "value": "column-reverse",
+          "label": "Below"
+        }
+      ],
+      "default": "column"
+    },
+    {
+      "type": "range",
+      "id": "desktop_gap_between_image_form",
+      "label": "Gap",
+      "default": 50,
+      "step": 1,
+      "min": 10,
+      "max": 100,
+      "unit": "px"
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "number",
+      "id": "inner_width",
+      "label": "Width (px)",
+      "default": 800
+    },
+    {
+      "type": "range",
+      "id": "popup_border_radius",
+      "label": "Corner radius",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "unit": "px",
+      "default": 10
+    },
+    {
+      "type": "range",
+      "id": "top_text_to_heading_gap",
+      "label": "Top text gap",
+      "min": 0,
+      "max": 30,
+      "step": 1,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "desktop_heading_top_space",
+      "label": "Space above heading",
+      "min": 0,
+      "max": 50,
+      "default": 16,
+      "step": 1,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "desktop_top_space",
+      "label": "Space above text",
+      "min": 0,
+      "max": 50,
+      "default": 12,
+      "step": 1,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "desktop_form_top_space",
+      "label": "Space above form",
+      "min": 0,
+      "max": 50,
+      "default": 32,
+      "step": 1,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "desktop_button_top_space",
+      "label": "Space above button",
+      "min": 0,
+      "max": 50,
+      "default": 12,
+      "step": 1,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "desktop_icon_width",
+      "label": "Icon width",
+      "max": 200,
+      "min": 20,
+      "step": 2,
+      "unit": "px",
+      "default": 72
+    },
+    {
+      "type": "range",
+      "id": "desktop_top_padding",
+      "label": "Top padding",
+      "min": 0,
+      "max": 200,
+      "step": 2,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "desktop_bottom_padding",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 200,
+      "step": 2,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "header",
+      "content": "Phones"
+    },
+    {
+      "type": "range",
+      "id": "mobile_heading_top_space",
+      "label": "Space above heading",
+      "min": 0,
+      "max": 50,
+      "default": 16,
+      "step": 1,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "mobile_top_space",
+      "label": "Space above text",
+      "min": 0,
+      "max": 50,
+      "default": 12,
+      "step": 1,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "mobile_form_top_space",
+      "label": "Space above form",
+      "min": 0,
+      "max": 50,
+      "default": 32,
+      "step": 1,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "mobile_button_top_space",
+      "label": "Space above button",
+      "min": 0,
+      "max": 50,
+      "default": 12,
+      "step": 1,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "mobile_icon_width",
+      "label": "Icon width",
+      "max": 200,
+      "min": 20,
+      "step": 2,
+      "unit": "px",
+      "default": 72
+    },
+    {
+      "type": "range",
+      "id": "mobile_top_padding",
+      "label": "Top padding",
+      "min": 0,
+      "max": 200,
+      "step": 2,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "mobile_bottom_padding",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 200,
+      "step": 2,
+      "unit": "px",
+      "default": 60
+    },
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_style",
+      "label": "Custom colours",
+      "default": false,
+      "info": "Off, the popup follows its colour scheme."
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "Background",
+      "visible_if": "{{ section.settings.enable_custom_style == true }}"
+    },
+    {
+      "type": "color_background",
+      "id": "background_gradient",
+      "label": "Background gradient",
+      "visible_if": "{{ section.settings.enable_custom_style == true }}"
+    },
+    {
+      "type": "color",
+      "id": "overlay_color",
+      "label": "Backdrop",
+      "default": "#000000",
+      "visible_if": "{{ section.settings.enable_custom_style == true }}"
+    },
+    {
+      "type": "range",
+      "id": "overlay_opacity",
+      "label": "Backdrop opacity",
+      "max": 100,
+      "min": 10,
+      "step": 1,
+      "default": 50,
+      "unit": "%"
+    },
+    {
+      "type": "color",
+      "id": "popup_link_color",
+      "label": "No-thanks link",
+      "visible_if": "{{ section.settings.enable_custom_style == true }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "use_theme_fields",
+      "label": "Theme field style",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "input_border_thickness",
+      "label": "Field border",
+      "min": 0,
+      "max": 5,
+      "step": 1,
+      "unit": "px",
+      "default": 1,
+      "visible_if": "{{ section.settings.use_theme_fields == false }}"
+    },
+    {
+      "type": "range",
+      "id": "input_border_radius",
+      "label": "Field radius",
+      "max": 50,
+      "min": 0,
+      "step": 1,
+      "default": 6,
+      "unit": "px",
+      "visible_if": "{{ section.settings.use_theme_fields == false }}"
+    },
+    {
+      "type": "color",
+      "id": "input_color",
+      "label": "Field text",
+      "visible_if": "{{ section.settings.enable_custom_style == true }}"
+    },
+    {
+      "type": "color",
+      "id": "input_background_color",
+      "label": "Field background",
+      "visible_if": "{{ section.settings.enable_custom_style == true }}"
+    },
+    {
+      "type": "color",
+      "id": "input_border_color",
+      "label": "Field border color",
+      "visible_if": "{{ section.settings.enable_custom_style == true }}"
+    },
+    {
+      "type": "color",
+      "id": "input_placeholder_color",
+      "label": "Placeholder",
+      "visible_if": "{{ section.settings.enable_custom_style == true }}"
+    },
+    {
+      "type": "header",
+      "content": "Typography"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_fonts",
+      "label": "Custom fonts",
+      "default": false,
+      "info": "Off, the popup uses the theme fonts."
+    },
+    {
+      "type": "font_picker",
+      "id": "heading_font",
+      "label": "Heading font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts == true }}"
+    },
+    {
+      "type": "font_picker",
+      "id": "body_font",
+      "label": "Text font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts == true }}"
+    },
+    {
+      "type": "header",
+      "content": "Advanced"
+    },
+    {
+      "type": "checkbox",
+      "id": "reset_spacing",
+      "label": "No space around",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_desktop",
+      "label": "Top margin",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0,
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_desktop",
+      "label": "Bottom margin",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0,
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_mobile",
+      "label": "Top margin on phones",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0,
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_mobile",
+      "label": "Bottom margin on phones",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0,
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "top_text",
+      "name": "Top text",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "type": "checkbox",
+          "id": "enabled",
+          "label": "Show",
+          "default": false
+        },
+        {
+          "type": "text",
+          "id": "text",
+          "label": "Text",
+          "default": "👋 Hey You"
+        },
+        {
+          "type": "header",
+          "content": "Style"
+        },
+        {
+          "type": "range",
+          "id": "size_desktop",
+          "label": "Size",
+          "min": 8,
+          "max": 32,
+          "step": 1,
+          "unit": "px",
+          "default": 18
+        },
+        {
+          "type": "range",
+          "id": "size_mobile",
+          "label": "Size on phones",
+          "min": 8,
+          "max": 32,
+          "step": 1,
+          "unit": "px",
+          "default": 18
+        },
+        {
+          "type": "select",
+          "id": "weight",
+          "label": "Weight",
+          "default": "400",
+          "options": [
+            {
+              "value": "300",
+              "label": "Light"
+            },
+            {
+              "value": "400",
+              "label": "Regular"
+            },
+            {
+              "value": "500",
+              "label": "Medium"
+            },
+            {
+              "value": "600",
+              "label": "Semi Bold"
+            },
+            {
+              "value": "700",
+              "label": "Bold"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "name": "Heading",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "type": "inline_richtext",
+          "id": "text",
+          "label": "Heading",
+          "default": "Subscribe to get exclusive offers!"
+        },
+        {
+          "type": "header",
+          "content": "Style"
+        },
+        {
+          "type": "range",
+          "id": "size_desktop",
+          "label": "Size",
+          "min": 12,
+          "max": 72,
+          "step": 1,
+          "unit": "px",
+          "default": 29
+        },
+        {
+          "type": "range",
+          "id": "size_mobile",
+          "label": "Size on phones",
+          "min": 12,
+          "max": 60,
+          "step": 1,
+          "unit": "px",
+          "default": 24
+        },
+        {
+          "type": "select",
+          "id": "weight",
+          "label": "Weight",
+          "default": "700",
+          "options": [
+            {
+              "value": "theme",
+              "label": "Theme"
+            },
+            {
+              "value": "300",
+              "label": "Light"
+            },
+            {
+              "value": "400",
+              "label": "Regular"
+            },
+            {
+              "value": "500",
+              "label": "Medium"
+            },
+            {
+              "value": "600",
+              "label": "Semi Bold"
+            },
+            {
+              "value": "700",
+              "label": "Bold"
+            },
+            {
+              "value": "800",
+              "label": "Extra Bold"
+            }
+          ],
+          "info": "Theme follows Theme settings > Typography."
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Custom colours",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Color",
+          "visible_if": "{{ block.settings.enable_custom_style == true }}"
+        }
+      ]
+    },
+    {
+      "type": "description",
+      "name": "Description",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "type": "inline_richtext",
+          "id": "text",
+          "label": "Text",
+          "default": "Fill in your email and get access to all the amazing offers. Check your email."
+        },
+        {
+          "type": "header",
+          "content": "Style"
+        },
+        {
+          "type": "range",
+          "id": "size_desktop",
+          "label": "Size",
+          "min": 10,
+          "max": 32,
+          "step": 1,
+          "unit": "px",
+          "default": 16
+        },
+        {
+          "type": "range",
+          "id": "size_mobile",
+          "label": "Size on phones",
+          "min": 10,
+          "max": 24,
+          "step": 1,
+          "unit": "px",
+          "default": 16
+        },
+        {
+          "type": "select",
+          "id": "weight",
+          "label": "Weight",
+          "default": "400",
+          "options": [
+            {
+              "value": "300",
+              "label": "Light"
+            },
+            {
+              "value": "400",
+              "label": "Regular"
+            },
+            {
+              "value": "500",
+              "label": "Medium"
+            },
+            {
+              "value": "600",
+              "label": "Semi Bold"
+            },
+            {
+              "value": "700",
+              "label": "Bold"
+            }
+          ]
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Custom colours",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Color",
+          "visible_if": "{{ block.settings.enable_custom_style == true }}"
+        }
+      ]
+    },
+    {
+      "type": "image",
+      "name": "Icon",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "checkbox",
+          "id": "disable_icon",
+          "label": "Hide the icon",
+          "default": true
+        },
+        {
+          "type": "select",
+          "id": "icon_source",
+          "label": "Icon",
+          "default": "preset",
+          "options": [
+            {
+              "value": "theme_logo",
+              "label": "Theme logo (auto)"
+            },
+            {
+              "value": "preset",
+              "label": "Preset icon"
+            },
+            {
+              "value": "upload",
+              "label": "Upload my own image"
+            },
+            {
+              "value": "custom_svg",
+              "label": "Paste custom SVG code"
+            },
+            {
+              "value": "default_svg",
+              "label": "Default (envelope)"
+            }
+          ]
+        },
+        {
+          "type": "select",
+          "id": "preset_icon",
+          "label": "Preset",
+          "default": "envelope",
+          "options": [
+            {
+              "value": "envelope",
+              "label": "Envelope"
+            },
+            {
+              "value": "gift",
+              "label": "Gift"
+            },
+            {
+              "value": "star",
+              "label": "Star"
+            },
+            {
+              "value": "heart",
+              "label": "Heart"
+            },
+            {
+              "value": "percent",
+              "label": "Percent"
+            },
+            {
+              "value": "sparkle",
+              "label": "Sparkle"
+            },
+            {
+              "value": "fire",
+              "label": "Fire"
+            },
+            {
+              "value": "bell",
+              "label": "Bell"
+            },
+            {
+              "value": "lock",
+              "label": "Lock"
+            },
+            {
+              "value": "tag",
+              "label": "Tag"
+            }
+          ],
+          "visible_if": "{{ block.settings.icon_source == 'preset' }}"
+        },
+        {
+          "type": "image_picker",
+          "id": "icon",
+          "label": "Image",
+          "visible_if": "{{ block.settings.icon_source == 'upload' }}"
+        },
+        {
+          "type": "textarea",
+          "id": "custom_svg_code",
+          "label": "SVG code",
+          "visible_if": "{{ block.settings.icon_source == 'custom_svg' }}"
+        },
+        {
+          "type": "range",
+          "id": "icon_size",
+          "label": "Size",
+          "min": 20,
+          "max": 200,
+          "step": 2,
+          "unit": "px",
+          "default": 72
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Custom colours",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "icon_color",
+          "label": "Color",
+          "visible_if": "{{ block.settings.enable_custom_style == true }}"
+        }
+      ]
+    },
+    {
+      "type": "form",
+      "name": "Email field",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "type": "text",
+          "id": "placeholder_text",
+          "label": "Email placeholder",
+          "default": "Email address"
+        },
+        {
+          "type": "header",
+          "content": "Phone"
+        },
+        {
+          "type": "checkbox",
+          "id": "collect_phone",
+          "label": "Ask for a phone number",
+          "default": false
+        },
+        {
+          "type": "text",
+          "id": "phone_placeholder",
+          "label": "Phone placeholder",
+          "default": "Phone number",
+          "visible_if": "{{ block.settings.collect_phone == true }}"
+        },
+        {
+          "type": "text",
+          "id": "phone_default_country",
+          "label": "Country code",
+          "default": "US",
+          "visible_if": "{{ block.settings.collect_phone == true }}"
+        },
+        {
+          "type": "checkbox",
+          "id": "phone_required",
+          "label": "Phone required",
+          "default": false,
+          "visible_if": "{{ block.settings.collect_phone == true }}"
+        },
+        {
+          "type": "header",
+          "content": "Style"
+        },
+        {
+          "type": "range",
+          "id": "input_size_desktop",
+          "label": "Text size",
+          "min": 10,
+          "max": 24,
+          "step": 1,
+          "unit": "px",
+          "default": 16,
+          "info": "Used with Appearance > Theme fields off."
+        },
+        {
+          "type": "range",
+          "id": "input_size_mobile",
+          "label": "Text size on phones",
+          "min": 10,
+          "max": 24,
+          "step": 1,
+          "unit": "px",
+          "default": 16,
+          "info": "Used with Appearance > Theme fields off. Phones never go below 16px, so a field does not zoom in when tapped."
+        },
+        {
+          "type": "select",
+          "id": "input_weight",
+          "label": "Weight",
+          "default": "400",
+          "options": [
+            {
+              "value": "300",
+              "label": "Light"
+            },
+            {
+              "value": "400",
+              "label": "Regular"
+            },
+            {
+              "value": "500",
+              "label": "Medium"
+            },
+            {
+              "value": "600",
+              "label": "Semi Bold"
+            },
+            {
+              "value": "700",
+              "label": "Bold"
+            }
+          ],
+          "info": "Used with Appearance > Theme fields off."
+        }
+      ]
+    },
+    {
+      "type": "button",
+      "name": "Button",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "type": "text",
+          "id": "button_text",
+          "label": "Label",
+          "default": "Subscribe Now!"
+        },
+        {
+          "type": "header",
+          "content": "Style"
+        },
+        {
+          "type": "checkbox",
+          "id": "use_theme_button",
+          "label": "Theme button style",
+          "default": true
+        },
+        {
+          "type": "range",
+          "id": "button_size_desktop",
+          "label": "Text size",
+          "min": 10,
+          "max": 24,
+          "step": 1,
+          "unit": "px",
+          "default": 16,
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        },
+        {
+          "type": "range",
+          "id": "button_size_mobile",
+          "label": "Text size on phones",
+          "min": 10,
+          "max": 24,
+          "step": 1,
+          "unit": "px",
+          "default": 16,
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        },
+        {
+          "type": "select",
+          "id": "button_weight",
+          "label": "Weight",
+          "default": "700",
+          "options": [
+            {
+              "value": "400",
+              "label": "Regular"
+            },
+            {
+              "value": "500",
+              "label": "Medium"
+            },
+            {
+              "value": "600",
+              "label": "Semi Bold"
+            },
+            {
+              "value": "700",
+              "label": "Bold"
+            },
+            {
+              "value": "800",
+              "label": "Extra Bold"
+            }
+          ],
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        },
+        {
+          "type": "range",
+          "id": "button_border_radius",
+          "label": "Corner radius",
+          "min": 0,
+          "max": 40,
+          "step": 1,
+          "unit": "px",
+          "default": 8,
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        },
+        {
+          "type": "range",
+          "id": "hover_transition",
+          "label": "Hover speed",
+          "min": 0,
+          "max": 600,
+          "step": 25,
+          "unit": "ms",
+          "default": 250,
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Custom colours",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "button_background",
+          "label": "Background",
+          "visible_if": "{{ block.settings.enable_custom_style == true }}"
+        },
+        {
+          "type": "color",
+          "id": "button_text_color",
+          "label": "Text",
+          "visible_if": "{{ block.settings.enable_custom_style == true }}"
+        },
+        {
+          "type": "color",
+          "id": "button_background_hover",
+          "label": "Hover background",
+          "visible_if": "{{ block.settings.enable_custom_style == true }}"
+        },
+        {
+          "type": "color",
+          "id": "button_text_hover",
+          "label": "Hover text",
+          "visible_if": "{{ block.settings.enable_custom_style == true }}"
+        }
+      ]
+    },
+    {
+      "type": "dismiss",
+      "name": "No-thanks link",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "inline_richtext",
+          "id": "text",
+          "label": "Text",
+          "default": "No thanks"
+        }
+      ]
+    }
+  ],
+  "presets": []
+}
+{% endschema %}

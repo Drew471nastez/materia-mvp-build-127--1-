@@ -1,0 +1,1053 @@
+<script src="{{ 'live-features-a.js' | asset_url }}" defer="defer"></script>
+{% render 'theme-type' %}
+{%- comment -%} Runtime, once per page (the CSS and hero-image-one.js from layout/theme.storelib, every other script from the tags at the top of this file): shopify/assets/live-features-a.js. {%- endcomment -%}
+{%- comment -%}
+  Materia Themes. Benefits Tabs: an optional top image, heading and
+  subheading, a grid of benefit cards that open to show a short text, and an
+  optional button. All of it is blocks. Colours follow the colour scheme
+  until Enable custom styling is on (the section's and each block's own);
+  fonts follow the theme until Use custom fonts is on; the button follows
+  Theme settings > Buttons. The cards are <details>, so they open without a
+  script; live-features-a.js animates them and paints builder edits live.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign own = st.enable_custom_style
+  assign icon_names = 'truck,shipping,shield,lock,heart,star,check,headphones,envelope,chat,tag,gift,globe,leaf,award,clock,card,wallet,lightning,recycle,sparkle,box,refresh,user,calendar,handshake,gem,organic,fire,crown' | split: ','
+  assign first_tab = true
+-%}
+{%- if section.settings.reveal == false -%}<span data-ti-no-reveal hidden></span>{%- endif -%}
+{%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' and section.settings.reveal != false -%}
+<style>
+  #shopify-section-{{ section.id }}.scroll-trigger {
+    --animation-duration: {{ settings.animation_duration | default: 700 }}ms;
+    --animation-delay: {{ settings.animation_delay | default: 0 }}ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-{{ section.id }}');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', {{ settings.scroll_animation | json }});
+  })();
+</script>
+{%- endif -%}
+{%- if st.reset_spacing -%}
+<style data-rs-bulletproof>
+  #shopify-section-{{ section.id }}, #shopify-section-{{ section.id }} > section { margin-top: 0 !important; margin-bottom: 0 !important; }
+  #shopify-section-{{ section.id }} + .shopify-section, .shopify-section + #shopify-section-{{ section.id }} { margin-top: 0 !important; }
+</style>
+{%- endif -%}
+{% render 'features-a-root', section: section, part: 'css' %}
+{% render 'features-a-root', section: section, part: 'fonts' %}
+<style>
+  :is(#_, .btab) .btab__header { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--btab-hgap); margin-bottom: var(--btab-to-tabs); }
+  :is(#_, .btab) .btab__header:not(:has(> :not([hidden]))) { display: none; }
+  :is(#_, .btab) .btab__top-icon { width: var(--btab-top); height: var(--btab-top); object-fit: contain; }
+  :is(#_, .btab) .btab__top-icon.is-empty { display: none; }
+  :is(#_, .btab) .btab__heading { margin: 0; font-size: var(--btab-h-m); line-height: 1.15; color: var(--btab-h-color); }
+  :is(#_, .btab) .btab__heading[data-own-weight] { font-weight: var(--btab-h-w); }
+  :is(#_, .btab) .btab__sub { margin: 0; font-size: var(--btab-s-m); line-height: 1.55; max-width: 720px; color: var(--btab-s-color); }
+  :is(#_, .btab) .btab__list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(var(--btab-cols-m), minmax(0, 1fr)); gap: var(--btab-gap-m); align-items: start; }
+  :is(#_, .btab) .btab__item { background: var(--btab-bg); border: var(--btab-bw) solid var(--btab-border); border-radius: var(--btab-radius); overflow: hidden; transition: box-shadow .45s cubic-bezier(.22, 1, .36, 1); }
+  :is(#_, .btab) .btab__item[open] { box-shadow: 0 12px 28px -14px rgba(0, 0, 0, .14); }
+  :is(#_, .btab) .btab__item summary { list-style: none; cursor: pointer; padding: var(--btab-pad); display: flex; align-items: center; gap: 12px; min-height: 44px; -webkit-tap-highlight-color: transparent; }
+  :is(#_, .btab) .btab__item summary::-webkit-details-marker { display: none; }
+  :is(#_, .btab) .btab__item summary:focus-visible { outline: 2px solid currentColor; outline-offset: -4px; border-radius: var(--btab-radius); }
+  :is(#_, .btab) .btab__icon { flex-shrink: 0; width: var(--btab-box); height: var(--btab-box); border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; background: var(--btab-icon-bg); color: var(--btab-icon); }
+  :is(#_, .btab) .btab__icon :is(svg, img) { width: var(--btab-icon-size); height: var(--btab-icon-size); object-fit: contain; display: block; }
+  :is(#_, .btab) .btab__title { margin: 0; flex: 1; font-size: var(--btab-title-size); line-height: 1.25; color: var(--btab-title); }
+  :is(#_, .btab) .btab__chev { flex-shrink: 0; width: 24px; height: 24px; display: inline-flex; color: var(--btab-chev); transition: transform .45s cubic-bezier(.34, 1.16, .64, 1); }
+  :is(#_, .btab) .btab__item[open]:not([data-closing]) .btab__chev { transform: rotate(45deg); }
+  :is(#_, .btab) .btab__chev svg { width: 100%; height: 100%; }
+  :is(#_, .btab) .btab__panel { display: grid; grid-template-rows: 1fr; transition: grid-template-rows .45s cubic-bezier(.32, .72, 0, 1); }
+  :is(#_, .btab) .btab__item:is([data-closing], [data-opening]) .btab__panel { grid-template-rows: 0fr; }
+  :is(#_, .btab) .btab__panel > div { overflow: hidden; min-height: 0; }
+  :is(#_, .btab) .btab__desc { padding: 0 var(--btab-pad) var(--btab-pad); margin: 0; line-height: 1.55; font-size: var(--btab-desc-size); color: var(--btab-desc); }
+  :is(#_, .btab) .btab__cta-wrap { margin-top: var(--btab-to-cta); text-align: center; }
+  @media (min-width: 768px) {
+    :is(#_, .btab) .btab__heading { font-size: var(--btab-h-d); }
+    :is(#_, .btab) .btab__sub { font-size: var(--btab-s-d); }
+    :is(#_, .btab) .btab__list { grid-template-columns: repeat(var(--btab-cols-d), minmax(0, 1fr)); gap: var(--btab-gap-d); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    :is(#_, .btab) :is(.btab__panel, .btab__chev, .btab__item) { transition: none !important; }
+  }
+</style>
+<section class="btab color-{{ scheme }} gradient"
+  {% render 'features-a-root', section: section, part: 'attrs', type: 'benefits-tabs', width: st.section_width, width_default: 'container' %}
+  style="{% render 'features-a-root', section: section, part: 'vars', bg: st.section_bg, pt_m: st.padding_top_mobile, pb_m: st.padding_bottom_mobile, pt_d: st.padding_top_desktop, pb_d: st.padding_bottom_desktop %}--btab-cols-d: {{ st.cols_desktop | default: 4 }};--btab-cols-m: {% if st.cols_mobile == '2' %}2{% else %}1{% endif %};--btab-gap-m: {{ st.tab_gap | default: 16 }}px;--btab-gap-d: {{ st.tab_gap_desktop | default: 20 }}px;--btab-pad: {{ st.tab_padding | default: 18 }}px;--btab-radius: {{ st.tab_radius | default: 0 }}px;--btab-bw: {{ st.tab_border_width | default: 0 }}px;--btab-title-size: {{ st.tab_title_size | default: 16 }}px;--btab-desc-size: {{ st.tab_desc_size | default: 14 }}px;--btab-box: {{ st.icon_box_size | default: 40 }}px;--btab-icon-size: {{ st.icon_size | default: 22 }}px;--btab-hgap: {{ st.gap_header_blocks | default: 14 }}px;--btab-to-tabs: {{ st.gap_header_to_tabs | default: 32 }}px;--btab-to-cta: {{ st.gap_tabs_to_cta | default: 0 }}px;--btab-bg: {% if own %}{% render 'scheme-color', color: st.tab_bg, fallback: 'color-mix(in srgb, var(--color-heading) 6%, var(--color-background))' %}{% else %}color-mix(in srgb, var(--color-heading) 6%, var(--color-background)){% endif %};--btab-border: {% if own %}{% render 'scheme-color', color: st.tab_border_color, fallback: 'var(--color-border)' %}{% else %}var(--color-border){% endif %};--btab-chev: {% if own %}{% render 'scheme-color', color: st.tab_chev_color, fallback: 'var(--color-primary)' %}{% else %}var(--color-primary){% endif %};--btab-desc: {% if own %}{% render 'scheme-color', color: st.tab_desc_color, fallback: 'var(--color-text)' %}{% else %}var(--color-text){% endif %};">
+  {%- if request.design_mode -%}{%- for n in icon_names -%}<template data-fa-icon="{{ n }}">{% render 'benefits-icon', icon: n, size: 24 %}</template>{%- endfor -%}{%- endif -%}
+  <div class="btab__inner fa-inner">
+    <div class="btab__header">
+      {%- for block in section.blocks -%}
+        {%- assign bs = block.settings -%}
+        {%- case block.type -%}
+          {%- when 'top_icon' -%}
+            <img class="btab__top-icon{% if bs.image == blank %} is-empty{% endif %}" data-fa-block="{{ block.id }}" data-fa-type="top_icon"{% if request.design_mode %} data-fa-settings="{{ bs | json | escape }}"{% endif %} style="--btab-top: {{ bs.size | default: 64 }}px;" src="{% if bs.image != blank %}{{ bs.image | image_url: width: 320 }}{% else %}data:image/gif;base64,R0lGODlhAQABAAAAACw={% endif %}" alt="{{ bs.image.alt | escape }}" width="{{ bs.size | default: 64 }}" height="{{ bs.size | default: 64 }}" loading="lazy" decoding="async" {{ block.shopify_attributes }}>
+          {%- when 'heading' -%}
+            <h2 class="btab__heading fa-h" data-fa-block="{{ block.id }}" data-fa-type="heading"{% if request.design_mode %} data-fa-settings="{{ bs | json | escape }}"{% endif %}{% if bs.enable_custom_style %} data-own-weight{% endif %} style="--btab-h-d: {{ bs.size_desktop | default: 44 }}px;--btab-h-m: {{ bs.size_mobile | default: 32 }}px;--btab-h-w: {{ bs.weight | default: 700 }};--btab-h-color: {% if bs.enable_custom_style %}{% render 'scheme-color', color: bs.color, fallback: 'var(--color-heading)' %}{% else %}var(--color-heading){% endif %};"{% if bs.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ bs.text }}</h2>
+          {%- when 'subheading' -%}
+            <p class="btab__sub fa-t" data-fa-block="{{ block.id }}" data-fa-type="subheading"{% if request.design_mode %} data-fa-settings="{{ bs | json | escape }}"{% endif %} style="--btab-s-d: {{ bs.size_desktop | default: 17 }}px;--btab-s-m: {{ bs.size_mobile | default: 15 }}px;--btab-s-color: {% if bs.enable_custom_style %}{% render 'scheme-color', color: bs.color, fallback: 'var(--color-text)' %}{% else %}var(--color-text){% endif %};"{% if bs.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ bs.text | escape }}</p>
+        {%- endcase -%}
+      {%- endfor -%}
+    </div>
+    <ul class="btab__list" role="list">
+      {%- for block in section.blocks -%}
+        {%- if block.type == 'tab' -%}
+          {%- assign bs = block.settings -%}
+          {%- assign bown = bs.enable_custom_style -%}
+          <li data-fa-block="{{ block.id }}" data-fa-type="tab"{% if request.design_mode %} data-fa-settings="{{ bs | json | escape }}"{% endif %} style="--btab-icon: {% if bown %}{% render 'scheme-color', color: bs.icon_color, fallback: 'var(--color-heading)' %}{% else %}var(--color-heading){% endif %};--btab-icon-bg: {% if bown %}{% render 'scheme-color', color: bs.icon_box_bg, fallback: 'color-mix(in srgb, var(--color-heading) 8%, transparent)' %}{% else %}color-mix(in srgb, var(--color-heading) 8%, transparent){% endif %};--btab-title: {% if bown %}{% render 'scheme-color', color: bs.title_color, fallback: 'var(--color-heading)' %}{% else %}var(--color-heading){% endif %};" {{ block.shopify_attributes }}>
+            <details class="btab__item"{% if st.open_first_by_default and first_tab %} open data-first{% elsif first_tab %} data-first{% endif %}>
+              <summary>
+                <span class="btab__icon" aria-hidden="true"{% if bs.icon_source == 'none' %} hidden{% endif %}>
+                  {%- case bs.icon_source -%}
+                    {%- when 'image' -%}
+                      {%- if bs.image != blank -%}<img src="{{ bs.image | image_url: width: 120 }}" alt="" width="120" height="120" loading="lazy" decoding="async">{%- endif -%}
+                    {%- when 'svg' -%}
+                      {%- if bs.svg_code != blank -%}{{ bs.svg_code }}{%- endif -%}
+                    {%- when 'none' -%}
+                    {%- else -%}
+                      {%- render 'benefits-icon', icon: bs.icon, size: 24 -%}
+                  {%- endcase -%}
+                </span>
+                <h3 class="btab__title fa-h">{{ bs.title | escape }}</h3>
+                <span class="btab__chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
+              </summary>
+              <div class="btab__panel"><div><p class="btab__desc fa-t"{% if bs.description == blank %} hidden{% endif %}>{{ bs.description | escape }}</p></div></div>
+            </details>
+          </li>
+          {%- assign first_tab = false -%}
+        {%- endif -%}
+      {%- endfor -%}
+    </ul>
+    {%- for block in section.blocks -%}
+      {%- if block.type == 'cta' -%}
+        {%- assign bs = block.settings -%}
+        {%- assign shape = false -%}{%- if bs.use_theme_button == false -%}{%- assign shape = true -%}{%- endif -%}
+        <div class="btab__cta-wrap" data-fa-block="{{ block.id }}" data-fa-type="cta"{% if request.design_mode %} data-fa-settings="{{ bs | json | escape }}"{% endif %}{% if bs.label == blank %} hidden{% endif %} {{ block.shopify_attributes }}>
+          {%- capture attrs -%} class="btab__cta" data-fa-nolink="button" data-theme-button="{% if bs.button_style == 'secondary' %}secondary{% else %}primary{% endif %}" data-sl-button{% if shape %} data-own-shape{% endif %} style="{% if bs.enable_custom_style %}{% render 'button-overrides', bg: bs.bg, text: bs.text_color, hover_bg: bs.bg_hover, hover_text: bs.text_color_hover %}{% endif %}{% if shape %}--mb-radius: {{ bs.radius }}px;--mb-padding-y: {{ bs.pad_y }}px;--mb-padding-x: {{ bs.pad_x }}px;--mb-font-size: {{ bs.size }}px;{% endif %}"{%- endcapture -%}
+          {%- if bs.link != blank -%}<a href="{{ bs.link | url }}"{{ attrs }}>{{ bs.label | escape }}</a>{%- else -%}<button type="button"{{ attrs }}>{{ bs.label | escape }}</button>{%- endif -%}
+        </div>
+      {%- endif -%}
+    {%- endfor -%}
+  </div>
+</section>{% schema %}
+{
+  "name": "Benefits Tabs",
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Width",
+      "default": "container",
+      "options": [
+        {
+          "value": "container",
+          "label": "Default"
+        },
+        {
+          "value": "fluid_container",
+          "label": "Fluid container"
+        },
+        {
+          "value": "stretch_width",
+          "label": "Stretched"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "reset_spacing",
+      "label": "Remove space around section",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Content"
+    },
+    {
+      "type": "checkbox",
+      "id": "open_first_by_default",
+      "label": "Open the first tab",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "range",
+      "id": "cols_desktop",
+      "label": "Columns (desktop)",
+      "min": 1,
+      "max": 6,
+      "step": 1,
+      "default": 4
+    },
+    {
+      "type": "range",
+      "id": "tab_gap_desktop",
+      "label": "Gap between tabs (desktop)",
+      "min": 4,
+      "max": 60,
+      "step": 2,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "gap_header_blocks",
+      "label": "Gap inside the heading",
+      "min": 4,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "default": 14
+    },
+    {
+      "type": "range",
+      "id": "gap_header_to_tabs",
+      "label": "Gap above tabs",
+      "min": 12,
+      "max": 80,
+      "step": 4,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "range",
+      "id": "gap_tabs_to_cta",
+      "label": "Gap above button",
+      "min": 0,
+      "max": 80,
+      "step": 4,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_style",
+      "label": "Enable custom styling",
+      "default": false,
+      "info": "Off: colours follow the colour scheme."
+    },
+    {
+      "type": "color",
+      "id": "section_bg",
+      "label": "Background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "tab_bg",
+      "label": "Tab background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "tab_border_color",
+      "label": "Tab border",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "tab_chev_color",
+      "label": "Plus sign",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "tab_desc_color",
+      "label": "Tab text",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "range",
+      "id": "tab_padding",
+      "label": "Tab padding",
+      "min": 8,
+      "max": 36,
+      "step": 2,
+      "unit": "px",
+      "default": 18
+    },
+    {
+      "type": "range",
+      "id": "tab_radius",
+      "label": "Tab corner radius",
+      "min": 0,
+      "max": 40,
+      "step": 1,
+      "unit": "px",
+      "default": 14
+    },
+    {
+      "type": "range",
+      "id": "tab_border_width",
+      "label": "Tab border width",
+      "min": 0,
+      "max": 4,
+      "step": 1,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "icon_box_size",
+      "label": "Icon circle size",
+      "min": 24,
+      "max": 64,
+      "step": 2,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "icon_size",
+      "label": "Icon size",
+      "min": 12,
+      "max": 36,
+      "step": 1,
+      "unit": "px",
+      "default": 22
+    },
+    {
+      "type": "header",
+      "content": "Typography"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_fonts",
+      "label": "Use custom fonts",
+      "default": false,
+      "info": "Off: fonts follow Theme settings > Typography."
+    },
+    {
+      "type": "font_picker",
+      "id": "heading_font",
+      "label": "Heading and title font",
+      "default": "helvetica_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "font_picker",
+      "id": "body_font",
+      "label": "Text font",
+      "default": "helvetica_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "range",
+      "id": "tab_title_size",
+      "label": "Tab title size",
+      "min": 12,
+      "max": 22,
+      "step": 1,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "range",
+      "id": "tab_desc_size",
+      "label": "Tab text size",
+      "min": 11,
+      "max": 20,
+      "step": 1,
+      "unit": "px",
+      "default": 14
+    },
+    {
+      "type": "header",
+      "content": "Animation"
+    },
+    {
+      "type": "checkbox",
+      "id": "reveal",
+      "label": "Reveal on scroll",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Desktop spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top_desktop",
+      "label": "Top padding",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 88
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom_desktop",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 88
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_desktop",
+      "label": "Top margin",
+      "min": -200,
+      "max": 200,
+      "step": 4,
+      "default": 0,
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_desktop",
+      "label": "Bottom margin",
+      "min": -200,
+      "max": 200,
+      "step": 4,
+      "default": 0,
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "header",
+      "content": "Mobile"
+    },
+    {
+      "type": "select",
+      "id": "cols_mobile",
+      "label": "Columns (mobile)",
+      "default": "1",
+      "options": [
+        {
+          "value": "1",
+          "label": "1 column"
+        },
+        {
+          "value": "2",
+          "label": "2 columns"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "tab_gap",
+      "label": "Gap between tabs (mobile)",
+      "min": 4,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "range",
+      "id": "padding_top_mobile",
+      "label": "Top padding (mobile)",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 56
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom_mobile",
+      "label": "Bottom padding (mobile)",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 56
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_mobile",
+      "label": "Top margin (mobile)",
+      "min": -200,
+      "max": 200,
+      "step": 4,
+      "default": 0,
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_mobile",
+      "label": "Bottom margin (mobile)",
+      "min": -200,
+      "max": 200,
+      "step": 4,
+      "default": 0,
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "top_icon",
+      "name": "Top icon (image)",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "image_picker",
+          "id": "image",
+          "label": "Image"
+        },
+        {
+          "type": "range",
+          "id": "size",
+          "label": "Size",
+          "min": 32,
+          "max": 160,
+          "step": 4,
+          "unit": "px",
+          "default": 64
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "name": "Heading",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "inline_richtext",
+          "id": "text",
+          "label": "Heading",
+          "default": "Real ingredients, nothing else"
+        },
+        {
+          "type": "select",
+          "id": "tag",
+          "label": "HTML tag",
+          "default": "h2",
+          "options": [
+            {
+              "value": "h1",
+              "label": "H1"
+            },
+            {
+              "value": "h2",
+              "label": "H2"
+            },
+            {
+              "value": "h3",
+              "label": "H3"
+            }
+          ],
+          "hidden": true,
+          "info": "Legacy: the heading is an h2.",
+          "visible_if": "{{ false }}"
+        },
+        {
+          "type": "range",
+          "id": "size_desktop",
+          "label": "Size (desktop)",
+          "min": 18,
+          "max": 80,
+          "step": 2,
+          "unit": "px",
+          "default": 44
+        },
+        {
+          "type": "range",
+          "id": "size_mobile",
+          "label": "Size (mobile)",
+          "min": 16,
+          "max": 60,
+          "step": 2,
+          "unit": "px",
+          "default": 32
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false,
+          "info": "Off: colour and weight follow the theme."
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Colour",
+          "default": "#0F0F0F",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "select",
+          "id": "weight",
+          "label": "Weight",
+          "default": "700",
+          "options": [
+            {
+              "value": "300",
+              "label": "Light"
+            },
+            {
+              "value": "400",
+              "label": "Normal"
+            },
+            {
+              "value": "600",
+              "label": "Semi-bold"
+            },
+            {
+              "value": "700",
+              "label": "Bold"
+            },
+            {
+              "value": "800",
+              "label": "Extra-bold"
+            }
+          ],
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        }
+      ]
+    },
+    {
+      "type": "subheading",
+      "name": "Subheading",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "textarea",
+          "id": "text",
+          "label": "Text",
+          "default": "Open any tab to see what we use and what we leave out."
+        },
+        {
+          "type": "range",
+          "id": "size_desktop",
+          "label": "Size (desktop)",
+          "min": 12,
+          "max": 24,
+          "step": 1,
+          "unit": "px",
+          "default": 17
+        },
+        {
+          "type": "range",
+          "id": "size_mobile",
+          "label": "Size (mobile)",
+          "min": 11,
+          "max": 20,
+          "step": 1,
+          "unit": "px",
+          "default": 15
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Colour",
+          "default": "#555555",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        }
+      ]
+    },
+    {
+      "type": "tab",
+      "name": "Tab",
+      "limit": 12,
+      "settings": [
+        {
+          "type": "text",
+          "id": "title",
+          "label": "Title",
+          "default": "Benefit"
+        },
+        {
+          "type": "textarea",
+          "id": "description",
+          "label": "Text shown when open",
+          "default": "A short description that appears when the merchant expands this benefit tab."
+        },
+        {
+          "type": "select",
+          "id": "icon_source",
+          "label": "Icon",
+          "default": "icon",
+          "options": [
+            {
+              "value": "icon",
+              "label": "Icon from library"
+            },
+            {
+              "value": "image",
+              "label": "Image"
+            },
+            {
+              "value": "svg",
+              "label": "Custom SVG code"
+            },
+            {
+              "value": "none",
+              "label": "No icon"
+            }
+          ]
+        },
+        {
+          "type": "select",
+          "id": "icon",
+          "label": "Library icon",
+          "default": "shield",
+          "options": [
+            {
+              "value": "none",
+              "label": "None"
+            },
+            {
+              "value": "truck",
+              "label": "Truck"
+            },
+            {
+              "value": "shield",
+              "label": "Shield"
+            },
+            {
+              "value": "lock",
+              "label": "Lock"
+            },
+            {
+              "value": "heart",
+              "label": "Heart"
+            },
+            {
+              "value": "star",
+              "label": "Star"
+            },
+            {
+              "value": "check",
+              "label": "Check"
+            },
+            {
+              "value": "headphones",
+              "label": "Headphones"
+            },
+            {
+              "value": "envelope",
+              "label": "Envelope"
+            },
+            {
+              "value": "chat",
+              "label": "Chat"
+            },
+            {
+              "value": "tag",
+              "label": "Tag"
+            },
+            {
+              "value": "gift",
+              "label": "Gift"
+            },
+            {
+              "value": "globe",
+              "label": "Globe"
+            },
+            {
+              "value": "leaf",
+              "label": "Leaf"
+            },
+            {
+              "value": "award",
+              "label": "Award"
+            },
+            {
+              "value": "clock",
+              "label": "Clock"
+            },
+            {
+              "value": "card",
+              "label": "Card"
+            },
+            {
+              "value": "wallet",
+              "label": "Wallet"
+            },
+            {
+              "value": "lightning",
+              "label": "Lightning"
+            },
+            {
+              "value": "recycle",
+              "label": "Recycle"
+            },
+            {
+              "value": "sparkle",
+              "label": "Sparkle"
+            },
+            {
+              "value": "box",
+              "label": "Box"
+            },
+            {
+              "value": "refresh",
+              "label": "Refresh"
+            },
+            {
+              "value": "user",
+              "label": "User"
+            },
+            {
+              "value": "calendar",
+              "label": "Calendar"
+            },
+            {
+              "value": "handshake",
+              "label": "Handshake"
+            },
+            {
+              "value": "gem",
+              "label": "Gem"
+            },
+            {
+              "value": "organic",
+              "label": "Organic"
+            },
+            {
+              "value": "fire",
+              "label": "Fire"
+            },
+            {
+              "value": "crown",
+              "label": "Crown"
+            }
+          ],
+          "visible_if": "{{ block.settings.icon_source == 'icon' }}"
+        },
+        {
+          "type": "image_picker",
+          "id": "image",
+          "label": "Image",
+          "visible_if": "{{ block.settings.icon_source == 'image' }}"
+        },
+        {
+          "type": "html",
+          "id": "svg_code",
+          "label": "SVG code",
+          "visible_if": "{{ block.settings.icon_source == 'svg' }}"
+        },
+        {
+          "type": "header",
+          "content": "Style"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "icon_color",
+          "label": "Icon",
+          "default": "#0F0F0F",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "icon_box_bg",
+          "label": "Icon circle",
+          "default": "#F0F0F0",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "title_color",
+          "label": "Title",
+          "default": "#0F0F0F",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        }
+      ]
+    },
+    {
+      "type": "cta",
+      "name": "Button",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "text",
+          "id": "label",
+          "label": "Button label",
+          "default": "Shop now"
+        },
+        {
+          "type": "url",
+          "id": "link",
+          "label": "Button link"
+        },
+        {
+          "type": "select",
+          "id": "button_style",
+          "label": "Style",
+          "default": "primary",
+          "options": [
+            {
+              "value": "primary",
+              "label": "Primary"
+            },
+            {
+              "value": "secondary",
+              "label": "Secondary"
+            }
+          ]
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false,
+          "info": "Off: colours follow Theme settings > Buttons."
+        },
+        {
+          "type": "color",
+          "id": "bg",
+          "label": "Background",
+          "default": "#0F0F0F",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "bg_hover",
+          "label": "Hover background",
+          "default": "#444444",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "text_color",
+          "label": "Text",
+          "default": "#FFFFFF",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "text_color_hover",
+          "label": "Hover text",
+          "default": "#FFFFFF",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "checkbox",
+          "id": "use_theme_button",
+          "label": "Use theme button size and shape",
+          "default": true
+        },
+        {
+          "type": "range",
+          "id": "size",
+          "label": "Text size",
+          "min": 11,
+          "max": 20,
+          "step": 1,
+          "unit": "px",
+          "default": 14,
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        },
+        {
+          "type": "range",
+          "id": "pad_x",
+          "label": "Horizontal padding",
+          "min": 12,
+          "max": 60,
+          "step": 1,
+          "unit": "px",
+          "default": 32,
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        },
+        {
+          "type": "range",
+          "id": "pad_y",
+          "label": "Vertical padding",
+          "min": 6,
+          "max": 28,
+          "step": 1,
+          "unit": "px",
+          "default": 14,
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        },
+        {
+          "type": "range",
+          "id": "radius",
+          "label": "Corner radius",
+          "min": 0,
+          "max": 100,
+          "step": 1,
+          "unit": "px",
+          "default": 100,
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Benefits Tabs",
+      "category": "Features",
+      "blocks": [
+        {
+          "type": "heading"
+        },
+        {
+          "type": "subheading"
+        },
+        {
+          "type": "tab",
+          "settings": {
+            "icon": "leaf",
+            "title": "Ingredients",
+            "description": "Each ingredient is listed on the label."
+          }
+        },
+        {
+          "type": "tab",
+          "settings": {
+            "icon": "box",
+            "title": "Packaging",
+            "description": "How we pack each order before it ships."
+          }
+        },
+        {
+          "type": "tab",
+          "settings": {
+            "icon": "truck",
+            "title": "Delivery",
+            "description": "Delivery options and times are shown at checkout."
+          }
+        },
+        {
+          "type": "tab",
+          "settings": {
+            "icon": "refresh",
+            "title": "Returns",
+            "description": "How to send something back if it is not right."
+          }
+        },
+        {
+          "type": "cta"
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,34 @@
+{%- comment -%}
+  Materia Themes. Developed By Materia Themes.
+{%- endcomment -%}
+{%- liquid
+  assign review_rating = product.metafields.reviews.rating.value.rating | default: product.metafields.reviews.rating.value.value | default: product.metafields.storelib.reviews.value.average | default: product.metafields.reviews.rating.value | default: product.rating
+  assign review_count = product.metafields.reviews.rating_count.value | default: product.metafields.reviews.rating_count | default: product.metafields.storelib.reviews.value.count | default: product.review_count
+  assign review_rating = review_rating | plus: 0
+  assign review_count = review_count | plus: 0
+-%}
+{%- if review_count > 0 and review_rating > 0 -%}
+  <span class="product-reviews" aria-label="{{ review_rating | escape }} / 5 · {{ review_count | escape }}">
+    <span aria-hidden="true">★</span> {{ review_rating | escape }} / 5 · {{ review_count | escape }}{% if review_label != blank %} {{ review_label | escape }}{% endif %}
+  </span>
+{%- elsif product.metafields.judgeme.badge -%}
+  <div
+    style="{{ jm_style }}"
+    class="jdgm-widget jdgm-preview-badge product-reviews {{ class }}{% if jm_style contains 'display: none' %} jdgm-widget--hidden{% endif %}"
+    data-id="{{ product.id }}"
+    {%- if block -%}
+      {{ block.shopify_attributes }}
+    {%- endif -%}
+  >
+    {{ product.metafields.judgeme.badge }}
+  </div>
+{%- elsif product.metafields.spr.reviews -%}
+  <div
+    class="product-reviews {{ class }}"
+    {%- if block -%}
+      {{ block.shopify_attributes }}
+    {%- endif -%}
+  >
+    <span class="shopify-product-reviews-badge" data-id="{{ product.id }}"></span>
+  </div>
+{%- endif -%}

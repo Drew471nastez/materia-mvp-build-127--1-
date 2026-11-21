@@ -1,0 +1,594 @@
+{
+  "sections": {
+    "hero_product3_1": {
+      "type": "hero-product3",
+      "settings": {
+        "color_scheme": "default",
+        "featured_image": "shopify://shop_images/landing-hero-dashboard.webp",
+        "image_alt": "A laptop showing a sales dashboard",
+        "image_position": "right",
+        "image_height_desktop": 560
+      },
+      "blocks": {
+        "pill_badge_1": {
+          "type": "pill_badge",
+          "settings": {
+            "text": "ENROLMENT OPEN",
+            "icon": ""
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "heading_text": "State the result your customer wants",
+            "accent_word": "",
+            "accent_style": "italic",
+            "font_size_desktop": 58
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>One sentence on how your course, program or product gets them there, and how long it takes.</p>"
+          }
+        },
+        "bullet_checklist_4": {
+          "type": "bullet_checklist",
+          "settings": {
+            "items": "Name the first thing they will be able to do\nName the second\nName the third"
+          }
+        },
+        "primary_button_5": {
+          "type": "primary_button",
+          "settings": {
+            "label": "Get the course",
+            "full_width": false,
+            "link": "/#shopify-section-offer"
+          }
+        },
+        "guarantee_badge_6": {
+          "type": "guarantee_badge",
+          "settings": {
+            "icon": "shield_check",
+            "alignment": "center",
+            "text": "Add your refund promise here"
+          }
+        }
+      },
+      "block_order": [
+        "pill_badge_1",
+        "heading_2",
+        "subheading_3",
+        "bullet_checklist_4",
+        "primary_button_5",
+        "guarantee_badge_6"
+      ]
+    },
+    "benefits_bar_2": {
+      "type": "benefits-bar",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976"
+      },
+      "blocks": {
+        "icon_1": {
+          "type": "icon",
+          "settings": {
+            "icon": "shipping_fast",
+            "icon_title": "Start today"
+          }
+        },
+        "icon_2": {
+          "type": "icon",
+          "settings": {
+            "icon": "undo_alt",
+            "icon_title": "Learn at your own pace"
+          }
+        },
+        "icon_3": {
+          "type": "icon",
+          "settings": {
+            "icon": "lock",
+            "icon_title": "Lifetime access"
+          }
+        },
+        "icon_4": {
+          "type": "icon",
+          "settings": {
+            "icon": "headset",
+            "icon_title": "Refund promise"
+          }
+        }
+      },
+      "block_order": [
+        "icon_1",
+        "icon_2",
+        "icon_3",
+        "icon_4"
+      ]
+    },
+    "image_text_benefits_3": {
+      "type": "image-text-benefits",
+      "settings": {
+        "color_scheme": "default",
+        "image": "shopify://shop_images/landing-team-table.webp",
+        "image_alt": "People working on laptops around a table, seen from above"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "What changes when you finish"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Describe the before and the after in a sentence.</p>"
+          }
+        },
+        "benefit_list_3": {
+          "type": "benefit_list",
+          "settings": {}
+        },
+        "benefit_4": {
+          "type": "benefit",
+          "settings": {
+            "icon": "truck",
+            "title": "First benefit",
+            "description": "<p>Say what it is and why it matters to them.</p>"
+          }
+        },
+        "benefit_5": {
+          "type": "benefit",
+          "settings": {
+            "icon": "shield_check",
+            "title": "Second benefit",
+            "description": "<p>Keep each one to a single plain sentence.</p>"
+          }
+        },
+        "benefit_6": {
+          "type": "benefit",
+          "settings": {
+            "icon": "leaf",
+            "title": "Third benefit",
+            "description": "<p>Lead with the outcome, not the feature.</p>"
+          }
+        },
+        "button_7": {
+          "type": "button",
+          "settings": {
+            "label": "Get the course",
+            "link": "/#shopify-section-offer"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "benefit_list_3",
+        "benefit_4",
+        "benefit_5",
+        "benefit_6",
+        "button_7"
+      ]
+    },
+    "steps_4": {
+      "type": "steps",
+      "settings": {
+        "color_scheme": "scheme-7dae8b89-7a81-4c2c-b8e2-92533766f8ca"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "How it works"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Three steps from signing up to results.</p>"
+          }
+        },
+        "step_3": {
+          "type": "step",
+          "settings": {
+            "title": "Join",
+            "description": "<p>Pay once and get access straight away.</p>"
+          }
+        },
+        "step_4": {
+          "type": "step",
+          "settings": {
+            "title": "Follow the lessons",
+            "description": "<p>Say how the material is organised and how long it takes.</p>"
+          }
+        },
+        "step_5": {
+          "type": "step",
+          "settings": {
+            "title": "Put it to work",
+            "description": "<p>Say what they will have built or changed by the end.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "step_3",
+        "step_4",
+        "step_5"
+      ]
+    },
+    "text_columns_5": {
+      "type": "text-columns",
+      "settings": {
+        "color_scheme": "default",
+        "columns_desktop": 4
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "What is inside"
+          }
+        },
+        "column_2": {
+          "type": "column",
+          "settings": {
+            "label": "Module 1",
+            "heading": "Name of module one",
+            "text": "<p>One line on what it covers.</p>"
+          }
+        },
+        "column_3": {
+          "type": "column",
+          "settings": {
+            "label": "Module 2",
+            "heading": "Name of module two",
+            "text": "<p>One line on what it covers.</p>"
+          }
+        },
+        "column_4": {
+          "type": "column",
+          "settings": {
+            "label": "Module 3",
+            "heading": "Name of module three",
+            "text": "<p>One line on what it covers.</p>"
+          }
+        },
+        "column_5": {
+          "type": "column",
+          "settings": {
+            "label": "Bonus",
+            "heading": "Name of the bonus",
+            "text": "<p>One line on why it is worth having.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "column_2",
+        "column_3",
+        "column_4",
+        "column_5"
+      ]
+    },
+    "testimonials_6": {
+      "type": "testimonials",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976"
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Proof"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "What customers say"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Replace these with words from your own customers.</p>"
+          }
+        },
+        "testimonial_4": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Write what this customer said about your product.</p>",
+            "name": "Customer name",
+            "role": ""
+          }
+        },
+        "testimonial_5": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Write what this customer said about your product.</p>",
+            "name": "Customer name",
+            "role": ""
+          }
+        },
+        "testimonial_6": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Write what this customer said about your product.</p>",
+            "name": "Customer name",
+            "role": ""
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "testimonial_4",
+        "testimonial_5",
+        "testimonial_6"
+      ]
+    },
+    "image_and_video_text_7": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "default",
+        "image": "shopify://shop_images/landing-working.webp",
+        "image_alt": "Two people working at laptops, in black and white",
+        "image_position": "left"
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Who made this"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Introduce yourself"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Say who you are and why you are the right person to teach this. Two or three sentences.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3"
+      ]
+    },
+    "richtext1_8": {
+      "type": "richtext1",
+      "settings": {
+        "color_scheme": "scheme-7dae8b89-7a81-4c2c-b8e2-92533766f8ca",
+        "badge_text": "The offer"
+      },
+      "blocks": {
+        "title_1": {
+          "type": "title",
+          "settings": {
+            "title_text": "Everything, for one price"
+          }
+        },
+        "description_2": {
+          "type": "description",
+          "settings": {
+            "description_text": "Repeat what the buyer gets and state the price. Your product shows just below, ready to buy."
+          }
+        }
+      },
+      "block_order": [
+        "title_1",
+        "description_2"
+      ]
+    },
+    "offer": {
+      "type": "featured-product",
+      "settings": {
+        "color_scheme": "default"
+      },
+      "blocks": {
+        "badges_1": {
+          "type": "badges",
+          "settings": {}
+        },
+        "title_2": {
+          "type": "title",
+          "settings": {}
+        },
+        "price_3": {
+          "type": "price",
+          "settings": {}
+        },
+        "short_description_4": {
+          "type": "short_description",
+          "settings": {}
+        },
+        "variant_picker_5": {
+          "type": "variant_picker",
+          "settings": {}
+        },
+        "buy_buttons_6": {
+          "type": "buy_buttons",
+          "settings": {
+            "show_dynamic_checkout": true
+          }
+        }
+      },
+      "block_order": [
+        "badges_1",
+        "title_2",
+        "price_3",
+        "short_description_4",
+        "variant_picker_5",
+        "buy_buttons_6"
+      ],
+      "name": "The offer"
+    },
+    "guarantee_banner_10": {
+      "type": "guarantee-banner",
+      "settings": {
+        "color_scheme": "default"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Our guarantee"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Say what you promise in one line: how long buyers have and what they get back.</p>"
+          }
+        },
+        "point_3": {
+          "type": "point",
+          "settings": {
+            "text": "Add your refund window"
+          }
+        },
+        "point_4": {
+          "type": "point",
+          "settings": {
+            "text": "Add how to ask for a refund"
+          }
+        },
+        "point_5": {
+          "type": "point",
+          "settings": {
+            "text": "Add how fast refunds are paid"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "point_3",
+        "point_4",
+        "point_5"
+      ]
+    },
+    "faq_11": {
+      "type": "faq",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Questions before you buy"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Answer the doubts that stop people ordering.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Who is this for?",
+            "answer": "<p>Say who gets the most from your offer, and who should skip it.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How long do I have access?",
+            "answer": "<p>Say how long access lasts and whether updates are included.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What if it is not for me?",
+            "answer": "<p>State your refund terms plainly: how many days and how to ask.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How is it delivered?",
+            "answer": "<p>Say what the buyer receives and how soon after paying.</p>"
+          }
+        },
+        "faq_item_7": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I pay in instalments?",
+            "answer": "<p>Say whether you offer a payment plan and what it costs.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6",
+        "faq_item_7"
+      ]
+    },
+    "richtext2_12": {
+      "type": "richtext2",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "badge_text": "Ready?"
+      },
+      "blocks": {
+        "title_1": {
+          "type": "title",
+          "settings": {
+            "title_text": "Start today"
+          }
+        },
+        "description_2": {
+          "type": "description",
+          "settings": {
+            "description_text": "Repeat your main promise in one line, then ask for the order."
+          }
+        },
+        "button_3": {
+          "type": "button",
+          "settings": {
+            "button_text": "Get the course",
+            "button_link": "/#shopify-section-offer"
+          }
+        }
+      },
+      "block_order": [
+        "title_1",
+        "description_2",
+        "button_3"
+      ]
+    }
+  },
+  "order": [
+    "hero_product3_1",
+    "benefits_bar_2",
+    "image_text_benefits_3",
+    "steps_4",
+    "text_columns_5",
+    "testimonials_6",
+    "image_and_video_text_7",
+    "richtext1_8",
+    "offer",
+    "guarantee_banner_10",
+    "faq_11",
+    "richtext2_12"
+  ]
+}

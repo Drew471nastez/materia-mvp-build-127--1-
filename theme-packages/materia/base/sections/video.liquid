@@ -1,0 +1,1131 @@
+<script src="{{ 'media-live-image-video.js' | asset_url }}" defer="defer"></script>
+{% render 'theme-type' %}
+{%- liquid
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+-%}
+{%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
+{%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' and section.settings.reveal != false -%}
+<style>
+  #shopify-section-{{ section.id }}.scroll-trigger {
+    --animation-duration: {{ settings.animation_duration | default: 700 }}ms;
+    --animation-delay: {{ settings.animation_delay | default: 0 }}ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-{{ section.id }}');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', {{ settings.scroll_animation | json }});
+  })();
+</script>
+{%- endif -%}
+{%- comment -%}
+  Materia Themes. Video: heading and text blocks above one video (uploaded,
+  or a URL: MP4, YouTube, Vimeo) or a cover image. Values are CSS variables
+  on the root and on each block, so media-live-image-video.js changes them
+  live without a redraw. Breakpoint: 801px.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign custom = st.enable_custom_style
+  assign bg_color = st.section_bg
+  if bg_color == blank
+    assign bg_color = st.section_background_color
+  endif
+  assign ratio = st.video_aspect_ratio | default: 'none' | replace: ':', ' / '
+  assign play_style = 'none'
+  if st.big_play_pause_button
+    assign play_style = st.play_button_style | default: 'circle'
+  endif
+  assign v_url = ''
+  assign v_video = ''
+  if st.enable_custom_url_video and st.custom_video_url != blank
+    assign v_url = st.custom_video_url
+  else
+    assign v_video = st.video
+  endif
+-%}
+{%- capture iv_bg -%}{%- if custom -%}{%- render 'scheme-color', color: bg_color, fallback: 'var(--color-background)' -%}{%- else -%}var(--color-background){%- endif -%}{%- endcapture -%}
+{%- capture iv_box_bg -%}{%- if custom -%}{%- render 'scheme-color', color: st.container_background_color, fallback: 'transparent' -%}{%- else -%}transparent{%- endif -%}{%- endcapture -%}
+{%- capture iv_border -%}{%- if custom -%}{%- render 'scheme-color', color: st.container_border_color, fallback: 'var(--color-border)' -%}{%- else -%}var(--color-border){%- endif -%}{%- endcapture -%}
+{%- capture iv_link -%}{%- if custom -%}{%- render 'scheme-color', color: st.link_color, fallback: 'var(--color-primary)' -%}{%- else -%}var(--color-primary){%- endif -%}{%- endcapture -%}
+{%- capture iv_overlay -%}{%- if custom -%}{%- render 'scheme-color', color: st.overlay_color, fallback: 'var(--color-background)' -%}{%- else -%}var(--color-background){%- endif -%}{%- endcapture -%}
+{%- capture iv_backdrop -%}{%- if custom -%}{%- render 'scheme-color', color: st.section_background_image_color, fallback: 'transparent' -%}{%- else -%}transparent{%- endif -%}{%- endcapture -%}
+{%- capture iv_bg_image -%}{%- if st.section_background_image != blank -%}url({{ st.section_background_image | image_url: width: 2400 }}){%- else -%}none{%- endif -%}{%- endcapture -%}
+{%- capture iv_shadow -%}{%- case st.video_shadow -%}{%- when 'low' -%}0 2px 4px rgba(0,0,0,.1){%- when 'medium' -%}0 4px 8px rgba(0,0,0,.2){%- when 'high' -%}0 6px 12px rgba(0,0,0,.3){%- else -%}none{%- endcase -%}{%- endcapture -%}
+<style>
+  #shopify-section-{{ sid }} { isolation: isolate; position: relative; max-width: none !important; width: 100% !important; margin-left: 0 !important; margin-right: 0 !important; padding-left: 0 !important; padding-right: 0 !important; box-sizing: border-box !important; margin-top: var(--iv-mt-m, 0px); margin-bottom: var(--iv-mb-m, 0px);
+    --iv-mt-d: {{ st.section_margin_top_desktop | default: 0 }}px; --iv-mb-d: {{ st.section_margin_bottom_desktop | default: 0 }}px; --iv-mt-m: {{ st.section_margin_top_mobile | default: 0 }}px; --iv-mb-m: {{ st.section_margin_bottom_mobile | default: 0 }}px; }
+  @media (min-width: 801px) { #shopify-section-{{ sid }} { margin-top: var(--iv-mt-d); margin-bottom: var(--iv-mb-d); } }
+  #shopify-section-{{ sid }} .ti-section-wrap, #shopify-section-{{ sid }} .ti-section-wrap * { box-sizing: border-box; }
+  #shopify-section-{{ sid }} .ti-section-wrap { display: block; width: 100%; background: var(--iv-bg); }
+  #shopify-section-{{ sid }} .loud-section { width: 100%; margin-inline: auto; overflow: hidden; padding: var(--iv-pv-m) var(--iv-ph-m); background-color: var(--iv-backdrop); background-image: var(--iv-bg-image); background-repeat: no-repeat; background-position: center; background-size: var(--iv-bg-size); }
+  #shopify-section-{{ sid }} .ti-section-wrap.container .loud-section { max-width: calc(var(--page-width, 1300px) + 3rem); }
+  #shopify-section-{{ sid }} .ti-section-wrap.fluid_container .loud-section { max-width: calc(var(--fluid-container-width, 1500px) + 3rem); }
+  #shopify-section-{{ sid }} .loud-container { position: relative; margin: 0 auto; max-width: var(--iv-box-max); padding: var(--iv-box-pv-m) var(--iv-box-ph-m); background: var(--iv-box-bg); border: var(--iv-box-bw) solid var(--iv-box-bc); border-radius: var(--iv-box-radius); }
+  #shopify-section-{{ sid }} .loud-container--shadow { box-shadow: 0 0 5px 0 rgba(0,0,0,.2); }
+  #shopify-section-{{ sid }} .loud-headline { margin: 0 0 var(--iv-gap-m); padding: 0; text-align: var(--iv-align-m); }
+  #shopify-section-{{ sid }} .loud-headline[hidden] { display: none; }
+  #shopify-section-{{ sid }} .loud-block { margin: 0 0 var(--iv-spacing); padding: 0; overflow-wrap: anywhere; }
+  #shopify-section-{{ sid }} .loud-block[hidden] { display: none; }
+  #shopify-section-{{ sid }} .loud-title { color: var(--iv-color, var(--color-heading)); font-family: var(--iv-font, var(--heading-font)); font-weight: var(--iv-weight, var(--heading-weight)); line-height: var(--iv-lh, var(--heading-line-height, 1.2)); }
+  #shopify-section-{{ sid }} .loud-text { color: var(--iv-color, var(--color-text)); font-family: var(--iv-font, var(--body-font)); font-weight: var(--iv-weight, var(--body-weight)); line-height: var(--iv-lh, var(--body-line-height, 1.5)); }
+  #shopify-section-{{ sid }} .loud-block--sized { font-size: var(--iv-size-m); }
+  #shopify-section-{{ sid }} .loud-text a { color: var(--iv-link); }
+  #shopify-section-{{ sid }} .loud-media { position: relative; margin: var(--iv-v-mt-m) auto var(--iv-v-mb-m); width: min(100%, var(--iv-vw-m)); height: var(--iv-vh-m); border-radius: var(--iv-media-radius); box-shadow: var(--iv-media-shadow); overflow: hidden; }
+  #shopify-section-{{ sid }} .loud-media--ratio { height: auto; aspect-ratio: var(--iv-ratio); }
+  #shopify-section-{{ sid }} [data-iv-show="mobile"], #shopify-section-{{ sid }} [data-iv-show="desktop"] { display: block; }
+  @media (max-width: 800px) { #shopify-section-{{ sid }} [data-iv-show="desktop"] { display: none; } }
+  @media (min-width: 801px) {
+    #shopify-section-{{ sid }} [data-iv-show="mobile"] { display: none; }
+    #shopify-section-{{ sid }} .loud-section { padding: var(--iv-pv-d) var(--iv-ph-d); }
+    #shopify-section-{{ sid }} .loud-container { padding: var(--iv-box-pv-d) var(--iv-box-ph-d); }
+    #shopify-section-{{ sid }} .loud-headline { margin-bottom: var(--iv-gap-d); text-align: var(--iv-align-d); }
+    #shopify-section-{{ sid }} .loud-block--sized { font-size: var(--iv-size-d); }
+    #shopify-section-{{ sid }} .loud-media { margin: var(--iv-v-mt-d) auto var(--iv-v-mb-d); width: min(100%, var(--iv-vw-d)); height: var(--iv-vh-d); }
+    #shopify-section-{{ sid }} .loud-media--ratio { height: auto; }
+  }
+  @media (min-width: 1200px) { #shopify-section-{{ sid }} .ti-section-wrap.stretch_width .loud-section { padding-left: max(3rem, var(--iv-ph-d)); padding-right: max(3rem, var(--iv-ph-d)); } }
+</style>
+<style data-rs-bulletproof data-iv-reset{% unless st.reset_spacing %} media="not all"{% endunless %}>
+  #shopify-section-{{ sid }}#shopify-section-{{ sid }} { margin-top: var(--iv-mt-m) !important; margin-bottom: var(--iv-mb-m) !important; }
+  @media (min-width: 801px) { #shopify-section-{{ sid }}#shopify-section-{{ sid }} { margin-top: var(--iv-mt-d) !important; margin-bottom: var(--iv-mb-d) !important; } }
+  #shopify-section-{{ sid }} + .shopify-section { margin-top: 0 !important; }
+</style>
+{%- for block in section.blocks -%}
+  {%- assign b = block.settings -%}
+  {%- if b.override_font -%}
+    {%- if block.type == 'headline' and b.headline_font.family -%}<style>{{ b.headline_font | font_face: font_display: 'swap' }}</style>{%- endif -%}
+    {%- if block.type == 'subtext' and b.text_font.family -%}<style>{{ b.text_font | font_face: font_display: 'swap' }}</style>{%- endif -%}
+  {%- endif -%}
+{%- endfor -%}
+<!-- ti-theme:start -->
+<div class="ti-section-wrap color-{{ color_scheme }} gradient {{ st.section_width | default: 'container' }}" data-iv="video" data-iv-section="{{ sid }}" data-iv-settings="{{ st | json | escape }}" data-iv-defaults='{"color_scheme":"default-color-scheme","section_width":"fluid_container","show_on_device":"all","reset_spacing":true,"text_alignment":"center","container_max_width":1200,"element_spacing":12,"desktop_spacing_gap":-30,"video_aspect_ratio":"none","desktop_video_width":1400,"desktop_video_height":500,"video_fit":"cover","enable_custom_url_video":false,"video_autoplay":true,"video_muted":true,"video_loop":true,"video_controls":false,"big_play_pause_button":true,"play_button_style":"circle","video_inline":true,"enable_lazy_loading":false,"enable_custom_style":false,"section_background_size":"cover","container_radius":0,"container_border_size":0,"container_shadow":false,"media_radius":13,"video_shadow":"none","overlay_opacity":0,"reveal":true,"section_padding_top_bottom":42,"section_padding_left_right":180,"container_padding_top_bottom":0,"container_padding_left_right":0,"desktop_video_margin_top":60,"desktop_video_margin_bottom":0,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"mobile_text_alignment":"center","mobile_spacing_gap":6,"mobile_video_width":800,"mobile_video_height":190,"mobile_section_padding_top_bottom":44,"mobile_section_padding_left_right":19,"mobile_container_padding_top_bottom":0,"mobile_container_padding_left_right":0,"mobile_video_margin_top":0,"mobile_video_margin_bottom":0,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0}' data-iv-block-defaults='{"headline":{"headline":"<b>Video Heading</b>","enable_custom_style":false,"override_font":false,"headline_font":"helvetica_n4","font_weight":"400","enable_custom_size":false,"headline_size":37,"mobile_headline_size":37,"headline_line_height":"inherit"},"subtext":{"text":"Add subheading text, info about the video.","enable_custom_style":false,"override_font":false,"text_font":"helvetica_n4","enable_custom_size":false,"text_size":16,"mobile_text_size":16,"text_line_height":"inherit"}}' data-iv-show="{{ st.show_on_device | default: 'all' }}"
+  style="--iv-bg:{{ iv_bg }};--iv-backdrop:{{ iv_backdrop }};--iv-bg-image:{{ iv_bg_image }};--iv-bg-size:{{ st.section_background_size | default: 'cover' }};--iv-pv-d:{{ st.section_padding_top_bottom }}px;--iv-ph-d:{{ st.section_padding_left_right }}px;--iv-pv-m:{{ st.mobile_section_padding_top_bottom }}px;--iv-ph-m:{{ st.mobile_section_padding_left_right }}px;--iv-box-max:{{ st.container_max_width }}px;--iv-box-pv-d:{{ st.container_padding_top_bottom }}px;--iv-box-ph-d:{{ st.container_padding_left_right }}px;--iv-box-pv-m:{{ st.mobile_container_padding_top_bottom }}px;--iv-box-ph-m:{{ st.mobile_container_padding_left_right }}px;--iv-box-bg:{{ iv_box_bg }};--iv-box-bw:{{ st.container_border_size }}px;--iv-box-bc:{{ iv_border }};--iv-box-radius:{{ st.container_radius }}px;--iv-link:{{ iv_link }};--iv-spacing:{{ st.element_spacing }}px;--iv-gap-d:{{ st.desktop_spacing_gap | default: 0 }}px;--iv-gap-m:{{ st.mobile_spacing_gap | default: 0 }}px;--iv-align-d:{{ st.text_alignment | default: 'center' }};--iv-align-m:{{ st.mobile_text_alignment | default: 'center' }};--iv-v-mt-d:{{ st.desktop_video_margin_top }}px;--iv-v-mb-d:{{ st.desktop_video_margin_bottom }}px;--iv-v-mt-m:{{ st.mobile_video_margin_top }}px;--iv-v-mb-m:{{ st.mobile_video_margin_bottom }}px;--iv-vw-d:{{ st.desktop_video_width }}px;--iv-vh-d:{{ st.desktop_video_height }}px;--iv-vw-m:{{ st.mobile_video_width }}px;--iv-vh-m:{{ st.mobile_video_height }}px;--iv-ratio:{{ ratio }};--iv-media-radius:{{ st.media_radius }}px;--iv-media-shadow:{{ iv_shadow }};--iv-overlay:{{ iv_overlay }};--iv-overlay-o:{{ st.overlay_opacity | default: 0 | divided_by: 100.0 }}">
+<div id="loud-{{ sid }}" class="loud-section" loud-section>
+  <div class="loud-container{% if st.container_shadow %} loud-container--shadow{% endif %}" loud-container>
+    <div class="loud-headline" loud-column{% if section.blocks.size == 0 %} hidden{% endif %}>
+      {%- for block in section.blocks -%}
+        {%- liquid
+          assign b = block.settings
+          assign heading = false
+          if block.type == 'headline'
+            assign heading = true
+          endif
+          assign lh = b.text_line_height
+          if heading
+            assign lh = b.headline_line_height
+          endif
+        -%}
+        {%- capture block_style -%}
+          {%- if b.enable_custom_style -%}--iv-color:{%- if heading -%}{%- render 'scheme-color', color: b.headline_text_color, fallback: 'var(--color-heading)' -%}{%- else -%}{%- render 'scheme-color', color: b.text_color, fallback: 'var(--color-text)' -%}{%- endif -%};{%- endif -%}
+          {%- if b.override_font -%}
+            {%- if heading and b.headline_font.family -%}--iv-font:{{ b.headline_font.family }}, {{ b.headline_font.fallback_families | default: 'sans-serif' }};--iv-weight:{{ b.font_weight | default: b.headline_font.weight }};{%- endif -%}
+            {%- if heading == false and b.text_font.family -%}--iv-font:{{ b.text_font.family }}, {{ b.text_font.fallback_families | default: 'sans-serif' }};--iv-weight:{{ b.text_font.weight | default: 400 }};{%- endif -%}
+          {%- endif -%}
+          {%- if lh != blank and lh != 'inherit' -%}--iv-lh:{{ lh }};{%- endif -%}
+          {%- if b.enable_custom_size -%}{%- if heading -%}--iv-size-d:{{ b.headline_size }}px;--iv-size-m:{{ b.mobile_headline_size }}px;{%- else -%}--iv-size-d:{{ b.text_size }}px;--iv-size-m:{{ b.mobile_text_size }}px;{%- endif -%}{%- endif -%}
+        {%- endcapture -%}
+        {%- liquid
+          comment
+            Theme priority (Typography > Use in every section) leaves a block's own font, weight and line height to it while they are set.
+          endcomment
+          assign own = ''
+          if b.override_font
+            if heading and b.headline_font.family
+              assign own = ' data-own-font data-own-weight'
+            elsif heading == false and b.text_font.family
+              assign own = ' data-own-font data-own-weight'
+            endif
+          endif
+          if lh != blank and lh != 'inherit'
+            assign own = own | append: ' data-own-size'
+          endif
+        -%}
+        {%- if heading -%}
+          <h2 class="loud-block loud-title{% if b.enable_custom_size %} loud-block--sized{% endif %}" data-iv-block="{{ block.id }}" data-iv-type="headline" data-iv-settings="{{ b | json | escape }}" style="{{ block_style }}"{{ own }}{% if b.headline == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ b.headline }}</h2>
+        {%- else -%}
+          <div class="loud-block loud-text{% if b.enable_custom_size %} loud-block--sized{% endif %}" data-iv-block="{{ block.id }}" data-iv-type="subtext" data-iv-settings="{{ b | json | escape }}" style="{{ block_style }}"{{ own }}{% if b.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ b.text }}</div>
+        {%- endif -%}
+      {%- endfor -%}
+    </div>
+    <div class="loud-grid" loud-column>
+      <div class="loud-media loud-video-container{% if st.video_aspect_ratio != 'none' and st.video_aspect_ratio != blank %} loud-media--ratio{% endif %}">
+        {%- render 'media-iv-player', sid: sid, video: v_video, url: v_url, poster: st.video_poster, autoplay: st.video_autoplay, loop: st.video_loop, controls: st.video_controls, muted: st.video_muted, label: st.video_alt, title: st.video_metadata, play_style: play_style, mute_btn: false, lazy: st.enable_lazy_loading, fit: st.video_fit -%}
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+<!-- ti-theme:end -->{% schema %}
+{
+  "name": "Video ",
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Section width",
+      "default": "fluid_container",
+      "options": [
+        {
+          "value": "container",
+          "label": "Default"
+        },
+        {
+          "value": "fluid_container",
+          "label": "Fluid container"
+        },
+        {
+          "value": "stretch_width",
+          "label": "Stretched"
+        },
+        {
+          "value": "full_width",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "show_on_device",
+      "label": "Show section on",
+      "options": [
+        {
+          "value": "all",
+          "label": "All"
+        },
+        {
+          "value": "mobile",
+          "label": "Mobile"
+        },
+        {
+          "value": "desktop",
+          "label": "Desktop"
+        }
+      ],
+      "default": "all"
+    },
+    {
+      "type": "checkbox",
+      "id": "reset_spacing",
+      "label": "Remove the theme's space between sections",
+      "default": true,
+      "info": "The margin sliders below still apply."
+    },
+    {
+      "type": "header",
+      "content": "Content"
+    },
+    {
+      "type": "text_alignment",
+      "id": "text_alignment",
+      "label": "Text alignment (desktop)",
+      "default": "center"
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "range",
+      "id": "container_max_width",
+      "label": "Content max width",
+      "min": 200,
+      "max": 1600,
+      "step": 100,
+      "unit": "px",
+      "default": 1200
+    },
+    {
+      "type": "range",
+      "id": "element_spacing",
+      "label": "Space between text blocks",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 12
+    },
+    {
+      "type": "range",
+      "id": "desktop_spacing_gap",
+      "label": "Space between text and video (desktop)",
+      "min": -100,
+      "max": 100,
+      "step": 10,
+      "unit": "px",
+      "default": -30
+    },
+    {
+      "type": "select",
+      "id": "video_aspect_ratio",
+      "label": "Video shape",
+      "options": [
+        {
+          "value": "none",
+          "label": "Set width and height"
+        },
+        {
+          "value": "16:9",
+          "label": "Widescreen 16:9"
+        },
+        {
+          "value": "4:3",
+          "label": "Classic 4:3"
+        },
+        {
+          "value": "1:1",
+          "label": "Square 1:1"
+        },
+        {
+          "value": "9:16",
+          "label": "Vertical 9:16"
+        },
+        {
+          "value": "21:9",
+          "label": "Cinema 21:9"
+        }
+      ],
+      "default": "none"
+    },
+    {
+      "type": "range",
+      "id": "desktop_video_width",
+      "label": "Video max width (desktop)",
+      "min": 100,
+      "max": 2000,
+      "step": 100,
+      "unit": "px",
+      "default": 1400
+    },
+    {
+      "type": "range",
+      "id": "desktop_video_height",
+      "label": "Video height (desktop)",
+      "min": 100,
+      "max": 1080,
+      "step": 10,
+      "unit": "px",
+      "default": 500,
+      "visible_if": "{{ section.settings.video_aspect_ratio == 'none' }}"
+    },
+    {
+      "type": "select",
+      "id": "video_fit",
+      "label": "Video fit",
+      "default": "cover",
+      "options": [
+        {
+          "value": "cover",
+          "label": "Fill"
+        },
+        {
+          "value": "contain",
+          "label": "Fit"
+        }
+      ]
+    },
+    {
+      "type": "header",
+      "content": "Video"
+    },
+    {
+      "type": "video",
+      "id": "video",
+      "label": "Video",
+      "visible_if": "{{ section.settings.enable_custom_url_video == false }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_url_video",
+      "label": "Use a video URL",
+      "default": false
+    },
+    {
+      "type": "url",
+      "id": "custom_video_url",
+      "label": "Video URL",
+      "info": "An MP4 file, YouTube or Vimeo link.",
+      "visible_if": "{{ section.settings.enable_custom_url_video }}"
+    },
+    {
+      "type": "image_picker",
+      "id": "video_poster",
+      "label": "Cover image",
+      "info": "Shown before the video plays, or alone when there is no video."
+    },
+    {
+      "type": "checkbox",
+      "id": "video_autoplay",
+      "label": "Autoplay",
+      "default": true,
+      "info": "Starts muted while on screen. Not for visitors who ask for reduced motion."
+    },
+    {
+      "type": "checkbox",
+      "id": "video_muted",
+      "label": "Muted",
+      "default": true,
+      "info": "Autoplay always starts muted.",
+      "visible_if": "{{ section.settings.video_autoplay == false }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "video_loop",
+      "label": "Loop",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "video_controls",
+      "label": "Player controls",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "big_play_pause_button",
+      "label": "Play / pause button",
+      "default": true,
+      "visible_if": "{{ section.settings.video_controls == false }}"
+    },
+    {
+      "type": "select",
+      "id": "play_button_style",
+      "label": "Play button style",
+      "default": "circle",
+      "options": [
+        {
+          "value": "circle",
+          "label": "Filled"
+        },
+        {
+          "value": "outline",
+          "label": "Outline"
+        }
+      ],
+      "visible_if": "{{ section.settings.big_play_pause_button and section.settings.video_controls == false }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "video_inline",
+      "label": "Play inline",
+      "default": true,
+      "hidden": true,
+      "visible_if": "{{ false }}",
+      "info": "Not used: videos always play inline so autoplay works on phones."
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_lazy_loading",
+      "label": "Load the video when it is scrolled to",
+      "default": false
+    },
+    {
+      "type": "text",
+      "id": "video_alt",
+      "label": "Video description",
+      "info": "Read by screen readers."
+    },
+    {
+      "type": "textarea",
+      "id": "video_metadata",
+      "label": "Video title",
+      "info": "Shown as a tooltip on the video."
+    },
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_style",
+      "label": "Enable custom styling",
+      "default": false,
+      "info": "Off: colours follow the colour scheme."
+    },
+    {
+      "type": "color",
+      "id": "section_bg",
+      "label": "Section background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "section_background_color",
+      "label": "Background (legacy)",
+      "hidden": true,
+      "info": "Older setting kept for saved content. Section background replaces it.",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "color",
+      "id": "container_background_color",
+      "label": "Content background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "container_border_color",
+      "label": "Content border colour",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "link_color",
+      "label": "Link colour",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "overlay_color",
+      "label": "Video overlay colour",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "section_background_image_color",
+      "label": "Background image backdrop",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "image_picker",
+      "id": "section_background_image",
+      "label": "Background image"
+    },
+    {
+      "type": "select",
+      "id": "section_background_size",
+      "label": "Background image size",
+      "default": "cover",
+      "options": [
+        {
+          "value": "auto",
+          "label": "Auto"
+        },
+        {
+          "value": "cover",
+          "label": "Cover"
+        },
+        {
+          "value": "contain",
+          "label": "Contain"
+        },
+        {
+          "value": "fill",
+          "label": "Fill"
+        },
+        {
+          "value": "scale-down",
+          "label": "Scale Down"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "container_radius",
+      "label": "Content corner radius",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "container_border_size",
+      "label": "Content border width",
+      "min": 0,
+      "max": 10,
+      "step": 1,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "checkbox",
+      "id": "container_shadow",
+      "label": "Content shadow",
+      "default": false
+    },
+    {
+      "type": "range",
+      "id": "media_radius",
+      "label": "Video corner radius",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 13
+    },
+    {
+      "type": "select",
+      "id": "video_shadow",
+      "label": "Video shadow",
+      "options": [
+        {
+          "value": "none",
+          "label": "None"
+        },
+        {
+          "value": "low",
+          "label": "Low Shadow"
+        },
+        {
+          "value": "medium",
+          "label": "Medium Shadow"
+        },
+        {
+          "value": "high",
+          "label": "High Shadow"
+        }
+      ],
+      "default": "none"
+    },
+    {
+      "type": "range",
+      "id": "overlay_opacity",
+      "label": "Video overlay opacity",
+      "min": 0,
+      "max": 90,
+      "step": 5,
+      "unit": "%",
+      "default": 0
+    },
+    {
+      "type": "header",
+      "content": "Animation"
+    },
+    {
+      "type": "checkbox",
+      "id": "reveal",
+      "label": "Reveal on scroll",
+      "default": true,
+      "info": "Uses the theme animation from Theme settings."
+    },
+    {
+      "type": "header",
+      "content": "Desktop spacing"
+    },
+    {
+      "type": "range",
+      "id": "section_padding_top_bottom",
+      "label": "Top and bottom padding (desktop)",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 42
+    },
+    {
+      "type": "range",
+      "id": "section_padding_left_right",
+      "label": "Side padding (desktop)",
+      "min": 0,
+      "max": 300,
+      "step": 30,
+      "unit": "px",
+      "default": 180
+    },
+    {
+      "type": "range",
+      "id": "container_padding_top_bottom",
+      "label": "Content top and bottom padding (desktop)",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "container_padding_left_right",
+      "label": "Content side padding (desktop)",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "desktop_video_margin_top",
+      "label": "Space above video (desktop)",
+      "min": -500,
+      "max": 500,
+      "step": 10,
+      "unit": "px",
+      "default": 60
+    },
+    {
+      "type": "range",
+      "id": "desktop_video_margin_bottom",
+      "label": "Space below video (desktop)",
+      "min": -500,
+      "max": 500,
+      "step": 10,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_desktop",
+      "label": "Top margin (desktop)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_desktop",
+      "label": "Bottom margin (desktop)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0
+    },
+    {
+      "type": "header",
+      "content": "Mobile"
+    },
+    {
+      "type": "text_alignment",
+      "id": "mobile_text_alignment",
+      "label": "Text alignment (mobile)",
+      "default": "center"
+    },
+    {
+      "type": "range",
+      "id": "mobile_spacing_gap",
+      "label": "Space between text and video (mobile)",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 6
+    },
+    {
+      "type": "range",
+      "id": "mobile_video_width",
+      "label": "Video max width (mobile)",
+      "min": 100,
+      "max": 800,
+      "step": 10,
+      "unit": "px",
+      "default": 800
+    },
+    {
+      "type": "range",
+      "id": "mobile_video_height",
+      "label": "Video height (mobile)",
+      "min": 100,
+      "max": 800,
+      "step": 10,
+      "unit": "px",
+      "default": 190,
+      "visible_if": "{{ section.settings.video_aspect_ratio == 'none' }}"
+    },
+    {
+      "type": "range",
+      "id": "mobile_section_padding_top_bottom",
+      "label": "Top and bottom padding (mobile)",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 44
+    },
+    {
+      "type": "range",
+      "id": "mobile_section_padding_left_right",
+      "label": "Side padding (mobile)",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 19
+    },
+    {
+      "type": "range",
+      "id": "mobile_container_padding_top_bottom",
+      "label": "Content top and bottom padding (mobile)",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "mobile_container_padding_left_right",
+      "label": "Content side padding (mobile)",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "mobile_video_margin_top",
+      "label": "Space above video (mobile)",
+      "min": -500,
+      "max": 500,
+      "step": 10,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "mobile_video_margin_bottom",
+      "label": "Space below video (mobile)",
+      "min": -500,
+      "max": 500,
+      "step": 10,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_mobile",
+      "label": "Top margin (mobile)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_mobile",
+      "label": "Bottom margin (mobile)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0
+    }
+  ],
+  "blocks": [
+    {
+      "type": "headline",
+      "name": "Headline",
+      "settings": [
+        {
+          "type": "inline_richtext",
+          "id": "headline",
+          "label": "Headline",
+          "default": "<b>Video Heading</b>"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false,
+          "info": "Off: the heading colour follows the colour scheme."
+        },
+        {
+          "type": "color",
+          "id": "headline_text_color",
+          "label": "Heading colour",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "header",
+          "content": "Typography"
+        },
+        {
+          "type": "checkbox",
+          "id": "override_font",
+          "label": "Use a custom font",
+          "default": false
+        },
+        {
+          "type": "font_picker",
+          "id": "headline_font",
+          "label": "Font",
+          "default": "helvetica_n4",
+          "visible_if": "{{ block.settings.override_font }}"
+        },
+        {
+          "type": "select",
+          "id": "font_weight",
+          "label": "Font weight",
+          "options": [
+            {
+              "value": "300",
+              "label": "Light"
+            },
+            {
+              "value": "400",
+              "label": "Regular"
+            },
+            {
+              "value": "500",
+              "label": "Medium"
+            },
+            {
+              "value": "600",
+              "label": "Semi-bold"
+            },
+            {
+              "value": "700",
+              "label": "Bold"
+            }
+          ],
+          "default": "400",
+          "visible_if": "{{ block.settings.override_font }}"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_size",
+          "label": "Custom size",
+          "default": false,
+          "info": "Off: the theme heading size."
+        },
+        {
+          "type": "range",
+          "id": "headline_size",
+          "label": "Size (desktop)",
+          "min": 10,
+          "max": 75,
+          "step": 1,
+          "unit": "px",
+          "default": 37,
+          "visible_if": "{{ block.settings.enable_custom_size }}"
+        },
+        {
+          "type": "range",
+          "id": "mobile_headline_size",
+          "label": "Size (mobile)",
+          "min": 10,
+          "max": 75,
+          "step": 1,
+          "unit": "px",
+          "default": 37,
+          "visible_if": "{{ block.settings.enable_custom_size }}"
+        },
+        {
+          "type": "select",
+          "id": "headline_line_height",
+          "label": "Line height",
+          "options": [
+            {
+              "value": "0.75",
+              "label": "0.75"
+            },
+            {
+              "value": "1.0",
+              "label": "1.0"
+            },
+            {
+              "value": "1.1",
+              "label": "1.1"
+            },
+            {
+              "value": "1.2",
+              "label": "1.2"
+            },
+            {
+              "value": "1.3",
+              "label": "1.3"
+            },
+            {
+              "value": "1.4",
+              "label": "1.4"
+            },
+            {
+              "value": "1.5",
+              "label": "1.5"
+            },
+            {
+              "value": "1.6",
+              "label": "1.6"
+            },
+            {
+              "value": "1.7",
+              "label": "1.7"
+            },
+            {
+              "value": "1.8",
+              "label": "1.8"
+            },
+            {
+              "value": "1.9",
+              "label": "1.9"
+            },
+            {
+              "value": "2.0",
+              "label": "2.0"
+            },
+            {
+              "value": "inherit",
+              "label": "Inherit"
+            }
+          ],
+          "default": "inherit"
+        }
+      ]
+    },
+    {
+      "type": "subtext",
+      "name": "Subheading Text",
+      "settings": [
+        {
+          "type": "inline_richtext",
+          "id": "text",
+          "label": "Text",
+          "default": "Add subheading text, info about the video."
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false,
+          "info": "Off: the text colour follows the colour scheme."
+        },
+        {
+          "type": "color",
+          "id": "text_color",
+          "label": "Text colour",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "header",
+          "content": "Typography"
+        },
+        {
+          "type": "checkbox",
+          "id": "override_font",
+          "label": "Use a custom font",
+          "default": false
+        },
+        {
+          "type": "font_picker",
+          "id": "text_font",
+          "label": "Font",
+          "default": "helvetica_n4",
+          "visible_if": "{{ block.settings.override_font }}"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_size",
+          "label": "Custom size",
+          "default": false,
+          "info": "Off: the theme body text size."
+        },
+        {
+          "type": "range",
+          "id": "text_size",
+          "label": "Size (desktop)",
+          "min": 10,
+          "max": 50,
+          "step": 1,
+          "unit": "px",
+          "default": 16,
+          "visible_if": "{{ block.settings.enable_custom_size }}"
+        },
+        {
+          "type": "range",
+          "id": "mobile_text_size",
+          "label": "Size (mobile)",
+          "min": 10,
+          "max": 50,
+          "step": 1,
+          "unit": "px",
+          "default": 16,
+          "visible_if": "{{ block.settings.enable_custom_size }}"
+        },
+        {
+          "type": "select",
+          "id": "text_line_height",
+          "label": "Line height",
+          "options": [
+            {
+              "value": "0.75",
+              "label": "0.75"
+            },
+            {
+              "value": "1.0",
+              "label": "1.0"
+            },
+            {
+              "value": "1.1",
+              "label": "1.1"
+            },
+            {
+              "value": "1.2",
+              "label": "1.2"
+            },
+            {
+              "value": "1.3",
+              "label": "1.3"
+            },
+            {
+              "value": "1.4",
+              "label": "1.4"
+            },
+            {
+              "value": "1.5",
+              "label": "1.5"
+            },
+            {
+              "value": "1.6",
+              "label": "1.6"
+            },
+            {
+              "value": "1.7",
+              "label": "1.7"
+            },
+            {
+              "value": "1.8",
+              "label": "1.8"
+            },
+            {
+              "value": "1.9",
+              "label": "1.9"
+            },
+            {
+              "value": "2.0",
+              "label": "2.0"
+            },
+            {
+              "value": "inherit",
+              "label": "Inherit"
+            }
+          ],
+          "default": "inherit"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Video",
+      "category": "Image and video",
+      "blocks": [
+        {
+          "type": "headline",
+          "settings": {
+            "headline": "Watch how it works"
+          }
+        },
+        {
+          "type": "subtext",
+          "settings": {
+            "text": "A short film of the product in use, start to finish."
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

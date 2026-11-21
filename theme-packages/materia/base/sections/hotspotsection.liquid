@@ -1,0 +1,729 @@
+<script src="{{ 'live-products-c.js' | asset_url }}" defer="defer"></script>
+{% render 'theme-type' %}
+{%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
+{%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
+<style>
+  #shopify-section-{{ section.id }}.scroll-trigger {
+    --animation-duration: {{ settings.animation_duration | default: 700 }}ms;
+    --animation-delay: {{ settings.animation_delay | default: 0 }}ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-{{ section.id }}');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', {{ settings.scroll_animation | json }});
+  })();
+</script>
+{%- endif -%}
+{%- comment -%}
+  Materia Themes. Hotspot Image Product: an image with a dot per Product item
+  block, placed by % on the picture with its own desktop and mobile
+  positions (and an optional mobile picture). A dot opens a card with the
+  product's picture, title and price, and an add to cart button (one variant)
+  or a link to choose options. The dots, cards and live editor updates are
+  run by shopify/assets/live-products-c.js (one copy for every instance).
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign sid = section.id
+  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default-color-scheme'
+  assign custom = s.enable_custom_style
+  assign fonts = s.enable_custom_fonts
+  assign mode = s.interaction_mode | default: 'hover'
+  assign loading = 'lazy'
+  if s.lazyload == false
+    assign loading = 'eager'
+  endif
+  assign mobile_custom = false
+  if s.enable_custom_mobile_image and s.custom_mobile_image != blank
+    assign mobile_custom = true
+  endif
+  assign mobile_image = false
+  if s.custom_mobile_image != blank
+    assign mobile_image = true
+  endif
+  assign placeholder_src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Crect width=%22400%22 height=%22300%22 fill=%22%23888%22 fill-opacity=%22.16%22/%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22 fill=%22%23888%22 fill-opacity=%22.45%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22 fill=%22%23888%22 fill-opacity=%22.45%22/%3E%3C/svg%3E'
+  assign max_w = s.container_max_width | default: 1350
+-%}
+{%- if fonts -%}
+  {%- if s.heading_font.family != blank -%}{%- assign ff = s.heading_font.fallback_families | default: 'sans-serif' -%}{%- assign hf = s.heading_font.family | append: ', ' | append: ff -%}{%- endif -%}
+  {%- if s.body_font.family != blank -%}{%- assign ff = s.body_font.fallback_families | default: 'sans-serif' -%}{%- assign bf = s.body_font.family | append: ', ' | append: ff -%}{%- endif -%}
+  <style>{{ s.heading_font | font_face: font_display: 'swap' }}{{ s.body_font | font_face: font_display: 'swap' }}</style>
+{%- endif -%}
+{%- capture c_bg -%}{%- if custom -%}{% render 'scheme-color', color: s.background_color, fallback: 'var(--gradient-background, var(--color-background))' %}{%- else -%}var(--gradient-background, var(--color-background)){%- endif -%}{%- endcapture -%}
+{%- capture c_heading -%}{%- if custom -%}{% render 'scheme-color', color: s.text_color, fallback: 'var(--color-heading)' %}{%- else -%}var(--color-heading){%- endif -%}{%- endcapture -%}
+{%- capture c_text -%}{%- if custom -%}{% render 'scheme-color', color: s.text_color, fallback: 'var(--color-text)' %}{%- else -%}var(--color-text){%- endif -%}{%- endcapture -%}
+{%- capture c_pop_bg -%}{%- if custom -%}{% render 'scheme-color', color: s.popup_bg_color, fallback: 'var(--color-background)' %}{%- else -%}var(--color-background){%- endif -%}{%- endcapture -%}
+{%- capture c_title -%}{%- if custom -%}{% render 'scheme-color', color: s.product_title_color, fallback: 'var(--color-heading)' %}{%- else -%}var(--color-heading){%- endif -%}{%- endcapture -%}
+{%- capture c_price -%}{%- if custom -%}{% render 'scheme-color', color: s.price_color, fallback: 'var(--color-text)' %}{%- else -%}var(--color-text){%- endif -%}{%- endcapture -%}
+{%- capture c_accent -%}{%- if custom -%}{% render 'scheme-color', color: s.accent_color, fallback: 'var(--color-primary)' %}{%- else -%}var(--color-primary){%- endif -%}{%- endcapture -%}
+{%- capture btn_style -%}{%- if custom -%}{% render 'button-overrides', bg: s.accent_color, text: s.button_text_color %}{%- endif -%}{%- endcapture -%}
+{%- capture root_vars -%}
+--pch-pt-d: {{ s.section_padding_top | default: 0 }}px; --pch-pb-d: {{ s.section_padding_bottom | default: 0 }}px; --pch-pt-m: {{ s.section_padding_top_mobile | default: 0 }}px; --pch-pb-m: {{ s.section_padding_bottom_mobile | default: 0 }}px;
+--pch-max: {% if s.is_fullwidth %}none{% else %}{{ max_w }}px{% endif %}; --pch-gutter: {% if s.is_fullwidth %}0px{% else %}20px{% endif %};
+--pch-bg: {{ c_bg | strip }}; --pch-heading: {{ c_heading | strip }}; --pch-text: {{ c_text | strip }}; --pch-pop-bg: {{ c_pop_bg | strip }}; --pch-title: {{ c_title | strip }}; --pch-price: {{ c_price | strip }}; --pch-accent: {{ c_accent | strip }};
+--pch-hf: {{ hf | default: 'var(--heading-font)' }}; --pch-bf: {{ bf | default: 'var(--body-font)' }}; --pch-radius: {{ s.image_radius | default: 0 }}px;
+--pch-m-ar: {{ s.custom_mobile_image_width | default: 400 }} / {{ s.custom_mobile_image_height | default: 400 }};
+{%- endcapture -%}
+
+<style>
+  {%- if s.reset_spacing -%}
+    #shopify-section-{{ sid }} { margin-top: 0 !important; margin-bottom: 0 !important; }
+    #shopify-section-{{ sid }} + .shopify-section { margin-top: 0 !important; }
+  {%- endif -%}
+  #shopify-section-{{ sid }} { isolation: isolate; position: relative; }
+  #shopify-section-{{ sid }} .hss { padding: var(--pch-pt-m) 0 var(--pch-pb-m); background: var(--pch-bg); overflow-x: clip; box-sizing: border-box; line-height: 1.5; }
+  #shopify-section-{{ sid }} .hss *, #shopify-section-{{ sid }} .hss *::before, #shopify-section-{{ sid }} .hss *::after { box-sizing: border-box; }
+  #shopify-section-{{ sid }} .hss__container { width: 100%; max-width: var(--pch-max); margin-inline: auto; padding-inline: var(--pch-gutter); }
+  #shopify-section-{{ sid }} .hss__head { margin: 0 0 32px; text-align: var(--b-align, center); }
+  #shopify-section-{{ sid }} .hss__head[hidden], #shopify-section-{{ sid }} .hss__head > [hidden] { display: none; }
+  #shopify-section-{{ sid }} .hss__title { margin: 0 0 12px; color: var(--b-c, var(--pch-heading)); font-family: var(--pch-hf); font-weight: var(--b-w, var(--heading-weight, 700)); font-size: var(--b-fs, var(--h2-size, 32px)); line-height: 1.15; }
+  #shopify-section-{{ sid }} .hss__text { margin: 0; color: var(--b-c2, var(--pch-text)); font-family: var(--pch-bf); }
+  #shopify-section-{{ sid }} .hss__stage { position: relative; }
+  #shopify-section-{{ sid }} .hss__media { border-radius: var(--pch-radius); overflow: hidden; background: color-mix(in srgb, var(--pch-text) 8%, var(--pch-bg)); }
+  #shopify-section-{{ sid }} .hss__img { display: block; width: 100%; height: auto; }
+  #shopify-section-{{ sid }} .hss__img--ph { aspect-ratio: 4 / 3; object-fit: cover; }
+  #shopify-section-{{ sid }} .hss__img--mobile { display: none; aspect-ratio: var(--pch-m-ar); object-fit: cover; height: auto; }
+  #shopify-section-{{ sid }} .pch-spot { --x: var(--x-m, 50%); --y: var(--y-m, 50%); position: absolute; left: var(--x); top: var(--y); width: 0; height: 0; z-index: 2; }
+  #shopify-section-{{ sid }} .pch-spot[data-open] { z-index: 5; }
+  #shopify-section-{{ sid }} .pch-spot[hidden] { display: none; }
+  #shopify-section-{{ sid }} .pch-dot { position: absolute; left: 0; top: 0; transform: translate(-50%, -50%); width: 44px; height: 44px; display: grid; place-items: center; margin: 0; padding: 0; border: 0; background: transparent; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  #shopify-section-{{ sid }} .pch-dot:focus-visible { outline: 2px solid var(--pch-accent); outline-offset: 2px; border-radius: 50%; }
+  #shopify-section-{{ sid }} .pch-dot__core { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--pch-pop-bg); color: var(--pch-title); box-shadow: 0 0 0 4px color-mix(in srgb, var(--pch-pop-bg) 35%, transparent); transition: box-shadow .25s ease, transform .25s ease; }
+  #shopify-section-{{ sid }} .pch-dot__core svg { width: 16px; height: 16px; }
+  #shopify-section-{{ sid }} .pch-dot:hover .pch-dot__core, #shopify-section-{{ sid }} .pch-dot[aria-expanded="true"] .pch-dot__core { box-shadow: 0 0 0 4px var(--pch-pop-bg); transform: scale(1.06); }
+  #shopify-section-{{ sid }} .pch-pop { position: absolute; left: 0; bottom: 30px; transform: translateX(calc(-50% + var(--pch-shift, 0px))); width: min(260px, calc(100vw - 32px)); padding: 16px; border-radius: 8px; border: 1px solid var(--color-border); background: var(--pch-pop-bg); color: var(--pch-text); box-shadow: 0 12px 32px rgba(0, 0, 0, .18); animation: pch-pop-in .2s ease both; }
+  #shopify-section-{{ sid }} .pch-pop[data-place="below"] { bottom: auto; top: 30px; }
+  #shopify-section-{{ sid }} .pch-pop[hidden] { display: none !important; }
+  @keyframes pch-pop-in { from { opacity: 0; translate: 0 6px; } to { opacity: 1; translate: 0 0; } }
+  #shopify-section-{{ sid }} .hss__close { position: absolute; top: 4px; right: 4px; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--pch-title); display: grid; place-items: center; cursor: pointer; z-index: 1; }
+  #shopify-section-{{ sid }} .hss__close span { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--pch-title) 10%, var(--pch-pop-bg)); }
+  #shopify-section-{{ sid }} .hss__close:focus-visible { outline: 2px solid currentColor; outline-offset: -4px; }
+  #shopify-section-{{ sid }} .hss__pop-media { display: block; aspect-ratio: 1; border-radius: 4px; overflow: hidden; margin-bottom: 14px; background: color-mix(in srgb, var(--pch-text) 8%, var(--pch-pop-bg)); }
+  #shopify-section-{{ sid }} .hss__pop-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  #shopify-section-{{ sid }} .hss__pop-title { margin: 0 0 6px; font-family: var(--pch-hf); font-weight: var(--heading-weight, 700); font-size: 17px; line-height: 1.25; color: var(--pch-title); }
+  #shopify-section-{{ sid }} .hss__pop-title a { color: inherit; text-decoration: none; }
+  #shopify-section-{{ sid }} .hss__pop-title a:hover { color: var(--pch-accent); }
+  #shopify-section-{{ sid }} .hss__price { margin: 0 0 14px; color: var(--pch-price); font-size: 16px; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
+  #shopify-section-{{ sid }} .hss__price s { opacity: .55; }
+  #shopify-section-{{ sid }} .pch-badge { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; padding: 2px 6px; border-radius: 4px; background: var(--pch-title); color: var(--pch-pop-bg); }
+  #shopify-section-{{ sid }} .hss__form { margin: 0; }
+  #shopify-section-{{ sid }} .hss__btn { width: 100%; }
+  #shopify-section-{{ sid }} .hss__btn[disabled] { opacity: .55; cursor: not-allowed; }
+  @media (max-width: 749.98px) {
+    #shopify-section-{{ sid }} .hss__pop { display: grid; grid-template-columns: 72px minmax(0, 1fr); column-gap: 12px; padding: 12px; }
+    #shopify-section-{{ sid }} .hss__pop-media { grid-row: span 2; width: 72px; margin: 0; }
+    #shopify-section-{{ sid }} .hss__pop-title { font-size: 15px; margin: 0 36px 4px 0; align-self: end; }
+    #shopify-section-{{ sid }} .hss__price { margin: 0; font-size: 14px; align-self: start; }
+    #shopify-section-{{ sid }} .hss__form, #shopify-section-{{ sid }} .hss__pop > .hss__btn { grid-column: 1 / -1; margin-top: 12px; }
+    #shopify-section-{{ sid }} .hss[data-mobile-image="true"] .hss__img--desktop { display: none; }
+    #shopify-section-{{ sid }} .hss[data-mobile-image="true"] .hss__img--mobile { display: block; }
+  }
+  @media (min-width: 750px) {
+    #shopify-section-{{ sid }} .hss { padding: var(--pch-pt-d) 0 var(--pch-pb-d); }
+    #shopify-section-{{ sid }} .pch-spot { --x: var(--x-d, 50%); --y: var(--y-d, 50%); }
+    #shopify-section-{{ sid }} .hss__img--ph { aspect-ratio: 16 / 9; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #shopify-section-{{ sid }} .pch-pop { animation: none; }
+    #shopify-section-{{ sid }} .pch-dot__core { transition: none; }
+  }
+</style>
+
+<div class="hss pch hotspott color-{{ color_scheme }} gradient" data-pch="hss"{% if s.enable_custom_fonts %} data-own-font{% endif %} data-pch-section="{{ sid }}" data-pch-mode="{{ mode }}" data-mobile-image="{% if mobile_custom %}true{% else %}false{% endif %}" data-pch-editing="{% if request.design_mode %}true{% else %}false{% endif %}" data-pch-placeholder="{{ placeholder_src | escape }}" data-pch-settings="{{ s | json | escape }}" data-pch-defaults="&#123;&quot;color_scheme&quot;:&quot;default-color-scheme&quot;,&quot;is_fullwidth&quot;:false,&quot;container_max_width&quot;:1350,&quot;reset_spacing&quot;:true,&quot;button_text&quot;:&quot;Buy now&quot;,&quot;choose_text&quot;:&quot;Choose options&quot;,&quot;choose_text_font_weight&quot;:&quot;normal&quot;,&quot;sold_out_text&quot;:&quot;Sold out&quot;,&quot;from_text&quot;:&quot;From:&quot;,&quot;heading_tag&quot;:&quot;h2&quot;,&quot;image_radius&quot;:0,&quot;lazyload&quot;:true,&quot;interaction_mode&quot;:&quot;hover&quot;,&quot;enable_custom_style&quot;:false,&quot;inherit_fonts&quot;:false,&quot;enable_custom_fonts&quot;:false,&quot;heading_font&quot;:&quot;assistant_n4&quot;,&quot;body_font&quot;:&quot;assistant_n4&quot;,&quot;section_padding_top&quot;:50,&quot;section_padding_bottom&quot;:50,&quot;enable_custom_mobile_image&quot;:false,&quot;custom_mobile_image_width&quot;:400,&quot;custom_mobile_image_height&quot;:400,&quot;section_padding_top_mobile&quot;:50,&quot;section_padding_bottom_mobile&quot;:50&#125;" data-pch-block-defaults="&#123;&quot;heading&quot;:&#123;&quot;heading_text&quot;:&quot;Heading text&quot;,&quot;section_text&quot;:&quot;Section text&quot;,&quot;text_align&quot;:&quot;center&quot;,&quot;enable_custom_style&quot;:false,&quot;heading_font_size&quot;:32,&quot;enable_custom_font_weight&quot;:false,&quot;heading_font_weight&quot;:&quot;400&quot;&#125;,&quot;product_item&quot;:&#123;&quot;desktop_h_position&quot;:50,&quot;desktop_v_position&quot;:50,&quot;mobile_h_position&quot;:50,&quot;mobile_v_position&quot;:50&#125;&#125;" style="{{ root_vars | strip_newlines }}">
+  <div class="hss__container">
+    {%- for block in section.blocks -%}
+      {%- if block.type == 'heading' -%}
+        {%- assign b = block.settings -%}
+        {%- assign own = b.enable_custom_style -%}
+        {%- capture b_c -%}{%- if own -%}{% render 'scheme-color', color: b.heading_text_color, fallback: 'var(--pch-heading)' %}{%- else -%}var(--pch-heading){%- endif -%}{%- endcapture -%}
+        {%- capture b_c2 -%}{%- if own -%}{% render 'scheme-color', color: b.subheading_text_color, fallback: 'var(--pch-text)' %}{%- else -%}var(--pch-text){%- endif -%}{%- endcapture -%}
+        <div class="hss__head" data-pch-block="{{ block.id }}" data-pch-type="heading" data-pch-settings="{{ b | json | escape }}" style="--b-align: {{ b.text_align | default: 'center' }}; --b-c: {{ b_c | strip }}; --b-c2: {{ b_c2 | strip }};{% if own %} --b-fs: {{ b.heading_font_size | default: 32 }}px;{% endif %}{% if b.enable_custom_font_weight %} --b-w: {{ b.heading_font_weight | default: 400 }};{% endif %}"{% if b.heading_text == blank and b.section_text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>
+          <h2 class="hss__title"{% if b.enable_custom_font_weight %} data-own-weight{% endif %} data-pch-rich="heading_text"{% if b.heading_text == blank %} hidden{% endif %}>{{ b.heading_text }}</h2>
+          <div class="hss__text" data-pch-rich="section_text"{% if b.section_text == blank %} hidden{% endif %}>{{ b.section_text }}</div>
+        </div>
+      {%- endif -%}
+    {%- endfor -%}
+
+    <div class="hss__stage" data-pch-stage>
+      <div class="hss__media">
+        {%- if s.background_image != blank -%}
+          {{ s.background_image | image_url: width: 1920 | image_tag: loading: loading, decoding: 'async', alt: s.background_image.alt, class: 'hss__img hss__img--desktop', sizes: '100vw', widths: '750, 1100, 1500, 1920' }}
+        {%- else -%}
+          <img class="hss__img hss__img--desktop hss__img--ph" src="{{ placeholder_src }}" alt="" width="400" height="300" loading="{{ loading }}" decoding="async">
+        {%- endif -%}
+        {%- if mobile_image -%}
+          {{ s.custom_mobile_image | image_url: width: s.custom_mobile_image_width, height: s.custom_mobile_image_height, crop: 'center' | image_tag: loading: loading, decoding: 'async', alt: s.custom_mobile_image.alt, class: 'hss__img hss__img--mobile', width: s.custom_mobile_image_width, height: s.custom_mobile_image_height }}
+        {%- endif -%}
+      </div>
+
+      {%- for block in section.blocks -%}
+        {%- if block.type == 'product_item' -%}
+          {%- liquid
+            assign b = block.settings
+            assign product = b.product
+            if product != blank and product.title == blank
+              assign product = all_products[b.product]
+            endif
+            assign hide_spot = false
+            if product == blank and request.design_mode != true
+              assign hide_spot = true
+            endif
+            assign pop_id = 'pch-pop-' | append: sid | append: '-' | append: block.id
+            assign variant = product.selected_or_first_available_variant
+          -%}
+          {%- capture spot_json -%}{"desktop_h_position":{{ b.desktop_h_position | json }},"desktop_v_position":{{ b.desktop_v_position | json }},"mobile_h_position":{{ b.mobile_h_position | json }},"mobile_v_position":{{ b.mobile_v_position | json }}}{%- endcapture -%}
+          <div class="pch-spot" data-pch-spot data-pch-block="{{ block.id }}" data-pch-type="product_item" data-pch-settings="{{ spot_json | escape }}" style="--x-d: {{ b.desktop_h_position | default: 50 }}%; --y-d: {{ b.desktop_v_position | default: 50 }}%; --x-m: {{ b.mobile_h_position | default: 50 }}%; --y-m: {{ b.mobile_v_position | default: 50 }}%;"{% if hide_spot %} hidden{% endif %} {{ block.shopify_attributes }}>
+            <button type="button" class="pch-dot" data-pch-dot aria-expanded="false" aria-controls="{{ pop_id }}">
+              <span class="pch-dot__core" aria-hidden="true"><svg viewBox="0 0 16 16" fill="currentColor" focusable="false"><path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8M1.173 8a13 13 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5s3.879 1.168 5.168 2.457A13 13 0 0 1 14.828 8q-.086.13-.195.288c-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5s-3.879-1.168-5.168-2.457A13 13 0 0 1 1.172 8z"/><path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0"/></svg></span>
+              <span class="visually-hidden">{{ product.title | default: 'Choose a product' | escape }}</span>
+            </button>
+            <div class="pch-pop hss__pop" id="{{ pop_id }}" data-pch-pop role="group" aria-label="{{ product.title | default: 'Choose a product' | escape }}" hidden>
+              <button type="button" class="hss__close" data-pch-close aria-label="Close"><span aria-hidden="true"><svg width="10" height="10" viewBox="0 0 10 10" focusable="false"><path d="M1 1l8 8M9 1L1 9" stroke="currentColor" stroke-width="1.6" fill="none"/></svg></span></button>
+              <a class="hss__pop-media" href="{% if product != blank %}{{ product.url }}{% else %}{{ routes.all_products_collection_url }}{% endif %}" tabindex="-1" aria-hidden="true">
+                {%- if product.featured_image != blank -%}
+                  {{ product.featured_image | image_url: width: 520 | image_tag: loading: 'lazy', decoding: 'async', alt: '', width: 260, height: 260 }}
+                {%- else -%}
+                  <img src="{{ placeholder_src }}" alt="" width="260" height="260" loading="lazy" decoding="async">
+                {%- endif -%}
+              </a>
+              <h3 class="hss__pop-title">
+                {%- if product != blank -%}<a href="{{ product.url }}">{{ product.title | escape }}</a>{%- else -%}Choose a product{%- endif -%}
+              </h3>
+              {%- if product != blank -%}
+                <p class="hss__price">
+                  {%- if product.compare_at_price > product.price -%}<s>{{ product.compare_at_price | money }}</s>{%- endif -%}
+                  <span>{%- if product.price_varies -%}<span data-pch-text="from_text">{{ s.from_text | escape }}</span> {% endif -%}{{ product.price | money }}</span>
+                  {%- unless product.available -%}<span class="pch-badge" data-pch-text="sold_out_text">{{ s.sold_out_text | escape }}</span>{%- endunless -%}
+                </p>
+                {%- if product.has_only_default_variant -%}
+                  <form action="{{ routes.cart_add_url | default: '/cart/add' }}" method="post" class="hss__form" data-type="add-to-cart-form">
+                    <input type="hidden" name="id" value="{{ variant.id }}">
+                    <input type="hidden" name="quantity" value="1">
+                    <button type="submit" name="add" class="hss__btn" data-theme-button="primary" data-sl-button style="{{ btn_style | strip }}"{% unless variant.available %} disabled aria-disabled="true"{% endunless %}>
+                      <span data-pch-text="{% if variant.available %}button_text{% else %}sold_out_text{% endif %}">{%- if variant.available -%}{{ s.button_text | escape }}{%- else -%}{{ s.sold_out_text | escape }}{%- endif -%}</span>
+                    </button>
+                  </form>
+                {%- else -%}
+                  <a href="{{ product.url }}" class="hss__btn hss__btn--choose" data-theme-button="primary" data-sl-button{% if s.choose_text_font_weight == 'bold' %} data-own-weight{% endif %} style="{{ btn_style | strip }}{% if s.choose_text_font_weight == 'bold' %}--mb-weight: 700;{% endif %}"><span data-pch-text="choose_text">{{ s.choose_text | escape }}</span></a>
+                {%- endif -%}
+              {%- endif -%}
+            </div>
+          </div>
+        {%- endif -%}
+      {%- endfor -%}
+    </div>
+  </div>
+</div>{% schema %}
+{
+  "name": "Hotspot Image Product",
+  "tag": "section",
+  "class": "hotspot-image",
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "checkbox",
+      "id": "is_fullwidth",
+      "default": false,
+      "label": "Full width"
+    },
+    {
+      "type": "number",
+      "id": "container_max_width",
+      "label": "Max width (px)",
+      "default": 1350,
+      "visible_if": "{{ section.settings.is_fullwidth == false }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "reset_spacing",
+      "label": "Remove space between sections",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Product card"
+    },
+    {
+      "type": "text",
+      "id": "button_text",
+      "label": "Add to cart label",
+      "default": "Buy now",
+      "info": "For a product with one variant."
+    },
+    {
+      "type": "text",
+      "id": "choose_text",
+      "label": "Choose options label",
+      "default": "Choose options",
+      "info": "For a product with variants: links to its page."
+    },
+    {
+      "type": "select",
+      "id": "choose_text_font_weight",
+      "label": "Choose options weight",
+      "options": [
+        {
+          "value": "normal",
+          "label": "Normal"
+        },
+        {
+          "value": "bold",
+          "label": "Bold"
+        }
+      ],
+      "default": "normal"
+    },
+    {
+      "type": "text",
+      "id": "sold_out_text",
+      "label": "Sold out label",
+      "default": "Sold out"
+    },
+    {
+      "type": "text",
+      "id": "from_text",
+      "label": "From label",
+      "default": "From:",
+      "info": "Before the lowest price when variants cost different amounts."
+    },
+    {
+      "type": "select",
+      "id": "heading_tag",
+      "label": "Heading tag",
+      "options": [
+        {
+          "value": "h1",
+          "label": "H1"
+        },
+        {
+          "value": "h2",
+          "label": "H2"
+        }
+      ],
+      "default": "h2",
+      "hidden": true,
+      "info": "Legacy: the heading is always an h2, so the page keeps one h1.",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "header",
+      "content": "Image"
+    },
+    {
+      "type": "image_picker",
+      "id": "background_image",
+      "label": "Image"
+    },
+    {
+      "type": "range",
+      "id": "image_radius",
+      "label": "Image corner radius",
+      "min": 0,
+      "max": 60,
+      "step": 1,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "checkbox",
+      "id": "lazyload",
+      "default": true,
+      "label": "Lazy load the image",
+      "info": "Turn off when the section is at the top of the page."
+    },
+    {
+      "type": "header",
+      "content": "Hotspots"
+    },
+    {
+      "type": "select",
+      "id": "interaction_mode",
+      "label": "Open card on",
+      "default": "hover",
+      "options": [
+        {
+          "value": "click",
+          "label": "Click"
+        },
+        {
+          "value": "hover",
+          "label": "Hover"
+        }
+      ],
+      "info": "Hover opens on a mouse; a tap or click always works."
+    },
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_style",
+      "label": "Enable custom styling",
+      "default": false,
+      "info": "Off: colours follow the colour scheme and Theme settings > Buttons."
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "Background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Heading and text",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "popup_bg_color",
+      "label": "Card background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "product_title_color",
+      "label": "Card product title",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "price_color",
+      "label": "Card price",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "accent_color",
+      "label": "Button background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "button_text_color",
+      "label": "Button text",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "header",
+      "content": "Typography"
+    },
+    {
+      "type": "checkbox",
+      "id": "inherit_fonts",
+      "default": false,
+      "label": "Use theme font sizes",
+      "hidden": true,
+      "info": "Legacy: sizes follow Theme settings > Typography.",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_fonts",
+      "label": "Enable custom fonts",
+      "default": false
+    },
+    {
+      "type": "font_picker",
+      "id": "heading_font",
+      "label": "Heading font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "font_picker",
+      "id": "body_font",
+      "label": "Body font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "header",
+      "content": "Desktop spacing"
+    },
+    {
+      "type": "range",
+      "id": "section_padding_top",
+      "min": 0,
+      "max": 300,
+      "step": 10,
+      "unit": "px",
+      "label": "Top padding (desktop)",
+      "default": 50
+    },
+    {
+      "type": "range",
+      "id": "section_padding_bottom",
+      "min": 0,
+      "max": 300,
+      "step": 10,
+      "unit": "px",
+      "label": "Bottom padding (desktop)",
+      "default": 50
+    },
+    {
+      "type": "header",
+      "content": "Mobile"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_mobile_image",
+      "default": false,
+      "label": "Use a different mobile image"
+    },
+    {
+      "type": "image_picker",
+      "id": "custom_mobile_image",
+      "label": "Mobile image",
+      "visible_if": "{{ section.settings.enable_custom_mobile_image }}",
+      "info": "Hotspots use their mobile positions on it."
+    },
+    {
+      "type": "range",
+      "id": "custom_mobile_image_width",
+      "min": 100,
+      "max": 1000,
+      "step": 10,
+      "unit": "px",
+      "label": "Mobile image crop width",
+      "default": 400,
+      "visible_if": "{{ section.settings.enable_custom_mobile_image }}"
+    },
+    {
+      "type": "range",
+      "id": "custom_mobile_image_height",
+      "min": 100,
+      "max": 1000,
+      "step": 10,
+      "unit": "px",
+      "label": "Mobile image crop height",
+      "default": 400,
+      "visible_if": "{{ section.settings.enable_custom_mobile_image }}"
+    },
+    {
+      "type": "range",
+      "id": "section_padding_top_mobile",
+      "min": 0,
+      "max": 300,
+      "step": 10,
+      "unit": "px",
+      "label": "Top padding (mobile)",
+      "default": 50
+    },
+    {
+      "type": "range",
+      "id": "section_padding_bottom_mobile",
+      "min": 0,
+      "max": 300,
+      "step": 10,
+      "unit": "px",
+      "label": "Bottom padding (mobile)",
+      "default": 50
+    }
+  ],
+  "blocks": [
+    {
+      "name": "Heading Text",
+      "type": "heading",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "inline_richtext",
+          "id": "heading_text",
+          "label": "Heading",
+          "default": "Heading text"
+        },
+        {
+          "type": "inline_richtext",
+          "id": "section_text",
+          "label": "Text",
+          "default": "Section text"
+        },
+        {
+          "type": "select",
+          "id": "text_align",
+          "label": "Alignment",
+          "options": [
+            {
+              "value": "left",
+              "label": "Left"
+            },
+            {
+              "value": "center",
+              "label": "Center"
+            },
+            {
+              "value": "right",
+              "label": "Right"
+            }
+          ],
+          "default": "center"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "heading_text_color",
+          "label": "Heading colour",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "subheading_text_color",
+          "label": "Text colour",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "range",
+          "id": "heading_font_size",
+          "label": "Heading size",
+          "min": 10,
+          "max": 100,
+          "step": 1,
+          "unit": "px",
+          "default": 32,
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_font_weight",
+          "default": false,
+          "label": "Custom heading weight"
+        },
+        {
+          "type": "select",
+          "id": "heading_font_weight",
+          "label": "Heading weight",
+          "default": "400",
+          "options": [
+            {
+              "value": "300",
+              "label": "Light"
+            },
+            {
+              "value": "400",
+              "label": "Normal"
+            },
+            {
+              "value": "700",
+              "label": "Bold"
+            }
+          ],
+          "visible_if": "{{ block.settings.enable_custom_font_weight }}"
+        }
+      ]
+    },
+    {
+      "name": "Product Item",
+      "type": "product_item",
+      "limit": 12,
+      "settings": [
+        {
+          "type": "product",
+          "id": "product",
+          "label": "Product",
+          "info": "The card shows its picture, title, price and an add to cart button. A hotspot with no product is hidden on the live store."
+        },
+        {
+          "type": "header",
+          "content": "Desktop position"
+        },
+        {
+          "type": "range",
+          "id": "desktop_h_position",
+          "min": 0,
+          "max": 100,
+          "step": 1,
+          "unit": "%",
+          "label": "Left to right (desktop)",
+          "default": 50
+        },
+        {
+          "type": "range",
+          "id": "desktop_v_position",
+          "min": 0,
+          "max": 100,
+          "step": 1,
+          "unit": "%",
+          "label": "Top to bottom (desktop)",
+          "default": 50
+        },
+        {
+          "type": "header",
+          "content": "Mobile position"
+        },
+        {
+          "type": "range",
+          "id": "mobile_h_position",
+          "min": 0,
+          "max": 100,
+          "step": 1,
+          "unit": "%",
+          "label": "Left to right (mobile)",
+          "default": 50
+        },
+        {
+          "type": "range",
+          "id": "mobile_v_position",
+          "min": 0,
+          "max": 100,
+          "step": 1,
+          "unit": "%",
+          "label": "Top to bottom (mobile)",
+          "default": 50
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Hotspot Image Product",
+      "category": "Products",
+      "settings": {},
+      "blocks": [
+        {
+          "type": "heading",
+          "settings": {
+            "heading_text": "Shop the look",
+            "section_text": "Tap a dot to see the piece and add it to your cart."
+          }
+        },
+        {
+          "type": "product_item",
+          "settings": {
+            "desktop_h_position": 53,
+            "desktop_v_position": 16,
+            "mobile_h_position": 53,
+            "mobile_v_position": 16
+          }
+        },
+        {
+          "type": "product_item",
+          "settings": {
+            "desktop_h_position": 40,
+            "desktop_v_position": 65,
+            "mobile_h_position": 40,
+            "mobile_v_position": 65
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,432 @@
+{%- comment -%}
+  Materia Themes. Speed runtime, driven by Theme settings > Performance.
+  Rendered in <head> before every stylesheet and before content_for_header.
+
+  Faster images & fonts (perf_images)
+    preconnect to the image and font hosts, the optional priority image is
+    preloaded on the home page, images below the first screen decode off the main thread.
+  Battery & motion friendly (perf_motion)
+    reduced motion honoured site wide; videos, autoplaying sliders and the
+    looping CSS animations of a content section (marquees, floats, shimmers)
+    pause while they are off screen; sliders do not autoplay under reduced motion.
+  Snappier page navigation (perf_nav)
+    On a live Storelib site the platform already moves between pages itself:
+    speculation rules on hover and press, a prerender only for pages that run
+    no outside scripts, and a view transition that holds the old page until
+    the new one is ready (no fade to the background, no blank header). The
+    theme's own rules and fade fought that (a second prerender of pages with
+    analytics, a dip to the background colour), so they are gone; the setting
+    now loads theme-navigation.js (scripts-tag), which only adds what the
+    platform does not: the few product pages in view, fetched ahead on idle so
+    a tap on a phone opens them from cache.
+  Defer third-party apps & scripts (perf_thirdparty)
+    review, chat, popup, pixel and heatmap scripts that apps inject are held
+    until the visitor first interacts, or until the page has been idle a few
+    seconds after load. Analytics and checkout are never held.
+
+  A setting with no saved value takes its schema default (on, on, on, off).
+{%- endcomment -%}
+{%- liquid
+  assign perf_images = true
+  if settings.perf_images == false
+    assign perf_images = false
+  endif
+  assign perf_motion = true
+  if settings.perf_motion == false
+    assign perf_motion = false
+  endif
+  assign perf_nav = true
+  if settings.perf_nav == false
+    assign perf_nav = false
+  endif
+  assign perf_thirdparty = false
+  if settings.perf_thirdparty == true
+    assign perf_thirdparty = true
+  endif
+  assign in_editor = false
+  if request.design_mode
+    assign in_editor = true
+  endif
+  assign image_sample = settings.logo | default: settings.preload_image | default: settings.mobile_logo
+  assign image_host = ''
+  if image_sample != blank
+    assign image_parts = image_sample | image_url: width: 16 | split: '/'
+    if image_parts[0] == 'https:' and image_parts[2] != blank and image_parts[2] != request.host
+      assign image_host = 'https://' | append: image_parts[2]
+    endif
+  endif
+  assign font_host = ''
+  assign font_sample = settings.font_body_system
+  if font_sample.family == blank
+    assign font_sample = settings.font_heading_system
+  endif
+  if font_sample.family != blank
+    assign font_parts = font_sample | font_url | split: '/'
+    if font_parts[0] == 'https:' and font_parts[2] != blank and font_parts[2] != request.host
+      assign font_host = 'https://' | append: font_parts[2]
+    endif
+  endif
+-%}
+
+{%- comment -%}
+  Hosts to warm up are read from real addresses (the logo's picture, the picked
+  font), so they match whatever serves this site's files, not a fixed CDN. A host
+  that is this page's own needs no warm up.
+{%- endcomment -%}
+{%- if perf_images -%}
+  {%- comment -%} Pictures are plain (no-cors) requests, so their connection is opened without crossorigin; fonts need it. {%- endcomment -%}
+  {%- if image_host != blank -%}
+    <link rel="preconnect" href="{{ image_host }}">
+  {%- endif -%}
+  {%- comment -%}
+    A font library's stylesheet is a plain request and its font files are
+    CORS requests, and the browser keeps those on separate connections: a
+    crossorigin warm up of the stylesheet host was never used by the
+    stylesheet, which blocks the first paint. Each host gets the connection
+    it will really use.
+  {%- endcomment -%}
+  {%- if font_host == 'https://fonts.googleapis.com' -%}
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  {%- elsif font_host != blank -%}
+    <link rel="preconnect" href="{{ font_host }}" crossorigin>
+  {%- endif -%}
+  {%- assign on_home = false -%}
+  {%- if request.page_type == 'index' or template.name == 'index' or template.name == 'home' -%}{%- assign on_home = true -%}{%- endif -%}
+  {%- if settings.preload_image != blank and on_home -%}
+    <link rel="preload" as="image" href="{{ settings.preload_image | image_url: width: 1600 }}" imagesrcset="{{ settings.preload_image | image_url: width: 800 }} 800w, {{ settings.preload_image | image_url: width: 1200 }} 1200w, {{ settings.preload_image | image_url: width: 1600 }} 1600w" imagesizes="100vw" fetchpriority="high">
+  {%- endif -%}
+{%- endif -%}
+
+{%- if perf_thirdparty -%}
+  <link rel="dns-prefetch" href="https://static.klaviyo.com">
+  <link rel="dns-prefetch" href="https://cdn.judge.me">
+  <link rel="dns-prefetch" href="https://connect.facebook.net">
+  <link rel="dns-prefetch" href="https://www.youtube.com">
+{%- endif -%}
+
+{%- if perf_motion -%}
+<style id="speed-optimization-css">
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+    [data-image-effect='parallax'],
+    [data-image-effect='ken_burns'],
+    [data-image-effect='mouse_track'] { animation: none !important; transform: none !important; }
+  }
+  /* A content section scrolled well out of view holds its looping animations
+     where they are and picks them up again as it comes back. */
+  .shopify-section[data-perf-offscreen] *,
+  .shopify-section[data-perf-offscreen] *::before,
+  .shopify-section[data-perf-offscreen] *::after { animation-play-state: paused !important; }
+</style>
+{%- endif -%}
+
+
+{%- if perf_nav and in_editor == false -%}
+  {%- comment -%}
+    Storelib owns page loading and the navigation snapshot. Do not blend old
+    content into the new route or interpolate two pages with different sizes.
+    This is an atomic visual handoff, not a second navigation implementation.
+  {%- endcomment -%}
+  {%- liquid
+    assign pt_style = settings.page_transition_style | default: 'fade'
+    assign pt_ms = settings.page_transition_duration | default: 260 | plus: 0
+    if pt_ms < 120
+      assign pt_ms = 120
+    endif
+    assign pt_out = pt_ms | divided_by: 2
+    assign pt_gap = pt_ms | divided_by: 3
+  -%}
+  <style id="speed-page-landing">
+    /* The old page stays painted until the new one is ready (Storelib holds it), then a short
+       fade-through: the old page fades away first and the new one comes in as it goes, so the
+       two pages are never seen on top of each other (which read as the page loading twice) and
+       there is never a frame of bare background. The header stays where it is. Page change:
+       None is an instant swap. Off for visitors who ask for less motion. */
+    html:root::view-transition { background: var(--color-background, Canvas); }
+    html:root::view-transition-group(root) { animation: none; mix-blend-mode: normal; }
+    {%- if pt_style == 'none' %}
+    html:root::view-transition-old(root),
+    html:root::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+    html:root::view-transition-old(root) { opacity: 1; }
+    {%- else %}
+    @keyframes mt-page-out { to { opacity: 0; } }
+    @keyframes mt-page-in { from { opacity: 0;{% if pt_style == 'rise' %} transform: translate3d(0, 10px, 0);{% endif %} } }
+    @media (prefers-reduced-motion: no-preference) {
+      html:root::view-transition-old(root) { mix-blend-mode: normal; animation: mt-page-out {{ pt_out }}ms cubic-bezier(0.4, 0, 1, 1) both; }
+      html:root::view-transition-new(root) { mix-blend-mode: normal; animation: mt-page-in {{ pt_ms }}ms cubic-bezier(0.2, 0.7, 0.2, 1) {{ pt_gap }}ms both; }
+      /* The header is the same on every page: it stays put instead of fading with the page. */
+      html:active-view-transition .shopify-section.section-header { view-transition-name: mt-site-header; }
+      html:root::view-transition-group(mt-site-header),
+      html:root::view-transition-old(mt-site-header),
+      html:root::view-transition-new(mt-site-header) { animation: none; mix-blend-mode: normal; }
+      html:root::view-transition-old(mt-site-header) { display: none; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html:root::view-transition-old(root),
+      html:root::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+    }
+    {%- endif %}
+  </style>
+{%- endif -%}
+
+<script id="speed-optimization-js">
+(function () {
+  var s = {
+    images: {{ perf_images | json }},
+    motion: {{ perf_motion | json }},
+    thirdParty: {{ perf_thirdparty | json }} && !{{ in_editor | json }}
+  };
+  var idle = window.requestIdleCallback || function (fn) { return setTimeout(fn, 120); };
+  function onReady(fn) {
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn, { once: true });
+    else fn();
+  }
+
+  /* ---------- Faster fonts: the font library's stylesheets never hold the first paint ----------
+     Storelib writes a stylesheet link for each picked font at the end of
+     <head>; a cross-site stylesheet there held the whole first paint (and
+     every script after it) until it had arrived. Every font is
+     font-display: swap with a size-matched fallback (font-variables), so the
+     page paints in the fallback and the font swaps in when it lands. Each
+     such link is replaced, as the page is read and before anything is drawn,
+     by the same link loading as a non-blocking sheet; the request already
+     made is reused. */
+  if (s.images && 'MutationObserver' in window && document.head) {
+    var FONT_SHEET = /^https:\/\/fonts\.googleapis\.com\//;
+    /* Once a font sheet has loaded on this browser it is cached, so on the
+       next page it loads as a normal sheet, asked for with
+       display=fallback: a cached font has up to 100ms to arrive before text
+       is drawn, so the page paints in the real font with no swap. The
+       fallback version is fetched quietly after the first visit. */
+    var FONT_KEY = 'materia__fonts';
+    var seenFonts = {};
+    try { seenFonts = JSON.parse(localStorage.getItem(FONT_KEY) || '{}') || {}; } catch (e) { seenFonts = {}; }
+    var calmFont = function (href) { return href.replace(/([?&]display=)swap\b/, '$1fallback'); };
+    var rememberFonts = function () {
+      try {
+        var sheets = [];
+        var links = document.querySelectorAll('link[rel="stylesheet"]');
+        for (var a = 0; a < links.length; a++) {
+          var h = links[a].getAttribute('data-speed-font-href') || links[a].href;
+          if (FONT_SHEET.test(h) && sheets.indexOf(h) === -1) sheets.push(h);
+        }
+        if (!sheets.length) return;
+        for (var c = 0; c < sheets.length; c++) {
+          var calm = calmFont(sheets[c]);
+          if (calm !== sheets[c] && !document.querySelector('link[href="' + calm.replace(/"/g, '%22') + '"]')) {
+            var pf = document.createElement('link');
+            pf.rel = 'prefetch'; pf.as = 'style'; pf.href = calm;
+            document.head.appendChild(pf);
+          }
+        }
+        localStorage.setItem(FONT_KEY, JSON.stringify({ sheets: sheets }));
+      } catch (e) {}
+    };
+    var afterFonts = function () {
+      if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { setTimeout(rememberFonts, 300); });
+      else setTimeout(rememberFonts, 300);
+    };
+    if (document.readyState === 'complete') afterFonts();
+    else window.addEventListener('load', afterFonts, { once: true });
+    var fontSeen = function (href) {
+      return !!(seenFonts.sheets && seenFonts.sheets.indexOf(href) !== -1);
+    };
+    var freeFont = function (l) {
+      if (l.nodeName !== 'LINK' || l.rel !== 'stylesheet' || l.hasAttribute('data-speed-font') || !FONT_SHEET.test(l.href)) return;
+      if (fontSeen(l.href)) {
+        var calm = calmFont(l.href);
+        if (calm === l.href) return;
+        var k = l.cloneNode(false);
+        k.setAttribute('data-speed-font', '');
+        k.setAttribute('data-speed-font-href', l.href);
+        k.href = calm;
+        l.parentNode.insertBefore(k, l);
+        l.parentNode.removeChild(l);
+        return;
+      }
+      var media = l.getAttribute('media') || 'all';
+      if (media === 'print') return;
+      var n = l.cloneNode(false);
+      n.setAttribute('data-speed-font', '');
+      n.media = 'print';
+      n.onload = function () { n.onload = null; n.media = media; };
+      l.parentNode.insertBefore(n, l);
+      l.parentNode.removeChild(l);
+    };
+    var fontObserver = new MutationObserver(function (records) {
+      for (var i = 0; i < records.length; i++) {
+        var added = records[i].addedNodes;
+        for (var j = 0; j < added.length; j++) freeFont(added[j]);
+      }
+    });
+    fontObserver.observe(document.head, { childList: true });
+    onReady(function () { fontObserver.disconnect(); });
+  }
+
+  /* ---------- Faster images: decode off the main thread below the first screen ----------
+     Pictures in the first screen keep the browser's own decoding, so the hero
+     paints in the same frame it arrives. One read pass, then one write pass. */
+  if (s.images) {
+    var tuneImages = function () {
+      var imgs = document.querySelectorAll('img:not([decoding]):not([data-speed-tuned])');
+      var fold = window.innerHeight;
+      var below = [];
+      for (var i = 0; i < imgs.length; i++) {
+        var r = imgs[i].getBoundingClientRect();
+        below.push(r.top >= fold || (r.width === 0 && r.height === 0));
+      }
+      for (var j = 0; j < imgs.length; j++) {
+        imgs[j].setAttribute('data-speed-tuned', '');
+        if (!below[j]) continue;
+        imgs[j].decoding = 'async';
+        // Below the first screen, and only when the size is already reserved,
+        // so a slow connection spends its bandwidth on the page in view and
+        // the picture does not jump in when it arrives.
+        if (!imgs[j].hasAttribute('loading') && imgs[j].getAttribute('fetchpriority') !== 'high' && (imgs[j].hasAttribute('width') || imgs[j].style.aspectRatio)) imgs[j].loading = 'lazy';
+      }
+    };
+    onReady(function () { idle(tuneImages, { timeout: 800 }); });
+    if ('MutationObserver' in window) {
+      var tunePending = false;
+      var tuneObserver = new MutationObserver(function (records) {
+        if (tunePending) return;
+        for (var i = 0; i < records.length; i++) {
+          var added = records[i].addedNodes;
+          for (var j = 0; j < added.length; j++) {
+            var n = added[j];
+            if (n.nodeType === 1 && (n.tagName === 'IMG' || (n.firstElementChild && n.querySelector('img')))) {
+              tunePending = true;
+              idle(function () { tunePending = false; tuneImages(); }, { timeout: 600 });
+              return;
+            }
+          }
+        }
+      });
+      onReady(function () { tuneObserver.observe(document.body || document.documentElement, { childList: true, subtree: true }); });
+      // Pictures that matter arrive with the page; stop watching once it has settled.
+      addEventListener('load', function () { setTimeout(function () { tuneObserver.disconnect(); }, 10000); }, { once: true });
+    }
+  }
+
+  /* ---------- Defer third-party apps & scripts ----------
+     Scripts an app injects from these hosts are held until the first
+     interaction or a few idle seconds after load, then added in order. */
+  if (s.thirdParty) {
+    var HOSTS = /(^|\.)(klaviyo\.com|judge\.me|judgeme\.io|trustpilot\.com|yotpo\.com|okendo\.io|stamped\.io|loox\.io|reviews\.io|privy\.com|omnisend\.com|tidio\.co|tawk\.to|gorgias\.chat|intercom\.io|crisp\.chat|zdassets\.com|facebook\.net|tiktok\.com|pinimg\.com|sc-static\.net|hotjar\.com|clarity\.ms|pushowl\.com|smile\.io)$/i;
+    var held = [];
+    var released = false;
+    var isHeld = function (node) {
+      if (released || !node || node.nodeName !== 'SCRIPT' || !node.src) return false;
+      try { return HOSTS.test(new URL(node.src, location.href).hostname); } catch (_) { return false; }
+    };
+    var origAppend = Node.prototype.appendChild;
+    var origInsert = Node.prototype.insertBefore;
+    Node.prototype.appendChild = function (node) {
+      if (isHeld(node)) { held.push(node); return node; }
+      return origAppend.call(this, node);
+    };
+    Node.prototype.insertBefore = function (node, ref) {
+      if (isHeld(node)) { held.push(node); return node; }
+      return origInsert.call(this, node, ref);
+    };
+    var release = function () {
+      if (released) return;
+      released = true;
+      Node.prototype.appendChild = origAppend;
+      Node.prototype.insertBefore = origInsert;
+      events.forEach(function (t) { removeEventListener(t, release, listenOpts); });
+      var queue = held.splice(0);
+      for (var i = 0; i < queue.length; i++) origAppend.call(document.head, queue[i]);
+      document.querySelectorAll('script[type="text/lazyload"]').forEach(function (sc) {
+        var n = document.createElement('script');
+        for (var k = 0; k < sc.attributes.length; k++) {
+          var a = sc.attributes[k];
+          if (a.name !== 'type') n.setAttribute(a.name, a.value);
+        }
+        if (sc.textContent) n.textContent = sc.textContent;
+        sc.parentNode.replaceChild(n, sc);
+      });
+    };
+    var events = ['pointerdown', 'keydown', 'touchstart', 'wheel', 'scroll'];
+    var listenOpts = { passive: true, once: true };
+    events.forEach(function (t) { addEventListener(t, release, listenOpts); });
+    var afterLoad = function () { setTimeout(function () { idle(release, { timeout: 2000 }); }, 3500); };
+    if (document.readyState === 'complete') afterLoad(); else addEventListener('load', afterLoad, { once: true });
+  }
+
+  /* ---------- Battery & motion friendly ---------- */
+  if (s.motion && 'IntersectionObserver' in window) {
+    var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)');
+    var stopAutoplay = function (el) {
+      if (el.swiper && el.swiper.autoplay && el.swiper.autoplay.running) {
+        try { el.swiper.autoplay.stop(); } catch (_) {}
+        return true;
+      }
+      return false;
+    };
+    // Videos and sliders: paused out of view, resumed only if this paused them.
+    var mediaIO = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        var el = entry.target;
+        if (reduced && reduced.matches) { stopAutoplay(el); return; }
+        if (entry.isIntersecting) {
+          if (el.dataset.spdPaused !== '1') return;
+          el.dataset.spdPaused = '0';
+          if (el.tagName === 'VIDEO') { var p = el.play && el.play(); if (p && p.catch) p.catch(function () {}); }
+          else if (el.swiper && el.swiper.autoplay) { try { el.swiper.autoplay.start(); } catch (_) {} }
+        } else if (el.tagName === 'VIDEO') {
+          if (!el.paused) { el.dataset.spdPaused = '1'; el.pause(); }
+        } else if (stopAutoplay(el)) {
+          el.dataset.spdPaused = '1';
+        }
+      });
+    }, { threshold: 0.05 });
+    // Content sections: looping CSS animations held while far out of view.
+    // Sections that hold a popup, drawer, dialog or sticky bar are left alone,
+    // because those can show on screen while the section itself is not.
+    var holdsOverlay = '[class*="popup"], [class*="Popup"], [class*="modal"], [class*="drawer"], [class*="sticky"], [role="dialog"], dialog';
+    var sectionIO = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        entry.target.toggleAttribute('data-perf-offscreen', !entry.isIntersecting);
+      });
+    }, { rootMargin: '300px 0px' });
+    var observeAll = function () {
+      var media = document.querySelectorAll('video, .swiper, slide-section, [data-autoplay]');
+      for (var i = 0; i < media.length; i++) {
+        if (media[i].dataset.spdObserved === '1') continue;
+        media[i].dataset.spdObserved = '1';
+        mediaIO.observe(media[i]);
+      }
+      var sections = document.querySelectorAll('#MainContent > .shopify-section:not([data-perf-watch])');
+      for (var j = 0; j < sections.length; j++) {
+        var sec = sections[j];
+        sec.setAttribute('data-perf-watch', '');
+        if (sec.querySelector(holdsOverlay)) continue;
+        sectionIO.observe(sec);
+      }
+    };
+    onReady(observeAll);
+    // Sliders start after their scripts run; under reduced motion stop them once started.
+    addEventListener('load', function () {
+      observeAll();
+      if (reduced && reduced.matches) document.querySelectorAll('.swiper, slide-section').forEach(stopAutoplay);
+    }, { once: true });
+    if ('MutationObserver' in window) {
+      var observePending = false;
+      onReady(function () {
+        new MutationObserver(function () {
+          if (observePending) return;
+          observePending = true;
+          idle(function () { observePending = false; observeAll(); }, { timeout: 600 });
+        }).observe(document.getElementById('MainContent') || document.body, { childList: true, subtree: true });
+      });
+    }
+  }
+})();
+</script>

@@ -1,0 +1,141 @@
+{
+  "sections": {
+    "page_heading_1": {
+      "type": "page-heading",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "page_title": "About the author"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1"
+      ]
+    },
+    "image_and_video_text_2": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "default",
+        "image": "shopify://shop_images/ebooks-library-curve.webp",
+        "image_alt": "Curved library shelves full of books",
+        "image_position": "right"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Your name"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Write your biography here. Say what you write, what you have published and what you are working on now.</p>"
+          }
+        },
+        "button_3": {
+          "type": "button",
+          "settings": {
+            "label": "See the books",
+            "link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "button_3"
+      ]
+    },
+    "feature_timeline_3": {
+      "type": "feature-timeline",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "layout": "side"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Books so far"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>In the order they were written.</p>"
+          }
+        },
+        "item_3": {
+          "type": "item",
+          "settings": {
+            "label": "Year",
+            "title": "First book",
+            "text": "<p>One line about your first book.</p>"
+          }
+        },
+        "item_4": {
+          "type": "item",
+          "settings": {
+            "label": "Year",
+            "title": "Second book",
+            "text": "<p>One line about your second book.</p>"
+          }
+        },
+        "item_5": {
+          "type": "item",
+          "settings": {
+            "label": "Now",
+            "title": "Work in progress",
+            "text": "<p>What you are writing at the moment.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "item_3",
+        "item_4",
+        "item_5"
+      ]
+    },
+    "image_and_video_text_4": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "scheme-7dae8b89-7a81-4c2c-b8e2-92533766f8ca",
+        "image": "shopify://shop_images/ebooks-book-row.webp",
+        "image_alt": "A row of old books seen from above",
+        "image_position": "left"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Why I sell direct"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Buying here means more of the price reaches the author, and you get files with no locks on them.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2"
+      ]
+    }
+  },
+  "order": [
+    "page_heading_1",
+    "image_and_video_text_2",
+    "feature_timeline_3",
+    "image_and_video_text_4"
+  ]
+}

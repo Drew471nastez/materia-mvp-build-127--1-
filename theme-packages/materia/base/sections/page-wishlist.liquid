@@ -1,0 +1,261 @@
+{%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
+{%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
+<style>
+  #shopify-section-{{ section.id }}.scroll-trigger {
+    --animation-duration: {{ settings.animation_duration | default: 700 }}ms;
+    --animation-delay: {{ settings.animation_delay | default: 0 }}ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-{{ section.id }}');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', {{ settings.scroll_animation | json }});
+  })();
+</script>
+{%- endif -%}
+{% render 'account-pages-base', sid: section.id %}
+<style>
+  #shopify-section-{{ section.id }}:has([data-ap-reset]) { padding-top: 0 !important; padding-bottom: 0 !important; }
+  #shopify-section-{{ section.id }}:has([data-ap-reset]) > :is(.section, section, div) { margin-top: 0 !important; margin-bottom: 0 !important; }
+</style>
+<style>
+  /* Theme font-weight inheritance — inherit theme weights by default; explicit rules still override */
+  #shopify-section-{{ section.id }} {
+    font-weight: var(--body-weight, inherit);
+  }
+  :where(#shopify-section-{{ section.id }}) :is(h1, h2, h3, h4, h5, h6) {
+    font-weight: var(--heading-weight, inherit);
+  }
+</style>
+{%- comment -%}Section isolation — prevent CSS/JS bleed between sections{%- endcomment -%}
+<style>
+  #shopify-section-{{ section.id }} { isolation: isolate; position: relative; }
+</style>
+{%- comment -%}
+  Materia Themes. Developed By Materia Themes.
+{%- endcomment -%}
+<script src="{{ 'wishlist.js' | asset_url }}" defer="defer"></script>
+{{ 'wishlist-page.css' | asset_url | stylesheet_tag }}
+{%- liquid
+  assign section_st = section.settings
+  assign section_width = section_st.section_width
+  assign scroll_animation = settings.scroll_animation
+  assign color_scheme = section_st.color_scheme.id | default: section_st.color_scheme | default: 'default-color-scheme'
+  assign empty_text = 'templates.wishlist.empty_des' | t
+  if section_st.empty_text != blank
+    assign empty_text = section_st.empty_text
+  endif
+  assign empty_button_label = 'templates.wishlist.redirect' | t
+  if section_st.empty_button_label != blank
+    assign empty_button_label = section_st.empty_button_label
+  endif
+  assign empty_button_url = section_st.empty_button_url | default: routes.all_products_collection_url | default: '/collections/all'
+-%}
+{%- capture style -%}
+  --section-pt: {{ section_st.padding_top }}; --section-pb: {{ section_st.padding_bottom }};--col-gap-desktop: 30px;--col-desktop: 4;--col-number: 2;--col-desktop-small: 3;--col-tablet: 3;--col-gap: 15px;
+{%- endcapture -%}
+{%- comment -%}
+  The saved list lives in the visitor's browser (localStorage
+  "materia__wishlist-items", product ids), so the page is drawn empty and
+  assets/wishlist.js asks Storelib for the saved products' cards:
+  /search?q=id:<id> OR id:<id>&section_id=page-wishlist, which answers
+  this same section with search.results, so the cards are the theme's own
+  product cards with the theme settings. In the builder a few products
+  stand in when nothing is saved, so the cards can be styled.
+{%- endcomment -%}
+<div
+  class="section product wishlist-page-section color-{{ color_scheme }} gradient"
+  data-section-type="page-wishlist"
+  data-section-id="{{ section.id }}"
+  data-wishlist-page
+  data-render-section="page-wishlist"
+  data-view="{{ template.name }}"
+  data-ap-root="page-wishlist"
+  data-ap-section="{{ section.id }}"{% if request.design_mode %}
+  data-ap-settings="{{ section_st | json | escape }}"{% endif %}
+  {% if section_st.reset_spacing %}data-ap-reset{% endif %}
+  {%- if settings.show_message_when_remove %} data-removed-message="{{ section_st.removed_message | default: 'Removed from your wishlist' | escape }}"{% endif %}
+  style="{{ style | strip | strip_newlines }}"
+>
+  <div class="wishlist-page-section-inner">
+    <div class="{{ section_width }} wishlist-page-main" data-ap-width>
+      {%- if search.results != blank -%}
+        <div class="wishlist-list-items grid grid-cols gap" data-wishlist-items>
+          {%- for product in search.results limit: 50 -%}
+            {%- if product.id != blank -%}
+              <div
+                class="col-6 col-md-4 col-lg-3 product-load wl-product-js wishlist-list"
+                data-wishlist-card
+                data-wishlist-id="{{ product.id }}"
+                data-product-handle="{{ product.handle }}"
+              >
+                {% render 'product-item',
+                  card_product: product,
+                  section_id: section.id,
+                  template_enable_action: true,
+                  template_enable_price: true,
+                  template_enable_product_vendor: true,
+                  template_enable_rate: true,
+                  template_enable_add_cart: true,
+                  template_enable_product_badges: true,
+                  template_enable_product_short_description: true,
+                  template_enable_color_swatches: true,
+                  template_enable_remove_in_wishlist_page: true,
+                  type: 'gird',
+                  scroll_animation: 'none',
+                  indexFor: forloop.index
+                %}
+              </div>
+            {%- endif -%}
+          {%- endfor -%}
+        </div>
+      {%- else -%}
+        <div class="wishlist-list-items grid grid-cols gap" data-wishlist-items aria-busy="true">
+          {%- if request.design_mode -%}
+            {%- for product in collections.all.products limit: 4 -%}
+              <div class="col-6 col-md-4 col-lg-3 product-load wl-product-js wishlist-list" data-wishlist-card data-wishlist-sample data-wishlist-id="{{ product.id }}" data-product-handle="{{ product.handle }}">
+                {% render 'product-item',
+                  card_product: product,
+                  section_id: section.id,
+                  template_enable_action: true,
+                  template_enable_price: true,
+                  template_enable_product_vendor: true,
+                  template_enable_rate: true,
+                  template_enable_add_cart: true,
+                  template_enable_product_badges: true,
+                  template_enable_product_short_description: true,
+                  template_enable_color_swatches: true,
+                  template_enable_remove_in_wishlist_page: true,
+                  type: 'gird',
+                  scroll_animation: 'none',
+                  indexFor: forloop.index
+                %}
+              </div>
+            {%- endfor -%}
+          {%- endif -%}
+        </div>
+        <div class="wishlist-page__loading" data-wishlist-loading aria-hidden="true">
+          {%- for i in (1..4) -%}<span class="wishlist-page__ghost"></span>{%- endfor -%}
+        </div>
+      {%- endif -%}
+      <div class="wishlist-no-product-js wishlist-page__empty text-center" data-wishlist-empty hidden>
+        <p class="wishlist-page__empty-text" data-ap-text="empty_text" data-ap-fallback="{{ 'templates.wishlist.empty_des' | t | escape }}">{{ empty_text }}</p>
+        <a
+          class="wishlist-no-product-url btn-primary no-underline inline-flex"
+          data-theme-button="primary" data-sl-button
+          href="{{ empty_button_url | url }}"
+          data-ap-text="empty_button_label" data-ap-fallback="{{ 'templates.wishlist.redirect' | t | escape }}"
+          data-ap-href="empty_button_url" data-ap-href-fallback="{{ routes.all_products_collection_url | default: '/collections/all' }}"
+        >
+          {{- empty_button_label -}}
+        </a>
+      </div>
+      {%- unless request.design_mode -%}{%- comment -%} An empty list is known before the script loads: show the empty message now, so the page is drawn at its final height and the footer does not jump up. {%- endcomment -%}<script>(function(r){if(!r)return;var ids=[];try{ids=JSON.parse(localStorage.getItem('materia__wishlist-items')||'[]')}catch(e){}if(Array.isArray(ids)&&ids.length)return;if(r.querySelector('[data-wishlist-sample]'))return;var l=r.querySelector('[data-wishlist-loading]'),e=r.querySelector('[data-wishlist-empty]');if(l)l.hidden=true;if(e)e.hidden=false;var s=r.closest('.wishlist-page-section');if(s)s.classList.add('is-empty')})(document.currentScript&&document.currentScript.parentElement)</script>{%- endunless -%}
+      <p class="wishlist-page__status visually-hidden" role="status" aria-live="polite" data-wishlist-status></p>
+    </div>
+  </div>
+</div>
+
+{% render 'theme-type' %}
+{% schema %}
+{
+  "name": "Wishlist",
+  "tag": "section",
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "options": [
+        {
+          "value": "container",
+          "label": "Default"
+        },
+        {
+          "value": "fluid_container",
+          "label": "Fluid container"
+        },
+        {
+          "value": "stretch_width",
+          "label": "Stretched"
+        },
+        {
+          "value": "full_width",
+          "label": "Full width"
+        }
+      ],
+      "default": "fluid_container",
+      "label": "Section width"
+    },
+    {
+      "type": "checkbox",
+      "id": "reset_spacing",
+      "label": "Remove space between sections",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Content"
+    },
+    {
+      "type": "textarea",
+      "id": "empty_text",
+      "label": "Nothing saved message",
+      "info": "Empty: No products were added to the wishlist page."
+    },
+    {
+      "type": "text",
+      "id": "empty_button_label",
+      "label": "Nothing saved button",
+      "info": "Empty: Back to Shopping"
+    },
+    {
+      "type": "url",
+      "id": "empty_button_url",
+      "label": "Nothing saved button link",
+      "info": "Empty: all products"
+    },
+    {
+      "type": "text",
+      "id": "removed_message",
+      "label": "Message after a remove",
+      "default": "Removed from your wishlist",
+      "info": "Shown when Theme settings > Wishlist shows a message on remove."
+    },
+    {
+      "type": "header",
+      "content": "Desktop spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "default": 0,
+      "min": 0,
+      "max": 100,
+      "step": 2,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "default": 0,
+      "min": 0,
+      "max": 100,
+      "step": 2,
+      "unit": "px"
+    }
+  ]
+}
+{% endschema %}

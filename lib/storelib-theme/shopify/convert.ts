@@ -246,6 +246,8 @@ class Report {
   skipped: { file: string; reason: string }[] = []
   private notes = new Map<string, string[]>()
   private extra = new Map<string, number>()
+  /** Pictures the theme carries in assets/, by name: a `shopify://shop_images/<name>` value naming one is not a picture left behind (Storelib's own export writes an uploaded picture this way). */
+  carried = new Set<string>()
 
   note(file: string, message: string) {
     const list = this.notes.get(file) ?? []
@@ -302,6 +304,7 @@ async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<Conve
   const src = await readSources(entries, root, report)
   if (!src.text.has("layout/theme.liquid")) return { ok: false, error: "This theme has no layout (the layout folder's theme file), the shell every page is drawn in" }
 
+  for (const path of src.binary.keys()) report.carried.add(path.slice("assets/".length))
   const tr = wordsOf(src)
 
   const files: Record<string, string> = {}
@@ -505,7 +508,7 @@ async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<Conve
   const embeds = values.blocks && typeof values.blocks === "object" ? Object.values(values.blocks as Record<string, Tree>).filter((b) => b && typeof b === "object" && b.disabled !== true).map((b) => ({ type: String(b.type ?? "") })) : []
   noteAppBlocks(embeds, report, "config/settings_data.json", "switches on")
   for (const [k, v] of Object.entries(values)) {
-    if (typeof v === "string" && v.startsWith("shopify://shop_images/")) {
+    if (typeof v === "string" && v.startsWith("shopify://shop_images/") && !report.carried.has(v.slice("shopify://shop_images/".length))) {
       report.note("config/settings_data.json", `"${k}" is a picture from the old store's files, which is not part of the theme; choose it again in Theme settings`)
     }
   }
@@ -1098,6 +1101,7 @@ function blockList(blocks: Record<string, Tree> | undefined, order: unknown, dep
 function noteShopifyValues(settings: Tree, report: Report, path: string): void {
   for (const [k, v] of Object.entries(settings)) {
     if (typeof v !== "string") continue
+    if (v.startsWith("shopify://shop_images/") && report.carried.has(v.slice("shopify://shop_images/".length))) continue
     if (v.startsWith("shopify://shop_images/")) report.note(path, `"${k}" is a picture from the old store's files, which is not part of the theme; the theme's placeholder draws until one is chosen`)
     else if (/^shopify:\/\/(pages|blogs|articles|metaobjects)\//.test(v)) report.note(path, `"${k}" links to ${v.slice(10)}, which this website does not have yet`)
   }

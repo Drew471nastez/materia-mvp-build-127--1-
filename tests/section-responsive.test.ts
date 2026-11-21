@@ -1925,7 +1925,8 @@ check(
    * row in the card style, inside the section's own padding.
    */
   /* Round Z5: the theme cards are a grid inside the section (components/themes/theme-card.tsx), not a sideways row. */
-  /data-theme-grid=""/.test(wbPage) && /<ThemeCard\b/.test(wbPage) && !/snap-x snap-mandatory/.test(wbPage),
+/* Changed on purpose (templates round 16): the row's cards are components/website-builder/theme-template-card.tsx, the card the marketplace popup draws too. */
+  /data-theme-grid=""/.test(wbPage) && /<ThemeTemplateCard\b/.test(wbPage) && !/snap-x snap-mandatory/.test(wbPage),
 )
 
 check(
@@ -3116,8 +3117,10 @@ check(
   /* Round Z5: Add theme in the Library heading, and Browse themes' own link is the Theme marketplace (storelib.com/themes) in a new tab. */
   /* Changed on purpose (Create a website): Add theme is Browse themes, one of the three doors in ./start-website.tsx, so the one link to the theme page lives there and the page itself has none. */
   (wbPage.match(/\/app\/website-builder\/themes/g) ?? []).length === 0 &&
-    (readFileSync(join(root, "app/(storelib)/app/website-builder/start-website.tsx"), "utf8").match(/"\/app\/website-builder\/themes"/g) ?? []).length === 1 &&
-    /href=\{MARKETPLACE_PATH\}\s*target="_blank"/.test(wbPage) &&
+  /* Changed on purpose (templates round 16): the theme marketplace is a popup over the page (themes/themes-client.tsx), so neither the page nor Create a website links to a marketplace page: Theme marketplace is a button that opens it. */
+    (readFileSync(join(root, "app/(storelib)/app/website-builder/start-website.tsx"), "utf8").match(/\/app\/website-builder\/themes"/g) ?? []).length === 0 &&
+    !/MARKETPLACE_PATH/.test(wbPage) &&
+    /data-theme-marketplace-open="heading"[\s\S]{0,200}onClick=\{\(e\) => openThemes\(e\.currentTarget\)\}/.test(wbPage) &&
     // one button, one "see all" link — and the section is named for it
     /<SectionHeading title="Browse themes">/.test(wbPage) &&
     !/Browse themes\s*\n\s*<\/Link>/.test(wbPage),

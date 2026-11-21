@@ -13680,7 +13680,12 @@ const words: Record<string, string> = {
  "Grow costs {proPrice} a month and takes {value}% less of every digital sale and {value3}% less of every physical one. Once you sell about ${value2} a month of digital products, the lower fee alone covers the plan, and everything past that is yours.": "Grow kosztuje {proPrice} miesięcznie i pobiera o {value}% mniej z każdej sprzedaży cyfrowej i o {value3}% mniej z każdej fizycznej. Gdy sprzedajesz produkty cyfrowe za około ${value2} miesięcznie, sama niższa prowizja pokrywa plan, a wszystko powyżej zostaje u Ciebie.",
  "Storelib's fee for your plan and what you sell. Digital products: {freeFee} on Free, {proFee} on Grow, {scaleFee} on Pro. Products that ship: {freePhysical} on Free, {proPhysical} on Grow, {scalePhysical} on Pro. Then Stripe's card processing fee, which Stripe charges on every plan. There is nothing else.": "Prowizja Storelib zależy od planu i tego, co sprzedajesz. Produkty cyfrowe: {freeFee} w Free, {proFee} w Grow, {scaleFee} w Pro. Produkty wysyłane: {freePhysical} w Free, {proPhysical} w Grow, {scalePhysical} w Pro. Do tego opłata Stripe za obsługę karty, pobierana w każdym planie. Nic więcej.",
  "Card rates by product type": "Opłaty kartowe według rodzaju produktu",
- "Sales under {amount} pay a small-order rate with no fixed fee.": "Sprzedaż poniżej {amount} ma stawkę dla małych zamówień bez opłaty stałej."
+ "Sales under {amount} pay a small-order rate with no fixed fee.": "Sprzedaż poniżej {amount} ma stawkę dla małych zamówień bez opłaty stałej.",
+ "Creators": "Twórcy",
+ "Books & ebooks": "Książki i e-booki",
+ "Design & templates": "Design i szablony",
+ "Music & audio": "Muzyka i audio",
+ "Software & tools": "Oprogramowanie i narzędzia"
 }
 
 export default words

@@ -1,0 +1,1122 @@
+<script src="{{ 'live-faq.js' | asset_url }}" defer="defer"></script>
+{% render 'theme-type' %}
+{%- liquid
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+-%}
+{%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
+{%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
+<style>
+  #shopify-section-{{ section.id }}.scroll-trigger {
+    --animation-duration: {{ settings.animation_duration | default: 700 }}ms;
+    --animation-delay: {{ settings.animation_delay | default: 0 }}ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-{{ section.id }}');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', {{ settings.scroll_animation | json }});
+  })();
+</script>
+{%- endif -%}
+{%- comment -%}
+  Materia Themes. FAQ 4: heading, subheading and button blocks beside the questions
+  (snippets/faq-live-accordion), styled by faq-pro.css, run by live-faq.js.
+{%- endcomment -%}
+
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign reveal = st.reveal
+  assign scroll_animation = st.scroll_animation | default: 'inherit'
+  if scroll_animation == 'inherit'
+    assign scroll_animation = settings.scroll_animation | default: 'none'
+  endif
+-%}
+<style>
+  {%- if st.reset_spacing %}
+  #shopify-section-{{ sid }},#shopify-section-{{ sid }}>.section,#shopify-section-{{ sid }}>section,#shopify-section-{{ sid }}>div,#shopify-section-{{ sid }}>div>.section{margin-top:0!important;margin-bottom:0!important}
+  #shopify-section-{{ sid }}+.shopify-section,#shopify-section-{{ sid }}+section,.shopify-section+#shopify-section-{{ sid }}{margin-top:0!important}
+  {%- endif %}
+  #shopify-section-{{ sid }}{isolation:isolate;position:relative;margin-top:{{ st.section_margin_top_mobile | default: 0 }}px;margin-bottom:{{ st.section_margin_bottom_mobile | default: 0 }}px}
+  :where(#shopify-section-{{ sid }}){font-family:var(--body-font,inherit)}
+  :where(#shopify-section-{{ sid }}) :where(button,input,textarea,select,optgroup){font-family:inherit}
+  #shopify-section-{{ sid }} *,#shopify-section-{{ sid }} *:before,#shopify-section-{{ sid }} *:after{box-sizing:border-box}
+  :where(#shopify-section-{{ sid }}) :is(h1,h2,h3,h4,h5,h6){font-family:var(--heading-font,inherit);font-weight:var(--heading-weight,inherit)}
+  @media (min-width:768px){#shopify-section-{{ sid }}{margin-top:{{ st.section_margin_top_desktop | default: 0 }}px;margin-bottom:{{ st.section_margin_bottom_desktop | default: 0 }}px}}
+</style>
+{%- comment -%} The builder also gets it inline, so a section it draws again is never shown for a frame before the file applies. {%- endcomment -%}
+{%- if request.design_mode -%}<style>{{ 'faq-pro.css' | inline_asset_content }}</style>{%- endif %}
+{{ 'faq-pro.css' | asset_url | stylesheet_tag }}
+{%- comment -%} The values faq-pro.css reads, on this instance's root (snippets/faq-live-vars). live-faq.js writes the ones a live edit changes. {%- endcomment -%}
+{%- capture faq7_vars -%}{% render 'faq-live-vars', section: section, p: 'faq7', card_bg_fb: 'rgba(var(--color-heading-rgb), 0.04)', card_border_fb: 'transparent' %}{%- endcapture -%}
+{%- if st.enable_custom_fonts -%}<style>{{ st.heading_font | font_face: font_display: 'swap' }}{{ st.body_font | font_face: font_display: 'swap' }}</style>{%- endif -%}
+
+<div class="faq7 color-{{ color_scheme }} gradient" data-faq7-root data-faq-root="faq-pro" data-faq-section="{{ section.id }}" data-faq-settings="{{ section.settings | json | escape }}" data-faq7-anim="{{ scroll_animation }}" data-faq7-width="{{ st.section_width }}"{% if st.enable_custom_heading_weight %} data-faq7-hw{% endif %}{% if st.enable_custom_question_weight %} data-faq7-qw{% endif %}{% if st.show_dividers and st.gap_between_items == 0 %} data-faq7-dividers{% endif %}{% if reveal and scroll_animation != 'none' and request.design_mode != true %} data-faq7-reveal="{{ scroll_animation }}"{% endif %} style="{{ faq7_vars | strip_newlines }}">
+  <div class="faq7__inner">
+    <div class="faq7__layout">
+      {%- render 'faq-live-accordion', section: section, p: 'faq7' -%}
+    </div>
+  </div>
+</div>
+
+<script src="{{ 'faq-pro.js' | asset_url }}" defer></script>
+{%- if request.design_mode -%}
+{%- comment -%} The builder runs a redrawn or newly added section's inline scripts: load the script if this page did not have it yet, or set this section up again. {%- endcomment -%}
+<script>(function(){if(window.MateriaFaqPro)return window.MateriaFaqPro.init();if(document.querySelector('script[data-faq7-boot]'))return;var s=document.createElement('script');s.src="{{ 'faq-pro.js' | asset_url }}";s.setAttribute('data-faq7-boot','');document.head.appendChild(s);})();</script>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "FAQ 4",
+  "class": "section-faq7",
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Section width",
+      "default": "fluid_container",
+      "options": [
+        {
+          "value": "container",
+          "label": "Default"
+        },
+        {
+          "value": "fluid_container",
+          "label": "Fluid container"
+        },
+        {
+          "value": "stretch_width",
+          "label": "Stretched"
+        },
+        {
+          "value": "full_width",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "reset_spacing",
+      "label": "Remove space between sections",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "structured_data",
+      "label": "Add FAQ structured data",
+      "default": false,
+      "info": "Lets search engines read these questions. Turn it on for one FAQ section per page."
+    },
+    {
+      "type": "header",
+      "content": "Content"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Frequently asked questions",
+      "hidden": true,
+      "info": "Legacy: used only when the section has no heading block.",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "richtext",
+      "id": "subheading",
+      "label": "Subheading",
+      "default": "<p>Have a question? We're here to help.</p>",
+      "hidden": true,
+      "info": "Legacy: used only when the section has no subheading block.",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "first_item_open",
+      "label": "Open the first question",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "allow_multiple_open",
+      "label": "Allow several open",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "open_icon",
+      "label": "Icon",
+      "default": "plus",
+      "options": [
+        {
+          "value": "plus",
+          "label": "Plus"
+        },
+        {
+          "value": "chevron",
+          "label": "Chevron"
+        }
+      ]
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "select",
+      "id": "content_alignment",
+      "label": "Header alignment",
+      "default": "left",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "max_content_width",
+      "label": "Content width",
+      "min": 400,
+      "max": 1400,
+      "step": 20,
+      "unit": "px",
+      "default": 800
+    },
+    {
+      "type": "range",
+      "id": "col_gap",
+      "label": "Gap between columns (desktop)",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 60
+    },
+    {
+      "type": "range",
+      "id": "gap_header_to_items",
+      "label": "Gap below header",
+      "min": 0,
+      "max": 80,
+      "step": 2,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "range",
+      "id": "gap_heading_to_subheading",
+      "label": "Gap below heading",
+      "min": 0,
+      "max": 40,
+      "step": 1,
+      "unit": "px",
+      "default": 12
+    },
+    {
+      "type": "range",
+      "id": "gap_between_items",
+      "label": "Gap between questions",
+      "min": 0,
+      "max": 40,
+      "step": 1,
+      "unit": "px",
+      "default": 19
+    },
+    {
+      "type": "range",
+      "id": "item_padding_y",
+      "label": "Question padding (top and bottom)",
+      "min": 6,
+      "max": 50,
+      "step": 1,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "item_padding_x",
+      "label": "Question padding (sides)",
+      "min": 0,
+      "max": 40,
+      "step": 1,
+      "unit": "px",
+      "default": 14
+    },
+    {
+      "type": "range",
+      "id": "item_radius",
+      "label": "Question corner radius",
+      "min": 0,
+      "max": 30,
+      "step": 1,
+      "unit": "px",
+      "default": 11
+    },
+    {
+      "type": "checkbox",
+      "id": "show_dividers",
+      "label": "Show dividers",
+      "default": true,
+      "info": "Drawn while Gap between questions is 0.",
+      "visible_if": "{{ section.settings.gap_between_items == 0 }}"
+    },
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_style",
+      "label": "Enable custom styling",
+      "default": false,
+      "info": "Off: colours follow the colour scheme."
+    },
+    {
+      "type": "color",
+      "id": "section_bg",
+      "label": "Background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "card_bg",
+      "label": "Question background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "card_border_color",
+      "label": "Question border",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "divider_color",
+      "label": "Divider",
+      "visible_if": "{{ section.settings.enable_custom_style and section.settings.show_dividers and section.settings.gap_between_items == 0 }}"
+    },
+    {
+      "type": "color",
+      "id": "question_color",
+      "label": "Question",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "hover_color",
+      "label": "Question on hover",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "icon_color",
+      "label": "Icon",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "answer_color",
+      "label": "Answer",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "heading_color",
+      "label": "Heading",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "subheading_color",
+      "label": "Subheading",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "header",
+      "content": "Typography"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_fonts",
+      "label": "Enable custom fonts",
+      "default": false,
+      "info": "Off: fonts follow Theme settings > Typography."
+    },
+    {
+      "type": "font_picker",
+      "id": "heading_font",
+      "label": "Heading and question font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "font_picker",
+      "id": "body_font",
+      "label": "Text and answer font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "range",
+      "id": "heading_size_desktop",
+      "label": "Heading size (desktop)",
+      "min": 18,
+      "max": 80,
+      "step": 1,
+      "unit": "px",
+      "default": 36
+    },
+    {
+      "type": "range",
+      "id": "heading_size_mobile",
+      "label": "Heading size (mobile)",
+      "min": 16,
+      "max": 60,
+      "step": 1,
+      "unit": "px",
+      "default": 26
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_heading_weight",
+      "label": "Custom heading weight",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "heading_weight",
+      "label": "Heading weight",
+      "default": "600",
+      "options": [
+        {
+          "value": "300",
+          "label": "Light"
+        },
+        {
+          "value": "400",
+          "label": "Normal"
+        },
+        {
+          "value": "500",
+          "label": "Medium"
+        },
+        {
+          "value": "600",
+          "label": "Semi-Bold"
+        },
+        {
+          "value": "700",
+          "label": "Bold"
+        },
+        {
+          "value": "800",
+          "label": "Extra Bold"
+        }
+      ],
+      "visible_if": "{{ section.settings.enable_custom_heading_weight }}"
+    },
+    {
+      "type": "range",
+      "id": "subheading_size_desktop",
+      "label": "Subheading size (desktop)",
+      "min": 12,
+      "max": 28,
+      "step": 1,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "range",
+      "id": "subheading_size_mobile",
+      "label": "Subheading size (mobile)",
+      "min": 11,
+      "max": 22,
+      "step": 1,
+      "unit": "px",
+      "default": 14
+    },
+    {
+      "type": "range",
+      "id": "question_size_desktop",
+      "label": "Question size (desktop)",
+      "min": 12,
+      "max": 28,
+      "step": 1,
+      "unit": "px",
+      "default": 18
+    },
+    {
+      "type": "range",
+      "id": "question_size_mobile",
+      "label": "Question size (mobile)",
+      "min": 11,
+      "max": 22,
+      "step": 1,
+      "unit": "px",
+      "default": 15
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_question_weight",
+      "label": "Custom question weight",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "question_weight",
+      "label": "Question weight",
+      "default": "600",
+      "options": [
+        {
+          "value": "400",
+          "label": "Normal"
+        },
+        {
+          "value": "500",
+          "label": "Medium"
+        },
+        {
+          "value": "600",
+          "label": "Semi-Bold"
+        },
+        {
+          "value": "700",
+          "label": "Bold"
+        }
+      ],
+      "visible_if": "{{ section.settings.enable_custom_question_weight }}"
+    },
+    {
+      "type": "range",
+      "id": "answer_size_desktop",
+      "label": "Answer size (desktop)",
+      "min": 11,
+      "max": 22,
+      "step": 1,
+      "unit": "px",
+      "default": 15
+    },
+    {
+      "type": "range",
+      "id": "answer_size_mobile",
+      "label": "Answer size (mobile)",
+      "min": 11,
+      "max": 20,
+      "step": 1,
+      "unit": "px",
+      "default": 14
+    },
+    {
+      "type": "header",
+      "content": "Animation"
+    },
+    {
+      "type": "checkbox",
+      "id": "reveal",
+      "label": "Reveal on scroll",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "scroll_animation",
+      "label": "Reveal style",
+      "default": "inherit",
+      "options": [
+        {
+          "value": "inherit",
+          "label": "Inherit from theme"
+        },
+        {
+          "value": "none",
+          "label": "None"
+        },
+        {
+          "value": "fade-in",
+          "label": "Fade in"
+        },
+        {
+          "value": "fade",
+          "label": "Fade"
+        },
+        {
+          "value": "slide-in",
+          "label": "Slide in"
+        },
+        {
+          "value": "blur_up",
+          "label": "Blur up"
+        },
+        {
+          "value": "slide_side",
+          "label": "Slide from side"
+        },
+        {
+          "value": "mask_reveal",
+          "label": "Mask reveal"
+        },
+        {
+          "value": "smooth-fade-up",
+          "label": "Smooth fade up"
+        }
+      ],
+      "visible_if": "{{ section.settings.reveal }}"
+    },
+    {
+      "type": "header",
+      "content": "Spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 200,
+      "step": 2,
+      "unit": "px",
+      "default": 60
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 200,
+      "step": 2,
+      "unit": "px",
+      "default": 60
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_desktop",
+      "label": "Top margin (desktop)",
+      "min": 0,
+      "max": 200,
+      "step": 2,
+      "unit": "px",
+      "default": 0,
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_desktop",
+      "label": "Bottom margin (desktop)",
+      "min": 0,
+      "max": 200,
+      "step": 2,
+      "unit": "px",
+      "default": 0,
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "header",
+      "content": "Mobile"
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_mobile",
+      "label": "Top margin (mobile)",
+      "min": 0,
+      "max": 200,
+      "step": 2,
+      "unit": "px",
+      "default": 0,
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_mobile",
+      "label": "Bottom margin (mobile)",
+      "min": 0,
+      "max": 200,
+      "step": 2,
+      "unit": "px",
+      "default": 0,
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "heading",
+      "name": "Heading",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "inline_richtext",
+          "id": "text",
+          "label": "Heading",
+          "default": "Frequently asked questions"
+        },
+        {
+          "type": "select",
+          "id": "tag",
+          "label": "HTML tag",
+          "default": "h2",
+          "hidden": true,
+          "info": "The section heading is always an h2.",
+          "options": [
+            {
+              "value": "h2",
+              "label": "H2"
+            },
+            {
+              "value": "h3",
+              "label": "H3"
+            }
+          ],
+          "visible_if": "{{ false }}"
+        },
+        {
+          "type": "header",
+          "content": "Appearance"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Color",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "header",
+          "content": "Typography"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_fonts",
+          "label": "Enable custom font",
+          "default": false
+        },
+        {
+          "type": "font_picker",
+          "id": "font",
+          "label": "Font",
+          "default": "assistant_n4",
+          "visible_if": "{{ block.settings.enable_custom_fonts }}"
+        },
+        {
+          "type": "checkbox",
+          "id": "weight_enable",
+          "label": "Custom font weight",
+          "default": false
+        },
+        {
+          "type": "select",
+          "id": "weight",
+          "label": "Weight",
+          "default": "700",
+          "visible_if": "{{ block.settings.weight_enable }}",
+          "options": [
+            {
+              "value": "300",
+              "label": "Light"
+            },
+            {
+              "value": "400",
+              "label": "Regular"
+            },
+            {
+              "value": "500",
+              "label": "Medium"
+            },
+            {
+              "value": "600",
+              "label": "Semibold"
+            },
+            {
+              "value": "700",
+              "label": "Bold"
+            },
+            {
+              "value": "800",
+              "label": "Extra bold"
+            }
+          ]
+        },
+        {
+          "type": "checkbox",
+          "id": "size_enable",
+          "label": "Custom size",
+          "default": false
+        },
+        {
+          "type": "range",
+          "id": "size_desktop",
+          "label": "Size (desktop)",
+          "min": 18,
+          "max": 80,
+          "step": 1,
+          "unit": "px",
+          "default": 36,
+          "visible_if": "{{ block.settings.size_enable }}"
+        },
+        {
+          "type": "range",
+          "id": "size_mobile",
+          "label": "Size (mobile)",
+          "min": 16,
+          "max": 60,
+          "step": 1,
+          "unit": "px",
+          "default": 26,
+          "visible_if": "{{ block.settings.size_enable }}"
+        },
+        {
+          "type": "range",
+          "id": "line_height",
+          "label": "Line height",
+          "min": 0.8,
+          "max": 2,
+          "step": 0.05,
+          "default": 1.15,
+          "visible_if": "{{ block.settings.size_enable }}"
+        },
+        {
+          "type": "range",
+          "id": "tracking",
+          "label": "Letter spacing",
+          "min": -2,
+          "max": 10,
+          "step": 0.5,
+          "unit": "px",
+          "default": 0,
+          "visible_if": "{{ block.settings.size_enable }}"
+        }
+      ]
+    },
+    {
+      "type": "subheading",
+      "name": "Subheading",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "richtext",
+          "id": "text",
+          "label": "Text",
+          "default": "<p>Have a question? We're here to help.</p>"
+        },
+        {
+          "type": "header",
+          "content": "Appearance"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Color",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "header",
+          "content": "Typography"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_fonts",
+          "label": "Enable custom font",
+          "default": false
+        },
+        {
+          "type": "font_picker",
+          "id": "font",
+          "label": "Font",
+          "default": "assistant_n4",
+          "visible_if": "{{ block.settings.enable_custom_fonts }}"
+        },
+        {
+          "type": "checkbox",
+          "id": "weight_enable",
+          "label": "Custom font weight",
+          "default": false
+        },
+        {
+          "type": "select",
+          "id": "weight",
+          "label": "Weight",
+          "default": "400",
+          "visible_if": "{{ block.settings.weight_enable }}",
+          "options": [
+            {
+              "value": "300",
+              "label": "Light"
+            },
+            {
+              "value": "400",
+              "label": "Regular"
+            },
+            {
+              "value": "500",
+              "label": "Medium"
+            },
+            {
+              "value": "600",
+              "label": "Semibold"
+            },
+            {
+              "value": "700",
+              "label": "Bold"
+            }
+          ]
+        },
+        {
+          "type": "checkbox",
+          "id": "size_enable",
+          "label": "Custom size",
+          "default": false
+        },
+        {
+          "type": "range",
+          "id": "size",
+          "label": "Size",
+          "min": 11,
+          "max": 28,
+          "step": 1,
+          "unit": "px",
+          "default": 16,
+          "visible_if": "{{ block.settings.size_enable }}"
+        },
+        {
+          "type": "range",
+          "id": "line_height",
+          "label": "Line height",
+          "min": 1,
+          "max": 2.2,
+          "step": 0.05,
+          "default": 1.5,
+          "visible_if": "{{ block.settings.size_enable }}"
+        }
+      ]
+    },
+    {
+      "type": "faq_item",
+      "name": "Question",
+      "settings": [
+        {
+          "type": "text",
+          "id": "question",
+          "label": "Question",
+          "default": "Question goes here"
+        },
+        {
+          "type": "richtext",
+          "id": "answer",
+          "label": "Answer",
+          "default": "<p>Answer goes here.</p>"
+        }
+      ]
+    },
+    {
+      "type": "button",
+      "name": "Button",
+      "limit": 2,
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "type": "text",
+          "id": "label",
+          "label": "Label",
+          "default": "Contact us"
+        },
+        {
+          "type": "url",
+          "id": "link",
+          "label": "Link"
+        },
+        {
+          "type": "header",
+          "content": "Layout"
+        },
+        {
+          "type": "select",
+          "id": "style",
+          "label": "Style",
+          "default": "primary",
+          "options": [
+            {
+              "value": "primary",
+              "label": "Primary"
+            },
+            {
+              "value": "secondary",
+              "label": "Secondary"
+            },
+            {
+              "value": "text",
+              "label": "Link"
+            }
+          ]
+        },
+        {
+          "type": "checkbox",
+          "id": "full_width",
+          "label": "Full width",
+          "default": false
+        },
+        {
+          "type": "header",
+          "content": "Appearance"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false,
+          "info": "Off: colours follow Theme settings > Buttons."
+        },
+        {
+          "type": "color",
+          "id": "bg_color",
+          "label": "Background",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "text_color",
+          "label": "Text",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "border_color",
+          "label": "Border",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "bg_color_hover",
+          "label": "Background on hover",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "text_color_hover",
+          "label": "Text on hover",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "header",
+          "content": "Shape"
+        },
+        {
+          "type": "checkbox",
+          "id": "use_theme_button",
+          "label": "Match theme button",
+          "default": true
+        },
+        {
+          "type": "select",
+          "id": "size",
+          "label": "Size",
+          "default": "medium",
+          "options": [
+            {
+              "value": "small",
+              "label": "Small"
+            },
+            {
+              "value": "medium",
+              "label": "Medium"
+            },
+            {
+              "value": "large",
+              "label": "Large"
+            }
+          ],
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        },
+        {
+          "type": "range",
+          "id": "radius",
+          "label": "Corner radius",
+          "min": 0,
+          "max": 100,
+          "step": 1,
+          "unit": "px",
+          "default": 100,
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "FAQ 4",
+      "category": "FAQ",
+      "blocks": [
+        {
+          "type": "heading"
+        },
+        {
+          "type": "subheading"
+        },
+        {
+          "type": "faq_item",
+          "settings": {
+            "question": "How do I place an order?",
+            "answer": "<p>Add what you want to your cart and go to checkout. You get an email as soon as the order is placed.</p>"
+          }
+        },
+        {
+          "type": "faq_item",
+          "settings": {
+            "question": "When will my order ship?",
+            "answer": "<p>Delivery options and times are shown at checkout. A tracking link follows by email once the order leaves.</p>"
+          }
+        },
+        {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I return an item?",
+            "answer": "<p>Yes. The returns page explains the steps and how long you have to send something back.</p>"
+          }
+        },
+        {
+          "type": "faq_item",
+          "settings": {
+            "question": "How do I contact you?",
+            "answer": "<p>Use the contact page or reply to your order email and we will get back to you.</p>"
+          }
+        },
+        {
+          "type": "button",
+          "settings": {
+            "label": "Contact us"
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

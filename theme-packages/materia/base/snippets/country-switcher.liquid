@@ -1,0 +1,53 @@
+{% if localization.available_countries.size > 1 %}
+  <localization-form>
+    {% render 'localization-controls' %}
+    {%- assign form_id = 'localization-country-' | append: section.id -%}
+    {% form 'localization', id: form_id %}
+      <input type="hidden" name="country_code" value="{{ localization.country.iso_code }}">
+      <div class="disclosure relative flex align-center">
+        <button type="button" aria-expanded="false" aria-controls="{{ form_id }}-options" aria-label="{{ localization.country.name | escape }} ({{ localization.country.currency.iso_code }})" class="button-localization pointer disclosure__button show-overlay flex align-center gap-10 {% if type == 'mobile-navigation' %}mobile-navigation__button{% endif %}">
+          <span class="flex align-center {% if type == 'mobile-navigation' %}flex-column gap-4{% else %}gap-10{% endif %}">
+            <span class="rounded-50 border localization-flags {% if type == 'mobile-navigation' %}mobile-navigation__flag{% endif %}">
+              {{-
+                localization.country
+                | image_url: width: localization.country.width
+                | image_tag:
+                  width: localization.country.width,
+                  height: localization.country.height,
+                  alt: localization.country.name
+              -}}
+            </span>
+            {% if type == 'mobile-navigation' %}
+              <span class="block fs-small heading-style">
+                {{ localization.country.currency.iso_code }}
+                {{ localization.country.currency.symbol }}
+              </span>
+            {% else %}
+              <span>
+                {% if compact %}
+                  {{ localization.country.currency.iso_code }} {{ localization.country.currency.symbol }}
+                {% else %}
+                  {{ localization.country.name }}
+                  ({{ localization.country.currency.iso_code }} {{ localization.country.currency.symbol }})
+                {% endif %}
+              </span>
+            {% endif %}
+          </span>
+          {% if type != 'mobile-navigation' %}
+            <svg class="icon-down flex-10" width="10" height="6">
+              <use href="#icon-arrow-down" />
+            </svg>
+          {% endif %}
+        </button>
+        <div id="{{ form_id }}-options" data-search-label="{{ 'general.search.search' | t | escape }}" data-empty-label="{{ 'general.search.no_matches' | t | escape }}" class="disclosure__list custom-scrollbar shadow transition invisible z-10 absolute left-0 right-0 color-default overflow-y-auto">
+          {%- comment -%}
+            The countries are written once per page (template#materia-country-options,
+            from the layout) and copied in when this list first opens: the header,
+            the phone menu and the footer each drew all of them before.
+          {%- endcomment -%}
+          <ul class="h-full list-unstyled" data-country-options></ul>
+        </div>
+      </div>
+    {% endform %}
+  </localization-form>
+{% endif %}

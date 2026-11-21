@@ -52,6 +52,8 @@ export interface CompatSettings {
   slots?: string[]
   /** A header or footer group under a name of the theme's own (main-header → header): its file says `"type": "header"`. */
   chrome_groups?: Record<string, "header" | "footer">
+  /** The marketplace listing this website was added from, by its address (lib/themes/marketplace-shared.ts installedListingSlugs). Absent for an uploaded theme. */
+  listing?: string
 }
 
 /** The install's compat marker, or null for a theme of Storelib's own. */
@@ -70,6 +72,7 @@ export function compatOf(settings: unknown): CompatSettings | null {
     chrome_groups: o.chrome_groups && typeof o.chrome_groups === "object" && !Array.isArray(o.chrome_groups)
       ? Object.fromEntries(Object.entries(o.chrome_groups as Record<string, unknown>).filter((e): e is [string, "header" | "footer"] => e[1] === "header" || e[1] === "footer"))
       : undefined,
+    listing: typeof o.listing === "string" && /^[a-z0-9][a-z0-9-]{0,63}$/.test(o.listing) ? o.listing : undefined,
   }
 }
 

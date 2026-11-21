@@ -1,0 +1,1241 @@
+<script src="{{ 'live-testimonials.js' | asset_url }}" defer="defer"></script>
+{% render 'theme-type' %}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign custom = st.enable_custom_styling
+  assign fonts = st.enable_custom_fonts
+  assign placeholder = 'image' | placeholder_svg_tag: 'placeholder-svg'
+  case st.video_overlay_color_selector
+    when 'none'
+      assign overlay_rgb = '0,0,0'
+      assign overlay_opacity = 0
+    when 'white'
+      assign overlay_rgb = '255,255,255'
+      assign overlay_opacity = st.video_overlay_opacity
+    when 'gray'
+      assign overlay_rgb = '128,128,128'
+      assign overlay_opacity = st.video_overlay_opacity
+    when 'light-gray'
+      assign overlay_rgb = '211,211,211'
+      assign overlay_opacity = st.video_overlay_opacity
+    when 'dark-gray'
+      assign overlay_rgb = '169,169,169'
+      assign overlay_opacity = st.video_overlay_opacity
+    else
+      assign overlay_rgb = '0,0,0'
+      assign overlay_opacity = st.video_overlay_opacity
+  endcase
+  assign c_star = '#FFD700'
+  if custom and st.product_price_color != blank
+    assign c_star = st.product_price_color
+  endif
+  assign shape = false
+  if st.use_theme_button == false
+    assign shape = true
+  endif
+-%}
+{%- comment -%}
+  Materia Themes. Video Testimonials 5.
+
+  Heading and subheading blocks over a row of tall video cards (an uploaded
+  video, a video address, a picture or the product's picture), each with
+  the username, the product name, stars and an optional theme button. The
+  row scrolls natively with a progress bar; videos play muted and inline
+  while on screen, pause off screen and stay still under reduced motion.
+  Colours follow the colour scheme until custom styling is on (the card
+  text and stars sit on the video, so they stay light); fonts follow Theme
+  settings > Typography until custom fonts are on. The inline script below
+  runs the row on the storefront; assets/live-testimonials.js does the same
+  when the builder draws the section without running it, and applies live
+  edits. Every value the builder can change is a CSS variable here.
+{%- endcomment -%}
+{%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
+<style>
+  #shopify-section-{{ sid }}.scroll-trigger {
+    --animation-duration: {{ settings.animation_duration | default: 700 }}ms;
+    --animation-delay: {{ settings.animation_delay | default: 0 }}ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-{{ sid }}');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', {{ settings.scroll_animation | json }});
+  })();
+</script>
+{%- endif -%}
+{%- if st.reset_spacing -%}
+<style>
+  #shopify-section-{{ sid }} { margin-top: 0 !important; margin-bottom: 0 !important; }
+  #shopify-section-{{ sid }} + .shopify-section { margin-top: 0 !important; }
+</style>
+{%- endif -%}
+{% render 'live-testimonials-style', sid: sid %}
+<style>
+  {%- if fonts -%}{{ st.heading_font | font_face: font_display: 'swap' }}{{ st.body_font | font_face: font_display: 'swap' }}{%- endif %}
+  #shopify-section-{{ sid }} { position: static; z-index: 0; }
+  :where(#shopify-section-{{ sid }}) { font-family: var(--body-font, inherit); }
+  :where(#shopify-section-{{ sid }}) :where(button, input, textarea, select, optgroup) { font-family: inherit; }
+  #shopify-section-{{ sid }} .ctv { position: relative; z-index: 0; overflow: hidden; text-align: center; background-color: var(--ctv-bg); padding-top: var(--ctv-pt); padding-bottom: var(--ctv-pb); font-family: var(--ctv-bf); }
+  #shopify-section-{{ sid }} .ctv *, #shopify-section-{{ sid }} .ctv *::before, #shopify-section-{{ sid }} .ctv *::after { box-sizing: border-box; }
+  #shopify-section-{{ sid }} .ctv__inner { padding-left: var(--ctv-pl-d); padding-right: var(--ctv-pr-d); }
+  #shopify-section-{{ sid }} .ctv__heading { max-width: 52rem; margin: 0 auto var(--h-mb-m); font-family: var(--h-ff); font-size: var(--h-fs-m); font-weight: var(--h-w); line-height: var(--h-lh); letter-spacing: var(--h-ls); text-transform: var(--h-tt); color: var(--h-c); text-wrap: balance; }
+  #shopify-section-{{ sid }} .ctv__subheading { max-width: 40rem; margin: 0 auto var(--s-mb-m); font-family: var(--s-ff); font-size: var(--s-fs-m); font-weight: var(--s-w); line-height: var(--s-lh); color: var(--s-c); text-wrap: pretty; }
+  @media (max-width: 768px) {
+    #shopify-section-{{ sid }} .ctv__inner { padding-left: var(--ctv-pl-m); padding-right: var(--ctv-pr-m); }
+  }
+  @media (min-width: 769px) {
+    #shopify-section-{{ sid }} .ctv__heading { margin-bottom: var(--h-mb-d); font-size: var(--h-fs-d); }
+    #shopify-section-{{ sid }} .ctv__subheading { margin-bottom: var(--s-mb-d); font-size: var(--s-fs-d); }
+  }
+  #shopify-section-{{ sid }} .ctv__subheading > :first-child { margin-top: 0; }
+  #shopify-section-{{ sid }} .ctv__subheading > :last-child { margin-bottom: 0; }
+  #shopify-section-{{ sid }} .ctv__subheading p { margin: 0; font: inherit; color: inherit; }
+  #shopify-section-{{ sid }} .ctv__subheading p + p, #shopify-section-{{ sid }} .ctv__subheading p + ul, #shopify-section-{{ sid }} .ctv__subheading p + ol { margin-top: 0.6em; }
+  #shopify-section-{{ sid }} .ctv__subheading ul, #shopify-section-{{ sid }} .ctv__subheading ol { display: inline-block; margin: 0; padding-left: 1.2em; text-align: left; }
+  #shopify-section-{{ sid }} .ctv__rt strong, #shopify-section-{{ sid }} .ctv__rt b { font-weight: 700; }
+  #shopify-section-{{ sid }} .ctv__rt em { font-style: italic; }
+  #shopify-section-{{ sid }} .ctv__rt a { color: inherit; text-decoration: underline; text-underline-offset: 0.15em; }
+  #shopify-section-{{ sid }} .ctv__rt a:hover { opacity: 0.75; }
+  #shopify-section-{{ sid }} .ctv__rt a:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+  #shopify-section-{{ sid }} .ctv__viewport { width: 100%; position: relative; touch-action: pan-x pan-y; cursor: grab; }
+  #shopify-section-{{ sid }} .ctv__viewport.is-dragging { cursor: grabbing; }
+  #shopify-section-{{ sid }} .ctv__rail { --ctv-gap: var(--ctv-gap-m); display: flex; flex-direction: row; justify-content: safe center; gap: var(--ctv-gap); overflow-x: auto; overflow-y: hidden; scroll-snap-type: x proximity; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; overscroll-behavior-inline: contain; scrollbar-width: none; -ms-overflow-style: none; padding: 16px 12px 24px; margin: -6px -10px -12px; scroll-padding-inline: 12px; }
+  /* Cards that fit are centred from the first paint (safe: a row that scrolls starts at its first card); the script's is-centered class agrees. */
+  #shopify-section-{{ sid }} .ctv__rail.is-centered { justify-content: center; }
+  #shopify-section-{{ sid }} .ctv__rail::-webkit-scrollbar { display: none; }
+  #shopify-section-{{ sid }} .ctv__viewport.is-dragging .ctv__rail { scroll-behavior: auto !important; scroll-snap-type: none !important; }
+  @media (min-width: 769px) {
+    #shopify-section-{{ sid }} .ctv__rail { --ctv-gap: var(--ctv-gap-d); }
+  }
+  #shopify-section-{{ sid }} .ctv__slide { flex: 0 0 calc((100% - (var(--ctv-cols) - 1) * var(--ctv-gap)) / var(--ctv-cols)); scroll-snap-align: start; display: flex; justify-content: center; }
+  @media (min-width: 769px) {
+    #shopify-section-{{ sid }} .ctv__slide { flex: 0 0 var(--ctv-card-w); }
+  }
+  #shopify-section-{{ sid }} .ctv__card-link { position: absolute; inset: 0; z-index: 2; text-decoration: none; color: inherit; }
+  #shopify-section-{{ sid }} .ctv__slide img, #shopify-section-{{ sid }} .ctv__slide video { -webkit-user-drag: none; pointer-events: none; }
+  #shopify-section-{{ sid }} .video-overlay { z-index: 3; pointer-events: none; }
+  #shopify-section-{{ sid }} .custom-button { position: relative; z-index: 4; pointer-events: auto; }
+  #shopify-section-{{ sid }} .ctv__viewport.is-dragging * { pointer-events: none; }
+  #shopify-section-{{ sid }} .video-card { position: relative; width: 100%; aspect-ratio: 10 / 16; border-radius: var(--ctv-radius); overflow: hidden; transition: transform var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease), box-shadow var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease); cursor: pointer; background-color: color-mix(in srgb, var(--color-text) 6%, var(--color-background)); }
+  #shopify-section-{{ sid }} .media-content, #shopify-section-{{ sid }} .media-content video, #shopify-section-{{ sid }} video.media-content { width: 100%; height: 100%; object-fit: cover; display: block; }
+  #shopify-section-{{ sid }} .video-card .media-content { transition: transform .5s cubic-bezier(.2,.7,.2,1); }
+  #shopify-section-{{ sid }} .video-card .placeholder-svg { width: 100%; height: 100%; display: block; }
+  #shopify-section-{{ sid }} .ctv[data-hover="smooth-zoom"] .video-card:hover .media-content { transform: scale(1.05); }
+  #shopify-section-{{ sid }} .ctv[data-hover="scale-in"] .video-card:hover .media-content { transform: scale(1.1); }
+  #shopify-section-{{ sid }} .ctv[data-hover="scale-in-up"] .video-card:hover { transform: translateY(-6px); }
+  #shopify-section-{{ sid }} .ctv[data-hover="scale-in-up"] .video-card:hover .media-content { transform: scale(1.08); }
+  #shopify-section-{{ sid }} .ctv[data-hover="subtle-shadow"] .video-card:hover { box-shadow: 0 8px 30px rgba(0,0,0,0.3); }
+  #shopify-section-{{ sid }} .ctv[data-hover="subtle-white-glow-pulse"] .video-card:hover { box-shadow: 0 0 10px rgba(255,255,255,0.7); animation: ctvWhiteGlow-{{ sid }} 1.5s infinite; }
+  #shopify-section-{{ sid }} .ctv[data-hover="subtle-gray-glow-pulse"] .video-card:hover { box-shadow: 0 0 10px rgba(128,128,128,0.7); animation: ctvGrayGlow-{{ sid }} 1.5s infinite; }
+  @keyframes ctvWhiteGlow-{{ sid }} { 0%,100%{ box-shadow:0 0 10px rgba(255,255,255,.7);} 50%{ box-shadow:0 0 20px rgba(255,255,255,.9);} }
+  @keyframes ctvGrayGlow-{{ sid }} { 0%,100%{ box-shadow:0 0 10px rgba(128,128,128,.7);} 50%{ box-shadow:0 0 20px rgba(128,128,128,.9);} }
+  #shopify-section-{{ sid }} .video-overlay { position: absolute; left: 0; bottom: 0; width: 100%; display: flex; flex-direction: column; align-items: stretch; gap: 10px; padding: 14px; background-color: var(--ctv-overlay); }
+  #shopify-section-{{ sid }} .ctv[data-addons="false"] .video-overlay { background: none; }
+  #shopify-section-{{ sid }} .ctv[data-addons="false"] .product-info, #shopify-section-{{ sid }} .ctv[data-button="false"] .custom-button { display: none; }
+  #shopify-section-{{ sid }} .ctv[data-addons="false"][data-button="false"] .video-overlay { display: none; }
+  #shopify-section-{{ sid }} .product-info { color: var(--ctv-card-text); text-shadow: 0 1px 2px rgba(0,0,0,.25); min-width: 0; display: flex; flex-direction: column; align-items: flex-start; width: 100%; text-align: left; }
+  #shopify-section-{{ sid }} .product-info .username, #shopify-section-{{ sid }} .product-info .product-name { color: inherit; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #shopify-section-{{ sid }} .product-info [hidden] { display: none; }
+  #shopify-section-{{ sid }} .username { font-size: 12px; font-weight: 700; font-family: inherit; margin-bottom: 2px; }
+  #shopify-section-{{ sid }} .product-name { font-size: 14px; font-weight: 700; font-family: inherit; margin-bottom: 2px; }
+  #shopify-section-{{ sid }} .stars { display: flex; font-size: 14px; font-family: inherit; }
+  #shopify-section-{{ sid }} .star { color: var(--star-off); }
+  #shopify-section-{{ sid }} .star.filled { color: var(--star-on); }
+  #shopify-section-{{ sid }} .star.is-part { color: transparent; background: linear-gradient(90deg, var(--star-on) var(--lt-fill), var(--star-off) var(--lt-fill)); -webkit-background-clip: text; background-clip: text; }
+  #shopify-section-{{ sid }} .custom-button { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 44px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  @media (prefers-reduced-motion: reduce) {
+    #shopify-section-{{ sid }} .video-card, #shopify-section-{{ sid }} .video-card .media-content { transition: none; animation: none !important; }
+    #shopify-section-{{ sid }} .video-card:hover, #shopify-section-{{ sid }} .video-card:hover .media-content { transform: none; }
+  }
+  #shopify-section-{{ sid }} .ctv__progress { position: relative; display: block; margin: 22px auto 0; width: var(--ctv-pbar-w); height: var(--ctv-pbar-h); background: var(--ctv-track); border-radius: 999px; overflow: hidden; cursor: pointer; }
+  #shopify-section-{{ sid }} .ctv[data-progress="false"] .ctv__progress { display: none !important; }
+  @media (min-width: 769px) { #shopify-section-{{ sid }} .ctv[data-progress-d="false"] .ctv__progress { display: none !important; } }
+  #shopify-section-{{ sid }} .ctv__progress-fill { position: absolute; inset: 0 auto 0 0; width: 0%; background: var(--ctv-fill); border-radius: 999px; transition: width .15s linear; }
+  #shopify-section-{{ sid }} .ctv__viewport.is-static .ctv__progress { visibility: hidden; }
+  #shopify-section-{{ sid }} .ctv__viewport:focus { outline: none; }
+  #shopify-section-{{ sid }} .ctv__viewport:focus-visible { outline: 2px solid var(--color-heading, currentColor); outline-offset: 4px; border-radius: 4px; }
+  #shopify-section-{{ sid }} .ctv__card-link:focus-visible, #shopify-section-{{ sid }} .custom-button:focus-visible { outline: 2px solid var(--color-heading, currentColor); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) {
+    #shopify-section-{{ sid }} .ctv__rail { scroll-behavior: auto; }
+  }
+</style>
+{%- liquid
+  assign heading_block = section.blocks | where: 'type', 'heading' | first
+  assign sub_block = section.blocks | where: 'type', 'subheading' | first
+  assign card_count = section.blocks | where: 'type', 'video_card' | size
+-%}
+<div class="lt-frame" data-width="{{ st.section_width | default: 'full_width' }}">
+<section id="community-stories-slider-{{ sid }}" class="ctv community-stories-slider-{{ sid }} color-{{ color_scheme }} gradient" data-lt-root="testimonial-video" data-section-id="{{ sid }}"{% if request.design_mode %} data-lt-settings="{{ st | json | escape }}"{% endif %} data-hover="{{ st.hover_animation | default: 'none' }}" data-addons="{% if st.hide_addons %}false{% else %}true{% endif %}" data-button="{% if st.enable_button and st.button_text != blank %}true{% else %}false{% endif %}" data-progress="{% if st.show_progress_bar == false %}false{% else %}true{% endif %}" data-progress-d="{% if st.hide_progress_bar_desktop %}false{% else %}true{% endif %}"{% if fonts %} data-own-font{% endif %} style="--ctv-bg: {% render 'live-testimonials-color', on: custom, color: st.background_color, fallback: 'var(--color-background)' %};--ctv-pt: {{ st.padding_top | default: 60 }}px;--ctv-pb: {{ st.padding_bottom | default: 60 }}px;--ctv-pl-d: {{ st.desktop_padding_left | default: 15 }}px;--ctv-pr-d: {{ st.desktop_padding_right | default: 15 }}px;--ctv-pl-m: {{ st.mobile_padding_left | default: 10 }}px;--ctv-pr-m: {{ st.mobile_padding_right | default: 10 }}px;--ctv-cols: {{ st.mobile_column_count | default: 1.5 }};--ctv-gap-m: {{ st.video_cards_gap_mobile | default: 12 }}px;--ctv-gap-d: {{ st.video_cards_gap_desktop | default: 16 }}px;--ctv-card-w: {{ st.video_card_size | default: 220 }}px;--ctv-radius: {{ st.card_corner_radius | default: 12 }}px;--ctv-overlay: rgba({{ overlay_rgb }},{{ overlay_opacity }});--ctv-card-text: {% render 'live-testimonials-color', on: custom, color: st.product_name_color, fallback: '#ffffff' %};--star-on: {{ c_star }};--star-off: #c9c9c9;--ctv-track: {% render 'live-testimonials-color', on: custom, color: st.pagination_bullet_color, fallback: 'var(--color-border)' %};--ctv-fill: {% render 'live-testimonials-color', on: custom, color: st.pagination_bullet_active_color, fallback: 'var(--color-heading)' %};--ctv-pbar-w: {{ st.progress_bar_max_width | default: 90 }}%;--ctv-pbar-h: {{ st.progress_bar_height | default: 2 }}px;--ctv-bf: {% if fonts and st.body_font.family != blank %}{{ st.body_font.family }}, {{ st.body_font.fallback_families | default: 'sans-serif' }}{% else %}var(--body-font, inherit){% endif %};">
+  <div class="ctv__inner">
+    {%- if heading_block -%}
+      {%- liquid
+        assign hb = heading_block.settings
+        assign h_style = hb.heading_size | default: 'h2'
+        case h_style
+          when 'h1'
+            assign h_fb = 56
+            assign h_fb_m = 36
+          when 'h3'
+            assign h_fb = 24
+            assign h_fb_m = 20
+          else
+            assign h_fb = 36
+            assign h_fb_m = 30
+        endcase
+      -%}
+      <h2 class="ctv__heading ctv__rt" data-lt-block="{{ heading_block.id }}" data-lt-type="heading"{% if request.design_mode %} data-lt-settings="{{ hb | json | escape }}"{% endif %}{% if hb.custom_style %} data-own-weight data-own-size{% endif %}{% if hb.heading == blank %} hidden{% endif %} style="--h-ff: {% if fonts and st.heading_font.family != blank %}{{ st.heading_font.family }}, {{ st.heading_font.fallback_families | default: 'sans-serif' }}{% else %}var(--type-{{ h_style }}-font, var(--heading-font, inherit)){% endif %};--h-ls: var(--type-{{ h_style }}-letter-spacing, normal);--h-tt: var(--type-{{ h_style }}-transform, none);--h-mb-m: {{ hb.space_below_mobile | default: 10 }}px;--h-mb-d: {{ hb.space_below_desktop | default: 20 }}px;--h-c: {% render 'live-testimonials-color', on: hb.custom_style, color: hb.heading_color, fallback: 'var(--color-heading)' %};{% if hb.custom_style %}--h-w: {{ hb.heading_font_weight | default: '700' }};--h-lh: 1.2;--h-fs-m: {{ hb.heading_font_size_mobile | default: 25 }}px;--h-fs-d: {{ hb.heading_font_size_desktop | default: 29 }}px;{% else %}--h-w: var(--type-{{ h_style }}-weight, 700);--h-lh: var(--type-{{ h_style }}-line-height, 1.2);--h-fs-m: var(--type-{{ h_style }}-size, {{ h_fb_m }}px);--h-fs-d: var(--type-{{ h_style }}-size, {{ h_fb }}px);{% endif %}" {{ heading_block.shopify_attributes }}>{{ hb.heading }}</h2>
+    {%- endif -%}
+    {%- if sub_block -%}
+      {%- liquid
+        assign sb = sub_block.settings
+        assign s_style = sb.text_size | default: 'body'
+        case s_style
+          when 'body_large'
+            assign s_fb = 18
+          when 'body_small'
+            assign s_fb = 14
+          else
+            assign s_fb = 16
+        endcase
+      -%}
+      <div class="ctv__subheading ctv__rt" data-lt-block="{{ sub_block.id }}" data-lt-type="subheading"{% if request.design_mode %} data-lt-settings="{{ sb | json | escape }}"{% endif %}{% if sb.custom_style %} data-own-weight data-own-size{% endif %}{% if sb.subheading == blank %} hidden{% endif %} style="--s-ff: {% if fonts and st.body_font.family != blank %}{{ st.body_font.family }}, {{ st.body_font.fallback_families | default: 'sans-serif' }}{% else %}var(--type-{{ s_style }}-font, var(--body-font, inherit)){% endif %};--s-mb-m: {{ sb.space_below_mobile | default: 30 }}px;--s-mb-d: {{ sb.space_below_desktop | default: 40 }}px;--s-c: {% render 'live-testimonials-color', on: sb.custom_style, color: sb.subheading_color, fallback: 'var(--color-text)' %};{% if sb.custom_style %}--s-w: {{ sb.subheading_font_weight | default: '400' }};--s-lh: 1.5;--s-fs-m: {{ sb.subheading_font_size_mobile | default: 14 }}px;--s-fs-d: {{ sb.subheading_font_size_desktop | default: 16 }}px;{% else %}--s-w: var(--type-{{ s_style }}-weight, 400);--s-lh: var(--type-{{ s_style }}-line-height, 1.6);--s-fs-m: var(--type-{{ s_style }}-size, {{ s_fb }}px);--s-fs-d: var(--type-{{ s_style }}-size, {{ s_fb }}px);{% endif %}" {{ sub_block.shopify_attributes }}>{{ sb.subheading }}</div>
+    {%- endif -%}
+    {%- if card_count > 0 -%}
+      <div class="ctv__viewport" data-ctv-viewport>
+        <div class="ctv__rail" data-ctv-rail data-testimonial-row>
+          {%- for block in section.blocks -%}
+            {%- if block.type == 'video_card' -%}
+              {%- liquid
+                assign card = block.settings
+                assign prod = card.product
+                assign pname = card.product_name
+                if pname == blank and prod != blank
+                  assign pname = prod.title
+                endif
+                assign plink = card.product_link
+                if plink == blank or plink == '/'
+                  if prod != blank
+                    assign plink = prod.url
+                  endif
+                endif
+                assign blink = card.button_link
+                if blink == blank or blink == '/'
+                  assign blink = plink
+                endif
+                assign rating = card.rating | default: 0
+                assign demo_src = ''
+                if card.image == blank and card.video == blank and card.video_url == blank
+                  capture demo_src
+                    render 'demo-image', key: block.id
+                  endcapture
+                  assign demo_src = demo_src | strip
+                endif
+              -%}
+              <div class="ctv__slide">
+                <div class="video-card" data-lt-block="{{ block.id }}" data-lt-type="video_card"{% if request.design_mode %} data-lt-settings="{{ card | json | escape }}"{% endif %} {{ block.shopify_attributes }}>
+                    {%- if card.image != blank -%}
+                      <img src="{{ card.image | image_url: width: 600 }}" alt="{{ pname | escape }}" class="media-content" loading="lazy" width="{{ card.image.width }}" height="{{ card.image.height }}">
+                    {%- elsif card.video != blank -%}
+                      {{ card.video | video_tag: autoplay: true, muted: true, loop: true, playsinline: true, controls: false, preload: 'auto', class: 'media-content' }}
+                    {%- elsif card.video_url != blank -%}
+                      <video class="media-content" autoplay muted loop playsinline preload="auto">
+                        <source src="{{ card.video_url }}" type="video/mp4">
+                      </video>
+                    {%- elsif prod != blank and prod.featured_image != blank -%}
+                      <img src="{{ prod.featured_image | image_url: width: 600 }}" alt="{{ pname | escape }}" class="media-content" loading="lazy">
+                    {%- elsif demo_src != blank -%}
+                      <video class="media-content" autoplay muted loop playsinline preload="auto">
+                        <source src="{{ demo_src }}" type="video/mp4">
+                      </video>
+                    {%- else -%}
+                      {{ placeholder }}
+                    {%- endif -%}
+                    <a class="ctv__card-link" href="{{ plink | default: '/' }}" aria-label="{{ pname | default: 'View' | escape }}" data-lt-card-link></a>
+                    <div class="video-overlay">
+                      <div class="product-info">
+                        <span class="username" data-lt-username{% if card.username == blank %} hidden{% endif %}>{{ card.username }}</span>
+                        <span class="product-name" data-lt-pname{% if pname == blank %} hidden{% endif %}>{{ pname }}</span>
+                        <div class="stars" role="img" aria-label="{{ rating }} / 5" data-lt-glyph-stars{% if rating <= 0 %} hidden{% endif %}>
+                          {%- for i in (1..5) -%}
+                            {%- assign part = rating | minus: i | plus: 1 | at_least: 0 | at_most: 1 | times: 100 | round -%}
+                            {%- if part >= 100 -%}<span class="star filled" aria-hidden="true">&#9733;</span>{%- elsif part > 0 -%}<span class="star is-part" style="--lt-fill: {{ part }}%;" aria-hidden="true">&#9733;</span>{%- else -%}<span class="star" aria-hidden="true">&#9734;</span>{%- endif -%}
+                          {%- endfor -%}
+                        </div>
+                      </div>
+                      <a class="custom-button" data-theme-button="primary" data-sl-button data-lt-button href="{{ blink | default: '/' }}"{% if shape %} data-own-shape{% endif %} style="{% if custom %}{% render 'button-overrides', bg: st.button_background_color, text: st.button_text_color %}{% endif %}{% if shape %}--mb-radius: {{ st.button_border_radius | default: 25 }}px;--mb-padding-y: 8px;--mb-padding-x: 16px;--mb-font-size: 14px;{% endif %}">{{ st.button_text }}</a>
+                    </div>
+                </div>
+              </div>
+            {%- endif -%}
+          {%- endfor -%}
+        </div>
+        <div class="ctv__progress" data-ctv-progress role="progressbar" aria-label="{{ 'accessibility.carousel_progress' | t | default: 'Carousel progress' }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <div class="ctv__progress-fill" data-ctv-progress-fill></div>
+        </div>
+      </div>
+    {%- endif -%}
+  </div>
+</section>
+</div>
+<script>
+  (function () {
+    var sid = '{{ sid }}';
+    function init() {
+      var section = document.getElementById('community-stories-slider-' + sid);
+      if (!section || section.__ctvInited) return;
+      section.__ctvInited = true;
+
+      var viewport = section.querySelector('[data-ctv-viewport]');
+      var rail = section.querySelector('[data-ctv-rail]');
+      var progress = section.querySelector('[data-ctv-progress]');
+      var fill = section.querySelector('[data-ctv-progress-fill]');
+
+      /* assets/live-testimonials.js does the same when this script did not run (a builder redraw); the flag keeps it to one. */
+      /* ---- 1. Keep videos alive: play visible ones, pause off-screen ones to
+         avoid exceeding the browser's concurrent-decoder limit (the usual cause
+         of frozen first frames), and auto-resume if anything stalls or another
+         script pauses them. We never pause a video that's on screen. ---- */
+      var videos = section.querySelectorAll('video');
+      function inView(v) {
+        var r = v.getBoundingClientRect();
+        return r.bottom > 0 && r.top < (window.innerHeight || document.documentElement.clientHeight) &&
+               r.right > 0 && r.left < (window.innerWidth || document.documentElement.clientWidth);
+      }
+      /* Never under reduced motion: the cards then show their first frame. */
+      var still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (still) Array.prototype.forEach.call(videos, function (v) { v.autoplay = false; v.removeAttribute('autoplay'); try { v.pause(); } catch (e) {} });
+      function kick(v) { if (still) return; v.muted = true; v.playsInline = true; var p = v.play(); if (p && p.catch) p.catch(function(){}); }
+      if ('IntersectionObserver' in window) {
+        var vio = new IntersectionObserver(function (entries) {
+          entries.forEach(function (en) {
+            if (en.isIntersecting) { kick(en.target); }
+            else { try { en.target.pause(); } catch (e) {} }
+          });
+        }, { threshold: 0.05 });
+        Array.prototype.forEach.call(videos, function (v) { vio.observe(v); });
+      }
+      Array.prototype.forEach.call(videos, function (v) {
+        ['stalled', 'suspend', 'error', 'pause'].forEach(function (ev) {
+          v.addEventListener(ev, function () {
+            if (inView(v)) { try { kick(v); } catch (e) {} }
+          });
+        });
+      });
+
+      if (!viewport || !rail) return;
+
+      /* ---- 2. Progress bar + centre-when-it-fits ---- */
+      function update() {
+        var max = rail.scrollWidth - rail.clientWidth;
+        var fits = max <= 1;
+        rail.classList.toggle('is-centered', fits);
+        viewport.classList.toggle('is-static', fits);
+        if (!progress || !fill) return;
+        var pct = fits ? 0 : Math.max(0, Math.min(100, (rail.scrollLeft / max) * 100));
+        fill.style.width = pct + '%';
+        progress.setAttribute('aria-valuenow', Math.round(pct));
+      }
+      if (progress) {
+        progress.addEventListener('click', function (e) {
+          var rect = progress.getBoundingClientRect();
+          var pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+          var max = rail.scrollWidth - rail.clientWidth;
+          rail.scrollTo({ left: max * pct, behavior: 'smooth' });
+        });
+      }
+      var ticking = false;
+      rail.addEventListener('scroll', function () {
+        if (!ticking) { window.requestAnimationFrame(function () { update(); ticking = false; }); ticking = true; }
+      }, { passive: true });
+      // Page wide listeners remove themselves once this slider is gone (the
+      // builder draws the section again), so they never pile up.
+      function whileHere(target, type, fn, opts) {
+        function h(e) { if (!rail.isConnected) { target.removeEventListener(type, h, opts); return; } fn(e); }
+        target.addEventListener(type, h, opts);
+      }
+      // Measured after the browser has laid the page out, never while the
+      // page loads: a ResizeObserver reports the rail and its cards once they
+      // have a size (before the first paint) and again only when one changes.
+      // Reading scrollWidth here at DOMContentLoaded forced the whole page's
+      // first layout inside this script (50-130ms).
+      if ('ResizeObserver' in window) {
+        var ro = new ResizeObserver(function () {
+          if (!rail.isConnected) { ro.disconnect(); return; }
+          update();
+        });
+        ro.observe(rail);
+        Array.prototype.forEach.call(rail.children, function (card) { ro.observe(card); });
+      } else {
+        whileHere(window, 'resize', update);
+        window.requestAnimationFrame(update);
+      }
+
+      /* Mouse dragging is owned by the shared native-scroll handler. Touch stays native. */
+      /* ---- 4. Keyboard ---- */
+      viewport.tabIndex = 0;
+      viewport.addEventListener('keydown', function (e) {
+        var step = rail.clientWidth * 0.8;
+        if (e.key === 'ArrowRight') { rail.scrollBy({ left: step, behavior: 'smooth' }); e.preventDefault(); }
+        if (e.key === 'ArrowLeft') { rail.scrollBy({ left: -step, behavior: 'smooth' }); e.preventDefault(); }
+      });
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init, { once: true });
+    } else { init(); }
+    function onLoad(e) {
+      if (e.detail && e.detail.sectionId === sid) {
+        var s = document.getElementById('community-stories-slider-' + sid);
+        if (s) s.__ctvInited = false;
+        init();
+      }
+    }
+    if (!window['__ctvLoad_' + sid]) {
+      window['__ctvLoad_' + sid] = true;
+      document.addEventListener('shopify:section:load', onLoad);
+      document.addEventListener('storelib:section-load', onLoad);
+    }
+  })();
+</script>{% schema %}
+{
+  "name": "Video Testimonials 5",
+  "tag": "section",
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Section width",
+      "options": [
+        {
+          "value": "container",
+          "label": "Default"
+        },
+        {
+          "value": "fluid_container",
+          "label": "Fluid container"
+        },
+        {
+          "value": "stretch_width",
+          "label": "Stretched"
+        },
+        {
+          "value": "full_width",
+          "label": "Full width"
+        }
+      ],
+      "default": "full_width"
+    },
+    {
+      "type": "checkbox",
+      "id": "reset_spacing",
+      "label": "Remove space between sections",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Content"
+    },
+    {
+      "type": "checkbox",
+      "id": "hide_addons",
+      "label": "Hide card text",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_button",
+      "label": "Show a button on each card",
+      "default": false
+    },
+    {
+      "type": "text",
+      "id": "button_text",
+      "label": "Button label",
+      "default": "Learn More",
+      "visible_if": "{{ section.settings.enable_button }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_progress_bar",
+      "label": "Show progress bar",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 200,
+      "step": 5,
+      "unit": "px",
+      "default": 60
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 200,
+      "step": 5,
+      "unit": "px",
+      "default": 60
+    },
+    {
+      "type": "range",
+      "id": "video_card_size",
+      "label": "Card width (desktop)",
+      "min": 150,
+      "max": 320,
+      "step": 10,
+      "unit": "px",
+      "default": 220
+    },
+    {
+      "type": "range",
+      "id": "card_corner_radius",
+      "label": "Card corner radius",
+      "min": 0,
+      "max": 40,
+      "step": 1,
+      "unit": "px",
+      "default": 12
+    },
+    {
+      "type": "select",
+      "id": "hover_animation",
+      "label": "Card hover effect",
+      "default": "none",
+      "options": [
+        {
+          "value": "none",
+          "label": "None"
+        },
+        {
+          "value": "smooth-zoom",
+          "label": "Smooth Zoom"
+        },
+        {
+          "value": "scale-in",
+          "label": "Scale In"
+        },
+        {
+          "value": "scale-in-up",
+          "label": "Scale In Up"
+        },
+        {
+          "value": "subtle-shadow",
+          "label": "Subtle Shadow"
+        },
+        {
+          "value": "subtle-white-glow-pulse",
+          "label": "Subtle White Glow Pulse"
+        },
+        {
+          "value": "subtle-gray-glow-pulse",
+          "label": "Subtle Gray Glow Pulse"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "progress_bar_height",
+      "label": "Progress bar height",
+      "min": 1,
+      "max": 8,
+      "step": 1,
+      "unit": "px",
+      "default": 2,
+      "visible_if": "{{ section.settings.show_progress_bar }}"
+    },
+    {
+      "type": "range",
+      "id": "progress_bar_max_width",
+      "label": "Progress bar width",
+      "min": 60,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "default": 90,
+      "visible_if": "{{ section.settings.show_progress_bar }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "hide_progress_bar_desktop",
+      "label": "Hide progress bar on desktop",
+      "default": false,
+      "visible_if": "{{ section.settings.show_progress_bar }}"
+    },
+    {
+      "type": "header",
+      "content": "Media"
+    },
+    {
+      "type": "select",
+      "id": "video_overlay_color_selector",
+      "label": "Card overlay",
+      "default": "black",
+      "options": [
+        {
+          "value": "none",
+          "label": "None"
+        },
+        {
+          "value": "black",
+          "label": "Black"
+        },
+        {
+          "value": "white",
+          "label": "White"
+        },
+        {
+          "value": "gray",
+          "label": "Gray"
+        },
+        {
+          "value": "light-gray",
+          "label": "Light Gray"
+        },
+        {
+          "value": "dark-gray",
+          "label": "Dark Gray"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "video_overlay_opacity",
+      "label": "Card overlay opacity",
+      "min": 0,
+      "max": 1,
+      "step": 0.1,
+      "default": 0.3,
+      "visible_if": "{{ section.settings.video_overlay_color_selector != \"none\" }}"
+    },
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_styling",
+      "label": "Enable custom styling",
+      "info": "Off: colours follow the colour scheme; the card text and stars stay light because they sit on the video.",
+      "default": false
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "Background",
+      "visible_if": "{{ section.settings.enable_custom_styling }}"
+    },
+    {
+      "type": "color",
+      "id": "product_name_color",
+      "label": "Card text",
+      "visible_if": "{{ section.settings.enable_custom_styling }}"
+    },
+    {
+      "type": "color",
+      "id": "product_price_color",
+      "label": "Stars",
+      "default": "#FFD700",
+      "visible_if": "{{ section.settings.enable_custom_styling }}"
+    },
+    {
+      "type": "color",
+      "id": "pagination_bullet_color",
+      "label": "Progress track",
+      "visible_if": "{{ section.settings.enable_custom_styling }}"
+    },
+    {
+      "type": "color",
+      "id": "pagination_bullet_active_color",
+      "label": "Progress fill",
+      "visible_if": "{{ section.settings.enable_custom_styling }}"
+    },
+    {
+      "type": "color",
+      "id": "button_background_color",
+      "label": "Button background",
+      "visible_if": "{{ section.settings.enable_custom_styling }}"
+    },
+    {
+      "type": "color",
+      "id": "button_text_color",
+      "label": "Button text",
+      "visible_if": "{{ section.settings.enable_custom_styling }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "use_theme_button",
+      "label": "Use theme button style",
+      "visible_if": "{{ section.settings.enable_button }}",
+      "default": true,
+      "info": "Off: set the button corners here."
+    },
+    {
+      "type": "range",
+      "id": "button_border_radius",
+      "label": "Button corner radius",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "unit": "px",
+      "default": 25,
+      "visible_if": "{{ section.settings.enable_button and section.settings.use_theme_button == false }}"
+    },
+    {
+      "type": "header",
+      "content": "Typography"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_fonts",
+      "label": "Enable custom fonts",
+      "default": false,
+      "info": "Off: fonts follow Theme settings > Typography."
+    },
+    {
+      "id": "heading_font",
+      "type": "font_picker",
+      "label": "Heading font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "id": "body_font",
+      "type": "font_picker",
+      "label": "Body font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "select",
+      "id": "selected_custom_font",
+      "label": "Select font",
+      "default": "Roboto",
+      "options": [
+        {
+          "value": "Roboto",
+          "label": "Roboto"
+        },
+        {
+          "value": "Open Sans",
+          "label": "Open Sans"
+        },
+        {
+          "value": "Lato",
+          "label": "Lato"
+        },
+        {
+          "value": "Montserrat",
+          "label": "Montserrat"
+        },
+        {
+          "value": "Poppins",
+          "label": "Poppins"
+        },
+        {
+          "value": "Playfair Display",
+          "label": "Playfair Display"
+        },
+        {
+          "value": "Lora",
+          "label": "Lora"
+        },
+        {
+          "value": "Nunito",
+          "label": "Nunito"
+        },
+        {
+          "value": "Work Sans",
+          "label": "Work Sans"
+        },
+        {
+          "value": "Raleway",
+          "label": "Raleway"
+        },
+        {
+          "value": "Merriweather",
+          "label": "Merriweather"
+        },
+        {
+          "value": "Bebas Neue",
+          "label": "Bebas Neue"
+        }
+      ],
+      "hidden": true,
+      "info": "Legacy: replaced by the font pickers; kept so saved pages keep their value.",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "textarea",
+      "id": "custom_font_url",
+      "label": "Custom font @import URL",
+      "info": "Legacy: replaced by the font pickers; kept so saved pages keep their value.",
+      "hidden": true,
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "text",
+      "id": "custom_font_family",
+      "label": "Custom font family name",
+      "default": "",
+      "hidden": true,
+      "info": "Legacy: replaced by the font pickers; kept so saved pages keep their value.",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "header",
+      "content": "Desktop spacing"
+    },
+    {
+      "type": "range",
+      "id": "desktop_padding_left",
+      "label": "Left padding (desktop)",
+      "min": 0,
+      "max": 200,
+      "step": 5,
+      "unit": "px",
+      "default": 15
+    },
+    {
+      "type": "range",
+      "id": "desktop_padding_right",
+      "label": "Right padding (desktop)",
+      "min": 0,
+      "max": 200,
+      "step": 5,
+      "unit": "px",
+      "default": 15
+    },
+    {
+      "type": "range",
+      "id": "video_cards_gap_desktop",
+      "label": "Gap between cards (desktop)",
+      "min": 0,
+      "max": 80,
+      "step": 2,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "header",
+      "content": "Mobile"
+    },
+    {
+      "type": "range",
+      "id": "mobile_column_count",
+      "label": "Cards visible (mobile)",
+      "min": 1,
+      "max": 2.5,
+      "step": 0.5,
+      "default": 1.5
+    },
+    {
+      "type": "range",
+      "id": "video_cards_gap_mobile",
+      "label": "Gap between cards (mobile)",
+      "min": 0,
+      "max": 50,
+      "step": 2,
+      "unit": "px",
+      "default": 12
+    },
+    {
+      "type": "range",
+      "id": "mobile_padding_left",
+      "label": "Left padding (mobile)",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "unit": "px",
+      "default": 10
+    },
+    {
+      "type": "range",
+      "id": "mobile_padding_right",
+      "label": "Right padding (mobile)",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "unit": "px",
+      "default": 10
+    }
+  ],
+  "max_blocks": 30,
+  "blocks": [
+    {
+      "type": "heading",
+      "name": "Heading",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "inline_richtext",
+          "id": "heading",
+          "label": "Heading",
+          "default": "Our customers love it."
+        },
+        {
+          "type": "select",
+          "id": "heading_size",
+          "label": "Theme text style",
+          "info": "Legacy: the theme text style the heading follows while custom style is off.",
+          "default": "h2",
+          "options": [
+            {
+              "value": "h1",
+              "label": "Heading 1"
+            },
+            {
+              "value": "h2",
+              "label": "Heading 2"
+            },
+            {
+              "value": "h3",
+              "label": "Heading 3"
+            }
+          ],
+          "hidden": true,
+          "visible_if": "{{ false }}"
+        },
+        {
+          "type": "header",
+          "content": "Style"
+        },
+        {
+          "type": "checkbox",
+          "id": "custom_style",
+          "label": "Enable custom styling",
+          "info": "Off: colour, size and weight follow the colour scheme and Theme settings > Typography. On: the controls below are used.",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "heading_color",
+          "label": "Heading color",
+          "visible_if": "{{ block.settings.custom_style }}"
+        },
+        {
+          "type": "select",
+          "id": "heading_font_weight",
+          "label": "Heading font weight",
+          "visible_if": "{{ block.settings.custom_style }}",
+          "default": "700",
+          "options": [
+            {
+              "value": "300",
+              "label": "Light"
+            },
+            {
+              "value": "400",
+              "label": "Normal"
+            },
+            {
+              "value": "500",
+              "label": "Medium"
+            },
+            {
+              "value": "600",
+              "label": "Semibold"
+            },
+            {
+              "value": "700",
+              "label": "Bold"
+            }
+          ]
+        },
+        {
+          "type": "range",
+          "id": "heading_font_size_desktop",
+          "label": "Heading size (desktop)",
+          "visible_if": "{{ block.settings.custom_style }}",
+          "min": 16,
+          "max": 60,
+          "step": 1,
+          "unit": "px",
+          "default": 29
+        },
+        {
+          "type": "range",
+          "id": "heading_font_size_mobile",
+          "label": "Heading size (mobile)",
+          "visible_if": "{{ block.settings.custom_style }}",
+          "min": 14,
+          "max": 44,
+          "step": 1,
+          "unit": "px",
+          "default": 25
+        },
+        {
+          "type": "header",
+          "content": "Spacing"
+        },
+        {
+          "type": "range",
+          "id": "space_below_desktop",
+          "label": "Space below (desktop)",
+          "min": 0,
+          "max": 100,
+          "step": 5,
+          "unit": "px",
+          "default": 20
+        },
+        {
+          "type": "range",
+          "id": "space_below_mobile",
+          "label": "Space below (mobile)",
+          "min": 0,
+          "max": 100,
+          "step": 5,
+          "unit": "px",
+          "default": 10
+        }
+      ]
+    },
+    {
+      "type": "subheading",
+      "name": "Subheading",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "richtext",
+          "id": "subheading",
+          "label": "Subheading",
+          "default": "<p>Short clips from people wearing what they bought.</p>"
+        },
+        {
+          "type": "select",
+          "id": "text_size",
+          "label": "Text style",
+          "info": "Follows Theme settings > Typography.",
+          "default": "body",
+          "options": [
+            {
+              "value": "body_large",
+              "label": "Body large"
+            },
+            {
+              "value": "body",
+              "label": "Body"
+            },
+            {
+              "value": "body_small",
+              "label": "Body small"
+            }
+          ],
+          "visible_if": "{{ block.settings.custom_style == false }}"
+        },
+        {
+          "type": "header",
+          "content": "Style"
+        },
+        {
+          "type": "checkbox",
+          "id": "custom_style",
+          "label": "Enable custom styling",
+          "info": "Off: colour, size and weight follow the colour scheme and Theme settings > Typography. On: the controls below are used.",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "subheading_color",
+          "label": "Subheading color",
+          "visible_if": "{{ block.settings.custom_style }}"
+        },
+        {
+          "type": "select",
+          "id": "subheading_font_weight",
+          "label": "Subheading font weight",
+          "visible_if": "{{ block.settings.custom_style }}",
+          "default": "400",
+          "options": [
+            {
+              "value": "300",
+              "label": "Light"
+            },
+            {
+              "value": "400",
+              "label": "Normal"
+            },
+            {
+              "value": "500",
+              "label": "Medium"
+            },
+            {
+              "value": "600",
+              "label": "Semibold"
+            },
+            {
+              "value": "700",
+              "label": "Bold"
+            }
+          ]
+        },
+        {
+          "type": "range",
+          "id": "subheading_font_size_desktop",
+          "label": "Subheading size (desktop)",
+          "visible_if": "{{ block.settings.custom_style }}",
+          "min": 12,
+          "max": 36,
+          "step": 1,
+          "unit": "px",
+          "default": 16
+        },
+        {
+          "type": "range",
+          "id": "subheading_font_size_mobile",
+          "label": "Subheading size (mobile)",
+          "visible_if": "{{ block.settings.custom_style }}",
+          "min": 10,
+          "max": 28,
+          "step": 1,
+          "unit": "px",
+          "default": 14
+        },
+        {
+          "type": "header",
+          "content": "Spacing"
+        },
+        {
+          "type": "range",
+          "id": "space_below_desktop",
+          "label": "Space below (desktop)",
+          "min": 0,
+          "max": 120,
+          "step": 5,
+          "unit": "px",
+          "default": 40
+        },
+        {
+          "type": "range",
+          "id": "space_below_mobile",
+          "label": "Space below (mobile)",
+          "min": 0,
+          "max": 120,
+          "step": 5,
+          "unit": "px",
+          "default": 30
+        }
+      ]
+    },
+    {
+      "type": "video_card",
+      "name": "Video Card",
+      "settings": [
+        {
+          "type": "header",
+          "content": "Media"
+        },
+        {
+          "type": "video",
+          "id": "video",
+          "label": "Video (upload)"
+        },
+        {
+          "type": "url",
+          "id": "video_url",
+          "label": "Video address (.mp4)",
+          "visible_if": "{{ block.settings.image == blank and block.settings.video == blank }}"
+        },
+        {
+          "type": "image_picker",
+          "id": "image",
+          "label": "Image"
+        },
+        {
+          "type": "product",
+          "id": "product",
+          "label": "Product"
+        },
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "type": "text",
+          "id": "username",
+          "label": "Username",
+          "default": ""
+        },
+        {
+          "type": "text",
+          "id": "product_name",
+          "label": "Product name",
+          "info": "Empty: the product's title."
+        },
+        {
+          "type": "range",
+          "id": "rating",
+          "label": "Rating",
+          "min": 0,
+          "max": 5,
+          "step": 0.5,
+          "default": 0,
+          "info": "Stars fill to the exact rating. 0 shows no stars."
+        },
+        {
+          "type": "url",
+          "id": "product_link",
+          "label": "Card link"
+        },
+        {
+          "type": "url",
+          "id": "button_link",
+          "label": "Button link"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Video Testimonials 5",
+      "category": "Testimonials",
+      "blocks": [
+        {
+          "type": "heading",
+          "settings": {
+            "heading": "Our customers love it."
+          }
+        },
+        {
+          "type": "subheading",
+          "settings": {
+            "subheading": "<p>Short clips from people wearing what they bought.</p>"
+          }
+        },
+        {
+          "type": "video_card"
+        },
+        {
+          "type": "video_card"
+        },
+        {
+          "type": "video_card"
+        },
+        {
+          "type": "video_card"
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,769 @@
+{%- assign preview_product = product | default: page.product -%}
+{%- assign preview_form = 'product-form-' | append: section.id -%}
+{%- render 'product-offers', product: preview_product, block: block, section: section, kind: 'quantity_offer', product_form_id: preview_form -%}{% schema %}
+{
+  "type": "quantity_offer",
+  "name": "Quantity offer",
+  "limit": 1,
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Quantity breaks and Buy X Get Y offers. For Buy 1 get 2 free: paid quantity 1, free items 2. For Buy 2 get 3 free: paid quantity 2, free items 3. Eligible Storelib offers supply the saving; otherwise configure a valid discount code. Without a matching offer or valid code, all units are charged at their regular price."
+    },
+    {
+      "type": "header",
+      "content": "Offer"
+    },
+    {
+      "type": "select",
+      "id": "tier_source",
+      "label": "Tier quantities and discounts",
+      "default": "store",
+      "options": [
+        {
+          "value": "store",
+          "label": "StoreLib offers"
+        },
+        {
+          "value": "custom",
+          "label": "Theme tiers"
+        }
+      ],
+      "info": "StoreLib offers use backend quantities, labels and discounts; theme tier images, captions, badges and styles still apply. Theme tiers use the quantities below and show savings only when StoreLib confirms an eligible offer."
+    },
+    {
+      "type": "header",
+      "content": "Style"
+    },
+    {
+      "type": "select",
+      "id": "style",
+      "label": "Style",
+      "default": "cards",
+      "options": [
+        {
+          "value": "cards",
+          "label": "Cards"
+        },
+        {
+          "value": "list",
+          "label": "List"
+        },
+        {
+          "value": "bold",
+          "label": "Bold"
+        },
+        {
+          "value": "soft",
+          "label": "Soft"
+        },
+        {
+          "value": "minimal",
+          "label": "Minimal"
+        },
+        {
+          "value": "image_tiles",
+          "label": "Image tiles"
+        },
+        {
+          "value": "accent",
+          "label": "Accent outline"
+        },
+        {
+          "value": "editorial",
+          "label": "Editorial"
+        },
+        {
+          "value": "contrast",
+          "label": "Contrast panels"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "show_compare",
+      "label": "Show full price crossed out",
+      "default": true
+    },
+    {
+      "type": "color",
+      "id": "accent_color",
+      "visible_if": "{{ block.settings.custom_style }}",
+      "label": "Accent",
+      "info": "Empty follows the colour scheme."
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top spacing",
+      "min": 0,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "default": 8
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom spacing",
+      "min": 0,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "header",
+      "content": "Tier images"
+    },
+    {
+      "type": "select",
+      "id": "tier_image_position",
+      "label": "Image position",
+      "default": "auto",
+      "options": [
+        {
+          "value": "auto",
+          "label": "Match preset"
+        },
+        {
+          "value": "left",
+          "label": "Beside text"
+        },
+        {
+          "value": "top",
+          "label": "Above text"
+        },
+        {
+          "value": "right",
+          "label": "Right side"
+        },
+        {
+          "value": "hidden",
+          "label": "Hidden"
+        },
+        {
+          "value": "beside",
+          "label": "Beside (legacy)"
+        },
+        {
+          "value": "above",
+          "label": "Above (legacy)"
+        },
+        {
+          "value": "below",
+          "label": "Below text"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "tier_image_size",
+      "label": "Image size",
+      "min": 0,
+      "max": 144,
+      "step": 4,
+      "unit": "px",
+      "default": 0,
+      "info": "Zero uses the preset’s image size."
+    },
+    {
+      "type": "range",
+      "id": "tier_image_gap",
+      "label": "Image spacing",
+      "min": 0,
+      "max": 28,
+      "step": 2,
+      "unit": "px",
+      "default": 8
+    },
+    {
+      "type": "range",
+      "id": "tier_image_radius",
+      "label": "Image corner radius",
+      "min": 0,
+      "max": 48,
+      "step": 2,
+      "unit": "px",
+      "default": 6,
+      "visible_if": "{{ block.settings.custom_style }}"
+    },
+    {
+      "type": "select",
+      "id": "tier_image_fit",
+      "label": "Image fit",
+      "default": "contain",
+      "options": [
+        {
+          "value": "contain",
+          "label": "Fit"
+        },
+        {
+          "value": "cover",
+          "label": "Fill"
+        }
+      ]
+    },
+    {
+      "type": "header",
+      "content": "Content"
+    },
+    {
+      "type": "text",
+      "id": "caption",
+      "label": "Caption",
+      "info": "A short line above the tiers, such as Bundle & save."
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Choose how many"
+    },
+    {
+      "type": "select",
+      "id": "default_tier",
+      "label": "Chosen at first",
+      "default": "1",
+      "options": [
+        {
+          "value": "1",
+          "label": "Tier 1"
+        },
+        {
+          "value": "2",
+          "label": "Tier 2"
+        },
+        {
+          "value": "3",
+          "label": "Tier 3"
+        },
+        {
+          "value": "4",
+          "label": "Tier 4"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "per_item_label",
+      "label": "Per item label",
+      "default": "each"
+    },
+    {
+      "type": "text",
+      "id": "save_label",
+      "label": "Saving label",
+      "default": "Save"
+    },
+    {
+      "type": "text",
+      "id": "you_save_label",
+      "label": "You save label",
+      "default": "You save",
+      "info": "Shown on a tier with a saving. Empty hides it."
+    },
+    {
+      "type": "header",
+      "content": "Tier 1"
+    },
+    {
+      "type": "checkbox",
+      "id": "tier_1_enable",
+      "label": "Show",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "tier_1_quantity",
+      "label": "Quantity paid for",
+      "min": 1,
+      "max": 10,
+      "step": 1,
+      "default": 1,
+      "visible_if": "{{ block.settings.tier_source == 'custom' }}",
+      "info": "Paid items in this tier. Example: Buy 1 get 2 free uses paid quantity 1 and free items 2."
+    },
+    {
+      "type": "range",
+      "id": "tier_1_free",
+      "label": "Free items",
+      "min": 0,
+      "max": 5,
+      "step": 1,
+      "default": 0,
+      "info": "Extra units added with this tier. Free pricing requires an eligible Storelib offer or discount code; theme settings alone do not authorize a discount.",
+      "visible_if": "{{ block.settings.tier_source == 'custom' }}"
+    },
+    {
+      "type": "text",
+      "id": "tier_1_label",
+      "label": "Label",
+      "default": "1 item",
+      "visible_if": "{{ block.settings.tier_source == 'custom' }}",
+      "info": "Such as Buy 2 get 1 free."
+    },
+    {
+      "type": "range",
+      "id": "tier_1_discount",
+      "label": "Saving shown",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "unit": "%",
+      "default": 0,
+      "visible_if": "{{ block.settings.tier_source == 'custom' }}"
+    },
+    {
+      "type": "text",
+      "id": "tier_1_badge",
+      "label": "Badge",
+      "info": "Optional, such as Most popular or Best value.",
+      "visible_if": "{{ block.settings.tier_1_enable }}"
+    },
+    {
+      "type": "image_picker",
+      "id": "tier_1_image",
+      "label": "Tier 1 image",
+      "info": "Optional. Empty uses this product’s image."
+    },
+    {
+      "type": "text",
+      "id": "tier_1_caption",
+      "label": "Tier 1 caption"
+    },
+    {
+      "type": "text",
+      "id": "tier_1_code",
+      "label": "Discount code",
+      "info": "Optional. Applied to the cart when this tier is added."
+    },
+    {
+      "type": "header",
+      "content": "Tier 2"
+    },
+    {
+      "type": "checkbox",
+      "id": "tier_2_enable",
+      "label": "Show",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "tier_2_quantity",
+      "label": "Quantity paid for",
+      "min": 1,
+      "max": 10,
+      "step": 1,
+      "default": 2,
+      "visible_if": "{{ block.settings.tier_source == 'custom' }}",
+      "info": "Paid items in this tier. Example: Buy 1 get 2 free uses paid quantity 1 and free items 2."
+    },
+    {
+      "type": "range",
+      "id": "tier_2_free",
+      "label": "Free items",
+      "min": 0,
+      "max": 5,
+      "step": 1,
+      "default": 0,
+      "info": "Extra units added with this tier. Free pricing requires an eligible Storelib offer or discount code; theme settings alone do not authorize a discount.",
+      "visible_if": "{{ block.settings.tier_source == 'custom' }}"
+    },
+    {
+      "type": "text",
+      "id": "tier_2_label",
+      "label": "Label",
+      "default": "2 items",
+      "visible_if": "{{ block.settings.tier_source == 'custom' }}",
+      "info": "Such as Buy 2 get 1 free."
+    },
+    {
+      "type": "range",
+      "id": "tier_2_discount",
+      "label": "Saving shown",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "unit": "%",
+      "default": 0,
+      "visible_if": "{{ block.settings.tier_source == 'custom' }}"
+    },
+    {
+      "type": "text",
+      "id": "tier_2_badge",
+      "label": "Badge",
+      "info": "Optional, such as Most popular or Best value.",
+      "visible_if": "{{ block.settings.tier_2_enable }}"
+    },
+    {
+      "type": "image_picker",
+      "id": "tier_2_image",
+      "label": "Tier 2 image",
+      "info": "Optional. Empty uses this product’s image."
+    },
+    {
+      "type": "text",
+      "id": "tier_2_caption",
+      "label": "Tier 2 caption"
+    },
+    {
+      "type": "text",
+      "id": "tier_2_code",
+      "label": "Discount code",
+      "info": "Optional. Applied to the cart when this tier is added."
+    },
+    {
+      "type": "header",
+      "content": "Tier 3"
+    },
+    {
+      "type": "checkbox",
+      "id": "tier_3_enable",
+      "label": "Show",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "tier_3_quantity",
+      "label": "Quantity paid for",
+      "min": 1,
+      "max": 10,
+      "step": 1,
+      "default": 3,
+      "visible_if": "{{ block.settings.tier_source == 'custom' }}",
+      "info": "Paid items in this tier. Example: Buy 1 get 2 free uses paid quantity 1 and free items 2."
+    },
+    {
+      "type": "range",
+      "id": "tier_3_free",
+      "label": "Free items",
+      "min": 0,
+      "max": 5,
+      "step": 1,
+      "default": 0,
+      "info": "Extra units added with this tier. Free pricing requires an eligible Storelib offer or discount code; theme settings alone do not authorize a discount.",
+      "visible_if": "{{ block.settings.tier_source == 'custom' }}"
+    },
+    {
+      "type": "text",
+      "id": "tier_3_label",
+      "label": "Label",
+      "default": "3 items",
+      "visible_if": "{{ block.settings.tier_source == 'custom' }}",
+      "info": "Such as Buy 2 get 1 free."
+    },
+    {
+      "type": "range",
+      "id": "tier_3_discount",
+      "label": "Saving shown",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "unit": "%",
+      "default": 0,
+      "visible_if": "{{ block.settings.tier_source == 'custom' }}"
+    },
+    {
+      "type": "text",
+      "id": "tier_3_badge",
+      "label": "Badge",
+      "info": "Optional, such as Most popular or Best value.",
+      "visible_if": "{{ block.settings.tier_3_enable }}"
+    },
+    {
+      "type": "image_picker",
+      "id": "tier_3_image",
+      "label": "Tier 3 image",
+      "info": "Optional. Empty uses this product’s image."
+    },
+    {
+      "type": "text",
+      "id": "tier_3_caption",
+      "label": "Tier 3 caption"
+    },
+    {
+      "type": "text",
+      "id": "tier_3_code",
+      "label": "Discount code",
+      "info": "Optional. Applied to the cart when this tier is added."
+    },
+    {
+      "type": "header",
+      "content": "Tier 4"
+    },
+    {
+      "type": "checkbox",
+      "id": "tier_4_enable",
+      "label": "Show",
+      "default": false
+    },
+    {
+      "type": "range",
+      "id": "tier_4_quantity",
+      "label": "Quantity paid for",
+      "min": 1,
+      "max": 10,
+      "step": 1,
+      "default": 4,
+      "visible_if": "{{ block.settings.tier_source == 'custom' }}",
+      "info": "Paid items in this tier. Example: Buy 1 get 2 free uses paid quantity 1 and free items 2."
+    },
+    {
+      "type": "range",
+      "id": "tier_4_free",
+      "label": "Free items",
+      "min": 0,
+      "max": 5,
+      "step": 1,
+      "default": 0,
+      "info": "Extra units added with this tier. Free pricing requires an eligible Storelib offer or discount code; theme settings alone do not authorize a discount.",
+      "visible_if": "{{ block.settings.tier_source == 'custom' }}"
+    },
+    {
+      "type": "text",
+      "id": "tier_4_label",
+      "label": "Label",
+      "default": "4 items",
+      "visible_if": "{{ block.settings.tier_source == 'custom' }}",
+      "info": "Such as Buy 2 get 1 free."
+    },
+    {
+      "type": "range",
+      "id": "tier_4_discount",
+      "label": "Saving shown",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "unit": "%",
+      "default": 0,
+      "visible_if": "{{ block.settings.tier_source == 'custom' }}"
+    },
+    {
+      "type": "text",
+      "id": "tier_4_badge",
+      "label": "Badge",
+      "info": "Optional, such as Most popular or Best value.",
+      "visible_if": "{{ block.settings.tier_4_enable }}"
+    },
+    {
+      "type": "image_picker",
+      "id": "tier_4_image",
+      "label": "Tier 4 image",
+      "info": "Optional. Empty uses this product’s image."
+    },
+    {
+      "type": "text",
+      "id": "tier_4_caption",
+      "label": "Tier 4 caption"
+    },
+    {
+      "type": "text",
+      "id": "tier_4_code",
+      "label": "Discount code",
+      "info": "Optional. Applied to the cart when this tier is added."
+    },
+    {
+      "type": "header",
+      "content": "Button"
+    },
+    {
+      "type": "select",
+      "id": "purchase_action",
+      "label": "Purchase buttons",
+      "default": "own",
+      "options": [
+        {
+          "value": "own",
+          "label": "Block button"
+        },
+        {
+          "value": "main",
+          "label": "Main buttons"
+        },
+        {
+          "value": "both",
+          "label": "Both"
+        }
+      ],
+      "info": "Main buttons include this selection in the product Add to cart and Buy now. Buy now uses cart checkout, including existing cart items and required cart terms."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_button",
+      "label": "Show block Add to cart button",
+      "default": true,
+      "info": "Choose Main buttons above to purchase this selection without its own button."
+    },
+    {
+      "type": "text",
+      "id": "button_label",
+      "label": "Button label",
+      "default": "Add to cart",
+      "visible_if": "{{ block.settings.show_button }}"
+    },
+    {
+      "type": "text",
+      "id": "error_text",
+      "label": "Error message",
+      "default": "This could not be added. Try again."
+    },
+    {
+      "type": "checkbox",
+      "id": "sync_form_quantity",
+      "label": "Sync visible product quantity",
+      "default": true,
+      "info": "Controls the displayed quantity field. Main buttons mode still purchases the selected tier."
+    },
+    {
+      "type": "text",
+      "id": "checkout_note",
+      "label": "Note when Storelib takes the saving off",
+      "default": "The saving comes off at checkout."
+    },
+    {
+      "type": "header",
+      "content": "Custom style"
+    },
+    {
+      "type": "checkbox",
+      "id": "custom_style",
+      "label": "Use the custom style below",
+      "default": false,
+      "info": "On: the colours, corners, borders and spacing below are used (an empty colour follows the colour scheme). Off: everything follows the colour scheme and Theme settings > Buttons."
+    },
+    {
+      "type": "color",
+      "id": "custom_bg",
+      "label": "Card background",
+      "visible_if": "{{ block.settings.custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "custom_text",
+      "label": "Text",
+      "visible_if": "{{ block.settings.custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "custom_heading",
+      "label": "Titles and prices",
+      "visible_if": "{{ block.settings.custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "custom_border",
+      "label": "Border",
+      "visible_if": "{{ block.settings.custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "custom_selected",
+      "label": "Chosen outline and ticks",
+      "visible_if": "{{ block.settings.custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "custom_save",
+      "label": "Saving text",
+      "visible_if": "{{ block.settings.custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "custom_badge_bg",
+      "label": "Badge background",
+      "visible_if": "{{ block.settings.custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "custom_badge_text",
+      "label": "Badge text",
+      "visible_if": "{{ block.settings.custom_style }}"
+    },
+    {
+      "type": "range",
+      "id": "custom_radius",
+      "label": "Corner radius",
+      "min": 0,
+      "max": 32,
+      "step": 1,
+      "unit": "px",
+      "default": 12,
+      "visible_if": "{{ block.settings.custom_style }}"
+    },
+    {
+      "type": "range",
+      "id": "custom_border_width",
+      "label": "Border width",
+      "min": 0,
+      "max": 4,
+      "step": 1,
+      "unit": "px",
+      "default": 1,
+      "visible_if": "{{ block.settings.custom_style }}"
+    },
+    {
+      "type": "range",
+      "id": "custom_gap",
+      "label": "Space between cards",
+      "min": 0,
+      "max": 24,
+      "step": 1,
+      "unit": "px",
+      "default": 10,
+      "visible_if": "{{ block.settings.custom_style }}"
+    },
+    {
+      "type": "range",
+      "id": "custom_picker_height",
+      "label": "Option picker height",
+      "min": 36,
+      "max": 56,
+      "step": 2,
+      "unit": "px",
+      "default": 40,
+      "visible_if": "{{ block.settings.custom_style }}"
+    },
+    {
+      "type": "range",
+      "id": "custom_picker_radius",
+      "label": "Option picker corner radius",
+      "min": 0,
+      "max": 24,
+      "step": 1,
+      "unit": "px",
+      "default": 6,
+      "visible_if": "{{ block.settings.custom_style }}"
+    },
+    {
+      "type": "range",
+      "id": "custom_picker_width",
+      "label": "Option picker maximum width",
+      "min": 120,
+      "max": 400,
+      "step": 10,
+      "unit": "px",
+      "default": 200,
+      "visible_if": "{{ block.settings.custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "custom_picker_bg",
+      "label": "Option picker background",
+      "visible_if": "{{ block.settings.custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "custom_picker_text",
+      "label": "Option picker text",
+      "visible_if": "{{ block.settings.custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "custom_picker_border",
+      "label": "Option picker border",
+      "visible_if": "{{ block.settings.custom_style }}"
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,257 @@
+{%- assign current_product = current_product | default: product | default: page.product -%}
+{%- assign native_offers = current_product.metafields.storelib.offers.value | default: current_product.metafields.storelib.offers -%}
+{%- if native_offers.checkoutOffers != blank -%}
+{%- render 'storelib-product-offers', product: current_product, block: block, kind: 'upsell_pro', product_form_id: product_form_id -%}
+{%- else -%}
+{%- assign fb_accessibility_add = 'accessibility.add' | t -%}
+{%- assign fb_accessibility_sold_out = 'accessibility.sold_out' | t -%}
+{%- assign fb_accessibility_added = 'accessibility.added' | t -%}
+{%- comment -%}
+  Materia Themes. Upsell Pro block.
+  Pass `block` and `current_product`. Renders up to 6 upsell cards, each with
+  its own Add button (Add mode: each card) or a tick and one Add selected to
+  cart button with the total (Add mode: tick and add together). Style: cards,
+  list, tiles or bold, painted from the colour scheme and theme buttons unless
+  Custom style is on. shopify/assets/product-offers.js (upsell-pro element)
+  adds to the cart and redraws the drawer. Hides if nothing to show.
+{%- endcomment -%}
+{%- liquid
+  assign s = block.settings
+  assign max = s.max_products | default: 3
+  assign hide_unavailable = s.hide_unavailable
+  assign hide_current = s.hide_current_product
+
+  comment
+    Build a comma-separated handle list from the picked product settings.
+    Some Liquid contexts return Product objects, others return handle strings.
+    Either way, .handle on a Product gives the handle, on a string it's nil
+    (blank), so we fall back to the raw value (the string itself).
+  endcomment
+  assign handles_str = ''
+  if s.manual_product_1 != blank
+    if s.manual_product_1.handle != blank
+      assign handles_str = handles_str | append: s.manual_product_1.handle | append: ','
+    else
+      assign handles_str = handles_str | append: s.manual_product_1 | append: ','
+    endif
+  endif
+  if s.manual_product_2 != blank
+    if s.manual_product_2.handle != blank
+      assign handles_str = handles_str | append: s.manual_product_2.handle | append: ','
+    else
+      assign handles_str = handles_str | append: s.manual_product_2 | append: ','
+    endif
+  endif
+  if s.manual_product_3 != blank
+    if s.manual_product_3.handle != blank
+      assign handles_str = handles_str | append: s.manual_product_3.handle | append: ','
+    else
+      assign handles_str = handles_str | append: s.manual_product_3 | append: ','
+    endif
+  endif
+  if s.manual_product_4 != blank
+    if s.manual_product_4.handle != blank
+      assign handles_str = handles_str | append: s.manual_product_4.handle | append: ','
+    else
+      assign handles_str = handles_str | append: s.manual_product_4 | append: ','
+    endif
+  endif
+  if s.manual_product_5 != blank
+    if s.manual_product_5.handle != blank
+      assign handles_str = handles_str | append: s.manual_product_5.handle | append: ','
+    else
+      assign handles_str = handles_str | append: s.manual_product_5 | append: ','
+    endif
+  endif
+  if s.manual_product_6 != blank
+    if s.manual_product_6.handle != blank
+      assign handles_str = handles_str | append: s.manual_product_6.handle | append: ','
+    else
+      assign handles_str = handles_str | append: s.manual_product_6 | append: ','
+    endif
+  endif
+  assign handles = handles_str | split: ','
+  assign has_any = false
+  if handles_str != ''
+    assign has_any = true
+  endif
+
+  comment
+    Auto: after the manual products, fill up to the maximum with products
+    recommended for this one: the shop's recommendations when Storelib draws
+    this through /recommendations/products, else the product's first
+    collection, else all products. Never the product itself, a manual pick
+    twice, or (with Hide unavailable) a product that cannot be bought.
+  endcomment
+  comment
+    A manual pick the block does not show (this product with Hide current
+    product, a sold out one with Hide unavailable) leaves its slot free.
+  endcomment
+  assign manual_shown = 0
+  assign manual_keys = 'manual_product_1,manual_product_2,manual_product_3,manual_product_4,manual_product_5,manual_product_6' | split: ','
+  for mk in manual_keys
+    assign mp = s[mk]
+    if mp != blank and mp.title == blank
+      assign mp = all_products[mp]
+    endif
+    if mp == blank or mp.handle == blank
+      continue
+    endif
+    if hide_current and mp.id == current_product.id
+      continue
+    endif
+    if hide_unavailable and mp.available == false
+      continue
+    endif
+    assign manual_shown = manual_shown | plus: 1
+  endfor
+  assign auto_pick = ','
+  if s.source == 'auto'
+    assign auto_needed = max | minus: manual_shown
+    if auto_needed > 0
+      assign auto_source = collections.all.products
+      if current_product.collections.first.products.size > 0
+        assign auto_source = current_product.collections.first.products
+      endif
+      if recommendations.performed and recommendations.products_count > 0
+        assign auto_source = recommendations.products
+      endif
+      assign auto_count = 0
+      assign picked_str = ',' | append: handles_str
+      for ap in auto_source
+        if auto_count >= auto_needed
+          break
+        endif
+        assign ap_ok = true
+        if ap.handle == blank or ap.id == current_product.id or ap.handle == current_product.handle
+          assign ap_ok = false
+        endif
+        if hide_unavailable and ap.available == false
+          assign ap_ok = false
+        endif
+        assign ap_key = ',' | append: ap.handle | append: ','
+        if picked_str contains ap_key
+          assign ap_ok = false
+        endif
+        if ap_ok
+          assign picked_str = picked_str | append: ap.handle | append: ','
+          assign auto_pick = auto_pick | append: ap.handle | append: ','
+          assign auto_count = auto_count | plus: 1
+        endif
+      endfor
+      if auto_count > 0
+        assign has_any = true
+      endif
+    endif
+  endif
+-%}
+
+{%- if has_any -%}
+{%- liquid
+  assign block_id = 'upsell-pro-' | append: block.id
+  assign up_error = 'accessibility.try_again' | t
+  if s.error_text != blank
+    assign up_error = s.error_text
+  endif
+  assign up_style = s.style | default: 'cards'
+  assign up_mode = s.add_mode | default: 'each'
+  if s.purchase_action == 'main' or s.purchase_action == 'both'
+    assign up_mode = 'selected'
+  endif
+  assign img_radius = '8px'
+  if s.image_shape == 'square'
+    assign img_radius = '4px'
+  elsif s.image_shape == 'rounded'
+    assign img_radius = '10px'
+  endif
+-%}
+{%- capture up_vars -%}
+{%- render 'offer-control-vars', controls: s -%}
+--up-pt: {{ s.padding_top | default: 16 }}px; --up-pb: {{ s.padding_bottom | default: 16 }}px; --up-gap: {{ s.gap | default: 10 }}px; --up-img: {{ s.image_size_px | default: 56 }}px; --up-img-radius: {{ img_radius }}; --up-heading-size: {{ s.heading_size | default: 14 }}px; --up-heading-gap: {{ s.heading_gap | default: 12 }}px;
+{%- comment -%} The Custom style group applies while its switch is on, so colours a creator switched off stay off. {%- endcomment -%}
+{%- if s.custom_style -%}
+  {%- if s.text_color != blank %} --up-text: {{ s.text_color }};{% endif -%}
+  {%- if s.bg_color != blank %} --up-bg: {{ s.bg_color }};{% endif -%}
+  {%- if s.card_bg != blank %} --up-card-bg: {{ s.card_bg }};{% endif -%}
+  {%- if s.border_color != blank %} --up-border: {{ s.border_color }};{% endif -%}
+  {%- if s.muted_color != blank %} --up-muted-c: {{ s.muted_color }};{% endif -%}
+  {%- if s.button_bg != blank %} --up-btn-bg: {{ s.button_bg }};{% endif -%}
+  {%- if s.button_text_color != blank %} --up-btn-ink: {{ s.button_text_color }};{% endif %} --up-card-radius: {{ s.card_radius | default: 12 }}px; --up-btn-radius: {{ s.button_radius | default: 8 }}px;
+{%- endif -%}
+{%- endcapture -%}
+{%- capture up_cards -%}
+  {%- assign rendered = 0 -%}
+  {%- assign cur_id = current_product.id -%}
+  {%- for mk in manual_keys -%}
+    {%- assign mp = s[mk] -%}
+    {%- if mp != blank and rendered < max -%}
+      {%- capture up_card -%}{%- render 'upsell-pro-card', p: mp, s: s, cur_id: cur_id, hide_current: hide_current, hide_unavailable: hide_unavailable, mode: up_mode, dom_id: block_id -%}{%- endcapture -%}
+      {%- assign up_card_check = up_card | strip -%}
+      {%- if up_card_check != blank -%}
+        {{- up_card -}}
+        {%- assign rendered = rendered | plus: 1 -%}
+      {%- endif -%}
+    {%- endif -%}
+  {%- endfor -%}
+  {%- if auto_pick != ',' -%}
+    {%- for p in auto_source -%}
+      {%- assign ap_key = ',' | append: p.handle | append: ',' -%}
+      {%- if auto_pick contains ap_key -%}
+        {%- render 'upsell-pro-card', p: p, s: s, cur_id: cur_id, hide_current: true, hide_unavailable: hide_unavailable, mode: up_mode, dom_id: block_id -%}
+      {%- endif -%}
+    {%- endfor -%}
+  {%- endif -%}
+{%- endcapture -%}
+{%- assign up_cards_check = up_cards | strip -%}
+{%- if up_cards_check != blank -%}
+{{ 'product-offers.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'product-offers.js' | asset_url }}" defer="defer"></script>
+<upsell-pro
+  id="{{ block_id }}"
+  class="upsell-pro"
+  data-style="{{ up_style }}"
+  data-mode="{{ up_mode }}"
+  data-form-id="{{ product_form_id }}"
+  data-purchase-action="{{ s.purchase_action | default: 'own' }}"
+  data-show-button="{{ s.show_button }}"
+  {%- if s.custom_style %} data-custom-style{% if s.show_border %} data-border{% endif %}{% if s.show_shadow %} data-shadow{% endif %}{% endif %}
+  data-block-id="{{ block.id }}"
+  data-product-id="{{ current_product.id }}"
+  data-open-drawer="{{ s.open_drawer_after_add }}"
+  data-show-compare="{{ s.show_compare_at }}"
+  data-money-format="{{ shop.money_format | strip_html | escape }}"
+  data-button-text="{{ s.upsell_button_text | default: fb_accessibility_add | escape_once }}"
+  data-added-text="{{ s.added_text | default: fb_accessibility_added | escape_once }}"
+  data-soldout-text="{{ s.soldout_text | default: fb_accessibility_sold_out | escape_once }}"
+  data-error-text="{{ up_error | escape }}"
+  style="{{ up_vars | strip }}"
+  {{ block.shopify_attributes }}
+>
+  <script type="application/json" data-upsell-cart-variants>{{ cart.items | map: 'variant_id' | json }}</script>
+  {%- if s.heading != blank -%}
+    <p class="upsell-pro__heading">{{ s.heading }}</p>
+  {%- endif -%}
+  {%- if s.subheading != blank -%}
+    <p class="upsell-pro__sub">{{ s.subheading }}</p>
+  {%- endif -%}
+  <div class="upsell-pro__list" role="list">
+    {{- up_cards -}}
+  </div>
+  {%- if up_mode == 'selected' -%}
+    <div class="upsell-pro__footer">
+      <span class="upsell-pro__total" aria-live="polite">{{ s.total_label }} <span data-upsell-total></span></span>
+      <button type="button" class="btn btn-primary upsell-pro__add" data-theme-button="primary" data-sl-button data-button-role="primary" data-upsell-add-selected{% if s.show_button == false or s.purchase_action == 'main' %} hidden{% endif %}>
+        <span data-label>{{ s.add_selected_label | default: 'Add chosen items' | escape_once }}</span>
+      </button>
+      <p class="upsell-pro__message" role="status" data-message hidden></p>
+    </div>
+  {%- endif -%}
+</upsell-pro>
+{%- else -%}
+  {%- render 'editor-block-preview', block: block, title: 'Upsell Pro', message: 'No selected products can be shown. Pick an available product other than this product, or adjust the visibility settings.', commerce: true -%}
+{%- endif -%}
+{%- else -%}
+  {%- render 'editor-block-preview', block: block, title: 'Upsell Pro', message: 'Pick products in this block, or choose Picked, then recommended. Available products will appear here.', commerce: true -%}
+{%- endif -%}
+
+{%- endif -%}

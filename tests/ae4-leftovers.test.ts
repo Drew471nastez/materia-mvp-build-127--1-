@@ -83,7 +83,7 @@ async function main() {
     check("  and a line not told whose numbers they are keeps none", summaryKey(null, "website:w1", "UTC") === null && summaryKey("", "website:w1", "UTC") === null)
     const line = read("components/app/analytics-summary-line.tsx")
     check("  read and written only under that key, and asked again when the account changes", /const kept = key \? keptSummary\(key\) : null/.test(line) && /if \(key\) keepSummary\(key, s\)/.test(line) && /\}, \[property, account\]\)/.test(line) && /storelib\.analytics\.summary\.v2/.test(line))
-    check("  the website builder says whose", /account=\{access\.viewer\}/.test(read("app/(storelib)/app/website-builder/page.tsx")) /* Changed on purpose (round 42 team): the viewer key, the owner's id or a member's id and the store's */ && /account=\{account\}/.test(read("app/(storelib)/app/website-builder/website-builder-client.tsx")))
+    check("  the website builder says whose", /account=\{access\.viewer\}/.test(read("app/(storelib)/app/website-builder/website-page.tsx")) /* Changed on purpose (round 42 team): the viewer key, the owner's id or a member's id and the store's */ && /account=\{account\}/.test(read("app/(storelib)/app/website-builder/website-builder-client.tsx"))) /* Changed on purpose (templates round 16): the page's loader is website-page.tsx, shared by /app/website-builder and /app/website-builder/ai */
   }
 
   console.log("\nThe owner's hand-off: two minutes, and once on each host\n")

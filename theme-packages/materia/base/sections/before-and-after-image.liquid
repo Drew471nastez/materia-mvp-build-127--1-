@@ -1,0 +1,596 @@
+<script src="{{ 'media-live-before-after.js' | asset_url }}" defer="defer"></script>
+{% render 'theme-type' %}
+{%- liquid
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+-%}
+{%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
+{%- if section.settings.reveal == false -%}<span data-ti-no-reveal hidden></span>{%- endif -%}
+{%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' and section.settings.reveal != false -%}
+<style>
+  #shopify-section-{{ section.id }}.scroll-trigger {
+    --animation-duration: {{ settings.animation_duration | default: 700 }}ms;
+    --animation-delay: {{ settings.animation_delay | default: 0 }}ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-{{ section.id }}');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', {{ settings.scroll_animation | json }});
+  })();
+</script>
+{%- endif -%}
+{%- comment -%}
+  Materia Themes. Before/After Images: one pair of still images per
+  Comparison block, side by side on desktop and stacked on mobile, each with
+  its label over a soft bottom shade. Every value below is a CSS variable on
+  the section root, so the live controller (media-live-before-after.js)
+  changes it in place; the reset rules switch with the style's media.
+{%- endcomment -%}
+<style data-rs-bulletproof data-bam-reset-style{% unless section.settings.reset_spacing %} media="not all"{% endunless %}>
+  #shopify-section-{{ section.id }} > .section,
+  #shopify-section-{{ section.id }} > section,
+  #shopify-section-{{ section.id }} > div,
+  #shopify-section-{{ section.id }} > div > .section { margin-top: 0 !important; margin-bottom: 0 !important; }
+  #shopify-section-{{ section.id }} + .shopify-section,
+  #shopify-section-{{ section.id }} + section { margin-top: 0 !important; }
+</style>
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Cg fill=%22%23808080%22 fill-opacity=%220.5%22%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22/%3E%3C/g%3E%3C/svg%3E'
+  assign ratio_w = st.before_image_width | default: 570
+  assign ratio_h = st.before_image_height | default: 460
+  if ratio_w <= 0
+    assign ratio_w = 570
+  endif
+  if ratio_h <= 0
+    assign ratio_h = 460
+  endif
+  assign label_size = st.text_size | default: 57
+  assign label_size_m = label_size | divided_by: 1.5
+-%}
+<style>
+  {%- if st.enable_custom_fonts and st.body_font.family %}{{ st.body_font | font_face: font_display: 'swap' }}{% endif %}
+  #shopify-section-{{ sid }} {
+    isolation: isolate;
+    position: relative;
+    --bam-mt-m: {{ st.section_margin_top_mobile | default: 0 }}px;
+    --bam-mb-m: {{ st.section_margin_bottom_mobile | default: 0 }}px;
+    --bam-mt-d: {{ st.section_margin_top_desktop | default: 0 }}px;
+    --bam-mb-d: {{ st.section_margin_bottom_desktop | default: 0 }}px;
+  }
+  #shopify-section-{{ sid }}#shopify-section-{{ sid }} { margin-top: var(--bam-mt-m) !important; margin-bottom: var(--bam-mb-m) !important; }
+  @media (min-width: 992px) {
+    #shopify-section-{{ sid }}#shopify-section-{{ sid }} { margin-top: var(--bam-mt-d) !important; margin-bottom: var(--bam-mb-d) !important; }
+  }
+  #shopify-section-{{ sid }} .bai {
+    --bai-bg: {% if st.enable_custom_style %}{% render 'scheme-color', color: st.background_color, fallback: 'var(--color-background)' %}{% else %}var(--color-background){% endif %};
+    --bai-before-color: {% if st.enable_custom_style %}{% render 'scheme-color', color: st.before_text_color, fallback: 'var(--color-heading)' %}{% else %}var(--color-heading){% endif %};
+    --bai-after-color: {% if st.enable_custom_style %}{% render 'scheme-color', color: st.after_text_color, fallback: 'var(--color-heading)' %}{% else %}var(--color-heading){% endif %};
+    --bai-font: {% if st.enable_custom_fonts and st.body_font.family %}{{ st.body_font.family }}, {{ st.body_font.fallback_families | default: 'sans-serif' }}{% else %}var(--body-font){% endif %};
+    --bai-max: {{ st.content_max_width | default: 900 }}px;
+    --bai-gap-d: {{ st.desktop_horizontal_gap | default: 0 }}px;
+    --bai-gap-m: {{ st.mobile_vertical_gap | default: 0 }}px;
+    --bai-pair: {{ st.pair_gap | default: 0 }}px;
+    --bai-ratio: {{ ratio_w }} / {{ ratio_h }};
+    --bai-radius: {{ st.border_radius | default: 0 }}px;
+    --bai-overlay: {{ st.overlay_strength | default: 0 }};
+    --bai-label-size: {{ label_size }}px;
+    --bai-label-size-m: {{ label_size_m }}px;
+    --bai-label-pos-d: {{ st.desktop_text_vertical_position | default: 0 }}px;
+    --bai-label-pos-m: {{ st.mobile_text_vertical_position | default: 0 }}px;
+    --bai-pad-d: {{ st.desktop_padding | default: 0 }}px;
+    --bai-pad-m: {{ st.mobile_padding | default: 0 }}px;
+  }
+  #shopify-section-{{ sid }} .bai {
+    box-sizing: border-box;
+    width: 100%;
+    margin-inline: auto;
+    background: var(--bai-bg) !important;
+    padding: var(--bai-pad-m) 20px;
+  }
+  #shopify-section-{{ sid }} .bai *, #shopify-section-{{ sid }} .bai *::before, #shopify-section-{{ sid }} .bai *::after { box-sizing: border-box; }
+  #shopify-section-{{ sid }} .bai[data-width="container"] { max-width: calc(var(--page-width, 1300px) + 3rem); }
+  #shopify-section-{{ sid }} .bai[data-width="fluid_container"] { max-width: calc(var(--fluid-container-width, 1500px) + 3rem); }
+  #shopify-section-{{ sid }} .bai__inner { width: 100%; max-width: 100%; margin-inline: auto; }
+  #shopify-section-{{ sid }} .bai__pair { display: flex; flex-direction: column; align-items: center; gap: var(--bai-gap-m); width: 100%; margin: 0; }
+  #shopify-section-{{ sid }} .bai__pair + .bai__pair { margin-top: var(--bai-pair); }
+  #shopify-section-{{ sid }} .bai__card {
+    position: relative;
+    margin: 0;
+    width: 100%;
+    max-width: 400px;
+    aspect-ratio: 5 / 4;
+    min-height: 200px;
+    overflow: hidden;
+    border-radius: var(--bai-radius);
+    background-color: color-mix(in srgb, var(--color-heading) 16%, var(--color-background));
+    transition: opacity .3s ease, transform .3s ease, box-shadow .3s ease;
+  }
+  #shopify-section-{{ sid }} .bai__card--after { background-color: color-mix(in srgb, var(--color-heading) 30%, var(--color-background)); }
+  #shopify-section-{{ sid }} .bai__img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform .3s ease;
+  }
+  #shopify-section-{{ sid }} .bai__card[data-bw="true"] .bai__img { filter: grayscale(100%); }
+  #shopify-section-{{ sid }} .bai__card::before {
+    content: '';
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 30%;
+    z-index: 1;
+    pointer-events: none;
+    background: linear-gradient(to top, rgb(0 0 0 / var(--bai-overlay)), transparent);
+  }
+  #shopify-section-{{ sid }} .bai__label {
+    position: absolute;
+    z-index: 2;
+    left: 50%;
+    bottom: var(--bai-label-pos-m);
+    transform: translateX(-50%);
+    margin: 0;
+    max-width: calc(100% - 16px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--bai-font);
+    font-size: var(--bai-label-size-m);
+    line-height: 1.2;
+    pointer-events: none;
+  }
+  #shopify-section-{{ sid }} .bai__card--before .bai__label { color: var(--bai-before-color); }
+  #shopify-section-{{ sid }} .bai__card--after .bai__label { color: var(--bai-after-color); }
+  #shopify-section-{{ sid }} .bai[data-labels="false"] .bai__label { display: none; }
+  #shopify-section-{{ sid }} .bai[data-shadow="low"] .bai__card { box-shadow: 0 2px 4px rgba(0, 0, 0, .1); }
+  #shopify-section-{{ sid }} .bai[data-shadow="medium"] .bai__card { box-shadow: 0 4px 8px rgba(0, 0, 0, .2); }
+  #shopify-section-{{ sid }} .bai[data-shadow="high"] .bai__card { box-shadow: 0 6px 12px rgba(0, 0, 0, .3); }
+  #shopify-section-{{ sid }} .bai[data-hover="fade_in"] .bai__card:hover { opacity: .8; }
+  #shopify-section-{{ sid }} .bai[data-hover="scale_in"] .bai__card:hover { transform: scale(1.05); }
+  #shopify-section-{{ sid }} .bai[data-hover="zoom_in"] .bai__card:hover .bai__img { transform: scale(1.1); }
+  #shopify-section-{{ sid }} .bai[data-hover="shadow"] .bai__card:hover { box-shadow: 0 8px 16px rgba(0, 0, 0, .3); }
+  @media (min-width: 992px) {
+    #shopify-section-{{ sid }} .bai { padding: var(--bai-pad-d) 70px; }
+    #shopify-section-{{ sid }} .bai__inner { max-width: var(--bai-max); }
+    #shopify-section-{{ sid }} .bai__pair { flex-direction: row; align-items: stretch; justify-content: center; gap: var(--bai-gap-d); }
+    #shopify-section-{{ sid }} .bai__card { flex: 1 1 0; min-width: 0; max-width: none; min-height: 180px; aspect-ratio: var(--bai-ratio); }
+    #shopify-section-{{ sid }} .bai__label { bottom: var(--bai-label-pos-d); font-size: var(--bai-label-size); }
+  }
+  @media (min-width: 1200px) {
+    #shopify-section-{{ sid }} .bai[data-width="stretch_width"] { padding-inline: 3rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #shopify-section-{{ sid }} .bai__card, #shopify-section-{{ sid }} .bai__img { transition: none; }
+  }
+</style>
+<div class="bai color-{{ color_scheme }} gradient" data-bam-root="image" data-bam-section="{{ sid }}" data-bam-settings="{{ st | json | escape }}" data-bam-defaults='{"color_scheme":"default-color-scheme","section_width":"full_width","reset_spacing":true,"show_text":true,"content_max_width":900,"desktop_horizontal_gap":20,"pair_gap":40,"before_image_width":570,"before_image_height":460,"border_radius":6,"image_shadow":"none","overlay_strength":0.4,"hover_animation":"fade_in","enable_custom_style":false,"enable_custom_fonts":false,"body_font":"assistant_n4","text_size":57,"desktop_text_vertical_position":30,"reveal":true,"desktop_padding":70,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"mobile_vertical_gap":15,"mobile_text_vertical_position":20,"mobile_padding":30,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0}' data-bam-block-defaults='{"comparison":{"before_text":"Before","bw_before_image":false,"after_text":"After"}}' data-bam-placeholder="{{ placeholder | escape }}" data-width="{{ st.section_width }}" data-shadow="{{ st.image_shadow | default: 'none' }}" data-hover="{{ st.hover_animation | default: 'none' }}" data-labels="{% if st.show_text == false %}false{% else %}true{% endif %}">
+  <div class="bai__inner">
+    {%- assign pairs = section.blocks | where: 'type', 'comparison' -%}
+    {%- for block in pairs -%}
+      {%- assign bb = block.settings -%}
+      {%- assign before_label = bb.before_text | default: 'Before' -%}
+      {%- assign after_label = bb.after_text | default: 'After' -%}
+      <div class="bai__pair" data-bam-block="{{ block.id }}" data-bam-type="comparison" data-bam-settings="{{ bb | json | escape }}" {{ block.shopify_attributes }}>
+        <figure class="bai__card bai__card--before" data-bw="{% if bb.bw_before_image %}true{% else %}false{% endif %}">
+          {%- if bb.before_image != blank -%}
+            <img class="bai__img" data-bam-image="before_image" src="{{ bb.before_image | image_url: width: 1400 }}" srcset="{{ bb.before_image | image_url: width: 700 }} 700w, {{ bb.before_image | image_url: width: 1400 }} 1400w" sizes="(min-width: 992px) 50vw, 100vw" alt="{{ bb.before_image.alt | default: before_label | escape }}" width="{{ bb.before_image.width | default: 1000 }}" height="{{ bb.before_image.height | default: 800 }}" loading="lazy" decoding="async">
+          {%- else -%}
+            <img class="bai__img" data-bam-image="before_image" src="{{ placeholder }}" alt="" width="1000" height="800" loading="lazy" decoding="async">
+          {%- endif -%}
+          <figcaption class="bai__label" data-bam-text="before_text">{{ before_label | escape }}</figcaption>
+        </figure>
+        <figure class="bai__card bai__card--after">
+          {%- if bb.after_image != blank -%}
+            <img class="bai__img" data-bam-image="after_image" src="{{ bb.after_image | image_url: width: 1400 }}" srcset="{{ bb.after_image | image_url: width: 700 }} 700w, {{ bb.after_image | image_url: width: 1400 }} 1400w" sizes="(min-width: 992px) 50vw, 100vw" alt="{{ bb.after_image.alt | default: after_label | escape }}" width="{{ bb.after_image.width | default: 1000 }}" height="{{ bb.after_image.height | default: 800 }}" loading="lazy" decoding="async">
+          {%- else -%}
+            <img class="bai__img" data-bam-image="after_image" src="{{ placeholder }}" alt="" width="1000" height="800" loading="lazy" decoding="async">
+          {%- endif -%}
+          <figcaption class="bai__label" data-bam-text="after_text">{{ after_label | escape }}</figcaption>
+        </figure>
+      </div>
+    {%- else -%}
+      <div class="bai__pair">
+        <figure class="bai__card bai__card--before" data-bw="true"><img class="bai__img" src="{{ placeholder }}" alt="" width="1000" height="800" loading="lazy" decoding="async"><figcaption class="bai__label">Before</figcaption></figure>
+        <figure class="bai__card bai__card--after"><img class="bai__img" src="{{ placeholder }}" alt="" width="1000" height="800" loading="lazy" decoding="async"><figcaption class="bai__label">After</figcaption></figure>
+      </div>
+    {%- endfor -%}
+  </div>
+</div>{% schema %}
+{
+  "name": "Before/After Images",
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Section width",
+      "default": "full_width",
+      "options": [
+        {
+          "value": "container",
+          "label": "Default"
+        },
+        {
+          "value": "fluid_container",
+          "label": "Fluid container"
+        },
+        {
+          "value": "stretch_width",
+          "label": "Stretched"
+        },
+        {
+          "value": "full_width",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "reset_spacing",
+      "label": "Remove the theme's space between sections",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Content"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_text",
+      "label": "Show labels",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "range",
+      "id": "content_max_width",
+      "label": "Content max width (desktop)",
+      "min": 400,
+      "max": 1800,
+      "step": 20,
+      "unit": "px",
+      "default": 900
+    },
+    {
+      "type": "range",
+      "id": "desktop_horizontal_gap",
+      "label": "Gap between images (desktop)",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "pair_gap",
+      "label": "Gap between pairs",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "header",
+      "content": "Images"
+    },
+    {
+      "type": "number",
+      "id": "before_image_width",
+      "label": "Image shape width (desktop)",
+      "default": 570,
+      "info": "Width and height set the shape of the images on desktop, for example 570 and 460."
+    },
+    {
+      "type": "number",
+      "id": "before_image_height",
+      "label": "Image shape height (desktop)",
+      "default": 460
+    },
+    {
+      "type": "range",
+      "id": "border_radius",
+      "label": "Image corner radius",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "unit": "px",
+      "default": 6
+    },
+    {
+      "type": "select",
+      "id": "image_shadow",
+      "label": "Image shadow",
+      "options": [
+        {
+          "value": "none",
+          "label": "None"
+        },
+        {
+          "value": "low",
+          "label": "Low"
+        },
+        {
+          "value": "medium",
+          "label": "Medium"
+        },
+        {
+          "value": "high",
+          "label": "High"
+        }
+      ],
+      "default": "none"
+    },
+    {
+      "type": "range",
+      "id": "overlay_strength",
+      "label": "Bottom shade strength",
+      "min": 0,
+      "max": 1,
+      "step": 0.1,
+      "default": 0.4
+    },
+    {
+      "type": "select",
+      "id": "hover_animation",
+      "label": "Image hover effect",
+      "options": [
+        {
+          "value": "none",
+          "label": "None"
+        },
+        {
+          "value": "fade_in",
+          "label": "Fade"
+        },
+        {
+          "value": "scale_in",
+          "label": "Scale image card"
+        },
+        {
+          "value": "zoom_in",
+          "label": "Zoom picture"
+        },
+        {
+          "value": "shadow",
+          "label": "Shadow"
+        }
+      ],
+      "default": "fade_in"
+    },
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_style",
+      "label": "Enable custom styling",
+      "default": false
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "Background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "before_text_color",
+      "label": "Before label color",
+      "visible_if": "{{ section.settings.enable_custom_style and section.settings.show_text }}"
+    },
+    {
+      "type": "color",
+      "id": "after_text_color",
+      "label": "After label color",
+      "visible_if": "{{ section.settings.enable_custom_style and section.settings.show_text }}"
+    },
+    {
+      "type": "header",
+      "content": "Typography"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_fonts",
+      "label": "Enable custom fonts",
+      "default": false
+    },
+    {
+      "type": "font_picker",
+      "id": "body_font",
+      "label": "Label font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "range",
+      "id": "text_size",
+      "label": "Label size (desktop)",
+      "min": 10,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 57,
+      "info": "Mobile labels are two thirds of this size."
+    },
+    {
+      "type": "range",
+      "id": "desktop_text_vertical_position",
+      "label": "Label distance from bottom (desktop)",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "unit": "px",
+      "default": 30
+    },
+    {
+      "type": "header",
+      "content": "Animation"
+    },
+    {
+      "type": "checkbox",
+      "id": "reveal",
+      "label": "Reveal on scroll",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Desktop spacing"
+    },
+    {
+      "type": "range",
+      "id": "desktop_padding",
+      "label": "Top and bottom padding (desktop)",
+      "min": 0,
+      "max": 300,
+      "step": 5,
+      "unit": "px",
+      "default": 70
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_desktop",
+      "label": "Top margin (desktop)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_desktop",
+      "label": "Bottom margin (desktop)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0
+    },
+    {
+      "type": "header",
+      "content": "Mobile"
+    },
+    {
+      "type": "range",
+      "id": "mobile_vertical_gap",
+      "label": "Gap between images (mobile)",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 15
+    },
+    {
+      "type": "range",
+      "id": "mobile_text_vertical_position",
+      "label": "Label distance from bottom (mobile)",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "mobile_padding",
+      "label": "Top and bottom padding (mobile)",
+      "min": 0,
+      "max": 300,
+      "step": 5,
+      "unit": "px",
+      "default": 30
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_mobile",
+      "label": "Top margin (mobile)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_mobile",
+      "label": "Bottom margin (mobile)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0
+    }
+  ],
+  "presets": [
+    {
+      "name": "Before After Comparison Images",
+      "category": "Features",
+      "blocks": [
+        {
+          "type": "comparison"
+        }
+      ]
+    }
+  ],
+  "blocks": [
+    {
+      "type": "comparison",
+      "name": "Before / After pair",
+      "settings": [
+        {
+          "type": "header",
+          "content": "Before"
+        },
+        {
+          "type": "image_picker",
+          "id": "before_image",
+          "label": "Before image"
+        },
+        {
+          "type": "text",
+          "id": "before_text",
+          "label": "Before label",
+          "default": "Before"
+        },
+        {
+          "type": "checkbox",
+          "id": "bw_before_image",
+          "label": "Black and white before image",
+          "default": false
+        },
+        {
+          "type": "header",
+          "content": "After"
+        },
+        {
+          "type": "image_picker",
+          "id": "after_image",
+          "label": "After image"
+        },
+        {
+          "type": "text",
+          "id": "after_text",
+          "label": "After label",
+          "default": "After"
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

@@ -190,6 +190,17 @@ const nextConfig = {
       './node_modules/.pnpm/@sparticuz+chromium@*/node_modules/@sparticuz/chromium/bin/**',
     ],
     /*
+      THE TEMPLATES' THEME FILES (templates round 16). Add to my library
+      composes a template from theme-packages/ with fs (lib/themes/
+      template-packages.ts), which tracing cannot see. The folder is not in
+      public/: the theme is sold, and only this function carries it. A glob
+      over the area, so it holds for the route as it is written
+      (/api/themes/marketplace/add) and for the one entry the production
+      build folds the area into if it ever has two routes
+      (/api/themes/[...__fold], scripts/fold-api-routes.mjs).
+    */
+    '/api/themes/**': ['./theme-packages/**/*'],
+    /*
       THE INVOICE'S TYPEFACE. lib/checkout/invoice.ts reads Inter from
       lib/checkout/fonts by path, which tracing cannot see, for every route
       that draws one: the download, and the three that email the receipt

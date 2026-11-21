@@ -1,0 +1,1122 @@
+<script src="{{ 'live-features-c.js' | asset_url }}" defer="defer"></script>
+{% render 'theme-type' %}
+{%- liquid
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+-%}
+{%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
+{%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' and section.settings.reveal != false -%}
+<style>
+  #shopify-section-{{ section.id }}.scroll-trigger {
+    --animation-duration: {{ settings.animation_duration | default: 700 }}ms;
+    --animation-delay: {{ settings.animation_delay | default: 0 }}ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-{{ section.id }}');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', {{ settings.scroll_animation | json }});
+  })();
+</script>
+{%- endif -%}
+<style data-rs-bulletproof>
+  {%- if section.settings.reset_spacing -%}
+    /* reset_spacing: bulletproof override of ALL section spacing mechanisms */
+    #shopify-section-{{ section.id }},
+    #shopify-section-{{ section.id }} > .section,
+    #shopify-section-{{ section.id }} > section,
+    #shopify-section-{{ section.id }} > div,
+    #shopify-section-{{ section.id }} > div > .section {
+      margin-top: 0 !important;
+      margin-bottom: 0 !important;
+    }
+    #shopify-section-{{ section.id }} + .shopify-section,
+    #shopify-section-{{ section.id }} + section,
+    .shopify-section + #shopify-section-{{ section.id }} {
+      margin-top: 0 !important;
+    }
+  {%- endif -%}
+</style>
+{%- comment -%}
+  Materia Themes. Count Up Banner: a headline and a subheadline block over a
+  row of count blocks that count up once when they come into view. The
+  numbers are printed final, so they read right without script, in the
+  editor and under reduced motion. Colours follow the colour scheme and fonts
+  follow Theme settings > Typography until custom styling or custom fonts are
+  switched on. Every value is a CSS variable printed here;
+  assets/live-features-c.js works out the same variables for live edits and
+  runs the count (never again on an edit).
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign custom = st.enable_custom_style
+  assign fonts = st.override_fonts
+  assign sep = ','
+  if st.enable_dot_spacer
+    assign sep = '.'
+  endif
+  case st.count_font_weight
+    when 'light'
+      assign count_w = '300'
+    when 'normal'
+      assign count_w = '400'
+    when 'bold'
+      assign count_w = '700'
+    else
+      assign count_w = ''
+  endcase
+-%}
+{%- if fonts -%}{% style %}{{ st.text_font | font_face: font_display: 'swap' }}{{ st.headline_font | font_face: font_display: 'swap' }}{% endstyle %}{%- endif -%}
+<style>
+  #shopify-section-{{ sid }} { isolation: isolate; position: relative; }
+  #shopify-section-{{ sid }} .ns {
+    display: block;
+    box-sizing: border-box;
+    margin-top: var(--ns-mt-m);
+    margin-bottom: var(--ns-mb-m);
+    font-family: var(--ns-bf);
+  }
+  @media (min-width: 768px) {
+    #shopify-section-{{ sid }} .ns { margin-top: var(--ns-mt-d); margin-bottom: var(--ns-mb-d); }
+  }
+  #shopify-section-{{ sid }} .ns[data-width='container'] { max-width: calc(var(--page-width, 1300px) + 3rem); margin-inline: auto; padding-inline: 1.5rem; }
+  #shopify-section-{{ sid }} .ns[data-width='fluid_container'] { max-width: calc(var(--fluid-container-width, 1500px) + 3rem); margin-inline: auto; padding-inline: 1.5rem; }
+  #shopify-section-{{ sid }} .ns[data-width='stretch_width'] { padding-inline: 1.5rem; }
+  @media (min-width: 1200px) { #shopify-section-{{ sid }} .ns[data-width='stretch_width'] { padding-inline: 3rem; } }
+
+  #loudecoms-{{ sid }} {
+    position: relative;
+    background-color: var(--ns-bg);
+    isolation: isolate;
+    width: 100%;
+    box-sizing: border-box;
+    padding: var(--ns-pt-d) var(--ns-px-d) var(--ns-pb-d);
+    overflow: hidden;
+  }
+  #loudecoms-{{ sid }}[data-image='true']::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: var(--ns-img);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: var(--ns-img-size);
+    filter: brightness(var(--ns-img-bri));
+    z-index: -1;
+  }
+  #loudecoms-{{ sid }} .loudecoms-container {
+    position: relative;
+    margin: 0 auto;
+    background: var(--ns-c-bg);
+    border-radius: var(--ns-c-radius);
+    border: var(--ns-c-bw) solid var(--ns-c-bc);
+    max-width: var(--ns-c-max);
+    padding: var(--ns-c-py-d) var(--ns-c-px-d);
+  }
+  #loudecoms-{{ sid }} .loudecoms-headline {
+    margin: 0;
+    padding: 0 0 var(--ns-head-gap) 0;
+    text-align: var(--ns-ta-d);
+  }
+  #loudecoms-{{ sid }} .loudecoms-headline:not(:has(> :not([hidden]))) { padding-bottom: 0; }
+  #loudecoms-{{ sid }} .ns__headline {
+    font-family: var(--ns-hf);
+    font-size: var(--ns-h-size-d);
+    font-weight: var(--ns-h-weight, var(--heading-weight, 600));
+    line-height: var(--ns-h-lh, var(--heading-line-height, 1.2));
+    color: var(--ns-h-color);
+    margin: 0 0 var(--ns-hgap-d) 0;
+    padding: 0;
+  }
+  #loudecoms-{{ sid }} .ns__sub {
+    font-family: var(--ns-bf);
+    font-size: var(--ns-s-size-d);
+    line-height: var(--ns-s-lh, var(--body-line-height, 1.5));
+    color: var(--ns-s-color);
+    margin: 0;
+    padding: 0;
+  }
+  #loudecoms-{{ sid }} :is(.ns__headline, .ns__sub, .loudecoms-plus)[hidden] { display: none; }
+  #loudecoms-{{ sid }} .loudecoms-grid {
+    margin: var(--ns-vgap-d) auto 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    max-width: 1000px;
+    gap: 20px;
+  }
+  #loudecoms-{{ sid }} .loudecoms-col h3 {
+    font-family: var(--ns-hf);
+    font-size: var(--ns-count-d);
+    font-weight: var(--ns-count-w, var(--heading-weight, 600));
+    color: var(--ns-count-color);
+    padding: 0;
+    margin: 0 0 var(--ns-count-gap) 0;
+    text-align: var(--ns-count-align);
+    line-height: 1;
+    display: flex;
+    align-items: baseline;
+    justify-content: var(--ns-count-justify);
+    font-variant-numeric: tabular-nums;
+  }
+  #loudecoms-{{ sid }} .loudecoms-col p {
+    padding: 0;
+    margin: 0;
+    font-family: var(--ns-bf);
+    color: var(--ns-desc-color);
+    text-align: var(--ns-count-align);
+    line-height: 1;
+    font-size: var(--ns-desc-d);
+  }
+  #loudecoms-{{ sid }} .loudecoms-plus {
+    font-size: var(--ns-plus-size);
+    color: var(--ns-count-color);
+    margin-left: 5px;
+  }
+  @media (max-width: 800px) {
+    #loudecoms-{{ sid }} { padding: var(--ns-pt-m) var(--ns-px-m) var(--ns-pb-m); }
+    #loudecoms-{{ sid }} .loudecoms-container { padding: var(--ns-c-py-m) var(--ns-c-px-m); }
+    #loudecoms-{{ sid }} .loudecoms-headline { text-align: var(--ns-ta-m); }
+    #loudecoms-{{ sid }} .ns__headline { font-size: var(--ns-h-size-m); margin-bottom: var(--ns-hgap-m); }
+    #loudecoms-{{ sid }} .ns__sub { font-size: var(--ns-s-size-m); }
+    #loudecoms-{{ sid }} .loudecoms-grid { grid-template-columns: 1fr; margin: var(--ns-vgap-m) 10px 0; }
+    #loudecoms-{{ sid }} .loudecoms-col h3 { font-size: var(--ns-count-m); }
+    #loudecoms-{{ sid }} .loudecoms-col p { font-size: var(--ns-desc-m); }
+  }
+</style>
+{%- capture count_align -%}{{ st.count_alignment | default: 'center' }}{%- endcapture -%}
+{%- capture root_vars -%}
+  --ns-bg: {% if custom %}{% render 'scheme-color', color: st.section_background_custom_color, fallback: 'var(--color-background)' %}{% else %}var(--color-background){% endif %};
+  --ns-c-bg: {% if custom and st.container_background_color != blank %}{{ st.container_background_color }}{% else %}transparent{% endif %};
+  --ns-c-bc: {% if custom %}{% render 'scheme-color', color: st.container_border_color, fallback: 'var(--color-border)' %}{% else %}var(--color-border){% endif %};
+  --ns-count-color: {% if custom %}{% render 'scheme-color', color: st.count_color, fallback: 'var(--color-heading)' %}{% else %}var(--color-heading){% endif %};
+  --ns-desc-color: {% if custom %}{% render 'scheme-color', color: st.description_text_color, fallback: 'var(--color-text)' %}{% else %}var(--color-text){% endif %};
+  --ns-hf: {% if fonts and st.headline_font.family != blank %}{{ st.headline_font.family }}, {{ st.headline_font.fallback_families | default: 'sans-serif' }}{% else %}var(--heading-font){% endif %};
+  --ns-bf: {% if fonts and st.text_font.family != blank %}{{ st.text_font.family }}, {{ st.text_font.fallback_families | default: 'sans-serif' }}{% else %}var(--body-font){% endif %};
+  --ns-img: {% if st.section_background_image != blank %}url({{ st.section_background_image | image_url: width: 2000 }}){% else %}none{% endif %}; --ns-img-size: {{ st.section_background_size | default: 'cover' }}; --ns-img-bri: {{ st.section_bg_image_brightness | default: 100 }}%;
+  --ns-c-radius: {{ st.container_radius | default: 0 }}px; --ns-c-bw: {{ st.container_border_size | default: 0 }}px; --ns-c-max: {{ st.container_max_width | default: 1000 }}px;
+  --ns-c-py-d: {{ st.container_padding_top_bottom | default: 0 }}px; --ns-c-px-d: {{ st.container_padding_left_right | default: 0 }}px; --ns-c-py-m: {{ st.mobile_container_padding_top_bottom | default: 0 }}px; --ns-c-px-m: {{ st.mobile_container_padding_left_right | default: 0 }}px;
+  --ns-pt-d: {{ st.section_padding_top | default: 0 }}px; --ns-pb-d: {{ st.section_padding_bottom | default: 0 }}px; --ns-px-d: {{ st.section_padding_left_right | default: 0 }}px;
+  --ns-pt-m: {{ st.mobile_section_padding_top | default: 0 }}px; --ns-pb-m: {{ st.mobile_section_padding_bottom | default: 0 }}px; --ns-px-m: {{ st.mobile_section_padding_left_right | default: 0 }}px;
+  --ns-mt-d: {{ st.section_margin_top_desktop | default: 0 }}px; --ns-mb-d: {{ st.section_margin_bottom_desktop | default: 0 }}px; --ns-mt-m: {{ st.section_margin_top_mobile | default: 0 }}px; --ns-mb-m: {{ st.section_margin_bottom_mobile | default: 0 }}px;
+  --ns-head-gap: {{ st.headline_spacing | default: 0 }}px; --ns-ta-d: {{ st.text_alignment | default: 'center' }}; --ns-ta-m: {{ st.mobile_text_alignment | default: 'center' }};
+  --ns-hgap-d: {{ st.heading_subheading_gap | default: 0 }}px; --ns-hgap-m: {{ st.mobile_heading_subheading_gap | default: 0 }}px;
+  --ns-vgap-d: {{ st.vertical_gap | default: 0 }}px; --ns-vgap-m: {{ st.mobile_vertical_gap | default: 0 }}px;
+  --ns-count-d: {{ st.count_size | default: 48 }}px; --ns-count-m: {{ st.mobile_count_size | default: 48 }}px;{% if count_w != '' %} --ns-count-w: {{ count_w }};{% endif %} --ns-count-gap: {{ st.count_spacing | default: 0 }}px;
+  --ns-count-align: {{ count_align }}; --ns-count-justify: {% if count_align == 'left' %}flex-start{% elsif count_align == 'right' %}flex-end{% else %}center{% endif %};
+  --ns-desc-d: {{ st.description_size | default: 15 }}px; --ns-desc-m: {{ st.mobile_description_size | default: 15 }}px; --ns-plus-size: {{ st.plus_size | default: 37 }}px;
+{%- endcapture -%}
+<div class="ns color-{{ color_scheme }}" data-fc-root="number-stats" data-fc-section="{{ sid }}" data-fc-settings="{{ st | json | escape }}" data-width="{{ st.section_width | default: 'full_width' }}"{% if fonts %} data-own-font{% endif %} style="{{ root_vars | strip_newlines }}">
+<div id="loudecoms-{{ sid }}" class="loudecoms-section gradient" data-image="{% if st.section_background_image != blank %}true{% else %}false{% endif %}" loudecoms-section>
+  <div class="loudecoms-container" loudecoms-container>
+    <div class="loudecoms-headline">
+      {%- for block in section.blocks -%}
+        {%- assign bs = block.settings -%}
+        {%- if block.type == 'headline' -%}
+          {%- liquid
+            assign own_w = false
+            if bs.font_weight != blank and bs.font_weight != 'inherit'
+              assign own_w = true
+            endif
+            assign own_lh = false
+            if bs.line_height != blank and bs.line_height != 'inherit'
+              assign own_lh = true
+            endif
+          -%}
+          <h2 class="ns__headline headline-{{ block.id }}" data-fc-block="{{ block.id }}" data-fc-type="headline" data-fc-settings="{{ bs | json | escape }}"{% if own_w %} data-own-weight{% endif %}{% if own_lh %} data-own-size{% endif %} {{ block.shopify_attributes }}{% if bs.content == blank %} hidden{% endif %} style="--ns-h-size-d: {{ bs.size | default: 32 }}px; --ns-h-size-m: {{ bs.mobile_size | default: 31 }}px; --ns-h-color: {% if bs.enable_custom_style %}{% render 'scheme-color', color: bs.color, fallback: 'var(--color-heading)' %}{% else %}var(--color-heading){% endif %};{% if own_w %} --ns-h-weight: {{ bs.font_weight }};{% endif %}{% if own_lh %} --ns-h-lh: {{ bs.line_height }};{% endif %}">{{ bs.content }}</h2>
+        {%- elsif block.type == 'subheadline' -%}
+          <p class="ns__sub subheadline-{{ block.id }}" data-fc-block="{{ block.id }}" data-fc-type="subheadline" data-fc-settings="{{ bs | json | escape }}" {{ block.shopify_attributes }}{% if bs.content == blank %} hidden{% endif %} style="--ns-s-size-d: {{ bs.size | default: 15 }}px; --ns-s-size-m: {{ bs.mobile_size | default: 15 }}px; --ns-s-color: {% if bs.enable_custom_style %}{% render 'scheme-color', color: bs.color, fallback: 'var(--color-text)' %}{% else %}var(--color-text){% endif %};{% if bs.line_height != blank and bs.line_height != 'inherit' %} --ns-s-lh: {{ bs.line_height }};{% endif %}">{{ bs.content }}</p>
+        {%- endif -%}
+      {%- endfor -%}
+    </div>
+    <div class="loudecoms-grid">
+      {%- for block in section.blocks -%}
+        {%- if block.type == 'count_box' -%}
+          {%- liquid
+            assign raw = block.settings.number | default: 0 | round
+            assign neg = ''
+            if raw < 0
+              assign neg = '-'
+              assign raw = raw | times: -1
+            endif
+            assign digits = raw | append: ''
+            assign len = digits.size
+            assign formatted = neg
+            assign chars = digits | split: ''
+            for c in chars
+              assign pos = len | minus: forloop.index
+              assign formatted = formatted | append: c
+              assign m = pos | modulo: 3
+              if pos > 0 and m == 0
+                assign formatted = formatted | append: sep
+              endif
+            endfor
+          -%}
+          <div class="loudecoms-col"{% if block.settings.number == blank %}{% unless request.design_mode or page.in_editor %} hidden{% endunless %}{% endif %} data-fc-block="{{ block.id }}" data-fc-type="count_box" data-fc-settings="{{ block.settings | json | escape }}" {{ block.shopify_attributes }}>
+            <h3{% if count_w != '' %} data-own-weight{% endif %}>
+              <span class="loudecoms-count-up" data-value="{{ block.settings.number | default: 0 | round }}">{{ formatted }}</span>
+              <span class="loudecoms-plus" aria-hidden="true"{% unless st.enable_plus_sign %} hidden{% endunless %}>+</span>
+            </h3>
+            <p>{{ block.settings.text | escape }}</p>
+          </div>
+        {%- endif -%}
+      {%- endfor -%}
+    </div>
+  </div>
+</div>
+</div>{% schema %}
+{
+  "name": "Count Up Banner",
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Section width",
+      "default": "full_width",
+      "options": [
+        {
+          "value": "container",
+          "label": "Default"
+        },
+        {
+          "value": "fluid_container",
+          "label": "Fluid container"
+        },
+        {
+          "value": "stretch_width",
+          "label": "Stretched"
+        },
+        {
+          "value": "full_width",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "reset_spacing",
+      "label": "Remove space between sections",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Content"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_plus_sign",
+      "label": "Show plus sign",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_dot_spacer",
+      "label": "Dot as thousands separator",
+      "default": false,
+      "info": "Shows 5.000 instead of 5,000."
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "text_alignment",
+      "id": "text_alignment",
+      "label": "Headline alignment (desktop)",
+      "default": "center"
+    },
+    {
+      "type": "text_alignment",
+      "id": "count_alignment",
+      "label": "Count alignment",
+      "default": "center"
+    },
+    {
+      "type": "number",
+      "id": "container_max_width",
+      "label": "Box max width",
+      "default": 1000,
+      "info": "In pixels."
+    },
+    {
+      "type": "range",
+      "id": "container_radius",
+      "label": "Box corner radius",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "container_border_size",
+      "label": "Box border",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "headline_spacing",
+      "label": "Space below headlines",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 34
+    },
+    {
+      "type": "range",
+      "id": "heading_subheading_gap",
+      "label": "Gap between headlines (desktop)",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 10
+    },
+    {
+      "type": "range",
+      "id": "vertical_gap",
+      "label": "Space above counts (desktop)",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 10
+    },
+    {
+      "type": "range",
+      "id": "count_spacing",
+      "label": "Space below numbers",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 10
+    },
+    {
+      "type": "range",
+      "id": "element_spacing",
+      "label": "Element Spacing",
+      "min": -50,
+      "max": 100,
+      "step": 5,
+      "unit": "px",
+      "default": 15,
+      "info": "Legacy: kept for saved content. Spacing is set by the controls above.",
+      "hidden": true,
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "header",
+      "content": "Media"
+    },
+    {
+      "type": "image_picker",
+      "id": "section_background_image",
+      "label": "Background image"
+    },
+    {
+      "type": "range",
+      "id": "section_bg_image_brightness",
+      "label": "Image brightness",
+      "min": 0,
+      "max": 200,
+      "step": 10,
+      "unit": "%",
+      "default": 100,
+      "visible_if": "{{ section.settings.section_background_image != blank }}"
+    },
+    {
+      "type": "select",
+      "id": "section_background_size",
+      "label": "Image size",
+      "default": "cover",
+      "options": [
+        {
+          "value": "auto",
+          "label": "Auto"
+        },
+        {
+          "value": "cover",
+          "label": "Cover"
+        },
+        {
+          "value": "contain",
+          "label": "Contain"
+        }
+      ],
+      "visible_if": "{{ section.settings.section_background_image != blank }}"
+    },
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_style",
+      "label": "Enable custom styling",
+      "default": false
+    },
+    {
+      "type": "color",
+      "id": "section_background_custom_color",
+      "label": "Background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color_background",
+      "id": "container_background_color",
+      "label": "Box background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "container_border_color",
+      "label": "Box border",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "count_color",
+      "label": "Numbers",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "description_text_color",
+      "label": "Count text",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "header",
+      "content": "Typography"
+    },
+    {
+      "type": "checkbox",
+      "id": "override_fonts",
+      "label": "Enable custom fonts",
+      "default": false
+    },
+    {
+      "type": "font_picker",
+      "id": "headline_font",
+      "label": "Heading font",
+      "default": "sans-serif",
+      "visible_if": "{{ section.settings.override_fonts }}"
+    },
+    {
+      "type": "font_picker",
+      "id": "text_font",
+      "label": "Body font",
+      "default": "sans-serif",
+      "visible_if": "{{ section.settings.override_fonts }}"
+    },
+    {
+      "type": "range",
+      "id": "count_size",
+      "label": "Number size (desktop)",
+      "min": 10,
+      "max": 75,
+      "step": 1,
+      "unit": "px",
+      "default": 48
+    },
+    {
+      "type": "select",
+      "id": "count_font_weight",
+      "label": "Number weight",
+      "options": [
+        {
+          "value": "theme",
+          "label": "Theme"
+        },
+        {
+          "value": "light",
+          "label": "Light"
+        },
+        {
+          "value": "normal",
+          "label": "Normal"
+        },
+        {
+          "value": "bold",
+          "label": "Bold"
+        }
+      ],
+      "default": "theme"
+    },
+    {
+      "type": "range",
+      "id": "plus_size",
+      "label": "Plus sign size",
+      "min": 10,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 37,
+      "visible_if": "{{ section.settings.enable_plus_sign }}"
+    },
+    {
+      "type": "range",
+      "id": "description_size",
+      "label": "Count text size (desktop)",
+      "min": 10,
+      "max": 50,
+      "step": 1,
+      "unit": "px",
+      "default": 15
+    },
+    {
+      "type": "header",
+      "content": "Animation"
+    },
+    {
+      "type": "checkbox",
+      "id": "reveal",
+      "label": "Reveal on scroll",
+      "default": true,
+      "info": "Uses Theme settings > Animations. Numbers count up once on the page, never in the editor or when visitors ask for reduced motion."
+    },
+    {
+      "type": "header",
+      "content": "Desktop spacing"
+    },
+    {
+      "type": "range",
+      "id": "section_padding_top",
+      "label": "Top padding (desktop)",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 25
+    },
+    {
+      "type": "range",
+      "id": "section_padding_bottom",
+      "label": "Bottom padding (desktop)",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 25
+    },
+    {
+      "type": "range",
+      "id": "section_padding_left_right",
+      "label": "Side padding (desktop)",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 25
+    },
+    {
+      "type": "range",
+      "id": "container_padding_top_bottom",
+      "label": "Box padding top and bottom (desktop)",
+      "min": 0,
+      "max": 200,
+      "step": 10,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "container_padding_left_right",
+      "label": "Box padding sides (desktop)",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 10
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_desktop",
+      "label": "Top margin (desktop)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0,
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_desktop",
+      "label": "Bottom margin (desktop)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0,
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "header",
+      "content": "Mobile"
+    },
+    {
+      "type": "text_alignment",
+      "id": "mobile_text_alignment",
+      "label": "Headline alignment (mobile)",
+      "default": "center"
+    },
+    {
+      "type": "range",
+      "id": "mobile_count_size",
+      "label": "Number size (mobile)",
+      "min": 10,
+      "max": 75,
+      "step": 1,
+      "unit": "px",
+      "default": 48
+    },
+    {
+      "type": "range",
+      "id": "mobile_description_size",
+      "label": "Count text size (mobile)",
+      "min": 10,
+      "max": 50,
+      "step": 1,
+      "unit": "px",
+      "default": 15
+    },
+    {
+      "type": "range",
+      "id": "mobile_heading_subheading_gap",
+      "label": "Gap between headlines (mobile)",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 10
+    },
+    {
+      "type": "range",
+      "id": "mobile_vertical_gap",
+      "label": "Space above counts (mobile)",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 10
+    },
+    {
+      "type": "range",
+      "id": "mobile_section_padding_top",
+      "label": "Top padding (mobile)",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 25
+    },
+    {
+      "type": "range",
+      "id": "mobile_section_padding_bottom",
+      "label": "Bottom padding (mobile)",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 25
+    },
+    {
+      "type": "range",
+      "id": "mobile_section_padding_left_right",
+      "label": "Side padding (mobile)",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 25
+    },
+    {
+      "type": "range",
+      "id": "mobile_container_padding_top_bottom",
+      "label": "Box padding top and bottom (mobile)",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 10
+    },
+    {
+      "type": "range",
+      "id": "mobile_container_padding_left_right",
+      "label": "Box padding sides (mobile)",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 10
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_mobile",
+      "label": "Top margin (mobile)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0,
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_mobile",
+      "label": "Bottom margin (mobile)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0,
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "headline",
+      "name": "Headline",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "type": "inline_richtext",
+          "id": "content",
+          "label": "Headline",
+          "default": "Numbers Don't Lie"
+        },
+        {
+          "type": "header",
+          "content": "Appearance"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Text color",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "header",
+          "content": "Typography"
+        },
+        {
+          "type": "range",
+          "id": "size",
+          "label": "Size (desktop)",
+          "min": 10,
+          "max": 75,
+          "step": 1,
+          "unit": "px",
+          "default": 32
+        },
+        {
+          "type": "range",
+          "id": "mobile_size",
+          "label": "Size (mobile)",
+          "min": 10,
+          "max": 75,
+          "step": 1,
+          "unit": "px",
+          "default": 31
+        },
+        {
+          "type": "select",
+          "id": "line_height",
+          "label": "Line height",
+          "options": [
+            {
+              "value": "0.75",
+              "label": "0.75"
+            },
+            {
+              "value": "1.0",
+              "label": "1.0"
+            },
+            {
+              "value": "1.1",
+              "label": "1.1"
+            },
+            {
+              "value": "1.2",
+              "label": "1.2"
+            },
+            {
+              "value": "1.3",
+              "label": "1.3"
+            },
+            {
+              "value": "1.4",
+              "label": "1.4"
+            },
+            {
+              "value": "1.5",
+              "label": "1.5"
+            },
+            {
+              "value": "1.6",
+              "label": "1.6"
+            },
+            {
+              "value": "1.7",
+              "label": "1.7"
+            },
+            {
+              "value": "1.8",
+              "label": "1.8"
+            },
+            {
+              "value": "1.9",
+              "label": "1.9"
+            },
+            {
+              "value": "2.0",
+              "label": "2.0"
+            },
+            {
+              "value": "inherit",
+              "label": "Theme"
+            }
+          ],
+          "default": "inherit"
+        },
+        {
+          "type": "select",
+          "id": "font_weight",
+          "label": "Weight",
+          "options": [
+            {
+              "value": "300",
+              "label": "300"
+            },
+            {
+              "value": "400",
+              "label": "400"
+            },
+            {
+              "value": "500",
+              "label": "500"
+            },
+            {
+              "value": "550",
+              "label": "550"
+            },
+            {
+              "value": "600",
+              "label": "600"
+            },
+            {
+              "value": "700",
+              "label": "700"
+            },
+            {
+              "value": "inherit",
+              "label": "Theme"
+            }
+          ],
+          "default": "inherit"
+        }
+      ]
+    },
+    {
+      "type": "subheadline",
+      "name": "Subheadline",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "type": "inline_richtext",
+          "id": "content",
+          "label": "Subheadline",
+          "default": "Add a line about what these numbers mean. Leave it empty to hide it."
+        },
+        {
+          "type": "header",
+          "content": "Appearance"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Text color",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "header",
+          "content": "Typography"
+        },
+        {
+          "type": "range",
+          "id": "size",
+          "label": "Size (desktop)",
+          "min": 10,
+          "max": 50,
+          "step": 1,
+          "unit": "px",
+          "default": 15
+        },
+        {
+          "type": "range",
+          "id": "mobile_size",
+          "label": "Size (mobile)",
+          "min": 10,
+          "max": 50,
+          "step": 1,
+          "unit": "px",
+          "default": 15
+        },
+        {
+          "type": "select",
+          "id": "line_height",
+          "label": "Line height",
+          "options": [
+            {
+              "value": "0.75",
+              "label": "0.75"
+            },
+            {
+              "value": "1.0",
+              "label": "1.0"
+            },
+            {
+              "value": "1.1",
+              "label": "1.1"
+            },
+            {
+              "value": "1.2",
+              "label": "1.2"
+            },
+            {
+              "value": "1.3",
+              "label": "1.3"
+            },
+            {
+              "value": "1.4",
+              "label": "1.4"
+            },
+            {
+              "value": "1.5",
+              "label": "1.5"
+            },
+            {
+              "value": "1.6",
+              "label": "1.6"
+            },
+            {
+              "value": "1.7",
+              "label": "1.7"
+            },
+            {
+              "value": "1.8",
+              "label": "1.8"
+            },
+            {
+              "value": "1.9",
+              "label": "1.9"
+            },
+            {
+              "value": "2.0",
+              "label": "2.0"
+            },
+            {
+              "value": "inherit",
+              "label": "Theme"
+            }
+          ],
+          "default": "inherit"
+        }
+      ]
+    },
+    {
+      "type": "count_box",
+      "name": "Count Box",
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "type": "number",
+          "id": "number",
+          "label": "Number"
+        },
+        {
+          "type": "text",
+          "id": "text",
+          "label": "Text",
+          "default": "Reached"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Count Up Banner",
+      "category": "Features",
+      "blocks": [
+        {
+          "type": "headline",
+          "settings": {
+            "content": "Numbers Don't Lie"
+          }
+        },
+        {
+          "type": "subheadline",
+          "settings": {
+            "content": "Add a line about what these numbers mean. Leave it empty to hide it."
+          }
+        },
+        {
+          "type": "count_box",
+          "settings": {
+            "text": "Reached"
+          }
+        },
+        {
+          "type": "count_box",
+          "settings": {
+            "text": "Reached"
+          }
+        },
+        {
+          "type": "count_box",
+          "settings": {
+            "text": "Reached"
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

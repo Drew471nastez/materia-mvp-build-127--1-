@@ -1,0 +1,115 @@
+{
+  "sections": {
+    "faq_pro_1": {
+      "type": "faq-pro",
+      "settings": {
+        "color_scheme": "default"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Frequently asked questions"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>If your question is not here, write to us.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Who is this for?",
+            "answer": "<p>Say who gets the most from your offer, and who should skip it.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How long do I have access?",
+            "answer": "<p>Say how long access lasts and whether updates are included.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What if it is not for me?",
+            "answer": "<p>State your refund terms plainly: how many days and how to ask.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How is it delivered?",
+            "answer": "<p>Say what the buyer receives and how soon after paying.</p>"
+          }
+        },
+        "faq_item_7": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I pay in instalments?",
+            "answer": "<p>Say whether you offer a payment plan and what it costs.</p>"
+          }
+        },
+        "button_8": {
+          "type": "button",
+          "settings": {
+            "label": "Contact us",
+            "link": "/pages/contact"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6",
+        "faq_item_7",
+        "button_8"
+      ]
+    },
+    "image_and_video_text_2": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "image": "shopify://shop_images/landing-laptop.webp",
+        "image_alt": "Hands pointing at a laptop screen",
+        "image_position": "right"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Still deciding?"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Tell us what you want to achieve and we will say honestly whether this fits.</p>"
+          }
+        },
+        "button_3": {
+          "type": "button",
+          "settings": {
+            "label": "Ask a question",
+            "link": "/pages/contact"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "button_3"
+      ]
+    }
+  },
+  "order": [
+    "faq_pro_1",
+    "image_and_video_text_2"
+  ]
+}

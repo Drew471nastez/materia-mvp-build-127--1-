@@ -1,0 +1,1580 @@
+<script src="{{ 'before-after-controls.js' | asset_url }}" defer="defer"></script>
+{%- comment -%} Runtime, once per page (the CSS and hero-image-one.js from layout/theme.storelib, every other script from the tags at the top of this file): shopify/assets/before-after-controls.css, shopify/assets/before-after-controls.js. {%- endcomment -%}
+{% render 'theme-type' %}
+{%- liquid
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
+-%}
+<style>
+  {%- case section.settings.section_width -%}
+    {%- when 'container' -%}
+      #shopify-section-{{ section.id }} .container {
+        max-width: calc(var(--page-width, 1300px) + 3rem) !important;
+        margin-inline: auto !important;
+        width: 100%;
+        box-sizing: border-box !important;
+      }
+    {%- when 'fluid_container' -%}
+      #shopify-section-{{ section.id }} .fluid_container {
+        max-width: calc(var(--fluid-container-width, 1500px) + 3rem) !important;
+        margin-inline: auto !important;
+        width: 100%;
+        box-sizing: border-box !important;
+      }
+    {%- when 'stretch_width' -%}
+      @media (min-width: 1200px) {
+        #shopify-section-{{ section.id }} .stretch_width { padding-inline: 3rem; }
+      }
+    {%- when 'full_width' -%}
+  {%- endcase -%}
+</style>
+{%- assign fb_accessibility_after = 'After' -%}
+{%- assign fb_accessibility_before = 'Before' -%}
+{%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
+{%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
+<style>
+  #shopify-section-{{ section.id }}.scroll-trigger {
+    --animation-duration: {{ settings.animation_duration | default: 700 }}ms;
+    --animation-delay: {{ settings.animation_delay | default: 0 }}ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-{{ section.id }}');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', {{ settings.scroll_animation | json }});
+  })();
+</script>
+{%- endif -%}
+<style data-rs-bulletproof>
+  {%- if section.settings.reset_spacing -%}
+    /* reset_spacing: bulletproof override of ALL section spacing mechanisms */
+    #shopify-section-{{ section.id }},
+    #shopify-section-{{ section.id }} > .section,
+    #shopify-section-{{ section.id }} > section,
+    #shopify-section-{{ section.id }} > div,
+    #shopify-section-{{ section.id }} > div > .section {
+      margin-top: 0 !important;
+      margin-bottom: 0 !important;
+    }
+    #shopify-section-{{ section.id }} + .shopify-section,
+    #shopify-section-{{ section.id }} + section,
+    .shopify-section + #shopify-section-{{ section.id }} {
+      margin-top: 0 !important;
+    }
+  {%- endif -%}
+</style>
+{%- comment -%}
+  Materia Themes — Before And After Reveal
+  Centered hero section with an optional trust bar (Trustpilot-style stars
+  OR overlapping customer-avatar proof), heading, subheading, button, and
+  two side-by-side before / after images joined by a stylable arrow with
+  optional animation. All content is reorderable blocks.
+{%- endcomment -%}
+
+{%- liquid
+  assign st  = section.settings
+  assign sid = section.id
+  assign placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Cg fill=%22%23000000%22 fill-opacity=%220.18%22%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22/%3E%3C/g%3E%3C/svg%3E'
+  assign av_placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22%3E%3Cg fill=%22%23000000%22 fill-opacity=%220.22%22%3E%3Ccircle cx=%2220%22 cy=%2215%22 r=%227%22/%3E%3Cpath d=%22M6 38c1-8 7-12 14-12s13 4 14 12z%22/%3E%3C/g%3E%3C/svg%3E'
+
+  assign before_block = nil
+  assign after_block  = nil
+  for b in section.blocks
+    if b.type == 'before' and before_block == nil
+      assign before_block = b
+    endif
+    if b.type == 'after' and after_block == nil
+      assign after_block = b
+    endif
+  endfor
+
+  comment
+    The Trust bar / avatar styling now lives ON the Trust bar block (tb) instead
+    of the section, so every trust control sits in one place. `tb` is nil-safe:
+    if there's no Trust bar block, the defaults below apply harmlessly.
+  endcomment
+  assign trust_block = section.blocks | where: 'type', 'trust' | first
+  assign tb = trust_block.settings
+-%}
+
+<style>
+  /* Section isolation */
+  #shopify-section-{{ sid }} { isolation: isolate; position: relative; }
+  :where(#shopify-section-{{ sid }}) { font-family: var(--body-font, inherit); }
+  :where(#shopify-section-{{ sid }}) :is(h1, h2, h3, h4, h5, h6) { font-family: var(--heading-font, inherit); }
+  #shopify-section-{{ sid }} *, #shopify-section-{{ sid }} *:before, #shopify-section-{{ sid }} *:after { box-sizing: border-box; }
+
+  /* Margins: the sliders always apply, also when the theme's section spacing is removed */
+  {%- liquid
+    assign mt_m = st.section_margin_top_mobile | default: 0
+    assign mb_m = st.section_margin_bottom_mobile | default: 0
+    assign mt_d = st.section_margin_top_desktop | default: 0
+    assign mb_d = st.section_margin_bottom_desktop | default: 0
+    assign use_margins = false
+    if st.reset_spacing or mt_m != 0 or mb_m != 0 or mt_d != 0 or mb_d != 0
+      assign use_margins = true
+    endif
+    assign imp = ''
+    if st.reset_spacing
+      assign imp = ' !important'
+    endif
+  -%}
+  {%- if use_margins %}
+  #shopify-section-{{ sid }}#shopify-section-{{ sid }} { margin-top: {{ mt_m }}px{{ imp }}; margin-bottom: {{ mb_m }}px{{ imp }}; }
+  @media (min-width: 768px) {
+    #shopify-section-{{ sid }}#shopify-section-{{ sid }} { margin-top: {{ mt_d }}px{{ imp }}; margin-bottom: {{ mb_d }}px{{ imp }}; }
+  }
+  {%- endif %}
+  {%- if st.reset_spacing %}
+    #shopify-section-{{ sid }} + .shopify-section { margin-top: 0 !important; }
+  {%- endif %}
+
+  #shopify-section-{{ sid }} .bar {
+    background: {% if st.enable_custom_style %}{% render 'scheme-color', color: st.section_bg, fallback: 'var(--color-background)' %}{% else %}var(--color-background){% endif %} !important;
+    padding-top: {{ st.padding_top_mobile | default: 56 }}px;
+    padding-bottom: {{ st.padding_bottom_mobile | default: 56 }}px;
+  }
+  @media (min-width: 768px) {
+    #shopify-section-{{ sid }} .bar {
+      padding-top: {{ st.padding_top_desktop | default: 96 }}px;
+      padding-bottom: {{ st.padding_bottom_desktop | default: 96 }}px;
+    }
+  }
+
+  #shopify-section-{{ sid }} .bar__inner {
+    max-width: {{ st.section_max_width_desktop | default: 1100 }}px;
+    margin-inline: auto;
+    padding-inline: 1.5rem;
+    text-align: center;
+  }
+
+  #shopify-section-{{ sid }} .bar__header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: {{ st.header_gap | default: 16 }}px;
+    margin-bottom: {{ st.gap_header_images | default: 56 }}px;
+  }
+  #shopify-section-{{ sid }} .bar__header > * { margin: 0; max-width: 720px; }
+
+  /* Trust bar */
+  #shopify-section-{{ sid }} .bar__trust {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: {% if tb.enable_custom_style %}{% render 'scheme-color', color: tb.rating_text_color, fallback: 'var(--color-text)' %}{% else %}var(--color-text){% endif %};
+    font-size: {{ tb.rating_text_size | default: 14 }}px;
+  }
+  #shopify-section-{{ sid }} .bar__avatars {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  #shopify-section-{{ sid }} .bar__av-stack {
+    display: inline-flex;
+    flex-direction: row-reverse;
+  }
+  #shopify-section-{{ sid }} .bar__av {
+    width: {{ tb.avatar_size | default: 41 }}px;
+    height: {{ tb.avatar_size | default: 41 }}px;
+    border-radius: 999px;
+    border: {{ tb.avatar_border_width | default: 2 }}px solid {% if tb.enable_custom_style %}{% render 'scheme-color', color: tb.avatar_border_color, fallback: 'var(--color-background)' %}{% else %}var(--color-background){% endif %};
+    background: {% if tb.enable_custom_style %}{% render 'scheme-color', color: tb.avatar_placeholder_bg, fallback: 'var(--color-border)' %}{% else %}var(--color-border){% endif %};
+    overflow: hidden;
+    margin-left: -{{ tb.avatar_overlap | default: 18 }}px;
+    background-size: cover;
+    background-position: center;
+  }
+  #shopify-section-{{ sid }} .bar__av:last-child { margin-left: 0; }
+  #shopify-section-{{ sid }} .bar__av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  /* Images row — uses CSS Grid where the arrow occupies the same center
+     cell as part of the images via position absolute overlay so it sits ON
+     TOP of the cards (z-index above) rather than between them. */
+  #shopify-section-{{ sid }} .bar__images {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: center;
+    gap: {{ st.images_gap_mobile | default: 8 }}px;
+    margin-inline: auto;
+    max-width: {{ st.images_max_width | default: 900 }}px;
+  }
+  @media (min-width: 768px) {
+    #shopify-section-{{ sid }} .bar__images { gap: {{ st.images_gap_desktop | default: 24 }}px; }
+  }
+
+  #shopify-section-{{ sid }} .bar__img-card {
+    position: relative;
+    width: 100%;
+    aspect-ratio: {{ st.image_aspect | default: '1 / 1' }};
+    border-radius: {{ st.image_radius | default: 18 }}px;
+    overflow: hidden;
+    background: {% if st.enable_custom_style %}{% render 'scheme-color', color: st.image_bg, fallback: 'var(--color-border)' %}{% else %}var(--color-border){% endif %};
+    z-index: 1;
+  }
+  #shopify-section-{{ sid }} .bar__img-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  #shopify-section-{{ sid }} .bar__img-card--before { transform: rotate({{ st.before_rotate | default: -3 }}deg); }
+  #shopify-section-{{ sid }} .bar__img-card--after  { transform: rotate({{ st.after_rotate  | default:  3 }}deg); }
+  #shopify-section-{{ sid }} .bar__label {
+    position: absolute;
+    left: 12px;
+    bottom: 12px;
+    z-index: 2;
+    padding: 6px 12px;
+    border-radius: var(--btn-radius, 6px);
+    background: {% if st.enable_custom_style %}{% render 'scheme-color', color: st.label_bg, fallback: 'var(--color-background)' %}{% else %}var(--color-background){% endif %};
+    color: {% if st.enable_custom_style %}{% render 'scheme-color', color: st.label_color, fallback: 'var(--color-heading)' %}{% else %}var(--color-heading){% endif %};
+    font-family: var(--body-font, inherit);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.2;
+    pointer-events: none;
+  }
+  #shopify-section-{{ sid }} .bar__img-card--after .bar__label { left: auto; right: 12px; }
+
+  /* Arrow — overlay positioned absolutely in the center of the images row
+     so it always sits ABOVE the images (z-index 5). Uses aspect-ratio so
+     the box never collapses and overflow: visible so curved/animated
+     arrows are never clipped. */
+  #shopify-section-{{ sid }} .bar__arrow {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: {{ st.arrow_size_mobile | default: 80 }}px;
+    aspect-ratio: 100 / 50;
+    transform: translate(-50%, -50%);
+    color: {% if st.enable_custom_style %}{% render 'scheme-color', color: st.arrow_color, fallback: 'var(--color-primary)' %}{% else %}var(--color-primary){% endif %};
+    z-index: 5;
+    pointer-events: none;
+    line-height: 0;
+    overflow: visible;
+    display: block;
+  }
+  @media (min-width: 768px) {
+    #shopify-section-{{ sid }} .bar__arrow {
+      width: {{ st.arrow_size | default: 110 }}px;
+    }
+  }
+  #shopify-section-{{ sid }} .bar__arrow svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    overflow: visible;
+    transform-origin: center center;
+    will-change: transform;
+  }
+
+  /* Arrow animations.
+     The .bar__arrow wrapper is CENTRED with transform: translate(-50%,-50%).
+     If the animation lived on .bar__arrow its keyframe transform would replace
+     that centring and shove the arrow off to the right/down. So the animation
+     runs on the inner <svg> instead — the wrapper stays perfectly centred and
+     the arrow animates in place. */
+  {%- case st.arrow_animation -%}
+    {%- when 'pulse' -%}
+      #shopify-section-{{ sid }} .bar__arrow svg { animation: ba-pulse 1.4s ease-in-out infinite; }
+      @keyframes ba-pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.12); } }
+    {%- when 'wiggle' -%}
+      #shopify-section-{{ sid }} .bar__arrow svg { animation: ba-wiggle 1.6s ease-in-out infinite; }
+      @keyframes ba-wiggle { 0%,100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
+    {%- when 'slide' -%}
+      #shopify-section-{{ sid }} .bar__arrow svg { animation: ba-slide 1.6s ease-in-out infinite; }
+      @keyframes ba-slide { 0%,100% { transform: translateX(-4px); } 50% { transform: translateX(4px); } }
+    {%- when 'bounce' -%}
+      #shopify-section-{{ sid }} .bar__arrow svg { animation: ba-bounce 1.4s ease-in-out infinite; }
+      @keyframes ba-bounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+    {%- when 'spin' -%}
+      #shopify-section-{{ sid }} .bar__arrow svg { animation: ba-spin 5s linear infinite; }
+      @keyframes ba-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  {%- endcase -%}
+  @media (prefers-reduced-motion: reduce) {
+    #shopify-section-{{ sid }} .bar__arrow svg { animation: none !important; }
+  }
+
+  /* Show / hide by device */
+  {%- if st.show_section_on == 'mobile' -%}
+    #shopify-section-{{ sid }} .bar { display: none; }
+    @media (max-width: 767px) { #shopify-section-{{ sid }} .bar { display: block; } }
+  {%- elsif st.show_section_on == 'desktop' -%}
+    #shopify-section-{{ sid }} .bar { display: none; }
+    @media (min-width: 768px) { #shopify-section-{{ sid }} .bar { display: block; } }
+  {%- endif -%}
+</style>
+
+{%- comment -%} before-after-controls.css and before-after-controls.js are linked once per page: the CSS and hero-image-one.js from layout/theme.storelib's <head>, every other script by the tags at the top of this file. {%- endcomment -%}
+<section data-before-after-controls data-ba-placeholder="{{ placeholder | escape }}" data-ba-section="{{ section.id }}" data-ba-settings="{{ section.settings | json | escape }}" data-ba-defaults='{"color_scheme":"default","section_width":"full_width","show_section_on":"all","section_max_width_desktop":1100,"enable_custom_style":false,"enable_custom_fonts":false,"heading_font":"assistant_n4","body_font":"assistant_n4","header_gap":16,"gap_header_images":56,"image_aspect":"1 / 1","image_radius":18,"show_labels":true,"before_rotate":-3,"after_rotate":3,"images_max_width":900,"images_gap_desktop":24,"images_gap_mobile":8,"arrow_style":"curved","arrow_size":110,"arrow_size_mobile":80,"arrow_animation":"none","reset_spacing":true,"padding_top_desktop":96,"padding_bottom_desktop":96,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"padding_top_mobile":56,"padding_bottom_mobile":56,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0}' data-ba-block-defaults='{"trust":{"enable_custom_style":false,"show_avatars":true,"show_placeholders":true,"avatar_size":41,"avatar_overlap":18,"avatar_border_width":2,"text":"Loved by 1,000+","rating_text_size":14,"enable_custom_fonts":false,"font":"assistant_n4"},"heading":{"enable_custom_style":false,"text":"See the difference yourself","tag":"h2","weight_enable":false,"weight":"800","size_enable":false,"size_desktop":48,"size_mobile":32,"line_height":1.1,"tracking":0,"enable_custom_fonts":false,"font":"assistant_n4"},"subheading":{"enable_custom_style":false,"text":"&lt;p>Real results from real customers. See what changed, side by side.&lt;/p>","weight_enable":false,"weight":"400","size_enable":false,"size":17,"line_height":1.5,"max_width":640,"enable_custom_fonts":false,"font":"assistant_n4"},"button":{"enable_custom_style":false,"text":"Shop now","link":"/","use_theme_button":true,"border_width":0,"radius":100,"size":16,"weight_enable":false,"weight":"700","enable_custom_fonts":false,"font":"assistant_n4","pad_x":36,"pad_y":14},"before":{"enable_custom_style":false,"label":"Before"},"after":{"enable_custom_style":false,"label":"After"}}' class="bar color-{{ color_scheme }} gradient {{ section.settings.section_width | default: 'full_width' }}" id="bar-{{ sid }}">
+  <div class="bar__inner">
+
+    {%- comment -%}========== HEADER (blocks: trust, heading, subheading, button) ==========={%- endcomment -%}
+    <div class="bar__header">
+      {%- comment -%}
+        Theme settings > Typography "Use in every section" forces the theme's
+        heading and body type with !important. An element whose own font,
+        weight or size switch is on carries data-own-font / data-own-weight /
+        data-own-size (data-own-shape for a button's own size and corners), so
+        its control wins in the first paint; before-after-controls.js toggles
+        the same attributes on live edits.
+      {%- endcomment -%}
+      {%- assign sec_head_font = false -%}
+      {%- assign sec_body_font = false -%}
+      {%- if st.enable_custom_fonts and st.heading_font.family -%}{%- assign sec_head_font = true -%}{%- endif -%}
+      {%- if st.enable_custom_fonts and st.body_font.family -%}{%- assign sec_body_font = true -%}{%- endif -%}
+      {%- for block in section.blocks -%}
+        {%- assign bs = block.settings -%}
+        {%- assign block_font = false -%}
+        {%- if bs.enable_custom_fonts and bs.font.family -%}{%- assign block_font = true -%}{%- endif -%}
+        {%- case block.type -%}
+
+          {%- when 'trust' -%}
+            {%- liquid
+              assign has_av = false
+              if bs.show_avatars
+                if bs.avatar_1 != blank or bs.avatar_2 != blank or bs.avatar_3 != blank or bs.avatar_4 != blank or bs.show_placeholders
+                  assign has_av = true
+                endif
+              endif
+            -%}
+            {%- if true -%}
+              <div class="bar__trust" data-ba-block="{{ block.id }}" data-ba-type="{{ block.type }}" data-ba-settings="{{ bs | json | escape }}"{% if sec_body_font or block_font %} data-own-font{% endif %} {{ block.shopify_attributes }}>
+                {%- if has_av -%}
+                <span class="bar__avatars">
+                  <span class="bar__av-stack">
+                    {%- comment -%}
+                      Render the 4 avatar slots in reverse (4→1) so the first one
+                      ends up on top of the overlapping stack. We read each slot
+                      directly — the old version built an array with
+                      `'' | split: ',' | concat: <image>`, but `concat` only joins
+                      arrays, so the single image objects never entered it and
+                      every slot fell through to the placeholder. That's why
+                      uploaded avatars never showed.
+                    {%- endcomment -%}
+                    {%- for i in (1..4) reversed -%}
+                      {%- liquid
+                        case i
+                          when 1
+                            assign img = bs.avatar_1
+                          when 2
+                            assign img = bs.avatar_2
+                          when 3
+                            assign img = bs.avatar_3
+                          when 4
+                            assign img = bs.avatar_4
+                        endcase
+                      -%}
+                      {%- if img != blank -%}
+                        <span class="bar__av" data-avatar="{{ i }}"><img src="{{ img | image_url: width: 120 }}" alt="" loading="lazy" width="60" height="60"></span>
+                      {%- elsif bs.show_placeholders -%}
+                        <span class="bar__av" data-avatar="{{ i }}"><img src="{{ av_placeholder }}" alt="" loading="lazy" width="60" height="60"></span>
+                      {%- endif -%}
+                    {%- endfor -%}
+                  </span>
+                </span>
+                {%- endif -%}
+                {%- if true -%}<span data-ba-trust-text>{{ bs.text }}</span>{%- endif -%}
+              </div>
+            {%- endif -%}
+
+          {%- when 'heading' -%}
+            {%- if true -%}
+              <h2 id="block-{{ block.id }}" class="bar__heading" data-ba-block="{{ block.id }}" data-ba-type="{{ block.type }}" data-ba-settings="{{ bs | json | escape }}"{% if sec_head_font or block_font %} data-own-font{% endif %}{% if bs.weight_enable %} data-own-weight{% endif %}{% if bs.size_enable %} data-own-size{% endif %} {{ block.shopify_attributes }}>{{ bs.text }}</h2>
+              <style>
+                #shopify-section-{{ sid }} #block-{{ block.id }} {
+                  color: {% if bs.enable_custom_style %}{% render 'scheme-color', color: bs.color, fallback: 'var(--color-heading)' %}{% else %}var(--color-heading){% endif %} !important;
+                  {%- if bs.weight_enable -%}font-weight: {{ bs.weight | default: 800 }};{%- endif -%}
+                  {%- if bs.size_enable %}
+                  line-height: {{ bs.line_height | default: 1.1 }};
+                  letter-spacing: {{ bs.tracking | default: 0 }}px;
+                  font-size: {{ bs.size_mobile | default: 32 }}px;
+                  {%- endif %}
+                }
+                {%- if bs.size_enable %}
+                @media (min-width: 768px) {
+                  #shopify-section-{{ sid }} #block-{{ block.id }} { font-size: {{ bs.size_desktop | default: 48 }}px; }
+                }
+                {%- endif %}
+              </style>
+            {%- endif -%}
+
+          {%- when 'subheading' -%}
+            {%- if true -%}
+              <div id="block-{{ block.id }}" class="bar__sub" data-ba-block="{{ block.id }}" data-ba-type="{{ block.type }}" data-ba-settings="{{ bs | json | escape }}"{% if sec_body_font or block_font %} data-own-font{% endif %}{% if bs.weight_enable %} data-own-weight{% endif %}{% if bs.size_enable %} data-own-size{% endif %} {{ block.shopify_attributes }}>{{ bs.text }}</div>
+              <style>
+                #shopify-section-{{ sid }} #block-{{ block.id }} {
+                  color: {% if bs.enable_custom_style %}{% render 'scheme-color', color: bs.color, fallback: 'var(--color-text)' %}{% else %}var(--color-text){% endif %} !important;
+                  {%- if bs.size_enable %}
+                  font-size: {{ bs.size | default: 17 }}px;
+                  line-height: {{ bs.line_height | default: 1.5 }};
+                  {%- endif %}
+                  {%- if bs.weight_enable -%}font-weight: {{ bs.weight | default: 400 }};{%- endif %}
+                  max-width: {{ bs.max_width | default: 640 }}px;
+                  margin-inline: auto;
+                }
+                #shopify-section-{{ sid }} #block-{{ block.id }} > * { margin: 0; }
+              </style>
+            {%- endif -%}
+
+          {%- when 'button' -%}
+            {%- if true -%}
+              <a id="block-{{ block.id }}" class="bar__btn" data-ba-block="{{ block.id }}" data-ba-type="{{ block.type }}" data-ba-settings="{{ bs | json | escape }}" data-sl-button data-button-role="primary" data-theme-button="primary"{% if bs.use_theme_button == false %} data-own-shape{% if bs.weight_enable %} data-own-weight{% endif %}{% if block_font %} data-own-font{% endif %}{% endif %} href="{{ bs.link | url }}" {{ block.shopify_attributes }}>{{ bs.text | escape }}</a>
+
+            {%- endif -%}
+
+        {%- endcase -%}
+      {%- endfor -%}
+    </div>
+
+    {%- comment -%}========== IMAGES + ARROW ==========={%- endcomment -%}
+    <div class="bar__images">
+      <div class="bar__img-card bar__img-card--before" data-ba-block="{{ before_block.id }}" data-ba-type="before" data-ba-settings="{{ before_block.settings | json | escape }}"
+           {% if before_block %}{{ before_block.shopify_attributes }}{% endif %}>
+        {%- if before_block and before_block.settings.image -%}
+          <img src="{{ before_block.settings.image | image_url: width: 1200 }}"
+               alt="{{ before_block.settings.alt | default: before_block.settings.label | default: fb_accessibility_before | escape }}"
+               loading="lazy"
+               width="{{ before_block.settings.image.width }}" height="{{ before_block.settings.image.height }}">
+        {%- else -%}
+          <img src="{{ placeholder }}" alt="" loading="lazy">
+        {%- endif -%}
+        {%- if before_block -%}<span class="bar__label">{{ before_block.settings.label | default: fb_accessibility_before | escape }}</span>{%- endif -%}
+      </div>
+
+      <span class="bar__arrow" aria-hidden="true">
+        {%- case st.arrow_style -%}
+          {%- when 'curved' -%}
+            {%- comment -%} Cubic Bézier ending with horizontal tangent so the arrowhead sits flat. {%- endcomment -%}
+            <svg viewBox="0 0 100 50" preserveAspectRatio="xMidYMid meet" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="overflow:visible">
+              <path d="M8 35 C 28 7 72 35 92 35"/>
+              <polyline points="82 27 92 35 82 43"/>
+            </svg>
+          {%- when 'arrow-thin' -%}
+            <svg viewBox="0 0 100 40" preserveAspectRatio="xMidYMid meet" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="overflow:visible">
+              <line x1="10" y1="20" x2="88" y2="20"/>
+              <polyline points="78 11 90 20 78 29"/>
+            </svg>
+          {%- when 'chevron' -%}
+            <svg viewBox="0 0 60 60" preserveAspectRatio="xMidYMid meet" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="overflow:visible">
+              <polyline points="22 14 40 30 22 46"/>
+            </svg>
+          {%- when 'double-chevron' -%}
+            <svg viewBox="0 0 60 60" preserveAspectRatio="xMidYMid meet" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="overflow:visible">
+              <polyline points="14 14 30 30 14 46"/>
+              <polyline points="32 14 48 30 32 46"/>
+            </svg>
+          {%- when 'sparkle' -%}
+            <svg viewBox="0 0 60 60" preserveAspectRatio="xMidYMid meet" fill="currentColor" aria-hidden="true" style="overflow:visible">
+              <path d="M30 6 L34 26 L54 30 L34 34 L30 54 L26 34 L6 30 L26 26 Z"/>
+            </svg>
+          {%- else -%}
+            <svg viewBox="0 0 100 50" preserveAspectRatio="xMidYMid meet" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="overflow:visible">
+              <path d="M8 35 C 28 7 72 35 92 35"/>
+              <polyline points="82 27 92 35 82 43"/>
+            </svg>
+        {%- endcase -%}
+      </span>
+
+      <div class="bar__img-card bar__img-card--after" data-ba-block="{{ after_block.id }}" data-ba-type="after" data-ba-settings="{{ after_block.settings | json | escape }}"
+           {% if after_block %}{{ after_block.shopify_attributes }}{% endif %}>
+        {%- if after_block and after_block.settings.image -%}
+          <img src="{{ after_block.settings.image | image_url: width: 1200 }}"
+               alt="{{ after_block.settings.alt | default: after_block.settings.label | default: fb_accessibility_after | escape }}"
+               loading="lazy"
+               width="{{ after_block.settings.image.width }}" height="{{ after_block.settings.image.height }}">
+        {%- else -%}
+          <img src="{{ placeholder }}" alt="" loading="lazy">
+        {%- endif -%}
+        {%- if after_block -%}<span class="bar__label">{{ after_block.settings.label | default: fb_accessibility_after | escape }}</span>{%- endif -%}
+      </div>
+    </div>
+
+  </div>
+<template data-ba-arrow="curved"><svg viewBox="0 0 100 50" preserveAspectRatio="xMidYMid meet" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="overflow:visible">
+              <path d="M8 35 C 28 7 72 35 92 35"/>
+              <polyline points="82 27 92 35 82 43"/>
+            </svg></template><template data-ba-arrow="arrow-thin"><svg viewBox="0 0 100 40" preserveAspectRatio="xMidYMid meet" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="overflow:visible">
+              <line x1="10" y1="20" x2="88" y2="20"/>
+              <polyline points="78 11 90 20 78 29"/>
+            </svg></template><template data-ba-arrow="chevron"><svg viewBox="0 0 60 60" preserveAspectRatio="xMidYMid meet" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="overflow:visible">
+              <polyline points="22 14 40 30 22 46"/>
+            </svg></template><template data-ba-arrow="double-chevron"><svg viewBox="0 0 60 60" preserveAspectRatio="xMidYMid meet" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="overflow:visible">
+              <polyline points="14 14 30 30 14 46"/>
+              <polyline points="32 14 48 30 32 46"/>
+            </svg></template><template data-ba-arrow="sparkle"><svg viewBox="0 0 60 60" preserveAspectRatio="xMidYMid meet" fill="currentColor" aria-hidden="true" style="overflow:visible">
+              <path d="M30 6 L34 26 L54 30 L34 34 L30 54 L26 34 L6 30 L26 26 Z"/>
+            </svg></template>
+</section>
+{% render 'before-after-initial', section:section %}
+
+{% schema %}
+{
+  "name": "Before And After Reveal",
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default"
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Section width",
+      "default": "full_width",
+      "options": [
+        {
+          "value": "container",
+          "label": "Default"
+        },
+        {
+          "value": "fluid_container",
+          "label": "Fluid container"
+        },
+        {
+          "value": "stretch_width",
+          "label": "Stretched"
+        },
+        {
+          "value": "full_width",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "show_section_on",
+      "label": "Show section on",
+      "default": "all",
+      "options": [
+        {
+          "value": "all",
+          "label": "All Devices"
+        },
+        {
+          "value": "mobile",
+          "label": "Only Mobile"
+        },
+        {
+          "value": "desktop",
+          "label": "Only Desktop"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "reset_spacing",
+      "label": "Remove the theme's space between sections",
+      "info": "The margin sliders below still apply.",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "range",
+      "id": "section_max_width_desktop",
+      "label": "Content max width",
+      "min": 600,
+      "max": 1500,
+      "step": 10,
+      "unit": "px",
+      "default": 1100
+    },
+    {
+      "type": "range",
+      "id": "header_gap",
+      "label": "Gap between header blocks",
+      "min": 4,
+      "max": 60,
+      "step": 2,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "range",
+      "id": "gap_header_images",
+      "label": "Gap header → images",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 56
+    },
+    {
+      "type": "header",
+      "content": "Images"
+    },
+    {
+      "type": "select",
+      "id": "image_aspect",
+      "label": "Image shape",
+      "default": "1 / 1",
+      "options": [
+        {
+          "value": "1 / 1",
+          "label": "Square (1:1)"
+        },
+        {
+          "value": "4 / 5",
+          "label": "Portrait (4:5)"
+        },
+        {
+          "value": "3 / 4",
+          "label": "Tall (3:4)"
+        },
+        {
+          "value": "2 / 3",
+          "label": "Taller (2:3)"
+        },
+        {
+          "value": "4 / 3",
+          "label": "Landscape (4:3)"
+        },
+        {
+          "value": "16 / 9",
+          "label": "Wide (16:9)"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "image_radius",
+      "label": "Image corner radius",
+      "min": 0,
+      "max": 40,
+      "step": 1,
+      "unit": "px",
+      "default": 18
+    },
+    {
+      "type": "range",
+      "id": "before_rotate",
+      "label": "Before image rotation",
+      "min": -15,
+      "max": 15,
+      "step": 1,
+      "unit": "°",
+      "default": -3
+    },
+    {
+      "type": "range",
+      "id": "after_rotate",
+      "label": "After image rotation",
+      "min": -15,
+      "max": 15,
+      "step": 1,
+      "unit": "°",
+      "default": 3
+    },
+    {
+      "type": "range",
+      "id": "images_max_width",
+      "label": "Images row max width",
+      "min": 400,
+      "max": 1200,
+      "step": 10,
+      "unit": "px",
+      "default": 900
+    },
+    {
+      "type": "range",
+      "id": "images_gap_desktop",
+      "label": "Gap between images (desktop)",
+      "min": 0,
+      "max": 100,
+      "step": 2,
+      "unit": "px",
+      "default": 24
+    },
+    {
+      "type": "range",
+      "id": "images_gap_mobile",
+      "label": "Gap between images (mobile)",
+      "min": 0,
+      "max": 60,
+      "step": 2,
+      "unit": "px",
+      "default": 8
+    },
+    {
+      "type": "header",
+      "content": "Labels"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_labels",
+      "label": "Show Before / After labels",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Arrow"
+    },
+    {
+      "type": "select",
+      "id": "arrow_style",
+      "label": "Arrow style",
+      "default": "curved",
+      "options": [
+        {
+          "value": "curved",
+          "label": "Curved arrow"
+        },
+        {
+          "value": "arrow-thin",
+          "label": "Thin straight arrow"
+        },
+        {
+          "value": "chevron",
+          "label": "Chevron ›"
+        },
+        {
+          "value": "double-chevron",
+          "label": "Double chevron ››"
+        },
+        {
+          "value": "sparkle",
+          "label": "Sparkle ✦"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "arrow_size",
+      "label": "Arrow size (desktop)",
+      "min": 24,
+      "max": 200,
+      "step": 2,
+      "unit": "px",
+      "default": 110
+    },
+    {
+      "type": "range",
+      "id": "arrow_size_mobile",
+      "label": "Arrow size (mobile)",
+      "min": 18,
+      "max": 140,
+      "step": 2,
+      "unit": "px",
+      "default": 80
+    },
+    {
+      "type": "select",
+      "id": "arrow_animation",
+      "label": "Arrow animation",
+      "default": "none",
+      "options": [
+        {
+          "value": "none",
+          "label": "None"
+        },
+        {
+          "value": "pulse",
+          "label": "Pulse"
+        },
+        {
+          "value": "wiggle",
+          "label": "Wiggle"
+        },
+        {
+          "value": "slide",
+          "label": "Slide back & forth"
+        },
+        {
+          "value": "bounce",
+          "label": "Bounce"
+        },
+        {
+          "value": "spin",
+          "label": "Spin"
+        }
+      ]
+    },
+    {
+      "type": "header",
+      "content": "Custom colours"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_style",
+      "label": "Enable custom styling",
+      "default": false
+    },
+    {
+      "type": "color",
+      "id": "section_bg",
+      "label": "Background override",
+      "info": "Leave empty to use the colour scheme's background.",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "image_bg",
+      "label": "Empty image background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "label_bg",
+      "label": "Label background",
+      "info": "Leave empty to use the colour scheme's background.",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "label_color",
+      "label": "Label text",
+      "info": "Leave empty to use the colour scheme's heading colour.",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "arrow_color",
+      "label": "Arrow color",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "header",
+      "content": "Typography"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_fonts",
+      "label": "Enable custom fonts",
+      "default": false
+    },
+    {
+      "type": "font_picker",
+      "id": "heading_font",
+      "label": "Heading font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "font_picker",
+      "id": "body_font",
+      "label": "Body font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "header",
+      "content": "Desktop spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top_desktop",
+      "label": "Top padding (desktop)",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 96
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom_desktop",
+      "label": "Bottom padding (desktop)",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 96
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_desktop",
+      "label": "Top margin (desktop px)",
+      "min": -200,
+      "max": 300,
+      "step": 5,
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_desktop",
+      "label": "Bottom margin (desktop px)",
+      "min": -200,
+      "max": 300,
+      "step": 5,
+      "default": 0
+    },
+    {
+      "type": "header",
+      "content": "Mobile spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top_mobile",
+      "label": "Top padding (mobile)",
+      "min": 0,
+      "max": 200,
+      "step": 2,
+      "unit": "px",
+      "default": 56
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom_mobile",
+      "label": "Bottom padding (mobile)",
+      "min": 0,
+      "max": 200,
+      "step": 2,
+      "unit": "px",
+      "default": 56
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_mobile",
+      "label": "Top margin (mobile px)",
+      "min": -200,
+      "max": 300,
+      "step": 5,
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_mobile",
+      "label": "Bottom margin (mobile px)",
+      "min": -200,
+      "max": 300,
+      "step": 5,
+      "default": 0
+    }
+  ],
+  "blocks": [
+    {
+      "type": "trust",
+      "name": "Trust bar",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "header",
+          "content": "Avatars"
+        },
+        {
+          "type": "checkbox",
+          "id": "show_avatars",
+          "label": "Show avatars",
+          "default": true
+        },
+        {
+          "type": "checkbox",
+          "id": "show_placeholders",
+          "label": "Use placeholder for empty slots",
+          "default": true
+        },
+        {
+          "type": "image_picker",
+          "id": "avatar_1",
+          "label": "Avatar 1"
+        },
+        {
+          "type": "image_picker",
+          "id": "avatar_2",
+          "label": "Avatar 2"
+        },
+        {
+          "type": "image_picker",
+          "id": "avatar_3",
+          "label": "Avatar 3"
+        },
+        {
+          "type": "image_picker",
+          "id": "avatar_4",
+          "label": "Avatar 4"
+        },
+        {
+          "type": "header",
+          "content": "Avatar style"
+        },
+        {
+          "type": "range",
+          "id": "avatar_size",
+          "label": "Avatar size",
+          "min": 18,
+          "max": 80,
+          "step": 1,
+          "unit": "px",
+          "default": 41
+        },
+        {
+          "type": "range",
+          "id": "avatar_overlap",
+          "label": "Avatar overlap",
+          "min": 0,
+          "max": 40,
+          "step": 1,
+          "unit": "px",
+          "default": 18
+        },
+        {
+          "type": "color",
+          "id": "avatar_border_color",
+          "label": "Avatar border color",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "range",
+          "id": "avatar_border_width",
+          "label": "Avatar border width",
+          "min": 0,
+          "max": 6,
+          "step": 1,
+          "unit": "px",
+          "default": 2
+        },
+        {
+          "type": "color",
+          "id": "avatar_placeholder_bg",
+          "label": "Avatar placeholder bg",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "header",
+          "content": "Text"
+        },
+        {
+          "type": "inline_richtext",
+          "id": "text",
+          "label": "Text",
+          "default": "Loved by 1,000+"
+        },
+        {
+          "type": "color",
+          "id": "rating_text_color",
+          "label": "Trust text color",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "range",
+          "id": "rating_text_size",
+          "label": "Trust text size",
+          "min": 11,
+          "max": 22,
+          "step": 1,
+          "unit": "px",
+          "default": 14
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_fonts",
+          "label": "Enable custom fonts",
+          "default": false
+        },
+        {
+          "type": "font_picker",
+          "id": "font",
+          "label": "Font",
+          "default": "assistant_n4",
+          "visible_if": "{{ block.settings.enable_custom_fonts }}"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "name": "Heading",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "inline_richtext",
+          "id": "text",
+          "label": "Heading",
+          "default": "See the difference yourself"
+        },
+        {
+          "type": "select",
+          "id": "tag",
+          "label": "HTML tag",
+          "default": "h2",
+          "options": [
+            {
+              "value": "h1",
+              "label": "H1"
+            },
+            {
+              "value": "h2",
+              "label": "H2"
+            },
+            {
+              "value": "h3",
+              "label": "H3"
+            },
+            {
+              "value": "h4",
+              "label": "H4"
+            }
+          ],
+          "hidden": true,
+          "visible_if": "{{ false }}"
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Color",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "checkbox",
+          "id": "weight_enable",
+          "label": "Custom font weight",
+          "default": false
+        },
+        {
+          "type": "select",
+          "id": "weight",
+          "label": "Weight",
+          "default": "800",
+          "visible_if": "{{ block.settings.weight_enable }}",
+          "options": [
+            {
+              "value": "400",
+              "label": "Normal"
+            },
+            {
+              "value": "500",
+              "label": "Medium"
+            },
+            {
+              "value": "600",
+              "label": "Semi-bold"
+            },
+            {
+              "value": "700",
+              "label": "Bold"
+            },
+            {
+              "value": "800",
+              "label": "Extra-bold"
+            }
+          ]
+        },
+        {
+          "type": "checkbox",
+          "id": "size_enable",
+          "label": "Custom size",
+          "info": "Off: uses the theme's heading size.",
+          "default": false
+        },
+        {
+          "type": "range",
+          "id": "size_desktop",
+          "visible_if": "{{ block.settings.size_enable }}",
+          "label": "Size (desktop)",
+          "min": 18,
+          "max": 80,
+          "step": 1,
+          "unit": "px",
+          "default": 48
+        },
+        {
+          "type": "range",
+          "id": "size_mobile",
+          "visible_if": "{{ block.settings.size_enable }}",
+          "label": "Size (mobile)",
+          "min": 16,
+          "max": 60,
+          "step": 1,
+          "unit": "px",
+          "default": 32
+        },
+        {
+          "type": "range",
+          "id": "line_height",
+          "visible_if": "{{ block.settings.size_enable }}",
+          "label": "Line height",
+          "min": 0.9,
+          "max": 2,
+          "step": 0.1,
+          "default": 1.1
+        },
+        {
+          "type": "range",
+          "id": "tracking",
+          "visible_if": "{{ block.settings.size_enable }}",
+          "label": "Letter spacing",
+          "min": -3,
+          "max": 7,
+          "step": 0.1,
+          "unit": "px",
+          "default": 0
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_fonts",
+          "label": "Enable custom fonts",
+          "default": false
+        },
+        {
+          "type": "font_picker",
+          "id": "font",
+          "label": "Font",
+          "default": "assistant_n4",
+          "visible_if": "{{ block.settings.enable_custom_fonts }}"
+        }
+      ]
+    },
+    {
+      "type": "subheading",
+      "name": "Subheading",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "richtext",
+          "id": "text",
+          "label": "Text",
+          "default": "<p>Real results from real customers. See what changed, side by side.</p>"
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Color",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "checkbox",
+          "id": "weight_enable",
+          "label": "Custom font weight",
+          "default": false
+        },
+        {
+          "type": "select",
+          "id": "weight",
+          "label": "Weight",
+          "default": "400",
+          "visible_if": "{{ block.settings.weight_enable }}",
+          "options": [
+            {
+              "value": "300",
+              "label": "Light"
+            },
+            {
+              "value": "400",
+              "label": "Normal"
+            },
+            {
+              "value": "500",
+              "label": "Medium"
+            },
+            {
+              "value": "600",
+              "label": "Semi-bold"
+            },
+            {
+              "value": "700",
+              "label": "Bold"
+            }
+          ]
+        },
+        {
+          "type": "checkbox",
+          "id": "size_enable",
+          "label": "Custom size",
+          "info": "Off: uses the theme's body text size.",
+          "default": false
+        },
+        {
+          "type": "range",
+          "id": "size",
+          "visible_if": "{{ block.settings.size_enable }}",
+          "label": "Size",
+          "min": 12,
+          "max": 22,
+          "step": 1,
+          "unit": "px",
+          "default": 17
+        },
+        {
+          "type": "range",
+          "id": "line_height",
+          "visible_if": "{{ block.settings.size_enable }}",
+          "label": "Line height",
+          "min": 1,
+          "max": 2,
+          "step": 0.1,
+          "default": 1.5
+        },
+        {
+          "type": "range",
+          "id": "max_width",
+          "label": "Max width",
+          "min": 200,
+          "max": 800,
+          "step": 10,
+          "unit": "px",
+          "default": 640
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_fonts",
+          "label": "Enable custom fonts",
+          "default": false
+        },
+        {
+          "type": "font_picker",
+          "id": "font",
+          "label": "Font",
+          "default": "assistant_n4",
+          "visible_if": "{{ block.settings.enable_custom_fonts }}"
+        }
+      ]
+    },
+    {
+      "type": "button",
+      "name": "Button",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "text",
+          "id": "text",
+          "label": "Label",
+          "default": "Shop now"
+        },
+        {
+          "type": "url",
+          "id": "link",
+          "label": "Link",
+          "default": "/"
+        },
+        {
+          "type": "color",
+          "id": "bg",
+          "label": "Background",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Text color",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "bg_hover",
+          "label": "Background (hover)",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "color_hover",
+          "label": "Text color (hover)",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "border_color",
+          "label": "Border color",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "checkbox",
+          "id": "use_theme_button",
+          "label": "Match theme button",
+          "default": true
+        },
+        {
+          "type": "range",
+          "id": "border_width",
+          "label": "Border width",
+          "min": 0,
+          "max": 5,
+          "step": 1,
+          "unit": "px",
+          "default": 0,
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        },
+        {
+          "type": "range",
+          "id": "radius",
+          "label": "Corner radius",
+          "min": 0,
+          "max": 100,
+          "step": 1,
+          "unit": "px",
+          "default": 100,
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        },
+        {
+          "type": "range",
+          "id": "size",
+          "label": "Text size",
+          "min": 12,
+          "max": 22,
+          "step": 1,
+          "unit": "px",
+          "default": 16,
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        },
+        {
+          "type": "checkbox",
+          "id": "weight_enable",
+          "label": "Custom font weight",
+          "default": false,
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        },
+        {
+          "type": "select",
+          "id": "weight",
+          "label": "Weight",
+          "default": "700",
+          "visible_if": "{{ block.settings.use_theme_button == false and block.settings.weight_enable }}",
+          "options": [
+            {
+              "value": "400",
+              "label": "Normal"
+            },
+            {
+              "value": "500",
+              "label": "Medium"
+            },
+            {
+              "value": "600",
+              "label": "Semi-bold"
+            },
+            {
+              "value": "700",
+              "label": "Bold"
+            }
+          ]
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_fonts",
+          "label": "Custom font",
+          "default": false,
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        },
+        {
+          "type": "font_picker",
+          "id": "font",
+          "label": "Font",
+          "default": "assistant_n4",
+          "visible_if": "{{ block.settings.use_theme_button == false and block.settings.enable_custom_fonts }}"
+        },
+        {
+          "type": "range",
+          "id": "pad_x",
+          "label": "Padding x",
+          "min": 6,
+          "max": 60,
+          "step": 1,
+          "unit": "px",
+          "default": 36,
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        },
+        {
+          "type": "range",
+          "id": "pad_y",
+          "label": "Padding y",
+          "min": 4,
+          "max": 28,
+          "step": 1,
+          "unit": "px",
+          "default": 14,
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        }
+      ]
+    },
+    {
+      "type": "before",
+      "name": "Before image",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "text",
+          "id": "label",
+          "label": "Label",
+          "default": "Before"
+        },
+        {
+          "type": "image_picker",
+          "id": "image",
+          "label": "Image"
+        },
+        {
+          "type": "text",
+          "id": "alt",
+          "label": "Alt text"
+        }
+      ]
+    },
+    {
+      "type": "after",
+      "name": "After image",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "text",
+          "id": "label",
+          "label": "Label",
+          "default": "After"
+        },
+        {
+          "type": "image_picker",
+          "id": "image",
+          "label": "Image"
+        },
+        {
+          "type": "text",
+          "id": "alt",
+          "label": "Alt text"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Before And After Reveal",
+      "category": "Features",
+      "blocks": [
+        {
+          "type": "trust"
+        },
+        {
+          "type": "heading"
+        },
+        {
+          "type": "subheading"
+        },
+        {
+          "type": "button"
+        },
+        {
+          "type": "before"
+        },
+        {
+          "type": "after"
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,575 @@
+<script src="{{ 'live-testimonials.js' | asset_url }}" defer="defer"></script>
+{% render 'theme-type' %}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign custom = st.enable_custom_style
+  assign fonts = st.enable_custom_fonts
+  assign scroll_anim = settings.scroll_animation | default: 'none'
+  assign summaries = section.blocks | where: 'type', 'summary'
+  assign fb_low = 'accessibility.low' | t
+  assign fb_high = 'accessibility.high' | t
+  assign fb_question = 'accessibility.question' | t
+-%}
+{%- comment -%}
+  Materia Themes. Community Feedback Slider.
+
+  A card with the overall score (a number and stars filled to it), a review
+  count line and a note (Rating summary block), then one row per Question
+  block: the question, its two end labels and a bar with a marker at the
+  average answer. An optional Heading block sits above the card. Sections
+  saved before the Rating summary block keep their score from the hidden
+  section settings. Colours follow the colour scheme and fonts follow Theme
+  settings > Typography until custom styling or custom fonts are switched
+  on. Live edits come from assets/live-testimonials.js.
+{%- endcomment -%}
+{%- if scroll_anim != blank and scroll_anim != 'none' and st.reveal -%}
+<style>
+  #shopify-section-{{ sid }}.scroll-trigger {
+    --animation-duration: {{ settings.animation_duration | default: 700 }}ms;
+    --animation-delay: {{ settings.animation_delay | default: 0 }}ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-{{ sid }}');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', {{ scroll_anim | json }});
+  })();
+</script>
+{%- endif -%}
+{% render 'live-testimonials-style', sid: sid %}
+<style>
+  {%- if fonts -%}{{ st.heading_font | font_face: font_display: 'swap' }}{{ st.body_font | font_face: font_display: 'swap' }}{%- endif %}
+  #shopify-section-{{ sid }} { position: static; }
+  #shopify-section-{{ sid }} .cfs { background: var(--cfs-bg); color: var(--cfs-text); padding-top: var(--cfs-pt); padding-bottom: var(--cfs-pb); font-family: var(--cfs-bf); }
+  #shopify-section-{{ sid }} .cfs *, #shopify-section-{{ sid }} .cfs *::before, #shopify-section-{{ sid }} .cfs *::after { box-sizing: border-box; }
+  #shopify-section-{{ sid }} .cfs__wrap { max-width: var(--cfs-max); margin: 0 auto; padding-inline: 24px; }
+  #shopify-section-{{ sid }} .cfs__heading { margin: 0 0 24px; text-align: center; color: var(--b-c); font-family: var(--cfs-hf); font-weight: var(--heading-weight, 700); line-height: 1.15; font-size: var(--b-fs-m); }
+  #shopify-section-{{ sid }} .cfs__card { padding: clamp(20px, 4vw, 36px); background: var(--cfs-card-bg); border-radius: var(--cfs-radius); box-shadow: 0 8px 28px rgba(16, 24, 40, .08); }
+  #shopify-section-{{ sid }} .cfs__head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 26px; }
+  #shopify-section-{{ sid }} .cfs__head[hidden] { display: none; }
+  #shopify-section-{{ sid }} .cfs__score-row { display: flex; align-items: center; gap: 10px; }
+  #shopify-section-{{ sid }} .cfs__score { color: var(--cfs-score-c); font-family: var(--cfs-hf); font-weight: var(--heading-weight, 700); font-size: clamp(28px, 5vw, 40px); line-height: 1; }
+  #shopify-section-{{ sid }} .cfs__source { text-align: end; font-size: 14px; line-height: 1.5; color: var(--cfs-muted-c); }
+  #shopify-section-{{ sid }} .cfs__count { display: block; color: var(--cfs-text); font-weight: 700; }
+  #shopify-section-{{ sid }} .cfs__note { display: block; margin-top: 2px; font-size: 13px; }
+  #shopify-section-{{ sid }} .cfs__rows { display: flex; flex-direction: column; gap: 20px; }
+  #shopify-section-{{ sid }} .cfs__row { display: flex; flex-direction: column; gap: 8px; }
+  #shopify-section-{{ sid }} .cfs__q { margin: 0; color: var(--cfs-q-c); font-family: var(--cfs-hf); font-weight: var(--heading-weight, 700); font-size: 15px; line-height: 1.35; }
+  #shopify-section-{{ sid }} .cfs__scale { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; color: var(--cfs-muted-c); }
+  #shopify-section-{{ sid }} .cfs__bar { position: relative; height: var(--cfs-bar-h); margin: 4px calc(var(--cfs-marker) / 2) 0; background: var(--cfs-track); border-radius: 999px; }
+  #shopify-section-{{ sid }} .cfs__fill { position: absolute; inset: 0 auto 0 0; width: var(--v); background: var(--cfs-fill); border-radius: 999px; }
+  #shopify-section-{{ sid }} .cfs__row[data-empty] :is(.cfs__fill, .cfs__marker) { display: none; }
+  #shopify-section-{{ sid }} .cfs__marker { position: absolute; top: 50%; left: var(--v); width: var(--cfs-marker); height: var(--cfs-marker); border-radius: 50%; background: var(--cfs-marker-c); transform: translate(-50%, -50%); box-shadow: 0 0 0 4px var(--cfs-card-bg), 0 2px 6px rgba(0, 0, 0, .18); }
+  @media (min-width: 750px) {
+    #shopify-section-{{ sid }} .cfs__heading { font-size: var(--b-fs-d); }
+  }
+</style>
+<div class="lt-frame" data-width="{{ st.section_width | default: 'full_width' }}">
+<div class="cfs color-{{ color_scheme }} gradient" data-lt-root="comunitysldier" data-section-id="{{ sid }}"{% if request.design_mode %} data-lt-settings="{{ st | json | escape }}"{% endif %}{% if fonts %} data-own-font{% endif %} style="--cfs-bg: {% render 'live-testimonials-color', on: custom, color: st.section_bg, fallback: 'var(--color-background)' %};--cfs-text: {% render 'live-testimonials-color', on: custom, color: st.text_color, fallback: 'var(--color-text)' %};--cfs-card-bg: {% render 'live-testimonials-color', on: custom, color: st.card_bg, fallback: 'color-mix(in srgb, var(--color-text) 4%, var(--color-background))' %};--cfs-score-c: {% render 'live-testimonials-color', on: custom, color: st.score_color, fallback: 'var(--color-heading)' %};--cfs-q-c: {% render 'live-testimonials-color', on: custom, color: st.question_color, fallback: 'var(--color-heading)' %};--cfs-muted-c: {% render 'live-testimonials-color', on: custom, color: st.muted_color, fallback: 'color-mix(in srgb, var(--color-text) 72%, transparent)' %};--lt-star-on: {% render 'live-testimonials-color', on: custom, color: st.star_color, fallback: 'var(--color-primary)' %};--lt-star-off: {% render 'live-testimonials-color', on: custom, color: st.star_empty_color, fallback: 'var(--color-border)' %};--cfs-track: {% render 'live-testimonials-color', on: custom, color: st.bar_track_color, fallback: 'var(--color-border)' %};--cfs-fill: {% render 'live-testimonials-color', on: custom, color: st.bar_fill_color, fallback: 'var(--color-heading)' %};--cfs-marker-c: {% render 'live-testimonials-color', on: custom, color: st.marker_color, fallback: 'var(--color-heading)' %};--cfs-hf: {% if fonts and st.heading_font.family != blank %}{{ st.heading_font.family }}, {{ st.heading_font.fallback_families | default: 'sans-serif' }}{% else %}var(--heading-font){% endif %};--cfs-bf: {% if fonts and st.body_font.family != blank %}{{ st.body_font.family }}, {{ st.body_font.fallback_families | default: 'sans-serif' }}{% else %}var(--body-font){% endif %};--cfs-pt: {{ st.padding_top | default: 0 }}px;--cfs-pb: {{ st.padding_bottom | default: 0 }}px;--cfs-max: {{ st.max_width | default: 760 }}px;--cfs-radius: {{ st.card_radius | default: 0 }}px;--cfs-bar-h: {{ st.bar_height | default: 4 }}px;--cfs-marker: {{ st.marker_size | default: 18 }}px;--lt-star-size: 22px;">
+  <div class="cfs__wrap">
+    {%- for b in section.blocks -%}
+      {%- if b.type == 'heading' -%}
+        <h2 class="cfs__heading" data-lt-block="{{ b.id }}" data-lt-type="heading"{% if request.design_mode %} data-lt-settings="{{ b.settings | json | escape }}"{% endif %}{% if b.settings.text == blank %} hidden{% endif %} style="--b-c: {% render 'live-testimonials-color', on: b.settings.enable_custom_style, color: b.settings.color, fallback: 'var(--color-heading)' %};--b-fs-d: {{ b.settings.size | default: 36 }}px;--b-fs-m: {{ b.settings.size_mobile | default: 26 }}px;" {{ b.shopify_attributes }}>{{ b.settings.text }}</h2>
+      {%- endif -%}
+    {%- endfor -%}
+    <div class="cfs__card">
+      {%- if summaries.size > 0 -%}
+        {%- for b in summaries -%}
+          {%- assign bs = b.settings -%}
+          {%- assign score_num = bs.score | replace: ',', '.' | plus: 0 -%}
+          {%- comment -%} No score typed: no number and no stars; nothing typed at all: no header. {%- endcomment -%}
+          {%- liquid
+            assign no_score = false
+            if bs.score == blank
+              assign no_score = true
+            endif
+          -%}
+          <div class="cfs__head" data-lt-block="{{ b.id }}" data-lt-type="summary"{% if request.design_mode %} data-lt-settings="{{ bs | json | escape }}"{% endif %}{% if no_score and bs.count == blank and bs.note == blank %} hidden{% endif %} {{ b.shopify_attributes }}>
+            <div class="cfs__score-row">
+              <span class="cfs__score" data-lt-score{% if no_score %} hidden{% endif %}>{{ bs.score | escape }}</span>
+              {% render 'live-testimonials-stars', rating: score_num, hidden: no_score %}
+            </div>
+            <p class="cfs__source">
+              <span class="cfs__count" data-lt-count{% if bs.count == blank %} hidden{% endif %}>{{ bs.count | escape }}</span>
+              <span class="cfs__note" data-lt-note{% if bs.note == blank %} hidden{% endif %}>{{ bs.note | escape }}</span>
+            </p>
+          </div>
+        {%- endfor -%}
+      {%- else -%}
+        {%- comment -%} Legacy: saved before the Rating summary block. {%- endcomment -%}
+        <div class="cfs__head" data-lt-legacy{% unless st.show_header %} hidden{% endunless %}>
+          <div class="cfs__score-row">
+            <span class="cfs__score" data-lt-score{% if st.overall_score == blank %} hidden{% endif %}>{{ st.overall_score | escape }}</span>
+            {%- liquid
+              assign no_legacy_score = false
+              if st.overall_score == blank
+                assign no_legacy_score = true
+              endif
+            -%}
+            {% render 'live-testimonials-stars', rating: st.overall_score_int, hidden: no_legacy_score %}
+          </div>
+          <p class="cfs__source">
+            <span class="cfs__count" data-lt-count{% if st.review_count == blank %} hidden{% endif %}>{{ st.review_count | escape }}</span>
+            <span class="cfs__note" data-lt-note{% if st.source_note == blank %} hidden{% endif %}>{{ st.source_note | escape }}</span>
+          </p>
+        </div>
+      {%- endif -%}
+      <div class="cfs__rows">
+        {%- for b in section.blocks -%}
+          {%- if b.type != 'question' -%}{%- continue -%}{%- endif -%}
+          {%- assign bs = b.settings -%}
+          {%- assign val = bs.value | default: 0 | at_least: 0 | at_most: 100 -%}
+          {%- comment -%} The bar shows an answer only once Show the average answer is on, so a new question draws no made up result. {%- endcomment -%}
+          <div class="cfs__row" data-lt-block="{{ b.id }}" data-lt-type="question"{% if request.design_mode %} data-lt-settings="{{ bs | json | escape }}"{% endif %} style="--v: {{ val }}%;"{% unless bs.show_value %} data-empty{% endunless %} {{ b.shopify_attributes }}>
+            <h3 class="cfs__q" data-lt-q>{{ bs.question | default: fb_question | escape }}</h3>
+            <div class="cfs__scale" aria-hidden="true"><span data-lt-left>{{ bs.left_label | default: fb_low | escape }}</span><span data-lt-right>{{ bs.right_label | default: fb_high | escape }}</span></div>
+            <div class="cfs__bar"{% if bs.show_value %} role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ val }}" aria-label="{{ bs.question | default: fb_question | escape }}" aria-valuetext="{{ val }}% ({{ bs.left_label | default: fb_low | escape }} to {{ bs.right_label | default: fb_high | escape }})"{% else %} aria-hidden="true"{% endif %} data-lt-bar>
+              <span class="cfs__fill"></span>
+              <span class="cfs__marker"></span>
+            </div>
+          </div>
+        {%- endfor -%}
+      </div>
+    </div>
+  </div>
+</div>
+</div>{% schema %}
+{
+  "name": "Community Feedback Slider",
+  "tag": "section",
+  "class": "section-community-feedback-slider",
+  "disabled_on": {
+    "groups": [
+      "header",
+      "footer"
+    ]
+  },
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Section width",
+      "options": [
+        {
+          "value": "container",
+          "label": "Default"
+        },
+        {
+          "value": "fluid_container",
+          "label": "Fluid container"
+        },
+        {
+          "value": "stretch_width",
+          "label": "Stretched"
+        },
+        {
+          "value": "full_width",
+          "label": "Full width"
+        }
+      ],
+      "default": "full_width"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_header",
+      "label": "Show rating header",
+      "default": true,
+      "hidden": true,
+      "info": "Legacy: used only when the section has no Rating summary block. ",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "text",
+      "id": "overall_score",
+      "label": "Score (display)",
+      "default": "",
+      "hidden": true,
+      "info": "Legacy: used only when the section has no Rating summary block. ",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "range",
+      "id": "overall_score_int",
+      "min": 0,
+      "max": 5,
+      "step": 1,
+      "label": "Filled stars",
+      "default": 0,
+      "hidden": true,
+      "info": "Legacy: used only when the section has no Rating summary block. ",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "text",
+      "id": "review_count",
+      "label": "Review count text",
+      "default": "",
+      "hidden": true,
+      "info": "Legacy: used only when the section has no Rating summary block. ",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "text",
+      "id": "source_note",
+      "label": "Source note",
+      "default": "",
+      "hidden": true,
+      "info": "Legacy: used only when the section has no Rating summary block. ",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "range",
+      "id": "max_width",
+      "min": 480,
+      "max": 1200,
+      "step": 10,
+      "unit": "px",
+      "label": "Card width",
+      "default": 760
+    },
+    {
+      "type": "range",
+      "id": "card_radius",
+      "min": 0,
+      "max": 32,
+      "step": 1,
+      "unit": "px",
+      "label": "Card corner radius",
+      "default": 12
+    },
+    {
+      "type": "range",
+      "id": "bar_height",
+      "min": 2,
+      "max": 12,
+      "step": 1,
+      "unit": "px",
+      "label": "Bar height",
+      "default": 4
+    },
+    {
+      "type": "range",
+      "id": "marker_size",
+      "min": 8,
+      "max": 28,
+      "step": 1,
+      "unit": "px",
+      "label": "Marker size",
+      "default": 18
+    },
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_style",
+      "label": "Enable custom styling",
+      "default": false,
+      "info": "Off: colours follow the colour scheme."
+    },
+    {
+      "type": "color",
+      "id": "section_bg",
+      "label": "Section background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "card_bg",
+      "label": "Card background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "score_color",
+      "label": "Score",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "id": "question_color",
+      "type": "color",
+      "label": "Questions",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "muted_color",
+      "label": "Labels and note",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "star_color",
+      "label": "Filled star",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "star_empty_color",
+      "label": "Empty star",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "bar_track_color",
+      "label": "Bar track",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "bar_fill_color",
+      "label": "Bar fill",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "marker_color",
+      "label": "Marker",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "header",
+      "content": "Typography"
+    },
+    {
+      "id": "enable_custom_fonts",
+      "type": "checkbox",
+      "label": "Enable custom fonts",
+      "default": false,
+      "info": "Off: fonts follow Theme settings > Typography."
+    },
+    {
+      "id": "heading_font",
+      "type": "font_picker",
+      "label": "Heading font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "id": "body_font",
+      "type": "font_picker",
+      "label": "Body font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "header",
+      "content": "Animation"
+    },
+    {
+      "type": "checkbox",
+      "id": "reveal",
+      "label": "Reveal on scroll",
+      "default": true,
+      "info": "Uses Theme settings > Animations."
+    },
+    {
+      "type": "header",
+      "content": "Desktop spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "label": "Top padding",
+      "default": 60
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "label": "Bottom padding",
+      "default": 60
+    }
+  ],
+  "blocks": [
+    {
+      "type": "heading",
+      "name": "Heading",
+      "settings": [
+        {
+          "id": "text",
+          "type": "inline_richtext",
+          "label": "Heading",
+          "default": "What customers told us"
+        },
+        {
+          "id": "size",
+          "type": "range",
+          "label": "Font size (desktop)",
+          "min": 20,
+          "max": 64,
+          "step": 1,
+          "unit": "px",
+          "default": 36
+        },
+        {
+          "id": "size_mobile",
+          "type": "range",
+          "label": "Font size (mobile)",
+          "min": 16,
+          "max": 44,
+          "step": 1,
+          "unit": "px",
+          "default": 26
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "id": "color",
+          "type": "color",
+          "label": "Color",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        }
+      ],
+      "limit": 1
+    },
+    {
+      "type": "summary",
+      "name": "Rating summary",
+      "settings": [
+        {
+          "id": "score",
+          "type": "text",
+          "label": "Score",
+          "default": "",
+          "info": "A number from 0 to 5, from your own reviews. The stars fill to it. Empty: no score and no stars."
+        },
+        {
+          "id": "count",
+          "type": "text",
+          "label": "Review count",
+          "default": "",
+          "info": "For example how many reviews the score is based on."
+        },
+        {
+          "id": "note",
+          "type": "text",
+          "label": "Note",
+          "default": ""
+        }
+      ],
+      "limit": 1
+    },
+    {
+      "type": "question",
+      "name": "Question",
+      "settings": [
+        {
+          "type": "text",
+          "id": "question",
+          "label": "Question",
+          "default": "Is this product good value for money?"
+        },
+        {
+          "type": "text",
+          "id": "left_label",
+          "label": "Left label",
+          "default": "Very poor"
+        },
+        {
+          "type": "text",
+          "id": "right_label",
+          "label": "Right label",
+          "default": "Excellent"
+        },
+        {
+          "type": "checkbox",
+          "id": "show_value",
+          "label": "Show the average answer",
+          "default": false,
+          "info": "Off: the bar shows no answer. Turn it on once you have real answers."
+        },
+        {
+          "type": "range",
+          "id": "value",
+          "min": 0,
+          "max": 100,
+          "step": 1,
+          "unit": "%",
+          "label": "Average answer",
+          "default": 50,
+          "info": "From your own customer answers.",
+          "visible_if": "{{ block.settings.show_value }}"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Community Feedback Slider",
+      "category": "Testimonials",
+      "blocks": [
+        {
+          "type": "heading"
+        },
+        {
+          "type": "summary"
+        },
+        {
+          "type": "question",
+          "settings": {
+            "question": "Is it good value for money?"
+          }
+        },
+        {
+          "type": "question",
+          "settings": {
+            "question": "How is the quality?"
+          }
+        },
+        {
+          "type": "question",
+          "settings": {
+            "question": "Does it fit as expected?",
+            "left_label": "Too small",
+            "right_label": "Too big"
+          }
+        },
+        {
+          "type": "question",
+          "settings": {
+            "question": "Would you buy it again?",
+            "left_label": "No",
+            "right_label": "Yes"
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

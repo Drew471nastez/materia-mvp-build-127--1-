@@ -1,0 +1,220 @@
+{% render 'theme-type' %}
+{%- comment -%}
+  Materia Themes. The sign in popup (see below).
+ 
+  Live edits: shopify/assets/live-account-pages.js.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign custom = st.enable_custom_style
+-%}
+{% render 'account-pages-font-face', st: st %}
+{%- capture fonts -%}{% render 'account-pages-font-vars', st: st %}{%- endcapture -%}
+{%- comment -%}
+  The header's account icon opens this in a modal when the header asks for
+  it (assets/theme.js asks for ?section_id=login-popup and shows #login-popup).
+  Storelib signs a visitor in with a code emailed to them, so both tabs are
+  the store's own forms with an email and no password: customer_login, and
+  create_customer for a new account. theme.js switches the tabs with
+  data-login-show / data-login-hidden and puts the tab's name in the heading.
+{%- endcomment -%}
+<div id="login-popup" class="ap ap-popup color-{{ scheme }}" data-ap-root="login-popup" data-ap-section="{{ sid }}"{% if request.design_mode %} data-ap-settings="{{ st | json | escape }}"{% endif %} style="--ap-pt: 24px; --ap-pb: 24px; --ap-pt-m: 20px; --ap-pb-m: 20px; --ap-align: center;{% if custom and st.heading_color != blank %} --ap-h-c: {{ st.heading_color }};{% endif %}{% if custom and st.text_color != blank %} --ap-t-c: {{ st.text_color }};{% endif %}{{ fonts }}">
+  <style>
+    #login-popup { font-family: var(--body-font, inherit); background: var(--color-background); color: var(--ap-t-c, var(--color-text)); }
+    #login-popup .ap-popup__inner { max-width: 420px; margin-inline: auto; padding-inline: 20px; text-align: center; }
+    #login-popup .ap__h { color: var(--ap-h-c, var(--color-heading)); margin: 0 0 8px; }
+    #login-popup .ap__t { color: var(--ap-t-c, var(--color-text)); margin: 0; }
+    #login-popup .bls-login-popup[aria-hidden="true"] { display: none; }
+    #login-popup .ap__form { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
+    #login-popup .ap__field { display: flex; flex-direction: column; gap: 6px; text-align: start; }
+    #login-popup .ap__field input, #login-popup .ap__btn { width: 100%; }
+    #login-popup .ap__msg { margin: 0; text-align: start; }
+  </style>
+  <div class="ap-popup__inner">
+    <h2 class="ap__h login-heading" data-ap-text="login_title">{{ st.login_title | escape }}</h2>
+    <div id="tab_login-{{ sid }}" class="bls-login bls-login-popup" data-title-default="{{ st.login_title | escape }}" data-login-hidden="{{ st.login_title | escape }}" aria-hidden="false">
+      <p class="ap__t" data-ap-text="login_text">{{ st.login_text | escape }}</p>
+      {%- form 'customer_login', class: 'ap__form auth-form' -%}
+        {%- if form.errors -%}<p class="ap__msg error" role="alert" data-ap-text="error_message">{{ st.error_message | escape }}</p>{%- endif -%}
+        <div class="ap__field">
+          <label for="PopupEmail-{{ sid }}" data-ap-text="email_label">{{ st.email_label | escape }}</label>
+          <input id="PopupEmail-{{ sid }}" type="email" name="customer[email]" autocomplete="email" autocapitalize="off" spellcheck="false" required aria-required="true" placeholder="{{ st.email_placeholder | escape }}" data-ap-attr-placeholder="email_placeholder">
+        </div>
+        <button type="submit" class="btn btn-primary ap__btn" data-theme-button="primary" data-sl-button><span data-ap-text="login_button_label">{{ st.login_button_label | escape }}</span></button>
+        <button type="button" class="btn btn-outline ap__btn" data-theme-button="secondary" data-sl-button data-login-show="{{ st.register_title | escape }}"><span data-ap-text="register_link_label">{{ st.register_link_label | escape }}</span></button>
+      {%- endform -%}
+    </div>
+    <div id="tab_register-{{ sid }}" class="bls-register bls-login-popup" data-login-hidden="{{ st.register_title | escape }}" aria-hidden="true">
+      <p class="ap__t" data-ap-text="register_text">{{ st.register_text | escape }}</p>
+      {%- form 'create_customer', class: 'ap__form' -%}
+        {%- if form.errors -%}<p class="ap__msg error" role="alert" data-ap-text="error_message">{{ st.error_message | escape }}</p>{%- endif -%}
+        <div class="ap__field">
+          <label for="PopupFirstName-{{ sid }}" data-ap-text="first_name_label">{{ st.first_name_label | escape }}</label>
+          <input id="PopupFirstName-{{ sid }}" type="text" name="customer[first_name]" autocomplete="given-name">
+        </div>
+        <div class="ap__field">
+          <label for="PopupLastName-{{ sid }}" data-ap-text="last_name_label">{{ st.last_name_label | escape }}</label>
+          <input id="PopupLastName-{{ sid }}" type="text" name="customer[last_name]" autocomplete="family-name">
+        </div>
+        <div class="ap__field">
+          <label for="PopupRegisterEmail-{{ sid }}" data-ap-text="email_label">{{ st.email_label | escape }}</label>
+          <input id="PopupRegisterEmail-{{ sid }}" type="email" name="customer[email]" autocomplete="email" autocapitalize="off" spellcheck="false" required aria-required="true" placeholder="{{ st.email_placeholder | escape }}" data-ap-attr-placeholder="email_placeholder">
+        </div>
+        <button type="submit" class="btn btn-primary ap__btn" data-theme-button="primary" data-sl-button><span data-ap-text="register_button_label">{{ st.register_button_label | escape }}</span></button>
+        <button type="button" class="btn btn-outline ap__btn" data-theme-button="secondary" data-sl-button data-login-show="{{ st.login_title | escape }}"><span data-ap-text="login_link_label">{{ st.login_link_label | escape }}</span></button>
+      {%- endform -%}
+    </div>
+  </div>
+</div>{% schema %}
+{
+  "name": "Sign in popup",
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "header",
+      "content": "Content"
+    },
+    {
+      "type": "text",
+      "id": "login_title",
+      "label": "Sign in heading",
+      "default": "Sign in"
+    },
+    {
+      "type": "text",
+      "id": "login_text",
+      "label": "Sign in text",
+      "default": "Enter your email and we will send you a code."
+    },
+    {
+      "type": "text",
+      "id": "email_label",
+      "label": "Email label",
+      "default": "Email"
+    },
+    {
+      "type": "text",
+      "id": "email_placeholder",
+      "label": "Email placeholder",
+      "default": "you@example.com"
+    },
+    {
+      "type": "text",
+      "id": "login_button_label",
+      "label": "Sign in button",
+      "default": "Email me a code"
+    },
+    {
+      "type": "text",
+      "id": "register_link_label",
+      "label": "Create account button",
+      "default": "Create an account"
+    },
+    {
+      "type": "text",
+      "id": "register_title",
+      "label": "Create account heading",
+      "default": "Create account"
+    },
+    {
+      "type": "text",
+      "id": "register_text",
+      "label": "Create account text",
+      "default": "Add your name and email. We will email you a code to finish."
+    },
+    {
+      "type": "text",
+      "id": "first_name_label",
+      "label": "First name label",
+      "default": "First name"
+    },
+    {
+      "type": "text",
+      "id": "last_name_label",
+      "label": "Last name label",
+      "default": "Last name"
+    },
+    {
+      "type": "text",
+      "id": "register_button_label",
+      "label": "Create account submit",
+      "default": "Create account"
+    },
+    {
+      "type": "text",
+      "id": "login_link_label",
+      "label": "Back to sign in button",
+      "default": "I have an account"
+    },
+    {
+      "type": "header",
+      "content": "Messages"
+    },
+    {
+      "type": "text",
+      "id": "error_message",
+      "label": "Error message",
+      "default": "Something went wrong. Check your email and try again."
+    },
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_style",
+      "label": "Enable custom styling",
+      "default": false,
+      "info": "Off: colours follow the colour scheme."
+    },
+    {
+      "type": "color",
+      "id": "heading_color",
+      "label": "Heading color",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text color",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "header",
+      "content": "Typography"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_fonts",
+      "label": "Enable custom fonts",
+      "default": false,
+      "info": "Off: fonts follow Theme settings > Typography."
+    },
+    {
+      "type": "font_picker",
+      "id": "heading_font",
+      "label": "Heading font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "font_picker",
+      "id": "body_font",
+      "label": "Body font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    }
+  ]
+}
+{% endschema %}

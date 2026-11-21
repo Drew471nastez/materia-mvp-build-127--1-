@@ -1,0 +1,1272 @@
+<script src="{{ 'live-page-popups.js' | asset_url }}" defer="defer"></script>
+{% render 'theme-type' %}
+{%- comment -%}
+  Materia Themes. Coupon Promo Popup: an eyebrow, a headline, a line of
+  text, a signup form (Storelib Subscribers, data-storelib-form="subscribe"),
+  the creator's code (shown at once, or only after signing up) and a
+  picture, in a native <dialog> (snippets/page-popup-dialog). Every setting
+  reaches the page as a CSS variable, an attribute or a text on its element,
+  so shopify/assets/live-page-popups.js applies a builder edit in place, the
+  same as this Liquid draws it. Each block is always drawn (hidden while
+  empty) so it can be filled in live.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign fb_accessibility_promotion_image = 'accessibility.promotion_image' | t
+  assign fb_accessibility_subscribe = 'accessibility.subscribe' | t
+  assign fb_accessibility_enter_your_email = 'accessibility.enter_your_email' | t
+  assign block_eyebrow = section.blocks | where: 'type', 'eyebrow' | first
+  assign block_headline = section.blocks | where: 'type', 'headline' | first
+  assign block_subheading = section.blocks | where: 'type', 'subheading' | first
+  assign block_coupon = section.blocks | where: 'type', 'coupon' | first
+  assign block_form = section.blocks | where: 'type', 'form' | first
+  assign block_image = section.blocks | where: 'type', 'image' | first
+  assign block_dismiss = section.blocks | where: 'type', 'dismiss' | first
+  assign cpnb_custom_style = false
+  if st.enable_custom_style == true
+    assign cpnb_custom_style = true
+  endif
+  assign cpnb_gate = false
+  if st.gate_coupon
+    assign cpnb_gate = true
+  endif
+-%}
+<style>
+  #shopify-section-{{ sid }} { position: static; }
+  .cpnb-{{ sid }} { font-family: var(--body-font, inherit); }
+  .cpnb-{{ sid }} *, .cpnb-{{ sid }} *::before, .cpnb-{{ sid }} *::after { box-sizing: border-box; }
+  .cpnb-{{ sid }} [hidden] { display: none !important; }
+
+  .cpnb-overlay-{{ sid }} {
+    position: fixed; inset: 0;
+    background: var(--cpnb-overlay, #000000);
+    opacity: 0;
+    pointer-events: none; visibility: hidden;
+    transition: opacity .3s ease, visibility 0s linear .3s;
+    z-index: 2147483646;
+  }
+  .cpnb-{{ sid }}.cpnb-open .cpnb-overlay-{{ sid }} {
+    opacity: var(--cpnb-overlay-o, .5);
+    pointer-events: auto; visibility: visible; transition-delay: 0s;
+  }
+
+  .cpnb-card-{{ sid }} {
+    position: fixed; left: 50%; top: 50%;
+    transform: translate(-50%, -50%) scale(.96);
+    opacity: 0; pointer-events: none; visibility: hidden;
+    transition: transform .35s cubic-bezier(.2,.8,.2,1), opacity .3s ease, visibility 0s linear .35s;
+    z-index: 2147483647;
+    width: min(calc(100vw - var(--cpnb-gutter, 32px)), var(--cpnb-w, 880px));
+    max-height: calc(var(--sl-vh, 1vh) * 100 - 24px);
+    overflow: hidden auto; overscroll-behavior: contain;
+    background: var(--cpnb-bg, var(--color-background));
+    color: var(--cpnb-text, var(--color-text));
+    border-radius: var(--cpnb-radius, 14px);
+    box-shadow: 0 12px 40px rgba(0,0,0,.15);
+  }
+  .cpnb-{{ sid }}.cpnb-open .cpnb-card-{{ sid }} {
+    opacity: 1; pointer-events: auto; visibility: visible; transition-delay: 0s;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  @media (min-width: 750px) {
+    .cpnb-card-{{ sid }} {
+      width: min(92vw, var(--cpnb-w, 880px));
+      max-height: min(560px, calc(var(--sl-vh, 1vh) * 100 - 32px));
+    }
+  }
+
+  /* Two columns on desktop, the picture on the chosen side */
+  .cpnb-grid-{{ sid }} {
+    display: grid;
+    grid-template-columns: 1.05fr .95fr;
+    align-items: stretch;
+    gap: 0;
+    height: 100%;
+  }
+  .cpnb-{{ sid }}[data-cpnb-side="image-left"] .cpnb-grid-{{ sid }} { grid-template-columns: .95fr 1.05fr; }
+  .cpnb-{{ sid }}[data-cpnb-side="image-left"] .cpnb-text-{{ sid }} { order: 2; }
+  .cpnb-{{ sid }}[data-cpnb-side="image-left"] .cpnb-image-{{ sid }} { order: 1; }
+  @media (max-width: 749px) {
+    .cpnb-{{ sid }}[data-cpnb-side] .cpnb-grid-{{ sid }} {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto 1fr;
+      height: auto;
+    }
+    .cpnb-{{ sid }}[data-cpnb-mobile-image="above"] .cpnb-grid-{{ sid }} .cpnb-text-{{ sid }} { order: 2; }
+    .cpnb-{{ sid }}[data-cpnb-mobile-image="above"] .cpnb-grid-{{ sid }} .cpnb-image-{{ sid }} { order: 1; }
+    .cpnb-{{ sid }}[data-cpnb-mobile-image="below"] .cpnb-grid-{{ sid }} .cpnb-text-{{ sid }} { order: 1; }
+    .cpnb-{{ sid }}[data-cpnb-mobile-image="below"] .cpnb-grid-{{ sid }} .cpnb-image-{{ sid }} { order: 2; }
+    .cpnb-{{ sid }}[data-cpnb-mobile-image="hidden"] .cpnb-grid-{{ sid }} .cpnb-image-{{ sid }} { display: none; }
+    .cpnb-{{ sid }}[data-cpnb-mobile-image="hidden"][data-cpnb-side] .cpnb-grid-{{ sid }} { grid-template-rows: 1fr; }
+  }
+
+  .cpnb-text-{{ sid }} {
+    padding: var(--cpnb-pad-v, 24px) var(--cpnb-pad-h, 28px);
+    display: flex; flex-direction: column;
+    justify-content: center;
+    text-align: start;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .cpnb-{{ sid }}[data-cpnb-align="center"] .cpnb-text-{{ sid }} { text-align: center; align-items: center; }
+  @media (max-width: 749px) {
+    .cpnb-text-{{ sid }} { padding: 18px 20px; justify-content: flex-start; }
+  }
+
+  .cpnb-image-{{ sid }} {
+    background: #f3f3f3;
+    overflow: hidden;
+    min-height: 0;
+  }
+  .cpnb-{{ sid }}[data-cpnb-ratio="square"] .cpnb-image-{{ sid }} { aspect-ratio: 1 / 1; }
+  .cpnb-{{ sid }}[data-cpnb-ratio="portrait"] .cpnb-image-{{ sid }} { aspect-ratio: 3 / 4; }
+  .cpnb-{{ sid }}[data-cpnb-ratio="landscape"] .cpnb-image-{{ sid }} { aspect-ratio: 4 / 3; }
+  .cpnb-{{ sid }}[data-cpnb-ratio="wide"] .cpnb-image-{{ sid }} { aspect-ratio: 16 / 9; }
+  .cpnb-image-{{ sid }} .cpnb-placeholder { display: block; width: 100%; height: 100%; min-height: 200px; opacity: .5; }
+  .cpnb-image-{{ sid }} img {
+    width: 100%; height: 100%;
+    object-fit: var(--cpnb-fit, cover);
+    object-position: var(--cpnb-pos, center);
+    display: block;
+  }
+  @media (max-width: 749px) {
+    .cpnb-{{ sid }}[data-cpnb-ratio] .cpnb-image-{{ sid }} { aspect-ratio: 16 / 10; }
+    .cpnb-{{ sid }}[data-cpnb-ratio][data-cpnb-mh="fixed"] .cpnb-image-{{ sid }} { height: var(--cpnb-mh-px, 180px); aspect-ratio: auto; }
+  }
+
+  .cpnb-close-{{ sid }} {
+    position: absolute; top: 10px; right: 10px;
+    width: 44px; height: 44px; padding: 0;
+    border: none; border-radius: 50%;
+    background: var(--color-background, #fff);
+    color: var(--cpnb-close, var(--color-heading));
+    font-size: 18px; line-height: 1;
+    cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,.1);
+    transition: transform .2s ease, background .2s ease;
+    z-index: 2;
+  }
+  .cpnb-close-{{ sid }}:hover { background: color-mix(in srgb, currentColor 10%, var(--color-background, #fff)); }
+  .cpnb-close-{{ sid }} svg { width: 18px; height: 18px; }
+  .cpnb-close-{{ sid }}:focus-visible, .cpnb-code-{{ sid }}:focus-visible, .cpnb-dismiss-{{ sid }}:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+
+  .cpnb-eyebrow-{{ sid }} { font-weight: 700; letter-spacing: .12em; text-transform: uppercase; opacity: .85; margin: 0 0 6px; }
+  .cpnb-headline-{{ sid }} { font-weight: var(--heading-weight, 800); line-height: 1.1; margin: 0 0 8px; }
+  .cpnb-subheading-{{ sid }} { line-height: 1.45; margin: 0 0 12px; max-width: 480px; }
+  @media (max-width: 749px) {
+    .cpnb-headline-{{ sid }} { font-size: calc(var(--cpnb-size, 32px) * .75) !important; }
+    .cpnb-subheading-{{ sid }} { font-size: calc(var(--cpnb-size, 15px) * .94) !important; margin-bottom: 10px; }
+  }
+
+  /* The code: at once, or only after signing up (gated) */
+  .cpnb-{{ sid }}[data-cpnb-gate="true"] .cpnb-coupon-{{ sid }}.cpnb-coupon-gated { display: none; }
+  .cpnb-{{ sid }}[data-cpnb-gate="true"].cpnb-subscribed .cpnb-coupon-{{ sid }}.cpnb-coupon-gated { display: flex; }
+  .cpnb-{{ sid }}[data-cpnb-gate="true"] .cpnb-coupon-{{ sid }}.cpnb-coupon-ungated { display: none !important; }
+  .cpnb-{{ sid }}[data-cpnb-gate="false"] .cpnb-coupon-{{ sid }}.cpnb-coupon-gated { display: none !important; }
+  .cpnb-{{ sid }}[data-cpnb-gate="false"] .cpnb-coupon-{{ sid }}.cpnb-coupon-ungated { display: flex; }
+  .cpnb-{{ sid }}[data-cpnb-gate="false"] .cpnb-postpane-{{ sid }} { display: none !important; }
+  .cpnb-code-row-{{ sid }} {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+    margin: 0 0 10px;
+  }
+  .cpnb-{{ sid }}[data-cpnb-align="center"] .cpnb-code-row-{{ sid }} { justify-content: center; }
+  .cpnb-code-label-{{ sid }} { font-weight: 600; opacity: .9; font-size: 13px; letter-spacing: .08em; }
+  .cpnb-code-{{ sid }} {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-weight: 700; letter-spacing: .12em; font-size: 15px;
+    min-height: 44px; padding: 8px 14px; border-radius: 6px;
+    border: 2px dashed currentColor; color: inherit;
+    cursor: pointer; user-select: all;
+    background: transparent;
+    transition: background .2s ease, color .2s ease, border-color .2s ease;
+  }
+  .cpnb-code-{{ sid }}.is-copied { background: #1c8d3a; color: #fff; border-color: #1c8d3a; }
+
+  .cpnb-prepane-{{ sid }} { display: block; }
+  .cpnb-{{ sid }}.cpnb-subscribed .cpnb-prepane-{{ sid }} { display: none; }
+  .cpnb-postpane-{{ sid }} { display: none; }
+  .cpnb-{{ sid }}.cpnb-subscribed .cpnb-postpane-{{ sid }} { display: block; }
+  .cpnb-success-{{ sid }} { color: #1c8d3a; margin: 0 0 12px; font-size: 14px; font-weight: 600; }
+
+  .cpnb-form-{{ sid }} { max-width: 420px; }
+  .cpnb-{{ sid }}[data-cpnb-align="center"] .cpnb-form-{{ sid }} { margin-inline: auto; }
+  .cpnb-form-{{ sid }} > form,
+  .cpnb-form-{{ sid }} form.cpnb-formel-{{ sid }} { display: flex; flex-direction: column; gap: 12px; }
+  .cpnb-form-{{ sid }} input[type="email"] {
+    width: 100%; min-height: 44px; padding: 12px 14px;
+    border-radius: var(--input-radius, 8px);
+    border: 1px solid var(--color-border);
+    font-size: 16px;
+    background: var(--input-bg, var(--color-background)); color: var(--input-color, var(--color-text));
+  }
+  .cpnb-form-{{ sid }} input[type="email"]:focus-visible { outline: 2px solid var(--color-heading); outline-offset: 1px; }
+  /* The submit is a theme button (theme-button-contract.css); with the
+     theme's button style off, its own shape arrives as --mb-* tokens. */
+  .cpnb-form-{{ sid }} button[type="submit"] { width: 100%; cursor: pointer; }
+  .cpnb-form-{{ sid }} button[type="submit"][data-own-shape] { --mb-padding-y: 12px; --mb-padding-x: 20px; --mb-font-size: 15px; }
+  .cpnb-form-{{ sid }} button[type="submit"].is-loading { pointer-events: none; opacity: .7; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cpnb-card-{{ sid }}, .cpnb-overlay-{{ sid }}, .cpnb-form-{{ sid }} button[type="submit"], .cpnb-code-{{ sid }}, .cpnb-close-{{ sid }} { transition: none !important; animation: none !important; }
+    .cpnb-card-{{ sid }} { transform: translate(-50%, -50%) !important; }
+  }
+
+  .cpnb-dismiss-wrap-{{ sid }} { margin-top: 10px; text-align: var(--cpnb-dismiss-align, center); }
+  .cpnb-dismiss-{{ sid }} {
+    background: none; border: none; cursor: pointer;
+    font-size: 13px;
+    text-decoration: underline;
+    color: inherit; opacity: .7;
+    min-height: 44px; padding: 4px 8px;
+    transition: opacity .2s ease;
+  }
+  .cpnb-dismiss-{{ sid }}:hover { opacity: 1; }
+</style>
+
+{%- capture cpnb_config -%}
+  {"design": {{ request.design_mode | json }}, "preview": {{ st.editor_mode | json }}, "gate": {{ cpnb_gate | json }}, "replay": {{ st.post_subscribe_duration_s | default: 15 | json }},
+   "trigger": {"mode": {{ st.open_mode | default: 'delay' | json }}, "delay": {{ st.delay_s | default: 0 | json }}, "scroll": {{ st.scroll_pct | default: 50 | json }}, "views": {{ st.page_views | default: 2 | json }} },
+   "frequency": {"mode": {{ st.after_dismiss | default: 'after_days' | json }}, "days": {{ st.hide_days | default: 1 | json }} } }
+{%- endcapture -%}
+{%- capture cpnb_vars -%}
+--cpnb-overlay-o: {{ st.overlay_opacity | default: 50 | times: 0.01 }}; --cpnb-gutter: {{ st.mobile_gutter | default: 32 }}px; --cpnb-w: {{ st.popup_width | default: 880 }}px; --cpnb-radius: {{ st.popup_radius | default: 14 }}px; --cpnb-pad-v: {{ st.card_padding_v | default: 24 }}px; --cpnb-pad-h: {{ st.card_padding_h | default: 28 }}px; --cpnb-fit: {{ st.image_fit | default: 'cover' }}; --cpnb-pos: {{ st.image_position | default: 'center' }}; --cpnb-mh-px: {{ st.mobile_image_height | default: 180 }}px; --cpnb-dismiss-align: {{ st.dismiss_align | default: 'center' }};
+{%- if cpnb_custom_style %} --cpnb-overlay: {% render 'scheme-color', color: st.overlay_color, fallback: '#000000' %}; --cpnb-bg: {% render 'scheme-color', color: st.card_bg, fallback: 'var(--color-background)' %}; --cpnb-text: {% render 'scheme-color', color: st.text_color, fallback: 'var(--color-text)' %}; --cpnb-close: {% render 'scheme-color', color: st.close_color, fallback: 'var(--color-heading)' %};{%- endif -%}
+{%- render 'page-popup-fonts', st: st -%}
+{%- endcapture -%}
+{%- capture cpnb_code_rows -%}
+  {%- if block_coupon != blank -%}
+    {%- for cpnb_row in (1..2) -%}
+      {%- if cpnb_row == 1 -%}{%- assign cpnb_row_class = 'cpnb-coupon-ungated' -%}{%- else -%}{%- assign cpnb_row_class = 'cpnb-coupon-gated' -%}{%- endif -%}
+      <div class="cpnb-code-row-{{ sid }} cpnb-coupon-{{ sid }} {{ cpnb_row_class }}" data-pg-block="{{ block_coupon.id }}" data-pg-type="coupon"{% if request.design_mode %} data-pg-settings="{{ block_coupon.settings | json | escape }}"{% endif %}{% if block_coupon.settings.code == blank %} hidden{% endif %} {{ block_coupon.shopify_attributes }}>
+        <span class="cpnb-code-label-{{ sid }}"{% if block_coupon.settings.label == blank %} hidden{% endif %}>{{ block_coupon.settings.label }}</span>
+        <button type="button" class="cpnb-code-{{ sid }}" data-code="{{ block_coupon.settings.code | escape }}" aria-label="{{ 'accessibility.copy_coupon_code' | t }}">{{ block_coupon.settings.code | escape }}</button>
+      </div>
+    {%- endfor -%}
+  {%- endif -%}
+{%- endcapture -%}
+{% render 'page-popup-dialog', sid: sid, st: st %}
+<section class="cpnb-{{ sid }} color-{{ color_scheme }}" data-pg-root="coupon-promotion-newsletter-popup" data-pg-section="{{ sid }}"{% if request.design_mode %} data-pg-settings="{{ st | json | escape }}"{% endif %}{% if st.enable_custom_fonts %} data-pg-fonts data-own-font{% endif %}
+         data-cpnb-side="{{ st.image_side | default: 'image-right' }}" data-cpnb-mobile-image="{{ st.mobile_image_position | default: 'above' }}" data-cpnb-ratio="{{ st.image_ratio | default: 'auto' }}" data-cpnb-mh="{{ st.mobile_image_height_mode | default: 'auto' }}" data-cpnb-align="{{ st.text_align | default: 'left' }}" data-cpnb-gate="{{ cpnb_gate }}"
+         data-cpnb-section="{{ sid }}"
+         data-section-id="{{ sid }}" data-popup-root="{{ sid }}"
+         data-popup-config="{{ cpnb_config | strip_newlines | escape }}"
+         style="{{ cpnb_vars | strip_newlines | strip }}"
+         aria-hidden="true">
+  <dialog class="pg-dialog" data-pg-dialog aria-labelledby="cpnb-title-{{ sid }}">
+  <div class="cpnb-overlay-{{ sid }}" data-pg-backdrop aria-hidden="true"></div>
+  <div class="cpnb-card-{{ sid }}" data-pg-card tabindex="-1">
+    <button type="button" class="cpnb-close-{{ sid }}" data-popup-close aria-label="{{ 'accessibility.close_popup' | t }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+
+    <div class="cpnb-grid-{{ sid }}">
+      <div class="cpnb-text-{{ sid }}">
+        {%- if block_eyebrow != blank -%}
+          {%- liquid
+            assign c = ''
+            if block_eyebrow.settings.enable_custom_style == true
+              assign c = block_eyebrow.settings.color
+            endif
+          -%}
+          <div class="cpnb-eyebrow-{{ sid }}" data-pg-block="{{ block_eyebrow.id }}" data-pg-type="eyebrow"{% if request.design_mode %} data-pg-settings="{{ block_eyebrow.settings | json | escape }}"{% endif %}{% if block_eyebrow.settings.text == blank %} hidden{% endif %}
+               style="font-size: {{ block_eyebrow.settings.size_desktop | default: 12 }}px; color: {% render 'scheme-color', color: c, fallback: 'var(--color-text)' %};"
+               {{ block_eyebrow.shopify_attributes }}>{{ block_eyebrow.settings.text }}</div>
+        {%- endif -%}
+
+        {%- if block_headline != blank -%}
+          {%- liquid
+            assign c = ''
+            if block_headline.settings.enable_custom_style == true
+              assign c = block_headline.settings.color
+            endif
+            assign w = block_headline.settings.weight
+            if w == blank or w == 'theme'
+              assign w = 'var(--heading-weight, 800)'
+            endif
+          -%}
+          <h2 class="cpnb-headline-{{ sid }}" id="cpnb-title-{{ sid }}" data-pg-block="{{ block_headline.id }}" data-pg-type="headline"{% if request.design_mode %} data-pg-settings="{{ block_headline.settings | json | escape }}"{% endif %}{% unless block_headline.settings.weight == blank or block_headline.settings.weight == 'theme' %} data-own-weight{% endunless %}{% if block_headline.settings.text == blank %} hidden{% endif %}
+              style="--cpnb-size: {{ block_headline.settings.size_desktop | default: 32 }}px; font-size: var(--cpnb-size); color: {% render 'scheme-color', color: c, fallback: 'var(--color-heading)' %}; font-weight: {{ w }};"
+              {{ block_headline.shopify_attributes }}>{{ block_headline.settings.text }}</h2>
+        {%- endif -%}
+
+        {%- if block_subheading != blank -%}
+          {%- liquid
+            assign c = ''
+            if block_subheading.settings.enable_custom_style == true
+              assign c = block_subheading.settings.color
+            endif
+          -%}
+          <p class="cpnb-subheading-{{ sid }}" data-pg-block="{{ block_subheading.id }}" data-pg-type="subheading"{% if request.design_mode %} data-pg-settings="{{ block_subheading.settings | json | escape }}"{% endif %}{% if block_subheading.settings.text == blank %} hidden{% endif %}
+             style="--cpnb-size: {{ block_subheading.settings.size_desktop | default: 15 }}px; font-size: var(--cpnb-size); color: {% render 'scheme-color', color: c, fallback: 'var(--color-text)' %};"
+             {{ block_subheading.shopify_attributes }}>{{ block_subheading.settings.text }}</p>
+        {%- endif -%}
+
+        <div class="cpnb-prepane-{{ sid }}">
+          {%- assign cpnb_rows = cpnb_code_rows | split: '</div>' -%}
+          {%- if block_coupon != blank -%}{{ cpnb_rows[0] }}</div>{%- endif -%}
+
+          {%- if block_form != blank -%}
+            {%- liquid
+              assign cpnb_form_id = 'cpnb-form-' | append: sid
+              assign cpnb_form_class = 'cpnb-formel-' | append: sid
+              assign fs = block_form.settings
+              assign cpnb_custom = false
+              if fs.use_theme_button == false
+                assign cpnb_custom = true
+              endif
+              assign b_bg = ''
+              assign b_tx = ''
+              assign b_bgh = ''
+              assign b_txh = ''
+              if fs.enable_custom_style == true
+                assign b_bg = fs.button_bg
+                assign b_tx = fs.button_text_color
+                assign b_bgh = fs.button_bg_hover
+                assign b_txh = fs.button_text_hover
+              endif
+              assign cpnb_ph = fs.placeholder | default: fb_accessibility_enter_your_email
+              assign cpnb_phone_req = 'false'
+              if fs.phone_required
+                assign cpnb_phone_req = 'true'
+              endif
+              assign cpnb_phone_off = true
+              if fs.collect_phone
+                assign cpnb_phone_off = false
+              endif
+            -%}
+            <div class="cpnb-form-{{ sid }}" data-pg-block="{{ block_form.id }}" data-pg-type="form"{% if request.design_mode %} data-pg-settings="{{ fs | json | escape }}"{% endif %} data-pg-i18n='{"placeholder":{{ fb_accessibility_enter_your_email | json | escape }},"submit":{{ fb_accessibility_subscribe | json | escape }}}' {{ block_form.shopify_attributes }}>
+              <form id="{{ cpnb_form_id }}" class="{{ cpnb_form_class }}" data-storelib-form="subscribe">
+                <label class="visually-hidden" for="{{ cpnb_form_id }}-email">{{ cpnb_ph | escape }}</label>
+                <input id="{{ cpnb_form_id }}-email" type="email" name="email" autocomplete="email" placeholder="{{ cpnb_ph | escape }}" required data-popup-autofocus
+                       {% if fs.use_theme_field == false %}style="border-radius: {{ fs.input_radius | default: 8 }}px; --mt-select-radius: {{ fs.input_radius | default: 8 }}px;"{% endif %}>
+                {%- render 'cpnb-phone-field',
+                    scope: sid,
+                    default_country: fs.phone_default_country,
+                    phone_placeholder: fs.phone_placeholder,
+                    required: cpnb_phone_req,
+                    off: cpnb_phone_off -%}
+                <button type="submit" class="btn-primary" data-theme-button="primary" data-sl-button{% if cpnb_custom %} data-own-shape{% endif %}
+                        style="{%- render 'button-overrides', bg: b_bg, text: b_tx, hover_bg: b_bgh, hover_text: b_txh, custom: cpnb_custom, radius: fs.button_radius, weight: fs.button_weight -%}">
+                  {{ fs.button_text | default: fb_accessibility_subscribe }}
+                </button>
+              </form>
+            </div>
+          {%- endif -%}
+
+          {%- if block_dismiss != blank -%}
+            <div class="cpnb-dismiss-wrap-{{ sid }}" data-pg-block="{{ block_dismiss.id }}" data-pg-type="dismiss"{% if request.design_mode %} data-pg-settings="{{ block_dismiss.settings | json | escape }}"{% endif %}{% if block_dismiss.settings.text == blank %} hidden{% endif %} {{ block_dismiss.shopify_attributes }}>
+              <button type="button" class="cpnb-dismiss-{{ sid }}" data-popup-close>{{ block_dismiss.settings.text }}</button>
+            </div>
+          {%- endif -%}
+        </div>
+
+        <div class="cpnb-postpane-{{ sid }}" aria-live="polite">
+          {%- if block_form != blank -%}
+            <p class="cpnb-success-{{ sid }}" data-pg-block="{{ block_form.id }}" data-pg-type="form">{{ block_form.settings.success_text | default: 'Thanks! Here is your code:' }}</p>
+          {%- endif -%}
+          {%- if block_coupon != blank -%}{{ cpnb_rows[1] }}</div>{%- endif -%}
+        </div>
+      </div>
+
+      {%- if block_image != blank -%}
+        <div class="cpnb-image-{{ sid }}" data-pg-block="{{ block_image.id }}" data-pg-type="image"{% if request.design_mode %} data-pg-settings="{{ block_image.settings | json | escape }}"{% endif %} data-pg-i18n="{{ fb_accessibility_promotion_image | escape }}" {{ block_image.shopify_attributes }}>
+          <template data-pg-ph>{{ 'image' | placeholder_svg_tag: 'cpnb-placeholder' }}</template>
+          {%- if block_image.settings.image != blank -%}
+            {{ block_image.settings.image | image_url: width: 900 | image_tag: loading: 'lazy', alt: block_image.settings.alt | default: fb_accessibility_promotion_image, sizes: '(min-width: 750px) 50vw, 100vw', widths: '360,540,720,900' }}
+          {%- else -%}
+            {{ 'image' | placeholder_svg_tag: 'cpnb-placeholder' }}
+          {%- endif -%}
+        </div>
+      {%- endif -%}
+    </div>
+  </div>
+  </dialog>
+</section>
+
+<script src="{{ 'materia-popups.js' | asset_url }}" defer="defer"></script>
+<script>
+(function(){
+  var SID = {{ section.id | json }};
+  var I18N_COPIED = {{ 'accessibility.copied' | t | json }};
+  var SUB_KEY = 'cpnb_subscribed_' + SID;
+
+  function setup(P){
+    var root = document.querySelector('[data-popup-root="' + SID + '"]');
+    if (!root || root.__cpnb) return;
+    root.__cpnb = true;
+    var CFG = JSON.parse(root.getAttribute('data-popup-config') || '{}');
+    var card = root.querySelector('.cpnb-card-' + SID);
+    var overlay = root.querySelector('.cpnb-overlay-' + SID);
+    var form = root.querySelector('.cpnb-formel-' + SID);
+    var replayTimer = 0;
+
+    var api = P.register({
+      id: SID, root: root, dialog: card, backdrop: overlay,
+      design: CFG.design, preview: CFG.preview,
+      trigger: Object.assign({ selector: '[data-cpnb-trigger="' + SID + '"]' }, CFG.trigger),
+      frequency: { mode: CFG.frequency.mode === 'every_visit' ? 'always' : CFG.frequency.mode, days: CFG.frequency.days },
+      open: function(){ root.classList.add('cpnb-open'); },
+      close: function(){ root.classList.remove('cpnb-open'); clearTimeout(replayTimer); }
+    });
+
+    // Coupon copy: every code button in the popup (before and after signup).
+    root.querySelectorAll('.cpnb-code-' + SID).forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var code = (btn.dataset.code || '').trim();
+        if (!code) return;
+        P.copy(code).catch(function(){}).then(function(){
+          btn.classList.add('is-copied');
+          btn.textContent = I18N_COPIED;
+          setTimeout(function(){ btn.classList.remove('is-copied'); btn.textContent = btn.dataset.code || ''; }, 2200);
+        });
+      });
+    });
+
+    // Signup: Storelib sends the form to Subscribers and marks it
+    // data-state="done"; then the code is revealed and the popup is not
+    // offered again. In the builder nothing is sent; the code shows for a while.
+    function subscribed(){
+      root.classList.add('cpnb-subscribed');
+      var code = root.querySelector('.cpnb-postpane-' + SID + ' .cpnb-code-' + SID);
+      if (code) { try { code.focus({ preventScroll: true }); } catch(_){} }
+      if (CFG.design) {
+        clearTimeout(replayTimer);
+        replayTimer = setTimeout(function(){ root.classList.remove('cpnb-subscribed'); }, (CFG.replay || 15) * 1000);
+        return;
+      }
+      P.store.set(SUB_KEY, '1');
+      if (api) api.done();
+    }
+    if (form) {
+      new MutationObserver(function(){
+        if (form.getAttribute('data-state') === 'done') subscribed();
+      }).observe(form, { attributes: true, attributeFilter: ['data-state'] });
+      if (CFG.design) form.addEventListener('submit', function(e){ e.preventDefault(); subscribed(); });
+    }
+
+    window['CPNB_open_' + SID] = function(){ api && api.show(); };
+    window['CPNB_close_' + SID] = function(){ api && api.hide(); };
+    window['CPNB_reset_' + SID] = function(){ P.store.rm(SUB_KEY); api && api.reset(); root.classList.remove('cpnb-subscribed'); };
+  }
+
+  function boot(){ (window.MateriaPopupsQueue = window.MateriaPopupsQueue || []).push(setup); }
+  boot();
+  function reload(e){ if (e.detail && String(e.detail.sectionId) === SID) boot(); }
+  document.addEventListener('storelib:section-load', reload);
+  document.addEventListener('shopify:section:load', reload);
+})();
+</script>
+
+{% schema %}
+{
+  "name": "Coupon Promo Popup",
+  "tag": "section",
+  "class": "cpnb-section",
+  "enabled_on": {
+    "groups": [
+      "custom.overlay"
+    ]
+  },
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "header",
+      "content": "Trigger"
+    },
+    {
+      "type": "select",
+      "id": "open_mode",
+      "label": "Opens",
+      "default": "delay",
+      "options": [
+        {
+          "value": "immediate",
+          "label": "On page load"
+        },
+        {
+          "value": "delay",
+          "label": "After a delay"
+        },
+        {
+          "value": "scroll",
+          "label": "On scroll"
+        },
+        {
+          "value": "exit",
+          "label": "On exit intent"
+        },
+        {
+          "value": "pageviews",
+          "label": "After page views"
+        },
+        {
+          "value": "manual",
+          "label": "From a link"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "delay_s",
+      "label": "Delay",
+      "min": 0,
+      "max": 60,
+      "step": 1,
+      "unit": "s",
+      "default": 5
+    },
+    {
+      "type": "range",
+      "id": "scroll_pct",
+      "label": "Scrolled",
+      "min": 10,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "default": 50,
+      "visible_if": "{{ section.settings.open_mode == 'scroll' }}"
+    },
+    {
+      "type": "range",
+      "id": "page_views",
+      "label": "Page views",
+      "min": 1,
+      "max": 10,
+      "step": 1,
+      "default": 2,
+      "visible_if": "{{ section.settings.open_mode == 'pageviews' }}"
+    },
+    {
+      "type": "header",
+      "content": "Behaviour"
+    },
+    {
+      "type": "select",
+      "id": "after_dismiss",
+      "label": "Show again",
+      "default": "after_days",
+      "options": [
+        {
+          "value": "every_visit",
+          "label": "Every visit"
+        },
+        {
+          "value": "after_days",
+          "label": "After days"
+        },
+        {
+          "value": "never",
+          "label": "Never"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "hide_days",
+      "label": "Days",
+      "min": 0,
+      "max": 30,
+      "step": 1,
+      "unit": "d",
+      "default": 1,
+      "visible_if": "{{ section.settings.after_dismiss == 'after_days' }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "gate_coupon",
+      "label": "Show the code after signup",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "post_subscribe_duration_s",
+      "label": "Builder: show the code for",
+      "min": 5,
+      "max": 60,
+      "step": 5,
+      "unit": "s",
+      "default": 15,
+      "visible_if": "{{ section.settings.gate_coupon == true }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "editor_mode",
+      "label": "Show in the builder",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "select",
+      "id": "image_side",
+      "label": "Image",
+      "default": "image-right",
+      "options": [
+        {
+          "value": "image-right",
+          "label": "Right"
+        },
+        {
+          "value": "image-left",
+          "label": "Left"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "mobile_image_position",
+      "label": "Image on phones",
+      "default": "above",
+      "options": [
+        {
+          "value": "above",
+          "label": "Above"
+        },
+        {
+          "value": "below",
+          "label": "Below"
+        },
+        {
+          "value": "hidden",
+          "label": "Hidden"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "image_ratio",
+      "label": "Image shape",
+      "default": "auto",
+      "options": [
+        {
+          "value": "auto",
+          "label": "Auto (fills column)"
+        },
+        {
+          "value": "square",
+          "label": "Square (1:1)"
+        },
+        {
+          "value": "portrait",
+          "label": "Portrait (3:4)"
+        },
+        {
+          "value": "landscape",
+          "label": "Landscape (4:3)"
+        },
+        {
+          "value": "wide",
+          "label": "Wide (16:9)"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "image_fit",
+      "label": "Image fit",
+      "default": "cover",
+      "options": [
+        {
+          "value": "cover",
+          "label": "Fill"
+        },
+        {
+          "value": "contain",
+          "label": "Fit"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "image_position",
+      "label": "Image focus",
+      "default": "center",
+      "options": [
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "top",
+          "label": "Top"
+        },
+        {
+          "value": "bottom",
+          "label": "Bottom"
+        },
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "mobile_image_height_mode",
+      "label": "Phone image height",
+      "default": "auto",
+      "options": [
+        {
+          "value": "auto",
+          "label": "Auto"
+        },
+        {
+          "value": "fixed",
+          "label": "Fixed"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "mobile_image_height",
+      "label": "Height",
+      "min": 100,
+      "max": 400,
+      "step": 10,
+      "unit": "px",
+      "default": 180,
+      "visible_if": "{{ section.settings.mobile_image_height_mode == 'fixed' }}"
+    },
+    {
+      "type": "select",
+      "id": "text_align",
+      "label": "Text",
+      "default": "left",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "dismiss_align",
+      "label": "No-thanks link",
+      "default": "center",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "popup_width",
+      "label": "Width",
+      "min": 360,
+      "max": 1100,
+      "step": 10,
+      "unit": "px",
+      "default": 770
+    },
+    {
+      "type": "range",
+      "id": "popup_radius",
+      "label": "Corner radius",
+      "min": 0,
+      "max": 32,
+      "step": 1,
+      "unit": "px",
+      "default": 12
+    },
+    {
+      "type": "range",
+      "id": "card_padding_v",
+      "label": "Top and bottom padding",
+      "min": 12,
+      "max": 60,
+      "step": 2,
+      "unit": "px",
+      "default": 36
+    },
+    {
+      "type": "range",
+      "id": "card_padding_h",
+      "label": "Side padding",
+      "min": 12,
+      "max": 60,
+      "step": 2,
+      "unit": "px",
+      "default": 36
+    },
+    {
+      "type": "range",
+      "id": "mobile_gutter",
+      "label": "Phone side space",
+      "min": 0,
+      "max": 80,
+      "step": 4,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_style",
+      "label": "Custom colours",
+      "default": false,
+      "info": "Off, the popup follows its colour scheme."
+    },
+    {
+      "type": "color",
+      "id": "card_bg",
+      "label": "Background",
+      "visible_if": "{{ section.settings.enable_custom_style == true }}"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text",
+      "visible_if": "{{ section.settings.enable_custom_style == true }}"
+    },
+    {
+      "type": "color",
+      "id": "close_color",
+      "label": "Close icon",
+      "visible_if": "{{ section.settings.enable_custom_style == true }}"
+    },
+    {
+      "type": "color",
+      "id": "overlay_color",
+      "label": "Backdrop",
+      "default": "#000000",
+      "visible_if": "{{ section.settings.enable_custom_style == true }}"
+    },
+    {
+      "type": "range",
+      "id": "overlay_opacity",
+      "label": "Backdrop opacity",
+      "min": 0,
+      "max": 90,
+      "step": 5,
+      "unit": "%",
+      "default": 50
+    },
+    {
+      "type": "header",
+      "content": "Typography"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_fonts",
+      "label": "Custom fonts",
+      "default": false,
+      "info": "Off, the popup uses the theme fonts."
+    },
+    {
+      "type": "font_picker",
+      "id": "heading_font",
+      "label": "Heading font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts == true }}"
+    },
+    {
+      "type": "font_picker",
+      "id": "body_font",
+      "label": "Text font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts == true }}"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "eyebrow",
+      "name": "Eyebrow",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "type": "text",
+          "id": "text",
+          "label": "Text",
+          "default": "Welcome offer"
+        },
+        {
+          "type": "header",
+          "content": "Style"
+        },
+        {
+          "type": "range",
+          "id": "size_desktop",
+          "label": "Size",
+          "min": 10,
+          "max": 22,
+          "step": 1,
+          "unit": "px",
+          "default": 12
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Custom colours",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Color",
+          "visible_if": "{{ block.settings.enable_custom_style == true }}"
+        }
+      ]
+    },
+    {
+      "type": "headline",
+      "name": "Headline",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "type": "text",
+          "id": "text",
+          "label": "Headline",
+          "default": "A code for your first order"
+        },
+        {
+          "type": "header",
+          "content": "Style"
+        },
+        {
+          "type": "range",
+          "id": "size_desktop",
+          "label": "Size",
+          "min": 20,
+          "max": 80,
+          "step": 1,
+          "unit": "px",
+          "default": 32
+        },
+        {
+          "type": "select",
+          "id": "weight",
+          "label": "Weight",
+          "default": "theme",
+          "options": [
+            {
+              "value": "theme",
+              "label": "Theme"
+            },
+            {
+              "value": "500",
+              "label": "Medium"
+            },
+            {
+              "value": "600",
+              "label": "Semi Bold"
+            },
+            {
+              "value": "700",
+              "label": "Bold"
+            },
+            {
+              "value": "800",
+              "label": "Extra Bold"
+            },
+            {
+              "value": "900",
+              "label": "Black"
+            }
+          ]
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Custom colours",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Color",
+          "visible_if": "{{ block.settings.enable_custom_style == true }}"
+        }
+      ]
+    },
+    {
+      "type": "subheading",
+      "name": "Subheading",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "type": "textarea",
+          "id": "text",
+          "label": "Text",
+          "default": "Subscribe and get your coupon."
+        },
+        {
+          "type": "header",
+          "content": "Style"
+        },
+        {
+          "type": "range",
+          "id": "size_desktop",
+          "label": "Size",
+          "min": 12,
+          "max": 24,
+          "step": 1,
+          "unit": "px",
+          "default": 15
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Custom colours",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Color",
+          "visible_if": "{{ block.settings.enable_custom_style == true }}"
+        }
+      ]
+    },
+    {
+      "type": "coupon",
+      "name": "Coupon code",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "text",
+          "id": "label",
+          "label": "Label",
+          "default": "USE CODE"
+        },
+        {
+          "type": "text",
+          "id": "code",
+          "label": "Code",
+          "info": "Your own discount code. Empty, no code is shown."
+        }
+      ]
+    },
+    {
+      "type": "form",
+      "name": "Signup form",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "type": "text",
+          "id": "placeholder",
+          "label": "Email placeholder",
+          "default": "Enter your email"
+        },
+        {
+          "type": "text",
+          "id": "button_text",
+          "label": "Button label",
+          "default": "Subscribe"
+        },
+        {
+          "type": "text",
+          "id": "success_text",
+          "label": "Thank-you text",
+          "default": "Thanks! Here is your code:"
+        },
+        {
+          "type": "header",
+          "content": "Phone"
+        },
+        {
+          "type": "checkbox",
+          "id": "collect_phone",
+          "label": "Ask for a phone number",
+          "default": false
+        },
+        {
+          "type": "text",
+          "id": "phone_placeholder",
+          "label": "Phone placeholder",
+          "default": "Phone number",
+          "visible_if": "{{ block.settings.collect_phone == true }}"
+        },
+        {
+          "type": "text",
+          "id": "phone_default_country",
+          "label": "Country code",
+          "default": "US",
+          "visible_if": "{{ block.settings.collect_phone == true }}"
+        },
+        {
+          "type": "checkbox",
+          "id": "phone_required",
+          "label": "Phone required",
+          "default": false,
+          "visible_if": "{{ block.settings.collect_phone == true }}"
+        },
+        {
+          "type": "header",
+          "content": "Style"
+        },
+        {
+          "type": "checkbox",
+          "id": "use_theme_field",
+          "label": "Theme field style",
+          "default": true
+        },
+        {
+          "type": "range",
+          "id": "input_radius",
+          "label": "Field radius",
+          "min": 0,
+          "max": 40,
+          "step": 1,
+          "unit": "px",
+          "default": 8,
+          "visible_if": "{{ block.settings.use_theme_field == false }}"
+        },
+        {
+          "type": "checkbox",
+          "id": "use_theme_button",
+          "label": "Theme button style",
+          "default": true
+        },
+        {
+          "type": "select",
+          "id": "button_weight",
+          "label": "Button weight",
+          "default": "700",
+          "options": [
+            {
+              "value": "500",
+              "label": "Medium"
+            },
+            {
+              "value": "600",
+              "label": "Semi Bold"
+            },
+            {
+              "value": "700",
+              "label": "Bold"
+            },
+            {
+              "value": "800",
+              "label": "Extra Bold"
+            }
+          ],
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        },
+        {
+          "type": "range",
+          "id": "button_radius",
+          "label": "Button radius",
+          "min": 0,
+          "max": 40,
+          "step": 1,
+          "unit": "px",
+          "default": 8,
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Custom colours",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "button_bg",
+          "label": "Button background",
+          "visible_if": "{{ block.settings.enable_custom_style == true }}"
+        },
+        {
+          "type": "color",
+          "id": "button_text_color",
+          "label": "Button text",
+          "visible_if": "{{ block.settings.enable_custom_style == true }}"
+        },
+        {
+          "type": "color",
+          "id": "button_bg_hover",
+          "label": "Hover background",
+          "visible_if": "{{ block.settings.enable_custom_style == true }}"
+        },
+        {
+          "type": "color",
+          "id": "button_text_hover",
+          "label": "Hover text",
+          "visible_if": "{{ block.settings.enable_custom_style == true }}"
+        }
+      ]
+    },
+    {
+      "type": "image",
+      "name": "Image",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "image_picker",
+          "id": "image",
+          "label": "Image"
+        },
+        {
+          "type": "text",
+          "id": "alt",
+          "label": "Alt text",
+          "default": "Promotion"
+        }
+      ]
+    },
+    {
+      "type": "dismiss",
+      "name": "No-thanks link",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "text",
+          "id": "text",
+          "label": "Text",
+          "default": "No thanks"
+        }
+      ]
+    }
+  ],
+  "presets": []
+}
+{% endschema %}

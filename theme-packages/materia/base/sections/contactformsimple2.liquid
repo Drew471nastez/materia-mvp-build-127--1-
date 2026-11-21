@@ -1,0 +1,1321 @@
+{% render 'theme-type' %}
+{%- liquid
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+-%}
+{%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
+{%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' and section.settings.reveal != false -%}
+<style>
+  #shopify-section-{{ section.id }}.scroll-trigger {
+    --animation-duration: {{ settings.animation_duration | default: 700 }}ms;
+    --animation-delay: {{ settings.animation_delay | default: 0 }}ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-{{ section.id }}');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', {{ settings.scroll_animation | json }});
+  })();
+</script>
+{%- endif -%}
+<style data-rs-bulletproof>
+  {%- if section.settings.reset_spacing -%}
+    /* reset_spacing: bulletproof override of ALL section spacing mechanisms */
+    #shopify-section-{{ section.id }},
+    #shopify-section-{{ section.id }} > .section,
+    #shopify-section-{{ section.id }} > section,
+    #shopify-section-{{ section.id }} > div,
+    #shopify-section-{{ section.id }} > div > .section {
+      margin-top: 0 !important;
+      margin-bottom: 0 !important;
+    }
+    #shopify-section-{{ section.id }} + .shopify-section,
+    #shopify-section-{{ section.id }} + section,
+    .shopify-section + #shopify-section-{{ section.id }} {
+      margin-top: 0 !important;
+    }
+  {%- endif -%}
+</style>
+{%- liquid
+  assign __ti_scroll_animation = settings.scroll_animation | default: 'none'
+  assign __ti_reveal = section.settings.reveal
+-%}
+<style>
+  /* Section isolation — prevent CSS/JS bleed between sections */
+  #shopify-section-{{ section.id }} {
+    isolation: isolate;
+    position: relative;
+  }
+  /* Aggressive theme typography */
+  :where(#shopify-section-{{ section.id }}) {
+    font-family: var(--body-font, inherit);
+  }
+  :where(#shopify-section-{{ section.id }}) :where(button, input, textarea, select, optgroup) {
+    font-family: inherit;
+  }
+  /* Theme font-weight inheritance — sections inherit theme weights by default.
+     Specific font-weight rules in section CSS still override these. */
+  #shopify-section-{{ section.id }} {
+    font-weight: var(--body-weight, inherit);
+  }
+  :where(#shopify-section-{{ section.id }}) :is(h1, h2, h3, h4, h5, h6) {
+    font-weight: var(--heading-weight, inherit);
+  }
+  :where(#shopify-section-{{ section.id }}) :is(h1, h2, h3, h4, h5, h6) {
+    font-family: var(--heading-font, inherit);
+  }
+  /* Section margin sliders (mobile-first) */
+  #shopify-section-{{ section.id }} {
+    margin-top: {{ section.settings.section_margin_top_mobile | default: 0 }}px;
+    margin-bottom: {{ section.settings.section_margin_bottom_mobile | default: 0 }}px;
+  }
+  @media (min-width: 768px) {
+    #shopify-section-{{ section.id }} {
+      margin-top: {{ section.settings.section_margin_top_desktop | default: 0 }}px;
+      margin-bottom: {{ section.settings.section_margin_bottom_desktop | default: 0 }}px;
+    }
+  }
+  /* Section wrapper spans its parent's full width without breaking out of
+     the editor preview. The section + first child span 100% so backgrounds
+     reach edge-to-edge but the editor inspector outline stays inside the
+     iframe viewport. */
+  #shopify-section-{{ section.id }} {
+    max-width: none !important;
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    position: relative !important;
+    box-sizing: border-box !important;
+  }
+  #shopify-section-{{ section.id }} > :where(div, section, header, footer, aside, main, article):first-child {
+    max-width: none !important;
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Section width — universal selector that works regardless of inner
+     markup. Targets both:
+       1) Theme container classes (.container/.fluid_container/etc.) — for
+          sections that have an inner wrapper with that class
+       2) The section's first-child div — for sections that don't have a
+          named inner wrapper. The padding-inline sets the max content
+          area while the wrapper itself stays 100% wide so any background
+          stays edge-to-edge. */
+  {%- render 'contact-live-width', sid: section.id -%}
+  /* Reset spacing */
+  {%- if section.settings.reset_spacing -%}
+    #shopify-section-{{ section.id }} { margin-bottom: 0 !important; margin-top: 0 !important; }
+    #shopify-section-{{ section.id }} + .shopify-section { margin-top: 0 !important; }
+  {%- endif -%}
+</style>
+<!-- ti-theme:start -->
+{%- comment -%}
+  Materia Themes. Contact Form Simple 2 (two columns).
+  Left: the heading, description and contact info blocks, in their order.
+  Right: the store's contact form (the theme's contact form tag): name, email,
+  website (optional) and message, each with a label. The section follows the
+  colour scheme, Theme settings > Typography, Buttons and Forms and fields;
+  Enable custom styling, Enable custom fonts, Match theme button and Match
+  theme fields switch the section's own values on. live-contact.js applies
+  live edits without a redraw.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign cp_custom = st.enable_custom_style
+  assign sec_font = false
+  if st.enable_custom_fonts
+    assign sec_font = true
+  endif
+  assign cp_own_shape = false
+  if st.use_theme_button == false
+    assign cp_own_shape = true
+  endif
+  assign cp_own_field = false
+  if st.use_theme_fields == false
+    assign cp_own_field = true
+  endif
+  assign cp_btn_set = false
+  if cp_custom and st.button_bg != blank and st.button_bg.alpha != 0
+    assign cp_btn_set = true
+  endif
+-%}
+{%- capture cp_vars -%}
+  {%- if cp_custom -%}
+    --cp-bg: {% render 'scheme-color', color: st.bg_color, fallback: 'var(--color-background)' %};
+    --cp-grad-a: {% render 'scheme-color', color: st.bg_grad_a, fallback: 'var(--color-primary)' %};
+    --cp-grad-b: {% render 'scheme-color', color: st.bg_grad_b, fallback: 'var(--color-heading)' %};
+    --cp-card: {% render 'scheme-color', color: st.card_color, fallback: 'var(--color-background)' %};
+    --cp-text: {% render 'scheme-color', color: st.text_color, fallback: 'var(--color-text)' %};
+    --cp-heading: {% render 'scheme-color', color: st.text_color, fallback: 'var(--color-heading)' %};
+    --cp-muted: {% render 'scheme-color', color: st.muted_color, fallback: 'color-mix(in srgb, var(--color-text) 72%, transparent)' %};
+    --cp-accent: {% render 'scheme-color', color: st.accent_color, fallback: 'var(--color-primary)' %};
+    --cp-icon-color: {% render 'scheme-color', color: st.icon_color, fallback: 'var(--color-primary)' %};
+    --cp-surface: {% if st.enable_bg_gradient %}linear-gradient(135deg, var(--cp-grad-a), var(--cp-grad-b)){% else %}var(--cp-bg){% endif %};
+  {%- endif -%}
+  --cp-radius: {{ st.radius }}px;
+  --cp-pad-x: {{ st.pad_x }}px;
+  --cp-pad-top: {{ st.pad_top }}px;
+  --cp-pad-bottom: {{ st.pad_bottom }}px;
+  --cp-gap: {{ st.col_gap }}px;
+  --cp-desc-info-gap: {{ st.desc_info_gap }}px;
+  --cp-info-gap: {{ st.info_gap }}px;
+  --cp-field-gap: {{ st.field_gap }}px;
+  --cp-btn-gap: {{ st.btn_gap }}px;
+  --cp-icon-min: {{ st.icon_size_mobile }}px;
+  --cp-icon-max: {{ st.icon_size_desktop }}px;
+  --cp-shadow: {% if st.enable_shadow %}0 6px 24px rgba(0,0,0,.08){% else %}none{% endif %};
+  --cp-maxw: {{ st.max_width }}px;
+  {%- if sec_font and st.heading_font.family != blank %} --ct-hf: {{ st.heading_font.family }}, {{ st.heading_font.fallback_families | default: 'sans-serif' }};{%- endif -%}
+  {%- if sec_font and st.body_font.family != blank %} --ct-bf: {{ st.body_font.family }}, {{ st.body_font.fallback_families | default: 'sans-serif' }};{%- endif -%}
+{%- endcapture -%}
+{%- capture cp_field_vars -%}
+  {%- if cp_own_field -%}
+    {%- if st.input_bg != blank and st.input_bg.alpha != 0 -%}--input-bg:{% render 'scheme-color', color: st.input_bg, fallback: 'var(--color-background)' %};{%- endif -%}
+    {%- if st.input_text != blank and st.input_text.alpha != 0 -%}--field-text:{% render 'scheme-color', color: st.input_text, fallback: 'var(--color-text)' %};--field-placeholder:{% render 'scheme-color', color: st.input_text, fallback: 'var(--color-text)' %};{%- endif -%}
+    {%- if st.input_border != blank and st.input_border.alpha != 0 -%}--input-border-color:{% render 'scheme-color', color: st.input_border, fallback: 'var(--color-border)' %};{%- endif -%}
+    --input-border-radius:{{ st.field_radius | default: 10 }}px;--input-height:{{ st.field_height | default: 46 }}px;
+  {%- endif -%}
+{%- endcapture -%}
+{%- capture cp_button_vars -%}
+  {%- if cp_custom -%}
+    {%- if st.enable_button_gradient -%}--mb-bg:linear-gradient(135deg, var(--cp-grad-a), var(--cp-grad-b));--mb-hover-bg:linear-gradient(135deg, var(--cp-grad-a), var(--cp-grad-b));--mb-border:transparent;--mb-hover-border:transparent;
+    {%- elsif cp_btn_set -%}--mb-bg:{{ st.button_bg }};--mb-hover-bg:{{ st.button_bg }};--mb-border:{{ st.button_bg }};--mb-hover-border:{{ st.button_bg }};
+    {%- endif -%}
+    {%- if st.button_text != blank and st.button_text.alpha != 0 -%}--mb-text:{{ st.button_text }};--mb-hover-text:{{ st.button_text }};{%- endif -%}
+  {%- endif -%}
+  {%- if cp_own_shape -%}--mb-radius:{{ st.button_radius | default: 12 }}px;--mb-font-size:{{ st.button_size | default: 16 }}px;--mb-padding-y:{{ st.button_pad_y | default: 12 }}px;{%- endif -%}
+  {%- if sec_font and st.body_font.family != blank -%}--mb-font:var(--ct-bf);{%- endif -%}
+{%- endcapture -%}
+{%- if sec_font -%}<style>{{ st.heading_font | font_face: font_display: 'swap' }}{{ st.body_font | font_face: font_display: 'swap' }}</style>{%- endif -%}
+<div class="ti-section-wrap {{ section.settings.section_width | default: 'container' }}" data-ct-root="contactformsimple2" data-ct-section="{{ section.id }}"{% if request.design_mode %} data-ct-settings="{{ section.settings | json | escape }}"{% endif %} data-ct-w="{{ section.settings.section_width | default: 'container' }}" data-ct-width>
+<section id="contact-{{ section.id }}" class="contact-pro color-{{ color_scheme }} gradient" data-ct-scheme style="{{ cp_vars | strip_newlines }}"{% if cp_btn_set or st.enable_button_gradient and cp_custom %} data-cp-own-button{% endif %}{% unless st.enable_right_card %} data-cp-flat{% endunless %}>
+  <style>
+    #contact-{{ section.id }}{
+      --cp-icon-size: clamp(var(--cp-icon-min), 4vw, var(--cp-icon-max));
+      --cp-field-h: 46px;
+      background: var(--cp-surface, var(--cp-bg, var(--color-background)));
+    }
+    #contact-{{ section.id }} .cp-wrap{
+      max-width: var(--cp-maxw);
+      margin: 0 auto;
+      padding: var(--cp-pad-top) var(--cp-pad-x) var(--cp-pad-bottom) var(--cp-pad-x);
+      color: var(--cp-text, var(--color-text));
+    }
+    #contact-{{ section.id }} .cp-grid{
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+      gap: var(--cp-gap);
+      align-items: start;
+    }
+    @media (max-width: 1024px){
+      #contact-{{ section.id }} .cp-grid{ grid-template-columns: 1fr; }
+    }
+
+    /* Left panel */
+    #contact-{{ section.id }} .cp-left h2{
+      margin: 0 0 .5rem;
+      line-height: 1.15;
+      color: var(--cp-h-c, var(--cp-heading, var(--color-heading)));
+      font-size: clamp(var(--cp-h-m), 3.2vw, var(--cp-h-d));
+    }
+    #contact-{{ section.id }} .cp-left h2[data-own-weight]{ font-weight: var(--cp-h-fw); }
+    #contact-{{ section.id }} .cp-left h2[data-own-font]{ font-family: var(--cp-ff, var(--ct-hf, var(--heading-font))); }
+    #contact-{{ section.id }} .cp-desc{
+      color: var(--cp-d-c, var(--cp-muted, color-mix(in srgb, var(--color-text) 72%, transparent)));
+      max-width: 42ch;
+      margin-bottom: var(--cp-desc-info-gap);
+      line-height: 1.6;
+      font-size: clamp(var(--cp-d-m), 4vw, var(--cp-d-d));
+    }
+    #contact-{{ section.id }} [data-own-font]:not(h2){ font-family: var(--cp-ff, var(--ct-bf, var(--body-font))); }
+    #contact-{{ section.id }} [data-cp-fields][data-own-font]{ --body-font: var(--ct-bf); }
+    #contact-{{ section.id }} [data-ct-block][hidden]{ display: none !important; }
+    #contact-{{ section.id }} .cp-list{
+      display: grid;
+      gap: var(--cp-info-gap);
+    }
+    #contact-{{ section.id }} .cp-item{
+      display: grid;
+      grid-template-columns: var(--cp-icon-size) 1fr;
+      gap: .75rem;
+      align-items: start;
+      color: var(--cp-text, var(--color-text));
+    }
+    #contact-{{ section.id }} .cp-icon{
+      width: var(--cp-icon-size); height: var(--cp-icon-size);
+      display: inline-grid; place-items: center;
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--color-background) 60%, transparent);
+      box-shadow: var(--cp-shadow);
+      color: var(--cp-i-c, var(--cp-icon-color, var(--color-primary)));
+    }
+    #contact-{{ section.id }} .cp-icon svg{
+      width: 62%; height: 62%;
+    }
+    #contact-{{ section.id }} .cp-item p{
+      margin: 0; line-height: 1.5;
+      color: var(--cp-text, var(--color-text));
+      opacity: .9;
+    }
+    #contact-{{ section.id }} .cp-item .cp-line1{ color: var(--cp-l1-c, var(--cp-text, var(--color-text))); font-size: clamp(var(--cp-l1-m), 3.5vw, var(--cp-l1-d)); }
+    #contact-{{ section.id }} .cp-item .cp-line2{ color: var(--cp-l2-c, var(--cp-muted, color-mix(in srgb, var(--color-text) 72%, transparent))); font-size: clamp(var(--cp-l2-m), 3.5vw, var(--cp-l2-d)); }
+    #contact-{{ section.id }} .cp-item [hidden]{ display: none; }
+
+    /* Right panel card + form */
+    #contact-{{ section.id }} .cp-card{
+      background: var(--cp-card, var(--color-background));
+      border-radius: var(--cp-radius);
+      box-shadow: var(--cp-shadow);
+      padding: 18px;
+    }
+    #contact-{{ section.id }}[data-cp-flat] .cp-card{ background: transparent; box-shadow: none; padding: 0; }
+    #contact-{{ section.id }} .cp-fields{
+      display: grid;
+      gap: var(--cp-field-gap);
+    }
+    #contact-{{ section.id }} .cp-label{ font-size: 14px; color: var(--cp-text, var(--color-text)); margin: 0 0 calc(6px - var(--cp-field-gap)); }
+    #contact-{{ section.id }} .cp-input,
+    #contact-{{ section.id }} .cp-textarea{
+      width: 100%;
+      outline: none;
+      transition: box-shadow .15s ease, border-color .15s ease;
+    }
+    #contact-{{ section.id }} .cp-textarea{
+      min-height: 120px;
+      height: 120px;
+      resize: vertical;
+    }
+    #contact-{{ section.id }} .cp-input:focus,
+    #contact-{{ section.id }} .cp-textarea:focus{
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--cp-accent, var(--color-primary)) 25%, transparent);
+    }
+
+    /* Submit button: the theme button, or this section's colours and shape */
+    #contact-{{ section.id }} .cp-submit{
+      margin-top: var(--cp-btn-gap);
+      width: 100%;
+      min-height: 46px;
+      cursor: pointer;
+    }
+    #contact-{{ section.id }}[data-cp-own-button] .cp-submit:hover{ filter: brightness(0.95); opacity: 0.95; }
+    #contact-{{ section.id }} .cp-submit:focus-visible{ outline: 2px solid var(--cp-accent, var(--color-primary)); outline-offset: 3px; }
+    #contact-{{ section.id }} .cp-submit:active{ transform: translateY(1px); }
+    @media (prefers-reduced-motion: reduce){
+      #contact-{{ section.id }} .cp-input, #contact-{{ section.id }} .cp-textarea{ transition: none; }
+      #contact-{{ section.id }} .cp-submit:active{ transform: none; }
+    }
+
+    /* Alerts */
+    #contact-{{ section.id }} .cp-alert{
+      margin-bottom: .8rem; padding: .6rem .8rem; border-radius: 10px; font-size: clamp(14px, 4vw, 15px);
+    }
+    #contact-{{ section.id }} .cp-alert--ok{
+      background: #e8f8ef;
+      color: #0f6b3e;
+      border: 1px solid #bde8cf;
+      font-size: clamp(14px, 4vw, 17px);
+    }
+    #contact-{{ section.id }} .cp-alert--err{ background: #fdecec; color: #7a1f1f; border: 1px solid #f4caca; }
+    #contact-{{ section.id }} .visually-hidden{
+      position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;
+    }
+  </style>
+
+  <div class="cp-wrap">
+    <div class="cp-grid">
+      <!-- Left column -->
+      <div class="cp-left">
+        {%- for block in section.blocks -%}
+          {%- assign bs = block.settings -%}
+          {%- if block.type == 'heading' or block.type == 'description' -%}
+            {%- assign b_font = false -%}
+            {%- if bs.enable_custom_fonts and bs.font.family != blank -%}{%- assign b_font = true -%}<style>{{ bs.font | font_face: font_display: 'swap' }}</style>{%- endif -%}
+          {%- endif -%}
+          {%- if block.type == 'heading' -%}
+            {%- capture b_vars -%}
+              --cp-h-m: {{ bs.font_size_mobile }}px; --cp-h-d: {{ bs.font_size_desktop }}px;
+              {%- if bs.font_weight != blank and bs.font_weight != 'theme' %} --cp-h-fw: {{ bs.font_weight }};{%- endif -%}
+              {%- if bs.enable_custom_style %} --cp-h-c: {% render 'scheme-color', color: bs.color, fallback: 'var(--cp-heading, var(--color-heading))' %};{%- endif -%}
+              {%- if b_font %} --cp-ff: {{ bs.font.family }}, {{ bs.font.fallback_families | default: 'sans-serif' }};{%- endif -%}
+            {%- endcapture -%}
+            <h2 id="block-{{ block.id }}" data-ct-block="{{ block.id }}" data-ct-type="heading"{% if request.design_mode %} data-ct-settings="{{ bs | json | escape }}"{% endif %}{% if sec_font or bs.enable_custom_fonts %} data-own-font{% endif %}{% if bs.font_weight != blank and bs.font_weight != 'theme' %} data-own-weight{% endif %}{% if bs.text == blank %} hidden{% endif %} style="{{ b_vars | strip_newlines }}" {{ block.shopify_attributes }}>{{ bs.text }}</h2>
+          {%- elsif block.type == 'description' -%}
+            {%- capture b_vars -%}
+              --cp-d-m: {{ bs.font_size_mobile }}px; --cp-d-d: {{ bs.font_size_desktop }}px;
+              {%- if bs.enable_custom_style %} --cp-d-c: {% render 'scheme-color', color: bs.color, fallback: 'var(--cp-muted, var(--color-text))' %};{%- endif -%}
+              {%- if b_font %} --cp-ff: {{ bs.font.family }}, {{ bs.font.fallback_families | default: 'sans-serif' }};{%- endif -%}
+            {%- endcapture -%}
+            <div class="cp-desc" id="block-{{ block.id }}" data-ct-block="{{ block.id }}" data-ct-type="description"{% if request.design_mode %} data-ct-settings="{{ bs | json | escape }}"{% endif %}{% if sec_font or bs.enable_custom_fonts %} data-own-font{% endif %}{% if bs.text == blank %} hidden{% endif %} style="{{ b_vars | strip_newlines }}" {{ block.shopify_attributes }}>{{ bs.text }}</div>
+          {%- endif -%}
+        {%- endfor -%}
+        <div class="cp-list">
+          {%- for block in section.blocks -%}
+            {%- if block.type == 'info' -%}
+              {%- assign bs = block.settings -%}
+              {%- assign b_font = false -%}
+              {%- if bs.enable_custom_fonts and bs.font.family != blank -%}{%- assign b_font = true -%}<style>{{ bs.font | font_face: font_display: 'swap' }}</style>{%- endif -%}
+              {%- capture b_vars -%}
+                --cp-l1-m: {{ bs.line1_size_mobile }}px; --cp-l1-d: {{ bs.line1_size_desktop }}px; --cp-l2-m: {{ bs.line2_size_mobile }}px; --cp-l2-d: {{ bs.line2_size_desktop }}px;
+                {%- if bs.enable_custom_style %} --cp-i-c: {% render 'scheme-color', color: bs.icon_color, fallback: 'var(--cp-icon-color, var(--color-primary))' %}; --cp-l1-c: {% render 'scheme-color', color: bs.line1_color, fallback: 'var(--cp-text, var(--color-text))' %}; --cp-l2-c: {% render 'scheme-color', color: bs.line2_color, fallback: 'var(--cp-muted, var(--color-text))' %};{%- endif -%}
+                {%- if b_font %} --cp-ff: {{ bs.font.family }}, {{ bs.font.fallback_families | default: 'sans-serif' }};{%- endif -%}
+              {%- endcapture -%}
+              <div class="cp-item" id="block-{{ block.id }}" data-ct-block="{{ block.id }}" data-ct-type="info"{% if request.design_mode %} data-ct-settings="{{ bs | json | escape }}"{% endif %}{% if sec_font or bs.enable_custom_fonts %} data-own-font{% endif %}{% if bs.line1 == blank and bs.line2 == blank %} hidden{% endif %} style="{{ b_vars | strip_newlines }}" {{ block.shopify_attributes }}>
+                <div class="cp-icon" aria-hidden="true" data-cp-icon>{% render 'contact-live-icons', set: 'cfs2', name: bs.icon %}</div>
+                <div>
+                  <p class="cp-line1"{% if bs.line1 == blank %} hidden{% endif %}>{{ bs.line1 }}</p>
+                  <p class="cp-line2"{% if bs.line2 == blank %} hidden{% endif %}>{{ bs.line2 }}</p>
+                </div>
+              </div>
+            {%- endif -%}
+          {%- endfor -%}
+        </div>
+      </div>
+
+      <!-- Right column -->
+      <div class="cp-right">
+        <div class="cp-card">
+          {%- assign cp_form_id = 'contact-form-' | append: section.id -%}
+          {% form 'contact', id: cp_form_id %}
+            {% if form.posted_successfully? %}
+              <div class="cp-alert cp-alert--ok" role="status">{{ st.success_text }}</div>
+            {% endif %}
+
+            {% if form.errors %}
+              <div class="cp-alert cp-alert--err" role="alert">
+                {{ st.error_text | default: 'Please check the following:' }}
+                <ul style="margin:.25rem 0 0 .9rem;">
+                  {% for field in form.errors %}
+                    <li>{{ form.errors.messages[field] }}</li>
+                  {% endfor %}
+                </ul>
+              </div>
+            {% endif %}
+
+            <div class="cp-fields" aria-live="polite" data-cp-fields style="{{ cp_field_vars | strip | strip_newlines }}"{% if sec_font %} data-own-font{% endif %}>
+              <label class="cp-label{% unless st.show_labels %} visually-hidden{% endunless %}" for="ContactName-{{ section.id }}" data-cp-label="name">{{ st.label_name | default: 'Name' }}</label>
+              <input class="cp-input" id="ContactName-{{ section.id }}" type="text" name="contact[name]" autocomplete="name" placeholder="{{ st.ph_name }}" value="{{ form.contact.name | default: customer.name }}">
+
+              <label class="cp-label{% unless st.show_labels %} visually-hidden{% endunless %}" for="ContactEmail-{{ section.id }}" data-cp-label="email">{{ st.label_email | default: 'Email' }}</label>
+              <input class="cp-input" id="ContactEmail-{{ section.id }}" type="email" name="contact[email]" autocomplete="email" placeholder="{{ st.ph_email }}" value="{{ form.contact.email | default: customer.email }}" required>
+
+              <label class="cp-label{% unless st.show_labels %} visually-hidden{% endunless %}" for="ContactWebsite-{{ section.id }}" data-cp-label="website"{% unless st.show_website %} hidden{% endunless %}>{{ st.label_website | default: 'Website' }}</label>
+              <input class="cp-input" id="ContactWebsite-{{ section.id }}" type="url" name="contact[website]" autocomplete="url" placeholder="{{ st.ph_website }}"{% unless st.show_website %} hidden disabled{% endunless %}>
+
+              <label class="cp-label{% unless st.show_labels %} visually-hidden{% endunless %}" for="ContactMessage-{{ section.id }}" data-cp-label="message">{{ st.label_message | default: 'Message' }}</label>
+              <textarea class="cp-textarea" id="ContactMessage-{{ section.id }}" name="contact[body]" placeholder="{{ st.ph_message }}"></textarea>
+
+              <button type="submit" class="cp-submit" data-theme-button="primary" data-sl-button data-button-role="primary"{% if cp_own_shape %} data-own-shape{% endif %}{% if sec_font %} data-own-font{% endif %} style="{{ cp_button_vars | strip | strip_newlines }}">
+                {{- st.btn_text -}}
+              </button>
+            </div>
+          {% endform %}
+        </div>
+      </div>
+    </div>
+  </div>
+  {%- render 'contact-live-icons', set: 'cfs2', all: true -%}
+</section>
+
+</div>
+<!-- ti-theme:end -->
+{% schema %}
+{
+  "name": "Contact Form Simple 2 ",
+  "tag": "section",
+  "class": "section-contact-pro",
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Section width",
+      "default": "full_width",
+      "options": [
+        {
+          "value": "container",
+          "label": "Default"
+        },
+        {
+          "value": "fluid_container",
+          "label": "Fluid container"
+        },
+        {
+          "value": "stretch_width",
+          "label": "Stretched"
+        },
+        {
+          "value": "full_width",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "reset_spacing",
+      "label": "Remove space between sections",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Content"
+    },
+    {
+      "type": "text",
+      "id": "btn_text",
+      "label": "Button label",
+      "default": "Submit"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_website",
+      "label": "Show website field",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_labels",
+      "label": "Show field labels",
+      "default": false,
+      "info": "Off: the labels are read out by screen readers only."
+    },
+    {
+      "type": "text",
+      "id": "label_name",
+      "label": "Name label",
+      "default": "Name"
+    },
+    {
+      "type": "text",
+      "id": "ph_name",
+      "label": "Name placeholder",
+      "default": "Name"
+    },
+    {
+      "type": "text",
+      "id": "label_email",
+      "label": "Email label",
+      "default": "Email"
+    },
+    {
+      "type": "text",
+      "id": "ph_email",
+      "label": "Email placeholder",
+      "default": "Email"
+    },
+    {
+      "type": "text",
+      "id": "label_website",
+      "label": "Website label",
+      "default": "Website",
+      "visible_if": "{{ section.settings.show_website }}"
+    },
+    {
+      "type": "text",
+      "id": "ph_website",
+      "label": "Website placeholder",
+      "default": "Website (optional)",
+      "visible_if": "{{ section.settings.show_website }}"
+    },
+    {
+      "type": "text",
+      "id": "label_message",
+      "label": "Message label",
+      "default": "Message"
+    },
+    {
+      "type": "text",
+      "id": "ph_message",
+      "label": "Message placeholder",
+      "default": "Message"
+    },
+    {
+      "type": "header",
+      "content": "Messages"
+    },
+    {
+      "type": "text",
+      "id": "success_text",
+      "label": "Success message",
+      "default": "Thanks! Your message has been sent."
+    },
+    {
+      "type": "text",
+      "id": "error_text",
+      "label": "Error message",
+      "default": "Please check the following:"
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "range",
+      "id": "max_width",
+      "label": "Content width",
+      "min": 800,
+      "max": 1600,
+      "step": 20,
+      "default": 1180
+    },
+    {
+      "type": "range",
+      "id": "col_gap",
+      "label": "Gap between columns",
+      "min": 12,
+      "max": 60,
+      "step": 2,
+      "default": 28
+    },
+    {
+      "type": "range",
+      "id": "desc_info_gap",
+      "label": "Gap above contact details",
+      "min": 0,
+      "max": 60,
+      "step": 4,
+      "default": 36
+    },
+    {
+      "type": "range",
+      "id": "info_gap",
+      "label": "Gap between contact details",
+      "min": 4,
+      "max": 40,
+      "step": 2,
+      "default": 30
+    },
+    {
+      "type": "range",
+      "id": "field_gap",
+      "label": "Gap between fields",
+      "min": 4,
+      "max": 24,
+      "step": 2,
+      "default": 16
+    },
+    {
+      "type": "range",
+      "id": "btn_gap",
+      "label": "Gap above the button",
+      "min": 0,
+      "max": 20,
+      "step": 2,
+      "default": 4
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_right_card",
+      "label": "Form card",
+      "default": false
+    },
+    {
+      "type": "range",
+      "id": "radius",
+      "label": "Form card corner radius",
+      "min": 0,
+      "max": 24,
+      "step": 2,
+      "default": 12,
+      "visible_if": "{{ section.settings.enable_right_card }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_shadow",
+      "label": "Soft shadows",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Icons"
+    },
+    {
+      "type": "range",
+      "id": "icon_size_desktop",
+      "label": "Icon size (desktop)",
+      "min": 20,
+      "max": 40,
+      "step": 2,
+      "default": 36
+    },
+    {
+      "type": "range",
+      "id": "icon_size_mobile",
+      "label": "Icon size (mobile)",
+      "min": 16,
+      "max": 32,
+      "step": 2,
+      "default": 30
+    },
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_style",
+      "label": "Enable custom styling",
+      "default": false
+    },
+    {
+      "type": "color",
+      "id": "bg_color",
+      "label": "Background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_bg_gradient",
+      "label": "Background gradient",
+      "default": false,
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "bg_grad_a",
+      "label": "Gradient color A",
+      "visible_if": "{{ section.settings.enable_custom_style and section.settings.enable_bg_gradient }}"
+    },
+    {
+      "type": "color",
+      "id": "bg_grad_b",
+      "label": "Gradient color B",
+      "visible_if": "{{ section.settings.enable_custom_style and section.settings.enable_bg_gradient }}"
+    },
+    {
+      "type": "color",
+      "id": "card_color",
+      "label": "Form card background",
+      "visible_if": "{{ section.settings.enable_custom_style and section.settings.enable_right_card }}"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text and heading",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "muted_color",
+      "label": "Muted text",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "accent_color",
+      "label": "Focus ring",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "icon_color",
+      "label": "Icons",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_button_gradient",
+      "label": "Button gradient",
+      "default": false,
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "button_bg",
+      "label": "Button background",
+      "visible_if": "{{ section.settings.enable_custom_style and section.settings.enable_button_gradient == false }}"
+    },
+    {
+      "type": "color",
+      "id": "button_text",
+      "label": "Button text",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "header",
+      "content": "Button"
+    },
+    {
+      "type": "checkbox",
+      "id": "use_theme_button",
+      "label": "Match theme button",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "button_radius",
+      "label": "Button corner radius",
+      "min": 0,
+      "max": 40,
+      "step": 1,
+      "unit": "px",
+      "default": 12,
+      "visible_if": "{{ section.settings.use_theme_button == false }}"
+    },
+    {
+      "type": "range",
+      "id": "button_size",
+      "label": "Button text size",
+      "min": 12,
+      "max": 24,
+      "step": 1,
+      "unit": "px",
+      "default": 16,
+      "visible_if": "{{ section.settings.use_theme_button == false }}"
+    },
+    {
+      "type": "range",
+      "id": "button_pad_y",
+      "label": "Button padding (top and bottom)",
+      "min": 6,
+      "max": 30,
+      "step": 1,
+      "unit": "px",
+      "default": 12,
+      "visible_if": "{{ section.settings.use_theme_button == false }}"
+    },
+    {
+      "type": "header",
+      "content": "Fields"
+    },
+    {
+      "type": "checkbox",
+      "id": "use_theme_fields",
+      "label": "Match theme fields",
+      "default": true,
+      "info": "On: fields follow Theme settings > Forms and fields."
+    },
+    {
+      "type": "color",
+      "id": "input_bg",
+      "label": "Field background",
+      "visible_if": "{{ section.settings.use_theme_fields == false }}"
+    },
+    {
+      "type": "color",
+      "id": "input_border",
+      "label": "Field border",
+      "visible_if": "{{ section.settings.use_theme_fields == false }}"
+    },
+    {
+      "type": "color",
+      "id": "input_text",
+      "label": "Field text",
+      "visible_if": "{{ section.settings.use_theme_fields == false }}"
+    },
+    {
+      "type": "range",
+      "id": "field_radius",
+      "label": "Field corner radius",
+      "min": 0,
+      "max": 30,
+      "step": 1,
+      "unit": "px",
+      "default": 10,
+      "visible_if": "{{ section.settings.use_theme_fields == false }}"
+    },
+    {
+      "type": "range",
+      "id": "field_height",
+      "label": "Field height",
+      "min": 44,
+      "max": 72,
+      "step": 1,
+      "unit": "px",
+      "default": 46,
+      "visible_if": "{{ section.settings.use_theme_fields == false }}"
+    },
+    {
+      "type": "header",
+      "content": "Typography"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_fonts",
+      "label": "Enable custom fonts",
+      "default": false
+    },
+    {
+      "type": "font_picker",
+      "default": "assistant_n4",
+      "id": "heading_font",
+      "label": "Heading font",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "font_picker",
+      "default": "assistant_n4",
+      "id": "body_font",
+      "label": "Body font",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "header",
+      "content": "Animation"
+    },
+    {
+      "type": "checkbox",
+      "id": "reveal",
+      "label": "Reveal on scroll",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Desktop spacing"
+    },
+    {
+      "type": "range",
+      "id": "pad_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "default": 48
+    },
+    {
+      "type": "range",
+      "id": "pad_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "default": 48
+    },
+    {
+      "type": "range",
+      "id": "pad_x",
+      "label": "Side padding",
+      "min": 0,
+      "max": 80,
+      "step": 4,
+      "default": 24
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_desktop",
+      "label": "Top margin (desktop)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0,
+      "unit": "px",
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_desktop",
+      "label": "Bottom margin (desktop)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0,
+      "unit": "px",
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "header",
+      "content": "Mobile"
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_mobile",
+      "label": "Top margin (mobile)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0,
+      "unit": "px",
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_mobile",
+      "label": "Bottom margin (mobile)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0,
+      "unit": "px",
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "heading",
+      "name": "Heading",
+      "settings": [
+        {
+          "type": "inline_richtext",
+          "id": "text",
+          "label": "Heading",
+          "default": "Contact Us"
+        },
+        {
+          "type": "header",
+          "content": "Appearance"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Color",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "header",
+          "content": "Typography"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_fonts",
+          "label": "Enable custom font",
+          "default": false
+        },
+        {
+          "type": "font_picker",
+          "default": "assistant_n4",
+          "id": "font",
+          "label": "Font",
+          "visible_if": "{{ block.settings.enable_custom_fonts }}"
+        },
+        {
+          "type": "select",
+          "id": "font_weight",
+          "label": "Weight",
+          "default": "theme",
+          "options": [
+            {
+              "value": "theme",
+              "label": "Theme"
+            },
+            {
+              "label": "300",
+              "value": "300"
+            },
+            {
+              "label": "400",
+              "value": "400"
+            },
+            {
+              "label": "500",
+              "value": "500"
+            },
+            {
+              "label": "600",
+              "value": "600"
+            },
+            {
+              "label": "700",
+              "value": "700"
+            }
+          ]
+        },
+        {
+          "type": "range",
+          "id": "font_size_desktop",
+          "label": "Size (desktop)",
+          "min": 20,
+          "max": 60,
+          "step": 1,
+          "default": 32
+        },
+        {
+          "type": "range",
+          "id": "font_size_mobile",
+          "label": "Size (mobile)",
+          "min": 16,
+          "max": 40,
+          "step": 1,
+          "default": 32
+        }
+      ]
+    },
+    {
+      "type": "description",
+      "name": "Description",
+      "settings": [
+        {
+          "type": "richtext",
+          "id": "text",
+          "label": "Description text",
+          "default": "<p>We are committed to processing the information in order to contact you and talk about your project.</p>"
+        },
+        {
+          "type": "header",
+          "content": "Appearance"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Color",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "header",
+          "content": "Typography"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_fonts",
+          "label": "Enable custom font",
+          "default": false
+        },
+        {
+          "type": "font_picker",
+          "default": "assistant_n4",
+          "id": "font",
+          "label": "Font",
+          "visible_if": "{{ block.settings.enable_custom_fonts }}"
+        },
+        {
+          "type": "range",
+          "id": "font_size_desktop",
+          "label": "Size (desktop)",
+          "min": 12,
+          "max": 24,
+          "step": 1,
+          "default": 16
+        },
+        {
+          "type": "range",
+          "id": "font_size_mobile",
+          "label": "Size (mobile)",
+          "min": 12,
+          "max": 20,
+          "step": 1,
+          "default": 14
+        }
+      ]
+    },
+    {
+      "type": "info",
+      "name": "Info item",
+      "limit": 6,
+      "settings": [
+        {
+          "type": "select",
+          "id": "icon",
+          "label": "Icon",
+          "default": "mail",
+          "options": [
+            {
+              "label": "Mail",
+              "value": "mail"
+            },
+            {
+              "label": "Map pin",
+              "value": "map"
+            },
+            {
+              "label": "Phone",
+              "value": "phone"
+            },
+            {
+              "label": "Dot",
+              "value": "dot"
+            },
+            {
+              "label": "Clock",
+              "value": "clock"
+            },
+            {
+              "label": "User",
+              "value": "user"
+            },
+            {
+              "label": "Globe",
+              "value": "globe"
+            },
+            {
+              "label": "Calendar",
+              "value": "calendar"
+            },
+            {
+              "label": "Message",
+              "value": "message"
+            },
+            {
+              "label": "Briefcase",
+              "value": "briefcase"
+            },
+            {
+              "label": "Home",
+              "value": "home"
+            },
+            {
+              "label": "Download",
+              "value": "download"
+            },
+            {
+              "label": "Heart",
+              "value": "heart"
+            },
+            {
+              "label": "Star",
+              "value": "star"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "line1",
+          "label": "Line 1",
+          "default": "hello@example.com"
+        },
+        {
+          "type": "text",
+          "id": "line2",
+          "label": "Line 2 (optional)",
+          "default": "Send us an email."
+        },
+        {
+          "type": "header",
+          "content": "Appearance"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "icon_color",
+          "label": "Icon color",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "line1_color",
+          "label": "Line 1 color",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "line2_color",
+          "label": "Line 2 color",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "header",
+          "content": "Typography"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_fonts",
+          "label": "Enable custom font",
+          "default": false
+        },
+        {
+          "type": "font_picker",
+          "default": "assistant_n4",
+          "id": "font",
+          "label": "Font",
+          "visible_if": "{{ block.settings.enable_custom_fonts }}"
+        },
+        {
+          "type": "range",
+          "id": "line1_size_desktop",
+          "label": "Line 1 size (desktop)",
+          "min": 12,
+          "max": 24,
+          "step": 1,
+          "default": 16
+        },
+        {
+          "type": "range",
+          "id": "line1_size_mobile",
+          "label": "Line 1 size (mobile)",
+          "min": 10,
+          "max": 20,
+          "step": 1,
+          "default": 14
+        },
+        {
+          "type": "range",
+          "id": "line2_size_desktop",
+          "label": "Line 2 size (desktop)",
+          "min": 12,
+          "max": 20,
+          "step": 1,
+          "default": 14
+        },
+        {
+          "type": "range",
+          "id": "line2_size_mobile",
+          "label": "Line 2 size (mobile)",
+          "min": 10,
+          "max": 18,
+          "step": 1,
+          "default": 12
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Contact Form Simple 2",
+      "category": "Contact",
+      "blocks": [
+        {
+          "type": "heading",
+          "settings": {
+            "text": "Contact Us"
+          }
+        },
+        {
+          "type": "description",
+          "settings": {
+            "text": "<p>We are committed to processing the information in order to contact you and talk about your project.</p>"
+          }
+        },
+        {
+          "type": "info",
+          "settings": {
+            "icon": "mail",
+            "line1": "hello@example.com"
+          }
+        },
+        {
+          "type": "info",
+          "settings": {
+            "icon": "map",
+            "line1": "4074 Ebert Summit Suite 375",
+            "line2": "Lake Leonarchester"
+          }
+        },
+        {
+          "type": "info",
+          "settings": {
+            "icon": "phone",
+            "line1": "+44 123 654 7890"
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

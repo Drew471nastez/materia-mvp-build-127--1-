@@ -1,0 +1,1018 @@
+<script src="{{ 'live-faq.js' | asset_url }}" defer="defer"></script>
+{% render 'theme-type' %}
+{%- liquid
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+-%}
+{%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
+{%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
+<style>
+  #shopify-section-{{ section.id }}.scroll-trigger {
+    --animation-duration: {{ settings.animation_duration | default: 700 }}ms;
+    --animation-delay: {{ settings.animation_delay | default: 0 }}ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-{{ section.id }}');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', {{ settings.scroll_animation | json }});
+  })();
+</script>
+{%- endif -%}
+<style data-rs-bulletproof>
+  {%- if section.settings.reset_spacing -%}
+    /* reset_spacing: bulletproof override of ALL section spacing mechanisms */
+    #shopify-section-{{ section.id }},
+    #shopify-section-{{ section.id }} > .section,
+    #shopify-section-{{ section.id }} > section,
+    #shopify-section-{{ section.id }} > div,
+    #shopify-section-{{ section.id }} > div > .section {
+      margin-top: 0 !important;
+      margin-bottom: 0 !important;
+    }
+    #shopify-section-{{ section.id }} + .shopify-section,
+    #shopify-section-{{ section.id }} + section,
+    .shopify-section + #shopify-section-{{ section.id }} {
+      margin-top: 0 !important;
+    }
+  {%- endif -%}
+</style>
+{%- comment -%}
+  Materia Themes. FAQ 6: heading, subheading and questions beside an image.
+  Header and questions: snippets/faq-live-accordion. Every value is a
+  --fsi-* variable on the root; live-faq.js opens and closes the questions
+  and applies live edits.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign own = st.enable_custom_style
+  assign hw = st.heading_weight | default: 'theme'
+  assign own_hw = false
+  if hw != 'theme'
+    assign own_hw = true
+  endif
+  case st.image_aspect
+    when '4_5'
+      assign ratio = '4 / 5'
+    when '3_4'
+      assign ratio = '3 / 4'
+    when '4_3'
+      assign ratio = '4 / 3'
+    when '3_2'
+      assign ratio = '3 / 2'
+    when '16_9'
+      assign ratio = '16 / 9'
+    when 'auto'
+      assign ratio = '4 / 5'
+    else
+      assign ratio = '1 / 1'
+  endcase
+-%}
+{%- capture fsi_vars -%}
+--fsi-bg:{% if own %}{% render 'scheme-color', color: st.section_bg, fallback: 'var(--color-background)' %}{% else %}var(--color-background){% endif %};
+--fsi-pt-m:{{ st.padding_top_mobile | default: 56 }}px;--fsi-pb-m:{{ st.padding_bottom_mobile | default: 56 }}px;--fsi-pt-d:{{ st.padding_top_desktop | default: 96 }}px;--fsi-pb-d:{{ st.padding_bottom_desktop | default: 96 }}px;
+--fsi-maxw:{{ st.max_width | default: 1280 }}px;
+--fsi-h-m:{{ st.heading_size_mobile | default: 36 }}px;--fsi-h-d:{{ st.heading_size_desktop | default: 56 }}px;--fsi-hw:{% if own_hw %}{{ hw }}{% else %}var(--heading-weight, 700){% endif %};
+--fsi-heading-color:{% if own %}{% render 'scheme-color', color: st.heading_color, fallback: 'var(--color-heading)' %}{% else %}var(--color-heading){% endif %};--fsi-sub-color:{% if own %}{% render 'scheme-color', color: st.sub_color, fallback: 'var(--color-text)' %}{% else %}var(--color-text){% endif %};
+--fsi-list-bg:{% if own %}{% render 'scheme-color', color: st.list_bg, fallback: 'var(--color-background)' %}{% else %}var(--color-background){% endif %};--fsi-list-border:{% if own %}{% render 'scheme-color', color: st.list_border, fallback: 'var(--color-border)' %}{% else %}var(--color-border){% endif %};--fsi-divider:{% if own %}{% render 'scheme-color', color: st.divider_color, fallback: 'var(--color-border)' %}{% else %}var(--color-border){% endif %};
+--fsi-list-r:{{ st.list_radius | default: 12 }}px;--fsi-py:{{ st.item_padding_y | default: 22 }}px;--fsi-px:{{ st.item_padding_x | default: 24 }}px;
+--fsi-icon:{% if own %}{% render 'scheme-color', color: st.icon_color, fallback: 'var(--color-heading)' %}{% else %}var(--color-heading){% endif %};--fsi-q-color:{% if own %}{% render 'scheme-color', color: st.q_color, fallback: 'var(--color-heading)' %}{% else %}var(--color-heading){% endif %};--fsi-q-size:{{ st.q_size | default: 16 }}px;--fsi-q-weight:{{ st.q_weight | default: 600 }};
+--fsi-a-color:{% if own %}{% render 'scheme-color', color: st.a_color, fallback: 'var(--color-text)' %}{% else %}var(--color-text){% endif %};--fsi-a-size:{{ st.a_size | default: 15 }}px;
+--fsi-img-bg:{% if own %}{% render 'scheme-color', color: st.image_bg, fallback: 'var(--color-background)' %}{% else %}var(--color-background){% endif %};--fsi-img-r:{{ st.image_radius | default: 0 }}px;--fsi-ratio:{{ ratio }};--fsi-fit:{{ st.image_fit | default: 'cover' }};--fsi-img-minh:{{ st.image_min_height_desktop | default: 0 }}px;
+{%- if st.enable_custom_fonts and st.heading_font.family != blank -%}--fsi-hf:{{ st.heading_font.family }}, {{ st.heading_font.fallback_families }};{%- endif -%}
+{%- if st.enable_custom_fonts and st.body_font.family != blank -%}--fsi-bf:{{ st.body_font.family }}, {{ st.body_font.fallback_families }};{%- endif -%}
+{%- endcapture -%}
+<style>
+  #shopify-section-{{ sid }} { isolation: isolate; position: relative; margin-top: {{ st.section_margin_top | default: 0 }}px; margin-bottom: {{ st.section_margin_bottom | default: 0 }}px; }
+  #shopify-section-{{ sid }} *, #shopify-section-{{ sid }} *::before, #shopify-section-{{ sid }} *::after { box-sizing: border-box; }
+  :where(#shopify-section-{{ sid }}) { font-family: var(--body-font, inherit); }
+  :where(#shopify-section-{{ sid }}) :where(button) { font-family: inherit; }
+  :where(#shopify-section-{{ sid }}) :is(h1,h2,h3,h4,h5,h6) { font-family: var(--heading-font, inherit); }
+  {%- if st.reset_spacing -%}
+    #shopify-section-{{ sid }}, #shopify-section-{{ sid }} > section, #shopify-section-{{ sid }} > div { margin-top: 0 !important; margin-bottom: 0 !important; }
+    #shopify-section-{{ sid }} + .shopify-section, .shopify-section + #shopify-section-{{ sid }} { margin-top: 0 !important; }
+  {%- endif -%}
+
+  #shopify-section-{{ sid }} .fsi { background: var(--fsi-bg) !important; padding: var(--fsi-pt-m) 1.25rem var(--fsi-pb-m); }
+  #shopify-section-{{ sid }} .fsi[data-fsi-width="container"] { max-width: calc(var(--page-width, 1300px) + 3rem); margin-inline: auto; }
+  #shopify-section-{{ sid }} .fsi[data-fsi-width="fluid_container"] { max-width: calc(var(--fluid-container-width, 1500px) + 3rem); margin-inline: auto; }
+  #shopify-section-{{ sid }} .fsi__inner { display: grid; grid-template-columns: minmax(0, 1fr); gap: 32px; max-width: var(--fsi-maxw); margin-inline: auto; align-items: stretch; }
+  @media (min-width: 1024px) {
+    #shopify-section-{{ sid }} .fsi { padding: var(--fsi-pt-d) 2rem var(--fsi-pb-d); }
+    #shopify-section-{{ sid }} .fsi__inner { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(32px, 5vw, 80px); }
+    #shopify-section-{{ sid }} .fsi[data-fsi-side="left"] .fsi__media { order: -1; }
+  }
+  @media (min-width: 1200px) {
+    #shopify-section-{{ sid }} .fsi[data-fsi-width="stretch_width"] { padding-inline: 3rem; }
+  }
+  @media (max-width: 1023px) {
+    #shopify-section-{{ sid }} .fsi[data-fsi-mobile-image="false"] .fsi__media { display: none; }
+  }
+
+  #shopify-section-{{ sid }} .fsi__header > [hidden] { display: none; }
+  #shopify-section-{{ sid }} .fsi__heading {
+    margin: 0 0 14px;
+    color: var(--fb-c, var(--fsi-heading-color)) !important;
+    font-family: var(--fb-ff, var(--fsi-hf, var(--heading-font, inherit)));
+    font-size: var(--fb-fs-m, var(--fsi-h-m));
+    font-weight: var(--fsi-hw);
+    line-height: var(--fb-lh, 1.05);
+    letter-spacing: -0.01em;
+  }
+  #shopify-section-{{ sid }} .fsi__heading[data-own-weight] { font-weight: var(--fb-fw, var(--fsi-hw)); }
+  #shopify-section-{{ sid }} .fsi__heading[data-own-size] { letter-spacing: var(--fb-ls, -0.01em); }
+  #shopify-section-{{ sid }} .fsi__subheading {
+    margin: 0 0 28px;
+    max-width: 540px;
+    color: var(--fb-c, var(--fsi-sub-color)) !important;
+    font-family: var(--fb-ff, var(--fsi-bf, inherit));
+    font-size: var(--fb-fs, 15px);
+    line-height: var(--fb-lh, 1.55);
+  }
+  #shopify-section-{{ sid }} .fsi__subheading[data-own-weight] { font-weight: var(--fb-fw); }
+  #shopify-section-{{ sid }} :is(.fsi__subheading, .fsi__a) > * { margin: 0; }
+  #shopify-section-{{ sid }} :is(.fsi__subheading, .fsi__a) :is(p, li, strong, em) { font-family: inherit; }
+  @media (min-width: 1024px) {
+    #shopify-section-{{ sid }} .fsi__heading { font-size: var(--fb-fs-d, var(--fsi-h-d)); }
+  }
+
+  #shopify-section-{{ sid }} .fsi__list { background: var(--fsi-list-bg); border: 1px solid var(--fsi-list-border); border-radius: var(--fsi-list-r); overflow: hidden; }
+  #shopify-section-{{ sid }} .fsi__item { border-top: 1px solid var(--fsi-divider); }
+  #shopify-section-{{ sid }} .fsi__item:first-child { border-top: 0; }
+  #shopify-section-{{ sid }} .fsi__q {
+    width: 100%; min-height: 44px; background: transparent; border: 0; cursor: pointer;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding: var(--fsi-py) var(--fsi-px); text-align: start;
+    color: var(--fsi-q-color); font-family: var(--fsi-hf, inherit); font-size: var(--fsi-q-size); font-weight: var(--fsi-q-weight); line-height: 1.4;
+  }
+  #shopify-section-{{ sid }} .fsi__q:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; }
+  #shopify-section-{{ sid }} .fsi__icon { flex-shrink: 0; width: 22px; height: 22px; position: relative; display: inline-flex; align-items: center; justify-content: center; color: var(--fsi-icon); }
+  #shopify-section-{{ sid }} .fsi__icon svg { width: 100%; height: 100%; stroke: currentColor; stroke-width: 2; fill: none; transition: transform .35s cubic-bezier(.4,0,.2,1); }
+  #shopify-section-{{ sid }} .fsi__item[open] .fsi__icon-chevron { transform: rotate(180deg); }
+  #shopify-section-{{ sid }} .fsi__icon-plus .v, #shopify-section-{{ sid }} .fsi__icon-plus .h { position: absolute; left: 50%; top: 50%; background: currentColor; transform: translate(-50%, -50%); transition: transform .35s cubic-bezier(.4,0,.2,1), opacity .25s ease; }
+  #shopify-section-{{ sid }} .fsi__icon-plus .v { width: 2px; height: 14px; }
+  #shopify-section-{{ sid }} .fsi__icon-plus .h { width: 14px; height: 2px; }
+  #shopify-section-{{ sid }} .fsi__item[open] .fsi__icon-plus .v { transform: translate(-50%, -50%) rotate(90deg); opacity: 0; }
+  #shopify-section-{{ sid }} .fsi__a-wrap { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .42s cubic-bezier(.4,0,.2,1); }
+  #shopify-section-{{ sid }} .fsi__item[open] .fsi__a-wrap { grid-template-rows: 1fr; }
+  #shopify-section-{{ sid }} .fsi__a-inner { overflow: hidden; min-height: 0; }
+  #shopify-section-{{ sid }} .fsi__a { padding: 0 var(--fsi-px) var(--fsi-py); color: var(--fsi-a-color); font-family: var(--fsi-bf, inherit); font-size: var(--fsi-a-size); line-height: 1.6; }
+  #shopify-section-{{ sid }} .fsi__a > * + * { margin-top: 8px; }
+  #shopify-section-{{ sid }} .fsi__a a { color: inherit; text-decoration: underline; }
+
+  #shopify-section-{{ sid }} .fsi__media { position: relative; width: 100%; overflow: hidden; border-radius: var(--fsi-img-r); background: var(--fsi-img-bg); color: var(--color-heading); aspect-ratio: var(--fsi-ratio); }
+  #shopify-section-{{ sid }} .fsi__media :is(img, svg) { width: 100%; height: 100%; object-fit: var(--fsi-fit); object-position: center; display: block; }
+  @media (min-width: 1024px) {
+    #shopify-section-{{ sid }} .fsi__media { min-height: var(--fsi-img-minh); }
+    #shopify-section-{{ sid }} .fsi[data-fsi-aspect="auto"] .fsi__media { aspect-ratio: auto; height: 100%; align-self: stretch; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #shopify-section-{{ sid }} :is(.fsi__a-wrap, .fsi__icon svg, .fsi__icon-plus *) { transition: none !important; }
+  }
+</style>
+{%- if st.enable_custom_fonts -%}<style>{{ st.heading_font | font_face: font_display: 'swap' }}{{ st.body_font | font_face: font_display: 'swap' }}</style>{%- endif -%}
+
+<section class="fsi color-{{ color_scheme }} gradient" id="fsi-{{ sid }}" data-faq-root="faq-side-image" data-faq-section="{{ section.id }}" data-faq-settings="{{ section.settings | json | escape }}" data-fsi-width="{{ st.section_width | default: 'full_width' }}" data-fsi-side="{{ st.image_position | default: 'right' }}" data-fsi-mobile-image="{% if st.show_image_on_mobile %}true{% else %}false{% endif %}" data-fsi-aspect="{{ st.image_aspect | default: '1_1' }}" style="{{ fsi_vars | strip_newlines }}">
+  <div class="fsi__inner">
+    <div class="fsi__content">
+      {%- render 'faq-live-accordion', section: section, p: 'fsi', own_hw: own_hw -%}
+    </div>
+    <div class="fsi__media" data-faq-media>
+      {%- if st.image != blank -%}
+        {{ st.image | image_url: width: 1400 | image_tag: alt: st.image.alt, width: st.image.width, height: st.image.height, loading: 'lazy', sizes: '(min-width: 1024px) 50vw, 100vw', widths: '480,640,800,1000,1200,1400' }}
+      {%- else -%}
+        <svg class="fsi__ph" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect width="400" height="300" fill="currentColor" opacity=".08"/><g fill="currentColor" opacity=".35"><circle cx="172" cy="124" r="14"/><path d="M140 192l40-46 25 28 20-18 35 36z"/></g></svg>
+      {%- endif -%}
+    </div>
+  </div>
+</section>{% schema %}
+{
+  "name": "FAQ 6",
+  "class": "section-faq6-side",
+  "tag": "section",
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Section width",
+      "options": [
+        {
+          "value": "container",
+          "label": "Default"
+        },
+        {
+          "value": "fluid_container",
+          "label": "Fluid container"
+        },
+        {
+          "value": "stretch_width",
+          "label": "Stretched"
+        },
+        {
+          "value": "full_width",
+          "label": "Full width"
+        }
+      ],
+      "default": "full_width"
+    },
+    {
+      "type": "checkbox",
+      "id": "reset_spacing",
+      "label": "Remove space between sections",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "structured_data",
+      "label": "Add FAQ structured data",
+      "default": false,
+      "info": "Lets search engines read these questions. Turn it on for one FAQ section per page."
+    },
+    {
+      "type": "header",
+      "content": "Content"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Frequently Asked Questions",
+      "hidden": true,
+      "info": "Legacy: used only when the section has no heading block.",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "richtext",
+      "id": "subheading",
+      "label": "Subheading",
+      "default": "<p>Find answers to common questions about our products, shipping, returns, and more.</p>",
+      "hidden": true,
+      "info": "Legacy: used only when the section has no subheading block.",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "open_first",
+      "label": "Open the first question",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "allow_multiple_open",
+      "label": "Allow several open",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "open_icon",
+      "label": "Icon",
+      "default": "plus",
+      "options": [
+        {
+          "value": "plus",
+          "label": "Plus"
+        },
+        {
+          "value": "chevron",
+          "label": "Chevron"
+        }
+      ]
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "range",
+      "id": "max_width",
+      "label": "Content width",
+      "min": 800,
+      "max": 1600,
+      "step": 20,
+      "unit": "px",
+      "default": 1280
+    },
+    {
+      "type": "select",
+      "id": "image_position",
+      "label": "Image side",
+      "default": "right",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "item_padding_y",
+      "label": "Question padding (top and bottom)",
+      "min": 8,
+      "max": 40,
+      "step": 1,
+      "unit": "px",
+      "default": 22
+    },
+    {
+      "type": "range",
+      "id": "item_padding_x",
+      "label": "Question padding (sides)",
+      "min": 8,
+      "max": 40,
+      "step": 1,
+      "unit": "px",
+      "default": 24
+    },
+    {
+      "type": "range",
+      "id": "list_radius",
+      "label": "List corner radius",
+      "min": 0,
+      "max": 32,
+      "step": 1,
+      "unit": "px",
+      "default": 12
+    },
+    {
+      "type": "header",
+      "content": "Media"
+    },
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "Image"
+    },
+    {
+      "type": "select",
+      "id": "image_aspect",
+      "label": "Image ratio",
+      "default": "1_1",
+      "options": [
+        {
+          "value": "auto",
+          "label": "Fill column"
+        },
+        {
+          "value": "1_1",
+          "label": "1:1"
+        },
+        {
+          "value": "4_5",
+          "label": "4:5"
+        },
+        {
+          "value": "3_4",
+          "label": "3:4"
+        },
+        {
+          "value": "4_3",
+          "label": "4:3"
+        },
+        {
+          "value": "3_2",
+          "label": "3:2"
+        },
+        {
+          "value": "16_9",
+          "label": "16:9"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "image_fit",
+      "label": "Image fit",
+      "default": "cover",
+      "options": [
+        {
+          "value": "cover",
+          "label": "Cover"
+        },
+        {
+          "value": "contain",
+          "label": "Contain"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "image_radius",
+      "label": "Image corner radius",
+      "min": 0,
+      "max": 40,
+      "step": 1,
+      "unit": "px",
+      "default": 10
+    },
+    {
+      "type": "range",
+      "id": "image_min_height_desktop",
+      "label": "Image minimum height (desktop)",
+      "min": 0,
+      "max": 800,
+      "step": 10,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_style",
+      "label": "Enable custom styling",
+      "default": false,
+      "info": "Off: colours follow the colour scheme."
+    },
+    {
+      "type": "color",
+      "id": "section_bg",
+      "label": "Background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "list_bg",
+      "label": "List background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "list_border",
+      "label": "List border",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "divider_color",
+      "label": "Divider",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "q_color",
+      "label": "Question",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "icon_color",
+      "label": "Icon",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "a_color",
+      "label": "Answer",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "heading_color",
+      "label": "Heading",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "sub_color",
+      "label": "Subheading",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "image_bg",
+      "label": "Image background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "header",
+      "content": "Typography"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_fonts",
+      "label": "Enable custom fonts",
+      "default": false,
+      "info": "Off: fonts follow Theme settings > Typography."
+    },
+    {
+      "type": "font_picker",
+      "id": "heading_font",
+      "label": "Heading and question font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "font_picker",
+      "id": "body_font",
+      "label": "Text and answer font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "range",
+      "id": "heading_size_desktop",
+      "label": "Heading size (desktop)",
+      "min": 24,
+      "max": 80,
+      "step": 1,
+      "unit": "px",
+      "default": 56
+    },
+    {
+      "type": "range",
+      "id": "heading_size_mobile",
+      "label": "Heading size (mobile)",
+      "min": 18,
+      "max": 60,
+      "step": 1,
+      "unit": "px",
+      "default": 36
+    },
+    {
+      "type": "select",
+      "id": "heading_weight",
+      "label": "Heading weight",
+      "default": "theme",
+      "options": [
+        {
+          "value": "theme",
+          "label": "Theme"
+        },
+        {
+          "value": "500",
+          "label": "Medium"
+        },
+        {
+          "value": "600",
+          "label": "Semi-bold"
+        },
+        {
+          "value": "700",
+          "label": "Bold"
+        },
+        {
+          "value": "800",
+          "label": "Extra bold"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "q_size",
+      "label": "Question size",
+      "min": 12,
+      "max": 24,
+      "step": 1,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "select",
+      "id": "q_weight",
+      "label": "Question weight",
+      "default": "600",
+      "options": [
+        {
+          "value": "500",
+          "label": "Medium"
+        },
+        {
+          "value": "600",
+          "label": "Semi-bold"
+        },
+        {
+          "value": "700",
+          "label": "Bold"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "a_size",
+      "label": "Answer size",
+      "min": 11,
+      "max": 20,
+      "step": 1,
+      "unit": "px",
+      "default": 15
+    },
+    {
+      "type": "header",
+      "content": "Spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top_desktop",
+      "label": "Top padding (desktop)",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 96
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom_desktop",
+      "label": "Bottom padding (desktop)",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 96
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top",
+      "label": "Top margin",
+      "min": -100,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0,
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom",
+      "label": "Bottom margin",
+      "min": -100,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0,
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "header",
+      "content": "Mobile"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_image_on_mobile",
+      "label": "Show image on mobile",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "padding_top_mobile",
+      "label": "Top padding (mobile)",
+      "min": 0,
+      "max": 200,
+      "step": 2,
+      "unit": "px",
+      "default": 56
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom_mobile",
+      "label": "Bottom padding (mobile)",
+      "min": 0,
+      "max": 200,
+      "step": 2,
+      "unit": "px",
+      "default": 56
+    }
+  ],
+  "blocks": [
+    {
+      "type": "heading",
+      "name": "Heading",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "inline_richtext",
+          "id": "text",
+          "label": "Heading",
+          "default": "Frequently Asked Questions"
+        },
+        {
+          "type": "select",
+          "id": "tag",
+          "label": "HTML tag",
+          "default": "h2",
+          "hidden": true,
+          "info": "The section heading is always an h2.",
+          "options": [
+            {
+              "value": "h2",
+              "label": "H2"
+            },
+            {
+              "value": "h3",
+              "label": "H3"
+            }
+          ],
+          "visible_if": "{{ false }}"
+        },
+        {
+          "type": "header",
+          "content": "Appearance"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Color",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "header",
+          "content": "Typography"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_fonts",
+          "label": "Enable custom font",
+          "default": false
+        },
+        {
+          "type": "font_picker",
+          "id": "font",
+          "label": "Font",
+          "default": "assistant_n4",
+          "visible_if": "{{ block.settings.enable_custom_fonts }}"
+        },
+        {
+          "type": "checkbox",
+          "id": "weight_enable",
+          "label": "Custom font weight",
+          "default": false
+        },
+        {
+          "type": "select",
+          "id": "weight",
+          "label": "Weight",
+          "default": "700",
+          "visible_if": "{{ block.settings.weight_enable }}",
+          "options": [
+            {
+              "value": "300",
+              "label": "Light"
+            },
+            {
+              "value": "400",
+              "label": "Regular"
+            },
+            {
+              "value": "500",
+              "label": "Medium"
+            },
+            {
+              "value": "600",
+              "label": "Semibold"
+            },
+            {
+              "value": "700",
+              "label": "Bold"
+            },
+            {
+              "value": "800",
+              "label": "Extra bold"
+            }
+          ]
+        },
+        {
+          "type": "checkbox",
+          "id": "size_enable",
+          "label": "Custom size",
+          "default": false
+        },
+        {
+          "type": "range",
+          "id": "size_desktop",
+          "label": "Size (desktop)",
+          "min": 18,
+          "max": 80,
+          "step": 1,
+          "unit": "px",
+          "default": 56,
+          "visible_if": "{{ block.settings.size_enable }}"
+        },
+        {
+          "type": "range",
+          "id": "size_mobile",
+          "label": "Size (mobile)",
+          "min": 16,
+          "max": 60,
+          "step": 1,
+          "unit": "px",
+          "default": 36,
+          "visible_if": "{{ block.settings.size_enable }}"
+        },
+        {
+          "type": "range",
+          "id": "line_height",
+          "label": "Line height",
+          "min": 0.8,
+          "max": 2,
+          "step": 0.05,
+          "default": 1.15,
+          "visible_if": "{{ block.settings.size_enable }}"
+        },
+        {
+          "type": "range",
+          "id": "tracking",
+          "label": "Letter spacing",
+          "min": -2,
+          "max": 10,
+          "step": 0.5,
+          "unit": "px",
+          "default": 0,
+          "visible_if": "{{ block.settings.size_enable }}"
+        }
+      ]
+    },
+    {
+      "type": "subheading",
+      "name": "Subheading",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "richtext",
+          "id": "text",
+          "label": "Text",
+          "default": "<p>Find answers to common questions about our products, shipping, returns, and more.</p>"
+        },
+        {
+          "type": "header",
+          "content": "Appearance"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Color",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "header",
+          "content": "Typography"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_fonts",
+          "label": "Enable custom font",
+          "default": false
+        },
+        {
+          "type": "font_picker",
+          "id": "font",
+          "label": "Font",
+          "default": "assistant_n4",
+          "visible_if": "{{ block.settings.enable_custom_fonts }}"
+        },
+        {
+          "type": "checkbox",
+          "id": "weight_enable",
+          "label": "Custom font weight",
+          "default": false
+        },
+        {
+          "type": "select",
+          "id": "weight",
+          "label": "Weight",
+          "default": "400",
+          "visible_if": "{{ block.settings.weight_enable }}",
+          "options": [
+            {
+              "value": "300",
+              "label": "Light"
+            },
+            {
+              "value": "400",
+              "label": "Regular"
+            },
+            {
+              "value": "500",
+              "label": "Medium"
+            },
+            {
+              "value": "600",
+              "label": "Semibold"
+            },
+            {
+              "value": "700",
+              "label": "Bold"
+            }
+          ]
+        },
+        {
+          "type": "checkbox",
+          "id": "size_enable",
+          "label": "Custom size",
+          "default": false
+        },
+        {
+          "type": "range",
+          "id": "size",
+          "label": "Size",
+          "min": 11,
+          "max": 28,
+          "step": 1,
+          "unit": "px",
+          "default": 15,
+          "visible_if": "{{ block.settings.size_enable }}"
+        },
+        {
+          "type": "range",
+          "id": "line_height",
+          "label": "Line height",
+          "min": 1,
+          "max": 2.2,
+          "step": 0.05,
+          "default": 1.5,
+          "visible_if": "{{ block.settings.size_enable }}"
+        }
+      ]
+    },
+    {
+      "type": "faq_item",
+      "name": "Question",
+      "settings": [
+        {
+          "type": "text",
+          "id": "question",
+          "label": "Question",
+          "default": "How do I place an order?"
+        },
+        {
+          "type": "richtext",
+          "id": "answer",
+          "label": "Answer",
+          "default": "<p>Add an item to your cart, head to checkout, and follow the prompts. We accept all major payment methods.</p>"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "FAQ 6",
+      "category": "FAQ",
+      "blocks": [
+        {
+          "type": "heading"
+        },
+        {
+          "type": "subheading"
+        },
+        {
+          "type": "faq_item",
+          "settings": {
+            "question": "How do I place an order?",
+            "answer": "<p>Add what you want to your cart and go to checkout. You get an email as soon as the order is placed.</p>"
+          }
+        },
+        {
+          "type": "faq_item",
+          "settings": {
+            "question": "When will my order ship?",
+            "answer": "<p>Delivery options and times are shown at checkout. A tracking link follows by email once the order leaves.</p>"
+          }
+        },
+        {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I return an item?",
+            "answer": "<p>Yes. The returns page explains the steps and how long you have to send something back.</p>"
+          }
+        },
+        {
+          "type": "faq_item",
+          "settings": {
+            "question": "How do I contact you?",
+            "answer": "<p>Use the contact page or reply to your order email and we will get back to you.</p>"
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,1574 @@
+<script src="{{ 'live-features-b.js' | asset_url }}" defer="defer"></script>
+{% render 'theme-type' %}
+{%- liquid
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+-%}
+{%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
+{%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
+<style>
+  #shopify-section-{{ section.id }}.scroll-trigger {
+    --animation-duration: {{ settings.animation_duration | default: 700 }}ms;
+    --animation-delay: {{ settings.animation_delay | default: 0 }}ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-{{ section.id }}');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', {{ settings.scroll_animation | json }});
+  })();
+</script>
+{%- endif -%}
+<style data-rs-bulletproof>
+  {%- if section.settings.reset_spacing -%}
+    /* reset_spacing: bulletproof override of ALL section spacing mechanisms */
+    #shopify-section-{{ section.id }},
+    #shopify-section-{{ section.id }} > .section,
+    #shopify-section-{{ section.id }} > section,
+    #shopify-section-{{ section.id }} > div,
+    #shopify-section-{{ section.id }} > div > .section {
+      margin-top: 0 !important;
+      margin-bottom: 0 !important;
+    }
+    #shopify-section-{{ section.id }} + .shopify-section,
+    #shopify-section-{{ section.id }} + section,
+    .shopify-section + #shopify-section-{{ section.id }} {
+      margin-top: 0 !important;
+    }
+  {%- endif -%}
+</style>
+{%- comment -%}
+  Materia Themes. Comparison Table.
+
+  A heading, a subheading, up to three column blocks and one row block per
+  feature, drawn as a real table: a check or a cross per column, the
+  highlighted column filled. On a narrow screen the table scrolls sideways
+  inside its own frame (the row labels stay in view) and never the page.
+  Saved sections without column blocks keep their column one to three
+  headings from the section settings. Colours follow the colour scheme until
+  Enable custom styling is on. Live edits: assets/live-features-b.js.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign col_blocks = section.blocks | where: 'type', 'column'
+  assign rows = section.blocks | where: 'type', 'item'
+  assign title_done = false
+  assign has_heading_block = false
+  assign has_sub_block = false
+  for b in section.blocks
+    if b.type == 'heading'
+      assign has_heading_block = true
+    elsif b.type == 'subheading'
+      assign has_sub_block = true
+    endif
+  endfor
+  if col_blocks.size > 0
+    assign ncols = col_blocks.size
+    if ncols > 3
+      assign ncols = 3
+    endif
+  elsif st.third_heading != blank
+    assign ncols = 3
+  else
+    assign ncols = 2
+  endif
+  assign region_label = st.heading | strip_html | strip
+  for b in section.blocks
+    if b.type == 'heading' and b.settings.text != blank
+      assign region_label = b.settings.text | strip_html | strip
+      break
+    endif
+  endfor
+  if region_label == blank
+    assign region_label = section.name | default: 'Comparison table'
+  endif
+  assign spx = 'padding_top,padding_bottom,padding_horizontal:rem,padding_horizontal_mobile:rem,content_width:rem,heading_size,heading_height:%,subheading_font_size,subheading_font_size_mobile,subheading_padding_horizontal,subheading_padding_horizontal_mobile,table_mt,table_radius,table_border_thickness,table_column_active_radius,active_col_gradient_degrees:n,table_heading_size,table_heading_size_mobile,table_heading_height:%,table_heading_padding_horizontal,table_heading_padding_horizontal_mobile,table_heading_padding_vertical,table_heading_padding_vertical_mobile,table_row_padding_horizontal,table_row_padding_horizontal_mobile,table_row_padding_vertical,table_row_padding_vertical_mobile,table_row_heading_size,table_row_heading_size_mobile,table_row_heading_height:%,table_icon_size,table_icon_size_mobile,table_bg_gradient_degrees:n'
+  assign sc = 'heading_color,table_border_color,table_heading_color,table_heading_active_color,table_column_active_bg_color,active_col_gradient_color_1,active_col_gradient_color_2,active_col_gradient_color_3,table_row_heading_color,table_icon_color,table_icon_active_color,background_color,background_gradient,table_bg_color,table_bg_color_2,section_bg,first_heading_color_custom,second_heading_color_custom,third_heading_color_custom'
+  assign sw = 'heading_font_weight,first_heading_weight,second_heading_weight,third_heading_weight'
+  assign sf = 'heading_custom:heading_font,table_heading_custom:table_heading_font,table_row_heading_custom:table_row_heading_font'
+  assign sa = 'full_width,heading_align,table_heading_align,table_row_heading_align,table_column_active,enable_active_column_gradient,enable_table_bg_gradient'
+  assign stx = 'heading,subheading_text,first_heading,second_heading,third_heading,check_label,cross_label'
+  assign sa_list = sa | split: ','
+  assign h_px = 'size,size_mobile,line_height:%'
+  assign s_px = 'size,size_mobile,padding_x,padding_x_mobile'
+-%}
+{%- capture icon_check -%}
+  {%- if st.table_icon_check_svg != blank -%}{{ st.table_icon_check_svg }}
+  {%- elsif st.table_icon_check != blank -%}<img src="{{ st.table_icon_check | image_url: width: 96 }}" alt="" width="48" height="48" loading="lazy">
+  {%- else -%}<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="11" fill="currentColor"/><path d="M7 12.4l3.2 3.2L17.2 8.6" fill="none" stroke="var(--fbct-ink)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  {%- endif -%}
+{%- endcapture -%}
+{%- capture icon_x -%}
+  {%- if st.table_icon_x_svg != blank -%}{{ st.table_icon_x_svg }}
+  {%- elsif st.table_icon_x != blank -%}<img src="{{ st.table_icon_x | image_url: width: 96 }}" alt="" width="48" height="48" loading="lazy">
+  {%- else -%}<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10.25" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".45"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+  {%- endif -%}
+{%- endcapture -%}
+<style>
+  {%- if st.heading_custom -%}{{ st.heading_font | font_face: font_display: 'swap' }}{%- endif -%}
+  {%- if st.table_heading_custom -%}{{ st.table_heading_font | font_face: font_display: 'swap' }}{%- endif -%}
+  {%- if st.table_row_heading_custom -%}{{ st.table_row_heading_font | font_face: font_display: 'swap' }}{%- endif %}
+  #shopify-section-{{ sid }} { isolation: isolate; position: relative; background-color: var(--fbct-wrap-bg); }
+  #shopify-section-{{ sid }} .fbct { --fbct-wrap-bg: var(--fb-section_bg, transparent); background: var(--fb-background_gradient, var(--fb-background_color, var(--fb-section_bg, var(--color-background)))); color: var(--color-text); }
+  #shopify-section-{{ sid }} .fbct *, #shopify-section-{{ sid }} .fbct *::before, #shopify-section-{{ sid }} .fbct *::after { box-sizing: border-box; }
+  #shopify-section-{{ sid }} .fbct__inner { margin: 0 auto; padding: calc(var(--fb-padding_top) * .75) var(--fb-padding_horizontal_mobile) calc(var(--fb-padding_bottom) * .75); max-width: var(--fb-content_width); }
+  #shopify-section-{{ sid }} .fbct[data-full_width='true'] .fbct__inner { max-width: none; }
+  #shopify-section-{{ sid }} .fbct__head { text-align: var(--fbct-align, center); }
+  #shopify-section-{{ sid }} .fbct[data-heading_align='left'] { --fbct-align: left; }
+  #shopify-section-{{ sid }} .fbct[data-heading_align='right'] { --fbct-align: right; }
+  #shopify-section-{{ sid }} .fbct__title { margin: 0; display: block; color: var(--fb-color, var(--fb-heading_color, var(--color-heading))); font-family: var(--fb-heading_font, var(--heading-font)); font-weight: var(--fb-heading_font_weight, var(--heading-weight, 700)); font-size: calc(var(--fb-heading_size) * .85); line-height: var(--fb-heading_height); text-transform: none; text-align: var(--fbct-align, center); overflow-wrap: anywhere; }
+  #shopify-section-{{ sid }} .fbct__title[data-fb-block] { font-weight: var(--fb-weight, var(--heading-weight, 700)); font-size: var(--fb-size_mobile); line-height: var(--fb-line_height); text-align: var(--fbct-own-align, var(--fbct-align, center)); }
+  #shopify-section-{{ sid }} .fbct__title[data-alignment='left'] { --fbct-own-align: left; }
+  #shopify-section-{{ sid }} .fbct__title[data-alignment='center'] { --fbct-own-align: center; }
+  #shopify-section-{{ sid }} .fbct__title[data-alignment='right'] { --fbct-own-align: right; }
+  #shopify-section-{{ sid }} .fbct__sub { display: block; margin: 10px 0 0; line-height: 1.4; color: var(--fb-color, var(--color-text)); font-size: var(--fb-subheading_font_size_mobile); padding-inline: var(--fb-subheading_padding_horizontal_mobile); white-space: pre-line; }
+  #shopify-section-{{ sid }} .fbct__sub[data-fb-block] { font-size: var(--fb-size_mobile); padding-inline: var(--fb-padding_x_mobile); }
+  #shopify-section-{{ sid }} .fbct__scroll { position: relative; margin-top: calc(var(--fb-table_mt) * .75); overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; scrollbar-width: thin; border-radius: var(--fb-table_radius); }
+  #shopify-section-{{ sid }} .fbct__scroll[data-overflow] { cursor: grab; }
+  #shopify-section-{{ sid }} .fbct__scroll[data-dragging] { cursor: grabbing; user-select: none; }
+  #shopify-section-{{ sid }} .fbct__scroll:focus-visible { outline: 2px solid var(--color-heading); outline-offset: 3px; }
+  #shopify-section-{{ sid }} .fbct__table { --fbct-line: var(--fb-table_border_thickness) solid var(--fb-table_border_color, var(--color-border)); --fbct-tbg: var(--fb-table_bg_color, var(--color-background)); width: 100%; min-width: calc(140px + var(--fbct-n) * 80px); border-collapse: separate; border-spacing: 0; table-layout: fixed; }
+  #shopify-section-{{ sid }} :where(.fbct__table, .fbct__table th, .fbct__table td) { border: 0; font-weight: inherit; }
+  #shopify-section-{{ sid }} .fbct__table tbody { background: var(--fbct-tbg); }
+  #shopify-section-{{ sid }} .fbct[data-enable_table_bg_gradient='true'] .fbct__table tbody { background: linear-gradient(var(--fb-table_bg_gradient_degrees), var(--fbct-tbg), var(--fb-table_bg_color_2, var(--color-background))); }
+  #shopify-section-{{ sid }} .fbct__table col.fbct__c0 { width: 38%; }
+  #shopify-section-{{ sid }} .fbct__table[data-n='2'] col.fbct__c0 { width: 40%; }
+  #shopify-section-{{ sid }} .fbct__table :is(th, td) { padding: var(--fb-table_row_padding_vertical_mobile) var(--fb-table_row_padding_horizontal_mobile); vertical-align: middle; text-align: center; border-top: var(--fbct-line); }
+  #shopify-section-{{ sid }} .fbct__table thead :is(th, td) { padding: var(--fb-table_heading_padding_vertical_mobile) var(--fb-table_heading_padding_horizontal_mobile); border-top: 0; background: transparent; }
+  #shopify-section-{{ sid }} .fbct__table tbody tr:last-child > * { border-bottom: var(--fbct-line); }
+  #shopify-section-{{ sid }} .fbct__table tbody tr > :first-child { border-left: var(--fbct-line); }
+  #shopify-section-{{ sid }} .fbct__table tbody tr > :last-child { border-right: var(--fbct-line); }
+  #shopify-section-{{ sid }} .fbct__table tbody tr:first-child > :first-child { border-top-left-radius: var(--fb-table_radius); }
+  #shopify-section-{{ sid }} .fbct__table tbody tr:first-child > :last-child { border-top-right-radius: var(--fb-table_radius); }
+  #shopify-section-{{ sid }} .fbct__table tbody tr:last-child > :first-child { border-bottom-left-radius: var(--fb-table_radius); }
+  #shopify-section-{{ sid }} .fbct__table tbody tr:last-child > :last-child { border-bottom-right-radius: var(--fb-table_radius); }
+  #shopify-section-{{ sid }} .fbct__label { position: sticky; left: 0; z-index: 1; background: var(--fbct-tbg); text-align: var(--fbct-rl-align, center); }
+  #shopify-section-{{ sid }} .fbct__table thead .fbct__label { background: var(--fb-background_color, var(--fb-section_bg, var(--color-background))); }
+  #shopify-section-{{ sid }} .fbct[data-table_row_heading_align='left'] { --fbct-rl-align: left; }
+  #shopify-section-{{ sid }} .fbct[data-table_row_heading_align='right'] { --fbct-rl-align: right; }
+  #shopify-section-{{ sid }} .fbct__rl { display: block; text-align: var(--fbct-rl-align, center); color: var(--fb-table_row_heading_color, var(--color-heading)); font-family: var(--fb-table_row_heading_font, var(--heading-font)); font-weight: var(--heading-weight, 700); font-size: var(--fb-table_row_heading_size_mobile); line-height: var(--fb-table_row_heading_height); overflow-wrap: anywhere; }
+  #shopify-section-{{ sid }} .fbct__col { --fbct-hc: var(--fb-table_heading_color, var(--color-heading)); text-align: var(--fbct-th-align, center); }
+  #shopify-section-{{ sid }} .fbct[data-table_heading_align='left'] { --fbct-th-align: left; }
+  #shopify-section-{{ sid }} .fbct[data-table_heading_align='right'] { --fbct-th-align: right; }
+  #shopify-section-{{ sid }} .fbct__ct { display: block; text-align: var(--fbct-th-align, center); color: var(--fbct-own, var(--fbct-hc)); font-family: var(--fb-table_heading_font, var(--heading-font)); font-weight: var(--fbct-ow, var(--heading-weight, 700)); font-size: var(--fb-table_heading_size_mobile); line-height: var(--fb-table_heading_height); overflow-wrap: anywhere; }
+  #shopify-section-{{ sid }} .fbct__col[data-fb-block] .fbct__ct { --fbct-own: var(--fb-color); --fbct-ow: var(--fb-weight); }
+  #shopify-section-{{ sid }} .fbct__col[data-legacy='1'] .fbct__ct { --fbct-own: var(--fb-first_heading_color_custom); --fbct-ow: var(--fb-first_heading_weight); }
+  #shopify-section-{{ sid }} .fbct__col[data-legacy='2'] .fbct__ct { --fbct-own: var(--fb-second_heading_color_custom); --fbct-ow: var(--fb-second_heading_weight); }
+  #shopify-section-{{ sid }} .fbct__col[data-legacy='3'] .fbct__ct { --fbct-own: var(--fb-third_heading_color_custom); --fbct-ow: var(--fb-third_heading_weight); }
+  #shopify-section-{{ sid }} .fbct__logo { display: block; margin: 0 auto; height: 45px; width: auto; max-width: 100%; object-fit: contain; }
+  #shopify-section-{{ sid }} .fbct__logo[hidden] { display: none; }
+  #shopify-section-{{ sid }} .fbct__cell { --fbct-ink: var(--fbct-tbg); color: var(--fb-table_icon_color, var(--color-heading)); }
+  #shopify-section-{{ sid }} .fbct__mark { display: inline-flex; vertical-align: middle; width: var(--fb-table_icon_size_mobile); height: var(--fb-table_icon_size_mobile); }
+  #shopify-section-{{ sid }} .fbct__mark :is(svg, img) { display: block; width: 100%; height: 100%; object-fit: contain; }
+  #shopify-section-{{ sid }} .fbct__mark > span { display: contents; }
+  #shopify-section-{{ sid }} .fbct__mark[data-v='check'] .fbct__x, #shopify-section-{{ sid }} .fbct__mark:not([data-v='check']) .fbct__ok { display: none; }
+  #shopify-section-{{ sid }} .fbct__mark:not([data-v='check']) { color: color-mix(in srgb, currentColor 75%, transparent); }
+  #shopify-section-{{ sid }} .fb-vh { position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  {%- comment -%} The highlighted column: header to last row, one filled band. {%- endcomment %}
+  #shopify-section-{{ sid }} :is(.fbct[data-table_column_active='1'] [data-col='1'], .fbct[data-table_column_active='2'] [data-col='2'], .fbct[data-table_column_active='3'] [data-col='3']) { --fbct-hc: var(--fb-table_heading_active_color, var(--btn-primary-color)); --fbct-ink: var(--fb-table_column_active_bg_color, var(--btn-primary-bg-color)); background: var(--fb-table_column_active_bg_color, var(--btn-primary-bg-color)); color: var(--fb-table_icon_active_color, var(--btn-primary-color)); border-color: transparent; }
+  #shopify-section-{{ sid }} .fbct[data-enable_active_column_gradient='true'] :is([data-table_column_active='1'] [data-col='1'], [data-table_column_active='2'] [data-col='2'], [data-table_column_active='3'] [data-col='3']) { background: linear-gradient(var(--fb-active_col_gradient_degrees), var(--fb-active_col_gradient_color_1, var(--btn-primary-bg-color)), var(--fb-active_col_gradient_color_2, var(--btn-primary-bg-color)), var(--fb-active_col_gradient_color_3, var(--btn-primary-bg-color))); }
+  #shopify-section-{{ sid }} :is(.fbct[data-table_column_active='1'] th[data-col='1'], .fbct[data-table_column_active='2'] th[data-col='2'], .fbct[data-table_column_active='3'] th[data-col='3']) { border-radius: var(--fb-table_column_active_radius) var(--fb-table_column_active_radius) 0 0 !important; }
+  #shopify-section-{{ sid }} :is(.fbct[data-table_column_active='1'] tbody tr:last-child td[data-col='1'], .fbct[data-table_column_active='2'] tbody tr:last-child td[data-col='2'], .fbct[data-table_column_active='3'] tbody tr:last-child td[data-col='3']) { border-radius: 0 0 var(--fb-table_column_active_radius) var(--fb-table_column_active_radius) !important; }
+  @media (min-width: 768px) {
+    #shopify-section-{{ sid }} .fbct__inner { padding: var(--fb-padding_top) var(--fb-padding_horizontal) var(--fb-padding_bottom); }
+    #shopify-section-{{ sid }} .fbct__title { font-size: var(--fb-heading_size); }
+    #shopify-section-{{ sid }} .fbct__title[data-fb-block] { font-size: var(--fb-size); }
+    #shopify-section-{{ sid }} .fbct__sub { font-size: var(--fb-subheading_font_size); padding-inline: var(--fb-subheading_padding_horizontal); }
+    #shopify-section-{{ sid }} .fbct__sub[data-fb-block] { font-size: var(--fb-size); padding-inline: var(--fb-padding_x); }
+    #shopify-section-{{ sid }} .fbct__scroll { position: relative; margin-top: var(--fb-table_mt); }
+    #shopify-section-{{ sid }} .fbct__table col.fbct__c0 { width: 30%; }
+    #shopify-section-{{ sid }} .fbct__table[data-n='2'] col.fbct__c0 { width: 40%; }
+    #shopify-section-{{ sid }} .fbct__table :is(th, td) { padding: var(--fb-table_row_padding_vertical) var(--fb-table_row_padding_horizontal); }
+    #shopify-section-{{ sid }} .fbct__table thead :is(th, td) { padding: var(--fb-table_heading_padding_vertical) var(--fb-table_heading_padding_horizontal); }
+    #shopify-section-{{ sid }} .fbct__rl { font-size: var(--fb-table_row_heading_size); }
+    #shopify-section-{{ sid }} .fbct__ct { font-size: var(--fb-table_heading_size); }
+    #shopify-section-{{ sid }} .fbct__logo { height: 75px; }
+    #shopify-section-{{ sid }} .fbct__mark { width: var(--fb-table_icon_size); height: var(--fb-table_icon_size); }
+  }
+</style>
+{%- capture spec -%}{"px":"{{ spx }}","c":"{{ sc }}","w":"{{ sw }}","f":"{{ sf }}","a":"{{ sa }}","t":"{{ stx }}"}{%- endcapture -%}
+{%- capture bspec -%}{"heading":{"px":"{{ h_px }}","c":"color","w":"weight","a":"alignment","r":"text"},"subheading":{"px":"{{ s_px }}","c":"color","t":"text"},"item":{"t":"row_heading","v":"first_icon,second_icon,third_icon"},"column":{"c":"color","w":"weight","t":"title","i":"image"}}{%- endcapture -%}
+<section class="fbct color-{{ color_scheme }} gradient" data-fb-root="comparison-table" data-fb-section="{{ sid }}"{% if request.design_mode %} data-fb-settings="{{ st | json | escape }}"{% endif %}{% if request.design_mode %} data-fb-spec="{{ spec | escape }}"{% endif %}{% if request.design_mode %} data-fb-bspec="{{ bspec | escape }}"{% endif %}{% for k in sa_list %} data-{{ k }}="{{ st[k] }}"{% endfor %} style="{% render 'features-b-vars', s: st, px: spx, c: sc, w: sw, f: sf, gate: st.enable_custom_style %}">
+  <div class="fbct__inner">
+    <div class="fbct__head">
+      {%- for block in section.blocks -%}
+        {%- assign bs = block.settings -%}
+        {%- if block.type == 'heading' -%}
+          <h2{% unless title_done %} id="fb-title-{{ sid }}"{% assign title_done = true %}{% endunless %} class="fbct__title" data-fb-block="{{ block.id }}" data-fb-type="heading"{% if request.design_mode %} data-fb-bs="{{ bs | json | escape }}"{% endif %} data-fb-bt="{{ block.id }}:text" data-fb-bw="{{ block.id }}:weight" data-fb-f="heading_font" data-alignment="{{ bs.alignment }}" data-own-size{% if bs.weight != blank and bs.weight != 'theme' %} data-own-weight{% endif %}{% if st.heading_custom and st.heading_font.family != blank %} data-own-font{% endif %} style="{% render 'features-b-vars', s: bs, px: h_px, c: 'color', w: 'weight', gate: bs.enable_custom_style %}" {{ block.shopify_attributes }}>{{ bs.text }}</h2>
+        {%- elsif block.type == 'subheading' -%}
+          <div class="fbct__sub" data-fb-block="{{ block.id }}" data-fb-type="subheading"{% if request.design_mode %} data-fb-bs="{{ bs | json | escape }}"{% endif %} data-fb-bt="{{ block.id }}:text" style="{% render 'features-b-vars', s: bs, px: s_px, c: 'color', gate: bs.enable_custom_style %}" {{ block.shopify_attributes }}>{{ bs.text | escape }}</div>
+        {%- endif -%}
+      {%- endfor -%}
+      {%- unless has_heading_block -%}
+        {%- if st.heading != blank -%}{%- assign title_done = true -%}<h2 id="fb-title-{{ sid }}" class="fbct__title" data-fb-t="heading" data-fb-w="heading_font_weight" data-fb-f="heading_font" data-own-size{% if st.heading_font_weight != blank and st.heading_font_weight != 'theme' %} data-own-weight{% endif %}{% if st.heading_custom and st.heading_font.family != blank %} data-own-font{% endif %}>{{ st.heading | escape }}</h2>{%- endif -%}
+      {%- endunless -%}
+      {%- unless has_sub_block -%}
+        {%- if st.subheading_text != blank -%}<div class="fbct__sub" data-fb-t="subheading_text">{{ st.subheading_text | escape }}</div>{%- endif -%}
+      {%- endunless -%}
+    </div>
+
+    <div class="fbct__scroll" data-fb-scroll role="region" {% if title_done %}aria-labelledby="fb-title-{{ sid }}"{% else %}aria-label="{{ region_label | escape }}"{% endif %} tabindex="0">
+      <table class="fbct__table" data-n="{{ ncols }}" style="--fbct-n: {{ ncols }};">
+        <colgroup><col class="fbct__c0">{% for i in (1..ncols) %}<col>{% endfor %}</colgroup>
+        <thead>
+          <tr>
+            <td class="fbct__label"></td>
+            {%- if col_blocks.size > 0 -%}
+              {%- for col in col_blocks limit: 3 -%}
+                {%- assign cs = col.settings -%}
+                <th scope="col" class="fbct__col" data-col="{{ forloop.index }}" data-fb-block="{{ col.id }}" data-fb-type="column"{% if request.design_mode %} data-fb-bs="{{ cs | json | escape }}"{% endif %} style="{% render 'features-b-vars', s: cs, c: 'color', w: 'weight', gate: cs.enable_custom_style %}" {{ col.shopify_attributes }}>
+                  <img class="fbct__logo" data-fb-bi="{{ col.id }}:image" src="{% if cs.image != blank %}{{ cs.image | image_url: width: 300 }}{% endif %}" alt="" width="150" height="75" loading="lazy"{% if cs.image == blank %} hidden data-fb-empty{% endif %}>
+                  <span class="fbct__ct" data-fb-bt="{{ col.id }}:title" data-fb-bw="{{ col.id }}:weight" data-fb-f="table_heading_font"{% if cs.weight != blank and cs.weight != 'theme' %} data-own-weight{% endif %}{% if st.table_heading_custom and st.table_heading_font.family != blank %} data-own-font{% endif %}>{{ cs.title | escape }}</span>
+                </th>
+              {%- endfor -%}
+            {%- else -%}
+              {%- for i in (1..ncols) -%}
+                {%- case i -%}
+                  {%- when 1 -%}{%- assign t_key = 'first_heading' -%}{%- assign w_key = 'first_heading_weight' -%}
+                  {%- when 2 -%}{%- assign t_key = 'second_heading' -%}{%- assign w_key = 'second_heading_weight' -%}
+                  {%- else -%}{%- assign t_key = 'third_heading' -%}{%- assign w_key = 'third_heading_weight' -%}
+                {%- endcase -%}
+                <th scope="col" class="fbct__col" data-col="{{ i }}" data-legacy="{{ i }}">
+                  {%- assign has_logo = false -%}
+                  {%- if i == 1 and st.enable_logo_column_one -%}
+                    {%- if st.enable_logo_url and st.logo_image_url != blank -%}{%- assign has_logo = true -%}<img class="fbct__logo" src="{{ st.logo_image_url | escape }}" alt="{{ st.first_heading | escape }}" width="150" height="75" loading="lazy">
+                    {%- elsif st.logo_image_column_one != blank -%}{%- assign has_logo = true -%}<img class="fbct__logo" src="{{ st.logo_image_column_one | image_url: width: 300 }}" alt="{{ st.logo_image_column_one.alt | default: st.first_heading | escape }}" width="150" height="75" loading="lazy">
+                    {%- endif -%}
+                  {%- endif -%}
+                  {%- if has_logo -%}<span class="fb-vh">{{ st[t_key] | escape }}</span>{%- else -%}<span class="fbct__ct" data-fb-t="{{ t_key }}" data-fb-w="{{ w_key }}" data-fb-f="table_heading_font"{% if st[w_key] != blank and st[w_key] != 'theme' %} data-own-weight{% endif %}{% if st.table_heading_custom and st.table_heading_font.family != blank %} data-own-font{% endif %}>{{ st[t_key] | escape }}</span>{%- endif -%}
+                </th>
+              {%- endfor -%}
+            {%- endif -%}
+          </tr>
+        </thead>
+        <tbody>
+          {%- for row in rows -%}
+            {%- assign rs = row.settings -%}
+            <tr data-fb-block="{{ row.id }}" data-fb-type="item"{% if request.design_mode %} data-fb-bs="{{ rs | json | escape }}"{% endif %} {{ row.shopify_attributes }}>
+              <th scope="row" class="fbct__label"><span class="fbct__rl" data-fb-bt="{{ row.id }}:row_heading" data-fb-f="table_row_heading_font"{% if st.table_row_heading_custom and st.table_row_heading_font.family != blank %} data-own-font{% endif %}>{{ rs.row_heading | escape }}</span></th>
+              {%- for i in (1..ncols) -%}
+                {%- case i -%}
+                  {%- when 1 -%}{%- assign k = 'first_icon' -%}
+                  {%- when 2 -%}{%- assign k = 'second_icon' -%}
+                  {%- else -%}{%- assign k = 'third_icon' -%}
+                {%- endcase -%}
+                <td class="fbct__cell" data-col="{{ i }}">
+                  <span class="fbct__mark" data-fb-bv="{{ row.id }}:{{ k }}" data-v="{{ rs[k] | default: 'check' }}">
+                    <span class="fbct__ok">{{ icon_check }}<span class="fb-vh" data-fb-t="check_label">{{ st.check_label }}</span></span>
+                    <span class="fbct__x">{{ icon_x }}<span class="fb-vh" data-fb-t="cross_label">{{ st.cross_label }}</span></span>
+                  </span>
+                </td>
+              {%- endfor -%}
+            </tr>
+          {%- endfor -%}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>{% schema %}
+{
+  "name": "Comparison Table",
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "checkbox",
+      "id": "full_width",
+      "label": "Full width",
+      "default": false
+    },
+    {
+      "type": "range",
+      "id": "content_width",
+      "min": 0,
+      "max": 400,
+      "step": 10,
+      "unit": "rem",
+      "label": "Content width",
+      "default": 150,
+      "visible_if": "{{ section.settings.full_width == false }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "reset_spacing",
+      "label": "Remove space between sections",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Content"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Section Title",
+      "default": "Comparison Table",
+      "hidden": true,
+      "info": "Legacy: used only when the section has no heading block",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "textarea",
+      "id": "subheading_text",
+      "label": "Subheading Text",
+      "default": "Easily Compare Features, Pricing, and Benefits Side by Side to Find the Perfect Option for Your Needs",
+      "hidden": true,
+      "info": "Legacy: used only when the section has no subheading block",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "id": "check_label",
+      "type": "text",
+      "default": "Included",
+      "label": "Check label (screen readers)"
+    },
+    {
+      "id": "cross_label",
+      "type": "text",
+      "default": "Not included",
+      "label": "Cross label (screen readers)"
+    },
+    {
+      "type": "text",
+      "id": "first_heading",
+      "label": "Heading for Column One",
+      "default": "Our Brand",
+      "hidden": true,
+      "info": "Legacy: used only when the section has no column blocks",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "text",
+      "id": "second_heading",
+      "label": "Heading for Column Two",
+      "default": "Others",
+      "hidden": true,
+      "info": "Legacy: used only when the section has no column blocks",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "text",
+      "id": "third_heading",
+      "label": "Heading for Column Three",
+      "hidden": true,
+      "info": "Legacy: used only when the section has no column blocks",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_logo_column_one",
+      "label": "Logo in column one",
+      "default": false,
+      "hidden": true,
+      "info": "Legacy: used only when the section has no column blocks",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_logo_url",
+      "label": "Logo from URL",
+      "default": false,
+      "hidden": true,
+      "info": "Legacy: used only when the section has no column blocks",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "text",
+      "id": "logo_image_url",
+      "label": "Logo Image URL",
+      "hidden": true,
+      "info": "Legacy: used only when the section has no column blocks",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "image_picker",
+      "id": "logo_image_column_one",
+      "label": "Column one logo",
+      "hidden": true,
+      "info": "Legacy: used only when the section has no column blocks",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "select",
+      "id": "first_heading_weight",
+      "label": "Column One Heading Font Weight",
+      "default": "theme",
+      "options": [
+        {
+          "value": "theme",
+          "label": "Theme"
+        },
+        {
+          "label": "Light",
+          "value": "lighter"
+        },
+        {
+          "label": "Normal",
+          "value": "normal"
+        },
+        {
+          "label": "Bold",
+          "value": "bold"
+        }
+      ],
+      "hidden": true,
+      "info": "Legacy: used only when the section has no column blocks",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "select",
+      "id": "second_heading_weight",
+      "label": "Column Two Heading Font Weight",
+      "default": "theme",
+      "options": [
+        {
+          "value": "theme",
+          "label": "Theme"
+        },
+        {
+          "label": "Light",
+          "value": "lighter"
+        },
+        {
+          "label": "Normal",
+          "value": "normal"
+        },
+        {
+          "label": "Bold",
+          "value": "bold"
+        }
+      ],
+      "hidden": true,
+      "info": "Legacy: used only when the section has no column blocks",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "select",
+      "id": "third_heading_weight",
+      "label": "Column Three Heading Font Weight",
+      "default": "theme",
+      "options": [
+        {
+          "value": "theme",
+          "label": "Theme"
+        },
+        {
+          "label": "Light",
+          "value": "lighter"
+        },
+        {
+          "label": "Normal",
+          "value": "normal"
+        },
+        {
+          "label": "Bold",
+          "value": "bold"
+        }
+      ],
+      "hidden": true,
+      "info": "Legacy: used only when the section has no column blocks",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "color",
+      "id": "first_heading_color_custom",
+      "label": "Column One Heading Color",
+      "hidden": true,
+      "info": "Legacy: used only when the section has no column blocks",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "color",
+      "id": "second_heading_color_custom",
+      "label": "Column Two Heading Color",
+      "hidden": true,
+      "info": "Legacy: used only when the section has no column blocks",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "color",
+      "id": "third_heading_color_custom",
+      "label": "Column Three Heading Color",
+      "hidden": true,
+      "info": "Legacy: used only when the section has no column blocks",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "select",
+      "id": "heading_align",
+      "label": "Header alignment",
+      "default": "center",
+      "options": [
+        {
+          "label": "Center",
+          "value": "center"
+        },
+        {
+          "label": "Left",
+          "value": "left"
+        },
+        {
+          "label": "Right",
+          "value": "right"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "table_column_active",
+      "label": "Highlighted column",
+      "default": "1",
+      "options": [
+        {
+          "value": "1",
+          "label": "1"
+        },
+        {
+          "value": "2",
+          "label": "2"
+        },
+        {
+          "value": "3",
+          "label": "3"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "table_heading_align",
+      "label": "Column title alignment",
+      "default": "center",
+      "options": [
+        {
+          "label": "Center",
+          "value": "center"
+        },
+        {
+          "label": "Left",
+          "value": "left"
+        },
+        {
+          "label": "Right",
+          "value": "right"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "table_row_heading_align",
+      "label": "Row label alignment",
+      "default": "center",
+      "options": [
+        {
+          "label": "Center",
+          "value": "center"
+        },
+        {
+          "label": "Left",
+          "value": "left"
+        },
+        {
+          "label": "Right",
+          "value": "right"
+        }
+      ],
+      "info": "Align the row heading text."
+    },
+    {
+      "type": "range",
+      "id": "table_mt",
+      "min": 0,
+      "max": 100,
+      "step": 2,
+      "unit": "px",
+      "label": "Space above table",
+      "default": 82,
+      "info": "Adds space above the table."
+    },
+    {
+      "type": "range",
+      "id": "table_radius",
+      "min": 0,
+      "max": 50,
+      "step": 2,
+      "unit": "px",
+      "label": "Table corner radius",
+      "default": 10
+    },
+    {
+      "type": "range",
+      "id": "table_border_thickness",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "unit": "px",
+      "label": "Border width",
+      "default": 2
+    },
+    {
+      "type": "range",
+      "id": "table_column_active_radius",
+      "min": 0,
+      "max": 50,
+      "step": 2,
+      "unit": "px",
+      "label": "Highlight corner radius",
+      "default": 10
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_active_column_gradient",
+      "label": "Highlight gradient",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "active_col_gradient_degrees",
+      "label": "Gradient angle",
+      "default": "315deg",
+      "options": [
+        {
+          "label": "0°",
+          "value": "0deg"
+        },
+        {
+          "label": "45°",
+          "value": "45deg"
+        },
+        {
+          "label": "90°",
+          "value": "90deg"
+        },
+        {
+          "label": "135°",
+          "value": "135deg"
+        },
+        {
+          "label": "180°",
+          "value": "180deg"
+        },
+        {
+          "label": "225°",
+          "value": "225deg"
+        },
+        {
+          "label": "270°",
+          "value": "270deg"
+        },
+        {
+          "label": "315°",
+          "value": "315deg"
+        }
+      ],
+      "visible_if": "{{ section.settings.enable_active_column_gradient }}"
+    },
+    {
+      "type": "header",
+      "content": "Icons"
+    },
+    {
+      "type": "image_picker",
+      "id": "table_icon_check",
+      "label": "Check icon image",
+      "visible_if": "{{ section.settings.table_icon_check_svg == blank }}"
+    },
+    {
+      "type": "textarea",
+      "id": "table_icon_check_svg",
+      "label": "Check icon SVG code"
+    },
+    {
+      "type": "image_picker",
+      "id": "table_icon_x",
+      "label": "Cross icon image",
+      "visible_if": "{{ section.settings.table_icon_x_svg == blank }}"
+    },
+    {
+      "type": "textarea",
+      "id": "table_icon_x_svg",
+      "label": "Cross icon SVG code"
+    },
+    {
+      "type": "range",
+      "id": "table_icon_size",
+      "min": 20,
+      "max": 100,
+      "step": 2,
+      "unit": "px",
+      "label": "Icon size (desktop)",
+      "default": 26
+    },
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "id": "enable_custom_style",
+      "type": "checkbox",
+      "default": false,
+      "label": "Enable custom styling",
+      "info": "Off: colours follow the colour scheme."
+    },
+    {
+      "type": "color",
+      "id": "section_bg",
+      "label": "Section background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "label": "Inner background",
+      "id": "background_color",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color_background",
+      "id": "background_gradient",
+      "label": "Background gradient",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "label": "Heading",
+      "id": "heading_color",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "label": "Borders",
+      "id": "table_border_color",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "label": "Column titles",
+      "id": "table_heading_color",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "label": "Highlighted column title",
+      "id": "table_heading_active_color",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "label": "Highlight background",
+      "id": "table_column_active_bg_color",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "active_col_gradient_color_1",
+      "label": "Highlight gradient 1",
+      "visible_if": "{{ section.settings.enable_custom_style and section.settings.enable_active_column_gradient }}"
+    },
+    {
+      "type": "color",
+      "id": "active_col_gradient_color_2",
+      "label": "Highlight gradient 2",
+      "visible_if": "{{ section.settings.enable_custom_style and section.settings.enable_active_column_gradient }}"
+    },
+    {
+      "type": "color",
+      "id": "active_col_gradient_color_3",
+      "label": "Highlight gradient 3",
+      "visible_if": "{{ section.settings.enable_custom_style and section.settings.enable_active_column_gradient }}"
+    },
+    {
+      "type": "color",
+      "label": "Row labels",
+      "id": "table_row_heading_color",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "label": "Icons",
+      "id": "table_icon_color",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "label": "Highlighted icons",
+      "id": "table_icon_active_color",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_icon_color_customizers",
+      "label": "Custom icon colors",
+      "default": true,
+      "hidden": true,
+      "info": "Legacy: icon colours follow Enable custom styling",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_table_bg_gradient",
+      "label": "Table gradient",
+      "default": false,
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "table_bg_color",
+      "label": "Table background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "table_bg_color_2",
+      "label": "Table background 2",
+      "visible_if": "{{ section.settings.enable_custom_style and section.settings.enable_table_bg_gradient }}"
+    },
+    {
+      "type": "select",
+      "id": "table_bg_gradient_degrees",
+      "label": "Table gradient angle",
+      "default": "90deg",
+      "options": [
+        {
+          "label": "0°",
+          "value": "0deg"
+        },
+        {
+          "label": "45°",
+          "value": "45deg"
+        },
+        {
+          "label": "90°",
+          "value": "90deg"
+        },
+        {
+          "label": "135°",
+          "value": "135deg"
+        },
+        {
+          "label": "180°",
+          "value": "180deg"
+        },
+        {
+          "label": "225°",
+          "value": "225deg"
+        },
+        {
+          "label": "270°",
+          "value": "270deg"
+        },
+        {
+          "label": "315°",
+          "value": "315deg"
+        }
+      ],
+      "visible_if": "{{ section.settings.enable_custom_style and section.settings.enable_table_bg_gradient }}"
+    },
+    {
+      "type": "header",
+      "content": "Typography"
+    },
+    {
+      "id": "heading_custom",
+      "type": "checkbox",
+      "default": false,
+      "label": "Custom heading font"
+    },
+    {
+      "id": "heading_font",
+      "type": "font_picker",
+      "default": "assistant_n4",
+      "label": "Heading font",
+      "visible_if": "{{ section.settings.heading_custom }}"
+    },
+    {
+      "type": "range",
+      "id": "heading_size",
+      "min": 0,
+      "max": 72,
+      "step": 2,
+      "unit": "px",
+      "label": "Section Title Font Size",
+      "default": 34,
+      "hidden": true,
+      "info": "Legacy: used only when the section has no heading block",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "range",
+      "id": "heading_height",
+      "min": 50,
+      "max": 200,
+      "step": 10,
+      "unit": "%",
+      "label": "Section Title Line Height",
+      "default": 100,
+      "hidden": true,
+      "info": "Legacy: used only when the section has no heading block",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "select",
+      "id": "heading_font_weight",
+      "label": "Section Title Font Weight",
+      "default": "theme",
+      "options": [
+        {
+          "value": "theme",
+          "label": "Theme"
+        },
+        {
+          "label": "Light",
+          "value": "lighter"
+        },
+        {
+          "label": "Normal",
+          "value": "normal"
+        },
+        {
+          "label": "Bold",
+          "value": "bold"
+        }
+      ],
+      "hidden": true,
+      "info": "Legacy: used only when the section has no heading block",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "range",
+      "id": "subheading_font_size",
+      "min": 8,
+      "max": 40,
+      "step": 1,
+      "unit": "px",
+      "label": "Subheading Font Size (Desktop)",
+      "default": 16,
+      "hidden": true,
+      "info": "Legacy: used only when the section has no subheading block",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "range",
+      "id": "subheading_font_size_mobile",
+      "min": 8,
+      "max": 40,
+      "step": 1,
+      "unit": "px",
+      "label": "Subheading Font Size (Mobile)",
+      "default": 15,
+      "hidden": true,
+      "info": "Legacy: used only when the section has no subheading block",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "range",
+      "id": "subheading_padding_horizontal",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "label": "Subheading side padding",
+      "default": 0,
+      "hidden": true,
+      "info": "Legacy: used only when the section has no subheading block",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "range",
+      "id": "subheading_padding_horizontal_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "label": "Subheading side padding (mobile)",
+      "default": 0,
+      "hidden": true,
+      "info": "Legacy: used only when the section has no subheading block",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "table_heading_custom",
+      "label": "Custom column title font",
+      "default": false
+    },
+    {
+      "type": "font_picker",
+      "id": "table_heading_font",
+      "label": "Column title font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.table_heading_custom }}"
+    },
+    {
+      "type": "range",
+      "id": "table_heading_size",
+      "min": 0,
+      "max": 72,
+      "step": 2,
+      "unit": "px",
+      "label": "Column title size (desktop)",
+      "default": 24
+    },
+    {
+      "type": "range",
+      "id": "table_heading_height",
+      "min": 50,
+      "max": 200,
+      "step": 10,
+      "unit": "%",
+      "label": "Column title line height",
+      "default": 100
+    },
+    {
+      "id": "table_row_heading_custom",
+      "type": "checkbox",
+      "default": false,
+      "label": "Custom row label font"
+    },
+    {
+      "id": "table_row_heading_font",
+      "type": "font_picker",
+      "default": "assistant_n4",
+      "label": "Row label font",
+      "visible_if": "{{ section.settings.table_row_heading_custom }}"
+    },
+    {
+      "type": "range",
+      "id": "table_row_heading_size",
+      "min": 0,
+      "max": 72,
+      "step": 2,
+      "unit": "px",
+      "label": "Row label size (desktop)",
+      "default": 26
+    },
+    {
+      "type": "range",
+      "id": "table_row_heading_height",
+      "min": 50,
+      "max": 200,
+      "step": 10,
+      "unit": "%",
+      "label": "Row label line height",
+      "default": 100
+    },
+    {
+      "type": "header",
+      "content": "Desktop spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "min": 0,
+      "max": 200,
+      "step": 10,
+      "unit": "px",
+      "label": "Top padding",
+      "default": 100
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "min": 0,
+      "max": 200,
+      "step": 10,
+      "unit": "px",
+      "label": "Bottom padding",
+      "default": 100
+    },
+    {
+      "type": "range",
+      "id": "padding_horizontal",
+      "min": 0,
+      "max": 10,
+      "step": 1,
+      "unit": "rem",
+      "label": "Side padding",
+      "default": 5
+    },
+    {
+      "type": "range",
+      "id": "table_heading_padding_vertical",
+      "min": 0,
+      "max": 100,
+      "step": 2,
+      "unit": "px",
+      "label": "Column title padding y",
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "table_heading_padding_horizontal",
+      "min": 0,
+      "max": 100,
+      "step": 2,
+      "unit": "px",
+      "label": "Column title padding x",
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "table_row_padding_vertical",
+      "min": 0,
+      "max": 100,
+      "step": 2,
+      "unit": "px",
+      "label": "Row padding y",
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "table_row_padding_horizontal",
+      "min": 0,
+      "max": 100,
+      "step": 2,
+      "unit": "px",
+      "label": "Row padding x",
+      "default": 20
+    },
+    {
+      "type": "header",
+      "content": "Mobile"
+    },
+    {
+      "type": "range",
+      "id": "padding_horizontal_mobile",
+      "min": 0,
+      "max": 10,
+      "step": 1,
+      "unit": "rem",
+      "label": "Side padding (mobile)",
+      "default": 1
+    },
+    {
+      "type": "range",
+      "id": "table_heading_size_mobile",
+      "min": 0,
+      "max": 40,
+      "step": 1,
+      "unit": "px",
+      "label": "Column title size (mobile)",
+      "default": 10
+    },
+    {
+      "type": "range",
+      "id": "table_row_heading_size_mobile",
+      "min": 0,
+      "max": 40,
+      "step": 1,
+      "unit": "px",
+      "label": "Row label size (mobile)",
+      "default": 10
+    },
+    {
+      "type": "range",
+      "id": "table_icon_size_mobile",
+      "min": 10,
+      "max": 100,
+      "step": 2,
+      "unit": "px",
+      "label": "Icon size (mobile)",
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "table_heading_padding_vertical_mobile",
+      "min": 0,
+      "max": 100,
+      "step": 2,
+      "unit": "px",
+      "label": "Column title padding y (mobile)",
+      "default": 10
+    },
+    {
+      "type": "range",
+      "id": "table_heading_padding_horizontal_mobile",
+      "min": 0,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "label": "Column title padding x (mobile)",
+      "default": 4
+    },
+    {
+      "type": "range",
+      "id": "table_row_padding_vertical_mobile",
+      "min": 0,
+      "max": 100,
+      "step": 2,
+      "unit": "px",
+      "label": "Row padding y (mobile)",
+      "default": 12
+    },
+    {
+      "type": "range",
+      "id": "table_row_padding_horizontal_mobile",
+      "min": 0,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "label": "Row padding x (mobile)",
+      "default": 22
+    }
+  ],
+  "blocks": [
+    {
+      "type": "heading",
+      "name": "Heading",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "inline_richtext",
+          "id": "text",
+          "label": "Heading",
+          "default": "Comparison Table"
+        },
+        {
+          "type": "select",
+          "id": "alignment",
+          "label": "Alignment",
+          "default": "center",
+          "options": [
+            {
+              "value": "left",
+              "label": "Left"
+            },
+            {
+              "value": "center",
+              "label": "Center"
+            },
+            {
+              "value": "right",
+              "label": "Right"
+            }
+          ]
+        },
+        {
+          "id": "enable_custom_style",
+          "type": "checkbox",
+          "default": false,
+          "label": "Enable custom styling"
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Heading colour",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "select",
+          "id": "weight",
+          "label": "Weight",
+          "default": "theme",
+          "options": [
+            {
+              "value": "theme",
+              "label": "Theme"
+            },
+            {
+              "value": "lighter",
+              "label": "Light"
+            },
+            {
+              "value": "normal",
+              "label": "Normal"
+            },
+            {
+              "value": "bold",
+              "label": "Bold"
+            }
+          ]
+        },
+        {
+          "type": "range",
+          "id": "size",
+          "label": "Size (desktop)",
+          "min": 12,
+          "max": 80,
+          "step": 2,
+          "unit": "px",
+          "default": 34
+        },
+        {
+          "type": "range",
+          "id": "size_mobile",
+          "label": "Size (mobile)",
+          "min": 12,
+          "max": 60,
+          "step": 2,
+          "unit": "px",
+          "default": 28
+        },
+        {
+          "type": "range",
+          "id": "line_height",
+          "label": "Line height",
+          "min": 50,
+          "max": 200,
+          "step": 10,
+          "unit": "%",
+          "default": 100
+        }
+      ]
+    },
+    {
+      "type": "subheading",
+      "name": "Subheading",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "textarea",
+          "id": "text",
+          "label": "Subheading",
+          "default": "Easily Compare Features, Pricing, and Benefits Side by Side to Find the Perfect Option for Your Needs"
+        },
+        {
+          "id": "enable_custom_style",
+          "type": "checkbox",
+          "default": false,
+          "label": "Enable custom styling"
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Text colour",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "range",
+          "id": "size",
+          "label": "Size (desktop)",
+          "min": 8,
+          "max": 40,
+          "step": 1,
+          "unit": "px",
+          "default": 16
+        },
+        {
+          "type": "range",
+          "id": "size_mobile",
+          "label": "Size (mobile)",
+          "min": 8,
+          "max": 40,
+          "step": 1,
+          "unit": "px",
+          "default": 15
+        },
+        {
+          "type": "range",
+          "id": "padding_x",
+          "label": "Side padding (desktop)",
+          "min": 0,
+          "max": 200,
+          "step": 4,
+          "unit": "px",
+          "default": 0
+        },
+        {
+          "type": "range",
+          "id": "padding_x_mobile",
+          "label": "Side padding (mobile)",
+          "min": 0,
+          "max": 200,
+          "step": 4,
+          "unit": "px",
+          "default": 0
+        }
+      ]
+    },
+    {
+      "type": "column",
+      "name": "Column",
+      "limit": 3,
+      "settings": [
+        {
+          "type": "text",
+          "id": "title",
+          "default": "Column",
+          "label": "Title"
+        },
+        {
+          "type": "image_picker",
+          "id": "image",
+          "label": "Logo (optional)"
+        },
+        {
+          "type": "select",
+          "id": "weight",
+          "default": "theme",
+          "label": "Title weight",
+          "options": [
+            {
+              "value": "theme",
+              "label": "Theme"
+            },
+            {
+              "value": "normal",
+              "label": "Regular"
+            },
+            {
+              "value": "bold",
+              "label": "Bold"
+            }
+          ]
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "default": false,
+          "label": "Enable custom styling"
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Title colour",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        }
+      ]
+    },
+    {
+      "type": "item",
+      "name": "Row",
+      "settings": [
+        {
+          "type": "text",
+          "id": "row_heading",
+          "label": "Row label",
+          "default": "Feature"
+        },
+        {
+          "type": "select",
+          "id": "first_icon",
+          "label": "Column 1",
+          "default": "check",
+          "options": [
+            {
+              "value": "check",
+              "label": "Check"
+            },
+            {
+              "value": "x",
+              "label": "Cross"
+            }
+          ]
+        },
+        {
+          "type": "select",
+          "id": "second_icon",
+          "label": "Column 2",
+          "default": "check",
+          "options": [
+            {
+              "value": "check",
+              "label": "Check"
+            },
+            {
+              "value": "x",
+              "label": "Cross"
+            }
+          ]
+        },
+        {
+          "type": "select",
+          "id": "third_icon",
+          "label": "Column 3",
+          "default": "check",
+          "options": [
+            {
+              "value": "check",
+              "label": "Check"
+            },
+            {
+              "value": "x",
+              "label": "Cross"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Comparison Table",
+      "category": "Features",
+      "blocks": [
+        {
+          "type": "heading",
+          "settings": {
+            "text": "Comparison table"
+          }
+        },
+        {
+          "type": "subheading",
+          "settings": {
+            "text": "See what you get with us next to the usual alternative."
+          }
+        },
+        {
+          "type": "column",
+          "settings": {
+            "title": "Our brand"
+          }
+        },
+        {
+          "type": "column",
+          "settings": {
+            "title": "Others"
+          }
+        },
+        {
+          "type": "item",
+          "settings": {
+            "row_heading": "Feature 1",
+            "first_icon": "check",
+            "second_icon": "check"
+          }
+        },
+        {
+          "type": "item",
+          "settings": {
+            "row_heading": "Feature 2",
+            "first_icon": "check",
+            "second_icon": "check"
+          }
+        },
+        {
+          "type": "item",
+          "settings": {
+            "row_heading": "Feature 3",
+            "first_icon": "check",
+            "second_icon": "x"
+          }
+        },
+        {
+          "type": "item",
+          "settings": {
+            "row_heading": "Feature 4",
+            "first_icon": "check",
+            "second_icon": "x"
+          }
+        },
+        {
+          "type": "item",
+          "settings": {
+            "row_heading": "Feature 5",
+            "first_icon": "check",
+            "second_icon": "x"
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

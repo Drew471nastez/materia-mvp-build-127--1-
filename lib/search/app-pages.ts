@@ -101,7 +101,7 @@ export const APP_PAGES: readonly AppPage[] = [
   { get label() { return tt("Countries") }, href: "/app/analytics?report=countries", group: "Pages", get under() { return tt("Analytics") }, get words() { return tt("locations geography report") } },
   { get label() { return tt("Devices") }, href: "/app/analytics?report=devices", group: "Pages", get under() { return tt("Analytics") }, get words() { return tt("mobile desktop browsers report") } },
   /* The website and OnePage. */
-  { get label() { return tt("Themes") }, href: "/app/website-builder/themes", group: "Pages", get under() { return tt("Website") }, get words() { return tt("templates design") } },
+  { get label() { return tt("Themes") }, href: "/app/website-builder?themes=1", group: "Pages", get under() { return tt("Website") }, get words() { return tt("templates design") } },
   { get label() { return tt("Navigation") }, href: "/app/website-builder/navigation", group: "Pages", get under() { return tt("Website") }, get words() { return tt("menu header footer links") } },
   { get label() { return tt("OnePage links") }, href: "/app/onepage#links", group: "Pages", under: "OnePage", get words() { return tt("buttons blocks") } },
   { get label() { return tt("OnePage design") }, href: "/app/onepage#design", group: "Pages", under: "OnePage", get words() { return tt("colours fonts background theme") } },

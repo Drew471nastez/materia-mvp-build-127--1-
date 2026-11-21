@@ -1,0 +1,784 @@
+<script src="{{ 'scroll-text-reveal.js' | asset_url }}" defer="defer"></script>
+<script src="{{ 'text-section-controls.js' | asset_url }}" defer="defer"></script>
+{%- comment -%} Runtime, once per page (the CSS and hero-image-one.js from layout/theme.storelib, every other script from the tags at the top of this file): shopify/assets/scroll-text-reveal.js, shopify/assets/text-section-controls.css, shopify/assets/text-section-controls.js. {%- endcomment -%}
+{% render 'theme-type' %}
+{%- comment -%}
+  Scrolling Text Reveal
+  A sticky, scroll-driven text reveal banner: the section pins while the
+  visitor scrolls through it and the paragraph's words light up progressively
+  from dim to full as scroll progresses. <strong>/<b> phrases render as
+  highlight pills. Self-contained, scoped to #shopify-section-{{ section.id }}.
+  Colors come from the chosen theme color scheme (color-{{ scheme }} class
+  + theme CSS vars --color-text / --color-heading / --color-background).
+{%- endcomment -%}
+
+{%- liquid
+  assign s = section.settings
+  assign scheme = s.color_scheme.id | default: s.color_scheme | default: 'default-color-scheme'
+  assign uid = section.id
+
+  assign slen = s.scroll_length | default: 250
+  assign shd = s.stage_height_d | default: 100
+  assign shm = s.stage_height_m | default: 100
+  assign fit_d = s.fit_content_d | default: false
+  assign fit_m = s.fit_content_m
+  if s.fit_content_m == nil
+    assign fit_m = true
+  endif
+  assign fsd = s.font_size_d | default: 40
+  assign fsm = s.font_size_m | default: 24
+  assign lh = s.line_height | default: 1.4
+  assign base_op = s.base_opacity | default: 15
+  assign dim = base_op | divided_by: 100.0
+-%}
+{%- capture hl_bg -%}{% render 'scheme-color', color: s.highlight_bg, fallback: 'var(--color-heading)' %}{%- endcapture -%}
+{%- capture hl_tx -%}{% render 'scheme-color', color: s.highlight_text, fallback: 'var(--color-background)' %}{%- endcapture -%}
+{%- liquid
+  assign s = section.settings
+  assign hl_rad = s.highlight_radius | default: 6
+
+  assign pt = s.padding_top | default: 0
+  assign pb = s.padding_bottom | default: 0
+  assign ls = s.letter_spacing | default: 0
+  assign talign = s.text_align | default: 'left'
+  assign fstyle = s.font_style | default: 'heading'
+  assign max_w = s.max_width | default: 1100
+  assign speed = s.reveal_speed | default: 0.25
+  assign sticky_off = s.sticky_offset | default: 0
+  assign dimc = s.reveal_dim_color
+
+  assign txc = 'var(--color-heading)'
+  if s.custom_text_color and s.text_color != blank and s.text_color.alpha != 0
+    assign txc = s.text_color
+  endif
+
+  assign fw = 'var(--body-weight, 400)'
+  if s.bold
+    assign fw = 700
+  endif
+
+  assign has_button = false
+  for block in section.blocks
+    if block.type == 'button'
+      assign has_button = true
+    endif
+  endfor
+
+  assign width = s.width | default: 'fluid_container'
+  case width
+    when 'container'
+      assign maxw = 'calc(var(--page-width, 1300px) + 3rem)'
+      assign padx = '1.5rem'
+    when 'stretch_width'
+      assign maxw = 'none'
+      assign padx = '3rem'
+    when 'full_width'
+      assign maxw = 'none'
+      assign padx = '1.5rem'
+    else
+      assign maxw = 'calc(var(--fluid-container-width, 1500px) + 3rem)'
+      assign padx = '1.5rem'
+  endcase
+-%}
+
+<style>
+  #shopify-section-{{ uid }} .stw-{{ uid }} {
+    --stw-hl-bg: {{ hl_bg }};
+    --stw-hl-tx: {{ hl_tx }};
+    --stw-dim: {{ dim }};
+    display: block;
+    height: {{ slen }}vh;
+  }
+
+  /* Sticky viewport: pins for the full scroll length of the outer wrapper.
+     The stage keeps filling the viewport (minus the sticky offset); the
+     vertical paddings space the text block within it. */
+  #shopify-section-{{ uid }} .stw__viewport {
+    position: sticky;
+    top: {{ sticky_off }}px;
+    /* Banner height: "Fit height to text" hugs the content (no dead space
+       above/below); otherwise the height slider applies (100 = full screen).
+       The JS measures the stage's real height, so the word-reveal still
+       completes exactly when the section unpins at any height. */
+    {%- if fit_d %}
+    min-height: 0;
+    {%- else %}
+    min-height: calc({{ shd }}vh - {{ sticky_off }}px);
+    {%- endif %}
+    padding-top: {{ pt }}px;
+    padding-bottom: {{ pb }}px;
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
+    color: var(--color-text);
+    background: var(--gradient-background, var(--color-background));
+  }
+  @media (max-width: 749px) {
+    #shopify-section-{{ uid }} .stw__viewport {
+      {%- if fit_m %}
+      min-height: 0;
+      {%- else %}
+      min-height: calc({{ shm }}vh - {{ sticky_off }}px);
+      {%- endif %}
+    }
+  }
+
+  #shopify-section-{{ uid }} .stw__inner {
+    width: 100%;
+    max-width: {{ maxw }};
+    margin-inline: auto;
+    padding-inline: {{ padx }};
+    /* Comfortable breathing only — the Spacing sliders control the rest, so
+       the stage can genuinely hug the text in fit-content mode. */
+    padding-block: 1.5rem;
+    box-sizing: border-box;
+    text-align: {{ talign }};
+  }
+
+  #shopify-section-{{ uid }} .stw__text {
+    max-width: {{ max_w }}px;
+    {%- if talign == 'center' %}
+    margin-inline: auto;
+    {%- endif %}
+  }
+
+  #shopify-section-{{ uid }} .stw__p {
+    margin: 0;
+  }
+
+  #shopify-section-{{ uid }} .stw__p p {
+    margin: 0 0 0.75em;
+  }
+  {%- comment -%} The display text keeps its own font, size and case under the theme's typography priority (data-own-font). Same values as text-section-controls.js. {%- endcomment -%}
+  {%- liquid
+    assign stw_font = 'var(--heading-font)'
+    if s.enable_custom_fonts and s.heading_font.family != blank
+      assign stw_font = s.heading_font.family | append: ', ' | append: s.heading_font.fallback_families | default: 'sans-serif'
+      if s.heading_font.fallback_families == blank
+        assign stw_font = s.heading_font.family | append: ', sans-serif'
+      endif
+    elsif s.enable_custom_fonts == false and fstyle == 'mono'
+      assign stw_font = 'ui-monospace, monospace'
+    endif
+  -%}
+  #shopify-section-{{ uid }} .stw__text {
+    color: {{ txc }};
+    font-size: {{ fsm }}px;
+    font-weight: {{ fw }};
+    line-height: {{ lh }};
+    font-family: {{ stw_font }};
+    text-transform: {% if s.uppercase %}uppercase{% else %}none{% endif %};
+    letter-spacing: {{ ls }}px;
+  }
+  @media (min-width: 768px) {
+    #shopify-section-{{ uid }} .stw__text { font-size: {{ fsd }}px; }
+  }
+  {%- for block in section.blocks -%}
+    {%- if block.type == 'text' and block.settings.enable_custom_fonts and block.settings.font.family != blank -%}
+      {{ block.settings.font | font_face: font_display: 'swap' }}
+      #shopify-section-{{ uid }} .stw__p[data-tx-block="{{ block.id }}"] { font-family: {{ block.settings.font.family }}, {{ block.settings.font.fallback_families | default: 'sans-serif' }}; }
+    {%- endif -%}
+  {%- endfor -%}
+
+  #shopify-section-{{ uid }} .stw__p:last-of-type p:last-child {
+    margin-bottom: 0;
+  }
+
+  /* Word spans (added by JS). Default state = fully visible (no-JS safe). */
+  #shopify-section-{{ uid }} .stw__w {
+    display: inline-block;
+    white-space: nowrap;
+    border-radius: {{ hl_rad }}px;
+    transition: opacity {{ speed }}s ease, color {{ speed }}s ease, background-color {{ speed }}s ease;
+  }
+
+  /* Highlight pills — default (no-JS / reduced motion): pill on the wrapper. */
+  #shopify-section-{{ uid }} .stw__text strong,
+  #shopify-section-{{ uid }} .stw__text b {
+    font-weight: inherit;
+    padding: 0.05em 0.25em;
+    border-radius: {{ hl_rad }}px;
+    background-color: var(--stw-hl-bg);
+    color: var(--stw-hl-tx);
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+  }
+
+  /* Armed (JS running, motion OK): dimming setup + pill moves to word spans
+     so the background fades in per word as it reveals. */
+  #shopify-section-{{ uid }} .stw--armed .stw__w {
+    opacity: var(--stw-dim);
+  }
+
+  #shopify-section-{{ uid }} .stw--armed .stw__w.is-on {
+    opacity: 1;
+  }
+
+  #shopify-section-{{ uid }} .stw--armed .stw__text strong,
+  #shopify-section-{{ uid }} .stw--armed .stw__text b {
+    padding: 0;
+    border-radius: 0;
+    background-color: transparent;
+    color: inherit;
+  }
+
+  #shopify-section-{{ uid }} .stw--armed .stw__text strong .stw__w,
+  #shopify-section-{{ uid }} .stw--armed .stw__text b .stw__w {
+    padding: 0.05em 0.25em;
+  }
+
+  #shopify-section-{{ uid }} .stw--armed .stw__text strong .stw__w.is-on,
+  #shopify-section-{{ uid }} .stw--armed .stw__text b .stw__w.is-on {
+    background-color: var(--stw-hl-bg);
+    color: var(--stw-hl-tx);
+  }
+
+  {%- if dimc != blank %}
+  /* Optional dim color: un-revealed words swap to this color at full opacity
+     instead of fading from the base opacity. */
+  #shopify-section-{{ uid }} .stw--armed .stw__w {
+    opacity: 1;
+    color: {{ dimc }};
+  }
+
+  #shopify-section-{{ uid }} .stw--armed .stw__w.is-on {
+    color: inherit;
+  }
+  {%- endif %}
+
+  /* Button blocks: small underlined uppercase link below the text. */
+  #shopify-section-{{ uid }} .stw__actions {
+    margin-top: 2.25rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    {%- if talign == 'center' %}
+    justify-content: center;
+    {%- endif %}
+  }
+
+  /* The link is a theme button in the Underline appearance
+     (theme-button-contract.css): Theme settings > Buttons set its type,
+     hover effect and timing. */
+  #shopify-section-{{ uid }} .stw__btn {
+    margin: 0;
+    --mb-text: var(--color-heading);
+  }
+  #shopify-section-{{ uid }} span.stw__btn {
+    display: inline-block;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-heading);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.35em;
+  }
+
+  @media (max-width: 749px) {
+    #shopify-section-{{ uid }} .stw__p p {
+      font-size: {{ fsm }}px;
+    }
+    #shopify-section-{{ uid }} .stw__actions {
+      margin-top: 1.75rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #shopify-section-{{ uid }} .stw__w,
+    #shopify-section-{{ uid }} .stw__btn {
+      transition: none;
+    }
+    /* Belt and braces: if the preference flips mid-session, show everything. */
+    #shopify-section-{{ uid }} .stw--armed .stw__w {
+      opacity: 1;
+      color: inherit;
+    }
+    #shopify-section-{{ uid }} .stw--armed .stw__text strong .stw__w,
+    #shopify-section-{{ uid }} .stw--armed .stw__text b .stw__w {
+      background-color: var(--stw-hl-bg);
+      color: var(--stw-hl-tx);
+    }
+  }
+</style>
+
+<scroll-text-banner data-text-controls="scroll-text-banner" data-tx-section="{{ section.id }}" data-tx-settings="{{ section.settings | json | escape }}" data-tx-defaults='{"color_scheme":"default-color-scheme","width":"fluid_container","text_align":"left","max_width":1100,"uppercase":true,"font_size_d":40,"line_height":1.4,"bold":true,"font_style":"heading","letter_spacing":0,"enable_custom_fonts":false,"heading_font":"assistant_n4","body_font":"assistant_n4","base_opacity":15,"custom_text_color":false,"highlight_radius":6,"enable_custom_style":false,"scroll_length":250,"fit_content_d":false,"stage_height_d":100,"sticky_offset":0,"reveal_speed":0.3,"padding_top":0,"padding_bottom":0,"fit_content_m":true,"stage_height_m":100,"font_size_m":24}' data-tx-block-defaults='{"text":{"text":"&lt;p>Our collection of sleek, &lt;strong>high-performance bags&lt;/strong> embodies a perfect synergy of advanced technology, durable materials, and contemporary design.&lt;/p>","enable_custom_fonts":false,"font":"assistant_n4","enable_custom_style":false},"button":{"label":"ABOUT US","enable_custom_style":false}}' data-tx-editor="{% if request.design_mode or page.in_editor %}true{% else %}false{% endif %}" class="stw-{{ uid }} color-{{ scheme }} gradient" data-offset="{{ sticky_off }}">
+  <div class="stw__viewport">
+    <div class="stw__inner">
+      <div class="stw__text" data-own-font>
+        {%- for block in section.blocks -%}
+          {%- if block.type == 'text' and block.settings.text != blank -%}
+            <div class="stw__p"{% if block.settings.enable_custom_fonts %} data-own-font{% endif %} data-tx-block="{{ block.id }}" data-tx-type="{{ block.type }}" data-tx-settings="{{ block.settings | json | escape }}" {{ block.shopify_attributes }}>{{ block.settings.text }}</div>
+          {%- endif -%}
+        {%- endfor -%}
+      </div>
+
+      {%- if has_button -%}
+        <div class="stw__actions">
+          {%- for block in section.blocks -%}
+            {%- if block.type == 'button' -%}
+              {%- liquid
+                assign lbl = block.settings.label | default: 'ABOUT US'
+              -%}
+              {%- if block.settings.link != blank -%}
+                <a class="stw__btn" data-theme-button="primary" data-sl-button data-button-local-appearance="underline" data-button-appearance="underline" href="{{ block.settings.link }}" data-tx-block="{{ block.id }}" data-tx-type="{{ block.type }}" data-tx-settings="{{ block.settings | json | escape }}" {{ block.shopify_attributes }}>{{ lbl | escape }}</a>
+              {%- else -%}
+                <span class="stw__btn" data-tx-block="{{ block.id }}" data-tx-type="{{ block.type }}" data-tx-settings="{{ block.settings | json | escape }}" {{ block.shopify_attributes }}>{{ lbl | escape }}</span>
+              {%- endif -%}
+            {%- endif -%}
+          {%- endfor -%}
+        </div>
+      {%- endif -%}
+    </div>
+  </div>
+</scroll-text-banner>
+
+{%- comment -%} scroll-text-reveal.js is linked by the tag at the top of this file (it runs once per page). {%- endcomment -%}
+
+
+
+{% render 'text-controls-initial', section: section, kind: 'scroll-text-banner' %}
+{%- comment -%} text-section-controls.css and text-section-controls.js are linked once per page: the CSS and hero-image-one.js from layout/theme.storelib's <head>, every other script by the tags at the top of this file. {%- endcomment -%}{% schema %}
+{
+  "name": "Scrolling Text Reveal",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "select",
+      "id": "width",
+      "label": "Section width",
+      "default": "fluid_container",
+      "options": [
+        {
+          "value": "container",
+          "label": "Container"
+        },
+        {
+          "value": "fluid_container",
+          "label": "Fluid container"
+        },
+        {
+          "value": "stretch_width",
+          "label": "Stretched"
+        },
+        {
+          "value": "full_width",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "select",
+      "id": "text_align",
+      "label": "Text alignment",
+      "default": "left",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "max_width",
+      "label": "Text max width",
+      "min": 600,
+      "max": 1400,
+      "step": 50,
+      "unit": "px",
+      "default": 1100
+    },
+    {
+      "type": "header",
+      "content": "Typography"
+    },
+    {
+      "type": "checkbox",
+      "id": "uppercase",
+      "label": "Uppercase text",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "font_size_d",
+      "label": "Font size (desktop)",
+      "min": 18,
+      "max": 72,
+      "step": 1,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "line_height",
+      "label": "Line height",
+      "min": 1.1,
+      "max": 1.8,
+      "step": 0.1,
+      "default": 1.4
+    },
+    {
+      "type": "checkbox",
+      "id": "bold",
+      "label": "Bold text",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "font_style",
+      "label": "Font",
+      "default": "heading",
+      "options": [
+        {
+          "value": "heading",
+          "label": "Theme heading font"
+        },
+        {
+          "value": "mono",
+          "label": "Monospace"
+        }
+      ],
+      "visible_if": "{{ section.settings.enable_custom_fonts == false }}"
+    },
+    {
+      "type": "range",
+      "id": "letter_spacing",
+      "label": "Letter spacing",
+      "min": 0,
+      "max": 10,
+      "step": 0.5,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_fonts",
+      "label": "Enable custom fonts",
+      "default": false
+    },
+    {
+      "type": "font_picker",
+      "id": "heading_font",
+      "label": "Heading font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "font_picker",
+      "id": "body_font",
+      "label": "Body font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "header",
+      "content": "Custom styling"
+    },
+    {
+      "type": "range",
+      "id": "base_opacity",
+      "label": "Unrevealed opacity",
+      "min": 5,
+      "max": 50,
+      "step": 5,
+      "unit": "%",
+      "default": 15
+    },
+    {
+      "type": "checkbox",
+      "id": "custom_text_color",
+      "label": "Custom text color",
+      "default": false
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text color",
+      "visible_if": "{{ section.settings.custom_text_color }}"
+    },
+    {
+      "type": "color",
+      "id": "reveal_dim_color",
+      "label": "Unrevealed color",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "highlight_bg",
+      "label": "Highlight background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "highlight_text",
+      "label": "Highlight text",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "range",
+      "id": "highlight_radius",
+      "label": "Highlight corner radius",
+      "min": 0,
+      "max": 30,
+      "step": 1,
+      "unit": "px",
+      "default": 6
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_style",
+      "label": "Enable custom styling",
+      "default": false
+    },
+    {
+      "type": "color",
+      "id": "section_background",
+      "label": "Section background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "header",
+      "content": "Motion"
+    },
+    {
+      "type": "range",
+      "id": "scroll_length",
+      "label": "Scroll length",
+      "min": 150,
+      "max": 400,
+      "step": 10,
+      "unit": "vh",
+      "default": 250,
+      "info": "Full scroll distance on the storefront. The editor shows a compact, fully readable cover."
+    },
+    {
+      "type": "checkbox",
+      "id": "fit_content_d",
+      "label": "Fit height to text (desktop)",
+      "default": false,
+      "info": "Applies to the storefront scroll scene. The editor uses a compact preview."
+    },
+    {
+      "type": "range",
+      "id": "stage_height_d",
+      "label": "Banner height (desktop)",
+      "min": 40,
+      "max": 100,
+      "step": 5,
+      "unit": "vh",
+      "default": 100,
+      "visible_if": "{{ section.settings.fit_content_d == false }}",
+      "info": "Applies to the storefront scroll scene. The editor uses a compact preview."
+    },
+    {
+      "type": "range",
+      "id": "sticky_offset",
+      "label": "Sticky top offset",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 0,
+      "info": "Height of a sticky header"
+    },
+    {
+      "type": "range",
+      "id": "reveal_speed",
+      "label": "Reveal speed",
+      "min": 0.1,
+      "max": 0.6,
+      "step": 0.1,
+      "unit": "s",
+      "default": 0.3
+    },
+    {
+      "type": "header",
+      "content": "Spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 120,
+      "step": 2,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 120,
+      "step": 2,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "header",
+      "content": "Mobile"
+    },
+    {
+      "type": "checkbox",
+      "id": "fit_content_m",
+      "label": "Fit height to text (mobile)",
+      "default": true,
+      "info": "Applies to the storefront scroll scene. The editor uses a compact preview."
+    },
+    {
+      "type": "range",
+      "id": "stage_height_m",
+      "label": "Banner height (mobile)",
+      "min": 40,
+      "max": 100,
+      "step": 5,
+      "unit": "vh",
+      "default": 100,
+      "visible_if": "{{ section.settings.fit_content_m == false }}",
+      "info": "Applies to the storefront scroll scene. The editor uses a compact preview."
+    },
+    {
+      "type": "range",
+      "id": "font_size_m",
+      "label": "Font size (mobile)",
+      "min": 14,
+      "max": 48,
+      "step": 1,
+      "unit": "px",
+      "default": 24
+    }
+  ],
+  "blocks": [
+    {
+      "type": "text",
+      "name": "Text",
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "type": "richtext",
+          "id": "text",
+          "label": "Text",
+          "default": "<p>Our collection of sleek, <strong>high-performance bags</strong> embodies a perfect synergy of advanced technology, durable materials, and contemporary design.</p>",
+          "info": "Bold phrases render as highlight pills."
+        },
+        {
+          "type": "header",
+          "content": "Typography"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_fonts",
+          "label": "Enable custom font",
+          "default": false
+        },
+        {
+          "type": "font_picker",
+          "id": "font",
+          "label": "Font",
+          "default": "assistant_n4",
+          "visible_if": "{{ block.settings.enable_custom_fonts }}"
+        },
+        {
+          "type": "header",
+          "content": "Custom styling"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Text colour",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        }
+      ]
+    },
+    {
+      "type": "button",
+      "name": "Button",
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "type": "text",
+          "id": "label",
+          "label": "Label",
+          "default": "ABOUT US"
+        },
+        {
+          "type": "url",
+          "id": "link",
+          "label": "Link"
+        },
+        {
+          "type": "header",
+          "content": "Custom styling"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "color",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "hover_color",
+          "label": "hover color",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        }
+      ]
+    }
+  ],
+  "max_blocks": 6,
+  "presets": [
+    {
+      "name": "Scrolling Text Reveal",
+      "category": "Text",
+      "blocks": [
+        {
+          "type": "text"
+        },
+        {
+          "type": "button"
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

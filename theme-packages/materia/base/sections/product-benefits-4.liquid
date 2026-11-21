@@ -1,0 +1,1103 @@
+<script src="{{ 'live-features-d.js' | asset_url }}" defer="defer"></script>
+{% render 'theme-type' %}
+{%- liquid
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+-%}
+{%- assign fb_accessibility_product_label = 'accessibility.product_label' | t -%}
+{%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
+{%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
+<style>
+  #shopify-section-{{ section.id }}.scroll-trigger {
+    --animation-duration: {{ settings.animation_duration | default: 700 }}ms;
+    --animation-delay: {{ settings.animation_delay | default: 0 }}ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-{{ section.id }}');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', {{ settings.scroll_animation | json }});
+  })();
+</script>
+{%- endif -%}
+{%- comment -%}
+  Materia Themes — Product Benefits 4 (Hotspot)
+  Center product image with up to 4 feature thumbnails connected by animated
+  SVG lines that draw smoothly into the product when the section enters the
+  viewport. Endpoint circles pulse after the line completes. Mobile shows a
+  smooth horizontal swipeable slider.
+{%- endcomment -%}
+
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign custom = st.enable_custom_style
+  assign own_font = false
+  if st.heading_custom_font_enable and st.heading_font != blank
+    assign own_font = true
+  endif
+  assign own_weight = false
+  if st.heading_custom_font_enable and st.heading_font_weight != blank and st.heading_font_weight != 'inherit'
+    assign own_weight = true
+  endif
+  assign placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Crect width=%22400%22 height=%22300%22 fill=%22%23efefef%22/%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22 fill=%22%23cfcfcf%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22 fill=%22%23cfcfcf%22/%3E%3C/svg%3E'
+-%}
+{%- capture accent -%}{% if custom %}{% render 'scheme-color', color: st.line_color, fallback: 'var(--color-primary)' %}{% else %}var(--color-primary){% endif %}{%- endcapture -%}
+
+{%- if own_font -%}
+  {% style %}{{ st.heading_font | font_face: font_display: 'swap' }}{% endstyle %}
+{%- endif -%}
+
+<style>
+  {%- if st.reset_spacing %}
+  #shopify-section-{{ sid }},#shopify-section-{{ sid }}>.section,#shopify-section-{{ sid }}>section,#shopify-section-{{ sid }}>div,#shopify-section-{{ sid }}>div>.section{margin-top:0!important;margin-bottom:0!important}
+  #shopify-section-{{ sid }}+.shopify-section,#shopify-section-{{ sid }}+section,.shopify-section+#shopify-section-{{ sid }}{margin-top:0!important}
+  {%- endif %}
+  #shopify-section-{{ sid }}#shopify-section-{{ sid }}{isolation:isolate;position:relative;--fd-mt-m:{{ st.section_margin_top_mobile | default: 0 }}px;--fd-mb-m:{{ st.section_margin_bottom_mobile | default: 0 }}px;--fd-mt-d:{{ st.section_margin_top_desktop | default: 0 }}px;--fd-mb-d:{{ st.section_margin_bottom_desktop | default: 0 }}px;margin-top:var(--fd-mt-m)!important;margin-bottom:var(--fd-mb-m)!important}
+  :where(#shopify-section-{{ sid }}){font-family:var(--body-font,inherit)}
+  :where(#shopify-section-{{ sid }}) :is(h1,h2,h3,h4,h5,h6){font-family:var(--heading-font,inherit)}
+  :where(#shopify-section-{{ sid }}) :where(button,input,textarea,select,optgroup){font-family:inherit}
+  #shopify-section-{{ sid }} *,#shopify-section-{{ sid }} *:before,#shopify-section-{{ sid }} *:after{box-sizing:border-box}
+  @media (min-width:768px){#shopify-section-{{ sid }}#shopify-section-{{ sid }}{margin-top:var(--fd-mt-d)!important;margin-bottom:var(--fd-mb-d)!important}}
+</style>
+{%- comment -%} The builder also gets it inline, so a section it draws again is never shown for a frame before the file applies. {%- endcomment -%}
+{%- if request.design_mode -%}<style>{{ 'product-benefits-4.css' | inline_asset_content }}</style>{%- endif %}
+{{ 'product-benefits-4.css' | asset_url | stylesheet_tag }}
+{%- liquid
+  assign pb4_anim = st.product_image_animation | default: 'none'
+  assign pb4_anim_value = ''
+  case pb4_anim
+    when 'float_up'
+      assign pb4_anim_value = 'pb4hFloatUp 4s ease-in-out infinite'
+    when 'float_right'
+      assign pb4_anim_value = 'pb4hFloatRight 4s ease-in-out infinite'
+    when 'float_diagonal'
+      assign pb4_anim_value = 'pb4hFloatDiag 4.5s ease-in-out infinite'
+    when 'push'
+      assign pb4_anim_value = 'pb4hPush 3s ease-in-out infinite'
+    when 'zoom'
+      assign pb4_anim_value = 'pb4hZoom 3.5s ease-in-out infinite'
+    when 'buzz'
+      assign pb4_anim_value = 'pb4hBuzz 0.7s linear infinite'
+    when 'sway'
+      assign pb4_anim_value = 'pb4hSway 4s ease-in-out infinite'
+  endcase
+-%}
+{%- comment -%} The values product-benefits-4.css reads, on this instance's root. {%- endcomment -%}
+{%- capture pb4_vars -%}
+--pb4h-bg:{% if custom %}{% render 'scheme-color', color: st.section_bg, fallback: 'var(--color-background)' %}{% else %}var(--color-background){% endif %};
+--pb4h-pt-m:{{ st.padding_top_mobile | default: 56 }}px;--pb4h-pb-m:{{ st.padding_bottom_mobile | default: 56 }}px;
+--pb4h-pt-d:{{ st.padding_top_desktop | default: 88 }}px;--pb4h-pb-d:{{ st.padding_bottom_desktop | default: 88 }}px;
+--pb4h-gap-header:{{ st.gap_header_to_grid | default: 32 }}px;
+--pb4h-h-m:{{ st.heading_size_mobile | default: 32 }}px;--pb4h-h-d:{{ st.heading_size_desktop | default: 56 }}px;
+--pb4h-img:{{ st.image_size_desktop | default: 460 }}px;--pb4h-col-gap:{{ st.col_gap | default: 24 }}px;--pb4h-tab-gap:{{ st.tab_gap_desktop | default: 64 }}px;
+--pb4h-thumb:{{ st.thumb_size | default: 80 }}px;--pb4h-thumb-r:{{ st.thumb_radius | default: 16 }}px;
+--pb4h-thumb-bg:{% if custom %}{% render 'scheme-color', color: st.thumb_bg, fallback: 'color-mix(in srgb, var(--color-text) 5%, var(--color-background))' %}{% else %}color-mix(in srgb, var(--color-text) 5%, var(--color-background)){% endif %};
+--pb4h-thumb-shadow:{% if st.thumb_shadow %}0 6px 18px -8px rgba(0,0,0,.18){% else %}none{% endif %};
+--pb4h-gap-title:{{ st.gap_thumb_to_title | default: 12 }}px;--pb4h-title:{{ st.title_size | default: 18 }}px;--pb4h-desc:{{ st.desc_size | default: 14 }}px;
+--pb4h-prod-r:{{ st.product_radius | default: 24 }}px;
+--pb4h-prod-bg:{% if custom %}{% render 'scheme-color', color: st.product_bg, fallback: 'var(--color-background)' %}{% else %}var(--color-background){% endif %};
+--pb4h-accent:{{ accent }};
+--pb4h-line:{{ st.line_thickness | default: 2 }};--pb4h-line-w:{{ st.line_thickness | default: 2 }}px;--pb4h-line-half:{{ st.line_thickness | default: 2 | divided_by: 2 }}px;
+--pb4h-dot:{{ st.dot_size | default: 12 }}px;--pb4h-dot-mr:-{{ st.dot_size | default: 12 | divided_by: 2 }}px;
+--pb4h-card-bg:{% if custom %}{% render 'scheme-color', color: st.mobile_card_bg, fallback: 'var(--color-background)' %}{% else %}var(--color-background){% endif %};
+--pb4h-card-r:{{ st.mobile_card_radius | default: 18 }}px;
+--pb4h-reach:{{ st.mobile_line_reach | default: 30 }}%;
+--pb4h-cta-gap:{{ st.gap_grid_to_cta | default: 36 }}px;
+{%- if pb4_anim_value != '' -%}--pb4h-anim:{{ pb4_anim_value }};{%- endif -%}
+{%- endcapture -%}
+
+<section class="pb4h-wrap color-{{ color_scheme }} gradient"{% unless st.reveal %} data-ti-no-reveal{% endunless %} data-fd="pb4" data-fd-section="{{ sid }}" data-fd-settings="{{ st | json | escape }}" data-pb4h-root data-pb4h-width="{{ st.section_width }}"{% if pb4_anim_value != '' %} data-pb4h-anim="{{ pb4_anim }}"{% endif %} style="{{ pb4_vars | strip_newlines }}">
+  <div class="pb4h">
+    <div class="pb4h__inner">
+      {%- liquid
+        # The heading: a Heading block when the section has one, else the old section settings.
+        assign heading_block = section.blocks | where: 'type', 'heading' | first
+        assign h_text = st.heading
+        assign h_accent = st.heading_accent
+        assign h_color = st.heading_color
+        assign h_accent_color = st.heading_accent_color
+        assign h_custom = custom
+        if heading_block
+          assign h_text = heading_block.settings.text
+          assign h_accent = heading_block.settings.accent
+          if heading_block.settings.enable_custom_style
+            assign h_custom = true
+            assign h_color = heading_block.settings.color
+            assign h_accent_color = heading_block.settings.accent_color
+          endif
+        endif
+      -%}
+      {%- if h_text != blank or h_accent != blank or heading_block -%}
+        {%- liquid
+          # Color the accent IN PLACE: find the accent word inside the heading
+          # text and wrap THAT occurrence in a colored span. It does NOT append
+          # a separate word. If the accent word isn't found in the heading, the
+          # heading is shown unchanged (nothing extra is added).
+          assign pb4_accent_color = accent
+          if h_custom and h_accent_color != blank and h_accent_color.alpha != 0
+            assign pb4_accent_color = h_accent_color
+          endif
+          capture pb4_accent_span
+            echo '<span style="color: '
+            echo pb4_accent_color
+            echo '">'
+            echo h_accent
+            echo '</span>'
+          endcapture
+          assign pb4_heading_html = h_text
+          if h_text != blank and h_accent != blank and h_text contains h_accent
+            assign pb4_heading_html = h_text | replace: h_accent, pb4_accent_span
+          elsif h_text == blank and h_accent != blank
+            assign pb4_heading_html = pb4_accent_span
+          endif
+          assign h_fallback = 'var(--color-heading)'
+        -%}
+        <div class="pb4h__header"{% if heading_block %} {{ heading_block.shopify_attributes }}{% endif %}>
+          <h2 class="pb4h__heading"{% if heading_block %} data-fd-block="{{ heading_block.id }}" data-fd-type="heading" data-fd-settings="{{ heading_block.settings | json | escape }}"{% else %} data-fd-legacy="heading"{% endif %}{% if own_font %} data-own-font{% endif %}{% if own_weight %} data-own-weight{% endif %}{% if pb4_heading_html == blank %} hidden{% endif %}
+             style="color: {% if h_custom %}{% render 'scheme-color', color: h_color, fallback: h_fallback %}{% else %}{{ h_fallback }}{% endif %} !important;{% if own_font %}font-family: {{ st.heading_font.family }}, {{ st.heading_font.fallback_families }};font-style: {{ st.heading_font.style }};{% endif %}{% if own_weight %}font-weight: {{ st.heading_font_weight }};{% elsif own_font %}font-weight: {{ st.heading_font.weight }};{% endif %}">{{ pb4_heading_html }}</h2>
+        </div>
+      {%- endif -%}
+
+      {%- comment -%}========== Desktop hotspot stage ==========={%- endcomment -%}
+      <div class="pb4h__stage{% if request.design_mode %} pb4h--revealed{% endif %}" data-pb4h-stage>
+        <div class="pb4h__col pb4h__col--left">
+          {%- assign idx = 0 -%}
+          {%- for block in section.blocks -%}
+            {%- if block.type == 'spot' and idx < 2 -%}
+              {%- assign bs = block.settings -%}
+              <div class="pb4h__tab" data-fd-block="{{ block.id }}" data-fd-type="spot" data-fd-settings="{{ bs | json | escape }}" {{ block.shopify_attributes }}>
+                <div class="pb4h__thumb">
+                  {%- if bs.thumb -%}
+                    <img src="{{ bs.thumb | image_url: width: 200 }}" alt="{{ bs.thumb.alt | default: bs.title | escape }}" loading="lazy" width="200" height="200">
+                  {%- else -%}
+                    {%- capture demo_thumb -%}{%- render 'demo-image', key: block.id -%}{%- endcapture -%}
+                    {%- assign demo_thumb = demo_thumb | strip -%}
+                    {%- if demo_thumb != blank -%}
+                      <img src="{{ demo_thumb }}" alt="{{ bs.title | default: 'thumb' | escape }}" loading="lazy">
+                    {%- else -%}
+                      <img src="{{ placeholder }}" alt="thumb" loading="lazy">
+                    {%- endif -%}
+                  {%- endif -%}
+                </div>
+                <h3 class="pb4h__title" style="color: {% if bs.enable_custom_style %}{% render 'scheme-color', color: bs.title_color, fallback: 'var(--color-heading)' %}{% else %}var(--color-heading){% endif %} !important;"{% if bs.title == blank %} hidden{% endif %}>{{ bs.title | escape }}</h3>
+                <p class="pb4h__desc" style="color: {% if bs.enable_custom_style %}{% render 'scheme-color', color: bs.desc_color, fallback: 'var(--color-text)' %}{% else %}var(--color-text){% endif %} !important;"{% if bs.description == blank %} hidden{% endif %}>{{ bs.description | escape }}</p>
+              </div>
+              {%- assign idx = idx | plus: 1 -%}
+            {%- endif -%}
+          {%- endfor -%}
+        </div>
+
+        <div class="pb4h__product">
+          {%- if st.product_image -%}
+            <img src="{{ st.product_image | image_url: width: 900 }}" alt="{{ st.product_image.alt | default: fb_accessibility_product_label | escape }}" loading="lazy" width="{{ st.product_image.width }}" height="{{ st.product_image.height }}">
+          {%- else -%}
+            {%- capture demo_product -%}{%- render 'demo-image', key: section.id -%}{%- endcapture -%}
+            {%- assign demo_product = demo_product | strip -%}
+            {%- if demo_product != blank -%}
+              <img src="{{ demo_product }}" alt="{{ fb_accessibility_product_label | escape }}" loading="lazy">
+            {%- else -%}
+              <img src="{{ placeholder }}" alt="{{ 'accessibility.product_placeholder' | t }}" loading="lazy" width="900" height="900">
+            {%- endif -%}
+          {%- endif -%}
+        </div>
+
+        <div class="pb4h__col pb4h__col--right">
+          {%- assign idx = 0 -%}
+          {%- for block in section.blocks -%}
+            {%- if block.type == 'spot' -%}
+              {%- if idx >= 2 -%}
+                {%- assign bs = block.settings -%}
+                <div class="pb4h__tab" data-fd-block="{{ block.id }}" data-fd-type="spot" data-fd-settings="{{ bs | json | escape }}" {{ block.shopify_attributes }}>
+                  <div class="pb4h__thumb">
+                    {%- if bs.thumb -%}
+                      <img src="{{ bs.thumb | image_url: width: 200 }}" alt="{{ bs.thumb.alt | default: bs.title | escape }}" loading="lazy" width="200" height="200">
+                    {%- else -%}
+                      {%- capture demo_thumb -%}{%- render 'demo-image', key: block.id -%}{%- endcapture -%}
+                      {%- assign demo_thumb = demo_thumb | strip -%}
+                      {%- if demo_thumb != blank -%}
+                        <img src="{{ demo_thumb }}" alt="{{ bs.title | default: 'thumb' | escape }}" loading="lazy">
+                      {%- else -%}
+                        <img src="{{ placeholder }}" alt="thumb" loading="lazy">
+                      {%- endif -%}
+                    {%- endif -%}
+                  </div>
+                  <h3 class="pb4h__title" style="color: {% if bs.enable_custom_style %}{% render 'scheme-color', color: bs.title_color, fallback: 'var(--color-heading)' %}{% else %}var(--color-heading){% endif %} !important;"{% if bs.title == blank %} hidden{% endif %}>{{ bs.title | escape }}</h3>
+                  <p class="pb4h__desc" style="color: {% if bs.enable_custom_style %}{% render 'scheme-color', color: bs.desc_color, fallback: 'var(--color-text)' %}{% else %}var(--color-text){% endif %} !important;"{% if bs.description == blank %} hidden{% endif %}>{{ bs.description | escape }}</p>
+                </div>
+              {%- endif -%}
+              {%- assign idx = idx | plus: 1 -%}
+            {%- endif -%}
+          {%- endfor -%}
+        </div>
+
+        {%- comment -%}
+          SVG lines: each line goes from a thumbnail edge straight horizontally
+          toward the product, then bends down into a hotspot point on the image.
+          Path style matches the screenshot reference (right-angled bends).
+        {%- endcomment -%}
+        <div class="pb4h__lines">
+          <svg viewBox="0 0 1000 600" preserveAspectRatio="none" aria-hidden="true">
+            <!--
+              Lines connect the corner thumbnails to the corners of the product.
+              Each line runs horizontally from thumb, then bends 90° down/up to
+              land at the perimeter of the product image (not inside it).
+            -->
+            <!-- Top-left thumb (240,150) → product top-left corner (335,200) -->
+            <path class="pb4h__line" d="M 240 150 H 335 V 200"/>
+            <!-- Bottom-left thumb (240,450) → product bottom-left corner (335,400) -->
+            <path class="pb4h__line" d="M 240 450 H 335 V 400"/>
+            <!-- Top-right thumb (760,150) → product top-right corner (665,200) -->
+            <path class="pb4h__line" d="M 760 150 H 665 V 200"/>
+            <!-- Bottom-right thumb (760,450) → product bottom-right corner (665,400) -->
+            <path class="pb4h__line" d="M 760 450 H 665 V 400"/>
+          </svg>
+          <!-- Hotspot dots positioned with % so they remain perfect circles
+               regardless of the SVG's non-uniform aspect ratio. -->
+          <span class="pb4h__dot" style="left: 33.5%; top: 33.33%;"></span>
+          <span class="pb4h__dot" style="left: 33.5%; top: 66.66%;"></span>
+          <span class="pb4h__dot" style="left: 66.5%; top: 33.33%;"></span>
+          <span class="pb4h__dot" style="left: 66.5%; top: 66.66%;"></span>
+        </div>
+      </div>
+
+      {%- comment -%}========== Mobile slider ==========={%- endcomment -%}
+      <div class="pb4h__mobile">
+        <div class="pb4h__slider" data-pb4h-slider>
+          {%- for block in section.blocks -%}
+            {%- if block.type == 'spot' -%}
+              {%- assign bs = block.settings -%}
+              <div class="pb4h__slide" data-fd-block="{{ block.id }}" data-fd-type="spot" data-fd-settings="{{ bs | json | escape }}" {{ block.shopify_attributes }}>
+                <div class="pb4h__slide-top">
+                  {%- if bs.thumb -%}
+                    <div class="pb4h__slide-thumb">
+                      <img src="{{ bs.thumb | image_url: width: 200 }}" alt="" loading="lazy">
+                    </div>
+                  {%- else -%}
+                    {%- capture demo_thumb -%}{%- render 'demo-image', key: block.id -%}{%- endcapture -%}
+                    {%- assign demo_thumb = demo_thumb | strip -%}
+                    <div class="pb4h__slide-thumb">
+                      {%- if demo_thumb != blank -%}
+                        <img src="{{ demo_thumb }}" alt="" loading="lazy">
+                      {%- else -%}
+                        <img src="{{ placeholder }}" alt="" loading="lazy">
+                      {%- endif -%}
+                    </div>
+                  {%- endif -%}
+                  <div class="pb4h__slide-text">
+                    <h3 class="pb4h__slide-title" style="color: {% if bs.enable_custom_style %}{% render 'scheme-color', color: bs.title_color, fallback: 'var(--color-heading)' %}{% else %}var(--color-heading){% endif %} !important;"{% if bs.title == blank %} hidden{% endif %}>{{ bs.title | escape }}</h3>
+                    <p class="pb4h__slide-desc" style="color: {% if bs.enable_custom_style %}{% render 'scheme-color', color: bs.desc_color, fallback: 'var(--color-text)' %}{% else %}var(--color-text){% endif %} !important;"{% if bs.description == blank %} hidden{% endif %}>{{ bs.description | escape }}</p>
+                  </div>
+                </div>
+                <div class="pb4h__slide-bottom">
+                  <span class="pb4h__slide-connector" aria-hidden="true">
+                    <span class="pb4h__slide-dot"></span>
+                  </span>
+                  <div class="pb4h__slide-product">
+                    {%- if st.product_image -%}
+                      <img src="{{ st.product_image | image_url: width: 600 }}" alt="" loading="lazy">
+                    {%- else -%}
+                      {%- capture demo_product -%}{%- render 'demo-image', key: section.id -%}{%- endcapture -%}
+                      {%- assign demo_product = demo_product | strip -%}
+                      {%- if demo_product != blank -%}
+                        <img src="{{ demo_product }}" alt="" loading="lazy">
+                      {%- else -%}
+                        <img src="{{ placeholder }}" alt="" loading="lazy">
+                      {%- endif -%}
+                    {%- endif -%}
+                  </div>
+                </div>
+              </div>
+            {%- endif -%}
+          {%- endfor -%}
+        </div>
+        <div class="pb4h__slider-arrows">
+          <button type="button" class="pb4h__arrow" data-pb4h-prev aria-label="{{ 'accessibility.previous' | t }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+          </button>
+          <button type="button" class="pb4h__arrow" data-pb4h-next aria-label="{{ 'accessibility.next' | t }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </button>
+        </div>
+      </div>
+
+      {%- comment -%}========== Button blocks ==========={%- endcomment -%}
+      {%- assign button_count = 0 -%}
+      {%- for block in section.blocks -%}
+        {%- if block.type == 'button' and block.settings.cta_label != blank -%}{%- assign button_count = button_count | plus: 1 -%}{%- endif -%}
+      {%- endfor -%}
+      {%- if button_count > 0 -%}
+        <div class="pb4h__cta-wrap">
+          {%- for block in section.blocks -%}
+            {%- if block.type == 'button' and block.settings.cta_label != blank -%}
+              {%- liquid
+                assign cs = block.settings
+                assign cta_colors = cs.enable_custom_style
+                assign cta_custom = false
+                if cs.use_theme_button == false
+                  assign cta_custom = true
+                endif
+                assign cta_hover = settings.btn_hover_effect | default: 'fade'
+                if settings.storelib_button_hover_effect != blank and settings.storelib_button_hover_effect != 'theme'
+                  assign cta_hover = settings.storelib_button_hover_effect
+                endif
+              -%}
+              {%- comment -%} Theme settings > Buttons draw it (style, shape, type, hover effect and timing); a colour set here, or the shape when the theme style is off, is passed as a token. {%- endcomment -%}
+              <a id="pb4h-cta-{{ block.id }}" class="pb4h__cta btn btn-primary" data-fd-block="{{ block.id }}" data-fd-type="button" data-fd-settings="{{ cs | json | escape }}"{% if cta_custom %} data-own-shape data-own-weight{% endif %} data-sl-button data-theme-button="primary" data-button-role="primary" data-button-local-appearance="theme" data-button-appearance="{{ settings.btn_style | default: 'solid' }}" data-button-hover="{{ cta_hover }}" style="{%- if cta_colors -%}{%- render 'button-overrides', bg: cs.cta_bg, text: cs.cta_text, hover_bg: cs.cta_bg_hover -%}{%- endif -%}{%- render 'button-overrides', custom: cta_custom, radius: cs.cta_radius, padding_y: cs.cta_pad_y, padding_x: cs.cta_pad_x, font_size: cs.cta_size, weight: 700 -%}" href="{{ cs.cta_link | default: routes.all_products_collection_url | default: '/collections/all' }}" {{ block.shopify_attributes }}>{{ cs.cta_label | escape }}</a>
+            {%- endif -%}
+          {%- endfor -%}
+        </div>
+      {%- endif -%}
+    </div>
+  </div>
+</section>
+
+<script src="{{ 'product-benefits-4.js' | asset_url }}" defer></script>
+{%- if request.design_mode -%}
+{%- comment -%} The builder runs a redrawn or newly added section's inline scripts: load the script if this page did not have it yet, or set this section up again. {%- endcomment -%}
+<script>(function(){if(window.MateriaPb4)return window.MateriaPb4.init();if(document.querySelector('script[data-pb4h-boot]'))return;var s=document.createElement('script');s.src="{{ 'product-benefits-4.js' | asset_url }}";s.setAttribute('data-pb4h-boot','');document.head.appendChild(s);})();</script>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Product Benefits 4",
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Section width",
+      "default": "container",
+      "options": [
+        {
+          "value": "container",
+          "label": "Default"
+        },
+        {
+          "value": "fluid_container",
+          "label": "Fluid container"
+        },
+        {
+          "value": "stretch_width",
+          "label": "Stretched"
+        },
+        {
+          "value": "full_width",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "reset_spacing",
+      "label": "Remove theme spacing between sections",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "hidden": true,
+      "info": "Legacy: used only when the section has no Heading block.",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "text",
+      "id": "heading_accent",
+      "label": "Accent word",
+      "hidden": true,
+      "info": "Legacy: used only when the section has no Heading block.",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "select",
+      "id": "heading_tag",
+      "label": "HTML tag",
+      "default": "h2",
+      "options": [
+        {
+          "value": "h1",
+          "label": "H1"
+        },
+        {
+          "value": "h2",
+          "label": "H2"
+        },
+        {
+          "value": "h3",
+          "label": "H3"
+        }
+      ],
+      "hidden": true,
+      "info": "Legacy: the heading is always an h2.",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "range",
+      "id": "image_size_desktop",
+      "label": "Product image size",
+      "min": 280,
+      "max": 700,
+      "step": 20,
+      "unit": "px",
+      "default": 460
+    },
+    {
+      "type": "range",
+      "id": "col_gap",
+      "label": "Column gap",
+      "min": 0,
+      "max": 80,
+      "step": 4,
+      "unit": "px",
+      "default": 24
+    },
+    {
+      "type": "range",
+      "id": "tab_gap_desktop",
+      "label": "Gap between features",
+      "min": 16,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 64
+    },
+    {
+      "type": "range",
+      "id": "gap_thumb_to_title",
+      "label": "Thumbnail to title gap",
+      "min": 4,
+      "max": 30,
+      "step": 1,
+      "unit": "px",
+      "default": 12
+    },
+    {
+      "type": "range",
+      "id": "gap_header_to_grid",
+      "label": "Space below heading",
+      "min": 8,
+      "max": 80,
+      "step": 4,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "range",
+      "id": "gap_grid_to_cta",
+      "label": "Space above buttons",
+      "min": 8,
+      "max": 80,
+      "step": 4,
+      "unit": "px",
+      "default": 36
+    },
+    {
+      "type": "header",
+      "content": "Media"
+    },
+    {
+      "type": "image_picker",
+      "id": "product_image",
+      "label": "Product image"
+    },
+    {
+      "type": "select",
+      "id": "product_image_animation",
+      "label": "Image animation",
+      "default": "none",
+      "options": [
+        {
+          "value": "none",
+          "label": "None"
+        },
+        {
+          "value": "float_up",
+          "label": "Float up & down (smooth)"
+        },
+        {
+          "value": "float_right",
+          "label": "Slide left & right (smooth)"
+        },
+        {
+          "value": "float_diagonal",
+          "label": "Float up & right (smooth)"
+        },
+        {
+          "value": "push",
+          "label": "Push (smooth)"
+        },
+        {
+          "value": "zoom",
+          "label": "Zoom in & out (smooth)"
+        },
+        {
+          "value": "buzz",
+          "label": "Buzz (smooth)"
+        },
+        {
+          "value": "sway",
+          "label": "Sway (smooth)"
+        }
+      ]
+    },
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "type": "range",
+      "id": "product_radius",
+      "label": "Product corner radius",
+      "min": 0,
+      "max": 60,
+      "step": 1,
+      "unit": "px",
+      "default": 24
+    },
+    {
+      "type": "range",
+      "id": "line_thickness",
+      "label": "Line thickness",
+      "min": 1,
+      "max": 6,
+      "step": 1,
+      "unit": "px",
+      "default": 2
+    },
+    {
+      "type": "range",
+      "id": "dot_size",
+      "label": "Line end dot size",
+      "min": 6,
+      "max": 24,
+      "step": 1,
+      "unit": "px",
+      "default": 12
+    },
+    {
+      "type": "range",
+      "id": "thumb_size",
+      "label": "Thumbnail size",
+      "min": 56,
+      "max": 140,
+      "step": 4,
+      "unit": "px",
+      "default": 80
+    },
+    {
+      "type": "range",
+      "id": "thumb_radius",
+      "label": "Thumbnail corner radius",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "checkbox",
+      "id": "thumb_shadow",
+      "label": "Thumbnail shadow",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "heading_size_desktop",
+      "label": "Heading size",
+      "min": 24,
+      "max": 80,
+      "step": 2,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "title_size",
+      "label": "Feature title size",
+      "min": 14,
+      "max": 26,
+      "step": 1,
+      "unit": "px",
+      "default": 18
+    },
+    {
+      "type": "range",
+      "id": "desc_size",
+      "label": "Feature text size",
+      "min": 11,
+      "max": 18,
+      "step": 1,
+      "unit": "px",
+      "default": 14
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_style",
+      "label": "Enable custom styling",
+      "default": false
+    },
+    {
+      "type": "color",
+      "id": "section_bg",
+      "label": "Background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "heading_color",
+      "label": "Heading",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "heading_accent_color",
+      "label": "Heading accent",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "line_color",
+      "label": "Lines and dots",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "product_bg",
+      "label": "Product background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "thumb_bg",
+      "label": "Thumbnail background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "mobile_card_bg",
+      "label": "Card background (mobile)",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "header",
+      "content": "Typography"
+    },
+    {
+      "type": "checkbox",
+      "id": "heading_custom_font_enable",
+      "label": "Enable custom fonts",
+      "default": false
+    },
+    {
+      "type": "font_picker",
+      "id": "heading_font",
+      "label": "Heading font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.heading_custom_font_enable }}"
+    },
+    {
+      "type": "select",
+      "id": "heading_font_weight",
+      "label": "Heading weight",
+      "default": "inherit",
+      "options": [
+        {
+          "value": "inherit",
+          "label": "Theme default"
+        },
+        {
+          "value": "300",
+          "label": "Light (300)"
+        },
+        {
+          "value": "400",
+          "label": "Regular (400)"
+        },
+        {
+          "value": "500",
+          "label": "Medium (500)"
+        },
+        {
+          "value": "600",
+          "label": "Semibold (600)"
+        },
+        {
+          "value": "700",
+          "label": "Bold (700)"
+        },
+        {
+          "value": "800",
+          "label": "Extra bold (800)"
+        },
+        {
+          "value": "900",
+          "label": "Black (900)"
+        }
+      ],
+      "visible_if": "{{ section.settings.heading_custom_font_enable }}"
+    },
+    {
+      "type": "header",
+      "content": "Animation"
+    },
+    {
+      "type": "checkbox",
+      "id": "reveal",
+      "label": "Reveal on scroll",
+      "default": true,
+      "info": "Uses the theme animation from Theme settings. The lines draw once when the section comes into view."
+    },
+    {
+      "type": "header",
+      "content": "Desktop spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top_desktop",
+      "label": "Top padding",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 88
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom_desktop",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 88
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_desktop",
+      "label": "Top margin",
+      "min": -200,
+      "max": 200,
+      "step": 4,
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_desktop",
+      "label": "Bottom margin",
+      "min": -200,
+      "max": 200,
+      "step": 4,
+      "default": 0
+    },
+    {
+      "type": "header",
+      "content": "Mobile"
+    },
+    {
+      "type": "range",
+      "id": "heading_size_mobile",
+      "label": "Heading size",
+      "min": 16,
+      "max": 60,
+      "step": 1,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "range",
+      "id": "mobile_line_reach",
+      "label": "Line reach",
+      "min": 5,
+      "max": 60,
+      "step": 1,
+      "default": 30
+    },
+    {
+      "type": "range",
+      "id": "mobile_card_radius",
+      "label": "Card corner radius",
+      "min": 0,
+      "max": 40,
+      "step": 1,
+      "unit": "px",
+      "default": 18
+    },
+    {
+      "type": "range",
+      "id": "padding_top_mobile",
+      "label": "Top padding",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 56
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom_mobile",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 56
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_mobile",
+      "label": "Top margin",
+      "min": -200,
+      "max": 200,
+      "step": 4,
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_mobile",
+      "label": "Bottom margin",
+      "min": -200,
+      "max": 200,
+      "step": 4,
+      "default": 0
+    }
+  ],
+  "blocks": [
+    {
+      "type": "heading",
+      "name": "Heading",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "text",
+          "id": "text",
+          "label": "Text",
+          "default": "What sets it apart"
+        },
+        {
+          "type": "text",
+          "id": "accent",
+          "label": "Accent word",
+          "default": "apart",
+          "info": "A word from the heading drawn in the accent colour."
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Color",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "accent_color",
+          "label": "Accent color",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        }
+      ]
+    },
+    {
+      "type": "spot",
+      "name": "Hotspot",
+      "limit": 4,
+      "settings": [
+        {
+          "type": "image_picker",
+          "id": "thumb",
+          "label": "Thumbnail"
+        },
+        {
+          "type": "text",
+          "id": "title",
+          "label": "Title",
+          "default": "Feature"
+        },
+        {
+          "type": "textarea",
+          "id": "description",
+          "label": "Description",
+          "default": "A short line about one feature of the product."
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "title_color",
+          "label": "Title",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "desc_color",
+          "label": "Description",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        }
+      ]
+    },
+    {
+      "type": "button",
+      "name": "Button",
+      "limit": 2,
+      "settings": [
+        {
+          "type": "text",
+          "id": "cta_label",
+          "label": "Label",
+          "default": "Shop Now"
+        },
+        {
+          "type": "url",
+          "id": "cta_link",
+          "label": "Link"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "cta_bg",
+          "label": "Background",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "cta_bg_hover",
+          "label": "Hover background",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "cta_text",
+          "label": "Text color",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "checkbox",
+          "id": "use_theme_button",
+          "label": "Match theme button",
+          "info": "Colours set above still apply",
+          "default": true
+        },
+        {
+          "type": "range",
+          "id": "cta_size",
+          "label": "Text size",
+          "min": 12,
+          "max": 22,
+          "step": 1,
+          "unit": "px",
+          "default": 16,
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        },
+        {
+          "type": "range",
+          "id": "cta_pad_x",
+          "label": "Horizontal padding",
+          "min": 16,
+          "max": 60,
+          "step": 1,
+          "unit": "px",
+          "default": 36,
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        },
+        {
+          "type": "range",
+          "id": "cta_pad_y",
+          "label": "Vertical padding",
+          "min": 8,
+          "max": 28,
+          "step": 1,
+          "unit": "px",
+          "default": 16,
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        },
+        {
+          "type": "range",
+          "id": "cta_radius",
+          "label": "Corner radius",
+          "min": 0,
+          "max": 60,
+          "step": 1,
+          "unit": "px",
+          "default": 4,
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Product Benefits 4",
+      "category": "Features",
+      "blocks": [
+        {
+          "type": "heading",
+          "settings": {
+            "text": "What sets it apart",
+            "accent": "apart"
+          }
+        },
+        {
+          "type": "spot",
+          "settings": {
+            "title": "Crafted with care",
+            "description": "Say what the product is made of and how it is finished."
+          }
+        },
+        {
+          "type": "spot",
+          "settings": {
+            "title": "Built to last",
+            "description": "Say how it holds up to daily use."
+          }
+        },
+        {
+          "type": "spot",
+          "settings": {
+            "title": "Thoughtful design",
+            "description": "Point out one detail customers notice first."
+          }
+        },
+        {
+          "type": "spot",
+          "settings": {
+            "title": "Easy to use",
+            "description": "Say how it fits into a normal day."
+          }
+        },
+        {
+          "type": "button",
+          "settings": {
+            "cta_label": "Shop now"
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

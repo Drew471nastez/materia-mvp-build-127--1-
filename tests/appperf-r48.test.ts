@@ -203,7 +203,7 @@ section("Products: the list beside the profile")
 
 section("Website: the library beside the creator read")
 {
-  const src = code("app/(storelib)/app/website-builder/page.tsx")
+  const src = code("app/(storelib)/app/website-builder/website-page.tsx") /* Changed on purpose (templates round 16): the page's loader is website-page.tsx, shared by /app/website-builder and /app/website-builder/ai */
   const batch = batchAfter(src, /const handle = websiteHandleOf\(storeId\)/)
   check("installs, creator and profile in one Promise.all", /\.from\("creators"\)\.select\("id, slug"\)\.eq\("id", storeId\)/.test(batch) && /\.from\("profiles"\)/.test(batch) && /load\(\)/.test(batch), batch.slice(0, 160))
   check("  the library by the store id websitePage found", /\.eq\("creator_id", storeId\)/.test(src) && /const storeId = access\.creatorId/.test(src))

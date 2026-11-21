@@ -1,0 +1,133 @@
+{
+  "sections": {
+    "hero_image1_1": {
+      "type": "hero-image1",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "image": "shopify://shop_images/clothing-rack-prints.webp",
+        "image_alt": "Printed shirts and dresses on hangers",
+        "min_height_desktop": 460,
+        "min_height_mobile": 360
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Our story"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "A small label, made slowly"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2"
+      ]
+    },
+    "image_and_video_text_2": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "default",
+        "image": "shopify://shop_images/clothing-street-coat.webp",
+        "image_alt": "A woman in a checked coat seen from behind on a city street",
+        "image_position": "right"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Where it started"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Tell the story of your label here: when you began, what you make and who makes it with you.</p>"
+          }
+        },
+        "button_3": {
+          "type": "button",
+          "settings": {
+            "label": "Shop the collection",
+            "link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "button_3"
+      ]
+    },
+    "feature_timeline_3": {
+      "type": "feature-timeline",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "layout": "side"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "How a piece is made"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>From first sketch to your door.</p>"
+          }
+        },
+        "item_3": {
+          "type": "item",
+          "settings": {
+            "label": "Step 1",
+            "title": "Design",
+            "text": "<p>Say where your ideas start and how long a design takes.</p>"
+          }
+        },
+        "item_4": {
+          "type": "item",
+          "settings": {
+            "label": "Step 2",
+            "title": "Cloth",
+            "text": "<p>Name the mills and the fibres you choose.</p>"
+          }
+        },
+        "item_5": {
+          "type": "item",
+          "settings": {
+            "label": "Step 3",
+            "title": "Sewing",
+            "text": "<p>Say who sews your pieces and where.</p>"
+          }
+        },
+        "item_6": {
+          "type": "item",
+          "settings": {
+            "label": "Step 4",
+            "title": "Delivery",
+            "text": "<p>Describe how an order is packed and sent.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "item_3",
+        "item_4",
+        "item_5",
+        "item_6"
+      ]
+    }
+  },
+  "order": [
+    "hero_image1_1",
+    "image_and_video_text_2",
+    "feature_timeline_3"
+  ]
+}

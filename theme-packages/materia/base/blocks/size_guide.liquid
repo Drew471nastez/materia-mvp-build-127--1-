@@ -1,0 +1,110 @@
+{%- assign preview_product = product | default: page.product -%}
+{%- render 'size-guide-sheet', block: block, product: preview_product, section: section -%}{% schema %}
+{
+  "type": "size_guide",
+  "name": "Size guide",
+  "limit": 1,
+  "settings": [
+    {
+      "type": "header",
+      "content": "Sizes"
+    },
+    {
+      "type": "paragraph",
+      "content": "Shows the size chart you gave this product in Storelib (Products > Size charts), so each product gets its own. A product without one shows your Size rows, then the text or page below."
+    },
+    {
+      "type": "checkbox",
+      "id": "use_storelib_chart",
+      "label": "Use the product's Storelib size chart",
+      "default": true
+    },
+    {
+      "type": "textarea",
+      "id": "table_data",
+      "label": "Size rows",
+      "placeholder": "Size | Chest | Waist\nS | 86-91 | 71-76\nM | 92-97 | 77-82",
+      "info": "First line: the column names. Then one size per line, cells split by |, for example Size | Chest | Waist, then S | 86-91 | 71-76."
+    },
+    {
+      "type": "select",
+      "id": "table_unit",
+      "label": "Size rows are in",
+      "default": "none",
+      "options": [
+        {
+          "value": "none",
+          "label": "No switch"
+        },
+        {
+          "value": "cm",
+          "label": "cm"
+        },
+        {
+          "value": "in",
+          "label": "in"
+        }
+      ],
+      "info": "Pick the unit you typed to give visitors a cm / in switch."
+    },
+    {
+      "type": "header",
+      "content": "Link"
+    },
+    {
+      "type": "text",
+      "id": "size_guide_label",
+      "label": "Link or button label",
+      "default": "Size guide"
+    },
+    {
+      "type": "select",
+      "id": "size_guide_display",
+      "label": "Opens as",
+      "default": "modal",
+      "options": [
+        {
+          "value": "modal",
+          "label": "Pop-up"
+        },
+        {
+          "value": "collapsible",
+          "label": "Row"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "size_guide_appearance",
+      "label": "Style",
+      "default": "link",
+      "options": [
+        {
+          "value": "link",
+          "label": "Text link"
+        },
+        {
+          "value": "button",
+          "label": "Button"
+        }
+      ]
+    },
+    {
+      "type": "header",
+      "content": "More"
+    },
+    {
+      "type": "richtext",
+      "id": "size_guide_content",
+      "label": "Text under the sizes",
+      "info": "Shown under your Size rows, or on its own when there are none."
+    },
+    {
+      "type": "page",
+      "id": "size_guide_page",
+      "label": "Page",
+      "info": "Shown when there is nothing above."
+    }
+  ]
+}
+{% endschema %}

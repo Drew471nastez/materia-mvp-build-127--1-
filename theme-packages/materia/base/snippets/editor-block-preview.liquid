@@ -1,0 +1,28 @@
+{%- comment -%} A selectable empty-block preview, never a product or cart
+  action. Server design mode also works in isolated library previews; the
+  editor class covers canvases whose server omits request.design_mode. {%- endcomment -%}
+<style>
+  .materia-block-preview { display:none; box-sizing:border-box; min-width:0; padding:16px; margin-block:0 16px; border:1px dashed var(--color-border,currentColor); border-radius:var(--input-radius,8px); color:var(--color-text); background:var(--color-background); }
+  html.shopify-design-mode .materia-block-preview, .materia-block-preview[data-editor-preview] { display:block; }
+  .materia-block-preview__title { margin:0 0 8px; color:var(--color-heading); font:inherit; font-weight:var(--heading-weight,600); }
+  .materia-block-preview__message { margin:0; font-size:var(--body-font-size,14px); line-height:1.5; overflow-wrap:anywhere; }
+  .materia-block-preview__row { display:flex; align-items:center; gap:12px; margin-top:16px; }
+  .materia-block-preview__image { width:48px; height:48px; flex:0 0 48px; border:1px solid var(--color-border,currentColor); border-radius:var(--input-radius,8px); display:grid; place-items:center; }
+  .materia-block-preview__lines { flex:1; min-width:0; }
+  .materia-block-preview__lines::before, .materia-block-preview__lines::after { content:''; display:block; height:8px; max-width:180px; background:currentColor; opacity:.12; border-radius:2px; }
+  .materia-block-preview__lines::after { margin-top:10px; width:55%; }
+  .materia-block-preview__image > svg {width:100%;height:100%;display:block;opacity:.6;}
+  [data-offer-library-preview] .po-line__info {min-width:0;flex:1;}
+  [data-offer-library-preview] .po-line__image {object-fit:cover;flex:none;}
+  .materia-preview-variant {display:flex;justify-content:space-between;gap:12px;min-height:32px;margin-top:6px;padding:5px 8px;border:1px solid var(--po-card-line);border-radius:var(--input-border-radius,4px);font-size:.8em;}
+  .materia-block-preview:has([data-offer-library-preview]) { padding:0; border:0; }
+  .materia-block-preview:has([data-offer-library-preview]) > .materia-block-preview__title { display:none; }
+  .materia-block-preview:has([data-offer-library-preview]) > .materia-block-preview__message { font-size:12px; margin-top:10px; order:2; }
+</style>
+<div class="materia-block-preview{% if commerce %} materia-block-preview--commerce{% endif %}"{% if request.design_mode %} data-editor-preview{% endif %} data-empty-block="{{ block.type | escape }}" {{ block.shopify_attributes }} role="note">
+  <p class="materia-block-preview__title">{{ title | escape }}</p>
+  {%- if commerce -%}
+    {%- render 'offer-empty-preview', block: block, product: product, title: title -%}
+  {%- endif -%}
+  <p class="materia-block-preview__message">{{ message | escape }}</p>
+</div>

@@ -1,0 +1,91 @@
+{
+  "sections": {
+    "image_and_video_text_1": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "default",
+        "image": "shopify://shop_images/landing-desk.webp",
+        "image_alt": "A laptop and a monitor on a tidy desk",
+        "image_position": "right"
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "About"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Who is behind this"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Say who you are, what you have done and why you made this.</p>"
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "Get the course",
+            "link": "/#shopify-section-offer"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
+    },
+    "steps_2": {
+      "type": "steps",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "How I work"
+          }
+        },
+        "step_2": {
+          "type": "step",
+          "settings": {
+            "title": "Teach one thing",
+            "description": "<p>Say what you focus on.</p>"
+          }
+        },
+        "step_3": {
+          "type": "step",
+          "settings": {
+            "title": "Show the work",
+            "description": "<p>Say how you teach it.</p>"
+          }
+        },
+        "step_4": {
+          "type": "step",
+          "settings": {
+            "title": "Stay available",
+            "description": "<p>Say how buyers can reach you.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "step_2",
+        "step_3",
+        "step_4"
+      ]
+    }
+  },
+  "order": [
+    "image_and_video_text_1",
+    "steps_2"
+  ]
+}

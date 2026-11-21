@@ -1,0 +1,809 @@
+<script src="{{ 'live-text.js' | asset_url }}" defer="defer"></script>
+{% render 'theme-type' %}
+{%- comment -%}
+  Materia Themes. Scrolling Text: a row of large words that moves sideways.
+  Each word is a block, solid or outlined. Theme first: colour from the
+  colour scheme, font and weight from Theme settings > Typography (heading or
+  body font); custom colours and a custom font only when their switch is on.
+  Every value is a CSS variable printed here for the first paint and repainted
+  live by live-text.js, so a live edit never restarts the movement.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign custom = st.use_custom_text_color
+  assign use_cf = st.use_custom_font
+  assign cf = st.custom_font
+  if use_cf and st.custom_font_url != blank and st.custom_font_family != blank
+    assign stm_font = "'" | append: st.custom_font_family | append: "', sans-serif"
+  elsif use_cf and cf.family != blank
+    assign stm_font = cf.family | append: ', ' | append: cf.fallback_families
+    if cf.fallback_families == blank
+      assign stm_font = cf.family | append: ', sans-serif'
+    endif
+  elsif st.base_font == 'body'
+    assign stm_font = 'var(--body-font)'
+  else
+    assign stm_font = 'var(--heading-font)'
+  endif
+  assign stm_weight = st.font_weight | default: 'theme'
+  if stm_weight == 'theme'
+    if st.base_font == 'body'
+      assign stm_weight = 'var(--body-weight, 400)'
+    else
+      assign stm_weight = 'var(--heading-weight, 700)'
+    endif
+  endif
+  assign sep = ''
+  case st.separator
+    when 'dot'
+      assign sep = '•'
+    when 'star'
+      assign sep = '✦'
+    when 'slash'
+      assign sep = '/'
+    when 'plus'
+      assign sep = '+'
+    when 'custom'
+      assign sep = st.separator_text
+  endcase
+  assign lh = st.line_height | default: 105 | divided_by: 100.0
+  assign sep_scale = st.separator_size | default: 50 | divided_by: 100.0
+  case st.section_width
+    when 'container'
+      assign stm_max = 'calc(var(--page-width, 1300px) + 3rem)'
+    when 'fluid_container'
+      assign stm_max = 'calc(var(--fluid-container-width, 1500px) + 3rem)'
+    else
+      assign stm_max = 'none'
+  endcase
+  assign stm_pad = '0px'
+  assign stm_pad_wide = '0px'
+  unless st.section_width == 'full_width'
+    assign stm_pad = '1.5rem'
+    assign stm_pad_wide = '1.5rem'
+    if st.section_width == 'stretch_width'
+      assign stm_pad_wide = '3rem'
+    endif
+  endunless
+  assign repeats = st.repeat_count | default: 4
+  assign own_reveal = false
+  if st.reveal
+    if settings.scroll_animation == blank or settings.scroll_animation == 'none'
+      assign own_reveal = true
+    endif
+  endif
+-%}
+{%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' and st.reveal -%}
+<style>
+  #shopify-section-{{ section.id }}.scroll-trigger {
+    --animation-duration: {{ settings.animation_duration | default: 700 }}ms;
+    --animation-delay: {{ settings.animation_delay | default: 0 }}ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-{{ section.id }}');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', {{ settings.scroll_animation | json }});
+  })();
+</script>
+{%- endif -%}
+{%- if use_cf and st.custom_font_url != blank and st.custom_font_family != blank -%}
+<style>
+  @font-face { font-family: '{{ st.custom_font_family }}'; src: url("{{ st.custom_font_url }}"); font-display: swap; }
+</style>
+{%- elsif use_cf and cf.family != blank -%}
+<style>{{ cf | font_face: font_display: 'swap' }}</style>
+{%- endif -%}
+{%- if st.reset_spacing -%}
+<style data-rs-bulletproof>
+  #shopify-section-{{ section.id }} + .shopify-section { margin-top: 0 !important; }
+</style>
+{%- endif -%}
+<style>
+  #shopify-section-{{ section.id }} {
+    isolation: isolate;
+    position: relative;
+    max-width: none !important;
+    width: 100% !important;
+    margin-inline: 0 !important;
+    padding-inline: 0 !important;
+    box-sizing: border-box !important;
+    margin-top: var(--stm-mt-m, 0px) !important;
+    margin-bottom: var(--stm-mb-m, 0px) !important;
+    --stm-mt-m: {% if st.reset_spacing %}0{% else %}{{ st.section_margin_top_mobile | default: 0 }}{% endif %}px;
+    --stm-mb-m: {% if st.reset_spacing %}0{% else %}{{ st.section_margin_bottom_mobile | default: 0 }}{% endif %}px;
+    --stm-mt-d: {% if st.reset_spacing %}0{% else %}{{ st.section_margin_top_desktop | default: 0 }}{% endif %}px;
+    --stm-mb-d: {% if st.reset_spacing %}0{% else %}{{ st.section_margin_bottom_desktop | default: 0 }}{% endif %}px;
+    --stm-mobile-display: {% if st.show_on_mobile == false %}none{% else %}block{% endif %};
+  }
+  @media (min-width: 768px) {
+    #shopify-section-{{ section.id }} { margin-top: var(--stm-mt-d, 0px) !important; margin-bottom: var(--stm-mb-d, 0px) !important; }
+  }
+  @media (max-width: 767.98px) {
+    #shopify-section-{{ section.id }} { display: var(--stm-mobile-display, block) !important; }
+  }
+  #shopify-section-{{ section.id }} .stm {
+    box-sizing: border-box;
+    max-width: var(--stm-max);
+    margin-inline: auto;
+    padding-inline: var(--stm-pad);
+    overflow: hidden;
+  }
+  @media (min-width: 1200px) {
+    #shopify-section-{{ section.id }} .stm { padding-inline: var(--stm-pad-wide); }
+  }
+  #shopify-section-{{ section.id }} .stm__viewport {
+    --stm-gap: var(--stm-gap-m);
+    overflow: hidden;
+    display: flex;
+    gap: var(--stm-gap);
+    width: 100%;
+    padding-block: var(--stm-pt-m) var(--stm-pb-m);
+    border-block: var(--stm-border);
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 var(--stm-fade), #000 calc(100% - var(--stm-fade)), transparent 100%);
+    mask-image: linear-gradient(90deg, transparent 0, #000 var(--stm-fade), #000 calc(100% - var(--stm-fade)), transparent 100%);
+  }
+  @media (min-width: 768px) {
+    #shopify-section-{{ section.id }} .stm__viewport { --stm-gap: var(--stm-gap-d); padding-block: var(--stm-pt-d) var(--stm-pb-d); }
+  }
+  #shopify-section-{{ section.id }} .stm__track {
+    display: flex;
+    gap: var(--stm-gap);
+    width: max-content;
+    flex-shrink: 0;
+    align-items: center;
+    animation: stm-scroll-{{ section.id | handle }} var(--stm-duration) linear infinite;
+    animation-direction: var(--stm-direction);
+  }
+  #shopify-section-{{ section.id }} .stm__viewport:hover .stm__track,
+  #shopify-section-{{ section.id }} .stm__viewport:focus-within .stm__track { animation-play-state: var(--stm-pause); }
+  #shopify-section-{{ section.id }} .stm[data-lt-offscreen] .stm__track { animation-play-state: paused; }
+  @keyframes stm-scroll-{{ section.id | handle }} {
+    from { transform: translateX(0); }
+    to { transform: translateX(calc(-100% - var(--stm-gap))); }
+  }
+  #shopify-section-{{ section.id }} .stm__item,
+  #shopify-section-{{ section.id }} .stm__sep {
+    flex-shrink: 0;
+    white-space: nowrap;
+    font-family: var(--stm-font);
+    font-weight: var(--stm-weight);
+  }
+  #shopify-section-{{ section.id }} .stm__item {
+    font-size: var(--stm-size-m);
+    line-height: var(--stm-lh);
+    letter-spacing: var(--stm-ls);
+    text-transform: var(--stm-tt);
+    color: var(--stm-word-ink, var(--stm-color));
+    -webkit-text-fill-color: var(--stm-word-ink, var(--stm-color));
+  }
+  #shopify-section-{{ section.id }} .stm__item[data-outline] {
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    -webkit-text-stroke: var(--stm-outline, 2px) var(--stm-word-ink, var(--stm-color));
+  }
+  #shopify-section-{{ section.id }} .stm__sep {
+    font-size: calc(var(--stm-size-m) * var(--stm-sep-scale));
+    line-height: 1;
+    color: var(--stm-sep-color);
+    -webkit-text-fill-color: var(--stm-sep-color);
+  }
+  @media (min-width: 768px) {
+    #shopify-section-{{ section.id }} .stm__item { font-size: var(--stm-size-d); }
+    #shopify-section-{{ section.id }} .stm__sep { font-size: calc(var(--stm-size-d) * var(--stm-sep-scale)); }
+  }
+  {%- if own_reveal -%}
+    @keyframes stm-reveal-{{ section.id | handle }} { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
+    @supports (animation-timeline: view()) {
+      @media (prefers-reduced-motion: no-preference) {
+        html:not(.shopify-design-mode) #shopify-section-{{ section.id }} .stm[data-lt-reveal] { animation: stm-reveal-{{ section.id | handle }} linear both; animation-timeline: view(); animation-range: entry 0% entry 60%; }
+      }
+    }
+  {%- endif -%}
+  @media (prefers-reduced-motion: reduce) {
+    #shopify-section-{{ section.id }} .stm__track, #shopify-section-{{ section.id }} .stm { animation: none !important; }
+    #shopify-section-{{ section.id }} .stm__viewport { flex-wrap: wrap; }
+    #shopify-section-{{ section.id }} .stm__track { flex-wrap: wrap; width: auto; justify-content: center; }
+    #shopify-section-{{ section.id }} .stm__track[aria-hidden] { display: none; }
+  }
+</style>
+{%- capture stm_color -%}{% if custom %}{% render 'scheme-color', color: st.text_color, fallback: 'var(--color-text)' %}{% else %}var(--color-text){% endif %}{%- endcapture -%}
+{%- capture stm_sep_color -%}{% if custom %}{% render 'scheme-color', color: st.separator_color, fallback: 'var(--stm-color)' %}{% else %}var(--stm-color){% endif %}{%- endcapture -%}
+{%- capture stm_border_color -%}{% if custom %}{% render 'scheme-color', color: st.border_color, fallback: 'color-mix(in srgb, var(--stm-color) 18%, transparent)' %}{% else %}color-mix(in srgb, var(--stm-color) 18%, transparent){% endif %}{%- endcapture -%}
+<div
+  class="stm section color-{{ color_scheme }} gradient"
+  data-live-text="scrolling-text"
+  data-lt-section="{{ section.id }}"
+  data-lt-settings="{{ section.settings | json | escape }}"
+  {% if st.reveal %}data-lt-reveal{% endif %}
+  {% if use_cf %}data-own-font{% endif %}
+  style="--stm-font: {{ stm_font }}; --stm-weight: {{ stm_weight }}; --stm-lh: {{ lh }}; --stm-ls: {{ st.letter_spacing | default: 0 }}px; --stm-tt: {{ st.text_transform | default: 'none' }}; --stm-color: {{ stm_color | strip }}; --stm-sep-color: {{ stm_sep_color | strip }}; --stm-sep-scale: {{ sep_scale }}; --stm-border: {% if st.show_borders %}1px solid {{ stm_border_color | strip }}{% else %}0 solid transparent{% endif %}; --stm-fade: {{ st.edge_fade | default: 0 }}px; --stm-size-d: {{ st.text_size | default: 80 }}px; --stm-size-m: {{ st.text_size_mobile | default: 40 }}px; --stm-gap-d: {{ st.item_gap | default: 64 }}px; --stm-gap-m: {{ st.item_gap_mobile | default: 32 }}px; --stm-pt-d: {{ st.padding_top }}px; --stm-pb-d: {{ st.padding_bottom }}px; --stm-pt-m: {{ st.padding_top_mobile }}px; --stm-pb-m: {{ st.padding_bottom_mobile }}px; --stm-duration: {{ st.duration | default: 40 }}s; --stm-direction: {{ st.direction | default: 'normal' }}; --stm-pause: {% if st.pause_on_hover %}paused{% else %}running{% endif %}; --stm-max: {{ stm_max }}; --stm-pad: {{ stm_pad }}; --stm-pad-wide: {{ stm_pad_wide }};"
+>
+  <div class="stm__viewport">
+    {%- for i in (1..repeats) -%}
+      <div class="stm__track"{% if i > 1 %} aria-hidden="true"{% endif %}>
+        {%- for block in section.blocks -%}
+          {%- assign b = block.settings -%}
+          {%- if b.text != blank -%}
+            {%- capture word_ink -%}{% if b.enable_custom_style %}{% render 'scheme-color', color: b.color, fallback: '' %}{% endif %}{%- endcapture -%}
+            <span class="stm__item" data-lt-block="{{ block.id }}" data-lt-type="word"{% if i == 1 %} data-lt-settings="{{ b | json | escape }}" {{ block.shopify_attributes }}{% endif %}{% if b.use_outline_text %} data-outline{% endif %} style="--stm-outline: {{ b.outline_width | default: 2 }}px;{% if word_ink != blank %} --stm-word-ink: {{ word_ink | strip }};{% endif %}">{{ b.text | escape }}</span>
+            {%- if sep != blank -%}<span class="stm__sep" aria-hidden="true">{{ sep | escape }}</span>{%- endif -%}
+          {%- endif -%}
+        {%- endfor -%}
+        {%- if section.blocks.size == 0 and request.design_mode -%}<span class="stm__item">Add a Word block</span>{%- endif -%}
+      </div>
+    {%- endfor -%}
+  </div>
+</div>{% schema %}
+{
+  "name": "Scrolling Text",
+  "tag": "section",
+  "class": "section-scrolling-text",
+  "max_blocks": 50,
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Width",
+      "options": [
+        {
+          "value": "container",
+          "label": "Default"
+        },
+        {
+          "value": "fluid_container",
+          "label": "Fluid container"
+        },
+        {
+          "value": "stretch_width",
+          "label": "Stretched"
+        },
+        {
+          "value": "full_width",
+          "label": "Full width"
+        }
+      ],
+      "default": "full_width"
+    },
+    {
+      "type": "checkbox",
+      "id": "reset_spacing",
+      "label": "Remove space around section",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "Content"
+    },
+    {
+      "type": "select",
+      "id": "separator",
+      "label": "Between words",
+      "default": "none",
+      "options": [
+        {
+          "value": "none",
+          "label": "Nothing"
+        },
+        {
+          "value": "dot",
+          "label": "Dot •"
+        },
+        {
+          "value": "star",
+          "label": "Star ✦"
+        },
+        {
+          "value": "slash",
+          "label": "Slash /"
+        },
+        {
+          "value": "plus",
+          "label": "Plus +"
+        },
+        {
+          "value": "custom",
+          "label": "Custom"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "separator_text",
+      "label": "Custom separator",
+      "default": "*",
+      "visible_if": "{{ section.settings.separator == 'custom' }}"
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "range",
+      "id": "item_gap",
+      "label": "Gap between words (desktop)",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 64
+    },
+    {
+      "type": "range",
+      "id": "repeat_count",
+      "label": "Content repeats",
+      "min": 2,
+      "max": 8,
+      "step": 1,
+      "default": 4,
+      "info": "More copies keep the row full on wide screens."
+    },
+    {
+      "type": "range",
+      "id": "edge_fade",
+      "label": "Fade the edges",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "checkbox",
+      "id": "show_borders",
+      "label": "Lines above and below",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "type": "checkbox",
+      "id": "use_custom_text_color",
+      "label": "Enable custom styling",
+      "default": false
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text colour",
+      "visible_if": "{{ section.settings.use_custom_text_color }}"
+    },
+    {
+      "type": "color",
+      "id": "separator_color",
+      "label": "Separator colour",
+      "visible_if": "{{ section.settings.use_custom_text_color }}"
+    },
+    {
+      "type": "color",
+      "id": "border_color",
+      "label": "Line colour",
+      "visible_if": "{{ section.settings.use_custom_text_color and section.settings.show_borders }}"
+    },
+    {
+      "type": "header",
+      "content": "Typography"
+    },
+    {
+      "type": "select",
+      "id": "base_font",
+      "label": "Theme font",
+      "default": "heading",
+      "options": [
+        {
+          "value": "heading",
+          "label": "Theme heading font"
+        },
+        {
+          "value": "body",
+          "label": "Theme body font"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "use_custom_font",
+      "label": "Enable custom font",
+      "default": false
+    },
+    {
+      "type": "font_picker",
+      "id": "custom_font",
+      "label": "Custom font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.use_custom_font }}"
+    },
+    {
+      "type": "text",
+      "id": "custom_font_url",
+      "label": "Custom font URL",
+      "hidden": true,
+      "info": "Legacy: used with the font family name when both are set.",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "text",
+      "id": "custom_font_family",
+      "label": "Font family name",
+      "hidden": true,
+      "info": "Legacy: used with the font URL when both are set.",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "range",
+      "id": "text_size",
+      "label": "Text size (desktop)",
+      "min": 16,
+      "max": 200,
+      "step": 2,
+      "unit": "px",
+      "default": 80
+    },
+    {
+      "type": "select",
+      "id": "font_weight",
+      "label": "Font weight",
+      "default": "theme",
+      "options": [
+        {
+          "value": "theme",
+          "label": "Theme"
+        },
+        {
+          "value": "300",
+          "label": "Light"
+        },
+        {
+          "value": "400",
+          "label": "Regular"
+        },
+        {
+          "value": "500",
+          "label": "Medium"
+        },
+        {
+          "value": "600",
+          "label": "Semibold"
+        },
+        {
+          "value": "700",
+          "label": "Bold"
+        },
+        {
+          "value": "800",
+          "label": "Extra bold"
+        },
+        {
+          "value": "900",
+          "label": "Black"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "line_height",
+      "label": "Line height",
+      "min": 80,
+      "max": 160,
+      "step": 5,
+      "unit": "%",
+      "default": 105
+    },
+    {
+      "type": "range",
+      "id": "letter_spacing",
+      "label": "Letter spacing",
+      "min": -4,
+      "max": 12,
+      "step": 1,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "select",
+      "id": "text_transform",
+      "label": "Text case",
+      "default": "none",
+      "options": [
+        {
+          "value": "none",
+          "label": "As typed"
+        },
+        {
+          "value": "uppercase",
+          "label": "UPPERCASE"
+        },
+        {
+          "value": "lowercase",
+          "label": "lowercase"
+        },
+        {
+          "value": "capitalize",
+          "label": "Capitalize"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "separator_size",
+      "label": "Separator size",
+      "min": 20,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "default": 50
+    },
+    {
+      "type": "header",
+      "content": "Animation"
+    },
+    {
+      "type": "range",
+      "id": "duration",
+      "label": "Scroll duration",
+      "min": 5,
+      "max": 120,
+      "step": 5,
+      "unit": "s",
+      "default": 40,
+      "info": "Higher is slower"
+    },
+    {
+      "type": "select",
+      "id": "direction",
+      "label": "Direction",
+      "default": "normal",
+      "options": [
+        {
+          "value": "normal",
+          "label": "Left"
+        },
+        {
+          "value": "reverse",
+          "label": "Right"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "pause_on_hover",
+      "label": "Pause on hover",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "reveal",
+      "label": "Reveal on scroll",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Desktop spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding (desktop)",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 24
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding (desktop)",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 24
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_desktop",
+      "label": "Top margin (desktop)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_desktop",
+      "label": "Bottom margin (desktop)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "header",
+      "content": "Mobile"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_on_mobile",
+      "label": "Show on mobile",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "text_size_mobile",
+      "label": "Text size (mobile)",
+      "min": 12,
+      "max": 160,
+      "step": 2,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "item_gap_mobile",
+      "label": "Gap between words (mobile)",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "range",
+      "id": "padding_top_mobile",
+      "label": "Top padding (mobile)",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom_mobile",
+      "label": "Bottom padding (mobile)",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_mobile",
+      "label": "Top margin (mobile)",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_mobile",
+      "label": "Bottom margin (mobile)",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    }
+  ],
+  "blocks": [
+    {
+      "type": "word",
+      "name": "Word",
+      "settings": [
+        {
+          "type": "text",
+          "id": "text",
+          "label": "Word",
+          "default": "Create."
+        },
+        {
+          "type": "checkbox",
+          "id": "use_outline_text",
+          "label": "Outline text",
+          "default": false
+        },
+        {
+          "type": "range",
+          "id": "outline_width",
+          "label": "Outline thickness",
+          "min": 1,
+          "max": 8,
+          "step": 1,
+          "unit": "px",
+          "default": 2,
+          "visible_if": "{{ block.settings.use_outline_text }}"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Colour",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Scrolling Text",
+      "category": "Text",
+      "settings": {
+        "text_size": 80,
+        "text_size_mobile": 40,
+        "font_weight": "700",
+        "duration": 40,
+        "direction": "normal"
+      },
+      "blocks": [
+        {
+          "type": "word",
+          "settings": {
+            "text": "Create.",
+            "use_outline_text": false
+          }
+        },
+        {
+          "type": "word",
+          "settings": {
+            "text": "Inspire.",
+            "use_outline_text": true
+          }
+        },
+        {
+          "type": "word",
+          "settings": {
+            "text": "Make.",
+            "use_outline_text": false
+          }
+        },
+        {
+          "type": "word",
+          "settings": {
+            "text": "Repeat.",
+            "use_outline_text": true
+          }
+        },
+        {
+          "type": "word",
+          "settings": {
+            "text": "Imagine.",
+            "use_outline_text": false
+          }
+        },
+        {
+          "type": "word",
+          "settings": {
+            "text": "Repeat.",
+            "use_outline_text": true
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

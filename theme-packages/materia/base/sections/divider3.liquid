@@ -1,0 +1,698 @@
+<script src="{{ 'live-social-dividers.js' | asset_url }}" defer="defer"></script>
+{% render 'theme-type' %}
+{%- liquid
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+-%}
+{%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
+{%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' and section.settings.reveal != false -%}
+<style>
+  #shopify-section-{{ section.id }}.scroll-trigger {
+    --animation-duration: {{ settings.animation_duration | default: 700 }}ms;
+    --animation-delay: {{ settings.animation_delay | default: 0 }}ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-{{ section.id }}');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', {{ settings.scroll_animation | json }});
+  })();
+</script>
+{%- endif -%}
+{%- comment -%}
+  reset_spacing: collapse ONLY this section's own outer vertical margins.
+  We deliberately do NOT touch sibling/adjacent sections (no "+ .shopify-section",
+  no ":has()") so this section can never modify the spacing of other sections.
+  The divider's own top/bottom spacing sliders paint on the INNER element
+  (.LoudzDividers) and are intentionally LEFT ALONE here, so they ALWAYS take effect
+  regardless of this toggle.
+{%- endcomment -%}
+<style data-rs-bulletproof>
+  {%- if section.settings.reset_spacing -%}
+    /* Outer section margins */
+    #shopify-section-{{ section.id }},
+    #shopify-section-{{ section.id }} > .section,
+    #shopify-section-{{ section.id }} > section,
+    #shopify-section-{{ section.id }} > div,
+    #shopify-section-{{ section.id }} > div > .section {
+      margin-top: 0 !important;
+      margin-bottom: 0 !important;
+    }
+  {%- endif -%}
+</style>
+{%- comment -%}
+  Section background colour wiring. Painted on the section wrapper so
+  the colour fills edge-to-edge regardless of inner section width.
+{%- endcomment -%}
+{%- if section.settings.enable_custom_style and section.settings.section_bg != blank and section.settings.section_bg.alpha != 0 -%}
+  <style>
+    #shopify-section-{{ section.id }} {
+      background-color: {{ section.settings.section_bg }};
+    }
+  </style>
+{%- endif -%}
+{%- liquid
+  assign __ti_scroll_animation = settings.scroll_animation | default: 'none'
+  assign __ti_reveal = section.settings.reveal
+-%}
+<style>
+  /* Section isolation — prevent CSS/JS bleed between sections */
+  #shopify-section-{{ section.id }} {
+    isolation: isolate;
+    position: relative;
+  }
+  /* Aggressive theme typography */
+  :where(#shopify-section-{{ section.id }}) {
+    font-family: var(--body-font, inherit);
+  }
+  :where(#shopify-section-{{ section.id }}) :where(button, input, textarea, select, optgroup) {
+    font-family: inherit;
+  }
+  /* Theme font-weight inheritance — sections inherit theme weights by default.
+     Specific font-weight rules in section CSS still override these. */
+  #shopify-section-{{ section.id }} {
+    font-weight: var(--body-weight, inherit);
+  }
+  :where(#shopify-section-{{ section.id }}) :is(h1, h2, h3, h4, h5, h6) {
+    font-weight: var(--heading-weight, inherit);
+  }
+  :where(#shopify-section-{{ section.id }}) :is(h1, h2, h3, h4, h5, h6) {
+    font-family: var(--heading-font, inherit);
+  }
+  /* Section margin sliders (mobile-first).
+     When reset_spacing is ON these are forced to 0 by the bulletproof block
+     above (which uses !important), so we only emit them when reset is OFF. */
+  {%- unless section.settings.reset_spacing -%}
+  #shopify-section-{{ section.id }} {
+    margin-top: {{ section.settings.section_margin_top_mobile | default: 0 }}px;
+    margin-bottom: {{ section.settings.section_margin_bottom_mobile | default: 0 }}px;
+  }
+  @media (min-width: 768px) {
+    #shopify-section-{{ section.id }} {
+      margin-top: {{ section.settings.section_margin_top_desktop | default: 0 }}px;
+      margin-bottom: {{ section.settings.section_margin_bottom_desktop | default: 0 }}px;
+    }
+  }
+  {%- endunless -%}
+  /* Section wrapper spans its parent's full width without breaking out of
+     the editor preview. */
+  #shopify-section-{{ section.id }} {
+    max-width: none !important;
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    position: relative !important;
+    box-sizing: border-box !important;
+  }
+  #shopify-section-{{ section.id }} > :where(div, section, header, footer, aside, main, article):first-child {
+    max-width: none !important;
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Section width */
+  /* Section width: the wrapper's class (live-social-dividers.js swaps it) */
+  #shopify-section-{{ section.id }} .container {
+    max-width: calc(var(--page-width, 1300px) + 3rem) !important;
+    margin-inline: auto !important;
+    box-sizing: border-box !important;
+  }
+  #shopify-section-{{ section.id }} .fluid_container {
+    max-width: calc(var(--fluid-container-width, 1500px) + 3rem) !important;
+    margin-inline: auto !important;
+    box-sizing: border-box !important;
+  }
+  @media (min-width: 1200px) {
+    #shopify-section-{{ section.id }} .stretch_width {
+      padding-inline: 3rem;
+    }
+  }
+  /* Reset spacing — outer section margins only (inter-section gap). Inner spacing sliders always apply. */
+  {%- if section.settings.reset_spacing -%}
+    #shopify-section-{{ section.id }} { margin-bottom: 0 !important; margin-top: 0 !important; }
+  {%- endif -%}
+</style>
+<!-- ti-theme:start -->
+{%- comment -%}
+  Materia Themes. Divider 3: one of the shapes in snippets/divider3-shapes,
+  drawn in the scheme's heading colour until Enable custom styling is on.
+  The values are --section-* variables on .LoudzDividers, which
+  live-social-dividers.js writes on a live edit.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign d3_style = s.divider_style | default: 'brush-2'
+  assign d3_color = ''
+  if s.enable_custom_style
+    assign d3_color = s.divider_color
+  endif
+-%}
+{%- capture d3_vars -%}
+--section-margin-top-mobile: {{ s.top_margin_mobile | default: 0 }}px; --section-margin-bottom-mobile: {{ s.bottom_margin_mobile | default: 0 }}px; --section-margin-top-desktop: {{ s.top_margin_desktop | default: 0 }}px; --section-margin-bottom-desktop: {{ s.bottom_margin_desktop | default: 0 }}px;
+--section-divider-color: {% render 'scheme-color', color: d3_color, fallback: 'var(--color-heading)' %} !important; --section-width: {{ s.inner_width | default: 50 }}%;
+--section-divider-size-mobile: {{ s.divider_size_mobile | default: 100 }}; --section-divider-size-desktop: {{ s.divider_size_desktop | default: 100 }};
+--section-divider-thickness: {{ s.divider_thickness | default: 2 }}px; --section-two-line-divider-thickness: {{ s.two_line_divider_thickness | default: 2 }}px; --section-circle-divider-thickness: {{ s.circle_divider_thickness | default: 2 }}px; --section-lines-divider-thickness: {{ s.lines_divider_thickness | default: 2 }}px; --section-rectangles-divider-thickness: {{ s.rectangles_divider_thickness | default: 2 }}px; --section-wave-line-divider-thickness: {{ s.wave_line_divider_thickness | default: 2 }}px; --section-waves-divider-thickness: {{ s.waves_divider_thickness | default: 2 }}px; --section-waves-2-divider-thickness: {{ s.waves2_divider_thickness | default: 2 }}px; --section-marks-divider-thickness: {{ s.marks_divider_thickness | default: 2 }}px;
+--section-leaf-divider-width: {{ s.leaf_divider_width | default: 100 }}%; --section-brush-1-divider-width: {{ s.brush1_divider_width | default: 100 }}%; --section-brush-2-divider-width: {{ s.brush2_divider_width | default: 100 }}%; --section-pointed-stars-divider-width: {{ s.pointed_stars_divider_width | default: 100 }}%;
+{%- endcapture -%}
+<div class="ti-section-wrap color-{{ color_scheme }} gradient {{ s.section_width | default: 'full_width' }}" data-sd-root="divider3" data-sd-section="{{ section.id }}"{% if request.design_mode %} data-sd-settings="{{ section.settings | json | escape }}"{% endif %}>
+<style>
+:root{--loudz-neutral-100:#222;--loudz-neutral-70:#5e5e5e;--loudz-neutral-01:#fff;--loudz-size-2:2px;--loudz-size-14:14px;--loudz-size-16:16px;--loudz-size-20:20px;--loudz-size-24:24px;--loudz-size-32:32px;--loudz-size-40:40px;--loudz-size-full:9999px;--loudz-font-weight-400:400;--loudz-line-height-140:1.4;--loudz-border-radius-full:var(--loudz-size-full);--loudz-color-bg-fill-default-on-light:var(--loudz-neutral-100);--loudz-color-bg-fill-inverse-on-light:var(--loudz-neutral-01);--loudz-color-text-disable-on-light:var(--loudz-neutral-70);--loudz-space-2:var(--loudz-size-2);--loudz-space-16:var(--loudz-size-16);--loudz-space-20:var(--loudz-size-20);--loudz-space-24:var(--loudz-size-24);--loudz-space-32:var(--loudz-size-32);--loudz-space-40:var(--loudz-size-40);--loudz-font-size-14:var(--loudz-size-14)}
+#shopify-section-{{ section.id }} .LoudzDividers{margin:var(--section-margin-top-mobile) var(--loudz-space-16) var(--section-margin-bottom-mobile) var(--loudz-space-16);position:relative;overflow-x:clip;overflow-y:visible}@media(min-width: 992px){#shopify-section-{{ section.id }} .LoudzDividers{margin:var(--section-margin-top-desktop) auto var(--section-margin-bottom-desktop);max-width:var(--section-max-width);width:var(--section-width)}}#shopify-section-{{ section.id }} .LoudzDividers.LoudzDividers--fullWidth{margin:var(--section-margin-top-mobile) 0 var(--section-margin-bottom-mobile) 0}@media(min-width: 992px){#shopify-section-{{ section.id }} .LoudzDividers.LoudzDividers--fullWidth{margin:var(--section-margin-top-desktop) 0 var(--section-margin-bottom-desktop) 0}}#shopify-section-{{ section.id }} .LoudzDividers.LoudzDividers--fullWidth svg{transform:scale(1.02, 1.02)}#shopify-section-{{ section.id }} .LoudzDividers.LoudzDividers--fullWidth .LoudzDividersWrapper__Shape{transform:scaleX(1.03)}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper{position:relative;transform:scale(calc(var(--section-divider-size-mobile, 100) / 100));transform-origin:center center}@media(min-width: 992px){#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper{transform:scale(calc(var(--section-divider-size-desktop, 100) / 100))}}@media(prefers-reduced-motion: reduce){#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper svg,#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper .LoudzDividersWrapper__TwoLine::before,#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper .LoudzDividersWrapper__TwoLine::after{animation:none !important;transition:none !important}}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__Line{height:var(--section-divider-thickness, var(--loudz-space-2));background-color:var(--section-divider-color, var(--loudz-color-bg-fill-default-on-light));width:100%;margin:0 auto;display:block}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__Line path{stroke-width:var(--section-divider-thickness, var(--loudz-space-2))}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__TwoLine{width:100%;display:block;min-height:var(--loudz-space-32);height:100%}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__TwoLine::before,#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__TwoLine::after{content:"";width:80%;position:absolute;height:var(--section-two-line-divider-thickness, var(--loudz-space-2));background-color:var(--section-divider-color, var(--loudz-color-bg-fill-default-on-light))}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__TwoLine::before{top:0;left:20%}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__TwoLine::after{top:var(--loudz-space-20);left:0}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__Lines path{stroke-width:var(--section-lines-divider-thickness, var(--loudz-space-2))}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper svg{display:block;width:100%;height:auto;stroke:var(--section-divider-color, var(--loudz-color-bg-fill-default-on-light))}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper svg line{stroke:var(--section-divider-color, var(--loudz-color-bg-fill-default-on-light))}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper svg path{fill:var(--section-divider-color, var(--loudz-color-bg-fill-default-on-light));stroke:var(--section-divider-color, var(--loudz-color-bg-fill-default-on-light))}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__Diagonal svg path{stroke-width:initial}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__WaveLine svg{transform:scaleX(1.03)}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__WaveLine svg path{stroke-width:var(--section-wave-line-divider-thickness, var(--loudz-space-2))}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__Waves path{stroke-width:var(--section-waves-divider-thickness, var(--loudz-space-2))}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__WavesSecond path{stroke-width:var(--section-waves-2-divider-thickness, var(--loudz-space-2))}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__Marks path{stroke-width:var(--section-marks-divider-thickness, var(--loudz-space-2))}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__Circle{display:block;margin:0 auto;width:var(--loudz-space-24);height:var(--loudz-space-24);border-radius:var(--loudz-border-radius-full);background-color:rgba(0,0,0,0);border:var(--section-circle-divider-thickness, var(--loudz-space-2)) solid var(--section-divider-color, var(--loudz-color-bg-fill-default-on-light))}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__Circle::before,#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__Circle::after{content:"";width:45%;height:var(--section-circle-divider-thickness, var(--loudz-space-2));top:50%;transform:translate(0, -50%);background-color:var(--section-divider-color, var(--loudz-color-bg-fill-default-on-light));margin:0 auto;display:block;position:absolute}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__Circle::before{left:0}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__Circle::after{right:0}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__Leaf{max-width:220px;margin:0 auto}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__Leaf svg{margin:0 auto}@media(min-width: 992px){#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__Leaf svg{max-width:320px;width:var(--section-leaf-divider-width, 50%)}}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__Leaf svg path{stroke-width:initial}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__Shape svg path{fill:unset}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__Rectangles path{stroke-width:var(--section-rectangles-divider-thickness, var(--loudz-space-2))}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__Decor svg path{stroke-width:initial}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__Dots svg{fill:var(--section-divider-color, var(--loudz-color-bg-fill-default-on-light))}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__PointedStars{max-width:200px;margin:0 auto}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__PointedStars svg{margin:0 auto}@media(min-width: 992px){#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__PointedStars svg{max-width:240px;width:var(--section-pointed-stars-divider-width, 50%)}}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__Marks path{stroke-width:var(--section-marks-divider-thickness, var(--loudz-space-2))}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__SolidBrush{max-width:280px;margin:0 auto}@media(min-width: 992px){#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__SolidBrush{max-width:480px}}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__SolidBrush svg{margin:0 auto}@media(min-width: 992px){#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__SolidBrush svg{width:var(--section-brush-1-divider-width, 50%)}}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__WavyBrush{max-width:240px;margin:0 auto}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__WavyBrush svg{margin:0 auto}@media(min-width: 992px){#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__WavyBrush svg{max-width:400px;width:var(--section-brush-2-divider-width, 50%)}}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__WavyBrush svg path{stroke-width:initial}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__TripleLines path{stroke:var(--section-divider-color, var(--loudz-color-bg-fill-default-on-light));stroke-width:var(--section-divider-thickness, var(--loudz-space-2))}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__Squares rect{fill:var(--section-divider-color, var(--loudz-color-bg-fill-default-on-light))}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__Triangles polygon{fill:var(--section-divider-color, var(--loudz-color-bg-fill-default-on-light))}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__Diamonds polygon{fill:var(--section-divider-color, var(--loudz-color-bg-fill-default-on-light))}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__Hexagons polygon{fill:var(--section-divider-color, var(--loudz-color-bg-fill-default-on-light))}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__Chevrons path{stroke:var(--section-divider-color, var(--loudz-color-bg-fill-default-on-light));stroke-width:var(--section-divider-thickness, var(--loudz-space-2));fill:var(--section-divider-color, var(--loudz-color-bg-fill-default-on-light))}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__Arrows path{fill:var(--section-divider-color, var(--loudz-color-bg-fill-default-on-light))}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__Curves path{stroke:var(--section-divider-color, var(--loudz-color-bg-fill-default-on-light));stroke-width:var(--section-divider-thickness, var(--loudz-space-2))}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__Spirals path{stroke:var(--section-divider-color, var(--loudz-color-bg-fill-default-on-light));stroke-width:var(--section-divider-thickness, var(--loudz-space-2))}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__Crosses path{stroke:var(--section-divider-color, var(--loudz-color-bg-fill-default-on-light));stroke-width:var(--section-divider-thickness, var(--loudz-space-2))}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__Pluses path{stroke:var(--section-divider-color, var(--loudz-color-bg-fill-default-on-light));stroke-width:var(--section-divider-thickness, var(--loudz-space-2))}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__Stripes rect{fill:var(--section-divider-color, var(--loudz-color-bg-fill-default-on-light))}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__Grid line{stroke:var(--section-divider-color, var(--loudz-color-bg-fill-default-on-light));stroke-width:var(--section-divider-thickness, var(--loudz-space-2))}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__PolkaDots circle{fill:var(--section-divider-color, var(--loudz-color-bg-fill-default-on-light))}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__Herringbone line{stroke:var(--section-divider-color, var(--loudz-color-bg-fill-default-on-light));stroke-width:var(--section-divider-thickness, var(--loudz-space-2))}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__Scales ellipse{fill:var(--section-divider-color, var(--loudz-color-bg-fill-default-on-light))}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__Zigzag2 path{stroke:var(--section-divider-color, var(--loudz-color-bg-fill-default-on-light));stroke-width:var(--section-divider-thickness, var(--loudz-space-2))}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__Wave2 path{stroke:var(--section-divider-color, var(--loudz-color-bg-fill-default-on-light));stroke-width:var(--section-divider-thickness, var(--loudz-space-2));fill:var(--section-divider-color, var(--loudz-color-bg-fill-default-on-light))}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__Dots2 circle{fill:var(--section-divider-color, var(--loudz-color-bg-fill-default-on-light))}#shopify-section-{{ section.id }} .LoudzDividers .LoudzDividersWrapper__Dashes2 path{stroke:var(--section-divider-color, var(--loudz-color-bg-fill-default-on-light));stroke-width:var(--section-divider-thickness, var(--loudz-space-2))}
+</style>
+<section
+	class="Loudz-{{ section.id | handle }} LoudzDividers{% if s.inner_width == 100 %} LoudzDividers--fullWidth{% endif %}"
+	data-sd-d3
+	style="{{ d3_vars | strip_newlines }}"
+>
+	<div class="LoudzDividersWrapper" id="LoudzDividersWrapper-{{ section.id }}" aria-hidden="true" data-sd-shape="{{ d3_style }}">
+		{%- render 'divider3-shapes', style: d3_style -%}
+	</div>
+</section>
+{%- if request.design_mode -%}
+	{%- assign d3_all = 'line,two-lines,circle,lines,rectangles,waves-2,waves,marks,dots,stars,hearts,wave-line,brush-2,leaf,pointed-stars,brush-1,diagonal,triple-lines,squares,triangles,diamonds,hexagons,chevrons,arrows,curves,spirals,crosses,pluses,stripes,grid,polka-dots,herringbone,scales,zigzag2,wave2,dots2,dashes2' | split: ',' -%}
+	{%- for shape in d3_all -%}<template data-sd-shapes="{{ shape }}">{%- render 'divider3-shapes', style: shape -%}</template>{%- endfor -%}
+{%- endif -%}
+</div>
+<!-- ti-theme:end -->{% schema %}
+{
+  "name": "Divider 3",
+  "disabled_on": {
+    "groups": [
+      "header",
+      "footer"
+    ]
+  },
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Section width",
+      "default": "full_width",
+      "options": [
+        {
+          "value": "container",
+          "label": "Default"
+        },
+        {
+          "value": "fluid_container",
+          "label": "Fluid container"
+        },
+        {
+          "value": "stretch_width",
+          "label": "Stretched"
+        },
+        {
+          "value": "full_width",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "reset_spacing",
+      "label": "Remove space between sections",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "reveal",
+      "label": "Reveal on scroll",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Shape"
+    },
+    {
+      "type": "select",
+      "id": "divider_style",
+      "label": "Divider design",
+      "options": [
+        {
+          "value": "line",
+          "label": "Straight line"
+        },
+        {
+          "value": "two-lines",
+          "label": "Parallel lines"
+        },
+        {
+          "value": "circle",
+          "label": "Line with circle accents"
+        },
+        {
+          "value": "lines",
+          "label": "Diagonal slashes"
+        },
+        {
+          "value": "rectangles",
+          "label": "Zigzag pattern"
+        },
+        {
+          "value": "waves-2",
+          "label": "Scalloped edges"
+        },
+        {
+          "value": "waves",
+          "label": "Gentle ripples"
+        },
+        {
+          "value": "marks",
+          "label": "Crossed marks"
+        },
+        {
+          "value": "dots",
+          "label": "Row of dots"
+        },
+        {
+          "value": "stars",
+          "label": "Small stars"
+        },
+        {
+          "value": "hearts",
+          "label": "Heart icons"
+        },
+        {
+          "value": "wave-line",
+          "label": "Curved wave line"
+        },
+        {
+          "value": "brush-2",
+          "label": "Wavy brush (default)"
+        },
+        {
+          "value": "leaf",
+          "label": "Leaf motif"
+        },
+        {
+          "value": "pointed-stars",
+          "label": "Pointed star shapes"
+        },
+        {
+          "value": "brush-1",
+          "label": "Solid brush stroke"
+        },
+        {
+          "value": "diagonal",
+          "label": "Diagonal slant"
+        },
+        {
+          "value": "triple-lines",
+          "label": "Triple Lines"
+        },
+        {
+          "value": "squares",
+          "label": "Squares"
+        },
+        {
+          "value": "triangles",
+          "label": "Triangles"
+        },
+        {
+          "value": "diamonds",
+          "label": "Diamonds"
+        },
+        {
+          "value": "hexagons",
+          "label": "Hexagons"
+        },
+        {
+          "value": "chevrons",
+          "label": "Chevrons"
+        },
+        {
+          "value": "arrows",
+          "label": "Arrows"
+        },
+        {
+          "value": "curves",
+          "label": "Curves"
+        },
+        {
+          "value": "spirals",
+          "label": "Spirals"
+        },
+        {
+          "value": "crosses",
+          "label": "Crosses"
+        },
+        {
+          "value": "pluses",
+          "label": "Pluses"
+        },
+        {
+          "value": "stripes",
+          "label": "Stripes"
+        },
+        {
+          "value": "grid",
+          "label": "Grid"
+        },
+        {
+          "value": "polka-dots",
+          "label": "Polka Dots"
+        },
+        {
+          "value": "herringbone",
+          "label": "Herringbone"
+        },
+        {
+          "value": "scales",
+          "label": "Scales"
+        },
+        {
+          "value": "zigzag2",
+          "label": "Zigzag 2"
+        },
+        {
+          "value": "wave2",
+          "label": "Wave 2"
+        },
+        {
+          "value": "dots2",
+          "label": "Dots 2"
+        },
+        {
+          "value": "dashes2",
+          "label": "Dashes 2"
+        }
+      ],
+      "default": "brush-2"
+    },
+    {
+      "type": "range",
+      "id": "divider_thickness",
+      "min": 1,
+      "max": 10,
+      "step": 1,
+      "unit": "px",
+      "label": "Line thickness",
+      "visible_if": "{{ section.settings.divider_style == 'line' }}",
+      "default": 2
+    },
+    {
+      "type": "range",
+      "id": "two_line_divider_thickness",
+      "min": 1,
+      "max": 10,
+      "step": 1,
+      "unit": "px",
+      "label": "Line thickness",
+      "visible_if": "{{ section.settings.divider_style == 'two-lines' }}",
+      "default": 2
+    },
+    {
+      "type": "range",
+      "id": "circle_divider_thickness",
+      "min": 1,
+      "max": 10,
+      "step": 1,
+      "unit": "px",
+      "label": "Line thickness",
+      "visible_if": "{{ section.settings.divider_style == 'circle' }}",
+      "default": 2
+    },
+    {
+      "type": "range",
+      "id": "lines_divider_thickness",
+      "min": 1,
+      "max": 10,
+      "step": 1,
+      "unit": "px",
+      "label": "Slash line thickness",
+      "visible_if": "{{ section.settings.divider_style == 'lines' }}",
+      "default": 2
+    },
+    {
+      "type": "range",
+      "id": "rectangles_divider_thickness",
+      "min": 1,
+      "max": 10,
+      "step": 1,
+      "unit": "px",
+      "label": "Zigzag stroke thickness",
+      "visible_if": "{{ section.settings.divider_style == 'rectangles' }}",
+      "default": 2
+    },
+    {
+      "type": "range",
+      "id": "wave_line_divider_thickness",
+      "min": 1,
+      "max": 10,
+      "step": 1,
+      "unit": "px",
+      "label": "Wave stroke thickness",
+      "visible_if": "{{ section.settings.divider_style == 'wave-line' }}",
+      "default": 2
+    },
+    {
+      "type": "range",
+      "id": "waves_divider_thickness",
+      "min": 1,
+      "max": 10,
+      "step": 1,
+      "unit": "px",
+      "label": "Ripple stroke thickness",
+      "visible_if": "{{ section.settings.divider_style == 'waves' }}",
+      "default": 2
+    },
+    {
+      "type": "range",
+      "id": "waves2_divider_thickness",
+      "min": 1,
+      "max": 10,
+      "step": 1,
+      "unit": "px",
+      "label": "Scallop stroke thickness",
+      "visible_if": "{{ section.settings.divider_style == 'waves-2' }}",
+      "default": 2
+    },
+    {
+      "type": "range",
+      "id": "marks_divider_thickness",
+      "min": 1,
+      "max": 10,
+      "step": 1,
+      "unit": "px",
+      "label": "Cross mark stroke thickness",
+      "visible_if": "{{ section.settings.divider_style == 'marks' }}",
+      "default": 2
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "range",
+      "id": "inner_width",
+      "min": 30,
+      "max": 100,
+      "step": 1,
+      "unit": "%",
+      "label": "Divider width",
+      "default": 50,
+      "visible_if": "{{ section.settings.divider_style != 'brush-2' and section.settings.divider_style != 'brush-1' and section.settings.divider_style != 'pointed-stars' and section.settings.divider_style != 'leaf' }}"
+    },
+    {
+      "type": "range",
+      "id": "leaf_divider_width",
+      "min": 30,
+      "max": 100,
+      "step": 1,
+      "unit": "%",
+      "label": "Leaf width",
+      "default": 100,
+      "visible_if": "{{ section.settings.divider_style == 'leaf' }}"
+    },
+    {
+      "type": "range",
+      "id": "brush1_divider_width",
+      "min": 30,
+      "max": 100,
+      "step": 1,
+      "unit": "%",
+      "label": "Brush stroke width",
+      "default": 100,
+      "visible_if": "{{ section.settings.divider_style == 'brush-1' }}"
+    },
+    {
+      "type": "range",
+      "id": "brush2_divider_width",
+      "min": 30,
+      "max": 100,
+      "step": 1,
+      "unit": "%",
+      "label": "Wavy brush width",
+      "default": 100,
+      "visible_if": "{{ section.settings.divider_style == 'brush-2' }}"
+    },
+    {
+      "type": "range",
+      "id": "pointed_stars_divider_width",
+      "min": 30,
+      "max": 100,
+      "step": 1,
+      "unit": "%",
+      "label": "Pointed stars width",
+      "default": 100,
+      "visible_if": "{{ section.settings.divider_style == 'pointed-stars' }}"
+    },
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_style",
+      "label": "Enable custom styling",
+      "default": false
+    },
+    {
+      "type": "color",
+      "id": "divider_color",
+      "label": "Divider color",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "section_bg",
+      "label": "Section background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "header",
+      "content": "Desktop spacing"
+    },
+    {
+      "type": "range",
+      "id": "divider_size_desktop",
+      "min": 50,
+      "max": 200,
+      "step": 5,
+      "unit": "%",
+      "label": "Divider size (desktop)",
+      "default": 100
+    },
+    {
+      "type": "range",
+      "id": "top_margin_desktop",
+      "min": 0,
+      "max": 100,
+      "step": 2,
+      "unit": "px",
+      "label": "Space above (desktop)",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "bottom_margin_desktop",
+      "min": 0,
+      "max": 100,
+      "step": 2,
+      "unit": "px",
+      "label": "Space below (desktop)",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_desktop",
+      "label": "Top margin (desktop)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0,
+      "unit": "px",
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_desktop",
+      "label": "Bottom margin (desktop)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0,
+      "unit": "px",
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "header",
+      "content": "Mobile"
+    },
+    {
+      "type": "range",
+      "id": "divider_size_mobile",
+      "min": 50,
+      "max": 200,
+      "step": 5,
+      "unit": "%",
+      "label": "Divider size (mobile)",
+      "default": 100
+    },
+    {
+      "type": "range",
+      "id": "top_margin_mobile",
+      "min": 0,
+      "max": 100,
+      "step": 2,
+      "unit": "px",
+      "label": "Space above (mobile)",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "bottom_margin_mobile",
+      "min": 0,
+      "max": 100,
+      "step": 2,
+      "unit": "px",
+      "label": "Space below (mobile)",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_mobile",
+      "label": "Top margin (mobile)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0,
+      "unit": "px",
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_mobile",
+      "label": "Bottom margin (mobile)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0,
+      "unit": "px",
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Divider 3",
+      "category": "Dividers",
+      "blocks": []
+    }
+  ],
+  "class": "section-edge-bleed"
+}
+{% endschema %}

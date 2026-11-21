@@ -42,6 +42,14 @@ export function ThemeDetail({ listing }: { listing: ThemeListing }) {
   const live = hasLivePreview(listing)
   const frameSrc = live ? listingPreviewPath(listing.slug) : listing.demoUrl
   const still = listing.cover ?? listing.screenshots[0] ?? null
+  /*
+    A template that ships with Storelib (templates round 16) has no frame to
+    load: its preview is its own home page photographed whole, at a desktop's
+    width and at a phone's (screenshots[1]), scrolled inside the frame.
+  */
+  const pictured = !frameSrc && !!listing.codePackage
+  const phoneStill = listing.screenshots[1] ?? still
+  const shown = pictured && device === "phone" ? phoneStill : still
   const paid = listing.tier === "paid"
 
   return (
@@ -137,7 +145,12 @@ export function ThemeDetail({ listing }: { listing: ThemeListing }) {
                 device === "desktop" ? "h-[min(78vh,760px)] w-full rounded-xl ring-1 ring-black/[0.06] shadow-[0_18px_40px_-20px_rgba(15,23,42,0.35)]" : "h-[min(78vh,780px)] w-[min(100%,390px)] rounded-[28px] ring-1 ring-black/[0.08] shadow-[0_22px_44px_-18px_rgba(15,23,42,0.35)]",
               )}
             >
-              {still && !loaded ? (
+              {pictured && shown ? (
+                <div data-theme-pictured={device} tabIndex={0} aria-label={`${listing.name}, the whole home page`} className="absolute inset-0 overflow-y-auto overscroll-contain outline-none">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img key={shown} src={shown} alt={`${listing.name} home page on a ${device === "phone" ? "phone" : "desktop"}`} className="block w-full" />
+                </div>
+              ) : still && !loaded ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={still} alt="" className="absolute inset-x-0 top-0 w-full object-cover object-top" />
               ) : null}
@@ -156,7 +169,7 @@ export function ThemeDetail({ listing }: { listing: ThemeListing }) {
         </section>
 
         {/* ── Screenshots, large ───────────────────────────────── */}
-        {listing.screenshots.length ? (
+        {listing.screenshots.length && !pictured ? (
           <section aria-label="Screenshots" className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-2">
             {listing.screenshots.map((src) => (
               // eslint-disable-next-line @next/next/no-img-element

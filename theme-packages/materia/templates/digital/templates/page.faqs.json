@@ -1,0 +1,120 @@
+{
+  "sections": {
+    "page_heading_1": {
+      "type": "page-heading",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "page_title": "Licence and FAQ"
+          }
+        },
+        "description_2": {
+          "type": "description",
+          "settings": {
+            "description": "<p>Downloads, licence, updates and refunds.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_2"
+      ]
+    },
+    "faq_contact_card_2": {
+      "type": "faq-contact-card",
+      "settings": {
+        "color_scheme": "default"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Frequently asked questions"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>If your question is not here, write to us.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How do I get my files?",
+            "answer": "<p>The download link is on the confirmation page and in your receipt email, as soon as you pay.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Which software do I need?",
+            "answer": "<p>Each product page lists the apps and versions the files work with.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I use these in client work?",
+            "answer": "<p>Yes. The standard licence covers personal and commercial projects. You cannot resell the files themselves.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do I get updates?",
+            "answer": "<p>Yes. When a pack is updated you can download the new version free from your receipt.</p>"
+          }
+        },
+        "faq_item_7": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I get a refund?",
+            "answer": "<p>Digital files cannot be returned, but if something does not work we will fix it or refund you.</p>"
+          }
+        },
+        "card_text_8": {
+          "type": "card_text",
+          "settings": {
+            "heading": "Need a hand?",
+            "text": "<p>Send your order number and we will sort it out.</p>"
+          }
+        },
+        "button_9": {
+          "type": "button",
+          "settings": {
+            "label": "Contact support",
+            "link": "/pages/contact"
+          }
+        },
+        "contact_line_10": {
+          "type": "contact_line",
+          "settings": {
+            "label": "Email",
+            "text": "hello@example.com"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6",
+        "faq_item_7",
+        "card_text_8",
+        "button_9",
+        "contact_line_10"
+      ]
+    }
+  },
+  "order": [
+    "page_heading_1",
+    "faq_contact_card_2"
+  ]
+}

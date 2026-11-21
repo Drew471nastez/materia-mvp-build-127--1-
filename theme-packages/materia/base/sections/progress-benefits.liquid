@@ -1,0 +1,971 @@
+<script src="{{ 'live-features-d.js' | asset_url }}" defer="defer"></script>
+{% render 'theme-type' %}
+{%- liquid
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+-%}
+{%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
+{%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
+<style>
+  #shopify-section-{{ section.id }}.scroll-trigger {
+    --animation-duration: {{ settings.animation_duration | default: 700 }}ms;
+    --animation-delay: {{ settings.animation_delay | default: 0 }}ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-{{ section.id }}');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', {{ settings.scroll_animation | json }});
+  })();
+</script>
+{%- endif -%}
+<style data-rs-bulletproof>
+  {%- if section.settings.reset_spacing -%}
+    /* reset_spacing: the theme's own space between sections is removed; the margin sliders below still apply */
+    #shopify-section-{{ section.id }} { padding-top: 0 !important; padding-bottom: 0 !important; }
+    #shopify-section-{{ section.id }} + .shopify-section { margin-top: 0 !important; padding-top: 0 !important; }
+    .shopify-section:has(+ #shopify-section-{{ section.id }}) { margin-bottom: 0 !important; padding-bottom: 0 !important; }
+  {%- endif -%}
+</style>
+{%- comment -%}
+  Materia Themes. Progress Benefits.
+
+  Heading and supporting copy on one side, a grid of percentages with small
+  rings on the other, and an optional footnote. Every value is a CSS variable
+  on the section root, so shopify/assets/live-features-d.js applies builder
+  edits in place. On the storefront the rings fill and the numbers count up
+  once, when the section first comes into view; in the builder and under
+  reduced motion they are drawn at their final values.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign custom = st.enable_custom_style
+  case st.text_align
+    when 'center'
+      assign _ai = 'center'
+    when 'right'
+      assign _ai = 'flex-end'
+    else
+      assign _ai = 'flex-start'
+  endcase
+  case st.text_align_mobile
+    when 'center'
+      assign _ai_m = 'center'
+    when 'right'
+      assign _ai_m = 'flex-end'
+    else
+      assign _ai_m = 'flex-start'
+  endcase
+  assign pending = false
+  if st.animate != false
+    assign pending = true
+  endif
+  if request.design_mode
+    assign pending = false
+  endif
+  assign stat_blocks = section.blocks | where: 'type', 'stat'
+-%}
+{%- capture pgc_style -%}
+--pgc-pt-m: {{ st.padding_top_mobile | default: 0 }}px; --pgc-pb-m: {{ st.padding_bottom_mobile | default: 0 }}px; --pgc-px-m: {{ st.side_padding_mobile | default: 0 }}px;
+--pgc-pt-d: {{ st.padding_top_desktop | default: 0 }}px; --pgc-pb-d: {{ st.padding_bottom_desktop | default: 0 }}px; --pgc-px-d: {{ st.side_padding_desktop | default: 0 }}px;
+--pgc-dir: {% if st.text_position == 'right' %}row-reverse{% else %}row{% endif %};
+--pgc-ai-m: {{ _ai_m }}; --pgc-ta-m: {{ st.text_align_mobile | default: 'left' }}; --pgc-ai-d: {{ _ai }}; --pgc-ta-d: {{ st.text_align | default: 'left' }};
+--pgc-text-w: {{ st.text_column_width | default: 42 }}%; --pgc-gap-m: {{ st.gap_mobile | default: 0 }}px; --pgc-gap-d: {{ st.gap_desktop | default: 0 }}px;
+--pgc-text-gap: {{ st.text_gap | default: 0 }}px; --pgc-head-gap: {{ st.heading_subheading_gap | default: 0 }}px;
+--pgc-cols-m: {{ st.stats_per_row_mobile | default: 1 }}; --pgc-cols-d: {{ st.stats_per_row_desktop | default: 2 }};
+--pgc-row-m: {{ st.stat_gap_mobile | default: 0 }}px; --pgc-row-d: {{ st.stat_gap_desktop | default: 0 }}px; --pgc-col-m: {{ st.stat_gap_x_mobile | default: 0 }}px; --pgc-col-d: {{ st.stat_gap_x_desktop | default: 0 }}px;
+--pgc-inner-gap: {{ st.stat_inner_gap | default: 0 }}px; --pgc-ring-gap: {{ st.percent_ring_gap | default: 0 }}px;
+--pgc-pct-m: {{ st.percent_size_mobile | default: 40 }}px; --pgc-pct-d: {{ st.percent_size_desktop | default: 48 }}px;
+--pgc-ring: {{ st.ring_size | default: 37 }}px; --pgc-label: {{ st.label_size | default: 14 }}px; --fd-dur: 1400ms;
+{%- render 'media-msr-var', name: '--pgc-bg', color: st.section_bg, on: custom -%}
+{%- render 'media-msr-var', name: '--pgc-text', color: st.text_color, on: custom -%}
+{%- render 'media-msr-var', name: '--pgc-pct-color', color: st.percent_color, on: custom -%}
+{%- render 'media-msr-var', name: '--pgc-ring-color', color: st.ring_color, on: custom -%}
+{%- render 'media-msr-var', name: '--pgc-track', color: st.ring_track, on: custom -%}
+{%- render 'media-msr-var', name: '--pgc-label-color', color: st.stat_text_color, on: custom -%}
+{%- if st.enable_custom_fonts -%}
+  {%- if st.heading_font.family != blank -%}--pgc-hfont: {{ st.heading_font.family }}, {{ st.heading_font.fallback_families | default: 'serif' }};{%- endif -%}
+  {%- if st.body_font.family != blank -%}--pgc-bfont: {{ st.body_font.family }}, {{ st.body_font.fallback_families | default: 'sans-serif' }};{%- endif -%}
+{%- endif -%}
+{%- endcapture -%}
+<style>
+  {%- if st.enable_custom_fonts -%}
+    {%- if st.heading_font.family != blank -%}{{ st.heading_font | font_face: font_display: 'swap' }}{%- endif -%}
+    {%- if st.body_font.family != blank -%}{{ st.body_font | font_face: font_display: 'swap' }}{%- endif -%}
+  {%- endif -%}
+  #shopify-section-{{ sid }}#shopify-section-{{ sid }} {
+    --fd-mt-m: {{ st.section_margin_top_mobile | default: 0 }}px; --fd-mb-m: {{ st.section_margin_bottom_mobile | default: 0 }}px;
+    --fd-mt-d: {{ st.section_margin_top_desktop | default: 0 }}px; --fd-mb-d: {{ st.section_margin_bottom_desktop | default: 0 }}px;
+    margin-top: var(--fd-mt-m) !important; margin-bottom: var(--fd-mb-m) !important;
+    {% render 'media-msr-var', name: '--fd-wrap-bg', color: st.section_bg, on: custom %}
+    background: var(--fd-wrap-bg, none);
+  }
+  #shopify-section-{{ sid }} .pgc {
+    background: var(--pgc-bg, var(--color-background)); color: var(--pgc-text, var(--color-text));
+    font-family: var(--pgc-bfont, var(--body-font)); padding: var(--pgc-pt-m) var(--pgc-px-m) var(--pgc-pb-m); box-sizing: border-box;
+  }
+  #shopify-section-{{ sid }} .pgc *, #shopify-section-{{ sid }} .pgc *::before, #shopify-section-{{ sid }} .pgc *::after { box-sizing: border-box; }
+  #shopify-section-{{ sid }} [hidden] { display: none !important; }
+  #shopify-section-{{ sid }} .pgc__inner { width: 100%; }
+  #shopify-section-{{ sid }} .pgc__grid { display: flex; flex-direction: column; gap: var(--pgc-gap-m); }
+  #shopify-section-{{ sid }} .pgc__col-text, #shopify-section-{{ sid }} .pgc__col-stats { width: 100%; min-width: 0; }
+  #shopify-section-{{ sid }} .pgc__col-text { display: flex; flex-direction: column; gap: var(--pgc-text-gap); align-items: var(--pgc-ai-m); text-align: var(--pgc-ta-m); }
+  #shopify-section-{{ sid }} .pgc__col-text:not(:has(> :not([hidden]))) { display: none; }
+  #shopify-section-{{ sid }} .pgc__col-text > * { margin: 0; max-width: 100%; }
+  #shopify-section-{{ sid }} .pgc__heading + .pgc__subheading,
+  #shopify-section-{{ sid }} .pgc__subheading + .pgc__subheading,
+  #shopify-section-{{ sid }} .pgc__heading + .pgc__heading { margin-top: calc(var(--pgc-head-gap) - var(--pgc-text-gap)); }
+  #shopify-section-{{ sid }} .pgc__heading {
+    font-family: var(--pgc-hfont, var(--heading-font)); font-weight: var(--heading-weight, 700);
+    font-size: var(--b-size-m); line-height: var(--heading-line-height, 1.1); letter-spacing: var(--heading-letter-spacing, normal);
+    color: var(--b-color, var(--color-heading)); text-transform: var(--b-case, var(--heading-text-transform, none));
+  }
+  #shopify-section-{{ sid }} .pgc__heading em { font-style: normal; color: var(--b-accent, var(--color-primary)); }
+  #shopify-section-{{ sid }} .pgc__subheading { font-size: var(--b-size-m); line-height: 1.6; max-width: 480px; color: var(--b-color, var(--pgc-text, var(--color-text))); }
+  #shopify-section-{{ sid }} .pgc__subheading p, #shopify-section-{{ sid }} .pgc__stat-label p, #shopify-section-{{ sid }} .pgc__footnote p { margin: 0 0 0.5em; }
+  #shopify-section-{{ sid }} .pgc__subheading p:last-child, #shopify-section-{{ sid }} .pgc__stat-label p:last-child, #shopify-section-{{ sid }} .pgc__footnote p:last-child { margin: 0; }
+  #shopify-section-{{ sid }} .pgc__footnote { font-size: var(--b-size); margin-top: var(--b-mt); color: var(--b-color, var(--pgc-text, var(--color-text))); }
+  #shopify-section-{{ sid }} .pgc__stats {
+    display: grid; width: 100%; grid-template-columns: repeat(var(--pgc-cols-m), minmax(0, 1fr)); gap: var(--pgc-row-m) var(--pgc-col-m);
+  }
+  #shopify-section-{{ sid }} .pgc__stat { display: flex; flex-direction: column; gap: var(--pgc-inner-gap); color: var(--pgc-label-color, var(--pgc-text, var(--color-text))); min-width: 0; }
+  #shopify-section-{{ sid }} .pgc__stat-row { display: flex; align-items: center; gap: var(--pgc-ring-gap); }
+  #shopify-section-{{ sid }} .pgc__stat-percent {
+    font-family: var(--pgc-hfont, var(--heading-font)); font-weight: var(--heading-weight, 700); font-size: var(--pgc-pct-m);
+    line-height: 1; letter-spacing: -0.02em; color: var(--pgc-pct-color, var(--color-heading)); font-variant-numeric: tabular-nums;
+    transition: opacity 0.4s ease;
+  }
+  #shopify-section-{{ sid }} .pgc__stat-ring { width: var(--pgc-ring); height: var(--pgc-ring); flex-shrink: 0; }
+  #shopify-section-{{ sid }} .pgc__stat-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); display: block; overflow: visible; }
+  #shopify-section-{{ sid }} .pgc__ring-bg { stroke: var(--pgc-track, var(--color-border)); }
+  #shopify-section-{{ sid }} .pgc__ring-fill {
+    stroke: var(--b-ring, var(--pgc-ring-color, var(--color-primary))); stroke-linecap: round;
+    stroke-dasharray: 175.93; stroke-dashoffset: var(--fd-off, 0); transition: stroke-dashoffset var(--fd-dur) cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+  #shopify-section-{{ sid }} .pgc__stat-label { font-size: var(--pgc-label); line-height: 1.45; }
+  #shopify-section-{{ sid }} .pgc[data-fd-reveal='pending'] .pgc__ring-fill { stroke-dashoffset: 175.93; }
+  #shopify-section-{{ sid }} .pgc[data-fd-reveal='pending'] .pgc__stat-percent { opacity: 0; }
+  #shopify-section-{{ sid }} .pgc:not([data-fd-reveal]) .pgc__ring-fill { transition: none; }
+  @media (prefers-reduced-motion: reduce) {
+    #shopify-section-{{ sid }} .pgc .pgc__ring-fill { stroke-dashoffset: var(--fd-off, 0); transition: none; }
+    #shopify-section-{{ sid }} .pgc .pgc__stat-percent { opacity: 1; transition: none; }
+  }
+  @media (min-width: 1200px) {
+    #shopify-section-{{ sid }} .pgc.stretch_width .pgc__inner { padding-inline: 3rem; }
+  }
+  @media (min-width: 768px) {
+    #shopify-section-{{ sid }}#shopify-section-{{ sid }} { margin-top: var(--fd-mt-d) !important; margin-bottom: var(--fd-mb-d) !important; }
+    #shopify-section-{{ sid }} .pgc { padding: var(--pgc-pt-d) var(--pgc-px-d) var(--pgc-pb-d); }
+    #shopify-section-{{ sid }} .pgc__grid { flex-direction: var(--pgc-dir); gap: var(--pgc-gap-d); align-items: flex-start; }
+    #shopify-section-{{ sid }} .pgc__col-text { width: var(--pgc-text-w); align-items: var(--pgc-ai-d); text-align: var(--pgc-ta-d); }
+    #shopify-section-{{ sid }} .pgc__col-stats { width: calc(100% - var(--pgc-text-w)); }
+    #shopify-section-{{ sid }} .pgc__col-text:not(:has(> :not([hidden]))) + .pgc__col-stats { width: 100%; }
+    #shopify-section-{{ sid }} .pgc__heading, #shopify-section-{{ sid }} .pgc__subheading { font-size: var(--b-size-d); }
+    #shopify-section-{{ sid }} .pgc__stats { grid-template-columns: repeat(var(--pgc-cols-d), minmax(0, 1fr)); gap: var(--pgc-row-d) var(--pgc-col-d); }
+    #shopify-section-{{ sid }} .pgc__stat-percent { font-size: var(--pgc-pct-d); }
+  }
+</style>
+<noscript><style>#shopify-section-{{ sid }} .pgc[data-fd-reveal='pending'] .pgc__ring-fill { stroke-dashoffset: var(--fd-off, 0); } #shopify-section-{{ sid }} .pgc[data-fd-reveal='pending'] .pgc__stat-percent { opacity: 1; }</style></noscript>
+
+<div id="pgc-{{ sid }}" class="pgc section sec__progress-circles color-{{ color_scheme }} gradient {{ st.section_width | default: 'container' }}" data-width="{{ st.section_width | default: 'container' }}" data-fd="pgc" data-fd-section="{{ sid }}" data-fd-settings="{{ st | json | escape }}"{% if st.enable_custom_fonts %} data-own-font{% endif %}{% if pending %} data-fd-reveal="pending"{% endif %} style="{{ pgc_style | strip_newlines }}">
+  <div class="pgc__inner">
+    <div class="pgc__grid">
+      <div class="pgc__col-text">
+        {%- for block in section.blocks -%}
+          {%- assign bs = block.settings -%}
+          {%- case block.type -%}
+            {%- when 'heading' -%}
+              {%- assign htext = bs.text | remove: '<p>' | remove: '</p>' -%}
+              <h2 class="pgc__heading" data-fd-block="{{ block.id }}" data-fd-type="heading" data-fd-settings="{{ bs | json | escape }}" style="--b-size-m: {{ bs.size_mobile | default: 32 }}px; --b-size-d: {{ bs.size_desktop | default: 44 }}px;{% if bs.uppercase %} --b-case: uppercase; --heading-text-transform: uppercase;{% endif %}{% render 'media-msr-var', name: '--b-color', color: bs.color, on: bs.enable_custom_style %}{% render 'media-msr-var', name: '--b-accent', color: bs.accent_color, on: bs.enable_custom_style %}"{% if htext == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ htext }}</h2>
+            {%- when 'subheading' -%}
+              <div class="pgc__subheading" data-fd-block="{{ block.id }}" data-fd-type="subheading" data-fd-settings="{{ bs | json | escape }}" style="--b-size-m: {{ bs.size_mobile | default: 14 }}px; --b-size-d: {{ bs.size_desktop | default: 16 }}px;{% render 'media-msr-var', name: '--b-color', color: bs.color, on: bs.enable_custom_style %}"{% if bs.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ bs.text }}</div>
+          {%- endcase -%}
+        {%- endfor -%}
+      </div>
+
+      <div class="pgc__col-stats">
+        <div class="pgc__stats">
+          {%- for stat in stat_blocks -%}
+            {%- liquid
+              assign sb = stat.settings
+              assign pct = sb.percent | default: 0 | round
+              if pct > 100
+                assign pct = 100
+              endif
+              if pct < 0
+                assign pct = 0
+              endif
+              assign off = 100 | minus: pct | times: 1.7593 | round: 2
+            -%}
+            <div class="pgc__stat"{% unless pct > 0 %}{% unless request.design_mode or page.in_editor %} hidden{% endunless %}{% endunless %} data-fd-block="{{ stat.id }}" data-fd-type="stat" data-fd-settings="{{ sb | json | escape }}" style="--fd-off: {{ off }};{% render 'media-msr-var', name: '--b-ring', color: sb.color, on: sb.enable_custom_style %}" {{ stat.shopify_attributes }}>
+              <div class="pgc__stat-row">
+                <span class="pgc__stat-percent" data-fd-count data-to="{{ pct }}" data-suffix="%">{{ pct }}%</span>
+                <span class="pgc__stat-ring">
+                  <svg viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+                    <circle class="pgc__ring-bg" cx="32" cy="32" r="28" fill="none" stroke-width="6"/>
+                    <circle class="pgc__ring-fill" cx="32" cy="32" r="28" fill="none" stroke-width="6"/>
+                  </svg>
+                </span>
+              </div>
+              <div class="pgc__stat-label"{% if sb.text == blank %} hidden{% endif %}>{{ sb.text }}</div>
+            </div>
+          {%- else -%}
+            {%- if request.design_mode -%}<p class="pgc__stat-label">{{ 'accessibility.add_stat_blocks' | t }}</p>{%- endif -%}
+          {%- endfor -%}
+        </div>
+        {%- for block in section.blocks -%}
+          {%- if block.type == 'footnote' -%}
+            {%- assign fbs = block.settings -%}
+            <div class="pgc__footnote" data-fd-block="{{ block.id }}" data-fd-type="footnote" data-fd-settings="{{ fbs | json | escape }}" style="--b-size: {{ fbs.size | default: 12 }}px; --b-mt: {{ fbs.margin_top | default: 0 }}px;{% render 'media-msr-var', name: '--b-color', color: fbs.color, on: fbs.enable_custom_style %}"{% if fbs.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ fbs.text }}</div>
+          {%- endif -%}
+        {%- endfor -%}
+      </div>
+    </div>
+  </div>
+</div>
+{%- comment -%} Ring fill, count up and live edits: shopify/assets/live-features-d.js (loaded on every page). {%- endcomment -%}
+
+{% schema %}
+{
+  "name": "Progress Benefits",
+  "tag": "section",
+  "class": "section sec__progress-benefits",
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Section width",
+      "default": "container",
+      "options": [
+        {
+          "value": "container",
+          "label": "Default"
+        },
+        {
+          "value": "fluid_container",
+          "label": "Fluid container"
+        },
+        {
+          "value": "stretch_width",
+          "label": "Stretched"
+        },
+        {
+          "value": "full_width",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "reset_spacing",
+      "label": "Remove theme spacing between sections",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "select",
+      "id": "text_position",
+      "label": "Text side",
+      "default": "left",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "text_align",
+      "label": "Text alignment",
+      "default": "left",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "text_column_width",
+      "label": "Text column width",
+      "min": 25,
+      "max": 60,
+      "step": 1,
+      "unit": "%",
+      "default": 42
+    },
+    {
+      "type": "range",
+      "id": "gap_desktop",
+      "label": "Column gap",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 80
+    },
+    {
+      "type": "range",
+      "id": "text_gap",
+      "label": "Gap between text blocks",
+      "min": 0,
+      "max": 60,
+      "step": 2,
+      "unit": "px",
+      "default": 22
+    },
+    {
+      "type": "range",
+      "id": "heading_subheading_gap",
+      "label": "Heading to subheading gap",
+      "min": 0,
+      "max": 60,
+      "step": 2,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "select",
+      "id": "stats_per_row_desktop",
+      "label": "Stats per row",
+      "default": "2",
+      "options": [
+        {
+          "value": "1",
+          "label": "1"
+        },
+        {
+          "value": "2",
+          "label": "2"
+        },
+        {
+          "value": "3",
+          "label": "3"
+        },
+        {
+          "value": "4",
+          "label": "4"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "stat_gap_desktop",
+      "label": "Row gap between stats",
+      "min": 0,
+      "max": 80,
+      "step": 2,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "stat_gap_x_desktop",
+      "label": "Column gap between stats",
+      "min": 0,
+      "max": 80,
+      "step": 2,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "range",
+      "id": "stat_inner_gap",
+      "label": "Percent to label gap",
+      "min": 0,
+      "max": 24,
+      "step": 1,
+      "unit": "px",
+      "default": 10
+    },
+    {
+      "type": "range",
+      "id": "percent_ring_gap",
+      "label": "Percent to ring gap",
+      "min": 0,
+      "max": 24,
+      "step": 1,
+      "unit": "px",
+      "default": 8
+    },
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "type": "range",
+      "id": "ring_size",
+      "label": "Ring size",
+      "min": 14,
+      "max": 80,
+      "step": 1,
+      "unit": "px",
+      "default": 37
+    },
+    {
+      "type": "range",
+      "id": "percent_size_desktop",
+      "label": "Percent size",
+      "min": 24,
+      "max": 80,
+      "step": 1,
+      "unit": "px",
+      "default": 48
+    },
+    {
+      "type": "range",
+      "id": "label_size",
+      "label": "Label size",
+      "min": 11,
+      "max": 20,
+      "step": 1,
+      "unit": "px",
+      "default": 14
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_style",
+      "label": "Enable custom styling",
+      "default": false
+    },
+    {
+      "type": "color",
+      "id": "section_bg",
+      "label": "Background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "percent_color",
+      "label": "Percent",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "ring_color",
+      "label": "Ring",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "ring_track",
+      "label": "Ring track",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "stat_text_color",
+      "label": "Label",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "header",
+      "content": "Typography"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_fonts",
+      "label": "Enable custom fonts",
+      "default": false
+    },
+    {
+      "type": "font_picker",
+      "id": "heading_font",
+      "label": "Heading font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "font_picker",
+      "id": "body_font",
+      "label": "Body font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "header",
+      "content": "Animation"
+    },
+    {
+      "type": "checkbox",
+      "id": "animate",
+      "label": "Fill rings when in view",
+      "default": true,
+      "info": "On the live store the rings fill and the numbers count up once. The editor and reduced motion show the final values."
+    },
+    {
+      "type": "header",
+      "content": "Desktop spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top_desktop",
+      "label": "Top padding",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 100
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom_desktop",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 100
+    },
+    {
+      "type": "range",
+      "id": "side_padding_desktop",
+      "label": "Side padding",
+      "min": 0,
+      "max": 80,
+      "step": 2,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_desktop",
+      "label": "Top margin",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_desktop",
+      "label": "Bottom margin",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "header",
+      "content": "Mobile"
+    },
+    {
+      "type": "select",
+      "id": "text_align_mobile",
+      "label": "Text alignment",
+      "default": "left",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "gap_mobile",
+      "label": "Column gap",
+      "min": 0,
+      "max": 80,
+      "step": 2,
+      "unit": "px",
+      "default": 36
+    },
+    {
+      "type": "select",
+      "id": "stats_per_row_mobile",
+      "label": "Stats per row",
+      "default": "1",
+      "options": [
+        {
+          "value": "1",
+          "label": "1"
+        },
+        {
+          "value": "2",
+          "label": "2"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "stat_gap_mobile",
+      "label": "Row gap between stats",
+      "min": 0,
+      "max": 60,
+      "step": 2,
+      "unit": "px",
+      "default": 28
+    },
+    {
+      "type": "range",
+      "id": "stat_gap_x_mobile",
+      "label": "Column gap between stats",
+      "min": 0,
+      "max": 60,
+      "step": 2,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "percent_size_mobile",
+      "label": "Percent size",
+      "min": 22,
+      "max": 60,
+      "step": 1,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "padding_top_mobile",
+      "label": "Top padding",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 60
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom_mobile",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 60
+    },
+    {
+      "type": "range",
+      "id": "side_padding_mobile",
+      "label": "Side padding",
+      "min": 0,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_mobile",
+      "label": "Top margin",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_mobile",
+      "label": "Bottom margin",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    }
+  ],
+  "blocks": [
+    {
+      "type": "heading",
+      "name": "Heading",
+      "limit": 2,
+      "settings": [
+        {
+          "type": "inline_richtext",
+          "id": "text",
+          "label": "Text",
+          "default": "What the numbers <em>show</em>",
+          "info": "Italic words use the accent colour."
+        },
+        {
+          "type": "select",
+          "id": "tag",
+          "label": "HTML tag",
+          "default": "h2",
+          "options": [
+            {
+              "value": "h1",
+              "label": "H1"
+            },
+            {
+              "value": "h2",
+              "label": "H2"
+            },
+            {
+              "value": "h3",
+              "label": "H3"
+            }
+          ],
+          "hidden": true,
+          "info": "Legacy: the heading is always an h2.",
+          "visible_if": "{{ false }}"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Color",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "accent_color",
+          "label": "Accent (italic words)",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "range",
+          "id": "size_desktop",
+          "label": "Size (desktop)",
+          "min": 22,
+          "max": 80,
+          "step": 1,
+          "unit": "px",
+          "default": 44
+        },
+        {
+          "type": "range",
+          "id": "size_mobile",
+          "label": "Size (mobile)",
+          "min": 18,
+          "max": 56,
+          "step": 1,
+          "unit": "px",
+          "default": 32
+        },
+        {
+          "type": "checkbox",
+          "id": "uppercase",
+          "label": "Uppercase",
+          "default": false
+        }
+      ]
+    },
+    {
+      "type": "subheading",
+      "name": "Subheading",
+      "limit": 2,
+      "settings": [
+        {
+          "type": "richtext",
+          "id": "text",
+          "label": "Text",
+          "default": "<p>Add a short line about the product and what these numbers measure.</p>"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Color",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "range",
+          "id": "size_desktop",
+          "label": "Size (desktop)",
+          "min": 12,
+          "max": 22,
+          "step": 1,
+          "unit": "px",
+          "default": 16
+        },
+        {
+          "type": "range",
+          "id": "size_mobile",
+          "label": "Size (mobile)",
+          "min": 11,
+          "max": 20,
+          "step": 1,
+          "unit": "px",
+          "default": 14
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "name": "Stat",
+      "settings": [
+        {
+          "type": "range",
+          "id": "percent",
+          "label": "Percent",
+          "min": 0,
+          "max": 100,
+          "step": 1,
+          "unit": "%",
+          "default": 0
+        },
+        {
+          "type": "richtext",
+          "id": "text",
+          "label": "Label",
+          "default": "<p>Say what this percentage measures.</p>"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Ring color",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        }
+      ]
+    },
+    {
+      "type": "footnote",
+      "name": "Footnote",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "richtext",
+          "id": "text",
+          "label": "Text",
+          "default": "<p>Add where these numbers come from.</p>"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Color",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "range",
+          "id": "size",
+          "label": "Font size",
+          "min": 10,
+          "max": 18,
+          "step": 1,
+          "unit": "px",
+          "default": 12
+        },
+        {
+          "type": "range",
+          "id": "margin_top",
+          "label": "Top margin",
+          "min": 0,
+          "max": 60,
+          "step": 2,
+          "unit": "px",
+          "default": 24
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Progress Benefits",
+      "category": "Features",
+      "blocks": [
+        {
+          "type": "heading",
+          "settings": {}
+        },
+        {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Add a short line about the product and what these numbers measure.</p>"
+          }
+        },
+        {
+          "type": "stat",
+          "settings": {
+            "text": "<p>Say what this first percentage measures.</p>"
+          }
+        },
+        {
+          "type": "stat",
+          "settings": {
+            "text": "<p>Say what this second percentage measures.</p>"
+          }
+        },
+        {
+          "type": "stat",
+          "settings": {
+            "text": "<p>Say what this third percentage measures.</p>"
+          }
+        },
+        {
+          "type": "stat",
+          "settings": {
+            "text": "<p>Say what this fourth percentage measures.</p>"
+          }
+        },
+        {
+          "type": "footnote",
+          "settings": {
+            "text": "<p>Add where these numbers come from.</p>"
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

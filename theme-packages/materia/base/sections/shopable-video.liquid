@@ -1,0 +1,1213 @@
+<script src="{{ 'media-live-stats-reels.js' | asset_url }}" defer="defer"></script>
+{% render 'theme-type' %}
+{%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay), when "Reveal on scroll" is on. {%- endcomment -%}
+{%- if section.settings.reveal and settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
+<style>
+  #shopify-section-{{ section.id }}.scroll-trigger {
+    --animation-duration: {{ settings.animation_duration | default: 700 }}ms;
+    --animation-delay: {{ settings.animation_delay | default: 0 }}ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-{{ section.id }}');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', {{ settings.scroll_animation | json }});
+  })();
+</script>
+{%- endif -%}
+<style data-rs-bulletproof>
+  {%- if section.settings.reset_spacing -%}
+    /* reset_spacing: the theme's own space between sections is removed; the margin sliders below still apply */
+    #shopify-section-{{ section.id }} + .shopify-section,
+    #shopify-section-{{ section.id }} + section,
+    .shopify-section + #shopify-section-{{ section.id }} { margin-top: 0 !important; }
+  {%- endif -%}
+</style>
+{%- comment -%}
+  Materia Themes. Shoppable Video.
+  A carousel of video cards. Each card: an uploaded video, a YouTube or Vimeo
+  link or a poster picture; an optional headline and button over it; and a
+  product chip (picture, title, price) from the product picker. Videos play
+  muted only while in view and never under reduced motion; each has a play
+  button. The carousel is native scroll-snap with 44px arrows and page dots.
+  Every value is a CSS variable or attribute on the section root, so
+  shopify/assets/media-live-stats-reels.js applies builder edits in place and
+  runs the carousel and the videos.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign sid = section.id
+  assign custom = s.enable_custom_style
+  assign section_width = s.section_width | default: 'fluid_container'
+  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default-color-scheme'
+  assign columns = s.columns | default: 4
+  assign columns_mobile = s.columns_mobile | default: 1
+  assign pagination = s.carousel_pagination | default: 'show_dots'
+  assign dots = 'dots'
+  if pagination == 'disable'
+    assign dots = 'none'
+  elsif pagination == 'show_progress_bar' or s.pagination_style == 'progress'
+    assign dots = 'progress'
+  endif
+  assign mobile_only = false
+  if pagination == 'show_dots_on_mobile'
+    assign mobile_only = true
+  endif
+  case s.image_ratio
+    when 'square'
+      assign ratio = '1 / 1'
+    when 'tall'
+      assign ratio = '9 / 16'
+    when 'landscape'
+      assign ratio = '16 / 9'
+    when 'custom'
+      assign ratio = s.custom_ratio | default: '3:4' | replace: ':', ' / '
+    else
+      assign ratio = '3 / 4'
+  endcase
+  assign bg = s.custom_section_bg
+  if bg == blank or bg.alpha == 0
+    assign bg = s.section_bg
+  endif
+  case s.header_alignment
+    when 'center'
+      assign align = 'center'
+    when 'right'
+      assign align = 'right'
+    else
+      assign align = 'left'
+  endcase
+  # Eyebrow, heading and subheading are blocks shown above the carousel in
+  # block order; video blocks are the carousel cards. The old section
+  # settings (subheading = eyebrow, heading, description) are drawn only
+  # when the section has no block of that type.
+  assign videos = section.blocks | where: 'type', 'video'
+  assign has_eyebrow_block = false
+  assign has_heading_block = false
+  assign has_sub_block = false
+  assign block_text = false
+  assign heading_label = ''
+  for block in section.blocks
+    case block.type
+      when 'eyebrow'
+        assign has_eyebrow_block = true
+      when 'heading'
+        assign has_heading_block = true
+        assign heading_label = block.settings.text | strip_html
+      when 'subheading'
+        assign has_sub_block = true
+    endcase
+    if block.type != 'video' and block.settings.text != blank
+      assign block_text = true
+    endif
+  endfor
+  assign legacy_eyebrow = false
+  if has_eyebrow_block == false and s.subheading != blank
+    assign legacy_eyebrow = true
+  endif
+  assign legacy_heading = false
+  if has_heading_block == false and s.heading != blank
+    assign legacy_heading = true
+    assign heading_label = s.heading | strip_html
+  endif
+  assign legacy_desc = false
+  if has_sub_block == false and s.description != blank
+    assign legacy_desc = true
+  endif
+  assign has_header = false
+  if legacy_eyebrow or legacy_heading or legacy_desc or block_text
+    assign has_header = true
+  endif
+-%}
+{%- capture sv_style -%}
+--section-pt: {{ s.padding_top | default: 0 }}; --section-pb: {{ s.padding_bottom | default: 0 }};
+--sv-align: {{ align }}; --sv-ratio: {{ ratio }}; --sv-radius: {{ s.card_radius | default: 0 }}px;
+--sv-overlay: {{ s.overlay_opacity | default: 0 | divided_by: 100.0 }}; --sv-card-padding: {{ s.custom_card_padding | default: 0 }}px; --sv-heading-size: {{ s.custom_heading_size | default: 18 }}px;
+{%- render 'media-msr-var', name: '--sv-bg', color: bg, on: custom -%}
+{%- render 'media-msr-var', name: '--sv-ink', color: s.custom_heading_color, on: custom -%}
+{%- render 'media-msr-var', name: '--sv-overlay-color', color: s.custom_card_overlay_color, on: custom -%}
+{%- render 'media-msr-var', name: '--mb-bg', color: s.custom_cta_bg, on: custom -%}
+{%- render 'media-msr-var', name: '--mb-border', color: s.custom_cta_bg, on: custom -%}
+{%- render 'media-msr-var', name: '--mb-text', color: s.custom_cta_text, on: custom -%}
+{%- if s.enable_custom_fonts -%}
+  {%- if s.heading_font.family != blank -%}--sv-hfont: {{ s.heading_font.family }}, {{ s.heading_font.fallback_families | default: 'serif' }};{%- endif -%}
+  {%- if s.body_font.family != blank -%}--sv-bfont: {{ s.body_font.family }}, {{ s.body_font.fallback_families | default: 'sans-serif' }};{%- endif -%}
+{%- endif -%}
+{%- endcapture -%}
+{% render 'media-msr-carousel-css', sid: sid %}
+<style>
+  {%- if s.enable_custom_fonts -%}
+    {%- if s.heading_font.family != blank -%}{{ s.heading_font | font_face: font_display: 'swap' }}{%- endif -%}
+    {%- if s.body_font.family != blank -%}{{ s.body_font | font_face: font_display: 'swap' }}{%- endif -%}
+  {%- endif -%}
+  {%- for block in section.blocks -%}
+    {%- if block.type != 'video' and block.settings.enable_custom_fonts and block.settings.font.family != blank -%}{{ block.settings.font | font_face: font_display: 'swap' }}{%- endif -%}
+  {%- endfor -%}
+  /* Margin sliders always apply, also when the theme's section spacing is removed. */
+  #shopify-section-{{ sid }}#shopify-section-{{ sid }} {
+    --msr-mt-m: {{ s.section_margin_top_mobile | default: 0 }}px; --msr-mb-m: {{ s.section_margin_bottom_mobile | default: 0 }}px;
+    --msr-mt-d: {{ s.section_margin_top_desktop | default: 0 }}px; --msr-mb-d: {{ s.section_margin_bottom_desktop | default: 0 }}px;
+    margin-top: var(--msr-mt-m) !important; margin-bottom: var(--msr-mb-m) !important;
+  }
+  @media (min-width: 768px) {
+    #shopify-section-{{ sid }}#shopify-section-{{ sid }} { margin-top: var(--msr-mt-d) !important; margin-bottom: var(--msr-mb-d) !important; }
+  }
+  #shopify-section-{{ sid }} .sv { background: var(--sv-bg, var(--color-background)); font-family: var(--sv-bfont, var(--body-font)); }
+  #shopify-section-{{ sid }} .sv *, #shopify-section-{{ sid }} .sv *::before, #shopify-section-{{ sid }} .sv *::after { box-sizing: border-box; }
+  /* Width and side gutters come from the theme's container classes (critical.css). */
+  #shopify-section-{{ sid }} .sv__inner { margin-inline: auto; }
+  #shopify-section-{{ sid }} .sv__inner.full_width { max-width: none; padding-inline: 0; }
+  #shopify-section-{{ sid }} .sv__header { text-align: var(--sv-align); margin-bottom: 30px; }
+  #shopify-section-{{ sid }} .sv__eyebrow { margin: 0 0 5px; color: var(--b-color, var(--color-text)); font-weight: var(--subheading-weight, 600); font-family: var(--b-font, var(--sv-bfont, var(--body-font))); }
+  #shopify-section-{{ sid }} .sv__heading { margin: 0 0 10px; color: var(--b-color, var(--color-heading)); font-family: var(--b-font, var(--sv-hfont, var(--heading-font))); }
+  #shopify-section-{{ sid }} .sv__desc { color: var(--b-color, var(--color-text)); font-family: var(--b-font, var(--sv-bfont, var(--body-font))); }
+  #shopify-section-{{ sid }} .sv__desc p { margin: 0; }
+  #shopify-section-{{ sid }} .sv__desc p + p { margin-top: .5em; }
+  #shopify-section-{{ sid }} .sv__heading[data-weight="true"] { font-weight: var(--b-weight); }
+  #shopify-section-{{ sid }} .sv__heading[data-size="true"] { font-size: var(--b-size-m); line-height: var(--b-lh); }
+  #shopify-section-{{ sid }} :is(.sv__eyebrow, .sv__desc)[data-size="true"] { font-size: var(--b-size); }
+  #shopify-section-{{ sid }} .sv__desc[data-size="true"] { line-height: var(--b-lh); }
+  #shopify-section-{{ sid }} .sv__desc[data-size="true"] p { font-size: inherit; line-height: inherit; }
+
+  /* Card: a dark media surface; the headline over it is light so it reads over any video. */
+  #shopify-section-{{ sid }} .sv-card {
+    position: relative; overflow: hidden; isolation: isolate; aspect-ratio: var(--sv-ratio); border-radius: var(--sv-radius);
+    background: color-mix(in srgb, var(--color-text) 10%, var(--color-background));
+  }
+  #shopify-section-{{ sid }} .sv-card--has-media { background: #111; }
+  #shopify-section-{{ sid }} .sv-card > :is(video, img, iframe) { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border: 0; }
+  #shopify-section-{{ sid }} .sv-card > img.sv-card__placeholder { object-fit: contain; padding: 20%; }
+  #shopify-section-{{ sid }} .sv-card__overlay {
+    position: absolute; inset: 0; z-index: 1; pointer-events: none;
+    background: color-mix(in srgb, var(--sv-overlay-color, #000) calc(var(--sv-overlay) * 100%), transparent);
+  }
+  #shopify-section-{{ sid }} .sv-card__content {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: var(--sv-card-padding);
+    display: flex; flex-direction: column; align-items: flex-start; gap: 8px; pointer-events: none; color: var(--sv-ink, #fff);
+  }
+  #shopify-section-{{ sid }} .sv-card__content[data-pos='top'] { top: 0; bottom: auto; }
+  #shopify-section-{{ sid }} .sv-card__content[data-pos='center'] { top: 50%; bottom: auto; transform: translateY(-50%); align-items: center; text-align: center; }
+  #shopify-section-{{ sid }} .sv-card__heading {
+    margin: 0; font-size: var(--sv-heading-size); font-family: var(--sv-hfont, var(--heading-font)); font-weight: var(--heading-weight, 600);
+    line-height: 1.25; color: var(--sv-ink, #fff); text-shadow: 0 2px 8px rgb(0 0 0 / .4);
+  }
+  #shopify-section-{{ sid }} .sv-card:not(.sv-card--has-media) .sv-card__heading { color: var(--sv-ink, var(--color-heading)); text-shadow: none; }
+  #shopify-section-{{ sid }} .sv-card__cta { pointer-events: auto; }
+  #shopify-section-{{ sid }} .sv-card__cta svg { width: 14px; height: 14px; }
+  #shopify-section-{{ sid }} .sv-card__play {
+    position: absolute; top: 6px; right: 6px; z-index: 3; width: 44px; height: 44px; padding: 0; border: 0; background: none;
+    color: #fff; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+  }
+  #shopify-section-{{ sid }} .sv-card__play svg { width: 32px; height: 32px; padding: 8px; border-radius: 50%; background: rgb(0 0 0 / .5); }
+  #shopify-section-{{ sid }} .sv-card__play .icon-pause, #shopify-section-{{ sid }} .sv-card__play.is-playing .icon-play { display: none; }
+  #shopify-section-{{ sid }} .sv-card__play.is-playing .icon-pause { display: block; }
+  #shopify-section-{{ sid }} .sv-card__play:focus-visible { outline: 2px solid #fff; outline-offset: -2px; border-radius: 50%; }
+  #shopify-section-{{ sid }} .sv[data-controls='true'] .sv-card__play { display: none; }
+  #shopify-section-{{ sid }} .sv-card__product {
+    position: absolute; left: 12px; top: 12px; z-index: 3; display: inline-flex; align-items: center; gap: 10px;
+    min-height: 44px; max-width: calc(100% - 72px); padding: 6px 14px 6px 6px; border-radius: 999px;
+    background: var(--color-background); color: var(--color-heading); text-decoration: none; box-shadow: 0 4px 14px rgb(0 0 0 / .18);
+  }
+  #shopify-section-{{ sid }} .sv-card__content[data-pos='top'] ~ .sv-card__product { top: auto; bottom: 12px; }
+  #shopify-section-{{ sid }} .sv-card__product:focus-visible { outline: 2px solid var(--color-heading); outline-offset: 2px; }
+  #shopify-section-{{ sid }} .sv-card__product img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex: 0 0 auto; }
+  #shopify-section-{{ sid }} .sv-card__product-text { display: flex; flex-direction: column; min-width: 0; }
+  #shopify-section-{{ sid }} .sv-card__product-name { font-size: 12px; font-weight: 600; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #shopify-section-{{ sid }} .sv-card__product-price { font-size: 11px; color: var(--color-text); }
+  @media (min-width: 768px) {
+    #shopify-section-{{ sid }} .sv__header { margin-bottom: 40px; }
+    #shopify-section-{{ sid }} .sv__heading[data-size="true"] { font-size: var(--b-size-d); }
+  }
+</style>
+
+<div class="section sv color-{{ color_scheme }} gradient{% if s.padding_top < 30 %} pt-min{% endif %}{% if s.padding_bottom < 30 %} pb-min{% endif %}" data-msr="video"{% if s.enable_custom_fonts %} data-own-font{% endif %} data-msr-autoplay="{% if s.autoplay_carousel %}{{ s.autorotate_speed }}{% else %}off{% endif %}" data-msr-section="{{ sid }}" data-msr-settings="{{ s | json | escape }}" data-msr-defaults='{"color_scheme":"default-color-scheme","section_width":"fluid_container","reset_spacing":true,"header_alignment":"left","columns":4,"column_gap":16,"show_arrow":false,"carousel_pagination":"show_dots","pagination_style":"pill","pagination_position":"center","infinite":false,"autoplay_carousel":false,"autorotate_speed":5,"image_ratio":"portrait","custom_ratio":"4:5","autoplay_videos":true,"muted":true,"loop_videos":true,"show_controls":false,"card_radius":16,"custom_card_padding":18,"overlay_opacity":10,"enable_custom_style":false,"custom_card_overlay_color":"#000000","enable_custom_fonts":false,"heading_font":"assistant_n4","body_font":"assistant_n4","custom_heading_size":18,"reveal":true,"padding_top":40,"padding_bottom":40,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"columns_mobile":1,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0}' data-msr-block-defaults='{"eyebrow":{"text":"Watch and shop","enable_custom_style":false,"size_enable":false,"size":14,"enable_custom_fonts":false,"font":"assistant_n4"},"heading":{"text":"Shop the look","enable_custom_style":false,"weight_enable":false,"weight":"700","size_enable":false,"size_desktop":36,"size_mobile":28,"line_height":1.2,"enable_custom_fonts":false,"font":"assistant_n4"},"subheading":{"text":"<p>Short videos of the products in use. Tap a card to see the product.</p>","enable_custom_style":false,"size_enable":false,"size":16,"line_height":1.5,"enable_custom_fonts":false,"font":"assistant_n4"},"video":{"content_position":"bottom"}}' data-msr-placeholder="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Cg fill=%22%23000000%22 fill-opacity=%220.18%22%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22/%3E%3C/g%3E%3C/svg%3E" data-controls="{{ s.show_controls }}" style="{{ sv_style | strip_newlines }}">
+  <div class="sv__inner {{ section_width }}">
+    <div class="sv__header"{% unless has_header %} hidden{% endunless %}>
+      {%- unless has_eyebrow_block -%}
+        <p class="sv__eyebrow" data-sv-eyebrow{% unless legacy_eyebrow %} hidden{% endunless %}>{{ s.subheading }}</p>
+      {%- endunless -%}
+      {%- unless has_heading_block -%}
+        <h2 class="sv__heading" data-sv-heading{% unless legacy_heading %} hidden{% endunless %}>{{ s.heading }}</h2>
+      {%- endunless -%}
+      {%- for block in section.blocks -%}
+        {%- assign bs = block.settings -%}
+        {%- capture b_font -%}{%- if bs.enable_custom_fonts and bs.font.family != blank -%}--b-font: {{ bs.font.family }}, {{ bs.font.fallback_families | default: 'sans-serif' }};{%- endif -%}{%- endcapture -%}
+        {%- case block.type -%}
+          {%- when 'eyebrow' -%}
+            <p class="sv__eyebrow" data-msr-block="{{ block.id }}" data-msr-type="eyebrow" data-msr-settings="{{ bs | json | escape }}"{% if bs.enable_custom_fonts %} data-own-font{% endif %}{% if bs.size_enable %} data-own-size{% endif %} data-size="{% if bs.size_enable %}true{% else %}false{% endif %}" style="--b-size: {{ bs.size | default: 14 }}px;{% render 'media-msr-var', name: '--b-color', color: bs.color, on: bs.enable_custom_style %}{{ b_font | escape }}"{% if bs.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ bs.text }}</p>
+          {%- when 'heading' -%}
+            <h2 class="sv__heading" data-msr-block="{{ block.id }}" data-msr-type="heading" data-msr-settings="{{ bs | json | escape }}"{% if bs.enable_custom_fonts %} data-own-font{% endif %}{% if bs.size_enable %} data-own-size{% endif %}{% if bs.weight_enable %} data-own-weight{% endif %} data-size="{% if bs.size_enable %}true{% else %}false{% endif %}" data-weight="{% if bs.weight_enable %}true{% else %}false{% endif %}" style="--b-size-d: {{ bs.size_desktop | default: 36 }}px; --b-size-m: {{ bs.size_mobile | default: 28 }}px; --b-lh: {{ bs.line_height | default: 1.2 }}; --b-weight: {{ bs.weight | default: 700 }};{% render 'media-msr-var', name: '--b-color', color: bs.color, on: bs.enable_custom_style %}{{ b_font | escape }}"{% if bs.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ bs.text }}</h2>
+          {%- when 'subheading' -%}
+            <div class="sv__desc" data-msr-block="{{ block.id }}" data-msr-type="subheading" data-msr-settings="{{ bs | json | escape }}"{% if bs.enable_custom_fonts %} data-own-font{% endif %}{% if bs.size_enable %} data-own-size{% endif %} data-size="{% if bs.size_enable %}true{% else %}false{% endif %}" style="--b-size: {{ bs.size | default: 16 }}px; --b-lh: {{ bs.line_height | default: 1.5 }};{% render 'media-msr-var', name: '--b-color', color: bs.color, on: bs.enable_custom_style %}{{ b_font | escape }}"{% if bs.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ bs.text }}</div>
+        {%- endcase -%}
+      {%- endfor -%}
+      {%- unless has_sub_block -%}
+        <div class="sv__desc" data-sv-desc{% unless legacy_desc %} hidden{% endunless %}>{{ s.description }}</div>
+      {%- endunless -%}
+    </div>
+
+    {%- if videos.size > 0 -%}
+      <div class="msr-car" data-msr-carousel data-mode="carousel" style="--msr-cols-m: {{ columns_mobile }}; --msr-cols-d: {{ columns }}; --msr-gap: {{ s.column_gap | default: 0 }}px; --msr-p-m: {{ videos.size | minus: columns_mobile | plus: 1 | at_least: 1 }}; --msr-p-d: {{ videos.size | minus: columns | plus: 1 | at_least: 1 }};">
+        <div class="msr-car__track" data-msr-track tabindex="0" role="region" aria-roledescription="carousel" aria-label="{{ heading_label | strip | default: 'Videos' | escape }}">
+          {%- for block in videos -%}
+            {%- assign b = block.settings -%}
+            {%- liquid
+              assign vid_src = ''
+              if b.local_video != blank
+                for source in b.local_video.sources
+                  if source.format == 'mp4' or source.mime_type == 'video/mp4'
+                    assign vid_src = source.url
+                    break
+                  endif
+                endfor
+                if vid_src == blank
+                  assign vid_src = b.local_video.sources.first.url
+                endif
+              endif
+              assign has_media = false
+              if vid_src != blank or b.video_url != blank or b.poster_image != blank
+                assign has_media = true
+              endif
+              assign cta_href = b.cta_link
+              if cta_href == blank and b.product != blank
+                assign cta_href = b.product.url
+              endif
+              assign has_content = false
+              if b.heading != blank or b.cta_label != blank
+                assign has_content = true
+              endif
+            -%}
+            <div class="msr-car__slide" data-msr-slide data-msr-block="{{ block.id }}" data-msr-type="video" data-msr-settings="{{ b | json | escape }}" role="group" aria-roledescription="slide" aria-label="{{ forloop.index }} / {{ videos.size }}" {{ block.shopify_attributes }}>
+              <div class="sv-card{% if has_media %} sv-card--has-media{% endif %}" data-msr-media>
+                {%- if vid_src != blank -%}
+                  <video data-msr-video playsinline preload="metadata"{% if s.muted or s.autoplay_videos %} muted{% endif %}{% if s.loop_videos %} loop{% endif %}{% if s.show_controls %} controls{% endif %}{% if b.poster_image != blank %} poster="{{ b.poster_image | image_url: width: 800 }}"{% endif %} aria-label="{{ b.heading | strip_html | escape }}">
+                    <source src="{{ vid_src }}" type="video/mp4">
+                  </video>
+                {%- elsif b.video_url != blank -%}
+                  {%- assign yt_id = b.video_url.id -%}
+                  {%- if b.video_url.type == 'youtube' -%}
+                    <iframe data-msr-embed src="https://www.youtube.com/embed/{{ yt_id }}?enablejsapi=1&playsinline=1&{% if s.muted or s.autoplay_videos %}mute=1&{% endif %}{% if s.loop_videos %}loop=1&playlist={{ yt_id }}&{% endif %}{% unless s.show_controls %}controls=0&{% endunless %}rel=0&modestbranding=1" title="{{ b.heading | strip_html | default: 'YouTube' | escape }}" loading="lazy" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
+                  {%- elsif b.video_url.type == 'vimeo' -%}
+                    <iframe data-msr-embed src="https://player.vimeo.com/video/{{ yt_id }}?api=1&playsinline=1&{% if s.muted or s.autoplay_videos %}muted=1&{% endif %}{% if s.loop_videos %}loop=1&{% endif %}{% unless s.show_controls %}controls=0&{% endunless %}" title="{{ b.heading | strip_html | default: 'Vimeo' | escape }}" loading="lazy" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
+                  {%- endif -%}
+                {%- elsif b.poster_image != blank -%}
+                  <img data-sv-poster src="{{ b.poster_image | image_url: width: 800 }}" alt="{{ b.poster_image.alt | escape }}" width="{{ b.poster_image.width | default: 800 }}" height="{{ b.poster_image.height | default: 1067 }}" loading="lazy" decoding="async">
+                {%- else -%}
+                  <img class="sv-card__placeholder" src="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Cg fill=%22%23000000%22 fill-opacity=%220.18%22%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22/%3E%3C/g%3E%3C/svg%3E" alt="" width="400" height="300" loading="lazy" decoding="async">
+                {%- endif -%}
+
+                <div class="sv-card__overlay" aria-hidden="true"{% unless has_content %} hidden{% endunless %}></div>
+                <div class="sv-card__content" data-pos="{{ b.content_position | default: 'bottom' }}"{% unless has_content %} hidden{% endunless %}>
+                  <h3 class="sv-card__heading" data-sv-card-heading{% if b.heading == blank %} hidden{% endif %}>{{ b.heading | escape }}</h3>
+                  {%- if cta_href != blank -%}
+                    <a class="sv-card__cta" data-sv-cta data-theme-button="primary" data-sl-button href="{{ cta_href }}"{% if b.cta_label == blank %} hidden{% endif %}><span data-sv-cta-label>{{ b.cta_label | escape }}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="13 6 19 12 13 18"/></svg></a>
+                  {%- else -%}
+                    <button type="button" class="sv-card__cta" data-sv-cta data-theme-button="primary" data-sl-button{% if b.cta_label == blank %} hidden{% endif %}><span data-sv-cta-label>{{ b.cta_label | escape }}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="13 6 19 12 13 18"/></svg></button>
+                  {%- endif -%}
+                </div>
+
+                {%- if vid_src != blank -%}
+                  <button type="button" class="sv-card__play" data-msr-play aria-pressed="false" aria-label="{{ 'accessibility.play_video' | t }}" data-label-play="{{ 'accessibility.play_video' | t | escape }}" data-label-pause="{{ 'accessibility.play_pause' | t | escape }}">
+                    <svg class="icon-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z"/></svg>
+                    <svg class="icon-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>
+                  </button>
+                {%- endif -%}
+
+                {%- if b.product != blank -%}
+                  {%- assign p = b.product -%}
+                  <a class="sv-card__product" href="{{ p.url }}">
+                    {%- if p.featured_image != blank -%}
+                      <img src="{{ p.featured_image | image_url: width: 80 }}" alt="" width="32" height="32" loading="lazy" decoding="async">
+                    {%- endif -%}
+                    <span class="sv-card__product-text">
+                      <span class="sv-card__product-name">{{ p.title | escape }}</span>
+                      <span class="sv-card__product-price">{{ p.price | money }}</span>
+                    </span>
+                  </a>
+                {%- endif -%}
+              </div>
+            </div>
+          {%- endfor -%}
+        </div>
+        {%- render 'media-msr-carousel-controls', count: videos.size, cols_d: columns, cols_m: columns_mobile, loop: s.infinite, arrows: s.show_arrow, dots: dots, mobile_only: mobile_only, style: s.pagination_style, position: s.pagination_position -%}
+      </div>
+    {%- endif -%}
+  </div>
+</div>
+{%- comment -%} Carousel, video playback and live edits: shopify/assets/media-live-stats-reels.js (loaded on every page). {%- endcomment -%}
+{% schema %}
+{
+  "name": "Shoppable Video",
+  "tag": "section",
+  "disabled_on": {
+    "groups": [
+      "header",
+      "footer"
+    ]
+  },
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Section width",
+      "default": "fluid_container",
+      "options": [
+        {
+          "value": "container",
+          "label": "Container"
+        },
+        {
+          "value": "fluid_container",
+          "label": "Fluid container"
+        },
+        {
+          "value": "stretch_width",
+          "label": "Stretched"
+        },
+        {
+          "value": "full_width",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "reset_spacing",
+      "label": "Remove the theme's space between sections",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Content"
+    },
+    {
+      "type": "select",
+      "id": "header_alignment",
+      "label": "Heading alignment",
+      "default": "left",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Centered"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ]
+    },
+    {
+      "type": "inline_richtext",
+      "id": "subheading",
+      "label": "Top text",
+      "hidden": true,
+      "info": "Legacy: used only when the section has no Eyebrow block",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "inline_richtext",
+      "id": "heading",
+      "label": "Heading",
+      "hidden": true,
+      "info": "Legacy: used only when the section has no Heading block",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "richtext",
+      "id": "description",
+      "label": "Description",
+      "hidden": true,
+      "info": "Legacy: used only when the section has no Subheading block",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "range",
+      "id": "columns",
+      "label": "Cards per row (desktop)",
+      "min": 2,
+      "max": 6,
+      "step": 1,
+      "default": 4
+    },
+    {
+      "type": "range",
+      "id": "column_gap",
+      "label": "Gap between cards",
+      "min": 0,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "checkbox",
+      "id": "show_arrow",
+      "label": "Show arrows",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "carousel_pagination",
+      "label": "Page dots",
+      "default": "show_dots",
+      "options": [
+        {
+          "value": "disable",
+          "label": "Disable"
+        },
+        {
+          "value": "show_dots",
+          "label": "Show dots"
+        },
+        {
+          "value": "show_dots_on_mobile",
+          "label": "Mobile only"
+        },
+        {
+          "value": "show_progress_bar",
+          "label": "Progress bar"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "pagination_style",
+      "label": "Page dots style",
+      "default": "pill",
+      "options": [
+        {
+          "value": "dot",
+          "label": "Dot (default)"
+        },
+        {
+          "value": "pill",
+          "label": "Pill (active expands)"
+        },
+        {
+          "value": "line",
+          "label": "Line / bar"
+        },
+        {
+          "value": "square",
+          "label": "Square"
+        },
+        {
+          "value": "ring",
+          "label": "Ring (hollow)"
+        },
+        {
+          "value": "number",
+          "label": "Numbers"
+        },
+        {
+          "value": "progress",
+          "label": "Progress fill"
+        }
+      ],
+      "visible_if": "{{ section.settings.carousel_pagination != 'disable' }}"
+    },
+    {
+      "type": "select",
+      "id": "pagination_position",
+      "label": "Page dots position",
+      "default": "center",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ],
+      "visible_if": "{{ section.settings.carousel_pagination != 'disable' }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "infinite",
+      "label": "Loop the carousel",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "autoplay_carousel",
+      "label": "Autoplay carousel",
+      "default": false,
+      "info": "Stops on hover, focus, when off screen and for reduced motion."
+    },
+    {
+      "type": "range",
+      "id": "autorotate_speed",
+      "label": "Seconds per slide",
+      "min": 2,
+      "max": 10,
+      "step": 1,
+      "unit": "s",
+      "default": 5,
+      "visible_if": "{{ section.settings.autoplay_carousel }}"
+    },
+    {
+      "type": "header",
+      "content": "Video"
+    },
+    {
+      "type": "select",
+      "id": "image_ratio",
+      "label": "Card shape",
+      "default": "portrait",
+      "options": [
+        {
+          "value": "tall",
+          "label": "Tall (9:16: Reels / TikTok)"
+        },
+        {
+          "value": "portrait",
+          "label": "Portrait (3:4)"
+        },
+        {
+          "value": "square",
+          "label": "Square (1:1)"
+        },
+        {
+          "value": "landscape",
+          "label": "Landscape (16:9)"
+        },
+        {
+          "value": "custom",
+          "label": "Custom"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "custom_ratio",
+      "label": "Custom shape",
+      "info": "Width:height, for example 4:5.",
+      "default": "4:5",
+      "visible_if": "{{ section.settings.image_ratio == 'custom' }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "autoplay_videos",
+      "label": "Play videos in view",
+      "default": true,
+      "info": "Muted, only while the card is on screen, and never for visitors who ask for reduced motion."
+    },
+    {
+      "type": "checkbox",
+      "id": "muted",
+      "label": "Start muted",
+      "default": true,
+      "visible_if": "{{ section.settings.autoplay_videos == false }}",
+      "info": "Videos that play in view are always muted."
+    },
+    {
+      "type": "checkbox",
+      "id": "loop_videos",
+      "label": "Loop videos",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_controls",
+      "label": "Show video controls",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "Cards"
+    },
+    {
+      "type": "range",
+      "id": "card_radius",
+      "label": "Card corner radius",
+      "min": 0,
+      "max": 30,
+      "step": 1,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "range",
+      "id": "custom_card_padding",
+      "label": "Card padding",
+      "min": 0,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "default": 18
+    },
+    {
+      "type": "range",
+      "id": "overlay_opacity",
+      "label": "Card shade",
+      "min": 0,
+      "max": 80,
+      "step": 5,
+      "unit": "%",
+      "default": 10
+    },
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_style",
+      "label": "Enable custom styling",
+      "default": false
+    },
+    {
+      "type": "color",
+      "id": "custom_section_bg",
+      "label": "Background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "section_bg",
+      "label": "Background (legacy)",
+      "hidden": true,
+      "info": "Kept for saved content; used when Background is empty and custom styling is on.",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "color",
+      "id": "custom_heading_color",
+      "label": "Card headline",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "custom_card_overlay_color",
+      "label": "Card shade colour",
+      "default": "#000000",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "custom_cta_bg",
+      "label": "Button background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "custom_cta_text",
+      "label": "Button text",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "header",
+      "content": "Typography"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_fonts",
+      "label": "Enable custom fonts",
+      "default": false
+    },
+    {
+      "type": "font_picker",
+      "id": "heading_font",
+      "label": "Heading font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "font_picker",
+      "id": "body_font",
+      "label": "Body font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "range",
+      "id": "custom_heading_size",
+      "label": "Card headline size",
+      "min": 12,
+      "max": 32,
+      "step": 1,
+      "unit": "px",
+      "default": 18
+    },
+    {
+      "type": "header",
+      "content": "Animation"
+    },
+    {
+      "type": "checkbox",
+      "id": "reveal",
+      "label": "Reveal on scroll",
+      "default": true,
+      "info": "Uses the animation in Theme settings."
+    },
+    {
+      "type": "header",
+      "content": "Desktop spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 100,
+      "step": 2,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 100,
+      "step": 2,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_desktop",
+      "label": "Top margin (desktop px)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_desktop",
+      "label": "Bottom margin (desktop px)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0
+    },
+    {
+      "type": "header",
+      "content": "Mobile"
+    },
+    {
+      "type": "range",
+      "id": "columns_mobile",
+      "label": "Cards per row (mobile)",
+      "min": 1,
+      "max": 3,
+      "step": 1,
+      "default": 1
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_mobile",
+      "label": "Top margin (mobile px)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_mobile",
+      "label": "Bottom margin (mobile px)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0
+    }
+  ],
+  "blocks": [
+    {
+      "type": "eyebrow",
+      "name": "Eyebrow",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "inline_richtext",
+          "id": "text",
+          "label": "Text",
+          "default": "Watch and shop"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Color",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "header",
+          "content": "Typography"
+        },
+        {
+          "type": "checkbox",
+          "id": "size_enable",
+          "label": "Custom size",
+          "info": "Off: uses the theme's text size.",
+          "default": false
+        },
+        {
+          "type": "range",
+          "id": "size",
+          "label": "Size",
+          "min": 10,
+          "max": 24,
+          "step": 1,
+          "unit": "px",
+          "default": 14,
+          "visible_if": "{{ block.settings.size_enable }}"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_fonts",
+          "label": "Enable custom fonts",
+          "default": false
+        },
+        {
+          "type": "font_picker",
+          "id": "font",
+          "label": "Font",
+          "default": "assistant_n4",
+          "visible_if": "{{ block.settings.enable_custom_fonts }}"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "name": "Heading",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "inline_richtext",
+          "id": "text",
+          "label": "Heading",
+          "default": "Shop the look"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Color",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "header",
+          "content": "Typography"
+        },
+        {
+          "type": "checkbox",
+          "id": "weight_enable",
+          "label": "Custom font weight",
+          "default": false
+        },
+        {
+          "type": "select",
+          "id": "weight",
+          "label": "Weight",
+          "default": "700",
+          "visible_if": "{{ block.settings.weight_enable }}",
+          "options": [
+            {
+              "value": "400",
+              "label": "Normal"
+            },
+            {
+              "value": "500",
+              "label": "Medium"
+            },
+            {
+              "value": "600",
+              "label": "Semi-bold"
+            },
+            {
+              "value": "700",
+              "label": "Bold"
+            },
+            {
+              "value": "800",
+              "label": "Extra-bold"
+            }
+          ]
+        },
+        {
+          "type": "checkbox",
+          "id": "size_enable",
+          "label": "Custom size",
+          "info": "Off: uses the theme's heading size.",
+          "default": false
+        },
+        {
+          "type": "range",
+          "id": "size_desktop",
+          "label": "Size (desktop)",
+          "min": 18,
+          "max": 72,
+          "step": 1,
+          "unit": "px",
+          "default": 36,
+          "visible_if": "{{ block.settings.size_enable }}"
+        },
+        {
+          "type": "range",
+          "id": "size_mobile",
+          "label": "Size (mobile)",
+          "min": 16,
+          "max": 56,
+          "step": 1,
+          "unit": "px",
+          "default": 28,
+          "visible_if": "{{ block.settings.size_enable }}"
+        },
+        {
+          "type": "range",
+          "id": "line_height",
+          "label": "Line height",
+          "min": 0.9,
+          "max": 2,
+          "step": 0.1,
+          "default": 1.2,
+          "visible_if": "{{ block.settings.size_enable }}"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_fonts",
+          "label": "Enable custom fonts",
+          "default": false
+        },
+        {
+          "type": "font_picker",
+          "id": "font",
+          "label": "Font",
+          "default": "assistant_n4",
+          "visible_if": "{{ block.settings.enable_custom_fonts }}"
+        }
+      ]
+    },
+    {
+      "type": "subheading",
+      "name": "Subheading",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "richtext",
+          "id": "text",
+          "label": "Text",
+          "default": "<p>Short videos of the products in use. Tap a card to see the product.</p>"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Color",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "header",
+          "content": "Typography"
+        },
+        {
+          "type": "checkbox",
+          "id": "size_enable",
+          "label": "Custom size",
+          "info": "Off: uses the theme's text size.",
+          "default": false
+        },
+        {
+          "type": "range",
+          "id": "size",
+          "label": "Size",
+          "min": 12,
+          "max": 24,
+          "step": 1,
+          "unit": "px",
+          "default": 16,
+          "visible_if": "{{ block.settings.size_enable }}"
+        },
+        {
+          "type": "range",
+          "id": "line_height",
+          "label": "Line height",
+          "min": 1,
+          "max": 2,
+          "step": 0.1,
+          "default": 1.5,
+          "visible_if": "{{ block.settings.size_enable }}"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_fonts",
+          "label": "Enable custom fonts",
+          "default": false
+        },
+        {
+          "type": "font_picker",
+          "id": "font",
+          "label": "Font",
+          "default": "assistant_n4",
+          "visible_if": "{{ block.settings.enable_custom_fonts }}"
+        }
+      ]
+    },
+    {
+      "type": "video",
+      "name": "Video",
+      "settings": [
+        {
+          "type": "text",
+          "id": "heading",
+          "label": "Headline"
+        },
+        {
+          "type": "text",
+          "id": "cta_label",
+          "label": "Button label"
+        },
+        {
+          "type": "url",
+          "id": "cta_link",
+          "label": "Button link",
+          "info": "Empty uses the tagged product."
+        },
+        {
+          "type": "product",
+          "id": "product",
+          "label": "Tagged product",
+          "info": "Shows the product image, title and price on the card."
+        },
+        {
+          "type": "header",
+          "content": "Video"
+        },
+        {
+          "type": "video",
+          "id": "local_video",
+          "label": "Upload video"
+        },
+        {
+          "type": "video_url",
+          "id": "video_url",
+          "label": "YouTube or Vimeo URL",
+          "accept": [
+            "youtube",
+            "vimeo"
+          ],
+          "info": "YouTube or Vimeo"
+        },
+        {
+          "type": "image_picker",
+          "id": "poster_image",
+          "label": "Poster image"
+        },
+        {
+          "type": "header",
+          "content": "Layout"
+        },
+        {
+          "type": "select",
+          "id": "content_position",
+          "label": "Content position",
+          "default": "bottom",
+          "options": [
+            {
+              "value": "top",
+              "label": "Top"
+            },
+            {
+              "value": "center",
+              "label": "Centered"
+            },
+            {
+              "value": "bottom",
+              "label": "Bottom"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Shoppable Video",
+      "category": "Image and video",
+      "blocks": [
+        {
+          "type": "eyebrow"
+        },
+        {
+          "type": "heading"
+        },
+        {
+          "type": "subheading"
+        },
+        {
+          "type": "video",
+          "settings": {
+            "heading": "New drop",
+            "cta_label": "Shop now",
+            "content_position": "bottom"
+          }
+        },
+        {
+          "type": "video",
+          "settings": {
+            "heading": "Behind the scenes",
+            "content_position": "bottom"
+          }
+        },
+        {
+          "type": "video",
+          "settings": {
+            "heading": "Customer favorite",
+            "content_position": "bottom"
+          }
+        },
+        {
+          "type": "video",
+          "settings": {
+            "heading": "Style guide",
+            "content_position": "bottom"
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

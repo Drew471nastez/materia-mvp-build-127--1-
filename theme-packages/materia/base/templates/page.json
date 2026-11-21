@@ -1,0 +1,17 @@
+{
+  "sections": {
+    "main": {
+      "type": "page-default",
+      "settings": {
+        "padding_top": 0,
+        "reset_spacing": true,
+        "section_width": "container",
+        "padding_bottom": 0
+      },
+      "name": "Page default"
+    }
+  },
+  "order": [
+    "main"
+  ]
+}

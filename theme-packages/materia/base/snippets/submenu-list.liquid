@@ -1,0 +1,92 @@
+{%- comment -%}
+  Materia Themes. Developed By Materia Themes.
+  A dropdown's links (menu_type: 'dropdown') or a mega menu's columns: each
+  child link with links of its own is a column title over its list. Titles
+  and badges go through snippets/menu-link-title, so a [hot] or [new] tag in
+  Navigation shows the header's Menu badges pill and never the tag itself.
+{%- endcomment -%}
+{%- liquid
+  assign section_st = section.settings
+  assign menu_type = menu_type
+-%}
+{% liquid
+  assign enable_rtl = settings.rtl
+  assign iso_code = request.locale.iso_code
+  assign lis_language_rtl = settings.language_rtl
+  if lis_language_rtl != blank
+    if iso_code != blank and lis_language_rtl contains iso_code
+      assign enable_rtl = true
+    endif
+  endif
+%}
+{% if link.links.size > 0 %}
+  <ul
+    class="subchildmenu list-unstyled px-30 px-1025-0{% if menu_type != 'dropdown' %} grid grid-cols gap{% endif %}"
+  >
+    {% for child_link in link.links %}
+      <li class="menu-link level-1{% if child_link.links.size > 0 %} has-children{% endif %}">
+        <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0">
+          <a
+            class="menu_item-link no-underline{% if menu_type != 'dropdown' %} heading-style{% endif %} py-10 py-1025-5 min-h-55 min-h-1025-unset inline-flex align-center"
+            href="{{ child_link.url | remove: '#_blank' }}"
+            {% render 'link-target', link: child_link %}
+          >
+            {%- render 'menu-link-title', title: child_link.title, span_class: 'menu-link-text' -%}
+          </a>
+          {%- if child_link.links.size > 0 -%}
+            <open-children-toggle class="inline-flex ms-5 flex-end align-center pointer{% if menu_type != 'dropdown' %} hidden-1025{% endif %}{% if enable_rtl %} left-0 left-1025-15{% else %} right-1025-15 right-0{% endif %}{% if section_st.redirect_to_link == blank %} absolute w-full w-1025-auto inset-y-0 static-1025{% else %} w-30 h-30 content-center{% endif %}">
+              {% if enable_rtl %}
+                <svg width="6" height="11" fill="none">
+                  <use href="#icon-back" />
+                </svg>
+              {% else %}
+                <svg width="6" height="11" fill="none">
+                  <use href="#icon-next" />
+                </svg>
+              {% endif %}
+            </open-children-toggle>
+          {%- endif -%}
+        </menu-item>
+        {% if child_link.links.size > 0 %}
+          <ul class="sub-children-menu{% if menu_type == 'dropdown' %} invisible-1025{% endif %} gradient transition absolute{% if menu_type != 'dropdown' %} static-1025{% endif %} list-unstyled">
+            <li class="hidden-1025 grey-bg px-30 border-bottom flex gap-15 align-center justify-between{% if settings.menu_font == 'heading_font' %} heading-style{% endif %}">
+              <back-menu
+                class="py-10 min-h-55 inline-flex gap-20 align-center back-lv1 fs-big-1 heading-style"
+                role="link"
+              >
+                {% if enable_rtl %}
+                  <svg width="6" height="11" fill="none">
+                    <use href="#icon-next" />
+                  </svg>
+                {% else %}
+                  <svg width="6" height="11" fill="none">
+                    <use href="#icon-back" />
+                  </svg>
+                {% endif %}
+                {%- render 'menu-link-title', title: child_link.title, mode: 'text' -%}
+              </back-menu>
+              <close-menu class="close-menu lh-1 ms-10">
+                <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                  <use href="#icon-close" />
+                </svg>
+              </close-menu>
+            </li>
+            <ul class="list-unstyled px-30 px-1025-0 gradient">
+              {% for grandchild_link in child_link.links %}
+                <li class="menu-link level-2 border-bottom border-bottom-1025-0">
+                  <a
+                    class="menu_item-link no-underline py-10 py-1025-5 min-h-55 min-h-1025-unset inline-flex align-center"
+                    href="{{ grandchild_link.url | remove: '#_blank' }}"
+                    {% render 'link-target', link: grandchild_link %}
+                  >
+                    {%- render 'menu-link-title', title: grandchild_link.title, span_class: 'menu-link-text' -%}
+                  </a>
+                </li>
+              {% endfor %}
+            </ul>
+          </ul>
+        {% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+{% endif %}

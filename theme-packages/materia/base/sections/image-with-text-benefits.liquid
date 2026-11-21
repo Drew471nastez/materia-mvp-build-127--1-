@@ -1,0 +1,1422 @@
+<script src="{{ 'media-live-benefits.js' | asset_url }}" defer="defer"></script>
+{% render 'theme-type' %}
+{%- liquid
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+-%}
+{%- assign fb_accessibility_media = 'accessibility.media' | t -%}
+{%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
+{%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
+<style>
+  #shopify-section-{{ section.id }}.scroll-trigger {
+    --animation-duration: {{ settings.animation_duration | default: 700 }}ms;
+    --animation-delay: {{ settings.animation_delay | default: 0 }}ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-{{ section.id }}');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', {{ settings.scroll_animation | json }});
+  })();
+</script>
+{%- endif -%}
+<style data-rs-bulletproof>
+  {%- if section.settings.reset_spacing -%}
+    /* reset_spacing: bulletproof override of ALL section spacing mechanisms */
+    #shopify-section-{{ section.id }},
+    #shopify-section-{{ section.id }} > .section,
+    #shopify-section-{{ section.id }} > section,
+    #shopify-section-{{ section.id }} > div,
+    #shopify-section-{{ section.id }} > div > .section {
+      margin-top: 0 !important;
+      margin-bottom: 0 !important;
+    }
+    #shopify-section-{{ section.id }} + .shopify-section,
+    #shopify-section-{{ section.id }} + section,
+    .shopify-section + #shopify-section-{{ section.id }} {
+      margin-top: 0 !important;
+    }
+  {%- endif -%}
+</style>
+{%- comment -%}
+  Materia Themes. Image With Text Benefits.
+
+  Media blocks (image, uploaded video or video address) on one side; a
+  heading, supporting text, a benefits grid and a footnote on the other.
+  Media layout: Auto shows 1 alone, 2 side by side and 3 or more as a row
+  that scrolls sideways (touch, mouse drag and arrow keys) with a progress
+  bar; a fixed number per row scrolls when there are more media than fit.
+  Colours follow the colour scheme and fonts follow Theme settings >
+  Typography until custom styling or custom fonts are switched on. Layout
+  lives in snippets/media-benefits-style; live edits and the scrolling row
+  in assets/media-live-benefits.js.
+{%- endcomment -%}
+{%- liquid
+  assign st  = section.settings
+  assign sid = section.id
+  assign own = st.enable_custom_style
+
+  assign media_blocks = section.blocks | where: 'type', 'media'
+  assign media_count  = media_blocks | size
+
+  assign per_row = st.per_row | default: '1.2'
+  if per_row == 'auto'
+    if media_count <= 1
+      assign per_row_value = 1
+      assign final_layout = 'single'
+    elsif media_count == 2
+      assign per_row_value = 2
+      assign final_layout = 'side_by_side'
+    else
+      assign per_row_value = 2.5
+      assign final_layout = 'carousel'
+    endif
+  else
+    assign per_row_value = per_row | times: 1.0
+    if media_count > per_row_value
+      assign final_layout = 'carousel'
+    elsif per_row_value <= 1
+      assign final_layout = 'single'
+    elsif media_count <= 1
+      assign final_layout = 'single'
+    else
+      assign final_layout = 'side_by_side'
+    endif
+  endif
+  assign per_value = per_row
+  if per_row == 'auto'
+    assign per_value = per_row_value
+  endif
+  assign media_col = st.media_column_width | default: 50
+  assign text_width = 100 | minus: media_col
+  assign bbg = 'color-mix(in srgb, var(--color-text) 4%, var(--color-background))'
+  assign all_benefits = section.blocks | where: 'type', 'benefit'
+  assign benefits_anchors = section.blocks | where: 'type', 'benefits_group'
+  assign has_anchor = false
+  if benefits_anchors.size > 0
+    assign has_anchor = true
+  endif
+  assign icon_names = 'check,star,heart,leaf,sparkle,shield,lock,gift,truck,clock,drop,sun,moon,flame,flask,bottle,feather,smile,thumbs_up,tag,globe,recycle,diamond,award' | split: ','
+-%}
+{% render 'media-benefits-style', section: section, bp: 900 %}
+<style>
+  {%- if st.enable_custom_fonts -%}{{ st.heading_font | font_face: font_display: 'swap' }}{{ st.body_font | font_face: font_display: 'swap' }}{%- endif %}
+  @media (min-width: 900px) {
+    #shopify-section-{{ sid }} .iwb[data-no-media] .mlb__text { flex: 0 1 auto; width: 100%; max-width: var(--iwb-tmax); margin-inline: auto; }
+  }
+  #shopify-section-{{ sid }} .iwb__media-grid { display: flex; flex-direction: column; gap: var(--iwb-mgap); width: 100%; }
+  #shopify-section-{{ sid }} .iwb__media-grid:not([data-layout='single']) { flex-direction: row; }
+  #shopify-section-{{ sid }} .iwb__media-grid[data-layout='carousel'] { overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth; padding-bottom: 6px; scrollbar-width: none; overscroll-behavior-x: contain; cursor: grab; touch-action: pan-x pan-y; }
+  #shopify-section-{{ sid }} .iwb__media-grid[data-layout='carousel']::-webkit-scrollbar { display: none; }
+  #shopify-section-{{ sid }} .iwb__media-grid[data-layout='carousel']:focus-visible { outline: 2px solid var(--color-heading); outline-offset: 4px; }
+  #shopify-section-{{ sid }} .iwb__media-grid.iwb--dragging { cursor: grabbing; scroll-snap-type: none; scroll-behavior: auto; user-select: none; }
+  #shopify-section-{{ sid }} .iwb__media-grid.iwb--dragging * { pointer-events: none; }
+  #shopify-section-{{ sid }} .iwb__media-grid img { -webkit-user-drag: none; }
+  #shopify-section-{{ sid }} .iwb__slot { flex: 0 0 auto; width: 100%; }
+  #shopify-section-{{ sid }} .iwb__media-grid[data-layout='side_by_side'] .iwb__slot { flex: 1 1 calc((100% / var(--iwb-per)) - var(--iwb-mgap)); width: auto; min-width: 0; }
+  #shopify-section-{{ sid }} .iwb__media-grid[data-layout='carousel'] .iwb__slot { width: calc((100% / var(--iwb-per)) - var(--iwb-mgap) * .5); scroll-snap-align: start; }
+  #shopify-section-{{ sid }} .iwb__progress { position: relative; width: 100%; height: var(--iwb-ph); margin-top: var(--iwb-pm); background: var(--iwb-pt); border-radius: 999px; overflow: hidden; }
+  #shopify-section-{{ sid }} .iwb__progress-fill { position: absolute; inset: 0 auto 0 0; width: 0%; background: var(--iwb-pf); border-radius: 999px; transition: width .15s linear; }
+  @media (prefers-reduced-motion: reduce) {
+    #shopify-section-{{ sid }} .iwb__progress-fill { transition: none; }
+    #shopify-section-{{ sid }} .iwb__media-grid[data-layout='carousel'] { scroll-behavior: auto; }
+  }
+  #shopify-section-{{ sid }} .iwb__benefits { display: grid; grid-template-columns: repeat(var(--iwb-cols-m), minmax(0, 1fr)); gap: var(--iwb-bgap-m); width: 100%; }
+  @media (min-width: 900px) {
+    #shopify-section-{{ sid }} .iwb__benefits { grid-template-columns: repeat(var(--iwb-cols-d), minmax(0, 1fr)); gap: var(--iwb-bgap-d); }
+  }
+  #shopify-section-{{ sid }} .iwb__benefit { display: flex; flex-direction: column; align-items: flex-start; gap: var(--iwb-igap); padding: var(--iwb-bpad); background: var(--iwb-bbg); border: var(--iwb-bbw) solid var(--iwb-bbc); border-radius: var(--iwb-br); }
+  #shopify-section-{{ sid }} .iwb[data-benefit-layout='horizontal'] .iwb__benefit { flex-direction: row; text-align: left; }
+  #shopify-section-{{ sid }} .iwb__benefit-icon { flex-shrink: 0; width: var(--iwb-is); height: var(--iwb-is); display: inline-flex; align-items: center; justify-content: center; color: var(--iwb-ic); background: var(--iwb-ibg); border-radius: var(--iwb-ir); padding: var(--iwb-ipad); }
+  #shopify-section-{{ sid }} .iwb__benefit-icon svg { width: 100%; height: 100%; display: block; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  #shopify-section-{{ sid }} .iwb__benefit-icon svg [data-iwb-fill] { fill: currentColor; stroke: none; }
+  #shopify-section-{{ sid }} .iwb__benefit-icon img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  #shopify-section-{{ sid }} .iwb__benefit-body { flex: 1 1 auto; min-width: 0; }
+  #shopify-section-{{ sid }} .iwb__benefit-heading { font-size: var(--iwb-hs); color: var(--iwb-hc); line-height: 1.3; margin: 0 0 var(--iwb-hgap); }
+  #shopify-section-{{ sid }} .iwb__benefit-text { font-size: var(--iwb-ts); color: var(--iwb-tc); line-height: 1.5; }
+  #shopify-section-{{ sid }} .iwb__benefit-text p { margin: 0 0 .5em; }
+  #shopify-section-{{ sid }} .iwb__benefit-text p:last-child { margin: 0; }
+  #shopify-section-{{ sid }} .mlb__text > .iwb__footnote { color: var(--b-c); font-size: var(--b-fs); margin-top: var(--b-mt); line-height: 1.5; }
+</style>
+
+<div id="iwb-{{ sid }}" class="iwb mlb section sec__image-text-benefits color-{{ color_scheme }} gradient" data-section-id="{{ sid }}" data-mlb-root="image-with-text-benefits" {% render 'media-benefits-root', section: section, part: 'attrs', side: st.media_position, align: st.content_align, align_m: st.content_align_mobile %}{% if media_count == 0 %} data-no-media{% endif %} data-benefit-layout="{{ st.benefit_layout | default: 'vertical' }}"{% if request.design_mode %} data-mlb-defaults="&#123;&quot;color_scheme&quot;:&quot;default-color-scheme&quot;,&quot;section_width&quot;:&quot;container&quot;,&quot;reset_spacing&quot;:true,&quot;media_position&quot;:&quot;left&quot;,&quot;media_column_width&quot;:50,&quot;content_align&quot;:&quot;left&quot;,&quot;content_gap&quot;:24,&quot;text_max_width&quot;:900,&quot;per_row&quot;:&quot;1.2&quot;,&quot;media_aspect_w&quot;:3,&quot;media_aspect_h&quot;:4,&quot;media_radius&quot;:16,&quot;media_gap&quot;:12,&quot;progress_height&quot;:2,&quot;progress_margin&quot;:18,&quot;benefits_per_row_desktop&quot;:&quot;2&quot;,&quot;benefit_layout&quot;:&quot;vertical&quot;,&quot;benefit_inner_gap&quot;:12,&quot;benefit_padding&quot;:18,&quot;benefit_radius&quot;:12,&quot;benefit_border_width&quot;:0,&quot;benefit_heading_gap&quot;:6,&quot;icon_size&quot;:40,&quot;icon_padding&quot;:0,&quot;icon_radius&quot;:8,&quot;enable_custom_style&quot;:false,&quot;icon_bg&quot;:&quot;rgba(0,0,0,0)&quot;,&quot;enable_custom_fonts&quot;:false,&quot;heading_font&quot;:&quot;assistant_n4&quot;,&quot;body_font&quot;:&quot;assistant_n4&quot;,&quot;benefit_heading_size&quot;:17,&quot;benefit_text_size&quot;:14,&quot;gap_desktop&quot;:64,&quot;benefit_gap_desktop&quot;:28,&quot;padding_top_desktop&quot;:100,&quot;padding_bottom_desktop&quot;:100,&quot;side_padding_desktop&quot;:32,&quot;section_margin_top_desktop&quot;:0,&quot;section_margin_bottom_desktop&quot;:0,&quot;content_align_mobile&quot;:&quot;left&quot;,&quot;mobile_order&quot;:&quot;media_first&quot;,&quot;benefits_per_row_mobile&quot;:&quot;1&quot;,&quot;gap_mobile&quot;:32,&quot;benefit_gap_mobile&quot;:20,&quot;padding_top_mobile&quot;:60,&quot;padding_bottom_mobile&quot;:60,&quot;side_padding_mobile&quot;:20,&quot;section_margin_top_mobile&quot;:0,&quot;section_margin_bottom_mobile&quot;:0&#125;"{% endif %}{% if request.design_mode %} data-mlb-block-defaults="&#123;&quot;media&quot;:&#123;&quot;media_type&quot;:&quot;image&quot;,&quot;autoplay&quot;:true,&quot;muted&quot;:true,&quot;loop&quot;:true,&quot;show_controls&quot;:false&#125;,&quot;heading&quot;:&#123;&quot;text&quot;:&quot;REAL BENEFITS, REAL RESULTS&quot;,&quot;tag&quot;:&quot;h2&quot;,&quot;enable_custom_style&quot;:false,&quot;uppercase&quot;:true,&quot;size_desktop&quot;:48,&quot;size_mobile&quot;:32&#125;,&quot;subheading&quot;:&#123;&quot;text&quot;:&quot;&lt;p&gt;Add a few lines about what makes this product worth choosing.&lt;/p&gt;&quot;,&quot;enable_custom_style&quot;:false,&quot;size_desktop&quot;:16,&quot;size_mobile&quot;:14&#125;,&quot;benefits_group&quot;:&#123;&#125;,&quot;benefit&quot;:&#123;&quot;heading&quot;:&quot;Benefit heading&quot;,&quot;text&quot;:&quot;&lt;p&gt;A short sentence describing this benefit and why it matters.&lt;/p&gt;&quot;,&quot;icon_source&quot;:&quot;library&quot;,&quot;icon_name&quot;:&quot;check&quot;&#125;,&quot;footnote&quot;:&#123;&quot;text&quot;:&quot;Add a short note, such as how results were measured.&quot;,&quot;enable_custom_style&quot;:false,&quot;size&quot;:13,&quot;margin_top&quot;:12&#125;&#125;"{% endif %} style="{% render 'media-benefits-root', section: section, part: 'vars', tw: text_width, gap_d: st.gap_desktop, gap_m: st.gap_mobile %}--m-ar: {{ st.media_aspect_w | default: 3 }} / {{ st.media_aspect_h | default: 4 }};--m-r: {{ st.media_radius | default: 0 }}px;--iwb-mgap: {{ st.media_gap | default: 0 }}px;--iwb-tmax: {{ st.text_max_width | default: 900 }}px;--iwb-pt: {% if own %}{% render 'scheme-color', color: st.progress_track, fallback: 'var(--color-border)' %}{% else %}var(--color-border){% endif %};--iwb-pf: {% if own %}{% render 'scheme-color', color: st.progress_fill, fallback: 'var(--color-heading)' %}{% else %}var(--color-heading){% endif %};--iwb-ph: {{ st.progress_height | default: 2 }}px;--iwb-pm: {{ st.progress_margin | default: 0 }}px;--iwb-cols-d: {{ st.benefits_per_row_desktop | default: 2 }};--iwb-cols-m: {{ st.benefits_per_row_mobile | default: 1 }};--iwb-bgap-d: {{ st.benefit_gap_desktop | default: 0 }}px;--iwb-bgap-m: {{ st.benefit_gap_mobile | default: 0 }}px;--iwb-igap: {{ st.benefit_inner_gap | default: 0 }}px;--iwb-bpad: {{ st.benefit_padding | default: 0 }}px;--iwb-bbg: {% if own %}{% render 'scheme-color', color: st.benefit_bg, fallback: bbg %}{% else %}{{ bbg }}{% endif %};--iwb-br: {{ st.benefit_radius | default: 0 }}px;--iwb-bbw: {{ st.benefit_border_width | default: 0 }}px;--iwb-bbc: {% if own %}{% render 'scheme-color', color: st.benefit_border_color, fallback: 'var(--color-border)' %}{% else %}var(--color-border){% endif %};--iwb-hs: {{ st.benefit_heading_size | default: 17 }}px;--iwb-hc: {% if own %}{% render 'scheme-color', color: st.benefit_heading_color, fallback: 'var(--color-heading)' %}{% else %}var(--color-heading){% endif %};--iwb-hgap: {{ st.benefit_heading_gap | default: 0 }}px;--iwb-ts: {{ st.benefit_text_size | default: 14 }}px;--iwb-tc: {% if own %}{% render 'scheme-color', color: st.benefit_text_color, fallback: 'var(--color-text)' %}{% else %}var(--color-text){% endif %};--iwb-is: {{ st.icon_size | default: 40 }}px;--iwb-ipad: {{ st.icon_padding | default: 0 }}px;--iwb-ir: {{ st.icon_radius | default: 0 }}px;--iwb-ic: {% if own %}{% render 'scheme-color', color: st.icon_color, fallback: 'var(--color-primary)' %}{% else %}var(--color-primary){% endif %};--iwb-ibg: {% if own %}{% render 'scheme-color', color: st.icon_bg, fallback: 'transparent' %}{% else %}transparent{% endif %};--iwb-per: {{ per_value }};">
+  <div class="iwb__inner mlb__inner">
+    <div class="iwb__grid mlb__grid">
+
+      {%- if media_count > 0 -%}
+        <div class="iwb__media mlb__media">
+          <div class="iwb__media-grid" data-layout="{{ final_layout }}"{% if final_layout == 'carousel' %} tabindex="0" role="group" aria-label="{{ 'accessibility.media_gallery' | t | escape }}"{% endif %}>
+            {%- for blk in media_blocks -%}
+              {%- liquid
+                assign mb = blk.settings
+                assign mtype = mb.media_type | default: 'image'
+                assign autoplay = true
+                if mb.autoplay == false
+                  assign autoplay = false
+                endif
+                assign muted = true
+                if mb.muted == false
+                  assign muted = false
+                endif
+                assign loop_video = true
+                if mb.loop == false
+                  assign loop_video = false
+                endif
+              -%}
+              <div class="iwb__slot mlb__frame" data-mlb-media data-autoplay="{% if mtype != 'image' and autoplay %}true{% else %}false{% endif %}" {% render 'media-benefits-block', block: blk %}>
+                {%- if mtype == 'video' and mb.video != blank -%}
+                  {{ mb.video | video_tag: autoplay: autoplay, muted: muted, playsinline: true, loop: loop_video, controls: mb.show_controls, image_size: '1200x' }}
+                {%- elsif mtype == 'video_url' and mb.video_url != blank -%}
+                  <video src="{{ mb.video_url }}" {% if autoplay %}autoplay {% endif %}{% if muted %}muted {% endif %}{% if loop_video %}loop {% endif %}{% if mb.show_controls %}controls {% endif %}playsinline preload="metadata"></video>
+                {%- elsif mb.image != blank -%}
+                  <img
+                    src="{{ mb.image | image_url: width: 1200 }}"
+                    srcset="{{ mb.image | image_url: width: 600 }} 600w,
+                            {{ mb.image | image_url: width: 900 }} 900w,
+                            {{ mb.image | image_url: width: 1200 }} 1200w"
+                    sizes="(min-width: 900px) 40vw, 90vw"
+                    alt="{{ mb.alt | default: mb.image.alt | escape }}"
+                    width="{{ mb.image.width }}"
+                    height="{{ mb.image.height }}"
+                    loading="lazy"
+                    decoding="async"
+                  >
+                {%- else -%}
+                  <svg class="mlb__ph" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false"><g fill="currentColor"><circle cx="172" cy="124" r="14"/><path d="M140 192l40-46 25 28 20-18 35 36z"/></g></svg>
+                {%- endif -%}
+              </div>
+            {%- endfor -%}
+          </div>
+          <div class="iwb__progress" role="progressbar" aria-label="{{ 'accessibility.carousel_progress' | t | escape }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"{% unless final_layout == 'carousel' and media_count > 1 %} hidden{% endunless %}>
+            <div class="iwb__progress-fill"></div>
+          </div>
+        </div>
+      {%- endif -%}
+
+      <div class="iwb__text mlb__text">
+        {%- for block in section.blocks -%}
+          {%- case block.type -%}
+            {%- when 'media' -%}
+            {%- when 'benefits_group' -%}
+              <div class="iwb__benefits" {{ block.shopify_attributes }}>
+                {%- for ben in all_benefits -%}
+                  {%- render 'media-benefits-benefit', block: ben, p: 'iwb' -%}
+                {%- endfor -%}
+              </div>
+            {%- when 'benefit' -%}
+              {%- unless has_anchor -%}
+                {%- assign prev_index = forloop.index0 | minus: 1 -%}
+                {%- assign prev_block = section.blocks[prev_index] -%}
+                {%- if forloop.first or prev_block.type != 'benefit' -%}<div class="iwb__benefits iwb__benefits--orphan">{%- endif -%}
+                {%- render 'media-benefits-benefit', block: block, p: 'iwb' -%}
+                {%- assign next_index = forloop.index0 | plus: 1 -%}
+                {%- assign next_block = section.blocks[next_index] -%}
+                {%- if forloop.last or next_block.type != 'benefit' -%}</div>{%- endif -%}
+              {%- endunless -%}
+            {%- else -%}
+              {%- render 'media-benefits-text', block: block, p: 'iwb' -%}
+          {%- endcase -%}
+        {%- endfor -%}
+      </div>
+    </div>
+  </div>
+  {%- if request.design_mode -%}
+    {%- for name in icon_names -%}<template data-mlb-icon="{{ name }}">{%- render 'iwb-icon', icon: name -%}</template>{%- endfor -%}
+  {%- endif -%}
+</div>{% schema %}
+{
+  "name": "Image With Text Benefits",
+  "tag": "section",
+  "class": "section sec__image-text-benefits",
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Section width",
+      "default": "container",
+      "options": [
+        {
+          "value": "container",
+          "label": "Default"
+        },
+        {
+          "value": "fluid_container",
+          "label": "Fluid container"
+        },
+        {
+          "value": "stretch_width",
+          "label": "Stretched"
+        },
+        {
+          "value": "full_width",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "reset_spacing",
+      "label": "Remove space between sections",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "select",
+      "id": "media_position",
+      "label": "Media side (desktop)",
+      "default": "left",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "media_column_width",
+      "label": "Media column width (desktop)",
+      "min": 30,
+      "max": 70,
+      "step": 1,
+      "unit": "%",
+      "default": 50
+    },
+    {
+      "type": "select",
+      "id": "content_align",
+      "label": "Text alignment (desktop)",
+      "default": "left",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "content_gap",
+      "label": "Gap between blocks",
+      "min": 0,
+      "max": 60,
+      "step": 2,
+      "unit": "px",
+      "default": 24
+    },
+    {
+      "type": "range",
+      "id": "text_max_width",
+      "label": "Text width without media",
+      "min": 400,
+      "max": 1400,
+      "step": 20,
+      "unit": "px",
+      "default": 900,
+      "info": "Used when the section has no media blocks."
+    },
+    {
+      "type": "header",
+      "content": "Media"
+    },
+    {
+      "type": "select",
+      "id": "per_row",
+      "label": "Media per row",
+      "default": "1.2",
+      "options": [
+        {
+          "value": "auto",
+          "label": "Auto"
+        },
+        {
+          "value": "1",
+          "label": "1 per row"
+        },
+        {
+          "value": "1.2",
+          "label": "1.2 per row"
+        },
+        {
+          "value": "1.5",
+          "label": "1.5 per row"
+        },
+        {
+          "value": "2",
+          "label": "2 per row"
+        },
+        {
+          "value": "2.5",
+          "label": "2.5 per row"
+        },
+        {
+          "value": "3",
+          "label": "3 per row"
+        }
+      ],
+      "info": "More media than fit in a row scroll sideways."
+    },
+    {
+      "type": "range",
+      "id": "media_aspect_w",
+      "label": "Media ratio width",
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "default": 3
+    },
+    {
+      "type": "range",
+      "id": "media_aspect_h",
+      "label": "Media ratio height",
+      "min": 1,
+      "max": 24,
+      "step": 1,
+      "default": 4
+    },
+    {
+      "type": "range",
+      "id": "media_radius",
+      "label": "Media corner radius",
+      "min": 0,
+      "max": 60,
+      "step": 1,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "range",
+      "id": "media_gap",
+      "label": "Gap between media",
+      "min": 0,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "default": 12
+    },
+    {
+      "type": "range",
+      "id": "progress_height",
+      "label": "Progress bar height",
+      "min": 1,
+      "max": 8,
+      "step": 1,
+      "unit": "px",
+      "default": 2,
+      "info": "Shown when media scroll sideways."
+    },
+    {
+      "type": "range",
+      "id": "progress_margin",
+      "label": "Space above progress bar",
+      "min": 0,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "default": 18
+    },
+    {
+      "type": "header",
+      "content": "Benefits"
+    },
+    {
+      "type": "select",
+      "id": "benefits_per_row_desktop",
+      "label": "Benefits per row (desktop)",
+      "default": "2",
+      "options": [
+        {
+          "value": "1",
+          "label": "1"
+        },
+        {
+          "value": "2",
+          "label": "2"
+        },
+        {
+          "value": "3",
+          "label": "3"
+        },
+        {
+          "value": "4",
+          "label": "4"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "benefit_layout",
+      "label": "Benefit layout",
+      "default": "vertical",
+      "options": [
+        {
+          "value": "vertical",
+          "label": "Icon above text"
+        },
+        {
+          "value": "horizontal",
+          "label": "Icon beside text"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "benefit_inner_gap",
+      "label": "Gap between icon and text",
+      "min": 0,
+      "max": 32,
+      "step": 2,
+      "unit": "px",
+      "default": 12
+    },
+    {
+      "type": "range",
+      "id": "benefit_padding",
+      "label": "Benefit padding",
+      "min": 0,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "default": 18
+    },
+    {
+      "type": "range",
+      "id": "benefit_radius",
+      "label": "Benefit corner radius",
+      "min": 0,
+      "max": 32,
+      "step": 1,
+      "unit": "px",
+      "default": 12
+    },
+    {
+      "type": "range",
+      "id": "benefit_border_width",
+      "label": "Benefit border width",
+      "min": 0,
+      "max": 4,
+      "step": 1,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "benefit_heading_gap",
+      "label": "Gap below benefit heading",
+      "min": 0,
+      "max": 20,
+      "step": 1,
+      "unit": "px",
+      "default": 6
+    },
+    {
+      "type": "header",
+      "content": "Benefit icons"
+    },
+    {
+      "type": "range",
+      "id": "icon_size",
+      "label": "Icon size",
+      "min": 16,
+      "max": 96,
+      "step": 2,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "icon_padding",
+      "label": "Icon padding",
+      "min": 0,
+      "max": 24,
+      "step": 1,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "icon_radius",
+      "label": "Icon corner radius",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "unit": "px",
+      "default": 8
+    },
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_style",
+      "label": "Enable custom styling",
+      "default": false
+    },
+    {
+      "type": "color",
+      "id": "section_bg",
+      "label": "Background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "benefit_bg",
+      "label": "Benefit background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "benefit_border_color",
+      "label": "Benefit border",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "benefit_heading_color",
+      "label": "Benefit heading",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "benefit_text_color",
+      "label": "Benefit text",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "icon_color",
+      "label": "Icon",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "icon_bg",
+      "label": "Icon background",
+      "default": "rgba(0,0,0,0)",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "progress_track",
+      "label": "Progress bar track",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "progress_fill",
+      "label": "Progress bar fill",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "header",
+      "content": "Typography"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_fonts",
+      "label": "Enable custom fonts",
+      "default": false
+    },
+    {
+      "type": "font_picker",
+      "id": "heading_font",
+      "label": "Heading font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "font_picker",
+      "id": "body_font",
+      "label": "Body font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "range",
+      "id": "benefit_heading_size",
+      "label": "Benefit heading size",
+      "min": 12,
+      "max": 24,
+      "step": 1,
+      "unit": "px",
+      "default": 17
+    },
+    {
+      "type": "range",
+      "id": "benefit_text_size",
+      "label": "Benefit text size",
+      "min": 11,
+      "max": 20,
+      "step": 1,
+      "unit": "px",
+      "default": 14
+    },
+    {
+      "type": "header",
+      "content": "Desktop spacing"
+    },
+    {
+      "type": "range",
+      "id": "gap_desktop",
+      "label": "Column gap (desktop)",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 64
+    },
+    {
+      "type": "range",
+      "id": "benefit_gap_desktop",
+      "label": "Gap between benefits (desktop)",
+      "min": 0,
+      "max": 60,
+      "step": 2,
+      "unit": "px",
+      "default": 28
+    },
+    {
+      "type": "range",
+      "id": "padding_top_desktop",
+      "label": "Top padding (desktop)",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 100
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom_desktop",
+      "label": "Bottom padding (desktop)",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 100
+    },
+    {
+      "type": "range",
+      "id": "side_padding_desktop",
+      "label": "Side padding (desktop)",
+      "min": 0,
+      "max": 80,
+      "step": 2,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_desktop",
+      "label": "Top margin (desktop)",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_desktop",
+      "label": "Bottom margin (desktop)",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "header",
+      "content": "Mobile"
+    },
+    {
+      "type": "select",
+      "id": "content_align_mobile",
+      "label": "Text alignment (mobile)",
+      "default": "left",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "mobile_order",
+      "label": "Order on mobile",
+      "default": "media_first",
+      "options": [
+        {
+          "value": "media_first",
+          "label": "Media first"
+        },
+        {
+          "value": "text_first",
+          "label": "Text first"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "benefits_per_row_mobile",
+      "label": "Benefits per row (mobile)",
+      "default": "1",
+      "options": [
+        {
+          "value": "1",
+          "label": "1"
+        },
+        {
+          "value": "2",
+          "label": "2"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "gap_mobile",
+      "label": "Gap between media and text (mobile)",
+      "min": 0,
+      "max": 80,
+      "step": 2,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "range",
+      "id": "benefit_gap_mobile",
+      "label": "Gap between benefits (mobile)",
+      "min": 0,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "padding_top_mobile",
+      "label": "Top padding (mobile)",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 60
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom_mobile",
+      "label": "Bottom padding (mobile)",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 60
+    },
+    {
+      "type": "range",
+      "id": "side_padding_mobile",
+      "label": "Side padding (mobile)",
+      "min": 0,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_mobile",
+      "label": "Top margin (mobile)",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_mobile",
+      "label": "Bottom margin (mobile)",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    }
+  ],
+  "blocks": [
+    {
+      "type": "media",
+      "name": "Image / Video",
+      "settings": [
+        {
+          "type": "header",
+          "content": "Media"
+        },
+        {
+          "type": "select",
+          "id": "media_type",
+          "label": "Media type",
+          "default": "image",
+          "options": [
+            {
+              "value": "image",
+              "label": "Image"
+            },
+            {
+              "value": "video",
+              "label": "Video (uploaded to Storelib)"
+            },
+            {
+              "value": "video_url",
+              "label": "Video URL (external .mp4)"
+            }
+          ]
+        },
+        {
+          "type": "image_picker",
+          "id": "image",
+          "label": "Image",
+          "visible_if": "{{ block.settings.media_type == 'image' }}"
+        },
+        {
+          "type": "text",
+          "id": "alt",
+          "label": "Image alt text",
+          "info": "Leave empty to use the alt text saved with the image.",
+          "visible_if": "{{ block.settings.media_type == 'image' }}"
+        },
+        {
+          "type": "video",
+          "id": "video",
+          "label": "Video",
+          "info": "Pick a video file uploaded to Storelib.",
+          "visible_if": "{{ block.settings.media_type == 'video' }}"
+        },
+        {
+          "type": "url",
+          "id": "video_url",
+          "label": "Video address",
+          "info": "External direct .mp4 URL.",
+          "visible_if": "{{ block.settings.media_type == 'video_url' }}"
+        },
+        {
+          "type": "header",
+          "content": "Video playback"
+        },
+        {
+          "type": "checkbox",
+          "id": "autoplay",
+          "label": "Autoplay",
+          "default": true,
+          "info": "Stops when visitors ask for reduced motion.",
+          "visible_if": "{{ block.settings.media_type != 'image' }}"
+        },
+        {
+          "type": "checkbox",
+          "id": "muted",
+          "label": "Muted",
+          "default": true,
+          "visible_if": "{{ block.settings.media_type != 'image' }}"
+        },
+        {
+          "type": "checkbox",
+          "id": "loop",
+          "label": "Loop",
+          "default": true,
+          "visible_if": "{{ block.settings.media_type != 'image' }}"
+        },
+        {
+          "type": "checkbox",
+          "id": "show_controls",
+          "label": "Show controls",
+          "default": false,
+          "visible_if": "{{ block.settings.media_type != 'image' }}"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "name": "Heading",
+      "limit": 2,
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "type": "inline_richtext",
+          "id": "text",
+          "label": "Text",
+          "default": "REAL BENEFITS, REAL RESULTS"
+        },
+        {
+          "type": "select",
+          "id": "tag",
+          "label": "HTML tag",
+          "default": "h2",
+          "options": [
+            {
+              "value": "h1",
+              "label": "H1"
+            },
+            {
+              "value": "h2",
+              "label": "H2"
+            },
+            {
+              "value": "h3",
+              "label": "H3"
+            }
+          ],
+          "hidden": true,
+          "info": "Kept for saved content. The heading is an h2.",
+          "visible_if": "{{ false }}"
+        },
+        {
+          "type": "header",
+          "content": "Appearance"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Text color",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "header",
+          "content": "Typography"
+        },
+        {
+          "type": "checkbox",
+          "id": "uppercase",
+          "label": "Uppercase text",
+          "default": true
+        },
+        {
+          "type": "range",
+          "id": "size_desktop",
+          "label": "Size (desktop)",
+          "min": 24,
+          "max": 80,
+          "step": 1,
+          "unit": "px",
+          "default": 48
+        },
+        {
+          "type": "range",
+          "id": "size_mobile",
+          "label": "Size (mobile)",
+          "min": 18,
+          "max": 56,
+          "step": 1,
+          "unit": "px",
+          "default": 32
+        }
+      ]
+    },
+    {
+      "type": "subheading",
+      "name": "Subheading",
+      "limit": 2,
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "type": "richtext",
+          "id": "text",
+          "label": "Text",
+          "default": "<p>Add a few lines about what makes this product worth choosing.</p>"
+        },
+        {
+          "type": "header",
+          "content": "Appearance"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Text color",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "header",
+          "content": "Typography"
+        },
+        {
+          "type": "range",
+          "id": "size_desktop",
+          "label": "Size (desktop)",
+          "min": 12,
+          "max": 24,
+          "step": 1,
+          "unit": "px",
+          "default": 16
+        },
+        {
+          "type": "range",
+          "id": "size_mobile",
+          "label": "Size (mobile)",
+          "min": 11,
+          "max": 20,
+          "step": 1,
+          "unit": "px",
+          "default": 14
+        }
+      ]
+    },
+    {
+      "type": "benefits_group",
+      "name": "Benefits list (anchor)",
+      "limit": 1,
+      "settings": []
+    },
+    {
+      "type": "benefit",
+      "name": "Benefit",
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "type": "inline_richtext",
+          "id": "heading",
+          "label": "Heading",
+          "default": "Benefit heading"
+        },
+        {
+          "type": "richtext",
+          "id": "text",
+          "label": "Body text",
+          "default": "<p>A short sentence describing this benefit and why it matters.</p>"
+        },
+        {
+          "type": "header",
+          "content": "Icon"
+        },
+        {
+          "type": "select",
+          "id": "icon_source",
+          "label": "Icon source",
+          "default": "library",
+          "options": [
+            {
+              "value": "library",
+              "label": "Icon library"
+            },
+            {
+              "value": "image",
+              "label": "Custom image"
+            },
+            {
+              "value": "svg",
+              "label": "Custom SVG code"
+            },
+            {
+              "value": "none",
+              "label": "No icon"
+            }
+          ]
+        },
+        {
+          "type": "select",
+          "id": "icon_name",
+          "label": "Icon",
+          "default": "check",
+          "options": [
+            {
+              "value": "check",
+              "label": "Check"
+            },
+            {
+              "value": "star",
+              "label": "Star"
+            },
+            {
+              "value": "heart",
+              "label": "Heart"
+            },
+            {
+              "value": "leaf",
+              "label": "Leaf"
+            },
+            {
+              "value": "sparkle",
+              "label": "Sparkle"
+            },
+            {
+              "value": "shield",
+              "label": "Shield"
+            },
+            {
+              "value": "lock",
+              "label": "Lock"
+            },
+            {
+              "value": "gift",
+              "label": "Gift"
+            },
+            {
+              "value": "truck",
+              "label": "Truck (delivery)"
+            },
+            {
+              "value": "clock",
+              "label": "Clock"
+            },
+            {
+              "value": "drop",
+              "label": "Water drop"
+            },
+            {
+              "value": "sun",
+              "label": "Sun"
+            },
+            {
+              "value": "moon",
+              "label": "Moon"
+            },
+            {
+              "value": "flame",
+              "label": "Flame"
+            },
+            {
+              "value": "flask",
+              "label": "Flask"
+            },
+            {
+              "value": "bottle",
+              "label": "Bottle"
+            },
+            {
+              "value": "feather",
+              "label": "Feather"
+            },
+            {
+              "value": "smile",
+              "label": "Smile"
+            },
+            {
+              "value": "thumbs_up",
+              "label": "Thumbs up"
+            },
+            {
+              "value": "tag",
+              "label": "Tag"
+            },
+            {
+              "value": "globe",
+              "label": "Globe"
+            },
+            {
+              "value": "recycle",
+              "label": "Recycle"
+            },
+            {
+              "value": "diamond",
+              "label": "Diamond"
+            },
+            {
+              "value": "award",
+              "label": "Award"
+            }
+          ],
+          "visible_if": "{{ block.settings.icon_source == 'library' }}"
+        },
+        {
+          "type": "image_picker",
+          "id": "icon_image",
+          "label": "Icon image",
+          "visible_if": "{{ block.settings.icon_source == 'image' }}"
+        },
+        {
+          "type": "textarea",
+          "id": "icon_svg",
+          "label": "SVG code",
+          "visible_if": "{{ block.settings.icon_source == 'svg' }}"
+        }
+      ]
+    },
+    {
+      "type": "footnote",
+      "name": "Footnote",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "type": "inline_richtext",
+          "id": "text",
+          "label": "Text",
+          "default": "Add a short note, such as how results were measured."
+        },
+        {
+          "type": "header",
+          "content": "Appearance"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Text color",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "header",
+          "content": "Typography"
+        },
+        {
+          "type": "range",
+          "id": "size",
+          "label": "Font size",
+          "min": 10,
+          "max": 18,
+          "step": 1,
+          "unit": "px",
+          "default": 13
+        },
+        {
+          "type": "header",
+          "content": "Spacing"
+        },
+        {
+          "type": "range",
+          "id": "margin_top",
+          "label": "Space above",
+          "min": 0,
+          "max": 40,
+          "step": 2,
+          "unit": "px",
+          "default": 12
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Image With Text Benefits",
+      "category": "Image and video",
+      "blocks": [
+        {
+          "type": "media",
+          "settings": {
+            "media_type": "image"
+          }
+        },
+        {
+          "type": "heading",
+          "settings": {
+            "text": "REAL BENEFITS, REAL RESULTS"
+          }
+        },
+        {
+          "type": "benefits_group"
+        },
+        {
+          "type": "benefit",
+          "settings": {
+            "icon_source": "library",
+            "icon_name": "drop",
+            "heading": "Deep hydration",
+            "text": "<p>Locks in moisture for up to 24 hours so skin stays soft and supple.</p>"
+          }
+        },
+        {
+          "type": "benefit",
+          "settings": {
+            "icon_source": "library",
+            "icon_name": "leaf",
+            "heading": "Clean ingredients",
+            "text": "<p>Plant-based formula, free from parabens, sulfates, and synthetic dyes.</p>"
+          }
+        },
+        {
+          "type": "benefit",
+          "settings": {
+            "icon_source": "library",
+            "icon_name": "sparkle",
+            "heading": "Visible glow",
+            "text": "<p>Brightens dull skin and restores a radiant, healthy-looking finish.</p>"
+          }
+        },
+        {
+          "type": "benefit",
+          "settings": {
+            "icon_source": "library",
+            "icon_name": "shield",
+            "heading": "All-day protection",
+            "text": "<p>A lightweight barrier that defends against pollution and dryness.</p>"
+          }
+        },
+        {
+          "type": "footnote",
+          "settings": {
+            "text": "Add a short note, such as how results were measured."
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

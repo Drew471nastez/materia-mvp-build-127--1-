@@ -1,0 +1,4357 @@
+{%- comment -%} Site navigation is persistent UI. It must not enter the global scroll-reveal animation on every editor redraw. {%- endcomment -%}
+{%- comment -%}
+  The header's fixed rules are cached files, linked where they used to be
+  written inline: header-section.css here, header-layout.css after the pill
+  block and header-sticky.css with the sticky controller. What a setting
+  decides is a custom property on the section (--hs-*), or stays inline when
+  a whole rule only exists for one choice. header-section.js keeps the count
+  bubbles current and applies the header's slider drags in the builder.
+{%- endcomment -%}
+{{ 'header-section.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'header-section.js' | asset_url }}" defer="defer"></script>
+{%- liquid
+  assign __ti_scroll_animation = settings.scroll_animation | default: 'none'
+  assign __ti_reveal = section.settings.reveal
+-%}
+<style>
+  #shopify-section-{{ section.id }} {
+    --hs-margin-top: {{ section.settings.section_margin_top_mobile | default: 0 }}px;
+    --hs-margin-bottom: {{ section.settings.section_margin_bottom_mobile | default: 0 }}px;
+    --hs-margin-top-desktop: {{ section.settings.section_margin_top_desktop | default: 0 }}px;
+    --hs-margin-bottom-desktop: {{ section.settings.section_margin_bottom_desktop | default: 0 }}px;
+  }
+  {%- if section.settings.transparent_header and request.page_type == 'index' -%}
+    {% comment %}Must come after the spacing reset (header-section.css), which zeroes the margin. Pull the
+       first section up under the bar so a transparent header shows the hero
+       at the top of the page, not a solid white strip.{% endcomment %}
+    @media (min-width: 1025px) {
+      #shopify-section-{{ section.id }} {
+        margin-bottom: calc(-1 * var(--header-bar-height, {{ section.settings.header_height | default: 100 }}px)) !important;
+        position: relative;
+        z-index: 11;
+      }
+    }
+    {%- if section.settings.transparent_on_mobile -%}
+    @media (max-width: 1024.98px) {
+      #shopify-section-{{ section.id }} {
+        margin-bottom: calc(-1 * var(--header-bar-height, {{ section.settings.header_height_mobile | default: section.settings.header_height | default: 64 }}px)) !important;
+      }
+    }
+    {%- endif -%}
+  {%- endif -%}
+</style>
+{%- comment -%}
+  Materia Themes. Developed By Materia Themes.
+{%- endcomment -%}
+{%- liquid
+  assign section_st = section.settings
+  assign theme_st = settings
+  assign pill_glass_block = nil
+  for _block in section.blocks
+    if _block.type == 'pill_glass'
+      assign pill_glass_block = _block
+      break
+    endif
+  endfor
+  assign pgs = pill_glass_block.settings
+  assign section_width = section_st.section_width
+  assign transparent = section_st.transparent_header
+  assign transparent_mobile = false
+  if section_st.transparent_on_mobile
+    assign transparent_mobile = true
+  endif
+  assign transparent_color = section_st.transparent_text_icon_color
+  if transparent_color == blank or transparent_color.alpha == 0
+    assign transparent_color = 'var(--color-heading)'
+  endif
+  assign transparent_hover_color = section_st.transparent_text_hover_color | default: '#131D2E'
+  assign transparent_hover_fill = section_st.transparent_hover_fill_color | default: '#FFFFFF'
+  assign disable_hover_fill = section_st.disable_white_fill_on_hover
+  assign sticky_header_type = section_st.sticky_header_type
+  assign sticky_mobile = section_st.sticky_header_mobile
+  comment
+    The pill is a floating, fixed bar and is ONLY allowed on the homepage
+    (request.page_type == 'index'). On every other page the header renders as a
+    normal in-flow bar. `pill_enabled` is the single source of truth that every
+    piece of pill markup/CSS below keys off, so the pill turns on/off in one place.
+    We intentionally NO LONGER force the sticky type to 'always' here — the pill
+    now supports the real "Show on scroll up" behaviour (handled in CSS + JS below),
+    so whatever the merchant picks in Sticky header is honoured.
+  endcomment
+  assign pill_enabled = false
+  if pgs.header_pill_enable and request.page_type == 'index'
+    assign pill_enabled = true
+  endif
+  assign color_scheme = section_st.color_scheme.id | default: section_st.color_scheme
+  assign logo_position = section_st.logo_position
+  assign top_search = section_st.show_search
+  assign my_account = section_st.show_account_icon
+  assign wishlist = section_st.show_wishlist_icon
+  assign minicart = section_st.show_shopping_cart
+  assign actions_as_text = section_st.actions_as_text
+  # Text-action labels inherit the same typography as the top-level menu links:
+  # heading font when menu_font is the heading font, + uppercase when uppercase_first.
+  assign header_text_class = ''
+  if settings.menu_font == 'heading_font'
+    assign header_text_class = header_text_class | append: ' heading-style'
+  endif
+  if section_st.uppercase_first
+    assign header_text_class = header_text_class | append: ' uppercase'
+  endif
+  assign show_country = section_st.show_currency
+  assign show_language = section_st.show_language
+  assign transparent_class = ''
+  assign transparent_mobile_class = ''
+  if request.page_type == 'index' and transparent
+    assign transparent_class = ' transparent'
+    if transparent_mobile
+      assign transparent_mobile_class = ' transparent-mobile'
+    endif
+  endif
+  assign has_transparent_logo = false
+  if settings.logo_on_transparent != blank
+    assign has_transparent_logo = true
+  endif
+-%}
+{%- capture style -%}
+--section-pt: 0;
+--section-pb: 0;
+{%- endcapture -%}
+{%- comment -%}
+  Count bubbles (cart and wishlist), one default in Theme settings > Count
+  bubble. Cart Drawer and Wishlist each turn on "Custom bubble style" for
+  their own colours; an empty or transparent one follows the default. The
+  values go on :root so the sticky header and the mobile navigation bar read
+  the same. An unset colour is left out so each bubble falls back to its own
+  scheme's primary colour where it is drawn.
+{%- endcomment -%}
+{%- liquid
+  assign cb_bg = ''
+  if settings.bubble_bg != blank and settings.bubble_bg.alpha != 0
+    assign cb_bg = settings.bubble_bg
+  endif
+  assign cb_text = ''
+  if settings.bubble_text != blank and settings.bubble_text.alpha != 0
+    assign cb_text = settings.bubble_text
+  endif
+  assign cb_cart_bg = cb_bg
+  assign cb_cart_text = cb_text
+  if settings.cart_bubble_custom
+    if settings.cart_bubble_bg != blank and settings.cart_bubble_bg.alpha != 0
+      assign cb_cart_bg = settings.cart_bubble_bg
+    endif
+    if settings.cart_bubble_color != blank and settings.cart_bubble_color.alpha != 0
+      assign cb_cart_text = settings.cart_bubble_color
+    endif
+  endif
+  assign cb_wish_bg = cb_bg
+  assign cb_wish_text = cb_text
+  if settings.wishlist_bubble_custom
+    if settings.wishlist_bubble_bg != blank and settings.wishlist_bubble_bg.alpha != 0
+      assign cb_wish_bg = settings.wishlist_bubble_bg
+    endif
+    if settings.wishlist_bubble_color != blank and settings.wishlist_bubble_color.alpha != 0
+      assign cb_wish_text = settings.wishlist_bubble_color
+    endif
+  endif
+  assign cb_border_color = ''
+  if settings.bubble_border_color != blank and settings.bubble_border_color.alpha != 0
+    assign cb_border_color = settings.bubble_border_color
+  endif
+  case settings.bubble_shape
+    when 'square'
+      assign cb_radius = '0px'
+    when 'rounded'
+      assign cb_radius = '5px'
+    else
+      assign cb_radius = '999px'
+  endcase
+  case settings.bubble_animation
+    when 'none'
+      assign cb_anim = 'none'
+    when 'bounce'
+      assign cb_anim = 'mt-count-bounce'
+    else
+      assign cb_anim = 'mt-count-pop'
+  endcase
+-%}
+<style data-count-bubble>
+  :root {
+    {%- if cb_cart_bg != blank %}--count-bubble-bg: {{ cb_cart_bg }};{% endif -%}
+    {%- if cb_cart_text != blank %}--count-bubble-color: {{ cb_cart_text }};{% endif -%}
+    {%- comment -%} The wishlist never borrows the cart's own colour (the stylesheets fall back from one to the other). {%- endcomment -%}
+    {%- if cb_wish_bg != blank %}--count-bubble-wishlist-bg: {{ cb_wish_bg }};{% elsif cb_cart_bg != blank %}--count-bubble-wishlist-bg: var(--color-primary);{% endif -%}
+    {%- if cb_wish_text != blank %}--count-bubble-wishlist-color: {{ cb_wish_text }};{% elsif cb_cart_text != blank %}--count-bubble-wishlist-color: var(--color-white, #fff);{% endif -%}
+    {%- if cb_border_color != blank %}--count-bubble-border-color: {{ cb_border_color }};{% endif %}
+    --count-bubble-size: {{ settings.bubble_size | default: 18 }}px;
+    --count-bubble-font-size: {{ settings.bubble_font_size | default: 10 }}px;
+    --count-bubble-font-weight: {{ settings.bubble_font_weight | default: 600 }};
+    --count-bubble-radius: {{ cb_radius }};
+    --count-bubble-border-width: {{ settings.bubble_border_width | default: 0 }}px;
+    --count-bubble-offset-x: {{ settings.bubble_offset_x | default: 0 }}px;
+    --count-bubble-offset-y: {{ settings.bubble_offset_y | default: 0 }}px;
+    --count-bubble-animation: {{ cb_anim }};
+  }
+</style>
+{%- liquid
+  comment
+    One source of truth for the pill corner radius, driven by the
+    Border radius slider. 100 means a full pill; anything lower is a
+    literal px radius. Used by BOTH the glass layer and the pill so the
+    slider controls the shape in every combination.
+  endcomment
+  assign header_corner_radius = pgs.header_radius | default: 50
+  if header_corner_radius >= 50
+    assign header_corner_radius = 9999
+  endif
+-%}
+{%- if pgs.glass_enabled -%}
+  {%- assign glass_blur = pgs.glass_blur | default: 20 -%}
+  {%- assign glass_opacity_pct = pgs.glass_opacity | default: 30 -%}
+  {%- assign glass_sat = pgs.glass_saturation | default: 140 -%}
+  {%- assign glass_color = pgs.glass_color | default: '#ffffff' -%}
+  {%- assign glass_brightness = pgs.glass_brightness | default: 105 -%}
+  {%- assign glass_contrast = pgs.glass_contrast | default: 110 -%}
+  {%- assign glass_shine = pgs.glass_shine | default: 35 -%}
+  {%- assign glass_shadow = pgs.glass_shadow | default: 28 -%}
+  {%- assign glass_top_opacity = glass_opacity_pct | plus: 6 | at_most: 90 -%}
+  {%- assign glass_bottom_opacity = glass_opacity_pct | minus: 8 | at_least: 3 -%}
+  {%- style -%}
+    .section-header:not(.shopify-section-header-sticky) .header.glass-enabled {
+      {%- unless transparent %}position: relative;{%- endunless %}
+    }
+    .shopify-section-header-sticky .header.glass-enabled {
+      position: relative;
+    }
+    .section-header .header.glass-enabled,
+    .shopify-section-header-sticky .header.glass-enabled {
+      background: transparent !important;
+      background-color: transparent !important;
+      background-image: none !important;
+      background-attachment: initial !important;
+      box-shadow:
+        0 {{ glass_shadow | divided_by: 3 }}px {{ glass_shadow }}px -{{ glass_shadow | divided_by: 2 }}px color-mix(in srgb, {{ glass_color }} 35%, #00000028),
+        0 1px 0 0 color-mix(in srgb, #ffffff {{ glass_shine | divided_by: 2 }}%, transparent) inset;
+    }
+    .section-header .header.glass-enabled .header__inner,
+    .section-header .header.glass-enabled header-inner,
+    .section-header .header.glass-enabled .header__menu,
+    .section-header .header.glass-enabled .header__logo,
+    .section-header .header.glass-enabled .header__action,
+    .section-header .header.glass-enabled .horizontal-list,
+    .section-header .header.glass-enabled .horizontal-list > li,
+    .section-header .header.glass-enabled .horizontal-list > li > menu-item,
+    .section-header .header.glass-enabled .horizontal-list > li > menu-item > a,
+    .section-header .header.glass-enabled .navigation.horizontal:not(.fixed),
+    .section-header .header.glass-enabled .navigation.horizontal:not(.mobile),
+    .section-header .header.glass-enabled .navigation__menu-content:not(.navigation__menu-content-mobile),
+    .shopify-section-header-sticky .header.glass-enabled .header__inner,
+    .shopify-section-header-sticky .header.glass-enabled header-inner,
+    .shopify-section-header-sticky .header.glass-enabled .header__menu,
+    .shopify-section-header-sticky .header.glass-enabled .header__logo,
+    .shopify-section-header-sticky .header.glass-enabled .header__action,
+    .shopify-section-header-sticky .header.glass-enabled .horizontal-list,
+    .shopify-section-header-sticky .header.glass-enabled .horizontal-list > li,
+    .shopify-section-header-sticky .header.glass-enabled .horizontal-list > li > menu-item,
+    .shopify-section-header-sticky .header.glass-enabled .horizontal-list > li > menu-item > a,
+    .shopify-section-header-sticky .header.glass-enabled .navigation.horizontal:not(.fixed),
+    .shopify-section-header-sticky .header.glass-enabled .navigation.horizontal:not(.mobile),
+    .shopify-section-header-sticky .header.glass-enabled .navigation__menu-content:not(.navigation__menu-content-mobile) {
+      background: transparent !important;
+      background-color: transparent !important;
+      background-image: none !important;
+    }
+    .section-header .header.glass-enabled .header__inner,
+    .shopify-section-header-sticky .header.glass-enabled .header__inner {
+      position: relative;
+      z-index: 3;
+    }
+    .section-header .header.glass-enabled .submenu,
+    .section-header .header.glass-enabled .sub-children-menu,
+    .section-header .header.glass-enabled .dropdown-menu .submenu,
+    .section-header .header.glass-enabled .menu-parent .submenu,
+    .shopify-section-header-sticky .header.glass-enabled .submenu,
+    .shopify-section-header-sticky .header.glass-enabled .sub-children-menu,
+    .shopify-section-header-sticky .header.glass-enabled .dropdown-menu .submenu,
+    .shopify-section-header-sticky .header.glass-enabled .menu-parent .submenu {
+      background: var(--color-background) !important;
+      background-color: var(--color-background) !important;
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
+    }
+    .section-header .header.glass-enabled::before,
+    .shopify-section-header-sticky .header.glass-enabled::before {
+      content: none !important;
+      display: none !important;
+      background: none !important;
+      opacity: 0 !important;
+    }
+    {%- comment %}The glass layer is now just a rounded CLIPPER. The frost gradient and the
+       backdrop blur live on the inner .header-glass-blur child. A rounded parent
+       with overflow:hidden reliably clips the child's backdrop-filter to the
+       rounded shape in iOS Safari, which clip-path on the filtered element alone
+       does NOT do. That square frosted halo around the pill was Safari painting
+       the blur on the element's square box past the rounded corners.{% endcomment %}
+    #shopify-section-{{ section.id }} .header.glass-enabled > .header-glass-layer,
+.shopify-section-header-sticky .header.glass-enabled > .header-glass-layer {
+      position: absolute;
+      inset: 0;
+      display: block;
+      border-radius: {% if pill_enabled %}{{ header_corner_radius }}px{% else %}0{% endif %};
+      overflow: hidden;
+      z-index: 0;
+      pointer-events: none;
+    }
+    #shopify-section-{{ section.id }} .header.glass-enabled > .header-glass-layer > .header-glass-blur,
+.shopify-section-header-sticky .header.glass-enabled > .header-glass-layer > .header-glass-blur {
+      position: absolute;
+      inset: 0;
+      display: block;
+      background:
+        linear-gradient(
+          180deg,
+          color-mix(in srgb, #ffffff {{ glass_shine }}%, transparent) 0%,
+          color-mix(in srgb, #ffffff {{ glass_shine | divided_by: 5 }}%, transparent) 35%,
+          transparent 100%
+        ),
+        linear-gradient(
+          180deg,
+          color-mix(in srgb, {{ glass_color }} {{ glass_top_opacity }}%, transparent) 0%,
+          color-mix(in srgb, {{ glass_color }} {{ glass_bottom_opacity }}%, transparent) 100%
+        );
+      -webkit-backdrop-filter: blur({{ glass_blur }}px) saturate({{ glass_sat }}%) brightness({{ glass_brightness }}%) contrast({{ glass_contrast }}%);
+      backdrop-filter: blur({{ glass_blur }}px) saturate({{ glass_sat }}%) brightness({{ glass_brightness }}%) contrast({{ glass_contrast }}%);
+    }
+    .section-header .header.glass-enabled.glass-border::after,
+    .shopify-section-header-sticky .header.glass-enabled.glass-border::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, color-mix(in srgb, {{ glass_color }} 50%, #00000045), transparent) !important;
+      pointer-events: none;
+      z-index: 2;
+    }
+    #shopify-section-{{ section.id }} .header.glass-enabled .navigation.horizontal,
+#shopify-section-{{ section.id }} .header.glass-enabled .navigation.horizontal *,
+.shopify-section-header-sticky .header.glass-enabled .navigation.horizontal,
+.shopify-section-header-sticky .header.glass-enabled .navigation.horizontal * {
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
+    }
+    #shopify-section-{{ section.id }} .header.glass-enabled .navigation.horizontal.fixed::before,
+#shopify-section-{{ section.id }} .header.glass-enabled .navigation.horizontal.fixed::after,
+.shopify-section-header-sticky .header.glass-enabled .navigation.horizontal.fixed::before,
+.shopify-section-header-sticky .header.glass-enabled .navigation.horizontal.fixed::after {
+      content: none !important;
+      display: none !important;
+    }
+    #shopify-section-{{ section.id }} .header.glass-enabled .navigation.horizontal.fixed .level0::before,
+#shopify-section-{{ section.id }} .header.glass-enabled .navigation.horizontal.fixed .level0::after,
+#shopify-section-{{ section.id }} .header.glass-enabled .navigation.horizontal.fixed menu-item::before,
+#shopify-section-{{ section.id }} .header.glass-enabled .navigation.horizontal.fixed menu-item::after,
+#shopify-section-{{ section.id }} .header.glass-enabled .navigation.horizontal.fixed .menu-parent::before,
+#shopify-section-{{ section.id }} .header.glass-enabled .navigation.horizontal.fixed .menu-parent::after,
+.shopify-section-header-sticky .header.glass-enabled .navigation.horizontal.fixed .level0::before,
+.shopify-section-header-sticky .header.glass-enabled .navigation.horizontal.fixed .level0::after,
+.shopify-section-header-sticky .header.glass-enabled .navigation.horizontal.fixed menu-item::before,
+.shopify-section-header-sticky .header.glass-enabled .navigation.horizontal.fixed menu-item::after {
+      content: none !important;
+      display: none !important;
+      background: none !important;
+      border: 0 !important;
+    }
+    {%- comment %}Mobile drawer stays solid so it's readable. The DESKTOP nav also
+       carries .fixed on this theme, so this fill must be scoped to .mobile
+       or it paints a solid box behind the menu links over the glass.{% endcomment %}
+    #shopify-section-{{ section.id }} .header.glass-enabled .navigation.horizontal.fixed.mobile {
+      background: var(--color-background) !important;
+      background-image: none !important;
+      isolation: auto !important;
+      box-shadow: none !important;
+    }
+    {%- comment %}Desktop bar, the link wrappers and the active/hover states all go
+       fully transparent so the glass shows through cleanly. Submenus are
+       deliberately left out of this list so dropdowns keep their solid bg.{% endcomment %}
+    @media screen and (min-width: 1025px) {
+      #shopify-section-{{ section.id }} .header.glass-enabled .navigation.horizontal,
+      #shopify-section-{{ section.id }} .header.glass-enabled .navigation__menu-content,
+      #shopify-section-{{ section.id }} .header.glass-enabled .horizontal-list,
+      #shopify-section-{{ section.id }} .header.glass-enabled .horizontal-list > .level0,
+      #shopify-section-{{ section.id }} .header.glass-enabled .horizontal-list > .level0 > menu-item,
+      #shopify-section-{{ section.id }} .header.glass-enabled .horizontal-list > .level0 > menu-item > a,
+      #shopify-section-{{ section.id }} .header.glass-enabled .horizontal-list > .level0 > menu-item > a:hover,
+      #shopify-section-{{ section.id }} .header.glass-enabled .horizontal-list > .level0 > menu-item > a:focus,
+      #shopify-section-{{ section.id }} .header.glass-enabled .horizontal-list > .level0 > menu-item > a.active,
+      #shopify-section-{{ section.id }} .header.glass-enabled .horizontal-list > .level0 > menu-item > a.current,
+      #shopify-section-{{ section.id }} .header.glass-enabled .horizontal-list > .level0.active > menu-item > a,
+      #shopify-section-{{ section.id }} .header.glass-enabled .horizontal-list > .level0 > menu-item > a[aria-current],
+      .shopify-section-header-sticky .header.glass-enabled .navigation.horizontal,
+      .shopify-section-header-sticky .header.glass-enabled .navigation__menu-content,
+      .shopify-section-header-sticky .header.glass-enabled .horizontal-list,
+      .shopify-section-header-sticky .header.glass-enabled .horizontal-list > .level0,
+      .shopify-section-header-sticky .header.glass-enabled .horizontal-list > .level0 > menu-item,
+      .shopify-section-header-sticky .header.glass-enabled .horizontal-list > .level0 > menu-item > a,
+      .shopify-section-header-sticky .header.glass-enabled .horizontal-list > .level0 > menu-item > a:hover,
+      .shopify-section-header-sticky .header.glass-enabled .horizontal-list > .level0 > menu-item > a.active,
+      .shopify-section-header-sticky .header.glass-enabled .horizontal-list > .level0 > menu-item > a.current {
+        background: transparent !important;
+        background-color: transparent !important;
+        background-image: none !important;
+        box-shadow: none !important;
+      }
+      {%- comment %}Kill any pill/glow hover or active background drawn on a pseudo so
+         no chip appears behind the link text over the glass.{% endcomment %}
+      #shopify-section-{{ section.id }} .header.glass-enabled .horizontal-list > .level0 > menu-item > a::before,
+      #shopify-section-{{ section.id }} .header.glass-enabled .horizontal-list > .level0 > menu-item > a:hover::before,
+      .shopify-section-header-sticky .header.glass-enabled .horizontal-list > .level0 > menu-item > a::before,
+      .shopify-section-header-sticky .header.glass-enabled .horizontal-list > .level0 > menu-item > a:hover::before {
+        background: transparent !important;
+        background-color: transparent !important;
+        box-shadow: none !important;
+      }
+    }
+    @media screen and (min-width: 1025px) {
+      .header.glass-enabled .horizontal-list > .level0 > menu-item,
+      .header.glass-enabled .horizontal-list > .level0 > menu-item > a,
+      .shopify-section-header-sticky .header.glass-enabled .horizontal-list > .level0 > menu-item,
+      .shopify-section-header-sticky .header.glass-enabled .horizontal-list > .level0 > menu-item > a {
+        align-self: stretch;
+        display: inline-flex;
+        align-items: center;
+      }
+      .header.glass-enabled .horizontal-list,
+      .shopify-section-header-sticky .header.glass-enabled .horizontal-list {
+        align-items: stretch !important;
+      }
+      .header.glass-enabled .menu-parent.visible .submenu:not(.submenu-vertical),
+      .shopify-section-header-sticky .header.glass-enabled .menu-parent.visible .submenu:not(.submenu-vertical) {
+        margin-top: calc(var(--section-pb, 10) * 1px);
+      }
+    }
+    {%- if pgs.glass_text_enable -%}
+      {%- assign gtext = pgs.glass_text_color | default: '#ffffff' -%}
+      {%- comment %}Custom text + icon color while glass is on. Set as the strongest
+         override on the header text, the menu links and the action icons,
+         and also pushed into the colour variables so every state (including
+         transparent + sticky) resolves to it.{% endcomment %}
+      #shopify-section-{{ section.id }} .header.glass-enabled,
+      #shopify-section-{{ section.id }} .header.glass-enabled .header-color,
+      #shopify-section-{{ section.id }} .header.glass-enabled .level0 > menu-item > a,
+      #shopify-section-{{ section.id }} .header.glass-enabled .horizontal-list > .level0 > menu-item > a,
+      #shopify-section-{{ section.id }} .header.glass-enabled header-inner .button-localization,
+      #shopify-section-{{ section.id }} .header.glass-enabled .button-localization,
+      .shopify-section-header-sticky .header.glass-enabled,
+      .shopify-section-header-sticky .header.glass-enabled .header-color,
+      .shopify-section-header-sticky .header.glass-enabled .level0 > menu-item > a,
+      .shopify-section-header-sticky .header.glass-enabled .horizontal-list > .level0 > menu-item > a,
+      .shopify-section-header-sticky .header.glass-enabled header-inner .button-localization,
+      .shopify-section-header-sticky .header.glass-enabled .button-localization {
+        color: {{ gtext }} !important;
+        --color-heading: {{ gtext }} !important;
+        --color-text: {{ gtext }} !important;
+        --transparent-color: {{ gtext }} !important;
+      }
+      {%- comment %}Icons: most use currentColor (covered by color above); also force
+         any explicit fill / stroke so every icon follows the chosen colour.{% endcomment %}
+      #shopify-section-{{ section.id }} .header.glass-enabled .header__action svg,
+      #shopify-section-{{ section.id }} .header.glass-enabled .header__menu svg,
+      #shopify-section-{{ section.id }} .header.glass-enabled .header__logo svg,
+      .shopify-section-header-sticky .header.glass-enabled .header__action svg,
+      .shopify-section-header-sticky .header.glass-enabled .header__menu svg,
+      .shopify-section-header-sticky .header.glass-enabled .header__logo svg {
+        color: {{ gtext }} !important;
+      }
+      #shopify-section-{{ section.id }} .header.glass-enabled .header__action svg [fill]:not([fill="none"]),
+      #shopify-section-{{ section.id }} .header.glass-enabled .header__action svg path:not([fill="none"]),
+      #shopify-section-{{ section.id }} .header.glass-enabled .header__menu svg [fill]:not([fill="none"]),
+      .shopify-section-header-sticky .header.glass-enabled .header__action svg [fill]:not([fill="none"]),
+      .shopify-section-header-sticky .header.glass-enabled .header__action svg path:not([fill="none"]),
+      .shopify-section-header-sticky .header.glass-enabled .header__menu svg [fill]:not([fill="none"]) {
+        fill: {{ gtext }} !important;
+      }
+      #shopify-section-{{ section.id }} .header.glass-enabled .header__action svg [stroke]:not([stroke="none"]),
+      #shopify-section-{{ section.id }} .header.glass-enabled .header__menu svg [stroke]:not([stroke="none"]),
+      .shopify-section-header-sticky .header.glass-enabled .header__action svg [stroke]:not([stroke="none"]),
+      .shopify-section-header-sticky .header.glass-enabled .header__menu svg [stroke]:not([stroke="none"]) {
+        stroke: {{ gtext }} !important;
+      }
+    {%- endif -%}
+    {%- comment %}Phones and tablets: the glass follows the bar's real shape there. Square when the pill is desktop only, the mobile radius when the pill is on phones too.{% endcomment %}
+    {%- if pill_enabled -%}
+      {%- assign glass_m_radius = 0 -%}
+      {%- if pgs.header_pill_mobile -%}
+        {%- assign glass_m_radius = pgs.header_pill_mobile_radius | default: 50 -%}
+        {%- if glass_m_radius >= 50 -%}{%- assign glass_m_radius = 9999 -%}{%- endif -%}
+      {%- endif -%}
+      @media (max-width: 1024.98px) {
+        #shopify-section-{{ section.id }} .header.glass-enabled > .header-glass-layer,
+        .shopify-section-header-sticky .header.glass-enabled > .header-glass-layer {
+          border-radius: {{ glass_m_radius }}px;
+        }
+      }
+    {%- endif -%}
+    @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+      #shopify-section-{{ section.id }} .header.glass-enabled > .header-glass-layer {
+        background: color-mix(in srgb, {{ glass_color }} 85%, transparent) !important;
+      }
+    }
+  {%- endstyle -%}
+{%- endif -%}
+{% if transparent %}
+  {%- style -%}
+    @media screen and (min-width: 1025px) {
+      .section-header:not(.shopify-section-header-sticky) .transparent {
+        background-color: transparent;
+        --color-background: transparent;
+        --gradient-background: transparent;
+        --input-bg: transparent;
+      }
+    }
+    .section-header:not(.shopify-section-header-sticky) .transparent-mobile {
+      background-color: transparent;
+      --color-background: transparent;
+      --gradient-background: transparent;
+      --input-bg: transparent;
+    }
+    @media screen and (max-width: 1024.98px) {
+      .section-header:not(.shopify-section-header-sticky) > .header.transparent:not(.transparent-mobile),
+      #shopify-section-{{ section.id }} > header.header.transparent:not(.transparent-mobile) {
+        background-color: var(--gradient-background, var(--color-background));
+        color: var(--color-heading);
+      }
+      #shopify-section-{{ section.id }} > header.header.transparent:not(.transparent-mobile) :is(.header-color, .header__action, .nav-toggle, header-inner .button-localization) {
+        color: var(--color-heading);
+      }
+    }
+    .section-header:not(.shopify-section-header-sticky) .transparent-mobile .header-color,
+    .section-header:not(.shopify-section-header-sticky) .transparent-mobile header-inner .button-localization {
+      color: var(--transparent-color);
+    }
+    @media screen and (min-width: 1025px) {
+      .section-header:not(.shopify-section-header-sticky) .transparent .header-color,
+      .section-header:not(.shopify-section-header-sticky) .transparent header-inner .button-localization {
+        color: var(--transparent-color);
+      }
+      .section-header:not(.shopify-section-header-sticky) .transparent .level0 > menu-item > a {
+        --color-heading: var(--transparent-color);
+      }
+      body:has(header.transparent) .h-full_screen {
+        --height-header: 0px;
+      }
+    }
+    {%- comment %}A transparent logo from Logos & favicon replaces the normal logo only
+       while the bar is actually transparent. With none set, phones keep the
+       phone logo and desktop keeps the main logo.{% endcomment %}
+    .header__transparent-logo { display: none; }
+    .section-header:not(.shopify-section-header-sticky) .transparent.has-transparent-logo .header__normal-logo,
+    .section-header:not(.shopify-section-header-sticky) .transparent-mobile.has-transparent-logo .header__normal-logo,
+    .section-header:not(.shopify-section-header-sticky) .transparent.has-transparent-logo .header__mobile-logo,
+    .section-header:not(.shopify-section-header-sticky) .transparent-mobile.has-transparent-logo .header__mobile-logo {
+      display: none !important;
+    }
+    @media screen and (min-width: 1025px) {
+      .section-header:not(.shopify-section-header-sticky) .transparent.has-transparent-logo .header__transparent-logo {
+        display: inline-block !important;
+      }
+    }
+    @media screen and (max-width: 1024.98px) {
+      .section-header:not(.shopify-section-header-sticky) .transparent-mobile.has-transparent-logo .header__transparent-logo {
+        display: inline-block !important;
+      }
+      .header__normal-logo--desktop-only { display: none !important; }
+      .header__mobile-logo { display: inline-block !important; }
+      .section-header:not(.shopify-section-header-sticky) .transparent-mobile.has-transparent-logo .header__mobile-logo {
+        display: none !important;
+      }
+      .transparent:not(.transparent-mobile) .header__transparent-logo { display: none !important; }
+    }
+    @media (min-width: 1025px) and (hover: hover) and (pointer: fine) {
+      .section-header:not(.shopify-section-header-sticky) .transparent.has-transparent-logo:hover .header__transparent-logo {
+        display: none !important;
+      }
+      .section-header:not(.shopify-section-header-sticky) .transparent.has-transparent-logo:hover .header__normal-logo {
+        display: inline-block !important;
+      }
+      .section-header:not(.shopify-section-header-sticky) .transparent.has-transparent-logo:hover .header__mobile-logo {
+        display: none !important;
+      }
+      .section-header:not(.shopify-section-header-sticky) .transparent:not(.glass-enabled):hover {
+        --color-background: {{ transparent_hover_fill }} !important;
+        --gradient-background: {{ transparent_hover_fill }} !important;
+        --transparent-color: {{ transparent_hover_color }} !important;
+      }
+      .section-header:not(.shopify-section-header-sticky) .transparent.header:before {
+        transition: opacity var(--animation-nav) var(--animation-nav-delay, 0s),
+                    background-color .38s cubic-bezier(.4, 0, .2, 1);
+      }
+      .section-header:not(.shopify-section-header-sticky) .transparent .header-color,
+      .section-header:not(.shopify-section-header-sticky) .transparent header-inner .button-localization,
+      .section-header:not(.shopify-section-header-sticky) .transparent .level0 > menu-item > a {
+        transition: color .38s cubic-bezier(.4, 0, .2, 1);
+      }
+    }
+    {%- comment %}Hover text/icon colour for the transparent header (independent of color scheme,
+       so text stays visible when the header fills on hover). Applies at any width.{% endcomment %}
+    @media screen and (min-width: 1025px) {
+      .section-header:not(.shopify-section-header-sticky) .transparent:hover {
+        --transparent-color: {{ transparent_hover_color }} !important;
+      }
+    }
+    {%- comment %}Only on devices with a real pointer: a tap on a phone left the text in the hover colour over a transparent bar.{% endcomment %}
+    @media (hover: hover) and (pointer: fine) {
+      .section-header:not(.shopify-section-header-sticky) .transparent-mobile:hover {
+        --transparent-color: {{ transparent_hover_color }} !important;
+      }
+    }
+    {%- if disable_hover_fill -%}
+      {%- comment %}"Disable white fill header on hover": keep the transparent header fully
+         transparent on hover — no background fill, text keeps its transparent colour,
+         and the transparent logo stays in place. Higher specificity (.no-hover-fill)
+         beats both theme.css and the fill rule above.{% endcomment %}
+      .section-header:not(.shopify-section-header-sticky) .transparent.no-hover-fill:hover {
+        --color-background: transparent !important;
+        --gradient-background: transparent !important;
+        --transparent-color: {{ transparent_color }} !important;
+        --header-background-opacity: 0 !important;
+      }
+      .section-header:not(.shopify-section-header-sticky) .transparent.has-transparent-logo.no-hover-fill:hover .header__transparent-logo {
+        display: inline-block !important;
+      }
+      .section-header:not(.shopify-section-header-sticky) .transparent.has-transparent-logo.no-hover-fill:hover .header__normal-logo {
+        display: none !important;
+      }
+    {%- endif -%}
+    .shopify-section-header-sticky .header__transparent-logo {
+      display: none !important;
+    }
+    @media (min-width: 1025px) {
+      .shopify-section-header-sticky .header__normal-logo {
+        display: inline-block !important;
+      }
+      .shopify-section-header-sticky .header__mobile-logo {
+        display: none !important;
+      }
+    }
+    @media (max-width: 1024.98px) {
+      .shopify-section-header-sticky .header__mobile-logo {
+        display: inline-block !important;
+      }
+      .shopify-section-header-sticky .header__normal-logo--desktop-only {
+        display: none !important;
+      }
+      .shopify-section-header-sticky .header__normal-logo:not(.header__normal-logo--desktop-only) {
+        display: inline-block !important;
+      }
+    }
+    {%- if section_st.transparent_bottom_border -%}
+      @media screen and (min-width: 1025px) {
+        .section-header:not(.shopify-section-header-sticky) .transparent {
+          border-bottom: 1px solid {{ section_st.transparent_bottom_border_color | default: '#ffffff' }};
+        }
+      }
+      .section-header:not(.shopify-section-header-sticky) .transparent-mobile {
+        border-bottom: 1px solid {{ section_st.transparent_bottom_border_color | default: '#ffffff' }};
+      }
+    {%- endif -%}
+  {%- endstyle -%}
+{% endif %}
+{%- comment -%}
+  Mobile nav drawer opacity guard — rendered UNCONDITIONALLY (outside the
+  glass/transparent {% if %} blocks) so it can never be skipped. When the
+  header is transparent, theme.css sets `--color-background: transparent` on
+  `.transparent`; the in-header slide-in mobile drawer inherits it and renders
+  SEE-THROUGH (the page bleeds through the menu links — reported bug). Repaint
+  the header colour scheme's REAL solid background on the drawer panel AND its
+  links/content wrapper. Covers transparent, transparent-on-mobile and
+  glass+transparent. Scoped strictly to `.mobile` so the desktop nav (which
+  also carries `.fixed`) is untouched. The rules are in header-layout.css.
+{%- endcomment -%}
+{%- assign mnav_solid_bg = section_st.color_scheme.settings.background | default: '#ffffff' -%}
+{%- assign mnav_text = section_st.color_scheme.settings.heading_color | default: '#111111' -%}
+{%- comment -%} Logo size from the Header's own sliders, never taller than the bar; the transparent header's hover fill. {%- endcomment -%}
+{%- assign logo_max_h = section_st.header_height | default: 64 | minus: 16 -%}
+{%- style -%}
+  #shopify-section-{{ section.id }} {
+    --hs-mnav-bg: {{ mnav_solid_bg }};
+    --hs-mnav-heading: {{ mnav_text }};
+    --hs-mnav-text: {{ section_st.color_scheme.settings.text_color | default: mnav_text }};
+    --hs-hover-fill: {{ transparent_hover_fill }};
+    --hs-logo-width: {{ section_st.logo_width_desktop | default: 120 }}px;
+    --hs-logo-width-mobile: {{ section_st.logo_width_mobile | default: 100 }}px;
+    --hs-logo-max-height: {{ logo_max_h }}px;
+    --hs-logo-box-height: {{ section_st.header_height | default: 64 }}px;
+  }
+  {%- comment -%} Spacing and logo nudge: menu link gap, icon gap and the logo's horizontal offset, each a Header setting; a 0 is kept as 0. The offsets act only with Custom logo position on. The rules, and the logo on the left sitting flush, are in header-section.css. {%- endcomment -%}
+  {%- liquid
+    assign hs_menu_gap = section_st.menu_link_spacing | default: 32
+    if section_st.menu_link_spacing == 0
+      assign hs_menu_gap = 0
+    endif
+    assign hs_icon_gap = section_st.icon_spacing | default: 20
+    if section_st.icon_spacing == 0
+      assign hs_icon_gap = 0
+    endif
+    assign hs_icon_gap_m = section_st.icon_spacing_mobile | default: 14
+    if section_st.icon_spacing_mobile == 0
+      assign hs_icon_gap_m = 0
+    endif
+    assign hs_logo_x = 0
+    assign hs_logo_x_m = 0
+    if section_st.logo_custom_position
+      assign hs_logo_x = section_st.logo_offset_x | default: 0
+      assign hs_logo_x_m = section_st.logo_offset_x_mobile | default: 0
+    endif
+  -%}
+  #shopify-section-{{ section.id }} { --hs-menu-gap: {{ hs_menu_gap }}px; --hs-icon-gap: {{ hs_icon_gap }}px; --hs-icon-gap-mobile: {{ hs_icon_gap_m }}px; --hs-logo-x: {{ hs_logo_x }}px; --hs-logo-x-mobile: {{ hs_logo_x_m }}px; }
+  {%- comment -%} Phones and tablets: the logo fits the mobile bar height, not the desktop one. {%- endcomment -%}
+  {%- assign logo_box_h_mobile = section_st.header_height_mobile | default: section_st.header_height | default: 64 -%}
+  {%- assign logo_max_h_mobile = logo_box_h_mobile | minus: 16 -%}
+  @media (max-width: 1024.98px) {
+    #shopify-section-{{ section.id }} {
+      --hs-logo-max-height: {{ logo_max_h_mobile }}px;
+      --hs-logo-box-height: {{ logo_box_h_mobile }}px;
+    }
+  }
+  {%- comment -%} Mobile menu title bar colours, on every header: the rules are in header-section.css. {%- endcomment -%}
+  :root { --hs-mnav-title-bg: {{ section_st.menu_mobile_background | default: '#242424' }}; --hs-mnav-title-color: {{ section_st.menu_mobile_color | default: '#FFFFFF' }}; }
+  {%- comment -%} Tinted dropdown background: header-section.css, on the header's data-dd-tinted. {%- endcomment -%}
+  {%- comment -%} Pill header on phones: only menu, logo, search and cart, whether or not the header is transparent. Only when the pill is on for phones; a desktop only pill leaves the normal phone bar and all its icons alone. {%- endcomment -%}
+  {%- if pill_enabled and pgs.header_pill_mobile %}
+  @media (max-width: 1024.98px) {
+    #shopify-section-{{ section.id }} .header.is-pill .header__action .header_account,
+    #shopify-section-{{ section.id }} .header.is-pill .header__action .header__wishlist,
+    #shopify-section-{{ section.id }} .header.is-pill .header__action .lang__currency-desktop,
+    #shopify-section-{{ section.id }} .header.is-pill .header__action .lang__currency-on-nav {
+      display: none !important;
+    }
+  }
+  {%- endif %}
+  {%- if section_st.enable_custom_fonts and section_st.menu_custom_font != blank %}
+  {{ section_st.menu_custom_font | font_face: font_display: 'swap' }}
+  {%- endif %}
+{%- endstyle -%}
+{%- liquid
+  assign mhover = section_st.menu_hover_style | default: 'inherit'
+  assign hover_retired = 'background,slide_up,glow,double_line,uppercase,scale,subtle_fade' | split: ','
+  if hover_retired contains mhover
+    assign mhover = 'inherit'
+  endif
+  assign hover_value = mhover
+  if mhover == 'inherit' or mhover == blank
+    assign hover_value = settings.menu_hover_style | default: 'underline'
+  endif
+  if hover_retired contains hover_value
+    assign hover_value = 'underline'
+  endif
+  comment
+    Header > Dropdowns & mega menus: every value becomes a variable on the
+    header, read by navigation.css. Animation speed and smoothness give one
+    duration and one curve to every dropdown and mega menu: smoothness 0 is
+    cubic-bezier(.25,.25,.75,.75) (an even pace), 100 is (.16,1,.3,1).
+  endcomment
+  assign menu_hover_color = section_st.menu_hover_color
+  if menu_hover_color == blank or menu_hover_color.alpha == 0
+    if hover_value == 'color'
+      assign menu_hover_color = 'var(--color-primary, currentColor)'
+    else
+      assign menu_hover_color = 'var(--color-link-hover, currentColor)'
+    endif
+  endif
+  assign dd_speed = section_st.dropdowns_speed | default: 400
+  assign dd_smooth = section_st.dropdowns_smoothness | default: 70
+  if section_st.dropdowns_smoothness == 0
+    assign dd_smooth = 0
+  endif
+  assign dd_s = dd_smooth | times: 0.01
+  assign dd_x1 = dd_s | times: -0.09 | plus: 0.25 | round: 3
+  assign dd_y1 = dd_s | times: 0.75 | plus: 0.25 | round: 3
+  assign dd_x2 = dd_s | times: -0.45 | plus: 0.75 | round: 3
+  assign dd_y2 = dd_s | times: 0.25 | plus: 0.75 | round: 3
+  case section_st.dropdown_shadow
+    when 'none'
+      assign dd_shadow = 'none'
+    when 'medium'
+      assign dd_shadow = '0 12px 32px -8px rgba(0, 0, 0, 0.16)'
+    when 'strong'
+      assign dd_shadow = '0 22px 48px -12px rgba(0, 0, 0, 0.28)'
+    else
+      assign dd_shadow = '0 5px 30px 0 rgba(0, 0, 0, 0.05)'
+  endcase
+  assign dd_pad = section_st.dropdown_padding | default: 20
+  assign dd_pad_x = dd_pad | times: 1.5 | round
+  assign dd_width = section_st.dropdown_width | default: 260
+  assign dd_space = section_st.dropdown_link_spacing | default: 5
+  if section_st.dropdown_link_spacing == 0
+    assign dd_space = 0
+  endif
+  assign dd_radius = section_st.dropdown_radius | default: 0
+  assign mega_gap = section_st.mega_column_gap | default: 30
+  assign mega_card_radius = section_st.mega_card_radius | default: 0
+  assign menu_vars = '--menu-hover-color: ' | append: menu_hover_color | append: ';'
+  assign menu_vars = menu_vars | append: '--dd-duration: ' | append: dd_speed | append: 'ms;'
+  assign menu_vars = menu_vars | append: '--dd-ease: cubic-bezier(' | append: dd_x1 | append: ', ' | append: dd_y1 | append: ', ' | append: dd_x2 | append: ', ' | append: dd_y2 | append: ');'
+  assign menu_vars = menu_vars | append: '--dd-shadow: ' | append: dd_shadow | append: ';'
+  assign menu_vars = menu_vars | append: '--dd-width: ' | append: dd_width | append: 'px;'
+  assign menu_vars = menu_vars | append: '--dd-pad-y: ' | append: dd_pad | append: 'px;'
+  assign menu_vars = menu_vars | append: '--dd-pad-x: ' | append: dd_pad_x | append: 'px;'
+  assign menu_vars = menu_vars | append: '--dd-link-space: ' | append: dd_space | append: 'px;'
+  assign menu_vars = menu_vars | append: '--dd-radius: ' | append: dd_radius | append: 'px;'
+  assign menu_vars = menu_vars | append: '--mega-gap: ' | append: mega_gap | append: 'px;'
+  assign menu_vars = menu_vars | append: '--mega-card-radius: ' | append: mega_card_radius | append: 'px;'
+  if section_st.mega_card_label_bg != blank and section_st.mega_card_label_bg.alpha != 0
+    assign menu_vars = menu_vars | append: '--mega-label-bg: ' | append: section_st.mega_card_label_bg | append: ';'
+  endif
+  if section_st.mega_card_label_color != blank and section_st.mega_card_label_color.alpha != 0
+    assign menu_vars = menu_vars | append: '--mega-label-color: ' | append: section_st.mega_card_label_color | append: ';'
+  endif
+  assign mega_card_label = section_st.mega_card_label | default: 'button'
+  comment
+    Menu font (opt in): the menu links' font, top-level size and weight. The
+    header carries data-own-font / data-own-size / data-own-weight while it is
+    on, so Theme settings > Typography "Use in every section" leaves them; the
+    menu link rule there reads --menu-font, written here on the header.
+  endcomment
+  assign own_font = false
+  assign own_weight = false
+  if section_st.enable_custom_fonts
+    if section_st.menu_custom_font != blank
+      assign own_font = true
+      assign menu_vars = menu_vars | append: '--menu-font: ' | append: section_st.menu_custom_font.family | append: ', ' | append: section_st.menu_custom_font.fallback_families | append: ';'
+    endif
+    assign menu_size = section_st.menu_font_size | default: 15
+    assign menu_vars = menu_vars | append: '--hs-menu-size: ' | append: menu_size | append: 'px;'
+    if section_st.menu_font_weight != blank and section_st.menu_font_weight != 'theme'
+      assign own_weight = true
+      assign menu_vars = menu_vars | append: '--hs-menu-weight: ' | append: section_st.menu_font_weight | append: ';'
+    endif
+  endif
+  assign theme_hover = settings.menu_hover_style | default: 'underline'
+  if hover_retired contains theme_hover
+    assign theme_hover = 'underline'
+  endif
+-%}
+{%- if pill_enabled -%}
+  {%- liquid
+    assign pill_top = pgs.header_top_offset | default: 12
+    assign pill_bottom = pgs.header_bottom_offset | default: 0
+    assign pill_side = pgs.header_side_offset | default: 16
+    assign pill_max = pgs.header_max_width | default: 100
+    assign pill_padx = pgs.header_padding_x | default: 24
+    assign pill_pady = pgs.header_padding_y | default: 0
+    assign pill_border_color = pgs.header_pill_border_color
+    if pill_border_color == blank or pill_border_color.alpha == 0
+      assign pill_border_color = 'var(--color-border, currentColor)'
+    endif
+    assign pill_border_w = pgs.header_pill_border_width | default: 0
+    assign pill_blur = pgs.header_pill_blur
+    assign pill_blur_amt = pgs.header_pill_blur_amount | default: 12
+    assign pill_on_mobile = pgs.header_pill_mobile
+    assign pill_m_top = pgs.header_pill_mobile_top | default: 8
+    assign pill_m_side = pgs.header_pill_mobile_side | default: 10
+    assign pill_m_radius = pgs.header_pill_mobile_radius | default: 50
+    if pill_m_radius >= 50
+      assign pill_m_radius = 9999
+    endif
+  -%}
+  <style>
+{%- unless pill_on_mobile %}
+    @media (min-width: 1025px) {
+{% endunless -%}
+    {%- comment %}.shopify-section: one class more than header-layout.css's padding reset, so the offsets reach the bar.{% endcomment %}
+    #shopify-section-{{ section.id }}.shopify-section,
+    .shopify-section-header-sticky {
+      position: fixed !important;
+      top: 0; left: 0; right: 0;
+      z-index: 50;
+      pointer-events: none;
+      background: transparent !important;
+      box-shadow: none !important;
+      padding-top: {{ pill_top }}px !important;
+      padding-bottom: {{ pill_bottom }}px !important;
+      padding-left: {{ pill_side }}px !important;
+      padding-right: {{ pill_side }}px !important;
+      box-sizing: border-box !important;
+      {%- comment %}z-index restores on a delay so that when a drawer closes the pill stays
+         behind the drawer until it has finished animating out, instead of
+         snapping in front of it. margin-right restores INSTANTLY (0s 0s): the
+         theme removes its <html> padding-right the moment the drawer closes, so
+         our matching offset must come off at the same instant or the pill would
+         sit shifted for ~.45s and then visibly jump back. transform is animated
+         so the scroll-up reveal slides smoothly.{% endcomment %}
+      transition: transform .42s cubic-bezier(.4, 0, .2, 1), z-index 0s .45s, margin-right 0s 0s;
+      animation: none !important;
+    }
+    {%- comment %}---- "Show on scroll up" for the pill --------------------------------
+       The pill is position:fixed at top:0. The theme's normal header hide is
+       built for a full-width bar (top:-height + a slide keyframe) and on the
+       pill it produced an ugly half-slid "sneak peek" (worst on iOS, where the
+       address bar amplified it). So we pin top:0 and kill the keyframe, then do
+       the hide/reveal ourselves with a transform that animates via the
+       transition above. The transform ONLY exists while hidden (off-screen), so
+       at rest it never creates a containing block that would trap the fixed
+       mobile menu or break the glass backdrop-filter. The theme toggles
+       .shopify-section-header-hidden on this very section as you scroll.{% endcomment %}
+    #shopify-section-{{ section.id }} {
+      top: var(--sl-header-offset, 0px) !important;
+    }
+    {%- comment %}At rest / scrolling UP -> resting position, no transform (glass-safe).{% endcomment %}
+    #shopify-section-{{ section.id }}.shopify-section-header-sticky,
+    #shopify-section-{{ section.id }}.animate {
+      top: var(--sl-header-offset, 0px) !important;
+      transform: none !important;
+      animation: none !important;
+      opacity: 1 !important;
+    }
+    {%- comment %}Scrolled DOWN past the header -> slide the whole pill up out of view.
+       Declared AFTER the resting rule so that at equal specificity it wins when
+       both the sticky and hidden classes are present.{% endcomment %}
+    #shopify-section-{{ section.id }}.shopify-section-header-hidden {
+      top: var(--sl-header-offset, 0px) !important;
+      transform: translateY(calc(-135% - var(--sl-header-offset, 0px))) !important;
+      animation: none !important;
+    }
+    #shopify-section-{{ section.id }} .header.is-pill,
+    #shopify-section-{{ section.id }} .header.is-pill *,
+    .shopify-section-header-sticky .header.is-pill,
+    .shopify-section-header-sticky .header.is-pill * { pointer-events: auto; }
+    #shopify-section-{{ section.id }} .header.is-pill,
+    .shopify-section-header-sticky .header.is-pill {
+      position: relative;
+      display: block;
+      box-sizing: border-box;
+      width: 100%;
+      max-width: {{ pill_max }}%;
+      margin: 0 auto !important;
+      border-radius: {{ header_corner_radius }}px !important;
+      overflow: visible;
+      padding: {{ pill_pady }}px {{ pill_padx }}px !important;
+      {%- comment %}Pill background: when Glassmorphism is ON the glass layer supplies the
+         frosted look, so the bar itself stays transparent. When glass is OFF the
+         pill uses the solid "Pill background color" (default white) — a clean,
+         opaque bar with no page showing through (the source of the gray
+         glass-only artifacts). The solid color control is therefore disabled
+         while glass is on.{% endcomment %}
+      {%- if pgs.glass_enabled -%}
+        background-color: transparent !important;
+      {%- else -%}
+        background-color: {{ pgs.header_pill_bg | default: '#FFFFFF' }} !important;
+      {%- endif -%}
+      {% if pill_border_w > 0 and pill_border_color != blank %}
+        border: {{ pill_border_w }}px solid {{ pill_border_color }} !important;
+      {% else %}
+        border: 0 !important;
+      {% endif %}
+      {%- comment %}The pill never has a drop shadow.{% endcomment %}
+      box-shadow: none !important;
+      {%- comment %}No backdrop-filter on the pill bar itself, ever. A backdrop-filter here
+         makes .header.is-pill a containing block, which traps the fixed mobile
+         menu inside the pill box. iOS does not honour transitioning the filter,
+         so the delayed-restore could not keep it off during the close and the
+         full-screen menu snapped into the pill mid-slide. The blur now lives on
+         the .header-glass-blur layer (rendered for glass OR pill-blur), which is
+         a sibling of the menu's container and never traps it.{% endcomment %}
+      transition: box-shadow .3s ease, background-color .3s ease;
+    }
+    {%- comment %}The pill's own fill, one id and class more than header-layout.css's scheme background so the Pill background color reaches the bar.{% endcomment %}
+    #shopify-section-{{ section.id }}.shopify-section > header.header.is-pill:not(.transparent):not(.transparent-mobile),
+    .shopify-section-header-sticky.shopify-section > header.header.is-pill:not(.transparent):not(.transparent-mobile) {
+      {%- if pgs.glass_enabled -%}
+        background-color: transparent !important;
+      {%- else -%}
+        background-color: {{ pgs.header_pill_bg | default: '#FFFFFF' }} !important;
+      {%- endif -%}
+      background-image: none !important;
+    }
+    #shopify-section-{{ section.id }} .header.is-pill .header__inner,
+    .shopify-section-header-sticky .header.is-pill .header__inner {
+      background: transparent !important;
+      box-shadow: none !important;
+      border: 0 !important;
+    }
+    {%- comment %}The header content is wrapped in a width container (.container /
+       .fluid_container / .stretch_width / .full_width). Inside the pill that
+       container re-centres the content WITHIN the pill — adding its own
+       max-width, padding and auto margins on top of the pill's. The result is
+       the nav/logo/icons getting pushed inward and sitting away from the pill
+       edges (the "menu text moved" bug). When the header is a pill, the pill IS
+       the container, so we strip the inner container's own width/inset and let
+       the content fill the pill edge-to-edge (the pill's own horizontal padding
+       is the only inset). The header now adapts cleanly and the links stop
+       shifting when the pill is toggled on.{% endcomment %}
+    #shopify-section-{{ section.id }} .header.is-pill .header__inner > div,
+    .shopify-section-header-sticky .header.is-pill .header__inner > div {
+      max-width: none !important;
+      width: 100% !important;
+      margin-left: 0 !important;
+      margin-right: 0 !important;
+      padding-left: 0 !important;
+      padding-right: 0 !important;
+    }
+    {%- comment %}The theme fills the header with a square ::before (z-index:1) painting
+       --color-background. On a pill it sits on top of the rounded corners and
+       squares them off, and it also overrides the pill's own background/opacity
+       controls. Remove it for the pill so the rounded background-color on
+       .header.is-pill (no glass) or the glass layer (glass) is what shows, and
+       so the Border radius slider is actually visible. We only touch ::before;
+       the glass border edge line lives on ::after.{% endcomment %}
+    #shopify-section-{{ section.id }} .header.is-pill::before,
+    .shopify-section-header-sticky .header.is-pill::before {
+      display: none !important;
+      background: none !important;
+    }
+    {%- if pill_blur and pgs.glass_enabled == false %}
+    {%- comment %}Pill blur WITHOUT glass: the blur lives on this layer (rounded clipper +
+       blur child), never on the pill bar, so the bar is not a containing block
+       and the fixed mobile menu always escapes to the viewport and closes
+       smoothly. Same overflow:hidden rounded-parent clip used for glass so the
+       blur never bleeds a square halo past the pill corners on iOS.{% endcomment %}
+    #shopify-section-{{ section.id }} .header.is-pill > .header-glass-layer--pill {
+      position: absolute;
+      inset: 0;
+      display: block;
+      border-radius: {{ header_corner_radius }}px;
+      overflow: hidden;
+      z-index: 0;
+      pointer-events: none;
+    }
+    #shopify-section-{{ section.id }} .header.is-pill > .header-glass-layer--pill > .header-glass-blur--pill {
+      position: absolute;
+      inset: 0;
+      display: block;
+      backdrop-filter: blur({{ pill_blur_amt }}px) saturate(140%);
+      -webkit-backdrop-filter: blur({{ pill_blur_amt }}px) saturate(140%);
+    }
+    {%- endif %}
+{%- unless pill_on_mobile %}
+    }
+    {%- comment %}Desktop only pill: its blur layer has no styles on phones, so keep it out of the normal phone bar.{% endcomment %}
+    @media (max-width: 1024.98px) {
+      #shopify-section-{{ section.id }} .header > .header-glass-layer--pill { display: none !important; }
+    }
+{% endunless -%}
+{%- if pill_on_mobile %}
+    {%- comment %}Mobile pill tuning (only when the pill is enabled on mobile){% endcomment %}
+    @media (max-width: 1024.98px) {
+      #shopify-section-{{ section.id }}.shopify-section,
+      .shopify-section-header-sticky {
+        padding-top: {{ pill_m_top }}px !important;
+        padding-bottom: {% if pill_bottom > 0 %}{{ pill_bottom }}{% else %}{{ pill_m_top | divided_by: 2 }}{% endif %}px !important;
+        padding-left: {{ pill_m_side }}px !important;
+        padding-right: {{ pill_m_side }}px !important;
+      }
+      #shopify-section-{{ section.id }} .header.is-pill,
+      .shopify-section-header-sticky .header.is-pill {
+        max-width: 100% !important;
+        border-radius: {{ pill_m_radius }}px !important;
+      }
+      #shopify-section-{{ section.id }} .header.is-pill > .header-glass-layer--pill {
+        border-radius: {{ pill_m_radius }}px;
+      }
+    }
+{% endif -%}
+    {%- comment %}The search and cart drawers are rendered at body level (in theme.liquid),
+       and sit around z-index 11-16. They were only ever hidden because the pill
+       sits at z-index 50. While one is open the theme flags it on <html>
+       (open-search / open-minicart, and open-drawer for search). Drop the pill
+       BELOW them on the z-axis only. Position never changes, so the pill keeps
+       its exact shape and there is no jump or glitch. nav-open is excluded
+       because the mobile menu needs the header's own layer (handled below).
+       margin-right matches the scrollbar width the theme reserves on <html>
+       when it locks the page, so the centered pill does not drift sideways.
+       The drop is immediate; the restore is delayed (base rule) for a smooth
+       close.{% endcomment %}
+    html.open-search #shopify-section-{{ section.id }},
+    html.open-minicart #shopify-section-{{ section.id }},
+    html.open-drawer:not(.nav-open) #shopify-section-{{ section.id }} {
+      z-index: 4 !important;
+      margin-right: var(--mat-sbw, 0px) !important;
+      transition: z-index 0s 0s, margin-right 0s 0s !important;
+    }
+    {%- comment %}The mobile menu is rendered INSIDE the header and is position:fixed,
+       inset:0 (meant to fill the screen). Any of backdrop-filter, filter,
+       transform, perspective, will-change or contain on the header turns it
+       into a containing block, which traps the fixed menu inside the pill box
+       (the see-through, pill-width drawer). While the menu is open, strip those
+       off the section and the pill bar so the menu escapes to the full
+       viewport. The menu covers the screen, so this is never visible, and the
+       pill's position and shape stay untouched (no jump, no glitch). The pill's
+       backdrop-filter restore is delayed (see .header.is-pill transition) so it
+       does not snap back and re-trap the menu while it slides out.{% endcomment %}
+    html.nav-open #shopify-section-{{ section.id }} {
+      margin-right: var(--mat-sbw, 0px) !important;
+      transition: margin-right 0s 0s !important;
+    }
+    html.nav-open #shopify-section-{{ section.id }},
+    html.nav-open #shopify-section-{{ section.id }} .header.is-pill {
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
+      filter: none !important;
+      transform: none !important;
+      perspective: none !important;
+      will-change: auto !important;
+      contain: none !important;
+    }
+    html.nav-open #shopify-section-{{ section.id }} .header.is-pill {
+      transition-delay: 0s !important;
+    }
+  </style>
+  <script>
+    (function () {
+      var sec = document.getElementById('shopify-section-{{ section.id }}');
+      if (!sec) return;
+      {%- comment %}Expose the scrollbar width so the pill can offset itself by the exact
+         amount the page reserves when a drawer opens. The theme locks the page
+         with overflow:hidden on <html> AND adds padding-right equal to a forced
+         overflow:scroll probe (see getScrollBarWidth in utils.js). The pill is
+         position:fixed, so when that gutter is removed it would widen/shift to
+         the right; we cancel it 1:1 with margin-right: var(--mat-sbw).
+         
+         We MUST measure the SAME way the theme does — a forced-scroll probe —
+         not `innerWidth - documentElement.clientWidth`. The latter reads 0 when
+         the page scrolls on <body> instead of <html> (a common case), which left
+         the pill uncompensated and is exactly why it still widened to the right.
+         The probe returns the real gutter regardless of which element scrolls,
+         and 0 on overlay-scrollbar devices (most phones) where nothing moves.{% endcomment %}
+      var root = document.documentElement;
+      function isLocked() {
+        return root.classList.contains('open-drawer') || root.classList.contains('open-search') || root.classList.contains('open-minicart') || root.classList.contains('nav-open');
+      }
+      function measureSbw() {
+        var d = document.createElement('div');
+        d.style.cssText = 'position:absolute;top:-9999px;left:-9999px;width:100px;height:100px;overflow:scroll;visibility:hidden;';
+        document.body.appendChild(d);
+        var w = d.offsetWidth - d.clientWidth;
+        document.body.removeChild(d);
+        return w < 0 ? 0 : w;
+      }
+      function setSbw() {
+        if (isLocked()) return; // locked = gutter already removed; would misread
+        root.style.setProperty('--mat-sbw', measureSbw() + 'px');
+      }
+      setSbw();
+      {%- comment %}One set for the page: a builder redraw of the header runs this again.{% endcomment %}
+      if (window.__materiaSbwBound) return;
+      window.__materiaSbwBound = true;
+      window.addEventListener('resize', setSbw, { passive: true });
+      {%- comment %}Capture phase so we win the race against the drawer-opening click and
+         refresh the value the instant before the page is locked.{% endcomment %}
+      document.addEventListener('pointerdown', setSbw, { capture: true, passive: true });
+      document.addEventListener('touchstart', setSbw, { capture: true, passive: true });
+      document.addEventListener('keydown', setSbw, { capture: true, passive: true });
+    })();
+  </script>
+{%- endif -%}
+{{ 'header-layout.css' | asset_url | stylesheet_tag }}
+{% render 'header-dimensions' %}
+{%- liquid
+  assign hs_act_size = section_st.action_text_size | default: 15
+  assign hs_act_weight = section_st.action_text_weight | default: '500'
+  assign hs_act_case = 'none'
+  if section_st.uppercase_first
+    assign hs_act_case = 'uppercase'
+  endif
+  assign cta_block = nil
+  for _b in section.blocks
+    if _b.type == 'header_button'
+      assign cta_block = _b
+      break
+    endif
+  endfor
+  assign cbs = cta_block.settings
+  assign hs_cta_pos = cbs.button_position | default: 'after_icons'
+  comment
+    The header's colour scheme, read from Theme settings > Colors whether the
+    section holds the scheme object or only its id, so Primary and Secondary
+    always get the scheme's real button colours and never the fallbacks.
+  endcomment
+  assign hs_cs = section_st.color_scheme.settings
+  if hs_cs == blank
+    assign hs_cs = settings.color_schemes[color_scheme].settings
+  endif
+  if hs_cs == blank
+    assign hs_cs = settings.color_schemes['default'].settings
+  endif
+  assign cta_kind = cbs.button_style | default: 'primary'
+  if cta_kind == 'secondary'
+    assign cta_look = settings.btn_secondary_style | default: 'outline'
+    assign cta_bg = hs_cs.btn_secondary_background | default: '#ffffff'
+    assign cta_fg = hs_cs.btn_secondary_color | default: '#111111'
+    assign cta_bd = hs_cs.btn_secondary_border
+    if cta_bd == blank or cta_bd.alpha == 0
+      assign cta_bd = cta_fg
+    endif
+    assign cta_hbg = hs_cs.btn_secondary_hover_background | default: cta_fg
+    assign cta_hfg = hs_cs.btn_secondary_hover_color | default: cta_bg
+    assign cta_hbd = hs_cs.btn_secondary_hover_border_color
+    assign cta_ink = cta_fg
+  else
+    assign cta_look = settings.btn_style | default: 'solid'
+    assign cta_bg = hs_cs.btn_primary_background | default: '#111111'
+    assign cta_fg = hs_cs.btn_primary_color | default: '#ffffff'
+    assign cta_bd = hs_cs.btn_primary_border_color
+    if cta_bd == blank or cta_bd.alpha == 0
+      assign cta_bd = cta_bg
+    endif
+    assign cta_hbg = hs_cs.btn_primary_hover_background | default: cta_bg
+    assign cta_hfg = hs_cs.btn_primary_hover_color | default: cta_fg
+    assign cta_hbd = hs_cs.btn_primary_hover_border_color
+    assign cta_ink = cta_bg
+  endif
+  if cta_hbd == blank or cta_hbd.alpha == 0
+    assign cta_hbd = cta_hbg
+  endif
+  if settings.storelib_button_hover_bg != blank and settings.storelib_button_hover_bg.alpha != 0
+    assign cta_hbg = settings.storelib_button_hover_bg
+    assign cta_hbd = settings.storelib_button_hover_bg
+  endif
+  if settings.storelib_button_hover_text != blank and settings.storelib_button_hover_text.alpha != 0
+    assign cta_hfg = settings.storelib_button_hover_text
+  endif
+  if settings.storelib_button_hover_border != blank and settings.storelib_button_hover_border.alpha != 0
+    assign cta_hbd = settings.storelib_button_hover_border
+  endif
+  case settings.btn_shape
+    when 'pill'
+      assign cta_radius = '999px'
+    when 'square'
+      assign cta_radius = '0px'
+    else
+      assign cta_radius = settings.btn_radius | default: 8 | append: 'px'
+  endcase
+  assign cta_bw = settings.btn_border_width | default: 1
+  assign cta_fs = settings.btn_font_size | default: 14
+  assign cta_fw = settings.btn_font_weight | default: '500'
+  assign cta_tt = settings.btn_text_transform | default: 'none'
+  assign cta_ls = settings.btn_letter_spacing | default: 0
+  assign cta_py = settings.btn_padding_y | default: 14
+  assign cta_px = settings.btn_padding_x | default: 26
+  assign cta_deco = 'none'
+  case cta_look
+    when 'outline'
+      assign cta_bg = 'transparent'
+      assign cta_fg = cta_ink
+    when 'ghost'
+      assign cta_bg = 'transparent'
+      assign cta_bd = 'transparent'
+      assign cta_fg = cta_ink
+    when 'soft'
+      assign cta_bg = 'color-mix(in srgb, ' | append: cta_ink | append: ' 12%, transparent)'
+      assign cta_bd = 'transparent'
+      assign cta_fg = cta_ink
+    when 'underline'
+      assign cta_bg = 'transparent'
+      assign cta_bd = 'transparent'
+      assign cta_fg = cta_ink
+      assign cta_hbg = 'transparent'
+      assign cta_hbd = 'transparent'
+      assign cta_hfg = cta_ink
+      assign cta_deco = 'underline'
+      assign cta_px = 0
+  endcase
+  if cta_kind == 'custom'
+    assign cta_bg = cbs.custom_bg | default: '#ffffff'
+    assign cta_fg = cbs.custom_text | default: '#111111'
+    assign cta_bd = cbs.custom_border | default: cta_bg
+    assign cta_hbg = cbs.custom_hover_bg | default: '#e5e5e5'
+    assign cta_hfg = cbs.custom_hover_text | default: '#111111'
+    assign cta_hbd = cbs.custom_hover_border | default: cta_hbg
+    assign cta_bw = cbs.custom_border_width | default: 0
+    assign cta_radius = cbs.custom_radius | default: 0 | append: 'px'
+    assign cta_fs = cbs.custom_font_size | default: 15
+    assign cta_fw = cbs.custom_font_weight | default: '600'
+    assign cta_tt = 'none'
+    if cbs.custom_uppercase
+      assign cta_tt = 'uppercase'
+    endif
+    assign cta_py = cbs.custom_padding_y | default: 10
+    assign cta_px = cbs.custom_padding_x | default: 20
+    assign cta_deco = 'none'
+  endif
+  if settings.button_font == 'body_font'
+    assign cta_font = 'var(--font-body-family, inherit)'
+  else
+    assign cta_font = 'var(--font-heading-family, inherit)'
+  endif
+  assign cta_effect = settings.storelib_button_hover_effect | default: 'theme'
+  if cta_effect == 'theme'
+    assign cta_effect = settings.btn_hover_effect | default: 'fade'
+  endif
+  assign cta_hover_transform = 'none'
+  assign cta_hover_shadow = 'none'
+  case cta_effect
+    when 'scale'
+      assign cta_hover_transform = 'scale(1.04)'
+    when 'lift'
+      assign cta_hover_transform = 'translateY(-2px)'
+      assign cta_hover_shadow = '0 8px 18px -8px rgba(0, 0, 0, 0.35)'
+    when 'glow'
+      assign cta_hover_shadow = '0 0 0 3px color-mix(in srgb, currentColor 25%, transparent)'
+    when 'reverse'
+      assign cta_hbg = cta_fg
+      assign cta_hfg = cta_bg
+      assign cta_hbd = cta_fg
+      if cta_bg == 'transparent'
+        assign cta_hfg = 'var(--color-background, #ffffff)'
+      endif
+  endcase
+  assign cta_hover_filter = 'none'
+  assign cta_hover_deco = cta_deco
+  if cta_effect == 'darken'
+    assign cta_hover_filter = 'brightness(0.9)'
+  elsif cta_effect == 'underline'
+    assign cta_hover_deco = 'underline'
+  endif
+  assign cta_shadow = 'none'
+  if settings.btn_shadow_enabled
+    assign cta_shadow = '0 2px 8px rgba(0, 0, 0, 0.12)'
+    if cta_hover_shadow == 'none'
+      assign cta_hover_shadow = cta_shadow
+    endif
+  endif
+  assign cta_dur = settings.btn_anim_duration | default: 300
+  assign cta_ease = settings.btn_anim_ease | default: 'ease'
+  assign cta_gap = cbs.button_gap | default: 20
+  if cbs.button_gap == 0
+    assign cta_gap = 0
+  endif
+  assign cta_gap_m = cbs.button_gap_mobile | default: 12
+  if cbs.button_gap_mobile == 0
+    assign cta_gap_m = 0
+  endif
+  assign cta_x = cbs.button_offset_x | default: 0
+  assign cta_y = cbs.button_offset_y | default: 0
+  assign hs_logo_m = section_st.logo_position_mobile | default: 'center'
+  assign hs_logo_gap_m = section_st.logo_gap_mobile | default: 12
+  if section_st.logo_gap_mobile == 0
+    assign hs_logo_gap_m = 0
+  endif
+  assign cta_m_on = false
+  if cta_block and cbs.button_text != blank and cbs.show_on_mobile
+    assign cta_m_on = true
+  endif
+  assign cta_m_place = cbs.mobile_placement | default: 'in_row'
+  assign cta_m_size = cbs.mobile_size | default: 'compact'
+  assign cta_m_hide = cbs.mobile_hide_icons | default: 'none'
+  assign cta_m_pad = cbs.mobile_bar_padding | default: 10
+  if cbs.mobile_bar_padding == 0
+    assign cta_m_pad = 0
+  endif
+  comment
+    What the header's own rules (header-layout.css) read: the actions' text size, weight and case, and the gap beside a left phone logo.
+  endcomment
+  assign hs_vars = '--hs-act-size: ' | append: hs_act_size | append: 'px;--hs-act-weight: ' | append: hs_act_weight | append: ';--hs-act-case: ' | append: hs_act_case | append: ';--hs-logo-gap-m: ' | append: hs_logo_gap_m | append: 'px;'
+-%}
+{%- capture cta_vars -%}--hs-cta-gap: {{ cta_gap }}px; --hs-cta-gap-mobile: {{ cta_gap_m }}px; --hs-cta-x: {{ cta_x }}px; --hs-cta-y: {{ cta_y }}px; --hs-cta-bg: {{ cta_bg }}; --hs-cta-fg: {{ cta_fg }}; --hs-cta-bd: {{ cta_bd }}; --hs-cta-bw: {{ cta_bw }}px; --hs-cta-radius: {{ cta_radius }}; --hs-cta-fs: {{ cta_fs }}px; --hs-cta-fw: {{ cta_fw }}; --hs-cta-tt: {{ cta_tt }}; --hs-cta-ls: {{ cta_ls }}px; --hs-cta-py: {{ cta_py }}px; --hs-cta-px: {{ cta_px }}px; --hs-cta-deco: {{ cta_deco }}; --hs-cta-shadow: {{ cta_shadow }}; --hs-cta-dur: {{ cta_dur }}ms; --hs-cta-ease: {{ cta_ease }}; --hs-cta-hbg: {{ cta_hbg }}; --hs-cta-hfg: {{ cta_hfg }}; --hs-cta-hbd: {{ cta_hbd }}; --hs-cta-htransform: {{ cta_hover_transform }}; --hs-cta-hshadow: {{ cta_hover_shadow }}; --hs-cta-hfilter: {{ cta_hover_filter }}; --hs-cta-hdeco: {{ cta_hover_deco }};{%- endcapture -%}
+{%- capture hs_cta -%}
+  {%- if cta_block and cbs.button_text != blank -%}
+    {%- assign cta_href = cbs.button_link | default: '/products' -%}
+    {%- comment -%} Primary and Secondary are real theme buttons: data-theme-button and data-sl-button hand them to Theme settings > Buttons (theme-button-contract.css), which draws shape, size, font, border, shadow and every hover effect. The scheme's button colours reach it as --mb-* tokens. Custom keeps the block's own look. {%- endcomment -%}
+    {%- if cta_kind == 'secondary' -%}
+      {%- capture cta_tokens -%}--mb-bg: var(--btn-secondary-bg-color); --mb-text: var(--btn-secondary-color); --mb-hover-bg: var(--btn-secondary-hover-bg-color); --mb-hover-text: var(--btn-secondary-hover-color);{%- endcapture -%}
+    {%- else -%}
+      {%- capture cta_tokens -%}--mb-bg: var(--btn-primary-bg-color); --mb-text: var(--btn-primary-color); --mb-hover-bg: var(--btn-primary-hover-bg-color); --mb-hover-text: var(--btn-primary-hover-color);{%- endcapture -%}
+    {%- endif -%}
+    <a class="hs-cta hs-cta--pos-{{ hs_cta_pos }} hs-cta--m-{{ cbs.mobile_placement | default: 'in_row' }} hs-cta--{{ cta_kind }}{% if cta_kind != 'custom' %} hs-cta--theme{% endif %}{% unless cbs.show_on_mobile %} hs-cta--desktop{% endunless %}{% if cta_m_size != 'regular' %} hs-cta--ms-{{ cta_m_size }}{% endif %}{% if settings.button_font == 'body_font' %} hs-cta--font-body{% endif %}" href="{{ cta_href }}"{% if cbs.new_tab %} target="_blank" rel="noopener"{% endif %}{% if cta_kind != 'custom' %} data-theme-button="{{ cta_kind }}" data-sl-button style="{{ cta_tokens }} {{ cta_vars }}"{% else %} data-own-shape style="{{ cta_vars }}"{% if cta_effect == 'reverse' %} data-cta-reverse{% endif %}{% endif %} data-lh-block="{{ cta_block.id }}" {{ cta_block.shopify_attributes }}>{{ cbs.button_text | escape }}</a>
+  {%- endif -%}
+{%- endcapture -%}
+{%- comment -%} The rules for the actions as text, the menu font, the Header button, the phone bar and the sticky bar are in header-layout.css; the values are written on the header, the button and its bar. {%- endcomment -%}
+<!-- Logo dimensions are CSS-variable driven; updating a slider never changes image URLs. -->
+<header
+  class="header relative section gradient remove_spacing color-{{ color_scheme }}{{ transparent_class }}{{ transparent_mobile_class }}{% if has_transparent_logo %} has-transparent-logo{% endif %}{% if disable_hover_fill %} no-hover-fill{% endif %}{% if request.page_type == 'index' and section_st.separator_line == 'homepage' %} border-bottom{% endif %}{% if section_st.separator_line == 'all-page' %} border-bottom{% endif %}{% if request.page_type != 'index' and section_st.separator_line == 'inner_page' %} border-bottom{% endif %}{% if pgs.glass_enabled %} glass-enabled{% if pgs.glass_border %} glass-border{% endif %}{% endif %}{% if pill_enabled %} is-pill{% endif %} popup-search-mobile"
+  data-section-id="{{ section.id }}"
+  data-sticky="{{ sticky_header_type }}"
+  data-sticky-mobile="{{ sticky_mobile }}"{% if section_st.reset_spacing %} data-reset-spacing{% endif %}{% if section_st.actions_as_text %} data-actions-text{% endif %}
+  data-menu-hover="{{ hover_value }}"{% if mhover == 'inherit' or mhover == blank %} data-menu-hover-theme{% endif %} data-theme-hover="{{ theme_hover }}"{% if request.page_type == 'index' %} data-page-index{% endif %}
+  data-header-blocks="{% for b in section.blocks %}{{ b.id }}:{{ b.type }} {% endfor %}" data-menu-type='{"on":{% if section_st.enable_custom_fonts %}true{% else %}false{% endif %},"font":{{ section_st.menu_custom_font.family | append: ', ' | append: section_st.menu_custom_font.fallback_families | json | escape }},"size":{{ section_st.menu_font_size | default: 15 }},"weight":{{ section_st.menu_font_weight | default: 'theme' | json | escape }}}'{% if section_st.enable_custom_fonts %} data-own-size{% if own_font %} data-own-font{% endif %}{% if own_weight %} data-own-weight{% endif %}{% endif %}
+  data-mega-label="{{ mega_card_label }}"{% if section_st.mega_column_dividers %} data-mega-dividers{% endif %}{% if section_st.menu_mobile_dividers == false %} data-mm-no-dividers{% endif %}{% if section_st.menu_mobile_chevrons %} data-mm-chevrons{% endif %}{% if section_st.menu_dropdown_tinted_bg %} data-dd-tinted{% endif %}
+  {%- if settings.menu_font == 'heading_font' %} data-act-heading{% endif %}{% if hs_logo_m == 'left' %} data-logo-m="left"{% endif %}{% if cta_m_on and cta_m_place == 'in_row' and cta_m_hide != 'none' %} data-cta-hide="{{ cta_m_hide }}"{% endif %}{% if pill_enabled == false and transparent != true %} data-hs-flush{% endif %}{% if section_st.logo_custom_position %} data-logo-custom{% endif %} data-logo-x="{{ section_st.logo_offset_x | default: 0 }} {{ section_st.logo_offset_x_mobile | default: 0 }}"
+  style="{{ style | strip | strip_newlines }}--transparent-color: {{ transparent_color }};{{ menu_vars }}{{ hs_vars }}"
+>
+  {%- if pgs.glass_enabled -%}
+    <div class="header-glass-layer" aria-hidden="true"><span class="header-glass-blur"></span></div>
+  {%- elsif pill_enabled and pgs.header_pill_blur -%}
+    <div class="header-glass-layer header-glass-layer--pill" aria-hidden="true"><span class="header-glass-blur header-glass-blur--pill"></span></div>
+  {%- endif -%}
+  <div class="header__inner header__layout-1" id="header-sticky">
+    <div class="{{ section_width }}">
+      <header-inner class="logo-position grid logo-{{ logo_position }} gap-10 gap-xl-50 header-middle align-center">
+        <div class="header__logo text-center text-left-1025 inline-flex align-center">
+          {%- render 'logo', isTransparent: transparent, isTransparentMobile: transparent_mobile, drawn_desktop: section_st.logo_width_desktop, drawn_mobile: section_st.logo_width_mobile -%}
+        </div>
+        <div class="header__menu">
+          {%- render 'toggle-menu' -%}
+          {%- liquid
+            render 'horizontal-menu', class: 'min-h-1025-50', show_language: show_language, show_country: show_country
+          -%}
+        </div>
+        <div class="header__action flex flex-end align-center">
+          <svg class="hs-sprite" hidden aria-hidden="true" focusable="false" width="0" height="0" style="position:absolute;width:0;height:0;overflow:hidden;display:none">
+            <symbol id="icon-wishlist-header">
+              <path d="M17.4693 1.46278C16.4831 0.52335 15.178 0 13.8216 0C12.4652 0 11.1601 0.52335 10.1739 1.46278L9.5 2.11096L8.8261 1.46278C7.84238 0.51698 6.53343 -0.00720742 5.17448 0.000442952C3.81807 -0.00598466 2.512 0.518175 1.53069 1.46278C1.04762 1.9183 0.662488 2.46909 0.399178 3.08097C0.135869 3.69285 0 4.35278 0 5.01983C0 5.68687 0.135869 6.3468 0.399178 6.95868C0.662488 7.57057 1.04762 8.12135 1.53069 8.57687L8.96715 15.7858C9.04006 15.8502 9.12189 15.9034 9.21006 15.9439C9.39624 16.0187 9.60376 16.0187 9.78994 15.9439C9.87811 15.9034 9.95994 15.8502 10.0329 15.7858L17.4693 8.57687C17.9524 8.12135 18.3375 7.57057 18.6008 6.95868C18.8641 6.3468 19 5.68687 19 5.01983C19 4.35278 18.8641 3.69285 18.6008 3.08097C18.3375 2.46909 17.9524 1.9183 17.4693 1.46278ZM17.4693 5.00402C17.4715 5.47163 17.3796 5.93483 17.1991 6.36555C17.0186 6.79627 16.7533 7.18553 16.4193 7.50976L9.5 14.2286L2.58856 7.50976C2.24936 7.18822 1.97903 6.80001 1.79425 6.36906C1.60946 5.93811 1.51413 5.47355 1.51413 5.00402C1.51413 4.53448 1.60946 4.06992 1.79425 3.63897C1.97903 3.20802 2.24936 2.81981 2.58856 2.49828C3.28454 1.82749 4.21191 1.45613 5.17448 1.46278C6.14183 1.45534 7.07438 1.82652 7.77606 2.49828L8.96715 3.66025C9.04006 3.72459 9.12189 3.77785 9.21006 3.81834C9.39624 3.89313 9.60376 3.89313 9.78994 3.81834C9.87811 3.77785 9.95994 3.72459 10.0329 3.66025L11.2318 2.49828C11.9277 1.82749 12.8551 1.45613 13.8177 1.46278C14.785 1.45534 15.7176 1.82652 16.4193 2.49828C16.7562 2.82115 17.0244 3.20981 17.2076 3.64059C17.3908 4.07137 17.4852 4.53526 17.485 5.00402H17.4693Z" fill="currentColor"/>
+            </symbol>
+            <symbol id="icon-recently-view">
+              <path d="M16.99 8.495C16.99 7.91538 16.9357 7.34784 16.827 6.79238C16.7062 6.23691 16.5372 5.7056 16.3198 5.19843C16.1145 4.69127 15.8549 4.20826 15.541 3.74939C15.2391 3.29053 14.8949 2.86789 14.5085 2.48148C14.1221 2.10715 13.6995 1.763 13.2406 1.44904C12.7938 1.14716 12.3168 0.887537 11.8097 0.670181C11.3025 0.452825 10.7712 0.289808 10.2157 0.18113C9.66027 0.0603767 9.08669 0 8.495 0C7.90331 0 7.32973 0.0603767 6.77426 0.18113C6.2188 0.289808 5.68748 0.452825 5.18032 0.670181C4.67316 0.887537 4.19618 1.14716 3.74939 1.44904C3.29053 1.763 2.86789 2.10715 2.48148 2.48148C2.09507 2.86789 1.75092 3.29053 1.44904 3.74939C1.13508 4.20826 0.869424 4.69127 0.652068 5.19843C0.446787 5.7056 0.28377 6.23691 0.163017 6.79238C0.054339 7.34784 0 7.91538 0 8.495C0 9.08669 0.054339 9.66027 0.163017 10.2157C0.28377 10.7712 0.446787 11.3025 0.652068 11.8097C0.869424 12.3168 1.13508 12.7999 1.44904 13.2587C1.75092 13.7055 2.09507 14.1221 2.48148 14.5085C2.86789 14.8949 3.29053 15.2391 3.74939 15.541C4.19618 15.8549 4.67316 16.1206 5.18032 16.3379C5.68748 16.5553 6.2188 16.7183 6.77426 16.827C7.32973 16.9477 7.90331 17.0081 8.495 17.0081C9.08669 17.0081 9.66027 16.9477 10.2157 16.827C10.7712 16.7183 11.3025 16.5553 11.8097 16.3379C12.3168 16.1206 12.7938 15.8549 13.2406 15.541C13.6995 15.2391 14.1221 14.8949 14.5085 14.5085C14.8949 14.1221 15.2391 13.7055 15.541 13.2587C15.8549 12.7999 16.1145 12.3168 16.3198 11.8097C16.5372 11.3025 16.7062 10.7712 16.827 10.2157C16.9357 9.66027 16.99 9.08669 16.99 8.495ZM15.4504 8.495C15.4504 9.46103 15.2693 10.3667 14.907 11.212C14.5447 12.0572 14.0497 12.7938 13.4217 13.4217C12.7817 14.0497 12.0391 14.5447 11.1938 14.907C10.3606 15.2693 9.46103 15.4504 8.495 15.4504C7.52897 15.4504 6.62332 15.2693 5.77805 14.907C4.94485 14.5447 4.20826 14.0497 3.56826 13.4217C2.94034 12.7938 2.44526 12.0572 2.083 11.212C1.72074 10.3667 1.53961 9.46103 1.53961 8.495C1.53961 7.54105 1.72074 6.64144 2.083 5.79616C2.44526 4.95089 2.94034 4.21429 3.56826 3.58638C4.20826 2.95846 4.94485 2.46337 5.77805 2.10111C6.62332 1.72677 7.52897 1.53961 8.495 1.53961C9.46103 1.53961 10.3606 1.72677 11.1938 2.10111C12.0391 2.46337 12.7817 2.95846 13.4217 3.58638C14.0497 4.21429 14.5447 4.95089 14.907 5.79616C15.2693 6.64144 15.4504 7.54105 15.4504 8.495ZM7.71614 3.85807V8.495C7.71614 8.65198 7.75237 8.79085 7.82482 8.9116C7.90935 9.03235 8.01802 9.12292 8.15085 9.1833L11.2482 10.741C11.4293 10.8376 11.6225 10.8557 11.8278 10.7954C12.0331 10.7229 12.184 10.5901 12.2806 10.3969C12.3772 10.2037 12.3893 10.0044 12.3168 9.79914C12.2565 9.59386 12.1297 9.44291 11.9365 9.34631L9.27386 8.02406V3.85807C9.27386 3.65279 9.19537 3.4777 9.03839 3.33279C8.89349 3.17581 8.71236 3.09732 8.495 3.09732C8.27764 3.09732 8.09048 3.17581 7.9335 3.33279C7.78859 3.4777 7.71614 3.65279 7.71614 3.85807Z"/>
+            </symbol>
+            <symbol id="icon-search">
+             <path fill="currentColor" d="M11.2 11.04c-.094 0-.094 0 0 0l-.094.095c-.47.467-1.035.842-1.788 1.122-.66.281-1.412.375-2.165.375-.753 0-1.506-.188-2.165-.468A5.52 5.52 0 0 1 3.2 10.947 5.993 5.993 0 0 1 1.976 9.17C1.694 8.608 1.6 7.953 1.6 7.205c0-.749.188-1.497.47-2.152.283-.749.66-1.31 1.13-1.872.565-.468 1.13-.842 1.788-1.123.66-.28 1.412-.467 2.165-.467.753 0 1.506.187 2.165.467.658.281 1.317.655 1.788 1.217.47.468.847 1.123 1.223 1.778.283.655.471 1.31.471 2.152 0 .748-.188 1.497-.47 2.152a8.78 8.78 0 0 1-1.13 1.684Zm4.518 3.463-2.918-2.9c.47-.656.847-1.31 1.13-2.06.282-.748.376-1.59.376-2.432 0-1.03-.188-1.965-.565-2.807-.376-.842-.847-1.59-1.506-2.246-.659-.654-1.412-1.122-2.259-1.497C9.13.187 8.188 0 7.153 0 6.212 0 5.27.187 4.329.561c-.847.375-1.6.843-2.258 1.497-.66.655-1.13 1.404-1.506 2.34C.188 5.24 0 6.175 0 7.205c0 .935.188 1.871.565 2.807.376.842.94 1.59 1.6 2.245.659.655 1.411 1.123 2.259 1.591.847.28 1.788.468 2.729.468.847 0 1.694-.094 2.447-.375.753-.28 1.506-.655 2.07-1.122l2.918 2.9c.189.187.377.281.565.281.188 0 .376-.094.565-.28.188-.188.282-.375.282-.562 0-.28-.094-.468-.282-.655Z"/>
+            </symbol>
+            <symbol id="icon-account">
+            <path fill="currentColor" d="M15.899 14.84a9.143 9.143 0 0 0-3.35-3.292 9.203 9.203 0 0 0-9.101 0 9.143 9.143 0 0 0-3.35 3.293.773.773 0 0 0 .067.855c.064.08.145.146.238.193a.784.784 0 0 0 .39.101.737.737 0 0 0 .671-.373 7.57 7.57 0 0 1 2.774-2.727 7.619 7.619 0 0 1 7.537 0 7.57 7.57 0 0 1 2.773 2.727.78.78 0 0 0 1.062.28.716.716 0 0 0 .36-.458.772.772 0 0 0-.071-.598ZM8 9.6a4.777 4.777 0 0 0 3.363-1.387A4.866 4.866 0 0 0 12.8 4.844a4.867 4.867 0 0 0-1.406-3.425A4.778 4.778 0 0 0 8 0C6.727 0 5.506.51 4.606 1.419A4.867 4.867 0 0 0 3.2 4.844a4.866 4.866 0 0 0 1.436 3.369A4.777 4.777 0 0 0 8 9.6ZM4.8 4.844c0-.856.337-1.678.937-2.283A3.185 3.185 0 0 1 8 1.615c.848 0 1.662.34 2.262.946a3.245 3.245 0 0 1 0 4.567c-.6.606-1.414.946-2.262.946-.849 0-1.663-.34-2.263-.946A3.245 3.245 0 0 1 4.8 4.844Z"/>
+              </symbol>
+              <symbol id="icon-bag">
+                <path d="M12.7518 2.91374L11.6276 1.44835H3.37237L2.24824 2.91374H12.7518ZM14.8419 3.18637V3.20341C14.8419 3.20341 14.8478 3.20341 14.8595 3.20341C14.8946 3.27157 14.9239 3.33972 14.9473 3.40788C14.9824 3.47604 15 3.54988 15 3.62939V13.819C15 14.1143 14.9356 14.3983 14.8068 14.6709C14.6897 14.9322 14.5316 15.1594 14.3326 15.3525C14.1335 15.557 13.8934 15.716 13.6124 15.8296C13.3431 15.9432 13.0562 16 12.7518 16H2.24824C1.94379 16 1.65105 15.9375 1.37002 15.8126C1.1007 15.699 0.866511 15.5456 0.667447 15.3525C0.456674 15.1594 0.29274 14.9322 0.175644 14.6709C0.058548 14.3983 0 14.1143 0 13.819V3.62939C0 3.58395 0.0058548 3.53852 0.0175644 3.49308C0.029274 3.43628 0.0468384 3.37948 0.0702576 3.32268C0.0819672 3.29996 0.0936768 3.27725 0.105386 3.25453C0.128806 3.23181 0.14637 3.20909 0.15808 3.18637L2.40632 0.28967C2.47658 0.198793 2.5644 0.130635 2.66979 0.085197C2.77518 0.028399 2.88642 0 3.00351 0H11.9965C12.1136 0 12.2248 0.028399 12.3302 0.085197C12.4356 0.130635 12.5234 0.198793 12.5937 0.28967L14.8419 3.18637ZM1.51054 4.36209V13.819C1.51054 13.9098 1.5281 14.0007 1.56323 14.0916C1.59836 14.1825 1.65105 14.262 1.72131 14.3301C1.79157 14.3983 1.87354 14.4494 1.96721 14.4835C2.06089 14.5176 2.15457 14.5346 2.24824 14.5346H12.7518C12.8571 14.5346 12.9508 14.5176 13.0328 14.4835C13.1265 14.4494 13.2084 14.3983 13.2787 14.3301C13.3489 14.262 13.4016 14.1825 13.4368 14.0916C13.4719 14.0007 13.4895 13.9098 13.4895 13.819V4.36209H1.51054ZM9.74824 6.54313C9.74824 6.33866 9.8185 6.16826 9.95902 6.03195C10.1112 5.88427 10.2927 5.81044 10.5035 5.81044C10.7026 5.81044 10.8724 5.88427 11.0129 6.03195C11.1651 6.16826 11.2412 6.33866 11.2412 6.54313C11.2412 7.04295 11.1417 7.51438 10.9426 7.9574C10.7553 8.40043 10.4918 8.78665 10.1522 9.11608C9.81265 9.44551 9.41452 9.70678 8.95785 9.89989C8.50117 10.0816 8.01522 10.1725 7.5 10.1725C6.98478 10.1725 6.49883 10.0816 6.04215 9.89989C5.58548 9.70678 5.18735 9.44551 4.84777 9.11608C4.5082 8.78665 4.23888 8.40043 4.03981 7.9574C3.85246 7.51438 3.75878 7.04295 3.75878 6.54313C3.75878 6.33866 3.82904 6.16826 3.96956 6.03195C4.12178 5.88427 4.29742 5.81044 4.49649 5.81044C4.70726 5.81044 4.8829 5.88427 5.02342 6.03195C5.17564 6.16826 5.25176 6.33866 5.25176 6.54313C5.25176 6.84984 5.3103 7.13383 5.4274 7.3951C5.5445 7.65637 5.70843 7.88356 5.9192 8.07668C6.11827 8.28115 6.35246 8.44018 6.62178 8.55378C6.8911 8.66738 7.18384 8.72417 7.5 8.72417C7.81616 8.72417 8.1089 8.66738 8.37822 8.55378C8.64754 8.44018 8.88173 8.28115 9.0808 8.07668C9.29157 7.88356 9.4555 7.65637 9.5726 7.3951C9.6897 7.13383 9.74824 6.84984 9.74824 6.54313Z" fill="currentColor"/>
+                  </symbol>
+          </svg>
+          {%- if hs_cta_pos == 'before_icons' -%}{{ hs_cta }}{%- endif -%}
+          {% if show_language or show_country %}
+            <div class="lang__currency-desktop hidden flex-1025 align-center">
+              {% if show_country %}
+                {% render 'country-switcher', compact: true %}
+              {% endif %}
+              {% if show_language %}
+                {% render 'language-switcher' %}
+              {% endif %}
+            </div>
+          {% endif %}
+          {%- liquid
+            if top_search
+              render 'top-search-header', as_text: actions_as_text, text_class: header_text_class
+            endif
+            if my_account
+              render 'my-account', as_text: actions_as_text, text_class: header_text_class
+            endif
+            if wishlist
+              render 'wishlist', as_text: actions_as_text, text_class: header_text_class
+            endif
+          -%}
+          {%- if hs_cta_pos == 'before_cart' -%}{{ hs_cta }}{%- endif -%}
+          {%- liquid
+            if minicart and theme_st.enable_catalog_mode != true
+              render 'minicart_header', as_text: actions_as_text, text_class: header_text_class
+            endif
+          -%}
+          {%- if hs_cta_pos != 'before_icons' -%}{{ hs_cta }}{%- endif -%}
+        </div>
+      </header-inner>
+    </div>
+  </div>
+  {%- if cta_block and cbs.show_on_mobile and cbs.mobile_placement == 'below' and cbs.button_text != blank -%}
+    <div class="hs-cta-bar{% if cbs.mobile_bar_full_width != false %} hs-cta-bar--full{% endif %}" style="--hs-cta-bar-pad: {{ cta_m_pad }}px;">
+      <div class="{{ section_width }}">
+        <div class="hs-cta-bar__in">{{ hs_cta }}</div>
+      </div>
+    </div>
+  {%- endif -%}
+</header>
+{% render 'header-sticky-controller', pgs: pgs %}
+{%- if false -%}
+<script>
+  (function () {
+    var sec = null;
+    if (!sec) return;
+    var links = [];
+    for (var i = 0; i < links.length; i++) {
+      (function (btn) {
+        if (btn.__hsScrollBound) return;
+        btn.__hsScrollBound = true;
+        btn.addEventListener('click', function (e) {
+          var t = (btn.getAttribute('data-hs-scroll') || '').replace(/^#/, '').trim();
+          if (!t) return;
+          var el = document.getElementById(t) || document.getElementById('shopify-section-' + t);
+          if (!el && window.CSS && CSS.escape) { el = document.querySelector('[id$="' + CSS.escape(t) + '"]'); }
+          if (!el) return;
+          e.preventDefault();
+          var r = sec.getBoundingClientRect();
+          var offset = r.bottom > 0 ? r.bottom : 0;
+          var y = el.getBoundingClientRect().top + window.pageYOffset - offset;
+          var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          window.scrollTo({ top: Math.max(0, y), behavior: reduce ? 'auto' : 'smooth' });
+        });
+      })(links[i]);
+    }
+  })();
+</script>
+{%- endif -%}{% schema %}
+{
+  "name": "Header",
+  "limit": 1,
+  "class": "section-header",
+  "enabled_on": {
+    "groups": [
+      "header"
+    ]
+  },
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "header",
+      "content": "Logo"
+    },
+    {
+      "type": "range",
+      "id": "logo_width_desktop",
+      "label": "Logo size",
+      "min": 30,
+      "max": 400,
+      "step": 2,
+      "unit": "px",
+      "default": 120
+    },
+    {
+      "type": "range",
+      "id": "logo_width_mobile",
+      "label": "Logo size mobile",
+      "min": 30,
+      "max": 300,
+      "step": 2,
+      "unit": "px",
+      "default": 100
+    },
+    {
+      "type": "select",
+      "id": "logo_position",
+      "default": "left",
+      "label": "Logo position",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "logo_position_mobile",
+      "label": "Logo position on phones",
+      "default": "center",
+      "options": [
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "left",
+          "label": "Left"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "logo_gap_mobile",
+      "label": "Space between menu icon and logo",
+      "min": 0,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "default": 12,
+      "visible_if": "{{ section.settings.logo_position_mobile == 'left' }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "logo_custom_position",
+      "label": "Custom logo position",
+      "default": false
+    },
+    {
+      "type": "range",
+      "id": "logo_offset_x",
+      "label": "Logo horizontal position",
+      "visible_if": "{{ section.settings.logo_custom_position }}",
+      "min": -100,
+      "max": 200,
+      "step": 2,
+      "unit": "px",
+      "default": 0,
+      "info": "Moves the logo left (minus) or right (plus) on desktop. 0 keeps it where Logo position puts it."
+    },
+    {
+      "type": "range",
+      "id": "logo_offset_x_mobile",
+      "label": "Logo horizontal position mobile",
+      "visible_if": "{{ section.settings.logo_custom_position }}",
+      "min": -60,
+      "max": 60,
+      "step": 2,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "header",
+      "content": "Colors & borders"
+    },
+    {
+      "type": "select",
+      "id": "separator_line",
+      "label": "Header bottom border",
+      "default": "unset",
+      "options": [
+        {
+          "value": "unset",
+          "label": "None"
+        },
+        {
+          "value": "homepage",
+          "label": "Homepage only"
+        },
+        {
+          "value": "inner_page",
+          "label": "Inner pages only"
+        },
+        {
+          "value": "all-page",
+          "label": "All pages"
+        }
+      ]
+    },
+    {
+      "type": "header",
+      "content": "Size & layout"
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Section width",
+      "default": "fluid_container",
+      "info": "How far the logo, menu and icons reach toward the screen edges. Stretched and Full width bring the logo closest to the left edge.",
+      "options": [
+        {
+          "value": "container",
+          "label": "Default"
+        },
+        {
+          "value": "fluid_container",
+          "label": "Fluid container"
+        },
+        {
+          "value": "stretch_width",
+          "label": "Stretched"
+        },
+        {
+          "value": "full_width",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "header_height",
+      "label": "Header height",
+      "min": 48,
+      "max": 160,
+      "step": 2,
+      "unit": "px",
+      "default": 64
+    },
+    {
+      "type": "range",
+      "id": "header_height_mobile",
+      "label": "Header height on mobile",
+      "min": 48,
+      "max": 160,
+      "step": 2,
+      "unit": "px",
+      "default": 64,
+      "info": "Phones and tablets up to 1024px wide. Desktop height is controlled separately."
+    },
+    {
+      "type": "header",
+      "content": "Main navigation"
+    },
+    {
+      "type": "link_list",
+      "id": "mega_menu",
+      "default": "main-menu",
+      "label": "Menu"
+    },
+    {
+      "type": "select",
+      "id": "menu_hover_style",
+      "label": "Menu link hover",
+      "default": "inherit",
+      "options": [
+        {
+          "value": "inherit",
+          "label": "Keep previous choice"
+        },
+        {
+          "value": "none",
+          "label": "None"
+        },
+        {
+          "value": "underline",
+          "label": "Underline"
+        },
+        {
+          "value": "underline_reverse",
+          "label": "Underline from the left"
+        },
+        {
+          "value": "fade",
+          "label": "Fade the others"
+        },
+        {
+          "value": "color",
+          "label": "Colour only"
+        },
+        {
+          "value": "highlight",
+          "label": "Soft highlight"
+        }
+      ],
+      "info": "How top-level links, dropdown links and mega menu columns react to the pointer. Keep previous choice uses the style that was set in Theme settings > Typography before it moved here."
+    },
+    {
+      "type": "color",
+      "id": "menu_hover_color",
+      "label": "Hover colour",
+      "info": "Text, line and highlight colour on hover. Leave it empty to follow the colour scheme.",
+      "visible_if": "{{ section.settings.menu_hover_style != 'none' }}"
+    },
+    {
+      "type": "range",
+      "id": "menu_link_spacing",
+      "label": "Space between menu links",
+      "min": 0,
+      "max": 80,
+      "step": 2,
+      "unit": "px",
+      "default": 32,
+      "info": "Gap between the top-level links in the desktop menu."
+    },
+    {
+      "type": "select",
+      "id": "dropdowns_animation",
+      "default": "soft-slide",
+      "label": "Dropdown animation",
+      "options": [
+        {
+          "value": "fade-in",
+          "label": "Fade in"
+        },
+        {
+          "value": "fade-in-down",
+          "label": "Fade in + slide down"
+        },
+        {
+          "value": "down-to-up",
+          "label": "Slide down to up"
+        },
+        {
+          "value": "soft-slide",
+          "label": "Soft slide (gentle ease)"
+        },
+        {
+          "value": "pop-in",
+          "label": "Subtle pop-in"
+        },
+        {
+          "value": "blur-in",
+          "label": "Blur in"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "dropdowns_speed",
+      "min": 100,
+      "max": 1000,
+      "step": 25,
+      "unit": "ms",
+      "label": "Animation speed",
+      "default": 400,
+      "info": "How long a dropdown or mega menu takes to open and close."
+    },
+    {
+      "type": "range",
+      "id": "dropdowns_smoothness",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "label": "Smoothness",
+      "default": 70,
+      "info": "Low moves at an even pace. High starts quickly and settles very softly."
+    },
+    {
+      "type": "checkbox",
+      "id": "uppercase_first",
+      "label": "Uppercase top-level items"
+    },
+    {
+      "type": "checkbox",
+      "id": "redirect_to_link",
+      "label": "Redirect to parent link on tap",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "menu_dropdown_tinted_bg",
+      "label": "Tinted dropdown background",
+      "default": false,
+      "info": "A soft tint of the header colours behind dropdowns and mega menus."
+    },
+    {
+      "type": "header",
+      "content": "Dropdowns & mega menus"
+    },
+    {
+      "type": "range",
+      "id": "dropdown_width",
+      "min": 180,
+      "max": 420,
+      "step": 10,
+      "unit": "px",
+      "label": "Dropdown width",
+      "default": 260
+    },
+    {
+      "type": "range",
+      "id": "dropdown_padding",
+      "min": 8,
+      "max": 48,
+      "step": 2,
+      "unit": "px",
+      "label": "Dropdown padding",
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "dropdown_link_spacing",
+      "min": 0,
+      "max": 20,
+      "step": 1,
+      "unit": "px",
+      "label": "Space between links",
+      "default": 5
+    },
+    {
+      "type": "range",
+      "id": "dropdown_radius",
+      "min": 0,
+      "max": 32,
+      "step": 1,
+      "unit": "px",
+      "label": "Corner radius",
+      "default": 0
+    },
+    {
+      "type": "select",
+      "id": "dropdown_shadow",
+      "label": "Shadow",
+      "default": "soft",
+      "options": [
+        {
+          "value": "none",
+          "label": "None"
+        },
+        {
+          "value": "soft",
+          "label": "Soft"
+        },
+        {
+          "value": "medium",
+          "label": "Medium"
+        },
+        {
+          "value": "strong",
+          "label": "Strong"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "mega_column_gap",
+      "min": 10,
+      "max": 80,
+      "step": 2,
+      "unit": "px",
+      "label": "Mega menu column spacing",
+      "default": 30
+    },
+    {
+      "type": "checkbox",
+      "id": "mega_column_dividers",
+      "label": "Lines between mega menu columns",
+      "default": false
+    },
+    {
+      "type": "range",
+      "id": "mega_card_radius",
+      "min": 0,
+      "max": 32,
+      "step": 1,
+      "unit": "px",
+      "label": "Image card corner radius",
+      "default": 0
+    },
+    {
+      "type": "select",
+      "id": "mega_card_label",
+      "label": "Image card label",
+      "default": "button",
+      "info": "The banner label or collection title on a mega menu image.",
+      "options": [
+        {
+          "value": "pill",
+          "label": "Pill on the image"
+        },
+        {
+          "value": "button",
+          "label": "Button on the image"
+        },
+        {
+          "value": "below",
+          "label": "Text under the image"
+        }
+      ]
+    },
+    {
+      "type": "color",
+      "id": "mega_card_label_bg",
+      "label": "Label pill background",
+      "info": "Empty is white.",
+      "visible_if": "{{ section.settings.mega_card_label == 'pill' }}"
+    },
+    {
+      "type": "color",
+      "id": "mega_card_label_color",
+      "label": "Label pill text",
+      "info": "Empty follows the heading colour.",
+      "visible_if": "{{ section.settings.mega_card_label == 'pill' }}"
+    },
+    {
+      "type": "header",
+      "content": "Menu font"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_fonts",
+      "label": "Custom menu font",
+      "default": false,
+      "info": "Off: the menu follows Theme settings > Typography."
+    },
+    {
+      "type": "font_picker",
+      "id": "menu_custom_font",
+      "label": "Font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "range",
+      "id": "menu_font_size",
+      "label": "Top-level text size",
+      "min": 11,
+      "max": 24,
+      "step": 1,
+      "unit": "px",
+      "default": 15,
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "select",
+      "id": "menu_font_weight",
+      "label": "Weight",
+      "default": "theme",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}",
+      "options": [
+        {
+          "value": "theme",
+          "label": "Theme"
+        },
+        {
+          "value": "300",
+          "label": "Light"
+        },
+        {
+          "value": "400",
+          "label": "Regular"
+        },
+        {
+          "value": "500",
+          "label": "Medium"
+        },
+        {
+          "value": "600",
+          "label": "Semibold"
+        },
+        {
+          "value": "700",
+          "label": "Bold"
+        }
+      ]
+    },
+    {
+      "type": "header",
+      "content": "Header actions"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_search",
+      "label": "Show search icon",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_account_icon",
+      "label": "Show account icon",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_shopping_cart",
+      "label": "Show cart icon",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_wishlist_icon",
+      "label": "Show wishlist icon",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "actions_as_text",
+      "label": "Show actions as text",
+      "default": false
+    },
+    {
+      "type": "range",
+      "id": "action_text_size",
+      "label": "Action text size",
+      "min": 11,
+      "max": 24,
+      "step": 1,
+      "unit": "px",
+      "default": 15,
+      "info": "Search, account, wishlist and cart all use this size, the menu font and the Uppercase setting.",
+      "visible_if": "{{ section.settings.actions_as_text }}"
+    },
+    {
+      "type": "select",
+      "id": "action_text_weight",
+      "label": "Action text weight",
+      "default": "500",
+      "visible_if": "{{ section.settings.actions_as_text }}",
+      "options": [
+        {
+          "value": "400",
+          "label": "Regular"
+        },
+        {
+          "value": "500",
+          "label": "Medium"
+        },
+        {
+          "value": "600",
+          "label": "Semibold"
+        },
+        {
+          "value": "700",
+          "label": "Bold"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "icon_spacing",
+      "label": "Space between icons",
+      "min": 0,
+      "max": 48,
+      "step": 2,
+      "unit": "px",
+      "default": 20,
+      "info": "Gap between search, account, wishlist, cart and the country and language pickers on desktop."
+    },
+    {
+      "type": "range",
+      "id": "icon_spacing_mobile",
+      "label": "Space between icons mobile",
+      "min": 0,
+      "max": 32,
+      "step": 2,
+      "unit": "px",
+      "default": 14
+    },
+    {
+      "type": "header",
+      "content": "Country & language"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_currency",
+      "label": "Show country / currency",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_language",
+      "label": "Show language",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Sticky header"
+    },
+    {
+      "type": "select",
+      "id": "sticky_header_type",
+      "default": "on-scroll-up",
+      "label": "Sticky header",
+      "options": [
+        {
+          "value": "none",
+          "label": "None"
+        },
+        {
+          "value": "on-scroll-up",
+          "label": "Show on scroll up"
+        },
+        {
+          "value": "always",
+          "label": "Always sticky"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "sticky_header_mobile",
+      "default": true,
+      "label": "Enable sticky on mobile",
+      "visible_if": "{{ section.settings.sticky_header_type != 'none' }}"
+    },
+    {
+      "type": "color",
+      "id": "count_bubble_color",
+      "label": "Cart bubble - text",
+      "info": "Not used: set in Theme settings → Count bubble.",
+      "default": "#ffffff",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "color",
+      "id": "count_bubble_bg",
+      "label": "Cart bubble - background",
+      "info": "Not used: set in Theme settings → Count bubble.",
+      "default": "#353535",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "color",
+      "id": "count_bubble_wishlist_color",
+      "label": "Wishlist bubble - text",
+      "info": "Not used: set in Theme settings → Count bubble.",
+      "default": "#ffffff",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "color",
+      "id": "count_bubble_wishlist_bg",
+      "label": "Wishlist bubble - background",
+      "info": "Not used: set in Theme settings → Count bubble.",
+      "default": "#353535",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "header",
+      "content": "Transparent homepage header"
+    },
+    {
+      "type": "checkbox",
+      "id": "transparent_header",
+      "label": "Transparent on homepage"
+    },
+    {
+      "type": "checkbox",
+      "id": "transparent_on_mobile",
+      "label": "Transparent on phones and tablets",
+      "visible_if": "{{ section.settings.transparent_header }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "disable_white_fill_on_hover",
+      "label": "No fill on hover",
+      "default": false,
+      "visible_if": "{{ section.settings.transparent_header }}"
+    },
+    {
+      "type": "color",
+      "id": "transparent_text_icon_color",
+      "label": "Text and icons",
+      "default": "#ffffff",
+      "visible_if": "{{ section.settings.transparent_header }}"
+    },
+    {
+      "type": "color",
+      "id": "transparent_text_hover_color",
+      "label": "Text and icons on hover",
+      "default": "#131D2E",
+      "visible_if": "{{ section.settings.transparent_header }}"
+    },
+    {
+      "type": "color",
+      "id": "transparent_hover_fill_color",
+      "label": "Fill on hover",
+      "default": "#FFFFFF",
+      "visible_if": "{{ section.settings.transparent_header }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "transparent_bottom_border",
+      "label": "Show bottom border when transparent",
+      "default": false,
+      "visible_if": "{{ section.settings.transparent_header }}"
+    },
+    {
+      "type": "color",
+      "id": "transparent_bottom_border_color",
+      "label": "Bottom border color",
+      "default": "#ffffff",
+      "visible_if": "{{ section.settings.transparent_header and section.settings.transparent_bottom_border }}"
+    },
+    {
+      "type": "header",
+      "content": "Mobile menu"
+    },
+    {
+      "type": "select",
+      "id": "menu_tab",
+      "default": "unset",
+      "label": "Menu tab layout",
+      "options": [
+        {
+          "value": "unset",
+          "label": "Unset"
+        },
+        {
+          "value": "custom-collections",
+          "label": "Custom collections list"
+        }
+      ]
+    },
+    {
+      "type": "collection_list",
+      "id": "collection_list",
+      "label": "Featured collections",
+      "visible_if": "{{ section.settings.menu_tab == 'custom-collections' }}"
+    },
+    {
+      "type": "select",
+      "id": "menu_mobile_title_type",
+      "label": "Title content",
+      "default": "text",
+      "options": [
+        {
+          "value": "text",
+          "label": "\"Menu\" text"
+        },
+        {
+          "value": "theme_logo",
+          "label": "Theme logo"
+        },
+        {
+          "value": "custom_logo",
+          "label": "Custom image"
+        }
+      ]
+    },
+    {
+      "type": "image_picker",
+      "id": "menu_mobile_custom_logo",
+      "label": "Custom image",
+      "visible_if": "{{ section.settings.menu_mobile_title_type == 'custom_logo' }}"
+    },
+    {
+      "type": "range",
+      "id": "menu_mobile_logo_height",
+      "min": 16,
+      "max": 64,
+      "step": 2,
+      "unit": "px",
+      "label": "Logo height",
+      "default": 28,
+      "visible_if": "{{ section.settings.menu_mobile_title_type != 'text' }}"
+    },
+    {
+      "type": "color",
+      "id": "menu_mobile_color",
+      "label": "Mobile title text color",
+      "default": "#fff"
+    },
+    {
+      "type": "color",
+      "id": "menu_mobile_background",
+      "label": "Mobile title background",
+      "default": "#242424"
+    },
+    {
+      "type": "checkbox",
+      "id": "menu_mobile_dividers",
+      "label": "Lines between rows",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "menu_mobile_chevrons",
+      "label": "Arrow on every row",
+      "default": false,
+      "info": "Off, only rows that open a submenu show an arrow."
+    },
+    {
+      "type": "header",
+      "content": "Advanced spacing"
+    },
+    {
+      "type": "checkbox",
+      "id": "reset_spacing",
+      "label": "Remove default space between sections",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_desktop",
+      "label": "Top margin (desktop px)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0,
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_desktop",
+      "label": "Bottom margin (desktop px)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0,
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_mobile",
+      "label": "Top margin (mobile px)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0,
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_mobile",
+      "label": "Bottom margin (mobile px)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0,
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "select",
+      "id": "header_layout",
+      "default": "stretch_width",
+      "label": "Header layout (legacy)",
+      "info": "Not used: Section width sets the header's width.",
+      "options": [
+        {
+          "value": "narrow_container",
+          "label": "Narrow (max 1100px)"
+        },
+        {
+          "value": "container",
+          "label": "Standard (page width)"
+        },
+        {
+          "value": "fluid_container",
+          "label": "Fluid (wider)"
+        },
+        {
+          "value": "wide_container",
+          "label": "Wide (max 1600px)"
+        },
+        {
+          "value": "stretch_width",
+          "label": "Stretch (edge padding)"
+        },
+        {
+          "value": "full_width",
+          "label": "Full width (edge to edge)"
+        }
+      ],
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "transparent_mobile",
+      "label": "Mobile transparency (legacy)",
+      "info": "Not used: see Transparent on phones and tablets.",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "reveal",
+      "label": "Reveal on scroll",
+      "default": true,
+      "visible_if": "{{ false }}"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "menu_badges",
+      "name": "Menu badges",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "select",
+          "id": "menu_badge_style",
+          "label": "Badge style",
+          "default": "pill",
+          "options": [
+            {
+              "value": "pill",
+              "label": "Pill (soft rounded)"
+            },
+            {
+              "value": "solid",
+              "label": "Solid block"
+            },
+            {
+              "value": "ghost",
+              "label": "Ghost (outlined)"
+            },
+            {
+              "value": "minimal",
+              "label": "Minimal (dot + text)"
+            },
+            {
+              "value": "soft",
+              "label": "Soft (tinted)"
+            },
+            {
+              "value": "gradient",
+              "label": "Gradient glow"
+            },
+            {
+              "value": "underline",
+              "label": "Underline"
+            },
+            {
+              "value": "button",
+              "label": "Primary button"
+            },
+            {
+              "value": "button_secondary",
+              "label": "Secondary button"
+            }
+          ],
+          "info": "Primary button and Secondary button follow Theme settings > Buttons: colours, hover, corners, border and font. The badge colours below are for the other styles."
+        },
+        {
+          "type": "header",
+          "content": "Look"
+        },
+        {
+          "type": "select",
+          "id": "badge_shape",
+          "label": "Corners",
+          "default": "style",
+          "options": [
+            {
+              "value": "style",
+              "label": "From the style"
+            },
+            {
+              "value": "button",
+              "label": "Button corners"
+            },
+            {
+              "value": "pill",
+              "label": "Pill"
+            },
+            {
+              "value": "square",
+              "label": "Square"
+            }
+          ]
+        },
+        {
+          "type": "select",
+          "id": "badge_font",
+          "label": "Font",
+          "default": "style",
+          "options": [
+            {
+              "value": "style",
+              "label": "From the style"
+            },
+            {
+              "value": "menu",
+              "label": "Menu font"
+            },
+            {
+              "value": "button",
+              "label": "Button font"
+            },
+            {
+              "value": "heading",
+              "label": "Heading font"
+            },
+            {
+              "value": "body",
+              "label": "Body font"
+            }
+          ]
+        },
+        {
+          "type": "select",
+          "id": "badge_case",
+          "label": "Letter case",
+          "default": "style",
+          "options": [
+            {
+              "value": "style",
+              "label": "From the style"
+            },
+            {
+              "value": "upper",
+              "label": "Uppercase"
+            },
+            {
+              "value": "button",
+              "label": "As buttons"
+            },
+            {
+              "value": "none",
+              "label": "As typed"
+            }
+          ]
+        },
+        {
+          "type": "range",
+          "id": "badge_size",
+          "label": "Text size",
+          "min": 8,
+          "max": 16,
+          "step": 1,
+          "unit": "px",
+          "default": 10
+        },
+        {
+          "type": "range",
+          "id": "badge_border",
+          "label": "Border width",
+          "min": 0,
+          "max": 3,
+          "step": 1,
+          "unit": "px",
+          "default": 1,
+          "info": "Ghost, Primary button and Secondary button styles."
+        },
+        {
+          "type": "select",
+          "id": "badge_position",
+          "label": "Place on desktop",
+          "default": "above",
+          "options": [
+            {
+              "value": "above",
+              "label": "Above the link"
+            },
+            {
+              "value": "inline",
+              "label": "Beside the link"
+            }
+          ],
+          "info": "Top-level links. In dropdowns and on phones a badge sits beside its link."
+        },
+        {
+          "type": "checkbox",
+          "id": "badge_hover",
+          "label": "Lift on hover",
+          "default": true
+        },
+        {
+          "type": "header",
+          "content": "Hot badge"
+        },
+        {
+          "type": "text",
+          "id": "hot",
+          "label": "Label text",
+          "default": "Hot"
+        },
+        {
+          "type": "color",
+          "id": "label_color_hot",
+          "label": "Text color",
+          "default": "#ffffff"
+        },
+        {
+          "type": "color",
+          "id": "label_background_hot",
+          "label": "Background",
+          "default": "#353535"
+        },
+        {
+          "type": "header",
+          "content": "New badge"
+        },
+        {
+          "type": "text",
+          "id": "new",
+          "label": "Label text",
+          "default": "New"
+        },
+        {
+          "type": "color",
+          "id": "label_color_new",
+          "label": "Text color",
+          "default": "#ffffff"
+        },
+        {
+          "type": "color",
+          "id": "label_background_new",
+          "label": "Background",
+          "default": "#516cf4"
+        },
+        {
+          "type": "header",
+          "content": "Sale badge"
+        },
+        {
+          "type": "text",
+          "id": "sale",
+          "label": "Label text",
+          "default": "Sale"
+        },
+        {
+          "type": "color",
+          "id": "label_color_sale",
+          "label": "Text color",
+          "default": "#ffffff"
+        },
+        {
+          "type": "color",
+          "id": "label_background_sale",
+          "label": "Background",
+          "default": "#353535"
+        },
+        {
+          "type": "header",
+          "content": "Popular badge"
+        },
+        {
+          "type": "text",
+          "id": "popular",
+          "label": "Label text",
+          "default": "Popular"
+        },
+        {
+          "type": "color",
+          "id": "label_color_popular",
+          "label": "Text color",
+          "default": "#ffffff"
+        },
+        {
+          "type": "color",
+          "id": "label_background_popular",
+          "label": "Background",
+          "default": "#14854E"
+        },
+        {
+          "type": "header",
+          "content": "Custom 1 badge"
+        },
+        {
+          "type": "text",
+          "id": "custom_1",
+          "label": "Label text",
+          "default": "Limited"
+        },
+        {
+          "type": "color",
+          "id": "label_color_custom_1",
+          "label": "Text color",
+          "default": "#ffffff"
+        },
+        {
+          "type": "color",
+          "id": "label_background_custom_1",
+          "label": "Background",
+          "default": "#9c6b2f"
+        },
+        {
+          "type": "header",
+          "content": "Custom 2 badge"
+        },
+        {
+          "type": "text",
+          "id": "custom_2",
+          "label": "Label text",
+          "default": "Trending"
+        },
+        {
+          "type": "color",
+          "id": "label_color_custom_2",
+          "label": "Text color",
+          "default": "#ffffff"
+        },
+        {
+          "type": "color",
+          "id": "label_background_custom_2",
+          "label": "Background",
+          "default": "#8b5cf6"
+        }
+      ]
+    },
+    {
+      "type": "menu_promotion",
+      "name": "Mega menu + banners",
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "type": "text",
+          "id": "text",
+          "label": "Top-level menu link title",
+          "info": "The top-level menu link this dropdown opens from, for example Shop."
+        },
+        {
+          "type": "select",
+          "id": "item_label",
+          "default": "unset",
+          "label": "Badge label",
+          "options": [
+            {
+              "value": "unset",
+              "label": "No badge"
+            },
+            {
+              "value": "hot",
+              "label": "Hot"
+            },
+            {
+              "value": "new",
+              "label": "New"
+            },
+            {
+              "value": "sale",
+              "label": "Sale"
+            },
+            {
+              "value": "popular",
+              "label": "Popular"
+            },
+            {
+              "value": "custom_1",
+              "label": "Custom 1"
+            },
+            {
+              "value": "custom_2",
+              "label": "Custom 2"
+            }
+          ]
+        },
+        {
+          "type": "header",
+          "content": "Banners"
+        },
+        {
+          "type": "range",
+          "id": "promotion_image_width",
+          "min": 0,
+          "max": 50,
+          "step": 1,
+          "label": "Banner column width",
+          "default": 27,
+          "unit": "%"
+        },
+        {
+          "type": "image_picker",
+          "id": "promotion_image_1",
+          "label": "Image"
+        },
+        {
+          "type": "url",
+          "id": "promotion_link_1",
+          "label": "Link"
+        },
+        {
+          "type": "checkbox",
+          "id": "promotion_link_newtab_1",
+          "label": "Open in a new tab",
+          "default": false,
+          "info": "Opens this link in a new tab, on this site or another. Off, it opens in the same tab. A menu link set to open in a new tab in Navigation opens in one either way."
+        },
+        {
+          "type": "text",
+          "id": "promotion_label_1",
+          "label": "Label on the image",
+          "info": "Drawn as set in Header > Image card label."
+        },
+        {
+          "type": "image_picker",
+          "id": "promotion_image_2",
+          "label": "Image"
+        },
+        {
+          "type": "url",
+          "id": "promotion_link_2",
+          "label": "Link"
+        },
+        {
+          "type": "checkbox",
+          "id": "promotion_link_newtab_2",
+          "label": "Open in a new tab",
+          "default": false,
+          "info": "Opens this link in a new tab, on this site or another. Off, it opens in the same tab. A menu link set to open in a new tab in Navigation opens in one either way."
+        },
+        {
+          "type": "text",
+          "id": "promotion_label_2",
+          "label": "Label on the image",
+          "info": "Drawn as set in Header > Image card label."
+        },
+        {
+          "type": "header",
+          "content": "Layout & spacing"
+        },
+        {
+          "type": "range",
+          "id": "promotion_menu_column",
+          "min": 1,
+          "max": 6,
+          "step": 1,
+          "label": "Columns (desktop)",
+          "default": 4
+        },
+        {
+          "type": "range",
+          "id": "mega_custom_width",
+          "visible_if": "{{ block.settings.full_width == false }}",
+          "min": 600,
+          "max": 1600,
+          "unit": "px",
+          "step": 10,
+          "label": "Dropdown max width",
+          "default": 1030
+        },
+        {
+          "type": "checkbox",
+          "id": "full_width",
+          "label": "Full width dropdown",
+          "default": true
+        },
+        {
+          "type": "select",
+          "id": "promotion_position",
+          "default": "right",
+          "label": "Banner position",
+          "options": [
+            {
+              "value": "left",
+              "label": "Left"
+            },
+            {
+              "value": "right",
+              "label": "Right"
+            }
+          ]
+        },
+        {
+          "type": "header",
+          "content": "Advanced"
+        },
+        {
+          "type": "checkbox",
+          "id": "open_link_newtab",
+          "label": "Open in a new tab",
+          "default": false,
+          "info": "Opens this link in a new tab, on this site or another. Off, it opens in the same tab. A menu link set to open in a new tab in Navigation opens in one either way."
+        },
+        {
+          "type": "checkbox",
+          "id": "center_submenu",
+          "label": "Center dropdown",
+          "default": true,
+          "visible_if": "{{ block.settings.full_width == false }}"
+        }
+      ]
+    },
+    {
+      "type": "menu_product",
+      "name": "Mega menu + products",
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "type": "text",
+          "id": "text",
+          "label": "Top-level menu link title",
+          "info": "The top-level menu link this dropdown opens from, for example Shop."
+        },
+        {
+          "type": "select",
+          "id": "item_label",
+          "default": "unset",
+          "label": "Badge label",
+          "options": [
+            {
+              "value": "unset",
+              "label": "No badge"
+            },
+            {
+              "value": "hot",
+              "label": "Hot"
+            },
+            {
+              "value": "new",
+              "label": "New"
+            },
+            {
+              "value": "sale",
+              "label": "Sale"
+            },
+            {
+              "value": "popular",
+              "label": "Popular"
+            },
+            {
+              "value": "custom_1",
+              "label": "Custom 1"
+            },
+            {
+              "value": "custom_2",
+              "label": "Custom 2"
+            }
+          ]
+        },
+        {
+          "type": "header",
+          "content": "Products"
+        },
+        {
+          "type": "product",
+          "id": "product_1",
+          "label": "Product 1"
+        },
+        {
+          "type": "product",
+          "id": "product_2",
+          "label": "Product 2"
+        },
+        {
+          "type": "product",
+          "id": "product_3",
+          "label": "Product 3"
+        },
+        {
+          "type": "checkbox",
+          "id": "show_price",
+          "label": "Show prices",
+          "default": true
+        },
+        {
+          "type": "header",
+          "content": "Layout & spacing"
+        },
+        {
+          "type": "range",
+          "id": "product_menu_column",
+          "min": 1,
+          "max": 6,
+          "step": 1,
+          "label": "Columns (desktop)",
+          "default": 4
+        },
+        {
+          "type": "range",
+          "id": "mega_custom_width",
+          "visible_if": "{{ block.settings.full_width == false }}",
+          "min": 600,
+          "max": 1600,
+          "unit": "px",
+          "step": 10,
+          "label": "Dropdown max width",
+          "default": 1030
+        },
+        {
+          "type": "checkbox",
+          "id": "full_width",
+          "label": "Full width dropdown",
+          "default": true
+        },
+        {
+          "type": "range",
+          "id": "product_width",
+          "min": 0,
+          "max": 50,
+          "unit": "%",
+          "step": 5,
+          "label": "Product column width",
+          "default": 50
+        },
+        {
+          "type": "header",
+          "content": "Advanced"
+        },
+        {
+          "type": "checkbox",
+          "id": "open_link_newtab",
+          "label": "Open in a new tab",
+          "default": false,
+          "info": "Opens this link in a new tab, on this site or another. Off, it opens in the same tab. A menu link set to open in a new tab in Navigation opens in one either way."
+        },
+        {
+          "type": "checkbox",
+          "id": "center_submenu",
+          "label": "Center dropdown",
+          "default": true,
+          "visible_if": "{{ block.settings.full_width == false }}"
+        }
+      ]
+    },
+    {
+      "type": "menu_collection",
+      "name": "Mega menu + collections",
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "type": "text",
+          "id": "text",
+          "label": "Top-level menu link title",
+          "info": "The top-level menu link this dropdown opens from, for example Shop."
+        },
+        {
+          "type": "select",
+          "id": "item_label",
+          "default": "unset",
+          "label": "Badge label",
+          "options": [
+            {
+              "value": "unset",
+              "label": "No badge"
+            },
+            {
+              "value": "hot",
+              "label": "Hot"
+            },
+            {
+              "value": "new",
+              "label": "New"
+            },
+            {
+              "value": "sale",
+              "label": "Sale"
+            },
+            {
+              "value": "popular",
+              "label": "Popular"
+            },
+            {
+              "value": "custom_1",
+              "label": "Custom 1"
+            },
+            {
+              "value": "custom_2",
+              "label": "Custom 2"
+            }
+          ]
+        },
+        {
+          "type": "header",
+          "content": "Collections"
+        },
+        {
+          "type": "collection",
+          "id": "collection_1",
+          "label": "Collection 1"
+        },
+        {
+          "type": "collection",
+          "id": "collection_2",
+          "label": "Collection 2"
+        },
+        {
+          "type": "collection",
+          "id": "collection_3",
+          "label": "Collection 3"
+        },
+        {
+          "type": "header",
+          "content": "Layout & spacing"
+        },
+        {
+          "type": "range",
+          "id": "collection_menu_column",
+          "min": 1,
+          "max": 6,
+          "step": 1,
+          "label": "Columns (desktop)",
+          "default": 4
+        },
+        {
+          "type": "range",
+          "id": "mega_custom_width",
+          "visible_if": "{{ block.settings.full_width == false }}",
+          "min": 600,
+          "max": 1600,
+          "unit": "px",
+          "step": 10,
+          "label": "Dropdown max width",
+          "default": 1030
+        },
+        {
+          "type": "checkbox",
+          "id": "full_width",
+          "label": "Full width dropdown",
+          "default": true
+        },
+        {
+          "type": "range",
+          "id": "collection_width",
+          "min": 0,
+          "max": 100,
+          "unit": "%",
+          "step": 1,
+          "label": "Collection column width",
+          "default": 60
+        },
+        {
+          "type": "header",
+          "content": "Advanced"
+        },
+        {
+          "type": "checkbox",
+          "id": "open_link_newtab",
+          "label": "Open in a new tab",
+          "default": false,
+          "info": "Opens this link in a new tab, on this site or another. Off, it opens in the same tab. A menu link set to open in a new tab in Navigation opens in one either way."
+        },
+        {
+          "type": "checkbox",
+          "id": "center_submenu",
+          "label": "Center dropdown",
+          "default": true,
+          "visible_if": "{{ block.settings.full_width == false }}"
+        }
+      ]
+    },
+    {
+      "type": "menu_collections_only",
+      "name": "Mega menu: collections only",
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "type": "text",
+          "id": "text",
+          "label": "Top-level menu link title",
+          "info": "The top-level menu link this dropdown opens from, for example Shop."
+        },
+        {
+          "type": "header",
+          "content": "Collections"
+        },
+        {
+          "type": "collection_list",
+          "id": "collection_list",
+          "label": "Collections",
+          "limit": 8
+        },
+        {
+          "type": "header",
+          "content": "Layout & spacing"
+        },
+        {
+          "type": "range",
+          "id": "columns",
+          "min": 2,
+          "max": 5,
+          "step": 1,
+          "label": "Columns (desktop)",
+          "default": 4
+        },
+        {
+          "type": "checkbox",
+          "id": "show_titles",
+          "label": "Show collection titles",
+          "default": true
+        },
+        {
+          "type": "select",
+          "id": "image_ratio",
+          "label": "Image ratio",
+          "default": "square",
+          "options": [
+            {
+              "value": "square",
+              "label": "Square"
+            },
+            {
+              "value": "portrait",
+              "label": "Portrait"
+            },
+            {
+              "value": "landscape",
+              "label": "Landscape"
+            }
+          ]
+        },
+        {
+          "type": "range",
+          "id": "mega_custom_width",
+          "visible_if": "{{ block.settings.full_width == false }}",
+          "min": 600,
+          "max": 1600,
+          "unit": "px",
+          "step": 10,
+          "label": "Dropdown max width",
+          "default": 1030
+        },
+        {
+          "type": "checkbox",
+          "id": "full_width",
+          "label": "Full width dropdown",
+          "default": false
+        },
+        {
+          "type": "header",
+          "content": "Advanced"
+        },
+        {
+          "type": "select",
+          "id": "item_label",
+          "default": "unset",
+          "label": "Badge label",
+          "options": [
+            {
+              "value": "unset",
+              "label": "No badge"
+            },
+            {
+              "value": "hot",
+              "label": "Hot"
+            },
+            {
+              "value": "new",
+              "label": "New"
+            },
+            {
+              "value": "sale",
+              "label": "Sale"
+            },
+            {
+              "value": "popular",
+              "label": "Popular"
+            },
+            {
+              "value": "custom_1",
+              "label": "Custom 1"
+            },
+            {
+              "value": "custom_2",
+              "label": "Custom 2"
+            }
+          ]
+        },
+        {
+          "type": "checkbox",
+          "id": "center_submenu",
+          "label": "Center dropdown",
+          "default": true,
+          "visible_if": "{{ block.settings.full_width == false }}"
+        }
+      ]
+    },
+    {
+      "type": "menu_categories",
+      "name": "Mega menu + categories",
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "type": "text",
+          "id": "text",
+          "label": "Top-level menu link title",
+          "info": "The top-level menu link this dropdown opens from, for example Shop."
+        },
+        {
+          "type": "text",
+          "id": "heading",
+          "label": "Heading",
+          "default": "Shop by category"
+        },
+        {
+          "type": "collection_list",
+          "id": "collection_list",
+          "label": "Categories",
+          "limit": 12,
+          "info": "Each collection is a category: its picture, title and product count."
+        },
+        {
+          "type": "checkbox",
+          "id": "show_links",
+          "label": "Show the link's own sub links",
+          "default": true,
+          "info": "The links under this menu link in Navigation, beside the categories."
+        },
+        {
+          "type": "header",
+          "content": "Categories"
+        },
+        {
+          "type": "select",
+          "id": "layout",
+          "label": "Layout",
+          "default": "list",
+          "options": [
+            {
+              "value": "list",
+              "label": "List"
+            },
+            {
+              "value": "tiles",
+              "label": "Tiles"
+            }
+          ]
+        },
+        {
+          "type": "range",
+          "id": "columns",
+          "label": "Columns (desktop)",
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "default": 3
+        },
+        {
+          "type": "select",
+          "id": "image_style",
+          "label": "Picture",
+          "default": "circle",
+          "options": [
+            {
+              "value": "circle",
+              "label": "Circle"
+            },
+            {
+              "value": "rounded",
+              "label": "Rounded"
+            },
+            {
+              "value": "square",
+              "label": "Square"
+            },
+            {
+              "value": "none",
+              "label": "None"
+            }
+          ]
+        },
+        {
+          "type": "range",
+          "id": "image_size",
+          "visible_if": "{{ block.settings.image_style != 'none' }}",
+          "label": "Picture size",
+          "min": 32,
+          "max": 96,
+          "step": 4,
+          "unit": "px",
+          "default": 56
+        },
+        {
+          "type": "checkbox",
+          "id": "show_count",
+          "label": "Show product counts",
+          "default": true
+        },
+        {
+          "type": "text",
+          "id": "count_label",
+          "visible_if": "{{ block.settings.show_count }}",
+          "label": "Count label",
+          "default": "products"
+        },
+        {
+          "type": "header",
+          "content": "Shop all link"
+        },
+        {
+          "type": "text",
+          "id": "view_all_label",
+          "label": "Label",
+          "default": "Shop all"
+        },
+        {
+          "type": "url",
+          "id": "view_all_url",
+          "label": "Link"
+        },
+        {
+          "type": "header",
+          "content": "Banner"
+        },
+        {
+          "type": "image_picker",
+          "id": "banner_image",
+          "label": "Image"
+        },
+        {
+          "type": "text",
+          "id": "banner_heading",
+          "label": "Heading"
+        },
+        {
+          "type": "text",
+          "id": "banner_button",
+          "label": "Button label",
+          "default": "Shop now"
+        },
+        {
+          "type": "url",
+          "id": "banner_link",
+          "label": "Link"
+        },
+        {
+          "type": "header",
+          "content": "Colours"
+        },
+        {
+          "type": "color",
+          "id": "title_color",
+          "label": "Titles",
+          "info": "Empty follows the header colours."
+        },
+        {
+          "type": "color",
+          "id": "count_color",
+          "label": "Counts"
+        },
+        {
+          "type": "color",
+          "id": "item_bg",
+          "label": "Category background"
+        },
+        {
+          "type": "header",
+          "content": "Layout & spacing"
+        },
+        {
+          "type": "range",
+          "id": "mega_custom_width",
+          "visible_if": "{{ block.settings.full_width == false }}",
+          "min": 600,
+          "max": 1600,
+          "unit": "px",
+          "step": 10,
+          "label": "Dropdown max width",
+          "default": 1030
+        },
+        {
+          "type": "checkbox",
+          "id": "full_width",
+          "label": "Full width dropdown",
+          "default": false
+        },
+        {
+          "type": "checkbox",
+          "id": "center_submenu",
+          "label": "Center dropdown",
+          "default": true,
+          "visible_if": "{{ block.settings.full_width == false }}"
+        },
+        {
+          "type": "header",
+          "content": "Advanced"
+        },
+        {
+          "type": "select",
+          "id": "item_label",
+          "default": "unset",
+          "label": "Badge label",
+          "options": [
+            {
+              "value": "unset",
+              "label": "No badge"
+            },
+            {
+              "value": "hot",
+              "label": "Hot"
+            },
+            {
+              "value": "new",
+              "label": "New"
+            },
+            {
+              "value": "sale",
+              "label": "Sale"
+            },
+            {
+              "value": "popular",
+              "label": "Popular"
+            },
+            {
+              "value": "custom_1",
+              "label": "Custom 1"
+            },
+            {
+              "value": "custom_2",
+              "label": "Custom 2"
+            }
+          ]
+        },
+        {
+          "type": "checkbox",
+          "id": "open_link_newtab",
+          "label": "Open the menu link in a new tab",
+          "default": false
+        }
+      ]
+    },
+    {
+      "type": "menu_link_style",
+      "name": "Menu link: badge & colour",
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "type": "text",
+          "id": "text",
+          "label": "Top-level menu link title",
+          "info": "The top-level link this styles, for example Buy Theme!"
+        },
+        {
+          "type": "select",
+          "id": "item_label",
+          "default": "hot",
+          "label": "Badge above the link",
+          "options": [
+            {
+              "value": "unset",
+              "label": "No badge"
+            },
+            {
+              "value": "hot",
+              "label": "Hot"
+            },
+            {
+              "value": "new",
+              "label": "New"
+            },
+            {
+              "value": "sale",
+              "label": "Sale"
+            },
+            {
+              "value": "popular",
+              "label": "Popular"
+            },
+            {
+              "value": "custom_1",
+              "label": "Custom 1"
+            },
+            {
+              "value": "custom_2",
+              "label": "Custom 2"
+            }
+          ]
+        },
+        {
+          "type": "color",
+          "id": "link_color",
+          "label": "Link colour",
+          "info": "Empty follows the header."
+        },
+        {
+          "type": "color",
+          "id": "link_hover_color",
+          "label": "Link colour on hover",
+          "info": "Empty keeps the link colour."
+        }
+      ]
+    },
+    {
+      "type": "menu_mobile_banner",
+      "name": "Mobile menu banner",
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "type": "text",
+          "id": "text",
+          "label": "Show under menu link",
+          "info": "A top-level link title, for example Shop: the banner shows in that submenu on phones. Empty shows it at the end of the main menu."
+        },
+        {
+          "type": "image_picker",
+          "id": "image",
+          "label": "Image"
+        },
+        {
+          "type": "text",
+          "id": "label",
+          "label": "Small label",
+          "default": "New in"
+        },
+        {
+          "type": "text",
+          "id": "heading",
+          "label": "Heading",
+          "default": "The new season"
+        },
+        {
+          "type": "textarea",
+          "id": "body",
+          "label": "Text"
+        },
+        {
+          "type": "select",
+          "id": "divider",
+          "label": "Divider",
+          "default": "wave",
+          "options": [
+            {
+              "value": "none",
+              "label": "None"
+            },
+            {
+              "value": "line",
+              "label": "Line"
+            },
+            {
+              "value": "wave",
+              "label": "Wave"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "button_label",
+          "label": "Button label",
+          "default": "Shop now"
+        },
+        {
+          "type": "url",
+          "id": "button_link",
+          "label": "Button link"
+        },
+        {
+          "type": "color",
+          "id": "banner_bg",
+          "label": "Background",
+          "info": "Empty is a soft tint of the menu text colour."
+        },
+        {
+          "type": "color",
+          "id": "banner_text",
+          "label": "Text colour"
+        },
+        {
+          "type": "color",
+          "id": "button_bg",
+          "label": "Button background"
+        },
+        {
+          "type": "color",
+          "id": "button_color",
+          "label": "Button text"
+        },
+        {
+          "type": "range",
+          "id": "radius",
+          "min": 0,
+          "max": 32,
+          "step": 1,
+          "unit": "px",
+          "label": "Corner radius",
+          "default": 16
+        }
+      ]
+    },
+    {
+      "type": "pill_glass",
+      "name": "Pill & Glassmorphism",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "header",
+          "content": "Pill header"
+        },
+        {
+          "type": "checkbox",
+          "id": "header_pill_enable",
+          "label": "Enable pill-shaped header",
+          "info": "Shown on the homepage only. Other pages keep the normal full-width bar.",
+          "default": false
+        },
+        {
+          "type": "range",
+          "id": "header_max_width",
+          "visible_if": "{{ block.settings.header_pill_enable }}",
+          "label": "Max pill width",
+          "min": 60,
+          "max": 100,
+          "step": 1,
+          "unit": "%",
+          "default": 94
+        },
+        {
+          "type": "range",
+          "id": "header_top_offset",
+          "visible_if": "{{ block.settings.header_pill_enable }}",
+          "label": "Top offset (push down)",
+          "min": 0,
+          "max": 60,
+          "step": 1,
+          "unit": "px",
+          "default": 12
+        },
+        {
+          "type": "range",
+          "id": "header_side_offset",
+          "visible_if": "{{ block.settings.header_pill_enable }}",
+          "label": "Side offset (left/right inset)",
+          "min": 0,
+          "max": 80,
+          "step": 1,
+          "unit": "px",
+          "default": 16
+        },
+        {
+          "type": "range",
+          "id": "header_bottom_offset",
+          "visible_if": "{{ block.settings.header_pill_enable }}",
+          "label": "Bottom margin",
+          "min": 0,
+          "max": 60,
+          "step": 1,
+          "unit": "px",
+          "default": 0
+        },
+        {
+          "type": "range",
+          "id": "header_padding_x",
+          "visible_if": "{{ block.settings.header_pill_enable }}",
+          "label": "Horizontal padding",
+          "min": 0,
+          "max": 60,
+          "step": 1,
+          "unit": "px",
+          "default": 24
+        },
+        {
+          "type": "range",
+          "id": "header_radius",
+          "visible_if": "{{ block.settings.header_pill_enable }}",
+          "label": "Border radius",
+          "min": 0,
+          "max": 50,
+          "step": 1,
+          "unit": "px",
+          "default": 50
+        },
+        {
+          "type": "color",
+          "id": "header_pill_bg",
+          "label": "Pill background color",
+          "default": "#FFFFFF",
+          "visible_if": "{{ block.settings.header_pill_enable and block.settings.glass_enabled == false }}"
+        },
+        {
+          "type": "range",
+          "id": "header_pill_border_width",
+          "visible_if": "{{ block.settings.header_pill_enable }}",
+          "label": "Border width",
+          "min": 0,
+          "max": 4,
+          "step": 1,
+          "unit": "px",
+          "default": 0
+        },
+        {
+          "type": "color",
+          "id": "header_pill_border_color",
+          "label": "Border color",
+          "info": "Empty follows the colour scheme's border colour.",
+          "visible_if": "{{ block.settings.header_pill_enable and block.settings.header_pill_border_width > 0 }}"
+        },
+        {
+          "type": "checkbox",
+          "id": "header_pill_blur",
+          "label": "Glassmorphism blur behind pill",
+          "default": false,
+          "visible_if": "{{ block.settings.header_pill_enable and block.settings.glass_enabled == false }}"
+        },
+        {
+          "type": "range",
+          "id": "header_pill_blur_amount",
+          "label": "Blur amount",
+          "min": 0,
+          "max": 30,
+          "step": 1,
+          "unit": "px",
+          "default": 12,
+          "visible_if": "{{ block.settings.header_pill_enable and block.settings.header_pill_blur and block.settings.glass_enabled == false }}"
+        },
+        {
+          "type": "header",
+          "content": "Pill on phones & tablets"
+        },
+        {
+          "type": "checkbox",
+          "id": "header_pill_mobile",
+          "visible_if": "{{ block.settings.header_pill_enable }}",
+          "label": "Enable pill on mobile devices",
+          "info": "On phones and tablets the pill shows the menu, logo, search and cart only. The account, wishlist, country and language icons are hidden there.",
+          "default": false
+        },
+        {
+          "type": "range",
+          "id": "header_pill_mobile_top",
+          "label": "Mobile top offset",
+          "min": 0,
+          "max": 40,
+          "step": 1,
+          "unit": "px",
+          "default": 8,
+          "visible_if": "{{ block.settings.header_pill_enable and block.settings.header_pill_mobile }}"
+        },
+        {
+          "type": "range",
+          "id": "header_pill_mobile_side",
+          "label": "Mobile side offset",
+          "min": 0,
+          "max": 30,
+          "step": 1,
+          "unit": "px",
+          "default": 10,
+          "visible_if": "{{ block.settings.header_pill_enable and block.settings.header_pill_mobile }}"
+        },
+        {
+          "type": "range",
+          "id": "header_pill_mobile_radius",
+          "label": "Mobile border radius",
+          "min": 0,
+          "max": 50,
+          "step": 1,
+          "unit": "px",
+          "default": 50,
+          "visible_if": "{{ block.settings.header_pill_enable and block.settings.header_pill_mobile }}"
+        },
+        {
+          "type": "header",
+          "content": "Glass appearance"
+        },
+        {
+          "type": "checkbox",
+          "id": "glass_enabled",
+          "label": "Enable glassmorphism",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "glass_color",
+          "label": "Tint color",
+          "default": "#ffffff",
+          "visible_if": "{{ block.settings.glass_enabled }}"
+        },
+        {
+          "type": "range",
+          "id": "glass_opacity",
+          "label": "Tint opacity",
+          "min": 5,
+          "max": 90,
+          "step": 1,
+          "unit": "%",
+          "default": 30,
+          "visible_if": "{{ block.settings.glass_enabled }}"
+        },
+        {
+          "type": "range",
+          "id": "glass_blur",
+          "label": "Blur strength",
+          "min": 4,
+          "max": 60,
+          "step": 1,
+          "unit": "px",
+          "default": 20,
+          "visible_if": "{{ block.settings.glass_enabled }}"
+        },
+        {
+          "type": "range",
+          "id": "glass_brightness",
+          "label": "Brightness",
+          "min": 70,
+          "max": 140,
+          "step": 1,
+          "unit": "%",
+          "default": 105,
+          "visible_if": "{{ block.settings.glass_enabled }}"
+        },
+        {
+          "type": "range",
+          "id": "glass_saturation",
+          "label": "Saturation boost",
+          "min": 100,
+          "max": 200,
+          "step": 5,
+          "unit": "%",
+          "default": 140,
+          "visible_if": "{{ block.settings.glass_enabled }}"
+        },
+        {
+          "type": "range",
+          "id": "glass_contrast",
+          "label": "Contrast",
+          "min": 80,
+          "max": 140,
+          "step": 1,
+          "unit": "%",
+          "default": 110,
+          "visible_if": "{{ block.settings.glass_enabled }}"
+        },
+        {
+          "type": "range",
+          "id": "glass_shine",
+          "label": "Edge highlight",
+          "min": 0,
+          "max": 80,
+          "step": 1,
+          "unit": "%",
+          "default": 35,
+          "visible_if": "{{ block.settings.glass_enabled }}"
+        },
+        {
+          "type": "range",
+          "id": "glass_shadow",
+          "label": "Drop shadow depth",
+          "min": 0,
+          "max": 60,
+          "step": 1,
+          "unit": "px",
+          "default": 28,
+          "visible_if": "{{ block.settings.glass_enabled }}"
+        },
+        {
+          "type": "checkbox",
+          "id": "glass_border",
+          "label": "Show subtle bottom border",
+          "default": true,
+          "visible_if": "{{ block.settings.glass_enabled }}"
+        },
+        {
+          "type": "checkbox",
+          "id": "glass_text_enable",
+          "label": "Enable custom text & icons color",
+          "default": false,
+          "visible_if": "{{ block.settings.glass_enabled }}"
+        },
+        {
+          "type": "color",
+          "id": "glass_text_color",
+          "label": "Text & icons color",
+          "default": "#ffffff",
+          "visible_if": "{{ block.settings.glass_enabled and block.settings.glass_text_enable }}"
+        },
+        {
+          "type": "header",
+          "content": "Pill spacing"
+        },
+        {
+          "type": "range",
+          "id": "header_padding_y",
+          "visible_if": "{{ block.settings.header_pill_enable }}",
+          "label": "Inner vertical padding",
+          "min": 0,
+          "max": 40,
+          "step": 1,
+          "unit": "px",
+          "default": 0
+        }
+      ]
+    },
+    {
+      "type": "header_button",
+      "name": "Header button",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "type": "text",
+          "id": "button_text",
+          "label": "Button label",
+          "default": "Shop sounds"
+        },
+        {
+          "type": "url",
+          "id": "button_link",
+          "label": "Link",
+          "info": "Pick a page, a product or a section on this page. Empty goes to all products."
+        },
+        {
+          "type": "checkbox",
+          "id": "new_tab",
+          "label": "Open the link in a new tab",
+          "default": false
+        },
+        {
+          "type": "header",
+          "content": "Placement"
+        },
+        {
+          "type": "select",
+          "id": "button_position",
+          "label": "Position",
+          "default": "after_icons",
+          "options": [
+            {
+              "value": "after_icons",
+              "label": "After the icons, far right"
+            },
+            {
+              "value": "before_cart",
+              "label": "Between the icons, before the cart"
+            },
+            {
+              "value": "before_icons",
+              "label": "Before the icons"
+            }
+          ]
+        },
+        {
+          "type": "checkbox",
+          "id": "show_on_mobile",
+          "label": "Show on phones and tablets",
+          "default": false
+        },
+        {
+          "type": "select",
+          "id": "mobile_placement",
+          "label": "Place on phones",
+          "default": "in_row",
+          "visible_if": "{{ block.settings.show_on_mobile }}",
+          "options": [
+            {
+              "value": "in_row",
+              "label": "In the icon row"
+            },
+            {
+              "value": "below",
+              "label": "Own bar under the header"
+            }
+          ],
+          "info": "Under the header gives the button its own row, so it never crowds the logo or the icons."
+        },
+        {
+          "type": "select",
+          "id": "mobile_size",
+          "label": "Size on phones",
+          "default": "compact",
+          "visible_if": "{{ block.settings.show_on_mobile }}",
+          "options": [
+            {
+              "value": "regular",
+              "label": "Same as desktop"
+            },
+            {
+              "value": "compact",
+              "label": "Compact"
+            },
+            {
+              "value": "small",
+              "label": "Small"
+            }
+          ]
+        },
+        {
+          "type": "select",
+          "id": "mobile_hide_icons",
+          "label": "Make room on phones",
+          "default": "none",
+          "visible_if": "{{ block.settings.show_on_mobile and block.settings.mobile_placement != 'below' }}",
+          "options": [
+            {
+              "value": "none",
+              "label": "Keep every icon"
+            },
+            {
+              "value": "account_wishlist_search",
+              "label": "Hide search"
+            }
+          ],
+          "info": "Phones and tablets, while the button shows in the icon row. Account and wishlist never show on phones; the menu and the cart always stay."
+        },
+        {
+          "type": "checkbox",
+          "id": "mobile_bar_full_width",
+          "label": "Stretch across the bar",
+          "default": true,
+          "visible_if": "{{ block.settings.show_on_mobile and block.settings.mobile_placement == 'below' }}"
+        },
+        {
+          "type": "range",
+          "id": "mobile_bar_padding",
+          "label": "Space above and below",
+          "min": 0,
+          "max": 32,
+          "step": 2,
+          "unit": "px",
+          "default": 10,
+          "visible_if": "{{ block.settings.show_on_mobile and block.settings.mobile_placement == 'below' }}"
+        },
+        {
+          "type": "range",
+          "id": "button_gap",
+          "label": "Space from the icons",
+          "min": 0,
+          "max": 80,
+          "step": 2,
+          "unit": "px",
+          "default": 20,
+          "info": "Gap between the button and the icon or text beside it on desktop. Space between icons is set in Header actions."
+        },
+        {
+          "type": "range",
+          "id": "button_gap_mobile",
+          "label": "Space from the icons on phones",
+          "min": 0,
+          "max": 40,
+          "step": 2,
+          "unit": "px",
+          "default": 12,
+          "visible_if": "{{ block.settings.show_on_mobile }}"
+        },
+        {
+          "type": "range",
+          "id": "button_offset_x",
+          "label": "Move left or right",
+          "min": -60,
+          "max": 60,
+          "step": 2,
+          "unit": "px",
+          "default": 0,
+          "info": "Desktop. Minus moves it left, plus moves it right. 0 keeps it where Position puts it."
+        },
+        {
+          "type": "range",
+          "id": "button_offset_y",
+          "label": "Move up or down",
+          "min": -20,
+          "max": 20,
+          "step": 1,
+          "unit": "px",
+          "default": 0,
+          "info": "Desktop. Minus moves it up, plus moves it down."
+        },
+        {
+          "type": "header",
+          "content": "Style"
+        },
+        {
+          "type": "select",
+          "id": "button_style",
+          "label": "Button style",
+          "default": "primary",
+          "info": "Primary and Secondary are your theme's buttons: colours from the header's colour scheme, and shape, size, font and hover from Theme settings > Buttons. Custom uses the settings below.",
+          "options": [
+            {
+              "value": "primary",
+              "label": "Primary (theme)"
+            },
+            {
+              "value": "secondary",
+              "label": "Secondary (theme)"
+            },
+            {
+              "value": "custom",
+              "label": "Custom"
+            }
+          ]
+        },
+        {
+          "type": "color",
+          "id": "custom_bg",
+          "label": "Background",
+          "default": "#ffffff",
+          "visible_if": "{{ block.settings.button_style == 'custom' }}"
+        },
+        {
+          "type": "color",
+          "id": "custom_text",
+          "label": "Text",
+          "default": "#111111",
+          "visible_if": "{{ block.settings.button_style == 'custom' }}"
+        },
+        {
+          "type": "color",
+          "id": "custom_border",
+          "label": "Border",
+          "default": "#ffffff",
+          "visible_if": "{{ block.settings.button_style == 'custom' }}"
+        },
+        {
+          "type": "color",
+          "id": "custom_hover_bg",
+          "label": "Background on hover",
+          "default": "#e5e5e5",
+          "visible_if": "{{ block.settings.button_style == 'custom' }}"
+        },
+        {
+          "type": "color",
+          "id": "custom_hover_text",
+          "label": "Text on hover",
+          "default": "#111111",
+          "visible_if": "{{ block.settings.button_style == 'custom' }}"
+        },
+        {
+          "type": "color",
+          "id": "custom_hover_border",
+          "label": "Border on hover",
+          "default": "#e5e5e5",
+          "visible_if": "{{ block.settings.button_style == 'custom' }}"
+        },
+        {
+          "type": "range",
+          "id": "custom_border_width",
+          "label": "Border thickness",
+          "min": 0,
+          "max": 4,
+          "step": 1,
+          "unit": "px",
+          "default": 1,
+          "visible_if": "{{ block.settings.button_style == 'custom' }}"
+        },
+        {
+          "type": "range",
+          "id": "custom_radius",
+          "label": "Corner radius",
+          "min": 0,
+          "max": 40,
+          "step": 1,
+          "unit": "px",
+          "default": 8,
+          "visible_if": "{{ block.settings.button_style == 'custom' }}"
+        },
+        {
+          "type": "range",
+          "id": "custom_font_size",
+          "label": "Text size",
+          "min": 11,
+          "max": 22,
+          "step": 1,
+          "unit": "px",
+          "default": 15,
+          "visible_if": "{{ block.settings.button_style == 'custom' }}"
+        },
+        {
+          "type": "select",
+          "id": "custom_font_weight",
+          "label": "Text weight",
+          "default": "600",
+          "visible_if": "{{ block.settings.button_style == 'custom' }}",
+          "options": [
+            {
+              "value": "400",
+              "label": "Regular"
+            },
+            {
+              "value": "500",
+              "label": "Medium"
+            },
+            {
+              "value": "600",
+              "label": "Semibold"
+            },
+            {
+              "value": "700",
+              "label": "Bold"
+            }
+          ]
+        },
+        {
+          "type": "checkbox",
+          "id": "custom_uppercase",
+          "label": "Uppercase",
+          "default": false,
+          "visible_if": "{{ block.settings.button_style == 'custom' }}"
+        },
+        {
+          "type": "range",
+          "id": "custom_padding_x",
+          "label": "Side padding",
+          "min": 8,
+          "max": 48,
+          "step": 2,
+          "unit": "px",
+          "default": 20,
+          "visible_if": "{{ block.settings.button_style == 'custom' }}"
+        },
+        {
+          "type": "range",
+          "id": "custom_padding_y",
+          "label": "Top and bottom padding",
+          "min": 4,
+          "max": 24,
+          "step": 1,
+          "unit": "px",
+          "default": 10,
+          "visible_if": "{{ block.settings.button_style == 'custom' }}"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Header - Header",
+      "blocks": [
+        {
+          "type": "pill_glass"
+        },
+        {
+          "type": "menu_badges"
+        },
+        {
+          "type": "menu_promotion"
+        }
+      ],
+      "category": "Header & navigation"
+    }
+  ]
+}
+{% endschema %}
