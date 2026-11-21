@@ -31,7 +31,7 @@
         "sticky_bar_bg": "",
         "desktop_layout": "thumbnail_bottom",
         "mobile_options": "show_thumbnails",
-        "padding_bottom": 100,
+        "padding_bottom": 88,
         "sticky_top_gap": 24,
         "enable_on_mobile": true,
         "sticky_padding_y": 12,
@@ -63,8 +63,8 @@
           "type": "title",
           "settings": {
             "show_vendor": false,
-            "title_font_size_mobile": 32,
-            "title_font_size_desktop": 33
+            "title_font_size_mobile": 28,
+            "title_font_size_desktop": 36
           }
         },
         "product_description_2": {
@@ -139,10 +139,10 @@
             "buy_text_color": "",
             "atc_button_text": "Add to cart",
             "atc_font_weight": "600",
-            "atc_icon_enable": true,
-            "buy_button_text": "Buy Now",
+            "atc_icon_enable": false,
+            "buy_button_text": "Buy now",
             "buy_font_weight": "600",
-            "buy_icon_enable": true,
+            "buy_icon_enable": false,
             "show_add_to_cart": true,
             "show_price_in_atc": false,
             "show_variant_picker": true,
@@ -159,29 +159,18 @@
             "enable_custom_button_typography": true
           }
         },
-        "pickup_avaiability_8": {
-          "type": "pickup_avaiability",
-          "settings": {}
-        },
         "product_grouped_9": {
           "type": "product_grouped",
           "settings": {
             "heading": "Also available as"
           }
         },
-        "more_colors_10": {
-          "type": "more_colors",
-          "settings": {
-            "heading": "More colours",
-            "image_width": 40
-          }
-        },
         "collapsible_row_11": {
           "type": "collapsible_row",
           "settings": {
-            "open": false,
-            "content": "<p>Sent within two working days with tracking. Return it unused within 30 days for a full refund.</p>",
-            "heading": "Delivery and returns",
+            "open": true,
+            "content": "<p>Prints and paper goods are sent tracked within three working days. Downloads and the course arrive by email the moment you pay.</p>",
+            "heading": "How it reaches you",
             "use_product_description": false
           }
         },
@@ -189,8 +178,8 @@
           "type": "collapsible_row",
           "settings": {
             "open": false,
-            "content": "<p>Say how to look after this product so it lasts.</p>",
-            "heading": "Care",
+            "content": "<p>Physical items can come back unused within 30 days. Downloads and the course can be refunded within 14 days if you have not opened them.</p>",
+            "heading": "Returns",
             "use_product_description": false
           }
         },
@@ -247,9 +236,7 @@
         "price_4",
         "variant_picker_5",
         "buy_buttons_6",
-        "pickup_avaiability_8",
         "product_grouped_9",
-        "more_colors_10",
         "collapsible_row_11",
         "collapsible_row_12",
         "payment_badges_13"
@@ -258,37 +245,38 @@
     "text_columns_1": {
       "type": "text-columns",
       "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976"
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container"
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Every order includes"
+            "text": "From the studio, either way"
           }
         },
         "column_2": {
           "type": "column",
           "settings": {
-            "label": "Delivery",
-            "heading": "Tracked delivery",
-            "text": "<p>Sent within two working days.</p>"
+            "label": "Physical",
+            "heading": "Packed by hand",
+            "text": "<p>Flat or rolled, wrapped in paper, sent tracked.</p>"
           }
         },
         "column_3": {
           "type": "column",
           "settings": {
-            "label": "Returns",
-            "heading": "30 day returns",
-            "text": "<p>A full refund if it is not right.</p>"
+            "label": "Digital",
+            "heading": "Yours straight away",
+            "text": "<p>A download link by email, and again in your account.</p>"
           }
         },
         "column_4": {
           "type": "column",
           "settings": {
-            "label": "Support",
-            "heading": "Help when you need it",
-            "text": "<p>A reply within one working day.</p>"
+            "label": "Help",
+            "heading": "A real reply",
+            "text": "<p>Write any time. I answer within two working days.</p>"
           }
         }
       },
@@ -299,37 +287,37 @@
         "column_4"
       ]
     },
-    "products_carousel_2": {
-      "type": "products-carousel",
+    "products_listing_2": {
+      "type": "products-listing",
       "settings": {
-        "color_scheme": "default"
+        "color_scheme": "default",
+        "section_width": "container",
+        "items_to_show": 4,
+        "items_per_row": 4,
+        "show_rating": false,
+        "show_swatches": false,
+        "show_add_to_cart": false,
+        "padding_top": 72,
+        "padding_bottom": 88
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "You may also like"
+            "text": "More from the studio"
           }
         },
-        "subheading_2": {
-          "type": "subheading",
+        "button_2": {
+          "type": "button",
           "settings": {
-            "text": "<p>More from the shop.</p>"
-          }
-        },
-        "view_all_3": {
-          "type": "view_all",
-          "settings": {
-            "label": "See all",
-            "position": "header",
+            "text": "See everything",
             "link": "/collections/all"
           }
         }
       },
       "block_order": [
         "heading_1",
-        "subheading_2",
-        "view_all_3"
+        "button_2"
       ]
     }
   },
@@ -337,6 +325,6 @@
     "breadcrumb",
     "main",
     "text_columns_1",
-    "products_carousel_2"
+    "products_listing_2"
   ]
 }

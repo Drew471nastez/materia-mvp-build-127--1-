@@ -1,84 +1,111 @@
 {
   "sections": {
-    "faq_contact_card_1": {
-      "type": "faq-contact-card",
+    "faq_tabs_1": {
+      "type": "faq-tabs",
       "settings": {
-        "color_scheme": "default"
+        "color_scheme": "default",
+        "section_width": "container",
+        "tab_1_label": "Orders and shipping",
+        "tab_2_label": "Downloads",
+        "tab_3_label": "The course",
+        "tab_4_label": "Returns",
+        "open_first": true,
+        "header_align": "left",
+        "padding_top_desktop": 72,
+        "padding_bottom_desktop": 96
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Frequently asked questions"
+            "text": "Questions",
+            "tag": "h1"
           }
         },
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Answers about orders, delivery and returns.</p>"
+            "text": "<p>Pick a topic. If your question is not here, <a href=\"/pages/contact\">write to me</a>.</p>"
           }
         },
         "faq_item_3": {
           "type": "faq_item",
           "settings": {
-            "question": "When will my order arrive?",
-            "answer": "<p>Orders leave within two working days. Delivery takes three to five days after that, and you get a tracking link by email.</p>"
+            "tab": "1",
+            "question": "When will my print arrive?",
+            "answer": "<p>Prints and paper goods leave the studio within three working days, packed flat or rolled in a tube, with tracking. Most parcels arrive within a week.</p>"
           }
         },
         "faq_item_4": {
           "type": "faq_item",
           "settings": {
-            "question": "Can I return something?",
-            "answer": "<p>Yes. Send it back within 30 days, unused and in its packaging, and we refund the full price.</p>"
+            "tab": "1",
+            "question": "Do you ship abroad?",
+            "answer": "<p>Yes, to most countries. The delivery price for yours is shown at checkout before you pay. Downloads and the course work anywhere.</p>"
           }
         },
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "Do you ship abroad?",
-            "answer": "<p>We ship to most countries. The delivery price for yours is shown at checkout before you pay.</p>"
+            "tab": "1",
+            "question": "How are prints packed?",
+            "answer": "<p>Small prints go flat between card. Large prints are rolled in a tube with tissue. Totes and sketch pads go in a paper mailer.</p>"
           }
         },
         "faq_item_6": {
           "type": "faq_item",
           "settings": {
-            "question": "How do I reach you?",
-            "answer": "<p>Use the form on the contact page. We answer within one working day.</p>"
+            "tab": "2",
+            "question": "How do I get a download?",
+            "answer": "<p>Brushes, wallpapers and other files arrive as a download link by email the moment you pay. The link stays in your account, so you can download again on a new device.</p>"
           }
         },
         "faq_item_7": {
           "type": "faq_item",
           "settings": {
-            "question": "Which payment methods do you take?",
-            "answer": "<p>Cards, Apple Pay, Google Pay and PayPal.</p>"
+            "tab": "2",
+            "question": "Which apps do the brushes work in?",
+            "answer": "<p>Procreate on iPad. Each set says which version it needs on its page.</p>"
           }
         },
-        "card_text_8": {
-          "type": "card_text",
+        "faq_item_8": {
+          "type": "faq_item",
           "settings": {
-            "heading": "Did not find your answer?",
-            "text": "<p>Send us a message and we will help.</p>"
+            "tab": "2",
+            "question": "Can I use the files for my own work?",
+            "answer": "<p>Yes, for anything you make and sell yourself. You cannot resell or share the files as they are.</p>"
           }
         },
-        "button_9": {
-          "type": "button",
+        "faq_item_9": {
+          "type": "faq_item",
           "settings": {
-            "label": "Contact us",
-            "link": "/pages/contact"
+            "tab": "3",
+            "question": "How long can I watch the course?",
+            "answer": "<p>The course is yours once you pay: every lesson, as often as you like, including lessons added later.</p>"
           }
         },
-        "contact_line_10": {
-          "type": "contact_line",
+        "faq_item_10": {
+          "type": "faq_item",
           "settings": {
-            "label": "Email",
-            "text": "hello@example.com"
+            "tab": "3",
+            "question": "What do I need to start?",
+            "answer": "<p>A lino block, a cutting tool, a roller, block printing ink and paper. The first lesson lists all of it, with prices.</p>"
           }
         },
-        "contact_line_11": {
-          "type": "contact_line",
+        "faq_item_11": {
+          "type": "faq_item",
           "settings": {
-            "label": "Hours",
-            "text": "Monday to Friday, 9am to 5pm"
+            "tab": "4",
+            "question": "Can I return something?",
+            "answer": "<p>Send a print or paper item back unused within 30 days for a full refund. Downloads and the course can be refunded within 14 days if you have not opened them.</p>"
+          }
+        },
+        "faq_item_12": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "4",
+            "question": "My print arrived damaged",
+            "answer": "<p>Send a photo with your order number and I will print and send a new one.</p>"
           }
         }
       },
@@ -90,14 +117,15 @@
         "faq_item_5",
         "faq_item_6",
         "faq_item_7",
-        "card_text_8",
-        "button_9",
-        "contact_line_10",
-        "contact_line_11"
+        "faq_item_8",
+        "faq_item_9",
+        "faq_item_10",
+        "faq_item_11",
+        "faq_item_12"
       ]
     }
   },
   "order": [
-    "faq_contact_card_1"
+    "faq_tabs_1"
   ]
 }

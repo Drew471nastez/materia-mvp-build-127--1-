@@ -4,11 +4,11 @@
       "type": "page-heading",
       "settings": {
         "height": "adapt",
-        "alignment": "center",
-        "padding_top": 80,
+        "alignment": "left",
+        "padding_top": 56,
         "color_scheme": "",
         "reset_spacing": true,
-        "section_width": "stretch_width",
+        "section_width": "container",
         "padding_bottom": 0,
         "overlay_opacity": 0
       },
@@ -39,7 +39,7 @@
       "settings": {
         "padding_top": 40,
         "reset_spacing": true,
-        "section_width": "fluid_container",
+        "section_width": "container",
         "padding_bottom": 60,
         "enable_cart_note": false,
         "enable_discount_code": true,
@@ -50,28 +50,28 @@
           "type": "faq_section",
           "settings": {
             "show_faq": true,
-            "faq_heading": "Before you pay"
+            "faq_heading": "Good to know"
           }
         },
         "faq_1": {
           "type": "faq",
           "settings": {
-            "question": "When will my order arrive?",
-            "answer": "<p>Orders leave within two working days. Delivery takes three to five days after that.</p>"
+            "question": "When will physical items ship?",
+            "answer": "<p>Within three working days, tracked. You get the tracking link by email.</p>"
           }
         },
         "faq_2": {
           "type": "faq",
           "settings": {
-            "question": "Can I return something?",
-            "answer": "<p>Yes. Send it back within 30 days, unused, and we refund the full price.</p>"
+            "question": "When do I get my downloads?",
+            "answer": "<p>Straight after you pay. The link comes by email and stays in your account.</p>"
           }
         },
         "faq_3": {
           "type": "faq",
           "settings": {
             "question": "Is checkout secure?",
-            "answer": "<p>Yes. Payment is handled by our payment provider and your card details never reach us.</p>"
+            "answer": "<p>Yes. Payment is handled by the payment provider, and your card details never reach the studio.</p>"
           }
         },
         "payment_badges_67Mgyc": {

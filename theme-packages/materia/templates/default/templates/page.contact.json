@@ -7,19 +7,25 @@
         "btn_text": "Send message",
         "ph_website": "Order number (optional)",
         "label_website": "Order number",
-        "success_text": "Thanks. Your message is on its way."
+        "success_text": "Thanks. Your message is on its way, and I will reply within two working days.",
+        "enable_shadow": false,
+        "radius": 4,
+        "button_radius": 4,
+        "field_radius": 4,
+        "pad_top": 72,
+        "pad_bottom": 96
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Get in touch"
+            "text": "Write to me"
           }
         },
         "description_2": {
           "type": "description",
           "settings": {
-            "text": "<p>Questions about an order or a product? Send a message and we will reply within one working day.</p>"
+            "text": "<p>A question about an order, a download or the course? Send it here and I will reply within two working days.</p>"
           }
         },
         "info_3": {
@@ -27,23 +33,15 @@
           "settings": {
             "icon": "mail",
             "line1": "hello@example.com",
-            "line2": "Replace with your email."
+            "line2": "Orders, files and the course"
           }
         },
         "info_4": {
           "type": "info",
           "settings": {
             "icon": "map",
-            "line1": "Monday to Friday",
-            "line2": "9am to 5pm"
-          }
-        },
-        "info_5": {
-          "type": "info",
-          "settings": {
-            "icon": "phone",
-            "line1": "Your town, your country",
-            "line2": "Replace with your address."
+            "line1": "Studio visits",
+            "line2": "First Saturday of the month, by appointment"
           }
         }
       },
@@ -51,8 +49,7 @@
         "heading_1",
         "description_2",
         "info_3",
-        "info_4",
-        "info_5"
+        "info_4"
       ]
     }
   },
