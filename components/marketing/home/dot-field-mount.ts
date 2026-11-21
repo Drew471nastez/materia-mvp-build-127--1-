@@ -56,6 +56,7 @@ export function mountDotField(box: HTMLElement, o: FieldMountOptions): () => voi
   const addTile = (n: number) => {
     const canvas = document.createElement("canvas")
     canvas.style.top = `${n * DOT_FIELD_TILE}px`
+    canvas.style.height = `${DOT_FIELD_TILE}px`
     box.appendChild(canvas)
     const entry: { canvas: HTMLCanvasElement; io: IntersectionObserver | null } = { canvas, io: null }
     tiles[n] = entry
@@ -85,10 +86,8 @@ export function mountDotField(box: HTMLElement, o: FieldMountOptions): () => voi
       driver.dropTile(id, tiles.length)
       t.canvas.remove()
     }
-    for (let n = 0; n < want.length; n++) {
-      if (!tiles[n]) addTile(n)
-      tiles[n].canvas.style.height = `${want[n].height}px`
-    }
+    /* Landing round 20: every tile is a whole tile tall, whatever the box's height (the box clips its foot), so a change of height never resizes a canvas the worker is drawing in (dot-field-engine.ts, fit). */
+    for (let n = 0; n < want.length; n++) if (!tiles[n]) addTile(n)
     driver.size(id, w, h, window.devicePixelRatio || 1)
     place()
   }

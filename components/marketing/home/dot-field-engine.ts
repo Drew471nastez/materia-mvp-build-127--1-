@@ -529,7 +529,7 @@ export function createDotEngine(host: DotEngineHost) {
     }
     const ctx = tile.ctx
     ctx.setTransform(f.dpr, 0, 0, f.dpr, 0, -tile.top * f.dpr)
-    ctx.clearRect(0, tile.top, f.w, tile.th)
+    ctx.clearRect(0, tile.top, f.w, DOT_FIELD_TILE)
     for (let pass = 0; pass < (isSingle ? 1 : 2); pass++) {
       const set = pass ? lit : ink
       const rgb = pass ? c.rgbLit : c.rgb
@@ -628,8 +628,21 @@ export function createDotEngine(host: DotEngineHost) {
     if (!f.w || !f.h) return
     tile.top = tile.n * DOT_FIELD_TILE
     tile.th = Math.max(0, Math.min(DOT_FIELD_TILE, f.h - tile.top))
-    tile.canvas.width = Math.round(f.w * f.dpr)
-    tile.canvas.height = Math.round(tile.th * f.dpr)
+    /*
+      Landing round 20: a tile's canvas is always a whole tile (DOT_FIELD_TILE
+      tall; the box clips what is past its foot), and is given a size only when
+      that size really changes. Before, every change of the box's height (a
+      section mounting or settling below, at almost every fast flick) set the
+      width and height of every tile again, the same numbers included, and
+      setting a size reallocates the canvas. In WebKit a transferred canvas
+      resized while the worker drew in it brought the page's web process down
+      (measured in the Safari engine, flicking down the home page and back up:
+      3 runs in 8 crashed, and none in 10 once a canvas was sized only once).
+    */
+    const cw = Math.round(f.w * f.dpr)
+    const ch = Math.round(DOT_FIELD_TILE * f.dpr)
+    if (tile.canvas.width !== cw) tile.canvas.width = cw
+    if (tile.canvas.height !== ch) tile.canvas.height = ch
     const lo = tile.top - 12
     const hi = tile.top + tile.th + 12
     const d = f.dots
