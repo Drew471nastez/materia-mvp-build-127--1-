@@ -69,6 +69,10 @@ console.log("\n1. The integration is gone")
     "lib/payments/past-provider.ts", // the past provider's label and refund note
     "lib/payments/model.ts", // says Stripe is the only provider
     "lib/payments/service.ts", // reads whether a creator had an Airwallex account, for the note
+    /* Changed on purpose (legal update): the Privacy and Refund policies must say that older orders were paid through Airwallex and how their records and refunds work; the processor list names it for that disclosure. No code path pays through it. */
+    "components/legal/privacy-body.tsx",
+    "components/legal/refund-body.tsx",
+    "lib/legal/processors.ts",
     "lib/payments/hub-types.ts", // airwallexBefore on the overview
     "app/api/payments/airwallex/webhook/route.ts", // 410 Gone
     "app/api/stripe/refund/route.ts", // refuses an Airwallex order with the note
