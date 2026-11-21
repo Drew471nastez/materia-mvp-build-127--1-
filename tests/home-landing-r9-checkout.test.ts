@@ -127,7 +127,8 @@ check("  the physical ones are photographs with their grounds cut away (webp wit
   const b = readFileSync(p)
   return b.toString("ascii", 12, 16) === "VP8X" && (b[20] & 0x10) !== 0 && statSync(p).size < 30 * 1024
 }))
-check("  their width and height are set, they load lazily and decode off the main thread", (stage.match(/<img class="cmc-pic"[^>]*>/g) ?? []).length === 3 && (stage.match(/<img class="cmc-pic"[^>]*>/g) ?? []).every((t) => /width="\d+"/.test(t) && /height="\d+"/.test(t) && /loading="lazy"/.test(t) && /decoding="async"/.test(t)))
+// Changed on purpose (landing round 21): loaded with the scene (eager); a lazy picture turning around the phone could still have no pixels when the page came to rest on it.
+check("  their width and height are set, they load with the scene and decode off the main thread", (stage.match(/<img class="cmc-pic"[^>]*>/g) ?? []).length === 3 && (stage.match(/<img class="cmc-pic"[^>]*>/g) ?? []).every((t) => /width="\d+"/.test(t) && /height="\d+"/.test(t) && /loading="eager"/.test(t) && /decoding="async"/.test(t)))
 check("  the digital ones are drawn as objects: the LUT pack's box with the section's cover, Daily Mobility, a course card, a Notion template", /class="cmt cmt-box"><span class="ebc /.test(stage) && /class="cmt cmt-mob"/.test(stage) && /class="cmt cmt-course"/.test(stage) && /class="cmt cmt-notion"/.test(stage) && ["Daily Mobility", "Video course · 21 lessons", "Editing for Story", "Course · 24 lessons", "Notion template", "Shoot Planner"].every((t) => words(stage).includes(t)))
 check("the camera, plant, lamp, vase, cassette player and hat are gone, files and all", ["camera", "plant", "lamp", "vase", "cassette", "hat"].every((n) => !existsSync(`public/home/commerce/obj-${n}.webp`) && !new RegExp(`obj-${n}`).test(src)) && !/Poly Haven|Camera_01|potted_plant|desk_lamp|ceramic_vase|cassette|fishermans/.test(src))
 

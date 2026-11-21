@@ -428,16 +428,17 @@ function DigitalThing({ id }: { id: string }) {
  */
 function Orbit() {
   return (
+    /* Landing round 21: the ring's pictures load with the scene (it mounts near the screen), not lazily: they turn around the phone, so a lazy picture was judged by where it stood in the turn and one still had no pixels when the page came to rest on the scene (the Safari engine). The whole folder is about 80 KB. */
     <div className="cmc-ring" aria-hidden="true">
       <div className="cmc-orbit">
         {FLOATS.map((f) => (
           <span key={f.id} className="cmc-o" data-f={f.id} data-kind={f.kind} data-m={f.m ? "" : undefined}>
             <span className="cmc-face">
               <span className="cmc-sharp">
-                <span className="cmc-near">{f.img ? <img className="cmc-pic" src={f.img.src} alt="" width={f.img.w} height={f.img.h} loading="lazy" decoding="async" /> : <DigitalThing id={f.id} />}</span>
+                <span className="cmc-near">{f.img ? <img className="cmc-pic" src={f.img.src} alt="" width={f.img.w} height={f.img.h} loading="eager" decoding="async" /> : <DigitalThing id={f.id} />}</span>
               </span>
-              <img className="cmc-far" src={`${IMG}/soft-${f.id}.webp`} alt="" width={SOFT[f.id].w} height={SOFT[f.id].h} loading="lazy" decoding="async" />
-              <img className="cmc-soft" src={`${IMG}/soft-${f.id}.webp`} alt="" width={SOFT[f.id].w} height={SOFT[f.id].h} loading="lazy" decoding="async" />
+              <img className="cmc-far" src={`${IMG}/soft-${f.id}.webp`} alt="" width={SOFT[f.id].w} height={SOFT[f.id].h} loading="eager" decoding="async" />
+              <img className="cmc-soft" src={`${IMG}/soft-${f.id}.webp`} alt="" width={SOFT[f.id].w} height={SOFT[f.id].h} loading="eager" decoding="async" />
             </span>
           </span>
         ))}
@@ -500,7 +501,7 @@ export function CheckoutScene() {
                 <span className="cmc-shade" aria-hidden="true" />
                 <Phone label={`Storelib's checkout page on a phone (an iPhone): ${LUTS.title} by ${SELLER}, ${LUTS.price}, with Apple Pay and Google Pay.`} />
                 {/* Round 15: the phone's blurred copy, for behind the cards. */}
-                <img className="cmc-phone-soft" src={`${IMG}/soft-phone.webp`} alt="" width={SOFT_PHONE.w} height={SOFT_PHONE.h} loading="lazy" decoding="async" aria-hidden="true" />
+                <img className="cmc-phone-soft" src={`${IMG}/soft-phone.webp`} alt="" width={SOFT_PHONE.w} height={SOFT_PHONE.h} loading="eager" decoding="async" aria-hidden="true" />
               </div>
             </div>
           </div>
