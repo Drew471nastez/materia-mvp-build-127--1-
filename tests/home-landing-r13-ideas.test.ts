@@ -21,7 +21,7 @@ import { join } from "node:path"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import * as Ideas from "@/components/marketing/home/ideas-come-to-life"
-import { BUILDER_CSS, OnePageEditorMock, SteezSite, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
+import { BUILDER_CSS, BUILDER_MOMENT_CSS, OnePageEditorMock, SteezSite, WebsiteBuilderMock } from "@/components/marketing/home/showcase-mocks/builder-mocks"
 
 let passed = 0
 let failed = 0
@@ -109,7 +109,8 @@ check("the first slideshow and the first products are the rows lit with the ring
 // Changed on purpose (landing round 15): Steez's tree alone: its two header rows and the footer.
 check("the tree has two header rows, so the cursor lands on the products row (34u lower than round 12)", (wb.match(/class="wx-badge"/g) ?? []).length === 3)
 // Changed on purpose (landing round 14): the canvas scrolls to the products after Publish, once, and stays.
-check("the canvas scrolls the products into view when they are selected: a transform, live only, and still with reduced motion", /@media\(prefers-reduced-motion:no-preference\)\{\[data-mock-live\] \.stz \.stz-page\{animation:sxk-stz-scroll/.test(BUILDER_CSS) && /@keyframes sxk-stz-scroll\{0%,49\.14%\{transform:none\}56\.9%,100%\{transform:translateY\(calc\(-400\*var\(--u\)\)\)\}\}/.test(BUILDER_CSS)) /* Changed on purpose (landing round 15): the canvas scrolls after the first publish (5.7s to 6.6s of 11.6), by 400u, to the products' top edge. */
+// Changed on purpose (landing round 19, perf on a phone): the scroll's keyframes are read from the moment as written (BUILDER_MOMENT_CSS); BUILDER_CSS carries them cut to the 0.9s where the canvas moves, from 5.7s (windowed, tests/home-landing-r19-perf2.test.ts).
+check("the canvas scrolls the products into view when they are selected: a transform, live only, and still with reduced motion", /@media\(prefers-reduced-motion:no-preference\)\{\[data-mock-live\] \.stz \.stz-page\{animation:sxk-stz-scroll/.test(BUILDER_CSS) && /@keyframes sxk-stz-scroll\{0%,49\.14%\{transform:none\}56\.9%,100%\{transform:translateY\(calc\(-400\*var\(--u\)\)\)\}\}/.test(BUILDER_MOMENT_CSS)) /* Changed on purpose (landing round 15): the canvas scrolls after the first publish (5.7s to 6.6s of 11.6), by 400u, to the products' top edge. */
 /* Changed on purpose (landing round 15): the ring in parts (top and sides, a bottom edge that moves down, the sides carried on) so a section can grow by transforms; the chip at the bottom right, as sections/_shared.tsx draws it. */
 check("the selection ring and chip are the builder's (#3b82f6)", /\n\.wx-sel\{position:absolute;inset:0;box-shadow:inset 0 calc\(2\*var\(--u\)\) #3b82f6/.test(BUILDER_CSS) && /\n\.wx-sel em\{position:absolute;right:calc\(8\*var\(--u\)\);bottom:calc\(8\*var\(--u\)\);[^}]*background:#3b82f6/.test(BUILDER_CSS))
 // Changed on purpose (landing round 15): Steez alone, no scenes (the owner).
