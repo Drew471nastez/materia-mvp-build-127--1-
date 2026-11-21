@@ -58,6 +58,7 @@
     after mount.
 */
 
+import { canvasOnPageThread } from "./page-thread-canvas"
 import { useEffect, useRef } from "react"
 import { EVERYTHING_LAND_B64, EVERYTHING_LAND_COUNT, EVERYTHING_LAND_NORTH, EVERYTHING_LAND_SOUTH, EVERYTHING_LAND_STEP } from "./everything-globe-land"
 import { createGlobeEngine, type GlobeEngine, type GlobeLand, type GlobePill, type GlobePointer, type V3 } from "./everything-globe-draw"
@@ -229,7 +230,8 @@ function startDriver(canvas: HTMLCanvasElement, onPill: (p: GlobePill) => void, 
   const ground = EVERYTHING_GLOBE_GROUND
   const cities = EVERYTHING_GLOBE_ORDERS.map((o) => toV(o.lat, o.lng))
   const home = toV(HOME[0], HOME[1])
-  if (typeof Worker === "function" && typeof OffscreenCanvas === "function" && typeof canvas.transferControlToOffscreen === "function") {
+  /* Landing round 20: not in WebKit, which draws the globe on the page's thread (page-thread-canvas.ts). */
+  if (!canvasOnPageThread() && typeof Worker === "function" && typeof OffscreenCanvas === "function" && typeof canvas.transferControlToOffscreen === "function") {
     let worker: Worker | null = null
     try {
       /* The worker's code ships inside this chunk (scripts/build-globe-worker.mjs): no file to fetch. */

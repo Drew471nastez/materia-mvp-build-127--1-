@@ -22,6 +22,7 @@
   frame), so a 4K screen pays the same as a laptop.
 */
 
+import { canvasOnPageThread } from "./page-thread-canvas"
 import { useEffect, useRef, useState } from "react"
 import { PLATFORM_LAND_B64, PLATFORM_LAND_H, PLATFORM_LAND_W } from "./platform-globe-land"
 import { drawGlobe, paintGlobeBackdrop, stepGlobe, stillPulses, type GlobePulse } from "./platform-globe-draw"
@@ -82,7 +83,8 @@ function globeWorker(canvas: HTMLCanvasElement, pts: Float32Array, angle: number
     held.users++
     return held
   }
-  if (typeof Worker !== "function" || typeof OffscreenCanvas !== "function" || typeof canvas.transferControlToOffscreen !== "function") return null
+  /* Landing round 20: not in WebKit, which draws the globe on the page's thread (page-thread-canvas.ts). */
+  if (canvasOnPageThread() || typeof Worker !== "function" || typeof OffscreenCanvas !== "function" || typeof canvas.transferControlToOffscreen !== "function") return null
   let worker: Worker
   try {
     /* The worker's code ships inside this chunk (scripts/build-globe-worker.mjs): no file to fetch. */

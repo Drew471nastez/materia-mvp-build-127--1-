@@ -410,10 +410,12 @@ export type DotEngine = ReturnType<typeof createDotEngine>
 export function createDotEngine(host: DotEngineHost) {
   const fields = new Map<number, Field>()
   let hidden = false
+  /* Landing round 20: the page is being scrolled. Nothing is drawn (the loop waits, settle waits): the fields stand on their last frame. */
+  let scrolling = false
   let frame = 0
 
   const running = (f: Field) => {
-    if (hidden || f.covered || f.reduced) return false
+    if (hidden || scrolling || f.covered || f.reduced) return false
     for (const t of f.tiles.values()) if (t.on) return true
     return false
   }
@@ -529,7 +531,7 @@ export function createDotEngine(host: DotEngineHost) {
     }
     const ctx = tile.ctx
     ctx.setTransform(f.dpr, 0, 0, f.dpr, 0, -tile.top * f.dpr)
-    ctx.clearRect(0, tile.top, f.w, tile.th)
+    ctx.clearRect(0, tile.top, f.w, DOT_FIELD_TILE)
     for (let pass = 0; pass < (isSingle ? 1 : 2); pass++) {
       const set = pass ? lit : ink
       const rgb = pass ? c.rgbLit : c.rgb
@@ -555,7 +557,8 @@ export function createDotEngine(host: DotEngineHost) {
 
   /* A still frame for a field that is not in the loop (reduced motion, a tile that has just come near, a resize), once. */
   const settle = () => {
-    if (hidden) return
+    /* Landing round 20: nothing is drawn while the page moves, not even a still frame (one drawn mid flick still brought the Safari engine down, 2 runs in 7); a tile first seen then fades in when the page stands still, as every tile's first frame does. */
+    if (hidden || scrolling) return
     for (const f of fields.values()) {
       if (f.covered || running(f)) continue
       let any = false
@@ -628,8 +631,21 @@ export function createDotEngine(host: DotEngineHost) {
     if (!f.w || !f.h) return
     tile.top = tile.n * DOT_FIELD_TILE
     tile.th = Math.max(0, Math.min(DOT_FIELD_TILE, f.h - tile.top))
-    tile.canvas.width = Math.round(f.w * f.dpr)
-    tile.canvas.height = Math.round(tile.th * f.dpr)
+    /*
+      Landing round 20: a tile's canvas is always a whole tile (DOT_FIELD_TILE
+      tall; the box clips what is past its foot), and is given a size only when
+      that size really changes. Before, every change of the box's height (a
+      section mounting or settling below, at almost every fast flick) set the
+      width and height of every tile again, the same numbers included, and
+      setting a size reallocates the canvas and clears what it held, so a
+      flick reallocated every tile of a field as it settled. (What brought
+      the page down in the Safari engine was the loop drawing while the page
+      moved: see scroll, below.)
+    */
+    const cw = Math.round(f.w * f.dpr)
+    const ch = Math.round(DOT_FIELD_TILE * f.dpr)
+    if (tile.canvas.width !== cw) tile.canvas.width = cw
+    if (tile.canvas.height !== ch) tile.canvas.height = ch
     const lo = tile.top - 12
     const hi = tile.top + tile.th + 12
     const d = f.dots
@@ -728,6 +744,20 @@ export function createDotEngine(host: DotEngineHost) {
         f.covered = on
         sync()
       }
+    },
+    /**
+     * Landing round 20: the page is being scrolled. Nothing is drawn while
+     * it moves: the fields stand on their last frame, and a tile that comes
+     * near is drawn (and fades in) once the page stands still. In the Safari
+     * engine a worker drawing tiles while the page was flung down and up
+     * brought the page down (3 runs in 8 with the loop; 2 in 7 with only a
+     * still frame for a tile that came near; none in 10 drawing nothing), and
+     * on any phone it is drawing nobody sees while the page moves under it.
+     */
+    scroll(on: boolean) {
+      if (scrolling === on) return
+      scrolling = on
+      sync()
     },
     /** The tab is hidden: no loop for any field. */
     hide(on: boolean) {
