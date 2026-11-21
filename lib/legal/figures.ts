@@ -104,3 +104,48 @@ export const STATEMENT_PREFIX = PLATFORM_STATEMENT_DESCRIPTOR
 
 /** The date all three documents took effect and were last changed. */
 export const LEGAL_EFFECTIVE = "2026-11-20"
+
+/**
+ * DETAILS ONLY STORELIB'S OWNER CAN SUPPLY. Each is null until it is known,
+ * and while it is null the legal pages leave out the sentence or row that
+ * needs it (never a bracket, never an empty line). Fill a field in here and
+ * that line appears on the page.
+ */
+export const LEGAL_DETAILS: {
+  /** Storelib Inc.'s registered address, one line. */
+  registeredAddress: string | null
+  /** The company registration number. */
+  companyNumber: string | null
+  /** The DMCA designated agent: name and postal address, as registered with the US Copyright Office. */
+  dmcaAgent: string | null
+  /** The address of Storelib's data processing agreement for creators. */
+  dpaUrl: string | null
+  /** The data protection officer: name or role and contact. */
+  dpo: string | null
+  /** The EU and UK representative under GDPR article 27. */
+  euRepresentative: string | null
+  /** Days of notice before a higher plan price applies. */
+  priceChangeNoticeDays: number | null
+  /** Days of notice before a material change to the terms or fees. */
+  termsChangeNoticeDays: number | null
+  /** How long support requests are kept, in plain words ("2 years"). */
+  supportRetention: string | null
+  /** How long backups are kept, in plain words ("30 days"). */
+  backupRetention: string | null
+} = {
+  registeredAddress: null,
+  companyNumber: null,
+  dmcaAgent: null,
+  dpaUrl: null,
+  dpo: null,
+  euRepresentative: null,
+  priceChangeNoticeDays: null,
+  termsChangeNoticeDays: null,
+  supportRetention: null,
+  backupRetention: null,
+}
+
+/** "30 days' notice" when a number is set, else "reasonable advance notice". */
+export function noticeWords(days: number | null): string {
+  return days ? `${days} days' notice` : "reasonable advance notice"
+}

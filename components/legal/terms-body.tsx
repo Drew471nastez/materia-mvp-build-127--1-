@@ -7,9 +7,9 @@
 
   Every price, rate and limit is read from the code that charges or enforces it
   (lib/legal/figures), never typed here. Anything only Storelib's owner can
-  supply is a <Placeholder>, left visibly open. A draft for review by counsel.
+  supply is in lib/legal/figures LEGAL_DETAILS; a sentence that needs one is left out until it is set. A draft for review by counsel.
 */
-import { LINK, Placeholder, Section, SubSection, Table, Ul } from "./legal-parts"
+import { LINK, Section, SubSection, Table, Ul } from "./legal-parts"
 import {
   FIXED_FEE,
   MEMBERSHIP_GRACE_DAYS,
@@ -19,6 +19,8 @@ import {
   aiEditsSentence,
   emailLimitsSentence,
   feeRows,
+  LEGAL_DETAILS,
+  noticeWords,
   paidPlansSentence,
 } from "@/lib/legal/figures"
 
@@ -183,9 +185,8 @@ export function TermsBody() {
         </SubSection>
         <SubSection title="5.7 Price changes">
           <p>
-            We may change plan prices. We will tell you by email at least{" "}
-            <Placeholder>notice period for price changes: to be confirmed by Storelib</Placeholder> before a higher
-            price applies to you, and it applies from your next renewal after that. If you do not want to pay it, cancel
+            We may change plan prices. We will give you {noticeWords(LEGAL_DETAILS.priceChangeNoticeDays)} by email before a
+            higher price applies to you, and it applies from your next renewal after that. If you do not want to pay it, cancel
             before then. If you subscribed to a plan or price we no longer offer, you keep it while your subscription
             stays active, unless we tell you otherwise with the same notice.
           </p>
@@ -304,8 +305,15 @@ export function TermsBody() {
             You receive your buyers&apos; and subscribers&apos; names, email addresses and, for orders that ship, delivery
             details. You are the controller of that data under data protection law and must use it only as the law
             allows and as your own privacy notice says. Storelib processes it for you as described in the{" "}
-            <a href="/privacy#s10" className={LINK}>Privacy policy</a> and our data processing terms{" "}
-            <Placeholder>link to Storelib&apos;s data processing agreement: to be published by Storelib</Placeholder>.
+            <a href="/privacy#s10" className={LINK}>Privacy policy</a> and our data processing terms
+            {LEGAL_DETAILS.dpaUrl ? (
+              <>
+                {" "}(<a href={LEGAL_DETAILS.dpaUrl} className={LINK}>read them</a>)
+              </>
+            ) : (
+              <>, which you can ask for at <a href="mailto:privacy@storelib.com" className={LINK}>privacy@storelib.com</a></>
+            )}
+            .
           </p>
         </SubSection>
         <SubSection title="7.10 Domains, websites and pages">
@@ -510,8 +518,14 @@ export function TermsBody() {
           "your physical or electronic signature",
         ]} />
         <p>
-          Storelib&apos;s designated agent under the US Digital Millennium Copyright Act is{" "}
-          <Placeholder>name and postal address of the DMCA designated agent, registered with the US Copyright Office: to be confirmed by Storelib</Placeholder>.
+          {LEGAL_DETAILS.dmcaAgent ? (
+            <>Storelib&apos;s designated agent under the US Digital Millennium Copyright Act is {LEGAL_DETAILS.dmcaAgent}.</>
+          ) : (
+            <>
+              Send notices to <a href="mailto:legal@storelib.com" className={LINK}>legal@storelib.com</a> with
+              &quot;Copyright notice&quot; in the subject.
+            </>
+          )}
         </p>
         <p>
           We remove or disable the content and tell the person who posted it. They may send a counter notice to the
@@ -667,9 +681,7 @@ export function TermsBody() {
         <SubSection title="22.2 Governing law">
           <p>
             These terms are governed by the laws of the State of Delaware, United States, without regard to its conflict
-            of laws rules{" "}
-            <Placeholder>governing law and venue: confirm with counsel that Delaware matches Storelib&apos;s place of incorporation</Placeholder>
-            . If you are a consumer, you also keep the protection of the mandatory laws of the country where you live,
+            of laws rules. If you are a consumer, you also keep the protection of the mandatory laws of the country where you live,
             and you may bring a claim in its courts.
           </p>
         </SubSection>
@@ -694,9 +706,8 @@ export function TermsBody() {
       <Section id="s23" title="23. Changes">
         <p>
           We may change Storelib, its features and these terms. If a change to these terms or to our fees materially
-          affects you, we will tell you by email or in Storelib at least{" "}
-          <Placeholder>notice period for changes to the terms and fees: to be confirmed by Storelib</Placeholder>{" "}
-          before it takes effect, unless it is needed sooner for legal or security reasons. If you do not agree, you
+          affects you, we will give you {noticeWords(LEGAL_DETAILS.termsChangeNoticeDays)} by email or in Storelib before
+          it takes effect, unless it is needed sooner for legal or security reasons. If you do not agree, you
           can stop using Storelib and close your account before the change takes effect; continuing to use Storelib
           after that means you accept it. The date at the top of this page shows when these terms last changed.
         </p>
@@ -731,8 +742,9 @@ export function TermsBody() {
             <a href="mailto:privacy@storelib.com" className={LINK}>privacy@storelib.com</a>
           </p>
           <p>
-            <span className="font-medium text-[var(--legal-ink,#1a1a2e)]">Company:</span> Storelib Inc.,{" "}
-            <Placeholder>registered address and company number: to be confirmed by Storelib</Placeholder>
+            <span className="font-medium text-[var(--legal-ink,#1a1a2e)]">Company:</span> Storelib Inc.
+            {LEGAL_DETAILS.registeredAddress ? `, ${LEGAL_DETAILS.registeredAddress}` : null}
+            {LEGAL_DETAILS.companyNumber ? `, company number ${LEGAL_DETAILS.companyNumber}` : null}
           </p>
         </div>
       </Section>

@@ -12,7 +12,7 @@
  *              constant) is in the cookie table (lib/consent/consent STORED)
  *   LINKS      the three documents link to each other, from /refund-policy too
  *   COPY       no em dash, none of the banned words, a date of 2026-11-20, and
- *              the placeholders the owner must fill in, listed
+ *              nothing left open on the page (LEGAL_DETAILS hides what the owner has not supplied)
  */
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
@@ -24,7 +24,7 @@ import { TERMS_TOC, TermsBody } from "@/components/legal/terms-body"
 import { PRIVACY_TOC, PrivacyBody } from "@/components/legal/privacy-body"
 import { REFUND_TOC, RefundBody } from "@/components/legal/refund-body"
 import { PROCESSORS, creatorTools, namedServices } from "@/lib/legal/processors"
-import { FIXED_FEE, LEGAL_EFFECTIVE, SMALL_ORDER_LINE, feeRows, planPrice } from "@/lib/legal/figures"
+import { FIXED_FEE, LEGAL_DETAILS, LEGAL_EFFECTIVE, SMALL_ORDER_LINE, feeRows, noticeWords, planPrice } from "@/lib/legal/figures"
 import { cardRateLabel, smallOrderRateFor } from "@/lib/billing/fee-calculator"
 import { ratePercentLabel } from "@/lib/payments/fees/config"
 import { OFFERED_PLAN_IDS, PRO_PRICE_CENTS, SCALE_PRICE_CENTS, formatPlanPrice } from "@/lib/billing/plans"
@@ -203,9 +203,12 @@ console.log("\nThe copy")
   check("no em dash", !/—/.test(all) && !/&mdash;/.test(terms + privacy + refunds))
   const banned = ["unlock", "elevate", "seamless", "powerful", "effortless", "supercharge", "transform"].filter((w) => new RegExp(`\\b${w}`, "i").test(all))
   check("none of the banned words", banned.length === 0, banned)
-  const holes = [...(terms + privacy + refunds).matchAll(/data-legal-placeholder=""[^>]*>\[([^\]]+)\]/g)].map((m) => m[1])
-  console.log(`\n  Placeholders for the owner (${holes.length}):\n${[...new Set(holes)].map((h) => `    - ${h}`).join("\n")}`)
-  check("every placeholder says it waits on Storelib", holes.length > 0 && holes.every((h) => /to be (confirmed|published) by Storelib|confirm with counsel/.test(h)), holes)
+  /* Changed on purpose (legal update, the owner: "keep the placeholders hidden"): what only the owner can supply is in LEGAL_DETAILS, and a line that needs it is left out until it is set. */
+  check("no placeholder reaches the page: no brackets, no tint", !/data-legal-placeholder/.test(terms + privacy + refunds) && !/\[[^\]]*(to be confirmed|to be published|confirm with counsel)[^\]]*\]/i.test(all))
+  check("while the owner's details are empty, their lines are left out", Object.values(LEGAL_DETAILS).every((v) => v === null) && !/Data protection officer:|EU and UK representative:|designated agent under the US Digital Millennium Copyright Act is/.test(all))
+  check("  and the gaps still read: reasonable notice, copyright notices to legal@, retention in words", /reasonable advance notice/.test(all) && /legal@storelib\.com/.test(T) && /Support requests/.test(P))
+  check("no Placeholder left in the legal parts", !/export function Placeholder/.test(read("components/legal/legal-parts.tsx")))
+  check("a notice period reads in days once it is set", noticeWords(30) === "30 days' notice" && noticeWords(null) === "reasonable advance notice")
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

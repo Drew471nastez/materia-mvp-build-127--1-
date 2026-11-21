@@ -8,13 +8,13 @@
   The service providers and the tools a creator can connect are drawn from
   lib/legal/processors, the cookies from lib/consent/consent (./cookie-table),
   and the plan limits from lib/legal/figures, so none of them is typed here.
-  Anything only Storelib's owner can supply is a <Placeholder>. A draft for
+  Anything only Storelib's owner can supply is in lib/legal/figures LEGAL_DETAILS, left out until set. A draft for
   review by counsel.
 */
-import { LINK, Placeholder, Section, SubSection, Table, Ul } from "./legal-parts"
+import { LINK, Section, SubSection, Table, Ul } from "./legal-parts"
 import { CookieTable } from "./cookie-table"
 import { PROCESSORS, creatorTools } from "@/lib/legal/processors"
-import { emailLimitsSentence } from "@/lib/legal/figures"
+import { LEGAL_DETAILS, emailLimitsSentence } from "@/lib/legal/figures"
 
 export const PRIVACY_TOC = [
   { id: "s1", label: "1. About this policy" },
@@ -79,21 +79,23 @@ export function PrivacyBody() {
         </p>
         <div className="mt-3 space-y-1 rounded-2xl bg-[var(--legal-panel,#f8f9fa)] p-4 text-[14px]">
           <p>
-            <span className="font-medium text-[var(--legal-ink,#1a1a2e)]">Controller:</span> Storelib Inc.,{" "}
-            <Placeholder>registered address: to be confirmed by Storelib</Placeholder>
+            <span className="font-medium text-[var(--legal-ink,#1a1a2e)]">Controller:</span> Storelib Inc.
+            {LEGAL_DETAILS.registeredAddress ? `, ${LEGAL_DETAILS.registeredAddress}` : null}
           </p>
           <p>
             <span className="font-medium text-[var(--legal-ink,#1a1a2e)]">Privacy contact:</span>{" "}
             <a href="mailto:privacy@storelib.com" className={LINK}>privacy@storelib.com</a>
           </p>
-          <p>
-            <span className="font-medium text-[var(--legal-ink,#1a1a2e)]">Data protection officer:</span>{" "}
-            <Placeholder>name or role and contact, if Storelib appoints one: to be confirmed by Storelib</Placeholder>
-          </p>
-          <p>
-            <span className="font-medium text-[var(--legal-ink,#1a1a2e)]">EU and UK representative:</span>{" "}
-            <Placeholder>needed under GDPR article 27 if Storelib has no establishment in the EU or the UK: to be confirmed by Storelib</Placeholder>
-          </p>
+          {LEGAL_DETAILS.dpo ? (
+            <p>
+              <span className="font-medium text-[var(--legal-ink,#1a1a2e)]">Data protection officer:</span> {LEGAL_DETAILS.dpo}
+            </p>
+          ) : null}
+          {LEGAL_DETAILS.euRepresentative ? (
+            <p>
+              <span className="font-medium text-[var(--legal-ink,#1a1a2e)]">EU and UK representative:</span> {LEGAL_DETAILS.euRepresentative}
+            </p>
+          ) : null}
         </div>
       </Section>
 
@@ -338,8 +340,15 @@ export function PrivacyBody() {
           own privacy notice, honour their customers&apos; rights and the unsubscribe requests Storelib passes on, and
           use any tracking tags lawfully. Storelib&apos;s commitments to creators as a processor, including
           confidentiality, security, the list of providers above, help with rights requests and notice of a breach,
-          are set out in our data processing terms{" "}
-          <Placeholder>link to Storelib&apos;s data processing agreement: to be published by Storelib</Placeholder>.
+          are set out in our data processing terms
+          {LEGAL_DETAILS.dpaUrl ? (
+            <>
+              {" "}(<a href={LEGAL_DETAILS.dpaUrl} className={LINK}>read them</a>)
+            </>
+          ) : (
+            <>, which creators can ask for at <a href="mailto:privacy@storelib.com" className={LINK}>privacy@storelib.com</a></>
+          )}
+          .
         </p>
         <p>
           If you want to use your rights over data a creator holds, ask the creator first. If you cannot reach them,
@@ -369,8 +378,8 @@ export function PrivacyBody() {
             ["Subscribers", "Until the subscriber unsubscribes or the creator removes them. We keep the unsubscribe itself so they are not emailed again."],
             ["Storelib AI build logs", "30 days."],
             ["Pictures sent in community chats", "30 days."],
-            ["Support requests", <Placeholder key="support">retention period: to be confirmed by Storelib</Placeholder>],
-            ["Backups", <Placeholder key="backups">backup retention period: to be confirmed by Storelib and its hosting provider</Placeholder>],
+            ["Support requests", LEGAL_DETAILS.supportRetention ?? "As long as needed to answer the request and deal with anything that follows from it, and as the law requires."],
+            ["Backups", LEGAL_DETAILS.backupRetention ?? "Backups are replaced on a rolling schedule; data deleted from Storelib leaves them as they are replaced."],
           ]}
         />
         <p>We may keep data longer where the law requires it, or to deal with a dispute or a legal claim.</p>
@@ -471,8 +480,8 @@ export function PrivacyBody() {
             <a href="mailto:support@storelib.com" className={LINK}>support@storelib.com</a>
           </p>
           <p>
-            <span className="font-medium text-[var(--legal-ink,#1a1a2e)]">Post:</span> Storelib Inc.,{" "}
-            <Placeholder>registered address: to be confirmed by Storelib</Placeholder>
+            <span className="font-medium text-[var(--legal-ink,#1a1a2e)]">Post:</span> Storelib Inc.
+            {LEGAL_DETAILS.registeredAddress ? `, ${LEGAL_DETAILS.registeredAddress}` : null}
           </p>
         </div>
       </Section>

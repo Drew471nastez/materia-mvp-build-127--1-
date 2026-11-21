@@ -75,20 +75,6 @@ export function legalKindOfPath(path: string): LegalKind | null {
   return hit ?? null
 }
 
-/**
- * Something only the owner can supply (a registered address, a notice
- * period), left visibly open in the text rather than guessed. Square brackets
- * and a tint, so nobody reads it as settled; tests/legal-documents.test.ts
- * lists every one.
- */
-export function Placeholder({ children }: { children: string }) {
-  return (
-    <mark data-legal-placeholder="" className="rounded-[4px] bg-[#fff4d6] px-1 text-[var(--legal-ink,#1a1a2e)]">
-      [{children}]
-    </mark>
-  )
-}
-
 /** A small table inside the text: the fees, the purposes and their legal bases, the retention periods. */
 export function Table({ head, rows }: { head: string[]; rows: React.ReactNode[][] }) {
   return (
