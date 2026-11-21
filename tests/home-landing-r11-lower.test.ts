@@ -56,7 +56,8 @@ console.log("\n1. Run your business from anywhere: the photograph again, on whit
   check("the picture fades in once decoded, never half drawn (opacity only, data-ready)", /\.img \{[^}]*opacity: 0;\s*transition: opacity 650ms/.test(css) && /\.photo\[data-ready\] \.img \{\s*opacity: 1;/.test(css) && /img\.decode\(\)\.then\(ready, ready\)/.test(code) && /img\.complete && img\.naturalWidth/.test(code))
   check("without script the picture shows anyway", /@media \(scripting: none\) \{\s*\.img \{\s*opacity: 1;/.test(css))
   check("the photograph and the points rise in once (platform's reveal, transform and opacity), staggered", (html.match(/class="[^"]*reveal[^"]*"/g) ?? []).length === 5 && /usePlatformSection\(ref\)/.test(code))
-  check("lazy and decoded off the main thread", /loading="lazy"\s*decoding="async"/.test(src))
+  // Changed on purpose (landing round 21): loaded as soon as its section mounts (eager); a fast flick reached it while it was still blank.
+  check("loaded with its section and decoded off the main thread", /loading="eager"\s*decoding="async"/.test(src))
   check("no stage, no loops, no keyframes", !/data-app-stage|@keyframes/.test(html + css) && !/m\.loop/.test(code))
   check("reduced motion: no fade on the picture or the badges", /@media \(prefers-reduced-motion: reduce\) \{\s*\.badge,\s*\.img \{\s*transition: none;/.test(css))
 }

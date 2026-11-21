@@ -1671,6 +1671,8 @@ const SUITES = [
   "tests/home-landing-r19-perf2.test.ts",
   /* Landing round 20, dots: in WebKit (every iPhone browser, the iOS app; read from GestureEvent) the dot fields and the three globes draw on the page's own thread, since a worker drawing handed-over canvases brought the Safari engine down on a fast flick (about 1 run in 3; 0 in 12 never drawn); everywhere nothing is drawn while the page scrolls and it starts again 150ms after it stands still; no tile is added, handed over or sized mid scroll; tiles are whole tiles sized before handover, cleared whole, in boxes that clip. */
   "tests/home-landing-r20-dots.test.ts",
+  /* Landing round 21, pictures: the business scenes' photographs (the DJ player, the AI club, the coach, the avatars), the checkout ring's pictures and the app's photograph load with their section, not lazily, so a card sliding in or a picture turning around the phone is never blank with the page at rest on it (seen in the Safari engine). */
+  "tests/home-landing-r21-pictures.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

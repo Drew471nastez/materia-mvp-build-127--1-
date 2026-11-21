@@ -138,6 +138,7 @@ export function AppAnywhere() {
       {/* The page's one width (.home-wrap): the photograph's left edge on the showcase cards' left edge, the words set in like the showcase heading. */}
       <div className={`home-wrap ${s.grid}`}>
         <div ref={photo} className={`${m.reveal} ${s.photo}`} data-app-photo="" style={{ "--i": 1 } as CSSProperties}>
+          {/* Landing round 21: loaded as soon as the section mounts (it mounts near the screen), not lazily: in the Safari engine a fast flick down reached it while it was still a blank box. 47 KB on a phone. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/home/app/storelib-app-720.webp"
@@ -146,7 +147,7 @@ export function AppAnywhere() {
             width={1280}
             height={960}
             alt="The Storelib app's Home on a phone: visitors, revenue, orders and the week's chart"
-            loading="lazy"
+            loading="eager"
             decoding="async"
             className={s.img}
           />

@@ -260,7 +260,8 @@ console.log("\nCommerce: images")
   /* Changed on purpose (landing round 4): the owner found the reminder demo slow to arrive; the pictures inside the checkout tabs' demos load eagerly (their panel is drawn only when shown), every other picture is lazy. */
   /* Changed on purpose (wave 17): the checkout's two tiny avatars (pc-av, cdx-av) load and decode at once, so they are never blank when the scene scrolls in on an iPhone. */
   const avatars = (all.match(/<img className="(pc|cdx)-av"[^>]*>/g) ?? []).filter((t) => !/loading=|decoding=/.test(t)).length
-  check("images are lazy (or eager inside a tab demo) and decode off the main thread, but the checkout's two tiny avatars", avatars === 2 && imgs > 10 && imgs - avatars === (all.match(/loading="(lazy|eager)"/g) ?? []).length && (all.match(/loading="eager"/g) ?? []).length <= 8 && imgs - avatars === (all.match(/decoding="async"/g) ?? []).length, imgs)
+  /* Changed on purpose (landing round 21): the checkout ring's pictures (its product pictures, their soft copies and the phone's) load with the scene too, four more eager tags in the source. */
+  check("images are lazy (or eager inside a tab demo) and decode off the main thread, but the checkout's two tiny avatars", avatars === 2 && imgs > 10 && imgs - avatars === (all.match(/loading="(lazy|eager)"/g) ?? []).length && (all.match(/loading="eager"/g) ?? []).length <= 12 && imgs - avatars === (all.match(/decoding="async"/g) ?? []).length, imgs)
 }
 
 /* Added (wave 13): one branch deleted public/home/showcase/lt-field.webp while how-it-works still drew it, and the live page asked for it and got a 404. Every picture or video a marketing component names by a root path is a file under public. */
