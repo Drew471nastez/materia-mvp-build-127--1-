@@ -1,0 +1,382 @@
+{
+  "sections": {
+    "hero_split_media_1": {
+      "type": "hero-split-media",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "image": "shopify://shop_images/default-hero-interior.webp",
+        "image_alt": "A reading chair beside a floor lamp",
+        "min_height_desktop": 600
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "New this season"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Good things for every room"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Furniture, lighting and small objects made to be used every day.</p>"
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "text": "Shop everything",
+            "link": "/collections/all"
+          }
+        },
+        "button_5": {
+          "type": "button",
+          "settings": {
+            "text": "About the shop",
+            "button_style": "secondary",
+            "link": "/pages/about"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4",
+        "button_5"
+      ]
+    },
+    "benefits_bar_2": {
+      "type": "benefits-bar",
+      "settings": {
+        "color_scheme": "default"
+      },
+      "blocks": {
+        "icon_1": {
+          "type": "icon",
+          "settings": {
+            "icon": "shipping_fast",
+            "icon_title": "Sent within 2 days"
+          }
+        },
+        "icon_2": {
+          "type": "icon",
+          "settings": {
+            "icon": "undo_alt",
+            "icon_title": "30 day returns"
+          }
+        },
+        "icon_3": {
+          "type": "icon",
+          "settings": {
+            "icon": "lock",
+            "icon_title": "Secure checkout"
+          }
+        },
+        "icon_4": {
+          "type": "icon",
+          "settings": {
+            "icon": "headset",
+            "icon_title": "Real people on support"
+          }
+        }
+      },
+      "block_order": [
+        "icon_1",
+        "icon_2",
+        "icon_3",
+        "icon_4"
+      ]
+    },
+    "products_listing_3": {
+      "type": "products-listing",
+      "settings": {
+        "items_to_show": 8,
+        "items_per_row": 4,
+        "color_scheme": "default"
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "The shop"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Popular right now"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>What people are ordering this month.</p>"
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "text": "See all products",
+            "link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
+    },
+    "image_and_video_text_4": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "scheme-7dae8b89-7a81-4c2c-b8e2-92533766f8ca",
+        "image": "shopify://shop_images/default-living-room.webp",
+        "image_alt": "A bright living room with a grey sofa",
+        "image_position": "right"
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "How we choose"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Fewer things, picked properly"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>We test every product at home before it goes on the shelf. If we would not keep it, we do not sell it.</p>"
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "Read our story",
+            "link": "/pages/about"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
+    },
+    "text_columns_5": {
+      "type": "text-columns",
+      "settings": {
+        "color_scheme": "default"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Good to know before you order"
+          }
+        },
+        "column_2": {
+          "type": "column",
+          "settings": {
+            "label": "Delivery",
+            "heading": "Sent within two days",
+            "text": "<p>Tracked delivery on every order, free over $60.</p>"
+          }
+        },
+        "column_3": {
+          "type": "column",
+          "settings": {
+            "label": "Returns",
+            "heading": "30 days to decide",
+            "text": "<p>Send it back unused and we refund you in full.</p>"
+          }
+        },
+        "column_4": {
+          "type": "column",
+          "settings": {
+            "label": "Support",
+            "heading": "Answered by a person",
+            "text": "<p>Write to us and get a reply within one working day.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "column_2",
+        "column_3",
+        "column_4"
+      ]
+    },
+    "testimonials_6": {
+      "type": "testimonials",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976"
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Reviews"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "What customers say"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Replace these with reviews from your own customers.</p>"
+          }
+        },
+        "testimonial_4": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Write what this customer said about your product.</p>",
+            "name": "Customer name",
+            "role": ""
+          }
+        },
+        "testimonial_5": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Write what this customer said about your product.</p>",
+            "name": "Customer name",
+            "role": ""
+          }
+        },
+        "testimonial_6": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Write what this customer said about your product.</p>",
+            "name": "Customer name",
+            "role": ""
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "testimonial_4",
+        "testimonial_5",
+        "testimonial_6"
+      ]
+    },
+    "faq_pro_7": {
+      "type": "faq-pro",
+      "settings": {
+        "color_scheme": "default"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Questions, answered"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>The things people ask us most.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "When will my order arrive?",
+            "answer": "<p>Orders leave within two working days. Delivery takes three to five days after that, and you get a tracking link by email.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I return something?",
+            "answer": "<p>Yes. Send it back within 30 days, unused and in its packaging, and we refund the full price.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do you ship abroad?",
+            "answer": "<p>We ship to most countries. The delivery price for yours is shown at checkout before you pay.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How do I reach you?",
+            "answer": "<p>Use the form on the contact page. We answer within one working day.</p>"
+          }
+        },
+        "button_7": {
+          "type": "button",
+          "settings": {
+            "label": "Contact us",
+            "link": "/pages/contact"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6",
+        "button_7"
+      ]
+    },
+    "newsletter_8": {
+      "type": "newsletter",
+      "settings": {
+        "color_scheme": "scheme-7dae8b89-7a81-4c2c-b8e2-92533766f8ca",
+        "btn_text": "Sign up",
+        "note": "A few emails a month. Unsubscribe any time."
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "New arrivals, by email"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Be first to hear when something new lands.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2"
+      ]
+    }
+  },
+  "order": [
+    "hero_split_media_1",
+    "benefits_bar_2",
+    "products_listing_3",
+    "image_and_video_text_4",
+    "text_columns_5",
+    "testimonials_6",
+    "faq_pro_7",
+    "newsletter_8"
+  ]
+}

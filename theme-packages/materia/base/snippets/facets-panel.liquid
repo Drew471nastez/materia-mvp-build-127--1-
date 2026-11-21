@@ -1,0 +1,533 @@
+{%- comment -%}
+  Materia Themes. The filters of the search and collection pages, from the
+  platform's own filter data (results.filters): a sidebar or a row of
+  dropdowns on a computer, as the section's Filter layout says, and a drawer
+  on a phone (and on a computer with the Drawer layout). The drawer is a
+  popover, so it opens, closes on Escape or a tap outside and keeps focus
+  without any script; collection.js only applies each choice in place.
+
+  Accepts:
+  - results: search or collection
+  - kind: 'search' or 'collection'
+  - section_st, section_id, filter_layout, default_filter
+  - base_url: where the price form goes without script
+  - terms: the search words as typed (search only)
+  - clear_url: the address with every filter off
+  - blocks: the section's sidebar blocks (collection), or nothing
+{%- endcomment -%}
+{%- liquid
+  assign show_counts = section_st.show_filter_counts
+  assign color_options = 'Color,Colour'
+  if settings.color_swatch_trigger != blank
+    assign color_options = settings.color_swatch_trigger | split: ','
+  endif
+  assign size_options = 'Size'
+  if settings.size_trigger != blank
+    assign size_options = settings.size_trigger | split: ','
+  endif
+  assign has_filter_block = false
+  for block in blocks
+    if block.type == 'filter'
+      assign has_filter_block = true
+    endif
+  endfor
+  assign group_index = 0
+-%}
+<div
+  id="FacetPanel-{{ section_id }}"
+  class="facets-panel facets-panel--{{ filter_layout }}"
+  popover
+  role="dialog"
+  aria-labelledby="FacetPanelTitle-{{ section_id }}"
+  tabindex="-1"
+  data-facets-panel
+>
+  <div class="facets-sheet__head facets-panel__head">
+    <h2 class="facets-sheet__title h5" id="FacetPanelTitle-{{ section_id }}">{{ 'collections.toolbar.filter' | t }}</h2>
+    <button
+      type="button"
+      class="facets-sheet__close"
+      popovertarget="FacetPanel-{{ section_id }}"
+      popovertargetaction="hide"
+      aria-label="{{ 'accessibility.close' | t }}"
+    >
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="m1 1 12 12M13 1 1 13"/></svg>
+    </button>
+  </div>
+  <div class="facets-panel__body" data-facets-part="filters">
+    {%- capture filter_groups -%}
+      {%- comment -%}
+        When the platform hands no filter data (the builder's canvas draws the
+        page without it), the same groups are built from the collection's own
+        products, in the platform's order: availability, price, each option,
+        product type, brand. They are the platform's own filter links
+        (filter.v.availability, filter.v.option.<name>, filter.p.product_type,
+        filter.p.vendor, filter.v.price.gte/lte), so they filter like the live
+        ones. A product drawn without its variants is read whole through
+        all_products, so its options still count.
+      {%- endcomment -%}
+      {%- if results.filters == blank and kind == 'collection' -%}
+        {%- liquid
+          assign pv_products = results.products
+          if pv_products.size == 0
+            assign pv_products = collections.all.products
+          endif
+          assign pv_in = 0
+          assign pv_out = 0
+          assign pv_max = 0
+          assign pv_min = -1
+          assign pv_names = '|'
+          assign pv_vals = '|'
+          assign pv_tags = '|'
+          assign pv_types = '|'
+          assign pv_vendors = '|'
+          for p in pv_products limit: 50
+            assign pv_p = p
+            assign pv_opts = p.options_with_values
+            if pv_opts.size == 0 or p.has_only_default_variant == true
+              assign pv_handle = p.handle
+              assign pv_full = all_products[pv_handle]
+              if pv_full.options_with_values.size > 0
+                assign pv_p = pv_full
+                assign pv_opts = pv_full.options_with_values
+              endif
+            endif
+            if pv_p.available
+              assign pv_in = pv_in | plus: 1
+            else
+              assign pv_out = pv_out | plus: 1
+            endif
+            if pv_p.price_max > pv_max
+              assign pv_max = pv_p.price_max
+            endif
+            if pv_p.price > pv_max
+              assign pv_max = pv_p.price
+            endif
+            assign pv_low = pv_p.price_min | default: pv_p.price
+            if pv_min < 0 or pv_low < pv_min
+              assign pv_min = pv_low
+            endif
+            for opt in pv_opts
+              assign pv_first = opt.values.first
+              assign pv_default = false
+              if opt.values.size == 1 and pv_first == 'Default Title'
+                assign pv_default = true
+              endif
+              unless pv_default
+                assign pv_key = '|' | append: opt.name | append: '|'
+                unless pv_names contains pv_key
+                  assign pv_names = pv_names | append: opt.name | append: '|'
+                endunless
+                for v in opt.values
+                  assign pv_key = '|' | append: opt.name | append: '::' | append: v | append: '|'
+                  unless pv_vals contains pv_key
+                    assign pv_vals = pv_vals | append: opt.name | append: '::' | append: v | append: '|'
+                  endunless
+                  assign pv_key = '|' | append: opt.name | append: '::' | append: v | append: '@@' | append: pv_p.handle | append: '|'
+                  unless pv_tags contains pv_key
+                    assign pv_tags = pv_tags | append: opt.name | append: '::' | append: v | append: '@@' | append: pv_p.handle | append: '|'
+                  endunless
+                endfor
+              endunless
+            endfor
+            if pv_p.type != blank
+              assign pv_key = '|' | append: pv_p.type | append: '|'
+              unless pv_types contains pv_key
+                assign pv_types = pv_types | append: pv_p.type | append: '|'
+              endunless
+              assign pv_tags = pv_tags | append: 'type::' | append: pv_p.type | append: '@@' | append: pv_p.handle | append: '|'
+            endif
+            if pv_p.vendor != blank
+              assign pv_key = '|' | append: pv_p.vendor | append: '|'
+              unless pv_vendors contains pv_key
+                assign pv_vendors = pv_vendors | append: pv_p.vendor | append: '|'
+              endunless
+              assign pv_tags = pv_tags | append: 'vendor::' | append: pv_p.vendor | append: '@@' | append: pv_p.handle | append: '|'
+            endif
+          endfor
+          assign pv_groups = ''
+          if pv_products.size > 0
+            assign pv_groups = 'availability,price'
+            assign pv_option_names = pv_names | split: '|'
+            for n in pv_option_names
+              if n != blank
+                assign pv_groups = pv_groups | append: ',option:' | append: n
+              endif
+            endfor
+            if pv_types != '|'
+              assign pv_groups = pv_groups | append: ',product_type'
+            endif
+            if pv_vendors != '|'
+              assign pv_groups = pv_groups | append: ',vendor'
+            endif
+          endif
+          assign pv_group_list = ''
+          if pv_groups != blank
+            assign pv_group_list = pv_groups | split: ','
+          endif
+          assign pv_range = pv_max | divided_by: 100.0 | ceil
+          assign pv_floor = 0
+          if pv_min > 0
+            assign pv_floor = pv_min | divided_by: 100
+          endif
+        -%}
+        {%- for pv_group in pv_group_list -%}
+          {%- liquid
+            assign group_index = group_index | plus: 1
+            assign default_open = true
+            if default_filter == 'close_all'
+              assign default_open = false
+            elsif default_filter == 'first_open' and group_index > 1
+              assign default_open = false
+            endif
+            assign group_open = default_open
+            if filter_layout == 'horizontal'
+              assign group_open = false
+            endif
+            assign pv_option = ''
+            case pv_group
+              when 'availability'
+                assign pv_label = 'Availability'
+                assign pv_param = 'filter.v.availability'
+              when 'price'
+                assign pv_label = 'Price'
+                assign pv_param = ''
+              when 'product_type'
+                assign pv_label = 'Product type'
+                assign pv_param = 'filter.p.product_type'
+              when 'vendor'
+                assign pv_label = 'Brand'
+                assign pv_param = 'filter.p.vendor'
+              else
+                assign pv_option = pv_group | remove_first: 'option:'
+                assign pv_label = pv_option
+                assign pv_param = pv_option | handleize
+                assign pv_param = 'filter.v.option.' | append: pv_param
+            endcase
+            assign is_color = false
+            assign is_size = false
+            if pv_option != blank and color_options contains pv_option
+              assign is_color = true
+            endif
+            if pv_option != blank and size_options contains pv_option
+              assign is_size = true
+            endif
+            assign group_key = pv_label | handleize
+          -%}
+          <details class="facets-group" data-facets-group="{{ group_key }}" data-facets-source="products"{% if default_open %} data-open-default{% endif %}{% if group_open %} open{% endif %}>
+            <summary class="facets-group__summary" data-facets-key="group-{{ group_key }}">
+              <span class="facets-group__name">{{ pv_label | escape }}</span>
+              <svg class="facets-group__chevron" width="12" height="8" viewBox="0 0 12 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m1 1.5 5 5 5-5"/></svg>
+            </summary>
+            <div class="facets-group__content">
+              {%- if pv_group == 'price' -%}
+                <form class="facets-price" action="{{ base_url }}" method="get" data-facets-price>
+                  <div class="facets-price__fields">
+                    <label class="facets-price__field">
+                      <span class="facets-price__name">{{ section_st.price_min_label | default: 'From' }}</span>
+                      <span class="facets-price__box">
+                        <span class="facets-price__currency" aria-hidden="true">{{ cart.currency.symbol }}</span>
+                        <input class="facets-price__input" type="number" name="filter.v.price.gte" inputmode="decimal" min="0" max="{{ pv_range }}" step="any" placeholder="{{ pv_floor }}" data-facets-key="price-min">
+                      </span>
+                    </label>
+                    <label class="facets-price__field">
+                      <span class="facets-price__name">{{ section_st.price_max_label | default: 'To' }}</span>
+                      <span class="facets-price__box">
+                        <span class="facets-price__currency" aria-hidden="true">{{ cart.currency.symbol }}</span>
+                        <input class="facets-price__input" type="number" name="filter.v.price.lte" inputmode="decimal" min="0" max="{{ pv_range }}" step="any" placeholder="{{ pv_range }}" data-facets-key="price-max">
+                      </span>
+                    </label>
+                  </div>
+                  <button type="submit" class="facets-price__apply btn btn-secondary" data-theme-button="secondary" data-button-role="secondary" data-facets-key="price-apply">{{ 'collections.sidebar.apply' | t }}</button>
+                </form>
+              {%- else -%}
+                {%- liquid
+                  assign pv_list = ''
+                  if pv_group == 'availability'
+                    assign pv_list = '1,0' | split: ','
+                  elsif pv_group == 'product_type'
+                    assign pv_list = pv_types | split: '|'
+                  elsif pv_group == 'vendor'
+                    assign pv_list = pv_vendors | split: '|'
+                  else
+                    assign pv_prefix = pv_option | append: '::'
+                    assign pv_all = pv_vals | split: '|'
+                    assign pv_mine = '|'
+                    for entry in pv_all
+                      assign pv_head = entry | split: '::' | first
+                      if pv_head == pv_option
+                        assign pv_v = entry | remove_first: pv_prefix
+                        assign pv_mine = pv_mine | append: pv_v | append: '|'
+                      endif
+                    endfor
+                    assign pv_list = pv_mine | split: '|'
+                  endif
+                -%}
+                <ul class="facets-values{% if is_color %} facets-values--swatch{% elsif is_size %} facets-values--chips{% endif %}" role="list">
+                  {%- for v in pv_list limit: 100 -%}
+                    {%- if v != blank -%}
+                      {%- liquid
+                        assign pv_value_label = v
+                        if pv_group == 'availability'
+                          if v == '1'
+                            assign pv_value_label = 'In stock'
+                            assign pv_count = pv_in
+                          else
+                            assign pv_value_label = 'Out of stock'
+                            assign pv_count = pv_out
+                          endif
+                        else
+                          case pv_group
+                            when 'product_type'
+                              assign pv_needle = '|type::' | append: v | append: '@@'
+                            when 'vendor'
+                              assign pv_needle = '|vendor::' | append: v | append: '@@'
+                            else
+                              assign pv_needle = '|' | append: pv_option | append: '::' | append: v | append: '@@'
+                          endcase
+                          assign pv_count = pv_tags | split: pv_needle | size | minus: 1
+                        endif
+                      -%}
+                      <li>
+                        <a
+                          class="facets-value"
+                          href="{{ base_url }}?{{ pv_param }}={{ v | url_encode }}"
+                          role="checkbox"
+                          aria-checked="false"
+                          data-facets-link
+                          data-facets-key="value-{{ group_key }}-{{ v | handleize }}"
+                          data-facets-param="{{ pv_param }}"
+                          data-facets-value="{{ v | escape }}"
+                          {% if pv_count == 0 %}aria-disabled="true" tabindex="-1"{% endif %}
+                        >
+                          <span class="facets-value__box" aria-hidden="true">
+                            {%- if is_color -%}<span class="facets-value__swatch custom__color-swatches--{{ v | handleize }}" style="--swatch: {{ v | downcase | escape }}"></span>{%- endif -%}
+                          </span>
+                          <span class="facets-value__label">{{ pv_value_label | escape }}</span>
+                          {%- if show_counts -%}<span class="facets-value__count">({{ pv_count }})</span>{%- endif -%}
+                        </a>
+                      </li>
+                    {%- endif -%}
+                  {%- endfor -%}
+                </ul>
+              {%- endif -%}
+            </div>
+          </details>
+        {%- endfor -%}
+      {%- endif -%}
+      {%- for filter in results.filters -%}
+        {%- liquid
+          assign group_index = group_index | plus: 1
+          comment
+            The row of dropdowns starts closed on a computer; in the drawer
+            (phones) the panels open as Default state says (collection.js
+            opens them from data-open-default).
+          endcomment
+          assign default_open = true
+          if default_filter == 'close_all'
+            assign default_open = false
+          elsif default_filter == 'first_open' and group_index > 1
+            assign default_open = false
+          endif
+          assign group_open = default_open
+          if filter_layout == 'horizontal'
+            assign group_open = false
+          endif
+          assign active_in_group = filter.active_values.size
+          if filter.type == 'price_range'
+            if filter.min_value.value != null or filter.max_value.value != null
+              assign active_in_group = 1
+            endif
+          endif
+          assign is_color = false
+          assign is_size = false
+          if color_options contains filter.label
+            assign is_color = true
+          endif
+          if size_options contains filter.label
+            assign is_size = true
+          endif
+          assign group_key = filter.label | handleize
+        -%}
+        <details class="facets-group" data-facets-group="{{ group_key }}"{% if default_open %} data-open-default{% endif %}{% if group_open %} open{% endif %}>
+          <summary class="facets-group__summary" data-facets-key="group-{{ group_key }}">
+            <span class="facets-group__name">{{ filter.label | escape }}</span>
+            {%- if active_in_group > 0 -%}<span class="facets-group__count">{{ active_in_group }}</span>{%- endif -%}
+            <svg class="facets-group__chevron" width="12" height="8" viewBox="0 0 12 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m1 1.5 5 5 5-5"/></svg>
+          </summary>
+          <div class="facets-group__content">
+            {%- if filter.type == 'price_range' -%}
+              {%- liquid
+                assign range_max = filter.range_max | divided_by: 100.0 | ceil
+                comment
+                  The lowest price shown as the From hint: the filter's own
+                  range_min when the platform gives one, else the lowest
+                  price among the products listed.
+                endcomment
+                assign range_low = -1
+                if filter.range_min != blank
+                  assign range_low = filter.range_min
+                else
+                  for p in results.products limit: 50
+                    assign p_low = p.price_min | default: p.price
+                    if range_low < 0 or p_low < range_low
+                      assign range_low = p_low
+                    endif
+                  endfor
+                endif
+                assign range_min = 0
+                if range_low > 0
+                  assign range_min = range_low | divided_by: 100
+                endif
+                assign min_shown = ''
+                assign max_shown = ''
+                comment
+                  A whole amount shows as 100, not 100.0; cents as 99.5.
+                endcomment
+                if filter.min_value.value != null
+                  assign min_shown = filter.min_value.value | divided_by: 100
+                  assign min_back = min_shown | times: 100
+                  if min_back != filter.min_value.value
+                    assign min_shown = filter.min_value.value | divided_by: 100.0
+                  endif
+                endif
+                if filter.max_value.value != null
+                  assign max_shown = filter.max_value.value | divided_by: 100
+                  assign max_back = max_shown | times: 100
+                  if max_back != filter.max_value.value
+                    assign max_shown = filter.max_value.value | divided_by: 100.0
+                  endif
+                endif
+              -%}
+              <form class="facets-price" action="{{ base_url }}" method="get" data-facets-price>
+                {%- if kind == 'search' -%}<input type="hidden" name="q" value="{{ terms | escape }}">{%- endif -%}
+                <div class="facets-price__fields">
+                  <label class="facets-price__field">
+                    <span class="facets-price__name">{{ section_st.price_min_label | default: 'From' }}</span>
+                    <span class="facets-price__box">
+                      <span class="facets-price__currency" aria-hidden="true">{{ cart.currency.symbol }}</span>
+                      <input
+                        class="facets-price__input"
+                        type="number"
+                        name="{{ filter.min_value.param_name }}"
+                        inputmode="decimal"
+                        min="0"
+                        max="{{ range_max }}"
+                        step="any"
+                        placeholder="{{ range_min }}"
+                        value="{{ min_shown }}"
+                        data-facets-key="price-min"
+                      >
+                    </span>
+                  </label>
+                  <label class="facets-price__field">
+                    <span class="facets-price__name">{{ section_st.price_max_label | default: 'To' }}</span>
+                    <span class="facets-price__box">
+                      <span class="facets-price__currency" aria-hidden="true">{{ cart.currency.symbol }}</span>
+                      <input
+                        class="facets-price__input"
+                        type="number"
+                        name="{{ filter.max_value.param_name }}"
+                        inputmode="decimal"
+                        min="0"
+                        max="{{ range_max }}"
+                        step="any"
+                        placeholder="{{ range_max }}"
+                        value="{{ max_shown }}"
+                        data-facets-key="price-max"
+                      >
+                    </span>
+                  </label>
+                </div>
+                <button type="submit" class="facets-price__apply btn btn-secondary" data-theme-button="secondary" data-button-role="secondary" data-facets-key="price-apply">{{ 'collections.sidebar.apply' | t }}</button>
+              </form>
+            {%- else -%}
+              <ul class="facets-values{% if is_color %} facets-values--swatch{% elsif is_size %} facets-values--chips{% endif %}" role="list">
+                {%- for value in filter.values -%}
+                  {%- liquid
+                    assign value_disabled = false
+                    if value.count == 0 and value.active == false
+                      assign value_disabled = true
+                    endif
+                  -%}
+                  <li>
+                    <a
+                      class="facets-value"
+                      href="{% if value.active %}{{ value.url_to_remove }}{% else %}{{ value.url_to_add }}{% endif %}"
+                      role="checkbox"
+                      aria-checked="{% if value.active %}true{% else %}false{% endif %}"
+                      data-facets-link
+                      data-facets-key="value-{{ group_key }}-{{ value.value | handleize }}"
+                      data-facets-param="{{ value.param_name | default: filter.param_name | escape }}"
+                      data-facets-value="{{ value.value | escape }}"
+                      {% if value_disabled %}aria-disabled="true" tabindex="-1"{% endif %}
+                    >
+                      <span class="facets-value__box" aria-hidden="true">
+                        {%- if value.image != blank -%}
+                          <img class="facets-value__image" src="{{ value.image | image_url: width: 80 }}" width="28" height="28" loading="lazy" decoding="async" alt="">
+                        {%- elsif value.swatch.image != blank -%}
+                          <img class="facets-value__image" src="{{ value.swatch.image | image_url: width: 80 }}" width="28" height="28" loading="lazy" decoding="async" alt="">
+                        {%- elsif is_color or value.swatch.color != blank -%}<span class="facets-value__swatch custom__color-swatches--{{ value.label | handleize }}" style="--swatch: {{ value.swatch.color | default: value.value | downcase | escape }}"></span>{%- endif -%}
+                      </span>
+                      <span class="facets-value__label">{{ value.label | escape }}</span>
+                      {%- if show_counts -%}<span class="facets-value__count">({{ value.count }})</span>{%- endif -%}
+                    </a>
+                  </li>
+                {%- endfor -%}
+              </ul>
+            {%- endif -%}
+          </div>
+        </details>
+      {%- endfor -%}
+    {%- endcapture -%}
+    {%- if blocks.size > 0 -%}
+      {%- unless has_filter_block -%}{{ filter_groups }}{%- endunless -%}
+      {%- for block in blocks -%}
+        {%- case block.type -%}
+          {%- when 'filter' -%}
+            {{ filter_groups }}
+          {%- when 'categories' -%}
+            {%- if block.settings.menu != blank -%}
+              {%- assign group_key = 'menu-' | append: block.id -%}
+              <details class="facets-group facets-group--links" data-facets-group="{{ group_key }}"{% if filter_layout != 'horizontal' and default_filter != 'close_all' %} open{% endif %} {{ block.shopify_attributes }}>
+                <summary class="facets-group__summary" data-facets-key="group-{{ group_key }}">
+                  <span class="facets-group__name">{{ block.settings.title | default: block.settings.menu.title | escape }}</span>
+                  <svg class="facets-group__chevron" width="12" height="8" viewBox="0 0 12 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m1 1.5 5 5 5-5"/></svg>
+                </summary>
+                <div class="facets-group__content">
+                  <ul class="facets-links" role="list">
+                    {%- for link in block.settings.menu.links -%}
+                      <li><a class="facets-links__link" href="{{ link.url }}"{% if link.active %} aria-current="page"{% endif %}>{{ link.title | escape }}</a></li>
+                    {%- endfor -%}
+                  </ul>
+                </div>
+              </details>
+            {%- endif -%}
+          {%- else -%}
+            {%- if filter_layout != 'horizontal' -%}
+              {%- render 'facets-sidebar-block', block: block -%}
+            {%- endif -%}
+        {%- endcase -%}
+      {%- endfor -%}
+    {%- else -%}
+      {{ filter_groups }}
+    {%- endif -%}
+  </div>
+  <div class="facets-panel__foot">
+    <a class="facets-panel__clear" href="{{ clear_url }}" data-facets-link data-facets-key="panel-clear">{{ 'collections.sidebar.clear_all' | t }}</a>
+    <button
+      type="button"
+      class="facets-panel__done btn btn-primary"
+      data-theme-button="primary"
+      data-button-role="primary"
+      popovertarget="FacetPanel-{{ section_id }}"
+      popovertargetaction="hide"
+    >
+      {%- if section_st.show_results_label != blank -%}
+        {{ section_st.show_results_label | escape }}
+      {%- else -%}
+        {{ 'collections.sidebar.apply' | t }}
+      {%- endif -%}
+    </button>
+  </div>
+</div>

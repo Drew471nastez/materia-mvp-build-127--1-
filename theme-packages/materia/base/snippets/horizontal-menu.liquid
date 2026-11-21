@@ -1,0 +1,841 @@
+{%- comment -%}
+  Materia Themes. Developed By Materia Themes.
+{%- endcomment -%}
+{{ 'navigation.css' | asset_url | stylesheet_tag }}
+{%- liquid
+  assign section_st = section.settings
+  assign theme_st = settings
+  assign section_width = section_st.section_width
+  assign show_my_account = section_st.show_account_icon
+  assign account_signed_in = customer
+  if template.name == 'account' or request.page_type == 'customers/account'
+    assign account_signed_in = true
+  endif
+  assign wishlist = section_st.show_wishlist_icon
+  assign uppercase_first = section_st.uppercase_first
+  assign menu_mobile_tab = section_st.menu_tab
+  assign collection_list = section_st.collection_list
+  assign title_categories = section_st.title_categories
+  comment
+    Menu badges now live in the "Menu badges" block. Find that single block
+    and read every badge value from it. Falls back cleanly if it's removed.
+  endcomment
+  assign badges_block = null
+  for mb_item in section.blocks
+    if mb_item.type == 'menu_badges'
+      assign badges_block = mb_item
+    endif
+  endfor
+  assign badges_st = badges_block.settings
+  comment
+    Header > Image card label: the theme button (button), a pill on the
+    picture (pill) or plain text under it (below). Only the button style
+    wears the .btn class, so the theme's button rules never reach the others.
+  endcomment
+  assign mega_label_style = section_st.mega_card_label | default: 'button'
+  if mega_label_style == 'button'
+    assign mega_label_cls = 'btn inline-block bg-white heading-color py-15 px-30 text-center'
+  else
+    assign mega_label_cls = 'menu-card__label'
+  endif
+-%}
+{% liquid
+  assign enable_rtl = settings.rtl
+  assign iso_code = request.locale.iso_code
+  assign lis_language_rtl = settings.language_rtl
+  if lis_language_rtl != blank
+    if iso_code != blank and lis_language_rtl contains iso_code
+      assign enable_rtl = true
+    endif
+  endif
+%}
+{%- if section_st.mega_menu != blank -%}
+  {% comment %} Desktop Menu {% endcomment %}
+  <nav
+    class="flex flex-column block-1025 navigation horizontal fixed static-1025 visible-1025 inset-0 {{ section_st.dropdowns_animation }}"
+    data-action-mobile="{{ section_st.redirect_to_link }}"
+    data-badge-style="{{ badges_st.menu_badge_style | default: 'pill' }}"
+    data-badge-shape="{{ badges_st.badge_shape | default: 'style' }}"
+    data-badge-font="{{ badges_st.badge_font | default: 'style' }}"
+    data-badge-case="{{ badges_st.badge_case | default: 'style' }}"
+    data-badge-pos="{{ badges_st.badge_position | default: 'above' }}"
+    {% if badges_st.badge_hover != false %}data-badge-lift{% endif %}
+    style="
+      --mb-badge-size: {{ badges_st.badge_size | default: 10 }}px;--mb-badge-border: {% if badges_st.badge_border != blank %}{{ badges_st.badge_border }}{% else %}1{% endif %}px;
+      --hot-cl: {{ badges_st.label_color_hot }};--hot-bg-cl: {{ badges_st.label_background_hot }};
+      --new-cl: {{ badges_st.label_color_new }};--new-bg-cl: {{ badges_st.label_background_new }};
+      --sale-cl: {{ badges_st.label_color_sale }};--sale-bg-cl: {{ badges_st.label_background_sale }};
+      --popular-cl: {{ badges_st.label_color_popular }};--popular-bg-cl: {{ badges_st.label_background_popular }};
+      --custom_1-cl: {{ badges_st.label_color_custom_1 }};--custom_1-bg-cl: {{ badges_st.label_background_custom_1 }};
+      --custom_2-cl: {{ badges_st.label_color_custom_2 }};--custom_2-bg-cl: {{ badges_st.label_background_custom_2 }};
+    "
+  >
+    <div class="navigation__menu-content word-break">
+      <ul
+        class="horizontal-list list-unstyled inline-flex-1025 flex-wrap row-gap-0 horizontal px-30 px-1025-0 show-localization animation-{{ section_st.dropdowns_animation }}"
+      >
+        <svg hidden>
+          <symbol id="icon-arrow-down">
+            <path fill="currentColor" d="M1.09 1.822a.52.52 0 0 1-.178-.396c0-.164.06-.306.178-.424A.557.557 0 0 1 1.5.838c.164 0 .3.055.41.164L5 4.092l3.09-3.09A.557.557 0 0 1 8.5.838c.164 0 .3.055.41.164.119.118.178.26.178.424a.52.52 0 0 1-.178.396l-3.5 3.5A.535.535 0 0 1 5 5.5c-.164 0-.3-.06-.41-.178l-3.5-3.5Z"/>
+          </symbol>
+        </svg>
+        {%- assign mm_seen = ' ' -%}
+        {%- capture menu_items -%}
+        {%- for link in section_st.mega_menu.links -%}
+          {%- capture link_title -%}{%- render 'menu-link-title', title: link.title, mode: 'text' -%}{%- endcapture -%}
+          {%- liquid
+            comment
+              A block belongs to the top-level link whose title it names (with
+              or without a badge tag). Menu link: badge & colour and Mobile
+              menu banner are looked up on their own, so either can sit beside
+              a mega menu block on the same link.
+            endcomment
+            assign last_block = null
+            assign style_block = null
+            assign banner_block = null
+            assign title = link.title | strip | downcase
+            assign title_clean = link_title | strip | downcase
+            for block in section.blocks
+              assign text = block.settings.text | strip | downcase
+              assign text_match = false
+              if text != blank
+                if text == title or text == title_clean
+                  assign text_match = true
+                endif
+              endif
+              if text_match
+                if block.type == 'menu_link_style'
+                  assign style_block = block
+                elsif block.type == 'menu_mobile_banner'
+                  assign banner_block = block
+                elsif block.type != 'menu_badges' and block.type != 'pill_glass'
+                  assign last_block = block
+                endif
+              endif
+            endfor
+            comment
+              The blocks drawn for this link, so the builder can open it when
+              one of them is selected (theme.js).
+            endcomment
+            assign mm_ids = ''
+            if last_block != null
+              assign mm_ids = mm_ids | append: ' ' | append: last_block.id
+            endif
+            if style_block != null
+              assign mm_ids = mm_ids | append: ' ' | append: style_block.id
+            endif
+            if banner_block != null
+              assign mm_ids = mm_ids | append: ' ' | append: banner_block.id
+            endif
+            assign mm_ids = mm_ids | strip
+            assign mm_seen = mm_seen | append: ' ' | append: mm_ids | append: ' '
+            assign top_label = 'unset'
+            if last_block != null and last_block.settings.item_label != blank
+              assign top_label = last_block.settings.item_label
+            endif
+            if style_block != null and style_block.settings.item_label != blank and style_block.settings.item_label != 'unset'
+              assign top_label = style_block.settings.item_label
+            endif
+            assign li_style = ''
+            if style_block != null
+              assign sb_color = style_block.settings.link_color
+              assign sb_hover = style_block.settings.link_hover_color
+              if sb_color != blank and sb_color.alpha != 0
+                assign li_style = li_style | append: '--menu-link-color: ' | append: sb_color | append: ';'
+              endif
+              if sb_hover != blank and sb_hover.alpha != 0
+                assign li_style = li_style | append: '--menu-link-hover-color: ' | append: sb_hover | append: ';'
+              endif
+            endif
+          -%}
+          {% if last_block != null %}
+            {%- liquid
+              assign block_st = last_block.settings
+              assign has_content = false
+              assign full_width = block_st.full_width
+              assign mega_custom_width = block_st.mega_custom_width
+            -%}
+            {%- case last_block.type -%}
+              {%- when 'menu_promotion' -%}
+                {%- for i in (1..2) -%}
+                  {%- capture promotion -%}promotion_image_{{ i }}{%- endcapture -%}
+                  {%- liquid
+                    if block_st[promotion] != blank
+                      assign has_content = true
+                    endif
+                  -%}
+                {%- endfor -%}
+              {%- when 'menu_collection' -%}
+                {%- for i in (1..3) -%}
+                  {%- capture collection -%}collection_{{ i }}{%- endcapture -%}
+                  {%- liquid
+                    if block_st[collection] != blank
+                      assign has_content = true
+                    endif
+                  -%}
+                {%- endfor -%}
+              {%- when 'menu_collections_only' -%}
+                {%- liquid
+                  if block_st.collection_list != blank
+                    assign has_content = true
+                  endif
+                -%}
+              {%- when 'menu_categories' -%}
+                {%- liquid
+                  if block_st.collection_list != blank or block_st.banner_image != blank or request.design_mode
+                    assign has_content = true
+                  endif
+                -%}
+              {%- else -%}
+                {%- for i in (1..3) -%}
+                  {%- capture product -%}product_{{ i }}{%- endcapture -%}
+                  {%- liquid
+                    if block_st[product] != blank
+                      assign has_content = true
+                    endif
+                  -%}
+                {%- endfor -%}
+            {%- endcase -%}
+            {%- capture menu_level_0 -%}
+              {%- liquid
+                assign label = block_st.item_label
+              -%}
+              <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color px-15">
+              <a class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center{% if theme_st.menu_font == 'heading_font' %} heading-style{% endif %}{% if uppercase_first %} uppercase{% endif %}{% if link.links.size > 0 or has_content %}{% if section_st.redirect_to_link == false %} redirect-to-link{% endif %}{% endif %}" href="{{ link.url | remove: '#_blank' }}" {% render 'link-target', link: link, new_tab: block_st.open-link-newtab, legacy_new_tab: block_st.open_link_newtab %}>
+                {%- render 'menu-link-title', title: link.title, label: top_label -%}
+                {%- if link.links.size > 0 or has_content -%}
+                  <open-children-toggle class="inline-flex flex-end align-center ms-5{% if section_st.redirect_to_link == blank %} absolute inset-0 static-1025{% else %} touch-target-mb{% endif %}">
+                    <svg class="icon-down hidden block-1025" width="10" height="6">
+                      <use href="#icon-arrow-down" />
+                    </svg>
+                  </open-children-toggle>
+                {%- endif -%}
+              </a>
+              {%- if link.links.size > 0 or has_content -%}
+                <open-children-toggle class="inline-flex flex-end align-center pointer ms-5{% if section_st.redirect_to_link == blank %} absolute inset-0 static-1025{% else %} touch-target-mb{% endif %}">
+                  {% if enable_rtl %}
+                    <svg class="icon-down block hidden-1025" width="6" height="11">
+                      <use href="#icon-back" />
+                    </svg>
+                  {% else %}
+                    <svg class="icon-down block hidden-1025" width="6" height="11">
+                      <use href="#icon-next" />
+                    </svg>
+                  {% endif %}
+                </open-children-toggle>
+              {%- endif -%}
+              </menu-item>
+            {%- endcapture -%}
+            <li
+              {{ last_block.shopify_attributes }}
+              data-mm-blocks="{{ mm_ids }}"
+              class="level0{% if link.links.size or has_content %} menu-parent menu-parent__horizontal mega-menu{% else %} single{% endif %}{% if li_style != blank %} has-link-color{% endif %}"
+              {% if li_style != blank %}style="{{ li_style }}"{% endif %}
+            >
+              {{ menu_level_0 }}
+              {%- if link.links.size > 0 or has_content -%}
+                <div
+                  class="custom-scrollbar submenu submenu-horizontal invisible-1025 absolute{% if section_st.logo_position == 'left' %} left-0{% endif %} gradient p-0 py-1025-40{% if full_width %} full-width inset-x-0{% else %} mega-menu-custom-width{% if block_st.center_submenu %} inset-x-0 mx-auto{% endif %}{% endif %} overflow-x-hidden"
+                  style="--mega_custom_width: {{ mega_custom_width }}px"
+                >
+                  <div class="hidden-1025 mm-sub-title-bar grey-bg px-30 border-bottom flex gap-15 align-center justify-between{% if theme_st.menu_font == 'heading_font' %} heading-style{% endif %}" style="background: {{ section_st.menu_mobile_background | default: "#242424" }} !important; --color-heading: {{ section_st.menu_mobile_color | default: "#FFFFFF" }}; color: {{ section_st.menu_mobile_color | default: "#FFFFFF" }};">
+                    <back-menu
+                      class="py-10 min-h-55 min-h-1025-50 inline-flex gap-20 align-center fs-big-1 heading-style"
+                      role="link"
+                    >
+                      {% if enable_rtl %}
+                        <svg width="6" height="11" fill="none">
+                          <use href="#icon-next" />
+                        </svg>
+                      {% else %}
+                        <svg width="6" height="11" fill="none">
+                          <use href="#icon-back" />
+                        </svg>
+                      {% endif %}
+                      {{ link_title }}
+                    </back-menu>
+                    <close-menu aria-label="{{ 'main_menu.horizontal.close' | t }}" class="close-menu lh-1 ms-10">
+                      <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                        <use href="#icon-close" />
+                      </svg>
+                    </close-menu>
+                  </div>
+                  <div class="{% if full_width %}{% if section_width == 'container' %}container{% else %}fluid_container{% endif %}{% else %}stretch_width{% endif %}">
+                    {%- case last_block.type -%}
+                      {%- when 'menu_promotion' -%}
+                        {% assign banner_count = 0 %}
+                        {% for i in (1..2) %}
+                          {%- capture promotion_image -%}promotion_image_{{i}}{%- endcapture -%}
+                          {%- if block_st[promotion_image] != blank -%}
+                            {% assign banner_count = banner_count | plus: 1 %}
+                          {%- endif -%}
+                        {% endfor %}
+                        {%- liquid             
+                          assign only_for_domain_match = false
+                        -%}                 
+                        <div
+                          class="flex flex-column gap{% if block_st.promotion_position == "left" %} flex-1025-row-reverse{% else %} flex-1025-row{% endif %}"
+                          style="--col-mega-width: {{ block_st.promotion_image_width }}%; --col-gap: 30px"
+                        >
+                      
+       
+                          {% if link.links.size > 0 %}
+                            <div
+                              class="menu-list"
+                              style="--row-gap: 40px; --col-desktop:{{ block_st.promotion_menu_column }};"
+                            >
+                              {%- render 'submenu-list' , link: link , only_for_domain: only_for_domain_match -%}
+                            </div>
+                          {% endif %}
+                          {%- if block_st.promotion_image_1 != blank or block_st.promotion_image_2 != blank -%}
+                            <div class="col-mega">
+                              <div
+                                class="grid grid-cols gap-20 px-30 px-1025-0 {{ settings.hover_effect }}"
+                                style="--col-number: {{ banner_count }}"
+                              >
+                                {%- for i in (1..2) -%}
+                                  {%- liquid
+                                    assign pk = 'promotion_image_' | append: i
+                                    assign lk = 'promotion_link_' | append: i
+                                    assign nk = 'promotion_link_newtab_' | append: i
+                                    assign tk = 'promotion_label_' | append: i
+                                    assign p_img = block_st[pk]
+                                    assign p_link = block_st[lk]
+                                    assign p_label = block_st[tk]
+                                    assign p_ratio = p_img.aspect_ratio | default: 0.8
+                                  -%}
+                                  {%- if p_img != blank -%}
+                                    {%- assign banner_alt = p_img.alt | default: p_label | default: link_title | escape -%}
+                                    <div class="collection-items align-self-start menu-collection menu-card relative">
+                                      <a
+                                        {% if p_link == blank %}
+                                          role="link" aria-disabled="true"
+                                        {% else %}
+                                          href="{{ p_link | remove: '#_blank' }}"
+                                        {% endif %}
+                                        {% if p_label != blank %}aria-label="{{ p_label | escape }}"{% endif %}
+                                        {% render 'link-target', url: p_link, new_tab: block_st[nk] %}
+                                        class="banner__media collection-media p-0 hover-effect block rounded"
+                                        style="--aspect-ratio: {{ p_ratio }}"
+                                      >
+                                        {% render 'responsive-image',
+                                          hidden_at_load: true,
+                                          type: 'other',
+                                          image: p_img,
+                                          image_alt: banner_alt,
+                                          custom_widths: '1200, 900, 720, 540, 360',
+                                          sizes: '(min-width: 1025px) 420px, 50vw',
+                                          class: 'rounded'
+                                        %}
+                                      </a>
+                                      {%- if p_label != blank -%}
+                                        <div class="collection-info absolute bottom-25 inset-x-0 text-center" aria-hidden="true">
+                                          <span
+                                            class="{{ mega_label_cls }}" data-mega-card-label
+                                            style="--btn-color: var(--color-heading);"
+                                          >
+                                            {{- p_label | escape -}}
+                                          </span>
+                                        </div>
+                                      {%- endif -%}
+                                    </div>
+                                  {%- endif -%}
+                                {%- endfor -%}
+                              </div>
+                            </div>
+                          {%- endif -%}
+                        </div>
+                      {%- when 'menu_collection' -%}
+                        {% assign collection_count = 0 %}
+                        {% for i in (1..3) %}
+                          {%- capture collection -%}collection_{{i}}{%- endcapture -%}
+                          {%- if block_st[collection] != blank -%}
+                            {% assign collection_count = collection_count | plus: 1 %}
+                          {%- endif -%}
+                        {% endfor %}
+                        <div
+                          class="flex flex-column gap-30 flex-1025-row"
+                          style="--col-mega-width: {{ block_st.collection_width }}%"
+                        >
+                          {% if link.links.size > 0 %}
+                            <div
+                              class="menu-list"
+                              style="--row-gap: 40px; --col-desktop:{{ block_st.collection_menu_column }};"
+                            >
+                              {%- render 'submenu-list', link: link -%}
+                            </div>
+                          {% endif %}
+                          {%- if collection_count > 0 -%}
+                            <div class="col-mega">
+                              <div
+                                class="grid grid-cols gap-20 px-30 px-1025-0"
+                                style="--col-number: {{ collection_count }}"
+                              >
+                                {%- for i in (1..3) -%}
+                                  {%- capture collection -%}collection_{{i}}{%- endcapture -%}
+                                  {%- liquid
+                                    assign collection_value = block_st[collection]
+                                  -%}
+                                  {%- if collection_value != blank -%}
+                                    {%- liquid
+                                      assign p_url = collection_value.url
+                                      assign p_img = collection_value.featured_image
+                                      assign ratio = collection_value.featured_image.aspect_ratio | default: 0.8
+                                    -%}
+                                    {%- if p_url != blank -%}
+                                      <div class="collection-items align-self-start menu-collection rounded overflow-hidden relative  {{ settings.hover_effect }}">
+                                        {%- assign banner_alt = p_img.alt | default: collection_value.title | escape -%}
+                                        <a
+                                          role="link"
+                                          aria-label="{{ collection_value.title }}"
+                                          href="{{ p_url }}"
+                                          class="banner__media collection-media p-0 hover-effect block rounded"
+                                          style="--aspect-ratio: {{ ratio }}"
+                                        >
+                                          {%- if p_img != blank -%}
+                                            {%- assign image_alt = p_img.alt | default: 'Images' | escape -%}
+                                            {% render 'responsive-image',
+                                              hidden_at_load: true,
+                                              type: 'other',
+                                              image: p_img,
+                                              image_alt: image_alt,
+                                              sizes: '(min-width: 1025px) 320px, 50vw'
+                                            %}
+                                          {%- else -%}
+                                            {% render 'placeholder-render' %}
+                                          {%- endif -%}
+                                        </a>
+                                        <div class="collection-info absolute bottom-25 inset-x-0 text-center">
+                                          <span
+                                            class="{{ mega_label_cls }}" data-mega-card-label
+                                            style="--btn-color: var(--color-heading);"
+                                          >
+                                            {{- collection_value.title -}}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    {%- endif -%}
+                                  {%- endif -%}
+                                {%- endfor -%}
+                              </div>
+                            </div>
+                          {%- endif -%}
+                        </div>
+                      {%- when 'menu_categories' -%}
+                        {%- render 'menu-categories', block_st: block_st, link: link -%}
+                      {%- when 'menu_collections_only' -%}
+                        {%- liquid
+                          assign mco_columns = block_st.columns | default: 4
+                          case block_st.image_ratio
+                            when 'portrait'
+                              assign mco_ratio = 0.75
+                            when 'landscape'
+                              assign mco_ratio = 1.333
+                            else
+                              assign mco_ratio = 1
+                          endcase
+                        -%}
+                        {%- if block_st.collection_list != blank -%}
+                          <div
+                            class="menu-collections-only grid grid-cols gap-20 px-30 px-1025-0"
+                            style="--col-number: 2; --col-desktop: {{ mco_columns }};"
+                          >
+                            {%- for mco_collection in block_st.collection_list -%}
+                              <div class="collection-items align-self-start menu-collection rounded overflow-hidden relative {{ settings.hover_effect }}">
+                                <a
+                                  role="link"
+                                  aria-label="{{ mco_collection.title | escape }}"
+                                  href="{{ mco_collection.url }}"
+                                  class="banner__media collection-media p-0 hover-effect block rounded"
+                                  style="--aspect-ratio: {{ mco_ratio }}"
+                                >
+                                  {%- if mco_collection.featured_image != blank -%}
+                                    {%- assign image_alt = mco_collection.featured_image.alt | default: mco_collection.title | escape -%}
+                                    {% render 'responsive-image',
+                                      hidden_at_load: true,
+                                      type: 'other',
+                                      image: mco_collection.featured_image,
+                                      image_alt: image_alt,
+                                      sizes: '(min-width: 1025px) 300px, 50vw'
+                                    %}
+                                  {%- else -%}
+                                    {% render 'placeholder-render' %}
+                                  {%- endif -%}
+                                </a>
+                                {%- if block_st.show_titles -%}
+                                  <div class="collection-info absolute bottom-25 inset-x-0 text-center">
+                                    <span
+                                      class="{{ mega_label_cls }}" data-mega-card-label
+                                      style="--btn-color: var(--color-heading);"
+                                    >
+                                      {{- mco_collection.title -}}
+                                    </span>
+                                  </div>
+                                {%- endif -%}
+                              </div>
+                            {%- endfor -%}
+                          </div>
+                        {%- endif -%}
+                      {%- else -%}
+                        {% assign product_count = 0 %}
+                        {% for i in (1..3) %}
+                          {%- capture product -%}product_{{ i }}{%- endcapture -%}
+                          {%- if block_st[product] != blank -%}
+                            {% assign product_count = product_count | plus: 1 %}
+                          {%- endif -%}
+                        {% endfor %}
+                        <div
+                          class="flex flex-column gap-30 flex-1025-row"
+                          style="--col-mega-width: {{ block_st.product_width }}%"
+                        >
+                          {% if link.links.size > 0 %}
+                            <div
+                              class="menu-list"
+                              style="--row-gap: 40px; --col-desktop:{{ block_st.product_menu_column }};"
+                            >
+                              {%- render 'submenu-list', link: link -%}
+                            </div>
+                          {% endif %}
+                          {%- if product_count > 0 -%}
+                            <div class="col-mega">
+                              <div
+                                class="grid grid-cols gap-20 px-30 px-1025-0"
+                                style="--col-number: {{ product_count }}"
+                              >
+                                {%- for i in (1..3) -%}
+                                  {%- capture product -%}product_{{ i }}{%- endcapture -%}
+                                  {%- liquid
+                                    assign product_value = block_st[product]
+                                  -%}
+                                  {%- if product_value != blank -%}
+                                    {%- liquid
+                                      assign mp_price = true
+                                      if block_st.show_price == false
+                                        assign mp_price = false
+                                      endif
+                                    -%}
+                                    {% render 'product-item',
+                                      card_product: product_value,
+                                      template_enable_price: mp_price,
+                                      template_enable_action: false,
+                                      template_enable_product_vendor: false,
+                                      template_enable_rate: false,
+                                      template_enable_product_short_description: false,
+                                      template_enable_color_swatches: true,
+                                      type: 'grid',
+                                      template_enable_action: true,
+                                      template_enable_product_badges: true
+                                    %}
+                                  {%- endif -%}
+                                {%- endfor -%}
+                              </div>
+                            </div>
+                          {%- endif -%}
+                        </div>
+                    {%- endcase -%}
+                  </div>
+                  {%- if banner_block != null -%}{%- render 'menu-mobile-banner', block: banner_block -%}{%- endif -%}
+                </div>
+              {%- endif -%}
+            </li>
+          {% else %}
+            <li
+              class="level0{% if link.links.size > 0 %} menu-parent menu-parent__horizontal dropdown-menu{% else %} single{% endif %}{% if li_style != blank %} has-link-color{% endif %}"
+              {% if style_block != null %}{{ style_block.shopify_attributes }}{% endif %}
+              {% if mm_ids != blank %}data-mm-blocks="{{ mm_ids }}"{% endif %}
+              {% if li_style != blank %}style="{{ li_style }}"{% endif %}
+            >
+              <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
+                <a
+                  class="{% if link.links.size > 0 and section_st.redirect_to_link == false %}redirect-to-link {% endif %}no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center{% if theme_st.menu_font == 'heading_font' %} heading-style{% endif %}{% if uppercase_first %} uppercase{% endif %}"
+                  href="{{ link.url | remove: '#_blank' }}"
+                  {% render 'link-target', link: link %}
+                >
+                  {%- render 'menu-link-title', title: link.title, label: top_label -%}
+                  {%- if link.links.size > 0 -%}
+                    <open-children-toggle class="inline-flex flex-end align-center ms-5{% if section_st.redirect_to_link == blank %} absolute inset-0 static-1025{% else %} touch-target-mb{% endif %}">
+                      <svg class="icon-down hidden block-1025" width="10" height="6">
+                        <use href="#icon-arrow-down" />
+                      </svg>
+                    </open-children-toggle>
+                  {%- endif -%}
+                </a>
+                {%- if link.links.size > 0 -%}
+                  <open-children-toggle class="inline-flex flex-end align-center pointer ms-5{% if section_st.redirect_to_link == blank %} absolute inset-0 static-1025{% else %} touch-target-mb{% endif %}">
+                    {% if enable_rtl %}
+                      <svg class="icon-down block hidden-1025" width="6" height="11">
+                        <use href="#icon-back" />
+                      </svg>
+                    {% else %}
+                      <svg class="icon-down block hidden-1025" width="6" height="11">
+                        <use href="#icon-next" />
+                      </svg>
+                    {% endif %}
+                  </open-children-toggle>
+                {%- endif -%}
+              </menu-item>
+              {%- if link.links.size > 0 -%}
+                <div class="submenu submenu-horizontal invisible-1025 absolute gradient color-default">
+                  <div class="hidden-1025 mm-sub-title-bar grey-bg px-30 border-bottom flex gap-15 align-center justify-between{% if theme_st.menu_font == 'heading_font' %} heading-style{% endif %}" style="background: {{ section_st.menu_mobile_background | default: "#242424" }} !important; --color-heading: {{ section_st.menu_mobile_color | default: "#FFFFFF" }}; color: {{ section_st.menu_mobile_color | default: "#FFFFFF" }};">
+                    <back-menu
+                      class="py-10 min-h-55 min-h-1025-50 inline-flex gap-20 align-center fs-big-1 heading-style"
+                      role="link"
+                    >
+                      {% if enable_rtl %}
+                        <svg width="6" height="11" fill="none">
+                          <use href="#icon-next" />
+                        </svg>
+                      {% else %}
+                        <svg width="6" height="11" fill="none">
+                          <use href="#icon-back" />
+                        </svg>
+                      {% endif %}
+                      {{ link_title }}
+                    </back-menu>
+                    <close-menu aria-label="{{ 'main_menu.horizontal.close' | t }}" class="close-menu lh-1 ms-10">
+                      <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                        <use href="#icon-close" />
+                      </svg>
+                    </close-menu>
+                  </div>
+                  {%- render 'submenu-list', link: link, menu_type: 'dropdown' -%}
+                  {%- if banner_block != null -%}{%- render 'menu-mobile-banner', block: banner_block -%}{%- endif -%}
+                </div>
+              {%- endif -%}
+            </li>
+          {% endif %}
+        {%- endfor -%}
+        {%- comment -%} Builder only: a menu block whose link title is not in the menu draws nothing; this marker lets selecting it say why. {%- endcomment -%}
+        {%- if request.design_mode -%}
+          {%- for mm_block in section.blocks -%}
+            {%- if mm_block.type contains 'menu_' and mm_block.type != 'menu_badges' -%}
+              {%- assign mm_key = ' ' | append: mm_block.id | append: ' ' -%}
+              {%- if mm_block.type == 'menu_mobile_banner' and mm_block.settings.text == blank -%}{%- continue -%}{%- endif -%}
+              {%- unless mm_seen contains mm_key -%}
+                <li hidden data-mm-orphan data-mm-blocks="{{ mm_block.id }}" data-mm-text="{{ mm_block.settings.text | escape }}" {{ mm_block.shopify_attributes }}></li>
+              {%- endunless -%}
+            {%- endif -%}
+          {%- endfor -%}
+        {%- endif -%}
+        {%- endcapture -%}
+        {{- menu_items -}}
+        {%- if wishlist -%}
+          <li class="level0 hidden-1025">
+            <a
+              class="no-underline py-10 lh-normal flex border-bottom border-bottom-1025-0 min-h-55 min-h-1025-50 align-center{% if uppercase_first %} uppercase{% endif %}"
+              href="/pages/wishlist"
+              aria-label="{{ 'templates.wishlist.wishlist' | t }}"
+            >
+              <svg width="17" height="15" viewBox="0 0 19 16" class="me-10" fill="none">
+                <use href="#icon-wishlist-header" />
+              </svg>
+              {{ 'templates.wishlist.wishlist' | t }}
+            </a>
+          </li>
+        {% endif %}
+        {%- if show_my_account -%}
+          {% if account_signed_in %}
+            <li class="level0 hidden-1025">
+              <a
+                href="{{ routes.account_url }}"
+                class="no-underline py-10 lh-normal flex border-bottom border-bottom-1025-0 min-h-55 min-h-1025-50 align-center account-url{% if uppercase_first %} uppercase{% endif %}"
+                aria-label="{{ 'customer.account.my_account' | t }}"
+              >
+                <svg width="16" height="16" fill="none" class="me-10">
+                  <use href="#icon-account" />
+                </svg>
+                {{ 'customer.account.my_account' | t }}
+              </a>
+            </li>
+            <li class="level0 hidden-1025">
+              <a
+                href="{{ routes.account_logout_url }}"
+                class="no-underline py-10 lh-normal flex border-bottom border-bottom-1025-0 min-h-55 min-h-1025-50 align-center account-logout{% if uppercase_first %} uppercase{% endif %}"
+                aria-label="{{ 'customer.log_out' | t }}"
+              >
+                <svg width="16" height="16" fill="none" class="me-10">
+                  <use href="#icon-account" />
+                </svg>
+                {{- 'customer.log_out' | t -}}
+              </a>
+            </li>
+          {% else %}
+            <li class="level0 hidden-1025">
+              <a
+                href="{{ routes.account_login_url }}"
+                class="no-underline py-10 lh-normal flex border-bottom border-bottom-1025-0 min-h-55 min-h-1025-50 align-center account-login{% if uppercase_first %} uppercase{% endif %}"
+                aria-label=" {{ 'customer.login_menu_mobile' | t }}"
+              >
+                <svg width="16" height="16" fill="none" class="me-10">
+                  <use href="#icon-account" />
+                </svg>
+                {{ 'customer.login_menu_mobile' | t }}
+              </a>
+            </li>
+          {% endif %}
+        {%- endif -%}
+      </ul>
+    </div>
+  </nav>
+
+  {% comment %} Mobile Menu {% endcomment %}
+  {%- liquid
+    assign mm_title_color = section_st.menu_mobile_color | default: '#ffffff'
+    assign mm_title_bg = section_st.menu_mobile_background | default: '#242424'
+  -%}
+  <nav
+    class="flex flex-column mobile block-1025 navigation horizontal fixed inset-0 {{ section_st.dropdowns_animation }}"
+    data-action-mobile="{{ section_st.redirect_to_link }}"
+    data-menu-tab="{{ section_st.menu_tab | default: 'unset' }}"
+    data-menu-title="{{ section_st.menu_mobile_title_type | default: 'text' }}"
+    data-badge-style="{{ badges_st.menu_badge_style | default: 'pill' }}"
+    data-badge-shape="{{ badges_st.badge_shape | default: 'style' }}"
+    data-badge-font="{{ badges_st.badge_font | default: 'style' }}"
+    data-badge-case="{{ badges_st.badge_case | default: 'style' }}"
+    data-badge-pos="{{ badges_st.badge_position | default: 'above' }}"
+    {% if badges_st.badge_hover != false %}data-badge-lift{% endif %}
+    style="
+      --mm-title-bg: {{ mm_title_bg }}; --mm-title-color: {{ mm_title_color }};
+      --mb-badge-size: {{ badges_st.badge_size | default: 10 }}px;--mb-badge-border: {% if badges_st.badge_border != blank %}{{ badges_st.badge_border }}{% else %}1{% endif %}px;
+      --hot-cl: {{ badges_st.label_color_hot }};--hot-bg-cl: {{ badges_st.label_background_hot }};
+      --new-cl: {{ badges_st.label_color_new }};--new-bg-cl: {{ badges_st.label_background_new }};
+      --sale-cl: {{ badges_st.label_color_sale }};--sale-bg-cl: {{ badges_st.label_background_sale }};
+      --popular-cl: {{ badges_st.label_color_popular }};--popular-bg-cl: {{ badges_st.label_background_popular }};
+      --custom_1-cl: {{ badges_st.label_color_custom_1 }};--custom_1-bg-cl: {{ badges_st.label_background_custom_1 }};
+      --custom_2-cl: {{ badges_st.label_color_custom_2 }};--custom_2-bg-cl: {{ badges_st.label_background_custom_2 }};
+    "
+  >
+    <close-menu aria-label="{{ 'main_menu.horizontal.close' | t }}" class="close-menu pointer no-underline absolute top-0 w-55 h-55 inline-flex hidden-1025 content-center{% if enable_rtl %} left-7{% else %} right-7{% endif %}">
+      <svg
+        width="13"
+        height="13"
+        viewBox="0 0 13 13"
+        fill="none"
+        class="heading-color"
+        style="color: {{ mm_title_color }} !important; --color-heading: {{ mm_title_color }};"
+      >
+        <use href="#icon-close" />
+      </svg>
+    </close-menu>
+    <div class="navigation__menu-content navigation__menu-content-mobile word-break">
+      <div
+        class="menu-mobile-title min-h-55 min-h-1025-50 flex align-center px-30 py-5 hidden-1025 gap-30"
+        style="background: {{ mm_title_bg }} !important; color: {{ mm_title_color }} !important; --color-heading: {{ mm_title_color }}; --mm-title-bg: {{ mm_title_bg }}; --mm-title-color: {{ mm_title_color }};"
+      >
+        <a
+          class="active no-underline heading-style py-10 inline-flex align-center gap-10"
+          style="color: {{ mm_title_color }} !important;"
+          data-menu="horizontal-list"
+          role="link"
+          aria-disabled="true"
+          aria-label="{{ 'main_menu.horizontal.title' | t }}"
+        >
+          {%- liquid
+            assign mm_title_type = section_st.menu_mobile_title_type | default: 'text'
+            assign mm_logo_h = section_st.menu_mobile_logo_height | default: 28
+            assign mm_logo_style = 'height:' | append: mm_logo_h | append: 'px;width:auto;object-fit:contain;'
+            assign mm_title_text = 'main_menu.horizontal.title' | t
+          -%}
+          {%- case mm_title_type -%}
+            {%- when 'theme_logo' -%}
+              {%- if settings.logo != blank -%}
+                {{ settings.logo | image_url: width: 400 | image_tag: loading: 'eager', class: 'menu-mobile-title__logo', style: mm_logo_style, alt: mm_title_text }}
+              {%- else -%}
+                {{ mm_title_text }}
+              {%- endif -%}
+            {%- when 'custom_logo' -%}
+              {%- if section_st.menu_mobile_custom_logo != blank -%}
+                {{ section_st.menu_mobile_custom_logo | image_url: width: 400 | image_tag: loading: 'eager', class: 'menu-mobile-title__logo', style: mm_logo_style, alt: mm_title_text }}
+              {%- else -%}
+                {{ mm_title_text }}
+              {%- endif -%}
+            {%- else -%}
+              {{ mm_title_text }}
+          {%- endcase -%}
+        </a>
+        {% if menu_mobile_tab == 'custom-collections' and collection_list != blank %}
+          <a
+            class="no-underline heading-style py-10"
+            data-menu="categories-list"
+            role="link"
+            aria-disabled="true"
+          >
+            {{ 'main_menu.categories.title' | t }}
+          </a>
+        {% endif %}
+        {% if section_st.categories_menu != blank %}
+          
+        {% endif %}
+      </div>
+      <ul
+        class="horizontal-list list-unstyled inline-flex-1025 flex-wrap row-gap-0 horizontal px-30 px-1025-0 show-localization animation-{{ section_st.dropdowns_animation }}"
+      >
+        <svg hidden>
+          <symbol id="icon-arrow-down">
+            <path fill="currentColor" d="M1.09 1.822a.52.52 0 0 1-.178-.396c0-.164.06-.306.178-.424A.557.557 0 0 1 1.5.838c.164 0 .3.055.41.164L5 4.092l3.09-3.09A.557.557 0 0 1 8.5.838c.164 0 .3.055.41.164.119.118.178.26.178.424a.52.52 0 0 1-.178.396l-3.5 3.5A.535.535 0 0 1 5 5.5c-.164 0-.3-.06-.41-.178l-3.5-3.5Z"/>
+          </symbol>
+        </svg>
+        {{- menu_items -}}
+      </ul>
+      {% if menu_mobile_tab == 'custom-collections' and collection_list != blank %}
+        {%- render 'categories-menu-mobile', section_st: section_st -%}
+      {% endif %}
+      {%- for mmb in section.blocks -%}
+        {%- if mmb.type == 'menu_mobile_banner' and mmb.settings.text == blank -%}
+          {%- render 'menu-mobile-banner', block: mmb -%}
+        {%- endif -%}
+      {%- endfor -%}
+    </div>
+    {%- if show_my_account or wishlist -%}
+      <div class="mobile-nav-actions flex align-center gap-15 hidden-1025">
+        {%- if show_my_account -%}
+          {%- if account_signed_in -%}
+            <a
+              href="{{ routes.account_url }}"
+              class="mobile-nav-actions__login inline-flex align-center justify-content-center no-underline{% if uppercase_first %} uppercase{% endif %}"
+              aria-label="{{ 'customer.account.my_account' | t }}"
+            >
+              <svg width="16" height="16" fill="none" class="me-8" aria-hidden="true">
+                <use href="#icon-account" />
+              </svg>
+              {{ 'customer.account.my_account' | t }}
+            </a>
+          {%- else -%}
+            <a
+              href="{{ routes.account_login_url }}"
+              class="mobile-nav-actions__login inline-flex align-center justify-content-center no-underline{% if uppercase_first %} uppercase{% endif %}"
+              aria-label="{{ 'customer.log_in' | t }}"
+            >
+              <svg width="16" height="16" fill="none" class="me-8" aria-hidden="true">
+                <use href="#icon-account" />
+              </svg>
+              {{ 'customer.log_in' | t }}
+            </a>
+          {%- endif -%}
+        {%- endif -%}
+        {%- if wishlist -%}
+          <a
+            href="/pages/wishlist"
+            class="mobile-nav-actions__wishlist inline-flex align-center justify-content-center no-underline"
+            aria-label="{{ 'templates.wishlist.wishlist' | t }}"
+          >
+            <h-count class="relative lh-1 fs-0 inline-flex align-center justify-content-center">
+              <svg width="19" height="16" viewBox="0 0 19 16" fill="none" aria-hidden="true">
+                <use href="#icon-wishlist-header" />
+              </svg>
+              <span class="absolute lh-1 wishlist-count h-count inline-flex align-center justify-content-center rounded-50 overflow-hidden fs-10">
+                0
+              </span>
+            </h-count>
+          </a>
+        {%- endif -%}
+      </div>
+    {%- endif -%}
+    <div class="lang__currency-on-nav flex flex-wrap hidden-1025 border-top">
+      {%- if show_language -%} {%- render 'language-switcher' -%} {%- endif -%}
+      {%- if show_country -%} {%- render 'country-switcher' -%} {%- endif -%}
+    </div>
+  </nav>
+
+
+{%- endif  -%}

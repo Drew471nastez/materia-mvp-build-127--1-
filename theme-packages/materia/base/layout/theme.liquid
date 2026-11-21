@@ -1,0 +1,1226 @@
+{%- comment -%}
+  Materia Themes. Developed By Materia Themes.
+{%- endcomment -%}
+{% liquid
+  assign enable_rtl = false
+  if settings.rtl
+    assign enable_rtl = true
+  endif
+  assign iso_code = request.locale.iso_code
+  assign lis_language_rtl = settings.language_rtl
+  if lis_language_rtl != blank and iso_code != blank and lis_language_rtl contains iso_code
+    assign enable_rtl = true
+  endif
+%}
+
+<!doctype html>
+<html class="no-js{% if enable_rtl %} rtl{% endif %}{% if request.design_mode %} shopify-design-mode sl-calm{% endif %}" lang="{{ request.locale.iso_code }}" dir="{% if enable_rtl %}rtl{% else %}ltr{% endif %}"{% if settings.theme_button_priority == false %} data-button-priority="off"{% endif %}>
+  <head>
+    {%- comment -%}
+      Product pictures inside a .bls-image-js area start at opacity 0.01 (critical.css) until they are
+      loaded. They were shown by global.js, which runs only after every deferred script, so a picture
+      that had already arrived could stay blank and then snap in. Each one is shown the moment it
+      loads: before the first paint it is simply there; later it fades in over a quarter second.
+    {%- endcomment -%}
+    <script>(function(){var painted=false,rm=false;try{rm=matchMedia('(prefers-reduced-motion: reduce)').matches;requestAnimationFrame(function(){requestAnimationFrame(function(){painted=true})})}catch(e){painted=true}
+var seen={};function op(e){return parseFloat(getComputedStyle(e).opacity)}
+function show(i,fresh){if(!i||i.tagName!=='IMG'||i.__mtShown||!i.classList.contains('bls-loading-image'))return;i.__mtShown=1;var u=i.currentSrc||i.src;if(seen[u])fresh=false;seen[u]=1;
+var fade=fresh&&painted&&!rm&&i.animate&&i.naturalWidth>1&&i.style.opacity===''&&!i.hasAttribute('data-no-fade');var r;if(fade){r=i.getBoundingClientRect();fade=r.width>=48&&r.height>=48&&r.bottom>0&&r.top<innerHeight&&op(i)<0.5}
+i.classList.remove('bls-loading-image');var m=i.closest&&i.closest('motion-element.bls-loading-image');if(m)m.classList.remove('bls-loading-image');
+if(fade&&op(i)>0.5)try{i.animate([{opacity:0},{opacity:1}],{duration:280,easing:'cubic-bezier(.2,.7,.2,1)'})}catch(e){}}
+document.addEventListener('load',function(e){show(e.target,true)},true);
+document.addEventListener('DOMContentLoaded',function(){var l=document.querySelectorAll('img.bls-loading-image');for(var k=0;k<l.length;k++)if(l[k].complete&&l[k].naturalWidth>0)show(l[k],false)},{once:true});})();</script>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="theme-color" content="">
+    <link rel="canonical" href="{{ canonical_url }}">
+    {%- render 'section-link-capture' -%}
+    {%- if settings.favicon != blank -%}
+      <link rel="icon" type="image/png" href="{{ settings.favicon | image_url: width: 32, height: 32 }}">
+    {%- endif -%}
+    <title>
+      {{ page_title }}
+      {%- if current_tags %} &ndash; tagged "{{ current_tags | join: ', ' }}"{% endif -%}
+      {%- if current_page != 1 %} &ndash; Page {{ current_page }}{% endif -%}
+      {%- unless page_title contains shop.name %} &ndash; {{ shop.name }}{% endunless -%}
+    </title>
+    {% if page_description %}
+      <meta name="description" content="{{ page_description | escape }}">
+    {% endif %}
+    {% render 'meta-tags' %}
+    {%- comment -%} Performance settings: preconnects, page-to-page fade, speculation rules (prerender and prefetch), motion and third-party handling. {%- endcomment -%}
+    {%- render 'speed-optimization' -%}
+    {%- comment -%}
+      theme.js imports cart-components.js, which the browser would only find
+      after theme.js has downloaded and parsed. Start it now, resolved from
+      theme.js's own address exactly as the import is, at low priority so it
+      never competes with the stylesheets or the first image.
+    {%- endcomment -%}
+    <script>
+      (function () {
+        try {
+          var l = document.createElement('link');
+          l.rel = 'modulepreload';
+          l.href = new URL('./cart-components.js', new URL({{ 'theme.js' | asset_url | json }}, location.href)).href;
+          l.fetchPriority = 'low';
+          document.head.appendChild(l);
+        } catch (e) {}
+      })();
+    </script>
+    {{ 'critical.css' | asset_url | stylesheet_tag }}
+
+    {%- comment -%}
+      Section isolation (`contain: style; isolation: isolate;`) is great
+      on the live storefront but can break the platform's section-picker
+      preview iframes (preview generators don't always cooperate with
+      `contain`). Skip it in design_mode so previews render cleanly.
+    {%- endcomment -%}
+    {%- unless request.design_mode -%}
+      {{ 'section-isolation.css' | asset_url | stylesheet_tag }}
+    {%- endunless -%}
+    {% if settings.scroll_animation != 'none' %}
+      {{ 'animation.css' | asset_url | stylesheet_tag }}
+    {%- endif %}
+    {% if enable_rtl %}{{ 'rtl.css' | asset_url | stylesheet_tag: preload: true }}{% endif %}
+    {{ 'product-card.css' | asset_url | stylesheet_tag }}
+    {%- render 'product-card-custom-actions' -%}
+    {%- render 'cart-recommend-custom-button' -%}
+    {{ 'swiper-bundle.min.css' | asset_url | stylesheet_tag }}
+    {%- comment -%}
+      Styles nothing on the first screen needs (popups and the modal
+      library) are asked for once the page has finished loading, at the
+      first tap, click, scroll or key press, when a popup opens, or 4 seconds
+      after the page is readable if a slow file holds its load: the page then
+      counts as loaded sooner and the browser's loading line ends sooner.
+    {%- endcomment -%}
+    <script>(function(u){var done=false;function go(){if(done)return;done=true;for(var i=0;i<u.length;i++){if(document.querySelector('link[href="'+u[i]+'"]'))continue;var l=document.createElement('link');l.rel='stylesheet';l.href=u[i];document.head.appendChild(l)}}
+    window.MateriaLateCss={now:go};if(document.readyState==='complete')setTimeout(go,0);else{addEventListener('load',function(){setTimeout(go,0)},{once:true});
+    document.addEventListener('DOMContentLoaded',function(){setTimeout(go,4000)},{once:true})}
+    ['pointerdown','click','keydown','scroll','touchstart'].forEach(function(n){addEventListener(n,go,{once:true,passive:true,capture:true})})})([{{ 'popup.css' | asset_url | json }},{{ 'tingle.min.css' | asset_url | json }}]);</script>
+    {%- comment -%} Review star styles reach the product cards on the first screen, so they load at once, without holding the page. {%- endcomment -%}
+    <link rel="stylesheet" href="{{ 'judgeme-reviews.css' | asset_url }}" media="print" onload="this.media='all'">
+    <noscript>{{ 'judgeme-reviews.css' | asset_url | stylesheet_tag }}</noscript>
+    {% render 'font-variables' %}
+    {% if request.design_mode %}
+      {{ 'design-mode.css' | asset_url | stylesheet_tag: preload: true }}
+      {%- comment -%}
+        Calm reloads in the builder. A setting that cannot be shown live (show
+        currency code, a font file, a product card option) makes the builder
+        draw the page again; that redraw must not look like a fresh visit.
+        Until the page has loaded, every CSS animation sits in its end state
+        (a marquee or loop in its first) and nothing eases; then entrance
+        animations are finished and loops start from their first frame, so
+        nothing jumps. Design mode is marked on <html> and <body> from the
+        server, before any script, so sections that skip their reveal in the
+        editor (they look at <body>) never hide their content first.
+      {%- endcomment -%}
+      <style>
+        html.sl-calm *, html.sl-calm *::before, html.sl-calm *::after { animation-duration: 0s !important; animation-delay: 0s !important; transition: none !important; }
+        html.shopify-design-mode .media-fade-run { animation: none !important; }
+        html.shopify-design-mode .preload-page { display: none !important; }
+      </style>
+      <script>
+        (function () {
+          var html = document.documentElement;
+          var done = false;
+          function settle() {
+            if (done) return;
+            done = true;
+            html.classList.remove('sl-calm');
+            if (!document.getAnimations) return;
+            try {
+              var list = document.getAnimations();
+              for (var i = 0; i < list.length; i++) {
+                var a = list[i];
+                if (!a.animationName) continue;
+                try {
+                  if (a.effect && a.effect.getComputedTiming().iterations === Infinity) a.currentTime = 0;
+                  else a.finish();
+                } catch (e) {}
+              }
+            } catch (e) {}
+          }
+          function soon() { requestAnimationFrame(function () { requestAnimationFrame(settle); }); }
+          if (document.readyState === 'complete') soon(); else addEventListener('load', soon, { once: true });
+          setTimeout(settle, 3500);
+        })();
+      </script>
+    {% endif %}
+    {% style %}
+      {% for scheme in settings.color_schemes -%}
+        {% # theme-check-disable UndefinedObject %}
+        {% assign scheme_classes = scheme_classes | append: ', .color-' | append: scheme.id %}
+        {% # theme-check-disable UndefinedObject %}
+        {% if forloop.index == 1 -%}
+          :root,
+        {%- endif %}
+        .color-{{ scheme.id }} {
+          --color-background: {{ scheme.settings.background }};
+          --gradient-background: {{ scheme.settings.background }};
+          --color-primary: {{ scheme.settings.primary_color }};
+          --color-primary-rgb: {{ scheme.settings.primary_color.red }}, {{ scheme.settings.primary_color.green }}, {{ scheme.settings.primary_color.blue }};
+          --color-text: {{ scheme.settings.text_color }};
+          --color-text-rgb: {{ scheme.settings.text_color.red }}, {{ scheme.settings.text_color.green }}, {{ scheme.settings.text_color.blue }};
+          --color-heading: {{ scheme.settings.heading_color }};
+          --color-heading-rgb:{{ scheme.settings.heading_color.red }}, {{ scheme.settings.heading_color.green }}, {{ scheme.settings.heading_color.blue }};
+          --color-link: {{ scheme.settings.heading_color }};
+          --color-link-hover: {{ scheme.settings.primary_color }};
+          --color-border: {{ scheme.settings.border_color }};
+          --badge-background: {% render 'scheme-color', color: scheme.settings.badge_background, fallback: 'var(--btn-primary-bg-color)' %};
+          --badge-text: {% render 'scheme-color', color: scheme.settings.badge_text, fallback: 'var(--btn-primary-color)' %};
+          --btn-primary-color: {{ scheme.settings.btn_primary_color | default: scheme.settings.background }};
+          --btn-primary-hover-color: {{ scheme.settings.btn_primary_hover_color | default: scheme.settings.background }};
+          --btn-primary-bg-color: {{ scheme.settings.btn_primary_background | default: scheme.settings.primary_color }};
+          --btn-primary-bg-graident-color: {{ scheme.settings.btn_primary_background | default: scheme.settings.primary_color }};
+          --btn-primary-hover-bg-color: {{ scheme.settings.btn_primary_hover_background | default: scheme.settings.heading_color }};
+          --btn-primary-border-color: {{ scheme.settings.btn_primary_border_color | default: scheme.settings.btn_primary_background | default: scheme.settings.primary_color }};
+          --btn-primary-hover-border-color: {{ scheme.settings.btn_primary_hover_border_color | default: scheme.settings.btn_primary_hover_background | default: scheme.settings.heading_color }};
+          --btn-primary-hover-bg-color-graident: {{ scheme.settings.btn_primary_hover_background | default: scheme.settings.heading_color }};
+          --btn-secondary-color: {{ scheme.settings.btn_secondary_color | default: scheme.settings.heading_color }};
+          --btn-secondary-bg-color: {{ scheme.settings.btn_secondary_background | default: scheme.settings.background }};
+          --btn-secondary-border-color: {{ scheme.settings.btn_secondary_border | default: scheme.settings.heading_color }};
+          --btn-secondary-hover-color: {{ scheme.settings.btn_secondary_hover_color | default: scheme.settings.background }};
+          --btn-secondary-hover-bg-color: {{ scheme.settings.btn_secondary_hover_background | default: scheme.settings.heading_color }};
+          --btn-secondary-hover-border-color: {{ scheme.settings.btn_secondary_hover_border_color | default: scheme.settings.btn_secondary_hover_background | default: scheme.settings.heading_color }};
+          --btn-secondary-bg: var(--btn-secondary-bg-color);
+          --btn-secondary-bg-hover: var(--btn-secondary-hover-bg-color);
+          --btn-secondary-color-hover: var(--btn-secondary-hover-color);
+          --btn-outline-color: {{ scheme.settings.heading_color }};
+          --btn-outline-border-color: {{ scheme.settings.border_color }};
+          --btn-link-color: {{ scheme.settings.heading_color }};
+          --btn-link-hover-color: {{ scheme.settings.primary_color }};
+          --input-color: var(--color-text);
+          --input-placeholder-color: rgba(var(--color-heading-rgb), 0.55);
+          --input-bg: rgba({{ scheme.settings.background.red }}, {{ scheme.settings.background.green }}, {{ scheme.settings.background.blue }}, 0.6);
+        }
+      {% endfor %}
+      {{ scheme_classes | prepend: 'body' }} {
+        color: var(--color-text);
+        background-color: var(--color-background);
+      }
+      {%- if settings.storelib_link_hover != blank -%}
+        a:hover { color: {{ settings.storelib_link_hover }}; }
+      {%- endif -%}
+      {%- comment -%} Forms and fields: these follow the colour scheme unless picked. {%- endcomment -%}
+      {%- if settings.storelib_input_border != blank -%}
+        :root { --input-border-color: {{ settings.storelib_input_border }}; }
+      {%- endif -%}
+      {%- if settings.field_background != blank and settings.field_background.alpha != 0 and settings.field_background != 'transparent' and settings.field_background != 'rgba(0,0,0,0)' -%}
+        :root, body, [class*="color-"] { --input-bg: {{ settings.field_background }}; }
+      {%- endif -%}
+      {%- comment -%}
+        Field text is never written over every scheme as it is: a light Text
+        colour on a light scheme was white on white. field-colors gives each
+        scheme its readable field text, placeholder and Field style.
+      {%- endcomment -%}
+      {%- render 'field-colors' -%}
+      {%- render 'quantity-style' -%}
+      {%- if settings.storelib_input_focus != blank -%}
+        :root, body, [class*="color-"] { --input-focus-color: {{ settings.storelib_input_focus }}; }
+        input:focus, textarea:focus, select:focus {
+          outline: 2px solid {{ settings.storelib_input_focus }};
+          outline-offset: 2px;
+        }
+      {%- endif -%}
+      {%- if settings.storelib_input_radius != blank and settings.storelib_input_radius >= 0 -%}
+        html:root { --input-border-radius: {{ settings.storelib_input_radius }}px; }
+      {%- endif -%}
+      {%- comment -%} Buttons on hover: one colour for every button when picked, written over each scheme's own hover colours. {%- endcomment -%}
+      {%- if settings.storelib_button_hover_bg != blank and settings.storelib_button_hover_bg.alpha != 0 and settings.storelib_button_hover_bg != 'transparent' and settings.storelib_button_hover_bg != 'rgba(0,0,0,0)' -%}
+        :root, body, [class*="color-"] { --btn-primary-hover-bg-color: {{ settings.storelib_button_hover_bg }}; --btn-primary-hover-bg-color-graident: {{ settings.storelib_button_hover_bg }}; --btn-secondary-hover-bg-color: {{ settings.storelib_button_hover_bg }}; }
+      {%- endif -%}
+      {%- if settings.storelib_button_hover_text != blank and settings.storelib_button_hover_text.alpha != 0 and settings.storelib_button_hover_text != 'transparent' and settings.storelib_button_hover_text != 'rgba(0,0,0,0)' -%}
+        :root, body, [class*="color-"] { --btn-primary-hover-color: {{ settings.storelib_button_hover_text }}; --btn-secondary-hover-color: {{ settings.storelib_button_hover_text }}; --btn-link-hover-color: {{ settings.storelib_button_hover_text }}; }
+      {%- endif -%}
+      {%- if settings.storelib_button_hover_border != blank and settings.storelib_button_hover_border.alpha != 0 and settings.storelib_button_hover_border != 'transparent' and settings.storelib_button_hover_border != 'rgba(0,0,0,0)' -%}
+        :root, body, [class*="color-"] { --btn-primary-hover-border-color: {{ settings.storelib_button_hover_border }}; --btn-secondary-hover-border-color: {{ settings.storelib_button_hover_border }}; }
+      {%- endif -%}
+      /* GLOBAL BUTTON TEXT GUARANTEE
+         The scheme's "Text color" customiser MUST NOT control button
+         label colour anywhere in the theme. Button labels are owned
+         by the per-button colour customisers:
+           - .btn-primary      → --btn-primary-color
+           - .btn-outline      → --btn-outline-color
+           - .btn-white        → --btn-outline-color
+           - .btn-secondary    → --btn-secondary-color
+         Without this rule, sections that pin `color` on a parent
+         (e.g. cart sidebar, faq, info box) cascade into buttons via
+         their inner `<span>` and override the button's own colour.
+         These rules win because they have a class selector AND
+         `!important`, and they walk into `*` so inner spans inherit. */
+      .btn-primary,
+      .btn-primary *,
+      :is(.shopify-payment-button__more-options, .shopify-payment-button__button--unbranded, .shopify-challenge__button, .dmp_discount-form button),
+      :is(.shopify-payment-button__more-options, .shopify-payment-button__button--unbranded, .shopify-challenge__button, .dmp_discount-form button) * {
+        color: var(--btn-color, var(--btn-primary-color, #ffffff)) !important;
+      }
+      .btn-outline,
+      .btn-outline *,
+      .btn-white,
+      .btn-white * {
+        color: var(--btn-color, var(--btn-outline-color, var(--color-text, #111111))) !important;
+      }
+      .btn-secondary,
+      .btn-secondary * {
+        color: var(--btn-secondary-color, var(--btn-outline-color, var(--color-text, #111111))) !important;
+      }
+      /* The cart drawer "View Cart" button uses .viewcart on a .btn-outline.
+         Pin its label to scheme secondary so the text colour follows the
+         Button-secondary customiser, not the global Text colour. */
+      .btn-outline.viewcart,
+      .btn-outline.viewcart * {
+        color: var(--btn-secondary-color, var(--btn-outline-color, var(--color-text, #111111))) !important;
+      }
+      /* The cart "Checkout" button always uses primary. */
+      .btn-checkout,
+      .btn-checkout * {
+        color: var(--btn-primary-color, #ffffff) !important;
+      }
+      :root {
+        --border-color-base: #e5e5e5;
+        --light-grey-color: #f5f5f5;
+        {% if settings.enable_rounded %} --rounded-radius: {{ settings.rounded_corner }}px;{% endif %}
+        --body-font-size: {{ settings.body_font_size }}px;
+        --body-line-height: {{ settings.body_line_height | default: 1.7 }};
+        --body-weight: {{ settings.body_font_weight }};
+        --heading-font-scale: {{ settings.heading_font_scale | divided_by: 100.0 }};
+        --heading-line-height: {{ settings.heading_line_height | default: 1.2 }};
+        --heading-text-transform: {{ settings.heading_text_transform }};
+        --heading-letter-spacing: {% if settings.heading_letter_spacing == 'negative' %}-0.034em{% else %}{{ settings.heading_letter_spacing }}{% endif %};
+        --heading-weight: {{ settings.heading_font_weight }};
+        --subheading-weight: {{ settings.subheading_font_weight }};
+        --medium-font-weight: {{ settings.body_font_weight | default: 500 }};
+        --btn-text-transform: {{ settings.btn_text_transform | default: 'none' }};
+        {%- liquid
+          assign _btn_shape = settings.btn_shape | default: 'rounded'
+          assign _btn_radius_value = settings.btn_radius | default: 8
+          if _btn_shape == 'pill'
+            assign _btn_radius_value = 999
+          elsif _btn_shape == 'square'
+            assign _btn_radius_value = 0
+          endif
+        -%}
+        --btn-radius: {{ _btn_radius_value }}px;
+        --btn-font-size: {{ settings.btn_font_size | default: 14 }}px;
+        --btn-padding-y: {{ settings.btn_padding_y | default: 14 }}px;
+        --btn-padding-x: {{ settings.btn_padding_x | default: 26 }}px;
+        --btn-font-weight: {{ settings.btn_font_weight | default: '500' }};
+        --btn-border-width: {{ settings.btn_border_width | default: 1 }}px;
+        --btn-letter-spacing: {{ settings.btn_letter_spacing | default: 0 }}px;
+        --btn-anim-duration: {{ settings.btn_anim_duration | default: 300 }}ms;
+        --btn-anim-ease: {{ settings.btn_anim_ease | default: 'cubic-bezier(0.2, 0.7, 0.2, 1)' }};
+        --btn-shadow: {% if settings.btn_shadow_enabled %}0 4px 14px -4px rgba(0, 0, 0, 0.18){% else %}none{% endif %};
+        --btn-shadow-hover: 0 10px 22px -8px rgba(0, 0, 0, 0.25);
+        --icon-btn-size: {{ settings.icon_btn_size | default: 44 }}px;
+        --input-height: {{ settings.field_height | default: 50 }}px;
+        --input-padding: 1rem {{ settings.field_padding_x | default: 16 }}px;
+        --inputs-border-width: {{ settings.field_border_width | default: 1 }}px;
+        --input-label-weight: var(--body-weight, 400);
+        --input-color: var(--color-text);
+        --input-border-radius: {{ settings.input_radius | default: 4 }}px;
+        --search-input-radius: {{ settings.search_input_radius | default: 999 }}px;
+        --pill-radius: {{ settings.pill_radius | default: 999 }}px;
+        --card-radius: {{ settings.card_radius | default: 6 }}px;
+        --container-gutter: {{ settings.container_gutter | default: 30 }}px;
+        --grid-gap: var(--sl-live-grid-gap-mobile, {{ settings.grid_gap_mobile | default: 12 }}px);
+        --border-width: {{ settings.border_width | default: 1 }}px;
+        {%- case settings.card_shadow -%}
+          {%- when 'soft' -%}--card-shadow: 0 2px 10px -2px rgba(0,0,0,0.06);
+          {%- when 'medium' -%}--card-shadow: 0 8px 22px -6px rgba(0,0,0,0.12);
+          {%- when 'large' -%}--card-shadow: 0 18px 40px -10px rgba(0,0,0,0.18);
+          {%- else -%}--card-shadow: none;
+        {%- endcase -%}
+        --divider-style: {{ settings.divider_style | default: 'solid' }};
+        --animation-duration: {{ settings.animation_duration | default: 700 }}ms;
+        --animation-delay-base: {{ settings.animation_delay | default: 0 }}ms;
+        --input-font-size: var(--body-font-size, 16px);
+        --input-placeholder-color: rgba(var(--color-heading-rgb), 0.6);
+        --page-width: {{ settings.page_width }}px;
+        --fluid-container-width: {{ settings.fluid_container_width }}px;
+        --color-white: #FFF;
+        --color-dark: #111;
+        --h0-size: calc(var(--heading-font-scale) * 4.8rem);
+        --h1-size: calc(var(--heading-font-scale) * 4rem);
+        --h2-size: calc(var(--heading-font-scale) * 3.6rem);
+        --h3-size: calc(var(--heading-font-scale) * 3rem);
+        --h4-size:  calc(var(--heading-font-scale) * 2.4rem);
+        --h5-size: calc(var(--heading-font-scale) * 1.8rem);
+        --h6-size: calc(var(--heading-font-scale) * 1.6rem);
+        --transition: 0.4s cubic-bezier(.3, 1, .3, 1);
+        --duration-short: 0.3s;
+        --duration-long: 0.5s;
+        --transition-popup: transform .6s cubic-bezier(.7,0,.2,1);
+        --zoom-transform: scale(1.05);
+        --overlay-bg: rgba(0, 0, 0, 0.50);
+        --grey-color: #f5f5f5;
+        {%- comment -%} The --sl-live-* values are set only by the builder's live preview (snippets/theme-live), so a phone value never overrides the desktop one. {%- endcomment -%}
+        --section-spacing: var(--sl-live-space-mobile, {{ settings.space_mobile }}px);
+        --bs-gutter-x: 1.5rem;
+        --shadow: 5px 0px 30px 0px rgba(0, 0, 0, 0.08);
+        /* Badge color */
+        --bages-radius: {{ settings.badges_rounded_corner }}px;
+        --badges-font-weight: {{ settings.badges_font_weight | default: '600' }};
+        --badges-letter-spacing: {{ settings.badges_letter_spacing | default: 1 }}px;
+        --badges-transform: {% if settings.badges_uppercase == false %}none{% else %}uppercase{% endif %};
+        --badges-padding-x: {{ settings.badges_padding_x | default: 10 }}px;
+        --badges-padding-y: {{ settings.badges_padding_y | default: 5 }}px;
+        --badges-offset-x: {{ settings.badges_offset_x | default: 8 }}px;
+        --badges-offset-y: {{ settings.badges_offset_y | default: 8 }}px;
+        --badges-gap: {{ settings.badges_gap | default: 6 }}px;
+        --badges-shadow: {% if settings.badges_drop_shadow %}0 2px 6px rgba(0,0,0,.18){% else %}none{% endif %};
+        --bages-sale-color: {% render 'scheme-color', color: settings.sale_color, fallback: 'var(--badge-text)' %};
+        --bages-sale-bg-color: {% render 'scheme-color', color: settings.sale_background, fallback: 'var(--badge-background)' %};
+        --bages-new-color: {% render 'scheme-color', color: settings.new_color, fallback: 'var(--badge-text)' %};
+        --bages-new-bg-color: {% render 'scheme-color', color: settings.new_background, fallback: 'var(--badge-background)' %};
+        --bages-pre-order-color: {% render 'scheme-color', color: settings.pre_order_color, fallback: 'var(--badge-text)' %};
+        --bages-pre-order-bg-color: {% render 'scheme-color', color: settings.pre_order_background, fallback: 'var(--badge-background)' %};
+        --bages-sold-out-color: {% render 'scheme-color', color: settings.sold_out_color, fallback: 'var(--badge-text)' %};
+        --bages-sold-out-bg-color: {% render 'scheme-color', color: settings.sold_out_background, fallback: 'var(--badge-background)' %};
+        --bages-custom-color: {% render 'scheme-color', color: settings.custom_badge_color, fallback: 'var(--badge-text)' %};
+        --bages-custom-bg-color: {% render 'scheme-color', color: settings.custom_badge_background, fallback: 'var(--badge-background)' %};
+        --responsive-rate: ((100vw - 575px) / (1600 - 575));
+      }
+      @media (min-width: 768px) {
+        :root{
+          --section-spacing: var(--sl-live-space-desktop, {{ settings.spacing_desktop }}px);
+          --grid-gap: var(--sl-live-grid-gap-desktop, {{ settings.grid_gap_desktop | default: 20 }}px);
+        }
+      }
+      @media (max-width: 1024.5px) {
+        :root {
+          --transition-popup: transform .35s cubic-bezier(.7,0,.2,1);
+        }
+      }
+    {% endstyle %}
+    {{ 'theme.css' | asset_url | stylesheet_tag }}
+    {%- comment -%}
+      Popup and dialog styles: every one of them opens after the page has
+      shown (quick view, login, newsletter), so they never hold the first paint.
+    {%- endcomment -%}
+    {%- comment -%} popup.css is asked for by MateriaLateCss above. {%- endcomment -%}
+    <noscript>{{ 'popup.css' | asset_url | stylesheet_tag }}</noscript>
+    {%- comment -%}
+      The header menu and the cart drawer link their stylesheets from the body,
+      so the browser met them only halfway down the page, and the scripts and
+      the page's ready event waited on them. Requested here, with the others;
+      the drawer's at low priority so the first screen comes first.
+    {%- endcomment -%}
+    <link rel="preload" as="style" href="{{ 'navigation.css' | asset_url }}">
+    <link rel="preload" as="style" href="{{ 'minicart.css' | asset_url }}" fetchpriority="low">
+    <link rel="preload" as="style" href="{{ 'materia-experience.css' | asset_url }}" fetchpriority="low">
+    {% render 'theme-controls' %}
+    {%- render 'theme-scale' -%}
+    {{ 'theme-button-contract.css' | asset_url | stylesheet_tag }}
+    {%- comment -%} Country and language pickers (top bar, header, footer, mobile menu): once here, not in each picker. {%- endcomment -%}
+    {{ 'localization-controls.css' | asset_url | stylesheet_tag }}
+    {%- comment -%}
+      Discover first-paint styles and deferred modules before app-injected head
+      scripts. Keep app initialization before the theme's executable scripts.
+      Product styles still render at their original component boundary; these
+      hints remove the header/body discovery waterfall without duplicate CSS.
+    {%- endcomment -%}
+    <link rel="modulepreload" href="{{ 'theme.js' | asset_url }}" fetchpriority="low">
+    {%- if request.page_type == 'product' -%}
+      <link rel="preload" as="style" href="{{ 'main-product.css' | asset_url }}">
+      <link rel="preload" as="style" href="{{ 'product-page-ui.css' | asset_url }}">
+    {%- endif -%}
+    {{ content_for_header }}
+    <script src="{{ 'swiper-bundle.min.js' | asset_url }}" defer="defer"></script>
+    <script src="{{ 'motion.min.js' | asset_url }}" type="module" defer="defer" fetchpriority="low"></script>
+    <script src="{{ 'utils.js' | asset_url }}" defer="defer" data-cart-count="{{ cart.item_count | default: 0 }}"></script>
+    <script src="{{ 'global.js' | asset_url }}" defer="defer"></script>
+    <script src="{{ 'cart-drawer-safety.js' | asset_url }}" defer="defer"></script>
+    <script src="{{ 'section-links.js' | asset_url }}" defer="defer"></script>
+    <script src="{{ 'product-counters.js' | asset_url }}" defer="defer"></script>
+    <script src="{{ 'product-block-runtime.js' | asset_url }}" defer="defer"></script>
+    <script src="{{ 'product-dialogs.js' | asset_url }}" defer="defer"></script>
+    {%- comment -%} Section runtimes: each section that needs one links it
+      itself, at the top of its file (<script src defer>, as the theme's own
+      sections do), so a page runs only the runtimes of the sections it has.
+      A type placed twice, or two types sharing a runtime, run it once: each
+      file returns at once when its window.Materia* object already exists.
+      hero-image-one.js stays here: it is the painter API (colour, font, url)
+      the other runtimes call. In the builder every runtime is loaded with the
+      page by the loader below (list S), because a section the builder adds or
+      redraws is inserted without running its script tags. Styles are scoped
+      to each type. {%- endcomment -%}
+    {{ 'hero-pro-scrolling.css' | asset_url | stylesheet_tag }}
+    {{ 'marketing-sections.css' | asset_url | stylesheet_tag }}
+    {{ 'hero-product-three.css' | asset_url | stylesheet_tag }}
+    {{ 'hero-product-two.css' | asset_url | stylesheet_tag }}
+    {{ 'hero-image-one.css' | asset_url | stylesheet_tag }}
+    <script src="{{ 'hero-image-one.js' | asset_url }}" defer="defer"></script>
+    {{ 'before-after-controls.css' | asset_url | stylesheet_tag }}
+    {{ 'text-section-controls.css' | asset_url | stylesheet_tag }}
+    {%- comment -%}
+      Builder-only live preview. These controllers only repaint a section from
+      the builder's storelib:settings-change and storelib:section-load; on a
+      visitor's page they draw nothing (docs/storefront-scripts-audit.md), so a
+      visitor never downloads them. In the builder (request.design_mode,
+      window.Shopify.designMode or the builder referrer) they are written here
+      as deferred scripts, in this order, as before. A canvas with none of
+      those signals gets them on its first live event: they load in order, and
+      every live event that arrives meanwhile is held, before any listener
+      sees it, and given again on the same target with the same detail once
+      they have run, so each listener sees each event once, in order.
+      S is every section runtime that a section links itself (see above). The
+      builder gets all of them the same way, before L, so a section it adds
+      or redraws, whose script tags do not run, still has its runtime; a
+      runtime its section already linked is not requested again (and would
+      return at once if it were).
+    {%- endcomment -%}
+    <script>
+      (function () {
+        var S = [
+          {{ 'hero-pro-scrolling.js' | asset_url | json }},
+          {{ 'hero-product-two.js' | asset_url | json }},
+          {{ 'hero-product-one.js' | asset_url | json }},
+          {{ 'hero-product-three.js' | asset_url | json }},
+          {{ 'marketing-sections.js' | asset_url | json }},
+          {{ 'before-after-controls.js' | asset_url | json }},
+          {{ 'media-live-before-after.js' | asset_url | json }},
+          {{ 'media-live-galleries-a.js' | asset_url | json }},
+          {{ 'media-live-galleries-b.js' | asset_url | json }},
+          {{ 'media-live-image-video.js' | asset_url | json }},
+          {{ 'media-live-benefits.js' | asset_url | json }},
+          {{ 'media-live-stats-reels.js' | asset_url | json }},
+          {{ 'live-products-a.js' | asset_url | json }},
+          {{ 'live-products-b.js' | asset_url | json }},
+          {{ 'live-products-c.js' | asset_url | json }},
+          {{ 'live-products-d.js' | asset_url | json }},
+          {{ 'live-features-a.js' | asset_url | json }},
+          {{ 'live-features-b.js' | asset_url | json }},
+          {{ 'live-features-c.js' | asset_url | json }},
+          {{ 'live-features-d.js' | asset_url | json }},
+          {{ 'live-collections.js' | asset_url | json }},
+          {{ 'live-testimonials.js' | asset_url | json }},
+          {{ 'live-faq.js' | asset_url | json }},
+          {{ 'live-logos.js' | asset_url | json }},
+          {{ 'live-countdown.js' | asset_url | json }},
+          {{ 'live-announcements.js' | asset_url | json }},
+          {{ 'live-social-dividers.js' | asset_url | json }},
+          {{ 'live-popups-code.js' | asset_url | json }},
+          {{ 'live-page-popups.js' | asset_url | json }},
+          {{ 'live-product-extras.js' | asset_url | json }},
+          {{ 'live-header.js' | asset_url | json }},
+          {{ 'live-blog-slideshow.js' | asset_url | json }},
+          {{ 'live-cart-search.js' | asset_url | json }},
+          {{ 'hero-benefits.js' | asset_url | json }},
+          {{ 'scroll-text-reveal.js' | asset_url | json }},
+          {{ 'text-section-controls.js' | asset_url | json }},
+          {{ 'live-text.js' | asset_url | json }},
+          {{ 'testimonial-quote.js' | asset_url | json }},
+          {{ 'announcement-pro-4.js' | asset_url | json }},
+          {{ 'announcement-three-colors.js' | asset_url | json }},
+          {{ 'live-r7-collections.js' | asset_url | json }},
+          {{ 'live-r7-faq.js' | asset_url | json }},
+          {{ 'live-r7-text.js' | asset_url | json }},
+          {{ 'live-r7-media.js' | asset_url | json }},
+          {{ 'live-r7-features.js' | asset_url | json }},
+          {{ 'live-r7-products.js' | asset_url | json }},
+          {{ 'live-r7-testimonials.js' | asset_url | json }},
+          {{ 'live-r7-hero.js' | asset_url | json }},
+          {{ 'live-r7-trust.js' | asset_url | json }},
+          {{ 'live-r7-connect.js' | asset_url | json }},
+          {{ 'live-r7-promo.js' | asset_url | json }},
+          {{ 'live-r7-stories.js' | asset_url | json }},
+          {{ 'live-r7-extras.js' | asset_url | json }}
+        ];
+        var L = [
+          {{ 'media-live-text-grid.js' | asset_url | json }},
+          {{ 'live-contact.js' | asset_url | json }},
+          {{ 'live-hero-gaps.js' | asset_url | json }},
+          {{ 'live-main-product.js' | asset_url | json }},
+          {{ 'live-footer.js' | asset_url | json }},
+          {{ 'live-collection-pages.js' | asset_url | json }},
+          {{ 'live-account-pages.js' | asset_url | json }},
+          {{ 'slideshow-pointer.js' | asset_url | json }},
+          {{ 'slideshow-live.js' | asset_url | json }}
+        ];
+        var TYPES = ['storelib:settings-change', 'storelib:section-load'];
+        var design = {% if request.design_mode %}true{% else %}false{% endif %} || !!(window.Shopify && window.Shopify.designMode);
+        if (!design) try {
+          var ref = new URL(document.referrer);
+          design = window.top !== window && (ref.hostname === 'storelib.com' || /\.storelib\.com$/.test(ref.hostname)) && ref.pathname.indexOf('/website-builder') > -1;
+        } catch (e) {}
+        if (design && document.readyState === 'loading' && document.currentScript) {
+          var tags = '', all = S.concat(L);
+          for (var i = 0; i < all.length; i++) tags += '<script src="' + String(all[i]).replace(/"/g, '&quot;') + '" defer="defer"><\/script>';
+          document.write(tags);
+          return;
+        }
+        var state = 0, held = [], replaying = false;
+        function hold(e) {
+          if (state === 2 || replaying) return;
+          e.stopImmediatePropagation();
+          held.push({target: e.target, type: e.type, detail: e.detail, bubbles: e.bubbles, cancelable: e.cancelable, composed: e.composed});
+          if (!state) start();
+        }
+        function replay() {
+          if (state === 2) return;
+          state = 2;
+          for (var t = 0; t < TYPES.length; t++) window.removeEventListener(TYPES[t], hold, true);
+          var list = held;
+          held = [];
+          replaying = true;
+          try {
+            for (var k = 0; k < list.length; k++) {
+              var h = list[k];
+              try { h.target.dispatchEvent(new CustomEvent(h.type, {detail: h.detail, bubbles: h.bubbles, cancelable: h.cancelable, composed: h.composed})); } catch (err) { setTimeout(function () { throw err; }); }
+            }
+          } finally { replaying = false; }
+        }
+        function load() {
+          var have = {}, list = [];
+          for (var k = 0; k < document.scripts.length; k++) if (document.scripts[k].src) have[document.scripts[k].src] = 1;
+          for (var a = 0, all = S.concat(L); a < all.length; a++) if (!have[new URL(all[a], document.baseURI).href]) list.push(all[a]);
+          var left = list.length;
+          function done() { if (--left === 0) setTimeout(replay, 0); }
+          if (!left) setTimeout(replay, 0);
+          for (var j = 0; j < list.length; j++) {
+            var s = document.createElement('script');
+            s.src = list[j];
+            s.async = false;
+            s.onload = s.onerror = done;
+            document.head.appendChild(s);
+          }
+          setTimeout(replay, 8000);
+        }
+        function start() {
+          state = 1;
+          if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', load, {once: true}); else load();
+        }
+        for (var t = 0; t < TYPES.length; t++) window.addEventListener(TYPES[t], hold, true);
+        if (design) start();
+      })();
+    </script>
+    {{ 'testimonial-quote.css' | asset_url | stylesheet_tag }}
+    {{ 'announcement-pro-4.css' | asset_url | stylesheet_tag }}
+    {{ 'product-block-runtime.css' | asset_url | stylesheet_tag }}
+    {%- comment -%} Available before editor toggles hover zoom; modules added
+      inside a redrawn section are not guaranteed to execute in the canvas. {%- endcomment -%}
+    {{ 'drift-basic.min.css' | asset_url | stylesheet_tag }}
+    <script src="{{ 'drift.js' | asset_url }}" defer="defer"></script>
+    <script src="{{ 'photoswipe-init.js' | asset_url }}" type="module"></script>
+    <script>
+      document.documentElement.className = document.documentElement.className.replace('no-js', 'js');
+      // A tap on the menu or search button before the theme's scripts have
+      // run (a slow connection) would do nothing. Hold the last such tap and
+      // give it again once the page's scripts are ready (DOMContentLoaded
+      // follows every deferred script). Links are left alone: they work.
+      (function () {
+        if (document.readyState !== 'loading') return;
+        var EARLY = '.nav-toggle, button[data-action="toggle-nav"], button.top-search-toggle';
+        var held = null;
+        function hold(e) {
+          var t = e.target && e.target.closest && e.target.closest(EARLY);
+          if (!t) return;
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          held = t;
+          t.setAttribute('aria-busy', 'true');
+        }
+        document.addEventListener('click', hold, true);
+        document.addEventListener('DOMContentLoaded', function () {
+          document.removeEventListener('click', hold, true);
+          setTimeout(function () {
+            if (!held) return;
+            var t = held;
+            held = null;
+            t.removeAttribute('aria-busy');
+            if (t.isConnected) t.click();
+          }, 0);
+        }, { once: true });
+      })();
+      if ({{ request.design_mode | json }} || window.Shopify?.designMode) {
+        document.documentElement.classList.add('shopify-design-mode');
+      }
+      // Some imported-theme canvases omit request.design_mode. Use the
+      // actual builder referrer, never the mere fact that this is an iframe.
+      try {
+        const editor = new URL(document.referrer);
+        if (window.top !== window && (editor.hostname === 'storelib.com' || editor.hostname.endsWith('.storelib.com')) && editor.pathname.includes('/website-builder')) document.documentElement.classList.add('shopify-design-mode');
+      } catch (_) {}
+      // Once: adding a class the root already has still rewrites the attribute,
+      // and every observer of <html> would wake on each frame of a drag.
+      {
+        const markDesign = () => { const root = document.documentElement; if (!root.classList.contains('shopify-design-mode')) root.classList.add('shopify-design-mode'); };
+        document.addEventListener('storelib:settings-change', markDesign);
+        document.addEventListener('storelib:section-load', markDesign);
+      }
+    </script>
+    {%- comment -%}
+      Materia responsiveness guard. Stops any section, image, or embed from
+      pushing the page wider than the screen on mobile (the horizontal-scroll /
+      content-spilling-off-the-edge problem). overflow-x: clip is used on
+      purpose instead of overflow-x: hidden: clip does NOT create a scroll
+      container, so it never breaks the sticky / fixed header, the pill header,
+      or position: sticky used anywhere else in the theme. overflow-y stays
+      visible, so vertical page scrolling is completely unaffected.
+    {%- endcomment -%}
+    <style>
+      html, body { overflow-x: clip; }
+      body { max-width: 100%; }
+      img, svg, video, iframe, canvas, table, pre,
+      lite-youtube, model-viewer, .shopify-installments {
+        max-width: 100%;
+      }
+      /* The page keeps its scrollbar space while a drawer, search or popup
+         locks scrolling, so nothing shifts and the fixed header is not cut.
+         The old compensation (body padding, header margin) is switched off. */
+      html { scrollbar-gutter: stable; --mat-sbw: 0px !important; }
+      body { padding-right: 0 !important; }
+      /* Buttons press and release smoothly; a loading button keeps its size and
+         swaps its label for the spinner with a fade instead of snapping. */
+      /* Every theme button eases its colours with Theme settings > Buttons
+         (hover transition time and feel), in and out, from the resting state.
+         The label and icons inside are painted directly by the button text
+         rules above, so they get the same transition or they would snap while
+         the fill fades. Only paint and transform move. */
+      body :where(.btn, .btn-primary, .btn-outline, .btn-white, .btn-secondary, [data-sl-button], .btn-link, .btn-checkout, .shopify-payment-button__button--unbranded, .shopify-payment-button__more-options, .shopify-challenge__button, .dmp_discount-form button) {
+        transition-property: background-color, color, border-color, box-shadow, opacity, transform, filter, text-decoration-color, visibility;
+        transition-duration: var(--btn-anim-duration, 300ms);
+        transition-timing-function: var(--btn-anim-ease, cubic-bezier(0.2, 0.7, 0.2, 1));
+      }
+      body :is(.btn-primary, .btn-outline, .btn-white, .btn-secondary, .btn-checkout, .shopify-payment-button__button--unbranded, .shopify-payment-button__more-options, .shopify-challenge__button, .dmp_discount-form button) :where(*) {
+        transition-property: color, opacity, transform;
+        transition-duration: var(--btn-anim-duration, 300ms);
+        transition-timing-function: var(--btn-anim-ease, cubic-bezier(0.2, 0.7, 0.2, 1));
+      }
+      /* The card's add to cart button had its own fixed .3s and a label that
+         snapped; it follows the same setting. */
+      html body .product-item :is(button[name="add"], .product__add-cart, .product-item__button-submit) {
+        transition-property: background-color, color, border-color, box-shadow, opacity, transform !important;
+        transition-duration: var(--btn-anim-duration, 300ms) !important;
+        transition-timing-function: var(--btn-anim-ease, cubic-bezier(0.2, 0.7, 0.2, 1)) !important;
+      }
+      html body .product-item :is(button[name="add"], .product__add-cart, .product-item__button-submit) * {
+        transition: color var(--btn-anim-duration, 300ms) var(--btn-anim-ease, cubic-bezier(0.2, 0.7, 0.2, 1));
+      }
+      body :where(.btn, .btn-primary, .btn-outline, .btn-white, .btn-secondary, [data-sl-button]).loading { transform: none; }
+      body :where(.btn, .btn-primary, .btn-outline, .btn-white, .btn-secondary, [data-sl-button]) :is(.hidden-on-load, .icon-load) { transition: opacity .2s ease; }
+      /* Cart reservation timer (drawer and cart page): the label wraps, the
+         time stays on its line, digits keep one width so it never jumps. */
+      countdown-timer[data-minutes-left] { display: flex; flex-wrap: nowrap !important; align-items: baseline; gap: 8px; }
+      countdown-timer[data-minutes-left] > :first-child { flex: 1 1 auto; min-width: 0; margin: 0 !important; }
+      countdown-timer[data-minutes-left] .countdown-inner { flex: 0 0 auto; display: inline-flex; gap: .45em; white-space: nowrap; font-variant-numeric: tabular-nums; }
+      countdown-timer[data-minutes-left] .countdown--container { display: inline-flex; align-items: baseline; margin: 0 !important; padding: 0 !important; }
+      countdown-timer[data-minutes-left] .countdown--container::after { content: none !important; }
+      countdown-timer[data-minutes-left] .countdown--container > :first-child { display: inline-block; min-width: 2ch; text-align: end; font-kerning: none; }
+      @media (prefers-reduced-motion: reduce) {
+        body :where(.btn, .btn-primary, .btn-outline, .btn-white, .btn-secondary, [data-sl-button], .btn-link, .btn-checkout) { transition: none; }
+        body :is(.btn-primary, .btn-outline, .btn-white, .btn-secondary, .btn-checkout) :where(*),
+        html body .product-item :is(button[name="add"], .product__add-cart, .product-item__button-submit),
+        html body .product-item :is(button[name="add"], .product__add-cart, .product-item__button-submit) * { transition: none !important; }
+        body :where(.btn, .btn-primary, .btn-outline, .btn-white, .btn-secondary, [data-sl-button]):active { transform: none; }
+      }
+    </style>
+    {%- comment -%}
+      Sticky-footer layout — page content always fills at least one
+      viewport height. This stops the body's white background from
+      showing as a gap below the footer when content is short, AND
+      keeps the footer flush against the top of the mobile-nav bar
+      on mobile (no awkward white strip in between).
+
+      In <head>, so the first paint already has the final layout; drawn
+      after the header it made the header shift once on landing.
+
+      Skipped in design_mode so the platform's section-picker preview
+      iframes (which render in tiny viewports and may misbehave with
+      flex column + 100dvh) get a clean baseline layout.
+    {%- endcomment -%}
+    {%- unless request.design_mode -%}
+      <style>
+        html, body { min-height: 100%; }
+        body {
+          display: flex;
+          flex-direction: column;
+          min-height: 100vh;
+          min-height: 100dvh;
+        }
+        body > #shopify-section-header-group,
+        body > #shopify-section-sections--header-group,
+        body > .shopify-section-header,
+        body > #shopify-section-announcement-group,
+        body > .shopify-section-group-header-group { flex: 0 0 auto; }
+        main#MainContent { flex: 1 0 auto; }
+        body > #shopify-section-footer-group,
+        body > #shopify-section-sections--footer-group,
+        body > .shopify-section-group-footer-group { flex: 0 0 auto; }
+      </style>
+    {%- endunless -%}
+  </head>
+  <body
+    class="gradient{% if request.design_mode %} shopify-design-mode{% endif %}{% if settings.rounded_corner > 1 and settings.enable_rounded %} rounded-style{% endif %}{% if settings.action_after_add_cart == 'show_popup' %} minicart_type-popup{% endif %}{% if enable_rtl %} rtl{% endif %} {% if request.page_type == 'cart'%}template-cart{% endif %} {{ request.page_type }}"
+    data-btn-style="{{ settings.btn_style | default: 'solid' }}"
+    data-btn-secondary-style="{{ settings.btn_secondary_style | default: 'outline' }}"
+    data-scroll-animation="{{ settings.scroll_animation | default: 'none' }}"
+    data-btn-shape="{{ settings.btn_shape | default: 'rounded' }}"
+    data-btn-hover="{{ settings.btn_hover_effect | default: 'fade' }}"
+    data-sl-btn-hover="{{ settings.storelib_button_hover_effect | default: 'theme' }}"
+    data-badge-shape="{{ settings.badges_shape | default: 'pill' }}"
+    data-badge-size="{{ settings.badges_size | default: 'medium' }}"
+    data-badge-position="{{ settings.badges_position | default: 'top_start' }}"
+    data-badge-anim="{{ settings.badges_animation | default: 'none' }}"
+    data-menu-hover="{{ settings.menu_hover_style | default: 'underline' }}"
+  >
+    {%- comment -%}
+      Theme settings > Buttons draws every hover setting Storelib adds (this
+      theme declares each id itself). Storelib also writes its own reading of
+      them at the end of <head>: for "Extra hover movement: None" that is a
+      sheet that switches off every button transition, lift and shadow with
+      !important, so Hover transition time, Hover feel and Hover effect did
+      nothing. The theme already draws each of these settings, so that sheet
+      is set aside, here before the first paint and again after a change in
+      the builder.
+    {%- endcomment -%}
+    <script>
+      (function () {
+        function release() {
+          var list = document.querySelectorAll('style[data-storelib-overrides]');
+          for (var i = 0; i < list.length; i++) if (list[i].media !== 'not all') list[i].media = 'not all';
+        }
+        release();
+        // In the builder: once a frame while a control moves, and once more
+        // after it stops, not twice for every value of a drag.
+        var frame = 0, later = 0;
+        document.addEventListener('storelib:settings-change', function () {
+          if (!frame) frame = requestAnimationFrame(function () { frame = 0; release(); });
+          clearTimeout(later);
+          later = setTimeout(release, 120);
+        });
+      })();
+    </script>
+    {%- liquid
+      sections 'header-group'
+    -%}
+    {%- comment -%}
+      The count bubbles show the visitor's own numbers before the page is painted: the wishlist
+      from its saved list, the cart from the last count this browser saw. A cached page carries 0
+      for both, which the scripts then corrected a moment later (the bubbles flashed 0 and bumped
+      on every page). The cart's live sync still confirms it afterwards.
+    {%- endcomment -%}
+    <script>(window.__mtFillCounts=function(late){try{var w=JSON.parse(localStorage.getItem('materia__wishlist-items')||'[]'),wn=Array.isArray(w)?w.length:null,c=localStorage.getItem('materia__cart-count'),cn=c!==null&&/^[0-9]+$/.test(c)?+c:null;
+function put(sel,f){var ns=document.querySelectorAll(sel);for(var i=0;i<ns.length;i++){var t=f(ns[i]);if(t!=null&&ns[i].textContent.trim()!==t)ns[i].textContent=t}}
+if(wn!=null)put('.wishlist-count',function(){return String(wn)});
+var drawn=document.querySelector('.cart-count.h-count'),dn=drawn?drawn.textContent.trim():null;
+if(cn!=null){put('.cart-count',function(n){return n.classList.contains('cart-count-drawer')?'('+cn+')':(cn>100?'~':String(cn))});put('[data-storelib-cart-count]',function(){return String(cn)})}
+if(!late&&(cn==null||(dn!==null&&dn!==String(cn))))addEventListener('load',function(){fetch('/cart.js',{credentials:'same-origin',headers:{Accept:'application/json'}}).then(function(r){return r.ok?r.json():null}).then(function(c){if(!c||typeof c.item_count!=='number')return;var n=c.item_count;try{localStorage.setItem('materia__cart-count',String(n))}catch(e){}put('.cart-count',function(x){return x.classList.contains('cart-count-drawer')?'('+n+')':(n>100?'~':String(n))});put('[data-storelib-cart-count]',function(){return String(n)})}).catch(function(){})},{once:true})}catch(e){}})(false);</script>
+
+
+    <main id="MainContent" class="content-for-layout focus-none" role="main" tabindex="-1">
+      {%- render 'product-size-chart-data', product: product -%}
+      {{ content_for_layout }}
+    </main>
+    {%- comment -%}
+      Looping animations (media placeholders, stock pulses, pings) inside a section that is off screen
+      are paused and played again when it comes near, so an idle page stops repainting what nobody sees.
+      Only animations that repeat forever are touched; a popup's or a reveal's one-off animation is not.
+    {%- endcomment -%}
+    <script>(function(){if(!('IntersectionObserver' in window)||!Element.prototype.getAnimations)return;var seen=new WeakSet();
+function sweep(s,on){var list;try{list=s.getAnimations({subtree:true})}catch(x){return}for(var i=0;i<list.length;i++){var a=list[i],t=a.effect&&a.effect.getTiming?a.effect.getTiming():null;if(!t||t.iterations!==Infinity)continue;if(on){if(a.__slHeld){a.__slHeld=0;a.play()}}else if(a.playState==='running'){a.__slHeld=1;a.pause()}}}
+var io=new IntersectionObserver(function(es){for(var i=0;i<es.length;i++){var e=es[i];e.target.__slOn=e.isIntersecting;sweep(e.target,e.isIntersecting)}},{rootMargin:'200px 0px'});
+function watch(){var ss=document.querySelectorAll('main .shopify-section');for(var i=0;i<ss.length;i++){if(!seen.has(ss[i])){seen.add(ss[i]);io.observe(ss[i])}}}
+watch();document.addEventListener('DOMContentLoaded',watch,{once:true});
+document.addEventListener('animationstart',function(e){var s=e.target&&e.target.closest&&e.target.closest('main .shopify-section');if(s&&s.__slOn===false)sweep(s,false)},true);
+['storelib:section-load','shopify:section:load'].forEach(function(n){document.addEventListener(n,function(e){var s=e.target&&e.target.closest?e.target.closest('main .shopify-section'):null;if(s){io.unobserve(s);seen.delete(s)}watch()})});})();</script>
+    {% sections 'footer-group' %}
+    {%- comment -%}
+      The overlay group already holds the mobile navigation bar and the custom
+      colours. The static copies drawn here as well were a second, empty bar
+      wrapper and the same colour CSS twice.
+    {%- endcomment -%}
+    {%- sections 'overlay-group' -%}
+    <script>window.__mtFillCounts&&window.__mtFillCounts(true)</script>
+    {%- render 'top-search' -%}
+    {%- if localization.available_countries.size > 1 -%}<script type="application/json" id="materia-country-options" data-current="{{ localization.country.iso_code }}">{%- render 'country-options' -%}</script>{%- endif -%}
+    {%- render 'minicart' -%}
+    {%- comment -%}
+      Invisible copy the builder redraws with unsaved settings; the drawer
+      reads it in the editor only, so a visitor's page does not carry (or the
+      server draw) a second cart drawer.
+    {%- endcomment -%}
+    {%- if request.design_mode -%}
+      {%- section 'cart-drawer-live' -%}
+    {%- endif -%}
+    {%- render 'editor-live-images' -%}
+    {%- render 'scripts-tag' -%}
+    {%- render 'sprite-svg' -%}
+    {%- render 'content-bottom' -%}
+    {%- render 'smooth-media-load' -%}
+
+    {%- if settings.social_floating_enable -%}
+      {%- liquid
+        assign fb_side = settings.social_floating_side | default: 'left'
+        assign fb_vis  = settings.social_floating_visibility | default: 'desktop_only'
+      -%}
+      <aside class="social-floating-bar social-floating-bar--{{ fb_side }} social-floating-bar--{{ fb_vis }}" aria-label="{{ 'accessibility.social_media' | t }}">
+        {%- render 'social-icons' -%}
+      </aside>
+      {%- style -%}
+        .social-floating-bar {
+          position: fixed; top: 50%; transform: translateY(-50%); z-index: 90;
+          padding: 8px;
+          border-radius: 14px;
+          background: rgba(255,255,255,0.94);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          box-shadow: 0 8px 28px -10px rgba(0,0,0,.16);
+          border: 1px solid rgba(0,0,0,.06);
+        }
+        .social-floating-bar--left  { left: 12px; }
+        .social-floating-bar--right { right: 12px; }
+        .social-floating-bar .list-social {
+          flex-direction: column;
+          --col-gap: 8px;
+        }
+        .social-floating-bar--mobile_only { display: none; }
+        @media (min-width: 1025px) {
+          .social-floating-bar--mobile_only { display: none !important; }
+        }
+        @media (max-width: 1024.98px) {
+          .social-floating-bar--desktop_only { display: none !important; }
+          .social-floating-bar--mobile_only  { display: block; }
+        }
+      {%- endstyle -%}
+    {%- endif -%}
+
+    {%- comment -%}
+      Register content sections with the shared, single-run reveal controller.
+      Editor previews and content already in view stay visible. The controller
+      owns observation and completion so section insertion cannot restart an
+      animation that has already finished.
+    {%- endcomment -%}
+    {%- if settings.scroll_animation != 'none' and settings.scroll_animation != blank -%}
+      {%- assign _anim_dur = settings.animation_duration | default: 700 -%}
+      {%- assign _anim_dur_short = _anim_dur | times: 0.7 | round -%}
+      {%- assign _anim_delay = settings.animation_delay | default: 0 -%}
+      <style>
+        :root {
+          /* Wire the user's Animations & motion settings to the keyframe vars used by animation.css */
+          --duration-long: {{ _anim_dur_short }}ms;
+          --duration-extra-long: {{ _anim_dur }}ms;
+          --duration-extra-longer: {{ _anim_dur }}ms;
+          --animation-duration: {{ _anim_dur }}ms;
+          --animation-delay-base: {{ _anim_delay }}ms;
+        }
+        /* Every reveal type, its timing, the first screen, the builder and
+           reduced motion are drawn by animation.css for every .scroll-trigger
+           (theme-wide sections below and cards inside sections alike). */
+      </style>
+      <script>
+        (function() {
+          var anim = {{ settings.scroll_animation | json }};
+          if (!anim || anim === 'none') return;
+
+          if (document.documentElement.classList.contains('shopify-design-mode') || window.Shopify?.designMode) return;
+
+          // Skip these — chrome/utility sections that should never animate-in.
+          var SKIP_PATTERN = /(header|footer|announcement|top[-_]?bar|popup|cookie|gdpr|consent|back[-_]?to[-_]?top|mobile[-_]?navigation|mobile[-_]?nav[-_]?bar|password|age[-_]?verifier|preloader|search[-_]?popup|social[-_]?floating|overlay[-_]?group|header[-_]?group|footer[-_]?group)/i;
+
+          function shouldSkip(s) {
+            if (!s) return true;
+            if (s.dataset.noReveal === '1') return true;
+            if (s.dataset.tiRevealInit === '1') return true;
+            if (s.classList.contains('scroll-trigger')) return true;
+            if (s.querySelector('[data-ti-no-reveal]')) return true;
+            var hay = (s.id || '') + ' ' + (s.className || '');
+            // For static/global sections (id starts with shopify-section-sections--)
+            // also catch theme-template chrome (e.g. main-* are fine, but the wrappers above are not).
+            if (SKIP_PATTERN.test(hay)) return true;
+            var main = document.getElementById('MainContent') || document.querySelector('main');
+            var first = main && main.querySelector(':scope > .shopify-section');
+            if (first && s === first) return true;
+            return false;
+          }
+
+          function applyReveal(root) {
+            root = root || document;
+            var sections = Array.from(root.querySelectorAll('.shopify-section'));
+            if (root.matches && root.matches('.shopify-section')) sections.unshift(root);
+            sections.forEach(function(s) {
+              if (shouldSkip(s)) return;
+              s.classList.add('scroll-trigger', 'ti-section-reveal', anim);
+              s.dataset.tiRevealInit = '1';
+            });
+            if (typeof initializeScrollAnimationTrigger === 'function') initializeScrollAnimationTrigger(root);
+          }
+
+          function boot() {
+            applyReveal(document);
+
+            // Observe future section insertions (theme editor, AJAX, etc.).
+            if ('MutationObserver' in window) {
+              var mo = new MutationObserver(function(muts) {
+                var hit = false;
+                for (var i = 0; i < muts.length; i++) {
+                  var added = muts[i].addedNodes;
+                  for (var j = 0; j < added.length; j++) {
+                    var n = added[j];
+                    if (n && n.nodeType === 1 && (n.classList && n.classList.contains('shopify-section') || (n.querySelector && n.querySelector('.shopify-section')))) {
+                      hit = true; break;
+                    }
+                  }
+                  if (hit) break;
+                }
+                if (hit) applyReveal(document);
+              });
+              mo.observe(document.body, { childList: true, subtree: true });
+            }
+
+            // Theme editor: re-apply on section load/reorder/select.
+            if (window.Shopify && window.Shopify.designMode) {
+              document.addEventListener('shopify:section:load', function(e) {
+                applyReveal(e.target.parentNode || document);
+              });
+              document.addEventListener('shopify:section:reorder', function() {
+                applyReveal(document);
+              });
+            }
+          }
+
+          if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', boot);
+          } else {
+            boot();
+          }
+        })();
+      </script>
+    {%- endif -%}
+    {%- comment -%}
+      Safety net, always on. (1) Content hidden for an entrance animation is
+      shown once it sits in view and its animation never started (observer
+      missed it, a script failed). (2) Product images still waiting on a
+      loader class are shown once they have loaded. (3) A scroll lock left on
+      the page with nothing open is released when the visitor tries to scroll.
+      It only reads the page on scroll (twice a second at most) and on a
+      scroll attempt while locked, never on a timer.
+    {%- endcomment -%}
+    <style>
+      /* The product information ships hidden for its fade; if the script that
+         fades it in never runs, show it anyway after 3s. */
+      motion-element.opacity-0 { animation: materiaFailsafeShow 0s linear 3s forwards; }
+      @keyframes materiaFailsafeShow { to { opacity: 1; } }
+      /* The product information is never animated by the script (it skips
+         it, so buying is never delayed), yet it stayed hidden until every
+         deferred script had run, then popped in. It now shows from the first
+         paint with a short settle drawn by CSS alone. It is in the first
+         screen, so it never starts invisible: only a small rise, painted
+         from the first frame (the title and price count for the first paint
+         as soon as they arrive). No fill, so once it ends the block holds no
+         layer that could trap a pop-up. */
+      @keyframes materiaInfoIn { from { transform: translate3d(0, 6px, 0); } }
+      motion-element:is(.product-detail__information, .product-single__information) { opacity: 1; animation: materiaInfoIn .38s cubic-bezier(.2, .7, .2, 1); }
+      @media (prefers-reduced-motion: reduce) { motion-element:is(.product-detail__information, .product-single__information) { animation: none; } }
+      html.shopify-design-mode motion-element:is(.product-detail__information, .product-single__information) { animation: none; }
+    </style>
+    <script>
+      (function () {
+        var html = document.documentElement;
+        function inView(el) {
+          var r = el.getBoundingClientRect();
+          return r.width > 0 && r.height > 0 && r.top < innerHeight && r.bottom > 0 && r.left < innerWidth && r.right > 0;
+        }
+
+        /* (1) and (2) */
+        var pending = typeof WeakMap === 'function' ? new WeakMap() : null;
+        function revealNow(el) {
+          if (el.classList.contains('scroll-trigger--offscreen') || el.classList.contains('scroll-trigger--armed')) {
+            el.classList.remove('scroll-trigger--offscreen', 'scroll-trigger--armed');
+            el.setAttribute('data-animation-done', '');
+            el.setAttribute('animation-end', '');
+          }
+          if (el.tagName === 'MOTION-ELEMENT') {
+            if (typeof el.finishMotion === 'function') el.finishMotion();
+            else { el.style.opacity = '1'; el.style.removeProperty('transform'); el.classList.remove('opacity-0'); }
+          }
+        }
+        function scan() {
+          var now = Date.now();
+          var hidden = document.querySelectorAll('.scroll-trigger--offscreen, motion-element:not([hold])[style*="opacity"]');
+          for (var i = 0; i < hidden.length; i++) {
+            var el = hidden[i];
+            if (el.tagName === 'MOTION-ELEMENT' && parseFloat(el.style.opacity) !== 0) continue;
+            if (!inView(el)) { if (pending) pending.delete(el); continue; }
+            if (!pending) { revealNow(el); continue; }
+            var since = pending.get(el);
+            if (!since) pending.set(el, now);
+            // A motion element may wait up to 2s for its image before fading in.
+            else if (now - since > (el.tagName === 'MOTION-ELEMENT' ? 2600 : 900)) { pending.delete(el); revealNow(el); }
+          }
+          var imgs = document.querySelectorAll('img.bls-loading-image');
+          for (var j = 0; j < imgs.length; j++) {
+            var img = imgs[j];
+            if (img.complete && img.naturalWidth > 0) {
+              img.classList.remove('bls-loading-image');
+              var m = img.closest('motion-element');
+              if (m) m.classList.remove('bls-loading-image');
+            }
+          }
+        }
+        var lastScan = 0, scanTimer = 0, settleScan = 0, finalScan = 0;
+        function queueScan() {
+          if (document.hidden) return;
+          if (scanTimer) return;
+          var wait = Math.max(0, 500 - (Date.now() - lastScan));
+          scanTimer = setTimeout(function () {
+            scanTimer = 0; lastScan = Date.now();
+            (window.requestAnimationFrame || setTimeout)(scan);
+            // Keep only two settling checks, not two more for every scroll tick.
+            clearTimeout(settleScan); clearTimeout(finalScan);
+            settleScan = setTimeout(function () { if (!document.hidden) requestAnimationFrame(scan); }, 1000);
+            finalScan = setTimeout(function () { if (!document.hidden) requestAnimationFrame(scan); }, 2800);
+          }, wait);
+        }
+        addEventListener('scroll', queueScan, { passive: true });
+        addEventListener('resize', queueScan, { passive: true });
+        addEventListener('load', queueScan);
+        addEventListener('pageshow', queueScan);
+        addEventListener('pagehide', function () {
+          clearTimeout(scanTimer); clearTimeout(settleScan); clearTimeout(finalScan);
+          scanTimer = settleScan = finalScan = 0;
+        });
+        document.addEventListener('visibilitychange', function () { if (!document.hidden) queueScan(); });
+        document.addEventListener('DOMContentLoaded', function () { setTimeout(queueScan, 1500); });
+
+        /* (3) */
+        var LOCKS = ['open-drawer', 'open-popup', 'nav-open', 'nav-verticalmenu', 'open-search', 'open-minicart', 'open-sidebar', 'open-byl', 'no-scroll'];
+        var OPEN = 'cart-notification.open, .minicart__wrapper.open, #search-form.open, .popup-search.popup-search-show, .overlay_search.open, .bls__drawer.open, .open.overlay, html.nav-open :is(.navigation.mobile, nav.mobile), .tingle-modal--visible, dialog[open], #mt-gate, .pv-overlay.is-open, [aria-modal="true"]:not([hidden])';
+        var lastChange = Date.now();
+        function locked() {
+          var b = document.body;
+          if (!b) return false;
+          for (var i = 0; i < LOCKS.length; i++) if (html.classList.contains(LOCKS[i]) || b.classList.contains(LOCKS[i])) return true;
+          return b.classList.contains('tingle-enabled') || html.style.overflow === 'hidden' || b.style.overflow === 'hidden';
+        }
+        function shown(el) {
+          // On screen (a drawer slid out of view does not count) and painted.
+          var r = el.getBoundingClientRect();
+          if (!(r.width > 0 && r.height > 0 && r.top < innerHeight && r.bottom > 0 && r.left < innerWidth && r.right > 0)) return false;
+          var cs = getComputedStyle(el);
+          return cs.visibility !== 'hidden' && parseFloat(cs.opacity) > 0.05;
+        }
+        function somethingOpen() {
+          var list = document.querySelectorAll(OPEN);
+          for (var i = 0; i < list.length; i++) if (shown(list[i])) return true;
+          // Whatever covers the middle of the screen: a fixed layer that large is a drawer, sheet or popup.
+          // Every layer under that point counts (a small fixed modal over a separate backdrop).
+          var stack = document.elementsFromPoint ? document.elementsFromPoint(innerWidth / 2, innerHeight / 2).slice(0, 8) : [document.elementFromPoint(innerWidth / 2, innerHeight / 2)];
+          var area = innerWidth * innerHeight;
+          for (var s = 0; s < stack.length; s++) {
+            for (var el = stack[s]; el && el !== html && el !== document.body; el = el.parentElement) {
+              if (getComputedStyle(el).position !== 'fixed') continue;
+              var r = el.getBoundingClientRect();
+              if (r.width * r.height >= area * 0.25 && !el.closest('header, .section-header')) return true;
+            }
+          }
+          return false;
+        }
+        function release() {
+          var b = document.body;
+          LOCKS.forEach(function (c) { html.classList.remove(c); b.classList.remove(c); });
+          if (b.classList.contains('tingle-enabled')) {
+            var top = parseFloat(b.style.top) || 0;
+            b.classList.remove('tingle-enabled');
+            b.style.top = '';
+            if (top < 0) scrollTo(0, -top);
+          }
+          if (html.style.overflow === 'hidden') html.style.overflow = '';
+          if (b.style.overflow === 'hidden') b.style.overflow = '';
+        }
+        var lastCheck = 0;
+        function check() {
+          var now = Date.now();
+          if (now - lastCheck < 800 || now - lastChange < 1200 || !locked()) return;
+          lastCheck = now;
+          try { if (!somethingOpen()) release(); } catch (e) {}
+        }
+        if ('MutationObserver' in window) {
+          var mark = function () { lastChange = Date.now(); };
+          new MutationObserver(mark).observe(html, { attributes: true, attributeFilter: ['class', 'style'] });
+          var watchBody = function () { if (document.body) new MutationObserver(mark).observe(document.body, { attributes: true, attributeFilter: ['class', 'style'] }); };
+          if (document.body) watchBody(); else document.addEventListener('DOMContentLoaded', watchBody);
+        }
+        addEventListener('wheel', check, { passive: true });
+        addEventListener('touchmove', check, { passive: true });
+        addEventListener('keydown', function (e) {
+          if (/^(ArrowDown|ArrowUp|PageDown|PageUp|Space| |Home|End)$/.test(e.key)) check();
+        });
+        addEventListener('pageshow', function () { lastChange = 0; lastCheck = 0; setTimeout(check, 300); });
+        /* Back button: the page comes back as it was left. A search panel that
+           was open keeps its inline position and the header its hidden menu
+           row, over the page, while the lock classes are already removed. */
+        addEventListener('pageshow', function (e) {
+          if (!e.persisted || html.classList.contains('open-search')) return;
+          var q = function (s) { return document.querySelectorAll(s); };
+          q('.popup-search').forEach(function (el) { el.classList.remove('popup-search-show'); el.style.removeProperty('transform'); el.style.removeProperty('visibility'); });
+          q('.overlay_search').forEach(function (el) { el.classList.remove('open'); el.style.removeProperty('opacity'); el.style.removeProperty('visibility'); });
+          q('#search-form.open, .top-search-toggle.open').forEach(function (el) { el.classList.remove('open'); });
+          q('.header-bottom__navigation').forEach(function (el) { el.style.removeProperty('opacity'); el.style.removeProperty('transition'); el.style.removeProperty('display'); });
+          q('header.header').forEach(function (el) { el.style.removeProperty('margin-bottom'); });
+        });
+      })();
+    </script>
+{%- comment -%} Shipping estimate (cart page and drawer): the rates and copy the creator set in Theme settings > Shopping Cart, read by materia-experience.js. {%- endcomment -%}
+<script id="materia-shipping-data" type="application/json">
+  {
+    "rates": {{ settings.shipping_estimate_rates | default: '' | json }},
+    "delivery": {{ settings.shipping_estimate_delivery | default: '' | json }},
+    "freePage": {{ settings.cart_page_free_shipping_minimum | default: '' | json }},
+    "freeDrawer": {{ settings.free_shipping_minimum | default: '' | json }},
+    "subtotal": {{ cart.total_price | default: 0 | json }},
+    "currency": {{ cart.currency.iso_code | default: shop.currency | default: 'EUR' | json }},
+    "country": {{ localization.country.iso_code | default: '' | json }},
+    "text": {
+      "choose": {{ 'general.cart.shipping.choose_country' | t | json }},
+      "rateTo": {{ 'general.cart.shipping.rate_to' | t | json }},
+      "free": {{ 'general.cart.shipping.free' | t | json }},
+      "freeOver": {{ 'general.cart.shipping.free_over' | t | json }},
+      "atCheckout": {{ 'general.cart.shipping.at_checkout' | t | json }}
+    }
+  }
+</script>
+{%- comment -%} Live preview of Theme settings: it only answers the builder's storelib:settings-change, which a visitor's page never gets. {%- endcomment -%}
+{%- if request.design_mode -%}{% render 'theme-live' %}{%- endif -%}
+    <script>
+      /* Nothing below the footer takes room: fixed bars, popups, pixels and
+         style carriers placed after it used to leave a white band. */
+      (function () {
+        var SKIP = { SCRIPT: 1, STYLE: 1, LINK: 1, TEMPLATE: 1, META: 1, NOSCRIPT: 1 };
+        function collapse(el) {
+          var s = el.style;
+          s.setProperty('height', '0', 'important');
+          s.setProperty('min-height', '0', 'important');
+          s.setProperty('margin', '0', 'important');
+          s.setProperty('padding', '0', 'important');
+          s.setProperty('border', '0', 'important');
+          s.setProperty('overflow', 'visible', 'important');
+        }
+        function run() {
+          var footer = document.querySelector('footer.footer, .shopify-section-group-footer-group:last-of-type');
+          if (!footer) return;
+          var node = footer.closest('.shopify-section, [id^="shopify-section-"]') || footer;
+          while (node && node !== document.body) {
+            for (var el = node.nextElementSibling; el; el = el.nextElementSibling) {
+              if (SKIP[el.tagName] || el.matches('footer, .shopify-section-group-footer-group') || el.querySelector('footer.footer')) continue;
+              var cs = getComputedStyle(el);
+              if (cs.display === 'none' || cs.position === 'fixed' || cs.position === 'absolute') continue;
+              var box = el.getBoundingClientRect();
+              if (box.height + parseFloat(cs.marginTop) + parseFloat(cs.marginBottom) > 0.5) collapse(el);
+            }
+            node = node.parentElement;
+          }
+        }
+        var timer;
+        function later() { clearTimeout(timer); timer = setTimeout(run, 200); }
+        if (document.readyState === 'complete') later(); else addEventListener('load', later);
+        setTimeout(run, 2500);
+        addEventListener('resize', later, { passive: true });
+        document.addEventListener('shopify:section:load', later);
+        document.addEventListener('storelib:section-load', later);
+      })();
+    </script>
+    {%- render 'product-counter-data', product: product -%}
+  </body>
+</html>

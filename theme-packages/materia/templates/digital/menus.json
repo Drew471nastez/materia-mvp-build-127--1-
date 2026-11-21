@@ -1,0 +1,40 @@
+{
+  "main-menu": {
+    "title": "Main menu",
+    "links": [
+      {
+        "title": "Browse",
+        "url": "/collections/all"
+      },
+      {
+        "title": "Licence and FAQ",
+        "url": "/pages/faqs"
+      },
+      {
+        "title": "About",
+        "url": "/pages/about"
+      },
+      {
+        "title": "Support",
+        "url": "/pages/contact"
+      }
+    ]
+  },
+  "footer": {
+    "title": "Footer",
+    "links": [
+      {
+        "title": "Licence and FAQ",
+        "url": "/pages/faqs"
+      },
+      {
+        "title": "Support",
+        "url": "/pages/contact"
+      },
+      {
+        "title": "Search",
+        "url": "/search"
+      }
+    ]
+  }
+}

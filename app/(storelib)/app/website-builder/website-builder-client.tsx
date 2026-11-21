@@ -11,7 +11,14 @@
  *      in all), each with Publish, Edit and the long tail in a menu. A
  *      website being imported, added or copied has its row there from the
  *      first moment (./incoming.tsx), and the page scrolls to it when it lands.
- *   3. Explore — a few themes from the registry, and the door to all of them.
+ *   3. Browse themes: the first few templates as cards, and the theme
+ *      marketplace as a popup over this page (./themes/themes-client.tsx).
+ *
+ * Templates round 16: Create a website (./start-website.tsx) is no longer at
+ * the top of this page. It is drawn only where the page is asked for with
+ * `create`, which is /app/website-builder/ai (./ai/page.tsx). Without it a
+ * creator starts from a template in Browse themes, or from Start from blank
+ * beside the Library heading.
  *
  * What is deliberately NOT here:
  *   • A live render of any website. The cover is the snapshot the editor took
@@ -30,7 +37,7 @@ import * as React from "react"
 import { ownOpen, useOwnMarker } from "@/lib/analytics/own-site"
 import { liveSiteLink } from "@/lib/website-builder/live-site-link"
 import { AnalyticsSummaryFact } from "@/components/app/analytics-summary-line"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import {
   ArrowUpRight,
   Check,
@@ -40,6 +47,8 @@ import {
   Download,
   Eye,
   EyeOff,
+  FilePlus2,
+  LayoutGrid,
   Globe,
   Layers,
   Loader2,
@@ -86,8 +95,10 @@ import {
   getThemeDefinition,
   type ThemeDefinition,
 } from "@/lib/website-builder/theme-registry"
-import { ExploreThemesCard, ThemeCard } from "@/components/themes/theme-card"
-import { LIBRARY_THEME_CARDS, MARKETPLACE_PATH, builtinListings, listingPath, type ThemeListing } from "@/lib/themes/marketplace-shared"
+import { MoreThemesCard, ThemeTemplateCard, type TemplateCardState } from "@/components/website-builder/theme-template-card"
+import { backThen } from "@/lib/navigation/go-back"
+import { builtinListings, installedListingSlugs, listingPath, type ThemeListing } from "@/lib/themes/marketplace-shared"
+import { THEME_PARAM, THEMES_PARAM, ThemeMarketplace } from "./themes/themes-client"
 import { relativeTime } from "@/lib/website-builder/relative-time"
 import { type Cover, coverBeingWatched, latestCover, requestCover, savedAt, seedCover, watchCover } from "@/lib/website-builder/cover-refresh"
 import { pagesBehind } from "@/lib/website-builder/page-refresh"
@@ -686,6 +697,9 @@ async function decodedFirst(url: string | null, within = 10_000): Promise<void> 
 /** Saves this tab has already fetched the page again for. */
 const REFRESHED = new Set<string>()
 
+/** How many templates the Browse themes row shows before the card that opens the marketplace: one row of four on a laptop. */
+const ROW_THEME_CARDS = 3
+
 export function coverIsStale(i: Pick<WebsiteSummary, "snapshot_url" | "snapshot_updated_at" | "saved_at">): boolean {
   if (!i.snapshot_url || !i.snapshot_updated_at) return true
   return Date.parse(i.saved_at) > Date.parse(i.snapshot_updated_at) + 5000
@@ -699,8 +713,11 @@ export function WebsiteBuilderClient({
   account = null,
   teamMember = false,
   aiAgent = false,
+  create = false,
 }: {
   installs: WebsiteSummary[]
+  /** Create a website at the top (Start with AI, Start from blank): /app/website-builder/ai only (./ai/page.tsx). */
+  create?: boolean
   /** The new AI builder (the agent engine) is on for this account (lib/website-builder/ai-site/agent-access.ts, round N). */
   aiAgent?: boolean
   /**
@@ -826,6 +843,84 @@ export function WebsiteBuilderClient({
   /** Which way into a full library was just tried. See ./library-full-dialog. */
   const [full, setFull] = React.useState<LibraryAction | null>(null)
   const fileInput = React.useRef<HTMLInputElement>(null)
+
+  /*
+    ===========================================================================
+     THE THEME MARKETPLACE IS A POPUP, AND THE ADDRESS SAYS WHEN IT IS OPEN
+    ===========================================================================
+    Opening it pushes one history entry (?themes=1), so the system's Back, a
+    swipe from the edge of a phone included, closes it and lands on this page
+    rather than leaving it. The close button goes back over that same entry,
+    so the history holds no entry that would open it again by surprise. A
+    link that arrives with ?themes=1 (the marketplace's old address is sent
+    here with it, ./themes/page.tsx) opens it with no entry
+    of its own to go back over: closing that one only takes the words out of
+    the address.
+  */
+  const [themesOpen, setThemesOpen] = React.useState(false)
+  /** A theme a link named (&theme=slug). */
+  const [themeAsked, setThemeAsked] = React.useState<string | null>(null)
+  /** Whether the open popup has its own history entry to go back over. */
+  const themesPushed = React.useRef(false)
+  /** What opened it, and takes the focus back; the heading's button when a link did. */
+  const themesOpener = React.useRef<HTMLElement | null>(null)
+  const marketButton = React.useRef<HTMLButtonElement>(null)
+  /** Themes added from a package in this visit (see addListing). */
+  const [addedSlugs, setAddedSlugs] = React.useState<Set<string>>(() => new Set())
+  const search = useSearchParams()
+  const themesInAddress = search?.has(THEMES_PARAM) ?? false
+
+  const readThemesAddress = React.useCallback(() => {
+    const p = new URLSearchParams(window.location.search)
+    const on = p.has(THEMES_PARAM)
+    setThemesOpen(on)
+    setThemeAsked(on ? p.get(THEME_PARAM) : null)
+    return on
+  }, [])
+  /* The address on arrival, and whenever the router changes it under the page (the search box's Themes row, the old address's redirect). */
+  React.useEffect(() => {
+    readThemesAddress()
+  }, [readThemesAddress, themesInAddress])
+  /* Back and Forward. Going forward onto the popup's entry leaves this page's entry behind it, so closing goes back over it. */
+  React.useEffect(() => {
+    const onPop = () => {
+      themesPushed.current = readThemesAddress()
+    }
+    window.addEventListener("popstate", onPop)
+    return () => window.removeEventListener("popstate", onPop)
+  }, [readThemesAddress])
+
+  const openThemes = (opener?: HTMLElement | null) => {
+    themesOpener.current = opener ?? null
+    const url = new URL(window.location.href)
+    if (!url.searchParams.has(THEMES_PARAM)) {
+      url.searchParams.set(THEMES_PARAM, "1")
+      /* A plain object: the router adds its own state to it and keeps its address in step. */
+      window.history.pushState({ wbThemes: 1 }, "", `${url.pathname}${url.search}`)
+      themesPushed.current = true
+    }
+    setThemeAsked(null)
+    setThemesOpen(true)
+  }
+  const closeThemes = () => {
+    /* At once, so the window starts leaving on this frame; the history catches up behind it. */
+    setThemesOpen(false)
+    const clearAddress = () => {
+      const url = new URL(window.location.href)
+      if (!url.searchParams.has(THEMES_PARAM)) return
+      url.searchParams.delete(THEMES_PARAM)
+      url.searchParams.delete(THEME_PARAM)
+      /* A plain object here too, so the router takes the new address as its own and a later refresh does not put the words back. */
+      window.history.replaceState({}, "", `${url.pathname}${url.search}`)
+    }
+    if (themesPushed.current) {
+      themesPushed.current = false
+      /* The watched back (lib/navigation/go-back): if the browser's back never lands, the address is cleared here instead. */
+      backThen(clearAddress)
+      return
+    }
+    clearAddress()
+  }
   /** The website being imported, added or copied: its row is drawn before it exists. See ./incoming. */
   const [incoming, setIncoming] = React.useState<Incoming | null>(null)
   /** How to make it again, for Try again. Kept beside the row rather than in it. */
@@ -1235,10 +1330,22 @@ export function WebsiteBuilderClient({
         const res = await fetch("/api/themes/marketplace/add", json("POST", { slug: l.slug }))
         return { ok: res.ok, data: await res.json().catch(() => ({})) }
       },
-      () => tt("{name} added", { name: l.name }),
+      () => {
+        /* A theme from a package has no theme id to find it by in the library: this visit remembers that it went in. */
+        setAddedSlugs((prev) => new Set(prev).add(l.slug))
+        return tt("{name} added", { name: l.name })
+      },
       tt("Could not add theme"),
       () => void addListing(l),
     )
+  }
+
+  /* A template added on an earlier visit: the install remembers its listing (settings.compat.listing). */
+  const listedSlugs = React.useMemo(() => installedListingSlugs(installs), [installs])
+  /** Add, Adding or In library for one theme: the same answer on its card in the row and on its card in the popup. */
+  const templateState = (l: ThemeListing): TemplateCardState => {
+    if ((!!l.builtinThemeId && installedThemeIds.has(l.builtinThemeId)) || addedSlugs.has(l.slug) || listedSlugs.has(l.slug)) return "in-library"
+    return making && incoming?.kind === "add" && incoming.name === l.name ? "adding" : "add"
   }
 
   /**
@@ -1507,8 +1614,8 @@ export function WebsiteBuilderClient({
         }
       : null
 
-  /* Browse themes: eight of the marketplace's themes, then a card to the rest. */
-  const explore = listings.slice(0, LIBRARY_THEME_CARDS)
+  /* Browse themes: the first few of the marketplace's themes, then a card that opens the rest. */
+  const explore = listings.slice(0, ROW_THEME_CARDS)
   /*
     BROWSE THEMES WAITS FOR THE PAGE'S FIRST FRAME, ON A PHONE. It is a
     screen below the fold there, and a drawn cover with a dozen lines of SVG
@@ -1600,17 +1707,20 @@ export function WebsiteBuilderClient({
 
         {/* ── Create a website: Start with AI, Start from blank, Browse themes (./start-website.tsx) ── */}
         {/* Round N: from the press, the editor's frame with the building canvas in it, until the editor takes over (components/website-builder/ai-generation/building-canvas.tsx). */}
+        {/* Templates round 16: only where the page is asked for with it (/app/website-builder/ai). Everywhere else the page starts with the websites. */}
         {starting === "ai" && <StartingShell />}
-        <StartWebsite
-          agent={agentOn}
-          full={slotsLeft === 0}
-          teamMember={teamMember}
-          starting={starting}
-          blocked={making}
-          onStart={(mode, prompt, options) => void startWebsite(mode, prompt, options)}
-          onFull={() => setFull("create")}
-          onBrowse={() => startNavigationLoading()}
-        />
+        {create && (
+          <StartWebsite
+            agent={agentOn}
+            full={slotsLeft === 0}
+            teamMember={teamMember}
+            starting={starting}
+            blocked={making}
+            onStart={(mode, prompt, options) => void startWebsite(mode, prompt, options)}
+            onFull={() => setFull("create")}
+            onBrowse={openThemes}
+          />
+        )}
 
         {/* ── Live website ─────────────────────────────────────────
             `data-page-block` marks the three blocks that have to sit on the
@@ -1831,6 +1941,17 @@ export function WebsiteBuilderClient({
                     {tt("Add {name}", { name: explore[0].name })}
                   </Button>
                 )}
+                {/* The other templates are in Browse themes under this card; an empty page is one press from here. */}
+                <button
+                  type="button"
+                  data-start-blank="empty"
+                  onClick={() => void startWebsite("blank")}
+                  disabled={making || starting !== null}
+                  className="mt-1 inline-flex h-11 items-center gap-1.5 rounded-lg px-3 text-[13.5px] font-medium text-[#4b5563] outline-none transition-colors duration-150 hover:bg-[#f3f4f6] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 disabled:opacity-60 sm:h-9"
+                >
+                  {starting === "blank" && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {tt("Start from blank")}
+                </button>
               </div>
             ) : (
               /* Nothing live. When a website was, the card says which and puts it back
@@ -1922,7 +2043,25 @@ export function WebsiteBuilderClient({
               {importing && incoming ? (incoming.phase === "uploading" ? tt("Uploading {value}%", { value: Math.round(incoming.progress * 100) }) : tt("Importing")) : tt("Import theme")}
             </Button>
             )}
-            {/* Add theme was here: it is Browse themes in Create a website now, the same page (./start-website.tsx). */}
+            {/*
+              Start from blank, quiet, beside Import: the one way to start that is not a template now that
+              Create a website is off this page. Where that section is drawn (`create`) it has this door already.
+              Never dead: with the library full it says why.
+            */}
+            {create ? null : (
+              <Button
+                variant="ghost"
+                data-start-blank="library"
+                onClick={() => void startWebsite("blank")}
+                disabled={starting !== null || making}
+                aria-haspopup={slotsLeft === 0 ? "dialog" : undefined}
+                aria-busy={starting === "blank" || undefined}
+                className="h-11 rounded-xl px-3 text-[13px] font-medium text-[#4b5563] hover:bg-[#eef0f3] hover:text-[#1a1a2e] disabled:opacity-100"
+              >
+                {starting === "blank" ? <Loader2 className="h-4 w-4 animate-spin" /> : <FilePlus2 className="h-4 w-4" />}
+                {tt("Start from blank")}
+              </Button>
+            )}
           </SectionHeading>
           <h2 id="library-heading" className="sr-only">{tt("Library")}</h2>
 
@@ -2091,41 +2230,51 @@ export function WebsiteBuilderClient({
           data-page-block
         >
           <SectionHeading title={tt("Browse themes")}>
-            {/* The whole marketplace, in its own tab: inside the phone app, a new window from the creator's tools opens in the browser (components/platform/native-link-guard.tsx). */}
-            <a
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#e5e7eb] bg-white px-3 text-[14px] font-semibold text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.06),inset_0_-1px_0_rgba(16,24,40,0.04)] transition-[background-color,border-color,box-shadow] duration-150 hover:border-[#d1d5db] hover:bg-[#f9fafb] hover:shadow-[0_2px_6px_-2px_rgba(16,24,40,0.12)] active:bg-[#f3f4f6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20"
-              href={MARKETPLACE_PATH}
-              target="_blank"
-              rel="noopener"
-              data-theme-marketplace-link=""
+            {/* The whole marketplace, over this page (./themes/themes-client.tsx): a window on a computer, a full screen page on a phone. */}
+            <button
+              ref={marketButton}
+              type="button"
+              aria-haspopup="dialog"
+              data-theme-marketplace-open="heading"
+              onClick={(e) => openThemes(e.currentTarget)}
+              className="inline-flex h-11 items-center gap-1.5 rounded-[10px] border border-[#e5e7eb] bg-white px-3.5 text-[14px] font-semibold text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.06),inset_0_-1px_0_rgba(16,24,40,0.04)] outline-none transition-[background-color,border-color,box-shadow] duration-150 hover:border-[#d1d5db] hover:bg-[#f9fafb] hover:shadow-[0_2px_6px_-2px_rgba(16,24,40,0.12)] active:bg-[#f3f4f6] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 sm:h-9 sm:rounded-lg sm:px-3"
             >
+              <LayoutGrid className="h-4 w-4 text-[#6b7280]" strokeWidth={1.9} />
               {tt("Theme marketplace")}
-              <ArrowUpRight className="h-3.5 w-3.5 text-[#6b7280]" strokeWidth={2.25} />
-            </a>
+            </button>
           </SectionHeading>
           <h2 id="explore-heading" className="sr-only">{tt("Browse themes")}</h2>
-          <div data-theme-grid="" className="grid grid-cols-1 gap-x-5 gap-y-7 sm:grid-cols-2 lg:grid-cols-3">
+          <div data-theme-grid="" className="grid grid-cols-1 gap-x-5 gap-y-7 sm:grid-cols-2 lg:grid-cols-4">
             {explore.map((t) => (
-              <ThemeCard
+              <ThemeTemplateCard
                 key={t.slug}
                 listing={t}
-                href={listingPath(t.slug)}
-                newTab
-                action={
-                  <LibraryThemeAction
-                    listing={t}
-                    inLibrary={!!t.builtinThemeId && installedThemeIds.has(t.builtinThemeId)}
-                    busy={making && incoming?.kind === "add" && incoming.name === t.name}
-                    onAdd={() => void addListing(t)}
-                  />
-                }
+                size="sm"
+                state={templateState(t)}
+                waiting={making}
+                previewHref={listingPath(t.slug)}
+                /* A price or a plan: its page says the terms, rather than Add failing here. */
+                viewHref={t.tier !== "free" ? listingPath(t.slug) : null}
+                onAdd={() => void addListing(t)}
               />
             ))}
-            <ExploreThemesCard href={MARKETPLACE_PATH} />
+            <MoreThemesCard onOpen={openThemes} />
           </div>
 
         </section>
       </div>
+
+      {/* ── The theme marketplace, over the page ─────────────────── */}
+      <ThemeMarketplace
+        open={themesOpen}
+        onClose={closeThemes}
+        listings={listings}
+        stateOf={templateState}
+        waiting={making}
+        onAdd={(l) => void addListing(l)}
+        focusSlug={themeAsked}
+        returnFocus={() => themesOpener.current ?? marketButton.current}
+      />
 
       {/* ── Dialogs ──────────────────────────────────────────────── */}
       <RenameDialog
@@ -2228,52 +2377,6 @@ export function WebsiteBuilderClient({
         )}
       />
     </div>
-  )
-}
-
-/**
- * The lift on hover travels `translate`, NOT `transform`.
- *
- * Tailwind v4 compiles `-translate-y-0.5` to the standalone `translate:`
- * property, so a transition naming `transform` names something the card never
- * sets: the shadow faded over 200ms while the card itself jumped the two
- * pixels in one frame. That half-and-half is what reads as cheap — the eye
- * sees the slide fail and the glow succeed at the same time.
- *
- * `motion-reduce:transition-none` rather than `transform-none`, for the same
- * reason: `transform-none` was switching off a property that was not in use.
- */
-/**
- * The end of a Browse themes card's name row: Add, or that it is in the
- * library already. A Pro or paid theme opens its page in the marketplace,
- * where its price and plan are explained, rather than failing here.
- */
-function LibraryThemeAction({ listing, inLibrary, busy, onAdd }: { listing: ThemeListing; inLibrary: boolean; busy: boolean; onAdd: () => void }) {
-  if (inLibrary) {
-    return (
-      <span className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#f1f2f4] px-3 text-[12.5px] font-medium text-[#3f3f46]">
-        <Check className="h-3.5 w-3.5" />
-        {tt("In library")}
-      </span>
-    )
-  }
-  if (listing.tier !== "free") {
-    return (
-      <a
-        href={listingPath(listing.slug)}
-        target="_blank"
-        rel="noopener"
-        className="inline-flex h-11 items-center rounded-lg border border-[#e5e7eb] bg-white px-3 text-[13px] font-semibold text-[#1a1a2e] transition-colors duration-150 hover:bg-[#f8f9fa] sm:h-9"
-      >
-        {tt("View")}
-      </a>
-    )
-  }
-  return (
-    <Button onClick={onAdd} disabled={busy} className="h-11 shrink-0 rounded-lg bg-[#1a1a2e] px-3.5 sm:h-9 text-[13px] font-semibold text-white hover:bg-[#2d2d44]">
-      {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-      {tt("Add")}
-    </Button>
   )
 }
 

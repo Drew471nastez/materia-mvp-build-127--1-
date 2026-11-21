@@ -20,6 +20,7 @@ export function probeListings(cover: string): ThemeListing[] {
       cover: cover || null,
       screenshots: [],
       builtinThemeId: null,
+      codePackage: null,
       hasPackage: true,
       packageKind: "storelib" as const,
       demoUrl: null,

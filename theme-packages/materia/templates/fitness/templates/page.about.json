@@ -1,0 +1,144 @@
+{
+  "sections": {
+    "hero_image1_1": {
+      "type": "hero-image1",
+      "settings": {
+        "color_scheme": "default",
+        "image": "shopify://shop_images/fitness-dumbbells.webp",
+        "image_alt": "A long rack of dumbbells in a gym",
+        "min_height_desktop": 480,
+        "min_height_mobile": 380
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "About"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Coaching without the noise"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2"
+      ]
+    },
+    "image_and_video_text_2": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "default",
+        "image": "shopify://shop_images/fitness-class.webp",
+        "image_alt": "A group training on mats in a bright studio",
+        "image_position": "right"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Meet your coach"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Introduce yourself: your qualifications, how long you have coached and the kind of people you work with.</p>"
+          }
+        },
+        "button_3": {
+          "type": "button",
+          "settings": {
+            "label": "See the programs",
+            "link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "button_3"
+      ]
+    },
+    "text_columns_3": {
+      "type": "text-columns",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "How we train"
+          }
+        },
+        "column_2": {
+          "type": "column",
+          "settings": {
+            "label": "Principle 1",
+            "heading": "Simple beats clever",
+            "text": "<p>Say what your training is built on.</p>"
+          }
+        },
+        "column_3": {
+          "type": "column",
+          "settings": {
+            "label": "Principle 2",
+            "heading": "Progress you can measure",
+            "text": "<p>Say how clients know they are improving.</p>"
+          }
+        },
+        "column_4": {
+          "type": "column",
+          "settings": {
+            "label": "Principle 3",
+            "heading": "Fit it to real life",
+            "text": "<p>Say how plans change when a week goes wrong.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "column_2",
+        "column_3",
+        "column_4"
+      ]
+    },
+    "image_and_video_text_4": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "default",
+        "image": "shopify://shop_images/fitness-floor-work.webp",
+        "image_alt": "A woman doing sit ups on a mat",
+        "image_position": "left"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Train anywhere"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Every program has a home version, so a missed gym day is not a missed session.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2"
+      ]
+    }
+  },
+  "order": [
+    "hero_image1_1",
+    "image_and_video_text_2",
+    "text_columns_3",
+    "image_and_video_text_4"
+  ]
+}

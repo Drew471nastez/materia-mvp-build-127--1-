@@ -1,0 +1,329 @@
+{%- comment -%}
+  Materia Themes. The product information's Bundle and Quantity offer blocks,
+  built for Storelib's cart and checkout.
+  Params: block, product (the section's product), section, kind ('bundle' or
+  'quantity_offer'), product_form_id (the section's add to cart form).
+  Prices come from the products. A saving shown here is for display: Storelib
+  checkout works out every price again and takes off only a bundle the creator
+  set up in Storelib or a discount code (applied with the cart's own discount
+  request after the add). shopify/assets/product-offers.js does the adding and
+  reads Storelib's own bundles, so a matching one shows the saving checkout
+  takes off. docs/upsells-storelib.md says what each line carries.
+  Style: cards, list or bold. Custom style on: the block's own colours,
+  corners, border and spacing, else the colour scheme and theme buttons.
+{%- endcomment -%}
+{%- liquid
+  assign product = product | default: page.product
+  assign kind = kind | default: block.type
+  assign native_offers = product.metafields.storelib.offers.value | default: product.metafields.storelib.offers
+  assign native_render = false
+  if kind == 'quantity_offer' and native_offers.quantityBreaks.first.tiers != blank and block.settings.tier_source != 'custom'
+    assign native_render = true
+  elsif kind == 'bundle' and native_offers.bundles != blank
+    assign native_render = true
+  endif
+  assign bs = block.settings
+  assign po_added_default = 'accessibility.added' | t
+  assign po_button_default = 'products.product.add_to_cart' | t
+  assign uid = block.id
+  assign accent = bs.accent_color
+  assign heading_level = 'h2'
+  assign po_style = bs.style | default: 'cards'
+-%}
+{%- if native_render -%}
+  {%- render 'storelib-product-offers', product: product, block: block, kind: kind, product_form_id: product_form_id -%}
+{%- else -%}
+{%- capture po_vars -%}
+{%- render 'offer-control-vars', controls: bs -%}
+--po-pad-top: {{ bs.padding_top | default: 8 }}px; --po-pad-bottom: {{ bs.padding_bottom | default: 16 }}px;
+{%- comment -%} Style > Accent always applies (empty follows the scheme). The Custom colours group applies while its switch is on, so colours a creator switched off stay off. {%- endcomment -%}
+{%- if accent != blank and accent != 'transparent' %} --po-accent: {{ accent }};{% endif -%}
+{%- if bs.custom_style -%}
+  {%- if bs.custom_bg != blank %} --po-c-bg: {{ bs.custom_bg }};{% endif -%}
+  {%- if bs.custom_text != blank %} --po-c-text: {{ bs.custom_text }};{% endif -%}
+  {%- if bs.custom_heading != blank %} --po-c-heading: {{ bs.custom_heading }};{% endif -%}
+  {%- if bs.custom_border != blank %} --po-c-border: {{ bs.custom_border }};{% endif -%}
+  {%- if bs.custom_selected != blank %} --po-c-selected: {{ bs.custom_selected }};{% endif -%}
+  {%- if bs.custom_save != blank %} --po-c-save: {{ bs.custom_save }};{% endif -%}
+  {%- if bs.custom_badge_bg != blank %} --po-c-badge-bg: {{ bs.custom_badge_bg }};{% endif -%}
+  {%- if bs.custom_badge_text != blank %} --po-c-badge-text: {{ bs.custom_badge_text }};{% endif %} --po-c-radius: {{ bs.custom_radius | default: 12 }}px; --po-c-bw: {{ bs.custom_border_width | default: 1 }}px; --po-c-gap: {{ bs.custom_gap | default: 10 }}px;
+{%- endif -%}
+{%- endcapture -%}
+{{ 'product-offers.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'product-offers.js' | asset_url }}" defer="defer"></script>
+{%- if kind == 'bundle' -%}
+  {%- liquid
+    assign pct = bs.discount_percent | default: 0
+    assign keys = 'main,product_1,product_2,product_3' | split: ','
+    assign picked = 0
+    assign full_total = 0
+    assign sold_out_text = 'products.product.sold_out' | t
+  -%}
+  {%- capture bundle_lines -%}
+    {%- for key in keys -%}
+      {%- liquid
+        if key == 'main'
+          assign p = product
+        else
+          assign p = bs[key]
+          if p != blank and p.title == blank
+            assign p = all_products[p]
+          endif
+        endif
+      -%}
+      {%- if p == blank or p.title == blank -%}{%- continue -%}{%- endif -%}
+      {%- if key != 'main' -%}
+        {%- if p.id == product.id or p.available == false -%}{%- continue -%}{%- endif -%}
+        {%- assign picked = picked | plus: 1 -%}
+      {%- endif -%}
+      {%- liquid
+        assign v0 = p.selected_or_first_available_variant
+        assign img = v0.featured_image | default: p.featured_image
+        assign line_id = 'ProductBundle-' | append: uid | append: '-' | append: forloop.index
+        assign full_total = full_total | plus: v0.price
+      -%}
+      <li class="po-line{% if key == 'main' %} po-line--main{% endif %}" data-line{% if key == 'main' %} data-main-line{% endif %} data-product-id="{{ p.id }}" data-title="{{ p.title | escape }}">
+        <input class="po-line__check" type="checkbox" id="{{ line_id }}" data-line-check checked>
+        <label class="po-line__label" for="{{ line_id }}">
+          <span class="po-check" aria-hidden="true"><svg viewBox="0 0 16 16" width="12" height="12" fill="none"><path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          {%- if bs.show_images -%}
+            <span class="po-line__media">
+              {%- if img != blank -%}
+                <img src="{{ img | image_url: width: 160 }}" alt="{{ img.alt | default: p.title | escape }}" width="56" height="56" loading="lazy" decoding="async">
+              {%- else -%}
+                {{ 'product-1' | placeholder_svg_tag: 'po-line__placeholder' }}
+              {%- endif -%}
+            </span>
+          {%- endif -%}
+          <span class="po-line__info">
+            {%- if key == 'main' and bs.this_item_label != blank -%}<span class="po-line__tag">{{ bs.this_item_label }}</span>{%- endif -%}
+            <span class="po-line__title">{{ p.title | escape }}</span>
+          </span>
+        </label>
+        <span class="po-line__price">
+          <span class="po-line__amount" data-line-price>{{ v0.price | money }}</span>
+          {%- if bs.show_compare and v0.compare_at_price > v0.price -%}<s class="po-line__compare" data-line-compare>{{ v0.compare_at_price | money }}</s>{%- else -%}<s class="po-line__compare" data-line-compare hidden></s>{%- endif -%}
+        </span>
+        {%- if p.has_only_default_variant or p.variants.size < 2 -%}
+          <input type="hidden" data-line-variant value="{{ v0.id }}" data-price="{{ v0.price }}" data-compare="{{ v0.compare_at_price | default: 0 }}" data-available="{{ v0.available }}">
+        {%- else -%}
+          <span class="po-select">
+            <select data-line-variant aria-label="{{ p.title | escape }}: {{ bs.option_label | escape_once }}">
+              {%- for v in p.variants -%}
+                <option value="{{ v.id }}" data-price="{{ v.price }}" data-compare="{{ v.compare_at_price | default: 0 }}" data-available="{{ v.available }}"{% if v.id == v0.id %} selected{% endif %}{% unless v.available %} disabled{% endunless %}>{{ v.title | escape }}{% unless v.available %} ({{ sold_out_text }}){% endunless %}</option>
+              {%- endfor -%}
+            </select>
+          </span>
+        {%- endif -%}
+      </li>
+    {%- endfor -%}
+  {%- endcapture -%}
+  {%- if picked > 0 -%}
+    {%- assign saving = 0 -%}
+    {%- assign pct = 0 -%}
+    <product-bundle
+      class="po po-bundle"
+      id="ProductBundle-{{ uid }}"
+      data-style="{{ po_style }}"
+      {%- if bs.custom_style %} data-custom-style{% endif %}
+      data-block-id="{{ uid }}"
+      data-product-id="{{ product.id }}"
+      data-currency="{{ localization.country.currency.iso_code | default: cart.currency | default: shop.currency }}" data-store-currency="{{ shop.currency }}"
+      data-form-id="{{ product_form_id }}"
+      data-purchase-action="{{ bs.purchase_action | default: 'own' }}"
+      data-show-button="{{ bs.show_button }}"
+      data-discount="{{ pct }}"
+      data-show-compare="{{ bs.show_compare }}"
+      {%- if bs.discount_code != blank %} data-discount-code="{{ bs.discount_code | strip | escape_once }}"{% endif %}
+      data-money-format="{{ shop.money_format | strip_html | escape }}"
+      data-error="{{ bs.error_text | escape_once }}"
+      data-added-text="{{ bs.added_label | default: po_added_default | escape }}"
+      data-loading-text="{{ bs.adding_label | escape }}"
+      data-open-drawer="{{ bs.open_cart_after_add }}"
+      style="{{ po_vars | strip }}"
+      {{ block.shopify_attributes }}
+    >
+      {%- if bs.caption != blank -%}<p class="po-caption"><span>{{ bs.caption }}</span></p>{%- endif -%}
+      <div class="po-box">
+        {%- if bs.badge != blank -%}<span class="po-box__badge">{{ bs.badge }}</span>{%- endif -%}
+        {%- if bs.heading != blank -%}<{{ heading_level }} class="po-heading h5 heading-color" id="ProductBundle-{{ uid }}-heading">{{ bs.heading }}</{{ heading_level }}>{%- endif -%}
+        {%- if bs.text != blank -%}<p class="po-text">{{ bs.text }}</p>{%- endif -%}
+        <ul class="po-bundle__lines" role="list"{% if bs.heading != blank %} aria-labelledby="ProductBundle-{{ uid }}-heading"{% endif %}>
+          {{- bundle_lines -}}
+        </ul>
+        <div class="po-summary" aria-live="polite">
+          <span class="po-summary__label">{{ bs.total_label }}</span>
+          <span class="po-summary__prices">
+            <s class="po-summary__compare" data-total-compare{% if pct == 0 %} hidden{% endif %}>{{ full_total | money }}</s>
+            <span class="po-summary__amount" data-total>{{ full_total | minus: saving | money }}</span>
+          </span>
+          <span class="po-summary__saving" data-saving{% if pct == 0 %} hidden{% endif %}>{{ bs.savings_label }} <span data-saving-amount>{{ saving | money }}</span></span>
+        </div>
+        <button type="button" class="btn btn-primary po-button" data-theme-button="primary" data-sl-button data-button-role="primary" data-offer-add{% if bs.show_button == false or bs.purchase_action == 'main' %} hidden{% endif %}>
+          <span class="po-button__text">{{ bs.button_label | default: po_button_default }}</span>
+        </button>
+        {%- if bs.checkout_note != blank -%}<p class="po-note" data-offer-note hidden>{{ bs.checkout_note }}</p>{%- endif -%}
+        <p class="po-message" role="status" data-message hidden></p>
+      </div>
+    </product-bundle>
+  {%- else -%}
+    {%- render 'editor-block-preview', block: block, title: 'Bundle', message: 'Pick a product for this section, then choose one to three products in this block to sell with it.', commerce: true -%}
+  {%- endif -%}
+{%- else -%}
+  {%- liquid
+    assign v0 = product.selected_or_first_available_variant
+    assign tiers = '1,2,3,4' | split: ','
+    assign default_tier = bs.default_tier | default: '1'
+    assign shown = 0
+  -%}
+  {%- if product != blank -%}
+    <quantity-offer
+      class="po po-qty"
+      id="QuantityOffer-{{ uid }}"
+      data-style="{{ po_style }}"
+      data-image-position="{{ bs.tier_image_position | default: 'beside' }}"
+      {%- if bs.custom_style %} data-custom-style{% endif %}
+      data-block-id="{{ uid }}"
+      data-product-id="{{ product.id }}"
+      data-offers="{{ native_offers | json | escape }}"
+      data-form-id="{{ product_form_id }}"
+      data-purchase-action="{{ bs.purchase_action | default: 'own' }}"
+      data-show-button="{{ bs.show_button }}"
+      data-sync-form="{{ bs.sync_form_quantity }}"
+      data-show-compare="{{ bs.show_compare }}"
+      data-save-label="{{ bs.save_label | escape }}"
+      data-options="{{ bs | json | escape }}"
+      data-image="{%- render 'offer-image-url', image: product.featured_image, escaped: true -%}"
+      data-tier-image-1="{%- render 'offer-image-url', image: bs.tier_1_image, escaped: true -%}"
+      data-tier-image-2="{%- render 'offer-image-url', image: bs.tier_2_image, escaped: true -%}"
+      data-tier-image-3="{%- render 'offer-image-url', image: bs.tier_3_image, escaped: true -%}"
+      data-tier-image-4="{%- render 'offer-image-url', image: bs.tier_4_image, escaped: true -%}"
+      data-money-format="{{ shop.money_format | strip_html | escape }}"
+      data-error="{{ bs.error_text | escape_once }}"
+      data-added-text="{{ 'accessibility.added' | t | escape }}"
+      data-sold-out="{{ 'products.product.sold_out' | t | escape }}"
+      style="{{ po_vars | strip }} --po-tier-image: {{ bs.tier_image_size | default: 56 }}px;"
+      {{ block.shopify_attributes }}
+    >
+      {%- if bs.caption != blank -%}<p class="po-caption"><span>{{ bs.caption }}</span></p>{%- endif -%}
+      {%- if bs.heading != blank -%}<{{ heading_level }} class="po-heading h5 heading-color" id="QuantityOffer-{{ uid }}-heading">{{ bs.heading }}</{{ heading_level }}>{%- endif -%}
+      <div class="po-tiers" role="radiogroup"{% if bs.heading != blank %} aria-labelledby="QuantityOffer-{{ uid }}-heading"{% elsif bs.caption != blank %} aria-label="{{ bs.caption | escape_once }}"{% else %} aria-label="{{ bs.button_label | escape_once }}"{% endif %}>
+        {%- for t in tiers -%}
+          {%- liquid
+            assign k_on = 'tier_' | append: t | append: '_enable'
+            assign k_qty = 'tier_' | append: t | append: '_quantity'
+            assign k_free = 'tier_' | append: t | append: '_free'
+            assign k_label = 'tier_' | append: t | append: '_label'
+            assign k_disc = 'tier_' | append: t | append: '_discount'
+            assign k_badge = 'tier_' | append: t | append: '_badge'
+            assign k_code = 'tier_' | append: t | append: '_code'
+            assign k_image = 'tier_' | append: t | append: '_image'
+            assign k_caption = 'tier_' | append: t | append: '_caption'
+            if bs[k_on] == false
+              continue
+            endif
+            if bs[k_on] == nil and t == '4'
+              continue
+            endif
+            assign shown = shown | plus: 1
+            assign qty = bs[k_qty] | default: t | plus: 0
+            assign free = bs[k_free] | default: 0
+            assign units = qty | plus: free
+            assign disc = bs[k_disc] | default: 0
+            assign picked_image = bs[k_image]
+            assign image_src = ''
+            assign image_alt = bs[k_caption] | default: bs[k_label] | default: product.title
+            if picked_image != blank
+              if picked_image.src != blank or picked_image.id != blank
+                assign sized = picked_image | image_url: width: 480
+                if sized.src == blank and sized != blank
+                  assign image_src = sized
+                endif
+                if image_src == blank or image_src contains 'object Object'
+                  assign image_src = picked_image.src | default: picked_image.url | default: picked_image
+                endif
+                if picked_image.alt != blank
+                  assign image_alt = picked_image.alt
+                endif
+              elsif picked_image.url != blank
+                assign image_src = picked_image.url
+                if picked_image.alt != blank
+                  assign image_alt = picked_image.alt
+                endif
+              else
+                assign image_src = picked_image
+              endif
+            elsif po_style == 'image_tiles'
+              assign picked_image = product.featured_image | default: v0.featured_image | default: v0.image
+              if picked_image != blank
+                if picked_image.src != blank or picked_image.id != blank
+                  assign sized = picked_image | image_url: width: 480
+                  if sized.src == blank and sized != blank
+                    assign image_src = sized
+                  endif
+                  if image_src == blank or image_src contains 'object Object'
+                    assign image_src = picked_image.src | default: picked_image.url | default: picked_image
+                  endif
+                else
+                  assign image_src = picked_image
+                endif
+              endif
+            endif
+            comment
+              Only a verified Storelib offer authorizes a saving.
+            endcomment
+            assign full_total = v0.price | times: units
+            assign compare_each = v0.price
+            if free == 0 and disc == 0 and v0.compare_at_price > v0.price
+              assign compare_each = v0.compare_at_price
+            endif
+            assign compare_total = compare_each | times: units
+            assign tier_saving = compare_total | minus: full_total
+            if units > 0
+              assign each = full_total | divided_by: units
+            else
+              assign each = v0.price
+            endif
+            assign checked = false
+            if default_tier == t
+              assign checked = true
+            endif
+          -%}
+          <label data-tier-index="{{ t }}" class="po-tier{% if bs[k_badge] != blank %} po-tier--badged{% endif %}">
+            <input class="po-tier__radio" type="radio" name="QuantityOffer-{{ uid }}" value="{{ units }}" data-paid="{{ qty }}" data-free="{{ free }}" data-discount="0" data-configured-discount="{{ disc }}"{% if bs[k_code] != blank %} data-discount-code="{{ bs[k_code] | strip | escape }}"{% endif %}{% if checked %} checked{% endif %}>
+            <span class="po-tier__card">
+              <span class="po-tier__dot" aria-hidden="true"></span>
+              <span class="po-tier__main">
+                {%- if image_src != blank -%}
+                  <img class="po-tier__image" src="{{ image_src | escape }}" alt="{{ image_alt | escape }}" width="120" height="120" loading="lazy" decoding="async">
+                {%- endif -%}
+                <span class="po-tier__label">{{ bs[k_label] | default: units | escape }}</span>
+                {%- if bs[k_caption] != blank -%}<span class="po-tier__caption">{{ bs[k_caption] | escape }}</span>{%- endif -%}
+                {%- if disc > 0 -%}<span class="po-tier__save" data-tier-percent hidden>{%- if bs.save_label != blank -%}{{ bs.save_label | escape }} {% endif -%}<span data-tier-percent-value>{{ disc }}</span>%</span>{%- endif -%}
+                {%- if bs.you_save_label != blank -%}<span class="po-tier__yousave" data-tier-saving{% unless tier_saving > 0 %} hidden{% endunless %}>{{ bs.you_save_label }} <span data-tier-saving-amount>{{ tier_saving | money }}</span></span>{%- endif -%}
+              </span>
+              <span class="po-tier__prices">
+                <span class="po-tier__total" data-tier-total>{{ full_total | money }}</span>
+                <s class="po-tier__compare" data-tier-compare{% unless bs.show_compare and compare_total > full_total %} hidden{% endunless %}>{{ compare_total | money }}</s>
+                {%- if units > 1 and bs.per_item_label != blank -%}<span class="po-tier__each"><span data-tier-each>{{ each | money }}</span> {{ bs.per_item_label | escape_once }}</span>{%- endif -%}
+              </span>
+              {%- if bs[k_badge] != blank -%}<span class="po-tier__badge">{{ bs[k_badge] | escape }}</span>{%- endif -%}
+            </span>
+          </label>
+        {%- endfor -%}
+      </div>
+      {%- if bs.show_button != false -%}
+        <button type="button" class="btn btn-primary po-button" data-theme-button="primary" data-sl-button data-button-role="primary" data-offer-add{% if bs.show_button == false or bs.purchase_action == 'main' %} hidden{% endif %}{% unless v0.available %} disabled{% endunless %}>
+          <span class="po-button__text">{{ bs.button_label | default: po_button_default }}</span>
+        </button>
+      {%- endif -%}
+      {%- if bs.checkout_note != blank -%}<p class="po-note" data-offer-note hidden>{{ bs.checkout_note }}</p>{%- endif -%}
+      <p class="po-message" role="status" data-message hidden></p>
+      <script type="application/json" data-variants>[{%- for v in product.variants -%}{"id":{{ v.id | json }},"price":{{ v.price | default: 0 }},"compare":{{ v.compare_at_price | default: 0 }},"available":{{ v.available | json }}}{%- unless forloop.last -%},{%- endunless -%}{%- endfor -%}]</script>
+      <script type="application/json" data-selected>{{ v0.id | json }}</script>
+    </quantity-offer>
+  {%- else -%}
+    {%- render 'editor-block-preview', block: block, title: 'Quantity offer', message: 'Pick a product for this section to preview its quantities and prices.', commerce: true -%}
+  {%- endif -%}
+{%- endif -%}
+{%- endif -%}

@@ -1,0 +1,90 @@
+{
+  "sections": {
+    "page_heading_1": {
+      "type": "page-heading",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "page_title": "FAQ"
+          }
+        },
+        "description_2": {
+          "type": "description",
+          "settings": {
+            "description": "<p>Formats, devices and delivery.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_2"
+      ]
+    },
+    "faq_side_image_2": {
+      "type": "faq-side-image",
+      "settings": {
+        "color_scheme": "default",
+        "image": "shopify://shop_images/ebooks-shelves.webp",
+        "image_position": "right"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Reading the ebooks"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>If your question is not here, write to us.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Which formats do I get?",
+            "answer": "<p>Every ebook comes as EPUB and PDF. EPUB works on most e-readers and phones, PDF on anything.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How do I read it on a Kindle?",
+            "answer": "<p>Use Send to Kindle with the EPUB file. It appears in your library in a few minutes.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "When do I get the files?",
+            "answer": "<p>Straight away. The download link is on the confirmation page and in your receipt email.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I buy a copy as a gift?",
+            "answer": "<p>Yes. Forward the receipt email, or write to us and we will send the files to them.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6"
+      ]
+    }
+  },
+  "order": [
+    "page_heading_1",
+    "faq_side_image_2"
+  ]
+}

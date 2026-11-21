@@ -1,0 +1,100 @@
+{
+  "type": "custom.overlay",
+  "name": "t:sections.overlay_group.name",
+  "sections": {
+    "mobile_navigation_bar_GG8UWc": {
+      "type": "mobile-navigation-bar",
+      "settings": {
+        "height": 62,
+        "reveal": true,
+        "icon_size": 22,
+        "border_top": true,
+        "icon_color": "",
+        "radius_top": 0,
+        "label_color": "",
+        "show_labels": true,
+        "active_color": "",
+        "border_color": "",
+        "color_scheme": "default",
+        "reset_spacing": true,
+        "section_width": "full_width",
+        "shadow_enabled": false,
+        "background_color": "",
+        "use_custom_colors": false,
+        "section_margin_top_mobile": 0,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_mobile": 0,
+        "section_margin_bottom_desktop": 0
+      },
+      "blocks": {
+        "homepage_xiQ8UP": {
+          "type": "homepage",
+          "settings": {
+            "icon": "home",
+            "label": ""
+          }
+        },
+        "account_6ynFFp": {
+          "type": "account",
+          "settings": {
+            "icon": "user",
+            "label": ""
+          }
+        },
+        "shop_MUxUGE": {
+          "type": "shop",
+          "settings": {
+            "icon": "shop",
+            "label": ""
+          }
+        },
+        "wishlist_DHxNDy": {
+          "type": "wishlist",
+          "settings": {
+            "icon": "heart",
+            "label": ""
+          }
+        },
+        "cart_8xqQBb": {
+          "type": "cart",
+          "settings": {
+            "icon": "cart",
+            "label": ""
+          }
+        }
+      },
+      "block_order": [
+        "homepage_xiQ8UP",
+        "account_6ynFFp",
+        "shop_MUxUGE",
+        "wishlist_DHxNDy",
+        "cart_8xqQBb"
+      ]
+    },
+    "back_to_top_pro": {
+      "type": "Back-to-top-pro",
+      "settings": {
+        "arrow_color": "#000000",
+        "circle_size": 46,
+        "hide_on_mobile": false,
+        "progress_color": "#f5f5f5",
+        "circle_bg_color": "#ffffff",
+        "arrow_hover_color": "#ffffff",
+        "circle_size_mobile": 46,
+        "progress_thickness": 8,
+        "enable_custom_style": true,
+        "horizontal_position": "right",
+        "vertical_dst_to_edge": 110,
+        "circle_bg_hover_color": "#cbbeb0",
+        "progress_active_color": "#000000",
+        "horizontal_dst_to_edge": 30,
+        "vertical_dst_to_edge_mobile": 90,
+        "horizontal_dst_to_edge_mobile": 18
+      }
+    }
+  },
+  "order": [
+    "mobile_navigation_bar_GG8UWc",
+    "back_to_top_pro"
+  ]
+}

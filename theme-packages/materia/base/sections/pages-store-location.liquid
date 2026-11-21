@@ -1,0 +1,332 @@
+{% render 'theme-type' %}
+{%- comment -%}
+  Materia Themes. Store locations: a heading and a card per store (a block):
+  its name, address, phone (a tap to call link) and a directions link that
+  opens the address in the visitor's maps app. The old interactive map needed
+  a Mapbox key the store does not have, so it is not drawn. Live edits:
+  shopify/assets/live-account-pages.js.
+{%- endcomment -%}
+{%- liquid
+  assign section_st = section.settings
+  assign st = section_st
+  assign sid = section.id
+  assign color_scheme = section_st.color_scheme.id | default: section_st.color_scheme | default: 'default-color-scheme'
+  assign container = section_st.section_width
+  assign custom = st.enable_custom_style
+  assign header_size = ''
+  if section_st.header_size == 'small'
+    assign header_size = 'h3'
+  elsif section_st.header_size == 'large'
+    assign header_size = 'h1-size'
+  endif
+-%}
+{%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
+<style>
+  #shopify-section-{{ section.id }}.scroll-trigger {
+    --animation-duration: {{ settings.animation_duration | default: 700 }}ms;
+    --animation-delay: {{ settings.animation_delay | default: 0 }}ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-{{ section.id }}');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', {{ settings.scroll_animation | json }});
+  })();
+</script>
+{%- endif -%}
+{% render 'account-pages-base', sid: sid %}
+{% render 'account-pages-font-face', st: st %}
+<style>
+  #shopify-section-{{ sid }} .section__header { text-align: var(--ap-align, center); margin-bottom: 40px; }
+  #shopify-section-{{ sid }} .section__header[hidden] { display: none; }
+  #shopify-section-{{ sid }} .section__header-heading { color: var(--ap-h-c, var(--color-heading)); margin: 0 0 10px; }
+  #shopify-section-{{ sid }} .section__header-des { color: var(--ap-t-c, inherit); }
+  #shopify-section-{{ sid }} .store-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: var(--ap-gap, 24px); margin: 0; padding: 0; list-style: none; }
+  #shopify-section-{{ sid }} .store-card { display: flex; flex-direction: column; gap: 8px; padding: 24px; border: 1px solid var(--ap-card-border, var(--color-border)); border-radius: var(--rounded-radius, 8px); background: var(--ap-card-bg, transparent); color: var(--ap-t-c, var(--color-text)); }
+  #shopify-section-{{ sid }} .store-card__name { margin: 0; font-size: var(--h5-size); color: var(--ap-h-c, var(--color-heading)); }
+  #shopify-section-{{ sid }} .store-card__address { margin: 0; white-space: pre-line; }
+  #shopify-section-{{ sid }} .store-card__links { display: flex; flex-wrap: wrap; gap: 4px 20px; margin-top: auto; }
+  #shopify-section-{{ sid }} .store-card__empty { opacity: .7; }
+</style>
+{%- capture fonts -%}{% render 'account-pages-font-vars', st: st %}{%- endcapture -%}
+<div
+  class="bls__section section{% if section_st.padding_top < 30 %} pt-min{% endif %}{% if section_st.padding_bottom < 30 %} pb-min{% endif %} bls__location-page color-{{ color_scheme }} gradient"
+  data-ap-root="pages-store-location"
+  data-ap-section="{{ sid }}"{% if request.design_mode %}
+  data-ap-settings="{{ st | json | escape }}"{% endif %}
+  {% if st.reset_spacing %}data-ap-reset{% endif %}
+  style="--section-pt: {{ section_st.padding_top }}; --section-pb: {{ section_st.padding_bottom }}; --ap-align: {{ section_st.header_alignment | default: 'center' }}; --ap-gap: {{ st.card_gap | default: 24 }}px;{% if custom and st.heading_color != blank %} --ap-h-c: {{ st.heading_color }};{% endif %}{% if custom and st.text_color != blank %} --ap-t-c: {{ st.text_color }};{% endif %}{% if custom and st.card_background != blank %} --ap-card-bg: {{ st.card_background }};{% endif %}{% if custom and st.card_border != blank %} --ap-card-border: {{ st.card_border }};{% endif %}{{ fonts }}"
+>
+  <div class="{{ container }} section-full" data-ap-width>
+    <div class="section__header{% if section_st.section_width == 'full_width' %} px-20{% endif %}" data-ap-header{% if section_st.heading == blank and section_st.description == blank %} hidden{% endif %}>
+      <h2 class="section__header-heading heading-letter-spacing {{ header_size }}" data-ap-text="heading" data-ap-opt{% if section_st.heading == blank %} hidden{% endif %}>{{ section_st.heading | escape }}</h2>
+      <div class="section__header-des rich__text-m0" data-ap-rich="description" data-ap-opt{% if section_st.description == blank %} hidden{% endif %}>{{ section_st.description }}</div>
+    </div>
+    <ul class="store-list" role="list">
+      {%- for block in section.blocks -%}
+        {%- liquid
+          assign b = block.settings
+          assign query = b.store_address | strip_newlines | url_encode
+          if b.store_lat != blank and b.store_lng != blank
+            assign query = b.store_lat | append: ',' | append: b.store_lng
+          endif
+          assign tel = b.store_phone | remove: ' ' | remove: '(' | remove: ')' | remove: '-' | remove: '.'
+        -%}
+        <li class="store-card" data-ap-block="{{ block.id }}" data-ap-type="item"{% if request.design_mode %} data-ap-settings="{{ b | json | escape }}"{% endif %} {{ block.shopify_attributes }}>
+          <h3 class="store-card__name" data-ap-btext="store_name" data-ap-opt{% if b.store_name == blank %} hidden{% endif %}>{{ b.store_name | escape }}</h3>
+          <p class="store-card__address" data-ap-btext="store_address" data-ap-opt{% if b.store_address == blank %} hidden{% endif %}>{{ b.store_address | escape }}</p>
+          <div class="store-card__links">
+            <a class="ap__link" href="tel:{{ tel }}" data-ap-tel="store_phone" data-ap-btext="store_phone" data-ap-opt{% if b.store_phone == blank %} hidden{% endif %}>{{ b.store_phone | escape }}</a>
+            <a class="ap__link" href="https://www.google.com/maps/search/?api=1&query={{ query }}" target="_blank" rel="noopener" data-ap-maps{% if query == blank %} hidden{% endif %}><span data-ap-text="directions_label">{{ section_st.directions_label | escape }}</span></a>
+          </div>
+        </li>
+      {%- endfor -%}
+    </ul>
+  </div>
+</div>{% schema %}
+{
+  "name": "Store locations",
+  "class": "bls-store-location-page",
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Section width",
+      "default": "fluid_container",
+      "options": [
+        {
+          "value": "container",
+          "label": "Default"
+        },
+        {
+          "value": "fluid_container",
+          "label": "Fluid container"
+        },
+        {
+          "value": "stretch_width",
+          "label": "Stretched"
+        },
+        {
+          "value": "full_width",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "reset_spacing",
+      "label": "Remove space between sections",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Content"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Our stores"
+    },
+    {
+      "type": "richtext",
+      "id": "description",
+      "label": "Text"
+    },
+    {
+      "type": "text",
+      "id": "directions_label",
+      "label": "Directions link",
+      "default": "Get directions"
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "select",
+      "id": "header_alignment",
+      "label": "Heading alignment",
+      "default": "center",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "card_gap",
+      "label": "Gap between stores",
+      "min": 0,
+      "max": 60,
+      "step": 2,
+      "default": 24,
+      "unit": "px"
+    },
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_style",
+      "label": "Enable custom styling",
+      "default": false,
+      "info": "Off: colours follow the colour scheme."
+    },
+    {
+      "type": "color",
+      "id": "heading_color",
+      "label": "Heading color",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text color",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "card_background",
+      "label": "Card background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "card_border",
+      "label": "Card border",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "header",
+      "content": "Typography"
+    },
+    {
+      "type": "select",
+      "id": "header_size",
+      "label": "Heading size",
+      "default": "medium",
+      "options": [
+        {
+          "value": "small",
+          "label": "Small"
+        },
+        {
+          "value": "medium",
+          "label": "Medium"
+        },
+        {
+          "value": "large",
+          "label": "Large"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_fonts",
+      "label": "Enable custom fonts",
+      "default": false,
+      "info": "Off: fonts follow Theme settings > Typography."
+    },
+    {
+      "type": "font_picker",
+      "id": "heading_font",
+      "label": "Heading font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "font_picker",
+      "id": "body_font",
+      "label": "Body font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "header",
+      "content": "Desktop spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "default": 0,
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "default": 0,
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "item",
+      "name": "Store",
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "type": "text",
+          "id": "store_name",
+          "label": "Store name",
+          "default": "Store name"
+        },
+        {
+          "type": "textarea",
+          "id": "store_address",
+          "label": "Address"
+        },
+        {
+          "type": "text",
+          "id": "store_phone",
+          "label": "Phone"
+        },
+        {
+          "type": "text",
+          "id": "store_lat",
+          "label": "Latitude",
+          "info": "Optional. With longitude, the directions link opens this exact spot."
+        },
+        {
+          "type": "text",
+          "id": "store_lng",
+          "label": "Longitude"
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

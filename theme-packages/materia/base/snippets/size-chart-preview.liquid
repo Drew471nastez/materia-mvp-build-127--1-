@@ -1,0 +1,19 @@
+{%- comment -%}
+  Materia Themes. Builder only: a size guide block with nothing to show yet.
+  Says where sizes come from; visitors never get this markup.
+  Inputs: block, rows_setting (true when the block has its own Size rows).
+{%- endcomment -%}
+{%- if request.design_mode -%}
+<div class="materia-chart-preview" data-editor-preview data-size-chart-preview="{{ block.id }}" data-block-preview-root="{{ block.id }}" {{ block.shopify_attributes }}>
+  <p class="materia-chart-preview__title">{{ block.settings.size_guide_label | default: block.settings.title | default: block.settings.trig_text | default: 'Size guide' | escape }}</p>
+  <div class="mt-size-chart" aria-hidden="true">
+    <div class="mt-size-chart__scroll">
+      <table class="mt-size-chart__table">
+        <thead><tr><th scope="col">Size</th><th scope="col">Chest</th><th scope="col">Waist</th></tr></thead>
+        <tbody><tr><th scope="row">S</th><td>…</td><td>…</td></tr><tr><th scope="row">M</th><td>…</td><td>…</td></tr><tr><th scope="row">L</th><td>…</td><td>…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+  <p class="materia-chart-preview__note">Only you see this box. This product has no size chart yet: give it one in Storelib under Products &gt; Size charts{% if rows_setting %}, or type your sizes in this block's Size rows{% endif %}. Visitors see the size guide once it has sizes to show.</p>
+</div>
+{%- endif -%}

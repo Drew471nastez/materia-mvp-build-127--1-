@@ -45,7 +45,7 @@ import {
   withStartParam,
 } from "@/lib/website-builder/start-handoff"
 import { classifyIntent } from "@/lib/website-builder/agent/intent"
-import { StartWebsite, THEMES_PATH } from "@/app/(storelib)/app/website-builder/start-website"
+import { StartWebsite } from "@/app/(storelib)/app/website-builder/start-website"
 import { libraryFullSentence } from "@/app/(storelib)/app/website-builder/library-full-dialog"
 
 let passed = 0
@@ -374,7 +374,8 @@ section("The Website page's three doors")
   check("  Start with AI is a labelled box of at most 2,000 characters, and Create waits for words",
     /<label for="start-ai-prompt"[^>]*>Describe your website<\/label>/.test(open) && /maxLength="2000"/.test(open) && /<button type="submit" data-start-create=""[^>]*disabled=""/.test(open))
   check("  with four examples that fill it", (open.match(/data-start-example="[a-z_]+"/g) ?? []).length === 4)
-  check("  Browse themes is the theme page Add theme opened", THEMES_PATH === "/app/website-builder/themes" && open.includes(`href="${THEMES_PATH}"`))
+  /* Changed on purpose (templates round 16): Browse themes opens the theme marketplace as a popup over the page, so the door is a button and no address is behind it. */
+  check("  Browse themes is a button that opens the marketplace popup, not a link to a page", /<button type="button" data-start-door="themes"[^>]*aria-haspopup="dialog"/.test(open) && !/href="\/app\/website-builder\/themes"/.test(open))
   check("  no way to the code-sites product", !/\/app\/sites/.test(open))
 
   const full = draw({ full: true })
@@ -388,9 +389,16 @@ section("The Website page's three doors")
   check("while a website is being made, the doors wait", /aria-busy="true"/.test(busy) && /animate-spin/.test(busy))
 
   const client = code("app/(storelib)/app/website-builder/website-builder-client.tsx")
+  /* Changed on purpose (templates round 16): only where the page is asked for with `create`, which is /app/website-builder/ai; /app/website-builder starts with the websites. */
+  check("  and only on the page asked for with create (/app/website-builder/ai, not indexed, the same loader and check)",
+    /\{create && \(\s*<StartWebsite/.test(client) && /create = false,/.test(client) && /return WebsitePage\(\{ create: true \}\)/.test(code("app/(storelib)/app/website-builder/ai/page.tsx")) &&
+      /robots: \{ index: false, follow: false \}/.test(code("app/(storelib)/app/website-builder/ai/page.tsx")) && /return WebsitePage\(\{\}\)/.test(code("app/(storelib)/app/website-builder/page.tsx")) &&
+      /create=\{create\}/.test(code("app/(storelib)/app/website-builder/website-page.tsx")))
+  check("  without it Start from blank is a quiet button beside the Library heading, through the same create",
+    /\{create \? null : \(\s*<Button\s*variant="ghost"\s*data-start-blank="library"\s*onClick=\{\(\) => void startWebsite\("blank"\)\}/.test(client))
   check("the page draws it above the live website", client.indexOf("<StartWebsite") > 0 && client.indexOf("<StartWebsite") < client.indexOf('aria-labelledby="live-heading"') &&
     /full=\{slotsLeft === 0\}/.test(client) && /teamMember=\{teamMember\}/.test(client) && /onFull=\{\(\) => setFull\("create"\)\}/.test(client))
-  check("  one way to the themes: Add theme is Browse themes now", (client.match(/\/app\/website-builder\/themes/g) ?? []).length === 0 && (read("app/(storelib)/app/website-builder/start-website.tsx").match(/"\/app\/website-builder\/themes"/g) ?? []).length === 1)
+  check("  one way to the themes: Add theme is Browse themes now", (client.match(/\/app\/website-builder\/themes/g) ?? []).length === 0 && /* Changed on purpose (templates round 16): no address at all, the door opens the popup. */ (read("app/(storelib)/app/website-builder/start-website.tsx").match(/\/app\/website-builder\/themes"/g) ?? []).length === 0 && /onBrowse=\{openThemes\}/.test(client))
   const start = client.slice(client.indexOf("const startWebsite = async"), client.indexOf("const exportTheme = async"))
   check("  pressing creates through the new route, and a full answer opens the sheet",
     /fetch\("\/api\/website-builder\/themes\/create", json\("POST", withAi \? \{ mode, prompt, key, options: chosen \} : \{ mode \}\)\)/.test(start) && /if \(data\.code === LIBRARY_FULL_CODE\) \{\s*setFull\("create"\)/.test(start) && /if \(slotsLeft === 0\) \{\s*setFull\("create"\)/.test(start))

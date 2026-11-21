@@ -1,0 +1,388 @@
+{
+  "sections": {
+    "hero_image1_1": {
+      "type": "hero-image1",
+      "settings": {
+        "color_scheme": "default",
+        "image": "shopify://shop_images/digital-hero-studio.webp",
+        "image_alt": "A music studio with guitars on the wall and a mixing desk",
+        "min_height_desktop": 680,
+        "min_height_mobile": 520,
+        "overlay_opacity": 62
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Presets, templates, sample packs"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Tools for your next project",
+            "enable_custom_style": true,
+            "size_desktop": 72,
+            "size_mobile": 40
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Download in seconds. Use them in personal and client work.</p>"
+          }
+        },
+        "primary_button_4": {
+          "type": "primary_button",
+          "settings": {
+            "label": "Browse all packs",
+            "link": "/collections/all"
+          }
+        },
+        "secondary_button_5": {
+          "type": "secondary_button",
+          "settings": {
+            "label": "How the licence works",
+            "link": "/pages/faqs"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "primary_button_4",
+        "secondary_button_5"
+      ]
+    },
+    "benefits_bar_2": {
+      "type": "benefits-bar",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976"
+      },
+      "blocks": {
+        "icon_1": {
+          "type": "icon",
+          "settings": {
+            "icon": "shipping_fast",
+            "icon_title": "Instant download"
+          }
+        },
+        "icon_2": {
+          "type": "icon",
+          "settings": {
+            "icon": "undo_alt",
+            "icon_title": "Free updates"
+          }
+        },
+        "icon_3": {
+          "type": "icon",
+          "settings": {
+            "icon": "lock",
+            "icon_title": "Commercial licence"
+          }
+        },
+        "icon_4": {
+          "type": "icon",
+          "settings": {
+            "icon": "headset",
+            "icon_title": "Secure checkout"
+          }
+        }
+      },
+      "block_order": [
+        "icon_1",
+        "icon_2",
+        "icon_3",
+        "icon_4"
+      ]
+    },
+    "products_carousel_3": {
+      "type": "products-carousel",
+      "settings": {
+        "color_scheme": "default",
+        "items_to_show": 8,
+        "items_per_row": 3
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Latest releases"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>New packs, added every month.</p>"
+          }
+        },
+        "view_all_3": {
+          "type": "view_all",
+          "settings": {
+            "label": "View all",
+            "position": "header",
+            "link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "view_all_3"
+      ]
+    },
+    "imagewithtextgrid_4": {
+      "type": "imagewithtextgrid",
+      "settings": {
+        "color_scheme": "scheme-7dae8b89-7a81-4c2c-b8e2-92533766f8ca",
+        "layout": "thumbs_left"
+      },
+      "blocks": {
+        "thumb_image_1": {
+          "type": "thumb_image",
+          "settings": {
+            "image": "shopify://shop_images/digital-camera.webp"
+          }
+        },
+        "thumb_image_2": {
+          "type": "thumb_image",
+          "settings": {
+            "image": "shopify://shop_images/digital-tablet.webp"
+          }
+        },
+        "thumb_image_3": {
+          "type": "thumb_image",
+          "settings": {
+            "image": "shopify://shop_images/digital-headphones.webp"
+          }
+        },
+        "main_image_4": {
+          "type": "main_image",
+          "settings": {
+            "image": "shopify://shop_images/digital-swatches.webp"
+          }
+        },
+        "heading_5": {
+          "type": "heading",
+          "settings": {
+            "text": "Three kinds of download"
+          }
+        },
+        "subheading_6": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Photo presets for one click edits, design templates you can change in minutes, and royalty free sample packs for producers.</p>"
+          }
+        },
+        "button_7": {
+          "type": "button",
+          "settings": {
+            "label": "See everything",
+            "link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "thumb_image_1",
+        "thumb_image_2",
+        "thumb_image_3",
+        "main_image_4",
+        "heading_5",
+        "subheading_6",
+        "button_7"
+      ]
+    },
+    "image_with_text_steps_5": {
+      "type": "image-with-text-steps",
+      "settings": {
+        "color_scheme": "default",
+        "image": "shopify://shop_images/digital-decks.webp",
+        "image_alt": "A hand on a DJ controller lit in purple",
+        "image_position": "right"
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "How it works"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "From checkout to project in a minute"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>No account needed and nothing to wait for.</p>"
+          }
+        },
+        "step_4": {
+          "type": "step",
+          "settings": {
+            "title": "Buy",
+            "description": "<p>Pay by card, Apple Pay or PayPal.</p>"
+          }
+        },
+        "step_5": {
+          "type": "step",
+          "settings": {
+            "title": "Download",
+            "description": "<p>Your files are ready on the next page and in your email.</p>"
+          }
+        },
+        "step_6": {
+          "type": "step",
+          "settings": {
+            "title": "Create",
+            "description": "<p>Open them in your app and start working.</p>"
+          }
+        },
+        "button_7": {
+          "type": "button",
+          "settings": {
+            "label": "Browse packs",
+            "url": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "step_4",
+        "step_5",
+        "step_6",
+        "button_7"
+      ]
+    },
+    "quotebanner_6": {
+      "type": "quotebanner",
+      "settings": {
+        "color_scheme": "default"
+      },
+      "blocks": {
+        "quote_1": {
+          "type": "quote",
+          "settings": {
+            "quote_text": "Add a line a customer wrote about your packs."
+          }
+        },
+        "author_2": {
+          "type": "author",
+          "settings": {
+            "author_name": "Customer name",
+            "author_role": "What they make"
+          }
+        }
+      },
+      "block_order": [
+        "quote_1",
+        "author_2"
+      ]
+    },
+    "faq_pro_7": {
+      "type": "faq-pro",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Licence and downloads"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>What you can do with the files, and how you get them.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How do I get my files?",
+            "answer": "<p>The download link is on the confirmation page and in your receipt email, as soon as you pay.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Which software do I need?",
+            "answer": "<p>Each product page lists the apps and versions the files work with.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I use these in client work?",
+            "answer": "<p>Yes. The standard licence covers personal and commercial projects. You cannot resell the files themselves.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do I get updates?",
+            "answer": "<p>Yes. When a pack is updated you can download the new version free from your receipt.</p>"
+          }
+        },
+        "button_7": {
+          "type": "button",
+          "settings": {
+            "label": "Read the full FAQ",
+            "link": "/pages/faqs"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6",
+        "button_7"
+      ]
+    },
+    "newsletter_8": {
+      "type": "newsletter",
+      "settings": {
+        "color_scheme": "scheme-6da511c0-ea26-4213-b3d3-e09320840636",
+        "btn_text": "Send me the pack",
+        "note": "One email a month. Unsubscribe any time."
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Get a free pack every month"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Join the list and we send one free download a month.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2"
+      ]
+    }
+  },
+  "order": [
+    "hero_image1_1",
+    "benefits_bar_2",
+    "products_carousel_3",
+    "imagewithtextgrid_4",
+    "image_with_text_steps_5",
+    "quotebanner_6",
+    "faq_pro_7",
+    "newsletter_8"
+  ]
+}

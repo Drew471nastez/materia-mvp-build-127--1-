@@ -1,0 +1,104 @@
+{
+  "sections": {
+    "page_heading_1": {
+      "type": "page-heading",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "page_title": "FAQ"
+          }
+        },
+        "description_2": {
+          "type": "description",
+          "settings": {
+            "description": "<p>Programs, equipment and coaching.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_2"
+      ]
+    },
+    "faq_pro_2": {
+      "type": "faq-pro",
+      "settings": {
+        "color_scheme": "default"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Before you start"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Still unsure? Send us a message.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do I need a gym?",
+            "answer": "<p>Each program lists the equipment it needs. Some need a full gym, others a pair of dumbbells.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "I am a beginner. Where do I start?",
+            "answer": "<p>Start with the foundation program. It teaches the main lifts and builds up slowly.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How do I get the program?",
+            "answer": "<p>You get a PDF and video links straight after checkout, and a copy by email.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How long are the sessions?",
+            "answer": "<p>Most sessions take 45 to 60 minutes, three or four times a week.</p>"
+          }
+        },
+        "faq_item_7": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I ask the coach questions?",
+            "answer": "<p>Yes. Coaching plans include weekly check ins. Program buyers can write in any time.</p>"
+          }
+        },
+        "button_8": {
+          "type": "button",
+          "settings": {
+            "label": "Contact us",
+            "link": "/pages/contact"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6",
+        "faq_item_7",
+        "button_8"
+      ]
+    }
+  },
+  "order": [
+    "page_heading_1",
+    "faq_pro_2"
+  ]
+}

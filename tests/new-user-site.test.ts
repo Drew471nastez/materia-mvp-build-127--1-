@@ -125,7 +125,7 @@ async function main() {
       `${race.tables.store_theme_installs.length} installs`)
     check("  and both answer with the same one", !!a.installId && a.installId === b.installId && [a.created, b.created].filter(Boolean).length === 1)
 
-    const page = code("app/(storelib)/app/website-builder/page.tsx")
+    const page = code("app/(storelib)/app/website-builder/website-page.tsx") /* Changed on purpose (templates round 16): the page's loader is website-page.tsx, shared by /app/website-builder and /app/website-builder/ai */
     check("the website page seeds through the starter, not the old function that published",
       /ensureStarterWebsite\(createAdminClient\(\), creator\.id\)/.test(page) && !/initialize_creator_themes/.test(page))
     check("  only for a library read that came back empty", /if \(rows && rows\.length === 0\)/.test(page))

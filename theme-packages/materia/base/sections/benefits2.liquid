@@ -1,0 +1,760 @@
+<script src="{{ 'live-features-a.js' | asset_url }}" defer="defer"></script>
+{% render 'theme-type' %}
+{%- comment -%} Runtime, once per page (the CSS and hero-image-one.js from layout/theme.storelib, every other script from the tags at the top of this file): shopify/assets/live-features-a.js. {%- endcomment -%}
+{%- comment -%}
+  Materia Themes. Product Benefits Pro: up to six benefits around a centred
+  picture or video, three on each side (stacked on a phone). Each benefit is
+  a block: an icon (library or SVG code), a title and a short text. Colours
+  follow the colour scheme until Enable custom styling is on (the
+  section's and each block's own); fonts and the title weight follow the
+  theme until Use custom fonts is on. Values are CSS variables on the root
+  and the blocks, worked out again by live-features-a.js when a setting
+  changes in the builder, which also plays the video only on screen and
+  never under reduced motion.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign own = st.enable_custom_style
+  assign icon_names = 'truck,shipping,shield,lock,heart,star,check,headphones,envelope,chat,tag,gift,globe,leaf,award,clock,card,wallet,lightning,recycle,sparkle,box,refresh,user,calendar,handshake,gem,organic,fire,crown' | split: ','
+  case st.image_shadow
+    when 'low'
+      assign shadow = '0 1px 3px rgba(0, 0, 0, 0.1)'
+    when 'medium'
+      assign shadow = '0 4px 6px rgba(0, 0, 0, 0.1)'
+    when 'high'
+      assign shadow = '0 10px 20px rgba(0, 0, 0, 0.2)'
+    else
+      assign shadow = 'none'
+  endcase
+  case st.feature_title_font_weight
+    when 'lighter'
+      assign tw = '300'
+    when 'bold'
+      assign tw = '700'
+    else
+      assign tw = '400'
+  endcase
+-%}
+{%- if section.settings.reveal == false -%}<span data-ti-no-reveal hidden></span>{%- endif -%}
+{%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' and section.settings.reveal != false -%}
+<style>
+  #shopify-section-{{ section.id }}.scroll-trigger {
+    --animation-duration: {{ settings.animation_duration | default: 700 }}ms;
+    --animation-delay: {{ settings.animation_delay | default: 0 }}ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-{{ section.id }}');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', {{ settings.scroll_animation | json }});
+  })();
+</script>
+{%- endif -%}
+{%- if st.reset_spacing -%}
+<style data-rs-bulletproof>
+  #shopify-section-{{ section.id }}, #shopify-section-{{ section.id }} > section { margin-top: 0 !important; margin-bottom: 0 !important; }
+  #shopify-section-{{ section.id }} + .shopify-section, .shopify-section + #shopify-section-{{ section.id }} { margin-top: 0 !important; }
+</style>
+{%- endif -%}
+{% render 'features-a-root', section: section, part: 'css' %}
+{% render 'features-a-root', section: section, part: 'fonts' %}
+<style>
+  :is(#_, .pbp) .pbp__grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; align-items: center; max-width: 1200px; margin-inline: auto; }
+  :is(#_, .pbp) .pbp__list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 16px; align-items: start; }
+  :is(#_, .pbp) .pbp__list:not(:has(> li)) { display: none; }
+  :is(#_, .pbp) .pbp__feature { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; }
+  :is(#_, .pbp) .pbp__icon { display: inline-flex; align-items: center; justify-content: center; color: var(--pbp-icon); }
+  :is(#_, .pbp) .pbp__icon :is(svg) { width: var(--pbp-icon-size); height: var(--pbp-icon-size); display: block; }
+  :is(#_, .pbp) .pbp__feature[data-circle="true"] .pbp__icon { width: var(--pbp-circle-size); height: var(--pbp-circle-size); border-radius: var(--pbp-circle-radius); background: var(--pbp-circle-bg); }
+  :is(#_, .pbp) .pbp__title { margin: 0; font-size: var(--pbp-title-size); color: var(--pbp-title); }
+  :is(#_, .pbp) .pbp__title[data-own-weight] { font-weight: var(--pbp-title-w); }
+  :is(#_, .pbp) .pbp__desc { margin: 0; font-size: var(--pbp-desc-size); line-height: 1.55; color: var(--pbp-desc); max-width: 36ch; }
+  :is(#_, .pbp) .pbp__media { position: relative; width: 100%; max-width: 340px; margin-inline: auto; aspect-ratio: 5 / 6; border-radius: var(--pbp-radius); box-shadow: var(--pbp-shadow); overflow: hidden; transition: transform .3s ease, opacity .3s ease; }
+  :is(#_, .pbp) .pbp__media :is(img, video, svg) { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .3s ease; }
+  :is(#_, .pbp) .pbp__media .pbp__ph { background: color-mix(in srgb, var(--color-heading) 6%, transparent); color: color-mix(in srgb, var(--color-heading) 35%, transparent); }
+  :is(#_, .pbp[data-hover="fade-in"]) .pbp__media:hover { opacity: .8; }
+  :is(#_, .pbp[data-hover="zoom-in"]) .pbp__media:hover :is(img, video, svg) { transform: scale(1.1); }
+  :is(#_, .pbp[data-hover="scale-in"]) .pbp__media:hover { transform: scale(1.04); }
+  :is(#_, .pbp[data-hover="fade-in-up"]) .pbp__media:hover { transform: translateY(-10px); }
+  :is(#_, .pbp[data-hover="rotate-in"]) .pbp__media:hover { transform: rotate(3deg); }
+  :is(#_, .pbp[data-hover="slide-in-left"]) .pbp__media:hover { transform: translateX(-10px); }
+  :is(#_, .pbp[data-hover="flip-in"]) .pbp__media:hover { transform: perspective(900px) rotateY(12deg); }
+  @media (min-width: 768px) {
+    :is(#_, .pbp) .pbp__grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 1fr); gap: 40px; }
+    :is(#_, .pbp) .pbp__media { max-width: 500px; }
+    :is(#_, .pbp) .pbp__list { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    :is(#_, .pbp) .pbp__media, :is(#_, .pbp) .pbp__media :is(img, video, svg) { transition: none !important; transform: none !important; }
+  }
+</style>
+<section class="pbp color-{{ scheme }} gradient"
+  {% render 'features-a-root', section: section, part: 'attrs', type: 'benefits2', width: st.section_width %}
+  data-hover="{{ st.image_hover_animation | default: 'none' }}"
+  style="{% render 'features-a-root', section: section, part: 'vars', bg: st.section_bg, pt_m: st.padding_top_mobile, pb_m: st.padding_bottom_mobile, pt_d: st.padding_top_desktop, pb_d: st.padding_bottom_desktop %}--pbp-radius: {{ st.image_border_radius | default: 0 }}px;--pbp-shadow: {{ shadow }};--pbp-title-size: {{ st.feature_title_font_size | default: 20 }}px;--pbp-desc-size: {{ st.feature_description_font_size | default: 14 }}px;--pbp-title-w: {{ tw }};--pbp-title: {% if own %}{% render 'scheme-color', color: st.feature_title_color, fallback: 'var(--color-heading)' %}{% else %}var(--color-heading){% endif %};--pbp-desc: {% if own %}{% render 'scheme-color', color: st.feature_description_color, fallback: 'var(--color-text)' %}{% else %}var(--color-text){% endif %};">
+  {%- if request.design_mode -%}{%- for n in icon_names -%}<template data-fa-icon="{{ n }}">{% render 'benefits-icon', icon: n, size: 24 %}</template>{%- endfor -%}<template data-fa-icon="__media"><svg class="pbp__ph" viewBox="0 0 500 600" aria-hidden="true" focusable="false"><g fill="currentColor"><circle cx="215" cy="260" r="22"/><path d="M160 360l60-70 38 42 30-27 52 55z"/></g></svg></template>{%- endif -%}
+  <div class="pbp__inner fa-inner">
+    <div class="pbp__grid">
+      {%- for side in (1..2) -%}
+        <ul class="pbp__list pbp__list--{% if side == 1 %}start{% else %}end{% endif %}" role="list">
+          {%- for block in section.blocks -%}
+            {%- if side == 1 and forloop.index > 3 -%}{%- break -%}{%- endif -%}
+            {%- if side == 2 and forloop.index <= 3 -%}{%- continue -%}{%- endif -%}
+            {%- if forloop.index > 6 -%}{%- break -%}{%- endif -%}
+            {%- assign bs = block.settings -%}
+            {%- assign bown = bs.enable_custom_style -%}
+            <li class="pbp__feature" data-fa-block="{{ block.id }}" data-fa-type="feature"{% if request.design_mode %} data-fa-settings="{{ bs | json | escape }}"{% endif %} data-circle="{% if bs.enable_icon_circle_bg %}true{% else %}false{% endif %}" style="--pbp-icon: {% if bown %}{% render 'scheme-color', color: bs.icon_color, fallback: 'var(--color-heading)' %}{% else %}var(--color-heading){% endif %};--pbp-circle-bg: {% if bown %}{% render 'scheme-color', color: bs.icon_circle_bg_color, fallback: 'color-mix(in srgb, var(--color-heading) 8%, transparent)' %}{% else %}color-mix(in srgb, var(--color-heading) 8%, transparent){% endif %};--pbp-icon-size: {{ bs.svg_icon_size | default: 40 }}px;--pbp-circle-size: {{ bs.icon_circle_bg_size | default: 50 }}px;--pbp-circle-radius: {{ bs.icon_circle_border_radius | default: 0 }}%;" {{ block.shopify_attributes }}>
+              <span class="pbp__icon" aria-hidden="true">
+                {%- if bs.svg_icon_code != blank -%}{{ bs.svg_icon_code }}{%- else -%}{%- render 'benefits-icon', icon: bs.icon, size: 24 -%}{%- endif -%}
+              </span>
+              <h3 class="pbp__title fa-h"{% if st.enable_custom_fonts %} data-own-weight{% endif %}{% if bs.title == blank %} hidden{% endif %}>{{ bs.title }}</h3>
+              <p class="pbp__desc fa-t"{% if bs.description == blank %} hidden{% endif %}>{{ bs.description | escape }}</p>
+            </li>
+          {%- endfor -%}
+        </ul>
+        {%- if side == 1 -%}
+          <div class="pbp__media">
+            {%- if st.enable_centered_video and st.video_url != blank -%}
+              <video src="{{ st.video_url | escape }}" autoplay muted loop playsinline preload="metadata" aria-hidden="true"></video>
+            {%- elsif st.center_image != blank -%}
+              <img src="{{ st.center_image | image_url: width: 1000 }}" alt="{{ st.center_image.alt | escape }}" width="500" height="600" loading="lazy" decoding="async">
+            {%- else -%}
+              <svg class="pbp__ph" viewBox="0 0 500 600" aria-hidden="true" focusable="false"><g fill="currentColor"><circle cx="215" cy="260" r="22"/><path d="M160 360l60-70 38 42 30-27 52 55z"/></g></svg>
+            {%- endif -%}
+          </div>
+        {%- endif -%}
+      {%- endfor -%}
+    </div>
+  </div>
+</section>{% schema %}
+{
+  "name": "Product Benefits Pro",
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Width",
+      "default": "full_width",
+      "options": [
+        {
+          "value": "container",
+          "label": "Default"
+        },
+        {
+          "value": "fluid_container",
+          "label": "Fluid container"
+        },
+        {
+          "value": "stretch_width",
+          "label": "Stretched"
+        },
+        {
+          "value": "full_width",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "reset_spacing",
+      "label": "Remove space around section",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Media"
+    },
+    {
+      "type": "image_picker",
+      "id": "center_image",
+      "label": "Image"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_centered_video",
+      "label": "Show a video instead",
+      "default": false
+    },
+    {
+      "type": "text",
+      "id": "video_url",
+      "label": "Video link (MP4)",
+      "visible_if": "{{ section.settings.enable_centered_video }}"
+    },
+    {
+      "type": "range",
+      "id": "image_border_radius",
+      "label": "Corner radius",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "unit": "px",
+      "default": 10
+    },
+    {
+      "type": "select",
+      "id": "image_shadow",
+      "label": "Shadow",
+      "options": [
+        {
+          "value": "none",
+          "label": "None"
+        },
+        {
+          "value": "low",
+          "label": "Low Shadow"
+        },
+        {
+          "value": "medium",
+          "label": "Medium Shadow"
+        },
+        {
+          "value": "high",
+          "label": "High Shadow"
+        }
+      ],
+      "default": "none"
+    },
+    {
+      "type": "select",
+      "id": "image_hover_animation",
+      "label": "Hover effect",
+      "options": [
+        {
+          "value": "none",
+          "label": "None"
+        },
+        {
+          "value": "fade-in",
+          "label": "Fade In"
+        },
+        {
+          "value": "zoom-in",
+          "label": "Zoom In"
+        },
+        {
+          "value": "scale-in",
+          "label": "Scale In"
+        },
+        {
+          "value": "fade-in-up",
+          "label": "Fade In Up"
+        },
+        {
+          "value": "rotate-in",
+          "label": "Rotate In"
+        },
+        {
+          "value": "slide-in-left",
+          "label": "Slide In Left"
+        },
+        {
+          "value": "flip-in",
+          "label": "Flip In"
+        }
+      ],
+      "default": "fade-in-up"
+    },
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_style",
+      "label": "Enable custom styling",
+      "default": false,
+      "info": "Off: colours follow the colour scheme."
+    },
+    {
+      "type": "color",
+      "id": "section_bg",
+      "label": "Background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "feature_title_color",
+      "label": "Titles",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "feature_description_color",
+      "label": "Text",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "header",
+      "content": "Typography"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_fonts",
+      "label": "Use custom fonts",
+      "default": false,
+      "info": "Off: fonts and the title weight follow Theme settings > Typography."
+    },
+    {
+      "type": "font_picker",
+      "id": "heading_font",
+      "label": "Title font",
+      "default": "helvetica_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "font_picker",
+      "id": "body_font",
+      "label": "Text font",
+      "default": "helvetica_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "select",
+      "id": "feature_title_font_weight",
+      "label": "Title weight",
+      "options": [
+        {
+          "value": "lighter",
+          "label": "Light"
+        },
+        {
+          "value": "normal",
+          "label": "Normal"
+        },
+        {
+          "value": "bold",
+          "label": "Bold"
+        }
+      ],
+      "default": "normal",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "range",
+      "id": "feature_title_font_size",
+      "label": "Title size",
+      "min": 10,
+      "max": 50,
+      "step": 1,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "feature_description_font_size",
+      "label": "Text size",
+      "min": 10,
+      "max": 30,
+      "step": 1,
+      "unit": "px",
+      "default": 14
+    },
+    {
+      "type": "header",
+      "content": "Animation"
+    },
+    {
+      "type": "checkbox",
+      "id": "reveal",
+      "label": "Reveal on scroll",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Desktop spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top_desktop",
+      "label": "Top padding",
+      "min": 0,
+      "max": 200,
+      "step": 2,
+      "unit": "px",
+      "default": 60
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom_desktop",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 200,
+      "step": 2,
+      "unit": "px",
+      "default": 60
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_desktop",
+      "label": "Top margin",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0,
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_desktop",
+      "label": "Bottom margin",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0,
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "header",
+      "content": "Mobile"
+    },
+    {
+      "type": "range",
+      "id": "padding_top_mobile",
+      "label": "Top padding (mobile)",
+      "min": 0,
+      "max": 200,
+      "step": 2,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom_mobile",
+      "label": "Bottom padding (mobile)",
+      "min": 0,
+      "max": 200,
+      "step": 2,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_mobile",
+      "label": "Top margin (mobile)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0,
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_mobile",
+      "label": "Bottom margin (mobile)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0,
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "feature",
+      "name": "Benefit",
+      "settings": [
+        {
+          "type": "inline_richtext",
+          "id": "title",
+          "label": "Feature Title",
+          "default": "Feature Title"
+        },
+        {
+          "type": "textarea",
+          "id": "description",
+          "label": "Text",
+          "default": "Feature Description."
+        },
+        {
+          "type": "select",
+          "id": "icon",
+          "label": "Icon",
+          "options": [
+            {
+              "value": "none",
+              "label": "None"
+            },
+            {
+              "value": "truck",
+              "label": "Truck"
+            },
+            {
+              "value": "shipping",
+              "label": "Shipping arrow"
+            },
+            {
+              "value": "shield",
+              "label": "Shield (security)"
+            },
+            {
+              "value": "lock",
+              "label": "Lock (privacy)"
+            },
+            {
+              "value": "heart",
+              "label": "Heart"
+            },
+            {
+              "value": "star",
+              "label": "Star"
+            },
+            {
+              "value": "check",
+              "label": "Check (guarantee)"
+            },
+            {
+              "value": "headphones",
+              "label": "Headphones (support)"
+            },
+            {
+              "value": "envelope",
+              "label": "Envelope (email)"
+            },
+            {
+              "value": "chat",
+              "label": "Chat bubble"
+            },
+            {
+              "value": "tag",
+              "label": "Tag (price)"
+            },
+            {
+              "value": "gift",
+              "label": "Gift box"
+            },
+            {
+              "value": "globe",
+              "label": "Globe (worldwide)"
+            },
+            {
+              "value": "leaf",
+              "label": "Leaf (eco)"
+            },
+            {
+              "value": "award",
+              "label": "Award"
+            },
+            {
+              "value": "clock",
+              "label": "Clock (24/7)"
+            },
+            {
+              "value": "card",
+              "label": "Card (payment)"
+            },
+            {
+              "value": "wallet",
+              "label": "Wallet"
+            },
+            {
+              "value": "lightning",
+              "label": "Lightning (fast)"
+            },
+            {
+              "value": "recycle",
+              "label": "Recycle"
+            },
+            {
+              "value": "sparkle",
+              "label": "Sparkle (new)"
+            },
+            {
+              "value": "box",
+              "label": "Box (package)"
+            },
+            {
+              "value": "refresh",
+              "label": "Refresh (returns)"
+            },
+            {
+              "value": "user",
+              "label": "User (account)"
+            },
+            {
+              "value": "calendar",
+              "label": "Calendar"
+            },
+            {
+              "value": "handshake",
+              "label": "Handshake (trust)"
+            },
+            {
+              "value": "gem",
+              "label": "Gem (premium)"
+            },
+            {
+              "value": "organic",
+              "label": "Organic (natural)"
+            },
+            {
+              "value": "fire",
+              "label": "Fire (hot)"
+            },
+            {
+              "value": "crown",
+              "label": "Crown (luxury)"
+            }
+          ],
+          "default": "sparkle"
+        },
+        {
+          "type": "textarea",
+          "id": "svg_icon_code",
+          "label": "SVG code",
+          "info": "Shown instead of the icon."
+        },
+        {
+          "type": "range",
+          "id": "svg_icon_size",
+          "label": "Icon size",
+          "min": 10,
+          "max": 200,
+          "step": 10,
+          "unit": "px",
+          "default": 40
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_icon_circle_bg",
+          "label": "Icon in a circle",
+          "default": false
+        },
+        {
+          "type": "range",
+          "id": "icon_circle_bg_size",
+          "label": "Circle size",
+          "min": 10,
+          "max": 200,
+          "step": 10,
+          "unit": "px",
+          "default": 50,
+          "visible_if": "{{ block.settings.enable_icon_circle_bg }}"
+        },
+        {
+          "type": "range",
+          "id": "icon_circle_border_radius",
+          "label": "Circle corner radius",
+          "min": 0,
+          "max": 50,
+          "step": 10,
+          "unit": "%",
+          "default": 50,
+          "visible_if": "{{ block.settings.enable_icon_circle_bg }}"
+        },
+        {
+          "type": "header",
+          "content": "Style"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "icon_color",
+          "label": "Icon",
+          "default": "#000000",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "icon_circle_bg_color",
+          "label": "Circle",
+          "default": "#f5f5f5",
+          "visible_if": "{{ block.settings.enable_custom_style and block.settings.enable_icon_circle_bg }}"
+        }
+      ]
+    }
+  ],
+  "max_blocks": 6,
+  "presets": [
+    {
+      "name": "Product Benefits Pro",
+      "category": "Features",
+      "blocks": [
+        {
+          "type": "feature",
+          "settings": {
+            "icon": "shield",
+            "title": "Built to last",
+            "description": "Made from materials chosen for daily use.",
+            "enable_icon_circle_bg": true,
+            "icon_circle_bg_size": 70,
+            "svg_icon_size": 30
+          }
+        },
+        {
+          "type": "feature",
+          "settings": {
+            "icon": "leaf",
+            "title": "Thoughtful materials",
+            "description": "Each material is picked for how it wears over time.",
+            "enable_icon_circle_bg": true,
+            "icon_circle_bg_size": 70,
+            "svg_icon_size": 30
+          }
+        },
+        {
+          "type": "feature",
+          "settings": {
+            "icon": "star",
+            "title": "Made with care",
+            "description": "Every piece is checked before it leaves us.",
+            "enable_icon_circle_bg": true,
+            "icon_circle_bg_size": 70,
+            "svg_icon_size": 30
+          }
+        },
+        {
+          "type": "feature",
+          "settings": {
+            "icon": "truck",
+            "title": "Quick dispatch",
+            "description": "Orders are packed and sent out quickly.",
+            "enable_icon_circle_bg": true,
+            "icon_circle_bg_size": 70,
+            "svg_icon_size": 30
+          }
+        },
+        {
+          "type": "feature",
+          "settings": {
+            "icon": "refresh",
+            "title": "Easy returns",
+            "description": "A simple return process if something is not right.",
+            "enable_icon_circle_bg": true,
+            "icon_circle_bg_size": 70,
+            "svg_icon_size": 30
+          }
+        },
+        {
+          "type": "feature",
+          "settings": {
+            "icon": "lock",
+            "title": "Secure checkout",
+            "description": "Your payment details are encrypted.",
+            "enable_icon_circle_bg": true,
+            "icon_circle_bg_size": 70,
+            "svg_icon_size": 30
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

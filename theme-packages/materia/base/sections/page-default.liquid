@@ -1,0 +1,219 @@
+{% render 'theme-type' %}
+{%- comment -%}
+  Materia Themes. Page content: the page's title and the text written for it
+  in Storelib's page editor. Live edits: shopify/assets/live-account-pages.js.
+{%- endcomment -%}
+{%- liquid
+  assign section_st = section.settings
+  assign st = section_st
+  assign sid = section.id
+  assign color_scheme = section_st.color_scheme.id | default: section_st.color_scheme | default: 'default-color-scheme'
+  assign section_width = section_st.section_width
+  assign custom = st.enable_custom_style
+-%}
+{%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
+<style>
+  #shopify-section-{{ section.id }}.scroll-trigger {
+    --animation-duration: {{ settings.animation_duration | default: 700 }}ms;
+    --animation-delay: {{ settings.animation_delay | default: 0 }}ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-{{ section.id }}');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', {{ settings.scroll_animation | json }});
+  })();
+</script>
+{%- endif -%}
+{% render 'account-pages-base', sid: sid %}
+{% render 'account-pages-font-face', st: st %}
+<style>
+  #shopify-section-{{ sid }}:has([data-ap-reset]) { padding-top: 0 !important; padding-bottom: 0 !important; }
+  #shopify-section-{{ sid }} .page-default .page-title { text-align: var(--ap-title-align, center); }
+  #shopify-section-{{ sid }} .page-default .page-title h1 { color: var(--ap-h-c, var(--color-heading)); }
+  #shopify-section-{{ sid }} .page-default .rte { max-width: var(--ap-text-w, none); margin-inline: auto; color: var(--ap-t-c, inherit); }
+</style>
+{%- capture fonts -%}{% render 'account-pages-font-vars', st: st %}{%- endcapture -%}
+<div
+  class="section{% if section_st.padding_top < 30 %} pt-min{% endif %}{% if section_st.padding_bottom < 30 %} pb-min{% endif %} page-default color-{{ color_scheme }} gradient"
+  data-ap-root="page-default"
+  data-ap-section="{{ sid }}"{% if request.design_mode %}
+  data-ap-settings="{{ st | json | escape }}"{% endif %}
+  {% if st.reset_spacing %}data-ap-reset{% endif %}
+  style="--section-pt: {{ section_st.padding_top }}; --section-pb: {{ section_st.padding_bottom }}; --max-width: 50rem; --ap-title-align: {{ st.title_alignment | default: 'center' }};{% if st.text_width > 0 %} --ap-text-w: {{ st.text_width }}px;{% endif %}{% if custom and st.heading_color != blank %} --ap-h-c: {{ st.heading_color }};{% endif %}{% if custom and st.text_color != blank %} --ap-t-c: {{ st.text_color }};{% endif %}{{ fonts }}"
+>
+  <div class="{{ section_width }}" data-ap-width>
+    <div class="page-title" data-ap-show="show_title"{% if st.show_title == false %} hidden{% endif %}>
+      <h1>{{ page.title | escape }}</h1>
+    </div>
+    <div class="rte">
+      {{ page.content }}
+    </div>
+  </div>
+</div>{% schema %}
+{
+  "name": "Page content",
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Section width",
+      "default": "container",
+      "options": [
+        {
+          "value": "container",
+          "label": "Default"
+        },
+        {
+          "value": "fluid_container",
+          "label": "Fluid container"
+        },
+        {
+          "value": "stretch_width",
+          "label": "Stretched"
+        },
+        {
+          "value": "full_width",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "reset_spacing",
+      "label": "Remove space between sections",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Content"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_title",
+      "label": "Show page title",
+      "default": true,
+      "info": "The title and text are the page's own, written in the page editor."
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "select",
+      "id": "title_alignment",
+      "label": "Title alignment",
+      "default": "center",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ],
+      "visible_if": "{{ section.settings.show_title }}"
+    },
+    {
+      "type": "range",
+      "id": "text_width",
+      "label": "Text width",
+      "min": 0,
+      "max": 1200,
+      "step": 20,
+      "default": 0,
+      "unit": "px",
+      "info": "0 uses the full section width."
+    },
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_style",
+      "label": "Enable custom styling",
+      "default": false,
+      "info": "Off: colours follow the colour scheme."
+    },
+    {
+      "type": "color",
+      "id": "heading_color",
+      "label": "Title color",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text color",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "header",
+      "content": "Typography"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_fonts",
+      "label": "Enable custom fonts",
+      "default": false,
+      "info": "Off: fonts follow Theme settings > Typography."
+    },
+    {
+      "type": "font_picker",
+      "id": "heading_font",
+      "label": "Heading font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "font_picker",
+      "id": "body_font",
+      "label": "Body font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "header",
+      "content": "Desktop spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "default": 0,
+      "min": 0,
+      "max": 100,
+      "step": 2,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "default": 0,
+      "min": 0,
+      "max": 100,
+      "step": 2,
+      "unit": "px"
+    }
+  ]
+}
+{% endschema %}

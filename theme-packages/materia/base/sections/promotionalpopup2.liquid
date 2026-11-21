@@ -1,0 +1,1361 @@
+<script src="{{ 'live-page-popups.js' | asset_url }}" defer="defer"></script>
+{% render 'theme-type' %}
+{%- comment -%}
+  Materia Themes. Promotional Popup 2: a picture over a heading, a line of
+  text and a signup form (Storelib Subscribers, data-storelib-form="subscribe"),
+  in the middle of the screen or in a bottom corner, in a native <dialog>
+  (snippets/page-popup-dialog). Every setting reaches the page as a CSS
+  variable (a phone and a desktop value each where it has both), an
+  attribute or a text on its element, so shopify/assets/live-page-popups.js
+  applies a builder edit in place, the same as this Liquid draws it.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign block_heading = section.blocks | where: 'type', 'heading' | first
+  assign block_description = section.blocks | where: 'type', 'description' | first
+  assign block_image = section.blocks | where: 'type', 'image' | first
+  assign block_form = section.blocks | where: 'type', 'form' | first
+  assign hb = block_heading.settings
+  assign db = block_description.settings
+  assign ib = block_image.settings
+  assign fb = block_form.settings
+  assign pp2_custom = false
+  if st.enable_custom_style == true
+    assign pp2_custom = true
+  endif
+  assign c_bg = ''
+  assign c_grad = ''
+  assign c_ov = ''
+  if pp2_custom
+    assign c_bg = st.background_color
+    assign c_grad = st.background_gradient
+    assign c_ov = st.overlay_color
+  endif
+  assign c_h = ''
+  if hb.enable_custom_style == true
+    assign c_h = hb.color
+  endif
+  assign c_d = ''
+  if db.enable_custom_style == true
+    assign c_d = db.color
+  endif
+  assign fc = false
+  if fb.enable_custom_style == true
+    assign fc = true
+  endif
+  assign c_ic = ''
+  assign c_ib = ''
+  assign c_ip = ''
+  assign c_ibd = ''
+  assign c_bb = ''
+  assign c_bt = ''
+  assign c_bbd = ''
+  assign c_bbh = ''
+  assign c_bth = ''
+  if fc
+    assign c_ic = fb.input_color
+    assign c_ib = fb.input_background
+    assign c_ip = fb.input_placeholder
+    assign c_ibd = fb.input_border
+    assign c_bb = fb.button_background
+    assign c_bt = fb.button_text_color
+    assign c_bbd = fb.button_border
+    assign c_bbh = fb.button_background_hover
+    assign c_bth = fb.button_text_hover
+  endif
+  assign pp2_use_theme_fields = true
+  if fb.use_theme_fields == false
+    assign pp2_use_theme_fields = false
+  endif
+  assign pp2_use_theme_button = true
+  if fb.use_theme_button == false
+    assign pp2_use_theme_button = false
+  endif
+  assign pp2_filter = ''
+  if ib.filter != blank and ib.filter != 'none'
+    assign pp2_filter = 'loudz__filter--' | append: ib.filter
+  endif
+  assign pp2_pos = st.popup_position | default: 'center'
+  case st.content_alignment
+    when 'left'
+      assign pp2_jd = 'flex-start'
+    when 'right'
+      assign pp2_jd = 'flex-end'
+    else
+      assign pp2_jd = 'center'
+  endcase
+  case pp2_pos
+    when 'left'
+      assign pp2_jd = 'flex-start'
+      assign pp2_inset = 'auto auto 40px 40px'
+      assign pp2_h = 'auto'
+      assign pp2_w = 'auto'
+    when 'right'
+      assign pp2_jd = 'flex-end'
+      assign pp2_inset = 'auto 40px 40px auto'
+      assign pp2_h = 'auto'
+      assign pp2_w = 'auto'
+    else
+      assign pp2_jd = 'center'
+      assign pp2_inset = 'auto 0 40px auto'
+      assign pp2_h = 'calc(var(--sl-vh, 1vh) * 100)'
+      assign pp2_w = '100vw'
+  endcase
+  assign pp2_ad = 'flex-end'
+  if st.content_alignment != 'center' and st.content_alignment != 'left' and st.content_alignment != 'right'
+    assign pp2_ad = 'center'
+  endif
+-%}
+<style>
+  #shopify-section-{{ sid }} {
+    position: relative !important;
+    font-family: var(--body-font, inherit);
+    font-weight: var(--body-weight, inherit);
+    max-width: none !important;
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    box-sizing: border-box !important;
+    opacity: 1 !important; transform: none !important; contain: none !important; isolation: auto !important;
+    margin-top: {{ st.section_margin_top_mobile | default: 0 }}px;
+    margin-bottom: {{ st.section_margin_bottom_mobile | default: 0 }}px;
+  }
+  @media (min-width: 768px) {
+    #shopify-section-{{ sid }} {
+      margin-top: {{ st.section_margin_top_desktop | default: 0 }}px;
+      margin-bottom: {{ st.section_margin_bottom_desktop | default: 0 }}px;
+    }
+  }
+  #shopify-section-{{ sid }}:has(> [data-pp2-reset]) { margin-top: 0 !important; margin-bottom: 0 !important; }
+  #shopify-section-{{ sid }}:has(> [data-pp2-reset]) + .shopify-section,
+  .shopify-section + #shopify-section-{{ sid }}:has(> [data-pp2-reset]) { margin-top: 0 !important; }
+  :where(#shopify-section-{{ sid }}) :where(button, input, textarea, select, optgroup) { font-family: inherit; }
+  :where(#shopify-section-{{ sid }}) :is(h1, h2, h3, h4, h5, h6) { font-weight: var(--heading-weight, inherit); font-family: var(--heading-font, inherit); }
+  /* phone first, then the desktop value of each pair (the root holds both) */
+  #loudz-{{ sid }} {
+    --loudz-heading-size: var(--pp2-h-m); --loudz-description-size: var(--pp2-d-m); --loudz-input-font-size: var(--pp2-in-m); --loudz-button-font-size: var(--pp2-b-m);
+    --loudz-popup-align: center; --loudz-popup-justify: center; --loudz-popup-inset: 0; --loudz-popup-height: calc(var(--sl-vh, 1vh) * 100); --loudz-popup-width: 100vw;
+  }
+  @media (min-width: 768px) {
+    #loudz-{{ sid }} {
+      --loudz-heading-size: var(--pp2-h-d); --loudz-description-size: var(--pp2-d-d); --loudz-input-font-size: var(--pp2-in-d); --loudz-button-font-size: var(--pp2-b-d);
+      --loudz-popup-align: var(--pp2-align-d); --loudz-popup-justify: var(--pp2-justify-d); --loudz-popup-inset: var(--pp2-inset-d); --loudz-popup-height: var(--pp2-height-d); --loudz-popup-width: var(--pp2-width-d);
+    }
+  }
+</style>
+<style>
+  .loudz-newsletter-4 * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  .loudz__content-inner {
+    padding: 0 32px;
+  }
+
+  .loudz-newsletter-4 .loudz__popup {
+    align-items: var(--loudz-popup-align);
+    justify-content: var(--loudz-popup-justify);
+    inset: var(--loudz-popup-inset);
+    height: var(--loudz-popup-height);
+    width: var(--loudz-popup-width);
+    transition: opacity 0.3s ease, visibility 0s linear 0.3s;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    position: fixed;
+    display: flex;
+    max-height: calc(var(--sl-vh, 1vh) * 100);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    z-index: 2147483647;
+  }
+  .loudz-newsletter-4 .loudz__content-box {
+    transform: translateY(16px) scale(.98);
+    transition: transform .35s cubic-bezier(.2,.8,.2,1);
+  }
+  .loudz-newsletter-4 .loudz__popup.active .loudz__content-box { transform: none; }
+
+  .loudz-newsletter-4 .loudz__popup.loudz__popup--center {
+    align-items: center;
+    justify-content: center;
+    inset: 0;
+    height: calc(var(--sl-vh, 1vh) * 100);
+    padding: 20px;
+  }
+
+  .loudz-newsletter-4 .loudz__popup.loudz__popup--left {
+    left: 40px;
+    bottom: 40px;
+    right: auto;
+    top: auto;
+    align-items: flex-end;
+    justify-content: flex-start;
+  }
+
+  .loudz-newsletter-4 .loudz__popup.loudz__popup--right {
+    right: 40px;
+    bottom: 40px;
+    left: auto;
+    top: auto;
+    align-items: flex-end;
+    justify-content: flex-end;
+  }
+
+  .loudz-newsletter-4 .loudz__content-inner { padding-block: var(--pp2-pad-b, 32px); padding-inline: var(--pp2-pad-i, 32px); }
+  .loudz-newsletter-4 .loudz__content-inner [hidden] { display: none !important; }
+  .loudz-newsletter-4 .loudz__popup.active {
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+    transition-delay: 0s;
+  }
+  .loudz-newsletter-4 .loudz__popup:after {
+    z-index: -1;
+  }
+
+  .loudz-newsletter-4 .loudz__popup:after {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--loudz-overlay-color, #000000);
+  opacity: var(--loudz-overlay-opacity, 0.5);
+  z-index: -1;
+  }
+
+  .loudz-newsletter-4 .loudz__content-box {
+    border-radius: var(--loudz-border-radius);
+    max-width: var(--loudz-section-width);
+    background: var(--loudz-background-color);
+    width: 100%;
+    box-shadow: 0 6px 32px 0 rgba(16, 24, 40, 0.18);
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    position: relative;
+    overflow: hidden;
+    margin: auto;
+    max-height: calc(var(--sl-vh, 1vh) * 100 - 40px);
+    overflow-y: auto;
+  }
+  /* Mobile: always center the popup with a safe gutter, regardless of the
+     desktop `popup_position` setting. This guarantees the popup never sticks
+     to the right/left edge on phones. */
+  @media (max-width: 767px) {
+    .loudz-newsletter-4 .loudz__popup {
+      align-items: center !important;
+      justify-content: center !important;
+      inset: 0 !important;
+      top: 0 !important;
+      right: 0 !important;
+      bottom: 0 !important;
+      left: 0 !important;
+      width: 100vw !important;
+      height: calc(var(--sl-vh, 1vh) * 100) !important;
+      padding: 16px;
+    }
+    .loudz-newsletter-4 .loudz__content-box {
+      width: calc(100vw - var(--loudz-mobile-gutter, 32px)) !important;
+      max-width: calc(100vw - var(--loudz-mobile-gutter, 32px)) !important;
+      margin: auto !important;
+    }
+  }
+
+  .loudz-newsletter-4 .loudz__description {
+    font-size: var(--loudz-description-size);
+    padding-top: var(--loudz-description-padding-top);
+    font-weight: var(--loudz-description-font-weight);
+    color: var(--loudz-description-color);
+    text-align: var(--loudz-content-alignment);
+    line-height: 1.5;
+  }
+
+  .loudz-newsletter-4 .loudz__image-wrapper {
+    border-top-left-radius: var(--loudz-border-radius);
+    border-top-right-radius: var(--loudz-border-radius);
+    width: 100%;
+    overflow: hidden;
+    height: 220px;
+    flex-shrink: 0;
+    background: color-mix(in srgb, var(--color-heading) 8%, var(--color-background));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .loudz-newsletter-4 .loudz__image-wrapper img {
+    width: 100%;
+    height: 220px;
+    object-fit: cover;
+    object-position: center;
+    display: block;
+  }
+  .loudz-newsletter-4 .loudz__filter--grayscale { filter: grayscale(100%); }
+  .loudz-newsletter-4 .loudz__filter--sepia { filter: sepia(100%) contrast(1.2); }
+  .loudz-newsletter-4 .loudz__filter--invert { filter: invert(100%); }
+
+  .loudz-newsletter-4 .loudz__heading {
+    font-size: var(--loudz-heading-size);
+    font-weight: var(--loudz-heading-weight);
+    padding-top: var(--loudz-heading-padding-top);
+    color: var(--loudz-heading-color);
+    text-align: var(--loudz-content-alignment);
+    line-height: 1.2;
+  }
+
+  .loudz-newsletter-4 input[type="email"] {
+    font-size: var(--loudz-input-font-size);
+    font-weight: var(--loudz-input-font-weight);
+    margin-top: var(--loudz-input-padding-top);
+    border-radius: var(--loudz-input-border-radius);
+    background-color: var(--loudz-input-background-color);
+    color: var(--loudz-input-color);
+    border: var(--loudz-input-border-width, 1px) solid var(--loudz-input-border-color);
+    width: 100%;
+    min-height: var(--loudz-input-height, 0px);
+    padding: var(--loudz-input-padding, 16px 18px);
+    outline: none;
+    transition: border-color var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease), box-shadow var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease);
+  }
+  .loudz-newsletter-4 input[type="email"]:focus-visible {
+    border-color: var(--color-heading);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-heading) 25%, transparent);
+  }
+
+  .loudz-newsletter-4 input[type="email"]::placeholder {
+    color: var(--loudz-input-placeholder-color);
+    opacity: 1;
+  }
+
+  /* The submit is a theme button (theme-button-contract.css): Theme settings >
+     Buttons draw it; the form's colours, and its shape when the theme style is
+     off, reach it as --mb-* tokens. */
+  .loudz-newsletter-4 .loudz__button {
+    margin-top: var(--loudz-button-padding-top);
+    width: 100%;
+    cursor: pointer;
+    --mb-bg: var(--loudz-button-background-color);
+    --mb-text: var(--loudz-button-text-color);
+    --mb-border: var(--loudz-button-border-color);
+    --mb-hover-bg: var(--loudz-button-background-color-hover);
+    --mb-hover-text: var(--loudz-button-text-color-hover);
+    --mb-hover-border: var(--loudz-button-border-color-hover);
+    --mb-radius: var(--loudz-button-border-radius);
+    --mb-font-size: var(--loudz-button-font-size);
+    --mb-weight: var(--loudz-button-font-weight);
+  }
+
+  .loudz-newsletter-4 .loudz__success { margin-top: 12px; color: var(--loudz-description-color); text-align: var(--loudz-content-alignment); }
+  .loudz-newsletter-4 .loudz__placeholder-image { width: 100%; height: 100%; fill: color-mix(in srgb, var(--color-text) 30%, transparent); }
+  .loudz-newsletter-4 .loudz__button:focus-visible,
+  .loudz-newsletter-4 .loudz__close:focus-visible { outline: 2px solid var(--color-heading); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) {
+    .loudz-newsletter-4 .loudz__popup,
+    .loudz-newsletter-4 .loudz__close,
+    .loudz-newsletter-4 input[type="email"],
+    .loudz-newsletter-4 .loudz__content-box { transition: none; transform: none; }
+  }
+
+  .loudz-newsletter-4 .loudz__close {
+    position: absolute;
+    top: 20px;
+    width: 44px;
+    height: 44px;
+    background: var(--color-background);
+    border-radius: 50%;
+    border: none;
+    box-shadow: 0 2px 8px 0 rgba(16, 24, 40, 0.10);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    color: var(--color-heading);
+    cursor: pointer;
+    z-index: 2;
+    transition: box-shadow var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease);
+  }
+  
+  .loudz-newsletter-4 .loudz__close--right {
+    right: 20px;
+    left: auto;
+  }
+
+  .loudz-newsletter-4 .loudz__close--left {
+    left: 20px;
+    right: auto;
+  }
+
+  .loudz-newsletter-4 .loudz__popup::-webkit-scrollbar {
+    width: 8px;
+}
+
+.loudz-newsletter-4 .loudz__popup::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.loudz-newsletter-4 .loudz__popup::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+}
+
+.loudz-newsletter-4 .loudz__popup::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.3);
+}
+</style>
+{%- capture pp2_config -%}
+  {"design": {{ request.design_mode | json }}, "preview": {{ st.enable_customization_mode | json }},
+   "trigger": {"mode": {{ st.open_mode | default: 'delay' | json }}, "delay": {{ st.popup_delay | default: 0 | json }}, "scroll": {{ st.scroll_pct | default: 50 | json }}, "views": {{ st.page_views | default: 2 | json }} },
+   "frequency": {"mode": {{ st.after_dismiss | default: 'after_days' | json }}, "days": {{ st.hide_days | default: 1 | json }} } }
+{%- endcapture -%}
+{%- capture pp2_vars -%}
+--pp2-pad-b: {{ st.padding_block | default: 0 }}px; --pp2-pad-i: {{ st.padding_inline | default: 0 }}px; --pp2-align-d: {{ pp2_ad }}; --pp2-justify-d: {{ pp2_jd }}; --pp2-inset-d: {{ pp2_inset }}; --pp2-height-d: {{ pp2_h }}; --pp2-width-d: {{ pp2_w }};
+ --loudz-background-color: {% if c_grad != blank %}{{ c_grad }}{% else %}{% render 'scheme-color', color: c_bg, fallback: 'var(--color-background)' %}{% endif %}; --loudz-overlay-color: {% render 'scheme-color', color: c_ov, fallback: '#000000' %}; --loudz-overlay-opacity: {{ st.overlay_opacity | default: 0 }}; --loudz-border-radius: {{ st.border_radius | default: 0 }}px; --loudz-section-width: {{ st.inner_width_px | default: 400 }}px; --loudz-content-alignment: {{ st.content_alignment | default: 'left' }};
+ --pp2-h-m: {{ hb.size_mobile | default: 22 }}px; --pp2-h-d: {{ hb.size_desktop | default: 28 }}px; --loudz-heading-weight: {% if hb.weight == 'theme' %}var(--heading-weight, 700){% else %}{{ hb.weight | default: 700 }}{% endif %}; --loudz-heading-padding-top: {{ hb.padding_top | default: 0 }}px; --loudz-heading-color: {% render 'scheme-color', color: c_h, fallback: 'var(--color-heading)' %};
+ --pp2-d-m: {{ db.size_mobile | default: 14 }}px; --pp2-d-d: {{ db.size_desktop | default: 16 }}px; --loudz-description-font-weight: {{ db.weight | default: 400 }}; --loudz-description-padding-top: {{ db.padding_top | default: 0 }}px; --loudz-description-color: {% render 'scheme-color', color: c_d, fallback: 'var(--color-text)' %};
+ --pp2-in-m: {% if pp2_use_theme_fields %}var(--input-font-size, {{ fb.input_size_mobile | default: 14 }}px){% else %}{{ fb.input_size_mobile | default: 14 }}px{% endif %}; --pp2-in-d: {% if pp2_use_theme_fields %}var(--input-font-size, {{ fb.input_size_desktop | default: 14 }}px){% else %}{{ fb.input_size_desktop | default: 14 }}px{% endif %}; --loudz-input-font-weight: {{ fb.input_weight | default: 400 }}; --loudz-input-padding-top: {{ fb.input_padding_top | default: 0 }}px;
+ --loudz-input-color: {% render 'scheme-color', color: c_ic, fallback: 'var(--input-color)' %}; --loudz-input-background-color: {% render 'scheme-color', color: c_ib, fallback: 'var(--input-bg)' %}; --loudz-input-placeholder-color: {% render 'scheme-color', color: c_ip, fallback: 'var(--input-placeholder-color)' %}; --loudz-input-border-color: {% render 'scheme-color', color: c_ibd, fallback: 'var(--color-border)' %};
+ {%- if pp2_use_theme_fields %} --loudz-input-border-radius: var(--input-border-radius, {{ fb.input_border_radius | default: 6 }}px); --loudz-input-border-width: var(--inputs-border-width, 1px); --loudz-input-height: var(--input-height, 0px); --loudz-input-padding: var(--input-padding, 16px 18px);{% else %} --loudz-input-border-radius: {{ fb.input_border_radius | default: 0 }}px; --mt-select-radius: {{ fb.input_border_radius | default: 0 }}px;{% if fb.input_size_mobile != blank and fb.input_size_desktop != blank %} --mt-field-font-size: var(--loudz-input-font-size);{% endif %}{% if fb.input_size_mobile != blank %} --mt-field-font-size-mobile: {{ fb.input_size_mobile }}px;{% endif %}{% if fb.input_weight != blank %} --mt-field-weight: {{ fb.input_weight }};{% endif %}{% endif %}{% if fc %} --mt-select-bg: {% render 'scheme-color', color: c_ib, fallback: 'var(--input-bg)' %}; --mt-select-text: {% render 'scheme-color', color: c_ic, fallback: 'var(--input-color)' %}; --mt-select-border: {% render 'scheme-color', color: c_ibd, fallback: 'var(--color-border)' %};{% endif %}
+ --pp2-b-m: {% if pp2_use_theme_button %}var(--btn-font-size, {{ fb.button_size_mobile | default: 14 }}px){% else %}{{ fb.button_size_mobile | default: 14 }}px{% endif %}; --pp2-b-d: {% if pp2_use_theme_button %}var(--btn-font-size, {{ fb.button_size_desktop | default: 16 }}px){% else %}{{ fb.button_size_desktop | default: 16 }}px{% endif %}; --loudz-button-padding-top: {{ fb.button_padding_top | default: 0 }}px;
+ --loudz-button-font-weight: {% if pp2_use_theme_button %}var(--btn-font-weight, {{ fb.button_weight | default: 700 }}){% else %}{{ fb.button_weight | default: 700 }}{% endif %}; --loudz-button-text-color: {% render 'scheme-color', color: c_bt, fallback: 'var(--btn-primary-color)' %}; --loudz-button-background-color: {% render 'scheme-color', color: c_bb, fallback: 'var(--btn-primary-bg-color)' %}; --loudz-button-text-color-hover: {% render 'scheme-color', color: c_bth, fallback: 'var(--btn-primary-hover-color)' %}; --loudz-button-background-color-hover: {% render 'scheme-color', color: c_bbh, fallback: 'var(--btn-primary-hover-bg-color)' %}; --loudz-button-border-color: {% render 'scheme-color', color: c_bbd, fallback: 'var(--btn-primary-border-color, transparent)' %}; --loudz-button-border-color-hover: {% render 'scheme-color', color: c_bbd, fallback: 'var(--btn-primary-hover-border-color, transparent)' %};
+ {%- if pp2_use_theme_button %} --loudz-button-border-radius: var(--btn-radius, {{ fb.button_border_radius | default: 6 }}px); --loudz-button-border-width: var(--btn-border-width, 1px); --loudz-button-padding: var(--btn-padding-y, 16px) var(--btn-padding-x, 0px);{% else %} --loudz-button-border-radius: {{ fb.button_border_radius | default: 0 }}px;{% endif %}
+{%- render 'page-popup-fonts', st: st -%}
+{%- endcapture -%}
+{% render 'page-popup-dialog', sid: sid, st: st %}
+<div id="loudz-{{ sid }}" class="loudz-newsletter-4 loudz-{{ sid }} color-{{ color_scheme }}" data-pg-root="promotionalpopup2" data-pg-section="{{ sid }}"{% if request.design_mode %} data-pg-settings="{{ st | json | escape }}"{% endif %}{% if st.enable_custom_fonts %} data-pg-fonts data-own-font{% endif %}{% if st.reset_spacing %} data-pp2-reset{% endif %}
+     data-popup-root="{{ sid }}" data-popup-config="{{ pp2_config | strip_newlines | escape }}" aria-hidden="true"
+     style="{{ pp2_vars | strip_newlines | strip }}">
+  <dialog class="pg-dialog" data-pg-dialog aria-labelledby="loudz-title-{{ sid }}">
+  <div class="loudz__popup loudz__popup--{{ pp2_pos }}" data-pg-frame>
+    <div class="loudz__content-box" data-pg-card tabindex="-1">
+      <button type="button" class="loudz__close loudz__close--{{ st.close_button_position | default: 'right' }}" data-popup-close aria-label="{{ 'accessibility.close' | t }}">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M15 9L9 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M9 9L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+
+      <div class="loudz__image-wrapper"{% if block_image != blank %} data-pg-block="{{ block_image.id }}" data-pg-type="image"{% if request.design_mode %} data-pg-settings="{{ ib | json | escape }}"{% endif %} {{ block_image.shopify_attributes }}{% endif %}>
+        <template data-pg-ph>{{ 'lifestyle-1' | placeholder_svg_tag: 'loudz__placeholder-image' }}</template>
+        {%- if ib.image == blank -%}
+          {{ 'lifestyle-1' | placeholder_svg_tag: 'loudz__placeholder-image' }}
+        {%- else -%}
+          {%- assign pp2_alt = ib.image.alt | default: '' -%}{{ ib.image | image_url: width: 900 | image_tag: loading: 'lazy', alt: pp2_alt, class: pp2_filter, sizes: '(min-width: 768px) 480px, 100vw', widths: '400,600,900' }}
+        {%- endif -%}
+      </div>
+
+      <div class="loudz__content-inner">
+        {%- if block_heading != blank %}
+          <h2 class="loudz__heading" id="loudz-title-{{ sid }}"{% unless hb.weight == 'theme' %} data-own-weight{% endunless %} data-pg-block="{{ block_heading.id }}" data-pg-type="heading"{% if request.design_mode %} data-pg-settings="{{ hb | json | escape }}"{% endif %}{% if hb.text == blank %} hidden{% endif %} {{ block_heading.shopify_attributes }}>{{ hb.text }}</h2>
+        {%- endif %}
+        {%- if block_description != blank %}
+          <p class="loudz__description" data-pg-block="{{ block_description.id }}" data-pg-type="description"{% if request.design_mode %} data-pg-settings="{{ db | json | escape }}"{% endif %}{% if db.text == blank %} hidden{% endif %} {{ block_description.shopify_attributes }}>{{ db.text }}</p>
+        {%- endif %}
+        <form class="loudz__form" data-storelib-form="subscribe"{% if block_form != blank %} data-pg-block="{{ block_form.id }}" data-pg-type="form"{% if request.design_mode %} data-pg-settings="{{ fb | json | escape }}"{% endif %}{% endif %}>
+          <input type="email" name="email" autocomplete="email" placeholder="{{ fb.email_placeholder | escape }}" aria-label="{{ fb.email_placeholder | default: 'Email' | escape }}" required data-popup-autofocus>
+          <button type="submit" class="loudz__button btn-primary" data-theme-button="primary" data-sl-button{% unless pp2_use_theme_button %} data-own-shape{% endunless %}{% if block_form != blank %} {{ block_form.shopify_attributes }}{% endif %}>{{ fb.button_text }}</button>
+          <p class="loudz__success" data-storelib-success hidden>{{ fb.success_text | default: 'Thanks, you are on the list.' }}</p>
+        </form>
+      </div>
+    </div>
+  </div>
+  </dialog>
+</div>
+
+<script src="{{ 'materia-popups.js' | asset_url }}" defer="defer"></script>
+<script>
+(function(){
+  var SID = {{ section.id | json }};
+  function setup(P){
+    var root = document.querySelector('[data-popup-root="' + SID + '"]');
+    if (!root || root.__pp2) return;
+    root.__pp2 = true;
+    var CFG = JSON.parse(root.getAttribute('data-popup-config') || '{}');
+    var popup = root.querySelector('.loudz__popup');
+    var form = root.querySelector('form');
+    var api = P.register({
+      id: SID, root: root, dialog: root.querySelector('.loudz__content-box'), backdrop: popup,
+      design: CFG.design, preview: CFG.preview,
+      trigger: Object.assign({ selector: '[data-loudz-open="' + SID + '"]' }, CFG.trigger),
+      frequency: { mode: CFG.frequency.mode === 'every_visit' ? 'always' : CFG.frequency.mode, days: CFG.frequency.days },
+      open: function(){ popup.classList.add('active'); },
+      close: function(){ popup.classList.remove('active'); }
+    });
+    // Signed up (Storelib marks the form done): thank them, then not again for 20 days.
+    if (form) new MutationObserver(function(){
+      if (form.getAttribute('data-state') === 'done' && api) api.done(20);
+    }).observe(form, { attributes: true, attributeFilter: ['data-state'] });
+  }
+  function boot(){ (window.MateriaPopupsQueue = window.MateriaPopupsQueue || []).push(setup); }
+  boot();
+  function reload(e){ if (e.detail && String(e.detail.sectionId) === SID) boot(); }
+  document.addEventListener('storelib:section-load', reload);
+  document.addEventListener('shopify:section:load', reload);
+})();
+</script>
+{% schema %}
+{
+  "name": "Promotional Popup 2",
+  "class": "loudz-section loudz-newsletter-4",
+  "tag": "section",
+  "enabled_on": {
+    "groups": [
+      "custom.overlay"
+    ]
+  },
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "header",
+      "content": "Trigger"
+    },
+    {
+      "type": "select",
+      "id": "open_mode",
+      "label": "Opens",
+      "options": [
+        {
+          "value": "immediate",
+          "label": "On page load"
+        },
+        {
+          "value": "delay",
+          "label": "After a delay"
+        },
+        {
+          "value": "scroll",
+          "label": "On scroll"
+        },
+        {
+          "value": "exit",
+          "label": "On exit intent"
+        },
+        {
+          "value": "pageviews",
+          "label": "After page views"
+        },
+        {
+          "value": "manual",
+          "label": "From a link"
+        }
+      ],
+      "default": "delay"
+    },
+    {
+      "type": "number",
+      "id": "popup_delay",
+      "label": "Delay (seconds)",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "scroll_pct",
+      "label": "Scrolled",
+      "min": 10,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "default": 50,
+      "visible_if": "{{ section.settings.open_mode == 'scroll' }}"
+    },
+    {
+      "type": "range",
+      "id": "page_views",
+      "label": "Page views",
+      "min": 1,
+      "max": 10,
+      "step": 1,
+      "default": 2,
+      "visible_if": "{{ section.settings.open_mode == 'pageviews' }}"
+    },
+    {
+      "type": "header",
+      "content": "Behaviour"
+    },
+    {
+      "type": "select",
+      "id": "after_dismiss",
+      "label": "Show again",
+      "options": [
+        {
+          "value": "every_visit",
+          "label": "Every visit"
+        },
+        {
+          "value": "after_days",
+          "label": "After days"
+        },
+        {
+          "value": "never",
+          "label": "Never"
+        }
+      ],
+      "default": "after_days"
+    },
+    {
+      "type": "range",
+      "id": "hide_days",
+      "label": "Days",
+      "visible_if": "{{ section.settings.after_dismiss == 'after_days' }}",
+      "min": 0,
+      "max": 30,
+      "step": 1,
+      "unit": "d",
+      "default": 1
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_customization_mode",
+      "label": "Show in the builder",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "select",
+      "id": "popup_position",
+      "label": "Position",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "select",
+      "id": "content_alignment",
+      "label": "Text",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ],
+      "default": "left"
+    },
+    {
+      "type": "number",
+      "id": "inner_width_px",
+      "label": "Width (px)",
+      "default": 400
+    },
+    {
+      "type": "select",
+      "id": "close_button_position",
+      "label": "Close button",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ],
+      "default": "right"
+    },
+    {
+      "type": "range",
+      "id": "padding_block",
+      "label": "Top and bottom padding",
+      "min": 0,
+      "max": 64,
+      "step": 4,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "range",
+      "id": "padding_inline",
+      "label": "Side padding",
+      "min": 0,
+      "max": 64,
+      "step": 4,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_style",
+      "label": "Custom colours",
+      "default": false,
+      "info": "Off, the popup follows its colour scheme."
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "Background",
+      "visible_if": "{{ section.settings.enable_custom_style == true }}"
+    },
+    {
+      "type": "color_background",
+      "id": "background_gradient",
+      "label": "Background gradient",
+      "visible_if": "{{ section.settings.enable_custom_style == true }}"
+    },
+    {
+      "type": "color",
+      "id": "overlay_color",
+      "label": "Backdrop",
+      "default": "#000000",
+      "visible_if": "{{ section.settings.enable_custom_style == true }}"
+    },
+    {
+      "type": "range",
+      "id": "overlay_opacity",
+      "label": "Backdrop opacity",
+      "min": 0,
+      "max": 1,
+      "step": 0.1,
+      "default": 0.3
+    },
+    {
+      "type": "range",
+      "id": "border_radius",
+      "label": "Corner radius",
+      "min": 0,
+      "max": 50,
+      "step": 2,
+      "unit": "px",
+      "default": 10
+    },
+    {
+      "type": "header",
+      "content": "Typography"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_fonts",
+      "label": "Custom fonts",
+      "default": false,
+      "info": "Off, the popup uses the theme fonts."
+    },
+    {
+      "type": "font_picker",
+      "id": "heading_font",
+      "label": "Heading font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts == true }}"
+    },
+    {
+      "type": "font_picker",
+      "id": "body_font",
+      "label": "Text font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts == true }}"
+    },
+    {
+      "type": "header",
+      "content": "Advanced"
+    },
+    {
+      "type": "checkbox",
+      "id": "reveal",
+      "label": "Reveal on scroll",
+      "default": true,
+      "hidden": true,
+      "info": "Not used: the popup has its own opening animation.",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Section width",
+      "default": "fluid_container",
+      "options": [
+        {
+          "value": "container",
+          "label": "Default"
+        },
+        {
+          "value": "fluid_container",
+          "label": "Fluid container"
+        },
+        {
+          "value": "stretch_width",
+          "label": "Stretched"
+        },
+        {
+          "value": "full_width",
+          "label": "Full width"
+        }
+      ],
+      "hidden": true,
+      "info": "Not used: the popup sits over the page.",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "reset_spacing",
+      "label": "No space around",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_desktop",
+      "label": "Top margin",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0,
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_desktop",
+      "label": "Bottom margin",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0,
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_mobile",
+      "label": "Top margin on phones",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0,
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_mobile",
+      "label": "Bottom margin on phones",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0,
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "heading",
+      "name": "Heading",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "type": "text",
+          "id": "text",
+          "label": "Heading",
+          "default": "Join our community!"
+        },
+        {
+          "type": "header",
+          "content": "Style"
+        },
+        {
+          "type": "range",
+          "id": "size_desktop",
+          "label": "Size",
+          "min": 12,
+          "max": 72,
+          "step": 1,
+          "unit": "px",
+          "default": 28
+        },
+        {
+          "type": "range",
+          "id": "size_mobile",
+          "label": "Size on phones",
+          "min": 12,
+          "max": 48,
+          "step": 1,
+          "unit": "px",
+          "default": 22
+        },
+        {
+          "type": "select",
+          "id": "weight",
+          "label": "Weight",
+          "default": "700",
+          "options": [
+            {
+              "value": "theme",
+              "label": "Theme"
+            },
+            {
+              "value": "300",
+              "label": "Light"
+            },
+            {
+              "value": "400",
+              "label": "Regular"
+            },
+            {
+              "value": "500",
+              "label": "Medium"
+            },
+            {
+              "value": "600",
+              "label": "Semi Bold"
+            },
+            {
+              "value": "700",
+              "label": "Bold"
+            },
+            {
+              "value": "800",
+              "label": "Extra Bold"
+            }
+          ],
+          "info": "Theme follows Theme settings > Typography."
+        },
+        {
+          "type": "range",
+          "id": "padding_top",
+          "label": "Space above",
+          "min": 0,
+          "max": 60,
+          "step": 1,
+          "unit": "px",
+          "default": 0
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Custom colours",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Color",
+          "visible_if": "{{ block.settings.enable_custom_style == true }}"
+        }
+      ]
+    },
+    {
+      "type": "description",
+      "name": "Description",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "type": "textarea",
+          "id": "text",
+          "label": "Text",
+          "default": "Get our new drops and offers first. Join the newsletter."
+        },
+        {
+          "type": "header",
+          "content": "Style"
+        },
+        {
+          "type": "range",
+          "id": "size_desktop",
+          "label": "Size",
+          "min": 10,
+          "max": 32,
+          "step": 1,
+          "unit": "px",
+          "default": 16
+        },
+        {
+          "type": "range",
+          "id": "size_mobile",
+          "label": "Size on phones",
+          "min": 10,
+          "max": 24,
+          "step": 1,
+          "unit": "px",
+          "default": 14
+        },
+        {
+          "type": "select",
+          "id": "weight",
+          "label": "Weight",
+          "default": "400",
+          "options": [
+            {
+              "value": "300",
+              "label": "Light"
+            },
+            {
+              "value": "400",
+              "label": "Regular"
+            },
+            {
+              "value": "500",
+              "label": "Medium"
+            },
+            {
+              "value": "600",
+              "label": "Semi Bold"
+            },
+            {
+              "value": "700",
+              "label": "Bold"
+            }
+          ]
+        },
+        {
+          "type": "range",
+          "id": "padding_top",
+          "label": "Space above",
+          "min": 0,
+          "max": 60,
+          "step": 1,
+          "unit": "px",
+          "default": 12
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Custom colours",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Color",
+          "visible_if": "{{ block.settings.enable_custom_style == true }}"
+        }
+      ]
+    },
+    {
+      "type": "image",
+      "name": "Image",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "image_picker",
+          "id": "image",
+          "label": "Image"
+        },
+        {
+          "type": "select",
+          "id": "filter",
+          "label": "Filter",
+          "default": "none",
+          "options": [
+            {
+              "value": "none",
+              "label": "None"
+            },
+            {
+              "value": "grayscale",
+              "label": "Grayscale"
+            },
+            {
+              "value": "sepia",
+              "label": "Sepia"
+            },
+            {
+              "value": "invert",
+              "label": "Invert"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "form",
+      "name": "Signup form",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "type": "text",
+          "id": "email_placeholder",
+          "label": "Email placeholder",
+          "default": "Enter your email address"
+        },
+        {
+          "type": "text",
+          "id": "button_text",
+          "label": "Button label",
+          "default": "Subscribe"
+        },
+        {
+          "type": "text",
+          "id": "success_text",
+          "label": "Thank-you text",
+          "default": "Thanks, you are on the list."
+        },
+        {
+          "type": "header",
+          "content": "Field"
+        },
+        {
+          "type": "checkbox",
+          "id": "use_theme_fields",
+          "label": "Theme field style",
+          "default": true
+        },
+        {
+          "type": "range",
+          "id": "input_size_desktop",
+          "label": "Text size",
+          "min": 12,
+          "max": 24,
+          "step": 1,
+          "unit": "px",
+          "default": 14,
+          "visible_if": "{{ block.settings.use_theme_fields == false }}"
+        },
+        {
+          "type": "range",
+          "id": "input_size_mobile",
+          "label": "Text size on phones",
+          "min": 12,
+          "max": 24,
+          "step": 1,
+          "unit": "px",
+          "default": 14,
+          "visible_if": "{{ block.settings.use_theme_fields == false }}",
+          "info": "Phones never go below 16px, so a field does not zoom in when tapped."
+        },
+        {
+          "type": "select",
+          "id": "input_weight",
+          "label": "Weight",
+          "default": "400",
+          "options": [
+            {
+              "value": "300",
+              "label": "Light"
+            },
+            {
+              "value": "400",
+              "label": "Regular"
+            },
+            {
+              "value": "500",
+              "label": "Medium"
+            },
+            {
+              "value": "600",
+              "label": "Semi Bold"
+            },
+            {
+              "value": "700",
+              "label": "Bold"
+            }
+          ],
+          "visible_if": "{{ block.settings.use_theme_fields == false }}",
+          "info": "With Theme fields off."
+        },
+        {
+          "type": "range",
+          "id": "input_padding_top",
+          "label": "Space above",
+          "min": 0,
+          "max": 40,
+          "step": 1,
+          "unit": "px",
+          "default": 12
+        },
+        {
+          "type": "range",
+          "id": "input_border_radius",
+          "label": "Corner radius",
+          "min": 0,
+          "max": 40,
+          "step": 1,
+          "unit": "px",
+          "default": 6,
+          "visible_if": "{{ block.settings.use_theme_fields == false }}"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Custom colours",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "input_color",
+          "label": "Text",
+          "visible_if": "{{ block.settings.enable_custom_style == true }}"
+        },
+        {
+          "type": "color",
+          "id": "input_background",
+          "label": "Background",
+          "visible_if": "{{ block.settings.enable_custom_style == true }}"
+        },
+        {
+          "type": "color",
+          "id": "input_placeholder",
+          "label": "Placeholder",
+          "visible_if": "{{ block.settings.enable_custom_style == true }}"
+        },
+        {
+          "type": "color",
+          "id": "input_border",
+          "label": "Border",
+          "visible_if": "{{ block.settings.enable_custom_style == true }}"
+        },
+        {
+          "type": "header",
+          "content": "Button"
+        },
+        {
+          "type": "checkbox",
+          "id": "use_theme_button",
+          "label": "Theme button style",
+          "default": true
+        },
+        {
+          "type": "range",
+          "id": "button_size_desktop",
+          "label": "Text size",
+          "min": 12,
+          "max": 24,
+          "step": 1,
+          "unit": "px",
+          "default": 16,
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        },
+        {
+          "type": "range",
+          "id": "button_size_mobile",
+          "label": "Text size on phones",
+          "min": 12,
+          "max": 24,
+          "step": 1,
+          "unit": "px",
+          "default": 14,
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        },
+        {
+          "type": "select",
+          "id": "button_weight",
+          "label": "Weight",
+          "default": "700",
+          "options": [
+            {
+              "value": "400",
+              "label": "Regular"
+            },
+            {
+              "value": "500",
+              "label": "Medium"
+            },
+            {
+              "value": "600",
+              "label": "Semi Bold"
+            },
+            {
+              "value": "700",
+              "label": "Bold"
+            },
+            {
+              "value": "800",
+              "label": "Extra Bold"
+            }
+          ],
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        },
+        {
+          "type": "range",
+          "id": "button_padding_top",
+          "label": "Space above",
+          "min": 0,
+          "max": 40,
+          "step": 1,
+          "unit": "px",
+          "default": 12
+        },
+        {
+          "type": "range",
+          "id": "button_border_radius",
+          "label": "Corner radius",
+          "min": 0,
+          "max": 40,
+          "step": 1,
+          "unit": "px",
+          "default": 6,
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        },
+        {
+          "type": "color",
+          "id": "button_background",
+          "label": "Background",
+          "visible_if": "{{ block.settings.enable_custom_style == true }}"
+        },
+        {
+          "type": "color",
+          "id": "button_text_color",
+          "label": "Text",
+          "visible_if": "{{ block.settings.enable_custom_style == true }}"
+        },
+        {
+          "type": "color",
+          "id": "button_border",
+          "label": "Border",
+          "visible_if": "{{ block.settings.enable_custom_style == true }}"
+        },
+        {
+          "type": "color",
+          "id": "button_background_hover",
+          "label": "Hover background",
+          "visible_if": "{{ block.settings.enable_custom_style == true }}"
+        },
+        {
+          "type": "color",
+          "id": "button_text_hover",
+          "label": "Hover text",
+          "visible_if": "{{ block.settings.enable_custom_style == true }}"
+        }
+      ]
+    }
+  ],
+  "presets": []
+}
+{% endschema %}

@@ -1,0 +1,1672 @@
+{% render 'theme-type' %}
+{%- comment -%}
+  Promo Banner 3. Every setting is printed as a CSS variable or an attribute
+  on the element it styles (inline), with the rules below reading them, so
+  shopify/assets/live-hero-gaps.js can apply a builder edit in place with the
+  same values a redraw prints. The section and block settings ride on
+  data-hg-settings for it.
+{%- endcomment -%}
+{%- liquid
+  assign ss = section.settings
+  assign color_scheme = ss.color_scheme.id | default: ss.color_scheme | default: 'default-color-scheme'
+  assign theme_anim = false
+  if settings.scroll_animation != blank and settings.scroll_animation != 'none'
+    assign theme_anim = true
+  endif
+  assign htag = ss.heading_tag | default: 'h2'
+  assign surface = ss.banner_surface | default: 'soft'
+  assign tint = ss.banner_tint | default: 6
+  assign grad = ''
+  assign grad_solid = ''
+  if ss.use_custom_bg and ss.enable_bg_gradient and ss.bg_gradient != blank
+    if ss.bg_gradient contains 'gradient'
+      assign grad = ss.bg_gradient
+    else
+      assign grad_solid = ss.bg_gradient
+    endif
+  endif
+  assign flex_align = 'center'
+  if ss.text_align == 'left'
+    assign flex_align = 'flex-start'
+  elsif ss.text_align == 'right'
+    assign flex_align = 'flex-end'
+  endif
+  assign m_align = ss.text_align
+  if ss.mobile_text_align != blank and ss.mobile_text_align != 'inherit'
+    assign m_align = ss.mobile_text_align
+  endif
+  assign m_flex_align = 'center'
+  if m_align == 'left'
+    assign m_flex_align = 'flex-start'
+  elsif m_align == 'right'
+    assign m_flex_align = 'flex-end'
+  endif
+  assign shadow = 'none'
+  case ss.banner_shadow
+    when 'sm'
+      assign shadow = '0 1px 3px rgba(0,0,0,0.08)'
+    when 'md'
+      assign shadow = '0 6px 20px rgba(0,0,0,0.08)'
+    when 'lg'
+      assign shadow = '0 16px 40px rgba(0,0,0,0.12)'
+  endcase
+  assign reveal_style = ''
+  if ss.reveal and theme_anim == false
+    assign reveal_style = ss.reveal_style | default: 'fade'
+  endif
+-%}
+{%- if section.settings.reveal == false -%}<span data-ti-no-reveal hidden></span>{%- endif -%}
+{%- if theme_anim and section.settings.reveal != false -%}
+<style>
+  #shopify-section-{{ section.id }}.scroll-trigger {
+    --animation-duration: {{ settings.animation_duration | default: 700 }}ms;
+    --animation-delay: {{ settings.animation_delay | default: 0 }}ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-{{ section.id }}');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', {{ settings.scroll_animation | json }});
+  })();
+</script>
+{%- endif -%}
+<style>
+  #shopify-section-{{ section.id }} {
+    --rm3-mt-m: {{ ss.section_margin_top_mobile | default: 0 }}px;
+    --rm3-mb-m: {{ ss.section_margin_bottom_mobile | default: 0 }}px;
+    --rm3-mt-d: {{ ss.section_margin_top_desktop | default: 0 }}px;
+    --rm3-mb-d: {{ ss.section_margin_bottom_desktop | default: 0 }}px;
+    isolation: isolate;
+    position: relative;
+    font-weight: var(--body-weight, inherit);
+    font-family: var(--body-font, var(--theme-font-body, inherit));
+    margin-top: var(--rm3-mt-m) !important;
+    margin-bottom: var(--rm3-mb-m) !important;
+  }
+  @media (min-width: 750px) {
+    #shopify-section-{{ section.id }} {
+      margin-top: var(--rm3-mt-d) !important;
+      margin-bottom: var(--rm3-mb-d) !important;
+    }
+  }
+  #shopify-section-{{ section.id }}:has(#rm3-{{ section.id }}[data-reset-spacing]) > :is(.section, section, div) { margin-top: 0 !important; margin-bottom: 0 !important; }
+  @media (max-width: 749px) { #shopify-section-{{ section.id }}:has(#rm3-{{ section.id }}[data-hide-mobile]) { display: none !important; } }
+  @media (min-width: 750px) { #shopify-section-{{ section.id }}:has(#rm3-{{ section.id }}[data-hide-desktop]) { display: none !important; } }
+  :where(#shopify-section-{{ section.id }}) :where(button, input, textarea, select, optgroup) { font-family: inherit; }
+</style>
+<!-- ti-theme:start -->
+
+<section
+  class="rm3 color-{{ color_scheme }} gradient"
+  id="rm3-{{ section.id }}"
+  data-section-id="{{ section.id }}"
+  data-hg="banner3"
+  data-hg-section="{{ section.id }}"{% if request.design_mode %}
+  data-hg-settings="{{ section.settings | json | escape }}"{% endif %}
+  {% if theme_anim %}data-theme-anim{% endif %}
+  {% if ss.reset_spacing %}data-reset-spacing{% endif %}
+  {% if ss.show_mobile == false %}data-hide-mobile{% endif %}
+  {% if ss.show_desktop == false %}data-hide-desktop{% endif %}
+  style="--rm-heading-c: {% if ss.use_custom_text %}{% render 'scheme-color', color: ss.heading_color, fallback: 'var(--color-heading, currentColor)' %}{% else %}var(--color-heading, currentColor){% endif %}; --rm-text-c: {% if ss.use_custom_text %}{% render 'scheme-color', color: ss.text_color, fallback: 'var(--color-text, currentColor)' %}{% else %}var(--color-text, currentColor){% endif %}; --rm3-bg: {% if ss.use_custom_bg %}{% render 'scheme-color', color: ss.section_bg_color, fallback: 'var(--color-background, transparent)' %}{% else %}var(--color-background, transparent){% endif %}; --rm3-pt-m: {{ ss.section_padding_top_mobile | default: 40 }}px; --rm3-pb-m: {{ ss.section_padding_bottom_mobile | default: 40 }}px; --rm3-pt-d: {{ ss.section_padding_top | default: 60 }}px; --rm3-pb-d: {{ ss.section_padding_bottom | default: 60 }}px;"
+>
+  <style>
+    /* Outer wrapper: carries this section's own colour scheme, background and section padding */
+    #rm3-{{ section.id }} {
+      --rm-font-heading: var(--heading-font, var(--theme-font-heading, inherit));
+      --rm-font-body: var(--body-font, var(--theme-font-body, inherit));
+      --rm-weight-heading: var(--heading-weight, 700);
+      --rm-weight-body: var(--body-weight, 400);
+      position: relative;
+      box-sizing: border-box;
+      color: var(--rm-text-c);
+      background-color: var(--rm3-bg);
+      padding-top: var(--rm3-pt-m);
+      padding-bottom: var(--rm3-pb-m);
+      overflow-x: clip;
+    }
+    @media (min-width: 750px) {
+      #rm3-{{ section.id }} {
+        padding-top: var(--rm3-pt-d);
+        padding-bottom: var(--rm3-pb-d);
+      }
+    }
+
+    /* Section width, from the theme's page width and side padding */
+    #rm3-{{ section.id }} .rm3__container { box-sizing: border-box; width: 100%; margin-inline: auto; }
+    #rm3-{{ section.id }} .rm3__container--container { max-width: calc(var(--page-width, var(--theme-page-width, 1300px)) + 3rem); padding-inline: var(--theme-padding-x, 1.5rem); }
+    #rm3-{{ section.id }} .rm3__container--fluid_container { max-width: calc(var(--fluid-container-width, 1500px) + 3rem); padding-inline: var(--theme-padding-x, 1.5rem); }
+    #rm3-{{ section.id }} .rm3__container--stretch_width { padding-inline: 1.5rem; }
+    @media (min-width: 1200px) { #rm3-{{ section.id }} .rm3__container--stretch_width { padding-inline: 3rem; } }
+    #rm3-{{ section.id }} .rm3__container--full_width { max-width: none; padding-inline: 0; }
+
+    /* Blocks with custom styling off follow the theme */
+    #rm-hero-{{ section.id }} .rm-hero__eyebrow:not([data-custom]) { --rm-eyebrow-color:var(--rm-heading-c);--rm-eyebrow-font:var(--rm-font-body);--rm-eyebrow-weight:var(--rm-weight-body);--rm-eyebrow-transform:none;--rm-eyebrow-letterspace:normal;--rm-eyebrow-lineheight:var(--body-line-height,1.6);--rm-eyebrow-opacity:1;--rm-eyebrow-size-d:var(--body-font-size,16px);--rm-eyebrow-size-m:var(--body-font-size,16px); }
+    #rm-hero-{{ section.id }} .rm-hero__heading:not([data-custom]) { --rm-heading-color:var(--rm-heading-c);--rm-heading-font:var(--rm-font-heading);--rm-heading-weight:var(--rm-weight-heading);--rm-heading-transform:var(--heading-text-transform,none);--rm-heading-lineheight:var(--heading-line-height,1.15);--rm-heading-letterspace:var(--heading-letter-spacing,normal);--rm-heading-size-d:var(--h2-size,2.4rem);--rm-heading-size-m:var(--h2-size,2.4rem); }
+    #rm-hero-{{ section.id }} .rm-hero__sub:not([data-custom]) { --rm-sub-color:var(--rm-text-c);--rm-sub-font:var(--rm-font-body);--rm-sub-weight:var(--rm-weight-body);--rm-sub-transform:none;--rm-sub-letterspace:normal;--rm-sub-lineheight:var(--body-line-height,1.6);--rm-sub-opacity:1;--rm-sub-size-d:var(--body-font-size,16px);--rm-sub-size-m:var(--body-font-size,16px); }
+    /* Explicit block choices override the theme priority, only while custom styling is on */
+    #rm-hero-{{ section.id }} .rm-hero__eyebrow[data-custom] { font-family:var(--rm-eyebrow-font)!important;font-weight:var(--rm-eyebrow-weight)!important;line-height:var(--rm-eyebrow-lineheight)!important;letter-spacing:var(--rm-eyebrow-letterspace)!important;text-transform:var(--rm-eyebrow-transform)!important; }
+    #rm-hero-{{ section.id }} .rm-hero__heading[data-custom] { font-family:var(--rm-heading-font)!important;font-weight:var(--rm-heading-weight)!important;line-height:var(--rm-heading-lineheight)!important;letter-spacing:var(--rm-heading-letterspace)!important;text-transform:var(--rm-heading-transform)!important; }
+    #rm-hero-{{ section.id }} .rm-hero__sub[data-custom] { font-family:var(--rm-sub-font)!important;font-weight:var(--rm-sub-weight)!important;line-height:var(--rm-sub-lineheight)!important;letter-spacing:var(--rm-sub-letterspace)!important;text-transform:var(--rm-sub-transform)!important; }
+    #rm-hero-{{ section.id }} .rm-hero__btn[data-custom] { font-weight:var(--mb-weight,var(--btn-font-weight,500))!important;font-size:var(--mb-font-size,var(--btn-font-size,14px))!important;border-radius:var(--mb-radius,var(--theme-button-radius,var(--btn-radius,8px)))!important;padding:var(--mb-padding-y,var(--theme-button-padding-y,14px)) var(--mb-padding-x,var(--theme-button-padding-x,26px))!important; }
+    #rm-hero-{{ section.id }} .rm-hero__btn[data-custom][data-own-shape] { --mb-font-size: var(--rm-btn-size-d); border-style: solid; border-width: var(--btn-border-width); }
+    @media (max-width: 749px) {
+      #rm-hero-{{ section.id }} .rm-hero__btn[data-custom][data-own-shape] { --mb-font-size: var(--rm-btn-size-m); }
+    }
+
+    #rm-hero-{{ section.id }}{
+      position: relative;
+      box-sizing: border-box;
+      width: auto;
+      max-width: none;
+      margin: 0 var(--rm-section-pad-right-m) 0 var(--rm-section-pad-left-m);
+      background-color: var(--rm-bg);
+      background-image: var(--rm-gradient);
+      padding: var(--rm-pt-m) var(--rm-inner-pad) var(--rm-pb-m);
+      border-radius: var(--rm-section-radius);
+      border: var(--rm-border-w) solid var(--rm-border-c);
+      box-shadow: var(--rm-shadow);
+      overflow: hidden;
+    }
+    #rm-hero-{{ section.id }}[data-hover-lift]{ transition: transform 300ms cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 300ms ease; }
+    @media (min-width: 750px){
+      #rm-hero-{{ section.id }}{
+        margin-left: var(--rm-section-pad-left);
+        margin-right: var(--rm-section-pad-right);
+        padding: var(--rm-pt) var(--rm-inner-pad) var(--rm-pb);
+      }
+    }
+    @media (hover: hover){
+      #rm-hero-{{ section.id }}[data-hover-lift]:hover{ transform: translateY(-4px); box-shadow: 0 16px 40px rgba(0,0,0,0.12); }
+    }
+    #rm-hero-{{ section.id }}::before{
+      content:"";
+      position:absolute; inset:0;
+      background: var(--rm-overlay);
+      opacity: var(--rm-overlay-opacity);
+      pointer-events:none;
+    }
+    #rm-hero-{{ section.id }} .rm-hero__inner{
+      position: relative;
+      z-index: 1;
+      max-width: var(--rm-content-max);
+      margin-inline: auto;
+      text-align: var(--rm-align-m);
+      display: flex;
+      flex-direction: column;
+      align-items: var(--rm-flex-m);
+      gap: var(--rm-gap);
+      min-width: 0;
+    }
+    @media (min-width: 750px){
+      #rm-hero-{{ section.id }} .rm-hero__inner{ text-align: var(--rm-align); align-items: var(--rm-flex); }
+    }
+
+    #rm-hero-{{ section.id }} .rm-hero__eyebrow{
+      margin: 0;
+      font-family: var(--rm-eyebrow-font, var(--rm-font-body));
+      font-weight: var(--rm-eyebrow-weight);
+      letter-spacing: var(--rm-eyebrow-letterspace);
+      line-height: var(--rm-eyebrow-lineheight, 1.4);
+      text-transform: var(--rm-eyebrow-transform);
+      opacity: var(--rm-eyebrow-opacity);
+      color: var(--rm-eyebrow-color, var(--rm-heading-c));
+      font-size: var(--rm-eyebrow-size-m);
+    }
+    #rm-hero-{{ section.id }} .rm-hero__heading{
+      margin: 0;
+      font-family: var(--rm-heading-font, var(--rm-font-heading));
+      line-height: var(--rm-heading-lineheight);
+      font-weight: var(--rm-heading-weight);
+      text-transform: var(--rm-heading-transform, none);
+      color: var(--rm-heading-color, var(--rm-heading-c)) !important;
+      letter-spacing: var(--rm-heading-letterspace);
+      font-size: var(--rm-heading-size-m);
+      overflow-wrap: break-word;
+    }
+    #rm-hero-{{ section.id }} .rm-hero__sub{
+      margin: 0;
+      font-family: var(--rm-sub-font, var(--rm-font-body));
+      font-weight: var(--rm-sub-weight, var(--rm-weight-body));
+      text-transform: var(--rm-sub-transform, none);
+      letter-spacing: var(--rm-sub-letterspace, 0);
+      line-height: var(--rm-sub-lineheight);
+      color: var(--rm-sub-color, var(--rm-text-c));
+      opacity: var(--rm-sub-opacity);
+      font-size: var(--rm-sub-size-m);
+      overflow-wrap: break-word;
+    }
+    #rm-hero-{{ section.id }} .rm-hero__inner > :last-child{ margin-bottom: 0; }
+    #rm-hero-{{ section.id }} .rm-hero__inner > [hidden]{ display: none !important; }
+    @media (min-width: 750px){
+      #rm-hero-{{ section.id }} .rm-hero__eyebrow{ font-size: var(--rm-eyebrow-size-d); }
+      #rm-hero-{{ section.id }} .rm-hero__heading{ font-size: var(--rm-heading-size-d); }
+      #rm-hero-{{ section.id }} .rm-hero__sub{ font-size: var(--rm-sub-size-d); }
+    }
+
+    /* Button: a theme button (Theme settings > Buttons) */
+    #rm-hero-{{ section.id }} .rm-hero__btn{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: .5rem;
+      min-height: 44px;
+      margin: calc(var(--rm-sub-btn-gap) - var(--rm-gap)) 0 0;
+      width: fit-content;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      max-width: 100%;
+      text-align: center;
+    }
+    #rm-hero-{{ section.id }} .rm-hero__inner > .rm-hero__btn:not(:not([hidden]) ~ .rm-hero__btn){ margin-top: 0; }
+    #rm-hero-{{ section.id }} .rm-hero__btn:focus-visible{
+      outline: 2px solid var(--rm-heading-c);
+      outline-offset: 3px;
+    }
+    @media (max-width: 749px){
+      #rm-hero-{{ section.id }}[data-button-full-mobile] .rm-hero__btn{ width: 100%; }
+    }
+
+    html:is(.shopify-design-mode,.mt-editor) #rm-hero-{{ section.id }}{animation:none!important;opacity:1!important;translate:none!important;scale:none!important;}
+    /* Reveal on scroll (CSS only), used when the theme's own scroll animation is off */
+    @keyframes rm3-in-{{ section.id }} {
+      from { opacity: 0; translate: var(--rm-reveal-from-y, none); scale: var(--rm-reveal-from-scale, none); }
+      to { opacity: 1; translate: none; scale: none; }
+    }
+    #rm-hero-{{ section.id }}[data-reveal="fade_up"] { --rm-reveal-from-y: 0 32px; }
+    #rm-hero-{{ section.id }}[data-reveal="zoom"] { --rm-reveal-from-scale: 0.96; }
+    @supports (animation-timeline: view()) {
+      #rm-hero-{{ section.id }}[data-reveal] {
+        animation: rm3-in-{{ section.id }} linear both;
+        animation-timeline: view();
+        animation-range: entry 0% entry var(--rm-reveal-range, 60%);
+      }
+    }
+    @media (prefers-reduced-motion: reduce){
+      #rm-hero-{{ section.id }} { animation: none !important; transition: none !important; transform: none !important; translate: none !important; scale: none !important; }
+    }
+  </style>
+
+  <div class="rm3__container rm3__container--{{ ss.section_width | default: 'stretch_width' }}">
+    <div
+      class="rm-hero"
+      id="rm-hero-{{ section.id }}"
+      {% if ss.hover_lift %}data-hover-lift{% endif %}
+      {% if ss.mobile_button_full %}data-button-full-mobile{% endif %}
+      {% if reveal_style != blank %}data-reveal="{{ reveal_style }}"{% endif %}
+      style="--rm-bg: {% if grad_solid != blank %}{{ grad_solid }}{% elsif ss.use_custom_bg and ss.bg_color != blank %}{% render 'scheme-color', color: ss.bg_color, fallback: 'var(--color-background)' %}{% elsif surface == 'soft' %}color-mix(in srgb, var(--rm-text-c) {{ tint }}%, var(--color-background, #ffffff)){% else %}var(--color-background, transparent){% endif %}; --rm-gradient: {% if grad != blank %}{{ grad }}{% else %}none{% endif %}; --rm-overlay: {% render 'scheme-color', color: ss.overlay_color, fallback: '#000000' %}; --rm-overlay-opacity: {% if ss.use_custom_bg %}{{ ss.overlay_opacity | default: 0 | divided_by: 100.0 }}{% else %}0{% endif %}; --rm-content-max: {{ ss.max_width }}px; --rm-align: {{ ss.text_align }}; --rm-flex: {{ flex_align }}; --rm-align-m: {{ m_align }}; --rm-flex-m: {{ m_flex_align }}; --rm-gap: {{ ss.stack_gap }}px; --rm-pt: {{ ss.pad_top_desktop }}px; --rm-pb: {{ ss.pad_bottom_desktop }}px; --rm-pt-m: {{ ss.pad_top_mobile }}px; --rm-pb-m: {{ ss.pad_bottom_mobile }}px; --rm-section-pad-left: {{ ss.section_pad_left }}px; --rm-section-pad-right: {{ ss.section_pad_right }}px; --rm-section-pad-left-m: {{ ss.section_pad_left_mobile }}px; --rm-section-pad-right-m: {{ ss.section_pad_right_mobile }}px; --rm-section-radius: {% if ss.use_theme_radius %}var(--rounded-radius, var(--card-corner-radius, var(--theme-card-radius, var(--border-radius, 8px)))){% else %}{{ ss.section_border_radius }}px{% endif %}; --rm-border-w: {{ ss.banner_border_width | default: 0 }}px; --rm-border-c: {% render 'scheme-color', color: ss.banner_border_color, fallback: 'var(--color-border, rgba(0,0,0,0.12))' %}; --rm-shadow: {{ shadow }}; --rm-sub-btn-gap: {{ ss.sub_btn_gap }}px; --rm-inner-pad: {{ ss.side_padding }}px; --rm-reveal-range: {{ ss.reveal_range | default: 60 }}%;"
+    >
+      <div class="rm-hero__inner">
+        {% for block in section.blocks %}
+          {% if block.hidden %}{% continue %}{% endif %}
+          {%- liquid
+            assign bs = block.settings
+            assign own = bs.enable_custom_style
+          -%}
+          {% case block.type %}
+
+            {% when 'eyebrow' %}
+              <p class="rm-hero__eyebrow" data-promo-block="{{ block.id }}" data-hg-block="{{ block.id }}" data-hg-type="eyebrow"{% if request.design_mode %} data-hg-settings="{{ bs | json | escape }}"{% endif %}{% if bs.text == blank %} hidden{% endif %}{% if own %} data-custom data-own-font data-own-weight data-own-size style="--rm-eyebrow-color: {% render 'scheme-color', color: bs.color, fallback: 'var(--rm-heading-c)' %}; --rm-eyebrow-font: {% if bs.font == 'heading' %}var(--rm-font-heading){% else %}var(--rm-font-body){% endif %}; --rm-eyebrow-weight: {% if bs.weight == 'theme' %}{% if bs.font == 'heading' %}var(--rm-weight-heading){% else %}var(--rm-weight-body){% endif %}{% else %}{{ bs.weight }}{% endif %}; --rm-eyebrow-transform: {{ bs.transform | default: 'none' }}; --rm-eyebrow-letterspace: {{ bs.letterspace }}em; --rm-eyebrow-lineheight: {{ bs.lineheight | default: '1.4' }}; --rm-eyebrow-opacity: {{ bs.opacity | divided_by: 100.0 }}; --rm-eyebrow-size-d: {{ bs.size_d }}px; --rm-eyebrow-size-m: {{ bs.size_m }}px;"{% endif %} {{ block.shopify_attributes }}>{{ bs.text | escape }}</p>
+
+            {% when 'heading' %}
+              <{{ htag }} class="rm-hero__heading" data-promo-block="{{ block.id }}" data-hg-block="{{ block.id }}" data-hg-type="heading"{% if request.design_mode %} data-hg-settings="{{ bs | json | escape }}"{% endif %}{% if bs.text == blank %} hidden{% endif %}{% if own %} data-custom data-own-font data-own-weight data-own-size{% endif %} style="{% if bs.max_width > 0 %}max-width: {{ bs.max_width }}ch;{% endif %}{% if own %} --rm-heading-color: {% render 'scheme-color', color: bs.color, fallback: 'var(--rm-heading-c)' %}; --rm-heading-font: {% if bs.font == 'body' %}var(--rm-font-body){% else %}var(--rm-font-heading){% endif %}; --rm-heading-weight: {% if bs.weight == 'theme' %}{% if bs.font == 'body' %}var(--rm-weight-body){% else %}var(--rm-weight-heading){% endif %}{% else %}{{ bs.weight }}{% endif %}; --rm-heading-transform: {{ bs.transform | default: 'none' }}; --rm-heading-lineheight: {{ bs.lineheight | default: '1.15' }}; --rm-heading-letterspace: {{ bs.letterspace }}em; --rm-heading-size-d: {{ bs.size_d }}px; --rm-heading-size-m: {{ bs.size_m }}px;{% endif %}" {{ block.shopify_attributes }}>{{ bs.text | escape }}</{{ htag }}>
+
+            {% when 'subheading' %}
+              <p class="rm-hero__sub" data-promo-block="{{ block.id }}" data-hg-block="{{ block.id }}" data-hg-type="subheading"{% if request.design_mode %} data-hg-settings="{{ bs | json | escape }}"{% endif %}{% if bs.text == blank %} hidden{% endif %}{% if own %} data-custom data-own-font data-own-weight data-own-size{% endif %} style="{% if bs.max_width > 0 %}max-width: {{ bs.max_width }}ch;{% endif %}{% if own %} --rm-sub-color: {% render 'scheme-color', color: bs.color, fallback: 'var(--rm-text-c)' %}; --rm-sub-font: {% if bs.font == 'heading' %}var(--rm-font-heading){% else %}var(--rm-font-body){% endif %}; --rm-sub-weight: {% if bs.weight == 'theme' or bs.weight == blank %}{% if bs.font == 'heading' %}var(--rm-weight-heading){% else %}var(--rm-weight-body){% endif %}{% else %}{{ bs.weight }}{% endif %}; --rm-sub-transform: {{ bs.transform | default: 'none' }}; --rm-sub-letterspace: {{ bs.letterspace | default: 0 }}em; --rm-sub-lineheight: {{ bs.lineheight | default: '1.5' }}; --rm-sub-opacity: {{ bs.opacity | divided_by: 100.0 }}; --rm-sub-size-d: {{ bs.size_d }}px; --rm-sub-size-m: {{ bs.size_m }}px;{% endif %}" {{ block.shopify_attributes }}>{{ bs.text | escape }}</p>
+
+            {% when 'button' %}
+              {%- liquid
+                assign shape = false
+                if own and bs.use_theme_button == false
+                  assign shape = true
+                endif
+              -%}
+              <a class="rm-hero__btn" data-promo-block="{{ block.id }}" data-hg-block="{{ block.id }}" data-hg-type="button"{% if request.design_mode %} data-hg-settings="{{ bs | json | escape }}"{% endif %} data-theme-button="primary" data-sl-button data-button-role="primary"{% if bs.link != blank %} href="{{ bs.link | url | escape }}"{% endif %}{% if bs.label == blank or bs.link == blank %} hidden{% endif %}{% if own %} data-custom data-own-weight{% if shape %} data-own-shape{% endif %} style="{% render 'button-overrides', bg: bs.bg, text: bs.text_color, border: bs.border_color %}{% if bs.bg != blank %} background-color: {% render 'scheme-color', color: bs.bg, fallback: 'transparent' %};{% endif %}{% if bs.text_color != blank %} color: {% render 'scheme-color', color: bs.text_color, fallback: 'currentColor' %};{% endif %}{% if bs.border_color != blank %} border-color: {% render 'scheme-color', color: bs.border_color, fallback: 'transparent' %};{% endif %} --mb-weight: {{ bs.weight }};{% if shape %} --btn-border-width: {{ bs.border_width }}px; --mb-radius: {{ bs.radius }}px; --mb-padding-y: {{ bs.pad_v }}px; --mb-padding-x: {{ bs.pad_h }}px; --rm-btn-size-d: {{ bs.size_d }}px; --rm-btn-size-m: {{ bs.size_m }}px;{% endif %}"{% endif %} {{ block.shopify_attributes }}>{{ bs.label | escape }}</a>
+
+          {% endcase %}
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</section>
+{% schema %}
+{
+  "name": "Promo Banner 3",
+  "tag": "section",
+  "class": "section section-edge-bleed",
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Section width",
+      "default": "stretch_width",
+      "options": [
+        {
+          "value": "container",
+          "label": "Page width"
+        },
+        {
+          "value": "fluid_container",
+          "label": "Fluid container"
+        },
+        {
+          "value": "stretch_width",
+          "label": "Stretched"
+        },
+        {
+          "value": "full_width",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "reset_spacing",
+      "label": "Remove the theme's default space between sections",
+      "default": true
+    },
+    {
+      "id": "text_align",
+      "type": "select",
+      "label": "Text alignment",
+      "default": "center",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ]
+    },
+    {
+      "id": "max_width",
+      "type": "range",
+      "label": "Content max width",
+      "min": 480,
+      "max": 1400,
+      "step": 10,
+      "unit": "px",
+      "default": 760
+    },
+    {
+      "type": "select",
+      "id": "heading_tag",
+      "label": "Heading level",
+      "info": "The heading level follows the page outline; the saved choice is kept.",
+      "default": "h2",
+      "options": [
+        {
+          "value": "h1",
+          "label": "H1"
+        },
+        {
+          "value": "h2",
+          "label": "H2"
+        },
+        {
+          "value": "h3",
+          "label": "H3"
+        }
+      ],
+      "visible_if": "{{ false }}",
+      "hidden": true
+    },
+    {
+      "type": "header",
+      "content": "Style & Colors"
+    },
+    {
+      "type": "checkbox",
+      "id": "use_custom_text",
+      "label": "Enable custom text colours",
+      "default": false
+    },
+    {
+      "type": "color",
+      "id": "heading_color",
+      "label": "Heading colour",
+      "default": "#000000",
+      "visible_if": "{{ section.settings.use_custom_text }}"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text colour",
+      "default": "#0f0f0f",
+      "visible_if": "{{ section.settings.use_custom_text }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "use_custom_bg",
+      "label": "Enable custom background",
+      "default": false
+    },
+    {
+      "id": "section_bg_color",
+      "type": "color",
+      "label": "Section background colour",
+      "visible_if": "{{ section.settings.use_custom_bg }}"
+    },
+    {
+      "id": "bg_color",
+      "type": "color",
+      "label": "Banner background colour",
+      "visible_if": "{{ section.settings.use_custom_bg }}"
+    },
+    {
+      "id": "enable_bg_gradient",
+      "type": "checkbox",
+      "label": "Enable background gradient",
+      "default": false,
+      "visible_if": "{{ section.settings.use_custom_bg }}"
+    },
+    {
+      "id": "bg_gradient",
+      "type": "color_background",
+      "label": "Background gradient",
+      "visible_if": "{{ section.settings.use_custom_bg }}"
+    },
+    {
+      "id": "overlay_color",
+      "type": "color",
+      "label": "Tint overlay",
+      "info": "Leave empty for a black tint. Set the strength with Tint opacity.",
+      "visible_if": "{{ section.settings.use_custom_bg }}"
+    },
+    {
+      "id": "overlay_opacity",
+      "type": "range",
+      "label": "Tint opacity",
+      "min": 0,
+      "max": 90,
+      "step": 1,
+      "unit": "%",
+      "default": 0,
+      "visible_if": "{{ section.settings.use_custom_bg }}"
+    },
+    {
+      "type": "select",
+      "id": "banner_surface",
+      "label": "Banner background",
+      "info": "Soft tint makes the banner stand out from the section so its corners, border and shadow show. Custom background colours override this.",
+      "default": "soft",
+      "options": [
+        {
+          "value": "soft",
+          "label": "Soft tint of the colour scheme"
+        },
+        {
+          "value": "section",
+          "label": "Same as the section"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "banner_tint",
+      "label": "Tint strength",
+      "min": 2,
+      "max": 20,
+      "step": 1,
+      "unit": "%",
+      "default": 6,
+      "visible_if": "{{ section.settings.banner_surface == 'soft' }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "use_theme_radius",
+      "label": "Use the theme's card corner radius",
+      "default": false
+    },
+    {
+      "id": "section_border_radius",
+      "type": "range",
+      "label": "Banner corner radius",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "unit": "px",
+      "default": 0,
+      "visible_if": "{{ section.settings.use_theme_radius == false }}"
+    },
+    {
+      "type": "range",
+      "id": "banner_border_width",
+      "label": "Banner border",
+      "min": 0,
+      "max": 4,
+      "step": 1,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "color",
+      "id": "banner_border_color",
+      "label": "Banner border colour",
+      "info": "Leave empty to follow the colour scheme's border colour.",
+      "visible_if": "{{ section.settings.banner_border_width > 0 }}"
+    },
+    {
+      "type": "select",
+      "id": "banner_shadow",
+      "label": "Banner shadow",
+      "default": "none",
+      "options": [
+        {
+          "value": "none",
+          "label": "None"
+        },
+        {
+          "value": "sm",
+          "label": "Small"
+        },
+        {
+          "value": "md",
+          "label": "Medium"
+        },
+        {
+          "value": "lg",
+          "label": "Large"
+        }
+      ]
+    },
+    {
+      "type": "header",
+      "content": "Animation & Behavior"
+    },
+    {
+      "type": "checkbox",
+      "id": "reveal",
+      "label": "Reveal on scroll",
+      "info": "Follows Theme settings > Animations when that is on, otherwise uses the style below.",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "reveal_style",
+      "label": "Reveal style",
+      "default": "fade_up",
+      "options": [
+        {
+          "value": "fade",
+          "label": "Fade"
+        },
+        {
+          "value": "fade_up",
+          "label": "Fade up"
+        },
+        {
+          "value": "zoom",
+          "label": "Zoom"
+        }
+      ],
+      "visible_if": "{{ section.settings.reveal }}"
+    },
+    {
+      "type": "range",
+      "id": "reveal_range",
+      "label": "Reveal finishes at",
+      "info": "How far into view the banner is when fully shown.",
+      "min": 20,
+      "max": 100,
+      "step": 10,
+      "unit": "%",
+      "default": 60,
+      "visible_if": "{{ section.settings.reveal }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "hover_lift",
+      "label": "Lift the banner on hover",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "show_desktop",
+      "label": "Show on desktop",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Layout & Spacing"
+    },
+    {
+      "id": "stack_gap",
+      "type": "range",
+      "label": "Gap between text blocks",
+      "min": 4,
+      "max": 48,
+      "step": 2,
+      "unit": "px",
+      "default": 18
+    },
+    {
+      "id": "sub_btn_gap",
+      "type": "range",
+      "label": "Gap above the button",
+      "min": 0,
+      "max": 48,
+      "step": 2,
+      "unit": "px",
+      "default": 30
+    },
+    {
+      "id": "side_padding",
+      "type": "range",
+      "label": "Banner inner side padding",
+      "min": 0,
+      "max": 64,
+      "step": 2,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "id": "pad_top_desktop",
+      "type": "range",
+      "label": "Banner top padding (desktop)",
+      "min": 0,
+      "max": 220,
+      "step": 10,
+      "unit": "px",
+      "default": 70
+    },
+    {
+      "id": "pad_bottom_desktop",
+      "type": "range",
+      "label": "Banner bottom padding (desktop)",
+      "min": 0,
+      "max": 220,
+      "step": 10,
+      "unit": "px",
+      "default": 50
+    },
+    {
+      "id": "section_padding_top",
+      "type": "range",
+      "label": "Section top padding (desktop)",
+      "min": 0,
+      "max": 200,
+      "step": 2,
+      "unit": "px",
+      "default": 60
+    },
+    {
+      "id": "section_padding_bottom",
+      "type": "range",
+      "label": "Section bottom padding (desktop)",
+      "min": 0,
+      "max": 200,
+      "step": 2,
+      "unit": "px",
+      "default": 60
+    },
+    {
+      "id": "section_pad_left",
+      "type": "range",
+      "label": "Banner outer left space (desktop)",
+      "min": 0,
+      "max": 200,
+      "step": 10,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "id": "section_pad_right",
+      "type": "range",
+      "label": "Banner outer right space (desktop)",
+      "min": 0,
+      "max": 200,
+      "step": 10,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_desktop",
+      "label": "Top margin (desktop)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_desktop",
+      "label": "Bottom margin (desktop)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "header",
+      "content": "Mobile"
+    },
+    {
+      "id": "mobile_text_align",
+      "type": "select",
+      "label": "Text alignment on phones",
+      "default": "inherit",
+      "options": [
+        {
+          "value": "inherit",
+          "label": "Same as desktop"
+        },
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "mobile_button_full",
+      "label": "Full width button on phones",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "show_mobile",
+      "label": "Show on mobile",
+      "default": true
+    },
+    {
+      "id": "pad_top_mobile",
+      "type": "range",
+      "label": "Banner top padding (mobile)",
+      "min": 0,
+      "max": 160,
+      "step": 10,
+      "unit": "px",
+      "default": 50
+    },
+    {
+      "id": "pad_bottom_mobile",
+      "type": "range",
+      "label": "Banner bottom padding (mobile)",
+      "min": 0,
+      "max": 160,
+      "step": 2,
+      "unit": "px",
+      "default": 56
+    },
+    {
+      "id": "section_padding_top_mobile",
+      "type": "range",
+      "label": "Section top padding (mobile)",
+      "min": 0,
+      "max": 200,
+      "step": 2,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "id": "section_padding_bottom_mobile",
+      "type": "range",
+      "label": "Section bottom padding (mobile)",
+      "min": 0,
+      "max": 200,
+      "step": 2,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "id": "section_pad_left_mobile",
+      "type": "range",
+      "label": "Banner outer left space (mobile)",
+      "min": 0,
+      "max": 200,
+      "step": 10,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "id": "section_pad_right_mobile",
+      "type": "range",
+      "label": "Banner outer right space (mobile)",
+      "min": 0,
+      "max": 200,
+      "step": 10,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_mobile",
+      "label": "Top margin (mobile)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_mobile",
+      "label": "Bottom margin (mobile)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    }
+  ],
+  "blocks": [
+    {
+      "type": "eyebrow",
+      "name": "Top text (eyebrow)",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "id": "text",
+          "type": "text",
+          "label": "Text",
+          "default": "Real Moments"
+        },
+        {
+          "type": "header",
+          "content": "Style & Colors"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false,
+          "info": "Off follows theme typography, weights, colours and buttons."
+        },
+        {
+          "id": "font",
+          "type": "select",
+          "label": "Theme font",
+          "default": "body",
+          "options": [
+            {
+              "value": "heading",
+              "label": "Heading font"
+            },
+            {
+              "value": "body",
+              "label": "Body font"
+            }
+          ],
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "id": "weight",
+          "type": "select",
+          "label": "Font weight",
+          "default": "500",
+          "options": [
+            {
+              "value": "theme",
+              "label": "Theme"
+            },
+            {
+              "value": "300",
+              "label": "Light"
+            },
+            {
+              "value": "400",
+              "label": "Normal"
+            },
+            {
+              "value": "500",
+              "label": "Medium"
+            },
+            {
+              "value": "600",
+              "label": "Semibold"
+            },
+            {
+              "value": "700",
+              "label": "Bold"
+            },
+            {
+              "value": "800",
+              "label": "Extra bold"
+            },
+            {
+              "value": "900",
+              "label": "Black"
+            }
+          ],
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "id": "transform",
+          "type": "select",
+          "label": "Text case",
+          "default": "uppercase",
+          "options": [
+            {
+              "value": "none",
+              "label": "As typed"
+            },
+            {
+              "value": "uppercase",
+              "label": "Uppercase"
+            },
+            {
+              "value": "capitalize",
+              "label": "Capitalize"
+            },
+            {
+              "value": "lowercase",
+              "label": "Lowercase"
+            }
+          ],
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "id": "letterspace",
+          "type": "range",
+          "label": "Letter spacing",
+          "min": 0,
+          "max": 1,
+          "step": 0.1,
+          "unit": "em",
+          "default": 0.6,
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "id": "lineheight",
+          "type": "text",
+          "label": "Line height",
+          "default": "1.4",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "id": "size_d",
+          "type": "range",
+          "label": "Size (desktop)",
+          "min": 10,
+          "max": 22,
+          "step": 1,
+          "unit": "px",
+          "default": 17,
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "id": "color",
+          "type": "color",
+          "label": "Colour",
+          "info": "Leave empty to follow the section's heading colour.",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "id": "opacity",
+          "type": "range",
+          "label": "Opacity",
+          "min": 20,
+          "max": 100,
+          "step": 1,
+          "unit": "%",
+          "default": 100,
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "header",
+          "content": "Mobile"
+        },
+        {
+          "id": "size_m",
+          "type": "range",
+          "label": "Size (mobile)",
+          "min": 10,
+          "max": 22,
+          "step": 1,
+          "unit": "px",
+          "default": 17,
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "name": "Heading",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "id": "text",
+          "type": "text",
+          "label": "Heading text",
+          "default": "Wear It Your Way"
+        },
+        {
+          "type": "header",
+          "content": "Style & Colors"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false,
+          "info": "Off follows theme typography, weights, colours and buttons."
+        },
+        {
+          "id": "font",
+          "type": "select",
+          "label": "Theme font",
+          "default": "heading",
+          "options": [
+            {
+              "value": "heading",
+              "label": "Heading font"
+            },
+            {
+              "value": "body",
+              "label": "Body font"
+            }
+          ],
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "id": "weight",
+          "type": "select",
+          "label": "Font weight",
+          "default": "700",
+          "options": [
+            {
+              "value": "theme",
+              "label": "Theme"
+            },
+            {
+              "value": "300",
+              "label": "Light"
+            },
+            {
+              "value": "400",
+              "label": "Normal"
+            },
+            {
+              "value": "500",
+              "label": "Medium"
+            },
+            {
+              "value": "600",
+              "label": "Semibold"
+            },
+            {
+              "value": "700",
+              "label": "Bold"
+            },
+            {
+              "value": "800",
+              "label": "Extra bold"
+            },
+            {
+              "value": "900",
+              "label": "Black"
+            }
+          ],
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "id": "transform",
+          "type": "select",
+          "label": "Text case",
+          "default": "none",
+          "options": [
+            {
+              "value": "none",
+              "label": "As typed"
+            },
+            {
+              "value": "uppercase",
+              "label": "Uppercase"
+            },
+            {
+              "value": "capitalize",
+              "label": "Capitalize"
+            },
+            {
+              "value": "lowercase",
+              "label": "Lowercase"
+            }
+          ],
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "id": "letterspace",
+          "type": "range",
+          "label": "Letter spacing",
+          "min": -0.1,
+          "max": 1,
+          "step": 0.1,
+          "unit": "em",
+          "default": 0,
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "id": "lineheight",
+          "type": "text",
+          "label": "Line height",
+          "default": "1.15",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "id": "size_d",
+          "type": "range",
+          "label": "Size (desktop)",
+          "min": 18,
+          "max": 72,
+          "step": 1,
+          "unit": "px",
+          "default": 34,
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "id": "color",
+          "type": "color",
+          "label": "Colour",
+          "info": "Leave empty to follow the section's heading colour.",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "header",
+          "content": "Layout & Spacing"
+        },
+        {
+          "id": "max_width",
+          "type": "range",
+          "label": "Max width (characters, 0 is no limit)",
+          "min": 0,
+          "max": 80,
+          "step": 1,
+          "default": 0
+        },
+        {
+          "type": "header",
+          "content": "Mobile"
+        },
+        {
+          "id": "size_m",
+          "type": "range",
+          "label": "Size (mobile)",
+          "min": 16,
+          "max": 46,
+          "step": 1,
+          "unit": "px",
+          "default": 28,
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        }
+      ]
+    },
+    {
+      "type": "subheading",
+      "name": "Subheading",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "id": "text",
+          "type": "text",
+          "label": "Subheading text",
+          "default": "See our pieces in real-life settings, from weekend escapes to daily city life."
+        },
+        {
+          "type": "header",
+          "content": "Style & Colors"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false,
+          "info": "Off follows theme typography, weights, colours and buttons."
+        },
+        {
+          "id": "font",
+          "type": "select",
+          "label": "Theme font",
+          "default": "body",
+          "options": [
+            {
+              "value": "heading",
+              "label": "Heading font"
+            },
+            {
+              "value": "body",
+              "label": "Body font"
+            }
+          ],
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "id": "weight",
+          "type": "select",
+          "label": "Font weight",
+          "default": "theme",
+          "options": [
+            {
+              "value": "theme",
+              "label": "Theme"
+            },
+            {
+              "value": "300",
+              "label": "Light"
+            },
+            {
+              "value": "400",
+              "label": "Normal"
+            },
+            {
+              "value": "500",
+              "label": "Medium"
+            },
+            {
+              "value": "600",
+              "label": "Semibold"
+            },
+            {
+              "value": "700",
+              "label": "Bold"
+            },
+            {
+              "value": "800",
+              "label": "Extra bold"
+            },
+            {
+              "value": "900",
+              "label": "Black"
+            }
+          ],
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "id": "transform",
+          "type": "select",
+          "label": "Text case",
+          "default": "none",
+          "options": [
+            {
+              "value": "none",
+              "label": "As typed"
+            },
+            {
+              "value": "uppercase",
+              "label": "Uppercase"
+            },
+            {
+              "value": "capitalize",
+              "label": "Capitalize"
+            },
+            {
+              "value": "lowercase",
+              "label": "Lowercase"
+            }
+          ],
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "id": "letterspace",
+          "type": "range",
+          "label": "Letter spacing",
+          "min": -0.1,
+          "max": 1,
+          "step": 0.1,
+          "unit": "em",
+          "default": 0,
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "id": "lineheight",
+          "type": "text",
+          "label": "Line height",
+          "default": "1.5",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "id": "size_d",
+          "type": "range",
+          "label": "Size (desktop)",
+          "min": 10,
+          "max": 24,
+          "step": 1,
+          "unit": "px",
+          "default": 16,
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "id": "color",
+          "type": "color",
+          "label": "Colour",
+          "info": "Leave empty to follow the section's text colour.",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "id": "opacity",
+          "type": "range",
+          "label": "Opacity",
+          "min": 40,
+          "max": 100,
+          "step": 1,
+          "unit": "%",
+          "default": 100,
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "header",
+          "content": "Layout & Spacing"
+        },
+        {
+          "id": "max_width",
+          "type": "range",
+          "label": "Max width (characters, 0 is no limit)",
+          "min": 0,
+          "max": 90,
+          "step": 1,
+          "default": 0
+        },
+        {
+          "type": "header",
+          "content": "Mobile"
+        },
+        {
+          "id": "size_m",
+          "type": "range",
+          "label": "Size (mobile)",
+          "min": 10,
+          "max": 22,
+          "step": 1,
+          "unit": "px",
+          "default": 16,
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        }
+      ]
+    },
+    {
+      "type": "button",
+      "name": "Button",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "id": "label",
+          "type": "text",
+          "label": "Label",
+          "default": "Shop now"
+        },
+        {
+          "id": "link",
+          "type": "url",
+          "label": "Link",
+          "default": "/collections/all"
+        },
+        {
+          "type": "header",
+          "content": "Style & Colors"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false,
+          "info": "Off follows theme typography, weights, colours and buttons."
+        },
+        {
+          "type": "checkbox",
+          "id": "use_theme_button",
+          "label": "Use theme sizing and corners",
+          "info": "On uses theme text size, padding and corners. Off enables the custom size and shape controls below. Custom colours and font weight apply in either mode.",
+          "default": true,
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "id": "bg",
+          "type": "color",
+          "label": "Background",
+          "info": "Leave empty to follow the colour scheme.",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "id": "text_color",
+          "type": "color",
+          "label": "Text colour",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "id": "border_color",
+          "type": "color",
+          "label": "Border colour",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "id": "border_width",
+          "type": "range",
+          "label": "Border width",
+          "min": 0,
+          "max": 3,
+          "step": 1,
+          "unit": "px",
+          "default": 0,
+          "visible_if": "{{ block.settings.enable_custom_style }}",
+          "info": "Applies with custom styling enabled and Use theme sizing and corners switched off."
+        },
+        {
+          "id": "radius",
+          "type": "range",
+          "label": "Corner radius",
+          "min": 0,
+          "max": 50,
+          "step": 10,
+          "unit": "px",
+          "default": 40,
+          "visible_if": "{{ block.settings.enable_custom_style }}",
+          "info": "Applies with custom styling enabled and Use theme sizing and corners switched off."
+        },
+        {
+          "id": "pad_h",
+          "type": "range",
+          "label": "Horizontal padding",
+          "min": 8,
+          "max": 40,
+          "step": 1,
+          "unit": "px",
+          "default": 20,
+          "visible_if": "{{ block.settings.enable_custom_style }}",
+          "info": "Applies with custom styling enabled and Use theme sizing and corners switched off."
+        },
+        {
+          "id": "pad_v",
+          "type": "range",
+          "label": "Vertical padding",
+          "min": 6,
+          "max": 20,
+          "step": 1,
+          "unit": "px",
+          "default": 10,
+          "visible_if": "{{ block.settings.enable_custom_style }}",
+          "info": "Applies with custom styling enabled and Use theme sizing and corners switched off."
+        },
+        {
+          "id": "weight",
+          "type": "select",
+          "label": "Font weight",
+          "default": "600",
+          "options": [
+            {
+              "value": "300",
+              "label": "Light"
+            },
+            {
+              "value": "400",
+              "label": "Normal"
+            },
+            {
+              "value": "500",
+              "label": "Medium"
+            },
+            {
+              "value": "600",
+              "label": "Semibold"
+            },
+            {
+              "value": "700",
+              "label": "Bold"
+            },
+            {
+              "value": "800",
+              "label": "Extra bold"
+            },
+            {
+              "value": "900",
+              "label": "Black"
+            }
+          ],
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "id": "size_d",
+          "type": "range",
+          "label": "Size (desktop)",
+          "min": 10,
+          "max": 24,
+          "step": 1,
+          "unit": "px",
+          "default": 17,
+          "visible_if": "{{ block.settings.enable_custom_style }}",
+          "info": "Applies with custom styling enabled and Use theme sizing and corners switched off."
+        },
+        {
+          "type": "header",
+          "content": "Mobile"
+        },
+        {
+          "id": "size_m",
+          "type": "range",
+          "label": "Size (mobile)",
+          "min": 10,
+          "max": 22,
+          "step": 1,
+          "unit": "px",
+          "default": 17,
+          "visible_if": "{{ block.settings.enable_custom_style }}",
+          "info": "Applies with custom styling enabled and Use theme sizing and corners switched off."
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Promo Banner 3",
+      "category": "Hero and banners",
+      "settings": {
+        "enable_bg_gradient": false,
+        "bg_gradient": "",
+        "overlay_opacity": 0,
+        "max_width": 970,
+        "side_padding": 28,
+        "text_align": "center",
+        "stack_gap": 14,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "section_margin_top_mobile": 0,
+        "section_margin_bottom_mobile": 0,
+        "pad_top_desktop": 70,
+        "pad_bottom_desktop": 60,
+        "pad_top_mobile": 50,
+        "pad_bottom_mobile": 52,
+        "section_border_radius": 50,
+        "section_pad_left": 120,
+        "section_pad_right": 120,
+        "section_pad_left_mobile": 0,
+        "section_pad_right_mobile": 0,
+        "sub_btn_gap": 32
+      },
+      "blocks": [
+        {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Real Moments",
+            "weight": "500",
+            "transform": "uppercase",
+            "letterspace": 0.6,
+            "opacity": 100,
+            "size_d": 16,
+            "size_m": 13
+          }
+        },
+        {
+          "type": "heading",
+          "settings": {
+            "text": "Wear It Your Way",
+            "weight": "700",
+            "lineheight": "1.15",
+            "letterspace": 0,
+            "size_d": 34,
+            "size_m": 28,
+            "max_width": 0
+          }
+        },
+        {
+          "type": "subheading",
+          "settings": {
+            "text": "See our pieces in real-life settings, from weekend escapes to daily city life.",
+            "lineheight": "1.5",
+            "opacity": 100,
+            "size_d": 16,
+            "size_m": 16,
+            "max_width": 0
+          }
+        },
+        {
+          "type": "button",
+          "settings": {
+            "label": "Shop now",
+            "link": "/collections/all",
+            "border_width": 0,
+            "radius": 40,
+            "pad_h": 20,
+            "pad_v": 10,
+            "weight": "600",
+            "size_d": 17,
+            "size_m": 17
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

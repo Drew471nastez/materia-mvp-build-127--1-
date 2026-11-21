@@ -1,0 +1,622 @@
+<script src="{{ 'live-announcements.js' | asset_url }}" defer="defer"></script>
+{%- comment -%} Runtime: shopify/assets/live-announcements.js (loaded by the layout on every page) runs the scrolling messages per instance, pauses them off screen and applies live edits. {%- endcomment -%}
+{% render 'theme-type' %}
+{%- liquid
+  assign st = section.settings
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign __ti_scroll_animation = settings.scroll_animation | default: 'none'
+  assign fonts = st.enable_custom_font
+  assign custom = st.enable_custom_style
+-%}
+{%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
+{%- if section.settings.reveal == false -%}<span data-ti-no-reveal hidden></span>{%- endif -%}
+{%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' and section.settings.reveal != false -%}
+<style>
+  #shopify-section-{{ section.id }}.scroll-trigger {
+    --animation-duration: {{ settings.animation_duration | default: 700 }}ms;
+    --animation-delay: {{ settings.animation_delay | default: 0 }}ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-{{ section.id }}');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', {{ settings.scroll_animation | json }});
+  })();
+</script>
+{%- endif -%}
+{%- render 'announce-frame', section: section, z: 0 -%}
+{%- if fonts -%}<style>{{ st.announcement_font | font_face: font_display: 'swap' }}</style>{%- endif -%}
+{%- for block in section.blocks -%}{%- if block.settings.enable_custom_fonts and block.settings.font.family != blank -%}<style>{{ block.settings.font | font_face: font_display: 'swap' }}</style>{%- endif -%}{%- endfor -%}
+{%- assign sid = section.id -%}
+<style>
+  #announcement-bar-pro-1-{{ sid }}.announcement-bar-container { position: relative; z-index: 0; width: 100%; overflow: hidden; display: flex; align-items: center; height: calc(var(--ab1-h) - 5px); color: var(--ab1-text); background: var(--ab1-bg); transition: transform 0.3s ease, filter 0.3s ease; }
+  #announcement-bar-pro-1-{{ sid }} .announcement-bar-link { display: flex; width: 100%; height: 100%; align-items: center; text-decoration: none; color: inherit; }
+  #announcement-bar-pro-1-{{ sid }} .announcement-bar { display: flex; }
+  #announcement-bar-pro-1-{{ sid }}[data-autoplay='true'] .announcement-bar { animation: announcementScroll var(--ab1-dur) linear infinite; }
+  #announcement-bar-pro-1-{{ sid }}[data-pause-hover='true'] .announcement-bar:hover, #announcement-bar-pro-1-{{ sid }}[data-paused] .announcement-bar, #announcement-bar-pro-1-{{ sid }}[data-paused] { animation-play-state: paused; }
+  #announcement-bar-pro-1-{{ sid }} .announcement-content { display: flex; align-items: center; white-space: nowrap; flex-shrink: 0; }
+  #announcement-bar-pro-1-{{ sid }} .announcement-message { display: inline-block; font-size: calc(var(--ab1-fs) - 2px); margin-inline-end: var(--ab1-gap); line-height: 1.2; color: var(--b-c, var(--ab1-text)); font-weight: var(--b-w, var(--ab1-fw)); font-family: var(--b-f, var(--ab1-ff)); text-transform: var(--ab1-tt); }
+  #announcement-bar-pro-1-{{ sid }} .announcement-message :is(p, strong, em, a, span) { font-family: inherit; color: inherit; margin: 0; }
+  #announcement-bar-pro-1-{{ sid }} .separator-icon { display: inline-flex; align-items: center; vertical-align: middle; margin-inline-end: var(--ab1-gap); color: var(--ab1-sep); font-size: calc(var(--ab1-fs) - 2px); line-height: 1; }
+  #announcement-bar-pro-1-{{ sid }} .separator-icon:has(+ .announcement-message[hidden]), #announcement-bar-pro-1-{{ sid }} .announcement-message[hidden] + .separator-icon { display: none; }
+  #announcement-bar-pro-1-{{ sid }} .repetition-spacing { margin-inline-end: var(--ab1-rep); }
+  #announcement-bar-pro-1-{{ sid }}[data-bg-anim='animation1'] { animation: announcementPulse 5s infinite; }
+  #announcement-bar-pro-1-{{ sid }}[data-bg-anim='animation6'] { animation: announcementBlurTransition 7s infinite; }
+  #announcement-bar-pro-1-{{ sid }}[data-bg-anim='animation7'] { animation: announcementZoomInOut 9s infinite; }
+  #announcement-bar-pro-1-{{ sid }}[data-bg-anim='animation10'] { animation: announcementOpacityChange 4s infinite; }
+  #announcement-bar-pro-1-{{ sid }}[data-hover='grow']:hover { transform: scale(1.05); }
+  #announcement-bar-pro-1-{{ sid }}[data-hover='color_change']:hover { filter: brightness(1.2); }
+  @keyframes announcementPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+  @keyframes announcementBlurTransition { 0%, 100% { filter: blur(0px); } 50% { filter: blur(2px); } }
+  @keyframes announcementZoomInOut { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+  @keyframes announcementOpacityChange { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+  @keyframes announcementScroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+  @media (min-width: 769px) {
+    #announcement-bar-pro-1-{{ sid }}.announcement-bar-container { height: var(--ab1-h); }
+    #announcement-bar-pro-1-{{ sid }} .announcement-message, #announcement-bar-pro-1-{{ sid }} .separator-icon { font-size: var(--ab1-fs); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #announcement-bar-pro-1-{{ sid }}.announcement-bar-container, #announcement-bar-pro-1-{{ sid }} .announcement-bar { animation: none !important; transition: none; }
+    #announcement-bar-pro-1-{{ sid }}.announcement-bar-container { overflow-x: auto; }
+    #announcement-bar-pro-1-{{ sid }} .announcement-content[aria-hidden='true'] { display: none; }
+    #announcement-bar-pro-1-{{ sid }}:hover { transform: none; }
+  }
+</style>
+{%- capture ab1_vars -%}
+--ab1-h: {{ st.bar_height }}px;--ab1-fs: {{ st.font_size }}px;--ab1-gap: {{ st.message_spacing }}px;--ab1-rep: {{ st.repetition_spacing }}px;--ab1-dur: {{ st.scroll_speed | default: 1300 | times: 3 | divided_by: 10.0 }}s;
+--ab1-text: {% if custom %}{% render 'scheme-color', color: st.message_text_color, fallback: 'var(--color-text)' %}{% else %}var(--color-text){% endif %};
+--ab1-bg: {% if st.background_type == 'gradient' %}linear-gradient({{ st.gradient_angle }}deg, {% if custom %}{% render 'scheme-color', color: st.gradient_start_color, fallback: 'var(--color-background)' %}{% else %}var(--color-background){% endif %}, {% if custom %}{% render 'scheme-color', color: st.gradient_end_color, fallback: 'var(--color-primary)' %}{% else %}var(--color-primary){% endif %}){% else %}{% if custom %}{% render 'scheme-color', color: st.background_color, fallback: 'var(--color-background)' %}{% else %}var(--color-background){% endif %}{% endif %};
+--ab1-sep: {% if custom %}{% render 'scheme-color', color: st.separator_icon_color, fallback: 'var(--color-primary)' %}{% else %}var(--color-primary){% endif %};
+--ab1-ff: {% render 'announce-font', font: st.announcement_font, on: fonts, fallback: 'inherit' %};--ab1-fw: {{ st.message_font_weight | default: 600 }};--ab1-tt: {% if st.uppercase == false %}none{% else %}uppercase{% endif %};
+{%- endcapture -%}
+<div id="announcement-bar-pro-1-{{ sid }}" class="announcement-bar-pro-1 announcement-bar-container color-{{ color_scheme }} gradient" data-an-root="annoucment-bar-scrolling" data-an-section="{{ sid }}"{% if request.design_mode %} data-an-settings="{{ section.settings | json | escape }}"{% endif %}{% if request.design_mode %} data-an-defaults="&#123;&quot;color_scheme&quot;:&quot;default-color-scheme&quot;,&quot;section_width&quot;:&quot;full_width&quot;,&quot;reset_spacing&quot;:true,&quot;enable_link_redirect&quot;:false,&quot;redirect_url&quot;:&quot;/&quot;,&quot;message_1&quot;:&quot;50% Off Everything Shop &amp; Save ⚡&quot;,&quot;message_2&quot;:&quot;Free Shipping on Orders Over $99&quot;,&quot;message_spacing&quot;:22,&quot;repetition_spacing&quot;:35,&quot;background_type&quot;:&quot;solid&quot;,&quot;gradient_angle&quot;:90,&quot;separator_icon&quot;:&quot;fa-sun&quot;,&quot;enable_custom_style&quot;:false,&quot;enable_custom_font&quot;:false,&quot;announcement_font&quot;:&quot;assistant_n4&quot;,&quot;font_size&quot;:15,&quot;message_font_weight&quot;:&quot;600&quot;,&quot;uppercase&quot;:true,&quot;reveal&quot;:true,&quot;autoplay&quot;:true,&quot;scroll_speed&quot;:1300,&quot;pause_on_hover&quot;:true,&quot;background_animation&quot;:&quot;none&quot;,&quot;hover_effect&quot;:&quot;none&quot;,&quot;bar_height&quot;:52,&quot;section_margin_top_desktop&quot;:0,&quot;section_margin_bottom_desktop&quot;:0,&quot;section_margin_top_mobile&quot;:0,&quot;section_margin_bottom_mobile&quot;:0&#125;"{% endif %}{% if request.design_mode %} data-an-block-defaults="&#123;&quot;message&quot;:&#123;&quot;text&quot;:&quot;Write your announcement&quot;,&quot;enable_custom_style&quot;:false,&quot;enable_custom_fonts&quot;:false,&quot;font&quot;:&quot;assistant_n4&quot;&#125;&#125;"{% endif %} data-width="{{ st.section_width | default: 'full_width' }}" data-reset="{% if st.reset_spacing %}true{% else %}false{% endif %}" data-autoplay="{% if st.autoplay %}true{% else %}false{% endif %}" data-pause-hover="{% if st.pause_on_hover %}true{% else %}false{% endif %}" data-bg-anim="{{ st.background_animation | default: 'none' }}" data-hover="{{ st.hover_effect | default: 'none' }}" data-sticky-announcement="false"{% if fonts %} data-own-font data-own-weight{% endif %} style="{{ ab1_vars | strip_newlines }}">
+  {%- assign linked = false -%}{%- if st.enable_link_redirect and st.redirect_url != blank and st.redirect_url != '#' -%}{%- assign linked = true -%}{%- endif -%}
+  {%- if linked -%}<a href="{{ st.redirect_url | url }}" class="announcement-bar-link" target="_blank" rel="noopener noreferrer" data-an-bar-link>{%- endif -%}
+  <div class="announcement-bar" data-an-track>
+    <div class="announcement-content">{% render 'announce-scroll-items', section: section, copy: false, reps: 30 %}</div>
+    <div class="announcement-content" aria-hidden="true">{% render 'announce-scroll-items', section: section, copy: true, reps: 30 %}</div>
+  </div>
+  {%- if linked -%}</a>{%- endif -%}
+</div>
+{% schema %}
+{
+  "enabled_on": {
+    "groups": [
+      "header",
+      "template"
+    ]
+  },
+  "name": "Announcement Bar Pro 1",
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Section width",
+      "default": "full_width",
+      "options": [
+        {
+          "value": "container",
+          "label": "Default"
+        },
+        {
+          "value": "fluid_container",
+          "label": "Fluid container"
+        },
+        {
+          "value": "stretch_width",
+          "label": "Stretched"
+        },
+        {
+          "value": "full_width",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "reset_spacing",
+      "label": "Remove default space between sections",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Content"
+    },
+    {
+      "type": "paragraph",
+      "content": "Each Message block is one announcement. The messages repeat across the bar."
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_link_redirect",
+      "label": "Link the whole bar",
+      "default": false
+    },
+    {
+      "type": "url",
+      "id": "redirect_url",
+      "label": "Bar link",
+      "default": "/",
+      "visible_if": "{{ section.settings.enable_link_redirect }}"
+    },
+    {
+      "type": "inline_richtext",
+      "id": "message_1",
+      "label": "Announcement Message 1",
+      "default": "Write your first announcement",
+      "hidden": true,
+      "info": "Legacy: used only when the section has no Message block.",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "inline_richtext",
+      "id": "message_2",
+      "label": "Announcement Message 2",
+      "default": "Write your second announcement",
+      "hidden": true,
+      "info": "Legacy: used only when the section has no Message block.",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "inline_richtext",
+      "id": "message_3",
+      "label": "Announcement Message 3",
+      "info": "Legacy: used only when the section has no Message block.",
+      "hidden": true,
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "inline_richtext",
+      "id": "message_4",
+      "label": "Announcement Message 4",
+      "info": "Legacy: used only when the section has no Message block.",
+      "hidden": true,
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "range",
+      "id": "message_spacing",
+      "label": "Space between messages",
+      "min": 10,
+      "max": 50,
+      "step": 1,
+      "default": 22
+    },
+    {
+      "type": "range",
+      "id": "repetition_spacing",
+      "label": "Space between repeats",
+      "min": 20,
+      "max": 100,
+      "step": 5,
+      "default": 35
+    },
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "type": "select",
+      "id": "background_type",
+      "label": "Background",
+      "options": [
+        {
+          "value": "solid",
+          "label": "Solid Color"
+        },
+        {
+          "value": "gradient",
+          "label": "Gradient"
+        }
+      ],
+      "default": "solid"
+    },
+    {
+      "type": "range",
+      "id": "gradient_angle",
+      "label": "Gradient angle",
+      "min": 0,
+      "max": 360,
+      "step": 10,
+      "default": 90,
+      "visible_if": "{{ section.settings.background_type == 'gradient' }}"
+    },
+    {
+      "type": "select",
+      "id": "separator_icon",
+      "label": "Separator",
+      "options": [
+        {
+          "value": "fa-sun",
+          "label": "Sun"
+        },
+        {
+          "value": "fa-star",
+          "label": "Star"
+        },
+        {
+          "value": "fa-heart",
+          "label": "Heart"
+        },
+        {
+          "value": "fa-circle",
+          "label": "Dot"
+        },
+        {
+          "value": "fa-square",
+          "label": "Square"
+        },
+        {
+          "value": "fa-diamond",
+          "label": "Diamond"
+        },
+        {
+          "value": "fa-bolt",
+          "label": "Bolt"
+        },
+        {
+          "value": "fa-moon",
+          "label": "Moon"
+        },
+        {
+          "value": "fa-check",
+          "label": "Check"
+        },
+        {
+          "value": "fa-plus",
+          "label": "Plus"
+        },
+        {
+          "value": "fa-arrow-right",
+          "label": "Arrow"
+        },
+        {
+          "value": "fa-leaf",
+          "label": "Leaf"
+        },
+        {
+          "value": "fa-fire",
+          "label": "Flame"
+        },
+        {
+          "value": "fa-gift",
+          "label": "Gift"
+        },
+        {
+          "value": "fa-truck",
+          "label": "Truck"
+        },
+        {
+          "value": "fa-snowflake",
+          "label": "Snowflake"
+        },
+        {
+          "value": "none",
+          "label": "None"
+        }
+      ],
+      "default": "fa-sun"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_style",
+      "label": "Enable custom styling",
+      "default": false,
+      "info": "Off: colours follow the colour scheme."
+    },
+    {
+      "type": "color",
+      "id": "message_text_color",
+      "label": "Text",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "Background colour",
+      "visible_if": "{{ section.settings.enable_custom_style and section.settings.background_type == 'solid' }}"
+    },
+    {
+      "type": "color",
+      "id": "gradient_start_color",
+      "label": "Gradient start",
+      "visible_if": "{{ section.settings.enable_custom_style and section.settings.background_type == 'gradient' }}"
+    },
+    {
+      "type": "color",
+      "id": "gradient_end_color",
+      "label": "Gradient end",
+      "visible_if": "{{ section.settings.enable_custom_style and section.settings.background_type == 'gradient' }}"
+    },
+    {
+      "type": "color",
+      "id": "separator_icon_color",
+      "label": "Separator",
+      "visible_if": "{{ section.settings.enable_custom_style and section.settings.separator_icon != 'none' }}"
+    },
+    {
+      "type": "header",
+      "content": "Typography"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_font",
+      "label": "Enable custom fonts",
+      "default": false,
+      "info": "Off: the bar follows Theme settings > Typography."
+    },
+    {
+      "type": "font_picker",
+      "id": "announcement_font",
+      "label": "Font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_font }}"
+    },
+    {
+      "type": "range",
+      "id": "font_size",
+      "label": "Text size",
+      "min": 12,
+      "max": 100,
+      "step": 1,
+      "default": 15,
+      "info": "2px smaller on mobile."
+    },
+    {
+      "type": "select",
+      "id": "message_font_weight",
+      "label": "Text weight",
+      "options": [
+        {
+          "value": "300",
+          "label": "Light (300)"
+        },
+        {
+          "value": "400",
+          "label": "Regular (400)"
+        },
+        {
+          "value": "500",
+          "label": "Medium (500)"
+        },
+        {
+          "value": "600",
+          "label": "Semibold (600)"
+        },
+        {
+          "value": "700",
+          "label": "Bold (700)"
+        }
+      ],
+      "default": "600"
+    },
+    {
+      "type": "checkbox",
+      "id": "uppercase",
+      "label": "Uppercase",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Animation"
+    },
+    {
+      "type": "checkbox",
+      "id": "reveal",
+      "label": "Reveal on scroll",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "autoplay",
+      "label": "Scroll the messages",
+      "default": true,
+      "info": "Stops for visitors who reduce motion."
+    },
+    {
+      "type": "number",
+      "id": "scroll_speed",
+      "label": "Scroll duration",
+      "default": 1300,
+      "info": "Higher is slower.",
+      "visible_if": "{{ section.settings.autoplay }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "pause_on_hover",
+      "label": "Pause on hover",
+      "default": true,
+      "visible_if": "{{ section.settings.autoplay }}"
+    },
+    {
+      "type": "select",
+      "id": "background_animation",
+      "label": "Background animation",
+      "options": [
+        {
+          "value": "none",
+          "label": "None"
+        },
+        {
+          "value": "animation1",
+          "label": "Subtle Pulse"
+        },
+        {
+          "value": "animation6",
+          "label": "Blur Transition"
+        },
+        {
+          "value": "animation7",
+          "label": "Zoom In-Out"
+        },
+        {
+          "value": "animation10",
+          "label": "Opacity Change"
+        }
+      ],
+      "default": "none"
+    },
+    {
+      "type": "select",
+      "id": "hover_effect",
+      "label": "Hover effect",
+      "options": [
+        {
+          "value": "none",
+          "label": "None"
+        },
+        {
+          "value": "grow",
+          "label": "Grow"
+        },
+        {
+          "value": "color_change",
+          "label": "Color Change"
+        }
+      ],
+      "default": "none"
+    },
+    {
+      "type": "header",
+      "content": "Desktop spacing"
+    },
+    {
+      "type": "range",
+      "id": "bar_height",
+      "label": "Bar height",
+      "min": 30,
+      "max": 100,
+      "step": 1,
+      "default": 52,
+      "info": "5px lower on mobile."
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_desktop",
+      "label": "Top margin (desktop)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_desktop",
+      "label": "Bottom margin (desktop)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0
+    },
+    {
+      "type": "header",
+      "content": "Mobile"
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_mobile",
+      "label": "Top margin (mobile)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_mobile",
+      "label": "Bottom margin (mobile)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0
+    }
+  ],
+  "presets": [
+    {
+      "name": "Announcement Bar Pro 1",
+      "category": "Announcements",
+      "blocks": [
+        {
+          "type": "message",
+          "settings": {
+            "text": "Write your first announcement"
+          }
+        },
+        {
+          "type": "message",
+          "settings": {
+            "text": "Add a second message"
+          }
+        }
+      ]
+    }
+  ],
+  "class": "section-edge-bleed",
+  "blocks": [
+    {
+      "type": "message",
+      "name": "Message",
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "type": "inline_richtext",
+          "id": "text",
+          "label": "Text",
+          "default": "Write your announcement"
+        },
+        {
+          "type": "header",
+          "content": "Appearance"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Text",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "header",
+          "content": "Typography"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_fonts",
+          "label": "Enable custom font",
+          "default": false
+        },
+        {
+          "type": "font_picker",
+          "id": "font",
+          "label": "Font",
+          "default": "assistant_n4",
+          "visible_if": "{{ block.settings.enable_custom_fonts }}"
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

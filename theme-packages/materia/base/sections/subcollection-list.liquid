@@ -1,0 +1,682 @@
+{% render 'theme-type' %}
+{%- liquid
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+-%}
+<style data-rs-bulletproof>
+  {%- if section.settings.reset_spacing -%}
+    /* reset_spacing: bulletproof override of ALL section spacing mechanisms */
+    #shopify-section-{{ section.id }},
+    #shopify-section-{{ section.id }} > .section,
+    #shopify-section-{{ section.id }} > section,
+    #shopify-section-{{ section.id }} > div,
+    #shopify-section-{{ section.id }} > div > .section {
+      margin-top: 0 !important;
+      margin-bottom: 0 !important;
+    }
+    #shopify-section-{{ section.id }} + .shopify-section,
+    #shopify-section-{{ section.id }} + section,
+    .shopify-section + #shopify-section-{{ section.id }} {
+      margin-top: 0 !important;
+    }
+  {%- endif -%}
+</style>
+{%- comment -%}
+  Section background colour wiring. Painted on the section wrapper so
+  the colour fills edge-to-edge regardless of inner section width.
+{%- endcomment -%}
+{%- comment -%} The background colour is on the section root, below, while Enable custom styling is on. {%- endcomment -%}
+<style>
+  
+  /* Reset spacing between sections */
+  {%- if section.settings.reset_spacing -%}
+    #shopify-section-{{ section.id }} { margin-top: 0 !important; margin-bottom: 0 !important; }
+    #shopify-section-{{ section.id }} + .shopify-section { margin-top: 0 !important; }
+  {%- endif -%}
+/* Theme font-weight inheritance — inherit theme weights by default; explicit rules still override */
+  #shopify-section-{{ section.id }} {
+    font-weight: var(--body-weight, inherit);
+  }
+  :where(#shopify-section-{{ section.id }}) :is(h1, h2, h3, h4, h5, h6) {
+    font-weight: var(--heading-weight, inherit);
+  }
+</style>
+{%- comment -%}Section isolation — prevent CSS/JS bleed between sections{%- endcomment -%}
+<style>
+  #shopify-section-{{ section.id }} { isolation: isolate; position: relative; }
+</style>
+{%- comment -%}
+  Materia Themes. Developed By Materia Themes.
+{%- endcomment -%}
+<link rel="stylesheet" href="{{ 'pagination-styles.css' | asset_url }}" media="print" onload="this.media='all'">
+{%- liquid
+  assign section_st = section.settings
+  assign section_width = section_st.section_width
+  assign column_gap = section_st.column_gap
+  assign items_per_row_mobile = section_st.items_per_row_mobile
+  assign heading = section_st.heading
+  assign description = section_st.description
+  assign show_arrow = section_st.show_arrow
+  assign carousel_pagination = section_st.carousel_pagination
+  assign collection_information_position = section_st.collection_information_position
+  assign design = section_st.design
+  assign infinite = section_st.infinite
+  assign autoplay = section_st.autoplay
+  assign autorotate_speed = section_st.autorotate_speed
+  assign reveal = section_st.reveal
+  assign items_per_row = section_st.items_per_row
+  assign header_size = ''
+  if section_st.header_size == 'small'
+    assign header_size = 'h3'
+  elsif section_st.header_size == 'large'
+    assign header_size = 'h1-size'
+  endif
+  if section_st.items_per_row_mobile > 1 and section_st.items_per_row_mobile < 2
+    assign data_free_scroll = 'true'
+  endif
+  assign rounded_image = section_st.rounded_image
+  assign image_custom_width = section_st.image_custom_width
+  assign scroll_animation = settings.scroll_animation
+-%}
+{%- capture style -%}
+  --section-pt: {{ section_st.padding_top }}; --section-pb: {{ section_st.padding_bottom }};
+  {% if column_gap < 15 %}--col-gap: {{ column_gap }}px;{% else %}--col-gap: 15px;--col-gap-desktop: {{  column_gap }}px;{% endif %}
+{%- endcapture -%}
+{% if collection_information_position == 'below_image' and image_custom_width and rounded_image %}
+  {%- style -%}
+    .collection-item__media--ratio {
+      --aspect-ratio: 1 !important;
+    }
+  {%- endstyle -%}
+{% endif %}
+{% if collection.metafields.custom.subcollection.value %}
+  {% assign sub_collection = collection.metafields.custom.subcollection.value %}
+  {% if sub_collection != blank %}
+    <div
+      class="section remove_spacing mb-60{% if section_st.padding_top < 30 %} pt-min{% endif %}{% if section_st.padding_bottom < 30 %} pb-min{% endif %} sec__collection-list color-{{ color_scheme }} gradient{% if reveal %} overflow-hidden{% endif %}"
+      style="{{ style | strip | strip_newlines }}{% if section_st.enable_custom_style and section_st.section_bg != blank %} background-color: {% render 'scheme-color', color: section_st.section_bg, fallback: 'var(--color-background)' %};{% endif %}"
+      data-lcp="subcollection-list"
+      data-lcp-id="{{ section.id }}"{% if request.design_mode %}
+      data-lcp-settings="{{ section.settings | json | escape }}"{% endif %}
+    >
+      <div class="{{ section_width }}">
+        {%- if heading != blank or description != blank -%}
+          <div class="section__header mb-33 mb-sm-20 text-{{ section_st.header_alignment }}{% if section_st.section_width == 'full_width' %} px-20{% endif %}">
+            {%- if section_st.heading != blank -%}
+              <motion-element
+                data-motion="fade-up-lg"
+                data-motion-delay="50"
+                {% if scroll_animation != 'slide_in' %}
+                  hold
+                {% endif %}
+                class="block  {% if scroll_animation != 'none' %} scroll-trigger {{ scroll_animation }}{% endif %}"
+                style="
+                  {%- if scroll_animation != 'none' -%}
+                    --animation-order: 0;
+                  {% endif %}
+                "
+              >
+              <h2
+                class="section__header-heading heading-letter-spacing {{ header_size  }} mt-0{% if section_st.description != blank %} mb-10{% else %} mb-0{% endif %}"
+                style="
+                  {%- if scroll_animation != 'none' -%}
+                    --animation-order: 0
+                  {% endif %}
+                "
+              >
+                {{ section_st.heading }}
+              </h2>
+            </motion-element>
+            {% endif %}
+            {%- if section_st.description != blank -%}
+              <motion-element
+                data-motion="fade-up-lg"
+                data-motion-delay="150"
+                {% if scroll_animation != 'slide_in' %}
+                  hold
+                {% endif %}
+                class="section__header-des block {% if scroll_animation != 'none' %} scroll-trigger {{ scroll_animation }} {% endif %} rich__text-m0"
+                style="
+                  {%- if scroll_animation != 'none' -%}
+                    --animation-order: 1
+                  {% endif %}
+                "
+              >
+                {{ section_st.description }}
+              </motion-element>
+            {% endif %}
+          </div>
+        {% endif %}
+        <slide-section
+          class="swiper{% if reveal %} reveal_on_scroll{% endif %}"
+          data-section-id="{{ section.id }}"
+          data-autoplay="{{ autoplay }}"
+          data-effect="slide"
+          data-loop="{{ infinite }}"
+          data-speed="500"
+          data-autoplay-speed="{{ autorotate_speed }}"
+          data-spacing="{{ column_gap }}"
+          data-mobile="{{ items_per_row_mobile }}"
+          data-desktop="{{ items_per_row }}"
+          data-free-scroll="{{ data_free_scroll }}"
+          data-pagination-progressbar="{% if carousel_pagination == 'show_progress_bar' %}true{% else %}false{% endif %}"
+          data-pagination-style="{{ section_st.pagination_style | default: 'dot' }}"
+        >
+          {% if show_arrow %}
+            {%- render 'swiper-navigation' -%}
+          {% endif %}
+          <div class="swiper-wrapper">
+            {% for collection in sub_collection %}
+              <div class="swiper-slide">
+                <motion-element
+                  data-motion="fade-up-lg"
+                  {% if scroll_animation != 'slide_in' %}
+                    hold
+                  {% endif %}
+                  data-motion-delay="{{ forloop.index0 | times: 50 }}"
+                  class="collection-item block {% if scroll_animation != 'none' and scroll_animation != null %} scroll-trigger {{ scroll_animation }} {% endif %} {{ settings.hover_effect }}"
+                  {%- if scroll_animation != 'none' -%}
+                    style="--animation-order: {{  forloop.index }};"
+                  {%- endif -%}
+                >
+                  {% render 'collection-item',
+                    card_collection: collection,
+                    section: section,
+                    collection_information_position: collection_information_position,
+                    design: design
+                  %}
+                </motion-element>
+              </div>
+            
+            {% endfor %}
+          </div>
+          {%- if carousel_pagination == 'show_dots'
+            or carousel_pagination == 'show_dots_on_mobile'
+            or carousel_pagination == 'show_progress_bar'
+          -%}
+          <motion-element
+            data-motion="fade-up-sm"
+            {% if scroll_animation != 'slide_in' %}
+              hold
+            {% endif %} 
+            data-motion-delay="150"
+            class="swiper-pagination  flex flex-wrap  {% if scroll_animation == 'slide_in' %} slide_in scroll-trigger {% endif %}   px-15 lh-1 bottom-30 {% if carousel_pagination == 'show_dots_on_mobile' %} hidden-md{% endif %} justify-content-{{ section_st.pagination_position | default: 'center' }}{% if section_st.content_below_image %} absolute-md-impo{% endif %}"
+            style="--swiper-pagination-bottom: 3rem;--swiper-pagination-position: static;z-index: 2"
+          >   
+          </motion-element>
+          {% endif %}
+        </slide-section>
+      </div>
+    </div>
+  {% endif %}
+{% endif %}
+{% schema %}
+{
+  "name": "Subcollections",
+  "tag": "section",
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Section width",
+      "default": "fluid_container",
+      "options": [
+        {
+          "value": "container",
+          "label": "Default"
+        },
+        {
+          "value": "fluid_container",
+          "label": "Fluid container"
+        },
+        {
+          "value": "stretch_width",
+          "label": "Stretch width"
+        },
+        {
+          "value": "full_width",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "reset_spacing",
+      "label": "Remove default space between sections",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Content"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Collection list"
+    },
+    {
+      "type": "richtext",
+      "id": "description",
+      "label": "Text"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_product_count",
+      "label": "Show product count"
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "range",
+      "id": "items_per_row",
+      "label": "Collections per row",
+      "min": 2,
+      "max": 6,
+      "step": 1,
+      "default": 4
+    },
+    {
+      "type": "range",
+      "id": "column_gap",
+      "label": "Gap between collections",
+      "min": 0,
+      "max": 50,
+      "step": 5,
+      "default": 30,
+      "unit": "px"
+    },
+    {
+      "type": "select",
+      "id": "header_alignment",
+      "label": "Heading alignment",
+      "default": "left",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "text_alignment",
+      "label": "Name alignment",
+      "default": "center",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "collection_information_position",
+      "label": "Name position",
+      "options": [
+        {
+          "value": "overlay_image",
+          "label": "On the picture"
+        },
+        {
+          "value": "below_image",
+          "label": "Below the picture"
+        }
+      ],
+      "default": "overlay_image"
+    },
+    {
+      "type": "range",
+      "id": "information_spacing",
+      "label": "Space above the name",
+      "min": 0,
+      "max": 30,
+      "step": 1,
+      "default": 12,
+      "unit": "px",
+      "visible_if": "{{ section.settings.collection_information_position == 'below_image' }}"
+    },
+    {
+      "type": "select",
+      "id": "design",
+      "label": "Card style",
+      "options": [
+        {
+          "value": "default",
+          "label": "Default"
+        },
+        {
+          "value": "morden",
+          "label": "Modern"
+        }
+      ],
+      "default": "default"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_arrow",
+      "label": "Show arrows",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "carousel_pagination",
+      "label": "Pagination",
+      "options": [
+        {
+          "value": "disable",
+          "label": "None"
+        },
+        {
+          "value": "show_dots",
+          "label": "Dots"
+        },
+        {
+          "value": "show_dots_on_mobile",
+          "label": "Dots on phones"
+        },
+        {
+          "value": "show_progress_bar",
+          "label": "Progress bar"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "pagination_style",
+      "label": "Pagination style",
+      "default": "pill",
+      "options": [
+        {
+          "value": "dot",
+          "label": "Dot (default)"
+        },
+        {
+          "value": "pill",
+          "label": "Pill (active expands)"
+        },
+        {
+          "value": "line",
+          "label": "Line / bar"
+        },
+        {
+          "value": "square",
+          "label": "Square"
+        },
+        {
+          "value": "ring",
+          "label": "Ring (hollow)"
+        },
+        {
+          "value": "number",
+          "label": "Numbers"
+        },
+        {
+          "value": "progress",
+          "label": "Progress fill"
+        }
+      ],
+      "visible_if": "{{ section.settings.carousel_pagination != 'disable' }}"
+    },
+    {
+      "type": "select",
+      "id": "pagination_position",
+      "label": "Pagination position (desktop)",
+      "default": "center",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ],
+      "visible_if": "{{ section.settings.carousel_pagination != 'disable' }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "infinite",
+      "label": "Loop",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "autoplay",
+      "label": "Change slides automatically",
+      "default": false,
+      "info": "Pauses off screen and under reduced motion."
+    },
+    {
+      "type": "range",
+      "id": "autorotate_speed",
+      "label": "Seconds per slide",
+      "max": 6,
+      "min": 2,
+      "step": 1,
+      "unit": "s",
+      "default": 5,
+      "visible_if": "{{ section.settings.autoplay }}"
+    },
+    {
+      "type": "header",
+      "content": "Media"
+    },
+    {
+      "type": "select",
+      "id": "image_ratio",
+      "label": "Picture shape",
+      "options": [
+        {
+          "value": "adapt",
+          "label": "Original"
+        },
+        {
+          "value": "square",
+          "label": "Square"
+        },
+        {
+          "value": "portrait",
+          "label": "Portrait"
+        },
+        {
+          "value": "landscape",
+          "label": "Landscape"
+        },
+        {
+          "value": "custom",
+          "label": "Custom"
+        }
+      ],
+      "default": "adapt"
+    },
+    {
+      "type": "text",
+      "id": "custom_ratio",
+      "label": "Custom shape",
+      "info": "Width:height, for example 16:9",
+      "visible_if": "{{ section.settings.image_ratio == 'custom' }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "rounded_image",
+      "label": "Round pictures",
+      "info": "Only works when you selected Below image in Collection information position setting.",
+      "visible_if": "{{ section.settings.collection_information_position == 'below_image' }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "image_custom_width",
+      "label": "Set the picture width",
+      "info": "Only works when you selected Below image in Collection information position setting.",
+      "visible_if": "{{ section.settings.collection_information_position == 'below_image' }}"
+    },
+    {
+      "type": "range",
+      "id": "image_width",
+      "label": "Picture width",
+      "min": 100,
+      "max": 300,
+      "step": 5,
+      "default": 200,
+      "unit": "px",
+      "visible_if": "{{ section.settings.collection_information_position == 'below_image' and section.settings.image_custom_width }}"
+    },
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_style",
+      "label": "Enable custom styling",
+      "default": false
+    },
+    {
+      "type": "color",
+      "id": "section_bg",
+      "label": "Background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "header",
+      "content": "Typography"
+    },
+    {
+      "type": "select",
+      "id": "header_size",
+      "label": "Heading size",
+      "default": "medium",
+      "options": [
+        {
+          "value": "small",
+          "label": "Small"
+        },
+        {
+          "value": "medium",
+          "label": "Medium"
+        },
+        {
+          "value": "large",
+          "label": "Large"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "font_size",
+      "label": "Name size",
+      "min": 12,
+      "max": 20,
+      "step": 1,
+      "default": 16,
+      "unit": "px",
+      "visible_if": "{{ section.settings.design == 'morden' or section.settings.collection_information_position == 'below_image' }}",
+      "info": "On the picture, the Default card style takes the theme button size."
+    },
+    {
+      "type": "select",
+      "id": "font_weight",
+      "label": "Name weight",
+      "default": "heading_weight",
+      "options": [
+        {
+          "value": "body_weight",
+          "label": "Text"
+        },
+        {
+          "value": "subheading_weight",
+          "label": "Subheading"
+        },
+        {
+          "value": "heading_weight",
+          "label": "Heading"
+        }
+      ],
+      "visible_if": "{{ section.settings.design == 'morden' or section.settings.collection_information_position == 'below_image' }}",
+      "info": "On the picture, the Default card style takes the theme button weight."
+    },
+    {
+      "type": "header",
+      "content": "Animation"
+    },
+    {
+      "type": "checkbox",
+      "id": "reveal",
+      "label": "Reveal on scroll",
+      "info": "Display a part of the upcoming slide.",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "Desktop spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "default": 0,
+      "min": 0,
+      "max": 100,
+      "step": 2,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "default": 0,
+      "min": 0,
+      "max": 100,
+      "step": 2,
+      "unit": "px"
+    },
+    {
+      "type": "header",
+      "content": "Mobile"
+    },
+    {
+      "type": "range",
+      "id": "items_per_row_mobile",
+      "label": "Collections per row (mobile)",
+      "min": 1,
+      "max": 3,
+      "step": 0.5,
+      "default": 1
+    }
+  ]
+}
+{% endschema %}

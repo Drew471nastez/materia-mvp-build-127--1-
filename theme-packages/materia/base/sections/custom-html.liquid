@@ -1,0 +1,320 @@
+<script src="{{ 'live-popups-code.js' | asset_url }}" defer="defer"></script>
+{% render 'theme-type' %}
+{%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
+{%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' and section.settings.reveal != false -%}
+<style>
+  #shopify-section-{{ section.id }}.scroll-trigger {
+    --animation-duration: {{ settings.animation_duration | default: 700 }}ms;
+    --animation-delay: {{ settings.animation_delay | default: 0 }}ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-{{ section.id }}');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', {{ settings.scroll_animation | json }});
+  })();
+</script>
+{%- endif -%}
+<style data-rs-bulletproof>
+  {%- if section.settings.reset_spacing -%}
+    /* reset_spacing: bulletproof override of ALL section spacing mechanisms */
+    #shopify-section-{{ section.id }},
+    #shopify-section-{{ section.id }} > .section,
+    #shopify-section-{{ section.id }} > section,
+    #shopify-section-{{ section.id }} > div,
+    #shopify-section-{{ section.id }} > div > .section {
+      margin-top: 0 !important;
+      margin-bottom: 0 !important;
+    }
+    #shopify-section-{{ section.id }} + .shopify-section,
+    #shopify-section-{{ section.id }} + section,
+    .shopify-section + #shopify-section-{{ section.id }} {
+      margin-top: 0 !important;
+    }
+  {%- endif -%}
+</style>
+{%- liquid
+  assign __ti_scroll_animation = settings.scroll_animation | default: 'none'
+  assign __ti_reveal = section.settings.reveal
+-%}
+<style>
+  /* Section isolation: the creator's code cannot bleed into other sections */
+  #shopify-section-{{ section.id }} {
+    isolation: isolate;
+    position: relative;
+  }
+  :where(#shopify-section-{{ section.id }}) {
+    font-family: var(--body-font, inherit);
+    font-weight: var(--body-weight, inherit);
+  }
+  :where(#shopify-section-{{ section.id }}) :where(button, input, textarea, select, optgroup) {
+    font-family: inherit;
+  }
+  :where(#shopify-section-{{ section.id }}) :is(h1, h2, h3, h4, h5, h6) {
+    font-family: var(--heading-font, inherit);
+    font-weight: var(--heading-weight, inherit);
+  }
+  /* Space between sections (mobile first). Remove default space wins. */
+  #shopify-section-{{ section.id }} {
+    margin-top: {{ section.settings.section_margin_top_mobile | default: 0 }}px;
+    margin-bottom: {{ section.settings.section_margin_bottom_mobile | default: 0 }}px;
+  }
+  @media (min-width: 768px) {
+    #shopify-section-{{ section.id }} {
+      margin-top: {{ section.settings.section_margin_top_desktop | default: 0 }}px;
+      margin-bottom: {{ section.settings.section_margin_bottom_desktop | default: 0 }}px;
+    }
+  }
+  {%- if section.settings.reset_spacing -%}
+    #shopify-section-{{ section.id }} { margin-bottom: 0 !important; margin-top: 0 !important; }
+    #shopify-section-{{ section.id }} + .shopify-section { margin-top: 0 !important; }
+  {%- endif -%}
+  /* The wrapper spans its column; the width class on the inner box sets the content width. */
+  #shopify-section-{{ section.id }} > .pc-code {
+    width: 100%;
+    box-sizing: border-box;
+    color: var(--color-text);
+  }
+  #shopify-section-{{ section.id }} > .pc-code > .container {
+    max-width: calc(var(--page-width, 1300px) + 3rem);
+    margin-inline: auto;
+    box-sizing: border-box;
+  }
+  #shopify-section-{{ section.id }} > .pc-code > .fluid_container {
+    max-width: calc(var(--fluid-container-width, 1500px) + 3rem);
+    margin-inline: auto;
+    box-sizing: border-box;
+  }
+  @media (min-width: 1200px) {
+    #shopify-section-{{ section.id }} > .pc-code > .stretch_width { padding-inline: 3rem; }
+  }
+  #shopify-section-{{ section.id }} > .pc-code > .full_width { padding-inline: 0; }
+  /* Show on: phones only or larger screens only */
+  #shopify-section-{{ section.id }} > .pc-code[data-pc-show='mobile'] { display: none; }
+  @media (max-width: 767px) {
+    #shopify-section-{{ section.id }} > .pc-code[data-pc-show='mobile'] { display: block; }
+    #shopify-section-{{ section.id }} > .pc-code[data-pc-show='desktop'] { display: none; }
+  }
+  #shopify-section-{{ section.id }} .pc-code__empty {
+    margin: 0;
+    padding: 24px;
+    border: 1px dashed var(--color-border);
+    border-radius: var(--rounded-radius, 8px);
+    color: var(--color-text);
+    text-align: center;
+  }
+</style>
+<!-- ti-theme:start -->
+{%- comment -%}
+  Materia Themes. Custom HTML: the creator's code (html_custom) is printed
+  exactly as typed, inside a wrapper that takes the colour scheme, the
+  section width, Show on and the section spacing. The wrapper's settings are
+  live in the builder (shopify/assets/live-popups-code.js); the code itself
+  is redrawn by the builder, so a script in it runs the way the creator wrote it.
+{%- endcomment -%}
+{%- liquid
+  assign section_st = section.settings
+  assign section_width = section_st.section_width | default: 'fluid_container'
+  assign color_scheme = section_st.color_scheme.id | default: section_st.color_scheme | default: 'default-color-scheme'
+  assign pc_show = section_st.show_section_on | default: 'all'
+  assign pc_pt = section_st.padding_top | default: 0
+  assign pc_pb = section_st.padding_bottom | default: 0
+  assign reset_spacing = ''
+  if section_st.reset_spacing
+    assign reset_spacing = ' remove_spacing'
+  endif
+  assign pc_code = section_st.html_custom
+-%}
+{%- if pc_code != blank or request.design_mode -%}
+  <div
+    class="pc-code section{% if pc_pt < 30 %} pt-min{% endif %}{% if pc_pb < 30 %} pb-min{% endif %} sec__custom-html color-{{ color_scheme }} gradient{{ reset_spacing }}"
+    data-pc-root="custom-html"
+    data-pc-section="{{ section.id }}"{% if request.design_mode %}
+    data-pc-settings='{"color_scheme":{{ color_scheme | json | escape }},"section_width":{{ section_width | json | escape }},"show_section_on":{{ pc_show | json | escape }},"reset_spacing":{{ section_st.reset_spacing | json }},"padding_top":{{ pc_pt | json }},"padding_bottom":{{ pc_pb | json }},"section_margin_top_desktop":{{ section_st.section_margin_top_desktop | default: 0 | json }},"section_margin_bottom_desktop":{{ section_st.section_margin_bottom_desktop | default: 0 | json }},"section_margin_top_mobile":{{ section_st.section_margin_top_mobile | default: 0 | json }},"section_margin_bottom_mobile":{{ section_st.section_margin_bottom_mobile | default: 0 | json }}}'{% endif %}
+    data-pc-show="{{ pc_show }}"
+    style="--section-pt: {{ pc_pt }}; --section-pb: {{ pc_pb }};"
+  >
+    <div class="{{ section_width }}" data-pc-width="{{ section_width }}">
+      <div class="sec__inner">
+        {%- if pc_code == blank -%}
+          <p class="pc-code__empty">Add your HTML in the section settings. Only you see this note in the builder.</p>
+        {%- else -%}
+          {{ pc_code }}
+        {%- endif -%}
+      </div>
+    </div>
+  </div>
+{%- endif -%}{% schema %}
+{
+  "name": "Custom HTML",
+  "tag": "section",
+  "disabled_on": {
+    "groups": [
+      "custom.overlay"
+    ]
+  },
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Section width",
+      "default": "fluid_container",
+      "options": [
+        {
+          "value": "container",
+          "label": "Default"
+        },
+        {
+          "value": "fluid_container",
+          "label": "Fluid container"
+        },
+        {
+          "value": "stretch_width",
+          "label": "Stretched"
+        },
+        {
+          "value": "full_width",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "show_section_on",
+      "label": "Show on",
+      "default": "all",
+      "options": [
+        {
+          "value": "all",
+          "label": "All"
+        },
+        {
+          "value": "desktop",
+          "label": "Desktop"
+        },
+        {
+          "value": "mobile",
+          "label": "Mobile"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "reset_spacing",
+      "label": "Remove default space between sections",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Content"
+    },
+    {
+      "type": "html",
+      "id": "html_custom",
+      "label": "HTML",
+      "default": "<div class=\"text-center py-10 px-15 border\">This is Custom HTML section</div>",
+      "info": "Printed exactly as you type it."
+    },
+    {
+      "type": "header",
+      "content": "Animation"
+    },
+    {
+      "type": "checkbox",
+      "id": "reveal",
+      "label": "Reveal on scroll",
+      "default": true,
+      "info": "Uses Theme settings > Animations."
+    },
+    {
+      "type": "header",
+      "content": "Spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Padding top",
+      "default": 0,
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Padding bottom",
+      "default": 0,
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_desktop",
+      "label": "Top margin (desktop)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0,
+      "unit": "px",
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_desktop",
+      "label": "Bottom margin (desktop)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0,
+      "unit": "px",
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "header",
+      "content": "Mobile"
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_mobile",
+      "label": "Top margin (mobile)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0,
+      "unit": "px",
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_mobile",
+      "label": "Bottom margin (mobile)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0,
+      "unit": "px",
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Custom HTML",
+      "category": "Custom Code"
+    }
+  ]
+}
+{% endschema %}

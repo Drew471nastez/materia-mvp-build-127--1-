@@ -1,0 +1,193 @@
+{%- assign preview_product = product | default: page.product -%}
+{%- render 'size-table-render', block: block, product: preview_product, section: section -%}{% schema %}
+{
+  "type": "size_table",
+  "name": "Size chart",
+  "limit": 3,
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "use_storelib_chart",
+      "label": "Use the product's Storelib size chart",
+      "default": true,
+      "info": "Each product shows the chart you gave it in Storelib (Products > Size charts). Turn off to always show the rows below."
+    },
+    {
+      "type": "header",
+      "content": "Sizes"
+    },
+    {
+      "type": "text",
+      "id": "title",
+      "label": "Title",
+      "default": "Size Guide"
+    },
+    {
+      "type": "textarea",
+      "id": "table_data",
+      "label": "Size rows",
+      "info": "First line: the column names. Then one size per line, cells split by |, for example Size | Chest | Waist, then S | 86-91 | 71-76.",
+      "placeholder": "Size | Chest | Waist\nS | 86-91 | 71-76\nM | 92-97 | 77-82"
+    },
+    {
+      "type": "select",
+      "id": "table_unit",
+      "label": "Size rows are in",
+      "default": "none",
+      "options": [
+        {
+          "value": "none",
+          "label": "No switch"
+        },
+        {
+          "value": "cm",
+          "label": "cm"
+        },
+        {
+          "value": "in",
+          "label": "in"
+        }
+      ],
+      "info": "Pick the unit you typed to give visitors a cm / in switch."
+    },
+    {
+      "type": "header",
+      "content": "Rows from the product"
+    },
+    {
+      "type": "checkbox",
+      "id": "use_metafield",
+      "label": "Read the rows from a custom field",
+      "default": false,
+      "info": "Type the rows in the product's Custom fields card, in the same format."
+    },
+    {
+      "type": "text",
+      "id": "metafield_namespace",
+      "label": "Custom field namespace",
+      "default": "custom",
+      "visible_if": "{{ block.settings.use_metafield }}"
+    },
+    {
+      "type": "text",
+      "id": "metafield_key",
+      "label": "Custom field name",
+      "default": "size_table",
+      "visible_if": "{{ block.settings.use_metafield }}",
+      "info": "Lower case with _ for spaces: Size table is size_table."
+    },
+    {
+      "type": "header",
+      "content": "Collapsible"
+    },
+    {
+      "type": "checkbox",
+      "id": "collapsible",
+      "label": "Collapsible",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "start_open",
+      "label": "Open by default",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "Style"
+    },
+    {
+      "type": "color",
+      "id": "accent",
+      "label": "Header background",
+      "info": "Empty follows the colour scheme."
+    },
+    {
+      "type": "color",
+      "id": "header_text_color",
+      "label": "Header text",
+      "info": "Empty follows the colour scheme."
+    },
+    {
+      "type": "color",
+      "id": "body_text_color",
+      "label": "Body text",
+      "info": "Empty follows the colour scheme."
+    },
+    {
+      "type": "color",
+      "id": "title_color",
+      "label": "Title color",
+      "info": "Empty follows the colour scheme."
+    },
+    {
+      "type": "color",
+      "id": "border_color",
+      "label": "Border color",
+      "info": "Empty follows the colour scheme."
+    },
+    {
+      "type": "checkbox",
+      "id": "zebra",
+      "label": "Striped rows",
+      "default": true
+    },
+    {
+      "type": "color",
+      "id": "zebra_color",
+      "label": "Stripe color",
+      "info": "Empty follows the colour scheme."
+    },
+    {
+      "type": "range",
+      "id": "title_size",
+      "label": "Title size",
+      "min": 12,
+      "max": 24,
+      "step": 1,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "range",
+      "id": "cell_size",
+      "label": "Cell text size",
+      "min": 11,
+      "max": 18,
+      "step": 1,
+      "unit": "px",
+      "default": 14
+    },
+    {
+      "type": "range",
+      "id": "radius",
+      "label": "Table corner radius",
+      "min": 0,
+      "max": 24,
+      "step": 1,
+      "unit": "px",
+      "default": 10
+    },
+    {
+      "type": "range",
+      "id": "space_above",
+      "label": "Space above",
+      "min": 0,
+      "max": 60,
+      "step": 2,
+      "unit": "px",
+      "default": 8
+    },
+    {
+      "type": "range",
+      "id": "space_below",
+      "label": "Space below",
+      "min": 0,
+      "max": 60,
+      "step": 2,
+      "unit": "px",
+      "default": 8
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,17 @@
+<script>
+/* Register before editor/page scripts, without blocking the parser on an asset.
+   Deferred handlers only claim recognized storefront controls or resolved
+   same-page section links. Other editor selection events are left alone. */
+(() => {
+  if (window.__materiaSectionLinkCapture) return;
+  window.__materiaSectionLinkCapture = true;
+  ['click','pointerdown','pointerup','pointercancel','submit'].forEach(type => {
+    window.addEventListener(type, event => {
+      if(type==='submit'){window.materiaForms?.handleSubmit?.(event);return;}
+      if(window.MateriaProductDialogs?.handle(event))return;
+      if(window.MateriaHeaderActions?.handle(event))return;
+      window.MateriaSectionLinks?.[type]?.(event);
+    }, true);
+  });
+})();
+</script>

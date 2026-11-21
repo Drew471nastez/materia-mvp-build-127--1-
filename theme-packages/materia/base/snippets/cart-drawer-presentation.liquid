@@ -1,0 +1,7 @@
+{%- comment -%}
+  The drawer's static styles, cached as one file: shopify/assets/cart-drawer.css
+  holds cart-drawer-addons, this snippet, cart-drawer-polish and
+  cart-drawer-sheets, in that order. Storelib moves the link into the head in
+  the place these styles held, so the cascade is unchanged.
+{%- endcomment -%}
+{{ 'cart-drawer.css' | asset_url | stylesheet_tag }}

@@ -1,0 +1,103 @@
+{
+  "sections": {
+    "faq_contact_card_1": {
+      "type": "faq-contact-card",
+      "settings": {
+        "color_scheme": "default"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Frequently asked questions"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Answers about orders, delivery and returns.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "When will my order arrive?",
+            "answer": "<p>Orders leave within two working days. Delivery takes three to five days after that, and you get a tracking link by email.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I return something?",
+            "answer": "<p>Yes. Send it back within 30 days, unused and in its packaging, and we refund the full price.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do you ship abroad?",
+            "answer": "<p>We ship to most countries. The delivery price for yours is shown at checkout before you pay.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How do I reach you?",
+            "answer": "<p>Use the form on the contact page. We answer within one working day.</p>"
+          }
+        },
+        "faq_item_7": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Which payment methods do you take?",
+            "answer": "<p>Cards, Apple Pay, Google Pay and PayPal.</p>"
+          }
+        },
+        "card_text_8": {
+          "type": "card_text",
+          "settings": {
+            "heading": "Did not find your answer?",
+            "text": "<p>Send us a message and we will help.</p>"
+          }
+        },
+        "button_9": {
+          "type": "button",
+          "settings": {
+            "label": "Contact us",
+            "link": "/pages/contact"
+          }
+        },
+        "contact_line_10": {
+          "type": "contact_line",
+          "settings": {
+            "label": "Email",
+            "text": "hello@example.com"
+          }
+        },
+        "contact_line_11": {
+          "type": "contact_line",
+          "settings": {
+            "label": "Hours",
+            "text": "Monday to Friday, 9am to 5pm"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6",
+        "faq_item_7",
+        "card_text_8",
+        "button_9",
+        "contact_line_10",
+        "contact_line_11"
+      ]
+    }
+  },
+  "order": [
+    "faq_contact_card_1"
+  ]
+}

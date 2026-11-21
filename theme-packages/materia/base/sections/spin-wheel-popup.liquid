@@ -1,0 +1,1188 @@
+<script src="{{ 'live-page-popups.js' | asset_url }}" defer="defer"></script>
+{% render 'theme-type' %}
+{%- comment -%}
+  Materia Themes. Spin Wheel Popup: a heading, a line of text and a signup
+  form (Storelib Subscribers, data-storelib-form="subscribe") beside a wheel
+  of the creator's own prizes (Prize blocks: a label, the creator's own code
+  or none, how likely, colours), in a native <dialog>
+  (snippets/page-popup-dialog). Signing up spins the wheel; the code of the
+  prize it lands on is shown to copy. Every setting reaches the page as a
+  CSS variable, an attribute or a text on its element, so
+  shopify/assets/live-page-popups.js applies a builder edit in place, the
+  same as this Liquid draws it.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign fb_accessibility_spin_again = 'accessibility.spin_again' | t
+  assign fb_accessibility_you_won = 'accessibility.you_won' | t
+  assign fb_accessibility_spin_to_win = 'accessibility.spin_to_win' | t
+  assign block_heading = section.blocks | where: 'type', 'heading' | first
+  assign block_description = section.blocks | where: 'type', 'description' | first
+  assign block_form = section.blocks | where: 'type', 'form' | first
+  assign block_dismiss = section.blocks | where: 'type', 'dismiss' | first
+  assign sw_custom = false
+  if st.enable_custom_style == true
+    assign sw_custom = true
+  endif
+  assign c_card = ''
+  assign c_text = ''
+  assign c_close = ''
+  assign c_overlay = ''
+  assign c_bbg = ''
+  assign c_btx = ''
+  assign c_bbgh = ''
+  assign c_btxh = ''
+  assign c_panel = ''
+  assign c_pointer = ''
+  assign c_hub = ''
+  if sw_custom
+    assign c_card = st.card_bg
+    assign c_text = st.text_color
+    assign c_close = st.close_color
+    assign c_overlay = st.overlay_color
+    assign c_bbg = st.spin_btn_bg
+    assign c_btx = st.spin_btn_text
+    assign c_bbgh = st.spin_btn_bg_hover
+    assign c_btxh = st.spin_btn_text_hover
+    assign c_panel = st.wheel_panel_bg
+    assign c_pointer = st.pointer_color
+    assign c_hub = st.hub_color
+  endif
+-%}
+<style>
+  #shopify-section-{{ sid }} { position: static; }
+  .sw-{{ sid }} { font-family: var(--body-font, inherit); }
+  .sw-{{ sid }} *, .sw-{{ sid }} *::before, .sw-{{ sid }} *::after { box-sizing: border-box; }
+  .sw-{{ sid }} .sw-text-{{ sid }} [hidden] { display: none !important; }
+
+  .sw-overlay-{{ sid }} {
+    position: fixed; inset: 0;
+    background: var(--sw-overlay, #000000);
+    opacity: 0; pointer-events: none; visibility: hidden;
+    transition: opacity .3s ease, visibility 0s linear .3s;
+    z-index: 2147483646;
+  }
+  .sw-{{ sid }}.sw-open .sw-overlay-{{ sid }} {
+    opacity: var(--sw-overlay-o, .6);
+    pointer-events: auto; visibility: visible; transition-delay: 0s;
+  }
+  .sw-card-{{ sid }} {
+    position: fixed; left: 50%; top: 50%;
+    transform: translate(-50%, -50%) scale(.96);
+    opacity: 0; pointer-events: none; visibility: hidden;
+    transition: transform .35s cubic-bezier(.2,.8,.2,1), opacity .3s ease, visibility 0s linear .35s;
+    z-index: 2147483647;
+    width: min(calc(100vw - var(--sw-gutter, 32px)), var(--sw-w, 920px));
+    max-height: calc(var(--sl-vh, 1vh) * 100 - 24px);
+    overflow: hidden auto; overscroll-behavior: contain;
+    background: var(--sw-bg, var(--color-background));
+    color: var(--sw-text, var(--color-text));
+    border-radius: var(--sw-radius, 16px);
+    box-shadow: 0 12px 40px rgba(0,0,0,.18);
+  }
+  .sw-{{ sid }}.sw-open .sw-card-{{ sid }} {
+    opacity: 1; pointer-events: auto; visibility: visible; transition-delay: 0s;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  @media (min-width: 750px) {
+    .sw-card-{{ sid }} { width: min(92vw, var(--sw-w, 920px)); }
+  }
+
+  .sw-grid-{{ sid }} { display: grid; grid-template-columns: .95fr 1.05fr; align-items: stretch; gap: 0; }
+  .sw-{{ sid }}[data-sw-side="wheel-right"] .sw-grid-{{ sid }} { grid-template-columns: 1.05fr .95fr; }
+  .sw-{{ sid }}[data-sw-side="wheel-right"] .sw-text-{{ sid }} { order: 1; }
+  .sw-{{ sid }}[data-sw-side="wheel-right"] .sw-wheel-col-{{ sid }} { order: 2; }
+  @media (max-width: 749px) {
+    .sw-{{ sid }}[data-sw-side] .sw-grid-{{ sid }} { grid-template-columns: 1fr; grid-template-rows: auto auto; }
+    .sw-{{ sid }}[data-sw-side] .sw-grid-{{ sid }} .sw-wheel-col-{{ sid }} { order: 1; }
+    .sw-{{ sid }}[data-sw-side] .sw-grid-{{ sid }} .sw-text-{{ sid }} { order: 2; }
+  }
+
+  .sw-text-{{ sid }} {
+    padding: 28px 28px;
+    display: flex; flex-direction: column;
+    justify-content: center;
+    text-align: start;
+    min-height: 0;
+  }
+  .sw-{{ sid }}[data-sw-align="center"] .sw-text-{{ sid }} { text-align: center; align-items: center; }
+  @media (max-width: 749px) {
+    .sw-text-{{ sid }} { padding: 20px 22px; }
+  }
+
+  .sw-heading-{{ sid }} { font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, 800); font-size: 28px; line-height: 1.1; margin: 0 0 10px; }
+  .sw-description-{{ sid }} { font-size: 15px; line-height: 1.45; margin: 0 0 16px; }
+  @media (max-width: 749px) {
+    .sw-heading-{{ sid }} { font-size: 22px; }
+    .sw-description-{{ sid }} { font-size: 14px; }
+  }
+
+  .sw-close-{{ sid }} {
+    position: absolute; top: 12px; right: 12px;
+    width: 44px; height: 44px; padding: 0;
+    border: none; border-radius: 50%;
+    background: color-mix(in srgb, var(--color-background) 95%, transparent);
+    color: var(--sw-close, var(--color-heading));
+    font-size: 20px; line-height: 1;
+    cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,.1);
+    transition: transform var(--btn-anim-duration, .25s) var(--btn-anim-ease, ease), background-color var(--btn-anim-duration, .25s) var(--btn-anim-ease, ease);
+    z-index: 2;
+  }
+  .sw-close-{{ sid }}:hover { background: var(--color-background); }
+  .sw-close-{{ sid }} svg { width: 18px; height: 18px; }
+  .sw-close-{{ sid }}:focus-visible, .sw-win-code-{{ sid }}:focus-visible, .sw-dismiss-{{ sid }}:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+
+  .sw-wheel-col-{{ sid }} {
+    background: var(--sw-panel, color-mix(in srgb, var(--color-primary) 6%, var(--color-background)));
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+    overflow: hidden;
+  }
+  .sw-wheel-{{ sid }} { position: relative; width: 100%; max-width: 320px; aspect-ratio: 1 / 1; }
+  @media (max-width: 749px) {
+    .sw-wheel-col-{{ sid }} { padding: 20px 16px 8px; }
+    .sw-wheel-{{ sid }} { max-width: min(240px, 64vw); }
+  }
+  .sw-wheel-svg-{{ sid }} {
+    width: 100%; height: 100%;
+    border-radius: 50%;
+    position: relative;
+    transform: rotate(0deg);
+    transition: transform var(--sw-spin-dur, 5s) cubic-bezier(.12,.6,.12,1);
+    will-change: transform;
+    display: block;
+    overflow: hidden;
+    border: 6px solid var(--sw-hub, var(--color-background));
+    box-shadow: 0 6px 24px rgba(0,0,0,.18);
+  }
+  .sw-wheel-svg-{{ sid }}.sw-wheel-empty { background: #eee; display: flex; align-items: center; justify-content: center; }
+  .sw-wheel-svg-{{ sid }}.sw-wheel-empty span { color: #999; font-size: 12px; }
+  .sw-wheel-labels-{{ sid }} { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .sw-wheel-labels-{{ sid }} text { font-weight: 800; letter-spacing: .04em; font-family: var(--body-font, inherit); }
+  .sw-wheel-pointer-{{ sid }} {
+    position: absolute;
+    top: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 14px solid transparent;
+    border-right: 14px solid transparent;
+    border-top: 22px solid var(--sw-pointer, var(--color-heading));
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,.25));
+    z-index: 3;
+  }
+  .sw-wheel-hub-{{ sid }} {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 24%; height: 24%;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.95) 0%, var(--sw-hub, var(--color-background)) 65%);
+    box-shadow: 0 4px 12px rgba(0,0,0,.18), inset 0 0 0 6px var(--sw-pointer, var(--color-heading)), inset 0 0 0 8px rgba(255,255,255,.85);
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--body-font, inherit);
+  }
+  .sw-wheel-hub-{{ sid }}::after {
+    content: var(--sw-hub-text, "%");
+    color: var(--sw-pointer, var(--color-heading));
+    font-weight: 900;
+    font-size: clamp(14px, 4.4vw, 30px);
+    line-height: 1;
+    letter-spacing: -.02em;
+  }
+  @keyframes sw-hub-pop-{{ sid }} {
+    0%   { transform: translate(-50%, -50%) scale(.6); opacity: 0; }
+    60%  { transform: translate(-50%, -50%) scale(1.08); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1); }
+  }
+  .sw-{{ sid }}.sw-open .sw-wheel-hub-{{ sid }} { animation: sw-hub-pop-{{ sid }} .55s cubic-bezier(.4,0,.2,1) both; }
+  @media (prefers-reduced-motion: reduce) {
+    .sw-{{ sid }}.sw-open .sw-wheel-hub-{{ sid }} { animation: none; }
+  }
+
+  .sw-form-{{ sid }} { display: flex; flex-direction: column; gap: 12px; max-width: 420px; }
+  .sw-{{ sid }}[data-sw-align="center"] .sw-form-{{ sid }} { margin-inline: auto; }
+  .sw-form-{{ sid }} > form { display: flex; flex-direction: column; gap: 12px; }
+  .sw-form-{{ sid }} input[type="email"] {
+    width: 100%; min-height: var(--input-height, 46px); padding: var(--input-padding, 12px 14px);
+    border-radius: var(--input-border-radius, 8px); border: max(1px, var(--inputs-border-width, 1px)) solid var(--color-border, #cccccc);
+    font-family: var(--body-font, inherit); font-size: var(--input-font-size, 15px); background: var(--input-bg, var(--color-background)); color: var(--input-color, var(--color-text));
+    outline: none;
+  }
+  .sw-form-{{ sid }} input[type="email"]::placeholder { color: var(--input-placeholder-color, color-mix(in srgb, var(--color-text) 55%, transparent)); opacity: 1; }
+  .sw-form-{{ sid }} input[type="email"]:focus { border-color: color-mix(in srgb, var(--color-text) 40%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-text) 8%, transparent); }
+  .sw-spin-btn-{{ sid }} { width: 100%; }
+
+  .sw-pre-{{ sid }} { display: block; }
+  .sw-{{ sid }}.sw-spun .sw-pre-{{ sid }} { display: none; }
+  .sw-post-{{ sid }} { display: none; }
+  .sw-{{ sid }}.sw-spun .sw-post-{{ sid }} { display: block; }
+  .sw-respin-btn-{{ sid }} { display: none; margin-top: 14px; }
+  .sw-{{ sid }}.sw-can-respin .sw-respin-btn-{{ sid }} { display: inline-flex; }
+
+  .sw-win-label-{{ sid }} { font-size: 14px; font-weight: 600; opacity: .85; margin: 0 0 6px; letter-spacing: .04em; text-transform: uppercase; }
+  .sw-win-title-{{ sid }} { font-family: var(--heading-font, inherit); font-size: 28px; font-weight: var(--heading-weight, 800); margin: 0 0 12px; line-height: 1.1; }
+  .sw-win-code-{{ sid }} {
+    display: inline-block;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-weight: 700; letter-spacing: .12em; font-size: 17px;
+    min-height: 44px; padding: 10px 14px;
+    border: 2px dashed currentColor; color: inherit;
+    border-radius: 8px;
+    cursor: pointer; user-select: all;
+    background: transparent;
+    transition: background .2s ease, color .2s ease, border-color .2s ease;
+  }
+  .sw-win-code-{{ sid }}.is-copied { background: #1c8d3a; color: #fff; border-color: #1c8d3a; }
+
+  .sw-dismiss-wrap-{{ sid }} { margin-top: 12px; text-align: var(--sw-dismiss-align, center); }
+  .sw-dismiss-{{ sid }} {
+    background: none; border: none; cursor: pointer;
+    font-size: 13px; text-decoration: underline;
+    color: inherit; opacity: .7;
+    min-height: 44px; padding: 4px 8px;
+    transition: opacity var(--btn-anim-duration, .25s) var(--btn-anim-ease, ease);
+  }
+  .sw-dismiss-{{ sid }}:hover { opacity: 1; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sw-card-{{ sid }}, .sw-overlay-{{ sid }},
+    .sw-spin-btn-{{ sid }}, .sw-respin-btn-{{ sid }}, .sw-dismiss-{{ sid }}, .sw-win-code-{{ sid }}, .sw-close-{{ sid }} { transition: none !important; }
+    .sw-wheel-svg-{{ sid }} { transition: transform 0.001ms !important; }
+    .sw-card-{{ sid }} { transform: translate(-50%, -50%) !important; }
+  }
+</style>
+
+{%- capture sw_config -%}
+  {"design": {{ request.design_mode | json }}, "preview": {{ st.editor_mode | json }},
+   "trigger": {"mode": {{ st.open_mode | default: 'delay' | json }}, "delay": {{ st.delay_s | default: 5 | json }}, "scroll": {{ st.scroll_pct | default: 50 | json }}, "views": {{ st.page_views | default: 2 | json }} },
+   "frequency": {"mode": {{ st.after_dismiss | default: 'after_days' | json }}, "days": {{ st.hide_days | default: 1 | json }} },
+   "spin": {"seconds": {{ st.spin_duration_s | default: 5 | json }}, "turns": {{ st.spin_full_turns | default: 5 | json }}, "respins": {{ st.max_respins | default: 2 | json }},
+     "closeAfterCopy": {{ st.close_after_copy | json }}, "closeDelay": {{ st.close_after_copy_delay_s | default: 10 | json }},
+     "noWin": {{ st.no_win_label | default: 'Better luck next time' | json }}, "copied": {{ st.copy_done_label | default: 'Copied!' | json }}, "spinning": {{ st.spinning_label | default: 'Spinning' | json }} } }
+{%- endcapture -%}
+{%- capture sw_vars -%}
+--sw-overlay-o: {{ st.overlay_opacity | default: 60 | times: 0.01 }}; --sw-gutter: {{ st.mobile_gutter | default: 32 }}px; --sw-w: {{ st.popup_width | default: 920 }}px; --sw-radius: {{ st.popup_radius | default: 16 }}px; --sw-spin-dur: {{ st.spin_duration_s | default: 5 }}s; --sw-hub-text: {{ st.hub_text | default: '%' | json | escape }}; --sw-dismiss-align: {{ st.dismiss_align | default: 'center' }};
+{%- if sw_custom %} --sw-overlay: {% render 'scheme-color', color: c_overlay, fallback: '#000000' %}; --sw-bg: {% render 'scheme-color', color: c_card, fallback: 'var(--color-background)' %}; --sw-text: {% render 'scheme-color', color: c_text, fallback: 'var(--color-text)' %}; --sw-close: {% render 'scheme-color', color: c_close, fallback: 'var(--color-heading)' %}; --sw-panel: {% render 'scheme-color', color: c_panel, fallback: 'color-mix(in srgb, var(--color-primary) 6%, var(--color-background))' %}; --sw-hub: {% render 'scheme-color', color: c_hub, fallback: 'var(--color-background)' %}; --sw-pointer: {% render 'scheme-color', color: c_pointer, fallback: 'var(--color-heading)' %};{%- endif -%}
+{%- render 'page-popup-fonts', st: st -%}
+{%- endcapture -%}
+{% render 'page-popup-dialog', sid: sid, st: st %}
+<section class="sw-{{ sid }} color-{{ color_scheme }}" data-pg-root="spin-wheel-popup" data-pg-section="{{ sid }}"{% if request.design_mode %} data-pg-settings="{{ st | json | escape }}"{% endif %}{% if st.enable_custom_fonts %} data-pg-fonts data-own-font{% endif %}
+         data-sw-side="{{ st.wheel_side | default: 'wheel-left' }}" data-sw-align="{{ st.text_align | default: 'left' }}"
+         data-sw-section="{{ sid }}" data-popup-root="{{ sid }}"
+         data-popup-config="{{ sw_config | strip_newlines | escape }}"
+         style="{{ sw_vars | strip_newlines | strip }}"
+         aria-hidden="true">
+  <dialog class="pg-dialog" data-pg-dialog aria-labelledby="sw-title-{{ sid }}">
+  <div class="sw-overlay-{{ sid }}" data-pg-backdrop aria-hidden="true"></div>
+  <div class="sw-card-{{ sid }}" data-pg-card tabindex="-1">
+    <button type="button" class="sw-close-{{ sid }}" data-popup-close aria-label="{{ 'accessibility.close_popup' | t }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+
+    <div class="sw-grid-{{ sid }}">
+      <div class="sw-text-{{ sid }}">
+        {%- if block_heading != blank -%}
+          {%- liquid
+            assign c = ''
+            if block_heading.settings.enable_custom_style == true
+              assign c = block_heading.settings.color
+            endif
+          -%}
+          <h2 class="sw-heading-{{ sid }}" id="sw-title-{{ sid }}" data-pg-block="{{ block_heading.id }}" data-pg-type="heading"{% if request.design_mode %} data-pg-settings="{{ block_heading.settings | json | escape }}"{% endif %}{% if block_heading.settings.text == blank %} hidden{% endif %}
+              style="color: {% render 'scheme-color', color: c, fallback: 'var(--color-heading)' %};"
+              {{ block_heading.shopify_attributes }}>{{ block_heading.settings.text }}</h2>
+        {%- endif -%}
+        {%- if block_description != blank -%}
+          {%- liquid
+            assign c = ''
+            if block_description.settings.enable_custom_style == true
+              assign c = block_description.settings.color
+            endif
+          -%}
+          <p class="sw-description-{{ sid }}" data-pg-block="{{ block_description.id }}" data-pg-type="description"{% if request.design_mode %} data-pg-settings="{{ block_description.settings | json | escape }}"{% endif %}{% if block_description.settings.text == blank %} hidden{% endif %}
+             style="color: {% render 'scheme-color', color: c, fallback: 'var(--color-text)' %};"
+             {{ block_description.shopify_attributes }}>{{ block_description.settings.text }}</p>
+        {%- endif -%}
+
+        <div class="sw-pre-{{ sid }}">
+          {%- if block_form != blank -%}
+            {%- liquid
+              assign fs = block_form.settings
+              assign sw_form_id = 'sw-form-' | append: sid
+              assign sw_form_class = 'sw-formel-' | append: sid
+              assign sw_email_ph = fs.email_placeholder | default: 'Email address'
+              assign sw_phone_req = 'false'
+              if fs.phone_required
+                assign sw_phone_req = 'true'
+              endif
+              assign sw_phone_off = true
+              if fs.collect_phone
+                assign sw_phone_off = false
+              endif
+            -%}
+            <div class="sw-form-{{ sid }}" data-pg-block="{{ block_form.id }}" data-pg-type="form"{% if request.design_mode %} data-pg-settings="{{ fs | json | escape }}"{% endif %} data-pg-i18n="{{ fb_accessibility_spin_to_win | escape }}" {{ block_form.shopify_attributes }}>
+              <form id="{{ sw_form_id }}" class="{{ sw_form_class }}" data-storelib-form="subscribe">
+                <input type="email" name="email" required autocomplete="email" placeholder="{{ sw_email_ph | escape }}" aria-label="{{ sw_email_ph | escape }}" data-popup-autofocus>
+                {%- render 'cpnb-phone-field', scope: sid, default_country: fs.phone_default_country, phone_placeholder: fs.phone_placeholder, required: sw_phone_req, off: sw_phone_off -%}
+                <button type="submit" class="sw-spin-btn-{{ sid }} btn-primary" data-theme-button="primary" data-sl-button
+                        style="{%- render 'button-overrides', bg: c_bbg, text: c_btx, hover_bg: c_bbgh, hover_text: c_btxh -%}">{{ fs.spin_label | default: fb_accessibility_spin_to_win }}</button>
+              </form>
+            </div>
+          {%- endif -%}
+
+          {%- if block_dismiss != blank -%}
+            <div class="sw-dismiss-wrap-{{ sid }}" data-pg-block="{{ block_dismiss.id }}" data-pg-type="dismiss"{% if request.design_mode %} data-pg-settings="{{ block_dismiss.settings | json | escape }}"{% endif %}{% if block_dismiss.settings.text == blank %} hidden{% endif %} {{ block_dismiss.shopify_attributes }}>
+              <button type="button" class="sw-dismiss-{{ sid }}" data-popup-close>{{ block_dismiss.settings.text }}</button>
+            </div>
+          {%- endif -%}
+        </div>
+
+        <div class="sw-post-{{ sid }}" aria-live="polite">
+          <p class="sw-win-label-{{ sid }}" data-sw-win-label-text data-pg-i18n="{{ fb_accessibility_you_won | escape }}">{{ st.win_label | default: fb_accessibility_you_won }}</p>
+          <h3 class="sw-win-title-{{ sid }}" data-sw-win-title></h3>
+          <button type="button" class="sw-win-code-{{ sid }}" data-sw-win-code aria-label="{{ 'accessibility.copy_coupon_code' | t }}"></button>
+          <button type="button" class="sw-respin-btn-{{ sid }} btn-primary" data-theme-button="primary" data-sl-button data-sw-respin data-pg-i18n="{{ fb_accessibility_spin_again | escape }}"
+                  style="{%- render 'button-overrides', bg: c_bbg, text: c_btx, hover_bg: c_bbgh, hover_text: c_btxh -%}">{{ st.respin_label | default: fb_accessibility_spin_again }}</button>
+        </div>
+      </div>
+
+      <div class="sw-wheel-col-{{ sid }}">
+        <div class="sw-wheel-{{ sid }}">
+          <div class="sw-wheel-pointer-{{ sid }}"></div>
+          {%- assign prize_count = 0 -%}
+          {%- for b in section.blocks -%}{% if b.type == 'prize' %}{%- assign prize_count = prize_count | plus: 1 -%}{% endif %}{%- endfor -%}
+          {%- if prize_count == 0 -%}
+            <div class="sw-wheel-svg-{{ sid }} sw-wheel-empty">
+              <span>{{ 'accessibility.add_prize_blocks' | t }}</span>
+            </div>
+          {%- else -%}
+            {%- comment -%}
+              The slices are one conic-gradient (each prize from its start to
+              its end angle, clockwise from the pointer at the top); each
+              label sits at its slice's middle angle, kept upright.
+            {%- endcomment -%}
+            {%- capture gradient -%}
+              {%- assign idx = 0 -%}
+              {%- for b in section.blocks -%}
+                {%- if b.type == 'prize' -%}
+                  {%- assign start_deg = idx | times: 360.0 | divided_by: prize_count | round: 3 -%}
+                  {%- assign end_deg = idx | plus: 1 | times: 360.0 | divided_by: prize_count | round: 3 -%}
+                  {%- assign segment_color = b.settings.color | default: '#ffffff' -%}
+                  {%- if idx > 0 -%}, {% endif -%}{{ segment_color }} {{ start_deg }}deg {{ end_deg }}deg
+                  {%- assign idx = idx | plus: 1 -%}
+                {%- endif -%}
+              {%- endfor -%}
+            {%- endcapture -%}
+            <div class="sw-wheel-svg-{{ sid }}" data-sw-wheel style="background: conic-gradient(from 0deg, {{ gradient | strip }});">
+              <svg class="sw-wheel-labels-{{ sid }}" viewBox="0 0 200 200" aria-hidden="true">
+                {%- assign label_radius_pct = st.label_radius | default: 68 -%}
+                {%- assign label_y = 100 | minus: label_radius_pct -%}
+                {%- assign label_font_size = st.label_font_size | default: 10 -%}
+                {%- assign cap = 60 | divided_by: prize_count -%}
+                {%- if label_font_size > cap -%}
+                  {%- assign label_font_size = cap -%}
+                {%- endif -%}
+                {%- assign idx = 0 -%}
+                {%- for b in section.blocks -%}
+                  {%- if b.type == 'prize' -%}
+                    {%- assign mid_deg = idx | plus: 0.5 | times: 360.0 | divided_by: prize_count | round: 3 -%}
+                    <text data-pg-block="{{ b.id }}" data-pg-type="prize"{% if request.design_mode %} data-pg-settings="{{ b.settings | json | escape }}"{% endif %}
+                      data-sw-segment="{{ idx }}"
+                      data-sw-code="{{ b.settings.code | escape }}"
+                      data-sw-label="{{ b.settings.label | default: '?' | escape }}"
+                      data-sw-weight="{{ b.settings.weight | default: 1 }}"
+                      x="100"
+                      y="{{ label_y }}"
+                      text-anchor="middle"
+                      dominant-baseline="middle"
+                      font-size="{{ label_font_size }}"
+                      fill="{{ b.settings.text_color | default: '#111111' }}"
+                      transform="rotate({{ mid_deg }} 100 100) rotate({{ mid_deg | times: -1 }} 100 {{ label_y }})"
+                    >{{ b.settings.label | default: '?' }}</text>
+                    {%- assign idx = idx | plus: 1 -%}
+                  {%- endif -%}
+                {%- endfor -%}
+              </svg>
+            </div>
+          {%- endif -%}
+          <div class="sw-wheel-hub-{{ sid }}"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  </dialog>
+</section>
+
+<script src="{{ 'materia-popups.js' | asset_url }}" defer="defer"></script>
+<script>
+(function(){
+  var SID = {{ section.id | json }};
+  var WON_KEY = 'sw_won_' + SID;
+  var RESPIN_KEY = 'sw_respins_' + SID;
+
+  function setup(P){
+    var root = document.querySelector('[data-popup-root="' + SID + '"]');
+    if (!root || root.__sw) return;
+    root.__sw = true;
+    var CFG = JSON.parse(root.getAttribute('data-popup-config') || '{}');
+    // The spin words and timings are read from the config each time, so a builder edit applies at once.
+    var SPIN = {};
+    function spinCfg(){ try { SPIN = (JSON.parse(root.getAttribute('data-popup-config') || '{}').spin) || {}; } catch (e) {} return SPIN; }
+    spinCfg();
+    var card = root.querySelector('.sw-card-' + SID);
+    var form = root.querySelector('.sw-formel-' + SID);
+    var spinBtn = form ? form.querySelector('.sw-spin-btn-' + SID) : null;
+    var wheel = root.querySelector('.sw-wheel-svg-' + SID);
+    var segments = Array.prototype.slice.call(root.querySelectorAll('[data-sw-segment]'));
+    root.__swFit = function(){ segments = Array.prototype.slice.call(root.querySelectorAll('[data-sw-segment]')); fitLabels(); };
+    var titleEl = root.querySelector('[data-sw-win-title]');
+    var codeEl = root.querySelector('[data-sw-win-code]');
+    var labelEl = root.querySelector('[data-sw-win-label-text]');
+    var respinBtn = root.querySelector('[data-sw-respin]');
+    var design = !!CFG.design;
+    var rotation = 0, running = false, closeTimer = 0, resetTimer = 0;
+    var respinsLeft = parseInt(P.store.get(RESPIN_KEY) || '', 10);
+    if (!isFinite(respinsLeft)) respinsLeft = +SPIN.respins || 0;
+
+    var api = P.register({
+      id: SID, root: root, dialog: card, backdrop: root.querySelector('.sw-overlay-' + SID),
+      design: design, preview: CFG.preview,
+      trigger: Object.assign({ selector: '[data-sw-trigger="' + SID + '"]' }, CFG.trigger),
+      frequency: { mode: CFG.frequency.mode === 'every_visit' ? 'always' : CFG.frequency.mode, days: CFG.frequency.days },
+      open: function(){ root.classList.add('sw-open'); requestAnimationFrame(fitLabels); },
+      close: function(){ root.classList.remove('sw-open'); clearTimeout(closeTimer); }
+    });
+
+    // Labels shrink until they fit their slice (measured once painted).
+    function fitLabels(){
+      var n = segments.length;
+      if (!n) return;
+      var r = 68;
+      var maxW = Math.min(2 * Math.PI * r / n, 2 * r * Math.sin(Math.PI / n)) * 0.65;
+      segments.forEach(function(text){
+        var size = parseFloat(text.getAttribute('font-size')) || 11;
+        for (var i = 0; i < 18; i++) {
+          var box; try { box = text.getBBox(); } catch (e) { return; }
+          if (!box.width || (box.width <= maxW && box.height <= r * 0.35) || size <= 5) break;
+          size -= 1; text.setAttribute('font-size', size);
+        }
+      });
+    }
+
+    // Weighted pick; a weight of 0 never wins.
+    function pick(){
+      var w = segments.map(function(s){ var v = parseFloat(s.getAttribute('data-sw-weight')); return isFinite(v) && v >= 0 ? v : 1; });
+      var total = w.reduce(function(a, b){ return a + b; }, 0);
+      if (total <= 0) return Math.floor(Math.random() * segments.length);
+      var x = Math.random() * total;
+      for (var i = 0; i < w.length; i++) { x -= w[i]; if (x < 0) return i; }
+      return w.length - 1;
+    }
+    // Slice i spans [i, i+1] x step degrees clockwise from the top, where the
+    // pointer is. Turning the wheel by R puts local angle (360 - R) under it.
+    function landed(){
+      var step = 360 / segments.length;
+      var under = ((360 - rotation % 360) % 360 + 360) % 360;
+      return Math.min(segments.length - 1, Math.floor(under / step));
+    }
+    function spin(done){
+      spinCfg();
+      if (!wheel || !segments.length) { done(null); return; }
+      var i = pick();
+      var step = 360 / segments.length;
+      var jitter = (Math.random() - 0.5) * step * 0.6;              // stays well inside the slice
+      var target = (360 - ((i + 0.5) * step + jitter) % 360) % 360;
+      var base = rotation - rotation % 360;
+      rotation = base + (Math.max(3, +SPIN.turns || 5)) * 360 + target;
+      var quick = P.reduced();
+      wheel.style.transform = 'rotate(' + rotation + 'deg)';
+      setTimeout(function(){ done(segments[landed()]); }, quick ? 60 : (+SPIN.seconds || 5) * 1000 + 120);
+    }
+
+    function reveal(seg){
+      spinCfg();
+      root.classList.add('sw-spun');
+      if (!seg) return;
+      var code = seg.getAttribute('data-sw-code') || '';
+      var win = !!code;
+      root.setAttribute('data-sw-result', win ? 'win' : 'none');
+      if (titleEl) titleEl.textContent = win ? (seg.getAttribute('data-sw-label') || '') : (SPIN.noWin || '');
+      if (labelEl) labelEl.hidden = !win;
+      if (codeEl) { codeEl.textContent = code; codeEl.dataset.code = code; codeEl.style.display = win ? '' : 'none'; }
+      root.classList.toggle('sw-can-respin', !win && respinsLeft > 0);
+      var focus = win ? codeEl : (respinsLeft > 0 ? respinBtn : root.querySelector('.sw-close-' + SID));
+      if (focus) { try { focus.focus({ preventScroll: true }); } catch (e) {} }
+      if (win && !design) { P.store.set(WON_KEY, '1'); api && api.done(); }
+      if (design) { clearTimeout(resetTimer); resetTimer = setTimeout(function(){ root.classList.remove('sw-spun', 'sw-can-respin'); }, 8000); }
+    }
+
+    function run(){
+      if (running) return;
+      running = true;
+      var label = spinBtn ? spinBtn.textContent : '';
+      if (spinBtn) { spinBtn.disabled = true; spinBtn.textContent = SPIN.spinning || label; }
+      root.classList.add('sw-spinning');
+      spin(function(seg){
+        running = false;
+        root.classList.remove('sw-spinning');
+        if (spinBtn) { spinBtn.disabled = false; spinBtn.textContent = label; }
+        reveal(seg);
+      });
+    }
+
+    // The email goes to Storelib's Subscribers through the form itself
+    // (data-storelib-form="subscribe"); the spin starts on that same submit.
+    if (form) form.addEventListener('submit', function(e){
+      var email = form.querySelector('input[type="email"]');
+      if (email && email.checkValidity && !email.checkValidity()) return;
+      if (design) e.preventDefault();
+      run();
+    });
+    if (respinBtn) respinBtn.addEventListener('click', function(){
+      if (running || respinsLeft <= 0) return;
+      respinsLeft -= 1;
+      if (!design) P.store.set(RESPIN_KEY, String(respinsLeft));
+      root.classList.remove('sw-spun', 'sw-can-respin');
+      run();
+    });
+    if (codeEl) codeEl.addEventListener('click', function(){
+      var code = (codeEl.dataset.code || '').trim();
+      if (!code) return;
+      P.copy(code).catch(function(){}).then(function(){
+        codeEl.classList.add('is-copied');
+        codeEl.textContent = SPIN.copied || code;
+        setTimeout(function(){ codeEl.classList.remove('is-copied'); codeEl.textContent = code; }, 2200);
+        if (SPIN.closeAfterCopy && !design) { clearTimeout(closeTimer); closeTimer = setTimeout(function(){ api.hide(); }, (+SPIN.closeDelay || 10) * 1000); }
+      });
+    });
+
+    window['SW_open_' + SID] = function(){ api.show(); };
+    window['SW_close_' + SID] = function(){ api.hide(); };
+    window['SW_reset_' + SID] = function(){ P.store.rm(WON_KEY); P.store.rm(RESPIN_KEY); api.reset(); respinsLeft = +SPIN.respins || 0; root.classList.remove('sw-spun', 'sw-can-respin'); };
+  }
+
+  function boot(){ (window.MateriaPopupsQueue = window.MateriaPopupsQueue || []).push(setup); }
+  boot();
+  function reload(e){ if (e.detail && String(e.detail.sectionId) === SID) boot(); }
+  document.addEventListener('storelib:section-load', reload);
+  document.addEventListener('shopify:section:load', reload);
+})();
+</script>
+
+{% schema %}
+{
+  "name": "Spin Wheel Popup",
+  "tag": "section",
+  "class": "sw-section",
+  "enabled_on": {
+    "groups": [
+      "custom.overlay"
+    ]
+  },
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "header",
+      "content": "Trigger"
+    },
+    {
+      "type": "select",
+      "id": "open_mode",
+      "label": "Opens",
+      "default": "delay",
+      "options": [
+        {
+          "value": "immediate",
+          "label": "On page load"
+        },
+        {
+          "value": "delay",
+          "label": "After a delay"
+        },
+        {
+          "value": "scroll",
+          "label": "On scroll"
+        },
+        {
+          "value": "exit",
+          "label": "On exit intent"
+        },
+        {
+          "value": "pageviews",
+          "label": "After page views"
+        },
+        {
+          "value": "manual",
+          "label": "From a link"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "delay_s",
+      "label": "Delay",
+      "min": 0,
+      "max": 60,
+      "step": 1,
+      "unit": "s",
+      "default": 5
+    },
+    {
+      "type": "range",
+      "id": "scroll_pct",
+      "label": "Scrolled",
+      "min": 10,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "default": 50,
+      "visible_if": "{{ section.settings.open_mode == 'scroll' }}"
+    },
+    {
+      "type": "range",
+      "id": "page_views",
+      "label": "Page views",
+      "min": 1,
+      "max": 10,
+      "step": 1,
+      "default": 2,
+      "visible_if": "{{ section.settings.open_mode == 'pageviews' }}"
+    },
+    {
+      "type": "header",
+      "content": "Behaviour"
+    },
+    {
+      "type": "select",
+      "id": "after_dismiss",
+      "label": "Show again",
+      "default": "after_days",
+      "options": [
+        {
+          "value": "every_visit",
+          "label": "Every visit"
+        },
+        {
+          "value": "after_days",
+          "label": "After days"
+        },
+        {
+          "value": "never",
+          "label": "Never"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "hide_days",
+      "label": "Days",
+      "min": 0,
+      "max": 30,
+      "step": 1,
+      "unit": "d",
+      "default": 1,
+      "visible_if": "{{ section.settings.after_dismiss == 'after_days' }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "editor_mode",
+      "label": "Show in the builder",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "Spin"
+    },
+    {
+      "type": "range",
+      "id": "spin_duration_s",
+      "label": "Spin time",
+      "min": 2,
+      "max": 10,
+      "step": 1,
+      "unit": "s",
+      "default": 5
+    },
+    {
+      "type": "range",
+      "id": "spin_full_turns",
+      "label": "Turns",
+      "min": 3,
+      "max": 10,
+      "step": 1,
+      "default": 5
+    },
+    {
+      "type": "range",
+      "id": "max_respins",
+      "label": "Spins again allowed",
+      "min": 0,
+      "max": 5,
+      "step": 1,
+      "default": 2
+    },
+    {
+      "type": "checkbox",
+      "id": "close_after_copy",
+      "label": "Close after copying",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "close_after_copy_delay_s",
+      "label": "Close after",
+      "min": 1,
+      "max": 30,
+      "step": 1,
+      "unit": "s",
+      "default": 10,
+      "visible_if": "{{ section.settings.close_after_copy == true }}"
+    },
+    {
+      "type": "header",
+      "content": "Words"
+    },
+    {
+      "type": "text",
+      "id": "win_label",
+      "label": "Above the prize",
+      "default": "YOU WON!"
+    },
+    {
+      "type": "text",
+      "id": "no_win_label",
+      "label": "No prize",
+      "default": "Better luck next time"
+    },
+    {
+      "type": "text",
+      "id": "respin_label",
+      "label": "Spin again button",
+      "default": "Spin again"
+    },
+    {
+      "type": "text",
+      "id": "copy_done_label",
+      "label": "Copied",
+      "default": "Copied!"
+    },
+    {
+      "type": "text",
+      "id": "spinning_label",
+      "label": "While spinning",
+      "default": "Spinning"
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "select",
+      "id": "wheel_side",
+      "label": "Wheel",
+      "default": "wheel-left",
+      "options": [
+        {
+          "value": "wheel-left",
+          "label": "Left"
+        },
+        {
+          "value": "wheel-right",
+          "label": "Right"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "text_align",
+      "label": "Text",
+      "default": "left",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "dismiss_align",
+      "label": "No-thanks link",
+      "default": "center",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "popup_width",
+      "label": "Width",
+      "min": 360,
+      "max": 1100,
+      "step": 10,
+      "unit": "px",
+      "default": 780
+    },
+    {
+      "type": "range",
+      "id": "popup_radius",
+      "label": "Corner radius",
+      "min": 0,
+      "max": 32,
+      "step": 1,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "range",
+      "id": "mobile_gutter",
+      "label": "Phone side space",
+      "min": 0,
+      "max": 80,
+      "step": 4,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_style",
+      "label": "Custom colours",
+      "default": false,
+      "info": "Off, the popup follows its colour scheme."
+    },
+    {
+      "type": "color",
+      "id": "card_bg",
+      "label": "Background",
+      "visible_if": "{{ section.settings.enable_custom_style == true }}"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text",
+      "visible_if": "{{ section.settings.enable_custom_style == true }}"
+    },
+    {
+      "type": "color",
+      "id": "close_color",
+      "label": "Close icon",
+      "visible_if": "{{ section.settings.enable_custom_style == true }}"
+    },
+    {
+      "type": "color",
+      "id": "overlay_color",
+      "label": "Backdrop",
+      "visible_if": "{{ section.settings.enable_custom_style == true }}"
+    },
+    {
+      "type": "range",
+      "id": "overlay_opacity",
+      "label": "Backdrop opacity",
+      "min": 0,
+      "max": 90,
+      "step": 5,
+      "unit": "%",
+      "default": 60
+    },
+    {
+      "type": "color",
+      "id": "spin_btn_bg",
+      "label": "Button background",
+      "visible_if": "{{ section.settings.enable_custom_style == true }}"
+    },
+    {
+      "type": "color",
+      "id": "spin_btn_text",
+      "label": "Button text",
+      "visible_if": "{{ section.settings.enable_custom_style == true }}"
+    },
+    {
+      "type": "color",
+      "id": "spin_btn_bg_hover",
+      "label": "Hover background",
+      "visible_if": "{{ section.settings.enable_custom_style == true }}"
+    },
+    {
+      "type": "color",
+      "id": "spin_btn_text_hover",
+      "label": "Hover text",
+      "visible_if": "{{ section.settings.enable_custom_style == true }}"
+    },
+    {
+      "type": "header",
+      "content": "Typography"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_fonts",
+      "label": "Custom fonts",
+      "default": false,
+      "info": "Off, the popup uses the theme fonts."
+    },
+    {
+      "type": "font_picker",
+      "id": "heading_font",
+      "label": "Heading font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts == true }}"
+    },
+    {
+      "type": "font_picker",
+      "id": "body_font",
+      "label": "Text font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts == true }}"
+    },
+    {
+      "type": "header",
+      "content": "Wheel"
+    },
+    {
+      "type": "color",
+      "id": "wheel_panel_bg",
+      "label": "Panel background",
+      "visible_if": "{{ section.settings.enable_custom_style == true }}"
+    },
+    {
+      "type": "color",
+      "id": "pointer_color",
+      "label": "Pointer",
+      "visible_if": "{{ section.settings.enable_custom_style == true }}"
+    },
+    {
+      "type": "color",
+      "id": "hub_color",
+      "label": "Centre",
+      "visible_if": "{{ section.settings.enable_custom_style == true }}"
+    },
+    {
+      "type": "text",
+      "id": "hub_text",
+      "label": "Centre text",
+      "default": "%"
+    },
+    {
+      "type": "range",
+      "id": "label_font_size",
+      "label": "Label size",
+      "min": 6,
+      "max": 22,
+      "step": 1,
+      "unit": "px",
+      "default": 10
+    },
+    {
+      "type": "range",
+      "id": "label_radius",
+      "label": "Label position",
+      "min": 30,
+      "max": 85,
+      "step": 1,
+      "unit": "%",
+      "default": 68
+    },
+    {
+      "type": "color",
+      "id": "segment_divider",
+      "label": "Divider",
+      "visible_if": "{{ false }}",
+      "hidden": true,
+      "info": "Not used: the slices meet without lines."
+    }
+  ],
+  "blocks": [
+    {
+      "type": "heading",
+      "name": "Heading",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "text",
+          "id": "text",
+          "label": "Heading",
+          "default": "Spin to reveal your discount"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Custom colours",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Color",
+          "visible_if": "{{ block.settings.enable_custom_style == true }}"
+        }
+      ]
+    },
+    {
+      "type": "description",
+      "name": "Description",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "textarea",
+          "id": "text",
+          "label": "Text",
+          "default": "Enter your email and spin the wheel."
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Custom colours",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Color",
+          "visible_if": "{{ block.settings.enable_custom_style == true }}"
+        }
+      ]
+    },
+    {
+      "type": "prize",
+      "name": "Prize",
+      "settings": [
+        {
+          "type": "text",
+          "id": "label",
+          "label": "Label",
+          "default": "Prize",
+          "info": "What the segment says, for example the discount the code gives."
+        },
+        {
+          "type": "text",
+          "id": "code",
+          "label": "Code (empty = no prize)",
+          "info": "Your own discount code for this prize. Empty, this segment wins nothing."
+        },
+        {
+          "type": "range",
+          "id": "weight",
+          "label": "Chance",
+          "min": 0,
+          "max": 100,
+          "step": 1,
+          "default": 1
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Slice color",
+          "default": "#ffd6e0"
+        },
+        {
+          "type": "color",
+          "id": "text_color",
+          "label": "Label color",
+          "default": "#111111"
+        }
+      ]
+    },
+    {
+      "type": "form",
+      "name": "Email form",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "type": "text",
+          "id": "email_placeholder",
+          "label": "Email placeholder",
+          "default": "Email address"
+        },
+        {
+          "type": "text",
+          "id": "spin_label",
+          "label": "Spin button",
+          "default": "Spin to win"
+        },
+        {
+          "type": "header",
+          "content": "Phone"
+        },
+        {
+          "type": "checkbox",
+          "id": "collect_phone",
+          "label": "Ask for a phone number",
+          "default": false
+        },
+        {
+          "type": "text",
+          "id": "phone_placeholder",
+          "label": "Phone placeholder",
+          "default": "Phone number",
+          "visible_if": "{{ block.settings.collect_phone == true }}"
+        },
+        {
+          "type": "text",
+          "id": "phone_default_country",
+          "label": "Country code",
+          "default": "US",
+          "visible_if": "{{ block.settings.collect_phone == true }}"
+        },
+        {
+          "type": "checkbox",
+          "id": "phone_required",
+          "label": "Phone required",
+          "default": false,
+          "visible_if": "{{ block.settings.collect_phone == true }}"
+        }
+      ]
+    },
+    {
+      "type": "dismiss",
+      "name": "No-thanks link",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "text",
+          "id": "text",
+          "label": "Text",
+          "default": "No thanks"
+        }
+      ]
+    }
+  ],
+  "presets": []
+}
+{% endschema %}

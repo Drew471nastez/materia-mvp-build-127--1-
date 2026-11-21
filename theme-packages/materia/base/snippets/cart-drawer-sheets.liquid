@@ -1,0 +1,9 @@
+{%- comment -%}
+  Cart drawer tools row, bottom sheets and footer actions. Rendered last
+  inside <cart-notification>. Its styles are the last part of
+  shopify/assets/cart-drawer.css (linked by cart-drawer-presentation), so
+  they still win over the older layers. The drawer's scripts (addons, polish
+  and sheets, in that order) are shopify/assets/cart-drawer.js, loaded here,
+  deferred: they run once the page has arrived, before DOMContentLoaded.
+{%- endcomment -%}
+<script src="{{ 'cart-drawer.js' | asset_url }}" defer="defer"></script>

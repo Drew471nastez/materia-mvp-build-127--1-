@@ -275,9 +275,10 @@ section("The cover")
 section("The page")
 
 {
-  const page = read("app/(storelib)/app/website-builder/page.tsx")
+  const page = read("app/(storelib)/app/website-builder/website-page.tsx") /* Changed on purpose (templates round 16): the page's loader is website-page.tsx, shared by /app/website-builder and /app/website-builder/ai */
   const client = stripComments(read("app/(storelib)/app/website-builder/website-builder-client.tsx"))
-  check("the route is a server component", !/^\s*"use client"/m.test(page) && /export default async function/.test(page))
+  /* Changed on purpose (templates round 16): the loader is an async server function both routes return, and each page.tsx is a server component that calls it. */
+  check("the route is a server component", !/^\s*"use client"/m.test(page) && /export async function WebsitePage\(/.test(page) && !/"use client"/.test(read("app/(storelib)/app/website-builder/page.tsx")) && /export default function WebsiteBuilderPage\(\) \{\s*return WebsitePage\(\{\}\)/.test(read("app/(storelib)/app/website-builder/page.tsx")))
   /* The seed is the default theme as a draft now (lib/website-builder/starter-website.ts), not the database function that published one. */
   check("the server reads installs itself and seeds a first-time creator in the same request", /store_theme_installs/.test(page) && /ensureStarterWebsite\(/.test(page) && !/initialize_creator_themes/.test(page))
   /*
@@ -403,7 +404,7 @@ section("The page")
       /const MORE_ON_CARD = cn\(iconDepth, "h-11 w-11 rounded-xl px-0/.test(src) && /export const iconDepth = cn\(/.test(depthSrc) &&
         /shadow-\[inset_0_-2px_0_rgba\(0,0,0,0\.07\),0_1px_2px_rgba\(15,23,42,0\.08\)\]/.test(depthSrc) &&
         /active:shadow-\[inset_0_1px_2px_rgba\(0,0,0,0\.12\)\]/.test(depthSrc))
-    check("  no numbers are counted for it any more", !/websitePerformanceFor/.test(read("app/(storelib)/app/website-builder/page.tsx")))
+    check("  no numbers are counted for it any more", !/websitePerformanceFor/.test(read("app/(storelib)/app/website-builder/website-page.tsx")))
     /*
       THE COVER IS THE SITE, WITH ITS OWN CORNERS. "Why is it windows in a
       window?" took the stage, the browser window and the phone away; then
@@ -474,12 +475,13 @@ section("The page")
     check("  a single Close, and no card inside the card",
       (fullDialog.match(/>\s*Close\s*</g) ?? []).length === 2 && !/rounded-xl border border-\[#e5e7eb\] bg-\[#fafbfb\]/.test(fullDialog))
     check("  Import is never dead: full, it opens the sheet before any file is picked", /onClick=\{\(\) => \(slotsLeft === 0 \? setFull\("import"\) : fileInput\.current\?\.click\(\)\)\}/.test(client) && !/disabled=\{busy === "import" \|\| slotsLeft === 0\}/.test(client))
-    check("  and Add theme, Duplicate and every Add do the same", /setFull\("add"\)/.test(client) && /setFull\("duplicate"\)/.test(client) && /setFull\("add"\)/.test(read("app/(storelib)/app/website-builder/themes/themes-client.tsx")))
+    check("  and Add theme, Duplicate and every Add do the same", /setFull\("add"\)/.test(client) && /setFull\("duplicate"\)/.test(client) && /* Changed on purpose (templates round 16): the marketplace is a popup over the page and adds through the page's own Add */ /onAdd=\{\(l\) => void addListing\(l\)\}/.test(client) && !/fetch\(/.test(read("app/(storelib)/app/website-builder/themes/themes-client.tsx")))
     check("  it lists what takes the room, with Remove on each draft, through the usual question", /Remove/.test(fullDialog) && /if \(target\) setDeleting\(target\)/.test(client))
     check("  a refusal from the server opens it too, rather than a toast, and the placeholder goes",
       /if \(data\.code === LIBRARY_FULL_CODE\) \{\s*if \(!mounted\.current\) return\s*setIncoming\(null\)\s*retryRef\.current = null\s*setFull\(kind\)/.test(client))
-    check("  Browse themes opens the same sheet on the server's refusal, not a toast",
-      /if \(d\.code === LIBRARY_FULL_CODE\) \{\s*setFull\("add"\)/.test(read("app/(storelib)/app/website-builder/themes/themes-client.tsx")))
+    /* Changed on purpose (templates round 16): an Add in the marketplace popup is the page's own make(), whose refusal opens the sheet (the check above), and the popup lets a press on that sheet through. */
+    check("  the marketplace popup opens the same sheet on the server's refusal, not a toast",
+      /const addListing = [\s\S]{0,400}return make\(\s*"add"/.test(client) && /if \(e\.target !== scrim\.current\) e\.preventDefault\(\)/.test(read("app/(storelib)/app/website-builder/themes/themes-client.tsx")))
     check("  each website in it says Live, Offline or Draft", /live \? "Live" : offline \? "Offline" : "Draft"/.test(fullDialog) && /offline: i\.id === offline\?\.id/.test(client))
   }
   {
@@ -518,13 +520,17 @@ section("The page")
     check("  a failure stays on the row with Try again, and a toast", /Try again/.test(incoming) && /phase: "error", error: message/.test(client) && /toast\(\{ title: message, variant: "destructive" \}\)/.test(client))
     check("  Duplicate and Add theme take the same path", /make\(\s*"duplicate"/.test(client) && /make\(\s*"add"/.test(client) && /make\(\s*"import"/.test(client))
   }
-  check("the marketplace route the old page linked to now exists", existsSync(join(process.cwd(), "app/(storelib)/app/website-builder/themes/page.tsx")))
+  /* Changed on purpose (templates round 16): the marketplace is a popup over the Website page (themes/themes-client.tsx), every listing a cover card (components/website-builder/theme-template-card.tsx); its old address opens the page with the popup up. scripts/check-theme-popup.mjs measures it. */
+  check("the marketplace's old address still answers: it opens the Website page with the popup up", existsSync(join(process.cwd(), "app/(storelib)/app/website-builder/themes/page.tsx")) &&
+    /await websitePage\(\)/.test(read("app/(storelib)/app/website-builder/themes/page.tsx")) && /redirect\(`\/app\/website-builder\?\$\{to\}`\)/.test(read("app/(storelib)/app/website-builder/themes/page.tsx")))
   const market = stripComments(read("app/(storelib)/app/website-builder/themes/themes-client.tsx"))
-  check("Browse themes offers one theme, shown whole, and adds it", /BROWSABLE_THEMES\.map/.test(market) && /ThemeShowcase/.test(market) && /themes\/add/.test(market) && BROWSABLE_THEMES.length === 1)
+  const templateCard = stripComments(read("components/website-builder/theme-template-card.tsx"))
+  check("the marketplace is a popup that draws whatever listings it is given, no theme named in it", /shown\.map\(\(l, i\) =>/.test(market) && /<ThemeTemplateCard/.test(market) && !/BROWSABLE_THEMES|Storelib Default|Clothing|Merch/.test(market + templateCard))
   check("  the others stay defined for the websites made from them, and cannot be added", THEME_REGISTRY.length > BROWSABLE_THEMES.length && /BROWSABLE_THEME_IDS\.includes\(def\.id\)/.test(read("app/api/website-builder/themes/add/route.ts")))
-  check("  nothing on either page rises under the pointer", !/hover:-translate-y/.test(market) && !/hover:-translate-y/.test(client) && !/active:scale-95/.test(market))
-  check("the marketplace draws covers too, no storefront is mounted there either", !/SectionRenderer|ThemePage/.test(market) && /ThemeCover\b/.test(market) && /ThemePhoneCover/.test(market))
-  check("the marketplace has a real back button and no paragraph of explanation", /ChevronLeft/.test(market) && !/Every theme is free/.test(market))
+  check("  nothing on either page rises under the pointer", !/hover:-translate-y/.test(market + templateCard) && !/hover:-translate-y/.test(client) && !/active:scale-95/.test(market + templateCard))
+  check("the marketplace draws covers too, no storefront is mounted there either", !/SectionRenderer|ThemePage/.test(market + templateCard) && /data-template-shot=""/.test(templateCard) && /optimizedSrcSet\(picture, COVER_WIDTHS/.test(templateCard) && /loading=\{priority \? "eager" : "lazy"\}/.test(templateCard))
+  check("the marketplace has a close button, Escape, Back, and no paragraph of explanation", /data-themes-close=""/.test(market) && /window\.history\.pushState\(\{ wbThemes: 1 \}/.test(client) && /window\.addEventListener\("popstate", onPop\)/.test(client) && !/Every theme is free/.test(market) && !/<p\b/.test(market))
+  check("  it moves on transform and opacity only, and not at all under reduced motion", !/(?<![-\w])(?:top|left|height|width|margin)\s*:/.test(market.slice(market.indexOf("const MOTION"), market.indexOf("export interface"))) && /prefers-reduced-motion: reduce\) \{\s*\[data-themes-scrim\]\[data-state\], \[data-themes-popup\]\[data-state\] \{ animation: none; \}/.test(market))
 }
 
 // ── The canvas insert gaps ──────────────────────────────────────────────
@@ -947,7 +953,7 @@ section("The cover")
     counting it as an edit would make every new cover look older than the
     site and ask for another, forever.
   */
-  const page = read("app/(storelib)/app/website-builder/page.tsx")
+  const page = read("app/(storelib)/app/website-builder/website-page.tsx")
   check("'last edited' is the pages and the settings, never the row a cover is recorded on",
     /const editedAt = newest\(settings\?\.updated_at, \.\.\.\(row\.pages \?\? \[\]\)\.map\(\(p\) => p\.updated_at\), row\.created_at\)/.test(page) &&
       !/saved_at: newest\(row\.updated_at/.test(page))
@@ -1701,7 +1707,7 @@ section("Two at once still make five, and an import that says what went wrong")
   /* "Back from the editor the cover is gray, then it shows, late, and glitches"; "clicking Website: the spinner freezes, white, then the page". scripts/check-website-arrival.mjs films both. */
   const client = read("app/(storelib)/app/website-builder/website-builder-client.tsx")
   const memory = read("lib/website-builder/cover-memory.ts")
-  const page = read("app/(storelib)/app/website-builder/page.tsx")
+  const page = read("app/(storelib)/app/website-builder/website-page.tsx")
   check("the Website page draws each website's last whole cover first (cover-memory), in the box it reserves",
     /function firstFace\(installId: string, current: string \| null\): Face/.test(client) && /const last = shownCover\(installId\)/.test(client)
       && /onLoad=\{\(e\) => \{\s*rememberCover\(installId, url\)/.test(client))

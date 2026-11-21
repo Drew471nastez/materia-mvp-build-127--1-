@@ -1,0 +1,195 @@
+{%- comment -%}
+  Materia Themes — product-card custom action color overrides.
+
+  Emits a scoped <style> block that overrides the default Button-Primary
+  scheme colors on the product-card action buttons (Add to Cart, Wishlist
+  heart, Remove X) when the merchant has flipped the master toggle
+  `settings.enable_custom_card_actions` to ON.
+
+  When the toggle is OFF (default), no colour overrides are emitted and the
+  product card keeps using the existing scheme-token-driven defaults in
+  assets/product-card.css — which is the merchant's expected "follow
+  the scheme automatically" behaviour. The inert settings snapshot lets
+  the builder turn overrides on or off without replacing the product cards.
+
+  The add to cart colours are --mb-* tokens read by
+  theme-button-contract.css. The wishlist and remove overrides use
+  `!important` because the base rules in product-card.css do.
+
+  Each colour is rendered only when the merchant has actually set it,
+  not when the picker is at its empty default or cleared to transparent
+  (a transparent text or border would make the button vanish) — that keeps the
+  override surgical and lets partial customization work (e.g. only
+  change the wishlist active background, leave everything else as the
+  scheme default).
+{%- endcomment -%}
+{%- assign card_setting_keys = 'enable_custom_card_actions,card_atc_button,product_size,price_size,product_name_text_transform,card_atc_bg,card_atc_color,card_atc_hover_bg,card_atc_hover_color,card_wish_bg,card_wish_color,card_wish_border,card_wish_active_bg,card_wish_active_color,card_wish_active_border,card_wish_hover_bg,card_wish_hover_color,card_close_bg,card_close_color,card_close_hover_bg,card_close_hover_color' | split: ',' -%}
+{%- comment -%}
+  Colours go into the snapshot as CSS colour strings: Storelib gives a
+  colour setting as an object (red, green, blue, alpha, hex, rgba), which
+  assets/product-card-settings.js could not read, so with the toggle on
+  it drew no colour at all and switched this file's own <style> off. A
+  colour cleared to transparent is an empty string (follow the theme).
+{%- endcomment -%}
+<script type="application/json" data-card-style-settings>{ {% for key in card_setting_keys %}{%- assign v = settings[key] -%}{{ key | json }}:{% if key contains 'card_' and key != 'card_atc_button' %}{% if v == blank or v == 'transparent' or v.alpha == 0 %}""{% elsif v.hex != blank %}{% if v.alpha < 1 %}"rgb({{ v.rgba }})"{% else %}{{ v.hex | json }}{% endif %}{% else %}{{ v | json }}{% endif %}{% else %}{{ v | json }}{% endif %}{% unless forloop.last %},{% endunless %}{% endfor %} }</script>
+<style>html:not([data-card-custom='true']) .product-item .product-item__name { font-size:var(--body-font-size, 16px); text-transform:var(--heading-text-transform, none) !important; } html:not([data-card-custom='true']) .product-item .product-item__price { font-size:var(--body-font-size, 16px); }</style>
+<script>document.documentElement.dataset.cardCustom = {{ settings.enable_custom_card_actions | json }} === true ? 'true' : 'false';</script>
+<script type="application/json" data-badge-style-settings>{{ settings.enable_custom_badges | json }}</script>
+<script>document.documentElement.dataset.badgeCustom = '{% if settings.enable_custom_badges == true %}true{% else %}false{% endif %}';</script>
+{%- comment -%}
+  Touch feedback for the card image's hover effect (product-card.css,
+  "IMAGE HOVER EFFECTS ON TOUCH"): data-pc-press on the card image while a
+  finger or pen is down, held at least 380ms so a quick tap still shows
+  it, dropped at once when the browser takes the gesture for a scroll.
+  Passive listeners that prevent nothing: the first tap opens the product.
+  Not on the card's buttons (heart, +), which have their own press state.
+{%- endcomment -%}
+<script>(function () {
+  if (window.__materiaCardPress) return;
+  window.__materiaCardPress = true;
+  let active, timer, startX, startY, peeked, suppress;
+  const clear = () => { clearTimeout(timer); active?.removeAttribute('data-pc-press'); active = null; };
+  document.addEventListener('pointerdown', event => {
+    if (event.pointerType === 'mouse' || !event.isPrimary || event.target.closest('button,button-wishlist,product-form,.pc-corner')) return;
+    clear(); peeked = false; suppress = null;
+    active = event.target.closest('.product-item__inner.hover-effect');
+    if (!active) return;
+    startX = event.clientX; startY = event.clientY;
+    timer = setTimeout(() => { if(active){ active.setAttribute('data-pc-press',''); peeked = true; } }, 450);
+  }, {passive:true});
+  document.addEventListener('pointermove', event => { if(active && Math.hypot(event.clientX-startX,event.clientY-startY)>10) clear(); }, {passive:true});
+  document.addEventListener('pointerup', () => { if(peeked && active) suppress = active; clear(); }, {passive:true});
+  document.addEventListener('pointercancel', clear, {passive:true});
+  document.addEventListener('click', event => { if(suppress && suppress.contains(event.target)){event.preventDefault();event.stopImmediatePropagation();} suppress=null; }, true);
+  window.addEventListener('pagehide',clear);
+})();</script>
+{%- if settings.enable_custom_card_actions -%}
+  {%- assign s = settings -%}
+  <style data-pc-custom-actions>
+    /* ===== Add to Cart button =====
+       The card's add to cart buttons are theme buttons (data-theme-button):
+       theme-button-contract.css paints them from --mb-* tokens, so these
+       colours go in as tokens. A plain background/color rule, even with
+       !important, loses to the contract's layered rules. */
+    .product-item :is(button[name="add"], .product__add-cart, .product-item__button-submit) {
+      {%- if s.card_atc_bg != blank and s.card_atc_bg != 'transparent' and s.card_atc_bg.alpha != 0 %} --mb-bg: {{ s.card_atc_bg }}; --mb-border: {{ s.card_atc_bg }};{% endif -%}
+      {%- if s.card_atc_color != blank and s.card_atc_color != 'transparent' and s.card_atc_color.alpha != 0 %} --mb-text: {{ s.card_atc_color }};{% endif -%}
+      {%- if s.card_atc_hover_bg != blank and s.card_atc_hover_bg != 'transparent' and s.card_atc_hover_bg.alpha != 0 %} --mb-hover-bg: {{ s.card_atc_hover_bg }}; --mb-hover-border: {{ s.card_atc_hover_bg }};{% endif -%}
+      {%- if s.card_atc_hover_color != blank and s.card_atc_hover_color != 'transparent' and s.card_atc_hover_color.alpha != 0 %} --mb-hover-text: {{ s.card_atc_hover_color }};{% endif %}
+    }
+    /* Off the picture (the Modern card's button under the details, a list
+       card) the button sits on the page colour, so its outline takes the
+       text colour: a light background with a matching border vanished. */
+    {%- if s.card_atc_color != blank and s.card_atc_color != 'transparent' and s.card_atc_color.alpha != 0 %}
+    .product-item button.pc-atc:is(.pc-atc--below, .pc-atc--list) { --mb-border: {{ s.card_atc_color }}; }
+    {%- endif %}
+    /* The cart drawer's and cart page's "You may also like" cards have their
+       own colours (Cart drawer > Recommendations): these never reach them. */
+    .cart-recommend .product-item :is(button[name="add"], .product__add-cart, .product-item__button-submit) {
+      --mb-bg: initial; --mb-border: initial; --mb-text: initial;
+      --mb-hover-bg: initial; --mb-hover-border: initial; --mb-hover-text: initial;
+    }
+
+    /* ===== Wishlist heart — inactive (default) state ===== */
+    {%- if s.card_wish_bg != blank and s.card_wish_bg != 'transparent' and s.card_wish_bg.alpha != 0 -%}
+      .product-item .product-item__button-wishlist {
+        background: {{ s.card_wish_bg }} !important;
+      }
+    {%- endif -%}
+    {%- if s.card_wish_color != blank and s.card_wish_color != 'transparent' and s.card_wish_color.alpha != 0 -%}
+      .product-item .product-item__button-wishlist {
+        color: {{ s.card_wish_color }} !important;
+      }
+      .product-item .product-item__button-wishlist svg,
+      .product-item .product-item__button-wishlist svg path,
+      .product-item .product-item__button-wishlist svg use {
+        stroke: {{ s.card_wish_color }} !important;
+      }
+    {%- endif -%}
+    {%- if s.card_wish_border != blank and s.card_wish_border != 'transparent' and s.card_wish_border.alpha != 0 -%}
+      .product-item .product-item__button-wishlist {
+        border-color: {{ s.card_wish_border }} !important;
+      }
+    {%- endif -%}
+
+    /* ===== Wishlist heart — active state (in-wishlist) ===== */
+    {%- if s.card_wish_active_bg != blank and s.card_wish_active_bg != 'transparent' and s.card_wish_active_bg.alpha != 0 -%}
+      .product-item .product-item__button-wishlist.active {
+        background: {{ s.card_wish_active_bg }} !important;
+        border-color: {{ s.card_wish_active_bg }} !important;
+      }
+    {%- endif -%}
+    {%- if s.card_wish_active_color != blank and s.card_wish_active_color != 'transparent' and s.card_wish_active_color.alpha != 0 -%}
+      .product-item .product-item__button-wishlist.active {
+        color: {{ s.card_wish_active_color }} !important;
+      }
+      .product-item .product-item__button-wishlist.active svg,
+      .product-item .product-item__button-wishlist.active svg path,
+      .product-item .product-item__button-wishlist.active svg use {
+        color: {{ s.card_wish_active_color }} !important;
+        fill: {{ s.card_wish_active_color }} !important;
+        stroke: {{ s.card_wish_active_color }} !important;
+      }
+    {%- endif -%}
+    {%- if s.card_wish_active_border != blank and s.card_wish_active_border != 'transparent' and s.card_wish_active_border.alpha != 0 -%}
+      .product-item .product-item__button-wishlist.active {
+        border-color: {{ s.card_wish_active_border }} !important;
+      }
+    {%- endif -%}
+
+    /* ===== Wishlist heart — hover state ===== */
+    @media (hover: hover) and (pointer: fine) {
+      {%- if s.card_wish_hover_bg != blank and s.card_wish_hover_bg != 'transparent' and s.card_wish_hover_bg.alpha != 0 -%}
+        .product-item .product-item__button-wishlist:hover {
+          background: {{ s.card_wish_hover_bg }} !important;
+        }
+      {%- endif -%}
+      {%- if s.card_wish_hover_color != blank and s.card_wish_hover_color != 'transparent' and s.card_wish_hover_color.alpha != 0 -%}
+        .product-item .product-item__button-wishlist:hover {
+          color: {{ s.card_wish_hover_color }} !important;
+        }
+        .product-item .product-item__button-wishlist:hover svg,
+        .product-item .product-item__button-wishlist:hover svg path,
+        .product-item .product-item__button-wishlist:hover svg use {
+          stroke: {{ s.card_wish_hover_color }} !important;
+        }
+      {%- endif -%}
+    }
+
+    /* ===== Remove (X) button — variant 1 on the wishlist page only ===== */
+    {%- if s.card_close_bg != blank and s.card_close_bg != 'transparent' and s.card_close_bg.alpha != 0 -%}
+      .product-item .product-item__button-wishlist.absolute[data-wishlist-remove][data-product-id] {
+        background: {{ s.card_close_bg }} !important;
+        border-color: {{ s.card_close_bg }} !important;
+      }
+    {%- endif -%}
+    {%- if s.card_close_color != blank and s.card_close_color != 'transparent' and s.card_close_color.alpha != 0 -%}
+      .product-item .product-item__button-wishlist.absolute[data-wishlist-remove][data-product-id],
+      .product-item .product-item__button-wishlist.absolute[data-wishlist-remove][data-product-id] svg,
+      .product-item .product-item__button-wishlist.absolute[data-wishlist-remove][data-product-id] svg path,
+      .product-item .product-item__button-wishlist.absolute[data-wishlist-remove][data-product-id] svg use {
+        color: {{ s.card_close_color }} !important;
+        fill: {{ s.card_close_color }} !important;
+        stroke: {{ s.card_close_color }} !important;
+      }
+    {%- endif -%}
+    @media (hover: hover) and (pointer: fine) {
+      {%- if s.card_close_hover_bg != blank and s.card_close_hover_bg != 'transparent' and s.card_close_hover_bg.alpha != 0 -%}
+        .product-item .product-item__button-wishlist.absolute[data-wishlist-remove][data-product-id]:hover {
+          background: {{ s.card_close_hover_bg }} !important;
+          border-color: {{ s.card_close_hover_bg }} !important;
+        }
+      {%- endif -%}
+      {%- if s.card_close_hover_color != blank and s.card_close_hover_color != 'transparent' and s.card_close_hover_color.alpha != 0 -%}
+        .product-item .product-item__button-wishlist.absolute[data-wishlist-remove][data-product-id]:hover,
+        .product-item .product-item__button-wishlist.absolute[data-wishlist-remove][data-product-id]:hover svg,
+        .product-item .product-item__button-wishlist.absolute[data-wishlist-remove][data-product-id]:hover svg path,
+        .product-item .product-item__button-wishlist.absolute[data-wishlist-remove][data-product-id]:hover svg use {
+          color: {{ s.card_close_hover_color }} !important;
+          fill: {{ s.card_close_hover_color }} !important;
+          stroke: {{ s.card_close_hover_color }} !important;
+        }
+      {%- endif -%}
+    }
+  </style>
+{%- endif -%}

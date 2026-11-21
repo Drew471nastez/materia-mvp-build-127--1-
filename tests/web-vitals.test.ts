@@ -210,7 +210,7 @@ section("The page above the cover counts nothing")
      settings instead (app/(storelib)/app/website-builder/settings-strip.tsx), so the
      page no longer asks for them. The reading below is still what the
      performance route uses. */
-  const page = code("app/(storelib)/app/website-builder/page.tsx")
+  const page = code("app/(storelib)/app/website-builder/website-page.tsx") /* Changed on purpose (templates round 16): the page's loader is website-page.tsx, shared by /app/website-builder and /app/website-builder/ai */
   check("the Website page does not count visits or speed on every load", !/websitePerformanceFor/.test(page) && !/performance=/.test(page))
   const read_ = code("lib/website-builder/site-performance-read.ts")
   check("speed is read with the signed in user's client, so the policy decides", /user\.rpc\("site_vitals_summary"/.test(read_))

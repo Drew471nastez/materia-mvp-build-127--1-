@@ -1,0 +1,1544 @@
+<script src="{{ 'media-live-galleries-a.js' | asset_url }}" defer="defer"></script>
+{% render 'theme-type' %}
+{%- liquid
+  assign s = section.settings
+  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default-color-scheme'
+  assign custom = s.enable_custom_style
+  case s.gallery_wrap_shadow
+    when 'low'
+      assign shadow = '0 2px 4px rgba(0, 0, 0, 0.1)'
+    when 'medium'
+      assign shadow = '0 4px 8px rgba(0, 0, 0, 0.2)'
+    when 'high'
+      assign shadow = '0 6px 12px rgba(0, 0, 0, 0.3)'
+    else
+      assign shadow = 'none'
+  endcase
+  case s.display_section_on
+    when 'mobile_only'
+      assign show = 'mobile'
+    when 'desktop_only'
+      assign show = 'desktop'
+    when 'no_devices'
+      assign show = 'none'
+    else
+      assign show = 'all'
+  endcase
+-%}
+{%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
+{%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' and section.settings.reveal != false -%}
+<style>
+  #shopify-section-{{ section.id }}.scroll-trigger {
+    --animation-duration: {{ settings.animation_duration | default: 700 }}ms;
+    --animation-delay: {{ settings.animation_delay | default: 0 }}ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-{{ section.id }}');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', {{ settings.scroll_animation | json }});
+  })();
+</script>
+{%- endif -%}
+{% render 'media-galleries-a-base', section: section %}
+{%- comment -%}
+  Materia Themes. Gallery Interactive 2: a row of image panels. The panel under
+  the pointer, the focused panel or the tapped panel widens; the others narrow.
+  Panels are buttons, so they work with a keyboard (Tab, arrow keys, Enter).
+{%- endcomment -%}
+<style>
+  #shopify-section-{{ section.id }} .mga-gi__head { display: grid; gap: var(--mga-title-gap); margin-bottom: var(--mga-gallery-gap); text-align: center; }
+  #shopify-section-{{ section.id }} .mga-gi__head:not(:has(> :not([hidden]))) { display: none; }
+  #shopify-section-{{ section.id }} .mga-gi__text {
+    margin: 0;
+    color: var(--mga-color);
+    font-family: var(--mga-font);
+    font-weight: var(--mga-weight);
+    font-size: var(--mga-size-m);
+    padding-inline: var(--mga-pl-m, 0px) var(--mga-pr-m, 0px);
+    overflow-wrap: anywhere;
+  }
+  #shopify-section-{{ section.id }} .mga-gi__heading { line-height: var(--heading-line-height, 1.2); }
+  #shopify-section-{{ section.id }} .mga-gi__sub { line-height: var(--body-line-height, 1.5); }
+  #shopify-section-{{ section.id }} .mga-gi__wrap {
+    display: flex;
+    gap: var(--mga-item-gap);
+    width: 100%;
+    height: calc(var(--mga-height-m) * 1vw);
+    border-radius: var(--mga-radius);
+    box-shadow: var(--mga-shadow);
+    overflow: hidden;
+  }
+  #shopify-section-{{ section.id }} .mga-gi__item {
+    flex: 1 1 0;
+    min-width: 44px;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    transition: flex-grow 0.8s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #shopify-section-{{ section.id }} .mga-gi__item:is(:hover, :focus-visible, .is-active) { flex-grow: var(--mga-grow); }
+  #shopify-section-{{ section.id }} .mga-gi__wrap:hover .mga-gi__item.is-active:not(:hover) { flex-grow: 1; }
+  #shopify-section-{{ section.id }} .mga-gi__item:focus-visible { outline-offset: -4px; }
+  #shopify-section-{{ section.id }} .mga-gi__item .mga-fill { pointer-events: none; }
+  #shopify-section-{{ section.id }} .mga-gi__item .mga-ph { inset: auto; top: 50%; left: 50%; width: 160px; height: 120px; transform: translate(-50%, -50%); }
+  #shopify-section-{{ section.id }} .mga-gi__item:nth-child(even)[data-media="none"] { background: color-mix(in srgb, var(--color-heading) 13%, var(--color-background)); }
+  @media (min-width: 750px) {
+    #shopify-section-{{ section.id }} .mga-gi__text { font-size: var(--mga-size-d); padding-inline: var(--mga-pl-d, 0px) var(--mga-pr-d, 0px); }
+    #shopify-section-{{ section.id }} .mga-gi__wrap { height: calc(var(--sl-vh, 1vh) * var(--mga-height-d)); }
+  }
+</style>
+<div
+  class="mga mga-gi color-{{ color_scheme }} gradient"
+  data-mga-section="{{ section.id }}"
+  data-mga-type="gallery-interactive"
+  data-mga-settings="{{ section.settings | json | escape }}"
+  data-mga-defaults='{"color_scheme":"default-color-scheme","section_width":"full_width","display_section_on":"all_devices","reset_spacing":true,"gallery_height_desktop":70,"expand_ratio":7,"image_gap":0,"vertical_space_title_subheading":20,"vertical_space_subheading_gallery":30,"gallery_wrap_border_radius":3,"gallery_wrap_shadow":"low","enable_custom_style":false,"reveal":true,"section_padding_top_desktop":75,"section_padding_bottom_desktop":65,"section_padding_left_desktop":150,"section_padding_right_desktop":150,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"gallery_height_mobile":80,"section_padding_top_mobile":40,"section_padding_bottom_mobile":40,"section_padding_left_mobile":25,"section_padding_right_mobile":25,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0}'
+  data-mga-block-defaults='{"heading":{"title":"<strong>Discover Our Gallery</strong>","enable_custom_style":false,"enable_custom_fonts":false,"font":"assistant_n4","font_family":"Oswald","font_weight":"inherit","size_desktop":32,"size_mobile":30},"subheading":{"text":"Explore the latest trends and styles in our collection","enable_custom_style":false,"enable_custom_fonts":false,"font":"assistant_n4","font_family":"Roboto","font_weight":"inherit","size_desktop":16,"size_mobile":15,"padding_left_desktop":20,"padding_right_desktop":20,"padding_left_mobile":10,"padding_right_mobile":10},"gallery_image":{}}'
+  data-mga-width="{{ s.section_width | default: 'full_width' }}"
+  data-mga-reset="{% if s.reset_spacing %}true{% else %}false{% endif %}"
+  data-mga-show="{{ show }}"
+  style="--mga-bg: {% if custom %}{% render 'scheme-color', color: s.section_background_color, fallback: 'var(--color-background)' %}{% else %}var(--color-background){% endif %}; --mga-radius: {{ s.gallery_wrap_border_radius }}px; --mga-shadow: {{ shadow }}; --mga-title-gap: {{ s.vertical_space_title_subheading }}px; --mga-gallery-gap: {{ s.vertical_space_subheading_gallery }}px; --mga-height-d: {{ s.gallery_height_desktop | default: 70 }}; --mga-height-m: {{ s.gallery_height_mobile | default: 80 }}; --mga-grow: {{ s.expand_ratio | default: 7 }}; --mga-item-gap: {{ s.image_gap | default: 0 }}px; --mga-pt-d: {{ s.section_padding_top_desktop }}px; --mga-pb-d: {{ s.section_padding_bottom_desktop }}px; --mga-pl-d: {{ s.section_padding_left_desktop }}px; --mga-pr-d: {{ s.section_padding_right_desktop }}px; --mga-mt-d: {{ s.section_margin_top_desktop | default: 0 }}px; --mga-mb-d: {{ s.section_margin_bottom_desktop | default: 0 }}px; --mga-pt-m: {{ s.section_padding_top_mobile }}px; --mga-pb-m: {{ s.section_padding_bottom_mobile }}px; --mga-pl-m: {{ s.section_padding_left_mobile }}px; --mga-pr-m: {{ s.section_padding_right_mobile }}px; --mga-mt-m: {{ s.section_margin_top_mobile | default: 0 }}px; --mga-mb-m: {{ s.section_margin_bottom_mobile | default: 0 }}px;"
+>
+  <div class="mga__frame mga-gi__frame">
+    <div class="mga-gi__head">
+      {%- for block in section.blocks -%}
+        {%- assign b = block.settings -%}
+        {%- if block.type == 'heading' or block.type == 'subheading' -%}
+          {%- liquid
+            if block.type == 'heading'
+              assign text = b.title
+              assign fallback_color = 'var(--color-heading)'
+              assign fallback_font = 'var(--heading-font)'
+              assign fallback_weight = 'var(--heading-weight, 700)'
+            else
+              assign text = b.text
+              assign fallback_color = 'var(--color-text)'
+              assign fallback_font = 'var(--body-font)'
+              assign fallback_weight = 'var(--body-weight, 400)'
+            endif
+            assign weight = fallback_weight
+            if b.font_weight != blank and b.font_weight != 'inherit'
+              assign weight = b.font_weight
+            endif
+            assign font = fallback_font
+            if b.enable_custom_fonts and b.font.family
+              assign font = b.font.family | append: ', ' | append: b.font.fallback_families | default: 'sans-serif'
+            endif
+          -%}
+          {%- capture block_style -%}--mga-color: {% if b.enable_custom_style %}{% render 'scheme-color', color: b.color, fallback: fallback_color %}{% else %}{{ fallback_color }}{% endif %}; --mga-font: {{ font }}; --mga-weight: {{ weight }}; --mga-size-d: {{ b.size_desktop }}px; --mga-size-m: {{ b.size_mobile }}px;{% if block.type == 'subheading' %} --mga-pl-d: {{ b.padding_left_desktop }}px; --mga-pr-d: {{ b.padding_right_desktop }}px; --mga-pl-m: {{ b.padding_left_mobile }}px; --mga-pr-m: {{ b.padding_right_mobile }}px;{% endif %}{%- endcapture -%}
+          {%- if b.enable_custom_fonts and b.font.family -%}<style>{{ b.font | font_face: font_display: 'swap' }}</style>{%- endif -%}
+          {%- if block.type == 'heading' -%}
+            <h2 class="mga-gi__text mga-gi__heading" data-mga-block="{{ block.id }}" data-mga-type="heading" data-mga-settings="{{ b | json | escape }}" style="{{ block_style }}"{% if b.enable_custom_fonts %} data-own-font{% endif %}{% if weight != fallback_weight %} data-own-weight{% endif %}{% if text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ text }}</h2>
+          {%- else -%}
+            <p class="mga-gi__text mga-gi__sub" data-mga-block="{{ block.id }}" data-mga-type="subheading" data-mga-settings="{{ b | json | escape }}" style="{{ block_style }}"{% if b.enable_custom_fonts %} data-own-font{% endif %}{% if weight != fallback_weight %} data-own-weight{% endif %}{% if text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ text }}</p>
+          {%- endif -%}
+        {%- endif -%}
+      {%- endfor -%}
+    </div>
+    <div class="mga-gi__wrap">
+      {%- assign n = 0 -%}
+      {%- for block in section.blocks -%}
+        {%- if block.type == 'gallery_image' -%}
+          {%- liquid
+            assign n = n | plus: 1
+            assign b = block.settings
+            assign img = b.image
+            assign alt = b.alt | strip_html | strip
+            if alt == blank
+              assign alt = img.alt
+            endif
+            assign label = alt
+            if label == blank
+              assign label = 'Gallery image ' | append: n
+            endif
+          -%}
+          <button type="button" class="mga-media mga-gi__item" data-mga-item data-mga-block="{{ block.id }}" data-mga-type="gallery_image" data-mga-settings="{{ b | json | escape }}" data-media="{% if img != blank %}image{% else %}none{% endif %}" aria-expanded="false" aria-label="{{ label | escape }}" {{ block.shopify_attributes }}>
+            {% render 'media-galleries-a-ph' %}
+            <img data-mga-img class="mga-fill"{% if img != blank %} src="{{ img | image_url: width: 1600 }}" srcset="{{ img | image_url: width: 600 }} 600w, {{ img | image_url: width: 1000 }} 1000w, {{ img | image_url: width: 1600 }} 1600w" sizes="(min-width: 750px) 60vw, 70vw" width="{{ img.width | default: 1600 }}" height="{{ img.height | default: 1100 }}"{% else %} hidden{% endif %} alt="{{ alt | escape }}" loading="lazy" decoding="async">
+          </button>
+        {%- endif -%}
+      {%- endfor -%}
+    </div>
+  </div>
+</div>{% schema %}
+{
+  "name": "Gallery Interactive 2",
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Section width",
+      "default": "full_width",
+      "options": [
+        {
+          "value": "container",
+          "label": "Default"
+        },
+        {
+          "value": "fluid_container",
+          "label": "Fluid container"
+        },
+        {
+          "value": "stretch_width",
+          "label": "Stretched"
+        },
+        {
+          "value": "full_width",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "display_section_on",
+      "label": "Show section on",
+      "options": [
+        {
+          "value": "all_devices",
+          "label": "All Devices"
+        },
+        {
+          "value": "mobile_only",
+          "label": "Mobile Devices Only"
+        },
+        {
+          "value": "desktop_only",
+          "label": "Desktop / Larger Screens Only"
+        },
+        {
+          "value": "no_devices",
+          "label": "No Devices"
+        }
+      ],
+      "default": "all_devices"
+    },
+    {
+      "type": "checkbox",
+      "id": "reset_spacing",
+      "label": "Remove the theme's space between sections",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "range",
+      "id": "gallery_height_desktop",
+      "label": "Gallery height (desktop, % of screen)",
+      "min": 30,
+      "max": 90,
+      "step": 5,
+      "default": 70
+    },
+    {
+      "type": "range",
+      "id": "expand_ratio",
+      "label": "Opened image width",
+      "info": "How many times wider the opened image is than the others.",
+      "min": 2,
+      "max": 10,
+      "step": 1,
+      "default": 7
+    },
+    {
+      "type": "range",
+      "id": "image_gap",
+      "label": "Gap between images",
+      "min": 0,
+      "max": 24,
+      "step": 2,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "vertical_space_title_subheading",
+      "label": "Gap between heading and subheading",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "default": 20,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "vertical_space_subheading_gallery",
+      "label": "Gap above the gallery",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "default": 30,
+      "unit": "px"
+    },
+    {
+      "type": "header",
+      "content": "Images"
+    },
+    {
+      "type": "range",
+      "id": "gallery_wrap_border_radius",
+      "label": "Gallery corner radius",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "default": 3,
+      "unit": "px"
+    },
+    {
+      "type": "select",
+      "id": "gallery_wrap_shadow",
+      "label": "Gallery shadow",
+      "options": [
+        {
+          "value": "none",
+          "label": "None"
+        },
+        {
+          "value": "low",
+          "label": "Low Shadow"
+        },
+        {
+          "value": "medium",
+          "label": "Medium Shadow"
+        },
+        {
+          "value": "high",
+          "label": "High Shadow"
+        }
+      ],
+      "default": "low"
+    },
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_style",
+      "label": "Enable custom styling",
+      "default": false
+    },
+    {
+      "type": "color",
+      "id": "section_background_color",
+      "label": "Section background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "header",
+      "content": "Animation"
+    },
+    {
+      "type": "checkbox",
+      "id": "reveal",
+      "label": "Reveal on scroll",
+      "default": true,
+      "info": "Uses the scroll animation chosen in Theme settings."
+    },
+    {
+      "type": "header",
+      "content": "Desktop spacing"
+    },
+    {
+      "type": "range",
+      "id": "section_padding_top_desktop",
+      "label": "Top padding (desktop)",
+      "min": 20,
+      "max": 200,
+      "step": 5,
+      "default": 75,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "section_padding_bottom_desktop",
+      "label": "Bottom padding (desktop)",
+      "min": 20,
+      "max": 200,
+      "step": 5,
+      "default": 65,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "section_padding_left_desktop",
+      "label": "Left padding (desktop)",
+      "min": 0,
+      "max": 200,
+      "step": 5,
+      "default": 150,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "section_padding_right_desktop",
+      "label": "Right padding (desktop)",
+      "min": 0,
+      "max": 200,
+      "step": 5,
+      "default": 150,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_desktop",
+      "label": "Top margin (desktop px)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_desktop",
+      "label": "Bottom margin (desktop px)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0
+    },
+    {
+      "type": "header",
+      "content": "Mobile"
+    },
+    {
+      "type": "range",
+      "id": "gallery_height_mobile",
+      "label": "Gallery height (mobile, % of width)",
+      "min": 40,
+      "max": 150,
+      "step": 5,
+      "default": 80
+    },
+    {
+      "type": "range",
+      "id": "section_padding_top_mobile",
+      "label": "Top padding (mobile)",
+      "min": 20,
+      "max": 200,
+      "step": 5,
+      "default": 40,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "section_padding_bottom_mobile",
+      "label": "Bottom padding (mobile)",
+      "min": 20,
+      "max": 200,
+      "step": 5,
+      "default": 40,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "section_padding_left_mobile",
+      "label": "Left padding (mobile)",
+      "min": 0,
+      "max": 200,
+      "step": 5,
+      "default": 25,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "section_padding_right_mobile",
+      "label": "Right padding (mobile)",
+      "min": 0,
+      "max": 200,
+      "step": 5,
+      "default": 25,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_mobile",
+      "label": "Top margin (mobile px)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_mobile",
+      "label": "Bottom margin (mobile px)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0
+    }
+  ],
+  "blocks": [
+    {
+      "type": "heading",
+      "name": "Heading",
+      "settings": [
+        {
+          "type": "inline_richtext",
+          "id": "title",
+          "label": "Heading",
+          "default": "<strong>Discover Our Gallery</strong>"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Heading colour",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "header",
+          "content": "Typography"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_fonts",
+          "label": "Enable custom fonts",
+          "default": false
+        },
+        {
+          "type": "font_picker",
+          "id": "font",
+          "label": "Font",
+          "default": "assistant_n4",
+          "visible_if": "{{ block.settings.enable_custom_fonts }}"
+        },
+        {
+          "type": "select",
+          "id": "font_family",
+          "label": "Heading Font",
+          "options": [
+            {
+              "value": "Roboto",
+              "label": "Roboto"
+            },
+            {
+              "value": "Open Sans",
+              "label": "Open Sans"
+            },
+            {
+              "value": "Lato",
+              "label": "Lato"
+            },
+            {
+              "value": "Oswald",
+              "label": "Oswald"
+            },
+            {
+              "value": "Montserrat",
+              "label": "Montserrat"
+            },
+            {
+              "value": "Source Sans Pro",
+              "label": "Source Sans Pro"
+            },
+            {
+              "value": "Raleway",
+              "label": "Raleway"
+            },
+            {
+              "value": "Poppins",
+              "label": "Poppins"
+            },
+            {
+              "value": "Merriweather",
+              "label": "Merriweather"
+            },
+            {
+              "value": "Ubuntu",
+              "label": "Ubuntu"
+            },
+            {
+              "value": "Noto Sans",
+              "label": "Noto Sans"
+            },
+            {
+              "value": "PT Sans",
+              "label": "PT Sans"
+            },
+            {
+              "value": "Libre Baskerville",
+              "label": "Libre Baskerville"
+            },
+            {
+              "value": "Playfair Display",
+              "label": "Playfair Display"
+            },
+            {
+              "value": "Merriweather Sans",
+              "label": "Merriweather Sans"
+            },
+            {
+              "value": "Alegreya",
+              "label": "Alegreya"
+            },
+            {
+              "value": "Bebas Neue",
+              "label": "Bebas Neue"
+            },
+            {
+              "value": "Cabin",
+              "label": "Cabin"
+            },
+            {
+              "value": "Dancing Script",
+              "label": "Dancing Script"
+            },
+            {
+              "value": "EB Garamond",
+              "label": "EB Garamond"
+            },
+            {
+              "value": "Fira Sans",
+              "label": "Fira Sans"
+            },
+            {
+              "value": "Georgia",
+              "label": "Georgia"
+            },
+            {
+              "value": "IBM Plex Sans",
+              "label": "IBM Plex Sans"
+            },
+            {
+              "value": "Inter",
+              "label": "Inter"
+            },
+            {
+              "value": "Josefin Sans",
+              "label": "Josefin Sans"
+            },
+            {
+              "value": "Karla",
+              "label": "Karla"
+            },
+            {
+              "value": "Lobster",
+              "label": "Lobster"
+            },
+            {
+              "value": "Merriweather Serif",
+              "label": "Merriweather Serif"
+            },
+            {
+              "value": "Mukta",
+              "label": "Mukta"
+            },
+            {
+              "value": "Nunito",
+              "label": "Nunito"
+            },
+            {
+              "value": "Overpass",
+              "label": "Overpass"
+            },
+            {
+              "value": "Pacifico",
+              "label": "Pacifico"
+            },
+            {
+              "value": "Play",
+              "label": "Play"
+            },
+            {
+              "value": "Quicksand",
+              "label": "Quicksand"
+            },
+            {
+              "value": "Rubik",
+              "label": "Rubik"
+            },
+            {
+              "value": "Spectral",
+              "label": "Spectral"
+            },
+            {
+              "value": "Teko",
+              "label": "Teko"
+            },
+            {
+              "value": "Titillium Web",
+              "label": "Titillium Web"
+            },
+            {
+              "value": "Varela Round",
+              "label": "Varela Round"
+            },
+            {
+              "value": "Zilla Slab",
+              "label": "Zilla Slab"
+            },
+            {
+              "value": "Arvo",
+              "label": "Arvo"
+            },
+            {
+              "value": "Bitter",
+              "label": "Bitter"
+            },
+            {
+              "value": "Cairo",
+              "label": "Cairo"
+            },
+            {
+              "value": "Caveat",
+              "label": "Caveat"
+            },
+            {
+              "value": "Comfortaa",
+              "label": "Comfortaa"
+            },
+            {
+              "value": "Cormorant Garamond",
+              "label": "Cormorant Garamond"
+            },
+            {
+              "value": "Crimson Pro",
+              "label": "Crimson Pro"
+            },
+            {
+              "value": "DM Sans",
+              "label": "DM Sans"
+            },
+            {
+              "value": "Exo 2",
+              "label": "Exo 2"
+            },
+            {
+              "value": "Fredoka One",
+              "label": "Fredoka One"
+            },
+            {
+              "value": "Heebo",
+              "label": "Heebo"
+            },
+            {
+              "value": "Hind",
+              "label": "Hind"
+            },
+            {
+              "value": "Indie Flower",
+              "label": "Indie Flower"
+            },
+            {
+              "value": "Kanit",
+              "label": "Kanit"
+            },
+            {
+              "value": "Lora",
+              "label": "Lora"
+            },
+            {
+              "value": "Manrope",
+              "label": "Manrope"
+            },
+            {
+              "value": "Maven Pro",
+              "label": "Maven Pro"
+            },
+            {
+              "value": "Noto Serif",
+              "label": "Noto Serif"
+            },
+            {
+              "value": "Open Dyslexic",
+              "label": "Open Dyslexic"
+            },
+            {
+              "value": "Permanent Marker",
+              "label": "Permanent Marker"
+            },
+            {
+              "value": "Raleway Dots",
+              "label": "Raleway Dots"
+            },
+            {
+              "value": "Rokkitt",
+              "label": "Rokkitt"
+            },
+            {
+              "value": "Secular One",
+              "label": "Secular One"
+            },
+            {
+              "value": "Shadows Into Light",
+              "label": "Shadows Into Light"
+            },
+            {
+              "value": "Sora",
+              "label": "Sora"
+            },
+            {
+              "value": "Space Grotesk",
+              "label": "Space Grotesk"
+            },
+            {
+              "value": "Tinos",
+              "label": "Tinos"
+            },
+            {
+              "value": "Vollkorn",
+              "label": "Vollkorn"
+            },
+            {
+              "value": "Work Sans",
+              "label": "Work Sans"
+            },
+            {
+              "value": "Yeseva One",
+              "label": "Yeseva One"
+            },
+            {
+              "value": "Abril Fatface",
+              "label": "Abril Fatface"
+            },
+            {
+              "value": "Acme",
+              "label": "Acme"
+            },
+            {
+              "value": "Alfa Slab One",
+              "label": "Alfa Slab One"
+            },
+            {
+              "value": "Anton",
+              "label": "Anton"
+            },
+            {
+              "value": "Archivo",
+              "label": "Archivo"
+            },
+            {
+              "value": "Atkinson Hyperlegible",
+              "label": "Atkinson Hyperlegible"
+            },
+            {
+              "value": "Barlow",
+              "label": "Barlow"
+            },
+            {
+              "value": "Bangers",
+              "label": "Bangers"
+            },
+            {
+              "value": "Cardo",
+              "label": "Cardo"
+            },
+            {
+              "value": "Chivo",
+              "label": "Chivo"
+            },
+            {
+              "value": "Cinzel",
+              "label": "Cinzel"
+            },
+            {
+              "value": "Domine",
+              "label": "Domine"
+            },
+            {
+              "value": "Great Vibes",
+              "label": "Great Vibes"
+            },
+            {
+              "value": "League Gothic",
+              "label": "League Gothic"
+            },
+            {
+              "value": "Merienda",
+              "label": "Merienda"
+            },
+            {
+              "value": "Notable",
+              "label": "Notable"
+            },
+            {
+              "value": "Prata",
+              "label": "Prata"
+            },
+            {
+              "value": "Rufina",
+              "label": "Rufina"
+            },
+            {
+              "value": "Syncopate",
+              "label": "Syncopate"
+            },
+            {
+              "value": "Urbanist",
+              "label": "Urbanist"
+            }
+          ],
+          "default": "Oswald",
+          "hidden": true,
+          "info": "Older font list, kept for saved content. Use Font above.",
+          "visible_if": "{{ false }}"
+        },
+        {
+          "type": "select",
+          "id": "font_weight",
+          "label": "Font weight",
+          "options": [
+            {
+              "value": "inherit",
+              "label": "Inherit"
+            },
+            {
+              "value": "100",
+              "label": "100 (Thin)"
+            },
+            {
+              "value": "200",
+              "label": "200 (Extra Light)"
+            },
+            {
+              "value": "300",
+              "label": "300 (Light)"
+            },
+            {
+              "value": "400",
+              "label": "400 (Normal)"
+            },
+            {
+              "value": "500",
+              "label": "500 (Medium)"
+            },
+            {
+              "value": "600",
+              "label": "600 (Semi Bold)"
+            },
+            {
+              "value": "700",
+              "label": "700 (Bold)"
+            },
+            {
+              "value": "800",
+              "label": "800 (Extra Bold)"
+            },
+            {
+              "value": "900",
+              "label": "900 (Black)"
+            }
+          ],
+          "default": "inherit"
+        },
+        {
+          "type": "range",
+          "id": "size_desktop",
+          "label": "Text size (desktop)",
+          "min": 20,
+          "max": 100,
+          "step": 1,
+          "default": 32,
+          "unit": "px"
+        },
+        {
+          "type": "range",
+          "id": "size_mobile",
+          "label": "Text size (mobile)",
+          "min": 20,
+          "max": 100,
+          "step": 1,
+          "default": 30,
+          "unit": "px"
+        }
+      ]
+    },
+    {
+      "type": "subheading",
+      "name": "Subheading",
+      "settings": [
+        {
+          "type": "inline_richtext",
+          "id": "text",
+          "label": "Subheading",
+          "default": "Explore the latest trends and styles in our collection"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Text colour",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "header",
+          "content": "Typography"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_fonts",
+          "label": "Enable custom fonts",
+          "default": false
+        },
+        {
+          "type": "font_picker",
+          "id": "font",
+          "label": "Font",
+          "default": "assistant_n4",
+          "visible_if": "{{ block.settings.enable_custom_fonts }}"
+        },
+        {
+          "type": "select",
+          "id": "font_family",
+          "label": "Subheading Font",
+          "options": [
+            {
+              "value": "Roboto",
+              "label": "Roboto"
+            },
+            {
+              "value": "Open Sans",
+              "label": "Open Sans"
+            },
+            {
+              "value": "Lato",
+              "label": "Lato"
+            },
+            {
+              "value": "Oswald",
+              "label": "Oswald"
+            },
+            {
+              "value": "Montserrat",
+              "label": "Montserrat"
+            },
+            {
+              "value": "Source Sans Pro",
+              "label": "Source Sans Pro"
+            },
+            {
+              "value": "Raleway",
+              "label": "Raleway"
+            },
+            {
+              "value": "Poppins",
+              "label": "Poppins"
+            },
+            {
+              "value": "Merriweather",
+              "label": "Merriweather"
+            },
+            {
+              "value": "Ubuntu",
+              "label": "Ubuntu"
+            },
+            {
+              "value": "Noto Sans",
+              "label": "Noto Sans"
+            },
+            {
+              "value": "PT Sans",
+              "label": "PT Sans"
+            },
+            {
+              "value": "Libre Baskerville",
+              "label": "Libre Baskerville"
+            },
+            {
+              "value": "Playfair Display",
+              "label": "Playfair Display"
+            },
+            {
+              "value": "Merriweather Sans",
+              "label": "Merriweather Sans"
+            },
+            {
+              "value": "Alegreya",
+              "label": "Alegreya"
+            },
+            {
+              "value": "Bebas Neue",
+              "label": "Bebas Neue"
+            },
+            {
+              "value": "Cabin",
+              "label": "Cabin"
+            },
+            {
+              "value": "Dancing Script",
+              "label": "Dancing Script"
+            },
+            {
+              "value": "EB Garamond",
+              "label": "EB Garamond"
+            },
+            {
+              "value": "Fira Sans",
+              "label": "Fira Sans"
+            },
+            {
+              "value": "Georgia",
+              "label": "Georgia"
+            },
+            {
+              "value": "IBM Plex Sans",
+              "label": "IBM Plex Sans"
+            },
+            {
+              "value": "Inter",
+              "label": "Inter"
+            },
+            {
+              "value": "Josefin Sans",
+              "label": "Josefin Sans"
+            },
+            {
+              "value": "Karla",
+              "label": "Karla"
+            },
+            {
+              "value": "Lobster",
+              "label": "Lobster"
+            },
+            {
+              "value": "Merriweather Serif",
+              "label": "Merriweather Serif"
+            },
+            {
+              "value": "Mukta",
+              "label": "Mukta"
+            },
+            {
+              "value": "Nunito",
+              "label": "Nunito"
+            },
+            {
+              "value": "Overpass",
+              "label": "Overpass"
+            },
+            {
+              "value": "Pacifico",
+              "label": "Pacifico"
+            },
+            {
+              "value": "Play",
+              "label": "Play"
+            },
+            {
+              "value": "Quicksand",
+              "label": "Quicksand"
+            },
+            {
+              "value": "Rubik",
+              "label": "Rubik"
+            },
+            {
+              "value": "Spectral",
+              "label": "Spectral"
+            },
+            {
+              "value": "Teko",
+              "label": "Teko"
+            },
+            {
+              "value": "Titillium Web",
+              "label": "Titillium Web"
+            },
+            {
+              "value": "Varela Round",
+              "label": "Varela Round"
+            },
+            {
+              "value": "Zilla Slab",
+              "label": "Zilla Slab"
+            },
+            {
+              "value": "Arvo",
+              "label": "Arvo"
+            },
+            {
+              "value": "Bitter",
+              "label": "Bitter"
+            },
+            {
+              "value": "Cairo",
+              "label": "Cairo"
+            },
+            {
+              "value": "Caveat",
+              "label": "Caveat"
+            },
+            {
+              "value": "Comfortaa",
+              "label": "Comfortaa"
+            },
+            {
+              "value": "Cormorant Garamond",
+              "label": "Cormorant Garamond"
+            },
+            {
+              "value": "Crimson Pro",
+              "label": "Crimson Pro"
+            },
+            {
+              "value": "DM Sans",
+              "label": "DM Sans"
+            },
+            {
+              "value": "Exo 2",
+              "label": "Exo 2"
+            },
+            {
+              "value": "Fredoka One",
+              "label": "Fredoka One"
+            },
+            {
+              "value": "Heebo",
+              "label": "Heebo"
+            },
+            {
+              "value": "Hind",
+              "label": "Hind"
+            },
+            {
+              "value": "Indie Flower",
+              "label": "Indie Flower"
+            },
+            {
+              "value": "Kanit",
+              "label": "Kanit"
+            },
+            {
+              "value": "Lora",
+              "label": "Lora"
+            },
+            {
+              "value": "Manrope",
+              "label": "Manrope"
+            },
+            {
+              "value": "Maven Pro",
+              "label": "Maven Pro"
+            },
+            {
+              "value": "Noto Serif",
+              "label": "Noto Serif"
+            },
+            {
+              "value": "Open Dyslexic",
+              "label": "Open Dyslexic"
+            },
+            {
+              "value": "Permanent Marker",
+              "label": "Permanent Marker"
+            },
+            {
+              "value": "Raleway Dots",
+              "label": "Raleway Dots"
+            },
+            {
+              "value": "Rokkitt",
+              "label": "Rokkitt"
+            },
+            {
+              "value": "Secular One",
+              "label": "Secular One"
+            },
+            {
+              "value": "Shadows Into Light",
+              "label": "Shadows Into Light"
+            },
+            {
+              "value": "Sora",
+              "label": "Sora"
+            },
+            {
+              "value": "Space Grotesk",
+              "label": "Space Grotesk"
+            },
+            {
+              "value": "Tinos",
+              "label": "Tinos"
+            },
+            {
+              "value": "Vollkorn",
+              "label": "Vollkorn"
+            },
+            {
+              "value": "Work Sans",
+              "label": "Work Sans"
+            },
+            {
+              "value": "Yeseva One",
+              "label": "Yeseva One"
+            },
+            {
+              "value": "Abril Fatface",
+              "label": "Abril Fatface"
+            },
+            {
+              "value": "Acme",
+              "label": "Acme"
+            },
+            {
+              "value": "Alfa Slab One",
+              "label": "Alfa Slab One"
+            },
+            {
+              "value": "Anton",
+              "label": "Anton"
+            },
+            {
+              "value": "Archivo",
+              "label": "Archivo"
+            },
+            {
+              "value": "Atkinson Hyperlegible",
+              "label": "Atkinson Hyperlegible"
+            },
+            {
+              "value": "Barlow",
+              "label": "Barlow"
+            },
+            {
+              "value": "Bangers",
+              "label": "Bangers"
+            },
+            {
+              "value": "Cardo",
+              "label": "Cardo"
+            },
+            {
+              "value": "Chivo",
+              "label": "Chivo"
+            },
+            {
+              "value": "Cinzel",
+              "label": "Cinzel"
+            },
+            {
+              "value": "Domine",
+              "label": "Domine"
+            },
+            {
+              "value": "Great Vibes",
+              "label": "Great Vibes"
+            },
+            {
+              "value": "League Gothic",
+              "label": "League Gothic"
+            },
+            {
+              "value": "Merienda",
+              "label": "Merienda"
+            },
+            {
+              "value": "Notable",
+              "label": "Notable"
+            },
+            {
+              "value": "Prata",
+              "label": "Prata"
+            },
+            {
+              "value": "Rufina",
+              "label": "Rufina"
+            },
+            {
+              "value": "Syncopate",
+              "label": "Syncopate"
+            },
+            {
+              "value": "Urbanist",
+              "label": "Urbanist"
+            }
+          ],
+          "default": "Roboto",
+          "hidden": true,
+          "info": "Older font list, kept for saved content. Use Font above.",
+          "visible_if": "{{ false }}"
+        },
+        {
+          "type": "select",
+          "id": "font_weight",
+          "label": "Font weight",
+          "options": [
+            {
+              "value": "inherit",
+              "label": "Inherit"
+            },
+            {
+              "value": "100",
+              "label": "100 (Thin)"
+            },
+            {
+              "value": "200",
+              "label": "200 (Extra Light)"
+            },
+            {
+              "value": "300",
+              "label": "300 (Light)"
+            },
+            {
+              "value": "400",
+              "label": "400 (Normal)"
+            },
+            {
+              "value": "500",
+              "label": "500 (Medium)"
+            },
+            {
+              "value": "600",
+              "label": "600 (Semi Bold)"
+            },
+            {
+              "value": "700",
+              "label": "700 (Bold)"
+            },
+            {
+              "value": "800",
+              "label": "800 (Extra Bold)"
+            },
+            {
+              "value": "900",
+              "label": "900 (Black)"
+            }
+          ],
+          "default": "inherit"
+        },
+        {
+          "type": "range",
+          "id": "size_desktop",
+          "label": "Text size (desktop)",
+          "min": 10,
+          "max": 60,
+          "step": 1,
+          "default": 16,
+          "unit": "px"
+        },
+        {
+          "type": "range",
+          "id": "size_mobile",
+          "label": "Text size (mobile)",
+          "min": 10,
+          "max": 60,
+          "step": 1,
+          "default": 15,
+          "unit": "px"
+        },
+        {
+          "type": "header",
+          "content": "Spacing"
+        },
+        {
+          "type": "range",
+          "id": "padding_left_desktop",
+          "label": "Left padding (desktop)",
+          "min": 0,
+          "max": 100,
+          "step": 1,
+          "default": 20,
+          "unit": "px"
+        },
+        {
+          "type": "range",
+          "id": "padding_right_desktop",
+          "label": "Right padding (desktop)",
+          "min": 0,
+          "max": 100,
+          "step": 1,
+          "default": 20,
+          "unit": "px"
+        },
+        {
+          "type": "range",
+          "id": "padding_left_mobile",
+          "label": "Left padding (mobile)",
+          "min": 0,
+          "max": 50,
+          "step": 1,
+          "default": 10,
+          "unit": "px"
+        },
+        {
+          "type": "range",
+          "id": "padding_right_mobile",
+          "label": "Right padding (mobile)",
+          "min": 0,
+          "max": 50,
+          "step": 1,
+          "default": 10,
+          "unit": "px"
+        }
+      ]
+    },
+    {
+      "type": "gallery_image",
+      "name": "Image",
+      "settings": [
+        {
+          "type": "image_picker",
+          "id": "image",
+          "label": "Image"
+        },
+        {
+          "type": "text",
+          "id": "alt",
+          "label": "Image description",
+          "info": "Read by screen readers. Leave empty to use the image’s own alt text."
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Gallery Interactive 2",
+      "blocks": [
+        {
+          "type": "heading"
+        },
+        {
+          "type": "subheading"
+        },
+        {
+          "type": "gallery_image"
+        },
+        {
+          "type": "gallery_image"
+        },
+        {
+          "type": "gallery_image"
+        },
+        {
+          "type": "gallery_image"
+        },
+        {
+          "type": "gallery_image"
+        }
+      ],
+      "category": "Image and video"
+    }
+  ]
+}
+{% endschema %}

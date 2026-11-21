@@ -1,0 +1,308 @@
+{%- comment -%}
+  Materia Themes. Add to cart, Buy now and Add to wishlist for the product
+  information's Buy buttons block (block: the block) and the sticky bar
+  (type: 'sticky', no block).
+
+  Every button is on the theme's button contract (data-theme-button):
+  Theme settings > Buttons paints it unless the block picks an appearance
+  of its own (data-atc-appearance / data-buy-appearance on the wrapper,
+  read by materia-experience.js). Icons are drawn here, in the label's
+  colour and 1.15em, so they follow the button text; a custom icon colour
+  only applies when the block turns it on.
+
+  Buy now is Storelib's buy now button ([data-storelib-buy-now]): it buys
+  this item alone and goes straight to checkout by default. When an offer
+  block explicitly selects Main buttons or Both, product-offers.js combines
+  that selection and continues through the existing cart checkout instead.
+  Existing cart items and required cart terms remain in that flow.
+
+  Inputs: product, block, product_form_id, section_id, formClass, type
+{%- endcomment -%}
+{%- if product != blank -%}
+  {%- assign native_quantity_offers = product.metafields.storelib.offers.value.quantityBreaks -%}
+  {%- assign quantity_blocks = section.blocks | where: 'type', 'quantity_offer' -%}
+  {%- if type != 'sticky' and native_quantity_offers != blank and quantity_blocks.size == 0 -%}
+    {%- render 'storelib-product-offers', product: product, block: block, section: section, kind: 'quantity_offer', product_form_id: product_form_id, compact: true -%}
+  {%- endif -%}
+  {%- liquid
+    assign bb = block.settings
+    assign has_block = false
+    if block != blank and type != 'sticky'
+      assign has_block = true
+    endif
+    assign variant = product.selected_or_first_available_variant
+    assign gift_card_recipient_feature_active = false
+    assign show_dynamic_checkout = false
+    assign show_add_to_cart = true
+    assign show_quantity = settings.show_quantity_input
+    assign show_wishlist_button = false
+    if has_block
+      if bb.show_gift_card_recipient and product.gift_card?
+        assign gift_card_recipient_feature_active = true
+      endif
+      if bb.show_dynamic_checkout
+        assign show_dynamic_checkout = true
+      endif
+      if bb.show_add_to_cart == false
+        assign show_add_to_cart = false
+      endif
+      assign show_quantity = bb.show_quantity
+      if bb.show_wishlist_button and product.id != blank
+        assign show_wishlist_button = true
+      endif
+    endif
+
+    assign atc_label = 'products.product.general.add_to_cart' | t
+    if variant.inventory_management != null
+      if variant.available == false
+        assign atc_label = 'products.product.general.outstock' | t
+      elsif variant.inventory_quantity < 1
+        assign atc_label = 'products.product.general.pre_order' | t
+      endif
+    endif
+    assign buy_label = 'products.product.buy_it_now' | t
+    if has_block and bb.enable_custom_button_text
+      if bb.atc_button_text != blank and variant.available
+        assign atc_label = bb.atc_button_text | strip_html | strip
+      endif
+      if bb.buy_button_text != blank
+        assign buy_label = bb.buy_button_text | strip_html | strip
+      endif
+    endif
+
+    assign atc_weight = ''
+    assign buy_weight = ''
+    if has_block and bb.enable_custom_button_typography
+      assign atc_weight = bb.atc_font_weight | default: '600'
+      assign buy_weight = bb.buy_font_weight | default: '600'
+    endif
+
+    assign atc_appearance = ''
+    assign buy_appearance = ''
+    if has_block
+      if bb.atc_appearance != blank and bb.atc_appearance != 'theme'
+        assign atc_appearance = bb.atc_appearance
+      endif
+      if bb.buy_appearance != blank and bb.buy_appearance != 'theme'
+        assign buy_appearance = bb.buy_appearance
+      endif
+    endif
+
+    assign atc_icon_color = ''
+    assign buy_icon_color = ''
+    if has_block and bb.icon_custom_color
+      if bb.atc_icon_color != blank and bb.atc_icon_color != 'transparent'
+        assign atc_icon_color = bb.atc_icon_color
+      endif
+      if bb.buy_icon_color != blank and bb.buy_icon_color != 'transparent'
+        assign buy_icon_color = bb.buy_icon_color
+      endif
+    endif
+  -%}
+  {%- capture atc_icon_paths -%}
+    {%- if has_block and bb.atc_icon_enable -%}
+      {%- case bb.atc_icon -%}
+        {%- when 'cart' -%}<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+        {%- when 'plus' -%}<path d="M12 5v14M5 12h14"/>
+        {%- when 'lock' -%}<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        {%- when 'heart' -%}<path d="M19 14l-7 7-7-7a5 5 0 1 1 7-7 5 5 0 1 1 7 7z"/>
+        {%- when 'check' -%}<path d="M20 6 9 17l-5-5"/>
+        {%- else -%}<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/>
+      {%- endcase -%}
+    {%- endif -%}
+  {%- endcapture -%}
+  {%- capture buy_icon_paths -%}
+    {%- if has_block and bb.buy_icon_enable -%}
+      {%- case bb.buy_icon -%}
+        {%- when 'bag' -%}<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/>
+        {%- when 'cart' -%}<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+        {%- when 'plus' -%}<path d="M12 5v14M5 12h14"/>
+        {%- when 'heart' -%}<path d="M19 14l-7 7-7-7a5 5 0 1 1 7-7 5 5 0 1 1 7 7z"/>
+        {%- when 'check' -%}<path d="M20 6 9 17l-5-5"/>
+        {%- when 'zap' -%}<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+        {%- else -%}<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+      {%- endcase -%}
+    {%- endif -%}
+  {%- endcapture -%}
+  {%- assign wl_display = '' -%}
+  {%- capture wishlist_markup -%}
+    {%- if show_wishlist_button -%}
+                {%- liquid
+                  assign wl_add = bb.wishlist_label | default: 'Add to wishlist' | strip_html | escape
+                  assign wl_added = bb.wishlist_added_label | default: 'Saved to wishlist' | strip_html | escape
+                  assign wl_display = bb.wishlist_display | default: 'icon'
+                -%}
+                <button-wishlist
+                  class="pdp-wishlist pdp-wishlist--{{ wl_display }}"
+                  role="button"
+                  tabindex="0"
+                  aria-pressed="false"
+                  aria-label="{{ wl_add }}"
+                  data-product-id="{{ product.id }}"
+                  data-action="{% if settings.action_when_click_added_wishlist == 'go_to_page' %}go_to_page{% else %}remove{% endif %}"
+                  data-tooltip-add="{{ wl_add }}"
+                  data-tooltip-remove="{{ wl_added }}"
+                  data-tooltip-redirect="{{ wl_added }}"
+                  data-mt-wishlist
+                >
+                  <svg class="pdp-wishlist__icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="20" height="20"><path d="M12 20.3 4.6 13a4.8 4.8 0 0 1 0-6.8 4.7 4.7 0 0 1 6.7 0l.7.7.7-.7a4.7 4.7 0 0 1 6.7 0 4.8 4.8 0 0 1 0 6.8z"/></svg>
+                  <span class="pdp-wishlist__label tooltip-content{% if wl_display == 'icon' %} visually-hidden{% endif %}">{{ wl_add }}</span>
+                </button-wishlist>
+    {%- endif -%}
+  {%- endcapture -%}
+  {% if settings.enable_catalog_mode == false %}
+    <div class="product__submit-form buy-btn-js d-flex flex-wrap btn-large">
+      <product-form
+        class="d-block product-form flex-1"
+        data-hide-errors="{{ gift_card_recipient_feature_active }}"
+        data-section-id="{{ section_id }}"
+      >
+        {% if type != 'sticky' %}
+          <div class="product-form__error-message-wrapper" role="alert" hidden>
+            <div class="form__message error inline-flex align-center">
+              {%- render 'icon-error' -%}
+              <span class="product-form__error-message ml-5"></span>
+            </div>
+          </div>
+        {% endif %}
+        {%- form 'product',
+          product,
+          id: product_form_id,
+          class: formClass,
+          enctype: 'multipart/form-data',
+          novalidate: 'novalidate',
+          data-type: 'add-to-cart-form'
+        -%}
+          <input
+            type="hidden"
+            name="id"
+            value="{{ variant.id }}"
+            disabled
+            class="product-variant-id"
+          >
+          {%- if gift_card_recipient_feature_active -%}
+            {%- render 'gift-card-recipient-form',
+              product: product,
+              form: form,
+              section: section
+            -%}
+          {%- endif -%}
+          <div class="product-form__buttons btn-large flex flex-wrap gap-10">
+            <div class="product__submit-form-cart flex flex-wrap gap-10 gap-lg-20 align-center grow-1">
+              {% if show_quantity == true %}
+                <div class="product-form__input product-form__quantity">
+                  <quantity-input class="quantity btn-rounded overflow-hidden border inline-flex text-center grey-bg">
+                    <button
+                      class="quantity__button inline-flex content-center pointer border-0 no-js-hidden w-custom grey-bg"
+                      name="minus"
+                      type="button"
+                      style="--custom-width: 4.5rem"
+                    >
+                      <span class="visually-hidden">
+                        {{- 'products.product.quantity.decrease' | t: product: product.title | escape -}}
+                      </span>
+                      {% render 'icon-minus' %}
+                    </button>
+                    <label class="visually-hidden" for="Quantity-{{ section_id }}{% if type == 'sticky' %}-sticky{% endif %}">
+                      {{ 'general.cart.headings.quantity' | t }}
+                    </label>
+                    <input
+                      class="quantity-input bg-unset text-center appearance-none p-0-important w-custom"
+                      type="number"
+                      name="quantity"
+                      style="--input-padding: 0;--inputs-border-width: 0;--input-height: 4.8rem;--custom-width: 3.8rem;--input-border-radius: 0;--input-bg: transparent"
+                      min="{{ variant.quantity_rule.min | default: '1' }}"
+                      {% if variant.quantity_rule.max != null %}
+                        max="{{ variant.quantity_rule.max }}"
+                      {% endif -%}
+                      step="{{ variant.quantity_rule.increment | default: '1' }}"
+                      value="{{ variant.quantity_rule.min | default: '1' }}"
+                      form="{{ product_form_id }}"
+                      id="Quantity-{{ section_id }}{% if type == 'sticky' %}-sticky{% endif %}"
+                    >
+                    <button
+                      class="quantity__button inline-flex content-center pointer border-0 no-js-hidden w-custom grey-bg"
+                      name="plus"
+                      type="button"
+                      style="--custom-width: 4.5rem"
+                    >
+                      <span class="visually-hidden">
+                        {{- 'products.product.quantity.increase' | t: product: product.title | escape -}}
+                      </span>
+                      {% render 'icon-plus' %}
+                    </button>
+                  </quantity-input>
+                </div>
+              {% endif %}
+              {%- if show_add_to_cart -%}
+              <div class="button_buy-now grow-1">
+                <button
+                  type="submit"
+                  name="add"
+                  class="btn btn-primary w-full product_submit_button product-form__submit word-wrap relative"
+                  data-sl-button data-button-role="primary" data-theme-button="primary"
+                  {% if atc_appearance != blank %}data-button-local-appearance="{{ atc_appearance }}" data-button-appearance="{{ atc_appearance }}"{% endif %}
+                  style="--btn-padding-x: 2.5rem;{% if atc_weight != blank %} --mb-weight: {{ atc_weight }};{% endif %}"
+                  {% if variant.available == false %}
+                    disabled
+                  {% endif %}
+                >
+                  {%- if atc_icon_paths != blank -%}
+                    <svg class="btn-icon hidden-on-load" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"{% if atc_icon_color != blank %} style="stroke: {{ atc_icon_color }} !important"{% endif %}>{{ atc_icon_paths }}</svg>
+                  {%- endif -%}
+                  <span class="btn-label hidden-on-load" data-btn-label>{{ atc_label }}</span>
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="spin opacity-0 icon-load">
+                    <use href="#icon-load"></use>
+                  </svg>
+                </button>
+              </div>
+              {%- endif -%}
+              {%- if wl_display == 'icon' -%}{{ wishlist_markup }}{%- endif -%}
+            </div>
+            {%- if show_dynamic_checkout -%}
+              <div class="btn-checkout-dynamic w-full">
+                <div class="shopify-payment-button" data-shopify="payment-button">
+                  <button
+                    type="submit"
+                    name="checkout"
+                    value="1"
+                    formnovalidate
+                    class="shopify-payment-button__button shopify-payment-button__button--unbranded"
+                    data-storelib-buy-now
+                    data-sl-button data-button-role="secondary" data-theme-button="secondary"
+                    {% if buy_appearance != blank %}data-button-local-appearance="{{ buy_appearance }}" data-button-appearance="{{ buy_appearance }}"{% endif %}
+                    {% if buy_weight != blank %}style="--mb-weight: {{ buy_weight }};"{% endif %}
+                    {% if variant.available == false %}disabled{% endif %}
+                  >
+                    {%- if buy_icon_paths != blank -%}
+                      <svg class="btn-icon" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"{% if buy_icon_color != blank %} style="stroke: {{ buy_icon_color }} !important"{% endif %}>{{ buy_icon_paths }}</svg>
+                    {%- endif -%}
+                    <span class="btn-label" data-btn-label>{{ buy_label }}</span>
+                  </button>
+                </div>
+              </div>
+            {%- endif -%}
+            {%- if wl_display == 'text' -%}{{ wishlist_markup }}{%- endif -%}
+          </div>
+        {%- endform -%}
+      </product-form>
+    </div>
+  {% endif %}
+
+{%- else -%}
+  {% if settings.enable_catalog_mode == false %}
+    <div class="product-form">
+      <div class="product-form__buttons form mt-20">
+        <button
+          type="submit"
+          name="add"
+          class="product_buy_now_button product-form__submit button button--full-width btn-primary"
+          data-sl-button data-button-role="primary"
+          disabled
+        >
+          {{ 'products.product.general.outstock' | t }}
+        </button>
+      </div>
+    </div>
+  {% endif %}
+{%- endif -%}

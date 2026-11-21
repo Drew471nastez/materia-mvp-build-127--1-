@@ -1,0 +1,96 @@
+{
+  "sections": {
+    "image_and_video_text_1": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "default",
+        "image": "shopify://shop_images/digital-studio-room.webp",
+        "image_alt": "A home studio with guitars and a keyboard by a window",
+        "image_position": "right"
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "About"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Made by people who use them"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Say who makes these packs and what you make with them yourself. Two or three sentences is enough.</p>"
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "Browse packs",
+            "link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
+    },
+    "image_with_text_multirow_2": {
+      "type": "image-with-text-multirow",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976"
+      },
+      "blocks": {
+        "row_1": {
+          "type": "row",
+          "settings": {
+            "caption": "Presets",
+            "heading": "For photographers",
+            "image": "shopify://shop_images/digital-photographer.webp",
+            "body": "<p>Describe your presets and the look they give.</p>",
+            "btn_label": "See presets",
+            "btn_link": "/collections/all"
+          }
+        },
+        "row_2": {
+          "type": "row",
+          "settings": {
+            "caption": "Templates",
+            "heading": "For designers",
+            "image": "shopify://shop_images/digital-desk.webp",
+            "body": "<p>Describe your templates and which apps open them.</p>",
+            "btn_label": "See templates",
+            "btn_link": "/collections/all"
+          }
+        },
+        "row_3": {
+          "type": "row",
+          "settings": {
+            "caption": "Sample packs",
+            "heading": "For producers",
+            "image": "shopify://shop_images/digital-code.webp",
+            "body": "<p>Describe your sounds and how they are recorded.</p>",
+            "btn_label": "See sample packs",
+            "btn_link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "row_1",
+        "row_2",
+        "row_3"
+      ]
+    }
+  },
+  "order": [
+    "image_and_video_text_1",
+    "image_with_text_multirow_2"
+  ]
+}

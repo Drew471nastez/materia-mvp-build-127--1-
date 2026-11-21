@@ -1,0 +1,1154 @@
+<script src="{{ 'live-countdown.js' | asset_url }}" defer="defer"></script>
+{% render 'theme-type' %}
+{%- comment -%}
+  Materia Themes. Countdown Timer Pro 2: the time left in circles beside a
+  heading, a description and a button (blocks, in their order). Side by side
+  from 768px, stacked below.
+  The timer runs in shopify/assets/live-countdown.js, one per section, paused
+  while the section is off screen or the tab is hidden; it counts to the end
+  date and time on the visitor's own clock and, with Restart set, starts
+  again every day, week or month. Every setting below is applied live there
+  too (data-cd-root, data-cd-settings, data-cd-block), and the reveal on
+  scroll plays there once on a visitor's page. Theme first: colours follow the
+  colour scheme until Enable custom styling is on, fonts follow Theme
+  settings > Typography until Custom fonts is on (data-own-font,
+  data-own-weight), and the button is a theme button (data-theme-button) with
+  its own shape only when Use theme button style is off (data-own-shape).
+  No end date: the editor shows zeros and a hint, visitors see nothing.
+  The timer's date rule, the same one live-countdown.js uses:
+  function calendarOk(s){var m=/^\s*(\d{4})-(\d{1,2})-(\d{1,2})/.exec(String(s||''));if(!m)return true;var y=+m[1],mo=+m[2],d=+m[3];return mo>=1&&mo<=12&&d>=1&&d<=new Date(Date.UTC(y,mo,0)).getUTCDate();}
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign own = st.enable_custom_style
+  assign fonts = st.enable_custom_fonts
+  assign reveal = st.reveal
+  assign scroll_animation = st.scroll_animation | default: 'none'
+  assign end_date = st.end_date | default: '' | strip
+  assign state = 'unset'
+  if end_date != blank
+    assign state = 'running'
+  endif
+  case st.vertical_alignment
+    when 'top'
+      assign v_align = 'flex-start'
+    when 'bottom'
+      assign v_align = 'flex-end'
+    else
+      assign v_align = 'center'
+  endcase
+  assign m_align = st.content_alignment_mobile | default: 'center'
+  case m_align
+    when 'left'
+      assign m_flex = 'flex-start'
+    when 'right'
+      assign m_flex = 'flex-end'
+    else
+      assign m_flex = 'center'
+  endcase
+-%}
+{%- capture cd2_vars -%}
+--cd2-dir:{% if st.layout_direction == 'timer_right' %}row-reverse{% else %}row{% endif %};--cd2-valign:{{ v_align }};--cd2-gap:{{ st.gap_columns | default: 0 }}px;
+--cd2-m-align:{{ m_align }};--cd2-m-flex:{{ m_flex }};
+--cd2-size-m:{{ st.circle_size_mobile | default: 64 }}px;--cd2-size-d:{{ st.circle_size_desktop | default: 90 }}px;--cd2-round:{{ st.circle_radius | default: 0 }}%;
+--cd2-circle:{% render 'countdown-live-color', on: own, color: st.circle_bg_color, fallback: 'var(--color-heading)' %};
+--cd2-num:{% render 'countdown-live-color', on: own, color: st.circle_text_color, fallback: 'var(--color-background)' %};
+--cd2-label:{% render 'countdown-live-color', on: own, color: st.label_color, fallback: 'var(--color-text)' %};
+--cd2-ns-m:{{ st.number_font_size_mobile | default: 20 }}px;--cd2-ns-d:{{ st.number_font_size_desktop | default: 26 }}px;
+--cd2-ls-m:{{ st.label_font_size_mobile | default: 12 }}px;--cd2-ls-d:{{ st.label_font_size_desktop | default: 14 }}px;
+--cd2-cgap-m:{{ st.gap_circles_mobile | default: 10 }}px;--cd2-cgap-d:{{ st.gap_circles_desktop | default: 18 }}px;
+--cd2-pt-m:{{ st.padding_top_mobile | default: 0 }}px;--cd2-pb-m:{{ st.padding_bottom_mobile | default: 0 }}px;--cd2-pt-d:{{ st.padding_top | default: 0 }}px;--cd2-pb-d:{{ st.padding_bottom | default: 0 }}px;
+{%- if fonts and st.heading_font.family != blank -%}--cd2-hf:{{ st.heading_font.family }}, {{ st.heading_font.fallback_families }};{%- endif -%}
+{%- if fonts and st.body_font.family != blank -%}--cd2-bf:{{ st.body_font.family }}, {{ st.body_font.fallback_families }};{%- endif -%}
+{%- endcapture -%}
+{%- if fonts -%}<style>{{ st.heading_font | font_face: font_display: 'swap' }}{{ st.body_font | font_face: font_display: 'swap' }}</style>{%- endif -%}
+{%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' and section.settings.reveal != false -%}
+  <style>
+    #shopify-section-{{ sid }}.scroll-trigger {
+      --animation-duration: {{ settings.animation_duration | default: 700 }}ms;
+      --animation-delay: {{ settings.animation_delay | default: 0 }}ms;
+    }
+  </style>
+  <script>
+    (function(){
+      var el = document.getElementById('shopify-section-{{ sid }}');
+      if (!el || el.classList.contains('scroll-trigger')) return;
+      el.classList.add('scroll-trigger', {{ settings.scroll_animation | json }});
+    })();
+  </script>
+{%- endif -%}
+<style>
+  #shopify-section-{{ sid }} { margin-top: {{ st.section_margin_top_mobile | default: 0 }}px; margin-bottom: {{ st.section_margin_bottom_mobile | default: 0 }}px; }
+  @media (min-width: 768px) { #shopify-section-{{ sid }} { margin-top: {{ st.section_margin_top_desktop | default: 0 }}px; margin-bottom: {{ st.section_margin_bottom_desktop | default: 0 }}px; } }
+  {%- if st.reset_spacing %}
+  #shopify-section-{{ sid }} { margin-top: 0 !important; margin-bottom: 0 !important; }
+  #shopify-section-{{ sid }} + .shopify-section { margin-top: 0 !important; }
+  {%- endif %}
+  #shopify-section-{{ sid }} .ti-cd [hidden] { display: none !important; }
+  #shopify-section-{{ sid }} .ti-cd { padding-top: var(--cd2-pt-m); padding-bottom: var(--cd2-pb-m); font-family: var(--cd2-bf, var(--body-font, inherit)); }
+  #shopify-section-{{ sid }} .ti-cd[data-cd-state='unset']:not([data-cd-editor]) { display: none !important; }
+  #shopify-section-{{ sid }} .ti-cd__inner { box-sizing: border-box; }
+  #shopify-section-{{ sid }} .ti-cd[data-cd2-width='container'] .ti-cd__inner { max-width: calc(var(--page-width, 1300px) + 3rem); margin-inline: auto; padding-inline: 1.5rem; }
+  #shopify-section-{{ sid }} .ti-cd[data-cd2-width='fluid_container'] .ti-cd__inner { max-width: calc(var(--fluid-container-width, 1500px) + 3rem); margin-inline: auto; padding-inline: 1.5rem; }
+  #shopify-section-{{ sid }} .ti-cd[data-cd2-width='stretch_width'] .ti-cd__inner { padding-inline: 1.5rem; }
+  #shopify-section-{{ sid }} .ti-cd__grid { display: flex; flex-direction: column; gap: 32px; align-items: stretch; }
+  #shopify-section-{{ sid }} .ti-cd__content-col { display: flex; flex-direction: column; gap: 18px; text-align: var(--cd2-m-align); align-items: var(--cd2-m-flex); }
+  #shopify-section-{{ sid }} .ti-cd__timer { display: flex; flex-wrap: nowrap; justify-content: center; gap: var(--cd2-cgap-m); max-width: 100%; }
+  #shopify-section-{{ sid }} .ti-cd__unit { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 0; flex: 0 1 auto; }
+  #shopify-section-{{ sid }} .ti-cd__num { width: var(--cd2-size-m); height: var(--cd2-size-m); border-radius: var(--cd2-round); background-color: var(--cd2-circle); color: var(--cd2-num); display: flex; align-items: center; justify-content: center; font-family: var(--cd2-hf, inherit); font-weight: var(--heading-weight, 700); font-size: var(--cd2-ns-m); line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+  #shopify-section-{{ sid }} .ti-cd__num.is-tick { animation: cd2-tick .4s cubic-bezier(.34, 1.4, .64, 1); }
+  @keyframes cd2-tick { 50% { transform: scale(1.06); } }
+  #shopify-section-{{ sid }} .ti-cd__label { color: var(--cd2-label); font-size: var(--cd2-ls-m); line-height: 1.3; text-align: center; }
+  #shopify-section-{{ sid }} .ti-cd__heading { margin: 0 0 var(--cdb-gap, 4px); color: var(--cdb-c, var(--color-heading)); font-family: var(--cdb-ff, var(--cd2-hf, var(--heading-font, inherit))); font-weight: var(--cdb-fw, var(--heading-weight, 700)); font-size: var(--cdb-fs-m, 28px); line-height: var(--heading-line-height, 1.15); }
+  #shopify-section-{{ sid }} .ti-cd__description { margin: 0 0 var(--cdb-gap, 8px); color: var(--cdb-c, var(--color-text)); font-family: var(--cdb-ff, var(--cd2-bf, var(--body-font, inherit))); font-weight: var(--cdb-fw, var(--body-weight, 400)); font-size: var(--cdb-fs-m, 14px); line-height: 1.55; }
+  #shopify-section-{{ sid }} .ti-cd__description :is(p, li) { margin: 0 0 .35em; color: inherit; font-family: inherit; font-weight: inherit; font-size: inherit; line-height: inherit; }
+  #shopify-section-{{ sid }} .ti-cd__description :is(p, li):last-child { margin-bottom: 0; }
+  #shopify-section-{{ sid }} .ti-cd__button { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; cursor: pointer; }
+  #shopify-section-{{ sid }} .ti-cd__button[data-own-shape] { --mb-font-size: var(--cdb-bfs-m); }
+  #shopify-section-{{ sid }} .ti-cd__hint { display: none; margin: 0; font-size: 13px; color: var(--color-text); }
+  #shopify-section-{{ sid }} .ti-cd[data-cd-state='unset'] .ti-cd__hint { display: block; }
+  @media (prefers-reduced-motion: reduce) {
+    #shopify-section-{{ sid }} .ti-cd__num.is-tick { animation: none; }
+  }
+  @media (min-width: 768px) {
+    #shopify-section-{{ sid }} .ti-cd { padding-top: var(--cd2-pt-d); padding-bottom: var(--cd2-pb-d); }
+    #shopify-section-{{ sid }} .ti-cd__grid { flex-direction: var(--cd2-dir); align-items: var(--cd2-valign); gap: var(--cd2-gap); justify-content: space-between; }
+    #shopify-section-{{ sid }} .ti-cd__timer-col, #shopify-section-{{ sid }} .ti-cd__content-col { flex: 1 1 0; min-width: 0; }
+    #shopify-section-{{ sid }} .ti-cd__content-col { text-align: start; align-items: flex-start; }
+    #shopify-section-{{ sid }} .ti-cd__timer { gap: var(--cd2-cgap-d); justify-content: flex-start; }
+    #shopify-section-{{ sid }} .ti-cd__num { width: var(--cd2-size-d); height: var(--cd2-size-d); font-size: var(--cd2-ns-d); }
+    #shopify-section-{{ sid }} .ti-cd__label { font-size: var(--cd2-ls-d); }
+    #shopify-section-{{ sid }} .ti-cd__button[data-own-shape] { --mb-font-size: var(--cdb-bfs-d); }
+    #shopify-section-{{ sid }} .ti-cd__heading { font-size: var(--cdb-fs-d, 44px); }
+    #shopify-section-{{ sid }} .ti-cd__description { font-size: var(--cdb-fs-d, 16px); }
+  }
+  @media (min-width: 1200px) { #shopify-section-{{ sid }} .ti-cd[data-cd2-width='stretch_width'] .ti-cd__inner { padding-inline: 3rem; } }
+  {%- comment -%} Reveal on scroll: only on a visitor's page, played once by live-countdown.js. {%- endcomment -%}
+  {%- if reveal and scroll_animation != 'none' and request.design_mode != true -%}
+    #shopify-section-{{ sid }} .ti-cd__inner-content[data-cd-reveal]:not(.is-revealed) { opacity: 0; }
+    #shopify-section-{{ sid }} .ti-cd__inner-content[data-cd-reveal] { transition: opacity .8s ease; }
+    {%- case scroll_animation -%}
+      {%- when 'fade' -%}
+        #shopify-section-{{ sid }} .ti-cd__inner-content[data-cd-reveal] { transition: opacity .45s ease; }
+      {%- when 'fade-in' -%}
+        #shopify-section-{{ sid }} .ti-cd__inner-content[data-cd-reveal] { transition: opacity 1s ease; }
+      {%- when 'slide-in' -%}
+        #shopify-section-{{ sid }} .ti-cd__inner-content[data-cd-reveal]:not(.is-revealed) { transform: translateX(-20px); }
+        #shopify-section-{{ sid }} .ti-cd__inner-content[data-cd-reveal] { transition: opacity .8s ease, transform .8s ease; }
+      {%- when 'smooth-fade-up' -%}
+        #shopify-section-{{ sid }} .ti-cd__inner-content[data-cd-reveal]:not(.is-revealed) { transform: translateY(20px); }
+        #shopify-section-{{ sid }} .ti-cd__inner-content[data-cd-reveal] { transition: opacity .8s ease, transform .8s ease; }
+      {%- when 'blur_up' -%}
+        #shopify-section-{{ sid }} .ti-cd__inner-content[data-cd-reveal]:not(.is-revealed) { transform: translateY(12px); filter: blur(4px); }
+        #shopify-section-{{ sid }} .ti-cd__inner-content[data-cd-reveal] { transition: opacity .8s ease, transform .8s ease, filter .8s ease; }
+      {%- when 'slide_side' -%}
+        #shopify-section-{{ sid }} .ti-cd__inner-content[data-cd-reveal]:not(.is-revealed) { transform: translateX(-28px); }
+        #shopify-section-{{ sid }} .ti-cd__inner-content[data-cd-reveal] { transition: opacity .8s ease, transform .8s ease; }
+      {%- when 'mask_reveal' -%}
+        #shopify-section-{{ sid }} .ti-cd__inner-content[data-cd-reveal]:not(.is-revealed) { opacity: 1; clip-path: inset(0 0 100% 0); transform: translateY(10px); }
+        #shopify-section-{{ sid }} .ti-cd__inner-content[data-cd-reveal] { transition: clip-path .8s ease, transform .8s ease; }
+    {%- endcase -%}
+    @media (prefers-reduced-motion: reduce) {
+      #shopify-section-{{ sid }} .ti-cd__inner-content { opacity: 1 !important; transform: none !important; transition: none !important; filter: none !important; clip-path: none !important; }
+    }
+  {%- endif -%}
+</style>
+
+<div class="section ti-cd color-{{ color_scheme }} gradient" data-cd-root="countdown-timer2" data-cd-section="{{ sid }}" data-cd-settings="{{ st | json | escape }}" data-cd-state="{{ state }}"{% if request.design_mode %} data-cd-editor{% endif %} data-cd2-width="{{ st.section_width }}" style="{{ cd2_vars | strip_newlines }}">
+  <div class="ti-cd__inner">
+    <div class="ti-cd__inner-content"{% if reveal and scroll_animation != 'none' and request.design_mode != true %} data-cd-reveal="{{ scroll_animation }}"{% endif %}>
+      <div class="ti-cd__grid">
+        <div class="ti-cd__timer-col">
+          <div class="ti-cd__timer" role="timer" data-cd-clock>
+            <div class="ti-cd__unit" data-cd-show="d"{% unless st.show_days %} hidden{% endunless %}><div class="ti-cd__num" data-cd-unit="d">00</div><span class="ti-cd__label" data-cd-label="d" data-cd-label-hide{% if st.days_label == blank %} hidden{% endif %}>{{ st.days_label }}</span></div>
+            <div class="ti-cd__unit" data-cd-show="h"{% unless st.show_hours %} hidden{% endunless %}><div class="ti-cd__num" data-cd-unit="h">00</div><span class="ti-cd__label" data-cd-label="h" data-cd-label-hide{% if st.hours_label == blank %} hidden{% endif %}>{{ st.hours_label }}</span></div>
+            <div class="ti-cd__unit" data-cd-show="m"{% unless st.show_minutes %} hidden{% endunless %}><div class="ti-cd__num" data-cd-unit="m">00</div><span class="ti-cd__label" data-cd-label="m" data-cd-label-hide{% if st.minutes_label == blank %} hidden{% endif %}>{{ st.minutes_label }}</span></div>
+            <div class="ti-cd__unit" data-cd-show="s"{% unless st.show_seconds %} hidden{% endunless %}><div class="ti-cd__num" data-cd-unit="s" data-cd-pulse>00</div><span class="ti-cd__label" data-cd-label="s" data-cd-label-hide{% if st.seconds_label == blank %} hidden{% endif %}>{{ st.seconds_label }}</span></div>
+          </div>
+        </div>
+        <div class="ti-cd__content-col">
+          {%- for block in section.blocks -%}
+            {%- assign bs = block.settings -%}
+            {%- case block.type -%}
+              {%- when 'heading', 'description' -%}
+                {%- capture tv -%}
+                  {%- if bs.enable_custom_style -%}--cdb-c:{% if block.type == 'heading' %}{% render 'scheme-color', color: bs.color, fallback: 'var(--color-heading)' %}{% else %}{% render 'scheme-color', color: bs.color, fallback: 'var(--color-text)' %}{% endif %};{%- endif -%}
+                  --cdb-fs-m:{{ bs.font_size_mobile }}px;--cdb-fs-d:{{ bs.font_size_desktop }}px;--cdb-gap:{{ bs.gap_below | default: 0 }}px;
+                  {%- if bs.enable_custom_font_weight -%}--cdb-fw:{{ bs.font_weight }};{%- endif -%}
+                  {%- if bs.enable_custom_fonts and bs.font.family != blank -%}--cdb-ff:{{ bs.font.family }}, {{ bs.font.fallback_families }};{%- endif -%}
+                {%- endcapture -%}
+                {%- if bs.enable_custom_fonts -%}<style>{{ bs.font | font_face: font_display: 'swap' }}</style>{%- endif -%}
+                {%- if block.type == 'heading' -%}
+                  <h2 class="ti-cd__heading" data-cd-block="{{ block.id }}" data-cd-type="heading" data-cd-settings="{{ bs | json | escape }}"{% if fonts or bs.enable_custom_fonts %} data-own-font{% endif %}{% if bs.enable_custom_font_weight %} data-own-weight{% endif %}{% if bs.heading == blank %} hidden{% endif %} style="{{ tv | strip_newlines }}" {{ block.shopify_attributes }}>{{ bs.heading }}</h2>
+                {%- else -%}
+                  <div class="ti-cd__description" data-cd-block="{{ block.id }}" data-cd-type="description" data-cd-settings="{{ bs | json | escape }}"{% if fonts or bs.enable_custom_fonts %} data-own-font{% endif %}{% if bs.enable_custom_font_weight %} data-own-weight{% endif %}{% if bs.description == blank %} hidden{% endif %} style="{{ tv | strip_newlines }}" {{ block.shopify_attributes }}>{{ bs.description }}</div>
+                {%- endif -%}
+              {%- when 'button' -%}
+                {%- liquid
+                  assign b_shape = false
+                  if bs.use_theme_button == false
+                    assign b_shape = true
+                  endif
+                -%}
+                {%- capture bv -%}
+                  {%- if bs.enable_custom_style -%}--mb-bg:{% render 'scheme-color', color: bs.button_bg_color, fallback: 'var(--btn-primary-bg-color)' %};--mb-text:{% render 'scheme-color', color: bs.button_text_color, fallback: 'var(--btn-primary-color)' %};--mb-border:{% render 'scheme-color', color: bs.button_border_color, fallback: 'var(--btn-primary-border-color, var(--btn-primary-bg-color))' %};--mb-hover-bg:{% render 'scheme-color', color: bs.button_hover_bg_color, fallback: 'var(--btn-primary-hover-bg-color)' %};--mb-hover-text:{% render 'scheme-color', color: bs.button_hover_text_color, fallback: 'var(--btn-primary-hover-color)' %};--mb-hover-border:{% render 'scheme-color', color: bs.button_hover_border_color, fallback: 'var(--btn-primary-hover-bg-color)' %};{%- endif -%}
+                  {%- if b_shape -%}--mb-radius:{{ bs.button_border_radius | default: 0 }}px;--mb-padding-y:{{ bs.button_padding_y | default: 14 }}px;--mb-padding-x:{{ bs.button_padding_x | default: 28 }}px;--cdb-bfs-m:{{ bs.button_font_size_mobile | default: 14 }}px;--cdb-bfs-d:{{ bs.button_font_size | default: 15 }}px;--mb-border-width:{{ bs.button_border_width | default: 0 }}px;{%- endif -%}
+                  {%- if bs.enable_custom_font_weight -%}--mb-weight:{{ bs.font_weight }};{%- endif -%}
+                {%- endcapture -%}
+                {%- if bs.button_url != blank -%}
+                  <a class="ti-cd__button" href="{{ bs.button_url }}" data-cd-btn data-cd-block="{{ block.id }}" data-cd-type="button" data-cd-settings="{{ bs | json | escape }}" data-theme-button="primary" data-sl-button{% if b_shape %} data-own-shape{% endif %}{% if bs.enable_custom_font_weight %} data-own-weight{% endif %}{% if bs.button_label == blank %} hidden{% endif %} style="{{ bv | strip_newlines }}" {{ block.shopify_attributes }}>{{ bs.button_label }}</a>
+                {%- else -%}
+                  <button class="ti-cd__button" type="button" data-cd-btn data-cd-block="{{ block.id }}" data-cd-type="button" data-cd-settings="{{ bs | json | escape }}" data-theme-button="primary" data-sl-button{% if b_shape %} data-own-shape{% endif %}{% if bs.enable_custom_font_weight %} data-own-weight{% endif %}{% if bs.button_label == blank %} hidden{% endif %} style="{{ bv | strip_newlines }}" {{ block.shopify_attributes }}>{{ bs.button_label }}</button>
+                {%- endif -%}
+            {%- endcase -%}
+          {%- endfor -%}
+          {%- if request.design_mode -%}<p class="ti-cd__hint" data-cd-hint>Add an end date in the section settings to start the timer.</p>{%- endif -%}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>{% schema %}
+{
+  "name": "Countdown Timer Pro 2",
+  "tag": "section",
+  "class": "section-countdown-timer-pro-2",
+  "disabled_on": {
+    "groups": [
+      "header",
+      "footer",
+      "custom.overlay"
+    ]
+  },
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Section width",
+      "default": "fluid_container",
+      "options": [
+        {
+          "value": "container",
+          "label": "Default"
+        },
+        {
+          "value": "fluid_container",
+          "label": "Fluid container"
+        },
+        {
+          "value": "stretch_width",
+          "label": "Stretched"
+        },
+        {
+          "value": "full_width",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "reset_spacing",
+      "label": "Remove space between sections",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Content"
+    },
+    {
+      "type": "text",
+      "id": "end_date",
+      "label": "End date",
+      "info": "Format: YYYY-MM-DD, for example 2026-12-31. Counts to the visitor's own clock. An impossible date such as 2026-02-30 hides the timer.",
+      "default": "",
+      "placeholder": "2026-12-31"
+    },
+    {
+      "type": "text",
+      "id": "end_time",
+      "label": "End time",
+      "info": "24-hour, for example 23:59.",
+      "default": "23:59"
+    },
+    {
+      "type": "select",
+      "id": "restart_period",
+      "label": "Start again",
+      "default": "none",
+      "options": [
+        {
+          "value": "none",
+          "label": "Never"
+        },
+        {
+          "value": "daily",
+          "label": "Every day"
+        },
+        {
+          "value": "weekly",
+          "label": "Every week"
+        },
+        {
+          "value": "monthly",
+          "label": "Every month"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "show_days",
+      "label": "Show days",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "days_label",
+      "label": "Days label",
+      "default": "Day(s)",
+      "visible_if": "{{ section.settings.show_days }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_hours",
+      "label": "Show hours",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "hours_label",
+      "label": "Hours label",
+      "default": "Hour(s)",
+      "visible_if": "{{ section.settings.show_hours }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_minutes",
+      "label": "Show minutes",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "minutes_label",
+      "label": "Minutes label",
+      "default": "Minute(s)",
+      "visible_if": "{{ section.settings.show_minutes }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_seconds",
+      "label": "Show seconds",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "seconds_label",
+      "label": "Seconds label",
+      "default": "Second(s)",
+      "visible_if": "{{ section.settings.show_seconds }}"
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "select",
+      "id": "layout_direction",
+      "label": "Timer side (desktop)",
+      "default": "timer_left",
+      "options": [
+        {
+          "value": "timer_left",
+          "label": "Left"
+        },
+        {
+          "value": "timer_right",
+          "label": "Right"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "vertical_alignment",
+      "label": "Vertical alignment (desktop)",
+      "default": "center",
+      "options": [
+        {
+          "value": "top",
+          "label": "Top"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "bottom",
+          "label": "Bottom"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "gap_columns",
+      "label": "Gap between timer and text (desktop)",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 60
+    },
+    {
+      "type": "range",
+      "id": "circle_size_desktop",
+      "label": "Circle size (desktop)",
+      "min": 50,
+      "max": 160,
+      "step": 2,
+      "unit": "px",
+      "default": 90
+    },
+    {
+      "type": "range",
+      "id": "circle_radius",
+      "label": "Circle roundness",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "unit": "%",
+      "default": 50,
+      "info": "50% is a circle"
+    },
+    {
+      "type": "range",
+      "id": "gap_circles_desktop",
+      "label": "Gap between circles (desktop)",
+      "min": 4,
+      "max": 40,
+      "step": 1,
+      "unit": "px",
+      "default": 18
+    },
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_style",
+      "label": "Enable custom styling",
+      "default": false
+    },
+    {
+      "type": "color",
+      "id": "circle_bg_color",
+      "label": "Circle background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "circle_text_color",
+      "label": "Circle number color",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "label_color",
+      "label": "Label color",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "header",
+      "content": "Typography"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_fonts",
+      "label": "Custom fonts",
+      "default": false
+    },
+    {
+      "type": "font_picker",
+      "id": "heading_font",
+      "label": "Heading and number font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "font_picker",
+      "id": "body_font",
+      "label": "Text font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "range",
+      "id": "number_font_size_desktop",
+      "label": "Number size (desktop)",
+      "min": 14,
+      "max": 56,
+      "step": 1,
+      "unit": "px",
+      "default": 26
+    },
+    {
+      "type": "range",
+      "id": "label_font_size_desktop",
+      "label": "Label size (desktop)",
+      "min": 10,
+      "max": 24,
+      "step": 1,
+      "unit": "px",
+      "default": 14
+    },
+    {
+      "type": "header",
+      "content": "Animation"
+    },
+    {
+      "type": "checkbox",
+      "id": "reveal",
+      "label": "Reveal on scroll",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "scroll_animation",
+      "label": "Reveal",
+      "default": "smooth-fade-up",
+      "options": [
+        {
+          "value": "none",
+          "label": "None"
+        },
+        {
+          "value": "fade-in",
+          "label": "Fade In"
+        },
+        {
+          "value": "fade",
+          "label": "Fade"
+        },
+        {
+          "value": "slide-in",
+          "label": "Slide In"
+        },
+        {
+          "value": "blur_up",
+          "label": "Blur up"
+        },
+        {
+          "value": "slide_side",
+          "label": "Slide from side"
+        },
+        {
+          "value": "mask_reveal",
+          "label": "Mask reveal"
+        },
+        {
+          "value": "smooth-fade-up",
+          "label": "Smooth Fade Up"
+        }
+      ],
+      "visible_if": "{{ section.settings.reveal }}"
+    },
+    {
+      "type": "header",
+      "content": "Desktop spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 200,
+      "step": 2,
+      "unit": "px",
+      "default": 60
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 200,
+      "step": 2,
+      "unit": "px",
+      "default": 60
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_desktop",
+      "label": "Top margin",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0,
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_desktop",
+      "label": "Bottom margin",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0,
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "header",
+      "content": "Mobile"
+    },
+    {
+      "type": "select",
+      "id": "content_alignment_mobile",
+      "label": "Text alignment",
+      "default": "center",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "circle_size_mobile",
+      "label": "Circle size",
+      "min": 40,
+      "max": 100,
+      "step": 2,
+      "unit": "px",
+      "default": 64
+    },
+    {
+      "type": "range",
+      "id": "number_font_size_mobile",
+      "label": "Number size",
+      "min": 12,
+      "max": 36,
+      "step": 1,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "label_font_size_mobile",
+      "label": "Label size",
+      "min": 9,
+      "max": 20,
+      "step": 1,
+      "unit": "px",
+      "default": 12
+    },
+    {
+      "type": "range",
+      "id": "gap_circles_mobile",
+      "label": "Gap between circles",
+      "min": 4,
+      "max": 24,
+      "step": 1,
+      "unit": "px",
+      "default": 10
+    },
+    {
+      "type": "range",
+      "id": "padding_top_mobile",
+      "label": "Top padding",
+      "min": 0,
+      "max": 200,
+      "step": 2,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom_mobile",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 200,
+      "step": 2,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_mobile",
+      "label": "Top margin",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0,
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_mobile",
+      "label": "Bottom margin",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0,
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "heading",
+      "name": "Heading",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "inline_richtext",
+          "id": "heading",
+          "label": "Heading text",
+          "default": "Discount Ends Soon"
+        },
+        {
+          "type": "header",
+          "content": "Layout"
+        },
+        {
+          "type": "range",
+          "id": "gap_below",
+          "label": "Gap below",
+          "min": 0,
+          "max": 60,
+          "step": 1,
+          "unit": "px",
+          "default": 4
+        },
+        {
+          "type": "header",
+          "content": "Appearance"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Text color",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "header",
+          "content": "Typography"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_fonts",
+          "label": "Custom font",
+          "default": false
+        },
+        {
+          "type": "font_picker",
+          "id": "font",
+          "label": "Font",
+          "default": "assistant_n4",
+          "visible_if": "{{ block.settings.enable_custom_fonts }}"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_font_weight",
+          "label": "Custom font weight",
+          "default": false
+        },
+        {
+          "type": "select",
+          "id": "font_weight",
+          "label": "Font weight",
+          "default": "700",
+          "options": [
+            {
+              "value": "300",
+              "label": "Light"
+            },
+            {
+              "value": "400",
+              "label": "Normal"
+            },
+            {
+              "value": "500",
+              "label": "Medium"
+            },
+            {
+              "value": "600",
+              "label": "Semi-Bold"
+            },
+            {
+              "value": "700",
+              "label": "Bold"
+            },
+            {
+              "value": "800",
+              "label": "Extra Bold"
+            }
+          ],
+          "visible_if": "{{ block.settings.enable_custom_font_weight }}"
+        },
+        {
+          "type": "range",
+          "id": "font_size_desktop",
+          "label": "Size (desktop)",
+          "min": 16,
+          "max": 80,
+          "step": 1,
+          "unit": "px",
+          "default": 44
+        },
+        {
+          "type": "range",
+          "id": "font_size_mobile",
+          "label": "Size (mobile)",
+          "min": 14,
+          "max": 60,
+          "step": 1,
+          "unit": "px",
+          "default": 28
+        }
+      ]
+    },
+    {
+      "type": "description",
+      "name": "Description",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "richtext",
+          "id": "description",
+          "label": "Description",
+          "default": "<p>Sale prices end when the timer reaches zero.</p>"
+        },
+        {
+          "type": "header",
+          "content": "Layout"
+        },
+        {
+          "type": "range",
+          "id": "gap_below",
+          "label": "Gap below",
+          "min": 0,
+          "max": 60,
+          "step": 1,
+          "unit": "px",
+          "default": 8
+        },
+        {
+          "type": "header",
+          "content": "Appearance"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "color",
+          "label": "Text color",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "header",
+          "content": "Typography"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_fonts",
+          "label": "Custom font",
+          "default": false
+        },
+        {
+          "type": "font_picker",
+          "id": "font",
+          "label": "Font",
+          "default": "assistant_n4",
+          "visible_if": "{{ block.settings.enable_custom_fonts }}"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_font_weight",
+          "label": "Custom font weight",
+          "default": false
+        },
+        {
+          "type": "select",
+          "id": "font_weight",
+          "label": "Font weight",
+          "default": "400",
+          "options": [
+            {
+              "value": "300",
+              "label": "Light"
+            },
+            {
+              "value": "400",
+              "label": "Normal"
+            },
+            {
+              "value": "500",
+              "label": "Medium"
+            },
+            {
+              "value": "600",
+              "label": "Semi-Bold"
+            },
+            {
+              "value": "700",
+              "label": "Bold"
+            }
+          ],
+          "visible_if": "{{ block.settings.enable_custom_font_weight }}"
+        },
+        {
+          "type": "range",
+          "id": "font_size_desktop",
+          "label": "Size (desktop)",
+          "min": 10,
+          "max": 28,
+          "step": 1,
+          "unit": "px",
+          "default": 16
+        },
+        {
+          "type": "range",
+          "id": "font_size_mobile",
+          "label": "Size (mobile)",
+          "min": 10,
+          "max": 22,
+          "step": 1,
+          "unit": "px",
+          "default": 14
+        }
+      ]
+    },
+    {
+      "type": "button",
+      "name": "Button",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "text",
+          "id": "button_label",
+          "label": "Button label",
+          "default": "Get notified"
+        },
+        {
+          "type": "url",
+          "id": "button_url",
+          "label": "Button link"
+        },
+        {
+          "type": "header",
+          "content": "Appearance"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "button_bg_color",
+          "label": "Background",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "button_text_color",
+          "label": "Text color",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "button_hover_bg_color",
+          "label": "Hover background",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "button_hover_text_color",
+          "label": "Hover text color",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "button_border_color",
+          "label": "Border color",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "button_hover_border_color",
+          "label": "Hover border color",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "header",
+          "content": "Size and shape"
+        },
+        {
+          "type": "checkbox",
+          "id": "use_theme_button",
+          "label": "Use theme button style",
+          "default": true
+        },
+        {
+          "type": "range",
+          "id": "button_border_width",
+          "label": "Border thickness",
+          "min": 0,
+          "max": 4,
+          "step": 1,
+          "unit": "px",
+          "default": 0,
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        },
+        {
+          "type": "range",
+          "id": "button_padding_x",
+          "label": "Horizontal padding",
+          "min": 10,
+          "max": 60,
+          "step": 1,
+          "unit": "px",
+          "default": 28,
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        },
+        {
+          "type": "range",
+          "id": "button_padding_y",
+          "label": "Vertical padding",
+          "min": 6,
+          "max": 30,
+          "step": 1,
+          "unit": "px",
+          "default": 14,
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        },
+        {
+          "type": "range",
+          "id": "button_border_radius",
+          "label": "Corner radius",
+          "min": 0,
+          "max": 60,
+          "step": 1,
+          "unit": "px",
+          "default": 8,
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        },
+        {
+          "type": "range",
+          "id": "button_font_size",
+          "label": "Font size (Desktop)",
+          "min": 10,
+          "max": 24,
+          "step": 1,
+          "unit": "px",
+          "default": 15,
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        },
+        {
+          "type": "range",
+          "id": "button_font_size_mobile",
+          "label": "Font size (Mobile)",
+          "min": 10,
+          "max": 22,
+          "step": 1,
+          "unit": "px",
+          "default": 14,
+          "visible_if": "{{ block.settings.use_theme_button == false }}"
+        },
+        {
+          "type": "header",
+          "content": "Typography"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_font_weight",
+          "label": "Custom font weight",
+          "default": false
+        },
+        {
+          "type": "select",
+          "id": "font_weight",
+          "label": "Font weight",
+          "default": "600",
+          "options": [
+            {
+              "value": "300",
+              "label": "Light"
+            },
+            {
+              "value": "400",
+              "label": "Normal"
+            },
+            {
+              "value": "500",
+              "label": "Medium"
+            },
+            {
+              "value": "600",
+              "label": "Semi-Bold"
+            },
+            {
+              "value": "700",
+              "label": "Bold"
+            },
+            {
+              "value": "800",
+              "label": "Extra Bold"
+            }
+          ],
+          "visible_if": "{{ block.settings.enable_custom_font_weight }}"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Countdown Timer Pro 2",
+      "category": "Countdowns",
+      "blocks": [
+        {
+          "type": "heading"
+        },
+        {
+          "type": "description"
+        },
+        {
+          "type": "button"
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

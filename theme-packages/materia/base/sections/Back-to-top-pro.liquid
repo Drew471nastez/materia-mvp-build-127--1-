@@ -1,0 +1,489 @@
+<script src="{{ 'live-page-popups.js' | asset_url }}" defer="defer"></script>
+{% render 'theme-type' %}
+{%- liquid
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+-%}
+{%- comment -%} Custom colours are opt in: off, every colour below is empty and the popup follows its colour scheme. {%- endcomment -%}
+{%- liquid
+  assign pg_custom = false
+  if section.settings.enable_custom_style == true
+    assign pg_custom = true
+  endif
+  assign pg_s_circle_bg_color = ''
+  assign pg_s_circle_bg_hover_color = ''
+  assign pg_s_arrow_color = ''
+  assign pg_s_arrow_hover_color = ''
+  assign pg_s_progress_color = ''
+  assign pg_s_progress_active_color = ''
+  if pg_custom
+    assign pg_s_circle_bg_color = section.settings.circle_bg_color
+    assign pg_s_circle_bg_hover_color = section.settings.circle_bg_hover_color
+    assign pg_s_arrow_color = section.settings.arrow_color
+    assign pg_s_arrow_hover_color = section.settings.arrow_hover_color
+    assign pg_s_progress_color = section.settings.progress_color
+    assign pg_s_progress_active_color = section.settings.progress_active_color
+  endif
+-%}
+
+<style>
+  {%- case section.settings.section_width -%}
+    {%- when 'container' -%}
+      #shopify-section-{{ section.id }} .container {
+        max-width: calc(var(--page-width, 1300px) + 3rem) !important;
+        margin-inline: auto !important;
+        width: 100%;
+        box-sizing: border-box !important;
+      }
+    {%- when 'fluid_container' -%}
+      #shopify-section-{{ section.id }} .fluid_container {
+        max-width: calc(var(--fluid-container-width, 1500px) + 3rem) !important;
+        margin-inline: auto !important;
+        width: 100%;
+        box-sizing: border-box !important;
+      }
+    {%- when 'stretch_width' -%}
+      @media (min-width: 1200px) {
+        #shopify-section-{{ section.id }} .stretch_width { padding-inline: 3rem; }
+      }
+    {%- when 'full_width' -%}
+  {%- endcase -%}
+</style>
+{%- liquid
+  assign horizontal_position = section.settings.horizontal_position
+  assign horizontal_dst_to_edge = section.settings.horizontal_dst_to_edge
+  assign horizontal_dst_to_edge_mobile = section.settings.horizontal_dst_to_edge_mobile
+  assign vertical_dst_to_edge = section.settings.vertical_dst_to_edge
+  assign vertical_dst_to_edge_mobile = section.settings.vertical_dst_to_edge_mobile
+
+  assign circle_size = section.settings.circle_size
+  assign circle_size_mobile = section.settings.circle_size_mobile
+  assign progress_thickness = section.settings.progress_thickness
+
+  assign circle_bg_color = pg_s_circle_bg_color
+  if circle_bg_color == blank or circle_bg_color.alpha == 0
+    assign circle_bg_color = 'var(--color-background)'
+  endif
+  assign circle_bg_hover_color = pg_s_circle_bg_hover_color
+  if circle_bg_hover_color == blank or circle_bg_hover_color.alpha == 0
+    assign circle_bg_hover_color = 'var(--color-primary)'
+  endif
+  assign progress_color = pg_s_progress_color
+  if progress_color == blank or progress_color.alpha == 0
+    assign progress_color = 'var(--color-border)'
+  endif
+  assign progress_active_color = pg_s_progress_active_color
+  if progress_active_color == blank or progress_active_color.alpha == 0
+    assign progress_active_color = 'var(--color-primary)'
+  endif
+  assign arrow_color = pg_s_arrow_color
+  if arrow_color == blank or arrow_color.alpha == 0
+    assign arrow_color = 'var(--color-heading)'
+  endif
+  assign arrow_hover_color = pg_s_arrow_hover_color
+  if arrow_hover_color == blank or arrow_hover_color.alpha == 0
+    assign arrow_hover_color = 'var(--color-background)'
+  endif
+
+  assign hide_on_mobile = section.settings.hide_on_mobile
+-%}
+
+{%- style -%}
+  .buttontoppro .top-{{ section.id }} {
+    position: fixed;
+    z-index: 100;
+    {%- comment %}Lifted over the phone bar or the sticky Add to cart with translate, which slides
+       on the compositor: an animated bottom laid the button out again on every frame,
+       each one a layout shift. Same place as bottom: max(distance, inset + 12px).{% endcomment %}
+    bottom: {{ vertical_dst_to_edge_mobile }}px;
+    translate: 0 calc(0px - max(0px, var(--materia-bottom-inset, 0px) + 12px + env(safe-area-inset-bottom, 0px) - {{ vertical_dst_to_edge_mobile }}px));
+    {%- case horizontal_position -%}
+      {%- when 'left' -%} left: {{ horizontal_dst_to_edge_mobile }}px;
+      {%- when 'center' -%} left: 50%; margin-left: calc({{ circle_size_mobile }}px / -2);
+      {%- else -%} right: {{ horizontal_dst_to_edge_mobile }}px;
+    {%- endcase %}
+    display: block;
+    min-width: 44px; min-height: 44px;
+    margin-block: 0; padding: 0;
+    border: 0; background: none; color: inherit; font: inherit;
+    border-radius: 50%;
+    cursor: pointer;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(8px) scale(0.85);
+    transition: opacity .3s ease, transform .35s cubic-bezier(.2,.8,.2,1), visibility 0s linear .35s, translate .3s ease;
+  }
+  .buttontoppro .top-{{ section.id }}.is-visible {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: none;
+    transition-delay: 0s;
+  }
+  .buttontoppro .top-{{ section.id }}:focus-visible { outline: 2px solid {{ arrow_color }}; outline-offset: 3px; }
+
+  .buttontoppro .top-circle-{{ section.id }} {
+    position: relative;
+    display: block;
+    width: {{ circle_size_mobile }}px;
+    height: {{ circle_size_mobile }}px;
+    min-width: 44px; min-height: 44px;
+    border-radius: 50%;
+    isolation: isolate;
+  }
+
+  .buttontoppro .top-circle-{{ section.id }}::after {
+    position: absolute;
+    content: "";
+    inset: 0;
+    z-index: -1;
+    border-radius: 50%;
+    background: {{ circle_bg_color }};
+    border: {{ progress_thickness }}px solid {{ progress_color }};
+    transition: background 0.3s ease, border-color 0.3s ease;
+  }
+
+  .buttontoppro .top-{{ section.id }}:hover .top-circle-{{ section.id }}::after {
+    background: {{ circle_bg_hover_color }};
+  }
+
+  .buttontoppro .top-progress-circle-{{ section.id }} {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  .buttontoppro .top-progress-circle-{{ section.id }} path {
+    stroke: {{ progress_active_color }};
+    stroke-width: {{ progress_thickness }};
+    fill: none;
+  }
+
+  .buttontoppro .top-arrow-{{ section.id }} {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 2;
+    width: 35%;
+    height: 35%;
+  }
+
+  .buttontoppro .top-arrow-{{ section.id }} path {
+    stroke: {{ arrow_color }};
+    transition: stroke 0.3s ease;
+  }
+
+  .buttontoppro .top-{{ section.id }}:hover .top-arrow-{{ section.id }} path {
+    stroke: {{ arrow_hover_color }};
+  }
+
+  @media (min-width: 1024px) {
+    .buttontoppro .top-{{ section.id }} {
+      bottom: {{ vertical_dst_to_edge }}px;
+      translate: 0 calc(0px - max(0px, var(--materia-bottom-inset, 0px) + 12px - {{ vertical_dst_to_edge }}px));
+      {%- case horizontal_position -%}
+        {%- when 'left' -%} left: {{ horizontal_dst_to_edge }}px;
+        {%- when 'center' -%} margin-left: calc({{ circle_size }}px / -2);
+        {%- else -%} right: {{ horizontal_dst_to_edge }}px;
+      {%- endcase %}
+    }
+    .buttontoppro .top-circle-{{ section.id }} {
+      width: {{ circle_size }}px;
+      height: {{ circle_size }}px;
+    }
+  }
+
+  {%- if hide_on_mobile %}
+  @media (max-width: 1023px) {
+    .buttontoppro .top-{{ section.id }} { display: none !important; }
+  }
+  {%- endif %}
+
+  @media (prefers-reduced-motion: reduce) {
+    .buttontoppro .top-{{ section.id }} { transform: none; transition: opacity .01s linear, visibility 0s; }
+  }
+{%- endstyle -%}
+
+<div class="buttontoppro {{ section.settings.section_width | default: 'full_width' }}" data-pg-root="back-to-top-pro" data-pg-section="{{ section.id }}">
+  <button type="button" class="top-{{ section.id }}" data-back-to-top="{{ section.id }}" data-show-after="{{ section.settings.show_after | default: 300 }}" aria-label="{{ section.settings.label | default: 'Back to top' | escape }}">
+    <span class="top-circle-{{ section.id }} color-{{ color_scheme }}" data-pg-scheme>
+      <svg class="top-progress-circle-{{ section.id }}" width="100%" height="100%" viewBox="-1 -1 102 102" aria-hidden="true" focusable="false">
+        <path class="progress-path-{{ section.id }}" d="M50,1 a49,49 0 0,1 0,98 a49,49 0 0,1 0,-98" pathLength="100" style="stroke-dasharray: 100; stroke-dashoffset: 100;"></path>
+      </svg>
+      <svg class="top-arrow-{{ section.id }}" width="100%" height="100%" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+        <path d="M17 18L12 13L7 18M17 11L12 6L7 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </span>
+  </button>
+</div>
+
+<script src="{{ 'materia-popups.js' | asset_url }}" defer="defer"></script>
+<script>
+(function(){
+  var SID = {{ section.id | json }};
+  function setup(){
+    var btn = document.querySelector('[data-back-to-top="' + SID + '"]');
+    if (!btn || btn.__btt) return;
+    btn.__btt = true;
+    // A redraw sets up the new button: the old one's listeners go with it.
+    if (window['__bttStop_' + SID]) window['__bttStop_' + SID]();
+    var path = btn.querySelector('.progress-path-' + SID);
+    var showAfter = parseInt(btn.getAttribute('data-show-after'), 10) || 0;
+    var frame = 0, shown = null;
+    // One read per frame: how far down the page is, as the ring and the reveal.
+    function update(){
+      frame = 0;
+      var y = window.scrollY || document.documentElement.scrollTop;
+      var max = document.documentElement.scrollHeight - window.innerHeight;
+      var on = y > showAfter;
+      if (on !== shown) { shown = on; btn.classList.toggle('is-visible', on); }
+      if (path) path.style.strokeDashoffset = String(100 - (max > 0 ? Math.min(1, y / max) : 0) * 100);
+    }
+    function queue(){ if (!frame) frame = requestAnimationFrame(update); }
+    window.addEventListener('scroll', queue, { passive: true });
+    window.addEventListener('resize', queue, { passive: true });
+    btn.addEventListener('click', function(){
+      var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+      window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
+      // Keyboard users continue from the top of the page.
+      var start = document.querySelector('#MainContent, main, [role="main"]');
+      if (start) {
+        if (!start.hasAttribute('tabindex')) start.setAttribute('tabindex', '-1');
+        try { start.focus({ preventScroll: true }); } catch (e) {}
+      }
+    });
+    // First read in the next frame, not at DOMContentLoaded: the page height
+    // read here forced the page's first layout inside this script.
+    queue();
+    window['__bttStop_' + SID] = function(){ window.removeEventListener('scroll', queue); window.removeEventListener('resize', queue); cancelAnimationFrame(frame); frame = 0; };
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup, { once: true }); else setup();
+  function reload(e){ if (e.detail && String(e.detail.sectionId) === SID) setup(); }
+  document.addEventListener('storelib:section-load', reload);
+  document.addEventListener('shopify:section:load', reload);
+})();
+</script>
+{% schema %}
+{
+  "name": "Back To Top Pro",
+  "enabled_on": {
+    "groups": [
+      "custom.overlay"
+    ]
+  },
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "header",
+      "content": "Behaviour"
+    },
+    {
+      "type": "range",
+      "id": "show_after",
+      "label": "Show after scrolling",
+      "min": 0,
+      "max": 1500,
+      "step": 50,
+      "unit": "px",
+      "default": 300
+    },
+    {
+      "type": "text",
+      "id": "label",
+      "label": "Label for screen readers",
+      "default": "Back to top"
+    },
+    {
+      "type": "checkbox",
+      "id": "hide_on_mobile",
+      "label": "Hide on phones",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "Position"
+    },
+    {
+      "type": "select",
+      "id": "horizontal_position",
+      "label": "Side",
+      "default": "right",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "horizontal_dst_to_edge",
+      "label": "Side space",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 30
+    },
+    {
+      "type": "range",
+      "id": "vertical_dst_to_edge",
+      "label": "Bottom space",
+      "min": 0,
+      "max": 150,
+      "step": 10,
+      "unit": "px",
+      "default": 110
+    },
+    {
+      "type": "range",
+      "id": "horizontal_dst_to_edge_mobile",
+      "label": "Side space on phones",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "vertical_dst_to_edge_mobile",
+      "label": "Bottom space on phones",
+      "min": 0,
+      "max": 200,
+      "step": 10,
+      "unit": "px",
+      "default": 150
+    },
+    {
+      "type": "header",
+      "content": "Size"
+    },
+    {
+      "type": "range",
+      "id": "circle_size",
+      "label": "Size",
+      "min": 20,
+      "max": 100,
+      "step": 2,
+      "unit": "px",
+      "default": 46
+    },
+    {
+      "type": "range",
+      "id": "circle_size_mobile",
+      "label": "Size on phones",
+      "min": 20,
+      "max": 100,
+      "step": 2,
+      "unit": "px",
+      "default": 46
+    },
+    {
+      "type": "range",
+      "id": "progress_thickness",
+      "label": "Ring width",
+      "min": 1,
+      "max": 10,
+      "step": 1,
+      "unit": "px",
+      "default": 4
+    },
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_style",
+      "label": "Custom colours",
+      "default": false,
+      "info": "Off, the popup follows its colour scheme."
+    },
+    {
+      "type": "color",
+      "id": "circle_bg_color",
+      "label": "Fill",
+      "visible_if": "{{ section.settings.enable_custom_style == true }}"
+    },
+    {
+      "type": "color",
+      "id": "circle_bg_hover_color",
+      "label": "Hover fill",
+      "visible_if": "{{ section.settings.enable_custom_style == true }}"
+    },
+    {
+      "type": "color",
+      "id": "arrow_color",
+      "label": "Arrow",
+      "visible_if": "{{ section.settings.enable_custom_style == true }}"
+    },
+    {
+      "type": "color",
+      "id": "arrow_hover_color",
+      "label": "Hover arrow",
+      "visible_if": "{{ section.settings.enable_custom_style == true }}"
+    },
+    {
+      "type": "color",
+      "id": "progress_color",
+      "label": "Ring",
+      "visible_if": "{{ section.settings.enable_custom_style == true }}"
+    },
+    {
+      "type": "color",
+      "id": "progress_active_color",
+      "label": "Ring progress",
+      "visible_if": "{{ section.settings.enable_custom_style == true }}"
+    },
+    {
+      "type": "header",
+      "content": "Advanced"
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Section width",
+      "default": "full_width",
+      "options": [
+        {
+          "value": "container",
+          "label": "Default"
+        },
+        {
+          "value": "fluid_container",
+          "label": "Fluid container"
+        },
+        {
+          "value": "stretch_width",
+          "label": "Stretched"
+        },
+        {
+          "value": "full_width",
+          "label": "Full width"
+        }
+      ]
+    }
+  ],
+  "presets": []
+}
+{% endschema %}

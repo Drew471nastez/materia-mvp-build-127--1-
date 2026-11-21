@@ -1,0 +1,996 @@
+<script src="{{ 'live-popups-code.js' | asset_url }}" defer="defer"></script>
+{% render 'theme-type' %}
+{%- comment -%}
+  Materia Themes. Order notification: a small card in a bottom corner that
+  names one of the products picked in the Orders block. Products, titles,
+  pictures and links are the store's own (Orders > Products); buyer names are
+  only what the creator types in Buyers, never made up here.
+
+  All the settings live in its blocks (one of each, limit 1). A missing block
+  falls back to the values below, so the card never breaks. The look is CSS
+  variables and data attributes on the card, written the same way by
+  shopify/assets/live-popups-code.js on a live edit, which also runs the
+  timing: first card after "First one after", each shown for "Each shows
+  for" with the progress bar filling, then a pause of "Gap between". The
+  timer stops while the tab is hidden and under reduced motion the card
+  shows without moving. In the builder nothing runs on a timer: the card
+  shows while the section or one of its blocks is selected or edited.
+{%- endcomment -%}
+{%- liquid
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign layout_block   = section.blocks | where: 'type', 'layout'     | first
+  assign anim_block     = section.blocks | where: 'type', 'animation'  | first
+  assign products_block = section.blocks | where: 'type', 'products'   | first
+  assign text_block     = section.blocks | where: 'type', 'text'       | first
+  assign bg_block       = section.blocks | where: 'type', 'background' | first
+  assign colors_block   = section.blocks | where: 'type', 'colors'     | first
+
+  assign position = 'left'
+  assign border_radius = 5
+  assign show_on_mobile = true
+  assign disable_progress_bar = false
+  if layout_block
+    assign position = layout_block.settings.position | default: 'left'
+    assign border_radius = layout_block.settings.border_radius | default: 5
+    if layout_block.settings.show_on_mobile_fake_order == false
+      assign show_on_mobile = false
+    endif
+    if layout_block.settings.disable_progress_bar
+      assign disable_progress_bar = true
+    endif
+  endif
+
+  assign notification_animation = anim_block.settings.notification_animation | default: 'Fade-in Fade Out'
+  assign animation_duration = anim_block.settings.animation_duration | default: 15000
+  assign delay_time = anim_block.settings.delay_time | default: '500'
+  assign show_gap_seconds = anim_block.settings.show_gap_seconds | default: 10
+  case notification_animation
+    when 'None'
+      assign fo_anim = 'none'
+    when 'Zoom in - Zoom Out'
+      assign fo_anim = 'zoom'
+    when 'Fade Up - Fade Down'
+      assign fo_anim = 'up'
+    when 'Slide In - Slide Out'
+      assign fo_anim = 'slide'
+    when 'Normal Original Animation'
+      assign fo_anim = 'rise'
+    when 'Reveal In - Reveal Out'
+      assign fo_anim = 'reveal'
+    else
+      assign fo_anim = 'fade'
+  endcase
+
+  assign list_product_fake = products_block.settings.fake_product
+  assign product_available = list_product_fake | where: 'available'
+  assign products = product_available.first
+  assign buyer_fallback = products_block.settings.buyer_fallback | default: 'Someone'
+  assign list_user = products_block.settings.fake_user | default: '' | strip | replace: ' | ', '|' | replace: ' |', '|' | replace: '| ', '|' | split: '|'
+
+  assign heading_text = 'Latest Orders'
+  assign text_verify = 'Verify'
+  assign verify_text_url = '/'
+  assign enable_verify_arrow = true
+  assign enable_underline_product_name_title = false
+  assign enable_close_button = true
+  assign purchased_text = 'fake_order.purchased' | t
+  assign time_line = ''
+  if text_block
+    assign heading_text = text_block.settings.heading_text | default: 'Latest Orders'
+    assign text_verify = text_block.settings.text_verify
+    assign verify_text_url = text_block.settings.verify_text_url
+    if text_block.settings.enable_verify_arrow == false
+      assign enable_verify_arrow = false
+    endif
+    if text_block.settings.enable_underline_product_name_title
+      assign enable_underline_product_name_title = true
+    endif
+    if text_block.settings.enable_close_button == false
+      assign enable_close_button = false
+    endif
+    if text_block.settings.purchased_text != blank
+      assign purchased_text = text_block.settings.purchased_text
+    endif
+    comment
+      The time line is only what the creator writes (for example Recently).
+      Nothing time based is made up here: no minutes are picked, and an
+      empty line is not drawn. The old "Text after the minutes" is kept,
+      hidden, so its saved value stays.
+    endcomment
+    assign time_line = text_block.settings.time_line | strip
+  endif
+
+  assign fo_bg = 'gradient'
+  assign gradient_degrees = bg_block.settings.gradient_degrees | default: '45'
+  assign glassmorphism_blur = bg_block.settings.glassmorphism_blur | default: 10
+  assign glassmorphism_brightness = bg_block.settings.glassmorphism_brightness | default: 0.9
+  assign glassmorphism_border_width = bg_block.settings.glassmorphism_border_width | default: 1
+  if bg_block
+    if bg_block.settings.enable_glassmorphism
+      assign fo_bg = 'glass'
+    elsif bg_block.settings.enable_gradient == false
+      assign fo_bg = 'solid'
+    endif
+  endif
+
+  comment
+    Colours are the colour scheme's until a block's own "Custom colors" is on.
+  endcomment
+  assign c_colors = false
+  if colors_block.settings.enable_custom_style
+    assign c_colors = true
+  endif
+  assign c_text = false
+  if text_block.settings.enable_custom_style
+    assign c_text = true
+  endif
+  assign c_bg = false
+  if bg_block.settings.enable_custom_style
+    assign c_bg = true
+  endif
+  assign fo_fonts = false
+  if text_block.settings.enable_custom_fonts
+    assign fo_fonts = true
+  endif
+  assign fo_size = false
+  if text_block.settings.enable_custom_size
+    assign fo_size = true
+  endif
+  assign fo_title_weight = text_block.settings.title_weight | default: 'theme'
+
+  assign section_enabled = true
+  if section.settings.section_enabled == false
+    assign section_enabled = false
+  endif
+-%}
+{%- capture fo_vars -%}
+--fo-radius: {{ border_radius }}px; --fo-dur: {{ animation_duration }}ms; --fo-angle: {{ gradient_degrees }}deg; --fo-blur: {{ glassmorphism_blur }}px; --fo-bright: {{ glassmorphism_brightness }}; --fo-gb-w: {{ glassmorphism_border_width }}px;
+{%- if c_colors -%}
+--fo-bg: {% render 'scheme-color', color: colors_block.settings.background_color, fallback: 'var(--color-background)' %}; --fo-text: {% render 'scheme-color', color: colors_block.settings.text_color, fallback: 'var(--color-text)' %}; --fo-progress: {% render 'scheme-color', color: colors_block.settings.progress_bar_color, fallback: 'var(--color-primary)' %};
+{%- endif -%}
+{%- if c_text -%}
+--fo-link: {% render 'scheme-color', color: text_block.settings.verify_text_color, fallback: 'var(--color-primary)' %}; --fo-link-hover: {% render 'scheme-color', color: text_block.settings.verify_text_hover_color, fallback: 'var(--color-heading)' %}; --fo-close: {% render 'scheme-color', color: text_block.settings.close_button_color, fallback: 'var(--color-heading)' %}; --fo-title: {% render 'scheme-color', color: text_block.settings.title_color, fallback: 'var(--color-heading)' %};
+{%- endif -%}
+{%- if c_bg -%}
+--fo-g1: {% render 'scheme-color', color: bg_block.settings.gradient_start_color, fallback: 'var(--color-background)' %}; --fo-g2: {% render 'scheme-color', color: bg_block.settings.gradient_middle_color, fallback: 'var(--color-background)' %}; --fo-g3: {% render 'scheme-color', color: bg_block.settings.gradient_end_color, fallback: 'var(--color-background)' %}; --fo-gb-c: {% render 'scheme-color', color: bg_block.settings.glassmorphism_border_color, fallback: 'var(--color-border)' %};
+{%- endif -%}
+{%- if fo_fonts -%}
+{%- if text_block.settings.font.family != blank -%}--fo-font: {{ text_block.settings.font.family }}, {{ text_block.settings.font.fallback_families }};{%- endif -%}
+{%- if text_block.settings.title_font.family != blank -%}--fo-title-font: {{ text_block.settings.title_font.family }}, {{ text_block.settings.title_font.fallback_families }};{%- endif -%}
+{%- endif -%}
+{%- if fo_size -%}
+--fo-fs: {{ text_block.settings.text_size | default: 13 }}px; --fo-title-fs: {{ text_block.settings.title_size | default: 15 }}px;
+{%- endif -%}
+{%- if fo_title_weight != 'theme' -%}--fo-title-fw: {{ fo_title_weight }};{%- endif -%}
+{%- endcapture -%}
+
+{%- if section_enabled and product_available.size > 0 or section_enabled and request.design_mode -%}
+  {%- if fo_fonts -%}
+    <style>
+      {{ text_block.settings.font | font_face: font_display: 'swap' }}
+      {{ text_block.settings.title_font | font_face: font_display: 'swap' }}
+    </style>
+  {%- endif -%}
+  <style>
+    /* Order notification {{ section.id }}: every value is a variable on the card */
+    .bls-fake-order-section-{{ section.id }} {
+      --fo-bottom: max(33px, calc(var(--materia-bottom-inset, 0px) + 12px));
+      position: fixed;
+      z-index: 999;
+      box-sizing: border-box;
+      padding: 10px;
+      border-radius: var(--fo-radius, 5px);
+      font-size: var(--fo-fs, inherit);
+      font-family: var(--fo-font, var(--body-font, inherit));
+      box-shadow: 0 5px 30px rgba(0, 0, 0, 0.05);
+      color: var(--fo-text, var(--color-text));
+      background: var(--fo-bg, var(--color-background));
+      width: 42rem;
+      max-width: 120%;
+      min-height: 10rem;
+      left: 30px;
+      right: auto;
+      bottom: var(--fo-bottom);
+      display: none;
+    }
+    .bls-fake-order-section-{{ section.id }}[data-fo-side='right'] { left: auto; right: 35px; }
+    .bls-fake-order-section-{{ section.id }}[data-fo-bg='gradient'] {
+      background: linear-gradient(var(--fo-angle, 45deg), var(--fo-g1, var(--color-background)), var(--fo-g2, var(--color-background)), var(--fo-g3, var(--color-background)));
+    }
+    .bls-fake-order-section-{{ section.id }}[data-fo-bg='glass'] {
+      background: rgba(255, 255, 255, 0.4);
+      filter: brightness(var(--fo-bright, 0.9));
+      backdrop-filter: blur(var(--fo-blur, 10px));
+      -webkit-backdrop-filter: blur(var(--fo-blur, 10px));
+      border: var(--fo-gb-w, 1px) solid var(--fo-gb-c, var(--color-border));
+    }
+    .bls-fake-order-section-{{ section.id }}[data-fo-state='shown'] { display: block; }
+    .bls-fake-order-section-{{ section.id }}[data-fo-state='shown'][data-fo-anim='fade'] { animation: pc-fo-fade var(--fo-dur, 15000ms) forwards; }
+    .bls-fake-order-section-{{ section.id }}[data-fo-state='shown'][data-fo-anim='zoom'] { animation: pc-fo-zoom var(--fo-dur, 15000ms) forwards; }
+    .bls-fake-order-section-{{ section.id }}[data-fo-state='shown'][data-fo-anim='up'] { animation: pc-fo-up var(--fo-dur, 15000ms) forwards; }
+    .bls-fake-order-section-{{ section.id }}[data-fo-state='shown'][data-fo-anim='slide'] { animation: pc-fo-slide var(--fo-dur, 15000ms) forwards; }
+    .bls-fake-order-section-{{ section.id }}[data-fo-state='shown'][data-fo-anim='rise'] { animation: pc-fo-rise var(--fo-dur, 15000ms) ease forwards; }
+    .bls-fake-order-section-{{ section.id }}[data-fo-state='shown'][data-fo-anim='reveal'] { animation: pc-fo-reveal var(--fo-dur, 15000ms) forwards; }
+    /* In the builder the card stays in view (no fade out) while you edit it */
+    .bls-fake-order-section-{{ section.id }}[data-fo-preview] { animation-duration: 1ms !important; animation-fill-mode: none !important; }
+    .bls-fake-order-section-{{ section.id }}[data-fo-preview] [data-progressbar] { animation-play-state: paused !important; width: 60% !important; }
+
+    .bls-fake-order-section-{{ section.id }} .product-fake-order { display: flex; gap: 15px; align-items: center; }
+    .bls-fake-order-section-{{ section.id }} .fake-order-close {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      cursor: pointer;
+      width: 44px;
+      height: 44px;
+      padding: 0;
+      border: 0;
+      background: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2;
+      color: var(--fo-close, var(--color-heading));
+    }
+    .bls-fake-order-section-{{ section.id }} .fake-order-close svg { width: 17px; height: 17px; display: block; }
+    .bls-fake-order-section-{{ section.id }} .fake-order-close path { fill: currentColor; transition: opacity 0.3s ease-in-out; }
+    .bls-fake-order-section-{{ section.id }} .fake-order-close:hover path { opacity: .7; }
+    .bls-fake-order-section-{{ section.id }} .fake-order-close:focus-visible { outline: 2px solid currentColor; outline-offset: -6px; }
+    .bls-fake-order-section-{{ section.id }} .fake-order-image svg { display: block; }
+    .bls-fake-order-section-{{ section.id }} [data-img],
+    .bls-fake-order-section-{{ section.id }} .fake-order-image svg {
+      border-radius: 5px;
+      width: 60px;
+      height: 80px;
+      object-fit: cover;
+    }
+    .bls-fake-order-section-{{ section.id }} .fake-order-image svg { color: var(--fo-text, var(--color-text)); }
+    .bls-fake-order-section-{{ section.id }} .fake-order-info { min-width: 0; }
+    .bls-fake-order-section-{{ section.id }} .fake-list { display: flex; gap: 3px; align-items: center; }
+    .bls-fake-order-section-{{ section.id }} .user-purchase { color: var(--fo-text, var(--color-text)); }
+    .bls-fake-order-section-{{ section.id }} .fo-purchased { opacity: .75; }
+    .bls-fake-order-section-{{ section.id }} .product-order-title a {
+      text-decoration: none;
+      display: block;
+      font-size: var(--fo-title-fs, inherit);
+      font-family: var(--fo-title-font, inherit);
+      line-height: 1.5;
+      width: 100%;
+      text-align: start;
+      margin: 0 0 0.7rem;
+      font-weight: var(--fo-title-fw, var(--heading-weight, 600)) !important;
+      color: var(--fo-title, var(--color-heading));
+    }
+    .bls-fake-order-section-{{ section.id }}[data-fo-underline='true'] .product-order-title a { text-decoration: underline; }
+    .bls-fake-order-section-{{ section.id }} .fo-row { display: flex; align-items: center; }
+    .bls-fake-order-section-{{ section.id }} .minutes-ago { display: inline-flex; margin-bottom: 0; margin-right: 15px; color: var(--fo-text, var(--color-text)); }
+    .bls-fake-order-section-{{ section.id }} :is(.minutes-ago, .text-verify)[hidden] { display: none; }
+    .bls-fake-order-section-{{ section.id }} .text-verify {
+      text-transform: capitalize;
+      display: inline-flex;
+      align-items: center;
+      gap: 0 4px;
+      text-decoration: none !important;
+      color: var(--fo-link, var(--color-primary));
+      cursor: pointer;
+    }
+    .bls-fake-order-section-{{ section.id }} .text-verify:hover { color: var(--fo-link-hover, var(--color-heading)); }
+    .bls-fake-order-section-{{ section.id }} .verify-arrow { width: 15px; height: 15px; margin-bottom: 1px; margin-right: 3px; }
+    .bls-fake-order-section-{{ section.id }} .verify-arrow path { stroke: currentColor; }
+    .bls-fake-order-section-{{ section.id }} .fake-order-progressbar {
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      height: 2px;
+      width: 100%;
+      z-index: 1;
+      box-shadow: 0 7px 30px rgba(0, 0, 0, 0.05);
+      border-radius: 5px;
+      overflow: hidden;
+      background: color-mix(in srgb, var(--fo-text, var(--color-text)) 12%, transparent);
+    }
+    .bls-fake-order-section-{{ section.id }} .fake-order-progressbar span {
+      display: block;
+      height: 100%;
+      width: 0;
+      border-radius: 0 0 3px 3px;
+      background: var(--fo-progress, var(--color-primary));
+    }
+    .bls-fake-order-section-{{ section.id }}[data-fo-state='shown'] .fake-order-progressbar span { animation: pc-fo-progress var(--fo-dur, 15000ms) linear forwards; }
+
+    @keyframes pc-fo-progress { from { width: 0%; } to { width: 100%; } }
+    @keyframes pc-fo-fade { 0% { opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { opacity: 0; } }
+    @keyframes pc-fo-zoom { 0% { transform: scale(0); opacity: 0; } 50% { transform: scale(1); opacity: 1; } 100% { transform: scale(0); opacity: 0; } }
+    @keyframes pc-fo-up { 0% { opacity: 0; transform: translateY(20px); } 10% { opacity: 1; transform: translateY(0); } 90% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(20px); } }
+    @keyframes pc-fo-slide { 0% { transform: translateX(100%); opacity: 0; } 10% { transform: translateX(0); opacity: 1; } 90% { transform: translateX(0); opacity: 1; } 100% { transform: translateX(100%); opacity: 0; } }
+    @keyframes pc-fo-rise { 0% { transform: translateY(calc(100% + 40px)); } 8% { transform: translateY(0); } 92% { transform: translateY(0); } 100% { transform: translateY(calc(100% + 40px)); } }
+    @keyframes pc-fo-reveal { 0% { clip-path: inset(0 100% 0 0); opacity: 0; } 10% { clip-path: inset(0 0 0 0); opacity: 1; } 90% { clip-path: inset(0 0 0 0); opacity: 1; } 100% { clip-path: inset(0 100% 0 0); opacity: 0; } }
+
+    /* Phones: narrower card, 12px from the chosen edge, above the mobile bar */
+    @media (max-width: 767px) {
+      .bls-fake-order-section-{{ section.id }} {
+        width: auto;
+        max-width: calc(100vw - 24px);
+        left: 12px;
+        right: auto;
+        --fo-bottom: max(73px, calc(var(--materia-bottom-inset, 0px) + 12px + env(safe-area-inset-bottom, 0px)));
+        padding: 8px 10px;
+      }
+      .bls-fake-order-section-{{ section.id }} :is(.fake-list, .minutes-ago, .text-verify) { font-size: var(--fo-fs, 12px); }
+      .bls-fake-order-section-{{ section.id }}[data-fo-side='right'] { left: auto; right: 12px; }
+      .bls-fake-order-section-{{ section.id }} .product-fake-order { gap: 10px; }
+      .bls-fake-order-section-{{ section.id }} [data-img],
+      .bls-fake-order-section-{{ section.id }} .fake-order-image svg { width: 48px; height: 64px; }
+      .bls-fake-order-section-{{ section.id }} .product-order-title a { font-size: var(--fo-title-fs, 13px); margin: 0 0 0.4rem; }
+      .bls-fake-order-section-{{ section.id }} .fake-order-close { top: -6px; right: -6px; }
+    }
+    @media (max-width: 575px) {
+      .bls-fake-order-section-{{ section.id }} { --fo-bottom: max(80px, calc(var(--materia-bottom-inset, 0px) + 12px + env(safe-area-inset-bottom, 0px))); }
+      .bls-fake-order-section-{{ section.id }} [data-img],
+      .bls-fake-order-section-{{ section.id }} .fake-order-image svg { width: 44px; height: 56px; }
+      .bls-fake-order-section-{{ section.id }}[data-fo-mobile='false'] { display: none !important; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .bls-fake-order-section-{{ section.id }},
+      .bls-fake-order-section-{{ section.id }} * { animation: none !important; transition: none !important; }
+      .bls-fake-order-section-{{ section.id }} .fake-order-progressbar span { width: 100%; }
+    }
+  </style>
+
+  <div
+    id="bls__fake-order-{{ section.id }}"
+    class="bls-fake-order-section-{{ section.id }} fake-order color-{{ color_scheme }}"
+    role="status"
+    aria-live="polite"
+    aria-label="{{ heading_text | strip_html | escape }}"
+    data-pc-root="fake-order"
+    data-pc-section="{{ section.id }}"
+    data-pc-settings="{{ section.settings | json | escape }}"
+    data-section-id="{{ section.id }}"
+    data-fo-i18n='{"purchased":{{ 'fake_order.purchased' | t | json | escape }}}'
+    data-fo-state="{% if request.design_mode %}shown{% else %}hidden{% endif %}"{% if request.design_mode %} data-fo-preview{% endif %}
+    data-fo-side="{{ position }}"
+    data-fo-mobile="{{ show_on_mobile }}"
+    data-fo-anim="{{ fo_anim }}"
+    data-fo-bg="{{ fo_bg }}"
+    data-fo-underline="{{ enable_underline_product_name_title }}"
+    data-fo-enabled="{{ section_enabled }}"
+    data-time-delay="{{ delay_time }}"
+    data-show-gap="{{ show_gap_seconds }}"
+    data-anim-duration="{{ animation_duration }}"
+    style="{{ fo_vars | strip | strip_newlines }}"
+  >
+    {%- for block in section.blocks -%}
+      {%- if block.type == 'products' -%}
+        <i hidden data-pc-block="{{ block.id }}" data-pc-type="products" data-pc-settings='{"fake_user":{{ block.settings.fake_user | default: '' | json | escape }},"buyer_fallback":{{ block.settings.buyer_fallback | default: '' | json | escape }}}' {{ block.shopify_attributes }}></i>
+      {%- else -%}
+        <i hidden data-pc-block="{{ block.id }}" data-pc-type="{{ block.type }}" data-pc-settings="{{ block.settings | json | escape }}" {{ block.shopify_attributes }}></i>
+      {%- endif -%}
+    {%- endfor -%}
+    <button type="button" class="fake-order-close" aria-label="{{ 'accessibility.close' | t }}" data-fo-close{% unless enable_close_button %} hidden{% endunless %}>
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+        <path fill-rule="evenodd" clip-rule="evenodd" d="M5.29289 5.29289C5.68342 4.90237 6.31658 4.90237 6.70711 5.29289L12 10.5858L17.2929 5.29289C17.6834 4.90237 18.3166 4.90237 18.7071 5.29289C19.0976 5.68342 19.0976 6.31658 18.7071 6.70711L13.4142 12L18.7071 17.2929C19.0976 17.6834 19.0976 18.3166 18.7071 18.7071C18.3166 19.0976 17.6834 19.0976 17.2929 18.7071L12 13.4142L6.70711 18.7071C6.31658 19.0976 5.68342 19.0976 5.29289 18.7071C4.90237 18.3166 4.90237 17.6834 5.29289 17.2929L10.5858 12L5.29289 6.70711C4.90237 6.31658 4.90237 5.68342 5.29289 5.29289Z"></path>
+      </svg>
+    </button>
+
+    <div class="product-fake-order">
+      <div class="fake-order-image">
+        <a href="{{ products.url | default: '#' }}" data-url tabindex="-1" aria-hidden="true">
+          {%- if products.featured_image != blank -%}
+            <img data-img src="{{ products.featured_image | image_url: width: 160 }}" alt="" width="60" height="80" loading="lazy" decoding="async">
+          {%- else -%}
+            {{ 'product-1' | placeholder_svg_tag: 'fo-placeholder' }}
+          {%- endif -%}
+        </a>
+      </div>
+
+      <div class="fake-order-info">
+        <div class="fake-list">
+          <span data-user class="user-purchase">{{ list_user.first | default: buyer_fallback }}</span>
+          <span class="fo-purchased" data-fo-purchased>{{ purchased_text }}</span>
+        </div>
+        <div class="product-order-title">
+          <a href="{{ products.url | default: '#' }}" data-url data-title-fake>{% if products %}{{ products.title }}{% else %}Pick products in the Orders block{% endif %}</a>
+        </div>
+        <div class="fo-row">
+          <div class="minutes-ago" data-fo-time{% if time_line == blank %} hidden{% endif %}>
+            <span data-fo-time-text>{{ time_line | escape }}</span>
+          </div>
+          <a href="{{ verify_text_url | default: '/' }}" class="text-verify" data-fo-verify{% if text_verify == blank %} hidden{% endif %}>
+            <span class="lnr lnr-checkmark-circle mr-5" aria-hidden="true"></span>
+            <span data-fo-verify-text>{{ text_verify }}</span>
+            <svg class="verify-arrow" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" data-fo-arrow{% unless enable_verify_arrow %} hidden{% endunless %}>
+              <path d="M7 17L17 7M17 7H8M17 7V16" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+          </a>
+        </div>
+      </div>
+
+      <div class="fake-order-progressbar" data-fo-progress{% if disable_progress_bar %} hidden{% endif %}>
+        <span data-progressbar></span>
+      </div>
+    </div>
+
+    <script src="{{ 'materia-popups.js' | asset_url }}" defer="defer"></script>
+    <script type="application/json" data-fo-items>
+      [{%- for p in product_available -%}{"title":{{ p.title | json }},"url":{{ p.url | json }},"img":{% if p.featured_image != blank %}{{ p.featured_image | image_url: width: 160 | json }}{% else %}""{% endif %}}{% unless forloop.last %},{% endunless %}{%- endfor -%}]
+    </script>
+  </div>
+{%- endif -%}{% schema %}
+{
+  "name": "Order Notification Pro 1",
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "checkbox",
+      "id": "section_enabled",
+      "label": "Show notifications",
+      "default": true
+    }
+  ],
+  "blocks": [
+    {
+      "type": "layout",
+      "name": "Layout",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "header",
+          "content": "Layout"
+        },
+        {
+          "type": "select",
+          "id": "position",
+          "label": "Side",
+          "options": [
+            {
+              "value": "left",
+              "label": "Left"
+            },
+            {
+              "value": "right",
+              "label": "Right"
+            }
+          ],
+          "default": "left"
+        },
+        {
+          "type": "range",
+          "id": "border_radius",
+          "label": "Corner radius",
+          "min": 0,
+          "max": 50,
+          "step": 1,
+          "default": 5,
+          "unit": "px"
+        },
+        {
+          "type": "header",
+          "content": "Mobile"
+        },
+        {
+          "type": "checkbox",
+          "id": "show_on_mobile_fake_order",
+          "label": "Show on phones",
+          "default": true
+        },
+        {
+          "type": "header",
+          "content": "Progress bar"
+        },
+        {
+          "type": "checkbox",
+          "id": "disable_progress_bar",
+          "label": "Hide the progress bar",
+          "default": false
+        }
+      ]
+    },
+    {
+      "type": "animation",
+      "name": "Timing",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "header",
+          "content": "Timing"
+        },
+        {
+          "type": "text",
+          "id": "delay_time",
+          "label": "First one after (ms)",
+          "default": "500"
+        },
+        {
+          "type": "number",
+          "id": "animation_duration",
+          "label": "Each shows for (ms)",
+          "default": 15000
+        },
+        {
+          "type": "range",
+          "id": "show_gap_seconds",
+          "label": "Gap between",
+          "min": 10,
+          "max": 1000,
+          "step": 10,
+          "default": 10,
+          "unit": "s"
+        },
+        {
+          "type": "header",
+          "content": "Animation"
+        },
+        {
+          "type": "select",
+          "id": "notification_animation",
+          "label": "Animation",
+          "options": [
+            {
+              "value": "None",
+              "label": "None"
+            },
+            {
+              "value": "Fade-in Fade Out",
+              "label": "Fade-in Fade Out"
+            },
+            {
+              "value": "Zoom in - Zoom Out",
+              "label": "Zoom in - Zoom Out"
+            },
+            {
+              "value": "Fade Up - Fade Down",
+              "label": "Fade Up - Fade Down"
+            },
+            {
+              "value": "Slide In - Slide Out",
+              "label": "Slide In - Slide Out"
+            },
+            {
+              "value": "Normal Original Animation",
+              "label": "Normal Original Animation"
+            },
+            {
+              "value": "Reveal In - Reveal Out",
+              "label": "Reveal In - Reveal Out"
+            }
+          ],
+          "default": "Fade-in Fade Out",
+          "info": "Off under reduced motion."
+        }
+      ]
+    },
+    {
+      "type": "products",
+      "name": "Orders",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "type": "product_list",
+          "id": "fake_product",
+          "label": "Products",
+          "info": "Only products that are in stock are shown."
+        },
+        {
+          "type": "textarea",
+          "id": "fake_user",
+          "label": "Buyers",
+          "default": "",
+          "info": "Real first names you may show, separated by |. Left empty, the card shows the text below."
+        },
+        {
+          "type": "text",
+          "id": "buyer_fallback",
+          "label": "Buyer when none typed",
+          "default": "Someone"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "name": "Text",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "header",
+          "content": "Content"
+        },
+        {
+          "type": "inline_richtext",
+          "id": "heading_text",
+          "label": "Name read by screen readers",
+          "default": "Latest Orders"
+        },
+        {
+          "type": "text",
+          "id": "purchased_text",
+          "label": "Text after the buyer",
+          "info": "Empty uses the store language (purchased)."
+        },
+        {
+          "type": "text",
+          "id": "time_line",
+          "label": "Time line",
+          "default": "",
+          "info": "Written as you type it, for example Recently. Left empty, no time is shown."
+        },
+        {
+          "type": "text",
+          "id": "time_text",
+          "label": "Text after the minutes",
+          "hidden": true,
+          "info": "Legacy: no longer drawn. The time line above is what shows.",
+          "visible_if": "{{ false }}"
+        },
+        {
+          "type": "inline_richtext",
+          "id": "text_verify",
+          "label": "Link text",
+          "default": "Verify"
+        },
+        {
+          "type": "url",
+          "id": "verify_text_url",
+          "label": "Link",
+          "default": "/"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_verify_arrow",
+          "label": "Arrow after the link",
+          "default": true
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_underline_product_name_title",
+          "label": "Underline the product",
+          "default": false
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_close_button",
+          "label": "Close button",
+          "default": true
+        },
+        {
+          "type": "header",
+          "content": "Colors"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "title_color",
+          "label": "Product name",
+          "visible_if": "{{ block.settings.enable_custom_style == true }}"
+        },
+        {
+          "type": "color",
+          "id": "verify_text_color",
+          "label": "Link color",
+          "visible_if": "{{ block.settings.enable_custom_style == true }}"
+        },
+        {
+          "type": "color",
+          "id": "verify_text_hover_color",
+          "label": "Link hover",
+          "visible_if": "{{ block.settings.enable_custom_style == true }}"
+        },
+        {
+          "type": "color",
+          "id": "close_button_color",
+          "label": "Close icon",
+          "visible_if": "{{ block.settings.enable_custom_style == true }}"
+        },
+        {
+          "type": "header",
+          "content": "Typography"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_fonts",
+          "label": "Custom fonts",
+          "default": false
+        },
+        {
+          "type": "font_picker",
+          "id": "font",
+          "label": "Text font",
+          "default": "assistant_n4",
+          "visible_if": "{{ block.settings.enable_custom_fonts == true }}"
+        },
+        {
+          "type": "font_picker",
+          "id": "title_font",
+          "label": "Product name font",
+          "default": "assistant_n4",
+          "visible_if": "{{ block.settings.enable_custom_fonts == true }}"
+        },
+        {
+          "type": "select",
+          "id": "title_weight",
+          "label": "Product name weight",
+          "default": "theme",
+          "options": [
+            {
+              "value": "theme",
+              "label": "Theme"
+            },
+            {
+              "value": "400",
+              "label": "Regular"
+            },
+            {
+              "value": "500",
+              "label": "Medium"
+            },
+            {
+              "value": "600",
+              "label": "Semibold"
+            },
+            {
+              "value": "700",
+              "label": "Bold"
+            },
+            {
+              "value": "800",
+              "label": "Extra bold"
+            }
+          ]
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_size",
+          "label": "Custom text size",
+          "default": false
+        },
+        {
+          "type": "range",
+          "id": "text_size",
+          "label": "Text size",
+          "min": 10,
+          "max": 20,
+          "step": 1,
+          "unit": "px",
+          "default": 13,
+          "visible_if": "{{ block.settings.enable_custom_size == true }}"
+        },
+        {
+          "type": "range",
+          "id": "title_size",
+          "label": "Product name size",
+          "min": 10,
+          "max": 24,
+          "step": 1,
+          "unit": "px",
+          "default": 15,
+          "visible_if": "{{ block.settings.enable_custom_size == true }}"
+        }
+      ]
+    },
+    {
+      "type": "background",
+      "name": "Background",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "header",
+          "content": "Gradient"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_gradient",
+          "label": "Gradient",
+          "default": true
+        },
+        {
+          "type": "select",
+          "id": "gradient_degrees",
+          "label": "Angle",
+          "options": [
+            {
+              "value": "0",
+              "label": "0°"
+            },
+            {
+              "value": "30",
+              "label": "30°"
+            },
+            {
+              "value": "45",
+              "label": "45°"
+            },
+            {
+              "value": "60",
+              "label": "60°"
+            },
+            {
+              "value": "90",
+              "label": "90°"
+            },
+            {
+              "value": "135",
+              "label": "135°"
+            },
+            {
+              "value": "180",
+              "label": "180°"
+            },
+            {
+              "value": "225",
+              "label": "225°"
+            },
+            {
+              "value": "270",
+              "label": "270°"
+            },
+            {
+              "value": "315",
+              "label": "315°"
+            },
+            {
+              "value": "360",
+              "label": "360°"
+            }
+          ],
+          "default": "45",
+          "visible_if": "{{ block.settings.enable_gradient == true }}"
+        },
+        {
+          "type": "header",
+          "content": "Frosted glass"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_glassmorphism",
+          "label": "Frosted glass",
+          "default": false
+        },
+        {
+          "type": "range",
+          "id": "glassmorphism_blur",
+          "label": "Blur",
+          "min": 0,
+          "max": 30,
+          "step": 1,
+          "default": 10,
+          "unit": "px",
+          "visible_if": "{{ block.settings.enable_glassmorphism == true }}"
+        },
+        {
+          "type": "range",
+          "id": "glassmorphism_brightness",
+          "label": "Brightness",
+          "min": 0.5,
+          "max": 10,
+          "step": 0.1,
+          "default": 0.9,
+          "visible_if": "{{ block.settings.enable_glassmorphism == true }}"
+        },
+        {
+          "type": "range",
+          "id": "glassmorphism_border_width",
+          "label": "Border",
+          "min": 0,
+          "max": 5,
+          "step": 1,
+          "default": 1,
+          "unit": "px",
+          "visible_if": "{{ block.settings.enable_glassmorphism == true }}"
+        },
+        {
+          "type": "header",
+          "content": "Colors"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "gradient_start_color",
+          "label": "Start",
+          "visible_if": "{{ block.settings.enable_custom_style == true }}",
+          "info": "Used with Gradient."
+        },
+        {
+          "type": "color",
+          "id": "gradient_middle_color",
+          "label": "Middle",
+          "visible_if": "{{ block.settings.enable_custom_style == true }}"
+        },
+        {
+          "type": "color",
+          "id": "gradient_end_color",
+          "label": "End",
+          "visible_if": "{{ block.settings.enable_custom_style == true }}"
+        },
+        {
+          "type": "color",
+          "id": "glassmorphism_border_color",
+          "label": "Border color",
+          "visible_if": "{{ block.settings.enable_custom_style == true and block.settings.enable_glassmorphism == true }}",
+          "info": "Used with Frosted glass."
+        }
+      ]
+    },
+    {
+      "type": "colors",
+      "name": "Colors",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "background_color",
+          "label": "Background",
+          "visible_if": "{{ block.settings.enable_custom_style == true }}",
+          "info": "Used when Gradient and Frosted glass are off."
+        },
+        {
+          "type": "color",
+          "id": "text_color",
+          "label": "Text",
+          "visible_if": "{{ block.settings.enable_custom_style == true }}"
+        },
+        {
+          "type": "color",
+          "id": "progress_bar_color",
+          "label": "Progress bar",
+          "visible_if": "{{ block.settings.enable_custom_style == true }}"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Order Notification Pro 1",
+      "category": "Promotional Popup",
+      "blocks": [
+        {
+          "type": "layout"
+        },
+        {
+          "type": "animation"
+        },
+        {
+          "type": "products"
+        },
+        {
+          "type": "text"
+        },
+        {
+          "type": "background"
+        },
+        {
+          "type": "colors"
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

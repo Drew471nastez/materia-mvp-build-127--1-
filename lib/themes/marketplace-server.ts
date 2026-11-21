@@ -17,8 +17,8 @@ import "server-only"
  * template, Liquid is converted as text, and both only ever render in a
  * visitor's browser.
  *
- * Before part 252 runs there is no table: every read answers the built-in
- * listing alone and `missing: true`, and the admin page says to run it.
+ * Before part 252 runs there is no table: every read answers the templates
+ * listed from code alone and `missing: true`, and the admin page says to run it.
  */
 import { randomUUID } from "node:crypto"
 import JSZip from "jszip"
@@ -99,6 +99,7 @@ export function rowToListing(r: ListingRow): ThemeListing {
     cover: r.cover_url || null,
     screenshots: (r.screenshots ?? []).filter((s) => typeof s === "string" && s.length > 0),
     builtinThemeId: r.builtin_theme_id || null,
+    codePackage: null,
     hasPackage: !!r.package_path,
     packageKind: kind,
     demoUrl: r.demo_url || null,
@@ -127,7 +128,7 @@ export async function readListingRows(opts: { includeHidden?: boolean } = {}): P
 }
 
 /**
- * Every published listing, Storelib's own first unless a row says otherwise.
+ * Every published listing, Storelib's own templates first unless a row says otherwise.
  * Five minutes in the cache at most, and dropped the moment the admin saves.
  */
 export const publishedListings = unstable_cache(
@@ -144,10 +145,16 @@ export async function listingBySlug(slug: string): Promise<ThemeListing | null> 
   return all.find((l) => l.slug === slug) ?? null
 }
 
-/** The row behind a listing, with the package path the browser never sees. */
-export async function listingRowBySlug(slug: string): Promise<ListingRow | null> {
+/**
+ * The row behind a listing, with the package path the browser never sees.
+ * `includeHidden` for Add, which has to know that a template listed from
+ * code was hidden by a row before it adds it.
+ */
+export async function listingRowBySlug(slug: string, opts: { includeHidden?: boolean } = {}): Promise<ListingRow | null> {
   try {
-    const { data, error } = await createAdminClient().from(LISTINGS_TABLE).select(LISTING_COLUMNS).eq("slug", slug).eq("published", true).maybeSingle()
+    let q = createAdminClient().from(LISTINGS_TABLE).select(LISTING_COLUMNS).eq("slug", slug)
+    if (!opts.includeHidden) q = q.eq("published", true)
+    const { data, error } = await q.maybeSingle()
     if (error || !data) return null
     return data as ListingRow
   } catch {

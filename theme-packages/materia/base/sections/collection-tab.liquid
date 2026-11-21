@@ -1,0 +1,1584 @@
+<script src="{{ 'live-products-c.js' | asset_url }}" defer="defer"></script>
+{% render 'theme-type' %}
+{%- liquid
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+-%}
+{%- assign fb_accessibility_no_products_found = 'accessibility.no_products_found' | t -%}
+{%- assign fb_accessibility_add_collection_tab_hint = 'accessibility.add_collection_tab_hint' | t -%}
+{%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
+<style>
+  #shopify-section-{{ section.id }}.scroll-trigger {
+    --animation-duration: {{ settings.animation_duration | default: 700 }}ms;
+    --animation-delay: {{ settings.animation_delay | default: 0 }}ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-{{ section.id }}');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', {{ settings.scroll_animation | json }});
+  })();
+</script>
+{%- endif -%}
+
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+
+  assign section_width = st.section_width
+  assign content_alignment = st.content_alignment | default: 'center'
+
+  assign items_to_show = st.items_to_show | default: 8
+  assign items_per_row = st.items_per_row | default: 4
+  assign items_per_row_mobile = st.items_per_row_mobile | default: 2
+  assign rows = st.rows | default: 1
+  assign column_gap = st.column_gap | default: 20
+
+  assign show_load_more_button = st.show_load_more_button
+  assign button_label = st.button_label
+  assign use_outline_button_style = st.use_outline_button_style
+
+  assign reveal = st.reveal
+  assign scroll_animation = st.scroll_animation | default: 'none'
+  assign tab_switch_animation = st.tab_switch_animation | default: 'fade'
+
+  assign tab_style = st.tab_style | default: 'pill'
+  assign tabs_alignment = st.tabs_alignment | default: 'center'
+  assign tabs_full_width = st.tabs_full_width
+
+  assign data_free_scroll = 'false'
+  if items_per_row_mobile > 1 and items_per_row_mobile < 2
+    assign data_free_scroll = 'true'
+  endif
+
+  # --- Blocks: one heading, one subheading, the collection tabs ---
+  assign col_count = 0
+  assign heading_found = false
+  assign subheading_found = false
+  for block in section.blocks
+    case block.type
+      when 'view_more'
+        assign view_more_block = block
+        assign show_load_more_button = block.settings.enabled
+        assign button_label = block.settings.label
+        assign use_outline_button_style = false
+        if block.settings.appearance == 'outline'
+          assign use_outline_button_style = true
+        endif
+      when 'collection'
+        assign col_count = col_count | plus: 1
+      when 'heading'
+        unless heading_found
+          assign heading_block = block
+          assign heading_found = true
+        endunless
+      when 'subheading'
+        unless subheading_found
+          assign subheading_block = block
+          assign subheading_found = true
+        endunless
+    endcase
+  endfor
+  if heading_found
+    assign hb = heading_block.settings
+  endif
+  if subheading_found
+    assign sb = subheading_block.settings
+  endif
+  assign show_heading = false
+  if heading_found and hb.heading != blank
+    assign show_heading = true
+  endif
+  assign show_subheading = false
+  if subheading_found and sb.subheading != blank
+    assign show_subheading = true
+  endif
+
+  # --- Heading + subheading: theme typography unless the block's own style is on ---
+  assign c_heading = ''
+  assign c_sub = ''
+  assign h_custom = false
+  assign h_style = 'h2'
+  if heading_found
+    assign h_style = hb.heading_size | default: 'h2'
+    if hb.text_style == 'large'
+      assign h_style = 'h1'
+    elsif hb.text_style == 'small'
+      assign h_style = 'h3'
+    elsif hb.text_style == 'medium' and h_style != 'h1' and h_style != 'h3'
+      assign h_style = 'h2'
+    endif
+    if hb.custom_style
+      assign h_custom = true
+      assign c_heading = hb.heading_color
+    endif
+  endif
+  assign s_custom = false
+  assign s_style = 'body'
+  if subheading_found
+    assign s_style = sb.text_size | default: 'body'
+    if sb.custom_style
+      assign s_custom = true
+      assign c_sub = sb.subheading_color
+    endif
+  endif
+  case h_style
+    when 'h1'
+      assign h_fb = 56
+      assign h_fb_m = 36
+    when 'h3'
+      assign h_fb = 24
+      assign h_fb_m = 20
+    else
+      assign h_fb = 36
+      assign h_fb_m = 30
+  endcase
+  case s_style
+    when 'body_large'
+      assign s_fb = 18
+    when 'body_small'
+      assign s_fb = 14
+    else
+      assign s_fb = 16
+  endcase
+
+  # --- Tabs: theme buttons and scheme unless custom styling is on ---
+  assign custom = st.enable_custom_styling
+  assign c_tab_bg = ''
+  assign c_tab_bg_on = ''
+  assign c_tab_text = ''
+  assign c_tab_text_on = ''
+  assign c_tab_border = ''
+  assign c_tab_border_on = ''
+  assign c_line = ''
+  assign c_empty = ''
+  if custom
+    assign c_tab_bg = st.tab_unchecked_bg_color
+    assign c_tab_bg_on = st.tab_checked_bg_color
+    assign c_tab_text = st.tab_unchecked_text_color
+    assign c_tab_text_on = st.tab_checked_text_color
+    assign c_tab_border = st.tab_unchecked_border_color
+    assign c_tab_border_on = st.tab_checked_border_color
+    assign c_line = st.nav_bottom_border_color
+    assign c_empty = st.empty_state_text_color
+  endif
+
+  if tab_style == 'pill' or tab_style == 'button'
+    assign tab_text_fb = 'var(--btn-secondary-color, var(--color-text))'
+    assign tab_active_text_fb = 'var(--btn-primary-color)'
+    assign tab_active_border_fb = 'var(--btn-primary-bg-color)'
+  else
+    assign tab_text_fb = 'var(--color-text)'
+    assign tab_active_text_fb = 'var(--color-heading)'
+    assign tab_active_border_fb = 'var(--color-heading)'
+  endif
+
+  assign bw_off = st.tab_unchecked_border_thickness | default: 0
+  assign bw_on = st.tab_checked_border_thickness | default: 0
+  assign ul_on = bw_on
+  if ul_on < 1
+    assign ul_on = 2
+  endif
+  if tab_style == 'pill'
+    assign tab_radius = 999
+  else
+    assign tab_radius = st.tab_border_radius | default: 8
+  endif
+-%}
+
+{%- capture col_style -%}
+  --col-desktop: {{ items_per_row }};
+  --col-number: {{ items_per_row_mobile }};
+  {% if items_per_row > 3 %}
+    --col-tablet: 3;
+  {% else %}
+    --col-tablet: {{ items_per_row }};
+  {% endif %}
+  {% if column_gap < 15 %}
+    --col-gap: {{ column_gap }}px;
+  {% else %}
+    --col-gap: 15px;
+    --col-gap-desktop: {{ column_gap }}px;
+  {% endif %}
+  --repeat: {{ items_to_show }};
+  --col-mobile: {{ items_per_row_mobile }};
+{%- endcapture -%}
+
+{%- comment -%} The section's rules are in collection-tab.css and its tab and reveal script in collection-tab.js, shared by every instance and cached. What a setting chooses reaches them as the --ct-* properties and data-ct-* attributes on the section root below. {%- endcomment -%}
+{{ 'collection-tab.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'collection-tab.js' | asset_url }}" defer="defer"></script>
+<style>
+  #shopify-section-{{ sid }} { isolation: isolate; position: relative; }
+  /* Section margins (mobile first, then desktop) */
+  #shopify-section-{{ sid }} {
+    margin-top: {{ st.section_margin_top_mobile | default: 0 }}px;
+    margin-bottom: {{ st.section_margin_bottom_mobile | default: 0 }}px;
+  }
+  @media (min-width: 768px) {
+    #shopify-section-{{ sid }} {
+      margin-top: {{ st.section_margin_top_desktop | default: 0 }}px;
+      margin-bottom: {{ st.section_margin_bottom_desktop | default: 0 }}px;
+    }
+  }
+  {%- if st.reset_spacing -%}
+    #shopify-section-{{ sid }} { margin-top: 0 !important; margin-bottom: 0 !important; }
+    #shopify-section-{{ sid }} + .shopify-section { margin-top: 0 !important; }
+  {%- endif -%}
+</style>
+{%- liquid
+  assign ct_reveal = false
+  if reveal and scroll_animation != 'none' and request.design_mode != true
+    assign ct_reveal = true
+  endif
+  assign ct_hover_bg = false
+  assign ct_hover_text = false
+  if custom and st.tab_hover_bg_color != blank
+    assign ct_hover_bg = true
+  endif
+  if custom and st.tab_hover_text_color != blank
+    assign ct_hover_text = true
+  endif
+-%}
+{%- capture ct_c_heading -%}{% render 'scheme-color', color: c_heading, fallback: 'none' %}{%- endcapture -%}
+{%- capture ct_c_sub -%}{% render 'scheme-color', color: c_sub, fallback: 'none' %}{%- endcapture -%}
+{%- capture ct_c_line -%}{% render 'scheme-color', color: c_line, fallback: 'none' %}{%- endcapture -%}
+{%- capture ct_c_text -%}{% render 'scheme-color', color: c_tab_text, fallback: 'none' %}{%- endcapture -%}
+{%- capture ct_c_bg -%}{% render 'scheme-color', color: c_tab_bg, fallback: 'none' %}{%- endcapture -%}
+{%- capture ct_c_border -%}{% render 'scheme-color', color: c_tab_border, fallback: 'none' %}{%- endcapture -%}
+{%- capture ct_c_bg_on -%}{% render 'scheme-color', color: c_tab_bg_on, fallback: 'none' %}{%- endcapture -%}
+{%- capture ct_c_text_on -%}{% render 'scheme-color', color: c_tab_text_on, fallback: 'none' %}{%- endcapture -%}
+{%- capture ct_c_border_on -%}{% render 'scheme-color', color: c_tab_border_on, fallback: 'none' %}{%- endcapture -%}
+{%- capture ct_c_empty -%}{% render 'scheme-color', color: c_empty, fallback: 'none' %}{%- endcapture -%}
+{%- capture ct_vars -%}
+  --ct-pt: {{ st.padding_top | default: 30 }}px; --ct-pb: {{ st.padding_bottom | default: 30 }}px;
+  --ct-align: {{ content_alignment }};
+  --ct-hgap-m: {{ st.vertical_gap_subheading_section_mobile | default: 18 }}px; --ct-hgap-d: {{ st.vertical_gap_subheading_section_desktop | default: 25 }}px;
+  --ct-hsgap: {{ st.vertical_gap_heading_subheading | default: 10 }}px;
+  --ct-s-max: {{ sb.max_width | default: 640 }}px;
+  {%- if h_custom %} --ct-h-weight: {{ hb.heading_font_weight | default: '700' }}; --ct-h-size-m: {{ hb.heading_font_size_mobile | default: 24 }}px; --ct-h-size-d: {{ hb.heading_font_size_desktop | default: 28 }}px;{% endif %}
+  {%- if s_custom %} --ct-s-weight: {{ sb.subheading_font_weight | default: '400' }}; --ct-s-size-m: {{ sb.subheading_font_size_mobile | default: 14 }}px; --ct-s-size-d: {{ sb.subheading_font_size_desktop | default: 16 }}px;{% endif %}
+  {%- assign v = ct_c_heading | strip %}{% if v != 'none' %} --ct-heading-color: {{ v }};{% endif %}
+  {%- assign v = ct_c_sub | strip %}{% if v != 'none' %} --ct-sub-color: {{ v }};{% endif %}
+  --ct-tab-gap: {{ st.tab_gap | default: 10 }}px; --ct-tab-mb: {{ st.gap_tabs_to_products | default: 30 }}px;
+  {%- if st.show_nav_bottom_border %} --ct-line-w: {{ st.nav_bottom_border_thickness | default: 1 }}px;{% assign v = ct_c_line | strip %}{% if v != 'none' %} --ct-line-color: {{ v }};{% endif %}{% endif %}
+  --ct-tab-py: {{ st.tab_padding_y | default: 10 }}px; --ct-tab-px: {{ st.tab_padding_x | default: 22 }}px;
+  {%- if custom %} --ct-tab-fs: {{ st.tab_font_size | default: 14 }}px; --ct-tab-fw: {{ st.tab_font_weight | default: 500 }};{% endif %}
+  {%- assign v = ct_c_text | strip %}{% if v != 'none' %} --ct-tab-text: {{ v }};{% endif %}
+  {%- assign v = ct_c_text_on | strip %}{% if v != 'none' %} --ct-tab-text-on: {{ v }};{% endif %}
+  {%- assign v = ct_c_border_on | strip %}{% if v != 'none' %} --ct-tab-border-on: {{ v }};{% endif %}
+  {%- if tab_style == 'pill' or tab_style == 'button' %} --ct-bw-off: {{ bw_off }}px; --ct-bw-on: {{ bw_on }}px; --ct-radius: {{ tab_radius }}px;
+    {%- assign v = ct_c_bg | strip %}{% if v != 'none' %} --ct-tab-bg: {{ v }};{% endif %}
+    {%- assign v = ct_c_border | strip %}{% if v != 'none' %} --ct-tab-border: {{ v }};{% endif %}
+    {%- assign v = ct_c_bg_on | strip %}{% if v != 'none' %} --ct-tab-bg-on: {{ v }};{% endif %}
+  {%- endif %}
+  {%- if tab_style == 'underline' %} --ct-ul: {{ ul_on }}px;{% endif %}
+  {%- if ct_hover_bg %} --ct-hover-bg: {{ st.tab_hover_bg_color }};{% endif %}
+  {%- if ct_hover_text %} --ct-hover-text: {{ st.tab_hover_text_color }};{% endif %}
+  --ct-icon: {{ st.tab_icon_size | default: 22 }}px;
+  {%- assign v = ct_c_empty | strip %}{% if v != 'none' %} --ct-empty-color: {{ v }};{% endif %}
+  --ct-empty-fs: {{ st.empty_state_font_size | default: 16 }}px; --ct-loadmore-gap: {{ st.gap_loadmore | default: 30 }}px;
+{%- endcapture -%}
+
+{%- capture header_html -%}
+  {%- if show_heading or show_subheading -%}
+    <div class="ti-tabs__header">
+      {%- for block in section.blocks -%}
+        {%- if block.type == 'heading' and show_heading and block.id == heading_block.id -%}
+          <h2 class="ti-tabs__heading ti-tabs__rt"{% if h_custom %} data-own-weight{% endif %} data-ct-block="{{ block.id }}" data-ct-type="heading" data-ct-block-settings="{{ block.settings | json | escape }}" {{ block.shopify_attributes }}>{{ hb.heading }}</h2>
+        {%- elsif block.type == 'subheading' and show_subheading and block.id == subheading_block.id -%}
+          <div class="ti-tabs__subheading ti-tabs__rt" data-ct-block="{{ block.id }}" data-ct-type="subheading" data-ct-block-settings="{{ block.settings | json | escape }}" {{ block.shopify_attributes }}>{{ sb.subheading }}</div>
+        {%- endif -%}
+      {%- endfor -%}
+    </div>
+  {%- endif -%}
+{%- endcapture -%}
+
+<div
+  id="section-{{ sid }}"
+  class="section ti-tabs sec__collection-tab color-{{ color_scheme }} gradient pt-section pb-section{% if st.reset_spacing %} remove_spacing{% endif %}{% if reveal %} overflow-hidden{% endif %}"
+  data-collection-tab
+  data-ct-section="{{ sid }}"
+  data-ct-settings="{{ st | json | escape }}"
+  data-ct-defaults="&#123;&quot;color_scheme&quot;:&quot;default-color-scheme&quot;,&quot;section_width&quot;:&quot;fluid_container&quot;,&quot;reset_spacing&quot;:true,&quot;items_to_show&quot;:8,&quot;items_per_row&quot;:4,&quot;rows&quot;:1,&quot;column_gap&quot;:20,&quot;content_alignment&quot;:&quot;center&quot;,&quot;vertical_gap_heading_subheading&quot;:10,&quot;tab_style&quot;:&quot;pill&quot;,&quot;tabs_alignment&quot;:&quot;center&quot;,&quot;tab_border_radius&quot;:8,&quot;tab_padding_x&quot;:22,&quot;tab_padding_y&quot;:10,&quot;tab_gap&quot;:10,&quot;tab_unchecked_border_thickness&quot;:0,&quot;tab_checked_border_thickness&quot;:0,&quot;show_tab_icon&quot;:false,&quot;tab_icon_size&quot;:22,&quot;show_product_count&quot;:false,&quot;show_nav_bottom_border&quot;:false,&quot;nav_bottom_border_thickness&quot;:1,&quot;gap_tabs_to_products&quot;:30,&quot;show_load_more_button&quot;:true,&quot;button_label&quot;:&quot;View More&quot;,&quot;use_outline_button_style&quot;:false,&quot;gap_loadmore&quot;:30,&quot;empty_state_message&quot;:&quot;No products found in this collection.&quot;,&quot;empty_state_font_size&quot;:16,&quot;enable_custom_styling&quot;:false,&quot;tab_font_size&quot;:14,&quot;tab_font_weight&quot;:&quot;500&quot;,&quot;tab_switch_animation&quot;:&quot;fade&quot;,&quot;reveal&quot;:true,&quot;scroll_animation&quot;:&quot;smooth-fade-up&quot;,&quot;padding_top&quot;:30,&quot;padding_bottom&quot;:30,&quot;vertical_gap_subheading_section_desktop&quot;:25,&quot;section_margin_top_desktop&quot;:0,&quot;section_margin_bottom_desktop&quot;:0,&quot;items_per_row_mobile&quot;:2,&quot;rows_mobile&quot;:1,&quot;tabs_full_width&quot;:false,&quot;vertical_gap_subheading_section_mobile&quot;:18,&quot;section_margin_top_mobile&quot;:0,&quot;section_margin_bottom_mobile&quot;:0&#125;"
+  data-ct-block-defaults="&#123;&quot;heading&quot;:&#123;&quot;heading&quot;:&quot;Featured Products&quot;,&quot;text_style&quot;:&quot;medium&quot;,&quot;heading_size&quot;:&quot;h2&quot;,&quot;custom_style&quot;:false,&quot;heading_font_weight&quot;:&quot;700&quot;,&quot;heading_font_size_desktop&quot;:28,&quot;heading_font_size_mobile&quot;:24&#125;,&quot;subheading&quot;:&#123;&quot;subheading&quot;:&quot;<p>Pick a collection to see what is in it.</p>&quot;,&quot;text_size&quot;:&quot;body&quot;,&quot;max_width&quot;:640,&quot;custom_style&quot;:false,&quot;subheading_font_weight&quot;:&quot;400&quot;,&quot;subheading_font_size_desktop&quot;:16,&quot;subheading_font_size_mobile&quot;:14&#125;,&quot;collection&quot;:&#123;&#125;,&quot;view_more&quot;:&#123;&quot;enabled&quot;:true,&quot;label&quot;:&quot;View more&quot;,&quot;button_role&quot;:&quot;primary&quot;,&quot;appearance&quot;:&quot;theme&quot;,&quot;custom_style&quot;:false&#125;&#125;"
+  data-ct-animation="{{ scroll_animation }}"
+  data-ct-width="{{ section_width }}"
+  data-ct-h="{{ h_style }}"
+  data-ct-s="{{ s_style }}"
+  data-ct-align="{{ content_alignment }}"
+  data-ct-tabs-align="{{ tabs_alignment }}"
+  data-ct-style="{{ tab_style }}"
+  data-ct-switch="{{ tab_switch_animation }}"
+  {%- if ct_reveal %} data-ct-reveal="{{ scroll_animation }}"{% endif %}
+  {%- if h_custom %} data-ct-hc{% endif %}
+  {%- if s_custom %} data-ct-sc{% endif %}
+  {%- if st.show_nav_bottom_border %} data-ct-line{% endif %}
+  {%- if tabs_full_width %} data-ct-full{% endif %}
+  {%- if custom %} data-ct-custom{% endif %}
+  {%- if ct_hover_bg %} data-ct-hover-bg{% endif %}
+  {%- if ct_hover_text %} data-ct-hover-text{% endif %}
+  style="{{ ct_vars | strip | strip_newlines }}"
+>
+  <div class="ti-tabs__inner">
+    {%- if col_count == 0 -%}
+      {{ header_html }}
+      <div class="ti-tabs__empty">
+        {{ st.empty_state_message | default: fb_accessibility_add_collection_tab_hint }}
+      </div>
+    {%- else -%}
+      <div class="ti-tabs__root" data-ti-tabs data-section-id="{{ sid }}">
+        {{ header_html }}
+
+        <div class="ti-tabs__nav collection-tab__ta" role="tablist" aria-orientation="horizontal"{% if show_heading %} aria-label="{{ hb.heading | strip_html | escape }}"{% endif %}>
+          {%- assign tab_i = 0 -%}
+          {%- for block in section.blocks -%}
+            {%- if block.type == 'collection' -%}
+              {%- liquid
+                assign tab_i = tab_i | plus: 1
+                assign bs = block.settings
+                assign col_obj = bs.collection
+                if col_obj.id == blank
+                  assign col_obj = collections[bs.collection]
+                endif
+                assign col_title = bs.collection_title
+                if col_title == blank
+                  if col_obj != blank and col_obj.title != blank
+                    assign col_title = col_obj.title
+                  else
+                    assign col_title = 'Collection'
+                  endif
+                endif
+                assign ct_title = 'Collection'
+                if col_obj != blank and col_obj.title != blank
+                  assign ct_title = col_obj.title
+                endif
+                assign tab_icon = bs.tab_icon
+                if tab_icon == blank and col_obj != blank
+                  assign tab_icon = col_obj.image
+                endif
+              -%}
+              {%- capture ct_bjson -%}{"collection_title":{{ bs.collection_title | json }}}{%- endcapture -%}
+              <button
+                type="button"
+                id="ti-tabs-btn-{{ sid }}-{{ block.id }}"
+                class="ti-tabs__btn collection-tab__tab-item{% if tab_i == 1 %} is-active active{% endif %}"
+                data-block-id="{{ block.id }}"
+                data-ct-block="{{ block.id }}"
+                data-ct-type="collection"
+                data-ct-block-settings="{{ ct_bjson | escape }}"
+                data-ct-title="{{ ct_title | escape }}"
+                role="tab"
+                aria-selected="{% if tab_i == 1 %}true{% else %}false{% endif %}"
+                tabindex="{% if tab_i == 1 %}0{% else %}-1{% endif %}"
+                aria-controls="ti-tabs-panel-{{ sid }}-{{ block.id }}"
+                {{ block.shopify_attributes }}
+              >
+                {%- if st.show_tab_icon and tab_icon != blank -%}
+                  {{ tab_icon | image_url: width: 120 | image_tag: class: 'ti-tabs__icon', alt: '', loading: 'lazy', width: st.tab_icon_size, height: st.tab_icon_size }}
+                {%- endif -%}
+                <span class="ti-tabs__btn-text" data-text="{{ col_title | escape }}">{{ col_title }}</span>
+                {%- if st.show_product_count and col_obj != blank -%}
+                  <span class="ti-tabs__count">({{ col_obj.products_count | default: col_obj.products.size }})</span>
+                {%- endif -%}
+              </button>
+            {%- endif -%}
+          {%- endfor -%}
+        </div>
+
+        <div class="ti-tabs__panels relative tab-content">
+          {%- assign tab_i = 0 -%}
+          {%- for block in section.blocks -%}
+            {%- if block.type == 'collection' -%}
+              {%- liquid
+                assign tab_i = tab_i | plus: 1
+                assign bs = block.settings
+                assign col_obj = bs.collection
+                if col_obj.id == blank
+                  assign col_obj = collections[bs.collection]
+                endif
+                assign panel_id = 'ti-tabs-panel-' | append: sid | append: '-' | append: block.id
+                assign all_product_visible = rows | times: items_per_row
+                assign products_avail = 0
+                if col_obj.id != blank
+                  assign products_avail = col_obj.products.size
+                endif
+              -%}
+              <div
+                id="{{ panel_id }}"
+                class="ti-tabs__panel collection-tab__tab-content collection-tab-{{ block.id }}{% if tab_i == 1 %} is-active active{% endif %}"
+                data-block-id="{{ block.id }}"
+                role="tabpanel"
+                aria-labelledby="ti-tabs-btn-{{ sid }}-{{ block.id }}"
+                tabindex="0"
+                {% if tab_i != 1 %}inert aria-hidden="true"{% endif %}
+              >
+                {%- if products_avail > 0 -%}
+                  {%- liquid
+                    assign products_to_show = items_to_show
+                    if products_avail < items_to_show
+                      assign products_to_show = products_avail
+                    endif
+                    assign initial_paginate = all_product_visible
+                    if products_to_show < initial_paginate
+                      assign initial_paginate = products_to_show
+                    endif
+                  -%}
+                  {%- if show_load_more_button and button_label != blank and products_to_show > all_product_visible -%}
+                    {%- paginate col_obj.products by initial_paginate -%}
+                      <grid-custom
+                        class="swiper products-grid__items flex flex-cols{% if column_gap < 31 %} row-gap-20 row-gap-md-30{% endif %} product-ajax__append flex-wrap"
+                        style="{{ col_style | strip | strip_newlines }}"
+                        data-enable="false"
+                        data-section-id="{{ sid }}"
+                        data-mobile="{{ items_per_row_mobile }}"
+                        data-mobile-rows="{{ st.rows_mobile | default: 1 }}"
+                        data-spacing="{{ column_gap }}"
+                        data-free-scroll="{{ data_free_scroll }}"
+                      >
+                        {%- for product in col_obj.products -%}
+                          {%- render 'product-item',
+                            card_product: product,
+                            container: section_width,
+                            colunm: items_per_row,
+                            colunm_mobile: items_per_row_mobile,
+                            padding: column_gap,
+                            scroll_animation: scroll_animation,
+                            section_id: sid,
+                            class: 'grid-custom-item',
+                            template_enable_action: true,
+                            template_enable_product_vendor: true,
+                            template_enable_rate: true,
+                            template_enable_product_short_description: true,
+                            template_enable_color_swatches: true,
+                            template_enable_price: true,
+                            template_enable_add_cart: true,
+                            indexFor: forloop.index,
+                            template_enable_product_badges: true
+                          -%}
+                        {%- endfor -%}
+                      </grid-custom>
+                      <div class="ti-tabs__loadmore-wrap"{% if view_more_block %} data-ct-block="{{ view_more_block.id }}" data-ct-type="view_more" data-ct-block-settings="{{ view_more_block.settings | json | escape }}" {{ view_more_block.shopify_attributes }}{% endif %}>
+                        <loadmore-function
+                          data-all-products="{{ products_to_show }}"
+                          data-section-id="{{ sid }}"
+                          data-limit="{{ initial_paginate }}"
+                          data-collection-url="{{ col_obj.url }}"
+                          data-url="?page={{ paginate.current_page | plus: 1 }}"
+                          class="block text-center"
+                          data-block-id="{{ block.id }}"
+                        >
+                          <button class="btn-{% if use_outline_button_style %}outline{% else %}primary{% endif %} load-more relative" data-theme-button="{{ view_more_block.settings.button_role | default: 'primary' }}"{% if use_outline_button_style %} data-button-appearance="outline"{% endif %} data-sl-button data-button-role="{{ view_more_block.settings.button_role | default: 'primary' }}" data-button-outline="{{ use_outline_button_style }}"{% if view_more_block.settings.custom_style %} style="{% if view_more_block.settings.button_background != blank %}--mb-bg:{{ view_more_block.settings.button_background }};{% endif %}{% if view_more_block.settings.button_text != blank %}--mb-text:{{ view_more_block.settings.button_text }};{% endif %}{% if view_more_block.settings.button_border != blank %}--mb-border:{{ view_more_block.settings.button_border }};{% endif %}"{% endif %}>
+                            <span class="hidden-on-load">{{ button_label }}</span>
+                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="spin opacity-0 icon-load">
+                              <use href="#icon-load"></use>
+                            </svg>
+                          </button>
+                        </loadmore-function>
+                      </div>
+                    {%- endpaginate -%}
+                  {%- else -%}
+                    <grid-custom
+                      class="swiper products-grid__items flex flex-cols{% if column_gap < 31 %} row-gap-20 row-gap-md-30{% endif %} flex-wrap"
+                      style="{{ col_style | strip | strip_newlines }}"
+                      data-enable="false"
+                      data-section-id="{{ sid }}"
+                      data-mobile="{{ items_per_row_mobile }}"
+                      data-mobile-rows="{{ st.rows_mobile | default: 1 }}"
+                      data-spacing="{{ column_gap }}"
+                      data-free-scroll="{{ data_free_scroll }}"
+                    >
+                      {%- for product in col_obj.products limit: products_to_show -%}
+                        {%- render 'product-item',
+                          card_product: product,
+                          container: section_width,
+                          colunm: items_per_row,
+                          colunm_mobile: items_per_row_mobile,
+                          padding: column_gap,
+                          scroll_animation: scroll_animation,
+                          section_id: sid,
+                          class: 'grid-custom-item',
+                          template_enable_action: true,
+                          template_enable_product_vendor: true,
+                          template_enable_rate: true,
+                          template_enable_product_short_description: true,
+                          template_enable_color_swatches: true,
+                          template_enable_price: true,
+                          template_enable_add_cart: true,
+                          indexFor: forloop.index,
+                          template_enable_product_badges: true
+                        -%}
+                      {%- endfor -%}
+                    </grid-custom>
+                  {%- endif -%}
+                {%- else -%}
+                  <div class="ti-tabs__empty">
+                    {{ st.empty_state_message | default: fb_accessibility_no_products_found }}
+                  </div>
+                {%- endif -%}
+              </div>
+            {%- endif -%}
+          {%- endfor -%}
+        </div>
+      </div>
+    {%- endif -%}
+  </div>
+</div>{% schema %}
+{
+  "name": "Product Tabs Navigation ",
+  "tag": "section",
+  "disabled_on": {
+    "groups": [
+      "header",
+      "footer",
+      "custom.overlay"
+    ]
+  },
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Section width",
+      "default": "fluid_container",
+      "options": [
+        {
+          "value": "container",
+          "label": "Default"
+        },
+        {
+          "value": "fluid_container",
+          "label": "Fluid container"
+        },
+        {
+          "value": "stretch_width",
+          "label": "Stretched"
+        },
+        {
+          "value": "full_width",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "reset_spacing",
+      "label": "Remove space between sections",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Products"
+    },
+    {
+      "type": "range",
+      "id": "items_to_show",
+      "label": "Products per tab",
+      "min": 1,
+      "max": 24,
+      "step": 1,
+      "default": 8
+    },
+    {
+      "type": "range",
+      "id": "items_per_row",
+      "label": "Products per row (desktop)",
+      "min": 2,
+      "max": 6,
+      "step": 1,
+      "default": 4
+    },
+    {
+      "type": "range",
+      "id": "rows",
+      "label": "Rows before Load more (desktop)",
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "default": 1
+    },
+    {
+      "type": "range",
+      "id": "column_gap",
+      "label": "Gap between products",
+      "min": 0,
+      "max": 50,
+      "step": 5,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "header",
+      "content": "Heading area"
+    },
+    {
+      "type": "paragraph",
+      "content": "Add a Heading and a Subheading block to write the title. Each follows your theme typography until you turn on its own style."
+    },
+    {
+      "type": "select",
+      "id": "content_alignment",
+      "label": "Alignment",
+      "default": "center",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "vertical_gap_heading_subheading",
+      "label": "Gap between heading and subheading",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "unit": "px",
+      "default": 10
+    },
+    {
+      "type": "header",
+      "content": "Tabs"
+    },
+    {
+      "type": "select",
+      "id": "tab_style",
+      "label": "Tab style",
+      "default": "pill",
+      "options": [
+        {
+          "value": "pill",
+          "label": "Pill"
+        },
+        {
+          "value": "button",
+          "label": "Button"
+        },
+        {
+          "value": "underline",
+          "label": "Underline"
+        },
+        {
+          "value": "text",
+          "label": "Plain text"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "tabs_alignment",
+      "label": "Tabs alignment",
+      "default": "center",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "tab_border_radius",
+      "label": "Corner radius",
+      "min": 0,
+      "max": 40,
+      "step": 1,
+      "unit": "px",
+      "default": 8,
+      "visible_if": "{{ section.settings.tab_style == 'button' }}"
+    },
+    {
+      "type": "range",
+      "id": "tab_padding_x",
+      "label": "Side padding",
+      "min": 0,
+      "max": 60,
+      "step": 1,
+      "unit": "px",
+      "default": 22
+    },
+    {
+      "type": "range",
+      "id": "tab_padding_y",
+      "label": "Top and bottom padding",
+      "min": 0,
+      "max": 30,
+      "step": 1,
+      "unit": "px",
+      "default": 10
+    },
+    {
+      "type": "range",
+      "id": "tab_gap",
+      "label": "Gap between tabs",
+      "min": 0,
+      "max": 40,
+      "step": 1,
+      "unit": "px",
+      "default": 10
+    },
+    {
+      "type": "range",
+      "id": "tab_unchecked_border_thickness",
+      "label": "Border thickness (inactive)",
+      "min": 0,
+      "max": 5,
+      "step": 1,
+      "unit": "px",
+      "default": 0,
+      "visible_if": "{{ section.settings.tab_style == 'pill' or section.settings.tab_style == 'button' }}"
+    },
+    {
+      "type": "range",
+      "id": "tab_checked_border_thickness",
+      "label": "Border thickness (active)",
+      "info": "Underline style: thickness of the line under the open tab (0 uses 2px).",
+      "min": 0,
+      "max": 5,
+      "step": 1,
+      "unit": "px",
+      "default": 0,
+      "visible_if": "{{ section.settings.tab_style != 'text' }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_tab_icon",
+      "label": "Show collection picture in tab",
+      "default": false
+    },
+    {
+      "type": "range",
+      "id": "tab_icon_size",
+      "label": "Picture size",
+      "min": 14,
+      "max": 60,
+      "step": 1,
+      "unit": "px",
+      "default": 22,
+      "visible_if": "{{ section.settings.show_tab_icon }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_product_count",
+      "label": "Show product count",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "show_nav_bottom_border",
+      "label": "Show line under tabs",
+      "default": false
+    },
+    {
+      "type": "range",
+      "id": "nav_bottom_border_thickness",
+      "label": "Line thickness",
+      "min": 1,
+      "max": 6,
+      "step": 1,
+      "unit": "px",
+      "default": 1,
+      "visible_if": "{{ section.settings.show_nav_bottom_border }}"
+    },
+    {
+      "type": "range",
+      "id": "gap_tabs_to_products",
+      "label": "Space between tabs and products",
+      "min": 0,
+      "max": 80,
+      "step": 1,
+      "unit": "px",
+      "default": 30
+    },
+    {
+      "type": "header",
+      "content": "Load more"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_load_more_button",
+      "label": "Show Load more button",
+      "info": "Legacy: used only when the section has no View more button block.",
+      "default": true,
+      "hidden": true,
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "text",
+      "id": "button_label",
+      "label": "Button label",
+      "default": "View More",
+      "hidden": true,
+      "info": "Legacy: used only when the section has no View more button block.",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "use_outline_button_style",
+      "label": "Outline button",
+      "default": false,
+      "hidden": true,
+      "info": "Legacy: used only when the section has no View more button block.",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "range",
+      "id": "gap_loadmore",
+      "label": "Space above View more",
+      "min": 0,
+      "max": 80,
+      "step": 1,
+      "unit": "px",
+      "default": 30
+    },
+    {
+      "type": "header",
+      "content": "Empty tab"
+    },
+    {
+      "type": "text",
+      "id": "empty_state_message",
+      "label": "Message",
+      "default": "No products found in this collection."
+    },
+    {
+      "type": "range",
+      "id": "empty_state_font_size",
+      "label": "Message size",
+      "min": 10,
+      "max": 32,
+      "step": 1,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_styling",
+      "label": "Enable custom styling",
+      "info": "Off: tabs follow the colour scheme, Theme settings > Buttons and Theme settings > Typography.",
+      "default": false
+    },
+    {
+      "type": "range",
+      "id": "tab_font_size",
+      "label": "Tab text size",
+      "min": 10,
+      "max": 30,
+      "step": 1,
+      "unit": "px",
+      "default": 14,
+      "visible_if": "{{ section.settings.enable_custom_styling }}"
+    },
+    {
+      "type": "select",
+      "id": "tab_font_weight",
+      "label": "Tab text weight",
+      "default": "500",
+      "visible_if": "{{ section.settings.enable_custom_styling }}",
+      "options": [
+        {
+          "value": "300",
+          "label": "Light"
+        },
+        {
+          "value": "400",
+          "label": "Normal"
+        },
+        {
+          "value": "500",
+          "label": "Medium"
+        },
+        {
+          "value": "600",
+          "label": "Semibold"
+        },
+        {
+          "value": "700",
+          "label": "Bold"
+        }
+      ]
+    },
+    {
+      "type": "color",
+      "id": "tab_unchecked_bg_color",
+      "label": "Background (inactive)",
+      "visible_if": "{{ section.settings.enable_custom_styling }}"
+    },
+    {
+      "type": "color",
+      "id": "tab_checked_bg_color",
+      "label": "Background (active)",
+      "visible_if": "{{ section.settings.enable_custom_styling }}"
+    },
+    {
+      "type": "color",
+      "id": "tab_unchecked_text_color",
+      "label": "Text (inactive)",
+      "visible_if": "{{ section.settings.enable_custom_styling }}"
+    },
+    {
+      "type": "color",
+      "id": "tab_checked_text_color",
+      "label": "Text (active)",
+      "visible_if": "{{ section.settings.enable_custom_styling }}"
+    },
+    {
+      "type": "color",
+      "id": "tab_hover_bg_color",
+      "label": "Background (hover)",
+      "visible_if": "{{ section.settings.enable_custom_styling }}"
+    },
+    {
+      "type": "color",
+      "id": "tab_hover_text_color",
+      "label": "Text (hover)",
+      "visible_if": "{{ section.settings.enable_custom_styling }}"
+    },
+    {
+      "type": "color",
+      "id": "tab_unchecked_border_color",
+      "label": "Border (inactive)",
+      "visible_if": "{{ section.settings.enable_custom_styling }}"
+    },
+    {
+      "type": "color",
+      "id": "tab_checked_border_color",
+      "label": "Border or underline (active)",
+      "visible_if": "{{ section.settings.enable_custom_styling }}"
+    },
+    {
+      "type": "color",
+      "id": "nav_bottom_border_color",
+      "label": "Line under tabs",
+      "visible_if": "{{ section.settings.enable_custom_styling and section.settings.show_nav_bottom_border }}"
+    },
+    {
+      "type": "color",
+      "id": "empty_state_text_color",
+      "label": "Empty message",
+      "visible_if": "{{ section.settings.enable_custom_styling }}"
+    },
+    {
+      "type": "header",
+      "content": "Animation"
+    },
+    {
+      "type": "select",
+      "id": "tab_switch_animation",
+      "label": "Switch animation",
+      "default": "fade",
+      "options": [
+        {
+          "value": "none",
+          "label": "None"
+        },
+        {
+          "value": "fade",
+          "label": "Fade"
+        },
+        {
+          "value": "fade-in",
+          "label": "Fade in up"
+        },
+        {
+          "value": "slide-up",
+          "label": "Slide up"
+        },
+        {
+          "value": "slide-down",
+          "label": "Slide down"
+        },
+        {
+          "value": "zoom-in",
+          "label": "Zoom in"
+        },
+        {
+          "value": "zoom-out",
+          "label": "Zoom out"
+        },
+        {
+          "value": "flip-x",
+          "label": "Flip X"
+        },
+        {
+          "value": "flip-y",
+          "label": "Flip Y"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "reveal",
+      "label": "Reveal section on scroll",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "scroll_animation",
+      "label": "Reveal style",
+      "default": "smooth-fade-up",
+      "visible_if": "{{ section.settings.reveal }}",
+      "options": [
+        {
+          "value": "none",
+          "label": "None"
+        },
+        {
+          "value": "fade-in",
+          "label": "Fade in"
+        },
+        {
+          "value": "fade",
+          "label": "Fade"
+        },
+        {
+          "value": "slide-in",
+          "label": "Slide in"
+        },
+        {
+          "value": "blur_up",
+          "label": "Blur up"
+        },
+        {
+          "value": "slide_side",
+          "label": "Slide from side"
+        },
+        {
+          "value": "mask_reveal",
+          "label": "Mask reveal"
+        },
+        {
+          "value": "smooth-fade-up",
+          "label": "Smooth fade up"
+        }
+      ]
+    },
+    {
+      "type": "header",
+      "content": "Desktop spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 200,
+      "step": 2,
+      "unit": "px",
+      "default": 30
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 200,
+      "step": 2,
+      "unit": "px",
+      "default": 30
+    },
+    {
+      "type": "range",
+      "id": "vertical_gap_subheading_section_desktop",
+      "label": "Space above tabs (desktop)",
+      "min": 0,
+      "max": 80,
+      "step": 1,
+      "unit": "px",
+      "default": 25
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_desktop",
+      "label": "Top margin (desktop)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "unit": "px",
+      "default": 0,
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_desktop",
+      "label": "Bottom margin (desktop)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "unit": "px",
+      "default": 0,
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "header",
+      "content": "Mobile"
+    },
+    {
+      "type": "range",
+      "id": "items_per_row_mobile",
+      "label": "Products per row (mobile)",
+      "info": "1.5 lets the row scroll sideways on phones.",
+      "min": 1,
+      "max": 2,
+      "step": 0.5,
+      "default": 2
+    },
+    {
+      "type": "range",
+      "id": "rows_mobile",
+      "label": "Rows (mobile)",
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "default": 1,
+      "hidden": true,
+      "info": "Not used: on phones the grid shows every product the tab has loaded.",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "tabs_full_width",
+      "label": "Stretch tabs across the row on mobile",
+      "default": false,
+      "info": "Each tab grows to share the row when the tabs fit."
+    },
+    {
+      "type": "range",
+      "id": "vertical_gap_subheading_section_mobile",
+      "label": "Space above tabs (mobile)",
+      "min": 0,
+      "max": 80,
+      "step": 1,
+      "unit": "px",
+      "default": 18
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_mobile",
+      "label": "Top margin (mobile)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "unit": "px",
+      "default": 0,
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_mobile",
+      "label": "Bottom margin (mobile)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "unit": "px",
+      "default": 0,
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    }
+  ],
+  "max_blocks": 10,
+  "blocks": [
+    {
+      "type": "heading",
+      "name": "Heading",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "inline_richtext",
+          "id": "heading",
+          "label": "Heading",
+          "default": "Featured Products"
+        },
+        {
+          "type": "select",
+          "id": "text_style",
+          "label": "Text style",
+          "default": "medium",
+          "info": "Follows Theme settings > Typography.",
+          "visible_if": "{{ block.settings.custom_style == false }}",
+          "options": [
+            {
+              "value": "large",
+              "label": "Large"
+            },
+            {
+              "value": "medium",
+              "label": "Medium"
+            },
+            {
+              "value": "small",
+              "label": "Small"
+            }
+          ]
+        },
+        {
+          "type": "select",
+          "id": "heading_size",
+          "label": "Theme text style",
+          "info": "Legacy: Text style replaces it. Medium keeps a heading saved as Heading 1 or Heading 3.",
+          "default": "h2",
+          "visible_if": "{{ false }}",
+          "options": [
+            {
+              "value": "h1",
+              "label": "Heading 1"
+            },
+            {
+              "value": "h2",
+              "label": "Heading 2"
+            },
+            {
+              "value": "h3",
+              "label": "Heading 3"
+            }
+          ],
+          "hidden": true
+        },
+        {
+          "type": "header",
+          "content": "Style"
+        },
+        {
+          "type": "checkbox",
+          "id": "custom_style",
+          "label": "Enable custom styling",
+          "info": "Off: colour, size and weight follow the colour scheme and Theme settings > Typography. On: the controls below are used.",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "heading_color",
+          "label": "Heading color",
+          "visible_if": "{{ block.settings.custom_style }}"
+        },
+        {
+          "type": "select",
+          "id": "heading_font_weight",
+          "label": "Heading font weight",
+          "default": "700",
+          "visible_if": "{{ block.settings.custom_style }}",
+          "options": [
+            {
+              "value": "300",
+              "label": "Light"
+            },
+            {
+              "value": "400",
+              "label": "Normal"
+            },
+            {
+              "value": "500",
+              "label": "Medium"
+            },
+            {
+              "value": "600",
+              "label": "Semibold"
+            },
+            {
+              "value": "700",
+              "label": "Bold"
+            }
+          ]
+        },
+        {
+          "type": "range",
+          "id": "heading_font_size_desktop",
+          "label": "Heading size (desktop)",
+          "min": 14,
+          "max": 80,
+          "step": 1,
+          "unit": "px",
+          "default": 28,
+          "visible_if": "{{ block.settings.custom_style }}"
+        },
+        {
+          "type": "range",
+          "id": "heading_font_size_mobile",
+          "label": "Heading size (mobile)",
+          "min": 12,
+          "max": 60,
+          "step": 1,
+          "unit": "px",
+          "default": 24,
+          "visible_if": "{{ block.settings.custom_style }}"
+        }
+      ]
+    },
+    {
+      "type": "subheading",
+      "name": "Subheading",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "richtext",
+          "id": "subheading",
+          "label": "Subheading",
+          "default": "<p>Pick a collection to see what is in it.</p>"
+        },
+        {
+          "type": "select",
+          "id": "text_size",
+          "label": "Theme text style",
+          "info": "Follows Theme settings > Typography.",
+          "default": "body",
+          "visible_if": "{{ block.settings.custom_style == false }}",
+          "options": [
+            {
+              "value": "body_large",
+              "label": "Body large"
+            },
+            {
+              "value": "body",
+              "label": "Body"
+            },
+            {
+              "value": "body_small",
+              "label": "Body small"
+            }
+          ]
+        },
+        {
+          "type": "range",
+          "id": "max_width",
+          "label": "Max width",
+          "min": 320,
+          "max": 1200,
+          "step": 20,
+          "unit": "px",
+          "default": 640
+        },
+        {
+          "type": "header",
+          "content": "Style"
+        },
+        {
+          "type": "checkbox",
+          "id": "custom_style",
+          "label": "Enable custom styling",
+          "info": "Off: colour, size and weight follow the colour scheme and Theme settings > Typography. On: the controls below are used.",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "subheading_color",
+          "label": "Subheading color",
+          "visible_if": "{{ block.settings.custom_style }}"
+        },
+        {
+          "type": "select",
+          "id": "subheading_font_weight",
+          "label": "Subheading font weight",
+          "default": "400",
+          "visible_if": "{{ block.settings.custom_style }}",
+          "options": [
+            {
+              "value": "300",
+              "label": "Light"
+            },
+            {
+              "value": "400",
+              "label": "Normal"
+            },
+            {
+              "value": "500",
+              "label": "Medium"
+            },
+            {
+              "value": "600",
+              "label": "Semibold"
+            },
+            {
+              "value": "700",
+              "label": "Bold"
+            }
+          ]
+        },
+        {
+          "type": "range",
+          "id": "subheading_font_size_desktop",
+          "label": "Subheading size (desktop)",
+          "min": 10,
+          "max": 40,
+          "step": 1,
+          "unit": "px",
+          "default": 16,
+          "visible_if": "{{ block.settings.custom_style }}"
+        },
+        {
+          "type": "range",
+          "id": "subheading_font_size_mobile",
+          "label": "Subheading size (mobile)",
+          "min": 10,
+          "max": 32,
+          "step": 1,
+          "unit": "px",
+          "default": 14,
+          "visible_if": "{{ block.settings.custom_style }}"
+        }
+      ]
+    },
+    {
+      "type": "collection",
+      "name": "Collection Tab",
+      "limit": 8,
+      "settings": [
+        {
+          "type": "collection",
+          "id": "collection",
+          "label": "Collection"
+        },
+        {
+          "type": "text",
+          "id": "collection_title",
+          "label": "Tab title",
+          "info": "Leave empty to use the collection's name."
+        },
+        {
+          "type": "image_picker",
+          "id": "tab_icon",
+          "label": "Tab picture",
+          "info": "Shown when Show collection picture in tab is on. Leave empty to use the collection's picture.",
+          "visible_if": "{{ section.settings.show_tab_icon }}"
+        }
+      ]
+    },
+    {
+      "type": "view_more",
+      "name": "View more button",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "paragraph",
+          "content": "Loads more products from the open tab. Shows only when the collection has more products than the rows show."
+        },
+        {
+          "type": "checkbox",
+          "id": "enabled",
+          "label": "Show button",
+          "default": true
+        },
+        {
+          "type": "text",
+          "id": "label",
+          "label": "Label",
+          "default": "View more"
+        },
+        {
+          "type": "select",
+          "id": "button_role",
+          "label": "Theme button",
+          "default": "primary",
+          "options": [
+            {
+              "value": "primary",
+              "label": "Primary"
+            },
+            {
+              "value": "secondary",
+              "label": "Secondary"
+            }
+          ]
+        },
+        {
+          "type": "select",
+          "id": "appearance",
+          "label": "Appearance",
+          "default": "theme",
+          "options": [
+            {
+              "value": "theme",
+              "label": "Theme setting"
+            },
+            {
+              "value": "outline",
+              "label": "Outline"
+            }
+          ]
+        },
+        {
+          "type": "header",
+          "content": "Custom style"
+        },
+        {
+          "type": "checkbox",
+          "id": "custom_style",
+          "label": "Enable custom styling",
+          "default": false
+        },
+        {
+          "type": "color",
+          "id": "button_background",
+          "label": "Background",
+          "visible_if": "{{ block.settings.custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "button_text",
+          "label": "Text",
+          "visible_if": "{{ block.settings.custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "button_border",
+          "label": "Border",
+          "visible_if": "{{ block.settings.custom_style }}"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Product Tabs Navigation",
+      "category": "Products",
+      "blocks": [
+        {
+          "type": "heading"
+        },
+        {
+          "type": "subheading"
+        },
+        {
+          "type": "collection"
+        },
+        {
+          "type": "collection"
+        },
+        {
+          "type": "collection"
+        },
+        {
+          "type": "view_more"
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

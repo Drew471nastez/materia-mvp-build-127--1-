@@ -2,254 +2,263 @@
 
 /**
  * ===========================================================================
- *  BROWSE THEMES
+ *  THE THEME MARKETPLACE, OVER THE WEBSITE PAGE
  * ===========================================================================
- * The page offered ten themes, which were the same sections dressed in ten
- * palettes: a search box, nine industry filters and a grid to choose between
- * things that did not really differ. Storelib offers one theme for now
- * (BROWSABLE_THEMES in lib/website-builder/theme-registry.ts), so the page
- * shows that one properly instead: on a desktop and on a phone, what is on
- * its home page, its palette and type, and one button.
+ * It was a page of its own (/app/website-builder/themes), reached by leaving
+ * the Website page. It is a layer over that page now: "Theme marketplace"
+ * beside Browse themes, and the Explore more themes card, open it where the
+ * creator is, and closing it leaves them where they were.
  *
- * Nothing on the page moves under the pointer. The cards used to rise 2px on
- * hover, which read as a bump rather than as depth; now only colour changes.
+ * ON A COMPUTER it is a large window: the title at the top left, a close
+ * button at the top right, the categories and the order under them, and a
+ * grid of big cover cards that scrolls (three to a row from 1280, two under).
+ * It comes up with a fade and a slight rise, and leaves the same way back.
  *
- * Everything is drawn from the theme's definition (theme-cover.tsx), so the
- * page paints in one frame. Add posts to the same route the website page
- * uses, and a full library opens the same dialog it does.
+ * ON A PHONE (under 768px) it is a full screen page that slides up over the
+ * Website page, one card to a row, inside the safe areas. The close button
+ * and the system's back both close it: the Website page pushes a history
+ * entry when it opens (website-builder-client.tsx), so Back lands on the
+ * page under it and not on wherever the creator was before.
+ *
+ * MOTION IS TRANSFORM AND OPACITY ONLY, 200 to 280ms, and the window is
+ * centred by its margins so the transform is free for the animation. With
+ * reduced motion there is none: it is there, then it is not. The page under
+ * it does not move: Radix holds the scroll without changing the page's
+ * width, and the Website page scrolls inside its own box anyway.
+ *
+ * Add goes through the Website page's own Add (the same request, the same
+ * row arriving in the library, the same full library sheet), so a card here
+ * and a card in the Browse themes row can never disagree.
  */
-
 import * as React from "react"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { ArrowRight, Check, ChevronLeft, Loader2, Plus } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { useToast } from "@/hooks/use-toast"
-import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
+import * as DialogPrimitive from "@radix-ui/react-dialog"
+import { ChevronDown, X } from "lucide-react"
+
+import { SCRIM } from "@/components/ui/scrim"
 import { cn } from "@/lib/utils"
-import { BROWSABLE_THEMES, THEME_INSTALL_LIMIT, type ThemeDefinition } from "@/lib/website-builder/theme-registry"
-import { type Cover, seedCover, watchCover } from "@/lib/website-builder/cover-refresh"
-import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
-import { ThemeCover, ThemePhoneCover, coverSpecFromDefinition } from "@/components/website-builder/theme-cover"
-import { LIBRARY_FULL_CODE } from "@/lib/website-builder/library-limit"
-import { LibraryFullDialog, type LibraryAction } from "../library-full-dialog"
 import { tt } from "@/lib/i18n/text"
+import { ThemeTemplateCard, type TemplateCardState } from "@/components/website-builder/theme-template-card"
+import { THEME_SORTS, categoryLabel, listingPath, sortListings, type ThemeListing, type ThemeSort } from "@/lib/themes/marketplace-shared"
 
-export function ThemeMarketplaceClient({
-  installedThemeIds,
-  slotsUsed,
-  library,
-}: {
-  installedThemeIds: string[]
-  slotsUsed: number
-  /** The websites taking the room, for the full-library dialog. */
-  library: { id: string; name: string; live: boolean }[]
-}) {
-  const router = useRouter()
-  const { toast } = useToast()
-  const [adding, setAdding] = React.useState<string | null>(null)
-  const [full, setFull] = React.useState<LibraryAction | null>(null)
-  // Added in this visit: the button flips to "In your library" without a reload.
-  const [added, setAdded] = React.useState<Set<string>>(() => new Set(installedThemeIds))
-  const used = slotsUsed + (added.size - new Set(installedThemeIds).size)
-  const slotsLeft = Math.max(0, THEME_INSTALL_LIMIT - used)
+/** In the address while the popup is open: /app/website-builder?themes=1 opens it, and a link can name a theme with &theme=slug. */
+export const THEMES_PARAM = "themes"
+export const THEME_PARAM = "theme"
+/** The Website page with the marketplace open. */
+export const THEMES_POPUP_PATH = `/app/website-builder?${THEMES_PARAM}=1`
 
-  /* Held by a ref: two taps in one frame both read the state from before the first. */
-  const inFlight = React.useRef(false)
-  const add = async (def: ThemeDefinition) => {
-    if (added.has(def.id) || inFlight.current) return
-    if (slotsLeft === 0) {
-      setFull("add")
-      return
-    }
-    inFlight.current = true
-    setAdding(def.id)
-    try {
-      const res = await fetch("/api/website-builder/themes/add", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ theme_id: def.id }),
-      })
-      if (!res.ok) {
-        const d = await res.json().catch(() => ({}))
-        /* Full by the server's count (another tab, say): the same sheet the button opens, not a toast. */
-        if (d.code === LIBRARY_FULL_CODE) {
-          setFull("add")
-          router.refresh()
-          return
-        }
-        toast({ title: d.error ?? tt("Could not add theme"), variant: "destructive" })
-        return
-      }
-      /* Its first picture, for the Website page this tab goes back to: kept now, or looked for while its photograph is taken. */
-      const made = (await res.json().catch(() => ({}))) as { install?: { id?: string }; cover?: Cover | null; cover_pending?: boolean }
-      const id = made.install?.id
-      if (id && made.cover?.url) seedCover(id, made.cover)
-      else if (id && made.cover_pending) void watchCover(id)
-      setAdded((prev) => new Set(prev).add(def.id))
-      toast({ title: tt("{name} added", { name: def.name }) })
-      router.refresh()
-    } catch {
-      toast({ title: tt("Could not add theme"), variant: "destructive" })
-    } finally {
-      inFlight.current = false
-      setAdding(null)
-    }
-  }
+/** How long the window takes to arrive and to leave. scripts/check-theme-popup.mjs reads these off the page. */
+export const POPUP_IN_MS = 260
+export const POPUP_OUT_MS = 200
+export const SUBPAGE_IN_MS = 280
+export const SUBPAGE_OUT_MS = 240
 
-  return (
-    <div className="h-full overflow-y-auto page-scroll bg-[#f8f9fa]">
-      <div className="app-page-enter mx-auto max-w-[1200px] app-gutter py-6">
-        {/* ── Header ─────────────────────────────────────────────── */}
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <Link
-              href="/app/website-builder"
-              onClick={() => startNavigationLoading()}
-              aria-label={tt("Back to Website")}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#e5e7eb] bg-white text-[#4b5563] shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-colors duration-150 hover:bg-[#f8f9fa] hover:text-[#1a1a2e]"
-            >
-              <ChevronLeft className="h-[18px] w-[18px]" strokeWidth={2.25} />
-            </Link>
-            <h1 className="truncate text-[24px] font-bold tracking-tight text-[#1a1a2e] sm:text-[28px]">{tt("Themes")}</h1>
-          </div>
-          <span className="shrink-0 rounded-md bg-white px-2 py-1 text-[12px] font-semibold tabular-nums text-[#4b5563] ring-1 ring-inset ring-[#e5e7eb]">
-            {/* A library from before the limit can hold more than it allows, and "7 of 5" reads as broken. */}
-            {used > THEME_INSTALL_LIMIT ? tt("{used} in library", { used }) : tt("{used} of {themeInstallLimit} in library", { used, themeInstallLimit: THEME_INSTALL_LIMIT })}
-          </span>
-        </div>
+/*
+  The window's motion. Keyframes rather than a transition: Radix keeps the
+  panel in the page for as long as its exit animation runs, and a transition
+  has nothing to run from on the frame the panel is first drawn.
+*/
+const MOTION = `
+@keyframes wb-themes-in { from { opacity: 0; transform: translate3d(0, 14px, 0) scale(0.975); } to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } }
+@keyframes wb-themes-out { from { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } to { opacity: 0; transform: translate3d(0, 10px, 0) scale(0.98); } }
+@keyframes wb-themes-up { from { transform: translate3d(0, 100%, 0); } to { transform: translate3d(0, 0, 0); } }
+@keyframes wb-themes-down { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(0, 100%, 0); } }
+@keyframes wb-themes-dim { from { opacity: 0; } to { opacity: 1; } }
+@keyframes wb-themes-undim { from { opacity: 1; } to { opacity: 0; } }
+[data-themes-scrim][data-state="open"] { animation: wb-themes-dim ${POPUP_IN_MS}ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+[data-themes-scrim][data-state="closed"] { animation: wb-themes-undim ${POPUP_OUT_MS}ms cubic-bezier(0.4, 0, 1, 1) both; }
+[data-themes-popup][data-state="open"] { animation: wb-themes-in ${POPUP_IN_MS}ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+[data-themes-popup][data-state="closed"] { animation: wb-themes-out ${POPUP_OUT_MS}ms cubic-bezier(0.4, 0, 1, 1) both; }
+@media (max-width: 767.98px) {
+  [data-themes-popup][data-state="open"] { animation: wb-themes-up ${SUBPAGE_IN_MS}ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+  [data-themes-popup][data-state="closed"] { animation: wb-themes-down ${SUBPAGE_OUT_MS}ms cubic-bezier(0.4, 0, 0.9, 0.6) both; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-themes-scrim][data-state], [data-themes-popup][data-state] { animation: none; }
+}
+`
 
-        <div className="mt-6 space-y-6 pb-8">
-          {BROWSABLE_THEMES.map((t) => (
-            <ThemeShowcase
-              key={t.id}
-              def={t}
-              inLibrary={added.has(t.id)}
-              busy={adding === t.id}
-              onAdd={() => void add(t)}
-            />
-          ))}
-        </div>
-      </div>
-
-      <LibraryFullDialog action={full} entries={library} onClose={() => setFull(null)} />
-    </div>
-  )
+export interface ThemeMarketplaceProps {
+  open: boolean
+  onClose: () => void
+  /** Every theme the marketplace offers, in its own order. */
+  listings: ThemeListing[]
+  /** Add, Adding or In library, for one theme. The Website page decides, as it does for its own row. */
+  stateOf: (listing: ThemeListing) => TemplateCardState
+  /** Another website is being made: every Add waits for it. */
+  waiting?: boolean
+  onAdd: (listing: ThemeListing) => void
+  /** A theme a link named (&theme=slug): brought into view when the popup opens. */
+  focusSlug?: string | null
+  /** What takes the focus back when it closes: the button that opened it. */
+  returnFocus?: () => HTMLElement | null
 }
 
-/** One theme, whole: previews on the left, what it is and the button on the right. */
-function ThemeShowcase({ def, inLibrary, busy, onAdd }: { def: ThemeDefinition; inLibrary: boolean; busy: boolean; onAdd: () => void }) {
-  const [device, setDevice] = React.useState<"desktop" | "phone">("desktop")
-  const spec = React.useMemo(() => coverSpecFromDefinition(def), [def])
-  const sections = React.useMemo(
-    () => def.homeSections.filter((s) => s !== "header" && s !== "footer").map((s) => SECTION_SCHEMAS[s]?.name ?? s.replace(/_/g, " ")),
-    [def],
+export function ThemeMarketplace({ open, onClose, listings, stateOf, waiting = false, onAdd, focusSlug = null, returnFocus }: ThemeMarketplaceProps) {
+  const [category, setCategory] = React.useState<string>("all")
+  const [sort, setSort] = React.useState<ThemeSort>("featured")
+  const scrim = React.useRef<HTMLDivElement>(null)
+  const panel = React.useRef<HTMLDivElement>(null)
+  const grid = React.useRef<HTMLDivElement>(null)
+
+  /*
+    Only the categories that have a theme in them (an empty one is a dead
+    end), and by the name a creator reads: two keys that are both shown as
+    "General" are one choice, not two buttons with the same word.
+  */
+  const categories = React.useMemo(() => [...new Set(listings.map((l) => categoryLabel(l.category)))], [listings])
+  const shown = React.useMemo(
+    () => sortListings(category === "all" ? listings : listings.filter((l) => categoryLabel(l.category) === category), sort),
+    [listings, category, sort],
   )
+  /* A category whose last theme went (the list changed under it) is not kept. */
+  if (category !== "all" && !categories.includes(category)) setCategory("all")
+
+  /* A theme a link named: in view, once the window is there. */
+  React.useEffect(() => {
+    if (!open || !focusSlug) return
+    const id = requestAnimationFrame(() => {
+      const card = Array.from(grid.current?.querySelectorAll<HTMLElement>("[data-template-card]") ?? []).find((el) => el.dataset.templateCard === focusSlug)
+      card?.scrollIntoView({ block: "center" })
+    })
+    return () => cancelAnimationFrame(id)
+  }, [open, focusSlug])
 
   return (
-    <article
-      data-theme-showcase=""
-      className="overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
-    >
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
-        {/* ── Preview ───────────────────────────────────────────── */}
-        <div className="relative border-b border-[#eceef1] bg-[#f3f4f6] app-card-x py-4 sm:py-6 lg:border-b-0 lg:border-r">
-          <div className="mb-4 flex justify-end">
-            <div role="group" aria-label={tt("Preview on")} className="flex rounded-lg bg-white p-0.5 shadow-[0_1px_2px_rgba(0,0,0,0.05)] ring-1 ring-inset ring-[#e5e7eb]">
-              {(["desktop", "phone"] as const).map((d) => (
-                <button
-                  key={d}
-                  type="button"
-                  onClick={() => setDevice(d)}
-                  aria-pressed={device === d}
-                  className={cn(
-                    "h-7 rounded-md px-3 text-[12.5px] font-medium capitalize transition-colors duration-150",
-                    device === d ? "bg-[#1a1a2e] text-white" : "text-[#6b7280] hover:text-[#1a1a2e]",
-                  )}
+    <>
+    {/* In the document's head, once, for as long as the page is there: the scrim and the window both need it to the last frame of their exit. */}
+    <style href="wb-themes-motion" precedence="default">{MOTION}</style>
+    <DialogPrimitive.Root open={open} onOpenChange={(next) => !next && onClose()}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay ref={scrim} data-themes-scrim="" className={cn("fixed inset-0 z-50 max-md:hidden", SCRIM)} />
+        <DialogPrimitive.Content
+          ref={panel}
+          data-themes-popup=""
+          aria-describedby={undefined}
+          tabIndex={-1}
+          /* The window itself takes the focus, so no button wears a ring it was not given by a key. */
+          onOpenAutoFocus={(e) => {
+            e.preventDefault()
+            panel.current?.focus({ preventScroll: true })
+          }}
+          onCloseAutoFocus={(e) => {
+            const back = returnFocus?.()
+            if (!back) return
+            e.preventDefault()
+            back.focus({ preventScroll: true })
+          }}
+          /*
+            Only a press on the dim itself closes it. The full library sheet
+            and a toast are drawn outside this window, and a press on either
+            is not a press to close the marketplace under them.
+          */
+          onPointerDownOutside={(e) => {
+            if (e.target !== scrim.current) e.preventDefault()
+          }}
+          onInteractOutside={(e) => {
+            if (e.target !== scrim.current) e.preventDefault()
+          }}
+          className={cn(
+            "fixed z-50 flex flex-col bg-[#f8f9fa] outline-none [will-change:transform,opacity]",
+            /* A phone: the whole screen. */
+            "max-md:inset-0",
+            /* A computer: a window in the middle, held there by its margins so the transform is the animation's alone. */
+            "md:inset-0 md:m-auto md:h-[min(880px,calc(100dvh-48px))] md:w-[min(1184px,calc(100vw-48px))] md:overflow-hidden md:rounded-2xl md:shadow-[0_0_0_1px_rgba(17,24,39,0.06),0_24px_64px_-24px_rgba(17,24,39,0.45),0_4px_12px_rgba(17,24,39,0.08)]",
+          )}
+        >
+          {/* ── Title, close, then the categories and the order ───────── */}
+          <header
+            data-themes-head=""
+            className="shrink-0 border-b border-[#e5e7eb]/80 bg-white pl-[max(16px,env(safe-area-inset-left))] pr-[max(16px,env(safe-area-inset-right))] pt-[env(safe-area-inset-top)] md:px-6"
+          >
+            <div className="flex h-14 items-center justify-between gap-3 md:h-16">
+              <div className="flex min-w-0 items-baseline gap-2.5">
+                <DialogPrimitive.Title className="truncate text-[18px] font-bold tracking-tight text-[#1a1a2e] md:text-[20px]">{tt("Theme marketplace")}</DialogPrimitive.Title>
+                <span className="shrink-0 text-[13px] font-medium tabular-nums text-[#6b7280]">{listings.length}</span>
+              </div>
+              <DialogPrimitive.Close
+                data-themes-close=""
+                aria-label={tt("Close")}
+                className="-mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-[#4b5563] outline-none transition-colors duration-150 pointer-fine:hover:bg-[#f3f4f6] pointer-fine:hover:text-[#1a1a2e] active:bg-[#eceef1] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 md:h-9 md:w-9 md:rounded-lg [-webkit-tap-highlight-color:transparent]"
+              >
+                <X className="h-5 w-5 md:h-[18px] md:w-[18px]" strokeWidth={2} />
+              </DialogPrimitive.Close>
+            </div>
+
+            <div className="flex items-center gap-3 pb-3">
+              {categories.length > 1 ? (
+                <div
+                  role="group"
+                  aria-label={tt("Category")}
+                  data-themes-categories=""
+                  className="-ml-4 flex min-w-0 flex-1 gap-1.5 overflow-x-auto pl-4 [scrollbar-width:none] md:ml-0 md:pl-0 [&::-webkit-scrollbar]:hidden"
                 >
-                  {d}
-                </button>
-              ))}
-            </div>
-          </div>
-          {/* Both are drawn and one is hidden, so switching never waits on a paint. */}
-          <div className={cn(device === "desktop" ? "block" : "hidden")}>
-            <div className="overflow-hidden rounded-xl bg-white shadow-[0_1px_2px_rgba(15,23,42,0.06),0_18px_40px_-20px_rgba(15,23,42,0.28)] ring-1 ring-black/[0.06]">
-              <div className="aspect-[16/10] w-full">
-                <ThemeCover spec={spec} className="h-full w-full" title={tt("{name} on a desktop", { name: def.name })} />
-              </div>
-            </div>
-          </div>
-          <div className={cn(device === "phone" ? "block" : "hidden")}>
-            <div className="mx-auto w-[220px] overflow-hidden rounded-[30px] border-[4px] border-white bg-white shadow-[0_1px_2px_rgba(15,23,42,0.08),0_22px_44px_-18px_rgba(15,23,42,0.35)] ring-1 ring-black/[0.08]">
-              <div className="aspect-[390/780]">
-                <ThemePhoneCover spec={spec} className="h-full w-full" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ── What it is ────────────────────────────────────────── */}
-        <div className="flex min-w-0 flex-col app-card-x py-5 sm:py-6">
-          <p className="text-[12px] font-medium text-[#6b7280]">{tt("Version {version}", { version: def.version })}</p>
-          <h2 className="mt-1 text-[22px] font-semibold tracking-tight text-[#1a1a2e]">{def.name}</h2>
-          <p className="mt-2 text-[14px] leading-[1.6] text-[#4b5563]">{def.description}</p>
-
-          <div className="mt-5">
-            {inLibrary ? (
-              <div className="flex items-center gap-2">
-                <span className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-emerald-50 px-3 text-[13.5px] font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/15">
-                  <Check className="h-4 w-4" />
-                  {tt("In your library")}
-                </span>
-                <Link
-                  href="/app/website-builder"
-                  onClick={() => startNavigationLoading()}
-                  className="inline-flex h-10 items-center gap-1 rounded-lg px-2.5 text-[13.5px] font-medium text-[#4b5563] transition-colors hover:bg-[#f3f4f6] hover:text-[#1a1a2e]"
+                  {["all", ...categories].map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      aria-pressed={category === c}
+                      data-themes-category={c}
+                      onClick={() => setCategory(c)}
+                      className={cn(
+                        "h-9 shrink-0 rounded-lg px-3 text-[13px] font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 md:h-8 [-webkit-tap-highlight-color:transparent]",
+                        category === c ? "bg-[#1a1a2e] text-white" : "bg-[#f3f4f6] text-[#4b5563] pointer-fine:hover:bg-[#eceef1] pointer-fine:hover:text-[#1a1a2e]",
+                      )}
+                    >
+                      {c === "all" ? tt("All") : tt(c)}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <span className="flex-1" />
+              )}
+              <label className="relative shrink-0">
+                <span className="sr-only">{tt("Sort by")}</span>
+                <select
+                  value={sort}
+                  data-themes-sort=""
+                  onChange={(e) => setSort(e.target.value as ThemeSort)}
+                  className="h-9 appearance-none rounded-lg border border-[#e5e7eb] bg-white pl-3 pr-8 text-[13px] font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.04)] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 md:h-8"
                 >
-                  {tt("Open library")}
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
-              </div>
-            ) : (
-              <Button onClick={onAdd} disabled={busy} className="h-10 w-full rounded-lg bg-[#1a1a2e] text-[14px] font-semibold text-white hover:bg-[#2d2d44] sm:w-auto sm:px-5">
-                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                {tt("Add to library")}
-              </Button>
-            )}
-          </div>
+                  {THEME_SORTS.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {tt(s.label)}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown aria-hidden className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#6b7280]" strokeWidth={2.25} />
+              </label>
+            </div>
+          </header>
 
-          <dl className="mt-6 divide-y divide-[#f0f1f3] border-y border-[#f0f1f3] text-[13px]">
-            <div className="flex items-center justify-between gap-4 py-2.5">
-              <dt className="text-[#6b7280]">{tt("Colours")}</dt>
-              <dd className="flex gap-1">
-                {[def.palette.primary, def.palette.accent, def.palette.heroBg, def.palette.bg, def.palette.surface].map((c, i) => (
-                  <span key={`${c}-${i}`} className="h-5 w-5 rounded-full ring-1 ring-inset ring-black/10" style={{ background: c }} title={c} />
-                ))}
-              </dd>
+          {/* ── The themes ────────────────────────────────────────────── */}
+          <div
+            data-themes-scroll=""
+            className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[calc(28px+env(safe-area-inset-bottom))] pl-[max(16px,env(safe-area-inset-left))] pr-[max(16px,env(safe-area-inset-right))] pt-5 md:px-6 md:pb-8 md:pt-6"
+          >
+            <div ref={grid} data-themes-grid="" className="grid grid-cols-1 gap-x-6 gap-y-8 md:grid-cols-2 md:gap-y-9 xl:grid-cols-3">
+              {shown.map((l, i) => {
+                const state = stateOf(l)
+                return (
+                  <ThemeTemplateCard
+                    key={l.slug}
+                    listing={l}
+                    size="lg"
+                    state={state}
+                    priority={i < 3}
+                    waiting={waiting}
+                    /* Its own page: the live preview where the theme has one, its demo store or its pictures where it does not. */
+                    previewHref={listingPath(l.slug)}
+                    /* A price or a plan: its page says the terms, as the Browse themes row does. */
+                    viewHref={l.tier !== "free" ? listingPath(l.slug) : null}
+                    onAdd={() => onAdd(l)}
+                  />
+                )
+              })}
             </div>
-            <div className="flex items-center justify-between gap-4 py-2.5">
-              <dt className="text-[#6b7280]">{tt("Headings")}</dt>
-              <dd className="font-medium text-[#1a1a2e]">{def.fonts.heading}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-4 py-2.5">
-              <dt className="text-[#6b7280]">{tt("Body")}</dt>
-              <dd className="font-medium text-[#1a1a2e]">{def.fonts.body}</dd>
-            </div>
-          </dl>
-
-          <div className="mt-5">
-            <p className="text-[12.5px] font-medium text-[#6b7280]">{tt("On the home page")}</p>
-            <ul className="mt-2 flex flex-wrap gap-1.5">
-              {sections.map((s, i) => (
-                <li key={`${s}-${i}`} className="rounded-md bg-[#f3f4f6] px-2 py-1 text-[12px] font-medium text-[#4b5563]">
-                  {s}
-                </li>
-              ))}
-            </ul>
           </div>
-        </div>
-      </div>
-    </article>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
+    </>
   )
 }

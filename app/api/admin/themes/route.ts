@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { adminFailure, requireAdmin } from "@/lib/admin/gate"
 import { recordAdminAction } from "@/lib/admin/audit"
 import { UUID_RE } from "@/lib/admin/platform-metrics"
-import { DEFAULT_LISTING_SLUG, mergeListings } from "@/lib/themes/marketplace-shared"
+import { mergeListings } from "@/lib/themes/marketplace-shared"
 import { parseListingInput, type ListingInput } from "@/lib/themes/marketplace-admin"
 import { LISTINGS_TABLE, LISTING_COLUMNS, PACKAGE_BUCKET, previewPathFor, readListingRows, revalidateMarketplace, rowToListing, type ListingRow } from "@/lib/themes/marketplace-server"
 import { STORELIB_DEFAULT_ID } from "@/lib/website-builder/theme-registry"
@@ -44,8 +44,13 @@ export async function POST(req: NextRequest) {
 
   const admin = createAdminClient()
   const id = typeof body?.id === "string" && UUID_RE.test(body.id) ? body.id : null
-  /* Storelib's own theme is listed from code; its first save makes the row that carries its cover and place. */
-  const builtin = body?.builtin === true || input.slug === DEFAULT_LISTING_SLUG
+  /*
+    A native registry theme's row, only when the form says so. The default
+    address is a template listed from code now (templates round 16): a row
+    saved for it dresses that template and must not name the native theme,
+    which mergeListings retires.
+  */
+  const builtin = body?.builtin === true
   const row: Record<string, unknown> = { ...input, updated_at: new Date().toISOString() }
   if (builtin && !id) row.builtin_theme_id = STORELIB_DEFAULT_ID
 

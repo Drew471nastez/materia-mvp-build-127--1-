@@ -1,0 +1,1179 @@
+<script src="{{ 'media-live-stats-reels.js' | asset_url }}" defer="defer"></script>
+{% render 'theme-type' %}
+{%- liquid
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+-%}
+{%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay), when "Reveal on scroll" is on. {%- endcomment -%}
+{%- if section.settings.reveal and settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
+<style>
+  #shopify-section-{{ section.id }}.scroll-trigger {
+    --animation-duration: {{ settings.animation_duration | default: 700 }}ms;
+    --animation-delay: {{ settings.animation_delay | default: 0 }}ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-{{ section.id }}');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', {{ settings.scroll_animation | json }});
+  })();
+</script>
+{%- endif -%}
+<style data-rs-bulletproof>
+  {%- if section.settings.reset_spacing -%}
+    /* reset_spacing: the theme's own space between sections is removed; the margin sliders below still apply */
+    #shopify-section-{{ section.id }} + .shopify-section,
+    #shopify-section-{{ section.id }} + section,
+    .shopify-section + #shopify-section-{{ section.id }} { margin-top: 0 !important; }
+  {%- endif -%}
+</style>
+{%- comment -%}
+  Materia Themes. Reels Wall.
+  Vertical 9:16 video tiles as a swipeable carousel or a grid. Muted videos
+  play only while in view (never under reduced motion), each tile has a play
+  and a sound button, an optional creator handle, side action counts, a
+  caption, a button and a product chip from the product picker. The carousel
+  is native scroll-snap with 44px arrows and page dots; the same slides lay
+  out as a grid. Every value is a CSS variable or attribute on the section
+  root, so shopify/assets/media-live-stats-reels.js applies builder edits in
+  place and runs the carousel and the videos.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign sid = section.id
+  assign custom = s.enable_custom_style
+  assign section_width = s.section_width | default: 'fluid_container'
+  assign display_mode = s.display_mode | default: 'carousel'
+  assign columns = s.columns | default: 4
+  assign columns_mobile = s.columns_mobile | default: 1
+  assign reels = section.blocks | where: 'type', 'reel'
+  assign pagination = s.carousel_pagination | default: 'show_dots'
+  assign dots = 'dots'
+  if pagination == 'disable'
+    assign dots = 'none'
+  elsif s.pagination_style == 'progress'
+    assign dots = 'progress'
+  endif
+  assign mobile_only = false
+  if pagination == 'show_dots_on_mobile'
+    assign mobile_only = true
+  endif
+  case s.card_shape
+    when 'square'
+      assign radius = '0px'
+    when 'pill'
+      assign radius = '28px'
+    else
+      assign radius = '18px'
+  endcase
+  assign bg = s.custom_section_bg
+  if bg == blank or bg.alpha == 0
+    assign bg = s.section_bg
+  endif
+  case s.header_alignment
+    when 'center'
+      assign align = 'center'
+    when 'right'
+      assign align = 'right'
+    else
+      assign align = 'left'
+  endcase
+-%}
+{%- capture rw_style -%}
+--section-pt: {{ s.padding_top | default: 0 }}; --section-pb: {{ s.padding_bottom | default: 0 }};
+--rw-align: {{ align }}; --rw-overlay: {{ s.overlay_strength | default: 0 | divided_by: 100.0 }}; --rw-radius: {{ radius }};
+--rw-heading-size: {{ s.custom_heading_size | default: 15 }}px; --rw-caption-size: {{ s.custom_caption_size | default: 12 }}px;
+{%- render 'media-msr-var', name: '--rw-bg', color: bg, on: custom -%}
+{%- render 'media-msr-var', name: '--rw-tile-bg', color: s.tile_bg, on: custom -%}
+{%- render 'media-msr-var', name: '--rw-accent', color: s.accent_color, on: custom -%}
+{%- render 'media-msr-var', name: '--rw-tile-text', color: s.custom_tile_text, on: custom -%}
+{%- render 'media-msr-var', name: '--rw-heading-color', color: s.custom_heading_color, on: custom -%}
+{%- render 'media-msr-var', name: '--rw-eyebrow-color', color: s.custom_eyebrow_color, on: custom -%}
+{%- render 'media-msr-var', name: '--mb-bg', color: s.custom_cta_bg, on: custom -%}
+{%- render 'media-msr-var', name: '--mb-border', color: s.custom_cta_bg, on: custom -%}
+{%- render 'media-msr-var', name: '--mb-text', color: s.custom_cta_text, on: custom -%}
+{%- if s.enable_custom_fonts -%}
+  {%- if s.heading_font.family != blank -%}--rw-hfont: {{ s.heading_font.family }}, {{ s.heading_font.fallback_families | default: 'serif' }};{%- endif -%}
+  {%- if s.body_font.family != blank -%}--rw-bfont: {{ s.body_font.family }}, {{ s.body_font.fallback_families | default: 'sans-serif' }};{%- endif -%}
+{%- endif -%}
+{%- endcapture -%}
+{% render 'media-msr-carousel-css', sid: sid %}
+<style>
+  {%- if s.enable_custom_fonts -%}
+    {%- if s.heading_font.family != blank -%}{{ s.heading_font | font_face: font_display: 'swap' }}{%- endif -%}
+    {%- if s.body_font.family != blank -%}{{ s.body_font | font_face: font_display: 'swap' }}{%- endif -%}
+  {%- endif -%}
+  /* Margin sliders always apply, also when the theme's section spacing is removed. */
+  #shopify-section-{{ sid }}#shopify-section-{{ sid }} {
+    --msr-mt-m: {{ s.section_margin_top_mobile | default: 0 }}px; --msr-mb-m: {{ s.section_margin_bottom_mobile | default: 0 }}px;
+    --msr-mt-d: {{ s.section_margin_top_desktop | default: 0 }}px; --msr-mb-d: {{ s.section_margin_bottom_desktop | default: 0 }}px;
+    margin-top: var(--msr-mt-m) !important; margin-bottom: var(--msr-mb-m) !important;
+  }
+  @media (min-width: 768px) {
+    #shopify-section-{{ sid }}#shopify-section-{{ sid }} { margin-top: var(--msr-mt-d) !important; margin-bottom: var(--msr-mb-d) !important; }
+  }
+  #shopify-section-{{ sid }} .rw { background: var(--rw-bg, var(--color-background)); font-family: var(--rw-bfont, var(--body-font)); }
+  #shopify-section-{{ sid }} .rw *, #shopify-section-{{ sid }} .rw *::before, #shopify-section-{{ sid }} .rw *::after { box-sizing: border-box; }
+  /* Width and side gutters come from the theme's container classes (critical.css). */
+  #shopify-section-{{ sid }} .rw__inner { margin-inline: auto; }
+  #shopify-section-{{ sid }} .rw__inner.full_width { max-width: none; padding-inline: 0; }
+  #shopify-section-{{ sid }} .rw__header { text-align: var(--rw-align); margin-bottom: 30px; }
+  #shopify-section-{{ sid }} .rw__header > * { margin: var(--b-above, 0px) 0 var(--b-below, 0px); font-size: var(--b-size-m); }
+  #shopify-section-{{ sid }} .rw__eyebrow { color: var(--rw-eyebrow-color, var(--color-text)); font-weight: var(--b-weight, var(--subheading-weight, 600)); }
+  #shopify-section-{{ sid }} .rw__header > .rw__heading { font-size: var(--b-size-m, calc(var(--heading-font-scale, 1) * var(--size, 3.6rem))); }
+  #shopify-section-{{ sid }} .rw__heading { color: var(--rw-heading-color, var(--color-heading)); font-family: var(--rw-hfont, var(--heading-font)); font-weight: var(--b-weight, var(--heading-weight, 700)); }
+  #shopify-section-{{ sid }} .rw__sub { color: var(--color-text); font-weight: var(--b-weight, var(--body-weight, 400)); }
+  #shopify-section-{{ sid }} .rw__sub p { margin: 0; }
+
+  /* Tile: a dark media surface; text on it is light so it reads over any video. */
+  #shopify-section-{{ sid }} .rw-tile {
+    position: relative; aspect-ratio: 9 / 16; overflow: hidden; isolation: isolate; display: block;
+    border-radius: var(--rw-radius); background: var(--rw-tile-bg, #111); color: var(--rw-tile-text, #fff);
+  }
+  #shopify-section-{{ sid }} .rw-tile > :is(video, img, iframe) { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border: 0; }
+  #shopify-section-{{ sid }} .rw-tile > img.rw-tile__placeholder { opacity: .16; }
+  #shopify-section-{{ sid }} .rw-tile__overlay {
+    position: absolute; inset: 0; z-index: 1; pointer-events: none;
+    background: linear-gradient(to top, rgb(0 0 0 / calc(var(--rw-overlay) * 1.6)) 0%, rgb(0 0 0 / calc(var(--rw-overlay) * 0.5)) 35%, transparent 65%);
+  }
+  #shopify-section-{{ sid }} .rw-tile__link { position: absolute; inset: 0; z-index: 2; }
+  #shopify-section-{{ sid }} .rw-tile__link:focus-visible { outline: 3px solid var(--rw-accent, var(--color-heading)); outline-offset: -3px; border-radius: var(--rw-radius); }
+  #shopify-section-{{ sid }} .rw-handle {
+    position: absolute; top: 10px; left: 10px; z-index: 3; display: inline-flex; align-items: center; gap: 8px; max-width: calc(100% - 120px);
+    padding: 5px 10px 5px 5px; background: rgb(0 0 0 / .5); border-radius: 999px; font-size: 12px; font-weight: 600; pointer-events: none;
+  }
+  #shopify-section-{{ sid }} .rw-handle span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #shopify-section-{{ sid }} .rw-handle img, #shopify-section-{{ sid }} .rw-handle__avatar-fallback { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; flex: 0 0 auto; }
+  #shopify-section-{{ sid }} .rw-handle__avatar-fallback { background: var(--rw-accent, var(--color-primary)); display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px; }
+  #shopify-section-{{ sid }} .rw-buttons { position: absolute; top: 6px; right: 6px; z-index: 3; display: flex; }
+  #shopify-section-{{ sid }} .rw-round {
+    width: 44px; height: 44px; padding: 0; border: 0; background: none; color: #fff; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  #shopify-section-{{ sid }} .rw-round svg { width: 32px; height: 32px; padding: 8px; border-radius: 50%; background: rgb(0 0 0 / .5); }
+  #shopify-section-{{ sid }} .rw-round:focus-visible { outline: 2px solid #fff; outline-offset: -2px; border-radius: 50%; }
+  #shopify-section-{{ sid }} .rw-play .icon-pause, #shopify-section-{{ sid }} .rw-play.is-playing .icon-play,
+  #shopify-section-{{ sid }} .rw-sound .icon-on, #shopify-section-{{ sid }} .rw-sound.is-on .icon-off { display: none; }
+  #shopify-section-{{ sid }} .rw-play.is-playing .icon-pause, #shopify-section-{{ sid }} .rw-sound.is-on .icon-on { display: block; }
+  #shopify-section-{{ sid }} .rw[data-unmute='false'] .rw-sound,
+  #shopify-section-{{ sid }} .rw[data-handle='false'] .rw-handle,
+  #shopify-section-{{ sid }} .rw[data-actions='false'] .rw-actions { display: none; }
+  #shopify-section-{{ sid }} .rw-actions { position: absolute; right: 4px; bottom: 96px; z-index: 3; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  #shopify-section-{{ sid }} .rw-action {
+    min-width: 44px; min-height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    padding: 2px; border: 0; background: none; color: #fff; cursor: pointer; font: inherit; font-size: 11px; text-shadow: 0 1px 4px rgb(0 0 0 / .5);
+  }
+  #shopify-section-{{ sid }} .rw-action svg { width: 28px; height: 28px; filter: drop-shadow(0 2px 6px rgb(0 0 0 / .4)); }
+  #shopify-section-{{ sid }} .rw-action[aria-pressed='true'] svg path { fill: var(--rw-accent, currentColor); }
+  #shopify-section-{{ sid }} .rw-action:focus-visible { outline: 2px solid #fff; outline-offset: -2px; border-radius: 8px; }
+  #shopify-section-{{ sid }} .rw-content {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; padding: 14px 56px 14px 14px;
+    display: flex; flex-direction: column; align-items: flex-start; gap: 8px; pointer-events: none;
+  }
+  #shopify-section-{{ sid }} .rw-content > * { pointer-events: auto; margin: 0; max-width: 100%; }
+  #shopify-section-{{ sid }} .rw-content__heading { font-family: var(--rw-hfont, var(--heading-font)); font-size: var(--rw-heading-size); font-weight: var(--heading-weight, 600); line-height: 1.3; color: var(--rw-tile-text, #fff); pointer-events: none; }
+  #shopify-section-{{ sid }} .rw-content__caption {
+    font-size: var(--rw-caption-size); line-height: 1.4; opacity: .92; color: var(--rw-tile-text, #fff); pointer-events: none;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  #shopify-section-{{ sid }} .rw-cta { --mb-padding-y: 8px; --mb-padding-x: 16px; --mb-font-size: 13px; }
+  #shopify-section-{{ sid }} .rw-product {
+    display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 6px 12px 6px 6px; border-radius: 999px;
+    background: var(--color-background); color: var(--color-heading); text-decoration: none; box-shadow: 0 4px 14px rgb(0 0 0 / .18);
+  }
+  #shopify-section-{{ sid }} .rw-product:focus-visible { outline: 2px solid var(--color-heading); outline-offset: 2px; }
+  #shopify-section-{{ sid }} .rw-product img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex: 0 0 auto; }
+  #shopify-section-{{ sid }} .rw-product__text { display: flex; flex-direction: column; min-width: 0; }
+  #shopify-section-{{ sid }} .rw-product__name { font-size: 12px; font-weight: 600; line-height: 1.2; max-width: 16ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #shopify-section-{{ sid }} .rw-product__price { font-size: 11px; color: var(--color-text); }
+  @media (min-width: 768px) {
+    #shopify-section-{{ sid }} .rw__header { margin-bottom: 40px; }
+    #shopify-section-{{ sid }} .rw__header > * { font-size: var(--b-size-d); }
+    #shopify-section-{{ sid }} .rw__header > .rw__heading { font-size: var(--b-size-d, calc(var(--heading-font-scale, 1) * var(--size, 3.6rem))); }
+  }
+</style>
+
+<div class="section rw color-{{ color_scheme }} gradient{% if s.padding_top < 30 %} pt-min{% endif %}{% if s.padding_bottom < 30 %} pb-min{% endif %}" data-msr="reels"{% if s.enable_custom_fonts %} data-own-font{% endif %} data-msr-autoplay="{% if s.autoplay_videos %}on{% else %}off{% endif %}" data-msr-section="{{ sid }}" data-msr-settings="{{ s | json | escape }}" data-msr-defaults='{"color_scheme":"default-color-scheme","section_width":"fluid_container","reset_spacing":true,"header_alignment":"left","show_handle":true,"show_actions":true,"display_mode":"carousel","columns":4,"column_gap":14,"show_arrow":false,"carousel_pagination":"show_dots","pagination_style":"pill","pagination_position":"center","autoplay_videos":true,"loop_videos":true,"show_unmute":true,"card_shape":"rounded","overlay_strength":25,"enable_custom_style":false,"enable_custom_fonts":false,"heading_font":"assistant_n4","body_font":"assistant_n4","custom_heading_size":15,"custom_caption_size":12,"reveal":true,"padding_top":40,"padding_bottom":40,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"columns_mobile":1,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0}' data-msr-block-defaults='{"top_text":{"text":"New","font_size_desktop":15,"font_size_mobile":14,"enable_custom_weight":false,"font_weight":"600","space_above":0,"space_below":6},"heading":{"text":"Trending reels","size_enable":false,"font_size_desktop":40,"font_size_mobile":28,"enable_custom_weight":false,"font_weight":"700","space_above":0,"space_below":10},"subheading":{"font_size_desktop":17,"font_size_mobile":15,"enable_custom_weight":false,"font_weight":"400","space_above":0,"space_below":0},"reel":{"heading":"New drop just landed","cta_label":"Shop now","username":"@yourstore","show_block_actions":true,"likes":"12.4K","shares":"320","saves":"1.2K"}}' data-handle="{{ s.show_handle }}" data-actions="{{ s.show_actions }}" data-unmute="{{ s.show_unmute }}" style="{{ rw_style | strip_newlines }}">
+  <div class="rw__inner {{ section_width }}">
+    {%- liquid
+      assign has_header_blocks = false
+      for block in section.blocks
+        if block.type == 'heading' or block.type == 'top_text' or block.type == 'subheading'
+          assign has_header_blocks = true
+          break
+        endif
+      endfor
+    -%}
+    {%- if has_header_blocks -%}
+      <div class="rw__header">
+        {%- for block in section.blocks -%}
+          {%- assign hb = block.settings -%}
+          {%- capture hb_style -%}{% if block.type != 'heading' or hb.size_enable %}--b-size-m: {{ hb.font_size_mobile }}px; --b-size-d: {{ hb.font_size_desktop }}px;{% endif %} --b-above: {{ hb.space_above | default: 0 }}px; --b-below: {{ hb.space_below | default: 0 }}px;{% if hb.enable_custom_weight %} --b-weight: {{ hb.font_weight }};{% endif %}{%- endcapture -%}
+          {%- case block.type -%}
+            {%- when 'top_text' -%}
+              <p class="rw__eyebrow" data-msr-block="{{ block.id }}"{% if hb.enable_custom_weight %} data-own-weight{% endif %} data-msr-type="top_text" data-msr-settings="{{ hb | json | escape }}" style="{{ hb_style }}"{% if hb.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ hb.text }}</p>
+            {%- when 'heading' -%}
+              <h2 class="rw__heading" data-msr-block="{{ block.id }}"{% if hb.enable_custom_weight %} data-own-weight{% endif %} data-msr-type="heading" data-msr-settings="{{ hb | json | escape }}" style="{{ hb_style }}"{% if hb.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ hb.text }}</h2>
+            {%- when 'subheading' -%}
+              <div class="rw__sub" data-msr-block="{{ block.id }}"{% if hb.enable_custom_weight %} data-own-weight{% endif %} data-msr-type="subheading" data-msr-settings="{{ hb | json | escape }}" style="{{ hb_style }}"{% if hb.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ hb.text }}</div>
+          {%- endcase -%}
+        {%- endfor -%}
+      </div>
+    {%- endif -%}
+
+    {%- if reels.size > 0 -%}
+      <div class="msr-car" data-msr-carousel data-mode="{{ display_mode }}" style="--msr-cols-m: {{ columns_mobile }}; --msr-cols-d: {{ columns }}; --msr-gap: {{ s.column_gap | default: 0 }}px; --msr-p-m: {{ reels.size | minus: columns_mobile | plus: 1 | at_least: 1 }}; --msr-p-d: {{ reels.size | minus: columns | plus: 1 | at_least: 1 }};">
+        <div class="msr-car__track" data-msr-track tabindex="0" role="region" aria-roledescription="carousel" aria-label="{{ 'accessibility.media' | t | escape }}">
+          {%- for block in reels -%}
+            <div class="msr-car__slide" data-msr-slide data-msr-block="{{ block.id }}" data-msr-type="reel" data-msr-settings="{{ block.settings | json | escape }}" role="group" aria-roledescription="slide" aria-label="{{ forloop.index }} / {{ reels.size }}" {{ block.shopify_attributes }}>
+              {%- render 'reel-tile', b: block.settings, s: s -%}
+            </div>
+          {%- endfor -%}
+        </div>
+        {%- render 'media-msr-carousel-controls', count: reels.size, cols_d: columns, cols_m: columns_mobile, loop: false, arrows: s.show_arrow, dots: dots, mobile_only: mobile_only, style: s.pagination_style, position: s.pagination_position -%}
+      </div>
+    {%- endif -%}
+  </div>
+</div>
+{%- comment -%} Carousel, video playback and live edits: shopify/assets/media-live-stats-reels.js (loaded on every page). {%- endcomment -%}
+
+{% schema %}
+{
+  "name": "Reels Wall",
+  "tag": "section",
+  "class": "section-reels-wall",
+  "disabled_on": {
+    "groups": [
+      "header",
+      "footer"
+    ]
+  },
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Section width",
+      "default": "fluid_container",
+      "options": [
+        {
+          "value": "container",
+          "label": "Default"
+        },
+        {
+          "value": "fluid_container",
+          "label": "Fluid container"
+        },
+        {
+          "value": "stretch_width",
+          "label": "Stretched"
+        },
+        {
+          "value": "full_width",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "reset_spacing",
+      "label": "Remove the theme's space between sections",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Content"
+    },
+    {
+      "type": "select",
+      "id": "header_alignment",
+      "label": "Heading alignment",
+      "default": "left",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "show_handle",
+      "label": "Show creator handle",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_actions",
+      "label": "Show side action icons",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "select",
+      "id": "display_mode",
+      "label": "Layout",
+      "default": "carousel",
+      "options": [
+        {
+          "value": "carousel",
+          "label": "Swipeable carousel"
+        },
+        {
+          "value": "grid",
+          "label": "Grid"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "columns",
+      "label": "Reels per row (desktop)",
+      "min": 2,
+      "max": 6,
+      "step": 1,
+      "default": 4
+    },
+    {
+      "type": "range",
+      "id": "column_gap",
+      "label": "Gap between reels",
+      "min": 0,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "default": 14
+    },
+    {
+      "type": "checkbox",
+      "id": "show_arrow",
+      "label": "Show arrows",
+      "default": false,
+      "visible_if": "{{ section.settings.display_mode == 'carousel' }}"
+    },
+    {
+      "type": "select",
+      "id": "carousel_pagination",
+      "label": "Page dots",
+      "default": "show_dots",
+      "options": [
+        {
+          "value": "disable",
+          "label": "Disable"
+        },
+        {
+          "value": "show_dots",
+          "label": "Show dots"
+        },
+        {
+          "value": "show_dots_on_mobile",
+          "label": "Mobile only"
+        }
+      ],
+      "visible_if": "{{ section.settings.display_mode == 'carousel' }}"
+    },
+    {
+      "type": "select",
+      "id": "pagination_style",
+      "label": "Page dots style",
+      "default": "pill",
+      "options": [
+        {
+          "value": "dot",
+          "label": "Dot"
+        },
+        {
+          "value": "pill",
+          "label": "Pill (active expands)"
+        },
+        {
+          "value": "line",
+          "label": "Line / bar"
+        },
+        {
+          "value": "square",
+          "label": "Square"
+        },
+        {
+          "value": "ring",
+          "label": "Ring (hollow)"
+        },
+        {
+          "value": "number",
+          "label": "Numbers"
+        },
+        {
+          "value": "progress",
+          "label": "Progress fill"
+        }
+      ],
+      "visible_if": "{{ section.settings.display_mode == 'carousel' and section.settings.carousel_pagination != 'disable' }}"
+    },
+    {
+      "type": "select",
+      "id": "pagination_position",
+      "label": "Page dots position",
+      "default": "center",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ],
+      "visible_if": "{{ section.settings.display_mode == 'carousel' and section.settings.carousel_pagination != 'disable' }}"
+    },
+    {
+      "type": "header",
+      "content": "Video"
+    },
+    {
+      "type": "checkbox",
+      "id": "autoplay_videos",
+      "label": "Play videos in view",
+      "default": true,
+      "info": "Muted, only while the reel is on screen, and never for visitors who ask for reduced motion."
+    },
+    {
+      "type": "checkbox",
+      "id": "loop_videos",
+      "label": "Loop videos",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_unmute",
+      "label": "Show sound button",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Reels"
+    },
+    {
+      "type": "select",
+      "id": "card_shape",
+      "label": "Reel corners",
+      "default": "rounded",
+      "options": [
+        {
+          "value": "rounded",
+          "label": "Rounded (18px)"
+        },
+        {
+          "value": "pill",
+          "label": "Pill (28px)"
+        },
+        {
+          "value": "square",
+          "label": "Square (no radius)"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "overlay_strength",
+      "label": "Bottom shade",
+      "min": 0,
+      "max": 80,
+      "step": 5,
+      "unit": "%",
+      "default": 25
+    },
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_style",
+      "label": "Enable custom styling",
+      "default": false
+    },
+    {
+      "type": "color",
+      "id": "custom_section_bg",
+      "label": "Background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "section_bg",
+      "label": "Background (legacy)",
+      "hidden": true,
+      "info": "Kept for saved content; used when Background is empty and custom styling is on.",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "color",
+      "id": "tile_bg",
+      "label": "Reel background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "accent_color",
+      "label": "Accent",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "custom_tile_text",
+      "label": "Reel text",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "custom_heading_color",
+      "label": "Heading",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "custom_eyebrow_color",
+      "label": "Top text",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "custom_cta_bg",
+      "label": "Button background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "custom_cta_text",
+      "label": "Button text",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "header",
+      "content": "Typography"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_fonts",
+      "label": "Enable custom fonts",
+      "default": false
+    },
+    {
+      "type": "font_picker",
+      "id": "heading_font",
+      "label": "Heading font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "font_picker",
+      "id": "body_font",
+      "label": "Body font",
+      "default": "assistant_n4",
+      "visible_if": "{{ section.settings.enable_custom_fonts }}"
+    },
+    {
+      "type": "range",
+      "id": "custom_heading_size",
+      "label": "Reel headline size",
+      "min": 11,
+      "max": 24,
+      "step": 1,
+      "unit": "px",
+      "default": 15
+    },
+    {
+      "type": "range",
+      "id": "custom_caption_size",
+      "label": "Reel caption size",
+      "min": 10,
+      "max": 18,
+      "step": 1,
+      "unit": "px",
+      "default": 12
+    },
+    {
+      "type": "header",
+      "content": "Animation"
+    },
+    {
+      "type": "checkbox",
+      "id": "reveal",
+      "label": "Reveal on scroll",
+      "default": true,
+      "info": "Uses the animation in Theme settings."
+    },
+    {
+      "type": "header",
+      "content": "Desktop spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 100,
+      "step": 2,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 100,
+      "step": 2,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_desktop",
+      "label": "Top margin (desktop px)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_desktop",
+      "label": "Bottom margin (desktop px)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0
+    },
+    {
+      "type": "header",
+      "content": "Mobile"
+    },
+    {
+      "type": "range",
+      "id": "columns_mobile",
+      "label": "Reels per row (mobile)",
+      "min": 1,
+      "max": 5,
+      "step": 0.1,
+      "default": 1
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_mobile",
+      "label": "Top margin (mobile px)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_mobile",
+      "label": "Bottom margin (mobile px)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0
+    }
+  ],
+  "blocks": [
+    {
+      "type": "top_text",
+      "name": "Top text",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "inline_richtext",
+          "id": "text",
+          "label": "Text",
+          "default": "New"
+        },
+        {
+          "type": "header",
+          "content": "Typography"
+        },
+        {
+          "type": "range",
+          "id": "font_size_desktop",
+          "label": "Font size (desktop)",
+          "min": 10,
+          "max": 90,
+          "step": 1,
+          "unit": "px",
+          "default": 15
+        },
+        {
+          "type": "range",
+          "id": "font_size_mobile",
+          "label": "Font size (mobile)",
+          "min": 9,
+          "max": 64,
+          "step": 1,
+          "unit": "px",
+          "default": 14
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_weight",
+          "label": "Custom font weight",
+          "default": false
+        },
+        {
+          "type": "select",
+          "id": "font_weight",
+          "label": "Font weight",
+          "default": "600",
+          "options": [
+            {
+              "value": "300",
+              "label": "Light"
+            },
+            {
+              "value": "400",
+              "label": "Normal"
+            },
+            {
+              "value": "500",
+              "label": "Medium"
+            },
+            {
+              "value": "600",
+              "label": "Semibold"
+            },
+            {
+              "value": "700",
+              "label": "Bold"
+            },
+            {
+              "value": "800",
+              "label": "Extra bold"
+            }
+          ],
+          "visible_if": "{{ block.settings.enable_custom_weight }}"
+        },
+        {
+          "type": "header",
+          "content": "Spacing"
+        },
+        {
+          "type": "range",
+          "id": "space_above",
+          "label": "Space above",
+          "min": 0,
+          "max": 80,
+          "step": 2,
+          "unit": "px",
+          "default": 0
+        },
+        {
+          "type": "range",
+          "id": "space_below",
+          "label": "Space below",
+          "min": 0,
+          "max": 80,
+          "step": 2,
+          "unit": "px",
+          "default": 6
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "name": "Heading",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "inline_richtext",
+          "id": "text",
+          "label": "Heading",
+          "default": "Trending reels"
+        },
+        {
+          "type": "header",
+          "content": "Typography"
+        },
+        {
+          "type": "checkbox",
+          "id": "size_enable",
+          "label": "Custom size",
+          "info": "Off: uses the theme's heading size.",
+          "default": false
+        },
+        {
+          "type": "range",
+          "id": "font_size_desktop",
+          "label": "Font size (desktop)",
+          "min": 10,
+          "max": 90,
+          "step": 1,
+          "unit": "px",
+          "default": 40,
+          "visible_if": "{{ block.settings.size_enable }}"
+        },
+        {
+          "type": "range",
+          "id": "font_size_mobile",
+          "label": "Font size (mobile)",
+          "min": 9,
+          "max": 64,
+          "step": 1,
+          "unit": "px",
+          "default": 28,
+          "visible_if": "{{ block.settings.size_enable }}"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_weight",
+          "label": "Custom font weight",
+          "default": false
+        },
+        {
+          "type": "select",
+          "id": "font_weight",
+          "label": "Font weight",
+          "default": "700",
+          "options": [
+            {
+              "value": "300",
+              "label": "Light"
+            },
+            {
+              "value": "400",
+              "label": "Normal"
+            },
+            {
+              "value": "500",
+              "label": "Medium"
+            },
+            {
+              "value": "600",
+              "label": "Semibold"
+            },
+            {
+              "value": "700",
+              "label": "Bold"
+            },
+            {
+              "value": "800",
+              "label": "Extra bold"
+            }
+          ],
+          "visible_if": "{{ block.settings.enable_custom_weight }}"
+        },
+        {
+          "type": "header",
+          "content": "Spacing"
+        },
+        {
+          "type": "range",
+          "id": "space_above",
+          "label": "Space above",
+          "min": 0,
+          "max": 80,
+          "step": 2,
+          "unit": "px",
+          "default": 0
+        },
+        {
+          "type": "range",
+          "id": "space_below",
+          "label": "Space below",
+          "min": 0,
+          "max": 80,
+          "step": 2,
+          "unit": "px",
+          "default": 10
+        }
+      ]
+    },
+    {
+      "type": "subheading",
+      "name": "Subheading",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "richtext",
+          "id": "text",
+          "label": "Text"
+        },
+        {
+          "type": "header",
+          "content": "Typography"
+        },
+        {
+          "type": "range",
+          "id": "font_size_desktop",
+          "label": "Font size (desktop)",
+          "min": 10,
+          "max": 90,
+          "step": 1,
+          "unit": "px",
+          "default": 17
+        },
+        {
+          "type": "range",
+          "id": "font_size_mobile",
+          "label": "Font size (mobile)",
+          "min": 9,
+          "max": 64,
+          "step": 1,
+          "unit": "px",
+          "default": 15
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_weight",
+          "label": "Custom font weight",
+          "default": false
+        },
+        {
+          "type": "select",
+          "id": "font_weight",
+          "label": "Font weight",
+          "default": "400",
+          "options": [
+            {
+              "value": "300",
+              "label": "Light"
+            },
+            {
+              "value": "400",
+              "label": "Normal"
+            },
+            {
+              "value": "500",
+              "label": "Medium"
+            },
+            {
+              "value": "600",
+              "label": "Semibold"
+            },
+            {
+              "value": "700",
+              "label": "Bold"
+            },
+            {
+              "value": "800",
+              "label": "Extra bold"
+            }
+          ],
+          "visible_if": "{{ block.settings.enable_custom_weight }}"
+        },
+        {
+          "type": "header",
+          "content": "Spacing"
+        },
+        {
+          "type": "range",
+          "id": "space_above",
+          "label": "Space above",
+          "min": 0,
+          "max": 80,
+          "step": 2,
+          "unit": "px",
+          "default": 0
+        },
+        {
+          "type": "range",
+          "id": "space_below",
+          "label": "Space below",
+          "min": 0,
+          "max": 80,
+          "step": 2,
+          "unit": "px",
+          "default": 0
+        }
+      ]
+    },
+    {
+      "type": "reel",
+      "name": "Reel",
+      "settings": [
+        {
+          "type": "text",
+          "id": "heading",
+          "label": "Headline",
+          "default": "New drop just landed"
+        },
+        {
+          "type": "text",
+          "id": "caption",
+          "label": "Caption"
+        },
+        {
+          "type": "text",
+          "id": "cta_label",
+          "label": "Button label",
+          "default": "Shop now"
+        },
+        {
+          "type": "url",
+          "id": "cta_link",
+          "label": "Button link",
+          "info": "Empty uses the tagged product. The whole reel opens it too."
+        },
+        {
+          "type": "product",
+          "id": "product",
+          "label": "Tagged product",
+          "info": "Shows the product image, title and price."
+        },
+        {
+          "type": "header",
+          "content": "Video"
+        },
+        {
+          "type": "video",
+          "id": "local_video",
+          "label": "Upload video",
+          "info": "9:16 vertical works best."
+        },
+        {
+          "type": "video_url",
+          "id": "video_url",
+          "label": "YouTube or Vimeo URL",
+          "accept": [
+            "youtube",
+            "vimeo"
+          ]
+        },
+        {
+          "type": "text",
+          "id": "video_url_direct",
+          "label": "Direct video URL (.mp4)"
+        },
+        {
+          "type": "image_picker",
+          "id": "poster_image",
+          "label": "Poster image"
+        },
+        {
+          "type": "header",
+          "content": "Creator handle"
+        },
+        {
+          "type": "image_picker",
+          "id": "avatar",
+          "label": "Avatar (small)"
+        },
+        {
+          "type": "text",
+          "id": "username",
+          "label": "Username",
+          "default": "@yourstore"
+        },
+        {
+          "type": "header",
+          "content": "Side actions"
+        },
+        {
+          "type": "checkbox",
+          "id": "show_block_actions",
+          "label": "Show action counts",
+          "default": true
+        },
+        {
+          "type": "text",
+          "id": "likes",
+          "label": "Likes",
+          "default": "12.4K",
+          "visible_if": "{{ block.settings.show_block_actions }}"
+        },
+        {
+          "type": "text",
+          "id": "shares",
+          "label": "Shares",
+          "default": "320",
+          "visible_if": "{{ block.settings.show_block_actions }}"
+        },
+        {
+          "type": "text",
+          "id": "saves",
+          "label": "Saves",
+          "default": "1.2K",
+          "visible_if": "{{ block.settings.show_block_actions }}"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Reels Wall",
+      "category": "Image and video",
+      "blocks": [
+        {
+          "type": "top_text"
+        },
+        {
+          "type": "heading"
+        },
+        {
+          "type": "subheading"
+        },
+        {
+          "type": "reel",
+          "settings": {
+            "username": "@yourstore",
+            "heading": "New drop",
+            "caption": "Say what is new in this drop.",
+            "cta_label": "Shop drop"
+          }
+        },
+        {
+          "type": "reel",
+          "settings": {
+            "username": "@yourstore",
+            "heading": "Behind the scenes",
+            "caption": "How it's made, in one short clip.",
+            "cta_label": "Watch more"
+          }
+        },
+        {
+          "type": "reel",
+          "settings": {
+            "username": "@yourstore",
+            "heading": "Customer favorite",
+            "caption": "Real reviewers, real reactions.",
+            "cta_label": "Read reviews"
+          }
+        },
+        {
+          "type": "reel",
+          "settings": {
+            "username": "@yourstore",
+            "heading": "Style guide",
+            "caption": "3 ways to wear it this week.",
+            "cta_label": "Get the look"
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

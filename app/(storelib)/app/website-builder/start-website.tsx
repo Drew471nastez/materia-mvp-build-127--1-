@@ -23,9 +23,12 @@
  *     tab's storage), and the words are sent exactly as they are.
  *   • Start from blank: the same website with only its header and footer,
  *     opened in the editor.
- *   • Browse themes: the theme page (/app/website-builder/themes), the way
- *     Add theme went before. It was a button on the Library heading; it is
- *     one door of three now, so there is one way to the themes, not two.
+ *   • Browse themes: the theme marketplace, opened over the page as a popup
+ *     (./themes/themes-client.tsx). It was a link to a page of its own.
+ *
+ * WHERE THIS IS DRAWN (templates round 16). Not on /app/website-builder any
+ * more: only on /app/website-builder/ai (./ai/page.tsx), which is that page
+ * with this section at the top and is reached by its address alone.
  *
  * A full library keeps the doors on screen, says why they cannot be used,
  * and each opens the full library sheet, where a draft can be removed
@@ -50,16 +53,12 @@
  * app/theme-dark.css already maps for the dark look.
  */
 import * as React from "react"
-import Link from "next/link"
 import { ArrowUp, ChevronRight, FilePlus2, LayoutGrid, Loader2, Sparkles } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { START_PROMPT_MAX } from "@/lib/website-builder/start-handoff"
 import type { StartMode } from "@/lib/website-builder/create-website"
 import { START_PRESETS, START_GENERATION, chipAction, presetFor, readStartDraft, saveStartDraft, startGeneration, type GenerationMode, type StartCategory, type StartOptions } from "@/lib/website-builder/ai-site/start-options"
-
-/** Where Browse themes goes: the theme page Add theme opened. */
-export const THEMES_PATH = "/app/website-builder/themes"
 
 /**
  * Each example: its id (sent as the category), the chip's words, and the
@@ -166,8 +165,8 @@ export function StartWebsite({
   blocked?: boolean
   onStart: (mode: StartMode, prompt?: string, options?: StartOptions) => void
   onFull: () => void
-  /** Browse themes was pressed and is leaving the page. */
-  onBrowse: () => void
+  /** Browse themes was pressed: the page opens the theme marketplace over itself, and gives the focus back to this door after. */
+  onBrowse: (opener: HTMLElement) => void
   /** The new AI builder (the agent engine) is on for this account: From scratch can be offered (round N). */
   agent?: boolean
 }) {
@@ -384,23 +383,16 @@ export function StartWebsite({
           >
             <DoorBody icon={<FilePlus2 className="h-4 w-4" strokeWidth={1.9} />} title={tt("Start from blank")} line={tt("An empty page with your header and footer")} busy={starting === "blank"} />
           </button>
-          <Link
-            href={THEMES_PATH}
+          <button
+            type="button"
             data-start-door="themes"
             aria-describedby={full ? "start-full-note" : undefined}
-            aria-haspopup={full ? "dialog" : undefined}
-            onClick={(e) => {
-              if (full) {
-                e.preventDefault()
-                onFull()
-                return
-              }
-              onBrowse()
-            }}
+            aria-haspopup="dialog"
+            onClick={(e) => (full ? onFull() : onBrowse(e.currentTarget))}
             className={cn(DOOR, full && "opacity-60")}
           >
             <DoorBody icon={<LayoutGrid className="h-4 w-4" strokeWidth={1.9} />} title={tt("Browse themes")} line={tt("Start from a ready-made design")} />
-          </Link>
+          </button>
           {fullNote && <div id="start-full-note">{fullNote}</div>}
         </div>
       </div>

@@ -1,0 +1,168 @@
+{
+  "sections": {
+    "heroproduct1_1": {
+      "type": "heroproduct1",
+      "settings": {
+        "media_height_desktop": 520,
+        "media_height_mobile": 300,
+        "content_max_width": 500,
+        "content_align_desktop": "left",
+        "content_align_mobile": "center",
+        "content_padding_left_desktop": 80,
+        "content_padding_right_desktop": 80,
+        "content_padding_left_mobile": 20,
+        "content_padding_right_mobile": 10,
+        "mobile_media_content_gap": 0,
+        "mobile_padding_top": 30,
+        "mobile_padding_bottom": 30,
+        "block_spacing": 20,
+        "full_width": true,
+        "content_width": 136,
+        "enable_custom_style": false,
+        "enable_custom_fonts": false,
+        "color_scheme": "scheme-7dae8b89-7a81-4c2c-b8e2-92533766f8ca",
+        "image_position": "left"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "heading": "Merch made properly",
+            "custom_font": false,
+            "font": "assistant_n4",
+            "enable_custom_font_weight": false,
+            "font_weight": "700",
+            "font_size_desktop": 44,
+            "font_size_mobile": 32,
+            "line_height_desktop": 1.2,
+            "line_height_mobile": 1.2
+          }
+        },
+        "paragraph_2": {
+          "type": "paragraph",
+          "settings": {
+            "text": "Tell your fans who you are and why you make merch. Keep it short and in your own voice.",
+            "custom_font": false,
+            "font": "assistant_n4",
+            "font_size_desktop": 18,
+            "font_size_mobile": 16,
+            "line_height_desktop": 1.5,
+            "line_height_mobile": 1.5
+          }
+        },
+        "button_3": {
+          "type": "button",
+          "settings": {
+            "button_label": "Shop all merch",
+            "button_link": "/collections/all",
+            "custom_font": false,
+            "font": "assistant_n4",
+            "font_size_desktop": 14,
+            "font_size_mobile": 13,
+            "padding_vertical": 12,
+            "padding_horizontal": 25,
+            "padding_vertical_mobile": 10,
+            "padding_horizontal_mobile": 20,
+            "border_radius": 6,
+            "border_radius_mobile": 6
+          }
+        },
+        "image_4": {
+          "type": "image",
+          "settings": {
+            "hero_image": "shopify://shop_images/merch-yellow-set.webp"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "paragraph_2",
+        "button_3",
+        "image_4"
+      ]
+    },
+    "text_columns_2": {
+      "type": "text-columns",
+      "settings": {
+        "color_scheme": "default"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "How we make it"
+          }
+        },
+        "column_2": {
+          "type": "column",
+          "settings": {
+            "label": "Blanks",
+            "heading": "Heavy cotton",
+            "text": "<p>Say which garments you print on and why.</p>"
+          }
+        },
+        "column_3": {
+          "type": "column",
+          "settings": {
+            "label": "Print",
+            "heading": "Printed to order",
+            "text": "<p>Explain how each piece is printed.</p>"
+          }
+        },
+        "column_4": {
+          "type": "column",
+          "settings": {
+            "label": "Waste",
+            "heading": "No dead stock",
+            "text": "<p>Nothing is made until somebody buys it.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "column_2",
+        "column_3",
+        "column_4"
+      ]
+    },
+    "image_and_video_text_3": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "image": "shopify://shop_images/merch-tees-rack.webp",
+        "image_alt": "T-shirts in several colours on a rail"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Every drop is limited"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Designs are on sale until the next drop. After that they are gone.</p>"
+          }
+        },
+        "button_3": {
+          "type": "button",
+          "settings": {
+            "label": "See what is out now",
+            "link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "button_3"
+      ]
+    }
+  },
+  "order": [
+    "heroproduct1_1",
+    "text_columns_2",
+    "image_and_video_text_3"
+  ]
+}

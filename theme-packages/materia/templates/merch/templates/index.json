@@ -1,0 +1,510 @@
+{
+  "sections": {
+    "heroproduct1_1": {
+      "type": "heroproduct1",
+      "settings": {
+        "media_height_desktop": 620,
+        "media_height_mobile": 360,
+        "content_max_width": 500,
+        "content_align_desktop": "left",
+        "content_align_mobile": "center",
+        "content_padding_left_desktop": 80,
+        "content_padding_right_desktop": 80,
+        "content_padding_left_mobile": 20,
+        "content_padding_right_mobile": 10,
+        "mobile_media_content_gap": 0,
+        "mobile_padding_top": 30,
+        "mobile_padding_bottom": 30,
+        "block_spacing": 20,
+        "full_width": true,
+        "content_width": 136,
+        "enable_custom_style": false,
+        "enable_custom_fonts": false,
+        "color_scheme": "default",
+        "image_position": "right"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "heading": "The new drop is here",
+            "custom_font": false,
+            "font": "assistant_n4",
+            "enable_custom_font_weight": false,
+            "font_weight": "700",
+            "font_size_desktop": 64,
+            "font_size_mobile": 38,
+            "line_height_desktop": 1.2,
+            "line_height_mobile": 1.2
+          }
+        },
+        "paragraph_2": {
+          "type": "paragraph",
+          "settings": {
+            "text": "Heavyweight tees, hoodies and caps. Printed to order and sent in five days.",
+            "custom_font": false,
+            "font": "assistant_n4",
+            "font_size_desktop": 18,
+            "font_size_mobile": 16,
+            "line_height_desktop": 1.5,
+            "line_height_mobile": 1.5
+          }
+        },
+        "button_3": {
+          "type": "button",
+          "settings": {
+            "button_label": "Shop the drop",
+            "button_link": "/collections/all",
+            "custom_font": false,
+            "font": "assistant_n4",
+            "font_size_desktop": 14,
+            "font_size_mobile": 13,
+            "padding_vertical": 12,
+            "padding_horizontal": 25,
+            "padding_vertical_mobile": 10,
+            "padding_horizontal_mobile": 20,
+            "border_radius": 6,
+            "border_radius_mobile": 6
+          }
+        },
+        "image_4": {
+          "type": "image",
+          "settings": {
+            "hero_image": "shopify://shop_images/merch-hero-tee.webp"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "paragraph_2",
+        "button_3",
+        "image_4"
+      ]
+    },
+    "scrolling_text_2": {
+      "type": "scrolling-text",
+      "settings": {
+        "text_size": 80,
+        "text_size_mobile": 40,
+        "font_weight": "700",
+        "duration": 40,
+        "direction": "normal",
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9"
+      },
+      "blocks": {
+        "word_1": {
+          "type": "word",
+          "settings": {
+            "text": "Tees.",
+            "use_outline_text": false
+          }
+        },
+        "word_2": {
+          "type": "word",
+          "settings": {
+            "text": "Hoodies.",
+            "use_outline_text": true
+          }
+        },
+        "word_3": {
+          "type": "word",
+          "settings": {
+            "text": "Caps.",
+            "use_outline_text": false
+          }
+        },
+        "word_4": {
+          "type": "word",
+          "settings": {
+            "text": "Crewnecks.",
+            "use_outline_text": true
+          }
+        },
+        "word_5": {
+          "type": "word",
+          "settings": {
+            "text": "Tees.",
+            "use_outline_text": false
+          }
+        },
+        "word_6": {
+          "type": "word",
+          "settings": {
+            "text": "Hoodies.",
+            "use_outline_text": true
+          }
+        }
+      },
+      "block_order": [
+        "word_1",
+        "word_2",
+        "word_3",
+        "word_4",
+        "word_5",
+        "word_6"
+      ]
+    },
+    "products_listing_3": {
+      "type": "products-listing",
+      "settings": {
+        "items_to_show": 8,
+        "items_per_row": 4,
+        "color_scheme": "default"
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Out now"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "This drop"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Available until the next one lands.</p>"
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "text": "Shop all merch",
+            "link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
+    },
+    "image_with_text_bento_4": {
+      "type": "image-with-text-bento",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Made to be worn out"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Thick cotton, proper prints, no shortcuts.</p>"
+          }
+        },
+        "text_card_3": {
+          "type": "text_card",
+          "settings": {
+            "heading": "240gsm cotton",
+            "body": "<p>Heavy enough to hold its shape wash after wash.</p>",
+            "col_span_desktop": "1",
+            "row_span_desktop": "1",
+            "card_style": "inverse",
+            "caption": "Fabric"
+          }
+        },
+        "text_card_4": {
+          "type": "text_card",
+          "settings": {
+            "heading": "Screen printed",
+            "body": "<p>Ink pressed into the fabric, so it does not crack or peel.</p>",
+            "col_span_desktop": "1",
+            "row_span_desktop": "1",
+            "card_style": "tint",
+            "caption": "Print"
+          }
+        },
+        "image_card_5": {
+          "type": "image_card",
+          "settings": {
+            "col_span_desktop": "1",
+            "row_span_desktop": "2",
+            "image": "shopify://shop_images/merch-folded-tees.webp"
+          }
+        },
+        "image_card_6": {
+          "type": "image_card",
+          "settings": {
+            "col_span_desktop": "1",
+            "row_span_desktop": "2",
+            "image": "shopify://shop_images/merch-hoodie.webp"
+          }
+        },
+        "image_card_7": {
+          "type": "image_card",
+          "settings": {
+            "col_span_desktop": "1",
+            "row_span_desktop": "1",
+            "image": "shopify://shop_images/merch-cap.webp"
+          }
+        },
+        "text_card_8": {
+          "type": "text_card",
+          "settings": {
+            "heading": "Printed to order",
+            "body": "<p>Made when you buy it and sent within five working days.</p>",
+            "col_span_desktop": "1",
+            "row_span_desktop": "1",
+            "card_style": "inverse",
+            "caption": "Delivery"
+          }
+        },
+        "image_card_9": {
+          "type": "image_card",
+          "settings": {
+            "col_span_desktop": "1",
+            "row_span_desktop": "1",
+            "image": "shopify://shop_images/merch-sweatshirt.webp"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "text_card_3",
+        "text_card_4",
+        "image_card_5",
+        "image_card_6",
+        "image_card_7",
+        "text_card_8",
+        "image_card_9"
+      ]
+    },
+    "steps_5": {
+      "type": "steps",
+      "settings": {
+        "color_scheme": "scheme-7dae8b89-7a81-4c2c-b8e2-92533766f8ca"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "How a drop works"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Three steps from order to doorstep.</p>"
+          }
+        },
+        "step_3": {
+          "type": "step",
+          "settings": {
+            "title": "Pick your size",
+            "description": "<p>Check the size chart and add it to your cart.</p>"
+          }
+        },
+        "step_4": {
+          "type": "step",
+          "settings": {
+            "title": "We print it",
+            "description": "<p>Your order is printed and checked by hand.</p>"
+          }
+        },
+        "step_5": {
+          "type": "step",
+          "settings": {
+            "title": "It ships",
+            "description": "<p>Sent within five working days, with tracking.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "step_3",
+        "step_4",
+        "step_5"
+      ]
+    },
+    "reviews2_6": {
+      "type": "reviews2",
+      "settings": {
+        "color_scheme": "default"
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Reviews"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "From the community"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Replace these with reviews from your own customers.</p>"
+          }
+        },
+        "review_4": {
+          "type": "review",
+          "settings": {
+            "body": "Write what this customer said about your product.",
+            "name": "Customer name",
+            "role": ""
+          }
+        },
+        "review_5": {
+          "type": "review",
+          "settings": {
+            "body": "Write what this customer said about your product.",
+            "name": "Customer name",
+            "role": ""
+          }
+        },
+        "review_6": {
+          "type": "review",
+          "settings": {
+            "body": "Write what this customer said about your product.",
+            "name": "Customer name",
+            "role": ""
+          }
+        },
+        "review_7": {
+          "type": "review",
+          "settings": {
+            "body": "Write what this customer said about your product.",
+            "name": "Customer name",
+            "role": ""
+          }
+        },
+        "review_8": {
+          "type": "review",
+          "settings": {
+            "body": "Write what this customer said about your product.",
+            "name": "Customer name",
+            "role": ""
+          }
+        },
+        "review_9": {
+          "type": "review",
+          "settings": {
+            "body": "Write what this customer said about your product.",
+            "name": "Customer name",
+            "role": ""
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "review_4",
+        "review_5",
+        "review_6",
+        "review_7",
+        "review_8",
+        "review_9"
+      ]
+    },
+    "faq_7": {
+      "type": "faq",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Sizing, shipping, returns"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Quick answers before you order.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "When will my order ship?",
+            "answer": "<p>Everything is printed after you order. It ships within five working days and you get a tracking link.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What sizes do you have?",
+            "answer": "<p>Tees and hoodies come in XS to 3XL. The size chart on each product has chest and length measurements.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I return merch?",
+            "answer": "<p>Yes, within 30 days if it is unworn. Misprints and damaged items are replaced free.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do you ship worldwide?",
+            "answer": "<p>Yes. Delivery prices for your country are shown at checkout.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6"
+      ]
+    },
+    "newsletter_8": {
+      "type": "newsletter",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "btn_text": "Notify me",
+        "note": "One email per drop. Unsubscribe any time."
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Do not miss the next drop"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Get an email the minute new merch goes live.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2"
+      ]
+    }
+  },
+  "order": [
+    "heroproduct1_1",
+    "scrolling_text_2",
+    "products_listing_3",
+    "image_with_text_bento_4",
+    "steps_5",
+    "reviews2_6",
+    "faq_7",
+    "newsletter_8"
+  ]
+}

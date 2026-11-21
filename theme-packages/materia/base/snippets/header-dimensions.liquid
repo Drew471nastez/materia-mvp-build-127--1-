@@ -1,0 +1,11 @@
+{%- comment -%}
+  The header's heights. The bar, the logo and the menu rules that read them
+  are in shopify/assets/header-layout.css; a height slider dragged in the
+  builder is applied in the next frame by shopify/assets/header-section.js.
+{%- endcomment -%}
+<style>
+  #shopify-section-{{ section.id }} {
+    --header-height-desktop: {{ section.settings.header_height | default: 64 }}px;
+    --header-height-mobile: {{ section.settings.header_height_mobile | default: section.settings.header_height | default: 64 }}px;
+  }
+</style>

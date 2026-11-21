@@ -1,0 +1,377 @@
+{%- comment -%}
+  Materia Themes. Developed By Materia Themes.
+{%- endcomment -%}
+{%- liquid
+  assign theme_st = settings
+  assign cart_note = theme_st.enable_cart_note
+  assign enable_gift_wrap = theme_st.enable_gift_wrap
+  assign show_currency_code = theme_st.show_currency_code
+  assign enable_discount_code = theme_st.enable_discount_code
+  assign gift_wrap_pr = all_products[theme_st.choose_gift_wrap_product]
+  assign gift_pr_id = gift_wrap_pr.id
+  assign gift_wrap = cart.items | where: 'product_id', gift_pr_id
+  if show_currency_code
+    assign gift_pr_price = gift_wrap_pr.selected_or_first_available_variant.price | money_with_currency
+  else
+    assign gift_pr_price = gift_wrap_pr.selected_or_first_available_variant.price | money
+  endif
+  assign show_estimate_shipping_rates = theme_st.cart_drawer_show_shipping_estimator
+  assign show_delivery_day = theme_st.show_delivery_day
+-%}
+{% liquid
+  assign discount_codes = cart.cart_level_discount_applications | where: 'type', 'discount_code' | map: 'title'
+  for item in cart.items
+    for allocation in item.line_level_discount_allocations
+      if allocation.discount_application.type == 'discount_code'
+        assign discount_codes = item.line_level_discount_allocations | slice: forloop.index0 | map: 'discount_application' | map: 'title' | concat: discount_codes
+      endif
+    endfor
+  endfor
+  assign discount_codes = discount_codes | uniq
+  if cart.discount_codes != blank
+    assign persisted_codes = cart.discount_codes | map: 'code'
+    assign discount_codes = discount_codes | concat: persisted_codes | uniq
+  endif
+%}
+{%- comment -%} part: 'row' draws the buttons, 'sheets' the panels they open; blank draws both. {%- endcomment -%}
+{%- if part != 'sheets' -%}
+<div class="cart-addons flex justify-center border-top">
+  {%- if cart_note -%}
+    <div data-id="not" class="mini_cart_note">
+      <button
+        type="button"
+        data-open="note"
+        aria-expanded="false"
+        aria-controls="note"
+        class="btn-reset pointer mini_cart_addon_btn show-overlay inline-flex align-center note relative"
+        aria-label=" {{- 'general.cart.note.title' | t -}}"
+      >
+        {%- render 'cart-tool-icon', name: 'note' -%}
+        <span class="cart-tool-label">
+          {{- 'general.cart.note.title' | t -}}
+        </span>
+      </button>
+    </div>
+  {%- endif -%}
+  {%- if enable_gift_wrap and gift_wrap_pr.variants.size == 1 -%}
+    <div data-id="gift" class="mini_cart_gift{% if gift_wrap != blank %} hidden{% endif %}">
+      <button
+        type="button"
+        data-open="gift"
+        aria-expanded="false"
+        aria-controls="gift"
+        class="btn-reset pointer mini_cart_addon_btn show-overlay inline-flex align-center gift relative"
+        aria-label=" {{- 'general.cart.gift.title' | t -}}"
+      >
+        {%- render 'cart-tool-icon', name: 'gift' -%}
+        <span class="cart-tool-label">
+          {{- 'general.cart.gift.title' | t -}}
+        </span>
+      </button>
+    </div>
+  {%- endif -%}
+  {%- if show_estimate_shipping_rates -%}
+    <div data-id="shipping" class="mini_cart_shipping lh-1">
+      <button
+        type="button"
+        data-open="shipping"
+        aria-expanded="false"
+        aria-controls="shipping"
+        class="btn-reset pointer mini_cart_addon_btn show-overlay inline-flex align-center shipping relative"
+        aria-label="{{- 'general.cart.shipping.title' | t -}}"
+      >
+        {%- render 'cart-tool-icon', name: 'shipping' -%}
+        <span class="cart-shipping-label">
+          {{- 'general.cart.shipping.title' | t -}}
+        </span>
+      </button>
+    </div>
+  {%- endif -%}
+  {% if enable_discount_code %}
+    <div data-id="coupon" class="mini_cart_coupon lh-1">
+      <button
+        aria-label="{{- 'general.cart.coupon.enter_discount_code' | t -}}"
+        type="button"
+        data-open="coupon"
+        aria-expanded="false"
+        aria-controls="coupon"
+        class="btn-reset pointer mini_cart_addon_btn show-overlay inline-flex align-center gift relative"
+      >
+        {%- render 'cart-tool-icon', name: 'coupon' -%}
+        <span class="cart-tool-label">
+          <span>{{ 'general.cart.coupon.enter_discount_code' | t }}</span>
+        </span>
+      </button>
+    </div>
+  {% endif %}
+</div>
+{%- endif -%}
+{%- if part != 'row' -%}
+{%- if cart_note -%}
+  <div
+    class="cart-footeraddon grey-bg absolute transition w-full z-10 p-30 left-0 bottom-0 border-top shadow pointer-none cart__addon-content"
+    id="note"
+    role="dialog"
+    aria-label="{{ 'general.cart.note.title' | t | escape }}"
+  >
+    <div class="cart-sheet__grab" data-sheet-grab aria-hidden="true"></div>
+    <div class="addon-title flex align-center gap-10 mb-15 lh-normal">
+      {%- render 'cart-tool-icon', name: 'note' -%}
+      <span class="heading-style">{{ 'general.cart.note.title' | t }}</span>
+    </div>
+    <div class="cart-note-field">
+      <label class="visually-hidden" for="cart-drawer-note">{{ 'general.cart.note.placeholder' | t }}</label>
+      <textarea
+        id="cart-drawer-note"
+        class="w-full bg-white mb-20 cart-note form-control"
+        placeholder="{{ 'general.cart.note.placeholder' | t }}"
+      >{{ cart.note }}</textarea>
+    </div>
+    <div class="addon-actions">
+      <button
+        type="button"
+        class="btn-save w-full btn-primary mb-10"
+        name="{{ 'general.cart.save' | t }}"
+        data-action="note"
+      >
+        {{ 'general.cart.save' | t }}
+      </button>
+      <button type="button" class="btn-cancel w-full btn-outline" name="{{ 'general.cart.cancel' | t }}">
+        {{ 'general.cart.cancel' | t }}
+      </button>
+    </div>
+  </div>
+{%- endif -%}
+{%- if enable_gift_wrap and gift_wrap_pr.variants.size == 1 -%}
+  <div
+    class="cart-footeraddon grey-bg absolute transition w-full z-10 p-30 left-0 bottom-0 border-top shadow pointer-none cart__addon-content{% if gift_wrap != blank %} hidden{% endif %}"
+    id="gift"
+    role="dialog"
+    aria-label="{{ 'general.cart.gift.title' | t | escape }}"
+  >
+    <div class="cart-sheet__grab" data-sheet-grab aria-hidden="true"></div>
+    <div class="mini_cart-tool text-center">
+      {%- render 'cart-tool-icon', name: 'gift' -%}
+      <div class="field mt-10 max-w-custom mx-auto" style="--max-width: 85%">
+        {{ 'general.cart.gift.gift_wrap_html' | t: price: gift_pr_price }}
+      </div>
+      <div class="addon-actions mt-25">
+        <a
+          href="{{ gift_wrap_pr.url }}"
+          data-variant-id="{{ gift_wrap_pr.selected_or_first_available_variant.id }}"
+          class="block add-giftwrap w-full btn-primary mb-10 no-underline relative"
+          arial-label="{{ 'general.cart.gift.button_text' | t }}"
+        >
+          <span class="hidden-on-load">{{ 'general.cart.gift.button_text' | t }}</span>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="spin opacity-0 icon-load">
+            <use href="#icon-load"></use>
+          </svg>
+        </a>
+        <button type="button" class="btn-cancel w-full btn-outline" name="{{ 'general.cart.cancel' | t }}">
+          {{ 'general.cart.cancel' | t }}
+        </button>
+      </div>
+    </div>
+  </div>
+{%- endif -%}
+{%- if show_estimate_shipping_rates -%}
+  <div
+    class="cart-footeraddon grey-bg absolute transition w-full z-10 p-30 left-0 bottom-0 border-top shadow pointer-none cart__addon-content"
+    id="shipping"
+    role="dialog"
+    aria-label="{{ 'general.cart.shipping.estimate_shipping_title' | t | escape }}"
+  >
+    <div class="cart-sheet__grab" data-sheet-grab aria-hidden="true"></div>
+    <div class="addon-title mb-20 flex align-center gap-10 lh-normal">
+      {%- render 'cart-tool-icon', name: 'shipping' -%}
+      <span class="heading-style">{{ 'general.cart.shipping.estimate_shipping_title' | t }}</span>
+    </div>
+    <div class="addon-content mb-30">
+      <div data-address="root">
+        <div class="form-group mb-15 flex flex-column">
+          <label class="mb-5" for="address_country">{{ 'customer.addresses.country' | t }}</label>
+          <select
+            id="address_country"
+            class="form-control"
+            name="address[country]"
+            data-default="United States"
+            data-default-country="{{ localization.country.iso_code | default: request.locale.iso_code | upcase }}"
+            data-locale="{{ request.locale.iso_code | default: 'en' }}"
+            data-search-label="{{ 'general.search.search' | t | escape }}" data-empty-label="{{ 'general.search.no_matches' | t | escape }}"
+          >
+            {{ country_option_tags }}
+          </select>
+        </div>
+        <div id="address_province_container" class="address_province_container form-group mb-15 flex flex-column">
+          <label class="mb-5" for="address_province">{{ 'customer.addresses.province' | t }}</label>
+          <select
+            id="address_province"
+            class="form-control"
+            name="address[province]"
+            data-default="{{ form.province }}"
+          ></select>
+        </div>
+        <div class="form-group flex flex-column">
+          <label class="mb-5" for="AddressZip">{{ 'customer.addresses.zip' | t }}</label>
+          {%- comment -%}
+            Removed the duplicate floating-label inside .form-floating —
+            outer label already names the field. Without this fix the
+            placeholder and label rendered on top of each other.
+          {%- endcomment -%}
+          <div>
+            <input
+              type="text"
+              class="form-control w-full"
+              id="AddressZip"
+              name="address[zip]"
+              value="{{ form.zip }}"
+              autocapitalize="characters"
+              aria-label="{{ 'customer.addresses.zip' | t }}"
+              placeholder="{{ 'customer.addresses.zip' | t }}"
+            >
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="addon-actions">
+      <button type="button" class="btn-primary btn-save w-full mb-10" data-action="shipping">
+        {{ 'general.cart.shipping.estimate_shipping_button' | t }}
+      </button>
+      <button type="button" class="btn-cancel btn-outline w-full">{{ 'general.cart.cancel' | t }}</button>
+    </div>
+    <div
+      class="addon-message mt-15 rich__text-m0"
+      data-show-delivery-days="{{ show_delivery_day }}"
+      data-delivery-day-one="{{ 'general.cart.delivery_days.one' | t }}"
+      data-delivery-days-other="{{ 'general.cart.delivery_days.other' | t }}"
+      data-unavailable="{{ 'general.cart.taxes_and_shipping_at_checkout' | t | escape }}"
+      role="status"
+      aria-live="polite"
+    ></div>
+    {%- comment -%}
+      Shown when the store answers without shipping rates: only what the
+      creator's own settings say about shipping, then where it is worked out.
+    {%- endcomment -%}
+    {%- liquid
+      assign sf_subtotal = cart.total_price | default: 0
+      assign sf_min = theme_st.free_shipping_minimum | times: 100 | default: 0
+      assign sf_has_min = false
+      if theme_st.show_on_minicart_cart_page and sf_min > 0
+        assign sf_has_min = true
+      endif
+      assign sf_left = sf_min | minus: sf_subtotal
+      if show_currency_code
+        assign sf_left_price = sf_left | money_with_currency
+      else
+        assign sf_left_price = sf_left | money
+      endif
+      assign sf_free_tpl = 'general.cart.free_shipping' | t: amount: sf_left_price | replace: '&lt;', '<' | replace: '&gt;', '>' | replace: '&quot;', '"' | replace: '&#34;', '"' | replace: '&#39;', "'" | replace: '&amp;', '&'
+      assign sf_free_done = 'general.cart.free_shipping_avaiable' | t | replace: '&lt;', '<' | replace: '&gt;', '>' | replace: '&quot;', '"' | replace: '&#34;', '"' | replace: '&#39;', "'" | replace: '&amp;', '&'
+    -%}
+    <div data-shipping-fallback hidden>
+      <div class="shipping-estimate">
+        {%- if sf_has_min -%}
+          <p class="shipping-estimate__line">{% if sf_left <= 0 %}{{ sf_free_done }}{% else %}{{ sf_free_tpl }}{% endif %}</p>
+        {%- endif -%}
+        {%- if theme_st.cd_eta_enable -%}
+          {%- liquid
+            assign sf_eta_cents = theme_st.cd_eta_amount | default: 8 | times: 100
+            assign sf_eta_free = false
+            if sf_eta_cents == 0
+              assign sf_eta_free = true
+            endif
+            assign sf_eta_threshold = theme_st.cd_eta_threshold | default: 75 | times: 100
+            if theme_st.cd_eta_mode == 'threshold' and sf_subtotal >= sf_eta_threshold
+              assign sf_eta_free = true
+            endif
+          -%}
+          <p class="shipping-estimate__line shipping-estimate__rate">
+            <span>{{ theme_st.cd_eta_label | default: 'Estimated shipping' }}</span>
+            <strong>{% if sf_eta_free %}{{ theme_st.cd_eta_free_label | default: 'FREE' }}{% else %}{{ sf_eta_cents | money }}{% endif %}</strong>
+            {%- if theme_st.cd_eta_eta_text != blank -%}<span class="shipping-estimate__window">{{ theme_st.cd_eta_eta_text }}</span>{%- endif -%}
+          </p>
+        {%- endif -%}
+        <p class="shipping-estimate__note">{{ 'general.cart.taxes_and_shipping_at_checkout' | t }}</p>
+      </div>
+    </div>
+  </div>
+{%- endif -%}
+{% if enable_discount_code %}
+  <minicart-discount
+    class="cart-footeraddon grey-bg absolute transition w-full z-10 p-30 left-0 bottom-0 border-top shadow pointer-none cart__addon-content"
+    id="coupon"
+    role="dialog"
+    aria-label="{{ 'general.cart.coupon.enter_discount_code' | t | escape }}"
+  >
+    <div class="cart-sheet__grab" data-sheet-grab aria-hidden="true"></div>
+    <div class="addon-title flex align-center gap-10 mb-10 lh-normal">
+      {%- render 'cart-tool-icon', name: 'coupon' -%}
+      <span class="heading-style">{{ 'general.cart.coupon.enter_discount_code' | t }}</span>
+    </div>
+    <form novalidate>
+      <input
+        placeholder="{{ 'general.cart.coupon.enter_discount_code' | t }}"
+        type="text"
+        required
+        name="discount"
+        autocomplete="off"
+        autocapitalize="characters"
+        enterkeyhint="done"
+        aria-label="{{ 'general.cart.coupon.enter_discount_code' | t | escape }}"
+        class="bls__discount_code discount_code w-full bg-white {% if discount_codes.size == 0 %}mb-20{% endif %} cart-coupon"
+      >
+      <ul class="cart-discount__codes list-unstyled flex gap-10 {% if discount_codes.size > 0 %}mt-10 mb-10{% endif %} fs-14 heading-color">
+        {% for discount_code in discount_codes %}
+          <li
+            class="cart-discount__item inline-flex align-center gap-5"
+            data-discount-code="{{ discount_code }}"
+          >
+            <p class="cart-discount-code m-0 inline-flex align-center gap-5">
+              <svg
+                aria-hidden="true"
+                focusable="false"
+                class="icon icon-discount w-custom"
+                style="--custom-width: 12px;"
+                viewBox="0 0 12 12"
+              >
+                  <path fill-rule="evenodd" clip-rule="evenodd" d="M7 0h3a2 2 0 012 2v3a1 1 0 01-.3.7l-6 6a1 1 0 01-1.4 0l-4-4a1 1 0 010-1.4l6-6A1 1 0 017 0zm2 2a1 1 0 102 0 1 1 0 00-2 0z" fill="currentColor">
+                </path>
+              </svg>
+              {{ discount_code }}
+
+              {% render 'cart-code-status', cart: cart, discount_code: discount_code %}
+            </p>
+            <button
+              type="button"
+              aria-label="{{ 'general.cart.remove' | t | escape }}: {{ discount_code | escape }}"
+              class="cart-discount-remove btn-reset p-0 inline-flex align-center relative"
+            >
+              <svg width="16" height="16" class="heading-color remove-icon hidden-on-load">
+                <use href="#icon-trash" />
+              </svg>
+              <div class="icon-rotator"></div>
+            </button>
+          </li>
+        {% endfor %}
+      </ul>
+      <div class="addon-actions">
+        <button
+          type="submit"
+          class="coupon-apply w-full btn-primary relative"
+          name="{{ 'collections.sidebar.apply' | t }}"
+        >
+          <span class="hidden-on-load">
+            {{ 'collections.sidebar.apply' | t }}
+          </span>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="spin opacity-0 icon-load" aria-hidden="true">
+            <use href="#icon-load"></use>
+          </svg>
+        </button>
+        <button type="button" class="btn-cancel w-full btn-outline" name="{{ 'general.cart.cancel' | t }}">
+          {{ 'general.cart.cancel' | t }}
+        </button>
+      </div>
+    </form>
+  </minicart-discount>
+{% endif %}
+{%- endif -%}

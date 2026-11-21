@@ -1,0 +1,220 @@
+{%- comment -%}
+  Materia Themes. Developed By Materia Themes.
+  The block loop below includes snippets/product-info-blocks, the same
+  block markup Main product draws.
+{%- endcomment -%}
+{%- assign fb_accessibility_payment_badges = 'accessibility.payment_badges' | t -%}
+{%- assign fb_accessibility_use_code = 'accessibility.use_code' | t -%}
+{%- assign fb_accessibility_product_label = 'accessibility.product_label' | t -%}
+{%- assign fb_accessibility_add_product = 'accessibility.add_product' | t -%}
+{%- assign fb_accessibility_default = 'accessibility.default' | t -%}
+{%- assign fb_accessibility_have_questions = 'accessibility.have_questions' | t -%}
+{{ 'countdown.css' | asset_url | stylesheet_tag }}
+{{ 'product-page-ui.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'product-page-ui.js' | asset_url }}" defer="defer"></script>
+<style>
+  .pdp-view-link,
+  .pdp-view-link:link,
+  .pdp-view-link:visited,
+  .pdp-view-link:hover,
+  .pdp-view-link:active,
+  .pdp-view-link:focus {
+    text-decoration: none !important;
+    border-bottom: 0 !important;
+  }
+  .pdp-view-link::before,
+  .pdp-view-link::after {
+    content: none !important;
+    display: none !important;
+  }
+  .pdp-view-link { min-height: 44px; transition: opacity .2s ease; }
+  .pdp-view-link:hover { opacity: .7; }
+  .pdp-view-link svg {
+    transition: transform .2s ease;
+  }
+  .pdp-view-link:hover svg {
+    transform: translate(2px, -2px);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pdp-view-link, .pdp-view-link svg { transition: none; }
+  }
+</style>
+{% liquid
+  assign theme_st = settings
+  assign desktop_layout = section.settings.desktop_layout
+  assign user_variants_image_group = false
+  assign desktop_media_width = section.settings.desktop_media_width
+  assign desktop_main_image_position = section.settings.desktop_main_image_position
+  assign media = product.media
+  assign show_wishlist = theme_st.show_wishlist
+  assign show_compare = false
+  if theme_st.color_swatch_trigger != blank and theme_st.enable_color_swatches != false
+    assign option_color_name = theme_st.color_swatch_trigger | split: ','
+  else
+    assign option_color_name = 'Color'
+  endif
+  assign position = 1
+  for opt in product.options_with_values
+    for color_trigger_name in option_color_name
+      if opt.name == color_trigger_name
+        assign position = opt.position
+      endif
+    endfor
+  endfor
+  assign default_color_option = ''
+  if position == 1
+    assign default_color_option = product.selected_or_first_available_variant.option1
+  elsif position == 2
+    assign default_color_option = product.selected_or_first_available_variant.option2
+  elsif position == 3
+    assign default_color_option = product.selected_or_first_available_variant.option3
+  endif
+  if product.metafields.custom.use_variants_image_group != blank and product.metafields.custom.use_variants_image_group
+    assign user_variants_image_group = true
+    assign alt_tags = ''
+    assign first = true
+    for image in product.media
+      if image.alt != blank
+        assign exclude_image = false
+        for option in product.options_with_values
+          for value in option.values
+            if image.alt == value
+              assign exclude_image = true
+            endif
+          endfor
+        endfor
+        if exclude_image == false
+          if first
+            assign alt_tags = image.alt
+            assign first = false
+          else
+            assign alt_tags = alt_tags | append: ', ' | append: image.alt
+          endif
+        endif
+      endif
+    endfor
+    assign variant_media = product.media | where: 'alt', default_color_option
+    assign alt_tags_list = alt_tags | split: ', '
+    assign other_media = ''
+    assign added_alts = ''
+    for image in product.media
+      for alt_tag in alt_tags_list
+        if image.alt == alt_tag
+          if added_alts contains alt_tag
+          else
+            assign other_media = other_media | append: image.alt | append: ','
+            assign added_alts = added_alts | append: alt_tag | append: ','
+          endif
+        endif
+      endfor
+    endfor
+    assign combined_media = variant_media
+    assign other_media_array = other_media | split: ','
+    for alt_tag in other_media_array
+      assign media_to_add = product.media | where: 'alt', alt_tag
+      assign combined_media = combined_media | concat: media_to_add
+    endfor
+    assign media = combined_media
+  endif
+  if media.size == 0
+    assign media = product.media
+  endif
+  assign scroll_animation = settings.scroll_animation | strip
+        
+%}
+{% liquid
+  assign enable_rtl = settings.rtl
+  assign iso_code = request.locale.iso_code
+  assign lis_language_rtl = settings.language_rtl
+  if lis_language_rtl != blank
+    if iso_code != blank and lis_language_rtl contains iso_code
+      assign enable_rtl = true
+    endif
+  endif
+%}
+<div
+  class="{% if type != 'single' %}grid grid-cols{% else %}flex flex-cols gap flex-wrap section{% if desktop_main_image_position == 'right' %} flex-row-reverse{% endif %}{% endif %}"
+  style="{% if type != 'single' %}{%- if product.media.size > 0 -%}--col-number: 1;--col-desktop: 2;--col-desktop-small: 2;{%- else -%}--col-number: 1{%- endif -%}{% else %}--col-gap: 30px;--col-width: {{ desktop_media_width }}%;{% endif %}"
+>
+  {% assign product_media = product.media %}
+  {% comment %} Product media {% endcomment %}
+
+  {% comment %} Case product has image {% endcomment %}
+  {%- if product_media.size > 0 -%}
+
+      <div {%  if scroll_animation == 'slide_in' and settings.zoom_image == true %} data-animation="slide_in" {% endif %}  class="{% if type != 'single' %}product-single__media{% else %}product-detail__media col-md-w-custom w-full{% endif %}">
+        {% comment %} logic check ratio of image{% endcomment %}
+        {%- liquid
+          assign default_position = 0
+          unless product.has_only_default_variant
+            assign default_position = product.selected_or_first_available_variant.featured_image.position | minus: 1
+          endunless
+        -%}
+        {%- liquid
+          assign psl_lightbox = true
+          if section.settings.enable_lightbox == false
+            assign psl_lightbox = false
+          endif
+        -%}
+        {% render 'media-gallery',
+          images: media,
+          section_st: section.settings,
+          theme_st: theme_st,
+          product: product,
+          section: section,
+          position_index: default_position,
+          desktop_layout: desktop_layout,
+          type: type,
+          lightbox: psl_lightbox
+        %}
+      </div>
+
+  {%- elsif type == 'single' -%}
+    {%- comment -%} No product picked, or a product without pictures: the column keeps its place. {%- endcomment -%}
+    <div class="product-detail__media col-md-w-custom w-full">
+      {%- render 'product-media-placeholder', section_st: section.settings, product: product -%}
+    </div>
+  {%- endif -%}
+
+  {% comment %} Product infomration {% endcomment %}
+  <motion-element
+    class="{% if type != 'single' %}product-single__information w-full relative white-gradient   {% else %}product-detail__information col-md-remaining w-full{% endif %} product-featured scroll-trigger slide_in"
+   data-motion-delay="{% if type == "quickview" %} 0 {% else %} 0 {% endif %}"
+    data-motion="fade-up"
+  >
+      <div
+        {% if type != 'single' %}
+          class="{% if product_media.size > 0 %} absolute-md  inset-0 custom-scrollbar overflow-x-hidden {% endif %} px-15 px-md-30 py-30 "
+        {% elsif section.settings.enable_sticky_content_on_desktop != false %}
+          class="sticky top-30"
+        {% endif %}
+      >
+        {%- if type == 'single' and section.settings.image_zoom == 'external_zoom' -%}
+          <div class="zoom-external-area"></div>
+        {%- endif -%}
+        {%- assign product_form_id = 'product-form-' | append: section.id -%}
+        {%- assign pib_drawn = '' -%}
+        {%- for block in section.blocks -%}
+          {% assign block_st = block.settings %}
+          {%- include 'product-info-blocks' -%}
+        {%- endfor -%}
+        {%- assign psl_view_label = section.settings.view_link_label | default: 'View product' -%}
+        {%- comment -%} Always drawn, hidden when off, so the builder's Link to the product page shows it live. {%- endcomment -%}
+        <a
+          {% unless section.settings.show_view_link %}hidden{% endunless %}
+          {% if product == blank %}
+            role="link" aria-disabled="true"
+          {% else %}
+            href="{{ product.url }}"
+          {% endif %}
+          class="mt-25 product-singe__view-all-button heading_weight heading-color inline-flex align-center gap-8 no-underline lh-normal pdp-view-link"
+        >
+          <span data-fp-view-label>{{ psl_view_label | escape }}</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M7 17L17 7"/>
+            <polyline points="7 7 17 7 17 17"/>
+          </svg>
+        </a>
+      </div>
+  </motion-element>
+</div>

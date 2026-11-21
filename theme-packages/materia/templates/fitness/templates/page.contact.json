@@ -1,0 +1,53 @@
+{
+  "sections": {
+    "contactformsimple2_1": {
+      "type": "contactformsimple2",
+      "settings": {
+        "color_scheme": "default",
+        "btn_text": "Send message",
+        "ph_website": "Order number (optional)",
+        "label_website": "Order number",
+        "success_text": "Thanks. Your message is on its way."
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Get in touch"
+          }
+        },
+        "description_2": {
+          "type": "description",
+          "settings": {
+            "text": "<p>Not sure which program suits you? Tell us your goal and how often you can train.</p>"
+          }
+        },
+        "info_3": {
+          "type": "info",
+          "settings": {
+            "icon": "mail",
+            "line1": "hello@example.com",
+            "line2": "Replace with your email."
+          }
+        },
+        "info_4": {
+          "type": "info",
+          "settings": {
+            "icon": "map",
+            "line1": "Replies",
+            "line2": "Within one working day"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_2",
+        "info_3",
+        "info_4"
+      ]
+    }
+  },
+  "order": [
+    "contactformsimple2_1"
+  ]
+}

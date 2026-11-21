@@ -1,0 +1,93 @@
+{
+  "sections": {
+    "page-heading": {
+      "type": "page-heading",
+      "settings": {
+        "height": "adapt",
+        "alignment": "center",
+        "padding_top": 80,
+        "color_scheme": "",
+        "reset_spacing": true,
+        "section_width": "stretch_width",
+        "padding_bottom": 80,
+        "overlay_opacity": 0
+      },
+      "name": "page-heading",
+      "blocks": {
+        "breadcrumb_UKcBAE": {
+          "type": "breadcrumb",
+          "settings": {}
+        },
+        "heading_X8998p": {
+          "type": "heading",
+          "settings": {
+            "page_title": "Wishlist",
+            "header_size": "default",
+            "vertical_gap": 8,
+            "heading_color": "",
+            "heading_font_size": 34,
+            "enable_heading_color": false
+          }
+        },
+        "description_XFfaTA": {
+          "type": "description",
+          "settings": {
+            "description": "",
+            "description_color": "#767676",
+            "enable_custom_style": true,
+            "description_font_size": 15
+          }
+        }
+      },
+      "block_order": [
+        "breadcrumb_UKcBAE",
+        "heading_X8998p",
+        "description_XFfaTA"
+      ]
+    },
+    "main": {
+      "type": "page-wishlist",
+      "settings": {
+        "padding_top": 38,
+        "reset_spacing": true,
+        "section_width": "fluid_container",
+        "padding_bottom": 80
+      },
+      "name": "page-wishlist"
+    },
+    "divider_p9yTJV": {
+      "type": "divider",
+      "settings": {
+        "align": "center",
+        "label": "",
+        "style": "solid",
+        "reveal": true,
+        "color_to": "#ebebeb",
+        "icon_svg": "",
+        "label_gap": 14,
+        "thickness": 1,
+        "width_pct": 100,
+        "color_from": "#ebebeb",
+        "label_size": 12,
+        "section_bg": "#ffffff",
+        "label_color": "",
+        "padding_top": 0,
+        "color_scheme": "",
+        "reset_spacing": false,
+        "section_width": "fluid_container",
+        "padding_bottom": 0,
+        "enable_custom_style": true,
+        "section_margin_top_mobile": 0,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_mobile": 0,
+        "section_margin_bottom_desktop": 0
+      },
+      "name": "divider"
+    }
+  },
+  "order": [
+    "page-heading",
+    "main",
+    "divider_p9yTJV"
+  ]
+}

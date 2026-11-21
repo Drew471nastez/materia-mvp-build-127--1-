@@ -66,6 +66,7 @@ function listing(over: Partial<ThemeListing>): ThemeListing {
     cover: null,
     screenshots: [],
     builtinThemeId: null,
+    codePackage: null,
     hasPackage: true,
     packageKind: "storelib",
     demoUrl: null,
@@ -80,12 +81,20 @@ async function main() {
   /* ── 1. Listings ─────────────────────────────────────────────────────── */
   console.log("\nListings\n")
   const builtin = builtinListings()
-  check("Storelib's own theme is listed from code, free, by Storelib", builtin.length === 1 && builtin[0].slug === DEFAULT_LISTING_SLUG && builtin[0].tier === "free" && builtin[0].author === "Storelib" && !!builtin[0].builtinThemeId)
+  /* Changed on purpose (templates round 16): the code lists seven templates made from one theme, the default first; the native Storelib Default is no longer listed (tests/theme-templates.test.ts holds the rest). */
+  check("Storelib's own templates are listed from code, free, by Storelib, the default first", builtin.length === 7 && builtin[0].slug === DEFAULT_LISTING_SLUG && builtin.every((b) => b.tier === "free" && b.author === "Storelib" && !b.builtinThemeId && !!b.codePackage && b.hasPackage))
+  const codeSlugs = builtin.map((b) => b.slug).join(",")
   const merged = mergeListings([listing({ slug: "b", sortOrder: 2 }), listing({ slug: "a", sortOrder: 1 }), listing({ slug: "hidden", published: false })])
-  check("the merge keeps the built-in first, orders the rest, and leaves hidden ones out", merged.map((l) => l.slug).join(",") === `${DEFAULT_LISTING_SLUG},a,b`, merged.map((l) => l.slug).join(","))
+  /* Changed on purpose (templates round 16): seven code listings lead, not one. */
+  check("the merge keeps the code's templates first, orders the rest, and leaves hidden ones out", merged.map((l) => l.slug).join(",") === `${codeSlugs},a,b`, merged.map((l) => l.slug).join(","))
   check("  the admin's list includes hidden ones", mergeListings([listing({ slug: "hidden", published: false })], { includeHidden: true }).some((l) => l.slug === "hidden"))
-  const over = mergeListings([listing({ slug: DEFAULT_LISTING_SLUG, builtinThemeId: builtin[0].builtinThemeId, sortOrder: 5, cover: null })])
-  check("a row for the built-in theme replaces its code listing and keeps its picture", over.filter((l) => l.slug === DEFAULT_LISTING_SLUG).length === 1 && over[0].sortOrder === 5 && over[0].cover === builtin[0].cover)
+  /* Changed on purpose (templates round 16): a row with a template's address dresses that template and still adds the code's package; a row naming the native theme is retired. */
+  const over = mergeListings([listing({ slug: DEFAULT_LISTING_SLUG, hasPackage: false, packageKind: null, sortOrder: 5, cover: null })])
+  const dressed = over.filter((l) => l.slug === DEFAULT_LISTING_SLUG)
+  check("a row for a template replaces its code listing, keeps its picture and still adds the code's package", dressed.length === 1 && dressed[0].sortOrder === 5 && dressed[0].cover === builtin[0].cover && dressed[0].codePackage === builtin[0].codePackage && dressed[0].hasPackage)
+  check("  hidden by its row, a template is on no list", !mergeListings([listing({ slug: "clothing", published: false })]).some((l) => l.slug === "clothing"))
+  const native = listing({ slug: "old-default", builtinThemeId: "00000000-0000-0000-0000-000000000001", hasPackage: false, packageKind: null })
+  check("a row that names the native theme is retired: on no list a creator sees, hidden in the admin's", !mergeListings([native]).some((l) => l.slug === "old-default") && mergeListings([native], { includeHidden: true }).some((l) => l.slug === "old-default" && !l.published))
   const many = [listing({ slug: "f", name: "Fern", tier: "free" }), listing({ slug: "p", name: "Pine", tier: "pro", category: "music" }), listing({ slug: "d", name: "Dune", tier: "paid", priceCents: 4900, author: "Kai" })]
   check("Free, Paid and Pro filter", filterListings(many, { tier: "paid" }).map((l) => l.slug).join() === "d" && filterListings(many, { tier: "pro" }).map((l) => l.slug).join() === "p" && filterListings(many, { tier: "free" }).map((l) => l.slug).join() === "f")
   check("search reads the name and the author, any case", filterListings(many, { q: "KAI" }).map((l) => l.slug).join() === "d" && filterListings(many, { q: "pin" }).map((l) => l.slug).join() === "p")
@@ -94,7 +103,8 @@ async function main() {
   /* Changed on purpose (pricing round 5): themes included from the $29 plan up say Grow. */
   check("the badge says Free, the price, or Grow", tierLabel(many[0]) === "Free" && tierLabel(many[2]) === "$49" && tierLabel(many[1]) === "Grow")
   check("a slug is lower case words and dashes", slugify("Studio Noir: Édition 2") === "studio-noir-edition-2")
-  check("the live preview draws built-in themes and Storelib packages, not Shopify ones", hasLivePreview(builtin[0]) && hasLivePreview(listing({})) && !hasLivePreview(listing({ packageKind: "shopify" })))
+  /* Changed on purpose (templates round 16): the code's templates are in the compatible profile, so their preview is their pictures. */
+  check("the live preview draws native themes and Storelib packages, not themes in the compatible profile", hasLivePreview(listing({ builtinThemeId: "x", hasPackage: false })) && hasLivePreview(listing({})) && !hasLivePreview(listing({ packageKind: "shopify" })) && !hasLivePreview(builtin[0]))
 
   /* ── Add, decided on the server ─────────────────────────────────────── */
   console.log("\nAdd\n")
@@ -105,9 +115,10 @@ async function main() {
   const add = code("app/api/themes/marketplace/add/route.ts")
   /* Round 50: routeUser (lib/auth/route-user) is Auth's own answer, with a 503 when Auth did not answer. */
   const asks = add.indexOf("auth.getUser()") > 0 ? add.indexOf("auth.getUser()") : add.indexOf("await routeUser()")
-  check("the add route asks who is signed in before anything else", asks > 0 && asks < add.indexOf("listingRowBySlug(slug)"))
+  check("the add route asks who is signed in before anything else", asks > 0 && asks < add.indexOf("listingRowBySlug(slug"))
   check("  checks Pro on the server with the plan every check reads", /creatorSitePlan\(creator\.id/.test(add) && /addVerdict\(listing, plan === "growth" \|\| plan === "pro"\)/.test(add))
-  check("  adds Storelib's own through the registry add, and a zip through the import pipeline", /addRegistryTheme\(/.test(add) && /importThemePackage\(forward\("\/api\/website-builder\/themes\/import", \{ path: copy \}\)\)/.test(add))
+  /* Changed on purpose (templates round 16): Storelib's own are templates composed on the server and imported; the registry add is not called from here. */
+  check("  adds Storelib's own templates by composing their zip, and an uploaded zip through the import pipeline", /composeTemplateZip\(listing\.codePackage\)/.test(add) && !/addRegistryTheme/.test(add) && /importThemePackage\(forward\("\/api\/website-builder\/themes\/import", \{ path: copy \}\)\)/.test(add))
   check("  hands the import a copy in the creator's own upload folder, never the listing's zip", /importPathFor\(user\.id, randomUUID\(\)\)/.test(add) && /\.copy\(source, copy\)/.test(add) && /PACKAGE_PATH_RE\.test\(source\)/.test(add))
   check("  renames only the creator's own new install", /\.eq\("id", made\.install_id\)\.eq\("creator_id", creator\.id\)/.test(add))
 
@@ -226,8 +237,9 @@ async function main() {
   /* ── 1 and 2: the pages ──────────────────────────────────────────────── */
   console.log("\nThe pages\n")
   const client = read("app/(storelib)/app/website-builder/website-builder-client.tsx")
-  check("Browse themes is a grid of cards, eight and the marketplace card", /listings\.slice\(0, LIBRARY_THEME_CARDS\)/.test(client) && LIBRARY_THEME_CARDS === 8 && /<ThemeCard\b/.test(client) && /<ExploreThemesCard href=\{MARKETPLACE_PATH\} \/>/.test(client) && /lg:grid-cols-3/.test(client))
-  check("  with a Theme marketplace link beside the heading, in a new tab", /href=\{MARKETPLACE_PATH\}\s*target="_blank"[\s\S]{0,400}\{tt\("Theme marketplace"\)\}/.test(client) && /text-\[14px\] font-semibold/.test(client))
+  /* Changed on purpose (templates round 16): the row shows the first three templates and the card that opens the marketplace, four to a row on a laptop; the marketplace is a popup over the page, opened by a button, not a link to /themes in a new tab (scripts/check-theme-popup.mjs measures it). */
+  check("Browse themes is a grid of cards, three and the marketplace card", /const ROW_THEME_CARDS = 3/.test(client) && /listings\.slice\(0, ROW_THEME_CARDS\)/.test(client) && /<ThemeTemplateCard\b/.test(client) && /<MoreThemesCard onOpen=\{openThemes\} \/>/.test(client) && /lg:grid-cols-4/.test(client))
+  check("  with a Theme marketplace button beside the heading that opens the popup", /data-theme-marketplace-open="heading"[\s\S]{0,1200}\{tt\("Theme marketplace"\)\}/.test(client) && /text-\[14px\] font-semibold/.test(client) && !/MARKETPLACE_PATH/.test(client) && /<ThemeMarketplace\b/.test(client))
   const card = read("components/themes/theme-card.tsx")
   check("the card: picture, bold name, by author, action at the row's end", /aspect-\[4\/3\]/.test(card) && /font-semibold/.test(card) && /tt\("by \{author\}"/.test(card) && /\{action \? <div className="shrink-0">\{action\}<\/div> : null\}/.test(card))
   check("  scrolls the full page on a mouse's hover, by transform, and a tap is the preview", /e\.pointerType === "mouse" && pan\(true\)/.test(card) && /translate3d\(0, \$\{-distance\}px, 0\)/.test(card) && /<a\s+ref=\{frame\}\s+href=\{href\}/.test(card) && /prefers-reduced-motion: reduce/.test(card))

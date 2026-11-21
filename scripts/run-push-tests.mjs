@@ -304,6 +304,8 @@ const SUITES = [
   "tests/shopify-import.test.ts",
   /* Round aw: an imported theme exported again uploads to Shopify clean (Theme Check: 0 errors on Dawn and Horizon) and is the theme the creator left. */
   "tests/shopify-export-aw.test.ts",
+  /* Templates round 16: the seven templates that ship with the code (one theme's files once, a small overlay each). Listed from code with the default first and the native theme absent; each composes, passes the zip rules, imports with nothing skipped, draws its pages with and without products, uses only the theme's sections and its own credited pictures, and never says "Shopify" where a creator reads; the theme's files stay out of public/. */
+  "tests/theme-templates.test.ts",
   /* The production build folds each app/api area into one entry, so it fits Vercel's Standard build machine (scripts/fold-api-routes.mjs). */
   "tests/fold-api-routes.test.ts",
   /* Landing round 15: the builder demo plays a real edit (heading, publish, scroll, product section top padding, publish) on transform and opacity only, sharp loudlib boxes, and three true stats that count up. */

@@ -179,7 +179,7 @@ async function main() {
     const client = code("app/(storelib)/app/website-builder/website-builder-client.tsx")
     check("R2: from the press, the editor's shell with the building canvas", /\{starting === "ai" && <StartingShell \/>\}/.test(client))
     check("  agent_off: the choice says so, the words stay", /if \(data\.code === "agent_off"\) \{\s*setAgentOn\(false\)/.test(client) && /agent=\{agentOn\}/.test(client))
-    const page = code("app/(storelib)/app/website-builder/page.tsx")
+    const page = code("app/(storelib)/app/website-builder/website-page.tsx") /* Changed on purpose (templates round 16): the page's loader is website-page.tsx, shared by /app/website-builder and /app/website-builder/ai */
     check("  the Website page asks the same switch as the create route", /agentEnabledFor\(createAdminClient\(\), \{ ownerUserId: access\.ownerUserId, creatorId: storeId \}\)/.test(page) && /aiAgent=\{aiAgent\}/.test(page))
     const startPage = code("app/(storelib)/app/website-builder/start-website.tsx")
     check("  Create sends the choice through startGeneration", /onStart\("ai", prompt, \{ generation: startGeneration\(generation, agent\)/.test(startPage) && /useState<GenerationMode>\(START_GENERATION\)/.test(startPage))

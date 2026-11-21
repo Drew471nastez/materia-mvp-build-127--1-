@@ -1,0 +1,42 @@
+{
+  "type": "footer",
+  "name": "t:sections.footer.name",
+  "sections": {
+    "footer": {
+      "type": "footer",
+      "settings": {
+        "custom_text": "",
+        "padding_top": 48,
+        "show_social": false,
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "custom_image": "",
+        "reset_spacing": true,
+        "section_width": "fluid_container",
+        "copyright_text": "© {{ 'now' | date: '%Y' }} {{ shop.name }}. All rights reserved.",
+        "heading_weight": "600",
+        "padding_bottom": 24,
+        "separator_line": "all-page",
+        "arrow_icon_size": 14,
+        "link_hover_color": "",
+        "heading_transform": "none",
+        "custom_text_italic": false,
+        "custom_elements_gap": 22,
+        "enable_custom_image": false,
+        "enable_custom_style": false,
+        "footer_heading_size": 17,
+        "enable_custom_text_big": false,
+        "enable_country_selector": false,
+        "custom_image_size_mobile": 168,
+        "enable_language_selector": false,
+        "custom_image_size_desktop": 144,
+        "custom_text_font_size_mobile": 94,
+        "custom_text_font_size_desktop": 264
+      },
+      "blocks": {},
+      "block_order": []
+    }
+  },
+  "order": [
+    "footer"
+  ]
+}

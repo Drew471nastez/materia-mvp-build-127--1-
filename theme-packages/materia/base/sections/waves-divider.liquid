@@ -1,0 +1,675 @@
+<script src="{{ 'live-social-dividers.js' | asset_url }}" defer="defer"></script>
+{% render 'theme-type' %}
+{%- liquid
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+-%}
+{%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
+{%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' and section.settings.reveal != false -%}
+<style>
+  #shopify-section-{{ section.id }}.scroll-trigger {
+    --animation-duration: {{ settings.animation_duration | default: 700 }}ms;
+    --animation-delay: {{ settings.animation_delay | default: 0 }}ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-{{ section.id }}');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', {{ settings.scroll_animation | json }});
+  })();
+</script>
+{%- endif -%}
+<style data-rs-bulletproof>
+  {%- if section.settings.reset_spacing -%}
+    /* reset_spacing: bulletproof override of ALL section spacing mechanisms */
+    #shopify-section-{{ section.id }},
+    #shopify-section-{{ section.id }} > .section,
+    #shopify-section-{{ section.id }} > section,
+    #shopify-section-{{ section.id }} > div,
+    #shopify-section-{{ section.id }} > div > .section {
+      margin-top: 0 !important;
+      margin-bottom: 0 !important;
+    }
+    #shopify-section-{{ section.id }} + .shopify-section,
+    #shopify-section-{{ section.id }} + section,
+    .shopify-section + #shopify-section-{{ section.id }} {
+      margin-top: 0 !important;
+    }
+  {%- endif -%}
+</style>
+{%- comment -%}
+  Section background colour wiring. Painted on the section wrapper so
+  the colour fills edge-to-edge regardless of inner section width.
+{%- endcomment -%}
+{%- if section.settings.enable_custom_style and section.settings.section_bg != blank -%}
+  <style>
+    #shopify-section-{{ section.id }} {
+      background-color: {{ section.settings.section_bg }};
+    }
+  </style>
+{%- endif -%}
+{%- liquid
+  assign __ti_scroll_animation = settings.scroll_animation | default: 'none'
+  assign __ti_reveal = section.settings.reveal
+-%}
+<style>
+  /* Section isolation — prevent CSS/JS bleed between sections */
+  #shopify-section-{{ section.id }} {
+    isolation: isolate;
+    position: relative;
+  }
+  /* Aggressive theme typography */
+  :where(#shopify-section-{{ section.id }}) {
+    font-family: var(--body-font, inherit);
+  }
+  :where(#shopify-section-{{ section.id }}) :where(button, input, textarea, select, optgroup) {
+    font-family: inherit;
+  }
+  /* Theme font-weight inheritance — sections inherit theme weights by default.
+     Specific font-weight rules in section CSS still override these. */
+  #shopify-section-{{ section.id }} {
+    font-weight: var(--body-weight, inherit);
+  }
+  :where(#shopify-section-{{ section.id }}) :is(h1, h2, h3, h4, h5, h6) {
+    font-weight: var(--heading-weight, inherit);
+  }
+  :where(#shopify-section-{{ section.id }}) :is(h1, h2, h3, h4, h5, h6) {
+    font-family: var(--heading-font, inherit);
+  }
+  /* Section margin sliders (mobile-first) */
+  #shopify-section-{{ section.id }} {
+    margin-top: {{ section.settings.section_margin_top_mobile | default: 0 }}px;
+    margin-bottom: {{ section.settings.section_margin_bottom_mobile | default: 0 }}px;
+  }
+  @media (min-width: 768px) {
+    #shopify-section-{{ section.id }} {
+      margin-top: {{ section.settings.section_margin_top_desktop | default: 0 }}px;
+      margin-bottom: {{ section.settings.section_margin_bottom_desktop | default: 0 }}px;
+    }
+  }
+  /* Section wrapper spans its parent's full width without breaking out of
+     the editor preview. The section + first child span 100% so backgrounds
+     reach edge-to-edge but the editor inspector outline stays inside the
+     iframe viewport. */
+  #shopify-section-{{ section.id }} {
+    max-width: none !important;
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    position: relative !important;
+    box-sizing: border-box !important;
+  }
+  #shopify-section-{{ section.id }} > :where(div, section, header, footer, aside, main, article):first-child {
+    max-width: none !important;
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Section width — universal selector that works regardless of inner
+     markup. Targets both:
+       1) Theme container classes (.container/.fluid_container/etc.) — for
+          sections that have an inner wrapper with that class
+       2) The section's first-child div — for sections that don't have a
+          named inner wrapper. The padding-inline sets the max content
+          area while the wrapper itself stays 100% wide so any background
+          stays edge-to-edge. */
+  /* Section width: the wrapper's class (live-social-dividers.js swaps it) */
+  #shopify-section-{{ section.id }} .container {
+    max-width: calc(var(--page-width, 1300px) + 3rem) !important;
+    margin-inline: auto !important;
+    box-sizing: border-box !important;
+  }
+  #shopify-section-{{ section.id }} .fluid_container {
+    max-width: calc(var(--fluid-container-width, 1500px) + 3rem) !important;
+    margin-inline: auto !important;
+    box-sizing: border-box !important;
+  }
+  @media (min-width: 1200px) {
+    #shopify-section-{{ section.id }} .stretch_width {
+      padding-inline: 3rem;
+    }
+  }
+  /* Reset spacing */
+  {%- if section.settings.reset_spacing -%}
+    #shopify-section-{{ section.id }} { margin-bottom: 0 !important; margin-top: 0 !important; }
+    #shopify-section-{{ section.id }} + .shopify-section { margin-top: 0 !important; }
+  {%- endif -%}
+</style>
+<!-- ti-theme:start -->
+{%- comment -%}
+  Materia Themes. Waves Divider 2: one wave shape drawn four times as
+  layers. Colours follow the colour scheme (heading for the wave, primary
+  for the second colour, background, border) until Enable custom styling is
+  on. The values are --wd-* variables on the wrapper; live-social-dividers.js
+  writes the ones a live edit changes, and the wave's path.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign own_colors = s.enable_custom_style
+  assign wd_wave = ''
+  assign wd_wave_2 = ''
+  assign wd_border = ''
+  assign wd_bg = ''
+  assign wd_gradient = 'none'
+  if own_colors
+    assign wd_wave = s.wave_color
+    assign wd_wave_2 = s.wave_color_2
+    assign wd_border = s.border_color
+    assign wd_bg = s.background_color
+    if s.background_gradient != blank
+      assign wd_gradient = s.background_gradient
+    endif
+  endif
+  case s.wave_variant
+    when 'curve'
+      assign wave_path = 'M0,50 C 25,0 75,100 100,50 L100,100 L0,100 Z'
+    when 'fan'
+      assign wave_path = 'M0,100 L100,0 L100,100 Z'
+    when 'curve-opacity'
+      assign wave_path = 'M0,60 C 25,10 75,110 100,60 L100,100 L0,100 Z'
+    when 'mountains'
+      assign wave_path = 'M0,100 L20,40 L40,80 L60,20 L80,70 L100,100 Z'
+    when 'curve-asym'
+      assign wave_path = 'M0,60 C 15,10 85,90 100,40 L100,100 L0,100 Z'
+    when 'curve-asym-alt'
+      assign wave_path = 'M0,40 C 15,90 85,10 100,60 L100,100 L0,100 Z'
+    when 'tilt'
+      assign wave_path = 'M0,0 L100,20 L100,100 L0,100 Z'
+    when 'tilt-alt'
+      assign wave_path = 'M0,20 L100,0 L100,100 L0,100 Z'
+    when 'triangle'
+      assign wave_path = 'M0,100 L50,0 L100,100 Z'
+    when 'waves'
+      assign wave_path = 'M0,50 C 25,40 25,60 50,50 C 75,40 75,60 100,50 L100,100 L0,100 Z'
+    when 'waves-opacity'
+      assign wave_path = 'M0,50 C 25,30 25,70 50,50 C 75,30 75,70 100,50 L100,100 L0,100 Z'
+    when 'waves-opacity2'
+      assign wave_path = 'M0,50 C 20,40 40,60 60,50 C 80,40 80,60 100,50 L100,100 L0,100 Z'
+    when 'clouds'
+      assign wave_path = 'M0,70 C 15,70 15,40 35,40 C 55,40 55,70 75,70 C 95,70 95,40 100,40 L100,100 L0,100 Z'
+    when 'speech'
+      assign wave_path = 'M0,30 C0,0 100,0 100,30 L100,60 C100,80 80,80 70,90 L60,100 40,80 0,80 Z'
+    when 'blob'
+      assign wave_path = 'M0,50 C20,30 80,70 100,50 L100,100 L0,100 Z'
+    when 'arch'
+      assign wave_path = 'M0,50 C10,10 90,10 100,50 L100,100 L0,100 Z'
+    when 'arch-alt'
+      assign wave_path = 'M0,50 C10,90 90,90 100,50 L100,100 L0,100 Z'
+    when 'drops'
+      assign wave_path = 'M0,50 C20,20 20,80 50,50 C80,20 80,80 100,50 L100,100 L0,100 Z'
+    when 'drops-alt'
+      assign wave_path = 'M0,50 C15,25 35,75 50,50 C65,25 85,75 100,50 L100,100 L0,100 Z'
+    when 'wave-slope'
+      assign wave_path = 'M0,50 C25,10 75,90 100,50 L100,100 L0,100 Z'
+    when 'wave-slope-alt'
+      assign wave_path = 'M0,50 C25,90 75,10 100,50 L100,100 L0,100 Z'
+    when 'slant'
+      assign wave_path = 'M0,30 L100,70 L100,100 L0,100 Z'
+    when 'slant-alt'
+      assign wave_path = 'M0,70 L100,30 L100,100 L0,100 Z'
+    when 'peak'
+      assign wave_path = 'M0,100 L20,30 L50,0 L80,30 L100,100 Z'
+    else
+      assign wave_path = 'M0,50 C 25,0 75,100 100,50 L100,100 L0,100 Z'
+  endcase
+-%}
+{%- capture wd_wave_c -%}{% render 'scheme-color', color: wd_wave, fallback: 'var(--color-heading)' %}{%- endcapture -%}
+{%- capture wd_vars -%}
+--wd-wave: {{ wd_wave_c }}; --wd-wave-2: {% if s.enable_second_color %}{% render 'scheme-color', color: wd_wave_2, fallback: 'var(--color-primary)' %}{% else %}{{ wd_wave_c }}{% endif %};
+--wd-border: {% render 'scheme-color', color: wd_border, fallback: 'var(--color-border)' %}; --wd-bw: {{ s.border_thickness | default: 0 }}px;
+--wd-bg: {% render 'scheme-color', color: wd_bg, fallback: 'var(--color-background)' %}; --wd-gradient: {{ wd_gradient }};
+--wd-mt: {{ s.margin_top | default: 0 }}; --wd-mb: {{ s.margin_bottom | default: 0 }}; --wd-pt: {{ s.padding_top | default: 0 }}; --wd-pb: {{ s.padding_bottom | default: 0 }};
+--wd-px-m: {{ s.padding_horizontal_mobile | default: 0 }}rem; --wd-px-d: {{ s.padding_horizontal | default: 0 }}rem;
+--wd-h-m: {{ s.wave_height_mobile | default: 0 }}px; --wd-h-d: {{ s.wave_height | default: 0 }}px;
+--wd-maxw: {% if s.full_width %}none{% else %}{{ s.content_width | default: 0 }}rem{% endif %}; --wd-rotate: {% if s.wave_rotate %}rotate(180deg){% else %}none{% endif %};
+{%- endcapture -%}
+<div class="ti-section-wrap color-{{ color_scheme }} gradient {{ s.section_width | default: 'container' }}" data-sd-root="waves-divider" data-sd-section="{{ section.id }}"{% if request.design_mode %} data-sd-settings="{{ section.settings | json | escape }}"{% endif %}>
+<style>
+  #waves-divider-{{ section.id }} {
+    border-top: solid var(--wd-border) var(--wd-bw);
+    border-bottom: solid var(--wd-border) var(--wd-bw);
+    margin-top: calc(var(--wd-mt) * 0.75px);
+    margin-bottom: calc(var(--wd-mb) * 0.75px);
+    background-color: var(--wd-bg) !important;
+    background-image: var(--wd-gradient);
+  }
+  #waves-divider-{{ section.id }} .section-{{ section.id }}-settings {
+    margin: 0 auto;
+    max-width: var(--wd-maxw);
+    padding: calc(var(--wd-pt) * 0.75px) var(--wd-px-m) calc(var(--wd-pb) * 0.75px);
+  }
+  #waves-divider-{{ section.id }} .wave-item-{{ section.id }} { transform: var(--wd-rotate); }
+  #waves-divider-{{ section.id }} .wave-item-{{ section.id }} svg {
+    color: var(--wd-wave) !important;
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: hidden;
+    max-height: var(--wd-h-m);
+  }
+  #waves-divider-{{ section.id }} .wave-parallax2-{{ section.id }} > use { opacity: 0.4; }
+  #waves-divider-{{ section.id }} .wave-parallax3-{{ section.id }} > use { opacity: 0.3; }
+  #waves-divider-{{ section.id }} .wave-parallax4-{{ section.id }} > use { opacity: 0.2; }
+  @media (min-width: 1024px) {
+    #waves-divider-{{ section.id }} {
+      margin-top: calc(var(--wd-mt) * 1px);
+      margin-bottom: calc(var(--wd-mb) * 1px);
+    }
+    #waves-divider-{{ section.id }} .section-{{ section.id }}-settings {
+      padding: calc(var(--wd-pt) * 1px) var(--wd-px-d) calc(var(--wd-pb) * 1px);
+    }
+    #waves-divider-{{ section.id }} .wave-item-{{ section.id }} svg { max-height: var(--wd-h-d); }
+  }
+</style>
+<div id="waves-divider-{{ section.id }}" class="waves-divider-wrapper section-{{ section.id }} wave-{{ section.id }}" data-sd-waves style="{{ wd_vars | strip_newlines }}">
+  <div class="section-{{ section.id }}-settings">
+    <div class="wave-item-{{ section.id }}">
+      <svg class="waves-animated-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+        <defs>
+          <path id="modern-wave-{{ section.id }}" d="{{ wave_path }}" data-sd-wave-path></path>
+        </defs>
+        <g class="wave-parallax1-{{ section.id }}"><use xlink:href="#modern-wave-{{ section.id }}" x="0" y="0" style="fill: var(--wd-wave)"></use></g>
+        <g class="wave-parallax2-{{ section.id }}"><use xlink:href="#modern-wave-{{ section.id }}" x="0" y="5" style="fill: var(--wd-wave-2)"></use></g>
+        <g class="wave-parallax3-{{ section.id }}"><use xlink:href="#modern-wave-{{ section.id }}" x="0" y="10" style="fill: var(--wd-wave)"></use></g>
+        <g class="wave-parallax4-{{ section.id }}"><use xlink:href="#modern-wave-{{ section.id }}" x="0" y="15" style="fill: var(--wd-wave-2)"></use></g>
+      </svg>
+    </div>
+  </div>
+</div>
+</div>
+<!-- ti-theme:end -->
+
+{% schema %}
+{
+  "name": "Waves Divider 2",
+  "settings": [
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default-color-scheme"
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Section width",
+      "default": "full_width",
+      "options": [
+        {
+          "value": "container",
+          "label": "Default"
+        },
+        {
+          "value": "fluid_container",
+          "label": "Fluid container"
+        },
+        {
+          "value": "stretch_width",
+          "label": "Stretched"
+        },
+        {
+          "value": "full_width",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "reset_spacing",
+      "label": "Remove space between sections",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "reveal",
+      "label": "Reveal on scroll",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Wave"
+    },
+    {
+      "type": "select",
+      "id": "wave_variant",
+      "label": "Wave style",
+      "default": "curve",
+      "options": [
+        {
+          "value": "curve",
+          "label": "Smooth Curve"
+        },
+        {
+          "value": "fan",
+          "label": "Fan Shape"
+        },
+        {
+          "value": "curve-opacity",
+          "label": "Faded Curve"
+        },
+        {
+          "value": "mountains",
+          "label": "Mountain Range"
+        },
+        {
+          "value": "curve-asym",
+          "label": "Asymmetric Curve"
+        },
+        {
+          "value": "curve-asym-alt",
+          "label": "Alternate Asymmetric Curve"
+        },
+        {
+          "value": "tilt",
+          "label": "Tilted Edge"
+        },
+        {
+          "value": "tilt-alt",
+          "label": "Alternate Tilt"
+        },
+        {
+          "value": "triangle",
+          "label": "Triangular"
+        },
+        {
+          "value": "waves",
+          "label": "Double Wave"
+        },
+        {
+          "value": "waves-opacity",
+          "label": "Faded Double Wave"
+        },
+        {
+          "value": "waves-opacity2",
+          "label": "Subtle Double Wave"
+        },
+        {
+          "value": "clouds",
+          "label": "Cloudy Wave"
+        },
+        {
+          "value": "speech",
+          "label": "Speech Bubble"
+        },
+        {
+          "value": "blob",
+          "label": "Blob Shape"
+        },
+        {
+          "value": "arch",
+          "label": "Arch"
+        },
+        {
+          "value": "arch-alt",
+          "label": "Alternate Arch"
+        },
+        {
+          "value": "drops",
+          "label": "Water Drops"
+        },
+        {
+          "value": "drops-alt",
+          "label": "Alternate Drops"
+        },
+        {
+          "value": "wave-slope",
+          "label": "Sloped Wave"
+        },
+        {
+          "value": "wave-slope-alt",
+          "label": "Alternate Sloped Wave"
+        },
+        {
+          "value": "slant",
+          "label": "Slanted Edge"
+        },
+        {
+          "value": "slant-alt",
+          "label": "Alternate Slanted Edge"
+        },
+        {
+          "value": "peak",
+          "label": "Peak Shape"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "wave_rotate",
+      "label": "Flip wave",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_second_color",
+      "label": "Use a second color",
+      "default": false,
+      "info": "The second and fourth wave layers use the second color."
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "checkbox",
+      "id": "full_width",
+      "label": "Full width content",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "content_width",
+      "min": 0,
+      "max": 400,
+      "step": 10,
+      "unit": "rem",
+      "label": "Max content width",
+      "default": 120,
+      "visible_if": "{{ section.settings.full_width == false }}"
+    },
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_custom_style",
+      "label": "Enable custom styling",
+      "default": false
+    },
+    {
+      "type": "color",
+      "label": "Wave color",
+      "id": "wave_color",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "label": "Second wave color",
+      "id": "wave_color_2",
+      "visible_if": "{{ section.settings.enable_custom_style and section.settings.enable_second_color }}"
+    },
+    {
+      "type": "color",
+      "label": "Background",
+      "id": "background_color",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color_background",
+      "id": "background_gradient",
+      "label": "Background gradient",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "label": "Border color",
+      "id": "border_color",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "color",
+      "id": "section_bg",
+      "label": "Section background",
+      "visible_if": "{{ section.settings.enable_custom_style }}"
+    },
+    {
+      "type": "range",
+      "id": "border_thickness",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "unit": "px",
+      "label": "Border thickness",
+      "default": 0
+    },
+    {
+      "type": "header",
+      "content": "Spacing"
+    },
+    {
+      "type": "range",
+      "id": "wave_height",
+      "min": 0,
+      "max": 200,
+      "step": 2,
+      "unit": "px",
+      "label": "Wave height (desktop)",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "label": "Top padding",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "label": "Bottom padding",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "padding_horizontal",
+      "min": 0,
+      "max": 30,
+      "step": 1,
+      "unit": "rem",
+      "label": "Side padding (desktop)",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "margin_top",
+      "min": -50,
+      "max": 50,
+      "step": 1,
+      "unit": "px",
+      "label": "Top offset",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "margin_bottom",
+      "min": -50,
+      "max": 50,
+      "step": 1,
+      "unit": "px",
+      "label": "Bottom offset",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_desktop",
+      "label": "Top margin (desktop)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0,
+      "unit": "px",
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_desktop",
+      "label": "Bottom margin (desktop)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0,
+      "unit": "px",
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "header",
+      "content": "Mobile"
+    },
+    {
+      "type": "range",
+      "id": "wave_height_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 2,
+      "unit": "px",
+      "label": "Wave height (mobile)",
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "padding_horizontal_mobile",
+      "min": 0,
+      "max": 15,
+      "step": 0.5,
+      "unit": "rem",
+      "label": "Side padding (mobile)",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "section_margin_top_mobile",
+      "label": "Top margin (mobile)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0,
+      "unit": "px",
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    },
+    {
+      "type": "range",
+      "id": "section_margin_bottom_mobile",
+      "label": "Bottom margin (mobile)",
+      "min": 0,
+      "max": 300,
+      "step": 4,
+      "default": 0,
+      "unit": "px",
+      "visible_if": "{{ section.settings.reset_spacing == false }}"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Waves Divider 2",
+      "category": "Dividers"
+    }
+  ],
+  "class": "section-edge-bleed"
+}
+{% endschema %}
