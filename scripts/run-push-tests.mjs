@@ -1661,6 +1661,8 @@ const SUITES = [
   "tests/home-landing-r18-business.test.ts",
   /* Landing round 19, grow: Get Grow stays solid purple with a white label and the same faint light as the other two; only its white disc takes a ring, a 1.5px white ::after 2px clear of it that fades and grows in over 300ms (opacity and transform only), on hover where a pointer hovers and on keyboard focus; under reduced motion it only fades. */
   "tests/home-landing-r19-grow.test.ts",
+  /* Landing round 19, perf: on a touch screen only the creators rail's fast legs (a coast, a nudge) are the page's frames; the drift and its ease in and out run on the compositor (a frame of the drift written from script re-layered the whole page); scripts/check-home-sections-perf.mjs measures the page section by section. */
+  "tests/home-landing-r19-perf.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]
