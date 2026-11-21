@@ -39,9 +39,10 @@ type Tab = LegalKind | "cookies"
 const TABS: { id: Tab; label: string }[] = [
   { id: "terms", label: "Terms" },
   { id: "privacy", label: "Privacy" },
+  { id: "refunds", label: "Refunds" },
   { id: "cookies", label: "Cookies" },
 ]
-const TITLE: Record<Tab, string> = { terms: LEGAL_DOCS.terms.title, privacy: LEGAL_DOCS.privacy.title, cookies: "Cookie choices" }
+const TITLE: Record<Tab, string> = { terms: LEGAL_DOCS.terms.title, privacy: LEGAL_DOCS.privacy.title, refunds: LEGAL_DOCS.refunds.title, cookies: "Cookie choices" }
 
 /*
   ROUND AR: THE TEXT IS HERE BEFORE THE TAP. The reader (and, from round AS,

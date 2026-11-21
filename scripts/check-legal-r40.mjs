@@ -72,7 +72,8 @@ export const notFound = () => {}
 
   const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--hide-scrollbars"], protocolTimeout: 240_000, timeout: 180_000 })
   const PHONE = { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }
-  const DESK = { width: 1440, height: 900, deviceScaleFactor: 1 }
+  /* DESK_WIDTH=1280 measures the legal update at the width it was reviewed at. */
+  const DESK = { width: Number(process.env.DESK_WIDTH) || 1440, height: 900, deviceScaleFactor: 1 }
 
   async function open(path, vp) {
     const p = await browser.newPage()
@@ -94,7 +95,7 @@ export const notFound = () => {}
   }
 
   console.log("\nThe pages")
-  for (const doc of ["terms", "privacy"]) {
+  for (const doc of ["terms", "privacy", "refunds"]) {
     for (const [name, vp] of [["desk", DESK], ["phone", PHONE]]) {
       const tag = `${doc} ${name}`
       const { p, errors } = await open(`/legal-probe?view=${doc}`, vp)
@@ -120,13 +121,14 @@ export const notFound = () => {}
         }
       })
       expect(errors.length === 0, `${tag}: no page errors`, errors.slice(0, 2))
-      expect(m.h1.length === 1 && m.h1[0] === (doc === "terms" ? "Terms of service" : "Privacy policy") && m.inHero, `${tag}: one h1, the name, in the band`, m.h1)
+      expect(m.h1.length === 1 && m.h1[0] === ({ terms: "Terms of service", privacy: "Privacy policy", refunds: "Refund policy" })[doc] && m.inHero, `${tag}: one h1, the name, in the band`, m.h1)
       expect(m.heroBg === "rgb(26, 26, 46)", `${tag}: the Help Center's ink band`, m.heroBg)
       expect(m.sideways <= 0, `${tag}: no sideways scroll`, m.sideways)
       expect(m.missing.length === 0, `${tag}: every contents link reaches its heading`, m.missing)
       expect(name === "desk" ? m.side && !m.inline : !m.side && m.inline, `${tag}: contents ${name === "desk" ? "beside the text" : "folded under the title"}`, { side: m.side, inline: m.inline })
       expect(m.lineLength <= 720, `${tag}: a reading column (${m.lineLength}px, ${m.bodySize})`, m.lineLength)
       await p.screenshot({ path: join(shots, `${tag.replace(/ /g, "-")}.png`) })
+      if (process.env.FULL_PAGE) await p.screenshot({ path: join(shots, `${tag.replace(/ /g, "-")}-full.png`), fullPage: true })
       await p.close()
     }
   }

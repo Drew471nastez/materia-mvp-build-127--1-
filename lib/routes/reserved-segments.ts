@@ -81,6 +81,8 @@ export const RESERVED_ROOT_SEGMENTS: readonly string[] = [
   "products",
   "purchase",
   "receipt",
+  /* Storelib's Refund policy (app/refund-policy), beside /terms and /privacy. */
+  "refund-policy",
   "request",
   /* A Storelib Reviews request link: /review/<token>. */
   "review",

@@ -43,11 +43,13 @@ const root = process.cwd()
 console.log("\nLegal: one text, two documents, the Help Center's layout")
 {
   check("two documents, named in sentence case, at the canonical addresses", LEGAL_DOCS.terms.href === "/terms" && LEGAL_DOCS.privacy.href === "/privacy" && LEGAL_DOCS.terms.title === "Terms of service" && LEGAL_DOCS.privacy.title === "Privacy policy")
-  check("a real last updated date, not today's", legalDate(LEGAL_DOCS.terms.updated) === "February 28, 2026" && legalDate(LEGAL_DOCS.privacy.updated) === "March 3, 2026")
+  /* Changed on purpose (legal update): all three documents were rewritten together and took effect on 2026-11-20 (lib/legal/figures LEGAL_EFFECTIVE). */
+  check("a real last updated date, not today's", legalDate(LEGAL_DOCS.terms.updated) === "November 20, 2026" && legalDate(LEGAL_DOCS.privacy.updated) === "November 20, 2026")
   const terms = renderToStaticMarkup(createElement(TermsBody))
   const privacy = renderToStaticMarkup(createElement(PrivacyBody))
-  check("every contents entry has its heading, terms", TERMS_TOC.length === 28 && TERMS_TOC.every((t) => terms.includes(`<h2 id="${t.id}"`)), TERMS_TOC.filter((t) => !terms.includes(`<h2 id="${t.id}"`)))
-  check("every contents entry has its heading, privacy", PRIVACY_TOC.length === 21 && PRIVACY_TOC.every((t) => privacy.includes(`<h2 id="${t.id}"`)))
+  /* Changed on purpose (legal update): the rewritten terms have 25 sections and the privacy policy 19 (tests/legal-documents.test.ts holds the rest). */
+  check("every contents entry has its heading, terms", TERMS_TOC.length === 25 && TERMS_TOC.every((t) => terms.includes(`<h2 id="${t.id}"`)), TERMS_TOC.filter((t) => !terms.includes(`<h2 id="${t.id}"`)))
+  check("every contents entry has its heading, privacy", PRIVACY_TOC.length === 19 && PRIVACY_TOC.every((t) => privacy.includes(`<h2 id="${t.id}"`)))
   check("the legal text kept its substance (spot checks)", /Storelib Inc\./.test(terms) && /Stripe Connect/.test(terms) && /legal@storelib\.com/.test(terms) && /privacy@storelib\.com/.test(privacy) && /id="cookies"/.test(privacy) && /changes every day and cannot be turned back into either/.test(privacy))
   check("no em dash and no accent violet in the text", !/—/.test(terms + privacy) && !/8b5cf6/i.test(code("components/legal/terms-body.tsx") + code("components/legal/privacy-body.tsx")))
   check("colours are --legal-* variables with Storelib's values behind them", /var\(--legal-ink,#1a1a2e\)/.test(terms) && /var\(--legal-body,#374151\)/.test(terms))
@@ -75,7 +77,8 @@ console.log("\nOnePage: the legal text in a sheet, Share and Subscribe as one di
   /* Changed on purpose (round AS): Report is a short form in a sheet of the page's own, sent to the team with the page's address (tests/onepage-as2.test.ts). */
   check("Report opens its own sheet with the form, not the terms", /setReportOpen\(true\)/.test(links) && /<Panels\.ReportForm /.test(links))
   const reader = code("components/legal/legal-reader.tsx")
-  check("links inside the sheet stay inside it", /onKind\(m\[1\] as LegalKind, m\[2\]\)/.test(reader) && /href\.startsWith\("#"\)\) return go/.test(reader) && /window\.open\(a\.href, "_blank", "noopener"\)/.test(reader))
+  /* Changed on purpose (legal update): a third document, the Refund policy at /refund-policy, so the link's path is looked up (legalKindOfPath) rather than read as the kind. */
+  check("links inside the sheet stay inside it", /if \(m && other\) return onKind\(other, m\[2\]\)/.test(reader) && /href\.startsWith\("#"\)\) return go/.test(reader) && /window\.open\(a\.href, "_blank", "noopener"\)/.test(reader))
 
   const dialog = code("components/onepage/onepage-dialog.tsx")
   /* Changed on purpose (round 41): a dialog can ask for the centred card at every width (Share, as it was before round 40); the rest still get the app's sheet on a phone. */

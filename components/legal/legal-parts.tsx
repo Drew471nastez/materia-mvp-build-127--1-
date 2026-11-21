@@ -13,6 +13,7 @@
  * on a dark page without a second copy of it.
  */
 import type React from "react"
+import { LEGAL_EFFECTIVE } from "@/lib/legal/figures"
 
 export const LEGAL_INK = "text-[var(--legal-ink,#1a1a2e)]"
 export const LEGAL_MUTED = "text-[var(--legal-muted,#6b7280)]"
@@ -54,13 +55,55 @@ export function Ul({ items }: { items: string[] }) {
   )
 }
 
-/** The two documents, where they live and when they last changed. One list, read by the pages, the sheet and the tests. */
+/**
+ * The three documents, where they live and when they took effect and last
+ * changed. One list, read by the pages, the sheet, the sitemap and the tests.
+ * The date is LEGAL_EFFECTIVE (lib/legal/figures), the day all three were
+ * rewritten together.
+ */
 export const LEGAL_DOCS = {
-  terms: { href: "/terms", title: "Terms of service", updated: "2026-02-28", contact: "legal@storelib.com" },
-  privacy: { href: "/privacy", title: "Privacy policy", updated: "2026-03-03", contact: "privacy@storelib.com" },
+  terms: { href: "/terms", title: "Terms of service", effective: LEGAL_EFFECTIVE, updated: LEGAL_EFFECTIVE, contact: "legal@storelib.com" },
+  privacy: { href: "/privacy", title: "Privacy policy", effective: LEGAL_EFFECTIVE, updated: LEGAL_EFFECTIVE, contact: "privacy@storelib.com" },
+  refunds: { href: "/refund-policy", title: "Refund policy", effective: LEGAL_EFFECTIVE, updated: LEGAL_EFFECTIVE, contact: "support@storelib.com" },
 } as const
 
 export type LegalKind = keyof typeof LEGAL_DOCS
+
+/** The document a path names (a link inside the text, "/refund-policy#s4"), or null. */
+export function legalKindOfPath(path: string): LegalKind | null {
+  const hit = (Object.keys(LEGAL_DOCS) as LegalKind[]).find((k) => LEGAL_DOCS[k].href === path)
+  return hit ?? null
+}
+
+/** A small table inside the text: the fees, the purposes and their legal bases, the retention periods. */
+export function Table({ head, rows }: { head: string[]; rows: React.ReactNode[][] }) {
+  return (
+    <div className="overflow-x-auto rounded-xl border border-[var(--legal-rule,#e5e7eb)]">
+      <table className="w-full text-left text-[13.5px] leading-snug">
+        <thead className="bg-[var(--legal-panel,#f8f9fa)] text-[var(--legal-muted,#6b7280)]">
+          <tr>
+            {head.map((h) => (
+              <th key={h} className="px-3 py-2 font-medium">
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={i} className="border-t border-[var(--legal-rule,#eef0f2)] align-top">
+              {r.map((c, j) => (
+                <td key={j} className={`px-3 py-2 ${j === 0 ? "font-medium text-[var(--legal-ink,#1a1a2e)]" : ""}`}>
+                  {c}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
 
 export const legalDate = (iso: string) =>
   new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" })

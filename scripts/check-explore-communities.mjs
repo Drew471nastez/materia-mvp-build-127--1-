@@ -231,7 +231,7 @@ for (const [label, vp] of SIZES) {
       return { shown, text: seller?.innerText.replace(/\s+/g, " ").trim() ?? null, others, h: seller ? Math.round(seller.getBoundingClientRect().height) : 0 }
     })
     if (phone) expect(!foot.shown, "on a phone the creator page footer is not drawn", foot)
-    else expect(foot.shown && foot.text === "Powered by Storelib Privacy Policy Terms & Conditions Cookie preferences" && foot.others === 0, "on a computer Explore ends with the creator page footer, and only that", foot)
+    else expect(foot.shown && foot.text === "Powered by Storelib Privacy Policy Terms & Conditions Refund Policy Cookie preferences" && foot.others === 0, "on a computer Explore ends with the creator page footer, and only that", foot)
     await p.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
     await sleep(300)
     await p.screenshot({ path: join(shots, `${label}-products-footer.png`) })

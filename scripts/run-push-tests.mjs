@@ -1785,6 +1785,8 @@ const STRICT_SUITES = [
   "tests/e2e-onepage-live.test.ts",
   /* Round 40: /terms and /privacy laid out as the Help Center, one text in components/legal, /legal/* redirecting; a OnePage's Privacy and Terms in a sheet; Share and Subscribe as one theme aware dialog; Your own domain's icon, Settings' box the shown section's height, the preview's products asked again; no Follow on creator pages and profiles. */
   "tests/legal-and-onepage-settings-r40.test.ts",
+  /* The legal update (2026-11-20): the Terms, the Privacy policy and the new Refund policy at /refund-policy, held to the code: plan prices and fee rates from lib/legal/figures, every processor named in lib/legal/processors with the file that calls it, every cookie the code sets in the cookie table, the three linking to each other, no em dash and the owner's placeholders listed. */
+  "tests/legal-documents.test.ts",
   /* Round 41: a OnePage's button edges (the fill stops inside the border), X posts at their card's width and corners, social icons that do not grow, Share as it was with the creator's photo and Subscribe with it, neither touching the page's scrollbar; three choices for a product tap, the sheet's own button, option and quantity before paying; a new profile video with no gap. scripts/check-onepage-r41.mjs measures them. */
   "tests/onepage-public-r41.test.ts",
   /* The OnePage production audit (ONEPAGE_PRODUCTION_AUDIT.md): each fixed finding pinned through pure functions, the real routes over tests/_journey, or the component's source. Strict: it drives the routes through tests/_journey. */

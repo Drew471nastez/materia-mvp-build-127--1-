@@ -153,6 +153,9 @@ export function SellerFooter({ isMobile, surface, headerWidth = false, home = fa
         <a href="/terms" className={link} style={muted}>
           Terms & Conditions
         </a>
+        <a href="/refund-policy" className={link} style={muted}>
+          Refund Policy
+        </a>
         {/* How a visitor changes their cookie choice later: as easy as making it. */}
         <CookiePreferencesLink className={link} style={muted} />
       </nav>

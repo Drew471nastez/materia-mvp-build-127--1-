@@ -1,8 +1,8 @@
 "use client"
 
 /**
- * THE TERMS OR THE PRIVACY POLICY, READ INSIDE A SHEET. The same text as the
- * pages (./terms-body, ./privacy-body), loaded only when a visitor opens one
+ * THE TERMS, THE PRIVACY POLICY OR THE REFUND POLICY, READ INSIDE A SHEET. The same text as the
+ * pages (./terms-body, ./privacy-body, ./refund-body), loaded only when a visitor opens one
  * (components/onepage/onepage-legal-links imports this lazily), so a OnePage
  * carries none of it until then.
  *
@@ -13,15 +13,16 @@
  */
 import type React from "react"
 import { useEffect, useRef } from "react"
-import { LEGAL_DOCS, legalDate, type LegalKind } from "./legal-parts"
+import { LEGAL_DOCS, legalDate, legalKindOfPath, type LegalKind } from "./legal-parts"
 import { PRIVACY_TOC, PrivacyBody } from "./privacy-body"
 import { TERMS_TOC, TermsBody } from "./terms-body"
+import { REFUND_TOC, RefundBody } from "./refund-body"
 
-const OTHER_DOC = /^(?:https?:\/\/(?:www\.)?storelib\.com)?\/(?:legal\/)?(terms|privacy)(?:#(.*))?$/
+const OTHER_DOC = /^(?:https?:\/\/(?:www\.)?storelib\.com)?(\/(?:legal\/)?(?:terms|privacy|refund-policy))(?:#(.*))?$/
 
 export default function LegalReader({ kind, onKind, anchor }: { kind: LegalKind; onKind: (k: LegalKind, anchor?: string) => void; anchor?: string }) {
   const root = useRef<HTMLDivElement>(null)
-  const toc = kind === "terms" ? TERMS_TOC : PRIVACY_TOC
+  const toc = kind === "terms" ? TERMS_TOC : kind === "refunds" ? REFUND_TOC : PRIVACY_TOC
   const doc = LEGAL_DOCS[kind]
 
   const go = (id: string) => {
@@ -44,7 +45,8 @@ export default function LegalReader({ kind, onKind, anchor }: { kind: LegalKind;
     e.preventDefault()
     if (href.startsWith("#")) return go(href.slice(1))
     const m = href.match(OTHER_DOC)
-    if (m) return onKind(m[1] as LegalKind, m[2])
+    const other = m ? legalKindOfPath(m[1].replace(/^\/legal/, "")) : null
+    if (m && other) return onKind(other, m[2])
     window.open(a.href, "_blank", "noopener")
   }
 
@@ -56,7 +58,7 @@ export default function LegalReader({ kind, onKind, anchor }: { kind: LegalKind;
       data-legal-reader={kind}
     >
       <p className="text-[13.5px] text-[var(--legal-muted)]">
-        Storelib Inc. · Last updated <time dateTime={doc.updated}>{legalDate(doc.updated)}</time>
+        Storelib Inc. · Effective <time dateTime={doc.effective}>{legalDate(doc.effective)}</time> · Last updated <time dateTime={doc.updated}>{legalDate(doc.updated)}</time>
       </p>
       <details className="group mt-4 rounded-2xl bg-[var(--legal-panel)]" data-legal-contents="">
         <summary className="flex min-h-[46px] cursor-pointer list-none items-center justify-between gap-3 px-4 text-[14px] font-medium text-[var(--legal-ink)] [&::-webkit-details-marker]:hidden">
@@ -75,7 +77,7 @@ export default function LegalReader({ kind, onKind, anchor }: { kind: LegalKind;
           ))}
         </ol>
       </details>
-      <div className="mt-8">{kind === "terms" ? <TermsBody /> : <PrivacyBody />}</div>
+      <div className="mt-8">{kind === "terms" ? <TermsBody /> : kind === "refunds" ? <RefundBody /> : <PrivacyBody />}</div>
       <p className="mt-12 text-[14px] leading-relaxed text-[var(--legal-muted)]">
         Questions? Write to{" "}
         <a href={`mailto:${doc.contact}`} className="font-medium text-[var(--legal-ink)] underline underline-offset-2">

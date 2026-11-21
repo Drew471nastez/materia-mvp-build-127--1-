@@ -12,6 +12,7 @@ const LINKS = [
   { label: "Help", href: publicHelpUrl() },
   { label: "Terms", href: "/terms" },
   { label: "Privacy", href: "/privacy" },
+  { label: "Refunds", href: "/refund-policy" },
 ] as const
 
 export function ShopCompactFooter() {
