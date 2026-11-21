@@ -10,10 +10,17 @@
  * fields' masks, 3; without their fade, 3; without content-visibility, 3; with
  * every tile kept drawing, 10 of 10; and with the fields' loop paused while
  * the page scrolled, drawing nothing, 0. Drawing the fields on the page's own thread instead
- * cost far too much (a throttled phone in Chromium: frames over 25ms from
- * about 22% to about 60%).
+ * cost far too much in Chromium (a throttled phone: frames over 25ms from
+ * about 22% to about 60%). Pausing the loop while the page scrolled and
+ * adding no tile then brought WebKit to 3 crashes in 16, not none; with the
+ * canvases handed over and never drawn on, 0 in 12. So it is the worker
+ * drawing at all.
  *
  * Now:
+ *   - WebKit (every browser on an iPhone, the iOS app's web view; read from
+ *     GestureEvent, an interface only WebKit has, never the user agent) draws
+ *     the fields on the page's own thread, a wander at most 30 frames a
+ *     second; other engines keep the worker;
  *   - while the page scrolls the fields' loop waits (engine.scroll), and it
  *     starts again SCROLL_REST_MS after the last scroll event: one passive
  *     listener for the page (dot-field-driver.ts), a number written per
@@ -33,7 +40,7 @@
  */
 import { readFileSync } from "node:fs"
 import { createDotEngine, DOT_FIELD_TILE, type TileCanvas } from "@/components/marketing/home/dot-field-engine"
-import { SCROLL_REST_MS } from "@/components/marketing/home/dot-field-driver"
+import { DOTS_ON_PAGE_THREAD, PAGE_THREAD_FRAME_MS, SCROLL_REST_MS } from "@/components/marketing/home/dot-field-driver"
 import { DOT_FIELD_CSS } from "@/components/marketing/home/dot-field"
 
 let passed = 0
@@ -168,6 +175,37 @@ console.log("\nThe page: no tile added, handed over or sized while the page move
   const DRIVER = code(read("components/marketing/home/dot-field-driver.ts"))
   check("the driver runs what waited when the page stands still", /const due = \[\.\.\.still\]\s*still\.clear\(\)\s*for \(const run of due\) run\(\)/.test(DRIVER))
   check("whenStill runs at once when the page is still", /if \(s\.moving\(\)\) s\.still\.add\(run\)\s*else run\(\)/.test(DRIVER))
+}
+
+console.log("\nWebKit draws the fields on the page's own thread, at most 30 frames a second")
+{
+  const DRIVER = code(read("components/marketing/home/dot-field-driver.ts"))
+  check("the worker is not started where the engine is WebKit", /function startWorker\(onDrawn: Listener\): DotDriver \| null \{\s*if \(DOTS_ON_PAGE_THREAD\(\)\) return null/.test(DRIVER))
+  check("WebKit is read from an interface only it has (GestureEvent), never the user agent", /GestureEvent/.test(DRIVER) && !/userAgent|navigator\.vendor/.test(DRIVER))
+  const g = globalThis as unknown as { window?: unknown; GestureEvent?: unknown }
+  const hadWindow = "window" in g
+  const before = g.window
+  g.window = { GestureEvent: function GestureEvent() {} }
+  const webkit = DOTS_ON_PAGE_THREAD()
+  g.window = {}
+  const other = DOTS_ON_PAGE_THREAD()
+  if (hadWindow) g.window = before
+  else delete g.window
+  check("with GestureEvent: the page's thread; without: the worker", webkit === true && other === false)
+  check("the page's engine draws a wander at most every PAGE_THREAD_FRAME_MS (about 30 a second)", PAGE_THREAD_FRAME_MS >= 30 && PAGE_THREAD_FRAME_MS <= 34 && /minFrameMs: PAGE_THREAD_FRAME_MS/.test(DRIVER))
+  let cb: ((t: number) => void) | null = null
+  let draws = 0
+  const engine = createDotEngine({ raf: (c) => ((cb = c), 1), caf: () => { cb = null }, now: () => 0, onDrawn: () => undefined, minFrameMs: PAGE_THREAD_FRAME_MS })
+  engine.field(1, "dark", 18, false, false, false)
+  const a = fakeCanvas()
+  engine.tile(1, 0, a.canvas)
+  engine.size(1, 390, 600, 2)
+  engine.tileOn(1, 0, true)
+  let t = 0
+  const base = a.clears.length
+  for (let i = 0; i < 60; i++) { t += 1000 / 60; const c = cb; cb = null; c?.(t) }
+  draws = a.clears.length - base
+  check("a second of a 60Hz screen: about 30 frames drawn, not 60", draws >= 28 && draws <= 31, draws)
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

@@ -403,6 +403,8 @@ export type DotEngineHost = {
   now: () => number
   /** A tile has been drawn for the first time. */
   onDrawn: (id: number, n: number) => void
+  /** Landing round 20: the fewest ms between two frames of a field nobody's pointer leads (the page's own thread draws its wander at most 30 a second). */
+  minFrameMs?: number
 }
 
 export type DotEngine = ReturnType<typeof createDotEngine>
@@ -579,7 +581,7 @@ export function createDotEngine(host: DotEngineHost) {
       }
       again = true
       /* At most 60 a second (a 120Hz screen draws every other frame, evenly). The first frame after a start always draws. */
-      if (f.last && t - f.last < f.cfg.frameMs[f.hasAim ? 0 : 1]) continue
+      if (f.last && t - f.last < (f.hasAim ? f.cfg.frameMs[0] : Math.max(f.cfg.frameMs[1], host.minFrameMs ?? 0))) continue
       const dt = f.last ? Math.min(64, t - f.last) : 16.67
       f.last = t
       moveLight(f, t, dt)
