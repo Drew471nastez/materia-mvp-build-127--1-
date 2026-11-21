@@ -1661,6 +1661,12 @@ const SUITES = [
   "tests/home-landing-r17-checkout.test.ts",
   /* Landing round 18, business: the Digital downloads card shows six downloads of six kinds (an e-book, a video course, a LUT pack, a sample pack, a Notion template, a PDF guide) gliding up one column past one Instant download tag, each turning Delivered under it; one loop on one clock, transform and opacity only, paused off screen; nothing past the card on a phone. */
   "tests/home-landing-r18-business.test.ts",
+  /* Landing round 19, grow: Get Grow stays solid purple with a white label and the same faint light as the other two; only its white disc takes a ring, a 1.5px white ::after 2px clear of it that fades and grows in over 300ms (opacity and transform only), on hover where a pointer hovers and on keyboard focus; under reduced motion it only fades. */
+  "tests/home-landing-r19-grow.test.ts",
+  /* Landing round 19, perf: on a touch screen only the creators rail's fast legs (a coast, a nudge) are the page's frames; the drift and its ease in and out run on the compositor (a frame of the drift written from script re-layered the whole page); scripts/check-home-sections-perf.mjs measures the page section by section. */
+  "tests/home-landing-r19-perf.test.ts",
+  /* Landing round 19, perf2: the website builder's typing is one run behind a window that opens a character at a time (five animations, was 44), its once-only animations cut to the stretches where they move (a delay up to each, so a held value is never restyled), Publish plays once with the moment; the same picture at the same times. */
+  "tests/home-landing-r19-perf2.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
 ]

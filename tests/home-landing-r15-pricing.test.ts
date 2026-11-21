@@ -49,10 +49,12 @@ console.log("\n1. The plan buttons' hover")
   check("leaving fades it first, then puts it back hidden (no jump, no sweep backwards)", /opacity:0;transition:opacity \.3s ease,translate 0s linear \.3s/.test(band) && /opacity:1/.test(hover))
   check("only with a pointer that hovers and motion allowed", /@media \(hover:hover\) and \(prefers-reduced-motion:no-preference\)\{\s*\.plan-shine:hover::before/.test(css))
   // Changed on purpose (landing round 17): Get Grow turns into an outline button on hover instead, so the light crosses Start free and Get Pro only (tests/home-landing-r17-small.test.ts).
-  check("every live dark button carries it: Start free, Get Pro", (cards.match(/class="[^"]* plan-shine"/g) ?? []).length === 2, (cards.match(/class="[^"]* plan-shine"/g) ?? []).length)
+  // Changed on purpose (landing round 19): Get Grow stays purple and carries the light again, so all three live buttons do (tests/home-landing-r19-grow.test.ts).
+  check("every live button carries it: Start free, Get Grow, Get Pro", (cards.match(/class="[^"]* plan-shine( plan-grow)?"/g) ?? []).length === 3, (cards.match(/class="[^"]* plan-shine( plan-grow)?"/g) ?? []).length)
 
   // Changed on purpose (landing round 17): the owner asked for no ring round the disc any more; the button itself becomes the outline (tests/home-landing-r17-small.test.ts).
-  check("Get Grow's disc carries no ring round it", !/\.plan-disc::after/.test(css) && !/plan-shine[^{]*\.plan-disc/.test(css))
+  // Changed on purpose (landing round 19): the owner wants a ring round the white disc only, so .plan-grow's disc has an ::after again (tests/home-landing-r19-grow.test.ts).
+  check("Get Grow's disc ring belongs to .plan-grow only", /\.plan-grow \.plan-disc::after\{/.test(css) && !/plan-shine[^{]*\.plan-disc/.test(css))
   check("the box shadow ring that stepped in is gone", !/group-hover:shadow-\[0_1px_2px_rgba\(46,16,101,0\.18\),0_0_0_3px/.test(CARDS))
   check("the disc is on Get Grow only", (cards.match(/class="plan-disc /g) ?? []).length === 1 && /data-plan-card="growth"[\s\S]*class="plan-disc /.test(cards))
 }

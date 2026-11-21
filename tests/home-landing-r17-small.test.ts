@@ -58,20 +58,13 @@ console.log("\n2. Get Grow: only the disc takes an outline on hover")
   const grow = cards.slice(cards.indexOf('data-plan-card="growth"'))
   const btn = /<a [^>]*data-plan-button="purple"[^>]*>/.exec(grow)?.[0] ?? ""
   check("at rest still solid Storelib purple with a white label", /bg-\[#7c3aed\] font-semibold text-white/.test(btn))
-  check("Get Grow carries .plan-grow, not the light; the dark buttons keep the light", /class="[^"]* plan-grow"/.test(btn) && !/plan-shine/.test(btn) && (cards.match(/ plan-grow"/g) ?? []).length === 1 && (cards.match(/ plan-shine"/g) ?? []).length === 2)
-  check("no darker purple hover left on it", !/hover:bg-\[#6d28d9\]|active:bg-\[#6d28d9\]/.test(CARDS))
-  /* Changed on purpose (onboarding round 5, the owner: "only the white circle should have the outline, not the whole Get Grow button"). */
-  const rest = /\.plan-grow\{[^}]*\}/.exec(css)?.[0] ?? ""
-  check("250ms for the fill and the disc's outline, eased out", /transition:background-color \.25s cubic-bezier\(\.22,1,\.36,1\),box-shadow \.25s cubic-bezier\(\.22,1,\.36,1\)/.test(rest))
-  const hover = /@media \(hover:hover\)\{\s*\.plan-grow:hover\{([^}]*)\}/.exec(css)?.[1] ?? ""
-  check("hover (only where a pointer hovers): the button stays purple, a shade deeper, and never gets a line", /background-color:#6d28d9/.test(hover) && !/inset|#fff|color:#7c3aed/.test(hover))
-  const focus = /\.plan-grow:focus-visible\{([^}]*)\}/.exec(css)?.[1] ?? ""
-  check("keyboard focus: the same purple, and a soft focus ring outside it, no line inside", /background-color:#6d28d9/.test(focus) && /0 0 0 4px rgba\(124,58,237,\.22\)/.test(focus) && !/inset/.test(focus))
-  check("no ring round the disc any more: no ::after, no offset outline", !/plan-disc::after/.test(css) && !/inset:-3\.5px/.test(css))
+  // Changed on purpose (landing round 19): Get Grow stays purple and carries the light like the dark buttons; only its white disc takes a ring, an ::after on opacity and transform (tests/home-landing-r19-grow.test.ts).
+  check("Get Grow carries .plan-grow and the light; three buttons carry the light", /class="[^"]* plan-shine plan-grow"/.test(btn) && (cards.match(/ plan-grow"/g) ?? []).length === 1 && (cards.match(/ plan-shine( plan-grow)?"/g) ?? []).length === 3)
+  check("no darker purple hover left on it", !/hover:bg-\[#6d28d9\]|active:bg-\[#6d28d9\]/.test(CARDS) && !/#6d28d9/.test(css))
+  // Changed on purpose (landing round 19): the button never turns white or gets a line; its fill and label do not change on hover or focus.
+  check("the button never becomes an outline button", !/\.plan-grow(:hover|:focus-visible)\{/.test(css) && !/inset 0 0 0 1\.5px/.test(css))
   check("the disc stays a solid white circle with a purple arrow", /class="plan-disc [^"]*rounded-full bg-white text-\[#7c3aed\]/.test(grow))
-  check("  and only the disc takes an outline, a soft white one on its own edge, on hover and focus", /\.plan-grow:hover \.plan-disc\{box-shadow:0 0 0 3px rgba\(255,255,255,\.38\)/.test(css) && /\.plan-grow:focus-visible \.plan-disc\{box-shadow:0 0 0 3px rgba\(255,255,255,\.38\)/.test(css) && /\.plan-grow \.plan-disc\{box-shadow:0 0 0 0 rgba\(255,255,255,0\)/.test(css))
-  check("no transition under reduced motion", /@media \(prefers-reduced-motion:reduce\)\{\.plan-grow,\.plan-grow \.plan-disc\{transition:none\}\}/.test(css))
-  check("only colour and shadow move: no transform or size change on the button", !/\.plan-grow(:hover|:focus-visible)?\{[^}]*(transform|scale|translate|width|height|border-width)/.test(css))
+  check("no transform or size change on the button itself", !/\.plan-grow(:hover|:focus-visible)?\{[^}]*(transform|scale|translate|width|height|border-width)/.test(css))
 }
 
 console.log("\n3. Take tips: Finn Hollis")

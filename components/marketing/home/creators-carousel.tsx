@@ -59,6 +59,8 @@ const MAX_THROW = 3200
 const RESUME_AFTER_MS = 1400
 const RAMP_UP_MS = 1800
 const RAMP_DOWN_MS = 650
+/** Landing round 19: on a touch screen only these legs (fast ones) are run by the page's frames; the drift is the compositor's. */
+export const FRAME_LEGS: ReadonlySet<string> = new Set(["coast", "nudge"])
 /** Landing round 11: the photos are fetched and decoded from this far ahead of the section, this many at a time. */
 export const CREATORS_PRELOAD = { marginPx: 1600, parallel: 3 } as const
 
@@ -230,7 +232,15 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
         return
       }
       const from = wrap(x)
-      const frames = touch.matches
+      /*
+       * Landing round 19 (perf, the owner: "no lags or stutters" on a phone). Only the fast legs are the page's
+       * frames on a touch screen: a throw's coast and a nudge, up to 2000px a second, where a compositor running
+       * a frame ahead puts the rail 30px from where a finger lands. The drift (cruise) and its ease in and out
+       * never pass 30px a second: a frame of lead is half a pixel, so they run on the compositor like a mouse's.
+       * Written from script, every frame of the drift made Chromium re-layer the whole page (measured at 4x CPU,
+       * a touch scroll past the rail: 8.5ms of layerizing a frame, 5.1 with the drift on the compositor).
+       */
+      const frames = touch.matches && FRAME_LEGS.has(kind)
       let anim: Animation | FrameLeg
       if (frames) {
         /* Written each frame (paint wraps it round the loop). */
