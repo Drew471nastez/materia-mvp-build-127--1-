@@ -9,7 +9,7 @@
  * 0 (twice); with the globes' workers off instead, 2 and 3; without the
  * fields' masks, 3; without their fade, 3; without content-visibility, 3; with
  * every tile kept drawing, 10 of 10; and with the fields' loop paused while
- * the page scrolled, 0. Drawing the fields on the page's own thread instead
+ * the page scrolled, drawing nothing, 0. Drawing the fields on the page's own thread instead
  * cost far too much (a throttled phone in Chromium: frames over 25ms from
  * about 22% to about 60%).
  *
@@ -17,8 +17,10 @@
  *   - while the page scrolls the fields' loop waits (engine.scroll), and it
  *     starts again SCROLL_REST_MS after the last scroll event: one passive
  *     listener for the page (dot-field-driver.ts), a number written per
- *     event and one timer; a tile that comes near meanwhile still gets its
- *     one still frame, so none is blank;
+ *     event and one timer; nothing is drawn while the page moves, not even a
+ *     still frame (that alone still crashed 2 runs in 7), so a tile first
+ *     seen mid flick fades in when the page stands still, as every tile's
+ *     first frame does;
  *   - a tile's canvas is always a whole tile (DOT_FIELD_TILE tall, the box
  *     clips its foot) and is given a size only when that size changes: a
  *     flick no longer reallocates every tile of a field as it settles;
@@ -105,7 +107,7 @@ console.log("\nThe worker runs the same engine")
   check("the worker's code has the size guard", /\.width!==\w+&&\(\w+\.canvas\.width=\w+\)/.test(WORKER) || /width!==/.test(WORKER), WORKER.slice(0, 80))
 }
 
-console.log("\nThe engine: no loop while the page scrolls, a still frame for a tile that comes near")
+console.log("\nThe engine: nothing drawn while the page scrolls, a tile that came near drawn when it stands still")
 {
   let cb: ((t: number) => void) | null = null
   let now = 0
@@ -125,12 +127,12 @@ console.log("\nThe engine: no loop while the page scrolls, a still frame for a t
   engine.scroll(true)
   check("scrolling stops the loop", cb === null)
   engine.tileOn(1, 1, true)
-  check("a tile that comes near while the page scrolls is drawn once", b.clears.length === 1 && cb === null, b.clears.length)
+  check("a tile that comes near while the page scrolls is not drawn yet", b.clears.length === 0 && cb === null, b.clears.length)
   check("and the loop still waits", cb === null)
   engine.scroll(false)
   check("the page standing still starts the loop again", cb !== null)
   step(16)
-  check("both tiles move again", a.clears.length > drawnA && b.clears.length > 1)
+  check("both tiles are drawn again", a.clears.length > drawnA && b.clears.length >= 1)
   engine.scroll(true)
   engine.hide(true)
   engine.scroll(false)

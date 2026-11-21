@@ -410,7 +410,7 @@ export type DotEngine = ReturnType<typeof createDotEngine>
 export function createDotEngine(host: DotEngineHost) {
   const fields = new Map<number, Field>()
   let hidden = false
-  /* Landing round 20: the page is being scrolled. The light's slow wander waits (a tile that comes near still gets its one still frame, settle). */
+  /* Landing round 20: the page is being scrolled. Nothing is drawn (the loop waits, settle waits): the fields stand on their last frame. */
   let scrolling = false
   let frame = 0
 
@@ -557,7 +557,8 @@ export function createDotEngine(host: DotEngineHost) {
 
   /* A still frame for a field that is not in the loop (reduced motion, a tile that has just come near, a resize), once. */
   const settle = () => {
-    if (hidden) return
+    /* Landing round 20: nothing is drawn while the page moves, not even a still frame (one drawn mid flick still brought the Safari engine down, 2 runs in 7); a tile first seen then fades in when the page stands still, as every tile's first frame does. */
+    if (hidden || scrolling) return
     for (const f of fields.values()) {
       if (f.covered || running(f)) continue
       let any = false
@@ -745,13 +746,13 @@ export function createDotEngine(host: DotEngineHost) {
       }
     },
     /**
-     * Landing round 20: the page is being scrolled. No loop while it moves;
-     * the fields stand on their last frame, and a tile that comes near is
-     * drawn once (settle), so none is blank. In the Safari engine a worker
-     * drawing tiles every frame while the page was flung down and up brought
-     * the page down (3 runs in 8; none in 10 with the loop paused while it
-     * moved), and on any phone it is frames' worth of drawing nobody sees
-     * while the page moves under it.
+     * Landing round 20: the page is being scrolled. Nothing is drawn while
+     * it moves: the fields stand on their last frame, and a tile that comes
+     * near is drawn (and fades in) once the page stands still. In the Safari
+     * engine a worker drawing tiles while the page was flung down and up
+     * brought the page down (3 runs in 8 with the loop; 2 in 7 with only a
+     * still frame for a tile that came near; none in 10 drawing nothing), and
+     * on any phone it is drawing nobody sees while the page moves under it.
      */
     scroll(on: boolean) {
       if (scrolling === on) return
