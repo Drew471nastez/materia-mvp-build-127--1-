@@ -96,6 +96,7 @@ import {
   type ThemeDefinition,
 } from "@/lib/website-builder/theme-registry"
 import { MoreThemesCard, ThemeTemplateCard, type TemplateCardState } from "@/components/website-builder/theme-template-card"
+import { backThen } from "@/lib/navigation/go-back"
 import { builtinListings, installedListingSlugs, listingPath, type ThemeListing } from "@/lib/themes/marketplace-shared"
 import { THEME_PARAM, THEMES_PARAM, ThemeMarketplace } from "./themes/themes-client"
 import { relativeTime } from "@/lib/website-builder/relative-time"
@@ -904,17 +905,21 @@ export function WebsiteBuilderClient({
   const closeThemes = () => {
     /* At once, so the window starts leaving on this frame; the history catches up behind it. */
     setThemesOpen(false)
+    const clearAddress = () => {
+      const url = new URL(window.location.href)
+      if (!url.searchParams.has(THEMES_PARAM)) return
+      url.searchParams.delete(THEMES_PARAM)
+      url.searchParams.delete(THEME_PARAM)
+      /* A plain object here too, so the router takes the new address as its own and a later refresh does not put the words back. */
+      window.history.replaceState({}, "", `${url.pathname}${url.search}`)
+    }
     if (themesPushed.current) {
       themesPushed.current = false
-      window.history.back()
+      /* The watched back (lib/navigation/go-back): if the browser's back never lands, the address is cleared here instead. */
+      backThen(clearAddress)
       return
     }
-    const url = new URL(window.location.href)
-    if (!url.searchParams.has(THEMES_PARAM)) return
-    url.searchParams.delete(THEMES_PARAM)
-    url.searchParams.delete(THEME_PARAM)
-    /* A plain object here too, so the router takes the new address as its own and a later refresh does not put the words back. */
-    window.history.replaceState({}, "", `${url.pathname}${url.search}`)
+    clearAddress()
   }
   /** The website being imported, added or copied: its row is drawn before it exists. See ./incoming. */
   const [incoming, setIncoming] = React.useState<Incoming | null>(null)
