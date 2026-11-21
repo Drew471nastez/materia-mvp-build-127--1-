@@ -134,7 +134,8 @@ export function builtinListings(): ThemeListing[] {
     builtinThemeId: null,
     codePackage: `${CODE_THEME_PACKAGE}/${t.template}`,
     hasPackage: true,
-    packageKind: "shopify" as const,
+    /* Null on purpose: the kind is only a label for an uploaded zip, and a code template's is never sent to the page (the owner: no vendor named anywhere). */
+    packageKind: null,
     demoUrl: null,
     published: true,
     sortOrder: i - CODE_TEMPLATES.length,
