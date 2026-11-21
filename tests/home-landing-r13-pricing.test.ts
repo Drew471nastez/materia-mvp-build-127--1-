@@ -61,7 +61,8 @@ check("the client no longer renders the badges, the marquee, the split features 
 console.log("\n2 and 3. The cards on white under a much bigger heading")
 const section = read("components/marketing/pricing-section.tsx")
 /* Changed on purpose (landing round 15): a little more room under the whole section (the owner): pb-24 sm:pb-32, was pb-16 sm:pb-24. */
-check("/pricing's section is white, no grey, no rules", /: "bg-white pt-\[clamp\(48px,7vw,112px\)\] pb-24 sm:pb-32"/.test(section) && !/py-20 sm:py-24 bg-\[#f8f9fa\] border-y/.test(section))
+/* Changed on purpose (pricing one row): a little more again, pb-28 sm:pb-40 (112px, 160px from sm), so the compare sheet starts lower. */
+check("/pricing's section is white, no grey, no rules", /: "bg-white pt-\[clamp\(48px,7vw,112px\)\] pb-28 sm:pb-40"/.test(section) && !/py-20 sm:py-24 bg-\[#f8f9fa\] border-y/.test(section))
 // Changed on purpose (landing round 14): the owner found the 112px title too big; it is home sized now (tests/home-landing-r14-pricing.test.ts).
 check("the heading is home sized now", /data-pricing-title="" className="text-\[clamp\(38px,5vw,68px\)\]/.test(section))
 check("the home page's editorial heading is untouched", /editorial \? "mt-3 text-\[16px\] leading-relaxed text-\[#6b7280\] text-balance"/.test(section) && /<StoryHeading text=\{headingOverride \|\| "Pricing & Plans"\}/.test(section))

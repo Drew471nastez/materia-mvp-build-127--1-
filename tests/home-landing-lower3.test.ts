@@ -140,7 +140,8 @@ console.log("\n── pricing and the app ──")
   // Changed on purpose (landing round 10): on a short laptop (1024px wide or more, 900px high or less) the home section pads 64px, not 96.
   /* Changed on purpose (landing round 15): on the home page the sheet shows what is behind its rounded corners, so the section paints no ground of its own (no black wedges). */ check("pricing paints no ground of its own on the home page, with no rules above and below", /<section data-story-section="pricing"[^>]*class="py-20 sm:py-24 \[@media\(min-width:1024px\)_and_\(max-height:900px\)\]:!py-16"[^>]*style="background:transparent"[^>]*id="pricing">/.test(home))
   // Changed on purpose (landing round 13): the owner: no light grey behind the cards on /pricing either; white, no rules (tests/home-landing-r13-pricing.test.ts).
-  /* Changed on purpose (landing round 15): a little more room under /pricing. */ check("/pricing keeps its own ground", /<section[^>]*class="bg-white pt-\[clamp\(48px,7vw,112px\)\] pb-24 sm:pb-32"[^>]*id="pricing">/.test(page))
+  /* Changed on purpose (landing round 15): a little more room under /pricing. */
+  /* Changed on purpose (pricing one row): a little more again, pb-28 sm:pb-40, so the compare sheet starts lower. */ check("/pricing keeps its own ground", /<section[^>]*class="bg-white pt-\[clamp\(48px,7vw,112px\)\] pb-28 sm:pb-40"[^>]*id="pricing">/.test(page))
   const app = renderToStaticMarkup(createElement(AppAnywhere))
   check("the app: no white ring on the purple ground, the short line kept", !/ring-white/.test(app) && app.includes("Your sales, orders and visitors on your phone, wherever you are."))
   check("the terminal is a picture", /\.ait-term\{[^}]*pointer-events:none/.test(read(`${DIR}/ai-tools-section.tsx`)))

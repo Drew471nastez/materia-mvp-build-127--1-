@@ -39,7 +39,7 @@ const STATIC_TYPES = { ".webp": "image/webp", ".avif": "image/avif", ".png": "im
  * below. It is how a probe sees what Save sent and what a signup posted.
  */
 /* `head` (round AL, scripts/check-product-cover-ratio.mjs): markup for the page's <head>, after its styles, as a layout's own head scripts. */
-export async function serveEditorProbe({ root = process.cwd(), entry = "scripts/render-onepage-editor.tsx", pathname = "/app/onepage", blocks = null, theme = {}, liveTheme = null, statics = {}, throttle = null, api = null, head = "", fail = (m) => { throw new Error(m) } } = {}) {
+export async function serveEditorProbe({ root = process.cwd(), entry = "scripts/render-onepage-editor.tsx", pathname = "/app/onepage", blocks = null, theme = {}, liveTheme = null, statics = {}, throttle = null, api = null, head = "", imageFill = false, fail = (m) => { throw new Error(m) } } = {}) {
   const dir = join(root, `.onepage-probe-${process.pid}`)
   mkdirSync(dir, { recursive: true })
   writeFileSync(join(dir, "navigation.js"), `export const usePathname = () => ${JSON.stringify(pathname)}
@@ -52,8 +52,10 @@ export const redirect = () => {}
 export default function Link({ href, children, prefetch, ...rest }) { return React.createElement("a", { href: typeof href === "string" ? href : "#", ...rest }, children) }
 export const useLinkStatus = () => ({ pending: false })
 `)
+  /* imageFill (scripts/check-product-cover-ratio.mjs): a fill picture is laid over its box as next/image lays it (absolute, 100% by 100%), so its object-fit decides what is shown, whatever its own shape. */
   writeFileSync(join(dir, "image.jsx"), `import React from "react"
-export default function Image({ src, alt, fill, priority, unoptimized, sizes, quality, placeholder, blurDataURL, loader, ...rest }) { return React.createElement("img", { src: typeof src === "string" ? src : src && src.src, alt, ...rest }) }
+const FILL = ${imageFill ? `{ position: "absolute", inset: 0, width: "100%", height: "100%", color: "transparent" }` : "null"}
+export default React.forwardRef(function Image({ src, alt, fill, priority, unoptimized, sizes, quality, placeholder, blurDataURL, loader, ...rest }, ref) { return React.createElement("img", { ref, src: typeof src === "string" ? src : src && src.src, alt, ...rest, style: fill && FILL ? { ...FILL, ...rest.style } : rest.style }) })
 `)
   /* One answer for every query: an empty list (the Products tab maps it) that also says onboarding is done (the editor reads that off a single row). */
   writeFileSync(join(dir, "supabase.js"), `const result = { data: Object.assign([], { onboarding_completed: true }), error: null }

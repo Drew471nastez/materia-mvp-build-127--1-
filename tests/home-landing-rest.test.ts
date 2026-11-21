@@ -98,34 +98,37 @@ console.log("\n── Pricing ──")
   check("each rate is the fee table's", has("free", `Rates from ${getFeeDescription("free", "physical").replace(" per sale", "")}`) && has(PRO_CHECKOUT_PLAN_ID, `Rates from ${getFeeDescription(PRO_CHECKOUT_PLAN_ID, "physical").replace(" per sale", "")}`) && has(SCALE_CHECKOUT_PLAN_ID, `Lowest rates: ${rateOf(SCALE_CHECKOUT_PLAN_ID)}`))
   const rate = (s: string) => Number(/([\d.]+)%/.exec(s)?.[1])
   check("lower and lowest are so", rate(getFeeDescription(PRO_CHECKOUT_PLAN_ID)) < rate(getFeeDescription("free")) && rate(getFeeDescription(SCALE_CHECKOUT_PLAN_ID)) < rate(getFeeDescription(PRO_CHECKOUT_PLAN_ID)))
-  check("Free's websites are its own number", has("free", `Your creator page and ${free.maxSites} websites`))
+  /* Changed on purpose (pricing one row): every line said short enough for one row. */
+  check("Free's websites are its own number", has("free", `Creator page + ${free.maxSites} websites`))
   check("Free claims no domain; Grow claims one only because it has it", !has("free", "Your own domain") && has(PRO_CHECKOUT_PLAN_ID, "Your own domain") === pro.customDomain)
   check("no branding only where the plan removes it", has(PRO_CHECKOUT_PLAN_ID, "No Storelib branding") === pro.removeBranding && !has("free", "No Storelib branding"))
   check("website counts are the tables'", !has(SCALE_CHECKOUT_PLAN_ID, `Up to ${scale.maxSites} websites`) || scale.maxSites > pro.maxSites)
-  check("the most AI edits is so", !has(SCALE_CHECKOUT_PLAN_ID, "The most AI edits each month") || (scale.aiEditsPerMonth > pro.aiEditsPerMonth && scale.aiEditsPerMonth >= Math.max(free.aiEditsPerMonth, pro.aiEditsPerMonth)))
-  check("the most room for files is so", !has(SCALE_CHECKOUT_PLAN_ID, "The most room for your files") || Object.values(PLAN_LIMITS).every((l) => l.storageQuotaBytes <= PLAN_LIMITS[SCALE_CHECKOUT_PLAN_ID].storageQuotaBytes))
+  check("the most AI edits is so", !has(SCALE_CHECKOUT_PLAN_ID, "Most AI edits") || (scale.aiEditsPerMonth > pro.aiEditsPerMonth && scale.aiEditsPerMonth >= Math.max(free.aiEditsPerMonth, pro.aiEditsPerMonth)))
+  check("the most room for files is so", !has(SCALE_CHECKOUT_PLAN_ID, "Most room for files") || Object.values(PLAN_LIMITS).every((l) => l.storageQuotaBytes <= PLAN_LIMITS[SCALE_CHECKOUT_PLAN_ID].storageQuotaBytes))
   // Changed on purpose (landing round 14): the owner asked for six lines on every card.
   check("six lines at most on each card", Object.values(lines).every((l) => l.length <= 6))
-  check("Grow's more room for files is so", !has(PRO_CHECKOUT_PLAN_ID, "More room for your files") || PLAN_LIMITS[PRO_CHECKOUT_PLAN_ID].storageQuotaBytes > PLAN_LIMITS.free.storageQuotaBytes)
-  check("Pro's most pages is so", !has(SCALE_CHECKOUT_PLAN_ID, "The most pages on each website") || (scale.maxPages > pro.maxPages && scale.maxPages > free.maxPages))
+  check("Grow's more room for files is so", !has(PRO_CHECKOUT_PLAN_ID, "More room for files") || PLAN_LIMITS[PRO_CHECKOUT_PLAN_ID].storageQuotaBytes > PLAN_LIMITS.free.storageQuotaBytes)
+  check("Pro's most pages is so", !has(SCALE_CHECKOUT_PLAN_ID, "Most pages per site") || (scale.maxPages > pro.maxPages && scale.maxPages > free.maxPages))
 
   /* The lines every plan has, each tied to the code that provides it (as tests/pricing-plans.test.ts ties the app's). */
   const exists = (f: string) => existsSync(join(root, f))
   const products = read("app/(storelib)/app/products/new/product-editor.tsx")
   const shared: Record<string, boolean> = {
-    "Unlimited products and courses": /"digital" \| "course"/.test(products) && !/maxProducts|max_products|productLimit/.test(read("lib/billing/plans.ts") + read("lib/storage/plans.ts")),
-    "Get paid straight to your bank": /stripe_account_id/.test(read("lib/checkout/fulfil-payment.ts")) && exists("app/(storelib)/app/payouts/payouts-client.tsx"),
-    "Email your customers": exists("app/(storelib)/app/emails/page.tsx") && exists("app/api/email/send/route.ts"),
+    /* Changed on purpose (pricing one row): the shared lines said short ("Unlimited products", "Payouts to your bank", "Email customers", "Verified badge", "Sales analytics"). */
+    "Unlimited products": /"digital" \| "course"/.test(products) && !/maxProducts|max_products|productLimit/.test(read("lib/billing/plans.ts") + read("lib/storage/plans.ts")),
+    "Payouts to your bank": /stripe_account_id/.test(read("lib/checkout/fulfil-payment.ts")) && exists("app/(storelib)/app/payouts/payouts-client.tsx"),
+    "Email customers": exists("app/(storelib)/app/emails/page.tsx") && exists("app/api/email/send/route.ts"),
     /* Changed on purpose (OnePage production audit, ED-1): the gate lets a plan that could not be read through (the save route asks the plan itself), and is still growth or pro. */
-    "Verified badge on your page": /const userHasPro = !planConfirmed \|\| userPlan === "growth" \|\| userPlan === "pro"/.test(read("components/onepage/onepage-editor.tsx")),
+    "Verified badge": /const userHasPro = !planConfirmed \|\| userPlan === "growth" \|\| userPlan === "pro"/.test(read("components/onepage/onepage-editor.tsx")),
     "Everything in Free": true,
     "Everything in Grow": true,
     /* Added (landing round 14): the sixth line on Free, the analytics every plan has. */
-    "Sales and visitor analytics": exists("app/(storelib)/app/analytics/page.tsx"),
+    "Sales analytics": exists("app/(storelib)/app/analytics/page.tsx"),
   }
   /* Changed on purpose (landing round 14): Grow's and Pro's sixth lines are read from the storage and site tables. */
   /* Changed on purpose (pricing tooltip): "Rates from 3% + $0.25" and "Lowest rates: 1.5% + $0.25". */
-  const fromTables = (l: string) => /^(Lowest )?rates(:| from) [\d.]+% \+ \$0\.25$/i.test(l) || /^Your creator page and \d+ websites$/.test(l) || /^Up to \d+ websites$/.test(l) || ["Your own domain", "No Storelib branding", "The most AI edits each month", "The most room for your files", "More room for your files", "The most pages on each website"].includes(l)
+  /* Changed on purpose (pricing one row): the table lines said short. */
+  const fromTables = (l: string) => /^(Lowest )?rates(:| from) [\d.]+% \+ \$0\.25$/i.test(l) || /^Creator page \+ \d+ websites$/.test(l) || /^Up to \d+ websites$/.test(l) || ["Your own domain", "No Storelib branding", "Most AI edits", "Most room for files", "More room for files", "Most pages per site"].includes(l)
   for (const l of all) check(`"${l}" is from a table or backed by the code`, fromTables(l) || shared[l] === true)
   check("nothing the old cards were warned off (custom code, Shopify, API, priority, physical)", !all.some((l) => /custom code|shopify|api|priority|white.?label|physical/i.test(l)))
 

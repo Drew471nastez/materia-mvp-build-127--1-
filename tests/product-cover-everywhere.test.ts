@@ -11,8 +11,10 @@
  *             and FramedPicture's own pictures alone
  *   ROWS      the cover as uploaded (products.cover_original_url, SQL part 377) is read in a request of its own and
  *             laid over the rows; a database without it, or a failed read, leaves them as they were
- *   PLACES    a website's cards and product page, the store's grid, the library, the website checkout, the builder's
- *             product list and the editor's tiles use it; Explore's cards do not
+ *   PLACES    a website's cards and product page, the library, the website checkout, the builder's product list, the
+ *             editor's tiles and the OnePage use it; storelib.com's own commerce pages (Explore, a creator's store on
+ *             storelib.com, the /p/ product page) do not: they show the stored 16:9 copy, or the picture whole on
+ *             the same light grey (STORELIB.COM COVERS WHOLE, the owner)
  *   UPLOAD    the editor still keeps both files, and an import's pictures are never padded
  *
  *   npx tsx tests/product-cover-everywhere.test.ts
@@ -110,7 +112,8 @@ console.log("TRIM")
   check("one that cannot be read, or has no bars, is shown as it is", /settle\(key, ""\)/.test(trim) && /"data-cover-trim", "none"/.test(trim))
   check("its srcset goes with it, so the browser does not pick the padded size back", /removeAttribute\("srcset"\)/.test(trim) && /removeAttribute\("sizes"\)/.test(trim))
   const card = read("components/explore/product-card.tsx")
-  check("Explore's card keeps its 16:9 copy; the store's own grid does not", /data-cover-trim=\{discoverLayout \? "keep" : undefined\}/.test(card) && /\(!discoverLayout && product\?\.cover_original_url\) \|\| product\?\.thumbnail_url/.test(card))
+  /* Changed on purpose (storelib.com covers whole): the card is only ever on storelib.com's commerce pages, so it always draws the 16:9 copy whole, on the padding's light grey, and the trim leaves it alone. */
+  check("Explore's card and a creator's storelib.com store card keep the 16:9 copy, whole on light grey", /data-cover-trim="keep"/.test(card) && !/data-cover-trim=\{discoverLayout/.test(card) && /const coverUrl = product\?\.thumbnail_url \|\| ""/.test(card) && !/cover_original_url/.test(card) && /"object-contain transition-\[scale,opacity\]/.test(card) && /bg-\[#f0f0f0\]/.test(card))
   check("Explore's featured banner keeps its copy", /data-cover-trim="keep"/.test(read("components/explore/featured-banner-carousel.tsx")))
   check("FramedPicture's pictures are framed by it, not trimmed twice", (read("components/ui/framed-picture.tsx").match(/data-cover-trim="framed"/g) ?? []).length === 2)
 }
@@ -168,15 +171,21 @@ console.log("PLACES")
   check("a product page (website, imported theme, builder) draws the original first in its gallery", /const row = withOriginalCoverRow\(given\)/.test(read("lib/products/product-section-data.ts")))
   check("the builder's product list carries the originals", /rowsWithOriginalCovers\(supabase, rows\)/.test(read("app/api/website-builder/products/route.ts")))
   const store = read("app/(storelib)/(marketing)/u/[username]/page.tsx")
-  check("the store's grid and sections draw the originals", /originalCoversOf\(createAdminClient\(\), \(products \?\? \[\]\)\.map\(\(p\) => p\.id\)\)/.test(store) && /\.\.\.withOriginalCoverRow\(\{ thumbnail_url: p\.thumbnail_url, gallery_urls: p\.gallery_urls \}, originals\.get\(p\.id\)\)/.test(store))
-  check("the store card passes the original on", /cover_original_url: product\.cover_original_url \?\? null/.test(read("components/storefront/storefront-product-card.tsx")))
+  /* Changed on purpose (storelib.com covers whole): a creator's store on storelib.com is a commerce page like Explore. */
+  check("a creator's storelib.com store draws the stored 16:9 copies, not the originals", !/originalCoversOf|withOriginalCoverRow/.test(store) && /thumbnail_url: p\.thumbnail_url,\s*gallery_urls: p\.gallery_urls,/.test(store))
+  check("  its card passes no original on", !/cover_original_url/.test(read("components/storefront/storefront-product-card.tsx")))
   check("the library's list and a product's own library page", /originalCoversOf\(admin, productIds\)/.test(read("lib/library/get-library-downloads.ts")) && /withOriginalCoverRow\(\{ thumbnail_url: product\.thumbnail_url \?\? null, cover_original_url: product\.cover_original_url \?\? null \}\)/.test(read("app/(storelib)/account/library/products/[id]/page.tsx")))
   check("a website's checkout lines", /originalCoversOf\(db, priced\.lines\.map\(\(l\) => l\.item\.productId\)\)/.test(read("lib/checkout/site-quote-server.ts")))
   {
     const page = read("app/(storelib)/(marketing)/p/[slug]/page.tsx")
-    check("the product page reached from Explore keeps Explore's 16:9 card with its bars, and the trim leaves it alone", /const fromExplore = layout === "discover"/.test(page) && /fromExplore\s*\?\s*storedGallery\s*:\s*withOriginalCover\(/.test(page) && /data-cover-padded=\{fromExplore \? "keep" : undefined\}/.test(page))
+    /* Changed on purpose (storelib.com covers whole): however it was reached, not only from Explore. */
+    check("the storelib.com product page always keeps Explore's 16:9 copy, every photo whole, and the trim leaves it alone", !/fromExplore|withOriginalCover/.test(page) && /data-cover-padded="keep"/.test(page) && /<ProductGallery[\s\S]{0,600}fit="contain"/.test(page))
+    const gallery = read("components/product/product-gallery.tsx")
+    check("  the gallery draws its main photos and thumbnails whole on the light grey when asked to", /fit\?: "cover" \| "contain"/.test(gallery) && /const whole = fit \? fit === "contain" : shape === "square"/.test(gallery) && /whole \? "object-contain" : "object-cover"/.test(gallery) && /fit === "contain" \? "bg-\[#f0f0f0\]" : "bg-muted"/.test(gallery) && /fit === "contain" \? "object-contain bg-\[#f0f0f0\]" : "object-cover"/.test(gallery))
+    check("  and only the product page asks: the store builder's product section keeps its own fit", !/fit="contain"/.test(read("components/store-builder/unified-section-renderer.tsx")))
   }
-  check("checkout, the product page and the OnePage keep theirs (round AK)", /thumbnail_url: productCover\(product\)/.test(read("app/(storelib)/checkout/page.tsx")) && /withOriginalCover\(/.test(read("app/(storelib)/(marketing)/p/[slug]/page.tsx")) && /withOriginalCover\(/.test(read("app/api/onepage/product/route.ts")))
+  /* Changed on purpose (storelib.com covers whole): the /p/ product page is no longer one of them. */
+  check("checkout and the OnePage keep theirs (round AK)", /thumbnail_url: productCover\(product\)/.test(read("app/(storelib)/checkout/page.tsx")) && /withOriginalCover\(/.test(read("app/api/onepage/product/route.ts")))
   const tile = read("app/(storelib)/app/products/new/media-grid.tsx")
   check("the editor's tile shows the picture as uploaded, filling the tile", /: item\.original \|\| item\.url/.test(tile) && /square && item\.type === "image" \? "object-contain" : "object-cover"/.test(tile))
   check("  its number, its Thumbnail badge and its drag handle stay", /\{index \+ 1\}/.test(tile) && /tt\("Thumbnail"\)/.test(tile) && /data-media-handle=""/.test(tile))

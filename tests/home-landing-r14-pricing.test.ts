@@ -76,9 +76,10 @@ console.log("\n1b. Six true lines on every card, on every surface")
   const free = siteLimits("free")
   const grow = siteLimits("growth")
   const pro = siteLimits("pro")
-  check("Free's sixth: Sales and visitor analytics, the compare table's row every plan has", lines.free[5]?.text === "Sales and visitor analytics" && plans.planComparison().flatMap((g) => g.rows).some((r) => r.label === "Sales and visitor analytics" && r.free === true && r.pro === true && r.scale === true))
-  check("Grow's sixth: More room for your files, because its storage is more than Free's", lines.growth[5]?.text === "More room for your files" && PLAN_LIMITS.growth.storageQuotaBytes > PLAN_LIMITS.free.storageQuotaBytes)
-  check("Pro's sixth: The most pages on each website, because its pages are the most", lines.pro[5]?.text === "The most pages on each website" && pro.maxPages > grow.maxPages && pro.maxPages > free.maxPages)
+  /* Changed on purpose (pricing one row): the sixth lines said short so every line is one row ("Sales analytics", "More room for files", "Most pages per site"). */
+  check("Free's sixth: Sales analytics, the compare table's row every plan has", lines.free[5]?.text === "Sales analytics" && plans.planComparison().flatMap((g) => g.rows).some((r) => r.label === "Sales and visitor analytics" && r.free === true && r.pro === true && r.scale === true))
+  check("Grow's sixth: More room for files, because its storage is more than Free's", lines.growth[5]?.text === "More room for files" && PLAN_LIMITS.growth.storageQuotaBytes > PLAN_LIMITS.free.storageQuotaBytes)
+  check("Pro's sixth: Most pages per site, because its pages are the most", lines.pro[5]?.text === "Most pages per site" && pro.maxPages > grow.maxPages && pro.maxPages > free.maxPages)
   check("the analytics the line names exist", read("app/(storelib)/app/analytics/page.tsx").length > 0)
   const compact = renderToStaticMarkup(createElement(PricingSection, { compact: true }))
   /* Changed on purpose (pricing: Grow $14, physical rates). */

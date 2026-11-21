@@ -19,6 +19,11 @@
  * tables), and the rest name things every plan has, each tied in
  * tests/home-landing-rest.test.ts to the code that provides it. A plan gets no
  * line its tables do not give it.
+ *
+ * PRICING ONE ROW ROUND, THE OWNER: every line on every card fits on one row,
+ * at 390 and 1280 (scripts/check-pricing-lines-one-row.mjs). The fixed wording
+ * is said short ("Creator page + 2 websites", "Most pages per site"); the
+ * numbers in it are still read from the tables.
  */
 import { cardRateLabel, lowestRateKind, smallOrderThresholdLabel, standardRateFor } from "@/lib/billing/fee-calculator"
 import { PRO_CHECKOUT_PLAN_ID, SCALE_CHECKOUT_PLAN_ID, type OfferedPlanId, type PlanId } from "@/lib/billing/plans"
@@ -85,13 +90,13 @@ export function publicPlanLines(): Record<OfferedPlanId, PlanLine[]> {
   const pro = siteLimits(SCALE_CHECKOUT_PLAN_ID)
 
   const freeLines: PlanLine[] = [
-    { icon: "products", text: "Unlimited products and courses" },
-    { icon: "page", text: `Your creator page and ${sites(free.maxSites)}` },
-    { icon: "bank", text: "Get paid straight to your bank" },
-    { icon: "mail", text: "Email your customers" },
+    { icon: "products", text: "Unlimited products" },
+    { icon: "page", text: `Creator page + ${sites(free.maxSites)}` },
+    { icon: "bank", text: "Payouts to your bank" },
+    { icon: "mail", text: "Email customers" },
     { icon: "rate", ...rateLine("free", "Rates") },
-    /* Landing round 14: the compare table's "Sales and visitor analytics", on every plan (app/(storelib)/app/analytics). */
-    { icon: "analytics", text: "Sales and visitor analytics" },
+    /* Landing round 14: the compare table's "Sales and visitor analytics", on every plan (app/(storelib)/app/analytics), said short. */
+    { icon: "analytics", text: "Sales analytics" },
   ]
 
   const growLines: PlanLine[] = [
@@ -100,19 +105,19 @@ export function publicPlanLines(): Record<OfferedPlanId, PlanLine[]> {
   ]
   if (grow.customDomain) growLines.push({ icon: "domain", text: "Your own domain" })
   if (grow.removeBranding) growLines.push({ icon: "brand", text: "No Storelib branding" })
-  growLines.push({ icon: "badge", text: "Verified badge on your page" })
+  growLines.push({ icon: "badge", text: "Verified badge" })
   /* Landing round 14: Grow's storage over Free's (lib/storage/plans), said the way Pro's line says it. */
-  if (PLAN_LIMITS[PRO_CHECKOUT_PLAN_ID].storageQuotaBytes > PLAN_LIMITS.free.storageQuotaBytes) growLines.push({ icon: "files", text: "More room for your files" })
+  if (PLAN_LIMITS[PRO_CHECKOUT_PLAN_ID].storageQuotaBytes > PLAN_LIMITS.free.storageQuotaBytes) growLines.push({ icon: "files", text: "More room for files" })
 
   const proLines: PlanLine[] = [
     { icon: "everything", text: "Everything in Grow" },
     { icon: "rate", ...rateLine(SCALE_CHECKOUT_PLAN_ID, "Lowest rates") },
   ]
   if (pro.maxSites > grow.maxSites) proLines.push({ icon: "sites", text: `Up to ${sites(pro.maxSites)}` })
-  if (PLAN_LIMITS[SCALE_CHECKOUT_PLAN_ID].storageQuotaBytes > PLAN_LIMITS[PRO_CHECKOUT_PLAN_ID].storageQuotaBytes) proLines.push({ icon: "files", text: "The most room for your files" })
-  if (pro.aiEditsPerMonth > grow.aiEditsPerMonth) proLines.push({ icon: "edits", text: "The most AI edits each month" })
+  if (PLAN_LIMITS[SCALE_CHECKOUT_PLAN_ID].storageQuotaBytes > PLAN_LIMITS[PRO_CHECKOUT_PLAN_ID].storageQuotaBytes) proLines.push({ icon: "files", text: "Most room for files" })
+  if (pro.aiEditsPerMonth > grow.aiEditsPerMonth) proLines.push({ icon: "edits", text: "Most AI edits" })
   /* Landing round 14: Pro's pages per website over Grow's and Free's (lib/sites/plan), the compare table's "Pages per website". */
-  if (pro.maxPages > grow.maxPages && pro.maxPages > free.maxPages) proLines.push({ icon: "pages", text: "The most pages on each website" })
+  if (pro.maxPages > grow.maxPages && pro.maxPages > free.maxPages) proLines.push({ icon: "pages", text: "Most pages per site" })
 
   return {
     free: freeLines.slice(0, MAX_PLAN_LINES),

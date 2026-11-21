@@ -1,5 +1,4 @@
 import { withOwnersCommunities } from "@/lib/commerce/owner-communities-server"
-import { withOriginalCover } from "@/lib/products/cover"
 import { notFound, permanentRedirect, redirect } from "next/navigation"
 import { productPriceCurrency } from "@/lib/money/product-currency"
 import { personName } from "@/lib/profile/display-name"
@@ -994,18 +993,19 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   // YouTube thumbnails are only for product listings, not for gallery display
   // If only YouTube embed exists (no real images), galleryImages should be empty
   // The ProductGallery component will show the YouTube embed from youtubeUrls
-  /* Round AK: the cover as uploaded (SQL part 377) in the 16:9 card copy's place, so the gallery shows the picture itself. */
-  const storedGallery = product.gallery_urls?.length
+  /*
+    STORELIB.COM COVERS WHOLE (the owner): this is storelib.com's own product page, a commerce page like Explore, so the
+    gallery is Explore's 16:9 treatment however it was reached: the stored 16:9 copy (thumbnail_url and gallery_urls,
+    the editor's light grey padding and all), every photo drawn whole (ProductGallery fit="contain", on that grey for a
+    picture with no padded copy, such as a landscape cover the editor kept as it was). data-cover-padded="keep" below
+    stops lib/images/cover-trim cutting the padding off. Creator websites and the OnePage keep the cover as uploaded
+    (lib/products/product-section-data.ts, app/api/onepage/product), and are not drawn here.
+  */
+  const galleryImages = product.gallery_urls?.length
     ? (product.gallery_urls.filter((url: string) => url && !isYouTubeThumbnailUrl(url)) as string[])
     : product.thumbnail_url && !isYouTubeThumbnailUrl(product.thumbnail_url)
       ? [product.thumbnail_url]
       : []
-  /* Reached from Explore (?layout=discover): the page keeps Explore's 16:9 card, bars and all, as the owner asked;
-     everywhere else it shows the cover as uploaded. data-cover-padded="keep" below stops lib/images/cover-trim cutting it. */
-  const fromExplore = layout === "discover"
-  const galleryImages = fromExplore
-    ? storedGallery
-    : withOriginalCover(storedGallery, product as { thumbnail_url?: string | null; cover_original_url?: string | null })
 
   const srcParam = src === "platform" ? "?src=platform" : ""
 
@@ -1068,7 +1068,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         creatorName={creatorProfile?.display_name || creator?.name || undefined}
       />
       <div className="grid gap-8 lg:grid-cols-5 lg:gap-12 lg:items-start w-full">
-      <div className="lg:col-span-3 min-w-0 w-full" data-cover-padded={fromExplore ? "keep" : undefined}>
+      <div className="lg:col-span-3 min-w-0 w-full" data-cover-padded="keep">
         {galleryImages.length > 0 || videoFileUrl || youtubeUrls.length > 0 ? (
           <ProductGallery
             images={galleryImages}
@@ -1078,6 +1078,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             mobileDotsMode={mobileGalleryDots}
             desktopDotsMode={desktopGalleryDots}
             shape={product.type === "physical" ? "square" : "wide"}
+            fit="contain"
             followVariantsOf={product.type === "physical" ? product.id : undefined}
           />
         ) : (

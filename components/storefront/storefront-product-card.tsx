@@ -34,8 +34,6 @@ export interface StorefrontCardProduct {
   href?: string
   title: string
   thumbnail_url?: string | null
-  /** The cover as uploaded (products.cover_original_url, SQL part 377), drawn instead of the 16:9 copy when there is one. */
-  cover_original_url?: string | null
   price_cents: number
   compare_at_cents?: number | null
   /** The currency the price is in when it is not the page's (lib/money/marketplace). */
@@ -100,7 +98,6 @@ export function StorefrontProductCard({
         pay_what_you_want: product.pay_what_you_want ?? null,
         pwyw_min_price_cents: product.pwyw_min_price_cents ?? null,
         thumbnail_url: product.thumbnail_url ?? null,
-        cover_original_url: product.cover_original_url ?? null,
         type: product.type || "digital",
         price_interval: product.price_interval ?? null,
         reviews_count: product.reviews_count ?? null,

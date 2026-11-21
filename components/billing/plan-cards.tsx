@@ -124,7 +124,9 @@ const PLAN_LINES = publicPlanLines()
  * every rate line at 768px) wraps before the rate, never between its parts,
  * so no "$0.25" is left alone on a row (scripts/check-pricing-rate-line.mjs).
  */
-const keepRateWhole = (text: string) => text.replace(/(\d%) \+ /g, "$1\u00a0+\u00a0")
+const keepRateWhole = (text: string) =>
+  /* Pricing one row round: where a line still wraps (Free's "Creator page + 2 websites" at 768), a count stays with its noun, never "websites" alone on a row. */
+  text.replace(/(\d%) \+ /g, "$1\u00a0+\u00a0").replace(/(\d) (websites?)\b/g, "$1\u00a0$2")
 
 /** The rate line's words, then its last run (the rate, kept whole) and the info circle together, so they wrap as one. */
 function RateText({ text, rates }: { text: string; rates: PlanLineRates }) {

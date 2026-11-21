@@ -1,22 +1,29 @@
 /**
- * NO GREY BARS OUTSIDE EXPLORE, MEASURED (round AL).
+ * PRODUCT PICTURES, MEASURED (round AL; storelib.com covers whole).
  *
- * The owner: a portrait cover (4:5) shows with grey bars around it in places where it should not. Only Explore keeps
- * the product editor's 16:9 copy with its padding. This probe serves that pair of files, made as the editor makes them
- * (a 1080x1350 cover; its 1280x720 copy on a light grey gradient, named `<ms>_<name>_processed.jpg`), and draws the
- * real components (scripts/render-product-cover-ratio.tsx) with the page's own trim in <head> (lib/images/cover-trim,
- * as app/(storelib)/layout.tsx and app/(site)/layout.tsx write it):
+ * The owner's rule: on storelib.com's own commerce pages (Explore, the marketplace, a creator's store on storelib.com,
+ * the /p/ product page) a cover shows WHOLE in the 16:9 frame, letterboxed like Explore: the product editor's 16:9 copy
+ * with its light grey padding, or the picture contained on that same grey when it has no padded copy. Everywhere else
+ * (the OnePage, creator websites and the builder, the editor's tiles) the picture is in its own shape or fills its
+ * frame, with no grey bars. This probe serves the files as the editor makes them (a 1080x1350 portrait cover; its
+ * 1280x720 copy on a light grey gradient, named `<ms>_<name>_processed.jpg`; a landscape 1600x1000 cover the editor
+ * keeps as it is, with no padded copy), and draws the real components (scripts/render-product-cover-ratio.tsx) with
+ * the page's own trim in <head> (lib/images/cover-trim, as app/(storelib)/layout.tsx and app/(site)/layout.tsx write it):
  *
- *   editor          Photos and video: the cover tile (its original) and a gallery tile (padded only)
- *   store           the store grid's card, with the original and with only the padded copy
- *   site            a theme's 16:9 card (object-fit: cover) with the original and with only the padded copy, and a
- *                   picture in its own shape (width 100%, height auto)
- *   onepage         the product block and its sheet's first two slides, for a product with only padded copies
- *   explore         an Explore card: the padded copy, bars and all
+ *   editor          Photos and video: the cover tile (its original) and a gallery tile (padded only)       no bars
+ *   store           a creator's storelib.com store card: padded copy with an original, padded only, and
+ *                   the landscape cover with no padded copy                                                bars, whole
+ *   product page    storelib.com's /p/ gallery: the cover, a second gallery photo, the landscape cover,
+ *                   and a thumbnail                                                                         bars, whole
+ *   site            a theme's 16:9 card (object-fit: cover) with the original, with only the padded copy,
+ *                   with the landscape cover, and a picture in its own shape (width 100%, height auto)      no bars
+ *   onepage         the product block and its sheet's first two slides, for a product with only padded copies   no bars
+ *   explore         an Explore card: the padded copy, bars and all                                         bars, whole
  *
  * For each frame, the share of its left and right edge pixels that are the editor's light grey padding, from a
- * screenshot (0 is no bar). Outside Explore every share must be under 0.05; Explore's must be over 0.8. The picture
- * in its own shape must be about 4:5.
+ * screenshot (0 is no bar): under 0.05 where there must be none, over 0.8 where the picture is letterboxed. Where the
+ * picture must be whole, the share of the drawn picture inside its frame (from its natural size, its box and its
+ * object-fit) must be at least 0.995. The picture in its own shape must be about 4:5.
  *
  *   CHROMIUM=/opt/pw-browsers/chromium/chrome-linux/chrome node scripts/check-product-cover-ratio.mjs
  *   REPORT=1 prints the numbers without failing; NO_TRIM=1 REPORT=1 measures the pages without the trim.
@@ -24,7 +31,7 @@
 import puppeteer from "puppeteer-core"
 import sharp from "sharp"
 import { execFileSync } from "node:child_process"
-import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { pathToFileURL } from "node:url"
 import { serveEditorProbe } from "./onepage-probe-server.mjs"
@@ -62,13 +69,22 @@ const padded = async (cover) => {
 writeFileSync(join(dir, "1767225600000_original_cover.jpg"), original)
 writeFileSync(join(dir, "1767225600000_cover_processed.jpg"), await padded(original))
 writeFileSync(join(dir, "1767225600001_second_processed.jpg"), await padded(second))
+/* The landscape cover (1600x1000, 1.6): "already widescreen" to processImageToWidescreen, so stored as it is, with no padded copy. A dark band along its bottom edge, the part object-fit: cover used to cut off. */
+const LW = 1600
+const LH = 1000
+writeFileSync(join(dir, "1767225600002_resume_kit.jpg"), await sharp(Buffer.from(
+  `<svg xmlns="http://www.w3.org/2000/svg" width="${LW}" height="${LH}"><rect width="100%" height="100%" fill="#2d5b3c"/>` +
+  Array.from({ length: 10 }, (_, i) => `<rect x="${(i * LW) / 10}" y="0" width="${LW / 40}" height="${LH}" fill="#3f7d53"/>`).join("") +
+  `<rect x="0" y="${LH * 0.88}" width="${LW}" height="${LH * 0.12}" fill="#13251a"/></svg>`,
+)).jpeg({ quality: 92 }).toBuffer())
 
 /* The trim exactly as the layouts write it. */
 execFileSync("pnpm", ["exec", "esbuild", "lib/images/cover-trim.ts", "--bundle", "--format=esm", "--platform=neutral", "--log-level=error", `--outfile=${join(dir, "cover-trim.mjs")}`], { stdio: ["ignore", "ignore", "inherit"] })
 const { COVER_TRIM_SCRIPT } = await import(pathToFileURL(join(dir, "cover-trim.mjs")).href)
 
-const { base, server } = await serveEditorProbe({ entry: "scripts/render-product-cover-ratio.tsx", statics: { "/__cover/": dir }, /* NO_TRIM=1 leaves the trim out, to see what the bars measure without it (REPORT=1 with it). */
-  head: process.env.NO_TRIM ? "" : `<script>${COVER_TRIM_SCRIPT}</script>` })
+const { base, server } = await serveEditorProbe({ entry: "scripts/render-product-cover-ratio.tsx", statics: { "/__cover/": dir }, imageFill: true, /* NO_TRIM=1 leaves the trim out, to see what the bars measure without it (REPORT=1 with it). */
+  /* The product page's gallery is a Swiper strip: its stylesheet (components/product/media-swiper imports swiper/css; the bundle drops CSS) so each slide is the frame's size. */
+  head: `<style>${readFileSync(join(process.cwd(), "node_modules/swiper/swiper.css"), "utf8")}</style>` + (process.env.NO_TRIM ? "" : `<script>${COVER_TRIM_SCRIPT}</script>`) })
 const browser = await puppeteer.launch({ executablePath: findChrome(), args: ["--no-sandbox"] })
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const failures = []
@@ -118,6 +134,41 @@ const rectOf = (page, selector) =>
     return { x: r.x + scrollX, y: r.y + scrollY, width: r.width, height: r.height }
   }, selector)
 
+/*
+  How much of the picture drawn in a frame is inside it: from each <img>'s natural size, its box, its object-fit and
+  object-position, the drawn picture's rectangle, clipped by the frame. The picture in front (the most of it inside
+  the frame) is the one measured. 1 is the whole picture; a 16:10 cover filling a 16:9 card shows 0.9 of it.
+*/
+const wholeShare = (page, selector) =>
+  page.evaluate((sel) => {
+    const frame = document.querySelector(sel)
+    if (!frame) return null
+    const f = frame.getBoundingClientRect()
+    let best = null
+    for (const img of frame.tagName === "IMG" ? [frame] : frame.querySelectorAll("img")) {
+      if (!img.naturalWidth || !img.naturalHeight) continue
+      const b = img.getBoundingClientRect()
+      const cs = getComputedStyle(img)
+      const nw = img.naturalWidth
+      const nh = img.naturalHeight
+      let w = b.width
+      let h = b.height
+      if (cs.objectFit === "contain" || cs.objectFit === "cover") {
+        const k = (cs.objectFit === "contain" ? Math.min : Math.max)(b.width / nw, b.height / nh)
+        w = nw * k
+        h = nh * k
+      } else if (cs.objectFit === "none") { w = nw; h = nh }
+      const [px, py] = cs.objectPosition.split(" ").map((v) => (v.endsWith("%") ? parseFloat(v) / 100 : 0.5))
+      const x = b.left + (b.width - w) * px
+      const y = b.top + (b.height - h) * py
+      const ix = Math.max(0, Math.min(x + w, f.right, b.right) - Math.max(x, f.left, b.left))
+      const iy = Math.max(0, Math.min(y + h, f.bottom, b.bottom) - Math.max(y, f.top, b.top))
+      const shown = (ix * iy) / (w * h)
+      if (!best || ix * iy > best.area) best = { area: ix * iy, share: Math.round(shown * 1000) / 1000, fit: cs.objectFit, src: (img.currentSrc || img.src).split("/").pop() }
+    }
+    return best && { share: best.share, fit: best.fit, src: best.src }
+  }, selector)
+
 const settled = (page) =>
   page.waitForFunction(() => [...document.images].every((i) => !/_processed\./.test(i.currentSrc || i.src) || ["keep", "none", "framed"].includes(i.getAttribute("data-cover-trim") || "")) && [...document.images].every((i) => i.complete), { timeout: 15000 }).catch(() => null)
 
@@ -126,35 +177,47 @@ try {
     const page = await browser.newPage()
     const errors = []
     page.on("pageerror", (e) => errors.push(e.message))
-    await page.setViewport({ width, height: 2600, isMobile: width < 640, hasTouch: width < 640 })
+    await page.setViewport({ width, height: 3600, isMobile: width < 640, hasTouch: width < 640 })
     await page.evaluateOnNewDocument(() => {
       const at = (f) => `${location.origin}/__cover/${f}`
-      window.PROBE_COVER = { original: at("1767225600000_original_cover.jpg"), padded: at("1767225600000_cover_processed.jpg"), padded2: at("1767225600001_second_processed.jpg") }
+      window.PROBE_COVER = { original: at("1767225600000_original_cover.jpg"), padded: at("1767225600000_cover_processed.jpg"), padded2: at("1767225600001_second_processed.jpg"), landscape: at("1767225600002_resume_kit.jpg") }
     })
     await page.goto(`${base}/app/probe?view=places`)
     await page.waitForSelector("[data-probe=explore] img")
     await settled(page)
     await sleep(400)
+    /*
+      Each frame: its selector, whether it is letterboxed (bars: storelib.com's commerce pages) or must have none, and
+      whether the whole picture must be inside it. A thumbnail is measured for wholeness only (an unpicked one is faded).
+    */
     const frames = {
-      "editor tile 1 (original)": "[data-probe=editor] [data-media-tile]",
-      "editor tile 2 (padded only)": "[data-probe=editor] [data-media-id=b] [data-media-tile]",
-      "store card (original)": "[data-probe=store-original] a[href]",
-      "store card (padded only)": "[data-probe=store-padded] a[href]",
-      "site 16:9 card (original)": "[data-probe=site-wide]",
-      "site 16:9 card (padded only)": "[data-probe=site-wide-padded]",
-      "site own shape (padded only)": "[data-probe=site-natural] img",
-      "explore card": "[data-probe=explore] a[href]",
+      "editor tile 1 (original)": ["[data-probe=editor] [data-media-tile]", "none"],
+      "editor tile 2 (padded only)": ["[data-probe=editor] [data-media-id=b] [data-media-tile]", "none"],
+      "store card (padded, has original)": ["[data-probe=store-original] a[href]", "bars", true],
+      "store card (padded only)": ["[data-probe=store-padded] a[href]", "bars", true],
+      "store card (landscape, no padded)": ["[data-probe=store-landscape] a[href]", "bars", true],
+      "product page cover": ["[data-probe=product-page-cover] [data-gallery-index]", "bars", true],
+      "product page second photo": ["[data-probe=product-page-second] [data-gallery-index]", "bars", true],
+      "product page landscape cover": ["[data-probe=product-page-landscape] [data-gallery-index]", "bars", true],
+      "product page thumbnail 2": ["[data-probe=product-page-cover] [data-gallery-thumb='1']", "any", true],
+      "site 16:9 card (original)": ["[data-probe=site-wide]", "none"],
+      "site 16:9 card (padded only)": ["[data-probe=site-wide-padded]", "none"],
+      "site 16:9 card (landscape)": ["[data-probe=site-wide-landscape]", "none"],
+      "site own shape (padded only)": ["[data-probe=site-natural] img", "none"],
+      "explore card": ["[data-probe=explore] a[href]", "bars", true],
     }
-    for (const [name, sel] of Object.entries(frames)) {
+    for (const [name, [sel, want, whole]] of Object.entries(frames)) {
       /* The card's picture is its first link (the 16:9 box); the others are the frame itself. */
       const rect = await rectOf(page, sel)
       await sleep(150)
       const again = await rectOf(page, sel)
       const share = await sideBars(page, again ?? rect)
-      rows.push({ width, place: name, bars: share })
-      const explore = name.startsWith("explore")
+      const seen = await wholeShare(page, sel)
+      rows.push({ width, place: name, bars: share, whole: seen })
       if (share === null) failures.push(`${width}px ${name}: no frame found (${sel})`)
-      else if (explore ? !(share > 0.8) : !(share < 0.05)) failures.push(`${width}px ${name}: bar share ${share}, wanted ${explore ? "> 0.8" : "< 0.05"}`)
+      else if (want === "bars" && !(share > 0.8)) failures.push(`${width}px ${name}: bar share ${share}, wanted > 0.8 (letterboxed)`)
+      else if (want === "none" && !(share < 0.05)) failures.push(`${width}px ${name}: bar share ${share}, wanted < 0.05`)
+      if (whole && !(seen && seen.share >= 0.995)) failures.push(`${width}px ${name}: ${seen ? `${seen.share} of the picture shown (${seen.fit})` : "no picture"}, wanted the whole picture`)
     }
     const natural = await page.evaluate(() => {
       const img = document.querySelector("[data-probe-natural]")
@@ -174,7 +237,7 @@ try {
     await op.setViewport({ width, height: 900, isMobile: width < 640, hasTouch: width < 640 })
     await op.evaluateOnNewDocument(() => {
       const at = (f) => `${location.origin}/__cover/${f}`
-      window.PROBE_COVER = { original: at("1767225600000_original_cover.jpg"), padded: at("1767225600000_cover_processed.jpg"), padded2: at("1767225600001_second_processed.jpg") }
+      window.PROBE_COVER = { original: at("1767225600000_original_cover.jpg"), padded: at("1767225600000_cover_processed.jpg"), padded2: at("1767225600001_second_processed.jpg"), landscape: at("1767225600002_resume_kit.jpg") }
     })
     await op.goto(`${base}/app/probe?view=onepage`)
     await op.waitForSelector("[data-product-block] [data-framed-picture]")
@@ -208,8 +271,8 @@ try {
   rmSync(dir, { recursive: true, force: true })
 }
 
-for (const r of rows) console.log(`${String(r.width).padStart(5)}px  ${r.place.padEnd(44)} ${typeof r.bars === "object" ? JSON.stringify(r.bars) : r.bars}`)
+for (const r of rows) console.log(`${String(r.width).padStart(5)}px  ${r.place.padEnd(44)} ${typeof r.bars === "object" ? JSON.stringify(r.bars) : r.bars}${r.whole ? `  whole ${r.whole.share} (${r.whole.fit}, ${r.whole.src})` : ""}`)
 if (failures.length) {
   console.log("\n" + failures.map((f) => "FAIL  " + f).join("\n"))
   if (!report) process.exit(1)
-} else console.log("\nall frames as wanted: no bars outside Explore, Explore's 16:9 copy kept")
+} else console.log("\nall frames as wanted: storelib.com's store card, product page and Explore letterboxed with the whole picture shown; no bars on the OnePage, the site cards or the editor")

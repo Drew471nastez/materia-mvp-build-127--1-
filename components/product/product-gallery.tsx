@@ -53,6 +53,12 @@ interface ProductGalleryProps {
   shape?: "wide" | "square"
   /** A physical product's id: the buy box's chosen variant moves the gallery to its photo (lib/physical/variant-photo.ts). */
   followVariantsOf?: string
+  /**
+   * How a picture sits in its frame. Storelib's own product page (app/(storelib)/(marketing)/p/[slug]) passes
+   * `contain`: every photo whole, letterboxed on the padded copy's light grey as Explore's card is (the owner's rule for
+   * storelib.com's commerce pages; #f0f0f0 is the middle of processImageToWidescreen's grey). Left out, a wide frame fills (cover) and a square one shows the photo whole.
+   */
+  fit?: "cover" | "contain"
 }
 
 export function ProductGallery({
@@ -70,7 +76,9 @@ export function ProductGallery({
   backgroundColor,
   shape = "wide",
   followVariantsOf,
+  fit,
 }: ProductGalleryProps) {
+  const whole = fit ? fit === "contain" : shape === "square"
   const [currentIndex, setCurrentIndex] = useState(0)
   /* A chosen variant's photo the gallery did not have, added at its end. */
   const [variantExtra, setVariantExtra] = useState<string[]>([])
@@ -395,7 +403,7 @@ export function ProductGallery({
         className={cn(
           "relative overflow-hidden rounded-xl w-full group",
           shape === "square" ? "aspect-square" : "aspect-video",
-          !backgroundColor && "bg-muted",
+          !backgroundColor && (fit === "contain" ? "bg-[#f0f0f0]" : "bg-muted"),
           "cursor-grab active:cursor-grabbing",
         )}
         /* `pan-y`, so a finger that lands on a picture can still scroll the
@@ -468,7 +476,7 @@ export function ProductGallery({
                 fill
                 sizes="(max-width: 768px) 100vw, (max-width: 1024px) 66vw, 50vw"
                 className={cn(
-                  shape === "square" ? "object-contain" : "object-cover",
+                  whole ? "object-contain" : "object-cover",
                   "pointer-events-none select-none",
                   loaded[index] === "in" && "transition-opacity duration-150 ease-out motion-reduce:transition-none",
                   loaded[index] || fromServer || drawnSlides.has(media.url) ? "opacity-100" : "opacity-0",
@@ -776,7 +784,7 @@ export function ProductGallery({
                     alt={`${title} thumbnail ${index + 1}`}
                     fill
                     sizes="(max-width: 640px) 80px, 96px"
-                    className="object-cover"
+                    className={fit === "contain" ? "object-contain bg-[#f0f0f0]" : "object-cover"}
                   />
                 )}
                 {media.type === "video" && (

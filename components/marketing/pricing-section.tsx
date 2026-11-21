@@ -139,12 +139,19 @@ export function PricingSection({
     --plan-bleed is how far the phone's sideways row of cards runs out to the
     screen's edge: the side padding of the column it sits in.
   */
+  /*
+    Pricing one row round, the owner: "a little bit, not so much" more room
+    under /pricing's section, so the compare sheet that rises after it starts
+    lower: 112px on a phone (was 96), 160px from sm (was 128). The home page's
+    section (editorial) is followed by the questions, not the compare sheet,
+    and keeps its padding.
+  */
   const enter = headingLevel === 1
   return (
     <section
       data-story-section={editorial ? "pricing" : undefined}
       data-pricing-enter={enter ? "" : undefined}
-      className={editorial ? "py-20 sm:py-24 [@media(min-width:1024px)_and_(max-height:900px)]:!py-16" : "bg-white pt-[clamp(48px,7vw,112px)] pb-24 sm:pb-32"}
+      className={editorial ? "py-20 sm:py-24 [@media(min-width:1024px)_and_(max-height:900px)]:!py-16" : "bg-white pt-[clamp(48px,7vw,112px)] pb-28 sm:pb-40"}
       style={editorial ? { background: "transparent" } : undefined}
       id="pricing"
     >

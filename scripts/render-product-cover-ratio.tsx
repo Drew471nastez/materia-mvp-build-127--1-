@@ -3,9 +3,12 @@
  *
  * The pictures are files the probe serves (window.PROBE_COVER): a portrait 1080x1350 cover as uploaded, and the
  * product editor's 1280x720 copy of it with light grey padding either side, named as the editor names it
- * (`<ms>_<name>_processed.jpg`), so the page's own trim (lib/images/cover-trim) knows it for what it is.
+ * (`<ms>_<name>_processed.jpg`), so the page's own trim (lib/images/cover-trim) knows it for what it is; and a
+ * landscape 1600x1000 cover, which the editor keeps as it is (1.6 is "already widescreen" to
+ * processImageToWidescreen), so it has no padded copy: the "Professional Resume Kit" case.
  *
- *   ?view=places     the editor's Photos and video tiles, the store's grid card, a website section's cards, an Explore card
+ *   ?view=places     the editor's Photos and video tiles, a creator's storelib.com store card, storelib.com's product
+ *                    page gallery (as app/(storelib)/(marketing)/p/[slug] draws it), a website section's cards, an Explore card
  *   ?view=onepage    the OnePage product block (a block saved before part 377: only the padded copy), and its sheet
  */
 import React from "react"
@@ -14,11 +17,12 @@ import { MediaGrid } from "@/app/(storelib)/app/products/new/media-grid"
 import type { MediaItem } from "@/app/(storelib)/app/products/new/editor-form"
 import { StorefrontProductCard } from "@/components/storefront/storefront-product-card"
 import { ProductCard } from "@/components/explore/product-card"
+import { ProductGallery } from "@/components/product/product-gallery"
 import { PublicOnePage } from "@/components/onepage/public-onepage"
 import { defaultSettings, defaultTheme } from "@/lib/onepage/types"
 import { withOriginalCoverRow } from "@/lib/products/cover"
 
-type Cover = { padded: string; original: string; padded2: string }
+type Cover = { padded: string; original: string; padded2: string; landscape: string }
 const cover = (window as unknown as { PROBE_COVER: Cover }).PROBE_COVER
 const params = new URLSearchParams(location.search)
 const view = params.get("view") || "places"
@@ -42,6 +46,17 @@ function Places() {
       <section style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 16 }}>
         <div data-probe="store-original"><StorefrontProductCard product={card({ thumbnail_url: cover.padded, cover_original_url: cover.original })} /></div>
         <div data-probe="store-padded"><StorefrontProductCard product={card({ thumbnail_url: cover.padded })} /></div>
+        <div data-probe="store-landscape"><StorefrontProductCard product={card({ thumbnail_url: cover.landscape })} /></div>
+      </section>
+      {/*
+        storelib.com's product page: its gallery column as app/(storelib)/(marketing)/p/[slug] draws it (the stored 16:9
+        copies, data-cover-padded="keep", fit="contain"). One gallery per picture, so each is the slide in front; one
+        across on a phone, as the page's gallery is.
+      */}
+      <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
+        <div data-probe="product-page-cover" data-cover-padded="keep"><ProductGallery images={[cover.padded, cover.padded2]} title="Gym Starter Guide" shape="wide" fit="contain" /></div>
+        <div data-probe="product-page-second" data-cover-padded="keep"><ProductGallery images={[cover.padded2]} title="Gym Starter Guide" shape="wide" fit="contain" /></div>
+        <div data-probe="product-page-landscape" data-cover-padded="keep"><ProductGallery images={[cover.landscape]} title="Professional Resume Kit" shape="wide" fit="contain" /></div>
       </section>
       {/* A theme's product cards: a 16:9 card that covers, and a picture in its own shape. Plain markup, as a theme draws `block.settings.image`. */}
       <section style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 16 }}>
@@ -53,6 +68,9 @@ function Places() {
         </div>
         <div data-probe="site-natural" style={{ background: "#fff" }}>
           <img data-probe-natural="" src={beforePart377.thumbnail_url ?? ""} alt="" style={{ width: "100%", height: "auto", display: "block" }} />
+        </div>
+        <div data-probe="site-wide-landscape" style={{ aspectRatio: "16 / 9", overflow: "hidden", background: "#fff" }}>
+          <img src={cover.landscape} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
         </div>
       </section>
       <section data-probe="explore" style={{ maxWidth: 420 }}>

@@ -33,8 +33,6 @@ interface ProductCardProps {
     pay_what_you_want?: boolean | null
     pwyw_min_price_cents?: number | null
     thumbnail_url?: string | null
-    /** The cover as uploaded (SQL part 377): a store's own grid draws it; Explore keeps the 16:9 copy. */
-    cover_original_url?: string | null
     type: string
     /* A membership's billing interval, when its plan was read: "$9/month" or "$90/year" (lib/pricing/list-price). */
     price_interval?: "month" | "year" | null
@@ -185,8 +183,12 @@ export const ProductCard = memo(function ProductCard({
   */
   const coverRef = useRef<HTMLImageElement>(null)
   const fromServer = useDrawnByServer()
-  /* Outside Explore, the cover as uploaded when the row has it (products.cover_original_url, lib/products/cover.ts). */
-  const coverUrl = (!discoverLayout && product?.cover_original_url) || product?.thumbnail_url || ""
+  /*
+    STORELIB.COM COVERS WHOLE (the owner): every place this card is drawn is one of storelib.com's own commerce pages
+    (Explore, the marketplace, a creator's store on storelib.com), so it always draws the stored 16:9 copy, never the
+    cover as uploaded, whatever discoverLayout says.
+  */
+  const coverUrl = product?.thumbnail_url || ""
   const coverSrc = coverUrl
   const [cover, setCover] = useState<"drawn" | "wait" | "in">(() =>
     priority || fromServer || drawnCovers.has(coverSrc) ? "drawn" : "wait",
@@ -337,7 +339,7 @@ export const ProductCard = memo(function ProductCard({
       <SmartLink
         href={productUrl}
         useClientNav={clientNav}
-        className="relative aspect-video bg-muted overflow-hidden transition-[filter] duration-100 active:brightness-95"
+        className={`relative aspect-video ${product.thumbnail_url ? "bg-[#f0f0f0]" : "bg-muted"} overflow-hidden transition-[filter] duration-100 active:brightness-95`}
       >
         {product.thumbnail_url ? (
           <Image
@@ -345,15 +347,16 @@ export const ProductCard = memo(function ProductCard({
             src={coverUrl}
             alt={product.title || "Product"}
             /*
-              Round AL: Explore and the marketplace (discoverLayout) show the shop's 16:9 copy, grey padding and all, so
-              every card there is the same shape. A creator's own store grid (discoverLayout false) fills its card
-              with the picture as uploaded; a padded copy with no original is trimmed by the page (lib/images/cover-trim).
+              The cover whole in the 16:9 card, as Explore shows it: the shop's 16:9 copy, grey padding and all, kept
+              from the page's trim (lib/images/cover-trim), so every card is the same shape; a picture with no padded
+              copy (a landscape cover the editor kept as it was, an import) letterboxed on the same light grey
+              (object-contain on #f0f0f0, the middle of the editor's padding), never cropped.
             */
-            data-cover-trim={discoverLayout ? "keep" : undefined}
+            data-cover-trim="keep"
             fill
             sizes={leanSizesValue ?? sizes}
             className={
-              "object-cover transition-[scale,opacity] duration-500 ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none [@media(hover:hover)]:group-hover:scale-[1.02] " +
+              "object-contain transition-[scale,opacity] duration-500 ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none [@media(hover:hover)]:group-hover:scale-[1.02] " +
               (cover === "wait" ? "opacity-0" : "opacity-100")
             }
             /* The hover zoom keeps its 500ms; opacity moves only for a cover that arrived after its box was painted, over 150ms. */
