@@ -1,0 +1,858 @@
+{
+  "sections": {
+    "hero_pro_scrolling_1": {
+      "type": "hero-pro-scrolling",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "section_width": "full_width",
+        "reset_spacing": true,
+        "enable_custom_style": false,
+        "card_radius": 0,
+        "overlay_color": "#000000",
+        "enable_custom_fonts": false,
+        "heading_font": "assistant_n4",
+        "body_font": "assistant_n4",
+        "content_align": "left",
+        "vertical_align": "bottom",
+        "content_gap": 14,
+        "content_max_width": 860,
+        "use_background_color": false,
+        "aria_label": "Scrolling hero gallery",
+        "enable_scrolling": true,
+        "direction": "left",
+        "speed_desktop": 38,
+        "pane_width_desktop": 34,
+        "image_gap": 4,
+        "fade_edges": false,
+        "enable_overlay": true,
+        "overlay_opacity": 45,
+        "animation": "theme",
+        "pause_on_hover": false,
+        "show_motion_control": false,
+        "pause_label": "Pause gallery",
+        "resume_label": "Play gallery",
+        "hero_height_desktop": 760,
+        "content_padding_desktop": 64,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "hero_height_mobile": 600,
+        "pane_width_mobile": 78,
+        "speed_mobile": 40,
+        "content_padding_mobile": 32,
+        "section_margin_top_mobile": 0,
+        "section_margin_bottom_mobile": 0
+      },
+      "blocks": {
+        "image_1": {
+          "type": "image",
+          "settings": {
+            "image_fit": "cover",
+            "image_position_x": 50,
+            "image_position_y": 50,
+            "enable_custom_style": false,
+            "radius": 0,
+            "image": "shopify://shop_images/streetwear-hero-crewneck.webp"
+          }
+        },
+        "image_2": {
+          "type": "image",
+          "settings": {
+            "image_fit": "cover",
+            "image_position_x": 50,
+            "image_position_y": 50,
+            "enable_custom_style": false,
+            "radius": 0,
+            "image": "shopify://shop_images/streetwear-hero-mural.webp"
+          }
+        },
+        "image_3": {
+          "type": "image",
+          "settings": {
+            "image_fit": "cover",
+            "image_position_x": 50,
+            "image_position_y": 50,
+            "enable_custom_style": false,
+            "radius": 0,
+            "image": "shopify://shop_images/streetwear-hero-bucket-hat.webp"
+          }
+        },
+        "image_4": {
+          "type": "image",
+          "settings": {
+            "image_fit": "cover",
+            "image_position_x": 50,
+            "image_position_y": 50,
+            "enable_custom_style": false,
+            "radius": 0,
+            "image": "shopify://shop_images/streetwear-hero-beanie.webp"
+          }
+        },
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Drop 07 / Night shift",
+            "enable_custom_style": false,
+            "size_desktop": 13,
+            "size_mobile": 12,
+            "letter_spacing": 24,
+            "font_source": "body",
+            "font_weight": "theme",
+            "text_case": "theme",
+            "line_height": 1.5
+          }
+        },
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Made once. Gone after.",
+            "enable_custom_style": true,
+            "size_desktop": 88,
+            "size_mobile": 40,
+            "line_height": 98,
+            "font_weight": "inherit",
+            "accent_italic": false,
+            "font_source": "heading",
+            "text_case": "theme",
+            "letter_spacing": 0,
+            "tag": "h1",
+            "accent_text": "",
+            "color": "#ffffff",
+            "accent_color": "#ffffff"
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Six pieces in 400gsm cotton. 150 of each, numbered on the inside label.</p>",
+            "enable_custom_style": true,
+            "size_desktop": 16,
+            "size_mobile": 15,
+            "line_height": 150,
+            "enable_custom_weight": false,
+            "font_weight": "400",
+            "font_source": "body",
+            "text_case": "theme",
+            "letter_spacing": 0,
+            "color": "#ffffff"
+          }
+        },
+        "button_1": {
+          "type": "button",
+          "settings": {
+            "label": "Shop the drop",
+            "enable_custom_style": false,
+            "use_theme_button": true,
+            "padding_x": 26,
+            "padding_y": 14,
+            "radius": 0,
+            "border_width": 1,
+            "font_size": 14,
+            "letter_spacing": 4,
+            "font_weight": "600",
+            "uppercase": false,
+            "full_width": false,
+            "link": "/collections/all"
+          }
+        },
+        "button_2": {
+          "type": "button",
+          "settings": {
+            "label": "See the lookbook",
+            "enable_custom_style": false,
+            "use_theme_button": true,
+            "padding_x": 26,
+            "padding_y": 14,
+            "radius": 0,
+            "border_width": 1,
+            "font_size": 14,
+            "letter_spacing": 4,
+            "font_weight": "600",
+            "uppercase": false,
+            "full_width": false,
+            "link": "/pages/lookbook"
+          }
+        }
+      },
+      "block_order": [
+        "image_1",
+        "image_2",
+        "image_3",
+        "image_4",
+        "eyebrow_1",
+        "heading_1",
+        "subheading_1",
+        "button_1",
+        "button_2"
+      ]
+    },
+    "countdown_flip_1": {
+      "type": "countdown-flip",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "section_width": "full_width",
+        "show_section_on": "all",
+        "reset_spacing": true,
+        "end_iso": "",
+        "expired_message": "The drop is live.",
+        "show_days": true,
+        "label_days": "Days",
+        "show_hours": true,
+        "label_hours": "Hours",
+        "show_minutes": true,
+        "label_minutes": "Minutes",
+        "show_seconds": true,
+        "label_seconds": "Seconds",
+        "show_separators": false,
+        "header_align": "center",
+        "section_max_width_desktop": 960,
+        "section_max_width_tablet": 800,
+        "heading_sub_gap_desktop": 14,
+        "gap_subheading_clock": 40,
+        "gap_clock_cta": 24,
+        "unit_gap_desktop": 16,
+        "card_width_desktop": 100,
+        "card_height_desktop": 100,
+        "card_radius": 0,
+        "card_split_height": 2,
+        "show_highlight": true,
+        "card_shadow": "0 6px 16px -8px rgba(0,0,0,.35)",
+        "enable_custom_style": false,
+        "use_theme_button": true,
+        "cta_border_width": 1,
+        "cta_radius": 0,
+        "cta_size": 15,
+        "cta_pad_x": 28,
+        "cta_pad_y": 12,
+        "enable_custom_fonts": false,
+        "heading_font": "assistant_n4",
+        "body_font": "assistant_n4",
+        "digit_size_desktop": 44,
+        "digit_weight": "800",
+        "label_size": 12,
+        "label_weight": "500",
+        "label_transform": "uppercase",
+        "padding_top_desktop": 72,
+        "padding_bottom_desktop": 72,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "section_max_width_mobile": 560,
+        "heading_sub_gap_mobile": 8,
+        "gap_subheading_clock_mobile": 28,
+        "unit_gap_mobile": 10,
+        "card_width_mobile": 70,
+        "card_height_mobile": 80,
+        "digit_size_mobile": 30,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "section_margin_top_mobile": 0,
+        "section_margin_bottom_mobile": 0
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "The next drop goes live in",
+            "tag": "h2",
+            "enable_custom_style": false,
+            "enable_custom_fonts": false,
+            "font": "assistant_n4",
+            "weight": "theme",
+            "size_desktop": 32,
+            "size_mobile": 24,
+            "custom_line_height": false,
+            "line_height": 1.2
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Set the date of your next drop in this section. The clock shows on your website once it has one.</p>",
+            "max_width": 600,
+            "enable_custom_style": false,
+            "enable_custom_fonts": false,
+            "font": "assistant_n4",
+            "size": 16
+          }
+        },
+        "cta_1": {
+          "type": "cta",
+          "settings": {
+            "text": "Get the drop alert",
+            "link": "/pages/contact"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_1",
+        "cta_1"
+      ]
+    },
+    "products_listing_1": {
+      "type": "products-listing",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "fluid_container",
+        "reset_spacing": true,
+        "items_to_show": 8,
+        "heading": "Featured products",
+        "show_view_all": true,
+        "view_all_label": "View all products",
+        "view_all_position": "bottom",
+        "heading_font_size": 32,
+        "show_badges": true,
+        "show_vendor": false,
+        "show_rating": false,
+        "show_short_description": false,
+        "show_swatches": true,
+        "show_price": true,
+        "show_add_to_cart": true,
+        "show_action": true,
+        "header_alignment": "left",
+        "heading_subtext_gap": 8,
+        "items_per_row": 4,
+        "column_gap": 24,
+        "row_gap": 30,
+        "enable_custom_style": false,
+        "enable_custom_fonts": false,
+        "heading_font": "assistant_n4",
+        "body_font": "assistant_n4",
+        "reveal": true,
+        "padding_top": 49,
+        "padding_bottom": 49,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "items_per_row_mobile": 2,
+        "section_margin_top_mobile": 0,
+        "section_margin_bottom_mobile": 0
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Live now",
+            "enable_custom_style": false,
+            "size": 13
+          }
+        },
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Drop 06, last sizes",
+            "enable_custom_style": false,
+            "size_desktop": 32,
+            "size_mobile": 26
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>What is left of the last run. It will not be made again.</p>",
+            "enable_custom_style": false,
+            "size": 16
+          }
+        },
+        "button_1": {
+          "type": "button",
+          "settings": {
+            "text": "See every piece",
+            "position": "bottom",
+            "button_style": "primary",
+            "enable_custom_style": false,
+            "use_theme_button": true,
+            "radius": 8,
+            "pad_x": 26,
+            "pad_y": 14,
+            "size": 15,
+            "border_width": 1,
+            "link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_1",
+        "subheading_1",
+        "button_1"
+      ]
+    },
+    "collection_lookbook_1": {
+      "type": "collection-lookbook",
+      "settings": {
+        "color_scheme": "scheme-7dae8b89-7a81-4c2c-b8e2-92533766f8ca",
+        "section_width": "stretch_width",
+        "show_section_on": "all",
+        "reset_spacing": true,
+        "heading_tag": "h2",
+        "header_align": "center",
+        "gap_heading_sub": 8,
+        "gap_header": 28,
+        "per_view_desktop": 5,
+        "per_view_tablet": 3,
+        "card_gap": 16,
+        "card_aspect": "3 / 4",
+        "content_vertical": "flex-end",
+        "card_pad": 20,
+        "card_gap_inner": 12,
+        "hover_breath": 16,
+        "gap_controls": 24,
+        "image_position": "center",
+        "overlay_opacity_top": 0.1,
+        "overlay_opacity_bottom": 0.5,
+        "enable_custom_style": false,
+        "card_radius": 8,
+        "dot_size": 8,
+        "dot_size_active": 22,
+        "heading_weight": "theme",
+        "heading_size_desktop": 40,
+        "heading_size_mobile": 28,
+        "sub_size": 16,
+        "kicker_size": 11,
+        "kicker_weight": "500",
+        "kicker_tracking": 2,
+        "kicker_transform": "uppercase",
+        "title_size_desktop": 28,
+        "title_weight": "theme",
+        "title_tracking": 0,
+        "title_transform": "uppercase",
+        "enable_custom_fonts": false,
+        "heading_font": "assistant_n4",
+        "body_font": "assistant_n4",
+        "use_theme_button": true,
+        "btn_radius": 4,
+        "btn_size": 12,
+        "btn_weight": "600",
+        "btn_tracking": 1,
+        "btn_transform": "uppercase",
+        "btn_pad_x": 22,
+        "btn_pad_y": 10,
+        "btn_offset": 6,
+        "show_arrows": true,
+        "show_dots": true,
+        "autoplay": false,
+        "autoplay_speed": 4,
+        "pause_on_hover": true,
+        "hover_zoom": true,
+        "padding_top_desktop": 64,
+        "padding_bottom_desktop": 64,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "per_view_mobile": 1.3,
+        "title_size_mobile": 22,
+        "padding_top_mobile": 32,
+        "padding_bottom_mobile": 32,
+        "section_margin_top_mobile": 0,
+        "section_margin_bottom_mobile": 0
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Night shift, shot after closing",
+            "tag": "h2",
+            "enable_custom_style": false,
+            "weight": "theme",
+            "size_enable": false,
+            "size_desktop": 40,
+            "size_mobile": 28,
+            "line_height": 1.2,
+            "tracking": 0,
+            "transform": "uppercase",
+            "gap_top": 0,
+            "gap_bottom": 0
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Five looks from the drop, worn on the way home.</p>",
+            "enable_custom_style": false,
+            "size_enable": false,
+            "size": 16,
+            "line_height": 1.5,
+            "max_width": 720,
+            "gap_top": 8
+          }
+        },
+        "card_1": {
+          "type": "card",
+          "settings": {
+            "kicker": "LOOK 01",
+            "button_text": "SEE THE LOOK",
+            "title": "Shell jacket",
+            "link": "/pages/lookbook",
+            "image": "shopify://shop_images/streetwear-look-leather.webp"
+          }
+        },
+        "card_2": {
+          "type": "card",
+          "settings": {
+            "kicker": "LOOK 02",
+            "button_text": "SEE THE LOOK",
+            "title": "Box tee",
+            "link": "/pages/lookbook",
+            "image": "shopify://shop_images/streetwear-skeleton-tee.webp"
+          }
+        },
+        "card_3": {
+          "type": "card",
+          "settings": {
+            "kicker": "LOOK 03",
+            "button_text": "SEE THE LOOK",
+            "title": "Coach jacket",
+            "link": "/pages/lookbook",
+            "image": "shopify://shop_images/streetwear-look-red-tee.webp"
+          }
+        },
+        "card_4": {
+          "type": "card",
+          "settings": {
+            "kicker": "LOOK 04",
+            "button_text": "SEE THE LOOK",
+            "title": "Loose denim",
+            "link": "/pages/lookbook",
+            "image": "shopify://shop_images/streetwear-look-denim.webp"
+          }
+        },
+        "card_5": {
+          "type": "card",
+          "settings": {
+            "kicker": "LOOK 05",
+            "button_text": "SEE THE LOOK",
+            "title": "Work jacket",
+            "link": "/pages/lookbook",
+            "image": "shopify://shop_images/streetwear-look-window.webp"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_1",
+        "card_1",
+        "card_2",
+        "card_3",
+        "card_4",
+        "card_5"
+      ]
+    },
+    "sticky_heading_text_1": {
+      "type": "sticky-heading-text",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "fluid_container",
+        "reset_spacing": true,
+        "heading_position": "left",
+        "heading_width": 40,
+        "column_gap": 80,
+        "sticky": true,
+        "sticky_offset": 32,
+        "item_gap": 32,
+        "show_dividers": true,
+        "show_numbers": true,
+        "enable_custom_style": false,
+        "enable_custom_fonts": false,
+        "heading_font": "assistant_n4",
+        "body_font": "assistant_n4",
+        "item_heading_size": 24,
+        "reveal": true,
+        "padding_top": 80,
+        "padding_bottom": 80,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "show_on_mobile": true,
+        "item_heading_size_mobile": 20,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "section_margin_top_mobile": 0,
+        "section_margin_bottom_mobile": 0
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "How a drop works",
+            "enable_custom_style": false
+          }
+        },
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Four things to know before Friday",
+            "enable_custom_style": false,
+            "enable_custom_fonts": false,
+            "font": "assistant_n4",
+            "weight_enable": false,
+            "weight": "700",
+            "size_enable": false,
+            "size_desktop": 44,
+            "size_mobile": 32,
+            "line_height": 1.15,
+            "tracking": 0
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>We make one run of each piece and we do not restock it.</p>",
+            "enable_custom_style": false,
+            "enable_custom_fonts": false,
+            "font": "assistant_n4",
+            "weight_enable": false,
+            "weight": "400",
+            "size_enable": false,
+            "size": 18,
+            "line_height": 1.5
+          }
+        },
+        "button_1": {
+          "type": "button",
+          "settings": {
+            "label": "Read the FAQ",
+            "link": "/pages/faqs",
+            "style": "secondary",
+            "enable_custom_style": false,
+            "use_theme_button": true,
+            "radius": 6,
+            "size": 16,
+            "pad_x": 28,
+            "pad_y": 14
+          }
+        },
+        "text_1": {
+          "type": "text",
+          "settings": {
+            "heading": "The date goes out by email",
+            "text": "<p>The list gets the time and the full line sheet a day early.</p>"
+          }
+        },
+        "text_2": {
+          "type": "text",
+          "settings": {
+            "heading": "The store opens at 18:00",
+            "text": "<p>Everything goes live at once. Items in a cart are not held.</p>"
+          }
+        },
+        "text_3": {
+          "type": "text",
+          "settings": {
+            "heading": "One of each size per order",
+            "text": "<p>So the run reaches more people than resellers.</p>"
+          }
+        },
+        "text_4": {
+          "type": "text",
+          "settings": {
+            "heading": "Sent within 48 hours",
+            "text": "<p>Tracked, in a box that fits the piece. Returns for 14 days.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_1",
+        "subheading_1",
+        "button_1",
+        "text_1",
+        "text_2",
+        "text_3",
+        "text_4"
+      ]
+    },
+    "brand_info_1": {
+      "type": "brand-info",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "section_width": "container",
+        "reset_spacing": true,
+        "left_column_width": 42,
+        "column_gap": 80,
+        "row_gap": 40,
+        "vertical_align": "center",
+        "left_text_align": "left",
+        "right_text_align": "left",
+        "override_colors": false,
+        "override_fonts": false,
+        "heading_font": "sans-serif",
+        "body_font": "sans-serif",
+        "heading_letter_spacing": 0,
+        "paragraph_line_height": 1.6,
+        "padding_top": 80,
+        "padding_bottom": 80,
+        "padding_horizontal": 40,
+        "margin_top": 0,
+        "margin_bottom": 0,
+        "mobile_stack_order": "left_first",
+        "left_text_align_mobile": "left",
+        "right_text_align_mobile": "left",
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 48,
+        "padding_horizontal_mobile": 22,
+        "row_gap_mobile": 28
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "The workshop",
+            "column": "left",
+            "use_custom_color": false,
+            "custom_color": "#888888",
+            "size": 13,
+            "size_mobile": 12,
+            "font_weight": "theme",
+            "letter_spacing": 1,
+            "space_above": 0,
+            "space_below": 20
+          }
+        },
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "No seasons, no sales, no second run",
+            "column": "left",
+            "use_custom_color": false,
+            "custom_color": "#111111",
+            "size": 40,
+            "size_mobile": 30,
+            "font_weight": "theme",
+            "text_transform": "uppercase",
+            "space_above": 0,
+            "space_below": 0
+          }
+        },
+        "paragraph_1": {
+          "type": "paragraph",
+          "settings": {
+            "text": "<p>We cut heavy cotton in one workshop, in runs small enough to count. Every piece is numbered, and when the last one ships the pattern goes back on the shelf.</p>",
+            "column": "right",
+            "use_custom_color": false,
+            "custom_color": "#444444",
+            "size": 17,
+            "size_mobile": 15,
+            "font_weight": "theme",
+            "space_above": 0,
+            "space_below": 28
+          }
+        },
+        "link_1": {
+          "type": "link",
+          "settings": {
+            "text": "ABOUT THE WORKSHOP",
+            "column": "right",
+            "use_custom_color": false,
+            "custom_color": "#111111",
+            "custom_color_hover": "#555555",
+            "size": 14,
+            "font_weight": "theme",
+            "text_transform": "uppercase",
+            "letter_spacing": 0.5,
+            "space_above": 8,
+            "space_below": 0,
+            "url": "/pages/about"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_1",
+        "paragraph_1",
+        "link_1"
+      ]
+    },
+    "newsletter_1": {
+      "type": "newsletter",
+      "settings": {
+        "color_scheme": "scheme-6da511c0-ea26-4213-b3d3-e09320840636",
+        "section_width": "fluid_container",
+        "reset_spacing": true,
+        "heading": "Drop alerts",
+        "email_label": "Email address",
+        "email_placeholder": "Your email address",
+        "btn_text": "Tell me first",
+        "note": "One email per drop. Nothing in between.",
+        "subscribed_button_text": "Subscribed",
+        "success_text": "Thanks, you're on the list.",
+        "success_duration": 5,
+        "already_text": "You're already on the list.",
+        "invalid_text": "Enter a valid email address.",
+        "error_text": "That did not go through. Check your connection and try again.",
+        "header_alignment": "center",
+        "form_layout": "horizontal",
+        "show_icon": false,
+        "icon": "envelope",
+        "icon_size": 40,
+        "bg_overlay_color": "#000000",
+        "bg_overlay_opacity": 0,
+        "show_content_background": false,
+        "content_box_opacity": 100,
+        "enable_custom_style": false,
+        "button_style": "primary",
+        "use_theme_button": true,
+        "button_radius": 4,
+        "button_size": 15,
+        "button_pad_x": 28,
+        "button_pad_y": 12,
+        "use_theme_fields": true,
+        "field_radius": 4,
+        "field_height": 50,
+        "header_size": "medium",
+        "enable_custom_fonts": false,
+        "heading_font": "assistant_n4",
+        "body_font": "assistant_n4",
+        "reveal": true,
+        "padding_top": 60,
+        "padding_bottom": 60,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "section_margin_top_mobile": 0,
+        "section_margin_bottom_mobile": 0
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Get the time a day early",
+            "tag": "h2",
+            "enable_custom_style": false,
+            "enable_custom_fonts": false,
+            "font": "assistant_n4",
+            "weight_enable": false,
+            "weight": "700",
+            "size_enable": false,
+            "size_desktop": 36,
+            "size_mobile": 26,
+            "line_height": 1.15,
+            "tracking": 0
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>The list sees the line sheet and the launch time before anyone else.</p>",
+            "enable_custom_style": false,
+            "enable_custom_fonts": false,
+            "font": "assistant_n4",
+            "weight_enable": false,
+            "weight": "400",
+            "size_enable": false,
+            "size": 16,
+            "line_height": 1.5
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_1"
+      ]
+    }
+  },
+  "order": [
+    "hero_pro_scrolling_1",
+    "countdown_flip_1",
+    "products_listing_1",
+    "collection_lookbook_1",
+    "sticky_heading_text_1",
+    "brand_info_1",
+    "newsletter_1"
+  ]
+}

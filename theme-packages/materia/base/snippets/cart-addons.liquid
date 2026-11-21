@@ -308,7 +308,7 @@
       {%- render 'cart-tool-icon', name: 'coupon' -%}
       <span class="heading-style">{{ 'general.cart.coupon.enter_discount_code' | t }}</span>
     </div>
-    <form novalidate>
+    <form novalidate action="{{ routes.cart_url }}" method="get">
       <input
         placeholder="{{ 'general.cart.coupon.enter_discount_code' | t }}"
         type="text"

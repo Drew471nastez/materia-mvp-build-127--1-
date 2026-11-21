@@ -5,14 +5,14 @@
     "footer": {
       "type": "footer",
       "settings": {
-        "custom_text": "Merch",
-        "padding_top": 48,
-        "show_social": false,
-        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "custom_text": "Soup Season",
+        "padding_top": 56,
+        "show_social": true,
+        "color_scheme": "scheme-soup-tomato",
         "custom_image": "",
         "reset_spacing": true,
         "section_width": "fluid_container",
-        "copyright_text": "© {{ 'now' | date: '%Y' }} {{ shop.name }}. All rights reserved.",
+        "copyright_text": "© {{ 'now' | date: '%Y' }} {{ shop.name }}. Stir clockwise.",
         "heading_weight": "600",
         "padding_bottom": 24,
         "separator_line": "all-page",
@@ -23,28 +23,28 @@
         "custom_elements_gap": 22,
         "enable_custom_image": false,
         "enable_custom_style": false,
-        "footer_heading_size": 17,
+        "footer_heading_size": 16,
         "enable_custom_text_big": true,
         "enable_country_selector": false,
         "custom_image_size_mobile": 168,
         "enable_language_selector": false,
         "custom_image_size_desktop": 144,
-        "custom_text_font_size_mobile": 94,
-        "custom_text_font_size_desktop": 264
+        "custom_text_font_size_mobile": 60,
+        "custom_text_font_size_desktop": 180
       },
       "blocks": {
         "store_info_1": {
           "type": "store_info",
           "settings": {
-            "show_logo": true,
+            "show_logo": false,
             "top_offset": 0,
             "image_width": 110,
             "store_email": true,
-            "store_phone": true,
-            "content_width": "30%",
-            "store_address": true,
-            "store_heading": "",
-            "store_description": "<p>Official merch. Printed to order, so nothing goes to waste.</p>"
+            "store_phone": false,
+            "content_width": "34%",
+            "store_address": false,
+            "store_heading": "The official Soup Season shop",
+            "store_description": "<p>Merch from a cooking channel that makes one pot of soup a week. The shop pays for the ingredients, the studio rent and the editor, so the episodes stay free.</p>"
           }
         },
         "link_list_1": {

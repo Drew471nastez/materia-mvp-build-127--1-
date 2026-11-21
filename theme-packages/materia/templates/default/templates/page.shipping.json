@@ -1,0 +1,115 @@
+{
+  "sections": {
+    "page_heading_1": {
+      "type": "page-heading",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "alignment": "left",
+        "padding_top": 64,
+        "padding_bottom": 24
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "page_title": "Shipping and downloads",
+            "heading_font_size": 48,
+            "header_size": "default"
+          }
+        },
+        "description_2": {
+          "type": "description",
+          "settings": {
+            "description": "<p>How each kind of order reaches you.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_2"
+      ]
+    },
+    "text_columns_2": {
+      "type": "text-columns",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container"
+      },
+      "blocks": {
+        "column_1": {
+          "type": "column",
+          "settings": {
+            "label": "Physical",
+            "heading": "Prints and paper goods",
+            "text": "<p>Prints and paper goods leave the studio within three working days, packed flat or rolled in a tube, with tracking. Most parcels arrive within a week.</p>"
+          }
+        },
+        "column_2": {
+          "type": "column",
+          "settings": {
+            "label": "Digital",
+            "heading": "Brushes and files",
+            "text": "<p>Brushes, wallpapers and other files arrive as a download link by email the moment you pay. The link stays in your account, so you can download again on a new device.</p>"
+          }
+        },
+        "column_3": {
+          "type": "column",
+          "settings": {
+            "label": "Course",
+            "heading": "Lessons",
+            "text": "<p>The course is yours once you pay: every lesson, as often as you like, including lessons added later.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "column_1",
+        "column_2",
+        "column_3"
+      ]
+    },
+    "text_columns_3": {
+      "type": "text-columns",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container"
+      },
+      "blocks": {
+        "column_1": {
+          "type": "column",
+          "settings": {
+            "label": "Abroad",
+            "heading": "Shipping outside the country",
+            "text": "<p>Yes, to most countries. The delivery price for yours is shown at checkout before you pay. Downloads and the course work anywhere.</p>"
+          }
+        },
+        "column_2": {
+          "type": "column",
+          "settings": {
+            "label": "Returns",
+            "heading": "Changed your mind",
+            "text": "<p>Send a print or paper item back unused within 30 days for a full refund. Downloads and the course can be refunded within 14 days if you have not opened them.</p>"
+          }
+        },
+        "column_3": {
+          "type": "column",
+          "settings": {
+            "label": "Help",
+            "heading": "Something went wrong",
+            "text": "<p>Write with your order number and a photo if it helps. I will put it right.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "column_1",
+        "column_2",
+        "column_3"
+      ]
+    }
+  },
+  "order": [
+    "page_heading_1",
+    "text_columns_2",
+    "text_columns_3"
+  ]
+}

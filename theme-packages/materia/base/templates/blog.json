@@ -1,63 +1,5 @@
 {
   "sections": {
-    "featured_blog_header_fF4ac9": {
-      "type": "Featured-Blog-Header",
-      "settings": {
-        "reveal": true,
-        "title_font": "assistant_n4",
-        "button_text": "Read more",
-        "reset_spacing": true,
-        "button_bg_color": "rgba(0,0,0,0)",
-        "description_font": "assistant_n4",
-        "section_bg_color": "#ffffff",
-        "button_text_color": "#ffffff",
-        "button_border_color": "#e7e7e7",
-        "enable_custom_style": true,
-        "section_top_padding": 30,
-        "button_border_radius": 5,
-        "button_bg_hover_color": "#343434",
-        "hide_read_more_button": false,
-        "read_more_font_weight": 500,
-        "featured_article_label": "New Article",
-        "section_bottom_padding": 0,
-        "remove_description_text": true,
-        "article_image_brightness": 0.6,
-        "button_border_hover_color": "rgba(0,0,0,0)",
-        "featured_title_text_color": "#ffffff",
-        "section_margin_top_mobile": 0,
-        "article_image_ratio_mobile": "2-3",
-        "description_maintext_color": "#ffffff",
-        "mobile_article_image_width": 100,
-        "read_more_font_size_mobile": 14,
-        "section_margin_top_desktop": 0,
-        "article_image_border_radius": 14,
-        "desktop_article_image_width": 110,
-        "mobile_article_image_height": 240,
-        "read_more_font_size_desktop": 14,
-        "article_image_y_index_mobile": 20,
-        "article_image_z_index_mobile": 0,
-        "desktop_article_image_height": 360,
-        "section_margin_bottom_mobile": 0,
-        "article_image_y_index_desktop": 20,
-        "section_margin_bottom_desktop": 0,
-        "read_more_button_border_weight": 1,
-        "featured_title_font_size_mobile": 33,
-        "featured_title_font_size_desktop": 40,
-        "custom_article_image_border_radius": 0
-      },
-      "name": "Hero  Banner 2",
-      "blocks": {
-        "article_KEiBVb": {
-          "type": "article",
-          "settings": {
-            "article": "loudlib-blog-music-production-creatives-engineers/fl-studio-vs-ableton-how-to-choose-the-right-daw"
-          }
-        }
-      },
-      "block_order": [
-        "article_KEiBVb"
-      ]
-    },
     "heading": {
       "type": "page-heading",
       "settings": {
@@ -74,10 +16,9 @@
         "heading_xwFKKa": {
           "type": "heading",
           "settings": {
-            "page_title": "Latest blog posts",
+            "page_title": "",
             "header_size": "medium",
             "vertical_gap": 14,
-            "heading_color": "#000000",
             "heading_font_size": 36,
             "enable_heading_color": false
           }
@@ -85,9 +26,8 @@
         "description_YRWpkt": {
           "type": "description",
           "settings": {
-            "description": "<p>Discover the latest insights and trends in the tech space .</p>",
-            "description_color": "#767676",
-            "enable_custom_style": true,
+            "description": "",
+            "enable_custom_style": false,
             "description_font_size": 16
           }
         }
@@ -103,12 +43,10 @@
         "layout": "grid",
         "row_gap": 64,
         "show_date": true,
-        "badge_text": "Recent",
         "column_gap": 40,
         "margin_top": 32,
         "title_size": 22,
         "badge_width": 70,
-        "blog_select": "loudlib-blog",
         "image_ratio": "adapt",
         "title_hover": "underline",
         "badge_height": 30,
@@ -127,71 +65,20 @@
         "section_width": "fluid_container",
         "show_category": true,
         "show_readmore": true,
-        "badge_text_color": "#ffffff",
         "button_show_more": "Load more",
         "content_alignment": "left",
         "badge_border_radius": 19,
         "enable_custom_style": true,
         "badge_text_font_size": 14,
         "items_per_row_mobile": 1,
-        "badge_background_color": "#ff0000",
         "badge_vertical_position": 16,
-        "badge_horizontal_position": 16,
-        "blog_post_badge_reference": "loudlib-blog-music-production-creatives-engineers/fl-studio-vs-ableton-how-to-choose-the-right-daw"
+        "badge_horizontal_position": 16
       },
       "name": "Main blog"
-    },
-    "blog-posts-1793646112970": {
-      "type": "blog-posts",
-      "settings": {
-        "heading": "",
-        "image_ratio": "adapt",
-        "padding_top": 28,
-        "show_author": true,
-        "items_per_row": 3,
-        "items_to_show": 5,
-        "show_view_all": true,
-        "padding_bottom": 28,
-        "header_alignment": "left",
-        "enable_custom_heading_size": false
-      },
-      "blocks": {
-        "subheading-1793646900643-cnlpg": {
-          "type": "subheading",
-          "settings": {
-            "text": "From the blog",
-            "style": "caption"
-          }
-        },
-        "heading-1793646900644-3jfku": {
-          "type": "heading",
-          "settings": {
-            "tag": "h2",
-            "size": "theme",
-            "heading": "Latest posts",
-            "custom_size": 36
-          }
-        },
-        "text-1793646900644-pt2yu": {
-          "type": "text",
-          "settings": {
-            "size": "base",
-            "text": "<p>Production tips, DAW comparisons and sound design guides to get more out of every pack.</p>",
-            "max_width": "medium"
-          }
-        }
-      },
-      "block_order": [
-        "subheading-1793646900643-cnlpg",
-        "heading-1793646900644-3jfku",
-        "text-1793646900644-pt2yu"
-      ]
     }
   },
   "order": [
-    "featured_blog_header_fF4ac9",
     "heading",
-    "main",
-    "blog-posts-1793646112970"
+    "main"
   ]
 }

@@ -1,0 +1,44 @@
+{
+  "main-menu": {
+    "title": "Main menu",
+    "links": [
+      {
+        "title": "Shop",
+        "url": "/collections/all"
+      },
+      {
+        "title": "Tour dates",
+        "url": "/pages/tour"
+      },
+      {
+        "title": "About",
+        "url": "/pages/about"
+      },
+      {
+        "title": "Help",
+        "url": "/pages/faqs"
+      }
+    ]
+  },
+  "footer": {
+    "title": "Footer",
+    "links": [
+      {
+        "title": "Shipping and returns",
+        "url": "/pages/shipping"
+      },
+      {
+        "title": "Help",
+        "url": "/pages/faqs"
+      },
+      {
+        "title": "Contact",
+        "url": "/pages/contact"
+      },
+      {
+        "title": "Search",
+        "url": "/search"
+      }
+    ]
+  }
+}

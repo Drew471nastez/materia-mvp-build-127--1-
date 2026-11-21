@@ -4,30 +4,30 @@
       "type": "contactformsimple2",
       "settings": {
         "color_scheme": "default",
-        "btn_text": "Send message",
-        "ph_website": "Order number (optional)",
+        "btn_text": "Send it",
+        "ph_website": "Order number, if you have one",
         "label_website": "Order number",
-        "success_text": "Thanks. Your message is on its way."
+        "success_text": "Got it. A real person reads every message, usually within two working days."
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Get in touch"
+            "text": "Write to the kitchen"
           }
         },
         "description_2": {
           "type": "description",
           "settings": {
-            "text": "<p>Wrong size, late parcel or a question about a drop? Send us a message.</p>"
+            "text": "<p>A parcel that has gone quiet, a size swap, a wholesale question or a photo of your soup. It all lands in the same inbox.</p>"
           }
         },
         "info_3": {
           "type": "info",
           "settings": {
             "icon": "mail",
-            "line1": "hello@example.com",
-            "line2": "Replace with your email."
+            "line1": "shop@example.com",
+            "line2": "Replace with your shop's email."
           }
         },
         "info_4": {
@@ -35,7 +35,7 @@
           "settings": {
             "icon": "map",
             "line1": "Replies",
-            "line2": "Within two working days"
+            "line2": "Within two working days, never on a Sunday. That is filming day."
           }
         }
       },

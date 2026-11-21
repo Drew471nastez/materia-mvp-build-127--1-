@@ -17,7 +17,7 @@ import { composeTemplateFiles, templateDirs, templateMenus } from "../../lib/the
 import { convertShopifyTheme, type ConversionReport, type ImportedTheme } from "../../lib/storelib-theme/shopify/convert"
 import { ASSET_MAP_PATH } from "../../lib/storelib-theme/compat/install"
 import { themeOfInstall } from "../../lib/storelib-theme/compat/page"
-import { answer, themeAsset, type SiteData } from "../../lib/storelib-theme/compat/site"
+import { answer, themeAsset, type CartEntry, type SiteData } from "../../lib/storelib-theme/compat/site"
 import { compatMenus } from "../../lib/storelib-theme/compat/menus"
 import type { CompatTheme } from "../../lib/storelib-theme/compat/theme"
 
@@ -104,7 +104,7 @@ export function siteFor(imported: ImportedTemplate, shop: { name: string; produc
 }
 
 /** The site on a local port. `productsDir` holds the sample products' pictures. */
-export async function serve(built: BuiltSite, productsDir: string, opts: { eager?: boolean } = {}): Promise<{ base: string; server: Server; missing: string[] }> {
+export async function serve(built: BuiltSite, productsDir: string, opts: { eager?: boolean; cart?: CartEntry[] } = {}): Promise<{ base: string; server: Server; missing: string[] }> {
   const { site, theme, imported } = built
   const missing: string[] = []
   const server = createServer(async (req, res) => {
@@ -134,9 +134,11 @@ export async function serve(built: BuiltSite, productsDir: string, opts: { eager
       if (!a) { missing.push(url.pathname); res.writeHead(404); res.end(); return }
       res.writeHead(200, { "Content-Type": a.type }); res.end(a.body); return
     }
-    if (url.pathname === "/cart.js") { res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify({ item_count: 0, items: [], total_price: 0 })); return }
+    /* A visitor with something in the cart: any address asked with ?__cart, and the scripts of the page it drew. */
+    const cart = opts.cart && (url.searchParams.has("__cart") || /[?&]__cart\b/.test(String(req.headers.referer ?? ""))) ? opts.cart : []
+    if (url.pathname === "/cart.js" && !cart.length) { res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify({ item_count: 0, items: [], total_price: 0 })); return }
     try {
-      const out = await answer(site, { method: req.method ?? "GET", path: url.pathname, query: url.searchParams, body: null, cart: [] })
+      const out = await answer(site, { method: req.method ?? "GET", path: url.pathname, query: url.searchParams, body: null, cart })
       if (out.status >= 400 && !/\.(js|json|map)$/.test(url.pathname)) missing.push(`${out.status} ${url.pathname}`)
       /* For a photograph of the whole page at once: no picture waits to be scrolled to. */
       const body = opts.eager && typeof out.body === "string" && /html/.test(out.type) ? out.body.replace(/\sloading=(["'])lazy\1/g, ' loading="eager"') : out.body

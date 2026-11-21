@@ -1,0 +1,44 @@
+{
+  "main-menu": {
+    "title": "Main menu",
+    "links": [
+      {
+        "title": "Templates",
+        "url": "/collections/all"
+      },
+      {
+        "title": "How it works",
+        "url": "/pages/how-it-works"
+      },
+      {
+        "title": "About",
+        "url": "/pages/about"
+      },
+      {
+        "title": "Help",
+        "url": "/pages/faqs"
+      }
+    ]
+  },
+  "footer": {
+    "title": "Footer",
+    "links": [
+      {
+        "title": "How it works",
+        "url": "/pages/how-it-works"
+      },
+      {
+        "title": "Help",
+        "url": "/pages/faqs"
+      },
+      {
+        "title": "Contact",
+        "url": "/pages/contact"
+      },
+      {
+        "title": "Search",
+        "url": "/search"
+      }
+    ]
+  }
+}

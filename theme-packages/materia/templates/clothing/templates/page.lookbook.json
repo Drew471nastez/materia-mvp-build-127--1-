@@ -1,0 +1,176 @@
+{
+  "sections": {
+    "heading": {
+      "type": "page-heading",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "fluid_container",
+        "reset_spacing": true,
+        "alignment": "left",
+        "height": "adapt",
+        "overlay_opacity": 0,
+        "padding_top": 56,
+        "padding_bottom": 32
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "page_title": "Lookbook, Autumn Winter 26",
+            "header_size": "default",
+            "heading_font_size": 40,
+            "vertical_gap": 12,
+            "enable_heading_color": false
+          }
+        },
+        "description_1": {
+          "type": "description",
+          "settings": {
+            "description": "<p>Shot in Lisbon over three mornings in October. Long coats, soft tailoring and merino, worn the way we wear them.</p>",
+            "enable_custom_style": false,
+            "description_font_size": 16
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_1"
+      ]
+    },
+    "grid": {
+      "type": "gallery-grid1",
+      "settings": {
+        "color_scheme": "default",
+        "is_fullwidth": false,
+        "reset_spacing": true,
+        "container_max_width": 1600,
+        "gutter": 16,
+        "vertical_space_desktop": 16,
+        "vertical_space_mobile": 12,
+        "background_image_1": "shopify://shop_images/clothing-look-camel-suit.webp",
+        "alt_1": "A camel coat over a matching suit, leaning on a glass wall",
+        "background_image_2": "shopify://shop_images/clothing-look-check-coat.webp",
+        "alt_2": "A checked wool coat outside a glass building",
+        "background_image_3": "shopify://shop_images/clothing-look-black-trench.webp",
+        "alt_3": "A black trench coat on a covered walkway",
+        "background_image_4": "shopify://shop_images/clothing-outerwear-concrete.webp",
+        "alt_4": "A dark green coat over a rust skirt against concrete",
+        "image_border_radius": 0,
+        "image_hover_animation": "none",
+        "section_padding_top": 0,
+        "section_padding_bottom": 16,
+        "padding_left_desktop": 60,
+        "padding_right_desktop": 60,
+        "section_padding_top_mobile": 0,
+        "section_padding_bottom_mobile": 12,
+        "padding_left_mobile": 20,
+        "padding_right_mobile": 20
+      }
+    },
+    "wide": {
+      "type": "image-section",
+      "settings": {
+        "color_scheme": "default",
+        "is_fullwidth": true,
+        "img_min_height": 85,
+        "img_min_height_mobile": 60,
+        "background_image": "shopify://shop_images/clothing-hero-stairwell.webp",
+        "image_alt": "A man in a chestnut merino turtleneck on a white stairwell",
+        "image_border_radius": 0,
+        "image_description": "Merino turtleneck in chestnut",
+        "enable_image_text_background": true,
+        "image_text_background_opacity": 100,
+        "image_text_border_radius": 0,
+        "image_description_fz": 15,
+        "image_description_fz_mobile": 13,
+        "section_padding_top": 80,
+        "section_padding_bottom": 0,
+        "section_padding_top_mobile": 40,
+        "section_padding_bottom_mobile": 0,
+        "padding_lr_desktop": 0,
+        "padding_lr_mobile": 0
+      }
+    },
+    "knit": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "fluid_container",
+        "image": "shopify://shop_images/clothing-knit-turtleneck.webp",
+        "image_alt": "A man in a grey merino turtleneck against a dark green wall",
+        "image_position": "right",
+        "image_radius": 0,
+        "aspect_w": 4,
+        "aspect_h": 5,
+        "text_column_width": 50,
+        "gap_desktop": 80,
+        "padding_top_desktop": 96,
+        "padding_bottom_desktop": 96,
+        "side_padding_desktop": 60,
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 48,
+        "side_padding_mobile": 20
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Knitwear"
+          }
+        },
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Merino, knitted close"
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Extra fine merino from one spinner in Biella, knitted in Portugal on narrow machines so the rib sits flat. It goes under a coat without bulk and washes by hand.</p>"
+          }
+        },
+        "button_1": {
+          "type": "button",
+          "settings": {
+            "label": "Shop knitwear",
+            "link": "/search?q=merino"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_1",
+        "subheading_1",
+        "button_1"
+      ]
+    },
+    "shop": {
+      "type": "products-grid",
+      "settings": {
+        "heading": "Shop the lookbook",
+        "text": "",
+        "items_to_show": 4,
+        "show_add_to_cart": false,
+        "button_label": "Shop everything",
+        "button_link": "/collections/all",
+        "items_per_row": 4,
+        "items_per_row_mobile": 2,
+        "column_gap": 16,
+        "header_alignment": "left",
+        "color_scheme": "default",
+        "section_width": "fluid_container",
+        "padding_top": 32,
+        "padding_bottom": 96,
+        "reset_spacing": true
+      }
+    }
+  },
+  "order": [
+    "heading",
+    "grid",
+    "wide",
+    "knit",
+    "shop"
+  ]
+}

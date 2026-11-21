@@ -27,7 +27,7 @@
         "description_tLPCVn": {
           "type": "description",
           "settings": {
-            "description": "<p>Browse every collection in one place.</p>",
+            "description": "<p>Everything in the shop, grouped.</p>",
             "description_color": "#767676",
             "enable_custom_style": true,
             "description_font_size": 15
@@ -42,11 +42,11 @@
     "main": {
       "type": "main-list-collections",
       "settings": {
-        "type": "selected",
+        "type": "all",
         "design": "default",
         "font_size": 16,
         "column_gap": 30,
-        "pagination": "load_more_button",
+        "pagination": "default",
         "image_ratio": "adapt",
         "padding_top": 20,
         "color_scheme": "default",
@@ -60,106 +60,8 @@
         "sort_collections": "alphabetical",
         "show_product_count": false
       },
-      "blocks": {
-        "collection_GawBmm": {
-          "type": "collection",
-          "settings": {
-            "collection": "sweaters",
-            "collection_title": ""
-          }
-        },
-        "collection_k6UJWD": {
-          "type": "collection",
-          "settings": {
-            "collection": "t-shirts",
-            "collection_title": ""
-          }
-        },
-        "collection_Dh49Wa": {
-          "type": "collection",
-          "settings": {
-            "collection": "tops",
-            "collection_title": ""
-          }
-        },
-        "collection_qag64J": {
-          "type": "collection",
-          "settings": {
-            "collection": "activewear",
-            "collection_title": ""
-          }
-        },
-        "collection_Kk8pDP": {
-          "type": "collection",
-          "settings": {
-            "collection": "best-seller",
-            "collection_title": ""
-          }
-        },
-        "collection_ACrmpU": {
-          "type": "collection",
-          "settings": {
-            "collection": "blazers",
-            "collection_title": ""
-          }
-        },
-        "collection_zpFtkQ": {
-          "type": "collection",
-          "settings": {
-            "collection": "demin",
-            "collection_title": ""
-          }
-        },
-        "collection_Lb3mRX": {
-          "type": "collection",
-          "settings": {
-            "collection": "handbags",
-            "collection_title": ""
-          }
-        },
-        "collection_qirikr": {
-          "type": "collection",
-          "settings": {
-            "collection": "crop-top",
-            "collection_title": ""
-          }
-        },
-        "collection_HLUY4E": {
-          "type": "collection",
-          "settings": {
-            "collection": "dress",
-            "collection_title": ""
-          }
-        },
-        "collection_dHMiiC": {
-          "type": "collection",
-          "settings": {
-            "collection": "trending",
-            "collection_title": ""
-          }
-        },
-        "collection_pip9Fw": {
-          "type": "collection",
-          "settings": {
-            "collection": "shorts-1",
-            "collection_title": ""
-          }
-        }
-      },
-      "block_order": [
-        "collection_GawBmm",
-        "collection_k6UJWD",
-        "collection_Dh49Wa",
-        "collection_qag64J",
-        "collection_Kk8pDP",
-        "collection_ACrmpU",
-        "collection_zpFtkQ",
-        "collection_Lb3mRX",
-        "collection_qirikr",
-        "collection_HLUY4E",
-        "collection_dHMiiC",
-        "collection_pip9Fw"
-      ]
+      "blocks": {},
+      "block_order": []
     }
   },
   "order": [

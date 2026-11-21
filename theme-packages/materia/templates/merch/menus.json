@@ -3,20 +3,20 @@
     "title": "Main menu",
     "links": [
       {
-        "title": "Shop all",
+        "title": "Shop Season 4",
         "url": "/collections/all"
       },
       {
-        "title": "About",
+        "title": "The channel",
         "url": "/pages/about"
       },
       {
-        "title": "FAQ",
-        "url": "/pages/faqs"
+        "title": "Kitchen notes",
+        "url": "/blogs/news"
       },
       {
-        "title": "Contact",
-        "url": "/pages/contact"
+        "title": "Help",
+        "url": "/pages/faqs"
       }
     ]
   },
@@ -24,12 +24,16 @@
     "title": "Footer",
     "links": [
       {
-        "title": "Sizing and FAQ",
+        "title": "Shipping and sizing",
         "url": "/pages/faqs"
       },
       {
         "title": "Contact",
         "url": "/pages/contact"
+      },
+      {
+        "title": "All collections",
+        "url": "/collections"
       },
       {
         "title": "Search",

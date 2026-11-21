@@ -1,0 +1,268 @@
+{
+  "sections": {
+    "page_heading_1": {
+      "type": "page-heading",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "stretch_width",
+        "reset_spacing": true,
+        "alignment": "center",
+        "height": "adapt",
+        "overlay_opacity": 0,
+        "padding_top": 80,
+        "padding_bottom": 40
+      },
+      "blocks": {
+        "breadcrumb_1": {
+          "type": "breadcrumb",
+          "settings": {
+            "separator": "chevron",
+            "font_size": 13,
+            "uppercase": false
+          }
+        },
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "enable_heading_color": false,
+            "enable_custom_fonts": false,
+            "font": "assistant_n4",
+            "header_size": "default",
+            "heading_font_size": 34,
+            "vertical_gap": 8,
+            "page_title": "Ingredients"
+          }
+        },
+        "description_1": {
+          "type": "description",
+          "settings": {
+            "enable_custom_style": false,
+            "enable_custom_fonts": false,
+            "font": "assistant_n4",
+            "description_font_size": 15,
+            "description": "<p>What is in the bottle, what it is there for, and what we leave out.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "breadcrumb_1",
+        "heading_1",
+        "description_1"
+      ]
+    },
+    "benefits2_1": {
+      "type": "benefits2",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "full_width",
+        "reset_spacing": true,
+        "enable_centered_video": false,
+        "image_border_radius": 24,
+        "image_shadow": "none",
+        "image_hover_animation": "none",
+        "enable_custom_style": false,
+        "enable_custom_fonts": false,
+        "heading_font": "helvetica_n4",
+        "body_font": "helvetica_n4",
+        "feature_title_font_weight": "normal",
+        "feature_title_font_size": 19,
+        "feature_description_font_size": 14,
+        "reveal": true,
+        "padding_top_desktop": 60,
+        "padding_bottom_desktop": 60,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "padding_top_mobile": 20,
+        "padding_bottom_mobile": 20,
+        "section_margin_top_mobile": 0,
+        "section_margin_bottom_mobile": 0,
+        "center_image": "shopify://shop_images/skincare-roller.webp"
+      },
+      "blocks": {
+        "feature_1": {
+          "type": "feature",
+          "settings": {
+            "title": "Niacinamide",
+            "description": "Helps even the look of skin tone. Say the percentage you use.",
+            "icon": "sparkle",
+            "svg_icon_size": 40,
+            "enable_icon_circle_bg": true,
+            "icon_circle_bg_size": 50,
+            "icon_circle_border_radius": 50,
+            "enable_custom_style": true,
+            "icon_color": "#27474a",
+            "icon_circle_bg_color": "#eaf0ee"
+          }
+        },
+        "feature_2": {
+          "type": "feature",
+          "settings": {
+            "title": "Squalane",
+            "description": "A light oil that softens without shine.",
+            "icon": "organic",
+            "svg_icon_size": 40,
+            "enable_icon_circle_bg": true,
+            "icon_circle_bg_size": 50,
+            "icon_circle_border_radius": 50,
+            "enable_custom_style": true,
+            "icon_color": "#27474a",
+            "icon_circle_bg_color": "#eaf0ee"
+          }
+        },
+        "feature_3": {
+          "type": "feature",
+          "settings": {
+            "title": "Ceramides",
+            "description": "Support the skin barrier.",
+            "icon": "shield",
+            "svg_icon_size": 40,
+            "enable_icon_circle_bg": true,
+            "icon_circle_bg_size": 50,
+            "icon_circle_border_radius": 50,
+            "enable_custom_style": true,
+            "icon_color": "#27474a",
+            "icon_circle_bg_color": "#eaf0ee"
+          }
+        },
+        "feature_4": {
+          "type": "feature",
+          "settings": {
+            "title": "Glycerin",
+            "description": "Draws water into the top layer.",
+            "icon": "leaf",
+            "svg_icon_size": 40,
+            "enable_icon_circle_bg": true,
+            "icon_circle_bg_size": 50,
+            "icon_circle_border_radius": 50,
+            "enable_custom_style": true,
+            "icon_color": "#27474a",
+            "icon_circle_bg_color": "#eaf0ee"
+          }
+        },
+        "feature_5": {
+          "type": "feature",
+          "settings": {
+            "title": "Oat extract",
+            "description": "Calms the feel of tight skin.",
+            "icon": "heart",
+            "svg_icon_size": 40,
+            "enable_icon_circle_bg": true,
+            "icon_circle_bg_size": 50,
+            "icon_circle_border_radius": 50,
+            "enable_custom_style": true,
+            "icon_color": "#27474a",
+            "icon_circle_bg_color": "#eaf0ee"
+          }
+        },
+        "feature_6": {
+          "type": "feature",
+          "settings": {
+            "title": "Zinc PCA",
+            "description": "Helps balance oil through the day.",
+            "icon": "gem",
+            "svg_icon_size": 40,
+            "enable_icon_circle_bg": true,
+            "icon_circle_bg_size": 50,
+            "icon_circle_border_radius": 50,
+            "enable_custom_style": true,
+            "icon_color": "#27474a",
+            "icon_circle_bg_color": "#eaf0ee"
+          }
+        }
+      },
+      "block_order": [
+        "feature_1",
+        "feature_2",
+        "feature_3",
+        "feature_4",
+        "feature_5",
+        "feature_6"
+      ]
+    },
+    "text_columns_1": {
+      "type": "text-columns",
+      "settings": {
+        "color_scheme": "scheme-7dae8b89-7a81-4c2c-b8e2-92533766f8ca",
+        "section_width": "fluid_container",
+        "reset_spacing": true,
+        "content_alignment": "left",
+        "columns_desktop": 3,
+        "columns_tablet": 2,
+        "column_gap": 48,
+        "header_gap": 48,
+        "show_dividers": true,
+        "enable_custom_style": false,
+        "enable_custom_fonts": false,
+        "heading_font": "assistant_n4",
+        "body_font": "assistant_n4",
+        "item_heading_size": 22,
+        "reveal": true,
+        "padding_top": 80,
+        "padding_bottom": 80,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "show_on_mobile": true,
+        "mobile_layout": "stack",
+        "show_arrows": true,
+        "item_heading_size_mobile": 20,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "section_margin_top_mobile": 0,
+        "section_margin_bottom_mobile": 0
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "What we leave out",
+            "enable_custom_style": false,
+            "enable_custom_fonts": false,
+            "font": "assistant_n4",
+            "weight_enable": false,
+            "weight": "700",
+            "size_enable": false,
+            "size_desktop": 36,
+            "size_mobile": 28,
+            "line_height": 1.15,
+            "tracking": 0
+          }
+        },
+        "column_1": {
+          "type": "column",
+          "settings": {
+            "label": "Never",
+            "heading": "Fragrance",
+            "text": "<p>No perfume and no essential oils, in any product.</p>"
+          }
+        },
+        "column_2": {
+          "type": "column",
+          "settings": {
+            "label": "Never",
+            "heading": "Drying alcohols",
+            "text": "<p>Name the ones you avoid.</p>"
+          }
+        },
+        "column_3": {
+          "type": "column",
+          "settings": {
+            "label": "Never",
+            "heading": "Dyes",
+            "text": "<p>The colour of each product is the colour of what is in it.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "column_1",
+        "column_2",
+        "column_3"
+      ]
+    }
+  },
+  "order": [
+    "page_heading_1",
+    "benefits2_1",
+    "text_columns_1"
+  ]
+}

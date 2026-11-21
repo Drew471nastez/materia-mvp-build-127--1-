@@ -316,7 +316,7 @@
       "cart_edit": "Edit Option",
       "remove_title": "Remove",
       "close": "Close",
-      "subtitle": "Your cart is currently empty!.",
+      "subtitle": "Your cart is empty.",
       "empty": "Your cart is empty",
       "description": "You may check out all the available products and buy some in the shop.",
       "timeout_message": "Your reservation has ended.",
@@ -945,6 +945,7 @@
     },
     "collection_template": {
       "empty": "Nothing matches those filters",
+      "empty_collection": "No products here yet",
       "title": "Collection",
       "use_fewer_filters_html": "Try loosening your selection or <a class=\"{{ class }}\" href=\"{{ link }}\">clear all filters</a>."
     },

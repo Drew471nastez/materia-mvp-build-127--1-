@@ -95,7 +95,11 @@
      vertical paddings space the text block within it. */
   #shopify-section-{{ uid }} .stw__viewport {
     position: sticky;
-    top: {{ sticky_off }}px;
+    /* --stw-top: where the stage pins. The sticky offset, or, with "Fit
+       height to text" on, the middle of the screen (set by the script under
+       this section): a stage that hugs its text and pinned at the top left
+       the rest of the screen empty for the whole scroll. */
+    top: var(--stw-top, {{ sticky_off }}px);
     /* Banner height: "Fit height to text" hugs the content (no dead space
        above/below); otherwise the height slider applies (100 = full screen).
        The JS measures the stage's real height, so the word-reveal still
@@ -333,6 +337,27 @@
     </div>
   </div>
 </scroll-text-banner>
+{%- if fit_d or fit_m -%}
+<script>
+  (function () {
+    var root = document.querySelector('#shopify-section-{{ uid }} scroll-text-banner');
+    if (!root) return;
+    var stage = root.querySelector('.stw__viewport');
+    var base = {{ sticky_off | json }};
+    var narrow = window.matchMedia('(max-width: 749px)');
+    function place() {
+      var fit = narrow.matches ? {{ fit_m | json }} : {{ fit_d | json }};
+      var top = fit && stage ? Math.max(base, Math.round((window.innerHeight - stage.offsetHeight) / 2)) : base;
+      root.style.setProperty('--stw-top', top + 'px');
+      /* scroll-text-reveal.js counts the reveal from where the stage pins. */
+      root.dataset.offset = String(top);
+    }
+    place();
+    window.addEventListener('resize', place);
+    if (stage && 'ResizeObserver' in window) new ResizeObserver(place).observe(stage);
+  })();
+</script>
+{%- endif -%}
 
 {%- comment -%} scroll-text-reveal.js is linked by the tag at the top of this file (it runs once per page). {%- endcomment -%}
 
@@ -683,7 +708,7 @@
           "type": "richtext",
           "id": "text",
           "label": "Text",
-          "default": "<p>Our collection of sleek, <strong>high-performance bags</strong> embodies a perfect synergy of advanced technology, durable materials, and contemporary design.</p>",
+          "default": "<p>Say what you make in one long sentence, and put <strong>the part that matters most</strong> in bold so it stands out as the words light up.</p>",
           "info": "Bold phrases render as highlight pills."
         },
         {

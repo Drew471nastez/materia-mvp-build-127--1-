@@ -1,133 +1,198 @@
 {
   "sections": {
-    "hero_image1_1": {
-      "type": "hero-image1",
+    "heading": {
+      "type": "page-heading",
       "settings": {
-        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
-        "image": "shopify://shop_images/clothing-rack-prints.webp",
-        "image_alt": "Printed shirts and dresses on hangers",
-        "min_height_desktop": 460,
-        "min_height_mobile": 360
+        "color_scheme": "default",
+        "section_width": "fluid_container",
+        "reset_spacing": true,
+        "alignment": "left",
+        "height": "adapt",
+        "overlay_opacity": 0,
+        "padding_top": 56,
+        "padding_bottom": 40
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "page_title": "About Halde",
+            "header_size": "default",
+            "heading_font_size": 40,
+            "vertical_gap": 12,
+            "enable_heading_color": false
+          }
+        },
+        "description_1": {
+          "type": "description",
+          "settings": {
+            "description": "<p>Halde is a clothing label for women and men. We make coats, tailoring and knitwear in natural fibres, two collections a year, and we keep each piece in the shop until it sells out.</p>",
+            "enable_custom_style": false,
+            "description_font_size": 16
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_1"
+      ]
+    },
+    "image": {
+      "type": "image-section",
+      "settings": {
+        "color_scheme": "default",
+        "is_fullwidth": true,
+        "img_min_height": 78,
+        "img_min_height_mobile": 60,
+        "background_image": "shopify://shop_images/clothing-tailoring-studio.webp",
+        "image_alt": "Two women in Halde tailoring, one in a cream jacket and one in black",
+        "image_border_radius": 0,
+        "image_description": "",
+        "enable_image_text_background": false,
+        "background_position_y": 35,
+        "section_padding_top": 0,
+        "section_padding_bottom": 0,
+        "section_padding_top_mobile": 0,
+        "section_padding_bottom_mobile": 0,
+        "padding_lr_desktop": 0,
+        "padding_lr_mobile": 0
+      }
+    },
+    "how": {
+      "type": "text-columns",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "content_alignment": "left",
+        "columns_desktop": 4,
+        "columns_tablet": 2,
+        "column_gap": 40,
+        "header_gap": 40,
+        "show_dividers": true,
+        "item_heading_size": 20,
+        "item_heading_size_mobile": 18,
+        "padding_top": 96,
+        "padding_bottom": 96,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "mobile_layout": "stack"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "How we work"
+          }
+        },
+        "column_1": {
+          "type": "column",
+          "settings": {
+            "label": "Cloth",
+            "heading": "Mills we visit",
+            "text": "<p>Wool from Biella, linen and cotton from northern Portugal. We buy from mills we have walked round, and we go back every year.</p>",
+            "link_label": "",
+            "link": ""
+          }
+        },
+        "column_2": {
+          "type": "column",
+          "settings": {
+            "label": "Making",
+            "heading": "Small runs",
+            "text": "<p>Each piece is cut and sewn in one of two family workshops near Porto. A run is rarely more than two hundred pieces.</p>",
+            "link_label": "",
+            "link": ""
+          }
+        },
+        "column_3": {
+          "type": "column",
+          "settings": {
+            "label": "Price",
+            "heading": "One price all season",
+            "text": "<p>No flash sales and no codes. Prices stay where they are until the end of season sale in January and July.</p>",
+            "link_label": "",
+            "link": ""
+          }
+        },
+        "column_4": {
+          "type": "column",
+          "settings": {
+            "label": "Repair",
+            "heading": "Two years of mending",
+            "text": "<p>Send back any Halde piece within two years and we repair a seam, a button or a moth hole at no cost.</p>",
+            "link_label": "Ask about a repair",
+            "link": "/pages/contact"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "column_1",
+        "column_2",
+        "column_3",
+        "column_4"
+      ]
+    },
+    "studio": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "fluid_container",
+        "image": "shopify://shop_images/clothing-studio-rail.webp",
+        "image_alt": "Three sample shirts on a white rail in the studio",
+        "image_position": "left",
+        "image_radius": 0,
+        "aspect_w": 4,
+        "aspect_h": 5,
+        "text_column_width": 50,
+        "gap_desktop": 80,
+        "padding_top_desktop": 0,
+        "padding_bottom_desktop": 0,
+        "side_padding_desktop": 0,
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 48,
+        "side_padding_mobile": 20
       },
       "blocks": {
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "Our story"
+            "text": "The studio"
           }
         },
-        "heading_2": {
+        "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "A small label, made slowly"
+            "text": "One room in Lisbon"
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Every piece starts as a paper pattern on our cutting table. We sample it, wear it for a week, correct it and sample it again. Most pieces take three rounds before a run is ordered.</p><p>The lookbook is shot a few streets away, on the people who work here and their friends.</p>"
+          }
+        },
+        "button_1": {
+          "type": "button",
+          "settings": {
+            "label": "See the lookbook",
+            "link": "/pages/lookbook"
           }
         }
       },
       "block_order": [
         "eyebrow_1",
-        "heading_2"
-      ]
-    },
-    "image_and_video_text_2": {
-      "type": "Image-and-video-text",
-      "settings": {
-        "color_scheme": "default",
-        "image": "shopify://shop_images/clothing-street-coat.webp",
-        "image_alt": "A woman in a checked coat seen from behind on a city street",
-        "image_position": "right"
-      },
-      "blocks": {
-        "heading_1": {
-          "type": "heading",
-          "settings": {
-            "text": "Where it started"
-          }
-        },
-        "subheading_2": {
-          "type": "subheading",
-          "settings": {
-            "text": "<p>Tell the story of your label here: when you began, what you make and who makes it with you.</p>"
-          }
-        },
-        "button_3": {
-          "type": "button",
-          "settings": {
-            "label": "Shop the collection",
-            "link": "/collections/all"
-          }
-        }
-      },
-      "block_order": [
         "heading_1",
-        "subheading_2",
-        "button_3"
-      ]
-    },
-    "feature_timeline_3": {
-      "type": "feature-timeline",
-      "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "layout": "side"
-      },
-      "blocks": {
-        "heading_1": {
-          "type": "heading",
-          "settings": {
-            "text": "How a piece is made"
-          }
-        },
-        "subheading_2": {
-          "type": "subheading",
-          "settings": {
-            "text": "<p>From first sketch to your door.</p>"
-          }
-        },
-        "item_3": {
-          "type": "item",
-          "settings": {
-            "label": "Step 1",
-            "title": "Design",
-            "text": "<p>Say where your ideas start and how long a design takes.</p>"
-          }
-        },
-        "item_4": {
-          "type": "item",
-          "settings": {
-            "label": "Step 2",
-            "title": "Cloth",
-            "text": "<p>Name the mills and the fibres you choose.</p>"
-          }
-        },
-        "item_5": {
-          "type": "item",
-          "settings": {
-            "label": "Step 3",
-            "title": "Sewing",
-            "text": "<p>Say who sews your pieces and where.</p>"
-          }
-        },
-        "item_6": {
-          "type": "item",
-          "settings": {
-            "label": "Step 4",
-            "title": "Delivery",
-            "text": "<p>Describe how an order is packed and sent.</p>"
-          }
-        }
-      },
-      "block_order": [
-        "heading_1",
-        "subheading_2",
-        "item_3",
-        "item_4",
-        "item_5",
-        "item_6"
+        "subheading_1",
+        "button_1"
       ]
     }
   },
   "order": [
-    "hero_image1_1",
-    "image_and_video_text_2",
-    "feature_timeline_3"
+    "heading",
+    "image",
+    "how",
+    "studio"
   ]
 }

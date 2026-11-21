@@ -40,6 +40,8 @@ scroll-text-banner :is(strong,b) .stw__w{border-radius:var(--tx-highlight-radius
  scroll-text-banner.stw--armed .stw__w{opacity:var(--stw-dim,.15)!important;color:inherit!important;border-radius:var(--tx-highlight-radius,6px)!important}
  scroll-text-banner.stw--armed[data-tx-dim-color=true] .stw__w{opacity:1!important;color:var(--tx-dim-color)!important}
  scroll-text-banner.stw--armed .stw__w.is-on{opacity:1!important;color:inherit!important}
+ /* A highlighted phrase, once revealed, is the highlight's own text colour on its pill: left to inherit, it was the heading colour on a pill of the heading colour. */
+ scroll-text-banner.stw--armed :is(strong,b) .stw__w.is-on{color:var(--stw-hl-tx,var(--color-background))!important;background-color:var(--stw-hl-bg,var(--color-heading))!important}
  @media(prefers-reduced-motion:reduce){scroll-text-banner.stw--armed .stw__w,scroll-text-banner.stw--armed[data-tx-dim-color=true] .stw__w{opacity:1!important;color:inherit!important}}
 }
 @media(prefers-reduced-motion:reduce){[data-text-controls],[data-text-controls] *{animation:none!important;transition:none!important}scroll-text-banner .stw__w{opacity:1!important;color:inherit!important}}

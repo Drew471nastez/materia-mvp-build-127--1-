@@ -181,7 +181,7 @@
     {%- if cb_cart_text != blank %}--count-bubble-color: {{ cb_cart_text }};{% endif -%}
     {%- comment -%} The wishlist never borrows the cart's own colour (the stylesheets fall back from one to the other). {%- endcomment -%}
     {%- if cb_wish_bg != blank %}--count-bubble-wishlist-bg: {{ cb_wish_bg }};{% elsif cb_cart_bg != blank %}--count-bubble-wishlist-bg: var(--color-primary);{% endif -%}
-    {%- if cb_wish_text != blank %}--count-bubble-wishlist-color: {{ cb_wish_text }};{% elsif cb_cart_text != blank %}--count-bubble-wishlist-color: var(--color-white, #fff);{% endif -%}
+    {%- if cb_wish_text != blank %}--count-bubble-wishlist-color: {{ cb_wish_text }};{% elsif cb_cart_text != blank %}--count-bubble-wishlist-color: var(--color-background, #fff);{% endif -%}
     {%- if cb_border_color != blank %}--count-bubble-border-color: {{ cb_border_color }};{% endif %}
     --count-bubble-size: {{ settings.bubble_size | default: 18 }}px;
     --count-bubble-font-size: {{ settings.bubble_font_size | default: 10 }}px;

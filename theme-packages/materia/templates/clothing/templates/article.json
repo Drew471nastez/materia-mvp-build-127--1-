@@ -1,0 +1,82 @@
+{
+  "sections": {
+    "main": {
+      "type": "main-article",
+      "settings": {
+        "padding_top": 56,
+        "section_width": "container",
+        "padding_bottom": 40,
+        "author_margin_left": -140,
+        "author_margin_right": 0,
+        "content_width_desktop": 760
+      },
+      "blocks": {
+        "title": {
+          "type": "title",
+          "settings": {
+            "blog_title_font_size": 44
+          }
+        },
+        "meta": {
+          "type": "blog_meta",
+          "settings": {
+            "enable_custom_style": false,
+            "blog_meta_border_radius": 0
+          }
+        },
+        "image": {
+          "type": "featured_image",
+          "settings": {
+            "image_height": "large",
+            "featured_image_top_padding": 16,
+            "featured_image_border_radius": 0,
+            "featured_image_bottom_padding": 24
+          }
+        },
+        "content": {
+          "type": "content_article",
+          "settings": {}
+        }
+      },
+      "block_order": [
+        "title",
+        "meta",
+        "image",
+        "content"
+      ]
+    },
+    "more": {
+      "type": "blog-posts",
+      "settings": {
+        "reveal": false,
+        "heading": "More from the journal",
+        "autoplay": false,
+        "infinite": false,
+        "show_date": true,
+        "column_gap": 16,
+        "description": "",
+        "image_ratio": "custom",
+        "padding_top": 40,
+        "show_author": false,
+        "color_scheme": "",
+        "custom_ratio": "4:5",
+        "vertical_gap": 24,
+        "items_per_row": 3,
+        "items_to_show": 3,
+        "section_width": "fluid_container",
+        "show_view_all": true,
+        "padding_bottom": 96,
+        "autorotate_speed": 5,
+        "content_alignment": "left",
+        "heading_font_size": 28,
+        "carousel_pagination": "disable",
+        "enable_custom_style": false,
+        "items_per_row_mobile": 1
+      }
+    }
+  },
+  "order": [
+    "main",
+    "more"
+  ]
+}

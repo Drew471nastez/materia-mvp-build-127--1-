@@ -1,27 +1,23 @@
 {
   "sections": {
-    "main-collection-heading": {
+    "heading": {
       "type": "main-collection-heading",
       "settings": {
-        "height": "adapt",
-        "alignment": "center",
-        "padding_top": 40,
         "color_scheme": "default",
-        "reset_spacing": true,
         "section_width": "fluid_container",
-        "padding_bottom": 24,
-        "show_collection_image": false
+        "reset_spacing": true,
+        "alignment": "left",
+        "height": "adapt",
+        "show_collection_image": false,
+        "padding_top": 56,
+        "padding_bottom": 24
       },
-      "name": "main-collection-heading",
       "blocks": {
-        "breadcrumb": {
-          "type": "breadcrumb",
-          "settings": {}
-        },
         "heading": {
           "type": "heading",
           "settings": {
-            "header_size": "default"
+            "header_size": "default",
+            "heading_font_size": 40
           }
         },
         "description": {
@@ -30,17 +26,16 @@
         }
       },
       "block_order": [
-        "breadcrumb",
         "heading",
         "description"
       ]
     },
-    "main-collection-product": {
+    "products": {
       "type": "main-collection-product",
       "settings": {
         "sorting": true,
-        "column_gap": 30,
-        "pagination": "default",
+        "column_gap": 16,
+        "pagination": "load_more_button",
         "padding_top": 0,
         "color_scheme": "default",
         "filter_layout": "drawer",
@@ -50,7 +45,7 @@
         "section_width": "fluid_container",
         "default_filter": "open_all",
         "empty_link_url": "/collections/all",
-        "padding_bottom": 60,
+        "padding_bottom": 96,
         "vertical_posion": "left",
         "button_show_more": "Show more",
         "enable_filtering": true,
@@ -59,27 +54,19 @@
         "toolbar_button_style": "minimal",
         "number_products_per_page": true
       },
-      "name": "main-collection-product",
       "blocks": {
-        "block-mvmkffsh-1-pcnzc": {
-          "type": "categories",
-          "settings": {
-            "title": "Category"
-          }
-        },
-        "block-mvmkfj68-2-iqqos": {
+        "filter": {
           "type": "filter",
           "settings": {}
         }
       },
       "block_order": [
-        "block-mvmkffsh-1-pcnzc",
-        "block-mvmkfj68-2-iqqos"
+        "filter"
       ]
     }
   },
   "order": [
-    "main-collection-heading",
-    "main-collection-product"
+    "heading",
+    "products"
   ]
 }

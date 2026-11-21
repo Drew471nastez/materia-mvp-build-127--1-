@@ -192,6 +192,10 @@
     "btn_hover_effect": "glow",
     "show_delivery_day": false,
     "show_estimate_shipping_rates": false,
-    "cart_drawer_show_shipping_estimator": false
+    "cart_drawer_show_shipping_estimator": false,
+    "cart_page_show_estimate_shipping_rates": false,
+    "cart_page_show_delivery_day": false,
+    "cart_page_enable_cart_note": false,
+    "enable_cart_note": false
   }
 }

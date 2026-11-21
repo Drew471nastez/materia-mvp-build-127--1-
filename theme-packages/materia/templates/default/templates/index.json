@@ -1,30 +1,48 @@
 {
   "sections": {
-    "hero_split_media_1": {
-      "type": "hero-split-media",
+    "hero_collage_1": {
+      "type": "hero-collage",
       "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "image": "shopify://shop_images/default-hero-interior.webp",
-        "image_alt": "A reading chair beside a floor lamp",
-        "min_height_desktop": 600
+        "color_scheme": "default",
+        "section_width": "container",
+        "image_position": "right",
+        "media_width_desktop": 56,
+        "content_max_width": 500,
+        "content_gap": 20,
+        "image_aspect_ratio": "portrait",
+        "collage_gap": 14,
+        "collage_offset_desktop": 40,
+        "image_radius": 4,
+        "padding_top_desktop": 72,
+        "padding_bottom_desktop": 88,
+        "padding_top_mobile": 28,
+        "padding_bottom_mobile": 48
       },
       "blocks": {
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "New this season"
+            "text": "Print studio"
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Good things for every room"
+            "text": "Juno Hale",
+            "size_enable": true,
+            "size_desktop": 88,
+            "size_mobile": 52,
+            "line_height": 0.95,
+            "tracking": -2
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Furniture, lighting and small objects made to be used every day.</p>"
+            "text": "<p>I draw suns, seas and hills and print them by hand. Here you can buy the prints, the goods they end up on, the brushes I draw with, and a course on how it is done.</p>",
+            "size_enable": true,
+            "size": 18,
+            "line_height": 1.5
           }
         },
         "button_4": {
@@ -37,9 +55,30 @@
         "button_5": {
           "type": "button",
           "settings": {
-            "text": "About the shop",
-            "button_style": "secondary",
-            "link": "/pages/about"
+            "text": "About the studio",
+            "link": "/pages/about",
+            "button_style": "secondary"
+          }
+        },
+        "image_6": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/default-press.webp",
+            "alt": "A gloved hand lays a sheet on an inked block at the press"
+          }
+        },
+        "image_7": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/default-lino.webp",
+            "alt": "Hands cutting curved shapes into a lino block"
+          }
+        },
+        "image_8": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/default-ink-bench.webp",
+            "alt": "A roller, a tube of ink and an inked plate on a wooden bench"
           }
         }
       },
@@ -48,81 +87,52 @@
         "heading_2",
         "subheading_3",
         "button_4",
-        "button_5"
+        "button_5",
+        "image_6",
+        "image_7",
+        "image_8"
       ]
     },
-    "benefits_bar_2": {
-      "type": "benefits-bar",
-      "settings": {
-        "color_scheme": "default"
-      },
-      "blocks": {
-        "icon_1": {
-          "type": "icon",
-          "settings": {
-            "icon": "shipping_fast",
-            "icon_title": "Sent within 2 days"
-          }
-        },
-        "icon_2": {
-          "type": "icon",
-          "settings": {
-            "icon": "undo_alt",
-            "icon_title": "30 day returns"
-          }
-        },
-        "icon_3": {
-          "type": "icon",
-          "settings": {
-            "icon": "lock",
-            "icon_title": "Secure checkout"
-          }
-        },
-        "icon_4": {
-          "type": "icon",
-          "settings": {
-            "icon": "headset",
-            "icon_title": "Real people on support"
-          }
-        }
-      },
-      "block_order": [
-        "icon_1",
-        "icon_2",
-        "icon_3",
-        "icon_4"
-      ]
-    },
-    "products_listing_3": {
+    "products_listing_2": {
       "type": "products-listing",
       "settings": {
-        "items_to_show": 8,
-        "items_per_row": 4,
-        "color_scheme": "default"
+        "color_scheme": "default",
+        "section_width": "container",
+        "items_to_show": 6,
+        "items_per_row": 3,
+        "items_per_row_mobile": 2,
+        "column_gap": 24,
+        "row_gap": 40,
+        "show_rating": false,
+        "show_swatches": false,
+        "show_add_to_cart": false,
+        "header_alignment": "left",
+        "padding_top": 40,
+        "padding_bottom": 72
       },
       "blocks": {
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "The shop"
+            "text": "New in"
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Popular right now"
+            "text": "Fresh from the studio"
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>What people are ordering this month.</p>"
+            "text": "<p>Things to hang, carry and download, side by side.</p>"
           }
         },
         "button_4": {
           "type": "button",
           "settings": {
-            "text": "See all products",
+            "text": "See everything",
             "link": "/collections/all"
           }
         }
@@ -134,37 +144,196 @@
         "button_4"
       ]
     },
-    "image_and_video_text_4": {
-      "type": "Image-and-video-text",
+    "text_columns_3": {
+      "type": "text-columns",
       "settings": {
-        "color_scheme": "scheme-7dae8b89-7a81-4c2c-b8e2-92533766f8ca",
-        "image": "shopify://shop_images/default-living-room.webp",
-        "image_alt": "A bright living room with a grey sofa",
-        "image_position": "right"
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "section_width": "container",
+        "columns_desktop": 3,
+        "column_gap": 56,
+        "header_gap": 56,
+        "show_dividers": true,
+        "item_heading_size": 26,
+        "padding_top": 96,
+        "padding_bottom": 96
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "One shop, three kinds of thing"
+          }
+        },
+        "column_2": {
+          "type": "column",
+          "settings": {
+            "label": "Physical",
+            "heading": "Prints and paper goods",
+            "text": "<p>Posters, totes and sketch pads, printed and packed in the studio. Sent tracked, usually with you within a week.</p>",
+            "link_label": "Shop prints",
+            "link": "/collections/all"
+          }
+        },
+        "column_3": {
+          "type": "column",
+          "settings": {
+            "label": "Digital",
+            "heading": "Brushes and files",
+            "text": "<p>Procreate brushes, phone wallpapers and printable files. A download link arrives by email as soon as you pay.</p>",
+            "link_label": "How downloads work",
+            "link": "/pages/shipping"
+          }
+        },
+        "column_4": {
+          "type": "column",
+          "settings": {
+            "label": "Course",
+            "heading": "Printmaking at home",
+            "text": "<p>Twelve short video lessons filmed at the bench. Watch at your own pace and keep them for good.</p>",
+            "link_label": "Course questions",
+            "link": "/pages/faqs"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "column_2",
+        "column_3",
+        "column_4"
+      ]
+    },
+    "image_with_text_steps_4": {
+      "type": "image-with-text-steps",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "image_position": "left",
+        "image": "shopify://shop_images/default-course-tall.webp",
+        "image_alt": "The cover of the Printmaking at home course",
+        "image_aspect_desktop": "4 / 5",
+        "image_aspect": "4 / 5",
+        "image_radius": 4,
+        "step_style": "number",
+        "padding_top": 96,
+        "padding_bottom": 96,
+        "gap_desktop": 80,
+        "button_radius": 4,
+        "custom_colors": true,
+        "marker_color": "#d9432b",
+        "marker_text_color": "#ffffff",
+        "line_color": "#e7e6e3"
       },
       "blocks": {
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "How we choose"
+            "text": "The course"
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Fewer things, picked properly"
+            "text": "Printmaking at home",
+            "size_desktop": 48,
+            "size_mobile": 32
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>We test every product at home before it goes on the shelf. If we would not keep it, we do not sell it.</p>"
+            "text": "<p>Four weeks of short lessons on cutting, inking and printing with tools that fit on a kitchen table. $89, paid once.</p>"
+          }
+        },
+        "step_4": {
+          "type": "step",
+          "settings": {
+            "title": "Week 1. Shapes",
+            "description": "<p>Cut your first block and learn what a clean edge needs.</p>"
+          }
+        },
+        "step_5": {
+          "type": "step",
+          "settings": {
+            "title": "Week 2. Ink",
+            "description": "<p>Mix a colour, roll it thin and pull an even print.</p>"
+          }
+        },
+        "step_6": {
+          "type": "step",
+          "settings": {
+            "title": "Week 3. Layers",
+            "description": "<p>Print a second colour that lines up with the first.</p>"
+          }
+        },
+        "step_7": {
+          "type": "step",
+          "settings": {
+            "title": "Week 4. An edition",
+            "description": "<p>Print, sign and number a run of ten.</p>"
+          }
+        },
+        "button_8": {
+          "type": "button",
+          "settings": {
+            "label": "Find it in the shop",
+            "url": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "step_4",
+        "step_5",
+        "step_6",
+        "step_7",
+        "button_8"
+      ]
+    },
+    "image_and_video_text_5": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "scheme-7dae8b89-7a81-4c2c-b8e2-92533766f8ca",
+        "section_width": "container",
+        "image_position": "right",
+        "text_column_width": 44,
+        "image": "shopify://shop_images/default-tools.webp",
+        "image_alt": "Carving tools, lino offcuts and test prints on the studio table",
+        "aspect_w": 5,
+        "aspect_h": 4,
+        "image_radius": 4,
+        "padding_top_desktop": 96,
+        "padding_bottom_desktop": 96,
+        "gap_desktop": 80,
+        "content_align": "left",
+        "mobile_order": "media_first"
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "About me"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "One person, one press, one small room",
+            "size_desktop": 44,
+            "size_mobile": 30
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>I'm Juno. I cut every block, mix every colour and pull every print myself, then pack your order at the same bench. The brushes and wallpapers come from the same drawings, and the course shows exactly how they are made.</p>"
           }
         },
         "button_4": {
           "type": "button",
           "settings": {
-            "label": "Read our story",
+            "label": "Read more about the studio",
             "link": "/pages/about"
           }
         }
@@ -176,159 +345,91 @@
         "button_4"
       ]
     },
-    "text_columns_5": {
-      "type": "text-columns",
+    "faq_contact_card_6": {
+      "type": "faq-contact-card",
       "settings": {
-        "color_scheme": "default"
+        "color_scheme": "default",
+        "section_width": "container",
+        "padding_top": 96,
+        "padding_bottom": 96,
+        "card_sticky": true,
+        "question_size_desktop": 18,
+        "max_content_width": 1160
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Good to know before you order"
-          }
-        },
-        "column_2": {
-          "type": "column",
-          "settings": {
-            "label": "Delivery",
-            "heading": "Sent within two days",
-            "text": "<p>Tracked delivery on every order, free over $60.</p>"
-          }
-        },
-        "column_3": {
-          "type": "column",
-          "settings": {
-            "label": "Returns",
-            "heading": "30 days to decide",
-            "text": "<p>Send it back unused and we refund you in full.</p>"
-          }
-        },
-        "column_4": {
-          "type": "column",
-          "settings": {
-            "label": "Support",
-            "heading": "Answered by a person",
-            "text": "<p>Write to us and get a reply within one working day.</p>"
-          }
-        }
-      },
-      "block_order": [
-        "heading_1",
-        "column_2",
-        "column_3",
-        "column_4"
-      ]
-    },
-    "testimonials_6": {
-      "type": "testimonials",
-      "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976"
-      },
-      "blocks": {
-        "eyebrow_1": {
-          "type": "eyebrow",
-          "settings": {
-            "text": "Reviews"
-          }
-        },
-        "heading_2": {
-          "type": "heading",
-          "settings": {
-            "text": "What customers say"
-          }
-        },
-        "subheading_3": {
-          "type": "subheading",
-          "settings": {
-            "text": "<p>Replace these with reviews from your own customers.</p>"
-          }
-        },
-        "testimonial_4": {
-          "type": "testimonial",
-          "settings": {
-            "quote": "<p>Write what this customer said about your product.</p>",
-            "name": "Customer name",
-            "role": ""
-          }
-        },
-        "testimonial_5": {
-          "type": "testimonial",
-          "settings": {
-            "quote": "<p>Write what this customer said about your product.</p>",
-            "name": "Customer name",
-            "role": ""
-          }
-        },
-        "testimonial_6": {
-          "type": "testimonial",
-          "settings": {
-            "quote": "<p>Write what this customer said about your product.</p>",
-            "name": "Customer name",
-            "role": ""
-          }
-        }
-      },
-      "block_order": [
-        "eyebrow_1",
-        "heading_2",
-        "subheading_3",
-        "testimonial_4",
-        "testimonial_5",
-        "testimonial_6"
-      ]
-    },
-    "faq_pro_7": {
-      "type": "faq-pro",
-      "settings": {
-        "color_scheme": "default"
-      },
-      "blocks": {
-        "heading_1": {
-          "type": "heading",
-          "settings": {
-            "text": "Questions, answered"
+            "text": "Before you buy"
           }
         },
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>The things people ask us most.</p>"
+            "text": "<p>Shipping, downloads, the course and returns.</p>"
           }
         },
         "faq_item_3": {
           "type": "faq_item",
           "settings": {
-            "question": "When will my order arrive?",
-            "answer": "<p>Orders leave within two working days. Delivery takes three to five days after that, and you get a tracking link by email.</p>"
+            "question": "When will my print arrive?",
+            "answer": "<p>Prints and paper goods leave the studio within three working days, packed flat or rolled in a tube, with tracking. Most parcels arrive within a week.</p>"
           }
         },
         "faq_item_4": {
           "type": "faq_item",
           "settings": {
-            "question": "Can I return something?",
-            "answer": "<p>Yes. Send it back within 30 days, unused and in its packaging, and we refund the full price.</p>"
+            "question": "How do I get a download?",
+            "answer": "<p>Brushes, wallpapers and other files arrive as a download link by email the moment you pay. The link stays in your account, so you can download again on a new device.</p>"
           }
         },
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "Do you ship abroad?",
-            "answer": "<p>We ship to most countries. The delivery price for yours is shown at checkout before you pay.</p>"
+            "question": "How long can I watch the course?",
+            "answer": "<p>The course is yours once you pay: every lesson, as often as you like, including lessons added later.</p>"
           }
         },
         "faq_item_6": {
           "type": "faq_item",
           "settings": {
-            "question": "How do I reach you?",
-            "answer": "<p>Use the form on the contact page. We answer within one working day.</p>"
+            "question": "Can I return something?",
+            "answer": "<p>Send a print or paper item back unused within 30 days for a full refund. Downloads and the course can be refunded within 14 days if you have not opened them.</p>"
           }
         },
-        "button_7": {
+        "faq_item_7": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do you ship abroad?",
+            "answer": "<p>Yes, to most countries. The delivery price for yours is shown at checkout before you pay. Downloads and the course work anywhere.</p>"
+          }
+        },
+        "card_text_8": {
+          "type": "card_text",
+          "settings": {
+            "heading": "Still wondering about something?",
+            "text": "<p>Write to me and I will answer within two working days.</p>"
+          }
+        },
+        "button_9": {
           "type": "button",
           "settings": {
-            "label": "Contact us",
+            "label": "Send a message",
             "link": "/pages/contact"
+          }
+        },
+        "contact_line_10": {
+          "type": "contact_line",
+          "settings": {
+            "label": "Email",
+            "text": "hello@example.com"
+          }
+        },
+        "contact_line_11": {
+          "type": "contact_line",
+          "settings": {
+            "label": "Replies",
+            "text": "Monday to Friday"
           }
         }
       },
@@ -339,27 +440,43 @@
         "faq_item_4",
         "faq_item_5",
         "faq_item_6",
-        "button_7"
+        "faq_item_7",
+        "card_text_8",
+        "button_9",
+        "contact_line_10",
+        "contact_line_11"
       ]
     },
-    "newsletter_8": {
-      "type": "newsletter",
+    "newsletter_split_7": {
+      "type": "newsletter-split",
       "settings": {
-        "color_scheme": "scheme-7dae8b89-7a81-4c2c-b8e2-92533766f8ca",
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "image_position": "left",
+        "image_width": 42,
+        "column_gap": 80,
+        "image": "shopify://shop_images/default-print-field.webp",
+        "image_alt": "A print of a red sun over blue and black hills",
+        "image_ratio": "square",
         "btn_text": "Sign up",
-        "note": "A few emails a month. Unsubscribe any time."
+        "note": "About once a month. Unsubscribe whenever you like.",
+        "button_radius": 4,
+        "padding_top": 80,
+        "padding_bottom": 80,
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 48
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "New arrivals, by email"
+            "text": "New prints, by email"
           }
         },
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Be first to hear when something new lands.</p>"
+            "text": "<p>One short email when a new edition, file or lesson is ready.</p>"
           }
         }
       },
@@ -370,13 +487,12 @@
     }
   },
   "order": [
-    "hero_split_media_1",
-    "benefits_bar_2",
-    "products_listing_3",
-    "image_and_video_text_4",
-    "text_columns_5",
-    "testimonials_6",
-    "faq_pro_7",
-    "newsletter_8"
+    "hero_collage_1",
+    "products_listing_2",
+    "text_columns_3",
+    "image_with_text_steps_4",
+    "image_and_video_text_5",
+    "faq_contact_card_6",
+    "newsletter_split_7"
   ]
 }

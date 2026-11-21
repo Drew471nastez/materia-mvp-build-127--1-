@@ -394,11 +394,12 @@
             {%- paginate collection.products by number_products -%}
               {%- if collection.products.size == 0 -%}
                 <div class="facets-empty" data-facets-empty>
-                  <h2 class="facets-empty__title h4">{{ 'sections.collection_template.empty' | t }}</h2>
+                  {%- comment -%} Filters that match nothing, or a collection (or a whole shop) with no products in it yet: two different things to say. {%- endcomment -%}
+                  <h2 class="facets-empty__title h4">{%- if active_filters > 0 -%}{{ 'sections.collection_template.empty' | t }}{%- else -%}{{ 'sections.collection_template.empty_collection' | t }}{%- endif -%}</h2>
                   {%- if active_filters > 0 -%}
                     <a class="facets-empty__action" href="{{ clear_url }}" data-facets-link data-theme-button="secondary">{{ 'collections.sidebar.clear_all' | t }}</a>
                   {%- else -%}
-                    {%- if section_st.empty_link_label != blank -%}
+                    {%- if section_st.empty_link_label != blank and collection.handle != 'all' -%}
                       <a class="facets-empty__action" href="{{ section_st.empty_link_url | default: '/collections/all' }}" data-theme-button="secondary">{{ section_st.empty_link_label | escape }}</a>
                     {%- endif -%}
                     <a class="facets-empty__clear" href="{{ clear_url }}" data-facets-link data-facets-clear-fallback hidden>{{ 'collections.sidebar.clear_all' | t }}</a>

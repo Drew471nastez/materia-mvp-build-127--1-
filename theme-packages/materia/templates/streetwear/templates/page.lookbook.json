@@ -1,0 +1,299 @@
+{
+  "sections": {
+    "page_heading_1": {
+      "type": "page-heading",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "stretch_width",
+        "reset_spacing": true,
+        "alignment": "center",
+        "height": "adapt",
+        "overlay_opacity": 0,
+        "padding_top": 80,
+        "padding_bottom": 40
+      },
+      "blocks": {
+        "breadcrumb_1": {
+          "type": "breadcrumb",
+          "settings": {
+            "separator": "chevron",
+            "font_size": 13,
+            "uppercase": false
+          }
+        },
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "enable_heading_color": false,
+            "enable_custom_fonts": false,
+            "font": "assistant_n4",
+            "header_size": "default",
+            "heading_font_size": 34,
+            "vertical_gap": 8,
+            "page_title": "Lookbook"
+          }
+        },
+        "description_1": {
+          "type": "description",
+          "settings": {
+            "enable_custom_style": false,
+            "enable_custom_fonts": false,
+            "font": "assistant_n4",
+            "description_font_size": 15,
+            "description": "<p>Drop 07, Night shift. Shot after closing.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "breadcrumb_1",
+        "heading_1",
+        "description_1"
+      ]
+    },
+    "media_lightbox_gallery_1": {
+      "type": "media-lightbox-gallery",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "fluid_container",
+        "reset_spacing": true,
+        "content_align": "left",
+        "content_gap": 12,
+        "columns_desktop": 4,
+        "gap_desktop": 12,
+        "image_ratio": "portrait",
+        "image_radius": 8,
+        "enable_custom_style": false,
+        "enable_custom_fonts": false,
+        "heading_font": "assistant_n4",
+        "body_font": "assistant_n4",
+        "padding_top_desktop": 100,
+        "padding_bottom_desktop": 100,
+        "side_padding_desktop": 32,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "content_align_mobile": "left",
+        "columns_mobile": 2,
+        "gap_mobile": 8,
+        "padding_top_mobile": 60,
+        "padding_bottom_mobile": 60,
+        "side_padding_mobile": 20,
+        "section_margin_top_mobile": 0,
+        "section_margin_bottom_mobile": 0
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Night shift",
+            "enable_custom_style": false,
+            "size_desktop": 40,
+            "size_mobile": 28
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Tap a picture to open it large.</p>",
+            "enable_custom_style": false,
+            "size_desktop": 17,
+            "size_mobile": 15
+          }
+        },
+        "image_1": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/streetwear-hero-crewneck.webp",
+            "caption": "Crewneck, black"
+          }
+        },
+        "image_2": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/streetwear-look-leather.webp",
+            "caption": "Shell jacket"
+          }
+        },
+        "image_3": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/streetwear-hero-bucket-hat.webp",
+            "caption": "Bucket hat, sand"
+          }
+        },
+        "image_4": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/streetwear-look-red-tee.webp",
+            "caption": "Coach jacket over box tee"
+          }
+        },
+        "image_5": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/streetwear-hero-mural.webp",
+            "caption": "Track jacket"
+          }
+        },
+        "image_6": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/streetwear-look-denim.webp",
+            "caption": "Loose denim"
+          }
+        },
+        "image_7": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/streetwear-hero-beanie.webp",
+            "caption": "Beanie and crew"
+          }
+        },
+        "image_8": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/streetwear-look-window.webp",
+            "caption": "Work jacket"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_1",
+        "image_1",
+        "image_2",
+        "image_3",
+        "image_4",
+        "image_5",
+        "image_6",
+        "image_7",
+        "image_8"
+      ]
+    },
+    "banner3_1": {
+      "type": "banner3",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "section_width": "stretch_width",
+        "reset_spacing": true,
+        "text_align": "center",
+        "max_width": 970,
+        "heading_tag": "h2",
+        "use_custom_text": false,
+        "heading_color": "#000000",
+        "text_color": "#0f0f0f",
+        "use_custom_bg": false,
+        "enable_bg_gradient": false,
+        "overlay_opacity": 0,
+        "banner_surface": "section",
+        "banner_tint": 6,
+        "use_theme_radius": false,
+        "section_border_radius": 50,
+        "banner_border_width": 0,
+        "banner_shadow": "none",
+        "reveal": true,
+        "reveal_style": "fade_up",
+        "reveal_range": 60,
+        "hover_lift": false,
+        "show_desktop": true,
+        "stack_gap": 14,
+        "sub_btn_gap": 32,
+        "side_padding": 28,
+        "pad_top_desktop": 70,
+        "pad_bottom_desktop": 60,
+        "section_padding_top": 60,
+        "section_padding_bottom": 60,
+        "section_pad_left": 120,
+        "section_pad_right": 120,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "mobile_text_align": "inherit",
+        "mobile_button_full": false,
+        "show_mobile": true,
+        "pad_top_mobile": 50,
+        "pad_bottom_mobile": 52,
+        "section_padding_top_mobile": 40,
+        "section_padding_bottom_mobile": 40,
+        "section_pad_left_mobile": 0,
+        "section_pad_right_mobile": 0,
+        "section_margin_top_mobile": 0,
+        "section_margin_bottom_mobile": 0,
+        "bg_gradient": ""
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Drop 07",
+            "enable_custom_style": false,
+            "font": "body",
+            "weight": "500",
+            "transform": "uppercase",
+            "letterspace": 0.6,
+            "lineheight": "1.4",
+            "size_d": 17,
+            "opacity": 100,
+            "size_m": 17
+          }
+        },
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Every piece in the pictures",
+            "enable_custom_style": false,
+            "font": "heading",
+            "weight": "700",
+            "transform": "uppercase",
+            "letterspace": 0,
+            "lineheight": "1.15",
+            "size_d": 34,
+            "max_width": 0,
+            "size_m": 28
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "Live Friday at 18:00. One run.",
+            "enable_custom_style": false,
+            "font": "body",
+            "weight": "theme",
+            "transform": "none",
+            "letterspace": 0,
+            "lineheight": "1.5",
+            "size_d": 16,
+            "opacity": 100,
+            "max_width": 0,
+            "size_m": 16
+          }
+        },
+        "button_1": {
+          "type": "button",
+          "settings": {
+            "label": "Shop the drop",
+            "link": "/collections/all",
+            "enable_custom_style": false,
+            "use_theme_button": true,
+            "border_width": 0,
+            "radius": 40,
+            "pad_h": 20,
+            "pad_v": 10,
+            "weight": "600",
+            "size_d": 17,
+            "size_m": 17
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_1",
+        "subheading_1",
+        "button_1"
+      ]
+    }
+  },
+  "order": [
+    "page_heading_1",
+    "media_lightbox_gallery_1",
+    "banner3_1"
+  ]
+}

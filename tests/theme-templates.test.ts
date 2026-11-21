@@ -1,19 +1,22 @@
 /**
- * The seven templates that ship with Storelib's code (templates round 16):
- * one theme's files once (theme-packages/materia/base) and a small overlay
- * per template. What must stay true:
+ * The twelve templates that ship with Storelib's code (templates rounds 16
+ * and 17): one theme's files once (theme-packages/materia/base) and a small
+ * overlay per template. What must stay true:
  *
- *   listed     builtinListings() answers the seven, the default first, and
+ *   listed     builtinListings() answers the twelve, the default first, and
  *              the native Storelib Default is not among them
  *   composes   base + overlay is a zip the marketplace's own rules accept,
  *              within the import's limits
  *   imports    the converter Add uses takes it with nothing skipped, no
  *              section left off and no picture missing
- *   draws      home, product, collection, about, contact and FAQ come out as
- *              pages, with a shop's products and with none
+ *   draws      home, product, collection, about, contact, FAQ and every
+ *              other page a template has (a lookbook, a licence, tour dates)
+ *              come out as pages, with a shop's products and with none
+ *   links      every link a template's pages and menus carry opens a page
  *   its own    only sections the theme has, only pictures the template
- *              carries, each credited; nothing of the theme's old starter
- *              content; every template a different page
+ *              carries, each credited (a photograph with its source, or a
+ *              drawing made for the template); nothing of the theme's old
+ *              starter content; every template a different page
  *   no vendor  the word "Shopify" is nowhere a creator reads: schema labels,
  *              locale strings, settings, template copy, the drawn page
  *   private    the theme's files are not under public/, and the build
@@ -69,6 +72,9 @@ const visibleText = (html: string) => html.replace(/<(script|style|template|nosc
 
 const OLD_STARTER = /Prime ?Clarity|Prime1|focus your day|Fuel your focus|LUNEA|L-Citrulline|Beta Alanine|FDA Approved|materiathemes|storelib-[0-9a-f]{8}-/i
 
+/** The pages every template has, and the ones the theme's own files draw: what is left is a template's own (page.<handle>.json). */
+const THEME_PAGES = new Set(["home", "product", "collection", "about", "contact", "faqs", "cart", "search", "404", "collections", "list-collections", "blog", "article", "password", "page", "wishlist"])
+
 interface Imported { theme: ImportedTheme; report: ConversionReport; files: Record<string, string> }
 
 async function importOf(id: string): Promise<Imported | null> {
@@ -104,12 +110,17 @@ async function main() {
   /* ── Listed ─────────────────────────────────────────────────────────── */
   console.log("\nListed from code\n")
   const listings = builtinListings()
-  check("seven templates are listed, with no table and nothing uploaded", listings.length === 7 && CODE_TEMPLATES.length === 7, listings.map((l) => l.slug))
+  check("twelve templates are listed, with no table and nothing uploaded", listings.length === 12 && CODE_TEMPLATES.length === 12, listings.map((l) => l.slug))
   check("Storelib Default is first, at the default address", listings[0]?.slug === DEFAULT_LISTING_SLUG && listings[0]?.name === "Storelib Default" && mergeListings([])[0]?.slug === DEFAULT_LISTING_SLUG)
-  check("then Clothing, Merch, Digital products, Ebooks, Fitness and Landing page", listings.map((l) => l.name).join("|") === "Storelib Default|Clothing|Merch|Digital products|Ebooks|Fitness|Landing page")
+  check("then Clothing, Merch, Digital products, Ebooks, Fitness and Landing page", listings.slice(0, 7).map((l) => l.name).join("|") === "Storelib Default|Clothing|Merch|Digital products|Ebooks|Fitness|Landing page")
+  check("then the five narrower ones: Streetwear drop, Tour merch, Sample packs, Templates shop and Skincare", listings.slice(7).map((l) => l.name).join("|") === "Streetwear drop|Tour merch|Sample packs|Templates shop|Skincare")
+  check("no two share an address or an overlay folder", new Set(listings.map((l) => l.slug)).size === listings.length && new Set(CODE_TEMPLATES.map((t) => t.template)).size === CODE_TEMPLATES.length)
   check("the native Storelib Default is not offered: no listing names a registry theme", listings.every((l) => l.builtinThemeId === null) && !mergeListings([]).some((l) => l.builtinThemeId === STORELIB_DEFAULT_ID))
   check("each is free, by Storelib, and adds a package the code ships", listings.every((l) => l.tier === "free" && l.author === "Storelib" && l.hasPackage && l.packageKind === null && isCodePackageId(l.codePackage)))
-  check("each is filed under a category the filter has, and no two share one", listings.every((l) => THEME_CATEGORIES.some((c) => c.key === l.category)) && new Set(listings.map((l) => l.category)).size === listings.length, listings.map((l) => l.category))
+  check("each is filed under a category the filter has", listings.every((l) => THEME_CATEGORIES.some((c) => c.key === l.category)), listings.map((l) => l.category))
+  /* Two clothing stores and two merch stores now: a category may hold two templates, never three, and the filter has more than a handful of rows. */
+  const perCategory = listings.reduce<Record<string, number>>((n, l) => ({ ...n, [l.category]: (n[l.category] ?? 0) + 1 }), {})
+  check("  no category holds more than two, and both kinds of product are covered", Object.values(perCategory).every((n) => n <= 2) && Object.keys(perCategory).length >= 9 && ["fashion", "creators", "music", "design", "beauty", "digital"].every((c) => perCategory[c]), perCategory)
   check("each has its cover and its phone screenshot in public/themes", listings.every((l) => !!l.cover && existsSync(join("public", l.cover)) && l.screenshots.length === 2 && l.screenshots.every((s) => existsSync(join("public", s)))), listings.filter((l) => !l.cover || !existsSync(join("public", l.cover))).map((l) => l.cover))
   check("no listing name says where the theme came from", listings.every((l) => !/shopify|materia/i.test(`${l.name} ${l.author} ${l.slug}`)))
   check("a website remembers the listing it was added from, in its settings", [...installedListingSlugs([{ settings: { compat: { kind: "shopify", listing: "clothing" } } }, { settings: { marketplace_listing: "merch" } }, { settings: { compat: { listing: "Not A Slug" } } }, { settings: null }])].join() === "clothing,merch" && compatOf({ compat: { kind: "shopify", version: 1, theme: "x", listing: "fitness" } })?.listing === "fitness")
@@ -192,7 +203,7 @@ async function main() {
     check("  uses only sections the theme has", [...used].every((s) => sectionTypes.has(s)), [...used].filter((s) => !sectionTypes.has(s)))
     const assets = own.filter((f) => f.startsWith("assets/")).map((f) => f.slice(7))
     check("  names only pictures it carries, and carries none it does not use", [...pictures].every((p) => assets.includes(p)) && assets.every((a) => pictures.has(a)), { missing: [...pictures].filter((p) => !assets.includes(p)), unused: assets.filter((a) => !pictures.has(a)) })
-    check("  every picture is credited with its source and licence", assets.every((a) => new RegExp(`\\| ${t.template} \\| assets/${a} \\| https://images\\.unsplash\\.com/photo-[\\w-]+ \\| Unsplash License \\|`).test(credits)), assets.filter((a) => !credits.includes(`assets/${a}`)))
+    check("  every picture is credited: a photograph with its source and licence, or a drawing made for the template", assets.every((a) => new RegExp(`\\| ${t.template} \\| assets/${a} \\| (https://images\\.unsplash\\.com/photo-[\\w-]+ \\| Unsplash License|Drawn for this template \\| Storelib) \\|`).test(credits)), assets.filter((a) => !credits.includes(`assets/${a}`)))
     const all = copy.join("\n")
     check("  none of the theme's old starter content", !OLD_STARTER.test(all) && !OLD_STARTER.test(read(join(overlay, "config/settings_data.json"))))
     check("  its copy never says Shopify, has no placeholder Latin and no dash standing in for a comma", !vendorIn(all) && !/lorem ipsum/i.test(all) && !/[—–]/.test(all), all.match(/.{0,30}(shopify|lorem ipsum|[—–]).{0,30}/i)?.[0])
@@ -203,7 +214,9 @@ async function main() {
     /* Drawn. */
     for (const withProducts of [true, false]) {
       const site = siteOf(id, imported, withProducts)
-      const paths = withProducts ? ["/", "/products/first-product", "/collections/all", "/pages/about", "/pages/contact", "/pages/faqs"] : ["/", "/collections/all"]
+      /* A template's further pages (a lookbook, a licence, tour dates) are pages of the website like the six every template has. */
+      const further = keys.filter((k) => !THEME_PAGES.has(k)).map((k) => `/pages/${k}`)
+      const paths = withProducts ? ["/", "/products/first-product", "/collections/all", "/pages/about", "/pages/contact", "/pages/faqs", ...further] : ["/", "/collections/all", ...further]
       const drawn: { path: string; status: number; length: number; sections: number; vendor: boolean; old: boolean; stray: boolean }[] = []
       for (const path of paths) {
         const out = await answer(site, { method: "GET", path, query: new URLSearchParams(), body: null, cart: [] })
@@ -212,9 +225,23 @@ async function main() {
         drawn.push({ path, status: out.status, length: html.length, sections: (html.match(/id="shopify-section-/g) ?? []).length, vendor: /shopify/i.test(text), old: OLD_STARTER.test(text), stray: /\{\{|\{%|Liquid error/.test(text) })
         if (path === "/" && withProducts) homes[t.template] = [...html.matchAll(/id="shopify-section-[^"]*?__?([a-z0-9_]+?)_\d+"/g)].map((m) => m[1]).join(",") || [...used].join(",")
       }
-      check(`  draws ${withProducts ? "home, product, collection, about, contact and FAQ with a shop's products" : "home and collection for a store with no products yet"}`, drawn.every((d) => d.status === 200 && d.length > 20000 && d.sections >= 3), drawn.filter((d) => !(d.status === 200 && d.length > 20000 && d.sections >= 3)))
+      check(`  draws ${withProducts ? `home, product, collection, about, contact and FAQ${further.length ? ` and ${further.map((f) => f.slice(7)).join(", ")}` : ""} with a shop's products` : "home and collection for a store with no products yet"}`, drawn.every((d) => d.status === 200 && d.length > 20000 && d.sections >= 3), drawn.filter((d) => !(d.status === 200 && d.length > 20000 && d.sections >= 3)))
       check("    and no page shows Shopify, old starter content or unrendered template code", drawn.every((d) => !d.vendor && !d.old && !d.stray), drawn.filter((d) => d.vendor || d.old || d.stray))
     }
+    /* Every link the template's pages, groups and menus carry is a page of the website. */
+    const links = new Set<string>()
+    for (const f of pageFiles) for (const [, v] of strings(JSON.parse(read(join(overlay, f))))) {
+      if (/^\/[\w/-]*$/.test(v)) links.add(v)
+      for (const m of v.matchAll(/href="(\/[^"#?]*)"/g)) links.add(m[1])
+    }
+    for (const menu of Object.values(menus)) for (const l of menu.links) if (l.url.startsWith("/")) links.add(l.url)
+    const linked = siteOf(id, imported, true)
+    const dead: string[] = []
+    for (const path of links) {
+      const out = await answer(linked, { method: "GET", path, query: new URLSearchParams(), body: null, cart: [] })
+      if (out.status !== 200) dead.push(`${path} ${out.status}`)
+    }
+    check(`  every link it carries opens a page (${links.size})`, links.size >= 4 && dead.length === 0, dead)
     const home = JSON.parse(read(join(overlay, "templates/index.json"))) as { sections: Record<string, { type: string }>; order: string[] }
     homes[t.template] = home.order.map((k) => home.sections[k].type).join(",")
     const current = (JSON.parse(read(join(overlay, "config/settings_data.json"))) as { current: Record<string, unknown> }).current
@@ -222,11 +249,15 @@ async function main() {
     looks[t.template] = [current.font_heading_google_family, current.font_body_google_family, scheme.background, scheme.btn_primary_background].join("|")
   }
 
-  console.log("\nSeven different websites\n")
+  console.log("\nTwelve different websites\n")
   const order = Object.values(homes)
   check("no two home pages are the same sections in the same order", new Set(order).size === CODE_TEMPLATES.length, homes)
   check("no two open with the same first two sections", new Set(order.map((o) => o.split(",").slice(0, 2).join(","))).size === CODE_TEMPLATES.length, order.map((o) => o.split(",").slice(0, 2).join(",")))
   check("no two share a typeface pairing and palette", new Set(Object.values(looks)).size === CODE_TEMPLATES.length, looks)
+  /* The second clothing, merch and digital templates are not the first ones again: no section in the same place for the first two, another typeface and another ground. */
+  const apart = (a: string, b: string) => homes[a].split(",").slice(0, 2).every((s, i) => s !== homes[b].split(",")[i]) && looks[a].split("|").every((v, i) => v !== looks[b].split("|")[i])
+  check("the second template of a kind opens differently from the first, in another typeface and colour", apart("streetwear", "clothing") && apart("tour", "merch") && apart("samples", "digital") && apart("workspace", "digital") && apart("workspace", "landing") && apart("skincare", "clothing"), { homes, looks })
+  check("the five narrower templates each use sections none of the first seven's home pages do", ["streetwear", "tour", "samples", "workspace", "skincare"].every((n) => homes[n].split(",").filter((s) => !["default", "clothing", "merch", "digital", "ebooks", "fitness", "landing"].some((o) => homes[o].split(",").includes(s))).length >= 4), homes)
   check("the landing page is one long page with a single thing to buy and no menu in its header", homes.landing.split(",").length >= 10 && homes.landing.includes("featured-product") && /"mega_menu": ""/.test(read(join(ROOT, "templates/landing/sections/header-group.json"))))
 
   /* ── Kept private, and carried by the build ─────────────────────────── */

@@ -1,12 +1,5 @@
 {
   "sections": {
-    "divider_zDJB6F": {
-      "type": "divider",
-      "settings": {
-        "reset_spacing": false,
-        "section_width": "container"
-      }
-    },
     "main": {
       "type": "page-404",
       "settings": {
@@ -23,7 +16,7 @@
         "heading_6nj4md": {
           "type": "heading",
           "settings": {
-            "heading": "Oops...That link is broken.",
+            "heading": "This page is not here",
             "font_size": 36,
             "uppercase": false,
             "font_weight": "heading_weight",
@@ -35,7 +28,7 @@
           "settings": {
             "font_size": 15,
             "uppercase": false,
-            "subheading": "Sorry for the inconvenience. Go to our homepage or check out our latest collections.",
+            "subheading": "The link may be old, or the page may have moved.",
             "font_weight": "body_weight",
             "spacing_bottom": 40
           }
@@ -47,7 +40,7 @@
             "spacing_bottom": 0,
             "first_button_link": "/",
             "first_button_type": "primary",
-            "first_button_label": "Back to Homepage"
+            "first_button_label": "Go to the home page"
           }
         }
       },
@@ -60,7 +53,6 @@
     }
   },
   "order": [
-    "divider_zDJB6F",
     "main"
   ]
 }

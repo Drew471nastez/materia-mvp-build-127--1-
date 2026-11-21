@@ -1,90 +1,155 @@
 {
   "sections": {
-    "page_heading_1": {
-      "type": "page-heading",
-      "settings": {
-        "color_scheme": "default"
-      },
-      "blocks": {
-        "heading_1": {
-          "type": "heading",
-          "settings": {
-            "page_title": "Sizing and FAQ"
-          }
-        },
-        "description_2": {
-          "type": "description",
-          "settings": {
-            "description": "<p>Fit, delivery, returns and care.</p>"
-          }
-        }
-      },
-      "block_order": [
-        "heading_1",
-        "description_2"
-      ]
-    },
-    "faq_side_image_2": {
-      "type": "faq-side-image",
+    "faq": {
+      "type": "faq-tabs",
       "settings": {
         "color_scheme": "default",
-        "image": "shopify://shop_images/clothing-bomber.webp",
-        "image_position": "right"
+        "section_width": "fluid_container",
+        "reset_spacing": true,
+        "tab_1_label": "Sizing",
+        "tab_2_label": "Delivery",
+        "tab_3_label": "Returns",
+        "tab_4_label": "Care",
+        "tab_5_label": "",
+        "open_first": true,
+        "allow_multiple_open": true,
+        "header_align": "left",
+        "section_max_width_desktop": 900,
+        "tabs_shadow": "none",
+        "tab_weight": "500",
+        "q_size": 17,
+        "q_weight": "500",
+        "a_size": 15,
+        "padding_top_desktop": 56,
+        "padding_bottom_desktop": 96,
+        "padding_top_mobile": 40,
+        "padding_bottom_mobile": 56,
+        "structured_data": true
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Before you order"
+            "text": "Sizing and FAQ",
+            "tag": "h1",
+            "size_enable": true,
+            "size_desktop": 40,
+            "size_mobile": 32
           }
         },
-        "subheading_2": {
+        "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>If your question is not here, write to us.</p>"
+            "text": "<p>Fit, delivery, returns and care. Anything else, <a href=\"/pages/contact\">write to us</a>.</p>"
           }
         },
-        "faq_item_3": {
+        "faq_1": {
           "type": "faq_item",
           "settings": {
-            "question": "How does your sizing run?",
-            "answer": "<p>Our pieces are cut true to size. Each product page has a size guide with measurements in centimetres.</p>"
+            "tab": "1",
+            "question": "How does Halde sizing run?",
+            "answer": "<p>True to size, with room for a layer underneath. Coats and knitwear are cut relaxed; tailoring is cut close. Every product page has a size guide in centimetres.</p>"
           }
         },
-        "faq_item_4": {
+        "faq_2": {
           "type": "faq_item",
           "settings": {
+            "tab": "1",
+            "question": "I am between two sizes. Which should I take?",
+            "answer": "<p>The larger for coats and knitwear, the smaller for tailoring. If you are still unsure, write to us with your height and usual size and we will tell you how the piece fits.</p>"
+          }
+        },
+        "faq_3": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "1",
+            "question": "Do you list the model's size?",
+            "answer": "<p>Yes, under Fit and size on each product page, with the model's height.</p>"
+          }
+        },
+        "faq_4": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "2",
             "question": "How long does delivery take?",
-            "answer": "<p>Three to five working days. Express delivery is offered at checkout.</p>"
+            "answer": "<p>2 to 4 working days with tracking. Orders placed before 13:00 on a weekday leave the same day.</p>"
           }
         },
-        "faq_item_5": {
+        "faq_5": {
           "type": "faq_item",
           "settings": {
-            "question": "Can I return or exchange?",
-            "answer": "<p>Yes, within 30 days. The piece must be unworn with its tags attached.</p>"
+            "tab": "2",
+            "question": "What does delivery cost?",
+            "answer": "<p>Free on orders over $200. Below that, the price is shown at checkout before you pay.</p>"
           }
         },
-        "faq_item_6": {
+        "faq_6": {
           "type": "faq_item",
           "settings": {
-            "question": "How should I wash linen and wool?",
-            "answer": "<p>Wash linen cool and hang it to dry. Wash wool by hand, or use a wool cycle, and dry it flat.</p>"
+            "tab": "2",
+            "question": "Do you ship outside the country?",
+            "answer": "<p>Yes, to most of Europe, the UK and North America. Duties are shown at checkout.</p>"
+          }
+        },
+        "faq_7": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "3",
+            "question": "How do I return something?",
+            "answer": "<p>Write to us within 30 days of delivery with your order number. We send a free return label. Pieces must be unworn, with the tags on.</p>"
+          }
+        },
+        "faq_8": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "3",
+            "question": "When will I get my money back?",
+            "answer": "<p>Within five working days of the parcel reaching us, to the card you paid with.</p>"
+          }
+        },
+        "faq_9": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "3",
+            "question": "Can I exchange for another size?",
+            "answer": "<p>Yes. Say which size you want in your message and we send it as soon as your return is scanned.</p>"
+          }
+        },
+        "faq_10": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "4",
+            "question": "How do I look after wool?",
+            "answer": "<p>Air it between wears and brush it with a clothes brush. Dry clean coats once a season at most. Hand wash knitwear cold and dry it flat.</p>"
+          }
+        },
+        "faq_11": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "4",
+            "question": "Do you repair Halde pieces?",
+            "answer": "<p>Yes, free for two years from your order. Write to us with a photo and we will send a label.</p>"
           }
         }
       },
       "block_order": [
         "heading_1",
-        "subheading_2",
-        "faq_item_3",
-        "faq_item_4",
-        "faq_item_5",
-        "faq_item_6"
+        "subheading_1",
+        "faq_1",
+        "faq_2",
+        "faq_3",
+        "faq_4",
+        "faq_5",
+        "faq_6",
+        "faq_7",
+        "faq_8",
+        "faq_9",
+        "faq_10",
+        "faq_11"
       ]
     }
   },
   "order": [
-    "page_heading_1",
-    "faq_side_image_2"
+    "faq"
   ]
 }
