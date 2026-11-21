@@ -6,15 +6,15 @@
       "type": "footer",
       "settings": {
         "custom_text": "",
-        "padding_top": 48,
+        "padding_top": 64,
         "show_social": false,
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "color_scheme": "default",
         "custom_image": "",
         "reset_spacing": true,
         "section_width": "fluid_container",
-        "copyright_text": "© {{ 'now' | date: '%Y' }} {{ shop.name }}. All rights reserved.",
-        "heading_weight": "600",
-        "padding_bottom": 24,
+        "copyright_text": "\u00a9 {{ 'now' | date: '%Y' }} {{ shop.name }}. All rights reserved.",
+        "heading_weight": "500",
+        "padding_bottom": 28,
         "separator_line": "all-page",
         "arrow_icon_size": 14,
         "link_hover_color": "",
@@ -23,7 +23,7 @@
         "custom_elements_gap": 22,
         "enable_custom_image": false,
         "enable_custom_style": false,
-        "footer_heading_size": 17,
+        "footer_heading_size": 14,
         "enable_custom_text_big": false,
         "enable_country_selector": false,
         "custom_image_size_mobile": 168,
@@ -36,22 +36,22 @@
         "store_info_1": {
           "type": "store_info",
           "settings": {
-            "show_logo": true,
+            "show_logo": false,
             "top_offset": 0,
             "image_width": 110,
             "store_email": true,
             "store_phone": true,
-            "content_width": "30%",
+            "content_width": "34%",
             "store_address": true,
-            "store_heading": "",
-            "store_description": "<p>Clothes in natural fibres, made in small runs.</p>"
+            "store_heading": "Halde",
+            "store_description": "<p>Coats, tailoring and knitwear for women and men. Two collections a year, made in small runs in Portugal and Italy.</p>"
           }
         },
         "link_list_1": {
           "type": "link_list",
           "settings": {
             "menu": "main-menu",
-            "heading": "Shop",
+            "heading": "Explore",
             "content_width": "16%"
           }
         },

@@ -1,267 +1,160 @@
 {
   "sections": {
-    "breadcrumb": {
-      "type": "breadcrumb",
-      "settings": {
-        "alignment": "left",
-        "font_size": 14,
-        "next_prev": true,
-        "separator": "dot",
-        "uppercase": false,
-        "color_scheme": "default",
-        "reset_spacing": true,
-        "section_width": "container",
-        "next_prev_icon": "chevron",
-        "padding_top_mobile": 9,
-        "padding_top_desktop": 26,
-        "enable_custom_padding": true,
-        "padding_bottom_mobile": 9,
-        "padding_bottom_desktop": 26
-      }
-    },
     "main": {
       "type": "main-product",
       "settings": {
-        "image_zoom": "open_lightbox",
-        "padding_top": 0,
         "color_scheme": "default",
-        "media_square": true,
+        "section_width": "fluid_container",
+        "section_width_mobile": "stretch_width",
         "reset_spacing": true,
-        "section_width": "container",
-        "sticky_bar_bg": "",
-        "desktop_layout": "thumbnail_bottom",
-        "mobile_options": "show_thumbnails",
-        "padding_bottom": 100,
-        "sticky_top_gap": 24,
+        "desktop_layout": "grid_1_column",
+        "desktop_media_width": 58,
+        "enable_sticky_content_on_desktop": true,
+        "sticky_top_gap": 96,
+        "content_gap_desktop": 56,
+        "media_square": false,
+        "image_zoom": "open_lightbox",
+        "enable_on_desktop": false,
         "enable_on_mobile": true,
-        "sticky_padding_y": 12,
-        "enable_on_desktop": true,
         "sticky_show_image": true,
         "sticky_show_title": true,
-        "content_gap_desktop": 40,
-        "desktop_media_width": 50,
-        "padding_left_mobile": 0,
-        "sticky_border_color": "",
-        "enable_video_looping": true,
-        "padding_left_desktop": 0,
-        "padding_right_mobile": 0,
-        "section_width_mobile": "fluid_container",
-        "sticky_button_radius": 8,
-        "sticky_show_quantity": true,
-        "enable_custom_padding": false,
-        "enable_video_autoplay": true,
-        "padding_right_desktop": 0,
-        "enable_nav_dots_mobile": false,
-        "mobile_slides_per_view": "1",
-        "enable_custom_media_gap": false,
         "sticky_show_variant_picker": true,
-        "enable_sticky_content_on_desktop": true
+        "sticky_show_quantity": false,
+        "sticky_button_radius": 0,
+        "padding_top": 24,
+        "padding_bottom": 96,
+        "mobile_options": "show_thumbnails",
+        "mobile_slides_per_view": "1",
+        "enable_nav_dots_mobile": true,
+        "enable_custom_padding": true,
+        "padding_left_mobile": 16,
+        "padding_right_mobile": 16,
+        "padding_left_desktop": 24,
+        "padding_right_desktop": 24
       },
-      "name": "Main product",
       "blocks": {
-        "title_1": {
+        "title": {
           "type": "title",
           "settings": {
             "show_vendor": false,
-            "title_font_size_mobile": 32,
-            "title_font_size_desktop": 33
+            "title_font_size_desktop": 30,
+            "title_font_size_mobile": 24
           }
         },
-        "product_description_2": {
-          "type": "product_description",
-          "settings": {
-            "pb_d": 0,
-            "pb_m": 16,
-            "pl_d": 0,
-            "pl_m": 0,
-            "pr_d": 0,
-            "pr_m": 0,
-            "pt_d": 0,
-            "pt_m": 0,
-            "text_color": "",
-            "font_size_d": 16,
-            "font_size_m": 15,
-            "line_height": 150,
-            "custom_description": "",
-            "enable_custom_description": false
-          }
-        },
-        "short_description_3": {
-          "type": "short_description",
-          "settings": {
-            "excerpt_length": 204
-          }
-        },
-        "price_4": {
+        "price": {
           "type": "price",
           "settings": {
-            "price_font_weight": "600",
-            "compare_font_weight": "400",
-            "price_font_size_mobile": 31,
-            "price_font_size_desktop": 28,
-            "compare_font_size_mobile": 14,
-            "compare_font_size_desktop": 16
+            "price_font_size_desktop": 17,
+            "price_font_size_mobile": 16,
+            "price_font_weight": "500",
+            "compare_font_size_desktop": 15,
+            "compare_font_size_mobile": 14
           }
         },
-        "variant_picker_5": {
+        "variant_picker": {
           "type": "variant_picker",
           "settings": {
             "variant_type": "swatches",
-            "show_size_guide": true,
-            "size_guide_page": "",
-            "size_guide_label": "Size guide",
-            "picker_text_hover": "#0f0f0f",
-            "picker_bg_selected": "#1d1d1d",
-            "picker_border_color": "#cecece",
-            "enable_picker_custom": false,
-            "picker_bg_unselected": "#ffffff",
-            "picker_border_radius": 6,
-            "picker_text_selected": "#ffffff",
-            "picker_text_unselected": "#0f0f0f"
+            "show_size_guide": false
           }
         },
-        "buy_buttons_6": {
+        "size_guide": {
+          "type": "size_guide",
+          "settings": {
+            "use_storelib_chart": true,
+            "table_unit": "cm",
+            "size_guide_label": "Size guide",
+            "size_guide_display": "modal",
+            "size_guide_appearance": "link",
+            "table_data": "Size | Chest | Waist | Hip\nXS | 82 to 86 | 66 to 70 | 88 to 92\nS | 87 to 91 | 71 to 75 | 93 to 97\nM | 92 to 97 | 76 to 81 | 98 to 103\nL | 98 to 103 | 82 to 87 | 104 to 109\nXL | 104 to 110 | 88 to 94 | 110 to 116",
+            "size_guide_content": "<p>Body measurements in centimetres. Between two sizes? Take the larger for coats and knitwear, the smaller for tailoring.</p>"
+          }
+        },
+        "buy_buttons": {
           "type": "buy_buttons",
           "settings": {
-            "atc_icon": "bag",
-            "buy_icon": "check",
-            "atc_bg_color": "",
-            "atc_hover_bg": "",
-            "buy_bg_color": "",
-            "buy_hover_bg": "",
-            "show_quantity": true,
-            "atc_appearance": "theme",
-            "atc_hover_text": "",
-            "atc_icon_color": "transparent",
-            "atc_text_color": "",
-            "buy_appearance": "theme",
-            "buy_hover_text": "",
-            "buy_text_color": "",
-            "atc_button_text": "Add to cart",
-            "atc_font_weight": "600",
-            "atc_icon_enable": true,
-            "buy_button_text": "Buy Now",
-            "buy_font_weight": "600",
-            "buy_icon_enable": true,
             "show_add_to_cart": true,
-            "show_price_in_atc": false,
-            "show_variant_picker": true,
-            "enable_custom_colors": false,
-            "atc_redirect_checkout": false,
-            "quantity_right_of_atc": false,
-            "show_dynamic_checkout": true,
-            "show_price_in_buy_now": false,
-            "estimated_delivery_text": "",
-            "estimated_delivery_color": "",
-            "show_gift_card_recipient": true,
-            "enable_custom_button_text": true,
-            "enable_estimated_delivery": false,
-            "enable_custom_button_typography": true
+            "show_dynamic_checkout": false,
+            "show_quantity": false,
+            "buttons_full_width": true,
+            "atc_icon_enable": false,
+            "buy_icon_enable": false,
+            "show_wishlist_button": false
           }
         },
-        "pickup_avaiability_8": {
-          "type": "pickup_avaiability",
-          "settings": {}
-        },
-        "product_grouped_9": {
-          "type": "product_grouped",
+        "delivery_note": {
+          "type": "text",
           "settings": {
-            "heading": "Also available as"
+            "heading": "",
+            "content": "<p>Delivered in 2 to 4 working days. Free returns within 30 days.</p>"
           }
         },
-        "more_colors_10": {
-          "type": "more_colors",
-          "settings": {
-            "heading": "More colours",
-            "image_width": 40
-          }
-        },
-        "collapsible_row_11": {
+        "description": {
           "type": "collapsible_row",
           "settings": {
-            "open": false,
-            "content": "<p>Say what this piece is made of and how to wash it.</p>",
+            "heading": "Description",
+            "use_product_description": true,
+            "open": true,
+            "content": ""
+          }
+        },
+        "fit": {
+          "type": "collapsible_row",
+          "settings": {
+            "heading": "Fit and size",
+            "content": "<p>Cut to the measurements in the size guide. The model is 187 cm and wears a size M. If you are between two sizes, take the larger for coats and knitwear.</p>",
+            "open": false
+          }
+        },
+        "care": {
+          "type": "collapsible_row",
+          "settings": {
             "heading": "Fabric and care",
-            "use_product_description": false
+            "content": "<p>Natural fibres only: wool, linen, cotton and merino. Air wool between wears and brush it down; hand wash knitwear cold and dry it flat. Dry clean coats and tailoring.</p><p>Bring any Halde piece back for a free repair in its first two years.</p>",
+            "open": false
           }
         },
-        "collapsible_row_12": {
+        "returns": {
           "type": "collapsible_row",
           "settings": {
-            "open": false,
-            "content": "<p>Delivered in three to five working days. Free returns within 30 days, unworn and with tags.</p>",
             "heading": "Delivery and returns",
-            "use_product_description": false
-          }
-        },
-        "payment_badges_13": {
-          "type": "payment_badges",
-          "settings": {
-            "h_main": "",
-            "sec_bg": "rgba(0,0,0,0)",
-            "sec_mb": 0,
-            "sec_mt": 0,
-            "sec_pb": 22,
-            "sec_pl": 0,
-            "sec_pr": 0,
-            "sec_pt": 22,
-            "badge_h": 31,
-            "badge_w": 47,
-            "sub_url": "",
-            "sec_maxw": 116,
-            "sec_pl_m": 0,
-            "sec_pr_m": 0,
-            "sub_text": "",
-            "badge_h_m": 22,
-            "badge_w_m": 68,
-            "h_main_mb": 16,
-            "h_main_mt": 0,
-            "show_amex": true,
-            "show_visa": true,
-            "sub_color": "#333333",
-            "sub_hover": "#111111",
-            "a11y_label": "Payment badges",
-            "sec_maxw_m": 150,
-            "sec_radius": 0,
-            "sub_newtab": false,
-            "text_align": "left",
-            "h_main_size": 16,
-            "show_paypal": true,
-            "sub_uline_w": 1,
-            "badges_align": "auto",
-            "h_main_color": "#2c2c2c",
-            "text_align_m": "center",
-            "toggle_icons": true,
-            "show_unionpay": true,
-            "sub_underline": false,
-            "show_apple_pay": true,
-            "show_google_pay": true,
-            "show_mastercard": true
+            "content": "<p>Tracked delivery in 2 to 4 working days, free on orders over $200. Returns are free within 30 days of delivery, unworn and with the tags on. <a href=\"/pages/shipping\">Delivery and returns in full</a></p>",
+            "open": false
           }
         }
       },
       "block_order": [
-        "title_1",
-        "product_description_2",
-        "short_description_3",
-        "price_4",
-        "variant_picker_5",
-        "buy_buttons_6",
-        "pickup_avaiability_8",
-        "product_grouped_9",
-        "more_colors_10",
-        "collapsible_row_11",
-        "collapsible_row_12",
-        "payment_badges_13"
+        "title",
+        "price",
+        "variant_picker",
+        "size_guide",
+        "buy_buttons",
+        "delivery_note",
+        "description",
+        "fit",
+        "care",
+        "returns"
       ]
     },
-    "image_and_video_text_1": {
+    "image_text": {
       "type": "Image-and-video-text",
       "settings": {
         "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "image": "shopify://shop_images/clothing-rail.webp",
-        "image_alt": "Shirts and dresses on a hanging rail",
-        "image_position": "right"
+        "image": "shopify://shop_images/clothing-studio-rail.webp",
+        "image_alt": "Three sample shirts on a rail in the Halde studio",
+        "image_position": "left",
+        "section_width": "fluid_container",
+        "image_radius": 0,
+        "aspect_w": 4,
+        "aspect_h": 5,
+        "text_column_width": 50,
+        "gap_desktop": 80,
+        "padding_top_desktop": 0,
+        "padding_bottom_desktop": 0,
+        "side_padding_desktop": 0,
+        "padding_top_mobile": 0,
+        "padding_bottom_mobile": 48,
+        "side_padding_mobile": 20
       },
       "blocks": {
         "eyebrow_1": {
@@ -273,13 +166,13 @@
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Made in small runs"
+            "text": "Sampled three times before it is made"
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Each piece is cut and sewn in batches of fewer than a hundred, so nothing sits in a warehouse.</p>"
+            "text": "<p>Each piece is cut in our studio, worn for a week and corrected twice before a run is ordered. Runs are small, so most pieces are made once and not again.</p>"
           }
         }
       },
@@ -289,37 +182,36 @@
         "subheading_3"
       ]
     },
-    "products_carousel_2": {
-      "type": "products-carousel",
+    "related": {
+      "type": "related-products",
       "settings": {
-        "color_scheme": "default"
-      },
-      "blocks": {
-        "heading_1": {
-          "type": "heading",
-          "settings": {
-            "text": "Wear it with"
-          }
-        },
-        "view_all_2": {
-          "type": "view_all",
-          "settings": {
-            "label": "View all",
-            "position": "header",
-            "link": "/collections/all"
-          }
-        }
-      },
-      "block_order": [
-        "heading_1",
-        "view_all_2"
-      ]
+        "color_scheme": "default",
+        "section_width": "fluid_container",
+        "reset_spacing": true,
+        "heading": "Wear it with",
+        "description": "",
+        "header_size": "small",
+        "header_alignment": "left",
+        "items_per_row": 4,
+        "items_per_row_mobile": 2,
+        "column_gap": 16,
+        "intent": "related",
+        "items_to_show": 4,
+        "show_badges": true,
+        "show_vendor": false,
+        "show_rating": false,
+        "show_swatches": false,
+        "show_price": true,
+        "show_add_to_cart": false,
+        "show_action": false,
+        "padding_top": 64,
+        "padding_bottom": 96
+      }
     }
   },
   "order": [
-    "breadcrumb",
     "main",
-    "image_and_video_text_1",
-    "products_carousel_2"
+    "related",
+    "image_text"
   ]
 }

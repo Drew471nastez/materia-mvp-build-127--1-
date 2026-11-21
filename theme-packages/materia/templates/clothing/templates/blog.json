@@ -3,78 +3,71 @@
     "heading": {
       "type": "page-heading",
       "settings": {
-        "height": "adapt",
-        "alignment": "center",
-        "padding_top": 66,
-        "color_scheme": "",
+        "color_scheme": "default",
+        "section_width": "fluid_container",
         "reset_spacing": true,
-        "section_width": "container",
-        "padding_bottom": 55,
-        "overlay_opacity": 0
+        "alignment": "left",
+        "height": "adapt",
+        "overlay_opacity": 0,
+        "padding_top": 56,
+        "padding_bottom": 32
       },
       "blocks": {
-        "heading_xwFKKa": {
+        "heading_1": {
           "type": "heading",
           "settings": {
             "page_title": "",
-            "header_size": "medium",
-            "vertical_gap": 14,
-            "heading_font_size": 36,
+            "header_size": "default",
+            "heading_font_size": 40,
+            "vertical_gap": 12,
             "enable_heading_color": false
           }
         },
-        "description_YRWpkt": {
+        "description_1": {
           "type": "description",
           "settings": {
-            "description": "<p>Notes from the studio on fabric, fit and care.</p>",
+            "description": "<p>Notes from the studio on cloth, fit and looking after what you own.</p>",
             "enable_custom_style": false,
             "description_font_size": 16
           }
         }
       },
       "block_order": [
-        "heading_xwFKKa",
-        "description_YRWpkt"
+        "heading_1",
+        "description_1"
       ]
     },
     "main": {
       "type": "main-blog",
       "settings": {
         "layout": "grid",
-        "row_gap": 64,
+        "row_gap": 56,
         "show_date": true,
-        "column_gap": 40,
-        "margin_top": 32,
-        "title_size": 22,
-        "badge_width": 70,
-        "image_ratio": "adapt",
+        "column_gap": 16,
+        "margin_top": 8,
+        "title_size": 20,
+        "image_ratio": "custom",
+        "custom_ratio": "4:5",
         "title_hover": "underline",
-        "badge_height": 30,
-        "custom_ratio": "16:10",
-        "hover_effect": "lift",
-        "image_radius": 14,
+        "hover_effect": "none",
+        "image_radius": 0,
         "show_excerpt": true,
         "excerpt_lines": 2,
         "items_per_row": 3,
         "items_to_show": 12,
         "margin_bottom": 0,
         "readmore_line": "style",
-        "readmore_text": "Read article",
+        "readmore_text": "Read",
         "readmore_type": "underline",
         "reset_spacing": true,
         "section_width": "fluid_container",
-        "show_category": true,
-        "show_readmore": true,
-        "button_show_more": "Load more",
+        "show_category": false,
+        "show_readmore": false,
+        "button_show_more": "Show more",
         "content_alignment": "left",
-        "badge_border_radius": 19,
-        "enable_custom_style": true,
-        "badge_text_font_size": 14,
-        "items_per_row_mobile": 1,
-        "badge_vertical_position": 16,
-        "badge_horizontal_position": 16
-      },
-      "name": "Main blog"
+        "enable_custom_style": false,
+        "items_per_row_mobile": 1
+      }
     }
   },
   "order": [

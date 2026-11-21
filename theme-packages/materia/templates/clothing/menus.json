@@ -3,26 +3,48 @@
     "title": "Main menu",
     "links": [
       {
-        "title": "Shop all",
-        "url": "/collections/all"
+        "title": "Shop",
+        "url": "/collections/all",
+        "links": [
+          {
+            "title": "Coats",
+            "url": "/search?q=coat"
+          },
+          {
+            "title": "Tailoring",
+            "url": "/search?q=blazer"
+          },
+          {
+            "title": "Knitwear",
+            "url": "/search?q=merino"
+          },
+          {
+            "title": "All collections",
+            "url": "/collections"
+          }
+        ]
       },
       {
-        "title": "Collections",
-        "url": "/collections"
+        "title": "Lookbook",
+        "url": "/pages/lookbook"
       },
       {
-        "title": "Our story",
+        "title": "About",
         "url": "/pages/about"
       },
       {
-        "title": "Contact",
-        "url": "/pages/contact"
+        "title": "Help",
+        "url": "/pages/faqs"
       }
     ]
   },
   "footer": {
     "title": "Footer",
     "links": [
+      {
+        "title": "Delivery and returns",
+        "url": "/pages/shipping"
+      },
       {
         "title": "Sizing and FAQ",
         "url": "/pages/faqs"
