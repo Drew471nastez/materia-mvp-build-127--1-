@@ -1,0 +1,44 @@
+{
+  "main-menu": {
+    "title": "Main menu",
+    "links": [
+      {
+        "title": "All packs",
+        "url": "/collections/all"
+      },
+      {
+        "title": "Licence",
+        "url": "/pages/licence"
+      },
+      {
+        "title": "About",
+        "url": "/pages/about"
+      },
+      {
+        "title": "Help",
+        "url": "/pages/faqs"
+      }
+    ]
+  },
+  "footer": {
+    "title": "Footer",
+    "links": [
+      {
+        "title": "Licence",
+        "url": "/pages/licence"
+      },
+      {
+        "title": "Downloads and help",
+        "url": "/pages/faqs"
+      },
+      {
+        "title": "Contact",
+        "url": "/pages/contact"
+      },
+      {
+        "title": "Search",
+        "url": "/search"
+      }
+    ]
+  }
+}

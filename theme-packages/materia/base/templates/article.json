@@ -15,9 +15,8 @@
         "category_8bHVa7": {
           "type": "category",
           "settings": {
-            "enable_custom_style": true,
-            "category_border_radius": 36,
-            "category_background_color": "#eaeaea"
+            "enable_custom_style": false,
+            "category_border_radius": 36
           }
         },
         "title_8UcLB3": {
@@ -38,10 +37,8 @@
         "blog_meta_Gdcegm": {
           "type": "blog_meta",
           "settings": {
-            "enable_custom_style": true,
-            "blog_meta_border_radius": 29,
-            "blog_meta_background_color": "rgba(0,0,0,0)",
-            "date_pill_background_color": "#f6f6f6"
+            "enable_custom_style": false,
+            "blog_meta_border_radius": 29
           }
         },
         "content_article_nGLPt4": {
@@ -51,7 +48,7 @@
         "author_highlight_n4CqbT": {
           "type": "author_highlight",
           "settings": {
-            "author_text": "Hope you enjoyed this article and stay tuned!",
+            "author_text": "Thanks for reading.",
             "author_image_size": 65
           }
         }
@@ -68,16 +65,15 @@
     "blog_posts_bRcpan": {
       "type": "blog-posts",
       "settings": {
-        "blog": "loudlib-blog",
         "reveal": false,
-        "heading": "Popular this week...",
+        "heading": "More posts",
         "autoplay": false,
         "infinite": false,
         "show_date": true,
         "column_gap": 30,
         "description": "",
         "image_ratio": "custom",
-        "padding_top": 0,
+        "padding_top": 24,
         "show_author": true,
         "color_scheme": "",
         "custom_ratio": "16:9",
@@ -86,17 +82,13 @@
         "items_to_show": 4,
         "section_width": "fluid_container",
         "show_view_all": true,
-        "padding_bottom": 0,
+        "padding_bottom": 56,
         "autorotate_speed": 5,
         "content_alignment": "left",
         "heading_font_size": 24,
-        "view_all_bg_color": "#e0e0e0",
         "carousel_pagination": "disable",
-        "enable_custom_style": true,
-        "view_all_text_color": "#333333",
-        "items_per_row_mobile": 1,
-        "view_all_hover_bg_color": "#cccccc",
-        "view_all_hover_text_color": "#000000"
+        "enable_custom_style": false,
+        "items_per_row_mobile": 1
       }
     }
   },

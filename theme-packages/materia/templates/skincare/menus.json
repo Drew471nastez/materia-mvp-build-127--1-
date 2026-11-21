@@ -1,0 +1,44 @@
+{
+  "main-menu": {
+    "title": "Main menu",
+    "links": [
+      {
+        "title": "Shop",
+        "url": "/collections/all"
+      },
+      {
+        "title": "Routine",
+        "url": "/pages/routine"
+      },
+      {
+        "title": "Ingredients",
+        "url": "/pages/ingredients"
+      },
+      {
+        "title": "About",
+        "url": "/pages/about"
+      }
+    ]
+  },
+  "footer": {
+    "title": "Footer",
+    "links": [
+      {
+        "title": "Shipping and returns",
+        "url": "/pages/shipping"
+      },
+      {
+        "title": "Questions",
+        "url": "/pages/faqs"
+      },
+      {
+        "title": "Contact",
+        "url": "/pages/contact"
+      },
+      {
+        "title": "Search",
+        "url": "/search"
+      }
+    ]
+  }
+}

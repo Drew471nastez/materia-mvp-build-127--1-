@@ -1,0 +1,997 @@
+{
+  "sections": {
+    "collection_list2_1": {
+      "type": "collection-list2",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "fluid_container",
+        "show_section_on": "all",
+        "reset_spacing": true,
+        "align_columns": "stretch",
+        "left_col_fr": 1,
+        "center_col_fr": 1.25,
+        "right_col_fr": 1,
+        "content_align": "center",
+        "content_text_align": "center",
+        "enable_custom_style": false,
+        "content_radius": 8,
+        "enable_custom_fonts": false,
+        "heading_font": "assistant_n4",
+        "body_font": "assistant_n4",
+        "col_gap_desktop": 20,
+        "content_padding_desktop": 40,
+        "content_padding_x_desktop": 28,
+        "content_gap_desktop": 14,
+        "padding_top_desktop": 36,
+        "padding_bottom_desktop": 36,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "col_gap_mobile": 18,
+        "content_padding_mobile": 24,
+        "content_padding_x_mobile": 18,
+        "content_gap_mobile": 12,
+        "media_max_mobile": 420,
+        "padding_top_mobile": 22,
+        "padding_bottom_mobile": 22,
+        "section_margin_top_mobile": 0,
+        "section_margin_bottom_mobile": 0
+      },
+      "blocks": {
+        "media_left_1": {
+          "type": "media_left",
+          "settings": {
+            "aspect_desktop": "3 / 4",
+            "aspect_mobile": "16 / 10",
+            "radius": 8,
+            "image": "shopify://shop_images/samples-keys.webp",
+            "alt_text": "A synth and headphones in a studio"
+          }
+        },
+        "badge_1": {
+          "type": "badge",
+          "settings": {
+            "text": "New pack out now",
+            "enable_custom_style": false,
+            "border_width": 0,
+            "radius": 100,
+            "size": 12,
+            "weight": "600",
+            "tracking": 0.4,
+            "transform": "uppercase",
+            "pad_x": 12,
+            "pad_y": 6,
+            "gap_top": 0,
+            "gap_bottom": 0
+          }
+        },
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Drums that already sit in the mix",
+            "tag": "h1",
+            "enable_custom_style": false,
+            "weight": "theme",
+            "size_enable": true,
+            "size_desktop": 54,
+            "size_mobile": 36,
+            "line_height": 1.05,
+            "tracking": 0,
+            "transform": "none",
+            "gap_top": 0,
+            "gap_bottom": 0
+          }
+        },
+        "description_1": {
+          "type": "description",
+          "settings": {
+            "text": "<p>One shots, loops and MIDI, recorded through hardware. 24 bit WAV, with key and BPM in every file name.</p>",
+            "enable_custom_style": false,
+            "size_enable": true,
+            "size_desktop": 17,
+            "size_mobile": 16,
+            "line_height": 1.5,
+            "max_width": 420,
+            "gap_top": 0,
+            "gap_bottom": 0
+          }
+        },
+        "button_1": {
+          "type": "button",
+          "settings": {
+            "text": "Browse packs",
+            "link": "/collections/all",
+            "enable_custom_style": false,
+            "hover_anim": "none",
+            "use_theme_button": true,
+            "border_width": 0,
+            "radius": 6,
+            "size": 16,
+            "weight": "500",
+            "pad_x": 24,
+            "pad_y": 12,
+            "min_width": 160,
+            "gap_top_desktop": 10,
+            "gap_top": 5
+          }
+        },
+        "media_right_1": {
+          "type": "media_right",
+          "settings": {
+            "aspect_desktop": "3 / 4",
+            "aspect_mobile": "16 / 10",
+            "radius": 8,
+            "image": "shopify://shop_images/samples-cover-ink.webp",
+            "alt_text": "Pack artwork"
+          }
+        }
+      },
+      "block_order": [
+        "media_left_1",
+        "badge_1",
+        "heading_1",
+        "description_1",
+        "button_1",
+        "media_right_1"
+      ]
+    },
+    "benefits_bar_2_1": {
+      "type": "benefits-bar-2",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "fluid_container",
+        "reset_spacing": true,
+        "layout": "vertical",
+        "alignment": "center",
+        "cols_desktop": 4,
+        "item_gap": 12,
+        "item_padding": 0,
+        "item_pad_x": 16,
+        "gap_desktop": 0,
+        "col_gap_desktop": 0,
+        "show_dividers": true,
+        "show_top_border": true,
+        "show_bottom_border": true,
+        "enable_custom_style": false,
+        "icon_box_size": 40,
+        "icon_box_radius": 50,
+        "icon_size": 22,
+        "enable_custom_fonts": false,
+        "heading_font": "helvetica_n4",
+        "body_font": "helvetica_n4",
+        "title_size": 14,
+        "title_letter_spacing": 1,
+        "title_uppercase": true,
+        "desc_size": 13,
+        "reveal": true,
+        "padding_top_desktop": 48,
+        "padding_bottom_desktop": 48,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "cols_mobile": "2",
+        "gap_mobile": 24,
+        "col_gap_mobile": 16,
+        "enable_mobile_carousel": false,
+        "mobile_items_per_view": 1.2,
+        "carousel_autoplay": false,
+        "carousel_autoplay_speed": 4,
+        "padding_top_mobile": 32,
+        "padding_bottom_mobile": 32,
+        "section_margin_top_mobile": 0,
+        "section_margin_bottom_mobile": 0
+      },
+      "blocks": {
+        "item_1": {
+          "type": "item",
+          "settings": {
+            "icon_source": "icon",
+            "icon": "headphones",
+            "title": "24 bit WAV",
+            "description": "44.1kHz, mixed with headroom left.",
+            "enable_custom_style": false,
+            "icon_color": "#0F0F0F",
+            "icon_box_bg": "rgba(0,0,0,0)",
+            "title_color": "#0F0F0F",
+            "desc_color": "#555555"
+          }
+        },
+        "item_2": {
+          "type": "item",
+          "settings": {
+            "icon_source": "icon",
+            "icon": "tag",
+            "title": "Key and BPM labelled",
+            "description": "In the file name, so your browser can sort it.",
+            "enable_custom_style": false,
+            "icon_color": "#0F0F0F",
+            "icon_box_bg": "rgba(0,0,0,0)",
+            "title_color": "#0F0F0F",
+            "desc_color": "#555555"
+          }
+        },
+        "item_3": {
+          "type": "item",
+          "settings": {
+            "icon_source": "icon",
+            "icon": "check",
+            "title": "Royalty free",
+            "description": "Release your tracks, keep your royalties.",
+            "enable_custom_style": false,
+            "icon_color": "#0F0F0F",
+            "icon_box_bg": "rgba(0,0,0,0)",
+            "title_color": "#0F0F0F",
+            "desc_color": "#555555"
+          }
+        },
+        "item_4": {
+          "type": "item",
+          "settings": {
+            "icon_source": "icon",
+            "icon": "lock",
+            "title": "Instant download",
+            "description": "A link on the receipt, and again by email.",
+            "enable_custom_style": false,
+            "icon_color": "#0F0F0F",
+            "icon_box_bg": "rgba(0,0,0,0)",
+            "title_color": "#0F0F0F",
+            "desc_color": "#555555"
+          }
+        }
+      },
+      "block_order": [
+        "item_1",
+        "item_2",
+        "item_3",
+        "item_4"
+      ]
+    },
+    "products_carousel_1": {
+      "type": "products-carousel",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "fluid_container",
+        "reset_spacing": true,
+        "items_to_show": 5,
+        "heading": "Best Selling",
+        "header_size": "medium",
+        "header_alignment": "left",
+        "heading_underline": false,
+        "header_spacing": 32,
+        "items_per_row": 4,
+        "column_gap": 30,
+        "show_banner": false,
+        "banner_type": "image",
+        "video_autoplay": true,
+        "banner_width": 30,
+        "position": "left",
+        "sticky_banner": false,
+        "show_arrow": false,
+        "carousel_pagination": "show_dots_on_mobile",
+        "pagination_style": "dot",
+        "pagination_position": "center",
+        "infinite": false,
+        "autoplay": false,
+        "autorotate_speed": 5,
+        "reveal": false,
+        "enable_custom_style": false,
+        "enable_custom_fonts": false,
+        "heading_font": "assistant_n4",
+        "body_font": "assistant_n4",
+        "padding_top": 50,
+        "padding_bottom": 50,
+        "gap_products_to_pagination": 24,
+        "gap_pagination_to_button": 24,
+        "gap_products_to_button": 32,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "items_per_row_mobile": 2,
+        "section_margin_top_mobile": 0,
+        "section_margin_bottom_mobile": 0
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Catalogue",
+            "enable_custom_style": false,
+            "size": 13
+          }
+        },
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "New packs",
+            "enable_custom_style": false,
+            "size_desktop": 32,
+            "size_mobile": 26
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Every pack has a full file list and audio demos on its page.</p>",
+            "enable_custom_style": false,
+            "size": 16
+          }
+        },
+        "view_all_1": {
+          "type": "view_all",
+          "settings": {
+            "enabled": true,
+            "label": "All packs",
+            "position": "header",
+            "full_width": false,
+            "uppercase": false,
+            "enable_custom_style": false,
+            "use_theme_button": true,
+            "radius": 6,
+            "padding_x": 26,
+            "padding_y": 14,
+            "font_size": 14,
+            "font_weight": "600",
+            "border_width": 1,
+            "link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_1",
+        "subheading_1",
+        "view_all_1"
+      ]
+    },
+    "scrolling_collection_1": {
+      "type": "scrolling-collection",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "stretch_width",
+        "reset_spacing": true,
+        "heading_tag": "h2",
+        "show_product_count": false,
+        "header_align": "center",
+        "gap_heading_sub": 8,
+        "gap_header": 32,
+        "rows": 2,
+        "alternate_direction": true,
+        "row_gap": 16,
+        "chip_gap": 16,
+        "chip_width": 300,
+        "chip_height": 96,
+        "chip_pad_x": 22,
+        "chip_pad_y": 18,
+        "gap_controls": 24,
+        "enable_custom_style": false,
+        "chip_border_width": 0,
+        "chip_radius": 8,
+        "edge_fade": true,
+        "edge_fade_width": 80,
+        "heading_weight": "theme",
+        "heading_size_desktop": 40,
+        "heading_size_mobile": 28,
+        "sub_size": 16,
+        "chip_text_size": 22,
+        "chip_subtext_size": 14,
+        "chip_weight": "600",
+        "enable_custom_fonts": false,
+        "heading_font": "assistant_n4",
+        "body_font": "assistant_n4",
+        "scroll_duration": 40,
+        "pause_on_hover": true,
+        "show_controls": false,
+        "padding_top_desktop": 64,
+        "padding_bottom_desktop": 64,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "chip_width_mobile": 240,
+        "padding_top_mobile": 32,
+        "padding_bottom_mobile": 32,
+        "section_margin_top_mobile": 0,
+        "section_margin_bottom_mobile": 0
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Find it by genre",
+            "enable_custom_style": false,
+            "weight_enable": false,
+            "weight": "700",
+            "size_enable": false,
+            "size_desktop": 40,
+            "size_mobile": 28
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Point each one at a collection of yours.</p>",
+            "enable_custom_style": false,
+            "size_enable": false,
+            "size": 16
+          }
+        },
+        "collection_1": {
+          "type": "collection",
+          "settings": {
+            "label_first": "House",
+            "label_second": "124 to 128 BPM",
+            "link": "/collections/all",
+            "image": "shopify://shop_images/samples-cover-fluid.webp"
+          }
+        },
+        "collection_2": {
+          "type": "collection",
+          "settings": {
+            "label_first": "Techno",
+            "label_second": "130 to 140 BPM",
+            "link": "/collections/all",
+            "image": "shopify://shop_images/samples-cover-ink.webp"
+          }
+        },
+        "collection_3": {
+          "type": "collection",
+          "settings": {
+            "label_first": "UK garage",
+            "label_second": "130 to 134 BPM",
+            "link": "/collections/all",
+            "image": "shopify://shop_images/samples-cover-lava.webp"
+          }
+        },
+        "collection_4": {
+          "type": "collection",
+          "settings": {
+            "label_first": "Drill",
+            "label_second": "138 to 144 BPM",
+            "link": "/collections/all",
+            "image": "shopify://shop_images/samples-cover-ember.webp"
+          }
+        },
+        "collection_5": {
+          "type": "collection",
+          "settings": {
+            "label_first": "Lo-fi",
+            "label_second": "70 to 90 BPM",
+            "link": "/collections/all",
+            "image": "shopify://shop_images/samples-cover-marble.webp"
+          }
+        },
+        "collection_6": {
+          "type": "collection",
+          "settings": {
+            "label_first": "Ambient",
+            "label_second": "Textures and drones",
+            "link": "/collections/all",
+            "image": "shopify://shop_images/samples-cover-waves.webp"
+          }
+        },
+        "collection_7": {
+          "type": "collection",
+          "settings": {
+            "label_first": "Drum and bass",
+            "label_second": "170 to 176 BPM",
+            "link": "/collections/all",
+            "image": "shopify://shop_images/samples-cover-magenta.webp"
+          }
+        },
+        "collection_8": {
+          "type": "collection",
+          "settings": {
+            "label_first": "Trap",
+            "label_second": "140 to 160 BPM",
+            "link": "/collections/all",
+            "image": "shopify://shop_images/samples-cover-mono.webp"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_1",
+        "collection_1",
+        "collection_2",
+        "collection_3",
+        "collection_4",
+        "collection_5",
+        "collection_6",
+        "collection_7",
+        "collection_8"
+      ]
+    },
+    "image_with_text_benefits_1": {
+      "type": "image-with-text-benefits",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "media_position": "right",
+        "media_column_width": 50,
+        "content_align": "left",
+        "content_gap": 24,
+        "text_max_width": 900,
+        "per_row": "1.2",
+        "media_aspect_w": 3,
+        "media_aspect_h": 4,
+        "media_radius": 16,
+        "media_gap": 12,
+        "progress_height": 2,
+        "progress_margin": 18,
+        "benefits_per_row_desktop": "2",
+        "benefit_layout": "vertical",
+        "benefit_inner_gap": 12,
+        "benefit_padding": 18,
+        "benefit_radius": 12,
+        "benefit_border_width": 0,
+        "benefit_heading_gap": 6,
+        "icon_size": 40,
+        "icon_padding": 0,
+        "icon_radius": 8,
+        "enable_custom_style": false,
+        "icon_bg": "rgba(0,0,0,0)",
+        "enable_custom_fonts": false,
+        "heading_font": "assistant_n4",
+        "body_font": "assistant_n4",
+        "benefit_heading_size": 17,
+        "benefit_text_size": 14,
+        "gap_desktop": 64,
+        "benefit_gap_desktop": 28,
+        "padding_top_desktop": 100,
+        "padding_bottom_desktop": 100,
+        "side_padding_desktop": 32,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "content_align_mobile": "left",
+        "mobile_order": "media_first",
+        "benefits_per_row_mobile": "1",
+        "gap_mobile": 32,
+        "benefit_gap_mobile": 20,
+        "padding_top_mobile": 60,
+        "padding_bottom_mobile": 60,
+        "side_padding_mobile": 20,
+        "section_margin_top_mobile": 0,
+        "section_margin_bottom_mobile": 0
+      },
+      "blocks": {
+        "media_1": {
+          "type": "media",
+          "settings": {
+            "media_type": "image",
+            "autoplay": true,
+            "muted": true,
+            "loop": true,
+            "show_controls": false,
+            "image": "shopify://shop_images/samples-producer.webp",
+            "alt": "A producer at a desk with studio monitors"
+          }
+        },
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "What is inside a pack",
+            "tag": "h2",
+            "enable_custom_style": false,
+            "uppercase": false,
+            "size_desktop": 48,
+            "size_mobile": 32
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Every pack is laid out the same way, so you always know where the kicks are.</p>",
+            "enable_custom_style": false,
+            "size_desktop": 16,
+            "size_mobile": 14
+          }
+        },
+        "benefits_group_1": {
+          "type": "benefits_group",
+          "settings": {}
+        },
+        "benefit_1": {
+          "type": "benefit",
+          "settings": {
+            "heading": "One shots",
+            "text": "<p>Kicks, snares, hats, percussion and bass hits, tuned and trimmed.</p>",
+            "icon_source": "library",
+            "icon_name": "drop"
+          }
+        },
+        "benefit_2": {
+          "type": "benefit",
+          "settings": {
+            "heading": "Loops",
+            "text": "<p>Full and stripped versions, cut on the bar, tempo in the name.</p>",
+            "icon_source": "library",
+            "icon_name": "clock"
+          }
+        },
+        "benefit_3": {
+          "type": "benefit",
+          "settings": {
+            "heading": "MIDI",
+            "text": "<p>The pattern behind every melodic loop, for your own sounds.</p>",
+            "icon_source": "library",
+            "icon_name": "sparkle"
+          }
+        },
+        "benefit_4": {
+          "type": "benefit",
+          "settings": {
+            "heading": "File list",
+            "text": "<p>A PDF of every file, so you can check before you buy.</p>",
+            "icon_source": "library",
+            "icon_name": "check"
+          }
+        },
+        "footnote_1": {
+          "type": "footnote",
+          "settings": {
+            "text": "Replace these four with what your packs contain.",
+            "enable_custom_style": false,
+            "size": 13,
+            "margin_top": 12
+          }
+        }
+      },
+      "block_order": [
+        "media_1",
+        "heading_1",
+        "subheading_1",
+        "benefits_group_1",
+        "benefit_1",
+        "benefit_2",
+        "benefit_3",
+        "benefit_4",
+        "footnote_1"
+      ]
+    },
+    "comparison_text_1": {
+      "type": "comparison-text",
+      "settings": {
+        "color_scheme": "scheme-b0fae5fa-c388-4a42-acd3-92cf8fe0b1fb",
+        "section_width": "full_width",
+        "show_section_on": "all",
+        "reset_spacing": true,
+        "check_label": "Allowed",
+        "cross_label": "Not allowed",
+        "minus_label": "Partly",
+        "header_align": "center",
+        "section_max_width_desktop": 880,
+        "section_max_width_tablet": 720,
+        "heading_sub_gap_desktop": 14,
+        "gap_header": 48,
+        "row_gap_desktop": 22,
+        "icon_size": 24,
+        "icon_text_gap": 14,
+        "divider_margin_desktop": 18,
+        "enable_custom_style": false,
+        "enable_custom_fonts": false,
+        "heading_font": "assistant_n4",
+        "body_font": "assistant_n4",
+        "row_size_desktop": 20,
+        "row_line_height": 1.5,
+        "positive_weight": "600",
+        "padding_top_desktop": 96,
+        "padding_bottom_desktop": 96,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "section_max_width_mobile": 560,
+        "heading_sub_gap_mobile": 8,
+        "gap_header_mobile": 28,
+        "row_gap_mobile": 16,
+        "row_size_mobile": 16,
+        "divider_margin_mobile": 12,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "section_margin_top_mobile": 0,
+        "section_margin_bottom_mobile": 0
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "The licence, in plain words",
+            "tag": "h2",
+            "enable_custom_style": false,
+            "weight": "theme",
+            "size_desktop": 48,
+            "size_mobile": 30,
+            "line_height": 1.2,
+            "tracking": 0
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>One licence for every pack. The <a href=\"/pages/licence\">full text</a> is short too.</p>",
+            "enable_custom_style": false,
+            "size": 16,
+            "line_height": 1.5,
+            "max_width": 560
+          }
+        },
+        "positive_1": {
+          "type": "positive",
+          "settings": {
+            "text": "<strong>Release music</strong> made with the sounds, on any platform, and keep all of the royalties",
+            "icon_type": "check"
+          }
+        },
+        "positive_2": {
+          "type": "positive",
+          "settings": {
+            "text": "<strong>Use them in paid work</strong>: sync, adverts, games, scores and client projects",
+            "icon_type": "check"
+          }
+        },
+        "positive_3": {
+          "type": "positive",
+          "settings": {
+            "text": "<strong>No credit needed</strong>, and no limit on streams or sales",
+            "icon_type": "check"
+          }
+        },
+        "divider_1": {
+          "type": "divider",
+          "settings": {}
+        },
+        "negative_1": {
+          "type": "negative",
+          "settings": {
+            "text": "Reselling or sharing the files, as they are or repackaged",
+            "icon_type": "cross"
+          }
+        },
+        "negative_2": {
+          "type": "negative",
+          "settings": {
+            "text": "Uploading a loop on its own as your track, or to a sample library",
+            "icon_type": "cross"
+          }
+        },
+        "negative_3": {
+          "type": "negative",
+          "settings": {
+            "text": "Registering a sample with a content ID system by itself",
+            "icon_type": "cross"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_1",
+        "positive_1",
+        "positive_2",
+        "positive_3",
+        "divider_1",
+        "negative_1",
+        "negative_2",
+        "negative_3"
+      ]
+    },
+    "faq5_1": {
+      "type": "faq5",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "fluid_container",
+        "reset_spacing": true,
+        "structured_data": false,
+        "heading": "Frequently asked questions",
+        "subheading": "<p>Everything you need to know about our products and services.</p>",
+        "first_item_open": false,
+        "allow_multiple_open": false,
+        "open_icon": "plus",
+        "content_alignment": "left",
+        "gap_desktop": 60,
+        "gap_header_to_items": 24,
+        "gap_heading_to_subheading": 12,
+        "gap_between_items": 19,
+        "item_padding_y": 18,
+        "item_padding_x": 14,
+        "item_radius": 0,
+        "show_dividers": true,
+        "image_position": "left",
+        "image_ratio": "square",
+        "image_radius": 16,
+        "enable_custom_style": false,
+        "enable_custom_fonts": false,
+        "heading_font": "assistant_n4",
+        "body_font": "assistant_n4",
+        "heading_size_desktop": 36,
+        "heading_size_mobile": 26,
+        "enable_custom_heading_weight": false,
+        "heading_weight": "600",
+        "subheading_size_desktop": 16,
+        "subheading_size_mobile": 14,
+        "question_size_desktop": 18,
+        "question_size_mobile": 15,
+        "enable_custom_question_weight": false,
+        "question_weight": "600",
+        "answer_size_desktop": 15,
+        "answer_size_mobile": 14,
+        "reveal": true,
+        "scroll_animation": "inherit",
+        "padding_top": 60,
+        "padding_bottom": 60,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "gap_mobile": 30,
+        "section_margin_top_mobile": 0,
+        "section_margin_bottom_mobile": 0,
+        "image": "shopify://shop_images/samples-cassette.webp"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Before you download",
+            "tag": "h2",
+            "enable_custom_style": false,
+            "enable_custom_fonts": false,
+            "font": "assistant_n4",
+            "weight_enable": false,
+            "weight": "700",
+            "size_enable": false,
+            "size_desktop": 36,
+            "size_mobile": 26,
+            "line_height": 1.15,
+            "tracking": 0
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>The questions producers send us most.</p>",
+            "enable_custom_style": false,
+            "enable_custom_fonts": false,
+            "font": "assistant_n4",
+            "weight_enable": false,
+            "weight": "400",
+            "size_enable": false,
+            "size": 16,
+            "line_height": 1.5
+          }
+        },
+        "faq_item_1": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Which DAWs do the packs work in?",
+            "answer": "<p>All of them. The files are WAV and MIDI, so Ableton Live, FL Studio, Logic Pro, Bitwig and any sampler will open them.</p>"
+          }
+        },
+        "faq_item_2": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How do I get the files?",
+            "answer": "<p>A download link is on your receipt and in the email that follows. Say here how large your packs are.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Are the sounds cleared for release?",
+            "answer": "<p>Yes. Everything in a pack is recorded by us and royalty free under the licence above.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I hear a pack first?",
+            "answer": "<p>Add audio demos to each product page, and offer a free taster pack by email.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do you refund downloads?",
+            "answer": "<p>Say what your refund terms are for a file that has been downloaded.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_1",
+        "faq_item_1",
+        "faq_item_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5"
+      ]
+    },
+    "newsletter_1": {
+      "type": "newsletter",
+      "settings": {
+        "color_scheme": "scheme-6da511c0-ea26-4213-b3d3-e09320840636",
+        "section_width": "fluid_container",
+        "reset_spacing": true,
+        "heading": "Newsletters",
+        "email_label": "Email address",
+        "email_placeholder": "Your email address",
+        "btn_text": "Send me the pack",
+        "note": "One email a month, when a pack comes out.",
+        "subscribed_button_text": "Subscribed",
+        "success_text": "Thanks, you're on the list.",
+        "success_duration": 5,
+        "already_text": "You're already on the list.",
+        "invalid_text": "Enter a valid email address.",
+        "error_text": "That did not go through. Check your connection and try again.",
+        "header_alignment": "center",
+        "form_layout": "horizontal",
+        "show_icon": false,
+        "icon": "envelope",
+        "icon_size": 40,
+        "bg_overlay_color": "#000000",
+        "bg_overlay_opacity": 0,
+        "show_content_background": false,
+        "content_box_opacity": 100,
+        "enable_custom_style": false,
+        "button_style": "primary",
+        "use_theme_button": true,
+        "button_radius": 4,
+        "button_size": 15,
+        "button_pad_x": 28,
+        "button_pad_y": 12,
+        "use_theme_fields": true,
+        "field_radius": 4,
+        "field_height": 50,
+        "header_size": "medium",
+        "enable_custom_fonts": false,
+        "heading_font": "assistant_n4",
+        "body_font": "assistant_n4",
+        "reveal": true,
+        "padding_top": 60,
+        "padding_bottom": 60,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "section_margin_top_mobile": 0,
+        "section_margin_bottom_mobile": 0
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Try 40 sounds for free",
+            "tag": "h2",
+            "enable_custom_style": false,
+            "enable_custom_fonts": false,
+            "font": "assistant_n4",
+            "weight_enable": false,
+            "weight": "700",
+            "size_enable": false,
+            "size_desktop": 36,
+            "size_mobile": 26,
+            "line_height": 1.15,
+            "tracking": 0
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>A taster from across the catalogue, in your inbox in a minute.</p>",
+            "enable_custom_style": false,
+            "enable_custom_fonts": false,
+            "font": "assistant_n4",
+            "weight_enable": false,
+            "weight": "400",
+            "size_enable": false,
+            "size": 16,
+            "line_height": 1.5
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_1"
+      ]
+    }
+  },
+  "order": [
+    "collection_list2_1",
+    "benefits_bar_2_1",
+    "products_carousel_1",
+    "scrolling_collection_1",
+    "image_with_text_benefits_1",
+    "comparison_text_1",
+    "faq5_1",
+    "newsletter_1"
+  ]
+}

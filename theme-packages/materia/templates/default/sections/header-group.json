@@ -40,7 +40,7 @@
         "text_slider_1": {
           "type": "text_slider",
           "settings": {
-            "text1": "Free delivery on orders over $60",
+            "text1": "Tracked delivery on every order",
             "text2": "Returns accepted within 30 days",
             "text3": "",
             "change_every": 5,

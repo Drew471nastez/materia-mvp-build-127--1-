@@ -363,8 +363,12 @@
           {%- render 'swiper-navigation' -%}
         {%- endif -%}
         <div class="swiper-wrapper">
+          {%- comment -%} On a product's own page the carousel is "more like this": the product being looked at is left out. {%- endcomment -%}
+          {%- assign pc_current_id = '' -%}
+          {%- if template.name == 'product' -%}{%- assign pc_current_id = product.id -%}{%- endif -%}
           {%- if s.collection.products.size > 0 -%}
             {%- for product in s.collection.products limit: items_to_show -%}
+              {%- if pc_current_id != blank and product.id == pc_current_id and s.collection.products.size > 1 -%}{%- continue -%}{%- endif -%}
               {% render 'product-item',
                 card_product: product,
                 section_id: sid,

@@ -81,11 +81,11 @@ async function main() {
   /* ── 1. Listings ─────────────────────────────────────────────────────── */
   console.log("\nListings\n")
   const builtin = builtinListings()
-  /* Changed on purpose (templates round 16): the code lists seven templates made from one theme, the default first; the native Storelib Default is no longer listed (tests/theme-templates.test.ts holds the rest). */
-  check("Storelib's own templates are listed from code, free, by Storelib, the default first", builtin.length === 7 && builtin[0].slug === DEFAULT_LISTING_SLUG && builtin.every((b) => b.tier === "free" && b.author === "Storelib" && !b.builtinThemeId && !!b.codePackage && b.hasPackage))
+  /* Changed on purpose (templates round 16, then 17): the code lists twelve templates made from one theme, the default first; the native Storelib Default is no longer listed (tests/theme-templates.test.ts holds the rest). */
+  check("Storelib's own templates are listed from code, free, by Storelib, the default first", builtin.length === 12 && builtin[0].slug === DEFAULT_LISTING_SLUG && builtin.every((b) => b.tier === "free" && b.author === "Storelib" && !b.builtinThemeId && !!b.codePackage && b.hasPackage))
   const codeSlugs = builtin.map((b) => b.slug).join(",")
   const merged = mergeListings([listing({ slug: "b", sortOrder: 2 }), listing({ slug: "a", sortOrder: 1 }), listing({ slug: "hidden", published: false })])
-  /* Changed on purpose (templates round 16): seven code listings lead, not one. */
+  /* Changed on purpose (templates round 16, then 17): twelve code listings lead, not one. */
   check("the merge keeps the code's templates first, orders the rest, and leaves hidden ones out", merged.map((l) => l.slug).join(",") === `${codeSlugs},a,b`, merged.map((l) => l.slug).join(","))
   check("  the admin's list includes hidden ones", mergeListings([listing({ slug: "hidden", published: false })], { includeHidden: true }).some((l) => l.slug === "hidden"))
   /* Changed on purpose (templates round 16): a row with a template's address dresses that template and still adds the code's package; a row naming the native theme is retired. */

@@ -532,6 +532,7 @@
         {%- if section_st.enable_country_selector
           or section_st.enable_language_selector
           or section_st.copyright_text
+          or shop.policies.size > 0
         -%}
           <div class="flex flex-wrap gap-10 gap-xl-30 justify-center justify-md-start">
             {%- if localization.available_countries.size > 1 or localization.available_languages.size > 1 -%}
@@ -547,6 +548,14 @@
             {%- if section_st.copyright_text %}
               <div class="footer__copyright" data-ft-copyright>{{ section_st.copyright_text }}</div>
             {% endif %}
+            {%- comment -%} The store's own policies (refunds, privacy, terms, shipping), each linked once it has been written. A store with none shows no links. {%- endcomment -%}
+            {%- if section_st.show_policy_links != false and shop.policies.size > 0 -%}
+              <ul class="footer__policies list-unstyled flex flex-wrap" data-ft-policies>
+                {%- for policy in shop.policies -%}
+                  <li><a href="{{ policy.url }}">{{ policy.title | escape }}</a></li>
+                {%- endfor -%}
+              </ul>
+            {%- endif -%}
           </div>
         {% endif %}
 
@@ -679,7 +688,14 @@
       "type": "textarea",
       "id": "copyright_text",
       "label": "Copyright text",
-      "default": "© 2026 Materia Modern. All rights reserved."
+      "default": "© {{ 'now' | date: '%Y' }} {{ shop.name }}. All rights reserved."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_policy_links",
+      "default": true,
+      "label": "Show policy links",
+      "info": "Links to the refund, privacy, terms and shipping policies you have written in Website settings"
     },
     {
       "type": "checkbox",

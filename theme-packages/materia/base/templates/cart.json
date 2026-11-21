@@ -46,32 +46,32 @@
         "show_estimate_shipping": false
       },
       "blocks": {
-        "faq_BDgWbT": {
-          "type": "faq",
-          "settings": {
-            "answer": "<p>Answer goes here</p>",
-            "question": "Question goes here"
-          }
-        },
-        "faq_section_YwdEFh": {
+        "faq_section_1": {
           "type": "faq_section",
           "settings": {
             "show_faq": true,
-            "faq_heading": "Frequently asked questions"
+            "faq_heading": "Before you pay"
           }
         },
-        "faq_fCF8Pm": {
+        "faq_1": {
           "type": "faq",
           "settings": {
-            "answer": "<p>Answer goes here</p>",
-            "question": "Question goes here"
+            "question": "When will my order arrive?",
+            "answer": "<p>The delivery time for your address is shown at checkout, before you pay.</p>"
           }
         },
-        "faq_xzMcPw": {
+        "faq_2": {
           "type": "faq",
           "settings": {
-            "answer": "<p>Answer goes here</p>",
-            "question": "Question goes here"
+            "question": "Can I change my order?",
+            "answer": "<p>Write to us as soon as you can. If it has not been sent yet, we will change it.</p>"
+          }
+        },
+        "faq_3": {
+          "type": "faq",
+          "settings": {
+            "question": "What if something is wrong?",
+            "answer": "<p>Tell us within 30 days and we will replace it or refund you.</p>"
           }
         },
         "payment_badges_67Mgyc": {
@@ -83,7 +83,6 @@
             "show_klarna": false,
             "show_paypal": true,
             "show_discover": false,
-            "show_shop_pay": false,
             "show_apple_pay": true,
             "show_google_pay": true,
             "show_mastercard": true,
@@ -92,10 +91,10 @@
         }
       },
       "block_order": [
-        "faq_BDgWbT",
-        "faq_section_YwdEFh",
-        "faq_fCF8Pm",
-        "faq_xzMcPw",
+        "faq_section_1",
+        "faq_1",
+        "faq_2",
+        "faq_3",
         "payment_badges_67Mgyc"
       ]
     }

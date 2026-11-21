@@ -1,0 +1,135 @@
+{
+  "sections": {
+    "faq_search_1": {
+      "type": "faq-search",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "fluid_container",
+        "reset_spacing": true,
+        "structured_data": false,
+        "search_label": "Search the questions",
+        "count_text": "Showing [count] of [total] questions",
+        "empty_text": "No questions match your search. Try another word.",
+        "first_item_open": false,
+        "allow_multiple_open": false,
+        "open_icon": "plus",
+        "content_alignment": "center",
+        "max_content_width": 760,
+        "gap_header_to_items": 28,
+        "item_padding_y": 20,
+        "enable_custom_style": false,
+        "enable_custom_fonts": false,
+        "heading_font": "assistant_n4",
+        "body_font": "assistant_n4",
+        "question_size_desktop": 18,
+        "question_size_mobile": 16,
+        "enable_custom_question_weight": false,
+        "question_weight": "600",
+        "answer_size_desktop": 16,
+        "answer_size_mobile": 15,
+        "reveal": true,
+        "padding_top": 60,
+        "padding_bottom": 60,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "section_margin_top_mobile": 0,
+        "section_margin_bottom_mobile": 0
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Downloads and help",
+            "enable_custom_style": false,
+            "enable_custom_fonts": false,
+            "font": "assistant_n4",
+            "weight_enable": false,
+            "weight": "700",
+            "size_enable": false,
+            "size_desktop": 36,
+            "size_mobile": 26,
+            "line_height": 1.15,
+            "tracking": 0
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Type a word, like \"refund\" or \"Ableton\".</p>",
+            "enable_custom_style": false,
+            "enable_custom_fonts": false,
+            "font": "assistant_n4",
+            "weight_enable": false,
+            "weight": "400",
+            "size_enable": false,
+            "size": 16,
+            "line_height": 1.5
+          }
+        },
+        "faq_item_1": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Where is my download?",
+            "answer": "<p>On your receipt, and in the email sent straight after. Check spam, then <a href=\"/pages/contact\">write to us</a>.</p>",
+            "keywords": "link email receipt missing"
+          }
+        },
+        "faq_item_2": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Which software do I need?",
+            "answer": "<p>Any DAW or sampler that opens WAV and MIDI: Ableton Live, FL Studio, Logic Pro, Bitwig, Reaper and the rest.</p>",
+            "keywords": "daw ableton fl studio logic compatible"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I use the sounds in music I sell?",
+            "answer": "<p>Yes. The packs are royalty free for your own releases and paid work. See the <a href=\"/pages/licence\">licence</a>.</p>",
+            "keywords": "commercial royalty release licence"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I download a pack again later?",
+            "answer": "<p>Say how long your links last and how a buyer gets a fresh one.</p>",
+            "keywords": "again redownload expire"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do you offer refunds?",
+            "answer": "<p>Say what your terms are once a file has been downloaded.</p>",
+            "keywords": "refund money back"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do packs get updated?",
+            "answer": "<p>Say whether buyers get new versions free.</p>",
+            "keywords": "update version"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_1",
+        "faq_item_1",
+        "faq_item_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6"
+      ]
+    }
+  },
+  "order": [
+    "faq_search_1"
+  ]
+}

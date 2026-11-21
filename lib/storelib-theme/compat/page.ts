@@ -199,9 +199,22 @@ export function drawPage(theme: CompatTheme, page: CompatPage, sections: readonl
 const VENDOR = /shopify|liquid/i
 export function withoutVendorTraces(html: string): string {
   if (!VENDOR.test(html)) return html
-  return html.replace(/<(script|style|textarea)\b([^>]*)>([\s\S]*?)<\/\1\s*>|<!--([\s\S]*?)-->|<link\b[^>]*>|<meta\b[^>]*>/gi, (m, tag: string | undefined, attrs: string | undefined, body: string | undefined, comment: string | undefined) => {
+  /*
+    Read as a browser reads it. A `<!--` inside a tag's attributes is not a
+    comment: the tag ends at its own `>` and nothing after it is hidden. A
+    theme section that writes one there (Materia's products grid: `<a
+    class="…" <!-- Added transition classes -->`) has no `-->` of its own
+    that a browser would look for, so read as a comment it ran on to the
+    next `-->` on the page, in a later section, and everything between was
+    taken out with it: the sections after it lost their wrappers and were
+    drawn inside it. So every other tag is matched whole, last, and left as
+    it is; only a `<!--` that starts outside a tag is a comment.
+  */
+  return html.replace(/<(script|style|textarea)\b([^>]*)>([\s\S]*?)<\/\1\s*>|<!--([\s\S]*?)-->|<link\b[^>]*>|<meta\b[^>]*>|<\/?[a-zA-Z](?:"[^"]*"|'[^']*'|[^'">])*>/gi, (m, tag: string | undefined, attrs: string | undefined, body: string | undefined, comment: string | undefined) => {
     if (comment !== undefined) return VENDOR.test(comment) && !/^(storelib|sl-)/.test(comment) ? "" : m
     if (!tag) {
+      /* Any other tag, matched only so a `<!--` among its attributes is not read as a comment. */
+      if (!/^<(link|meta)\b/i.test(m)) return m
       /* A connection warmed to Shopify's hosts, or a generator tag naming it. */
       if (/^<link/i.test(m)) return /\brel=["']?(preconnect|dns-prefetch)\b/i.test(m) && /href=["'][^"']*shopify/i.test(m) ? "" : m
       return /\bname=["']?generator\b/i.test(m) && VENDOR.test(m) ? "" : m

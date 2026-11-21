@@ -193,7 +193,7 @@
           "settings": {
             "label": "Delivery",
             "heading": "Sent within two days",
-            "text": "<p>Tracked delivery on every order, free over $60.</p>"
+            "text": "<p>Tracked delivery on every order.</p>"
           }
         },
         "column_3": {

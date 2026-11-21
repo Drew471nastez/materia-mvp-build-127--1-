@@ -7,7 +7,10 @@
         "image": "shopify://shop_images/clothing-rack-prints.webp",
         "image_alt": "Printed shirts and dresses on hangers",
         "min_height_desktop": 460,
-        "min_height_mobile": 360
+        "min_height_mobile": 360,
+        "enable_overlay": true,
+        "overlay_color": "#000000",
+        "overlay_opacity": 60
       },
       "blocks": {
         "eyebrow_1": {

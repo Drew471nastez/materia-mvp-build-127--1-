@@ -2,7 +2,7 @@
  * ===========================================================================
  *  THE TEMPLATES' COVERS: EACH HOME PAGE, DRAWN BY STORELIB'S OWN ENGINE
  * ===========================================================================
- *   npx tsx scripts/build-theme-template-covers.ts [template ...] [--out DIR] [--pages] [--empty] [--png]
+ *   npx tsx scripts/build-theme-template-covers.ts [template ...] [--out DIR] [--pages] [--all] [--empty] [--png]
  *
  * For each template in CODE_TEMPLATES (or the ones named): compose it from
  * theme-packages/, import it with the converter Add uses, serve it with the
@@ -16,8 +16,9 @@
  * The shop on the cover is the template's sample shop (scripts/theme-
  * templates/shops.ts): a few products with pictures, as a creator's store
  * has them. --empty draws a store with no products yet instead, and --pages
- * the product, collection, about, contact and FAQ pages too; both write PNGs
- * to --out for looking at, never to public/.
+ * the product, collection, about, contact and FAQ pages too, and --all every
+ * other page a template has (with --pages); all three write PNGs to --out for
+ * looking at, never to public/.
  *
  * Prints what the import reported, what the page asked for and did not get,
  * and what the theme's scripts threw. No database, no live store.
@@ -92,6 +93,12 @@ async function main() {
       const firstProduct = built.site.products[0]?.settings.slug as string | undefined
       const pages: [string, string][] = [["home", "/"]]
       if (flag("--pages")) pages.push(["product", firstProduct ? `/products/${firstProduct}` : "/products/sample"], ["collection", "/collections/all"], ["about", "/pages/about"], ["contact", "/pages/contact"], ["faqs", "/pages/faqs"])
+      /* --all: every other page the template carries (a lookbook, a licence, tour dates), and the pages the theme's own files draw. */
+      if (flag("--all")) {
+        const drawn = new Set(["home", "product", "collection", "about", "contact", "faqs", "cart", "search", "404", "collections", "list-collections", "blog", "article", "password", "page", "wishlist"])
+        for (const key of Object.keys(built.site.pages)) if (!drawn.has(key)) pages.push([key, `/pages/${key}`])
+        pages.push(["collections", "/collections"], ["cart", "/cart"], ["search", "/search"], ["notfound", "/pages-that-are-not/here"])
+      }
       console.log(`\n${t.name} (${id}): ${imported.fileCount} files, ${(imported.zipBytes / 1048576).toFixed(1)} MB, skipped ${imported.report.skipped.length}, notes ${imported.report.notes.length}`)
       for (const [vpName, vp] of [["desktop", { width: 1440, height: 900 }], ["phone", { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }]] as const) {
         for (const [pageName, path] of pages) {
@@ -116,10 +123,10 @@ async function main() {
             vendor: /shopify/i.test(document.body.innerText),
           })).catch(() => null)
           const png = await wholePage(p, vp.width, vp.height, "deviceScaleFactor" in vp ? vp.deviceScaleFactor : 1)
-          const ok = !!res && res.status() < 400 && !!facts && facts.broken.length === 0 && !facts.vendor
+          const ok = !!res && (res.status() < 400 || (pageName === "notfound" && res.status() === 404)) && !!facts && facts.broken.length === 0 && !facts.vendor
           if (!ok) failed++
           console.log(`  ${ok ? "ok  " : "FAIL"} ${vpName} ${pageName}: ${res?.status() ?? "no answer"}, ${facts?.sections} sections, ${facts?.height}px tall, overflow ${facts?.overflow}px${facts?.broken.length ? `, broken pictures ${JSON.stringify(facts.broken)}` : ""}${errors.length ? `, script errors ${JSON.stringify([...new Set(errors)].slice(0, 4))}` : ""}`)
-          if (OUT || flag("--pages") || flag("--empty") || flag("--png")) {
+          if (OUT || flag("--pages") || flag("--all") || flag("--empty") || flag("--png")) {
             const dir = OUT ?? join("scripts", "theme-templates", ".out")
             mkdirSync(dir, { recursive: true })
             writeFileSync(join(dir, `${t.template}-${pageName}-${vpName}${flag("--empty") ? "-empty" : ""}.png`), png)

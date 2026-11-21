@@ -78,7 +78,7 @@
             "pr_m": 0,
             "pt_d": 0,
             "pt_m": 0,
-            "text_color": "#111111",
+            "text_color": "",
             "font_size_d": 16,
             "font_size_m": 15,
             "line_height": 150,
@@ -109,7 +109,7 @@
             "variant_type": "swatches",
             "show_size_guide": true,
             "size_guide_page": "",
-            "size_guide_label": "Size guid",
+            "size_guide_label": "Size guide",
             "picker_text_hover": "#0f0f0f",
             "picker_bg_selected": "#1d1d1d",
             "picker_border_color": "#cecece",
@@ -157,41 +157,6 @@
             "enable_custom_button_text": true,
             "enable_estimated_delivery": false,
             "enable_custom_button_typography": true
-          }
-        },
-        "in_stock_7": {
-          "type": "in_stock",
-          "settings": {
-            "gap": 8,
-            "dot_size": 9,
-            "show_dot": true,
-            "alignment": "left",
-            "dot_color": "#10b981",
-            "skip_mode": "weekends",
-            "date_color": "",
-            "label_text": "In Stock,",
-            "text_color": "",
-            "date_format": "long",
-            "date_weight": "700",
-            "font_weight": "500",
-            "middle_text": "Order Today To Receive It By",
-            "offset_days": 5,
-            "padding_top": 8,
-            "accent_color": "#10b981",
-            "container_bg": "",
-            "enable_pulse": true,
-            "label_weight": "700",
-            "padding_bottom": 23,
-            "container_radius": 24,
-            "container_shadow": false,
-            "enable_container": false,
-            "font_size_mobile": 13,
-            "font_size_desktop": 14,
-            "container_padding_x": 18,
-            "container_padding_y": 8,
-            "container_border_color": "",
-            "container_border_style": "dashed",
-            "container_border_width": 1
           }
         },
         "pickup_avaiability_8": {
@@ -282,7 +247,6 @@
         "price_4",
         "variant_picker_5",
         "buy_buttons_6",
-        "in_stock_7",
         "pickup_avaiability_8",
         "product_grouped_9",
         "more_colors_10",
@@ -308,7 +272,7 @@
           "settings": {
             "label": "Delivery",
             "heading": "Tracked delivery",
-            "text": "<p>Free on orders over $60.</p>"
+            "text": "<p>Sent within two working days.</p>"
           }
         },
         "column_3": {

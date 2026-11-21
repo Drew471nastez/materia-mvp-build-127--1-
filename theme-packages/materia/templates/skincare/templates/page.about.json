@@ -1,0 +1,249 @@
+{
+  "sections": {
+    "image_and_video_text_1": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "image_position": "right",
+        "text_column_width": 50,
+        "content_align": "left",
+        "content_gap": 16,
+        "media_type": "image",
+        "video_autoplay": true,
+        "video_loop": true,
+        "video_controls": false,
+        "aspect_w": 5,
+        "aspect_h": 5,
+        "image_fit": "cover",
+        "image_radius": 12,
+        "enable_overlay": false,
+        "overlay_opacity": 30,
+        "enable_custom_style": false,
+        "enable_custom_fonts": false,
+        "heading_font": "assistant_n4",
+        "body_font": "assistant_n4",
+        "gap_desktop": 64,
+        "padding_top_desktop": 100,
+        "padding_bottom_desktop": 100,
+        "side_padding_desktop": 32,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "content_align_mobile": "left",
+        "mobile_order": "media_first",
+        "gap_mobile": 32,
+        "padding_top_mobile": 60,
+        "padding_bottom_mobile": 60,
+        "side_padding_mobile": 20,
+        "section_margin_top_mobile": 0,
+        "section_margin_bottom_mobile": 0,
+        "image": "shopify://shop_images/skincare-bath.webp"
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "About",
+            "enable_custom_style": false,
+            "size": 12
+          }
+        },
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Say why you started",
+            "tag": "h1",
+            "enable_custom_style": false,
+            "size_desktop": 44,
+            "size_mobile": 32
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Two or three sentences: whose skin you first made this for, what you could not find on the shelf and who formulates the products now.</p>",
+            "enable_custom_style": false,
+            "size_desktop": 17,
+            "size_mobile": 15
+          }
+        },
+        "button_1": {
+          "type": "button",
+          "settings": {
+            "label": "Shop the range",
+            "button_style": "primary",
+            "full_width": false,
+            "enable_custom_style": false,
+            "use_theme_button": true,
+            "padding_x": 26,
+            "padding_y": 14,
+            "radius": 8,
+            "border_width": 1,
+            "font_size": 14,
+            "font_weight": "600",
+            "uppercase": false,
+            "link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_1",
+        "subheading_1",
+        "button_1"
+      ]
+    },
+    "text_columns_1": {
+      "type": "text-columns",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "fluid_container",
+        "reset_spacing": true,
+        "content_alignment": "left",
+        "columns_desktop": 3,
+        "columns_tablet": 2,
+        "column_gap": 48,
+        "header_gap": 48,
+        "show_dividers": true,
+        "enable_custom_style": false,
+        "enable_custom_fonts": false,
+        "heading_font": "assistant_n4",
+        "body_font": "assistant_n4",
+        "item_heading_size": 22,
+        "reveal": true,
+        "padding_top": 80,
+        "padding_bottom": 80,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "show_on_mobile": true,
+        "mobile_layout": "stack",
+        "show_arrows": true,
+        "item_heading_size_mobile": 20,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "section_margin_top_mobile": 0,
+        "section_margin_bottom_mobile": 0
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "How we work",
+            "enable_custom_style": false,
+            "enable_custom_fonts": false,
+            "font": "assistant_n4",
+            "weight_enable": false,
+            "weight": "700",
+            "size_enable": false,
+            "size_desktop": 36,
+            "size_mobile": 28,
+            "line_height": 1.15,
+            "tracking": 0
+          }
+        },
+        "column_1": {
+          "type": "column",
+          "settings": {
+            "label": "Formulas",
+            "heading": "Short lists",
+            "text": "<p>Say how many ingredients a product has, and why.</p>"
+          }
+        },
+        "column_2": {
+          "type": "column",
+          "settings": {
+            "label": "Batches",
+            "heading": "Made often",
+            "text": "<p>Say where and how often you make them.</p>"
+          }
+        },
+        "column_3": {
+          "type": "column",
+          "settings": {
+            "label": "Honesty",
+            "heading": "No miracle claims",
+            "text": "<p>Say what the products do and what they do not.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "column_1",
+        "column_2",
+        "column_3"
+      ]
+    },
+    "image_and_video_text_2": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "image_position": "left",
+        "text_column_width": 50,
+        "content_align": "left",
+        "content_gap": 16,
+        "media_type": "image",
+        "video_autoplay": true,
+        "video_loop": true,
+        "video_controls": false,
+        "aspect_w": 5,
+        "aspect_h": 5,
+        "image_fit": "cover",
+        "image_radius": 12,
+        "enable_overlay": false,
+        "overlay_opacity": 30,
+        "enable_custom_style": false,
+        "enable_custom_fonts": false,
+        "heading_font": "assistant_n4",
+        "body_font": "assistant_n4",
+        "gap_desktop": 64,
+        "padding_top_desktop": 100,
+        "padding_bottom_desktop": 100,
+        "side_padding_desktop": 32,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "content_align_mobile": "left",
+        "mobile_order": "media_first",
+        "gap_mobile": 32,
+        "padding_top_mobile": 60,
+        "padding_bottom_mobile": 60,
+        "side_padding_mobile": 20,
+        "section_margin_top_mobile": 0,
+        "section_margin_bottom_mobile": 0,
+        "image": "shopify://shop_images/skincare-soap.webp"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Where it is made",
+            "tag": "h2",
+            "enable_custom_style": false,
+            "size_desktop": 44,
+            "size_mobile": 32
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Add a short paragraph about your lab or workshop and the people in it.</p>",
+            "enable_custom_style": false,
+            "size_desktop": 17,
+            "size_mobile": 15
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_1"
+      ]
+    }
+  },
+  "order": [
+    "image_and_video_text_1",
+    "text_columns_1",
+    "image_and_video_text_2"
+  ]
+}

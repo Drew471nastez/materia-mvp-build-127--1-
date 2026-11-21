@@ -1,0 +1,254 @@
+{
+  "sections": {
+    "image_and_video_text_1": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "image_position": "right",
+        "text_column_width": 50,
+        "content_align": "left",
+        "content_gap": 16,
+        "media_type": "image",
+        "video_autoplay": true,
+        "video_loop": true,
+        "video_controls": false,
+        "aspect_w": 5,
+        "aspect_h": 5,
+        "image_fit": "cover",
+        "image_radius": 12,
+        "enable_overlay": false,
+        "overlay_opacity": 30,
+        "enable_custom_style": false,
+        "enable_custom_fonts": false,
+        "heading_font": "assistant_n4",
+        "body_font": "assistant_n4",
+        "gap_desktop": 64,
+        "padding_top_desktop": 100,
+        "padding_bottom_desktop": 100,
+        "side_padding_desktop": 32,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "content_align_mobile": "left",
+        "mobile_order": "media_first",
+        "gap_mobile": 32,
+        "padding_top_mobile": 60,
+        "padding_bottom_mobile": 60,
+        "side_padding_mobile": 20,
+        "section_margin_top_mobile": 0,
+        "section_margin_bottom_mobile": 0,
+        "image": "shopify://shop_images/workspace-notebook.webp"
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "About",
+            "enable_custom_style": false,
+            "size": 12
+          }
+        },
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Say who builds the templates",
+            "tag": "h1",
+            "enable_custom_style": false,
+            "size_desktop": 44,
+            "size_mobile": 32
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Two or three sentences about you: what you do, how long you have planned your own work this way and why you started selling the pages you use.</p>",
+            "enable_custom_style": false,
+            "size_desktop": 17,
+            "size_mobile": 15
+          }
+        },
+        "button_1": {
+          "type": "button",
+          "settings": {
+            "label": "See the templates",
+            "button_style": "primary",
+            "full_width": false,
+            "enable_custom_style": false,
+            "use_theme_button": true,
+            "padding_x": 26,
+            "padding_y": 14,
+            "radius": 8,
+            "border_width": 1,
+            "font_size": 14,
+            "font_weight": "600",
+            "uppercase": false,
+            "link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_1",
+        "subheading_1",
+        "button_1"
+      ]
+    },
+    "image_and_video_text_2": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "reset_spacing": true,
+        "image_position": "left",
+        "text_column_width": 50,
+        "content_align": "left",
+        "content_gap": 16,
+        "media_type": "image",
+        "video_autoplay": true,
+        "video_loop": true,
+        "video_controls": false,
+        "aspect_w": 5,
+        "aspect_h": 5,
+        "image_fit": "contain",
+        "image_radius": 12,
+        "enable_overlay": false,
+        "overlay_opacity": 30,
+        "enable_custom_style": false,
+        "enable_custom_fonts": false,
+        "heading_font": "assistant_n4",
+        "body_font": "assistant_n4",
+        "gap_desktop": 64,
+        "padding_top_desktop": 100,
+        "padding_bottom_desktop": 100,
+        "side_padding_desktop": 32,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "content_align_mobile": "left",
+        "mobile_order": "media_first",
+        "gap_mobile": 32,
+        "padding_top_mobile": 60,
+        "padding_bottom_mobile": 60,
+        "side_padding_mobile": 20,
+        "section_margin_top_mobile": 0,
+        "section_margin_bottom_mobile": 0,
+        "image": "shopify://shop_images/workspace-mock-board.webp"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Built in the open",
+            "tag": "h2",
+            "enable_custom_style": false,
+            "size_desktop": 44,
+            "size_mobile": 32
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Show a template as it looks in use. Replace this picture with a screenshot of your own.</p>",
+            "enable_custom_style": false,
+            "size_desktop": 17,
+            "size_mobile": 15
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_1"
+      ]
+    },
+    "brand_info_1": {
+      "type": "brand-info",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "left_column_width": 42,
+        "column_gap": 80,
+        "row_gap": 40,
+        "vertical_align": "center",
+        "left_text_align": "left",
+        "right_text_align": "left",
+        "override_colors": false,
+        "override_fonts": false,
+        "heading_font": "sans-serif",
+        "body_font": "sans-serif",
+        "heading_letter_spacing": 0,
+        "paragraph_line_height": 1.6,
+        "padding_top": 80,
+        "padding_bottom": 80,
+        "padding_horizontal": 40,
+        "margin_top": 0,
+        "margin_bottom": 0,
+        "mobile_stack_order": "left_first",
+        "left_text_align_mobile": "left",
+        "right_text_align_mobile": "left",
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 48,
+        "padding_horizontal_mobile": 22,
+        "row_gap_mobile": 28
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "What a template should do",
+            "column": "left",
+            "use_custom_color": false,
+            "custom_color": "#111111",
+            "size": 40,
+            "size_mobile": 30,
+            "font_weight": "theme",
+            "text_transform": "none",
+            "space_above": 0,
+            "space_below": 0
+          }
+        },
+        "paragraph_1": {
+          "type": "paragraph",
+          "settings": {
+            "text": "<p>Write your view in a few plain sentences. For example: a template should take ten minutes to set up, show you today first, and get out of the way.</p>",
+            "column": "right",
+            "use_custom_color": false,
+            "custom_color": "#444444",
+            "size": 17,
+            "size_mobile": 15,
+            "font_weight": "theme",
+            "space_above": 0,
+            "space_below": 28
+          }
+        },
+        "link_1": {
+          "type": "link",
+          "settings": {
+            "text": "HOW IT WORKS",
+            "column": "right",
+            "use_custom_color": false,
+            "custom_color": "#111111",
+            "custom_color_hover": "#555555",
+            "size": 14,
+            "font_weight": "theme",
+            "text_transform": "uppercase",
+            "letter_spacing": 0.5,
+            "space_above": 8,
+            "space_below": 0,
+            "url": "/pages/how-it-works"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "paragraph_1",
+        "link_1"
+      ]
+    }
+  },
+  "order": [
+    "image_and_video_text_1",
+    "image_and_video_text_2",
+    "brand_info_1"
+  ]
+}

@@ -191,6 +191,26 @@
             assign collections = collections | reverse
           endif
         -%}
+        {%- liquid
+          comment
+            Every product ("all") is not a collection the shop made, so it is
+            not listed and not counted.
+          endcomment
+          assign listed_count = 0
+          for c in collections
+            unless c.handle == 'all'
+              assign listed_count = listed_count | plus: 1
+            endunless
+          endfor
+        -%}
+        {%- if listed_count == 0 -%}
+          {%- comment -%} A shop with no collections yet: said plainly, with the way to every product. {%- endcomment -%}
+          <div class="collection-list-empty text-center" data-lcp-empty style="padding:24px 0 8px;max-width:46ch;margin-inline:auto;">
+            <h2 class="h4" style="margin:0 0 8px;">{{ section_st.empty_heading | default: 'No collections yet' | escape }}</h2>
+            <p style="margin:0 0 20px;color:var(--color-text);">{{ section_st.empty_text | default: 'Collections show here once the shop has some. Every product is on one page for now.' | escape }}</p>
+            <a class="button inline-block btn-primary" data-theme-button="primary" href="{{ routes.all_products_collection_url }}">{{ section_st.empty_button_label | default: 'See all products' | escape }}</a>
+          </div>
+        {%- endif -%}
         {%- paginate collections by items_to_show -%}
           <grid-list
             {% if scroll_animation != 'slide_in' %}
@@ -202,6 +222,7 @@
               style="{{ col_style | strip | strip_newlines }}"
             >
               {% for collection in collections %}
+                {%- if collection.handle == 'all' -%}{%- continue -%}{%- endif -%}
                 <div class="collection-items relative align-self-start{% if pagination == 'load_more_button' or pagination == 'infinit_scrolling' %} loadmore-item{% endif %}">
                   <motion-element
                     data-motion="fade-up-lg"
@@ -325,6 +346,24 @@
           "label": "Full width"
         }
       ]
+    },
+    {
+      "type": "text",
+      "id": "empty_heading",
+      "label": "Heading when there are no collections",
+      "default": "No collections yet"
+    },
+    {
+      "type": "text",
+      "id": "empty_text",
+      "label": "Text when there are no collections",
+      "default": "Collections show here once the shop has some. Every product is on one page for now."
+    },
+    {
+      "type": "text",
+      "id": "empty_button_label",
+      "label": "Button when there are no collections",
+      "default": "See all products"
     },
     {
       "type": "checkbox",

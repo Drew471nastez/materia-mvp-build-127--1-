@@ -7,7 +7,10 @@
         "image": "shopify://shop_images/fitness-dumbbells.webp",
         "image_alt": "A long rack of dumbbells in a gym",
         "min_height_desktop": 480,
-        "min_height_mobile": 380
+        "min_height_mobile": 380,
+        "enable_overlay": true,
+        "overlay_color": "#000000",
+        "overlay_opacity": 55
       },
       "blocks": {
         "eyebrow_1": {

@@ -2123,8 +2123,9 @@ function paginateList(ctx: Ctx, list: unknown, by: number, page: CompatPage): { 
     const q = new URLSearchParams({ ...(page.query ?? {}), page: String(n) })
     return `${page.path}?${q.toString()}`
   }
+  /* One page has no parts, as on Shopify: a theme draws its page numbers `if paginate.parts.size > 0`, and a lone "1" under a short list was this. */
   const parts: O[] = []
-  for (let n = 1; n <= pages; n++) {
+  for (let n = 1; pages > 1 && n <= pages; n++) {
     if (pages > 7 && n !== 1 && n !== pages && Math.abs(n - current) > 2) {
       if (parts[parts.length - 1]?.title !== "…") parts.push({ title: "…", is_link: false })
       continue

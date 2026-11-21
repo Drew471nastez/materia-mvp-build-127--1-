@@ -916,3 +916,28 @@ html.nav-open :is(#materia-header, .shopify-section.section-header) header-inner
   :is(#materia-header, .shopify-section.section-header) .header__action > .hs-cta { transition: none !important; }
   :is(#materia-header, .shopify-section.section-header) .header__action :is(a, button, summary, span) { transition: none !important; }
 }
+
+/* A logo written as words takes the room the words need, not the width set
+   for a logo picture (78px on phones): a shop name wider than that ran over
+   the icons beside it. It stops short of them and ends in an ellipsis. */
+@media (max-width: 1024.98px) {
+  :is(#materia-header, .shopify-section.section-header) .header__logo:has(.header__logo-text),
+  .shopify-section-header-sticky .header__logo:has(.header__logo-text) {
+    width: auto;
+    max-width: min(46vw, 100%);
+  }
+  :is(#materia-header, .shopify-section.section-header) .header__logo:has(.header__logo-text) :is(h1, a, .header__logo),
+  .shopify-section-header-sticky .header__logo:has(.header__logo-text) :is(h1, a, .header__logo) {
+    width: auto;
+    max-width: 100%;
+    min-width: 0;
+  }
+  :is(#materia-header, .shopify-section.section-header) .header__logo .header__logo-text,
+  .shopify-section-header-sticky .header__logo .header__logo-text {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

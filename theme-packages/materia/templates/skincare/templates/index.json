@@ -1,0 +1,1020 @@
+{
+  "sections": {
+    "dual_image_with_text_1": {
+      "type": "dual-image-with-text",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "reset_spacing": true,
+        "image_position": "right",
+        "text_column_width": 46,
+        "content_align": "left",
+        "content_gap": 16,
+        "aspect_ratio_w": 4,
+        "aspect_ratio_h": 5,
+        "show_dots": false,
+        "dots_behind_main": true,
+        "dot_size": 60,
+        "dot_opacity": 60,
+        "dot_a_x": 28,
+        "dot_a_y": 30,
+        "dot_b_x": 60,
+        "dot_b_y": 70,
+        "enable_custom_style": false,
+        "enable_custom_fonts": false,
+        "heading_font": "assistant_n4",
+        "body_font": "assistant_n4",
+        "gap_desktop": 84,
+        "padding_top_desktop": 72,
+        "padding_bottom_desktop": 88,
+        "side_padding_desktop": 32,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "content_align_mobile": "left",
+        "mobile_order": "media_first",
+        "gap_mobile": 32,
+        "padding_top_mobile": 60,
+        "padding_bottom_mobile": 60,
+        "side_padding_mobile": 16,
+        "section_margin_top_mobile": 0,
+        "section_margin_bottom_mobile": 0
+      },
+      "blocks": {
+        "main_image_1": {
+          "type": "main_image",
+          "settings": {
+            "anchor": "top_right",
+            "size": 72,
+            "rotation": 0,
+            "fit": "cover",
+            "position_x": 50,
+            "position_y": 50,
+            "radius": 20,
+            "shadow": false,
+            "image": "shopify://shop_images/skincare-amber-bottle.webp",
+            "alt": "An amber serum bottle in window light"
+          }
+        },
+        "accent_image_1": {
+          "type": "accent_image",
+          "settings": {
+            "anchor": "bottom_left",
+            "size": 44,
+            "offset_x": 0,
+            "offset_y": 0,
+            "rotation": 0,
+            "scale": 100,
+            "above_main": true,
+            "fit": "cover",
+            "position_x": 50,
+            "position_y": 50,
+            "radius": 20,
+            "shadow": false,
+            "border_width": 0,
+            "enable_custom_style": false,
+            "size_mobile": 60,
+            "hide_on_mobile": false,
+            "image": "shopify://shop_images/skincare-swatches.webp",
+            "alt": "Cream swatches"
+          }
+        },
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Fragrance free skincare",
+            "enable_custom_style": false,
+            "size": 12
+          }
+        },
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Four products. One short routine.",
+            "tag": "h1",
+            "enable_custom_style": false,
+            "size_desktop": 62,
+            "size_mobile": 38
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>A cleanser, a serum and two moisturisers, made for skin that reacts to most things. Nothing in them is there for the smell.</p>",
+            "enable_custom_style": false,
+            "size_desktop": 17,
+            "size_mobile": 15
+          }
+        },
+        "button_1": {
+          "type": "button",
+          "settings": {
+            "label": "Shop the range",
+            "button_style": "primary",
+            "full_width": false,
+            "enable_custom_style": false,
+            "use_theme_button": true,
+            "padding_x": 26,
+            "padding_y": 14,
+            "radius": 40,
+            "border_width": 1,
+            "font_size": 14,
+            "font_weight": "600",
+            "uppercase": false,
+            "link": "/collections/all"
+          }
+        },
+        "button_2": {
+          "type": "button",
+          "settings": {
+            "label": "See the routine",
+            "button_style": "secondary",
+            "full_width": false,
+            "enable_custom_style": false,
+            "use_theme_button": true,
+            "padding_x": 26,
+            "padding_y": 14,
+            "radius": 40,
+            "border_width": 1,
+            "font_size": 14,
+            "font_weight": "600",
+            "uppercase": false,
+            "link": "/pages/routine"
+          }
+        }
+      },
+      "block_order": [
+        "main_image_1",
+        "accent_image_1",
+        "eyebrow_1",
+        "heading_1",
+        "subheading_1",
+        "button_1",
+        "button_2"
+      ]
+    },
+    "ingredients_highlight_bar_1": {
+      "type": "ingredients-highlight-bar",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "full_width",
+        "center_items": false,
+        "show_accent_bar": false,
+        "accent_height": 6,
+        "icon_size": 40,
+        "icon_stroke": 1.6,
+        "use_custom_background": false,
+        "enable_custom_fonts": false,
+        "heading_font": "assistant_n4",
+        "body_font": "assistant_n4",
+        "label_size": 16,
+        "label_top_weight": "400",
+        "label_bottom_weight": "700",
+        "item_gap_desktop": 28,
+        "padding_top_desktop": 22,
+        "padding_bottom_desktop": 22,
+        "mobile_layout": "stack",
+        "mobile_per_view": "2.2",
+        "mobile_align": "center",
+        "icon_size_mobile": 34,
+        "item_gap_mobile": 24,
+        "padding_top_mobile": 18,
+        "padding_bottom_mobile": 18
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "heading": "In every formula",
+            "heading_hide_mobile": false,
+            "enable_custom_style": false,
+            "heading_uppercase": true,
+            "heading_size_desktop": 26,
+            "heading_size_mobile": 22,
+            "heading_weight": "theme",
+            "heading_letter_spacing": 0
+          }
+        },
+        "item_1": {
+          "type": "item",
+          "settings": {
+            "top_label": "Fragrance free",
+            "bottom_label": "No perfume, no essential oils",
+            "icon_source": "icon",
+            "icon": "droplet"
+          }
+        },
+        "item_2": {
+          "type": "item",
+          "settings": {
+            "top_label": "Full ingredient list",
+            "bottom_label": "On every product page",
+            "icon_source": "icon",
+            "icon": "flask"
+          }
+        },
+        "item_3": {
+          "type": "item",
+          "settings": {
+            "top_label": "Made in small batches",
+            "bottom_label": "Batch date on the base",
+            "icon_source": "icon",
+            "icon": "leaf"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "item_1",
+        "item_2",
+        "item_3"
+      ]
+    },
+    "products_listing_1": {
+      "type": "products-listing",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "fluid_container",
+        "reset_spacing": true,
+        "items_to_show": 8,
+        "heading": "Featured products",
+        "show_view_all": true,
+        "view_all_label": "View all products",
+        "view_all_position": "bottom",
+        "heading_font_size": 32,
+        "show_badges": true,
+        "show_vendor": false,
+        "show_rating": false,
+        "show_short_description": false,
+        "show_swatches": true,
+        "show_price": true,
+        "show_add_to_cart": true,
+        "show_action": true,
+        "header_alignment": "center",
+        "heading_subtext_gap": 8,
+        "items_per_row": 4,
+        "column_gap": 24,
+        "row_gap": 30,
+        "enable_custom_style": false,
+        "enable_custom_fonts": false,
+        "heading_font": "assistant_n4",
+        "body_font": "assistant_n4",
+        "reveal": true,
+        "padding_top": 49,
+        "padding_bottom": 49,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "items_per_row_mobile": 2,
+        "section_margin_top_mobile": 0,
+        "section_margin_bottom_mobile": 0
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "The range",
+            "enable_custom_style": false,
+            "size": 13
+          }
+        },
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Everything we make",
+            "enable_custom_style": false,
+            "size_desktop": 32,
+            "size_mobile": 26
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Each one does a single job, so you can tell what is working.</p>",
+            "enable_custom_style": false,
+            "size": 16
+          }
+        },
+        "button_1": {
+          "type": "button",
+          "settings": {
+            "text": "Shop all",
+            "position": "bottom",
+            "button_style": "secondary",
+            "enable_custom_style": false,
+            "use_theme_button": true,
+            "radius": 8,
+            "pad_x": 26,
+            "pad_y": 14,
+            "size": 15,
+            "border_width": 1,
+            "link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_1",
+        "subheading_1",
+        "button_1"
+      ]
+    },
+    "benefits2_1": {
+      "type": "benefits2",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "full_width",
+        "reset_spacing": true,
+        "enable_centered_video": false,
+        "image_border_radius": 24,
+        "image_shadow": "none",
+        "image_hover_animation": "none",
+        "enable_custom_style": false,
+        "enable_custom_fonts": false,
+        "heading_font": "helvetica_n4",
+        "body_font": "helvetica_n4",
+        "feature_title_font_weight": "normal",
+        "feature_title_font_size": 19,
+        "feature_description_font_size": 14,
+        "reveal": true,
+        "padding_top_desktop": 60,
+        "padding_bottom_desktop": 60,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "padding_top_mobile": 20,
+        "padding_bottom_mobile": 20,
+        "section_margin_top_mobile": 0,
+        "section_margin_bottom_mobile": 0,
+        "center_image": "shopify://shop_images/skincare-hands-jar.webp"
+      },
+      "blocks": {
+        "feature_1": {
+          "type": "feature",
+          "settings": {
+            "title": "Niacinamide",
+            "description": "Helps even the look of skin tone.",
+            "icon": "sparkle",
+            "svg_icon_size": 40,
+            "enable_icon_circle_bg": true,
+            "icon_circle_bg_size": 50,
+            "icon_circle_border_radius": 50,
+            "enable_custom_style": true,
+            "icon_color": "#27474a",
+            "icon_circle_bg_color": "#eaf0ee"
+          }
+        },
+        "feature_2": {
+          "type": "feature",
+          "settings": {
+            "title": "Squalane",
+            "description": "A light oil that softens without shine.",
+            "icon": "organic",
+            "svg_icon_size": 40,
+            "enable_icon_circle_bg": true,
+            "icon_circle_bg_size": 50,
+            "icon_circle_border_radius": 50,
+            "enable_custom_style": true,
+            "icon_color": "#27474a",
+            "icon_circle_bg_color": "#eaf0ee"
+          }
+        },
+        "feature_3": {
+          "type": "feature",
+          "settings": {
+            "title": "Ceramides",
+            "description": "Support the skin barrier.",
+            "icon": "shield",
+            "svg_icon_size": 40,
+            "enable_icon_circle_bg": true,
+            "icon_circle_bg_size": 50,
+            "icon_circle_border_radius": 50,
+            "enable_custom_style": true,
+            "icon_color": "#27474a",
+            "icon_circle_bg_color": "#eaf0ee"
+          }
+        },
+        "feature_4": {
+          "type": "feature",
+          "settings": {
+            "title": "Glycerin",
+            "description": "Draws water into the top layer.",
+            "icon": "leaf",
+            "svg_icon_size": 40,
+            "enable_icon_circle_bg": true,
+            "icon_circle_bg_size": 50,
+            "icon_circle_border_radius": 50,
+            "enable_custom_style": true,
+            "icon_color": "#27474a",
+            "icon_circle_bg_color": "#eaf0ee"
+          }
+        },
+        "feature_5": {
+          "type": "feature",
+          "settings": {
+            "title": "Oat extract",
+            "description": "Calms the feel of tight skin.",
+            "icon": "heart",
+            "svg_icon_size": 40,
+            "enable_icon_circle_bg": true,
+            "icon_circle_bg_size": 50,
+            "icon_circle_border_radius": 50,
+            "enable_custom_style": true,
+            "icon_color": "#27474a",
+            "icon_circle_bg_color": "#eaf0ee"
+          }
+        },
+        "feature_6": {
+          "type": "feature",
+          "settings": {
+            "title": "Zinc PCA",
+            "description": "Helps balance oil through the day.",
+            "icon": "gem",
+            "svg_icon_size": 40,
+            "enable_icon_circle_bg": true,
+            "icon_circle_bg_size": 50,
+            "icon_circle_border_radius": 50,
+            "enable_custom_style": true,
+            "icon_color": "#27474a",
+            "icon_circle_bg_color": "#eaf0ee"
+          }
+        }
+      },
+      "block_order": [
+        "feature_1",
+        "feature_2",
+        "feature_3",
+        "feature_4",
+        "feature_5",
+        "feature_6"
+      ]
+    },
+    "how_to_use_1": {
+      "type": "how-to-use",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "cols_desktop": 3,
+        "content_align": "left",
+        "image_ratio": "1/1",
+        "image_fit": "cover",
+        "image_radius": 10,
+        "image_border": true,
+        "enable_custom_style": false,
+        "enable_custom_fonts": false,
+        "heading_font": "assistant_n4",
+        "body_font": "assistant_n4",
+        "number_size": 22,
+        "title_size_desktop": 20,
+        "desc_size_desktop": 16,
+        "reveal": true,
+        "col_gap_desktop": 32,
+        "gap_desktop": 32,
+        "padding_top_desktop": 64,
+        "padding_bottom_desktop": 64,
+        "margin_top": 0,
+        "margin_bottom": 0,
+        "enable_mobile_carousel": true,
+        "mobile_items_per_view": 1.1,
+        "carousel_autoplay": false,
+        "carousel_autoplay_speed": 4,
+        "title_size_mobile": 18,
+        "desc_size_mobile": 15,
+        "col_gap_mobile": 16,
+        "gap_mobile": 24,
+        "padding_top_mobile": 40,
+        "padding_bottom_mobile": 40
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Morning and night, in three steps",
+            "enable_accent": false,
+            "accent_italic": false,
+            "align": "center",
+            "gap_below": 48,
+            "enable_custom_style": false,
+            "size_desktop": 40,
+            "size_mobile": 28
+          }
+        },
+        "step_1": {
+          "type": "step",
+          "settings": {
+            "title": "Cleanse",
+            "description": "<p>A pea of gel cleanser on damp skin, thirty seconds, rinse with lukewarm water.</p>",
+            "image": "shopify://shop_images/skincare-pump.webp",
+            "number": "1"
+          }
+        },
+        "step_2": {
+          "type": "step",
+          "settings": {
+            "title": "Treat",
+            "description": "<p>Three drops of serum pressed into the face and neck while skin is still damp.</p>",
+            "image": "shopify://shop_images/skincare-dropper-hand.webp",
+            "number": "2"
+          }
+        },
+        "step_3": {
+          "type": "step",
+          "settings": {
+            "title": "Moisturise",
+            "description": "<p>Day cream in the morning, night balm in the evening. Sunscreen last, every day.</p>",
+            "image": "shopify://shop_images/skincare-swatches.webp",
+            "number": "3"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "step_1",
+        "step_2",
+        "step_3"
+      ]
+    },
+    "benefits_tabs_1": {
+      "type": "benefits-tabs",
+      "settings": {
+        "color_scheme": "scheme-7dae8b89-7a81-4c2c-b8e2-92533766f8ca",
+        "section_width": "container",
+        "reset_spacing": true,
+        "open_first_by_default": true,
+        "cols_desktop": 4,
+        "tab_gap_desktop": 20,
+        "gap_header_blocks": 14,
+        "gap_header_to_tabs": 32,
+        "gap_tabs_to_cta": 32,
+        "enable_custom_style": false,
+        "tab_padding": 18,
+        "tab_radius": 14,
+        "tab_border_width": 0,
+        "icon_box_size": 40,
+        "icon_size": 22,
+        "enable_custom_fonts": false,
+        "heading_font": "helvetica_n4",
+        "body_font": "helvetica_n4",
+        "tab_title_size": 16,
+        "tab_desc_size": 14,
+        "reveal": true,
+        "padding_top_desktop": 88,
+        "padding_bottom_desktop": 88,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "cols_mobile": "1",
+        "tab_gap": 16,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "section_margin_top_mobile": 0,
+        "section_margin_bottom_mobile": 0
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "What goes in, and what stays out",
+            "tag": "h2",
+            "size_desktop": 44,
+            "size_mobile": 32,
+            "enable_custom_style": false,
+            "color": "#0F0F0F",
+            "weight": "700"
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "Open a row. Replace each with what is true for your formulas.",
+            "size_desktop": 17,
+            "size_mobile": 15,
+            "enable_custom_style": false,
+            "color": "#555555"
+          }
+        },
+        "tab_1": {
+          "type": "tab",
+          "settings": {
+            "title": "What goes in",
+            "description": "Name your active ingredients and their percentages. People with reactive skin read this first.",
+            "icon_source": "icon",
+            "icon": "check",
+            "enable_custom_style": false,
+            "icon_color": "#0F0F0F",
+            "icon_box_bg": "#F0F0F0",
+            "title_color": "#0F0F0F"
+          }
+        },
+        "tab_2": {
+          "type": "tab",
+          "settings": {
+            "title": "What stays out",
+            "description": "Fragrance, essential oils, drying alcohols and dyes. List your own exclusions.",
+            "icon_source": "icon",
+            "icon": "shield",
+            "enable_custom_style": false,
+            "icon_color": "#0F0F0F",
+            "icon_box_bg": "#F0F0F0",
+            "title_color": "#0F0F0F"
+          }
+        },
+        "tab_3": {
+          "type": "tab",
+          "settings": {
+            "title": "Packaging",
+            "description": "Say what the bottles are made of, and whether you sell refills.",
+            "icon_source": "icon",
+            "icon": "box",
+            "enable_custom_style": false,
+            "icon_color": "#0F0F0F",
+            "icon_box_bg": "#F0F0F0",
+            "title_color": "#0F0F0F"
+          }
+        },
+        "tab_4": {
+          "type": "tab",
+          "settings": {
+            "title": "Testing",
+            "description": "Say how the products are tested, and remind people to patch test before first use.",
+            "icon_source": "icon",
+            "icon": "heart",
+            "enable_custom_style": false,
+            "icon_color": "#0F0F0F",
+            "icon_box_bg": "#F0F0F0",
+            "title_color": "#0F0F0F"
+          }
+        },
+        "cta_1": {
+          "type": "cta",
+          "settings": {
+            "label": "Read the ingredient lists",
+            "button_style": "secondary",
+            "enable_custom_style": false,
+            "bg": "#0F0F0F",
+            "bg_hover": "#444444",
+            "text_color": "#FFFFFF",
+            "text_color_hover": "#FFFFFF",
+            "use_theme_button": true,
+            "size": 14,
+            "pad_x": 32,
+            "pad_y": 14,
+            "radius": 100,
+            "link": "/pages/ingredients"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_1",
+        "tab_1",
+        "tab_2",
+        "tab_3",
+        "tab_4",
+        "cta_1"
+      ]
+    },
+    "testimonials3_1": {
+      "type": "testimonials3",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "full_width",
+        "text_align": "center",
+        "max_width": 1280,
+        "card_gap": 20,
+        "card_radius": 14,
+        "name_size": 17,
+        "star_size": 18,
+        "show_nav": true,
+        "show_dots": false,
+        "enable_custom_style": false,
+        "enable_custom_fonts": false,
+        "heading_font": "assistant_n4",
+        "body_font": "assistant_n4",
+        "reveal": true,
+        "padding_top": 72,
+        "padding_bottom": 72,
+        "mobile_per_view": "1"
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Reviews",
+            "enable_custom_style": false,
+            "weight_enable": false,
+            "weight": "700"
+          }
+        },
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "From people who use it",
+            "size": 44,
+            "size_mobile": 28,
+            "enable_custom_style": false,
+            "weight_enable": false,
+            "weight": "800"
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Placeholders. Replace each with words from a real customer.</p>",
+            "size": 16,
+            "size_mobile": 15,
+            "enable_custom_style": false,
+            "weight_enable": false,
+            "weight": "400"
+          }
+        },
+        "testimonial_1": {
+          "type": "testimonial",
+          "settings": {
+            "rating": 0,
+            "body": "Write what this customer said about the product.",
+            "name": "Customer name",
+            "date_prefix": "",
+            "video_autoplay": true,
+            "video_loop": true,
+            "video_sound_on": false,
+            "video_controls": false,
+            "body_size_desktop": 14,
+            "body_size_mobile": 14,
+            "image": "shopify://shop_images/skincare-hand-serum.webp"
+          }
+        },
+        "testimonial_2": {
+          "type": "testimonial",
+          "settings": {
+            "rating": 0,
+            "body": "Write what this customer said about the product.",
+            "name": "Customer name",
+            "date_prefix": "",
+            "video_autoplay": true,
+            "video_loop": true,
+            "video_sound_on": false,
+            "video_controls": false,
+            "body_size_desktop": 14,
+            "body_size_mobile": 14,
+            "image": "shopify://shop_images/skincare-bath.webp"
+          }
+        },
+        "testimonial_3": {
+          "type": "testimonial",
+          "settings": {
+            "rating": 0,
+            "body": "Write what this customer said about the product.",
+            "name": "Customer name",
+            "date_prefix": "",
+            "video_autoplay": true,
+            "video_loop": true,
+            "video_sound_on": false,
+            "video_controls": false,
+            "body_size_desktop": 14,
+            "body_size_mobile": 14,
+            "image": "shopify://shop_images/skincare-clay.webp"
+          }
+        },
+        "testimonial_4": {
+          "type": "testimonial",
+          "settings": {
+            "rating": 0,
+            "body": "Write what this customer said about the product.",
+            "name": "Customer name",
+            "date_prefix": "",
+            "video_autoplay": true,
+            "video_loop": true,
+            "video_sound_on": false,
+            "video_controls": false,
+            "body_size_desktop": 14,
+            "body_size_mobile": 14,
+            "image": "shopify://shop_images/skincare-soap.webp"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_1",
+        "subheading_1",
+        "testimonial_1",
+        "testimonial_2",
+        "testimonial_3",
+        "testimonial_4"
+      ]
+    },
+    "faq_floating_1": {
+      "type": "faq-floating",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "reset_spacing": true,
+        "structured_data": false,
+        "heading": "FAQ",
+        "max_width": 1200,
+        "header_align": "center",
+        "card_radius": 18,
+        "card_padding": 22,
+        "card_max_width": 320,
+        "card_overlap": 36,
+        "image_width": 360,
+        "image_radius": 24,
+        "image_fit": "cover",
+        "enable_custom_style": false,
+        "enable_custom_fonts": false,
+        "heading_font": "assistant_n4",
+        "body_font": "assistant_n4",
+        "heading_size_desktop": 48,
+        "heading_size_mobile": 30,
+        "heading_weight": "theme",
+        "q_size": 19,
+        "q_weight": "theme",
+        "a_size": 14,
+        "padding_top_desktop": 96,
+        "padding_bottom_desktop": 96,
+        "section_margin_top": 0,
+        "section_margin_bottom": 0,
+        "mobile_layout": "zigzag",
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Before you try it",
+            "tag": "h2",
+            "enable_custom_style": false,
+            "enable_custom_fonts": false,
+            "font": "assistant_n4",
+            "weight_enable": false,
+            "weight": "700",
+            "size_enable": false,
+            "size_desktop": 48,
+            "size_mobile": 30,
+            "line_height": 1.15,
+            "tracking": 0
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Short answers to what people ask first.</p>",
+            "enable_custom_style": false,
+            "enable_custom_fonts": false,
+            "font": "assistant_n4",
+            "weight_enable": false,
+            "weight": "400",
+            "size_enable": false,
+            "size": 16,
+            "line_height": 1.5
+          }
+        },
+        "product_image_1": {
+          "type": "product_image",
+          "settings": {
+            "image": "shopify://shop_images/skincare-white-dropper.webp"
+          }
+        },
+        "faq_card_1": {
+          "type": "faq_card",
+          "settings": {
+            "question": "Is it right for sensitive skin?",
+            "answer": "<p>The range is fragrance free and made for reactive skin. Patch test first, as with anything new.</p>",
+            "position": "top-left",
+            "enable_custom_style": false
+          }
+        },
+        "faq_card_2": {
+          "type": "faq_card",
+          "settings": {
+            "question": "How long does a bottle last?",
+            "answer": "<p>Say how many weeks each product lasts with daily use.</p>",
+            "position": "top-right",
+            "enable_custom_style": false
+          }
+        },
+        "faq_card_3": {
+          "type": "faq_card",
+          "settings": {
+            "question": "Can I use it with retinol?",
+            "answer": "<p>Say which of your products layer well with other actives.</p>",
+            "position": "bottom-left",
+            "enable_custom_style": false
+          }
+        },
+        "faq_card_4": {
+          "type": "faq_card",
+          "settings": {
+            "question": "What if it does not suit me?",
+            "answer": "<p>Say what your returns policy is for opened products.</p>",
+            "position": "bottom-right",
+            "enable_custom_style": false
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_1",
+        "product_image_1",
+        "faq_card_1",
+        "faq_card_2",
+        "faq_card_3",
+        "faq_card_4"
+      ]
+    },
+    "newsletter_1": {
+      "type": "newsletter",
+      "settings": {
+        "color_scheme": "scheme-6da511c0-ea26-4213-b3d3-e09320840636",
+        "section_width": "fluid_container",
+        "reset_spacing": true,
+        "heading": "Newsletters",
+        "email_label": "Email address",
+        "email_placeholder": "Your email address",
+        "btn_text": "Sign up",
+        "note": "One email a month. Unsubscribe whenever you like.",
+        "subscribed_button_text": "Subscribed",
+        "success_text": "Thanks, you're on the list.",
+        "success_duration": 5,
+        "already_text": "You're already on the list.",
+        "invalid_text": "Enter a valid email address.",
+        "error_text": "That did not go through. Check your connection and try again.",
+        "header_alignment": "center",
+        "form_layout": "horizontal",
+        "show_icon": false,
+        "icon": "envelope",
+        "icon_size": 40,
+        "bg_overlay_color": "#000000",
+        "bg_overlay_opacity": 0,
+        "show_content_background": false,
+        "content_box_opacity": 100,
+        "enable_custom_style": false,
+        "button_style": "primary",
+        "use_theme_button": true,
+        "button_radius": 4,
+        "button_size": 15,
+        "button_pad_x": 28,
+        "button_pad_y": 12,
+        "use_theme_fields": true,
+        "field_radius": 4,
+        "field_height": 50,
+        "header_size": "medium",
+        "enable_custom_fonts": false,
+        "heading_font": "assistant_n4",
+        "body_font": "assistant_n4",
+        "reveal": true,
+        "padding_top": 60,
+        "padding_bottom": 60,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "section_margin_top_mobile": 0,
+        "section_margin_bottom_mobile": 0
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "A short note on skin, once a month",
+            "tag": "h2",
+            "enable_custom_style": false,
+            "enable_custom_fonts": false,
+            "font": "assistant_n4",
+            "weight_enable": false,
+            "weight": "700",
+            "size_enable": false,
+            "size_desktop": 36,
+            "size_mobile": 26,
+            "line_height": 1.15,
+            "tracking": 0
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>What we are making, what we have learned and when something is back in stock.</p>",
+            "enable_custom_style": false,
+            "enable_custom_fonts": false,
+            "font": "assistant_n4",
+            "weight_enable": false,
+            "weight": "400",
+            "size_enable": false,
+            "size": 16,
+            "line_height": 1.5
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_1"
+      ]
+    }
+  },
+  "order": [
+    "dual_image_with_text_1",
+    "ingredients_highlight_bar_1",
+    "products_listing_1",
+    "benefits2_1",
+    "how_to_use_1",
+    "benefits_tabs_1",
+    "testimonials3_1",
+    "faq_floating_1",
+    "newsletter_1"
+  ]
+}

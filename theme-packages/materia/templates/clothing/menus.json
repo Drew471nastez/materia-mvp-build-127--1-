@@ -3,12 +3,12 @@
     "title": "Main menu",
     "links": [
       {
-        "title": "New in",
+        "title": "Shop all",
         "url": "/collections/all"
       },
       {
-        "title": "Shop all",
-        "url": "/collections/all"
+        "title": "Collections",
+        "url": "/collections"
       },
       {
         "title": "Our story",

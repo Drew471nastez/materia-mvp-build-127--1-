@@ -475,3 +475,9 @@
 }
 /* A column heading's menu toggle takes the heading's size, weight and case. */
 .footer__block-heading .footer-acc__toggle.footer-acc__toggle { font-size: inherit; font-weight: inherit; text-transform: inherit; letter-spacing: inherit; }
+
+/* The store's policies beside the copyright line. */
+.footer__bottom .footer__policies{margin:0;padding:0;gap:6px 18px;align-items:center;justify-content:center;font-size:inherit;}
+.footer__bottom .footer__policies li{margin:0;}
+.footer__bottom .footer__policies a{color:inherit;text-decoration:underline;text-underline-offset:3px;text-decoration-color:color-mix(in srgb,currentColor 40%,transparent);display:inline-flex;align-items:center;min-height:32px;}
+.footer__bottom .footer__policies a:hover{color:var(--footer-link-hover,inherit);text-decoration-color:currentColor;}

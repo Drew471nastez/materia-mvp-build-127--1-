@@ -1,0 +1,173 @@
+{
+  "sections": {
+    "contact_form_simple_1": {
+      "type": "contact-form-simple",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "full_width",
+        "show_section_on": "all",
+        "reset_spacing": true,
+        "submit_label": "Send message",
+        "success_message": "Thanks. We answer within two working days.",
+        "error_message": "Please check the following:",
+        "header_align": "center",
+        "section_max_width_desktop": 960,
+        "section_max_width_tablet": 900,
+        "section_max_width_mobile": 560,
+        "heading_sub_gap_desktop": 14,
+        "heading_sub_gap_mobile": 8,
+        "gap_subheading_content": 56,
+        "gap_subheading_content_mobile": 32,
+        "side_column_position": "right",
+        "form_col_ratio": "3fr",
+        "side_col_ratio": "2fr",
+        "col_gap_desktop": 48,
+        "col_gap_mobile": 32,
+        "enable_custom_style": false,
+        "field_gap": 16,
+        "form_padding": 32,
+        "form_radius": 16,
+        "label_size": 14,
+        "label_weight": "theme",
+        "textarea_min_height": 140,
+        "use_theme_fields": true,
+        "input_border_width": 1,
+        "input_radius": 10,
+        "input_padding_y": 14,
+        "input_padding_x": 16,
+        "input_size": 16,
+        "submit_full_width": false,
+        "use_theme_button": true,
+        "submit_radius": 100,
+        "submit_size": 16,
+        "submit_pad_x": 32,
+        "submit_pad_y": 16,
+        "side_image_radius": 16,
+        "enable_custom_fonts": false,
+        "heading_font": "assistant_n4",
+        "body_font": "assistant_n4",
+        "padding_top_desktop": 96,
+        "padding_bottom_desktop": 96,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "section_margin_top_mobile": 0,
+        "section_margin_bottom_mobile": 0
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Get in touch",
+            "tag": "h1",
+            "enable_custom_style": false,
+            "enable_custom_fonts": false,
+            "font": "assistant_n4",
+            "weight": "theme",
+            "size_enable": false,
+            "size_desktop": 44,
+            "size_mobile": 30,
+            "line_height": 1.2,
+            "tracking": 0
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Wrong size, late parcel or a question about a drop? Write to us.</p>",
+            "max_width": 600,
+            "enable_custom_style": false,
+            "enable_custom_fonts": false,
+            "font": "assistant_n4",
+            "weight_enable": false,
+            "weight": "400",
+            "size_enable": false,
+            "size": 16,
+            "line_height": 1.5
+          }
+        },
+        "field_1": {
+          "type": "field",
+          "settings": {
+            "field_type": "text",
+            "label": "Name",
+            "name": "Name",
+            "placeholder": "Your name",
+            "required": true,
+            "half_width": true
+          }
+        },
+        "field_2": {
+          "type": "field",
+          "settings": {
+            "field_type": "email",
+            "label": "Email",
+            "name": "Email",
+            "placeholder": "you@example.com",
+            "required": true,
+            "half_width": true
+          }
+        },
+        "field_3": {
+          "type": "field",
+          "settings": {
+            "field_type": "text",
+            "label": "Order number",
+            "name": "Order number",
+            "placeholder": "If you have one",
+            "required": false,
+            "half_width": false
+          }
+        },
+        "field_4": {
+          "type": "field",
+          "settings": {
+            "field_type": "textarea",
+            "label": "Message",
+            "name": "Message",
+            "placeholder": "How can we help?",
+            "required": true,
+            "half_width": false
+          }
+        },
+        "submit_1": {
+          "type": "submit",
+          "settings": {
+            "label": "Send message"
+          }
+        },
+        "info_1": {
+          "type": "info",
+          "settings": {
+            "icon": "mail",
+            "label": "Email",
+            "value": "Replace with your email"
+          }
+        },
+        "info_2": {
+          "type": "info",
+          "settings": {
+            "icon": "clock",
+            "label": "Replies",
+            "value": "Within two working days"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_1",
+        "field_1",
+        "field_2",
+        "field_3",
+        "field_4",
+        "submit_1",
+        "info_1",
+        "info_2"
+      ]
+    }
+  },
+  "order": [
+    "contact_form_simple_1"
+  ]
+}

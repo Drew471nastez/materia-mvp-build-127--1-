@@ -306,6 +306,8 @@ const SUITES = [
   "tests/shopify-export-aw.test.ts",
   /* Templates round 16: the seven templates that ship with the code (one theme's files once, a small overlay each). Listed from code with the default first and the native theme absent; each composes, passes the zip rules, imports with nothing skipped, draws its pages with and without products, uses only the theme's sections and its own credited pictures, and never says "Shopify" where a creator reads; the theme's files stay out of public/. */
   "tests/theme-templates.test.ts",
+  /* The templates' completeness round: every page of the first seven templates (home to password, blog and policies) draws for a shop with a catalogue and for one with nothing, with no template code, old starter content, dead link or made up urgency; each has its own 404, cart, collections, blog, article and password pages; a new store's menus all open pages; every one of the theme's sections draws whole alone and leaves the next section in place (the products grid no longer swallows it, and a comment is read as a browser reads it); a text, a colour, a picture and a block changed are each drawn again. */
+  "tests/theme-templates-pages.test.ts",
   /* The production build folds each app/api area into one entry, so it fits Vercel's Standard build machine (scripts/fold-api-routes.mjs). */
   "tests/fold-api-routes.test.ts",
   /* Landing round 15: the builder demo plays a real edit (heading, publish, scroll, product section top padding, publish) on transform and opacity only, sharp loudlib boxes, and three true stats that count up. */

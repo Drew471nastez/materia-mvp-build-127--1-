@@ -32,8 +32,34 @@
         "custom_text_font_size_mobile": 94,
         "custom_text_font_size_desktop": 264
       },
-      "blocks": {},
-      "block_order": []
+      "blocks": {
+        "store_info_1": {
+          "type": "store_info",
+          "settings": {
+            "show_logo": true,
+            "top_offset": 0,
+            "image_width": 110,
+            "store_email": true,
+            "store_phone": true,
+            "content_width": "30%",
+            "store_address": true,
+            "store_heading": "",
+            "store_description": "<p>One course, one price. Questions are answered by the person who made it.</p>"
+          }
+        },
+        "link_list_1": {
+          "type": "link_list",
+          "settings": {
+            "menu": "footer",
+            "heading": "Help",
+            "content_width": "16%"
+          }
+        }
+      },
+      "block_order": [
+        "store_info_1",
+        "link_list_1"
+      ]
     }
   },
   "order": [

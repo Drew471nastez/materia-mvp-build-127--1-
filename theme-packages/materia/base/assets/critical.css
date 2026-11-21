@@ -229,8 +229,9 @@ video {
 :where(.light-dark-grey) {
   color: rgba(var(--color-heading-rgb), 0.6);
 }
+/* A quieter text (a compare-at price, a count): the scheme's own text colour stepped toward its background, so it stays readable on a dark scheme where a fixed #666 did not. */
 :where(.dark-grey) {
-  color: var(--dark-grey, #666);
+  color: var(--dark-grey, color-mix(in srgb, var(--color-text, #666) 82%, var(--color-background, #fff)));
 }
 .border-bg {
   background-color: var(--color-border);
@@ -584,7 +585,8 @@ button[disabled],
   border: 0;
 }
 blockquote {
-  background-color: var(--grey-color);
+  /* A tint of the scheme's own heading colour over its background: a fixed light grey put light words on a light box on a dark scheme. */
+  background-color: color-mix(in srgb, var(--color-heading, #111) 8%, var(--color-background, #fff));
   font-size: clamp(1.6rem, 2.5vw, 2rem);
   font-weight: var(--heading-weight);
   color: var(--color-heading);
@@ -2838,7 +2840,7 @@ header-inner .button-localization {
   text-align: center;
   font-variant-numeric: tabular-nums;
   background-color: var(--count-bubble-bg, var(--color-primary));
-  color: var(--count-bubble-color, var(--color-white));
+  color: var(--count-bubble-color, var(--color-background, #fff));
 }
 .h-count .visually-hidden {
   position: absolute !important;
@@ -2846,7 +2848,7 @@ header-inner .button-localization {
 .header__wishlist .h-count,
 .wishlist-count-header {
   background-color: var(--count-bubble-wishlist-bg, var(--count-bubble-bg, var(--color-primary)));
-  color: var(--count-bubble-wishlist-color, var(--count-bubble-color, var(--color-white)));
+  color: var(--count-bubble-wishlist-color, var(--count-bubble-color, var(--color-background, #fff)));
 }
 .header__minicart .h-count {
   left: 1rem;

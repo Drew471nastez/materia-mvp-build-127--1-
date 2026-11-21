@@ -1,0 +1,951 @@
+{
+  "sections": {
+    "inline_image_heading_1": {
+      "type": "inline-image-heading",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": false,
+        "content_alignment": "center",
+        "image_size": 78,
+        "image_gap": 6,
+        "image_offset_y": 0,
+        "enable_custom_style": false,
+        "enable_custom_fonts": false,
+        "heading_font": "assistant_n4",
+        "body_font": "assistant_n4",
+        "heading_size": 72,
+        "heading_weight": "heading_weight",
+        "enable_custom_size": true,
+        "heading_line_height": "1.1",
+        "heading_letter_spacing": 0,
+        "reveal": true,
+        "padding_top": 96,
+        "padding_bottom": 56,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "show_on_mobile": true,
+        "heading_size_mobile": 36,
+        "image_size_mobile": 42,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "section_margin_top_mobile": 0,
+        "section_margin_bottom_mobile": 0,
+        "show_eyebrow": false,
+        "eyebrow": "Crafted with intention",
+        "eyebrow_size": 14,
+        "eyebrow_size_mobile": 13,
+        "eyebrow_weight": "body_weight",
+        "eyebrow_uppercase": false,
+        "eyebrow_letter_spacing": 1,
+        "eyebrow_spacing_below": 24,
+        "heading_tag": "h1"
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Notion templates",
+            "uppercase": true,
+            "letter_spacing": 1,
+            "spacing_below": 24,
+            "enable_custom_style": false,
+            "size": 14,
+            "size_mobile": 13,
+            "weight": "theme",
+            "enable_custom_fonts": false,
+            "font": "assistant_n4"
+          }
+        },
+        "text_1": {
+          "type": "text",
+          "settings": {
+            "text": "Templates for the week"
+          }
+        },
+        "image_1": {
+          "type": "image",
+          "settings": {
+            "size_override": 0,
+            "image": "shopify://shop_images/workspace-planner-coffee.webp"
+          }
+        },
+        "text_2": {
+          "type": "text",
+          "settings": {
+            "text": "you planned, the budget"
+          }
+        },
+        "image_2": {
+          "type": "image",
+          "settings": {
+            "size_override": 0,
+            "image": "shopify://shop_images/workspace-desk-pink.webp"
+          }
+        },
+        "text_3": {
+          "type": "text",
+          "settings": {
+            "text": "you meant to keep and the launch"
+          }
+        },
+        "image_3": {
+          "type": "image",
+          "settings": {
+            "size_override": 0,
+            "image": "shopify://shop_images/workspace-sticky-grid.webp"
+          }
+        },
+        "text_4": {
+          "type": "text",
+          "settings": {
+            "text": "you keep moving."
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "text_1",
+        "image_1",
+        "text_2",
+        "image_2",
+        "text_3",
+        "image_3",
+        "text_4"
+      ]
+    },
+    "products_listing_1": {
+      "type": "products-listing",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "fluid_container",
+        "reset_spacing": true,
+        "items_to_show": 8,
+        "heading": "Featured products",
+        "show_view_all": true,
+        "view_all_label": "View all products",
+        "view_all_position": "bottom",
+        "heading_font_size": 32,
+        "show_badges": true,
+        "show_vendor": false,
+        "show_rating": false,
+        "show_short_description": false,
+        "show_swatches": true,
+        "show_price": true,
+        "show_add_to_cart": true,
+        "show_action": true,
+        "header_alignment": "center",
+        "heading_subtext_gap": 8,
+        "items_per_row": 4,
+        "column_gap": 24,
+        "row_gap": 30,
+        "enable_custom_style": false,
+        "enable_custom_fonts": false,
+        "heading_font": "assistant_n4",
+        "body_font": "assistant_n4",
+        "reveal": true,
+        "padding_top": 49,
+        "padding_bottom": 49,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "items_per_row_mobile": 2,
+        "section_margin_top_mobile": 0,
+        "section_margin_bottom_mobile": 0
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Pick one, duplicate it, start today",
+            "enable_custom_style": false,
+            "size_desktop": 32,
+            "size_mobile": 26
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Each template opens in your own Notion workspace. They work on the free plan.</p>",
+            "enable_custom_style": false,
+            "size": 16
+          }
+        },
+        "button_1": {
+          "type": "button",
+          "settings": {
+            "text": "See all templates",
+            "position": "bottom",
+            "button_style": "primary",
+            "enable_custom_style": false,
+            "use_theme_button": true,
+            "radius": 8,
+            "pad_x": 26,
+            "pad_y": 14,
+            "size": 15,
+            "border_width": 1,
+            "link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_1",
+        "button_1"
+      ]
+    },
+    "content_tabs_1": {
+      "type": "content-tabs",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "reset_spacing": true,
+        "cards_desktop": "3.5",
+        "card_gap": 16,
+        "card_height_desktop": 230,
+        "card_radius": 16,
+        "card_padding": 22,
+        "highlights_gap": 32,
+        "show_arrows": true,
+        "gap_heading_to_highlights": 22,
+        "gap_highlights_to_cards": 28,
+        "gap_cards_to_arrows": 26,
+        "gap_arrows_to_button": 30,
+        "gap_button_to_footer": 26,
+        "enable_custom_style": false,
+        "enable_custom_fonts": false,
+        "heading_font": "assistant_n4",
+        "body_font": "assistant_n4",
+        "highlights_size": 16,
+        "card_title_size": 24,
+        "card_text_size": 15,
+        "padding_top_desktop": 80,
+        "padding_bottom_desktop": 80,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "cards_mobile": "1.5",
+        "card_height_mobile": 260,
+        "padding_top_mobile": 50,
+        "padding_bottom_mobile": 50,
+        "section_margin_top_mobile": 0,
+        "section_margin_bottom_mobile": 0
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "heading": "What is inside every template",
+            "text_align": "center",
+            "text_align_mobile": "center",
+            "enable_custom_style": false,
+            "heading_custom_font_enable": false,
+            "heading_font": "assistant_n4",
+            "heading_font_weight": "inherit",
+            "heading_size_desktop": 44,
+            "heading_size_mobile": 30
+          }
+        },
+        "highlight_1": {
+          "type": "highlight",
+          "settings": {
+            "text": "Works on the free plan",
+            "icon": "check"
+          }
+        },
+        "highlight_2": {
+          "type": "highlight",
+          "settings": {
+            "text": "Yours to edit",
+            "icon": "spark"
+          }
+        },
+        "highlight_3": {
+          "type": "highlight",
+          "settings": {
+            "text": "Updates included",
+            "icon": "shield"
+          }
+        },
+        "tab_1": {
+          "type": "tab",
+          "settings": {
+            "title": "A home page",
+            "description": "Today, this week and what is late, on one screen.",
+            "image_brightness": 100,
+            "overlay_opacity": 58,
+            "enable_custom_style": true,
+            "overlay_color": "#1c1c1a",
+            "title_color": "#FFFFFF",
+            "text_color": "#FFFFFF",
+            "badge_1": "Dashboard",
+            "image": "shopify://shop_images/workspace-planner-coffee.webp"
+          }
+        },
+        "tab_2": {
+          "type": "tab",
+          "settings": {
+            "title": "Linked databases",
+            "description": "Enter a thing once. Every view picks it up.",
+            "image_brightness": 100,
+            "overlay_opacity": 58,
+            "enable_custom_style": true,
+            "overlay_color": "#1c1c1a",
+            "title_color": "#FFFFFF",
+            "text_color": "#FFFFFF",
+            "badge_1": "Databases",
+            "image": "shopify://shop_images/workspace-round-table.webp"
+          }
+        },
+        "tab_3": {
+          "type": "tab",
+          "settings": {
+            "title": "Calendar and board views",
+            "description": "The same tasks as a month, a list or columns.",
+            "image_brightness": 100,
+            "overlay_opacity": 58,
+            "enable_custom_style": true,
+            "overlay_color": "#1c1c1a",
+            "title_color": "#FFFFFF",
+            "text_color": "#FFFFFF",
+            "badge_1": "Views",
+            "image": "shopify://shop_images/workspace-sticky-grid.webp"
+          }
+        },
+        "tab_4": {
+          "type": "tab",
+          "settings": {
+            "title": "A 5 minute guide",
+            "description": "A short video and a written walkthrough.",
+            "image_brightness": 100,
+            "overlay_opacity": 58,
+            "enable_custom_style": true,
+            "overlay_color": "#1c1c1a",
+            "title_color": "#FFFFFF",
+            "text_color": "#FFFFFF",
+            "badge_1": "Guide",
+            "image": "shopify://shop_images/workspace-writing.webp"
+          }
+        },
+        "button_1": {
+          "type": "button",
+          "settings": {
+            "label": "See how it works",
+            "style": "outline",
+            "full_width": false,
+            "custom_colors": false,
+            "link": "/pages/how-it-works"
+          }
+        },
+        "footer_1": {
+          "type": "footer",
+          "settings": {
+            "footer_text": "<p>Replace the pictures with screenshots of your own templates.</p>",
+            "enable_custom_style": false,
+            "footer_size": 15
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "highlight_1",
+        "highlight_2",
+        "highlight_3",
+        "tab_1",
+        "tab_2",
+        "tab_3",
+        "tab_4",
+        "button_1",
+        "footer_1"
+      ]
+    },
+    "how_to_use_1": {
+      "type": "how-to-use",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "cols_desktop": 3,
+        "content_align": "left",
+        "image_ratio": "4/3",
+        "image_fit": "cover",
+        "image_radius": 10,
+        "image_border": true,
+        "enable_custom_style": false,
+        "enable_custom_fonts": false,
+        "heading_font": "assistant_n4",
+        "body_font": "assistant_n4",
+        "number_size": 22,
+        "title_size_desktop": 20,
+        "desc_size_desktop": 16,
+        "reveal": true,
+        "col_gap_desktop": 32,
+        "gap_desktop": 32,
+        "padding_top_desktop": 64,
+        "padding_bottom_desktop": 64,
+        "margin_top": 0,
+        "margin_bottom": 0,
+        "enable_mobile_carousel": true,
+        "mobile_items_per_view": 1.1,
+        "carousel_autoplay": false,
+        "carousel_autoplay_speed": 4,
+        "title_size_mobile": 18,
+        "desc_size_mobile": 15,
+        "col_gap_mobile": 16,
+        "gap_mobile": 24,
+        "padding_top_mobile": 40,
+        "padding_bottom_mobile": 40
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "From checkout to set up in ten minutes",
+            "enable_accent": false,
+            "accent_italic": false,
+            "align": "center",
+            "gap_below": 48,
+            "enable_custom_style": false,
+            "size_desktop": 40,
+            "size_mobile": 28
+          }
+        },
+        "step_1": {
+          "type": "step",
+          "settings": {
+            "title": "Buy",
+            "description": "<p>Pay once. The link is on your receipt and in your inbox.</p>",
+            "image": "shopify://shop_images/workspace-mock-budget.webp",
+            "number": "1"
+          }
+        },
+        "step_2": {
+          "type": "step",
+          "settings": {
+            "title": "Duplicate",
+            "description": "<p>Open the link and press Duplicate. It lands in your workspace.</p>",
+            "image": "shopify://shop_images/workspace-mock-calendar.webp",
+            "number": "2"
+          }
+        },
+        "step_3": {
+          "type": "step",
+          "settings": {
+            "title": "Make it yours",
+            "description": "<p>Rename, recolour, delete what you do not need. It is your page now.</p>",
+            "image": "shopify://shop_images/workspace-mock-planner.webp",
+            "number": "3"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "step_1",
+        "step_2",
+        "step_3"
+      ]
+    },
+    "comparison_cards_1": {
+      "type": "comparison-cards",
+      "settings": {
+        "color_scheme": "scheme-b0fae5fa-c388-4a42-acd3-92cf8fe0b1fb",
+        "section_width": "full_width",
+        "show_section_on": "all",
+        "reset_spacing": true,
+        "check_label": "Included",
+        "cross_label": "Not included",
+        "minus_label": "Partly",
+        "header_align": "center",
+        "section_max_width_desktop": 1100,
+        "section_max_width_tablet": 900,
+        "heading_sub_gap_desktop": 14,
+        "gap_subheading_content": 48,
+        "cards_gap_desktop": 20,
+        "card_radius": 24,
+        "card_padding_desktop": 40,
+        "card_padding_x_desktop": 36,
+        "row_gap": 16,
+        "icon_size": 22,
+        "icon_text_gap": 14,
+        "card_image_max": 80,
+        "enable_custom_style": false,
+        "us_card_shadow": "0 28px 56px -24px rgba(15,23,42,.35)",
+        "them_card_border_width": 1,
+        "enable_custom_fonts": false,
+        "heading_font": "assistant_n4",
+        "body_font": "assistant_n4",
+        "card_title_weight": "theme",
+        "card_title_size_desktop": 28,
+        "row_text_size": 15,
+        "padding_top_desktop": 96,
+        "padding_bottom_desktop": 96,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "section_max_width_mobile": 560,
+        "heading_sub_gap_mobile": 8,
+        "gap_subheading_content_mobile": 28,
+        "cards_gap_mobile": 16,
+        "card_padding_mobile": 28,
+        "card_padding_x_mobile": 22,
+        "card_title_size_mobile": 22,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "section_margin_top_mobile": 0,
+        "section_margin_bottom_mobile": 0
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "A template or a blank page",
+            "tag": "h2",
+            "enable_custom_style": false,
+            "weight": "theme",
+            "size_desktop": 48,
+            "size_mobile": 30,
+            "line_height": 1.2,
+            "tracking": 0
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Building your own is possible. This is what you skip.</p>",
+            "enable_custom_style": false,
+            "size": 16,
+            "line_height": 1.5,
+            "max_width": 600
+          }
+        },
+        "card_us_1": {
+          "type": "card_us",
+          "settings": {
+            "title": "With a template",
+            "enable_custom_style": false
+          }
+        },
+        "card_them_1": {
+          "type": "card_them",
+          "settings": {
+            "title": "From a blank page",
+            "enable_custom_style": false
+          }
+        },
+        "row_1": {
+          "type": "row",
+          "settings": {
+            "label_us": "Set up in ten minutes",
+            "icon_us": "check",
+            "label_them": "A weekend of tutorials",
+            "icon_them": "minus",
+            "enable_custom_style": false
+          }
+        },
+        "row_2": {
+          "type": "row",
+          "settings": {
+            "label_us": "Databases already linked",
+            "icon_us": "check",
+            "label_them": "Relations and rollups to work out",
+            "icon_them": "minus",
+            "enable_custom_style": false
+          }
+        },
+        "row_3": {
+          "type": "row",
+          "settings": {
+            "label_us": "Tested in daily use",
+            "icon_us": "check",
+            "label_them": "Rebuilt every few months",
+            "icon_them": "cross",
+            "enable_custom_style": false
+          }
+        },
+        "row_4": {
+          "type": "row",
+          "settings": {
+            "label_us": "A guide for every page",
+            "icon_us": "check",
+            "label_them": "Notes to your future self",
+            "icon_them": "cross",
+            "enable_custom_style": false
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_1",
+        "card_us_1",
+        "card_them_1",
+        "row_1",
+        "row_2",
+        "row_3",
+        "row_4"
+      ]
+    },
+    "testimonial2_1": {
+      "type": "testimonial2",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": 90,
+        "enable_reviewer_photo": false,
+        "new_tab": false,
+        "truncate_quotes": true,
+        "quote_lines": 4,
+        "read_more_label": "Read more",
+        "read_less_label": "Read less",
+        "previous_label": "Previous testimonials",
+        "next_label": "Next testimonials",
+        "track_label": "Testimonials",
+        "intro_width": 30,
+        "testimonial_per_row": "2",
+        "testimonials_space_between": 20,
+        "show_peek": true,
+        "testimonial_box_style": "border",
+        "card_padding": 24,
+        "stars_shape": "stars",
+        "stars_size": "20",
+        "show_navigation": true,
+        "button_style": "solid",
+        "enable_custom_style": false,
+        "testimonial_box_corner": 14,
+        "use_theme_button": true,
+        "button_corner": 6,
+        "testimonial_text_size": "16",
+        "top_padding_desktop": 40,
+        "bottom_padding_desktop": 40,
+        "vertical_margin": 0,
+        "top_padding_mobile": 20,
+        "bottom_padding_mobile": 20,
+        "vertical_margin_mobile": 0
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "heading": "From people who use them",
+            "enable_custom_style": false,
+            "font_source": "heading",
+            "heading_style": "semibold",
+            "heading_size_desktop": 38,
+            "heading_size_mobile": 34,
+            "letter_spacing": 0,
+            "text_case": "theme"
+          }
+        },
+        "description_1": {
+          "type": "description",
+          "settings": {
+            "description": "<p>Placeholders. Replace each with words from a real customer.</p>",
+            "enable_custom_style": false,
+            "font_source": "body",
+            "description_size_desktop": 16,
+            "description_size_mobile": 14,
+            "letter_spacing": 0,
+            "text_case": "theme"
+          }
+        },
+        "testimonial_1": {
+          "type": "testimonial",
+          "settings": {
+            "stars_rating": 0,
+            "testimonial_text": "Write what this customer said about the template.",
+            "author_name": "Customer name",
+            "author_additional_text": "Which template they use",
+            "enable_custom_style": false,
+            "quote_size": 16
+          }
+        },
+        "testimonial_2": {
+          "type": "testimonial",
+          "settings": {
+            "stars_rating": 0,
+            "testimonial_text": "Write what this customer said about the template.",
+            "author_name": "Customer name",
+            "author_additional_text": "Which template they use",
+            "enable_custom_style": false,
+            "quote_size": 16
+          }
+        },
+        "testimonial_3": {
+          "type": "testimonial",
+          "settings": {
+            "stars_rating": 0,
+            "testimonial_text": "Write what this customer said about the template.",
+            "author_name": "Customer name",
+            "author_additional_text": "Which template they use",
+            "enable_custom_style": false,
+            "quote_size": 16
+          }
+        },
+        "testimonial_4": {
+          "type": "testimonial",
+          "settings": {
+            "stars_rating": 0,
+            "testimonial_text": "Write what this customer said about the template.",
+            "author_name": "Customer name",
+            "author_additional_text": "Which template they use",
+            "enable_custom_style": false,
+            "quote_size": 16
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_1",
+        "testimonial_1",
+        "testimonial_2",
+        "testimonial_3",
+        "testimonial_4"
+      ]
+    },
+    "faq_search_1": {
+      "type": "faq-search",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "fluid_container",
+        "reset_spacing": true,
+        "structured_data": false,
+        "search_label": "Search the questions",
+        "count_text": "Showing [count] of [total] questions",
+        "empty_text": "No questions match your search. Try another word.",
+        "first_item_open": false,
+        "allow_multiple_open": false,
+        "open_icon": "plus",
+        "content_alignment": "center",
+        "max_content_width": 760,
+        "gap_header_to_items": 28,
+        "item_padding_y": 20,
+        "enable_custom_style": false,
+        "enable_custom_fonts": false,
+        "heading_font": "assistant_n4",
+        "body_font": "assistant_n4",
+        "question_size_desktop": 18,
+        "question_size_mobile": 16,
+        "enable_custom_question_weight": false,
+        "question_weight": "600",
+        "answer_size_desktop": 16,
+        "answer_size_mobile": 15,
+        "reveal": true,
+        "padding_top": 60,
+        "padding_bottom": 60,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "section_margin_top_mobile": 0,
+        "section_margin_bottom_mobile": 0
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Questions before you buy",
+            "enable_custom_style": false,
+            "enable_custom_fonts": false,
+            "font": "assistant_n4",
+            "weight_enable": false,
+            "weight": "700",
+            "size_enable": false,
+            "size_desktop": 36,
+            "size_mobile": 26,
+            "line_height": 1.15,
+            "tracking": 0
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Type a word, like \"refund\" or \"team\".</p>",
+            "enable_custom_style": false,
+            "enable_custom_fonts": false,
+            "font": "assistant_n4",
+            "weight_enable": false,
+            "weight": "400",
+            "size_enable": false,
+            "size": 16,
+            "line_height": 1.5
+          }
+        },
+        "faq_item_1": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do I need a paid Notion plan?",
+            "answer": "<p>No. Every template works on the free plan. Say here if any of yours needs more.</p>",
+            "keywords": "plan free paid notion"
+          }
+        },
+        "faq_item_2": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How do I get the template?",
+            "answer": "<p>A link arrives on your receipt and by email. Open it and press Duplicate.</p>",
+            "keywords": "download link duplicate"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I change it?",
+            "answer": "<p>Yes. Once duplicated it is your page: rename, restyle or delete any part.</p>",
+            "keywords": "edit customise change"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I share it with my team?",
+            "answer": "<p>Say whether one purchase covers one person or a whole workspace.</p>",
+            "keywords": "team share licence"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do you offer refunds?",
+            "answer": "<p>Say what your terms are once the template has been duplicated.</p>",
+            "keywords": "refund money back"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_1",
+        "faq_item_1",
+        "faq_item_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5"
+      ]
+    },
+    "banner3_1": {
+      "type": "banner3",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "stretch_width",
+        "reset_spacing": true,
+        "text_align": "center",
+        "max_width": 970,
+        "heading_tag": "h2",
+        "use_custom_text": false,
+        "heading_color": "#000000",
+        "text_color": "#0f0f0f",
+        "use_custom_bg": false,
+        "enable_bg_gradient": false,
+        "overlay_opacity": 0,
+        "banner_surface": "soft",
+        "banner_tint": 6,
+        "use_theme_radius": false,
+        "section_border_radius": 50,
+        "banner_border_width": 0,
+        "banner_shadow": "none",
+        "reveal": true,
+        "reveal_style": "fade_up",
+        "reveal_range": 60,
+        "hover_lift": false,
+        "show_desktop": true,
+        "stack_gap": 14,
+        "sub_btn_gap": 32,
+        "side_padding": 28,
+        "pad_top_desktop": 70,
+        "pad_bottom_desktop": 60,
+        "section_padding_top": 60,
+        "section_padding_bottom": 60,
+        "section_pad_left": 120,
+        "section_pad_right": 120,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "mobile_text_align": "inherit",
+        "mobile_button_full": false,
+        "show_mobile": true,
+        "pad_top_mobile": 50,
+        "pad_bottom_mobile": 52,
+        "section_padding_top_mobile": 40,
+        "section_padding_bottom_mobile": 40,
+        "section_pad_left_mobile": 0,
+        "section_pad_right_mobile": 0,
+        "section_margin_top_mobile": 0,
+        "section_margin_bottom_mobile": 0,
+        "bg_gradient": ""
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Not sure yet?",
+            "enable_custom_style": false,
+            "font": "body",
+            "weight": "500",
+            "transform": "uppercase",
+            "letterspace": 0.6,
+            "lineheight": "1.4",
+            "size_d": 17,
+            "opacity": 100,
+            "size_m": 17
+          }
+        },
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Start with the free one",
+            "enable_custom_style": false,
+            "font": "heading",
+            "weight": "700",
+            "transform": "none",
+            "letterspace": 0,
+            "lineheight": "1.15",
+            "size_d": 34,
+            "max_width": 0,
+            "size_m": 28
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "List one template at no charge so people can try how you build.",
+            "enable_custom_style": false,
+            "font": "body",
+            "weight": "theme",
+            "transform": "none",
+            "letterspace": 0,
+            "lineheight": "1.5",
+            "size_d": 16,
+            "opacity": 100,
+            "max_width": 0,
+            "size_m": 16
+          }
+        },
+        "button_1": {
+          "type": "button",
+          "settings": {
+            "label": "Get the free template",
+            "link": "/collections/all",
+            "enable_custom_style": false,
+            "use_theme_button": true,
+            "border_width": 0,
+            "radius": 40,
+            "pad_h": 20,
+            "pad_v": 10,
+            "weight": "600",
+            "size_d": 17,
+            "size_m": 17
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_1",
+        "subheading_1",
+        "button_1"
+      ]
+    }
+  },
+  "order": [
+    "inline_image_heading_1",
+    "products_listing_1",
+    "content_tabs_1",
+    "how_to_use_1",
+    "comparison_cards_1",
+    "testimonial2_1",
+    "faq_search_1",
+    "banner3_1"
+  ]
+}
