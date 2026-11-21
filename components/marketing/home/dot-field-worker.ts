@@ -6,7 +6,7 @@
   engine in dot-field-engine.ts.
 
   Messages in: field, remove, tile (a canvas), dropTile, tileOn, size, place,
-  aim, cover, hide, ticker and frame. Out: drawn (a tile's first frame) and
+  aim, cover, hide, scroll, ticker and frame. Out: drawn (a tile's first frame) and
   frames (below).
 
   A worker without its own requestAnimationFrame (Safari's) is stepped by the
@@ -28,6 +28,7 @@ type In =
   | { type: "aim"; id: number; x: number; y: number; on: boolean }
   | { type: "cover"; id: number; on: boolean }
   | { type: "hide"; on: boolean }
+  | { type: "scroll"; on: boolean }
   | { type: "ticker" }
   | { type: "frame"; t?: number }
 
@@ -93,4 +94,5 @@ scope.onmessage = (e) => {
   else if (m.type === "aim") engine.aim(m.id, m.x, m.y, m.on)
   else if (m.type === "cover") engine.cover(m.id, m.on)
   else if (m.type === "hide") engine.hide(m.on)
+  else if (m.type === "scroll") engine.scroll(m.on)
 }

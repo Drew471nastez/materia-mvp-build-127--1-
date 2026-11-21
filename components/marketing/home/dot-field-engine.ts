@@ -410,10 +410,12 @@ export type DotEngine = ReturnType<typeof createDotEngine>
 export function createDotEngine(host: DotEngineHost) {
   const fields = new Map<number, Field>()
   let hidden = false
+  /* Landing round 20: the page is being scrolled. The light's slow wander waits (a tile that comes near still gets its one still frame, settle). */
+  let scrolling = false
   let frame = 0
 
   const running = (f: Field) => {
-    if (hidden || f.covered || f.reduced) return false
+    if (hidden || scrolling || f.covered || f.reduced) return false
     for (const t of f.tiles.values()) if (t.on) return true
     return false
   }
@@ -634,10 +636,10 @@ export function createDotEngine(host: DotEngineHost) {
       that size really changes. Before, every change of the box's height (a
       section mounting or settling below, at almost every fast flick) set the
       width and height of every tile again, the same numbers included, and
-      setting a size reallocates the canvas. In WebKit a transferred canvas
-      resized while the worker drew in it brought the page's web process down
-      (measured in the Safari engine, flicking down the home page and back up:
-      3 runs in 8 crashed, and none in 10 once a canvas was sized only once).
+      setting a size reallocates the canvas and clears what it held, so a
+      flick reallocated every tile of a field as it settled. (What brought
+      the page down in the Safari engine was the loop drawing while the page
+      moved: see scroll, below.)
     */
     const cw = Math.round(f.w * f.dpr)
     const ch = Math.round(DOT_FIELD_TILE * f.dpr)
@@ -741,6 +743,20 @@ export function createDotEngine(host: DotEngineHost) {
         f.covered = on
         sync()
       }
+    },
+    /**
+     * Landing round 20: the page is being scrolled. No loop while it moves;
+     * the fields stand on their last frame, and a tile that comes near is
+     * drawn once (settle), so none is blank. In the Safari engine a worker
+     * drawing tiles every frame while the page was flung down and up brought
+     * the page down (3 runs in 8; none in 10 with the loop paused while it
+     * moved), and on any phone it is frames' worth of drawing nobody sees
+     * while the page moves under it.
+     */
+    scroll(on: boolean) {
+      if (scrolling === on) return
+      scrolling = on
+      sync()
     },
     /** The tab is hidden: no loop for any field. */
     hide(on: boolean) {
