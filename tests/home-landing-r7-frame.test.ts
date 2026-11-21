@@ -99,7 +99,8 @@ console.log("\nIdeas, pricing, the questions and the app in the page's one width
   check("app: the heading at the inset", /className=\{s\.copy\}/.test(app) && /\.copy \{[^}]*padding-left: var\(--home-head-inset, 0px\);/.test(read("components/marketing/home/app-anywhere.module.css")))
   // Changed on purpose (landing round 9): the photograph is gone (a drawn stage takes its place); its pictures are two 96px thumbnails at their drawn size.
   // Changed on purpose (landing round 11): the owner: "how it was before, the image and things": his photograph is back, sized, lazy and async.
-  check("app: the owner's photograph, sized, lazy and async", /src="\/home\/app\/storelib-app-720\.webp"/.test(app) && /width=\{1280\}\s*height=\{960\}/.test(app) && /loading="lazy"\s*decoding="async"/.test(app))
+  // Changed on purpose (landing round 21): loaded as soon as its section mounts (eager); a fast flick reached it while it was still blank.
+  check("app: the owner's photograph, sized, loaded with its section and async", /src="\/home\/app\/storelib-app-720\.webp"/.test(app) && /width=\{1280\}\s*height=\{960\}/.test(app) && /loading="eager"\s*decoding="async"/.test(app))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

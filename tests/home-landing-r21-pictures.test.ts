@@ -15,7 +15,9 @@
  *     lazy, so one was judged by where it stood in the turn; they and the
  *     phone's soft copy now load with the scene (it mounts near the screen;
  *     the folder is about 80 KB).
- * Both sections are mounted late (lazy-sections.tsx), so nothing is fetched
+ *   - Run from anywhere: the app's photograph (47 KB) was lazy in a section
+ *     mounted near the screen; a fast flick down reached it still blank.
+ * All three sections are mounted late (lazy-sections.tsx), so nothing is fetched
  * before they are near.
  */
 import { readFileSync } from "node:fs"
@@ -57,6 +59,13 @@ console.log("\nThe checkout ring: its pictures load with the scene")
     const tag = new RegExp(`<img className="${cls}"[^>]*>`).exec(SRC)?.[0] ?? ""
     check(`${cls}: eager, decoded off the main thread`, /loading="eager"/.test(tag) && /decoding="async"/.test(tag), tag.slice(0, 120))
   }
+}
+
+console.log("\nRun from anywhere: the app's photograph loads with its section")
+{
+  const SRC = read("components/marketing/home/app-anywhere.tsx")
+  const tag = /<img\s+src="\/home\/app\/storelib-app-720\.webp"[\s\S]*?\/>/.exec(SRC)?.[0] ?? ""
+  check("eager, decoded off the main thread, still sized", /loading="eager"/.test(tag) && /decoding="async"/.test(tag) && /width=\{1280\}/.test(tag))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)
