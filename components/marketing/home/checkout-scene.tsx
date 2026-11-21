@@ -63,7 +63,7 @@ import { StorelibLogo } from "@/components/brand/storelib-logo"
 import type { SectionStyle } from "./lazy-section"
 import { Fragment, useEffect, useRef } from "react"
 import { COMMERCE_CURRENCY_COUNT, COMMERCE_KIT_STYLE, CommerceKitStyle, useCommerceLive } from "./commerce-kit"
-import { EBOOK, EBOOK_COVER_CSS, EbookCover, LUT_STILL } from "./ebook-cover"
+import { EBOOK, EBOOK_COVER_CSS, EbookCover, LUT_STILL, LUT_STILL_SET } from "./ebook-cover"
 import { u } from "./showcase-mocks/frame"
 
 const IMG = "/home/commerce"
@@ -385,7 +385,8 @@ function DigitalThing({ id }: { id: string }) {
     return (
       <span className="cmt cmt-course">
         <span className="cmt-course-pic">
-          <img src={LUT_STILL} alt="" width={720} height={405} loading="lazy" decoding="async" />
+          {/* Landing round 19: drawn 61px wide on a phone, 9.5% of a wider screen; a smaller copy where that is enough. */}
+          <img src={LUT_STILL} srcSet={LUT_STILL_SET} sizes="(max-width:767px) 16vw, 9.5vw" alt="" width={720} height={405} loading="lazy" decoding="async" />
           <span className="cmt-play">
             <svg viewBox="0 0 12 12" fill="currentColor">
               <path d="M3.4 1.6v8.8L10.4 6z" />

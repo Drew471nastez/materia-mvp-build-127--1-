@@ -114,7 +114,8 @@ check("no cookbook cover left anywhere", !existsSync(join(root, "public/home/sho
 
 console.log("\n── Tabs of one family (the tabs of Make the work) ──")
 const family = (r: string) => /height:30px/.test(r) && /padding:0 13px/.test(r) && /border-radius:999px/.test(r) && /color:#55525c/.test(r) && /font-size:13px/.test(r) && /font-weight:500/.test(r)
-check("Make the work's tab is the reference", family(rule(evCss, ".ev-tab")) && /\.ev-tab\[data-on\]\{color:#18181b\}/.test(evCss) && /\.ev-tab::before\{[^}]*background:#fff/.test(evCss))
+// Changed on purpose (landing round 19): the shown tab's dark label is a second ink faded in over the grey one (opacity), where the button's colour was a transition painted every frame.
+check("Make the work's tab is the reference", family(rule(evCss, ".ev-tab")) && /\.ev-tab-ink-on\{color:#18181b;opacity:0\}/.test(evCss) && /\.ev-tab\[data-on\] \.ev-tab-ink-on\{opacity:1\}/.test(evCss) && /\.ev-tab::before\{[^}]*background:#fff/.test(evCss))
 /* Changed on purpose (landing round 4): real tabs (aria-selected) above the picture. */
 // Changed on purpose (landing round 6): the owner wants the ideas tabs "with pill shapes like how it was before": the family again, a grey track, the chosen one white.
 check("ideas: tabs in place of the dots, the chosen one dark", /\.ideas-tab\[aria-selected="true"\]\{color:#18181b\}/.test(src.ideas) && !/ideas-dot/.test(src.ideas))

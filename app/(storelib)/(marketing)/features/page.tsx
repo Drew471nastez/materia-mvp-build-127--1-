@@ -84,6 +84,8 @@ export default async function FeaturesPage() {
   const planRows: [string, string, string][] = [
     ["Monthly price", "None", `${pro.price} a month`],
     ["Storelib fee per sale", free.feeLabel, pro.feeLabel],
+    /* A product that ships pays its own, lower rate (lib/payments/fees/defaults), said only while physical products are on. */
+    ...(flags.physical ? [["Storelib fee per sale that ships", free.physicalFeeLabel, pro.physicalFeeLabel] as [string, string, string]] : []),
     ["Websites", `${free.websites}, ${free.pagesPerWebsite} pages each`, `${pro.websites}, ${pro.pagesPerWebsite} pages each`],
     ["Your own domain", yesNo(free.ownDomain), yesNo(pro.ownDomain)],
     ["Hide Storelib branding", yesNo(free.removeBranding), yesNo(pro.removeBranding)],

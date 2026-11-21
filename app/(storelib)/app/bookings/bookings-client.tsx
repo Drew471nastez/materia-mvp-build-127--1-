@@ -30,10 +30,15 @@ import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar, StatusBadge, buttonAccent, butto
   opens one, as the notification, the email and the Google event link.
 */
 
-type Status = "pending" | "confirmed" | "declined" | "cancelled"
+type Status = "pending" | "confirmed" | "declined" | "cancelled" | "rescheduled"
+/* Where a booking was made: a Storelib form, or Calendly and Cal.com (lib/bookings/external, run-now part 475). */
+type Source = "storelib" | "calendly" | "calcom"
+const SOURCE_NAME: Record<Exclude<Source, "storelib">, string> = { calendly: "Calendly", calcom: "Cal.com" }
+const externalSource = (s: Source | undefined): s is Exclude<Source, "storelib"> => s === "calendly" || s === "calcom"
 interface Row {
   id: string
-  form_id: string
+  source?: Source
+  form_id: string | null
   starts_at: string
   ends_at: string
   status: Status
@@ -50,6 +55,8 @@ interface Detail extends Row {
   answers: { id: string; label: string; type: string; value: unknown }[]
   cancel_reason?: string | null
   cancelled_by?: string | null
+  /** An external booking: who cancelled it, as the provider said. */
+  cancelled_by_name?: string | null
   reschedule_count?: number | null
 }
 interface Google {
@@ -81,6 +88,7 @@ function statusBadge(s: Status, payment?: string | null) {
   if (s === "pending") return <StatusBadge tone="attention">{tt("Needs your answer")}</StatusBadge>
   if (s === "confirmed") return <StatusBadge tone="success">{tt("Confirmed")}</StatusBadge>
   if (s === "declined") return <StatusBadge tone="neutral">{tt("Declined")}</StatusBadge>
+  if (s === "rescheduled") return <StatusBadge tone="neutral">{tt("Moved")}</StatusBadge>
   return <StatusBadge tone="neutral">{tt("Cancelled")}</StatusBadge>
 }
 
@@ -205,11 +213,12 @@ export function BookingsClient() {
                           data-booking-row={r.id}
                           className="flex min-h-[68px] w-full items-center gap-4 px-4 py-3 text-left outline-none transition-colors duration-100 hover:bg-[#fafafb] focus-visible:shadow-[inset_0_0_0_2px_#111113] active:bg-[#f4f5f7]"
                         >
-                          <span className={cn("w-[84px] shrink-0 whitespace-nowrap text-[15px] font-semibold tabular-nums", r.status === "cancelled" || r.status === "declined" ? "text-[#9ca3af] line-through" : "text-[#1a1a2e]")}>{time(r.starts_at)}</span>
+                          <span className={cn("w-[84px] shrink-0 whitespace-nowrap text-[15px] font-semibold tabular-nums", r.status === "cancelled" || r.status === "declined" || r.status === "rescheduled" ? "text-[#9ca3af] line-through" : "text-[#1a1a2e]")}>{time(r.starts_at)}</span>
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-[15px] font-medium text-[#1a1a2e]">{who(r)}</span>
                             <span className="block truncate text-[13px] text-[#6b7280]">
                               {r.form_title} · {tt("{minutes} min", { minutes: Math.round((Date.parse(r.ends_at) - Date.parse(r.starts_at)) / 60_000) })}
+                              {externalSource(r.source) ? ` · ${SOURCE_NAME[r.source]}` : null}
                             </span>
                           </span>
                           <span className="shrink-0">{statusBadge(r.status, r.payment_status)}</span>
@@ -290,7 +299,9 @@ function BookingSheet({ id, phone, onClose, onChanged, onNotice }: { id: string 
   }
 
   const d = detail
-  const active = d && (d.status === "pending" || d.status === "confirmed")
+  /* A booking made on Calendly or Cal.com is changed there; here it is shown as they last said it. */
+  const external = d && externalSource(d.source) ? d.source : null
+  const active = d && !external && (d.status === "pending" || d.status === "confirmed")
   const length = d ? Math.round((Date.parse(d.ends_at) - Date.parse(d.starts_at)) / 60_000) : 0
   return (
     <SheetDialog open={!!id} onClose={onClose} phone={phone} label={d ? who(d.contact) : tt("Booking")} className="max-h-[86dvh] overflow-y-auto p-0 sm:max-w-[560px]" dialog={{ "aria-describedby": undefined }}>
@@ -307,6 +318,7 @@ function BookingSheet({ id, phone, onClose, onChanged, onNotice }: { id: string 
             <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px] text-[#6b7280]">
               {statusBadge(d.status, d.payment_status)}
               <span>{d.form_title}</span>
+              {external ? <span>· {SOURCE_NAME[external]}</span> : null}
             </div>
           ) : null}
         </div>
@@ -371,12 +383,18 @@ function BookingSheet({ id, phone, onClose, onChanged, onNotice }: { id: string 
               </div>
             ) : null}
             {error ? <p className="px-5 pt-3 text-[13px] text-[#b42318]" role="alert">{error}</p> : null}
+            {external ? (
+              <p className="border-b border-[#eef0f2] px-5 py-3 text-[14px] text-[#6b7280]" data-booking-external={external}>
+                {tt("Booked on {provider}. Move or cancel it there and it changes here too.", { provider: SOURCE_NAME[external] })}
+              </p>
+            ) : null}
             <dl className="divide-y divide-[#f1f2f4] px-5" data-booking-facts="">
               {d.contact.email ? <Fact label={tt("Email")} value={<a className="underline" href={`mailto:${d.contact.email}`}>{d.contact.email}</a>} /> : null}
               {d.contact.phone ? <Fact label={tt("Phone")} value={<a className="underline" href={`tel:${d.contact.phone.replace(/[^\d+]/g, "")}`}>{d.contact.phone}</a>} /> : null}
               {d.where ? <Fact label={d.where.label} value={d.where.url && /^https:\/\//.test(d.where.url) ? <a className="break-all underline" href={d.where.url} target="_blank" rel="noopener noreferrer">{d.where.text}</a> : d.where.text} /> : null}
               {d.visitor_timezone ? <Fact label={tt("Their time zone")} value={`${d.visitor_timezone.replace(/_/g, " ")}, ${new Intl.DateTimeFormat(appLocale(), { timeZone: d.visitor_timezone, hour: "numeric", minute: "2-digit" }).format(new Date(d.starts_at))}`} /> : null}
               {d.status === "cancelled" && d.cancelled_by ? <Fact label={tt("Cancelled by")} value={d.cancelled_by === "visitor" ? who(d.contact) : tt("You")} /> : null}
+              {d.status === "cancelled" && d.cancelled_by_name ? <Fact label={tt("Cancelled by")} value={d.cancelled_by_name} /> : null}
               {d.cancel_reason ? <Fact label={tt("Note")} value={d.cancel_reason} /> : null}
               {d.answers
                 .filter((a) => a.type !== "consent")

@@ -6,6 +6,7 @@ import { loadCommunity, viewerContext } from "@/lib/communities/server/context"
 import { admin } from "@/lib/communities/server/db"
 import { changeCommunityMembership, communityMembershipView, type PersonRef } from "@/lib/communities/server/membership-lifecycle"
 import { routeUser, signedOutOrRetry } from "@/lib/auth/route-user"
+import { provenViewer } from "@/lib/memberships/viewer"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -36,7 +37,13 @@ async function person(): Promise<PersonRef | null> {
   const asked = await routeUser({ fresh: true })
   const user = asked.kind === "user" ? asked.user : null
   if (!user) return null
-  return { id: user.id, email: user.email ? user.email.trim().toLowerCase() : null, emailConfirmed: Boolean(user.email_confirmed_at || (user as { confirmed_at?: string | null }).confirmed_at) }
+  /*
+    THE ADDRESS ONLY WHEN THIS ACCOUNT PROVED IT (lib/memberships/viewer provenViewer). Supabase stamps
+    email_confirmed_at with nothing proven, and an account can point its sign in email at anybody's: read as
+    confirmed, it found a stranger's guest subscription by its address, and could cancel it or move it to a dearer
+    plan charged to their card. Unproven, the subscription is reached by its own account only.
+  */
+  return provenViewer({ id: user.id, email: user.email ? user.email.trim().toLowerCase() : null, emailConfirmed: Boolean(user.email_confirmed_at || (user as { confirmed_at?: string | null }).confirmed_at) })
 }
 
 export async function GET(_request: Request, { params }: Params) {

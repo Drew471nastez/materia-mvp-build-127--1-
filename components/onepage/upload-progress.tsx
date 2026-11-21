@@ -57,7 +57,16 @@ export function useMediaUpload() {
         onStage: (stage) => alive.current && ctrl.current === c && stage === "preparing" && setState({ phase: "preparing" }),
         onProgress: (p) => alive.current && ctrl.current === c && setState({ phase: "uploading", ...p }),
       })
-      if (alive.current && ctrl.current === c) setState({ phase: "idle" })
+      /*
+        AN UPLOAD THAT WAS STOPPED OR REPLACED IS NOT WRITTEN. Stop, Remove, a
+        picture chosen from the library or a second file while this one was
+        going up all move ctrl on; a result that still arrived (the bytes were
+        already up when the abort came) used to be written over the choice made
+        since, so the old picture came back. Only the upload still wanted is
+        answered; one whose field has gone (alive false) still is (B3 above).
+      */
+      if (ctrl.current !== c) return null
+      if (alive.current) setState({ phase: "idle" })
       return result
     } catch (err) {
       if (!alive.current || ctrl.current !== c) return null

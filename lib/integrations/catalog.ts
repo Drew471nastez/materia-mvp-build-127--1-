@@ -29,21 +29,23 @@
 import { PROVIDERS, type ProviderId, type ProviderInfo } from "@/lib/physical/providers"
 import { TRACKERS, TRACKER_ORDER, type TrackerId } from "@/lib/store/tracking"
 
-export type IntegrationCategory = "reviews" | "analytics" | "advertising" | "email" | "automation" | "shipping" | "print_on_demand" | "dropshipping" | "fulfillment" | "suppliers"
+export type IntegrationCategory = "reviews" | "analytics" | "advertising" | "email" | "automation" | "scheduling" | "community" | "shipping" | "print_on_demand" | "dropshipping" | "fulfillment" | "suppliers"
 
 export const CATEGORY_NAMES: Record<IntegrationCategory, string> = {
   reviews: "Reviews",
+  scheduling: "Scheduling",
   analytics: "Analytics",
   advertising: "Advertising",
   email: "Email marketing",
   automation: "Automation",
+  community: "Community",
   shipping: "Shipping",
   print_on_demand: "Print on demand",
   dropshipping: "Dropshipping",
   fulfillment: "Fulfillment",
   suppliers: "Suppliers",
 }
-export const CATEGORY_ORDER: IntegrationCategory[] = ["reviews", "analytics", "advertising", "email", "automation", "shipping", "print_on_demand", "dropshipping", "fulfillment", "suppliers"]
+export const CATEGORY_ORDER: IntegrationCategory[] = ["reviews", "analytics", "advertising", "email", "automation", "scheduling", "community", "shipping", "print_on_demand", "dropshipping", "fulfillment", "suppliers"]
 
 export interface Integration {
   id: string
@@ -56,9 +58,13 @@ export interface Integration {
   physical: boolean
   kind: "tracker" | "commerce" | "listed" | "app"
   /** Made by Storelib and run inside it (kind "app"): its settings are its Set up card. */
-  appId?: "storelib_reviews" | "courier_tracking" | "analytics_destinations" | "marketing_sync"
+  appId?: "storelib_reviews" | "courier_tracking" | "analytics_destinations" | "marketing_sync" | "discord_roles" | "telegram_access" | "booking_sync" | "onepage_signups"
   /** appId marketing_sync: which email platform the sync card connects (lib/integrations/marketing/platforms.ts). */
   marketingProvider?: "brevo" | "mailerlite" | "kit"
+  /** appId booking_sync: whose bookings come in (lib/bookings/external). */
+  bookingProvider?: "calendly" | "calcom"
+  /** appId onepage_signups: which of the OnePage's own connections this card is (lib/onepage/integrations, GET /api/onepage/integrations). */
+  pageIntegration?: "mailchimp" | "zapier" | "make"
   trackerId?: TrackerId
   providerId?: ProviderId
   summary: string
@@ -373,9 +379,6 @@ const LISTED: { id: string; name: string; category: IntegrationCategory; physica
   { id: "spocket", logo: "/integrations/spocket.png", name: "Spocket", category: "dropshipping", physical: true, summary: "Suppliers in the US and Europe, shipped straight to your buyer.", about: "Spocket lists products from suppliers mostly in the US and Europe and ships them to your buyers.", docsUrl: "https://www.spocket.co/" },
   { id: "autods", logo: "/integrations/autods.png", name: "AutoDS", category: "dropshipping", physical: true, summary: "Product imports, price and stock monitoring, automatic orders.", about: "AutoDS imports products, keeps their price and stock in step with the supplier and orders them automatically.", docsUrl: "https://www.autods.com/" },
   { id: "syncee", logo: "/integrations/syncee.png", name: "Syncee", category: "dropshipping", physical: true, summary: "Wholesale and dropshipping suppliers from one marketplace.", about: "Syncee connects you with wholesale and dropshipping suppliers and keeps their catalogue in sync.", docsUrl: "https://syncee.com/" },
-  { id: "mailchimp", logo: "/integrations/mailchimp.svg", name: "Mailchimp", category: "email", physical: false, summary: "Your subscribers and buyers in your Mailchimp audience.", about: "Mailchimp would receive your Storelib subscribers and buyers in one of your audiences, with their consent.", docsUrl: "https://mailchimp.com/developer/" },
-  { id: "zapier", logo: "/integrations/zapier.svg", name: "Zapier", category: "automation", physical: false, summary: "Send new orders and subscribers to thousands of apps.", about: "Zapier would start your Zaps from Storelib events: a new order, a new subscriber, a refund.", docsUrl: "https://zapier.com/" },
-  { id: "make", logo: "/integrations/make.svg", name: "Make", category: "automation", physical: false, summary: "Visual automations started by your store's events.", about: "Make would start your scenarios from Storelib events, like a new order or a new subscriber.", docsUrl: "https://www.make.com/" },
 ]
 
 function fromListed(l: (typeof LISTED)[number]): Integration {
@@ -480,6 +483,49 @@ const MARKETING_APPS: Integration[] = [
 ]
 
 /**
+ * CALENDLY AND CAL.COM BOOKINGS (lib/bookings/external, run-now part 475): a
+ * OnePage's Booking block links to or embeds them, and with this their
+ * bookings show in Bookings beside the store's own, with the same bell.
+ */
+function bookingApp(id: "calendly" | "cal-com", provider: "calendly" | "calcom", name: string, logo: string, docsUrl: string): Integration {
+  const calendly = provider === "calendly"
+  return {
+    id,
+    name,
+    category: "scheduling",
+    logo,
+    builtIn: false,
+    physical: false,
+    kind: "app",
+    appId: "booking_sync",
+    bookingProvider: provider,
+    summary: `Bookings made on ${name} show in Storelib's Bookings.`,
+    about: [
+      `Each booking made on your ${name} shows in Bookings with who booked, their email, the time and their time zone, and you get a notification as you do for a booking form. A booking moved or cancelled on ${name} changes in Bookings too, and you get an email when the person who booked did it.`,
+      calendly
+        ? "Connect with a personal access token. Storelib adds a webhook to your Calendly account with it and removes it when you disconnect. It works on every Calendly plan, Free included."
+        : "Connect with an API key and Storelib adds the webhook to your Cal.com account, and removes it when you disconnect. Or add the webhook yourself with the address and secret Storelib gives you.",
+      `Moving or cancelling is done on ${name}. Bookings that came in stay in Storelib after you disconnect.`,
+    ],
+    glance: [
+      { label: "Works with", value: "Every store" },
+      { label: "You add", value: calendly ? "A personal access token" : "An API key, or a webhook you add" },
+      { label: "Price", value: `Free on Storelib; ${name}'s own pricing applies` },
+    ],
+    data: [
+      `Coming from ${name}: each booking's event name, time and time zone, and the name and email of who booked. Nothing is sent to ${name}.`,
+      `Your ${calendly ? "token" : "key"} and the webhook's signing secret are stored encrypted on Storelib's server and never sent back to your browser. Every booking ${name} sends is checked against that secret before it is read.`,
+    ],
+    docsUrl,
+  }
+}
+
+const BOOKING_APPS: Integration[] = [
+  bookingApp("calendly", "calendly", "Calendly", "/integrations/calendly.svg", "https://developer.calendly.com/"),
+  bookingApp("cal-com", "calcom", "Cal.com", "/integrations/cal-com.svg", "https://cal.com/docs"),
+]
+
+/**
  * COURIER TRACKING (lib/physical/tracking): built into Storelib for every
  * store that ships, with Storelib's own tracking account. AfterShip is also
  * listed under its own name, because that is what stores search for: its page
@@ -574,10 +620,78 @@ const ANALYTICS_APPS: Integration[] = [
   },
 ]
 
+/**
+ * DISCORD AND TELEGRAM FOR PAYING MEMBERS (lib/community-roles): Storelib's
+ * own bots. Discord gives a role in the creator's server to everyone who owns
+ * a product, membership or tier, and takes it back when access ends;
+ * Telegram does the same with a private group or channel by one use invites.
+ * The card's page is the setup (components/app/settings/community-access-panel).
+ * Without Storelib's keys it says Not available yet.
+ */
+const COMMUNITY_APPS: Integration[] = [
+  {
+    id: "discord",
+    name: "Discord",
+    category: "community",
+    logo: "/integrations/discord.svg",
+    builtIn: false,
+    physical: false,
+    kind: "app",
+    appId: "discord_roles",
+    summary: "Give buyers and members a role in your Discord server.",
+    about: [
+      "Add Storelib's bot to your server and choose which product, membership or community tier gives which role. After paying, your buyer presses Join the Discord on their receipt, in their library or on your OnePage, and is added to the server with the role.",
+      "The role is taken back when access ends: a membership that is cancelled and runs out, one Stripe gives up charging, a refund in full or a lost dispute. A member whose card fails keeps it for the seven days Storelib keeps their access.",
+      "Storelib's bot can only give roles below its own. If a role is above it, this page says so and how to move it.",
+    ],
+    glance: [
+      { label: "Made by", value: "Storelib" },
+      { label: "Works with", value: "Products, memberships and community tiers" },
+      { label: "You add", value: "Storelib's bot to your server" },
+      { label: "Price", value: "Free on Storelib" },
+    ],
+    data: [
+      "Discord gets nothing about your buyers. Storelib keeps each buyer's Discord account id and name, and their Discord sign in, encrypted on Storelib's servers, only to add them to your server.",
+      "The bot asks for Manage Roles and Create Invite in your server. It reads no messages.",
+    ],
+    docsUrl: "https://support.discord.com/hc/en-us/articles/214836687-Role-Management-101",
+  },
+  {
+    id: "telegram",
+    name: "Telegram",
+    category: "community",
+    logo: "/integrations/telegram.svg",
+    builtIn: false,
+    physical: false,
+    kind: "app",
+    appId: "telegram_access",
+    summary: "Let buyers and members into a private Telegram group or channel.",
+    about: [
+      "Make Storelib's bot an admin of your private group or channel and link it with a one time code. Choose which product, membership or community tier opens it. Your buyer presses Join the Telegram group and gets an invite that works for one person, for a day.",
+      "When access ends, the member is removed from the chat. They are not banned: if they pay again, they can join again.",
+    ],
+    glance: [
+      { label: "Made by", value: "Storelib" },
+      { label: "Works with", value: "Private groups and channels" },
+      { label: "You add", value: "Storelib's bot as an admin" },
+      { label: "Price", value: "Free on Storelib" },
+    ],
+    data: [
+      "Telegram gets nothing about your buyers. Storelib keeps the Telegram account each invite was used by, so it can remove them later. Invites are stored encrypted.",
+      "The bot needs Invite users via link and Ban users. It does not read the chat's messages, only joins, leaves and the /link message.",
+    ],
+    docsUrl: "https://telegram.org/faq#q-how-do-i-create-a-group",
+  },
+]
+
 /** The top of a page, short (round I4: "don't have that much text"). Only where the first paragraph runs long. */
 const LEAD: Record<string, string> = {
   shippypro: "Labels and rates from the carriers on your own ShippyPro account. Coming soon: it has not been run against a real ShippyPro account yet.",
   "storelib-reviews": "Buyers get an email asking for a review. Reviews show on your website with stars.",
+  discord: "A role in your Discord server for everyone who buys or joins, taken back when their access ends.",
+  telegram: "Your private Telegram group or channel, opened by a purchase and closed when access ends.",
+  calendly: "Bookings made on your Calendly show in Bookings, with a notification for each.",
+  "cal-com": "Bookings made on your Cal.com show in Bookings, with a notification for each.",
   "send-analytics": "Page views, purchases, refunds and signups from Storelib's server to Google Analytics 4, Meta, PostHog or your own system.",
   "courier-tracking": "Every parcel is followed with its carrier. Your buyer sees each scan and hears when it's out for delivery and delivered.",
   aftership: "Follow your parcels with your own AfterShip account instead of Storelib's.",
@@ -586,6 +700,9 @@ const LEAD: Record<string, string> = {
   brevo: "Your subscribers and every order go to Brevo. Unsubscribes come back.",
   mailerlite: "Your subscribers go to MailerLite, buyers and refunds as groups. Unsubscribes come back.",
   kit: "Your subscribers go to Kit, buyers and refunds as tags. Unsubscribes come back.",
+  mailchimp: "Everyone who signs up on your OnePage joins your Mailchimp audience as it happens.",
+  zapier: "Each signup on your OnePage starts your Zap, through a signed webhook.",
+  make: "Each signup on your OnePage starts your Make scenario, through a signed webhook.",
   printful: "Products you sell as print on demand go to Printful when they're paid. Tracking comes back to the order.",
   printify: "Products you sell as print on demand go to Printify when they're paid. Tracking comes back to the order.",
   gelato: "Products you sell as print on demand go to Gelato when they're paid, printed close to your buyer. Tracking comes back.",
@@ -606,7 +723,97 @@ const LEAD: Record<string, string> = {
 */
 const NOT_LISTED = new Set(["manual", "supplier_email", "csv"])
 
-export const INTEGRATIONS: Integration[] = [...STORELIB_APPS, ...ANALYTICS_APPS, ...TRACKING_APPS, ...TRACKER_ORDER.map(fromTracker), ...MARKETING_APPS, ...PROVIDERS.filter((p) => !NOT_LISTED.has(p.id)).map(fromProvider), ...LISTED.map(fromListed)].map((i) => (LEAD[i.id] ? { ...i, lead: LEAD[i.id] } : i))
+/**
+ * A ONEPAGE'S SIGNUPS, AS THEY HAPPEN (lib/onepage/integrations). Mailchimp,
+ * Zapier and Make were listed here as Coming soon while the OnePage editor
+ * already connected all three. They are the same connection in both places:
+ * one row per store in onepage_integrations (SQL part 315), read and changed
+ * through /api/onepage/integrations, so Settings and the editor agree.
+ *
+ * What they get, and only that: each signup on the store's OnePage (the
+ * email signup, a lead magnet, the subscribe button, an RSVP, and a contact
+ * form or form whose updates box was ticked), sent by
+ * lib/onepage/integrations/deliver-server. Orders, the website's and the
+ * checkout's signups are not sent to them, and the copy says so.
+ */
+const ONEPAGE_SIGNUPS = "each signup on your OnePage (the email signup, a lead magnet, the subscribe button, an RSVP, and a contact form or form where they ticked the box for updates)"
+function onePageApp(id: "mailchimp" | "zapier" | "make", name: string, category: IntegrationCategory, logo: string, summary: string, about: string[], youAdd: string, data: string[], docsUrl: string): Integration {
+  return {
+    id,
+    name,
+    category,
+    logo,
+    builtIn: false,
+    physical: false,
+    kind: "app",
+    appId: "onepage_signups",
+    pageIntegration: id,
+    summary,
+    about,
+    glance: [
+      { label: "Works with", value: "Your OnePage" },
+      { label: "You add", value: youAdd },
+      { label: "Price", value: `Free on Storelib; ${name}'s own pricing applies` },
+    ],
+    data,
+    docsUrl,
+  }
+}
+const WEBHOOK_DATA = (name: string) => [
+  `Sent to ${name} for each signup: its email, name and first name, which form it came from, the lead magnet or form title when there is one, the page's address and, when the form asked for it, the phone number.`,
+  `Each event is signed with HMAC SHA-256 in the X-Storelib-Signature header, with the signing secret Storelib gives you when you connect.`,
+  `Nothing about your orders, buyers or other subscribers is sent.`,
+]
+const ONEPAGE_APPS: Integration[] = [
+  onePageApp(
+    "mailchimp",
+    "Mailchimp",
+    "email",
+    "/integrations/mailchimp.svg",
+    "Your OnePage signups in your Mailchimp audience.",
+    [
+      `Connect Mailchimp with an API key and choose an audience. From then on, ${ONEPAGE_SIGNUPS} joins that audience as it happens.`,
+      "Someone who unsubscribed in Mailchimp stays unsubscribed. Turn on double opt in and Mailchimp asks each new signup to confirm first; add a tag and every signup gets it.",
+      "Signups on your website, at checkout and in a community are not sent to Mailchimp.",
+    ],
+    "An API key and an audience",
+    [
+      "Sent to Mailchimp for each signup: the email address, the first name when one was given, and your tag.",
+      "Your Mailchimp key is checked with Mailchimp, stored encrypted on Storelib's server and never sent back to your browser: only its last four characters show.",
+    ],
+    "https://mailchimp.com/developer/",
+  ),
+  onePageApp(
+    "zapier",
+    "Zapier",
+    "automation",
+    "/integrations/zapier.svg",
+    "Start a Zap with each signup on your OnePage.",
+    [
+      `Paste the address of a Zapier catch hook and ${ONEPAGE_SIGNUPS} is sent to it as it happens, as an onepage.signup event. A test event goes to it when you connect.`,
+      "Orders and signups on your website or at checkout are not sent to Zapier.",
+    ],
+    "A Webhooks by Zapier address",
+    WEBHOOK_DATA("Zapier"),
+    "https://zapier.com/",
+  ),
+  onePageApp(
+    "make",
+    "Make",
+    "automation",
+    "/integrations/make.svg",
+    "Start a Make scenario with each signup on your OnePage.",
+    [
+      `Paste the address of a Make custom webhook and ${ONEPAGE_SIGNUPS} is sent to it as it happens, as an onepage.signup event. A test event goes to it when you connect.`,
+      "Orders and signups on your website or at checkout are not sent to Make.",
+    ],
+    "A Make custom webhook address",
+    WEBHOOK_DATA("Make"),
+    "https://www.make.com/",
+  ),
+]
+
+export const INTEGRATIONS: Integration[] = [...STORELIB_APPS, ...BOOKING_APPS, ...ANALYTICS_APPS, ...COMMUNITY_APPS, ...TRACKING_APPS, ...TRACKER_ORDER.map(fromTracker), ...MARKETING_APPS, ...PROVIDERS.filter((p) => !NOT_LISTED.has(p.id)).map(fromProvider), ...LISTED.map(fromListed), ...ONEPAGE_APPS].map((i) => (LEAD[i.id] ? { ...i, lead: LEAD[i.id] } : i))
 
 /** Where a card stands, in the words it shows (badges and the Install section). */
 export type IntegrationStatus = "built_in" | "installed" | "needs_attention" | "error" | "available" | "coming_soon"

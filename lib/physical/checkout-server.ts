@@ -49,6 +49,7 @@ import { paymentFacts, recordSale } from "@/lib/checkout/fulfil-payment"
 import { recordCartCustomer, type FulfilContext } from "@/lib/checkout/fulfil-cart-item"
 import { beginFollowups, resumeFollowups, sent, type Followups } from "@/lib/checkout/followups"
 import { calculatePlatformFeeForCheckout } from "@/lib/billing/platform-fee-server"
+import { physicalPartCents } from "@/lib/billing/fee-calculator"
 import { minimumChargeMinor } from "@/lib/store/selling-currency"
 import { readStoreCurrency } from "@/lib/store/selling-currency-server"
 import { tagOrderSource, type OrderOrigin } from "@/lib/orders/order-source"
@@ -466,7 +467,14 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
   /* No fee on cash on delivery: nothing passes through Storelib to take it from. */
   if (!free && !cod) {
     try {
-      fee = await calculatePlatformFeeForCheckout(totals.totalCents, priced.creatorId, db, chargeCurrency)
+      /*
+        PHYSICAL CARD RATES. The goods that ship, their delivery and the tax
+        on the order pay the physical rate; a download, course or membership
+        sold beside them pays the digital rate on its own price less its
+        discount (lib/payments/fees/defaults). One charge, so one tier and
+        one fixed fee, decided by the whole total (lib/payments/fees/engine).
+      */
+      fee = await calculatePlatformFeeForCheckout(totals.totalCents, priced.creatorId, db, chargeCurrency, { physicalCents: physicalPartCents(q.lines, totals.totalCents) })
     } catch {
       return { ok: false, status: 400, error: "This currency is not available for checkout yet." }
     }

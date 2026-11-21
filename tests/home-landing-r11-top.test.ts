@@ -97,7 +97,8 @@ check("no panel carries a shadow of its own", !/\.ideas-panel[^{]*\{[^}]*box-sha
 
 console.log("\n── 5. The Strength Room is as it was ──")
 const cm = renderToStaticMarkup(createElement(CommunityMock))
-check("its markup is round 8's, to the byte", createHash("sha256").update(cm).digest("hex") === "8774fce177ad3c3da91226068e54ba4916f973accb30e9089f39713e84f0cb8f")
+// Changed on purpose (landing round 19): its photos offer smaller copies (srcset and sizes, showcase-mocks/frame.tsx PIC_SETS); without those two attributes it is round 8's markup to the byte.
+check("its markup is round 8's, to the byte", createHash("sha256").update(cm.replace(/ (srcset|sizes)="[^"]*"/gi, "")).digest("hex") === "8774fce177ad3c3da91226068e54ba4916f973accb30e9089f39713e84f0cb8f")
 check("its styles are round 8's", createHash("sha256").update(BUILDER_CSS.slice(BUILDER_CSS.indexOf(".cx{"))).digest("hex") === "f8aee363c14a9b53af8b57b1eb559827dab709087e343398b8b0f76e3aadd50c")
 
 console.log("\n── 6. A digital product store in the strip ──")

@@ -9,7 +9,8 @@
  * Grunge Zine.
  *
  * Now All is five groups, each with the quiet, most chosen looks first:
- *   Clean            light pages that suit almost anyone
+ *   Clean            quiet pages that suit almost anyone: the light ones, then
+ *                    Velvet and Basalt, the two dark ones (./dark-clean-themes)
  *   Dark             the same restraint, at night
  *   Colour           gradients and pages built on one strong colour
  *   Photo            a photograph behind the page
@@ -23,7 +24,7 @@
  */
 
 export const THEME_GROUPS = [
-  { id: "clean", ids: ["default", "air", "gallery", "studio", "linen", "clay", "mono", "atrium", "graph", "paper", "swiss", "cream", "notebook"] },
+  { id: "clean", ids: ["default", "air", "gallery", "studio", "linen", "clay", "mono", "atrium", "graph", "paper", "swiss", "cream", "notebook", "velvet", "basalt"] },
   { id: "dark", ids: ["graphite", "night", "nova", "fjord", "backstage", "umber", "onair", "pop", "doric", "ember", "ledger", "olive", "astrid", "space", "blueprint"] },
   { id: "colour", ids: ["malachite", "petal", "sorbet", "dawn", "dusk", "pulse", "citrus", "swirl", "ripple", "solstice", "ribbon", "sunset", "peach", "sage", "lagoon", "ocean", "aurora", "cobalt", "halo", "dune", "terrazzo", "riso", "blocks", "neon", "acid"] },
   { id: "photo", ids: ["mesa", "cosmos", "shore", "nature", "atlas", "haze", "darkroom", "fusion"] },

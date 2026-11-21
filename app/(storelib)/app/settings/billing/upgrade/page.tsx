@@ -7,7 +7,8 @@ import { effectivePlanId, readPlanOverride } from "@/lib/billing/plan-override"
 import { UpgradePageClient } from "@/components/app/billing/upgrade-page-client"
 import { teamPageStore } from "@/lib/team/server"
 import { TeamAreaClosed } from "@/components/app/team-area-closed"
-import { FREE_STANDARD_RATE, SCALE_STANDARD_RATE, ratePercentLabel } from "@/lib/payments/fees/config"
+import { FREE_STANDARD_RATE, PAID_STANDARD_RATE, SCALE_STANDARD_RATE, ratePercentLabel } from "@/lib/payments/fees/config"
+import { PRO_PRICE_CENTS, withCodePrice } from "@/lib/billing/plans"
 import { msg } from "@/lib/i18n/text"
 import { dataOrThrow, isServiceUnavailable } from "@/lib/net/service-error"
 
@@ -25,14 +26,14 @@ const FREE_PLAN = {
 
 const GROWTH_PLAN = {
   id: "growth",
-  // Sold as "Grow" (pricing round 5; it was "Pro"). The id stays "growth": it is the $29 Stripe price.
+  // Sold as "Grow" (pricing round 5; it was "Pro"). The id stays "growth": the Grow Stripe price, $14.
   name: "Grow",
-  price_cents: 2900,
+  price_cents: PRO_PRICE_CENTS,
   billing_period: "month",
-  fee_percent: 0.03,
+  fee_percent: PAID_STANDARD_RATE,
   fee_fixed_cents: 25,
   // i18n-ignore-next-line
-  features: ["3% + $0.25 per transaction", msg("Advanced analytics"), msg("Priority support"), msg("Custom domain")],
+  features: [`${ratePercentLabel(PAID_STANDARD_RATE)} + $0.25 per transaction`, msg("Advanced analytics"), msg("Priority support"), msg("Custom domain")],
   is_active: true,
 }
 
@@ -88,7 +89,8 @@ export default async function UpgradePage() {
       .order("price_cents", { ascending: true })
 
     if (dbPlans && dbPlans.length > 0) {
-      plans = dbPlans
+      /* At the price checkout charges (lib/billing/plans withCodePrice): a stored row still saying $29 never reaches the page. */
+      plans = dbPlans.map(withCodePrice)
     }
 
     /* Through the shared billing reader (lib/billing/subscription-reader.ts): cached, single flight, bounded, and the

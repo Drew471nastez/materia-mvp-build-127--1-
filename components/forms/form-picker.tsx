@@ -16,71 +16,27 @@
  * tables (SQL parts 372 and 375 not run) is told so in one sentence with no
  * Try again, because trying again can not help.
  */
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react"
+import { lazy, Suspense, useCallback, useMemo, useState } from "react"
 import { Pencil, Plus } from "lucide-react"
 import { ChoicePicker, type Choice } from "@/components/ui/choice-list"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { formsRequest } from "@/lib/forms/client"
+import { emitFormsList, keepForm, readForms, useFormsList, type FormRow } from "@/lib/forms/forms-list"
 import { formTemplate, TEMPLATE_CHOICES } from "@/lib/forms/templates"
 import { tt } from "@/lib/i18n/text"
 import { cn } from "@/lib/utils"
 import { ERROR, LABEL, PROBLEM, SMALL_BUTTON } from "./fields"
-import type { SavedForm } from "./forms-manager"
 
 const FormBuilderDialog = lazy(() => import("./form-builder-dialog"))
 
-export type FormRow = Pick<SavedForm, "id" | "title" | "status" | "draft" | "published" | "updated_at"> & Partial<SavedForm>
-
-/* ── the creator's forms, read once and shared ──────────────────────────── */
-
-type ListState = { forms: FormRow[] | null; missing: boolean; error: string | null; loading: boolean }
-let state: ListState = { forms: null, missing: false, error: null, loading: false }
-const listeners = new Set<() => void>()
-const emit = (next: Partial<ListState>) => {
-  state = { ...state, ...next }
-  for (const l of listeners) l()
-}
-let inflight: Promise<void> | null = null
-
-/** Read the list (again, with `force`). One request at a time, whoever asks. */
-export function readForms(force = false): Promise<void> {
-  if (inflight) return inflight
-  if (state.forms && !force) return Promise.resolve()
-  emit({ loading: true, error: null })
-  inflight = formsRequest<{ forms: FormRow[] }>("/api/forms", { fallback: tt("Forms could not be loaded. Try again.") }).then((r) => {
-    inflight = null
-    emit({ loading: false, missing: r.missing, error: r.missing ? null : r.error, forms: r.missing ? [] : r.data?.forms ?? (r.error ? state.forms : []) })
-  })
-  return inflight
-}
-
-/** A form made or saved here: in the list at once, for every picker on the page. */
-export function keepForm(form: FormRow) {
-  const list = state.forms || []
-  emit({ forms: list.some((f) => f.id === form.id) ? list.map((f) => (f.id === form.id ? { ...f, ...form } : f)) : [form, ...list] })
-}
-
-/** The creator's forms, read when `needed` turns true. */
-export function useFormsList(needed: boolean) {
-  const snap = useSyncExternalStore(
-    (cb) => {
-      listeners.add(cb)
-      return () => listeners.delete(cb)
-    },
-    () => state,
-    () => state,
-  )
-  useEffect(() => {
-    if (needed && !snap.forms && !snap.loading && !snap.error && !snap.missing) void readForms()
-  }, [needed, snap.forms, snap.loading, snap.error, snap.missing])
-  return { forms: snap.forms || [], loading: snap.loading || (needed && !snap.forms && !snap.error && !snap.missing), missing: snap.missing, error: snap.error, retry: () => void readForms(true) }
-}
+/* The creator's forms, read once and shared (lib/forms/forms-list): kept there so the editor's preview reads the same list without this picker. */
+export { readForms, keepForm, useFormsList, emitFormsList, type FormRow }
 
 /** Make a form from a template. A chat's questions are live at once (`publish`). */
 export async function createForm(template: string, publish = false): Promise<{ form: FormRow | null; error: string | null; missing: boolean }> {
   const body = publish ? { definition: formTemplate(template), publish: true } : { template }
   const r = await formsRequest<{ form: FormRow }>("/api/forms", { method: "POST", body: JSON.stringify(body), fallback: tt("The form could not be created. Try again.") })
-  if (r.missing) emit({ missing: true })
+  if (r.missing) emitFormsList({ missing: true })
   if (r.data?.form) keepForm(r.data.form)
   return { form: r.data?.form ?? null, error: r.error, missing: r.missing }
 }

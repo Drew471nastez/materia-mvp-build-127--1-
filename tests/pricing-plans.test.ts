@@ -44,7 +44,7 @@ import {
   YEARLY_BILLING_LIVE,
   YEARLY_SAVING_PERCENT,
 } from "@/lib/billing/plans"
-import { getFeePreview, formatFeePercent, getFeeDescription, computeApplicationFee, calculateFeeWithPlan, toStorelibPlan } from "@/lib/billing/fee-calculator"
+import { getFeePreview, formatFeePercent, getFeeDescription, computeApplicationFee, calculateFeeWithPlan, toStorelibPlan, cardRateLabel } from "@/lib/billing/fee-calculator"
 import { calculateStorelibFeeWithConfig } from "@/lib/payments/fees/engine"
 import { codeDefaultFeeConfig } from "@/lib/payments/fees/defaults"
 import { siteLimits } from "@/lib/sites/plan"
@@ -99,9 +99,11 @@ function main() {
   check("the cards are drawn from those same three", OFFERED_PLANS.map((p) => p.id).join() === OFFERED_PLAN_IDS.join())
   /* Changed on purpose (pricing round 5): the $29 plan is named Grow and the $99 plan Pro; the ids are unchanged. */
   check("named Free, Grow and Pro", OFFERED_PLANS.map((p) => p.name).join() === "Free,Grow,Pro", OFFERED_PLANS.map((p) => p.name).join())
-  check("priced $0, $29 and $99", OFFERED_PLANS.map((p) => p.price).join() === "$0,$29,$99", OFFERED_PLANS.map((p) => p.price).join())
+  /* Changed on purpose (pricing: Grow $14, physical rates). */
+  check("priced $0, $14 and $99", OFFERED_PLANS.map((p) => p.price).join() === "$0,$14,$99", OFFERED_PLANS.map((p) => p.price).join())
   check("Scale checks out as the existing pro plan, at the $99 the Stripe price charges", SCALE_CHECKOUT_PLAN_ID === "pro" && SCALE_PRICE_CENTS === 9900 && OFFERED_PLANS[2].period === "/month")
-  check("Pro is $29 a month, not $29.90", PRO_PRICE_CENTS === 2900 && formatPlanPrice(PRO_PRICE_CENTS) === "$29")
+  /* Changed on purpose (pricing: Grow $14, physical rates). */
+  check("Grow is $14 a month, not $14.00", PRO_PRICE_CENTS === 1400 && formatPlanPrice(PRO_PRICE_CENTS) === "$14")
   check("and says so per month", OFFERED_PLANS[1].period === "/month")
   check("Pro checks out as the growth plan", PRO_CHECKOUT_PLAN_ID === "growth")
 
@@ -113,8 +115,11 @@ function main() {
   const growthFee = formatFeePercent(getFeePreview(1000, "growth", "USD").feePercent).replace(".0%", "%")
   const freeFee = formatFeePercent(getFeePreview(1000, "free", "USD").feePercent).replace(".0%", "%")
   check("the Pro card starts with Everything in Free", pro[0] === "Everything in Free", pro[0])
-  check(`the Pro fee line, next, is growth's charged rate (${growthFee})`, pro[1].startsWith(`${growthFee} + $0.25 per sale`), pro[1])
-  check(`the Free fee line is free's charged rate (${freeFee})`, free[0].startsWith(`${freeFee} + $0.25 per sale`), free[0])
+  /* Changed on purpose (pricing: Grow $14, physical rates). */
+  /* The fee line names the digital rate first, then the physical one (lib/billing/plans feeLine). */
+  const bothKinds = (id: "free" | "growth") => `${cardRateLabel(id, "digital")} per digital sale, ${cardRateLabel(id, "physical")} per physical sale`
+  check(`the Pro fee line, next, is growth's charged rate (${growthFee})`, pro[1].startsWith(`${growthFee} + $0.25 per digital sale`) && pro[1] === bothKinds("growth"), pro[1])
+  check(`the Free fee line is free's charged rate (${freeFee})`, free[0].startsWith(`${freeFee} + $0.25 per digital sale`) && free[0] === bothKinds("free"), free[0])
   check("the $0.25 is the fixed fee the calculator adds", getFeePreview(1000, "growth", "USD").feeFixedCents === 25)
 
   const g = siteLimits("growth")
@@ -138,7 +143,9 @@ function main() {
    * only the $99 plan gets. None may come back on a card that sells growth.
    */
   const notGrowth = [/priority/i, /emails?\s*\//i, /api access/i, /white.?label/i, /custom code/i, /shopify/i, /1\.5%/, /advanced analytics/i, /physical/i]
-  for (const line of [...pro, ...free]) {
+  /* Changed on purpose (pricing: Grow $14, physical rates). */
+  /* The fee line itself names the physical rate (1.5% on Grow), read from the fee table above; every other line is held to the list. */
+  for (const line of [...pro, ...free].filter((l) => l !== pro[1] && l !== free[0])) {
     const bad = notGrowth.find((re) => re.test(line))
     check(`"${line}" is a real entitlement`, !bad, bad ? `matches ${bad}` : undefined)
   }
@@ -159,8 +166,9 @@ function main() {
   const products = readCode("app/(storelib)/app/products/new/product-editor.tsx")
   const analytics = readCode("app/(storelib)/app/analytics/page.tsx") + readCode("app/(storelib)/app/analytics/analytics-client.tsx")
   const fromTables = new Set([
-    getFeeDescription("free"),
-    getFeeDescription("growth"),
+    /* Changed on purpose (pricing: Grow $14, physical rates). */
+    bothKinds("free"),
+    bothKinds("growth"),
     "Your own domain",
     "No Storelib branding",
     `${g.maxSites} websites, ${g.maxPages} pages each`,
@@ -310,8 +318,9 @@ function main() {
     check("the engine charges a stored fee version without Scale rates Scale's code rate", calculateStorelibFeeWithConfig({ grossMinor: 1000, currency: "USD", sellerPlan: "scale" }, { ...codeDefaultFeeConfig(), scaleStandardRate: undefined, scaleMicroRate: undefined }).totalStorelibFeeMinor === 40)
     check("the engine honours a version's own Scale rate", calculateStorelibFeeWithConfig({ grossMinor: 1000, currency: "USD", sellerPlan: "scale" }, { ...codeDefaultFeeConfig(), scaleStandardRate: 0.02 }).totalStorelibFeeMinor === 45)
     check("getFeeDescription: Free 5%, Pro 3%, Scale 1.5%, each + $0.25 per sale", getFeeDescription("free") === "5% + $0.25 per sale" && getFeeDescription("growth") === "3% + $0.25 per sale" && getFeeDescription("pro") === "1.5% + $0.25 per sale")
-    check("the Scale card and the comparison table say 1.5% + $0.25", OFFERED_PLANS[2].features[1] === "1.5% + $0.25 per sale" && planComparison()[0].rows[0].scale === "1.5% + $0.25 per sale" && planComparison()[0].rows[0].pro === "3% + $0.25 per sale")
-    check("checkout's fee for a stored plan goes through the same mapping", /sellerPlan: toStorelibPlan\(effectivePlan\)/.test(readCode("lib/billing/fee-calculator.ts")) && /calculatePlatformFee\(amountCents, creatorId, admin, currency, config\)/.test(readCode("lib/billing/platform-fee-server.ts")))
+    /* Changed on purpose (pricing: Grow $14, physical rates). */
+    check("the Scale card and the comparison table say 1.5% + $0.25", OFFERED_PLANS[2].features[1] === "1.5% + $0.25 per sale" && planComparison()[0].rows[0].scale === "1.5% + $0.25" && planComparison()[0].rows[0].pro === "3% + $0.25" && planComparison()[0].rows[1].scale === "1.5% + $0.25")
+    check("checkout's fee for a stored plan goes through the same mapping", /sellerPlan: toStorelibPlan\(effectivePlan\)/.test(readCode("lib/billing/fee-calculator.ts")) && /calculatePlatformFee\(amountCents, creatorId, admin, currency, config, split\)/.test(readCode("lib/billing/platform-fee-server.ts")))
     check("the payouts screen names a Scale fee", /\["free", "paid", "scale"\] as const/.test(readCode("app/(storelib)/app/payouts/payouts-client.tsx")))
     check("the admin simulator charges pro as Scale", /body\.plan === "scale" \|\| body\.plan === "pro" \? "scale"/.test(readCode("app/api/admin/payments/simulate/route.ts")))
   }
@@ -344,7 +353,8 @@ function main() {
     check(`${file}: the pro fallback is still there`, /id: "pro",[\s\S]{0,40}price_cents: 9900/.test(code))
     /* Added (wave 13): the stored fallback's fee is the engine's Scale rate, so the Billing tab says what checkout charges. */
     check(`${file}: the pro fallback's fee is SCALE_STANDARD_RATE`, /price_cents: 9900,\s*billing_period: "month",\s*fee_percent: SCALE_STANDARD_RATE,/.test(code))
-    check(`${file}: growth's fallback is 2900, not 2990`, /id: "growth",[\s\S]{0,40}price_cents: 2900/.test(code) && !/2990/.test(code))
+    /* Changed on purpose (pricing: Grow $14, physical rates). */
+    check(`${file}: growth's fallback is PRO_PRICE_CENTS ($14), not a typed 2900 or 2990`, /id: "growth",[\s\S]{0,200}price_cents: PRO_PRICE_CENTS,/.test(code) && !/2990|price_cents: 2900/.test(code))
   }
 
   console.log("\nMonthly or yearly")
@@ -352,7 +362,8 @@ function main() {
     const pro = OFFERED_PLANS.find((p) => p.id === PRO_CHECKOUT_PLAN_ID)!
     const free = OFFERED_PLANS.find((p) => p.id === "free")!
     const y = pricedFor(pro, "yearly")
-    check("yearly Pro is $22 a month, $264 a year, 24% less than monthly", y.price === "$22" && PRO_YEARLY_TOTAL_CENTS === 26400 && PRO_YEARLY_MONTHLY_CENTS * 12 === 26400 && YEARLY_SAVING_PERCENT === 24, JSON.stringify(y))
+    /* Changed on purpose (pricing: Grow $14, physical rates). */
+    check("yearly Grow is $11 a month, $132 a year, 21% less than monthly", y.price === "$11" && PRO_YEARLY_TOTAL_CENTS === 13200 && PRO_YEARLY_MONTHLY_CENTS * 12 === 13200 && YEARLY_SAVING_PERCENT === 21, JSON.stringify(y))
     check("monthly is the plan as it always was", JSON.stringify(pricedFor(pro, "monthly")) === JSON.stringify({ price: pro.price, priceNote: pro.priceNote, note: pro.note }))
     check("Free is the same either way", pricedFor(free, "yearly").price === "$0")
     const cards = readCode("components/billing/plan-cards.tsx")

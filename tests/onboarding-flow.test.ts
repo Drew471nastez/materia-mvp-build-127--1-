@@ -1,3 +1,4 @@
+import { NATIVE_FRAME_POLICY } from "@/lib/security/csp"
 import { readFileSync } from "node:fs"
 import { paymentsSetupErrorMessage } from "@/lib/payments/stripe/setup-errors"
 import { parsePersonal, personalFields, personalIssues } from "@/lib/payments/stripe/onboarding-steps"
@@ -248,10 +249,11 @@ check(
 {
   /* The app gets its own, much narrower frame-src: Stripe's embedded forms
      have to be in it, and Stripe.js's controller iframe has to stay out. */
-  const native = untt(readFileSync("proxy.ts", "utf8"), "proxy.ts").match(/"Content-Security-Policy",\s*\n([\s\S]*?)\n\s*\)/)?.[1] ?? ""
+  /* Changed on purpose (OnePage integrations): the app's frame-src is one constant, NATIVE_FRAME_POLICY in lib/security/csp.ts, which proxy.ts sets; it now also allows the OnePage's players and booking pages. */
+  const native = NATIVE_FRAME_POLICY
   check(
     "the app's frame rules let Stripe's embedded forms load",
-    /"frame-src 'self'"/.test(native) && /https:\/\/connect-js\.stripe\.com/.test(native),
+    /^frame-src 'self' /.test(native) && /https:\/\/connect-js\.stripe\.com/.test(native) && /Content-Security-Policy", NATIVE_FRAME_POLICY\)/.test(readFileSync("proxy.ts", "utf8")),
   )
   check("and still keep Stripe.js's controller iframe out", !/controller/.test(native))
   check(

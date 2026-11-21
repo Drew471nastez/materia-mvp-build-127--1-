@@ -252,6 +252,27 @@ const DIRECTIVES: [string, string[]][] = [
  */
 export const CSP_ENFORCED_REPORT_PATH = `${CSP_REPORT_PATH}?enforced=1`
 
+/**
+ * THE APP'S WEBVIEW FRAME LIST (proxy.ts, Capacitor only, ENFORCED). Stripe.js
+ * v3 only by the frame patterns it needs, so its controller frame (which
+ * navigates the WebView away from checkout) is refused; every other host the
+ * frame-src above allows, so a OnePage's players, booking pages and embeds
+ * (open.spotify.com, w.soundcloud.com, www.youtube.com, calendly.com,
+ * www.tiktok.com...) load in the app as they do in a browser. The list used
+ * to stop at Stripe, YouTube's nocookie host, Vimeo and Loom, so in the app
+ * a OnePage's Spotify, SoundCloud, TikTok, Calendly and Instagram frames,
+ * on the live page and in the editor's preview, were blank.
+ */
+export const NATIVE_FRAME_SRC: readonly string[] = [
+  "'self'",
+  "https://js.stripe.com/v3/elements-*",
+  "https://js.stripe.com/v3/payment-request-*",
+  "https://js.stripe.com/v3/three-ds-*",
+  "https://js.stripe.com/v3/link-*",
+  ...(DIRECTIVES.find(([name]) => name === "frame-src")?.[1] ?? []).filter((h) => h !== "'self'" && h !== "https://js.stripe.com"),
+]
+export const NATIVE_FRAME_POLICY = `frame-src ${NATIVE_FRAME_SRC.join(" ")}`
+
 /** The header value. One string, built once, compared against vercel.json. */
 export const CONTENT_SECURITY_POLICY = DIRECTIVES
   .map(([name, values]) => `${name} ${values.join(" ")}`)

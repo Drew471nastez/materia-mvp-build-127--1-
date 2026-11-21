@@ -13,7 +13,9 @@
  *                form's Send and a lead magnet's button did not move at all.
  *                pressableProps gives them the same class, variables and
  *                data attributes, so they answer exactly as a link does,
- *                and stay still inside a group or a carousel as links do.
+ *                inside a group or a carousel too (round 24: the owner's
+ *                "On hover does nothing" was, in part, every button there
+ *                kept still).
  *   BUTTON SIZE  Compact and Large changed every link and none of these.
  *                buttonPadScale is the same step for their padding.
  *   CORNERS      a Pill page (999px) drew the FAQ, the countdown, the map
@@ -50,14 +52,14 @@ export type PressableProps = {
 
 /**
  * A block's button as the page's button: its fill, corners, border and
- * shadow (themeButtonStyle), and its hover (`.op-btn`, buttonHoverVars).
- * `still` inside a group or a carousel, as a link there is.
+ * shadow (themeButtonStyle), and its hover (`.op-btn`, buttonHoverVars),
+ * wherever it is drawn: on its own, in a group or in a carousel.
  */
-export function pressableProps(theme: ButtonThemeLike, still = false): PressableProps {
+export function pressableProps(theme: ButtonThemeLike): PressableProps {
   return {
     className: "op-btn",
     style: { ...themeButtonStyle(theme), ...buttonHoverVars(theme) },
-    "data-hover": still ? "none" : buttonHover(theme),
+    "data-hover": buttonHover(theme),
     "data-shadow": buttonShadow(theme),
   }
 }

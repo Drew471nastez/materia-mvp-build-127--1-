@@ -4,12 +4,15 @@ import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
 import { stripeIdentityKey } from "@/lib/stripe/resilience"
+import { growthPriceId, planFromPriceId, proPriceId } from "@/lib/billing/stripe-prices"
+import { GROW_PRICE_NOT_READY, growPriceMatchesShown } from "@/lib/billing/grow-price-guard"
+import { UPGRADE_NOT_FINISHED, UPGRADE_PRORATION, startPlanUpgrade, upgradeLanded, type UpgradedSub } from "@/lib/billing/plan-upgrade"
 
 const PLAN_ORDER: Record<string, number> = { free: 0, growth: 1, pro: 2 }
 
-// LIVE Stripe Price IDs
-const PRICE_GROWTH = process.env.PRICE_GROWTH_MONTHLY || "price_1SzBWaBYevnBVyznNCTOXDoS"
-const PRICE_PRO = process.env.PRICE_PRO_MONTHLY || "price_1SzBXSBYevnBVyznYjXfOOXX"
+// LIVE Stripe Price IDs (lib/billing/stripe-prices): Grow is the $14 price in PRICE_GROWTH_MONTHLY.
+const PRICE_GROWTH = growthPriceId()
+const PRICE_PRO = proPriceId()
 
 function getStripePriceId(planId: string): string | null {
   if (planId === "growth") return PRICE_GROWTH
@@ -17,13 +20,9 @@ function getStripePriceId(planId: string): string | null {
   return null
 }
 
+/* Every Grow price is `growth`, the $29 one subscribers keep until they are moved included (lib/billing/stripe-prices). */
 function getPlanIdFromPriceId(priceId: string | undefined): "growth" | "pro" | "free" {
-  if (!priceId) return "free"
-  if (priceId === PRICE_GROWTH) return "growth"
-  if (priceId === PRICE_PRO) return "pro"
-  if (priceId.includes("SzBWa")) return "growth"
-  if (priceId.includes("SzBXS")) return "pro"
-  return "free"
+  return planFromPriceId(priceId) ?? "free"
 }
 
 function isUpgrade(currentPlanId: string, newPlanId: string): boolean {
@@ -127,7 +126,7 @@ export async function POST(request: Request) {
   try {
     /* The store's rows, by the store's id (lib/team/money), for the owner and a team member alike. */
     const supabase = createAdminClient()
-    const { newPlanId, previewOnly } = await request.json()
+    const { newPlanId, previewOnly, finish } = await request.json()
 
     if (!newPlanId) {
       return NextResponse.json({ error: "Plan ID is required" }, { status: 400 })
@@ -247,6 +246,10 @@ export async function POST(request: Request) {
     if (!stripePriceId) {
       return NextResponse.json({ error: "No Stripe price configured for this plan" }, { status: 400 })
     }
+    /* A move to Grow is only ever to the price every card shows (lib/billing/grow-price-guard); nothing is changed while Stripe's says otherwise. */
+    if (newPlanId === "growth" && !(await growPriceMatchesShown(stripe, stripePriceId))) {
+      return NextResponse.json({ error: GROW_PRICE_NOT_READY, code: "price_not_ready" }, { status: 503 })
+    }
 
     const { data: subscriptionRecord } = await supabase
       .from("subscriptions")
@@ -271,54 +274,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Subscription item not found" }, { status: 400 })
     }
 
-    const currentPlanId = getPlanIdFromPriceId(subItem.price.id) || creator.subscription_plan_id || "free"
-    const upgrading = isUpgrade(currentPlanId, newPlanId)
-
-    const { periodStart, periodEnd } = getSubscriptionPeriod(stripeSubscription)
-
-    // Stripe SDK v20: use createPreview instead of retrieveUpcoming
-    const upcomingInvoice = await stripe.invoices.createPreview({
-      subscription: stripeSubscription.id,
-      subscription_details: {
-        items: [{ id: subItem.id, price: stripePriceId }],
-        proration_behavior: upgrading ? "create_prorations" : "none",
-      },
-    })
-
-    const amountDueNowCents = upgrading ? Math.max(0, upcomingInvoice.amount_due || 0) : 0
-
-    const nextBillingDate = safeTimestamp(periodEnd)
-    const nextAmountCents = subItem.price.id === stripePriceId
-      ? subItem.price.unit_amount || 0
-      : upcomingInvoice.lines.data
-          .find((line: any) => line.price?.id === stripePriceId && !line.proration)
-          ?.amount || 0
-
-    if (previewOnly) {
-      return NextResponse.json({
-        success: true,
-        type: upgrading ? "upgrade" : "downgrade",
-        amountDueTodayCents: upgrading ? Math.max(0, upcomingInvoice.amount_due || 0) : 0,
-        nextBillingDate,
-        nextAmountCents: Math.abs(nextAmountCents),
-      })
-    }
-
-    if (upgrading) {
-      // Clear cancel_at_period_end if set (re-upgrade after scheduled cancel)
-      const updatedSubscription = await stripe.subscriptions.update(subscriptionRecord.stripe_subscription_id, {
-        items: [{ id: subItem.id, price: stripePriceId }],
-        proration_behavior: "create_prorations",
-        cancel_at_period_end: false,
-        metadata: {
-          creator_id: creator.id,
-          plan_id: newPlanId,
-          pending_plan_id: "",
-        },
-      })
-
-      // Get updated period from the updated subscription
-      const updatedPeriod = getSubscriptionPeriod(updatedSubscription as any)
+    /*
+      THE PLAN IS ON THE RECORD ONLY ONCE STRIPE HAS IT PAID: after a card that paid at once, or (finish) after the
+      dialog confirmed a held upgrade with the bank. A finish is believed only when the subscription itself is on the
+      new price with nothing held (lib/billing/plan-upgrade upgradeLanded), never because the page says so.
+    */
+    const recordUpgrade = async (paid: UpgradedSub) => {
+      /* Stripe takes neither with a held change, so they follow it here. Never failing the upgrade, which is made. */
+      const settled = (await stripe.subscriptions
+        .update(subscriptionRecord.stripe_subscription_id, {
+          cancel_at_period_end: false,
+          metadata: { creator_id: creator.id, plan_id: newPlanId, pending_plan_id: "" },
+        })
+        .catch(() => null)) as UpgradedSub | null
+      const updatedSubscription = (settled ?? paid) as any
+      const updatedPeriod = getSubscriptionPeriod(updatedSubscription)
 
       await createAdminClient()
         .from("subscriptions")
@@ -340,10 +310,83 @@ export async function POST(request: Request) {
 
       /* A team member's change to the owner's plan is on the record with their name (lib/team/areas). */
       await recordTeamAction(who, who.userId, "billing_manage", "billing_plan_changed", { plan_id: newPlanId })
+      return updatedSubscription
+    }
+
+    if (finish === true && !previewOnly) {
+      if (!upgradeLanded(stripeSubscription, stripePriceId)) {
+        return NextResponse.json({ error: UPGRADE_NOT_FINISHED, code: "upgrade_not_paid" }, { status: 409 })
+      }
+      const done = await recordUpgrade(stripeSubscription)
       return NextResponse.json({
         success: true,
         type: "upgrade",
-        message: "Upgrade applied immediately with Stripe proration.",
+        message: "Upgrade applied and paid for the rest of this billing cycle.",
+        nextBillingDate: safeTimestamp(getSubscriptionPeriod(done).periodEnd),
+      })
+    }
+
+    const currentPlanId = getPlanIdFromPriceId(subItem.price.id) || creator.subscription_plan_id || "free"
+    const upgrading = isUpgrade(currentPlanId, newPlanId)
+
+    const { periodStart, periodEnd } = getSubscriptionPeriod(stripeSubscription)
+
+    /*
+      AN UPGRADE IS PAID FOR WHEN IT IS MADE (UPGRADE_PRORATION). It was made with create_prorations, which only
+      leaves the difference waiting for the next renewal invoice: the plan changed at once, nothing was charged, the
+      dialog had said "You'll be charged {amount} today", and a creator who then moved to Free (cancel at period end,
+      which never invoices again) kept the dearer plan for the rest of the period without paying for it. The preview
+      is the invoice made now (always_invoice), so the amount shown is the amount charged.
+    */
+    // Stripe SDK v20: use createPreview instead of retrieveUpcoming
+    const upcomingInvoice = await stripe.invoices.createPreview({
+      subscription: stripeSubscription.id,
+      subscription_details: {
+        items: [{ id: subItem.id, price: stripePriceId }],
+        proration_behavior: upgrading ? UPGRADE_PRORATION : "none",
+      },
+    })
+
+    const amountDueNowCents = upgrading ? Math.max(0, upcomingInvoice.amount_due || 0) : 0
+
+    const nextBillingDate = safeTimestamp(periodEnd)
+    /* The new plan's own price from its renewal line; an upgrade's preview holds only the difference charged now, so its price is read from Stripe. */
+    const renewalLine = upcomingInvoice.lines.data.find((line: any) => line.price?.id === stripePriceId && !line.proration) as any
+    const nextAmountCents = subItem.price.id === stripePriceId
+      ? subItem.price.unit_amount || 0
+      : renewalLine?.amount || (upgrading ? (await stripe.prices.retrieve(stripePriceId)).unit_amount || 0 : 0)
+
+    if (previewOnly) {
+      return NextResponse.json({
+        success: true,
+        type: upgrading ? "upgrade" : "downgrade",
+        amountDueTodayCents: upgrading ? Math.max(0, upcomingInvoice.amount_due || 0) : 0,
+        nextBillingDate,
+        nextAmountCents: Math.abs(nextAmountCents),
+      })
+    }
+
+    if (upgrading) {
+      /*
+        Charged now, and only changed when it is paid (lib/billing/plan-upgrade): a card that pays at once is recorded
+        here; one the bank wants to confirm (3-D Secure) goes back to the dialog with the payment's secret, and the
+        dialog finishes once Stripe.js has confirmed it; a declined card changes nothing.
+      */
+      const outcome = await startPlanUpgrade(
+        { update: (id, params) => stripe.subscriptions.update(id, params as never) as unknown as Promise<UpgradedSub> },
+        { subscriptionId: subscriptionRecord.stripe_subscription_id, itemId: subItem.id, priceId: stripePriceId },
+      )
+      if (outcome.kind === "declined") {
+        return NextResponse.json({ error: outcome.error, code: "upgrade_not_paid" }, { status: 402 })
+      }
+      if (outcome.kind === "needs_action") {
+        return NextResponse.json({ success: true, type: "upgrade", needsAction: { clientSecret: outcome.clientSecret } })
+      }
+      await recordUpgrade(outcome.subscription)
+      return NextResponse.json({
+        success: true,
+        type: "upgrade",
+        message: "Upgrade applied and paid for the rest of this billing cycle.",
         amountDueTodayCents: Math.max(0, upcomingInvoice.amount_due || 0),
         nextBillingDate,
         nextAmountCents: Math.abs(nextAmountCents),

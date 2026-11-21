@@ -35,6 +35,7 @@ import { BTN_PRIMARY, BTN_SECONDARY, Field, Modal, Notice, TextInput, api, peekG
 import type { IntegrationState } from "@/components/physical/integrations-marketplace"
 import { Mark, tileColor } from "@/components/app/settings/integration-mark"
 import { IntegrationDetail, bannerColor } from "@/components/app/settings/integration-detail"
+import { usePageIntegrations } from "@/components/onepage/page-integrations"
 import { CATEGORY_NAMES, CATEGORY_ORDER, visibleIntegrations, type Integration, type IntegrationCategory, type IntegrationStatus } from "@/lib/integrations/catalog"
 import { applyCatalogOverrides, type CatalogOverride } from "@/lib/integrations/overrides"
 import { providerInfo } from "@/lib/physical/providers"
@@ -44,7 +45,7 @@ import { hasBuiltInArt } from "@/components/app/settings/integration-mark"
 import { activeFilterCount, inPill, passesFilters, pillCounts, readDirectoryState, visibleIn, writeDirectoryState, matchesQuery, type CardFacets, type DirectoryState, type MakerFilter, type StatusFilter } from "@/lib/integrations/directory-filter"
 import { storelibApps, type AppState, type StorelibApp } from "@/lib/integrations/storelib-apps"
 import { tt } from "@/lib/i18n/text"
-import { pillOrder, weave, type DirectoryPill, type Lane } from "@/lib/integrations/directory-order"
+import { pillOrder, pinAfter, weave, type DirectoryPill, type Lane } from "@/lib/integrations/directory-order"
 import { NAV_ENTER_EASE, NAV_ENTER_MS, holdLanding, isTraversing, prefetchAppPage } from "@/lib/ui/app-navigation"
 
 /* All, then the pills the owner placed, then every other category (lib/integrations/directory-order). */
@@ -294,9 +295,17 @@ export function IntegrationsDirectory({ page = false, only = null, initial: serv
     void api<{ settings: { enabled: boolean } }>("/api/store/reviews-app").then((r) => {
       if (r.ok) setAppsOn((a) => ({ ...a, storelib_reviews: r.data.settings?.enabled === true }))
     })
+    /* Calendly and Cal.com are installed while connected (lib/bookings/external): keyed booking_sync:<provider>. */
+    void api<{ connections?: { provider: string; connected: boolean }[] }>("/api/bookings/external").then((r) => {
+      if (r.ok) setAppsOn((a) => ({ ...a, ...Object.fromEntries((r.data.connections ?? []).map((c) => [`booking_sync:${c.provider}`, c.connected])) }))
+    })
     /* Send analytics is installed while any tool is connected (lib/analytics/destinations). */
     void api<{ destinations?: { connected: boolean }[] }>("/api/analytics/destinations").then((r) => {
       if (r.ok) setAppsOn((a) => ({ ...a, analytics_destinations: (r.data.destinations ?? []).some((d) => d.connected) }))
+    })
+    /* Discord and Telegram are installed once a server or a chat is connected (lib/community-roles). */
+    void api<{ discord?: { connected: boolean }; telegram?: { connected: boolean } }>("/api/community-roles/status").then((r) => {
+      if (r.ok) setAppsOn((a) => ({ ...a, discord_roles: r.data.discord?.connected === true, telegram_access: r.data.telegram?.connected === true }))
     })
   }, [])
   /* Storelib's own apps and the Essentials: On, Off or Set up, read off the store (lib/integrations/storelib-apps). */
@@ -352,19 +361,32 @@ export function IntegrationsDirectory({ page = false, only = null, initial: serv
     void api<{ integrations: IntegrationState[] }>("/api/physical/integrations").then((r) => setStates(r.ok ? r.data.integrations : []))
   }, [physical])
 
+  /*
+    MAILCHIMP, ZAPIER AND MAKE ON THE ONEPAGE'S SIGNUPS: read from the same
+    place, with the same read, as the OnePage editor's Settings › Integrations
+    (GET /api/onepage/integrations through components/onepage/page-integrations),
+    so a connection made on either screen shows on both.
+  */
+  const pageIntegrations = usePageIntegrations()
+  const pageConnection = React.useCallback(
+    (i: Integration) => (i.kind === "app" && i.appId === "onepage_signups" ? (pageIntegrations?.integrations.find((x) => x.provider === i.pageIntegration && x.connected) ?? null) : null),
+    [pageIntegrations],
+  )
   const installed = React.useCallback(
     (i: Integration): boolean => {
+      if (i.kind === "app" && i.appId === "onepage_signups") return !!pageConnection(i)
       /* AfterShip only with the store's own AfterShip account, never its 17TRACK one. */
       if (i.id === "aftership") return ownTracking === "aftership"
       /* Brevo, MailerLite and Kit: connected with a key, like Klaviyo's sync. */
       if (i.kind === "app" && i.appId === "marketing_sync") return !!marketing?.some((m) => m.provider === i.marketingProvider && m.connected)
+      if (i.kind === "app" && i.appId === "booking_sync") return !!appsOn[`booking_sync:${i.bookingProvider}`]
       if (i.kind === "app") return !!(i.appId && appsOn[i.appId])
       if (i.kind === "tracker") return !!(i.trackerId && (tracking?.[i.trackerId] || marketing?.some((m) => m.provider === i.trackerId && m.connected)))
       if (i.kind !== "commerce" || i.comingSoon) return false
       const s = states?.find((x) => x.provider === i.providerId)
       return !!s && s.status !== "disconnected"
     },
-    [tracking, states, appsOn, marketing, ownTracking],
+    [tracking, states, appsOn, marketing, ownTracking, pageConnection],
   )
 
   /* One word for where each stands, read off what is really saved: never an installed state that isn't. */
@@ -379,10 +401,11 @@ export function IntegrationsDirectory({ page = false, only = null, initial: serv
         if (s && s.status !== "disconnected") return s.lastError ? "needs_attention" : "installed"
       } else if (i.kind === "tracker" && marketing?.some((m) => m.provider === i.trackerId && m.connected && m.lastError)) return "needs_attention"
       else if (i.kind === "app" && i.appId === "marketing_sync" && marketing?.some((m) => m.provider === i.marketingProvider && m.connected && m.lastError)) return "needs_attention"
+      else if (pageConnection(i)?.lastError) return "needs_attention"
       else if (installed(i)) return "installed"
       return i.comingSoon ? "coming_soon" : "available"
     },
-    [states, installed, marketing],
+    [states, installed, marketing, pageConnection],
   )
 
   const root = React.useRef<HTMLDivElement>(null)
@@ -713,12 +736,14 @@ export function IntegrationsDirectory({ page = false, only = null, initial: serv
     this list filtered, so it is its own most used first too.
   */
   const scoreOf = (e: Entry) => scores?.[e.id] ?? (e.kind === "app" ? scores?.[`app:${e.id}`] : undefined) ?? 0
-  const entries: Entry[] = scores
+  const ranked: Entry[] = scores
     ? woven
         .map((e, at) => ({ e, at }))
         .sort((a, b) => Number(later(a.e)) - Number(later(b.e)) || scoreOf(b.e) - scoreOf(a.e) || a.at - b.at)
         .map(({ e }) => e)
     : woven
+  /* The owner's run after Klaviyo: Printify, Printful, TikTok Pixel, Google Ads, Storelib Reviews (lib/integrations/directory-order pinAfter). */
+  const entries: Entry[] = pinAfter(ranked, (e) => e.id)
   /* Storelib's own: its apps and the parts of Storelib shown as integrations (Reviews, Courier tracking, the webhook). All holds them as well as every service. */
   const isStorelib = (e: Entry) => e.kind === "app" || hasBuiltInArt(e.id)
   /*

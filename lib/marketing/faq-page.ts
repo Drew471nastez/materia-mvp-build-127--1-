@@ -49,7 +49,8 @@
  * strings.
  */
 import { PRO_CHECKOUT_PLAN_ID, PRO_PRICE_CENTS, SCALE_CHECKOUT_PLAN_ID, SCALE_PRICE_CENTS, YEARLY_BILLING_LIVE, formatPlanPrice, planDisplayName } from "@/lib/billing/plans"
-import { getFeeDescription } from "@/lib/billing/fee-calculator"
+import { cardRateLabel, getFeeDescription, standardRateFor } from "@/lib/billing/fee-calculator"
+import { ratePercentLabel } from "@/lib/payments/fees/config"
 import { siteLimits } from "@/lib/sites/plan"
 import { PLAN_LIMITS, formatBytes } from "@/lib/storage/plans"
 import { FREE_COMMUNITY_LIMIT } from "@/lib/communities/plan-limit"
@@ -201,7 +202,7 @@ export function faqTopics(flags: FaqFlags = ALL_ON): FaqTopic[] {
         q(
           "fees",
           "Does Storelib take a commission on my sales?",
-          `Yes, a fee on each sale that depends on your plan: ${fee("free")} on Free, ${fee(GROW)} on ${grow} and ${fee(PRO)} on ${pro}. Orders under ${FEES.smallOrderBelow} pay a small order rate and no ${FEES.fixed}. Stripe's card processing fee is charged on top, on every plan, and there is nothing else. Payouts shows the fee on every sale.`,
+          `Yes, a fee on each sale that depends on your plan: ${fee("free")} on Free, ${fee(GROW)} on ${grow} and ${fee(PRO)} on ${pro}.${physical ? ` Products that ship pay ${cardRateLabel("free", "physical")} on Free, ${cardRateLabel(GROW, "physical")} on ${grow} and ${cardRateLabel(PRO, "physical")} on ${pro}.` : ""} Orders under ${FEES.smallOrderBelow} pay a small order rate and no ${FEES.fixed}. Stripe's card processing fee is charged on top, on every plan, and there is nothing else. Payouts shows the fee on every sale.`,
         ),
         q(
           "refunds",
@@ -229,7 +230,7 @@ export function faqTopics(flags: FaqFlags = ALL_ON): FaqTopic[] {
         q(
           "grow-plan",
           `What's included in ${grow}?`,
-          `${grow} is ${growPrice} a month. The fee on each sale drops from ${rate("free")} to ${rate(GROW)}, you can connect your own domain, Storelib branding comes off, and you get premium templates, the verified badge, ${sites.grow.maxSites} websites of ${sites.grow.maxPages} pages, ${storage.grow} of storage and ${sites.grow.aiEditsPerMonth} AI edits a month.`,
+          `${grow} is ${growPrice} a month. The fee on each sale drops from ${rate("free")} to ${rate(GROW)}${physical ? ` (from ${ratePercentLabel(standardRateFor("free", "physical"))} to ${ratePercentLabel(standardRateFor(GROW, "physical"))} on products that ship)` : ""}, you can connect your own domain, Storelib branding comes off, and you get premium templates, the verified badge, ${sites.grow.maxSites} websites of ${sites.grow.maxPages} pages, ${storage.grow} of storage and ${sites.grow.aiEditsPerMonth} AI edits a month.`,
         ),
         q(
           "pro-plan",

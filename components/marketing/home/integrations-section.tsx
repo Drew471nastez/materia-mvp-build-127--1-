@@ -116,15 +116,19 @@
   signups (lib/onepage/integrations/catalog.ts), in the first row;
   SoundCloud, which a OnePage embeds (app/api/onepage/soundcloud), and
   GitHub, which a website's code syncs with (app/api/github), in the
-  second. (Zapier, Make and Mailchimp take a OnePage's signups too, but the
-  store's integrations page still lists them as Coming soon, so they stay
-  off.) The rows are run by one hook now (loop-gate.ts).
+  second. Zapier, Make and Mailchimp take a OnePage's signups and the
+  store's integrations page lists them as working now (OnePage editor fixes
+  2), so they are on too, which makes the rows 18 and 17 tiles: more tiles only
+  keeps an icon from being seen twice. The rows are run by one hook now
+  (loop-gate.ts).
 */
 
 import { useEffect, useMemo, useRef, type CSSProperties, type ComponentType } from "react"
 import { StoryHeading } from "@/components/marketing/story-heading"
 import { SiAftership } from "@/components/icons/brand/SiAftership"
 import { SiBrevo } from "@/components/icons/brand/SiBrevo"
+import { SiCalendly } from "@/components/icons/brand/SiCalendly"
+import { SiCaldotcom } from "@/components/icons/brand/SiCaldotcom"
 import { SiPinterest } from "@/components/icons/brand/SiPinterest"
 import { SiGooglesheets } from "@/components/icons/brand/SiGooglesheets"
 import { SiGithub } from "@/components/icons/brand/SiGithub"
@@ -176,14 +180,22 @@ const ROWS: App[][] = [
     { name: "Pinterest Tag", bg: "#e60023", icon: SiPinterest, color: "#ffffff" },
     { name: "Printful", bg: "#ffffff", logo: "/integrations/printful.svg", scale: 0.74 },
     { name: "Shippo", bg: "#2f4450", logo: "/home/apps/shippo.webp", fit: "cover" },
+    /* Bookings made on Calendly and Cal.com come into Bookings (lib/bookings/external). */
+    { name: "Calendly", bg: "#006bff", icon: SiCalendly, color: "#ffffff", scale: 0.58 },
     { name: "Google Ads", bg: "#ffffff", mark: GoogleAdsMark, scale: 0.54 },
     { name: "Spotify", bg: "#000000", icon: SiSpotify, color: "#1ed760", scale: 0.62 },
     { name: "MailerLite", bg: "#ffffff", tile: MailerLiteLogo },
+    /* A OnePage's signups go to these (lib/onepage/integrations), so they are apps a store connects today. */
+    { name: "Zapier", bg: "#fff1e8", logo: "/integrations/zapier.svg", scale: 0.6 },
+    { name: "Make", bg: "#f4ebff", logo: "/integrations/make.svg", scale: 0.6 },
+    /* A paying member's role in the creator's Discord server (lib/community-roles). */
+    { name: "Discord", bg: "#ffffff", logo: "/integrations/discord.svg", scale: 0.6 },
   ],
   [
     { name: "Printify", bg: "#a9f86c", logo: "/home/apps/printify.webp", fit: "cover" },
     { name: "Google Calendar", bg: "#ffffff", mark: GoogleCalendarMark, scale: 0.56 },
     { name: "Kit", bg: "#44b1ff", tile: KitLogo },
+    { name: "Cal.com", bg: "#111113", icon: SiCaldotcom, color: "#ffffff", scale: 0.64 },
     { name: "SoundCloud", bg: "#ff5500", icon: SiSoundcloud, color: "#ffffff", scale: 0.66 },
     { name: "Tag Manager", bg: "#ffffff", logo: "/integrations/google-tag-manager.svg", scale: 0.56 },
     { name: "ShipStation", bg: "#11003a", logo: "/home/apps/shipstation.svg", fit: "cover" },
@@ -197,6 +209,9 @@ const ROWS: App[][] = [
     { name: "PostHog", bg: "#eeefe9", icon: SiPosthog, color: "#1d1f27" },
     { name: "AfterShip", bg: "#ff6b2b", icon: SiAftership, color: "#ffffff" },
     { name: "EasyPost", bg: "#ffffff", logo: "/home/apps/easypost.svg", scale: 0.6 },
+    { name: "Mailchimp", bg: "#ffe01b", logo: "/integrations/mailchimp.svg", scale: 0.6 },
+    /* A paying member's place in the creator's private Telegram group or channel (lib/community-roles). */
+    { name: "Telegram", bg: "#ffffff", logo: "/integrations/telegram.svg", scale: 0.6 },
   ],
 ]
 

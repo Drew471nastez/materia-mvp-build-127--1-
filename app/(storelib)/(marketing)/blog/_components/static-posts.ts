@@ -7,6 +7,9 @@
  * renderer, contents list and read time as a post from the database. A
  * database row with the same slug wins.
  */
+import { cardRateLabel } from "@/lib/billing/fee-calculator"
+import { PRO_CHECKOUT_PLAN_ID, PRO_PRICE_CENTS, formatPlanPrice } from "@/lib/billing/plans"
+
 export interface StaticPostBody {
   title: string
   excerpt: string
@@ -64,7 +67,8 @@ export const STATIC_POST_BODIES: Record<string, StaticPostBody> = {
       "## Why Most Platforms Charge So Much",
       "Many platforms justify high fees by bundling in features you may not need, or simply because creators don't comparison-shop. Storelib takes a different approach: we believe creators should keep the vast majority of their earnings.",
       "## The Storelib Fee Structure",
-      "**Free Plan:** 5% + $0.25 per transaction, with no monthly fee.\n**Grow Plan ($29/month):** 3% + $0.25 per transaction, plus your own domain, the verified badge and no Storelib branding.\nThe $0.25 applies to orders of $4.00 or more.",
+      /* The price and rates from lib/billing (plans, fee-calculator), so the post cannot quote an old one. */
+      `**Free Plan:** ${cardRateLabel("free")} per transaction (${cardRateLabel("free", "physical")} on products that ship), with no monthly fee.\n**Grow Plan (${formatPlanPrice(PRO_PRICE_CENTS)}/month):** ${cardRateLabel(PRO_CHECKOUT_PLAN_ID)} per transaction (${cardRateLabel(PRO_CHECKOUT_PLAN_ID, "physical")} on products that ship), plus your own domain, the verified badge and no Storelib branding.\nThe $0.25 applies to orders of $4.00 or more.`,
       "## The Bottom Line",
       "Every dollar you save on fees is a dollar you can reinvest in your business. Over the lifetime of your creator career, choosing a low-fee platform like Storelib can mean tens of thousands of dollars in additional earnings."
     ]

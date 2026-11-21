@@ -89,7 +89,8 @@ export async function POST(request: Request) {
     if (result.status === "busy") return json({ error: "This product is already being imported. Wait a moment and try again." }, 409)
     return json({ ...result, warnings: product.warnings })
   } catch (error) {
-    if (error instanceof LinkImportError) return json({ error: error.message.slice(0, 300) }, 400)
+    /* 503 for a store that is busy or down: the list import (link-import-form) stops on it rather than failing every product after it. */
+    if (error instanceof LinkImportError) return json({ error: error.message.slice(0, 300) }, error.retryLater ? 503 : 400)
     const message = error instanceof Error ? error.message : ""
     if (/larger than allowed/i.test(message)) return json({ error: "That page is too large to read. Paste the product's own page link." }, 400)
     // Parser messages contain no credentials; transport exceptions may contain addresses or network details.

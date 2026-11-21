@@ -63,6 +63,8 @@ stoicism()
 banner("ALL SKINS: a button's words on hover, motion, theme cards")
 comment("A button the skin paints keeps the hover's own words when it fills (app/globals.css .op-btn).")
 css.push(`${HOVER} {\n  [data-op-skin] ${HOVERED}:is([data-hover="fill"], [data-hover="pop"]) { color: var(--op-fill-text, inherit) !important; text-shadow: none; }\n}`)
+comment("Round 24: a button reached with Tab plays the same hover (app/globals.css, THE KEYBOARD GETS THE SAME ANSWER).")
+css.push(`[data-op-skin] :is(.op-btn:focus-visible, .op-host:focus-visible .op-btn):is([data-hover="fill"], [data-hover="pop"]) { color: var(--op-fill-text, inherit) !important; text-shadow: none; }`)
 css.push(`@keyframes sk-spin { to { rotate: 360deg; } }
 @keyframes sk-drift { from { translate: -24px 0; } to { translate: 30px 0; } }
 @keyframes sk-bob { from { translate: 0 0; } to { translate: 6px -22px; } }

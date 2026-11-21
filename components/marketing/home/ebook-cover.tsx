@@ -26,12 +26,15 @@ export const LUT_PACK = EBOOK
 export const LUT_STILL = "/home/everything/lut-still.webp"
 /** The same still at 240 x 135 (7 KB, against 55 KB), for a cover drawn at thumbnail size: an order line, the instant checkout's head. Landing round 12 (the page audit: the 720px still was drawn 21 to 28px wide). */
 export const LUT_STILL_SMALL = "/home/everything/lut-still-240.webp"
+/** The still at every width it is kept at (landing round 19: a 480px copy too, scripts/build-home-image-variants.mjs), for srcset. */
+export const LUT_STILL_SET = `${LUT_STILL_SMALL} 240w, /home/everything/lut-still-480.webp 480w, ${LUT_STILL} 720w`
 
 /** `small`: the cover is drawn under about 120px wide, so it takes the small still. */
 export function EbookCover({ className = "", small = false }: { className?: string; small?: boolean }) {
   return (
     <span className={`ebc ${className}`}>
-      <img className="ebc-img" src={small ? LUT_STILL_SMALL : LUT_STILL} alt="" width={small ? 240 : 720} height={small ? 135 : 405} loading="lazy" decoding="async" />
+      {/* Landing round 19: the full cover is drawn about a third of a phone wide (125px at 390) and 16% of a wider screen, so it takes the 480px copy on a phone. */}
+      <img className="ebc-img" src={small ? LUT_STILL_SMALL : LUT_STILL} srcSet={small ? undefined : LUT_STILL_SET} sizes={small ? undefined : "(max-width:1023px) 34vw, 16vw"} alt="" width={small ? 240 : 720} height={small ? 135 : 405} loading="lazy" decoding="async" />
       <span className="ebc-tag">LUT Pack</span>
       <span className="ebc-name">
         <span>Cine</span>

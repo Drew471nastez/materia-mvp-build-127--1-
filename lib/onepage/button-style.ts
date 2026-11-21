@@ -24,7 +24,7 @@
  */
 import type { CSSProperties } from "react"
 import { readableOn } from "./theme-apply"
-import { SEE_THROUGH_MIN, TEXT_MIN, buttonGrounds, contrastOn, fadeThatReads, over, pageGrounds, parseColor, readableInk, toHex, worstContrast, type Rgba } from "./contrast"
+import { SEE_THROUGH_MIN, TEXT_MIN, buttonGrounds, contrastOn, fadeThatReads, lum, over, pageGrounds, parseColor, readableInk, toHex, worstContrast, type Rgba } from "./contrast"
 
 export type ButtonFill = "filled" | "soft" | "outline" | "glass"
 export type ButtonShadow = "none" | "subtle" | "strong" | "hard"
@@ -99,10 +99,15 @@ export function buttonIconSide(theme: ButtonThemeLike): ButtonIconSide {
   return theme.button_icon_position === "right" ? "right" : "left"
 }
 
-/** The hover a saved page asked for. "default", null and anything unknown is Lift. */
-export function buttonHover(theme: ButtonThemeLike, stationary = false): ButtonHover {
+/**
+ * The hover a saved page asked for. "default", null and anything unknown is Lift.
+ * ROUND 24, the owner: "On hover does nothing". A button inside a group or a
+ * carousel used to be handed "none" (or Fill for Pop) here, so on a page made of
+ * groups every choice but Fill looked broken. Every button plays the choice now;
+ * the rows leave room for the rise (app/globals.css, THE ROW LEAVES ROOM).
+ */
+export function buttonHover(theme: ButtonThemeLike): ButtonHover {
   const h = theme.button_hover_animation
-  if (stationary) return h === "fill" || h === "pop" ? "fill" : "none"
   switch (h) {
     case "none":
     case "fade":
@@ -213,10 +218,19 @@ export function buttonHoverVars(theme: ButtonThemeLike): CSSProperties {
   const shadowColor = theme.button_shadow_color || "#000000"
   const accent = (theme.button_color as string) || "#1a1a2e"
   const width = fill === "outline" ? Math.max(2, theme.button_border_width || 0) : theme.button_border_width || 0
+  const ground = pageGrounds(theme as never)[0] ?? parseColor("#ffffff")!
+  /*
+    ROUND 24: LIFT THE PAGE CAN SHOW. A black shadow at 28% under a button on a near black page is no shadow at
+    all, so Lift there was a 2px rise and nothing else, and read as "does nothing". On a dark page the shadow is
+    deeper and the button gets a hairline of its own colour, so it reads as raised off the page.
+  */
+  const darkGround = lum(ground) < 0.2
   const hoverShadow =
     shadow === "hard"
       ? `6px 6px 0px ${hexToRgba(shadowColor, 0.9)}`
-      : `0 10px 24px -8px ${hexToRgba(shadowColor, 0.28)}, 0 3px 8px -3px ${hexToRgba(shadowColor, 0.16)}`
+      : darkGround
+        ? `0 14px 30px -10px ${hexToRgba(shadowColor, 0.75)}, 0 4px 10px -4px ${hexToRgba(shadowColor, 0.5)}, 0 0 0 1px color-mix(in srgb, ${accent} 22%, transparent)`
+        : `0 10px 24px -8px ${hexToRgba(shadowColor, 0.28)}, 0 3px 8px -3px ${hexToRgba(shadowColor, 0.16)}`
   /*
     Fill (and Pop, which is Fill with Lift's rise): a solid button turns to
     its text colour, anything else fills with the button colour, unless the
@@ -239,7 +253,6 @@ export function buttonHoverVars(theme: ButtonThemeLike): CSSProperties {
     never checked against each other. The fill is laid over the page as the browser lays it (a see-through one made
     the solid colour it shows), and the words are the nearest colour that reads on it (readableInk), kept when they do.
   */
-  const ground = pageGrounds(theme as never)[0] ?? parseColor("#ffffff")!
   const fillParsed = parseColor(rawFill)
   const fillWith = fillParsed && fillParsed.a < 1 ? toHex(over(fillParsed, ground)) : rawFill
   const fillSolid = parseColor(fillWith)

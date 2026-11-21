@@ -51,7 +51,8 @@ check("its name in the builder's bar, its own address in Publish", wb.includes('
 // Changed on purpose (landing round 12): the store's condensed heading face ships as a small self-hosted subset (gb-oswald.woff2); still nothing from a font service.
 check("a wordmark in the middle of the header, drawn as a picture", /class="smk-pic stz-logo"/.test(site) && site.includes("/home/showcase/stz-logo.webp") && /grid-template-columns:1fr auto 1fr/.test(BUILDER_CSS) && !/fonts\.googleapis|fonts\.gstatic/.test(BUILDER_CSS))
 check("the header's links and the shop's keys", ["Home", "Shop", "Products", "Contact"].every((w) => site.includes(w)) && /class="stz-icons"/.test(site))
-check("a cover: one photograph in the hero", (site.match(/stz-hero\.webp/g) ?? []).length === 1 && /class="smk-pic stz-photo"/.test(site) && !/pw-hero|Everyday cotton|Porto/.test(site + read(F.builders)))
+// Changed on purpose (landing round 19): the photograph also names itself in its srcset, beside its smaller copies, so it is counted as one <img>.
+check("a cover: one photograph in the hero", (site.match(/<img [^>]*stz-hero\.webp/g) ?? []).length === 1 && /class="smk-pic stz-photo"/.test(site) && !/pw-hero|Everyday cotton|Porto/.test(site + read(F.builders)))
 const prices = [...site.matchAll(/<span class="stz-price">\$(\d+)\.00<\/span>/g)].map((m) => Number(m[1]))
 // Changed on purpose (landing round 14): the owner's own four Steez products, at his prices.
 check("four tees, priced like real clothes", prices.length === 4 && prices.every((p) => p >= 15 && p <= 150) && ["Gradient Hoodie", "Raw Tee", "Grey Graphic T-shirt", "Faith over fear Graphic T-shirt"].every((n) => site.includes(n)))

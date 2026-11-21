@@ -156,7 +156,8 @@ async function main() {
     "files are still attached to their product",
     downloads.find((d) => d.productId === "p1")?.files.length === 1,
   )
-  check("all five queries still run", calls.length === 5, `got ${calls.length}`)
+  /* Changed on purpose (round AL): a sixth read, each cover as uploaded (lib/products/cover originalCoversOf), asked beside the files in the same wave. */
+  check("all five queries still run, and the covers as uploaded beside the files", calls.length === 6 && Math.abs((calls.find((c) => c.table === "products")?.start ?? -999) - (calls.find((c) => c.table === "digital_assets")?.start ?? 0)) < LATENCY / 2, `got ${calls.length}`)
 
   // ── And it no longer waits for each one in turn ───────────────────────
   const ent = at("entitlements")!

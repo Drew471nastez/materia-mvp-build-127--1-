@@ -128,7 +128,8 @@ console.log("\n── Everything ──")
   const bg = (src.match(/\n\.ev-p-bg\{([^}]*)\}/) ?? [])[1] ?? ""
   check("the four grounds hold no layer for good", !/will-change/.test(bg) && /animation:ev-bg-drift 22s ease-in-out infinite alternate/.test(bg), bg)
   check("each card pauses on its own", /usePartsLive\(ref, "\.ev-card"\)/.test(src))
-  check("the storefront strip drifts only while all of it is within a screen", /const shown = \(\) => liveRef\.current && near && !document\.hidden/.test(src) && /near = wholeInside\(e\)/.test(src) && /if \(on && near && !document\.hidden\) startDrift\(\)/.test(src))
+  // Changed on purpose (landing round 19, perf on a phone): it drifts from a quarter of a screen before it shows (STRIP_AHEAD), not while all of it is within a whole screen; under the hero it was running half a screen below the fold.
+  check("the storefront strip drifts only from a quarter of a screen before it shows", /const shown = \(\) => liveRef\.current && near && !document\.hidden/.test(src) && /near = e\.isIntersecting/.test(src) && /const STRIP_AHEAD = "25% 0px"/.test(src) && /rootMargin: STRIP_AHEAD/.test(src) && /if \(on && near && !document\.hidden\) startDrift\(\)/.test(src))
   check("its loops and its tab fill pause there", /\.ev-card\[data-part-live="false"\] \.ev-loop,\.ev-card\[data-part-live="false"\] \.ev-tab\[data-on\] \.ev-tab-fill\{animation-play-state:paused\}/.test(src))
   const pause = src.indexOf('.ev-card[data-part-live="false"] .ev-p-bg[data-on]{animation-play-state:paused}')
   const run = src.indexOf('.ev[data-platform-live="true"] .ev-p-bg[data-on]{animation-play-state:running}')

@@ -69,7 +69,8 @@ check("  and nothing calls it", !/api\/debug\/orders/.test(read("proxy.ts")))
 
 console.log("\nTwo OnePage saves at the same moment: one lands, the other is told")
 const put = code("app/api/onepage/route.ts")
-check("the check reads the row's updated_at with the fingerprint", /select\("draft_blocks, archived_blocks, theme, bio, updated_at"\)/.test(put))
+/* Changed on purpose (OnePage editor fixes 2): the settings come with the fingerprint, for the server's note of products it took off the page (lib/onepage/product-removals). */
+check("the check reads the row's updated_at with the fingerprint", /select\("draft_blocks, archived_blocks, theme, bio, settings, updated_at"\)/.test(put))
 check("the write lands only on the row the check saw", /checkedAt \? q\.eq\("updated_at", checkedAt\) : q/.test(put))
 check("and moves updated_at on, always later than the one checked", /Math\.max\(Date\.now\(\), Date\.parse\(checkedAt\) \+ 1\)/.test(put) && /updates\.updated_at = new Date\(next\)\.toISOString\(\)/.test(put))
 check("a write that found no such row is the same 409, and nothing was written", /if \(checkedAt && error && \(error as \{ code\?: string \}\)\.code === "PGRST116"\) return conflictAnswer\(\)/.test(put))

@@ -40,7 +40,7 @@ import { COVER_STILL_POLICY } from "@/lib/website-builder/cover-still"
 import { carriesSignIn, skipsSessionRefresh } from "@/lib/auth/no-session-paths"
 import { cookiePairs, HOST_PREFIX, isGuardedName, outgoingName, plantedExpiries, sessionView, writesHostCookies } from "@/lib/supabase/host-session"
 import { SESSION_COOKIE_MAX_AGE, storedSessionKey } from "@/lib/supabase/session-jar"
-import { CSP_REPORT_PATH, enforcesCsp, keepsCspReport, withEnforcedCsp } from "@/lib/security/csp"
+import { CSP_REPORT_PATH, NATIVE_FRAME_POLICY, enforcesCsp, keepsCspReport, withEnforcedCsp } from "@/lib/security/csp"
 import { refusesSiteAction, SITE_ACTION_GUARD } from "@/lib/website-builder/site-action-guard"
 import { isSiteIconPath, SITE_ICON_PATH, SITE_MANIFEST_PATH } from "@/lib/website-builder/site-favicon"
 import { PRIVATE_ROBOTS_HEADER, privatePlatformPath } from "@/lib/seo/indexing"
@@ -3017,18 +3017,8 @@ async function routeRequest(request: NextRequest) {
   // NOT allowed (intentionally blocked):
   //   controller-with-preconnect-*  ← the cause of the top-level navigation
   if ((request.headers.get("user-agent") || "").includes("Capacitor")) {
-    supabaseResponse.headers.set(
-      "Content-Security-Policy",
-      "frame-src 'self'" +
-      " https://js.stripe.com/v3/elements-*" +
-      " https://js.stripe.com/v3/payment-request-*" +
-      " https://js.stripe.com/v3/three-ds-*" +
-      " https://js.stripe.com/v3/link-*" +
-      " https://hooks.stripe.com" +
-      " https://connect-js.stripe.com" +
-      /* A course lesson that is a YouTube or Vimeo link plays in their player (lib/courses/external.ts); a community post's Loom link in Loom's. */
-      " https://www.youtube-nocookie.com https://player.vimeo.com https://www.loom.com",
-    )
+    /* The Stripe patterns above, and every other frame host the site's policy allows: a OnePage's players and booking pages too (lib/security/csp NATIVE_FRAME_POLICY). */
+    supabaseResponse.headers.set("Content-Security-Policy", NATIVE_FRAME_POLICY)
   }
 
   /**

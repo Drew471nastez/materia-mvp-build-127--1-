@@ -145,6 +145,18 @@ export interface AppBlockData {
   paid_price?: string
   paid_checkout?: string
   paid_ready?: boolean
+  /**
+   * Discord, members only (lib/community-roles): the product, membership or
+   * tier whose owners are let into the server. Owners see Join the Discord
+   * (Storelib adds them with the role); everyone else sees Buy. The invite
+   * address (`url`) is never sent to the page while this is set.
+   */
+  members_product_id?: string | null
+  /** Filled on the server from the product: its name, price and checkout. */
+  members_title?: string
+  members_price?: string
+  members_checkout?: string
+  members_ready?: boolean
   /** Reviews: whose (lib/onepage/reviews-block). */
   review_source?: "storelib" | "google" | "trustpilot"
   /** Trustpilot: the TrustBox code as copied from Trustpilot Business, read for its ids. */

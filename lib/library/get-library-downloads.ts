@@ -1,3 +1,4 @@
+import { originalCoversOf, withOriginalCoverRow } from "@/lib/products/cover"
 import { personName } from "@/lib/profile/display-name"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
@@ -163,7 +164,7 @@ export async function getLibraryDownloads(
     })
   }
 
-  const [, { data: assets }] = await Promise.all([
+  const [, { data: assets }, originals] = await Promise.all([
     namesForMissingCreators(),
     admin
       .from("digital_assets")
@@ -171,6 +172,8 @@ export async function getLibraryDownloads(
       .select("*")
       .in("product_id", productIds)
       .order("created_at", { ascending: true }),
+    /* Round AL: the library shows each cover as uploaded, not the 16:9 copy Explore keeps (lib/products/cover.ts). */
+    originalCoversOf(admin, productIds),
   ])
 
   const filesByProduct = new Map<string, Array<{ id: string; fileName: string; sizeBytes: number | null }>>()
@@ -197,7 +200,7 @@ export async function getLibraryDownloads(
         id: row.id,
         productId: row.product_id,
         title: row.product?.title || "Untitled product",
-        thumbnailUrl: row.product?.thumbnail_url || null,
+        thumbnailUrl: withOriginalCoverRow({ thumbnail_url: row.product?.thumbnail_url || null }, originals.get(row.product_id)).thumbnail_url || null,
         creatorName,
         createdAt: row.created_at,
         purchasedAtLabel: formatDate(row.created_at),

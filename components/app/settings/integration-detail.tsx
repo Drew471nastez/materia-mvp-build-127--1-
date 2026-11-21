@@ -43,10 +43,12 @@ import { ReviewsAppPanel } from "@/components/app/settings/reviews-app-panel"
 import { TrackingAppPanel } from "@/components/app/settings/tracking-app-panel"
 import { GaConnect } from "@/components/app/settings/ga-connect"
 import { MarketingSyncPanel, type MarketingState } from "@/components/app/settings/marketing-sync-panel"
-import { installVerb, oneTapInstall, removalPlan, setupSteps, type ActionCall } from "@/lib/integrations/detail-actions"
+import { CommunityAccessPanel } from "@/components/app/settings/community-access-panel"
+import { EXTERNAL_BOOKINGS_PATH, installVerb, oneTapInstall, removalPlan, setupSteps, type ActionCall } from "@/lib/integrations/detail-actions"
+import { ExternalBookingPanel, reloadExternalConnections } from "@/components/bookings/external-bookings"
 import { integrationAppView, tabFor } from "@/components/app/settings/integration-apps"
 import { tt } from "@/lib/i18n/text"
-import { PageIntegrationsSection } from "@/components/onepage/page-integrations"
+import { PageIntegrationsSection, reloadPageIntegrations } from "@/components/onepage/page-integrations"
 import { isPageIntegration } from "@/lib/onepage/integrations/catalog"
 
 /*
@@ -99,16 +101,20 @@ const BRAND: Record<string, string> = {
   mailchimp: "#ffe01b",
   brevo: "#0b996e",
   zapier: "#ff4f00",
+  discord: "#5865f2",
+  telegram: "#26a5e4",
   hotjar: "#ff3c00",
   "snapchat-pixel": "#fffc00",
   "reddit-pixel": "#ff4500",
 }
 const CATEGORY_TINT: Record<IntegrationCategory, string> = {
   reviews: "#f2607a",
+  scheduling: "#3d84f5",
   analytics: "#f5a524",
   advertising: "#3d84f5",
   email: "#e2557a",
   automation: "#f08a24",
+  community: "#5865f2",
   shipping: "#3d84f5",
   print_on_demand: "#1fa971",
   dropshipping: "#0f9fb5",
@@ -321,6 +327,10 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
     if (!r.ok) return ("error" in r ? r.error : "")
     if (call.path === "/api/store/reviews-app") onApp("storelib_reviews", call.body.enabled === true)
     else if (call.path === "/api/store/tracking-app") onApp("courier_tracking", false)
+    else if (call.path === EXTERNAL_BOOKINGS_PATH && item.bookingProvider) {
+      onApp(`booking_sync:${item.bookingProvider}`, false)
+      void reloadExternalConnections()
+    }
     else if (call.path === "/api/store/integrations" && r.data.tracking) onTracking(r.data.tracking)
     else if (call.path.startsWith("/api/store/integrations/marketing") && r.data.marketing) onMarketing(r.data.marketing)
     else if (call.path.startsWith("/api/physical/integrations") && r.data.integrations) onStates(r.data.integrations)
@@ -360,6 +370,8 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
       }
     }
     await readFresh(plan.refresh)
+    /* The OnePage's own connections are read once for both screens (components/onepage/page-integrations): asked again, so the card and the editor say the same. */
+    if (item.appId === "onepage_signups") await reloadPageIntegrations()
     setPanelKey((k) => k + 1)
     setBusy(false)
     setConfirming(false)
@@ -389,6 +401,15 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
   ) : item.kind === "app" && item.appId === "marketing_sync" && item.marketingProvider ? (
     /* Brevo, MailerLite and Kit: the same sync card as Emails › Platforms. */
     <MarketingSyncPanel provider={item.marketingProvider} onChanged={onMarketing} />
+  ) : item.kind === "app" && (item.appId === "discord_roles" || item.appId === "telegram_access") ? (
+    /* Storelib's own bots: connect, map products to a role or a chat, and each member's access (lib/community-roles). */
+    <CommunityAccessPanel provider={item.appId === "discord_roles" ? "discord" : "telegram"} onChanged={(on) => onApp(item.appId!, on)} />
+  ) : item.kind === "app" && item.appId === "booking_sync" && item.bookingProvider ? (
+    /* Calendly and Cal.com: the same panel as the OnePage editor's (components/bookings/external-bookings). */
+    <ExternalBookingPanel provider={item.bookingProvider} onChanged={(on) => onApp(`booking_sync:${item.bookingProvider}`, on)} />
+  ) : item.kind === "app" && item.appId === "onepage_signups" && item.pageIntegration ? (
+    /* Mailchimp, Zapier and Make: connected here with the same card, the same API and the same read as the OnePage editor's Settings › Integrations. */
+    <PageIntegrationsSection only={[item.pageIntegration]} />
   ) : item.kind === "app" && item.appId === "courier_tracking" ? (
     <TrackingAppPanel onChanged={(own) => onApp("courier_tracking", own)} />
   ) : item.kind === "app" && item.appId === "analytics_destinations" ? (

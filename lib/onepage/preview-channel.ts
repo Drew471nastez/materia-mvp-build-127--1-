@@ -12,11 +12,15 @@
  *            and "€24.00" live
  *   "drawn"  the frame has drawn the page once, fonts included: the
  *            editor's loader can go
+ *   "forms"  the forms the page opens, as they are being edited, with
+ *            whether the editor's list is read (lib/forms/preview-forms):
+ *            sent before "page", and again with every edit in the builder
  *
  * Only between documents on this origin, and only from the frame's own
  * parent: both sides check.
  */
 import type { PublicOnePageData } from "@/lib/onepage/public-shape"
+import type { PreviewForm } from "@/lib/forms/preview-forms"
 
 export const ONEPAGE_PREVIEW_CHANNEL = "storelib-onepage-preview"
 
@@ -27,6 +31,7 @@ export type PreviewMessage =
   | { channel: typeof ONEPAGE_PREVIEW_CHANNEL; kind: "ready" }
   | { channel: typeof ONEPAGE_PREVIEW_CHANNEL; kind: "drawn" }
   | { channel: typeof ONEPAGE_PREVIEW_CHANNEL; kind: "page"; page: PublicOnePageData; currency?: string | null }
+  | { channel: typeof ONEPAGE_PREVIEW_CHANNEL; kind: "forms"; forms: PreviewForm[]; settled: boolean }
   /* Round AR (lib/onepage/preview-select): the phone beside the editor picks blocks, and which one is open. */
   | { channel: typeof ONEPAGE_PREVIEW_CHANNEL; kind: "select-mode"; on: boolean; selected: string | null }
   /* Round AR: a block clicked in the frame. */

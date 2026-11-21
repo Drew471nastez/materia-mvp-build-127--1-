@@ -134,10 +134,12 @@ function main() {
   const selling = state({ ...SETUP, orders: Array.from({ length: 60 }, (_, i) => order(1 + (i % 29), 4500)) })
   check("60 sales of $45 in 30 days: $150 in fees on Free, $96 on Pro", selling.sales.last30.feeFreeCents === 15000 && selling.sales.last30.feeProCents === 9600, selling.sales.last30)
   /* Changed on purpose (pricing round 5): the $29 plan is named Grow. */
-  check("so Grow would have saved $25, the $29 paid", proSaving(selling) === 2500 && find(selling, "upgrade-saving")?.title === "Grow would have saved you $25", find(selling, "upgrade-saving")?.title)
-  check("the line gives both sides, the plan's price inside Grow's", find(selling, "upgrade-saving")?.line === "Fees, 30 days: $150 on Free, $125 on Grow.", find(selling, "upgrade-saving")?.line)
+  /* Changed on purpose (pricing: Grow $14, physical rates). */
+  check("so Grow would have saved $40, the $14 paid", proSaving(selling) === 4000 && find(selling, "upgrade-saving")?.title === "Grow would have saved you $40", find(selling, "upgrade-saving")?.title)
+  check("the line gives both sides, the plan's price inside Grow's", find(selling, "upgrade-saving")?.line === "Fees, 30 days: $150 on Free, $110 on Grow.", find(selling, "upgrade-saving")?.line)
   check("and a second Pro slide about the domain is left out", !ids(selling).includes("domain-pro"), ids(selling))
-  const close = state({ ...SETUP, orders: Array.from({ length: 40 }, (_, i) => order(1 + (i % 29), 4500)) })
+  /* Changed on purpose (pricing: Grow $14, physical rates). */ /* Twenty sales now: at $14 forty sales already save $22. */
+  const close = state({ ...SETUP, orders: Array.from({ length: 20 }, (_, i) => order(1 + (i % 29), 4500)) })
   check(`a saving under ${money(REAL_SAVING_CENTS)} is not worth saying`, proSaving(close) > 0 && proSaving(close) < REAL_SAVING_CENTS && !ids(close).includes("upgrade-saving"), proSaving(close))
   check("sales older than 30 days do not count", state({ ...SETUP, orders: Array.from({ length: 60 }, (_, i) => order(31 + i, 4500)) }).sales.last30.count === 0)
   check("on Pro it never shows", !ids(state({ ...SETUP, plan: "growth", orders: Array.from({ length: 80 }, (_, i) => order(1 + (i % 29), 9900)) })).includes("upgrade-saving"))

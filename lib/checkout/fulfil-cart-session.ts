@@ -59,7 +59,7 @@ import { noteFromMetadata } from "./site-checkout"
 type Db = FulfilContext["admin"]
 
 export type CartFulfilment =
-  | { ok: true; created: boolean; receiptToken: string; sessionFingerprint: string; complete: boolean; creatorId: string }
+  | { ok: true; created: boolean; receiptToken: string; sessionFingerprint: string; complete: boolean; creatorId: string; buyerId?: string | null }
   | { ok: false; status: number; reason: "not_found" | "unpaid" | "unreadable" | "failed" }
 
 export function isCartSession(session: Pick<Stripe.Checkout.Session, "metadata" | "mode">): boolean {
@@ -69,7 +69,7 @@ export function isCartSession(session: Pick<Stripe.Checkout.Session, "metadata" 
 export async function fulfilCartSession(
   admin: Db,
   sessionId: string,
-  opts: { baseUrl: string; request?: Request; viewerId?: string | null },
+  opts: { baseUrl: string; request?: Request },
 ): Promise<CartFulfilment> {
   if (typeof sessionId !== "string" || !/^cs_[A-Za-z0-9_]+$/.test(sessionId)) return { ok: false, status: 400, reason: "not_found" }
 
@@ -104,7 +104,15 @@ export async function fulfilCartSession(
   const paidTotal = session.amount_total ?? packedTotalCents(items)
 
   const buyerEmail = (metadata.buyer_email || session.customer_details?.email || "").toLowerCase().trim() || null
-  let buyerId = metadata.buyer_id || opts.viewerId || null
+  /*
+    THE PAYER'S ACCOUNT, NEVER WHOEVER OPENS THE RETURN ADDRESS. The account signed in when the basket was paid is in
+    the metadata; a guest basket joins an account only by a proven address, exactly as the webhook's path below and a
+    single purchase (lib/checkout/fulfil-payment). It used to take the account signed in on storelib.com when Stripe's
+    return address was opened: a guest basket bought for another address went into that account's library instead
+    (the address's owner then got "already in another account"), and which account got it depended on whether the
+    webhook or the browser wrote the orders first.
+  */
+  let buyerId = metadata.buyer_id || null
   if (!buyerId && buyerEmail) {
     /* A confirmed address only (lib/orders/attach-guest-orders.ts verifiedAccountForEmail). */
     const account = await verifiedAccountForEmail(admin, buyerEmail)
@@ -169,7 +177,7 @@ export async function fulfilCartSession(
     business: businessFromStripe(session.customer_details),
   })
   if (!written.receiptToken) return { ok: false, status: 500, reason: "failed" }
-  return { ok: true, created: written.created, receiptToken: written.receiptToken, sessionFingerprint, complete: written.complete, creatorId }
+  return { ok: true, created: written.created, receiptToken: written.receiptToken, sessionFingerprint, complete: written.complete, creatorId, buyerId }
 }
 
 /**

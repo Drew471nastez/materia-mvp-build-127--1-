@@ -340,7 +340,8 @@ async function main() {
     const ic = read("components/checkout/instant-checkout.tsx")
     check("the OnePage's checkout window says paid with the currency and the product, and InitiateCheckout once", /detail: \{ ref: receiptToken, totalCents: total, currency: currency\.toUpperCase\(\), productId \}/.test(ic) && /pixelEvent\(window, "begin_checkout", productId, \{ valueCents: baseCents, currency \}\)/.test(ic) && /\|\| preview\) return/.test(ic))
     check("the product sheet is a ViewContent once per opening", /pixelEvent\(window, "view_item", productId, \{ valueCents: p\.priceCents, currency: p\.currency \}\)/.test(read("components/onepage/product-sheet.tsx")))
-    check("each OnePage signup is a Lead", /pixelLead\(window, \{ form: "signup", eventId:/.test(read("components/onepage/public-onepage.tsx")) && /pixelLead\(window, \{ form: "lead_magnet"/.test(read("components/onepage/storelib-blocks.tsx")) && /pixelLead\(window, \{ form: "subscribe" \}\)/.test(read("components/onepage/subscribe-sheet.tsx")))
+    /* Changed on purpose (integrations audit): Subscribe now tells the pixels the id it sends to the server, so the server's Lead is the same lead (tests/onepage-integrations.test.ts). */
+    check("each OnePage signup is a Lead", /pixelLead\(window, \{ form: "signup", eventId:/.test(read("components/onepage/public-onepage.tsx")) && /pixelLead\(window, \{ form: "lead_magnet"/.test(read("components/onepage/storelib-blocks.tsx")) && /pixelLead\(window, \{ form: "subscribe", eventId: leadId \}\)/.test(read("components/onepage/subscribe-sheet.tsx")))
     check("GA's own purchase listener uses the same id", /paidEventId\(d\.ref\)/.test(read("components/analytics/ga-route.tsx")))
   }
 

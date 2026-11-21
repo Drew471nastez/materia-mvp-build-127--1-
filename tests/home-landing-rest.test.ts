@@ -84,7 +84,8 @@ console.log("\n── Pricing ──")
   const lines = publicPlanLines()
   const all = Object.values(lines).flat().map((l) => l.text)
   const has = (id: keyof typeof lines, t: string) => lines[id].some((l) => l.text === t)
-  check("the same names and prices", OFFERED_PLANS.map((p) => `${p.name} ${p.price}`).join(", ") === "Free $0, Grow $29, Pro $99")
+  /* Changed on purpose (pricing: Grow $14, physical rates). */
+  check("the same names and prices", OFFERED_PLANS.map((p) => `${p.name} ${p.price}`).join(", ") === "Free $0, Grow $14, Pro $99")
   check("no technical rules on the public cards (no GB, no pages each, no counts of AI edits)", !all.some((l) => /\bGB\b|\bMB\b|pages each|\d+\s*AI edits|file storage/i.test(l)), all)
   check("no banned words or em dashes", !all.some((l) => BANNED.test(l) || l.includes("—")))
 

@@ -236,7 +236,9 @@ check("every place is a theme in the picker", placed.every((id) => ids.includes(
 check("the picker is in that order", ids.join() === placed.join())
 check("five groups: clean, dark, colour, photo, eras and styles", THEME_GROUPS.map((g) => g.id).join() === "clean,dark,colour,photo,styled")
 check("All opens on the quiet ones: Default, Air, Gallery, Studio", ids.slice(0, 4).join() === "default,air,gallery,studio")
-check("Clean is light themes only, Dark dark only, Photo photographs only", (["clean", "dark", "photo"] as const).every((g) => THEME_TEMPLATES.filter((t) => themeGroupOf(t.id) === g).every((t) => t.category === { clean: "light", dark: "dark", photo: "image" }[g])))
+/* Changed on purpose (dark Clean themes): Velvet and Basalt are dark pages the owner asked for in Clean (components/onepage/themes/dark-clean-themes), so Clean is light themes and those two. */
+const DARK_IN_CLEAN = ["velvet", "basalt"]
+check("Clean is light themes (and the two dark Clean ones), Dark dark only, Photo photographs only", (["clean", "dark", "photo"] as const).every((g) => THEME_TEMPLATES.filter((t) => themeGroupOf(t.id) === g).every((t) => t.category === { clean: "light", dark: "dark", photo: "image" }[g] || (g === "clean" && DARK_IN_CLEAN.includes(t.id) && t.category === "dark"))))
 check("every skinned theme is under Eras and styles, Renaissance first", THEME_TEMPLATES.filter((t) => (t.theme_config as C).theme_skin).every((t) => themeGroupOf(t.id) === "styled") && (THEME_GROUPS[4].ids as readonly string[])[0] === "renaissance")
 check("each kind keeps the same order (a filter of All)", ["light", "dark", "gradient", "image"].every((k) => { const sub = THEME_TEMPLATES.filter((t) => t.category === k).map((t) => t.id); return sub.join() === ids.filter((id) => sub.includes(id)).join() }))
 check("a theme not yet placed joins the end, in the order given", orderThemes([{ id: "zz" }, { id: "default" }, { id: "yy" }, { id: "air" }]).map((t) => t.id).join() === "default,air,zz,yy" && themeGroupOf("zz") === "styled")

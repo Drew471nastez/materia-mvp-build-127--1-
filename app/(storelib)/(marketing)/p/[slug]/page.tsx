@@ -995,14 +995,17 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   // If only YouTube embed exists (no real images), galleryImages should be empty
   // The ProductGallery component will show the YouTube embed from youtubeUrls
   /* Round AK: the cover as uploaded (SQL part 377) in the 16:9 card copy's place, so the gallery shows the picture itself. */
-  const galleryImages = withOriginalCover(
-    product.gallery_urls?.length
-      ? (product.gallery_urls.filter((url: string) => url && !isYouTubeThumbnailUrl(url)) as string[])
-      : product.thumbnail_url && !isYouTubeThumbnailUrl(product.thumbnail_url)
-        ? [product.thumbnail_url]
-        : [],
-    product as { thumbnail_url?: string | null; cover_original_url?: string | null },
-  )
+  const storedGallery = product.gallery_urls?.length
+    ? (product.gallery_urls.filter((url: string) => url && !isYouTubeThumbnailUrl(url)) as string[])
+    : product.thumbnail_url && !isYouTubeThumbnailUrl(product.thumbnail_url)
+      ? [product.thumbnail_url]
+      : []
+  /* Reached from Explore (?layout=discover): the page keeps Explore's 16:9 card, bars and all, as the owner asked;
+     everywhere else it shows the cover as uploaded. data-cover-padded="keep" below stops lib/images/cover-trim cutting it. */
+  const fromExplore = layout === "discover"
+  const galleryImages = fromExplore
+    ? storedGallery
+    : withOriginalCover(storedGallery, product as { thumbnail_url?: string | null; cover_original_url?: string | null })
 
   const srcParam = src === "platform" ? "?src=platform" : ""
 
@@ -1065,7 +1068,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         creatorName={creatorProfile?.display_name || creator?.name || undefined}
       />
       <div className="grid gap-8 lg:grid-cols-5 lg:gap-12 lg:items-start w-full">
-      <div className="lg:col-span-3 min-w-0 w-full">
+      <div className="lg:col-span-3 min-w-0 w-full" data-cover-padded={fromExplore ? "keep" : undefined}>
         {galleryImages.length > 0 || videoFileUrl || youtubeUrls.length > 0 ? (
           <ProductGallery
             images={galleryImages}

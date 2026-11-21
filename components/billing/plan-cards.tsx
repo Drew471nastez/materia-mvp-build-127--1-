@@ -18,7 +18,7 @@
  * icon. Under the three cards, a wide white bar with "Contact sales" where
  * the page asks for it. The price is one step heavier than the reference.
  *
- * The plan names people read are Free, Grow ($29, id `growth`) and Pro ($99,
+ * The plan names people read are Free, Grow ($14, id `growth`) and Pro ($99,
  * id `pro`); the ids, the Stripe prices and the checkout never changed
  * (lib/billing/plans.ts).
  *
@@ -117,6 +117,13 @@ const LINE_ICON: Record<PlanLineIcon, LucideIcon> = {
 
 /** Worked out once from the plan tables. */
 const PLAN_LINES = publicPlanLines()
+
+/**
+ * "1.5% + $0.25" never broken inside: a narrow card (Pro's line at 390px,
+ * every rate line at 768px) wraps before the rate, never between its parts,
+ * so no "$0.25" is left alone on a row (scripts/check-pricing-rate-line.mjs).
+ */
+const keepRateWhole = (text: string) => text.replace(/(\d%) \+ /g, "$1\u00a0+\u00a0")
 
 /**
  * MONTHLY AND YEARLY ARE BOTH ALREADY THERE. Every line that differs between
@@ -280,7 +287,8 @@ function PlanCard({
           {label ? <span data-plan-label="" className="text-[12px] font-medium text-[#6b7280]">{label}</span> : null}
         </div>
         <p data-plan-price="" className={`${compact ? "mt-4" : "mt-5"} flex items-baseline gap-1.5 text-[#09090b]`}>
-          <span className={`${compact ? "text-[36px]" : "text-[42px] sm:text-[44px]"} font-semibold leading-none tracking-[-0.035em] tabular-nums`}>
+          {/* Never broken: the changing digit is its own box, which a narrow card (three across at 768px) wrapped onto a row of its own ("$1" over "4"). */}
+          <span className={`${compact ? "text-[36px]" : "text-[42px] sm:text-[44px]"} whitespace-nowrap font-semibold leading-none tracking-[-0.035em] tabular-nums`}>
             <TextSwap value={interval} items={{ monthly: monthly.price, yearly: yearly.price }} />
           </span>
           <span className="text-[14.5px] font-normal leading-none text-[#6b7280]">
@@ -319,7 +327,21 @@ function PlanCard({
           return (
             <li key={line.text} data-plan-line={line.icon} className={`flex items-start gap-3 ${compact ? "text-[13.5px]" : "text-[14.5px]"} leading-[20px] text-[#27272a]`}>
               <LineIcon className="mt-[2px] h-4 w-4 shrink-0 text-[#3f3f46]" strokeWidth={1.5} aria-hidden="true" />
-              <span>{tt(line.text)}</span>
+              {/*
+                The physical rate, where a plan's differs from its digital one, is part of the same line: a smaller,
+                muted second row under the rate (measured by scripts/check-pricing-rate-line.mjs at 390, 768 and
+                1280: the rate and its physical part never fit one row on a card, so it is always the row under it,
+                whole, rather than sometimes beside it and sometimes not).
+              */}
+              <span className="[text-wrap:pretty]">
+                {keepRateWhole(tt(line.text))}
+                {line.detail ? (
+                  <span data-plan-line-detail="" className={`mt-0.5 block ${compact ? "text-[12.5px] leading-[18px]" : "text-[13px] leading-[18px]"} text-[#71717a]`}>
+                    <span className="sr-only">, </span>
+                    {keepRateWhole(tt(line.detail))}
+                  </span>
+                ) : null}
+              </span>
             </li>
           )
         })}

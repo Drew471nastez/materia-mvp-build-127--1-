@@ -16,6 +16,8 @@ import "server-only"
  *   reviews   the store's own published reviews and their score
  *   rss       the feed's latest posts, through the SSRF guard
  *   events    Bandsintown's upcoming shows for the artist, with BANDSINTOWN_APP_ID
+ *   discord   members only: the product that lets owners in; the invite
+ *             address is never sent to the page (lib/community-roles)
  *   promo     a code from the store: the coupon's own code while it can be
  *             used, and none (the block is left out) once it cannot
  *
@@ -37,7 +39,7 @@ type Db = any
 type Block = { id?: string; type?: string; enabled?: boolean; data?: Record<string, unknown> | null; [k: string]: unknown }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const RESOLVED_APPS = new Set(["tips", "stats", "paid", "reviews", "rss", "events"])
+const RESOLVED_APPS = new Set(["tips", "stats", "paid", "reviews", "rss", "events", "discord"])
 
 function needs(block: Block): boolean {
   if (block.enabled === false) return false
@@ -48,6 +50,7 @@ function needs(block: Block): boolean {
   if (provider === "stats") return Array.isArray(block.data?.items) && (block.data!.items as AppItem[]).some((i) => statSourceOf(i) !== "typed")
   if (provider === "events") return !!bandsintownArtist(block.data?.bandsintown_artist)
   if (provider === "reviews") return reviewSourceOf(block.data) === "storelib"
+  if (provider === "discord") return typeof block.data?.members_product_id === "string" && !!block.data.members_product_id
   return true
 }
 
@@ -155,6 +158,18 @@ async function resolveApp(db: Db, deps: DataDeps, creatorId: string, block: Bloc
         ...block,
         data: { ...data, paid_ready: true, paid_title: p.title || "", paid_price: p.price_cents && p.price_cents > 0 ? deps.money(p.price_cents, currency) : "", paid_checkout: productCheckoutUrl(p.id) },
       }
+    }
+    case "discord": {
+      /* Members only (lib/community-roles): the product that lets owners in, read now; the invite address never reaches the page. */
+      const { url: _invite, ...rest } = data
+      void _invite
+      const id = typeof data.members_product_id === "string" && UUID.test(data.members_product_id) ? data.members_product_id : null
+      if (!id) return { ...block, data: { ...rest, members_ready: false } }
+      const { data: product } = await publicOnly(db.from("products").select("id, title, price_cents, status, type, creator_id").eq("id", id).eq("creator_id", creatorId)).maybeSingle()
+      if (!product || !isPubliclyVisible(product)) return { ...block, data: { ...rest, members_ready: false } }
+      const p = product as { id: string; title?: string; price_cents?: number | null }
+      const currency = await deps.currency(creatorId).catch(() => "usd")
+      return { ...block, data: { ...rest, members_ready: true, members_title: p.title || "", members_price: p.price_cents && p.price_cents > 0 ? deps.money(p.price_cents, currency) : "", members_checkout: productCheckoutUrl(p.id) } }
     }
     case "reviews": {
       const got = await deps.reviews(creatorId).catch(() => null)

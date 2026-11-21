@@ -73,7 +73,6 @@ export function BlockSheetButton({
   subtitle,
   icon,
   href,
-  still = false,
   small = false,
   sheet,
   prewarm = false,
@@ -88,7 +87,7 @@ export function BlockSheetButton({
   icon?: React.ReactNode
   /** Where "Go to the link" goes, and where "In a sheet" goes when no sheet is drawn. */
   href: string | null
-  /** Inside a group or a carousel: the button keeps still, as a link there does. */
+  /** Inside a group or a carousel. The button plays the page's hover there too (round 24); kept for callers. */
   still?: boolean
   /** The editor's small phone (0.8 of a real one). */
   small?: boolean
@@ -98,7 +97,7 @@ export function BlockSheetButton({
   prewarm?: boolean
 }) {
   const api = useBlockSheet()
-  const press = pressableProps(theme, still)
+  const press = pressableProps(theme)
   const pad = buttonPadScale(theme)
   const k = small ? 0.8 : 1
   const inSheet = mode === "sheet" && api.available

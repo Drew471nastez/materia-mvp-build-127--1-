@@ -42,6 +42,8 @@ function check(label: string, ok: boolean, detail?: string) {
 
 /** How a route may establish who is asking. */
 const PROOFS: [string, RegExp][] = [
+  /* Changed on purpose (Discord and Telegram access): lib/community-roles/route-helpers buyer() is routeUser({ full: true }) with its three answers; the route returns before acting for "anonymous" (and "unavailable"), and acts only on the buyer it returned. */
+  ["a signed-in buyer (community roles)", /const who = await buyer\(\)[\s\S]*who === "anonymous"\) return /],
   ["a signed-in session", /auth\.getUser\(\)/],
   /* Round 49: lib/auth/request-scope readUserForRoute is the request's one read (Supabase Auth, or the token's verified signature while Auth is slow), in getUser()'s shape, for a read-only GET; the route acts only on `user`. */
   ["a signed-in session, the request's one read", /await readUserForRoute\(\)[\s\S]*if \(!user\)/],
@@ -128,6 +130,8 @@ const PROOFS: [string, RegExp][] = [
  * already public.
  */
 const PUBLIC_BY_DESIGN: Record<string, string> = {
+  /* Discord and Telegram access (lib/community-roles): the join buttons a OnePage block shows. */
+  "community-roles/options/route.ts": "Which Join buttons a published block offers for the products it names: for a signed-out visitor only the button labels and the store's public product ids, never a server, chat, invite or member; a signed-in buyer's own access state is read with their session (buyer()). No writes.",
   /* Round AR: OnePage visitors and a booker's own link. */
   "bookings/manage/[token]/route.ts": "A booker's own booking, opened only by the server-signed token from their email (HMAC over the booking id; a changed id or signature is a 404). Reads that one booking, its free times and moves or cancels it; limited per address, reads and writes apart.",
   "onepage/poll/route.ts": "A vote on a published poll block: the block is read from the live page, one vote per visitor (an http-only cookie stored only as a hash, a unique index), limited per address, robots and prefetches refused, a block outside its schedule refused.",
@@ -167,6 +171,7 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   "checkout/site/track/route.ts": "Track your order on a website: the store is the host's, the link goes only to the order's own email, and the answer is the same whether anything matched; rate limited",
   "integrations/shipstation/[token]/route.ts": "ShipStation's SHIP_NOTIFY: proven by an address token only Storelib can sign for one store, and the shipments read back from ssapi.shipstation.com with the store's own key (a resource_url on any other host is ignored); rate limited, never a session",
   "integrations/webhooks/[provider]/[token]/route.ts": "Printful and Printify report shipments: proven by an address token only Storelib can sign for one store and provider, Printify's X-Pfy-Signature, and the order read back from the provider with the store's own key; rate limited, never a session",
+  "bookings/external/hook/[provider]/[hook]/route.ts": "Calendly or Cal.com report a booking made, moved or cancelled: rate limited, the address names one store's connection (a random hook id, 404 otherwise), and Calendly-Webhook-Signature (with its time) or X-Cal-Signature-256 is checked against the signing secret sealed for that store before the body is parsed; writes only that store's owner's external bookings, body size capped, never a session",
   "webhooks/marketing/[provider]/route.ts": "Brevo, MailerLite or Kit report that an address left, bounced or complained: proven by a token in the address that only the connected store has (its SHA-256 kept, compared in constant time; a missing token, an unknown store or an integration that is not connected is a 404 before anything is read from the body), and by MailerLite's HMAC signature on the raw body when it has a secret; acts only on that store's own subscribers, body size capped, rate limited, never a session",
   "tracking/webhooks/[provider]/[token]/route.ts": "AfterShip or 17TRACK report a parcel moved: proven by an address token only Storelib can sign for its own account or one store's, the aggregator's signature on the raw body (aftership-hmac-sha256, or 17TRACK's sign), and the parcel read back from the aggregator's API; acts only on open shipments with that number in that account; rate limited, never a session",
   "physical/partner-tracking/route.ts": "a fulfilment partner reports tracking: proven by the shop's webhook secret (HMAC) or a link signed for one order and location, not by a session",

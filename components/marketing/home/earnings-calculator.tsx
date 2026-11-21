@@ -6,8 +6,9 @@
  * ===========================================================================
  * Pick what you sell, set a price and how many sell a day, and read a month
  * and a year of revenue, with what is left after Storelib's fee (the fee
- * checkout charges, lib/payments/fees/calculate, on Free or Pro, with Pro's
- * $29 a month taken off) and after the example production cost for merch.
+ * checkout charges, lib/payments/fees/calculate, on Free or Grow, with Grow's
+ * monthly price taken off; merch pays the physical rate, a download or a
+ * course the digital one) and after the example production cost for merch.
  *
  * It shares its chips, slider and counting numbers with the profit picker in
  * how-it-works.tsx (./commerce-kit), so the two read as one system; the

@@ -37,7 +37,7 @@ import { PUBLIC_BUCKET } from "@/lib/storage/plans"
 import { avoidReservedProductSlug } from "@/lib/commerce/reserved-slugs"
 import { importImageUrl, type LinkProduct, type LinkSource } from "./product-link"
 import { GUMROAD_API, descriptionImages, gumroadImageUrl, slugFromTitle, type ImportItem } from "./gumroad"
-import { duplicateIndex, type ExistingProduct } from "./duplicates"
+import { duplicateIndex, handleFromUrl, type ExistingProduct } from "./duplicates"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -290,8 +290,13 @@ async function claim(db: Db, creatorId: string, userId: string, gumroadId: strin
 
 const suffix = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`
 
-async function freeSlug(db: Db, creatorId: string, title: string): Promise<string> {
-  let slug = slugFromTitle(title) || `draft-${suffix()}`
+/**
+ * The draft's address. A Shopify product keeps its own handle (/products/<handle>), so its old address reads the same
+ * here; otherwise the title, then the platform's own handle for a title with no Latin letters, then a draft name.
+ */
+async function freeSlug(db: Db, creatorId: string, title: string, link?: LinkProduct): Promise<string> {
+  const handle = (handleFromUrl(link?.url) ?? "").slice(0, 80).replace(/-$/, "")
+  let slug = (link?.source === "shopify" && handle) || slugFromTitle(title) || handle || `draft-${suffix()}`
   const { data: taken } = await db.from("products").select("id").eq("creator_id", creatorId).eq("slug", slug).maybeSingle()
   if (taken) slug = `${slug}-${suffix()}`
   return avoidReservedProductSlug(slug, suffix)
@@ -332,7 +337,7 @@ export async function importGumroadItem(db: Db, ctx: { creatorId: string; userId
     type: deps.linkProduct?.type ?? "digital",
     ...(deps.linkProduct ? { category: deps.linkProduct.category, vendor: deps.linkProduct.vendor, requires_shipping: deps.linkProduct.type === "physical", tags: deps.linkProduct.tags } : {}),
     title: item.title,
-    slug: await freeSlug(db, ctx.creatorId, item.title),
+    slug: await freeSlug(db, ctx.creatorId, item.title, deps.linkProduct),
     description,
     /* Always a draft: the seller adds the files and publishes it themselves. */
     status: "draft",

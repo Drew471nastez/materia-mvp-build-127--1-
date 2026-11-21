@@ -167,7 +167,8 @@ section("Add link to Instagram bio")
   check("in Share it opens in place, not a second window", /<Reveal open=\{open\}>/.test(share) && !/Dialog|SheetDialog|BottomSheet/.test(share))
   check("the QR code is drawn in the browser with the package the app has", /import\("qrcode"\)/.test(share) && /"qrcode":/.test(code("package.json")))
   check("a page never published says to publish first", /Publish your page first/.test(share))
-  check("Share holds the row", /<InstagramBioShare slug=\{onepage\.slug\}/.test(code("components/onepage/onepage-editor.tsx")))
+  /* Changed on purpose (round op-editor): the live address, not one typed and not saved (lib/onepage/editor-state liveSlug). */
+  check("Share holds the row", /<InstagramBioShare slug=\{slug\}/.test(code("components/onepage/onepage-editor.tsx")))
 }
 
 section("Handing a OnePage to its creator")

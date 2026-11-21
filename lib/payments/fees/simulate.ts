@@ -3,7 +3,7 @@
  */
 
 import { calculateStorelibFeeWithConfig } from "./engine"
-import type { StorelibFeeConfig, StorelibFeeResult, StorelibSellerPlan } from "./types"
+import type { StorelibFeeConfig, StorelibFeeResult, StorelibProductKind, StorelibSellerPlan } from "./types"
 
 export type SimulationKind = "one_time" | "subscription"
 export type RefundScenario = "none" | "full" | "partial"
@@ -12,6 +12,8 @@ export interface PaymentSimulationInput {
   sellerPlan: StorelibSellerPlan
   grossMinor: number
   currency: string
+  /** Digital (the default) or physical: physical sales have their own rates. */
+  productKind?: StorelibProductKind
   kind: SimulationKind
   refund: RefundScenario
   partialRefundMinor?: number
@@ -34,7 +36,7 @@ export interface PaymentSimulationResult {
 
 export function simulatePayment(input: PaymentSimulationInput): PaymentSimulationResult {
   const fee = calculateStorelibFeeWithConfig(
-    { grossMinor: input.grossMinor, currency: input.currency, sellerPlan: input.sellerPlan },
+    { grossMinor: input.grossMinor, currency: input.currency, sellerPlan: input.sellerPlan, productKind: input.productKind },
     input.config,
   )
 
@@ -80,6 +82,7 @@ export function batchSimulate(params: {
   incrementMinor: number
   currency: string
   sellerPlan: StorelibSellerPlan
+  productKind?: StorelibProductKind
   config: StorelibFeeConfig
   safetyEffectivePercent?: number
 }): BatchSimulationRow[] {
@@ -92,7 +95,7 @@ export function batchSimulate(params: {
 
   for (let price = start; price <= end; price += step) {
     const fee = calculateStorelibFeeWithConfig(
-      { grossMinor: price, currency: params.currency, sellerPlan: params.sellerPlan },
+      { grossMinor: price, currency: params.currency, sellerPlan: params.sellerPlan, productKind: params.productKind },
       params.config,
     )
     const effective = price > 0 ? fee.totalStorelibFeeMinor / price : 0

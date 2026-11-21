@@ -5,13 +5,13 @@ import { PricingSection, type PaidCheckoutPlanId } from "@/components/marketing/
 import { FaqSection } from "@/components/marketing/faq-section"
 import { FinalCta } from "@/components/marketing/home/final-cta"
 import type { PlanCardAction } from "@/components/billing/plan-cards"
-import { PRO_CHECKOUT_PLAN_ID, SCALE_CHECKOUT_PLAN_ID, type OfferedPlanId } from "@/lib/billing/plans"
+import { PRO_CHECKOUT_PLAN_ID, PRO_PRICE_CENTS, SCALE_CHECKOUT_PLAN_ID, formatPlanPrice, type OfferedPlanId } from "@/lib/billing/plans"
 import { readAuthSnapshot, subscribeAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { SheetStack } from "./pricing-sheets"
 import { PricingBento } from "./pricing-bento"
 import { ComparePlans, COMPARE_HEADING } from "./compare-plans"
 
-/** Pro checkout sends the internal plan id "growth" (the $29 Stripe price), Scale sends SCALE_CHECKOUT_PLAN_ID (the existing $99 price). */
+/** Pro checkout sends the internal plan id "growth" (the Grow Stripe price, $14), Scale sends SCALE_CHECKOUT_PLAN_ID (the existing $99 price). */
 type CheckoutPlanId = PaidCheckoutPlanId
 
 /** Signed in, as the header last knew it (the footer and the tab bar read the same record). */
@@ -204,7 +204,7 @@ export function PricingPageClient() {
                 headingLevel={1}
                 hideDetailsLink
                 headingOverride={isUpgradeMode ? "Choose a plan" : undefined}
-                subtitleOverride={isUpgradeMode ? "Grow is $29 a month. Cancel at any time from Billing." : undefined}
+                subtitleOverride={isUpgradeMode ? `Grow is ${formatPlanPrice(PRO_PRICE_CENTS)} a month. Cancel at any time from Billing.` : undefined}
                 upgradeCallbacks={upgradeCallbacks}
                 cardsAside={<CompareLink />}
               />

@@ -1,3 +1,4 @@
+import { originalCoversOf, withOriginalCoverRow } from "@/lib/products/cover"
 import "server-only"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 
@@ -221,13 +222,15 @@ export async function siteQuote(db: Db, creatorId: string, body: Body, requestCo
   if (decision.kind === "refuse" || priced.ok === false) {
     return { ok: false, status: decision.kind === "refuse" ? decision.status : 400, error: decision.kind === "refuse" ? decision.error : "This cart can't be paid for right now." }
   }
-  const [names, tax, choices, suggestions] = await Promise.all([
+  const [names, tax, choices, suggestions, originals] = await Promise.all([
     variantNames(db, priced.lines.map((l) => l.item.variantId).filter((v): v is string => !!v)),
     digitalCartTax(db, creatorId, priced, body, requestCountry),
     /* A line named its own price (pay what you want) keeps it: nothing to change it to. */
     variantChoices(db, priced.lines.filter((l) => l.item.variantId && !namedOwnPrice(body).has(l.item.productId)).map((l) => l.item.productId)),
     /* The store's checkout offers this basket qualifies for, shown at the checkout (lib/offers): the same rule the physical checkout suggests by. */
     checkoutSuggestions(db, creatorId, priced.lines.map((l) => ({ productId: l.item.productId, quantity: l.item.quantity, unitCents: l.item.priceCents }))),
+    /* Round AL: checkout shows each cover as uploaded, not the 16:9 copy Explore keeps (lib/products/cover.ts). */
+    originalCoversOf(db, priced.lines.map((l) => l.item.productId)),
   ])
   return {
     ok: true,
@@ -239,7 +242,7 @@ export async function siteQuote(db: Db, creatorId: string, body: Body, requestCo
         variantId: l.item.variantId,
         title: String(l.product.title ?? "Product"),
         variantName: l.item.variantId ? names.get(l.item.variantId) || null : null,
-        imageUrl: l.product.thumbnail_url ?? null,
+        imageUrl: withOriginalCoverRow({ thumbnail_url: l.product.thumbnail_url ?? null }, originals.get(l.item.productId)).thumbnail_url ?? null,
         type: l.product.type,
         quantity: l.item.quantity,
         unitCents: l.item.priceCents,

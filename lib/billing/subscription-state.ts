@@ -23,6 +23,7 @@
  * script's (scripts/reconcile-creator-plans.ts), both through
  * lib/billing/subscription-sync.ts.
  */
+import { planFromPriceId } from "./stripe-prices"
 
 export type PaidPlanId = "growth" | "pro"
 export type ResolvedPlanId = "free" | PaidPlanId
@@ -54,9 +55,6 @@ export const SUBSCRIPTION_STALE_IF_ERROR_MS = 15 * 60_000
 export const STORED_PLAN_GRACE_MS = 7 * 24 * 60 * 60_000
 const CACHE_MAX_ENTRIES = 2_000
 
-// LIVE Stripe Price IDs (the same defaults the checkout and change routes use)
-const PRICE_GROWTH = process.env.PRICE_GROWTH_MONTHLY || "price_1SzBWaBYevnBVyznNCTOXDoS"
-const PRICE_PRO = process.env.PRICE_PRO_MONTHLY || "price_1SzBXSBYevnBVyznYjXfOOXX"
 
 export function isPaidPlan(v: unknown): v is PaidPlanId {
   return v === "growth" || v === "pro"
@@ -64,12 +62,13 @@ export function isPaidPlan(v: unknown): v is PaidPlanId {
 
 /** The paid plan a Stripe price is, or null for a price this code does not know. Never "free". */
 export function paidPlanFromPrice(priceId: string | null | undefined): PaidPlanId | null {
-  if (!priceId) return null
-  if (priceId === PRICE_GROWTH) return "growth"
-  if (priceId === PRICE_PRO) return "pro"
-  if (priceId.includes("SzBWa")) return "growth"
-  if (priceId.includes("SzBXS")) return "pro"
-  return null
+  /*
+    Every Grow price is `growth`: the $14 one (PRICE_GROWTH_MONTHLY) and the $29 one subscribers keep until
+    scripts/migrate-grow-price.mjs moves them (PRICE_GROWTH_MONTHLY_LEGACY, and the old id this code always knew),
+    so the webhook's sync (lib/billing/subscription-sync) keeps them on Grow before, during and after the move.
+    The ids are lib/billing/stripe-prices.
+  */
+  return planFromPriceId(priceId)
 }
 
 /** Minimal shape of a Stripe subscription this code reads. */

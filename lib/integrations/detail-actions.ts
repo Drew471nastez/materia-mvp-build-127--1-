@@ -16,6 +16,7 @@ import { TRACKERS } from "@/lib/store/tracking"
 import { providerInfo } from "@/lib/physical/providers"
 
 export const MARKETING_SYNC_PATH = "/api/store/integrations/marketing"
+export const EXTERNAL_BOOKINGS_PATH = "/api/bookings/external"
 
 /** One request the header sends, in order. */
 export interface ActionCall {
@@ -78,6 +79,25 @@ export function removalPlan(item: Integration, facts: ConnectionFacts): RemovalP
       refresh: MARKETING_SYNC_PATH,
     }
   }
+  if (item.kind === "app" && item.appId === "booking_sync" && item.bookingProvider) {
+    return {
+      verb: "disconnect",
+      calls: [{ path: EXTERNAL_BOOKINGS_PATH, method: "POST", body: { provider: item.bookingProvider, disconnect: true } }],
+      consequence: item.bookingProvider === "calendly"
+        ? "New Calendly bookings stop coming in, and the webhook Storelib added to your Calendly is removed. Bookings already here stay."
+        : "New Cal.com bookings stop coming in, and the webhook Storelib added is removed. One you added yourself, delete in Cal.com. Bookings already here stay.",
+      refresh: EXTERNAL_BOOKINGS_PATH,
+    }
+  }
+  /* Mailchimp, Zapier and Make on the OnePage's signups: the same disconnect as the OnePage editor's sheet (app/api/onepage/integrations). */
+  if (item.kind === "app" && item.appId === "onepage_signups" && item.pageIntegration) {
+    return {
+      verb: "disconnect",
+      calls: [{ path: "/api/onepage/integrations", method: "POST", body: { provider: item.pageIntegration, disconnect: true } }],
+      consequence: `Your OnePage's signups stop going to ${item.name}. What's already in ${item.name} stays there.`,
+      refresh: "/api/onepage/integrations",
+    }
+  }
   if (item.kind === "app") return null
   if (item.kind === "tracker" && item.trackerId) {
     const calls: ActionCall[] = []
@@ -119,7 +139,7 @@ export function installVerb(item: Integration): "Turn on" | "Connect" | "Install
   if (item.kind === "listed" || item.comingSoon) return null
   if (item.kind === "tracker") return item.trackerId === "klaviyo" || item.trackerId === "omnisend" ? "Connect" : "Install"
   if (item.kind === "commerce") return item.builtIn ? "Install" : "Connect"
-  if (item.id === "aftership" || item.appId === "marketing_sync") return "Connect"
+  if (item.id === "aftership" || item.appId === "marketing_sync" || item.appId === "booking_sync" || item.appId === "onepage_signups") return "Connect"
   return null
 }
 
@@ -132,6 +152,14 @@ export function setupSteps(item: Integration): string[] {
   if (item.kind === "app" && item.appId === "storelib_reviews") return ["Turn it on below.", "Choose when buyers get the email asking for a review.", "Reviews and stars show on your product pages."]
   if (item.id === "aftership") return ["In AfterShip, go to Settings › API keys and create a key.", "Paste it below, with the webhook secret for instant updates.", "Your parcels are followed with your AfterShip account from then on."]
   if (item.kind === "app" && item.appId === "marketing_sync") return [`Create an API key in ${item.name} and paste it below.`, item.marketingProvider === "kit" ? "Pick the tag your subscribers get." : item.marketingProvider === "mailerlite" ? "Pick the group your subscribers join." : "Pick the list your subscribers join.", "New subscribers go there within a minute. Unsubscribes come back."]
+  if (item.kind === "app" && item.appId === "booking_sync")
+    return item.bookingProvider === "calendly"
+      ? ["In Calendly, open the Profile menu, then Developer, then Personal access tokens. Make a token with the users:read, scheduled_events:read and webhooks:write scopes.", "Paste it below and press Connect. Storelib adds the webhook.", "New Calendly bookings show in Bookings."]
+      : ["In Cal.com, open Settings, Security, API keys and make a key.", "Paste it below and press Connect, or add the webhook yourself with the address and secret Storelib gives you.", "New Cal.com bookings show in Bookings."]
+  if (item.kind === "app" && item.appId === "onepage_signups") {
+    if (item.pageIntegration === "mailchimp") return ["In Mailchimp, create an API key (Profile, Extras, API keys) and paste it below.", "Pick the audience your signups join.", "Each signup on your OnePage goes there as it happens."]
+    return [item.pageIntegration === "zapier" ? "In Zapier, start a Zap with Webhooks by Zapier, Catch Hook, and copy its address." : "In Make, add a Webhooks module, Custom webhook, and copy its address.", "Paste it below. A test event is sent to it.", "Each signup on your OnePage goes there as it happens."]
+  }
   if (item.kind === "app") return []
   if (item.kind === "tracker" && item.trackerId) {
     const t = TRACKERS[item.trackerId]

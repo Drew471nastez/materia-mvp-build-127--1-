@@ -88,13 +88,14 @@ console.log("\n── questions: a centred column of grey rows ──")
   check("one centred column inside the page's width", /home-wrap !max-w-\[var\(--home-max\)\] !px-\[var\(--home-edge\)\]/.test(src) && /data-faq-column="" class="!mx-auto w-full !max-w-\[880px\] !px-0"/.test(home))
   check("the grey is on each row, with a small gap between them", /\.faq-rows\{display:grid;gap:6px;border-top:0\}/.test(src) && /\.faq-rows \.faq-item\{border-bottom:0;border-radius:10px;background:#f5f5f6\}/.test(src) && /style="background:transparent"/.test(home))
   const rows = (home.match(/class="faq-item"/g) ?? []).length
-  check("seven rows, each a real button in a heading with a plus", rows === 7 && (home.match(/<h3 class="m-0"><button type="button" class="faq-q" aria-expanded="false" aria-controls="faq-a-\d" id="faq-q-\d">/g) ?? []).length === 7 && (home.match(/<span class="faq-mark" aria-hidden="true"><\/span>/g) ?? []).length === 7)
-  check("each answer is a region named by its question, out of reach while closed", (home.match(/<div class="faq-a" id="faq-a-\d" role="region" aria-labelledby="faq-q-\d" inert="">/g) ?? []).length === 7 && /inert=\{!isOpen\}/.test(src))
+  /* Changed on purpose (pricing: Grow $14, physical rates). */ /* Eight rows: "What does Storelib take from a sale?" lists the digital and physical rates. */
+  check("eight rows, each a real button in a heading with a plus", rows === 8 && (home.match(/<h3 class="m-0"><button type="button" class="faq-q" aria-expanded="false" aria-controls="faq-a-\d" id="faq-q-\d">/g) ?? []).length === 8 && (home.match(/<span class="faq-mark" aria-hidden="true"><\/span>/g) ?? []).length === 8)
+  check("each answer is a region named by its question, out of reach while closed", (home.match(/<div class="faq-a" id="faq-a-\d" role="region" aria-labelledby="faq-q-\d" inert="">/g) ?? []).length === 8 && /inert=\{!isOpen\}/.test(src))
   check("opens by its grid row, the plus turning into a minus: nothing measured", /\.faq-a\{display:grid;grid-template-rows:0fr;transition:grid-template-rows \.4s/.test(src) && /\.faq-item\[data-open\] \.faq-a\{grid-template-rows:1fr\}/.test(src) && /\.faq-q\[aria-expanded="true"\] \.faq-mark::after\{transform:rotate\(0deg\)\}/.test(src) && !/getBoundingClientRect|scrollHeight|offsetHeight|useEffect|useRef/.test(src))
   check("no transition on the rows' own colour or box, only the answer's row, the mark and the words", !/\.faq-rows[^{}]*\{[^}]*transition/.test(src))
   check("reduced motion: it simply opens", /@media \(prefers-reduced-motion:reduce\)\{\.faq-q,\.faq-mark::before,\.faq-mark::after,\.faq-a,\.faq-a p\{transition:none\}\}/.test(src))
   check("the closing line links the real FAQ page and the help center", /More questions\? Browse <a href="\/faq">all FAQs<\/a> or visit the <a href="(https:\/\/help\.storelib\.com|\/help)">help center<\/a>\./.test(home) && /href=\{publicHelpUrl\(\)\}/.test(src), /<p class="faq-more">[\s\S]*?<\/p>/.exec(home)?.[0])
-  check("/pricing keeps its own list: no grey rows, no closing line", !/faq-rows|faq-more|data-faq-column/.test(pricing) && /class="faq-list flex-1 min-w-0"/.test(pricing) && (pricing.match(/class="faq-item"/g) ?? []).length === 7)
+  check("/pricing keeps its own list: no grey rows, no closing line", !/faq-rows|faq-more|data-faq-column/.test(pricing) && /class="faq-list flex-1 min-w-0"/.test(pricing) && (pricing.match(/class="faq-item"/g) ?? []).length === 8)
   check("no banned words or em dashes in the section", !BANNED.test(src))
 }
 

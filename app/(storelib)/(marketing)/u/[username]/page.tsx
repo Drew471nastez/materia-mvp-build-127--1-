@@ -111,6 +111,7 @@ function withDefaultAbout(sections: Section[]): Section[] {
     } as Section,
   ]
 }
+import { originalCoversOf, withOriginalCoverRow } from "@/lib/products/cover"
 import { AllProductsGrid } from "@/components/storefront/all-products-grid"
 import { FirstProductPrompt, drawableSections, tabsWithoutProducts } from "@/components/storefront/no-products"
 import { ReviewsPanel, type StorefrontReview } from "@/components/storefront/reviews-panel"
@@ -915,13 +916,17 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
   /* Each card's price as the marketplace shows it: the store's currency, or US dollars once it is switched over (lib/money/marketplace-server). */
   const intervals = new Map(held.intervals)
   const standings = new Map(held.standings)
-  const priceOf = await marketplacePricer(createAdminClient(), [creator.id], (products ?? []).map((p) => p.id))
+  /* Round AL: the store's own grid and sections draw each cover as uploaded, not the 16:9 copy Explore keeps (lib/products/cover.ts). */
+  const [priceOf, originals] = await Promise.all([
+    marketplacePricer(createAdminClient(), [creator.id], (products ?? []).map((p) => p.id)),
+    originalCoversOf(createAdminClient(), (products ?? []).map((p) => p.id)),
+  ])
   const productsData: ProductData[] =
     products?.map((p) => ({
       id: p.id,
       slug: p.slug,
       title: p.title,
-      thumbnail_url: p.thumbnail_url,
+      ...withOriginalCoverRow({ thumbnail_url: p.thumbnail_url, gallery_urls: p.gallery_urls }, originals.get(p.id)),
       price_cents: p.price_cents,
       variant_count:p.variant_count,variant_min_price_cents:p.variant_min_price_cents,variant_max_price_cents:p.variant_max_price_cents,variant_prices_known:p.variant_prices_known,single_variant_id:p.single_variant_id,
       type: p.type ?? undefined,
@@ -932,7 +937,6 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
       sales_count: p.sales_count,
       description: p.description,
       whats_included: p.whats_included,
-      gallery_urls: p.gallery_urls,
       categories: p.product_categories?.map((pc: any) => pc.category).filter(Boolean) || [],
       // Already on the row the select above returns — the card shows a rating
       // for free, and only when there is one to show.

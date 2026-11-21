@@ -1,5 +1,6 @@
 "use client"
 
+import { withOriginalCover } from "@/lib/products/cover"
 import { BlockSubtitle } from "./block-presentation"
 import { presentationOf } from "@/lib/onepage/block-presentation"
 
@@ -67,7 +68,8 @@ import { ProductSheet } from "./product-sheet"
 import { FramedPicture, readPictureShape } from "@/components/ui/framed-picture"
 import { CHECKOUT_HISTORY_KEY, HANDOFF_MAX_MS, PURCHASE_CLOSED, checkoutEntryOf, purchaseStep, sheetShown, type PurchaseLayer, type PurchaseStep } from "@/lib/onepage/purchase-flow"
 import dynamic from "next/dynamic"
-import { loadProductFacts as readProductFacts } from "@/components/checkout/product-facts"
+import { FACTS_FRESH_MS, loadProductFacts as readProductFacts } from "@/components/checkout/product-facts"
+import { hapticTap } from "@/lib/native-bridge"
 /*
   Round 63: THE CHECKOUT IS FETCHED, NOT SHIPPED. The checkout window and its words in every language were part of
   every OnePage's first download, for every visitor, buyer or not. It is now its own file, asked for when the
@@ -81,6 +83,8 @@ const loadProductFacts = (productId: string) => {
   return readProductFacts(productId)
 }
 import { sheetPalette } from "@/lib/onepage/sheet-theme"
+import { cleanRating } from "@/lib/onepage/product-rating"
+import { CardRatingLine, ratingAria } from "./rating-stars"
 
 /** The free product quick checkout made before round 10 (public-onepage's own window), kept for the blocks that use it. */
 export interface LegacyQuickCheckout {
@@ -92,7 +96,7 @@ export interface LegacyQuickCheckout {
 export interface OnePageProductBlockProps {
   block: OnePageBlock
   theme: OnePageTheme
-  /** Inside a group or carousel: the theme's own hover is off there, as for every button. */
+  /** Inside a group or carousel. Round 24: the card's button plays the page's hover there too, as every button does; kept for callers. */
   quiet?: boolean
   /** Drawn as one of two tiles side by side. */
   inPair?: boolean
@@ -190,7 +194,7 @@ function ProductTitle({ block, children }: { block: OnePageBlock; children: Reac
   return subtitle ? <span className="flex min-w-0 flex-col">{children}<BlockSubtitle subtitle={subtitle} /></span> : <>{children}</>
 }
 
-export function OnePageProductBlock({ block, theme, quiet = false, inPair = false, seller, pageMoney, plainText, trackClick, animationClass, quick }: OnePageProductBlockProps) {
+export function OnePageProductBlock({ block, theme, inPair = false, seller, pageMoney, plainText, trackClick, animationClass, quick }: OnePageProductBlockProps) {
   const data = block.data as ProductBlockData
   /* One state for both windows (lib/onepage/purchase-flow): the sheet, the handoff while it leaves, the checkout. */
   const [layer, setLayer] = React.useState<PurchaseLayer>(PURCHASE_CLOSED)
@@ -268,6 +272,8 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
   */
   const buy = React.useCallback(
     (variantId: string | null) => {
+      /* A light tick as Buy is pressed, inside the press (iOS plays WebKit's only there): lib/native-bridge hapticTap. */
+      hapticTap("light")
       step({ type: "buy", variantId })
       const mark = `${block.id}:${Date.now().toString(36)}`
       try {
@@ -356,7 +362,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
         const go = () => {
           setWarm(true)
           /* The picture's shape (its padding, lib/images/letterbox) read now, so the sheet opens in the right frame. */
-          const picture = data.custom_thumbnail || data.product_cover || data.product_thumbnail
+          const picture = withOriginalCover([data.custom_thumbnail, data.product_cover, data.product_thumbnail], { thumbnail_url: data.product_thumbnail, cover_original_url: data.product_cover })[0]
           if (picture) void readPictureShape(picture)
           if (plan === "instant") void loadProductFacts(data.product_id).catch(() => undefined)
           if (shipsToCheckout)
@@ -401,8 +407,8 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
   const cardStyle: React.CSSProperties = ownBackground
     ? { borderRadius: `${radius}px`, backgroundColor: ownBackground, border: "none", boxShadow: shadowCss }
     : { ...themeButtonStyle(theme as ButtonThemeLike), borderRadius: `${radius}px`, color: undefined }
-  /* The hover a button here plays: the page's, still inside a group or carousel as every button is there. */
-  const hoverKind = quiet ? "none" : buttonHover(theme as ButtonThemeLike)
+  /* The hover a button here plays: the page's, in a group or a carousel too (round 24). */
+  const hoverKind = buttonHover(theme as ButtonThemeLike)
   const hoverAttrs = (t: ButtonThemeLike) => ({ "data-hover": hoverKind, "data-shadow": themeShadowKind(t) })
   /* The button inside a card: the page's button, made to read on the card (cardButtonTheme). */
   const ctaTheme = (onPhoto = false) =>
@@ -412,13 +418,25 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
   const title = data.product_title || "Product"
   const description = data.show_description !== false ? plainText(data.product_description) : ""
   /* The creator's own picture for the block, else the product's cover as uploaded (SQL part 377), else its card copy. */
-  const image = [data.custom_thumbnail, data.product_cover, data.product_thumbnail].find((u): u is string => !!u && !unloadable.includes(u)) ?? null
+  /*
+    Round 19: a block whose own picture is the product's 16:9 card copy (picked from the product's pictures) shows
+    the cover as uploaded in its place (lib/products/cover withOriginalCover), so no grey padding reaches a card in
+    a carousel or a group. The card copy stays last, for an original that will not load.
+  */
+  const image = withOriginalCover([data.custom_thumbnail, data.product_cover, data.product_thumbnail], { thumbnail_url: data.product_thumbnail, cover_original_url: data.product_cover }).concat(data.product_thumbnail || []).find((u) => !unloadable.includes(u)) ?? null
   const planPriced = isPlanPriced({ type: data.product_type })
   const money = (cents: number) => (planPriced ? shopMoneyIn(cents, PLAN_CURRENCY) : pageMoney(cents))
   const parts = productPriceParts(data, money)
   const interval = intervalOf({ type: data.product_type, price_interval: data.product_price_interval })
   const now = parts.free ? "Free" : `${parts.prefix === "from" ? "From " : ""}${perInterval(parts.now, interval)}`
   const showPrice = data.show_price !== false
+  /*
+    STORELIB REVIEWS' STARS (lib/onepage/product-rating): written onto the block by the server with the product, so the
+    line is in the first HTML. Under the title in the cards that have room for a line (Compact, Row, Side, Tile, Card,
+    Overlay); not on the one line Button or on Minimal, which have none.
+  */
+  const rating = cleanRating(data.product_rating)
+  const ratingLine = (color: string, cls = "") => (rating ? <CardRatingLine rating={rating} color={color} className={cls} /> : null)
 
   /* ── The older free quick checkout, for the blocks that turned it on before instant checkout existed ── */
   const legacyQuick = !instant && parts.free && data.quick_checkout === true && !!quick
@@ -454,6 +472,16 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
       showPreviewNotice("link")
     }
   }
+  /*
+    THE FINGER GOING DOWN STARTS THE CHECKOUT (the owner, on a phone: "not laggy"). A tap's press comes 50 to 150ms
+    before its click; on it, the window's file is asked for (already there, normally) and the product's facts read
+    afresh, so the window opening on the click shares that read (FACTS_FRESH_MS) instead of starting its own then.
+  */
+  const warmTap = () => {
+    if (plan !== "instant" || !data.product_id || legacyQuick) return
+    void import("@/components/checkout/instant-checkout").catch(() => undefined)
+    void readProductFacts(data.product_id, FACTS_FRESH_MS).catch(() => undefined)
+  }
   /* A tap that opens something on this page: the platform's loading line must not start for it (components/navigation/route-loading-bar). */
   const staysHere = legacyQuick || ((plan === "sheet" || plan === "instant") && !!data.product_id) ? "" : undefined
 
@@ -487,12 +515,13 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
     <a
       href={href}
       onClick={onClick}
+      onPointerDown={warmTap}
       className={cn("group/pc @container block w-full cursor-pointer overflow-hidden text-left outline-none focus-visible:ring-2 focus-visible:ring-offset-2", PRODUCT_CARD_HOST, cls, animationClass)}
       style={style}
       data-product-block={layout}
       data-product-tap={plan}
       data-stays-here={staysHere}
-      aria-label={`${title}${showPrice ? `, ${now}` : ""}`}
+      aria-label={`${title}${showPrice ? `, ${now}` : ""}${rating ? `, ${ratingAria(rating.average, rating.count)}` : ""}`}
     >
       {children}
     </a>
@@ -505,6 +534,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
         <a
           href={href}
           onClick={onClick}
+          onPointerDown={warmTap}
           className={cn("op-btn flex w-full cursor-pointer items-center justify-center px-4 py-3 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:px-5 sm:py-4 sm:text-base @container", animationClass)}
           style={themeButton}
           {...hoverAttrs(theme as ButtonThemeLike)}
@@ -545,6 +575,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
               {title}
             </span>
             </ProductTitle>
+            {ratingLine(textColor, "mt-0.5")}
             {priceLine("text-[13.5px] font-semibold opacity-80", textColor)}
           </span>
           {ctaButton(cn("h-9 max-w-[45%] shrink-0 px-3.5 text-[13.5px] sm:h-10 sm:px-4 sm:text-sm", NARROW_FULL))}
@@ -568,6 +599,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
                 {description}
               </span>
             ) : null}
+            {ratingLine(textColor)}
             {priceLine("mt-auto pt-1 text-[14.5px] font-semibold", textColor)}
             {ctaButton("mt-2 h-10 w-full px-3 text-sm")}
           </span>
@@ -586,6 +618,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
               {title}
             </span>
             </ProductTitle>
+            {ratingLine(textColor, "mt-0.5")}
             {priceLine("text-[13.5px] font-semibold opacity-85", textColor)}
             <span className="mt-auto pt-2.5">{ctaButton("h-9 w-full px-2 text-[13.5px]")}</span>
           </span>
@@ -606,6 +639,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
                 <ProductTitle block={block}>
               <span className="line-clamp-2 text-[17px] font-semibold leading-snug text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.3)] @max-[18rem]:text-[15px]" data-block-title="">{title}</span>
             </ProductTitle>
+                {ratingLine("#ffffff", "mt-1 [text-shadow:0_1px_2px_rgba(0,0,0,0.3)]")}
                 {priceLine("mt-0.5 text-[14.5px] font-semibold", "#ffffff")}
               </span>
               {ctaButton(cn("h-10 max-w-[48%] shrink-0 px-4 text-sm", NARROW_FULL), true)}
@@ -634,6 +668,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
                 {description}
               </span>
             ) : null}
+            {ratingLine(textColor)}
             {priceLine("text-base font-semibold", textColor)}
             <span className="block pt-1.5">{ctaButton("h-11 w-full px-4 text-sm sm:text-base")}</span>
           </span>
@@ -686,6 +721,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
                   {description}
                 </span>
               ) : null}
+              {ratingLine(textColor)}
               {priceLine("text-sm font-semibold sm:text-base", textColor)}
             </span>
           </span>
@@ -709,6 +745,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
           title={title}
           image={image}
           priceText={showPrice ? now : null}
+          rating={rating}
           ctaText={data.cta_text || "Buy now"}
           instant={instant && !shipsProduct(data.product_type)}
           onBuy={buy}
@@ -739,6 +776,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
           onBack={checkout.fromSheet ? checkoutBack : null}
           returnFocus={() => trigger.current}
           back={back}
+          free={parts.free}
         />
       ) : null}
     </>

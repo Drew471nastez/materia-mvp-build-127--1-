@@ -15,9 +15,10 @@ import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { usePageMoney } from "@/components/platform/price-currency"
 import { platformHref } from "@/lib/onepage/return-address"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
-import { pixelLead } from "@/lib/analytics/pixels"
+import { newLeadEventId, pixelLead } from "@/lib/analytics/pixels"
 import { tt } from "@/lib/i18n/text"
 import { SocialIcon } from "@/components/onepage/brand-icons"
+import { CardRatingLine } from "@/components/onepage/rating-stars"
 import { tiktokPlayerUrl } from "@/lib/onepage/creator-blocks"
 import { compactCount, followerTotal, leadMagnetButton, leadMagnetKind, leadMagnetReady, pastedPosts, promoCode, shelfLimit, shelfPickedIds, shelfSource, shelfUsesProductCards, type FollowerNetwork, type FollowersBlockData, type LeadMagnetBlockData, type PromoCodeBlockData, type ShelfItem, type SocialPostItem, type SocialPostsBlockData, type StorelibShelfBlockData } from "@/lib/onepage/storelib-blocks"
 import type { OnePageBlock, OnePageTheme } from "@/lib/onepage/types"
@@ -213,7 +214,7 @@ function ShelfView({ block, look }: { block: OnePageBlock; look: StorelibBlockLo
           ))}
         </div>
       ) : shelfUsesProductCards(data) && shelfSource(data.source)!=="community" ? <div className={data.layout==="carousel"?"op-rail flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden":data.layout==="grid"?"grid grid-cols-2 gap-3":"flex flex-col gap-3"}>
-       {items.map(item=><div key={item.id} className={data.layout==="carousel"?"w-[85%] shrink-0 snap-start":"min-w-0"} style={data.layout==="carousel"&&shelfSlideWidth(data.carousel_view,12)?{width:shelfSlideWidth(data.carousel_view,12)!}:undefined}><OnePageProductBlock block={{id:`${block.id}:${item.id}`,type:"product",enabled:true,sort_order:0,data:{show_price:true,show_description:true,cta_text:tt("View product"),style:"callout",...data.product_settings,...data.product_overrides?.[item.id],product_id:item.id,product_title:item.title,product_thumbnail:item.image,product_slug:item.href.split('/').filter(Boolean).pop(),product_type:item.kind,product_price_cents:item.price_cents,product_variant_min_cents:item.variant_min_price_cents,product_variant_max_cents:item.variant_max_price_cents,product_variant_count:item.variant_count,product_single_variant_id:item.single_variant_id}}} theme={look.theme} quiet={look.still} inPair={data.layout==="grid"} seller={{name:"",avatarUrl:null}} pageMoney={money} plainText={s=>s?.replace(/<[^>]*>/g,'')||''} trackClick={()=>{}} animationClass="" quick={null}/></div>)}
+       {items.map(item=><div key={item.id} className={data.layout==="carousel"?"w-[85%] shrink-0 snap-start":"min-w-0"} style={data.layout==="carousel"&&shelfSlideWidth(data.carousel_view,12)?{width:shelfSlideWidth(data.carousel_view,12)!}:undefined}><OnePageProductBlock block={{id:`${block.id}:${item.id}`,type:"product",enabled:true,sort_order:0,data:{show_price:true,show_description:true,cta_text:tt("View product"),style:"callout",...data.product_settings,...data.product_overrides?.[item.id],product_id:item.id,product_title:item.title,product_thumbnail:item.image,product_slug:item.href.split('/').filter(Boolean).pop(),product_type:item.kind,product_price_cents:item.price_cents,product_variant_min_cents:item.variant_min_price_cents,product_variant_max_cents:item.variant_max_price_cents,product_variant_count:item.variant_count,product_single_variant_id:item.single_variant_id,product_rating:item.rating??null}}} theme={look.theme} quiet={look.still} inPair={data.layout==="grid"} seller={{name:"",avatarUrl:null}} pageMoney={money} plainText={s=>s?.replace(/<[^>]*>/g,'')||''} trackClick={()=>{}} animationClass="" quick={null}/></div>)}
       </div> : list ? (        <div className="flex flex-col" style={{ gap: px(8, look.scale) }}>
           {items.map((item) => (
             <a key={item.id} href={platformHref(item.href)} className="op-card flex w-full items-center no-underline transition-[scale] duration-150 active:scale-[0.99]" style={{ ...look.button, borderRadius: radius, padding: px(8, look.scale), gap: px(12, look.scale) }}>
@@ -223,6 +224,7 @@ function ShelfView({ block, look }: { block: OnePageBlock; look: StorelibBlockLo
               </span>
               <span className="min-w-0 flex-1 text-left">
                 <span className="block truncate font-semibold" style={{ fontSize: px(14.5, look.scale) }}>{item.title}</span>
+                <CardRatingLine rating={item.rating} className="mt-0.5" />
                 {priceLine(item, money) ? <span className="mt-0.5 block truncate opacity-75" style={{ fontSize: px(12.5, look.scale) }}>{priceLine(item, money)}</span> : null}
               </span>
               <ChevronRight aria-hidden className="shrink-0 opacity-60" style={{ width: px(16, look.scale), height: px(16, look.scale) }} />
@@ -242,6 +244,7 @@ function ShelfView({ block, look }: { block: OnePageBlock; look: StorelibBlockLo
               </span>
               <span className="block text-left" style={{ padding: `${px(8, look.scale)} ${px(4, look.scale)} ${px(4, look.scale)}` }}>
                 <span className="line-clamp-2 block font-semibold leading-snug" style={{ fontSize: px(13.5, look.scale), minHeight: px(36, look.scale) }}>{item.title}</span>
+                <CardRatingLine rating={item.rating} className="mt-1" size={11} />
                 <span className="mt-1 block truncate opacity-75" style={{ fontSize: px(12.5, look.scale), minHeight: px(16, look.scale) }}>{priceLine(item, money) ?? ""}</span>
               </span>
             </a>
@@ -338,7 +341,7 @@ function LeadMagnetView({ block, look }: { block: OnePageBlock; look: StorelibBl
 
   const image = data.image_url || (kind === "download" ? data.product_thumbnail : null) || null
   const button = (data.button_text ?? "").trim() || tt(leadMagnetButton(kind))
-  const press = pressableProps(look.theme, look.still)
+  const press = pressableProps(look.theme)
   const radius = radiusOf(look.theme)
   const line = data.description?.trim() || (kind === "discount" && data.coupon_label ? tt("{value} with your email", { value: data.coupon_label }) : kind === "download" && data.product_title ? data.product_title : null)
 
@@ -361,6 +364,7 @@ function LeadMagnetView({ block, look }: { block: OnePageBlock; look: StorelibBl
     setError(null)
     setSending(true)
     const params = new URLSearchParams(window.location.search)
+    const leadId = newLeadEventId()
     const common = {
       onepage_id: look.onepageId,
       block_id: block.id,
@@ -373,6 +377,8 @@ function LeadMagnetView({ block, look }: { block: OnePageBlock; look: StorelibBl
       utm_medium: params.get("utm_medium"),
       utm_campaign: params.get("utm_campaign"),
       origin: pageOrigin(),
+      /* The Lead's id, the same for the pixels below and the server's own Lead (lib/analytics/pixels newLeadEventId). */
+      event_id: leadId,
     }
     try {
       const res = await fetch(kind === "download" ? "/api/onepage/email-capture" : "/api/onepage/lead-magnet", {
@@ -385,7 +391,7 @@ function LeadMagnetView({ block, look }: { block: OnePageBlock; look: StorelibBl
       const result: MagnetDone = { code: typeof out.code === "string" ? out.code : null, ended: out.ended === true, downloadLink: typeof out.downloadLink === "string" ? out.downloadLink : null }
       setDone(result)
       /* Round 41: the store's pixels hear the signup (lib/analytics/pixels pixelLead). */
-      pixelLead(window, { form: "lead_magnet", eventId: typeof out.lead_id === "string" ? out.lead_id : null })
+      pixelLead(window, { form: "lead_magnet", eventId: typeof out.lead_id === "string" ? out.lead_id : leadId })
       try {
         window.localStorage.setItem(storeKey, JSON.stringify(result))
       } catch {
@@ -574,7 +580,7 @@ function PostsView({ block, look }: { block: OnePageBlock; look: StorelibBlockLo
       <div className={raw.layout==="grid"?(cardish?"grid grid-cols-2 gap-3":"grid grid-cols-[repeat(auto-fit,minmax(min(100%,280px),1fr))] gap-3"):raw.layout==="list"||raw.layout==="single"?"flex flex-col gap-3":"op-rail flex snap-x snap-mandatory items-start overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"} style={{ gap: px(10, look.scale) }}>
         {loading
           ? [0, 1, 2].map((i) => <span key={i} aria-hidden className="block shrink-0 animate-pulse rounded-xl bg-[rgba(127,127,127,0.14)] motion-reduce:animate-none" style={{ width: "100%", maxHeight: tall || raw.network === "instagram" ? 380 : undefined, aspectRatio: tall ? "9 / 16" : raw.network === "instagram" ? "326 / 470" : "16 / 9" }} />)
-          : (raw.layout==="single"?items.slice(0,1):items).map((item) => <div key={`${item.kind}:${item.id}`} className={raw.layout&&raw.layout!=="carousel"?(cardish?"min-w-0":"min-w-0 flex justify-center"):"w-full min-w-0 shrink-0 snap-start"}>
+          : (raw.layout==="single"?items.slice(0,1):items).map((item) => <div key={`${item.kind}:${item.id}`} className={raw.layout&&raw.layout!=="carousel"?(cardish?"min-w-0":"min-w-0 flex justify-center"):cardish?"w-[86%] min-w-0 shrink-0 snap-start":"w-full min-w-0 shrink-0 snap-start"}>
             {cardish?<VisualLinkCard block={{id:item.id,type:"link_button",enabled:true,sort_order:0,data:{url:item.url,label:item.title||item.kind},style:{presentation:postCardLook(raw,raw.thumbnails?.[item.url]||item.thumb||undefined)}}} theme={look.theme} onClick={()=>{}}/>:<PostSlide item={{...item,thumb:raw.thumbnails?.[item.url]||item.thumb}} look={look}/>} </div>)}
       </div>
     </div>
@@ -654,7 +660,7 @@ function PromoCodeView({ block, look }: { block: OnePageBlock; look: StorelibBlo
     border, shadow and hover. It was a dashed box in the card's words
     whatever the page's buttons were.
   */
-  const copyPress = pressableProps(onCardButtonTheme(look.theme), look.still)
+  const copyPress = pressableProps(onCardButtonTheme(look.theme))
   return (
     <div data-onepage-code="" className="w-full" style={{ ...look.button, borderRadius: radius, padding: px(12, look.scale) }}>
       <div className="flex items-center" style={{ gap: px(10, look.scale) }}>

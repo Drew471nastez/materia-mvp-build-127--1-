@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { withCodePrice } from "@/lib/billing/plans"
 
 export async function GET() {
   try {
@@ -20,7 +21,8 @@ export async function GET() {
       )
     }
 
-    return NextResponse.json({ plans }, {
+    /* At the price checkout charges (lib/billing/plans withCodePrice), whatever the stored row says. */
+    return NextResponse.json({ plans: (plans ?? []).map(withCodePrice) }, {
       headers: { "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=7200" },
     })
   } catch (error) {

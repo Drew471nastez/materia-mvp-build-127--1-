@@ -30,6 +30,10 @@
  *                      live page; a payment says it is a preview
  *   nothing kept       what the page remembers in the browser (a form sent,
  *                      a product bought) is kept for this frame only
+ *   its forms, now     a form a block opens is the one in the builder,
+ *                      edit by edit, sent by the editor with the page
+ *                      (lib/forms/preview-forms), never the published copy
+ *                      read once and kept
  *   its products, now  a product block is resolved against the product row,
  *                      as the live page does on every render
  *                      (lib/onepage/live-products.ts): an archived,
@@ -57,6 +61,7 @@ import { familyOf, onePageFontHref } from "@/lib/onepage/fonts"
 import { PriceCurrency } from "@/components/platform/price-currency"
 import { PREVIEW_NOTICE_EVENT, showPreviewNotice, type PreviewNoticeKind } from "@/lib/onepage/preview-notice"
 import { tt } from "@/lib/i18n/text"
+import { expectPreviewForms, receivePreviewForms, settlePreviewForms } from "@/lib/forms/preview-forms"
 import { blockIdAt, nearestBlock, pickAction, pickStyle, validBlockId, type PickRect } from "@/lib/onepage/preview-select"
 
 /** The writes a visitor's page makes, answered here instead of by the server. */
@@ -66,6 +71,8 @@ function sandboxWrites() {
   const w = window as Window & { __onepagePreviewSandbox?: boolean }
   if (w.__onepagePreviewSandbox) return
   w.__onepagePreviewSandbox = true
+  /* The page's forms come from the editor, as it is editing them (lib/forms/preview-forms): none is read as a visitor would before it has said. */
+  expectPreviewForms()
 
   const realFetch = window.fetch.bind(window)
   window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
@@ -387,6 +394,7 @@ export function OnePagePreviewDocument() {
     const parent = window.parent
     if (!parent || parent === window) return
     let latest = 0
+    let formsHeard = false
     const onMessage = (e: MessageEvent) => {
       if (e.origin !== window.location.origin || e.source !== parent) return
       const data = e.data as PreviewMessage | null
@@ -396,7 +404,15 @@ export function OnePagePreviewDocument() {
         setPick({ on: data.on === true, selected: validBlockId(data.selected) ? data.selected : null })
         return
       }
+      /* The forms the page opens, as the builder has them now (lib/forms/preview-forms). */
+      if (data.kind === "forms") {
+        formsHeard = true
+        receivePreviewForms(data.forms, data.settled)
+        return
+      }
       if (data.kind !== "page") return
+      /* The editor sends the forms before the page; one that never does is an older editor: forms are read as a visitor reads them. */
+      if (!formsHeard) settlePreviewForms()
       const n = ++latest
       setCurrency(data.currency ?? null)
       const page = data.page

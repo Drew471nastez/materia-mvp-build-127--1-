@@ -1,8 +1,44 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { calculateStorelibFee, UnsupportedFeeCurrencyError, type StorelibFeeResult } from "@/lib/payments/fees/calculate"
-import type { StorelibFeeConfig } from "@/lib/payments/fees/types"
-import { platformChargeCurrencyUpper } from "@/lib/payments/fees/currency-rules"
-import { FREE_MICRO_RATE, FREE_STANDARD_RATE, PAID_MICRO_RATE, PAID_STANDARD_RATE, SCALE_STANDARD_RATE, ratePercentLabel, type StorelibSellerPlan } from "@/lib/payments/fees/config"
+import { calculateStorelibFee, percentageRateFor, UnsupportedFeeCurrencyError, type StorelibFeeResult } from "@/lib/payments/fees/calculate"
+import type { StorelibFeeConfig, StorelibProductKind } from "@/lib/payments/fees/types"
+import { codeDefaultFeeConfig } from "@/lib/payments/fees/defaults"
+import { CURRENCY_FEE_RULES, platformChargeCurrencyUpper } from "@/lib/payments/fees/currency-rules"
+import { ratePercentLabel, type StorelibSellerPlan } from "@/lib/payments/fees/config"
+
+export type { StorelibProductKind }
+
+/**
+ * WHAT A CHECKOUT IS CHARGING FOR, as the fee needs it. Physical sales have
+ * their own card rates (lib/payments/fees/defaults.ts):
+ *   "digital"                a download, course, membership, community, tip
+ *   "physical"               a product that ships (products.type "physical")
+ *   { physicalCents }        a basket with both: how much of the amount is
+ *                            physical goods and what ships with them; the
+ *                            rest is digital
+ */
+export type FeeKindSplit = StorelibProductKind | { physicalCents: number }
+
+/** A product row's kind for the fee: "physical" for one that ships, else "digital". */
+export function productKindOf(type: string | null | undefined): StorelibProductKind {
+  return String(type ?? "").toLowerCase() === "physical" ? "physical" : "digital"
+}
+
+/**
+ * THE PHYSICAL PART OF A CHARGE, for the fee (lib/physical/checkout-server):
+ * the whole total less what the digital lines (a download, course or
+ * membership beside shipped goods) cost after their discounts. Delivery, a
+ * cash on delivery fee and the tax stay with the physical part.
+ */
+export function physicalPartCents(lines: readonly { type: string; unitCents: number; quantity: number; discountCents: number }[], totalCents: number): number {
+  const digital = lines.filter((l) => productKindOf(l.type) === "digital").reduce((sum, l) => sum + Math.max(0, l.unitCents * l.quantity - l.discountCents), 0)
+  return Math.max(0, Math.min(totalCents, totalCents - digital))
+}
+
+function splitInput(split: FeeKindSplit | undefined): { productKind?: StorelibProductKind; physicalMinor?: number } {
+  if (!split) return { productKind: "digital" }
+  if (typeof split === "string") return { productKind: split }
+  return { physicalMinor: Math.max(0, Math.floor(Number(split.physicalCents) || 0)) }
+}
 
 // ────────────────────────────────────────────────────────────────
 // TYPES
@@ -17,6 +53,8 @@ export interface FeeCalculation {
   planName: string
   pricingTier?: "standard" | "micro"
   feeRuleVersion?: string
+  /** What the fee was worked out for: "mixed" for a basket with both kinds. */
+  productKind?: StorelibProductKind | "mixed"
 }
 
 export interface SubscriptionPlan {
@@ -52,6 +90,7 @@ function fromStorelibFee(fee: StorelibFeeResult, planId: SellerPlan): FeeCalcula
     planName: PLAN_NAMES[planId],
     pricingTier: fee.pricingTier,
     feeRuleVersion: fee.feeRuleVersion,
+    productKind: fee.productKind,
   }
 }
 
@@ -72,37 +111,48 @@ function resolveSellerPlan(planId: string | null | undefined): SellerPlan {
 //
 // The rules live in lib/payments/fees (the active fee version in the
 // database, or the code default when there is none). In USD:
-//   $4.00 and up  → plan rate × amount + 25c
-//   under $4.00   → small-order rate × amount, no fixed part
+//   $4.00 and up  → plan rate for the kind × amount + 25c
+//   under $4.00   → small-order rate for the kind × amount, no fixed part
 //   Clamped to [0, unitAmount]
 //
-// Examples (USD):
+// Examples (USD), digital:
 //   Free  $1.00 (100c) → 11.25% = 11c         → 11c
 //   Free  $3.99 (399c) → 11.25% = 45c         → 45c
 //   Free  $4.00 (400c) → 5% = 20c + 25c       → 45c
 //   Free  $10   (1000c)→ 5% = 50c + 25c       → 75c
-//   Pro   $1.00 (100c) → 9.25% = 9c           → 9c
-//   Pro   $4.00 (400c) → 3% = 12c + 25c       → 37c
-//   Pro   $10   (1000c)→ 3% = 30c + 25c       → 55c
-//   Scale $1.00 (100c) → 7.75% = 8c           → 8c
-//   Scale $4.00 (400c) → 1.5% = 6c + 25c      → 31c
-//   Scale $10   (1000c)→ 1.5% = 15c + 25c     → 40c
-//   (Pro is the plan id `growth`; Scale is the plan id `pro`.)
+//   Grow  $1.00 (100c) → 9.25% = 9c           → 9c
+//   Grow  $4.00 (400c) → 3% = 12c + 25c       → 37c
+//   Grow  $10   (1000c)→ 3% = 30c + 25c       → 55c
+//   Pro   $1.00 (100c) → 7.75% = 8c           → 8c
+//   Pro   $4.00 (400c) → 1.5% = 6c + 25c      → 31c
+//   Pro   $10   (1000c)→ 1.5% = 15c + 25c     → 40c
+// Physical (a product that ships). Under $4.00 it pays the next plan's
+// small-order rate: Free physical 9.25%, Grow physical 7.75%, Pro unchanged.
+//   Free  $3.00 (300c) → 9.25% = 28c          → 28c
+//   Free  $10   (1000c)→ 3% = 30c + 25c       → 55c
+//   Grow  $3.00 (300c) → 7.75% = 23c          → 23c
+//   Grow  $10   (1000c)→ 1.5% = 15c + 25c     → 40c
+//   Pro   $10   (1000c)→ 1.5% = 15c + 25c     → 40c
+//   (Grow is the plan id `growth`, the engine's "paid" tier; Pro is the
+//   plan id `pro`, the engine's "scale" tier.)
 // ────────────────────────────────────────────────────────────────
 
 export function computeApplicationFee({
   unitAmount,
   sellerPlan,
   currency,
+  productKind = "digital",
 }: {
   unitAmount: number
   sellerPlan: SellerPlan
   currency?: string
+  productKind?: FeeKindSplit
 }): number {
   return calculateStorelibFee({
     grossMinor: unitAmount,
     currency: (currency || platformChargeCurrencyUpper()).toUpperCase(),
     sellerPlan: toStorelibPlan(sellerPlan),
+    ...splitInput(productKind),
   }).totalStorelibFeeMinor
 }
 
@@ -113,6 +163,7 @@ export function computeApplicationFee({
 // @param amountCents  Total charge (product + tip)
 // @param creatorId    Creator row ID
 // @param admin        The service role client: the plan is a private column (run-now part 63)
+// @param split        Digital, physical, or a basket's physical part (FeeKindSplit)
 // ────────────────────────────────────────────────────────────────
 
 export async function calculatePlatformFee(
@@ -121,6 +172,7 @@ export async function calculatePlatformFee(
   admin: SupabaseClient,
   currency?: string,
   feeConfig?: StorelibFeeConfig,
+  split: FeeKindSplit = "digital",
 ): Promise<FeeCalculation> {
   let effectivePlan: SellerPlan = "free"
 
@@ -162,6 +214,7 @@ export async function calculatePlatformFee(
       grossMinor: amountCents,
       currency: chargeCurrency,
       sellerPlan: toStorelibPlan(effectivePlan),
+      ...splitInput(split),
     },
     feeConfig,
   )
@@ -170,6 +223,7 @@ export async function calculatePlatformFee(
     plan: effectivePlan,
     amountCents,
     tier: fee.pricingTier,
+    kind: fee.productKind,
     feePercent: `${(fee.percentageRate * 100).toFixed(2)}%`,
     platformFeeCents: fee.totalStorelibFeeMinor,
     sellerReceivesCents: fee.creatorProceedsMinor,
@@ -188,6 +242,7 @@ export function calculateFeeWithPlan(
   amountCents: number,
   plan: SubscriptionPlan,
   currency?: string,
+  split: FeeKindSplit = "digital",
 ): FeeCalculation {
   const resolved = resolveSellerPlan(plan.id)
   return fromStorelibFee(
@@ -195,6 +250,7 @@ export function calculateFeeWithPlan(
       grossMinor: amountCents,
       currency: (currency || platformChargeCurrencyUpper()).toUpperCase(),
       sellerPlan: toStorelibPlan(resolved),
+      ...splitInput(split),
     }),
     resolved,
   )
@@ -210,6 +266,7 @@ export function getFeePreview(
   amountCents: number,
   planId: "free" | "growth" | "pro",
   currency?: string,
+  split: FeeKindSplit = "digital",
 ): FeeCalculation {
   const resolved = resolveSellerPlan(planId)
   return fromStorelibFee(
@@ -217,6 +274,7 @@ export function getFeePreview(
       grossMinor: amountCents,
       currency: (currency || platformChargeCurrencyUpper()).toUpperCase(),
       sellerPlan: toStorelibPlan(resolved),
+      ...splitInput(split),
     }),
     resolved,
   )
@@ -240,12 +298,41 @@ export function formatCentsToDollars(cents: number): string {
  * never pays more than one at $4. That is a rule of the fee, written out in
  * the help article and the terms; a plan card naming two tiers read as fine
  * print, so the cards say only what almost every sale pays.
+ *
+ * Written from the code's fee rules (lib/payments/fees/defaults), the same
+ * ones checkout falls back to and run-now part 476 activates, never typed:
+ * the standard rate for the plan and the kind, and the USD fixed fee.
  */
-export function getFeeDescription(planId: string): string {
-  const descriptions: Record<string, string> = {
-    free: `${ratePercentLabel(FREE_STANDARD_RATE)} + $0.25 per sale`,
-    growth: `${ratePercentLabel(PAID_STANDARD_RATE)} + $0.25 per sale`,
-    pro: `${ratePercentLabel(SCALE_STANDARD_RATE)} + $0.25 per sale`,
-  }
-  return descriptions[planId] || descriptions.free
+
+/** The standard (at $4.00 and up) rate a plan pays on a kind of sale, from the code's fee rules. */
+export function standardRateFor(planId: string, kind: StorelibProductKind = "digital"): number {
+  return percentageRateFor(codeDefaultFeeConfig(), toStorelibPlan(resolveSellerPlan(planId)), kind, "standard")
+}
+
+/** The small-order (under $4.00) rate a plan pays on a kind of sale, from the code's fee rules. */
+export function smallOrderRateFor(planId: string, kind: StorelibProductKind = "digital"): number {
+  return percentageRateFor(codeDefaultFeeConfig(), toStorelibPlan(resolveSellerPlan(planId)), kind, "micro")
+}
+
+/** "$0.25": the fixed part in US dollars, from the USD fee rule. */
+export function fixedFeeLabel(): string {
+  return `$${(CURRENCY_FEE_RULES.USD.fixedFeeMinor / 100).toFixed(2)}`
+}
+
+/** "5% + $0.25": a plan's rate on one kind of sale, with the fixed part. */
+export function cardRateLabel(planId: string, kind: StorelibProductKind = "digital"): string {
+  return `${ratePercentLabel(standardRateFor(planId, kind))} + ${fixedFeeLabel()}`
+}
+
+/** Whether a plan pays the same rate on digital and physical sales (Pro does). */
+export function sameRateForBothKinds(planId: string): boolean {
+  return standardRateFor(planId, "digital") === standardRateFor(planId, "physical") && smallOrderRateFor(planId, "digital") === smallOrderRateFor(planId, "physical")
+}
+
+/**
+ * "5% + $0.25 per sale" for digital (the default), "3% + $0.25 per sale"
+ * for physical. Unknown plan ids read as Free.
+ */
+export function getFeeDescription(planId: string, kind: StorelibProductKind = "digital"): string {
+  return `${cardRateLabel(planId, kind)} per sale`
 }

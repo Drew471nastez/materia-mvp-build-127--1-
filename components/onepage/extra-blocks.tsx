@@ -248,7 +248,7 @@ function MapView({ data, look }: { data: MapBlockData; look: ExtraBlockLook }) {
   const src = place ? mapEmbedSrc(place, data.zoom || "area") : null
   const openHref = place?.href ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(typed)}`
   /* Round 41: Open in Maps is the page's button, hover and size included (lib/onepage/block-look); the frame stops short of an oval. */
-  const press = pressableProps(look.theme, look.still)
+  const press = pressableProps(look.theme)
   const pad = buttonPadScale(look.theme)
   const radius = `${boxRadius(look.theme)}px`
   return (

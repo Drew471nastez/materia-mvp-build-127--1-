@@ -25,6 +25,7 @@
  * own name.
  */
 
+import { withOriginalCoverRow } from "@/lib/products/cover"
 import { cleanSwatches } from "@/lib/products/option-swatches"
 import { cleanStoredHtml, looksLikeHtml, plainTextToHtml } from "@/lib/rich-text/html"
 import { variantSoldOut } from "@/lib/checkout/pricing"
@@ -53,6 +54,8 @@ export interface ProductSectionRow {
   price_cents?: number | null
   compare_at_cents?: number | null
   thumbnail_url?: string | null
+  /** The cover as uploaded (SQL part 377), when the row was read with it (`*` reads it once the column is there). */
+  cover_original_url?: string | null
   gallery_urls?: unknown
   whats_included?: unknown
   pay_what_you_want?: boolean | null
@@ -160,7 +163,9 @@ export function descriptionHtml(description: string | null | undefined): string 
  * Everything the product section needs about one product. `opts.files` reads
  * the kinds of file a download holds (the File list block).
  */
-export async function productSectionData(db: Db, row: ProductSectionRow, opts: { files?: boolean; counts?: boolean } = {}): Promise<ProductSectionData> {
+export async function productSectionData(db: Db, given: ProductSectionRow, opts: { files?: boolean; counts?: boolean } = {}): Promise<ProductSectionData> {
+  /* Round AL: a product page is not Explore. Its cover is the picture as uploaded, in its own place in the gallery (lib/products/cover.ts). */
+  const row = withOriginalCoverRow(given)
   const type = row.type ?? ""
   const [rawVariants, options, files, standing, delivery, sizeChart] = await Promise.all([
     readVariants(db, row.id),

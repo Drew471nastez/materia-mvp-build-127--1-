@@ -27,7 +27,9 @@
  */
 import { calculateStorelibFee } from "@/lib/payments/fees/calculate"
 import { CODE_FEE_RULE_VERSION } from "@/lib/payments/fees/defaults"
-import { FREE_MICRO_RATE, FREE_STANDARD_RATE, PAID_MICRO_RATE, PAID_STANDARD_RATE, ratePercentLabel } from "@/lib/payments/fees/config"
+import { ratePercentLabel } from "@/lib/payments/fees/config"
+import type { StorelibProductKind } from "@/lib/payments/fees/types"
+import { smallOrderRateFor, standardRateFor } from "@/lib/billing/fee-calculator"
 import { CURRENCY_FEE_RULES } from "@/lib/payments/fees/currency-rules"
 import { PRO_CHECKOUT_PLAN_ID, PRO_PRICE_CENTS, PRO_YEARLY_MONTHLY_CENTS, YEARLY_BILLING_LIVE, formatPlanPrice, planDisplayName } from "@/lib/billing/plans"
 import { siteLimits } from "@/lib/sites/plan"
@@ -62,14 +64,19 @@ export interface PlanFact {
   name: string
   /** What a month costs, in US cents (lib/billing/plans PRO_PRICE_CENTS). */
   monthlyCents: number
-  /** "$29", "$0". */
+  /** "$14", "$0". */
   price: string
-  /** Storelib's rate on an order at or above the small order line (lib/payments/fees/config). */
+  /** Storelib's rate on a digital order at or above the small order line (lib/payments/fees/defaults). */
   rate: number
   /** The rate under the small order line, which has no fixed part. */
   smallOrderRate: number
   /** "5% + $0.25". */
   feeLabel: string
+  /** The same three for a product that ships, which pays its own, lower rate on Free and Grow. */
+  physicalRate: number
+  physicalSmallOrderRate: number
+  /** "3% + $0.25". */
+  physicalFeeLabel: string
   websites: number
   pagesPerWebsite: number
   ownDomain: boolean
@@ -85,15 +92,19 @@ function planFact(id: FactPlanId): PlanFact {
   const code = PLAN_CODE_ID[id]
   const sites = siteLimits(code)
   const storage = PLAN_LIMITS[code]
-  const rate = id === "free" ? FREE_STANDARD_RATE : PAID_STANDARD_RATE
+  const rate = standardRateFor(code, "digital")
+  const physicalRate = standardRateFor(code, "physical")
   return {
     id,
     name: planDisplayName(code),
     monthlyCents: id === "free" ? 0 : PRO_PRICE_CENTS,
     price: formatPlanPrice(id === "free" ? 0 : PRO_PRICE_CENTS),
     rate,
-    smallOrderRate: id === "free" ? FREE_MICRO_RATE : PAID_MICRO_RATE,
+    smallOrderRate: smallOrderRateFor(code, "digital"),
     feeLabel: `${ratePercentLabel(rate)} + ${dollars(usd.fixedFeeMinor)}`,
+    physicalRate,
+    physicalSmallOrderRate: smallOrderRateFor(code, "physical"),
+    physicalFeeLabel: `${ratePercentLabel(physicalRate)} + ${dollars(usd.fixedFeeMinor)}`,
     websites: sites.maxSites,
     pagesPerWebsite: sites.maxPages,
     ownDomain: sites.customDomain,
@@ -128,13 +139,13 @@ export const FEES = {
   smallOrderBelowCents: usd.microThresholdMinor,
   /** Stripe's own processing fee is separate and applies on every plan (lib/billing/plans planQuestions, "What fees are taken from a sale?"). Storelib does not set it. */
   stripeProcessingExtra: true,
-  /** The fee depends on the price and the plan only, so a sale through Explore pays the same as a direct one (lib/payments/fees/engine). */
+  /** The fee depends on the price, the plan and whether the product ships, so a sale through Explore pays the same as a direct one (lib/payments/fees/engine). */
   sameFeeOnExplore: true,
 } as const
 
 /** Grow's lower rate covers its price from about this much in monthly sales, rounded up to $10 (the same sum as lib/billing/plans planQuestions). */
 export function proBreakEvenDollars(): number {
-  const saved = FREE_STANDARD_RATE - PAID_STANDARD_RATE
+  const saved = standardRateFor("free") - standardRateFor(PRO_CHECKOUT_PLAN_ID)
   return saved > 0 ? Math.ceil(PRO_PRICE_CENTS / 100 / saved / 10) * 10 : 0
 }
 
@@ -155,12 +166,12 @@ export interface SaleBreakdown {
  * Stripe's fee is not in it: it is Stripe's, it depends on the card and the
  * country, and a page says so beside the figure.
  */
-export function saleBreakdown(priceCents: number, plan: FactPlanId, currency = "USD"): SaleBreakdown {
-  const fee = calculateStorelibFee({ grossMinor: priceCents, currency, sellerPlan: plan === "free" ? "free" : "paid" })
+export function saleBreakdown(priceCents: number, plan: FactPlanId, currency = "USD", productKind: StorelibProductKind = "digital"): SaleBreakdown {
+  const fee = calculateStorelibFee({ grossMinor: priceCents, currency, sellerPlan: plan === "free" ? "free" : "paid", productKind })
   return { priceCents, currency, plan, storelibFeeCents: fee.totalStorelibFeeMinor, afterStorelibCents: fee.creatorProceedsMinor, tier: fee.pricingTier }
 }
 
-/** "$29", "$1.45": whole dollars without cents. */
+/** "$14", "$1.45": whole dollars without cents. */
 export function usdText(cents: number): string {
   const d = cents / 100
   return Number.isInteger(d) ? `$${d.toLocaleString("en-US")}` : `$${d.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -236,7 +247,7 @@ export const PRODUCT_TYPES: readonly Fact[] = [
     id: "physical",
     label: "Physical products",
     status: "yes",
-    text: "Things you ship, with variants, stock, shipping zones and rates, and tax rates you set.",
+    text: `Things you ship, with variants, stock, shipping zones and rates, and tax rates you set. A product that ships pays a lower card rate: ${P.free.physicalFeeLabel} on Free, ${P.pro.physicalFeeLabel} on Grow.`,
     source: "lib/platform/physical-commerce.ts",
     flag: "physical",
   },
@@ -450,5 +461,6 @@ export const WHO_FOR =
 export function storelibSummary(flags?: Partial<Record<FactFlag, boolean>>): string {
   const sells = ["digital products", "courses", ...(flags?.communities === false ? [] : ["communities"]), ...(flags?.physical === false ? [] : ["physical goods"])]
   const list = `${sells.slice(0, -1).join(", ")} and ${sells.at(-1)}`
-  return `Storelib is a platform for selling ${list} from your own website, a creator page and a link in bio page. Free has no monthly fee and takes ${P.free.feeLabel} a sale. Grow costs ${P.pro.price} a month and takes ${P.pro.feeLabel}. Stripe's card processing is extra on both, and payouts go to your bank through Stripe.`
+  const physical = flags?.physical === false ? "" : ` A product that ships pays ${P.free.physicalFeeLabel} on Free and ${P.pro.physicalFeeLabel} on Grow.`
+  return `Storelib is a platform for selling ${list} from your own website, a creator page and a link in bio page. Free has no monthly fee and takes ${P.free.feeLabel} a sale. Grow costs ${P.pro.price} a month and takes ${P.pro.feeLabel}.${physical} Stripe's card processing is extra on both, and payouts go to your bank through Stripe.`
 }

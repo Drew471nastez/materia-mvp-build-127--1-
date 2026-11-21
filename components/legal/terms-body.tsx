@@ -5,6 +5,7 @@
   with Storelib's light values as the fallback: the sheet sets them for a dark page.
 */
 import { LINK, Section, SubSection, Ul } from "./legal-parts"
+import { cardRateLabel } from "@/lib/billing/fee-calculator"
 
 export const TERMS_TOC = [
   { id: "s1",  label: "1. Introduction and Acceptance" },
@@ -162,9 +163,11 @@ export function TermsBody() {
             Storelib charges a platform transaction fee on each sale made through the Platform. The fee
             varies based on the Seller&apos;s current subscription plan:
           </p>
+          {/* The rates from the fee rules checkout charges by (lib/billing/fee-calculator), so the terms cannot quote an old one. */}
           <Ul items={[
-            "Free Plan: 5% + $0.25 per transaction",
-            "Grow Plan: 3% + $0.25 per transaction",
+            `Free Plan: ${cardRateLabel("free", "digital")} per transaction for digital products, ${cardRateLabel("free", "physical")} per transaction for physical products`,
+            `Grow Plan: ${cardRateLabel("growth", "digital")} per transaction for digital products, ${cardRateLabel("growth", "physical")} per transaction for physical products`,
+            `Pro Plan: ${cardRateLabel("pro", "digital")} per transaction for digital and physical products`,
           ]} />
           <p>
             Sellers who subscribed to a plan that is no longer offered keep that plan&apos;s transaction fee

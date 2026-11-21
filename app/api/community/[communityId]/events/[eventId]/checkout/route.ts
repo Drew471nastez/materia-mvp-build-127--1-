@@ -54,7 +54,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ com
     {
       stripe,
       ready: (creatorId) => checkoutReadyForCreator(creatorId),
-      fee: (cents, creatorId, currency) => calculatePlatformFeeForCheckout(cents, creatorId, db, currency),
+      fee: (cents, creatorId, currency) => calculatePlatformFeeForCheckout(cents, creatorId, db, currency, "digital"),
       chargeCurrency: platformChargeCurrency(),
     },
     { community: gate.community, viewer: gate.viewer, eventId, email: user?.email ?? null },

@@ -32,9 +32,9 @@
   work by hand.
 */
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type RefObject } from "react"
+import { useCallback, useEffect, useRef, type CSSProperties, type RefObject } from "react"
 import type { SectionStyle } from "./lazy-section"
-import { LIVE_AHEAD, usePartsLive, usePlatformSection, wholeInside } from "./platform-motion"
+import { LIVE_AHEAD, usePartsLive, usePlatformSection } from "./platform-motion"
 import { EverythingGlobe, SWIPE_SLOP, swipeAxis } from "./everything-globe"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 
@@ -143,11 +143,20 @@ function Img({ src, w, h, className, eager, piece }: { src: string; w: number; h
     Landing round 9 (the size drawn): a piece in the store strip is about 85px wide on a phone and 150px on a
     computer, so it comes at 240px wide where that is enough (every phone, a 1x screen) and at 360px on a 2x computer.
   */
-  const set = piece ? { srcSet: `${src.replace(/\.webp$/, "-240.webp")} 240w, ${src} 360w`, sizes: PIECE_SIZES } : null
+  const set = piece ? { srcSet: `${src.replace(/\.webp$/, "-240.webp")} 240w, ${src} 360w`, sizes: PIECE_SIZES } : SLIDE_SETS[src] ? { srcSet: `${SLIDE_SETS[src].srcSet}, ${src} ${w}w`, sizes: SLIDE_SETS[src].sizes } : null
   /* eslint-disable-next-line @next/next/no-img-element */
   return <img className={className} src={src} {...set} alt="" width={w} height={h} loading={eager ? "eager" : "lazy"} decoding="async" draggable={false} />
 }
 export const PIECE_SIZES = "(max-width:767px) 80px, 150px"
+/*
+  Landing round 19 (perf on a phone): the slides' two wide photos are drawn about 110px wide on a phone (the LUT pack's
+  still at 720px and the community's cover at 720px were decoded whole), 12.5% of a screen from 1024px. Smaller copies
+  from scripts/build-home-image-variants.mjs.
+*/
+const SLIDE_SETS: Record<string, { srcSet: string; sizes: string }> = {
+  [`${IMG}/lut-still.webp`]: { srcSet: `${IMG}/lut-still-240.webp 240w, ${IMG}/lut-still-480.webp 480w`, sizes: "(max-width:1023px) 112px, 12.5vw" },
+  [`${IMG}/ai-builders.webp`]: { srcSet: `${IMG}/ai-builders-360.webp 360w`, sizes: "(max-width:1023px) 112px, 12.5vw" },
+}
 
 /*
   Landing round 4 (the owner: "a real looking community card"): the
@@ -364,32 +373,104 @@ function Delivery({ on }: { on: boolean }) {
  * delivery={false}, the owner wanting a calm product view there without the download link going out.
  */
 /* Landing round 18, the owner: no "download link sent" notice on the Digital slide anywhere (home and /pricing), so it is off unless asked for. */
+/*
+  THE TURN OF THE TABS COSTS NO RENDER (landing round 19, perf on a phone: the main thread stayed about half busy while
+  the visitor read the hero, and this card's turn was most of it). React draws the first product once; from then a turn
+  is a handful of attribute writes (showSlide below): the grounds, the pictures, the words, the notice and the tabs,
+  each the same attribute the first render wrote, so the CSS is the same CSS. React never draws this card again with
+  another product (it keeps no state for it), so a render of the section passes over what the turn wrote.
+
+  And it turns only while it is watched (useSlideWatch): at least half of the card on the screen, the tab visible,
+  motion allowed. The clock (.ev-tab-fill's 4.6s, whose end moves the turn on) and the drifting ground both stand
+  still otherwise, where they stood, so coming back to it carries on from the same frame: nothing jumps and nothing is
+  blank. Under the hero only the card's top edge shows on a phone, and a running loop there kept the browser making a
+  frame of the whole page every frame (Chrome does, for any running transform while the page has an
+  IntersectionObserver, which this page has dozens of).
+*/
+function showSlide(root: HTMLElement, active: number, n: number) {
+  const each = (selector: string, write: (el: Element, i: number) => void) => root.querySelectorAll(selector).forEach(write)
+  const flag = (el: Element, on: boolean) => (on ? el.setAttribute("data-on", "") : el.removeAttribute("data-on"))
+  each(":scope > .ev-p-bg", (el, i) => flag(el, i === active))
+  each(".ev-p-img", (el, i) => {
+    const pos = (i - active + n) % n
+    el.setAttribute("data-pos", pos === 0 ? "on" : pos === n - 1 ? "prev" : "next")
+  })
+  each(".ev-p-text", (el, i) => {
+    flag(el, i === active)
+    if (i === active) el.removeAttribute("aria-hidden")
+    else el.setAttribute("aria-hidden", "true")
+  })
+  each(".ev-p-dl", (el) => flag(el, EVERYTHING_SLIDES[active].kind === "luts"))
+  each(".ev-tab", (el, i) => {
+    flag(el, i === active)
+    el.setAttribute("aria-pressed", String(i === active))
+  })
+}
+
+/** Writes data-ev-run on the card while at least half of it is on the screen and the tab is visible (the CSS runs the clock and the ground only then). */
+function useSlideWatch(ref: RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    let half = typeof IntersectionObserver !== "function"
+    const sync = () => {
+      const run = half && !document.hidden
+      if (run !== el.hasAttribute("data-ev-run")) el.toggleAttribute("data-ev-run", run)
+    }
+    const io = half
+      ? null
+      : new IntersectionObserver(
+          ([e]) => {
+            /* Half of the card, or half of the screen when the card is taller than that. */
+            const shown = e.intersectionRect.height
+            half = e.isIntersecting && (e.intersectionRatio >= 0.5 || shown >= (e.rootBounds?.height ?? innerHeight) * 0.5)
+            sync()
+          },
+          { threshold: [0, 0.5, 1] },
+        )
+    io?.observe(el)
+    document.addEventListener("visibilitychange", sync)
+    sync()
+    return () => {
+      io?.disconnect()
+      document.removeEventListener("visibilitychange", sync)
+      el.removeAttribute("data-ev-run")
+    }
+  }, [ref])
+}
+
 export function ProductSlides({ delivery = false }: { delivery?: boolean } = {}) {
-  const [active, setActive] = useState(0)
+  const root = useRef<HTMLDivElement>(null)
+  const active = useRef(0)
   const n = EVERYTHING_SLIDES.length
-  const next = useCallback(() => setActive((a) => (a + 1) % n), [n])
+  const show = useCallback(
+    (i: number) => {
+      if (!root.current || i === active.current) return
+      active.current = i
+      showSlide(root.current, i, n)
+    },
+    [n],
+  )
   const card = useRef<HTMLDivElement>(null)
   usePressTilt(card)
+  useSlideWatch(root)
   return (
-    <div className="ev-vis ev-p" data-no-delivery={delivery ? undefined : ""}>
+    <div ref={root} className="ev-vis ev-p" data-no-delivery={delivery ? undefined : ""}>
       {EVERYTHING_SLIDES.map((s, i) => (
-        <div key={s.tab} className={`ev-p-bg ev-p-bg${i}`} data-on={i === active || undefined} aria-hidden="true" />
+        <div key={s.tab} className={`ev-p-bg ev-p-bg${i}`} data-on={i === 0 || undefined} aria-hidden="true" />
       ))}
       <div className="ev-p-stage">
         <div ref={card} className="ev-p-card" data-press-tilt="">
           <div className="ev-p-media" aria-hidden="true">
-            {EVERYTHING_SLIDES.map((s, i) => {
-              const pos = (i - active + n) % n
-              return (
-                <div key={s.tab} className={`ev-p-img ev-p-${s.kind}`} data-pos={pos === 0 ? "on" : pos === n - 1 ? "prev" : "next"}>
-                  <ProductPicture s={s} />
-                </div>
-              )
-            })}
+            {EVERYTHING_SLIDES.map((s, i) => (
+              <div key={s.tab} className={`ev-p-img ev-p-${s.kind}`} data-pos={i === 0 ? "on" : i === n - 1 ? "prev" : "next"}>
+                <ProductPicture s={s} />
+              </div>
+            ))}
           </div>
           <div className="ev-p-info">
             {EVERYTHING_SLIDES.map((s, i) => (
-              <div key={s.tab} className="ev-p-text" data-on={i === active || undefined} aria-hidden={i !== active || undefined}>
+              <div key={s.tab} className="ev-p-text" data-on={i === 0 || undefined} aria-hidden={i !== 0 || undefined}>
                 <p className="ev-p-name ev-p-rise" style={{ "--d": 0 } as CSSProperties}>
                   {s.name}
                 </p>
@@ -412,13 +493,28 @@ export function ProductSlides({ delivery = false }: { delivery?: boolean } = {})
             ))}
           </div>
         </div>
-        {delivery ? <Delivery on={EVERYTHING_SLIDES[active].kind === "luts"} /> : null}
+        {delivery ? <Delivery on={EVERYTHING_SLIDES[0].kind === "luts"} /> : null}
       </div>
-      <div className="ev-tabs" role="group" aria-label="Product types">
+      <div
+        className="ev-tabs"
+        role="group"
+        aria-label="Product types"
+        onAnimationEnd={(e) => {
+          /* The shown tab's clock ran out: the next product. Only that one runs (.ev-tab[data-on] .ev-tab-fill). */
+          const t = e.target as HTMLElement
+          if (e.animationName === "ev-fill" && t.classList.contains("ev-tab-fill") && t.parentElement?.hasAttribute("data-on")) show((active.current + 1) % n)
+        }}
+      >
         {EVERYTHING_SLIDES.map((s, i) => (
-          <button key={s.tab} type="button" aria-pressed={i === active} className="ev-tab" data-on={i === active || undefined} onClick={() => setActive(i)}>
-            <span className="ev-tab-fill ev-loop" aria-hidden="true" onAnimationEnd={i === active ? next : undefined} />
-            <span className="ev-tab-label">{s.tab}</span>
+          <button key={s.tab} type="button" aria-pressed={i === 0} className="ev-tab" data-on={i === 0 || undefined} onClick={() => show(i)}>
+            <span className="ev-tab-fill ev-loop" aria-hidden="true" />
+            {/* Landing round 19: the label's two inks cross fade (opacity, drawn by the compositor) where its colour was a transition painted every frame. */}
+            <span className="ev-tab-label">
+              <span className="ev-tab-ink">{s.tab}</span>
+              <span className="ev-tab-ink ev-tab-ink-on" aria-hidden="true">
+                {s.tab}
+              </span>
+            </span>
           </button>
         ))}
       </div>
@@ -842,6 +938,8 @@ function ShotCard({ s }: { s: ShotPage }) {
     the strip or of a slot, with the transforms taken off for the read.
 */
 const DRIFT_PX_S = 26
+/** How far ahead of the screen the strip starts drifting (landing round 19: was LIVE_AHEAD, a whole screen). */
+const STRIP_AHEAD = "25% 0px"
 function useDriftStrip(viewport: RefObject<HTMLDivElement | null>, track: RefObject<HTMLDivElement | null>, live: boolean) {
   const liveRef = useRef(live)
   const api = useRef<{ setLive: (on: boolean) => void } | null>(null)
@@ -1028,14 +1126,20 @@ function useDriftStrip(viewport: RefObject<HTMLDivElement | null>, track: RefObj
     }
     api.current = { setLive }
     const vis = () => setLive(liveRef.current)
+    /*
+      Landing round 19 (perf on a phone): the strip drifts from a quarter of a screen before it shows, no longer while
+      any of it is within a whole screen. Under the hero on a phone it is half a screen below the fold, and its seven
+      running animations kept the browser making a full frame of the page every frame for a strip nobody could see.
+      A quarter of a screen is still ahead of the finger: it is already moving when it comes into view.
+    */
     const io =
       typeof IntersectionObserver === "function"
         ? new IntersectionObserver(
             ([e]) => {
-              near = wholeInside(e)
+              near = e.isIntersecting
               vis()
             },
-            { rootMargin: LIVE_AHEAD, threshold: [0, 0.995] },
+            { rootMargin: STRIP_AHEAD, threshold: 0 },
           )
         : null
     io?.observe(vp)
@@ -1443,15 +1547,21 @@ const CSS = `
 .ev-p-money{color:#18181b}
 .ev-p-dot{width:7px;height:7px;flex:none;border-radius:99px;background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.18)}
 .ev-tabs{position:absolute;left:50%;bottom:16px;display:flex;gap:2px;padding:4px;border-radius:999px;background:rgba(255,255,255,.5);transform:translate(-50%,0)}
-.ev-tab{position:relative;overflow:hidden;height:30px;padding:0 13px;border:0;border-radius:999px;background:transparent;color:#55525c;font-family:inherit;font-size:13px;font-weight:500;line-height:30px;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:color .35s ease}
+.ev-tab{position:relative;overflow:hidden;height:30px;padding:0 13px;border:0;border-radius:999px;background:transparent;color:#55525c;font-family:inherit;font-size:13px;font-weight:500;line-height:30px;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .ev-tab::before{content:"";position:absolute;inset:0;border-radius:inherit;background:#fff;opacity:0;transform:scale(.85);transition:opacity .35s ease,transform .5s ${EASE}}
-.ev-tab[data-on]{color:#18181b}
 .ev-tab[data-on]::before{opacity:1;transform:none}
-@media(hover:hover){.ev-tab:not([data-on]):hover{color:#18181b}}
 .ev-tab:focus-visible{outline:2px solid #18181b;outline-offset:2px}
-.ev-tab-label{position:relative}
+/* Landing round 19: the grey label and the dark one in the same place, cross fading (was a colour transition, painted every frame). */
+.ev-tab-label{position:relative;display:grid}
+.ev-tab-ink{grid-area:1/1;transition:opacity .35s ease}
+.ev-tab-ink-on{color:#18181b;opacity:0}
+.ev-tab[data-on] .ev-tab-ink{opacity:0}
+.ev-tab[data-on] .ev-tab-ink-on{opacity:1}
+@media(hover:hover){.ev-tab:not([data-on]):hover .ev-tab-ink{opacity:0}.ev-tab:not([data-on]):hover .ev-tab-ink-on{opacity:1}}
 .ev-tab-fill{position:absolute;inset:0;border-radius:inherit;background:rgba(24,24,27,.07);transform:scaleX(0);transform-origin:0 50%;opacity:0}
 .ev-tab[data-on] .ev-tab-fill{opacity:1;animation:ev-fill 4.6s linear both}
+/* Landing round 19: the clock and the ground stand still unless half the card is on the screen (useSlideWatch). */
+.ev-p:not([data-ev-run]) .ev-tab[data-on] .ev-tab-fill,.ev .ev-p:not([data-ev-run]) .ev-p-bg[data-on]{animation-play-state:paused}
 @media(hover:hover){.ev-p:hover .ev-tab-fill{animation-play-state:paused}}
 @keyframes ev-fill{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 /*
@@ -1680,7 +1790,7 @@ ${GLOBE_CSS()}
 }
 
 @media(prefers-reduced-motion:reduce){
-  .ev-card,.ev-p-bg,.ev-p-img,.ev-p-rise,.ev-tab,.ev-tab::before,.ev-globe-pill,.ev-p-dl{transition:none !important}
+  .ev-card,.ev-p-bg,.ev-p-img,.ev-p-rise,.ev-tab,.ev-tab::before,.ev-tab-ink,.ev-globe-pill,.ev-p-dl{transition:none !important}
   .ev-p-dl-bar i,.ev-p-dl-a,.ev-p-dl-b,.ev-p-dl-ok{animation:none !important}
   .ev-p-dl-bar i,.ev-p-dl-ok{transform:none}
   .ev-p-dl-a{opacity:0}

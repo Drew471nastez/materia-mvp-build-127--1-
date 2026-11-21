@@ -101,7 +101,8 @@ for (const file of ["components/onepage/app-block.tsx", "components/onepage/data
   check(`${file}: every sideways row is on the rail (${scrollers.length})`, scrollers.length > 0 && scrollers.every((c) => /\bop-rail\b/.test(c)) && !/-mx-1 flex snap-x/.test(src))
 }
 check("the group's carousel and the picture slider are on it too", /data-group-carousel=""\s*className="op-rail /.test(page) && /data-onepage-slides=""\s*className=\{cn\("op-rail /.test(page))
-check("a group's soft edges fade over the page's own gutter", /const SOFT_EDGES = "linear-gradient\(to right, transparent 0, #000 var\(--op-gutter, 28px\)/.test(page))
+/* Changed on purpose (round 19): one soft edge for every row, a mask over the gutter and 20px in, drawn only on the side with more (app/globals.css .op-rail[data-more-start|end], tests/onepage-carousels-smooth.test.ts). */
+check("a group's soft edges fade over the page's own gutter", /\.op-rail\[data-more-end\] \{ --op-fade-end: calc\(var\(--op-gutter, 4px\) \+ 20px\); \}/.test(readFileSync(join(process.cwd(), "app/globals.css"), "utf8")))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) {

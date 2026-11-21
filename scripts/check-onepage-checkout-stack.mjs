@@ -168,8 +168,17 @@ try {
           if (!start) start = performance.now()
           const head = co.querySelector("[data-checkout-head]")
           const r = head?.getBoundingClientRect()
-          const hit = r ? document.elementFromPoint(r.x + r.width / 2, r.y + Math.min(r.height / 2, 40)) : null
-          const top = !!hit?.closest("[data-instant-checkout]")
+          /*
+            Changed on purpose (scripts/check-checkout-mobile.mjs): on a phone the window now rises from the foot of the
+            screen, so for its first frames its head is still below the screen and a point there hits nothing. The
+            point read is the head's, or the highest point of the window already on screen; a frame with none of it
+            on screen yet is not one where anything can be over it.
+          */
+          const panelTop = co.querySelector("[role=dialog]")?.getBoundingClientRect().top ?? 0
+          const y = r ? Math.min(Math.max(r.y + Math.min(r.height / 2, 40), panelTop + 4), innerHeight - 2) : 0
+          const onScreen = panelTop < innerHeight - 4
+          const hit = r && onScreen ? document.elementFromPoint(r.x + r.width / 2, y) : null
+          const top = !onScreen || !!hit?.closest("[data-instant-checkout]")
           const sheets = [...document.querySelectorAll("[data-product-sheet]")].filter((e) => {
             const b = e.getBoundingClientRect()
             return e.getClientRects().length && b.top < innerHeight && b.bottom > 0 && getComputedStyle(e).visibility !== "hidden" && !e.closest("[inert],[aria-hidden=true]")
@@ -347,7 +356,8 @@ try {
       row.sheetFromLink = await visibleSheet()
       check(row.sheetFromLink, `${name}: a shared #product- link opens the sheet`)
     }
-    await page.evaluate(() => { window.__stack = { frames: 0, notTop: 0 } ; const s = () => { const co = document.querySelector("[data-instant-checkout]"); if (co) { const r = co.querySelector("[data-checkout-head]")?.getBoundingClientRect(); const hit = r ? document.elementFromPoint(r.x + r.width / 2, r.y + Math.min(r.height / 2, 40)) : null; window.__stack.frames++; if (!hit?.closest("[data-instant-checkout]")) window.__stack.notTop++; if (window.__stack.frames > 40) return } requestAnimationFrame(s) }; requestAnimationFrame(s) })
+    /* Changed on purpose: as above, a frame where the rising window is still below the screen is not one it is under anything. */
+    await page.evaluate(() => { window.__stack = { frames: 0, notTop: 0 } ; const s = () => { const co = document.querySelector("[data-instant-checkout]"); if (co) { const r = co.querySelector("[data-checkout-head]")?.getBoundingClientRect(); const panelTop = co.querySelector("[role=dialog]")?.getBoundingClientRect().top ?? 0; const onScreen = panelTop < innerHeight - 4; const hit = r && onScreen ? document.elementFromPoint(r.x + r.width / 2, Math.min(Math.max(r.y + Math.min(r.height / 2, 40), panelTop + 4), innerHeight - 2)) : null; window.__stack.frames++; if (onScreen && !hit?.closest("[data-instant-checkout]")) window.__stack.notTop++; if (window.__stack.frames > 40) return } requestAnimationFrame(s) }; requestAnimationFrame(s) })
     if (how === "direct") await page.evaluate(() => [...document.querySelectorAll("a,button")].find((e) => e.textContent.includes("View guide")).click())
     else {
       if (how === "cover") {

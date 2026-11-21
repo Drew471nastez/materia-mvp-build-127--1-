@@ -3,7 +3,8 @@ import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { loadSubscriptionView } from "@/lib/billing/subscription-reader"
 import { readPlanOverride } from "@/lib/billing/plan-override"
-import { FREE_STANDARD_RATE, SCALE_STANDARD_RATE, ratePercentLabel } from "@/lib/payments/fees/config"
+import { FREE_STANDARD_RATE, PAID_STANDARD_RATE, SCALE_STANDARD_RATE, ratePercentLabel } from "@/lib/payments/fees/config"
+import { PRO_PRICE_CENTS } from "@/lib/billing/plans"
 import { isServiceUnavailable } from "@/lib/net/service-error"
 import { storeUnavailableResponse } from "@/lib/team/server"
 
@@ -20,13 +21,13 @@ const FREE_PLAN = {
 
 const GROWTH_PLAN = {
   id: "growth",
-  // Sold as "Grow" (pricing round 5; it was "Pro"). The id stays "growth": it is the $29 Stripe price.
+  // Sold as "Grow" (pricing round 5; it was "Pro"). The id stays "growth": the Grow Stripe price, $14.
   name: "Grow",
-  price_cents: 2900,
+  price_cents: PRO_PRICE_CENTS,
   billing_period: "month",
-  fee_percent: 0.03,
+  fee_percent: PAID_STANDARD_RATE,
   fee_fixed_cents: 25,
-  features: ["3% + $0.25 per sale", "Advanced analytics & reports", "Priority email support", "Custom domain support"],
+  features: [`${ratePercentLabel(PAID_STANDARD_RATE)} + $0.25 per sale`, "Advanced analytics & reports", "Priority email support", "Custom domain support"],
   is_active: true,
 }
 

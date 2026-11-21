@@ -94,7 +94,7 @@ export async function POST(request: Request) {
 
   if (creatorId) {
     await addSubscriber(db, creatorId, { email, name, onepageId, consentText: kind === "waitlist" ? `Joined the waitlist on OnePage${waitlist ? `: ${waitlist}` : ""}` : "Signed up on OnePage for a discount code", source: leadSource, sent: body.origin })
-    if (saved.fresh) after(() => deliverSignup(db, creatorId, pageSignup({ email, name, form: "lead_magnet", magnet: kind, detail: kind === "waitlist" ? waitlist : (data.coupon_label as string | undefined) ?? null, blockId, onepageId, pageUrl: request.headers.get("referer") })))
+    if (saved.fresh) after(() => deliverSignup(db, creatorId, pageSignup({ email, name, form: "lead_magnet", magnet: kind, detail: kind === "waitlist" ? waitlist : (data.coupon_label as string | undefined) ?? null, blockId, onepageId, pageUrl: request.headers.get("referer"), eventId: typeof body.event_id === "string" ? body.event_id : null })))
   }
 
   if (kind === "waitlist") return NextResponse.json({ success: true, code: null })

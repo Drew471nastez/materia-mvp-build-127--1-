@@ -75,7 +75,7 @@ import { BlockIconLookScope, BlockMarkTile, useBlockIconLook } from "@/component
 import { blockIconLookOf } from "@/lib/onepage/social-look"
 import { presentationOf } from "@/lib/onepage/block-presentation"
 import type { OnePageBlock, OnePageTheme } from "@/lib/onepage/types"
-import { DataEventView, DataFeedList, DataPollView, DataReviewsView, DataStatsView, DataPaidView } from "@/components/onepage/data-blocks"
+import { DataEventView, DataFeedList, DataPollView, DataReviewsView, DataStatsView, DataPaidView, DataDiscordMembersView } from "@/components/onepage/data-blocks"
 import { DataTipsView } from "@/components/onepage/tip-block"
 import { tipModeOf } from "@/lib/onepage/tips"
 import { useFrameLoading } from "@/components/onepage/embed-shell"
@@ -328,7 +328,7 @@ export function AppEmbedView({ embed, href, title, radius, compact = false, fall
 export function useParts(look: AppBlockLook) {
   const surface = React.useMemo(() => themeButtonStyle(look.theme), [look.theme])
   const radius = boxRadius(look.theme)
-  const press = pressableProps(look.theme, look.still)
+  const press = pressableProps(look.theme)
   const pad = buttonPadScale(look.theme)
   /* Round AR: a chip on the card (an event's date, a tip amount) in colours that read on it (lib/onepage/contrast chipColors). */
   const chip = React.useMemo(() => chipColors(look.theme), [look.theme])
@@ -368,7 +368,7 @@ export function CardButton({
   data?: Record<`data-${string}`, string>
 }) {
   const theme = React.useMemo(() => onCardButtonTheme(look.theme), [look.theme])
-  const press = pressableProps(theme, look.still)
+  const press = pressableProps(theme)
   const cls = cn(press.className, "inline-flex shrink-0 items-center justify-center font-semibold disabled:opacity-60", wide && "w-full")
   const style: React.CSSProperties = { ...press.style, fontSize: px(big ? 15 : 13, look.scale), padding: `${px(8, look.scale)} ${px(14, look.scale)}`, minHeight: px(big ? 48 : 36, look.scale) }
   const attrs = { "data-hover": press["data-hover"], "data-shadow": press["data-shadow"], "data-app-cta": "", ...data }
@@ -427,6 +427,8 @@ function AppBlockBody({ block, look }: { block: OnePageBlock; look: AppBlockLook
     case "note":
       return <NoteView block={block} data={data} look={look} />
     default:
+      /* A Discord block set to members only: Join for owners, Buy for everyone else (./data-blocks, lib/community-roles). */
+      if (provider.id === "discord" && data.members_product_id) return <DataDiscordMembersView block={block} data={data} look={look} />
       /* Round AR: tips through Storelib checkout, and an RSS feed's latest posts under its card (./data-blocks). */
       if (provider.id === "tips" && tipModeOf(data) === "storelib") return <DataTipsView block={block} data={data} look={look} />
       if (provider.id === "rss")

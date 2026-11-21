@@ -23,12 +23,42 @@ import type { StorelibFeeConfig } from "./types"
  * small orders 7.75% (1.5% plus the 6.25% that carries the fixed fee under
  * the threshold, as for the other plans: $4.00 x 6.25% = $0.25). Free and
  * Pro are unchanged.
+ *
+ * PHYSICAL SALES HAVE THEIR OWN RATES (v5, the owner). Digital sales are
+ * unchanged. A product that ships pays, each plus the fixed fee at the
+ * threshold and up ($0.25 at $4.00 in USD):
+ *
+ *   plan (tier)            digital   physical
+ *   Free  (free)           5%        3%
+ *   Grow  (paid, growth)   3%        1.5%
+ *   Pro   (scale, pro)     1.5%      1.5%
+ *
+ * Under the threshold (the small-order rate, no fixed part) a physical sale
+ * pays the NEXT plan's small-order rate: Free physical pays the paid tier's
+ * 9.25% (PAID_MICRO_RATE), Grow physical pays Scale's 7.75%
+ * (SCALE_MICRO_RATE), and Pro is unchanged at 7.75%. Each is the physical
+ * standard rate plus the 6.25% that carries the fixed fee under the
+ * threshold, so the fee still never falls as a price rises past $4.00:
+ * Free physical $3.99 and $4.00 both pay 37c, Grow physical both pay 31c.
+ * Digital keeps today's small-order rates.
  */
-export const CODE_FEE_RULE_VERSION = "2026-11-storelib-v4-scale-1-5pct"
+export const CODE_FEE_RULE_VERSION = "2026-11-storelib-v5-physical-rates"
 
 /** Scale's rates, also the fallback for a stored version that has none. */
 export const CODE_SCALE_STANDARD_RATE = 0.015
 export const CODE_SCALE_MICRO_RATE = 0.0775
+
+/**
+ * Physical rates, also the fallback for a stored version that has none.
+ * The small-order ones are the next plan's (see above): Free physical is the
+ * paid tier's 9.25%, Grow physical is Scale's 7.75%, Pro physical is its own.
+ */
+export const CODE_FREE_PHYSICAL_STANDARD_RATE = 0.03
+export const CODE_FREE_PHYSICAL_MICRO_RATE = 0.0925
+export const CODE_PAID_PHYSICAL_STANDARD_RATE = 0.015
+export const CODE_PAID_PHYSICAL_MICRO_RATE = CODE_SCALE_MICRO_RATE
+export const CODE_SCALE_PHYSICAL_STANDARD_RATE = CODE_SCALE_STANDARD_RATE
+export const CODE_SCALE_PHYSICAL_MICRO_RATE = CODE_SCALE_MICRO_RATE
 
 export function codeDefaultFeeConfig(): StorelibFeeConfig {
   return {
@@ -39,6 +69,12 @@ export function codeDefaultFeeConfig(): StorelibFeeConfig {
     paidMicroRate: 0.0925,
     scaleStandardRate: CODE_SCALE_STANDARD_RATE,
     scaleMicroRate: CODE_SCALE_MICRO_RATE,
+    freePhysicalStandardRate: CODE_FREE_PHYSICAL_STANDARD_RATE,
+    freePhysicalMicroRate: CODE_FREE_PHYSICAL_MICRO_RATE,
+    paidPhysicalStandardRate: CODE_PAID_PHYSICAL_STANDARD_RATE,
+    paidPhysicalMicroRate: CODE_PAID_PHYSICAL_MICRO_RATE,
+    scalePhysicalStandardRate: CODE_SCALE_PHYSICAL_STANDARD_RATE,
+    scalePhysicalMicroRate: CODE_SCALE_PHYSICAL_MICRO_RATE,
     currencies: Object.values(CURRENCY_FEE_RULES).map((r) => ({
       currency: r.currency,
       microThresholdMinor: r.microThresholdMinor,

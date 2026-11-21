@@ -21,6 +21,26 @@ import { MAX_UPLOAD_BYTES, formatLimit } from "@/lib/security/uploads/policy"
 
 import { PHYSICAL_ARTICLES, PHYSICAL_CATEGORY, SITE_WIDE_ARTICLES } from "./physical-articles"
 import { OFFER_ARTICLES } from "./offer-articles"
+import { cardRateLabel, fixedFeeLabel, smallOrderRateFor } from "@/lib/billing/fee-calculator"
+import { PRO_CHECKOUT_PLAN_ID, PRO_PRICE_CENTS, SCALE_CHECKOUT_PLAN_ID, formatPlanPrice } from "@/lib/billing/plans"
+import { ratePercentLabel } from "@/lib/payments/fees/config"
+import { calculateStorelibFee } from "@/lib/payments/fees/calculate"
+import { CURRENCY_FEE_RULES } from "@/lib/payments/fees/currency-rules"
+
+/* THE FEE IN THE HELP CENTER, written from the fee rules checkout charges by (lib/payments/fees), so an article cannot quote an old rate. */
+const HELP_FEE_PLANS = [["free", "Free"], [PRO_CHECKOUT_PLAN_ID, "Grow"], [SCALE_CHECKOUT_PLAN_ID, "Pro"]] as const
+const KINDS = ["digital", "physical"] as const
+const FEE_FIXED = fixedFeeLabel()
+const FEE_LINE = `$${(CURRENCY_FEE_RULES.USD.microThresholdMinor / 100).toFixed(2)}`
+/** "11.25% on Free, 9.25% on Grow and 7.75% on Pro". */
+function smallRates(kind: "digital" | "physical"): string {
+  const parts = HELP_FEE_PLANS.map(([id, name]) => `${ratePercentLabel(smallOrderRateFor(id, kind))} on ${name}`)
+  return `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`
+}
+/** "$0.75": the Free plan's fee on a US dollar sale of that kind, as checkout works it out. */
+function usdFee(cents: number, kind: "digital" | "physical"): string {
+  return `$${(calculateStorelibFee({ grossMinor: cents, currency: "USD", sellerPlan: "free", productKind: kind }).totalStorelibFeeMinor / 100).toFixed(2)}`
+}
 
 export type HelpBlock =
   | { type: "p"; text: string }
@@ -497,15 +517,14 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "fees",
     category: "orders-and-payouts",
     title: "What Storelib charges per sale",
-    summary: "A percentage of each sale that depends on your plan, plus $0.25 on orders of $4.00 or more.",
-    keywords: ["fee", "fees", "commission", "transaction fee", "percentage", "cost", "how much"],
+    summary: "A percentage of each sale that depends on your plan and on whether the product ships, plus $0.25 on orders of $4.00 or more.",
+    keywords: ["fee", "fees", "commission", "transaction fee", "percentage", "cost", "how much", "physical", "shipping"],
+    /* Every rate from the fee rules checkout uses (lib/billing/fee-calculator), never typed. */
     body: [
-      { type: "p", text: "Storelib takes a fee from each sale. The percentage depends on your plan, and $0.25 is added to every order of $4.00 or more." },
-      { type: "table", head: ["Plan", "Per sale"], rows: [
-        ["Free", "5% + $0.25"],
-        ["Grow", "3% + $0.25"],
-      ] },
-      { type: "p", text: "Orders under $4.00 pay a slightly higher percentage and no $0.25, so a small order never pays more than one at $4.00: 11.25% on Free and 9.25% on Grow. For example, a $10 sale on the Free plan is a fee of $0.75, and a $1 sale is $0.11." },
+      { type: "p", text: `Storelib takes a fee from each sale. The percentage depends on your plan and on what you sell: a product that ships pays a lower rate on Free and Grow. ${FEE_FIXED} is added to every order of ${FEE_LINE} or more.` },
+      { type: "table", head: ["Plan", "Digital products", "Products that ship"], rows: HELP_FEE_PLANS.map(([id, name]) => [name, cardRateLabel(id, "digital"), cardRateLabel(id, "physical")]) },
+      { type: "p", text: `Orders under ${FEE_LINE} pay a slightly higher percentage and no ${FEE_FIXED}, so a small order never pays more than one at ${FEE_LINE}. Digital products: ${smallRates("digital")}. Products that ship: ${smallRates("physical")}. For example, a $10 download on the Free plan is a fee of ${usdFee(1000, "digital")}, a $10 product that ships ${usdFee(1000, "physical")}, and a $1 download ${usdFee(100, "digital")}.` },
+      { type: "p", text: `An order with both pays each product's own rate, with one ${FEE_FIXED} for the order. Delivery and tax on an order that ships pay the rate for products that ship.` },
       { type: "p", text: "The Grow rate applies while its subscription is active. If you subscribed to an earlier plan, you keep that plan's rate while it stays active. The Payouts page shows the fees taken in any period under Platform Fees, and each sale's panel names the rule its fee came from. See [Plans](/help/account-and-billing/plans) and [Currencies, prices and payouts](/help/orders-and-payouts/currencies-prices-and-payouts)." },
     ],
   },
@@ -538,13 +557,10 @@ export const HELP_ARTICLES: HelpArticle[] = [
         "Payouts never change: each sale in Payouts shows what the buyer actually paid, in the currency they paid in, and your balance is whatever Stripe holds.",
       ] },
       { type: "h", text: "What does Storelib charge per sale?" },
-      { type: "table", head: ["Plan", "Orders of $4.00 or more", "Orders under $4.00"], rows: [
-        ["Free", "5% + $0.25", "11.25%, no fixed part"],
-        ["Grow", "3% + $0.25", "9.25%, no fixed part"],
-      ] },
-      { type: "p", text: "The small order rule keeps tiny sales fair: under $4.00 the $0.25 is dropped and a slightly higher percentage carries it instead, so a $3.99 sale never pays more than a $4.00 one. The same rule applies in every currency, at the equivalent amount (for example 3.68 EUR). The Pro rate applies while your Pro subscription is active or trialing; otherwise the Free rate applies." },
+      { type: "table", head: ["Plan", "Orders of $4.00 or more", "Orders under $4.00"], rows: HELP_FEE_PLANS.flatMap(([id, name]) => KINDS.map((kind) => [`${name}, ${kind === "digital" ? "digital" : "ships"}`, cardRateLabel(id, kind), `${ratePercentLabel(smallOrderRateFor(id, kind))}, no fixed part`])) },
+      { type: "p", text: "The small order rule keeps tiny sales fair: under $4.00 the $0.25 is dropped and a slightly higher percentage carries it instead, so a $3.99 sale never pays more than a $4.00 one. The same rule applies in every currency, at the equivalent amount (for example 3.68 EUR). A paid plan's rate applies while its subscription is active or trialing; otherwise the Free rate applies." },
       { type: "h", text: "Where do I see the fee?" },
-      { type: "p", text: "In Payouts. Open any sale and the panel shows Paid, the Storelib fee with the rule that produced it (for example \"Free plan · 5% + $0.25\" or \"Pro plan · 9.25%, small order\"), and what you receive. Orders shows what the buyer paid, like any shop's order page; fees live in Payouts only." },
+      { type: "p", text: "In Payouts. Open any sale and the panel shows Paid, the Storelib fee with the rule that produced it (for example \"Free plan · 5% + $0.25\" or \"Grow plan · 9.25%, small order\"), and what you receive. Orders shows what the buyer paid, like any shop's order page; fees live in Payouts only." },
       { type: "h", text: "How does the money reach my bank?" },
       { type: "steps", items: [
         "The buyer pays. Storelib's Stripe account takes the card and sends your share to your own Stripe account at once, minus the fee.",
@@ -815,8 +831,9 @@ export const HELP_ARTICLES: HelpArticle[] = [
     keywords: ["plan", "plans", "pricing", "free", "growth", "professional", "pro", "upgrade", "subscription", "price"],
     body: [
       { type: "table", head: ["", "Free", "Grow"], rows: [
-        ["Price", "$0", "$29 a month"],
-        ["Fee per sale", "5% + $0.25", "3% + $0.25"],
+        ["Price", "$0", `${formatPlanPrice(PRO_PRICE_CENTS)} a month`],
+        ["Fee per digital sale", cardRateLabel("free", "digital"), cardRateLabel(PRO_CHECKOUT_PLAN_ID, "digital")],
+        ["Fee per physical sale", cardRateLabel("free", "physical"), cardRateLabel(PRO_CHECKOUT_PLAN_ID, "physical")],
         ["Custom domain", "No", "Yes"],
         ["Storelib branding", "Shown", "Can be removed"],
         ["Verified badge", "No", "Yes"],

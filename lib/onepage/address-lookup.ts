@@ -16,7 +16,8 @@
  * A failed read throws, so the caller can tell "nobody" from "could not
  * ask". The history tables are the exception: a database that does not have
  * one yet (onepage_slug_history comes with its part in
- * supabase/sql/run-now) simply has no history in it.
+ * supabase/sql/run-now, onepage_old_addresses with part 472) simply has no
+ * history in it.
  *
  * No `server-only` here: proxy.ts imports it, and it holds no secret; the
  * client it is handed does.
@@ -114,6 +115,25 @@ export function supabaseOnePageLookup<Row = Record<string, unknown>>(
     },
 
     async renamedSlug(name) {
+      /*
+        The address a page left, as the save keeps it (SQL part 472,
+        lib/onepage/old-addresses): one row per address, the last page to
+        leave it. Then part 58's history, kept by its trigger. A database
+        with neither simply has no history.
+      */
+      const kept = history(
+        (await supabase.from("onepage_old_addresses").select("onepage_id").eq("old_slug", name.toLowerCase()).limit(1).maybeSingle()) as Answer<{
+          onepage_id: string | null
+        }>,
+      )
+      if (kept?.onepage_id) {
+        const page = must(
+          (await supabase.from("onepages").select("slug").eq("id", kept.onepage_id).eq("status", "published").limit(1).maybeSingle()) as Answer<{
+            slug: string | null
+          }>,
+        )
+        if (page?.slug) return page.slug
+      }
       const row = history(
         (await supabase
           .from("onepage_slug_history")

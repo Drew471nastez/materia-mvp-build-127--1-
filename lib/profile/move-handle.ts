@@ -115,6 +115,18 @@ export async function moveStoreHandle(db: Db, userId: string, wanted: unknown): 
     if (error) {
       console.error("[handle] onepage address not moved", error.code, error.message)
       onepageMoved = false
+    } else {
+      /* The page's address it leaves keeps leading to it, and the new one is its own (lib/onepage/old-addresses, SQL part 472). Never fails the move. */
+      try {
+        const [{ createAdminClient }, { claimOldAddress, rememberOldAddress }] = await Promise.all([import("@/lib/supabase/admin"), import("@/lib/onepage/old-addresses")])
+        const admin = createAdminClient()
+        await claimOldAddress(admin, target)
+        for (const page of now.pages) {
+          if (page.slug && page.slug.toLowerCase() !== target) await rememberOldAddress(admin, { oldSlug: page.slug, onepageId: page.id, ownerId: userId })
+        }
+      } catch {
+        /* A database without the keys or the table: the username's own history still leads here. */
+      }
     }
   }
   return { ok: true, username: target, previous: now.username || null, onepageMoved }

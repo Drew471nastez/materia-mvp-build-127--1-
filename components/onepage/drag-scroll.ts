@@ -25,8 +25,55 @@
 import * as React from "react"
 import { isDrag, restingPoint } from "@/lib/onepage/drag-scroll"
 
+/** Reduced motion asks for no glide: a row jumps to where it is sent (round 19). */
+export function glideBehavior(): ScrollBehavior {
+  return typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"
+}
+
+/**
+ * ONCE A GLIDE HAS LANDED (round 19). The snap went back after `scrollend` or a fixed 700ms, whichever came first.
+ * Safari before 26 has no scrollend, and a long glide on a slow phone outlasts 700ms: the snap came back while the
+ * row was still moving and pulled it to a slide of its own, the jolt at the end of a drag. Now: as soon as the row is
+ * on its target, or once it has not moved for 180ms, or at the latest after 1.5s. Returns a cancel.
+ */
+export function whenLanded(row: HTMLElement, target: number, done: () => void): () => void {
+  let over = false
+  let idle = 0
+  const finish = () => {
+    if (over) return
+    over = true
+    window.clearTimeout(idle)
+    window.clearTimeout(ceiling)
+    row.removeEventListener("scroll", onScroll)
+    row.removeEventListener("scrollend", finish)
+    done()
+  }
+  const cancel = () => {
+    if (over) return
+    over = true
+    window.clearTimeout(idle)
+    window.clearTimeout(ceiling)
+    row.removeEventListener("scroll", onScroll)
+    row.removeEventListener("scrollend", finish)
+  }
+  const onScroll = () => {
+    if (Math.abs(row.scrollLeft - target) <= 1) return finish()
+    window.clearTimeout(idle)
+    idle = window.setTimeout(finish, 180)
+  }
+  const ceiling = window.setTimeout(finish, 1500)
+  if (Math.abs(row.scrollLeft - target) <= 1) {
+    finish()
+    return cancel
+  }
+  row.addEventListener("scroll", onScroll, { passive: true })
+  row.addEventListener("scrollend", finish)
+  idle = window.setTimeout(finish, 180)
+  return cancel
+}
+
 /** The row's slide starts: every child that snaps, measured from the row's own left edge. */
-function snapPoints(row: HTMLElement): number[] {
+export function snapPoints(row: HTMLElement): number[] {
   const left = row.getBoundingClientRect().left - row.scrollLeft
   const points: number[] = []
   row.querySelectorAll<HTMLElement>("*").forEach((el) => {
@@ -52,11 +99,11 @@ export function useMouseDragScroll(ref: React.RefObject<HTMLElement | null>, ena
     let swallow = false
     let snap = ""
     let samples: { t: number; left: number }[] = []
-    let settleTimer: number | null = null
+    let cancelLanding: (() => void) | null = null
 
     const restoreSnap = () => {
-      if (settleTimer !== null) window.clearTimeout(settleTimer)
-      settleTimer = null
+      cancelLanding?.()
+      cancelLanding = null
       row.style.scrollSnapType = snap
       row.style.scrollBehavior = ""
       delete row.dataset.dragging
@@ -65,7 +112,7 @@ export function useMouseDragScroll(ref: React.RefObject<HTMLElement | null>, ena
     const onDown = (e: PointerEvent) => {
       if (e.pointerType !== "mouse" || e.button !== 0) return
       if (row.scrollWidth <= row.clientWidth + 1) return
-      if (settleTimer !== null) restoreSnap()
+      if (cancelLanding) restoreSnap()
       id = e.pointerId
       x0 = e.clientX
       y0 = e.clientY
@@ -117,14 +164,9 @@ export function useMouseDragScroll(ref: React.RefObject<HTMLElement | null>, ena
       const maxLeft = row.scrollWidth - row.clientWidth
       const target = restingPoint(snapPoints(row), left0, row.scrollLeft, velocity, maxLeft)
       row.style.scrollBehavior = ""
-      row.scrollTo({ left: target, behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" })
-      /* The snap comes back once the glide has landed (scrollend, or a ceiling where it is not fired). */
-      const done = () => {
-        row.removeEventListener("scrollend", done)
-        restoreSnap()
-      }
-      row.addEventListener("scrollend", done, { once: true })
-      settleTimer = window.setTimeout(done, 700)
+      row.scrollTo({ left: target, behavior: glideBehavior() })
+      /* The snap comes back once the glide has landed (round 19: on its target, not on a clock). */
+      cancelLanding = whenLanded(row, target, restoreSnap)
     }
 
     /* The click a drag ends with goes nowhere; the next plain click is untouched. */
@@ -150,7 +192,7 @@ export function useMouseDragScroll(ref: React.RefObject<HTMLElement | null>, ena
       row.removeEventListener("pointercancel", onUp)
       row.removeEventListener("click", onClick, true)
       row.removeEventListener("dragstart", onDragStart)
-      if (settleTimer !== null) window.clearTimeout(settleTimer)
+      cancelLanding?.()
       delete row.dataset.mouseDrag
     }
   }, [ref, enabled])
@@ -285,18 +327,13 @@ function gesture(row: HTMLElement, down: PointerEvent) {
     const maxLeft = row.scrollWidth - row.clientWidth
     const target = restingPoint(snapPoints(row), left0, row.scrollLeft, velocity, maxLeft)
     row.style.scrollBehavior = ""
-    row.scrollTo({ left: target, behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" })
-    let landed = false
-    const land = () => {
-      if (landed) return
-      landed = true
-      row.removeEventListener("scrollend", land)
+    row.scrollTo({ left: target, behavior: glideBehavior() })
+    /* Round 19: the snap comes back once the row is on its target, not on a clock. */
+    whenLanded(row, target, () => {
       row.style.scrollSnapType = snap
       row.style.userSelect = userSelect
       delete row.dataset.dragging
-    }
-    row.addEventListener("scrollend", land, { once: true })
-    window.setTimeout(land, 700)
+    })
   }
   row.addEventListener("pointermove", onMove)
   row.addEventListener("pointerup", onUp)

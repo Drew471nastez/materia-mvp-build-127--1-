@@ -148,6 +148,8 @@ export function FramedPicture({
         src={drawn}
         alt={alt}
         draggable={false}
+        /* Placed here, inside its frame: the page's own trim (lib/images/cover-trim) leaves it be. */
+        data-cover-trim="framed"
         className={cn(placed ? "absolute max-w-none" : "h-full w-full object-cover", imgClassName)}
         style={placed ? percent(placed) : focus ? { objectPosition: `${focus.x * 100}% ${focus.y * 100}%` } : undefined}
       />
@@ -159,6 +161,7 @@ export function FramedPicture({
           alt=""
           aria-hidden
           draggable={false}
+          data-cover-trim="framed"
           className={cn("pointer-events-none absolute -z-10 max-w-none scale-110 opacity-70 blur-xl", !box && "object-cover")}
           style={percent(box ? coverBox(shape!.ratio, box, ratio!, "cover") : { left: 0, top: 0, width: 100, height: 100 })}
           data-framed-fill=""

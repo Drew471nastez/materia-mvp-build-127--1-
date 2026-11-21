@@ -36,7 +36,8 @@ async function StoreTrackingTags({ creatorId, purchase, product, productSlug, pr
   if (tags.length === 0) return null
   const t = readTracking(stored)
   const gtagIds = [t.ga4, t.google_ads].filter((v): v is string => !!v)
-  const tagged = `${t.ga4 ?? ""}${t.google_ads ?? ""}${t.gtm ?? ""}`.toLowerCase() || "store"
+  /* Every ID on the page names its tags: with only Google's IDs in it, two stores with no Google tag shared one id, and the second store's Meta or TikTok pixel never ran after a move between their pages. */
+  const tagged = `${t.ga4 ?? ""}${t.google_ads ?? ""}${t.gtm ?? ""}${t.meta_pixel ?? ""}${t.tiktok_pixel ?? ""}${t.pinterest_tag ?? ""}${t.clarity ?? ""}${t.klaviyo ?? ""}${t.omnisend ?? ""}`.toLowerCase() || "store"
   /* A product page names its product by its address: read only when Google's tag is on, for view_item's name and price. */
   const shown = product ?? (gtagIds.length && (productSlug || productId) ? await gaProductFor(creatorId, productSlug ?? null, productId ?? null) : null)
   return (

@@ -243,7 +243,7 @@ export async function POST(request: Request) {
       }
     })
     /* The creator's own tools (lib/onepage/integrations), after the answer, once per address and page. */
-    if (saved.fresh) after(() => deliverSignup(db, creatorId, pageSignup({ email: normalizedEmail, name, form: "lead_magnet", magnet: product ? "download" : null, detail: product?.title ?? null, blockId, onepageId, pageUrl: request.headers.get("referer") })))
+    if (saved.fresh) after(() => deliverSignup(db, creatorId, pageSignup({ email: normalizedEmail, name, form: "lead_magnet", magnet: product ? "download" : null, detail: product?.title ?? null, blockId, onepageId, pageUrl: request.headers.get("referer"), eventId: typeof body.event_id === "string" ? body.event_id : null })))
 
     return NextResponse.json({ success: true, already: !saved.fresh, downloadLink })
   } catch (error) {

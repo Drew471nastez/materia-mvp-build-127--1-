@@ -56,9 +56,10 @@ check("one column on a phone, the grid from 768px", /\.ev-grid\{display:grid;gri
 console.log("\n── card 1: product slides ──")
 check("four product slides, each with its own light behind it", EVERYTHING_SLIDES.length === 4 && EVERYTHING_SLIDES.every((_, i) => new RegExp(`\\.ev-p-bg${i}\\{background:`).test(css)) && (html.match(/class="ev-p-bg ev-p-bg\d"/g) ?? []).length === 4)
 check("the light cross-fades by opacity", /\.ev-p-bg\{[^}]*opacity:0;transition:opacity/.test(css) && /\.ev-p-bg\[data-on\]\{opacity:1\}/.test(css))
-check("tabs are real buttons that say which is on", (html.match(/<button type="button" aria-pressed="(true|false)" class="ev-tab"/g) ?? []).length === 4 && /onClick=\{\(\) => setActive\(i\)\}/.test(src))
-check("it plays by itself on the active tab's bar (paused off screen and under the mouse)", /onAnimationEnd=\{i === active \? next : undefined\}/.test(src) && /\.ev-tab\[data-on\] \.ev-tab-fill\{opacity:1;animation:ev-fill/.test(css) && /\.ev-p:hover \.ev-tab-fill\{animation-play-state:paused\}/.test(css) && /class="ev-tab-fill ev-loop"/.test(html))
-check("products slide in from one side and out the other", /data-pos=\{pos === 0 \? "on" : pos === n - 1 \? "prev" : "next"\}/.test(src) && /\.ev-p-img\[data-pos="prev"\]/.test(css))
+// Changed on purpose (landing round 19, perf on a phone): a turn of the tabs is attribute writes (showSlide), not a React render, and it runs only while half the card is on the screen (useSlideWatch, data-ev-run).
+check("tabs are real buttons that say which is on", (html.match(/<button type="button" aria-pressed="(true|false)" class="ev-tab"/g) ?? []).length === 4 && /onClick=\{\(\) => show\(i\)\}/.test(src) && /el\.setAttribute\("aria-pressed", String\(i === active\)\)/.test(src))
+check("it plays by itself on the active tab's bar (paused off screen, unwatched and under the mouse)", /e\.animationName === "ev-fill"[^\n]*show\(\(active\.current \+ 1\) % n\)/.test(src) && /\.ev-tab\[data-on\] \.ev-tab-fill\{opacity:1;animation:ev-fill/.test(css) && /\.ev-p:hover \.ev-tab-fill\{animation-play-state:paused\}/.test(css) && /\.ev-p:not\(\[data-ev-run\]\) \.ev-tab\[data-on\] \.ev-tab-fill,[^{]*\{animation-play-state:paused\}/.test(css) && /class="ev-tab-fill ev-loop"/.test(html))
+check("products slide in from one side and out the other", /el\.setAttribute\("data-pos", pos === 0 \? "on" : pos === n - 1 \? "prev" : "next"\)/.test(src) && /\.ev-p-img\[data-pos="prev"\]/.test(css) && [...html.matchAll(/class="ev-p-img [^"]*" data-pos="([a-z]+)"/g)].map((m) => m[1]).join() === "on,next,next,prev")
 for (const s of EVERYTHING_SLIDES) {
   const num = (v: string) => Number(v.replace(/[^0-9.]/g, ""))
   const [price, count, revenue] = s.stats.map(([, v]) => num(v))

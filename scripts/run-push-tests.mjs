@@ -28,6 +28,8 @@ execFileSync(process.execPath, ["scripts/build-sql-catalog.mjs"], { stdio: "inhe
 execFileSync(process.execPath, ["scripts/check-unbound-names.mjs"], { stdio: "inherit" })
 
 const SUITES = [
+  /* Discord roles and Telegram chats for paying members (lib/community-roles, SQL parts 473 and 474): the install state, a purchase gives the role, a cancelled or past due membership and a refund take it back, one call per signal and one try per row, the role hierarchy error in words, retries, the Telegram webhook secret, /link codes, one use invites and removal by ban then unban, and nothing at all without the keys. Discord and Telegram are a stubbed fetch. */
+  "tests/community-roles.test.ts",
   /* Round AW: a label purchase with no answer (a timeout, a dropped connection, "still making it") is settled with Shippo or EasyPost before its claim is touched, so a paid label is never lost and never bought twice; a parcel for another country carries a customs declaration made from the order (value paid, weight as sold, the product's origin and HS code), with what is missing said and never filled in; Print label reads the label from the provider each time (Shippo's address expires); a carrier's price in the checkout's own minor units. */
   "tests/labels-safe-aw.test.ts",
   /* Round AW: what the commerce audit found, held in place: a refund that settles late restates the order and tells the buyer, one refund email per press, a receipt that did not go is tried again, a paid basket is never dropped on a Stripe read failure, Cash out's lock undone, a Stripe customer reused only for the member's own row, a guest membership found only by a proven address, members' files not downloads, another store's collection not rewritten, plans not sold through the basket, one stock hold per option and place, the paid race, cancelled orders not sent to partners, "keep it" returns, packing slips, ShipStation's hosts, one purchase id. */
@@ -38,6 +40,8 @@ const SUITES = [
   "tests/platform-reliability-aw.test.ts",
   /* Round AV: a seller Stripe has not approved transfers-only accounts for is told why (not "try again"); a store's address answers from the last good lookup when the database is slow, not with a 500 */
   "tests/platform-issues-av.test.ts",
+  /* Three major issues: a community subscription found by an unproven address, a plan upgrade never charged, a guest basket written to whoever opened the return address. */
+  "tests/major-issues-3.test.ts",
   /* Round AW (track B, paid calls): an email change's and an account deletion's codes counted where the route's own delete cannot erase them; the OnePage music and video lookups signed in, counted and on the service's own address only; Start with AI counted as a new website by the in-request build (only without the jobs table) and by Start over; the meta description model sent the start of a description; the decide route's model counted, the rules answering over the limit. */
   "tests/paid-calls-aw.test.ts",
   /* Round AW (abuse): a banned store sends no campaign mail and its AI-built site answers as no site; new AI site and community addresses are refused phishing names; storelib.com/media/ answers are sandboxed, so a stored SVG never runs as storelib.com. */
@@ -125,6 +129,8 @@ const SUITES = [
   "tests/forms-booking-payment.test.ts",
   /* Round AR (track 2): OnePage bookings end to end. Availability across time zones and DST with date overrides, buffers, notice, the daily limit and chosen lengths; the double booking guard (capped function, a move refused onto a held time, the database's 23P01 a 409); every booking read and write named by its owner; who hears what for a new, moved and cancelled booking (bell and phone, creator email, visitor email with .ics); Google Calendar OAuth state, tokens, freeBusy and events with Meet replayed from tests/fixtures/google-calendar-ar2.json, never called; the signed change-or-cancel link. scripts/check-bookings-sql-ar2.mjs runs part 410 on a real Postgres. */
   "tests/onepage-bookings-ar2.test.ts",
+  /* Storelib Reviews on OnePage product cards and sheets (one held read for a page's ratings, "4.8 out of 5, 23 reviews"), and Calendly and Cal.com bookings in Bookings (part 475): signatures checked before anything is read, replays refused, idempotent by the provider's booking id, cancel and reschedule, the bell once, the webhook removed on disconnect. */
+  "tests/onepage-reviews-bookings.test.ts",
   /* Round AL5: Leads in Emails, Forms beside it, the Audience item gone, missing forms tables said plainly, one retry, the pre-chat and the phone country list. */
   "tests/forms-leads-al5.test.ts",
   "tests/forms-an2.test.ts",
@@ -699,6 +705,8 @@ const SUITES = [
   "tests/money-rows-server-only.test.ts",
   "tests/private-columns.test.ts",
   "tests/ledger-and-deletion.test.ts",
+  /* OnePage tips on the seller's balance (part 471): a paid tip is one sale on the ledger (amount less the fee Stripe kept, in the wallet's currency), posted once whichever of the webhook and the visitor's return comes first; a refund or a dispute takes it back as an order's does; part 471 posts the tips from before once; Payouts lists them as "Tip from <name or Anonymous>". */
+  "tests/tips-ledger.test.ts",
   /* Background jobs run once and stop (a Stripe event taken before it is handled, a job cut off every time ends), and run-now part 189 */
   "tests/jobs-and-isolation.test.ts",
   /* A job, a store's translation and an order line, each done once (a lost job lease writes nothing, the hourly translate claim, run-now part 190) */
@@ -792,6 +800,8 @@ const SUITES = [
   "tests/explore-show-all.test.ts",
   "tests/onepage-stability.test.ts",
   "tests/onepage-save.test.ts",
+  /* Round op-editor: the editor shares the live address, not one typed and not saved; a stopped or replaced upload writes nothing; a failed read of integrations is said, never "Not connected" (scripts/check-onepage-editor-bugs.mjs). */
+  "tests/onepage-editor-bugs.test.ts",
   "tests/marketing-image-quality.test.ts",
   "tests/keyboard-safe-sheet.test.ts",
   "tests/analytics-chart-skeleton.test.ts",
@@ -803,6 +813,7 @@ const SUITES = [
   "tests/storage-upload-routes.test.ts",
   "tests/pricing-plans.test.ts",
   "tests/pricing-cards-r5.test.ts",
+  "tests/pricing-physical-rates.test.ts",
   "tests/app-search.test.ts",
   "tests/notifications-panel.test.ts",
   "tests/notify-unsubscribe.test.ts",
@@ -969,6 +980,8 @@ const SUITES = [
   "tests/onepage-as1.test.ts",
   /* Round AT (track 1): every theme card draws the account's own page (its name, photo or monogram, socials, links, products and newsletter, samples for the rest; components/onepage/themes/preview-account), links as the page's .op-btn with the theme's hover, nothing selectable; Plaster is Stoicism (a stone skin, ivory tablets, its cover kept, saved pages moved with their own changes) and Dune is new. scripts/check-onepage-theme-previews-as1.mjs measures the cards against the live page. */
   "tests/onepage-at1.test.ts",
+  /* The two dark Clean themes, Velvet and Basalt (components/onepage/themes/dark-clean-themes): their place at the end of Clean, every colour pair at 4.5:1 in every button style and under the pointer, a structure of their own, faces the page loads, names in six languages; scripts/check-onepage-dark-themes.mjs measures a whole page of each on pixels at 390 and 1280. */
+  "tests/onepage-dark-themes.test.ts",
   /* The theme swatch round: a theme card is a swatch (its wallpaper, "Aa" in its title face, its button), with no account and no hover that moves it, and nineteen themes whose wallpapers are painted in CSS (components/onepage/themes/theme-swatch, mood-themes). */
   "tests/onepage-swatch-themes.test.ts",
   "tests/onepage-themes-w8.test.ts",
@@ -1375,7 +1388,7 @@ const SUITES = [
   /* Products › Import from Gumroad: the API's products as drafts (prices, currencies never converted, pay what you want, option combinations), pictures copied from Gumroad's CDN hosts only, descriptions through the allow list, once per Gumroad id (SQL part 344), the token in one header and nowhere else, the Products permission. */
   "tests/gumroad-import.test.ts",
   "tests/product-link-import.test.ts",
-  /* Products › Import from a link: Shopify (.js, .json and a store's /products.json), Gumroad (ProductPage props, Inertia) and Payhip pages read from realistic fixtures, the server half with a stand-in fetcher (the .json fallback, a moved store, a password page), and a Payhip draft end to end (SQL part 470). */
+  /* Products › Import from a link: Shopify (.js, .json and a store's /products.json), Gumroad (ProductPage props, Inertia) and Payhip pages read from realistic fixtures, the server half with a stand-in fetcher (the .json fallback, a moved store, a password page), and a Payhip draft end to end (SQL part 470). Also tests/fixtures/product-imports, written key for key from Gumroad's own source (ProductProps, as_json_for_api) and Shopify's Ajax product: covers, a null option difference, the thumbnail when there is no cover, bundles refused, a store's 429 said as that, imported addresses (scripts/check-product-imports.mjs reads the same files and live pages). */
   "tests/product-import-sources.test.ts",
   /* Onboarding round 4: the socials step shows the picture of the account typed in (lib/onboarding/social-preview, app/api/onboarding/social-preview). */
   "tests/onboarding-social-preview.test.ts",
@@ -1677,8 +1690,14 @@ const STRICT_SUITES = [
   "tests/onepage-blocks-r40.test.ts",
   /* Round 41: every OnePage integration end to end with a fake transport (Mailchimp, Kit, beehiiv, MailerLite, Brevo, Flodesk, the webhooks), one delivery per signup, Klaviyo and Omnisend at once, the pixels' Lead, ViewContent, InitiateCheckout and Purchase, the directory's order on the first paint, SQL 323 and 324. */
   "tests/onepage-integrations-r41.test.ts",
+  /* The OnePage integrations audit: the live page carries the store's tags and the preview none, Meta and TikTok's page view once however often their tag runs, every form on the page (signup, lead magnet, subscribe, RSVP, contact) a Lead by the id it sends the server, a OnePage contact form's ticked box forwarded to the connected tools, YouTube Shorts and live links and TikTok vm links played, a booking page that refuses a frame opened in its tab, Google's seen beacon on storelib.me, the app's WebView frame list taking every OnePage player, and a saved pixel expiring the OnePage's CDN copy. */
+  "tests/onepage-integrations.test.ts",
+  /* The OnePage integrations audit, pass two: a native form's or booking's "Send me occasional updates" onto the list, the welcome, the email platforms and the page's own tools by the response's id; that form a pixel Lead by the same id; Meta, TikTok, Pinterest, Clarity, Tag Manager, Klaviyo and Omnisend quiet in a frame. */
+  "tests/onepage-integrations-2.test.ts",
   /* Round 10: a OnePage email signup and contact message through the real routes, to the one subscriber list (tests/_journey). */
   "tests/e2e-onepage-signup.test.ts",
+  /* OnePage editor fixes 2: a product deleted while the editor is open is not a conflict and never comes back (lib/onepage/product-removals), Settings › Integrations shows Mailchimp, Zapier and Make working from the OnePage's own connections, and a OnePage's old address redirects to its new one (SQL part 472, lib/onepage/old-addresses), all through the real routes (tests/_journey). */
+  "tests/onepage-editor-fixes-2.test.ts",
   /* Round 11: a signup from each of the five layouts on a page served on storelib.me, and a group through Save, reload and Publish (tests/_journey). */
   "tests/e2e-onepage-blocks-r11.test.ts",
   /* ShippyPro: the adapter against recorded and documented answers, and the marketplace card in each state (components/physical/integrations-marketplace.tsx only type-checks strict) */
@@ -1778,11 +1797,17 @@ const STRICT_SUITES = [
   "tests/product-sheet-r53.test.ts",
   /* Round AK: the product sheet closes before the checkout opens on top (one state, one backdrop, focus held, Back and Escape close the checkout alone), the checkout's head is the product's own picture, and the product editor's grey padding is cut off in the sheet and the checkout. scripts/check-onepage-checkout-stack.mjs measures it. */
   "tests/onepage-checkout-stack.test.ts",
+  /* Round AL: a product's picture in its own shape everywhere but Explore: the page's trim of the editor's 16:9 padding (lib/images/cover-trim) and the cover as uploaded laid over the rows a website, the store's grid, the library and checkout draw (lib/products/cover). scripts/check-product-cover-ratio.mjs measures it. */
+  "tests/product-cover-everywhere.test.ts",
+  /* The owner, on phones and in the iOS app: the checkout a tap turns into, smoother and not laggy. The window draws from the facts the page already read (the finger going down starts a fresh read it shares), its placeholder is the form's own shape, it rises from the foot of a phone's screen and goes back down (transform only, still under reduced motion), every Buy gives under the finger and ticks once, and Stripe.js is asked for as it opens. scripts/check-checkout-mobile.mjs measures it. */
+  "tests/checkout-mobile-smooth.test.ts",
   /* Round AL: a block opened in a sheet like Linktree's (rise, fade and slight scale in 300ms, back in 250ms, the page held still, Escape and Back, focus kept), the Interaction choice on the blocks that embed something (saved ones stay on the page), and Instagram posts folded in Instagram's own units with View full post on the fade. scripts/check-onepage-block-sheet.mjs measures them. */
   "tests/onepage-block-sheet-al.test.ts",
   "tests/onepage-sheets-an3.test.ts",
   /* Round 42: a OnePage's embeds with no scrollbar inside them (heights said and rounded up, Tally and Calendly asked for theirs, TikTok's player), buttons with room on every side in a carousel, one copy of a video playing, the social sheet as tall as it holds, a slideshow a mouse drags. scripts/check-onepage-r42.mjs measures them. */
   "tests/onepage-r42.test.ts",
+  /* Round 19: every OnePage row that slides sideways (a group's carousel, a shelf, posts, an app block's, reviews, the slideshow): a soft edge only where there is more (a mask, any background), a trackpad that glides on instead of fighting the snap, the snap back on landing, dots and arrows painted from the scroll without React (arrows a dark icon on a light circle on every theme), slides one height, product pictures as uploaded. scripts/check-onepage-carousels.mjs measures them. */
+  "tests/onepage-carousels-smooth.test.ts",
   /* Round AP, track 1: the shared link card at a chat's size, a row's bin under a mouse, the block sheet opening with its content and easing to late content, its foot bar off over the keyboard, drawn down by a mouse, Share as a phone's bottom sheet, no crossed circle on a booking link, no cookie card in the preview, the thumbnail row, row tiles from the Add block entries, a shelf of chosen products (the owner's only), and every sideways row following a mouse. scripts/check-onepage-sheets-ap.mjs, check-onepage-drag-rows-ap.mjs, check-onepage-button-controls-ap.mjs, check-onepage-perf-ap.mjs and shot-onepage-editor-ap.mjs measure them. */
   "tests/onepage-ap1.test.ts",
   /* Round AR (track 6): the OnePage editor's one compact picture row (cover, group picture), descriptions that grow, the form builder's save round trip for every question type and setting, a block clicked in the phone preview opening in the list, Share's Add link to Instagram bio and its public page, the handoff's token rules and its row in the editor, and the AI's edits to social icons, the social links block and link blocks checked as a change by hand. scripts/check-onepage-ar6.mjs measures them at 390 and 1440. */
@@ -1791,6 +1816,10 @@ const STRICT_SUITES = [
   "tests/onepage-editor-op.test.ts",
   /* Round AR, track 1: how a OnePage feels. No round Close over the keyboard once Safari pans, sheets read while idle and opened with their content (no grey bars), one press on every button from pointerdown, Back a step inside a form sheet, the Hero darkening under the page with a bar once it has gone, a removed block folding away, a shelf kept drawn while a setting changes. scripts/check-onepage-ar1.mjs measures them. */
   "tests/onepage-ar1.test.ts",
+  /* OnePage forms, live: the editor's phone and Preview draw the form a block opens as it is being edited (lib/forms/preview-forms), the live page the published one; a form published mid answer is read again and sent once more; the thanks settles in. scripts/check-onepage-forms.mjs draws it in Chromium. */
+  "tests/onepage-forms-live.test.ts",
+  /* Round 24: Design › Buttons › On hover plays on every OnePage button (a group's, a carousel's, a product card's, the sheet's main button, a form's Send), for a keyboard's focus too, pointer devices only, still under reduced motion; a form's dropdown is the form's own combobox in the sheet's colours, the option's id its answer. scripts/check-onepage-hover-select.mjs measures both in Chromium. */
+  "tests/onepage-hover-select.test.ts",
   /* Round AS: the OnePage shell. The profile bar forms over the name as it scrolls under (every header layout, the verified badge in it, floating inside the computer's card), Share and Subscribe from one listener after real travel, faded on the button while the box only moves, the fade layout's large melting picture from the top of a phone's page, the own cover's fade and its switch, the 550px card, every sideways row out to the column's edge. scripts/check-onepage-header-as.mjs measures them frame by frame at 390 and 1440 and in the preview. */
   "tests/onepage-header-as.test.ts",
   /* Round R3, the page shell: on a computer the profile bar is the card's own top (its width and corners, the page's colour, a soft fade at its foot, no pill), drawn from the name's own scroll timeline so it never lags; the card keeps its corners at the top of the window; the fade layout's picture 8/9 on a phone and 5/4 on a computer; every block sheet drawn whole on its first frame. scripts/check-onepage-header-as.mjs and check-onepage-sheet-first-frame.mjs measure them at 390 and 1440. */

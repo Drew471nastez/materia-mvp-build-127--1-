@@ -89,7 +89,7 @@ export async function membershipFee(
   amountCents: number,
   currency: string | undefined = PLAN_CURRENCY,
 ): Promise<{ cents: number; percent: number; planId: string }> {
-  const fee = await calculatePlatformFeeForCheckout(amountCents, creatorId, admin, currency || PLAN_CURRENCY)
+  const fee = await calculatePlatformFeeForCheckout(amountCents, creatorId, admin, currency || PLAN_CURRENCY, "digital")
   return { cents: fee.platformFeeCents, percent: feePercentFor(amountCents, fee.platformFeeCents), planId: fee.planId }
 }
 

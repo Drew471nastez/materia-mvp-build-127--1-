@@ -65,7 +65,8 @@ console.log("\n2. /pricing's products tile")
   check("/pricing draws the product slides without the download notice", /sell: <ProductSlides delivery=\{false\} \/>/.test(bento))
   const calm = renderToStaticMarkup(createElement(ProductSlides, { delivery: false }))
   check("  so no notice, no file name, no download line", !/ev-p-dl/.test(calm) && !calm.includes(DELIVERY_FILE) && !/Download link/.test(calm))
-  check("  the Digital slide and its tab are still there", /Cine Tones LUT Pack/.test(calm) && /<span class="ev-tab-label">Digital<\/span>/.test(calm) && /data-no-delivery=""/.test(calm))
+  // Changed on purpose (landing round 19): the tab's label is two inks that cross fade (opacity, not a painted colour transition).
+  check("  the Digital slide and its tab are still there", /Cine Tones LUT Pack/.test(calm) && /<span class="ev-tab-label"><span class="ev-tab-ink">Digital<\/span>/.test(calm) && /data-no-delivery=""/.test(calm))
   check("  on a phone the card stands where it does on a computer", /@media\(max-width:479px\)\{\.pz-bento \[data-no-delivery\] \.ev-p-stage\{top:44%\}\}/.test(BENTO_CSS))
   const home = renderToStaticMarkup(createElement(ProductSlides))
   // Changed on purpose (landing round 18): the owner wants no download notice on the home page either, so it is off by default.
@@ -78,7 +79,8 @@ console.log("\n3. The questions")
   const html = renderToStaticMarkup(createElement(FaqSection, { editorial: true }))
   check("no grey panel and no dots: the ground's stylesheet is gone", !/faq-ground|FAQ_GROUND_CSS|radial-gradient|#f1f1f3/.test(src) && !/faq-ground/.test(html))
   check("the section is on the page's own background, padded as in round 14", /<section data-story-section="faq" data-faq-plain="" class="py-20 sm:py-28 home-wrap/.test(html) && /style="background:transparent"/.test(html))
-  check("the rows keep their soft grey and open as before", /\.faq-rows \.faq-item\{border-bottom:0;border-radius:10px;background:#f5f5f6\}/.test(src) && /\.faq-a\{display:grid;grid-template-rows:0fr;transition:grid-template-rows \.4s cubic-bezier\(\.22,1,\.36,1\)\}/.test(src) && (html.match(/class="faq-item"/g) ?? []).length === 7)
+  /* Changed on purpose (pricing: Grow $14, physical rates). */ /* Eight questions: "What does Storelib take from a sale?" lists the digital and physical rates. */
+  check("the rows keep their soft grey and open as before", /\.faq-rows \.faq-item\{border-bottom:0;border-radius:10px;background:#f5f5f6\}/.test(src) && /\.faq-a\{display:grid;grid-template-rows:0fr;transition:grid-template-rows \.4s cubic-bezier\(\.22,1,\.36,1\)\}/.test(src) && (html.match(/class="faq-item"/g) ?? []).length === 8)
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

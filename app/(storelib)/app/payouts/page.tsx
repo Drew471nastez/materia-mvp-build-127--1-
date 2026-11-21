@@ -12,6 +12,7 @@ import { ledgerCurrency } from "@/lib/payments/ledger-currency";
 import { readStoreCurrency } from "@/lib/store/selling-currency-read";
 import { disputedInStore, taxYearsInUsd } from "@/lib/money/payout-figures";
 import { latestCreatorOrders, readCreatorOrders } from "@/lib/analytics/creator-orders";
+import { payoutTips } from "@/lib/onepage/tips-ledger";
 import { Shimmer, ShimmerBlock, ShimmerChart, ShimmerRows } from "@/components/ui/shimmer";
 import { noStorePage, teamPageStore } from "@/lib/team/server"
 import { PaneBar } from "@/app/(storelib)/app/orders/order-parts"
@@ -230,6 +231,8 @@ async function PayoutsBody({ creator, paymentsReady, canManage }: { creator: any
     ),
   ]);
 
+  /* OnePage tips on the balance, as the ledger has them (run-now part 471): asked now, waited for with the rest. Empty on any failure. */
+  const tipsRead = payoutTips(adminSupabase, creator.id);
   const products = productsData || [];
   /* A Map, not a find per order (was products × orders). */
   const productById = new Map<string, any>(products.map((p: any) => [p.id, p]));
@@ -348,6 +351,7 @@ async function PayoutsBody({ creator, paymentsReady, canManage }: { creator: any
         taxData,
       }}
       initialOrders={allOrders}
+      initialTips={await tipsRead}
     />
   );
 }

@@ -212,12 +212,15 @@ function fmt(minor: number, currency = "usd") {
  * Free, Grow and Pro plans would each charge for this amount and currency
  * (lib/payments/fees), matched against the fee Stripe actually took. Only a
  * match is named; a fee from an older rule just reads "Storelib fee".
+ * A product that ships is matched against the physical rates, which are
+ * lower on Free and Grow (lib/payments/fees/defaults).
  */
-function feeRuleOf(amountMinor: number, feeMinor: number, currency: string): string | null {
+function feeRuleOf(amountMinor: number, feeMinor: number, currency: string, productType?: string | null): string | null {
   if (!(amountMinor > 0) || !(feeMinor >= 0)) return null
+  const productKind = productType === "physical" ? "physical" : "digital"
   for (const plan of ["free", "paid", "scale"] as const) {
     try {
-      const r = calculateStorelibFee({ grossMinor: amountMinor, currency: currency.toUpperCase(), sellerPlan: plan })
+      const r = calculateStorelibFee({ grossMinor: amountMinor, currency: currency.toUpperCase(), sellerPlan: plan, productKind })
       if (r.totalStorelibFeeMinor !== feeMinor) continue
       const name = plan === "free" ? tt("Free plan") : plan === "scale" ? tt("Pro plan") : tt("Grow plan")
       return r.pricingTier === "micro"
@@ -1903,7 +1906,7 @@ function OrderDetailsModal({
   if (!order || !mounted) return null;
 
   const net = order.amount_cents - (order.fee_cents || 0);
-  const feeRule = order.amount_cents > 0 ? feeRuleOf(order.amount_cents, order.fee_cents || 0, currency) : null;
+  const feeRule = order.amount_cents > 0 ? feeRuleOf(order.amount_cents, order.fee_cents || 0, currency, order.product?.type) : null;
   const buyerName = customerNameOf(order);
   const buyerEmail =
     displayEmail(emailOverrides[order.id] || order.buyer?.email || order.buyer_email || order.customer_email);
@@ -3230,6 +3233,76 @@ function PayoutsHistoryList({
   );
 }
 
+// ─── Tips ──────────────────────────────────────────────────────────────────────
+
+/** A OnePage tip as the ledger has it (lib/onepage/tips-ledger payoutTips). */
+interface PayoutTipRow {
+  id: string;
+  name: string | null;
+  amountCents: number;
+  currency: string;
+  netCents: number;
+  walletCurrency: string;
+  createdAt: string;
+  status: "paid" | "refunded" | "disputed";
+}
+
+/** "Tip from Sam", or from Anonymous when the tipper left no name. */
+function tipLabel(name: string | null): string {
+  return tt("Tip from {name}", { name: name || tt("Anonymous") });
+}
+
+/**
+ * THE TIPS ON YOUR ONEPAGE, as they reached the balance (run-now part 471):
+ * who, how much they gave, what you keep after the fee, and a status only
+ * when it is not simply paid. Drawn like the payouts beside it.
+ */
+function TipsList({ tips, page = 0, pageSize = 10 }: { tips: PayoutTipRow[]; page?: number; pageSize?: number }) {
+  const visible = tips.slice(page * pageSize, page * pageSize + pageSize);
+  const day = (iso: string) => new Date(iso).toLocaleDateString(appLocale(), zoned({ month: "short", day: "numeric", year: "numeric" }));
+  const badge = (t: PayoutTipRow) => (t.status === "paid" ? null : <SaleBadge status={t.status} />);
+  return (
+    <>
+      <ul aria-label={tt("Tips")} className="md:hidden" data-tips-list="">
+        {visible.map((t) => (
+          <li key={t.id} className="relative flex h-16 items-center gap-3 px-4 [&+li]:before:absolute [&+li]:before:left-4 [&+li]:before:right-0 [&+li]:before:top-0 [&+li]:before:h-px [&+li]:before:bg-[#eceef1]">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{tipLabel(t.name)}</p>
+              <p className="mt-0.5 truncate text-[12px] text-[#6b7280]">{day(t.createdAt)}</p>
+            </div>
+            <div className="flex shrink-0 flex-col items-end gap-1">
+              <p className="text-[14px] font-medium tabular-nums text-[#1a1a2e]">{fmt(t.amountCents, t.currency)}</p>
+              {badge(t)}
+            </div>
+          </li>
+        ))}
+      </ul>
+      <table className="hidden w-full table-fixed border-separate border-spacing-0 text-[13px] md:table">
+        <thead>
+          <tr className="h-9 text-left text-[12px] text-[#6b7280]">
+            <th scope="col" className="w-[124px] border-b border-[#eef0f2] pl-4 pr-3 font-medium">{tt("Date")}</th>
+            <th scope="col" className="border-b border-[#eef0f2] px-3 font-medium">{tt("From")}</th>
+            <th scope="col" className="w-[120px] border-b border-[#eef0f2] px-3 text-right font-medium">{tt("Amount")}</th>
+            <th scope="col" className="hidden w-[120px] border-b border-[#eef0f2] px-3 text-right font-medium lg:table-cell">{tt("You keep")}</th>
+            <th scope="col" className="w-[124px] border-b border-[#eef0f2] pl-3 pr-4 font-medium">{tt("Status")}</th>
+          </tr>
+        </thead>
+        <tbody className="[&>tr+tr>td]:border-t [&>tr+tr>td]:border-[#f1f2f4]">
+          {visible.map((t) => (
+            <tr key={t.id} className="h-12 hover:[&>td]:bg-[#fafafb]">
+              <td className="whitespace-nowrap bg-white pl-4 pr-3 text-[#4b5563]">{day(t.createdAt)}</td>
+              <td className="truncate bg-white px-3 text-[#1a1a2e]">{tipLabel(t.name)}</td>
+              <td className="whitespace-nowrap bg-white px-3 text-right font-medium tabular-nums text-[#1a1a2e]">{fmt(t.amountCents, t.currency)}</td>
+              <td className="hidden whitespace-nowrap bg-white px-3 text-right tabular-nums text-[#4b5563] lg:table-cell">{fmt(t.netCents, t.walletCurrency)}</td>
+              <td className="bg-white pl-3 pr-4">{t.status === "paid" ? <SaleBadge status="completed" /> : badge(t)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </>
+  );
+}
+
 // ─── Main Component ────────────────────────────────────────────────────────────
 
 interface PayoutsClientProps {
@@ -3258,6 +3331,8 @@ interface PayoutsClientProps {
     } | null;
   };
   initialOrders?: OrderPayment[];
+  /** OnePage tips on the balance (lib/onepage/tips-ledger payoutTips): their own tab when there are any. */
+  initialTips?: PayoutTipRow[];
 }
 
 /** How many rows a page of the list holds before the footer's arrows take over. */
@@ -3292,6 +3367,7 @@ export function PayoutsClient({
   creator,
   initialData,
   initialOrders = [],
+  initialTips = [],
 }: PayoutsClientProps) {
   /*
     EVERY FIGURE IN ITS OWN CURRENCY (lib/payments/display-currency). The
@@ -3305,7 +3381,7 @@ export function PayoutsClient({
   /* Stripe's pending transactions, as the days they become available, and the account's settlement delay. */
   const [upcoming, setUpcoming] = useState<Array<{ date: string; amount: number; currency: string }>>([]);
   const [settleDays, setSettleDays] = useState<number | null>(null);
-  const [recentTab, setRecentTab] = useState<"sales" | "payouts">("sales");
+  const [recentTab, setRecentTab] = useState<"sales" | "payouts" | "tips">("sales");
   const [salesFilter, setSalesFilter] = useState<SalesFilter>("all");
   const [recentPage, setRecentPage] = useState(0);
   const [isPageLoading, setIsPageLoading] = useState(false);
@@ -3455,7 +3531,7 @@ export function PayoutsClient({
   const filteredOrders = salesFilter === "all"
     ? initialOrders
     : initialOrders.filter((o) => o.status === salesFilter);
-  const listLength = recentTab === "sales" ? filteredOrders.length : payoutCount;
+  const listLength = recentTab === "sales" ? filteredOrders.length : recentTab === "tips" ? initialTips.length : payoutCount;
   const pageCount = Math.max(1, Math.ceil(listLength / PAGE_SIZE));
   const pagedOrders = filteredOrders.slice(recentPage * PAGE_SIZE, recentPage * PAGE_SIZE + PAGE_SIZE);
 
@@ -3801,8 +3877,9 @@ export function PayoutsClient({
   const tabs = [
     { value: "sales" as const, label: tt("Sales") },
     { value: "payouts" as const, label: tt("Payouts") },
+    ...(initialTips.length > 0 ? [{ value: "tips" as const, label: tt("Tips") }] : []),
   ];
-  const tabIndex = recentTab === "sales" ? 0 : 1;
+  const tabIndex = Math.max(0, tabs.findIndex((t) => t.value === recentTab));
   const from = listLength === 0 ? 0 : recentPage * PAGE_SIZE + 1;
   const to = Math.min((recentPage + 1) * PAGE_SIZE, listLength);
 
@@ -3851,13 +3928,13 @@ export function PayoutsClient({
           <div
             role="tablist"
             aria-label={tt("Show")}
-            className="relative grid h-11 w-[176px] shrink-0 grid-cols-2 md:h-8 md:w-[168px]"
+            className={cn("relative grid h-11 shrink-0 md:h-8", tabs.length === 3 ? "w-[252px] grid-cols-3 md:w-[240px]" : "w-[176px] grid-cols-2 md:w-[168px]")}
           >
             <span aria-hidden className="pointer-events-none absolute inset-x-0 bottom-[4px] top-[4px] rounded-[9px] bg-[#eceef1] md:inset-y-0" />
             <span
               aria-hidden
               data-segment=""
-              className="pointer-events-none absolute bottom-[6px] left-[2px] top-[6px] w-[calc(50%-2px)] rounded-[7px] bg-white shadow-[0_1px_2px_rgba(17,24,39,0.08),0_0_0_0.5px_rgba(17,24,39,0.06)] transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none md:bottom-[2px] md:top-[2px]"
+              className={cn("pointer-events-none absolute bottom-[6px] left-[2px] top-[6px] rounded-[7px]", tabs.length === 3 ? "w-[calc(33.333%-1.333px)]" : "w-[calc(50%-2px)]", "bg-white shadow-[0_1px_2px_rgba(17,24,39,0.08),0_0_0_0.5px_rgba(17,24,39,0.06)] transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none md:bottom-[2px] md:top-[2px]")}
               style={{ transform: `translateX(${tabIndex * 100}%)` }}
             />
             {tabs.map((t) => {
@@ -3911,7 +3988,9 @@ export function PayoutsClient({
             transition: "opacity 150ms ease",
           }}
         >
-          {recentTab === "payouts" ? (
+          {recentTab === "tips" ? (
+            <TipsList tips={initialTips} page={recentPage} pageSize={PAGE_SIZE} />
+          ) : recentTab === "payouts" ? (
             <PayoutsHistoryList
               payouts={payoutRows}
               loadError={payoutsLoadError}

@@ -70,6 +70,7 @@ import { AccessSheet, AccountCommunityChrome, NativeOAuthBridge, NativePushInit,
 import { SWITCH_FIRST_PAINT_SCRIPT } from "@/lib/businesses/switch-screen"
 import { EXPLORE_SCROLL_BOOT_SCRIPT } from "@/lib/explore/explore-scroll-boot"
 import { IMAGE_FALLBACK_SCRIPT } from "@/lib/media/image-fallback"
+import { COVER_TRIM_SCRIPT } from "@/lib/images/cover-trim"
 import { ExploreMarketplaceRoot } from "@/components/platform/explore-marketplace-root"
 import { PerfBeacon } from "@/components/perf/perf-beacon"
 import { MissingImageGuard } from "@/components/media/missing-image"
@@ -277,6 +278,8 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: EXPLORE_SCROLL_BOOT_SCRIPT }} />
         {/* Round AG: a picture that fails is tried another way, then hidden; never a broken icon (lib/media/image-fallback). */}
         <script dangerouslySetInnerHTML={{ __html: IMAGE_FALLBACK_SCRIPT }} />
+        {/* Round AL: a product's padded 16:9 copy shows its picture without the grey bars, everywhere but Explore (lib/images/cover-trim). */}
+        <script dangerouslySetInnerHTML={{ __html: COVER_TRIM_SCRIPT }} />
         {/* The person's light or dark look on Storelib's own pages, before the first paint (lib/appearance/site-appearance.ts). */}
         <script dangerouslySetInnerHTML={{ __html: APPEARANCE_BOOT }} />
         {/* The dashboard opened after a dark page starts under a veil of its header's colour, never on a light field (round 30). */}
