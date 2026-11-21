@@ -32,6 +32,7 @@
 */
 
 import { useEffect, useRef } from "react"
+import { canvasOnPageThread } from "./page-thread-canvas"
 import { EVERYTHING_LAND_B64, EVERYTHING_LAND_NORTH, EVERYTHING_LAND_SOUTH, EVERYTHING_LAND_STEP } from "./everything-globe-land"
 import { createGlobeEngine, type GlobeLand, type V3 } from "./everything-globe-draw"
 import { EVERYTHING_GLOBE_WORKER_SOURCE } from "./everything-globe-worker-source"
@@ -87,7 +88,8 @@ function startDriver(canvas: HTMLCanvasElement): Driver | null {
   const land = LAND
   const cities = ANALYTICS_GLOBE_PLACES.map(([lat, lng]) => toV(lat, lng))
   const home = toV(HOME[0], HOME[1])
-  if (typeof Worker === "function" && typeof OffscreenCanvas === "function" && typeof canvas.transferControlToOffscreen === "function") {
+  /* Landing round 20: not in WebKit, which draws the globe on the page's thread (page-thread-canvas.ts). */
+  if (!canvasOnPageThread() && typeof Worker === "function" && typeof OffscreenCanvas === "function" && typeof canvas.transferControlToOffscreen === "function") {
     let worker: Worker | null = null
     try {
       const url = URL.createObjectURL(new Blob([EVERYTHING_GLOBE_WORKER_SOURCE], { type: "text/javascript" }))

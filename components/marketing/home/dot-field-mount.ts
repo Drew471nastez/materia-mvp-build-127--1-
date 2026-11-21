@@ -18,7 +18,7 @@
 */
 
 import { acquireDotDriver } from "./dot-field-driver"
-import { DOT_FIELD_TILE, DOT_FIELD_TILE_MARGIN, dotFieldTiles, type FieldKind } from "./dot-field-engine"
+import { DOT_FIELD_CONFIGS, DOT_FIELD_TILE, DOT_FIELD_TILE_MARGIN, dotFieldTiles, type FieldKind } from "./dot-field-engine"
 
 let nextId = 1
 
@@ -43,11 +43,12 @@ export function mountDotField(box: HTMLElement, o: FieldMountOptions): () => voi
     tiles[n]?.canvas.setAttribute("data-drawn", "")
     box.setAttribute("data-drawn", "")
   }
-  const { driver, release } = acquireDotDriver(onDrawn)
+  const { driver, release, moving, whenStill } = acquireDotDriver(onDrawn)
   driver.field(id, o.kind, o.gap, fine, reduced, o.scatter)
 
   let w = 0
   let h = 0
+  let stopped = false
   const place = () => {
     const r = box.getBoundingClientRect()
     driver.place(id, r.left + window.scrollX, r.top + window.scrollY)
@@ -56,6 +57,17 @@ export function mountDotField(box: HTMLElement, o: FieldMountOptions): () => voi
   const addTile = (n: number) => {
     const canvas = document.createElement("canvas")
     canvas.style.top = `${n * DOT_FIELD_TILE}px`
+    canvas.style.height = `${DOT_FIELD_TILE}px`
+    /*
+      Landing round 20: the canvas is given its final size here, before it is
+      handed over, with the engine's own sums (dot-field-engine.ts, fit), so
+      the worker never resizes a canvas it holds unless the box's width
+      changes. In the Safari engine, tiles added and sized in the worker as a
+      box grew mid flick brought the page down.
+    */
+    const dpr = Math.min(DOT_FIELD_CONFIGS[o.kind].maxDpr, window.devicePixelRatio || 1)
+    canvas.width = Math.round(w * dpr)
+    canvas.height = Math.round(DOT_FIELD_TILE * dpr)
     box.appendChild(canvas)
     const entry: { canvas: HTMLCanvasElement; io: IntersectionObserver | null } = { canvas, io: null }
     tiles[n] = entry
@@ -72,7 +84,19 @@ export function mountDotField(box: HTMLElement, o: FieldMountOptions): () => voi
       entry.io.observe(canvas)
     } else driver.tileOn(id, n, true)
   }
+  /* Landing round 20: a box that changes size while the page scrolls (a section mounting or settling inside it) is measured again once the page stands still: no tile is added, handed over or sized while the page moves. */
+  let waiting = false
   const resize = () => {
+    if (moving()) {
+      if (!waiting) {
+        waiting = true
+        whenStill(() => {
+          waiting = false
+          if (!stopped) resize()
+        })
+      }
+      return
+    }
     const nw = box.clientWidth
     const nh = box.clientHeight
     if (!nw || !nh || (nw === w && nh === h)) return
@@ -85,10 +109,8 @@ export function mountDotField(box: HTMLElement, o: FieldMountOptions): () => voi
       driver.dropTile(id, tiles.length)
       t.canvas.remove()
     }
-    for (let n = 0; n < want.length; n++) {
-      if (!tiles[n]) addTile(n)
-      tiles[n].canvas.style.height = `${want[n].height}px`
-    }
+    /* Landing round 20: every tile is a whole tile tall, whatever the box's height (the box clips its foot), so a change of height never resizes a canvas the worker is drawing in (dot-field-engine.ts, fit). */
+    for (let n = 0; n < want.length; n++) if (!tiles[n]) addTile(n)
     driver.size(id, w, h, window.devicePixelRatio || 1)
     place()
   }
@@ -138,6 +160,7 @@ export function mountDotField(box: HTMLElement, o: FieldMountOptions): () => voi
   }
 
   return () => {
+    stopped = true
     if (queued) cancelAnimationFrame(queued)
     ro?.disconnect()
     for (const t of tiles) t.io?.disconnect()
