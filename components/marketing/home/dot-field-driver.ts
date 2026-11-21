@@ -13,6 +13,7 @@
 */
 
 import { DOT_FIELD_WORKER_SOURCE } from "./dot-field-worker-source"
+import { canvasOnPageThread } from "./page-thread-canvas"
 import { createDotEngine, type DotEngine, type FieldKind, type TileCanvas } from "./dot-field-engine"
 
 export type DotDriver = {
@@ -36,21 +37,8 @@ export type DotDriver = {
 
 type Listener = (id: number, n: number) => void
 
-/*
-  Landing round 20: WebKit draws the fields on the page's own thread. In the
-  Safari engine (Playwright WebKit 26.6), flicking down the home page and back
-  up brought the page's web process down in about one run in three while a
-  worker drew the tiles it was handed; with the canvases handed over and never
-  drawn on, none in 12; drawing nothing while the page scrolled, it still
-  happened (3 in 16). WebKit is every browser on an iPhone and the iOS app's
-  web view. GestureEvent is an interface only WebKit has, so this reads what
-  the engine is, not what it says it is. Elsewhere the worker stays: on the
-  page's thread the fields cost a throttled phone in Chromium far more.
-*/
-export const DOTS_ON_PAGE_THREAD = () => typeof window !== "undefined" && typeof (window as unknown as { GestureEvent?: unknown }).GestureEvent === "function"
-
-/** The page's thread draws a field's wander at most this often (ms): about 30 a second, a slow drift that needs no more. */
-export const PAGE_THREAD_FRAME_MS = 32
+/* Landing round 20: WebKit draws the fields on the page's own thread (page-thread-canvas.ts says why); elsewhere the worker stays, since on the page's thread the fields cost a throttled phone in Chromium far more. */
+export const DOTS_ON_PAGE_THREAD = canvasOnPageThread
 
 function startWorker(onDrawn: Listener): DotDriver | null {
   if (DOTS_ON_PAGE_THREAD()) return null
@@ -115,7 +103,6 @@ function startLocal(onDrawn: Listener): DotDriver {
     caf: (id) => cancelAnimationFrame(id),
     now: () => performance.now(),
     onDrawn,
-    minFrameMs: PAGE_THREAD_FRAME_MS,
   })
   return {
     worker: false,

@@ -18,9 +18,12 @@
  *
  * Now:
  *   - WebKit (every browser on an iPhone, the iOS app's web view; read from
- *     GestureEvent, an interface only WebKit has, never the user agent) draws
- *     the fields on the page's own thread, a wander at most 30 frames a
- *     second; other engines keep the worker;
+ *     GestureEvent, an interface only WebKit has, never the user agent;
+ *     page-thread-canvas.ts) draws the fields on the page's own thread (at
+ *     60 a second as before: at 30 the wandering light stepped, round 8), and
+ *     the three globes too (with the
+ *     dot fields alone moved, 1 in 16 still went down, by a globe); other
+ *     engines keep the workers;
  *   - while the page scrolls the fields' loop waits (engine.scroll), and it
  *     starts again SCROLL_REST_MS after the last scroll event: one passive
  *     listener for the page (dot-field-driver.ts), a number written per
@@ -40,7 +43,7 @@
  */
 import { readFileSync } from "node:fs"
 import { createDotEngine, DOT_FIELD_TILE, type TileCanvas } from "@/components/marketing/home/dot-field-engine"
-import { DOTS_ON_PAGE_THREAD, PAGE_THREAD_FRAME_MS, SCROLL_REST_MS } from "@/components/marketing/home/dot-field-driver"
+import { DOTS_ON_PAGE_THREAD, SCROLL_REST_MS } from "@/components/marketing/home/dot-field-driver"
 import { DOT_FIELD_CSS } from "@/components/marketing/home/dot-field"
 
 let passed = 0
@@ -177,11 +180,11 @@ console.log("\nThe page: no tile added, handed over or sized while the page move
   check("whenStill runs at once when the page is still", /if \(s\.moving\(\)\) s\.still\.add\(run\)\s*else run\(\)/.test(DRIVER))
 }
 
-console.log("\nWebKit draws the fields on the page's own thread, at most 30 frames a second")
+console.log("\nWebKit draws the fields on the page's own thread")
 {
   const DRIVER = code(read("components/marketing/home/dot-field-driver.ts"))
   check("the worker is not started where the engine is WebKit", /function startWorker\(onDrawn: Listener\): DotDriver \| null \{\s*if \(DOTS_ON_PAGE_THREAD\(\)\) return null/.test(DRIVER))
-  check("WebKit is read from an interface only it has (GestureEvent), never the user agent", /GestureEvent/.test(DRIVER) && !/userAgent|navigator\.vendor/.test(DRIVER))
+  check("WebKit is read by the shared rule (page-thread-canvas.ts), never the user agent", /DOTS_ON_PAGE_THREAD = canvasOnPageThread/.test(DRIVER) && !/userAgent|navigator\.vendor/.test(DRIVER))
   const g = globalThis as unknown as { window?: unknown; GestureEvent?: unknown }
   const hadWindow = "window" in g
   const before = g.window
@@ -192,20 +195,16 @@ console.log("\nWebKit draws the fields on the page's own thread, at most 30 fram
   if (hadWindow) g.window = before
   else delete g.window
   check("with GestureEvent: the page's thread; without: the worker", webkit === true && other === false)
-  check("the page's engine draws a wander at most every PAGE_THREAD_FRAME_MS (about 30 a second)", PAGE_THREAD_FRAME_MS >= 30 && PAGE_THREAD_FRAME_MS <= 34 && /minFrameMs: PAGE_THREAD_FRAME_MS/.test(DRIVER))
-  let cb: ((t: number) => void) | null = null
-  let draws = 0
-  const engine = createDotEngine({ raf: (c) => ((cb = c), 1), caf: () => { cb = null }, now: () => 0, onDrawn: () => undefined, minFrameMs: PAGE_THREAD_FRAME_MS })
-  engine.field(1, "dark", 18, false, false, false)
-  const a = fakeCanvas()
-  engine.tile(1, 0, a.canvas)
-  engine.size(1, 390, 600, 2)
-  engine.tileOn(1, 0, true)
-  let t = 0
-  const base = a.clears.length
-  for (let i = 0; i < 60; i++) { t += 1000 / 60; const c = cb; cb = null; c?.(t) }
-  draws = a.clears.length - base
-  check("a second of a 60Hz screen: about 30 frames drawn, not 60", draws >= 28 && draws <= 31, draws)
+}
+
+console.log("\nThe globes: the same rule")
+{
+  for (const f of ["components/marketing/home/everything-globe.tsx", "components/marketing/home/analytics-globe.tsx", "components/marketing/home/platform-globe.tsx"]) {
+    const SRC = code(read(f))
+    check(`${f.split("/").pop()} hands its canvas to a worker only where canvasOnPageThread() is false`, /canvasOnPageThread\(\)/.test(SRC) && /from "\.\/page-thread-canvas"/.test(SRC))
+  }
+  const RULE = code(read("components/marketing/home/page-thread-canvas.ts"))
+  check("one rule, read from GestureEvent, never the user agent", /GestureEvent/.test(RULE) && !/userAgent|navigator\.vendor/.test(RULE))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)
