@@ -21,6 +21,10 @@
  *     still frame (that alone still crashed 2 runs in 7), so a tile first
  *     seen mid flick fades in when the page stands still, as every tile's
  *     first frame does;
+ *   - a box that changes size while the page scrolls is measured again when
+ *     it stands still, and a new tile's canvas is given its final size before
+ *     it is handed over: no tile is added, handed over or sized in the worker
+ *     while the page moves (with the loop paused alone, still 1 run in 12);
  *   - a tile's canvas is always a whole tile (DOT_FIELD_TILE tall, the box
  *     clips its foot) and is given a size only when that size changes: a
  *     flick no longer reallocates every tile of a field as it settles;
@@ -152,6 +156,18 @@ console.log("\nThe page: one passive scroll listener that pauses and resumes the
   check("the worker passes it to the engine", /m\.type === "scroll"\) engine\.scroll\(m\.on\)/.test(WORKER))
   const SRC = read("components/marketing/home/dot-field-worker-source.ts")
   check("the built worker has it (scripts/build-globe-worker.mjs was run)", SRC.includes('\\"scroll\\"') || SRC.includes('"scroll"'))
+}
+
+console.log("\nThe page: no tile added, handed over or sized while the page moves")
+{
+  const MOUNT = code(read("components/marketing/home/dot-field-mount.ts"))
+  check("a tile's canvas gets its final size before it is handed over, with the engine's sums", /const dpr = Math\.min\(DOT_FIELD_CONFIGS\[o\.kind\]\.maxDpr, window\.devicePixelRatio \|\| 1\)\s*canvas\.width = Math\.round\(w \* dpr\)\s*canvas\.height = Math\.round\(DOT_FIELD_TILE \* dpr\)/.test(MOUNT))
+  check("and that before driver.tile", MOUNT.indexOf("canvas.height = Math.round(DOT_FIELD_TILE * dpr)") < MOUNT.indexOf("driver.tile(id, n, canvas)"))
+  check("a resize while the page moves waits for it to stand still, once", /if \(moving\(\)\) \{\s*if \(!waiting\) \{\s*waiting = true\s*whenStill\(/.test(MOUNT))
+  check("and not after the field is gone", /if \(!stopped\) resize\(\)/.test(MOUNT) && /stopped = true/.test(MOUNT))
+  const DRIVER = code(read("components/marketing/home/dot-field-driver.ts"))
+  check("the driver runs what waited when the page stands still", /const due = \[\.\.\.still\]\s*still\.clear\(\)\s*for \(const run of due\) run\(\)/.test(DRIVER))
+  check("whenStill runs at once when the page is still", /if \(s\.moving\(\)\) s\.still\.add\(run\)\s*else run\(\)/.test(DRIVER))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

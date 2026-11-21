@@ -120,10 +120,17 @@ function startLocal(onDrawn: Listener): DotDriver {
 export const SCROLL_REST_MS = 150
 
 /* One driver for the whole page, shared by every field, started with the first and stopped a moment after the last (a remount in between keeps it). */
-let shared: { driver: DotDriver; users: number; drawn: Set<Listener>; off: () => void } | null = null
+let shared: { driver: DotDriver; users: number; drawn: Set<Listener>; moving: () => boolean; still: Set<() => void>; off: () => void } | null = null
 let releasing: ReturnType<typeof setTimeout> | null = null
 
-export function acquireDotDriver(onDrawn: Listener): { driver: DotDriver; release: () => void } {
+export function acquireDotDriver(onDrawn: Listener): {
+  driver: DotDriver
+  release: () => void
+  /** Whether the page is being scrolled (landing round 20). */
+  moving: () => boolean
+  /** Runs `run` once the page stands still again (at once if it does). */
+  whenStill: (run: () => void) => void
+} {
   if (releasing) {
     clearTimeout(releasing)
     releasing = null
@@ -142,6 +149,7 @@ export function acquireDotDriver(onDrawn: Listener): { driver: DotDriver; releas
       it, so a flick costs no more than a number written per event.
     */
     let moving = false
+    const still = new Set<() => void>()
     let lastScroll = 0
     let rest: ReturnType<typeof setTimeout> | null = null
     const settleScroll = () => {
@@ -153,6 +161,10 @@ export function acquireDotDriver(onDrawn: Listener): { driver: DotDriver; releas
       }
       moving = false
       driver.scroll(false)
+      /* What waited for the page to stand still (a field's resize, dot-field-mount.ts). */
+      const due = [...still]
+      still.clear()
+      for (const run of due) run()
     }
     const onScroll = () => {
       lastScroll = performance.now()
@@ -167,6 +179,8 @@ export function acquireDotDriver(onDrawn: Listener): { driver: DotDriver; releas
       driver,
       users: 0,
       drawn,
+      moving: () => moving,
+      still,
       off: () => {
         document.removeEventListener("visibilitychange", onVisibility)
         window.removeEventListener("scroll", onScroll)
@@ -180,6 +194,11 @@ export function acquireDotDriver(onDrawn: Listener): { driver: DotDriver; releas
   s.drawn.add(onDrawn)
   return {
     driver: s.driver,
+    moving: s.moving,
+    whenStill: (run) => {
+      if (s.moving()) s.still.add(run)
+      else run()
+    },
     release: () => {
       s.drawn.delete(onDrawn)
       s.users--
