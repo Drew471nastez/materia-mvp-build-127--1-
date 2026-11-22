@@ -105,7 +105,8 @@ const OBSERVER = `(() => {
   const first = () => {
     const g = [...document.querySelectorAll("button")].find((b) => /Continue with Google|Connecting/.test(b.textContent || ""))
     const h = document.querySelector("h1")
-    if (g && h && !window.__first) window.__first = { g: g.getBoundingClientRect().top + scrollY, h: h.getBoundingClientRect().top + scrollY }
+    const e = document.getElementById("email")
+    if (g && h && e && !window.__first) window.__first = { g: g.getBoundingClientRect().top + scrollY, h: h.getBoundingClientRect().top + scrollY, e: e.getBoundingClientRect().top + scrollY }
     if (!window.__first) requestAnimationFrame(first)
   }
   requestAnimationFrame(first)
@@ -134,6 +135,7 @@ const READ = () => {
     scrollWidth: document.documentElement.scrollWidth,
     innerWidth,
     first: window.__first || null,
+    raw: { google: google ? google.getBoundingClientRect().top + scrollY : null, h1: document.querySelector("h1").getBoundingClientRect().top + scrollY, email: email ? email.getBoundingClientRect().top + scrollY : null },
     cls: +(window.__cls || 0).toFixed(4),
     shifts: window.__shifts || [],
   }
@@ -176,8 +178,11 @@ for (const view of VIEWS) {
     else expect(socialFirst, `${label}: Google, Apple, OR, Email, Continue from the top`, t)
     expect(m.scrollWidth <= m.innerWidth, `${label}: no sideways scroll`, `${m.scrollWidth} <= ${m.innerWidth}`)
     expect(m.cls < 0.01, `${label}: layout shift total under 0.01`, { cls: m.cls, shifts: m.shifts })
-    const moved = m.first ? { google: Math.round(t.google - m.first.g), h1: Math.round(t.h1 - m.first.h) } : null
-    expect(!!moved && moved.google === 0 && moved.h1 === 0, `${label}: Google and the heading where they first drew, 2s later`, moved)
+    /* Unrounded: a top of 268.4 then 268.6 is not a move a person sees, and rounding each end would call it 1px. */
+    const d = (a, b) => +(a - b).toFixed(2)
+    const moved = m.first ? { google: d(m.raw.google, m.first.g), h1: d(m.raw.h1, m.first.h), email: d(m.raw.email, m.first.e), first: m.first, now: m.raw } : null
+    expect(!!moved && Math.abs(moved.google) < 0.5 && Math.abs(moved.h1) < 0.5 && Math.abs(moved.email) < 0.5, `${label}: Google, the heading and Email within half a pixel of where they first drew, 2s later`, moved)
+    console.log(`  moved since first draw ${JSON.stringify(moved)}`)
     expect(!!m.apple && !!m.google && m.apple.h >= m.google.h && m.apple.w >= m.google.w && m.apple.fs === m.google.fs && Number(m.apple.fw) >= Number(m.google.fw) && m.apple.bg === m.google.bg && m.apple.color === m.google.color && m.apple.border === m.google.border,
       `${label}: Apple at least as prominent as Google (size, type, colours)`, { apple: m.apple, google: m.google })
 
