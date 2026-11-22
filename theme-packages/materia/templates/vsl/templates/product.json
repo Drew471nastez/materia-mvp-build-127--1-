@@ -85,11 +85,11 @@
             "buy_text_color": "#0a0a0a",
             "buy_hover_bg": "#e4e4e7",
             "buy_hover_text": "#0a0a0a",
-            "atc_appearance": "outline",
+            "atc_appearance": "solid",
             "atc_text_color": "#ffffff",
-            "atc_bg_color": "rgba(0,0,0,0)",
-            "atc_hover_bg": "#ffffff",
-            "atc_hover_text": "#0a0a0a",
+            "atc_bg_color": "#1f1f23",
+            "atc_hover_bg": "#2e2e34",
+            "atc_hover_text": "#ffffff",
             "enable_custom_button_text": true,
             "atc_button_text": "Add to cart"
           }

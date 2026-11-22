@@ -7,7 +7,7 @@ Video sales letter: reviews as cards, stars, the words, then who said it
   assign sid = section.id
 -%}
 {%- liquid
-  assign cols = st.columns | default: 3
+  assign cols = st.columns | default: 3 | plus: 0
 -%}
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" data-vsl-font>

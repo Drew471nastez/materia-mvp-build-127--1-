@@ -4,7 +4,7 @@
     if (!root || root.__shop) return; root.__shop = true;
     var qv = root.querySelector('[data-r98-qv]'), ok = root.querySelector('[data-r98-ok]');
     var fmt = root.getAttribute('data-money') || ('$' + '{' + '{amount}' + '}');
-    var words = { added: "[product] is in your cart.", sold: "That one is sold out.", err: "That did not work. Try again." };
+    var words = { added: "[product] is in your cart.", sold: "That one is sold out.", err: "That did not work. Try again.", addedTitle: "Added to cart", errTitle: "Not added" };
     function money(c) { var a = (Number(c) || 0) / 100; return fmt.replace(/\{\{\s*(\w+)\s*\}\}/, function (_, k) { return /no_decimals/.test(k) ? String(Math.round(a)) : /comma/.test(k) ? a.toFixed(2).replace('.', ',') : a.toFixed(2); }); }
     function show(d) { if (d.showModal) { if (!d.open) d.showModal(); } else d.setAttribute('open', ''); }
     function hide(d) { if (d.close && d.open) d.close(); else d.removeAttribute('open'); }
@@ -48,15 +48,24 @@
     function add(v, qty, title, btn) {
       if (btn) btn.disabled = true;
       return fetch('/cart/add.js', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ items: [{ id: v.id, quantity: qty }] }) })
-        .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+        .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) { var e = new Error(r.status); e.say = j && (j.description || j.message); throw e; } return j; }); })
         .then(function () {
           hide(qv);
           var name = title + (v.title && v.title !== 'Default Title' ? ' (' + v.title + ')' : '');
+          ok.classList.remove('is-error');
+          ok.querySelector('[data-r98-ok-title]').textContent = words.addedTitle;
           ok.querySelector('[data-r98-ok-text]').textContent = words.added.replace('[product]', name);
           show(ok);
           document.dispatchEvent(new CustomEvent('r98:cart')); document.dispatchEvent(new CustomEvent('cart:refresh', { detail: { source: 'retro-shop' } }));
         })
-        .catch(function () { var m = qv.querySelector('[data-r98-qv-msg]'); if (qv.open) m.textContent = words.err; else alert(words.err); })
+        .catch(function (e) {
+          var say = (e && e.say) || words.err;
+          if (qv.open) { qv.querySelector('[data-r98-qv-msg]').textContent = say; return; }
+          ok.classList.add('is-error');
+          ok.querySelector('[data-r98-ok-title]').textContent = words.errTitle;
+          ok.querySelector('[data-r98-ok-text]').textContent = say;
+          show(ok);
+        })
         .then(function () { if (btn) btn.disabled = false; });
     }
     root.querySelectorAll('.r98-file').forEach(function (li) {

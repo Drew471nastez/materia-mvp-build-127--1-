@@ -14,7 +14,7 @@ Retro desktop: products in a file window, a menu line, an address bar,
 {%- liquid
   assign coll = st.collection
   assign count = st.products_to_show | default: 8
-  assign cols = st.columns | default: 4
+  assign cols = st.columns | default: 4 | plus: 0
   assign list = collections.all.products
   if coll != blank and coll.products_count > 0
     assign list = coll.products
@@ -165,9 +165,10 @@ Retro desktop: products in a file window, a menu line, an address bar,
             </li>
           {%- endfor -%}
           {%- if shown == 0 -%}
-            {%- for i in (1..4) -%}
+            {%- for i in (1..cols) -%}
+              {%- assign ph = i | modulo: 6 | plus: 1 -%}
               <li class="r98-file">
-                <span class="r98-file__pic r98-field">{{ 'product-' | append: i | placeholder_svg_tag }}</span>
+                <span class="r98-file__pic r98-field">{{ 'product-' | append: ph | placeholder_svg_tag }}</span>
                 <span class="r98-file__name">{{ st.empty_name | default: 'Your product' | escape }}</span>
                 <p class="r98-file__price">{{ 0 | money }}</p>
               </li>

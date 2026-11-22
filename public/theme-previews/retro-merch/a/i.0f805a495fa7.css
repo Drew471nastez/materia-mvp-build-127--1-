@@ -95,5 +95,6 @@
   .r98-ok__row .r98-ico { width: 40px; height: 40px; flex: none; }
   .r98-ok__text { margin: 4px 0 0; font-size: 15px; line-height: 1.5; }
   .r98-ok__acts { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; flex-wrap: wrap; }
+  .r98-ok.is-error [data-r98-ok-cart] { display: none; }
   .r98-more { display: flex; justify-content: center; padding: 14px 0 6px; }
   @media (prefers-reduced-motion: reduce) { .r98-dlg[open] .r98-win { animation: none; } .r98-file__pic img { transition: none; } }

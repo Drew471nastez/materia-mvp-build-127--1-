@@ -8,7 +8,7 @@ Video sales letter: a heading over numbered cards, for why the offer works
   assign sid = section.id
 -%}
 {%- liquid
-  assign cols = st.columns | default: 3
+  assign cols = st.columns | default: 3 | plus: 0
   assign style = st.number_style | default: 'tile'
 -%}
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

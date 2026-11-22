@@ -27,8 +27,8 @@
         "description_tLPCVn": {
           "type": "description",
           "settings": {
-            "description": "<p>Every course, grouped by what you want to get better at.</p>",
-            "description_color": "#57575e",
+            "description": "<p>Everything we teach, grouped.</p>",
+            "description_color": "#a3a3a8",
             "enable_custom_style": true,
             "description_font_size": 15
           }
