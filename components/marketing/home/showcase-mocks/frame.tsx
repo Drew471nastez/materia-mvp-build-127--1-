@@ -44,12 +44,15 @@ export function Pic({
   h,
   className = "",
   style,
+  eager = false,
 }: {
   n: string
   w: number
   h: number
   className?: string
   style?: CSSProperties
+  /** Landing round 21: loaded with its scene, not lazily (a card in a row that slides sideways, business-mocks.tsx). */
+  eager?: boolean
 }) {
   const set = PIC_SETS[n]
   return (
@@ -61,7 +64,7 @@ export function Pic({
       alt=""
       width={w}
       height={h}
-      loading="lazy"
+      loading={eager ? "eager" : "lazy"}
       decoding="async"
       draggable={false}
       className={`smk-pic ${className}`}

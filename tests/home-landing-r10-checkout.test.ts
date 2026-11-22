@@ -100,7 +100,8 @@ check("every object on the ring has a blurred copy beside it in its face", FLOAT
 check("  and the big phone has one again, after it in its own box", /<div class="cmc-rise"><span class="cmc-shade" aria-hidden="true"><\/span><div class="cmc-phone"/.test(stage) && /<img class="cmc-phone-soft" src="\/home\/commerce\/soft-phone\.webp"/.test(stage))
 const softs = stage.match(/<img class="cmc-soft[^>]*>/g) ?? []
 // Changed on purpose (landing round 12): one copy fewer, the phone's.
-check("  each with its width and height, lazy, decoded off the main thread, no words", softs.length === FLOATS.length && (stage.match(/<img class="cmc-far"/g) ?? []).length === FLOATS.length && softs.every((t) => /width="\d+"/.test(t) && /height="\d+"/.test(t) && /loading="lazy"/.test(t) && /decoding="async"/.test(t) && /alt=""/.test(t)))
+// Changed on purpose (landing round 21): the ring's pictures load with the scene (eager), since a lazy one turning around the phone could still have no pixels when the page came to rest on it.
+check("  each with its width and height, loaded with the scene, decoded off the main thread, no words", softs.length === FLOATS.length && (stage.match(/<img class="cmc-far"/g) ?? []).length === FLOATS.length && softs.every((t) => /width="\d+"/.test(t) && /height="\d+"/.test(t) && /loading="eager"/.test(t) && /decoding="async"/.test(t) && /alt=""/.test(t)))
 const files = Object.keys(SOFT).map((k) => [k, `public/home/commerce/soft-${k}.webp`] as const)
 // Changed on purpose (landing round 12): no copy of the phone.
 check("the copies are small webp files with alpha, each under 4 KB, all under 20 KB", Object.keys(SOFT).sort().join() === FLOATS.map((f) => f.id).sort().join() && files.every(([, p]) => existsSync(p) && webpSize(p).vp8x && webpSize(p).alpha && statSync(p).size < 4 * 1024) && files.reduce((a, [, p]) => a + statSync(p).size, 0) < 20 * 1024)

@@ -93,7 +93,8 @@ console.log("\nCommunity: a real banner. Courses and bookings kept")
   check("the photograph runs under a soft ink shade where the words stand", /\.bs-com-cover::after\{[^}]*linear-gradient\(to right,rgba\(17,17,20,\.82\)/.test(BUSINESS_MOCK_CSS))
   check("the rest of the club as it was: the event, three spaces, three posts", c.includes("Live build: an inbox agent") && (c.match(/class="bs-post"/g) ?? []).length === 3 && c.includes("Join for $12"))
   const course = renderToStaticMarkup(createElement(CourseScene))
-  check("course kept: Tomás Reyes, the DJ photo, $79, four lessons", course.includes("Mixing in key, for new DJs") && course.includes("bz-dj.webp") && course.includes("$79") && (course.match(/<li/g) ?? []).length === 4)
+  // Changed on purpose (landing round 21): the DJ photo loads with its scene (eager), so React writes a preload <link> for it; the lessons are counted as <li> tags, not anything starting "<li".
+  check("course kept: Tomás Reyes, the DJ photo, $79, four lessons", course.includes("Mixing in key, for new DJs") && course.includes("bz-dj.webp") && course.includes("$79") && (course.match(/<li[\s>]/g) ?? []).length === 4)
   const coach = renderToStaticMarkup(createElement(CoachScene))
   check("booking kept: Talia Moreno, a day and a time picked and booked", coach.includes("Talia Moreno") && coach.includes("bz-coach.webp") && coach.includes("Booked for Thu 19, 17:30"))
 }

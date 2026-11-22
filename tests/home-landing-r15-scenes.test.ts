@@ -85,7 +85,8 @@ console.log("\n── checkout: no black block, the scene back on a phone ──
   const soft = "/home/commerce/soft-phone.webp"
   const size = existsSync(join(root, "public", soft)) ? webp(soft) : null
   check("the phone's blurred copy is baked, small, at its declared size", !!size && size[0] === SOFT_PHONE.w && size[1] === SOFT_PHONE.h && statSync(join(root, "public", soft)).size < 12 * 1024, size)
-  check("drawn in the phone's own box after the phone, lazy", new RegExp(`<img class="cmc-phone-soft" src="${soft}" alt="" width="${SOFT_PHONE.w}" height="${SOFT_PHONE.h}" loading="lazy"`).test(html))
+  // Changed on purpose (landing round 21): loaded with the scene (eager), as the ring's pictures are.
+  check("drawn in the phone's own box after the phone, loaded with the scene", new RegExp(`<img class="cmc-phone-soft" src="${soft}" alt="" width="${SOFT_PHONE.w}" height="${SOFT_PHONE.h}" loading="eager"`).test(html))
   check("from 1180px Local currencies and Checkout reminders draw up to 64em wide", /@media \(min-width:1180px\)\{\s*\.cmc-card:is\(\[data-k=currency\],\[data-k=recover\]\) \.cmc-vis-in\{width:min\(100%,64em\)/.test(css))
   check("no banned words in the scene", !BANNED.test(text(html)))
 }

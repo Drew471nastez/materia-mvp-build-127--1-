@@ -552,7 +552,7 @@ export function CourseScene() {
     <div className="bs bs-course">
       <div className="bs-ccard">
         <div className="bp-player">
-          <Pic n="bz-dj" w={1000} h={600} className="bp-player-pic" />
+          <Pic n="bz-dj" w={1000} h={600} className="bp-player-pic" eager />
           <span className="bp-play">
             <Play fill="currentColor" strokeWidth={0} />
           </span>
@@ -611,7 +611,7 @@ export function ClubScene() {
     <div className="bs bs-club">
       <div className="bs-com">
         <div className="bs-com-cover">
-          <Pic n="bz-ai-club" w={900} h={520} className="bs-com-pic" />
+          <Pic n="bz-ai-club" w={900} h={520} className="bs-com-pic" eager />
           {/* The club's own logo: three joined points (a small agent graph) in white on the photograph, and the name set beside it (round 13: no green). */}
           <span className="bs-com-logo">
             <svg viewBox="0 0 32 32" aria-hidden="true">
@@ -630,7 +630,7 @@ export function ClubScene() {
             <i>Live builds every Wednesday at 6 pm</i>
           </span>
           <span className="bs-com-host">
-            <Pic n="av-h" w={96} h={96} />
+            <Pic n="av-h" w={96} h={96} eager />
             <em>Hosted by Sam Adeyemi</em>
           </span>
         </div>
@@ -669,7 +669,7 @@ export function ClubScene() {
         </p>
         {POSTS.map(([av, name, when, text, likes], i) => (
           <div key={name} className="bs-post" style={{ "--i": i } as CSSProperties}>
-            <Pic n={av} w={96} h={96} className="bs-post-av" />
+            <Pic n={av} w={96} h={96} className="bs-post-av" eager />
             <div>
               <p className="bs-post-h">
                 <b>{name}</b>
@@ -706,7 +706,7 @@ export function CoachScene() {
   return (
     <div className="bs bs-coach">
       <div className="bs-coach-photo">
-        <Pic n="bz-coach" w={760} h={1000} className="bs-coach-pic" />
+        <Pic n="bz-coach" w={760} h={1000} className="bs-coach-pic" eager />
         <span className="bs-coach-name">
           <b>Talia Moreno</b>
           <i>Strength coach, online and in Austin</i>
