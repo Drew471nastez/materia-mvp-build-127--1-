@@ -1,0 +1,162 @@
+{%- comment -%}
+  Materia Themes. Pack contents (Sample packs template): what a pack holds,
+  as a row of figures (1,000+ sounds, 1.7 GB) above cards for each part of
+  the pack (drum loops, bass, presets), each with its count and its list.
+
+  Each figure and card can be tied to a product: on that product's page
+  only its own figures and cards show, and the ones tied to no product
+  show on every product page. A page with nothing to show draws nothing.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign sid = section.id
+  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default'
+  assign pt = s.padding_top | default: 64
+  assign pb = s.padding_bottom | default: 64
+  assign stats = 0
+  assign parts = 0
+  for block in section.blocks
+    if block.settings.product != blank and product != blank and block.settings.product.id != product.id
+      continue
+    endif
+    if block.type == 'stat'
+      assign stats = stats | plus: 1
+    else
+      assign parts = parts | plus: 1
+    endif
+  endfor
+  assign shown = stats | plus: parts
+-%}
+{%- if shown > 0 or request.design_mode -%}
+<style>
+  #shopify-section-{{ sid }} .spk { padding-block: {{ pt | times: 0.7 | round }}px {{ pb | times: 0.7 | round }}px; }
+  #shopify-section-{{ sid }} .spk__inner { max-width: {{ s.max_width | default: 1040 }}px; margin-inline: auto; }
+  #shopify-section-{{ sid }} .spk__head { text-align: center; margin: 0 auto 28px; max-width: 640px; }
+  #shopify-section-{{ sid }} .spk__eyebrow { margin: 0 0 10px; font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--color-text); }
+  #shopify-section-{{ sid }} .spk__heading { margin: 0; font-size: {{ s.heading_size_mobile | default: 28 }}px; line-height: 1.12; }
+  #shopify-section-{{ sid }} .spk__text { margin: 10px 0 0; font-size: 15px; color: var(--color-text); }
+  #shopify-section-{{ sid }} .spk__text > * { margin: 0; }
+  #shopify-section-{{ sid }} .spk__stats { list-style: none; margin: 0 0 14px; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  #shopify-section-{{ sid }} .spk__stat { border-radius: 12px; padding: 16px 12px; text-align: center; background: rgba(var(--color-heading-rgb), .05); border: 1px solid rgba(var(--color-heading-rgb), .07); }
+  #shopify-section-{{ sid }} .spk__value { display: block; font-family: var(--heading-font, inherit); font-size: 26px; font-weight: 700; line-height: 1.1; color: var(--color-heading); font-variant-numeric: tabular-nums; }
+  #shopify-section-{{ sid }} .spk__label { display: block; margin-top: 4px; font-size: 13px; color: var(--color-text); }
+  #shopify-section-{{ sid }} .spk__parts { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  #shopify-section-{{ sid }} .spk__part { border-radius: 12px; padding: 18px 18px 20px; background: rgba(var(--color-heading-rgb), .035); border: 1px solid rgba(var(--color-heading-rgb), .07); }
+  #shopify-section-{{ sid }} .spk__ptop { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  #shopify-section-{{ sid }} .spk__name { margin: 0; font-size: 17px; line-height: 1.25; color: var(--color-heading); }
+  #shopify-section-{{ sid }} .spk__count { flex: none; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; background: var(--btn-primary-bg-color); color: var(--btn-primary-color); font-variant-numeric: tabular-nums; }
+  #shopify-section-{{ sid }} .spk__list { margin: 10px 0 0; font-size: 14px; line-height: 1.6; color: var(--color-text); }
+  #shopify-section-{{ sid }} .spk__list > * { margin: 0; }
+  #shopify-section-{{ sid }} .spk__list ul { padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px; }
+  #shopify-section-{{ sid }} .spk__list li { padding: 4px 10px; border-radius: 6px; background: rgba(var(--color-heading-rgb), .06); color: var(--color-heading); font-size: 13px; font-variant-numeric: tabular-nums; }
+  #shopify-section-{{ sid }} .spk__empty { text-align: center; font-size: 15px; color: var(--color-text); }
+  @media (min-width: 750px) {
+    #shopify-section-{{ sid }} .spk { padding-block: {{ pt }}px {{ pb }}px; }
+    #shopify-section-{{ sid }} .spk__heading { font-size: {{ s.heading_size | default: 36 }}px; }
+    #shopify-section-{{ sid }} .spk__head { margin-bottom: 36px; }
+    #shopify-section-{{ sid }} .spk__stats { grid-template-columns: repeat({% if stats < 4 and stats > 0 %}{{ stats }}{% else %}4{% endif %}, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
+    #shopify-section-{{ sid }} .spk__value { font-size: 32px; }
+    #shopify-section-{{ sid }} .spk__parts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    #shopify-section-{{ sid }} .spk__part { padding: 22px 24px 24px; }
+  }
+</style>
+<div class="spk section color-{{ color_scheme }} gradient" data-section-id="{{ sid }}">
+  <div class="{{ s.section_width | default: 'container' }}">
+    <div class="spk__inner">
+      {%- if s.heading != blank or s.text != blank or s.eyebrow != blank -%}
+        <div class="spk__head">
+          {%- if s.eyebrow != blank -%}<p class="spk__eyebrow">{{ s.eyebrow | escape }}</p>{%- endif -%}
+          {%- if s.heading != blank -%}<h2 class="spk__heading h2">{{ s.heading }}</h2>{%- endif -%}
+          {%- if s.text != blank -%}<div class="spk__text rte">{{ s.text }}</div>{%- endif -%}
+        </div>
+      {%- endif -%}
+      {%- if stats > 0 -%}
+        <ul class="spk__stats" role="list">
+          {%- for block in section.blocks -%}
+            {%- if block.type != 'stat' -%}{%- continue -%}{%- endif -%}
+            {%- if block.settings.product != blank and product != blank and block.settings.product.id != product.id -%}{%- continue -%}{%- endif -%}
+            <li class="spk__stat" {{ block.shopify_attributes }}><span class="spk__value">{{ block.settings.value | escape }}</span><span class="spk__label">{{ block.settings.label | escape }}</span></li>
+          {%- endfor -%}
+        </ul>
+      {%- endif -%}
+      {%- if parts > 0 -%}
+        <ul class="spk__parts" role="list">
+          {%- for block in section.blocks -%}
+            {%- if block.type != 'part' -%}{%- continue -%}{%- endif -%}
+            {%- if block.settings.product != blank and product != blank and block.settings.product.id != product.id -%}{%- continue -%}{%- endif -%}
+            <li class="spk__part" {{ block.shopify_attributes }}>
+              <div class="spk__ptop">
+                <h3 class="spk__name">{{ block.settings.title | escape }}</h3>
+                {%- if block.settings.count != blank -%}<span class="spk__count">{{ block.settings.count | escape }}</span>{%- endif -%}
+              </div>
+              {%- if block.settings.list != blank -%}<div class="spk__list rte">{{ block.settings.list }}</div>{%- endif -%}
+            </li>
+          {%- endfor -%}
+        </ul>
+      {%- endif -%}
+      {%- if shown == 0 -%}<p class="spk__empty">Add figures and parts for this product, or leave their product empty to show them on every product.</p>{%- endif -%}
+    </div>
+  </div>
+</div>
+{%- endif -%}
+{% schema %}
+{
+  "name": "Pack contents",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "What is inside" },
+    { "type": "richtext", "id": "text", "label": "Text" },
+    { "type": "range", "id": "max_width", "label": "Width", "min": 600, "max": 1400, "step": 20, "unit": "px", "default": 1040 },
+    { "type": "range", "id": "heading_size", "label": "Heading size", "min": 18, "max": 64, "step": 2, "unit": "px", "default": 36 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size on phones", "min": 16, "max": 44, "step": 2, "unit": "px", "default": 28 },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default" },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Section width",
+      "default": "container",
+      "options": [
+        { "value": "container", "label": "Default" },
+        { "value": "fluid_container", "label": "Fluid container" },
+        { "value": "stretch_width", "label": "Stretched" }
+      ]
+    },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 64 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 64 }
+  ],
+  "blocks": [
+    {
+      "type": "stat",
+      "name": "Figure",
+      "settings": [
+        { "type": "text", "id": "value", "label": "Figure", "default": "500+" },
+        { "type": "text", "id": "label", "label": "What it counts", "default": "Sounds" },
+        { "type": "product", "id": "product", "label": "Product", "info": "Picked, the figure shows only on that product's page." }
+      ]
+    },
+    {
+      "type": "part",
+      "name": "Part of the pack",
+      "settings": [
+        { "type": "text", "id": "title", "label": "Name", "default": "Drum loops" },
+        { "type": "text", "id": "count", "label": "Count", "default": "120 files" },
+        { "type": "richtext", "id": "list", "label": "What it holds", "info": "A bulleted list shows as tags." },
+        { "type": "product", "id": "product", "label": "Product", "info": "Picked, the part shows only on that product's page." }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Pack contents",
+      "blocks": [
+        { "type": "stat", "settings": { "value": "500+", "label": "Sounds" } },
+        { "type": "stat", "settings": { "value": "24 bit", "label": "WAV" } },
+        { "type": "part", "settings": { "title": "Drum loops", "count": "120 files" } },
+        { "type": "part", "settings": { "title": "One shots", "count": "200 files" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

@@ -91,6 +91,16 @@
 }
 :is(#_, .r7n) .r7n__submit:active { transform: scale(.98); }
 :is(#_, .r7n) .r7n__submit:focus-visible { outline: 2px solid var(--color-heading); outline-offset: 2px; }
+/* One sign-up row (round 20): field and button the same height on one line
+   on a computer (the button was 2px taller), one under the other at full
+   width on a phone (the button kept its own width under a full field). */
+:is(#_, .r7n) .r7n__fields { flex-wrap: nowrap; align-items: stretch; }
+:is(#_, .r7n) .r7n__input { flex: 1 1 auto; box-sizing: border-box; min-height: max(44px, var(--input-height, 48px)); height: max(44px, var(--input-height, 48px)); }
+:is(#_, .r7n) .r7n__submit { box-sizing: border-box; height: max(44px, var(--input-height, 48px)); }
+@media (max-width: 749.98px) {
+  :is(#_, .r7n) .r7n__fields { flex-direction: column; }
+  :is(#_, .r7n) .r7n__input, :is(#_, .r7n) .r7n__submit { flex: 0 0 auto; width: 100%; }
+}
 :is(#_, .r7n[data-r7n-form-layout="vertical"]) .r7n__fields { flex-direction: column; align-items: stretch; }
 :is(#_, .r7n[data-r7n-form-layout="vertical"]) .r7n__input { flex: 0 0 auto; width: 100%; }
 :is(#_, .r7n[data-r7n-form-layout="vertical"]) .r7n__submit { width: 100%; }

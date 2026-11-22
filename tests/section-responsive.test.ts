@@ -3154,7 +3154,8 @@ check(
   // A website starts out named after the theme it was built from, so for
   // anybody who has not renamed theirs this printed the same words twice,
   // one line apart, in two sizes of grey.
-  /\{live\.theme && live\.theme\.name !== live\.name && \(/.test(wbPage),
+  /* A theme with releases shows its version line in that row instead (app/(storelib)/app/website-builder/theme-version.tsx). */
+  /(\{|: )live\.theme && live\.theme\.name !== live\.name && \(/.test(wbPage),
 )
 
 check(

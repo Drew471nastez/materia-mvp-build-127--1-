@@ -24,7 +24,7 @@
         "enable_custom_image": false,
         "enable_custom_style": false,
         "footer_heading_size": 17,
-        "enable_custom_text_big": true,
+        "enable_custom_text_big": false,
         "enable_country_selector": false,
         "custom_image_size_mobile": 168,
         "enable_language_selector": false,

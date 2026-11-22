@@ -33,17 +33,22 @@
  *   • ?themes=1 on arrival opens it; closing leaves the page, not the site
  *   • reduced motion: no animation at all
  *
- *   THE PREVIEW
+ *   THE PREVIEW (its website is scripts/check-theme-preview-live.mjs's;
+ *   here the website does not answer, so this is the preview's own chrome
+ *   and its fallback onto the template's pictures)
  *   • a cover opens it over the popup, on transform and opacity, 200 to
  *     280ms, one history entry; the popup and the page under it do not move
+ *   • it asks for the website at once and draws no picture first; a website
+ *     that never answers is checked once and the pictures take its place
  *   • its bar: Back, the name, the desktop and phone switch, Add, close;
  *     the desktop picture drawn at the width it was taken at, crisp
  *   • the switch crossfades to the phone picture at 390px
  *   • Escape and Back land on the grid with the focus on the cover; close
  *     closes the popup too, the address is the page's own and the focus is
  *     on what opened the marketplace
- *   • on a phone: the whole screen, sliding in from the right, inside the
- *     safe areas, on the phone picture; the system's back lands on the grid
+ *   • on a phone: the whole screen, inside the safe areas, fading in and
+ *     growing out of the card that was pressed (no slide from the side),
+ *     and back into it; the system's back lands on the grid
  *
  *   THE POPUP ON A PHONE
  *   • covers the whole screen, one card to a row, 44px controls
@@ -809,10 +814,16 @@ try {
     await p.click(cover)
     await sleep(60)
     const inMotion = await previewMotion(p)
+    const first = await p.evaluate(() => ({ frame: document.querySelector("[data-theme-preview] [data-preview-live]")?.getAttribute("data-preview-src") ?? null, pictures: document.querySelectorAll("[data-theme-preview] [data-preview-layer], [data-theme-preview] img").length }))
+    expect(first.frame === "/theme-previews/clothing/index.html" && first.pictures === 0, "it frames the website from the first frame, with no picture drawn first", JSON.stringify(first))
     await shot(p, "preview-1440-opening")
-    await sleep(500)
+    /* This server has no websites: after its wait the preview checks the address once and puts the pictures up. */
+    const t0 = Date.now()
+    await p.waitForSelector("[data-preview-layer]", { timeout: 8000 }).catch(() => null)
+    const fellBack = Date.now() - t0
     await p.waitForFunction(() => [...document.querySelectorAll("[data-preview-layer] img")].every((i) => i.complete), { timeout: 10_000 }).catch(() => null)
     await sleep(250)
+    expect((await p.$("[data-preview-live]")) === null && fellBack > 1500 && fellBack < 5000, "a website that never answers: the pictures instead, after one check", `${fellBack}ms`)
     const v = await preview(p)
     const desk = v?.layers.find((l) => l.d === "desktop")
     const mob = v?.layers.find((l) => l.d === "phone")
@@ -915,18 +926,21 @@ try {
     await sleep(100)
     await shot(p, "popup-390-cards")
     const grid0 = await gridRect(p)
+    const card = await p.$eval(cover, (b) => { const r = b.getBoundingClientRect(); return [Math.round(r.left + r.width / 2), Math.round(r.top + r.height / 2)] })
     await p.tap(cover)
     await sleep(90)
     const inMotion = await previewMotion(p)
+    const origin = await p.evaluate(() => getComputedStyle(document.querySelector("[data-theme-preview]")).transformOrigin.split(" ").map((n) => Math.round(parseFloat(n))))
     await shot(p, "preview-390-opening")
-    await sleep(500)
+    await p.waitForSelector("[data-preview-layer]", { timeout: 8000 }).catch(() => null)
     await p.waitForFunction(() => [...document.querySelectorAll("[data-preview-layer] img")].every((i) => i.complete), { timeout: 10_000 }).catch(() => null)
     await sleep(250)
     const v = await preview(p)
-    const push = inMotion[0]?.[0]
+    const rise = inMotion[0]?.[0]
     const phone = v.layers.find((l) => l.d === "phone")
     expect(same(v.rect, [0, 0, 390, 844]), "it covers the whole screen", v.rect.join(", "))
-    expect(!!push && push.name === "wb-preview-push" && push.ms >= 200 && push.ms <= 280 && push.props.join() === "transform", "it slides in from the side by transform, in 200 to 280ms", JSON.stringify(inMotion[0]))
+    expect(!!rise && rise.name === "wb-preview-rise" && rise.ms >= 200 && rise.ms <= 280 && rise.props.join() === "opacity,transform" && inMotion[0].length === 1, "it fades in and grows the last few percent, one animation, transform and opacity, in 200 to 280ms; no slide", JSON.stringify(inMotion[0]))
+    expect(Math.abs(origin[0] - card[0]) <= 1 && Math.abs(origin[1] - card[1]) <= 1, "out of the card that was pressed", `origin ${origin.join(",")}, card ${card.join(",")}`)
     expect(v.device === "phone" && phone.o === 1 && phone.w === 390, "on the phone picture, at 390px", `${v.device}, ${phone.w}px`)
     expect(v.safe.length === 0 && v.bar >= 56 && v.back && v.close && v.add === "Add", "the bar is compact, inside the safe areas: Back, the name, the switch, Add, close", `${v.bar}px, add "${v.add}", missing ${v.safe.join(", ")}`)
     const small = await p.evaluate(() => [...document.querySelectorAll("[data-preview-bar] button")].map((b) => ({ t: (b.getAttribute("aria-label") || b.textContent).trim(), h: Math.round(b.getBoundingClientRect().height), r: Math.round(b.getBoundingClientRect().right) })))
@@ -941,7 +955,7 @@ try {
     const pop = (await previewMotion(p))[0]?.[0]
     await sleep(450)
     expect((await preview(p)) === null && (await popup(p))?.state === "open" && (await p.evaluate(() => location.search)) === "?themes=1", "the system's back lands on the grid", await p.evaluate(() => location.search))
-    expect(!!pop && pop.name === "wb-preview-pop" && pop.ms >= 200 && pop.ms <= 280, "sliding away by transform, in 200 to 280ms", JSON.stringify(pop))
+    expect(!!pop && pop.name === "wb-preview-sink" && pop.ms >= 180 && pop.ms <= 280 && pop.props.join() === "opacity,transform", "going back into the card, on transform and opacity, in 180 to 280ms", JSON.stringify(pop))
     expect(same(grid0, await gridRect(p)), "the grid is where it was")
     await p.goBack({ waitUntil: "domcontentloaded" }).catch(() => null)
     await sleep(450)

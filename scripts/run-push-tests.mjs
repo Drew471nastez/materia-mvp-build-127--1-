@@ -647,6 +647,8 @@ const SUITES = [
   "tests/website-builder.test.ts",
   /* Round Z5: the theme marketplace (library cards, storelib.com/themes, /admin/themes zip checks) and a plan set from /admin; scripts/check-theme-marketplace.mjs measures the cards and pages. */
   "tests/theme-marketplace.test.ts",
+  /* Theme releases from /admin/themes and Update in the library: one numbering per theme, the merge keeps the creator's content and their edited files (reported), a full library is refused, the website Update is pressed on is never written, admin only writes (RUN_THEME_RELEASES.sql). */
+  "tests/theme-releases.test.ts",
   /* Round AD3: every setting in /app/settings reaches what reads it (the live website's name and photo, Store details' form, the checklist, campaign emails). */
   "tests/settings-reach-ad3.test.ts",
   "tests/nav-links.test.ts",

@@ -3331,13 +3331,13 @@ Pick the source:
   assign vb_bg_override = ''
   assign vb_icon_override = ''
   assign vb_text_override = ''
-  if bs.vb_bg != blank and bs.vb_bg != 'rgba(0,0,0,0)' and bs.vb_bg != 'transparent'
+  if bs.vb_bg != blank and bs.vb_bg != 'rgba(0,0,0,0)' and bs.vb_bg != 'transparent' and bs.vb_bg.alpha != 0
     assign vb_bg_override = bs.vb_bg
   endif
-  if bs.vb_icon_color != blank and bs.vb_icon_color != 'rgba(0,0,0,0)'
+  if bs.vb_icon_color != blank and bs.vb_icon_color != 'rgba(0,0,0,0)' and bs.vb_icon_color.alpha != 0
     assign vb_icon_override = bs.vb_icon_color
   endif
-  if bs.vb_text_color != blank and bs.vb_text_color != 'rgba(0,0,0,0)'
+  if bs.vb_text_color != blank and bs.vb_text_color != 'rgba(0,0,0,0)' and bs.vb_text_color.alpha != 0
     assign vb_text_override = bs.vb_text_color
   endif
 -%}

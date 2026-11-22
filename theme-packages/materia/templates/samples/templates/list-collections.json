@@ -27,7 +27,7 @@
         "description_tLPCVn": {
           "type": "description",
           "settings": {
-            "description": "<p>The packs grouped by genre and what is inside.</p>",
+            "description": "<p>Tech house, deep house, Serum presets and free downloads.</p>",
             "description_color": "#767676",
             "enable_custom_style": false,
             "description_font_size": 15
@@ -63,122 +63,54 @@
       "blocks": {},
       "block_order": []
     },
-    "genres": {
-      "type": "category-banners-2",
+    "free": {
+      "type": "newsletter-split",
       "settings": {
         "color_scheme": "scheme-tr-panel",
-        "section_width": "fluid_container",
-        "layout": "grid_3",
-        "gap": 12,
-        "aspect_ratio_desktop": "16 / 9",
-        "aspect_ratio_mobile": "4 / 5",
-        "header_alignment": "left",
-        "text_position": "bottom",
-        "sub_visibility": "always",
-        "corner_style": "custom",
-        "border_radius": 8,
-        "overlay_opacity": 30,
-        "overlay_opacity_hover": 10,
-        "title_style": "md",
-        "heading_size_desktop": 28,
-        "heading_size_mobile": 22,
-        "heading_uppercase": false,
-        "heading_letter_spacing": 0,
-        "sub_size": 13,
+        "section_width": "container",
+        "image": "shopify://shop_images/samples-free-pair.webp",
+        "image_alt": "Free Ambience Sample Pack Vol I and Tech House Drum Kit Vol I",
+        "image_position": "left",
+        "image_ratio": "landscape",
+        "image_width": 44,
+        "column_gap": 64,
+        "form_layout": "horizontal",
+        "email_placeholder": "Your email address",
+        "btn_text": "Subscribe",
+        "button_radius": 8,
+        "note": "No spam. Unsubscribe from any email.",
+        "success_text": "Thank you for subscribing!",
         "padding_top": 72,
         "padding_bottom": 72,
-        "side_padding_desktop": 0,
-        "mobile_layout": "grid_2",
-        "side_padding_mobile": 16
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 52
       },
       "blocks": {
         "heading": {
           "type": "heading",
           "settings": {
-            "heading": "Shop by sound",
-            "heading_size": "h2",
-            "custom_style": true,
-            "heading_font_size_desktop": 44,
-            "heading_font_size_mobile": 30,
-            "space_below_desktop": 12
+            "text": "Get weekly sounds",
+            "size_enable": true,
+            "size_desktop": 40,
+            "size_mobile": 30
           }
         },
         "subheading": {
           "type": "subheading",
           "settings": {
-            "subheading": "<p>Drums, basslines, chords, presets and textures, sorted by what you are making.</p>"
-          }
-        },
-        "g_tech": {
-          "type": "banner",
-          "settings": {
-            "heading": "Tech house",
-            "subheading": "125 to 128 BPM",
-            "link": "/search?q=tech+house",
-            "image": "shopify://shop_images/samples-genre-tech-house.webp"
-          }
-        },
-        "g_deep": {
-          "type": "banner",
-          "settings": {
-            "heading": "Deep house",
-            "subheading": "120 to 124 BPM",
-            "link": "/search?q=deep+house",
-            "image": "shopify://shop_images/samples-genre-deep-house.webp"
-          }
-        },
-        "g_amb": {
-          "type": "banner",
-          "settings": {
-            "heading": "Ambience",
-            "subheading": "Pads and textures",
-            "link": "/search?q=ambience",
-            "image": "shopify://shop_images/samples-genre-ambience.webp"
-          }
-        },
-        "g_drums": {
-          "type": "banner",
-          "settings": {
-            "heading": "Drums",
-            "subheading": "One shots and loops",
-            "link": "/search?q=drum",
-            "image": "shopify://shop_images/samples-genre-drums.webp"
-          }
-        },
-        "g_presets": {
-          "type": "banner",
-          "settings": {
-            "heading": "Serum presets",
-            "subheading": "Basses, plucks, pads",
-            "link": "/search?q=serum",
-            "image": "shopify://shop_images/samples-genre-presets.webp"
-          }
-        },
-        "g_free": {
-          "type": "banner",
-          "settings": {
-            "heading": "Free downloads",
-            "subheading": "Royalty free",
-            "link": "/pages/free",
-            "image": "shopify://shop_images/samples-genre-free.webp"
+            "text": "<p>New packs and sales by email. Two packs are free today: the Ambience Sample Pack Vol I and the Tech House Drum Kit Vol I.</p>"
           }
         }
       },
       "block_order": [
         "heading",
-        "subheading",
-        "g_tech",
-        "g_deep",
-        "g_amb",
-        "g_drums",
-        "g_presets",
-        "g_free"
+        "subheading"
       ]
     }
   },
   "order": [
     "heading",
     "main",
-    "genres"
+    "free"
   ]
 }

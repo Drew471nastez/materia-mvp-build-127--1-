@@ -5,10 +5,10 @@ Every starter photograph in these templates is from Unsplash, used under the Uns
 Each was downloaded from the address beside it, resized and saved as WebP. None is from Unsplash+.
 No picture came with the Materia theme's own starter content.
 
-Rows marked "Drawn for this template" were drawn for Storelib and are Storelib's own (round 19 adds the Night shop's crosshair logo and every poster design in the Poster shop, framed or cropped; the Poster shop's hero and room photographs are Unsplash photographs with those poster designs set into their frames): the Notion templates' Notion
+Rows marked "Drawn for this template" were drawn for Storelib and are Storelib's own (round 20 adds the Night shop's moon logo and every poster design in the Poster shop, framed or cropped; the Poster shop's hero and room photographs are Unsplash photographs with those poster designs set into their frames): the Notion templates' Notion
 screens, product pictures and how-it-works steps, Storelib Default's planner pictures, every picture in the Digital products shop, and the Sample packs shop's Serum presets tile (its pack boxes are Loudlib's own artwork, used with the owner's permission), and the Creator Landing's book, course, club, letter and prompt covers and its shelf banners. The Course template's course covers and three lesson thumbnails are its Unsplash photographs with a title set on them; their rows say so.
 Storelib Default's product pictures are Unsplash photographs set on one even grey background; their rows say so. Its Downloads picture has a planner page drawn onto the tablet's blank screen.
-The Tour merch template's album cover, vinyl, CD and poster are drawn around one Unsplash photograph (https://images.unsplash.com/photo-1778154997569-8d10cab6df66), and its clothing pictures have the tour print drawn onto Unsplash photographs; their rows say so. The Merch template's product pictures are Unsplash photographs cropped and set on one even grey, and its hero's wall is extended upward from its photograph.
+The Merch template's product pictures are Unsplash photographs cropped and set on one even grey, and its hero's foggy sky is extended upward from its photograph.
 The Art books template's book covers, open book spreads and tablet are drawn around public domain paintings, prints and photographs that The Metropolitan Museum of Art shares on Unsplash; their rows name each source.
 
 Rows marked "cover only" are sample product pictures for the listing covers (scripts/theme-templates/shops.ts).
@@ -16,7 +16,7 @@ They are not part of a template and are never added to a creator's website.
 
 | Template | File | Source | License |
 | --- | --- | --- | --- |
-| default | assets/default-hero.webp | https://images.unsplash.com/photo-1525974160448-038dacadcc71 | Unsplash License |
+| default | assets/default-hero-mugs.webp | https://images.unsplash.com/photo-1570951993722-70be21d0b78b | Unsplash License |
 | default | assets/default-studio.webp | https://images.unsplash.com/photo-1631125915973-e0d155a14e4e | Unsplash License |
 | default | assets/default-packing.webp | https://images.unsplash.com/photo-1449247666642-264389f5f5b1 | Unsplash License |
 | default | assets/default-mug-still.webp | https://images.unsplash.com/photo-1514228742587-6b1558fcca3d | Unsplash License |
@@ -44,8 +44,8 @@ They are not part of a template and are never added to a creator's website.
 | clothing (cover only) | scripts/theme-templates/products/clothing/clothing-long-blazer.webp | https://images.unsplash.com/photo-1779400202380-ae490bd3b995 | Unsplash License |
 | clothing (cover only) | scripts/theme-templates/products/clothing/clothing-boxy-tee.webp | https://images.unsplash.com/photo-1780566759997-6a4eabceaa10 | Unsplash License |
 | clothing (cover only) | scripts/theme-templates/products/clothing/clothing-wool-blazer.webp | https://images.unsplash.com/photo-1612275857880-57d3b7676179 | Unsplash License |
-| merch | assets/merch-hero.webp | https://images.unsplash.com/photo-1529720317453-c8da503f2051 | Unsplash License |
-| merch | assets/merch-hero-phone.webp | https://images.unsplash.com/photo-1529720317453-c8da503f2051 | Unsplash License |
+| merch | assets/merch-hero-fog.webp | https://images.unsplash.com/photo-1631437699383-a9cfb4685e9e, fog extended upward | Unsplash License |
+| merch | assets/merch-hero-fog-phone.webp | https://images.unsplash.com/photo-1631437699383-a9cfb4685e9e, fog extended upward | Unsplash License |
 | merch | assets/merch-cat-hoodies.webp | https://images.unsplash.com/photo-1590759483822-b2fee5aa6bd3 | Unsplash License |
 | merch | assets/merch-cat-trackpants.webp | https://images.unsplash.com/photo-1789110519766-117eb0e35bea | Unsplash License |
 | merch | assets/merch-cat-tees.webp | https://images.unsplash.com/photo-1590750093844-bc3ae9e48f9c | Unsplash License |
@@ -76,7 +76,7 @@ They are not part of a template and are never added to a creator's website.
 | digital (cover only) | scripts/theme-templates/products/digital/digital-font.webp | Drawn for this template | Storelib |
 | digital (cover only) | scripts/theme-templates/products/digital/digital-planner.webp | Drawn for this template | Storelib |
 | digital (cover only) | scripts/theme-templates/products/digital/digital-luts.webp | Drawn for this template | Storelib |
-| artbooks | assets/artbooks-hero-vermeer.webp | https://images.unsplash.com/photo-1782244445800-17f6565742ff | Unsplash License |
+| artbooks | assets/artbooks-hero-cezanne.webp | https://images.unsplash.com/photo-1782850672347-9bbad75f71df (Paul Cézanne, Still Life with a Ginger Jar and Eggplants, The Metropolitan Museum of Art, public domain) | Unsplash License |
 | artbooks | assets/artbooks-hero-utamaro.webp | https://images.unsplash.com/photo-1787076113534-4c92b390981b | Unsplash License |
 | artbooks | assets/artbooks-tile-japan.webp | https://images.unsplash.com/photo-1787487283519-ca25e4142eb9 | Unsplash License |
 | artbooks | assets/artbooks-tile-portraits.webp | https://images.unsplash.com/photo-1784209062311-50a32e2d8e0e | Unsplash License |
@@ -154,17 +154,21 @@ They are not part of a template and are never added to a creator's website.
 | landing (cover only) | scripts/theme-templates/products/landing/landing-cover-short-form.webp | https://images.unsplash.com/photo-1618228123700-a1c948bb2bd1 | Unsplash License |
 | landing (cover only) | scripts/theme-templates/products/landing/landing-cover-documentary.webp | https://images.unsplash.com/photo-1602743297108-4c9061884285 | Unsplash License |
 | landing (cover only) | scripts/theme-templates/products/landing/landing-cover-starter.webp | https://images.unsplash.com/photo-1627244714766-94dab62ed964 | Unsplash License |
-| creator | assets/creator-sketchbook-pages.webp | https://images.unsplash.com/photo-1742137190557-837cf97e143d | Unsplash License |
-| creator | assets/creator-cafe-sketch.webp | https://images.unsplash.com/photo-1719267686664-b04f37343d79 | Unsplash License |
-| creator | assets/creator-botanical.webp | https://images.unsplash.com/photo-1605013547371-ef7daddac14e | Unsplash License |
-| creator | assets/creator-desk-sketches.webp | https://images.unsplash.com/photo-1635183783375-98e857771351 | Unsplash License |
-| creator | assets/creator-pillow-sketches.webp | https://images.unsplash.com/photo-1742130847739-f7728ae50176 | Unsplash License |
-| creator | assets/creator-morning-desk.webp | https://images.unsplash.com/photo-1653053151870-0462aef3440e | Unsplash License |
-| creator | assets/creator-lesson-pen.webp | https://images.unsplash.com/photo-1719267686691-59c2eba494ea | Unsplash License |
-| creator | assets/creator-lesson-watercolour.webp | https://images.unsplash.com/photo-1737843070715-34adab5429ae | Unsplash License |
-| creator | assets/creator-lesson-ink.webp | https://images.unsplash.com/photo-1658078874533-46e0ced55858 | Unsplash License |
-| creator | assets/creator-lesson-plants.webp | https://images.unsplash.com/photo-1605007623898-004a09c1142a | Unsplash License |
-| creator | assets/creator-lesson-owl.webp | https://images.unsplash.com/photo-1658078873708-15b2a165725d | Unsplash License |
+| creator | assets/creator-ines-at-desk.webp | https://images.unsplash.com/photo-1613483811511-72729fa16112 | Unsplash License |
+| creator | assets/creator-ines-studio.webp | https://images.unsplash.com/photo-1614107069586-e7361ed7994f | Unsplash License |
+| creator | assets/creator-ines-hands-frame.webp | https://images.unsplash.com/photo-1614107069293-7d5bd9aba22e | Unsplash License |
+| creator | assets/creator-ines-side.webp | https://images.unsplash.com/photo-1613483812100-a473b639b423 | Unsplash License |
+| creator | assets/creator-ines-attic.webp | https://images.unsplash.com/photo-1614107069882-797f3213125b | Unsplash License |
+| creator | assets/creator-ines-drawing.webp | https://images.unsplash.com/photo-1614107070261-2aa1304618f6 | Unsplash License |
+| creator | assets/creator-ines-shoulder.webp | https://images.unsplash.com/photo-1613483812364-896455b2b309 | Unsplash License |
+| creator | assets/creator-ines-table.webp | https://images.unsplash.com/photo-1613483811981-56b07f3ec9e5 | Unsplash License |
+| creator | assets/creator-ines-square.webp | https://images.unsplash.com/photo-1614107070261-2aa1304618f6 | Unsplash License |
+| creator | assets/creator-ines-curtain.webp | https://images.unsplash.com/photo-1613483811459-1c4bb7a234f6 | Unsplash License |
+| creator | assets/creator-lesson-grip.webp | https://images.unsplash.com/photo-1614107069775-236a67980e12 | Unsplash License |
+| creator | assets/creator-lesson-layers.webp | https://images.unsplash.com/photo-1613483811450-01309af4902d | Unsplash License |
+| creator | assets/creator-lesson-dark-paper.webp | https://images.unsplash.com/photo-1613483812364-896455b2b309 | Unsplash License |
+| creator | assets/creator-lesson-flower.webp | https://images.unsplash.com/photo-1614107070261-2aa1304618f6 | Unsplash License |
+| creator | assets/creator-lesson-setup.webp | https://images.unsplash.com/photo-1613483811459-1c4bb7a234f6 | Unsplash License |
 | creator | assets/creator-book.webp | Drawn for this template | Storelib |
 | creator | assets/creator-course.webp | Drawn for this template | Storelib |
 | creator | assets/creator-community.webp | Drawn for this template | Storelib |
@@ -181,7 +185,7 @@ They are not part of a template and are never added to a creator's website.
 | creator | assets/creator-press-3.webp | Drawn for this template | Storelib |
 | creator | assets/creator-press-4.webp | Drawn for this template | Storelib |
 | creator | assets/creator-press-5.webp | Drawn for this template | Storelib |
-| creator (cover only) | scripts/theme-templates/products/creator/creator-watercolour.webp | Drawn for this template | Storelib |
+| creator (cover only) | scripts/theme-templates/products/creator/creator-dark-paper.webp | Drawn for this template | Storelib |
 | creator (cover only) | scripts/theme-templates/products/creator/creator-workbook.webp | Drawn for this template | Storelib |
 | streetwear | assets/streetwear-beach-shirt.webp | https://images.unsplash.com/photo-1772583435283-b07bc9950497 | Unsplash License |
 | streetwear | assets/streetwear-cafe-street.webp | https://images.unsplash.com/photo-1782179284550-311f707c7722 | Unsplash License |
@@ -189,7 +193,8 @@ They are not part of a template and are never added to a creator's website.
 | streetwear | assets/streetwear-deck.webp | https://images.unsplash.com/photo-1778500409607-333a0914576e | Unsplash License |
 | streetwear | assets/streetwear-fortress.webp | https://images.unsplash.com/photo-1783853851787-0341b8753815 | Unsplash License |
 | streetwear | assets/streetwear-hero-dusk.webp | https://images.unsplash.com/photo-1752330094889-2b1b31d61485 | Unsplash License |
-| streetwear | assets/streetwear-hero-dusk-phone.webp | https://images.unsplash.com/photo-1753638949322-7135abb71c24 | Unsplash License |
+| streetwear | assets/streetwear-hero-promenade.webp | https://images.unsplash.com/photo-1655959627626-a51ad677cfdf | Unsplash License |
+| streetwear | assets/streetwear-hero-promenade-phone.webp | https://images.unsplash.com/photo-1655959627626-a51ad677cfdf | Unsplash License |
 | streetwear | assets/streetwear-hill-palms.webp | https://images.unsplash.com/photo-1769084783547-9b3da5adefe8 | Unsplash License |
 | streetwear | assets/streetwear-sea-dusk.webp | https://images.unsplash.com/photo-1772352037989-4c5dcabe88e6 | Unsplash License |
 | streetwear | assets/streetwear-street-sun.webp | https://images.unsplash.com/photo-1641071059359-fa5907ae440c | Unsplash License |
@@ -198,20 +203,6 @@ They are not part of a template and are never added to a creator's website.
 | streetwear (cover only) | scripts/theme-templates/products/streetwear/streetwear-linen-henley-white.webp | https://images.unsplash.com/photo-1713881587420-113c1c43e28a | Unsplash License |
 | streetwear (cover only) | scripts/theme-templates/products/streetwear/streetwear-linen-popover-navy.webp | https://images.unsplash.com/photo-1713881649391-a1c8ddaf83cd | Unsplash License |
 | streetwear (cover only) | scripts/theme-templates/products/streetwear/streetwear-linen-tee-stone.webp | https://images.unsplash.com/photo-1693443688057-85f57b872a3c | Unsplash License |
-| tour | assets/tour-cover.webp | Drawn for this template | Storelib |
-| tour | assets/tour-stage.webp | https://images.unsplash.com/photo-1546707012-c46675f12716 | Unsplash License |
-| tour | assets/tour-artist.webp | https://images.unsplash.com/photo-1761144799388-eee92f0b5dcf | Unsplash License |
-| tour | assets/tour-live-1.webp | https://images.unsplash.com/photo-1623517272043-cae1572afc96 | Unsplash License |
-| tour | assets/tour-live-2.webp | https://images.unsplash.com/photo-1758979141086-1c32a2885d06 | Unsplash License |
-| tour | assets/tour-live-3.webp | https://images.unsplash.com/photo-1613592173563-cc06087dbebc | Unsplash License |
-| tour | assets/tour-live-4.webp | https://images.unsplash.com/photo-1758550445758-165aeab5b26e | Unsplash License |
-| tour | assets/tour-moon-pool.webp | https://images.unsplash.com/photo-1778154997347-f32dfff72fa8 | Unsplash License |
-| tour (cover only) | scripts/theme-templates/products/tour/tour-vinyl-lp.webp | Drawn for this template (record, sleeve and shadow), cover around https://images.unsplash.com/photo-1778154997569-8d10cab6df66 | Unsplash License |
-| tour (cover only) | scripts/theme-templates/products/tour/tour-cd.webp | Drawn for this template (disc, wallet and shadow), cover around https://images.unsplash.com/photo-1778154997569-8d10cab6df66 | Unsplash License |
-| tour (cover only) | scripts/theme-templates/products/tour/tour-poster.webp | Drawn for this template, around https://images.unsplash.com/photo-1778154997569-8d10cab6df66 | Unsplash License |
-| tour (cover only) | scripts/theme-templates/products/tour/tour-tee-black.webp | https://images.unsplash.com/photo-1562135291-7728cc647783 (one tee, mirrored, print drawn on) | Unsplash License |
-| tour (cover only) | scripts/theme-templates/products/tour/tour-longsleeve.webp | https://images.unsplash.com/photo-1610502778270-c5c6f4c7d575 (one garment, mirrored, print drawn on) | Unsplash License |
-| tour (cover only) | scripts/theme-templates/products/tour/tour-crew.webp | https://images.unsplash.com/photo-1610502778270-c5c6f4c7d575 (one garment, mirrored, print drawn on) | Unsplash License |
 | samples | assets/samples-keys.webp | https://images.unsplash.com/photo-1598653222000-6b7b7a552625 | Unsplash License |
 | samples | assets/samples-producer.webp | https://images.unsplash.com/photo-1563330232-57114bb0823c | Unsplash License |
 | samples | assets/samples-hero.webp | Loudlib's own pack box, owner's artwork: three Loudlib boxes set on a drawn stage | Loudlib (the owner) |
@@ -253,7 +244,7 @@ They are not part of a template and are never added to a creator's website.
 | workspace (cover only) | scripts/theme-templates/products/workspace/workspace-home-budget.webp | Drawn for this template | Storelib |
 | workspace (cover only) | scripts/theme-templates/products/workspace/workspace-habit-tracker.webp | Drawn for this template | Storelib |
 | workspace (cover only) | scripts/theme-templates/products/workspace/workspace-study-planner.webp | Drawn for this template | Storelib |
-| space | assets/space-crosshair.webp | Drawn for this template | Storelib |
+| space | assets/space-moon.webp | Drawn for this template | Storelib |
 | space | assets/space-look-red-jacket.webp | https://images.unsplash.com/photo-1770192988725-2ddf1b4d6ee4 | Unsplash License |
 | space | assets/space-look-puffer.webp | https://images.unsplash.com/photo-1793383828034-7cc59606dc6f | Unsplash License |
 | space | assets/space-look-maroon.webp | https://images.unsplash.com/photo-1793450198328-2731a3ff8026 | Unsplash License |
@@ -278,6 +269,7 @@ They are not part of a template and are never added to a creator's website.
 | posters | assets/posters-cat-fruit.webp | Drawn for this template | Storelib |
 | posters | assets/posters-cat-new.webp | Drawn for this template | Storelib |
 | posters (cover only) | scripts/theme-templates/products/posters/posters-blue-petals.webp | Drawn for this template | Storelib |
+| posters (sample variants) | scripts/theme-templates/products/posters/posters-blue-petals-oak.webp, posters-blue-petals-unframed.webp | Drawn for this template from the print above (oak frame, no frame) | Storelib |
 | posters (cover only) | scripts/theme-templates/products/posters/posters-sunburst.webp | Drawn for this template | Storelib |
 | posters (cover only) | scripts/theme-templates/products/posters/posters-big-bloom.webp | Drawn for this template | Storelib |
 | posters (cover only) | scripts/theme-templates/products/posters/posters-citrus.webp | Drawn for this template | Storelib |

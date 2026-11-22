@@ -52,7 +52,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Sample packs made for the club",
+            "text": "Develop your sound",
             "tag": "h1",
             "enable_custom_style": false,
             "size_desktop": 44,
@@ -62,7 +62,7 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Loudlib makes sample packs and Serum presets for tech house, deep house and ambient producers. Drums, basslines, chords and textures, cut on the bar and named with their key and tempo so they drop straight into a session.</p><p>Every pack is royalty free under one short licence, and a demo of each one plays on its page before you buy.</p>",
+            "text": "<p>Loudlib makes sample packs and Serum presets for tech house and deep house producers. Drums, basslines, vocals, FX and melodies you can drag straight into a track. Every sound is 100% royalty free, and every pack you buy is yours for good.</p>",
             "enable_custom_style": false,
             "size_desktop": 17,
             "size_mobile": 15
@@ -129,7 +129,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "How a pack is made",
+            "text": "What you find here",
             "enable_custom_style": false,
             "enable_custom_fonts": false,
             "font": "assistant_n4",
@@ -146,24 +146,24 @@
           "type": "column",
           "settings": {
             "label": "01",
-            "heading": "Made in the studio",
-            "text": "<p>Drum hits, basslines, chords and textures, programmed and recorded for one genre at a time.</p>"
+            "heading": "Sample packs",
+            "text": "<p>Tech house and deep house packs, from the Master Bundle with over 1,000 sounds to single drum and bass collections.</p>"
           }
         },
         "column_2": {
           "type": "column",
           "settings": {
             "label": "02",
-            "heading": "Cut and named",
-            "text": "<p>Every one shot is trimmed to its transient. Every loop is cut on the bar, with key and BPM in its name.</p>"
+            "heading": "Serum presets",
+            "text": "<p>Bass presets for Xfer Serum, made for tech, deep, melodic and afro house.</p>"
           }
         },
         "column_3": {
           "type": "column",
           "settings": {
             "label": "03",
-            "heading": "Used in tracks",
-            "text": "<p>Before a pack goes on sale, its sounds are used to finish real tracks, so the gaps show up early.</p>"
+            "heading": "Free downloads",
+            "text": "<p>The Ambience Sample Pack and the Tech House Drum Kit cost nothing. <a href=\"/pages/free\">Get them here</a>.</p>"
           }
         }
       },
@@ -218,7 +218,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Made to end up on records",
+            "text": "Tips on YouTube and the blog",
             "tag": "h2",
             "enable_custom_style": false,
             "size_desktop": 44,
@@ -228,7 +228,7 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>The licence is short on purpose: use the sounds in your music, sell that music, keep the money. If a use is not covered, <a href=\"/pages/contact\">ask</a> and you get a straight answer.</p>",
+            "text": "<p>Short production videos on YouTube, from FL Studio tips to a deep house track in four minutes, and mixing guides on the blog.</p>",
             "enable_custom_style": false,
             "size_desktop": 17,
             "size_mobile": 15
@@ -245,20 +245,20 @@
       "settings": {
         "color_scheme": "scheme-tr-panel",
         "section_width": "container",
-        "image": "shopify://shop_images/samples-free.webp",
-        "image_alt": "Free Ambience Sample Pack Vol I",
+        "image": "shopify://shop_images/samples-free-pair.webp",
+        "image_alt": "Free Ambience Sample Pack Vol I and Tech House Drum Kit Vol I",
         "image_position": "left",
-        "image_ratio": "square",
-        "image_width": 46,
+        "image_ratio": "landscape",
+        "image_width": 44,
         "column_gap": 64,
         "form_layout": "horizontal",
         "email_placeholder": "Your email address",
-        "btn_text": "Send me the pack",
+        "btn_text": "Subscribe",
         "button_radius": 8,
-        "note": "One email when a new pack is out. Unsubscribe from any email.",
-        "success_text": "Check your inbox. The download link is on its way.",
-        "padding_top": 80,
-        "padding_bottom": 80,
+        "note": "No spam. Unsubscribe from any email.",
+        "success_text": "Thank you for subscribing!",
+        "padding_top": 72,
+        "padding_bottom": 72,
         "padding_top_mobile": 48,
         "padding_bottom_mobile": 52
       },
@@ -266,16 +266,16 @@
         "heading": {
           "type": "heading",
           "settings": {
-            "text": "Free Ambience Sample Pack Vol I",
+            "text": "Get weekly sounds",
             "size_enable": true,
-            "size_desktop": 44,
+            "size_desktop": 40,
             "size_mobile": 30
           }
         },
         "subheading": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Pads, drones and textures, free and royalty free. Leave your email and the download link arrives in a minute.</p>"
+            "text": "<p>New packs and sales by email. Two packs are free today: the Ambience Sample Pack Vol I and the Tech House Drum Kit Vol I.</p>"
           }
         }
       },

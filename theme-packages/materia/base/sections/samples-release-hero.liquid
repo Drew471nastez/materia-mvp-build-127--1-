@@ -1,0 +1,499 @@
+{%- comment -%}
+  Materia Themes. Release hero (Sample packs template).
+
+  Layout "Hero": the store's headline, text and two buttons on the left,
+  and on the right a card for a release (its box, name, price, a line, a
+  sound preview and a button). Two or more releases take turns in the
+  card, chosen with the dots under it; nothing turns on its own, so a
+  preview is never cut off.
+
+  Layout "Feature": one release large, its picture beside the name, the
+  text, a list of what is inside, the price, the preview and a button.
+
+  A release's product is the one picked in its block. Its price, compare
+  at price and link come from the product; with none picked, the block's
+  own name, picture and link are drawn, without a price. The preview works
+  as in the Audio tracks section: nothing downloads before play.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign sid = section.id
+  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default'
+  assign layout = s.layout | default: 'hero'
+  assign pt = s.padding_top | default: 72
+  assign pb = s.padding_bottom | default: 72
+  assign count = section.blocks.size
+  if layout == 'feature' and count > 1
+    assign count = 1
+  endif
+-%}
+<style>
+  .ssp { --ssp-p: 0%; --ssp-h: 0%; --ssp-sw: 1.6px; --ssp-btn: 36px; --ssp-wave: 36px; --ssp-base: rgba(var(--color-heading-rgb), .24); --ssp-done: rgb(var(--color-heading-rgb)); display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .ssp__btn { position: relative; flex: none; width: var(--ssp-btn); height: var(--ssp-btn); margin: 0; padding: 0; border-radius: 50%; border: 1.5px solid rgba(var(--color-heading-rgb), .5); background: transparent; color: var(--color-heading); display: grid; place-items: center; cursor: pointer; transition: background-color .2s ease, border-color .2s ease, color .2s ease, transform .2s ease; -webkit-tap-highlight-color: transparent; }
+  .ssp__btn:hover { border-color: rgb(var(--color-heading-rgb)); }
+  .ssp__btn:active { transform: scale(.94); }
+  .ssp__btn:focus-visible, .ssp__wave:focus-visible { outline: 2px solid var(--ssp-done); outline-offset: 3px; }
+  .ssp__btn[disabled] { cursor: default; opacity: .35; transform: none; }
+  .ssp__i { grid-area: 1 / 1; width: 42%; height: 42%; display: block; transition: opacity .15s ease, transform .2s ease; }
+  .ssp__i--pause { opacity: 0; transform: scale(.6); }
+  .ssp.is-playing .ssp__i--play { opacity: 0; transform: scale(.6); }
+  .ssp.is-playing .ssp__i--pause { opacity: 1; transform: none; }
+  .ssp.is-playing .ssp__btn { background: rgb(var(--color-heading-rgb)); border-color: transparent; color: var(--color-background); }
+  .ssp__btn::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 1.5px solid transparent; border-top-color: rgb(var(--color-heading-rgb)); opacity: 0; transition: opacity .2s ease; }
+  .ssp.is-loading .ssp__btn::after { opacity: 1; animation: ssp-spin .8s linear infinite; }
+  .ssp__wave { position: relative; flex: 1 1 auto; min-width: 0; height: var(--ssp-wave); cursor: pointer; touch-action: pan-y; -webkit-tap-highlight-color: transparent; border-radius: 2px; }
+  .ssp--off .ssp__wave { cursor: default; }
+  .ssp__svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; fill: none; stroke: var(--ssp-base); stroke-width: var(--ssp-sw); stroke-linecap: round; pointer-events: none; transform-origin: 50% 50%; }
+  .ssp__svg--hover { stroke: rgba(var(--color-heading-rgb), .5); clip-path: inset(0 calc(100% - var(--ssp-h)) 0 0); opacity: 0; transition: opacity .15s ease; }
+  .ssp__svg--done { stroke: var(--ssp-done); clip-path: inset(0 calc(100% - var(--ssp-p)) 0 0); }
+  .ssp:not(.is-started) .ssp__svg--done { visibility: hidden; }
+  .ssp--flat .ssp__svg { stroke: rgba(var(--color-heading-rgb), .18); }
+  .ssp--off .ssp__svg { stroke: rgba(var(--color-heading-rgb), .1); }
+  .ssp--drawn .ssp__svg { animation: ssp-grow .5s cubic-bezier(.2,.7,.2,1) both; }
+  .ssp__time { flex: none; min-width: 4.2em; text-align: right; font-size: 13px; line-height: 1; color: var(--color-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ssp.is-started .ssp__time { color: var(--color-heading); }
+  @media (hover: hover) and (pointer: fine) {
+    .ssp:not(.ssp--off) .ssp__wave:hover .ssp__svg--hover { opacity: 1; }
+    .ssp__btn:hover { transform: scale(1.05); }
+  }
+  @keyframes ssp-spin { to { transform: rotate(360deg); } }
+  @keyframes ssp-grow { from { transform: scaleY(.08); } to { transform: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .ssp__btn, .ssp__i, .ssp__svg--hover { transition: none; }
+    .ssp--drawn .ssp__svg { animation: none; }
+    .ssp.is-loading .ssp__btn::after { animation-duration: 2s; }
+  }
+  #shopify-section-{{ sid }} .srh { position: relative; overflow: hidden; isolation: isolate; padding-block: {{ pt | times: 0.6 | round }}px {{ pb | times: 0.7 | round }}px; }
+  #shopify-section-{{ sid }} .srh__bg { position: absolute; inset: 0; z-index: -1; }
+  #shopify-section-{{ sid }} .srh__bg img { width: 100%; height: 100%; object-fit: cover; display: block; opacity: {{ s.image_opacity | default: 30 | divided_by: 100.0 }}; filter: grayscale(.35); }
+  #shopify-section-{{ sid }} .srh__bg::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0) 40%, var(--color-background) 100%); }
+  #shopify-section-{{ sid }} .srh__grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 36px; align-items: center; }
+  #shopify-section-{{ sid }} .srh__pill { display: inline-block; margin: 0 0 18px; padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; background: var(--btn-primary-bg-color); color: var(--btn-primary-color); }
+  #shopify-section-{{ sid }} .srh__title { margin: 0; font-size: {{ s.heading_size_mobile | default: 40 }}px; line-height: 1.02; overflow-wrap: anywhere; }
+  #shopify-section-{{ sid }} .srh__title em { font-style: normal; color: var(--srh-accent, var(--btn-primary-bg-color)); }
+  #shopify-section-{{ sid }} .srh__text { margin: 18px 0 0; max-width: 48ch; font-size: 16px; line-height: 1.55; color: var(--color-text); }
+  #shopify-section-{{ sid }} .srh__text > :first-child { margin-top: 0; }
+  #shopify-section-{{ sid }} .srh__text > :last-child { margin-bottom: 0; }
+  #shopify-section-{{ sid }} .srh__text strong { color: var(--color-heading); }
+  #shopify-section-{{ sid }} .srh__actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px; }
+  #shopify-section-{{ sid }} .srh__note { margin: 10px 0 0; font-size: 13px; color: var(--color-text); }
+  #shopify-section-{{ sid }} .srh__stage { position: relative; }
+  #shopify-section-{{ sid }} .srh__card { display: grid; border-radius: 18px; padding: 18px; background: rgba(var(--color-heading-rgb), .055); border: 1px solid rgba(var(--color-heading-rgb), .1); box-shadow: 0 30px 80px rgba(0, 0, 0, .35); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+  #shopify-section-{{ sid }} .srh__slide { grid-area: 1 / 1; display: flex; flex-direction: column; gap: 14px; min-width: 0; transition: opacity .4s ease, visibility .4s; }
+  #shopify-section-{{ sid }} .srh__slide[aria-hidden="true"] { opacity: 0; visibility: hidden; }
+  #shopify-section-{{ sid }} .srh__top { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 16px; align-items: center; }
+  #shopify-section-{{ sid }} .srh__box { display: block; aspect-ratio: 4 / 5; }
+  #shopify-section-{{ sid }} .srh__box img { width: 100%; height: 100%; object-fit: contain; display: block; filter: drop-shadow(0 12px 18px rgba(0, 0, 0, .45)); }
+  #shopify-section-{{ sid }} .srh__eyebrow { margin: 0 0 6px; font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--color-text); }
+  #shopify-section-{{ sid }} .srh__name { margin: 0; font-size: 19px; line-height: 1.2; color: var(--color-heading); }
+  #shopify-section-{{ sid }} .srh__name a { color: inherit; text-decoration: none; }
+  #shopify-section-{{ sid }} .srh__price { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 8px 0 0; font-size: 17px; font-weight: 700; color: var(--color-heading); font-variant-numeric: tabular-nums; }
+  #shopify-section-{{ sid }} .srh__price s { font-size: 13px; font-weight: 400; color: var(--color-text); }
+  #shopify-section-{{ sid }} .srh__off { padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; background: var(--btn-primary-bg-color); color: var(--btn-primary-color); }
+  #shopify-section-{{ sid }} .srh__line { margin: 0; font-size: 14px; line-height: 1.5; color: var(--color-text); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  #shopify-section-{{ sid }} .srh__slide .ssp { --ssp-btn: 32px; --ssp-wave: 34px; }
+  #shopify-section-{{ sid }} .srh__go { display: flex; align-items: center; justify-content: center; min-height: 46px; border-radius: var(--btn-radius, 8px); font-size: 15px; font-weight: 600; text-decoration: none; background: var(--btn-primary-bg-color); color: var(--btn-primary-color); transition: background-color .2s ease; }
+  #shopify-section-{{ sid }} .srh__go:hover { background: var(--btn-primary-hover-bg-color); color: var(--btn-primary-hover-color); }
+  #shopify-section-{{ sid }} .srh__go:focus-visible, #shopify-section-{{ sid }} .srh__dot:focus-visible { outline: 2px solid rgb(var(--color-heading-rgb)); outline-offset: 2px; }
+  #shopify-section-{{ sid }} .srh__dots { display: flex; justify-content: center; gap: 2px; margin-top: 10px; }
+  #shopify-section-{{ sid }} .srh__dot { width: 28px; height: 28px; padding: 0; border: 0; background: transparent; cursor: pointer; display: grid; place-items: center; }
+  #shopify-section-{{ sid }} .srh__dot::before { content: ""; width: 7px; height: 7px; border-radius: 999px; background: rgba(var(--color-heading-rgb), .3); transition: width .3s ease, background-color .3s ease; }
+  #shopify-section-{{ sid }} .srh__dot[aria-current="true"]::before { width: 20px; background: rgb(var(--color-heading-rgb)); }
+  /* Feature */
+  #shopify-section-{{ sid }} .srh--feature .srh__art { display: grid; place-items: center; border-radius: 18px; padding: 28px; background: rgba(var(--color-heading-rgb), .04); border: 1px solid rgba(var(--color-heading-rgb), .07); }
+  #shopify-section-{{ sid }} .srh--feature .srh__art img { width: 100%; max-width: 420px; height: auto; display: block; filter: drop-shadow(0 24px 34px rgba(0, 0, 0, .5)); }
+  #shopify-section-{{ sid }} .srh--feature .srh__title { font-size: {{ s.heading_size_mobile | default: 32 }}px; }
+  #shopify-section-{{ sid }} .srh__list { margin: 20px 0 0; padding: 0; list-style: none; display: grid; gap: 9px; font-size: 15px; color: var(--color-heading); }
+  #shopify-section-{{ sid }} .srh__list ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 9px; }
+  #shopify-section-{{ sid }} .srh__list li { position: relative; padding-left: 26px; }
+  #shopify-section-{{ sid }} .srh__list li::before { content: ""; position: absolute; left: 2px; top: .3em; width: 12px; height: 7px; border-left: 2px solid var(--btn-primary-bg-color); border-bottom: 2px solid var(--btn-primary-bg-color); transform: rotate(-45deg); }
+  #shopify-section-{{ sid }} .srh--feature .srh__price { margin-top: 24px; font-size: 24px; }
+  #shopify-section-{{ sid }} .srh--feature .ssp { margin-top: 16px; --ssp-btn: 36px; --ssp-wave: 40px; max-width: 520px; }
+  #shopify-section-{{ sid }} .srh--feature .srh__go { display: inline-flex; margin-top: 20px; padding: 0 26px; }
+  @media (min-width: 750px) {
+    #shopify-section-{{ sid }} .srh { padding-block: {{ pt }}px {{ pb }}px; }
+    #shopify-section-{{ sid }} .srh__title { font-size: {{ s.heading_size | default: 60 }}px; }
+    #shopify-section-{{ sid }} .srh--feature .srh__title { font-size: {{ s.heading_size | default: 44 }}px; }
+    #shopify-section-{{ sid }} .srh__card { padding: 22px; }
+    #shopify-section-{{ sid }} .srh__top { grid-template-columns: 116px minmax(0, 1fr); gap: 20px; }
+    #shopify-section-{{ sid }} .srh__name { font-size: 22px; }
+  }
+  @media (min-width: 990px) {
+    #shopify-section-{{ sid }} .srh__grid { grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: 64px; }
+    #shopify-section-{{ sid }} .srh--feature .srh__grid { grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #shopify-section-{{ sid }} .srh__slide, #shopify-section-{{ sid }} .srh__dot::before { transition: none; }
+  }
+</style>
+<div class="srh srh--{{ layout }} section color-{{ color_scheme }} gradient" data-srh data-section-id="{{ sid }}"{% if s.accent != blank %} style="--srh-accent: {{ s.accent }};"{% endif %}>
+  {%- if s.background != blank -%}
+    <div class="srh__bg" aria-hidden="true">{{ s.background | image_url: width: 1920 | image_tag: loading: 'eager', fetchpriority: 'low', widths: '750, 1200, 1920', sizes: '100vw', alt: '' }}</div>
+  {%- endif -%}
+  <div class="{{ s.section_width | default: 'container' }}">
+    <div class="srh__grid">
+      {%- if layout == 'hero' -%}
+        <div class="srh__copy">
+          {%- if s.pill != blank -%}<p class="srh__pill">{{ s.pill | escape }}</p>{%- endif -%}
+          {%- if s.heading != blank -%}<h1 class="srh__title h1">{{ s.heading }}</h1>{%- endif -%}
+          {%- if s.text != blank -%}<div class="srh__text rte">{{ s.text }}</div>{%- endif -%}
+          {%- if s.button_label != blank or s.button_2_label != blank -%}
+            <div class="srh__actions">
+              {%- if s.button_label != blank -%}<a class="button inline-block btn-primary" data-theme-button="primary" href="{{ s.button_link | default: routes.all_products_collection_url }}">{{ s.button_label | escape }}</a>{%- endif -%}
+              {%- if s.button_2_label != blank -%}<a class="button inline-block btn-secondary" data-theme-button="secondary" href="{{ s.button_2_link | default: routes.all_products_collection_url }}">{{ s.button_2_label | escape }}</a>{%- endif -%}
+            </div>
+          {%- endif -%}
+          {%- if s.note != blank -%}<p class="srh__note">{{ s.note | escape }}</p>{%- endif -%}
+        </div>
+      {%- endif -%}
+      {%- if count > 0 -%}
+        {%- for block in section.blocks limit: count -%}
+          {%- liquid
+            assign b = block.settings
+            assign p = b.product
+            assign name = b.title
+            assign url = b.link | default: routes.all_products_collection_url
+            if p != blank
+              assign name = p.title
+              if b.link == blank
+                assign url = p.url
+              endif
+            endif
+            assign art = b.image
+            if art == blank and p != blank
+              assign art = p.featured_image
+            endif
+            assign ssp_src = b.audio | strip
+            if ssp_src != blank
+              if ssp_src contains 'shopify://shop_images/'
+                assign ssp_src = ssp_src | remove_first: 'shopify://shop_images/' | asset_url
+              elsif ssp_src contains '/'
+              else
+                assign ssp_src = ssp_src | asset_url
+              endif
+            endif
+            assign ssp_title = b.track_title | default: name
+            assign ssp_peaks = b.peaks
+            assign ssp_len = b.length
+            assign ssp_id = 'ssp-' | append: sid | append: '-' | append: block.id
+            assign ssp_empty = 'No preview yet'
+          -%}
+          {%- capture price -%}
+            {%- if p != blank -%}
+              <p class="srh__price">
+                {%- if p.price == 0 -%}<span>{{ s.free_label | default: 'Free' | escape }}</span>{%- else -%}
+                  <span>{{ p.price | money }}</span>
+                  {%- if p.compare_at_price > p.price -%}
+                    <s>{{ p.compare_at_price | money }}</s>
+                    {%- assign off = p.compare_at_price | minus: p.price | times: 100 | divided_by: p.compare_at_price | round -%}
+                    {%- if off > 0 -%}<span class="srh__off">-{{ off }}%</span>{%- endif -%}
+                  {%- endif -%}
+                {%- endif -%}
+              </p>
+            {%- endif -%}
+          {%- endcapture -%}
+          {%- capture player -%}
+{%- liquid
+  assign ssp_d = ''
+  assign ssp_pk = ssp_peaks | strip | split: ','
+  assign ssp_n = ssp_pk.size
+  assign ssp_flat = false
+  if ssp_n < 16
+    assign ssp_n = 120
+    assign ssp_flat = true
+    for i in (1..120)
+      assign ssp_x = i | minus: 0.5
+      assign ssp_d = ssp_d | append: 'M' | append: ssp_x | append: ' 48.6V51.4'
+    endfor
+  else
+    for ssp_v in ssp_pk
+      assign ssp_hh = ssp_v | strip | plus: 0 | times: 0.46 | at_least: 1.4 | round: 1
+      assign ssp_x = forloop.index | minus: 0.5
+      assign ssp_y1 = 50 | minus: ssp_hh | round: 1
+      assign ssp_y2 = 50 | plus: ssp_hh | round: 1
+      assign ssp_d = ssp_d | append: 'M' | append: ssp_x | append: ' ' | append: ssp_y1 | append: 'V' | append: ssp_y2
+    endfor
+  endif
+  assign ssp_label = ssp_title | default: 'track' | escape
+-%}
+<div class="ssp{% if ssp_src == blank %} ssp--off{% endif %}{% if ssp_flat %} ssp--flat{% endif %}" data-ssp{% if ssp_src != blank %} data-src="{{ ssp_src }}"{% endif %} data-title="{{ ssp_label }}">
+  <button class="ssp__btn" type="button" data-ssp-btn aria-label="Play {{ ssp_label }}"{% if ssp_src == blank %} disabled{% endif %}>
+    <svg class="ssp__i ssp__i--play" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M5.2 3.1v9.8c0 .5.5.8.9.5l7.5-4.9c.4-.2.4-.8 0-1L6.1 2.6c-.4-.3-.9 0-.9.5Z" fill="currentColor"/></svg>
+    <svg class="ssp__i ssp__i--pause" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="4" y="3" width="2.7" height="10" rx=".8" fill="currentColor"/><rect x="9.3" y="3" width="2.7" height="10" rx=".8" fill="currentColor"/></svg>
+  </button>
+  <div class="ssp__wave" data-ssp-wave{% if ssp_src != blank %} role="slider" tabindex="0" aria-label="Seek in {{ ssp_label }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="0:00"{% endif %}>
+    <svg class="ssp__svg" viewBox="0 0 {{ ssp_n }} 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path id="{{ ssp_id }}" d="{{ ssp_d }}" vector-effect="non-scaling-stroke"/></svg>
+    <svg class="ssp__svg ssp__svg--hover" viewBox="0 0 {{ ssp_n }} 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#{{ ssp_id }}"/></svg>
+    <svg class="ssp__svg ssp__svg--done" viewBox="0 0 {{ ssp_n }} 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#{{ ssp_id }}"/></svg>
+  </div>
+  <span class="ssp__time" data-ssp-time>{% if ssp_src == blank %}{{ ssp_empty | default: 'No preview' }}{% else %}{{ ssp_len | default: '0:00' | escape }}{% endif %}</span>
+</div>
+          {%- endcapture -%}
+          {%- if layout == 'feature' -%}
+            <div class="srh__art" {{ block.shopify_attributes }}>
+              {%- if art != blank -%}{{ art | image_url: width: 1000 | image_tag: loading: 'lazy', widths: '500, 800, 1000', sizes: '(min-width: 990px) 40vw, 90vw', alt: name }}{%- else -%}{{ 'product-1' | placeholder_svg_tag: 'placeholder-svg' }}{%- endif -%}
+            </div>
+            <div class="srh__copy">
+              {%- if b.eyebrow != blank -%}<p class="srh__eyebrow">{{ b.eyebrow | escape }}</p>{%- endif -%}
+              <h2 class="srh__title h2">{{ b.heading | default: name | escape }}</h2>
+              {%- if b.text != blank -%}<div class="srh__text rte"><p>{{ b.text | escape }}</p></div>{%- endif -%}
+              {%- if b.list != blank -%}<div class="srh__list">{{ b.list }}</div>{%- endif -%}
+              {{ price }}
+              {{ player }}
+              <a class="srh__go" href="{{ url }}">{{ b.button_label | default: 'Get the pack' | escape }}</a>
+              {%- if b.note != blank -%}<p class="srh__note">{{ b.note | escape }}</p>{%- endif -%}
+            </div>
+          {%- else -%}
+            {%- if forloop.first -%}<div class="srh__stage"><div class="srh__card" data-srh-card>{%- endif -%}
+            <article class="srh__slide" data-srh-slide id="srh-{{ sid }}-{{ forloop.index }}"{% unless forloop.first %} aria-hidden="true" inert{% endunless %} aria-roledescription="slide" aria-label="{{ forloop.index }} of {{ count }}" {{ block.shopify_attributes }}>
+              <div class="srh__top">
+                <a class="srh__box" href="{{ url }}" tabindex="-1" aria-hidden="true">
+                  {%- if art != blank -%}{{ art | image_url: width: 300 | image_tag: loading: 'eager', width: 116, height: 145, alt: '' }}{%- endif -%}
+                </a>
+                <div>
+                  {%- if b.eyebrow != blank -%}<p class="srh__eyebrow">{{ b.eyebrow | escape }}</p>{%- endif -%}
+                  <h2 class="srh__name"><a href="{{ url }}">{{ b.heading | default: name | escape }}</a></h2>
+                  {{ price }}
+                </div>
+              </div>
+              {%- if b.text != blank -%}<p class="srh__line">{{ b.text | escape }}</p>{%- endif -%}
+              {{ player }}
+              <a class="srh__go" href="{{ url }}">{{ b.button_label | default: 'Get the pack' | escape }}</a>
+            </article>
+            {%- if forloop.last -%}
+              </div>
+              {%- if count > 1 -%}
+                <div class="srh__dots" role="group" aria-label="Releases">
+                  {%- for d in (1..count) -%}<button class="srh__dot" type="button" data-srh-dot="{{ forloop.index0 }}" aria-controls="srh-{{ sid }}-{{ forloop.index }}" aria-label="Release {{ forloop.index }}" aria-current="{% if forloop.first %}true{% else %}false{% endif %}"></button>{%- endfor -%}
+                </div>
+              {%- endif -%}
+              </div>
+            {%- endif -%}
+          {%- endif -%}
+        {%- endfor -%}
+      {%- elsif request.design_mode -%}
+        <p class="srh__note">Add a release to show it here.</p>
+      {%- endif -%}
+    </div>
+  </div>
+</div>
+<script>
+  /* The sample players (samples-audio-tracks, samples-pack-cards, samples-release-hero): one copy runs, whichever section loads first. */
+  (function () {
+    var V = 3;
+    if (window.__ssp && window.__ssp.v >= V) { window.__ssp.scan(); return; }
+    var current = null, N = 120, KEY = 'ssp-peaks:', reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    function fmt(t) { if (!isFinite(t) || t < 0) t = 0; var m = Math.floor(t / 60), s = Math.floor(t % 60); return m + ':' + (s < 10 ? '0' : '') + s; }
+    function remember(k, v) { try { localStorage.setItem(KEY + k, v); } catch (e) {} }
+    function recall(k) { try { return localStorage.getItem(KEY + k); } catch (e) { return null; } }
+    function pathOf(list) { var d = ''; for (var i = 0; i < list.length; i++) { var h = Math.max(1.4, list[i] * 0.46); d += 'M' + (i + 0.5) + ' ' + (50 - h).toFixed(1) + 'V' + (50 + h).toFixed(1); } return d; }
+    function draw(el, list) {
+      var path = el.querySelector('.ssp__svg path'); if (!path || !list.length) return;
+      path.setAttribute('d', pathOf(list));
+      el.querySelectorAll('.ssp__svg').forEach(function (s) { s.setAttribute('viewBox', '0 0 ' + list.length + ' 100'); });
+      el.classList.remove('ssp--flat'); if (!reduce) el.classList.add('ssp--drawn');
+    }
+    /* A track saved without its peaks: read them from the file after it starts playing, when the browser has it anyway, and keep them for the next visit. */
+    function measure(el) {
+      var src = el.getAttribute('data-src'), AC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+      if (!src || el.__measured || !AC || !window.fetch || !el.classList.contains('ssp--flat')) return;
+      el.__measured = true;
+      (window.requestIdleCallback || function (f) { return setTimeout(f, 400); })(function () {
+        fetch(src, { credentials: 'same-origin' }).then(function (r) { if (!r.ok) throw new Error('fetch'); return r.arrayBuffer(); }).then(function (buf) {
+          var ctx = new AC(1, 1, 22050);
+          return new Promise(function (res, rej) { var p = ctx.decodeAudioData(buf, res, rej); if (p && p.then) p.then(res, rej); });
+        }).then(function (ab) {
+          var ch = ab.getChannelData(0), step = Math.max(1, Math.floor(ch.length / N)), out = [], max = 0;
+          for (var i = 0; i < N; i++) { var m = 0, end = Math.min(ch.length, (i + 1) * step); for (var j = i * step; j < end; j += 4) { var v = ch[j] < 0 ? -ch[j] : ch[j]; if (v > m) m = v; } out.push(m); if (m > max) max = m; }
+          out = out.map(function (v) { return max ? Math.round(Math.pow(v / max, 0.8) * 100) : 0; });
+          remember(src, out.join(','));
+          document.querySelectorAll('[data-ssp].ssp--flat').forEach(function (o) { if (o.getAttribute('data-src') === src) draw(o, out); });
+        }).catch(function () {});
+      });
+    }
+    function setup(el) {
+      if (el.__ssp) return; el.__ssp = true;
+      var src = el.getAttribute('data-src'), btn = el.querySelector('[data-ssp-btn]'), wave = el.querySelector('[data-ssp-wave]'), time = el.querySelector('[data-ssp-time]');
+      var path = el.querySelector('.ssp__svg path'), n = path ? (el.querySelector('.ssp__svg').getAttribute('viewBox') || '0 0 120').split(' ')[2] * 1 : N;
+      if (wave && window.ResizeObserver) new ResizeObserver(function () { var w = wave.clientWidth; if (w) el.style.setProperty('--ssp-sw', Math.max(1, Math.min(3, (w / n) * 0.52)).toFixed(2) + 'px'); }).observe(wave);
+      if (!src || !btn || !wave) return;
+      if (el.classList.contains('ssp--flat')) { var kept = recall(src); if (kept) draw(el, kept.split(',').map(Number)); }
+      var audio = null, raf = 0, shown = -1, dragging = false, pending = -1, title = el.getAttribute('data-title') || '';
+      function pct() { return audio && audio.duration > 0 ? Math.min(100, (audio.currentTime / audio.duration) * 100) : 0; }
+      function paint(force) {
+        var d = audio ? audio.duration : 0, t = audio ? audio.currentTime : 0;
+        el.style.setProperty('--ssp-p', pct().toFixed(2) + '%');
+        var sec = Math.floor(t);
+        if (force || sec !== shown) {
+          shown = sec;
+          if (d > 0) time.textContent = fmt(t) + ' / ' + fmt(d);
+          wave.setAttribute('aria-valuenow', Math.round(pct()));
+          wave.setAttribute('aria-valuetext', fmt(t) + (d > 0 ? ' of ' + fmt(d) : ''));
+        }
+      }
+      function loop() { paint(); if (audio && !audio.paused) raf = requestAnimationFrame(loop); }
+      function make() {
+        if (audio) return audio;
+        audio = new Audio(); audio.preload = 'auto'; audio.src = src; el.__audio = audio;
+        audio.addEventListener('play', function () {
+          if (current && current !== audio) current.pause();
+          current = audio; el.classList.add('is-playing', 'is-started'); btn.setAttribute('aria-label', 'Pause ' + title);
+          if ('mediaSession' in navigator && window.MediaMetadata) try { navigator.mediaSession.metadata = new MediaMetadata({ title: title, artist: document.title }); } catch (e) {}
+          cancelAnimationFrame(raf); loop();
+        });
+        audio.addEventListener('waiting', function () { el.classList.add('is-loading'); });
+        audio.addEventListener('playing', function () { el.classList.remove('is-loading'); measure(el); });
+        audio.addEventListener('pause', function () { el.classList.remove('is-playing', 'is-loading'); btn.setAttribute('aria-label', 'Play ' + title); cancelAnimationFrame(raf); paint(true); });
+        audio.addEventListener('ended', function () { el.classList.remove('is-started'); audio.currentTime = 0; paint(true); });
+        audio.addEventListener('loadedmetadata', function () { if (pending >= 0) { audio.currentTime = pending * audio.duration; pending = -1; } paint(true); });
+        audio.addEventListener('error', function () { el.classList.remove('is-playing', 'is-loading', 'is-started'); el.classList.add('ssp--off'); time.textContent = 'Could not play'; btn.disabled = true; });
+        return audio;
+      }
+      function play(at) {
+        make(); el.classList.add('is-loading');
+        if (at >= 0) { if (audio.readyState >= 1 && audio.duration) audio.currentTime = at * audio.duration; else pending = at; }
+        var p = audio.play(); if (p && p.catch) p.catch(function () { el.classList.remove('is-loading'); });
+      }
+      btn.addEventListener('click', function () { if (!audio || audio.paused) play(-1); else audio.pause(); });
+      function at(x) { var r = wave.getBoundingClientRect(); return r.width ? Math.max(0, Math.min(1, (x - r.left) / r.width)) : 0; }
+      function seek(f) {
+        if (!audio || audio.readyState < 1 || !audio.duration) { play(f); return; }
+        audio.currentTime = f * audio.duration; el.classList.add('is-started'); paint(true);
+      }
+      wave.addEventListener('pointerdown', function (e) { if (e.button > 0) return; dragging = true; try { wave.setPointerCapture(e.pointerId); } catch (x) {} seek(at(e.clientX)); });
+      wave.addEventListener('pointermove', function (e) {
+        var f = at(e.clientX);
+        if (e.pointerType === 'mouse') el.style.setProperty('--ssp-h', (f * 100).toFixed(2) + '%');
+        if (dragging && audio && audio.duration) { audio.currentTime = f * audio.duration; paint(); }
+      });
+      function stop() { dragging = false; }
+      wave.addEventListener('pointerup', stop); wave.addEventListener('pointercancel', stop); wave.addEventListener('lostpointercapture', stop);
+      wave.addEventListener('keydown', function (e) {
+        var k = e.key;
+        if (k === ' ' || k === 'Enter') { e.preventDefault(); btn.click(); return; }
+        if (['ArrowRight', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].indexOf(k) < 0) return;
+        e.preventDefault();
+        var f = pct() / 100, step = k === 'PageUp' || k === 'PageDown' ? 0.2 : 0.05;
+        if (k === 'ArrowRight' || k === 'ArrowUp' || k === 'PageUp') f += step; else if (k === 'ArrowLeft' || k === 'ArrowDown' || k === 'PageDown') f -= step; else if (k === 'Home') f = 0; else f = 0.999;
+        seek(Math.max(0, Math.min(0.999, f)));
+      });
+    }
+    function scan(root) { (root && root.querySelectorAll ? root : document).querySelectorAll('[data-ssp]').forEach(setup); }
+    window.__ssp = { v: V, scan: scan, pauseIn: function (root) { root.querySelectorAll('[data-ssp]').forEach(function (el) { if (el.__audio) el.__audio.pause(); }); } };
+    document.addEventListener('shopify:section:load', function (e) { scan(e.target); });
+    document.addEventListener('shopify:section:unload', function (e) { window.__ssp.pauseIn(e.target); });
+    scan(); if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { scan(); });
+  })();
+  (function () {
+    function wire(root) {
+      root.querySelectorAll('[data-srh]').forEach(function (sec) {
+        if (sec.__srh) return; sec.__srh = true;
+        var slides = sec.querySelectorAll('[data-srh-slide]'), dots = sec.querySelectorAll('[data-srh-dot]');
+        function show(i) {
+          slides.forEach(function (sl, k) {
+            var on = k === i;
+            if (!on) sl.querySelectorAll('[data-ssp]').forEach(function (el) { if (el.__audio) el.__audio.pause(); });
+            sl.setAttribute('aria-hidden', on ? 'false' : 'true'); if (on) sl.removeAttribute('inert'); else sl.setAttribute('inert', '');
+          });
+          dots.forEach(function (d, k) { d.setAttribute('aria-current', k === i ? 'true' : 'false'); });
+        }
+        dots.forEach(function (d, k) {
+          d.addEventListener('click', function () { show(k); });
+          d.addEventListener('keydown', function (e) {
+            var n = dots.length, j = e.key === 'ArrowRight' ? (k + 1) % n : e.key === 'ArrowLeft' ? (k - 1 + n) % n : -1;
+            if (j < 0) return; e.preventDefault(); dots[j].focus(); show(j);
+          });
+        });
+        sec.addEventListener('shopify:block:select', function (e) { slides.forEach(function (sl, k) { if (sl === e.target || sl.contains(e.target)) show(k); }); });
+      });
+    }
+    wire(document);
+    document.addEventListener('shopify:section:load', function (e) { wire(e.target); });
+  })();
+</script>
+{% schema %}
+{
+  "name": "Release hero",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    {
+      "type": "select",
+      "id": "layout",
+      "label": "Layout",
+      "default": "hero",
+      "options": [
+        { "value": "hero", "label": "Headline beside a release card" },
+        { "value": "feature", "label": "One release, large" }
+      ]
+    },
+    { "type": "header", "content": "Headline", "info": "Hero layout only." },
+    { "type": "text", "id": "pill", "label": "Label above the headline" },
+    { "type": "inline_richtext", "id": "heading", "label": "Headline", "default": "<em>New</em> sounds every month", "info": "Italic words take the accent colour." },
+    { "type": "richtext", "id": "text", "label": "Text" },
+    { "type": "text", "id": "button_label", "label": "First button", "default": "Shop packs" },
+    { "type": "url", "id": "button_link", "label": "First button link" },
+    { "type": "text", "id": "button_2_label", "label": "Second button" },
+    { "type": "url", "id": "button_2_link", "label": "Second button link" },
+    { "type": "text", "id": "note", "label": "Line under the buttons" },
+    { "type": "header", "content": "Look" },
+    { "type": "image_picker", "id": "background", "label": "Background picture" },
+    { "type": "range", "id": "image_opacity", "label": "Background picture strength", "min": 5, "max": 100, "step": 5, "unit": "%", "default": 30 },
+    { "type": "color", "id": "accent", "label": "Accent colour", "info": "Left empty, the button colour." },
+    { "type": "text", "id": "free_label", "label": "Price shown for a free pack", "default": "Free" },
+    { "type": "range", "id": "heading_size", "label": "Headline size", "min": 28, "max": 96, "step": 2, "unit": "px", "default": 60 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Headline size on phones", "min": 22, "max": 56, "step": 2, "unit": "px", "default": 40 },
+    { "type": "header", "content": "General" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default" },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Section width",
+      "default": "container",
+      "options": [
+        { "value": "container", "label": "Default" },
+        { "value": "fluid_container", "label": "Fluid container" },
+        { "value": "stretch_width", "label": "Stretched" }
+      ]
+    },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 72 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 72 }
+  ],
+  "blocks": [
+    {
+      "type": "release",
+      "name": "Release",
+      "limit": 6,
+      "settings": [
+        { "type": "product", "id": "product", "label": "Product", "info": "Its price and link fill the card." },
+        { "type": "text", "id": "eyebrow", "label": "Label", "default": "New release" },
+        { "type": "text", "id": "heading", "label": "Name", "info": "Left empty, the product's name." },
+        { "type": "text", "id": "title", "label": "Name when there is no product", "default": "Pack name" },
+        { "type": "image_picker", "id": "image", "label": "Picture", "info": "Left empty, the product's picture." },
+        { "type": "textarea", "id": "text", "label": "Text" },
+        { "type": "richtext", "id": "list", "label": "What is inside", "info": "One release, large: a bulleted list under the text." },
+        { "type": "text", "id": "button_label", "label": "Button", "default": "Get the pack" },
+        { "type": "url", "id": "link", "label": "Button link", "info": "Left empty, the product's page." },
+        { "type": "text", "id": "note", "label": "Line under the button" },
+        { "type": "header", "content": "Preview" },
+        { "type": "file_picker", "id": "audio", "label": "Audio file", "accept": ["audio"], "info": "An mp3, wav, m4a, ogg, aac or flac file, or an https link." },
+        { "type": "text", "id": "track_title", "label": "Preview name", "info": "Read out to screen readers. Left empty, the pack's name." },
+        { "type": "text", "id": "length", "label": "Length", "placeholder": "0:30" },
+        { "type": "textarea", "id": "peaks", "label": "Waveform peaks", "info": "Optional: 120 numbers from 0 to 100. Left empty, the waveform is read from the file the first time it plays." }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Release hero",
+      "settings": { "pill": "New", "text": "<p>Loops, one shots and presets, ready to drag into your next track.</p>" },
+      "blocks": [ { "type": "release" }, { "type": "release" } ]
+    },
+    {
+      "name": "Release, large",
+      "settings": { "layout": "feature" },
+      "blocks": [ { "type": "release", "settings": { "eyebrow": "The bundle" } } ]
+    }
+  ]
+}
+{% endschema %}

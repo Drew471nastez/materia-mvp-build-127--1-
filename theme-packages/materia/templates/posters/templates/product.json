@@ -57,140 +57,119 @@
         "sticky_show_variant_picker": true,
         "enable_sticky_content_on_desktop": true
       },
-      "name": "Main product",
       "blocks": {
         "title_1": {
           "type": "title",
           "settings": {
             "show_vendor": false,
-            "title_font_size_mobile": 32,
-            "title_font_size_desktop": 33
+            "title_font_size_desktop": 33,
+            "title_font_size_mobile": 28
           }
         },
-        "product_description_2": {
-          "type": "product_description",
-          "settings": {
-            "pb_d": 0,
-            "pb_m": 16,
-            "pl_d": 0,
-            "pl_m": 0,
-            "pr_d": 0,
-            "pr_m": 0,
-            "pt_d": 0,
-            "pt_m": 0,
-            "text_color": "#4a4541",
-            "font_size_d": 16,
-            "font_size_m": 15,
-            "line_height": 150,
-            "custom_description": "",
-            "enable_custom_description": false
-          }
-        },
-        "short_description_3": {
-          "type": "short_description",
-          "settings": {
-            "excerpt_length": 204
-          }
-        },
-        "price_4": {
+        "price_1": {
           "type": "price",
           "settings": {
+            "price_font_size_desktop": 26,
+            "price_font_size_mobile": 24,
             "price_font_weight": "600",
-            "compare_font_weight": "400",
-            "price_font_size_mobile": 31,
-            "price_font_size_desktop": 28,
+            "compare_font_size_desktop": 16,
             "compare_font_size_mobile": 14,
-            "compare_font_size_desktop": 16
+            "compare_font_weight": "400"
           }
         },
-        "variant_picker_5": {
+        "short_description_1": {
+          "type": "short_description",
+          "settings": {
+            "excerpt_length": 200
+          }
+        },
+        "variant_picker_1": {
           "type": "variant_picker",
           "settings": {
             "variant_type": "swatches",
-            "show_size_guide": true,
-            "size_guide_page": "",
-            "size_guide_label": "Size guide",
-            "picker_text_hover": "#0f0f0f",
-            "picker_bg_selected": "#1d1d1d",
-            "picker_border_color": "#cecece",
-            "enable_picker_custom": false,
-            "picker_bg_unselected": "#ffffff",
-            "picker_border_radius": 6,
-            "picker_text_selected": "#ffffff",
-            "picker_text_unselected": "#0f0f0f"
+            "show_size_guide": false,
+            "picker_swatch_style": "theme"
           }
         },
-        "buy_buttons_6": {
+        "buy_buttons_1": {
           "type": "buy_buttons",
           "settings": {
-            "atc_icon": "bag",
-            "buy_icon": "check",
-            "atc_bg_color": "",
-            "atc_hover_bg": "",
-            "buy_bg_color": "",
-            "buy_hover_bg": "",
-            "show_quantity": true,
-            "atc_appearance": "theme",
-            "atc_hover_text": "",
-            "atc_icon_color": "transparent",
-            "atc_text_color": "",
-            "buy_appearance": "theme",
-            "buy_hover_text": "",
-            "buy_text_color": "",
-            "atc_button_text": "Add to cart",
-            "atc_font_weight": "600",
-            "atc_icon_enable": true,
-            "buy_button_text": "Buy now",
-            "buy_font_weight": "600",
-            "buy_icon_enable": true,
             "show_add_to_cart": true,
-            "show_price_in_atc": false,
-            "show_variant_picker": true,
-            "enable_custom_colors": false,
-            "atc_redirect_checkout": false,
-            "quantity_right_of_atc": false,
             "show_dynamic_checkout": true,
-            "show_price_in_buy_now": false,
-            "estimated_delivery_text": "",
-            "estimated_delivery_color": "",
-            "show_gift_card_recipient": true,
-            "enable_custom_button_text": true,
-            "enable_estimated_delivery": false,
-            "enable_custom_button_typography": true
+            "show_quantity": true,
+            "buttons_full_width": true,
+            "quantity_right_of_atc": false,
+            "show_wishlist_button": false,
+            "atc_appearance": "theme",
+            "buy_appearance": "theme",
+            "atc_icon_enable": true,
+            "atc_icon": "bag",
+            "buy_icon_enable": false,
+            "show_gift_card_recipient": false
           }
         },
-        "product_grouped_9": {
-          "type": "product_grouped",
+        "vertical_benefits_1": {
+          "type": "vertical_benefits",
           "settings": {
-            "heading": "Also available as"
+            "vb_pt": 14,
+            "vb_pb": 6,
+            "vb_mt": 0,
+            "vb_mb": 0,
+            "vb_item_space": 10,
+            "vb_maxw": 100,
+            "vb_pl": 0,
+            "vb_pr": 0,
+            "vb_text_size_d": 14,
+            "vb_text_size_m": 14,
+            "vb_icon_gap": 12,
+            "vb_icon_gap_m": 10,
+            "vb_icon_size": 20,
+            "vb_icon_size_m": 20,
+            "vb_text_color": "",
+            "vb_bg": "",
+            "vb_icon_color": "",
+            "item1_title": "Printed on 250 gsm matte paper",
+            "item1_icon_library": "leaf",
+            "item1_use_image": false,
+            "item1_image_size": 50,
+            "item2_title": "Sent flat in a rigid mailer",
+            "item2_icon_library": "truck",
+            "item2_use_image": false,
+            "item2_image_size": 50,
+            "item3_title": "Framed prints arrive ready to hang",
+            "item3_icon_library": "check",
+            "item3_use_image": false,
+            "item3_image_size": 50
           }
         },
-        "more_colors_10": {
-          "type": "more_colors",
-          "settings": {
-            "heading": "More colourways",
-            "image_width": 40
-          }
-        },
-        "collapsible_row_11": {
+        "collapsible_row_1": {
           "type": "collapsible_row",
           "settings": {
-            "open": false,
-            "content": "<p>Name the paper, its weight and finish, and the sizes you print. Say which frames they fit.</p>",
             "heading": "Paper and sizes",
-            "use_product_description": false
+            "content": "<p>Thick matte paper with a soft white border. A4 is 21 x 29.7 cm, A3 is 29.7 x 42 cm, and 50 x 70 cm fits a standard frame.</p>",
+            "use_product_description": false,
+            "open": true
           }
         },
-        "collapsible_row_12": {
+        "collapsible_row_2": {
           "type": "collapsible_row",
           "settings": {
-            "open": false,
-            "content": "<p>Made within three working days and sent flat in a rigid mailer, tracked. Unframed prints can be returned within 30 days.</p>",
-            "heading": "Shipping and returns",
-            "use_product_description": false
+            "heading": "Frames",
+            "content": "<p>Black or natural oak, with a white mount and glass at the front. Hooks are fitted, so it is ready for a nail.</p>",
+            "use_product_description": false,
+            "open": false
           }
         },
-        "payment_badges_13": {
+        "collapsible_row_3": {
+          "type": "collapsible_row",
+          "settings": {
+            "heading": "Shipping and returns",
+            "content": "<p>Made within three working days and sent flat in a rigid mailer, tracked. Unframed prints can be returned within 30 days.</p>",
+            "use_product_description": false,
+            "open": false
+          }
+        },
+        "payment_badges_1": {
           "type": "payment_badges",
           "settings": {
             "h_main": "",
@@ -238,16 +217,15 @@
       },
       "block_order": [
         "title_1",
-        "product_description_2",
-        "short_description_3",
-        "price_4",
-        "variant_picker_5",
-        "buy_buttons_6",
-        "product_grouped_9",
-        "more_colors_10",
-        "collapsible_row_11",
-        "collapsible_row_12",
-        "payment_badges_13"
+        "price_1",
+        "short_description_1",
+        "variant_picker_1",
+        "buy_buttons_1",
+        "vertical_benefits_1",
+        "collapsible_row_1",
+        "collapsible_row_2",
+        "collapsible_row_3",
+        "payment_badges_1"
       ]
     },
     "text_columns_1": {
@@ -407,12 +385,71 @@
         "heading_1",
         "view_all_1"
       ]
+    },
+    "faq": {
+      "type": "posters-faq",
+      "settings": {
+        "heading": "Good to know",
+        "intro": "",
+        "first_open": false,
+        "heading_size": 32,
+        "question_size": 15,
+        "max_width": 760,
+        "background": "rgba(0,0,0,0)",
+        "heading_color": "#24211f",
+        "text_color": "#24211f",
+        "icon_color": "#24211f",
+        "divider_color": "#e6dfd2",
+        "padding_top": 88,
+        "padding_bottom": 96
+      },
+      "blocks": {
+        "q1": {
+          "type": "question",
+          "settings": {
+            "icon": "size",
+            "question": "Which size should I pick?",
+            "answer": "<p>A4 for a shelf or a small wall, A3 above a desk, 50 x 70 cm over a sofa or a bed.</p>"
+          }
+        },
+        "q2": {
+          "type": "question",
+          "settings": {
+            "icon": "frame",
+            "question": "Can I frame it myself?",
+            "answer": "<p>Yes. Every size fits a standard shop frame, and the border leaves room for a mount.</p>"
+          }
+        },
+        "q3": {
+          "type": "question",
+          "settings": {
+            "icon": "paper",
+            "question": "What paper is it?",
+            "answer": "<p>250 gsm matte paper with archival inks, so the colours stay bright.</p>"
+          }
+        },
+        "q4": {
+          "type": "question",
+          "settings": {
+            "icon": "gift",
+            "question": "Can I send it as a gift?",
+            "answer": "<p>Yes. Add the address at checkout and we leave the price off the parcel.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "q1",
+        "q2",
+        "q3",
+        "q4"
+      ]
     }
   },
   "order": [
     "breadcrumb",
     "main",
     "text_columns_1",
-    "products_carousel_2"
+    "products_carousel_2",
+    "faq"
   ]
 }

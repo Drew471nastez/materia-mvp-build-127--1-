@@ -6,7 +6,7 @@ import { recordAdminAction } from "@/lib/admin/audit"
 import { UUID_RE } from "@/lib/admin/platform-metrics"
 import { mergeListings } from "@/lib/themes/marketplace-shared"
 import { parseListingInput, type ListingInput } from "@/lib/themes/marketplace-admin"
-import { LISTINGS_TABLE, LISTING_COLUMNS, PACKAGE_BUCKET, previewPathFor, readListingRows, revalidateMarketplace, rowToListing, type ListingRow } from "@/lib/themes/marketplace-server"
+import { LISTINGS_TABLE, LISTING_COLUMNS, LISTING_COLUMNS_FULL, PACKAGE_BUCKET, isMissingColumn, previewPathFor, readListingRows, revalidateMarketplace, rowToListing, type ListingRow } from "@/lib/themes/marketplace-server"
 import { STORELIB_DEFAULT_ID } from "@/lib/website-builder/theme-registry"
 
 export const runtime = "nodejs"
@@ -54,10 +54,15 @@ export async function POST(req: NextRequest) {
   const row: Record<string, unknown> = { ...input, updated_at: new Date().toISOString() }
   if (builtin && !id) row.builtin_theme_id = STORELIB_DEFAULT_ID
 
-  const write = id
-    ? admin.from(LISTINGS_TABLE).update(row).eq("id", id).select(LISTING_COLUMNS).maybeSingle()
-    : admin.from(LISTINGS_TABLE).insert(row).select(LISTING_COLUMNS).maybeSingle()
-  const { data, error } = await write
+  const write = (r: Record<string, unknown>, columns: string) =>
+    id ? admin.from(LISTINGS_TABLE).update(r).eq("id", id).select(columns).maybeSingle() : admin.from(LISTINGS_TABLE).insert(r).select(columns).maybeSingle()
+  let { data, error } = await write(row, LISTING_COLUMNS_FULL)
+  /* Before RUN_THEME_RELEASES.sql there is no description column: the rest still saves. */
+  if (isMissingColumn(error)) {
+    const { description: _d, ...rest } = row
+    void _d
+    ;({ data, error } = await write(rest, LISTING_COLUMNS))
+  }
   if (error) {
     if (error.code === "23505") return NextResponse.json({ error: "Another theme already has that address." }, { status: 409, headers: NO_STORE })
     if (error.code === "42P01" || error.code === "PGRST205") return NextResponse.json({ error: SQL_MISSING }, { status: 503, headers: NO_STORE })
@@ -65,7 +70,7 @@ export async function POST(req: NextRequest) {
   }
   if (!data) return NextResponse.json({ error: "No theme has this id." }, { status: 404, headers: NO_STORE })
 
-  const saved = data as ListingRow
+  const saved = data as unknown as ListingRow
   await recordAdminAction(admin, { action: id ? "theme_listing_updated" : "theme_listing_created", targetType: "platform", targetId: saved.id, targetLabel: saved.name, detail: { slug: saved.slug, tier: saved.tier, published: saved.published } })
   revalidateMarketplace([saved.slug])
   return NextResponse.json({ ok: true, listing: rowToListing(saved) }, { headers: NO_STORE })

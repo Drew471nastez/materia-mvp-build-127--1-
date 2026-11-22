@@ -112,7 +112,8 @@ async function main() {
   const listings = builtinListings()
   /* Changed on purpose (templates round 18): Skincare was removed and Creator Landing was added, twelve are listed. */
   /* Changed on purpose (templates round 19): Art books added after Digital products; with Night shop and Poster shop at the end, fifteen are listed. */
-  check("fifteen templates are listed, with no table and nothing uploaded", listings.length === 15 && CODE_TEMPLATES.length === 15, listings.map((l) => l.slug))
+  /* Changed on purpose (templates round 20): Tour merch was removed, fourteen are listed. */
+  check("fourteen templates are listed, with no table and nothing uploaded", listings.length === 14 && CODE_TEMPLATES.length === 14, listings.map((l) => l.slug))
   check("Storelib Default is first, at the default address", listings[0]?.slug === DEFAULT_LISTING_SLUG && listings[0]?.name === "Storelib Default" && mergeListings([])[0]?.slug === DEFAULT_LISTING_SLUG)
   /* Changed on purpose (templates round 18): Landing page is now called Course (same slug, landing-page). */
   /* Changed on purpose (templates round 19): Art books sits right after Digital products. */
@@ -269,9 +270,10 @@ async function main() {
   check("no two share a typeface pairing and palette", new Set(Object.values(looks)).size === CODE_TEMPLATES.length, looks)
   /* The second clothing, merch and digital templates are not the first ones again: no section in the same place for the first two, another typeface and another ground. */
   const apart = (a: string, b: string) => homes[a].split(",").slice(0, 2).every((s, i) => s !== homes[b].split(",")[i]) && looks[a].split("|").every((v, i) => v !== looks[b].split("|")[i])
-  check("the second template of a kind opens differently from the first, in another typeface and colour", apart("streetwear", "clothing") && apart("tour", "merch") && apart("samples", "digital") && apart("workspace", "digital") && apart("workspace", "landing"), { homes, looks }) /* Changed on purpose (templates round 18): Skincare was removed. */
+  check("the second template of a kind opens differently from the first, in another typeface and colour", apart("streetwear", "clothing") /* Changed on purpose (templates round 20): Tour merch was removed, so there is no second merch template. */ && apart("samples", "digital") && apart("workspace", "digital") && apart("workspace", "landing"), { homes, looks }) /* Changed on purpose (templates round 18): Skincare was removed. */
   /* Changed on purpose (templates round 18): Skincare was removed, four narrower templates remain. */
-  check("the four narrower templates each use sections none of the first seven's home pages do", ["streetwear", "tour", "samples", "workspace"].every((n) => homes[n].split(",").filter((s) => !["default", "clothing", "merch", "digital", "ebooks", "fitness", "landing"].some((o) => homes[o].split(",").includes(s))).length >= 4), homes)
+  /* Changed on purpose (templates round 20): Tour merch was removed, three narrower templates remain. */
+  check("the three narrower templates each use sections none of the first seven's home pages do", ["streetwear", "samples", "workspace"].every((n) => homes[n].split(",").filter((s) => !["default", "clothing", "merch", "digital", "ebooks", "fitness", "landing"].some((o) => homes[o].split(",").includes(s))).length >= 4), homes)
   /* Changed on purpose (templates round 18): the landing template is now a course school, a flagship course over a grid of smaller ones, with a few links, one button and no cart, account or search in its header. */
   check("the course template opens on its flagship course over a grid of the others, and its header has one button and no cart, account or search", homes.landing.split(",").length >= 8 && homes.landing.startsWith("hero-product3,") && homes.landing.includes("products-listing") && ((h) => /"show_shopping_cart": false/.test(h) && /"show_account_icon": false/.test(h) && /"show_search": false/.test(h) && /"type": "header_button"/.test(h))(read(join(ROOT, "templates/landing/sections/header-group.json"))))
 

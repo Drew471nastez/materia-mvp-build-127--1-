@@ -8,7 +8,9 @@ import { checkThemeZipSize } from "@/lib/themes/zip-rules"
 import {
   LISTINGS_TABLE,
   LISTING_COLUMNS,
+  LISTING_COLUMNS_FULL,
   PACKAGE_BUCKET,
+  isMissingColumn,
   PACKAGE_PATH_RE,
   checkThemeZip,
   packagePathFor,
@@ -115,12 +117,10 @@ export async function POST(req: NextRequest) {
     await bucket.remove([previewPath]).catch(() => undefined)
   }
 
-  const { data: saved, error } = await admin
-    .from(LISTINGS_TABLE)
-    .update({ package_path: path, package_kind: ok.kind, updated_at: new Date().toISOString() })
-    .eq("id", listingId)
-    .select(LISTING_COLUMNS)
-    .maybeSingle()
+  const write = (columns: string) =>
+    admin.from(LISTINGS_TABLE).update({ package_path: path, package_kind: ok.kind, updated_at: new Date().toISOString() }).eq("id", listingId).select(columns).maybeSingle()
+  let { data: saved, error } = await write(LISTING_COLUMNS_FULL)
+  if (isMissingColumn(error)) ({ data: saved, error } = await write(LISTING_COLUMNS))
   if (error || !saved) {
     await drop()
     return adminFailure("theme zip save", error ?? "no row", "The zip was checked but not saved. Try again.")
@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
   const old = (current as { package_path: string | null }).package_path
   if (old && old !== path) await bucket.remove([old]).catch(() => undefined)
 
-  const row = saved as ListingRow
+  const row = saved as unknown as ListingRow
   await recordAdminAction(admin, { action: "theme_listing_package", targetType: "platform", targetId: listingId, targetLabel: row.name, detail: { kind: ok.kind, files: ok.files, bytes: buf.byteLength } })
   revalidateMarketplace([row.slug])
   return NextResponse.json({ ok: true, kind: ok.kind, files: ok.files, themeName: ok.name, listing: rowToListing(row) }, { headers: NO_STORE })

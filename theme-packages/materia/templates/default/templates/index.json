@@ -12,9 +12,9 @@
         "content_max_width": 520,
         "content_gap": 22,
         "min_height_desktop": 640,
-        "image": "shopify://shop_images/default-hero.webp",
-        "image_alt": "A speckled stoneware bottle and two cups on a white table",
-        "image_position_x": 62,
+        "image": "shopify://shop_images/default-hero-mugs.webp",
+        "image_alt": "Rows of teal, cream and grey mugs on wooden shop shelves",
+        "image_position_x": 50,
         "image_position_y": 50,
         "padding_top_desktop": 56,
         "padding_bottom_desktop": 56,
@@ -29,7 +29,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Arden",
+            "text": "Sundry",
             "size_enable": true,
             "size_desktop": 92,
             "size_mobile": 64,

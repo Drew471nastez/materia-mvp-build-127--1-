@@ -58,21 +58,21 @@
           "type": "faq",
           "settings": {
             "question": "How do I get the files?",
-            "answer": "<p>The download link is on the page after you pay and in your receipt email.</p>"
+            "answer": "<p>Right after checkout you get an email receipt with your download page link.</p>"
           }
         },
         "faq_2": {
           "type": "faq",
           "settings": {
             "question": "Can I release music made with these?",
-            "answer": "<p>Yes. Every pack is royalty free for your releases and paid work.</p>"
+            "answer": "<p>Yes. Every sound is 100% royalty free, commercial releases included.</p>"
           }
         },
         "faq_3": {
           "type": "faq",
           "settings": {
             "question": "Buying more than one tech house pack?",
-            "answer": "<p>The <a href=\"/search?q=master+bundle\">Tech House Master Bundle</a> has them all in one download for $19.98.</p>"
+            "answer": "<p>The <a href=\"/collections/all\">Tech House Master Bundle 2025</a> holds over 1,000 sounds in one download.</p>"
           }
         },
         "payment_badges_67Mgyc": {

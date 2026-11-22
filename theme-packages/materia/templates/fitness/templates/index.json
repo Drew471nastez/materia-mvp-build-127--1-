@@ -360,8 +360,10 @@
       "type": "faq-side-image",
       "settings": {
         "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "image": "shopify://shop_images/fitness-gym.webp",
-        "image_position": "left"
+        "image": "shopify://shop_images/fitness-dumbbells.webp",
+        "image_position": "left",
+        "image_aspect": "4_3",
+        "open_first": true
       },
       "blocks": {
         "heading_1": {
@@ -414,37 +416,81 @@
         "faq_item_6"
       ]
     },
-    "richtext2_9": {
-      "type": "richtext2",
+    "banner3_9": {
+      "type": "banner3",
       "settings": {
         "color_scheme": "scheme-6da511c0-ea26-4213-b3d3-e09320840636",
-        "badge_text": "Ready?"
+        "section_width": "full_width",
+        "text_align": "center",
+        "max_width": 900,
+        "banner_surface": "section",
+        "pad_top_desktop": 120,
+        "pad_bottom_desktop": 120,
+        "section_padding_top": 0,
+        "section_padding_bottom": 0,
+        "section_pad_left": 0,
+        "section_pad_right": 0,
+        "pad_top_mobile": 80,
+        "pad_bottom_mobile": 84,
+        "section_padding_top_mobile": 0,
+        "section_padding_bottom_mobile": 0,
+        "section_pad_left_mobile": 0,
+        "section_pad_right_mobile": 0,
+        "stack_gap": 18,
+        "sub_btn_gap": 34,
+        "reveal": true,
+        "reveal_style": "fade_up",
+        "mobile_button_full": false
       },
       "blocks": {
-        "title_1": {
-          "type": "title",
+        "eyebrow_1": {
+          "type": "eyebrow",
           "settings": {
-            "title_text": "Your first session starts today"
+            "text": "Start this week",
+            "enable_custom_style": true,
+            "font": "body",
+            "weight": "600",
+            "transform": "uppercase",
+            "letterspace": 0.2,
+            "size_d": 13,
+            "size_m": 12
           }
         },
-        "description_2": {
-          "type": "description",
+        "heading_2": {
+          "type": "heading",
           "settings": {
-            "description_text": "Pick a program and get the plan in your inbox in a minute."
+            "text": "Your first session starts today",
+            "enable_custom_style": true,
+            "font": "heading",
+            "weight": "theme",
+            "transform": "uppercase",
+            "letterspace": 0,
+            "lineheight": "1",
+            "size_d": 72,
+            "size_m": 44
           }
         },
-        "button_3": {
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "Pick a program and get the plan in your inbox in a minute.",
+            "size_d": 18,
+            "size_m": 16
+          }
+        },
+        "button_4": {
           "type": "button",
           "settings": {
-            "button_text": "See the programs",
-            "button_link": "/collections/all"
+            "label": "See the programs",
+            "link": "/collections/all"
           }
         }
       },
       "block_order": [
-        "title_1",
-        "description_2",
-        "button_3"
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
       ]
     }
   },
@@ -457,6 +503,6 @@
     "steps_6",
     "testimonials_7",
     "faq_side_image_8",
-    "richtext2_9"
+    "banner3_9"
   ]
 }

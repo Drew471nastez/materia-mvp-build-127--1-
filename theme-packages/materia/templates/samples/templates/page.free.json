@@ -1,22 +1,72 @@
 {
   "sections": {
+    "listen": {
+      "type": "samples-audio-tracks",
+      "settings": {
+        "layout": "list",
+        "eyebrow": "Free downloads",
+        "heading": "Two packs, free",
+        "text": "<p>Full packs, not demos, and royalty free like the rest. Hear them first.</p>",
+        "link_label": "Shop every pack",
+        "link_url": "/collections/all",
+        "max_width": 1040,
+        "heading_size": 44,
+        "heading_size_mobile": 30,
+        "color_scheme": "default",
+        "section_width": "container",
+        "padding_top": 72,
+        "padding_bottom": 40
+      },
+      "blocks": {
+        "t_ambience_kit": {
+          "type": "track",
+          "settings": {
+            "title": "Free Ambience Sample Pack Vol I",
+            "subtitle": "Pad texture, D minor",
+            "audio": "shopify://shop_images/samples-demo-ambience-kit.mp4",
+            "length": "0:09",
+            "peaks": "8,11,13,16,19,23,27,31,41,44,48,50,55,50,61,65,61,68,73,85,89,80,84,89,90,92,85,79,83,91,95,83,64,79,77,81,75,74,66,68,65,63,59,56,70,80,82,71,59,55,57,54,58,65,63,60,55,49,49,60,66,64,50,58,57,58,67,67,61,68,78,82,78,78,81,77,75,68,66,77,86,82,77,83,90,85,68,81,92,91,93,100,98,93,72,68,65,60,59,58,63,60,49,37,40,41,40,37,32,25,24,22,16,14,12,10,6,4,2,1",
+            "link_label": "Download free",
+            "cover": "shopify://shop_images/samples-thumb-ambience-kit.webp",
+            "link": "/collections/all"
+          }
+        },
+        "t_drum_kit": {
+          "type": "track",
+          "settings": {
+            "title": "Tech House Drum Kit Vol I",
+            "subtitle": "One shots, then a beat, 125 BPM",
+            "audio": "shopify://shop_images/samples-demo-drums-one-shots.mp4",
+            "length": "0:08",
+            "peaks": "99,62,49,37,28,74,65,49,40,28,65,51,25,14,8,57,62,24,17,7,25,21,9,1,1,2,21,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,66,64,53,44,38,25,20,91,87,58,47,38,25,19,67,64,50,43,39,24,18,100,82,59,45,40,25,18,65,64,50,41,35,23,18,95,79,57,44,33,25,18,66,60,50,39,32,23,17,100,77,62,47,31,25,16,2,1,0,0,0,0,0,0,0",
+            "link_label": "Download free",
+            "cover": "shopify://shop_images/samples-thumb-drum-kit.webp",
+            "link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "t_ambience_kit",
+        "t_drum_kit"
+      ]
+    },
     "signup": {
       "type": "newsletter-split",
       "settings": {
-        "color_scheme": "default",
+        "color_scheme": "scheme-tr-panel",
         "section_width": "container",
-        "image": "shopify://shop_images/samples-free.webp",
-        "image_alt": "Free Ambience Sample Pack Vol I",
+        "image": "shopify://shop_images/samples-free-pair.webp",
+        "image_alt": "Free Ambience Sample Pack Vol I and Tech House Drum Kit Vol I",
         "image_position": "left",
-        "image_ratio": "square",
-        "image_width": 46,
+        "image_ratio": "landscape",
+        "image_width": 44,
         "column_gap": 64,
         "form_layout": "horizontal",
         "email_placeholder": "Your email address",
-        "btn_text": "Send me the pack",
+        "btn_text": "Subscribe",
         "button_radius": 8,
-        "note": "One email when a new pack is out. Unsubscribe from any email.",
-        "success_text": "Check your inbox. The download link is on its way.",
+        "note": "No spam. Unsubscribe from any email.",
+        "success_text": "Thank you for subscribing!",
         "padding_top": 72,
         "padding_bottom": 72,
         "padding_top_mobile": 48,
@@ -26,16 +76,16 @@
         "heading": {
           "type": "heading",
           "settings": {
-            "text": "Free Ambience Sample Pack Vol I",
+            "text": "Get weekly sounds",
             "size_enable": true,
-            "size_desktop": 44,
+            "size_desktop": 40,
             "size_mobile": 30
           }
         },
         "subheading": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Pads, drones and textures, free and royalty free. Leave your email and the download link arrives in a minute.</p>"
+            "text": "<p>New packs, sales and free downloads by email, once a week at most.</p>"
           }
         }
       },
@@ -47,7 +97,7 @@
     "packs": {
       "type": "products-grid",
       "settings": {
-        "heading": "Packs on sale",
+        "heading": "On sale now",
         "text": "",
         "items_to_show": 4,
         "show_add_to_cart": false,
@@ -62,72 +112,11 @@
         "padding_top": 72,
         "padding_bottom": 80
       }
-    },
-    "listen": {
-      "type": "samples-audio-tracks",
-      "settings": {
-        "layout": "list",
-        "eyebrow": "Listen first",
-        "heading": "Hear the free packs",
-        "text": "<p>The ambience pack is free. Hear the drum kit and the bundle before you buy.</p>",
-        "link_label": "",
-        "link_url": "",
-        "max_width": 1200,
-        "heading_size": 44,
-        "heading_size_mobile": 30,
-        "color_scheme": "scheme-tr-panel",
-        "section_width": "fluid_container",
-        "padding_top": 88,
-        "padding_bottom": 88
-      },
-      "blocks": {
-        "t_ambience_kit": {
-          "type": "track",
-          "settings": {
-            "title": "Free Ambience Sample Pack Vol I",
-            "subtitle": "Pad texture, D minor",
-            "audio": "shopify://shop_images/samples-demo-ambience-kit.mp4",
-            "length": "0:09",
-            "cover": "shopify://shop_images/samples-thumb-ambience-kit.webp",
-            "link_label": "Get the pack",
-            "link": "/search?q=ambience"
-          }
-        },
-        "t_drums_one_shots": {
-          "type": "track",
-          "settings": {
-            "title": "Tech House Drum Kit Vol I",
-            "subtitle": "One shots, then a beat, 125 BPM",
-            "audio": "shopify://shop_images/samples-demo-drums-one-shots.mp4",
-            "length": "0:08",
-            "cover": "shopify://shop_images/samples-thumb-drums-one-shots.webp",
-            "link_label": "Get the pack",
-            "link": "/search?q=drum+kit"
-          }
-        },
-        "t_tech_house_master_bundle": {
-          "type": "track",
-          "settings": {
-            "title": "Tech House Master Bundle",
-            "subtitle": "Groove loop, 126 BPM, F minor",
-            "audio": "shopify://shop_images/samples-demo-tech-house-master-bundle.mp4",
-            "length": "0:08",
-            "cover": "shopify://shop_images/samples-thumb-tech-house-master-bundle.webp",
-            "link_label": "Get the pack",
-            "link": "/search?q=master+bundle"
-          }
-        }
-      },
-      "block_order": [
-        "t_ambience_kit",
-        "t_drums_one_shots",
-        "t_tech_house_master_bundle"
-      ]
     }
   },
   "order": [
-    "signup",
     "listen",
+    "signup",
     "packs"
   ]
 }

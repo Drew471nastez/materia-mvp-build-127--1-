@@ -40,7 +40,7 @@
             "enable_custom_fonts": false,
             "font": "assistant_n4",
             "description_font_size": 15,
-            "description": "<p>One licence for every pack, free and sample. It does not expire.</p>"
+            "description": "<p>One licence for every Loudlib pack, paid or free. It does not expire.</p>"
           }
         }
       },
@@ -108,7 +108,7 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Buying a pack gives you, and only you, the right to use its sounds in your own music.</p>",
+            "text": "<p>Every sound is 100% royalty free, commercial use included.</p>",
             "enable_custom_style": false,
             "size": 16,
             "line_height": 1.5,
@@ -118,21 +118,21 @@
         "positive_1": {
           "type": "positive",
           "settings": {
-            "text": "Release music made with the sounds, commercially, on any platform",
+            "text": "Use the samples and presets in your own tracks",
             "icon_type": "check"
           }
         },
         "positive_2": {
           "type": "positive",
           "settings": {
-            "text": "Use them in sync, adverts, games, film and client work",
+            "text": "Release that music commercially, on every platform, and keep the royalties",
             "icon_type": "check"
           }
         },
         "positive_3": {
           "type": "positive",
           "settings": {
-            "text": "Edit, layer, pitch and resample them however you like",
+            "text": "Edit, layer, pitch and resample the sounds",
             "icon_type": "check"
           }
         },
@@ -143,21 +143,21 @@
         "negative_1": {
           "type": "negative",
           "settings": {
-            "text": "Resell, share or give away the files, as they are or repackaged",
+            "text": "Share, resell or give away the packs",
             "icon_type": "cross"
           }
         },
         "negative_2": {
           "type": "negative",
           "settings": {
-            "text": "Use them to make another sample pack, preset bank or instrument",
+            "text": "Redistribute the sample banks or the packaging",
             "icon_type": "cross"
           }
         },
         "negative_3": {
           "type": "negative",
           "settings": {
-            "text": "Claim a sample by itself through a content ID system",
+            "text": "Render a project file or template and release that exact song as your own",
             "icon_type": "cross"
           }
         }
@@ -226,16 +226,16 @@
           "type": "column",
           "settings": {
             "label": "Who",
-            "heading": "One licence per person",
-            "text": "<p>A duo or a studio sharing one pack needs one licence each. Labels can <a href=\"/pages/contact\">write to us</a> for a team licence.</p>"
+            "heading": "Yours to keep",
+            "text": "<p>Every product you buy is yours for good, and the music you make with it stays cleared.</p>"
           }
         },
         "column_2": {
           "type": "column",
           "settings": {
             "label": "How long",
-            "heading": "It does not expire",
-            "text": "<p>Tracks you release stay cleared, even if the pack leaves the shop.</p>"
+            "heading": "Free packs too",
+            "text": "<p>The free downloads come with the same licence as the paid packs.</p>"
           }
         },
         "column_3": {
@@ -243,7 +243,7 @@
           "settings": {
             "label": "Anything else",
             "heading": "Ask first",
-            "text": "<p>If a use is not covered here, <a href=\"/pages/contact\">write to us</a> before you release.</p>"
+            "text": "<p>If a use is not covered here, write to <a href=\"mailto:team@loudlib.net\">team@loudlib.net</a> before you release.</p>"
           }
         }
       },
@@ -259,16 +259,16 @@
       "settings": {
         "color_scheme": "default",
         "section_width": "full_width",
-        "tab_1_label": "Downloads",
-        "tab_2_label": "Licence",
-        "tab_3_label": "Your DAW",
+        "tab_1_label": "Licence",
+        "tab_2_label": "Files",
+        "tab_3_label": "Help and paying",
         "open_first": true,
         "allow_multiple_open": false,
         "header_align": "center",
         "q_size": 17,
         "a_size": 15,
-        "padding_top_desktop": 80,
-        "padding_bottom_desktop": 80,
+        "padding_top_desktop": 88,
+        "padding_bottom_desktop": 88,
         "padding_top_mobile": 56,
         "padding_bottom_mobile": 56
       },
@@ -279,7 +279,7 @@
             "text": "Licence questions",
             "tag": "h2",
             "size_enable": true,
-            "size_desktop": 44,
+            "size_desktop": 40,
             "size_mobile": 30
           }
         },
@@ -293,72 +293,56 @@
           "type": "faq_item",
           "settings": {
             "tab": "1",
-            "question": "How do I get the files?",
-            "answer": "<p>The download link is on the page straight after you pay, and in the receipt email. It works on any computer, as often as you need it.</p>"
+            "question": "Are Loudlib packs royalty free?",
+            "answer": "<p>Yes. Every sound is 100% royalty free, commercial releases included. Use the samples and presets in your own tracks and keep everything they earn.</p>"
           }
         },
         "faq_2": {
           "type": "faq_item",
           "settings": {
             "tab": "1",
-            "question": "What format are the sounds?",
-            "answer": "<p>24 bit WAV at 44.1 kHz. Loops carry their key and BPM in the file name, and MIDI files sit next to the loops they play. Serum presets come as .fxp files.</p>"
+            "question": "What is not allowed?",
+            "answer": "<p>Sharing or reselling the packs, or their banks and packaging, and rendering a project file or template and releasing that exact song as your own. <a href=\"/pages/licence\">Read the licence</a>.</p>"
           }
         },
         "faq_3": {
           "type": "faq_item",
           "settings": {
-            "tab": "1",
-            "question": "I lost my download. Can I get it again?",
-            "answer": "<p>Yes. Open the link in your receipt email again, or <a href=\"/pages/contact\">write to us</a> with your order number and we send a fresh one.</p>"
+            "tab": "2",
+            "question": "How do I get the files?",
+            "answer": "<p>Right after checkout you get an email receipt with your download page link. Packs come as a ZIP or RAR file of WAV samples.</p>"
           }
         },
         "faq_4": {
           "type": "faq_item",
           "settings": {
             "tab": "2",
-            "question": "Can I release songs made with these sounds?",
-            "answer": "<p>Yes, on every platform, and the royalties are all yours. You do not need to credit Loudlib.</p>"
+            "question": "Which DAWs do the packs work in?",
+            "answer": "<p>Every major one. The sounds are WAV files, so you drag them into Ableton Live, FL Studio, Logic Pro or any other DAW.</p>"
           }
         },
         "faq_5": {
           "type": "faq_item",
           "settings": {
             "tab": "2",
-            "question": "Can I use them in paid client work?",
-            "answer": "<p>Yes. Beats for artists, sync, adverts, games and film are all covered.</p>"
+            "question": "Do I need a plugin?",
+            "answer": "<p>Not for the sample packs. The Serum presets need Xfer Serum 1.368 or later, which is sold separately.</p>"
           }
         },
         "faq_6": {
           "type": "faq_item",
           "settings": {
-            "tab": "2",
-            "question": "What is not allowed?",
-            "answer": "<p>Selling or sharing the sounds as they are, putting them in another sample pack or library, and registering a sound on its own with a content ID service. <a href=\"/pages/licence\">Read the licence</a>.</p>"
+            "tab": "3",
+            "question": "I am having trouble with a download",
+            "answer": "<p>Write to <a href=\"mailto:team@loudlib.net\">team@loudlib.net</a> or use the <a href=\"/pages/contact\">contact page</a> and we will sort it out.</p>"
           }
         },
         "faq_7": {
           "type": "faq_item",
           "settings": {
             "tab": "3",
-            "question": "Which DAWs do the packs work in?",
-            "answer": "<p>All of them. WAV and MIDI open in Ableton Live, FL Studio, Logic Pro, Cubase, Studio One, Reaper and Bitwig.</p>"
-          }
-        },
-        "faq_8": {
-          "type": "faq_item",
-          "settings": {
-            "tab": "3",
-            "question": "Do I need a plugin?",
-            "answer": "<p>Not for the sample packs: every sound is audio or MIDI. The Serum presets need Xfer Serum.</p>"
-          }
-        },
-        "faq_9": {
-          "type": "faq_item",
-          "settings": {
-            "tab": "3",
-            "question": "Can I hear a pack before I buy?",
-            "answer": "<p>Yes. Every pack has a demo on its page, and the <a href=\"/pages/free\">free downloads</a> are full quality.</p>"
+            "question": "How can I pay?",
+            "answer": "<p>With a credit or debit card (Visa, Mastercard, American Express and others) or with PayPal.</p>"
           }
         }
       },
@@ -371,9 +355,7 @@
         "faq_4",
         "faq_5",
         "faq_6",
-        "faq_7",
-        "faq_8",
-        "faq_9"
+        "faq_7"
       ]
     }
   },

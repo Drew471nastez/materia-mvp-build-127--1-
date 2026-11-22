@@ -59,114 +59,142 @@
             "padding_bottom": 10
           }
         },
-        "title_2": {
+        "title_1": {
           "type": "title",
           "settings": {
             "show_vendor": false,
-            "title_font_size_mobile": 30,
-            "title_font_size_desktop": 40
+            "title_font_size_desktop": 32,
+            "title_font_size_mobile": 26
           }
         },
-        "price_3": {
+        "price_1": {
           "type": "price",
           "settings": {
-            "price_font_weight": "600",
-            "compare_font_weight": "400",
-            "price_font_size_mobile": 24,
             "price_font_size_desktop": 26,
-            "compare_font_size_mobile": 15,
-            "compare_font_size_desktop": 16
+            "price_font_size_mobile": 24,
+            "price_font_weight": "600",
+            "compare_font_size_desktop": 16,
+            "compare_font_size_mobile": 14,
+            "compare_font_weight": "400"
           }
         },
-        "variant_picker_4": {
+        "variant_picker_1": {
           "type": "variant_picker",
           "settings": {
             "variant_type": "swatches",
             "show_size_guide": false,
-            "picker_border_radius": 999
+            "picker_swatch_style": "theme"
           }
         },
-        "buy_buttons_5": {
+        "buy_buttons_1": {
           "type": "buy_buttons",
           "settings": {
-            "atc_icon": "bag",
-            "buy_icon": "check",
+            "show_add_to_cart": true,
+            "show_dynamic_checkout": true,
             "show_quantity": false,
+            "buttons_full_width": true,
+            "quantity_right_of_atc": false,
+            "show_wishlist_button": false,
             "atc_appearance": "theme",
             "buy_appearance": "theme",
-            "atc_button_text": "Add to cart",
-            "atc_font_weight": "600",
             "atc_icon_enable": false,
-            "buy_button_text": "Buy now",
-            "buy_font_weight": "600",
+            "atc_icon": "bag",
             "buy_icon_enable": false,
-            "show_add_to_cart": true,
-            "show_price_in_atc": false,
-            "show_variant_picker": true,
-            "enable_custom_colors": false,
-            "atc_redirect_checkout": false,
-            "quantity_right_of_atc": false,
-            "show_dynamic_checkout": true,
-            "show_price_in_buy_now": false,
-            "show_gift_card_recipient": false,
-            "enable_custom_button_text": true,
-            "enable_estimated_delivery": false,
-            "enable_custom_button_typography": true
+            "show_gift_card_recipient": false
           }
         },
-        "text_6": {
-          "type": "text",
+        "vertical_benefits_1": {
+          "type": "vertical_benefits",
           "settings": {
-            "heading": "Instant delivery",
-            "content": "<p>The download link is on the order page and in your receipt email the moment you pay. Nothing is posted.</p>"
+            "vb_pt": 14,
+            "vb_pb": 6,
+            "vb_mt": 0,
+            "vb_mb": 0,
+            "vb_item_space": 10,
+            "vb_maxw": 100,
+            "vb_pl": 0,
+            "vb_pr": 0,
+            "vb_text_size_d": 14,
+            "vb_text_size_m": 14,
+            "vb_icon_gap": 12,
+            "vb_icon_gap_m": 10,
+            "vb_icon_size": 20,
+            "vb_icon_size_m": 20,
+            "vb_text_color": "",
+            "vb_bg": "",
+            "vb_icon_color": "",
+            "item1_title": "Download link on the order page and by email",
+            "item1_icon_library": "check",
+            "item1_use_image": false,
+            "item1_image_size": 50,
+            "item2_title": "PDF and ZIP, about 25 MB",
+            "item2_icon_library": "sparkle",
+            "item2_use_image": false,
+            "item2_image_size": 50,
+            "item3_title": "Refund within 14 days if it is not for you",
+            "item3_icon_library": "shield",
+            "item3_use_image": false,
+            "item3_image_size": 50
           }
         },
-        "text_7": {
-          "type": "text",
-          "settings": {
-            "heading": "The file",
-            "content": "<p>Format: PDF and ZIP</p><p>File size: about 25 MB</p><p>Opens in: any PDF reader, Figma, Lightroom</p><p><em>Replace these three lines with the details of this file.</em></p>"
-          }
-        },
-        "collapsible_row_8": {
+        "collapsible_row_1": {
           "type": "collapsible_row",
           "settings": {
-            "open": true,
             "heading": "What is included",
+            "content": "",
             "use_product_description": true,
-            "content": ""
+            "open": true
           }
         },
-        "collapsible_row_9": {
+        "collapsible_row_2": {
           "type": "collapsible_row",
           "settings": {
-            "open": false,
+            "heading": "Format and file size",
+            "content": "<p>Say which formats are in the download and how big it is, and what opens it: any PDF reader, Figma, Lightroom.</p>",
+            "use_product_description": false,
+            "open": false
+          }
+        },
+        "collapsible_row_3": {
+          "type": "collapsible_row",
+          "settings": {
             "heading": "Licence",
-            "content": "<p>Use the files in personal and client projects, as often as you like. You cannot resell, share or give away the files themselves. <a href=\"/pages/licence\">Read the full licence</a>.</p>",
-            "use_product_description": false
+            "content": "<p>Personal use, and client work you are paid for. You cannot resell or share the files themselves. <a href=\"/pages/licence\">The licence in full</a></p>",
+            "use_product_description": false,
+            "open": false
           }
         },
-        "collapsible_row_10": {
+        "collapsible_row_4": {
           "type": "collapsible_row",
           "settings": {
-            "open": false,
             "heading": "Refunds",
-            "content": "<p>A download cannot be returned. If a file is broken or not what this page describes, write to us and we will fix it or refund you.</p>",
-            "use_product_description": false
+            "content": "<p>If a file does not work for you, write within 14 days and we refund you.</p>",
+            "use_product_description": false,
+            "open": false
+          }
+        },
+        "product_addons_1": {
+          "type": "product_addons",
+          "settings": {
+            "show_ask_question": false,
+            "show_share": true,
+            "share_copy_label": "Copy link",
+            "share_copied_label": "Link copied"
           }
         }
       },
       "block_order": [
         "specs_badge_1",
-        "title_2",
-        "price_3",
-        "variant_picker_4",
-        "buy_buttons_5",
-        "text_6",
-        "text_7",
-        "collapsible_row_8",
-        "collapsible_row_9",
-        "collapsible_row_10"
+        "title_1",
+        "price_1",
+        "variant_picker_1",
+        "buy_buttons_1",
+        "vertical_benefits_1",
+        "collapsible_row_1",
+        "collapsible_row_2",
+        "collapsible_row_3",
+        "collapsible_row_4",
+        "product_addons_1"
       ]
     },
     "how": {
@@ -253,31 +281,98 @@
         "button_7"
       ]
     },
-    "more": {
-      "type": "products-grid",
+    "related": {
+      "type": "related-products",
       "settings": {
-        "heading": "More files",
-        "text": "",
-        "items_to_show": 4,
-        "show_add_to_cart": false,
-        "button_label": "See all files",
-        "button_link": "/collections/all",
-        "items_per_row": 4,
-        "items_per_row_mobile": 2,
-        "column_gap": 24,
-        "header_alignment": "left",
         "color_scheme": "default",
         "section_width": "container",
-        "padding_top": 88,
-        "padding_bottom": 96,
-        "reset_spacing": true
+        "reset_spacing": true,
+        "heading": "More files",
+        "description": "",
+        "header_size": "small",
+        "header_alignment": "left",
+        "items_per_row": 4,
+        "items_per_row_mobile": 2,
+        "column_gap": 20,
+        "intent": "related",
+        "items_to_show": 4,
+        "show_badges": true,
+        "show_vendor": false,
+        "show_rating": false,
+        "show_swatches": false,
+        "show_price": true,
+        "show_add_to_cart": false,
+        "show_action": false,
+        "reveal": true,
+        "padding_top": 80,
+        "padding_bottom": 48
       }
+    },
+    "faq": {
+      "type": "faq-pro",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "padding_top": 48,
+        "padding_bottom": 96
+      },
+      "blocks": {
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "Before you buy"
+          }
+        },
+        "subheading": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>The questions people ask about downloads. Anything else, write to us.</p>"
+          }
+        },
+        "faq_item_1": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How do I get my files?",
+            "answer": "<p>A download link appears on the order page the moment you pay, and the same link arrives by email.</p>"
+          }
+        },
+        "faq_item_2": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I use them for client work?",
+            "answer": "<p>Yes, for work you are paid for. You cannot resell or share the files themselves.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What if a file will not open?",
+            "answer": "<p>Write to us with the file name and what you see. We send a fixed file or refund you.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do I get updates?",
+            "answer": "<p>Yes. When a file changes you get an email with a new link, free.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading",
+        "subheading",
+        "faq_item_1",
+        "faq_item_2",
+        "faq_item_3",
+        "faq_item_4"
+      ]
     }
   },
   "order": [
     "breadcrumb",
     "main",
     "how",
-    "more"
+    "related",
+    "faq"
   ]
 }

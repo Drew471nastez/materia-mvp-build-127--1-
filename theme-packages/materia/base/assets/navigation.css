@@ -641,10 +641,33 @@ header[data-mega-label='below'] .submenu .collection-info .menu-card__label {
     transform: scaleX(1);
     transform-origin: 0 50%;
   }
-  /* Fade the others: every link but the one under the pointer steps back. */
-  header[data-menu-hover='fade'] .horizontal-list:has(> .level0:hover) > .level0:not(:hover) > menu-item > a,
-  header[data-menu-hover='fade'] .submenu-horizontal:has(.menu_item-link:hover) .menu_item-link:not(:hover) {
-    opacity: 0.42;
+  /* Fade the others: every link but the one under the pointer steps back,
+     softly. It keyed off ":has(a link:hover)", which is false for the
+     moment the pointer crosses the gap between two links, so every link
+     jumped back to full and down again: a flash on each move. Now the
+     list itself being hovered dims the links, the one under the pointer
+     comes up at once, and a link only steps back after a short pause, so
+     crossing a gap changes nothing you can see. Opacity only: nothing
+     moves. The timing rides on --menu-fade-t, which the transparent bar's
+     own colour timing keeps (header.liquid). */
+  header[data-menu-hover='fade'] .horizontal-list > .level0 > menu-item > :is(a, open-children-toggle),
+  header[data-menu-hover='fade'] .submenu-horizontal .menu_item-link {
+    --menu-fade-t: opacity 0.32s cubic-bezier(0.25, 0.1, 0.25, 1) 0.08s;
+    transition: color 0.3s cubic-bezier(0.3, 1, 0.3, 1), var(--menu-fade-t);
+  }
+  header[data-menu-hover='fade'] .horizontal-list:hover > .level0 > menu-item > :is(a, open-children-toggle),
+  header[data-menu-hover='fade'] .submenu-horizontal:hover .menu_item-link {
+    opacity: 0.55;
+  }
+  header[data-menu-hover='fade'] .horizontal-list:hover > .level0:is(:hover, :focus-within) > menu-item > :is(a, open-children-toggle),
+  header[data-menu-hover='fade'] .submenu-horizontal:hover .menu_item-link:is(:hover, :focus-visible) {
+    --menu-fade-t: opacity 0.18s cubic-bezier(0.2, 0.7, 0.2, 1) 0s;
+    opacity: 1;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    header[data-menu-hover='fade'] :is(.horizontal-list, .submenu-horizontal) :is(a, open-children-toggle, .menu_item-link) {
+      --menu-fade-t: opacity 0s;
+    }
   }
   /* Soft highlight: a tinted pill behind the link. */
   header[data-menu-hover='highlight'] .horizontal-list > .level0 > menu-item > a > span:first-child::before {

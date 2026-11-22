@@ -27,7 +27,7 @@
           "settings": {
             "icon": "mail",
             "line1": "hello@example.com",
-            "line2": "Replace with your email."
+            "line2": "Email, or the form on this page"
           }
         },
         "info_4": {
@@ -35,7 +35,7 @@
           "settings": {
             "icon": "map",
             "line1": "Replies",
-            "line2": "Within a few days, from a real person"
+            "line2": "Within a few days, from me"
           }
         }
       },

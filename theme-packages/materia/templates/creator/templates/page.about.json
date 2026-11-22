@@ -9,15 +9,15 @@
         "heading_serif": "version",
         "heading_tag": "h1",
         "underline_color": "#5ec3ea",
-        "text": "<p>Write your story here in your own words: where you started, what you make now and who it is for.</p><p>I teach drawing to grown ups who stopped at school. I write the Sunday Sketch letter, run The Drawing Table and make short videos about pens, paper and patience. I live with a cat who sits on whatever page I am working on.</p>",
+        "text": "<p>I teach drawing to grown ups who stopped at school. I work mostly in coloured pencil, often on dark paper, from a desk under the roof of an old house.</p><p>I write the Sunday Sketch letter, run The Drawing Table and make short videos about pencils, paper and patience.</p>",
         "link_label": "Get Sunday Sketch",
         "link": "/pages/newsletter",
-        "image_1": "shopify://shop_images/creator-sketchbook-pages.webp",
-        "image_1_alt": "An open sketchbook with a painted gate and trees",
-        "image_2": "shopify://shop_images/creator-lesson-owl.webp",
-        "image_2_alt": "A sketch of an owl with colour notes",
-        "image_3": "shopify://shop_images/creator-botanical.webp",
-        "image_3_alt": "Botanical studies in a spiral sketchbook with pencils",
+        "image_1": "shopify://shop_images/creator-ines-drawing.webp",
+        "image_1_alt": "Ines drawing a flower in coloured pencil",
+        "image_2": "shopify://shop_images/creator-ines-shoulder.webp",
+        "image_2_alt": "Looking over Ines's shoulder at a drawing in progress",
+        "image_3": "shopify://shop_images/creator-ines-table.webp",
+        "image_3_alt": "Ines working at a long white table in the attic",
         "thread_color": "#f6a27c",
         "button_color": "#5ec3ea",
         "button_text_color": "#1c1b2b",
@@ -44,13 +44,13 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Replace the years and lines with your own.</p>"
+            "text": "<p>Ten years, give or take a few sketchbooks.</p>"
           }
         },
         "item_3": {
           "type": "item",
           "settings": {
-            "label": "Year",
+            "label": "2014",
             "title": "A notebook on a train",
             "text": "<p>The first drawing, of the man asleep opposite.</p>"
           }
@@ -58,7 +58,7 @@
         "item_4": {
           "type": "item",
           "settings": {
-            "label": "Year",
+            "label": "2017",
             "title": "The first letter",
             "text": "<p>Sunday Sketch went out to a handful of friends.</p>"
           }
@@ -66,7 +66,7 @@
         "item_5": {
           "type": "item",
           "settings": {
-            "label": "Year",
+            "label": "2021",
             "title": "The book",
             "text": "<p>Draw Before Breakfast, forty exercises in ten minutes each.</p>"
           }
@@ -93,8 +93,8 @@
       "type": "Image-and-video-text",
       "settings": {
         "color_scheme": "default",
-        "image": "shopify://shop_images/creator-cafe-sketch.webp",
-        "image_alt": "A hand drawing with a green pen in a small sketchbook",
+        "image": "shopify://shop_images/creator-ines-square.webp",
+        "image_alt": "Ines drawing, with her pencils close by",
         "image_position": "right",
         "image_radius": 16,
         "aspect_w": 1,

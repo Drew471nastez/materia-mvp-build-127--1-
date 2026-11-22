@@ -8,7 +8,7 @@
         "show_section_on": "all",
         "reset_spacing": true,
         "submit_label": "Send message",
-        "success_message": "Got it. A real person reads every message, within two working days.",
+        "success_message": "Thank you. Your message has been sent.",
         "error_message": "Please check the following:",
         "header_align": "center",
         "section_max_width_desktop": 960,
@@ -59,7 +59,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Write to Loudlib",
+            "text": "Work with us, or ask for help",
             "tag": "h1",
             "enable_custom_style": false,
             "enable_custom_fonts": false,
@@ -75,7 +75,7 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>A download that will not open, a licence question or a pack you want made. It all lands in one inbox.</p>",
+            "text": "<p>A download that will not open, a licence question or a collaboration. It all lands at team@loudlib.net.</p>",
             "max_width": 600,
             "enable_custom_style": false,
             "enable_custom_fonts": false,
@@ -118,7 +118,7 @@
             "placeholder": "Pick one",
             "required": false,
             "half_width": false,
-            "options": "A download\nThe licence\nA pack request\nSomething else"
+            "options": "A download\nThe licence\nWorking together\nSomething else"
           }
         },
         "field_4": {
@@ -143,15 +143,15 @@
           "settings": {
             "icon": "mail",
             "label": "Email",
-            "value": "hello@example.com, replace with yours"
+            "value": "team@loudlib.net"
           }
         },
         "info_2": {
           "type": "info",
           "settings": {
-            "icon": "clock",
-            "label": "Replies",
-            "value": "Within two working days"
+            "icon": "message",
+            "label": "Instagram",
+            "value": "@loudlib"
           }
         }
       },

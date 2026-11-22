@@ -339,8 +339,19 @@
   overflow-wrap: anywhere;
 }
 :is(#_, [data-theme-footer]) .footer__block-description { overflow-wrap: anywhere; }
-@container footer-newsletter (min-width: 480px) {
-  :is(#_, [data-theme-footer]) .footer-newsletter-fields { grid-template-columns: minmax(0, 1fr) minmax(120px, 35%); }
+/* Field and button on one line from a 300px column up on a computer (a
+   third of a 1440px footer is about 420px, which stacked them under 480px),
+   the button as wide as its words; one under the other, full width, on a
+   phone. Both are the field's height. */
+:is(#_, [data-theme-footer]) .footer-newsletter-fields { max-width: 520px; }
+:is(#_, [data-theme-footer]) .newsletter-inner.text-center .footer-newsletter-fields { margin-inline: auto; }
+:is(#_, [data-theme-footer]) .newsletter-form__button { height: var(--input-height, 48px); }
+:is(#_, [data-theme-footer]) .footer-newsletter-email input { height: var(--input-height, 48px); }
+@media (min-width: 750px) {
+  @container footer-newsletter (min-width: 300px) {
+    :is(#_, [data-theme-footer]) .footer-newsletter-fields { grid-template-columns: minmax(0, 1fr) auto; }
+    :is(#_, [data-theme-footer]) .newsletter-form__button { width: auto; white-space: nowrap; padding-inline: var(--btn-padding-x, 24px); }
+  }
 }
 /* Payment badges use the platform's full-color SVGs at their native ratio. */
 .footer__payment-badges {

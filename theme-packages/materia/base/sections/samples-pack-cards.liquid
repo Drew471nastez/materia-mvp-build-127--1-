@@ -1,0 +1,494 @@
+{%- comment -%}
+  Materia Themes. Pack cards (Sample packs template): the store's packs as
+  cards, each with its picture, name, a line about it, a sound preview,
+  the price and an add to cart button, under a row of filter pills.
+
+  Each block is one card. Its product is the one picked in the block; with
+  none picked, the card takes the collection's product in the same place
+  (the first block the first product, and so on). A store with no products
+  yet draws the block's own title and cover, without a price. The preview
+  and its waveform work as in the Audio tracks section: nothing downloads
+  before play, one track plays at a time across the page.
+
+  Filter pills: the blocks' "Filter group" names, in order, after "All".
+  They show when the cards have two groups or more.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign sid = section.id
+  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default'
+  assign section_width = s.section_width | default: 'container'
+  assign pt = s.padding_top | default: 80
+  assign pb = s.padding_bottom | default: 80
+  assign source = s.collection | default: collections.all
+  assign groups = ''
+  for block in section.blocks
+    assign g = block.settings.group | strip
+    if g != blank
+      assign key = '|' | append: g | append: '|'
+      unless groups contains key
+        assign groups = groups | append: key
+      endunless
+    endif
+  endfor
+  assign group_list = groups | remove_first: '|' | split: '||'
+  assign last = group_list | last | remove: '|'
+  assign cols = s.columns | default: 4
+-%}
+<style>
+  .ssp { --ssp-p: 0%; --ssp-h: 0%; --ssp-sw: 1.6px; --ssp-btn: 36px; --ssp-wave: 36px; --ssp-base: rgba(var(--color-heading-rgb), .24); --ssp-done: rgb(var(--color-heading-rgb)); display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .ssp__btn { position: relative; flex: none; width: var(--ssp-btn); height: var(--ssp-btn); margin: 0; padding: 0; border-radius: 50%; border: 1.5px solid rgba(var(--color-heading-rgb), .5); background: transparent; color: var(--color-heading); display: grid; place-items: center; cursor: pointer; transition: background-color .2s ease, border-color .2s ease, color .2s ease, transform .2s ease; -webkit-tap-highlight-color: transparent; }
+  .ssp__btn:hover { border-color: rgb(var(--color-heading-rgb)); }
+  .ssp__btn:active { transform: scale(.94); }
+  .ssp__btn:focus-visible, .ssp__wave:focus-visible { outline: 2px solid var(--ssp-done); outline-offset: 3px; }
+  .ssp__btn[disabled] { cursor: default; opacity: .35; transform: none; }
+  .ssp__i { grid-area: 1 / 1; width: 42%; height: 42%; display: block; transition: opacity .15s ease, transform .2s ease; }
+  .ssp__i--pause { opacity: 0; transform: scale(.6); }
+  .ssp.is-playing .ssp__i--play { opacity: 0; transform: scale(.6); }
+  .ssp.is-playing .ssp__i--pause { opacity: 1; transform: none; }
+  .ssp.is-playing .ssp__btn { background: rgb(var(--color-heading-rgb)); border-color: transparent; color: var(--color-background); }
+  .ssp__btn::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 1.5px solid transparent; border-top-color: rgb(var(--color-heading-rgb)); opacity: 0; transition: opacity .2s ease; }
+  .ssp.is-loading .ssp__btn::after { opacity: 1; animation: ssp-spin .8s linear infinite; }
+  .ssp__wave { position: relative; flex: 1 1 auto; min-width: 0; height: var(--ssp-wave); cursor: pointer; touch-action: pan-y; -webkit-tap-highlight-color: transparent; border-radius: 2px; }
+  .ssp--off .ssp__wave { cursor: default; }
+  .ssp__svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; fill: none; stroke: var(--ssp-base); stroke-width: var(--ssp-sw); stroke-linecap: round; pointer-events: none; transform-origin: 50% 50%; }
+  .ssp__svg--hover { stroke: rgba(var(--color-heading-rgb), .5); clip-path: inset(0 calc(100% - var(--ssp-h)) 0 0); opacity: 0; transition: opacity .15s ease; }
+  .ssp__svg--done { stroke: var(--ssp-done); clip-path: inset(0 calc(100% - var(--ssp-p)) 0 0); }
+  .ssp:not(.is-started) .ssp__svg--done { visibility: hidden; }
+  .ssp--flat .ssp__svg { stroke: rgba(var(--color-heading-rgb), .18); }
+  .ssp--off .ssp__svg { stroke: rgba(var(--color-heading-rgb), .1); }
+  .ssp--drawn .ssp__svg { animation: ssp-grow .5s cubic-bezier(.2,.7,.2,1) both; }
+  .ssp__time { flex: none; min-width: 4.2em; text-align: right; font-size: 13px; line-height: 1; color: var(--color-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ssp.is-started .ssp__time { color: var(--color-heading); }
+  @media (hover: hover) and (pointer: fine) {
+    .ssp:not(.ssp--off) .ssp__wave:hover .ssp__svg--hover { opacity: 1; }
+    .ssp__btn:hover { transform: scale(1.05); }
+  }
+  @keyframes ssp-spin { to { transform: rotate(360deg); } }
+  @keyframes ssp-grow { from { transform: scaleY(.08); } to { transform: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .ssp__btn, .ssp__i, .ssp__svg--hover { transition: none; }
+    .ssp--drawn .ssp__svg { animation: none; }
+    .ssp.is-loading .ssp__btn::after { animation-duration: 2s; }
+  }
+  #shopify-section-{{ sid }} .spc { padding-block: {{ pt | times: 0.7 | round }}px {{ pb | times: 0.7 | round }}px; }
+  #shopify-section-{{ sid }} .spc__head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 32px; margin-bottom: 24px; }
+  #shopify-section-{{ sid }} .spc__eyebrow { margin: 0 0 10px; font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--color-text); }
+  #shopify-section-{{ sid }} .spc__heading { margin: 0; font-size: {{ s.heading_size_mobile | default: 30 }}px; line-height: 1.1; }
+  #shopify-section-{{ sid }} .spc__text { margin: 10px 0 0; max-width: 52ch; font-size: 15px; color: var(--color-text); }
+  #shopify-section-{{ sid }} .spc__text > :first-child { margin-top: 0; }
+  #shopify-section-{{ sid }} .spc__text > :last-child { margin-bottom: 0; }
+  #shopify-section-{{ sid }} .spc__more { font-size: 15px; font-weight: 600; color: var(--color-heading); text-decoration: underline; text-underline-offset: 4px; text-decoration-color: rgba(var(--color-heading-rgb), .35); white-space: nowrap; }
+  #shopify-section-{{ sid }} .spc__more:hover { text-decoration-color: currentColor; }
+  #shopify-section-{{ sid }} .spc__pills { display: flex; gap: 8px; margin: 0 0 24px; padding: 0 0 2px; overflow-x: auto; scrollbar-width: none; }
+  #shopify-section-{{ sid }} .spc__pills::-webkit-scrollbar { display: none; }
+  #shopify-section-{{ sid }} .spc__pill { flex: none; height: 36px; padding: 0 16px; border-radius: 999px; border: 1px solid rgba(var(--color-heading-rgb), .16); background: transparent; color: var(--color-text); font: inherit; font-size: 14px; cursor: pointer; transition: background-color .2s ease, color .2s ease, border-color .2s ease; }
+  #shopify-section-{{ sid }} .spc__pill:hover { border-color: rgba(var(--color-heading-rgb), .4); color: var(--color-heading); }
+  #shopify-section-{{ sid }} .spc__pill[aria-pressed="true"] { background: rgb(var(--color-heading-rgb)); border-color: transparent; color: var(--color-background); }
+  #shopify-section-{{ sid }} .spc__pill:focus-visible { outline: 2px solid rgb(var(--color-heading-rgb)); outline-offset: 2px; }
+  #shopify-section-{{ sid }} .spc__grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  #shopify-section-{{ sid }} .spc__card { display: flex; flex-direction: column; min-width: 0; border-radius: 14px; padding: 10px 10px 12px; background: rgba(var(--color-heading-rgb), .035); border: 1px solid rgba(var(--color-heading-rgb), .07); transition: opacity .25s ease, transform .25s ease, border-color .2s ease; }
+  #shopify-section-{{ sid }} .spc__card[hidden] { display: none; }
+  #shopify-section-{{ sid }} .spc__card.is-in { animation: spc-in .3s ease both; }
+  #shopify-section-{{ sid }} .spc__card:has(.ssp.is-started) { border-color: rgba(var(--color-heading-rgb), .2); }
+  #shopify-section-{{ sid }} .spc__media { position: relative; display: block; aspect-ratio: 1 / 1; border-radius: 9px; overflow: hidden; background: rgba(var(--color-heading-rgb), .05); }
+  #shopify-section-{{ sid }} .spc__media img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .5s cubic-bezier(.2,.7,.2,1); }
+  #shopify-section-{{ sid }} .spc__tag { position: absolute; left: 10px; top: 10px; padding: 4px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; line-height: 1.2; background: rgba(0, 0, 0, .55); color: #fff; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  #shopify-section-{{ sid }} .spc__body { display: flex; flex-direction: column; gap: 8px; padding: 12px 4px 0; flex: 1 1 auto; }
+  #shopify-section-{{ sid }} .spc__title { margin: 0; font-size: 15px; font-weight: 600; line-height: 1.3; color: var(--color-heading); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.6em; }
+  #shopify-section-{{ sid }} .spc__title a { color: inherit; text-decoration: none; }
+  #shopify-section-{{ sid }} .spc__title a:hover { text-decoration: underline; text-underline-offset: 3px; }
+  #shopify-section-{{ sid }} .spc__line { margin: 0; font-size: 13px; line-height: 1.45; color: var(--color-text); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.9em; }
+  #shopify-section-{{ sid }} .spc__card .ssp { --ssp-btn: 30px; --ssp-wave: 30px; gap: 10px; margin-top: 2px; }
+  #shopify-section-{{ sid }} .spc__card .ssp__i { width: 44%; height: 44%; }
+  #shopify-section-{{ sid }} .spc__card .ssp__time { min-width: 0; font-size: 12px; }
+  #shopify-section-{{ sid }} .spc__card .ssp:not(.is-started) .ssp__time { display: none; }
+  #shopify-section-{{ sid }} .spc__card .ssp.is-started .ssp__time { min-width: 6.6em; }
+  #shopify-section-{{ sid }} .spc__card .ssp--off .ssp__time { display: block; }
+  #shopify-section-{{ sid }} .spc__foot { margin-top: auto; display: flex; flex-direction: column; gap: 10px; padding-top: 4px; }
+  #shopify-section-{{ sid }} .spc__price { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; font-size: 15px; font-weight: 600; color: var(--color-heading); font-variant-numeric: tabular-nums; min-height: 24px; }
+  #shopify-section-{{ sid }} .spc__price s { font-size: 13px; font-weight: 400; color: var(--color-text); }
+  #shopify-section-{{ sid }} .spc__off { padding: 2px 7px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--btn-primary-bg-color); color: var(--btn-primary-color); }
+  #shopify-section-{{ sid }} .spc__buy { width: 100%; }
+  #shopify-section-{{ sid }} .spc__btn { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 42px; padding: 0 14px; border-radius: var(--btn-radius, 8px); border: 0; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; text-decoration: none; background: var(--btn-primary-bg-color); color: var(--btn-primary-color); transition: background-color .2s ease, opacity .2s ease; }
+  #shopify-section-{{ sid }} .spc__btn:hover { background: var(--btn-primary-hover-bg-color); color: var(--btn-primary-hover-color); }
+  #shopify-section-{{ sid }} .spc__btn--ghost { background: transparent; color: var(--color-heading); box-shadow: inset 0 0 0 1px rgba(var(--color-heading-rgb), .25); }
+  #shopify-section-{{ sid }} .spc__btn--ghost:hover { background: rgba(var(--color-heading-rgb), .08); color: var(--color-heading); }
+  #shopify-section-{{ sid }} .spc__btn.loading, #shopify-section-{{ sid }} .spc__btn[aria-disabled="true"] { opacity: .6; cursor: progress; }
+  #shopify-section-{{ sid }} .spc__btn[disabled] { opacity: .45; cursor: default; }
+  #shopify-section-{{ sid }} .spc__btn:focus-visible { outline: 2px solid rgb(var(--color-heading-rgb)); outline-offset: 2px; }
+  #shopify-section-{{ sid }} .spc__btn .icon-load { display: none; }
+  #shopify-section-{{ sid }} .spc__foot-link { display: flex; justify-content: center; margin-top: 32px; }
+  @keyframes spc-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @media (min-width: 560px) {
+    #shopify-section-{{ sid }} .spc__grid { grid-template-columns: repeat({{ s.columns_mobile | default: 2 }}, minmax(0, 1fr)); }
+  }
+  @media (min-width: 750px) {
+    #shopify-section-{{ sid }} .spc { padding-block: {{ pt }}px {{ pb }}px; }
+    #shopify-section-{{ sid }} .spc__heading { font-size: {{ s.heading_size | default: 40 }}px; }
+    #shopify-section-{{ sid }} .spc__head { margin-bottom: 28px; }
+    #shopify-section-{{ sid }} .spc__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+  }
+  @media (min-width: 1000px) {
+    #shopify-section-{{ sid }} .spc__grid { grid-template-columns: repeat({{ cols }}, minmax(0, 1fr)); }
+  }
+  @media (hover: hover) {
+    #shopify-section-{{ sid }} .spc__card:hover .spc__media img { transform: scale(1.03); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #shopify-section-{{ sid }} .spc__card.is-in { animation: none; }
+    #shopify-section-{{ sid }} .spc__media img { transition: none; }
+  }
+</style>
+<div class="spc section color-{{ color_scheme }} gradient" data-spc data-section-id="{{ sid }}">
+  <div class="{{ section_width }}">
+    {%- if s.heading != blank or s.text != blank or s.eyebrow != blank or s.link_label != blank -%}
+      <div class="spc__head">
+        <div>
+          {%- if s.eyebrow != blank -%}<p class="spc__eyebrow">{{ s.eyebrow | escape }}</p>{%- endif -%}
+          {%- if s.heading != blank -%}<h2 class="spc__heading h2">{{ s.heading }}</h2>{%- endif -%}
+          {%- if s.text != blank -%}<div class="spc__text rte">{{ s.text }}</div>{%- endif -%}
+        </div>
+        {%- if s.link_label != blank -%}<a class="spc__more" href="{{ s.link_url | default: source.url | default: routes.all_products_collection_url }}">{{ s.link_label | escape }}</a>{%- endif -%}
+      </div>
+    {%- endif -%}
+    {%- if s.show_filters and group_list.size > 1 -%}
+      <div class="spc__pills" role="group" aria-label="{{ s.filter_label | default: 'Filter packs' | escape }}">
+        <button class="spc__pill" type="button" data-spc-filter="" aria-pressed="true">{{ s.all_label | default: 'All' | escape }}</button>
+        {%- for g in group_list -%}
+          {%- assign gname = g | remove: '|' -%}
+          {%- if gname != blank -%}<button class="spc__pill" type="button" data-spc-filter="{{ gname | handleize }}" aria-pressed="false">{{ gname | escape }}</button>{%- endif -%}
+        {%- endfor -%}
+      </div>
+    {%- endif -%}
+    {%- if section.blocks.size > 0 -%}
+      <ul class="spc__grid" role="list">
+        {%- for block in section.blocks -%}
+          {%- liquid
+            assign b = block.settings
+            assign p = blank
+            if b.product != blank
+              assign p = b.product
+            elsif source != blank and source.products_count > 0
+              assign at = forloop.index0
+              for candidate in source.products offset: at limit: 1
+                assign p = candidate
+              endfor
+            endif
+            assign ssp_src = b.audio | strip
+            if ssp_src != blank
+              if ssp_src contains 'shopify://shop_images/'
+                assign ssp_src = ssp_src | remove_first: 'shopify://shop_images/' | asset_url
+              elsif ssp_src contains '/'
+              else
+                assign ssp_src = ssp_src | asset_url
+              endif
+            endif
+            assign name = b.title
+            assign url = b.link | default: routes.all_products_collection_url
+            if p != blank
+              assign name = p.title
+              assign url = p.url
+            endif
+            assign ssp_title = b.track_title | default: name
+            assign ssp_peaks = b.peaks
+            assign ssp_len = b.length
+            assign ssp_id = 'ssp-' | append: sid | append: '-' | append: block.id
+            assign ssp_empty = 'No preview yet'
+            assign gkey = b.group | strip | handleize
+          -%}
+          <li class="spc__card" data-spc-card data-group="{{ gkey }}" {{ block.shopify_attributes }}>
+            <a class="spc__media" href="{{ url }}" tabindex="-1" aria-hidden="true">
+              {%- if p != blank and p.featured_image != blank -%}
+                {{ p.featured_image | image_url: width: 600 | image_tag: loading: 'lazy', widths: '300, 450, 600', sizes: '(min-width: 1000px) 25vw, (min-width: 560px) 50vw, 100vw', alt: '' }}
+              {%- elsif b.cover != blank -%}
+                {{ b.cover | image_url: width: 600 | image_tag: loading: 'lazy', alt: '' }}
+              {%- else -%}
+                {{ 'product-1' | placeholder_svg_tag: 'placeholder-svg' }}
+              {%- endif -%}
+              {%- if b.tag != blank -%}<span class="spc__tag">{{ b.tag | escape }}</span>{%- elsif p != blank and p.price == 0 -%}<span class="spc__tag">{{ s.free_label | default: 'Free' | escape }}</span>{%- endif -%}
+            </a>
+            <div class="spc__body">
+              <h3 class="spc__title"><a href="{{ url }}">{{ name | escape }}</a></h3>
+              {%- if b.text != blank -%}<p class="spc__line">{{ b.text | escape }}</p>{%- endif -%}
+{%- liquid
+  assign ssp_d = ''
+  assign ssp_pk = ssp_peaks | strip | split: ','
+  assign ssp_n = ssp_pk.size
+  assign ssp_flat = false
+  if ssp_n < 16
+    assign ssp_n = 120
+    assign ssp_flat = true
+    for i in (1..120)
+      assign ssp_x = i | minus: 0.5
+      assign ssp_d = ssp_d | append: 'M' | append: ssp_x | append: ' 48.6V51.4'
+    endfor
+  else
+    for ssp_v in ssp_pk
+      assign ssp_hh = ssp_v | strip | plus: 0 | times: 0.46 | at_least: 1.4 | round: 1
+      assign ssp_x = forloop.index | minus: 0.5
+      assign ssp_y1 = 50 | minus: ssp_hh | round: 1
+      assign ssp_y2 = 50 | plus: ssp_hh | round: 1
+      assign ssp_d = ssp_d | append: 'M' | append: ssp_x | append: ' ' | append: ssp_y1 | append: 'V' | append: ssp_y2
+    endfor
+  endif
+  assign ssp_label = ssp_title | default: 'track' | escape
+-%}
+<div class="ssp{% if ssp_src == blank %} ssp--off{% endif %}{% if ssp_flat %} ssp--flat{% endif %}" data-ssp{% if ssp_src != blank %} data-src="{{ ssp_src }}"{% endif %} data-title="{{ ssp_label }}">
+  <button class="ssp__btn" type="button" data-ssp-btn aria-label="Play {{ ssp_label }}"{% if ssp_src == blank %} disabled{% endif %}>
+    <svg class="ssp__i ssp__i--play" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M5.2 3.1v9.8c0 .5.5.8.9.5l7.5-4.9c.4-.2.4-.8 0-1L6.1 2.6c-.4-.3-.9 0-.9.5Z" fill="currentColor"/></svg>
+    <svg class="ssp__i ssp__i--pause" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="4" y="3" width="2.7" height="10" rx=".8" fill="currentColor"/><rect x="9.3" y="3" width="2.7" height="10" rx=".8" fill="currentColor"/></svg>
+  </button>
+  <div class="ssp__wave" data-ssp-wave{% if ssp_src != blank %} role="slider" tabindex="0" aria-label="Seek in {{ ssp_label }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="0:00"{% endif %}>
+    <svg class="ssp__svg" viewBox="0 0 {{ ssp_n }} 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path id="{{ ssp_id }}" d="{{ ssp_d }}" vector-effect="non-scaling-stroke"/></svg>
+    <svg class="ssp__svg ssp__svg--hover" viewBox="0 0 {{ ssp_n }} 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#{{ ssp_id }}"/></svg>
+    <svg class="ssp__svg ssp__svg--done" viewBox="0 0 {{ ssp_n }} 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#{{ ssp_id }}"/></svg>
+  </div>
+  <span class="ssp__time" data-ssp-time>{% if ssp_src == blank %}{{ ssp_empty | default: 'No preview' }}{% else %}{{ ssp_len | default: '0:00' | escape }}{% endif %}</span>
+</div>
+              <div class="spc__foot">
+                {%- if p != blank -%}
+                  <p class="spc__price">
+                    {%- if p.price == 0 -%}
+                      <span>{{ s.free_label | default: 'Free' | escape }}</span>
+                    {%- else -%}
+                      <span>{{ p.price | money }}</span>
+                      {%- if p.compare_at_price > p.price -%}
+                        <s>{{ p.compare_at_price | money }}</s>
+                        {%- assign off = p.compare_at_price | minus: p.price | times: 100 | divided_by: p.compare_at_price | round -%}
+                        {%- if off > 0 -%}<span class="spc__off">-{{ off }}%</span>{%- endif -%}
+                      {%- endif -%}
+                    {%- endif -%}
+                  </p>
+                  {%- if s.show_add_to_cart and p.available -%}
+                    {%- assign form_id = 'spc-' | append: sid | append: '-' | append: block.id -%}
+                    <product-form class="spc__buy">
+                      {%- form 'product', p, id: form_id, class: 'form', novalidate: 'novalidate', data-type: 'add-to-cart-form' -%}
+                        <input type="hidden" name="id" value="{{ p.selected_or_first_available_variant.id }}" disabled>
+                        <button class="spc__btn" type="submit" name="add" aria-haspopup="dialog" aria-live="polite">{% if p.price == 0 %}{{ s.free_button | default: 'Get it free' | escape }}{% else %}{{ 'products.product.actions.add_to_cart.default.label' | t }}{% endif %}</button>
+                      {%- endform -%}
+                    </product-form>
+                  {%- else -%}
+                    <a class="spc__btn spc__btn--ghost" href="{{ url }}">{{ s.view_label | default: 'See the pack' | escape }}</a>
+                  {%- endif -%}
+                {%- else -%}
+                  <a class="spc__btn spc__btn--ghost" href="{{ url }}">{{ s.view_label | default: 'See the pack' | escape }}</a>
+                {%- endif -%}
+              </div>
+            </div>
+          </li>
+        {%- endfor -%}
+      </ul>
+    {%- elsif request.design_mode -%}
+      <p class="spc__text">Add a card to this section. Each card takes a product, a line about it and a sound preview.</p>
+    {%- endif -%}
+    {%- if s.button_label != blank -%}
+      <div class="spc__foot-link"><a class="button inline-block btn-secondary" data-theme-button="secondary" href="{{ s.button_link | default: source.url | default: routes.all_products_collection_url }}">{{ s.button_label | escape }}</a></div>
+    {%- endif -%}
+  </div>
+</div>
+<script>
+  /* The sample players (samples-audio-tracks, samples-pack-cards, samples-release-hero): one copy runs, whichever section loads first. */
+  (function () {
+    var V = 3;
+    if (window.__ssp && window.__ssp.v >= V) { window.__ssp.scan(); return; }
+    var current = null, N = 120, KEY = 'ssp-peaks:', reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    function fmt(t) { if (!isFinite(t) || t < 0) t = 0; var m = Math.floor(t / 60), s = Math.floor(t % 60); return m + ':' + (s < 10 ? '0' : '') + s; }
+    function remember(k, v) { try { localStorage.setItem(KEY + k, v); } catch (e) {} }
+    function recall(k) { try { return localStorage.getItem(KEY + k); } catch (e) { return null; } }
+    function pathOf(list) { var d = ''; for (var i = 0; i < list.length; i++) { var h = Math.max(1.4, list[i] * 0.46); d += 'M' + (i + 0.5) + ' ' + (50 - h).toFixed(1) + 'V' + (50 + h).toFixed(1); } return d; }
+    function draw(el, list) {
+      var path = el.querySelector('.ssp__svg path'); if (!path || !list.length) return;
+      path.setAttribute('d', pathOf(list));
+      el.querySelectorAll('.ssp__svg').forEach(function (s) { s.setAttribute('viewBox', '0 0 ' + list.length + ' 100'); });
+      el.classList.remove('ssp--flat'); if (!reduce) el.classList.add('ssp--drawn');
+    }
+    /* A track saved without its peaks: read them from the file after it starts playing, when the browser has it anyway, and keep them for the next visit. */
+    function measure(el) {
+      var src = el.getAttribute('data-src'), AC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+      if (!src || el.__measured || !AC || !window.fetch || !el.classList.contains('ssp--flat')) return;
+      el.__measured = true;
+      (window.requestIdleCallback || function (f) { return setTimeout(f, 400); })(function () {
+        fetch(src, { credentials: 'same-origin' }).then(function (r) { if (!r.ok) throw new Error('fetch'); return r.arrayBuffer(); }).then(function (buf) {
+          var ctx = new AC(1, 1, 22050);
+          return new Promise(function (res, rej) { var p = ctx.decodeAudioData(buf, res, rej); if (p && p.then) p.then(res, rej); });
+        }).then(function (ab) {
+          var ch = ab.getChannelData(0), step = Math.max(1, Math.floor(ch.length / N)), out = [], max = 0;
+          for (var i = 0; i < N; i++) { var m = 0, end = Math.min(ch.length, (i + 1) * step); for (var j = i * step; j < end; j += 4) { var v = ch[j] < 0 ? -ch[j] : ch[j]; if (v > m) m = v; } out.push(m); if (m > max) max = m; }
+          out = out.map(function (v) { return max ? Math.round(Math.pow(v / max, 0.8) * 100) : 0; });
+          remember(src, out.join(','));
+          document.querySelectorAll('[data-ssp].ssp--flat').forEach(function (o) { if (o.getAttribute('data-src') === src) draw(o, out); });
+        }).catch(function () {});
+      });
+    }
+    function setup(el) {
+      if (el.__ssp) return; el.__ssp = true;
+      var src = el.getAttribute('data-src'), btn = el.querySelector('[data-ssp-btn]'), wave = el.querySelector('[data-ssp-wave]'), time = el.querySelector('[data-ssp-time]');
+      var path = el.querySelector('.ssp__svg path'), n = path ? (el.querySelector('.ssp__svg').getAttribute('viewBox') || '0 0 120').split(' ')[2] * 1 : N;
+      if (wave && window.ResizeObserver) new ResizeObserver(function () { var w = wave.clientWidth; if (w) el.style.setProperty('--ssp-sw', Math.max(1, Math.min(3, (w / n) * 0.52)).toFixed(2) + 'px'); }).observe(wave);
+      if (!src || !btn || !wave) return;
+      if (el.classList.contains('ssp--flat')) { var kept = recall(src); if (kept) draw(el, kept.split(',').map(Number)); }
+      var audio = null, raf = 0, shown = -1, dragging = false, pending = -1, title = el.getAttribute('data-title') || '';
+      function pct() { return audio && audio.duration > 0 ? Math.min(100, (audio.currentTime / audio.duration) * 100) : 0; }
+      function paint(force) {
+        var d = audio ? audio.duration : 0, t = audio ? audio.currentTime : 0;
+        el.style.setProperty('--ssp-p', pct().toFixed(2) + '%');
+        var sec = Math.floor(t);
+        if (force || sec !== shown) {
+          shown = sec;
+          if (d > 0) time.textContent = fmt(t) + ' / ' + fmt(d);
+          wave.setAttribute('aria-valuenow', Math.round(pct()));
+          wave.setAttribute('aria-valuetext', fmt(t) + (d > 0 ? ' of ' + fmt(d) : ''));
+        }
+      }
+      function loop() { paint(); if (audio && !audio.paused) raf = requestAnimationFrame(loop); }
+      function make() {
+        if (audio) return audio;
+        audio = new Audio(); audio.preload = 'auto'; audio.src = src; el.__audio = audio;
+        audio.addEventListener('play', function () {
+          if (current && current !== audio) current.pause();
+          current = audio; el.classList.add('is-playing', 'is-started'); btn.setAttribute('aria-label', 'Pause ' + title);
+          if ('mediaSession' in navigator && window.MediaMetadata) try { navigator.mediaSession.metadata = new MediaMetadata({ title: title, artist: document.title }); } catch (e) {}
+          cancelAnimationFrame(raf); loop();
+        });
+        audio.addEventListener('waiting', function () { el.classList.add('is-loading'); });
+        audio.addEventListener('playing', function () { el.classList.remove('is-loading'); measure(el); });
+        audio.addEventListener('pause', function () { el.classList.remove('is-playing', 'is-loading'); btn.setAttribute('aria-label', 'Play ' + title); cancelAnimationFrame(raf); paint(true); });
+        audio.addEventListener('ended', function () { el.classList.remove('is-started'); audio.currentTime = 0; paint(true); });
+        audio.addEventListener('loadedmetadata', function () { if (pending >= 0) { audio.currentTime = pending * audio.duration; pending = -1; } paint(true); });
+        audio.addEventListener('error', function () { el.classList.remove('is-playing', 'is-loading', 'is-started'); el.classList.add('ssp--off'); time.textContent = 'Could not play'; btn.disabled = true; });
+        return audio;
+      }
+      function play(at) {
+        make(); el.classList.add('is-loading');
+        if (at >= 0) { if (audio.readyState >= 1 && audio.duration) audio.currentTime = at * audio.duration; else pending = at; }
+        var p = audio.play(); if (p && p.catch) p.catch(function () { el.classList.remove('is-loading'); });
+      }
+      btn.addEventListener('click', function () { if (!audio || audio.paused) play(-1); else audio.pause(); });
+      function at(x) { var r = wave.getBoundingClientRect(); return r.width ? Math.max(0, Math.min(1, (x - r.left) / r.width)) : 0; }
+      function seek(f) {
+        if (!audio || audio.readyState < 1 || !audio.duration) { play(f); return; }
+        audio.currentTime = f * audio.duration; el.classList.add('is-started'); paint(true);
+      }
+      wave.addEventListener('pointerdown', function (e) { if (e.button > 0) return; dragging = true; try { wave.setPointerCapture(e.pointerId); } catch (x) {} seek(at(e.clientX)); });
+      wave.addEventListener('pointermove', function (e) {
+        var f = at(e.clientX);
+        if (e.pointerType === 'mouse') el.style.setProperty('--ssp-h', (f * 100).toFixed(2) + '%');
+        if (dragging && audio && audio.duration) { audio.currentTime = f * audio.duration; paint(); }
+      });
+      function stop() { dragging = false; }
+      wave.addEventListener('pointerup', stop); wave.addEventListener('pointercancel', stop); wave.addEventListener('lostpointercapture', stop);
+      wave.addEventListener('keydown', function (e) {
+        var k = e.key;
+        if (k === ' ' || k === 'Enter') { e.preventDefault(); btn.click(); return; }
+        if (['ArrowRight', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].indexOf(k) < 0) return;
+        e.preventDefault();
+        var f = pct() / 100, step = k === 'PageUp' || k === 'PageDown' ? 0.2 : 0.05;
+        if (k === 'ArrowRight' || k === 'ArrowUp' || k === 'PageUp') f += step; else if (k === 'ArrowLeft' || k === 'ArrowDown' || k === 'PageDown') f -= step; else if (k === 'Home') f = 0; else f = 0.999;
+        seek(Math.max(0, Math.min(0.999, f)));
+      });
+    }
+    function scan(root) { (root && root.querySelectorAll ? root : document).querySelectorAll('[data-ssp]').forEach(setup); }
+    window.__ssp = { v: V, scan: scan, pauseIn: function (root) { root.querySelectorAll('[data-ssp]').forEach(function (el) { if (el.__audio) el.__audio.pause(); }); } };
+    document.addEventListener('shopify:section:load', function (e) { scan(e.target); });
+    document.addEventListener('shopify:section:unload', function (e) { window.__ssp.pauseIn(e.target); });
+    scan(); if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { scan(); });
+  })();
+  (function () {
+    function wire(root) {
+      root.querySelectorAll('[data-spc]').forEach(function (sec) {
+        if (sec.__spc) return; sec.__spc = true;
+        var pills = sec.querySelectorAll('[data-spc-filter]'), cards = sec.querySelectorAll('[data-spc-card]');
+        pills.forEach(function (pill) {
+          pill.addEventListener('click', function () {
+            var g = pill.getAttribute('data-spc-filter');
+            pills.forEach(function (o) { o.setAttribute('aria-pressed', o === pill ? 'true' : 'false'); });
+            cards.forEach(function (c) {
+              var show = !g || c.getAttribute('data-group') === g;
+              if (!show) c.querySelectorAll('[data-ssp]').forEach(function (el) { if (el.__audio) el.__audio.pause(); });
+              if (show && c.hidden) { c.hidden = false; c.classList.remove('is-in'); void c.offsetWidth; c.classList.add('is-in'); } else if (!show) c.hidden = true;
+            });
+          });
+        });
+      });
+    }
+    wire(document);
+    document.addEventListener('shopify:section:load', function (e) { wire(e.target); });
+  })();
+</script>
+{% schema %}
+{
+  "name": "Pack cards",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    { "type": "header", "content": "Content" },
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Shop" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "Bestselling" },
+    { "type": "richtext", "id": "text", "label": "Text" },
+    { "type": "text", "id": "link_label", "label": "Link label", "default": "Shop everything" },
+    { "type": "url", "id": "link_url", "label": "Link", "info": "Left empty, the collection." },
+    { "type": "collection", "id": "collection", "label": "Collection", "info": "Cards with no product picked take this collection's products, in order. Left empty, every product." },
+    { "type": "header", "content": "Cards" },
+    { "type": "checkbox", "id": "show_filters", "label": "Show filter pills", "default": true },
+    { "type": "text", "id": "all_label", "label": "First pill", "default": "All" },
+    { "type": "checkbox", "id": "show_add_to_cart", "label": "Show add to cart", "default": true },
+    { "type": "text", "id": "free_label", "label": "Price shown for a free pack", "default": "Free" },
+    { "type": "text", "id": "free_button", "label": "Button for a free pack", "default": "Get it free" },
+    { "type": "text", "id": "view_label", "label": "Button when a card has no price", "default": "See the pack" },
+    { "type": "range", "id": "columns", "label": "Cards in a row", "min": 2, "max": 5, "step": 1, "default": 4 },
+    { "type": "range", "id": "columns_mobile", "label": "Cards in a row on small screens", "min": 1, "max": 2, "step": 1, "default": 2 },
+    { "type": "text", "id": "button_label", "label": "Button below the cards" },
+    { "type": "url", "id": "button_link", "label": "Button link" },
+    { "type": "range", "id": "heading_size", "label": "Heading size", "min": 20, "max": 72, "step": 2, "unit": "px", "default": 40 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size on phones", "min": 16, "max": 48, "step": 2, "unit": "px", "default": 30 },
+    { "type": "header", "content": "General" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default" },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Section width",
+      "default": "container",
+      "options": [
+        { "value": "container", "label": "Default" },
+        { "value": "fluid_container", "label": "Fluid container" },
+        { "value": "stretch_width", "label": "Stretched" },
+        { "value": "full_width", "label": "Full width" }
+      ]
+    },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 80 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 80 }
+  ],
+  "blocks": [
+    {
+      "type": "pack",
+      "name": "Pack",
+      "settings": [
+        { "type": "product", "id": "product", "label": "Product", "info": "Left empty, the collection's product in this card's place." },
+        { "type": "text", "id": "title", "label": "Title when there is no product", "default": "Pack name" },
+        { "type": "image_picker", "id": "cover", "label": "Cover when there is no product" },
+        { "type": "url", "id": "link", "label": "Link when there is no product" },
+        { "type": "text", "id": "text", "label": "Line about the pack" },
+        { "type": "text", "id": "tag", "label": "Label on the picture", "info": "Left empty, free packs say Free." },
+        { "type": "text", "id": "group", "label": "Filter group", "info": "Cards with the same group share a filter pill." },
+        { "type": "header", "content": "Preview" },
+        { "type": "file_picker", "id": "audio", "label": "Audio file", "accept": ["audio"], "info": "An mp3, wav, m4a, ogg, aac or flac file, or an https link." },
+        { "type": "text", "id": "track_title", "label": "Preview name", "info": "Read out to screen readers. Left empty, the pack's name." },
+        { "type": "text", "id": "length", "label": "Length", "placeholder": "0:30" },
+        { "type": "textarea", "id": "peaks", "label": "Waveform peaks", "info": "Optional: 120 numbers from 0 to 100. Left empty, the waveform is read from the file the first time it plays." }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Pack cards",
+      "blocks": [
+        { "type": "pack", "settings": { "title": "First pack", "group": "Sample packs" } },
+        { "type": "pack", "settings": { "title": "Second pack", "group": "Sample packs" } },
+        { "type": "pack", "settings": { "title": "Third pack", "group": "Presets" } },
+        { "type": "pack", "settings": { "title": "Fourth pack", "group": "Free" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

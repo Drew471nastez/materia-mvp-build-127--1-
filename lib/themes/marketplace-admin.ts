@@ -19,6 +19,8 @@ export interface ListingInput {
   screenshots?: string[]
   cover_url?: string | null
   author_avatar_url?: string | null
+  /** Sent only when the form has it, so a save before RUN_THEME_RELEASES.sql still works. */
+  description?: string | null
 }
 
 export type ListingInputResult = { ok: true; value: ListingInput } | { ok: false; error: string }
@@ -43,6 +45,8 @@ export function parseListingInput(body: Record<string, unknown> | null): Listing
   if (!name) return { ok: false, error: "Give the theme a name." }
   const slug = text(body.slug, 64).toLowerCase() || slugify(name)
   if (!LISTING_SLUG_RE.test(slug)) return { ok: false, error: "The address can use lower case letters, digits and dashes." }
+  /* "base" names the shared theme in a release (lib/themes/releases-shared.ts), so no listing may take it. */
+  if (slug === "base") return { ok: false, error: "That address is taken. Choose another." }
   const author = text(body.author_name ?? body.author, 80) || "Storelib"
   const category = THEME_CATEGORIES.some((c) => c.key === body.category) ? String(body.category) : "general"
   const tier = (THEME_TIERS as readonly unknown[]).includes(body.tier) ? (body.tier as ThemeTier) : "free"
@@ -67,6 +71,7 @@ export function parseListingInput(body: Record<string, unknown> | null): Listing
   if (Array.isArray(body.screenshots)) value.screenshots = body.screenshots.map(safeHttpsUrl).filter((u): u is string => !!u).slice(0, 12)
   if ("cover_url" in body) value.cover_url = safeHttpsUrl(body.cover_url)
   if ("author_avatar_url" in body) value.author_avatar_url = safeHttpsUrl(body.author_avatar_url)
+  if ("description" in body) value.description = typeof body.description === "string" ? body.description.replace(/\s+/g, " ").trim().slice(0, 600) || null : null
   return { ok: true, value }
 }
 
@@ -74,5 +79,5 @@ export function parseListingInput(body: Record<string, unknown> | null): Listing
 export const LISTING_IMAGE_EXTENSIONS: Record<string, string> = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", avif: "image/avif", gif: "image/gif" }
 /** Under a function's 4.5 MB request limit, with room for the form around it. */
 export const LISTING_IMAGE_MAX_BYTES = 4 * 1024 * 1024
-export type ListingImageKind = "cover" | "screenshot" | "avatar"
-export const LISTING_IMAGE_KINDS: readonly ListingImageKind[] = ["cover", "screenshot", "avatar"]
+export type ListingImageKind = "cover" | "phone" | "screenshot" | "avatar"
+export const LISTING_IMAGE_KINDS: readonly ListingImageKind[] = ["cover", "phone", "screenshot", "avatar"]

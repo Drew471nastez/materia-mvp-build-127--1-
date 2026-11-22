@@ -71,6 +71,10 @@ export interface ThemeListing {
   /** The card's picture. A tall full page screenshot pans on hover; null draws the theme from its definition. */
   cover: string | null
   screenshots: string[]
+  /** A sentence or two under the name on its marketplace page, written in /admin/themes (RUN_THEME_RELEASES.sql). */
+  description?: string | null
+  /** The cover at a phone's width, when one was uploaded; also screenshots[1]. */
+  phoneCover?: string | null
   /** A registry theme (lib/website-builder/theme-registry.ts) this listing adds, for Storelib's own. */
   builtinThemeId: string | null
   /**
@@ -117,9 +121,8 @@ export const CODE_TEMPLATES: readonly CodeTemplate[] = [
   { slug: "landing-page", template: "landing", name: "Course", category: "courses" },
   /* Templates round 18: a creator's personal home page, after the owner's reference. */
   { slug: "creator-landing", template: "creator", name: "Creator Landing", category: "courses" },
-  /* Templates round 17: narrower ones, for the shops that are opening now (round 18 removed Skincare). */
+  /* Templates round 17: narrower ones, for the shops that are opening now (round 18 removed Skincare, round 20 Tour merch). */
   { slug: "streetwear", template: "streetwear", name: "Lifestyle label", category: "fashion" },
-  { slug: "tour-merch", template: "tour", name: "Tour merch", category: "creators" },
   { slug: "sample-packs", template: "samples", name: "Sample packs", category: "music" },
   { slug: "templates-shop", template: "workspace", name: "Notion templates", category: "design" },
   /* Templates round 19: a clothing shop on a night sky, products floating with a glow, after the owner's reference. */

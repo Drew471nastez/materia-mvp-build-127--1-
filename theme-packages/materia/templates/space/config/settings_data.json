@@ -226,11 +226,11 @@
     "sold_out_color": "#000000",
     "popular_key_word": "hoodie, tee, beanie",
     "menu_font": "body_font",
-    "menu_hover_style": "fade",
+    "menu_hover_style": "underline",
     "button_font": "body_font",
     "page_width": 1200,
     "fluid_container_width": 1320,
-    "logo": "shopify://shop_images/space-crosshair.webp",
+    "logo": "shopify://shop_images/space-moon.webp",
     "instagram": "https://instagram.com",
     "youtube": "https://youtube.com",
     "tiktok": "https://tiktok.com"

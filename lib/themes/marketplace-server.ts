@@ -53,6 +53,13 @@ import { checkThemeZipEntries, checkThemeZipSize } from "./zip-rules"
 export const LISTINGS_TABLE = "theme_marketplace_listings"
 export const LISTING_COLUMNS =
   "id, slug, name, author_name, author_avatar_url, category, tier, price_cents, cover_url, screenshots, package_path, package_kind, builtin_theme_id, demo_url, published, sort_order, created_at, updated_at"
+/** With the description and phone cover RUN_THEME_RELEASES.sql adds; read with LISTING_COLUMNS as the fallback until it runs. */
+export const LISTING_COLUMNS_FULL = `${LISTING_COLUMNS}, description, phone_cover_url`
+
+/** A column RUN_THEME_RELEASES.sql adds, not there yet. */
+export function isMissingColumn(error: { code?: string; message?: string } | null | undefined): boolean {
+  return !!error && (error.code === "42703" || error.code === "PGRST204" || /description|phone_cover_url/.test(error.message ?? ""))
+}
 
 /** Packages wait in the private bucket the creator import uses, under a folder of their own. */
 export const PACKAGE_BUCKET = IMPORT_BUCKET
@@ -82,6 +89,8 @@ export type ListingRow = {
   sort_order: number | null
   created_at: string | null
   updated_at?: string | null
+  description?: string | null
+  phone_cover_url?: string | null
 }
 
 export function rowToListing(r: ListingRow): ThemeListing {
@@ -97,7 +106,9 @@ export function rowToListing(r: ListingRow): ThemeListing {
     tier,
     priceCents: tier === "paid" ? Math.max(0, r.price_cents ?? 0) : 0,
     cover: r.cover_url || null,
-    screenshots: (r.screenshots ?? []).filter((s) => typeof s === "string" && s.length > 0),
+    screenshots: withPhoneCover(r.cover_url, r.phone_cover_url ?? null, (r.screenshots ?? []).filter((s) => typeof s === "string" && s.length > 0)),
+    description: r.description?.trim() || null,
+    phoneCover: r.phone_cover_url || null,
     builtinThemeId: r.builtin_theme_id || null,
     codePackage: null,
     hasPackage: !!r.package_path,
@@ -109,6 +120,17 @@ export function rowToListing(r: ListingRow): ThemeListing {
   }
 }
 
+/**
+ * The pictures in the order the preview frames read them: the desktop cover
+ * first and the phone's second (theme-detail.tsx reads screenshots[1] as the
+ * phone's), then the rest.
+ */
+function withPhoneCover(cover: string | null, phone: string | null, shots: string[]): string[] {
+  if (!phone) return shots
+  const desktop = cover ?? shots.find((s) => s !== phone) ?? null
+  return [...(desktop ? [desktop] : []), phone, ...shots.filter((s) => s !== phone && s !== desktop)]
+}
+
 /** A table that is not there yet, or a column not added yet: the SQL has not run. */
 export function isMissingRelation(error: { code?: string; message?: string } | null | undefined): boolean {
   if (!error) return false
@@ -117,11 +139,15 @@ export function isMissingRelation(error: { code?: string; message?: string } | n
 
 export async function readListingRows(opts: { includeHidden?: boolean } = {}): Promise<{ rows: ListingRow[]; missing: boolean; failed: boolean }> {
   try {
-    let q = createAdminClient().from(LISTINGS_TABLE).select(LISTING_COLUMNS).order("sort_order", { ascending: true }).limit(500)
-    if (!opts.includeHidden) q = q.eq("published", true)
-    const { data, error } = await q
+    const read = (columns: string) => {
+      let q = createAdminClient().from(LISTINGS_TABLE).select(columns).order("sort_order", { ascending: true }).limit(500)
+      if (!opts.includeHidden) q = q.eq("published", true)
+      return q
+    }
+    let { data, error } = await read(LISTING_COLUMNS_FULL)
+    if (isMissingColumn(error)) ({ data, error } = await read(LISTING_COLUMNS))
     if (error) return { rows: [], missing: isMissingRelation(error), failed: !isMissingRelation(error) }
-    return { rows: (data ?? []) as ListingRow[], missing: false, failed: false }
+    return { rows: (data ?? []) as unknown as ListingRow[], missing: false, failed: false }
   } catch {
     return { rows: [], missing: false, failed: true }
   }
@@ -152,11 +178,15 @@ export async function listingBySlug(slug: string): Promise<ThemeListing | null> 
  */
 export async function listingRowBySlug(slug: string, opts: { includeHidden?: boolean } = {}): Promise<ListingRow | null> {
   try {
-    let q = createAdminClient().from(LISTINGS_TABLE).select(LISTING_COLUMNS).eq("slug", slug)
-    if (!opts.includeHidden) q = q.eq("published", true)
-    const { data, error } = await q.maybeSingle()
+    const read = (columns: string) => {
+      let q = createAdminClient().from(LISTINGS_TABLE).select(columns).eq("slug", slug)
+      if (!opts.includeHidden) q = q.eq("published", true)
+      return q.maybeSingle()
+    }
+    let { data, error } = await read(LISTING_COLUMNS_FULL)
+    if (isMissingColumn(error)) ({ data, error } = await read(LISTING_COLUMNS))
     if (error || !data) return null
-    return data as ListingRow
+    return data as unknown as ListingRow
   } catch {
     return null
   }
@@ -199,7 +229,12 @@ function clearAssetRefs(node: unknown): unknown {
   return node
 }
 
-export async function checkThemeZip(buf: Buffer): Promise<ZipVerdict> {
+/**
+ * The checks every zip gets before anything reads it as a theme: the size,
+ * the central archive check, then each name (zip-rules.ts). Shared with the
+ * releases a template's overlay is uploaded as, which are not whole themes.
+ */
+export async function checkThemeZipSafety(buf: Buffer): Promise<{ ok: true; zip: JSZip; files: number } | { ok: false; error: string }> {
   const sizeProblem = checkThemeZipSize(buf.byteLength)
   if (sizeProblem) return { ok: false, error: sizeProblem }
   if (!looksLikeZip(buf)) return { ok: false, error: IMPORT_NOT_A_PACKAGE }
@@ -226,7 +261,13 @@ export async function checkThemeZip(buf: Buffer): Promise<ZipVerdict> {
   const entries = Object.values(zip.files).map((f) => ({ name: f.name, dir: f.dir, unixPermissions: typeof f.unixPermissions === "number" ? f.unixPermissions : null }))
   const rules = checkThemeZipEntries(entries)
   if (rules.ok === false) return { ok: false, error: (rules as { error: string }).error }
-  const files = (rules as { files: number }).files
+  return { ok: true, zip, files: (rules as { files: number }).files }
+}
+
+export async function checkThemeZip(buf: Buffer): Promise<ZipVerdict> {
+  const safe = await checkThemeZipSafety(buf)
+  if (safe.ok === false) return { ok: false, error: (safe as { error: string }).error }
+  const { zip, files } = safe as { zip: JSZip; files: number }
 
   if (isShopifyTheme(zip)) {
     const converted = await convertShopifyTheme(zip, { fallbackName: "Imported theme" })

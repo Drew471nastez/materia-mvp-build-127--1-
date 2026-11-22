@@ -51,7 +51,17 @@
  * THE PICTURE IS ASKED FOR AT THE SIZE IT IS DRAWN. It goes through the
  * optimizer (lib/images/optimized-url.ts) with the widths a card can have
  * and a `sizes` that says which, and it is lazy unless the card says it is
- * on the first screen. A cover the optimizer will not fetch loads as it is.
+ * on the first screen, where it is asked for first. A cover the optimizer
+ * will not fetch loads as it is. The page's row and the marketplace's grid
+ * pick the same width at every window size, so one cover is one request.
+ *
+ * A COVER ARRIVES ONCE (templates round 21, "the covers flash and glitch
+ * while scrolling"). A cover seen for the first time fades in over the
+ * frame's grey when it has loaded, instead of landing in one frame. A cover
+ * this tab has already drawn (the marketplace opened a second time, a card
+ * in both the row and the grid, a category switched back) is asked for at
+ * once and decoded with the frame, so it is there on the card's first frame:
+ * no lazy wait, no grey frame, no second fade.
  *
  * A listing with no picture draws Storelib's own theme from its definition
  * (./theme-cover.tsx), or says the theme's name on the plain frame.
@@ -86,6 +96,11 @@ function offsetOf(img: HTMLElement): number {
   const t = getComputedStyle(img).transform
   return t && t !== "none" ? new DOMMatrixReadOnly(t).m42 : 0
 }
+
+/** Covers this tab has drawn, by their picture: drawn again at once, with the frame, without a fade. */
+const SEEN = new Set<string>()
+/** A cover seen for the first time fades in over the frame's grey. */
+const ARRIVE_MS = 200
 
 /** The widths a cover is ever drawn at, times two for a dense screen. All are sizes the optimizer accepts. */
 const COVER_WIDTHS = [384, 640, 750, 828, 1080]
@@ -224,6 +239,23 @@ export function ThemeTemplateCard({
   const picture = !broken ? (listing.cover ?? listing.screenshots[0] ?? null) : null
   const def = listing.builtinThemeId ? getThemeDefinition(listing.builtinThemeId) : null
   const lg = size === "lg"
+  /* Read once, when the card is first drawn: the picture's own fade is then never started again by a later render. */
+  const [seen] = React.useState(() => !!picture && SEEN.has(picture))
+  const arrived = React.useCallback(
+    (img: HTMLImageElement | null) => {
+      if (!img || !picture || !img.complete || img.naturalWidth === 0) return
+      SEEN.add(picture)
+      if (img.style.opacity !== "0") return
+      if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+        img.style.opacity = ""
+        return
+      }
+      /* The clear frame is already painted: a transition has something to run from. */
+      img.style.transition = `opacity ${ARRIVE_MS}ms cubic-bezier(0.33, 1, 0.68, 1)`
+      img.style.opacity = ""
+    },
+    [picture],
+  )
 
   React.useEffect(() => () => slide.current?.cancel(), [])
 
@@ -275,17 +307,25 @@ export function ThemeTemplateCard({
   const cover = picture ? (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      ref={shot}
+      ref={(img) => {
+        shot.current = img
+        arrived(img)
+      }}
       src={optimizedImageUrl(picture, lg ? 414 : 368, SITE_PICTURE_QUALITY)}
       srcSet={isOptimizableImage(picture) ? optimizedSrcSet(picture, COVER_WIDTHS, SITE_PICTURE_QUALITY) : undefined}
       sizes={isOptimizableImage(picture) ? TEMPLATE_CARD_SIZES[size] : undefined}
       alt=""
-      loading={priority ? "eager" : "lazy"}
-      decoding="async"
+      loading={priority || seen ? "eager" : "lazy"}
+      fetchPriority={priority ? "high" : undefined}
+      decoding={seen ? "sync" : "async"}
       draggable={false}
+      onLoad={(e) => arrived(e.currentTarget)}
       onError={() => setBroken(true)}
       data-template-shot=""
+      data-template-seen={seen ? "" : undefined}
       className="absolute inset-x-0 top-0 block h-auto min-h-full w-full select-none object-cover object-top"
+      /* A first arrival starts clear (the ref takes a picture that was already in, before the page came to life); a cover seen before is there. */
+      style={seen ? undefined : { opacity: 0 }}
     />
   ) : def ? (
     <ThemeCover spec={coverSpecFromDefinition(def)} className="absolute inset-0 h-full w-full" />

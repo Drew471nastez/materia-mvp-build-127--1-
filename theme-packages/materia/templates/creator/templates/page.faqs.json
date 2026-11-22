@@ -28,8 +28,9 @@
       "type": "faq-side-image",
       "settings": {
         "color_scheme": "default",
-        "image": "shopify://shop_images/creator-botanical.webp",
-        "image_position": "right"
+        "image": "shopify://shop_images/creator-ines-hands-frame.webp",
+        "image_position": "right",
+        "image_alt": "Ines shading a drawing in coloured pencil"
       },
       "blocks": {
         "heading_1": {

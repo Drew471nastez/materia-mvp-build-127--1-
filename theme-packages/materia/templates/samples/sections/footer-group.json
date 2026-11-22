@@ -12,7 +12,7 @@
         "custom_image": "",
         "reset_spacing": true,
         "section_width": "fluid_container",
-        "copyright_text": "© {{ 'now' | date: '%Y' }} {{ shop.name }}. Sounds for your own records.",
+        "copyright_text": "© {{ 'now' | date: '%Y' }} Loudlib. team@loudlib.net",
         "heading_weight": "600",
         "padding_bottom": 24,
         "separator_line": "all-page",
@@ -24,7 +24,7 @@
         "enable_custom_image": false,
         "enable_custom_style": false,
         "footer_heading_size": 15,
-        "enable_custom_text_big": true,
+        "enable_custom_text_big": false,
         "enable_country_selector": false,
         "custom_image_size_mobile": 168,
         "enable_language_selector": false,
@@ -44,7 +44,7 @@
             "content_width": "33.333%",
             "store_address": false,
             "store_heading": "Loudlib",
-            "store_description": "<p>Sample packs and Serum presets for tech house, deep house and ambient producers. Royalty free, one licence for every pack.</p>"
+            "store_description": "<p>Tech house and deep house sample packs and Serum presets. Every sound is 100% royalty free.</p>"
           }
         },
         "link_list_1": {

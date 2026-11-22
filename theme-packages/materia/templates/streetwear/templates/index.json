@@ -26,8 +26,8 @@
         "background_1": {
           "type": "background",
           "settings": {
-            "background_image": "shopify://shop_images/streetwear-hero-dusk.webp",
-            "background_image_mobile": "shopify://shop_images/streetwear-hero-dusk-phone.webp",
+            "background_image": "shopify://shop_images/streetwear-hero-promenade.webp",
+            "background_image_mobile": "shopify://shop_images/streetwear-hero-promenade-phone.webp",
             "background_brightness": 0.78,
             "enable_parallax_mouse": false,
             "image_reveal_animation": "fade"

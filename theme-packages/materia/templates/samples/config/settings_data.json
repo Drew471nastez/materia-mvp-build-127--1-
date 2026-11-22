@@ -147,6 +147,11 @@
     "card_atc_bg": "#7c3aed",
     "card_atc_color": "#ffffff",
     "card_atc_hover_bg": "#8b5cf6",
-    "card_atc_hover_color": "#ffffff"
+    "card_atc_hover_color": "#ffffff",
+    "logo": "shopify://shop_images/samples-logo.webp",
+    "desktop_logo_width": 72,
+    "mobile_logo_width": 60,
+    "instagram": "https://instagram.com/loudlib/",
+    "youtube": "https://youtube.com/channel/UCyUN0kbv7lYgmYNqhtIDeBQ"
   }
 }
