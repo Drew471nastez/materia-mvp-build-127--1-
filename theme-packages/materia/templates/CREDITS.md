@@ -241,13 +241,13 @@ They are not part of a template and are never added to a creator's website.
 | workspace | assets/workspace-feature-invoices.webp | https://images.unsplash.com/photo-1559163499-413811fb2344 | Unsplash License |
 | workspace | assets/workspace-cta.webp | https://images.unsplash.com/photo-1618826908215-bf5c44ca24af | Unsplash License |
 | workspace | assets/workspace-step-receipt.webp | https://images.unsplash.com/photo-1663524789649-c7abbb378561 | Unsplash License |
-| workspace | assets/workspace-step-duplicate.webp | https://images.unsplash.com/photo-1612367990403-73ef3e67bc4f | Unsplash License |
-| workspace (cover only) | scripts/theme-templates/products/workspace/workspace-freelance-desk.webp | https://images.unsplash.com/photo-1612367990403-73ef3e67bc4f, turned a quarter, screen drawn for this template | Unsplash License |
-| workspace (cover only) | scripts/theme-templates/products/workspace/workspace-meal-planner.webp | https://images.unsplash.com/photo-1612367990403-73ef3e67bc4f, turned a quarter, screen drawn for this template | Unsplash License |
-| workspace (cover only) | scripts/theme-templates/products/workspace/workspace-reading-log.webp | https://images.unsplash.com/photo-1612367990403-73ef3e67bc4f, turned a quarter, screen drawn for this template | Unsplash License |
-| workspace (cover only) | scripts/theme-templates/products/workspace/workspace-home-budget.webp | https://images.unsplash.com/photo-1612367990403-73ef3e67bc4f, turned a quarter, screen drawn for this template | Unsplash License |
-| workspace (cover only) | scripts/theme-templates/products/workspace/workspace-habit-tracker.webp | https://images.unsplash.com/photo-1612367990403-73ef3e67bc4f, turned a quarter, screen drawn for this template | Unsplash License |
-| workspace (cover only) | scripts/theme-templates/products/workspace/workspace-study-planner.webp | https://images.unsplash.com/photo-1612367990403-73ef3e67bc4f, turned a quarter, screen drawn for this template | Unsplash License |
+| workspace | assets/workspace-step-duplicate.webp | https://images.unsplash.com/photo-1618344880247-3969cea5b81e | Unsplash License |
+| workspace (cover only) | scripts/theme-templates/products/workspace/workspace-freelance-desk.webp | https://images.unsplash.com/photo-1618344880247-3969cea5b81e, keyboard lettering and mouse logo painted out, screen drawn for this template | Unsplash License |
+| workspace (cover only) | scripts/theme-templates/products/workspace/workspace-meal-planner.webp | https://images.unsplash.com/photo-1618344880247-3969cea5b81e, keyboard lettering and mouse logo painted out, screen drawn for this template | Unsplash License |
+| workspace (cover only) | scripts/theme-templates/products/workspace/workspace-reading-log.webp | https://images.unsplash.com/photo-1618344880247-3969cea5b81e, keyboard lettering and mouse logo painted out, screen drawn for this template | Unsplash License |
+| workspace (cover only) | scripts/theme-templates/products/workspace/workspace-home-budget.webp | https://images.unsplash.com/photo-1618344880247-3969cea5b81e, keyboard lettering and mouse logo painted out, screen drawn for this template | Unsplash License |
+| workspace (cover only) | scripts/theme-templates/products/workspace/workspace-habit-tracker.webp | https://images.unsplash.com/photo-1618344880247-3969cea5b81e, keyboard lettering and mouse logo painted out, screen drawn for this template | Unsplash License |
+| workspace (cover only) | scripts/theme-templates/products/workspace/workspace-study-planner.webp | https://images.unsplash.com/photo-1618344880247-3969cea5b81e, keyboard lettering and mouse logo painted out, screen drawn for this template | Unsplash License |
 | space | assets/space-moon.webp | Drawn for this template | Storelib |
 | space | assets/space-look-red-jacket.webp | https://images.unsplash.com/photo-1770192988725-2ddf1b4d6ee4 | Unsplash License |
 | space | assets/space-look-puffer.webp | https://images.unsplash.com/photo-1793383828034-7cc59606dc6f | Unsplash License |

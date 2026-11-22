@@ -50,6 +50,30 @@ function safeName(name?: string) {
 }
 
 /** One receipt email, whatever the payment held. Built by receiptEmailModel in lib/email.tsx. */
+/** One thing a receipt line opens: a file by its name, the course, a community by its name. */
+export interface ReceiptLineOpen {
+  kind: "download" | "course" | "community"
+  name?: string
+  href: string
+}
+
+/** The line's links in the email's words: "Download" (or "Download <file>" among several), "Open course", "Open community" (or "Open <name>" among several). Only https. */
+export function opensOf(opens: ReceiptLineOpen[] | undefined): { label: string; href: string }[] {
+  const list = (opens ?? []).filter((o) => /^https:\/\//.test(o.href))
+  const files = list.filter((o) => o.kind === "download").length
+  const groups = list.filter((o) => o.kind === "community").length
+  const named = (v: string | undefined) => safeText(v ?? "").replace(/[<>]/g, "").slice(0, 60)
+  return list.map((o) => ({
+    href: o.href,
+    label:
+      o.kind === "download"
+        ? files > 1 && named(o.name) ? et("Download {name}", { name: named(o.name) }) : et("Download")
+        : o.kind === "course"
+          ? et("Open course")
+          : groups > 1 && named(o.name) ? et("Open {community}", { community: named(o.name) }) : et("Open community"),
+  }))
+}
+
 export interface ReceiptEmailModel {
   /** An amount is owed in it but the order kept no currency: the email is held, never sent (lib/money/held-email). */
   heldForCurrency?: boolean
@@ -68,6 +92,8 @@ export interface ReceiptEmailModel {
     note: string | null
     /** products.thumbnail_url as stored. Null draws a tile with the title's first letter. */
     thumbnailUrl?: string | null
+    /** What this line opens, straight from the email: each file, the course, the community (lib/email.tsx receiptEmailModel). Named in the email's own language as it is drawn (opensOf). */
+    opens?: ReceiptLineOpen[]
   }>
   subtotalText: string | null
   /**
@@ -158,6 +184,7 @@ export function buyerReceiptEmailHtml(m: ReceiptEmailModel): string {
         warning: it.note,
         amount: it.amountText,
         imageUrl: emailImageSrc(it.thumbnailUrl, THUMB_PX),
+        links: opensOf(it.opens),
       })),
       { ruleTop: true },
     ),
@@ -219,7 +246,8 @@ function legalText(m: ReceiptEmailModel): string {
 export function buyerReceiptEmailText(m: ReceiptEmailModel): string {
   const lines = m.items.map((it) => {
     const name = it.variantName ? `${safeText(it.title)} (${safeText(it.variantName)})` : safeText(it.title)
-    return `  ${name}${it.amountText ? `: ${it.amountText}` : ""}${it.note ? ` (${it.note})` : ""}`
+    const head = `  ${name}${it.amountText ? `: ${it.amountText}` : ""}${it.note ? ` (${it.note})` : ""}`
+    return [head, ...opensOf(it.opens).map((x) => `    ${x.label}: ${x.href}`)].join("\n")
   })
   return [
     safeName(m.firstName) ? et("Hi {name},", { name: safeName(m.firstName) }) : et("Hi there,"),

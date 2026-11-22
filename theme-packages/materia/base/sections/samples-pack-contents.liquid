@@ -56,7 +56,7 @@
     #shopify-section-{{ sid }} .spk__head { margin-bottom: 36px; }
     #shopify-section-{{ sid }} .spk__stats { grid-template-columns: repeat({% if stats < 4 and stats > 0 %}{{ stats }}{% else %}4{% endif %}, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
     #shopify-section-{{ sid }} .spk__value { font-size: 32px; }
-    #shopify-section-{{ sid }} .spk__parts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    #shopify-section-{{ sid }} .spk__parts { grid-template-columns: repeat({% if parts == 1 %}1{% else %}2{% endif %}, minmax(0, 1fr)); gap: 12px; }
     #shopify-section-{{ sid }} .spk__part { padding: 22px 24px 24px; }
   }
 </style>

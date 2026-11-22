@@ -30,19 +30,19 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
  */
 export default async function SiteFormPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  if (!UUID.test(id)) notFound()
+  if (!UUID.test(id)) return notFound()
   const site = await siteOfThisHost((await headers()).get("host"))
-  if (!site) notFound()
+  if (!site) return notFound()
   const admin = createAdminClient()
   const theirs = await storefrontForms(admin, site.creatorId, [id])
-  if (!theirs[id.toLowerCase()]) notFound()
+  if (!theirs[id.toLowerCase()]) return notFound()
   const { data, error } = await admin.from("native_forms").select("id,revision,published").eq("id", id.toLowerCase()).eq("status", "published").maybeSingle()
-  if (error || !data?.published) notFound()
+  if (error || !data?.published) return notFound()
   let definition
   try {
     definition = publicDefinition(validateDefinition(data.published))
   } catch {
-    notFound()
+    return notFound()
   }
   return <SiteFormFrame formId={id.toLowerCase()} initial={{ id: id.toLowerCase(), revision: data.revision, definition }} site={site.host} title={theirs[id.toLowerCase()].title} />
 }

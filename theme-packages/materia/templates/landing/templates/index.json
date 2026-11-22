@@ -191,7 +191,7 @@
     "reviews": {
       "type": "testimonial-wall",
       "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "color_scheme": "default",
         "section_width": "container",
         "text_align": "center",
         "columns": 3,
@@ -203,8 +203,8 @@
         "enable_custom_style": true,
         "star_color": "#ff5f1f",
         "star_empty_color": "#e4e2dd",
-        "card_bg": "#f4f3f0",
-        "padding_top": 96,
+        "card_bg": "#ffffff",
+        "padding_top": 72,
         "padding_bottom": 96
       },
       "blocks": {
@@ -273,33 +273,6 @@
             "role": "Sound for Video",
             "rating": 5
           }
-        },
-        "testimonial_9": {
-          "type": "testimonial",
-          "settings": {
-            "body": "Exactly the order I needed things explained in. Nothing assumed.",
-            "name": "Student name",
-            "role": "7 Day Starter",
-            "rating": 5
-          }
-        },
-        "testimonial_10": {
-          "type": "testimonial",
-          "settings": {
-            "body": "I make titles in ten minutes now instead of an afternoon.",
-            "name": "Student name",
-            "role": "Motion Titles",
-            "rating": 5
-          }
-        },
-        "testimonial_11": {
-          "type": "testimonial",
-          "settings": {
-            "body": "Worth it for the interview chapter alone.",
-            "name": "Student name",
-            "role": "Documentary Cuts",
-            "rating": 5
-          }
         }
       },
       "block_order": [
@@ -310,10 +283,7 @@
         "testimonial_5",
         "testimonial_6",
         "testimonial_7",
-        "testimonial_8",
-        "testimonial_9",
-        "testimonial_10",
-        "testimonial_11"
+        "testimonial_8"
       ]
     },
     "starter": {

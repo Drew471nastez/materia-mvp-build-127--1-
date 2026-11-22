@@ -29,8 +29,7 @@
       "settings": {
         "color_scheme": "default",
         "image": "shopify://shop_images/creator-ines-hands-frame.webp",
-        "image_position": "right",
-        "image_alt": "Ines shading a drawing in coloured pencil"
+        "image_position": "right"
       },
       "blocks": {
         "heading_1": {

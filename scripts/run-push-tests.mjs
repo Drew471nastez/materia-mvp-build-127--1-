@@ -310,6 +310,8 @@ const SUITES = [
   "tests/theme-templates-pages.test.ts",
   /* Templates round 19: the theme's Overlay group whole (phone tab bar, back to top, eight popups shipped switched off) in every template, kept hidden at import and offered in Add section; the cart and wishlist count reads on every scheme (worked out from the bubble, measured in Chromium when it is there); the footer on every page type, also for rows stored without their chrome; a theme section named like Storelib's own is offered; a see-through product picture stays see-through through the optimizer and image_url. */
   "tests/theme-overlay-badge-footer.test.ts",
+  /* Templates round 20: every template's footer says "Powered by Storelib", small, linked to storelib.com, on every page; Theme settings' switch hides it only on a plan that may remove branding, decided on the server from the owner's plan, and a theme that leaves it out gets it added in its footer; the builder draws the setting. */
+  "tests/theme-powered-by.test.ts",
   /* The live template preview: every template's website prerendered to public/theme-previews (scripts/build-template-previews.ts), each page there with the pages it links to and every file it names, no form that posts, no "Shopify", only rendered output, served sandboxed with a year's caching and left alone by the proxy; scripts/check-theme-preview-live.mjs opens it in the marketplace in Chromium. */
   "tests/theme-template-previews.test.ts",
   /* The production build folds each app/api area into one entry, so it fits Vercel's Standard build machine (scripts/fold-api-routes.mjs). */

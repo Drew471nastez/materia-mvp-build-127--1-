@@ -11,7 +11,7 @@
 import { CURRENCY_UNKNOWN_HOLD, flagHeldEmail, moneyWithoutCurrency } from "@/lib/money/held-email"
 import { loadBrand } from "@/lib/email-campaigns/brand-server"
 import { emailImageSrc, senderPicture, type SenderPicture } from "@/lib/email-campaigns/sender"
-import { buyerReceiptEmailHtml, buyerReceiptEmailText, type ReceiptEmailModel } from "@/lib/receipts/email"
+import { buyerReceiptEmailHtml, buyerReceiptEmailText, type ReceiptEmailModel, type ReceiptLineOpen } from "@/lib/receipts/email"
 import { buildReceiptEmail } from "@/lib/receipts/receipt-mail"
 import { buyerChannel, signedBy } from "@/lib/emails/buyer-channel"
 import { sendEmail, buildFromHeader, isSmtpConfigured, EMAIL_FROM, EMAIL_REPLY_TO } from "./mail"
@@ -477,6 +477,40 @@ export type { ReceiptEmailModel }
  * the same items and totals. `fallback` covers an order the loader cannot
  * read (it should not happen, and an email with less detail beats none).
  */
+/**
+ * WHAT A LINE OPENS, STRAIGHT FROM THE EMAIL, for a line that is paid: each
+ * file (the receipt's own download, /api/download/<file>?receipt=<the line's
+ * token>, on the same address as the receipt link: the website's after its
+ * checkout), the course on Storelib (its player, behind the buyer's sign in)
+ * and each community the purchase let them into (lib/receipts/load.ts
+ * communitiesOpenedBy). At most six, so a pack of many files says "Download"
+ * five times and the receipt holds the rest.
+ */
+function lineOpens(i: { state: string; token: string; productId: string; files: { id: string; name: string }[]; courseHref: string | null; communities?: { name: string; slug: string }[] }, receiptLink: string): ReceiptLineOpen[] {
+  if (i.state !== "open") return []
+  const out: ReceiptLineOpen[] = []
+  const at = (path: string, base?: string) => {
+    try {
+      return base ? new URL(path, base).toString() : buildUrl(path)
+    } catch {
+      return null
+    }
+  }
+  for (const f of i.files.slice(0, 5)) {
+    const href = at(`/api/download/${encodeURIComponent(f.id)}?receipt=${encodeURIComponent(i.token)}`, receiptLink)
+    if (href) out.push({ kind: "download", name: f.name, href })
+  }
+  if (i.courseHref) {
+    const href = at(`/account/library/courses/${encodeURIComponent(i.productId)}`)
+    if (href) out.push({ kind: "course", href })
+  }
+  for (const c of (i.communities ?? []).slice(0, 2)) {
+    const href = at(`/community/${encodeURIComponent(c.slug)}`)
+    if (href) out.push({ kind: "community", name: c.name, href })
+  }
+  return out.slice(0, 6)
+}
+
 async function receiptEmailModel(
   admin: any,
   params: {
@@ -577,6 +611,7 @@ async function receiptEmailModel(
           amountText: i.priceInterval && shown > 0 ? `${money(shown)}/${i.priceInterval}` : money(shown),
           note: notes[i.state] ?? null,
           thumbnailUrl: i.thumbnailUrl,
+          opens: lineOpens(i, params.receiptLink),
         }
       }),
       /* Before the code and the offers, when the payment recorded them: the lines at their list price, as the page's Subtotal. */

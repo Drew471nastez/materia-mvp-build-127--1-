@@ -46,6 +46,22 @@
   margin-block: 0;
 }
 .footer__bottom .footer__copyright { overflow-wrap: anywhere; }
+/* "Powered by Storelib": the footer's own text, smaller and quieter than the copyright beside it. */
+.footer__bottom .footer__powered {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.footer__bottom .footer__powered a {
+  color: var(--color-text);
+  opacity: .6;
+  text-decoration: none;
+  transition: opacity .2s ease;
+}
+.footer__bottom .footer__powered a:hover,
+.footer__bottom .footer__powered a:focus-visible { opacity: 1; }
 @media (max-width: 767.98px) {
   .footer__bottom .footer_bottom-inner > .flex:first-child { justify-content: center; text-align: center; }
 }
@@ -482,7 +498,13 @@
 }
 /* Payment badges area width on desktop (Payment badges > Badges area width). */
 @media screen and (min-width: 768px) {
-  .footer__payment[style*="--pb-width"] { flex: 0 1 var(--pb-width); max-width: var(--pb-width); }
+  /* A cap, not a size: at 100% the badges took the whole line and squeezed
+     the copyright, the policies and Powered by into a narrow centred stack
+     (Clothing, Digital products, Fitness, Sample packs, Notion templates).
+     The left side keeps its one line; the badges take what is left, up to
+     the cap. */
+  .footer__payment[style*="--pb-width"] { flex: 1 1 auto; max-width: var(--pb-width); }
+  .footer__bottom .footer_bottom-inner > .flex:first-child { flex: 0 1 auto; justify-content: flex-start; text-align: start; }
 }
 /* A column heading's menu toggle takes the heading's size, weight and case. */
 .footer__block-heading .footer-acc__toggle.footer-acc__toggle { font-size: inherit; font-weight: inherit; text-transform: inherit; letter-spacing: inherit; }

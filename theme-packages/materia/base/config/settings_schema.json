@@ -4478,6 +4478,13 @@
         "type": "page",
         "id": "store_page",
         "label": "Store or contact page"
+      },
+      {
+        "type": "checkbox",
+        "id": "storelib_show_badge",
+        "label": "Show Powered by Storelib",
+        "default": true,
+        "info": "A small line at the foot of every page. Hiding it needs a paid Storelib plan: on the Free plan it stays on your published website."
       }
     ]
   },

@@ -576,7 +576,8 @@
         "btn_text": "Sign up",
         "note": "One email per new template. Unsubscribe from any of them.",
         "padding_top": 96,
-        "padding_bottom": 104
+        "padding_bottom": 104,
+        "header_alignment": "left"
       },
       "blocks": {
         "heading_1": {

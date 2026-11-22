@@ -110,6 +110,10 @@ const ROUTES: Record<string, () => Promise<RouteModule>> = {
   /* Round AX: a built site's cart a code makes free, pressed again (tests/free-basket-retry-ax.test.ts). */
   "/api/checkout/cart": () => import("@/app/api/checkout/cart/route"),
   "/api/checkout/stripe-session": () => import("@/app/api/checkout/stripe-session/route"),
+  /* A Storelib form or booking page, on a website too (tests/journey-site-form.test.ts). */
+  "/api/forms/[id]/public": () => import("@/app/api/forms/[id]/public/route"),
+  "/api/forms/[id]/slots": () => import("@/app/api/forms/[id]/slots/route"),
+  "/api/forms/[id]/submit": () => import("@/app/api/forms/[id]/submit/route"),
   /* Round 10: the OnePage's instant checkout pays through these, with its product facts read first (tests/e2e-onepage-instant). */
   "/api/checkout/confirm-payment": () => import("@/app/api/checkout/confirm-payment/route"),
   /* Reliability (commerce): the app's card confirm and a membership's, under a Stripe that fails mid confirm (tests/rel-commerce.test.ts). */

@@ -31,7 +31,10 @@ D.addEventListener("keydown",function(e){var i=e.target;if(e.key!=="Enter"||!i||
 D.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a[data-preview-inert]");if(a)e.preventDefault()},true);
 var told=false;function tell(){if(told)return;told=true;try{parent.postMessage({type:"storelib:template-preview",ready:true,path:location.pathname},"*")}catch(e){}}
 W.addEventListener("load",tell);D.addEventListener("DOMContentLoaded",function(){setTimeout(tell,1200)});
-})();</script><script type="importmap">{"imports":{"@shopify/events":"data:text/javascript;charset=utf-8,const%20StandardEvents%20%3D%20Object.freeze(%7B%0A%20%20pageView%3A%20%22shopify%3Apage%3Aview%22%2C%0A%20%20productView%3A%20%22shopify%3Aproduct%3Aview%22%2C%0A%20%20productSelect%3A%20%22shopify%3Aproduct%3Aselect%22%2C%0A%20%20cartView%3A%20%22shopify%3Acart%3Aview%22%2C%0A%20%20cartError%3A%20%22shopify%3Acart%3Aerror%22%2C%0A%20%20cartLinesUpdate%3A%20%22shopify%3Acart%3Alines-update%22%2C%0A%20%20cartNoteUpdate%3A%20%22shopify%3Acart%3Anote-update%22%2C%0A%20%20cartDiscountUpdate%3A%20%22shopify%3Acart%3Adiscount-update%22%2C%0A%20%20searchUpdate%3A%20%22shopify%3Asearch%3Aupdate%22%2C%0A%20%20collectionView%3A%20%22shopify%3Acollection%3Aview%22%2C%0A%20%20collectionUpdate%3A%20%22shopify%3Acollection%3Aupdate%22%2C%0A%7D)%3B%0Afunction%20createGid(type%2C%20id)%20%7B%0A%20%20const%20s%20%3D%20String(id)%3B%0A%20%20return%20s.startsWith(%22gid%3A%2F%2F%22)%20%3F%20s%20%3A%20%22gid%3A%2F%2Fshopify%2F%22%20%2B%20type%20%2B%20%22%2F%22%20%2B%20s%3B%0A%7D%0Afunction%20money(cents%2C%20code)%20%7B%20return%20%7B%20amount%3A%20((Number(cents)%20%7C%7C%200)%20%2F%20100).toFixed(2)%2C%20currencyCode%3A%20code%20%7C%7C%20%22USD%22%20%7D%3B%20%7D%0Afunction%20fromAjaxCart(cart)%20%7B%0A%20%20const%20c%20%3D%20cart%20%7C%7C%20%7B%7D%3B%0A%20%20const%20code%20%3D%20c.currency%20%7C%7C%20%22USD%22%3B%0A%20%20return%20%7B%0A%20%20%20%20id%3A%20createGid(%22Cart%22%2C%20c.token%20%7C%7C%20%22storelib%22)%2C%0A%20%20%20%20totalQuantity%3A%20Number(c.item_count)%20%7C%7C%200%2C%0A%20%20%20%20cost%3A%20%7B%20totalAmount%3A%20money(c.total_price%2C%20code)%20%7D%2C%0A%20%20%20%20lines%3A%20(c.items%20%7C%7C%20%5B%5D).map((l)%20%3D%3E%20(%7B%20id%3A%20createGid(%22CartLine%22%2C%20l.key)%2C%20quantity%3A%20Number(l.quantity)%20%7C%7C%200%2C%20cost%3A%20%7B%20totalAmount%3A%20money(l.final_line_price%2C%20code)%20%7D%20%7D))%2C%0A%20%20%20%20discountCodes%3A%20%5B%5D%2C%0A%20%20%7D%3B%0A%7D%0Afunction%20parseProductFilters(searchParams)%20%7B%0A%20%20const%20p%20%3D%20searchParams%20%7C%7C%20new%20URLSearchParams(location.search)%3B%0A%20%20const%20out%20%3D%20%5B%5D%3B%0A%20%20for%20(const%20%5Bk%2C%20v%5D%20of%20p.entries())%20%7B%0A%20%20%20%20if%20(!k.startsWith(%22filter.%22))%20continue%3B%0A%20%20%20%20if%20(k%20%3D%3D%3D%20%22filter.v.availability%22)%20out.push(%7B%20available%3A%20v%20%3D%3D%3D%20%221%22%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.gte%22)%20out.push(%7B%20price%3A%20%7B%20min%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.lte%22)%20out.push(%7B%20price%3A%20%7B%20max%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.product_type%22)%20out.push(%7B%20productType%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.vendor%22)%20out.push(%7B%20productVendor%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.tag%22)%20out.push(%7B%20tag%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k.startsWith(%22filter.v.option.%22))%20out.push(%7B%20variantOption%3A%20%7B%20name%3A%20k.slice(16)%2C%20value%3A%20v%20%7D%20%7D)%3B%0A%20%20%7D%0A%20%20return%20out.length%20%3F%20out%20%3A%20undefined%3B%0A%7D%0Afunction%20sortKey(searchParams%2C%20search)%20%7B%0A%20%20const%20v%20%3D%20(searchParams%20%7C%7C%20new%20URLSearchParams(location.search)).get(%22sort_by%22)%20%7C%7C%20%22%22%3B%0A%20%20if%20(v.startsWith(%22price%22))%20return%20%22PRICE%22%3B%0A%20%20if%20(search)%20return%20%22RELEVANCE%22%3B%0A%20%20if%20(v.startsWith(%22title%22))%20return%20%22TITLE%22%3B%0A%20%20if%20(v.startsWith(%22created%22))%20return%20%22CREATED%22%3B%0A%20%20if%20(v%20%3D%3D%3D%20%22best-selling%22)%20return%20%22BEST_SELLING%22%3B%0A%20%20return%20v%20%3F%20%22MANUAL%22%20%3A%20%22COLLECTION_DEFAULT%22%3B%0A%7D%0Afunction%20deferred()%20%7B%0A%20%20let%20resolve%2C%20reject%3B%0A%20%20const%20promise%20%3D%20new%20Promise((a%2C%20b)%20%3D%3E%20%7B%20resolve%20%3D%20a%3B%20reject%20%3D%20b%3B%20%7D)%3B%0A%20%20promise.catch(()%20%3D%3E%20%7B%7D)%3B%0A%20%20return%20%7B%20promise%2C%20resolve%2C%20reject%20%7D%3B%0A%7D%0Aclass%20SlThemeStandardEvent%20extends%20Event%20%7B%0A%20%20constructor(type%2C%20payload%2C%20options)%20%7B%0A%20%20%20%20super(type%2C%20Object.assign(%7B%20bubbles%3A%20true%2C%20composed%3A%20true%20%7D%2C%20options%20%7C%7C%20%7B%7D))%3B%0A%20%20%20%20const%20p%20%3D%20payload%20%7C%7C%20%7B%7D%3B%0A%20%20%20%20for%20(const%20k%20of%20Object.keys(p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20k%2C%20%7B%20value%3A%20p%5Bk%5D%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%2C%20writable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%20%20if%20(!(%22promise%22%20in%20p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20%22promise%22%2C%20%7B%20value%3A%20Promise.resolve(%7B%20detail%3A%20p.detail%20%7D)%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0ASlThemeStandardEvent.createGid%20%3D%20createGid%3B%0Aconst%20make%20%3D%20(name%2C%20extra)%20%3D%3E%20%7B%0A%20%20const%20C%20%3D%20class%20extends%20SlThemeStandardEvent%20%7B%20constructor(payload)%20%7B%20super(StandardEvents%5Bname%5D%2C%20payload)%3B%20%7D%20%7D%3B%0A%20%20C.eventName%20%3D%20StandardEvents%5Bname%5D%3B%0A%20%20C.createPromise%20%3D%20deferred%3B%0A%20%20Object.assign(C%2C%20extra%20%7C%7C%20%7B%7D)%3B%0A%20%20return%20C%3B%0A%7D%3B%0Aexport%20const%20PageViewEvent%20%3D%20make(%22pageView%22)%3B%0Aexport%20const%20ProductViewEvent%20%3D%20make(%22productView%22)%3B%0Aexport%20const%20ProductSelectEvent%20%3D%20make(%22productSelect%22)%3B%0Aexport%20const%20CartViewEvent%20%3D%20make(%22cartView%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartErrorEvent%20%3D%20make(%22cartError%22)%3B%0Aexport%20const%20CartLinesUpdateEvent%20%3D%20make(%22cartLinesUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartNoteUpdateEvent%20%3D%20make(%22cartNoteUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartDiscountUpdateEvent%20%3D%20make(%22cartDiscountUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20SearchUpdateEvent%20%3D%20make(%22searchUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20true)%20%7D)%3B%0Aexport%20const%20CollectionViewEvent%20%3D%20make(%22collectionView%22)%3B%0Aexport%20const%20CollectionUpdateEvent%20%3D%20make(%22collectionUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20false)%20%7D)%3B%0Aconst%20VIEW_EVENTS%20%3D%20%7B%20%22product-component%22%3A%20ProductViewEvent%2C%20%22collection-component%22%3A%20CollectionViewEvent%20%7D%3B%0Aexport%20function%20createViewEventElement(Base%2C%20options)%20%7B%0A%20%20const%20B%20%3D%20Base%20%7C%7C%20HTMLElement%3B%0A%20%20const%20opts%20%3D%20options%20%7C%7C%20%7B%7D%3B%0A%20%20return%20class%20extends%20B%20%7B%0A%20%20%20%20connectedCallback()%20%7B%0A%20%20%20%20%20%20if%20(super.connectedCallback)%20super.connectedCallback()%3B%0A%20%20%20%20%20%20const%20trigger%20%3D%20this.getAttribute(%22view-event-trigger%22)%20%7C%7C%20opts.defaultTrigger%20%7C%7C%20%22connect%22%3B%0A%20%20%20%20%20%20if%20(trigger%20%3D%3D%3D%20%22connect%22)%20this.dispatchViewEvent()%3B%0A%20%20%20%20%20%20else%20if%20(trigger%20%3D%3D%3D%20%22intersect%22%20%26%26%20%22IntersectionObserver%22%20in%20window)%20%7B%0A%20%20%20%20%20%20%20%20const%20io%20%3D%20new%20IntersectionObserver((entries)%20%3D%3E%20%7B%20if%20(entries.some((e)%20%3D%3E%20e.isIntersecting))%20%7B%20io.disconnect()%3B%20this.dispatchViewEvent()%3B%20%7D%20%7D)%3B%0A%20%20%20%20%20%20%20%20io.observe(this)%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%20%20dispatchViewEvent()%20%7B%0A%20%20%20%20%20%20let%20payload%20%3D%20null%3B%0A%20%20%20%20%20%20const%20raw%20%3D%20this.getAttribute(%22view-event-payload%22)%20%7C%7C%20this.querySelector(%22script%5Bdata-view-event-payload%5D%22)%3F.textContent%3B%0A%20%20%20%20%20%20try%20%7B%20payload%20%3D%20raw%20%3F%20JSON.parse(raw)%20%3A%20null%3B%20%7D%20catch%20(e)%20%7B%20payload%20%3D%20null%3B%20%7D%0A%20%20%20%20%20%20if%20(!payload)%20return%3B%0A%20%20%20%20%20%20const%20Kind%20%3D%20payload.cart%20%3F%20CartViewEvent%20%3A%20payload.collection%20%3F%20CollectionViewEvent%20%3A%20payload.product%20%3F%20ProductViewEvent%20%3A%20VIEW_EVENTS%5Bthis.localName%5D%3B%0A%20%20%20%20%20%20if%20(Kind)%20this.dispatchEvent(new%20Kind(payload))%3B%0A%20%20%20%20%7D%0A%20%20%7D%3B%0A%7D%0Aexport%20const%20ViewEventElement%20%3D%20createViewEventElement(HTMLElement)%3B%0Aexport%20%7B%20StandardEvents%2C%20SlThemeStandardEvent%20%7D%3B","@shopify/partial-rendering":"data:text/javascript;charset=utf-8,async%20function%20refresh(name)%20%7B%0A%20%20const%20res%20%3D%20await%20fetch(location.href%2C%20%7B%20headers%3A%20%7B%20Accept%3A%20%22text%2Fhtml%22%20%7D%2C%20credentials%3A%20%22same-origin%22%20%7D)%3B%0A%20%20if%20(!res.ok)%20throw%20new%20Error(%22The%20page%20could%20not%20be%20drawn%20again%22)%3B%0A%20%20const%20doc%20%3D%20new%20DOMParser().parseFromString(await%20res.text()%2C%20%22text%2Fhtml%22)%3B%0A%20%20const%20sel%20%3D%20'%5Bdata-shopify-partial%3D%22'%20%2B%20CSS.escape(String(name))%20%2B%20'%22%5D'%3B%0A%20%20const%20fresh%20%3D%20doc.querySelector(sel)%3B%0A%20%20const%20here%20%3D%20document.querySelector(sel)%3B%0A%20%20if%20(fresh%20%26%26%20here)%20here.replaceWith(document.importNode(fresh%2C%20true))%3B%0A%7D%0Aexport%20const%20partials%20%3D%20%7B%20refresh%20%7D%3B%0Aexport%20default%20partials%3B"}}</script><script src="/theme-previews/fitness/a/i.fc17d0660d95.js"></script>
+/* The page's own background, as soon as it is known: the frame shows it between two pages instead of its own white (a white flash on a dark shop). */
+function paint(){try{var c=getComputedStyle(D.documentElement).backgroundColor;if(!c||/rgba(0, 0, 0, 0)|transparent/.test(c))c=getComputedStyle(D.body).backgroundColor;if(c&&!/rgba(0, 0, 0, 0)|transparent/.test(c))parent.postMessage({type:"storelib:template-preview-background",background:c},"*")}catch(e){}}
+D.addEventListener("DOMContentLoaded",paint);
+})();</script><script type="importmap">{"imports":{"@shopify/events":"data:text/javascript;charset=utf-8,const%20StandardEvents%20%3D%20Object.freeze(%7B%0A%20%20pageView%3A%20%22shopify%3Apage%3Aview%22%2C%0A%20%20productView%3A%20%22shopify%3Aproduct%3Aview%22%2C%0A%20%20productSelect%3A%20%22shopify%3Aproduct%3Aselect%22%2C%0A%20%20cartView%3A%20%22shopify%3Acart%3Aview%22%2C%0A%20%20cartError%3A%20%22shopify%3Acart%3Aerror%22%2C%0A%20%20cartLinesUpdate%3A%20%22shopify%3Acart%3Alines-update%22%2C%0A%20%20cartNoteUpdate%3A%20%22shopify%3Acart%3Anote-update%22%2C%0A%20%20cartDiscountUpdate%3A%20%22shopify%3Acart%3Adiscount-update%22%2C%0A%20%20searchUpdate%3A%20%22shopify%3Asearch%3Aupdate%22%2C%0A%20%20collectionView%3A%20%22shopify%3Acollection%3Aview%22%2C%0A%20%20collectionUpdate%3A%20%22shopify%3Acollection%3Aupdate%22%2C%0A%7D)%3B%0Afunction%20createGid(type%2C%20id)%20%7B%0A%20%20const%20s%20%3D%20String(id)%3B%0A%20%20return%20s.startsWith(%22gid%3A%2F%2F%22)%20%3F%20s%20%3A%20%22gid%3A%2F%2Fshopify%2F%22%20%2B%20type%20%2B%20%22%2F%22%20%2B%20s%3B%0A%7D%0Afunction%20money(cents%2C%20code)%20%7B%20return%20%7B%20amount%3A%20((Number(cents)%20%7C%7C%200)%20%2F%20100).toFixed(2)%2C%20currencyCode%3A%20code%20%7C%7C%20%22USD%22%20%7D%3B%20%7D%0Afunction%20fromAjaxCart(cart)%20%7B%0A%20%20const%20c%20%3D%20cart%20%7C%7C%20%7B%7D%3B%0A%20%20const%20code%20%3D%20c.currency%20%7C%7C%20%22USD%22%3B%0A%20%20return%20%7B%0A%20%20%20%20id%3A%20createGid(%22Cart%22%2C%20c.token%20%7C%7C%20%22storelib%22)%2C%0A%20%20%20%20totalQuantity%3A%20Number(c.item_count)%20%7C%7C%200%2C%0A%20%20%20%20cost%3A%20%7B%20totalAmount%3A%20money(c.total_price%2C%20code)%20%7D%2C%0A%20%20%20%20lines%3A%20(c.items%20%7C%7C%20%5B%5D).map((l)%20%3D%3E%20(%7B%20id%3A%20createGid(%22CartLine%22%2C%20l.key)%2C%20quantity%3A%20Number(l.quantity)%20%7C%7C%200%2C%20cost%3A%20%7B%20totalAmount%3A%20money(l.final_line_price%2C%20code)%20%7D%20%7D))%2C%0A%20%20%20%20discountCodes%3A%20%5B%5D%2C%0A%20%20%7D%3B%0A%7D%0Afunction%20parseProductFilters(searchParams)%20%7B%0A%20%20const%20p%20%3D%20searchParams%20%7C%7C%20new%20URLSearchParams(location.search)%3B%0A%20%20const%20out%20%3D%20%5B%5D%3B%0A%20%20for%20(const%20%5Bk%2C%20v%5D%20of%20p.entries())%20%7B%0A%20%20%20%20if%20(!k.startsWith(%22filter.%22))%20continue%3B%0A%20%20%20%20if%20(k%20%3D%3D%3D%20%22filter.v.availability%22)%20out.push(%7B%20available%3A%20v%20%3D%3D%3D%20%221%22%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.gte%22)%20out.push(%7B%20price%3A%20%7B%20min%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.lte%22)%20out.push(%7B%20price%3A%20%7B%20max%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.product_type%22)%20out.push(%7B%20productType%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.vendor%22)%20out.push(%7B%20productVendor%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.tag%22)%20out.push(%7B%20tag%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k.startsWith(%22filter.v.option.%22))%20out.push(%7B%20variantOption%3A%20%7B%20name%3A%20k.slice(16)%2C%20value%3A%20v%20%7D%20%7D)%3B%0A%20%20%7D%0A%20%20return%20out.length%20%3F%20out%20%3A%20undefined%3B%0A%7D%0Afunction%20sortKey(searchParams%2C%20search)%20%7B%0A%20%20const%20v%20%3D%20(searchParams%20%7C%7C%20new%20URLSearchParams(location.search)).get(%22sort_by%22)%20%7C%7C%20%22%22%3B%0A%20%20if%20(v.startsWith(%22price%22))%20return%20%22PRICE%22%3B%0A%20%20if%20(search)%20return%20%22RELEVANCE%22%3B%0A%20%20if%20(v.startsWith(%22title%22))%20return%20%22TITLE%22%3B%0A%20%20if%20(v.startsWith(%22created%22))%20return%20%22CREATED%22%3B%0A%20%20if%20(v%20%3D%3D%3D%20%22best-selling%22)%20return%20%22BEST_SELLING%22%3B%0A%20%20return%20v%20%3F%20%22MANUAL%22%20%3A%20%22COLLECTION_DEFAULT%22%3B%0A%7D%0Afunction%20deferred()%20%7B%0A%20%20let%20resolve%2C%20reject%3B%0A%20%20const%20promise%20%3D%20new%20Promise((a%2C%20b)%20%3D%3E%20%7B%20resolve%20%3D%20a%3B%20reject%20%3D%20b%3B%20%7D)%3B%0A%20%20promise.catch(()%20%3D%3E%20%7B%7D)%3B%0A%20%20return%20%7B%20promise%2C%20resolve%2C%20reject%20%7D%3B%0A%7D%0Aclass%20SlThemeStandardEvent%20extends%20Event%20%7B%0A%20%20constructor(type%2C%20payload%2C%20options)%20%7B%0A%20%20%20%20super(type%2C%20Object.assign(%7B%20bubbles%3A%20true%2C%20composed%3A%20true%20%7D%2C%20options%20%7C%7C%20%7B%7D))%3B%0A%20%20%20%20const%20p%20%3D%20payload%20%7C%7C%20%7B%7D%3B%0A%20%20%20%20for%20(const%20k%20of%20Object.keys(p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20k%2C%20%7B%20value%3A%20p%5Bk%5D%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%2C%20writable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%20%20if%20(!(%22promise%22%20in%20p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20%22promise%22%2C%20%7B%20value%3A%20Promise.resolve(%7B%20detail%3A%20p.detail%20%7D)%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0ASlThemeStandardEvent.createGid%20%3D%20createGid%3B%0Aconst%20make%20%3D%20(name%2C%20extra)%20%3D%3E%20%7B%0A%20%20const%20C%20%3D%20class%20extends%20SlThemeStandardEvent%20%7B%20constructor(payload)%20%7B%20super(StandardEvents%5Bname%5D%2C%20payload)%3B%20%7D%20%7D%3B%0A%20%20C.eventName%20%3D%20StandardEvents%5Bname%5D%3B%0A%20%20C.createPromise%20%3D%20deferred%3B%0A%20%20Object.assign(C%2C%20extra%20%7C%7C%20%7B%7D)%3B%0A%20%20return%20C%3B%0A%7D%3B%0Aexport%20const%20PageViewEvent%20%3D%20make(%22pageView%22)%3B%0Aexport%20const%20ProductViewEvent%20%3D%20make(%22productView%22)%3B%0Aexport%20const%20ProductSelectEvent%20%3D%20make(%22productSelect%22)%3B%0Aexport%20const%20CartViewEvent%20%3D%20make(%22cartView%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartErrorEvent%20%3D%20make(%22cartError%22)%3B%0Aexport%20const%20CartLinesUpdateEvent%20%3D%20make(%22cartLinesUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartNoteUpdateEvent%20%3D%20make(%22cartNoteUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartDiscountUpdateEvent%20%3D%20make(%22cartDiscountUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20SearchUpdateEvent%20%3D%20make(%22searchUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20true)%20%7D)%3B%0Aexport%20const%20CollectionViewEvent%20%3D%20make(%22collectionView%22)%3B%0Aexport%20const%20CollectionUpdateEvent%20%3D%20make(%22collectionUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20false)%20%7D)%3B%0Aconst%20VIEW_EVENTS%20%3D%20%7B%20%22product-component%22%3A%20ProductViewEvent%2C%20%22collection-component%22%3A%20CollectionViewEvent%20%7D%3B%0Aexport%20function%20createViewEventElement(Base%2C%20options)%20%7B%0A%20%20const%20B%20%3D%20Base%20%7C%7C%20HTMLElement%3B%0A%20%20const%20opts%20%3D%20options%20%7C%7C%20%7B%7D%3B%0A%20%20return%20class%20extends%20B%20%7B%0A%20%20%20%20connectedCallback()%20%7B%0A%20%20%20%20%20%20if%20(super.connectedCallback)%20super.connectedCallback()%3B%0A%20%20%20%20%20%20const%20trigger%20%3D%20this.getAttribute(%22view-event-trigger%22)%20%7C%7C%20opts.defaultTrigger%20%7C%7C%20%22connect%22%3B%0A%20%20%20%20%20%20if%20(trigger%20%3D%3D%3D%20%22connect%22)%20this.dispatchViewEvent()%3B%0A%20%20%20%20%20%20else%20if%20(trigger%20%3D%3D%3D%20%22intersect%22%20%26%26%20%22IntersectionObserver%22%20in%20window)%20%7B%0A%20%20%20%20%20%20%20%20const%20io%20%3D%20new%20IntersectionObserver((entries)%20%3D%3E%20%7B%20if%20(entries.some((e)%20%3D%3E%20e.isIntersecting))%20%7B%20io.disconnect()%3B%20this.dispatchViewEvent()%3B%20%7D%20%7D)%3B%0A%20%20%20%20%20%20%20%20io.observe(this)%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%20%20dispatchViewEvent()%20%7B%0A%20%20%20%20%20%20let%20payload%20%3D%20null%3B%0A%20%20%20%20%20%20const%20raw%20%3D%20this.getAttribute(%22view-event-payload%22)%20%7C%7C%20this.querySelector(%22script%5Bdata-view-event-payload%5D%22)%3F.textContent%3B%0A%20%20%20%20%20%20try%20%7B%20payload%20%3D%20raw%20%3F%20JSON.parse(raw)%20%3A%20null%3B%20%7D%20catch%20(e)%20%7B%20payload%20%3D%20null%3B%20%7D%0A%20%20%20%20%20%20if%20(!payload)%20return%3B%0A%20%20%20%20%20%20const%20Kind%20%3D%20payload.cart%20%3F%20CartViewEvent%20%3A%20payload.collection%20%3F%20CollectionViewEvent%20%3A%20payload.product%20%3F%20ProductViewEvent%20%3A%20VIEW_EVENTS%5Bthis.localName%5D%3B%0A%20%20%20%20%20%20if%20(Kind)%20this.dispatchEvent(new%20Kind(payload))%3B%0A%20%20%20%20%7D%0A%20%20%7D%3B%0A%7D%0Aexport%20const%20ViewEventElement%20%3D%20createViewEventElement(HTMLElement)%3B%0Aexport%20%7B%20StandardEvents%2C%20SlThemeStandardEvent%20%7D%3B","@shopify/partial-rendering":"data:text/javascript;charset=utf-8,async%20function%20refresh(name)%20%7B%0A%20%20const%20res%20%3D%20await%20fetch(location.href%2C%20%7B%20headers%3A%20%7B%20Accept%3A%20%22text%2Fhtml%22%20%7D%2C%20credentials%3A%20%22same-origin%22%20%7D)%3B%0A%20%20if%20(!res.ok)%20throw%20new%20Error(%22The%20page%20could%20not%20be%20drawn%20again%22)%3B%0A%20%20const%20doc%20%3D%20new%20DOMParser().parseFromString(await%20res.text()%2C%20%22text%2Fhtml%22)%3B%0A%20%20const%20sel%20%3D%20'%5Bdata-shopify-partial%3D%22'%20%2B%20CSS.escape(String(name))%20%2B%20'%22%5D'%3B%0A%20%20const%20fresh%20%3D%20doc.querySelector(sel)%3B%0A%20%20const%20here%20%3D%20document.querySelector(sel)%3B%0A%20%20if%20(fresh%20%26%26%20here)%20here.replaceWith(document.importNode(fresh%2C%20true))%3B%0A%7D%0Aexport%20const%20partials%20%3D%20%7B%20refresh%20%7D%3B%0Aexport%20default%20partials%3B"}}</script><style data-page-background>html{background-color:#0b0b0b}</style><script src="/theme-previews/fitness/a/i.63b4697a1622.js"></script>
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -109,10 +112,10 @@ W.addEventListener("load",tell);D.addEventListener("DOMContentLoaded",function()
   }
 </style>
 <link rel="stylesheet" href="/theme-previews/fitness/a/i.0f0bc4d7829b.css" data-shopify>
-<link href="/theme-previews/_base/a/theme.d71f5b96fec8.css" rel="stylesheet" type="text/css" media="all"><noscript><link href="/theme-previews/_base/a/popup.18cdf2513c31.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.1367a426b62b.css">
+<link href="/theme-previews/_base/a/theme.d71f5b96fec8.css" rel="stylesheet" type="text/css" media="all"><noscript><link href="/theme-previews/_base/a/popup.18cdf2513c31.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.9c20c549e3cf.css">
 <link rel="preload" as="style" href="/theme-previews/_base/a/minicart.ac0014483417.css" fetchpriority="low">
 <link rel="preload" as="style" href="/theme-previews/_base/a/materia-experience.b68d6d8152a8.css" fetchpriority="low">
-<link rel="stylesheet" href="/theme-previews/fitness/a/i.92649efb2684.css"><link rel="stylesheet" href="/theme-previews/fitness/a/i.82e20d1f8890.css"><link href="/theme-previews/_base/a/theme-button-contract.7d286d7eee9b.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/localization-controls.9494a0c83131.css" rel="stylesheet" type="text/css" media="all"><link rel="modulepreload" href="/theme-previews/_base/a/theme.7a7dd8f80f89.js" fetchpriority="low"><script data-storelib-head src="/theme-previews/fitness/a/i.d60c3c7ab47c.js"></script>
+<link rel="stylesheet" href="/theme-previews/fitness/a/i.92649efb2684.css"><link rel="stylesheet" href="/theme-previews/fitness/a/i.82e20d1f8890.css"><link href="/theme-previews/_base/a/theme-button-contract.7d286d7eee9b.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/localization-controls.9494a0c83131.css" rel="stylesheet" type="text/css" media="all"><link rel="modulepreload" href="/theme-previews/_base/a/theme.7a7dd8f80f89.js" fetchpriority="low"><script data-storelib-head src="/theme-previews/fitness/a/i.585ec254f5fd.js"></script>
 <script src="/theme-previews/_base/a/swiper-bundle-min.31d164f7367d.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/motion-min.d1f8eb312b47.js" type="module" defer="defer" fetchpriority="low"></script>
 <script src="/theme-previews/_base/a/utils.90eeb774e439.js" defer="defer" data-cart-count="0"></script>
@@ -255,7 +258,7 @@ class="action nav-toggle overlay inline-flex pointer w-44 h-44 hidden-1025 heade
 <path d="M2 8H20C20.2812 8 20.5156 7.90625 20.7031 7.71875C20.9062 7.51562 21.0078 7.27344 21.0078 6.99219C21.0078 6.72656 20.9062 6.5 20.7031 6.3125C20.5156 6.10938 20.2812 6.00781 20 6.00781H2C1.71875 6.00781 1.47656 6.10938 1.27344 6.3125C1.08594 6.5 0.992188 6.72656 0.992188 6.99219C0.992188 7.27344 1.08594 7.51562 1.27344 7.71875C1.47656 7.90625 1.71875 8 2 8ZM2 2H20C20.2812 2 20.5156 1.90625 20.7031 1.71875C20.9062 1.51563 21.0078 1.27344 21.0078 0.992188C21.0078 0.726562 20.9062 0.5 20.7031 0.3125C20.5156 0.109375 20.2812 0.0078125 20 0.0078125H2C1.71875 0.0078125 1.47656 0.109375 1.27344 0.3125C1.08594 0.5 0.992188 0.726562 0.992188 0.992188C0.992188 1.27344 1.08594 1.51563 1.27344 1.71875C1.47656 1.90625 1.71875 2 2 2ZM2 14H20C20.2812 14 20.5156 13.9062 20.7031 13.7188C20.9062 13.5156 21.0078 13.2734 21.0078 12.9922C21.0078 12.7266 20.9062 12.5 20.7031 12.3125C20.5156 12.1094 20.2812 12.0078 20 12.0078H2C1.71875 12.0078 1.47656 12.1094 1.27344 12.3125C1.08594 12.5 0.992188 12.7266 0.992188 12.9922C0.992188 13.2734 1.08594 13.5156 1.27344 13.7188C1.47656 13.9062 1.71875 14 2 14Z" fill="currentColor"/>
 </svg>
 </button>
-<link href="/theme-previews/_base/a/navigation.1367a426b62b.css" rel="stylesheet" type="text/css" media="all">
+<link href="/theme-previews/_base/a/navigation.9c20c549e3cf.css" rel="stylesheet" type="text/css" media="all">
 <nav
 class="flex flex-column block-1025 navigation horizontal fixed static-1025 visible-1025 inset-0 down-to-up"
 data-action-mobile="true"
@@ -1342,7 +1345,7 @@ data-tooltip-redirect="Browse wishlist"
 <product-form class="product-item__product-form pc-form--media"><form id="quick-add-products_listing_400000000-0000-4000-8000-000000000010" accept-charset="UTF-8" class="form" novalidate="novalidate" data-type="add-to-cart-form" data-type="add-to-cart-form" data-preview-form><input type="hidden" name="form_type" value="product"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="product-id" value="00000000-0000-4000-8000-000000000010"><input
 type="hidden"
 name="id"
-value="00000000-0000-4000-8000-000000000100"
+value="00000000-0000-4000-8000-001000000001"
 disabled
 >
 <button
@@ -1388,10 +1391,10 @@ $49.00
 </div>
 </div>
 <script type="application/json" class="product-variant__quantity">
-            [{ "option":"Small","qty":11,"available":true,"mamagement":""},{ "option":"Medium","qty":11,"available":true,"mamagement":""},{ "option":"Large","qty":0,"available":false,"mamagement":"shopify"}]
+            [{ "option":"Self guided","qty":11,"available":true,"mamagement":""},{ "option":"With form checks","qty":11,"available":true,"mamagement":""}]
           </script>
 </motion-element><script type="application/json" class="productItemVariantsQty">
-        [{ "option":"Small","qty":11,"available":true,"mamagement":""},{ "option":"Medium","qty":11,"available":true,"mamagement":""},{ "option":"Large","qty":0,"available":false,"mamagement":"shopify"}]
+        [{ "option":"Self guided","qty":11,"available":true,"mamagement":""},{ "option":"With form checks","qty":11,"available":true,"mamagement":""}]
       </script></div>
 <div
 class="product-item product__item-js  style-as-standard"
@@ -1464,7 +1467,7 @@ data-tooltip-redirect="Browse wishlist"
 <product-form class="product-item__product-form pc-form--media"><form id="quick-add-products_listing_400000000-0000-4000-8000-000000000011" accept-charset="UTF-8" class="form" novalidate="novalidate" data-type="add-to-cart-form" data-type="add-to-cart-form" data-preview-form><input type="hidden" name="form_type" value="product"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="product-id" value="00000000-0000-4000-8000-000000000011"><input
 type="hidden"
 name="id"
-value="00000000-0000-4000-8000-000000000011"
+value="00000000-0000-4000-8000-001100000001"
 disabled
 >
 <button
@@ -1513,7 +1516,12 @@ $39.00
 </div>
 </div>
 </div>
-</motion-element></div>
+<script type="application/json" class="product-variant__quantity">
+            [{ "option":"Self guided","qty":11,"available":true,"mamagement":""},{ "option":"With form checks","qty":11,"available":true,"mamagement":""}]
+          </script>
+</motion-element><script type="application/json" class="productItemVariantsQty">
+        [{ "option":"Self guided","qty":11,"available":true,"mamagement":""},{ "option":"With form checks","qty":11,"available":true,"mamagement":""}]
+      </script></div>
 <div
 class="product-item product__item-js  style-as-standard"
 >
@@ -2123,16 +2131,16 @@ style="--swiper-pagination-position: static;"
   @media (prefers-reduced-motion: reduce) {
     #shopify-section-faq_side_image_8 :is(.fsi__a-wrap, .fsi__icon svg, .fsi__icon-plus *) { transition: none !important; }
   }
-</style><section class="fsi color-scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976 gradient" id="fsi-faq_side_image_8" data-faq-root="faq-side-image" data-faq-section="faq_side_image_8" data-faq-settings="{&quot;color_scheme&quot;:{&quot;id&quot;:&quot;scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976&quot;,&quot;settings&quot;:{&quot;page_colors&quot;:null,&quot;background&quot;:{&quot;red&quot;:22,&quot;green&quot;:22,&quot;blue&quot;:22,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:9,&quot;rgb&quot;:&quot;22 22 22&quot;,&quot;rgba&quot;:&quot;22 22 22 / 1&quot;,&quot;hex&quot;:&quot;#161616&quot;},&quot;text_color&quot;:{&quot;red&quot;:196,&quot;green&quot;:196,&quot;blue&quot;:196,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:77,&quot;rgb&quot;:&quot;196 196 196&quot;,&quot;rgba&quot;:&quot;196 196 196 / 1&quot;,&quot;hex&quot;:&quot;#c4c4c4&quot;},&quot;heading_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;primary_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;border_color&quot;:{&quot;red&quot;:48,&quot;green&quot;:48,&quot;blue&quot;:48,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:19,&quot;rgb&quot;:&quot;48 48 48&quot;,&quot;rgba&quot;:&quot;48 48 48 / 1&quot;,&quot;hex&quot;:&quot;#303030&quot;},&quot;badge_background&quot;:null,&quot;badge_text&quot;:null,&quot;primary_button_colors&quot;:null,&quot;btn_primary_background&quot;:{&quot;red&quot;:215,&quot;green&quot;:255,&quot;blue&quot;:62,&quot;alpha&quot;:1,&quot;hue&quot;:72,&quot;saturation&quot;:100,&quot;lightness&quot;:62,&quot;rgb&quot;:&quot;215 255 62&quot;,&quot;rgba&quot;:&quot;215 255 62 / 1&quot;,&quot;hex&quot;:&quot;#d7ff3e&quot;},&quot;btn_primary_color&quot;:{&quot;red&quot;:11,&quot;green&quot;:11,&quot;blue&quot;:11,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:4,&quot;rgb&quot;:&quot;11 11 11&quot;,&quot;rgba&quot;:&quot;11 11 11 / 1&quot;,&quot;hex&quot;:&quot;#0b0b0b&quot;},&quot;btn_primary_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_primary_hover_background&quot;:{&quot;red&quot;:230,&quot;green&quot;:255,&quot;blue&quot;:128,&quot;alpha&quot;:1,&quot;hue&quot;:72,&quot;saturation&quot;:100,&quot;lightness&quot;:75,&quot;rgb&quot;:&quot;230 255 128&quot;,&quot;rgba&quot;:&quot;230 255 128 / 1&quot;,&quot;hex&quot;:&quot;#e6ff80&quot;},&quot;btn_primary_hover_color&quot;:{&quot;red&quot;:11,&quot;green&quot;:11,&quot;blue&quot;:11,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:4,&quot;rgb&quot;:&quot;11 11 11&quot;,&quot;rgba&quot;:&quot;11 11 11 / 1&quot;,&quot;hex&quot;:&quot;#0b0b0b&quot;},&quot;btn_primary_hover_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;secondary_button_colors&quot;:null,&quot;btn_secondary_background&quot;:{&quot;red&quot;:22,&quot;green&quot;:22,&quot;blue&quot;:22,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:9,&quot;rgb&quot;:&quot;22 22 22&quot;,&quot;rgba&quot;:&quot;22 22 22 / 1&quot;,&quot;hex&quot;:&quot;#161616&quot;},&quot;btn_secondary_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_secondary_border&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_secondary_hover_background&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_secondary_hover_color&quot;:{&quot;red&quot;:22,&quot;green&quot;:22,&quot;blue&quot;:22,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:9,&quot;rgb&quot;:&quot;22 22 22&quot;,&quot;rgba&quot;:&quot;22 22 22 / 1&quot;,&quot;hex&quot;:&quot;#161616&quot;},&quot;btn_secondary_hover_border_color&quot;:null,&quot;background_gradient&quot;:&quot;&quot;,&quot;btn_primary_gradient&quot;:&quot;&quot;,&quot;btn_primary_hover_background_gradient&quot;:&quot;&quot;,&quot;btn_secondary_hover_border&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_outline_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_outline_border_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;button_link_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;button_link_hover_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;}}},&quot;section_width&quot;:&quot;full_width&quot;,&quot;reset_spacing&quot;:true,&quot;structured_data&quot;:false,&quot;heading&quot;:&quot;Frequently Asked Questions&quot;,&quot;subheading&quot;:&quot;&lt;p&gt;Find answers to common questions about our products, shipping, returns, and more.&lt;\/p&gt;&quot;,&quot;open_first&quot;:false,&quot;allow_multiple_open&quot;:false,&quot;open_icon&quot;:&quot;plus&quot;,&quot;max_width&quot;:1280,&quot;image_position&quot;:&quot;left&quot;,&quot;item_padding_y&quot;:22,&quot;item_padding_x&quot;:24,&quot;list_radius&quot;:12,&quot;image&quot;:{&quot;id&quot;:1734269962,&quot;src&quot;:&quot;/theme-previews/fitness/a/fitness-gym.f705bee87299.webp&quot;,&quot;url&quot;:&quot;/theme-previews/fitness/a/fitness-gym.f705bee87299.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1734269962,&quot;src&quot;:&quot;/theme-previews/fitness/a/fitness-gym.f705bee87299.webp&quot;,&quot;url&quot;:&quot;/theme-previews/fitness/a/fitness-gym.f705bee87299.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1734269962,&quot;src&quot;:&quot;/theme-previews/fitness/a/fitness-gym.f705bee87299.webp&quot;,&quot;url&quot;:&quot;/theme-previews/fitness/a/fitness-gym.f705bee87299.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1734269962,&quot;src&quot;:&quot;/theme-previews/fitness/a/fitness-gym.f705bee87299.webp&quot;,&quot;url&quot;:&quot;/theme-previews/fitness/a/fitness-gym.f705bee87299.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1734269962,&quot;src&quot;:&quot;/theme-previews/fitness/a/fitness-gym.f705bee87299.webp&quot;,&quot;url&quot;:&quot;/theme-previews/fitness/a/fitness-gym.f705bee87299.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1734269962,&quot;src&quot;:&quot;/theme-previews/fitness/a/fitness-gym.f705bee87299.webp&quot;,&quot;url&quot;:&quot;/theme-previews/fitness/a/fitness-gym.f705bee87299.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:null,&quot;y&quot;:null}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1734269962,&quot;src&quot;:&quot;/theme-previews/fitness/a/fitness-gym.f705bee87299.webp&quot;,&quot;url&quot;:&quot;/theme-previews/fitness/a/fitness-gym.f705bee87299.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:null},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:null},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:null,&quot;src&quot;:null,&quot;url&quot;:null,&quot;alt&quot;:null,&quot;width&quot;:null,&quot;height&quot;:null,&quot;aspect_ratio&quot;:null,&quot;media_type&quot;:null,&quot;position&quot;:null,&quot;presentation&quot;:null,&quot;attached_to_variant&quot;:null,&quot;variants&quot;:null,&quot;preview_image&quot;:null}}}}}}}},&quot;image_aspect&quot;:&quot;1_1&quot;,&quot;image_fit&quot;:&quot;cover&quot;,&quot;image_radius&quot;:10,&quot;image_min_height_desktop&quot;:0,&quot;enable_custom_style&quot;:false,&quot;section_bg&quot;:null,&quot;list_bg&quot;:null,&quot;list_border&quot;:null,&quot;divider_color&quot;:null,&quot;q_color&quot;:null,&quot;icon_color&quot;:null,&quot;a_color&quot;:null,&quot;heading_color&quot;:null,&quot;sub_color&quot;:null,&quot;image_bg&quot;:null,&quot;enable_custom_fonts&quot;:false,&quot;heading_font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;body_font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;heading_size_desktop&quot;:56,&quot;heading_size_mobile&quot;:36,&quot;heading_weight&quot;:&quot;theme&quot;,&quot;q_size&quot;:16,&quot;q_weight&quot;:&quot;600&quot;,&quot;a_size&quot;:15,&quot;padding_top_desktop&quot;:96,&quot;padding_bottom_desktop&quot;:96,&quot;section_margin_top&quot;:0,&quot;section_margin_bottom&quot;:0,&quot;show_image_on_mobile&quot;:true,&quot;padding_top_mobile&quot;:56,&quot;padding_bottom_mobile&quot;:56}" data-fsi-width="full_width" data-fsi-side="left" data-fsi-mobile-image="true" data-fsi-aspect="1_1" style="--fsi-bg:var(--color-background);--fsi-pt-m:56px;--fsi-pb-m:56px;--fsi-pt-d:96px;--fsi-pb-d:96px;--fsi-maxw:1280px;--fsi-h-m:36px;--fsi-h-d:56px;--fsi-hw:var(--heading-weight, 700);--fsi-heading-color:var(--color-heading);--fsi-sub-color:var(--color-text);--fsi-list-bg:var(--color-background);--fsi-list-border:var(--color-border);--fsi-divider:var(--color-border);--fsi-list-r:12px;--fsi-py:22px;--fsi-px:24px;--fsi-icon:var(--color-heading);--fsi-q-color:var(--color-heading);--fsi-q-size:16px;--fsi-q-weight:600;--fsi-a-color:var(--color-text);--fsi-a-size:15px;--fsi-img-bg:var(--color-background);--fsi-img-r:10px;--fsi-ratio:1 / 1;--fsi-fit:cover;--fsi-img-minh:0px;">
+</style><section class="fsi color-scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976 gradient" id="fsi-faq_side_image_8" data-faq-root="faq-side-image" data-faq-section="faq_side_image_8" data-faq-settings="{&quot;color_scheme&quot;:{&quot;id&quot;:&quot;scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976&quot;,&quot;settings&quot;:{&quot;page_colors&quot;:null,&quot;background&quot;:{&quot;red&quot;:22,&quot;green&quot;:22,&quot;blue&quot;:22,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:9,&quot;rgb&quot;:&quot;22 22 22&quot;,&quot;rgba&quot;:&quot;22 22 22 / 1&quot;,&quot;hex&quot;:&quot;#161616&quot;},&quot;text_color&quot;:{&quot;red&quot;:196,&quot;green&quot;:196,&quot;blue&quot;:196,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:77,&quot;rgb&quot;:&quot;196 196 196&quot;,&quot;rgba&quot;:&quot;196 196 196 / 1&quot;,&quot;hex&quot;:&quot;#c4c4c4&quot;},&quot;heading_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;primary_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;border_color&quot;:{&quot;red&quot;:48,&quot;green&quot;:48,&quot;blue&quot;:48,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:19,&quot;rgb&quot;:&quot;48 48 48&quot;,&quot;rgba&quot;:&quot;48 48 48 / 1&quot;,&quot;hex&quot;:&quot;#303030&quot;},&quot;badge_background&quot;:null,&quot;badge_text&quot;:null,&quot;primary_button_colors&quot;:null,&quot;btn_primary_background&quot;:{&quot;red&quot;:215,&quot;green&quot;:255,&quot;blue&quot;:62,&quot;alpha&quot;:1,&quot;hue&quot;:72,&quot;saturation&quot;:100,&quot;lightness&quot;:62,&quot;rgb&quot;:&quot;215 255 62&quot;,&quot;rgba&quot;:&quot;215 255 62 / 1&quot;,&quot;hex&quot;:&quot;#d7ff3e&quot;},&quot;btn_primary_color&quot;:{&quot;red&quot;:11,&quot;green&quot;:11,&quot;blue&quot;:11,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:4,&quot;rgb&quot;:&quot;11 11 11&quot;,&quot;rgba&quot;:&quot;11 11 11 / 1&quot;,&quot;hex&quot;:&quot;#0b0b0b&quot;},&quot;btn_primary_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_primary_hover_background&quot;:{&quot;red&quot;:230,&quot;green&quot;:255,&quot;blue&quot;:128,&quot;alpha&quot;:1,&quot;hue&quot;:72,&quot;saturation&quot;:100,&quot;lightness&quot;:75,&quot;rgb&quot;:&quot;230 255 128&quot;,&quot;rgba&quot;:&quot;230 255 128 / 1&quot;,&quot;hex&quot;:&quot;#e6ff80&quot;},&quot;btn_primary_hover_color&quot;:{&quot;red&quot;:11,&quot;green&quot;:11,&quot;blue&quot;:11,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:4,&quot;rgb&quot;:&quot;11 11 11&quot;,&quot;rgba&quot;:&quot;11 11 11 / 1&quot;,&quot;hex&quot;:&quot;#0b0b0b&quot;},&quot;btn_primary_hover_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;secondary_button_colors&quot;:null,&quot;btn_secondary_background&quot;:{&quot;red&quot;:22,&quot;green&quot;:22,&quot;blue&quot;:22,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:9,&quot;rgb&quot;:&quot;22 22 22&quot;,&quot;rgba&quot;:&quot;22 22 22 / 1&quot;,&quot;hex&quot;:&quot;#161616&quot;},&quot;btn_secondary_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_secondary_border&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_secondary_hover_background&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_secondary_hover_color&quot;:{&quot;red&quot;:22,&quot;green&quot;:22,&quot;blue&quot;:22,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:9,&quot;rgb&quot;:&quot;22 22 22&quot;,&quot;rgba&quot;:&quot;22 22 22 / 1&quot;,&quot;hex&quot;:&quot;#161616&quot;},&quot;btn_secondary_hover_border_color&quot;:null,&quot;background_gradient&quot;:&quot;&quot;,&quot;btn_primary_gradient&quot;:&quot;&quot;,&quot;btn_primary_hover_background_gradient&quot;:&quot;&quot;,&quot;btn_secondary_hover_border&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_outline_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_outline_border_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;button_link_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;button_link_hover_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;}}},&quot;section_width&quot;:&quot;full_width&quot;,&quot;reset_spacing&quot;:true,&quot;structured_data&quot;:false,&quot;heading&quot;:&quot;Frequently Asked Questions&quot;,&quot;subheading&quot;:&quot;&lt;p&gt;Find answers to common questions about our products, shipping, returns, and more.&lt;\/p&gt;&quot;,&quot;open_first&quot;:true,&quot;allow_multiple_open&quot;:false,&quot;open_icon&quot;:&quot;plus&quot;,&quot;max_width&quot;:1280,&quot;image_position&quot;:&quot;left&quot;,&quot;item_padding_y&quot;:22,&quot;item_padding_x&quot;:24,&quot;list_radius&quot;:12,&quot;image&quot;:{&quot;id&quot;:307284588,&quot;src&quot;:&quot;/theme-previews/fitness/a/fitness-dumbbells.b2640a83414b.webp&quot;,&quot;url&quot;:&quot;/theme-previews/fitness/a/fitness-dumbbells.b2640a83414b.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:307284588,&quot;src&quot;:&quot;/theme-previews/fitness/a/fitness-dumbbells.b2640a83414b.webp&quot;,&quot;url&quot;:&quot;/theme-previews/fitness/a/fitness-dumbbells.b2640a83414b.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:307284588,&quot;src&quot;:&quot;/theme-previews/fitness/a/fitness-dumbbells.b2640a83414b.webp&quot;,&quot;url&quot;:&quot;/theme-previews/fitness/a/fitness-dumbbells.b2640a83414b.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:307284588,&quot;src&quot;:&quot;/theme-previews/fitness/a/fitness-dumbbells.b2640a83414b.webp&quot;,&quot;url&quot;:&quot;/theme-previews/fitness/a/fitness-dumbbells.b2640a83414b.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:307284588,&quot;src&quot;:&quot;/theme-previews/fitness/a/fitness-dumbbells.b2640a83414b.webp&quot;,&quot;url&quot;:&quot;/theme-previews/fitness/a/fitness-dumbbells.b2640a83414b.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:307284588,&quot;src&quot;:&quot;/theme-previews/fitness/a/fitness-dumbbells.b2640a83414b.webp&quot;,&quot;url&quot;:&quot;/theme-previews/fitness/a/fitness-dumbbells.b2640a83414b.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:null,&quot;y&quot;:null}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:307284588,&quot;src&quot;:&quot;/theme-previews/fitness/a/fitness-dumbbells.b2640a83414b.webp&quot;,&quot;url&quot;:&quot;/theme-previews/fitness/a/fitness-dumbbells.b2640a83414b.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:null},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:null},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:null,&quot;src&quot;:null,&quot;url&quot;:null,&quot;alt&quot;:null,&quot;width&quot;:null,&quot;height&quot;:null,&quot;aspect_ratio&quot;:null,&quot;media_type&quot;:null,&quot;position&quot;:null,&quot;presentation&quot;:null,&quot;attached_to_variant&quot;:null,&quot;variants&quot;:null,&quot;preview_image&quot;:null}}}}}}}},&quot;image_aspect&quot;:&quot;4_3&quot;,&quot;image_fit&quot;:&quot;cover&quot;,&quot;image_radius&quot;:10,&quot;image_min_height_desktop&quot;:0,&quot;enable_custom_style&quot;:false,&quot;section_bg&quot;:null,&quot;list_bg&quot;:null,&quot;list_border&quot;:null,&quot;divider_color&quot;:null,&quot;q_color&quot;:null,&quot;icon_color&quot;:null,&quot;a_color&quot;:null,&quot;heading_color&quot;:null,&quot;sub_color&quot;:null,&quot;image_bg&quot;:null,&quot;enable_custom_fonts&quot;:false,&quot;heading_font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;body_font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;heading_size_desktop&quot;:56,&quot;heading_size_mobile&quot;:36,&quot;heading_weight&quot;:&quot;theme&quot;,&quot;q_size&quot;:16,&quot;q_weight&quot;:&quot;600&quot;,&quot;a_size&quot;:15,&quot;padding_top_desktop&quot;:96,&quot;padding_bottom_desktop&quot;:96,&quot;section_margin_top&quot;:0,&quot;section_margin_bottom&quot;:0,&quot;show_image_on_mobile&quot;:true,&quot;padding_top_mobile&quot;:56,&quot;padding_bottom_mobile&quot;:56}" data-fsi-width="full_width" data-fsi-side="left" data-fsi-mobile-image="true" data-fsi-aspect="4_3" style="--fsi-bg:var(--color-background);--fsi-pt-m:56px;--fsi-pb-m:56px;--fsi-pt-d:96px;--fsi-pb-d:96px;--fsi-maxw:1280px;--fsi-h-m:36px;--fsi-h-d:56px;--fsi-hw:var(--heading-weight, 700);--fsi-heading-color:var(--color-heading);--fsi-sub-color:var(--color-text);--fsi-list-bg:var(--color-background);--fsi-list-border:var(--color-border);--fsi-divider:var(--color-border);--fsi-list-r:12px;--fsi-py:22px;--fsi-px:24px;--fsi-icon:var(--color-heading);--fsi-q-color:var(--color-heading);--fsi-q-size:16px;--fsi-q-weight:600;--fsi-a-color:var(--color-text);--fsi-a-size:15px;--fsi-img-bg:var(--color-background);--fsi-img-r:10px;--fsi-ratio:4 / 3;--fsi-fit:cover;--fsi-img-minh:0px;">
 <div class="fsi__inner">
 <div class="fsi__content"><div class="fsi__header"><h2 class="fsi__heading" id="block-heading_1" data-faq-block="heading_1" data-faq-type="heading" data-faq-settings="{&quot;text&quot;:&quot;Before you start&quot;,&quot;tag&quot;:&quot;h2&quot;,&quot;enable_custom_style&quot;:false,&quot;color&quot;:null,&quot;enable_custom_fonts&quot;:false,&quot;font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;weight_enable&quot;:false,&quot;weight&quot;:&quot;700&quot;,&quot;size_enable&quot;:false,&quot;size_desktop&quot;:56,&quot;size_mobile&quot;:36,&quot;line_height&quot;:1.15,&quot;tracking&quot;:0}" data-block-id="heading_1">Before you start</h2><div class="fsi__subheading" id="block-subheading_2" data-faq-block="subheading_2" data-faq-type="subheading" data-faq-settings="{&quot;text&quot;:&quot;&lt;p&gt;Common questions about the programs.&lt;\/p&gt;&quot;,&quot;enable_custom_style&quot;:false,&quot;color&quot;:null,&quot;enable_custom_fonts&quot;:false,&quot;font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;weight_enable&quot;:false,&quot;weight&quot;:&quot;400&quot;,&quot;size_enable&quot;:false,&quot;size&quot;:15,&quot;line_height&quot;:1.5}" data-block-id="subheading_2"><p>Common questions about the programs.</p></div></div><template data-faq-icons>
 <svg data-icon="chevron" class="fsi__icon-chevron" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
 <svg data-icon="arrow" class="fsi__icon-chevron" viewBox="0 0 24 24"><path d="M12 4v16M4 12h16" stroke-linecap="round"/></svg>
-<span data-icon="plus" class="fsi__icon-plus"><span class="v"></span><span class="h"></span></span></template><div class="fsi__list" data-fsi-list data-faq-list data-multiple="false"><div class="fsi__item"  data-fsi-item data-faq-item id="block-faq_item_3" data-faq-block="faq_item_3" data-faq-type="faq_item" data-faq-settings="{&quot;question&quot;:&quot;Do I need a gym?&quot;,&quot;answer&quot;:&quot;&lt;p&gt;Each program lists the equipment it needs. Some need a full gym, others a pair of dumbbells.&lt;\/p&gt;&quot;}" data-block-id="faq_item_3">
+<span data-icon="plus" class="fsi__icon-plus"><span class="v"></span><span class="h"></span></span></template><div class="fsi__list" data-fsi-list data-faq-list data-multiple="false"><div class="fsi__item" open data-fsi-item data-faq-item id="block-faq_item_3" data-faq-block="faq_item_3" data-faq-type="faq_item" data-faq-settings="{&quot;question&quot;:&quot;Do I need a gym?&quot;,&quot;answer&quot;:&quot;&lt;p&gt;Each program lists the equipment it needs. Some need a full gym, others a pair of dumbbells.&lt;\/p&gt;&quot;}" data-block-id="faq_item_3">
 <button
 type="button"
 class="fsi__q"
-aria-expanded="false"
+aria-expanded="true"
 aria-controls="fsi-a-faq_side_image_8-1"
 data-fsi-trigger data-faq-trigger
 >
@@ -2193,411 +2201,265 @@ data-fsi-trigger data-faq-trigger
 </div>
 </div>
 </div></div></div>
-<div class="fsi__media" data-faq-media><img src="/theme-previews/fitness/a/fitness-gym.f705bee87299.webp" srcset="/theme-previews/fitness/a/fitness-gym.f705bee87299.webp 480w, /theme-previews/fitness/a/fitness-gym.f705bee87299.webp 640w, /theme-previews/fitness/a/fitness-gym.f705bee87299.webp 800w, /theme-previews/fitness/a/fitness-gym.f705bee87299.webp 1000w, /theme-previews/fitness/a/fitness-gym.f705bee87299.webp 1200w, /theme-previews/fitness/a/fitness-gym.f705bee87299.webp 1400w" alt="" width="1600" height="1600" loading="lazy" sizes="(min-width: 1024px) 50vw, 100vw"></div>
+<div class="fsi__media" data-faq-media><img src="/theme-previews/fitness/a/fitness-dumbbells.b2640a83414b.webp" srcset="/theme-previews/fitness/a/fitness-dumbbells.b2640a83414b.webp 480w, /theme-previews/fitness/a/fitness-dumbbells.b2640a83414b.webp 640w, /theme-previews/fitness/a/fitness-dumbbells.b2640a83414b.webp 800w, /theme-previews/fitness/a/fitness-dumbbells.b2640a83414b.webp 1000w, /theme-previews/fitness/a/fitness-dumbbells.b2640a83414b.webp 1200w, /theme-previews/fitness/a/fitness-dumbbells.b2640a83414b.webp 1400w" alt="" width="1600" height="1600" loading="lazy" sizes="(min-width: 1024px) 50vw, 100vw"></div>
 </div>
-</section></section><div id="shopify-section-richtext2_9" class="shopify-section" data-section-id="richtext2_9" data-section-type="richtext2"><script src="/theme-previews/_base/a/text-section-controls.f64949db41f0.js" defer="defer"></script><style>
-  #shopify-section-richtext2_9 {
+</section></section><section id="shopify-section-banner3_9" class="shopify-section section section-edge-bleed" data-section-id="banner3_9" data-section-type="banner3"><style>
+  #shopify-section-banner3_9 {
     font-family: var(--body-font, inherit);
     font-size: var(--body-font-size, inherit);
     font-weight: var(--body-weight, inherit);
     line-height: var(--body-line-height, inherit);
     color: var(--color-text);
   }
-  #shopify-section-richtext2_9 :is(h1, h2, h3, h4, h5, h6) {
+  #shopify-section-banner3_9 :is(h1, h2, h3, h4, h5, h6) {
     font-family: var(--heading-font, inherit);
     font-weight: var(--heading-weight, inherit);
     letter-spacing: var(--heading-letter-spacing, normal);
     line-height: var(--heading-line-height, 1.2);
     text-transform: var(--heading-text-transform, none);
   }
-  :where(html:not([data-font-priority='off'])) #shopify-section-richtext2_9 :where(.subheading, .sub-heading, [class*='__subheading']) {
+  :where(html:not([data-font-priority='off'])) #shopify-section-banner3_9 :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
 </style><style>
-  #shopify-section-richtext2_9.scroll-trigger {
+  #shopify-section-banner3_9.scroll-trigger {
     --animation-duration: 950ms;
     --animation-delay: 80ms;
   }
 </style>
 <script>
   (function(){
-    var el = document.getElementById('shopify-section-richtext2_9');
+    var el = document.getElementById('shopify-section-banner3_9');
     if (!el || el.classList.contains('scroll-trigger')) return;
     el.classList.add('scroll-trigger', "slide_in");
   })();
-</script><style data-rs-bulletproof>/* reset_spacing: bulletproof override of ALL section spacing mechanisms */
-    #shopify-section-richtext2_9,
-    #shopify-section-richtext2_9 > .section,
-    #shopify-section-richtext2_9 > section,
-    #shopify-section-richtext2_9 > div,
-    #shopify-section-richtext2_9 > div > .section {
-      margin-top: 0 !important;
-      margin-bottom: 0 !important;
-    }
-    #shopify-section-richtext2_9 + .shopify-section,
-    #shopify-section-richtext2_9 + section,
-    .shopify-section + #shopify-section-richtext2_9 {
-      margin-top: 0 !important;
-    }</style><style>
-  /* Section isolation — prevent CSS/JS bleed between sections */
-  #shopify-section-richtext2_9 {
+</script><style>
+  #shopify-section-banner3_9 {
+    --rm3-mt-m: 0px;
+    --rm3-mb-m: 0px;
+    --rm3-mt-d: 0px;
+    --rm3-mb-d: 0px;
     isolation: isolate;
     position: relative;
-  }
-  /* Aggressive theme typography */
-  :where(#shopify-section-richtext2_9) {
-    font-family: var(--body-font, inherit);
-  }
-  :where(#shopify-section-richtext2_9) :where(button, input, textarea, select, optgroup) {
-    font-family: inherit;
-  }
-  /* Theme font-weight inheritance — sections inherit theme weights by default.
-     Specific font-weight rules in section CSS still override these. */
-  #shopify-section-richtext2_9 {
     font-weight: var(--body-weight, inherit);
+    font-family: var(--body-font, var(--theme-font-body, inherit));
+    margin-top: var(--rm3-mt-m) !important;
+    margin-bottom: var(--rm3-mb-m) !important;
   }
-  :where(#shopify-section-richtext2_9) :is(h1, h2, h3, h4, h5, h6) {
-    font-weight: var(--heading-weight, inherit);
-  }
-  :where(#shopify-section-richtext2_9) :is(h1, h2, h3, h4, h5, h6) {
-    font-family: var(--heading-font, inherit);
-  }
-  /* Section margin sliders (mobile-first) */
-  #shopify-section-richtext2_9 {
-    margin-top: 0px;
-    margin-bottom: 0px;
-  }
-  @media (min-width: 768px) {
-    #shopify-section-richtext2_9 {
-      margin-top: 0px;
-      margin-bottom: 0px;
+  @media (min-width: 750px) {
+    #shopify-section-banner3_9 {
+      margin-top: var(--rm3-mt-d) !important;
+      margin-bottom: var(--rm3-mb-d) !important;
     }
   }
-  /* Section wrapper spans its parent's full width without breaking out of
-     the editor preview. The section + first child span 100% so backgrounds
-     reach edge-to-edge but the editor inspector outline stays inside the
-     iframe viewport. */
-  #shopify-section-richtext2_9 {
-    max-width: none !important;
-    width: 100% !important;
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-    padding-left: 0 !important;
-    padding-right: 0 !important;
-    position: relative !important;
-    box-sizing: border-box !important;
-  }
-  #shopify-section-richtext2_9 > :where(div, section, header, footer, aside, main, article):first-child {
-    max-width: none !important;
-    width: 100% !important;
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-    box-sizing: border-box !important;
-  }
-
-  /* Section width — universal selector that works regardless of inner
-     markup. Targets both:
-       1) Theme container classes (.container/.fluid_container/etc.) — for
-          sections that have an inner wrapper with that class
-       2) The section's first-child div — for sections that don't have a
-          named inner wrapper. The padding-inline sets the max content
-          area while the wrapper itself stays 100% wide so any background
-          stays edge-to-edge. */#shopify-section-richtext2_9 .fluid_container,
-      #shopify-section-richtext2_9:not(.no-section-width-wrap) > :is(div, section, header, footer, aside, main, article):first-child {
-        max-width: calc(var(--fluid-container-width, 1500px) + 3rem) !important;
-        margin-inline: auto !important;
-        box-sizing: border-box !important;
-      }/* Reset spacing */#shopify-section-richtext2_9 { margin-bottom: 0 !important; margin-top: 0 !important; }
-    #shopify-section-richtext2_9 + .shopify-section { margin-top: 0 !important; }/* RichText Pro 2 — distinctive top accent gradient bar */
-
+  #shopify-section-banner3_9:has(#rm3-banner3_9[data-reset-spacing]) > :is(.section, section, div) { margin-top: 0 !important; margin-bottom: 0 !important; }
+  @media (max-width: 749px) { #shopify-section-banner3_9:has(#rm3-banner3_9[data-hide-mobile]) { display: none !important; } }
+  @media (min-width: 750px) { #shopify-section-banner3_9:has(#rm3-banner3_9[data-hide-desktop]) { display: none !important; } }
+  :where(#shopify-section-banner3_9) :where(button, input, textarea, select, optgroup) { font-family: inherit; }
 </style>
 <!-- ti-theme:start -->
-<div
-id="rt-elements-pro-1-richtext2_9" data-text-controls="richtext2" data-tx-section="richtext2_9" data-tx-settings="{&quot;color_scheme&quot;:{&quot;id&quot;:&quot;scheme-6da511c0-ea26-4213-b3d3-e09320840636&quot;,&quot;settings&quot;:{&quot;page_colors&quot;:null,&quot;background&quot;:{&quot;red&quot;:215,&quot;green&quot;:255,&quot;blue&quot;:62,&quot;alpha&quot;:1,&quot;hue&quot;:72,&quot;saturation&quot;:100,&quot;lightness&quot;:62,&quot;rgb&quot;:&quot;215 255 62&quot;,&quot;rgba&quot;:&quot;215 255 62 / 1&quot;,&quot;hex&quot;:&quot;#d7ff3e&quot;},&quot;text_color&quot;:{&quot;red&quot;:26,&quot;green&quot;:33,&quot;blue&quot;:0,&quot;alpha&quot;:1,&quot;hue&quot;:73,&quot;saturation&quot;:100,&quot;lightness&quot;:6,&quot;rgb&quot;:&quot;26 33 0&quot;,&quot;rgba&quot;:&quot;26 33 0 / 1&quot;,&quot;hex&quot;:&quot;#1a2100&quot;},&quot;heading_color&quot;:{&quot;red&quot;:11,&quot;green&quot;:11,&quot;blue&quot;:11,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:4,&quot;rgb&quot;:&quot;11 11 11&quot;,&quot;rgba&quot;:&quot;11 11 11 / 1&quot;,&quot;hex&quot;:&quot;#0b0b0b&quot;},&quot;primary_color&quot;:{&quot;red&quot;:11,&quot;green&quot;:11,&quot;blue&quot;:11,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:4,&quot;rgb&quot;:&quot;11 11 11&quot;,&quot;rgba&quot;:&quot;11 11 11 / 1&quot;,&quot;hex&quot;:&quot;#0b0b0b&quot;},&quot;border_color&quot;:{&quot;red&quot;:183,&quot;green&quot;:220,&quot;blue&quot;:43,&quot;alpha&quot;:1,&quot;hue&quot;:73,&quot;saturation&quot;:72,&quot;lightness&quot;:52,&quot;rgb&quot;:&quot;183 220 43&quot;,&quot;rgba&quot;:&quot;183 220 43 / 1&quot;,&quot;hex&quot;:&quot;#b7dc2b&quot;},&quot;badge_background&quot;:null,&quot;badge_text&quot;:null,&quot;primary_button_colors&quot;:null,&quot;btn_primary_background&quot;:{&quot;red&quot;:11,&quot;green&quot;:11,&quot;blue&quot;:11,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:4,&quot;rgb&quot;:&quot;11 11 11&quot;,&quot;rgba&quot;:&quot;11 11 11 / 1&quot;,&quot;hex&quot;:&quot;#0b0b0b&quot;},&quot;btn_primary_color&quot;:{&quot;red&quot;:215,&quot;green&quot;:255,&quot;blue&quot;:62,&quot;alpha&quot;:1,&quot;hue&quot;:72,&quot;saturation&quot;:100,&quot;lightness&quot;:62,&quot;rgb&quot;:&quot;215 255 62&quot;,&quot;rgba&quot;:&quot;215 255 62 / 1&quot;,&quot;hex&quot;:&quot;#d7ff3e&quot;},&quot;btn_primary_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_primary_hover_background&quot;:{&quot;red&quot;:42,&quot;green&quot;:42,&quot;blue&quot;:42,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:16,&quot;rgb&quot;:&quot;42 42 42&quot;,&quot;rgba&quot;:&quot;42 42 42 / 1&quot;,&quot;hex&quot;:&quot;#2a2a2a&quot;},&quot;btn_primary_hover_color&quot;:{&quot;red&quot;:215,&quot;green&quot;:255,&quot;blue&quot;:62,&quot;alpha&quot;:1,&quot;hue&quot;:72,&quot;saturation&quot;:100,&quot;lightness&quot;:62,&quot;rgb&quot;:&quot;215 255 62&quot;,&quot;rgba&quot;:&quot;215 255 62 / 1&quot;,&quot;hex&quot;:&quot;#d7ff3e&quot;},&quot;btn_primary_hover_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;secondary_button_colors&quot;:null,&quot;btn_secondary_background&quot;:{&quot;red&quot;:215,&quot;green&quot;:255,&quot;blue&quot;:62,&quot;alpha&quot;:1,&quot;hue&quot;:72,&quot;saturation&quot;:100,&quot;lightness&quot;:62,&quot;rgb&quot;:&quot;215 255 62&quot;,&quot;rgba&quot;:&quot;215 255 62 / 1&quot;,&quot;hex&quot;:&quot;#d7ff3e&quot;},&quot;btn_secondary_color&quot;:{&quot;red&quot;:11,&quot;green&quot;:11,&quot;blue&quot;:11,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:4,&quot;rgb&quot;:&quot;11 11 11&quot;,&quot;rgba&quot;:&quot;11 11 11 / 1&quot;,&quot;hex&quot;:&quot;#0b0b0b&quot;},&quot;btn_secondary_border&quot;:{&quot;red&quot;:11,&quot;green&quot;:11,&quot;blue&quot;:11,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:4,&quot;rgb&quot;:&quot;11 11 11&quot;,&quot;rgba&quot;:&quot;11 11 11 / 1&quot;,&quot;hex&quot;:&quot;#0b0b0b&quot;},&quot;btn_secondary_hover_background&quot;:{&quot;red&quot;:11,&quot;green&quot;:11,&quot;blue&quot;:11,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:4,&quot;rgb&quot;:&quot;11 11 11&quot;,&quot;rgba&quot;:&quot;11 11 11 / 1&quot;,&quot;hex&quot;:&quot;#0b0b0b&quot;},&quot;btn_secondary_hover_color&quot;:{&quot;red&quot;:215,&quot;green&quot;:255,&quot;blue&quot;:62,&quot;alpha&quot;:1,&quot;hue&quot;:72,&quot;saturation&quot;:100,&quot;lightness&quot;:62,&quot;rgb&quot;:&quot;215 255 62&quot;,&quot;rgba&quot;:&quot;215 255 62 / 1&quot;,&quot;hex&quot;:&quot;#d7ff3e&quot;},&quot;btn_secondary_hover_border_color&quot;:null,&quot;background_gradient&quot;:&quot;&quot;,&quot;btn_primary_gradient&quot;:&quot;&quot;,&quot;btn_primary_hover_background_gradient&quot;:&quot;&quot;,&quot;btn_secondary_hover_border&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_outline_color&quot;:{&quot;red&quot;:11,&quot;green&quot;:11,&quot;blue&quot;:11,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:4,&quot;rgb&quot;:&quot;11 11 11&quot;,&quot;rgba&quot;:&quot;11 11 11 / 1&quot;,&quot;hex&quot;:&quot;#0b0b0b&quot;},&quot;btn_outline_border_color&quot;:{&quot;red&quot;:11,&quot;green&quot;:11,&quot;blue&quot;:11,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:4,&quot;rgb&quot;:&quot;11 11 11&quot;,&quot;rgba&quot;:&quot;11 11 11 / 1&quot;,&quot;hex&quot;:&quot;#0b0b0b&quot;},&quot;button_link_color&quot;:{&quot;red&quot;:11,&quot;green&quot;:11,&quot;blue&quot;:11,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:4,&quot;rgb&quot;:&quot;11 11 11&quot;,&quot;rgba&quot;:&quot;11 11 11 / 1&quot;,&quot;hex&quot;:&quot;#0b0b0b&quot;},&quot;button_link_hover_color&quot;:{&quot;red&quot;:11,&quot;green&quot;:11,&quot;blue&quot;:11,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:4,&quot;rgb&quot;:&quot;11 11 11&quot;,&quot;rgba&quot;:&quot;11 11 11 / 1&quot;,&quot;hex&quot;:&quot;#0b0b0b&quot;}}},&quot;section_width&quot;:&quot;fluid_container&quot;,&quot;reset_spacing&quot;:true,&quot;reveal&quot;:true,&quot;show_on_mobile&quot;:true,&quot;badge_text&quot;:&quot;Ready?&quot;,&quot;enable_badge&quot;:false,&quot;show_left_circles&quot;:false,&quot;left_big_circle_image&quot;:null,&quot;left_medium_circle_image&quot;:null,&quot;left_circles_horizontal_position&quot;:80,&quot;show_right_circles&quot;:false,&quot;right_big_circle_image&quot;:null,&quot;right_medium_circle_image&quot;:null,&quot;right_circles_horizontal_position&quot;:80,&quot;circles_spacing&quot;:88,&quot;main_demo_image&quot;:null,&quot;main_demo_image_width&quot;:400,&quot;main_demo_image_height&quot;:200,&quot;main_demo_image_horizontal_position&quot;:0,&quot;main_demo_image_vertical_position_desktop&quot;:0,&quot;main_demo_image_vertical_position_mobile&quot;:0,&quot;elements_alignment&quot;:&quot;center&quot;,&quot;show_accent_bar&quot;:true,&quot;accent_bar_height&quot;:4,&quot;badge_width&quot;:120,&quot;badge_height&quot;:40,&quot;enable_custom_font&quot;:false,&quot;badge_text_font_size&quot;:14,&quot;badge_overall_size_desktop&quot;:100,&quot;heading_font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;body_font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;badge_gradient_color1&quot;:null,&quot;badge_gradient_color2&quot;:null,&quot;badge_gradient_color3&quot;:null,&quot;badge_gradient_degrees&quot;:&quot;to right&quot;,&quot;badge_text_color&quot;:null,&quot;badge_color&quot;:null,&quot;background_color&quot;:null,&quot;accent_color_1&quot;:null,&quot;accent_color_2&quot;:null,&quot;accent_color_3&quot;:null,&quot;badge_enable_gradient&quot;:false,&quot;badge_border_color&quot;:null,&quot;badge_border_thickness&quot;:0,&quot;badge_border_radius&quot;:20,&quot;enable_custom_style&quot;:false,&quot;padding_top&quot;:40,&quot;padding_bottom&quot;:40,&quot;section_margin_top_desktop&quot;:0,&quot;section_margin_bottom_desktop&quot;:0,&quot;badge_vertical_position_desktop&quot;:0,&quot;badge_vertical_position_mobile&quot;:0,&quot;section_margin_top_mobile&quot;:0,&quot;section_margin_bottom_mobile&quot;:0}" data-tx-defaults='{"color_scheme":"scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9","section_width":"fluid_container","reset_spacing":true,"reveal":true,"show_on_mobile":true,"badge_text":"BADGE","enable_badge":false,"show_left_circles":false,"left_circles_horizontal_position":80,"show_right_circles":false,"right_circles_horizontal_position":80,"circles_spacing":88,"main_demo_image_width":400,"main_demo_image_height":200,"main_demo_image_horizontal_position":0,"main_demo_image_vertical_position_desktop":0,"main_demo_image_vertical_position_mobile":0,"elements_alignment":"center","show_accent_bar":true,"accent_bar_height":4,"badge_width":120,"badge_height":40,"enable_custom_font":false,"badge_text_font_size":14,"badge_overall_size_desktop":100,"heading_font":"assistant_n4","body_font":"assistant_n4","badge_gradient_degrees":"to right","badge_enable_gradient":false,"badge_border_thickness":0,"badge_border_radius":20,"enable_custom_style":false,"padding_top":40,"padding_bottom":40,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"badge_vertical_position_desktop":0,"badge_vertical_position_mobile":0,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0}' data-tx-block-defaults='{"title":{"title_text":"Talk about your brand","custom_font_title":"assistant_n4","title_text_size":32,"title_font_weight":"theme","enable_custom_fonts":false,"enable_title_gradient":false,"gradient_direction":"to right","enable_custom_style":false,"vertical_spacing_desktop":15,"title_mobile_size":31,"vertical_spacing_mobile":10},"description":{"description_text":"Pair text with an image to focus on your chosen product, collection, or blog post. Add details on availability, style, or even provide a review.","custom_font_description_button":"assistant_n4","description_text_size":16,"enable_custom_fonts":false,"enable_custom_style":false,"description_left_padding_desktop":200,"description_right_padding_desktop":200,"vertical_gap_subheading_button_desktop":25,"description_mobile_size":13,"description_left_padding_mobile":22,"description_right_padding_mobile":22,"vertical_gap_subheading_button_mobile":20},"button":{"button_text":"Shop Now","button_link":"/collections/all","use_theme_button":true,"button_width":150,"button_height":42,"button_icon_size":24,"enable_button_icon":false,"button_text_size":14,"button_font_weight":"theme","button_border_radius":6,"enable_custom_style":false,"button_hover_animation":"glow","button_icon_vertical_position":0}}' data-tx-editor="false"
-class="rt-elements-pro-1-wrapper color-scheme-6da511c0-ea26-4213-b3d3-e09320840636 gradient fluid_container  "
-style="background-color: var(--color-background) !important; color: var(--color-text); padding-top: 40px; padding-bottom: 40px; position: relative;"
+<section
+class="rm3 color-scheme-6da511c0-ea26-4213-b3d3-e09320840636 gradient"
+id="rm3-banner3_9"
+data-section-id="banner3_9"
+data-hg="banner3"
+data-hg-section="banner3_9"
+data-theme-anim
+data-reset-spacing
+style="--rm-heading-c: var(--color-heading, currentColor); --rm-text-c: var(--color-text, currentColor); --rm3-bg: var(--color-background, transparent); --rm3-pt-m: 0px; --rm3-pb-m: 0px; --rm3-pt-d: 0px; --rm3-pb-d: 0px;"
 >
-<div data-tx-accent  style="position:absolute;inset:0 0 auto;height:4px;background:var(--color-primary)"></div>
-<!-- Left Floating Circles -->
-<!-- Right Floating Circles -->
-<div class="rt-elements-pro-1-content-container center">
-<!-- Main Demo Image Above the Title -->
-<!-- Pill Shaped Badge Above Title -->
-<!-- Blocks: Title, Description, Button -->
-<h2
-data-tx-block="title_1" data-tx-type="title" data-tx-settings="{&quot;title_text&quot;:&quot;Your first session starts today&quot;,&quot;custom_font_title&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;title_text_size&quot;:32,&quot;title_font_weight&quot;:&quot;theme&quot;,&quot;enable_custom_fonts&quot;:false,&quot;title_color&quot;:null,&quot;enable_title_gradient&quot;:false,&quot;gradient_start_color&quot;:null,&quot;gradient_end_color&quot;:null,&quot;gradient_direction&quot;:&quot;to right&quot;,&quot;enable_custom_style&quot;:false,&quot;vertical_spacing_desktop&quot;:15,&quot;title_mobile_size&quot;:31,&quot;vertical_spacing_mobile&quot;:10,&quot;custom_font_url_heading&quot;:&quot;&quot;}" data-block-id="title_1" class="rt-elements-pro-1-title  "
-data-text="Your first session starts today"
-style="
-color: var(--color-heading) !important;
-font-size: 32px;
-font-weight: var(--heading-weight, 700);
-margin-bottom: 15px;
-"
->
-Your first session starts today
-</h2>
-<div
-data-tx-block="description_2" data-tx-type="description" data-tx-settings="{&quot;description_text&quot;:&quot;Pick a program and get the plan in your inbox in a minute.&quot;,&quot;custom_font_description_button&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;description_text_size&quot;:16,&quot;enable_custom_fonts&quot;:false,&quot;description_color&quot;:null,&quot;enable_custom_style&quot;:false,&quot;description_left_padding_desktop&quot;:200,&quot;description_right_padding_desktop&quot;:200,&quot;vertical_gap_subheading_button_desktop&quot;:25,&quot;description_mobile_size&quot;:13,&quot;description_left_padding_mobile&quot;:22,&quot;description_right_padding_mobile&quot;:22,&quot;vertical_gap_subheading_button_mobile&quot;:20,&quot;custom_font_url_subheading&quot;:&quot;&quot;}" data-block-id="description_2" class="rt-elements-pro-1-description"
-style="
-color: var(--color-text) !important;
-font-size: 16px;
-padding-left: 200px;
-padding-right: 200px;
-margin-bottom: 25px;
-"
->
-Pick a program and get the plan in your inbox in a minute.
-</div>
-<a
-href="/theme-previews/fitness/collections/all.html"
-data-tx-block="button_3" data-tx-type="button" data-tx-settings="{&quot;button_text&quot;:&quot;See the programs&quot;,&quot;button_link&quot;:&quot;/theme-previews/fitness/collections/all.html&quot;,&quot;button_icon_image&quot;:null,&quot;use_theme_button&quot;:true,&quot;button_width&quot;:150,&quot;button_height&quot;:42,&quot;button_icon_size&quot;:24,&quot;enable_button_icon&quot;:false,&quot;button_text_size&quot;:14,&quot;button_font_weight&quot;:&quot;theme&quot;,&quot;button_color&quot;:null,&quot;button_text_color&quot;:null,&quot;button_hover_color&quot;:null,&quot;button_hover_text_color&quot;:null,&quot;button_border_radius&quot;:6,&quot;enable_custom_style&quot;:false,&quot;button_hover_animation&quot;:&quot;glow&quot;,&quot;button_icon_vertical_position&quot;:0}" data-block-id="button_3" class="rt-elements-pro-1-button glow rt-theme-btn" data-theme-button="primary" data-sl-button data-tx-button data-tx-hover="none"
-style="
---rt-btn-bg: var(--btn-primary-bg-color);
---rt-btn-color: var(--btn-primary-color);
---rt-btn-bg-hover: var(--btn-primary-hover-bg-color);
---rt-btn-color-hover: var(--btn-primary-hover-color);
-"
->
-See the programs
-</a>
-</div>
-</div>
 <style>
-  /* Scoped CSS for RichText Elements Pro 1 - Scoped by unique section ID */
-  #rt-elements-pro-1-richtext2_9 {
-    width: 100%;
-    position: relative;
-    overflow: hidden; /* Contain floating circles */
-  }
-
-  /* Custom fonts: snippets/text-controls-initial prints the picked families. */
-
-  /* Container for content to limit max width */
-  #rt-elements-pro-1-richtext2_9 .rt-elements-pro-1-content-container {
-    max-width: 1200px;
-    margin: 0 auto;
-    text-align: center; /* Default alignment */
-    position: relative;
-    z-index: 1; /* Ensure content is above floating circles */
-  }
-  /* Alignment classes */
-  #rt-elements-pro-1-richtext2_9 .rt-elements-pro-1-content-container.left {
-    text-align: start;
-  }
-  #rt-elements-pro-1-richtext2_9 .rt-elements-pro-1-content-container.center {
-    text-align: center;
-  }
-  #rt-elements-pro-1-richtext2_9 .rt-elements-pro-1-content-container.right {
-    text-align: right;
-  }
-
-  /* Main Demo Image Wrapper */
-  #rt-elements-pro-1-richtext2_9 .rt-elements-pro-1-main-image-wrapper {
-    width: 100%;
-    text-align: center;
-    position: relative;
-    margin-bottom: 20px;
-  }
-  #rt-elements-pro-1-richtext2_9 .rt-elements-pro-1-main-image {
-    max-width: 100%;
-    height: auto;
-  }
-
-  /* Badge Styling */
-  #rt-elements-pro-1-richtext2_9 .rt-elements-pro-1-badge {
-    transition: transform var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease), background-color var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease), color var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease);
-  }
-
-  /* Typography */
-  #rt-elements-pro-1-richtext2_9 .rt-elements-pro-1-title {
-    position: relative;
-  }
-  /* Use dynamic spacing for title to description gap */
-  #rt-elements-pro-1-richtext2_9 .rt-elements-pro-1-title {
-    margin-bottom: 15px;
-  }
-
-  /* Gradient Title */
-  #rt-elements-pro-1-richtext2_9 .rt-elements-pro-1-title-gradient {
-    display: inline-block;
-  }
-
-  /* Description Styling - vertical gap below subheading */
-  #rt-elements-pro-1-richtext2_9 .rt-elements-pro-1-description {
-    line-height: 1.5;
-    margin-bottom: 25px;
-  }
-
-  /* Button Styles */
-  #rt-elements-pro-1-richtext2_9 .rt-elements-pro-1-button {
-    display: inline-block;
-    text-decoration: none;
-    --mb-bg: var(--rt-btn-bg);
-    --mb-text: var(--rt-btn-color);
-    --mb-hover-bg: var(--rt-btn-bg-hover);
-    --mb-hover-text: var(--rt-btn-color-hover);
-    background-color: var(--rt-btn-bg) !important;
-    color: var(--rt-btn-color) !important;
-    transition: background-color var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease), color var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease), border-color var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease), transform var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease), box-shadow var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease);
-    text-align: center;
-  }
-  #rt-elements-pro-1-richtext2_9 .rt-elements-pro-1-button:hover {
-    background-color: var(--rt-btn-bg-hover) !important;
-    color: var(--rt-btn-color-hover) !important;
-  }
-  /* With "Use theme button style" on, the button is a theme button
-     (theme-button-contract.css): Theme settings > Buttons draw it, its colours
-     reach it as --mb-* tokens. Off, the styles above and the button's own
-     size, shape and hover animation apply. */
-  #rt-elements-pro-1-richtext2_9 .rt-elements-pro-1-button.rt-theme-btn {
-    --mb-bg: var(--rt-btn-bg);
-    --mb-text: var(--rt-btn-color);
-    --mb-hover-bg: var(--rt-btn-bg-hover);
-    --mb-hover-text: var(--rt-btn-color-hover);
-  }
-  @media (prefers-reduced-motion: reduce) {
-    #rt-elements-pro-1-richtext2_9 .rt-elements-pro-1-button,
-    #rt-elements-pro-1-richtext2_9 .rt-elements-pro-1-badge { transition: none; }
-    #rt-elements-pro-1-richtext2_9 .rt-elements-pro-1-button:hover { transform: none !important; }
-    #rt-elements-pro-1-richtext2_9 .rt-elements-pro-1-floating-circle { animation: none !important; }
-  }
-  /* Button Hover Animations */
-  #rt-elements-pro-1-richtext2_9 .rt-elements-pro-1-button.scale-in:hover {
-    transform: scale(1.05);
-  }
-  #rt-elements-pro-1-richtext2_9 .rt-elements-pro-1-button.scale-in-up:hover {
-    transform: scale(1.05) translateY(-3px);
-  }
-  #rt-elements-pro-1-richtext2_9 .rt-elements-pro-1-button.shadow:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  }
-  #rt-elements-pro-1-richtext2_9 .rt-elements-pro-1-button.glow:hover {
-    box-shadow: 0 0 10px rgba(255, 255, 255, 0.7);
-  }
-
-  /* Responsive Styles */
-  @media (max-width: 767px) {
-    #rt-elements-pro-1-richtext2_9 .rt-elements-pro-1-title {
-      font-size: 31px !important;
-      margin-bottom: 10px !important;
+    /* Outer wrapper: carries this section's own colour scheme, background and section padding */
+    #rm3-banner3_9 {
+      --rm-font-heading: var(--heading-font, var(--theme-font-heading, inherit));
+      --rm-font-body: var(--body-font, var(--theme-font-body, inherit));
+      --rm-weight-heading: var(--heading-weight, 700);
+      --rm-weight-body: var(--body-weight, 400);
+      position: relative;
+      box-sizing: border-box;
+      color: var(--rm-text-c);
+      background-color: var(--rm3-bg);
+      padding-top: var(--rm3-pt-m);
+      padding-bottom: var(--rm3-pb-m);
+      overflow-x: clip;
     }
-    #rt-elements-pro-1-richtext2_9 .rt-elements-pro-1-description {
-      font-size: 13px !important;
-      padding-left: 22px !important;
-      padding-right: 22px !important;
-      margin-bottom: 20px !important;
+    @media (min-width: 750px) {
+      #rm3-banner3_9 {
+        padding-top: var(--rm3-pt-d);
+        padding-bottom: var(--rm3-pb-d);
+      }
     }
-    /* Hide floating circles on mobile */
-    #rt-elements-pro-1-richtext2_9 .rt-elements-pro-1-floating-circle {
-      display: none;
+
+    /* Section width, from the theme's page width and side padding */
+    #rm3-banner3_9 .rm3__container { box-sizing: border-box; width: 100%; margin-inline: auto; }
+    #rm3-banner3_9 .rm3__container--container { max-width: calc(var(--page-width, var(--theme-page-width, 1300px)) + 3rem); padding-inline: var(--theme-padding-x, 1.5rem); }
+    #rm3-banner3_9 .rm3__container--fluid_container { max-width: calc(var(--fluid-container-width, 1500px) + 3rem); padding-inline: var(--theme-padding-x, 1.5rem); }
+    #rm3-banner3_9 .rm3__container--stretch_width { padding-inline: 1.5rem; }
+    @media (min-width: 1200px) { #rm3-banner3_9 .rm3__container--stretch_width { padding-inline: 3rem; } }
+    #rm3-banner3_9 .rm3__container--full_width { max-width: none; padding-inline: 0; }
+
+    /* Blocks with custom styling off follow the theme */
+    #rm-hero-banner3_9 .rm-hero__eyebrow:not([data-custom]) { --rm-eyebrow-color:var(--rm-heading-c);--rm-eyebrow-font:var(--rm-font-body);--rm-eyebrow-weight:var(--rm-weight-body);--rm-eyebrow-transform:none;--rm-eyebrow-letterspace:normal;--rm-eyebrow-lineheight:var(--body-line-height,1.6);--rm-eyebrow-opacity:1;--rm-eyebrow-size-d:var(--body-font-size,16px);--rm-eyebrow-size-m:var(--body-font-size,16px); }
+    #rm-hero-banner3_9 .rm-hero__heading:not([data-custom]) { --rm-heading-color:var(--rm-heading-c);--rm-heading-font:var(--rm-font-heading);--rm-heading-weight:var(--rm-weight-heading);--rm-heading-transform:var(--heading-text-transform,none);--rm-heading-lineheight:var(--heading-line-height,1.15);--rm-heading-letterspace:var(--heading-letter-spacing,normal);--rm-heading-size-d:var(--h2-size,2.4rem);--rm-heading-size-m:var(--h2-size,2.4rem); }
+    #rm-hero-banner3_9 .rm-hero__sub:not([data-custom]) { --rm-sub-color:var(--rm-text-c);--rm-sub-font:var(--rm-font-body);--rm-sub-weight:var(--rm-weight-body);--rm-sub-transform:none;--rm-sub-letterspace:normal;--rm-sub-lineheight:var(--body-line-height,1.6);--rm-sub-opacity:1;--rm-sub-size-d:var(--body-font-size,16px);--rm-sub-size-m:var(--body-font-size,16px); }
+    /* Explicit block choices override the theme priority, only while custom styling is on */
+    #rm-hero-banner3_9 .rm-hero__eyebrow[data-custom] { font-family:var(--rm-eyebrow-font)!important;font-weight:var(--rm-eyebrow-weight)!important;line-height:var(--rm-eyebrow-lineheight)!important;letter-spacing:var(--rm-eyebrow-letterspace)!important;text-transform:var(--rm-eyebrow-transform)!important; }
+    #rm-hero-banner3_9 .rm-hero__heading[data-custom] { font-family:var(--rm-heading-font)!important;font-weight:var(--rm-heading-weight)!important;line-height:var(--rm-heading-lineheight)!important;letter-spacing:var(--rm-heading-letterspace)!important;text-transform:var(--rm-heading-transform)!important; }
+    #rm-hero-banner3_9 .rm-hero__sub[data-custom] { font-family:var(--rm-sub-font)!important;font-weight:var(--rm-sub-weight)!important;line-height:var(--rm-sub-lineheight)!important;letter-spacing:var(--rm-sub-letterspace)!important;text-transform:var(--rm-sub-transform)!important; }
+    #rm-hero-banner3_9 .rm-hero__btn[data-custom] { font-weight:var(--mb-weight,var(--btn-font-weight,500))!important;font-size:var(--mb-font-size,var(--btn-font-size,14px))!important;border-radius:var(--mb-radius,var(--theme-button-radius,var(--btn-radius,8px)))!important;padding:var(--mb-padding-y,var(--theme-button-padding-y,14px)) var(--mb-padding-x,var(--theme-button-padding-x,26px))!important; }
+    #rm-hero-banner3_9 .rm-hero__btn[data-custom][data-own-shape] { --mb-font-size: var(--rm-btn-size-d); border-style: solid; border-width: var(--btn-border-width); }
+    @media (max-width: 749px) {
+      #rm-hero-banner3_9 .rm-hero__btn[data-custom][data-own-shape] { --mb-font-size: var(--rm-btn-size-m); }
     }
-    /* Hide section on mobile if toggle is off */
-    #rt-elements-pro-1-richtext2_9.hide-on-mobile {
-      display: none;
+
+    #rm-hero-banner3_9{
+      position: relative;
+      box-sizing: border-box;
+      width: auto;
+      max-width: none;
+      margin: 0 var(--rm-section-pad-right-m) 0 var(--rm-section-pad-left-m);
+      background-color: var(--rm-bg);
+      background-image: var(--rm-gradient);
+      padding: var(--rm-pt-m) var(--rm-inner-pad) var(--rm-pb-m);
+      border-radius: var(--rm-section-radius);
+      border: var(--rm-border-w) solid var(--rm-border-c);
+      box-shadow: var(--rm-shadow);
+      overflow: hidden;
     }
-    /* Override main demo image vertical position on mobile */
-    #rt-elements-pro-1-richtext2_9 .rt-elements-pro-1-main-image {
-      top: 0px !important;
+    #rm-hero-banner3_9[data-hover-lift]{ transition: transform 300ms cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 300ms ease; }
+    @media (min-width: 750px){
+      #rm-hero-banner3_9{
+        margin-left: var(--rm-section-pad-left);
+        margin-right: var(--rm-section-pad-right);
+        padding: var(--rm-pt) var(--rm-inner-pad) var(--rm-pb);
+      }
     }
-    /* Badge Mobile Adjustments */
-    #rt-elements-pro-1-richtext2_9 .rt-elements-pro-1-badge {
-      top: 0px !important;
-      transform: scale(1) !important;
+    @media (hover: hover){
+      #rm-hero-banner3_9[data-hover-lift]:hover{ transform: translateY(-4px); box-shadow: 0 16px 40px rgba(0,0,0,0.12); }
     }
-  }
+    #rm-hero-banner3_9::before{
+      content:"";
+      position:absolute; inset:0;
+      background: var(--rm-overlay);
+      opacity: var(--rm-overlay-opacity);
+      pointer-events:none;
+    }
+    #rm-hero-banner3_9 .rm-hero__inner{
+      position: relative;
+      z-index: 1;
+      max-width: var(--rm-content-max);
+      margin-inline: auto;
+      text-align: var(--rm-align-m);
+      display: flex;
+      flex-direction: column;
+      align-items: var(--rm-flex-m);
+      gap: var(--rm-gap);
+      min-width: 0;
+    }
+    @media (min-width: 750px){
+      #rm-hero-banner3_9 .rm-hero__inner{ text-align: var(--rm-align); align-items: var(--rm-flex); }
+    }
 
-  /* Floating Circles Styles */
-  #rt-elements-pro-1-richtext2_9 .rt-elements-pro-1-floating-circle {
-    position: absolute;
-    border-radius: 50%;
-    overflow: hidden;
-    z-index: 0;
-  }
-  #rt-elements-pro-1-richtext2_9 .rt-elements-pro-1-floating-circle img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-  }
-  /* Left Circles */
-  #rt-elements-pro-1-richtext2_9 .rt-elements-pro-1-floating-circle-left-big {
-    width: 140px;
-    height: 140px;
-    left: 80px;
-    top: 20%;
-    animation: rt-elements-pro-1-floatUpDown 6s ease-in-out infinite alternate;
-  }
-  #rt-elements-pro-1-richtext2_9 .rt-elements-pro-1-floating-circle-left-medium {
-    width: 100px;
-    height: 100px;
-    left: 75px;
-    top: calc(10% + 88px);
-    animation: rt-elements-pro-1-floatUpDown 6s ease-in-out infinite alternate;
-  }
-  /* Right Circles */
-  #rt-elements-pro-1-richtext2_9 .rt-elements-pro-1-floating-circle-right-big {
-    width: 140px;
-    height: 140px;
-    right: 80px;
-    top: 20%;
-    animation: rt-elements-pro-1-floatUpDown 6s ease-in-out infinite alternate;
-  }
-  #rt-elements-pro-1-richtext2_9 .rt-elements-pro-1-floating-circle-right-medium {
-    width: 100px;
-    height: 100px;
-    right: 75px;
-    top: calc(20% + 88px);
-    animation: rt-elements-pro-1-floatUpDown 6s ease-in-out infinite alternate;
-  }
-  /* Floating Animations */
-  @keyframes rt-elements-pro-1-floatUpDown {
-    0% { transform: translateY(0); }
-    50% { transform: translateY(-15px); }
-    100% { transform: translateY(0); }
-  }
-</style>
-<style>
-#shopify-section-richtext2_9 [data-text-controls]{font-family:var(--body-font);color:var(--color-text);background:var(--color-background)!important;}
-#shopify-section-richtext2_9 [data-text-controls] :is(h2,h3){font-family:var(--heading-font)}
+    #rm-hero-banner3_9 .rm-hero__eyebrow{
+      margin: 0;
+      font-family: var(--rm-eyebrow-font, var(--rm-font-body));
+      font-weight: var(--rm-eyebrow-weight);
+      letter-spacing: var(--rm-eyebrow-letterspace);
+      line-height: var(--rm-eyebrow-lineheight, 1.4);
+      text-transform: var(--rm-eyebrow-transform);
+      opacity: var(--rm-eyebrow-opacity);
+      color: var(--rm-eyebrow-color, var(--rm-heading-c));
+      font-size: var(--rm-eyebrow-size-m);
+    }
+    #rm-hero-banner3_9 .rm-hero__heading{
+      margin: 0;
+      font-family: var(--rm-heading-font, var(--rm-font-heading));
+      line-height: var(--rm-heading-lineheight);
+      font-weight: var(--rm-heading-weight);
+      text-transform: var(--rm-heading-transform, none);
+      color: var(--rm-heading-color, var(--rm-heading-c)) !important;
+      letter-spacing: var(--rm-heading-letterspace);
+      font-size: var(--rm-heading-size-m);
+      overflow-wrap: break-word;
+    }
+    #rm-hero-banner3_9 .rm-hero__sub{
+      margin: 0;
+      font-family: var(--rm-sub-font, var(--rm-font-body));
+      font-weight: var(--rm-sub-weight, var(--rm-weight-body));
+      text-transform: var(--rm-sub-transform, none);
+      letter-spacing: var(--rm-sub-letterspace, 0);
+      line-height: var(--rm-sub-lineheight);
+      color: var(--rm-sub-color, var(--rm-text-c));
+      opacity: var(--rm-sub-opacity);
+      font-size: var(--rm-sub-size-m);
+      overflow-wrap: break-word;
+    }
+    #rm-hero-banner3_9 .rm-hero__inner > :last-child{ margin-bottom: 0; }
+    #rm-hero-banner3_9 .rm-hero__inner > [hidden]{ display: none !important; }
+    @media (min-width: 750px){
+      #rm-hero-banner3_9 .rm-hero__eyebrow{ font-size: var(--rm-eyebrow-size-d); }
+      #rm-hero-banner3_9 .rm-hero__heading{ font-size: var(--rm-heading-size-d); }
+      #rm-hero-banner3_9 .rm-hero__sub{ font-size: var(--rm-sub-size-d); }
+    }
 
+    /* Button: a theme button (Theme settings > Buttons) */
+    #rm-hero-banner3_9 .rm-hero__btn{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: .5rem;
+      min-height: 44px;
+      margin: calc(var(--rm-sub-btn-gap) - var(--rm-gap)) 0 0;
+      width: fit-content;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      max-width: 100%;
+      text-align: center;
+    }
+    #rm-hero-banner3_9 .rm-hero__inner > .rm-hero__btn:not(:not([hidden]) ~ .rm-hero__btn){ margin-top: 0; }
+    #rm-hero-banner3_9 .rm-hero__btn:focus-visible{
+      outline: 2px solid var(--rm-heading-c);
+      outline-offset: 3px;
+    }
+    @media (max-width: 749px){
+      #rm-hero-banner3_9[data-button-full-mobile] .rm-hero__btn{ width: 100%; }
+    }
 
-
-
-
-
-
-
-
-
-
-#shopify-section-richtext2_9 [data-tx-block="title_1"]{color:var(--color-heading)!important;background-image:none!important;-webkit-text-fill-color:currentColor!important}
-
-
-
-
-
-
-
-
-
-
-#shopify-section-richtext2_9 [data-tx-block="description_2"],#shopify-section-richtext2_9 [data-tx-block="description_2"] p{color:var(--color-text)!important;background-image:none!important;-webkit-text-fill-color:currentColor!important}
-
-
-
-
-
-
-
-
-
-
-#shopify-section-richtext2_9 [data-tx-block="button_3"]
-
-
-
-@media(prefers-reduced-motion:reduce){#shopify-section-richtext2_9 [data-text-controls],#shopify-section-richtext2_9 [data-text-controls] *{animation:none!important;transition:none!important}}
-</style></div>
+    html:is(.shopify-design-mode,.mt-editor) #rm-hero-banner3_9{animation:none!important;opacity:1!important;translate:none!important;scale:none!important;}
+    /* Reveal on scroll (CSS only), used when the theme's own scroll animation is off */
+    @keyframes rm3-in-banner3_9 {
+      from { opacity: 0; translate: var(--rm-reveal-from-y, none); scale: var(--rm-reveal-from-scale, none); }
+      to { opacity: 1; translate: none; scale: none; }
+    }
+    #rm-hero-banner3_9[data-reveal="fade_up"] { --rm-reveal-from-y: 0 32px; }
+    #rm-hero-banner3_9[data-reveal="zoom"] { --rm-reveal-from-scale: 0.96; }
+    @supports (animation-timeline: view()) {
+      #rm-hero-banner3_9[data-reveal] {
+        animation: rm3-in-banner3_9 linear both;
+        animation-timeline: view();
+        animation-range: entry 0% entry var(--rm-reveal-range, 60%);
+      }
+    }
+    @media (prefers-reduced-motion: reduce){
+      #rm-hero-banner3_9 { animation: none !important; transition: none !important; transform: none !important; translate: none !important; scale: none !important; }
+    }
+  </style>
+<div class="rm3__container rm3__container--full_width">
+<div
+class="rm-hero"
+id="rm-hero-banner3_9"
+style="--rm-bg: var(--color-background, transparent); --rm-gradient: none; --rm-overlay: #000000; --rm-overlay-opacity: 0; --rm-content-max: 900px; --rm-align: center; --rm-flex: center; --rm-align-m: center; --rm-flex-m: center; --rm-gap: 18px; --rm-pt: 120px; --rm-pb: 120px; --rm-pt-m: 80px; --rm-pb-m: 84px; --rm-section-pad-left: 0px; --rm-section-pad-right: 0px; --rm-section-pad-left-m: 0px; --rm-section-pad-right-m: 0px; --rm-section-radius: 0px; --rm-border-w: 0px; --rm-border-c: var(--color-border, rgba(0,0,0,0.12)); --rm-shadow: none; --rm-sub-btn-gap: 34px; --rm-inner-pad: 16px; --rm-reveal-range: 60%;"
+>
+<div class="rm-hero__inner">
+<p class="rm-hero__eyebrow" data-promo-block="eyebrow_1" data-hg-block="eyebrow_1" data-hg-type="eyebrow" data-custom data-own-font data-own-weight data-own-size style="--rm-eyebrow-color: var(--rm-heading-c); --rm-eyebrow-font: var(--rm-font-body); --rm-eyebrow-weight: 600; --rm-eyebrow-transform: uppercase; --rm-eyebrow-letterspace: 0.2em; --rm-eyebrow-lineheight: 1.4; --rm-eyebrow-opacity: 1.0; --rm-eyebrow-size-d: 13px; --rm-eyebrow-size-m: 12px;" data-block-id="eyebrow_1">Start this week</p>
+<h2 class="rm-hero__heading" data-promo-block="heading_2" data-hg-block="heading_2" data-hg-type="heading" data-custom data-own-font data-own-weight data-own-size style=" --rm-heading-color: var(--rm-heading-c); --rm-heading-font: var(--rm-font-heading); --rm-heading-weight: var(--rm-weight-heading); --rm-heading-transform: uppercase; --rm-heading-lineheight: 1; --rm-heading-letterspace: 0em; --rm-heading-size-d: 72px; --rm-heading-size-m: 44px;" data-block-id="heading_2">Your first session starts today</h2>
+<p class="rm-hero__sub" data-promo-block="subheading_3" data-hg-block="subheading_3" data-hg-type="subheading" style="" data-block-id="subheading_3">Pick a program and get the plan in your inbox in a minute.</p>
+<a class="rm-hero__btn" data-promo-block="button_4" data-hg-block="button_4" data-hg-type="button" data-theme-button="primary" data-sl-button data-button-role="primary" href="/theme-previews/fitness/collections/all.html" data-block-id="button_4">See the programs</a>
+</div>
+</div>
+</div>
+</section>
+</section>
 </main><script src="/theme-previews/fitness/a/i.3221b11617b1.js"></script>
 <div id="shopify-section-footer" class="shopify-section shopify-section-group-footer-group" data-section-id="footer" data-section-type="theme-footer"><style>
   #shopify-section-footer {
@@ -2638,14 +2500,14 @@ See the programs
   #shopify-section-footer .arrow-toggle svg{width:var(--footer-arrow-size,14px);height:var(--footer-arrow-size,14px)}
 </style>
 <link href="/theme-previews/_base/a/collapsible.d0962c33f2d4.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/footer-section.37a0b34a1c2e.css" rel="stylesheet" type="text/css" media="all">
+<link href="/theme-previews/_base/a/footer-section.80f1cbc421de.css" rel="stylesheet" type="text/css" media="all">
 <footer
 class="product-sticky-hide footer color-scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976 gradient border-top remove_spacing remove_spacing-on-home"
 data-theme-footer
 data-ft-section="footer"
 data-ft-page="index"
 style="--section-pt: 48;--section-pb: 24;--footer-link-hover: var(--color-heading);--footer-heading-weight: 600;--footer-heading-tt: none;--footer-arrow-size: 14px;"
-><div class="footer__custom-header footer__custom-header--top" data-ft-fch style="--fch-pt:48px;--fch-gap:22px;--fch-text-m:94px;--fch-text-d:264px;--fch-color:var(--color-heading);--fch-style:normal;--fch-img-m:168px;--fch-img-d:144px;"><div class="footer__custom-text" data-ft-big>Train</div></div><div class="footer__middle section pb-min remove_spacing">
+><div class="footer__middle section pb-min remove_spacing">
 <div class="fluid_container"><div class="footer__blocks flex flex-col-custom flex-wrap"><div
 class="footer-block w-full col-md-w-custom-50 col-md-w-custom pb-30 border-bottom border-bottom-md-0 store_info"
 style="--col-width: 30%; --menu-list: 2; --store-info-top-offset: 0px;"
@@ -2832,7 +2694,7 @@ aria-label="Send it"
 <div class="footer__bottom"><div class="fluid_container">
 <div class="footer_bottom-inner justify-center justify-md-end flex flex-wrap flex-md-nowrap align-center border-top gap-20 gap-xl-30 py-30"><div class="flex flex-wrap gap-10 gap-xl-30 justify-center justify-md-start">
 <div class="footer__copyright" data-ft-copyright>© 2026 Iron Habit. All rights reserved.</div>
-<ul class="footer__policies list-unstyled flex flex-wrap" data-ft-policies><li><a href="/theme-previews/fitness/policies/refund-policy.html">Refund policy</a></li><li><a href="/theme-previews/fitness/policies/privacy-policy.html">Privacy policy</a></li><li><a href="/theme-previews/fitness/policies/terms-of-service.html">Terms of service</a></li></ul></div>
+<ul class="footer__policies list-unstyled flex flex-wrap" data-ft-policies><li><a href="/theme-previews/fitness/policies/refund-policy.html">Refund policy</a></li><li><a href="/theme-previews/fitness/policies/privacy-policy.html">Privacy policy</a></li><li><a href="/theme-previews/fitness/policies/terms-of-service.html">Terms of service</a></li></ul><div class="footer__powered" data-ft-powered><a href="#" data-preview-inert data-storelib-badge="">Powered by Storelib</a></div></div>
 <div class="footer__payment flex grow-1 align-center max-w-100" style="justify-content: flex-end; --pb-width: 100%; margin-left: auto;" data-ft-block="payment_badges_1" data-ft-type="payment_badges" data-block-id="payment_badges_1">
 <ul class="footer__payment-badges"><li class="payment-badge" aria-label="Visa"><svg class="icon icon--full-color" viewBox="0 0 38 24" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Visa">
 <title>Visa</title>
@@ -3013,7 +2875,7 @@ data-block-id="cart_8xqQBb"
   :where(html:not([data-font-priority='off'])) #shopify-section-back_to_top_pro :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
-</style><style></style><link rel="stylesheet" href="/theme-previews/fitness/a/i.7430f6e17c47.css" data-shopify><div class="buttontoppro full_width" data-pg-root="back-to-top-pro" data-pg-section="back_to_top_pro">
+</style><style></style><link rel="stylesheet" href="/theme-previews/fitness/a/i.899e01d7c25f.css" data-shopify><div class="buttontoppro full_width" data-pg-root="back-to-top-pro" data-pg-section="back_to_top_pro">
 <button type="button" class="top-back_to_top_pro" data-back-to-top="back_to_top_pro" data-show-after="300" aria-label="Back to top">
 <span class="top-circle-back_to_top_pro color-default" data-pg-scheme>
 <svg class="top-progress-circle-back_to_top_pro" width="100%" height="100%" viewBox="-1 -1 102 102" aria-hidden="true" focusable="false">
@@ -3220,7 +3082,7 @@ Continue Shopping
 <div class="overlayminicart">
 </div>
 <script src="/theme-previews/fitness/a/i.f50d71910c82.js"></script>
-<script src="/theme-previews/_base/a/animation.8fcd3a124757.js" defer="defer"></script>
+<script src="/theme-previews/_base/a/animation.7fa50ded717b.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/tingle-min.9664ca3641cf.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/cart-discount.6748c8dd9657.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/theme.7a7dd8f80f89.js"  defer="defer" type="module"></script>
@@ -3287,7 +3149,7 @@ Skip to content
   @keyframes materiaMediaFade { from { opacity: 0; } to { opacity: 1; } }
   html.js-media-fade .media-fade-run { animation: materiaMediaFade .4s ease; }
 </style>
-<script src="/theme-previews/fitness/a/i.619fc955d77c.js"></script>
+<script src="/theme-previews/fitness/a/i.4f24b89c5865.js"></script>
 <style>
         :root {
           /* Wire the user's Animations & motion settings to the keyframe vars used by animation.css */

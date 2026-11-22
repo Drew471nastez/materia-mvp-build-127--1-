@@ -225,7 +225,7 @@
         "column_1": {
           "type": "column",
           "settings": {
-            "label": "Who",
+            "label": "For good",
             "heading": "Yours to keep",
             "text": "<p>Every product you buy is yours for good, and the music you make with it stays cleared.</p>"
           }
@@ -233,7 +233,7 @@
         "column_2": {
           "type": "column",
           "settings": {
-            "label": "How long",
+            "label": "Free packs",
             "heading": "Free packs too",
             "text": "<p>The free downloads come with the same licence as the paid packs.</p>"
           }

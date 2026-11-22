@@ -57,6 +57,7 @@ async function main() {
   }
   const courseId = product({ type: "course", title: "Editing Course", priceCents: 4900 })
   const presetsId = product({ type: "digital", title: "Colour Presets", priceCents: 1500 })
+  const [presetsFile] = j.db.insert("digital_assets", { product_id: presetsId, file_name: "Presets.zip", file_size: 2048, file_path: `${creator.id}/presets.zip`, upload_status: "completed" }, {})
   const [community] = j.db.insert("communities", { owner_user_id: seller.id, creator_id: creator.id, name: "Cutroom Circle", slug: "cutroom-circle", access: "paid", status: "published" }, {})
   const [tier] = j.db.insert("community_tiers", { community_id: community.id, name: "Students", kind: "paid", position: 0, is_default: false, product_id: null }, {})
   j.db.insert("community_access_products", { community_id: community.id, tier_id: tier.id, product_id: courseId }, {})
@@ -103,6 +104,13 @@ async function main() {
   check("one receipt email for the basket", mail.length === 1, mail.map((m) => m.subject))
   const receiptLink = mail[0] ? (words(mail[0].html).match(/https?:\/\/\S+\/receipt\/[A-Za-z0-9_-]+/) ?? mail[0].html.match(/https?:\/\/[^"'\s]+\/receipt\/[A-Za-z0-9_-]+/))?.[0] ?? "" : ""
   check("  its receipt link opens on the website's own address", receiptLink.includes(host), { link: receiptLink, html: mail[0] ? words(mail[0].html).slice(0, 600) : null })
+  const text = String(mail[0]?.text ?? "")
+  const html = String(mail[0]?.html ?? "")
+  const presetsToken = String(j.rows("orders").find((o) => o.buyer_email === "bea@example.com" && o.product_id === presetsId)?.receipt_token ?? "")
+  check("  it names each line and what it opens: Open course to its player", new RegExp(`Editing Course: \\$49\\.00\\r?\\n    Open course: https://[^\\s]+/account/library/courses/${courseId}`).test(text), text)
+  check("  Open community to the community on Storelib", /Open community: https:\/\/[^\s]+\/community\/cutroom-circle/.test(text), text)
+  check("  Download to the file itself, on the website's address, with the line's receipt", text.includes(`Download: https://${host}/api/download/${presetsFile.id}?receipt=${presetsToken}`), text)
+  check("  and the same three as links in the HTML", />Open course<\/a>/.test(html) && />Open community<\/a>/.test(html) && />Download<\/a>/.test(html) && html.includes(`/api/download/${presetsFile.id}?receipt=`))
 
   const token = String(orders.find((o) => o.product_id === courseId)?.receipt_token ?? "")
   const { loadReceiptByToken } = await import("@/lib/receipts/load")
