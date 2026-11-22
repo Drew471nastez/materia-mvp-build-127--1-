@@ -1,6 +1,6 @@
 /**
  * The twelve templates that ship with Storelib's code (templates rounds 16
- * and 17): one theme's files once (theme-packages/materia/base) and a small
+ * to 18): one theme's files once (theme-packages/materia/base) and a small
  * overlay per template. What must stay true:
  *
  *   listed     builtinListings() answers the twelve, the default first, and
@@ -110,17 +110,23 @@ async function main() {
   /* ── Listed ─────────────────────────────────────────────────────────── */
   console.log("\nListed from code\n")
   const listings = builtinListings()
+  /* Changed on purpose (templates round 18): Skincare was removed and Creator Landing was added, twelve are listed. */
   check("twelve templates are listed, with no table and nothing uploaded", listings.length === 12 && CODE_TEMPLATES.length === 12, listings.map((l) => l.slug))
   check("Storelib Default is first, at the default address", listings[0]?.slug === DEFAULT_LISTING_SLUG && listings[0]?.name === "Storelib Default" && mergeListings([])[0]?.slug === DEFAULT_LISTING_SLUG)
-  check("then Clothing, Merch, Digital products, Ebooks, Fitness and Landing page", listings.slice(0, 7).map((l) => l.name).join("|") === "Storelib Default|Clothing|Merch|Digital products|Ebooks|Fitness|Landing page")
-  check("then the five narrower ones: Streetwear drop, Tour merch, Sample packs, Templates shop and Skincare", listings.slice(7).map((l) => l.name).join("|") === "Streetwear drop|Tour merch|Sample packs|Templates shop|Skincare")
+  /* Changed on purpose (templates round 18): Landing page is now called Course (same slug, landing-page). */
+  check("then Clothing, Merch, Digital products, Ebooks, Fitness and Course", listings.slice(0, 7).map((l) => l.name).join("|") === "Storelib Default|Clothing|Merch|Digital products|Ebooks|Fitness|Course")
+  /* Changed on purpose (templates round 18): Skincare was removed and Templates shop is now called Notion templates. */
+  /* Changed on purpose (templates round 18): Streetwear drop is now the Lifestyle label template (same slug). */
+  /* Changed on purpose (templates round 18): Creator Landing sits right after Landing page. */
+  check("then Creator Landing, right after Landing page", listings[7]?.slug === "creator-landing" && listings[7]?.name === "Creator Landing")
+  check("then the four narrower ones: Lifestyle label, Tour merch, Sample packs and Notion templates", listings.slice(8).map((l) => l.name).join("|") === "Lifestyle label|Tour merch|Sample packs|Notion templates")
   check("no two share an address or an overlay folder", new Set(listings.map((l) => l.slug)).size === listings.length && new Set(CODE_TEMPLATES.map((t) => t.template)).size === CODE_TEMPLATES.length)
   check("the native Storelib Default is not offered: no listing names a registry theme", listings.every((l) => l.builtinThemeId === null) && !mergeListings([]).some((l) => l.builtinThemeId === STORELIB_DEFAULT_ID))
   check("each is free, by Storelib, and adds a package the code ships", listings.every((l) => l.tier === "free" && l.author === "Storelib" && l.hasPackage && l.packageKind === null && isCodePackageId(l.codePackage)))
   check("each is filed under a category the filter has", listings.every((l) => THEME_CATEGORIES.some((c) => c.key === l.category)), listings.map((l) => l.category))
   /* Two clothing stores and two merch stores now: a category may hold two templates, never three, and the filter has more than a handful of rows. */
   const perCategory = listings.reduce<Record<string, number>>((n, l) => ({ ...n, [l.category]: (n[l.category] ?? 0) + 1 }), {})
-  check("  no category holds more than two, and both kinds of product are covered", Object.values(perCategory).every((n) => n <= 2) && Object.keys(perCategory).length >= 9 && ["fashion", "creators", "music", "design", "beauty", "digital"].every((c) => perCategory[c]), perCategory)
+  check("  no category holds more than two, and both kinds of product are covered", Object.values(perCategory).every((n) => n <= 2) && Object.keys(perCategory).length >= 9 && ["fashion", "creators", "music", "design", "digital"].every((c) => perCategory[c]), perCategory) /* Changed on purpose (templates round 18): no "beauty" since Skincare was removed. */
   check("each has its cover and its phone screenshot in public/themes", listings.every((l) => !!l.cover && existsSync(join("public", l.cover)) && l.screenshots.length === 2 && l.screenshots.every((s) => existsSync(join("public", s)))), listings.filter((l) => !l.cover || !existsSync(join("public", l.cover))).map((l) => l.cover))
   check("no listing name says where the theme came from", listings.every((l) => !/shopify|materia/i.test(`${l.name} ${l.author} ${l.slug}`)))
   check("a website remembers the listing it was added from, in its settings", [...installedListingSlugs([{ settings: { compat: { kind: "shopify", listing: "clothing" } } }, { settings: { marketplace_listing: "merch" } }, { settings: { compat: { listing: "Not A Slug" } } }, { settings: null }])].join() === "clothing,merch" && compatOf({ compat: { kind: "shopify", version: 1, theme: "x", listing: "fitness" } })?.listing === "fitness")
@@ -249,16 +255,18 @@ async function main() {
     looks[t.template] = [current.font_heading_google_family, current.font_body_google_family, scheme.background, scheme.btn_primary_background].join("|")
   }
 
-  console.log("\nTwelve different websites\n")
+  console.log("\nEleven different websites\n")
   const order = Object.values(homes)
   check("no two home pages are the same sections in the same order", new Set(order).size === CODE_TEMPLATES.length, homes)
   check("no two open with the same first two sections", new Set(order.map((o) => o.split(",").slice(0, 2).join(","))).size === CODE_TEMPLATES.length, order.map((o) => o.split(",").slice(0, 2).join(",")))
   check("no two share a typeface pairing and palette", new Set(Object.values(looks)).size === CODE_TEMPLATES.length, looks)
   /* The second clothing, merch and digital templates are not the first ones again: no section in the same place for the first two, another typeface and another ground. */
   const apart = (a: string, b: string) => homes[a].split(",").slice(0, 2).every((s, i) => s !== homes[b].split(",")[i]) && looks[a].split("|").every((v, i) => v !== looks[b].split("|")[i])
-  check("the second template of a kind opens differently from the first, in another typeface and colour", apart("streetwear", "clothing") && apart("tour", "merch") && apart("samples", "digital") && apart("workspace", "digital") && apart("workspace", "landing") && apart("skincare", "clothing"), { homes, looks })
-  check("the five narrower templates each use sections none of the first seven's home pages do", ["streetwear", "tour", "samples", "workspace", "skincare"].every((n) => homes[n].split(",").filter((s) => !["default", "clothing", "merch", "digital", "ebooks", "fitness", "landing"].some((o) => homes[o].split(",").includes(s))).length >= 4), homes)
-  check("the landing page is one long page with a single thing to buy and no menu in its header", homes.landing.split(",").length >= 10 && homes.landing.includes("featured-product") && /"mega_menu": ""/.test(read(join(ROOT, "templates/landing/sections/header-group.json"))))
+  check("the second template of a kind opens differently from the first, in another typeface and colour", apart("streetwear", "clothing") && apart("tour", "merch") && apart("samples", "digital") && apart("workspace", "digital") && apart("workspace", "landing"), { homes, looks }) /* Changed on purpose (templates round 18): Skincare was removed. */
+  /* Changed on purpose (templates round 18): Skincare was removed, four narrower templates remain. */
+  check("the four narrower templates each use sections none of the first seven's home pages do", ["streetwear", "tour", "samples", "workspace"].every((n) => homes[n].split(",").filter((s) => !["default", "clothing", "merch", "digital", "ebooks", "fitness", "landing"].some((o) => homes[o].split(",").includes(s))).length >= 4), homes)
+  /* Changed on purpose (templates round 18): the landing template is now a course school, a flagship course over a grid of smaller ones, with a few links, one button and no cart, account or search in its header. */
+  check("the course template opens on its flagship course over a grid of the others, and its header has one button and no cart, account or search", homes.landing.split(",").length >= 8 && homes.landing.startsWith("hero-product3,") && homes.landing.includes("products-listing") && ((h) => /"show_shopping_cart": false/.test(h) && /"show_account_icon": false/.test(h) && /"show_search": false/.test(h) && /"type": "header_button"/.test(h))(read(join(ROOT, "templates/landing/sections/header-group.json"))))
 
   /* ── Kept private, and carried by the build ─────────────────────────── */
   console.log("\nNot public\n")

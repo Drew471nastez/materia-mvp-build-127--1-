@@ -1,0 +1,53 @@
+{
+  "sections": {
+    "contactformsimple2_1": {
+      "type": "contactformsimple2",
+      "settings": {
+        "color_scheme": "default",
+        "btn_text": "Send message",
+        "ph_website": "Course or order (optional)",
+        "label_website": "Course or order",
+        "success_text": "Thanks. I read every message and reply within a few days."
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Say hello"
+          }
+        },
+        "description_2": {
+          "type": "description",
+          "settings": {
+            "text": "<p>Questions about a course, the book, a workshop or a collaboration.</p>"
+          }
+        },
+        "info_3": {
+          "type": "info",
+          "settings": {
+            "icon": "mail",
+            "line1": "hello@example.com",
+            "line2": "Replace with your email."
+          }
+        },
+        "info_4": {
+          "type": "info",
+          "settings": {
+            "icon": "map",
+            "line1": "Replies",
+            "line2": "Within a few days, from a real person"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_2",
+        "info_3",
+        "info_4"
+      ]
+    }
+  },
+  "order": [
+    "contactformsimple2_1"
+  ]
+}

@@ -14,7 +14,7 @@
  * SQL has run and with nothing uploaded. A row with a template's address in
  * the table only changes how it is shown.
  *
- * THE TEMPLATES (templates rounds 16 and 17). Twelve starting websites made
+ * THE TEMPLATES (templates rounds 16 to 18). Eleven starting websites made
  * from one theme, Materia: its files once (theme-packages/materia/base) and a small
  * overlay per template (theme-packages/materia/templates/<template>). Add
  * composes the two on the server and hands the result to the import every
@@ -40,15 +40,15 @@ export const THEME_SORTS: readonly { id: ThemeSort; label: string }[] = [
 
 /**
  * The categories a theme is filed under: the industries the registry already
- * names, and three the marketplace has that no native theme does (templates
+ * names, and two the marketplace has that no native theme does (templates
  * round 16: a clothing store and a fitness coach are neither "General" nor
- * "Coaching and consultants"; round 17: nor is a skincare brand).
+ * "Coaching and consultants"). Round 18 removed the skincare template and
+ * with it "Beauty", which nothing else was filed under.
  */
 export const THEME_CATEGORIES: readonly { key: string; label: string }[] = [
   ...THEME_INDUSTRIES.map((i) => ({ key: i.key, label: i.label })),
   { key: "fashion", label: "Fashion" },
   { key: "fitness", label: "Fitness" },
-  { key: "beauty", label: "Beauty" },
 ]
 
 export function categoryLabel(key: string | null | undefined): string {
@@ -111,13 +111,15 @@ export const CODE_TEMPLATES: readonly CodeTemplate[] = [
   { slug: "digital-products", template: "digital", name: "Digital products", category: "digital" },
   { slug: "ebooks", template: "ebooks", name: "Ebooks", category: "ebooks" },
   { slug: "fitness", template: "fitness", name: "Fitness", category: "fitness" },
-  { slug: "landing-page", template: "landing", name: "Landing page", category: "courses" },
-  /* Templates round 17: five narrower ones, for the shops that are opening now. */
-  { slug: "streetwear", template: "streetwear", name: "Streetwear drop", category: "fashion" },
+  /* Templates round 18: remade as a course school, a flagship course with smaller ones beside it. */
+  { slug: "landing-page", template: "landing", name: "Course", category: "courses" },
+  /* Templates round 18: a creator's personal home page, after the owner's reference. */
+  { slug: "creator-landing", template: "creator", name: "Creator Landing", category: "courses" },
+  /* Templates round 17: narrower ones, for the shops that are opening now (round 18 removed Skincare). */
+  { slug: "streetwear", template: "streetwear", name: "Lifestyle label", category: "fashion" },
   { slug: "tour-merch", template: "tour", name: "Tour merch", category: "creators" },
   { slug: "sample-packs", template: "samples", name: "Sample packs", category: "music" },
-  { slug: "templates-shop", template: "workspace", name: "Templates shop", category: "design" },
-  { slug: "skincare", template: "skincare", name: "Skincare", category: "beauty" },
+  { slug: "templates-shop", template: "workspace", name: "Notion templates", category: "design" },
 ]
 
 /** Where a template's pictures live: its home page whole at 1440 wide, and at a phone's width (scripts/build-theme-template-covers.ts takes both). */

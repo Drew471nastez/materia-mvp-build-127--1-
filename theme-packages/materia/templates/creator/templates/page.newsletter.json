@@ -1,0 +1,135 @@
+{
+  "sections": {
+    "signup": {
+      "type": "newsletter-split",
+      "settings": {
+        "color_scheme": "scheme-7dae8b89-7a81-4c2c-b8e2-92533766f8ca",
+        "image": "shopify://shop_images/creator-newsletter-sky.webp",
+        "image_alt": "A sample issue of the Sunday Sketch letter",
+        "image_position": "right",
+        "image_ratio": "square",
+        "btn_text": "Subscribe",
+        "email_placeholder": "Your email",
+        "note": "Free. One email a week. Leave whenever you like.",
+        "padding_top": 72,
+        "padding_bottom": 72
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Sunday Sketch"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>A short letter every Sunday morning for people who want to draw more. Read by [number] people.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2"
+      ]
+    },
+    "inside": {
+      "type": "text-columns",
+      "settings": {
+        "color_scheme": "default",
+        "columns_desktop": 3,
+        "show_dividers": true,
+        "padding_top": 80,
+        "padding_bottom": 80
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "What arrives each Sunday"
+          }
+        },
+        "column_2": {
+          "type": "column",
+          "settings": {
+            "label": "One",
+            "heading": "A prompt",
+            "text": "<p>Something to draw this week, small enough for a coffee break.</p>"
+          }
+        },
+        "column_3": {
+          "type": "column",
+          "settings": {
+            "label": "Two",
+            "heading": "A page of mine",
+            "text": "<p>What I drew, what went wrong and what I would change.</p>"
+          }
+        },
+        "column_4": {
+          "type": "column",
+          "settings": {
+            "label": "Three",
+            "heading": "A tool or a trick",
+            "text": "<p>A pen, a paper or a habit that helped, with no affiliate links.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "column_2",
+        "column_3",
+        "column_4"
+      ]
+    },
+    "sample": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "image": "shopify://shop_images/creator-sketchbook-pages.webp",
+        "image_alt": "An open sketchbook with small watercolour landscapes",
+        "image_position": "left",
+        "image_radius": 16,
+        "aspect_w": 4,
+        "aspect_h": 5
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "From a recent issue"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Paint the view from where you sit"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Replace this with a few lines from one of your letters, so people know what they are signing up for.</p>"
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "Read the articles",
+            "link": "/blogs/news"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
+    }
+  },
+  "order": [
+    "signup",
+    "inside",
+    "sample"
+  ]
+}

@@ -1,0 +1,21 @@
+[
+ {
+  "type": "landing",
+  "addable": false,
+  "schema": "sections/landing.storelib is not in the theme",
+  "fields": 0,
+  "blocks": 0,
+  "status": 200,
+  "drawn": false,
+  "bytes": 0,
+  "text": 0,
+  "raw": null,
+  "open": [],
+  "sentinel": true,
+  "footer": true,
+  "bad": [
+   "not drawn",
+   "schema sections/landing.storelib is not in the theme"
+  ]
+ }
+]

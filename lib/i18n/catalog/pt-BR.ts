@@ -5,6 +5,8 @@
  * keys, no trailing comma). A sentence missing here shows in English.
  */
 const words: Record<string, string> = {
+ "{name}, home page": "{name}, página inicial",
+ "Library full": "Biblioteca cheia",
  "Shown on your profile.": "Aparece no seu perfil.",
  "Tell people what you do or create": "Conte o que você faz ou cria",
  "What brings you here": "O que traz você aqui",

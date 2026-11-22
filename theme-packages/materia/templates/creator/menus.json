@@ -1,0 +1,66 @@
+{
+  "main-menu": {
+    "title": "Main menu",
+    "links": [
+      {
+        "title": "Courses",
+        "url": "/collections/all"
+      },
+      {
+        "title": "Articles",
+        "url": "/blogs/news"
+      },
+      {
+        "title": "About",
+        "url": "/pages/about"
+      },
+      {
+        "title": "Contact",
+        "url": "/pages/contact"
+      }
+    ]
+  },
+  "footer": {
+    "title": "More",
+    "links": [
+      {
+        "title": "About",
+        "url": "/pages/about"
+      },
+      {
+        "title": "Questions",
+        "url": "/pages/faqs"
+      },
+      {
+        "title": "Contact",
+        "url": "/pages/contact"
+      }
+    ]
+  },
+  "free": {
+    "title": "Free",
+    "links": [
+      {
+        "title": "Sunday Sketch",
+        "url": "/pages/newsletter"
+      },
+      {
+        "title": "Articles",
+        "url": "/blogs/news"
+      }
+    ]
+  },
+  "made": {
+    "title": "Things I make",
+    "links": [
+      {
+        "title": "Everything",
+        "url": "/collections/all"
+      },
+      {
+        "title": "Search",
+        "url": "/search"
+      }
+    ]
+  }
+}

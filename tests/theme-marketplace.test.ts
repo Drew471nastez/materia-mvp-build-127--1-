@@ -81,11 +81,11 @@ async function main() {
   /* ── 1. Listings ─────────────────────────────────────────────────────── */
   console.log("\nListings\n")
   const builtin = builtinListings()
-  /* Changed on purpose (templates round 16, then 17): the code lists twelve templates made from one theme, the default first; the native Storelib Default is no longer listed (tests/theme-templates.test.ts holds the rest). */
+  /* Changed on purpose (templates round 16, then 17, then 18): the code lists twelve templates (Skincare removed and Creator Landing added in round 18) made from one theme, the default first; the native Storelib Default is no longer listed (tests/theme-templates.test.ts holds the rest). */
   check("Storelib's own templates are listed from code, free, by Storelib, the default first", builtin.length === 12 && builtin[0].slug === DEFAULT_LISTING_SLUG && builtin.every((b) => b.tier === "free" && b.author === "Storelib" && !b.builtinThemeId && !!b.codePackage && b.hasPackage))
   const codeSlugs = builtin.map((b) => b.slug).join(",")
   const merged = mergeListings([listing({ slug: "b", sortOrder: 2 }), listing({ slug: "a", sortOrder: 1 }), listing({ slug: "hidden", published: false })])
-  /* Changed on purpose (templates round 16, then 17): twelve code listings lead, not one. */
+  /* Changed on purpose (templates round 16, then 17, then 18): twelve code listings lead, not one. */
   check("the merge keeps the code's templates first, orders the rest, and leaves hidden ones out", merged.map((l) => l.slug).join(",") === `${codeSlugs},a,b`, merged.map((l) => l.slug).join(","))
   check("  the admin's list includes hidden ones", mergeListings([listing({ slug: "hidden", published: false })], { includeHidden: true }).some((l) => l.slug === "hidden"))
   /* Changed on purpose (templates round 16): a row with a template's address dresses that template and still adds the code's package; a row naming the native theme is retired. */
@@ -237,8 +237,9 @@ async function main() {
   /* ── 1 and 2: the pages ──────────────────────────────────────────────── */
   console.log("\nThe pages\n")
   const client = read("app/(storelib)/app/website-builder/website-builder-client.tsx")
-  /* Changed on purpose (templates round 16): the row shows the first three templates and the card that opens the marketplace, four to a row on a laptop; the marketplace is a popup over the page, opened by a button, not a link to /themes in a new tab (scripts/check-theme-popup.mjs measures it). */
-  check("Browse themes is a grid of cards, three and the marketplace card", /const ROW_THEME_CARDS = 3/.test(client) && /listings\.slice\(0, ROW_THEME_CARDS\)/.test(client) && /<ThemeTemplateCard\b/.test(client) && /<MoreThemesCard onOpen=\{openThemes\} \/>/.test(client) && /lg:grid-cols-4/.test(client))
+  /* Changed on purpose (templates round 16): the marketplace is a popup over the page, opened by a button, not a link to /themes in a new tab (scripts/check-theme-popup.mjs measures it). */
+  /* Changed on purpose (the owner: six template cards, then Show more that opens the marketplace popup; the Explore more themes card is gone). */
+  check("Browse themes is a grid of six cards, three to a row, then Show more that opens the popup", /const ROW_THEME_CARDS = 6/.test(client) && /listings\.slice\(0, ROW_THEME_CARDS\)/.test(client) && /<ThemeTemplateCard\b/.test(client) && !/MoreThemesCard/.test(client) && /lg:grid-cols-3/.test(client) && /data-theme-marketplace-open="more"[\s\S]{0,200}onClick=\{\(e\) => openThemes\(e\.currentTarget\)\}[\s\S]{0,1200}\{tt\("Show more"\)\}/.test(client))
   check("  with a Theme marketplace button beside the heading that opens the popup", /data-theme-marketplace-open="heading"[\s\S]{0,1200}\{tt\("Theme marketplace"\)\}/.test(client) && /text-\[14px\] font-semibold/.test(client) && !/MARKETPLACE_PATH/.test(client) && /<ThemeMarketplace\b/.test(client))
   const card = read("components/themes/theme-card.tsx")
   check("the card: picture, bold name, by author, action at the row's end", /aspect-\[4\/3\]/.test(card) && /font-semibold/.test(card) && /tt\("by \{author\}"/.test(card) && /\{action \? <div className="shrink-0">\{action\}<\/div> : null\}/.test(card))

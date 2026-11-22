@@ -1,0 +1,156 @@
+{
+  "sections": {
+    "intro": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "default",
+        "image": "shopify://shop_images/creator-portrait.webp",
+        "image_alt": "Robin laughing against a white wall",
+        "image_position": "left",
+        "image_radius": 16,
+        "aspect_w": 4,
+        "aspect_h": 5,
+        "padding_top_desktop": 72,
+        "padding_bottom_desktop": 88
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "About"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "I'm Robin. I draw before breakfast.",
+            "tag": "h1"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Write your story here in your own words: where you started, what you make now and who it is for.</p><p>I teach drawing to adults who stopped at school. I write the Sunday Sketch letter, run The Drawing Table and make short videos about pens, paper and patience.</p>"
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "Get Sunday Sketch",
+            "link": "/pages/newsletter"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
+    },
+    "timeline": {
+      "type": "feature-timeline",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "layout": "side"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "How it went"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Replace the years and lines with your own.</p>"
+          }
+        },
+        "item_3": {
+          "type": "item",
+          "settings": {
+            "label": "Year",
+            "title": "A notebook on a train",
+            "text": "<p>The first drawing, of the man asleep opposite.</p>"
+          }
+        },
+        "item_4": {
+          "type": "item",
+          "settings": {
+            "label": "Year",
+            "title": "The first letter",
+            "text": "<p>Sunday Sketch went out to a handful of friends.</p>"
+          }
+        },
+        "item_5": {
+          "type": "item",
+          "settings": {
+            "label": "Year",
+            "title": "The book",
+            "text": "<p>Draw Before Breakfast, forty exercises in ten minutes each.</p>"
+          }
+        },
+        "item_6": {
+          "type": "item",
+          "settings": {
+            "label": "Now",
+            "title": "The Drawing Table",
+            "text": "<p>A members club that meets live once a month.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "item_3",
+        "item_4",
+        "item_5",
+        "item_6"
+      ]
+    },
+    "work": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "default",
+        "image": "shopify://shop_images/creator-cafe-sketch.webp",
+        "image_alt": "A hand drawing with a green pen in a small sketchbook",
+        "image_position": "right",
+        "image_radius": 16,
+        "aspect_w": 1,
+        "aspect_h": 1
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "What I believe about drawing"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Anyone can learn to draw what they see. It takes ten minutes a day and permission to make bad drawings for a while.</p>"
+          }
+        },
+        "button_3": {
+          "type": "button",
+          "settings": {
+            "label": "See what I teach",
+            "link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "button_3"
+      ]
+    }
+  },
+  "order": [
+    "intro",
+    "timeline",
+    "work"
+  ]
+}

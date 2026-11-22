@@ -1,0 +1,106 @@
+{
+  "sections": {
+    "page_heading_1": {
+      "type": "page-heading",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "page_title": "Questions"
+          }
+        },
+        "description_2": {
+          "type": "description",
+          "settings": {
+            "description": "<p>About the courses, the book and the letter.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_2"
+      ]
+    },
+    "faq_side_image_2": {
+      "type": "faq-side-image",
+      "settings": {
+        "color_scheme": "default",
+        "image": "shopify://shop_images/creator-botanical.webp",
+        "image_position": "right"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Before you sign up"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>If yours is not here, write to me.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do I need to be able to draw already?",
+            "answer": "<p>No. Sketchbook Basics starts with lines and boxes, and most people who take it have not drawn since school.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What do I need to start?",
+            "answer": "<p>Any pen and any paper. Each lesson lists what I use, and none of it is required.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How long do I keep the course?",
+            "answer": "<p>For as long as the course exists. Watch the lessons at your own pace and come back to them.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I cancel The Drawing Table?",
+            "answer": "<p>Yes, any time from your account. You keep access until the end of the month you paid for.</p>"
+          }
+        },
+        "faq_item_7": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Is the book a PDF or a paper book?",
+            "answer": "<p>Both are listed. The paper book ships in a few days, the PDF arrives straight away.</p>"
+          }
+        },
+        "faq_item_8": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Is Sunday Sketch really free?",
+            "answer": "<p>Yes. Sometimes it mentions the book or a course, and you can leave with one click.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6",
+        "faq_item_7",
+        "faq_item_8"
+      ]
+    }
+  },
+  "order": [
+    "page_heading_1",
+    "faq_side_image_2"
+  ]
+}

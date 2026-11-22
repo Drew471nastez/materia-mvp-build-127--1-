@@ -1,0 +1,30 @@
+{
+  "type": "custom.overlay",
+  "name": "t:sections.overlay_group.name",
+  "sections": {
+    "back_to_top_pro": {
+      "type": "Back-to-top-pro",
+      "settings": {
+        "arrow_color": "#1d1b2a",
+        "circle_size": 40,
+        "hide_on_mobile": true,
+        "progress_color": "#e4dccd",
+        "circle_bg_color": "#f7f3ec",
+        "arrow_hover_color": "#ffffff",
+        "circle_size_mobile": 46,
+        "progress_thickness": 2,
+        "enable_custom_style": true,
+        "horizontal_position": "right",
+        "vertical_dst_to_edge": 32,
+        "circle_bg_hover_color": "#1d1b2a",
+        "progress_active_color": "#1d1b2a",
+        "horizontal_dst_to_edge": 24,
+        "vertical_dst_to_edge_mobile": 90,
+        "horizontal_dst_to_edge_mobile": 18
+      }
+    }
+  },
+  "order": [
+    "back_to_top_pro"
+  ]
+}
