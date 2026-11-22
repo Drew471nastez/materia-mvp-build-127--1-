@@ -67,8 +67,12 @@ import { realShipStationDeps } from "@/lib/integrations/shipping/shipping-deps-s
 /* shipstation_push and shipstation_sync: orders out to ShipStation and its shipments back (lib/integrations/shipping, SQL part 163 lets the kinds in). */
 export type JobKind = "forward_fulfillment" | "supplier_email" | "webhook_delivery" | "tracking_sync" | "inventory_sync" | "send_email" | "shipstation_push" | "shipstation_sync" | "marketing_sync"
 
-/** True only for the call that queued it: the same key again (23505) is false, so a caller can do something once per job. */
-export async function enqueueJob(db: Db, j: { creatorId: string | null; kind: JobKind; key: string; payload: Record<string, unknown>; runNow?: boolean; runAfter?: Date }): Promise<boolean> {
+export async function enqueueJob(db: Db, j: { creatorId: string | null; kind: JobKind; key: string; payload: Record<string, unknown>; runNow?: boolean; runAfter?: Date }): Promise<void> {
+  await queueJobOnce(db, j)
+}
+
+/** enqueueJob, saying whether this call queued it: the same key again (23505) is false, so a caller can do something once per job (r57). */
+async function queueJobOnce(db: Db, j: { creatorId: string | null; kind: JobKind; key: string; payload: Record<string, unknown>; runNow?: boolean; runAfter?: Date }): Promise<boolean> {
   const { data, error } = await db
     .from("commerce_jobs")
     .insert({ creator_id: j.creatorId, kind: j.kind, payload: j.payload, idempotency_key: j.key, ...(j.runAfter ? { run_after: j.runAfter.toISOString() } : {}) })
@@ -474,7 +478,7 @@ export async function queueSellerEmail(db: Db, e: { checkoutId: string; creatorI
   const kind = sellerKindForEvent(e.kind)
   if (!kind) return
   const key = `email:seller:${e.kind}:${e.key ?? e.checkoutId}`.slice(0, 200)
-  const fresh = await enqueueJob(db, { creatorId: e.creatorId, kind: "send_email", key, payload: { template: "seller", event: e.kind, checkoutId: e.checkoutId, message: e.message.slice(0, 300), detail: e.detail ?? null } })
+  const fresh = await queueJobOnce(db, { creatorId: e.creatorId, kind: "send_email", key, payload: { template: "seller", event: e.kind, checkoutId: e.checkoutId, message: e.message.slice(0, 300), detail: e.detail ?? null } })
   /* And the seller's phone, once: only the call that queued the email (lib/physical/seller-push.ts, r57). */
   if (fresh) soon(() => pushSellerOrderEvent(db, { creatorId: e.creatorId, kind, key, checkoutId: e.checkoutId }))
 }

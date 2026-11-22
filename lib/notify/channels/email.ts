@@ -103,7 +103,15 @@ export function emailChannel(o: EmailChannelOptions): EmailSend {
     const headers: Record<string, string> = {}
     if (unsubscribe) {
       headers["List-Unsubscribe"] = `<${unsubscribe}>`
-      headers["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
+      /*
+        ONE CLICK ONLY WHERE ONE CLICK WORKS (r57). For a category that has no
+        signed link (payouts, sales, the store: lib/notify/unsubscribe.ts
+        falls back to the settings page) the header still said One-Click, so
+        Gmail's and Yahoo's Unsubscribe button POSTed to /app/settings, a page,
+        and nothing was turned off. RFC 8058 asks for the header only when the
+        address takes that POST: the signed route (app/api/notify/unsubscribe).
+      */
+      if (/\/api\/notify\/unsubscribe\?token=/.test(unsubscribe)) headers["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
     }
     headers["X-Storelib-Notification"] = entry.type
     const domain = o.messageDomain || "storelib.com"
