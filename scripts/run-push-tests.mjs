@@ -1752,6 +1752,8 @@ const STRICT_SUITES = [
   "tests/e2e-fulfilment-ae3.test.ts",
   /* Round 51: every answer to "How you fulfil orders" from checkout to delivered over the journey (self, own warehouse, Printify by its signed webhooks, dropshipping, a supplier, a fulfillment center by their email and page, a mix), and the zone, flat and free rates at checkout. */
   "tests/fulfilment-modes-r51.test.ts",
+  /* Round 57 (E2): after an order is paid, over the journey with Printful, Storage and a 3PL stubbed at the network: connect sealed, one mixed order (lamp, two prints, an ebook) routed once, Printful's two parcels each with its own items and number, the buyer's page in step, retries and refusals shown, partial and full refunds (Printful cancelled, stock released), a signed 3PL webhook and its tracking, disconnect. */
+  "tests/fulfilment-e2e-r57.test.ts",
   /* Quick setup through the real routes: explicit prices, whole or nothing, once */
   "tests/e2e-shipsetup.test.ts",
   /* Shipping quick setup, the summary, one fulfilment question, carrier rates gated (strict: it renders the settings component, which narrows on api() results) */

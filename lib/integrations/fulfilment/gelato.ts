@@ -86,22 +86,30 @@ export function readGelatoOrder(o: any): ProviderOrderState {
   const status = String(o?.fulfillmentStatus ?? "created").toLowerCase()
   let stage: ProviderOrderStage = STAGE[status] ?? (o?.orderType === "draft" ? "draft" : "pending")
   const seen = new Map<string, ProviderShipment>()
-  const add = (code: unknown, url: unknown, carrier: unknown, delivered: boolean) => {
+  /* Parcels whose items are all lines Storelib sent (itemReferenceId); one reached by a package only ships what is open, as before. */
+  const unknownItems = new Set<string>()
+  const add = (code: unknown, url: unknown, carrier: unknown, delivered: boolean, item?: { lineId: string; quantity: number } | null) => {
     const number = typeof code === "string" ? code.trim() : typeof code === "number" ? String(code) : ""
     if (!number) return
-    const had = seen.get(number)
-    if (had) {
-      had.delivered = had.delivered || delivered
-      return
+    let had = seen.get(number)
+    if (had) had.delivered = had.delivered || delivered
+    else {
+      had = { carrier: typeof carrier === "string" && carrier.trim() ? carrier.trim() : null, trackingNumber: number, trackingUrl: typeof url === "string" && url.trim() ? url.trim() : null, delivered, items: [] }
+      seen.set(number, had)
     }
-    seen.set(number, { carrier: typeof carrier === "string" && carrier.trim() ? carrier.trim() : null, trackingNumber: number, trackingUrl: typeof url === "string" && url.trim() ? url.trim() : null, delivered })
+    if (item === undefined) return
+    if (!item) unknownItems.add(number)
+    else if (!had.items!.some((i) => i.lineId === item.lineId)) had.items!.push(item)
   }
   for (const item of Array.isArray(o?.items) ? o.items : []) {
     const itemDelivered = String(item?.fulfillmentStatus ?? "").toLowerCase() === "delivered" || status === "delivered"
-    for (const f of Array.isArray(item?.fulfillments) ? item.fulfillments : []) add(f?.trackingCode, f?.trackingUrl, f?.shipmentMethodName ?? o?.shipment?.shipmentMethodName, itemDelivered)
+    const ref = typeof item?.itemReferenceId === "string" ? item.itemReferenceId.trim().toLowerCase() : ""
+    const quantity = Math.max(0, Math.floor(Number(item?.quantity) || 0))
+    const mine = /^[0-9a-f]{32}$/.test(ref) && quantity > 0 ? { lineId: ref, quantity } : null
+    for (const f of Array.isArray(item?.fulfillments) ? item.fulfillments : []) add(f?.trackingCode, f?.trackingUrl, f?.shipmentMethodName ?? o?.shipment?.shipmentMethodName, itemDelivered, mine)
   }
   for (const p of Array.isArray(o?.shipment?.packages) ? o.shipment.packages : []) add(p?.trackingCode, p?.trackingUrl, o?.shipment?.shipmentMethodName, status === "delivered")
-  const shipments = [...seen.values()]
+  const shipments = [...seen.values()].map((s) => (s.items?.length && !unknownItems.has(s.trackingNumber ?? "") ? s : { ...s, items: null }))
   if (stage === "shipped" && shipments.length > 0 && shipments.every((s) => s.delivered)) stage = "delivered"
   return {
     providerOrderId: o?.id != null ? String(o.id) : "",

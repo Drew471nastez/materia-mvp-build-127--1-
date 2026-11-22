@@ -33,6 +33,7 @@ import { canMoveShipment, orderNumber } from "./status"
 import { normaliseTrackingNumber } from "./carriers"
 import { openSecret } from "./secrets"
 import { openItemsAt, readPartnerStatus } from "./partner-link"
+import { checkoutIdOf } from "@/lib/integrations/fulfilment/http"
 export { PARTNER_LINK_TTL_MS, PARTNER_PAGE_PREFIX, openItemsAt, partnerLinkHolds, readPartnerStatus, signPartnerLink, verifyPartnerLink, webhookSignatureOk, type PartnerLink } from "./partner-link"
 
 /** The shop's own webhook secret (Settings > Integrations > Your own system), opened, or null. */
@@ -61,7 +62,22 @@ function failure(o: { ok: boolean }): PartnerOutcome {
  */
 export async function partnerShipped(
   db: Db,
-  input: { creatorId: string; checkoutId: string; locationId: string | null; carrier?: unknown; trackingNumber?: unknown; trackingUrl?: unknown; status?: unknown; partner: { provider: string; name: string } },
+  input: {
+    creatorId: string
+    checkoutId: string
+    locationId: string | null
+    carrier?: unknown
+    trackingNumber?: unknown
+    trackingUrl?: unknown
+    status?: unknown
+    partner: { provider: string; name: string }
+    /**
+     * The items in this parcel, by the line id the partner was sent (externalIdOf the order line), when it said
+     * (Printful, Gelato). Absent: every item still open at the location. Round 57: a partner that split an order in
+     * two parcels had its first one ship every item, and the second number never reached the order or the buyer.
+     */
+    items?: { lineId: string; quantity: number }[] | null
+  },
 ): Promise<PartnerOutcome> {
   const order = await loadOrder(db, { creatorId: input.creatorId, checkoutId: input.checkoutId })
   if (!order) return { ok: false, error: "Order not found.", status: 404 }
@@ -74,7 +90,7 @@ export async function partnerShipped(
     const moved = await updateShipment(db, input.creatorId, existing.id, { status, partner: { name: input.partner.name } })
     return moved.ok ? { ok: true, kind: "updated", order: moved.order } : failure(moved)
   }
-  const items = openItemsAt(order, input.locationId)
+  const items = parcelItems(openItemsAt(order, input.locationId), input.items)
   if (items.length === 0) return { ok: true, kind: "unchanged", order }
   const shipped = await fulfilItems(db, input.creatorId, input.checkoutId, {
     items,
@@ -96,6 +112,21 @@ export async function partnerShipped(
     }
   }
   return { ok: true, kind: "shipped", order: shipped.order }
+}
+
+/**
+ * What one parcel ships: the open items it names (by the line id the partner was sent), at most what is still open on
+ * each; every open item when it names none. One that names only items already shipped (a second label for a lost
+ * parcel) ships nothing more.
+ */
+export function parcelItems(open: { orderId: string; quantity: number }[], named: { lineId: string; quantity: number }[] | null | undefined): { orderId: string; quantity: number }[] {
+  if (!named || named.length === 0) return open
+  const asked = new Map<string, number>()
+  for (const n of named) {
+    const id = checkoutIdOf(n.lineId)
+    if (id) asked.set(id, (asked.get(id) ?? 0) + Math.max(0, Math.floor(n.quantity)))
+  }
+  return open.map((i) => ({ orderId: i.orderId, quantity: Math.min(i.quantity, asked.get(i.orderId) ?? 0) })).filter((i) => i.quantity > 0)
 }
 
 /** For the partner's page: the order number, and the items this location ships, without prices. */

@@ -72,6 +72,19 @@ async function fromSystem(request: Request) {
     if (!loc) return json({ error: "location_id is not one of this shop's locations." }, 400)
     locationId = loc.id
     name = loc.name
+  } else {
+    /*
+      No location_id: the place this order was sent to by webhook, when there is one. It used to be none at all, so
+      the report shipped every item still open on the order with this number: the seller's own and those Printful or
+      another partner had (round 57). Several webhook places on one order need the location_id each was sent.
+    */
+    const { data: lines } = await admin.from("orders").select("fulfillment_location_id, requires_shipping").eq("checkout_id", co.id)
+    const ids = [...new Set(((lines ?? []) as { fulfillment_location_id: string | null; requires_shipping: boolean | null }[]).filter((l) => l.requires_shipping && l.fulfillment_location_id).map((l) => l.fulfillment_location_id as string))]
+    const { data: places } = ids.length ? await admin.from("inventory_locations").select("id, name").eq("creator_id", co.creator_id).eq("forwarding", "webhook").in("id", ids) : { data: [] }
+    const sent = (places ?? []) as { id: string; name: string }[]
+    if (sent.length !== 1) return json({ error: sent.length ? "This order went to more than one of your places. Send the location_id it was sent with." : "This order was not sent to your system. Send the location_id of the place that shipped it." }, 400)
+    locationId = sent[0].id
+    name = sent[0].name
   }
   const result = await partnerShipped(admin, {
     creatorId: co.creator_id,
