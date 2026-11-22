@@ -227,7 +227,8 @@ async function main() {
 
   console.log("\nWhere a tap opens, in the app")
   check("a community or inbox push opens its own page, anywhere on storelib.com", pushTapTarget({ type: "inbox", url: "/community/film-loft/post/p1" }) === "/community/film-loft/post/p1" && pushTapTarget({ type: "inbox", url: `/community/film-loft?dm=${MARA}` }) === `/community/film-loft?dm=${MARA}` && pushTapTarget({ type: "inbox", url: "/mara/presets" }) === "/mara/presets")
-  check("the payout and sale pushes still open their pages", pushTapTarget({ type: "sale", orderId: "o1" }) === "/app/sales" && pushTapTarget({ type: "payout_available" }) === "/app/payouts" && pushTapTarget({ type: "notification", url: "/app/payouts" }) === "/app/payouts" && pushTapTarget({ type: "notification", url: "/community/x" }) === "/app")
+  /* Changed on purpose (r57): a sale opens its order (/app/sales was a redirect to the list that lost the order). */
+  check("the payout and sale pushes still open their pages", pushTapTarget({ type: "sale", orderId: "o1" }) === "/app/orders?order=o1" && pushTapTarget({ type: "payout_available" }) === "/app/payouts" && pushTapTarget({ type: "notification", url: "/app/payouts" }) === "/app/payouts" && pushTapTarget({ type: "notification", url: "/community/x" }) === "/app")
   check("never another host, a script, or the launch gate", inboxTapTarget("https://evil.example") === null && inboxTapTarget("//evil.example") === null && inboxTapTarget("javascript:alert(1)") === null && inboxTapTarget("/native-start") === null && inboxTapTarget("/a\\b") === null && pushTapTarget({ type: "inbox" }) === null && pushTapTarget({}) === null)
 
   /* ── One row ──────────────────────────────────────────────────────────── */
@@ -424,7 +425,8 @@ async function main() {
   check("the app's tap listener opens any page a push names (lib/push/tap), not only payouts", /const to = pushTapTarget\(data\)/.test(client) && /window\.location\.href = to/.test(client) && !/type === "sale"/.test(client))
   check("and a cold start's gate does not send the person elsewhere after a tap chose", /__storelibPushTap\) return/.test(code("app/(storelib)/native-start/page.tsx")))
   const sender = code("lib/push/sender.ts")
-  check("a browser push opens the inbox page too, and phones stack one banner per key", /data\?\.type === "inbox" \? inboxTapTarget\(data\.url\)/.test(sender) && /"apns-collapse-id": collapse/.test(sender) && /tag: collapse/.test(sender))
+  /* Changed on purpose (r57): the browser's page is the app's tap target itself (pushTapTarget), so the inbox page comes from the same function. */
+  check("a browser push opens the inbox page too, and phones stack one banner per key", /return pushTapTarget\(data\) \?\? "\/app"/.test(sender) && pushTapTarget({ type: "inbox", url: "/community/x" }) === "/community/x" && /"apns-collapse-id": collapse/.test(sender) && /tag: collapse/.test(sender))
 
   console.log("\nGET and PATCH /api/me/push")
   const route = code("app/api/me/push/route.ts")

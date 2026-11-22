@@ -6,7 +6,7 @@ import { vapidKeys } from "./web-vapid"
 import { endpointOf, forgetOnAccount, readKept, tokenOf } from "./web-subscriptions"
 import { bodyOn, devicesFor, titleOn, type TokenRow } from "./recipients"
 import { businessGroup, listBusinesses } from "@/lib/businesses/server"
-import { inboxTapTarget } from "./tap"
+import { pushTapTarget } from "./tap"
 import { groupIds } from "@/lib/businesses/rules"
 
 export interface PushPayload {
@@ -21,18 +21,82 @@ export interface PushPayload {
    * one community (lib/notifications/push-bridge.ts). At most 64 bytes.
    */
   collapseKey?: string
+  /**
+   * iOS groups a stack of notifications by this (aps thread-id): sales with
+   * sales, one community's with its own. Without it every push of the app
+   * was one pile. Defaults from the data (threadOf).
+   */
+  threadId?: string
 }
 
-/** Where a click on a browser notification goes, from what it is about. */
+/**
+ * Where a click on a browser notification goes: the page a tap in the app
+ * opens (lib/push/tap.ts), so the two can never disagree (they did for a
+ * sale: the browser opened the order, the phone the list), or /app.
+ */
 function pageFor(data: Record<string, string> | undefined): string {
-  if (data?.type === "sale" && data.orderId) return `/app/orders?order=${encodeURIComponent(data.orderId)}`
-  if (data?.type === "payout_available") return "/app/payouts"
-  /* A notification from lib/notifications: its own page, always inside /app. */
-  if (data?.type === "notification" && typeof data.url === "string" && /^\/app(?:[/?#]|$)/.test(data.url) && !data.url.includes("//")) return data.url
-  /* A community or inbox notification (lib/notifications/push-bridge.ts): its own page, any path on storelib.com. */
-  const inbox = data?.type === "inbox" ? inboxTapTarget(data.url) : null
-  if (inbox) return inbox
-  return "/app"
+  return pushTapTarget(data) ?? "/app"
+}
+
+/** The group a push stacks in on an iPhone: what it is about, never who it is from. */
+export function threadOf(payload: Pick<PushPayload, "data" | "threadId">): string {
+  if (payload.threadId) return payload.threadId.slice(0, 64)
+  const d = payload.data ?? {}
+  if (d.type === "sale") return "sales"
+  if (d.type === "payout_available") return "payouts"
+  if (d.type === "inbox") return "community"
+  if (d.type === "notification" && typeof d.kind === "string" && d.kind) return d.kind === "sale" ? "sales" : "storelib"
+  return "storelib"
+}
+
+/**
+ * THE FCM HTTP v1 MESSAGE for one phone (r57: built here, pure, so its shape
+ * is tested as FCM receives it rather than read from the code).
+ *
+ *   both     notification { title, body } (FCM turns it into the APNs alert
+ *            and the Android tray entry), data as strings for the tap
+ *   iOS      aps: sound ("default" or "<name>.wav", bundled in the app),
+ *            badge 1, thread-id for the stack; apns-collapse-id when one
+ *            push replaces another; apns-priority 10 so it shows now
+ *   Android  priority high (shown at once, not held for Doze), the channel
+ *            "default" the app makes (lib/push/client.ts createChannel),
+ *            the sound, and tag/collapse key for replacing
+ */
+export function fcmMessage(token: string, platform: string, title: string, body: string, payload: PushPayload): Message {
+  const sound = payload.sound ?? "default"
+  const collapse = payload.collapseKey ? payload.collapseKey.slice(0, 64) : undefined
+  return {
+    token,
+    notification: {
+      title,
+      body,
+    },
+    data: payload.data ?? {},
+    ...(platform === "ios"
+      ? {
+          apns: {
+            headers: { "apns-priority": "10", ...(collapse ? { "apns-collapse-id": collapse } : {}) },
+            payload: {
+              aps: {
+                sound: sound === "default" ? "default" : `${sound}.wav`,
+                badge: 1,
+                threadId: threadOf(payload),
+              },
+            },
+          },
+        }
+      : {
+          android: {
+            priority: "high" as const,
+            ...(collapse ? { collapseKey: collapse } : {}),
+            notification: {
+              sound,
+              channelId: "default",
+              ...(collapse ? { tag: collapse } : {}),
+            },
+          },
+        }),
+  }
 }
 
 /**
@@ -157,7 +221,6 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
   }
   result.devices += tokens.length
 
-  const sound = payload.sound ?? "default"
   const invalidIds: string[] = []
 
   /*
@@ -189,37 +252,7 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
         console.error(`[push] ✗ ${platform} device skipped: FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL or FIREBASE_PRIVATE_KEY is missing or refused`)
         return
       }
-      const collapse = payload.collapseKey ? payload.collapseKey.slice(0, 64) : undefined
-      const message: Message = {
-        token,
-        notification: {
-          title,
-          body,
-        },
-        data: payload.data ?? {},
-        ...(platform === "ios"
-          ? {
-              apns: {
-                ...(collapse ? { headers: { "apns-collapse-id": collapse } } : {}),
-                payload: {
-                  aps: {
-                    sound: sound === "default" ? "default" : `${sound}.wav`,
-                    badge: 1,
-                  },
-                },
-              },
-            }
-          : {
-              android: {
-                ...(collapse ? { collapseKey: collapse } : {}),
-                notification: {
-                  sound: sound,
-                  channelId: "default",
-                  ...(collapse ? { tag: collapse } : {}),
-                },
-              },
-            }),
-      }
+      const message = fcmMessage(token, platform, title, body, payload)
 
       try {
         await firebase.messaging().send(message)
