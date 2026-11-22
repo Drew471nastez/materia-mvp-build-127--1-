@@ -46,6 +46,22 @@
   margin-block: 0;
 }
 .footer__bottom .footer__copyright { overflow-wrap: anywhere; }
+/* "Powered by Storelib": the footer's own text, smaller and quieter than the copyright beside it. */
+.footer__bottom .footer__powered {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.footer__bottom .footer__powered a {
+  color: var(--color-text);
+  opacity: .6;
+  text-decoration: none;
+  transition: opacity .2s ease;
+}
+.footer__bottom .footer__powered a:hover,
+.footer__bottom .footer__powered a:focus-visible { opacity: 1; }
 @media (max-width: 767.98px) {
   .footer__bottom .footer_bottom-inner > .flex:first-child { justify-content: center; text-align: center; }
 }
@@ -339,8 +355,19 @@
   overflow-wrap: anywhere;
 }
 :is(#_, [data-theme-footer]) .footer__block-description { overflow-wrap: anywhere; }
-@container footer-newsletter (min-width: 480px) {
-  :is(#_, [data-theme-footer]) .footer-newsletter-fields { grid-template-columns: minmax(0, 1fr) minmax(120px, 35%); }
+/* Field and button on one line from a 300px column up on a computer (a
+   third of a 1440px footer is about 420px, which stacked them under 480px),
+   the button as wide as its words; one under the other, full width, on a
+   phone. Both are the field's height. */
+:is(#_, [data-theme-footer]) .footer-newsletter-fields { max-width: 520px; }
+:is(#_, [data-theme-footer]) .newsletter-inner.text-center .footer-newsletter-fields { margin-inline: auto; }
+:is(#_, [data-theme-footer]) .newsletter-form__button { height: var(--input-height, 48px); }
+:is(#_, [data-theme-footer]) .footer-newsletter-email input { height: var(--input-height, 48px); }
+@media (min-width: 750px) {
+  @container footer-newsletter (min-width: 300px) {
+    :is(#_, [data-theme-footer]) .footer-newsletter-fields { grid-template-columns: minmax(0, 1fr) auto; }
+    :is(#_, [data-theme-footer]) .newsletter-form__button { width: auto; white-space: nowrap; padding-inline: var(--btn-padding-x, 24px); }
+  }
 }
 /* Payment badges use the platform's full-color SVGs at their native ratio. */
 .footer__payment-badges {
@@ -471,7 +498,13 @@
 }
 /* Payment badges area width on desktop (Payment badges > Badges area width). */
 @media screen and (min-width: 768px) {
-  .footer__payment[style*="--pb-width"] { flex: 0 1 var(--pb-width); max-width: var(--pb-width); }
+  /* A cap, not a size: at 100% the badges took the whole line and squeezed
+     the copyright, the policies and Powered by into a narrow centred stack
+     (Clothing, Digital products, Fitness, Sample packs, Notion templates).
+     The left side keeps its one line; the badges take what is left, up to
+     the cap. */
+  .footer__payment[style*="--pb-width"] { flex: 1 1 auto; max-width: var(--pb-width); }
+  .footer__bottom .footer_bottom-inner > .flex:first-child { flex: 0 1 auto; justify-content: flex-start; text-align: start; }
 }
 /* A column heading's menu toggle takes the heading's size, weight and case. */
 .footer__block-heading .footer-acc__toggle.footer-acc__toggle { font-size: inherit; font-weight: inherit; text-transform: inherit; letter-spacing: inherit; }

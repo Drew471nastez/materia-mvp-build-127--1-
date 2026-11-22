@@ -68,12 +68,12 @@ export function auditSite(imported: ImportedTemplate, template: string, empty: b
   if (empty) return siteFor(imported, { name: (SAMPLE_SHOPS[template] ?? { name: "Sample store" }).name, products: [] })
   const built = siteFor(imported, fullShop(template))
   const products = built.site.products
-  /* The first product has sizes as real variants, each with its own id and price. */
+  /* The first product has real variants, each with its own id and price: its own options (./shops.ts), or sizes when it has none. */
   const first = products[0]
-  if (first) {
+  if (first && !(first.settings.variants as unknown[] | undefined)?.length) {
     const sizes = ["Small", "Medium", "Large"]
     first.settings.options = [{ name: "Size", values: sizes }]
-    first.settings.variants = sizes.map((name, i) => ({ id: `00000000-0000-4000-8000-00000000010${i}`, name, price: first.settings.price, available: i !== 2 }))
+    first.settings.variants = sizes.map((name, i) => ({ id: `00000000-0000-4000-8000-00000000010${i}`, name, options: [name], price: first.settings.price, available: i !== 2 }))
   }
   const cover = String(first?.settings.image ?? "")
   const half = Math.ceil(products.length / 2)

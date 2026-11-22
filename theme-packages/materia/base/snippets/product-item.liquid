@@ -1,3 +1,16 @@
+{%- comment -%} On a collection page the first cards are what the page opens with: the first row is asked for first and painted with its card, the next row is not left to lazy loading (Night shop showed names half a second before their pictures). {%- endcomment -%}
+{%- liquid
+  assign card_first_row = false
+  assign card_near_top = false
+  if collection_product and indexFor
+    if indexFor <= 4
+      assign card_first_row = true
+    endif
+    if indexFor <= 8
+      assign card_near_top = true
+    endif
+  endif
+-%}
 {%- comment -%}
   Materia Themes. Developed By Materia Themes.
 {%- endcomment -%}
@@ -219,6 +232,8 @@
                 {% render 'responsive-image',
                   type: 'product',
                   class: 'product-image first-image',
+                  priority_image: card_first_row,
+                  lazy_load: card_near_top,
                   image: product_media,
                   image_alt: alt_features,
                   container: container,
@@ -233,6 +248,8 @@
               {% render 'responsive-image',
                 type: 'product',
                 class: 'product-image first-image',
+                priority_image: card_first_row,
+                lazy_load: card_near_top,
                 image: product_media,
                 image_alt: alt_features,
                 container: container,

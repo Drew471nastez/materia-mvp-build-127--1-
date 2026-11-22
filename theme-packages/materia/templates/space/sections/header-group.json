@@ -99,7 +99,7 @@
         "uppercase_first": true,
         "action_text_size": 16,
         "menu_custom_font": "bodoni_moda_n4",
-        "menu_hover_style": "fade",
+        "menu_hover_style": "underline",
         "redirect_to_link": true,
         "logo_width_mobile": 38,
         "menu_link_spacing": 22,
@@ -215,9 +215,9 @@
         "text_color": "#ffffff",
         "text_size": 11,
         "show_mark": false,
-        "mark_color": "#e0201b",
+        "mark_color": "#ffffff",
         "mark_size": 46,
-        "mark_weight": 5,
+        "mark_weight": 2,
         "padding_top": 0,
         "padding_bottom": 18
       }

@@ -1,0 +1,47 @@
+
+  html { background-color: #050506 !important; }
+  body { background-color: transparent !important; }
+  #shopify-section-sky { position: static !important; margin: 0 !important; padding: 0 !important; height: 0; isolation: auto !important; }
+  .space-sky-sky {
+    position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none;
+    background-color: #050506;
+    /* Before the script has drawn its layers: a still handful of stars. */
+    background-image:
+      radial-gradient(1px 1px at 12% 18%, #ffffff 50%, transparent 51%),
+      radial-gradient(1px 1px at 68% 32%, #ffffff 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 38% 74%, #ffffff 50%, transparent 51%),
+      radial-gradient(1px 1px at 86% 82%, #ffffff 50%, transparent 51%),
+      radial-gradient(1px 1px at 52% 48%, #ffffff 50%, transparent 51%),
+      radial-gradient(1px 1px at 22% 58%, #ffffff 50%, transparent 51%);
+  }
+  .space-sky-sky[data-ready] { background-image: none; }/* Sections in the sky's colour scheme let the stars show through them. Drawers and pop ups keep their own colour. */
+    main .color-default,
+    main .color-default.gradient,
+    .shopify-section-group-footer-group .color-default,
+    .shopify-section-group-header-group .header.color-default,
+    .shopify-section-group-header-group > .shopify-section > .section.color-default { background: transparent !important; }.space-sky-sky .space-sky__layer {
+    position: absolute; left: 0; top: 0; width: 100%;
+    background-repeat: repeat; will-change: transform;
+    animation-name: space-sky-drift-sky; animation-timing-function: linear; animation-iteration-count: infinite;
+  }
+  .space-sky-sky .space-sky__twinkle {
+    position: absolute; border-radius: 50%; background: #ffffff;
+    box-shadow: 0 0 6px 1px rgba(255, 255, 255, 0.7);
+    opacity: .15; will-change: opacity;
+    animation: space-sky-twinkle-sky var(--tw, 4s) ease-in-out var(--td, 0s) infinite;
+  }
+  @keyframes space-sky-drift-sky {
+    from { transform: translate3d(0, 0, 0); }
+    to { transform: translate3d(var(--dx, 0px), var(--dy, -512px), 0); }
+  }
+  @keyframes space-sky-twinkle-sky {
+    0%, 100% { opacity: .12; }
+    50% { opacity: 1; }
+  }
+  .space-sky-sky[data-paused] .space-sky__layer,
+  .space-sky-sky[data-paused] .space-sky__twinkle { animation-play-state: paused; }
+  @media (prefers-reduced-motion: reduce) {
+    .space-sky-sky .space-sky__layer,
+    .space-sky-sky .space-sky__twinkle { animation: none; }
+    .space-sky-sky .space-sky__twinkle { opacity: .6; }
+  }

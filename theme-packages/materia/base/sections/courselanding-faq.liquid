@@ -1,0 +1,107 @@
+{%- comment -%}
+  Course landing: questions as separate white rows with rounded corners,
+  centred under a heading. Each row opens in place (details and summary)
+  and its accent plus turns to a minus. The answers are also written for
+  search engines.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign sid = section.id
+-%}
+<style>
+  #shopify-section-{{ sid }} .clq {
+    --cl-accent: {{ s.accent | default: '#2f5bea' }};
+    --cl-ink: {{ s.heading_color | default: '#141416' }};
+    background: {{ s.background | default: '#f6f6f4' }};
+    color: {{ s.text_color | default: '#4b4b52' }};
+    padding: {{ s.padding_top_mobile | default: 48 }}px 0 {{ s.padding_bottom_mobile | default: 48 }}px;
+    scroll-margin-top: 100px;
+  }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .clq { padding: {{ s.padding_top | default: 88 }}px 0 {{ s.padding_bottom | default: 88 }}px; } }
+  #shopify-section-{{ sid }} .clq__in { max-width: 760px; margin: 0 auto; padding: 0 16px; }
+  #shopify-section-{{ sid }} .clq__title { margin: 0 0 12px; text-align: center; color: var(--cl-ink); font-family: var(--heading-font, inherit); font-weight: 600; font-size: 32px; line-height: 1.1; letter-spacing: -.03em; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .clq__title { font-size: 44px; } }
+  #shopify-section-{{ sid }} .clq__text { margin: 0 auto 30px; max-width: 520px; text-align: center; font-size: 16px; line-height: 1.6; }
+  #shopify-section-{{ sid }} .clq__text p { margin: 0; }
+  #shopify-section-{{ sid }} .clq__text a { color: var(--cl-ink); text-underline-offset: 3px; }
+  #shopify-section-{{ sid }} .clq__list { display: grid; gap: 12px; }
+  #shopify-section-{{ sid }} .clq__item { border-radius: 16px; background: #fff; border: 1px solid #e6e6e2; transition: border-color .25s ease, box-shadow .25s ease; }
+  #shopify-section-{{ sid }} .clq__item[open] { border-color: color-mix(in srgb, var(--cl-accent) 30%, #e6e6e2); box-shadow: 0 12px 30px -20px rgba(20,20,40,.25); }
+  #shopify-section-{{ sid }} .clq__item summary { list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 18px 20px; cursor: pointer; color: var(--cl-ink); font-size: 16px; font-weight: 600; line-height: 1.4; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .clq__item summary { padding: 20px 24px; font-size: 17px; } }
+  #shopify-section-{{ sid }} .clq__item summary::-webkit-details-marker { display: none; }
+  #shopify-section-{{ sid }} .clq__plus { flex: none; position: relative; width: 18px; height: 18px; }
+  #shopify-section-{{ sid }} .clq__plus::before, #shopify-section-{{ sid }} .clq__plus::after { content: ""; position: absolute; left: 0; top: 50%; width: 18px; height: 2px; margin-top: -1px; border-radius: 2px; background: var(--cl-accent); transition: transform .35s cubic-bezier(.2,.65,.25,1); }
+  #shopify-section-{{ sid }} .clq__plus::after { transform: rotate(90deg); }
+  #shopify-section-{{ sid }} details[open] .clq__plus::after { transform: rotate(0deg); }
+  #shopify-section-{{ sid }} .clq__a { padding: 0 20px 20px; font-size: 15px; line-height: 1.65; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .clq__a { padding: 0 24px 22px; font-size: 16px; } }
+  #shopify-section-{{ sid }} .clq__a p { margin: 0 0 10px; }
+  #shopify-section-{{ sid }} .clq__a p:last-child { margin: 0; }
+  #shopify-section-{{ sid }} details[open] .clq__a { animation: clq-open-{{ sid }} .45s cubic-bezier(.2,.65,.25,1); }
+  @keyframes clq-open-{{ sid }} { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+  #shopify-section-{{ sid }} [data-clr].clr-wait { opacity: 0; transform: translate3d(0, 24px, 0); }
+  #shopify-section-{{ sid }} [data-clr].clr-in { opacity: 1; transform: none; transition: opacity .85s cubic-bezier(.2,.65,.25,1) var(--d, 0ms), transform .85s cubic-bezier(.2,.65,.25,1) var(--d, 0ms); }
+  @media (prefers-reduced-motion: reduce) {
+    #shopify-section-{{ sid }} details[open] .clq__a { animation: none; }
+    #shopify-section-{{ sid }} .clq__plus::before, #shopify-section-{{ sid }} .clq__plus::after, #shopify-section-{{ sid }} .clq__item { transition: none; }
+  }
+</style>
+<section class="clq"{% if s.anchor != blank %} id="{{ s.anchor | handleize }}"{% endif %}>
+  <div class="clq__in">
+    <div data-clr>
+      <h2 class="clq__title">{{ s.heading | escape }}</h2>
+      {%- if s.text != blank -%}<div class="clq__text">{{ s.text }}</div>{%- else -%}<div class="clq__text"></div>{%- endif -%}
+    </div>
+    <div class="clq__list" data-clr style="--d: 80ms">
+      {%- for block in section.blocks -%}
+        <details class="clq__item" {{ block.shopify_attributes }}{% if forloop.first and s.first_open %} open{% endif %}>
+          <summary><span>{{ block.settings.question | escape }}</span><span class="clq__plus" aria-hidden="true"></span></summary>
+          <div class="clq__a">{{ block.settings.answer }}</div>
+        </details>
+      {%- endfor -%}
+    </div>
+  </div>
+</section>
+{%- if section.blocks.size > 0 -%}
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{%- for block in section.blocks -%}{"@type":"Question","name":{{ block.settings.question | json }},"acceptedAnswer":{"@type":"Answer","text":{{ block.settings.answer | strip_html | json }}}}{% unless forloop.last %},{% endunless %}{%- endfor -%}]}</script>
+{%- endif -%}
+{%- unless request.design_mode -%}
+<script>(function(){var r=document.getElementById('shopify-section-{{ sid }}');if(!r||!('IntersectionObserver' in window)||matchMedia('(prefers-reduced-motion: reduce)').matches)return;var h=innerHeight,io=new IntersectionObserver(function(es){es.forEach(function(e){if(!e.isIntersecting)return;var t=e.target;io.unobserve(t);requestAnimationFrame(function(){t.classList.add('clr-in')})})},{rootMargin:'0px 0px -6% 0px'});r.querySelectorAll('[data-clr]').forEach(function(el){if(el.getBoundingClientRect().top<h*.92)return;el.classList.add('clr-wait');io.observe(el)})})();</script>
+{%- endunless -%}
+
+{% schema %}
+{
+  "name": "Questions in rows",
+  "tag": "section",
+  "class": "courselanding-faq-section",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Questions" },
+    { "type": "richtext", "id": "text", "label": "Text" },
+    { "type": "checkbox", "id": "first_open", "label": "First question open", "default": false },
+    { "type": "text", "id": "anchor", "label": "Address on the page", "default": "questions", "info": "A word a menu link can jump to, as /#word." },
+    { "type": "header", "content": "Colours" },
+    { "type": "color", "id": "background", "label": "Background", "default": "#f6f6f4" },
+    { "type": "color", "id": "accent", "label": "Accent", "default": "#2f5bea" },
+    { "type": "color", "id": "heading_color", "label": "Headings", "default": "#141416" },
+    { "type": "color", "id": "text_color", "label": "Text", "default": "#4b4b52" },
+    { "type": "header", "content": "Spacing" },
+    { "type": "range", "id": "padding_top", "label": "Space above on desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 88 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below on desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 88 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above on phones", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 48 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below on phones", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 48 }
+  ],
+  "blocks": [
+    {
+      "type": "question",
+      "name": "Question",
+      "settings": [
+        { "type": "text", "id": "question", "label": "Question", "default": "How long do I have access?" },
+        { "type": "richtext", "id": "answer", "label": "Answer", "default": "<p>Say how long and on which devices.</p>" }
+      ]
+    }
+  ],
+  "presets": [ { "name": "Questions in rows", "category": "Course landing", "blocks": [ { "type": "question" }, { "type": "question", "settings": { "question": "What if it is not for me?", "answer": "<p>Say how refunds work.</p>" } } ] } ]
+}
+{% endschema %}

@@ -189,6 +189,8 @@ export interface EmailItem {
   amount?: string | null
   /** An absolute https picture already sized for an inbox. Null draws the letter tile. */
   imageUrl?: string | null
+  /** What the line opens, under it: "Download", "Open course", "Open community". Only https addresses are drawn. */
+  links?: { label: string; href: string }[] | null
 }
 
 export interface EmailMoneyRow {
@@ -407,12 +409,14 @@ export function emailKit(sender: EmailSender): EmailKit {
             : tile(l.title, ITEM_PX, 10, null)
           const detail = l.detail ? `<p class="e-muted" style="${P(13, 19, K.muted, "margin:2px 0 0 0;")}">${esc(l.detail)}</p>` : ""
           const warning = l.warning ? `<p class="e-bad" style="${P(13, 19, "#b91c1c", "margin:2px 0 0 0;")}">${esc(l.warning)}</p>` : ""
+          const opens = (l.links ?? []).filter((x) => x && x.label && https(x.href))
+          const links = opens.length ? `<p style="${P(14, 21, K.ink, "margin:6px 0 0 0;")}">${opens.map((x) => `<a class="e-link" href="${esc(https(x.href) as string)}" style="color:${K.ink};font-weight:600;text-decoration:underline;">${esc(x.label)}</a>`).join(`<span class="e-muted" style="color:${K.muted};"> &middot; </span>`)}</p>` : ""
           const amount = anyAmount
             ? `<td class="e-ink e-line" valign="top" align="${END()}" style="${rtlEmail() ? "padding:14px 12px 14px 0;" : "padding:14px 0 14px 12px;"}${rule}${P(15, 21, K.ink, `font-weight:600;text-align:${END()};white-space:nowrap;`)}">${esc(l.amount ?? "")}</td>`
             : ""
           return `<tr>
 ${opts.pictures === false ? "" : `<td class="e-line" width="${ITEM_PX + 14}" valign="top" style="width:${ITEM_PX + 14}px;padding:14px 14px 14px 0;${rule}">${pic}</td>`}
-<td class="e-line" valign="top" style="padding:14px 0;${rule}"><p class="e-ink" style="${P(15, 21, K.ink, "font-weight:600;word-break:break-word;")}">${esc(l.title)}</p>${detail}${warning}</td>
+<td class="e-line" valign="top" style="padding:14px 0;${rule}"><p class="e-ink" style="${P(15, 21, K.ink, "font-weight:600;word-break:break-word;")}">${esc(l.title)}</p>${detail}${warning}${links}</td>
 ${amount}
 </tr>`
         })

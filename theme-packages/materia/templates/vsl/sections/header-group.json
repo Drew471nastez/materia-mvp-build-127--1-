@@ -1,0 +1,39 @@
+{
+  "type": "header",
+  "name": "t:sections.header.name",
+  "sections": {
+    "sky": {
+      "type": "space-starfield",
+      "settings": {
+        "sky_color": "#050506",
+        "star_color": "#ffffff",
+        "star_density": 45,
+        "star_size": 90,
+        "twinkle_count": 16,
+        "drift_speed": 20,
+        "drift_direction": "up",
+        "product_glow": 0,
+        "glow_color": "#ffffff",
+        "glow_opacity": 40,
+        "glow_everywhere": false,
+        "see_through": true,
+        "see_through_scheme": "default"
+      }
+    },
+    "header": {
+      "type": "vsl-header",
+      "settings": {
+        "logo_width": 120,
+        "brand_text": "",
+        "show_mark": true,
+        "menu": "main-menu",
+        "button_label": "Book a free call",
+        "button_link": "/pages/book-a-call"
+      }
+    }
+  },
+  "order": [
+    "sky",
+    "header"
+  ]
+}

@@ -226,7 +226,7 @@
     "sold_out_color": "#8a847c",
     "popular_key_word": "flowers, citrus, retro",
     "menu_font": "body_font",
-    "menu_hover_style": "fade",
+    "menu_hover_style": "underline",
     "button_font": "body_font",
     "page_width": 1240,
     "fluid_container_width": 1360,

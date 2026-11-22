@@ -10,6 +10,8 @@ import { IMPORT_BUCKET, importPathFor } from "@/lib/website-builder/theme-import
 import { ADD_REFUSALS, LISTING_SETTINGS_KEY, LISTING_SLUG_RE, addVerdict, mergeListings } from "@/lib/themes/marketplace-shared"
 import { PACKAGE_PATH_RE, listingRowBySlug, rowToListing } from "@/lib/themes/marketplace-server"
 import { composeTemplateZip, templateMenus } from "@/lib/themes/template-packages"
+import { readReleaseRows, releasedFiles, zipOf } from "@/lib/themes/releases-server"
+import { withInstalledRelease } from "@/lib/themes/releases-shared"
 import { readStoreMenus, writeStoreMenus } from "@/lib/website-builder/store-menus-server"
 import { POST as importThemePackage } from "@/app/api/website-builder/themes/import/route"
 import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
@@ -94,6 +96,22 @@ export async function POST(req: Request) {
   }
 
   /*
+    AT ITS NEWEST RELEASE. A theme the admin has published releases of is
+    added as the newest one (lib/themes/releases-server.ts, releasedFiles),
+    and the website remembers that version, so its library row can say when
+    a newer one comes. With none, or before RUN_THEME_RELEASES.sql has run,
+    it is what the code or the listing's zip says, as before.
+  */
+  let released: { zip: Buffer; version: string } | null = null
+  try {
+    const { rows } = await readReleaseRows({ withFiles: true })
+    const at = rows.length ? await releasedFiles(listing.slug, rows) : null
+    if (at) released = { zip: await zipOf(at.files), version: at.version }
+  } catch (e) {
+    console.error("[themes/marketplace] the newest release could not be read:", e instanceof Error ? e.message : e)
+  }
+
+  /*
     NAMED AS THE MARKETPLACE NAMES IT, AND IT REMEMBERS WHERE IT CAME FROM.
     The listing's address is written into the new website's settings, live
     and draft (`compat.listing` for a theme in the compatible profile, a key
@@ -109,7 +127,8 @@ export async function POST(req: Request) {
       if (!data) return
       const mark = (s: unknown) => {
         const o = s && typeof s === "object" ? (s as Record<string, unknown>) : {}
-        return o.compat && typeof o.compat === "object" ? { ...o, compat: { ...(o.compat as Record<string, unknown>), listing: listing.slug } } : { ...o, [LISTING_SETTINGS_KEY]: listing.slug }
+        const marked = o.compat && typeof o.compat === "object" ? { ...o, compat: { ...(o.compat as Record<string, unknown>), listing: listing.slug } } : { ...o, [LISTING_SETTINGS_KEY]: listing.slug }
+        return released ? withInstalledRelease(marked, released.version) : marked
       }
       const row = data as { settings: unknown; draft_settings: unknown }
       await admin.from("store_theme_settings").update({ settings: mark(row.settings), draft_settings: mark(row.draft_settings ?? row.settings) }).eq("install_id", made.install_id)
@@ -118,10 +137,10 @@ export async function POST(req: Request) {
     }
   }
 
-  if (listing.codePackage) {
+  if (listing.codePackage || released) {
     let zip: Buffer
     try {
-      zip = await composeTemplateZip(listing.codePackage)
+      zip = released?.zip ?? (await composeTemplateZip(listing.codePackage!))
     } catch (e) {
       console.error("[themes/marketplace] could not compose the template:", e instanceof Error ? e.message : e)
       return NextResponse.json({ error: "Could not add the theme. Try again." }, { status: 500 })
@@ -141,7 +160,7 @@ export async function POST(req: Request) {
       (Shop, About, FAQ ...) in place of the made up Home, Shop, Contact.
     */
     try {
-      const menus = templateMenus(listing.codePackage)
+      const menus = listing.codePackage ? templateMenus(listing.codePackage) : null
       if (menus && (await readStoreMenus(createAdminClient(), creator.id as string)).kind === "none") await writeStoreMenus(createAdminClient(), creator.id as string, menus)
     } catch {
       /* The website is added whatever happens to its menus. */

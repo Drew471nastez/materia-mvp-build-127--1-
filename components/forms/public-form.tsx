@@ -109,7 +109,10 @@ export function PublicFormRenderer({
   onUnavailable,
   shownTitle,
   quietLoading = false,
+  pageUrl,
 }: {
+  /** The page the form is shown on, when that is not this document's own (a website's page framing it, app/(storelib)/checkout/site/forms): kept with the lead as where it came from. */
+  pageUrl?: () => string | null
   /** Round AR: in a sheet, a form still on its way leaves its room empty rather than drawing grey bars. */
   quietLoading?: boolean
   /** The form could not be shown (not published, no forms on this store, or no answer after a retry): a chat's questions step aside and the chat opens (components/forms/action-frame). */
@@ -337,7 +340,7 @@ export function PublicFormRenderer({
             website: trap.current?.value || "",
             started_at: started.current,
             source,
-            source_url: window.location.href,
+            source_url: pageUrl?.() || window.location.href,
             source_block: sourceBlock || undefined,
             ...(d.booking && slot ? { slot: slot.start, timezone: zone, duration: minutes } : {}),
           }),

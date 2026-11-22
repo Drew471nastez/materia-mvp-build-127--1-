@@ -1,0 +1,74 @@
+{
+  "sections": {
+    "contactformsimple2_1": {
+      "type": "contactformsimple2",
+      "settings": {
+        "color_scheme": "default",
+        "btn_text": "Send message",
+        "ph_website": "Your website (optional)",
+        "label_website": "Website",
+        "success_text": "Thanks. You will hear back within a working day."
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Write to us"
+          }
+        },
+        "description_2": {
+          "type": "description",
+          "settings": {
+            "text": "<p>A question about the course, the calls or a payment. It all reaches the same inbox.</p>"
+          }
+        },
+        "info_3": {
+          "type": "info",
+          "settings": {
+            "icon": "mail",
+            "line1": "hello@example.com",
+            "line2": "Replace with your own address"
+          }
+        },
+        "info_4": {
+          "type": "info",
+          "settings": {
+            "icon": "map",
+            "line1": "Replies",
+            "line2": "Within one working day"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_2",
+        "info_3",
+        "info_4"
+      ]
+    },
+    "call": {
+      "type": "vsl-cta",
+      "settings": {
+        "eyebrow": "",
+        "heading": "Faster on a *call?*",
+        "text": "",
+        "size": "normal",
+        "button_label": "Book a free call",
+        "button_link": "/pages/book-a-call",
+        "button2_label": "",
+        "button2_link": "",
+        "note": "",
+        "glow": true,
+        "line_above": true,
+        "padding_top": 72,
+        "padding_bottom": 96,
+        "padding_top_mobile": 72,
+        "padding_bottom_mobile": 72
+      }
+    }
+  },
+  "order": [
+    "contactformsimple2_1",
+    "call"
+  ]
+}

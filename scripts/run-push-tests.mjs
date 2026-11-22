@@ -310,6 +310,8 @@ const SUITES = [
   "tests/theme-templates-pages.test.ts",
   /* Templates round 19: the theme's Overlay group whole (phone tab bar, back to top, eight popups shipped switched off) in every template, kept hidden at import and offered in Add section; the cart and wishlist count reads on every scheme (worked out from the bubble, measured in Chromium when it is there); the footer on every page type, also for rows stored without their chrome; a theme section named like Storelib's own is offered; a see-through product picture stays see-through through the optimizer and image_url. */
   "tests/theme-overlay-badge-footer.test.ts",
+  /* Templates round 20: every template's footer says "Powered by Storelib", small, linked to storelib.com, on every page; Theme settings' switch hides it only on a plan that may remove branding, decided on the server from the owner's plan, and a theme that leaves it out gets it added in its footer; the builder draws the setting. */
+  "tests/theme-powered-by.test.ts",
   /* The live template preview: every template's website prerendered to public/theme-previews (scripts/build-template-previews.ts), each page there with the pages it links to and every file it names, no form that posts, no "Shopify", only rendered output, served sandboxed with a year's caching and left alone by the proxy; scripts/check-theme-preview-live.mjs opens it in the marketplace in Chromium. */
   "tests/theme-template-previews.test.ts",
   /* The production build folds each app/api area into one entry, so it fits Vercel's Standard build machine (scripts/fold-api-routes.mjs). */
@@ -647,6 +649,8 @@ const SUITES = [
   "tests/website-builder.test.ts",
   /* Round Z5: the theme marketplace (library cards, storelib.com/themes, /admin/themes zip checks) and a plan set from /admin; scripts/check-theme-marketplace.mjs measures the cards and pages. */
   "tests/theme-marketplace.test.ts",
+  /* Theme releases from /admin/themes and Update in the library: one numbering per theme, the merge keeps the creator's content and their edited files (reported), a full library is refused, the website Update is pressed on is never written, admin only writes (RUN_THEME_RELEASES.sql). */
+  "tests/theme-releases.test.ts",
   /* Round AD3: every setting in /app/settings reaches what reads it (the live website's name and photo, Store details' form, the checklist, campaign emails). */
   "tests/settings-reach-ad3.test.ts",
   "tests/nav-links.test.ts",
@@ -1681,6 +1685,8 @@ const SUITES = [
   "tests/home-landing-r21-pictures.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
+  /* Buyer journey audit: a membership or a community's tier on an imported theme's product form goes to joining it (a plain post and Buy it now by redirect, a theme's fetch by X-Storelib-Go, followed only to a path of the site and never in the builder), never into a cart the website's checkout then refused; a course still goes in the cart, and a course already bought says so on its page with Open course to its player on Storelib. */
+  "tests/journey-theme-plans.test.ts",
 ]
 
 /**
@@ -1920,6 +1926,10 @@ const STRICT_SUITES = [
   "tests/auth-social-first-r57.test.ts",
   /* Round 57 (e1): a buyer on a Materia website (the Clothing template, through the real site route) from the product page to a paid order: variants, compare at, sold out, 4 per order, Continue selling, the cart cookie, Estimate shipping, two zones (flat, by weight), free over 60 EUR, the US refused, a download alone and in a mixed cart, a 10% code from the theme's cart, GBP shown and charged, CHF shown and charged in euros, the last one bought twice at once, a declined card and a lapsed hold, the seller's rate and zone edits charged at once, and no PayPal badge. scripts/check-commerce-e2e-r57.mjs drives the same pages in Chromium. Strict: tests/_journey. */
   "tests/commerce-e2e-r57.test.ts",
+  /* Buyer journey audit: a course that opens a community and a download, one cart on the creator's website checkout (quote, intent, confirm, webhook): both lines on the buyer's account and in their library, the community lets the buyer in at once (a basket wrote the library row only), one receipt email whose link opens on the website, naming each line with Open course, Open community and Download straight from the email; a guest's same order joins them and the community once they sign up with that email. Strict: it drives the real routes through tests/_journey. */
+  "tests/journey-course-community-site.test.ts",
+  /* Buyer journey follow-up: a Storelib form or booking page on a Materia website. The base section journey-storelib-form (its setting the forms picker) and the Storelib form app block draw the form framed from the website's own host (/checkout/forms/<id>, framed by that origin only), a still card in the builder, nothing without a form; that page is this website's creator's form only; slots, a submit from the website kept with the website's page as its source, the hold, Pay to confirm through Storelib's checkout back to the page, the webhook, the booking confirmed. Strict: it drives the real routes through tests/_journey. */
+  "tests/journey-site-form.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

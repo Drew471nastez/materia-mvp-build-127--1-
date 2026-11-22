@@ -112,7 +112,11 @@ async function main() {
   const listings = builtinListings()
   /* Changed on purpose (templates round 18): Skincare was removed and Creator Landing was added, twelve are listed. */
   /* Changed on purpose (templates round 19): Art books added after Digital products; with Night shop and Poster shop at the end, fifteen are listed. */
-  check("fifteen templates are listed, with no table and nothing uploaded", listings.length === 15 && CODE_TEMPLATES.length === 15, listings.map((l) => l.slug))
+  /* Changed on purpose (templates round 20): Tour merch was removed, fourteen are listed. */
+  /* Changed on purpose (templates round 20): Coach and Video sales letter were added at the end, sixteen are listed. */
+  /* Changed on purpose (templates round 20): Online course and Course landing were added at the end, eighteen are listed. */
+  /* Changed on purpose (templates round 20): Retro desktop was added at the end, nineteen are listed. */
+  check("nineteen templates are listed, with no table and nothing uploaded", listings.length === 19 && CODE_TEMPLATES.length === 19, listings.map((l) => l.slug))
   check("Storelib Default is first, at the default address", listings[0]?.slug === DEFAULT_LISTING_SLUG && listings[0]?.name === "Storelib Default" && mergeListings([])[0]?.slug === DEFAULT_LISTING_SLUG)
   /* Changed on purpose (templates round 18): Landing page is now called Course (same slug, landing-page). */
   /* Changed on purpose (templates round 19): Art books sits right after Digital products. */
@@ -121,7 +125,8 @@ async function main() {
   /* Changed on purpose (templates round 18): Streetwear drop is now the Lifestyle label template (same slug). */
   /* Changed on purpose (templates round 18): Creator Landing sits right after Landing page. */
   check("then Creator Landing, right after Landing page", listings[8]?.slug === "creator-landing" && listings[8]?.name === "Creator Landing") /* Changed on purpose (templates round 19): one place later, after Art books. */
-  check("then the four narrower ones: Lifestyle label, Tour merch, Sample packs and Notion templates", listings.slice(9, 13).map((l) => l.name).join("|") === "Lifestyle label|Tour merch|Sample packs|Notion templates") /* Changed on purpose (templates round 19): one place later, after Art books; round 19 templates follow them. */
+  /* Changed on purpose (templates round 20): Tour merch was removed, three narrower ones remain. */
+  check("then the three narrower ones: Lifestyle label, Sample packs and Notion templates", listings.slice(9, 12).map((l) => l.name).join("|") === "Lifestyle label|Sample packs|Notion templates") /* Changed on purpose (templates round 19): one place later, after Art books; round 19 templates follow them. */
   check("no two share an address or an overlay folder", new Set(listings.map((l) => l.slug)).size === listings.length && new Set(CODE_TEMPLATES.map((t) => t.template)).size === CODE_TEMPLATES.length)
   check("the native Storelib Default is not offered: no listing names a registry theme", listings.every((l) => l.builtinThemeId === null) && !mergeListings([]).some((l) => l.builtinThemeId === STORELIB_DEFAULT_ID))
   check("each is free, by Storelib, and adds a package the code ships", listings.every((l) => l.tier === "free" && l.author === "Storelib" && l.hasPackage && l.packageKind === null && isCodePackageId(l.codePackage)))
@@ -129,7 +134,8 @@ async function main() {
   /* Two clothing stores and two merch stores now: a category may hold two templates, never three, and the filter has more than a handful of rows. */
   const perCategory = listings.reduce<Record<string, number>>((n, l) => ({ ...n, [l.category]: (n[l.category] ?? 0) + 1 }), {})
   /* Changed on purpose (templates round 19): Night shop is a third fashion store, so a category may hold three. */
-  check("  no category holds more than three, and both kinds of product are covered", Object.values(perCategory).every((n) => n <= 3) && Object.keys(perCategory).length >= 9 && ["fashion", "creators", "music", "design", "digital"].every((c) => perCategory[c]), perCategory) /* Changed on purpose (templates round 18): no "beauty" since Skincare was removed. */
+  /* Changed on purpose (templates round 20): Online course and Course landing join Course, Creator Landing and Video sales letter, so courses holds five; every other category still holds at most three. */
+  check("  no category holds more than three (courses five), and both kinds of product are covered", Object.entries(perCategory).every(([c, n]) => n <= (c === "courses" ? 5 : 3)) && Object.keys(perCategory).length >= 9 && ["fashion", "creators", "music", "design", "digital"].every((c) => perCategory[c]), perCategory) /* Changed on purpose (templates round 18): no "beauty" since Skincare was removed. */
   check("each has its cover and its phone screenshot in public/themes", listings.every((l) => !!l.cover && existsSync(join("public", l.cover)) && l.screenshots.length === 2 && l.screenshots.every((s) => existsSync(join("public", s)))), listings.filter((l) => !l.cover || !existsSync(join("public", l.cover))).map((l) => l.cover))
   check("no listing name says where the theme came from", listings.every((l) => !/shopify|materia/i.test(`${l.name} ${l.author} ${l.slug}`)))
   check("a website remembers the listing it was added from, in its settings", [...installedListingSlugs([{ settings: { compat: { kind: "shopify", listing: "clothing" } } }, { settings: { marketplace_listing: "merch" } }, { settings: { compat: { listing: "Not A Slug" } } }, { settings: null }])].join() === "clothing,merch" && compatOf({ compat: { kind: "shopify", version: 1, theme: "x", listing: "fitness" } })?.listing === "fitness")
@@ -214,7 +220,7 @@ async function main() {
     if (own.includes("config/settings_data.json")) for (const [, v] of strings(JSON.parse(read(join(overlay, "config/settings_data.json"))))) { const m = v.match(/^shopify:\/\/shop_images\/(.+)$/); if (m) pictures.add(m[1]) }
     const assets = own.filter((f) => f.startsWith("assets/")).map((f) => f.slice(7))
     check("  names only pictures it carries, and carries none it does not use", [...pictures].every((p) => assets.includes(p)) && assets.every((a) => pictures.has(a)), { missing: [...pictures].filter((p) => !assets.includes(p)), unused: assets.filter((a) => !pictures.has(a)) })
-    check("  every picture is credited: a photograph with its source and licence, or a drawing made for the template", assets.every((a) => new RegExp(`\\| ${t.template} \\| assets/${a} \\| (https://images\\.unsplash\\.com/photo-[\\w-]+ \\| Unsplash License|Drawn for this template \\| Storelib${t.template === "samples" ? "|Loudlib's own pack box[^|]* \\| Loudlib \\(the owner\\)|Synthesised for this template[^|]* \\| Storelib" : ""}) \\|`).test(credits)) /* Changed on purpose (templates round 19): Sample packs uses Loudlib's own pack art, the owner's store, and demo loops synthesised for it. */, assets.filter((a) => !credits.includes(`assets/${a}`)))
+    check("  every picture is credited: a photograph with its source and licence, or a drawing made for the template", assets.every((a) => new RegExp(`\\| ${t.template} \\| assets/${a} \\| (https://images\\.unsplash\\.com/photo-[\\w-]+ \\| Unsplash License|Drawn for this template \\| Storelib${t.template === "samples" ? "|Loudlib's own (pack box|logo)[^|]* \\| Loudlib \\(the owner\\)|Synthesised for this template[^|]* \\| Storelib" : ""}) \\|`).test(credits)) /* Changed on purpose (templates round 19): Sample packs uses Loudlib's own pack art, the owner's store, and demo loops synthesised for it. */ /* Changed on purpose (templates round 20): and Loudlib's own logo. */, assets.filter((a) => !credits.includes(`assets/${a}`)))
     const all = copy.join("\n")
     check("  none of the theme's old starter content", !OLD_STARTER.test(all) && !OLD_STARTER.test(read(join(overlay, "config/settings_data.json"))))
     check("  its copy never says Shopify, has no placeholder Latin and no dash standing in for a comma", !vendorIn(all) && !/lorem ipsum/i.test(all) && !/[—–]/.test(all), all.match(/.{0,30}(shopify|lorem ipsum|[—–]).{0,30}/i)?.[0])
@@ -250,7 +256,8 @@ async function main() {
     const dead: string[] = []
     for (const path of links) {
       /* Changed on purpose (templates round 19): a menu link with a search in it (/search?q=prints) is asked as the address and its query, as a browser asks it. */
-      const [bare, search = ""] = path.split("?")
+      /* Changed on purpose (templates round 20): a menu link to a place on a page (/#curriculum) is asked without its #, as a browser asks it. */
+      const [bare, search = ""] = path.split("#")[0].split("?")
       const out = await answer(linked, { method: "GET", path: bare, query: new URLSearchParams(search), body: null, cart: [] })
       if (out.status !== 200) dead.push(`${path} ${out.status}`)
     }
@@ -269,9 +276,10 @@ async function main() {
   check("no two share a typeface pairing and palette", new Set(Object.values(looks)).size === CODE_TEMPLATES.length, looks)
   /* The second clothing, merch and digital templates are not the first ones again: no section in the same place for the first two, another typeface and another ground. */
   const apart = (a: string, b: string) => homes[a].split(",").slice(0, 2).every((s, i) => s !== homes[b].split(",")[i]) && looks[a].split("|").every((v, i) => v !== looks[b].split("|")[i])
-  check("the second template of a kind opens differently from the first, in another typeface and colour", apart("streetwear", "clothing") && apart("tour", "merch") && apart("samples", "digital") && apart("workspace", "digital") && apart("workspace", "landing"), { homes, looks }) /* Changed on purpose (templates round 18): Skincare was removed. */
+  check("the second template of a kind opens differently from the first, in another typeface and colour", apart("streetwear", "clothing") /* Changed on purpose (templates round 20): Tour merch was removed, so there is no second merch template. */ && apart("samples", "digital") && apart("workspace", "digital") && apart("workspace", "landing"), { homes, looks }) /* Changed on purpose (templates round 18): Skincare was removed. */
   /* Changed on purpose (templates round 18): Skincare was removed, four narrower templates remain. */
-  check("the four narrower templates each use sections none of the first seven's home pages do", ["streetwear", "tour", "samples", "workspace"].every((n) => homes[n].split(",").filter((s) => !["default", "clothing", "merch", "digital", "ebooks", "fitness", "landing"].some((o) => homes[o].split(",").includes(s))).length >= 4), homes)
+  /* Changed on purpose (templates round 20): Tour merch was removed, three narrower templates remain. */
+  check("the three narrower templates each use sections none of the first seven's home pages do", ["streetwear", "samples", "workspace"].every((n) => homes[n].split(",").filter((s) => !["default", "clothing", "merch", "digital", "ebooks", "fitness", "landing"].some((o) => homes[o].split(",").includes(s))).length >= 4), homes)
   /* Changed on purpose (templates round 18): the landing template is now a course school, a flagship course over a grid of smaller ones, with a few links, one button and no cart, account or search in its header. */
   check("the course template opens on its flagship course over a grid of the others, and its header has one button and no cart, account or search", homes.landing.split(",").length >= 8 && homes.landing.startsWith("hero-product3,") && homes.landing.includes("products-listing") && ((h) => /"show_shopping_cart": false/.test(h) && /"show_account_icon": false/.test(h) && /"show_search": false/.test(h) && /"type": "header_button"/.test(h))(read(join(ROOT, "templates/landing/sections/header-group.json"))))
 
@@ -281,7 +289,7 @@ async function main() {
   const config = read("next.config.mjs")
   check("the build carries theme-packages/ with the route that reads it, folded or not", /'\/api\/themes\/\*\*': \['\.\/theme-packages\/\*\*\/\*'\]/.test(config))
   const add = read("app/api/themes/marketplace/add/route.ts")
-  check("Add composes a code template on the server and hands it to the import as an upload", /composeTemplateZip\(listing\.codePackage\)/.test(add) && /form\.set\("file"/.test(add) && /importThemePackage\(new Request\(/.test(add))
+  check("Add composes a code template on the server and hands it to the import as an upload", /composeTemplateZip\(listing\.codePackage!?\)/.test(add) /* Changed on purpose (templates round 20): a published release's zip is used first (lib/themes/releases-server.ts), the code template otherwise. */ && /form\.set\("file"/.test(add) && /importThemePackage\(new Request\(/.test(add))
   check("  it never adds the native theme, and it notes the listing on the new website", !/addRegistryTheme|website-builder\/themes\/add\/route/.test(add) && /listing: listing\.slug/.test(add))
   check("  a store with no menus yet is given the template's; a store with menus keeps its own", /readStoreMenus\(.*\.kind === "none"\) await writeStoreMenus/.test(add))
   check("settings are laid over the base's key by key", JSON.parse(mergeSettingsData('{"current":{"a":1,"b":2}}', '{"current":{"b":3}}')).current.a === 1 && JSON.parse(mergeSettingsData('{"current":{"a":1,"b":2}}', '{"current":{"b":3}}')).current.b === 3)

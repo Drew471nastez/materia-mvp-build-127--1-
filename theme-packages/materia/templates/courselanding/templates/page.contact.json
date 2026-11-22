@@ -1,0 +1,107 @@
+{
+  "sections": {
+    "contact": {
+      "type": "contactformsimple2",
+      "settings": {
+        "color_scheme": "default",
+        "btn_text": "Send message",
+        "ph_website": "Your phone (optional)",
+        "label_website": "Phone",
+        "success_text": "Thank you. You will hear back within two working days."
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Write to us"
+          }
+        },
+        "description_2": {
+          "type": "description",
+          "settings": {
+            "text": "<p>A question before you join, a group price, or trouble with a lesson. It all comes to the same inbox.</p>"
+          }
+        },
+        "info_3": {
+          "type": "info",
+          "settings": {
+            "icon": "mail",
+            "line1": "hello@pocketlight.school",
+            "line2": "Replace with your own address"
+          }
+        },
+        "info_4": {
+          "type": "info",
+          "settings": {
+            "icon": "map",
+            "line1": "Replies",
+            "line2": "Within two working days"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_2",
+        "info_3",
+        "info_4"
+      ]
+    },
+    "faq": {
+      "type": "courselanding-faq",
+      "settings": {
+        "heading": "Questions",
+        "anchor": "",
+        "accent": "#2f5bea",
+        "padding_top": 24
+      },
+      "blocks": {
+        "question_1": {
+          "type": "question",
+          "settings": {
+            "question": "Which phone do I need?",
+            "answer": "<p>Any phone from the last five years. Every lesson works on both kinds of phone, and nothing needs the newest model.</p>"
+          }
+        },
+        "question_2": {
+          "type": "question",
+          "settings": {
+            "question": "Do I need to buy an editing app?",
+            "answer": "<p>No. The editing lessons and presets use free apps that come with your phone or cost nothing.</p>"
+          }
+        },
+        "question_3": {
+          "type": "question",
+          "settings": {
+            "question": "How much time does it take?",
+            "answer": "<p>About twenty minutes a day: a short lesson and a few pictures. You can pause and pick it up a week later.</p>"
+          }
+        },
+        "question_4": {
+          "type": "question",
+          "settings": {
+            "question": "How do the live critiques work?",
+            "answer": "<p>Post your best picture of the week by Wednesday. On Thursday evening Teo looks at them on a video call. Recordings stay in the course.</p>"
+          }
+        },
+        "question_5": {
+          "type": "question",
+          "settings": {
+            "question": "What if it is not for me?",
+            "answer": "<p>Write within 30 days and you get every cent back. Replace this with your own terms.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "question_1",
+        "question_2",
+        "question_3",
+        "question_4",
+        "question_5"
+      ]
+    }
+  },
+  "order": [
+    "contact",
+    "faq"
+  ]
+}

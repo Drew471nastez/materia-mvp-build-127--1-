@@ -107,6 +107,7 @@ export function ThemeDetail({ listing }: { listing: ThemeListing }) {
             )}
           </div>
         </div>
+        {listing.description ? <p data-theme-description="" className="mt-4 max-w-[640px] text-[15px] leading-[1.55] text-[#4b5563]">{listing.description}</p> : null}
         {listing.tier === "pro" ? <p className="mt-3 text-[14px] text-[#6b7280]">Included with the <Link href="/pricing" className="font-medium text-[#1a1a2e] underline decoration-[#1a1a2e]/30 underline-offset-2">Grow and Pro plans</Link>.</p> : null}
 
         {/* ── Live preview ─────────────────────────────────────── */}

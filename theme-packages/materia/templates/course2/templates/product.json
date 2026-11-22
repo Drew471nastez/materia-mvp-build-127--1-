@@ -1,0 +1,434 @@
+{
+  "sections": {
+    "main": {
+      "type": "main-product",
+      "settings": {
+        "image_zoom": "open_lightbox",
+        "padding_top": 32,
+        "color_scheme": "default",
+        "media_square": false,
+        "reset_spacing": true,
+        "section_width": "container",
+        "sticky_bar_bg": "",
+        "desktop_layout": "thumbnail_bottom",
+        "mobile_options": "show_thumbnails",
+        "padding_bottom": 80,
+        "sticky_top_gap": 24,
+        "enable_on_mobile": true,
+        "sticky_padding_y": 12,
+        "enable_on_desktop": true,
+        "sticky_show_image": true,
+        "sticky_show_title": true,
+        "content_gap_desktop": 56,
+        "desktop_media_width": 50,
+        "padding_left_mobile": 0,
+        "sticky_border_color": "",
+        "enable_video_looping": true,
+        "padding_left_desktop": 0,
+        "padding_right_mobile": 0,
+        "section_width_mobile": "fluid_container",
+        "sticky_button_radius": 8,
+        "sticky_show_quantity": true,
+        "enable_custom_padding": true,
+        "enable_video_autoplay": true,
+        "padding_right_desktop": 0,
+        "enable_nav_dots_mobile": false,
+        "mobile_slides_per_view": "1",
+        "enable_custom_media_gap": false,
+        "sticky_show_variant_picker": true,
+        "enable_sticky_content_on_desktop": true
+      },
+      "blocks": {
+        "title_1": {
+          "type": "title",
+          "settings": {
+            "show_vendor": false,
+            "title_font_size_desktop": 40,
+            "title_font_size_mobile": 30
+          }
+        },
+        "price_1": {
+          "type": "price",
+          "settings": {
+            "price_font_size_desktop": 28,
+            "price_font_size_mobile": 24,
+            "price_font_weight": "700",
+            "compare_font_size_desktop": 18,
+            "compare_font_size_mobile": 14,
+            "compare_font_weight": "400"
+          }
+        },
+        "variant_picker_1": {
+          "type": "variant_picker",
+          "settings": {
+            "variant_type": "swatches",
+            "show_size_guide": false,
+            "picker_swatch_style": "theme"
+          }
+        },
+        "buy_buttons_1": {
+          "type": "buy_buttons",
+          "settings": {
+            "show_add_to_cart": true,
+            "show_dynamic_checkout": true,
+            "show_quantity": true,
+            "buttons_full_width": true,
+            "quantity_right_of_atc": false,
+            "show_wishlist_button": false,
+            "atc_appearance": "theme",
+            "buy_appearance": "theme",
+            "atc_icon_enable": false,
+            "atc_icon": "bag",
+            "buy_icon_enable": false,
+            "show_gift_card_recipient": false
+          }
+        },
+        "vertical_benefits_1": {
+          "type": "vertical_benefits",
+          "settings": {
+            "vb_pt": 14,
+            "vb_pb": 18,
+            "vb_mt": 0,
+            "vb_mb": 0,
+            "vb_item_space": 10,
+            "vb_maxw": 100,
+            "vb_pl": 0,
+            "vb_pr": 0,
+            "vb_text_size_d": 14,
+            "vb_text_size_m": 14,
+            "vb_icon_gap": 12,
+            "vb_icon_gap_m": 10,
+            "vb_icon_size": 26,
+            "vb_icon_size_m": 26,
+            "vb_text_color": "",
+            "vb_bg": "",
+            "vb_icon_color": "#12704f",
+            "item1_title": "Lessons open as soon as you pay",
+            "item1_icon_library": "check",
+            "item1_use_image": false,
+            "item1_image_size": 50,
+            "item2_title": "Lifetime access on any device",
+            "item2_icon_library": "check",
+            "item2_use_image": false,
+            "item2_image_size": 50,
+            "item3_title": "30 day refund, no questions",
+            "item3_icon_library": "check",
+            "item3_use_image": false,
+            "item3_image_size": 50
+          }
+        },
+        "collapsible_row_1": {
+          "type": "collapsible_row",
+          "settings": {
+            "heading": "What is inside",
+            "content": "",
+            "use_product_description": true,
+            "open": true
+          }
+        },
+        "collapsible_row_2": {
+          "type": "collapsible_row",
+          "settings": {
+            "heading": "Editions and seats",
+            "content": "<p>Self paced is the whole course. With feedback adds two video calls where Mara watches you pull a shot and steam milk. Team of three gives three logins on one bill.</p>",
+            "use_product_description": false,
+            "open": false
+          }
+        },
+        "collapsible_row_3": {
+          "type": "collapsible_row",
+          "settings": {
+            "heading": "Access and refunds",
+            "content": "<p>Your login arrives by email straight after payment and every lesson stays open for good. Write within 30 days for a full refund.</p>",
+            "use_product_description": false,
+            "open": false
+          }
+        },
+        "payment_badges_1": {
+          "type": "payment_badges",
+          "settings": {
+            "h_main": "",
+            "sec_bg": "rgba(0,0,0,0)",
+            "sec_mb": 0,
+            "sec_mt": 0,
+            "sec_pb": 22,
+            "sec_pl": 0,
+            "sec_pr": 0,
+            "sec_pt": 22,
+            "badge_h": 31,
+            "badge_w": 47,
+            "sub_url": "",
+            "sec_maxw": 116,
+            "sec_pl_m": 0,
+            "sec_pr_m": 0,
+            "sub_text": "",
+            "badge_h_m": 22,
+            "badge_w_m": 68,
+            "h_main_mb": 16,
+            "h_main_mt": 0,
+            "show_amex": true,
+            "show_visa": true,
+            "sub_color": "#333333",
+            "sub_hover": "#111111",
+            "a11y_label": "Payment badges",
+            "sec_maxw_m": 150,
+            "sec_radius": 0,
+            "sub_newtab": false,
+            "text_align": "left",
+            "h_main_size": 16,
+            "show_paypal": false,
+            "sub_uline_w": 1,
+            "badges_align": "auto",
+            "h_main_color": "#2c2c2c",
+            "text_align_m": "center",
+            "toggle_icons": true,
+            "show_unionpay": true,
+            "sub_underline": false,
+            "show_apple_pay": true,
+            "show_google_pay": true,
+            "show_mastercard": true
+          }
+        },
+        "collapsible_row_4": {
+          "type": "collapsible_row",
+          "settings": {
+            "heading": "Questions",
+            "content": "<p>You need a home espresso machine with a steam wand, a grinder and a kitchen scale. Filter only? The last module covers pour over and cafetiere.</p>",
+            "use_product_description": false,
+            "open": false
+          }
+        }
+      },
+      "block_order": [
+        "title_1",
+        "price_1",
+        "variant_picker_1",
+        "buy_buttons_1",
+        "vertical_benefits_1",
+        "collapsible_row_1",
+        "collapsible_row_2",
+        "collapsible_row_3",
+        "collapsible_row_4",
+        "payment_badges_1"
+      ]
+    },
+    "curriculum": {
+      "type": "course2-curriculum",
+      "settings": {
+        "tag": "Curriculum",
+        "heading": "Seven modules,",
+        "heading_accent": "in the order you need them",
+        "text": "<p>Each module is a handful of short lessons. Watch one, go to the machine, come back for the next.</p>",
+        "totals": "7 modules, 46 lessons, 6 hours",
+        "first_open": true,
+        "anchor": "",
+        "accent": "#12704f",
+        "padding_top": 64
+      },
+      "blocks": {
+        "module_1": {
+          "type": "module",
+          "settings": {
+            "title": "Beans and freshness",
+            "meta": "5 lessons, 32 min",
+            "lessons": "Reading a coffee bag\nRoast dates and resting\nStoring beans at home\nOne bag, three brews\nWhat to buy next"
+          }
+        },
+        "module_2": {
+          "type": "module",
+          "settings": {
+            "title": "Grinding and dose",
+            "meta": "6 lessons, 48 min",
+            "lessons": "Why the grinder matters most\nSetting a starting point\nWeighing the dose\nDistribution without tools\nTamping, briefly\nCleaning the burrs"
+          }
+        },
+        "module_3": {
+          "type": "module",
+          "settings": {
+            "title": "Espresso: the first shot",
+            "meta": "8 lessons, 64 min",
+            "lessons": "What a shot should taste like\nDose, yield and time\nPull your first shot\nRead the colour\nWhen it runs too fast\nWhen it chokes\nTemperature and your machine\nA shot log that helps"
+          }
+        },
+        "module_4": {
+          "type": "module",
+          "settings": {
+            "title": "Dialling in",
+            "meta": "7 lessons, 55 min",
+            "lessons": "Sour or bitter?\nOne change at a time\nThree shots to a new bag\nRatios for milk drinks\nRatios for black coffee\nWhen to give up on a bag\nPractice: dial in live"
+          }
+        },
+        "module_5": {
+          "type": "module",
+          "settings": {
+            "title": "Milk and steaming",
+            "meta": "8 lessons, 60 min",
+            "lessons": "Cold milk, clean jug\nWhere the wand goes\nStretch, then spin\nMilk for a flat white\nMilk for a cappuccino\nOat and other milks\nCleaning the wand\nCommon mistakes"
+          }
+        },
+        "module_6": {
+          "type": "module",
+          "settings": {
+            "title": "Latte art",
+            "meta": "7 lessons, 58 min",
+            "lessons": "Holding the cup\nThe pour height\nPour a heart\nPour a tulip\nPour a rosetta\nPractising with water and soap\nWhen the milk is wrong"
+          }
+        },
+        "module_7": {
+          "type": "module",
+          "settings": {
+            "title": "Filter and pour over",
+            "meta": "5 lessons, 44 min",
+            "lessons": "Grind for filter\nBloom and wait\nThe four pour recipe\nCafetiere, properly\nTaste and adjust"
+          }
+        }
+      },
+      "block_order": [
+        "module_1",
+        "module_2",
+        "module_3",
+        "module_4",
+        "module_5",
+        "module_6",
+        "module_7"
+      ]
+    },
+    "reviews": {
+      "type": "course2-reviews",
+      "settings": {
+        "tag": "Students",
+        "heading": "What students",
+        "heading_accent": "tell us",
+        "text": "<p>These quotes are samples to show the layout. Replace them with words from your own students.</p>",
+        "sample_label": "Sample",
+        "anchor": "",
+        "image": "shopify://shop_images/course2-cup-window.webp",
+        "image_alt": "A cup of coffee steaming on a wooden sill by a window",
+        "quote": "I had the machine for a year and never liked a shot. By the fourth module I was pulling ones I would order in a café.",
+        "name": "Sample student",
+        "role": "Home espresso, single boiler machine",
+        "accent": "#12704f",
+        "padding_top": 64
+      },
+      "blocks": {
+        "quote_1": {
+          "type": "quote",
+          "settings": {
+            "quote": "The milk lessons alone were worth it. I finally get a flat white that looks like one.",
+            "name": "Jonas",
+            "role": "Home espresso"
+          }
+        },
+        "quote_2": {
+          "type": "quote",
+          "settings": {
+            "quote": "Short lessons I could watch before work, then try the same morning. That is why I finished it.",
+            "name": "Priya",
+            "role": "Pour over at home"
+          }
+        },
+        "quote_3": {
+          "type": "quote",
+          "settings": {
+            "quote": "We use the recipe cards for every new starter at our café. Everyone pours the same shot now.",
+            "name": "Tom",
+            "role": "Café owner"
+          }
+        }
+      },
+      "block_order": [
+        "quote_1",
+        "quote_2",
+        "quote_3"
+      ]
+    },
+    "faq": {
+      "type": "course2-faq",
+      "settings": {
+        "tag": "Questions",
+        "heading": "Straight answers",
+        "heading_accent": "before you buy",
+        "text": "<p>The questions people ask most. Anything else, <a href=\"/pages/contact\">write to us</a>.</p>",
+        "accent": "#12704f"
+      },
+      "blocks": {
+        "question_1": {
+          "type": "question",
+          "settings": {
+            "question": "What machine do I need?",
+            "answer": "<p>Any home espresso machine with a steam wand, and a grinder. The lessons use a single boiler machine and a hand grinder, and every step works the same on bigger ones.</p>"
+          }
+        },
+        "question_2": {
+          "type": "question",
+          "settings": {
+            "question": "Do I need a scale?",
+            "answer": "<p>Yes, any kitchen scale that reads to a tenth of a gram. It is the cheapest thing that makes the biggest difference.</p>"
+          }
+        },
+        "question_3": {
+          "type": "question",
+          "settings": {
+            "question": "I only drink filter coffee. Is it for me?",
+            "answer": "<p>The last module and the recipe cards cover pour over and cafetiere. The grinding lessons apply to both.</p>"
+          }
+        },
+        "question_4": {
+          "type": "question",
+          "settings": {
+            "question": "How long do I have access?",
+            "answer": "<p>For good. Watch on a phone, a tablet or a computer, and come back to any lesson whenever you like.</p>"
+          }
+        },
+        "question_5": {
+          "type": "question",
+          "settings": {
+            "question": "What if it is not for me?",
+            "answer": "<p>Write within 30 days and we refund you in full. Replace this with your own terms.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "question_1",
+        "question_2",
+        "question_3",
+        "question_4",
+        "question_5"
+      ]
+    },
+    "related": {
+      "type": "related-products",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "heading": "Add to your setup",
+        "description": "",
+        "header_size": "small",
+        "header_alignment": "left",
+        "items_per_row": 4,
+        "items_per_row_mobile": 2,
+        "column_gap": 20,
+        "intent": "related",
+        "items_to_show": 4,
+        "show_badges": true,
+        "show_vendor": false,
+        "show_rating": false,
+        "show_swatches": false,
+        "show_price": true,
+        "show_add_to_cart": false,
+        "show_action": false,
+        "reveal": true,
+        "padding_top": 72,
+        "padding_bottom": 72
+      }
+    }
+  },
+  "order": [
+    "main",
+    "curriculum",
+    "reviews",
+    "faq",
+    "related"
+  ]
+}

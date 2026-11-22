@@ -413,7 +413,8 @@ export function basketTitle(titles: string[]): string {
  * tests/site-checkout.test.ts runs every branch.
  */
 export type SiteCheckoutRoute =
-  | { kind: "rewrite"; path: string }
+  /* `framed`: the page is one the website's own pages frame (a Storelib form, lib/storelib-theme/compat/storelib-form.ts), sent with `frame-ancestors 'self'`. */
+  | { kind: "rewrite"; path: string; framed?: true }
   | { kind: "redirect"; to: string; status: 302 | 303 }
   | { kind: "pass" }
 
@@ -428,6 +429,9 @@ export function siteCheckoutRouteFor(pathname: string, search: string, method: s
     if (!/^[A-Za-z0-9_-]{8,128}$/.test(token)) return null
     return { kind: "rewrite", path: `${SITE_CHECKOUT_ROUTE}/thanks/${token}${search}` }
   }
+  /* A Storelib form or booking page, framed by the website's own page (lib/storelib-theme/compat/storelib-form.ts): served here, on the website's host, so its cookies and its routes are the site's. */
+  const form = /^\/checkout\/forms\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(path)
+  if (form && method.toUpperCase() === "GET") return { kind: "rewrite", path: `${SITE_CHECKOUT_ROUTE}/forms/${form[1].toLowerCase()}${search}`, framed: true }
   if (path === SITE_TRACK_PATH) {
     if (method.toUpperCase() === "POST") return { kind: "redirect", to: SITE_TRACK_PATH, status: 303 }
     return { kind: "rewrite", path: `${SITE_CHECKOUT_ROUTE}/track${search}` }

@@ -31,7 +31,10 @@ D.addEventListener("keydown",function(e){var i=e.target;if(e.key!=="Enter"||!i||
 D.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a[data-preview-inert]");if(a)e.preventDefault()},true);
 var told=false;function tell(){if(told)return;told=true;try{parent.postMessage({type:"storelib:template-preview",ready:true,path:location.pathname},"*")}catch(e){}}
 W.addEventListener("load",tell);D.addEventListener("DOMContentLoaded",function(){setTimeout(tell,1200)});
-})();</script><script type="importmap">{"imports":{"@shopify/events":"data:text/javascript;charset=utf-8,const%20StandardEvents%20%3D%20Object.freeze(%7B%0A%20%20pageView%3A%20%22shopify%3Apage%3Aview%22%2C%0A%20%20productView%3A%20%22shopify%3Aproduct%3Aview%22%2C%0A%20%20productSelect%3A%20%22shopify%3Aproduct%3Aselect%22%2C%0A%20%20cartView%3A%20%22shopify%3Acart%3Aview%22%2C%0A%20%20cartError%3A%20%22shopify%3Acart%3Aerror%22%2C%0A%20%20cartLinesUpdate%3A%20%22shopify%3Acart%3Alines-update%22%2C%0A%20%20cartNoteUpdate%3A%20%22shopify%3Acart%3Anote-update%22%2C%0A%20%20cartDiscountUpdate%3A%20%22shopify%3Acart%3Adiscount-update%22%2C%0A%20%20searchUpdate%3A%20%22shopify%3Asearch%3Aupdate%22%2C%0A%20%20collectionView%3A%20%22shopify%3Acollection%3Aview%22%2C%0A%20%20collectionUpdate%3A%20%22shopify%3Acollection%3Aupdate%22%2C%0A%7D)%3B%0Afunction%20createGid(type%2C%20id)%20%7B%0A%20%20const%20s%20%3D%20String(id)%3B%0A%20%20return%20s.startsWith(%22gid%3A%2F%2F%22)%20%3F%20s%20%3A%20%22gid%3A%2F%2Fshopify%2F%22%20%2B%20type%20%2B%20%22%2F%22%20%2B%20s%3B%0A%7D%0Afunction%20money(cents%2C%20code)%20%7B%20return%20%7B%20amount%3A%20((Number(cents)%20%7C%7C%200)%20%2F%20100).toFixed(2)%2C%20currencyCode%3A%20code%20%7C%7C%20%22USD%22%20%7D%3B%20%7D%0Afunction%20fromAjaxCart(cart)%20%7B%0A%20%20const%20c%20%3D%20cart%20%7C%7C%20%7B%7D%3B%0A%20%20const%20code%20%3D%20c.currency%20%7C%7C%20%22USD%22%3B%0A%20%20return%20%7B%0A%20%20%20%20id%3A%20createGid(%22Cart%22%2C%20c.token%20%7C%7C%20%22storelib%22)%2C%0A%20%20%20%20totalQuantity%3A%20Number(c.item_count)%20%7C%7C%200%2C%0A%20%20%20%20cost%3A%20%7B%20totalAmount%3A%20money(c.total_price%2C%20code)%20%7D%2C%0A%20%20%20%20lines%3A%20(c.items%20%7C%7C%20%5B%5D).map((l)%20%3D%3E%20(%7B%20id%3A%20createGid(%22CartLine%22%2C%20l.key)%2C%20quantity%3A%20Number(l.quantity)%20%7C%7C%200%2C%20cost%3A%20%7B%20totalAmount%3A%20money(l.final_line_price%2C%20code)%20%7D%20%7D))%2C%0A%20%20%20%20discountCodes%3A%20%5B%5D%2C%0A%20%20%7D%3B%0A%7D%0Afunction%20parseProductFilters(searchParams)%20%7B%0A%20%20const%20p%20%3D%20searchParams%20%7C%7C%20new%20URLSearchParams(location.search)%3B%0A%20%20const%20out%20%3D%20%5B%5D%3B%0A%20%20for%20(const%20%5Bk%2C%20v%5D%20of%20p.entries())%20%7B%0A%20%20%20%20if%20(!k.startsWith(%22filter.%22))%20continue%3B%0A%20%20%20%20if%20(k%20%3D%3D%3D%20%22filter.v.availability%22)%20out.push(%7B%20available%3A%20v%20%3D%3D%3D%20%221%22%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.gte%22)%20out.push(%7B%20price%3A%20%7B%20min%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.lte%22)%20out.push(%7B%20price%3A%20%7B%20max%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.product_type%22)%20out.push(%7B%20productType%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.vendor%22)%20out.push(%7B%20productVendor%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.tag%22)%20out.push(%7B%20tag%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k.startsWith(%22filter.v.option.%22))%20out.push(%7B%20variantOption%3A%20%7B%20name%3A%20k.slice(16)%2C%20value%3A%20v%20%7D%20%7D)%3B%0A%20%20%7D%0A%20%20return%20out.length%20%3F%20out%20%3A%20undefined%3B%0A%7D%0Afunction%20sortKey(searchParams%2C%20search)%20%7B%0A%20%20const%20v%20%3D%20(searchParams%20%7C%7C%20new%20URLSearchParams(location.search)).get(%22sort_by%22)%20%7C%7C%20%22%22%3B%0A%20%20if%20(v.startsWith(%22price%22))%20return%20%22PRICE%22%3B%0A%20%20if%20(search)%20return%20%22RELEVANCE%22%3B%0A%20%20if%20(v.startsWith(%22title%22))%20return%20%22TITLE%22%3B%0A%20%20if%20(v.startsWith(%22created%22))%20return%20%22CREATED%22%3B%0A%20%20if%20(v%20%3D%3D%3D%20%22best-selling%22)%20return%20%22BEST_SELLING%22%3B%0A%20%20return%20v%20%3F%20%22MANUAL%22%20%3A%20%22COLLECTION_DEFAULT%22%3B%0A%7D%0Afunction%20deferred()%20%7B%0A%20%20let%20resolve%2C%20reject%3B%0A%20%20const%20promise%20%3D%20new%20Promise((a%2C%20b)%20%3D%3E%20%7B%20resolve%20%3D%20a%3B%20reject%20%3D%20b%3B%20%7D)%3B%0A%20%20promise.catch(()%20%3D%3E%20%7B%7D)%3B%0A%20%20return%20%7B%20promise%2C%20resolve%2C%20reject%20%7D%3B%0A%7D%0Aclass%20SlThemeStandardEvent%20extends%20Event%20%7B%0A%20%20constructor(type%2C%20payload%2C%20options)%20%7B%0A%20%20%20%20super(type%2C%20Object.assign(%7B%20bubbles%3A%20true%2C%20composed%3A%20true%20%7D%2C%20options%20%7C%7C%20%7B%7D))%3B%0A%20%20%20%20const%20p%20%3D%20payload%20%7C%7C%20%7B%7D%3B%0A%20%20%20%20for%20(const%20k%20of%20Object.keys(p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20k%2C%20%7B%20value%3A%20p%5Bk%5D%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%2C%20writable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%20%20if%20(!(%22promise%22%20in%20p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20%22promise%22%2C%20%7B%20value%3A%20Promise.resolve(%7B%20detail%3A%20p.detail%20%7D)%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0ASlThemeStandardEvent.createGid%20%3D%20createGid%3B%0Aconst%20make%20%3D%20(name%2C%20extra)%20%3D%3E%20%7B%0A%20%20const%20C%20%3D%20class%20extends%20SlThemeStandardEvent%20%7B%20constructor(payload)%20%7B%20super(StandardEvents%5Bname%5D%2C%20payload)%3B%20%7D%20%7D%3B%0A%20%20C.eventName%20%3D%20StandardEvents%5Bname%5D%3B%0A%20%20C.createPromise%20%3D%20deferred%3B%0A%20%20Object.assign(C%2C%20extra%20%7C%7C%20%7B%7D)%3B%0A%20%20return%20C%3B%0A%7D%3B%0Aexport%20const%20PageViewEvent%20%3D%20make(%22pageView%22)%3B%0Aexport%20const%20ProductViewEvent%20%3D%20make(%22productView%22)%3B%0Aexport%20const%20ProductSelectEvent%20%3D%20make(%22productSelect%22)%3B%0Aexport%20const%20CartViewEvent%20%3D%20make(%22cartView%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartErrorEvent%20%3D%20make(%22cartError%22)%3B%0Aexport%20const%20CartLinesUpdateEvent%20%3D%20make(%22cartLinesUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartNoteUpdateEvent%20%3D%20make(%22cartNoteUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartDiscountUpdateEvent%20%3D%20make(%22cartDiscountUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20SearchUpdateEvent%20%3D%20make(%22searchUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20true)%20%7D)%3B%0Aexport%20const%20CollectionViewEvent%20%3D%20make(%22collectionView%22)%3B%0Aexport%20const%20CollectionUpdateEvent%20%3D%20make(%22collectionUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20false)%20%7D)%3B%0Aconst%20VIEW_EVENTS%20%3D%20%7B%20%22product-component%22%3A%20ProductViewEvent%2C%20%22collection-component%22%3A%20CollectionViewEvent%20%7D%3B%0Aexport%20function%20createViewEventElement(Base%2C%20options)%20%7B%0A%20%20const%20B%20%3D%20Base%20%7C%7C%20HTMLElement%3B%0A%20%20const%20opts%20%3D%20options%20%7C%7C%20%7B%7D%3B%0A%20%20return%20class%20extends%20B%20%7B%0A%20%20%20%20connectedCallback()%20%7B%0A%20%20%20%20%20%20if%20(super.connectedCallback)%20super.connectedCallback()%3B%0A%20%20%20%20%20%20const%20trigger%20%3D%20this.getAttribute(%22view-event-trigger%22)%20%7C%7C%20opts.defaultTrigger%20%7C%7C%20%22connect%22%3B%0A%20%20%20%20%20%20if%20(trigger%20%3D%3D%3D%20%22connect%22)%20this.dispatchViewEvent()%3B%0A%20%20%20%20%20%20else%20if%20(trigger%20%3D%3D%3D%20%22intersect%22%20%26%26%20%22IntersectionObserver%22%20in%20window)%20%7B%0A%20%20%20%20%20%20%20%20const%20io%20%3D%20new%20IntersectionObserver((entries)%20%3D%3E%20%7B%20if%20(entries.some((e)%20%3D%3E%20e.isIntersecting))%20%7B%20io.disconnect()%3B%20this.dispatchViewEvent()%3B%20%7D%20%7D)%3B%0A%20%20%20%20%20%20%20%20io.observe(this)%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%20%20dispatchViewEvent()%20%7B%0A%20%20%20%20%20%20let%20payload%20%3D%20null%3B%0A%20%20%20%20%20%20const%20raw%20%3D%20this.getAttribute(%22view-event-payload%22)%20%7C%7C%20this.querySelector(%22script%5Bdata-view-event-payload%5D%22)%3F.textContent%3B%0A%20%20%20%20%20%20try%20%7B%20payload%20%3D%20raw%20%3F%20JSON.parse(raw)%20%3A%20null%3B%20%7D%20catch%20(e)%20%7B%20payload%20%3D%20null%3B%20%7D%0A%20%20%20%20%20%20if%20(!payload)%20return%3B%0A%20%20%20%20%20%20const%20Kind%20%3D%20payload.cart%20%3F%20CartViewEvent%20%3A%20payload.collection%20%3F%20CollectionViewEvent%20%3A%20payload.product%20%3F%20ProductViewEvent%20%3A%20VIEW_EVENTS%5Bthis.localName%5D%3B%0A%20%20%20%20%20%20if%20(Kind)%20this.dispatchEvent(new%20Kind(payload))%3B%0A%20%20%20%20%7D%0A%20%20%7D%3B%0A%7D%0Aexport%20const%20ViewEventElement%20%3D%20createViewEventElement(HTMLElement)%3B%0Aexport%20%7B%20StandardEvents%2C%20SlThemeStandardEvent%20%7D%3B","@shopify/partial-rendering":"data:text/javascript;charset=utf-8,async%20function%20refresh(name)%20%7B%0A%20%20const%20res%20%3D%20await%20fetch(location.href%2C%20%7B%20headers%3A%20%7B%20Accept%3A%20%22text%2Fhtml%22%20%7D%2C%20credentials%3A%20%22same-origin%22%20%7D)%3B%0A%20%20if%20(!res.ok)%20throw%20new%20Error(%22The%20page%20could%20not%20be%20drawn%20again%22)%3B%0A%20%20const%20doc%20%3D%20new%20DOMParser().parseFromString(await%20res.text()%2C%20%22text%2Fhtml%22)%3B%0A%20%20const%20sel%20%3D%20'%5Bdata-shopify-partial%3D%22'%20%2B%20CSS.escape(String(name))%20%2B%20'%22%5D'%3B%0A%20%20const%20fresh%20%3D%20doc.querySelector(sel)%3B%0A%20%20const%20here%20%3D%20document.querySelector(sel)%3B%0A%20%20if%20(fresh%20%26%26%20here)%20here.replaceWith(document.importNode(fresh%2C%20true))%3B%0A%7D%0Aexport%20const%20partials%20%3D%20%7B%20refresh%20%7D%3B%0Aexport%20default%20partials%3B"}}</script><script src="/theme-previews/sample-packs/a/i.fc17d0660d95.js"></script>
+/* The page's own background, as soon as it is known: the frame shows it between two pages instead of its own white (a white flash on a dark shop). */
+function paint(){try{var c=getComputedStyle(D.documentElement).backgroundColor;if(!c||/rgba(0, 0, 0, 0)|transparent/.test(c))c=getComputedStyle(D.body).backgroundColor;if(c&&!/rgba(0, 0, 0, 0)|transparent/.test(c))parent.postMessage({type:"storelib:template-preview-background",background:c},"*")}catch(e){}}
+D.addEventListener("DOMContentLoaded",paint);
+})();</script><script type="importmap">{"imports":{"@shopify/events":"data:text/javascript;charset=utf-8,const%20StandardEvents%20%3D%20Object.freeze(%7B%0A%20%20pageView%3A%20%22shopify%3Apage%3Aview%22%2C%0A%20%20productView%3A%20%22shopify%3Aproduct%3Aview%22%2C%0A%20%20productSelect%3A%20%22shopify%3Aproduct%3Aselect%22%2C%0A%20%20cartView%3A%20%22shopify%3Acart%3Aview%22%2C%0A%20%20cartError%3A%20%22shopify%3Acart%3Aerror%22%2C%0A%20%20cartLinesUpdate%3A%20%22shopify%3Acart%3Alines-update%22%2C%0A%20%20cartNoteUpdate%3A%20%22shopify%3Acart%3Anote-update%22%2C%0A%20%20cartDiscountUpdate%3A%20%22shopify%3Acart%3Adiscount-update%22%2C%0A%20%20searchUpdate%3A%20%22shopify%3Asearch%3Aupdate%22%2C%0A%20%20collectionView%3A%20%22shopify%3Acollection%3Aview%22%2C%0A%20%20collectionUpdate%3A%20%22shopify%3Acollection%3Aupdate%22%2C%0A%7D)%3B%0Afunction%20createGid(type%2C%20id)%20%7B%0A%20%20const%20s%20%3D%20String(id)%3B%0A%20%20return%20s.startsWith(%22gid%3A%2F%2F%22)%20%3F%20s%20%3A%20%22gid%3A%2F%2Fshopify%2F%22%20%2B%20type%20%2B%20%22%2F%22%20%2B%20s%3B%0A%7D%0Afunction%20money(cents%2C%20code)%20%7B%20return%20%7B%20amount%3A%20((Number(cents)%20%7C%7C%200)%20%2F%20100).toFixed(2)%2C%20currencyCode%3A%20code%20%7C%7C%20%22USD%22%20%7D%3B%20%7D%0Afunction%20fromAjaxCart(cart)%20%7B%0A%20%20const%20c%20%3D%20cart%20%7C%7C%20%7B%7D%3B%0A%20%20const%20code%20%3D%20c.currency%20%7C%7C%20%22USD%22%3B%0A%20%20return%20%7B%0A%20%20%20%20id%3A%20createGid(%22Cart%22%2C%20c.token%20%7C%7C%20%22storelib%22)%2C%0A%20%20%20%20totalQuantity%3A%20Number(c.item_count)%20%7C%7C%200%2C%0A%20%20%20%20cost%3A%20%7B%20totalAmount%3A%20money(c.total_price%2C%20code)%20%7D%2C%0A%20%20%20%20lines%3A%20(c.items%20%7C%7C%20%5B%5D).map((l)%20%3D%3E%20(%7B%20id%3A%20createGid(%22CartLine%22%2C%20l.key)%2C%20quantity%3A%20Number(l.quantity)%20%7C%7C%200%2C%20cost%3A%20%7B%20totalAmount%3A%20money(l.final_line_price%2C%20code)%20%7D%20%7D))%2C%0A%20%20%20%20discountCodes%3A%20%5B%5D%2C%0A%20%20%7D%3B%0A%7D%0Afunction%20parseProductFilters(searchParams)%20%7B%0A%20%20const%20p%20%3D%20searchParams%20%7C%7C%20new%20URLSearchParams(location.search)%3B%0A%20%20const%20out%20%3D%20%5B%5D%3B%0A%20%20for%20(const%20%5Bk%2C%20v%5D%20of%20p.entries())%20%7B%0A%20%20%20%20if%20(!k.startsWith(%22filter.%22))%20continue%3B%0A%20%20%20%20if%20(k%20%3D%3D%3D%20%22filter.v.availability%22)%20out.push(%7B%20available%3A%20v%20%3D%3D%3D%20%221%22%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.gte%22)%20out.push(%7B%20price%3A%20%7B%20min%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.lte%22)%20out.push(%7B%20price%3A%20%7B%20max%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.product_type%22)%20out.push(%7B%20productType%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.vendor%22)%20out.push(%7B%20productVendor%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.tag%22)%20out.push(%7B%20tag%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k.startsWith(%22filter.v.option.%22))%20out.push(%7B%20variantOption%3A%20%7B%20name%3A%20k.slice(16)%2C%20value%3A%20v%20%7D%20%7D)%3B%0A%20%20%7D%0A%20%20return%20out.length%20%3F%20out%20%3A%20undefined%3B%0A%7D%0Afunction%20sortKey(searchParams%2C%20search)%20%7B%0A%20%20const%20v%20%3D%20(searchParams%20%7C%7C%20new%20URLSearchParams(location.search)).get(%22sort_by%22)%20%7C%7C%20%22%22%3B%0A%20%20if%20(v.startsWith(%22price%22))%20return%20%22PRICE%22%3B%0A%20%20if%20(search)%20return%20%22RELEVANCE%22%3B%0A%20%20if%20(v.startsWith(%22title%22))%20return%20%22TITLE%22%3B%0A%20%20if%20(v.startsWith(%22created%22))%20return%20%22CREATED%22%3B%0A%20%20if%20(v%20%3D%3D%3D%20%22best-selling%22)%20return%20%22BEST_SELLING%22%3B%0A%20%20return%20v%20%3F%20%22MANUAL%22%20%3A%20%22COLLECTION_DEFAULT%22%3B%0A%7D%0Afunction%20deferred()%20%7B%0A%20%20let%20resolve%2C%20reject%3B%0A%20%20const%20promise%20%3D%20new%20Promise((a%2C%20b)%20%3D%3E%20%7B%20resolve%20%3D%20a%3B%20reject%20%3D%20b%3B%20%7D)%3B%0A%20%20promise.catch(()%20%3D%3E%20%7B%7D)%3B%0A%20%20return%20%7B%20promise%2C%20resolve%2C%20reject%20%7D%3B%0A%7D%0Aclass%20SlThemeStandardEvent%20extends%20Event%20%7B%0A%20%20constructor(type%2C%20payload%2C%20options)%20%7B%0A%20%20%20%20super(type%2C%20Object.assign(%7B%20bubbles%3A%20true%2C%20composed%3A%20true%20%7D%2C%20options%20%7C%7C%20%7B%7D))%3B%0A%20%20%20%20const%20p%20%3D%20payload%20%7C%7C%20%7B%7D%3B%0A%20%20%20%20for%20(const%20k%20of%20Object.keys(p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20k%2C%20%7B%20value%3A%20p%5Bk%5D%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%2C%20writable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%20%20if%20(!(%22promise%22%20in%20p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20%22promise%22%2C%20%7B%20value%3A%20Promise.resolve(%7B%20detail%3A%20p.detail%20%7D)%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0ASlThemeStandardEvent.createGid%20%3D%20createGid%3B%0Aconst%20make%20%3D%20(name%2C%20extra)%20%3D%3E%20%7B%0A%20%20const%20C%20%3D%20class%20extends%20SlThemeStandardEvent%20%7B%20constructor(payload)%20%7B%20super(StandardEvents%5Bname%5D%2C%20payload)%3B%20%7D%20%7D%3B%0A%20%20C.eventName%20%3D%20StandardEvents%5Bname%5D%3B%0A%20%20C.createPromise%20%3D%20deferred%3B%0A%20%20Object.assign(C%2C%20extra%20%7C%7C%20%7B%7D)%3B%0A%20%20return%20C%3B%0A%7D%3B%0Aexport%20const%20PageViewEvent%20%3D%20make(%22pageView%22)%3B%0Aexport%20const%20ProductViewEvent%20%3D%20make(%22productView%22)%3B%0Aexport%20const%20ProductSelectEvent%20%3D%20make(%22productSelect%22)%3B%0Aexport%20const%20CartViewEvent%20%3D%20make(%22cartView%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartErrorEvent%20%3D%20make(%22cartError%22)%3B%0Aexport%20const%20CartLinesUpdateEvent%20%3D%20make(%22cartLinesUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartNoteUpdateEvent%20%3D%20make(%22cartNoteUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartDiscountUpdateEvent%20%3D%20make(%22cartDiscountUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20SearchUpdateEvent%20%3D%20make(%22searchUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20true)%20%7D)%3B%0Aexport%20const%20CollectionViewEvent%20%3D%20make(%22collectionView%22)%3B%0Aexport%20const%20CollectionUpdateEvent%20%3D%20make(%22collectionUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20false)%20%7D)%3B%0Aconst%20VIEW_EVENTS%20%3D%20%7B%20%22product-component%22%3A%20ProductViewEvent%2C%20%22collection-component%22%3A%20CollectionViewEvent%20%7D%3B%0Aexport%20function%20createViewEventElement(Base%2C%20options)%20%7B%0A%20%20const%20B%20%3D%20Base%20%7C%7C%20HTMLElement%3B%0A%20%20const%20opts%20%3D%20options%20%7C%7C%20%7B%7D%3B%0A%20%20return%20class%20extends%20B%20%7B%0A%20%20%20%20connectedCallback()%20%7B%0A%20%20%20%20%20%20if%20(super.connectedCallback)%20super.connectedCallback()%3B%0A%20%20%20%20%20%20const%20trigger%20%3D%20this.getAttribute(%22view-event-trigger%22)%20%7C%7C%20opts.defaultTrigger%20%7C%7C%20%22connect%22%3B%0A%20%20%20%20%20%20if%20(trigger%20%3D%3D%3D%20%22connect%22)%20this.dispatchViewEvent()%3B%0A%20%20%20%20%20%20else%20if%20(trigger%20%3D%3D%3D%20%22intersect%22%20%26%26%20%22IntersectionObserver%22%20in%20window)%20%7B%0A%20%20%20%20%20%20%20%20const%20io%20%3D%20new%20IntersectionObserver((entries)%20%3D%3E%20%7B%20if%20(entries.some((e)%20%3D%3E%20e.isIntersecting))%20%7B%20io.disconnect()%3B%20this.dispatchViewEvent()%3B%20%7D%20%7D)%3B%0A%20%20%20%20%20%20%20%20io.observe(this)%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%20%20dispatchViewEvent()%20%7B%0A%20%20%20%20%20%20let%20payload%20%3D%20null%3B%0A%20%20%20%20%20%20const%20raw%20%3D%20this.getAttribute(%22view-event-payload%22)%20%7C%7C%20this.querySelector(%22script%5Bdata-view-event-payload%5D%22)%3F.textContent%3B%0A%20%20%20%20%20%20try%20%7B%20payload%20%3D%20raw%20%3F%20JSON.parse(raw)%20%3A%20null%3B%20%7D%20catch%20(e)%20%7B%20payload%20%3D%20null%3B%20%7D%0A%20%20%20%20%20%20if%20(!payload)%20return%3B%0A%20%20%20%20%20%20const%20Kind%20%3D%20payload.cart%20%3F%20CartViewEvent%20%3A%20payload.collection%20%3F%20CollectionViewEvent%20%3A%20payload.product%20%3F%20ProductViewEvent%20%3A%20VIEW_EVENTS%5Bthis.localName%5D%3B%0A%20%20%20%20%20%20if%20(Kind)%20this.dispatchEvent(new%20Kind(payload))%3B%0A%20%20%20%20%7D%0A%20%20%7D%3B%0A%7D%0Aexport%20const%20ViewEventElement%20%3D%20createViewEventElement(HTMLElement)%3B%0Aexport%20%7B%20StandardEvents%2C%20SlThemeStandardEvent%20%7D%3B","@shopify/partial-rendering":"data:text/javascript;charset=utf-8,async%20function%20refresh(name)%20%7B%0A%20%20const%20res%20%3D%20await%20fetch(location.href%2C%20%7B%20headers%3A%20%7B%20Accept%3A%20%22text%2Fhtml%22%20%7D%2C%20credentials%3A%20%22same-origin%22%20%7D)%3B%0A%20%20if%20(!res.ok)%20throw%20new%20Error(%22The%20page%20could%20not%20be%20drawn%20again%22)%3B%0A%20%20const%20doc%20%3D%20new%20DOMParser().parseFromString(await%20res.text()%2C%20%22text%2Fhtml%22)%3B%0A%20%20const%20sel%20%3D%20'%5Bdata-shopify-partial%3D%22'%20%2B%20CSS.escape(String(name))%20%2B%20'%22%5D'%3B%0A%20%20const%20fresh%20%3D%20doc.querySelector(sel)%3B%0A%20%20const%20here%20%3D%20document.querySelector(sel)%3B%0A%20%20if%20(fresh%20%26%26%20here)%20here.replaceWith(document.importNode(fresh%2C%20true))%3B%0A%7D%0Aexport%20const%20partials%20%3D%20%7B%20refresh%20%7D%3B%0Aexport%20default%20partials%3B"}}</script><style data-page-background>html{background-color:#0b0b0e}</style><script src="/theme-previews/sample-packs/a/i.63b4697a1622.js"></script>
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -76,7 +79,7 @@ W.addEventListener("load",tell);D.addEventListener("DOMContentLoaded",function()
   .shopify-section[data-perf-offscreen] *,
   .shopify-section[data-perf-offscreen] *::before,
   .shopify-section[data-perf-offscreen] *::after { animation-play-state: paused !important; }
-</style><link rel="stylesheet" href="/theme-previews/sample-packs/a/i.bebb8d20d681.css" id="speed-page-landing"><script id="speed-optimization-js" src="/theme-previews/sample-packs/a/i.679dcd5ab7c8.js"></script>
+</style><link rel="stylesheet" href="/theme-previews/sample-packs/a/i.262074ef9310.css" id="speed-page-landing"><script src="/theme-previews/sample-packs/a/i.0bd6d5139503.js"></script><script id="speed-optimization-js" src="/theme-previews/sample-packs/a/i.679dcd5ab7c8.js"></script>
 <script>
       (function () {
         try {
@@ -109,10 +112,10 @@ W.addEventListener("load",tell);D.addEventListener("DOMContentLoaded",function()
   }
 </style>
 <link rel="stylesheet" href="/theme-previews/sample-packs/a/i.e5c86864cdb9.css" data-shopify>
-<link href="/theme-previews/_base/a/theme.d71f5b96fec8.css" rel="stylesheet" type="text/css" media="all"><noscript><link href="/theme-previews/_base/a/popup.18cdf2513c31.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.1367a426b62b.css">
+<link href="/theme-previews/_base/a/theme.d71f5b96fec8.css" rel="stylesheet" type="text/css" media="all"><noscript><link href="/theme-previews/_base/a/popup.18cdf2513c31.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.9c20c549e3cf.css">
 <link rel="preload" as="style" href="/theme-previews/_base/a/minicart.ac0014483417.css" fetchpriority="low">
 <link rel="preload" as="style" href="/theme-previews/_base/a/materia-experience.b68d6d8152a8.css" fetchpriority="low">
-<link rel="stylesheet" href="/theme-previews/sample-packs/a/i.28cfcd9bf59c.css"><link rel="stylesheet" href="/theme-previews/sample-packs/a/i.0f64d724d341.css"><link href="/theme-previews/_base/a/theme-button-contract.7d286d7eee9b.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/localization-controls.9494a0c83131.css" rel="stylesheet" type="text/css" media="all"><link rel="modulepreload" href="/theme-previews/_base/a/theme.7a7dd8f80f89.js" fetchpriority="low"><script data-storelib-head src="/theme-previews/sample-packs/a/i.d60c3c7ab47c.js"></script>
+<link rel="stylesheet" href="/theme-previews/sample-packs/a/i.28cfcd9bf59c.css"><link rel="stylesheet" href="/theme-previews/sample-packs/a/i.0f64d724d341.css"><link href="/theme-previews/_base/a/theme-button-contract.7d286d7eee9b.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/localization-controls.9494a0c83131.css" rel="stylesheet" type="text/css" media="all"><link rel="modulepreload" href="/theme-previews/_base/a/theme.7a7dd8f80f89.js" fetchpriority="low"><script data-storelib-head src="/theme-previews/sample-packs/a/i.24fee116adb1.js"></script>
 <script src="/theme-previews/_base/a/swiper-bundle-min.31d164f7367d.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/motion-min.d1f8eb312b47.js" type="module" defer="defer" fetchpriority="low"></script>
 <script src="/theme-previews/_base/a/utils.90eeb774e439.js" defer="defer" data-cart-count="0"></script>
@@ -128,7 +131,7 @@ W.addEventListener("load",tell);D.addEventListener("DOMContentLoaded",function()
 <link href="/theme-previews/_base/a/hero-image-one.7347eaeaff3f.css" rel="stylesheet" type="text/css" media="all">
 <script src="/theme-previews/_base/a/hero-image-one.1fc574354023.js" defer="defer"></script>
 <link href="/theme-previews/_base/a/before-after-controls.0119d231c0b0.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/text-section-controls.f1a83e444db3.css" rel="stylesheet" type="text/css" media="all"><script src="/theme-previews/sample-packs/a/i.c8cec488b26e.js"></script>
+<link href="/theme-previews/_base/a/text-section-controls.f1a83e444db3.css" rel="stylesheet" type="text/css" media="all"><script src="/theme-previews/sample-packs/a/i.55032103e897.js"></script>
 <link href="/theme-previews/_base/a/testimonial-quote.d74462f50435.css" rel="stylesheet" type="text/css" media="all">
 <link href="/theme-previews/_base/a/announcement-pro-4.98b829b630a8.css" rel="stylesheet" type="text/css" media="all">
 <link href="/theme-previews/_base/a/product-block-runtime.0c74f3d394a4.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/drift-basic-min.ae15d5c0ab03.css" rel="stylesheet" type="text/css" media="all">
@@ -227,10 +230,10 @@ data-delay="5"
 data-duration="700"
 >
 <div class="topbar-track"><div class="topbar-message is-active lh-normal" data-tb-slide="1" data-tb-mobile-own>
-<div class="px-10 topbar-text-cell"><span class="topbar-text topbar-text--lg" data-tb-text>60% off every pack this week</span><span class="topbar-text topbar-text--sm" data-tb-text-mobile>60% off every pack this week</span></div>
+<div class="px-10 topbar-text-cell"><span class="topbar-text topbar-text--lg" data-tb-text>Sale: 60% off every pack</span><span class="topbar-text topbar-text--sm" data-tb-text-mobile>Sale: 60% off every pack</span></div>
 </div>
 <div class="topbar-message lh-normal" data-tb-slide="2" data-tb-mobile-own>
-<div class="px-10 topbar-text-cell"><span class="topbar-text topbar-text--lg" data-tb-text>Royalty free for releases, beats and client work</span><span class="topbar-text topbar-text--sm" data-tb-text-mobile>Royalty free, one licence</span></div>
+<div class="px-10 topbar-text-cell"><span class="topbar-text topbar-text--lg" data-tb-text>Every sound is 100% royalty free</span><span class="topbar-text topbar-text--sm" data-tb-text-mobile>100% royalty free</span></div>
 </div>
 </div>
 </announcement-rotator-v2></div></div>
@@ -259,8 +262,8 @@ data-duration="700"
     --hs-mnav-heading: #f4f4f5;
     --hs-mnav-text: #a1a1aa;
     --hs-hover-fill: #ffffff;
-    --hs-logo-width: 78px;
-    --hs-logo-width-mobile: 78px;
+    --hs-logo-width: 72px;
+    --hs-logo-width-mobile: 60px;
     --hs-logo-max-height: 60px;
     --hs-logo-box-height: 76px;
   }#shopify-section-header { --hs-menu-gap: 8px; --hs-icon-gap: 10px; --hs-icon-gap-mobile: 6px; --hs-logo-x: 0px; --hs-logo-x-mobile: 0px; }@media (max-width: 1024.98px) {
@@ -294,8 +297,20 @@ aria-label="Loudlib"
 >
 <span
 class="header__logo inline-flex align-center"
-style="--header-logo-width: 208px; --header-logo-width-mobile: 78px;"
-><span class="header__logo-text" style="font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, 600); font-size: clamp(20px, 2.2vw, 28px); line-height: 1; letter-spacing: -0.01em; color: inherit; white-space: nowrap;">Loudlib</span></span>
+style="--header-logo-width: 72px; --header-logo-width-mobile: 60px;"
+><img
+srcset="/theme-previews/sample-packs/a/samples-logo.c707d5daf266.webp 165w,/theme-previews/sample-packs/a/samples-logo.c707d5daf266.webp 330w,/theme-previews/sample-packs/a/samples-logo.c707d5daf266.webp 535w,/theme-previews/sample-packs/a/samples-logo.c707d5daf266.webp 750w,/theme-previews/sample-packs/a/samples-logo.c707d5daf266.webp 1600w
+"
+src="/theme-previews/sample-packs/a/samples-logo.c707d5daf266.webp"
+sizes="(max-width: 1024.98px) 60px, 72px"
+loading="eager"
+decoding="sync"
+fetchpriority="high"
+class="header__normal-logo"
+width="72"
+height="72"
+alt="Loudlib"
+></span>
 </a>
 </div>
 <div class="header__menu"><button
@@ -309,7 +324,7 @@ class="action nav-toggle overlay inline-flex pointer w-44 h-44 hidden-1025 heade
 <path d="M2 8H20C20.2812 8 20.5156 7.90625 20.7031 7.71875C20.9062 7.51562 21.0078 7.27344 21.0078 6.99219C21.0078 6.72656 20.9062 6.5 20.7031 6.3125C20.5156 6.10938 20.2812 6.00781 20 6.00781H2C1.71875 6.00781 1.47656 6.10938 1.27344 6.3125C1.08594 6.5 0.992188 6.72656 0.992188 6.99219C0.992188 7.27344 1.08594 7.51562 1.27344 7.71875C1.47656 7.90625 1.71875 8 2 8ZM2 2H20C20.2812 2 20.5156 1.90625 20.7031 1.71875C20.9062 1.51563 21.0078 1.27344 21.0078 0.992188C21.0078 0.726562 20.9062 0.5 20.7031 0.3125C20.5156 0.109375 20.2812 0.0078125 20 0.0078125H2C1.71875 0.0078125 1.47656 0.109375 1.27344 0.3125C1.08594 0.5 0.992188 0.726562 0.992188 0.992188C0.992188 1.27344 1.08594 1.51563 1.27344 1.71875C1.47656 1.90625 1.71875 2 2 2ZM2 14H20C20.2812 14 20.5156 13.9062 20.7031 13.7188C20.9062 13.5156 21.0078 13.2734 21.0078 12.9922C21.0078 12.7266 20.9062 12.5 20.7031 12.3125C20.5156 12.1094 20.2812 12.0078 20 12.0078H2C1.71875 12.0078 1.47656 12.1094 1.27344 12.3125C1.08594 12.5 0.992188 12.7266 0.992188 12.9922C0.992188 13.2734 1.08594 13.5156 1.27344 13.7188C1.47656 13.9062 1.71875 14 2 14Z" fill="currentColor"/>
 </svg>
 </button>
-<link href="/theme-previews/_base/a/navigation.1367a426b62b.css" rel="stylesheet" type="text/css" media="all">
+<link href="/theme-previews/_base/a/navigation.9c20c549e3cf.css" rel="stylesheet" type="text/css" media="all">
 <nav
 class="flex flex-column block-1025 navigation horizontal fixed static-1025 visible-1025 inset-0 down-to-up"
 data-action-mobile="true"
@@ -370,6 +385,14 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/sample-packs/blogs/news.html"
 ><span>Blog</span></a></menu-item></li>
+<li
+class="level0 single"
+>
+<menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
+<a
+class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
+href="/theme-previews/sample-packs/pages/contact.html"
+><span>Work with us</span></a></menu-item></li>
 <li
 class="level0 single"
 >
@@ -487,6 +510,14 @@ class="level0 single"
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
 <a
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
+href="/theme-previews/sample-packs/pages/contact.html"
+><span>Work with us</span></a></menu-item></li>
+<li
+class="level0 single"
+>
+<menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
+<a
+class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/sample-packs/pages/faqs.html"
 ><span>Support</span></a></menu-item></li>
 </ul>
@@ -567,7 +598,149 @@ class="no-underline minicart__action header-icon header-color w-44 h-44 inline-f
 </div></header>
 <link href="/theme-previews/_base/a/header-sticky.b824661f5721.css" rel="stylesheet" type="text/css" media="all">
 <script src="/theme-previews/sample-packs/a/i.7cb61de4030e.js"></script><script src="/theme-previews/_base/a/header-sticky-extras.78e1fb4f310f.js" defer="defer"></script></div><script src="/theme-previews/sample-packs/a/i.0d9f91566ff2.js"></script>
-<main id="MainContent" class="content-for-layout focus-none" role="main" tabindex="-1"><div id="shopify-section-signup" class="shopify-section section-r7n" data-section-id="signup" data-section-type="newsletter-split"><script src="/theme-previews/_base/a/live-r7-connect.e9b5b4145e05.js" defer="defer"></script>
+<main id="MainContent" class="content-for-layout focus-none" role="main" tabindex="-1"><section id="shopify-section-listen" class="shopify-section section" data-section-id="listen" data-section-type="samples-audio-tracks"><style>
+  .ssp { --ssp-p: 0%; --ssp-h: 0%; --ssp-sw: 1.6px; --ssp-btn: 36px; --ssp-wave: 36px; --ssp-base: rgba(var(--color-heading-rgb), .24); --ssp-done: rgb(var(--color-heading-rgb)); display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .ssp__btn { position: relative; flex: none; width: var(--ssp-btn); height: var(--ssp-btn); margin: 0; padding: 0; border-radius: 50%; border: 1.5px solid rgba(var(--color-heading-rgb), .5); background: transparent; color: var(--color-heading); display: grid; place-items: center; cursor: pointer; transition: background-color .2s ease, border-color .2s ease, color .2s ease, transform .2s ease; -webkit-tap-highlight-color: transparent; }
+  .ssp__btn:hover { border-color: rgb(var(--color-heading-rgb)); }
+  .ssp__btn:active { transform: scale(.94); }
+  .ssp__btn:focus-visible, .ssp__wave:focus-visible { outline: 2px solid var(--ssp-done); outline-offset: 3px; }
+  .ssp__btn[disabled] { cursor: default; opacity: .35; transform: none; }
+  .ssp__i { grid-area: 1 / 1; width: 42%; height: 42%; display: block; transition: opacity .15s ease, transform .2s ease; }
+  .ssp__i--pause { opacity: 0; transform: scale(.6); }
+  .ssp.is-playing .ssp__i--play { opacity: 0; transform: scale(.6); }
+  .ssp.is-playing .ssp__i--pause { opacity: 1; transform: none; }
+  .ssp.is-playing .ssp__btn { background: rgb(var(--color-heading-rgb)); border-color: transparent; color: var(--color-background); }
+  .ssp__btn::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 1.5px solid transparent; border-top-color: rgb(var(--color-heading-rgb)); opacity: 0; transition: opacity .2s ease; }
+  .ssp.is-loading .ssp__btn::after { opacity: 1; animation: ssp-spin .8s linear infinite; }
+  .ssp__wave { position: relative; flex: 1 1 auto; min-width: 0; height: var(--ssp-wave); cursor: pointer; touch-action: pan-y; -webkit-tap-highlight-color: transparent; border-radius: 2px; }
+  .ssp--off .ssp__wave { cursor: default; }
+  .ssp__svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; fill: none; stroke: var(--ssp-base); stroke-width: var(--ssp-sw); stroke-linecap: round; pointer-events: none; transform-origin: 50% 50%; }
+  .ssp__svg--hover { stroke: rgba(var(--color-heading-rgb), .5); clip-path: inset(0 calc(100% - var(--ssp-h)) 0 0); opacity: 0; transition: opacity .15s ease; }
+  .ssp__svg--done { stroke: var(--ssp-done); clip-path: inset(0 calc(100% - var(--ssp-p)) 0 0); }
+  .ssp:not(.is-started) .ssp__svg--done { visibility: hidden; }
+  .ssp--flat .ssp__svg { stroke: rgba(var(--color-heading-rgb), .18); }
+  .ssp--off .ssp__svg { stroke: rgba(var(--color-heading-rgb), .1); }
+  .ssp--drawn .ssp__svg { animation: ssp-grow .5s cubic-bezier(.2,.7,.2,1) both; }
+  .ssp__time { flex: none; min-width: 4.2em; text-align: right; font-size: 13px; line-height: 1; color: var(--color-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ssp.is-started .ssp__time { color: var(--color-heading); }
+  @media (hover: hover) and (pointer: fine) {
+    .ssp:not(.ssp--off) .ssp__wave:hover .ssp__svg--hover { opacity: 1; }
+    .ssp__btn:hover { transform: scale(1.05); }
+  }
+  @keyframes ssp-spin { to { transform: rotate(360deg); } }
+  @keyframes ssp-grow { from { transform: scaleY(.08); } to { transform: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .ssp__btn, .ssp__i, .ssp__svg--hover { transition: none; }
+    .ssp--drawn .ssp__svg { animation: none; }
+    .ssp.is-loading .ssp__btn::after { animation-duration: 2s; }
+  }
+  #shopify-section-listen .sat { padding-block: 50px 28px; }
+  #shopify-section-listen .sat__inner { max-width: 1040px; margin-inline: auto; }
+  #shopify-section-listen .sat__head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 32px; margin-bottom: 28px; }
+  #shopify-section-listen .sat__head--center { flex-direction: column; align-items: center; text-align: center; }
+  #shopify-section-listen .sat__eyebrow { margin: 0 0 10px; font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--color-text); }
+  #shopify-section-listen .sat__heading { margin: 0; overflow-wrap: anywhere; font-size: 30px; line-height: 1.1; }
+  #shopify-section-listen .sat__text { margin: 10px 0 0; max-width: 56ch; color: var(--color-text); font-size: 15px; }
+  #shopify-section-listen .sat__head--center .sat__text { margin-inline: auto; }
+  #shopify-section-listen .sat__text > :first-child { margin-top: 0; }
+  #shopify-section-listen .sat__text > :last-child { margin-bottom: 0; }
+  #shopify-section-listen .sat__more { font-size: 15px; font-weight: 600; color: var(--color-heading); text-decoration: underline; text-underline-offset: 4px; text-decoration-color: rgba(var(--color-heading-rgb), .35); white-space: nowrap; }
+  #shopify-section-listen .sat__more:hover { text-decoration-color: currentColor; }
+  #shopify-section-listen .sat__empty { margin: 0; padding: 20px 0; font-size: 15px; color: var(--color-text); border-block: 1px solid var(--color-border); }
+  #shopify-section-listen .sat__note { margin: 6px 0 0; font-size: 13px; color: var(--color-text); }
+  /* List */
+  #shopify-section-listen .sat__list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--color-border); }
+  #shopify-section-listen .sat__row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "cover meta link" "player player player"; align-items: center; column-gap: 14px; row-gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--color-border); transition: background-color .2s ease; }
+  #shopify-section-listen .sat__row--nocover { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "meta link" "player player"; }
+  #shopify-section-listen .sat__cover { grid-area: cover; width: 52px; height: 52px; display: block; }
+  #shopify-section-listen .sat__cover img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  #shopify-section-listen .sat__meta { grid-area: meta; min-width: 0; }
+  #shopify-section-listen .sat__title { margin: 0; font-size: 16px; font-weight: 600; line-height: 1.3; color: var(--color-heading); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: color .2s ease; }
+  #shopify-section-listen .sat__title a { color: inherit; text-decoration: none; }
+  #shopify-section-listen .sat__title a:hover { text-decoration: underline; text-underline-offset: 3px; }
+  #shopify-section-listen .sat__sub { margin: 3px 0 0; font-size: 13px; line-height: 1.4; color: var(--color-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  #shopify-section-listen .sat__player { grid-area: player; min-width: 0; }
+  #shopify-section-listen .sat__link { grid-area: link; font-size: 14px; font-weight: 600; color: var(--color-heading); text-decoration: none; white-space: nowrap; padding: 8px 0; }
+  #shopify-section-listen .sat__link:hover { text-decoration: underline; text-underline-offset: 4px; }
+  #shopify-section-listen .sat__row:has(.ssp.is-started) .sat__title { color: var(--sat-accent, var(--color-heading)); }
+  /* Grid */
+  #shopify-section-listen .sat__panel { border-radius: 16px; background: rgba(var(--color-heading-rgb), .035); border: 1px solid rgba(var(--color-heading-rgb), .07); padding: 28px 18px 30px; }
+  #shopify-section-listen .sat__grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px 40px; }
+  #shopify-section-listen .sat__cell .ssp { --ssp-btn: 30px; --ssp-wave: 34px; gap: 10px; }
+  #shopify-section-listen .sat__cell .ssp__btn { border-color: transparent; background: transparent; }
+  #shopify-section-listen .sat__cell .ssp__i { width: 50%; height: 50%; }
+  #shopify-section-listen .sat__cell .ssp.is-playing .ssp__btn { background: rgb(var(--color-heading-rgb)); }
+  #shopify-section-listen .sat__cell .ssp__time { display: none; }
+  #shopify-section-listen .sat__cap { margin: 6px 0 0 40px; font-size: 13px; line-height: 1.35; color: var(--color-text); text-align: left; white-space: nowrap; }
+  #shopify-section-listen .sat__cap b, #shopify-section-listen .sat__cap span { display: block; overflow: hidden; text-overflow: ellipsis; }
+  #shopify-section-listen .sat__cap b { font-weight: 600; color: var(--color-heading); }
+  /* Feature */
+  #shopify-section-listen .sat__feature { border-radius: 16px; background: rgba(var(--color-heading-rgb), .035); border: 1px solid rgba(var(--color-heading-rgb), .07); padding: 22px 18px; }
+  #shopify-section-listen .sat__fitem { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: center; }
+  #shopify-section-listen .sat__fitem + .sat__fitem { margin-top: 22px; padding-top: 22px; border-top: 1px solid rgba(var(--color-heading-rgb), .08); }
+  #shopify-section-listen .sat__fcover { display: none; }
+  #shopify-section-listen .sat__fcover img { width: 100%; height: auto; display: block; filter: drop-shadow(0 10px 16px rgba(0, 0, 0, .45)); }
+  #shopify-section-listen .sat__feature .sat__ftop { display: flex; align-items: baseline; justify-content: space-between; gap: 6px 16px; flex-wrap: wrap; margin-bottom: 14px; }
+  #shopify-section-listen .sat__feature .sat__title { font-size: 17px; white-space: normal; }
+  #shopify-section-listen .sat__feature .ssp { --ssp-btn: 52px; --ssp-wave: 84px; gap: 16px; }
+  /* Compact */
+  #shopify-section-listen .sat--compact .sat__row { padding: 10px 0; row-gap: 8px; }
+  #shopify-section-listen .sat--compact .sat__title { font-size: 15px; }
+  #shopify-section-listen .sat--compact .ssp { --ssp-btn: 34px; --ssp-wave: 30px; }
+  @media (min-width: 750px) {
+    #shopify-section-listen .sat { padding-block: 72px 40px; }
+    #shopify-section-listen .sat__heading { font-size: 44px; }
+    #shopify-section-listen .sat__head { margin-bottom: 36px; }
+    #shopify-section-listen .sat__row { grid-template-columns: auto minmax(150px, 250px) minmax(0, 1fr) auto; grid-template-areas: "cover meta player link"; column-gap: 20px; padding: 14px 8px; }
+    #shopify-section-listen .sat__row--nocover { grid-template-columns: minmax(140px, 240px) minmax(0, 1fr) auto; grid-template-areas: "meta player link"; }
+    #shopify-section-listen .sat__panel { padding: 40px 44px 44px; }
+    #shopify-section-listen .sat__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    #shopify-section-listen .sat__feature { padding: 30px 34px 32px; }
+    #shopify-section-listen .sat__feature .ssp { --ssp-btn: 60px; --ssp-wave: 110px; gap: 22px; }
+    #shopify-section-listen .sat__feature .sat__title { font-size: 19px; }
+    #shopify-section-listen .sat__fitem--cover { grid-template-columns: 96px minmax(0, 1fr); gap: 28px; }
+    #shopify-section-listen .sat__fcover { display: block; }
+  }
+  @media (min-width: 1000px) {
+    #shopify-section-listen .sat__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+  @media (hover: hover) {
+    #shopify-section-listen .sat__row:hover { background: rgba(var(--color-heading-rgb), .03); }
+  }
+</style>
+<div class="sat sat--list section color-default gradient" data-section-id="listen">
+<div class="container">
+<div class="sat__inner"><div class="sat__head">
+<div><p class="sat__eyebrow">Free downloads</p><h2 class="sat__heading h2">Two packs, free</h2><div class="sat__text rte"><p>Full packs, not demos, and royalty free like the rest. Hear them first.</p></div></div><a class="sat__more" href="/theme-previews/sample-packs/collections/all.html">Shop every pack</a></div><ul class="sat__list" role="list"><li class="sat__row" data-block-id="t_ambience_kit"><a class="sat__cover" href="/theme-previews/sample-packs/collections/all.html" tabindex="-1" aria-hidden="true"><img src="/theme-previews/sample-packs/a/samples-thumb-ambience-kit.d38059f7e9dd.webp" srcset="/theme-previews/sample-packs/a/samples-thumb-ambience-kit.d38059f7e9dd.webp 352w, /theme-previews/sample-packs/a/samples-thumb-ambience-kit.d38059f7e9dd.webp 832w, /theme-previews/sample-packs/a/samples-thumb-ambience-kit.d38059f7e9dd.webp 1200w, /theme-previews/sample-packs/a/samples-thumb-ambience-kit.d38059f7e9dd.webp 1600w, /theme-previews/sample-packs/a/samples-thumb-ambience-kit.d38059f7e9dd.webp 2400w" alt="" width="52" height="52" loading="lazy"></a><div class="sat__meta">
+<p class="sat__title"><a href="/theme-previews/sample-packs/collections/all.html">Free Ambience Sample Pack Vol I</a></p><p class="sat__sub">Pad texture, D minor</p></div>
+<div class="sat__player"><div class="ssp" data-ssp data-src="/theme-previews/sample-packs/a/samples-demo-ambience-kit.a0c8ae6846fc.mp4" data-title="Free Ambience Sample Pack Vol I">
+<button class="ssp__btn" type="button" data-ssp-btn aria-label="Play Free Ambience Sample Pack Vol I">
+<svg class="ssp__i ssp__i--play" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M5.2 3.1v9.8c0 .5.5.8.9.5l7.5-4.9c.4-.2.4-.8 0-1L6.1 2.6c-.4-.3-.9 0-.9.5Z" fill="currentColor"/></svg>
+<svg class="ssp__i ssp__i--pause" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="4" y="3" width="2.7" height="10" rx=".8" fill="currentColor"/><rect x="9.3" y="3" width="2.7" height="10" rx=".8" fill="currentColor"/></svg>
+</button>
+<div class="ssp__wave" data-ssp-wave role="slider" tabindex="0" aria-label="Seek in Free Ambience Sample Pack Vol I" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="0:00">
+<svg class="ssp__svg" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path id="ssp-listen-t_ambience_kit" d="M0.5 46.3V53.7M1.5 44.9V55.1M2.5 44V56M3.5 42.6V57.4M4.5 41.3V58.7M5.5 39.4V60.6M6.5 37.6V62.4M7.5 35.7V64.3M8.5 31.1V68.9M9.5 29.8V70.2M10.5 27.9V72.1M11.5 27V73M12.5 24.7V75.3M13.5 27V73M14.5 21.9V78.1M15.5 20.1V79.9M16.5 21.9V78.1M17.5 18.7V81.3M18.5 16.4V83.6M19.5 10.9V89.1M20.5 9.1V90.9M21.5 13.2V86.8M22.5 11.4V88.6M23.5 9.1V90.9M24.5 8.6V91.4M25.5 7.7V92.3M26.5 10.9V89.1M27.5 13.7V86.3M28.5 11.8V88.2M29.5 8.1V91.9M30.5 6.3V93.7M31.5 11.8V88.2M32.5 20.6V79.4M33.5 13.7V86.3M34.5 14.6V85.4M35.5 12.7V87.3M36.5 15.5V84.5M37.5 16V84M38.5 19.6V80.4M39.5 18.7V81.3M40.5 20.1V79.9M41.5 21V79M42.5 22.9V77.1M43.5 24.2V75.8M44.5 17.8V82.2M45.5 13.2V86.8M46.5 12.3V87.7M47.5 17.3V82.7M48.5 22.9V77.1M49.5 24.7V75.3M50.5 23.8V76.2M51.5 25.2V74.8M52.5 23.3V76.7M53.5 20.1V79.9M54.5 21V79M55.5 22.4V77.6M56.5 24.7V75.3M57.5 27.5V72.5M58.5 27.5V72.5M59.5 22.4V77.6M60.5 19.6V80.4M61.5 20.6V79.4M62.5 27V73M63.5 23.3V76.7M64.5 23.8V76.2M65.5 23.3V76.7M66.5 19.2V80.8M67.5 19.2V80.8M68.5 21.9V78.1M69.5 18.7V81.3M70.5 14.1V85.9M71.5 12.3V87.7M72.5 14.1V85.9M73.5 14.1V85.9M74.5 12.7V87.3M75.5 14.6V85.4M76.5 15.5V84.5M77.5 18.7V81.3M78.5 19.6V80.4M79.5 14.6V85.4M80.5 10.4V89.6M81.5 12.3V87.7M82.5 14.6V85.4M83.5 11.8V88.2M84.5 8.6V91.4M85.5 10.9V89.1M86.5 18.7V81.3M87.5 12.7V87.3M88.5 7.7V92.3M89.5 8.1V91.9M90.5 7.2V92.8M91.5 4V96M92.5 4.9V95.1M93.5 7.2V92.8M94.5 16.9V83.1M95.5 18.7V81.3M96.5 20.1V79.9M97.5 22.4V77.6M98.5 22.9V77.1M99.5 23.3V76.7M100.5 21V79M101.5 22.4V77.6M102.5 27.5V72.5M103.5 33V67M104.5 31.6V68.4M105.5 31.1V68.9M106.5 31.6V68.4M107.5 33V67M108.5 35.3V64.7M109.5 38.5V61.5M110.5 39V61M111.5 39.9V60.1M112.5 42.6V57.4M113.5 43.6V56.4M114.5 44.5V55.5M115.5 45.4V54.6M116.5 47.2V52.8M117.5 48.2V51.8M118.5 48.6V51.4M119.5 48.6V51.4" vector-effect="non-scaling-stroke"/></svg>
+<svg class="ssp__svg ssp__svg--hover" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#ssp-listen-t_ambience_kit"/></svg>
+<svg class="ssp__svg ssp__svg--done" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#ssp-listen-t_ambience_kit"/></svg>
+</div>
+<span class="ssp__time" data-ssp-time>0:09</span>
+</div></div><a class="sat__link" href="/theme-previews/sample-packs/collections/all.html">Download free</a></li><li class="sat__row" data-block-id="t_drum_kit"><a class="sat__cover" href="/theme-previews/sample-packs/collections/all.html" tabindex="-1" aria-hidden="true"><img src="/theme-previews/sample-packs/a/samples-thumb-drum-kit.9b20fb3eca70.webp" srcset="/theme-previews/sample-packs/a/samples-thumb-drum-kit.9b20fb3eca70.webp 352w, /theme-previews/sample-packs/a/samples-thumb-drum-kit.9b20fb3eca70.webp 832w, /theme-previews/sample-packs/a/samples-thumb-drum-kit.9b20fb3eca70.webp 1200w, /theme-previews/sample-packs/a/samples-thumb-drum-kit.9b20fb3eca70.webp 1600w, /theme-previews/sample-packs/a/samples-thumb-drum-kit.9b20fb3eca70.webp 2400w" alt="" width="52" height="52" loading="lazy"></a><div class="sat__meta">
+<p class="sat__title"><a href="/theme-previews/sample-packs/collections/all.html">Tech House Drum Kit Vol I</a></p><p class="sat__sub">One shots, then a beat, 125 BPM</p></div>
+<div class="sat__player"><div class="ssp" data-ssp data-src="/theme-previews/sample-packs/a/samples-demo-drums-one-shots.287029a8fe06.mp4" data-title="Tech House Drum Kit Vol I">
+<button class="ssp__btn" type="button" data-ssp-btn aria-label="Play Tech House Drum Kit Vol I">
+<svg class="ssp__i ssp__i--play" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M5.2 3.1v9.8c0 .5.5.8.9.5l7.5-4.9c.4-.2.4-.8 0-1L6.1 2.6c-.4-.3-.9 0-.9.5Z" fill="currentColor"/></svg>
+<svg class="ssp__i ssp__i--pause" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="4" y="3" width="2.7" height="10" rx=".8" fill="currentColor"/><rect x="9.3" y="3" width="2.7" height="10" rx=".8" fill="currentColor"/></svg>
+</button>
+<div class="ssp__wave" data-ssp-wave role="slider" tabindex="0" aria-label="Seek in Tech House Drum Kit Vol I" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="0:00">
+<svg class="ssp__svg" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path id="ssp-listen-t_drum_kit" d="M0.5 4.5V95.5M1.5 21.5V78.5M2.5 27.5V72.5M3.5 33V67M4.5 37.1V62.9M5.5 16V84M6.5 20.1V79.9M7.5 27.5V72.5M8.5 31.6V68.4M9.5 37.1V62.9M10.5 20.1V79.9M11.5 26.5V73.5M12.5 38.5V61.5M13.5 43.6V56.4M14.5 46.3V53.7M15.5 23.8V76.2M16.5 21.5V78.5M17.5 39V61M18.5 42.2V57.8M19.5 46.8V53.2M20.5 38.5V61.5M21.5 40.3V59.7M22.5 45.9V54.1M23.5 48.6V51.4M24.5 48.6V51.4M25.5 48.6V51.4M26.5 40.3V59.7M27.5 48.6V51.4M28.5 48.6V51.4M29.5 48.6V51.4M30.5 48.6V51.4M31.5 48.6V51.4M32.5 48.6V51.4M33.5 48.6V51.4M34.5 48.6V51.4M35.5 48.6V51.4M36.5 48.6V51.4M37.5 48.6V51.4M38.5 48.6V51.4M39.5 48.6V51.4M40.5 48.6V51.4M41.5 48.6V51.4M42.5 48.6V51.4M43.5 48.6V51.4M44.5 48.6V51.4M45.5 48.6V51.4M46.5 48.6V51.4M47.5 48.6V51.4M48.5 48.6V51.4M49.5 48.6V51.4M50.5 48.6V51.4M51.5 48.6V51.4M52.5 48.6V51.4M53.5 48.6V51.4M54.5 48.6V51.4M55.5 19.6V80.4M56.5 20.6V79.4M57.5 25.6V74.4M58.5 29.8V70.2M59.5 32.5V67.5M60.5 38.5V61.5M61.5 40.8V59.2M62.5 8.1V91.9M63.5 10V90M64.5 23.3V76.7M65.5 28.4V71.6M66.5 32.5V67.5M67.5 38.5V61.5M68.5 41.3V58.7M69.5 19.2V80.8M70.5 20.6V79.4M71.5 27V73M72.5 30.2V69.8M73.5 32.1V67.9M74.5 39V61M75.5 41.7V58.3M76.5 4V96M77.5 12.3V87.7M78.5 22.9V77.1M79.5 29.3V70.7M80.5 31.6V68.4M81.5 38.5V61.5M82.5 41.7V58.3M83.5 20.1V79.9M84.5 20.6V79.4M85.5 27V73M86.5 31.1V68.9M87.5 33.9V66.1M88.5 39.4V60.6M89.5 41.7V58.3M90.5 6.3V93.7M91.5 13.7V86.3M92.5 23.8V76.2M93.5 29.8V70.2M94.5 34.8V65.2M95.5 38.5V61.5M96.5 41.7V58.3M97.5 19.6V80.4M98.5 22.4V77.6M99.5 27V73M100.5 32.1V67.9M101.5 35.3V64.7M102.5 39.4V60.6M103.5 42.2V57.8M104.5 4V96M105.5 14.6V85.4M106.5 21.5V78.5M107.5 28.4V71.6M108.5 35.7V64.3M109.5 38.5V61.5M110.5 42.6V57.4M111.5 48.6V51.4M112.5 48.6V51.4M113.5 48.6V51.4M114.5 48.6V51.4M115.5 48.6V51.4M116.5 48.6V51.4M117.5 48.6V51.4M118.5 48.6V51.4M119.5 48.6V51.4" vector-effect="non-scaling-stroke"/></svg>
+<svg class="ssp__svg ssp__svg--hover" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#ssp-listen-t_drum_kit"/></svg>
+<svg class="ssp__svg ssp__svg--done" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#ssp-listen-t_drum_kit"/></svg>
+</div>
+<span class="ssp__time" data-ssp-time>0:08</span>
+</div></div><a class="sat__link" href="/theme-previews/sample-packs/collections/all.html">Download free</a></li></ul></div>
+</div>
+</div>
+<script src="/theme-previews/sample-packs/a/i.803c3962f093.js"></script></section><div id="shopify-section-signup" class="shopify-section section-r7n" data-section-id="signup" data-section-type="newsletter-split"><script src="/theme-previews/_base/a/live-r7-connect.e9b5b4145e05.js" defer="defer"></script>
 <style>
   #shopify-section-signup {
     font-family: var(--body-font, inherit);
@@ -604,12 +777,12 @@ class="no-underline minicart__action header-icon header-color w-44 h-44 inline-f
   #shopify-section-signup{isolation:isolate;position:relative;margin-top:0px;margin-bottom:0px}
   @media (min-width:768px){#shopify-section-signup{margin-top:0px;margin-bottom:0px}}
 </style>
-<link href="/theme-previews/_base/a/r7-connect.2aaeca0ac458.css" rel="stylesheet" type="text/css" media="all"><div class="r7n r7n--split color-default gradient" data-r7n="newsletter-split" data-r7n-section="signup" data-r7n-width="container" data-r7n-show="all" data-r7n-align="left" data-r7n-side="left" data-r7n-ratio="square" data-r7n-mimg="true" data-r7n-form-layout="horizontal" style="--r7n-bg:var(--color-background);--r7n-pt-m:48px;--r7n-pb-m:52px;--r7n-pt-d:72px;--r7n-pb-d:72px;--r7n-media-w:46%;--r7n-gap:64px;--r7n-done:5s;--r7n-text:var(--color-text);">
+<link href="/theme-previews/_base/a/r7-connect.07543aba5958.css" rel="stylesheet" type="text/css" media="all"><div class="r7n r7n--split color-scheme-tr-panel gradient" data-r7n="newsletter-split" data-r7n-section="signup" data-r7n-width="container" data-r7n-show="all" data-r7n-align="left" data-r7n-side="left" data-r7n-ratio="landscape" data-r7n-mimg="true" data-r7n-form-layout="horizontal" style="--r7n-bg:var(--color-background);--r7n-pt-m:48px;--r7n-pb-m:52px;--r7n-pt-d:72px;--r7n-pb-d:72px;--r7n-media-w:44%;--r7n-gap:64px;--r7n-done:5s;--r7n-text:var(--color-text);">
 <div class="r7n__inner">
 <div class="r7n__split">
-<div class="r7n__media" data-r7n-media><img class="r7n__img" data-r7n-img src="/theme-previews/sample-packs/a/samples-free.1b02e912e40c.webp" srcset="/theme-previews/sample-packs/a/samples-free.1b02e912e40c.webp 600w, /theme-previews/sample-packs/a/samples-free.1b02e912e40c.webp 900w, /theme-previews/sample-packs/a/samples-free.1b02e912e40c.webp 1200w, /theme-previews/sample-packs/a/samples-free.1b02e912e40c.webp 1800w" sizes="(min-width: 768px) 50vw, 100vw" width="1600" height="1600" alt="Free Ambience Sample Pack Vol I" loading="lazy" decoding="async" style="object-position: 50.0% 50.0%"></div>
-<div class="r7n__body"><div class="r7n__header"><h2 class="r7n__heading" data-r7n-block="heading" data-r7n-type="heading" data-block-id="heading" data-own-size style="--fb-fs-d:44px;--fb-fs-m:30px;--fb-lh:1.15;--fb-ls:0px;">Free Ambience Sample Pack Vol I</h2><div class="r7n__subheading" data-r7n-block="subheading" data-r7n-type="subheading" data-block-id="subheading"><p>Pads, drones and textures, free and royalty free. Leave your email and the download link arrives in a minute.</p></div></div><div class="r7n__signup" data-r7n-signup><form id="NewsletterSplitForm-signup" accept-charset="UTF-8" class="r7n__form" data-nl-form="" data-mt-inline-subscribe="true" data-storelib-form="subscribe" data-storelib-form="subscribe" data-preview-form><input type="hidden" name="form_type" value="customer"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="storelib_placement" value="newsletter"><input type="hidden" name="contact[tags]" value="newsletter">
-<span hidden data-mt-words data-r7n-words data-success-message="Check your inbox. The download link is on its way." data-already-message="You&#39;re already on the list." data-invalid-message="Enter a valid email address." data-error-message="That did not go through. Check your connection and try again." data-success-ms="5000"></span>
+<div class="r7n__media" data-r7n-media><img class="r7n__img" data-r7n-img src="/theme-previews/sample-packs/a/samples-free-pair.cbf98c01bea5.webp" srcset="/theme-previews/sample-packs/a/samples-free-pair.cbf98c01bea5.webp 600w, /theme-previews/sample-packs/a/samples-free-pair.cbf98c01bea5.webp 900w, /theme-previews/sample-packs/a/samples-free-pair.cbf98c01bea5.webp 1200w, /theme-previews/sample-packs/a/samples-free-pair.cbf98c01bea5.webp 1800w" sizes="(min-width: 768px) 50vw, 100vw" width="1600" height="1600" alt="Free Ambience Sample Pack Vol I and Tech House Drum Kit Vol I" loading="lazy" decoding="async" style="object-position: 50.0% 50.0%"></div>
+<div class="r7n__body"><div class="r7n__header"><h2 class="r7n__heading" data-r7n-block="heading" data-r7n-type="heading" data-block-id="heading" data-own-size style="--fb-fs-d:40px;--fb-fs-m:30px;--fb-lh:1.15;--fb-ls:0px;">Get weekly sounds</h2><div class="r7n__subheading" data-r7n-block="subheading" data-r7n-type="subheading" data-block-id="subheading"><p>New packs, sales and free downloads by email, once a week at most.</p></div></div><div class="r7n__signup" data-r7n-signup><form id="NewsletterSplitForm-signup" accept-charset="UTF-8" class="r7n__form" data-nl-form="" data-mt-inline-subscribe="true" data-storelib-form="subscribe" data-storelib-form="subscribe" data-preview-form><input type="hidden" name="form_type" value="customer"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="storelib_placement" value="newsletter"><input type="hidden" name="contact[tags]" value="newsletter">
+<span hidden data-mt-words data-r7n-words data-success-message="Thank you for subscribing!" data-already-message="You&#39;re already on the list." data-invalid-message="Enter a valid email address." data-error-message="That did not go through. Check your connection and try again." data-success-ms="5000"></span>
 <div class="r7n__hp" aria-hidden="true" data-mt-trap>
 <label for="NewsletterSplitHp-signup">Leave this field empty</label>
 <input id="NewsletterSplitHp-signup" type="text" name="company" tabindex="-1" autocomplete="off" pattern="^$" maxlength="0" value="">
@@ -619,7 +792,7 @@ class="no-underline minicart__action header-icon header-color w-44 h-44 inline-f
 <input class="r7n__input" id="NewsletterSplitEmail-signup" type="email" name="contact[email]" required inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" maxlength="254" placeholder="Your email address" aria-describedby="NewsletterSplitHint-signup" value="" data-r7n-input>
 <button type="submit" class="r7n__submit btn-primary" data-r7n-submit data-theme-button="primary" data-sl-button>
 <span class="r7n__submit-stack">
-<span class="r7n__submit-state" data-r7n-label data-inline-label>Send me the pack</span>
+<span class="r7n__submit-state" data-r7n-label data-inline-label>Subscribe</span>
 <span class="r7n__submit-state r7n__spinner" aria-hidden="true"></span>
 <span class="r7n__submit-state r7n__submit-done" data-r7n-subscribed data-subscribed-label aria-hidden="true">Subscribed</span>
 </span>
@@ -628,56 +801,12 @@ class="no-underline minicart__action header-icon header-color w-44 h-44 inline-f
 <p class="r7n__msg r7n__hint" id="NewsletterSplitHint-signup" data-nl-hint data-r7n-hint>Enter a valid email address.</p>
 <div class="r7n__result" data-nl-result role="status" aria-live="polite">
 <p class="r7n__msg r7n__msg--error" data-nl-msg="error" data-r7n-msg="error">That did not go through. Check your connection and try again.</p>
-<p class="r7n__msg r7n__msg--done" data-nl-msg="done" data-r7n-msg="done">Check your inbox. The download link is on its way.</p></div></form><div class="r7n__note" data-r7n-note>One email when a new pack is out. Unsubscribe from any email.</div>
+<p class="r7n__msg r7n__msg--done" data-nl-msg="done" data-r7n-msg="done">Thank you for subscribing!</p></div></form><div class="r7n__note" data-r7n-note>No spam. Unsubscribe from any email.</div>
 </div>
 </div>
 </div>
 </div>
-</div></div><section id="shopify-section-listen" class="shopify-section section" data-section-id="listen" data-section-type="samples-audio-tracks"><link rel="stylesheet" href="/theme-previews/sample-packs/a/i.7b537bcbc2c0.css">
-<div class="sat section color-scheme-tr-panel gradient" data-sat data-section-id="listen">
-<div class="fluid_container">
-<div class="sat__inner"><div class="sat__head">
-<div><p class="sat__eyebrow">Listen first</p><h2 class="sat__heading h2">Hear the free packs</h2><div class="sat__text rte"><p>The ambience pack is free. Hear the drum kit and the bundle before you buy.</p></div></div></div><ul class="sat__list" role="list"><li class="sat__row" data-sat-row data-seed="Free Ambience Sample Pack Vol I" data-block-id="t_ambience_kit"><div class="sat__cover"><img src="/theme-previews/sample-packs/a/samples-thumb-ambience-kit.e3fdb1b82aa3.webp" srcset="/theme-previews/sample-packs/a/samples-thumb-ambience-kit.e3fdb1b82aa3.webp 352w, /theme-previews/sample-packs/a/samples-thumb-ambience-kit.e3fdb1b82aa3.webp 832w, /theme-previews/sample-packs/a/samples-thumb-ambience-kit.e3fdb1b82aa3.webp 1200w, /theme-previews/sample-packs/a/samples-thumb-ambience-kit.e3fdb1b82aa3.webp 1600w, /theme-previews/sample-packs/a/samples-thumb-ambience-kit.e3fdb1b82aa3.webp 2400w" alt="" width="52" height="52" loading="lazy"></div><button class="sat__play" type="button" data-sat-play aria-label="Play Free Ambience Sample Pack Vol I">
-<svg class="sat__i-play" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4.5 2.6v10.8c0 .5.5.8.9.5l8.3-5.4c.4-.2.4-.8 0-1L5.4 2.1c-.4-.3-.9 0-.9.5Z" fill="currentColor"/></svg>
-<svg class="sat__i-pause" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="3.5" y="2.5" width="3" height="11" rx="1" fill="currentColor"/><rect x="9.5" y="2.5" width="3" height="11" rx="1" fill="currentColor"/></svg>
-</button>
-<div class="sat__meta">
-<p class="sat__title"><a href="/theme-previews/sample-packs/search.html">Free Ambience Sample Pack Vol I</a></p><p class="sat__sub">Pad texture, D minor</p></div>
-<div class="sat__wavewrap">
-<div class="sat__wave" data-sat-wave role="slider" tabindex="0" aria-label="Seek Free Ambience Sample Pack Vol I" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="0:00">
-<div class="sat__bars" aria-hidden="true"></div>
-<div class="sat__bars sat__bars--done" aria-hidden="true"></div>
-</div>
-<span class="sat__time" data-sat-time aria-hidden="true">0:09</span>
-</div><a class="sat__link" href="/theme-previews/sample-packs/search.html" tabindex="-1" aria-hidden="true">Get the pack</a><audio preload="none" src="/theme-previews/sample-packs/a/samples-demo-ambience-kit.a0c8ae6846fc.mp4" data-sat-audio></audio></li><li class="sat__row" data-sat-row data-seed="Tech House Drum Kit Vol I" data-block-id="t_drums_one_shots"><div class="sat__cover"><img src="/theme-previews/sample-packs/a/samples-thumb-drums-one-shots.b06c15c99b24.webp" srcset="/theme-previews/sample-packs/a/samples-thumb-drums-one-shots.b06c15c99b24.webp 352w, /theme-previews/sample-packs/a/samples-thumb-drums-one-shots.b06c15c99b24.webp 832w, /theme-previews/sample-packs/a/samples-thumb-drums-one-shots.b06c15c99b24.webp 1200w, /theme-previews/sample-packs/a/samples-thumb-drums-one-shots.b06c15c99b24.webp 1600w, /theme-previews/sample-packs/a/samples-thumb-drums-one-shots.b06c15c99b24.webp 2400w" alt="" width="52" height="52" loading="lazy"></div><button class="sat__play" type="button" data-sat-play aria-label="Play Tech House Drum Kit Vol I">
-<svg class="sat__i-play" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4.5 2.6v10.8c0 .5.5.8.9.5l8.3-5.4c.4-.2.4-.8 0-1L5.4 2.1c-.4-.3-.9 0-.9.5Z" fill="currentColor"/></svg>
-<svg class="sat__i-pause" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="3.5" y="2.5" width="3" height="11" rx="1" fill="currentColor"/><rect x="9.5" y="2.5" width="3" height="11" rx="1" fill="currentColor"/></svg>
-</button>
-<div class="sat__meta">
-<p class="sat__title"><a href="/theme-previews/sample-packs/search.html">Tech House Drum Kit Vol I</a></p><p class="sat__sub">One shots, then a beat, 125 BPM</p></div>
-<div class="sat__wavewrap">
-<div class="sat__wave" data-sat-wave role="slider" tabindex="0" aria-label="Seek Tech House Drum Kit Vol I" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="0:00">
-<div class="sat__bars" aria-hidden="true"></div>
-<div class="sat__bars sat__bars--done" aria-hidden="true"></div>
-</div>
-<span class="sat__time" data-sat-time aria-hidden="true">0:08</span>
-</div><a class="sat__link" href="/theme-previews/sample-packs/search.html" tabindex="-1" aria-hidden="true">Get the pack</a><audio preload="none" src="/theme-previews/sample-packs/a/samples-demo-drums-one-shots.287029a8fe06.mp4" data-sat-audio></audio></li><li class="sat__row" data-sat-row data-seed="Tech House Master Bundle" data-block-id="t_tech_house_master_bundle"><div class="sat__cover"><img src="/theme-previews/sample-packs/a/samples-thumb-tech-house-master-bundle.391bf2f80f62.webp" srcset="/theme-previews/sample-packs/a/samples-thumb-tech-house-master-bundle.391bf2f80f62.webp 352w, /theme-previews/sample-packs/a/samples-thumb-tech-house-master-bundle.391bf2f80f62.webp 832w, /theme-previews/sample-packs/a/samples-thumb-tech-house-master-bundle.391bf2f80f62.webp 1200w, /theme-previews/sample-packs/a/samples-thumb-tech-house-master-bundle.391bf2f80f62.webp 1600w, /theme-previews/sample-packs/a/samples-thumb-tech-house-master-bundle.391bf2f80f62.webp 2400w" alt="" width="52" height="52" loading="lazy"></div><button class="sat__play" type="button" data-sat-play aria-label="Play Tech House Master Bundle">
-<svg class="sat__i-play" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4.5 2.6v10.8c0 .5.5.8.9.5l8.3-5.4c.4-.2.4-.8 0-1L5.4 2.1c-.4-.3-.9 0-.9.5Z" fill="currentColor"/></svg>
-<svg class="sat__i-pause" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="3.5" y="2.5" width="3" height="11" rx="1" fill="currentColor"/><rect x="9.5" y="2.5" width="3" height="11" rx="1" fill="currentColor"/></svg>
-</button>
-<div class="sat__meta">
-<p class="sat__title"><a href="/theme-previews/sample-packs/search.html">Tech House Master Bundle</a></p><p class="sat__sub">Groove loop, 126 BPM, F minor</p></div>
-<div class="sat__wavewrap">
-<div class="sat__wave" data-sat-wave role="slider" tabindex="0" aria-label="Seek Tech House Master Bundle" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="0:00">
-<div class="sat__bars" aria-hidden="true"></div>
-<div class="sat__bars sat__bars--done" aria-hidden="true"></div>
-</div>
-<span class="sat__time" data-sat-time aria-hidden="true">0:08</span>
-</div><a class="sat__link" href="/theme-previews/sample-packs/search.html" tabindex="-1" aria-hidden="true">Get the pack</a><audio preload="none" src="/theme-previews/sample-packs/a/samples-demo-tech-house-master-bundle.33a6ee5d79a8.mp4" data-sat-audio></audio></li></ul></div>
-</div>
-</div>
-<script src="/theme-previews/sample-packs/a/i.062f82975097.js"></script>
-</section><section id="shopify-section-packs" class="shopify-section section" data-section-id="packs" data-section-type="products-grid"><style>
+</div></div><section id="shopify-section-packs" class="shopify-section section" data-section-id="packs" data-section-type="products-grid"><style>
   #shopify-section-packs {
     font-family: var(--body-font, inherit);
     font-size: var(--body-font-size, inherit);
@@ -714,7 +843,7 @@ class="no-underline minicart__action header-icon header-color w-44 h-44 inline-f
   }
 </style>
 <div class="pg section color-default gradient" data-section-type="products-grid" data-section-id="packs">
-<div class="fluid_container"><div class="pg__head"><h2 class="pg__heading h2">Packs on sale</h2></div><div class="pg__grid">
+<div class="fluid_container"><div class="pg__head"><h2 class="pg__heading h2">On sale now</h2></div><div class="pg__grid">
 <div
 class="product-item product__item-js  style-as-standard"
 >
@@ -734,7 +863,7 @@ aria-label="Serum Presets Vol 1"
 class="product__media product-item__media--ratio rounded block"
 style="--aspect-ratio: 1/1;"
 >
-<img src="/theme-previews/sample-packs/a/samples-pack-serum-presets.da45ccd429f5.webp" srcset="/theme-previews/sample-packs/a/samples-pack-serum-presets.da45ccd429f5.webp 720w, /theme-previews/sample-packs/a/samples-pack-serum-presets.da45ccd429f5.webp 660w, /theme-previews/sample-packs/a/samples-pack-serum-presets.da45ccd429f5.webp 550w, /theme-previews/sample-packs/a/samples-pack-serum-presets.da45ccd429f5.webp 480w, /theme-previews/sample-packs/a/samples-pack-serum-presets.da45ccd429f5.webp 330w, /theme-previews/sample-packs/a/samples-pack-serum-presets.da45ccd429f5.webp 240w, /theme-previews/sample-packs/a/samples-pack-serum-presets.da45ccd429f5.webp 185w" alt="Serum Presets Vol 1" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1360px -  20px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 20px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/sample-packs/a/samples-pack-serum-presets.ceb1950fab26.webp" srcset="/theme-previews/sample-packs/a/samples-pack-serum-presets.ceb1950fab26.webp 720w, /theme-previews/sample-packs/a/samples-pack-serum-presets.ceb1950fab26.webp 660w, /theme-previews/sample-packs/a/samples-pack-serum-presets.ceb1950fab26.webp 550w, /theme-previews/sample-packs/a/samples-pack-serum-presets.ceb1950fab26.webp 480w, /theme-previews/sample-packs/a/samples-pack-serum-presets.ceb1950fab26.webp 330w, /theme-previews/sample-packs/a/samples-pack-serum-presets.ceb1950fab26.webp 240w, /theme-previews/sample-packs/a/samples-pack-serum-presets.ceb1950fab26.webp 185w" alt="Serum Presets Vol 1" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1360px -  20px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 20px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
 </a><div class="pc-corner" data-pc-corner>
@@ -793,21 +922,21 @@ style="--font-size: 15; --gap: 3px;"
 ><div class="card-product-price  flex align-center flex-wrap gap-5 relative"><div class="price-regular primary-color">
 <span class="visually-hidden">Sale price</span>
 <span class="price heading_weight primary-color price-same-style price--special">
-$8.99
+€8.99
 </span>
 </div>
 <div class="price-regular">
 <span class="visually-hidden">Regular price</span>
-<s class="price-item compare-price dark-grey">$22.47</s>
+<s class="price-item compare-price dark-grey">€22.47</s>
 </div>
 </div>
 </div>
 </div>
 <script type="application/json" class="product-variant__quantity">
-            [{ "option":"Small","qty":11,"available":true,"mamagement":""},{ "option":"Medium","qty":11,"available":true,"mamagement":""},{ "option":"Large","qty":0,"available":false,"mamagement":"shopify"}]
+            [{ "option":"ZIP","qty":11,"available":true,"mamagement":""},{ "option":"RAR","qty":11,"available":true,"mamagement":""}]
           </script>
 </motion-element><script type="application/json" class="productItemVariantsQty">
-        [{ "option":"Small","qty":11,"available":true,"mamagement":""},{ "option":"Medium","qty":11,"available":true,"mamagement":""},{ "option":"Large","qty":0,"available":false,"mamagement":"shopify"}]
+        [{ "option":"ZIP","qty":11,"available":true,"mamagement":""},{ "option":"RAR","qty":11,"available":true,"mamagement":""}]
       </script></div>
 <div
 class="product-item product__item-js  style-as-standard"
@@ -828,7 +957,7 @@ aria-label="Tech House Sample Pack, Master Bundle 2025"
 class="product__media product-item__media--ratio rounded block"
 style="--aspect-ratio: 1/1;"
 >
-<img src="/theme-previews/sample-packs/a/samples-pack-tech-house-master-bundle.63ef6e08e1d9.webp" srcset="/theme-previews/sample-packs/a/samples-pack-tech-house-master-bundle.63ef6e08e1d9.webp 720w, /theme-previews/sample-packs/a/samples-pack-tech-house-master-bundle.63ef6e08e1d9.webp 660w, /theme-previews/sample-packs/a/samples-pack-tech-house-master-bundle.63ef6e08e1d9.webp 550w, /theme-previews/sample-packs/a/samples-pack-tech-house-master-bundle.63ef6e08e1d9.webp 480w, /theme-previews/sample-packs/a/samples-pack-tech-house-master-bundle.63ef6e08e1d9.webp 330w, /theme-previews/sample-packs/a/samples-pack-tech-house-master-bundle.63ef6e08e1d9.webp 240w, /theme-previews/sample-packs/a/samples-pack-tech-house-master-bundle.63ef6e08e1d9.webp 185w" alt="Tech House Sample Pack, Master Bundle 2025" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1360px -  20px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 20px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/sample-packs/a/samples-pack-tech-house-master-bundle.c058e37fea3a.webp" srcset="/theme-previews/sample-packs/a/samples-pack-tech-house-master-bundle.c058e37fea3a.webp 720w, /theme-previews/sample-packs/a/samples-pack-tech-house-master-bundle.c058e37fea3a.webp 660w, /theme-previews/sample-packs/a/samples-pack-tech-house-master-bundle.c058e37fea3a.webp 550w, /theme-previews/sample-packs/a/samples-pack-tech-house-master-bundle.c058e37fea3a.webp 480w, /theme-previews/sample-packs/a/samples-pack-tech-house-master-bundle.c058e37fea3a.webp 330w, /theme-previews/sample-packs/a/samples-pack-tech-house-master-bundle.c058e37fea3a.webp 240w, /theme-previews/sample-packs/a/samples-pack-tech-house-master-bundle.c058e37fea3a.webp 185w" alt="Tech House Sample Pack, Master Bundle 2025" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1360px -  20px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 20px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
 </a><div class="pc-corner" data-pc-corner>
@@ -887,20 +1016,22 @@ style="--font-size: 15; --gap: 3px;"
 ><div class="card-product-price  flex align-center flex-wrap gap-5 relative"><div class="price-regular primary-color">
 <span class="visually-hidden">Sale price</span>
 <span class="price heading_weight primary-color price-same-style price--special">
-$19.98
+€19.98
 </span>
 </div>
 <div class="price-regular">
 <span class="visually-hidden">Regular price</span>
-<s class="price-item compare-price dark-grey">$49.96</s>
+<s class="price-item compare-price dark-grey">€49.96</s>
 </div>
 </div>
 </div>
 </div>
 <script type="application/json" class="product-variant__quantity">
-            [{ "option":"Default Title","qty":11,"available":true,"mamagement":""}]
+            [{ "option":"ZIP, 1 GB","qty":11,"available":true,"mamagement":""},{ "option":"RAR, 930 MB","qty":11,"available":true,"mamagement":""}]
           </script>
-</motion-element></div>
+</motion-element><script type="application/json" class="productItemVariantsQty">
+        [{ "option":"ZIP, 1 GB","qty":11,"available":true,"mamagement":""},{ "option":"RAR, 930 MB","qty":11,"available":true,"mamagement":""}]
+      </script></div>
 <div
 class="product-item product__item-js  style-as-standard"
 >
@@ -920,7 +1051,7 @@ aria-label="Tech House Drum Kit Vol I"
 class="product__media product-item__media--ratio rounded block"
 style="--aspect-ratio: 1/1;"
 >
-<img src="/theme-previews/sample-packs/a/samples-pack-drums-one-shots.683a4ad51489.webp" srcset="/theme-previews/sample-packs/a/samples-pack-drums-one-shots.683a4ad51489.webp 720w, /theme-previews/sample-packs/a/samples-pack-drums-one-shots.683a4ad51489.webp 660w, /theme-previews/sample-packs/a/samples-pack-drums-one-shots.683a4ad51489.webp 550w, /theme-previews/sample-packs/a/samples-pack-drums-one-shots.683a4ad51489.webp 480w, /theme-previews/sample-packs/a/samples-pack-drums-one-shots.683a4ad51489.webp 330w, /theme-previews/sample-packs/a/samples-pack-drums-one-shots.683a4ad51489.webp 240w, /theme-previews/sample-packs/a/samples-pack-drums-one-shots.683a4ad51489.webp 185w" alt="Tech House Drum Kit Vol I" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1360px -  20px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 20px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/sample-packs/a/samples-pack-drum-kit.9822686f7e45.webp" srcset="/theme-previews/sample-packs/a/samples-pack-drum-kit.9822686f7e45.webp 720w, /theme-previews/sample-packs/a/samples-pack-drum-kit.9822686f7e45.webp 660w, /theme-previews/sample-packs/a/samples-pack-drum-kit.9822686f7e45.webp 550w, /theme-previews/sample-packs/a/samples-pack-drum-kit.9822686f7e45.webp 480w, /theme-previews/sample-packs/a/samples-pack-drum-kit.9822686f7e45.webp 330w, /theme-previews/sample-packs/a/samples-pack-drum-kit.9822686f7e45.webp 240w, /theme-previews/sample-packs/a/samples-pack-drum-kit.9822686f7e45.webp 185w" alt="Tech House Drum Kit Vol I" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1360px -  20px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 20px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
 </a><div class="pc-corner" data-pc-corner>
@@ -976,16 +1107,18 @@ style="--font-size: 15; --gap: 3px;"
 ><div class="card-product-price  flex align-center flex-wrap gap-5 relative"><div class="price-regular">
 <span class="visually-hidden">Regular price</span>
 <span class="price price-same-style heading-style">
-$4.99
+€0.00
 </span>
 </div>
 </div>
 </div>
 </div>
 <script type="application/json" class="product-variant__quantity">
-            [{ "option":"Default Title","qty":11,"available":true,"mamagement":""}]
+            [{ "option":"Full pack","qty":11,"available":true,"mamagement":""},{ "option":"Free preview pack","qty":11,"available":true,"mamagement":""}]
           </script>
-</motion-element></div>
+</motion-element><script type="application/json" class="productItemVariantsQty">
+        [{ "option":"Full pack","qty":11,"available":true,"mamagement":""},{ "option":"Free preview pack","qty":11,"available":true,"mamagement":""}]
+      </script></div>
 <div
 class="product-item product__item-js  style-as-standard"
 >
@@ -1005,7 +1138,7 @@ aria-label="Free Ambience Sample Pack Vol I"
 class="product__media product-item__media--ratio rounded block"
 style="--aspect-ratio: 1/1;"
 >
-<img src="/theme-previews/sample-packs/a/samples-pack-ambience-kit.eb5e14961207.webp" srcset="/theme-previews/sample-packs/a/samples-pack-ambience-kit.eb5e14961207.webp 720w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.eb5e14961207.webp 660w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.eb5e14961207.webp 550w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.eb5e14961207.webp 480w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.eb5e14961207.webp 330w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.eb5e14961207.webp 240w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.eb5e14961207.webp 185w" alt="Free Ambience Sample Pack Vol I" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1360px -  20px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 20px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/sample-packs/a/samples-pack-ambience-kit.b3721fb1e13a.webp" srcset="/theme-previews/sample-packs/a/samples-pack-ambience-kit.b3721fb1e13a.webp 720w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.b3721fb1e13a.webp 660w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.b3721fb1e13a.webp 550w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.b3721fb1e13a.webp 480w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.b3721fb1e13a.webp 330w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.b3721fb1e13a.webp 240w, /theme-previews/sample-packs/a/samples-pack-ambience-kit.b3721fb1e13a.webp 185w" alt="Free Ambience Sample Pack Vol I" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1360px -  20px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 20px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
 </a><div class="pc-corner" data-pc-corner>
@@ -1061,16 +1194,18 @@ style="--font-size: 15; --gap: 3px;"
 ><div class="card-product-price  flex align-center flex-wrap gap-5 relative"><div class="price-regular">
 <span class="visually-hidden">Regular price</span>
 <span class="price price-same-style heading-style">
-$0.00
+€0.00
 </span>
 </div>
 </div>
 </div>
 </div>
 <script type="application/json" class="product-variant__quantity">
-            [{ "option":"Default Title","qty":11,"available":true,"mamagement":""}]
+            [{ "option":"ZIP","qty":11,"available":true,"mamagement":""},{ "option":"RAR","qty":11,"available":true,"mamagement":""}]
           </script>
-</motion-element></div>
+</motion-element><script type="application/json" class="productItemVariantsQty">
+        [{ "option":"ZIP","qty":11,"available":true,"mamagement":""},{ "option":"RAR","qty":11,"available":true,"mamagement":""}]
+      </script></div>
 </div><div class="pg__foot">
 <a class="button inline-block btn-primary" data-theme-button="primary" href="/theme-previews/sample-packs/collections/all.html">Shop every pack</a>
 </div></div>
@@ -1116,14 +1251,14 @@ $0.00
   #shopify-section-footer .arrow-toggle svg{width:var(--footer-arrow-size,14px);height:var(--footer-arrow-size,14px)}
 </style>
 <link href="/theme-previews/_base/a/collapsible.d0962c33f2d4.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/footer-section.37a0b34a1c2e.css" rel="stylesheet" type="text/css" media="all">
+<link href="/theme-previews/_base/a/footer-section.80f1cbc421de.css" rel="stylesheet" type="text/css" media="all">
 <footer
 class="product-sticky-hide footer color-scheme-tr-black gradient border-top remove_spacing remove_spacing-on-home"
 data-theme-footer
 data-ft-section="footer"
 data-ft-page="page"
 style="--section-pt: 64;--section-pb: 24;--footer-link-hover: var(--color-heading);--footer-heading-weight: 600;--footer-heading-tt: none;--footer-arrow-size: 14px;"
-><div class="footer__custom-header footer__custom-header--top" data-ft-fch style="--fch-pt:64px;--fch-gap:22px;--fch-text-m:64px;--fch-text-d:220px;--fch-color:var(--color-heading);--fch-style:normal;--fch-img-m:168px;--fch-img-d:144px;"><div class="footer__custom-text" data-ft-big>loudlib</div></div><div class="footer__middle section pb-min remove_spacing">
+><div class="footer__middle section pb-min remove_spacing">
 <div class="fluid_container"><div class="footer__blocks flex flex-col-custom flex-wrap"><div
 class="footer-block w-full col-md-w-custom-50 col-md-w-custom pb-30 border-bottom border-bottom-md-0 store_info"
 style="--col-width: 33.333%; --menu-list: 2; --store-info-top-offset: 0px;"
@@ -1138,9 +1273,34 @@ style="--font-size: 15"
 <div
 class="store-info-content"
 ><div class="footer__block-info rich__text-mt-0 mb-20" data-ft-desc>
-<p>Sample packs and Serum presets for tech house, deep house and ambient producers. Royalty free, one licence for every pack.</p>
+<p>Tech house and deep house sample packs and Serum presets. Every sound is 100% royalty free.</p>
 </div>
 <social-icon class="block mt-22">
+<ul class="list-social list-social--outline list-unstyled flex align-center flex-wrap gap" style="--col-gap: 12px;"><li class="list-social__item inline-flex">
+<a
+href="#" data-preview-inert
+class="social-icon-link inline-flex content-center tooltip relative"
+aria-label="Instagram"
+>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<rect x="3.5" y="3.5" width="17" height="17" rx="4.5"/>
+<circle cx="12" cy="12" r="4"/>
+<circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none"/>
+</svg>
+<span class="tooltip-content invisible rounded-3 absolute pointer-none tooltip-bottom">Instagram</span>
+</a>
+</li><li class="list-social__item inline-flex">
+<a
+href="#" data-preview-inert
+class="social-icon-link inline-flex content-center tooltip relative"
+aria-label="YouTube"
+>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+<path d="M22.54 7.2a2.78 2.78 0 0 0-1.96-1.96C18.88 4.8 12 4.8 12 4.8s-6.88 0-8.58.44A2.78 2.78 0 0 0 1.46 7.2C1 8.9 1 12 1 12s0 3.1.46 4.8a2.78 2.78 0 0 0 1.96 1.96c1.7.44 8.58.44 8.58.44s6.88 0 8.58-.44a2.78 2.78 0 0 0 1.96-1.96c.46-1.7.46-4.8.46-4.8s0-3.1-.46-4.8ZM9.75 15.27V8.73L15.5 12l-5.75 3.27Z"/>
+</svg>
+<span class="tooltip-content invisible rounded-3 absolute pointer-none tooltip-bottom">YouTube</span>
+</a>
+</li></ul><link rel="stylesheet" href="/theme-previews/sample-packs/a/i.33fe5d6a5e7a.css" data-shopify>
 </social-icon>
 </div>
 </div><div
@@ -1198,6 +1358,14 @@ Blog
 </a>
 </li><li class="pb-8">
 <a
+href="/theme-previews/sample-packs/pages/contact.html"
+aria-label="Work with us"
+class="no-underline word-break reversed-links relative"
+>
+Work with us
+</a>
+</li><li class="pb-8">
+<a
 href="/theme-previews/sample-packs/pages/faqs.html"
 aria-label="Support"
 class="no-underline word-break reversed-links relative"
@@ -1240,11 +1408,11 @@ About Loudlib
 </a>
 </li><li class="pb-8">
 <a
-href="/theme-previews/sample-packs/pages/faqs.html"
-aria-label="Downloads and help"
+href="/theme-previews/sample-packs/pages/free.html"
+aria-label="Free downloads"
 class="no-underline word-break reversed-links relative"
 >
-Downloads and help
+Free downloads
 </a>
 </li><li class="pb-8">
 <a
@@ -1256,19 +1424,19 @@ Licence
 </a>
 </li><li class="pb-8">
 <a
+href="/theme-previews/sample-packs/pages/faqs.html"
+aria-label="Support"
+class="no-underline word-break reversed-links relative"
+>
+Support
+</a>
+</li><li class="pb-8">
+<a
 href="/theme-previews/sample-packs/pages/contact.html"
 aria-label="Contact"
 class="no-underline word-break reversed-links relative"
 >
 Contact
-</a>
-</li><li class="pb-8">
-<a
-href="/theme-previews/sample-packs/blogs/news.html"
-aria-label="Blog"
-class="no-underline word-break reversed-links relative"
->
-Blog
 </a>
 </li></ul>
 </div>
@@ -1280,8 +1448,8 @@ Blog
 </div>
 <div class="footer__bottom"><div class="fluid_container">
 <div class="footer_bottom-inner justify-center justify-md-end flex flex-wrap flex-md-nowrap align-center border-top gap-20 gap-xl-30 py-30"><div class="flex flex-wrap gap-10 gap-xl-30 justify-center justify-md-start">
-<div class="footer__copyright" data-ft-copyright>© 2026 Loudlib. Sounds for your own records.</div>
-<ul class="footer__policies list-unstyled flex flex-wrap" data-ft-policies><li><a href="/theme-previews/sample-packs/policies/refund-policy.html">Refund policy</a></li><li><a href="/theme-previews/sample-packs/policies/privacy-policy.html">Privacy policy</a></li><li><a href="/theme-previews/sample-packs/policies/terms-of-service.html">Terms of service</a></li></ul></div>
+<div class="footer__copyright" data-ft-copyright>© 2026 Loudlib. team@loudlib.net</div>
+<ul class="footer__policies list-unstyled flex flex-wrap" data-ft-policies><li><a href="/theme-previews/sample-packs/policies/refund-policy.html">Refund policy</a></li><li><a href="/theme-previews/sample-packs/policies/privacy-policy.html">Privacy policy</a></li><li><a href="/theme-previews/sample-packs/policies/terms-of-service.html">Terms of service</a></li></ul><div class="footer__powered" data-ft-powered><a href="#" data-preview-inert data-storelib-badge="">Powered by Storelib</a></div></div>
 <div class="footer__payment flex grow-1 align-center max-w-100" style="justify-content: flex-end; --pb-width: 100%; margin-left: auto;" data-ft-block="payment_badges_1" data-ft-type="payment_badges" data-block-id="payment_badges_1">
 <ul class="footer__payment-badges"><li class="payment-badge" aria-label="Visa"><svg class="icon icon--full-color" viewBox="0 0 38 24" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Visa">
 <title>Visa</title>
@@ -1367,7 +1535,7 @@ viewBox="0 0 165.521 105.965">
   :where(html:not([data-font-priority='off'])) #shopify-section-back_to_top_pro :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
-</style><style></style><link rel="stylesheet" href="/theme-previews/sample-packs/a/i.db4314a9f9b8.css" data-shopify><div class="buttontoppro full_width" data-pg-root="back-to-top-pro" data-pg-section="back_to_top_pro">
+</style><style></style><link rel="stylesheet" href="/theme-previews/sample-packs/a/i.a9151cb18418.css" data-shopify><div class="buttontoppro full_width" data-pg-root="back-to-top-pro" data-pg-section="back_to_top_pro">
 <button type="button" class="top-back_to_top_pro" data-back-to-top="back_to_top_pro" data-show-after="300" aria-label="Back to top">
 <span class="top-circle-back_to_top_pro color-default" data-pg-scheme>
 <svg class="top-progress-circle-back_to_top_pro" width="100%" height="100%" viewBox="-1 -1 102 102" aria-hidden="true" focusable="false">
@@ -1574,7 +1742,7 @@ Continue Shopping
 <div class="overlayminicart">
 </div>
 <script src="/theme-previews/sample-packs/a/i.f50d71910c82.js"></script>
-<script src="/theme-previews/_base/a/animation.8fcd3a124757.js" defer="defer"></script>
+<script src="/theme-previews/_base/a/animation.7fa50ded717b.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/tingle-min.9664ca3641cf.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/cart-discount.6748c8dd9657.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/theme.7a7dd8f80f89.js"  defer="defer" type="module"></script>
@@ -1637,11 +1805,11 @@ Skip to content
 <li id="a11y-new-window-message">Opens in a new window.</li>
 </ul><link href="/theme-previews/_base/a/materia-forms.2772768a5535.css" rel="stylesheet" type="text/css" media="all">
 <script src="/theme-previews/_base/a/materia-forms.7082d7d84838.js" defer="defer"></script>
-<script src="/theme-previews/sample-packs/a/i.7e0b24218544.js"></script><script src="/theme-previews/sample-packs/a/i.ba16972b7db0.js"></script><style>
+<script src="/theme-previews/sample-packs/a/i.73ed8ad81738.js"></script><script src="/theme-previews/sample-packs/a/i.ba16972b7db0.js"></script><style>
   @keyframes materiaMediaFade { from { opacity: 0; } to { opacity: 1; } }
   html.js-media-fade .media-fade-run { animation: materiaMediaFade .4s ease; }
 </style>
-<script src="/theme-previews/sample-packs/a/i.2b6bb1df1e29.js"></script>
+<script src="/theme-previews/sample-packs/a/i.dfcb99e2686f.js"></script>
 <style>
         :root {
           /* Wire the user's Animations & motion settings to the keyframe vars used by animation.css */
@@ -1663,7 +1831,7 @@ Skip to content
     "freePage": "150",
     "freeDrawer": "150",
     "subtotal": 0,
-    "currency": "USD",
+    "currency": "EUR",
     "country": "US",
     "text": {
       "choose": "Choose your country",
@@ -1813,7 +1981,7 @@ class="btn-reset pointer mini_cart_addon_btn show-overlay inline-flex align-cent
 <div class="subtotal flex gap-10 justify-between align-center" data-cart-subtotal>
 <h5 class="heading-color my-0">Subtotal</h5>
 <span class="subtotal-price h5 my-5" data-cart-subtotal-price>
-$0.00
+€0.00
 </span>
 </div><button
 type="submit"

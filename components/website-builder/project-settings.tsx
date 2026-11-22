@@ -68,6 +68,8 @@ export type { SettingsSection } from "@/components/website-builder/website-setti
 
 /** A subject sliding in over the list, and back out: iOS's own push curve. */
 const PUSH_MS = 340
+/** Leaving for the builder: wb-settings-out's length. */
+const LEAVE_MS = 160
 const POP_MS = 280
 const PUSH_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
 const POP_EASE = "cubic-bezier(0.4, 0, 0.2, 1)"
@@ -106,6 +108,8 @@ export function ProjectSettings({
   onNavigate = (href) => window.location.assign(href),
   onAddressChanged = () => {},
   navigation = {},
+  exitLabel,
+  onExit,
 }: {
   open: boolean
   onClose: () => void
@@ -146,6 +150,13 @@ export function ProjectSettings({
   /** The header, the footer and the editor's writers for them: Navigation. */
   navigation?: Pick<SettingsContext, "header" | "footer" | "onSectionSetting" | "onBlockSetting" | "onAddBlock" | "onRemoveBlock" | "onReorderBlocks" | "linkTargets" | "linkSections" | "currentPageKey" | "currentSections" | "onPageDraftSaved" | "preview">
   /**
+   * The way out at the top left, and Escape: Back to editor and onClose,
+   * unless the editor says this page was the reason for coming (Website
+   * settings from the Website page), when it is Back, to that page.
+   */
+  exitLabel?: string
+  onExit?: () => void
+  /**
    * Round 42: a team member with Website, working in the store. Connections
    * (GitHub, a Supabase project, agent tokens, an AI key) stay the store
    * owner's (lib/team/website), so that section is not listed for them.
@@ -182,17 +193,62 @@ export function ProjectSettings({
     }
   }
 
+  /*
+    AND IT LEAVES THE WAY IT CAME. It arrived on wb-settings-in and was then
+    taken out of the page on the frame `open` went false: on a phone, the
+    whole dark page gone in one frame and the builder under it in the next,
+    a cut (scripts/check-website-settings-back.mjs). It stays drawn for a
+    160ms fade with a 6px drop (wb-settings-out's, globals.css) and goes when
+    that has played; with reduced motion it goes at once.
+
+    The fade is an animation on the page's own box and nothing else changes
+    on it: a class or an attribute on this box that every row under it
+    inherits (pointer-events, aria-hidden) made the browser work out the
+    style of the whole settings page again in the tap's frame, 424ms at a
+    quarter speed, measured.
+  */
+  const rootRef = useRef<HTMLDivElement | null>(null)
+  const [shownOpen, setShownOpen] = useState(open)
+  const [leaving, setLeaving] = useState(false)
+  if (open !== shownOpen) {
+    setShownOpen(open)
+    const still = typeof window === "undefined" || !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    setLeaving(!open && !still)
+  }
+  useLayoutEffect(() => {
+    if (!leaving) return
+    const el = rootRef.current
+    if (!el || typeof el.animate !== "function") {
+      setLeaving(false)
+      return
+    }
+    const a = el.animate(
+      [
+        { opacity: 1, transform: "translate3d(0, 0, 0) scale(1)" },
+        { opacity: 0, transform: "translate3d(0, 6px, 0) scale(0.99)" },
+      ],
+      { duration: LEAVE_MS, easing: "cubic-bezier(0.4, 0, 1, 1)", fill: "forwards" },
+    )
+    a.onfinish = () => setLeaving(false)
+    /* However it ends, or if it never runs (a tab in the background), it goes. */
+    const t = window.setTimeout(() => setLeaving(false), LEAVE_MS + 120)
+    return () => {
+      window.clearTimeout(t)
+      a.cancel()
+    }
+  }, [leaving])
+
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
       /* A blog post open over Settings (website-settings/blog/post-editor.tsx) is left only by its own Back, so its Escape never closes this page behind it. */
       if (document.querySelector("[data-site-post-editor]")) return
       /* An open list or menu inside (the registrar list in Domains) takes Escape for itself, and Radix marks it handled. */
-      if (e.key === "Escape" && !e.defaultPrevented) onClose()
+      if (e.key === "Escape" && !e.defaultPrevented) (onExit ?? onClose)()
     }
     document.addEventListener("keydown", onKey)
     return () => document.removeEventListener("keydown", onKey)
-  }, [open, onClose])
+  }, [open, onClose, onExit])
 
   /* A new subject starts at its top, not wherever the last one was scrolled to. */
   useEffect(() => {
@@ -241,7 +297,7 @@ export function ProjectSettings({
   }, [moving])
   useEffect(() => () => { for (const a of motion.current) a.cancel() }, [])
 
-  if (!open) return null
+  if (!open && !leaving) return null
   if (typeof document === "undefined") return null
 
   /** Whether this screen is the phone's list-then-page, and should move. */
@@ -316,6 +372,7 @@ export function ProjectSettings({
       role="dialog"
       aria-modal="true"
       aria-label={tt("Website settings")}
+      ref={rootRef}
       data-ws-look={look}
       className="wb-settings-in fixed inset-0 z-[150] flex flex-col overflow-hidden bg-[#0f0f0f] text-white md:flex-row"
       /**
@@ -349,11 +406,12 @@ export function ProjectSettings({
         <div className="flex items-center justify-between gap-2 px-3 pt-3 md:pl-6 md:pr-4 md:pt-7">
           <button
             type="button"
-            onClick={onClose}
+            onClick={onExit ?? onClose}
+            data-settings-exit=""
             className="flex h-11 items-center gap-2 rounded-lg px-2 text-[15px] font-medium text-white/80 transition-colors hover:text-white active:bg-white/[0.06] md:-ml-2 md:h-9 [-webkit-tap-highlight-color:transparent]"
           >
             <ArrowLeft className="h-[18px] w-[18px] md:h-4 md:w-4" strokeWidth={2} />
-            {tt("Back to editor")}
+            {exitLabel ?? tt("Back to editor")}
           </button>
           <LookButton look={look} />
         </div>

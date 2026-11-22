@@ -1,0 +1,125 @@
+{%- comment -%}
+  Online course: questions. A label, a heading with accent words and a
+  paragraph on the left; on the right the questions, each a row that opens
+  (details and summary) with a square accent button whose plus turns to a
+  cross. The answers are written in the page for search engines too.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign sid = section.id
+-%}
+<style>
+  #shopify-section-{{ sid }} .c2q {
+    --c2-accent: {{ s.accent | default: '#12704f' }};
+    --c2-ink: {{ s.heading_color | default: '#15171a' }};
+    --c2-text: {{ s.text_color | default: '#3f444c' }};
+    --c2-line: {{ s.line_color | default: '#e3e5e8' }};
+    background: {{ s.background | default: '#ffffff' }};
+    color: var(--c2-text);
+    padding: {{ s.padding_top_mobile | default: 48 }}px 0 {{ s.padding_bottom_mobile | default: 48 }}px;
+    scroll-margin-top: 80px;
+  }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .c2q { padding: {{ s.padding_top | default: 96 }}px 0 {{ s.padding_bottom | default: 96 }}px; } }
+  #shopify-section-{{ sid }} .c2q__in { max-width: 1200px; margin: 0 auto; padding: 0 20px; display: grid; gap: 28px; align-items: start; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .c2q__in { padding: 0 40px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 56px; } }
+  #shopify-section-{{ sid }} .c2-tag { display: inline-block; margin: 0 0 22px; padding: 8px 12px; border: 1px solid #d9dce1; border-radius: 6px; font-size: 13px; line-height: 1; letter-spacing: .05em; text-transform: uppercase; color: var(--c2-ink); }
+  #shopify-section-{{ sid }} .c2q__title { margin: 0 0 22px; color: var(--c2-ink); font-family: var(--heading-font, inherit); font-weight: 700; font-size: 34px; line-height: 1.06; letter-spacing: -.035em; text-wrap: balance; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .c2q__title { font-size: {{ s.heading_size | default: 48 }}px; } }
+  #shopify-section-{{ sid }} .c2q__title em { font-style: normal; color: var(--c2-accent); display: block; }
+  #shopify-section-{{ sid }} .c2q__text { max-width: 26em; font-size: 17px; line-height: 1.6; }
+  #shopify-section-{{ sid }} .c2q__text p { margin: 0 0 12px; }
+  #shopify-section-{{ sid }} .c2q__text a { color: var(--c2-ink); text-underline-offset: 3px; }
+  #shopify-section-{{ sid }} .c2q__list { border-top: 1px solid var(--c2-line); }
+  #shopify-section-{{ sid }} .c2q__item { border-bottom: 1px solid var(--c2-line); }
+  #shopify-section-{{ sid }} .c2q__item summary { list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 20px 0; cursor: pointer; color: var(--c2-ink); font-family: var(--heading-font, inherit); font-weight: 700; font-size: 17px; line-height: 1.35; letter-spacing: -.02em; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .c2q__item summary { font-size: 20px; padding: 24px 0; } }
+  #shopify-section-{{ sid }} .c2q__item summary::-webkit-details-marker { display: none; }
+  #shopify-section-{{ sid }} .c2q__plus { flex: none; position: relative; width: 40px; height: 40px; border-radius: 6px; background: var(--c2-accent); }
+  #shopify-section-{{ sid }} .c2q__plus::before, #shopify-section-{{ sid }} .c2q__plus::after { content: ""; position: absolute; left: 50%; top: 50%; width: 16px; height: 1.5px; margin: -.75px 0 0 -8px; background: #fff; transition: transform .35s cubic-bezier(.2,.65,.25,1); }
+  #shopify-section-{{ sid }} .c2q__plus::after { transform: rotate(90deg); }
+  #shopify-section-{{ sid }} details[open] .c2q__plus::before { transform: rotate(45deg); }
+  #shopify-section-{{ sid }} details[open] .c2q__plus::after { transform: rotate(135deg); }
+  #shopify-section-{{ sid }} .c2q__a { padding: 0 60px 22px 0; font-size: 16px; line-height: 1.65; }
+  #shopify-section-{{ sid }} .c2q__a p { margin: 0 0 10px; }
+  #shopify-section-{{ sid }} details[open] .c2q__a { animation: c2q-open-{{ sid }} .45s cubic-bezier(.2,.65,.25,1); }
+  @keyframes c2q-open-{{ sid }} { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+  #shopify-section-{{ sid }} [data-c2r].c2r-wait { opacity: 0; transform: translate3d(0, 22px, 0); }
+  #shopify-section-{{ sid }} [data-c2r].c2r-in { opacity: 1; transform: none; transition: opacity .8s cubic-bezier(.2,.65,.25,1) var(--d, 0ms), transform .8s cubic-bezier(.2,.65,.25,1) var(--d, 0ms); }
+  @media (prefers-reduced-motion: reduce) {
+    #shopify-section-{{ sid }} details[open] .c2q__a { animation: none; }
+    #shopify-section-{{ sid }} .c2q__plus::before, #shopify-section-{{ sid }} .c2q__plus::after { transition: none; }
+  }
+</style>
+<section class="c2q"{% if s.anchor != blank %} id="{{ s.anchor | handleize }}"{% endif %}>
+  <div class="c2q__in">
+    <div>
+      {%- if s.tag != blank -%}<p class="c2-tag" data-c2r>{{ s.tag | escape }}</p>{%- endif -%}
+      <h2 class="c2q__title" data-c2r style="--d: 60ms">{{ s.heading | escape }}{% if s.heading_accent != blank %} <em>{{ s.heading_accent | escape }}</em>{% endif %}</h2>
+      {%- if s.text != blank -%}<div class="c2q__text" data-c2r style="--d: 120ms">{{ s.text }}</div>{%- endif -%}
+    </div>
+    <div class="c2q__list" data-c2r style="--d: 120ms">
+      {%- for block in section.blocks -%}
+        <details class="c2q__item" {{ block.shopify_attributes }}{% if forloop.first and s.first_open %} open{% endif %}>
+          <summary><span>{{ block.settings.question | escape }}</span><span class="c2q__plus" aria-hidden="true"></span></summary>
+          <div class="c2q__a">{{ block.settings.answer }}</div>
+        </details>
+      {%- endfor -%}
+    </div>
+  </div>
+</section>
+{%- if section.blocks.size > 0 -%}
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{%- for block in section.blocks -%}{"@type":"Question","name":{{ block.settings.question | json }},"acceptedAnswer":{"@type":"Answer","text":{{ block.settings.answer | strip_html | json }}}}{% unless forloop.last %},{% endunless %}{%- endfor -%}]}</script>
+{%- endif -%}
+{%- unless request.design_mode -%}
+<script>(function(){var r=document.getElementById('shopify-section-{{ sid }}');if(!r||!('IntersectionObserver' in window)||matchMedia('(prefers-reduced-motion: reduce)').matches)return;var h=innerHeight,io=new IntersectionObserver(function(es){es.forEach(function(e){if(!e.isIntersecting)return;var t=e.target;io.unobserve(t);requestAnimationFrame(function(){t.classList.add('c2r-in')})})},{rootMargin:'0px 0px -6% 0px'});r.querySelectorAll('[data-c2r]').forEach(function(el){if(el.getBoundingClientRect().top<h*.92)return;el.classList.add('c2r-wait');io.observe(el)})})();</script>
+{%- endunless -%}
+
+{% schema %}
+{
+  "name": "Questions beside a heading",
+  "tag": "section",
+  "class": "course2-faq-section",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "settings": [
+    { "type": "text", "id": "tag", "label": "Label above", "default": "Questions" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Straight answers" },
+    { "type": "text", "id": "heading_accent", "label": "Second line in the accent colour", "default": "before you start" },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>The questions people ask most about the course.</p>" },
+    { "type": "checkbox", "id": "first_open", "label": "First question open", "default": false },
+    { "type": "text", "id": "anchor", "label": "Address on the page", "info": "A word a menu link can jump to, as /#word." },
+    { "type": "range", "id": "heading_size", "label": "Heading size on desktop", "min": 28, "max": 72, "step": 2, "unit": "px", "default": 48 },
+    { "type": "header", "content": "Colours" },
+    { "type": "color", "id": "background", "label": "Background", "default": "#ffffff" },
+    { "type": "color", "id": "accent", "label": "Accent", "default": "#12704f" },
+    { "type": "color", "id": "heading_color", "label": "Headings", "default": "#15171a" },
+    { "type": "color", "id": "text_color", "label": "Text", "default": "#3f444c" },
+    { "type": "color", "id": "line_color", "label": "Lines", "default": "#e3e5e8" },
+    { "type": "header", "content": "Spacing" },
+    { "type": "range", "id": "padding_top", "label": "Space above on desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below on desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above on phones", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 48 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below on phones", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 48 }
+  ],
+  "blocks": [
+    {
+      "type": "question",
+      "name": "Question",
+      "settings": [
+        { "type": "text", "id": "question", "label": "Question", "default": "How long do I have access?" },
+        { "type": "richtext", "id": "answer", "label": "Answer", "default": "<p>Say how long and on which devices.</p>" }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Questions beside a heading",
+      "category": "Online course",
+      "blocks": [
+        { "type": "question" },
+        { "type": "question", "settings": { "question": "What do I need to start?", "answer": "<p>List what someone needs before the first lesson.</p>" } },
+        { "type": "question", "settings": { "question": "What if it is not for me?", "answer": "<p>Say how refunds work.</p>" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

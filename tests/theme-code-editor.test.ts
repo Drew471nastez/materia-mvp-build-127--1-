@@ -321,7 +321,7 @@ section("It is reachable, and it works on a file longer than the window")
       /paddingTop: "env\(safe-area-inset-top, 0px\)"/.test(settings) &&
       /paddingBottom: "env\(safe-area-inset-bottom, 0px\)"/.test(settings))(
         readFileSync(join(root, "components/website-builder/project-settings.tsx"), "utf8"),
-      ) && /previewMode !== "code" && !projectSettingsOpen && \(/.test(editor),
+      ) && /* Changed on purpose (templates round 21): the sheet stays, closed, under the settings page (z-[150]); mounting it again froze Back to editor. */ /previewMode !== "code" && \(\s*<MobileEditorSheet/.test(editor),
   )
   check(
     "the code page's Back says the builder is coming, in the same place and at the same size",

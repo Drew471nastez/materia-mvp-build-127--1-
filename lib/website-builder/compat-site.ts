@@ -43,6 +43,9 @@ import type { CompatTheme } from "@/lib/storelib-theme/compat/theme"
 import type { CollectionLike } from "@/lib/storelib-theme/compat/objects"
 import { compatMenus } from "@/lib/storelib-theme/compat/menus"
 import { liveNavigationEnd, liveNavigationMarkup } from "./live-navigation"
+import { creatorSitePlan } from "@/lib/sites/plan-server"
+import { siteLimits } from "@/lib/sites/plan"
+import { hideAsked } from "@/lib/storelib-theme/compat/powered-by"
 import { siteVitalsScript } from "@/lib/perf/site-vitals-inline"
 import { storeIdentity } from "@/lib/store/identity-server"
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
@@ -525,6 +528,17 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
   const settingsRow = release ? settingsRowOf(release.manifest) : Array.isArray(row.store_theme_settings) ? (row.store_theme_settings[0] ?? null) : (row.store_theme_settings ?? null)
   const settings = themeSettingsOf(settingsRow as never, draft) ?? {}
   if (!compatOf(settings)) return { kind: "missing" }
+  /*
+    WHETHER THE PLAN MAY HIDE "POWERED BY STORELIB" (lib/sites/plan.ts
+    removeBranding, from the owner's subscription as a OnePage's badge reads
+    it). Asked only when the theme setting asks for the line to go
+    (lib/storelib-theme/compat/powered-by.ts hideAsked): every other page
+    keeps the line and makes no read for it. A read that failed or came late
+    is null: this page keeps the line and is not held (partial).
+  */
+  const brandingAsked: Promise<boolean | null> = hideAsked(settings as Record<string, unknown>)
+    ? ((read) => quiet(live ? part("plan", read, null) : read.catch(() => null)))(creatorSitePlan(creator.creatorId, admin).then((plan) => siteLimits(plan).removeBranding))
+    : Promise.resolve(null)
 
   /* A preview's draft files with their pass (./draft-asset-pass.ts): this page may show the draft, so its assets may too. */
   const version = draft ? withDraftPass(`draft-${Date.now()}`, draftAssetPass(row.id)) : String(row.published_at ?? "1").replace(/[^0-9A-Za-z]/g, "")
@@ -784,6 +798,7 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
     /* A live page's links are fetched ahead and its pages cross-fade (lib/website-builder/live-navigation.ts). */
     /* A live page also measures its own speed for Published websites (lib/perf/site-vitals-inline.ts); a preview never does. */
     extraHead: draft ? undefined : liveNavigationMarkup() + siteVitalsScript(),
+    removeBranding: await brandingAsked,
     /* The favicon (Website settings, Branding and the theme's own Logos & Favicon are one value), or the logo: drawn when the theme's layout draws no icon (./site-icon.ts). */
     /* At the site's own host, square (./site-favicon.ts, round 41). */
     icon: ownIconPath(siteIconUrl(settings as Record<string, unknown>)) || undefined,

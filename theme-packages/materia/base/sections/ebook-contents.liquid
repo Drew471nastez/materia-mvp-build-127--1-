@@ -1,0 +1,102 @@
+{%- comment -%}
+  Ebook: what is inside, set like a table of contents. On the left a label,
+  a heading, a line and a button, which stay in view while the list
+  scrolls on desktop. On the right the chapters, each a number, a name, a
+  line on what it covers and a page number, joined by a dotted leader.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+-%}
+{%- assign ebook_hf = settings.font_heading_google_family -%}
+{%- if ebook_hf != blank and ebook_hf != 'none' -%}<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family={{ ebook_hf | replace: ' ', '+' }}:ital@1&display=swap">{%- endif -%}
+<style>
+  #shopify-section-{{ sid }} .ebc {
+    --ebc-accent: {{ st.accent_color | default: '#9a6a32' }};
+    background: {{ st.background | default: '#ffffff' }};
+    padding: {{ st.padding_top_mobile | default: 56 }}px 20px {{ st.padding_bottom_mobile | default: 56 }}px;
+  }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .ebc { padding: {{ st.padding_top | default: 96 }}px 40px {{ st.padding_bottom | default: 96 }}px; } }
+  #shopify-section-{{ sid }} .ebc__inner { max-width: 1120px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 32px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .ebc__inner { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 96px; align-items: start; } }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .ebc__head { position: sticky; top: 110px; } }
+  #shopify-section-{{ sid }} .ebc__eyebrow { margin: 0 0 14px; color: var(--ebc-accent); font-size: 13px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; }
+  #shopify-section-{{ sid }} .ebc__heading { margin: 0; color: var(--color-heading); font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, 500); font-size: {{ st.heading_size_mobile | default: 36 }}px; line-height: 1.08; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .ebc__heading { font-size: {{ st.heading_size | default: 52 }}px; } }
+  #shopify-section-{{ sid }} .ebc__heading em { font-style: italic; color: var(--ebc-accent); }
+  #shopify-section-{{ sid }} .ebc__text { margin-top: 18px; color: var(--color-text); font-size: 16.5px; line-height: 1.7; max-width: 40ch; }
+  #shopify-section-{{ sid }} .ebc__text p { margin: 0 0 10px; }
+  #shopify-section-{{ sid }} .ebc__btn { display: inline-flex; align-items: center; min-height: 48px; margin-top: 22px; padding: 0 22px; border: 1px solid var(--color-heading); border-radius: 6px; color: var(--color-heading); font-size: 15px; font-weight: 600; text-decoration: none; transition: background-color 0.25s ease, color 0.25s ease; }
+  #shopify-section-{{ sid }} .ebc__btn:hover { background: var(--color-heading); color: {{ st.background | default: '#ffffff' }}; }
+  #shopify-section-{{ sid }} .ebc__list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--color-border, #e2ddd2); }
+  #shopify-section-{{ sid }} .ebc__item { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 4px 14px; padding: 20px 0; border-bottom: 1px solid var(--color-border, #e2ddd2); }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .ebc__item { grid-template-columns: 56px minmax(0, 1fr) auto; padding: 24px 0; } }
+  #shopify-section-{{ sid }} .ebc__num { color: var(--ebc-accent); font-family: var(--heading-font, inherit); font-style: italic; font-size: 22px; line-height: 1.2; font-variant-numeric: lining-nums; }
+  #shopify-section-{{ sid }} .ebc__name { margin: 0; display: flex; align-items: baseline; gap: 12px; color: var(--color-heading); font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, 500); font-size: 22px; line-height: 1.25; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .ebc__name { font-size: 25px; } }
+  #shopify-section-{{ sid }} .ebc__name::after { content: ""; flex: 1; min-width: 20px; border-bottom: 1px dotted color-mix(in srgb, var(--color-text) 45%, transparent); transform: translateY(-5px); }
+  #shopify-section-{{ sid }} .ebc__page { align-self: start; color: var(--color-text); font-size: 15px; line-height: 1.9; font-variant-numeric: tabular-nums lining-nums; }
+  #shopify-section-{{ sid }} .ebc__note { grid-column: 2 / 4; margin: 0; color: var(--color-text); font-size: 15px; line-height: 1.6; max-width: 52ch; }
+</style>
+
+<div class="ebc color-{{ color_scheme }}" data-section-id="{{ sid }}">
+  <div class="ebc__inner">
+    <div class="ebc__head">
+      {%- if st.eyebrow != blank -%}<p class="ebc__eyebrow">{{ st.eyebrow | escape }}</p>{%- endif -%}
+      {%- if st.heading != blank -%}<h2 class="ebc__heading">{{ st.heading }}</h2>{%- endif -%}
+      {%- if st.text != blank -%}<div class="ebc__text">{{ st.text }}</div>{%- endif -%}
+      {%- if st.button_label != blank -%}<a class="ebc__btn" href="{{ st.button_link | default: '/collections/all' }}">{{ st.button_label | escape }}</a>{%- endif -%}
+    </div>
+    <ol class="ebc__list">
+      {%- for block in section.blocks -%}
+        {%- assign b = block.settings -%}
+        <li class="ebc__item" {{ block.shopify_attributes }}>
+          <span class="ebc__num">{% if forloop.index < 10 %}0{% endif %}{{ forloop.index }}</span>
+          <h3 class="ebc__name">{{ b.title | escape }}</h3>
+          <span class="ebc__page">{{ b.page | escape }}</span>
+          {%- if b.note != blank -%}<p class="ebc__note">{{ b.note | escape }}</p>{%- endif -%}
+        </li>
+      {%- endfor -%}
+    </ol>
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Ebook contents",
+  "tag": "section",
+  "class": "section sec__ebook-contents",
+  "max_blocks": 16,
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default-color-scheme" },
+    { "type": "color", "id": "background", "label": "Background", "default": "#ffffff" },
+    { "type": "color", "id": "accent_color", "label": "Accent colour", "default": "#9a6a32" },
+    { "type": "text", "id": "eyebrow", "label": "Small label", "default": "What is inside" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "The <em>contents</em>" },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>A line on how the book is put together and how long it takes to read.</p>" },
+    { "type": "text", "id": "button_label", "label": "Button", "default": "Get the book" },
+    { "type": "url", "id": "button_link", "label": "Button link" },
+    { "type": "range", "id": "heading_size", "label": "Heading size, desktop", "min": 28, "max": 72, "step": 2, "unit": "px", "default": 52 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size, phone", "min": 24, "max": 48, "step": 2, "unit": "px", "default": 36 },
+    { "type": "range", "id": "padding_top", "label": "Space above, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 }
+  ],
+  "blocks": [
+    {
+      "type": "chapter",
+      "name": "Chapter",
+      "settings": [
+        { "type": "text", "id": "title", "label": "Name", "default": "Chapter name" },
+        { "type": "textarea", "id": "note", "label": "What it covers", "default": "One line on what the reader takes from it." },
+        { "type": "text", "id": "page", "label": "Page", "default": "1" }
+      ]
+    }
+  ],
+  "presets": [
+    { "name": "Ebook contents", "blocks": [ { "type": "chapter" }, { "type": "chapter" }, { "type": "chapter" }, { "type": "chapter" } ] }
+  ]
+}
+{% endschema %}

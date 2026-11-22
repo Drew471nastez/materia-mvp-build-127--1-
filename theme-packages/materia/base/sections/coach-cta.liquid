@@ -1,0 +1,91 @@
+{%- comment -%}
+  Coach: a dark band that asks for the next step. A small label, a serif
+  heading with italic words, a line of reassurance and two buttons, centred.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+-%}
+{%- assign coach_hf = settings.font_heading_google_family -%}
+{%- if coach_hf != blank and coach_hf != 'none' -%}<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family={{ coach_hf | replace: ' ', '+' }}:ital@1&display=swap">{%- endif -%}
+<style>
+  #shopify-section-{{ sid }} .coc {
+    --coc-bg: {{ st.background | default: '#3a2a21' }};
+    --coc-ink: {{ st.heading_color | default: '#faf6f0' }};
+    --coc-accent: {{ st.accent_color | default: '#e2a271' }};
+    --coc-btn: {{ st.button_color | default: '#b8693a' }};
+    background: var(--coc-bg); color: {{ st.text_color | default: '#d8c8b7' }};
+    padding: {{ st.padding_top_mobile | default: 64 }}px 24px {{ st.padding_bottom_mobile | default: 64 }}px;
+    text-align: center;
+  }
+  @media (min-width: 990px) {
+    #shopify-section-{{ sid }} .coc { padding: {{ st.padding_top | default: 96 }}px 40px {{ st.padding_bottom | default: 96 }}px; }
+  }
+  #shopify-section-{{ sid }} .coc__inner { max-width: 720px; margin: 0 auto; }
+  #shopify-section-{{ sid }} .coc__eyebrow { margin: 0 0 18px; color: var(--coc-accent); font-size: 12px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; }
+  #shopify-section-{{ sid }} .coc__heading {
+    margin: 0; color: var(--coc-ink);
+    font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, 500);
+    font-size: {{ st.heading_size_mobile | default: 38 }}px; line-height: 1.1;
+  }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .coc__heading { font-size: {{ st.heading_size | default: 56 }}px; } }
+  #shopify-section-{{ sid }} .coc__heading em { font-style: italic; color: var(--coc-accent); }
+  #shopify-section-{{ sid }} .coc__text { margin: 20px auto 0; max-width: 48ch; font-size: 16px; line-height: 1.65; }
+  #shopify-section-{{ sid }} .coc__text p { margin: 0; }
+  #shopify-section-{{ sid }} .coc__actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 32px; }
+  #shopify-section-{{ sid }} .coc__btn {
+    display: inline-flex; align-items: center; justify-content: center; min-height: 50px; padding: 0 26px; border-radius: 2px;
+    font-size: 12.5px; font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase; text-decoration: none;
+    transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+  }
+  #shopify-section-{{ sid }} .coc__btn--solid { background: var(--coc-btn); color: #fff; border: 1px solid var(--coc-btn); }
+  #shopify-section-{{ sid }} .coc__btn--solid:hover { background: var(--coc-ink); color: var(--coc-bg); border-color: var(--coc-ink); }
+  #shopify-section-{{ sid }} .coc__btn--line { background: transparent; color: var(--coc-ink); border: 1px solid currentColor; }
+  #shopify-section-{{ sid }} .coc__btn--line:hover { background: var(--coc-ink); color: var(--coc-bg); border-color: var(--coc-ink); }
+  @media (max-width: 480px) { #shopify-section-{{ sid }} .coc__btn { flex: 1 1 100%; } }
+</style>
+
+<div class="coc color-{{ color_scheme }}" data-section-id="{{ sid }}">
+  <div class="coc__inner">
+    {%- if st.eyebrow != blank -%}<p class="coc__eyebrow">{{ st.eyebrow | escape }}</p>{%- endif -%}
+    {%- if st.heading != blank -%}<h2 class="coc__heading">{{ st.heading }}</h2>{%- endif -%}
+    {%- if st.text != blank -%}<div class="coc__text">{{ st.text }}</div>{%- endif -%}
+    {%- if st.button_label != blank or st.button2_label != blank -%}
+      <div class="coc__actions">
+        {%- if st.button_label != blank -%}<a class="coc__btn coc__btn--solid" href="{{ st.button_link | default: '/pages/contact' }}">{{ st.button_label | escape }}</a>{%- endif -%}
+        {%- if st.button2_label != blank -%}<a class="coc__btn coc__btn--line" href="{{ st.button2_link | default: '/pages/contact' }}">{{ st.button2_label | escape }}</a>{%- endif -%}
+      </div>
+    {%- endif -%}
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Coach next step",
+  "tag": "section",
+  "class": "section sec__coach-cta",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default-color-scheme" },
+    { "type": "color", "id": "background", "label": "Background", "default": "#3a2a21" },
+    { "type": "color", "id": "heading_color", "label": "Heading colour", "default": "#faf6f0" },
+    { "type": "color", "id": "text_color", "label": "Text colour", "default": "#d8c8b7" },
+    { "type": "color", "id": "accent_color", "label": "Accent colour", "default": "#e2a271" },
+    { "type": "color", "id": "button_color", "label": "Button colour", "default": "#b8693a" },
+    { "type": "text", "id": "eyebrow", "label": "Small label", "default": "Your next step" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "Ready for your <em>next chapter?</em>" },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>A short free call to talk about where you are and what you want. No pitch.</p>" },
+    { "type": "text", "id": "button_label", "label": "First button", "default": "Book your free call" },
+    { "type": "url", "id": "button_link", "label": "First button link" },
+    { "type": "text", "id": "button2_label", "label": "Second button", "default": "Ask a question" },
+    { "type": "url", "id": "button2_link", "label": "Second button link" },
+    { "type": "range", "id": "heading_size", "label": "Heading size, desktop", "min": 32, "max": 80, "step": 2, "unit": "px", "default": 56 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size, phone", "min": 26, "max": 52, "step": 2, "unit": "px", "default": 38 },
+    { "type": "range", "id": "padding_top", "label": "Space above, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 64 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 64 }
+  ],
+  "presets": [ { "name": "Coach next step" } ]
+}
+{% endschema %}

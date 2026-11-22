@@ -119,3 +119,27 @@ export function templateMenus(id: string, root = TEMPLATE_PACKAGES_ROOT): Record
     return null
   }
 }
+
+/**
+ * One layer of a template as the code has it now: the base's files, or the
+ * template's overlay (without menus.json, which is not a file of the theme).
+ * /admin/themes publishes a release from these (lib/themes/releases-server.ts).
+ */
+export function readTemplateLayer(id: string, layer: "base" | "overlay", root = TEMPLATE_PACKAGES_ROOT): Map<string, Buffer> {
+  if (!isCodePackageId(id)) throw new Error(`"${id}" is not a template`)
+  const dir = templateDirs(id, root)[layer]
+  const files = new Map<string, Buffer>()
+  for (const rel of walk(dir)) if (!(layer === "overlay" && OVERLAY_ONLY.has(rel))) files.set(rel, readFileSync(join(dir, rel)))
+  return files
+}
+
+/** An overlay laid over a base, file by file, the way composeTemplateFiles does it with folders. */
+export function layerOver(base: ReadonlyMap<string, Buffer>, overlay: ReadonlyMap<string, Buffer>): Map<string, Buffer> {
+  const files = new Map(base)
+  for (const [rel, bytes] of overlay) {
+    if (OVERLAY_ONLY.has(rel)) continue
+    const under = rel === SETTINGS_DATA ? files.get(rel) : undefined
+    files.set(rel, under ? Buffer.from(mergeSettingsData(under.toString("utf8"), bytes.toString("utf8")), "utf8") : bytes)
+  }
+  return files
+}

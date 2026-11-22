@@ -98,7 +98,7 @@
         "uppercase_first": false,
         "action_text_size": 16,
         "menu_custom_font": "bodoni_moda_n4",
-        "menu_hover_style": "fade",
+        "menu_hover_style": "underline",
         "redirect_to_link": true,
         "logo_width_mobile": 84,
         "menu_link_spacing": 26,

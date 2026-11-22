@@ -1,0 +1,25 @@
+{
+  "type": "footer",
+  "name": "t:sections.footer.name",
+  "sections": {
+    "footer": {
+      "type": "vsl-footer",
+      "settings": {
+        "logo_width": 140,
+        "brand_text": "",
+        "show_mark": true,
+        "menu": "footer",
+        "copyright": "",
+        "line_above": true,
+        "padding_top": 56,
+        "padding_bottom": 32,
+        "padding_top_mobile": 40,
+        "padding_bottom_mobile": 28,
+        "show_policies": true
+      }
+    }
+  },
+  "order": [
+    "footer"
+  ]
+}

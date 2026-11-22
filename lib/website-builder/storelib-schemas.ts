@@ -30,10 +30,12 @@ import { REVIEW_APP_BLOCK_SCHEMAS, reviewAppBlockSchema } from "@/lib/storelib-t
 import { SIZE_CHART_APP_BLOCK_SCHEMAS, sizeChartAppBlockSchema } from "@/lib/storelib-theme/compat/size-chart"
 import { PERSONALIZATION_APP_BLOCK_SCHEMAS, personalizationAppBlockSchema } from "@/lib/storelib-theme/compat/personalization"
 import { PRODUCT_APP_BLOCK_SCHEMAS, productAppBlockSchema } from "@/lib/storelib-theme/compat/product-app-blocks"
+import { FORM_APP_BLOCK_SCHEMAS, formAppBlockSchema } from "@/lib/storelib-theme/compat/storelib-form"
 
 /* Storelib's own app blocks for an imported theme: Storelib Reviews' two, Stock status and Estimated delivery, and the size chart (round BC). */
-const STORELIB_APP_BLOCK_SCHEMAS: readonly BlockSchema[] = [...REVIEW_APP_BLOCK_SCHEMAS, ...PRODUCT_APP_BLOCK_SCHEMAS, ...SIZE_CHART_APP_BLOCK_SCHEMAS, ...PERSONALIZATION_APP_BLOCK_SCHEMAS]
-const storelibAppBlockSchema = (type: string) => reviewAppBlockSchema(type) ?? productAppBlockSchema(type) ?? sizeChartAppBlockSchema(type) ?? personalizationAppBlockSchema(type)
+/* And, first of them, a Storelib form or booking page, for any section that takes app blocks (lib/storelib-theme/compat/storelib-form.ts). */
+const STORELIB_APP_BLOCK_SCHEMAS: readonly BlockSchema[] = [...FORM_APP_BLOCK_SCHEMAS, ...REVIEW_APP_BLOCK_SCHEMAS, ...PRODUCT_APP_BLOCK_SCHEMAS, ...SIZE_CHART_APP_BLOCK_SCHEMAS, ...PERSONALIZATION_APP_BLOCK_SCHEMAS]
+const storelibAppBlockSchema = (type: string) => reviewAppBlockSchema(type) ?? productAppBlockSchema(type) ?? sizeChartAppBlockSchema(type) ?? personalizationAppBlockSchema(type) ?? formAppBlockSchema(type)
 import type { BlockInstance, BlockSchema, SchemaField, SchemaFieldType, SectionPreset, SectionSchema } from "./types"
 
 function field(s: SettingDefinition): SchemaField {

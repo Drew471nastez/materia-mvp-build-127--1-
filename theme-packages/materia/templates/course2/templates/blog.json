@@ -1,0 +1,100 @@
+{
+  "sections": {
+    "heading": {
+      "type": "page-heading",
+      "settings": {
+        "height": "adapt",
+        "alignment": "center",
+        "padding_top": 66,
+        "color_scheme": "",
+        "reset_spacing": true,
+        "section_width": "container",
+        "padding_bottom": 55,
+        "overlay_opacity": 0
+      },
+      "blocks": {
+        "heading_xwFKKa": {
+          "type": "heading",
+          "settings": {
+            "page_title": "",
+            "header_size": "medium",
+            "vertical_gap": 14,
+            "heading_font_size": 36,
+            "enable_heading_color": false
+          }
+        },
+        "description_YRWpkt": {
+          "type": "description",
+          "settings": {
+            "description": "<p>Short notes on beans, grinders and recipes. One idea each, to try on your next coffee.</p>",
+            "enable_custom_style": false,
+            "description_font_size": 16
+          }
+        }
+      },
+      "block_order": [
+        "heading_xwFKKa",
+        "description_YRWpkt"
+      ]
+    },
+    "main": {
+      "type": "main-blog",
+      "settings": {
+        "layout": "grid",
+        "row_gap": 64,
+        "show_date": true,
+        "column_gap": 40,
+        "margin_top": 32,
+        "title_size": 22,
+        "badge_width": 70,
+        "image_ratio": "adapt",
+        "title_hover": "underline",
+        "badge_height": 30,
+        "custom_ratio": "16:10",
+        "hover_effect": "lift",
+        "image_radius": 14,
+        "show_excerpt": true,
+        "excerpt_lines": 2,
+        "items_per_row": 3,
+        "items_to_show": 12,
+        "margin_bottom": 0,
+        "readmore_line": "style",
+        "readmore_text": "Read the note",
+        "readmore_type": "underline",
+        "reset_spacing": true,
+        "section_width": "fluid_container",
+        "show_category": true,
+        "show_readmore": true,
+        "button_show_more": "Load more",
+        "content_alignment": "left",
+        "badge_border_radius": 19,
+        "enable_custom_style": true,
+        "badge_text_font_size": 14,
+        "items_per_row_mobile": 1,
+        "badge_vertical_position": 16,
+        "badge_horizontal_position": 16
+      },
+      "name": "Main blog"
+    },
+    "cta": {
+      "type": "course2-cta",
+      "settings": {
+        "heading": "Tomorrow morning, make the good one",
+        "text": "<p>46 lessons, the recipe cards and a 30 day refund, for one payment.</p>",
+        "button_label": "Buy the course",
+        "to_checkout": true,
+        "button_link": "/collections/all",
+        "note": "Lifetime access. Watch on any device.",
+        "panel_color": "#12704f",
+        "button_text_color": "#12704f",
+        "padding_top": 72,
+        "padding_bottom": 72
+      }
+    }
+  },
+  "order": [
+    "heading",
+    "main",
+    "cta"
+  ]
+}

@@ -1,0 +1,153 @@
+{
+  "sections": {
+    "teacher": {
+      "type": "course2-split",
+      "settings": {
+        "tag": "Your teacher",
+        "heading": "Mara Lind,",
+        "heading_accent": "head barista",
+        "text": "<p>Nine years behind the bar in two cafés, the last three training every new barista they hired. This course is what she shows them, filmed at a home machine instead of a café one.</p>",
+        "image": "shopify://shop_images/course2-teacher-bar.webp",
+        "image_alt": "A smiling barista in a mustard beanie holding a portafilter behind a café counter",
+        "image_side": "left",
+        "image_ratio": "9 / 10",
+        "image_focus": "right",
+        "anchor": "teacher",
+        "accent": "#12704f",
+        "padding_top": 48
+      },
+      "blocks": {
+        "row_1": {
+          "type": "row",
+          "settings": {
+            "icon": "pin",
+            "title": "Where she learned",
+            "text": "<p>Two busy cafés, a roastery training bar and thousands of flat whites. Write your own story here.</p>"
+          }
+        },
+        "row_2": {
+          "type": "row",
+          "settings": {
+            "icon": "chat",
+            "title": "How she teaches",
+            "text": "<p>One idea per lesson, shown at full speed, then slowly. Every number is on screen.</p>"
+          }
+        },
+        "row_3": {
+          "type": "row",
+          "settings": {
+            "icon": "home",
+            "title": "What she uses at home",
+            "text": "<p>A single boiler machine, a hand grinder and a scale. Nothing you need to buy to start.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "row_1",
+        "row_2",
+        "row_3"
+      ]
+    },
+    "filmed": {
+      "type": "course2-split",
+      "settings": {
+        "tag": "How it was filmed",
+        "heading": "At a home machine,",
+        "heading_accent": "not a café one",
+        "text": "<p>Every lesson was shot in a kitchen, on the kind of machine and grinder most people own. What you see is what you will get at home.</p>",
+        "image": "shopify://shop_images/course2-chemex-home.webp",
+        "image_alt": "Ground coffee poured from a jar into a glass brewer on a scale, plants behind",
+        "image_side": "right",
+        "accent": "#12704f"
+      },
+      "blocks": {
+        "row_1": {
+          "type": "row",
+          "settings": {
+            "icon": "clock",
+            "title": "Short on purpose",
+            "text": "<p>Most lessons are under ten minutes, so one fits before work.</p>"
+          }
+        },
+        "row_2": {
+          "type": "row",
+          "settings": {
+            "icon": "book",
+            "title": "Notes for every lesson",
+            "text": "<p>The numbers from each lesson on one printable card.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "row_1",
+        "row_2"
+      ]
+    },
+    "facts": {
+      "type": "course2-facts",
+      "settings": {
+        "accent": "#12704f"
+      },
+      "blocks": {
+        "fact_1": {
+          "type": "fact",
+          "settings": {
+            "icon": "list",
+            "figure": "7",
+            "label": "modules, bean to cup"
+          }
+        },
+        "fact_2": {
+          "type": "fact",
+          "settings": {
+            "icon": "play",
+            "figure": "46",
+            "label": "video lessons"
+          }
+        },
+        "fact_3": {
+          "type": "fact",
+          "settings": {
+            "icon": "clock",
+            "figure": "6h",
+            "label": "of video, in short parts"
+          }
+        },
+        "fact_4": {
+          "type": "fact",
+          "settings": {
+            "icon": "shield",
+            "figure": "30",
+            "label": "days to ask for a refund"
+          }
+        }
+      },
+      "block_order": [
+        "fact_1",
+        "fact_2",
+        "fact_3",
+        "fact_4"
+      ]
+    },
+    "cta": {
+      "type": "course2-cta",
+      "settings": {
+        "heading": "Tomorrow morning, make the good one",
+        "text": "<p>46 lessons, the recipe cards and a 30 day refund, for one payment.</p>",
+        "button_label": "Buy the course",
+        "to_checkout": true,
+        "button_link": "/collections/all",
+        "note": "Lifetime access. Watch on any device.",
+        "panel_color": "#12704f",
+        "button_text_color": "#12704f",
+        "padding_bottom": 72
+      }
+    }
+  },
+  "order": [
+    "teacher",
+    "filmed",
+    "facts",
+    "cta"
+  ]
+}

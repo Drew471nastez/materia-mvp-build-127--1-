@@ -1,0 +1,385 @@
+{%- comment -%}
+Retro desktop: questions in a help window, each a line in a tree with a
+  small box that opens it (details and summary: keyboard and screen readers
+  work as everywhere).
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+-%}
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&display=swap" data-r98-font>
+<style>
+  .r98 { --r-face: #c0c0c0; --r-light: #dfdfdf; --r-hi: #ffffff; --r-shadow: #808080; --r-dark: #0a0a0a; --r-t1: #000080; --r-t2: #1084d0; --r-sel: #000080;
+    --r-px: 'Pixelify Sans', ui-monospace, 'Courier New', monospace; color: #111; font-family: var(--body-font, Arial, sans-serif); font-size: 14px; line-height: 1.5; }
+  .r98 *, .r98 *::before, .r98 *::after { box-sizing: border-box; }
+  .r98-win { position: relative; background: var(--r-face); padding: 3px; box-shadow: inset -1px -1px var(--r-dark), inset 1px 1px var(--r-light), inset -2px -2px var(--r-shadow), inset 2px 2px var(--r-hi), 6px 6px 0 rgba(0,0,0,.18); }
+  .r98-bar { display: flex; align-items: center; gap: 6px; min-height: 26px; padding: 2px 3px 2px 5px; background: linear-gradient(90deg, var(--r-t1), var(--r-t2)); color: #fff; font-family: var(--r-px); font-size: 15px; font-weight: 600; letter-spacing: .01em; user-select: none; -webkit-user-select: none; }
+  .r98-bar .r98-ico { width: 16px; height: 16px; flex: none; }
+  .r98-bar__title { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; margin: 0; font: inherit; color: inherit; }
+  .r98-bar__btns { display: flex; gap: 2px; flex: none; }
+  .r98-ctl { display: grid; place-items: center; width: 22px; height: 20px; margin: 0; padding: 0; border: 0; border-radius: 0; cursor: pointer; color: #000; background: var(--r-face);
+    box-shadow: inset -1px -1px var(--r-dark), inset 1px 1px var(--r-hi), inset -2px -2px var(--r-shadow), inset 2px 2px var(--r-light); }
+  .r98-ctl svg { width: 10px; height: 10px; }
+  .r98-ctl:active { box-shadow: inset 1px 1px var(--r-dark), inset -1px -1px var(--r-hi), inset 2px 2px var(--r-shadow), inset -2px -2px var(--r-light); }
+  .r98-ctl:active svg { transform: translate(1px, 1px); }
+  .r98-ctl:focus-visible, .r98-btn:focus-visible { outline: 1px dotted #000; outline-offset: -5px; }
+  .r98-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 36px; min-width: 96px; margin: 0; padding: 0 18px; border: 0; border-radius: 0; cursor: pointer;
+    background: var(--r-face); color: #111; font-family: var(--r-px); font-size: 16px; font-weight: 500; line-height: 1; text-decoration: none; white-space: nowrap;
+    box-shadow: inset -1px -1px var(--r-dark), inset 1px 1px var(--r-hi), inset -2px -2px var(--r-shadow), inset 2px 2px var(--r-light); }
+  .r98-btn:hover { background: #cacaca; color: #111; }
+  .r98-btn:active, .r98-btn[aria-pressed="true"] { box-shadow: inset 1px 1px var(--r-dark), inset -1px -1px var(--r-hi), inset 2px 2px var(--r-shadow), inset -2px -2px var(--r-light); padding-top: 2px; padding-left: 20px; padding-right: 16px; }
+  .r98-btn--default { outline: 1px solid #000; outline-offset: 0; }
+  .r98-btn--blue { background: var(--r-t1); color: #fff; box-shadow: inset -1px -1px var(--r-dark), inset 1px 1px #5a7ad8, inset -2px -2px #00004a, inset 2px 2px #2f4fb0; }
+  .r98-btn--blue:hover { background: #0a0a9a; color: #fff; }
+  .r98-btn .r98-ico { width: 20px; height: 20px; }
+  .r98-field { background: #fff; box-shadow: inset -1px -1px var(--r-hi), inset 1px 1px var(--r-shadow), inset -2px -2px var(--r-light), inset 2px 2px var(--r-dark); }
+  .r98-sunken { box-shadow: inset -1px -1px var(--r-hi), inset 1px 1px var(--r-shadow); }
+  .r98-raised { box-shadow: inset -1px -1px var(--r-shadow), inset 1px 1px var(--r-hi); }
+  .r98-h { margin: 0; font-family: var(--r-px); font-weight: 600; color: #000; line-height: 1.1; letter-spacing: 0; }
+  .r98 .r98-ico { image-rendering: pixelated; }
+  .r98-win.is-min .r98-body, .r98-win.is-min .r98-hide-min { display: none; }
+  .r98-win.is-max { position: relative; z-index: 3; }
+  .r98-win[data-r98-window] { transition: transform .35s cubic-bezier(.2,.8,.2,1), opacity .25s; }
+  .r98-win.is-closing { opacity: 0; transform: scale(.96); }
+  html.r98-js .r98 [data-motion] { opacity: 0; transform: translate3d(0, 14px, 0) scale(.985); transition: opacity .55s cubic-bezier(.2,.7,.2,1), transform .55s cubic-bezier(.2,.7,.2,1); transition-delay: var(--d, 0ms); }
+  html.r98-js .r98 [data-motion].is-in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) {
+    html.r98-js .r98 [data-motion] { opacity: 1; transform: none; transition: none; }
+    .r98-win[data-r98-window] { transition: none; }
+  }
+
+  #shopify-section-{{ sid }} .r98 { padding: {{ st.padding_top_mobile | default: 16 }}px 10px {{ st.padding_bottom_mobile | default: 16 }}px; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .r98 { padding: {{ st.padding_top | default: 32 }}px 24px {{ st.padding_bottom | default: 32 }}px; } }
+
+  #shopify-section-{{ sid }} .r98-place { max-width: {{ st.width | default: 1100 }}px; margin: 0 auto; }
+  @media (min-width: 1100px) {
+    {%- if st.offset == 'left' -%} #shopify-section-{{ sid }} .r98-place { margin-left: max(0px, calc((100% - 1180px) / 2)); } {%- endif -%}
+    {%- if st.offset == 'right' -%} #shopify-section-{{ sid }} .r98-place { margin-right: max(0px, calc((100% - 1180px) / 2)); } {%- endif -%}
+  }
+
+  .r98-help__body { display: grid; grid-template-columns: minmax(0, 1fr); background: #fff; }
+  .r98-help__intro { padding: 16px 18px 6px; }
+  .r98-help__intro .r98-h { font-size: 30px; }
+  .r98-help__intro div { margin-top: 6px; font-size: 15px; }
+  .r98-help__intro p { margin: 0; }
+  .r98-tree { list-style: none; margin: 0; padding: 10px 14px 16px; }
+  .r98-tree details { border-left: 1px dotted #808080; margin-left: 8px; }
+  .r98-tree summary { position: relative; list-style: none; display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 4px 4px 4px 16px; cursor: pointer; font-size: 15px; }
+  .r98-tree summary::-webkit-details-marker { display: none; }
+  .r98-tree summary::before { content: ""; position: absolute; left: 0; top: 50%; width: 10px; border-top: 1px dotted #808080; }
+  .r98-tree__box { position: absolute; left: -6px; top: 50%; width: 11px; height: 11px; margin-top: -5px; background: #fff; border: 1px solid #808080; }
+  .r98-tree__box::before, .r98-tree__box::after { content: ""; position: absolute; left: 2px; top: 4px; width: 5px; height: 1px; background: #000; }
+  .r98-tree__box::after { transform: rotate(90deg); }
+  .r98-tree details[open] .r98-tree__box::after { display: none; }
+  .r98-tree summary .r98-ico { width: 20px; height: 20px; flex: none; margin-left: 4px; }
+  .r98-tree summary span.q { padding: 1px 3px; border: 1px dotted transparent; }
+  .r98-tree summary:hover span.q, .r98-tree summary:focus-visible span.q, .r98-tree details[open] summary span.q { background: var(--r-sel); color: #fff; }
+  .r98-tree summary:focus-visible { outline: none; }
+  .r98-tree__a { padding: 2px 10px 14px 46px; font-size: 15px; line-height: 1.6; }
+  .r98-tree__a p { margin: 0 0 .5em; }
+  .r98-tree__a p:last-child { margin: 0; }
+</style>
+<div data-own-font class="r98 r98-help">
+  <div class="r98-place">
+    <div class="r98-win" data-r98-window{% if st.draggable %} data-r98-drag{% endif %} data-motion>
+      <div class="r98-bar">{%- case st.icon -%}{%- when 'folder' -%}<svg class="r98-ico" viewBox="0 0 16 16" width="16" height="16" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path fill="#000000" d="M2 2h5v1H2zM1 3h1v1H1zM7 3h1v1H7zM1 4h1v1H1zM8 4h7v1H8zM1 5h1v1H1zM14 5h1v1H14zM1 6h1v1H1zM14 6h1v1H14zM1 7h1v1H1zM14 7h1v1H14zM1 8h1v1H1zM14 8h1v1H14zM1 9h1v1H1zM14 9h1v1H14zM1 10h1v1H1zM14 10h1v1H14zM1 11h1v1H1zM14 11h1v1H14zM1 12h1v1H1zM14 12h1v1H14zM1 13h14v1H1z"/><path fill="#ffd84a" d="M2 3h5v1H2zM2 4h6v1H2zM3 6h11v1H3zM3 7h11v1H3zM3 8h11v1H3zM3 9h11v1H3zM3 10h11v1H3zM3 11h11v1H3z"/><path fill="#ffffff" d="M2 5h12v1H2zM2 6h1v1H2zM2 7h1v1H2zM2 8h1v1H2zM2 9h1v1H2zM2 10h1v1H2zM2 11h1v1H2z"/><path fill="#808080" d="M15 5h1v1H15zM15 6h1v1H15zM15 7h1v1H15zM15 8h1v1H15zM15 9h1v1H15zM15 10h1v1H15zM15 11h1v1H15zM15 13h1v1H15zM2 14h14v1H2z"/><path fill="#c9971c" d="M2 12h12v1H2zM15 12h1v1H15z"/></svg>{%- when 'tee' -%}<svg class="r98-ico" viewBox="0 0 16 16" width="16" height="16" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path fill="#000000" d="M4 1h3v1H4zM9 1h3v1H9zM2 2h2v1H2zM7 2h2v1H7zM12 2h2v1H12zM1 3h1v1H1zM14 3h1v1H14zM0 4h1v1H0zM15 4h1v1H15zM0 5h1v1H0zM15 5h1v1H15zM1 6h3v1H1zM12 6h3v1H12zM3 7h1v1H3zM12 7h1v1H12zM3 8h1v1H3zM12 8h1v1H12zM3 9h1v1H3zM12 9h1v1H12zM3 10h1v1H3zM12 10h1v1H12zM3 11h1v1H3zM12 11h1v1H12zM3 12h1v1H3zM12 12h1v1H12zM3 13h1v1H3zM12 13h1v1H12zM3 14h10v1H3z"/><path fill="#ffffff" d="M4 2h3v1H4zM9 2h3v1H9zM2 3h12v1H2zM1 4h14v1H1zM1 5h2v1H1zM4 5h8v1H4zM13 5h2v1H13zM4 6h8v1H4zM4 7h8v1H4zM4 8h2v1H4zM10 8h2v1H10zM4 9h2v1H4zM10 9h2v1H10zM4 10h2v1H4zM10 10h2v1H10zM4 11h8v1H4zM4 12h8v1H4zM5 13h6v1H5z"/><path fill="#e8e8e8" d="M3 5h1v1H3zM12 5h1v1H12zM4 13h1v1H4zM11 13h1v1H11z"/><path fill="#000080" d="M6 8h4v1H6zM6 9h1v1H6zM6 10h4v1H6z"/><path fill="#1084d0" d="M7 9h3v1H7z"/><path fill="#808080" d="M13 13h1v1H13zM13 14h1v1H13zM4 15h10v1H4z"/></svg>{%- when 'hoodie' -%}<svg class="r98-ico" viewBox="0 0 16 16" width="16" height="16" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path fill="#000000" d="M5 0h6v1H5zM4 1h1v1H4zM11 1h1v1H11zM3 2h1v1H3zM6 2h4v1H6zM12 2h1v1H12zM2 3h2v1H2zM6 3h1v1H6zM9 3h1v1H9zM12 3h2v1H12zM1 4h1v1H1zM6 4h4v1H6zM14 4h1v1H14zM0 5h1v1H0zM15 5h1v1H15zM0 6h1v1H0zM15 6h1v1H15zM0 7h1v1H0zM3 7h1v1H3zM12 7h1v1H12zM15 7h1v1H15zM0 8h1v1H0zM3 8h1v1H3zM12 8h1v1H12zM15 8h1v1H15zM0 9h1v1H0zM3 9h1v1H3zM5 9h1v1H5zM10 9h1v1H10zM12 9h1v1H12zM15 9h1v1H15zM0 10h1v1H0zM3 10h1v1H3zM5 10h1v1H5zM10 10h1v1H10zM12 10h1v1H12zM15 10h1v1H15zM0 11h1v1H0zM3 11h1v1H3zM5 11h1v1H5zM10 11h1v1H10zM12 11h1v1H12zM15 11h1v1H15zM1 12h2v1H1zM5 12h1v1H5zM10 12h1v1H10zM13 12h2v1H13zM5 13h1v1H5zM10 13h1v1H10zM5 14h6v1H5z"/><path fill="#2b2b2b" d="M5 1h6v1H5zM4 2h2v1H4zM10 2h2v1H10zM4 3h2v1H4zM10 3h2v1H10zM2 4h4v1H2zM10 4h4v1H10zM1 5h5v1H1zM7 5h2v1H7zM10 5h5v1H10zM1 6h5v1H1zM7 6h2v1H7zM10 6h5v1H10zM1 7h2v1H1zM4 7h8v1H4zM13 7h2v1H13zM1 8h2v1H1zM4 8h8v1H4zM13 8h2v1H13zM1 9h2v1H1zM6 9h4v1H6zM13 9h2v1H13zM1 10h2v1H1zM6 10h4v1H6zM13 10h2v1H13zM6 12h4v1H6z"/><path fill="#808080" d="M7 3h2v1H7zM1 11h2v1H1zM6 11h4v1H6zM13 11h2v1H13zM6 13h4v1H6z"/><path fill="#ffffff" d="M6 5h1v1H6zM9 5h1v1H9zM6 6h1v1H6zM9 6h1v1H9z"/></svg>{%- when 'cap' -%}<svg class="r98-ico" viewBox="0 0 16 16" width="16" height="16" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path fill="#000000" d="M6 3h4v1H6zM4 4h2v1H4zM10 4h2v1H10zM3 5h1v1H3zM12 5h1v1H12zM2 6h1v1H2zM13 6h1v1H13zM2 7h1v1H2zM13 7h1v1H13zM1 8h1v1H1zM14 8h1v1H14zM1 9h1v1H1zM14 9h1v1H14zM1 10h15v1H1zM2 11h1v1H2zM15 11h1v1H15zM3 12h12v1H3z"/><path fill="#2b2b2b" d="M6 4h4v1H6zM4 5h8v1H4zM3 6h3v1H3zM8 6h5v1H8zM3 7h3v1H3zM8 7h5v1H8zM2 8h12v1H2zM2 9h12v1H2zM3 11h12v1H3z"/><path fill="#ffffff" d="M6 6h2v1H6zM6 7h2v1H6z"/></svg>{%- when 'sticker' -%}<svg class="r98-ico" viewBox="0 0 16 16" width="16" height="16" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path fill="#000000" d="M3 1h9v1H3zM2 2h1v1H2zM12 2h1v1H12zM1 3h1v1H1zM13 3h1v1H13zM1 4h1v1H1zM4 4h1v1H4zM9 4h1v1H9zM13 4h1v1H13zM1 5h1v1H1zM4 5h1v1H4zM9 5h1v1H9zM13 5h1v1H13zM1 6h1v1H1zM13 6h1v1H13zM1 7h1v1H1zM4 7h1v1H4zM9 7h1v1H9zM13 7h1v1H13zM1 8h1v1H1zM5 8h4v1H5zM12 8h1v1H12zM1 9h1v1H1zM12 9h1v1H12zM2 10h1v1H2zM11 10h1v1H11zM14 10h1v1H14zM3 11h8v1H3zM14 11h1v1H14zM11 12h1v1H11zM13 12h1v1H13zM12 13h1v1H12z"/><path fill="#ffd84a" d="M3 2h9v1H3zM2 3h11v1H2zM2 4h2v1H2zM5 4h4v1H5zM10 4h3v1H10zM2 5h2v1H2zM5 5h4v1H5zM10 5h3v1H10zM2 6h11v1H2zM2 7h2v1H2zM5 7h4v1H5zM10 7h3v1H10zM2 8h3v1H2zM9 8h3v1H9zM2 9h10v1H2zM3 10h8v1H3z"/><path fill="#ffffff" d="M13 9h1v1H13zM12 10h2v1H12zM11 11h3v1H11zM12 12h1v1H12z"/></svg>{%- when 'cart' -%}<svg class="r98-ico" viewBox="0 0 16 16" width="16" height="16" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path fill="#000000" d="M0 1h3v1H0zM1 2h2v1H1zM2 3h13v1H2zM2 4h1v1H2zM13 4h1v1H13zM2 5h1v1H2zM4 5h1v1H4zM6 5h1v1H6zM8 5h1v1H8zM10 5h1v1H10zM13 5h1v1H13zM3 6h1v1H3zM12 6h1v1H12zM3 7h2v1H3zM6 7h1v1H6zM8 7h1v1H8zM10 7h3v1H10zM4 8h1v1H4zM11 8h1v1H11zM4 9h8v1H4zM5 10h1v1H5zM10 10h1v1H10zM4 11h10v1H4zM4 13h2v1H4zM10 13h2v1H10zM3 14h1v1H3zM6 14h1v1H6zM9 14h1v1H9zM12 14h1v1H12zM4 15h2v1H4zM10 15h2v1H10z"/><path fill="#ffffff" d="M3 4h10v1H3zM3 5h1v1H3zM5 5h1v1H5zM7 5h1v1H7zM9 5h1v1H9zM11 5h2v1H11zM4 6h8v1H4zM5 7h1v1H5zM7 7h1v1H7zM9 7h1v1H9zM5 8h6v1H5z"/><path fill="#808080" d="M4 14h2v1H4zM10 14h2v1H10z"/></svg>{%- when 'mail' -%}<svg class="r98-ico" viewBox="0 0 16 16" width="16" height="16" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path fill="#000000" d="M1 3h14v1H1zM1 4h1v1H1zM3 4h1v1H3zM12 4h1v1H12zM14 4h1v1H14zM1 5h1v1H1zM4 5h1v1H4zM11 5h1v1H11zM14 5h1v1H14zM1 6h1v1H1zM5 6h1v1H5zM10 6h1v1H10zM14 6h1v1H14zM1 7h1v1H1zM6 7h1v1H6zM9 7h1v1H9zM14 7h1v1H14zM1 8h1v1H1zM7 8h2v1H7zM14 8h1v1H14zM1 9h1v1H1zM14 9h1v1H14zM1 10h1v1H1zM14 10h1v1H14zM1 11h1v1H1zM14 11h1v1H14zM1 12h14v1H1z"/><path fill="#ffffff" d="M2 4h1v1H2zM4 4h8v1H4zM13 4h1v1H13zM2 5h2v1H2zM5 5h6v1H5zM12 5h2v1H12zM2 6h3v1H2zM6 6h4v1H6zM11 6h3v1H11zM2 7h4v1H2zM7 7h2v1H7zM10 7h4v1H10zM2 8h5v1H2zM9 8h5v1H9zM2 9h12v1H2zM2 10h12v1H2zM2 11h12v1H2z"/><path fill="#808080" d="M15 11h1v1H15zM15 12h1v1H15zM2 13h14v1H2z"/></svg>{%- when 'note' -%}<svg class="r98-ico" viewBox="0 0 16 16" width="16" height="16" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path fill="#000000" d="M2 1h10v1H2zM2 2h1v1H2zM11 2h2v1H11zM2 3h1v1H2zM4 3h5v1H4zM11 3h1v1H11zM13 3h1v1H13zM2 4h1v1H2zM11 4h4v1H11zM2 5h1v1H2zM4 5h7v1H4zM14 5h1v1H14zM2 6h1v1H2zM14 6h1v1H14zM2 7h1v1H2zM4 7h8v1H4zM14 7h1v1H14zM2 8h1v1H2zM14 8h1v1H14zM2 9h1v1H2zM4 9h6v1H4zM14 9h1v1H14zM2 10h1v1H2zM14 10h1v1H14zM2 11h1v1H2zM4 11h8v1H4zM14 11h1v1H14zM2 12h1v1H2zM14 12h1v1H14zM2 13h13v1H2z"/><path fill="#ffffff" d="M3 2h8v1H3zM3 3h1v1H3zM9 3h2v1H9zM12 3h1v1H12zM3 4h8v1H3zM3 5h1v1H3zM11 5h3v1H11zM3 6h11v1H3zM3 7h1v1H3zM12 7h2v1H12zM3 8h11v1H3zM3 9h1v1H3zM10 9h4v1H10zM3 10h11v1H3zM3 11h1v1H3zM12 11h2v1H12zM3 12h11v1H3z"/><path fill="#808080" d="M15 12h1v1H15zM15 13h1v1H15zM3 14h13v1H3z"/></svg>{%- when 'search' -%}<svg class="r98-ico" viewBox="0 0 16 16" width="16" height="16" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path fill="#000000" d="M4 1h4v1H4zM3 2h1v1H3zM9 2h1v1H9zM2 3h1v1H2zM10 3h1v1H10zM1 4h1v1H1zM12 4h1v1H12zM1 5h1v1H1zM11 5h1v1H11zM1 6h1v1H1zM11 6h1v1H11zM1 7h1v1H1zM11 7h1v1H11zM2 8h1v1H2zM10 8h1v1H10zM3 9h1v1H3zM9 9h2v1H9zM4 10h5v1H4zM10 10h2v1H10zM9 11h1v1H9zM12 11h1v1H12zM10 12h1v1H10zM13 12h1v1H13zM11 13h1v1H11zM14 13h1v1H14zM12 14h3v1H12z"/><path fill="#9fd6ff" d="M4 2h5v1H4zM3 3h2v1H3zM7 3h3v1H7zM2 4h2v1H2zM5 4h7v1H5zM2 5h1v1H2zM4 5h7v1H4zM2 6h9v1H2zM2 7h9v1H2zM3 8h7v1H3zM4 9h5v1H4z"/><path fill="#ffffff" d="M5 3h2v1H5zM4 4h1v1H4zM3 5h1v1H3z"/><path fill="#808080" d="M9 10h1v1H9zM10 11h2v1H10zM11 12h2v1H11zM12 13h2v1H12z"/></svg>{%- when 'user' -%}<svg class="r98-ico" viewBox="0 0 16 16" width="16" height="16" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path fill="#000000" d="M6 1h4v1H6zM5 2h1v1H5zM10 2h1v1H10zM4 3h1v1H4zM11 3h1v1H11zM4 4h1v1H4zM11 4h1v1H11zM4 5h1v1H4zM11 5h1v1H11zM5 6h1v1H5zM10 6h1v1H10zM6 7h4v1H6zM4 8h2v1H4zM10 8h2v1H10zM3 9h1v1H3zM12 9h1v1H12zM2 10h1v1H2zM13 10h1v1H13zM2 11h1v1H2zM13 11h1v1H13zM2 12h1v1H2zM13 12h1v1H13zM2 13h12v1H2z"/><path fill="#ffffff" d="M6 2h4v1H6zM5 3h6v1H5zM5 4h6v1H5zM5 5h6v1H5zM6 6h4v1H6z"/><path fill="#1084d0" d="M6 8h4v1H6zM4 9h8v1H4zM3 10h10v1H3zM3 11h10v1H3zM3 12h10v1H3z"/></svg>{%- when 'disk' -%}<svg class="r98-ico" viewBox="0 0 16 16" width="16" height="16" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path fill="#000000" d="M1 1h13v1H1zM1 2h1v1H1zM4 2h1v1H4zM11 2h1v1H11zM14 2h1v1H14zM1 3h1v1H1zM4 3h1v1H4zM11 3h1v1H11zM15 3h1v1H15zM1 4h1v1H1zM4 4h1v1H4zM8 4h1v1H8zM11 4h1v1H11zM15 4h1v1H15zM1 5h1v1H1zM4 5h1v1H4zM8 5h1v1H8zM11 5h1v1H11zM15 5h1v1H15zM1 6h1v1H1zM4 6h8v1H4zM15 6h1v1H15zM1 7h1v1H1zM15 7h1v1H15zM1 8h1v1H1zM15 8h1v1H15zM1 9h1v1H1zM5 9h7v1H5zM15 9h1v1H15zM1 10h1v1H1zM15 10h1v1H15zM1 11h1v1H1zM5 11h6v1H5zM15 11h1v1H15zM1 12h1v1H1zM15 12h1v1H15zM1 13h15v1H1z"/><path fill="#000080" d="M2 2h2v1H2zM12 2h2v1H12zM2 3h2v1H2zM12 3h3v1H12zM2 4h2v1H2zM12 4h3v1H12zM2 5h2v1H2zM12 5h3v1H12zM2 6h2v1H2zM12 6h3v1H12zM2 7h13v1H2zM2 8h2v1H2zM13 8h2v1H13zM2 9h2v1H2zM13 9h2v1H13zM2 10h2v1H2zM13 10h2v1H13zM2 11h2v1H2zM13 11h2v1H13zM2 12h2v1H2zM13 12h2v1H13z"/><path fill="#ffffff" d="M5 2h6v1H5zM5 3h6v1H5zM5 4h3v1H5zM9 4h2v1H9zM5 5h3v1H5zM9 5h2v1H9zM4 8h9v1H4zM4 9h1v1H4zM12 9h1v1H12zM4 10h9v1H4zM4 11h1v1H4zM11 11h2v1H11zM4 12h9v1H4z"/></svg>{%- when 'smile' -%}<svg class="r98-ico" viewBox="0 0 16 16" width="16" height="16" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path fill="#000000" d="M5 1h6v1H5zM3 2h2v1H3zM11 2h2v1H11zM2 3h1v1H2zM13 3h1v1H13zM1 4h1v1H1zM14 4h1v1H14zM1 5h1v1H1zM5 5h1v1H5zM10 5h1v1H10zM14 5h1v1H14zM0 6h1v1H0zM5 6h1v1H5zM10 6h1v1H10zM15 6h1v1H15zM0 7h1v1H0zM15 7h1v1H15zM0 8h1v1H0zM15 8h1v1H15zM0 9h1v1H0zM3 9h1v1H3zM12 9h1v1H12zM15 9h1v1H15zM1 10h1v1H1zM4 10h1v1H4zM11 10h1v1H11zM14 10h1v1H14zM1 11h1v1H1zM5 11h6v1H5zM14 11h1v1H14zM2 12h1v1H2zM13 12h1v1H13zM3 13h2v1H3zM11 13h2v1H11zM5 14h6v1H5z"/><path fill="#ffd84a" d="M5 2h6v1H5zM3 3h10v1H3zM2 4h12v1H2zM2 5h3v1H2zM6 5h4v1H6zM11 5h3v1H11zM1 6h4v1H1zM6 6h4v1H6zM11 6h4v1H11zM1 7h14v1H1zM1 8h14v1H1zM1 9h2v1H1zM4 9h8v1H4zM13 9h2v1H13zM2 10h2v1H2zM5 10h6v1H5zM12 10h2v1H12zM2 11h3v1H2zM11 11h3v1H11zM3 12h10v1H3zM5 13h6v1H5z"/></svg>{%- else -%}<svg class="r98-ico" viewBox="0 0 16 16" width="16" height="16" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path fill="#000000" d="M5 1h6v1H5zM3 2h2v1H3zM11 2h2v1H11zM2 3h1v1H2zM13 3h1v1H13zM1 4h1v1H1zM13 4h1v1H13zM1 5h1v1H1zM14 5h1v1H14zM0 6h1v1H0zM15 6h1v1H15zM0 7h1v1H0zM15 7h1v1H15zM0 8h1v1H0zM15 8h1v1H15zM0 9h1v1H0zM1 10h1v1H1zM14 10h1v1H14zM1 11h1v1H1zM14 11h1v1H14zM2 12h1v1H2zM13 12h1v1H13zM3 13h2v1H3zM11 13h2v1H11zM5 14h6v1H5z"/><path fill="#1084d0" d="M5 2h6v1H5zM3 3h10v1H3zM2 4h4v1H2zM10 4h3v1H10zM2 5h3v1H2zM7 5h2v1H7zM11 5h3v1H11zM1 6h8v1H1zM11 6h4v1H11zM1 7h7v1H1zM10 7h5v1H10zM1 8h6v1H1zM9 8h6v1H9zM1 9h15v1H1zM2 10h5v1H2zM9 10h5v1H9zM2 11h5v1H2zM9 11h5v1H9zM3 12h10v1H3zM5 13h6v1H5z"/><path fill="#ffffff" d="M6 4h4v1H6zM5 5h2v1H5zM9 5h2v1H9zM9 6h2v1H9zM8 7h2v1H8zM7 8h2v1H7zM7 10h2v1H7zM7 11h2v1H7z"/></svg>{%- endcase -%}<span class="r98-bar__title">{{ st.title | escape }}</span><span class="r98-bar__btns">
+  <button class="r98-ctl" type="button" data-r98-min aria-label="Minimise"><svg viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect x="1" y="7" width="6" height="2" fill="currentColor"/></svg></button>
+  <button class="r98-ctl" type="button" data-r98-max aria-label="Maximise"><svg viewBox="0 0 10 10" aria-hidden="true" focusable="false"><path d="M0 0h10v10H0zM1 2v7h8V2z" fill="currentColor"/></svg></button>
+  <button class="r98-ctl" type="button" data-r98-close aria-label="Close"><svg viewBox="0 0 10 10" aria-hidden="true" focusable="false"><path d="M1 1h2v1h1v1h2V2h1V1h2v2H8v1H7v2h1v1h1v2H7V8H6V7H4v1H3v1H1V7h1V6h1V4H2V3H1z" fill="currentColor"/></svg></button>
+</span></div>
+      <div class="r98-body">
+        <div class="r98-help__body r98-field">
+          {%- if st.heading != blank or st.text != blank -%}
+            <div class="r98-help__intro">
+              {%- if st.heading != blank -%}<{{ st.heading_tag | default: 'h2' }} class="r98-h">{{ st.heading | escape }}</{{ st.heading_tag | default: 'h2' }}>{%- endif -%}
+              {%- if st.text != blank -%}<div>{{ st.text }}</div>{%- endif -%}
+            </div>
+          {%- endif -%}
+          <div class="r98-tree">
+            {%- for block in section.blocks -%}
+              <details {{ block.shopify_attributes }}{% if forloop.first and st.first_open %} open{% endif %}>
+                <summary><span class="r98-tree__box" aria-hidden="true"></span><svg class="r98-ico" viewBox="0 0 16 16" width="20" height="20" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path fill="#000000" d="M2 1h10v1H2zM2 2h1v1H2zM11 2h2v1H11zM2 3h1v1H2zM4 3h5v1H4zM11 3h1v1H11zM13 3h1v1H13zM2 4h1v1H2zM11 4h4v1H11zM2 5h1v1H2zM4 5h7v1H4zM14 5h1v1H14zM2 6h1v1H2zM14 6h1v1H14zM2 7h1v1H2zM4 7h8v1H4zM14 7h1v1H14zM2 8h1v1H2zM14 8h1v1H14zM2 9h1v1H2zM4 9h6v1H4zM14 9h1v1H14zM2 10h1v1H2zM14 10h1v1H14zM2 11h1v1H2zM4 11h8v1H4zM14 11h1v1H14zM2 12h1v1H2zM14 12h1v1H14zM2 13h13v1H2z"/><path fill="#ffffff" d="M3 2h8v1H3zM3 3h1v1H3zM9 3h2v1H9zM12 3h1v1H12zM3 4h8v1H3zM3 5h1v1H3zM11 5h3v1H11zM3 6h11v1H3zM3 7h1v1H3zM12 7h2v1H12zM3 8h11v1H3zM3 9h1v1H3zM10 9h4v1H10zM3 10h11v1H3zM3 11h1v1H3zM12 11h2v1H12zM3 12h11v1H3z"/><path fill="#808080" d="M15 12h1v1H15zM15 13h1v1H15zM3 14h13v1H3z"/></svg><span class="q">{{ block.settings.question | escape }}</span></summary>
+                <div class="r98-tree__a">{{ block.settings.answer }}</div>
+              </details>
+            {%- endfor -%}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var root = document.getElementById('shopify-section-{{ section.id }}');
+    if (!root) return;
+    var still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if ('IntersectionObserver' in window && !still) {
+      document.documentElement.classList.add('r98-js');
+      if (!window.__r98Seen) window.__r98Seen = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('is-in'); window.__r98Seen.unobserve(e.target); } }); }, { rootMargin: '0px 0px -6% 0px', threshold: 0.05 });
+      root.querySelectorAll('[data-motion]:not(.is-in)').forEach(function (el) { window.__r98Seen.observe(el); });
+    }
+    root.querySelectorAll('[data-r98-window]').forEach(function (win) {
+      if (win.__r98) return; win.__r98 = true;
+      var narrow = function () { return window.matchMedia('(max-width: 749px)').matches; };
+      var min = win.querySelector('[data-r98-min]'), max = win.querySelector('[data-r98-max]'), close = win.querySelector('[data-r98-close]');
+      function tell() { document.dispatchEvent(new CustomEvent('r98:windows')); }
+      function park() { if (window.__r98Park && !narrow()) { win.hidden = true; window.__r98Park(win); } else { win.classList.toggle('is-min'); } tell(); }
+      if (min) min.addEventListener('click', park);
+      if (max) max.addEventListener('click', function () { win.classList.toggle('is-max'); win.classList.remove('is-min'); tell(); });
+      if (close) close.addEventListener('click', function () {
+        if (narrow() || !window.__r98Park) { win.classList.add('is-min'); tell(); return; }
+        win.classList.add('is-closing');
+        setTimeout(function () { win.classList.remove('is-closing'); win.hidden = true; window.__r98Park(win); tell(); }, still ? 0 : 220);
+      });
+      /* Dragged by its title bar on a desktop screen: a transform, so nothing else on the page moves. */
+      var bar = win.querySelector('.r98-bar');
+      if (bar && win.hasAttribute('data-r98-drag') && window.matchMedia('(pointer: fine)').matches) {
+        var sx = 0, sy = 0, ox = 0, oy = 0, dx = 0, dy = 0, on = false;
+        bar.style.cursor = 'grab';
+        bar.addEventListener('pointerdown', function (e) {
+          if (e.button !== 0 || e.target.closest('button') || narrow()) return;
+          on = true; sx = e.clientX; sy = e.clientY; ox = dx; oy = dy; bar.setPointerCapture(e.pointerId); win.style.transition = 'none'; win.style.zIndex = 5; bar.style.cursor = 'grabbing';
+        });
+        bar.addEventListener('pointermove', function (e) {
+          if (!on) return;
+          dx = ox + e.clientX - sx; dy = oy + e.clientY - sy;
+          var r = win.getBoundingClientRect(), lim = window.innerWidth - 80;
+          if (r.left + (e.clientX - sx) < -r.width + 80 || r.left > lim) return;
+          win.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+        });
+        var end = function () { if (!on) return; on = false; win.style.transition = ''; bar.style.cursor = 'grab'; };
+        bar.addEventListener('pointerup', end); bar.addEventListener('pointercancel', end);
+        bar.addEventListener('dblclick', function () { dx = dy = 0; win.style.transform = ''; });
+      }
+    });
+    document.dispatchEvent(new CustomEvent('r98:windows'));
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Help window",
+  "tag": "section",
+  "class": "retro-help-section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "title",
+      "label": "Title bar",
+      "default": "Help"
+    },
+    {
+      "type": "select",
+      "id": "icon",
+      "label": "Title bar icon",
+      "default": "help",
+      "options": [
+        {
+          "value": "folder",
+          "label": "Folder"
+        },
+        {
+          "value": "tee",
+          "label": "Tee"
+        },
+        {
+          "value": "hoodie",
+          "label": "Hoodie"
+        },
+        {
+          "value": "cap",
+          "label": "Cap"
+        },
+        {
+          "value": "sticker",
+          "label": "Sticker"
+        },
+        {
+          "value": "cart",
+          "label": "Cart"
+        },
+        {
+          "value": "mail",
+          "label": "Letter"
+        },
+        {
+          "value": "note",
+          "label": "Text file"
+        },
+        {
+          "value": "help",
+          "label": "Help"
+        },
+        {
+          "value": "search",
+          "label": "Search"
+        },
+        {
+          "value": "user",
+          "label": "Person"
+        },
+        {
+          "value": "disk",
+          "label": "Floppy disk"
+        },
+        {
+          "value": "smile",
+          "label": "Smiley"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Questions"
+    },
+    {
+      "type": "select",
+      "id": "heading_tag",
+      "label": "Heading level",
+      "default": "h2",
+      "options": [
+        {
+          "value": "h1",
+          "label": "Page title (h1)"
+        },
+        {
+          "value": "h2",
+          "label": "Section heading (h2)"
+        }
+      ]
+    },
+    {
+      "type": "richtext",
+      "id": "text",
+      "label": "Text"
+    },
+    {
+      "type": "checkbox",
+      "id": "first_open",
+      "label": "First question open",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "draggable",
+      "label": "Can be dragged by its title bar",
+      "default": false
+    },
+    {
+      "type": "range",
+      "id": "width",
+      "label": "Window width",
+      "min": 360,
+      "max": 1280,
+      "step": 20,
+      "unit": "px",
+      "default": 1100
+    },
+    {
+      "type": "select",
+      "id": "offset",
+      "label": "Window position on a wide screen",
+      "default": "center",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Centre"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ]
+    },
+    {
+      "type": "header",
+      "content": "Spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Space above, desktop",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Space below, desktop",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "range",
+      "id": "padding_top_mobile",
+      "label": "Space above, phone",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom_mobile",
+      "label": "Space below, phone",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 16
+    }
+  ],
+  "blocks": [
+    {
+      "type": "question",
+      "name": "Question",
+      "settings": [
+        {
+          "type": "text",
+          "id": "question",
+          "label": "Question",
+          "default": "A question people ask"
+        },
+        {
+          "type": "richtext",
+          "id": "answer",
+          "label": "Answer",
+          "default": "<p>A short, plain answer.</p>"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Help window",
+      "category": "Retro desktop",
+      "blocks": [
+        {
+          "type": "question"
+        },
+        {
+          "type": "question"
+        },
+        {
+          "type": "question"
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

@@ -29,12 +29,12 @@
         "menu_custom_font": "bodoni_moda_n4",
         "menu_hover_style": "inherit",
         "redirect_to_link": true,
-        "logo_width_mobile": 78,
+        "logo_width_mobile": 60,
         "menu_link_spacing": 8,
         "menu_mobile_color": "#ffffff",
         "show_account_icon": true,
         "action_text_weight": "400",
-        "logo_width_desktop": 78,
+        "logo_width_desktop": 72,
         "show_shopping_cart": true,
         "show_wishlist_icon": false,
         "sticky_header_type": "always",
@@ -199,12 +199,12 @@
         "text_slider_1": {
           "type": "text_slider",
           "settings": {
-            "text1": "60% off every pack this week",
-            "text2": "Royalty free for releases, beats and client work",
+            "text1": "Sale: 60% off every pack",
+            "text2": "Every sound is 100% royalty free",
             "text3": "",
             "change_every": 5,
-            "text1_mobile": "60% off every pack this week",
-            "text2_mobile": "Royalty free, one licence",
+            "text1_mobile": "Sale: 60% off every pack",
+            "text2_mobile": "100% royalty free",
             "text3_mobile": "",
             "hidden_on_mobile": false
           }

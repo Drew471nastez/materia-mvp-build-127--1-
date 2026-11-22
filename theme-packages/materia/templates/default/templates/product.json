@@ -38,8 +38,8 @@
         "enable_on_desktop": true,
         "sticky_show_image": true,
         "sticky_show_title": true,
-        "content_gap_desktop": 40,
-        "desktop_media_width": 50,
+        "content_gap_desktop": 56,
+        "desktop_media_width": 52,
         "padding_left_mobile": 0,
         "sticky_border_color": "",
         "enable_video_looping": true,
@@ -57,133 +57,122 @@
         "sticky_show_variant_picker": true,
         "enable_sticky_content_on_desktop": true
       },
-      "name": "Main product",
       "blocks": {
         "title_1": {
           "type": "title",
           "settings": {
             "show_vendor": false,
-            "title_font_size_mobile": 28,
-            "title_font_size_desktop": 36
+            "title_font_size_desktop": 34,
+            "title_font_size_mobile": 28
           }
         },
-        "product_description_2": {
-          "type": "product_description",
-          "settings": {
-            "pb_d": 0,
-            "pb_m": 16,
-            "pl_d": 0,
-            "pl_m": 0,
-            "pr_d": 0,
-            "pr_m": 0,
-            "pt_d": 0,
-            "pt_m": 0,
-            "text_color": "",
-            "font_size_d": 16,
-            "font_size_m": 15,
-            "line_height": 150,
-            "custom_description": "",
-            "enable_custom_description": false
-          }
-        },
-        "short_description_3": {
-          "type": "short_description",
-          "settings": {
-            "excerpt_length": 204
-          }
-        },
-        "price_4": {
+        "price_1": {
           "type": "price",
           "settings": {
+            "price_font_size_desktop": 26,
+            "price_font_size_mobile": 24,
             "price_font_weight": "600",
-            "compare_font_weight": "400",
-            "price_font_size_mobile": 31,
-            "price_font_size_desktop": 28,
+            "compare_font_size_desktop": 16,
             "compare_font_size_mobile": 14,
-            "compare_font_size_desktop": 16
+            "compare_font_weight": "400"
           }
         },
-        "variant_picker_5": {
+        "variant_picker_1": {
           "type": "variant_picker",
           "settings": {
             "variant_type": "swatches",
             "show_size_guide": false,
-            "size_guide_page": "",
-            "size_guide_label": "Size guide",
-            "picker_text_hover": "#0f0f0f",
-            "picker_bg_selected": "#1d1d1d",
-            "picker_border_color": "#cecece",
-            "enable_picker_custom": false,
-            "picker_bg_unselected": "#ffffff",
-            "picker_border_radius": 6,
-            "picker_text_selected": "#ffffff",
-            "picker_text_unselected": "#0f0f0f"
+            "picker_swatch_style": "theme"
           }
         },
-        "buy_buttons_6": {
+        "buy_buttons_1": {
           "type": "buy_buttons",
           "settings": {
-            "atc_icon": "bag",
-            "buy_icon": "check",
-            "atc_bg_color": "",
-            "atc_hover_bg": "",
-            "buy_bg_color": "",
-            "buy_hover_bg": "",
-            "show_quantity": true,
-            "atc_appearance": "theme",
-            "atc_hover_text": "",
-            "atc_icon_color": "transparent",
-            "atc_text_color": "",
-            "buy_appearance": "theme",
-            "buy_hover_text": "",
-            "buy_text_color": "",
-            "atc_button_text": "Add to cart",
-            "atc_font_weight": "600",
-            "atc_icon_enable": false,
-            "buy_button_text": "Buy now",
-            "buy_font_weight": "600",
-            "buy_icon_enable": false,
             "show_add_to_cart": true,
-            "show_price_in_atc": false,
-            "show_variant_picker": true,
-            "enable_custom_colors": false,
-            "atc_redirect_checkout": false,
-            "quantity_right_of_atc": false,
             "show_dynamic_checkout": true,
-            "show_price_in_buy_now": false,
-            "estimated_delivery_text": "",
-            "estimated_delivery_color": "",
-            "show_gift_card_recipient": true,
-            "enable_custom_button_text": true,
-            "enable_estimated_delivery": false,
-            "enable_custom_button_typography": true
+            "show_quantity": true,
+            "buttons_full_width": true,
+            "quantity_right_of_atc": false,
+            "show_wishlist_button": false,
+            "atc_appearance": "theme",
+            "buy_appearance": "theme",
+            "atc_icon_enable": false,
+            "atc_icon": "bag",
+            "buy_icon_enable": false,
+            "show_gift_card_recipient": false
           }
         },
-        "product_grouped_9": {
-          "type": "product_grouped",
+        "vertical_benefits_1": {
+          "type": "vertical_benefits",
           "settings": {
-            "heading": "Also available as"
+            "vb_pt": 14,
+            "vb_pb": 18,
+            "vb_mt": 0,
+            "vb_mb": 0,
+            "vb_item_space": 10,
+            "vb_maxw": 100,
+            "vb_pl": 0,
+            "vb_pr": 0,
+            "vb_text_size_d": 15,
+            "vb_text_size_m": 14,
+            "vb_icon_gap": 12,
+            "vb_icon_gap_m": 10,
+            "vb_icon_size": 26,
+            "vb_icon_size_m": 26,
+            "vb_text_color": "",
+            "vb_bg": "",
+            "vb_icon_color": "",
+            "item1_title": "Leaves the studio in two working days",
+            "item1_icon_library": "truck",
+            "item1_use_image": false,
+            "item1_image_size": 50,
+            "item2_title": "30 days to send it back",
+            "item2_icon_library": "check",
+            "item2_use_image": false,
+            "item2_image_size": 50,
+            "item3_title": "Paid securely by card or wallet",
+            "item3_icon_library": "lock",
+            "item3_use_image": false,
+            "item3_image_size": 50
           }
         },
-        "collapsible_row_11": {
+        "collapsible_row_1": {
           "type": "collapsible_row",
           "settings": {
-            "open": true,
-            "content": "<p>Physical items leave the studio within two working days, sent tracked. Downloads arrive by email the moment you pay.</p>",
-            "heading": "Delivery",
-            "use_product_description": false
+            "heading": "Description",
+            "content": "",
+            "use_product_description": true,
+            "open": true
           }
         },
-        "collapsible_row_12": {
+        "collapsible_row_2": {
           "type": "collapsible_row",
           "settings": {
-            "open": false,
-            "content": "<p>Send anything physical back unused within 30 days. Downloads can be refunded within 14 days if you have not opened them.</p>",
-            "heading": "Returns",
-            "use_product_description": false
+            "heading": "Materials and care",
+            "content": "<p>Say what it is made of, where, and how to look after it. A line on size or weight helps too.</p>",
+            "use_product_description": false,
+            "open": false
           }
         },
-        "payment_badges_13": {
+        "collapsible_row_3": {
+          "type": "collapsible_row",
+          "settings": {
+            "heading": "Delivery and returns",
+            "content": "<p>Physical items leave the studio within two working days, sent tracked. Downloads arrive by email the moment you pay. Send anything physical back unused within 30 days.</p>",
+            "use_product_description": false,
+            "open": false
+          }
+        },
+        "product_addons_1": {
+          "type": "product_addons",
+          "settings": {
+            "show_ask_question": false,
+            "show_share": true,
+            "share_copy_label": "Copy link",
+            "share_copied_label": "Link copied"
+          }
+        },
+        "payment_badges_1": {
           "type": "payment_badges",
           "settings": {
             "h_main": "",
@@ -231,18 +220,45 @@
       },
       "block_order": [
         "title_1",
-        "product_description_2",
-        "short_description_3",
-        "price_4",
-        "variant_picker_5",
-        "buy_buttons_6",
-        "product_grouped_9",
-        "collapsible_row_11",
-        "collapsible_row_12",
-        "payment_badges_13"
+        "price_1",
+        "variant_picker_1",
+        "buy_buttons_1",
+        "vertical_benefits_1",
+        "collapsible_row_1",
+        "collapsible_row_2",
+        "collapsible_row_3",
+        "product_addons_1",
+        "payment_badges_1"
       ]
     },
-    "text_columns_1": {
+    "related": {
+      "type": "related-products",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "heading": "You may also like",
+        "description": "",
+        "header_size": "small",
+        "header_alignment": "left",
+        "items_per_row": 4,
+        "items_per_row_mobile": 2,
+        "column_gap": 20,
+        "intent": "related",
+        "items_to_show": 4,
+        "show_badges": true,
+        "show_vendor": false,
+        "show_rating": false,
+        "show_swatches": false,
+        "show_price": true,
+        "show_add_to_cart": false,
+        "show_action": false,
+        "reveal": true,
+        "padding_top": 80,
+        "padding_bottom": 80
+      }
+    },
+    "how": {
       "type": "text-columns",
       "settings": {
         "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
@@ -287,44 +303,76 @@
         "column_4"
       ]
     },
-    "products_listing_2": {
-      "type": "products-listing",
+    "reviews": {
+      "type": "testimonial-wall",
       "settings": {
         "color_scheme": "default",
         "section_width": "container",
-        "items_to_show": 4,
-        "items_per_row": 4,
-        "show_rating": false,
-        "show_swatches": false,
-        "show_add_to_cart": false,
-        "padding_top": 72,
-        "padding_bottom": 88
+        "text_align": "left",
+        "columns": 3,
+        "card_style": "filled",
+        "collapse": "mobile",
+        "collapsed_part": 50,
+        "more_label": "See more",
+        "less_label": "See less",
+        "padding_top": 80,
+        "padding_bottom": 96
       },
       "blocks": {
-        "heading_1": {
+        "heading": {
           "type": "heading",
           "settings": {
-            "text": "You may also like"
+            "text": "What people say"
           }
         },
-        "button_2": {
-          "type": "button",
+        "subheading": {
+          "type": "subheading",
           "settings": {
-            "text": "Shop all",
-            "link": "/collections/all"
+            "text": "<p>Sample reviews. Replace them with what your own customers write.</p>"
+          }
+        },
+        "testimonial_1": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Heavier than it looks in the photo, in a good way. It has been my morning mug for a month.",
+            "name": "Customer name",
+            "role": "Bought the stoneware mug",
+            "rating": 5
+          }
+        },
+        "testimonial_2": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Arrived in two days, packed in paper with a short note. Nothing to throw away but the tape.",
+            "name": "Customer name",
+            "role": "Ordered for a friend",
+            "rating": 5
+          }
+        },
+        "testimonial_3": {
+          "type": "testimonial",
+          "settings": {
+            "body": "The planner prints cleanly on A4 and the week fits on one page, which is all I wanted.",
+            "name": "Customer name",
+            "role": "Downloaded the planner",
+            "rating": 5
           }
         }
       },
       "block_order": [
-        "heading_1",
-        "button_2"
+        "heading",
+        "subheading",
+        "testimonial_1",
+        "testimonial_2",
+        "testimonial_3"
       ]
     }
   },
   "order": [
     "breadcrumb",
     "main",
-    "text_columns_1",
-    "products_listing_2"
+    "related",
+    "how",
+    "reviews"
   ]
 }

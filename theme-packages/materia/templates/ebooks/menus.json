@@ -3,8 +3,12 @@
     "title": "Main menu",
     "links": [
       {
-        "title": "The book",
+        "title": "The books",
         "url": "/collections/all"
+      },
+      {
+        "title": "Free chapter",
+        "url": "/pages/sample"
       },
       {
         "title": "The author",
@@ -17,10 +21,6 @@
       {
         "title": "FAQ",
         "url": "/pages/faqs"
-      },
-      {
-        "title": "Contact",
-        "url": "/pages/contact"
       }
     ]
   },
@@ -28,8 +28,12 @@
     "title": "The book",
     "links": [
       {
-        "title": "Get the ebook",
+        "title": "All editions",
         "url": "/collections/all"
+      },
+      {
+        "title": "Free chapter",
+        "url": "/pages/sample"
       },
       {
         "title": "The author",

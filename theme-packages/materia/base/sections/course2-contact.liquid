@@ -1,0 +1,155 @@
+{%- comment -%}
+  Online course: contact. On the left a label, a heading, a line, the
+  email address large and square social buttons; on the right a soft card
+  with its own label, heading and the store's contact form (first and last
+  name, email, message, a consent tick). Answers arrive like every other
+  contact form message.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign sid = section.id
+  assign form_id = 'Course2Contact-' | append: sid
+-%}
+<style>
+  #shopify-section-{{ sid }} .c2k {
+    --c2-accent: {{ s.accent | default: '#12704f' }};
+    --c2-ink: {{ s.heading_color | default: '#15171a' }};
+    --c2-text: {{ s.text_color | default: '#3f444c' }};
+    --c2-panel: {{ s.panel_color | default: '#f1f7f4' }};
+    background: {{ s.background | default: '#ffffff' }};
+    color: var(--c2-text);
+    padding: {{ s.padding_top_mobile | default: 48 }}px 0 {{ s.padding_bottom_mobile | default: 56 }}px;
+  }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .c2k { padding: {{ s.padding_top | default: 96 }}px 0 {{ s.padding_bottom | default: 112 }}px; } }
+  #shopify-section-{{ sid }} .c2k__in { max-width: 1200px; margin: 0 auto; padding: 0 20px; display: grid; gap: 32px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .c2k__in { padding: 0 40px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 56px; } }
+  #shopify-section-{{ sid }} .c2k__left { display: flex; flex-direction: column; }
+  #shopify-section-{{ sid }} .c2-tag { align-self: flex-start; display: inline-block; margin: 0 0 22px; padding: 8px 12px; border: 1px solid #d9dce1; border-radius: 6px; font-size: 13px; line-height: 1; letter-spacing: .05em; text-transform: uppercase; color: var(--c2-ink); background: rgba(255,255,255,.6); }
+  #shopify-section-{{ sid }} .c2k__title { margin: 0 0 18px; color: var(--c2-ink); font-family: var(--heading-font, inherit); font-weight: 700; font-size: 34px; line-height: 1.06; letter-spacing: -.035em; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .c2k__title { font-size: 48px; } }
+  #shopify-section-{{ sid }} .c2k__text { font-size: 17px; line-height: 1.6; }
+  #shopify-section-{{ sid }} .c2k__text p { margin: 0; }
+  #shopify-section-{{ sid }} .c2k__reach { margin-top: 36px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .c2k__reach { margin-top: auto; padding-top: 48px; } }
+  #shopify-section-{{ sid }} .c2k__small { margin: 0 0 6px; font-size: 15px; }
+  #shopify-section-{{ sid }} .c2k__mail { display: inline-block; color: var(--c2-ink); font-family: var(--heading-font, inherit); font-weight: 700; font-size: 24px; letter-spacing: -.03em; text-decoration: none; word-break: break-word; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .c2k__mail { font-size: 32px; } }
+  #shopify-section-{{ sid }} .c2k__mail:hover { color: var(--c2-accent); }
+  #shopify-section-{{ sid }} .c2k__social { display: flex; gap: 12px; margin: 22px 0 0; padding: 0; list-style: none; }
+  #shopify-section-{{ sid }} .c2k__social a { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 10px; background: var(--c2-accent); color: #fff; transition: filter .25s ease; }
+  #shopify-section-{{ sid }} .c2k__social a:hover { filter: brightness(.9); }
+  #shopify-section-{{ sid }} .c2k__social svg { width: 22px; height: 22px; }
+  #shopify-section-{{ sid }} .c2k__card { padding: 28px 22px; border-radius: 18px; background: linear-gradient(140deg, color-mix(in srgb, var(--c2-panel) 55%, #ffffff), var(--c2-panel)); }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .c2k__card { padding: 40px; } }
+  #shopify-section-{{ sid }} .c2k__ctitle { margin: 0 0 14px; color: var(--c2-ink); font-family: var(--heading-font, inherit); font-weight: 700; font-size: 30px; line-height: 1.08; letter-spacing: -.035em; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .c2k__ctitle { font-size: 42px; } }
+  #shopify-section-{{ sid }} .c2k__ctext { margin: 0 0 24px; font-size: 16px; line-height: 1.55; color: var(--c2-ink); }
+  #shopify-section-{{ sid }} .c2k__form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  #shopify-section-{{ sid }} .c2k__form .c2k__full { grid-column: 1 / -1; }
+  #shopify-section-{{ sid }} .c2k__form label.c2k__vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  #shopify-section-{{ sid }} .c2k__form input[type='text'], #shopify-section-{{ sid }} .c2k__form input[type='email'], #shopify-section-{{ sid }} .c2k__form textarea { width: 100%; min-height: 56px; margin: 0; padding: 14px 16px; border: 1px solid #d5d9de; border-radius: 10px; background: #fff; color: var(--c2-ink); font: inherit; font-size: 16px; box-shadow: none; transition: border-color .2s ease, box-shadow .2s ease; }
+  #shopify-section-{{ sid }} .c2k__form textarea { min-height: 120px; resize: vertical; }
+  #shopify-section-{{ sid }} .c2k__form input:focus, #shopify-section-{{ sid }} .c2k__form textarea:focus { outline: none; border-color: var(--c2-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c2-accent) 18%, transparent); }
+  #shopify-section-{{ sid }} .c2k__form ::placeholder { color: #8a9099; opacity: 1; }
+  #shopify-section-{{ sid }} .c2k__agree { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; line-height: 1.45; color: var(--c2-ink); }
+  #shopify-section-{{ sid }} .c2k__agree input { flex: none; width: 18px; height: 18px; margin: 1px 0 0; accent-color: var(--c2-accent); }
+  #shopify-section-{{ sid }} .c2k__agree a { color: inherit; text-underline-offset: 2px; }
+  #shopify-section-{{ sid }} .c2k__send { min-height: 56px; border: 0; border-radius: 10px; background: var(--c2-accent); color: #fff; font: inherit; font-size: 16px; font-weight: 600; cursor: pointer; transition: filter .25s ease; }
+  #shopify-section-{{ sid }} .c2k__send:hover { filter: brightness(.92); }
+  #shopify-section-{{ sid }} .c2k__msg { grid-column: 1 / -1; margin: 0 0 6px; padding: 12px 14px; border-radius: 10px; background: #fff; color: var(--c2-ink); font-size: 15px; }
+  #shopify-section-{{ sid }} .c2k__msg ul { margin: 6px 0 0; padding-left: 18px; }
+  @media (max-width: 559px) { #shopify-section-{{ sid }} .c2k__form { grid-template-columns: 1fr; } }
+  #shopify-section-{{ sid }} [data-c2r].c2r-wait { opacity: 0; transform: translate3d(0, 22px, 0); }
+  #shopify-section-{{ sid }} [data-c2r].c2r-in { opacity: 1; transform: none; transition: opacity .8s cubic-bezier(.2,.65,.25,1) var(--d, 0ms), transform .8s cubic-bezier(.2,.65,.25,1) var(--d, 0ms); }
+</style>
+<section class="c2k"{% if s.anchor != blank %} id="{{ s.anchor | handleize }}"{% endif %}>
+  <div class="c2k__in">
+    <div class="c2k__left">
+      {%- if s.tag != blank -%}<p class="c2-tag" data-c2r>{{ s.tag | escape }}</p>{%- endif -%}
+      <h2 class="c2k__title" data-c2r style="--d: 60ms">{{ s.heading | escape }}</h2>
+      {%- if s.text != blank -%}<div class="c2k__text" data-c2r style="--d: 120ms">{{ s.text }}</div>{%- endif -%}
+      <div class="c2k__reach" data-c2r style="--d: 160ms">
+        {%- if s.email != blank -%}
+          {%- if s.email_label != blank -%}<p class="c2k__small">{{ s.email_label | escape }}</p>{%- endif -%}
+          <a class="c2k__mail" href="mailto:{{ s.email }}">{{ s.email | escape }}</a>
+        {%- endif -%}
+        {%- if settings.instagram != blank or settings.youtube != blank or settings.tiktok != blank -%}
+          <ul class="c2k__social" role="list">
+            {%- if settings.instagram != blank -%}<li><a href="{{ settings.instagram }}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true" focusable="false"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r=".9" fill="currentColor" stroke="none"/></svg><span class="visually-hidden">Instagram</span></a></li>{%- endif -%}
+            {%- if settings.youtube != blank -%}<li><a href="{{ settings.youtube }}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true" focusable="false"><rect x="2.5" y="5.5" width="19" height="13" rx="4"/><path d="M10 9.2l5 2.8-5 2.8z" fill="currentColor" stroke="none"/></svg><span class="visually-hidden">YouTube</span></a></li>{%- endif -%}
+            {%- if settings.tiktok != blank -%}<li><a href="{{ settings.tiktok }}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M14 3.5v11.2a3.8 3.8 0 1 1-3.8-3.8"/><path d="M14 3.5c.5 2.8 2.4 4.6 5.2 4.9"/></svg><span class="visually-hidden">TikTok</span></a></li>{%- endif -%}
+          </ul>
+        {%- endif -%}
+      </div>
+    </div>
+    <div class="c2k__card" data-c2r style="--d: 120ms">
+      {%- if s.card_tag != blank -%}<p class="c2-tag">{{ s.card_tag | escape }}</p>{%- endif -%}
+      {%- if s.card_heading != blank -%}<h3 class="c2k__ctitle">{{ s.card_heading | escape }}</h3>{%- endif -%}
+      {%- if s.card_text != blank -%}<p class="c2k__ctext">{{ s.card_text | escape }}</p>{%- endif -%}
+      {%- form 'contact', id: form_id, class: 'c2k__form' -%}
+        {%- if form.posted_successfully? -%}
+          <p class="c2k__msg" role="status">{{ s.thanks | escape }}</p>
+        {%- elsif form.errors -%}
+          <div class="c2k__msg" role="alert">{{ s.error | escape }}<ul>{%- for field in form.errors -%}<li>{{ form.errors.messages[field] }}</li>{%- endfor -%}</ul></div>
+        {%- endif -%}
+        <label class="c2k__vh" for="{{ form_id }}-first">{{ s.ph_first | escape }}</label>
+        <input id="{{ form_id }}-first" type="text" name="contact[first_name]" autocomplete="given-name" placeholder="{{ s.ph_first | escape }}">
+        <label class="c2k__vh" for="{{ form_id }}-last">{{ s.ph_last | escape }}</label>
+        <input id="{{ form_id }}-last" type="text" name="contact[last_name]" autocomplete="family-name" placeholder="{{ s.ph_last | escape }}">
+        <label class="c2k__vh" for="{{ form_id }}-email">{{ s.ph_email | escape }}</label>
+        <input class="c2k__full" id="{{ form_id }}-email" type="email" name="contact[email]" autocomplete="email" placeholder="{{ s.ph_email | escape }}" required>
+        <label class="c2k__vh" for="{{ form_id }}-body">{{ s.ph_message | escape }}</label>
+        <textarea class="c2k__full" id="{{ form_id }}-body" name="contact[body]" placeholder="{{ s.ph_message | escape }}" required></textarea>
+        {%- if s.agree_text != blank -%}
+          <label class="c2k__agree c2k__full"><input type="checkbox" name="contact[agreed]" value="yes" required><span>{{ s.agree_text | remove: "<p>" | remove: "</p>" }}</span></label>
+        {%- endif -%}
+        <button class="c2k__send c2k__full" type="submit">{{ s.button_label | escape }}</button>
+      {%- endform -%}
+    </div>
+  </div>
+</section>
+{%- unless request.design_mode -%}
+<script>(function(){var r=document.getElementById('shopify-section-{{ sid }}');if(!r||!('IntersectionObserver' in window)||matchMedia('(prefers-reduced-motion: reduce)').matches)return;var h=innerHeight,io=new IntersectionObserver(function(es){es.forEach(function(e){if(!e.isIntersecting)return;var t=e.target;io.unobserve(t);requestAnimationFrame(function(){t.classList.add('c2r-in')})})},{rootMargin:'0px 0px -6% 0px'});r.querySelectorAll('[data-c2r]').forEach(function(el){if(el.getBoundingClientRect().top<h*.92)return;el.classList.add('c2r-wait');io.observe(el)})})();</script>
+{%- endunless -%}
+
+{% schema %}
+{
+  "name": "Contact with a form card",
+  "tag": "section",
+  "class": "course2-contact-section",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "settings": [
+    { "type": "text", "id": "tag", "label": "Label above", "default": "Contact" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Write to us" },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Say how fast you answer.</p>" },
+    { "type": "text", "id": "email_label", "label": "Line above the email", "default": "Or email" },
+    { "type": "text", "id": "email", "label": "Email", "default": "hello@example.com" },
+    { "type": "paragraph", "content": "Social buttons follow Theme settings > Social media." },
+    { "type": "text", "id": "anchor", "label": "Address on the page", "info": "A word a menu link can jump to, as /#word." },
+    { "type": "header", "content": "Form card" },
+    { "type": "text", "id": "card_tag", "label": "Label", "default": "Get in touch" },
+    { "type": "text", "id": "card_heading", "label": "Heading", "default": "Have a question?" },
+    { "type": "text", "id": "card_text", "label": "Text", "default": "Send a message and we will write back." },
+    { "type": "text", "id": "ph_first", "label": "First name field", "default": "First name" },
+    { "type": "text", "id": "ph_last", "label": "Last name field", "default": "Last name" },
+    { "type": "text", "id": "ph_email", "label": "Email field", "default": "Email" },
+    { "type": "text", "id": "ph_message", "label": "Message field", "default": "Your question" },
+    { "type": "richtext", "id": "agree_text", "label": "Tick box text", "info": "Leave empty to show no tick box.", "default": "<p>I agree to the <a href=\"/policies/privacy-policy\">privacy policy</a></p>" },
+    { "type": "text", "id": "button_label", "label": "Button", "default": "Send message" },
+    { "type": "text", "id": "thanks", "label": "Message once sent", "default": "Thank you. We will write back soon." },
+    { "type": "text", "id": "error", "label": "Message when something is missing", "default": "Please check the form." },
+    { "type": "header", "content": "Colours" },
+    { "type": "color", "id": "background", "label": "Background", "default": "#ffffff" },
+    { "type": "color", "id": "panel_color", "label": "Card", "default": "#f1f7f4" },
+    { "type": "color", "id": "accent", "label": "Accent", "default": "#12704f" },
+    { "type": "color", "id": "heading_color", "label": "Headings", "default": "#15171a" },
+    { "type": "color", "id": "text_color", "label": "Text", "default": "#3f444c" },
+    { "type": "header", "content": "Spacing" },
+    { "type": "range", "id": "padding_top", "label": "Space above on desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below on desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 112 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above on phones", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 48 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below on phones", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 }
+  ],
+  "presets": [ { "name": "Contact with a form card", "category": "Online course" } ]
+}
+{% endschema %}

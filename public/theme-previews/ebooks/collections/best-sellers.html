@@ -31,7 +31,10 @@ D.addEventListener("keydown",function(e){var i=e.target;if(e.key!=="Enter"||!i||
 D.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a[data-preview-inert]");if(a)e.preventDefault()},true);
 var told=false;function tell(){if(told)return;told=true;try{parent.postMessage({type:"storelib:template-preview",ready:true,path:location.pathname},"*")}catch(e){}}
 W.addEventListener("load",tell);D.addEventListener("DOMContentLoaded",function(){setTimeout(tell,1200)});
-})();</script><script type="importmap">{"imports":{"@shopify/events":"data:text/javascript;charset=utf-8,const%20StandardEvents%20%3D%20Object.freeze(%7B%0A%20%20pageView%3A%20%22shopify%3Apage%3Aview%22%2C%0A%20%20productView%3A%20%22shopify%3Aproduct%3Aview%22%2C%0A%20%20productSelect%3A%20%22shopify%3Aproduct%3Aselect%22%2C%0A%20%20cartView%3A%20%22shopify%3Acart%3Aview%22%2C%0A%20%20cartError%3A%20%22shopify%3Acart%3Aerror%22%2C%0A%20%20cartLinesUpdate%3A%20%22shopify%3Acart%3Alines-update%22%2C%0A%20%20cartNoteUpdate%3A%20%22shopify%3Acart%3Anote-update%22%2C%0A%20%20cartDiscountUpdate%3A%20%22shopify%3Acart%3Adiscount-update%22%2C%0A%20%20searchUpdate%3A%20%22shopify%3Asearch%3Aupdate%22%2C%0A%20%20collectionView%3A%20%22shopify%3Acollection%3Aview%22%2C%0A%20%20collectionUpdate%3A%20%22shopify%3Acollection%3Aupdate%22%2C%0A%7D)%3B%0Afunction%20createGid(type%2C%20id)%20%7B%0A%20%20const%20s%20%3D%20String(id)%3B%0A%20%20return%20s.startsWith(%22gid%3A%2F%2F%22)%20%3F%20s%20%3A%20%22gid%3A%2F%2Fshopify%2F%22%20%2B%20type%20%2B%20%22%2F%22%20%2B%20s%3B%0A%7D%0Afunction%20money(cents%2C%20code)%20%7B%20return%20%7B%20amount%3A%20((Number(cents)%20%7C%7C%200)%20%2F%20100).toFixed(2)%2C%20currencyCode%3A%20code%20%7C%7C%20%22USD%22%20%7D%3B%20%7D%0Afunction%20fromAjaxCart(cart)%20%7B%0A%20%20const%20c%20%3D%20cart%20%7C%7C%20%7B%7D%3B%0A%20%20const%20code%20%3D%20c.currency%20%7C%7C%20%22USD%22%3B%0A%20%20return%20%7B%0A%20%20%20%20id%3A%20createGid(%22Cart%22%2C%20c.token%20%7C%7C%20%22storelib%22)%2C%0A%20%20%20%20totalQuantity%3A%20Number(c.item_count)%20%7C%7C%200%2C%0A%20%20%20%20cost%3A%20%7B%20totalAmount%3A%20money(c.total_price%2C%20code)%20%7D%2C%0A%20%20%20%20lines%3A%20(c.items%20%7C%7C%20%5B%5D).map((l)%20%3D%3E%20(%7B%20id%3A%20createGid(%22CartLine%22%2C%20l.key)%2C%20quantity%3A%20Number(l.quantity)%20%7C%7C%200%2C%20cost%3A%20%7B%20totalAmount%3A%20money(l.final_line_price%2C%20code)%20%7D%20%7D))%2C%0A%20%20%20%20discountCodes%3A%20%5B%5D%2C%0A%20%20%7D%3B%0A%7D%0Afunction%20parseProductFilters(searchParams)%20%7B%0A%20%20const%20p%20%3D%20searchParams%20%7C%7C%20new%20URLSearchParams(location.search)%3B%0A%20%20const%20out%20%3D%20%5B%5D%3B%0A%20%20for%20(const%20%5Bk%2C%20v%5D%20of%20p.entries())%20%7B%0A%20%20%20%20if%20(!k.startsWith(%22filter.%22))%20continue%3B%0A%20%20%20%20if%20(k%20%3D%3D%3D%20%22filter.v.availability%22)%20out.push(%7B%20available%3A%20v%20%3D%3D%3D%20%221%22%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.gte%22)%20out.push(%7B%20price%3A%20%7B%20min%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.lte%22)%20out.push(%7B%20price%3A%20%7B%20max%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.product_type%22)%20out.push(%7B%20productType%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.vendor%22)%20out.push(%7B%20productVendor%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.tag%22)%20out.push(%7B%20tag%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k.startsWith(%22filter.v.option.%22))%20out.push(%7B%20variantOption%3A%20%7B%20name%3A%20k.slice(16)%2C%20value%3A%20v%20%7D%20%7D)%3B%0A%20%20%7D%0A%20%20return%20out.length%20%3F%20out%20%3A%20undefined%3B%0A%7D%0Afunction%20sortKey(searchParams%2C%20search)%20%7B%0A%20%20const%20v%20%3D%20(searchParams%20%7C%7C%20new%20URLSearchParams(location.search)).get(%22sort_by%22)%20%7C%7C%20%22%22%3B%0A%20%20if%20(v.startsWith(%22price%22))%20return%20%22PRICE%22%3B%0A%20%20if%20(search)%20return%20%22RELEVANCE%22%3B%0A%20%20if%20(v.startsWith(%22title%22))%20return%20%22TITLE%22%3B%0A%20%20if%20(v.startsWith(%22created%22))%20return%20%22CREATED%22%3B%0A%20%20if%20(v%20%3D%3D%3D%20%22best-selling%22)%20return%20%22BEST_SELLING%22%3B%0A%20%20return%20v%20%3F%20%22MANUAL%22%20%3A%20%22COLLECTION_DEFAULT%22%3B%0A%7D%0Afunction%20deferred()%20%7B%0A%20%20let%20resolve%2C%20reject%3B%0A%20%20const%20promise%20%3D%20new%20Promise((a%2C%20b)%20%3D%3E%20%7B%20resolve%20%3D%20a%3B%20reject%20%3D%20b%3B%20%7D)%3B%0A%20%20promise.catch(()%20%3D%3E%20%7B%7D)%3B%0A%20%20return%20%7B%20promise%2C%20resolve%2C%20reject%20%7D%3B%0A%7D%0Aclass%20SlThemeStandardEvent%20extends%20Event%20%7B%0A%20%20constructor(type%2C%20payload%2C%20options)%20%7B%0A%20%20%20%20super(type%2C%20Object.assign(%7B%20bubbles%3A%20true%2C%20composed%3A%20true%20%7D%2C%20options%20%7C%7C%20%7B%7D))%3B%0A%20%20%20%20const%20p%20%3D%20payload%20%7C%7C%20%7B%7D%3B%0A%20%20%20%20for%20(const%20k%20of%20Object.keys(p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20k%2C%20%7B%20value%3A%20p%5Bk%5D%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%2C%20writable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%20%20if%20(!(%22promise%22%20in%20p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20%22promise%22%2C%20%7B%20value%3A%20Promise.resolve(%7B%20detail%3A%20p.detail%20%7D)%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0ASlThemeStandardEvent.createGid%20%3D%20createGid%3B%0Aconst%20make%20%3D%20(name%2C%20extra)%20%3D%3E%20%7B%0A%20%20const%20C%20%3D%20class%20extends%20SlThemeStandardEvent%20%7B%20constructor(payload)%20%7B%20super(StandardEvents%5Bname%5D%2C%20payload)%3B%20%7D%20%7D%3B%0A%20%20C.eventName%20%3D%20StandardEvents%5Bname%5D%3B%0A%20%20C.createPromise%20%3D%20deferred%3B%0A%20%20Object.assign(C%2C%20extra%20%7C%7C%20%7B%7D)%3B%0A%20%20return%20C%3B%0A%7D%3B%0Aexport%20const%20PageViewEvent%20%3D%20make(%22pageView%22)%3B%0Aexport%20const%20ProductViewEvent%20%3D%20make(%22productView%22)%3B%0Aexport%20const%20ProductSelectEvent%20%3D%20make(%22productSelect%22)%3B%0Aexport%20const%20CartViewEvent%20%3D%20make(%22cartView%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartErrorEvent%20%3D%20make(%22cartError%22)%3B%0Aexport%20const%20CartLinesUpdateEvent%20%3D%20make(%22cartLinesUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartNoteUpdateEvent%20%3D%20make(%22cartNoteUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartDiscountUpdateEvent%20%3D%20make(%22cartDiscountUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20SearchUpdateEvent%20%3D%20make(%22searchUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20true)%20%7D)%3B%0Aexport%20const%20CollectionViewEvent%20%3D%20make(%22collectionView%22)%3B%0Aexport%20const%20CollectionUpdateEvent%20%3D%20make(%22collectionUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20false)%20%7D)%3B%0Aconst%20VIEW_EVENTS%20%3D%20%7B%20%22product-component%22%3A%20ProductViewEvent%2C%20%22collection-component%22%3A%20CollectionViewEvent%20%7D%3B%0Aexport%20function%20createViewEventElement(Base%2C%20options)%20%7B%0A%20%20const%20B%20%3D%20Base%20%7C%7C%20HTMLElement%3B%0A%20%20const%20opts%20%3D%20options%20%7C%7C%20%7B%7D%3B%0A%20%20return%20class%20extends%20B%20%7B%0A%20%20%20%20connectedCallback()%20%7B%0A%20%20%20%20%20%20if%20(super.connectedCallback)%20super.connectedCallback()%3B%0A%20%20%20%20%20%20const%20trigger%20%3D%20this.getAttribute(%22view-event-trigger%22)%20%7C%7C%20opts.defaultTrigger%20%7C%7C%20%22connect%22%3B%0A%20%20%20%20%20%20if%20(trigger%20%3D%3D%3D%20%22connect%22)%20this.dispatchViewEvent()%3B%0A%20%20%20%20%20%20else%20if%20(trigger%20%3D%3D%3D%20%22intersect%22%20%26%26%20%22IntersectionObserver%22%20in%20window)%20%7B%0A%20%20%20%20%20%20%20%20const%20io%20%3D%20new%20IntersectionObserver((entries)%20%3D%3E%20%7B%20if%20(entries.some((e)%20%3D%3E%20e.isIntersecting))%20%7B%20io.disconnect()%3B%20this.dispatchViewEvent()%3B%20%7D%20%7D)%3B%0A%20%20%20%20%20%20%20%20io.observe(this)%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%20%20dispatchViewEvent()%20%7B%0A%20%20%20%20%20%20let%20payload%20%3D%20null%3B%0A%20%20%20%20%20%20const%20raw%20%3D%20this.getAttribute(%22view-event-payload%22)%20%7C%7C%20this.querySelector(%22script%5Bdata-view-event-payload%5D%22)%3F.textContent%3B%0A%20%20%20%20%20%20try%20%7B%20payload%20%3D%20raw%20%3F%20JSON.parse(raw)%20%3A%20null%3B%20%7D%20catch%20(e)%20%7B%20payload%20%3D%20null%3B%20%7D%0A%20%20%20%20%20%20if%20(!payload)%20return%3B%0A%20%20%20%20%20%20const%20Kind%20%3D%20payload.cart%20%3F%20CartViewEvent%20%3A%20payload.collection%20%3F%20CollectionViewEvent%20%3A%20payload.product%20%3F%20ProductViewEvent%20%3A%20VIEW_EVENTS%5Bthis.localName%5D%3B%0A%20%20%20%20%20%20if%20(Kind)%20this.dispatchEvent(new%20Kind(payload))%3B%0A%20%20%20%20%7D%0A%20%20%7D%3B%0A%7D%0Aexport%20const%20ViewEventElement%20%3D%20createViewEventElement(HTMLElement)%3B%0Aexport%20%7B%20StandardEvents%2C%20SlThemeStandardEvent%20%7D%3B","@shopify/partial-rendering":"data:text/javascript;charset=utf-8,async%20function%20refresh(name)%20%7B%0A%20%20const%20res%20%3D%20await%20fetch(location.href%2C%20%7B%20headers%3A%20%7B%20Accept%3A%20%22text%2Fhtml%22%20%7D%2C%20credentials%3A%20%22same-origin%22%20%7D)%3B%0A%20%20if%20(!res.ok)%20throw%20new%20Error(%22The%20page%20could%20not%20be%20drawn%20again%22)%3B%0A%20%20const%20doc%20%3D%20new%20DOMParser().parseFromString(await%20res.text()%2C%20%22text%2Fhtml%22)%3B%0A%20%20const%20sel%20%3D%20'%5Bdata-shopify-partial%3D%22'%20%2B%20CSS.escape(String(name))%20%2B%20'%22%5D'%3B%0A%20%20const%20fresh%20%3D%20doc.querySelector(sel)%3B%0A%20%20const%20here%20%3D%20document.querySelector(sel)%3B%0A%20%20if%20(fresh%20%26%26%20here)%20here.replaceWith(document.importNode(fresh%2C%20true))%3B%0A%7D%0Aexport%20const%20partials%20%3D%20%7B%20refresh%20%7D%3B%0Aexport%20default%20partials%3B"}}</script><script src="/theme-previews/ebooks/a/i.fc17d0660d95.js"></script>
+/* The page's own background, as soon as it is known: the frame shows it between two pages instead of its own white (a white flash on a dark shop). */
+function paint(){try{var c=getComputedStyle(D.documentElement).backgroundColor;if(!c||/rgba(0, 0, 0, 0)|transparent/.test(c))c=getComputedStyle(D.body).backgroundColor;if(c&&!/rgba(0, 0, 0, 0)|transparent/.test(c))parent.postMessage({type:"storelib:template-preview-background",background:c},"*")}catch(e){}}
+D.addEventListener("DOMContentLoaded",paint);
+})();</script><script type="importmap">{"imports":{"@shopify/events":"data:text/javascript;charset=utf-8,const%20StandardEvents%20%3D%20Object.freeze(%7B%0A%20%20pageView%3A%20%22shopify%3Apage%3Aview%22%2C%0A%20%20productView%3A%20%22shopify%3Aproduct%3Aview%22%2C%0A%20%20productSelect%3A%20%22shopify%3Aproduct%3Aselect%22%2C%0A%20%20cartView%3A%20%22shopify%3Acart%3Aview%22%2C%0A%20%20cartError%3A%20%22shopify%3Acart%3Aerror%22%2C%0A%20%20cartLinesUpdate%3A%20%22shopify%3Acart%3Alines-update%22%2C%0A%20%20cartNoteUpdate%3A%20%22shopify%3Acart%3Anote-update%22%2C%0A%20%20cartDiscountUpdate%3A%20%22shopify%3Acart%3Adiscount-update%22%2C%0A%20%20searchUpdate%3A%20%22shopify%3Asearch%3Aupdate%22%2C%0A%20%20collectionView%3A%20%22shopify%3Acollection%3Aview%22%2C%0A%20%20collectionUpdate%3A%20%22shopify%3Acollection%3Aupdate%22%2C%0A%7D)%3B%0Afunction%20createGid(type%2C%20id)%20%7B%0A%20%20const%20s%20%3D%20String(id)%3B%0A%20%20return%20s.startsWith(%22gid%3A%2F%2F%22)%20%3F%20s%20%3A%20%22gid%3A%2F%2Fshopify%2F%22%20%2B%20type%20%2B%20%22%2F%22%20%2B%20s%3B%0A%7D%0Afunction%20money(cents%2C%20code)%20%7B%20return%20%7B%20amount%3A%20((Number(cents)%20%7C%7C%200)%20%2F%20100).toFixed(2)%2C%20currencyCode%3A%20code%20%7C%7C%20%22USD%22%20%7D%3B%20%7D%0Afunction%20fromAjaxCart(cart)%20%7B%0A%20%20const%20c%20%3D%20cart%20%7C%7C%20%7B%7D%3B%0A%20%20const%20code%20%3D%20c.currency%20%7C%7C%20%22USD%22%3B%0A%20%20return%20%7B%0A%20%20%20%20id%3A%20createGid(%22Cart%22%2C%20c.token%20%7C%7C%20%22storelib%22)%2C%0A%20%20%20%20totalQuantity%3A%20Number(c.item_count)%20%7C%7C%200%2C%0A%20%20%20%20cost%3A%20%7B%20totalAmount%3A%20money(c.total_price%2C%20code)%20%7D%2C%0A%20%20%20%20lines%3A%20(c.items%20%7C%7C%20%5B%5D).map((l)%20%3D%3E%20(%7B%20id%3A%20createGid(%22CartLine%22%2C%20l.key)%2C%20quantity%3A%20Number(l.quantity)%20%7C%7C%200%2C%20cost%3A%20%7B%20totalAmount%3A%20money(l.final_line_price%2C%20code)%20%7D%20%7D))%2C%0A%20%20%20%20discountCodes%3A%20%5B%5D%2C%0A%20%20%7D%3B%0A%7D%0Afunction%20parseProductFilters(searchParams)%20%7B%0A%20%20const%20p%20%3D%20searchParams%20%7C%7C%20new%20URLSearchParams(location.search)%3B%0A%20%20const%20out%20%3D%20%5B%5D%3B%0A%20%20for%20(const%20%5Bk%2C%20v%5D%20of%20p.entries())%20%7B%0A%20%20%20%20if%20(!k.startsWith(%22filter.%22))%20continue%3B%0A%20%20%20%20if%20(k%20%3D%3D%3D%20%22filter.v.availability%22)%20out.push(%7B%20available%3A%20v%20%3D%3D%3D%20%221%22%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.gte%22)%20out.push(%7B%20price%3A%20%7B%20min%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.lte%22)%20out.push(%7B%20price%3A%20%7B%20max%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.product_type%22)%20out.push(%7B%20productType%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.vendor%22)%20out.push(%7B%20productVendor%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.tag%22)%20out.push(%7B%20tag%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k.startsWith(%22filter.v.option.%22))%20out.push(%7B%20variantOption%3A%20%7B%20name%3A%20k.slice(16)%2C%20value%3A%20v%20%7D%20%7D)%3B%0A%20%20%7D%0A%20%20return%20out.length%20%3F%20out%20%3A%20undefined%3B%0A%7D%0Afunction%20sortKey(searchParams%2C%20search)%20%7B%0A%20%20const%20v%20%3D%20(searchParams%20%7C%7C%20new%20URLSearchParams(location.search)).get(%22sort_by%22)%20%7C%7C%20%22%22%3B%0A%20%20if%20(v.startsWith(%22price%22))%20return%20%22PRICE%22%3B%0A%20%20if%20(search)%20return%20%22RELEVANCE%22%3B%0A%20%20if%20(v.startsWith(%22title%22))%20return%20%22TITLE%22%3B%0A%20%20if%20(v.startsWith(%22created%22))%20return%20%22CREATED%22%3B%0A%20%20if%20(v%20%3D%3D%3D%20%22best-selling%22)%20return%20%22BEST_SELLING%22%3B%0A%20%20return%20v%20%3F%20%22MANUAL%22%20%3A%20%22COLLECTION_DEFAULT%22%3B%0A%7D%0Afunction%20deferred()%20%7B%0A%20%20let%20resolve%2C%20reject%3B%0A%20%20const%20promise%20%3D%20new%20Promise((a%2C%20b)%20%3D%3E%20%7B%20resolve%20%3D%20a%3B%20reject%20%3D%20b%3B%20%7D)%3B%0A%20%20promise.catch(()%20%3D%3E%20%7B%7D)%3B%0A%20%20return%20%7B%20promise%2C%20resolve%2C%20reject%20%7D%3B%0A%7D%0Aclass%20SlThemeStandardEvent%20extends%20Event%20%7B%0A%20%20constructor(type%2C%20payload%2C%20options)%20%7B%0A%20%20%20%20super(type%2C%20Object.assign(%7B%20bubbles%3A%20true%2C%20composed%3A%20true%20%7D%2C%20options%20%7C%7C%20%7B%7D))%3B%0A%20%20%20%20const%20p%20%3D%20payload%20%7C%7C%20%7B%7D%3B%0A%20%20%20%20for%20(const%20k%20of%20Object.keys(p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20k%2C%20%7B%20value%3A%20p%5Bk%5D%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%2C%20writable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%20%20if%20(!(%22promise%22%20in%20p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20%22promise%22%2C%20%7B%20value%3A%20Promise.resolve(%7B%20detail%3A%20p.detail%20%7D)%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0ASlThemeStandardEvent.createGid%20%3D%20createGid%3B%0Aconst%20make%20%3D%20(name%2C%20extra)%20%3D%3E%20%7B%0A%20%20const%20C%20%3D%20class%20extends%20SlThemeStandardEvent%20%7B%20constructor(payload)%20%7B%20super(StandardEvents%5Bname%5D%2C%20payload)%3B%20%7D%20%7D%3B%0A%20%20C.eventName%20%3D%20StandardEvents%5Bname%5D%3B%0A%20%20C.createPromise%20%3D%20deferred%3B%0A%20%20Object.assign(C%2C%20extra%20%7C%7C%20%7B%7D)%3B%0A%20%20return%20C%3B%0A%7D%3B%0Aexport%20const%20PageViewEvent%20%3D%20make(%22pageView%22)%3B%0Aexport%20const%20ProductViewEvent%20%3D%20make(%22productView%22)%3B%0Aexport%20const%20ProductSelectEvent%20%3D%20make(%22productSelect%22)%3B%0Aexport%20const%20CartViewEvent%20%3D%20make(%22cartView%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartErrorEvent%20%3D%20make(%22cartError%22)%3B%0Aexport%20const%20CartLinesUpdateEvent%20%3D%20make(%22cartLinesUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartNoteUpdateEvent%20%3D%20make(%22cartNoteUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartDiscountUpdateEvent%20%3D%20make(%22cartDiscountUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20SearchUpdateEvent%20%3D%20make(%22searchUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20true)%20%7D)%3B%0Aexport%20const%20CollectionViewEvent%20%3D%20make(%22collectionView%22)%3B%0Aexport%20const%20CollectionUpdateEvent%20%3D%20make(%22collectionUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20false)%20%7D)%3B%0Aconst%20VIEW_EVENTS%20%3D%20%7B%20%22product-component%22%3A%20ProductViewEvent%2C%20%22collection-component%22%3A%20CollectionViewEvent%20%7D%3B%0Aexport%20function%20createViewEventElement(Base%2C%20options)%20%7B%0A%20%20const%20B%20%3D%20Base%20%7C%7C%20HTMLElement%3B%0A%20%20const%20opts%20%3D%20options%20%7C%7C%20%7B%7D%3B%0A%20%20return%20class%20extends%20B%20%7B%0A%20%20%20%20connectedCallback()%20%7B%0A%20%20%20%20%20%20if%20(super.connectedCallback)%20super.connectedCallback()%3B%0A%20%20%20%20%20%20const%20trigger%20%3D%20this.getAttribute(%22view-event-trigger%22)%20%7C%7C%20opts.defaultTrigger%20%7C%7C%20%22connect%22%3B%0A%20%20%20%20%20%20if%20(trigger%20%3D%3D%3D%20%22connect%22)%20this.dispatchViewEvent()%3B%0A%20%20%20%20%20%20else%20if%20(trigger%20%3D%3D%3D%20%22intersect%22%20%26%26%20%22IntersectionObserver%22%20in%20window)%20%7B%0A%20%20%20%20%20%20%20%20const%20io%20%3D%20new%20IntersectionObserver((entries)%20%3D%3E%20%7B%20if%20(entries.some((e)%20%3D%3E%20e.isIntersecting))%20%7B%20io.disconnect()%3B%20this.dispatchViewEvent()%3B%20%7D%20%7D)%3B%0A%20%20%20%20%20%20%20%20io.observe(this)%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%20%20dispatchViewEvent()%20%7B%0A%20%20%20%20%20%20let%20payload%20%3D%20null%3B%0A%20%20%20%20%20%20const%20raw%20%3D%20this.getAttribute(%22view-event-payload%22)%20%7C%7C%20this.querySelector(%22script%5Bdata-view-event-payload%5D%22)%3F.textContent%3B%0A%20%20%20%20%20%20try%20%7B%20payload%20%3D%20raw%20%3F%20JSON.parse(raw)%20%3A%20null%3B%20%7D%20catch%20(e)%20%7B%20payload%20%3D%20null%3B%20%7D%0A%20%20%20%20%20%20if%20(!payload)%20return%3B%0A%20%20%20%20%20%20const%20Kind%20%3D%20payload.cart%20%3F%20CartViewEvent%20%3A%20payload.collection%20%3F%20CollectionViewEvent%20%3A%20payload.product%20%3F%20ProductViewEvent%20%3A%20VIEW_EVENTS%5Bthis.localName%5D%3B%0A%20%20%20%20%20%20if%20(Kind)%20this.dispatchEvent(new%20Kind(payload))%3B%0A%20%20%20%20%7D%0A%20%20%7D%3B%0A%7D%0Aexport%20const%20ViewEventElement%20%3D%20createViewEventElement(HTMLElement)%3B%0Aexport%20%7B%20StandardEvents%2C%20SlThemeStandardEvent%20%7D%3B","@shopify/partial-rendering":"data:text/javascript;charset=utf-8,async%20function%20refresh(name)%20%7B%0A%20%20const%20res%20%3D%20await%20fetch(location.href%2C%20%7B%20headers%3A%20%7B%20Accept%3A%20%22text%2Fhtml%22%20%7D%2C%20credentials%3A%20%22same-origin%22%20%7D)%3B%0A%20%20if%20(!res.ok)%20throw%20new%20Error(%22The%20page%20could%20not%20be%20drawn%20again%22)%3B%0A%20%20const%20doc%20%3D%20new%20DOMParser().parseFromString(await%20res.text()%2C%20%22text%2Fhtml%22)%3B%0A%20%20const%20sel%20%3D%20'%5Bdata-shopify-partial%3D%22'%20%2B%20CSS.escape(String(name))%20%2B%20'%22%5D'%3B%0A%20%20const%20fresh%20%3D%20doc.querySelector(sel)%3B%0A%20%20const%20here%20%3D%20document.querySelector(sel)%3B%0A%20%20if%20(fresh%20%26%26%20here)%20here.replaceWith(document.importNode(fresh%2C%20true))%3B%0A%7D%0Aexport%20const%20partials%20%3D%20%7B%20refresh%20%7D%3B%0Aexport%20default%20partials%3B"}}</script><style data-page-background>html{background-color:#f7f4ee}</style><script src="/theme-previews/ebooks/a/i.63b4697a1622.js"></script>
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -52,13 +55,13 @@ W.addEventListener("load",tell);D.addEventListener("DOMContentLoaded",function()
     }, true);
   });
 })();
-</script><title>Best sellers | Plain Sight</title>
+</script><title>Best sellers | The Quiet Hour</title>
 <meta name="description" content="What people buy most.">
-<meta property="og:site_name" content="Plain Sight">
-<meta property="og:title" content="Best sellers | Plain Sight">
+<meta property="og:site_name" content="The Quiet Hour">
+<meta property="og:title" content="Best sellers | The Quiet Hour">
 <meta property="og:type" content="website">
 <meta property="og:description" content="What people buy most."><meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Best sellers | Plain Sight">
+<meta name="twitter:title" content="Best sellers | The Quiet Hour">
 <meta name="twitter:description" content="What people buy most.">
 <style id="speed-optimization-css">
   @media (prefers-reduced-motion: reduce) {
@@ -77,7 +80,7 @@ W.addEventListener("load",tell);D.addEventListener("DOMContentLoaded",function()
   .shopify-section[data-perf-offscreen] *,
   .shopify-section[data-perf-offscreen] *::before,
   .shopify-section[data-perf-offscreen] *::after { animation-play-state: paused !important; }
-</style><link rel="stylesheet" href="/theme-previews/ebooks/a/i.bebb8d20d681.css" id="speed-page-landing"><script id="speed-optimization-js" src="/theme-previews/ebooks/a/i.679dcd5ab7c8.js"></script>
+</style><link rel="stylesheet" href="/theme-previews/ebooks/a/i.262074ef9310.css" id="speed-page-landing"><script src="/theme-previews/ebooks/a/i.0bd6d5139503.js"></script><script id="speed-optimization-js" src="/theme-previews/ebooks/a/i.679dcd5ab7c8.js"></script>
 <script>
       (function () {
         try {
@@ -100,20 +103,20 @@ W.addEventListener("load",tell);D.addEventListener("DOMContentLoaded",function()
     document.addEventListener('DOMContentLoaded',function(){setTimeout(go,4000)},{once:true})}
     ['pointerdown','click','keydown','scroll','touchstart'].forEach(function(n){addEventListener(n,go,{once:true,passive:true,capture:true})})})(["/theme-previews/_base/a/popup.18cdf2513c31.css","/theme-previews/_base/a/tingle-min.ed947d9dd1c7.css"]);</script><link rel="stylesheet" href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" media="print" onload="this.media='all'">
 <noscript><link href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" rel="stylesheet" type="text/css" media="all"></noscript>
-<link rel="stylesheet" href="/theme-previews/_base/a/fonts.6f858d790015.css" data-materia-fonts>
-<style data-materia-font-fallbacks>@font-face{font-family:"Inter Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:107.9%;ascent-override:89.8%;descent-override:22.3%;line-gap-override:0%}@font-face{font-family:"Inter Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:107.9%;ascent-override:89.8%;descent-override:22.3%;line-gap-override:0%}@font-face{font-family:"Poppins Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:111%;ascent-override:94.6%;descent-override:31.5%;line-gap-override:9%}@font-face{font-family:"Poppins Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:111%;ascent-override:94.6%;descent-override:31.5%;line-gap-override:9%}</style><style data-shopify>
+<link rel="stylesheet" href="/theme-previews/_base/a/fonts.fb761a1f88dc.css" data-materia-fonts>
+<style data-materia-font-fallbacks>@font-face{font-family:"Albert Sans Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:104.4%;ascent-override:91%;descent-override:23.9%;line-gap-override:0%}@font-face{font-family:"Albert Sans Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:104.4%;ascent-override:91%;descent-override:23.9%;line-gap-override:0%}@font-face{font-family:"EB Garamond Fallback";src:local("Times New Roman"), local("TimesNewRomanPSMT"), local("Liberation Serif");font-weight:100 549;size-adjust:93.8%;ascent-override:107.3%;descent-override:31.8%;line-gap-override:0%}@font-face{font-family:"EB Garamond Fallback";src:local("Times New Roman Bold"), local("TimesNewRomanPS-BoldMT"), local("Liberation Serif Bold");font-weight:550 1000;size-adjust:93.8%;ascent-override:107.3%;descent-override:31.8%;line-gap-override:0%}</style><style data-shopify>
   :root {
-    --body-font: "Inter", "Inter Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    --heading-font: "Poppins", "Poppins Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --body-font: "Albert Sans", "Albert Sans Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --heading-font: "EB Garamond", "EB Garamond Fallback", Georgia, "Times New Roman", serif, sans-serif;
     --menu-font: var(--body-font);
     --btn-font: var(--body-font);
   }
 </style>
-<link rel="stylesheet" href="/theme-previews/ebooks/a/i.89581e873865.css" data-shopify>
-<link href="/theme-previews/_base/a/theme.d71f5b96fec8.css" rel="stylesheet" type="text/css" media="all"><noscript><link href="/theme-previews/_base/a/popup.18cdf2513c31.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.1367a426b62b.css">
+<link rel="stylesheet" href="/theme-previews/ebooks/a/i.d22ccd18693a.css" data-shopify>
+<link href="/theme-previews/_base/a/theme.d71f5b96fec8.css" rel="stylesheet" type="text/css" media="all"><noscript><link href="/theme-previews/_base/a/popup.18cdf2513c31.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.9c20c549e3cf.css">
 <link rel="preload" as="style" href="/theme-previews/_base/a/minicart.ac0014483417.css" fetchpriority="low">
 <link rel="preload" as="style" href="/theme-previews/_base/a/materia-experience.b68d6d8152a8.css" fetchpriority="low">
-<link rel="stylesheet" href="/theme-previews/ebooks/a/i.28cfcd9bf59c.css"><link rel="stylesheet" href="/theme-previews/ebooks/a/i.0f64d724d341.css"><link href="/theme-previews/_base/a/theme-button-contract.7d286d7eee9b.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/localization-controls.9494a0c83131.css" rel="stylesheet" type="text/css" media="all"><link rel="modulepreload" href="/theme-previews/_base/a/theme.7a7dd8f80f89.js" fetchpriority="low"><script data-storelib-head src="/theme-previews/ebooks/a/i.d60c3c7ab47c.js"></script>
+<link rel="stylesheet" href="/theme-previews/ebooks/a/i.4776fb16c78a.css"><link rel="stylesheet" href="/theme-previews/ebooks/a/i.0f64d724d341.css"><link href="/theme-previews/_base/a/theme-button-contract.7d286d7eee9b.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/localization-controls.9494a0c83131.css" rel="stylesheet" type="text/css" media="all"><link rel="modulepreload" href="/theme-previews/_base/a/theme.7a7dd8f80f89.js" fetchpriority="low"><script data-storelib-head src="/theme-previews/ebooks/a/i.585ec254f5fd.js"></script>
 <script src="/theme-previews/_base/a/swiper-bundle-min.31d164f7367d.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/motion-min.d1f8eb312b47.js" type="module" defer="defer" fetchpriority="low"></script>
 <script src="/theme-previews/_base/a/utils.90eeb774e439.js" defer="defer" data-cart-count="0"></script>
@@ -129,7 +132,7 @@ W.addEventListener("load",tell);D.addEventListener("DOMContentLoaded",function()
 <link href="/theme-previews/_base/a/hero-image-one.7347eaeaff3f.css" rel="stylesheet" type="text/css" media="all">
 <script src="/theme-previews/_base/a/hero-image-one.1fc574354023.js" defer="defer"></script>
 <link href="/theme-previews/_base/a/before-after-controls.0119d231c0b0.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/text-section-controls.f1a83e444db3.css" rel="stylesheet" type="text/css" media="all"><script src="/theme-previews/ebooks/a/i.c8cec488b26e.js"></script>
+<link href="/theme-previews/_base/a/text-section-controls.f1a83e444db3.css" rel="stylesheet" type="text/css" media="all"><script src="/theme-previews/ebooks/a/i.55032103e897.js"></script>
 <link href="/theme-previews/_base/a/testimonial-quote.d74462f50435.css" rel="stylesheet" type="text/css" media="all">
 <link href="/theme-previews/_base/a/announcement-pro-4.98b829b630a8.css" rel="stylesheet" type="text/css" media="all">
 <link href="/theme-previews/_base/a/product-block-runtime.0c74f3d394a4.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/drift-basic-min.ae15d5c0ab03.css" rel="stylesheet" type="text/css" media="all">
@@ -157,7 +160,7 @@ W.addEventListener("load",tell);D.addEventListener("DOMContentLoaded",function()
 class="gradient rounded-style  collection"
 data-btn-style="solid"
 data-btn-secondary-style="solid"
-data-scroll-animation="subtle_rise"
+data-scroll-animation="fade_in"
 data-btn-shape="rounded"
 data-btn-hover="fade"
 data-sl-btn-hover="none"
@@ -210,14 +213,14 @@ data-menu-hover="none"
   (function(){
     var el = document.getElementById('shopify-section-offer_bar');
     if (!el || el.classList.contains('scroll-trigger')) return;
-    el.classList.add('scroll-trigger', "subtle_rise");
+    el.classList.add('scroll-trigger', "fade_in");
   })();
-</script><link rel="stylesheet" href="/theme-previews/ebooks/a/i.19de36c766d9.css"><link rel="stylesheet" href="/theme-previews/ebooks/a/i.cc58a5bc059a.css"><div id="announcement-bar-pro-2-offer_bar" class="ab2 announcement-bar-pro-2 color-scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9 gradient" role="region" aria-label="Announcements" data-an-root="announcement-bar" data-an-section="offer_bar" data-width="full_width" data-reset="true" data-mode="slide" data-multi="true" data-page="collection" data-home-only="false" data-show-mobile="true" data-close="false" data-icon="none" data-interval="5" data-sticky-announcement="false" style="--ab2-fs: 13px;--ab2-pt: 12px;--ab2-pb: 12px;--ab2-speed: 15s;--ab2-gap: 50px;--ab2-fw: var(--subheading-weight, 600);--ab2-tt: none;--ab2-ff: var(--body-font);--ab2-text: #e9e9ec;--ab2-bg: #151517;--ab2-accent: #ff8a7c;--ab2-line: var(--color-border);--ab2-lw: 0px;">
+</script><link rel="stylesheet" href="/theme-previews/ebooks/a/i.19de36c766d9.css"><link rel="stylesheet" href="/theme-previews/ebooks/a/i.cc58a5bc059a.css"><div id="announcement-bar-pro-2-offer_bar" class="ab2 announcement-bar-pro-2 color-scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9 gradient" role="region" aria-label="Announcements" data-an-root="announcement-bar" data-an-section="offer_bar" data-width="full_width" data-reset="true" data-mode="slide" data-multi="true" data-page="collection" data-home-only="false" data-show-mobile="true" data-close="false" data-icon="none" data-interval="5" data-sticky-announcement="false" style="--ab2-fs: 13px;--ab2-pt: 12px;--ab2-pb: 12px;--ab2-speed: 15s;--ab2-gap: 50px;--ab2-fw: var(--subheading-weight, 600);--ab2-tt: none;--ab2-ff: var(--body-font);--ab2-text: #e6ece4;--ab2-bg: #1f3b33;--ab2-accent: #d9b27a;--ab2-line: var(--color-border);--ab2-lw: 0px;">
 <div class="ab2__inner">
 <div class="ab2__slides" data-an-slides>
 <button type="button" class="ab2__arrow" data-an-prev aria-label="Previous announcement"><svg width="8" height="14" viewBox="0 0 8 14" aria-hidden="true" focusable="false"><path d="M7 1 1 7l6 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
 <div class="ab2__viewport" aria-live="off"><div class="ab2__slide" data-an-block="announcement_1" data-an-type="announcement" data-block-id="announcement_1" data-active>
-<span class="ab2__msg" style=""><span class="ab2__text" data-an-text>Plain Sight, second edition: <strong>$29</strong> this month, usually $49</span>
+<span class="ab2__msg" style=""><span class="ab2__text" data-an-text>The first chapter is free. <a href="/theme-previews/ebooks/pages/sample.html">Read it now</a></span>
 <span class="ab2__timer" data-an-timer data-end="" role="timer" aria-live="off" hidden>
 <span class="ab2__unit"><span class="ab2__num" data-u="d">00</span><span class="ab2__lbl" data-l="label_days">Days</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="h">00</span><span class="ab2__lbl" data-l="label_hours">Hours</span></span>
@@ -226,7 +229,7 @@ data-menu-hover="none"
 <span class="ab2__ended" data-an-ended hidden></span>
 </span></span>
 </div><div class="ab2__slide" data-an-block="announcement_2" data-an-type="announcement" data-block-id="announcement_2" aria-hidden="true">
-<span class="ab2__msg" style=""><span class="ab2__text" data-an-text>PDF and EPUB, in your inbox a minute after you pay</span>
+<span class="ab2__msg" style=""><span class="ab2__text" data-an-text>Read it for 30 days, or get your money back</span>
 <span class="ab2__timer" data-an-timer data-end="" role="timer" aria-live="off" hidden>
 <span class="ab2__unit"><span class="ab2__num" data-u="d">00</span><span class="ab2__lbl" data-l="label_days">Days</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="h">00</span><span class="ab2__lbl" data-l="label_hours">Hours</span></span>
@@ -237,56 +240,56 @@ data-menu-hover="none"
 </div></div>
 <button type="button" class="ab2__arrow" data-an-next aria-label="Next announcement"><svg width="8" height="14" viewBox="0 0 8 14" aria-hidden="true" focusable="false"><path d="m1 1 6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
 </div>
-<div class="ab2__marquee" data-an-track><div class="ab2__group" data-an-group><span class="ab2__item" data-an-copy="announcement_1"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>Plain Sight, second edition: <strong>$29</strong> this month, usually $49</span>
+<div class="ab2__marquee" data-an-track><div class="ab2__group" data-an-group><span class="ab2__item" data-an-copy="announcement_1"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>The first chapter is free. <a href="/theme-previews/ebooks/pages/sample.html">Read it now</a></span>
 <span class="ab2__timer" data-an-timer data-end="" role="timer" aria-live="off" hidden>
 <span class="ab2__unit"><span class="ab2__num" data-u="d">00</span><span class="ab2__lbl" data-l="label_days">Days</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="h">00</span><span class="ab2__lbl" data-l="label_hours">Hours</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="m">00</span><span class="ab2__lbl" data-l="label_minutes">Mins</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="s">00</span><span class="ab2__lbl" data-l="label_seconds">Secs</span></span>
 <span class="ab2__ended" data-an-ended hidden></span>
-</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span><span class="ab2__item" data-an-copy="announcement_2"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>PDF and EPUB, in your inbox a minute after you pay</span>
+</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span><span class="ab2__item" data-an-copy="announcement_2"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>Read it for 30 days, or get your money back</span>
 <span class="ab2__timer" data-an-timer data-end="" role="timer" aria-live="off" hidden>
 <span class="ab2__unit"><span class="ab2__num" data-u="d">00</span><span class="ab2__lbl" data-l="label_days">Days</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="h">00</span><span class="ab2__lbl" data-l="label_hours">Hours</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="m">00</span><span class="ab2__lbl" data-l="label_minutes">Mins</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="s">00</span><span class="ab2__lbl" data-l="label_seconds">Secs</span></span>
 <span class="ab2__ended" data-an-ended hidden></span>
-</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span></div><div class="ab2__group" aria-hidden="true" data-an-copies><span class="ab2__item" data-an-copy="announcement_1"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>Plain Sight, second edition: <strong>$29</strong> this month, usually $49</span>
+</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span></div><div class="ab2__group" aria-hidden="true" data-an-copies><span class="ab2__item" data-an-copy="announcement_1"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>The first chapter is free. <a href="/theme-previews/ebooks/pages/sample.html">Read it now</a></span>
 <span class="ab2__timer" data-an-timer data-end="" role="timer" aria-live="off" hidden>
 <span class="ab2__unit"><span class="ab2__num" data-u="d">00</span><span class="ab2__lbl" data-l="label_days">Days</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="h">00</span><span class="ab2__lbl" data-l="label_hours">Hours</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="m">00</span><span class="ab2__lbl" data-l="label_minutes">Mins</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="s">00</span><span class="ab2__lbl" data-l="label_seconds">Secs</span></span>
 <span class="ab2__ended" data-an-ended hidden></span>
-</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span><span class="ab2__item" data-an-copy="announcement_2"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>PDF and EPUB, in your inbox a minute after you pay</span>
+</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span><span class="ab2__item" data-an-copy="announcement_2"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>Read it for 30 days, or get your money back</span>
 <span class="ab2__timer" data-an-timer data-end="" role="timer" aria-live="off" hidden>
 <span class="ab2__unit"><span class="ab2__num" data-u="d">00</span><span class="ab2__lbl" data-l="label_days">Days</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="h">00</span><span class="ab2__lbl" data-l="label_hours">Hours</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="m">00</span><span class="ab2__lbl" data-l="label_minutes">Mins</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="s">00</span><span class="ab2__lbl" data-l="label_seconds">Secs</span></span>
 <span class="ab2__ended" data-an-ended hidden></span>
-</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span></div><div class="ab2__group" aria-hidden="true" data-an-copies><span class="ab2__item" data-an-copy="announcement_1"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>Plain Sight, second edition: <strong>$29</strong> this month, usually $49</span>
+</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span></div><div class="ab2__group" aria-hidden="true" data-an-copies><span class="ab2__item" data-an-copy="announcement_1"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>The first chapter is free. <a href="/theme-previews/ebooks/pages/sample.html">Read it now</a></span>
 <span class="ab2__timer" data-an-timer data-end="" role="timer" aria-live="off" hidden>
 <span class="ab2__unit"><span class="ab2__num" data-u="d">00</span><span class="ab2__lbl" data-l="label_days">Days</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="h">00</span><span class="ab2__lbl" data-l="label_hours">Hours</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="m">00</span><span class="ab2__lbl" data-l="label_minutes">Mins</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="s">00</span><span class="ab2__lbl" data-l="label_seconds">Secs</span></span>
 <span class="ab2__ended" data-an-ended hidden></span>
-</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span><span class="ab2__item" data-an-copy="announcement_2"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>PDF and EPUB, in your inbox a minute after you pay</span>
+</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span><span class="ab2__item" data-an-copy="announcement_2"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>Read it for 30 days, or get your money back</span>
 <span class="ab2__timer" data-an-timer data-end="" role="timer" aria-live="off" hidden>
 <span class="ab2__unit"><span class="ab2__num" data-u="d">00</span><span class="ab2__lbl" data-l="label_days">Days</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="h">00</span><span class="ab2__lbl" data-l="label_hours">Hours</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="m">00</span><span class="ab2__lbl" data-l="label_minutes">Mins</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="s">00</span><span class="ab2__lbl" data-l="label_seconds">Secs</span></span>
 <span class="ab2__ended" data-an-ended hidden></span>
-</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span></div><div class="ab2__group" aria-hidden="true" data-an-copies><span class="ab2__item" data-an-copy="announcement_1"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>Plain Sight, second edition: <strong>$29</strong> this month, usually $49</span>
+</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span></div><div class="ab2__group" aria-hidden="true" data-an-copies><span class="ab2__item" data-an-copy="announcement_1"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>The first chapter is free. <a href="/theme-previews/ebooks/pages/sample.html">Read it now</a></span>
 <span class="ab2__timer" data-an-timer data-end="" role="timer" aria-live="off" hidden>
 <span class="ab2__unit"><span class="ab2__num" data-u="d">00</span><span class="ab2__lbl" data-l="label_days">Days</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="h">00</span><span class="ab2__lbl" data-l="label_hours">Hours</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="m">00</span><span class="ab2__lbl" data-l="label_minutes">Mins</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="s">00</span><span class="ab2__lbl" data-l="label_seconds">Secs</span></span>
 <span class="ab2__ended" data-an-ended hidden></span>
-</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span><span class="ab2__item" data-an-copy="announcement_2"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>PDF and EPUB, in your inbox a minute after you pay</span>
+</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span><span class="ab2__item" data-an-copy="announcement_2"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>Read it for 30 days, or get your money back</span>
 <span class="ab2__timer" data-an-timer data-end="" role="timer" aria-live="off" hidden>
 <span class="ab2__unit"><span class="ab2__num" data-u="d">00</span><span class="ab2__lbl" data-l="label_days">Days</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="h">00</span><span class="ab2__lbl" data-l="label_hours">Hours</span></span>
@@ -316,15 +319,15 @@ data-menu-hover="none"
     --count-bubble-animation: mt-count-pop;
   }
 </style><style data-shopify>#shopify-section-header {
-    --hs-mnav-bg: #ffffff;
-    --hs-mnav-heading: #151517;
-    --hs-mnav-text: #5c5c63;
+    --hs-mnav-bg: #f7f4ee;
+    --hs-mnav-heading: #18241f;
+    --hs-mnav-text: #4c5450;
     --hs-hover-fill: #ffffff;
     --hs-logo-width: 78px;
     --hs-logo-width-mobile: 78px;
     --hs-logo-max-height: 60px;
     --hs-logo-box-height: 76px;
-  }#shopify-section-header { --hs-menu-gap: 14px; --hs-icon-gap: 10px; --hs-icon-gap-mobile: 6px; --hs-logo-x: 0px; --hs-logo-x-mobile: 0px; }@media (max-width: 1024.98px) {
+  }#shopify-section-header { --hs-menu-gap: 28px; --hs-icon-gap: 10px; --hs-icon-gap-mobile: 6px; --hs-logo-x: 0px; --hs-logo-x-mobile: 0px; }@media (max-width: 1024.98px) {
     #shopify-section-header {
       --hs-logo-max-height: 46px;
       --hs-logo-box-height: 62px;
@@ -342,7 +345,7 @@ data-section-id="header"
 data-sticky="always"
 data-sticky-mobile="true" data-reset-spacing
 data-menu-hover="none" data-menu-hover-theme data-theme-hover="none"
-data-header-blocks="pill_glass_1:pill_glass menu_badges_1:menu_badges " data-menu-type='{"on":false,"font":&quot;Poppins, sans-serif&quot;,"size":15,"weight":&quot;theme&quot;}'
+data-header-blocks="pill_glass_1:pill_glass menu_badges_1:menu_badges header_button_1:header_button " data-menu-type='{"on":false,"font":&quot;Poppins, sans-serif&quot;,"size":15,"weight":&quot;theme&quot;}'
 data-mega-label="button" data-dd-tinted data-logo-m="left" data-hs-flush data-logo-x="0 0"
 style="--section-pt: 0;--section-pb: 0;--transparent-color: #1a1a1a;--menu-hover-color: var(--color-link-hover, currentColor);--dd-duration: 400ms;--dd-ease: cubic-bezier(0.187, 0.775, 0.435, 0.925);--dd-shadow: 0 5px 30px 0 rgba(0, 0, 0, 0.05);--dd-width: 260px;--dd-pad-y: 20px;--dd-pad-x: 30px;--dd-link-space: 3px;--dd-radius: 0px;--mega-gap: 32px;--mega-card-radius: 0px;--hs-act-size: 16px;--hs-act-weight: 400;--hs-act-case: none;--hs-logo-gap-m: 0px;"
 ><div class="header__inner header__layout-1" id="header-sticky">
@@ -351,12 +354,12 @@ style="--section-pt: 0;--section-pb: 0;--transparent-color: #1a1a1a;--menu-hover
 <div class="header__logo text-center text-left-1025 inline-flex align-center"><a
 class="logo-img no-underline inline-flex align-center h1 my-0"
 href="/theme-previews/ebooks/index.html"
-aria-label="Plain Sight"
+aria-label="The Quiet Hour"
 >
 <span
 class="header__logo inline-flex align-center"
 style="--header-logo-width: 208px; --header-logo-width-mobile: 78px;"
-><span class="header__logo-text" style="font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, 600); font-size: clamp(20px, 2.2vw, 28px); line-height: 1; letter-spacing: -0.01em; color: inherit; white-space: nowrap;">Plain Sight</span></span>
+><span class="header__logo-text" style="font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, 600); font-size: clamp(20px, 2.2vw, 28px); line-height: 1; letter-spacing: -0.01em; color: inherit; white-space: nowrap;">The Quiet Hour</span></span>
 </a>
 </div>
 <div class="header__menu"><button
@@ -370,7 +373,7 @@ class="action nav-toggle overlay inline-flex pointer w-44 h-44 hidden-1025 heade
 <path d="M2 8H20C20.2812 8 20.5156 7.90625 20.7031 7.71875C20.9062 7.51562 21.0078 7.27344 21.0078 6.99219C21.0078 6.72656 20.9062 6.5 20.7031 6.3125C20.5156 6.10938 20.2812 6.00781 20 6.00781H2C1.71875 6.00781 1.47656 6.10938 1.27344 6.3125C1.08594 6.5 0.992188 6.72656 0.992188 6.99219C0.992188 7.27344 1.08594 7.51562 1.27344 7.71875C1.47656 7.90625 1.71875 8 2 8ZM2 2H20C20.2812 2 20.5156 1.90625 20.7031 1.71875C20.9062 1.51563 21.0078 1.27344 21.0078 0.992188C21.0078 0.726562 20.9062 0.5 20.7031 0.3125C20.5156 0.109375 20.2812 0.0078125 20 0.0078125H2C1.71875 0.0078125 1.47656 0.109375 1.27344 0.3125C1.08594 0.5 0.992188 0.726562 0.992188 0.992188C0.992188 1.27344 1.08594 1.51563 1.27344 1.71875C1.47656 1.90625 1.71875 2 2 2ZM2 14H20C20.2812 14 20.5156 13.9062 20.7031 13.7188C20.9062 13.5156 21.0078 13.2734 21.0078 12.9922C21.0078 12.7266 20.9062 12.5 20.7031 12.3125C20.5156 12.1094 20.2812 12.0078 20 12.0078H2C1.71875 12.0078 1.47656 12.1094 1.27344 12.3125C1.08594 12.5 0.992188 12.7266 0.992188 12.9922C0.992188 13.2734 1.08594 13.5156 1.27344 13.7188C1.47656 13.9062 1.71875 14 2 14Z" fill="currentColor"/>
 </svg>
 </button>
-<link href="/theme-previews/_base/a/navigation.1367a426b62b.css" rel="stylesheet" type="text/css" media="all">
+<link href="/theme-previews/_base/a/navigation.9c20c549e3cf.css" rel="stylesheet" type="text/css" media="all">
 <nav
 class="flex flex-column block-1025 navigation horizontal fixed static-1025 visible-1025 inset-0 down-to-up"
 data-action-mobile="true"
@@ -406,7 +409,15 @@ class="level0 single"
 <a
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/ebooks/collections/all.html"
-><span>The book</span></a></menu-item></li>
+><span>The books</span></a></menu-item></li>
+<li
+class="level0 single"
+>
+<menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
+<a
+class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
+href="/theme-previews/ebooks/pages/sample.html"
+><span>Free chapter</span></a></menu-item></li>
 <li
 class="level0 single"
 >
@@ -431,14 +442,6 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/ebooks/pages/faqs.html"
 ><span>FAQ</span></a></menu-item></li>
-<li
-class="level0 single"
->
-<menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
-<a
-class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
-href="/theme-previews/ebooks/pages/contact.html"
-><span>Contact</span></a></menu-item></li>
 </ul>
 </div>
 </nav>
@@ -505,7 +508,15 @@ class="level0 single"
 <a
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/ebooks/collections/all.html"
-><span>The book</span></a></menu-item></li>
+><span>The books</span></a></menu-item></li>
+<li
+class="level0 single"
+>
+<menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
+<a
+class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
+href="/theme-previews/ebooks/pages/sample.html"
+><span>Free chapter</span></a></menu-item></li>
 <li
 class="level0 single"
 >
@@ -530,14 +541,6 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/ebooks/pages/faqs.html"
 ><span>FAQ</span></a></menu-item></li>
-<li
-class="level0 single"
->
-<menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
-<a
-class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
-href="/theme-previews/ebooks/pages/contact.html"
-><span>Contact</span></a></menu-item></li>
 </ul>
 </div><div class="lang__currency-on-nav flex flex-wrap hidden-1025 border-top"></div>
 </nav></div>
@@ -582,7 +585,7 @@ class="no-underline minicart__action header-icon header-color w-44 h-44 inline-f
 </div>
 </div>
 </div>
-</div>
+<a class="hs-cta hs-cta--pos-after_icons hs-cta--m-in_row hs-cta--primary hs-cta--theme hs-cta--desktop hs-cta--ms-small hs-cta--font-body" href="/theme-previews/ebooks/collections/all.html" data-theme-button="primary" data-sl-button style="--mb-bg: var(--btn-primary-bg-color); --mb-text: var(--btn-primary-color); --mb-hover-bg: var(--btn-primary-hover-bg-color); --mb-hover-text: var(--btn-primary-hover-color); --hs-cta-gap: 20px; --hs-cta-gap-mobile: 12px; --hs-cta-x: 0px; --hs-cta-y: 0px; --hs-cta-bg: #1f3b33; --hs-cta-fg: #f7f4ee; --hs-cta-bd: #1f3b33; --hs-cta-bw: 0px; --hs-cta-radius: 6px; --hs-cta-fs: 16px; --hs-cta-fw: 600; --hs-cta-tt: none; --hs-cta-ls: 0px; --hs-cta-py: 14px; --hs-cta-px: 26px; --hs-cta-deco: none; --hs-cta-shadow: none; --hs-cta-dur: 225ms; --hs-cta-ease: cubic-bezier(0.2, 0.7, 0.2, 1); --hs-cta-hbg: #18241f; --hs-cta-hfg: #f7f4ee; --hs-cta-hbd: #18241f; --hs-cta-htransform: none; --hs-cta-hshadow: none; --hs-cta-hfilter: none; --hs-cta-hdeco: none;" data-lh-block="header_button_1" data-block-id="header_button_1">Get the book</a></div>
 </header-inner>
 </div>
 </div></header>
@@ -616,7 +619,7 @@ class="no-underline minicart__action header-icon header-color w-44 h-44 inline-f
   (function(){
     var el = document.getElementById('shopify-section-main-collection-heading');
     if (!el || el.classList.contains('scroll-trigger')) return;
-    el.classList.add('scroll-trigger', "subtle_rise");
+    el.classList.add('scroll-trigger', "fade_in");
   })();
 </script><style data-rs-bulletproof>/* reset_spacing: bulletproof override of ALL section spacing mechanisms */
     #shopify-section-main-collection-heading,
@@ -649,14 +652,14 @@ class="no-underline minicart__action header-icon header-color w-44 h-44 inline-f
   #shopify-section-main-collection-heading .sec__page-heading[style*="--aspect-ratio"] { aspect-ratio: var(--aspect-ratio); }
   #shopify-section-main-collection-heading .sec__page-heading .overlay-bg { position: absolute; inset: 0; z-index: -1; overflow: hidden; }
 </style><link rel="stylesheet" href="/theme-previews/ebooks/a/i.179e590e968a.css"><div
-class="section remove_spacing sec__page-heading color-default gradient mb-60 flex align-center justify-content-left"
-data-align="left"
-style="--section-pt: 56; --section-pb: 24;--overlay-opacity: 0%;"
+class="section remove_spacing sec__page-heading color-scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976 gradient mb-60 flex align-center justify-content-center"
+data-align="center"
+style="--section-pt: 56; --section-pb: 40;--overlay-opacity: 0%;"
 data-lcp="main-collection-heading"
 data-lcp-id="main-collection-heading"
 >
-<div class="container">
-<div class="heading-content relative text-left"><motion-element
+<div class="fluid_container">
+<div class="heading-content relative text-center"><motion-element
 data-motion="fade-up-lg"
 hold
 data-motion-delay="0"
@@ -667,7 +670,7 @@ data-lcp-block-type="breadcrumb"
 class="bc page-title-breadcrumb"
 aria-label="Home"
 data-bc-sep="chevron"
-style="--bc-link: color-mix(in srgb, var(--color-text) 72%, transparent); --bc-current: var(--color-heading); --bc-size: 13px; --bc-justify: flex-start;"
+style="--bc-link: color-mix(in srgb, var(--color-text) 72%, transparent); --bc-current: var(--color-heading); --bc-size: 13px; --bc-justify: center;"
 data-block-id="breadcrumb"
 >
 <ol class="bc__trail">
@@ -738,22 +741,114 @@ data-block-id="description">
 </style><link rel="stylesheet" href="/theme-previews/ebooks/a/i.2b02cd471b10.css">
 <script src="/theme-previews/ebooks/a/i.911cfed98be7.js"></script><link href="/theme-previews/_base/a/collection-page.6d4572d13768.css" rel="stylesheet" type="text/css" media="all">
 <section
-class="section pt-min sec__collection-main subtle_rise bls-image-js color-default gradient"
+class="section sec__collection-main fade_in bls-image-js color-default gradient"
 data-section-id="main-collection-product"
-style="--section-pt: 0; --section-pb: 96;"
+style="--section-pt: 40; --section-pb: 60;"
 data-lcp="main-collection-product"
 data-lcp-id="main-collection-product"
 >
 <grid-list
 hold
 >
-<div class="container">
+<div class="fluid_container">
 <facets-root
 class="facets facets--none"
 data-section-id="main-collection-product"
 data-facets-path="/collections/best-sellers"
 data-facets-shape="none"
-><div class="facets-toolbar facets-toolbar--horizontal" data-toolbar-style="minimal"><p class="facets-toolbar__count" role="status" aria-live="polite" data-facets-part="count">3 products</p></div><div class="facets__layout"><div
+><div class="facets-toolbar facets-toolbar--horizontal" data-toolbar-style="minimal"><p class="facets-toolbar__count" role="status" aria-live="polite" data-facets-part="count">3 products</p><div class="facets-sort">
+<button
+type="button"
+class="facets-sort__trigger facets-tbtn facets-tbtn--minimal"
+popovertarget="FacetSort-main-collection-product"
+aria-controls="FacetSort-main-collection-product"
+aria-expanded="false"
+data-facets-sort-trigger
+>
+<span class="facets-sort__label">Sort by:</span>
+<span class="facets-sort__current" data-facets-part="sort-current">Featured</span>
+<svg class="facets-sort__chevron" width="12" height="8" viewBox="0 0 12 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m1 1.5 5 5 5-5"/></svg>
+</button>
+<div
+id="FacetSort-main-collection-product"
+class="facets-sort__panel"
+popover
+role="dialog"
+aria-labelledby="FacetSortTitle-main-collection-product"
+data-facets-sort-panel
+>
+<div class="facets-sheet__head">
+<p class="facets-sheet__title" id="FacetSortTitle-main-collection-product">Sort by</p>
+<button
+type="button"
+class="facets-sheet__close"
+popovertarget="FacetSort-main-collection-product"
+popovertargetaction="hide"
+aria-label="Close"
+>
+<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="m1 1 12 12M13 1 1 13"/></svg>
+</button>
+</div>
+<ul class="facets-sort__options" role="list" data-facets-part="sort-options"><li>
+<a
+class="facets-sort__option"
+href="/theme-previews/ebooks/collections/best-sellers.html"
+data-facets-sort="manual"
+data-facets-key="sort-manual"
+aria-current="true"
+>Featured</a>
+</li><li>
+<a
+class="facets-sort__option"
+href="/theme-previews/ebooks/collections/best-sellers.html"
+data-facets-sort="best-selling"
+data-facets-key="sort-best-selling"
+>Best selling</a>
+</li><li>
+<a
+class="facets-sort__option"
+href="/theme-previews/ebooks/collections/best-sellers.html"
+data-facets-sort="title-ascending"
+data-facets-key="sort-title-ascending"
+>Alphabetically, A-Z</a>
+</li><li>
+<a
+class="facets-sort__option"
+href="/theme-previews/ebooks/collections/best-sellers.html"
+data-facets-sort="title-descending"
+data-facets-key="sort-title-descending"
+>Alphabetically, Z-A</a>
+</li><li>
+<a
+class="facets-sort__option"
+href="/theme-previews/ebooks/collections/best-sellers.html"
+data-facets-sort="price-ascending"
+data-facets-key="sort-price-ascending"
+>Price, low to high</a>
+</li><li>
+<a
+class="facets-sort__option"
+href="/theme-previews/ebooks/collections/best-sellers.html"
+data-facets-sort="price-descending"
+data-facets-key="sort-price-descending"
+>Price, high to low</a>
+</li><li>
+<a
+class="facets-sort__option"
+href="/theme-previews/ebooks/collections/best-sellers.html"
+data-facets-sort="created-ascending"
+data-facets-key="sort-created-ascending"
+>Date, old to new</a>
+</li><li>
+<a
+class="facets-sort__option"
+href="/theme-previews/ebooks/collections/best-sellers.html"
+data-facets-sort="created-descending"
+data-facets-key="sort-created-descending"
+>Date, new to old</a>
+</li></ul>
+</div>
+</div></div><div class="facets__layout"><div
 id="productgridcontainer"
 class="facets__results"
 data-facets-part="results"
@@ -763,8 +858,8 @@ class="product-grid-container relative"
 id="product-grid"
 data-id="main-collection-product"
 class="facets-grid container-products-switch"
-style="--cols-desktop: 2;--cols-tablet: 2;--cols-mobile: 1;--grid-gap: 32px;"
-data-view-mode="2"
+style="--cols-desktop: 3;--cols-tablet: 3;--cols-mobile: 2;--grid-gap: 30px;"
+data-view-mode="3"
 ><div
 class="grid__item"
 >
@@ -772,7 +867,7 @@ class="grid__item"
 class="product-item product__item-js  style-as-standard"
 >
 <motion-element
-class="product-item__wrapper block  hover_zoom product-grid  scroll-trigger subtle_rise "
+class="product-item__wrapper block  hover_zoom product-grid  scroll-trigger fade_in "
 data-cascade
 data-motion="fade-up-lg"
 hold
@@ -783,12 +878,144 @@ style="--animation-order: 1;  "
 <div class="product-item__inner hover-effect overflow-hidden relative">
 <a
 draggable="false"
+href="/theme-previews/ebooks/products/ten-quiet-mornings.html"
+aria-label="Ten Quiet Mornings"
+class="product__media product-item__media--ratio rounded block"
+style="--aspect-ratio: 1/1;"
+>
+<img src="/theme-previews/ebooks/a/ebooks-product-mornings.59494ff4b363.webp" srcset="/theme-previews/ebooks/a/ebooks-product-mornings.59494ff4b363.webp 720w, /theme-previews/ebooks/a/ebooks-product-mornings.59494ff4b363.webp 660w, /theme-previews/ebooks/a/ebooks-product-mornings.59494ff4b363.webp 550w, /theme-previews/ebooks/a/ebooks-product-mornings.59494ff4b363.webp 480w, /theme-previews/ebooks/a/ebooks-product-mornings.59494ff4b363.webp 330w, /theme-previews/ebooks/a/ebooks-product-mornings.59494ff4b363.webp 240w, /theme-previews/ebooks/a/ebooks-product-mornings.59494ff4b363.webp 185w" alt="Ten Quiet Mornings" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1360px -  30px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 30px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image">
+<div class="loading_image skeleton">
+</div>
+</a><div class="pc-corner" data-pc-corner>
+<div
+class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
+data-max="4"
+data-sale-color="#ffffff"
+data-sold-out-color="#ffffff"
+data-pre-order-color="#ffffff"
+data-sale-bg="#353535"
+data-sold-out-bg="#666666"
+data-pre-order-bg="#6a33d8"
+data-show-sale="true"
+data-show-sold-out="true"
+data-show-preorder="true"
+data-sale-badge-type="percent"
+>
+</div>
+</div>
+<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
+</div>
+</div>
+<div class="product-item__information word-break text-start mt-15">
+<a
+aria-label="Ten Quiet Mornings"
+class="product-item__name unset heading-style no-underline fs-custom block lh-normal"
+style="--font-size: 17;"            
+href="/theme-previews/ebooks/products/ten-quiet-mornings.html"
+>Ten Quiet Mornings</a>
+<div
+class="product-item__price justify-content-start fs-custom flex gap-custom lh-normal "
+style="--font-size: 16; --gap: 3px;"
+><div class="card-product-price  flex align-center flex-wrap gap-5 relative"><div class="price-regular">
+<span class="visually-hidden">Regular price</span>
+<span class="price price-same-style heading-style">
+$9.00
+</span>
+</div>
+</div>
+</div>
+</div>
+</motion-element></div>
+</div><div
+class="grid__item"
+>
+<div
+class="product-item product__item-js  style-as-standard"
+>
+<motion-element
+class="product-item__wrapper block  hover_zoom product-grid  scroll-trigger fade_in "
+data-cascade
+data-motion="fade-up-lg"
+hold
+data-margin="0px 0px 5 0px"
+data-motion-delay="50"
+style="--animation-order: 2;  "
+>
+<div class="product-item__inner hover-effect overflow-hidden relative">
+<a
+draggable="false"
+href="/theme-previews/ebooks/products/sample-product-one.html"
+aria-label="Sample product one"
+class="product__media product-item__media--ratio rounded block"
+style="--aspect-ratio: 1/1;"
+>
+<img src="/theme-previews/ebooks/a/ebooks-product-book.d10a524f2df3.webp" srcset="/theme-previews/ebooks/a/ebooks-product-book.d10a524f2df3.webp 720w, /theme-previews/ebooks/a/ebooks-product-book.d10a524f2df3.webp 660w, /theme-previews/ebooks/a/ebooks-product-book.d10a524f2df3.webp 550w, /theme-previews/ebooks/a/ebooks-product-book.d10a524f2df3.webp 480w, /theme-previews/ebooks/a/ebooks-product-book.d10a524f2df3.webp 330w, /theme-previews/ebooks/a/ebooks-product-book.d10a524f2df3.webp 240w, /theme-previews/ebooks/a/ebooks-product-book.d10a524f2df3.webp 185w" alt="Sample product one" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1360px -  30px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 30px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image">
+<div class="loading_image skeleton">
+</div>
+</a><div class="pc-corner" data-pc-corner>
+<div
+class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
+data-max="4"
+data-sale-color="#ffffff"
+data-sold-out-color="#ffffff"
+data-pre-order-color="#ffffff"
+data-sale-bg="#353535"
+data-sold-out-bg="#666666"
+data-pre-order-bg="#6a33d8"
+data-show-sale="true"
+data-show-sold-out="true"
+data-show-preorder="true"
+data-sale-badge-type="percent"
+>
+</div>
+</div>
+<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
+</div>
+</div>
+<div class="product-item__information word-break text-start mt-15">
+<a
+aria-label="Sample product one"
+class="product-item__name unset heading-style no-underline fs-custom block lh-normal"
+style="--font-size: 17;"            
+href="/theme-previews/ebooks/products/sample-product-one.html"
+>Sample product one</a>
+<div
+class="product-item__price justify-content-start fs-custom flex gap-custom lh-normal "
+style="--font-size: 16; --gap: 3px;"
+><div class="card-product-price  flex align-center flex-wrap gap-5 relative"><div class="price-regular">
+<span class="visually-hidden">Regular price</span>
+<span class="price price-same-style heading-style">
+$24.00
+</span>
+</div>
+</div>
+</div>
+</div>
+</motion-element></div>
+</div><div
+class="grid__item"
+>
+<div
+class="product-item product__item-js  style-as-standard"
+>
+<motion-element
+class="product-item__wrapper block  hover_zoom product-grid  scroll-trigger fade_in "
+data-cascade
+data-motion="fade-up-lg"
+hold
+data-margin="0px 0px 5 0px"
+data-motion-delay="100"
+style="--animation-order: 3;  "
+>
+<div class="product-item__inner hover-effect overflow-hidden relative">
+<a
+draggable="false"
 href="/theme-previews/ebooks/products/sample-product-two.html"
 aria-label="Sample product two"
 class="product__media product-item__media--ratio rounded block"
 style="--aspect-ratio: 1/1;"
 >
-<img src="/theme-previews/ebooks/a/ebooks-product-bundle.06fe47ff1a1c.webp" srcset="/theme-previews/ebooks/a/ebooks-product-bundle.06fe47ff1a1c.webp 720w, /theme-previews/ebooks/a/ebooks-product-bundle.06fe47ff1a1c.webp 660w, /theme-previews/ebooks/a/ebooks-product-bundle.06fe47ff1a1c.webp 550w, /theme-previews/ebooks/a/ebooks-product-bundle.06fe47ff1a1c.webp 480w, /theme-previews/ebooks/a/ebooks-product-bundle.06fe47ff1a1c.webp 330w, /theme-previews/ebooks/a/ebooks-product-bundle.06fe47ff1a1c.webp 240w, /theme-previews/ebooks/a/ebooks-product-bundle.06fe47ff1a1c.webp 185w" alt="Sample product two" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1310px -  32px * 1) * 0.5), (min-width: 768px) calc( (100vw - 30px - 32px * 0 ) * 1), calc( (100vw - 30px - 15px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/ebooks/a/ebooks-product-bundle.7c6469fb02c6.webp" srcset="/theme-previews/ebooks/a/ebooks-product-bundle.7c6469fb02c6.webp 720w, /theme-previews/ebooks/a/ebooks-product-bundle.7c6469fb02c6.webp 660w, /theme-previews/ebooks/a/ebooks-product-bundle.7c6469fb02c6.webp 550w, /theme-previews/ebooks/a/ebooks-product-bundle.7c6469fb02c6.webp 480w, /theme-previews/ebooks/a/ebooks-product-bundle.7c6469fb02c6.webp 330w, /theme-previews/ebooks/a/ebooks-product-bundle.7c6469fb02c6.webp 240w, /theme-previews/ebooks/a/ebooks-product-bundle.7c6469fb02c6.webp 185w" alt="Sample product two" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1360px -  30px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 30px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image">
 <div class="loading_image skeleton">
 </div>
 </a><div class="pc-corner" data-pc-corner>
@@ -838,138 +1065,6 @@ $36.00
 </div>
 </div>
 </motion-element></div>
-</div><div
-class="grid__item"
->
-<div
-class="product-item product__item-js  style-as-standard"
->
-<motion-element
-class="product-item__wrapper block  hover_zoom product-grid  scroll-trigger subtle_rise "
-data-cascade
-data-motion="fade-up-lg"
-hold
-data-margin="0px 0px 5 0px"
-data-motion-delay="50"
-style="--animation-order: 2;  "
->
-<div class="product-item__inner hover-effect overflow-hidden relative">
-<a
-draggable="false"
-href="/theme-previews/ebooks/products/sample-product-three.html"
-aria-label="Sample product three"
-class="product__media product-item__media--ratio rounded block"
-style="--aspect-ratio: 1/1;"
->
-<img src="/theme-previews/ebooks/a/ebooks-product-book.3eea74b808e1.webp" srcset="/theme-previews/ebooks/a/ebooks-product-book.3eea74b808e1.webp 720w, /theme-previews/ebooks/a/ebooks-product-book.3eea74b808e1.webp 660w, /theme-previews/ebooks/a/ebooks-product-book.3eea74b808e1.webp 550w, /theme-previews/ebooks/a/ebooks-product-book.3eea74b808e1.webp 480w, /theme-previews/ebooks/a/ebooks-product-book.3eea74b808e1.webp 330w, /theme-previews/ebooks/a/ebooks-product-book.3eea74b808e1.webp 240w, /theme-previews/ebooks/a/ebooks-product-book.3eea74b808e1.webp 185w" alt="Sample product three" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1310px -  32px * 1) * 0.5), (min-width: 768px) calc( (100vw - 30px - 32px * 0 ) * 1), calc( (100vw - 30px - 15px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
-<div class="loading_image skeleton">
-</div>
-</a><div class="pc-corner" data-pc-corner>
-<div
-class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
-data-max="4"
-data-sale-color="#ffffff"
-data-sold-out-color="#ffffff"
-data-pre-order-color="#ffffff"
-data-sale-bg="#353535"
-data-sold-out-bg="#666666"
-data-pre-order-bg="#6a33d8"
-data-show-sale="true"
-data-show-sold-out="true"
-data-show-preorder="true"
-data-sale-badge-type="percent"
->
-</div>
-</div>
-<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
-</div>
-</div>
-<div class="product-item__information word-break text-start mt-15">
-<a
-aria-label="Sample product three"
-class="product-item__name unset heading-style no-underline fs-custom block lh-normal"
-style="--font-size: 17;"            
-href="/theme-previews/ebooks/products/sample-product-three.html"
->Sample product three</a>
-<div
-class="product-item__price justify-content-start fs-custom flex gap-custom lh-normal "
-style="--font-size: 16; --gap: 3px;"
-><div class="card-product-price  flex align-center flex-wrap gap-5 relative"><div class="price-regular">
-<span class="visually-hidden">Regular price</span>
-<span class="price price-same-style heading-style">
-$18.00
-</span>
-</div>
-</div>
-</div>
-</div>
-</motion-element></div>
-</div><div
-class="grid__item"
->
-<div
-class="product-item product__item-js  style-as-standard"
->
-<motion-element
-class="product-item__wrapper block  hover_zoom product-grid  scroll-trigger subtle_rise "
-data-cascade
-data-motion="fade-up-lg"
-hold
-data-margin="0px 0px 5 0px"
-data-motion-delay="100"
-style="--animation-order: 3;  "
->
-<div class="product-item__inner hover-effect overflow-hidden relative">
-<a
-draggable="false"
-href="/theme-previews/ebooks/products/sample-product-four.html"
-aria-label="Sample product four"
-class="product__media product-item__media--ratio rounded block"
-style="--aspect-ratio: 1/1;"
->
-<img src="/theme-previews/ebooks/a/ebooks-product-bundle.06fe47ff1a1c.webp" srcset="/theme-previews/ebooks/a/ebooks-product-bundle.06fe47ff1a1c.webp 720w, /theme-previews/ebooks/a/ebooks-product-bundle.06fe47ff1a1c.webp 660w, /theme-previews/ebooks/a/ebooks-product-bundle.06fe47ff1a1c.webp 550w, /theme-previews/ebooks/a/ebooks-product-bundle.06fe47ff1a1c.webp 480w, /theme-previews/ebooks/a/ebooks-product-bundle.06fe47ff1a1c.webp 330w, /theme-previews/ebooks/a/ebooks-product-bundle.06fe47ff1a1c.webp 240w, /theme-previews/ebooks/a/ebooks-product-bundle.06fe47ff1a1c.webp 185w" alt="Sample product four" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1310px -  32px * 1) * 0.5), (min-width: 768px) calc( (100vw - 30px - 32px * 0 ) * 1), calc( (100vw - 30px - 15px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
-<div class="loading_image skeleton">
-</div>
-</a><div class="pc-corner" data-pc-corner>
-<div
-class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
-data-max="4"
-data-sale-color="#ffffff"
-data-sold-out-color="#ffffff"
-data-pre-order-color="#ffffff"
-data-sale-bg="#353535"
-data-sold-out-bg="#666666"
-data-pre-order-bg="#6a33d8"
-data-show-sale="true"
-data-show-sold-out="true"
-data-show-preorder="true"
-data-sale-badge-type="percent"
->
-</div>
-</div>
-<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
-</div>
-</div>
-<div class="product-item__information word-break text-start mt-15">
-<a
-aria-label="Sample product four"
-class="product-item__name unset heading-style no-underline fs-custom block lh-normal"
-style="--font-size: 17;"            
-href="/theme-previews/ebooks/products/sample-product-four.html"
->Sample product four</a>
-<div
-class="product-item__price justify-content-start fs-custom flex gap-custom lh-normal "
-style="--font-size: 16; --gap: 3px;"
-><div class="card-product-price  flex align-center flex-wrap gap-5 relative"><div class="price-regular">
-<span class="visually-hidden">Regular price</span>
-<span class="price price-same-style heading-style">
-$60.00
-</span>
-</div>
-</div>
-</div>
-</div>
-</motion-element></div>
 </div></div>
 </div>
 </div>
@@ -978,197 +1073,7 @@ $60.00
 </div>
 </grid-list>
 </section>
-</div><div id="shopify-section-band" class="shopify-section" data-section-id="band" data-section-type="benefits-icons2"><script src="/theme-previews/_base/a/live-features-a.b7fbc3730669.js" defer="defer"></script>
-<style>
-  #shopify-section-band {
-    font-family: var(--body-font, inherit);
-    font-size: var(--body-font-size, inherit);
-    font-weight: var(--body-weight, inherit);
-    line-height: var(--body-line-height, inherit);
-    color: var(--color-text);
-  }
-  #shopify-section-band :is(h1, h2, h3, h4, h5, h6) {
-    font-family: var(--heading-font, inherit);
-    font-weight: var(--heading-weight, inherit);
-    letter-spacing: var(--heading-letter-spacing, normal);
-    line-height: var(--heading-line-height, 1.2);
-    text-transform: var(--heading-text-transform, none);
-  }
-  :where(html:not([data-font-priority='off'])) #shopify-section-band :where(.subheading, .sub-heading, [class*='__subheading']) {
-    font-weight: var(--subheading-weight, 500);
-  }
-</style><style>
-  #shopify-section-band.scroll-trigger {
-    --animation-duration: 950ms;
-    --animation-delay: 80ms;
-  }
-</style>
-<script>
-  (function(){
-    var el = document.getElementById('shopify-section-band');
-    if (!el || el.classList.contains('scroll-trigger')) return;
-    el.classList.add('scroll-trigger', "subtle_rise");
-  })();
-</script><style data-rs-bulletproof>
-  #shopify-section-band, #shopify-section-band > section { margin-top: 0 !important; margin-bottom: 0 !important; }
-  #shopify-section-band + .shopify-section, .shopify-section + #shopify-section-band { margin-top: 0 !important; }
-</style><link rel="stylesheet" href="/theme-previews/ebooks/a/i.436a06729506.css">
-<link rel="stylesheet" href="/theme-previews/ebooks/a/i.788a79ef9b13.css">
-<section class="bic color-scheme-6da511c0-ea26-4213-b3d3-e09320840636 gradient"
-data-fa="benefits-icons2" data-fa-section="band" data-width="full_width"
-data-mobile="1" data-circle="false"
-style="--fa-bg: #e2402f;--fa-hf: var(--heading-font);--fa-bf: var(--body-font);--fa-pt-m: 44px;--fa-pb-m: 44px;--fa-pt-d: 64px;--fa-pb-d: 64px;--fa-mt-m: 0px;--fa-mb-m: 0px;--fa-mt-d: 0px;--fa-mb-d: 0px;--bic-w: 86%;--bic-vm-d: 0px;--bic-vm-m: 0px;--bic-cols-d: 3;--bic-cols-m: 1;--bic-gap: 40px;--bic-icon-d: 40px;--bic-icon-m: 34px;--bic-title-d: 22px;--bic-title-m: 19px;--bic-desc-d: 15px;--bic-desc-m: 14px;--bic-icon-color: #ffffff;--bic-icon-bg: color-mix(in srgb, var(--bic-icon-color) 9%, transparent);--bic-title-color: #ffffff;--bic-desc-color: #ffe3dd;"><div class="bic__box fa-inner"><ul class="bic__list" role="list"><li class="bic__item" data-fa-block="icon_1" data-fa-type="icon" data-block-id="icon_1">
-<span class="bic__icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--!Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path d="M358.4 3.2L320 48 265.6 3.2a15.9 15.9 0 0 0 -19.2 0L192 48 137.6 3.2a15.9 15.9 0 0 0 -19.2 0L64 48 25.6 3.2C15-4.7 0 2.8 0 16v480c0 13.2 15 20.7 25.6 12.8L64 464l54.4 44.8a15.9 15.9 0 0 0 19.2 0L192 464l54.4 44.8a15.9 15.9 0 0 0 19.2 0L320 464l38.4 44.8c10.5 7.9 25.6 .4 25.6-12.8V16c0-13.2-15-20.7-25.6-12.8zM320 360c0 4.4-3.6 8-8 8H72c-4.4 0-8-3.6-8-8v-16c0-4.4 3.6-8 8-8h240c4.4 0 8 3.6 8 8v16zm0-96c0 4.4-3.6 8-8 8H72c-4.4 0-8-3.6-8-8v-16c0-4.4 3.6-8 8-8h240c4.4 0 8 3.6 8 8v16zm0-96c0 4.4-3.6 8-8 8H72c-4.4 0-8-3.6-8-8v-16c0-4.4 3.6-8 8-8h240c4.4 0 8 3.6 8 8v16z"/></svg></span>
-<div class="bic__text">
-<h3 class="bic__title fa-h">212 pages</h3>
-<p class="bic__desc fa-t">Plain words and screenshots, no theory chapters to wade through.</p>
 </div>
-</li><li class="bic__item" data-fa-block="icon_2" data-fa-type="icon" data-block-id="icon_2">
-<span class="bic__icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--!Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path d="M436 160H12c-6.6 0-12-5.4-12-12v-36c0-26.5 21.5-48 48-48h48V12c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v52h128V12c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v52h48c26.5 0 48 21.5 48 48v36c0 6.6-5.4 12-12 12zM12 192h424c6.6 0 12 5.4 12 12v260c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V204c0-6.6 5.4-12 12-12zm333.3 95.9l-28.2-28.4c-4.7-4.7-12.3-4.7-17-.1L194.1 364.7l-46-46.4c-4.7-4.7-12.3-4.7-17-.1l-28.4 28.2c-4.7 4.7-4.7 12.3-.1 17l82.6 83.3c4.7 4.7 12.3 4.7 17 .1l143-141.8c4.7-4.7 4.7-12.3 .1-17z"/></svg></span>
-<div class="bic__text">
-<h3 class="bic__title fa-h">12 chapters</h3>
-<p class="bic__desc fa-t">One a week. Each ends with a task you can finish in an evening.</p>
-</div>
-</li><li class="bic__item" data-fa-block="icon_3" data-fa-type="icon" data-block-id="icon_3">
-<span class="bic__icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--!Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path d="M109.5 244l134.6-134.6-44.1-44.1-61.7 61.7a7.9 7.9 0 0 1 -11.2 0l-11.2-11.2c-3.1-3.1-3.1-8.1 0-11.2l61.7-61.7-33.6-33.7C131.5-3.1 111.4-3.1 99 9.3L9.3 99c-12.4 12.4-12.4 32.5 0 44.9l100.2 100.2zm388.5-116.8c18.8-18.8 18.8-49.2 0-67.9l-45.3-45.3c-18.8-18.8-49.2-18.8-68 0l-46 46 113.2 113.2 46-46zM316.1 82.7l-297 297L.3 487.1c-2.5 14.5 10.1 27.1 24.6 24.6l107.5-18.8L429.3 195.9 316.1 82.7zm186.6 285.4l-33.6-33.6-61.7 61.7c-3.1 3.1-8.1 3.1-11.2 0l-11.2-11.2c-3.1-3.1-3.1-8.1 0-11.2l61.7-61.7-44.1-44.1L267.9 402.5l100.2 100.2c12.4 12.4 32.5 12.4 44.9 0l89.7-89.7c12.4-12.4 12.4-32.5 0-44.9z"/></svg></span>
-<div class="bic__text">
-<h3 class="bic__title fa-h">40 checklists</h3>
-<p class="bic__desc fa-t">Printable checklists and message templates you can copy as they are.</p>
-</div>
-</li></ul>
-</div>
-</section></div><div id="shopify-section-faq" class="shopify-section section-faq7" data-section-id="faq" data-section-type="faq-pro"><script src="/theme-previews/_base/a/live-faq.15551f08943f.js" defer="defer"></script>
-<style>
-  #shopify-section-faq {
-    font-family: var(--body-font, inherit);
-    font-size: var(--body-font-size, inherit);
-    font-weight: var(--body-weight, inherit);
-    line-height: var(--body-line-height, inherit);
-    color: var(--color-text);
-  }
-  #shopify-section-faq :is(h1, h2, h3, h4, h5, h6) {
-    font-family: var(--heading-font, inherit);
-    font-weight: var(--heading-weight, inherit);
-    letter-spacing: var(--heading-letter-spacing, normal);
-    line-height: var(--heading-line-height, 1.2);
-    text-transform: var(--heading-text-transform, none);
-  }
-  :where(html:not([data-font-priority='off'])) #shopify-section-faq :where(.subheading, .sub-heading, [class*='__subheading']) {
-    font-weight: var(--subheading-weight, 500);
-  }
-</style><style>
-  #shopify-section-faq.scroll-trigger {
-    --animation-duration: 950ms;
-    --animation-delay: 80ms;
-  }
-</style>
-<script>
-  (function(){
-    var el = document.getElementById('shopify-section-faq');
-    if (!el || el.classList.contains('scroll-trigger')) return;
-    el.classList.add('scroll-trigger', "subtle_rise");
-  })();
-</script><style>
-  #shopify-section-faq,#shopify-section-faq>.section,#shopify-section-faq>section,#shopify-section-faq>div,#shopify-section-faq>div>.section{margin-top:0!important;margin-bottom:0!important}
-  #shopify-section-faq+.shopify-section,#shopify-section-faq+section,.shopify-section+#shopify-section-faq{margin-top:0!important}
-  #shopify-section-faq{isolation:isolate;position:relative;margin-top:0px;margin-bottom:0px}
-  :where(#shopify-section-faq){font-family:var(--body-font,inherit)}
-  :where(#shopify-section-faq) :where(button,input,textarea,select,optgroup){font-family:inherit}
-  #shopify-section-faq *,#shopify-section-faq *:before,#shopify-section-faq *:after{box-sizing:border-box}
-  :where(#shopify-section-faq) :is(h1,h2,h3,h4,h5,h6){font-family:var(--heading-font,inherit);font-weight:var(--heading-weight,inherit)}
-  @media (min-width:768px){#shopify-section-faq{margin-top:0px;margin-bottom:0px}}
-</style>
-<link href="/theme-previews/_base/a/faq-pro.b7e810b1d391.css" rel="stylesheet" type="text/css" media="all"><div class="faq7 color-default gradient" data-faq7-root data-faq-root="faq-pro" data-faq-section="faq" data-faq-settings="{&quot;color_scheme&quot;:{&quot;id&quot;:&quot;default&quot;,&quot;settings&quot;:{&quot;page_colors&quot;:null,&quot;background&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;text_color&quot;:{&quot;red&quot;:92,&quot;green&quot;:92,&quot;blue&quot;:99,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:4,&quot;lightness&quot;:37,&quot;rgb&quot;:&quot;92 92 99&quot;,&quot;rgba&quot;:&quot;92 92 99 / 1&quot;,&quot;hex&quot;:&quot;#5c5c63&quot;},&quot;heading_color&quot;:{&quot;red&quot;:21,&quot;green&quot;:21,&quot;blue&quot;:23,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:5,&quot;lightness&quot;:9,&quot;rgb&quot;:&quot;21 21 23&quot;,&quot;rgba&quot;:&quot;21 21 23 / 1&quot;,&quot;hex&quot;:&quot;#151517&quot;},&quot;primary_color&quot;:{&quot;red&quot;:21,&quot;green&quot;:21,&quot;blue&quot;:23,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:5,&quot;lightness&quot;:9,&quot;rgb&quot;:&quot;21 21 23&quot;,&quot;rgba&quot;:&quot;21 21 23 / 1&quot;,&quot;hex&quot;:&quot;#151517&quot;},&quot;border_color&quot;:{&quot;red&quot;:235,&quot;green&quot;:231,&quot;blue&quot;:224,&quot;alpha&quot;:1,&quot;hue&quot;:38,&quot;saturation&quot;:22,&quot;lightness&quot;:90,&quot;rgb&quot;:&quot;235 231 224&quot;,&quot;rgba&quot;:&quot;235 231 224 / 1&quot;,&quot;hex&quot;:&quot;#ebe7e0&quot;},&quot;badge_background&quot;:null,&quot;badge_text&quot;:null,&quot;primary_button_colors&quot;:null,&quot;btn_primary_background&quot;:{&quot;red&quot;:21,&quot;green&quot;:21,&quot;blue&quot;:23,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:5,&quot;lightness&quot;:9,&quot;rgb&quot;:&quot;21 21 23&quot;,&quot;rgba&quot;:&quot;21 21 23 / 1&quot;,&quot;hex&quot;:&quot;#151517&quot;},&quot;btn_primary_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_primary_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_primary_hover_background&quot;:{&quot;red&quot;:226,&quot;green&quot;:64,&quot;blue&quot;:47,&quot;alpha&quot;:1,&quot;hue&quot;:6,&quot;saturation&quot;:76,&quot;lightness&quot;:54,&quot;rgb&quot;:&quot;226 64 47&quot;,&quot;rgba&quot;:&quot;226 64 47 / 1&quot;,&quot;hex&quot;:&quot;#e2402f&quot;},&quot;btn_primary_hover_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_primary_hover_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;secondary_button_colors&quot;:null,&quot;btn_secondary_background&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_secondary_color&quot;:{&quot;red&quot;:21,&quot;green&quot;:21,&quot;blue&quot;:23,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:5,&quot;lightness&quot;:9,&quot;rgb&quot;:&quot;21 21 23&quot;,&quot;rgba&quot;:&quot;21 21 23 / 1&quot;,&quot;hex&quot;:&quot;#151517&quot;},&quot;btn_secondary_border&quot;:{&quot;red&quot;:217,&quot;green&quot;:212,&quot;blue&quot;:203,&quot;alpha&quot;:1,&quot;hue&quot;:39,&quot;saturation&quot;:16,&quot;lightness&quot;:82,&quot;rgb&quot;:&quot;217 212 203&quot;,&quot;rgba&quot;:&quot;217 212 203 / 1&quot;,&quot;hex&quot;:&quot;#d9d4cb&quot;},&quot;btn_secondary_hover_background&quot;:{&quot;red&quot;:21,&quot;green&quot;:21,&quot;blue&quot;:23,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:5,&quot;lightness&quot;:9,&quot;rgb&quot;:&quot;21 21 23&quot;,&quot;rgba&quot;:&quot;21 21 23 / 1&quot;,&quot;hex&quot;:&quot;#151517&quot;},&quot;btn_secondary_hover_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_secondary_hover_border_color&quot;:null,&quot;background_gradient&quot;:&quot;&quot;,&quot;btn_primary_gradient&quot;:&quot;&quot;,&quot;btn_primary_hover_background_gradient&quot;:&quot;&quot;,&quot;btn_secondary_hover_border&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_outline_color&quot;:{&quot;red&quot;:21,&quot;green&quot;:21,&quot;blue&quot;:23,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:5,&quot;lightness&quot;:9,&quot;rgb&quot;:&quot;21 21 23&quot;,&quot;rgba&quot;:&quot;21 21 23 / 1&quot;,&quot;hex&quot;:&quot;#151517&quot;},&quot;btn_outline_border_color&quot;:{&quot;red&quot;:21,&quot;green&quot;:21,&quot;blue&quot;:23,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:5,&quot;lightness&quot;:9,&quot;rgb&quot;:&quot;21 21 23&quot;,&quot;rgba&quot;:&quot;21 21 23 / 1&quot;,&quot;hex&quot;:&quot;#151517&quot;},&quot;button_link_color&quot;:{&quot;red&quot;:21,&quot;green&quot;:21,&quot;blue&quot;:23,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:5,&quot;lightness&quot;:9,&quot;rgb&quot;:&quot;21 21 23&quot;,&quot;rgba&quot;:&quot;21 21 23 / 1&quot;,&quot;hex&quot;:&quot;#151517&quot;},&quot;button_link_hover_color&quot;:{&quot;red&quot;:226,&quot;green&quot;:64,&quot;blue&quot;:47,&quot;alpha&quot;:1,&quot;hue&quot;:6,&quot;saturation&quot;:76,&quot;lightness&quot;:54,&quot;rgb&quot;:&quot;226 64 47&quot;,&quot;rgba&quot;:&quot;226 64 47 / 1&quot;,&quot;hex&quot;:&quot;#e2402f&quot;}}},&quot;section_width&quot;:&quot;container&quot;,&quot;reset_spacing&quot;:true,&quot;structured_data&quot;:true,&quot;heading&quot;:&quot;Frequently asked questions&quot;,&quot;subheading&quot;:&quot;&lt;p&gt;Have a question? We&#39;re here to help.&lt;\/p&gt;&quot;,&quot;first_item_open&quot;:true,&quot;allow_multiple_open&quot;:false,&quot;open_icon&quot;:&quot;plus&quot;,&quot;content_alignment&quot;:&quot;left&quot;,&quot;max_content_width&quot;:1200,&quot;col_gap&quot;:80,&quot;gap_header_to_items&quot;:32,&quot;gap_heading_to_subheading&quot;:12,&quot;gap_between_items&quot;:10,&quot;item_padding_y&quot;:18,&quot;item_padding_x&quot;:22,&quot;item_radius&quot;:10,&quot;show_dividers&quot;:false,&quot;enable_custom_style&quot;:false,&quot;section_bg&quot;:null,&quot;card_bg&quot;:null,&quot;card_border_color&quot;:null,&quot;divider_color&quot;:null,&quot;question_color&quot;:null,&quot;hover_color&quot;:null,&quot;icon_color&quot;:null,&quot;answer_color&quot;:null,&quot;heading_color&quot;:null,&quot;subheading_color&quot;:null,&quot;enable_custom_fonts&quot;:false,&quot;heading_font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;body_font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;heading_size_desktop&quot;:40,&quot;heading_size_mobile&quot;:30,&quot;enable_custom_heading_weight&quot;:false,&quot;heading_weight&quot;:&quot;600&quot;,&quot;subheading_size_desktop&quot;:16,&quot;subheading_size_mobile&quot;:14,&quot;question_size_desktop&quot;:17,&quot;question_size_mobile&quot;:15,&quot;enable_custom_question_weight&quot;:false,&quot;question_weight&quot;:&quot;600&quot;,&quot;answer_size_desktop&quot;:15,&quot;answer_size_mobile&quot;:14,&quot;reveal&quot;:true,&quot;scroll_animation&quot;:&quot;inherit&quot;,&quot;padding_top&quot;:96,&quot;padding_bottom&quot;:96,&quot;section_margin_top_desktop&quot;:0,&quot;section_margin_bottom_desktop&quot;:0,&quot;section_margin_top_mobile&quot;:0,&quot;section_margin_bottom_mobile&quot;:0}" data-faq7-anim="subtle_rise" data-faq7-width="container" data-faq7-reveal="subtle_rise" style="--faq7-bg:var(--color-background);--faq7-pt:96px;--faq7-pb:96px;--faq7-col-gap:80px;--faq7-align:left;--faq7-mi:0;--faq7-cta-justify:flex-start;--faq7-gap-header:32px;--faq7-maxw:1200px;--faq7-h-m:30px;--faq7-h-d:40px;--faq7-heading-color:var(--color-heading);--faq7-gap-sub:12px;--faq7-sub-m:14px;--faq7-sub-d:16px;--faq7-sub-color:var(--color-text);--faq7-gap-items:10px;--faq7-card-bg:rgba(var(--color-heading-rgb), 0.04);--faq7-card-border:transparent;--faq7-radius:10px;--faq7-divider:var(--color-border);--faq7-py:18px;--faq7-px:22px;--faq7-q-color:var(--color-heading);--faq7-q-m:15px;--faq7-q-d:17px;--faq7-hover:var(--color-primary);--faq7-icon-color:var(--color-heading);--faq7-a-color:var(--color-text);--faq7-a-m:14px;--faq7-a-d:15px;">
-<div class="faq7__inner">
-<div class="faq7__layout"><div class="faq7__header"><h2 class="faq7__heading" id="block-heading_1" data-faq-block="heading_1" data-faq-type="heading" data-faq-settings="{&quot;text&quot;:&quot;Questions&quot;,&quot;tag&quot;:&quot;h2&quot;,&quot;enable_custom_style&quot;:false,&quot;color&quot;:null,&quot;enable_custom_fonts&quot;:false,&quot;font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;weight_enable&quot;:false,&quot;weight&quot;:&quot;700&quot;,&quot;size_enable&quot;:false,&quot;size_desktop&quot;:36,&quot;size_mobile&quot;:26,&quot;line_height&quot;:1.15,&quot;tracking&quot;:0}" data-block-id="heading_1">Questions</h2><div class="faq7__subheading" id="block-subheading_2" data-faq-block="subheading_2" data-faq-type="subheading" data-faq-settings="{&quot;text&quot;:&quot;&lt;p&gt;The ones readers ask before they buy. Anything else, write to us.&lt;\/p&gt;&quot;,&quot;enable_custom_style&quot;:false,&quot;color&quot;:null,&quot;enable_custom_fonts&quot;:false,&quot;font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;weight_enable&quot;:false,&quot;weight&quot;:&quot;400&quot;,&quot;size_enable&quot;:false,&quot;size&quot;:16,&quot;line_height&quot;:1.5}" data-block-id="subheading_2"><p>The ones readers ask before they buy. Anything else, write to us.</p></div><div class="faq7__cta-row" id="block-button_8" data-faq-block="button_8" data-faq-type="button" data-faq-settings="{&quot;label&quot;:&quot;Contact us&quot;,&quot;link&quot;:&quot;/theme-previews/ebooks/pages/contact.html&quot;,&quot;style&quot;:&quot;primary&quot;,&quot;full_width&quot;:false,&quot;enable_custom_style&quot;:false,&quot;bg_color&quot;:null,&quot;text_color&quot;:null,&quot;border_color&quot;:null,&quot;bg_color_hover&quot;:null,&quot;text_color_hover&quot;:null,&quot;use_theme_button&quot;:true,&quot;size&quot;:&quot;medium&quot;,&quot;radius&quot;:8}" data-block-id="button_8"><a class="faq7__btn faq7__btn--primary faq7__btn--theme" data-faq-btn data-theme-button="primary" data-sl-button data-button-local-appearance="theme" data-full="false" href="/theme-previews/ebooks/pages/contact.html" style="--faq7-btn-border-width:var(--btn-border-width, 1px);">
-Contact us
-</a></div></div><template data-faq-icons>
-<svg data-icon="chevron" class="faq7__icon-chevron" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-<svg data-icon="arrow" class="faq7__icon-chevron" viewBox="0 0 24 24"><path d="M12 4v16M4 12h16" stroke-linecap="round"/></svg>
-<span data-icon="plus" class="faq7__icon-plus"><span class="v"></span><span class="h"></span></span></template><div class="faq7__list" data-faq7-list data-faq-list data-multiple="false"><div class="faq7__item" open data-faq7-item data-faq-item id="block-faq_item_3" data-faq-block="faq_item_3" data-faq-type="faq_item" data-faq-settings="{&quot;question&quot;:&quot;What format is the book in?&quot;,&quot;answer&quot;:&quot;&lt;p&gt;You get a PDF and an EPUB. The PDF is laid out for reading on a laptop or printing. The EPUB works on phones, tablets and most e-readers.&lt;\/p&gt;&quot;}" data-block-id="faq_item_3">
-<button
-type="button"
-class="faq7__q"
-aria-expanded="true"
-aria-controls="faq7-a-faq-1"
-data-faq7-trigger data-faq-trigger
->
-<span data-faq-question>What format is the book in?</span>
-<span class="faq7__icon" aria-hidden="true" data-faq-icon="plus"><span class="faq7__icon-plus"><span class="v"></span><span class="h"></span></span></span>
-</button>
-<div class="faq7__a-wrap" id="faq7-a-faq-1" data-faq-panel>
-<div class="faq7__a-inner">
-<div class="faq7__a" data-faq-answer><p>You get a PDF and an EPUB. The PDF is laid out for reading on a laptop or printing. The EPUB works on phones, tablets and most e-readers.</p></div>
-</div>
-</div>
-</div><div class="faq7__item"  data-faq7-item data-faq-item id="block-faq_item_4" data-faq-block="faq_item_4" data-faq-type="faq_item" data-faq-settings="{&quot;question&quot;:&quot;How do I get it?&quot;,&quot;answer&quot;:&quot;&lt;p&gt;The download links are on the confirmation page and in your receipt email, a minute after you pay. They stay in your account too.&lt;\/p&gt;&quot;}" data-block-id="faq_item_4">
-<button
-type="button"
-class="faq7__q"
-aria-expanded="false"
-aria-controls="faq7-a-faq-2"
-data-faq7-trigger data-faq-trigger
->
-<span data-faq-question>How do I get it?</span>
-<span class="faq7__icon" aria-hidden="true" data-faq-icon="plus"><span class="faq7__icon-plus"><span class="v"></span><span class="h"></span></span></span>
-</button>
-<div class="faq7__a-wrap" id="faq7-a-faq-2" data-faq-panel>
-<div class="faq7__a-inner">
-<div class="faq7__a" data-faq-answer><p>The download links are on the confirmation page and in your receipt email, a minute after you pay. They stay in your account too.</p></div>
-</div>
-</div>
-</div><div class="faq7__item"  data-faq7-item data-faq-item id="block-faq_item_5" data-faq-block="faq_item_5" data-faq-type="faq_item" data-faq-settings="{&quot;question&quot;:&quot;Do I need to be good with computers?&quot;,&quot;answer&quot;:&quot;&lt;p&gt;No. If you can send an email and take a photo with your phone, you can follow every chapter.&lt;\/p&gt;&quot;}" data-block-id="faq_item_5">
-<button
-type="button"
-class="faq7__q"
-aria-expanded="false"
-aria-controls="faq7-a-faq-3"
-data-faq7-trigger data-faq-trigger
->
-<span data-faq-question>Do I need to be good with computers?</span>
-<span class="faq7__icon" aria-hidden="true" data-faq-icon="plus"><span class="faq7__icon-plus"><span class="v"></span><span class="h"></span></span></span>
-</button>
-<div class="faq7__a-wrap" id="faq7-a-faq-3" data-faq-panel>
-<div class="faq7__a-inner">
-<div class="faq7__a" data-faq-answer><p>No. If you can send an email and take a photo with your phone, you can follow every chapter.</p></div>
-</div>
-</div>
-</div><div class="faq7__item"  data-faq7-item data-faq-item id="block-faq_item_6" data-faq-block="faq_item_6" data-faq-type="faq_item" data-faq-settings="{&quot;question&quot;:&quot;Will this work outside the US?&quot;,&quot;answer&quot;:&quot;&lt;p&gt;Yes. The map listings and review sites in the book work the same way in most countries. Where something differs, the book says so.&lt;\/p&gt;&quot;}" data-block-id="faq_item_6">
-<button
-type="button"
-class="faq7__q"
-aria-expanded="false"
-aria-controls="faq7-a-faq-4"
-data-faq7-trigger data-faq-trigger
->
-<span data-faq-question>Will this work outside the US?</span>
-<span class="faq7__icon" aria-hidden="true" data-faq-icon="plus"><span class="faq7__icon-plus"><span class="v"></span><span class="h"></span></span></span>
-</button>
-<div class="faq7__a-wrap" id="faq7-a-faq-4" data-faq-panel>
-<div class="faq7__a-inner">
-<div class="faq7__a" data-faq-answer><p>Yes. The map listings and review sites in the book work the same way in most countries. Where something differs, the book says so.</p></div>
-</div>
-</div>
-</div><div class="faq7__item"  data-faq7-item data-faq-item id="block-faq_item_7" data-faq-block="faq_item_7" data-faq-type="faq_item" data-faq-settings="{&quot;question&quot;:&quot;What if it is not for me?&quot;,&quot;answer&quot;:&quot;&lt;p&gt;Write within 30 days and you get your money back. No form to fill in.&lt;\/p&gt;&quot;}" data-block-id="faq_item_7">
-<button
-type="button"
-class="faq7__q"
-aria-expanded="false"
-aria-controls="faq7-a-faq-5"
-data-faq7-trigger data-faq-trigger
->
-<span data-faq-question>What if it is not for me?</span>
-<span class="faq7__icon" aria-hidden="true" data-faq-icon="plus"><span class="faq7__icon-plus"><span class="v"></span><span class="h"></span></span></span>
-</button>
-<div class="faq7__a-wrap" id="faq7-a-faq-5" data-faq-panel>
-<div class="faq7__a-inner">
-<div class="faq7__a" data-faq-answer><p>Write within 30 days and you get your money back. No form to fill in.</p></div>
-</div>
-</div>
-</div></div></div>
-</div>
-</div>
-<script src="/theme-previews/_base/a/faq-pro.aa0329bc0bd7.js" defer></script></div>
 </main><script src="/theme-previews/ebooks/a/i.3221b11617b1.js"></script>
 <div id="shopify-section-footer" class="shopify-section shopify-section-group-footer-group" data-section-id="footer" data-section-type="theme-footer"><style>
   #shopify-section-footer {
@@ -1198,7 +1103,7 @@ data-faq7-trigger data-faq-trigger
   (function(){
     var el = document.getElementById('shopify-section-footer');
     if (!el || el.classList.contains('scroll-trigger') || document.documentElement.classList.contains('shopify-design-mode') || (window.SlTheme && window.SlTheme.designMode)) return;
-    el.classList.add('scroll-trigger', "subtle_rise");
+    el.classList.add('scroll-trigger', "fade_in");
   })();
 </script><style>
   #shopify-section-footer,#shopify-section-footer>.section,#shopify-section-footer>section,#shopify-section-footer>div,#shopify-section-footer>div>.section{margin-top:0!important;margin-bottom:0!important}
@@ -1209,7 +1114,7 @@ data-faq7-trigger data-faq-trigger
   #shopify-section-footer .arrow-toggle svg{width:var(--footer-arrow-size,14px);height:var(--footer-arrow-size,14px)}
 </style>
 <link href="/theme-previews/_base/a/collapsible.d0962c33f2d4.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/footer-section.37a0b34a1c2e.css" rel="stylesheet" type="text/css" media="all">
+<link href="/theme-previews/_base/a/footer-section.80f1cbc421de.css" rel="stylesheet" type="text/css" media="all">
 <footer
 class="product-sticky-hide footer color-scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9 gradient border-top remove_spacing remove_spacing-on-home"
 data-theme-footer
@@ -1226,12 +1131,12 @@ data-block-id="store_info_1"
 class="footer__block-heading fs-custom my-0 py-20 mb-md-5"
 style="--font-size: 15"
 >
-<span data-ft-heading>Plain Sight</span>
+<span data-ft-heading>The Quiet Hour</span>
 </h3>
 <div
 class="store-info-content"
 ><div class="footer__block-info rich__text-mt-0 mb-20" data-ft-desc>
-<p>A field guide to local search by Maren Holt, for small businesses that want to be found without hiring an agency.</p>
+<p>A short book about doing your best work in a busy life, by Clara Wynn.</p>
 </div>
 </div>
 </div><div
@@ -1258,10 +1163,18 @@ style="--font-size: 15"
 <ul class="list-unstyled"><li class="pb-8">
 <a
 href="/theme-previews/ebooks/collections/all.html"
-aria-label="Get the ebook"
+aria-label="All editions"
 class="no-underline word-break reversed-links relative"
 >
-Get the ebook
+All editions
+</a>
+</li><li class="pb-8">
+<a
+href="/theme-previews/ebooks/pages/sample.html"
+aria-label="Free chapter"
+class="no-underline word-break reversed-links relative"
+>
+Free chapter
 </a>
 </li><li class="pb-8">
 <a
@@ -1347,8 +1260,8 @@ Search
 </div>
 <div class="footer__bottom"><div class="fluid_container">
 <div class="footer_bottom-inner justify-center justify-md-end flex flex-wrap flex-md-nowrap align-center border-top gap-20 gap-xl-30 py-30"><div class="flex flex-wrap gap-10 gap-xl-30 justify-center justify-md-start">
-<div class="footer__copyright" data-ft-copyright>© 2026 Plain Sight</div>
-<ul class="footer__policies list-unstyled flex flex-wrap" data-ft-policies><li><a href="/theme-previews/ebooks/policies/refund-policy.html">Refund policy</a></li><li><a href="/theme-previews/ebooks/policies/privacy-policy.html">Privacy policy</a></li><li><a href="/theme-previews/ebooks/policies/terms-of-service.html">Terms of service</a></li></ul></div>
+<div class="footer__copyright" data-ft-copyright>© 2026 The Quiet Hour</div>
+<ul class="footer__policies list-unstyled flex flex-wrap" data-ft-policies><li><a href="/theme-previews/ebooks/policies/refund-policy.html">Refund policy</a></li><li><a href="/theme-previews/ebooks/policies/privacy-policy.html">Privacy policy</a></li><li><a href="/theme-previews/ebooks/policies/terms-of-service.html">Terms of service</a></li></ul><div class="footer__powered" data-ft-powered><a href="#" data-preview-inert data-storelib-badge="">Powered by Storelib</a></div></div>
 <div class="footer__payment flex grow-1 align-center max-w-100" style="justify-content: flex-end; --pb-width: 25%; margin-left: auto;" data-ft-block="payment_badges_4" data-ft-type="payment_badges" data-block-id="payment_badges_4">
 <ul class="footer__payment-badges"><li class="payment-badge" aria-label="Visa"><svg class="icon icon--full-color" viewBox="0 0 38 24" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Visa">
 <title>Visa</title>
@@ -1434,7 +1347,7 @@ viewBox="0 0 165.521 105.965">
   :where(html:not([data-font-priority='off'])) #shopify-section-back_to_top_pro :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
-</style><style></style><link rel="stylesheet" href="/theme-previews/ebooks/a/i.deca9c408249.css" data-shopify><div class="buttontoppro full_width" data-pg-root="back-to-top-pro" data-pg-section="back_to_top_pro">
+</style><style></style><link rel="stylesheet" href="/theme-previews/ebooks/a/i.f0ee9da5ca7e.css" data-shopify><div class="buttontoppro full_width" data-pg-root="back-to-top-pro" data-pg-section="back_to_top_pro">
 <button type="button" class="top-back_to_top_pro" data-back-to-top="back_to_top_pro" data-show-after="300" aria-label="Back to top">
 <span class="top-circle-back_to_top_pro color-default" data-pg-scheme>
 <svg class="top-progress-circle-back_to_top_pro" width="100%" height="100%" viewBox="-1 -1 102 102" aria-hidden="true" focusable="false">
@@ -1458,11 +1371,11 @@ aria-modal="true"
 aria-label="Search"
 data-search-mode="popup"
 class="search-overlay search-overlay--popup search__type-popup search__popup-anim--fade color-default"
-style="--color-background: #ffffff;          --color-text: #5c5c63;          --color-heading: #151517;          --color-primary: #151517;          --color-border: #ebe7e0;          --gradient-background: #ffffff;          background-color: #ffffff;          color: #5c5c63;"
+style="--color-background: #f7f4ee;          --color-text: #4c5450;          --color-heading: #18241f;          --color-primary: #18241f;          --color-border: #e2ddd2;          --gradient-background: #f7f4ee;          background-color: #f7f4ee;          color: #4c5450;"
 ><div
 class="search__type-popup search__popup-anim--fade color-default h-full overflow-auto px-15 custom-scrollbar"
 data-search-popup-anim="fade"
-style="--color-background: #ffffff;    --color-text: #5c5c63;    --color-heading: #151517;    --color-primary: #151517;    --color-border: #ebe7e0;    --gradient-background: #ffffff;    background-color: #ffffff;    color: #5c5c63;"
+style="--color-background: #f7f4ee;    --color-text: #4c5450;    --color-heading: #18241f;    --color-primary: #18241f;    --color-border: #e2ddd2;    --gradient-background: #f7f4ee;    background-color: #f7f4ee;    color: #4c5450;"
 >
 <div class="fluid_container">
 <h3 class="search-title search-title--animated text-center h4 m-0 hidden block-sm" aria-label="Search"><span class="search-title__char" style="--char-i: 0;" aria-hidden="true">S</span><span class="search-title__char" style="--char-i: 1;" aria-hidden="true">e</span><span class="search-title__char" style="--char-i: 2;" aria-hidden="true">a</span><span class="search-title__char" style="--char-i: 3;" aria-hidden="true">r</span><span class="search-title__char" style="--char-i: 4;" aria-hidden="true">c</span><span class="search-title__char" style="--char-i: 5;" aria-hidden="true">h</span></h3>
@@ -1593,13 +1506,13 @@ style=" ;--col-number: 1;--col-tablet: 1;--col-desktop-small:3;--col-desktop: 5;
     --materia-cart-control: 40px;
     --materia-cart-recommend-gap: 12px;
   }
-</style><link href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" rel="stylesheet" type="text/css" media="all"><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/ebooks/a/i.fc8e5164bccc.css" data-cart-drawer-style="paint">
+</style><link href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" rel="stylesheet" type="text/css" media="all"><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/ebooks/a/i.05658ac648d3.css" data-cart-drawer-style="paint">
 <cart-notification data-cart-drawer-version="20261021-2"
 data-show-quantity="true"
 data-show-shipping-estimator="false"
 data-show-free-shipping="false"
-id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #5c5c63;    --color-heading: #151517;    --color-primary: #151517;    --color-border: #ebe7e0;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #151517;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #e2402f;    --btn-secondary-color: #151517;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #d9d4cb;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #151517;    --btn-outline-color: #151517;    --btn-outline-border-color: #151517;    background-color: #ffffff !important;    color: #5c5c63 !important;">
-<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #5c5c63;    --color-heading: #151517;    --color-primary: #151517;    --color-border: #ebe7e0;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #151517;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #e2402f;    --btn-secondary-color: #151517;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #d9d4cb;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #151517;    --btn-outline-color: #151517;    --btn-outline-border-color: #151517;    background-color: #ffffff !important;    color: #5c5c63 !important;">
+id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #f7f4ee;    --color-text: #4c5450;    --color-heading: #18241f;    --color-primary: #18241f;    --color-border: #e2ddd2;    --gradient-background: #f7f4ee;    --btn-primary-color: #f7f4ee;    --btn-primary-bg-color: #1f3b33;    --btn-primary-hover-color: #f7f4ee;    --btn-primary-hover-bg-color: #18241f;    --btn-secondary-color: #18241f;    --btn-secondary-bg-color: #f7f4ee;    --btn-secondary-border-color: #18241f;    --btn-secondary-hover-color: #f7f4ee;    --btn-secondary-hover-bg-color: #18241f;    --btn-outline-color: #18241f;    --btn-outline-border-color: #18241f;    background-color: #f7f4ee !important;    color: #4c5450 !important;">
+<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #f7f4ee;    --color-text: #4c5450;    --color-heading: #18241f;    --color-primary: #18241f;    --color-border: #e2ddd2;    --gradient-background: #f7f4ee;    --btn-primary-color: #f7f4ee;    --btn-primary-bg-color: #1f3b33;    --btn-primary-hover-color: #f7f4ee;    --btn-primary-hover-bg-color: #18241f;    --btn-secondary-color: #18241f;    --btn-secondary-bg-color: #f7f4ee;    --btn-secondary-border-color: #18241f;    --btn-secondary-hover-color: #f7f4ee;    --btn-secondary-hover-bg-color: #18241f;    --btn-outline-color: #18241f;    --btn-outline-border-color: #18241f;    background-color: #f7f4ee !important;    color: #4c5450 !important;">
 <button type="button" class="cart-drawer-sheet-scrim" aria-label="Cancel"></button>
 <div class="minicart__header flex gap-10 align-center justify-between px-30 py-18 color-default">
 <div class="h5 minicart-heading my-0">
@@ -1641,7 +1554,7 @@ Continue Shopping
 <div class="overlayminicart">
 </div>
 <script src="/theme-previews/ebooks/a/i.f50d71910c82.js"></script>
-<script src="/theme-previews/_base/a/animation.8fcd3a124757.js" defer="defer"></script>
+<script src="/theme-previews/_base/a/animation.7fa50ded717b.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/tingle-min.9664ca3641cf.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/cart-discount.6748c8dd9657.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/theme.7a7dd8f80f89.js"  defer="defer" type="module"></script>
@@ -1708,7 +1621,7 @@ Skip to content
   @keyframes materiaMediaFade { from { opacity: 0; } to { opacity: 1; } }
   html.js-media-fade .media-fade-run { animation: materiaMediaFade .4s ease; }
 </style>
-<script src="/theme-previews/ebooks/a/i.078d2107f4f7.js"></script>
+<script src="/theme-previews/ebooks/a/i.dfcb99e2686f.js"></script>
 <style>
         :root {
           /* Wire the user's Animations & motion settings to the keyframe vars used by animation.css */
@@ -1722,7 +1635,7 @@ Skip to content
            reduced motion are drawn by animation.css for every .scroll-trigger
            (theme-wide sections below and cards inside sections alike). */
       </style>
-<script src="/theme-previews/ebooks/a/i.e621815690c9.js"></script><link rel="stylesheet" href="/theme-previews/ebooks/a/i.7c52d5318a5a.css">
+<script src="/theme-previews/ebooks/a/i.1e7544fc58cb.js"></script><link rel="stylesheet" href="/theme-previews/ebooks/a/i.7c52d5318a5a.css">
 <script src="/theme-previews/ebooks/a/i.a459fa2d52ff.js"></script><script id="materia-shipping-data" type="application/json">
   {
     "rates": "",
@@ -1749,13 +1662,13 @@ Skip to content
     --materia-cart-control: 40px;
     --materia-cart-recommend-gap: 12px;
   }
-</style><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/ebooks/a/i.fc8e5164bccc.css" data-cart-drawer-style="paint">
+</style><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/ebooks/a/i.05658ac648d3.css" data-cart-drawer-style="paint">
 <cart-notification data-cart-drawer-version="20261021-2"
 data-show-quantity="true"
 data-show-shipping-estimator="false"
 data-show-free-shipping="false"
-id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #5c5c63;    --color-heading: #151517;    --color-primary: #151517;    --color-border: #ebe7e0;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #151517;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #e2402f;    --btn-secondary-color: #151517;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #d9d4cb;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #151517;    --btn-outline-color: #151517;    --btn-outline-border-color: #151517;    background-color: #ffffff !important;    color: #5c5c63 !important;">
-<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #5c5c63;    --color-heading: #151517;    --color-primary: #151517;    --color-border: #ebe7e0;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #151517;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #e2402f;    --btn-secondary-color: #151517;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #d9d4cb;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #151517;    --btn-outline-color: #151517;    --btn-outline-border-color: #151517;    background-color: #ffffff !important;    color: #5c5c63 !important;">
+id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #f7f4ee;    --color-text: #4c5450;    --color-heading: #18241f;    --color-primary: #18241f;    --color-border: #e2ddd2;    --gradient-background: #f7f4ee;    --btn-primary-color: #f7f4ee;    --btn-primary-bg-color: #1f3b33;    --btn-primary-hover-color: #f7f4ee;    --btn-primary-hover-bg-color: #18241f;    --btn-secondary-color: #18241f;    --btn-secondary-bg-color: #f7f4ee;    --btn-secondary-border-color: #18241f;    --btn-secondary-hover-color: #f7f4ee;    --btn-secondary-hover-bg-color: #18241f;    --btn-outline-color: #18241f;    --btn-outline-border-color: #18241f;    background-color: #f7f4ee !important;    color: #4c5450 !important;">
+<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #f7f4ee;    --color-text: #4c5450;    --color-heading: #18241f;    --color-primary: #18241f;    --color-border: #e2ddd2;    --gradient-background: #f7f4ee;    --btn-primary-color: #f7f4ee;    --btn-primary-bg-color: #1f3b33;    --btn-primary-hover-color: #f7f4ee;    --btn-primary-hover-bg-color: #18241f;    --btn-secondary-color: #18241f;    --btn-secondary-bg-color: #f7f4ee;    --btn-secondary-border-color: #18241f;    --btn-secondary-hover-color: #f7f4ee;    --btn-secondary-hover-bg-color: #18241f;    --btn-outline-color: #18241f;    --btn-outline-border-color: #18241f;    background-color: #f7f4ee !important;    color: #4c5450 !important;">
 <button type="button" class="cart-drawer-sheet-scrim" aria-label="Cancel"></button>
 <div class="minicart__header flex gap-10 align-center justify-between px-30 py-18 color-default">
 <div class="h5 minicart-heading my-0">

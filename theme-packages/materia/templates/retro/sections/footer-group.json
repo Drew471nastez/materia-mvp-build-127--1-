@@ -1,0 +1,19 @@
+{
+  "type": "footer",
+  "name": "t:sections.footer.name",
+  "sections": {
+    "footer": {
+      "type": "retro-statusbar",
+      "settings": {
+        "menu": "footer",
+        "copyright": "",
+        "note": "Printed to order",
+        "menu_label": "Footer",
+        "show_policies": true
+      }
+    }
+  },
+  "order": [
+    "footer"
+  ]
+}

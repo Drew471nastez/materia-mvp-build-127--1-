@@ -533,6 +533,7 @@
           or section_st.enable_language_selector
           or section_st.copyright_text
           or shop.policies.size > 0
+          or powered_by_link != blank
         -%}
           <div class="flex flex-wrap gap-10 gap-xl-30 justify-center justify-md-start">
             {%- if localization.available_countries.size > 1 or localization.available_languages.size > 1 -%}
@@ -555,6 +556,10 @@
                   <li><a href="{{ policy.url }}">{{ policy.title | escape }}</a></li>
                 {%- endfor -%}
               </ul>
+            {%- endif -%}
+            {%- comment -%} "Powered by Storelib", small, by the copyright line. Storelib decides it on the server: Theme settings › Store Information hides it only on a paid plan (lib/storelib-theme/compat/powered-by.ts). {%- endcomment -%}
+            {%- if powered_by_link != blank -%}
+              <div class="footer__powered" data-ft-powered>{{ powered_by_link }}</div>
             {%- endif -%}
           </div>
         {% endif %}

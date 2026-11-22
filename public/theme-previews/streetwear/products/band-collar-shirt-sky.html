@@ -31,7 +31,10 @@ D.addEventListener("keydown",function(e){var i=e.target;if(e.key!=="Enter"||!i||
 D.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a[data-preview-inert]");if(a)e.preventDefault()},true);
 var told=false;function tell(){if(told)return;told=true;try{parent.postMessage({type:"storelib:template-preview",ready:true,path:location.pathname},"*")}catch(e){}}
 W.addEventListener("load",tell);D.addEventListener("DOMContentLoaded",function(){setTimeout(tell,1200)});
-})();</script><script type="importmap">{"imports":{"@shopify/events":"data:text/javascript;charset=utf-8,const%20StandardEvents%20%3D%20Object.freeze(%7B%0A%20%20pageView%3A%20%22shopify%3Apage%3Aview%22%2C%0A%20%20productView%3A%20%22shopify%3Aproduct%3Aview%22%2C%0A%20%20productSelect%3A%20%22shopify%3Aproduct%3Aselect%22%2C%0A%20%20cartView%3A%20%22shopify%3Acart%3Aview%22%2C%0A%20%20cartError%3A%20%22shopify%3Acart%3Aerror%22%2C%0A%20%20cartLinesUpdate%3A%20%22shopify%3Acart%3Alines-update%22%2C%0A%20%20cartNoteUpdate%3A%20%22shopify%3Acart%3Anote-update%22%2C%0A%20%20cartDiscountUpdate%3A%20%22shopify%3Acart%3Adiscount-update%22%2C%0A%20%20searchUpdate%3A%20%22shopify%3Asearch%3Aupdate%22%2C%0A%20%20collectionView%3A%20%22shopify%3Acollection%3Aview%22%2C%0A%20%20collectionUpdate%3A%20%22shopify%3Acollection%3Aupdate%22%2C%0A%7D)%3B%0Afunction%20createGid(type%2C%20id)%20%7B%0A%20%20const%20s%20%3D%20String(id)%3B%0A%20%20return%20s.startsWith(%22gid%3A%2F%2F%22)%20%3F%20s%20%3A%20%22gid%3A%2F%2Fshopify%2F%22%20%2B%20type%20%2B%20%22%2F%22%20%2B%20s%3B%0A%7D%0Afunction%20money(cents%2C%20code)%20%7B%20return%20%7B%20amount%3A%20((Number(cents)%20%7C%7C%200)%20%2F%20100).toFixed(2)%2C%20currencyCode%3A%20code%20%7C%7C%20%22USD%22%20%7D%3B%20%7D%0Afunction%20fromAjaxCart(cart)%20%7B%0A%20%20const%20c%20%3D%20cart%20%7C%7C%20%7B%7D%3B%0A%20%20const%20code%20%3D%20c.currency%20%7C%7C%20%22USD%22%3B%0A%20%20return%20%7B%0A%20%20%20%20id%3A%20createGid(%22Cart%22%2C%20c.token%20%7C%7C%20%22storelib%22)%2C%0A%20%20%20%20totalQuantity%3A%20Number(c.item_count)%20%7C%7C%200%2C%0A%20%20%20%20cost%3A%20%7B%20totalAmount%3A%20money(c.total_price%2C%20code)%20%7D%2C%0A%20%20%20%20lines%3A%20(c.items%20%7C%7C%20%5B%5D).map((l)%20%3D%3E%20(%7B%20id%3A%20createGid(%22CartLine%22%2C%20l.key)%2C%20quantity%3A%20Number(l.quantity)%20%7C%7C%200%2C%20cost%3A%20%7B%20totalAmount%3A%20money(l.final_line_price%2C%20code)%20%7D%20%7D))%2C%0A%20%20%20%20discountCodes%3A%20%5B%5D%2C%0A%20%20%7D%3B%0A%7D%0Afunction%20parseProductFilters(searchParams)%20%7B%0A%20%20const%20p%20%3D%20searchParams%20%7C%7C%20new%20URLSearchParams(location.search)%3B%0A%20%20const%20out%20%3D%20%5B%5D%3B%0A%20%20for%20(const%20%5Bk%2C%20v%5D%20of%20p.entries())%20%7B%0A%20%20%20%20if%20(!k.startsWith(%22filter.%22))%20continue%3B%0A%20%20%20%20if%20(k%20%3D%3D%3D%20%22filter.v.availability%22)%20out.push(%7B%20available%3A%20v%20%3D%3D%3D%20%221%22%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.gte%22)%20out.push(%7B%20price%3A%20%7B%20min%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.lte%22)%20out.push(%7B%20price%3A%20%7B%20max%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.product_type%22)%20out.push(%7B%20productType%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.vendor%22)%20out.push(%7B%20productVendor%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.tag%22)%20out.push(%7B%20tag%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k.startsWith(%22filter.v.option.%22))%20out.push(%7B%20variantOption%3A%20%7B%20name%3A%20k.slice(16)%2C%20value%3A%20v%20%7D%20%7D)%3B%0A%20%20%7D%0A%20%20return%20out.length%20%3F%20out%20%3A%20undefined%3B%0A%7D%0Afunction%20sortKey(searchParams%2C%20search)%20%7B%0A%20%20const%20v%20%3D%20(searchParams%20%7C%7C%20new%20URLSearchParams(location.search)).get(%22sort_by%22)%20%7C%7C%20%22%22%3B%0A%20%20if%20(v.startsWith(%22price%22))%20return%20%22PRICE%22%3B%0A%20%20if%20(search)%20return%20%22RELEVANCE%22%3B%0A%20%20if%20(v.startsWith(%22title%22))%20return%20%22TITLE%22%3B%0A%20%20if%20(v.startsWith(%22created%22))%20return%20%22CREATED%22%3B%0A%20%20if%20(v%20%3D%3D%3D%20%22best-selling%22)%20return%20%22BEST_SELLING%22%3B%0A%20%20return%20v%20%3F%20%22MANUAL%22%20%3A%20%22COLLECTION_DEFAULT%22%3B%0A%7D%0Afunction%20deferred()%20%7B%0A%20%20let%20resolve%2C%20reject%3B%0A%20%20const%20promise%20%3D%20new%20Promise((a%2C%20b)%20%3D%3E%20%7B%20resolve%20%3D%20a%3B%20reject%20%3D%20b%3B%20%7D)%3B%0A%20%20promise.catch(()%20%3D%3E%20%7B%7D)%3B%0A%20%20return%20%7B%20promise%2C%20resolve%2C%20reject%20%7D%3B%0A%7D%0Aclass%20SlThemeStandardEvent%20extends%20Event%20%7B%0A%20%20constructor(type%2C%20payload%2C%20options)%20%7B%0A%20%20%20%20super(type%2C%20Object.assign(%7B%20bubbles%3A%20true%2C%20composed%3A%20true%20%7D%2C%20options%20%7C%7C%20%7B%7D))%3B%0A%20%20%20%20const%20p%20%3D%20payload%20%7C%7C%20%7B%7D%3B%0A%20%20%20%20for%20(const%20k%20of%20Object.keys(p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20k%2C%20%7B%20value%3A%20p%5Bk%5D%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%2C%20writable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%20%20if%20(!(%22promise%22%20in%20p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20%22promise%22%2C%20%7B%20value%3A%20Promise.resolve(%7B%20detail%3A%20p.detail%20%7D)%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0ASlThemeStandardEvent.createGid%20%3D%20createGid%3B%0Aconst%20make%20%3D%20(name%2C%20extra)%20%3D%3E%20%7B%0A%20%20const%20C%20%3D%20class%20extends%20SlThemeStandardEvent%20%7B%20constructor(payload)%20%7B%20super(StandardEvents%5Bname%5D%2C%20payload)%3B%20%7D%20%7D%3B%0A%20%20C.eventName%20%3D%20StandardEvents%5Bname%5D%3B%0A%20%20C.createPromise%20%3D%20deferred%3B%0A%20%20Object.assign(C%2C%20extra%20%7C%7C%20%7B%7D)%3B%0A%20%20return%20C%3B%0A%7D%3B%0Aexport%20const%20PageViewEvent%20%3D%20make(%22pageView%22)%3B%0Aexport%20const%20ProductViewEvent%20%3D%20make(%22productView%22)%3B%0Aexport%20const%20ProductSelectEvent%20%3D%20make(%22productSelect%22)%3B%0Aexport%20const%20CartViewEvent%20%3D%20make(%22cartView%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartErrorEvent%20%3D%20make(%22cartError%22)%3B%0Aexport%20const%20CartLinesUpdateEvent%20%3D%20make(%22cartLinesUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartNoteUpdateEvent%20%3D%20make(%22cartNoteUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartDiscountUpdateEvent%20%3D%20make(%22cartDiscountUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20SearchUpdateEvent%20%3D%20make(%22searchUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20true)%20%7D)%3B%0Aexport%20const%20CollectionViewEvent%20%3D%20make(%22collectionView%22)%3B%0Aexport%20const%20CollectionUpdateEvent%20%3D%20make(%22collectionUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20false)%20%7D)%3B%0Aconst%20VIEW_EVENTS%20%3D%20%7B%20%22product-component%22%3A%20ProductViewEvent%2C%20%22collection-component%22%3A%20CollectionViewEvent%20%7D%3B%0Aexport%20function%20createViewEventElement(Base%2C%20options)%20%7B%0A%20%20const%20B%20%3D%20Base%20%7C%7C%20HTMLElement%3B%0A%20%20const%20opts%20%3D%20options%20%7C%7C%20%7B%7D%3B%0A%20%20return%20class%20extends%20B%20%7B%0A%20%20%20%20connectedCallback()%20%7B%0A%20%20%20%20%20%20if%20(super.connectedCallback)%20super.connectedCallback()%3B%0A%20%20%20%20%20%20const%20trigger%20%3D%20this.getAttribute(%22view-event-trigger%22)%20%7C%7C%20opts.defaultTrigger%20%7C%7C%20%22connect%22%3B%0A%20%20%20%20%20%20if%20(trigger%20%3D%3D%3D%20%22connect%22)%20this.dispatchViewEvent()%3B%0A%20%20%20%20%20%20else%20if%20(trigger%20%3D%3D%3D%20%22intersect%22%20%26%26%20%22IntersectionObserver%22%20in%20window)%20%7B%0A%20%20%20%20%20%20%20%20const%20io%20%3D%20new%20IntersectionObserver((entries)%20%3D%3E%20%7B%20if%20(entries.some((e)%20%3D%3E%20e.isIntersecting))%20%7B%20io.disconnect()%3B%20this.dispatchViewEvent()%3B%20%7D%20%7D)%3B%0A%20%20%20%20%20%20%20%20io.observe(this)%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%20%20dispatchViewEvent()%20%7B%0A%20%20%20%20%20%20let%20payload%20%3D%20null%3B%0A%20%20%20%20%20%20const%20raw%20%3D%20this.getAttribute(%22view-event-payload%22)%20%7C%7C%20this.querySelector(%22script%5Bdata-view-event-payload%5D%22)%3F.textContent%3B%0A%20%20%20%20%20%20try%20%7B%20payload%20%3D%20raw%20%3F%20JSON.parse(raw)%20%3A%20null%3B%20%7D%20catch%20(e)%20%7B%20payload%20%3D%20null%3B%20%7D%0A%20%20%20%20%20%20if%20(!payload)%20return%3B%0A%20%20%20%20%20%20const%20Kind%20%3D%20payload.cart%20%3F%20CartViewEvent%20%3A%20payload.collection%20%3F%20CollectionViewEvent%20%3A%20payload.product%20%3F%20ProductViewEvent%20%3A%20VIEW_EVENTS%5Bthis.localName%5D%3B%0A%20%20%20%20%20%20if%20(Kind)%20this.dispatchEvent(new%20Kind(payload))%3B%0A%20%20%20%20%7D%0A%20%20%7D%3B%0A%7D%0Aexport%20const%20ViewEventElement%20%3D%20createViewEventElement(HTMLElement)%3B%0Aexport%20%7B%20StandardEvents%2C%20SlThemeStandardEvent%20%7D%3B","@shopify/partial-rendering":"data:text/javascript;charset=utf-8,async%20function%20refresh(name)%20%7B%0A%20%20const%20res%20%3D%20await%20fetch(location.href%2C%20%7B%20headers%3A%20%7B%20Accept%3A%20%22text%2Fhtml%22%20%7D%2C%20credentials%3A%20%22same-origin%22%20%7D)%3B%0A%20%20if%20(!res.ok)%20throw%20new%20Error(%22The%20page%20could%20not%20be%20drawn%20again%22)%3B%0A%20%20const%20doc%20%3D%20new%20DOMParser().parseFromString(await%20res.text()%2C%20%22text%2Fhtml%22)%3B%0A%20%20const%20sel%20%3D%20'%5Bdata-shopify-partial%3D%22'%20%2B%20CSS.escape(String(name))%20%2B%20'%22%5D'%3B%0A%20%20const%20fresh%20%3D%20doc.querySelector(sel)%3B%0A%20%20const%20here%20%3D%20document.querySelector(sel)%3B%0A%20%20if%20(fresh%20%26%26%20here)%20here.replaceWith(document.importNode(fresh%2C%20true))%3B%0A%7D%0Aexport%20const%20partials%20%3D%20%7B%20refresh%20%7D%3B%0Aexport%20default%20partials%3B"}}</script><script src="/theme-previews/streetwear/a/i.fc17d0660d95.js"></script>
+/* The page's own background, as soon as it is known: the frame shows it between two pages instead of its own white (a white flash on a dark shop). */
+function paint(){try{var c=getComputedStyle(D.documentElement).backgroundColor;if(!c||/rgba(0, 0, 0, 0)|transparent/.test(c))c=getComputedStyle(D.body).backgroundColor;if(c&&!/rgba(0, 0, 0, 0)|transparent/.test(c))parent.postMessage({type:"storelib:template-preview-background",background:c},"*")}catch(e){}}
+D.addEventListener("DOMContentLoaded",paint);
+})();</script><script type="importmap">{"imports":{"@shopify/events":"data:text/javascript;charset=utf-8,const%20StandardEvents%20%3D%20Object.freeze(%7B%0A%20%20pageView%3A%20%22shopify%3Apage%3Aview%22%2C%0A%20%20productView%3A%20%22shopify%3Aproduct%3Aview%22%2C%0A%20%20productSelect%3A%20%22shopify%3Aproduct%3Aselect%22%2C%0A%20%20cartView%3A%20%22shopify%3Acart%3Aview%22%2C%0A%20%20cartError%3A%20%22shopify%3Acart%3Aerror%22%2C%0A%20%20cartLinesUpdate%3A%20%22shopify%3Acart%3Alines-update%22%2C%0A%20%20cartNoteUpdate%3A%20%22shopify%3Acart%3Anote-update%22%2C%0A%20%20cartDiscountUpdate%3A%20%22shopify%3Acart%3Adiscount-update%22%2C%0A%20%20searchUpdate%3A%20%22shopify%3Asearch%3Aupdate%22%2C%0A%20%20collectionView%3A%20%22shopify%3Acollection%3Aview%22%2C%0A%20%20collectionUpdate%3A%20%22shopify%3Acollection%3Aupdate%22%2C%0A%7D)%3B%0Afunction%20createGid(type%2C%20id)%20%7B%0A%20%20const%20s%20%3D%20String(id)%3B%0A%20%20return%20s.startsWith(%22gid%3A%2F%2F%22)%20%3F%20s%20%3A%20%22gid%3A%2F%2Fshopify%2F%22%20%2B%20type%20%2B%20%22%2F%22%20%2B%20s%3B%0A%7D%0Afunction%20money(cents%2C%20code)%20%7B%20return%20%7B%20amount%3A%20((Number(cents)%20%7C%7C%200)%20%2F%20100).toFixed(2)%2C%20currencyCode%3A%20code%20%7C%7C%20%22USD%22%20%7D%3B%20%7D%0Afunction%20fromAjaxCart(cart)%20%7B%0A%20%20const%20c%20%3D%20cart%20%7C%7C%20%7B%7D%3B%0A%20%20const%20code%20%3D%20c.currency%20%7C%7C%20%22USD%22%3B%0A%20%20return%20%7B%0A%20%20%20%20id%3A%20createGid(%22Cart%22%2C%20c.token%20%7C%7C%20%22storelib%22)%2C%0A%20%20%20%20totalQuantity%3A%20Number(c.item_count)%20%7C%7C%200%2C%0A%20%20%20%20cost%3A%20%7B%20totalAmount%3A%20money(c.total_price%2C%20code)%20%7D%2C%0A%20%20%20%20lines%3A%20(c.items%20%7C%7C%20%5B%5D).map((l)%20%3D%3E%20(%7B%20id%3A%20createGid(%22CartLine%22%2C%20l.key)%2C%20quantity%3A%20Number(l.quantity)%20%7C%7C%200%2C%20cost%3A%20%7B%20totalAmount%3A%20money(l.final_line_price%2C%20code)%20%7D%20%7D))%2C%0A%20%20%20%20discountCodes%3A%20%5B%5D%2C%0A%20%20%7D%3B%0A%7D%0Afunction%20parseProductFilters(searchParams)%20%7B%0A%20%20const%20p%20%3D%20searchParams%20%7C%7C%20new%20URLSearchParams(location.search)%3B%0A%20%20const%20out%20%3D%20%5B%5D%3B%0A%20%20for%20(const%20%5Bk%2C%20v%5D%20of%20p.entries())%20%7B%0A%20%20%20%20if%20(!k.startsWith(%22filter.%22))%20continue%3B%0A%20%20%20%20if%20(k%20%3D%3D%3D%20%22filter.v.availability%22)%20out.push(%7B%20available%3A%20v%20%3D%3D%3D%20%221%22%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.gte%22)%20out.push(%7B%20price%3A%20%7B%20min%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.lte%22)%20out.push(%7B%20price%3A%20%7B%20max%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.product_type%22)%20out.push(%7B%20productType%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.vendor%22)%20out.push(%7B%20productVendor%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.tag%22)%20out.push(%7B%20tag%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k.startsWith(%22filter.v.option.%22))%20out.push(%7B%20variantOption%3A%20%7B%20name%3A%20k.slice(16)%2C%20value%3A%20v%20%7D%20%7D)%3B%0A%20%20%7D%0A%20%20return%20out.length%20%3F%20out%20%3A%20undefined%3B%0A%7D%0Afunction%20sortKey(searchParams%2C%20search)%20%7B%0A%20%20const%20v%20%3D%20(searchParams%20%7C%7C%20new%20URLSearchParams(location.search)).get(%22sort_by%22)%20%7C%7C%20%22%22%3B%0A%20%20if%20(v.startsWith(%22price%22))%20return%20%22PRICE%22%3B%0A%20%20if%20(search)%20return%20%22RELEVANCE%22%3B%0A%20%20if%20(v.startsWith(%22title%22))%20return%20%22TITLE%22%3B%0A%20%20if%20(v.startsWith(%22created%22))%20return%20%22CREATED%22%3B%0A%20%20if%20(v%20%3D%3D%3D%20%22best-selling%22)%20return%20%22BEST_SELLING%22%3B%0A%20%20return%20v%20%3F%20%22MANUAL%22%20%3A%20%22COLLECTION_DEFAULT%22%3B%0A%7D%0Afunction%20deferred()%20%7B%0A%20%20let%20resolve%2C%20reject%3B%0A%20%20const%20promise%20%3D%20new%20Promise((a%2C%20b)%20%3D%3E%20%7B%20resolve%20%3D%20a%3B%20reject%20%3D%20b%3B%20%7D)%3B%0A%20%20promise.catch(()%20%3D%3E%20%7B%7D)%3B%0A%20%20return%20%7B%20promise%2C%20resolve%2C%20reject%20%7D%3B%0A%7D%0Aclass%20SlThemeStandardEvent%20extends%20Event%20%7B%0A%20%20constructor(type%2C%20payload%2C%20options)%20%7B%0A%20%20%20%20super(type%2C%20Object.assign(%7B%20bubbles%3A%20true%2C%20composed%3A%20true%20%7D%2C%20options%20%7C%7C%20%7B%7D))%3B%0A%20%20%20%20const%20p%20%3D%20payload%20%7C%7C%20%7B%7D%3B%0A%20%20%20%20for%20(const%20k%20of%20Object.keys(p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20k%2C%20%7B%20value%3A%20p%5Bk%5D%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%2C%20writable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%20%20if%20(!(%22promise%22%20in%20p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20%22promise%22%2C%20%7B%20value%3A%20Promise.resolve(%7B%20detail%3A%20p.detail%20%7D)%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0ASlThemeStandardEvent.createGid%20%3D%20createGid%3B%0Aconst%20make%20%3D%20(name%2C%20extra)%20%3D%3E%20%7B%0A%20%20const%20C%20%3D%20class%20extends%20SlThemeStandardEvent%20%7B%20constructor(payload)%20%7B%20super(StandardEvents%5Bname%5D%2C%20payload)%3B%20%7D%20%7D%3B%0A%20%20C.eventName%20%3D%20StandardEvents%5Bname%5D%3B%0A%20%20C.createPromise%20%3D%20deferred%3B%0A%20%20Object.assign(C%2C%20extra%20%7C%7C%20%7B%7D)%3B%0A%20%20return%20C%3B%0A%7D%3B%0Aexport%20const%20PageViewEvent%20%3D%20make(%22pageView%22)%3B%0Aexport%20const%20ProductViewEvent%20%3D%20make(%22productView%22)%3B%0Aexport%20const%20ProductSelectEvent%20%3D%20make(%22productSelect%22)%3B%0Aexport%20const%20CartViewEvent%20%3D%20make(%22cartView%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartErrorEvent%20%3D%20make(%22cartError%22)%3B%0Aexport%20const%20CartLinesUpdateEvent%20%3D%20make(%22cartLinesUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartNoteUpdateEvent%20%3D%20make(%22cartNoteUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartDiscountUpdateEvent%20%3D%20make(%22cartDiscountUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20SearchUpdateEvent%20%3D%20make(%22searchUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20true)%20%7D)%3B%0Aexport%20const%20CollectionViewEvent%20%3D%20make(%22collectionView%22)%3B%0Aexport%20const%20CollectionUpdateEvent%20%3D%20make(%22collectionUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20false)%20%7D)%3B%0Aconst%20VIEW_EVENTS%20%3D%20%7B%20%22product-component%22%3A%20ProductViewEvent%2C%20%22collection-component%22%3A%20CollectionViewEvent%20%7D%3B%0Aexport%20function%20createViewEventElement(Base%2C%20options)%20%7B%0A%20%20const%20B%20%3D%20Base%20%7C%7C%20HTMLElement%3B%0A%20%20const%20opts%20%3D%20options%20%7C%7C%20%7B%7D%3B%0A%20%20return%20class%20extends%20B%20%7B%0A%20%20%20%20connectedCallback()%20%7B%0A%20%20%20%20%20%20if%20(super.connectedCallback)%20super.connectedCallback()%3B%0A%20%20%20%20%20%20const%20trigger%20%3D%20this.getAttribute(%22view-event-trigger%22)%20%7C%7C%20opts.defaultTrigger%20%7C%7C%20%22connect%22%3B%0A%20%20%20%20%20%20if%20(trigger%20%3D%3D%3D%20%22connect%22)%20this.dispatchViewEvent()%3B%0A%20%20%20%20%20%20else%20if%20(trigger%20%3D%3D%3D%20%22intersect%22%20%26%26%20%22IntersectionObserver%22%20in%20window)%20%7B%0A%20%20%20%20%20%20%20%20const%20io%20%3D%20new%20IntersectionObserver((entries)%20%3D%3E%20%7B%20if%20(entries.some((e)%20%3D%3E%20e.isIntersecting))%20%7B%20io.disconnect()%3B%20this.dispatchViewEvent()%3B%20%7D%20%7D)%3B%0A%20%20%20%20%20%20%20%20io.observe(this)%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%20%20dispatchViewEvent()%20%7B%0A%20%20%20%20%20%20let%20payload%20%3D%20null%3B%0A%20%20%20%20%20%20const%20raw%20%3D%20this.getAttribute(%22view-event-payload%22)%20%7C%7C%20this.querySelector(%22script%5Bdata-view-event-payload%5D%22)%3F.textContent%3B%0A%20%20%20%20%20%20try%20%7B%20payload%20%3D%20raw%20%3F%20JSON.parse(raw)%20%3A%20null%3B%20%7D%20catch%20(e)%20%7B%20payload%20%3D%20null%3B%20%7D%0A%20%20%20%20%20%20if%20(!payload)%20return%3B%0A%20%20%20%20%20%20const%20Kind%20%3D%20payload.cart%20%3F%20CartViewEvent%20%3A%20payload.collection%20%3F%20CollectionViewEvent%20%3A%20payload.product%20%3F%20ProductViewEvent%20%3A%20VIEW_EVENTS%5Bthis.localName%5D%3B%0A%20%20%20%20%20%20if%20(Kind)%20this.dispatchEvent(new%20Kind(payload))%3B%0A%20%20%20%20%7D%0A%20%20%7D%3B%0A%7D%0Aexport%20const%20ViewEventElement%20%3D%20createViewEventElement(HTMLElement)%3B%0Aexport%20%7B%20StandardEvents%2C%20SlThemeStandardEvent%20%7D%3B","@shopify/partial-rendering":"data:text/javascript;charset=utf-8,async%20function%20refresh(name)%20%7B%0A%20%20const%20res%20%3D%20await%20fetch(location.href%2C%20%7B%20headers%3A%20%7B%20Accept%3A%20%22text%2Fhtml%22%20%7D%2C%20credentials%3A%20%22same-origin%22%20%7D)%3B%0A%20%20if%20(!res.ok)%20throw%20new%20Error(%22The%20page%20could%20not%20be%20drawn%20again%22)%3B%0A%20%20const%20doc%20%3D%20new%20DOMParser().parseFromString(await%20res.text()%2C%20%22text%2Fhtml%22)%3B%0A%20%20const%20sel%20%3D%20'%5Bdata-shopify-partial%3D%22'%20%2B%20CSS.escape(String(name))%20%2B%20'%22%5D'%3B%0A%20%20const%20fresh%20%3D%20doc.querySelector(sel)%3B%0A%20%20const%20here%20%3D%20document.querySelector(sel)%3B%0A%20%20if%20(fresh%20%26%26%20here)%20here.replaceWith(document.importNode(fresh%2C%20true))%3B%0A%7D%0Aexport%20const%20partials%20%3D%20%7B%20refresh%20%7D%3B%0Aexport%20default%20partials%3B"}}</script><style data-page-background>html{background-color:#fbfaf8}</style><script src="/theme-previews/streetwear/a/i.63b4697a1622.js"></script>
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -77,7 +80,7 @@ W.addEventListener("load",tell);D.addEventListener("DOMContentLoaded",function()
   .shopify-section[data-perf-offscreen] *,
   .shopify-section[data-perf-offscreen] *::before,
   .shopify-section[data-perf-offscreen] *::after { animation-play-state: paused !important; }
-</style><link rel="stylesheet" href="/theme-previews/streetwear/a/i.bebb8d20d681.css" id="speed-page-landing"><script id="speed-optimization-js" src="/theme-previews/streetwear/a/i.679dcd5ab7c8.js"></script>
+</style><link rel="stylesheet" href="/theme-previews/streetwear/a/i.262074ef9310.css" id="speed-page-landing"><script src="/theme-previews/streetwear/a/i.0bd6d5139503.js"></script><script id="speed-optimization-js" src="/theme-previews/streetwear/a/i.679dcd5ab7c8.js"></script>
 <script>
       (function () {
         try {
@@ -110,11 +113,11 @@ W.addEventListener("load",tell);D.addEventListener("DOMContentLoaded",function()
   }
 </style>
 <link rel="stylesheet" href="/theme-previews/streetwear/a/i.2e49df75c19b.css" data-shopify>
-<link href="/theme-previews/_base/a/theme.d71f5b96fec8.css" rel="stylesheet" type="text/css" media="all"><noscript><link href="/theme-previews/_base/a/popup.18cdf2513c31.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.1367a426b62b.css">
+<link href="/theme-previews/_base/a/theme.d71f5b96fec8.css" rel="stylesheet" type="text/css" media="all"><noscript><link href="/theme-previews/_base/a/popup.18cdf2513c31.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.9c20c549e3cf.css">
 <link rel="preload" as="style" href="/theme-previews/_base/a/minicart.ac0014483417.css" fetchpriority="low">
 <link rel="preload" as="style" href="/theme-previews/_base/a/materia-experience.b68d6d8152a8.css" fetchpriority="low">
 <link rel="stylesheet" href="/theme-previews/streetwear/a/i.dae35ff8bdfc.css"><link rel="stylesheet" href="/theme-previews/streetwear/a/i.44eabbd07888.css"><link href="/theme-previews/_base/a/theme-button-contract.7d286d7eee9b.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/localization-controls.9494a0c83131.css" rel="stylesheet" type="text/css" media="all"><link rel="modulepreload" href="/theme-previews/_base/a/theme.7a7dd8f80f89.js" fetchpriority="low"><link rel="preload" as="style" href="/theme-previews/_base/a/main-product.f6cc6e1c565b.css">
-<link rel="preload" as="style" href="/theme-previews/_base/a/product-page-ui.b247d1d435f0.css"><script data-storelib-head src="/theme-previews/streetwear/a/i.d60c3c7ab47c.js"></script>
+<link rel="preload" as="style" href="/theme-previews/_base/a/product-page-ui.b247d1d435f0.css"><script data-storelib-head src="/theme-previews/streetwear/a/i.585ec254f5fd.js"></script>
 <script src="/theme-previews/_base/a/swiper-bundle-min.31d164f7367d.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/motion-min.d1f8eb312b47.js" type="module" defer="defer" fetchpriority="low"></script>
 <script src="/theme-previews/_base/a/utils.90eeb774e439.js" defer="defer" data-cart-count="0"></script>
@@ -130,7 +133,7 @@ W.addEventListener("load",tell);D.addEventListener("DOMContentLoaded",function()
 <link href="/theme-previews/_base/a/hero-image-one.7347eaeaff3f.css" rel="stylesheet" type="text/css" media="all">
 <script src="/theme-previews/_base/a/hero-image-one.1fc574354023.js" defer="defer"></script>
 <link href="/theme-previews/_base/a/before-after-controls.0119d231c0b0.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/text-section-controls.f1a83e444db3.css" rel="stylesheet" type="text/css" media="all"><script src="/theme-previews/streetwear/a/i.c8cec488b26e.js"></script>
+<link href="/theme-previews/_base/a/text-section-controls.f1a83e444db3.css" rel="stylesheet" type="text/css" media="all"><script src="/theme-previews/streetwear/a/i.55032103e897.js"></script>
 <link href="/theme-previews/_base/a/testimonial-quote.d74462f50435.css" rel="stylesheet" type="text/css" media="all">
 <link href="/theme-previews/_base/a/announcement-pro-4.98b829b630a8.css" rel="stylesheet" type="text/css" media="all">
 <link href="/theme-previews/_base/a/product-block-runtime.0c74f3d394a4.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/drift-basic-min.ae15d5c0ab03.css" rel="stylesheet" type="text/css" media="all">
@@ -235,7 +238,7 @@ data-menu-hover="fade"
     --count-bubble-offset-y: 0px;
     --count-bubble-animation: mt-count-pop;
   }
-</style><link rel="stylesheet" href="/theme-previews/streetwear/a/i.911cfc056ef2.css" data-shopify><style data-shopify>#shopify-section-header {
+</style><link rel="stylesheet" href="/theme-previews/streetwear/a/i.dbc988b371f1.css" data-shopify><style data-shopify>#shopify-section-header {
     --hs-mnav-bg: #121211;
     --hs-mnav-heading: #ffffff;
     --hs-mnav-text: #cfcdc7;
@@ -290,7 +293,7 @@ class="action nav-toggle overlay inline-flex pointer w-44 h-44 hidden-1025 heade
 <path d="M2 8H20C20.2812 8 20.5156 7.90625 20.7031 7.71875C20.9062 7.51562 21.0078 7.27344 21.0078 6.99219C21.0078 6.72656 20.9062 6.5 20.7031 6.3125C20.5156 6.10938 20.2812 6.00781 20 6.00781H2C1.71875 6.00781 1.47656 6.10938 1.27344 6.3125C1.08594 6.5 0.992188 6.72656 0.992188 6.99219C0.992188 7.27344 1.08594 7.51562 1.27344 7.71875C1.47656 7.90625 1.71875 8 2 8ZM2 2H20C20.2812 2 20.5156 1.90625 20.7031 1.71875C20.9062 1.51563 21.0078 1.27344 21.0078 0.992188C21.0078 0.726562 20.9062 0.5 20.7031 0.3125C20.5156 0.109375 20.2812 0.0078125 20 0.0078125H2C1.71875 0.0078125 1.47656 0.109375 1.27344 0.3125C1.08594 0.5 0.992188 0.726562 0.992188 0.992188C0.992188 1.27344 1.08594 1.51563 1.27344 1.71875C1.47656 1.90625 1.71875 2 2 2ZM2 14H20C20.2812 14 20.5156 13.9062 20.7031 13.7188C20.9062 13.5156 21.0078 13.2734 21.0078 12.9922C21.0078 12.7266 20.9062 12.5 20.7031 12.3125C20.5156 12.1094 20.2812 12.0078 20 12.0078H2C1.71875 12.0078 1.47656 12.1094 1.27344 12.3125C1.08594 12.5 0.992188 12.7266 0.992188 12.9922C0.992188 13.2734 1.08594 13.5156 1.27344 13.7188C1.47656 13.9062 1.71875 14 2 14Z" fill="currentColor"/>
 </svg>
 </button>
-<link href="/theme-previews/_base/a/navigation.1367a426b62b.css" rel="stylesheet" type="text/css" media="all">
+<link href="/theme-previews/_base/a/navigation.9c20c549e3cf.css" rel="stylesheet" type="text/css" media="all">
 <nav
 class="flex flex-column block-1025 navigation horizontal fixed static-1025 visible-1025 inset-0 down-to-up"
 data-action-mobile="true"
@@ -676,7 +679,7 @@ $95.00
     "color_scheme": "default",
     "padding_top": 0,
     "padding_bottom": 100,
-    "desktop_media_width": 50,
+    "desktop_media_width": 56,
     "sticky_top_gap": 24,
     "media_square": true,
     "enable_custom_media_gap": false,
@@ -709,7 +712,7 @@ id="MainProduct-main"
 class="section sec__featured-product product__item-js  pt-min color-default gradient remove_spacing"
 data-section="main"
 data-color-trigger="Color,Colour,Cor"
-data-desktop-layout="thumbnail_bottom"
+data-desktop-layout="grid_1_column"
 data-mobile-layout="show_thumbnails"
 data-zoom="open_lightbox"
 data-mp-root="main"
@@ -720,15 +723,15 @@ style="--section-pt: 0; --section-pb: 100;--speed: s; --font-size: ;"
 <div class="container">
 <div
 class="flex flex-cols gap flex-wrap main-product"
-style="--col-gap: 30px;--col-width: 50%"
+style="--col-gap: 30px;--col-width: 56%"
 ><div class="product-detail__media col-md-w-custom w-full ">
 <media-gallery
 class="block sticky top-30"
-data-layout="thumbnail"
+data-layout="grid"
 data-mt-video="autoplay"
 data-mt-media-viewer
 data-mt-product-id="00000000-0000-4000-8000-000000000011"
-data-mt-gallery-config="thumbnail|thumbnail_bottom|show_thumbnails|1|open_lightbox|inner-1|true|true|true||true||true|true"
+data-mt-gallery-config="grid|grid_1_column|show_thumbnails|1|open_lightbox|inner-1|true|true|true||true||true|true"
 data-mt-gallery-media="[{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/streetwear/a/streetwear-band-collar-shirt-sky.5f72d9d7a885.webp&quot;,&quot;url&quot;:&quot;/theme-previews/streetwear/a/streetwear-band-collar-shirt-sky.5f72d9d7a885.webp&quot;,&quot;alt&quot;:&quot;Band collar shirt, sky&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/streetwear/a/streetwear-band-collar-shirt-sky.5f72d9d7a885.webp&quot;,&quot;url&quot;:&quot;/theme-previews/streetwear/a/streetwear-band-collar-shirt-sky.5f72d9d7a885.webp&quot;,&quot;alt&quot;:&quot;Band collar shirt, sky&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/streetwear/a/streetwear-band-collar-shirt-sky.5f72d9d7a885.webp&quot;,&quot;url&quot;:&quot;/theme-previews/streetwear/a/streetwear-band-collar-shirt-sky.5f72d9d7a885.webp&quot;,&quot;alt&quot;:&quot;Band collar shirt, sky&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/streetwear/a/streetwear-band-collar-shirt-sky.5f72d9d7a885.webp&quot;,&quot;url&quot;:&quot;/theme-previews/streetwear/a/streetwear-band-collar-shirt-sky.5f72d9d7a885.webp&quot;,&quot;alt&quot;:&quot;Band collar shirt, sky&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/streetwear/a/streetwear-band-collar-shirt-sky.5f72d9d7a885.webp&quot;,&quot;url&quot;:&quot;/theme-previews/streetwear/a/streetwear-band-collar-shirt-sky.5f72d9d7a885.webp&quot;,&quot;alt&quot;:&quot;Band collar shirt, sky&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/streetwear/a/streetwear-band-collar-shirt-sky.5f72d9d7a885.webp&quot;,&quot;url&quot;:&quot;/theme-previews/streetwear/a/streetwear-band-collar-shirt-sky.5f72d9d7a885.webp&quot;,&quot;alt&quot;:&quot;Band collar shirt, sky&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:null,&quot;y&quot;:null}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/streetwear/a/streetwear-band-collar-shirt-sky.5f72d9d7a885.webp&quot;,&quot;url&quot;:&quot;/theme-previews/streetwear/a/streetwear-band-collar-shirt-sky.5f72d9d7a885.webp&quot;,&quot;alt&quot;:&quot;Band collar shirt, sky&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:null},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:null},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:null,&quot;src&quot;:null,&quot;url&quot;:null,&quot;alt&quot;:null,&quot;width&quot;:null,&quot;height&quot;:null,&quot;aspect_ratio&quot;:null,&quot;media_type&quot;:null,&quot;position&quot;:null,&quot;presentation&quot;:null,&quot;attached_to_variant&quot;:null,&quot;variants&quot;:null,&quot;preview_image&quot;:null}}}}}}}}]"
 data-square
 data-mt-lightbox
@@ -737,24 +740,14 @@ data-mt-lightbox
 class="block"
 data-type="open_lightbox"
 >
-<slide-with-thumbs
-class="block relative "
-data-section-id="main"
-data-effect="slide"
-data-speed="500"
-data-mobile="1"
-data-tablet="1"
-data-desktop="1"
-data-thumb-direction="horizontal"
-data-thumb-slides-per-view="4"
-data-auto-play-video="true"
+<div
+id="GalleryViewer-main"
+class="grid grid-cols gap grid_scroll"
+style="--col-number: 1.2;--col-desktop: 1;--col-tablet: 1;--col-gap: 10px;"
 >
-<div class="media-main-swiper skeleton-loading">
-<div class="swiper-wrapper-preview swiper">
-<div class="swiper-wrapper">
 <a
 tabindex="0" role="button" aria-label="Band collar shirt, sky"
-class="media-gallery__image  swiper-slide media-item rounded-5 pointer"
+class="media-gallery__image  rounded-5 pointer"
 data-position="1"
 data-media-id="main-1000"
 data-mt-src="/theme-previews/streetwear/a/streetwear-band-collar-shirt-sky.5f72d9d7a885.webp"
@@ -768,46 +761,7 @@ data-pane-container
 <div class="loading_image skeleton">
 </div>
 </a>
-</div><div
-class="swiper-actions flex block-md content-center gap-10 mb-30 mb-md-0 main-slide__navigation "
->
-<div
-class="swiper-arrow swiper-arrow--prev main-slide__navigation transition swiper-button-prev bg-white btn-hover inline-flex content-center border "
->
-<svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-<use href="#icon-slider-prev" />
-</svg>
 </div>
-<div
-class="swiper-arrow swiper-arrow--next main-slide__navigation transition swiper-button-next bg-white btn-hover inline-flex content-center border "
->
-<svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-<use href="#icon-slider-next" />
-</svg>
-</div>
-</div>
-</div>
-</div>
-<div class="media-thumb-swiper">
-<div
-class="thumbnail-slide swiper mt-10 thumb-bottom"
-style="--gap: 15px;"
->
-<div class="swiper-wrapper">
-<div
-class="media-gallery__image swiper-slide rounded-5 pointer"
-data-position="1"
-data-media-id="main-1000"
-style="--aspect-ratio: 1/1"
->
-<img src="/theme-previews/streetwear/a/streetwear-band-collar-shirt-sky.5f72d9d7a885.webp" srcset="/theme-previews/streetwear/a/streetwear-band-collar-shirt-sky.5f72d9d7a885.webp 720w, /theme-previews/streetwear/a/streetwear-band-collar-shirt-sky.5f72d9d7a885.webp 660w, /theme-previews/streetwear/a/streetwear-band-collar-shirt-sky.5f72d9d7a885.webp 550w, /theme-previews/streetwear/a/streetwear-band-collar-shirt-sky.5f72d9d7a885.webp 480w, /theme-previews/streetwear/a/streetwear-band-collar-shirt-sky.5f72d9d7a885.webp 330w, /theme-previews/streetwear/a/streetwear-band-collar-shirt-sky.5f72d9d7a885.webp 240w, /theme-previews/streetwear/a/streetwear-band-collar-shirt-sky.5f72d9d7a885.webp 185w" alt="Band collar shirt, sky" width="1600" height="1600" loading="eager" fetchpriority="auto" decoding="async" sizes="(min-width: 768px) 120px, 80px" class=" bls-loaded-image">
-<div class="loading_image skeleton">
-</div>
-</div>
-</div>
-</div>
-</div>
-</slide-with-thumbs>
 </zoom-action>
 </media-gallery>
 </div>
@@ -821,22 +775,22 @@ class="block opacity-0"
 <h1
 class="product-detail__title heading-letter-spacing fs-26 mt-0 mb-10"
 data-block-id="title_1"
-style="font-size: 32px;"
+style="font-size: 26px;"
 >Band collar shirt, sky
 </h1>
 <style>
                 @media (min-width: 1024px) {
                   #shopify-section-main .product-detail__title {
-                    font-size: 33px !important;
+                    font-size: 30px !important;
                   }
                 }
               </style>
-</motion-element></div><div class="pib-own" data-pib-block="product_description_2" data-pib-type="product_description" style="display: contents"></div><div class="pib-own" data-pib-block="short_description_3" data-pib-type="short_description" style="display: contents"></div><div class="pib-own" data-pib-block="price_4" data-pib-type="price" style="display: contents">
+</motion-element></div><div class="pib-own" data-pib-block="price_1" data-pib-type="price" style="display: contents">
 <div
 id="price-main"
 class="product-detail__price mb-10"
-data-block-id="price_4"
-style="font-size: 31px; font-weight: 600;"
+data-block-id="price_1"
+style="font-size: 18px; font-weight: 500;"
 ><div class="card-product-price price-large flex align-center flex-wrap gap-5 relative"><div class="price-regular primary-color">
 <span class="visually-hidden">Sale price</span>
 <span class="price heading_weight primary-color price-same-style price--special">
@@ -849,21 +803,126 @@ $135.00
 </div>
 </div>
 </div>
-<link rel="stylesheet" href="/theme-previews/streetwear/a/i.cd277b8a9791.css"></div><div class="pib-own" data-pib-block="variant_picker_5" data-pib-type="variant_picker" style="display: contents"><div
-id="variant-picker-variant_picker_5"
+<link rel="stylesheet" href="/theme-previews/streetwear/a/i.5f8705192eb0.css"></div><div class="pib-own" data-pib-block="short_description_1" data-pib-type="short_description" style="display: contents"></div><div class="pib-own" data-pib-block="variant_picker_1" data-pib-type="variant_picker" style="display: contents"><div
+id="variant-picker-variant_picker_1"
 class="product-detail__variant-picker mb-25"
-data-block-id="variant_picker_5"
+data-block-id="variant_picker_1"
 data-type="swatches"
 >
-</div></div><div class="pib-own" data-pib-block="buy_buttons_6" data-pib-type="buy_buttons" style="display: contents"><div
+<variant-radios-detail
+class="block"
+data-section="main"
+data-url="/theme-previews/streetwear/products/band-collar-shirt-sky.html"
+>
+<fieldset class="js product-form__input flex flex-wrap mb-25 mx-0 p-0 border-0 gap-10 product-form__input_size">
+<div class="form__label gap-10 w-full lh-normal flex gap-15 justify-between">
+<span>Size: <span class="option_value heading-style capitalize">S</span></span
+></div>
+<input
+type="radio"
+id="main-detail-1-0"
+name="Size"
+value="S"
+form="product-form-main"
+checked
+class=" visually-hidden"
+><label
+class="tooltip pointer product__color-swatches--js product__item-option inline-flex align-center border rounded-3 subheading_weight btn-hover lh-normal px-20 py-10 transition relative"
+for="main-detail-1-0"
+>
+<span class="relative z-2 uppercase-first-letter">
+S</span>
+</label>
+<input
+type="radio"
+id="main-detail-1-1"
+name="Size"
+value="M"
+form="product-form-main"
+class=" visually-hidden"
+><label
+class="tooltip pointer product__color-swatches--js product__item-option inline-flex align-center border rounded-3 subheading_weight btn-hover lh-normal px-20 py-10 transition relative"
+for="main-detail-1-1"
+>
+<span class="relative z-2 uppercase-first-letter">
+M</span>
+</label>
+<input
+type="radio"
+id="main-detail-1-2"
+name="Size"
+value="L"
+form="product-form-main"
+class=" visually-hidden"
+><label
+class="tooltip pointer product__color-swatches--js product__item-option inline-flex align-center border rounded-3 subheading_weight btn-hover lh-normal px-20 py-10 transition relative"
+for="main-detail-1-2"
+>
+<span class="relative z-2 uppercase-first-letter">
+L</span>
+</label>
+<input
+type="radio"
+id="main-detail-1-3"
+name="Size"
+value="XL"
+form="product-form-main"
+class=" visually-hidden"
+><label
+class="tooltip pointer product__color-swatches--js product__item-option inline-flex align-center border rounded-3 subheading_weight btn-hover lh-normal px-20 py-10 transition relative"
+for="main-detail-1-3"
+>
+<span class="relative z-2 uppercase-first-letter">
+XL</span>
+</label>
+</fieldset><script type="application/json" data-variant-data>
+        [{"id":"00000000-0000-4000-8000-001100000001","title":"S","option1":"S","option2":null,"option3":null,"sku":"","requires_shipping":true,"taxable":true,"featured_image":null,"available":true,"name":"Band collar shirt, sky - S","public_title":"S","options":["S"],"price":13500,"weight":0,"compare_at_price":16875,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}},{"id":"00000000-0000-4000-8000-001100000002","title":"M","option1":"M","option2":null,"option3":null,"sku":"","requires_shipping":true,"taxable":true,"featured_image":null,"available":true,"name":"Band collar shirt, sky - M","public_title":"M","options":["M"],"price":13500,"weight":0,"compare_at_price":16875,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}},{"id":"00000000-0000-4000-8000-001100000003","title":"L","option1":"L","option2":null,"option3":null,"sku":"","requires_shipping":true,"taxable":true,"featured_image":null,"available":true,"name":"Band collar shirt, sky - L","public_title":"L","options":["L"],"price":13500,"weight":0,"compare_at_price":16875,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}},{"id":"00000000-0000-4000-8000-001100000004","title":"XL","option1":"XL","option2":null,"option3":null,"sku":"","requires_shipping":true,"taxable":true,"featured_image":null,"available":true,"name":"Band collar shirt, sky - XL","public_title":"XL","options":["XL"],"price":13500,"weight":0,"compare_at_price":16875,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}}]
+      </script><script type="application/json" data-variant-prices>
+  {"00000000-0000-4000-8000-001100000001": { "price": "$135.00", "compare_at_price": "$168.75" },"00000000-0000-4000-8000-001100000002": { "price": "$135.00", "compare_at_price": "$168.75" },"00000000-0000-4000-8000-001100000003": { "price": "$135.00", "compare_at_price": "$168.75" },"00000000-0000-4000-8000-001100000004": { "price": "$135.00", "compare_at_price": "$168.75" }}
+</script>
+</variant-radios-detail>
+</div></div><div class="pib-own" data-pib-block="size_guide_1" data-pib-type="size_guide" style="display: contents"><div class="mt-size-guide-root mt-size-guide-root--block" data-size-chart-root="size_guide_1" data-block-preview-root="size_guide_1" data-block-id="size_guide_1"><button
+type="button"
+class="mt-size-guide"
+data-mt-sheet-open
+aria-controls="SizeGuide-main-size_guide_1"
+aria-haspopup="dialog"
+aria-expanded="false"
+>
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 8.5 3l12.5 12.5-5.5 5.5z"/><path d="m7 7 1.5 1.5M10 5.5 11.5 7M13 8.5 14.5 10M11 11l1.5 1.5M16 11.5l1.5 1.5"/></svg>
+<span>Size guide</span>
+</button>
+<dialog id="SizeGuide-main-size_guide_1" class="mt-sheet" aria-labelledby="SizeGuide-main-size_guide_1-title">
+<div class="mt-sheet__panel">
+<div class="mt-sheet__head">
+<h2 id="SizeGuide-main-size_guide_1-title" class="mt-sheet__title">Size guide</h2>
+<button type="button" class="mt-sheet__close" data-mt-sheet-close aria-label="Close">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+</button>
+</div>
+<div class="mt-sheet__body rte">
+<div class="mt-sheet__table-wrap"><div class="mt-size-chart mt-size-chart--units" data-mt-size-chart data-size-triggers="Size, Taglia"><div class="mt-size-chart__units" role="radiogroup" aria-label="Units">
+<label><input type="radio" name="mt-size-unit-rows-size_guide_1" value="cm" checked> cm</label>
+<label><input type="radio" name="mt-size-unit-rows-size_guide_1" value="in"> in</label>
+</div><div class="mt-size-chart__scroll" data-unit="cm" tabindex="0" role="region" aria-label="Size chart (cm)">
+<table class="mt-size-chart__table" data-unit="cm">
+<thead><tr><th scope="col">Size</th><th scope="col">Chest (cm)</th><th scope="col">Length (cm)</th><th scope="col">Sleeve (cm)</th></tr></thead>
+<tbody><tr><th scope="row">S</th><td>104</td><td>70</td><td>22</td></tr><tr><th scope="row">M</th><td>110</td><td>72</td><td>23</td></tr><tr><th scope="row">L</th><td>116</td><td>74</td><td>24</td></tr><tr><th scope="row">XL</th><td>122</td><td>76</td><td>25</td></tr></tbody>
+</table>
+</div><div class="mt-size-chart__scroll" data-unit="in" tabindex="0" role="region" aria-label="Size chart (in)">
+<table class="mt-size-chart__table" data-unit="in">
+<thead><tr><th scope="col">Size</th><th scope="col">Chest (in)</th><th scope="col">Length (in)</th><th scope="col">Sleeve (in)</th></tr></thead>
+<tbody><tr><th scope="row">S</th><td>40.9</td><td>27.6</td><td>8.7</td></tr><tr><th scope="row">M</th><td>43.3</td><td>28.3</td><td>9.1</td></tr><tr><th scope="row">L</th><td>45.7</td><td>29.1</td><td>9.4</td></tr><tr><th scope="row">XL</th><td>48</td><td>29.9</td><td>9.8</td></tr></tbody>
+</table>
+</div></div><p>Garment measurements in centimetres, laid flat. Cut loose: take your usual size.</p></div>
+</div>
+</div>
+</dialog></div></div><div class="pib-own" data-pib-block="buy_buttons_1" data-pib-type="buy_buttons" style="display: contents"><div
 class="product-detail__buy-buttons button-trigger__sticky mb-20"
 data-atc-appearance="theme" data-buy-appearance="theme"
 data-bb-width="full"
 data-bb-quantity="left"
-data-block-id="buy_buttons_6"
-data-custom-button-text="true"
-data-atc-text="Add to cart"
-data-buy-text="Buy now"
+data-block-id="buy_buttons_1"
 data-section-currency="USD"
 >
 <div class="product__submit-form buy-btn-js d-flex flex-wrap btn-large">
@@ -882,7 +941,7 @@ data-section-id="main"
 <form id="product-form-main" accept-charset="UTF-8" class="feature-product-form" novalidate="novalidate" data-type="add-to-cart-form" data-type="add-to-cart-form" data-preview-form><input type="hidden" name="form_type" value="product"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="product-id" value="00000000-0000-4000-8000-000000000011"><input
 type="hidden"
 name="id"
-value="00000000-0000-4000-8000-000000000011"
+value="00000000-0000-4000-8000-001100000001"
 disabled
 class="product-variant-id"
 ><div class="product-form__buttons btn-large flex flex-wrap gap-10">
@@ -933,8 +992,8 @@ type="submit"
 name="add"
 class="btn btn-primary w-full product_submit_button product-form__submit word-wrap relative"
 data-sl-button data-button-role="primary" data-theme-button="primary"
-style="--btn-padding-x: 2.5rem; --mb-weight: 600;"
-><svg class="btn-icon hidden-on-load" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg><span class="btn-label hidden-on-load" data-btn-label>Add to cart</span>
+style="--btn-padding-x: 2.5rem;"
+><span class="btn-label hidden-on-load" data-btn-label>Add to Cart</span>
 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="spin opacity-0 icon-load">
 <use href="#icon-load"></use>
 </svg>
@@ -949,172 +1008,82 @@ formnovalidate
 class="shopify-payment-button__button shopify-payment-button__button--unbranded"
 data-storelib-buy-now
 data-sl-button data-button-role="secondary" data-theme-button="secondary"
-style="--mb-weight: 600;"
-><svg class="btn-icon" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span class="btn-label" data-btn-label>Buy now</span>
+><span class="btn-label" data-btn-label>Buy it Now</span>
 </button>
 </div>
 </div></div></form></product-form>
 </div>
 </div>
-</div><div class="pib-own" data-pib-block="product_grouped_9" data-pib-type="product_grouped" style="display: contents"></div><div class="pib-own" data-pib-block="more_colors_10" data-pib-type="more_colors" style="display: contents">
-</div><div class="pib-own" data-pib-block="collapsible_row_11" data-pib-type="collapsible_row" style="display: contents"><details class="mt-acc product-detail__collapsible" data-mt-acc-key="collapsible_row_11" data-block-id="collapsible_row_11">
+</div><div class="pib-own" data-pib-block="vertical_benefits_1" data-pib-type="vertical_benefits" style="display: contents"><div id="VerticalBenefits-vertical_benefits_1"
+class="vb"
+data-block-id="vertical_benefits_1"
+style="
+--vb-bg: transparent;
+--vb-icon-color: var(--color-text, #2A2A2A);
+--vb-text-color: var(--color-text, #242424);
+--vb-icon-size: 26px;
+--vb-icon-size-m: 26px;
+--vb-gap: 12px;
+--vb-gap-m: 10px;
+--vb-font-d: 14px;
+--vb-font-m: 14px;
+--vb-pt: 14px;
+--vb-pb: 18px;
+--vb-mt: 0px;
+--vb-mb: 0px;
+--vb-space: 10px;
+--vb-maxw: 100rem;
+--vb-pl: 0px;
+--vb-pr: 0px;
+"
+>
+<div class="vb__inner" style="max-width:var(--vb-maxw);padding-left:var(--vb-pl);padding-right:var(--vb-pr);">
+<ul class="vb__list" role="list"><li class="vb__item">
+<span class="vb__icon" aria-hidden="true"><span class="vb__svg svg-colorize" style="--icon-color: var(--vb-icon-color);"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3v6m0 6v6M3 12h6m6 0h6M6 6l4 4m4 4l4 4M6 18l4-4m4-4l4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span></span><span class="vb__text">New shirts every Friday</span></li><li class="vb__item">
+<span class="vb__icon" aria-hidden="true"><span class="vb__svg svg-colorize" style="--icon-color: var(--vb-icon-color);"><svg viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span><span class="vb__text">Free returns within 30 days</span></li></ul>
+</div>
+<link rel="stylesheet" href="/theme-previews/streetwear/a/i.126031abf356.css">
+</div></div><div class="pib-own" data-pib-block="collapsible_row_1" data-pib-type="collapsible_row" style="display: contents"><details class="mt-acc product-detail__collapsible" data-mt-acc-key="collapsible_row_1" data-block-id="collapsible_row_1" open>
 <summary>
 <h3 class="mt-acc__title">Fit and fabric</h3>
 <svg class="mt-acc__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
 </summary>
 <div class="mt-acc__body">
-<div class="mt-acc__inner rte"><p>Say how this shirt fits, the linen weight and where it was sewn.</p></div>
+<div class="mt-acc__inner rte"><p>Washed linen, cut loose through the body. Soft from the first wear and it keeps its shape.</p></div>
 </div>
-</details></div><div class="pib-own" data-pib-block="collapsible_row_12" data-pib-type="collapsible_row" style="display: contents"><details class="mt-acc product-detail__collapsible" data-mt-acc-key="collapsible_row_12" data-block-id="collapsible_row_12">
+</details></div><div class="pib-own" data-pib-block="collapsible_row_2" data-pib-type="collapsible_row" style="display: contents"><details class="mt-acc product-detail__collapsible" data-mt-acc-key="collapsible_row_2" data-block-id="collapsible_row_2">
+<summary>
+<h3 class="mt-acc__title">Care</h3>
+<svg class="mt-acc__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+</summary>
+<div class="mt-acc__body">
+<div class="mt-acc__inner rte"><p>Wash at 30 degrees with similar colours and hang to dry. Iron while damp, or wear it creased.</p></div>
+</div>
+</details></div><div class="pib-own" data-pib-block="collapsible_row_3" data-pib-type="collapsible_row" style="display: contents"><details class="mt-acc product-detail__collapsible" data-mt-acc-key="collapsible_row_3" data-block-id="collapsible_row_3">
 <summary>
 <h3 class="mt-acc__title">Shipping and returns</h3>
 <svg class="mt-acc__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
 </summary>
 <div class="mt-acc__body">
-<div class="mt-acc__inner rte"><p>Sent within two working days, tracked. Returns accepted for 30 days, unworn and unwashed.</p></div>
+<div class="mt-acc__inner rte"><p>Sent within two working days in recycled paper. Free returns within 30 days.</p></div>
 </div>
-</details></div><div class="pib-own" data-pib-block="payment_badges_13" data-pib-type="payment_badges" style="display: contents"><div id="PaymentBadges-payment_badges_13"
-class="pb-wrap"
-role="region"
-aria-label="Payment badges"
-data-block-id="payment_badges_13"
-style="
---pb-maxw: 116rem;
---pb-pl:   0px;
---pb-pr:   0px;
---pb-pt:   22px;
---pb-pb:   22px;
---pb-mt:   0px;
---pb-mb:   0px;
---pb-bg:   rgba(0, 0, 0, 0);
---pb-radius: 0px;
---pb-maxw-m: 150rem;
---pb-pl-m:   0px;
---pb-pr-m:   0px;
---pb-justify-d: flex-start;
---pb-justify-m: center;
-/* text */
---pb-label-color: #333333 !important;
---pb-label-size: 13px;
---pb-title-size: 16px;
---pb-title-color: #2c2c2c !important;
---pb-title-mb: 16px;
---pb-title-mt: 0px;
---pb-label-hover: #111111;
---pb-uline-w: 1px;
---pb-icon-w: 47px;
---pb-icon-w-m: 68px;
-/* badge sizing + gaps */
---pb-gap-x: 10px;
---pb-icon-h: 31px;
---pb-icon-h-m: 22px;
-">
-<div class="pb-inner">
-<div class="pb-head"></div>
-<div class="ecomz-paymentbadges-main">
-<ul class="pb-list list-unstyled">
-<li class="pb-item">
-<svg class="pb-svg" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="pi-american_express" viewBox="0 0 38 24">
-<title id="pi-american_express">American Express</title>
-<path fill="#000" d="M35 0H3C1.3 0 0 1.3 0 3v18c0 1.7 1.4 3 3 3h32c1.7 0 3-1.3 3-3V3c0-1.7-1.4-3-3-3Z" opacity=".07"></path>
-<path fill="#006FCF" d="M35 1c1.1 0 2 .9 2 2v18c0 1.1-.9 2-2 2H3c-1.1 0-2-.9-2-2V3c0-1.1.9-2 2-2h32Z"></path>
-<path fill="#FFF" d="M22.012 19.936v-8.421L37 11.528v2.326l-1.732 1.852L37 17.573v2.375h-2.766l-1.47-1.622-1.46 1.628-9.292-.02Z"></path>
-<path fill="#006FCF" d="M23.013 19.012v-6.57h5.572v1.513h-3.768v1.028h3.678v1.488h-3.678v1.01h3.768v1.531h-5.572Z"></path>
-<path fill="#006FCF" d="m28.557 19.012 3.083-3.289-3.083-3.282h2.386l1.884 2.083 1.89-2.082H37v.051l-3.017 3.23L37 18.92v.093h-2.307l-1.917-2.103-1.898 2.104h-2.321Z"></path>
-<path fill="#FFF" d="M22.71 4.04h3.614l1.269 2.881V4.04h4.46l.77 2.159.771-2.159H37v8.421H19l3.71-8.421Z"></path>
-<path fill="#006FCF" d="m23.395 4.955-2.916 6.566h2l.55-1.315h2.98l.55 1.315h2.05l-2.904-6.566h-2.31Zm.25 3.777.875-2.09.873 2.09h-1.748Z"></path>
-<path fill="#006FCF" d="M28.581 11.52V4.953l2.811.01L32.84 9l1.456-4.046H37v6.565l-1.74.016v-4.51l-1.644 4.494h-1.59L30.35 7.01v4.51h-1.768Z"></path>
-</svg>
-</li>
-<li class="pb-item">
-<svg
-class="pb-svg"
-version="1.1"
-xmlns="http://www.w3.org/2000/svg"
-role="img"
-x="0" y="0"
-viewBox="0 0 165.521 105.965">
-<title>Apple Pay</title>
-<path fill="#D3D3D3" d="M150.698 0H14.823c-.566 0-1.133 0-1.698.003-.477.004-.953.009-1.43.022-1.039.028-2.087.09-3.113.274a10.51 10.51 0 0 0-2.958.975 9.932 9.932 0 0 0-4.35 4.35 10.463 10.463 0 0 0-.975 2.96C.113 9.611.052 10.658.024 11.696a70.22 70.22 0 0 0-.022 1.43C0 13.69 0 14.256 0 14.823v76.318c0 .567 0 1.132.002 1.699.003.476.009.953.022 1.43.028 1.036.09 2.084.275 3.11a10.46 10.46 0 0 0 .974 2.96 9.897 9.897 0 0 0 1.83 2.52 9.874 9.874 0 0 0 2.52 1.83c.947.483 1.917.79 2.96.977 1.025.183 2.073.245 3.112.273.477.011.953.017 1.43.02.565.004 1.132.004 1.698.004h135.875c.565 0 1.132 0 1.697-.004.476-.002.952-.009 1.431-.02 1.037-.028 2.085-.09 3.113-.273a10.478 10.478 0 0 0 2.958-.977 9.955 9.955 0 0 0 4.35-4.35c.483-.947.789-1.917.974-2.96.186-1.026.246-2.074.274-3.11.013-.477.02-.954.022-1.43.004-.567.004-1.132.004-1.699V14.824c0-.567 0-1.133-.004-1.699a63.067 63.067 0 0 0-.022-1.429c-.028-1.038-.088-2.085-.274-3.112a10.4 10.4 0 0 0-.974-2.96 9.94 9.94 0 0 0-4.35-4.35A10.52 10.52 0 0 0 156.939.3c-1.028-.185-2.076-.246-3.113-.274a71.417 71.417 0 0 0-1.431-.022C151.83 0 151.263 0 150.698 0z"></path>
-<path fill="#FFF" d="M150.698 3.532l1.672.003c.452.003.905.008 1.36.02.793.022 1.719.065 2.583.22.75.135 1.38.34 1.984.648a6.392 6.392 0 0 1 2.804 2.807c.306.6.51 1.226.645 1.983.154.854.197 1.783.218 2.58.013.45.019.9.02 1.36.005.557.005 1.113.005 1.671v76.318c0 .558 0 1.114-.004 1.682-.002.45-.008.9-.02 1.35-.022.796-.065 1.725-.221 2.589a6.855 6.855 0 0 1-.645 1.975 6.397 6.397 0 0 1-2.808 2.807c-.6.306-1.228.511-1.971.645-.881.157-1.847.2-2.574.22-.457.01-.912.017-1.379.019-.555.004-1.113.004-1.669.004H14.801c-.55 0-1.1 0-1.66-.004a74.993 74.993 0 0 1-1.35-.018c-.744-.02-1.71-.064-2.584-.22a6.938 6.938 0 0 1-1.986-.65 6.337 6.337 0 0 1-1.622-1.18 6.355 6.355 0 0 1-1.178-1.623 6.935 6.935 0 0 1-.646-1.985c-.156-.863-.2-1.788-.22-2.578a66.088 66.088 0 0 1-.02-1.355l-.003-1.327V14.474l.002-1.325a66.7 66.7 0 0 1 .02-1.357c.022-.792.065-1.717.222-2.587a6.924 6.924 0 0 1 .646-1.981c.304-.598.7-1.144 1.18-1.623a6.386 6.386 0 0 1 1.624-1.18 6.96 6.96 0 0 1 1.98-.646c.865-.155 1.792-.198 2.586-.22.452-.012.905-.017 1.354-.02l1.677-.003h135.875"></path>
-<g>
-<g>
-<path fill="#000" d="M43.508 35.77c1.404-1.755 2.356-4.112 2.105-6.52-2.054.102-4.56 1.355-6.012 3.112-1.303 1.504-2.456 3.959-2.156 6.266 2.306.2 4.61-1.152 6.063-2.858"></path>
-<path fill="#000" d="M45.587 39.079c-3.35-.2-6.196 1.9-7.795 1.9-1.6 0-4.049-1.8-6.698-1.751-3.447.05-6.645 2-8.395 5.1-3.598 6.2-.95 15.4 2.55 20.45 1.699 2.5 3.747 5.25 6.445 5.151 2.55-.1 3.549-1.65 6.647-1.65 3.097 0 3.997 1.65 6.696 1.6 2.798-.05 4.548-2.5 6.247-5 1.95-2.85 2.747-5.6 2.797-5.75-.05-.05-5.396-2.101-5.446-8.251-.05-5.15 4.198-7.6 4.398-7.751-2.399-3.548-6.147-3.948-7.447-4.048"></path>
-</g>
-<g>
-<path fill="#000" d="M78.973 32.11c7.278 0 12.347 5.017 12.347 12.321 0 7.33-5.173 12.373-12.529 12.373h-8.058V69.62h-5.822V32.11h14.062zm-8.24 19.807h6.68c5.07 0 7.954-2.729 7.954-7.46 0-4.73-2.885-7.434-7.928-7.434h-6.706v14.894z"></path>
-<path fill="#000" d="M92.764 61.847c0-4.809 3.665-7.564 10.423-7.98l7.252-.442v-2.08c0-3.04-2.001-4.704-5.562-4.704-2.938 0-5.07 1.507-5.51 3.82h-5.252c.157-4.86 4.731-8.395 10.918-8.395 6.654 0 10.995 3.483 10.995 8.89v18.663h-5.38v-4.497h-.13c-1.534 2.937-4.914 4.782-8.579 4.782-5.406 0-9.175-3.222-9.175-8.057zm17.675-2.417v-2.106l-6.472.416c-3.64.234-5.536 1.585-5.536 3.95 0 2.288 1.975 3.77 5.068 3.77 3.95 0 6.94-2.522 6.94-6.03z"></path>
-<path fill="#000" d="M120.975 79.652v-4.496c.364.051 1.247.103 1.715.103 2.573 0 4.029-1.09 4.913-3.899l.52-1.663-9.852-27.293h6.082l6.863 22.146h.13l6.862-22.146h5.927l-10.216 28.67c-2.34 6.577-5.017 8.735-10.683 8.735-.442 0-1.872-.052-2.261-.157z"></path>
-</g>
-</g>
-</svg>
-</li>
-<li class="pb-item">
-<svg class="pb-svg" xmlns="http://www.w3.org/2000/svg" role="img" viewBox="0 0 38 24">
-<title>Google Pay</title>
-<path d="M35 0H3C1.3 0 0 1.3 0 3v18c0 1.7 1.4 3 3 3h32c1.7 0 3-1.3 3-3V3c0-1.7-1.4-3-3-3z" fill="#000" opacity=".07"></path>
-<path d="M35 1c1.1 0 2 .9 2 2v18c0 1.1-.9 2-2 2H3c-1.1 0-2-.9-2-2V3c0-1.1.9-2 2-2h32" fill="#FFF"></path>
-<path d="M18.093 11.976v3.2h-1.018v-7.9h2.691a2.447 2.447 0 0 1 1.747.692 2.28 2.28 0 0 1 .11 3.224l-.11.116c-.47.447-1.098.69-1.747.674l-1.673-.006zm0-3.732v2.788h1.698c.377.012.741-.135 1.005-.404a1.391 1.391 0 0 0-1.005-2.354l-1.698-.03zm6.484 1.348c.65-.03 1.286.188 1.778.613.445.43.682 1.03.65 1.649v3.334h-.969v-.766h-.049a1.93 1.93 0 0 1-1.673.931 2.17 2.17 0 0 1-1.496-.533 1.667 1.667 0 0 1-.613-1.324 1.606 1.606 0 0 1 .613-1.336 2.746 2.746 0 0 1 1.698-.515c.517-.02 1.03.093 1.49.331v-.208a1.134 1.134 0 0 0-.417-.901 1.416 1.416 0 0 0-.98-.368 1.545 1.545 0 0 0-1.319.717l-.895-.564a2.488 2.488 0 0 1 2.182-1.06zM23.29 13.52a.79.79 0 0 0 .337.662c.223.176.5.269.785.263.429-.001.84-.17 1.146-.472.305-.286.478-.685.478-1.103a2.047 2.047 0 0 0-1.324-.374 1.716 1.716 0 0 0-1.03.294.883.883 0 0 0-.392.73zm9.286-3.75l-3.39 7.79h-1.048l1.281-2.728-2.224-5.062h1.103l1.612 3.885 1.569-3.885h1.097z"></path>
-<path d="M13.986 11.284c0-.308-.024-.616-.073-.92h-4.29v1.747h2.451a2.096 2.096 0 0 1-.9 1.373v1.134h1.464a4.433 4.433 0 0 0 1.348-3.334z" fill="#4285F4"></path>
-<path d="M9.629 15.721a4.352 4.352 0 0 0 3.01-1.097l-1.466-1.14a2.752 2.752 0 0 1-4.094-1.44H5.577v1.17a4.53 4.53 0 0 0 4.052 2.507z" fill="#34A853"></path>
-<path d="M7.079 12.05a2.709 2.709 0 0 1 0-1.735v-1.17H5.577a4.505 4.505 0 0 0 0 4.075l1.502-1.17z" fill="#FBBC04"></path>
-<path d="M9.629 8.44a2.452 2.452 0 0 1 1.74.68l1.3-1.293a4.37 4.37 0 0 0-3.065-1.183 4.53 4.53 0 0 0-4.027 2.5l1.502 1.171a2.715 2.715 0 0 1 2.55-1.875z" fill="#EA4335"></path>
-</svg>
-</li>
-<li class="pb-item">
-<svg class="pb-svg" viewBox="0 0 38 24" xmlns="http://www.w3.org/2000/svg" role="img">
-<title>Mastercard</title>
-<path opacity=".07" d="M35 0H3C1.3 0 0 1.3 0 3v18c0 1.7 1.4 3 3 3h32c1.7 0 3-1.3 3-3V3c0-1.7-1.4-3-3-3z"></path>
-<path fill="#fff" d="M35 1c1.1 0 2 .9 2 2v18c0 1.1-.9 2-2 2H3c-1.1 0-2-.9-2-2V3c0-1.1.9-2 2-2h32"></path>
-<circle fill="#EB001B" cx="15" cy="12" r="7"></circle>
-<circle fill="#F79E1B" cx="23" cy="12" r="7"></circle>
-<path fill="#FF5F00" d="M22 12c0-2.4-1.2-4.5-3-5.7-1.8 1.3-3 3.4-3 5.7s1.2 4.5 3 5.7c1.8-1.2 3-3.3 3-5.7z"></path>
-</svg>
-</li>
-<li class="pb-item">
-<svg class="pb-svg" viewBox="0 0 38 24" xmlns="http://www.w3.org/2000/svg" role="img">
-<title>PayPal</title>
-<path opacity=".07" d="M35 0H3C1.3 0 0 1.3 0 3v18c0 1.7 1.4 3 3 3h32c1.7 0 3-1.3 3-3V3c0-1.7-1.4-3-3-3z"></path>
-<path fill="#fff" d="M35 1c1.1 0 2 .9 2 2v18c0 1.1-.9 2-2 2H3c-1.1 0-2-.9-2-2V3c0-1.1.9-2 2-2h32"></path>
-<path fill="#003087" d="M23.9 8.3c.2-1 0-1.7-.6-2.3-.6-.7-1.7-1-3.1-1h-4.1c-.3 0-.5.2-.6.5L14 15.6c0 .2.1.4.3.4H17l.4-3.4 1.8-2.2 4.7-2.1z"></path>
-<path fill="#3086C8" d="M23.9 8.3l-.2.2c-.5 2.8-2.2 3.8-4.6 3.8H18c-.3 0-.5.2-.6.5l-.6 3.9-.2 1c0 .2.1.4.3.4H19c.3 0 .5-.2.5-.4v-.1l.4-2.4v-.1c0-.2.3-.4.5-.4h.3c2.1 0 3.7-.8 4.1-3.2.2-1 .1-1.8-.4-2.4-.1-.5-.3-.7-.5-.8z"></path>
-<path fill="#012169" d="M23.3 8.1c-.1-.1-.2-.1-.3-.1-.1 0-.2 0-.3-.1-.3-.1-.7-.1-1.1-.1h-3c-.1 0-.2 0-.2.1-.2.1-.3.2-.3.4l-.7 4.4v.1c0-.3.3-.5.6-.5h1.3c2.5 0 4.1-1 4.6-3.8v-.2c-.1-.1-.3-.2-.5-.2h-.1z"></path>
-</svg>
-</li>
-<li class="pb-item">
-<svg class="pb-svg" viewBox="0 0 38 24" xmlns="http://www.w3.org/2000/svg" role="img">
-<title>Visa</title>
-<path opacity=".07" d="M35 0H3C1.3 0 0 1.3 0 3v18c0 1.7 1.4 3 3 3h32c1.7 0 3-1.3 3-3V3c0-1.7-1.4-3-3-3z"></path>
-<path fill="#fff" d="M35 1c1.1 0 2 .9 2 2v18c0 1.1-.9 2-2 2H3c-1.1 0-2-.9-2-2V3c0-1.1.9-2 2-2h32"></path>
-<path d="M28.3 10.1H28c-.4 1-.7 1.5-1 3h1.9c-.3-1.5-.3-2.2-.6-3zm2.9 5.9h-1.7c-.1 0-.1 0-.2-.1l-.2-.9-.1-.2h-2.4c-.1 0-.2 0-.2.2l-.3.9c0 .1-.1.1-.1.1h-2.1l.2-.5L27 8.7c0-.5.3-.7.8-.7h1.5c.1 0 .2 0 .2.2l1.4 6.5c.1.4.2.7.2 1.1.1.1.1.1.1.2zm-13.4-.3l.4-1.8c.1 0 .2.1.2.1.7.3 1.4.5 2.1.4.2 0 .5-.1.7-.2.5-.2.5-.7.1-1.1-.2-.2-.5-.3-.8-.5-.4-.2-.8-.4-1.1-.7-1.2-1-.8-2.4-.1-3.1.6-.4.9-.8 1.7-.8 1.2 0 2.5 0 3.1.2h.1c-.1.6-.2 1.1-.4 1.7-.5-.2-1-.4-1.5-.4-.3 0-.6 0-.9.1-.2 0-.3.1-.4.2-.2.2-.2.5 0 .7l.5.4c.4.2.8.4 1.1.6.5.3 1 .8 1.1 1.4.2.9-.1 1.7-.9 2.3-.5.4-.7.6-1.4.6-1.4 0-2.5.1-3.4-.2-.1.2-.1.2-.2.1zm-3.5.3c.1-.7.1-.7.2-1 .5-2.2 1-4.5 1.4-6.7.1-.2.1-.3.3-.3H18c-.2 1.2-.4 2.1-.7 3.2-.3 1.5-.6 3-1 4.5 0 .2-.1.2-.3.2M5 8.2c0-.1.2-.2.3-.2h3.4c.5 0 .9.3 1 .8l.9 4.4c0 .1 0 .1.1.2 0-.1.1-.1.1-.1l2.1-5.1c-.1-.1 0-.2.1-.2h2.1c0 .1 0 .1-.1.2l-3.1 7.3c-.1.2-.1.3-.2.4-.1.1-.3 0-.5 0H9.7c-.1 0-.2 0-.2-.2L7.9 9.5c-.2-.2-.5-.5-.9-.6-.6-.3-1.7-.5-1.9-.5L5 8.2z" fill="#142688"></path>
-</svg>
-</li>
-<li class="pb-item">
-<svg class="pb-svg" viewBox="0 0 38 24" xmlns="http://www.w3.org/2000/svg" role="img">
-<title>UnionPay</title>
-<path opacity=".07" d="M35 0H3C1.3 0 0 1.3 0 3v18c0 1.7 1.4 3 3 3h32c1.7 0 3-1.3 3-3V3c0-1.7-1.4-3-3-3z"></path>
-<path fill="#fff" d="M35 1c1.1 0 2 .9 2 2v18c0 1.1-.9 2-2 2H3c-1.1 0-2-.9-2-2V3c0-1.1.9-2 2-2h32"></path>
-<path fill="#d10429" d="M9.6 4h6.2c.9 0 1.4.7 1.2 1.6l-2.9 12.8c-.2.9-1.1 1.6-2 1.6H5.9c-.9 0-1.4-.7-1.2-1.6L7.6 5.6C7.8 4.7 8.7 4 9.6 4z"></path>
-<path fill="#022e64" d="M15.3 4h7.1c.9 0 .5.7.3 1.6l-2.9 12.8c-.2.9-.1 1.6-1 1.6h-7.1c-.9 0-1.4-.7-1.2-1.6l2.9-12.8C13.6 4.7 14.4 4 15.3 4z"></path>
-<path fill="#076f74" d="M22.2 4h6.2c.9 0 1.4.7 1.2 1.6l-2.9 12.8c-.2.9-1.1 1.6-2 1.6h-6.2c-.9 0-1.4-.7-1.2-1.6l2.9-12.8c.2-.9 1.1-1.6 2-1.6z"></path>
-<text x="19" y="14.4" fill="#fff" font-family="Arial, sans-serif" font-size="4.6" font-weight="700" text-anchor="middle">UnionPay</text>
-</svg>
-</li>
-</ul>
-</div>
-</div>
-<link rel="stylesheet" href="/theme-previews/streetwear/a/i.ccd71a4e609c.css">
-</div></div></div>
+</details></div><div class="pib-own" data-pib-block="product_addons_1" data-pib-type="product_addons" style="display: contents"><div class="product-addons mt-product-actions" data-block-id="product_addons_1"><button type="button" class="mt-product-actions__link" aria-haspopup="dialog" aria-expanded="false" aria-controls="SharePanel-main-product_addons_1" data-product-share data-share-title="Band collar shirt, sky" data-share-url="/products/band-collar-shirt-sky" data-share-panel="SharePanel-main-product_addons_1">Share</button>
+<div id="SharePanel-main-product_addons_1" class="mt-product-dialog" popover role="dialog" aria-labelledby="ShareTitle-main-product_addons_1">
+<header><h2 id="ShareTitle-main-product_addons_1">Share</h2><button type="button" popovertarget="SharePanel-main-product_addons_1" popovertargetaction="hide" aria-label="Close">×</button></header>
+<label for="ShareUrl-main-product_addons_1">Copy the link below to share this product.</label>
+<input id="ShareUrl-main-product_addons_1" data-share-value value="/products/band-collar-shirt-sky" readonly>
+<button type="button" class="btn-primary" data-copy-product-url>Copy link</button>
+<p role="status" data-copy-status data-copied="Link copied" data-copy-error="Select and copy the link above."></p>
+</div></div></div></div>
 </motion-element>
 </div>
-<sticky-add-cart id="StickyCart-main" data-section-id="main" class="fixed z-10 inset-x-0 bottom-0 shadow color-default sticky_desktop--show sticky_mobile--show no-picker" role="region" aria-label="Band collar shirt, sky">
+<sticky-add-cart id="StickyCart-main" data-section-id="main" class="fixed z-10 inset-x-0 bottom-0 shadow color-default sticky_desktop--show sticky_mobile--show" role="region" aria-label="Band collar shirt, sky">
 <div class="container"><div class="flex gap-15 justify-between align-center">
 <div
 class="product-item product__item-js hidden block-md style-as-standard"
 data-section="main"
 data-color-trigger="Color,Colour,Cor"
-data-desktop-layout="thumbnail_bottom"
+data-desktop-layout="grid_1_column"
 data-mobile-layout="show_thumbnails"
 data-zoom="open_lightbox"
 >
@@ -1150,9 +1119,11 @@ href="/theme-previews/streetwear/products/band-collar-shirt-sky.html"
 </div>
 </div>
 <script type="application/json" class="product-variant__quantity">
-            [{ "option":"Default Title","qty":11,"available":true,"mamagement":""}]
+            [{ "option":"S","qty":11,"available":true,"mamagement":""},{ "option":"M","qty":11,"available":true,"mamagement":""},{ "option":"L","qty":11,"available":true,"mamagement":""},{ "option":"XL","qty":11,"available":true,"mamagement":""}]
           </script>
-</motion-element></div>
+</motion-element><script type="application/json" class="productItemVariantsQty">
+        [{ "option":"S","qty":11,"available":true,"mamagement":""},{ "option":"M","qty":11,"available":true,"mamagement":""},{ "option":"L","qty":11,"available":true,"mamagement":""},{ "option":"XL","qty":11,"available":true,"mamagement":""}]
+      </script></div>
 <div class="sticky__item-info flex gap-10 w-full w-md-unset">
 <div class="product-detail__variant-picker text-size heading-color w-full">
 <variant-radios-sticky
@@ -1160,23 +1131,57 @@ data-section="main"
 data-url="/theme-previews/streetwear/products/band-collar-shirt-sky.html"
 >
 <div class="mt-select-wrap mt-sticky-select">
-<select class="mt-select select__sticky" aria-label="Title">
+<select class="mt-select select__sticky" aria-label="Size">
 <option
 class="color product-sticky-js"
-data-variant-id="00000000-0000-4000-8000-000000000011"
-data-name="Title"
+data-variant-id="00000000-0000-4000-8000-001100000001"
+data-name="Size"
 data-color-value=""
-data-value="Default Title"
-value="Default Title"
+data-value="S"
+value="S"
 selected="true"
 >
+S -
+$135.00
+</option>
+<option
+class="color product-sticky-js"
+data-variant-id="00000000-0000-4000-8000-001100000002"
+data-name="Size"
+data-color-value="M"
+data-value="M"
+value="M"
+>
+M -
+$135.00
+</option>
+<option
+class="color product-sticky-js"
+data-variant-id="00000000-0000-4000-8000-001100000003"
+data-name="Size"
+data-color-value="L"
+data-value="L"
+value="L"
+>
+L -
+$135.00
+</option>
+<option
+class="color product-sticky-js"
+data-variant-id="00000000-0000-4000-8000-001100000004"
+data-name="Size"
+data-color-value="XL"
+data-value="XL"
+value="XL"
+>
+XL -
 $135.00
 </option>
 </select>
 <svg class="mt-select-wrap__chev" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m2.5 4.5 3.5 3.5 3.5-3.5"/></svg>
 </div>
 <script type="application/json" data-variant-data>
-    [{"id":"00000000-0000-4000-8000-000000000011","title":"Default Title","option1":"Default Title","option2":null,"option3":null,"sku":"","requires_shipping":true,"taxable":true,"featured_image":null,"available":true,"name":"Band collar shirt, sky","public_title":null,"options":["Default Title"],"price":13500,"weight":0,"compare_at_price":16875,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}}]
+    [{"id":"00000000-0000-4000-8000-001100000001","title":"S","option1":"S","option2":null,"option3":null,"sku":"","requires_shipping":true,"taxable":true,"featured_image":null,"available":true,"name":"Band collar shirt, sky - S","public_title":"S","options":["S"],"price":13500,"weight":0,"compare_at_price":16875,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}},{"id":"00000000-0000-4000-8000-001100000002","title":"M","option1":"M","option2":null,"option3":null,"sku":"","requires_shipping":true,"taxable":true,"featured_image":null,"available":true,"name":"Band collar shirt, sky - M","public_title":"M","options":["M"],"price":13500,"weight":0,"compare_at_price":16875,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}},{"id":"00000000-0000-4000-8000-001100000003","title":"L","option1":"L","option2":null,"option3":null,"sku":"","requires_shipping":true,"taxable":true,"featured_image":null,"available":true,"name":"Band collar shirt, sky - L","public_title":"L","options":["L"],"price":13500,"weight":0,"compare_at_price":16875,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}},{"id":"00000000-0000-4000-8000-001100000004","title":"XL","option1":"XL","option2":null,"option3":null,"sku":"","requires_shipping":true,"taxable":true,"featured_image":null,"available":true,"name":"Band collar shirt, sky - XL","public_title":"XL","options":["XL"],"price":13500,"weight":0,"compare_at_price":16875,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}}]
   </script>
 </variant-radios-sticky>
 </div>
@@ -1190,7 +1195,7 @@ data-section-id="main"
 <form id="sticky-addcart-form-main" accept-charset="UTF-8" class="feature-product-form" novalidate="novalidate" data-type="add-to-cart-form" data-type="add-to-cart-form" data-preview-form><input type="hidden" name="form_type" value="product"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="product-id" value="00000000-0000-4000-8000-000000000011"><input
 type="hidden"
 name="id"
-value="00000000-0000-4000-8000-000000000011"
+value="00000000-0000-4000-8000-001100000001"
 disabled
 class="product-variant-id"
 ><div class="product-form__buttons btn-large flex flex-wrap gap-10">
@@ -1259,10 +1264,12 @@ style="--btn-padding-x: 2.5rem;"
       data-product-json
       class="productJson"
     >
-      {"id":"00000000-0000-4000-8000-000000000011","title":"Band collar shirt, sky","handle":"band-collar-shirt-sky","description":"","published_at":null,"created_at":null,"vendor":"","type":"","tags":[],"price":13500,"price_min":13500,"price_max":13500,"available":true,"price_varies":false,"compare_at_price":16875,"compare_at_price_min":16875,"compare_at_price_max":16875,"compare_at_price_varies":false,"variants":[{"id":"00000000-0000-4000-8000-000000000011","title":"Default Title","option1":"Default Title","option2":null,"option3":null,"sku":"","requires_shipping":true,"taxable":true,"featured_image":null,"available":true,"name":"Band collar shirt, sky","public_title":null,"options":["Default Title"],"price":13500,"weight":0,"compare_at_price":16875,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}}],"images":["/theme-previews/streetwear/a/streetwear-band-collar-shirt-sky.5f72d9d7a885.webp"],"featured_image":"/theme-previews/streetwear/a/streetwear-band-collar-shirt-sky.5f72d9d7a885.webp","options":["Title"],"media":[{"alt":"Band collar shirt, sky","id":1000,"position":1,"preview_image":{"aspect_ratio":1,"height":1600,"width":1600,"src":"/theme-previews/streetwear/a/streetwear-band-collar-shirt-sky.5f72d9d7a885.webp"},"aspect_ratio":1,"height":1600,"media_type":"image","src":"/theme-previews/streetwear/a/streetwear-band-collar-shirt-sky.5f72d9d7a885.webp","width":1600}],"requires_selling_plan":false,"selling_plan_groups":[],"content":""}
+      {"id":"00000000-0000-4000-8000-000000000011","title":"Band collar shirt, sky","handle":"band-collar-shirt-sky","description":"","published_at":null,"created_at":null,"vendor":"","type":"","tags":[],"price":13500,"price_min":13500,"price_max":13500,"available":true,"price_varies":false,"compare_at_price":16875,"compare_at_price_min":16875,"compare_at_price_max":16875,"compare_at_price_varies":false,"variants":[{"id":"00000000-0000-4000-8000-001100000001","title":"S","option1":"S","option2":null,"option3":null,"sku":"","requires_shipping":true,"taxable":true,"featured_image":null,"available":true,"name":"Band collar shirt, sky - S","public_title":"S","options":["S"],"price":13500,"weight":0,"compare_at_price":16875,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}},{"id":"00000000-0000-4000-8000-001100000002","title":"M","option1":"M","option2":null,"option3":null,"sku":"","requires_shipping":true,"taxable":true,"featured_image":null,"available":true,"name":"Band collar shirt, sky - M","public_title":"M","options":["M"],"price":13500,"weight":0,"compare_at_price":16875,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}},{"id":"00000000-0000-4000-8000-001100000003","title":"L","option1":"L","option2":null,"option3":null,"sku":"","requires_shipping":true,"taxable":true,"featured_image":null,"available":true,"name":"Band collar shirt, sky - L","public_title":"L","options":["L"],"price":13500,"weight":0,"compare_at_price":16875,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}},{"id":"00000000-0000-4000-8000-001100000004","title":"XL","option1":"XL","option2":null,"option3":null,"sku":"","requires_shipping":true,"taxable":true,"featured_image":null,"available":true,"name":"Band collar shirt, sky - XL","public_title":"XL","options":["XL"],"price":13500,"weight":0,"compare_at_price":16875,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}}],"images":["/theme-previews/streetwear/a/streetwear-band-collar-shirt-sky.5f72d9d7a885.webp"],"featured_image":"/theme-previews/streetwear/a/streetwear-band-collar-shirt-sky.5f72d9d7a885.webp","options":["Size"],"media":[{"alt":"Band collar shirt, sky","id":1000,"position":1,"preview_image":{"aspect_ratio":1,"height":1600,"width":1600,"src":"/theme-previews/streetwear/a/streetwear-band-collar-shirt-sky.5f72d9d7a885.webp"},"aspect_ratio":1,"height":1600,"media_type":"image","src":"/theme-previews/streetwear/a/streetwear-band-collar-shirt-sky.5f72d9d7a885.webp","width":1600}],"requires_selling_plan":false,"selling_plan_groups":[],"content":""}
     </script><script type="application/json" data-variant-media>
-  {"00000000-0000-4000-8000-000000000011": { "id": "", "src": "" }}
-</script><script>
+  {"00000000-0000-4000-8000-001100000001": { "id": "", "src": "" },"00000000-0000-4000-8000-001100000002": { "id": "", "src": "" },"00000000-0000-4000-8000-001100000003": { "id": "", "src": "" },"00000000-0000-4000-8000-001100000004": { "id": "", "src": "" }}
+</script><script type="application/json" class="productVariantsQty">
+      [{ "id": "00000000-0000-4000-8000-001100000001", "option": "S", "qty": 11, "available": true, "mamagement": "", "incoming": false, "incoming_date": "" },{ "id": "00000000-0000-4000-8000-001100000002", "option": "M", "qty": 11, "available": true, "mamagement": "", "incoming": false, "incoming_date": "" },{ "id": "00000000-0000-4000-8000-001100000003", "option": "L", "qty": 11, "available": true, "mamagement": "", "incoming": false, "incoming_date": "" },{ "id": "00000000-0000-4000-8000-001100000004", "option": "XL", "qty": 11, "available": true, "mamagement": "", "incoming": false, "incoming_date": "" }]
+    </script><script>
     document.addEventListener('DOMContentLoaded', function () {
       function isIE() {
         const ua = window.navigator.userAgent;
@@ -1358,340 +1365,102 @@ style="--r7t-bg: var(--color-background); --r7t-link-ink: var(--color-link, var(
 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 5l7 7-7 7"/></svg>
 </button>
 </div></div>
-</div></section><section id="shopify-section-products_carousel_2" class="shopify-section" data-section-id="products_carousel_2" data-section-type="products-carousel"><script src="/theme-previews/_base/a/live-products-b.d8f9a0d11541.js" defer="defer"></script>
+</div></section><section id="shopify-section-related" class="shopify-section" data-section-id="related" data-section-type="related-products"><script src="/theme-previews/_base/a/live-product-extras.d9413cbad72b.js" defer="defer"></script>
 <style>
-  #shopify-section-products_carousel_2 {
+  #shopify-section-related {
     font-family: var(--body-font, inherit);
     font-size: var(--body-font-size, inherit);
     font-weight: var(--body-weight, inherit);
     line-height: var(--body-line-height, inherit);
     color: var(--color-text);
   }
-  #shopify-section-products_carousel_2 :is(h1, h2, h3, h4, h5, h6) {
+  #shopify-section-related :is(h1, h2, h3, h4, h5, h6) {
     font-family: var(--heading-font, inherit);
     font-weight: var(--heading-weight, inherit);
     letter-spacing: var(--heading-letter-spacing, normal);
     line-height: var(--heading-line-height, 1.2);
     text-transform: var(--heading-text-transform, none);
   }
-  :where(html:not([data-font-priority='off'])) #shopify-section-products_carousel_2 :where(.subheading, .sub-heading, [class*='__subheading']) {
+  :where(html:not([data-font-priority='off'])) #shopify-section-related :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
+</style><link rel="stylesheet" href="/theme-previews/streetwear/a/i.daa1cae7a180.css"><style>
+  #shopify-section-related { isolation: isolate; position: relative; }
 </style><style>
-  #shopify-section-products_carousel_2.scroll-trigger {
-    --animation-duration: 950ms;
-    --animation-delay: 80ms;
-  }
-</style>
-<script>
-  (function(){
-    var el = document.getElementById('shopify-section-products_carousel_2');
-    if (!el || el.classList.contains('scroll-trigger')) return;
-    el.classList.add('scroll-trigger', "fade_in");
-  })();
-</script><style data-rs-bulletproof>/* reset_spacing: bulletproof override of ALL section spacing mechanisms */
-    #shopify-section-products_carousel_2,
-    #shopify-section-products_carousel_2 > .section,
-    #shopify-section-products_carousel_2 > section,
-    #shopify-section-products_carousel_2 > div,
-    #shopify-section-products_carousel_2 > div > .section {
-      margin-top: 0 !important;
-      margin-bottom: 0 !important;
-    }
-    #shopify-section-products_carousel_2 + .shopify-section,
-    #shopify-section-products_carousel_2 + section,
-    .shopify-section + #shopify-section-products_carousel_2 {
-      margin-top: 0 !important;
-    }</style><link href="/theme-previews/_base/a/pagination-styles.ba18262a03be.css" rel="stylesheet" type="text/css" media="all"><link rel="stylesheet" href="/theme-previews/streetwear/a/i.f7549b59d3c8.css">
-<div
-class="section pc sec__products-carousel color-default gradient remove_spacing"
-data-pb-root="products-carousel" data-pb-section="products_carousel_2" data-pb-settings="{&quot;color_scheme&quot;:&quot;default&quot;,&quot;section_width&quot;:&quot;fluid_container&quot;,&quot;reset_spacing&quot;:true,&quot;items_to_show&quot;:5,&quot;heading&quot;:&quot;Best Selling&quot;,&quot;description&quot;:&quot;&quot;,&quot;header_size&quot;:&quot;medium&quot;,&quot;header_alignment&quot;:&quot;left&quot;,&quot;heading_underline&quot;:false,&quot;header_spacing&quot;:32,&quot;items_per_row&quot;:4,&quot;column_gap&quot;:30,&quot;show_banner&quot;:false,&quot;banner_type&quot;:&quot;image&quot;,&quot;banner_image&quot;:&quot;&quot;,&quot;video_autoplay&quot;:true,&quot;banner_link&quot;:&quot;&quot;,&quot;banner_width&quot;:30,&quot;position&quot;:&quot;left&quot;,&quot;sticky_banner&quot;:false,&quot;show_arrow&quot;:false,&quot;carousel_pagination&quot;:&quot;show_dots_on_mobile&quot;,&quot;pagination_style&quot;:&quot;dot&quot;,&quot;pagination_position&quot;:&quot;center&quot;,&quot;infinite&quot;:false,&quot;autoplay&quot;:false,&quot;autorotate_speed&quot;:5,&quot;reveal&quot;:false,&quot;enable_custom_style&quot;:false,&quot;section_bg_override&quot;:&quot;&quot;,&quot;enable_custom_fonts&quot;:false,&quot;heading_font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;},&quot;body_font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;},&quot;padding_top&quot;:50,&quot;padding_bottom&quot;:50,&quot;gap_products_to_pagination&quot;:24,&quot;gap_pagination_to_button&quot;:24,&quot;gap_products_to_button&quot;:32,&quot;section_margin_top_desktop&quot;:0,&quot;section_margin_bottom_desktop&quot;:0,&quot;items_per_row_mobile&quot;:2,&quot;section_margin_top_mobile&quot;:0,&quot;section_margin_bottom_mobile&quot;:0}" data-pb-fallback-href="/collections/all" data-pb-defaults='{"color_scheme":"default-color-scheme","section_width":"fluid_container","reset_spacing":true,"items_to_show":5,"heading":"Best Selling","header_size":"medium","header_alignment":"left","heading_underline":false,"header_spacing":32,"items_per_row":4,"column_gap":30,"show_banner":false,"banner_type":"image","video_autoplay":true,"banner_width":30,"position":"left","sticky_banner":false,"show_arrow":false,"carousel_pagination":"show_dots_on_mobile","pagination_style":"dot","pagination_position":"center","infinite":false,"autoplay":false,"autorotate_speed":5,"reveal":false,"enable_custom_style":false,"enable_custom_fonts":false,"heading_font":"assistant_n4","body_font":"assistant_n4","padding_top":50,"padding_bottom":50,"gap_products_to_pagination":24,"gap_pagination_to_button":24,"gap_products_to_button":32,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"items_per_row_mobile":2,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0}' data-pb-block-defaults='{"eyebrow":{"text":"Shop","enable_custom_style":false,"size":13},"heading":{"text":"Best Selling","enable_custom_style":false,"size_desktop":32,"size_mobile":26},"subheading":{"text":"&lt;p>Fresh picks from the collection.&lt;/p>","enable_custom_style":false,"size":16},"view_all":{"enabled":true,"label":"View all","position":"header","full_width":false,"uppercase":false,"enable_custom_style":false,"use_theme_button":true,"radius":6,"padding_x":26,"padding_y":14,"font_size":14,"font_weight":"600","border_width":1}}'
-data-align="left" data-underline="false" data-width="fluid_container"
-style="--section-pt: 50;--section-pb: 50;--pc-hgap: 32px;--pc-gap-pag: 24px;--pc-gap-pag-btn: 24px;--pc-gap-btn: 32px;--pc-banner-w: 30%;"
+  #shopify-section-related [data-rp-root] .section__header-heading { color: var(--rp-heading-color, var(--color-heading)); }
+  #shopify-section-related [data-rp-root] .section__header-des { color: var(--rp-text-color, var(--color-text)); }
+  #shopify-section-related [data-rp-root][data-rp-bg] { background: var(--rp-bg); }
+  #shopify-section-related [data-rp-root] .section__header-heading[data-own-font] { font-family: var(--rp-heading-font); }
+  #shopify-section-related [data-rp-root] .section__header-des[data-own-font],
+  #shopify-section-related [data-rp-root] .section__header-des[data-own-font] * { font-family: var(--rp-body-font); }
+  #shopify-section-related [data-rp-root] [data-rp-hidden] { display: none; }
+  #shopify-section-related:has(> [data-rp-reset]),
+  #shopify-section-related > [data-rp-reset] { margin-top: 0 !important; margin-bottom: 0 !important; }
+  #shopify-section-related:has(> [data-rp-reset]) + .shopify-section { margin-top: 0 !important; }
+</style><div
+class="section sec__related-product color-default gradient remove_spacing overflow-hidden"
+style="--section-pt: 72; --section-pb: 72;"
+data-rp-root
+data-rp-section="related"
+data-rp-reset
 >
-<div class="pb-inner fluid_container" data-pb-width>
-<div class="pc-header section__header" data-pb-header>
-<div class="pc-header__text secion__header-inner"><h2 class="pb-heading heading-letter-spacing " data-pb-block="heading_1" data-pb-type="heading" data-pb-settings="{&quot;text&quot;:&quot;More shirts&quot;,&quot;enable_custom_style&quot;:false,&quot;color&quot;:&quot;&quot;,&quot;size_desktop&quot;:32,&quot;size_mobile&quot;:26}" style="--pb-fs-d: 32px;--pb-fs-m: 26px;" data-block-id="heading_1">More shirts</h2></div>
-<div class="pc-header__actions" data-pb-slot="header"><a class="pc__view-all no-underline" href="/theme-previews/streetwear/collections/all.html" data-theme-button="primary" data-sl-button data-block-id="view_all_1" data-full="false" data-pb-order="2" data-pb-block="view_all_1" data-pb-type="view_all" data-pb-settings="{&quot;enabled&quot;:true,&quot;label&quot;:&quot;View all&quot;,&quot;link&quot;:&quot;/theme-previews/streetwear/collections/all.html&quot;,&quot;position&quot;:&quot;header&quot;,&quot;full_width&quot;:false,&quot;uppercase&quot;:false,&quot;enable_custom_style&quot;:false,&quot;bg&quot;:&quot;&quot;,&quot;color&quot;:&quot;&quot;,&quot;border_color&quot;:&quot;&quot;,&quot;bg_hover&quot;:&quot;&quot;,&quot;color_hover&quot;:&quot;&quot;,&quot;border_color_hover&quot;:&quot;&quot;,&quot;use_theme_button&quot;:true,&quot;radius&quot;:6,&quot;padding_x&quot;:26,&quot;padding_y&quot;:14,&quot;font_size&quot;:14,&quot;font_weight&quot;:&quot;600&quot;,&quot;border_width&quot;:1}" style="" data-block-id="view_all_1">View all</a></div>
-</div><slide-section
-class="swiper"
-data-section-id="products_carousel_2"
-data-autoplay="false"
-data-effect="slide"
-data-loop="false"
-data-speed="500"
-data-autoplay-speed="5"
-data-spacing="30"
-data-mobile="2"
-data-desktop="4"
-data-free-scroll=""
-data-pagination-progressbar="false"
-data-pagination-style="dot"
-style="--col-gap: 15px;--col-gap-desktop: 30px;"
-data-arrow-centerimage="1"
-data-pb-slider
-><div class="swiper-wrapper">
-<div
-class="product-item product__item-js  swiper-slide style-as-standard"
->
+<div class="fluid_container" data-rp-width><div class="section__header mb-33 mb-sm-20 text-left">
+<div class="secion__header-inner">
 <motion-element
-class="product-item__wrapper block  hover_zoom product-grid  scroll-trigger fade_in "
-data-cascade
 data-motion="fade-up-lg"
 hold
-data-motion-delay="0"
-style="--animation-order: 1;  "
+data-motion-delay="50"
+class="block  scroll-trigger fade_in"
+style="--animation-order: 0;"
 >
-<div class="product-item__inner hover-effect overflow-hidden relative">
-<a
-draggable="false"
-href="/theme-previews/streetwear/products/linen-popover-navy.html"
-aria-label="Linen popover, navy"
-class="product__media product-item__media--ratio rounded block"
-style="--aspect-ratio: 3/4;"
->
-<img src="/theme-previews/streetwear/a/streetwear-linen-popover-navy.56af344d195a.webp" srcset="/theme-previews/streetwear/a/streetwear-linen-popover-navy.56af344d195a.webp 720w, /theme-previews/streetwear/a/streetwear-linen-popover-navy.56af344d195a.webp 660w, /theme-previews/streetwear/a/streetwear-linen-popover-navy.56af344d195a.webp 550w, /theme-previews/streetwear/a/streetwear-linen-popover-navy.56af344d195a.webp 480w, /theme-previews/streetwear/a/streetwear-linen-popover-navy.56af344d195a.webp 330w, /theme-previews/streetwear/a/streetwear-linen-popover-navy.56af344d195a.webp 240w, /theme-previews/streetwear/a/streetwear-linen-popover-navy.56af344d195a.webp 185w" alt="Linen popover, navy" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1440px -  30px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 30px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
-<div class="loading_image skeleton">
-</div>
-</a><div class="pc-corner" data-pc-corner>
-<div
-class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
-data-max="4"
-data-sale-color="#161615"
-data-sold-out-color="#8a8882"
-data-pre-order-color="#ffffff"
-data-sale-bg="#ffffff"
-data-sold-out-bg="#ffffff"
-data-pre-order-bg="#6a33d8"
-data-show-sale="true"
-data-show-sold-out="true"
-data-show-preorder="true"
-data-sale-badge-type="percent"
->
-</div>
-</div>
-<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
-</div>
-</div>
-<div class="product-item__information word-break text-start mt-15">
-<a
-aria-label="Linen popover, navy"
-class="product-item__name unset heading-style no-underline fs-custom block lh-normal"
-style="--font-size: 14;"            
-href="/theme-previews/streetwear/products/linen-popover-navy.html"
->Linen popover, navy</a>
-<div
-class="product-item__price justify-content-start fs-custom flex gap-custom lh-normal "
-style="--font-size: 13; --gap: 3px;"
-><div class="card-product-price  flex align-center flex-wrap gap-5 relative"><div class="price-regular">
-<span class="visually-hidden">Regular price</span>
-<span class="price price-same-style heading-style">
-$120.00
-</span>
-</div>
-</div>
-</div>
-</div>
-<script type="application/json" class="product-variant__quantity">
-            [{ "option":"Small","qty":11,"available":true,"mamagement":""},{ "option":"Medium","qty":11,"available":true,"mamagement":""},{ "option":"Large","qty":0,"available":false,"mamagement":"shopify"}]
-          </script>
-</motion-element><script type="application/json" class="productItemVariantsQty">
-        [{ "option":"Small","qty":11,"available":true,"mamagement":""},{ "option":"Medium","qty":11,"available":true,"mamagement":""},{ "option":"Large","qty":0,"available":false,"mamagement":"shopify"}]
-      </script></div>
-<div
-class="product-item product__item-js  swiper-slide style-as-standard"
->
+<h2 class="section__header-heading heading-letter-spacing h3 mt-0 mb-0">
+More shirts
+</h2>
+</motion-element>
 <motion-element
-class="product-item__wrapper block  hover_zoom product-grid  scroll-trigger fade_in "
-data-cascade
 data-motion="fade-up-lg"
-hold
-data-motion-delay="100"
-style="--animation-order: 3;  "
->
-<div class="product-item__inner hover-effect overflow-hidden relative">
-<a
-draggable="false"
-href="/theme-previews/streetwear/products/linen-tee-stone.html"
-aria-label="Linen tee, stone"
-class="product__media product-item__media--ratio rounded block"
-style="--aspect-ratio: 3/4;"
->
-<img src="/theme-previews/streetwear/a/streetwear-linen-tee-stone.4524319cfbd7.webp" srcset="/theme-previews/streetwear/a/streetwear-linen-tee-stone.4524319cfbd7.webp 720w, /theme-previews/streetwear/a/streetwear-linen-tee-stone.4524319cfbd7.webp 660w, /theme-previews/streetwear/a/streetwear-linen-tee-stone.4524319cfbd7.webp 550w, /theme-previews/streetwear/a/streetwear-linen-tee-stone.4524319cfbd7.webp 480w, /theme-previews/streetwear/a/streetwear-linen-tee-stone.4524319cfbd7.webp 330w, /theme-previews/streetwear/a/streetwear-linen-tee-stone.4524319cfbd7.webp 240w, /theme-previews/streetwear/a/streetwear-linen-tee-stone.4524319cfbd7.webp 185w" alt="Linen tee, stone" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1440px -  30px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 30px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
-<div class="loading_image skeleton">
-</div>
-</a><div class="pc-corner" data-pc-corner>
-<div
-class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
-data-max="4"
-data-sale-color="#161615"
-data-sold-out-color="#8a8882"
-data-pre-order-color="#ffffff"
-data-sale-bg="#ffffff"
-data-sold-out-bg="#ffffff"
-data-pre-order-bg="#6a33d8"
-data-show-sale="true"
-data-show-sold-out="true"
-data-show-preorder="true"
-data-sale-badge-type="percent"
->
-</div>
-</div>
-<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
-</div>
-</div>
-<div class="product-item__information word-break text-start mt-15">
-<a
-aria-label="Linen tee, stone"
-class="product-item__name unset heading-style no-underline fs-custom block lh-normal"
-style="--font-size: 14;"            
-href="/theme-previews/streetwear/products/linen-tee-stone.html"
->Linen tee, stone</a>
-<div
-class="product-item__price justify-content-start fs-custom flex gap-custom lh-normal "
-style="--font-size: 13; --gap: 3px;"
-><div class="card-product-price  flex align-center flex-wrap gap-5 relative"><div class="price-regular">
-<span class="visually-hidden">Regular price</span>
-<span class="price price-same-style heading-style">
-$95.00
-</span>
-</div>
-</div>
-</div>
-</div>
-</motion-element></div>
-<div
-class="product-item product__item-js  swiper-slide style-as-standard"
->
-<motion-element
-class="product-item__wrapper block  hover_zoom product-grid  scroll-trigger fade_in "
-data-cascade
-data-motion="fade-up-lg"
-hold
 data-motion-delay="150"
-style="--animation-order: 4;  "
->
-<div class="product-item__inner hover-effect overflow-hidden relative">
-<a
-draggable="false"
-href="/theme-previews/streetwear/products/linen-henley-white.html"
-aria-label="Linen henley, white"
-class="product__media product-item__media--ratio rounded block"
-style="--aspect-ratio: 3/4;"
->
-<img src="/theme-previews/streetwear/a/streetwear-linen-henley-white.20175682bdbf.webp" srcset="/theme-previews/streetwear/a/streetwear-linen-henley-white.20175682bdbf.webp 720w, /theme-previews/streetwear/a/streetwear-linen-henley-white.20175682bdbf.webp 660w, /theme-previews/streetwear/a/streetwear-linen-henley-white.20175682bdbf.webp 550w, /theme-previews/streetwear/a/streetwear-linen-henley-white.20175682bdbf.webp 480w, /theme-previews/streetwear/a/streetwear-linen-henley-white.20175682bdbf.webp 330w, /theme-previews/streetwear/a/streetwear-linen-henley-white.20175682bdbf.webp 240w, /theme-previews/streetwear/a/streetwear-linen-henley-white.20175682bdbf.webp 185w" alt="Linen henley, white" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1440px -  30px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 30px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
-<div class="loading_image skeleton">
-</div>
-</a><div class="pc-corner" data-pc-corner>
-<div
-class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
-data-max="4"
-data-sale-color="#161615"
-data-sold-out-color="#8a8882"
-data-pre-order-color="#ffffff"
-data-sale-bg="#ffffff"
-data-sold-out-bg="#ffffff"
-data-pre-order-bg="#6a33d8"
-data-show-sale="true"
-data-show-sold-out="true"
-data-show-preorder="true"
-data-sale-badge-type="percent"
->
-</div>
-</div>
-<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
-</div>
-</div>
-<div class="product-item__information word-break text-start mt-15">
-<a
-aria-label="Linen henley, white"
-class="product-item__name unset heading-style no-underline fs-custom block lh-normal"
-style="--font-size: 14;"            
-href="/theme-previews/streetwear/products/linen-henley-white.html"
->Linen henley, white</a>
-<div
-class="product-item__price justify-content-start fs-custom flex gap-custom lh-normal "
-style="--font-size: 13; --gap: 3px;"
-><div class="card-product-price  flex align-center flex-wrap gap-5 relative"><div class="price-regular">
-<span class="visually-hidden">Regular price</span>
-<span class="price price-same-style heading-style">
-$95.00
-</span>
-</div>
-</div>
-</div>
-</div>
-</motion-element></div>
-<div
-class="product-item product__item-js  swiper-slide style-as-standard"
->
-<motion-element
-class="product-item__wrapper block  hover_zoom product-grid  scroll-trigger fade_in "
-data-cascade
-data-motion="fade-up-lg"
 hold
-data-motion-delay="200"
-style="--animation-order: 5;  "
+class="section__header-des block rich__text-m0"
+style="--animation-order: 1"
+data-rp-hidden
 >
-<div class="product-item__inner hover-effect overflow-hidden relative">
-<a
-draggable="false"
-href="/theme-previews/streetwear/products/gathered-hem-top-ecru.html"
-aria-label="Gathered hem top, ecru"
-class="product__media product-item__media--ratio rounded block"
-style="--aspect-ratio: 3/4;"
->
-<img src="/theme-previews/streetwear/a/streetwear-gathered-hem-top-ecru.b0b60b833e7c.webp" srcset="/theme-previews/streetwear/a/streetwear-gathered-hem-top-ecru.b0b60b833e7c.webp 720w, /theme-previews/streetwear/a/streetwear-gathered-hem-top-ecru.b0b60b833e7c.webp 660w, /theme-previews/streetwear/a/streetwear-gathered-hem-top-ecru.b0b60b833e7c.webp 550w, /theme-previews/streetwear/a/streetwear-gathered-hem-top-ecru.b0b60b833e7c.webp 480w, /theme-previews/streetwear/a/streetwear-gathered-hem-top-ecru.b0b60b833e7c.webp 330w, /theme-previews/streetwear/a/streetwear-gathered-hem-top-ecru.b0b60b833e7c.webp 240w, /theme-previews/streetwear/a/streetwear-gathered-hem-top-ecru.b0b60b833e7c.webp 185w" alt="Gathered hem top, ecru" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1440px -  30px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 30px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
-<div class="loading_image skeleton">
+</motion-element>
 </div>
-</a><div class="pc-corner" data-pc-corner>
-<div
-class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
-data-max="4"
-data-sale-color="#161615"
-data-sold-out-color="#8a8882"
-data-pre-order-color="#ffffff"
-data-sale-bg="#ffffff"
-data-sold-out-bg="#ffffff"
-data-pre-order-bg="#6a33d8"
-data-show-sale="true"
-data-show-sold-out="true"
-data-show-preorder="true"
-data-sale-badge-type="percent"
->
+</div><product-recommendations
+data-section-id="related"
+data-rp-grid
+style="--col-desktop: 4;--col-number: 2;--col-tablet: 3;  --col-gap: 15px;--col-gap-desktop: 20px;--repeat: 4; --col-mobile: 2"
+class="products-grid__items flex flex-cols row-gap-20 row-gap-md-30 flex-wrap "
+data-url="#"
+data-arrow-centerimage="1"
+><div class="related-skeleton__card" aria-hidden="true">
+<div class="related-skeleton__media" style="--aspect-ratio: 3/4;"></div>
+<div class="related-skeleton__line related-skeleton__line--title"></div>
+<div class="related-skeleton__line related-skeleton__line--price"></div>
+</div><div class="related-skeleton__card" aria-hidden="true">
+<div class="related-skeleton__media" style="--aspect-ratio: 3/4;"></div>
+<div class="related-skeleton__line related-skeleton__line--title"></div>
+<div class="related-skeleton__line related-skeleton__line--price"></div>
+</div><div class="related-skeleton__card" aria-hidden="true">
+<div class="related-skeleton__media" style="--aspect-ratio: 3/4;"></div>
+<div class="related-skeleton__line related-skeleton__line--title"></div>
+<div class="related-skeleton__line related-skeleton__line--price"></div>
+</div><div class="related-skeleton__card" aria-hidden="true">
+<div class="related-skeleton__media" style="--aspect-ratio: 3/4;"></div>
+<div class="related-skeleton__line related-skeleton__line--title"></div>
+<div class="related-skeleton__line related-skeleton__line--price"></div>
+</div></product-recommendations></div>
 </div>
+</section><section id="shopify-section-reviews" class="shopify-section section sec__merch-reviews" data-section-id="reviews" data-section-type="merch-reviews"><link rel="stylesheet" href="/theme-previews/streetwear/a/i.28e252ced3d8.css">
+<div class="mrev">
+<div class="mrev__head"><h2 class="mrev__heading">What people say</h2><p class="mrev__sub">Sample reviews. Replace them with your own.</p></div>
+<div class="mrev__grid"><figure class="mrev__item" data-block-id="r1">
+<div class="mrev__stars" role="img" aria-label="5 out of 5"><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.6 6.1.6-4.6 4.1 1.3 6-5.4-3.1-5.4 3.1 1.3-6L1.3 7.7l6.1-.6z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.6 6.1.6-4.6 4.1 1.3 6-5.4-3.1-5.4 3.1 1.3-6L1.3 7.7l6.1-.6z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.6 6.1.6-4.6 4.1 1.3 6-5.4-3.1-5.4 3.1 1.3-6L1.3 7.7l6.1-.6z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.6 6.1.6-4.6 4.1 1.3 6-5.4-3.1-5.4 3.1 1.3-6L1.3 7.7l6.1-.6z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.6 6.1.6-4.6 4.1 1.3 6-5.4-3.1-5.4 3.1 1.3-6L1.3 7.7l6.1-.6z"/></svg></div><blockquote class="mrev__quote">Light enough for August and it does not cling. The navy is a real navy.</blockquote><figcaption class="mrev__name">Sample name</figcaption></figure><figure class="mrev__item" data-block-id="r2">
+<div class="mrev__stars" role="img" aria-label="5 out of 5"><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.6 6.1.6-4.6 4.1 1.3 6-5.4-3.1-5.4 3.1 1.3-6L1.3 7.7l6.1-.6z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.6 6.1.6-4.6 4.1 1.3 6-5.4-3.1-5.4 3.1 1.3-6L1.3 7.7l6.1-.6z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.6 6.1.6-4.6 4.1 1.3 6-5.4-3.1-5.4 3.1 1.3-6L1.3 7.7l6.1-.6z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.6 6.1.6-4.6 4.1 1.3 6-5.4-3.1-5.4 3.1 1.3-6L1.3 7.7l6.1-.6z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.6 6.1.6-4.6 4.1 1.3 6-5.4-3.1-5.4 3.1 1.3-6L1.3 7.7l6.1-.6z"/></svg></div><blockquote class="mrev__quote">Took an M as usual. Loose in the body, sleeves just right.</blockquote><figcaption class="mrev__name">Sample name</figcaption></figure><figure class="mrev__item" data-block-id="r3">
+<div class="mrev__stars" role="img" aria-label="5 out of 5"><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.6 6.1.6-4.6 4.1 1.3 6-5.4-3.1-5.4 3.1 1.3-6L1.3 7.7l6.1-.6z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.6 6.1.6-4.6 4.1 1.3 6-5.4-3.1-5.4 3.1 1.3-6L1.3 7.7l6.1-.6z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.6 6.1.6-4.6 4.1 1.3 6-5.4-3.1-5.4 3.1 1.3-6L1.3 7.7l6.1-.6z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.6 6.1.6-4.6 4.1 1.3 6-5.4-3.1-5.4 3.1 1.3-6L1.3 7.7l6.1-.6z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.6 6.1.6-4.6 4.1 1.3 6-5.4-3.1-5.4 3.1 1.3-6L1.3 7.7l6.1-.6z"/></svg></div><blockquote class="mrev__quote">Softer after the second wash. Wore it straight from the parcel.</blockquote><figcaption class="mrev__name">Sample name</figcaption></figure></div>
 </div>
-<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
-</div>
-</div>
-<div class="product-item__information word-break text-start mt-15">
-<a
-aria-label="Gathered hem top, ecru"
-class="product-item__name unset heading-style no-underline fs-custom block lh-normal"
-style="--font-size: 14;"            
-href="/theme-previews/streetwear/products/gathered-hem-top-ecru.html"
->Gathered hem top, ecru</a>
-<div
-class="product-item__price justify-content-start fs-custom flex gap-custom lh-normal "
-style="--font-size: 13; --gap: 3px;"
-><div class="card-product-price  flex align-center flex-wrap gap-5 relative"><div class="price-regular">
-<span class="visually-hidden">Regular price</span>
-<span class="price price-same-style heading-style">
-$125.00
-</span>
-</div>
-</div>
-</div>
-</div>
-</motion-element></div>
-</div><div
-class="swiper-pagination products-carousel__pagination flex flex-wrap px-15 lh-1 bottom-30 hidden-md justify-content-center"
-style="--swiper-pagination-bottom: 3rem;--swiper-pagination-position: static;z-index: 2"
-data-pagination-style="dot"
-data-pb-pagination
-></div></slide-section>
-<div class="products-carousel__view-all-bottom" data-pb-slot="bottom"></div></div>
-</div></section>
+</section>
 </main><script src="/theme-previews/streetwear/a/i.3221b11617b1.js"></script>
 <div id="shopify-section-footer" class="shopify-section shopify-section-group-footer-group" data-section-id="footer" data-section-type="theme-footer"><style>
   #shopify-section-footer {
@@ -1732,7 +1501,7 @@ data-pb-pagination
   #shopify-section-footer .arrow-toggle svg{width:var(--footer-arrow-size,14px);height:var(--footer-arrow-size,14px)}
 </style>
 <link href="/theme-previews/_base/a/collapsible.d0962c33f2d4.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/footer-section.37a0b34a1c2e.css" rel="stylesheet" type="text/css" media="all">
+<link href="/theme-previews/_base/a/footer-section.80f1cbc421de.css" rel="stylesheet" type="text/css" media="all">
 <footer
 class="product-sticky-hide footer color-default gradient border-top remove_spacing remove_spacing-on-home"
 data-theme-footer
@@ -1879,7 +1648,7 @@ class="store-info-content"
 <div class="footer__bottom"><div class="footer__custom-header footer__custom-header--bottom" data-ft-fch style="--fch-pt:72px;--fch-gap:8px;--fch-text-m:96px;--fch-text-d:240px;--fch-color:var(--color-heading);--fch-style:normal;--fch-img-m:168px;--fch-img-d:144px;"><div class="footer__custom-text" data-ft-big>Solano</div></div><div class="fluid_container">
 <div class="footer_bottom-inner justify-center justify-md-end flex flex-wrap flex-md-nowrap align-center border-top gap-20 gap-xl-30 py-30"><div class="flex flex-wrap gap-10 gap-xl-30 justify-center justify-md-start">
 <div class="footer__copyright" data-ft-copyright>© 2026 Solano. All rights reserved.</div>
-<ul class="footer__policies list-unstyled flex flex-wrap" data-ft-policies><li><a href="/theme-previews/streetwear/policies/refund-policy.html">Refund policy</a></li><li><a href="/theme-previews/streetwear/policies/privacy-policy.html">Privacy policy</a></li><li><a href="/theme-previews/streetwear/policies/terms-of-service.html">Terms of service</a></li></ul></div>
+<ul class="footer__policies list-unstyled flex flex-wrap" data-ft-policies><li><a href="/theme-previews/streetwear/policies/refund-policy.html">Refund policy</a></li><li><a href="/theme-previews/streetwear/policies/privacy-policy.html">Privacy policy</a></li><li><a href="/theme-previews/streetwear/policies/terms-of-service.html">Terms of service</a></li></ul><div class="footer__powered" data-ft-powered><a href="#" data-preview-inert data-storelib-badge="">Powered by Storelib</a></div></div>
 <div class="footer__payment flex grow-1 align-center max-w-100" style="justify-content: flex-end; --pb-width: 33.333%; margin-left: auto;" data-ft-block="payment_badges_1" data-ft-type="payment_badges" data-block-id="payment_badges_1">
 <ul class="footer__payment-badges"><li class="payment-badge" aria-label="Visa"><svg class="icon icon--full-color" viewBox="0 0 38 24" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Visa">
 <title>Visa</title>
@@ -2139,7 +1908,7 @@ Continue Shopping
 <div class="overlayminicart">
 </div>
 <script src="/theme-previews/streetwear/a/i.f50d71910c82.js"></script>
-<script src="/theme-previews/_base/a/animation.8fcd3a124757.js" defer="defer"></script>
+<script src="/theme-previews/_base/a/animation.7fa50ded717b.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/tingle-min.9664ca3641cf.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/cart-discount.6748c8dd9657.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/theme.7a7dd8f80f89.js"  defer="defer" type="module"></script>
@@ -2206,7 +1975,7 @@ Skip to content
   @keyframes materiaMediaFade { from { opacity: 0; } to { opacity: 1; } }
   html.js-media-fade .media-fade-run { animation: materiaMediaFade .4s ease; }
 </style>
-<script src="/theme-previews/streetwear/a/i.2b6bb1df1e29.js"></script>
+<script src="/theme-previews/streetwear/a/i.dfcb99e2686f.js"></script>
 <style>
         :root {
           /* Wire the user's Animations & motion settings to the keyframe vars used by animation.css */

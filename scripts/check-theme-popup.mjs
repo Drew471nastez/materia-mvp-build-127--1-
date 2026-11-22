@@ -33,17 +33,30 @@
  *   • ?themes=1 on arrival opens it; closing leaves the page, not the site
  *   • reduced motion: no animation at all
  *
- *   THE PREVIEW
+ *   THE PREVIEW (its website is scripts/check-theme-preview-live.mjs's;
+ *   here the website does not answer, so this is the preview's own chrome
+ *   and its fallback onto the template's pictures)
  *   • a cover opens it over the popup, on transform and opacity, 200 to
  *     280ms, one history entry; the popup and the page under it do not move
+ *   • it asks for the website at once and draws no picture first; a website
+ *     that never answers is checked once and the pictures take its place
  *   • its bar: Back, the name, the desktop and phone switch, Add, close;
  *     the desktop picture drawn at the width it was taken at, crisp
  *   • the switch crossfades to the phone picture at 390px
  *   • Escape and Back land on the grid with the focus on the cover; close
  *     closes the popup too, the address is the page's own and the focus is
  *     on what opened the marketplace
- *   • on a phone: the whole screen, sliding in from the right, inside the
- *     safe areas, on the phone picture; the system's back lands on the grid
+ *   • on a phone: the whole screen, inside the safe areas, fading in and
+ *     growing out of the card that was pressed (no slide from the side),
+ *     and back into it; the system's back lands on the grid
+ *
+ *   THE COVERS (each listing on a picture of its own, kept as the CDN keeps
+ *   it), at 1440 and on a phone: scrolled through on the page and in the
+ *   marketplace, a category and back, the marketplace closed and opened
+ *   again: each cover asked for once; the first row eager and first; no
+ *   picture taken out and put back; on the second opening every cover on
+ *   screen whole on the window's second frame; no cover dims after it was
+ *   whole
  *
  *   THE POPUP ON A PHONE
  *   • covers the whole screen, one card to a row, 44px controls
@@ -133,7 +146,9 @@ try {
     if (url.pathname === "/cover.svg" || url.pathname === "/_next/image") {
       requested.push(req.url)
       if (coverDelay) await sleep(coverDelay)
-      res.writeHead(200, { "content-type": "image/svg+xml", "cache-control": "no-store" })
+      /* A cover of its own (?covers=each) is served as the optimizer serves one: kept. */
+      const own = /[?&]l=|%3Fl%3D/.test(req.url)
+      res.writeHead(200, { "content-type": "image/svg+xml", "cache-control": own ? "public, max-age=31536000, immutable" : "no-store" })
       return res.end(tall)
     }
     if (url.pathname.startsWith("/themes/") && /^[\w/.-]+$/.test(url.pathname) && existsSync(join(root, "public", url.pathname))) {
@@ -809,10 +824,16 @@ try {
     await p.click(cover)
     await sleep(60)
     const inMotion = await previewMotion(p)
+    const first = await p.evaluate(() => ({ frame: document.querySelector("[data-theme-preview] [data-preview-live]")?.getAttribute("data-preview-src") ?? null, pictures: document.querySelectorAll("[data-theme-preview] [data-preview-layer], [data-theme-preview] img").length }))
+    expect(first.frame === "/theme-previews/clothing/index.html" && first.pictures === 0, "it frames the website from the first frame, with no picture drawn first", JSON.stringify(first))
     await shot(p, "preview-1440-opening")
-    await sleep(500)
+    /* This server has no websites: after its wait the preview checks the address once and puts the pictures up. */
+    const t0 = Date.now()
+    await p.waitForSelector("[data-preview-layer]", { timeout: 8000 }).catch(() => null)
+    const fellBack = Date.now() - t0
     await p.waitForFunction(() => [...document.querySelectorAll("[data-preview-layer] img")].every((i) => i.complete), { timeout: 10_000 }).catch(() => null)
     await sleep(250)
+    expect((await p.$("[data-preview-live]")) === null && fellBack > 1500 && fellBack < 5000, "a website that never answers: the pictures instead, after one check", `${fellBack}ms`)
     const v = await preview(p)
     const desk = v?.layers.find((l) => l.d === "desktop")
     const mob = v?.layers.find((l) => l.d === "phone")
@@ -915,18 +936,21 @@ try {
     await sleep(100)
     await shot(p, "popup-390-cards")
     const grid0 = await gridRect(p)
+    const card = await p.$eval(cover, (b) => { const r = b.getBoundingClientRect(); return [Math.round(r.left + r.width / 2), Math.round(r.top + r.height / 2)] })
     await p.tap(cover)
     await sleep(90)
     const inMotion = await previewMotion(p)
+    const origin = await p.evaluate(() => getComputedStyle(document.querySelector("[data-theme-preview]")).transformOrigin.split(" ").map((n) => Math.round(parseFloat(n))))
     await shot(p, "preview-390-opening")
-    await sleep(500)
+    await p.waitForSelector("[data-preview-layer]", { timeout: 8000 }).catch(() => null)
     await p.waitForFunction(() => [...document.querySelectorAll("[data-preview-layer] img")].every((i) => i.complete), { timeout: 10_000 }).catch(() => null)
     await sleep(250)
     const v = await preview(p)
-    const push = inMotion[0]?.[0]
+    const rise = inMotion[0]?.[0]
     const phone = v.layers.find((l) => l.d === "phone")
     expect(same(v.rect, [0, 0, 390, 844]), "it covers the whole screen", v.rect.join(", "))
-    expect(!!push && push.name === "wb-preview-push" && push.ms >= 200 && push.ms <= 280 && push.props.join() === "transform", "it slides in from the side by transform, in 200 to 280ms", JSON.stringify(inMotion[0]))
+    expect(!!rise && rise.name === "wb-preview-rise" && rise.ms >= 200 && rise.ms <= 280 && rise.props.join() === "opacity,transform" && inMotion[0].length === 1, "it fades in and grows the last few percent, one animation, transform and opacity, in 200 to 280ms; no slide", JSON.stringify(inMotion[0]))
+    expect(Math.abs(origin[0] - card[0]) <= 1 && Math.abs(origin[1] - card[1]) <= 1, "out of the card that was pressed", `origin ${origin.join(",")}, card ${card.join(",")}`)
     expect(v.device === "phone" && phone.o === 1 && phone.w === 390, "on the phone picture, at 390px", `${v.device}, ${phone.w}px`)
     expect(v.safe.length === 0 && v.bar >= 56 && v.back && v.close && v.add === "Add", "the bar is compact, inside the safe areas: Back, the name, the switch, Add, close", `${v.bar}px, add "${v.add}", missing ${v.safe.join(", ")}`)
     const small = await p.evaluate(() => [...document.querySelectorAll("[data-preview-bar] button")].map((b) => ({ t: (b.getAttribute("aria-label") || b.textContent).trim(), h: Math.round(b.getBoundingClientRect().height), r: Math.round(b.getBoundingClientRect().right) })))
@@ -941,7 +965,7 @@ try {
     const pop = (await previewMotion(p))[0]?.[0]
     await sleep(450)
     expect((await preview(p)) === null && (await popup(p))?.state === "open" && (await p.evaluate(() => location.search)) === "?themes=1", "the system's back lands on the grid", await p.evaluate(() => location.search))
-    expect(!!pop && pop.name === "wb-preview-pop" && pop.ms >= 200 && pop.ms <= 280, "sliding away by transform, in 200 to 280ms", JSON.stringify(pop))
+    expect(!!pop && pop.name === "wb-preview-sink" && pop.ms >= 180 && pop.ms <= 280 && pop.props.join() === "opacity,transform", "going back into the card, on transform and opacity, in 180 to 280ms", JSON.stringify(pop))
     expect(same(grid0, await gridRect(p)), "the grid is where it was")
     await p.goBack({ waitUntil: "domcontentloaded" }).catch(() => null)
     await sleep(450)
@@ -1025,6 +1049,100 @@ try {
       await sleep(450)
     }
     expect(!!(await p.$("[data-wb-page]")) && (await popup(p)) === null && (await p.evaluate(() => location.search)) === "", "Forward onto its entry opens it again, and closing goes back over that entry", `opened by Forward: ${!!fwd}`)
+    await p.close()
+  }
+
+  /* ══ 7. Covers while scrolling, and the marketplace seen twice ═════════ */
+  for (const [W, H] of [[1440, 900], [390, 844]]) {
+    console.log(`\nCovers, ${W} x ${H}${W < 768 ? " at 2x" : ""}, each listing on a picture of its own\n`)
+    const from = requested.length
+    const p = await open("/app/website-builder?covers=each", W, H)
+    const phone = W < 768
+    const press = (sel) => (phone ? p.tap(sel) : p.click(sel))
+    /* Every frame: each cover on screen, its opacity, and whether its picture had arrived; every picture added to the page or taken out. */
+    await p.evaluate(() => {
+      window.__covers = { frames: [], added: 0, removed: 0, falls: [] }
+      const last = new Map()
+      new MutationObserver((list) => {
+        for (const m of list) {
+          for (const n of m.addedNodes) if (n.nodeType === 1) window.__covers.added += (n.matches("img[data-template-shot]") ? 1 : 0) + n.querySelectorAll("img[data-template-shot]").length
+          for (const n of m.removedNodes) if (n.nodeType === 1) window.__covers.removed += (n.matches("img[data-template-shot]") ? 1 : 0) + n.querySelectorAll("img[data-template-shot]").length
+        }
+      }).observe(document.body, { childList: true, subtree: true })
+      const tick = () => {
+        for (const img of document.querySelectorAll("img[data-template-shot]")) {
+          const r = img.closest("[data-template-frame]").getBoundingClientRect()
+          if (r.bottom < 0 || r.top > innerHeight) continue
+          const o = +getComputedStyle(img).opacity
+          const key = img
+          const was = last.get(key)
+          /* A cover that was whole and is not now, on the same element: a fade started again, or a flash. */
+          if (was !== undefined && was >= 0.99 && o < 0.99) window.__covers.falls.push(img.closest("[data-template-card]").dataset.templateCard)
+          last.set(key, o)
+        }
+        requestAnimationFrame(tick)
+      }
+      requestAnimationFrame(tick)
+    })
+    const scrollThrough = (sel) =>
+      p.evaluate(async (sel) => {
+        const el = sel ? document.querySelector(sel) : document.querySelector(".page-scroll")
+        const frame = () => new Promise((r) => requestAnimationFrame(r))
+        for (let y = 0; y <= el.scrollHeight; y += 140) { el.scrollTop = y; await frame(); await frame() }
+        for (let y = el.scrollHeight; y >= 0; y -= 140) { el.scrollTop = y; await frame(); await frame() }
+      }, sel)
+    await scrollThrough(null)
+    await p.waitForNetworkIdle({ idleTime: 300 }).catch(() => null)
+    const firstOpen = requested.length
+    await scrollToThemes(p)
+    await press(openButton)
+    await sleep(500)
+    const priority = await p.evaluate(() => [...document.querySelectorAll("[data-themes-grid] img[data-template-shot]")].slice(0, 3).map((i) => `${i.getAttribute("loading")}/${i.getAttribute("fetchpriority")}`))
+    await scrollThrough("[data-themes-scroll]")
+    await p.waitForNetworkIdle({ idleTime: 300 }).catch(() => null)
+    const mounted = await p.evaluate(() => ({ added: window.__covers.added, removed: window.__covers.removed }))
+    /* Another category and back: the cards it hides go, and come back whole. */
+    const cats = await p.$$eval("[data-themes-category]", (bs) => bs.map((b) => b.dataset.themesCategory))
+    await press(`[data-themes-category='${cats[1]}']`)
+    await sleep(300)
+    await press("[data-themes-category='all']")
+    await p.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))))
+    const back = await p.evaluate(() => [...document.querySelectorAll("[data-themes-grid] img[data-template-shot]")].filter((i) => { const r = i.getBoundingClientRect(); return r.top < innerHeight && r.bottom > 0 }).map((i) => i.hasAttribute("data-template-seen") && i.complete && +getComputedStyle(i).opacity === 1))
+    /* Closed and opened again: every cover on screen is whole on the window's first frame. */
+    await p.keyboard.press("Escape").catch(() => null)
+    await sleep(500)
+    await scrollToThemes(p)
+    const again = await p.evaluate(async (sel) => {
+      const frame = () => new Promise((r) => requestAnimationFrame(r))
+      document.querySelector(sel).click()
+      await frame()
+      await frame()
+      /* The first screen of the grid, wherever the window's arrival has it on this frame (on a phone it is still rising from below). */
+      const scroller = document.querySelector("[data-themes-scroll]")
+      return [...document.querySelectorAll("[data-themes-grid] [data-template-card]")]
+        .filter((c) => c.offsetTop - scroller.scrollTop < scroller.clientHeight)
+        .map((c) => c.querySelector("img[data-template-shot]"))
+        .filter(Boolean)
+        .map((i) => ({ seen: i.hasAttribute("data-template-seen"), whole: i.complete && i.naturalWidth > 0, o: +getComputedStyle(i).opacity, loading: i.getAttribute("loading"), decoding: i.getAttribute("decoding") }))
+    }, openButton)
+    await sleep(500)
+    await scrollThrough("[data-themes-scroll]")
+    await p.waitForNetworkIdle({ idleTime: 300 }).catch(() => null)
+    const covers = await p.evaluate(() => window.__covers)
+    /* Each picture: how many times, and at how many widths, it was asked for. */
+    const own = requested.slice(from).filter((u) => /%3Fl%3D|[?&]l=/.test(u))
+    const byCover = new Map()
+    for (const u of own) {
+      const l = decodeURIComponent(u).match(/[?&]l=([a-z0-9-]+)/)?.[1]
+      byCover.set(l, [...(byCover.get(l) ?? []), u])
+    }
+    const twice = [...byCover].filter(([, us]) => us.length > 1)
+    expect(byCover.size >= 12 && twice.length === 0, "each cover is asked for once: the page's row, the marketplace, scrolled through twice, opened twice", twice.length ? twice.slice(0, 3).map(([l, us]) => `${l}: ${us.map((u) => u.match(/w=(\d+)/)?.[1] ?? "full").join("/")}`).join("; ") : `${byCover.size} covers, ${own.length} requests, ${requested.length - firstOpen} of them after the page's own row`)
+    expect(priority.every((x) => x === "eager/high"), "the first row is asked for at once, first", priority.join(", "))
+    expect(mounted.removed === 0, "no picture is taken out and put back while scrolling", `${mounted.added} drawn, ${mounted.removed} taken out`)
+    expect(back.length > 0 && back.every(Boolean), "a category and back: the covers it had hidden are whole on the second frame", `${back.filter(Boolean).length} of ${back.length}`)
+    expect(again.length > 0 && again.every((c) => c.seen && c.whole && c.o === 1 && c.loading === "eager" && c.decoding === "sync"), "opened again, every cover on screen is whole on the window's second frame: no grey, no fade, no lazy wait", JSON.stringify(again.slice(0, 3)))
+    expect(covers.falls.length === 0, "no cover on screen ever dims after it was whole (no fade starting again, no flash)", covers.falls.slice(0, 5).join(", "))
     await p.close()
   }
 

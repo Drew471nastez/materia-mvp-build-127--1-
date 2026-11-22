@@ -509,9 +509,11 @@ check(
    * sidebar first.
    */
   !/!publishOpen && previewMode/.test(editor) &&
-    // And the project settings page, which covers the screen from the body
-    // and would otherwise have the sheet printed across it.
-    /previewMode !== "code" && !projectSettingsOpen && \(\s*<MobileEditorSheet/.test(editor) &&
+    // And the project settings page, which covers the screen from the body.
+    // Changed on purpose (templates round 21): the sheet stays mounted, closed,
+    // under the settings page (z-[150] over its 50), because mounting it again
+    // was a 500 to 1,100ms freeze on Back to editor (scripts/check-website-settings-back.mjs).
+    /previewMode !== "code" && \(\s*<MobileEditorSheet/.test(editor) && /fixed inset-0 z-\[150\]/.test(readFileSync(join(process.cwd(), "components/website-builder/project-settings.tsx"), "utf8")) &&
     /if \(isMobileView\) \{ setMobileSidebarOpen\(false\); setAiOpen\(false\) \}/.test(editor),
 )
 
@@ -3154,7 +3156,8 @@ check(
   // A website starts out named after the theme it was built from, so for
   // anybody who has not renamed theirs this printed the same words twice,
   // one line apart, in two sizes of grey.
-  /\{live\.theme && live\.theme\.name !== live\.name && \(/.test(wbPage),
+  /* A theme with releases shows its version line in that row instead (app/(storelib)/app/website-builder/theme-version.tsx). */
+  /(\{|: )live\.theme && live\.theme\.name !== live\.name && \(/.test(wbPage),
 )
 
 check(

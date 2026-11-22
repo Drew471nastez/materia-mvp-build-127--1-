@@ -31,6 +31,7 @@ import { claimSale, releaseSale } from "./sales-limit"
 import { SOLD_OUT_REASON, markSoldOut } from "./sold-out-refund"
 import type { Followups } from "./followups"
 import { ensureEntitlement } from "./entitlement-grant"
+import { communityAccessAfterEntitlement } from "@/lib/communities/server/payment-hooks"
 
 export interface FulfilLineInput {
   productId: string
@@ -240,6 +241,15 @@ async function cartEntitlement(ctx: FulfilContext, line: { orderId: string; prod
   if (ctx.buyerId) {
     /* Throws when the entry could not be read or written: the follow-up is recorded failed and the sweep runs it again (lib/checkout/entitlement-grant). */
     await ensureEntitlement(ctx.admin, { buyerId: ctx.buyerId, creatorId: ctx.creatorId, productId: line.productId, variantId: line.variantId })
+    /*
+      A product that opens a community (a course or a download the creator
+      named in the community's access) lets its buyer in now, as a single
+      product's checkout does (./fulfil-payment.ts grant). A basket only wrote
+      the library row, so a course bought on the website left its buyer
+      outside the community until a later visit, a member who had left stayed
+      out, and Discord and Telegram were never told. Never throws.
+    */
+    await communityAccessAfterEntitlement(ctx.admin, { userId: ctx.buyerId, productId: line.productId, orderId: line.orderId, granted: true })
   }
 }
 

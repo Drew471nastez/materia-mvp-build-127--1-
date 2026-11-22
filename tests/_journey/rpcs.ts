@@ -27,6 +27,44 @@ function movement(db: MemoryDb, m: Row): boolean {
 }
 
 export function installRpcs(db: MemoryDb) {
+  /*
+    supabase/migrations/20271130_forms_bookings.sql native_form_book and
+    20271410_bookings_calendar.sql native_form_book_capped: the response and
+    its booking in one step, the same submission sent again answered with the
+    first, a held start or an overlap refused (the table's own exclusion), the
+    daily limit (23514). The advisory lock is the single thread here.
+  */
+  const formBook = (d: MemoryDb, a: Record<string, any>) => {
+    const sub = a.p_submission as Row
+    if (!["pending", "confirmed"].includes(a.p_status)) throw new PgError("22023", "invalid booking status")
+    if (!d.rows("native_forms").some((f) => f.id === sub.form_id && f.owner_id === sub.owner_id && f.status === "published")) throw new PgError("P0002", "form not found")
+    const again = d.rows("form_submissions").find((s) => s.form_id === sub.form_id && s.dedupe_key === sub.dedupe_key)
+    if (again) return [{ submission_id: again.id, booking_id: d.rows("form_bookings").find((b) => b.submission_id === again.id)?.id ?? null, duplicate: true }]
+    const start = Date.parse(a.p_starts_at)
+    const end = Date.parse(a.p_ends_at)
+    const clash = d.rows("form_bookings").some((b) => b.owner_id === sub.owner_id && ["pending", "confirmed"].includes(b.status) && Date.parse(b.starts_at) < end && start < Date.parse(b.hold_until ?? b.ends_at))
+    if (clash) throw new PgError("23P01", "conflicting key value violates exclusion constraint")
+    const [submission] = d.insert("form_submissions", { owner_id: sub.owner_id, form_id: sub.form_id, form_revision: sub.form_revision, form_title: sub.form_title, answers: sub.answers, contact_name: sub.contact_name, contact_email: sub.contact_email, contact_phone: sub.contact_phone, score: sub.score ?? 0, consent: sub.consent, source_kind: sub.source_kind ?? "form", source_url: sub.source_url, source_block: sub.source_block, dedupe_key: sub.dedupe_key }, {})
+    const paid = !!a.p_payment_product_id
+    const [booking] = d.insert("form_bookings", { owner_id: sub.owner_id, form_id: sub.form_id, submission_id: submission.id, starts_at: a.p_starts_at, ends_at: a.p_ends_at, hold_until: a.p_hold_until, visitor_timezone: a.p_visitor_timezone, status: paid ? "pending" : a.p_status, payment_product_id: a.p_payment_product_id ?? null, decided_at: a.p_status === "confirmed" && !paid ? new Date().toISOString() : null, payment_status: paid ? "unpaid" : "none", payment_due_at: paid ? new Date(Date.now() + 30 * 60_000).toISOString() : null }, {})
+    return [{ submission_id: submission.id, booking_id: booking.id, duplicate: false }]
+  }
+  db.rpcs.native_form_book = formBook
+  db.rpcs.native_form_book_capped = (d, a) => {
+    const sub = a.p_submission as Row
+    if ((a.p_max_per_day ?? 0) > 0 && !d.rows("form_submissions").some((s) => s.form_id === sub.form_id && s.dedupe_key === sub.dedupe_key)) {
+      const taken = d.rows("form_bookings").filter((b) => b.form_id === sub.form_id && ["pending", "confirmed"].includes(b.status) && b.starts_at >= a.p_day_start && b.starts_at < a.p_day_end).length
+      if (taken >= a.p_max_per_day) throw new PgError("23514", "daily limit reached")
+    }
+    const out = formBook(d, a) as { submission_id: string; booking_id: string | null; duplicate: boolean }[]
+    const r = out[0]
+    if (r?.booking_id && !r.duplicate) {
+      const b = d.rows("form_bookings").find((x) => x.id === r.booking_id)
+      if (b) Object.assign(b, { duration_minutes: a.p_duration_minutes, location: a.p_location, updated_at: new Date().toISOString() })
+    }
+    return out
+  }
+
   /* supabase/sql/run-now/305_translation_providers.sql: a day's calls per translator and model, added to. */
   db.rpcs.translation_usage_add = (d, a) => {
     const rows = d.rows("translation_provider_usage")

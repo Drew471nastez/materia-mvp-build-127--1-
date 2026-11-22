@@ -849,6 +849,8 @@ async function siteCheckoutFor(request: NextRequest, name: string, host: string,
   const r = NextResponse.rewrite(new URL(route.path, request.url))
   r.headers.set("Cache-Control", "private, no-store")
   r.headers.set("x-seller-subdomain", name)
+  /* A Storelib form the website's page frames: framed by this same origin only (CSP frame-ancestors wins over vercel.json's X-Frame-Options: DENY, as /wishlist?sl_embed does). */
+  if (route.framed) r.headers.set("Content-Security-Policy", "frame-ancestors 'self'")
   return r
 }
 

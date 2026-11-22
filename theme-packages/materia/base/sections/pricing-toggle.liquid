@@ -1,0 +1,264 @@
+{%- comment -%}
+  Pricing with a switch: two ways to pay (monthly or yearly, one course or
+  the bundle) and a card per plan with a price for each. The switch swaps
+  every card's price, note, compare at price and link at once; with no
+  script the first way shows. Colours, type, buttons, corners and spacing
+  follow the theme settings, as in Pricing cards.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign sid = section.id
+  assign scheme = s.color_scheme.id | default: s.color_scheme | default: 'default-color-scheme'
+  assign plans = section.blocks | where: 'type', 'plan'
+  assign count = plans.size
+  if count > 3
+    assign count = 3
+  endif
+  if count < 1
+    assign count = 1
+  endif
+  assign start = s.start_with | default: 'a'
+  assign animation = settings.scroll_animation | default: 'none'
+-%}
+<style>
+  #shopify-section-{{ sid }} { margin-top: 0 !important; margin-bottom: 0 !important; }
+  .ptog-{{ sid }} {
+    --pt-cols: {{ count }};
+    --pt-radius: {% if s.use_theme_corners %}var(--card-radius, 6px){% else %}{{ s.card_radius | default: 8 }}px{% endif %};
+    --pt-line: rgba(var(--color-heading-rgb), .14);
+    --pt-soft: rgba(var(--color-heading-rgb), .05);
+    background: var(--color-background);
+    color: var(--color-text);
+    padding-block: {% if s.use_theme_spacing %}var(--section-spacing, 64px){% else %}{{ s.padding_top_mobile }}px {{ s.padding_bottom_mobile }}px{% endif %};
+  }
+  @media (min-width: 768px) {
+    .ptog-{{ sid }} { padding-block: {% if s.use_theme_spacing %}var(--section-spacing, 90px){% else %}{{ s.padding_top }}px {{ s.padding_bottom }}px{% endif %}; }
+  }
+  .ptog-{{ sid }} .ptog__inner { margin-inline: auto; padding-inline: var(--container-gutter, 20px); max-width: {% case s.section_width %}{% when 'narrow' %}calc(960px + var(--container-gutter, 20px) * 2){% when 'fluid_container' %}calc(var(--fluid-container-width, 1410px) + var(--container-gutter, 20px) * 2){% else %}calc(var(--page-width, 1200px) + var(--container-gutter, 20px) * 2){% endcase %}; }
+  .ptog-{{ sid }} .ptog__head { display: flex; flex-direction: column; align-items: center; gap: 12px; max-width: 640px; margin: 0 auto clamp(28px, 4vw, 44px); text-align: center; }
+  .ptog-{{ sid }} .ptog__title { margin: 0; }
+  .ptog-{{ sid }} .ptog__intro { font-size: 1.5rem; line-height: 1.6; }
+  .ptog-{{ sid }} .ptog__intro p { margin: 0; }
+  .ptog-{{ sid }} .ptog__switch { position: relative; display: inline-grid; grid-template-columns: 1fr 1fr; margin-top: 8px; padding: 4px; border-radius: var(--btn-radius, 999px); background: var(--pt-soft); box-shadow: inset 0 0 0 1px var(--pt-line); }
+  .ptog-{{ sid }} .ptog__switch::before { content: ''; position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc(50% - 4px); border-radius: inherit; background: var(--btn-primary-bg-color, var(--color-heading)); transition: transform .32s cubic-bezier(.2,.7,.2,1); }
+  .ptog-{{ sid }}[data-mode='b'] .ptog__switch::before { transform: translateX(100%); }
+  .ptog-{{ sid }} .ptog__opt { position: relative; z-index: 1; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 8px 20px; border: 0; border-radius: inherit; background: none; color: var(--color-heading); font: inherit; font-size: 1.4rem; font-weight: 500; white-space: nowrap; cursor: pointer; transition: color .25s; }
+  .ptog-{{ sid }} .ptog__opt[aria-checked='true'] { color: var(--btn-primary-color, var(--color-background)); }
+  .ptog-{{ sid }} .ptog__opt:focus-visible { outline: 2px solid var(--color-heading); outline-offset: 2px; }
+  .ptog-{{ sid }} .ptog__save { font-size: 1.15rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; opacity: .8; }
+  .ptog-{{ sid }} .ptog__grid { display: grid; gap: {{ s.card_gap | default: 20 }}px; grid-template-columns: 1fr; margin: 0; padding: 0; list-style: none; }
+  @media (min-width: 750px) { .ptog-{{ sid }} .ptog__grid { grid-template-columns: repeat(var(--pt-cols), minmax(0, 1fr)); } }
+  .ptog-{{ sid }} .ptcard { position: relative; display: grid; grid-template-rows: subgrid; grid-row: span 4; row-gap: 0; padding: clamp(22px, 2.4vw, 32px); border-radius: var(--pt-radius); border: 1px solid var(--pt-line); min-width: 0; }
+  .ptog-{{ sid }}[data-style='filled'] .ptcard { border-color: transparent; background: var(--pt-soft); }
+  .ptog-{{ sid }} .ptcard[data-featured] { border: 2px solid var(--color-heading); background: transparent; }
+  .ptog-{{ sid }} .ptcard__top { display: flex; flex-direction: column; gap: 6px; padding-bottom: 18px; }
+  .ptog-{{ sid }} .ptcard__badge { align-self: flex-start; margin-bottom: 6px; padding: 4px 10px; border-radius: var(--bages-radius, 4px); background: var(--badge-background); color: var(--badge-text); font-size: 1.15rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; line-height: 1.3; }
+  .ptog-{{ sid }} .ptcard__name { margin: 0; --size: 2rem; }
+  .ptog-{{ sid }} .ptcard__desc { font-size: 1.4rem; line-height: 1.55; color: rgba(var(--color-text-rgb), .82); }
+  .ptog-{{ sid }} .ptcard__desc p { margin: 0; }
+  .ptog-{{ sid }} .ptcard__price { display: grid; padding-bottom: 20px; }
+  .ptog-{{ sid }} .ptcard__way { grid-area: 1 / 1; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; transition: opacity .28s ease, transform .28s cubic-bezier(.2,.7,.2,1); }
+  .ptog-{{ sid }} .ptcard__way[data-way='b'], .ptog-{{ sid }}[data-mode='b'] .ptcard__way[data-way='a'] { opacity: 0; transform: translateY(6px); visibility: hidden; transition: opacity .28s ease, transform .28s cubic-bezier(.2,.7,.2,1), visibility 0s .28s; }
+  .ptog-{{ sid }}[data-mode='b'] .ptcard__way[data-way='b'] { opacity: 1; transform: none; visibility: visible; transition: opacity .28s ease .06s, transform .28s cubic-bezier(.2,.7,.2,1) .06s, visibility 0s; }
+  .ptog-{{ sid }} .ptcard__amount { font-family: var(--heading-font); font-weight: var(--heading-weight); letter-spacing: var(--heading-letter-spacing, normal); color: var(--color-heading); font-size: clamp(3rem, 3vw, {{ s.price_size | default: 40 | divided_by: 10.0 }}rem); line-height: 1; font-variant-numeric: tabular-nums; }
+  .ptog-{{ sid }} .ptcard__compare { font-size: 1.5rem; color: rgba(var(--color-text-rgb), .6); }
+  .ptog-{{ sid }} .ptcard__note { flex-basis: 100%; font-size: 1.3rem; color: rgba(var(--color-text-rgb), .72); }
+  .ptog-{{ sid }} .ptcard__cta { display: grid; align-content: start; }
+  .ptog-{{ sid }} .ptcard__cta > * { grid-area: 1 / 1; width: 100%; }
+  .ptog-{{ sid }} .ptcard__cta [data-way='b'], .ptog-{{ sid }}[data-mode='b'] .ptcard__cta [data-way='a'] { visibility: hidden; }
+  .ptog-{{ sid }}[data-mode='b'] .ptcard__cta [data-way='b'] { visibility: visible; }
+  .ptog-{{ sid }} .ptcard__features { margin: 0 0 22px; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; font-size: 1.4rem; line-height: 1.45; }
+  .ptog-{{ sid }} .ptcard__features li { display: grid; grid-template-columns: 16px 1fr; gap: 10px; align-items: start; }
+  .ptog-{{ sid }} .ptcard__features svg { width: 16px; height: 16px; margin-top: 2px; color: var(--color-heading); }
+  .ptog-{{ sid }} .ptcard__features li[data-off] { color: rgba(var(--color-text-rgb), .5); }
+  .ptog-{{ sid }} .ptcard__features li[data-off] svg { color: currentColor; }
+  .ptog-{{ sid }} .ptog__foot { margin-top: 24px; font-size: 1.3rem; text-align: center; color: rgba(var(--color-text-rgb), .72); }
+  .ptog-{{ sid }} .ptog__foot p { margin: 0; }
+  @media (prefers-reduced-motion: reduce) {
+    .ptog-{{ sid }} .ptog__switch::before, .ptog-{{ sid }} .ptcard__way, .ptog-{{ sid }} .ptog__opt { transition: none !important; }
+  }
+</style>
+<section class="ptog ptog-{{ sid }} color-{{ scheme }} gradient" data-mode="{{ start }}" data-style="{{ s.card_style | default: 'outline' }}" data-ptog aria-labelledby="ptog-title-{{ sid }}">
+  <div class="ptog__inner">
+    <header class="ptog__head">
+      {%- if s.heading != blank -%}<h2 class="ptog__title {{ s.heading_size | default: 'h2' }}" id="ptog-title-{{ sid }}">{{ s.heading | escape }}</h2>{%- endif -%}
+      {%- if s.intro != blank -%}<div class="ptog__intro">{{ s.intro }}</div>{%- endif -%}
+      <div class="ptog__switch" role="radiogroup" aria-label="{{ s.switch_label | default: 'How to pay' | escape }}">
+        <button type="button" class="ptog__opt" role="radio" data-to="a" aria-checked="{% if start == 'a' %}true{% else %}false{% endif %}">{{ s.label_a | escape }}{% if s.save_a != blank %} <span class="ptog__save">{{ s.save_a | escape }}</span>{% endif %}</button>
+        <button type="button" class="ptog__opt" role="radio" data-to="b" aria-checked="{% if start == 'b' %}true{% else %}false{% endif %}">{{ s.label_b | escape }}{% if s.save_b != blank %} <span class="ptog__save">{{ s.save_b | escape }}</span>{% endif %}</button>
+      </div>
+    </header>
+    <ul class="ptog__grid" role="list">
+      {%- for block in plans limit: 3 -%}
+        {%- liquid
+          assign b = block.settings
+          assign style = 'secondary'
+          if b.featured
+            assign style = 'primary'
+          endif
+          assign link_b = b.link_b | default: b.link_a
+          assign lines = b.features | newline_to_br | split: '<br />'
+        -%}
+        <li class="ptcard"{% if b.featured %} data-featured{% endif %} {{ block.shopify_attributes }}>
+          <div class="ptcard__top">
+            {%- if b.badge != blank -%}<span class="ptcard__badge">{{ b.badge | escape }}</span>{%- endif -%}
+            <h3 class="ptcard__name h5">{{ b.name | escape }}</h3>
+            {%- if b.description != blank -%}<div class="ptcard__desc">{{ b.description }}</div>{%- endif -%}
+          </div>
+          <div class="ptcard__price">
+            <p class="ptcard__way" data-way="a"{% if start == 'b' %} aria-hidden="true"{% endif %}>
+              <span class="ptcard__amount">{{ b.price_a | escape }}</span>
+              {%- if b.compare_a != blank -%}<s class="ptcard__compare"><span class="visually-hidden">Was </span>{{ b.compare_a | escape }}</s>{%- endif -%}
+              {%- if b.note_a != blank -%}<span class="ptcard__note">{{ b.note_a | escape }}</span>{%- endif -%}
+            </p>
+            <p class="ptcard__way" data-way="b"{% if start == 'a' %} aria-hidden="true"{% endif %}>
+              <span class="ptcard__amount">{{ b.price_b | escape }}</span>
+              {%- if b.compare_b != blank -%}<s class="ptcard__compare"><span class="visually-hidden">Was </span>{{ b.compare_b | escape }}</s>{%- endif -%}
+              {%- if b.note_b != blank -%}<span class="ptcard__note">{{ b.note_b | escape }}</span>{%- endif -%}
+            </p>
+          </div>
+          <ul class="ptcard__features" role="list">
+            {%- for line in lines -%}
+              {%- assign t = line | strip -%}
+              {%- if t == blank -%}{%- continue -%}{%- endif -%}
+              {%- assign first = t | slice: 0 -%}
+              {%- if first == '-' -%}
+                <li data-off><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" focusable="false"><path d="M4 8h8"/></svg><span><span class="visually-hidden">Not included: </span>{{ t | remove_first: '-' | strip | escape }}</span></li>
+              {%- else -%}
+                <li><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 8.5l3.2 3L13 4.5"/></svg><span>{{ t | escape }}</span></li>
+              {%- endif -%}
+            {%- endfor -%}
+          </ul>
+          <div class="ptcard__cta">
+            {%- if b.button_label != blank -%}
+              <a {% if b.link_a != blank %}href="{{ b.link_a }}"{% else %}role="link" aria-disabled="true"{% endif %} data-way="a" data-theme-button="{{ style }}" data-sl-button{% if start == 'b' %} tabindex="-1" aria-hidden="true"{% endif %}>{{ b.button_label | escape }}</a>
+              <a {% if link_b != blank %}href="{{ link_b }}"{% else %}role="link" aria-disabled="true"{% endif %} data-way="b" data-theme-button="{{ style }}" data-sl-button{% if start == 'a' %} tabindex="-1" aria-hidden="true"{% endif %}>{{ b.button_label | escape }}</a>
+            {%- endif -%}
+          </div>
+        </li>
+      {%- endfor -%}
+    </ul>
+    {%- if plans.size == 0 and request.design_mode -%}<p class="ptog__foot">Add a plan to show a card.</p>{%- endif -%}
+    {%- if s.footnote != blank -%}<div class="ptog__foot">{{ s.footnote }}</div>{%- endif -%}
+  </div>
+</section>
+<script>
+  (function () {
+    var root = document.querySelector('.ptog-{{ sid }}');
+    if (!root || root.__ptog) return;
+    root.__ptog = true;
+    var opts = root.querySelectorAll('.ptog__opt');
+    function set(way, focus) {
+      root.setAttribute('data-mode', way);
+      for (var i = 0; i < opts.length; i++) {
+        var on = opts[i].getAttribute('data-to') === way;
+        opts[i].setAttribute('aria-checked', on ? 'true' : 'false');
+        opts[i].tabIndex = on ? 0 : -1;
+        if (on && focus) opts[i].focus();
+      }
+      var ways = root.querySelectorAll('[data-way]');
+      for (var k = 0; k < ways.length; k++) {
+        var mine = ways[k].getAttribute('data-way') === way;
+        if (mine) ways[k].removeAttribute('aria-hidden'); else ways[k].setAttribute('aria-hidden', 'true');
+        if (ways[k].tagName === 'A') { if (mine) ways[k].removeAttribute('tabindex'); else ways[k].tabIndex = -1; }
+      }
+    }
+    for (var i = 0; i < opts.length; i++) {
+      opts[i].addEventListener('click', function () { set(this.getAttribute('data-to'), false); });
+      opts[i].addEventListener('keydown', function (e) {
+        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+        e.preventDefault();
+        set(root.getAttribute('data-mode') === 'a' ? 'b' : 'a', true);
+      });
+    }
+    set(root.getAttribute('data-mode') || 'a', false);
+  })();
+</script>
+{%- if animation != 'none' -%}
+<style>#shopify-section-{{ sid }}.scroll-trigger { --animation-duration: {{ settings.animation_duration | default: 700 }}ms; --animation-delay: {{ settings.animation_delay | default: 0 }}ms; }</style>
+<script>(function(){var el=document.getElementById('shopify-section-{{ sid }}');if(!el||el.classList.contains('scroll-trigger'))return;el.classList.add('scroll-trigger',{{ animation | json }});})();</script>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Pricing with a switch",
+  "tag": "div",
+  "class": "pricing-toggle-section",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "default" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Simple pricing" },
+    { "type": "richtext", "id": "intro", "label": "Text under the heading", "default": "<p>Cancel when you like. Your work stays yours.</p>" },
+    {
+      "type": "select", "id": "heading_size", "label": "Heading size", "default": "h2",
+      "options": [ { "value": "h3", "label": "Small" }, { "value": "h2", "label": "Medium" }, { "value": "h1", "label": "Large" } ]
+    },
+    { "type": "header", "content": "Switch" },
+    { "type": "text", "id": "label_a", "label": "First choice", "default": "Monthly" },
+    { "type": "text", "id": "save_a", "label": "Note beside the first choice" },
+    { "type": "text", "id": "label_b", "label": "Second choice", "default": "Yearly" },
+    { "type": "text", "id": "save_b", "label": "Note beside the second choice", "default": "2 months free" },
+    {
+      "type": "select", "id": "start_with", "label": "Show first", "default": "a",
+      "options": [ { "value": "a", "label": "First choice" }, { "value": "b", "label": "Second choice" } ]
+    },
+    { "type": "text", "id": "switch_label", "label": "Name of the switch for screen readers", "default": "How to pay" },
+    { "type": "richtext", "id": "footnote", "label": "Small print under the cards" },
+    { "type": "header", "content": "Cards" },
+    {
+      "type": "select", "id": "card_style", "label": "Card style", "default": "outline",
+      "options": [ { "value": "outline", "label": "Outline" }, { "value": "filled", "label": "Filled" } ]
+    },
+    { "type": "checkbox", "id": "use_theme_corners", "label": "Use the theme's corners", "default": true },
+    { "type": "range", "id": "card_radius", "label": "Corners", "min": 0, "max": 32, "step": 2, "unit": "px", "default": 8 },
+    { "type": "range", "id": "card_gap", "label": "Space between cards", "min": 0, "max": 48, "step": 4, "unit": "px", "default": 20 },
+    { "type": "range", "id": "price_size", "label": "Price size", "min": 28, "max": 64, "step": 2, "unit": "px", "default": 40 },
+    { "type": "header", "content": "Layout" },
+    {
+      "type": "select", "id": "section_width", "label": "Width", "default": "container",
+      "options": [ { "value": "narrow", "label": "Narrow" }, { "value": "container", "label": "Default" }, { "value": "fluid_container", "label": "Wide" } ]
+    },
+    { "type": "checkbox", "id": "use_theme_spacing", "label": "Use the theme's space between sections", "default": true },
+    { "type": "range", "id": "padding_top", "label": "Space above on desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 80 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below on desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 80 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above on phones", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 48 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below on phones", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 48 }
+  ],
+  "blocks": [
+    {
+      "type": "plan",
+      "name": "Plan",
+      "limit": 3,
+      "settings": [
+        { "type": "text", "id": "name", "label": "Plan name", "default": "Plan" },
+        { "type": "richtext", "id": "description", "label": "Description" },
+        { "type": "text", "id": "badge", "label": "Badge" },
+        { "type": "checkbox", "id": "featured", "label": "Stand out from the others", "default": false },
+        { "type": "header", "content": "First choice" },
+        { "type": "text", "id": "price_a", "label": "Price", "default": "$12" },
+        { "type": "text", "id": "compare_a", "label": "Compare at price" },
+        { "type": "text", "id": "note_a", "label": "Note", "default": "a month" },
+        { "type": "url", "id": "link_a", "label": "Button link" },
+        { "type": "header", "content": "Second choice" },
+        { "type": "text", "id": "price_b", "label": "Price", "default": "$120" },
+        { "type": "text", "id": "compare_b", "label": "Compare at price" },
+        { "type": "text", "id": "note_b", "label": "Note", "default": "a year" },
+        { "type": "url", "id": "link_b", "label": "Button link", "info": "Leave empty to use the first link." },
+        { "type": "header", "content": "Features and button" },
+        { "type": "textarea", "id": "features", "label": "Features", "info": "One per line. Start a line with a minus sign to show it as not included.", "default": "Every lesson\nNew lessons each month\n- Feedback on your work" },
+        { "type": "text", "id": "button_label", "label": "Button label", "default": "Join" }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Pricing with a switch",
+      "category": "Pricing",
+      "blocks": [
+        { "type": "plan", "settings": { "name": "Member", "description": "<p>Every lesson, at your own pace.</p>", "price_a": "$12", "note_a": "a month", "price_b": "$120", "note_b": "a year", "features": "Every lesson\nNew lessons each month\nThe members forum\n- Feedback on your work", "button_label": "Join" } },
+        { "type": "plan", "settings": { "name": "Member with feedback", "description": "<p>Send a piece each month and get notes back.</p>", "badge": "Most chosen", "featured": true, "price_a": "$29", "note_a": "a month", "price_b": "$290", "note_b": "a year", "features": "Every lesson\nNew lessons each month\nThe members forum\nWritten feedback each month", "button_label": "Join with feedback" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

@@ -20,6 +20,7 @@ import { themeOfInstall } from "../../lib/storelib-theme/compat/page"
 import { answer, themeAsset, type CartEntry, type SiteData } from "../../lib/storelib-theme/compat/site"
 import { compatMenus } from "../../lib/storelib-theme/compat/menus"
 import type { CompatTheme } from "../../lib/storelib-theme/compat/theme"
+import { SAMPLE_SHOPS } from "./shops"
 
 export const MEDIA_PREFIX = "/__media/"
 const MIME: Record<string, string> = { ".webp": "image/webp", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".svg": "image/svg+xml", ".avif": "image/avif" }
@@ -56,18 +57,52 @@ export interface SampleProduct {
   image?: string
   kind?: string
   description?: string
+  /** Up to three options; every combination is a variant, as Products › Variants makes them (lib/physical/variants.ts). */
   options?: { name: string; values: string[] }[]
+  /** Dollars an option value adds to the price (and to the compare at price): { "A3": 10, "Oak frame": 45 }. */
+  add?: Record<string, number>
+  /** A picture for an option value, a colour's own photo: the variant shows it and the gallery holds it. */
+  pictures?: Record<string, string>
+  /** Variants that are sold out, by name ("XL", "XL / Sand") or by one of their values. */
+  soldOut?: string[]
 }
 
-function card(p: SampleProduct, i: number, imageUrl: (name: string) => string) {
+const money = (n: number) => `$${n.toFixed(2)}`
+const dollars = (s: string | undefined) => (s ? parseFloat(s.replace(/[^0-9.]/g, "")) || 0 : 0)
+
+/** The variants a product's options make, the first option slowest, each with its own id, price, picture and stock. */
+function variantsOf(p: SampleProduct, i: number, imageUrl: (name: string) => string) {
+  const options = (p.options ?? []).filter((o) => o.values.length).slice(0, 3)
+  if (!options.length) return []
+  let rows: string[][] = [[]]
+  for (const o of options) rows = rows.flatMap((r) => o.values.map((v) => [...r, v]))
+  return rows.map((values, k) => {
+    const name = values.join(" / ")
+    const extra = values.reduce((sum, v) => sum + (p.add?.[v] ?? 0), 0)
+    const picture = values.map((v) => p.pictures?.[v]).find(Boolean)
+    const compare = dollars(p.compare)
+    return {
+      id: `00000000-0000-4000-8000-${String(i + 10).padStart(4, "0")}${String(k + 1).padStart(8, "0")}`,
+      name, options: values,
+      price: money(dollars(p.price) + extra),
+      compare_price: compare ? money(compare + extra) : "",
+      available: !(p.soldOut ?? []).some((s) => s === name || values.includes(s)),
+      image: picture ? imageUrl(picture) : "",
+    }
+  })
+}
+
+function card(p: SampleProduct, i: number, imageUrl: (name: string) => string, currency = "USD") {
   const slug = p.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
   const image = p.image ? imageUrl(p.image) : ""
+  const variants = variantsOf(p, i, imageUrl)
+  const images = [...new Set([image, ...variants.map((v) => v.image)].filter(Boolean))]
   return {
     id: `00000000-0000-4000-8000-0000000000${String(i + 10)}`,
     settings: {
-      title: p.title, slug, url: `/products/${slug}`, price: p.price, compare_price: p.compare ?? "", currency: "USD", free: false, pay_what_you_want: false,
-      image, images: image ? [image] : [], kind: p.kind ?? "physical", available: true, tag: "", checkout_url: `/checkout/${slug}`,
-      description: p.description ?? "", description_html: p.description ? `<p>${p.description}</p>` : "", variants: [], options: p.options ?? [], category: "",
+      title: p.title, slug, url: `/products/${slug}`, price: p.price, compare_price: p.compare ?? "", currency, free: false, pay_what_you_want: false,
+      image, images, kind: p.kind ?? "physical", available: true, tag: "", checkout_url: `/checkout/${slug}`,
+      description: p.description ?? "", description_html: p.description ? `<p>${p.description}</p>` : "", variants, options: (p.options ?? []).slice(0, 3), category: "",
     },
   }
 }
@@ -88,7 +123,9 @@ export function siteFor(imported: ImportedTemplate, shop: { name: string; produc
     imageUrl: (v) => (/^https?:\/\//.test(v) || v.startsWith("/") ? v : media[decodeURIComponent(v.match(/^shopify:\/\/shop_images\/([^?#]+)/)?.[1] ?? "")] ?? ""),
   })
   const pages = Object.fromEntries(imported.theme.pages.map((p) => [p.page_key, p.sections])) as unknown as SiteData["pages"]
-  const products = shop.products.map((p, i) => card(p, i, (name) => media[name] ?? `/__product/${encodeURIComponent(name)}`))
+  /* A sample shop that sells in its own currency (SAMPLE_SHOPS[template].currency) draws its prices with that symbol. */
+  const cur = SAMPLE_SHOPS[imported.id.split("/").pop() ?? ""]?.currency
+  const products = shop.products.map((p, i) => card(p, i, (name) => media[name] ?? `/__product/${encodeURIComponent(name)}`, cur?.code ?? "USD"))
   const collections = products.length ? [{ id: "c-all", title: "All products", handle: "frontpage", description: "", image: "", url: "/collections/frontpage", products, products_count: products.length }] : []
   const site: SiteData = {
     creatorId: "c",
@@ -97,7 +134,7 @@ export function siteFor(imported: ImportedTemplate, shop: { name: string; produc
     products: products as never,
     collections: collections as never,
     menus: compatMenus(templateMenus(imported.id) as never, Object.keys(pages)),
-    shop: { name: shop.name, currency: "USD", moneyFormat: "${{amount}}" },
+    shop: { name: shop.name, currency: cur?.code ?? "USD", moneyFormat: cur?.format ?? "${{amount}}" },
     host: "127.0.0.1",
   }
   return { site, theme, imported }

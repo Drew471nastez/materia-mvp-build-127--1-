@@ -1,0 +1,384 @@
+{
+  "sections": {
+    "hero": {
+      "type": "courselanding-hero",
+      "settings": {
+        "heading_first": "Pocket Light:",
+        "heading": "Take photos you want to keep, with the phone you already have",
+        "pills": "Any phone\nNo apps to buy\n20 minutes a day",
+        "image": "shopify://shop_images/courselanding-hero-phones.webp",
+        "image_alt": "Three phones showing the course: a lesson on window light, a sunlit street and a vase of flowers",
+        "points": "24 short video lessons\nA live critique every week\nEditing presets for free apps",
+        "button_label": "Join the course",
+        "to_checkout": true,
+        "button_link": "/collections/all",
+        "note": "One payment. Watch the first week, then decide.",
+        "accent": "#2f5bea",
+        "padding_top": 120,
+        "padding_top_mobile": 96
+      }
+    },
+    "letter": {
+      "type": "courselanding-letter",
+      "settings": {
+        "heading": "Why a phone,",
+        "heading_accent": "and not a camera?",
+        "text": "<p>I taught camera courses for eight years. Every time, people went home with a heavy bag and took their best pictures on their phone anyway.</p><p>So this course starts with the camera you carry. <strong>Light, framing and timing</strong> matter far more than the lens, and a phone is the one you have with you when the light is good.</p><p>Four weeks, twenty minutes a day. <em>You will look at light differently by the end of the first week.</em></p>",
+        "name": "Teo Varga",
+        "role": "Photographer and teacher. Write your own letter here.",
+        "image": "shopify://shop_images/courselanding-teacher-field.webp",
+        "image_alt": "A man photographing a green field with his phone under a cloudy sky",
+        "anchor": "teacher",
+        "accent": "#2f5bea"
+      }
+    },
+    "steps": {
+      "type": "courselanding-steps",
+      "settings": {
+        "heading": "How it works",
+        "anchor": "how-it-works",
+        "button_label": "Join the course",
+        "to_checkout": true,
+        "button_link": "/collections/all",
+        "note": "Lessons open as soon as you pay.",
+        "accent": "#2f5bea"
+      },
+      "blocks": {
+        "step_1": {
+          "type": "step",
+          "settings": {
+            "label": "Step 1",
+            "title": "Watch a short lesson",
+            "text": "Six lessons a week, most under ten minutes. Each one ends with something to try that day.",
+            "image": "shopify://shop_images/courselanding-step-lesson.webp",
+            "image_alt": "A lesson playing beside its notes and the week’s brief"
+          }
+        },
+        "step_2": {
+          "type": "step",
+          "settings": {
+            "label": "Step 2",
+            "title": "Shoot and edit the brief",
+            "text": "Go out with your phone, then edit in a free app with the presets from the course.",
+            "image": "shopify://shop_images/courselanding-step-edit.webp",
+            "image_alt": "A street photo being edited, with exposure, warmth and crop controls"
+          }
+        },
+        "step_3": {
+          "type": "step",
+          "settings": {
+            "label": "Step 3",
+            "title": "Get it critiqued live",
+            "text": "Post your best picture. Every Thursday Teo looks at them on a call and says what to change.",
+            "image": "shopify://shop_images/courselanding-step-critique.webp",
+            "image_alt": "Six student photos with a comment from the teacher on one of them"
+          }
+        }
+      },
+      "block_order": [
+        "step_1",
+        "step_2",
+        "step_3"
+      ]
+    },
+    "modules": {
+      "type": "courselanding-modules",
+      "settings": {
+        "heading": "Four weeks,",
+        "heading_accent": "one idea each",
+        "text": "<p>Every week builds on the one before. Do them in order, at your own pace.</p>",
+        "anchor": "curriculum",
+        "accent": "#2f5bea"
+      },
+      "blocks": {
+        "module_1": {
+          "type": "module",
+          "settings": {
+            "label": "Week 1",
+            "title": "Light",
+            "text": "Where to stand, when to shoot, and how to expose for the part that matters.",
+            "lessons": "Find the light first\nExpose for the bright part\nWindow light at home\nGolden hour, briefly\nShade and overcast days\nBrief: one object, three times a day"
+          }
+        },
+        "module_2": {
+          "type": "module",
+          "settings": {
+            "label": "Week 2",
+            "title": "Framing",
+            "text": "Simple rules for where things go, and when to break them.",
+            "lessons": "Fill the frame\nEdges and corners\nLines that lead\nHeight: crouch or climb\nSpace around a subject\nBrief: one street, ten frames"
+          }
+        },
+        "module_3": {
+          "type": "module",
+          "settings": {
+            "label": "Week 3",
+            "title": "People and places",
+            "text": "Photographing people kindly and places honestly.",
+            "lessons": "Asking, and not asking\nHands and details\nWaiting for the moment\nPortrait mode, carefully\nRooms and interiors\nBrief: a day in one place"
+          }
+        },
+        "module_4": {
+          "type": "module",
+          "settings": {
+            "label": "Week 4",
+            "title": "Editing and choosing",
+            "text": "Finish the pictures, then pick the few worth sharing.",
+            "lessons": "A light first edit\nWarmth and colour\nCropping for a reason\nThe presets, explained\nPicking your best five\nBrief: a set of five"
+          }
+        }
+      },
+      "block_order": [
+        "module_1",
+        "module_2",
+        "module_3",
+        "module_4"
+      ]
+    },
+    "stack": {
+      "type": "courselanding-stack",
+      "settings": {
+        "heading": "The whole course.",
+        "heading_accent": "One payment.",
+        "text": "<p>Everything you need to shoot and edit better photos on your phone.</p>",
+        "anchor": "join",
+        "card_label": "What is included",
+        "show_count": true,
+        "count_one": "item",
+        "count_many": "items",
+        "total_label": "Sold separately",
+        "total": "$190",
+        "today_label": "Your price",
+        "price_today": "$89",
+        "note": "30 day refund. Watch the first week; if it is not for you, write and get it all back.",
+        "button_label": "Join the course",
+        "to_checkout": true,
+        "button_link": "/collections/all",
+        "accent": "#2f5bea"
+      },
+      "blocks": {
+        "item_1": {
+          "type": "item",
+          "settings": {
+            "icon": "play",
+            "title": "The course",
+            "text": "24 video lessons over four weeks, yours to keep.",
+            "value": "$120"
+          }
+        },
+        "item_2": {
+          "type": "item",
+          "settings": {
+            "icon": "chat",
+            "title": "Weekly live critiques",
+            "text": "Four Thursday calls where your photos are looked at.",
+            "value": "$40"
+          }
+        },
+        "item_3": {
+          "type": "item",
+          "settings": {
+            "icon": "sliders",
+            "title": "Editing presets",
+            "text": "Twelve looks for the free editing apps.",
+            "value": "$19"
+          }
+        },
+        "item_4": {
+          "type": "item",
+          "settings": {
+            "icon": "cards",
+            "title": "Shot list cards",
+            "text": "A printable brief for every day of the course.",
+            "value": "$11"
+          }
+        }
+      },
+      "block_order": [
+        "item_1",
+        "item_2",
+        "item_3",
+        "item_4"
+      ]
+    },
+    "reviews": {
+      "type": "courselanding-reviews",
+      "settings": {
+        "heading": "What students say",
+        "text": "<p>Sample quotes to show the layout. Replace them with your students’ own words.</p>",
+        "sample_label": "Sample",
+        "anchor": "reviews",
+        "accent": "#2f5bea"
+      },
+      "blocks": {
+        "quote_1": {
+          "type": "quote",
+          "settings": {
+            "quote": "I stopped taking forty pictures of everything. I wait for the light now, take three, and one of them is good.",
+            "name": "Hanna, Leipzig"
+          }
+        },
+        "quote_2": {
+          "type": "quote",
+          "settings": {
+            "quote": "The Thursday calls are the part I would pay for alone. One comment about my horizon fixed half my pictures.",
+            "name": "Marco, Turin"
+          }
+        },
+        "quote_3": {
+          "type": "quote",
+          "settings": {
+            "quote": "My phone is three years old. The course never once told me to buy a new one.",
+            "name": "Ada, Leeds"
+          }
+        }
+      },
+      "block_order": [
+        "quote_1",
+        "quote_2",
+        "quote_3"
+      ]
+    },
+    "pricing": {
+      "type": "pricing-cards",
+      "settings": {
+        "color_scheme": "default",
+        "eyebrow": "Pricing",
+        "heading": "On your own or with a group",
+        "intro": "<p>The same course either way. Groups of five or more get their own critique call.</p>",
+        "heading_size": "h2",
+        "heading_align": "center",
+        "footnote": "<p>Both with the 30 day refund.</p>",
+        "card_style": "filled",
+        "use_theme_corners": true,
+        "card_gap": 20,
+        "price_size": 48,
+        "mobile_layout": "stack",
+        "section_width": "container",
+        "use_theme_spacing": false,
+        "padding_top": 88,
+        "padding_bottom": 88,
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 48
+      },
+      "blocks": {
+        "plan_1": {
+          "type": "plan",
+          "settings": {
+            "name": "Pocket Light",
+            "description": "<p>The course for one person.</p>",
+            "badge": "Most people choose this",
+            "featured": true,
+            "plan_product": "pocket-light",
+            "price": "$89",
+            "compare_price": "",
+            "note": "One payment",
+            "features": "All 24 lessons\nFour live critiques\nEditing presets\nShot list cards\nLifetime access",
+            "button_label": "See the course",
+            "button_link": "/collections/all",
+            "button_style": "primary"
+          }
+        },
+        "plan_2": {
+          "type": "plan",
+          "settings": {
+            "name": "Group or class",
+            "description": "<p>For a club, a school or a team.</p>",
+            "featured": false,
+            "price": "$59",
+            "note": "Per person, five or more",
+            "features": "Everything in the course\nA private critique call\nOne bill for the group\nSeats added any time",
+            "button_label": "Ask for a group price",
+            "button_link": "/pages/contact",
+            "button_style": "secondary"
+          }
+        }
+      },
+      "block_order": [
+        "plan_1",
+        "plan_2"
+      ]
+    },
+    "faq": {
+      "type": "courselanding-faq",
+      "settings": {
+        "heading": "Questions",
+        "anchor": "questions",
+        "accent": "#2f5bea"
+      },
+      "blocks": {
+        "question_1": {
+          "type": "question",
+          "settings": {
+            "question": "Which phone do I need?",
+            "answer": "<p>Any phone from the last five years. Every lesson works on both kinds of phone, and nothing needs the newest model.</p>"
+          }
+        },
+        "question_2": {
+          "type": "question",
+          "settings": {
+            "question": "Do I need to buy an editing app?",
+            "answer": "<p>No. The editing lessons and presets use free apps that come with your phone or cost nothing.</p>"
+          }
+        },
+        "question_3": {
+          "type": "question",
+          "settings": {
+            "question": "How much time does it take?",
+            "answer": "<p>About twenty minutes a day: a short lesson and a few pictures. You can pause and pick it up a week later.</p>"
+          }
+        },
+        "question_4": {
+          "type": "question",
+          "settings": {
+            "question": "How do the live critiques work?",
+            "answer": "<p>Post your best picture of the week by Wednesday. On Thursday evening Teo looks at them on a video call. Recordings stay in the course.</p>"
+          }
+        },
+        "question_5": {
+          "type": "question",
+          "settings": {
+            "question": "What if it is not for me?",
+            "answer": "<p>Write within 30 days and you get every cent back. Replace this with your own terms.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "question_1",
+        "question_2",
+        "question_3",
+        "question_4",
+        "question_5"
+      ]
+    },
+    "cta": {
+      "type": "courselanding-cta",
+      "settings": {
+        "promise_days": "30",
+        "promise_unit": "days",
+        "promise_title": "Watch the first week, then decide",
+        "promise_text": "If the course is not for you, write within 30 days and you get every cent back. No form to fill in.",
+        "heading": "Your next good photo is",
+        "heading_accent": "one lesson",
+        "heading_after": "away",
+        "text": "<p>Twenty four lessons, four live critiques, the presets and the shot list cards.</p>",
+        "button_label": "Join the course",
+        "to_checkout": true,
+        "button_link": "/collections/all",
+        "note": "One payment. Lifetime access.",
+        "accent": "#2f5bea"
+      }
+    }
+  },
+  "order": [
+    "hero",
+    "letter",
+    "steps",
+    "modules",
+    "stack",
+    "reviews",
+    "pricing",
+    "faq",
+    "cta"
+  ]
+}

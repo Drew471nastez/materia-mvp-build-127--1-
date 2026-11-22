@@ -78,74 +78,37 @@
       ]
     },
     "bundle": {
-      "type": "promo-banner-4",
+      "type": "samples-release-hero",
       "settings": {
+        "layout": "feature",
         "color_scheme": "scheme-tr-panel",
         "section_width": "container",
-        "layout": "image_left",
-        "text_align": "left",
-        "vertical_alignment": "center",
-        "card_style": "flat",
-        "card_radius": 10,
-        "image": "shopify://shop_images/samples-hero-phone.webp",
-        "image_aspect_ratio": "4-3",
-        "enable_image_zoom": false,
-        "enable_badge_pulse": false,
-        "card_gap": 48,
-        "card_padding": 12,
-        "content_gap": 16,
-        "padding_top_desktop": 72,
-        "padding_bottom_desktop": 72,
-        "padding_top_mobile": 48,
-        "padding_bottom_mobile": 52
+        "heading_size": 44,
+        "heading_size_mobile": 32,
+        "padding_top": 72,
+        "padding_bottom": 72
       },
       "blocks": {
-        "badge": {
-          "type": "badge",
+        "bundle": {
+          "type": "release",
           "settings": {
-            "text": "Save 60%",
-            "position": "top-left",
-            "enable_custom_style": true,
-            "bg": "#7c3aed",
-            "color": "#ffffff"
-          }
-        },
-        "eyebrow": {
-          "type": "eyebrow",
-          "settings": {
-            "text": "The bundle"
-          }
-        },
-        "heading": {
-          "type": "heading",
-          "settings": {
-            "text": "Tech House Master Bundle 2025",
-            "size_desktop": 48,
-            "size_mobile": 32
-          }
-        },
-        "description": {
-          "type": "description",
-          "settings": {
-            "text": "<p>Every Loudlib tech house pack in one download. $19.98 this week, down from $49.96.</p>"
-          }
-        },
-        "buttons": {
-          "type": "buttons",
-          "settings": {
-            "primary_label": "Get the bundle",
-            "primary_link": "/search?q=master+bundle",
-            "secondary_label": "Shop every pack",
-            "secondary_link": "/collections/all"
+            "eyebrow": "One download",
+            "heading": "Tech House Master Bundle 2025",
+            "title": "Tech House Sample Pack, Master Bundle 2025",
+            "image": "shopify://shop_images/samples-box-tech-house-master-bundle-lg.webp",
+            "text": "Every part of a tech house track in one place, from drum one shots to vocals and Serum presets. Plug and play in every major DAW.",
+            "button_label": "Get the bundle",
+            "audio": "shopify://shop_images/samples-demo-tech-house-master-bundle.mp4",
+            "track_title": "Groove loop, Tech House Master Bundle 2025",
+            "seconds": 8,
+            "peaks": "99,60,50,90,77,55,78,87,70,53,92,76,66,71,71,60,52,89,70,79,78,85,73,63,84,76,51,68,68,61,49,92,72,53,83,90,67,52,84,72,68,70,68,58,46,100,59,80,84,84,75,61,84,77,51,69,66,56,46,88,68,42,89,84,62,49,94,67,63,71,65,56,44,89,77,78,85,81,76,58,85,60,42,68,64,55,64,89,65,43,88,84,60,61,90,66,62,71,65,55,90,90,80,62,84,78,71,83,84,61,42,1,0,0,0,0,0,0,0,0",
+            "note": "RAR 930 MB or ZIP 1 GB. Instant download, yours to keep.",
+            "list": "<ul><li>280 drum one shots and 361 drum loops</li><li>154 bass sounds, with 26 Serum bass presets</li><li>126 FX: impacts, risers, reverses and downfilters</li><li>57 vocal phrases and one shots</li><li>44 melody loops and 25 synth one shots</li></ul>"
           }
         }
       },
       "block_order": [
-        "badge",
-        "eyebrow",
-        "heading",
-        "description",
-        "buttons"
+        "bundle"
       ]
     },
     "free": {
@@ -153,18 +116,18 @@
       "settings": {
         "color_scheme": "scheme-tr-panel",
         "section_width": "container",
-        "image": "shopify://shop_images/samples-free.webp",
-        "image_alt": "Free Ambience Sample Pack Vol I",
-        "image_position": "right",
-        "image_ratio": "square",
-        "image_width": 46,
+        "image": "shopify://shop_images/samples-free-pair.webp",
+        "image_alt": "Free Ambience Sample Pack Vol I and Tech House Drum Kit Vol I",
+        "image_position": "left",
+        "image_ratio": "landscape",
+        "image_width": 44,
         "column_gap": 64,
         "form_layout": "horizontal",
         "email_placeholder": "Your email address",
-        "btn_text": "Send me the pack",
+        "btn_text": "Subscribe",
         "button_radius": 8,
-        "note": "One email when a new pack is out. Unsubscribe from any email.",
-        "success_text": "Check your inbox. The download link is on its way.",
+        "note": "No spam. Unsubscribe from any email.",
+        "success_text": "Thank you for subscribing!",
         "padding_top": 72,
         "padding_bottom": 72,
         "padding_top_mobile": 48,
@@ -174,16 +137,16 @@
         "heading": {
           "type": "heading",
           "settings": {
-            "text": "Not sure yet? Start with a free pack",
+            "text": "Get weekly sounds",
             "size_enable": true,
-            "size_desktop": 44,
+            "size_desktop": 40,
             "size_mobile": 30
           }
         },
         "subheading": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Pads, drones and textures, free and royalty free. Leave your email and the download link arrives in a minute.</p>"
+            "text": "<p>New packs and sales by email. Two packs are free today: the Ambience Sample Pack Vol I and the Tech House Drum Kit Vol I.</p>"
           }
         }
       },

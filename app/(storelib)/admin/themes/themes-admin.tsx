@@ -3,7 +3,9 @@
 import * as React from "react"
 
 import { Banner, Button, Filters, Panel, Placeholder } from "../_console/ui"
-import { DEFAULT_LISTING_SLUG, THEME_CATEGORIES, tierLabel, type ThemeListing, type ThemeTier } from "@/lib/themes/marketplace-shared"
+import { CODE_TEMPLATES, DEFAULT_LISTING_SLUG, THEME_CATEGORIES, tierLabel, type ThemeListing, type ThemeTier } from "@/lib/themes/marketplace-shared"
+import { BASE_TARGET, compareVersions } from "@/lib/themes/releases-shared"
+import { ReleasesPanel, type AdminRelease } from "./releases-admin"
 
 /**
  * ===========================================================================
@@ -17,6 +19,11 @@ import { DEFAULT_LISTING_SLUG, THEME_CATEGORIES, tierLabel, type ThemeListing, t
  * The zip goes straight from this page to private storage, and the server
  * checks it before the theme points at it (app/api/admin/themes/package).
  * Every save shows on the library and the marketplace at once.
+ *
+ * RELEASES (./releases-admin.tsx). Under a theme, its versions and a new
+ * one; the Shared base row at the top is the theme every template is made
+ * from. Publishing one tells each creator with that theme that an update is
+ * there; it changes nobody's website.
  */
 
 type Draft = {
@@ -32,6 +39,8 @@ type Draft = {
   sort_order: string
   demo_url: string
   cover: string | null
+  phone: string | null
+  description: string
   avatar: string | null
   screenshots: string[]
   packageKind: string | null
@@ -54,6 +63,8 @@ function toDraft(l: ThemeListing | null): Draft {
     sort_order: String(l?.sortOrder ?? 0),
     demo_url: l?.demoUrl ?? "",
     cover: l?.cover ?? null,
+    phone: l?.phoneCover ?? null,
+    description: l?.description ?? "",
     avatar: l?.authorAvatar ?? null,
     screenshots: l?.screenshots ?? [],
     packageKind: l?.packageKind ?? null,
@@ -84,6 +95,26 @@ export function ThemesAdmin() {
   const [draft, setDraft] = React.useState<Draft | null>(null)
   const [busy, setBusy] = React.useState<string | null>(null)
   const [progress, setProgress] = React.useState<number | null>(null)
+  const [releases, setReleases] = React.useState<AdminRelease[]>([])
+  const [releaseNotice, setReleaseNotice] = React.useState<string | null>(null)
+  /** The shared base's releases are open instead of a listing. */
+  const [baseOpen, setBaseOpen] = React.useState(false)
+
+  const loadReleases = React.useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/themes/releases", { cache: "no-store" })
+      const body = await res.json().catch(() => null)
+      if (!res.ok) return setReleaseNotice(body?.error || "The releases could not be read.")
+      setReleases(body?.releases ?? [])
+      setReleaseNotice(body?.notice ?? null)
+    } catch {
+      setReleaseNotice("Could not reach Storelib.")
+    }
+  }, [])
+  React.useEffect(() => {
+    void loadReleases()
+  }, [loadReleases])
+  const newest = (target: string) => releases.filter((r) => r.target === target).sort((a, b) => compareVersions(b.version, a.version))[0]?.version ?? null
 
   const load = React.useCallback(async () => {
     try {
@@ -127,6 +158,7 @@ export function ThemesAdmin() {
           sort_order: Number(draft.sort_order),
           demo_url: draft.demo_url.trim() || null,
           screenshots: draft.screenshots,
+          description: draft.description.trim() || null,
         }),
       })
       const body = await res.json().catch(() => null)
@@ -182,7 +214,7 @@ export function ThemesAdmin() {
     }
   }
 
-  const uploadImage = async (kind: "cover" | "screenshot" | "avatar", file: File) => {
+  const uploadImage = async (kind: "cover" | "phone" | "screenshot" | "avatar", file: File) => {
     if (!draft?.id) return
     setBusy(kind)
     setNote(null)
@@ -225,7 +257,14 @@ export function ThemesAdmin() {
             <a href="/themes" target="_blank" rel="noreferrer" className="inline-flex h-8 items-center rounded-[7px] px-3 text-[13px] text-[#9b9ba6] hover:bg-white/[0.05] hover:text-[#ededf0]">
               Open marketplace
             </a>
-            <Button variant="primary" onClick={() => setDraft(toDraft(null))} disabled={!!notice}>
+            <Button
+              variant="primary"
+              onClick={() => {
+                setBaseOpen(false)
+                setDraft(toDraft(null))
+              }}
+              disabled={!!notice}
+            >
               New theme
             </Button>
           </div>
@@ -240,11 +279,31 @@ export function ThemesAdmin() {
               <Placeholder rows={4} />
             ) : (
               <ul className="divide-y divide-white/[0.06]">
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDraft(null)
+                      setBaseOpen(true)
+                    }}
+                    data-admin-theme-row={BASE_TARGET}
+                    className={`flex w-full min-w-0 items-center gap-3 px-4 py-2.5 text-left hover:bg-white/[0.03] ${baseOpen ? "bg-white/[0.05]" : ""}`}
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[13px] font-medium">Shared base</span>
+                      <span className="block truncate text-[12px] text-[#9b9ba6]">The theme all {CODE_TEMPLATES.length} templates are made from</span>
+                    </span>
+                    <span className="shrink-0 text-[12px] tabular-nums text-[#9b9ba6]">{newest(BASE_TARGET) ?? "No releases"}</span>
+                  </button>
+                </li>
                 {list.map((l) => (
                   <li key={l.id}>
                     <button
                       type="button"
-                      onClick={() => setDraft(toDraft(l))}
+                      onClick={() => {
+                        setBaseOpen(false)
+                        setDraft(toDraft(l))
+                      }}
                       data-admin-theme-row={l.slug}
                       className={`flex w-full min-w-0 items-center gap-3 px-4 py-2.5 text-left hover:bg-white/[0.03] ${draft?.slug === l.slug ? "bg-white/[0.05]" : ""}`}
                     >
@@ -256,7 +315,7 @@ export function ThemesAdmin() {
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-[13px] font-medium">{l.name}</span>
-                        <span className="block truncate text-[12px] text-[#9b9ba6]">{l.author} · {tierLabel(l)}{l.builtinThemeId ? " · built in" : l.hasPackage ? "" : " · no zip"}</span>
+                        <span className="block truncate text-[12px] text-[#9b9ba6]">{l.author} · {tierLabel(l)}{l.builtinThemeId ? " · built in" : l.hasPackage ? "" : " · no zip"}{newest(l.slug) ? ` · ${newest(l.slug)}` : ""}</span>
                       </span>
                       <span className={`shrink-0 text-[12px] ${l.published ? "text-[#3fb950]" : "text-[#9b9ba6]"}`}>{l.published ? "Published" : "Hidden"}</span>
                     </button>
@@ -266,7 +325,12 @@ export function ThemesAdmin() {
             )}
           </Panel>
 
-          {draft ? (
+          {baseOpen ? (
+            <div className="min-w-0">
+              <ReleasesPanel target={BASE_TARGET} title="Shared base releases" releases={releases} notice={releaseNotice} onChanged={loadReleases} />
+            </div>
+          ) : draft ? (
+            <div className="min-w-0">
             <Panel title={draft.id ? draft.name || "Theme" : draft.builtin ? `${draft.name} (built in)` : "New theme"}>
               <form
                 data-admin-theme-form=""
@@ -320,6 +384,17 @@ export function ThemesAdmin() {
                   </label>
                 </div>
 
+                <label className="block text-[12px] text-[#9b9ba6]">
+                  Description, a sentence or two under the name
+                  <textarea
+                    rows={2}
+                    value={draft.description}
+                    maxLength={600}
+                    onChange={(e) => set("description", e.target.value)}
+                    className="mt-1 w-full resize-y rounded-[7px] border border-white/[0.1] bg-[#0b0b0f] px-2.5 py-2 text-[13px] leading-5 text-[#ededf0] outline-none focus:border-[#8b5cf6]/70"
+                  />
+                </label>
+
                 <label className="flex items-center gap-2 text-[13px]">
                   <input type="checkbox" checked={draft.published} onChange={(e) => set("published", e.target.checked)} className="h-4 w-4 accent-[#8b5cf6]" />
                   Published
@@ -356,7 +431,7 @@ export function ThemesAdmin() {
 
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
-                      <p className="text-[12px] text-[#9b9ba6]">Cover, a full page screenshot</p>
+                      <p className="text-[12px] text-[#9b9ba6]">Desktop cover, a full page screenshot</p>
                       <div className="mt-1 aspect-[4/3] overflow-hidden rounded-[7px] bg-[#1d1d24]">
                         {draft.cover ? (
                           // eslint-disable-next-line @next/next/no-img-element
@@ -366,6 +441,19 @@ export function ThemesAdmin() {
                       <label className="mt-2 inline-flex h-8 cursor-pointer items-center rounded-[7px] border border-white/[0.1] bg-[#17171d] px-3 text-[13px] font-medium hover:bg-[#1d1d24]">
                         {busy === "cover" ? "Uploading" : "Upload cover"}
                         <input type="file" accept="image/jpeg,image/png,image/webp,image/avif,image/gif" className="sr-only" disabled={!!busy} onChange={picker((f) => uploadImage("cover", f))} />
+                      </label>
+                    </div>
+                    <div>
+                      <p className="text-[12px] text-[#9b9ba6]">Phone cover, the page at a phone&apos;s width</p>
+                      <div className="mt-1 aspect-[4/3] overflow-hidden rounded-[7px] bg-[#1d1d24]">
+                        {draft.phone ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={draft.phone} alt="" className="mx-auto h-full object-cover object-top" />
+                        ) : null}
+                      </div>
+                      <label className="mt-2 inline-flex h-8 cursor-pointer items-center rounded-[7px] border border-white/[0.1] bg-[#17171d] px-3 text-[13px] font-medium hover:bg-[#1d1d24]">
+                        {busy === "phone" ? "Uploading" : "Upload phone cover"}
+                        <input type="file" accept="image/jpeg,image/png,image/webp,image/avif,image/gif" className="sr-only" disabled={!!busy} onChange={picker((f) => uploadImage("phone", f))} />
                       </label>
                     </div>
                     <div>
@@ -413,6 +501,11 @@ export function ThemesAdmin() {
                 <p className="border-t border-white/[0.08] px-4 py-3 text-[12px] text-[#9b9ba6]">Save once to add the zip and pictures.</p>
               )}
             </Panel>
+            {/* A template is in the code whether or not it has a row; an uploaded theme needs its row and zip first. */}
+            {draft.slug && (CODE_TEMPLATES.some((t) => t.slug === draft.slug) || (draft.id && draft.hasPackage && !draft.builtin)) ? (
+              <ReleasesPanel target={draft.slug} title={`${draft.name || "Theme"} releases`} releases={releases} notice={releaseNotice} onChanged={loadReleases} />
+            ) : null}
+            </div>
           ) : (
             <Panel>
               <p className="px-4 py-8 text-[13px] text-[#9b9ba6]">Open a theme to change it, or add a new one.</p>

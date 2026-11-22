@@ -31,7 +31,10 @@ D.addEventListener("keydown",function(e){var i=e.target;if(e.key!=="Enter"||!i||
 D.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a[data-preview-inert]");if(a)e.preventDefault()},true);
 var told=false;function tell(){if(told)return;told=true;try{parent.postMessage({type:"storelib:template-preview",ready:true,path:location.pathname},"*")}catch(e){}}
 W.addEventListener("load",tell);D.addEventListener("DOMContentLoaded",function(){setTimeout(tell,1200)});
-})();</script><script type="importmap">{"imports":{"@shopify/events":"data:text/javascript;charset=utf-8,const%20StandardEvents%20%3D%20Object.freeze(%7B%0A%20%20pageView%3A%20%22shopify%3Apage%3Aview%22%2C%0A%20%20productView%3A%20%22shopify%3Aproduct%3Aview%22%2C%0A%20%20productSelect%3A%20%22shopify%3Aproduct%3Aselect%22%2C%0A%20%20cartView%3A%20%22shopify%3Acart%3Aview%22%2C%0A%20%20cartError%3A%20%22shopify%3Acart%3Aerror%22%2C%0A%20%20cartLinesUpdate%3A%20%22shopify%3Acart%3Alines-update%22%2C%0A%20%20cartNoteUpdate%3A%20%22shopify%3Acart%3Anote-update%22%2C%0A%20%20cartDiscountUpdate%3A%20%22shopify%3Acart%3Adiscount-update%22%2C%0A%20%20searchUpdate%3A%20%22shopify%3Asearch%3Aupdate%22%2C%0A%20%20collectionView%3A%20%22shopify%3Acollection%3Aview%22%2C%0A%20%20collectionUpdate%3A%20%22shopify%3Acollection%3Aupdate%22%2C%0A%7D)%3B%0Afunction%20createGid(type%2C%20id)%20%7B%0A%20%20const%20s%20%3D%20String(id)%3B%0A%20%20return%20s.startsWith(%22gid%3A%2F%2F%22)%20%3F%20s%20%3A%20%22gid%3A%2F%2Fshopify%2F%22%20%2B%20type%20%2B%20%22%2F%22%20%2B%20s%3B%0A%7D%0Afunction%20money(cents%2C%20code)%20%7B%20return%20%7B%20amount%3A%20((Number(cents)%20%7C%7C%200)%20%2F%20100).toFixed(2)%2C%20currencyCode%3A%20code%20%7C%7C%20%22USD%22%20%7D%3B%20%7D%0Afunction%20fromAjaxCart(cart)%20%7B%0A%20%20const%20c%20%3D%20cart%20%7C%7C%20%7B%7D%3B%0A%20%20const%20code%20%3D%20c.currency%20%7C%7C%20%22USD%22%3B%0A%20%20return%20%7B%0A%20%20%20%20id%3A%20createGid(%22Cart%22%2C%20c.token%20%7C%7C%20%22storelib%22)%2C%0A%20%20%20%20totalQuantity%3A%20Number(c.item_count)%20%7C%7C%200%2C%0A%20%20%20%20cost%3A%20%7B%20totalAmount%3A%20money(c.total_price%2C%20code)%20%7D%2C%0A%20%20%20%20lines%3A%20(c.items%20%7C%7C%20%5B%5D).map((l)%20%3D%3E%20(%7B%20id%3A%20createGid(%22CartLine%22%2C%20l.key)%2C%20quantity%3A%20Number(l.quantity)%20%7C%7C%200%2C%20cost%3A%20%7B%20totalAmount%3A%20money(l.final_line_price%2C%20code)%20%7D%20%7D))%2C%0A%20%20%20%20discountCodes%3A%20%5B%5D%2C%0A%20%20%7D%3B%0A%7D%0Afunction%20parseProductFilters(searchParams)%20%7B%0A%20%20const%20p%20%3D%20searchParams%20%7C%7C%20new%20URLSearchParams(location.search)%3B%0A%20%20const%20out%20%3D%20%5B%5D%3B%0A%20%20for%20(const%20%5Bk%2C%20v%5D%20of%20p.entries())%20%7B%0A%20%20%20%20if%20(!k.startsWith(%22filter.%22))%20continue%3B%0A%20%20%20%20if%20(k%20%3D%3D%3D%20%22filter.v.availability%22)%20out.push(%7B%20available%3A%20v%20%3D%3D%3D%20%221%22%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.gte%22)%20out.push(%7B%20price%3A%20%7B%20min%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.lte%22)%20out.push(%7B%20price%3A%20%7B%20max%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.product_type%22)%20out.push(%7B%20productType%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.vendor%22)%20out.push(%7B%20productVendor%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.tag%22)%20out.push(%7B%20tag%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k.startsWith(%22filter.v.option.%22))%20out.push(%7B%20variantOption%3A%20%7B%20name%3A%20k.slice(16)%2C%20value%3A%20v%20%7D%20%7D)%3B%0A%20%20%7D%0A%20%20return%20out.length%20%3F%20out%20%3A%20undefined%3B%0A%7D%0Afunction%20sortKey(searchParams%2C%20search)%20%7B%0A%20%20const%20v%20%3D%20(searchParams%20%7C%7C%20new%20URLSearchParams(location.search)).get(%22sort_by%22)%20%7C%7C%20%22%22%3B%0A%20%20if%20(v.startsWith(%22price%22))%20return%20%22PRICE%22%3B%0A%20%20if%20(search)%20return%20%22RELEVANCE%22%3B%0A%20%20if%20(v.startsWith(%22title%22))%20return%20%22TITLE%22%3B%0A%20%20if%20(v.startsWith(%22created%22))%20return%20%22CREATED%22%3B%0A%20%20if%20(v%20%3D%3D%3D%20%22best-selling%22)%20return%20%22BEST_SELLING%22%3B%0A%20%20return%20v%20%3F%20%22MANUAL%22%20%3A%20%22COLLECTION_DEFAULT%22%3B%0A%7D%0Afunction%20deferred()%20%7B%0A%20%20let%20resolve%2C%20reject%3B%0A%20%20const%20promise%20%3D%20new%20Promise((a%2C%20b)%20%3D%3E%20%7B%20resolve%20%3D%20a%3B%20reject%20%3D%20b%3B%20%7D)%3B%0A%20%20promise.catch(()%20%3D%3E%20%7B%7D)%3B%0A%20%20return%20%7B%20promise%2C%20resolve%2C%20reject%20%7D%3B%0A%7D%0Aclass%20SlThemeStandardEvent%20extends%20Event%20%7B%0A%20%20constructor(type%2C%20payload%2C%20options)%20%7B%0A%20%20%20%20super(type%2C%20Object.assign(%7B%20bubbles%3A%20true%2C%20composed%3A%20true%20%7D%2C%20options%20%7C%7C%20%7B%7D))%3B%0A%20%20%20%20const%20p%20%3D%20payload%20%7C%7C%20%7B%7D%3B%0A%20%20%20%20for%20(const%20k%20of%20Object.keys(p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20k%2C%20%7B%20value%3A%20p%5Bk%5D%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%2C%20writable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%20%20if%20(!(%22promise%22%20in%20p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20%22promise%22%2C%20%7B%20value%3A%20Promise.resolve(%7B%20detail%3A%20p.detail%20%7D)%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0ASlThemeStandardEvent.createGid%20%3D%20createGid%3B%0Aconst%20make%20%3D%20(name%2C%20extra)%20%3D%3E%20%7B%0A%20%20const%20C%20%3D%20class%20extends%20SlThemeStandardEvent%20%7B%20constructor(payload)%20%7B%20super(StandardEvents%5Bname%5D%2C%20payload)%3B%20%7D%20%7D%3B%0A%20%20C.eventName%20%3D%20StandardEvents%5Bname%5D%3B%0A%20%20C.createPromise%20%3D%20deferred%3B%0A%20%20Object.assign(C%2C%20extra%20%7C%7C%20%7B%7D)%3B%0A%20%20return%20C%3B%0A%7D%3B%0Aexport%20const%20PageViewEvent%20%3D%20make(%22pageView%22)%3B%0Aexport%20const%20ProductViewEvent%20%3D%20make(%22productView%22)%3B%0Aexport%20const%20ProductSelectEvent%20%3D%20make(%22productSelect%22)%3B%0Aexport%20const%20CartViewEvent%20%3D%20make(%22cartView%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartErrorEvent%20%3D%20make(%22cartError%22)%3B%0Aexport%20const%20CartLinesUpdateEvent%20%3D%20make(%22cartLinesUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartNoteUpdateEvent%20%3D%20make(%22cartNoteUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartDiscountUpdateEvent%20%3D%20make(%22cartDiscountUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20SearchUpdateEvent%20%3D%20make(%22searchUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20true)%20%7D)%3B%0Aexport%20const%20CollectionViewEvent%20%3D%20make(%22collectionView%22)%3B%0Aexport%20const%20CollectionUpdateEvent%20%3D%20make(%22collectionUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20false)%20%7D)%3B%0Aconst%20VIEW_EVENTS%20%3D%20%7B%20%22product-component%22%3A%20ProductViewEvent%2C%20%22collection-component%22%3A%20CollectionViewEvent%20%7D%3B%0Aexport%20function%20createViewEventElement(Base%2C%20options)%20%7B%0A%20%20const%20B%20%3D%20Base%20%7C%7C%20HTMLElement%3B%0A%20%20const%20opts%20%3D%20options%20%7C%7C%20%7B%7D%3B%0A%20%20return%20class%20extends%20B%20%7B%0A%20%20%20%20connectedCallback()%20%7B%0A%20%20%20%20%20%20if%20(super.connectedCallback)%20super.connectedCallback()%3B%0A%20%20%20%20%20%20const%20trigger%20%3D%20this.getAttribute(%22view-event-trigger%22)%20%7C%7C%20opts.defaultTrigger%20%7C%7C%20%22connect%22%3B%0A%20%20%20%20%20%20if%20(trigger%20%3D%3D%3D%20%22connect%22)%20this.dispatchViewEvent()%3B%0A%20%20%20%20%20%20else%20if%20(trigger%20%3D%3D%3D%20%22intersect%22%20%26%26%20%22IntersectionObserver%22%20in%20window)%20%7B%0A%20%20%20%20%20%20%20%20const%20io%20%3D%20new%20IntersectionObserver((entries)%20%3D%3E%20%7B%20if%20(entries.some((e)%20%3D%3E%20e.isIntersecting))%20%7B%20io.disconnect()%3B%20this.dispatchViewEvent()%3B%20%7D%20%7D)%3B%0A%20%20%20%20%20%20%20%20io.observe(this)%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%20%20dispatchViewEvent()%20%7B%0A%20%20%20%20%20%20let%20payload%20%3D%20null%3B%0A%20%20%20%20%20%20const%20raw%20%3D%20this.getAttribute(%22view-event-payload%22)%20%7C%7C%20this.querySelector(%22script%5Bdata-view-event-payload%5D%22)%3F.textContent%3B%0A%20%20%20%20%20%20try%20%7B%20payload%20%3D%20raw%20%3F%20JSON.parse(raw)%20%3A%20null%3B%20%7D%20catch%20(e)%20%7B%20payload%20%3D%20null%3B%20%7D%0A%20%20%20%20%20%20if%20(!payload)%20return%3B%0A%20%20%20%20%20%20const%20Kind%20%3D%20payload.cart%20%3F%20CartViewEvent%20%3A%20payload.collection%20%3F%20CollectionViewEvent%20%3A%20payload.product%20%3F%20ProductViewEvent%20%3A%20VIEW_EVENTS%5Bthis.localName%5D%3B%0A%20%20%20%20%20%20if%20(Kind)%20this.dispatchEvent(new%20Kind(payload))%3B%0A%20%20%20%20%7D%0A%20%20%7D%3B%0A%7D%0Aexport%20const%20ViewEventElement%20%3D%20createViewEventElement(HTMLElement)%3B%0Aexport%20%7B%20StandardEvents%2C%20SlThemeStandardEvent%20%7D%3B","@shopify/partial-rendering":"data:text/javascript;charset=utf-8,async%20function%20refresh(name)%20%7B%0A%20%20const%20res%20%3D%20await%20fetch(location.href%2C%20%7B%20headers%3A%20%7B%20Accept%3A%20%22text%2Fhtml%22%20%7D%2C%20credentials%3A%20%22same-origin%22%20%7D)%3B%0A%20%20if%20(!res.ok)%20throw%20new%20Error(%22The%20page%20could%20not%20be%20drawn%20again%22)%3B%0A%20%20const%20doc%20%3D%20new%20DOMParser().parseFromString(await%20res.text()%2C%20%22text%2Fhtml%22)%3B%0A%20%20const%20sel%20%3D%20'%5Bdata-shopify-partial%3D%22'%20%2B%20CSS.escape(String(name))%20%2B%20'%22%5D'%3B%0A%20%20const%20fresh%20%3D%20doc.querySelector(sel)%3B%0A%20%20const%20here%20%3D%20document.querySelector(sel)%3B%0A%20%20if%20(fresh%20%26%26%20here)%20here.replaceWith(document.importNode(fresh%2C%20true))%3B%0A%7D%0Aexport%20const%20partials%20%3D%20%7B%20refresh%20%7D%3B%0Aexport%20default%20partials%3B"}}</script><script src="/theme-previews/landing-page/a/i.fc17d0660d95.js"></script>
+/* The page's own background, as soon as it is known: the frame shows it between two pages instead of its own white (a white flash on a dark shop). */
+function paint(){try{var c=getComputedStyle(D.documentElement).backgroundColor;if(!c||/rgba(0, 0, 0, 0)|transparent/.test(c))c=getComputedStyle(D.body).backgroundColor;if(c&&!/rgba(0, 0, 0, 0)|transparent/.test(c))parent.postMessage({type:"storelib:template-preview-background",background:c},"*")}catch(e){}}
+D.addEventListener("DOMContentLoaded",paint);
+})();</script><script type="importmap">{"imports":{"@shopify/events":"data:text/javascript;charset=utf-8,const%20StandardEvents%20%3D%20Object.freeze(%7B%0A%20%20pageView%3A%20%22shopify%3Apage%3Aview%22%2C%0A%20%20productView%3A%20%22shopify%3Aproduct%3Aview%22%2C%0A%20%20productSelect%3A%20%22shopify%3Aproduct%3Aselect%22%2C%0A%20%20cartView%3A%20%22shopify%3Acart%3Aview%22%2C%0A%20%20cartError%3A%20%22shopify%3Acart%3Aerror%22%2C%0A%20%20cartLinesUpdate%3A%20%22shopify%3Acart%3Alines-update%22%2C%0A%20%20cartNoteUpdate%3A%20%22shopify%3Acart%3Anote-update%22%2C%0A%20%20cartDiscountUpdate%3A%20%22shopify%3Acart%3Adiscount-update%22%2C%0A%20%20searchUpdate%3A%20%22shopify%3Asearch%3Aupdate%22%2C%0A%20%20collectionView%3A%20%22shopify%3Acollection%3Aview%22%2C%0A%20%20collectionUpdate%3A%20%22shopify%3Acollection%3Aupdate%22%2C%0A%7D)%3B%0Afunction%20createGid(type%2C%20id)%20%7B%0A%20%20const%20s%20%3D%20String(id)%3B%0A%20%20return%20s.startsWith(%22gid%3A%2F%2F%22)%20%3F%20s%20%3A%20%22gid%3A%2F%2Fshopify%2F%22%20%2B%20type%20%2B%20%22%2F%22%20%2B%20s%3B%0A%7D%0Afunction%20money(cents%2C%20code)%20%7B%20return%20%7B%20amount%3A%20((Number(cents)%20%7C%7C%200)%20%2F%20100).toFixed(2)%2C%20currencyCode%3A%20code%20%7C%7C%20%22USD%22%20%7D%3B%20%7D%0Afunction%20fromAjaxCart(cart)%20%7B%0A%20%20const%20c%20%3D%20cart%20%7C%7C%20%7B%7D%3B%0A%20%20const%20code%20%3D%20c.currency%20%7C%7C%20%22USD%22%3B%0A%20%20return%20%7B%0A%20%20%20%20id%3A%20createGid(%22Cart%22%2C%20c.token%20%7C%7C%20%22storelib%22)%2C%0A%20%20%20%20totalQuantity%3A%20Number(c.item_count)%20%7C%7C%200%2C%0A%20%20%20%20cost%3A%20%7B%20totalAmount%3A%20money(c.total_price%2C%20code)%20%7D%2C%0A%20%20%20%20lines%3A%20(c.items%20%7C%7C%20%5B%5D).map((l)%20%3D%3E%20(%7B%20id%3A%20createGid(%22CartLine%22%2C%20l.key)%2C%20quantity%3A%20Number(l.quantity)%20%7C%7C%200%2C%20cost%3A%20%7B%20totalAmount%3A%20money(l.final_line_price%2C%20code)%20%7D%20%7D))%2C%0A%20%20%20%20discountCodes%3A%20%5B%5D%2C%0A%20%20%7D%3B%0A%7D%0Afunction%20parseProductFilters(searchParams)%20%7B%0A%20%20const%20p%20%3D%20searchParams%20%7C%7C%20new%20URLSearchParams(location.search)%3B%0A%20%20const%20out%20%3D%20%5B%5D%3B%0A%20%20for%20(const%20%5Bk%2C%20v%5D%20of%20p.entries())%20%7B%0A%20%20%20%20if%20(!k.startsWith(%22filter.%22))%20continue%3B%0A%20%20%20%20if%20(k%20%3D%3D%3D%20%22filter.v.availability%22)%20out.push(%7B%20available%3A%20v%20%3D%3D%3D%20%221%22%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.gte%22)%20out.push(%7B%20price%3A%20%7B%20min%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.lte%22)%20out.push(%7B%20price%3A%20%7B%20max%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.product_type%22)%20out.push(%7B%20productType%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.vendor%22)%20out.push(%7B%20productVendor%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.tag%22)%20out.push(%7B%20tag%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k.startsWith(%22filter.v.option.%22))%20out.push(%7B%20variantOption%3A%20%7B%20name%3A%20k.slice(16)%2C%20value%3A%20v%20%7D%20%7D)%3B%0A%20%20%7D%0A%20%20return%20out.length%20%3F%20out%20%3A%20undefined%3B%0A%7D%0Afunction%20sortKey(searchParams%2C%20search)%20%7B%0A%20%20const%20v%20%3D%20(searchParams%20%7C%7C%20new%20URLSearchParams(location.search)).get(%22sort_by%22)%20%7C%7C%20%22%22%3B%0A%20%20if%20(v.startsWith(%22price%22))%20return%20%22PRICE%22%3B%0A%20%20if%20(search)%20return%20%22RELEVANCE%22%3B%0A%20%20if%20(v.startsWith(%22title%22))%20return%20%22TITLE%22%3B%0A%20%20if%20(v.startsWith(%22created%22))%20return%20%22CREATED%22%3B%0A%20%20if%20(v%20%3D%3D%3D%20%22best-selling%22)%20return%20%22BEST_SELLING%22%3B%0A%20%20return%20v%20%3F%20%22MANUAL%22%20%3A%20%22COLLECTION_DEFAULT%22%3B%0A%7D%0Afunction%20deferred()%20%7B%0A%20%20let%20resolve%2C%20reject%3B%0A%20%20const%20promise%20%3D%20new%20Promise((a%2C%20b)%20%3D%3E%20%7B%20resolve%20%3D%20a%3B%20reject%20%3D%20b%3B%20%7D)%3B%0A%20%20promise.catch(()%20%3D%3E%20%7B%7D)%3B%0A%20%20return%20%7B%20promise%2C%20resolve%2C%20reject%20%7D%3B%0A%7D%0Aclass%20SlThemeStandardEvent%20extends%20Event%20%7B%0A%20%20constructor(type%2C%20payload%2C%20options)%20%7B%0A%20%20%20%20super(type%2C%20Object.assign(%7B%20bubbles%3A%20true%2C%20composed%3A%20true%20%7D%2C%20options%20%7C%7C%20%7B%7D))%3B%0A%20%20%20%20const%20p%20%3D%20payload%20%7C%7C%20%7B%7D%3B%0A%20%20%20%20for%20(const%20k%20of%20Object.keys(p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20k%2C%20%7B%20value%3A%20p%5Bk%5D%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%2C%20writable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%20%20if%20(!(%22promise%22%20in%20p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20%22promise%22%2C%20%7B%20value%3A%20Promise.resolve(%7B%20detail%3A%20p.detail%20%7D)%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0ASlThemeStandardEvent.createGid%20%3D%20createGid%3B%0Aconst%20make%20%3D%20(name%2C%20extra)%20%3D%3E%20%7B%0A%20%20const%20C%20%3D%20class%20extends%20SlThemeStandardEvent%20%7B%20constructor(payload)%20%7B%20super(StandardEvents%5Bname%5D%2C%20payload)%3B%20%7D%20%7D%3B%0A%20%20C.eventName%20%3D%20StandardEvents%5Bname%5D%3B%0A%20%20C.createPromise%20%3D%20deferred%3B%0A%20%20Object.assign(C%2C%20extra%20%7C%7C%20%7B%7D)%3B%0A%20%20return%20C%3B%0A%7D%3B%0Aexport%20const%20PageViewEvent%20%3D%20make(%22pageView%22)%3B%0Aexport%20const%20ProductViewEvent%20%3D%20make(%22productView%22)%3B%0Aexport%20const%20ProductSelectEvent%20%3D%20make(%22productSelect%22)%3B%0Aexport%20const%20CartViewEvent%20%3D%20make(%22cartView%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartErrorEvent%20%3D%20make(%22cartError%22)%3B%0Aexport%20const%20CartLinesUpdateEvent%20%3D%20make(%22cartLinesUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartNoteUpdateEvent%20%3D%20make(%22cartNoteUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartDiscountUpdateEvent%20%3D%20make(%22cartDiscountUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20SearchUpdateEvent%20%3D%20make(%22searchUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20true)%20%7D)%3B%0Aexport%20const%20CollectionViewEvent%20%3D%20make(%22collectionView%22)%3B%0Aexport%20const%20CollectionUpdateEvent%20%3D%20make(%22collectionUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20false)%20%7D)%3B%0Aconst%20VIEW_EVENTS%20%3D%20%7B%20%22product-component%22%3A%20ProductViewEvent%2C%20%22collection-component%22%3A%20CollectionViewEvent%20%7D%3B%0Aexport%20function%20createViewEventElement(Base%2C%20options)%20%7B%0A%20%20const%20B%20%3D%20Base%20%7C%7C%20HTMLElement%3B%0A%20%20const%20opts%20%3D%20options%20%7C%7C%20%7B%7D%3B%0A%20%20return%20class%20extends%20B%20%7B%0A%20%20%20%20connectedCallback()%20%7B%0A%20%20%20%20%20%20if%20(super.connectedCallback)%20super.connectedCallback()%3B%0A%20%20%20%20%20%20const%20trigger%20%3D%20this.getAttribute(%22view-event-trigger%22)%20%7C%7C%20opts.defaultTrigger%20%7C%7C%20%22connect%22%3B%0A%20%20%20%20%20%20if%20(trigger%20%3D%3D%3D%20%22connect%22)%20this.dispatchViewEvent()%3B%0A%20%20%20%20%20%20else%20if%20(trigger%20%3D%3D%3D%20%22intersect%22%20%26%26%20%22IntersectionObserver%22%20in%20window)%20%7B%0A%20%20%20%20%20%20%20%20const%20io%20%3D%20new%20IntersectionObserver((entries)%20%3D%3E%20%7B%20if%20(entries.some((e)%20%3D%3E%20e.isIntersecting))%20%7B%20io.disconnect()%3B%20this.dispatchViewEvent()%3B%20%7D%20%7D)%3B%0A%20%20%20%20%20%20%20%20io.observe(this)%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%20%20dispatchViewEvent()%20%7B%0A%20%20%20%20%20%20let%20payload%20%3D%20null%3B%0A%20%20%20%20%20%20const%20raw%20%3D%20this.getAttribute(%22view-event-payload%22)%20%7C%7C%20this.querySelector(%22script%5Bdata-view-event-payload%5D%22)%3F.textContent%3B%0A%20%20%20%20%20%20try%20%7B%20payload%20%3D%20raw%20%3F%20JSON.parse(raw)%20%3A%20null%3B%20%7D%20catch%20(e)%20%7B%20payload%20%3D%20null%3B%20%7D%0A%20%20%20%20%20%20if%20(!payload)%20return%3B%0A%20%20%20%20%20%20const%20Kind%20%3D%20payload.cart%20%3F%20CartViewEvent%20%3A%20payload.collection%20%3F%20CollectionViewEvent%20%3A%20payload.product%20%3F%20ProductViewEvent%20%3A%20VIEW_EVENTS%5Bthis.localName%5D%3B%0A%20%20%20%20%20%20if%20(Kind)%20this.dispatchEvent(new%20Kind(payload))%3B%0A%20%20%20%20%7D%0A%20%20%7D%3B%0A%7D%0Aexport%20const%20ViewEventElement%20%3D%20createViewEventElement(HTMLElement)%3B%0Aexport%20%7B%20StandardEvents%2C%20SlThemeStandardEvent%20%7D%3B","@shopify/partial-rendering":"data:text/javascript;charset=utf-8,async%20function%20refresh(name)%20%7B%0A%20%20const%20res%20%3D%20await%20fetch(location.href%2C%20%7B%20headers%3A%20%7B%20Accept%3A%20%22text%2Fhtml%22%20%7D%2C%20credentials%3A%20%22same-origin%22%20%7D)%3B%0A%20%20if%20(!res.ok)%20throw%20new%20Error(%22The%20page%20could%20not%20be%20drawn%20again%22)%3B%0A%20%20const%20doc%20%3D%20new%20DOMParser().parseFromString(await%20res.text()%2C%20%22text%2Fhtml%22)%3B%0A%20%20const%20sel%20%3D%20'%5Bdata-shopify-partial%3D%22'%20%2B%20CSS.escape(String(name))%20%2B%20'%22%5D'%3B%0A%20%20const%20fresh%20%3D%20doc.querySelector(sel)%3B%0A%20%20const%20here%20%3D%20document.querySelector(sel)%3B%0A%20%20if%20(fresh%20%26%26%20here)%20here.replaceWith(document.importNode(fresh%2C%20true))%3B%0A%7D%0Aexport%20const%20partials%20%3D%20%7B%20refresh%20%7D%3B%0Aexport%20default%20partials%3B"}}</script><style data-page-background>html{background-color:#f4f3f0}</style><script src="/theme-previews/landing-page/a/i.63b4697a1622.js"></script>
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -78,7 +81,7 @@ W.addEventListener("load",tell);D.addEventListener("DOMContentLoaded",function()
   .shopify-section[data-perf-offscreen] *,
   .shopify-section[data-perf-offscreen] *::before,
   .shopify-section[data-perf-offscreen] *::after { animation-play-state: paused !important; }
-</style><link rel="stylesheet" href="/theme-previews/landing-page/a/i.bebb8d20d681.css" id="speed-page-landing"><script id="speed-optimization-js" src="/theme-previews/landing-page/a/i.679dcd5ab7c8.js"></script>
+</style><link rel="stylesheet" href="/theme-previews/landing-page/a/i.262074ef9310.css" id="speed-page-landing"><script src="/theme-previews/landing-page/a/i.0bd6d5139503.js"></script><script id="speed-optimization-js" src="/theme-previews/landing-page/a/i.679dcd5ab7c8.js"></script>
 <script>
       (function () {
         try {
@@ -111,11 +114,11 @@ W.addEventListener("load",tell);D.addEventListener("DOMContentLoaded",function()
   }
 </style>
 <link rel="stylesheet" href="/theme-previews/landing-page/a/i.a9e116815527.css" data-shopify>
-<link href="/theme-previews/_base/a/theme.d71f5b96fec8.css" rel="stylesheet" type="text/css" media="all"><noscript><link href="/theme-previews/_base/a/popup.18cdf2513c31.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.1367a426b62b.css">
+<link href="/theme-previews/_base/a/theme.d71f5b96fec8.css" rel="stylesheet" type="text/css" media="all"><noscript><link href="/theme-previews/_base/a/popup.18cdf2513c31.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.9c20c549e3cf.css">
 <link rel="preload" as="style" href="/theme-previews/_base/a/minicart.ac0014483417.css" fetchpriority="low">
 <link rel="preload" as="style" href="/theme-previews/_base/a/materia-experience.b68d6d8152a8.css" fetchpriority="low">
 <link rel="stylesheet" href="/theme-previews/landing-page/a/i.483628a26d8f.css"><link rel="stylesheet" href="/theme-previews/landing-page/a/i.0f64d724d341.css"><link href="/theme-previews/_base/a/theme-button-contract.7d286d7eee9b.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/localization-controls.9494a0c83131.css" rel="stylesheet" type="text/css" media="all"><link rel="modulepreload" href="/theme-previews/_base/a/theme.7a7dd8f80f89.js" fetchpriority="low"><link rel="preload" as="style" href="/theme-previews/_base/a/main-product.f6cc6e1c565b.css">
-<link rel="preload" as="style" href="/theme-previews/_base/a/product-page-ui.b247d1d435f0.css"><script data-storelib-head src="/theme-previews/landing-page/a/i.d60c3c7ab47c.js"></script>
+<link rel="preload" as="style" href="/theme-previews/_base/a/product-page-ui.b247d1d435f0.css"><script data-storelib-head src="/theme-previews/landing-page/a/i.585ec254f5fd.js"></script>
 <script src="/theme-previews/_base/a/swiper-bundle-min.31d164f7367d.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/motion-min.d1f8eb312b47.js" type="module" defer="defer" fetchpriority="low"></script>
 <script src="/theme-previews/_base/a/utils.90eeb774e439.js" defer="defer" data-cart-count="0"></script>
@@ -131,7 +134,7 @@ W.addEventListener("load",tell);D.addEventListener("DOMContentLoaded",function()
 <link href="/theme-previews/_base/a/hero-image-one.7347eaeaff3f.css" rel="stylesheet" type="text/css" media="all">
 <script src="/theme-previews/_base/a/hero-image-one.1fc574354023.js" defer="defer"></script>
 <link href="/theme-previews/_base/a/before-after-controls.0119d231c0b0.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/text-section-controls.f1a83e444db3.css" rel="stylesheet" type="text/css" media="all"><script src="/theme-previews/landing-page/a/i.c8cec488b26e.js"></script>
+<link href="/theme-previews/_base/a/text-section-controls.f1a83e444db3.css" rel="stylesheet" type="text/css" media="all"><script src="/theme-previews/landing-page/a/i.55032103e897.js"></script>
 <link href="/theme-previews/_base/a/testimonial-quote.d74462f50435.css" rel="stylesheet" type="text/css" media="all">
 <link href="/theme-previews/_base/a/announcement-pro-4.98b829b630a8.css" rel="stylesheet" type="text/css" media="all">
 <link href="/theme-previews/_base/a/product-block-runtime.0c74f3d394a4.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/drift-basic-min.ae15d5c0ab03.css" rel="stylesheet" type="text/css" media="all">
@@ -326,7 +329,7 @@ data-menu-hover="none"
     --hs-logo-width-mobile: 78px;
     --hs-logo-max-height: 60px;
     --hs-logo-box-height: 76px;
-  }#shopify-section-header { --hs-menu-gap: 28px; --hs-icon-gap: 10px; --hs-icon-gap-mobile: 6px; --hs-logo-x: 0px; --hs-logo-x-mobile: 0px; }@media (max-width: 1024.98px) {
+  }#shopify-section-header { --hs-menu-gap: 28px; --hs-icon-gap: 10px; --hs-icon-gap-mobile: 6px; --hs-logo-x: 16px; --hs-logo-x-mobile: 0px; }@media (max-width: 1024.98px) {
     #shopify-section-header {
       --hs-logo-max-height: 48px;
       --hs-logo-box-height: 64px;
@@ -345,7 +348,7 @@ data-sticky="always"
 data-sticky-mobile="true" data-reset-spacing
 data-menu-hover="none" data-menu-hover-theme data-theme-hover="none"
 data-header-blocks="pill_glass_1:pill_glass menu_badges_1:menu_badges header_button_1:header_button " data-menu-type='{"on":false,"font":&quot;Assistant, sans-serif&quot;,"size":15,"weight":&quot;theme&quot;}'
-data-mega-label="button" data-dd-tinted data-logo-m="left" data-hs-flush data-logo-x="0 0"
+data-mega-label="button" data-dd-tinted data-logo-m="left" data-hs-flush data-logo-custom data-logo-x="16 0"
 style="--section-pt: 0;--section-pb: 0;--transparent-color: #1a1a1a;--menu-hover-color: var(--color-link-hover, currentColor);--dd-duration: 400ms;--dd-ease: cubic-bezier(0.187, 0.775, 0.435, 0.925);--dd-shadow: 0 5px 30px 0 rgba(0, 0, 0, 0.05);--dd-width: 260px;--dd-pad-y: 20px;--dd-pad-x: 30px;--dd-link-space: 3px;--dd-radius: 0px;--mega-gap: 32px;--mega-card-radius: 0px;--hs-act-size: 16px;--hs-act-weight: 400;--hs-act-case: none;--hs-logo-gap-m: 0px;"
 ><div class="header__inner header__layout-1" id="header-sticky">
 <div class="fluid_container">
@@ -372,7 +375,7 @@ class="action nav-toggle overlay inline-flex pointer w-44 h-44 hidden-1025 heade
 <path d="M2 8H20C20.2812 8 20.5156 7.90625 20.7031 7.71875C20.9062 7.51562 21.0078 7.27344 21.0078 6.99219C21.0078 6.72656 20.9062 6.5 20.7031 6.3125C20.5156 6.10938 20.2812 6.00781 20 6.00781H2C1.71875 6.00781 1.47656 6.10938 1.27344 6.3125C1.08594 6.5 0.992188 6.72656 0.992188 6.99219C0.992188 7.27344 1.08594 7.51562 1.27344 7.71875C1.47656 7.90625 1.71875 8 2 8ZM2 2H20C20.2812 2 20.5156 1.90625 20.7031 1.71875C20.9062 1.51563 21.0078 1.27344 21.0078 0.992188C21.0078 0.726562 20.9062 0.5 20.7031 0.3125C20.5156 0.109375 20.2812 0.0078125 20 0.0078125H2C1.71875 0.0078125 1.47656 0.109375 1.27344 0.3125C1.08594 0.5 0.992188 0.726562 0.992188 0.992188C0.992188 1.27344 1.08594 1.51563 1.27344 1.71875C1.47656 1.90625 1.71875 2 2 2ZM2 14H20C20.2812 14 20.5156 13.9062 20.7031 13.7188C20.9062 13.5156 21.0078 13.2734 21.0078 12.9922C21.0078 12.7266 20.9062 12.5 20.7031 12.3125C20.5156 12.1094 20.2812 12.0078 20 12.0078H2C1.71875 12.0078 1.47656 12.1094 1.27344 12.3125C1.08594 12.5 0.992188 12.7266 0.992188 12.9922C0.992188 13.2734 1.08594 13.5156 1.27344 13.7188C1.47656 13.9062 1.71875 14 2 14Z" fill="currentColor"/>
 </svg>
 </button>
-<link href="/theme-previews/_base/a/navigation.1367a426b62b.css" rel="stylesheet" type="text/css" media="all">
+<link href="/theme-previews/_base/a/navigation.9c20c549e3cf.css" rel="stylesheet" type="text/css" media="all">
 <nav
 class="flex flex-column block-1025 navigation horizontal fixed static-1025 visible-1025 inset-0 down-to-up"
 data-action-mobile="true"
@@ -697,7 +700,7 @@ data-mobile="1"
 data-tablet="1"
 data-desktop="1"
 data-thumb-direction="horizontal"
-data-thumb-slides-per-view="4"
+data-thumb-slides-per-view="4"data-nothumb="true"
 data-auto-play-video="true"
 >
 <div class="media-main-swiper skeleton-loading">
@@ -739,25 +742,6 @@ class="swiper-arrow swiper-arrow--next main-slide__navigation transition swiper-
 </div>
 </div>
 </div>
-<div class="media-thumb-swiper">
-<div
-class="thumbnail-slide swiper mt-10 thumb-bottom"
-style="--gap: 15px;"
->
-<div class="swiper-wrapper">
-<div
-class="media-gallery__image swiper-slide rounded-5 pointer"
-data-position="1"
-data-media-id="main-1000"
-style="--aspect-ratio: 16/10"
->
-<img src="/theme-previews/landing-page/a/landing-cover-whole-edit.713eebac1c3a.webp" srcset="/theme-previews/landing-page/a/landing-cover-whole-edit.713eebac1c3a.webp 720w, /theme-previews/landing-page/a/landing-cover-whole-edit.713eebac1c3a.webp 660w, /theme-previews/landing-page/a/landing-cover-whole-edit.713eebac1c3a.webp 550w, /theme-previews/landing-page/a/landing-cover-whole-edit.713eebac1c3a.webp 480w, /theme-previews/landing-page/a/landing-cover-whole-edit.713eebac1c3a.webp 330w, /theme-previews/landing-page/a/landing-cover-whole-edit.713eebac1c3a.webp 240w, /theme-previews/landing-page/a/landing-cover-whole-edit.713eebac1c3a.webp 185w" alt="The Whole Edit" width="1600" height="1600" loading="eager" fetchpriority="auto" decoding="async" sizes="(min-width: 768px) 120px, 80px" class=" bls-loaded-image">
-<div class="loading_image skeleton">
-</div>
-</div>
-</div>
-</div>
-</div>
 </slide-with-thumbs>
 </zoom-action>
 </media-gallery>
@@ -782,11 +766,11 @@ style="font-size: 30px;"
                   }
                 }
               </style>
-</motion-element></div><div class="pib-own" data-pib-block="price_2" data-pib-type="price" style="display: contents">
+</motion-element></div><div class="pib-own" data-pib-block="price_1" data-pib-type="price" style="display: contents">
 <div
 id="price-main"
 class="product-detail__price mb-10"
-data-block-id="price_2"
+data-block-id="price_1"
 style="font-size: 24px; font-weight: 800;"
 ><div class="card-product-price price-large flex align-center flex-wrap gap-5 relative"><div class="price-regular primary-color">
 <span class="visually-hidden">Sale price</span>
@@ -800,9 +784,9 @@ $249.00
 </div>
 </div>
 </div>
-<link rel="stylesheet" href="/theme-previews/landing-page/a/i.f5437d87dcce.css"></div><div class="pib-own" data-pib-block="product_description_3" data-pib-type="product_description" style="display: contents"><div id="ProductDescription-product_description_3"
+<link rel="stylesheet" href="/theme-previews/landing-page/a/i.f5437d87dcce.css"></div><div class="pib-own" data-pib-block="product_description_1" data-pib-type="product_description" style="display: contents"><div id="ProductDescription-product_description_1"
 class="pd-block"
-data-block-id="product_description_3"
+data-block-id="product_description_1"
 style="
 --pd-color: var(--color-text);
 --pd-fs-d: var(--body-font-size, 16px);
@@ -824,13 +808,13 @@ style="
 </div>
 <style>
       /* scoped to this block only */
-      #ProductDescription-product_description_3 .pd-inner{
+      #ProductDescription-product_description_1 .pd-inner{
         padding-left: var(--pd-pl-d);
         padding-right: var(--pd-pr-d);
         padding-top: var(--pd-pt-d);
         padding-bottom: var(--pd-pb-d);
       }
-      #ProductDescription-product_description_3 .pd-content{
+      #ProductDescription-product_description_1 .pd-content{
         color: var(--pd-color);
         text-align: start;                           /* left aligned */
         font-size: var(--pd-fs-d);
@@ -838,30 +822,80 @@ style="
         margin: 0;
       }
       @media (max-width: 768px){
-        #ProductDescription-product_description_3 .pd-inner{
+        #ProductDescription-product_description_1 .pd-inner{
           padding-left: var(--pd-pl-m);
           padding-right: var(--pd-pr-m);
           padding-top: var(--pd-pt-m);
           padding-bottom: var(--pd-pb-m);
         }
-        #ProductDescription-product_description_3 .pd-content{
+        #ProductDescription-product_description_1 .pd-content{
           font-size: var(--pd-fs-m);
         }
       }
     </style>
-</div></div><div class="pib-own" data-pib-block="benefits_stack_4" data-pib-type="benefits_stack" style="display: contents"><style>
-  #benefits-stack-benefits_stack_4 {
+</div></div><div class="pib-own" data-pib-block="variant_picker_1" data-pib-type="variant_picker" style="display: contents"><div
+id="variant-picker-variant_picker_1"
+class="product-detail__variant-picker mb-25"
+data-block-id="variant_picker_1"
+data-type="swatches"
+>
+<variant-radios-detail
+class="block"
+data-section="main"
+data-url="/theme-previews/landing-page/products/the-whole-edit.html"
+>
+<fieldset class="js product-form__input flex flex-wrap mb-25 mx-0 p-0 border-0 gap-10">
+<div class="form__label gap-10 w-full lh-normal flex gap-15 justify-between">
+<span>Seats: <span class="option_value heading-style capitalize">1 person</span></span
+></div>
+<input
+type="radio"
+id="main-detail-1-0"
+name="Seats"
+value="1 person"
+form="product-form-main"
+checked
+class=" visually-hidden"
+><label
+class="tooltip pointer product__color-swatches--js product__item-option inline-flex align-center border rounded-3 subheading_weight btn-hover lh-normal px-20 py-10 transition relative"
+for="main-detail-1-0"
+>
+<span class="relative z-2 uppercase-first-letter">
+1 person</span>
+</label>
+<input
+type="radio"
+id="main-detail-1-1"
+name="Seats"
+value="Team of 3"
+form="product-form-main"
+class=" visually-hidden"
+><label
+class="tooltip pointer product__color-swatches--js product__item-option inline-flex align-center border rounded-3 subheading_weight btn-hover lh-normal px-20 py-10 transition relative"
+for="main-detail-1-1"
+>
+<span class="relative z-2 uppercase-first-letter">
+Team of 3</span>
+</label>
+</fieldset><script type="application/json" data-variant-data>
+        [{"id":"00000000-0000-4000-8000-001000000001","title":"1 person","option1":"1 person","option2":null,"option3":null,"sku":"","requires_shipping":false,"taxable":true,"featured_image":null,"available":true,"name":"The Whole Edit - 1 person","public_title":"1 person","options":["1 person"],"price":24900,"weight":0,"compare_at_price":59400,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}},{"id":"00000000-0000-4000-8000-001000000002","title":"Team of 3","option1":"Team of 3","option2":null,"option3":null,"sku":"","requires_shipping":false,"taxable":true,"featured_image":null,"available":true,"name":"The Whole Edit - Team of 3","public_title":"Team of 3","options":["Team of 3"],"price":49900,"weight":0,"compare_at_price":84400,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}}]
+      </script><script type="application/json" data-variant-prices>
+  {"00000000-0000-4000-8000-001000000001": { "price": "$249.00", "compare_at_price": "$594.00" },"00000000-0000-4000-8000-001000000002": { "price": "$499.00", "compare_at_price": "$844.00" }}
+</script>
+</variant-radios-detail>
+</div></div><div class="pib-own" data-pib-block="benefits_stack_1" data-pib-type="benefits_stack" style="display: contents"><style>
+  #benefits-stack-benefits_stack_1 {
     padding-top: 8px;
     padding-bottom: 8px;
     
   }
-  #benefits-stack-benefits_stack_4 .benefits-stack {
+  #benefits-stack-benefits_stack_1 .benefits-stack {
     display: grid;
     grid-template-columns: repeat(1, minmax(0, 1fr));
     column-gap: 16px;
     row-gap: 10px;
   }
-  #benefits-stack-benefits_stack_4 .benefits-stack__item {
+  #benefits-stack-benefits_stack_1 .benefits-stack__item {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -870,34 +904,34 @@ style="
     line-height: 1.4;
   }
   @media (min-width: 750px) {
-    #benefits-stack-benefits_stack_4 .benefits-stack__item {
+    #benefits-stack-benefits_stack_1 .benefits-stack__item {
       font-size: 14px;
     }
   }
-  #benefits-stack-benefits_stack_4 .benefits-stack__icon {
+  #benefits-stack-benefits_stack_1 .benefits-stack__icon {
     width: 20px;
     height: 20px;
     flex: 0 0 auto;
     color: #ff5f1f;
   }
-  #benefits-stack-benefits_stack_4 .benefits-stack__icon svg {
+  #benefits-stack-benefits_stack_1 .benefits-stack__icon svg {
     width: 100%;
     height: 100%;
     display: block;
   }
   @media (max-width: 480px) {
-    #benefits-stack-benefits_stack_4 .benefits-stack {
+    #benefits-stack-benefits_stack_1 .benefits-stack {
       column-gap: 12px;
     }
   }
 </style>
-<div id="benefits-stack-benefits_stack_4" class="benefits-stack-block" data-block-id="benefits_stack_4">
+<div id="benefits-stack-benefits_stack_1" class="benefits-stack-block" data-block-id="benefits_stack_1">
 <div class="benefits-stack"><div class="benefits-stack__item"><span class="benefits-stack__icon" aria-hidden="true"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></span><span class="benefits-stack__text">Watch on any device, at your own pace</span>
 </div><div class="benefits-stack__item"><span class="benefits-stack__icon" aria-hidden="true"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></span><span class="benefits-stack__text">Raw footage and project files included</span>
 </div><div class="benefits-stack__item"><span class="benefits-stack__icon" aria-hidden="true"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></span><span class="benefits-stack__text">Works with any editing app</span>
 </div></div>
 </div>
-</div><div class="pib-own" data-pib-block="buy_buttons_5" data-pib-type="buy_buttons" style="display: contents"><style>
+</div><div class="pib-own" data-pib-block="buy_buttons_1" data-pib-type="buy_buttons" style="display: contents"><style>
 :is(#MainProduct-main, #shopify-section-main, sticky-add-cart[data-section-id="main"]) .product-detail__buy-buttons :is(button[name="add"], .product-form__submit) {
 }
 :is(#MainProduct-main, #shopify-section-main, sticky-add-cart[data-section-id="main"]) .product-detail__buy-buttons .shopify-payment-button__button:not(.shopify-payment-button__button--branded) {--mb-bg: #ff5f1f; --mb-border: #ff5f1f;--mb-text: #111113;--mb-hover-bg: #ff7a42; --mb-hover-border: #ff7a42;--mb-hover-text: #111113;
@@ -907,7 +941,7 @@ class="product-detail__buy-buttons button-trigger__sticky mb-20"
 data-atc-appearance="theme" data-buy-appearance="solid"
 data-bb-width="full"
 data-bb-quantity="left"
-data-block-id="buy_buttons_5"
+data-block-id="buy_buttons_1"
 data-section-currency="USD"
 >
 <div class="product__submit-form buy-btn-js d-flex flex-wrap btn-large">
@@ -926,7 +960,7 @@ data-section-id="main"
 <form id="product-form-main" accept-charset="UTF-8" class="feature-product-form" novalidate="novalidate" data-type="add-to-cart-form" data-type="add-to-cart-form" data-preview-form><input type="hidden" name="form_type" value="product"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="product-id" value="00000000-0000-4000-8000-000000000010"><input
 type="hidden"
 name="id"
-value="00000000-0000-4000-8000-000000000100"
+value="00000000-0000-4000-8000-001000000001"
 disabled
 class="product-variant-id"
 ><div class="product-form__buttons btn-large flex flex-wrap gap-10">
@@ -948,14 +982,14 @@ data-button-local-appearance="solid" data-button-appearance="solid"
 </div></div></form></product-form>
 </div>
 </div>
-</div><div class="pib-own" data-pib-block="money_back_guarantee_6" data-pib-type="money_back_guarantee" style="display: contents"><div
+</div><div class="pib-own" data-pib-block="money_back_guarantee_1" data-pib-type="money_back_guarantee" style="display: contents"><div
 class="product-detail__guarantee lh-normal"
-data-block-id="money_back_guarantee_6"
+data-block-id="money_back_guarantee_1"
 style="padding-top: 8px; padding-bottom: 8px; font-size: 14px; text-align: left;"
 >
 <div class="guarantee-inner" style="">
 <div class="guarantee-row flex align-center gap-10" style="justify-content: flex-start;"><span class="guarantee-icon inline-flex" style="width: 18px; height: 18px; flex: 0 0 auto; color: #ff5f1f !important;"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></span><span>Refund within 30 days if it is not for you</span></div></div>
-</div></div><div class="pib-own" data-pib-block="collapsible_row_7" data-pib-type="collapsible_row" style="display: contents"><details class="mt-acc product-detail__collapsible" data-mt-acc-key="collapsible_row_7" data-block-id="collapsible_row_7">
+</div></div><div class="pib-own" data-pib-block="collapsible_row_1" data-pib-type="collapsible_row" style="display: contents"><details class="mt-acc product-detail__collapsible" data-mt-acc-key="collapsible_row_1" data-block-id="collapsible_row_1">
 <summary>
 <h3 class="mt-acc__title">What is inside</h3>
 <svg class="mt-acc__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
@@ -963,13 +997,21 @@ style="padding-top: 8px; padding-bottom: 8px; font-size: 14px; text-align: left;
 <div class="mt-acc__body">
 <div class="mt-acc__inner rte"><p>Short video lessons, the raw clips and project file for each one, and notes for the most used editing apps. Write your own module list here.</p></div>
 </div>
-</details></div><div class="pib-own" data-pib-block="collapsible_row_8" data-pib-type="collapsible_row" style="display: contents"><details class="mt-acc product-detail__collapsible" data-mt-acc-key="collapsible_row_8" data-block-id="collapsible_row_8">
+</details></div><div class="pib-own" data-pib-block="collapsible_row_2" data-pib-type="collapsible_row" style="display: contents"><details class="mt-acc product-detail__collapsible" data-mt-acc-key="collapsible_row_2" data-block-id="collapsible_row_2">
 <summary>
 <h3 class="mt-acc__title">Who it is for</h3>
 <svg class="mt-acc__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
 </summary>
 <div class="mt-acc__body">
 <div class="mt-acc__inner rte"><p>People who film their own videos and want them to feel finished. No editing experience needed for beginner courses.</p></div>
+</div>
+</details></div><div class="pib-own" data-pib-block="collapsible_row_3" data-pib-type="collapsible_row" style="display: contents"><details class="mt-acc product-detail__collapsible" data-mt-acc-key="collapsible_row_3" data-block-id="collapsible_row_3">
+<summary>
+<h3 class="mt-acc__title">Refunds</h3>
+<svg class="mt-acc__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+</summary>
+<div class="mt-acc__body">
+<div class="mt-acc__inner rte"><p>Watch the first week. If it is not for you, write within 30 days and we refund you in full.</p></div>
 </div>
 </details></div></div>
 </motion-element>
@@ -1016,10 +1058,10 @@ href="/theme-previews/landing-page/products/the-whole-edit.html"
 </div>
 </div>
 <script type="application/json" class="product-variant__quantity">
-            [{ "option":"Small","qty":11,"available":true,"mamagement":""},{ "option":"Medium","qty":11,"available":true,"mamagement":""},{ "option":"Large","qty":0,"available":false,"mamagement":"shopify"}]
+            [{ "option":"1 person","qty":11,"available":true,"mamagement":""},{ "option":"Team of 3","qty":11,"available":true,"mamagement":""}]
           </script>
 </motion-element><script type="application/json" class="productItemVariantsQty">
-        [{ "option":"Small","qty":11,"available":true,"mamagement":""},{ "option":"Medium","qty":11,"available":true,"mamagement":""},{ "option":"Large","qty":0,"available":false,"mamagement":"shopify"}]
+        [{ "option":"1 person","qty":11,"available":true,"mamagement":""},{ "option":"Team of 3","qty":11,"available":true,"mamagement":""}]
       </script></div>
 <div class="sticky__item-info flex gap-10 w-full w-md-unset">
 <div class="product-detail__variant-picker text-size heading-color w-full">
@@ -1028,46 +1070,35 @@ data-section="main"
 data-url="/theme-previews/landing-page/products/the-whole-edit.html"
 >
 <div class="mt-select-wrap mt-sticky-select">
-<select class="mt-select select__sticky" aria-label="Size">
+<select class="mt-select select__sticky" aria-label="Seats">
 <option
 class="color product-sticky-js"
-data-variant-id="00000000-0000-4000-8000-000000000100"
-data-name="Size"
+data-variant-id="00000000-0000-4000-8000-001000000001"
+data-name="Seats"
 data-color-value=""
-data-value="Small"
-value="Small"
+data-value="1 person"
+value="1 person"
 selected="true"
 >
-Small -
+1 person -
 $249.00
 </option>
 <option
 class="color product-sticky-js"
-data-variant-id="00000000-0000-4000-8000-000000000101"
-data-name="Size"
-data-color-value="Medium"
-data-value="Medium"
-value="Medium"
+data-variant-id="00000000-0000-4000-8000-001000000002"
+data-name="Seats"
+data-color-value="Team of 3"
+data-value="Team of 3"
+value="Team of 3"
 >
-Medium -
-$249.00
-</option>
-<option
-class="color product-sticky-js"
-data-variant-id="00000000-0000-4000-8000-000000000102"
-data-name="Size"
-data-color-value="Large"
-data-value="Large"
-value="Large"
->
-Large -
-$249.00
+Team of 3 -
+$499.00
 </option>
 </select>
 <svg class="mt-select-wrap__chev" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m2.5 4.5 3.5 3.5 3.5-3.5"/></svg>
 </div>
 <script type="application/json" data-variant-data>
-    [{"id":"00000000-0000-4000-8000-000000000100","title":"Small","option1":"Small","option2":null,"option3":null,"sku":"","requires_shipping":false,"taxable":true,"featured_image":null,"available":true,"name":"The Whole Edit - Small","public_title":"Small","options":["Small"],"price":24900,"weight":0,"compare_at_price":59400,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}},{"id":"00000000-0000-4000-8000-000000000101","title":"Medium","option1":"Medium","option2":null,"option3":null,"sku":"","requires_shipping":false,"taxable":true,"featured_image":null,"available":true,"name":"The Whole Edit - Medium","public_title":"Medium","options":["Medium"],"price":24900,"weight":0,"compare_at_price":59400,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}},{"id":"00000000-0000-4000-8000-000000000102","title":"Large","option1":"Large","option2":null,"option3":null,"sku":"","requires_shipping":false,"taxable":true,"featured_image":null,"available":false,"name":"The Whole Edit - Large","public_title":"Large","options":["Large"],"price":24900,"weight":0,"compare_at_price":59400,"inventory_management":"shopify","barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}}]
+    [{"id":"00000000-0000-4000-8000-001000000001","title":"1 person","option1":"1 person","option2":null,"option3":null,"sku":"","requires_shipping":false,"taxable":true,"featured_image":null,"available":true,"name":"The Whole Edit - 1 person","public_title":"1 person","options":["1 person"],"price":24900,"weight":0,"compare_at_price":59400,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}},{"id":"00000000-0000-4000-8000-001000000002","title":"Team of 3","option1":"Team of 3","option2":null,"option3":null,"sku":"","requires_shipping":false,"taxable":true,"featured_image":null,"available":true,"name":"The Whole Edit - Team of 3","public_title":"Team of 3","options":["Team of 3"],"price":49900,"weight":0,"compare_at_price":84400,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}}]
   </script>
 </variant-radios-sticky>
 </div>
@@ -1081,7 +1112,7 @@ data-section-id="main"
 <form id="sticky-addcart-form-main" accept-charset="UTF-8" class="feature-product-form" novalidate="novalidate" data-type="add-to-cart-form" data-type="add-to-cart-form" data-preview-form><input type="hidden" name="form_type" value="product"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="product-id" value="00000000-0000-4000-8000-000000000010"><input
 type="hidden"
 name="id"
-value="00000000-0000-4000-8000-000000000100"
+value="00000000-0000-4000-8000-001000000001"
 disabled
 class="product-variant-id"
 ><div class="product-form__buttons btn-large flex flex-wrap gap-10">
@@ -1150,11 +1181,11 @@ style="--btn-padding-x: 2.5rem;"
       data-product-json
       class="productJson"
     >
-      {"id":"00000000-0000-4000-8000-000000000010","title":"The Whole Edit","handle":"the-whole-edit","description":"<p>All six courses in one bundle, with the raw footage and a monthly feedback call.<\/p>","published_at":null,"created_at":null,"vendor":"","type":"","tags":[],"price":24900,"price_min":24900,"price_max":24900,"available":true,"price_varies":false,"compare_at_price":59400,"compare_at_price_min":59400,"compare_at_price_max":59400,"compare_at_price_varies":false,"variants":[{"id":"00000000-0000-4000-8000-000000000100","title":"Small","option1":"Small","option2":null,"option3":null,"sku":"","requires_shipping":false,"taxable":true,"featured_image":null,"available":true,"name":"The Whole Edit - Small","public_title":"Small","options":["Small"],"price":24900,"weight":0,"compare_at_price":59400,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}},{"id":"00000000-0000-4000-8000-000000000101","title":"Medium","option1":"Medium","option2":null,"option3":null,"sku":"","requires_shipping":false,"taxable":true,"featured_image":null,"available":true,"name":"The Whole Edit - Medium","public_title":"Medium","options":["Medium"],"price":24900,"weight":0,"compare_at_price":59400,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}},{"id":"00000000-0000-4000-8000-000000000102","title":"Large","option1":"Large","option2":null,"option3":null,"sku":"","requires_shipping":false,"taxable":true,"featured_image":null,"available":false,"name":"The Whole Edit - Large","public_title":"Large","options":["Large"],"price":24900,"weight":0,"compare_at_price":59400,"inventory_management":"shopify","barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}}],"images":["/theme-previews/landing-page/a/landing-cover-whole-edit.713eebac1c3a.webp"],"featured_image":"/theme-previews/landing-page/a/landing-cover-whole-edit.713eebac1c3a.webp","options":["Size"],"media":[{"alt":"The Whole Edit","id":1000,"position":1,"preview_image":{"aspect_ratio":1,"height":1600,"width":1600,"src":"/theme-previews/landing-page/a/landing-cover-whole-edit.713eebac1c3a.webp"},"aspect_ratio":1,"height":1600,"media_type":"image","src":"/theme-previews/landing-page/a/landing-cover-whole-edit.713eebac1c3a.webp","width":1600}],"requires_selling_plan":false,"selling_plan_groups":[],"content":"<p>All six courses in one bundle, with the raw footage and a monthly feedback call.<\/p>"}
+      {"id":"00000000-0000-4000-8000-000000000010","title":"The Whole Edit","handle":"the-whole-edit","description":"<p>All six courses in one bundle, with the raw footage and a monthly feedback call.<\/p>","published_at":null,"created_at":null,"vendor":"","type":"","tags":[],"price":24900,"price_min":24900,"price_max":49900,"available":true,"price_varies":true,"compare_at_price":59400,"compare_at_price_min":59400,"compare_at_price_max":84400,"compare_at_price_varies":true,"variants":[{"id":"00000000-0000-4000-8000-001000000001","title":"1 person","option1":"1 person","option2":null,"option3":null,"sku":"","requires_shipping":false,"taxable":true,"featured_image":null,"available":true,"name":"The Whole Edit - 1 person","public_title":"1 person","options":["1 person"],"price":24900,"weight":0,"compare_at_price":59400,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}},{"id":"00000000-0000-4000-8000-001000000002","title":"Team of 3","option1":"Team of 3","option2":null,"option3":null,"sku":"","requires_shipping":false,"taxable":true,"featured_image":null,"available":true,"name":"The Whole Edit - Team of 3","public_title":"Team of 3","options":["Team of 3"],"price":49900,"weight":0,"compare_at_price":84400,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}}],"images":["/theme-previews/landing-page/a/landing-cover-whole-edit.713eebac1c3a.webp"],"featured_image":"/theme-previews/landing-page/a/landing-cover-whole-edit.713eebac1c3a.webp","options":["Seats"],"media":[{"alt":"The Whole Edit","id":1000,"position":1,"preview_image":{"aspect_ratio":1,"height":1600,"width":1600,"src":"/theme-previews/landing-page/a/landing-cover-whole-edit.713eebac1c3a.webp"},"aspect_ratio":1,"height":1600,"media_type":"image","src":"/theme-previews/landing-page/a/landing-cover-whole-edit.713eebac1c3a.webp","width":1600}],"requires_selling_plan":false,"selling_plan_groups":[],"content":"<p>All six courses in one bundle, with the raw footage and a monthly feedback call.<\/p>"}
     </script><script type="application/json" data-variant-media>
-  {"00000000-0000-4000-8000-000000000100": { "id": "", "src": "" },"00000000-0000-4000-8000-000000000101": { "id": "", "src": "" },"00000000-0000-4000-8000-000000000102": { "id": "", "src": "" }}
+  {"00000000-0000-4000-8000-001000000001": { "id": "", "src": "" },"00000000-0000-4000-8000-001000000002": { "id": "", "src": "" }}
 </script><script type="application/json" class="productVariantsQty">
-      [{ "id": "00000000-0000-4000-8000-000000000100", "option": "Small", "qty": 11, "available": true, "mamagement": "", "incoming": false, "incoming_date": "" },{ "id": "00000000-0000-4000-8000-000000000101", "option": "Medium", "qty": 11, "available": true, "mamagement": "", "incoming": false, "incoming_date": "" },{ "id": "00000000-0000-4000-8000-000000000102", "option": "Large", "qty": 0, "available": false, "mamagement": "shopify", "incoming": false, "incoming_date": "" }]
+      [{ "id": "00000000-0000-4000-8000-001000000001", "option": "1 person", "qty": 11, "available": true, "mamagement": "", "incoming": false, "incoming_date": "" },{ "id": "00000000-0000-4000-8000-001000000002", "option": "Team of 3", "qty": 11, "available": true, "mamagement": "", "incoming": false, "incoming_date": "" }]
     </script><script>
     document.addEventListener('DOMContentLoaded', function () {
       function isIE() {
@@ -1729,7 +1760,94 @@ data-faq7-trigger data-faq-trigger
 </div></div></div>
 </div>
 </div>
-<script src="/theme-previews/_base/a/faq-pro.aa0329bc0bd7.js" defer></script></div><section id="shopify-section-final" class="shopify-section section section-edge-bleed" data-section-id="final" data-section-type="banner3"><style>
+<script src="/theme-previews/_base/a/faq-pro.aa0329bc0bd7.js" defer></script></div><section id="shopify-section-related" class="shopify-section" data-section-id="related" data-section-type="related-products"><script src="/theme-previews/_base/a/live-product-extras.d9413cbad72b.js" defer="defer"></script>
+<style>
+  #shopify-section-related {
+    font-family: var(--body-font, inherit);
+    font-size: var(--body-font-size, inherit);
+    font-weight: var(--body-weight, inherit);
+    line-height: var(--body-line-height, inherit);
+    color: var(--color-text);
+  }
+  #shopify-section-related :is(h1, h2, h3, h4, h5, h6) {
+    font-family: var(--heading-font, inherit);
+    font-weight: var(--heading-weight, inherit);
+    letter-spacing: var(--heading-letter-spacing, normal);
+    line-height: var(--heading-line-height, 1.2);
+    text-transform: var(--heading-text-transform, none);
+  }
+  :where(html:not([data-font-priority='off'])) #shopify-section-related :where(.subheading, .sub-heading, [class*='__subheading']) {
+    font-weight: var(--subheading-weight, 500);
+  }
+</style><link rel="stylesheet" href="/theme-previews/landing-page/a/i.daa1cae7a180.css"><style>
+  #shopify-section-related { isolation: isolate; position: relative; }
+</style><style>
+  #shopify-section-related [data-rp-root] .section__header-heading { color: var(--rp-heading-color, var(--color-heading)); }
+  #shopify-section-related [data-rp-root] .section__header-des { color: var(--rp-text-color, var(--color-text)); }
+  #shopify-section-related [data-rp-root][data-rp-bg] { background: var(--rp-bg); }
+  #shopify-section-related [data-rp-root] .section__header-heading[data-own-font] { font-family: var(--rp-heading-font); }
+  #shopify-section-related [data-rp-root] .section__header-des[data-own-font],
+  #shopify-section-related [data-rp-root] .section__header-des[data-own-font] * { font-family: var(--rp-body-font); }
+  #shopify-section-related [data-rp-root] [data-rp-hidden] { display: none; }
+  #shopify-section-related:has(> [data-rp-reset]),
+  #shopify-section-related > [data-rp-reset] { margin-top: 0 !important; margin-bottom: 0 !important; }
+  #shopify-section-related:has(> [data-rp-reset]) + .shopify-section { margin-top: 0 !important; }
+</style><div
+class="section pb-min sec__related-product color-default gradient remove_spacing overflow-hidden"
+style="--section-pt: 88; --section-pb: 24;"
+data-rp-root
+data-rp-section="related"
+data-rp-reset
+>
+<div class="container" data-rp-width><div class="section__header mb-33 mb-sm-20 text-left">
+<div class="secion__header-inner">
+<motion-element
+data-motion="fade-up-lg"
+hold
+data-motion-delay="50"
+class="block  scroll-trigger subtle_rise"
+style="--animation-order: 0;"
+>
+<h2 class="section__header-heading heading-letter-spacing h3 mt-0 mb-0">
+More courses
+</h2>
+</motion-element>
+<motion-element
+data-motion="fade-up-lg"
+data-motion-delay="150"
+hold
+class="section__header-des block rich__text-m0"
+style="--animation-order: 1"
+data-rp-hidden
+>
+</motion-element>
+</div>
+</div><product-recommendations
+data-section-id="related"
+data-rp-grid
+style="--col-desktop: 4;--col-number: 2;--col-tablet: 3;  --col-gap: 15px;--col-gap-desktop: 20px;--repeat: 4; --col-mobile: 2"
+class="products-grid__items flex flex-cols row-gap-20 row-gap-md-30 flex-wrap "
+data-url="#"
+data-arrow-centerimage="1"
+><div class="related-skeleton__card" aria-hidden="true">
+<div class="related-skeleton__media" style="--aspect-ratio: 16/10;"></div>
+<div class="related-skeleton__line related-skeleton__line--title"></div>
+<div class="related-skeleton__line related-skeleton__line--price"></div>
+</div><div class="related-skeleton__card" aria-hidden="true">
+<div class="related-skeleton__media" style="--aspect-ratio: 16/10;"></div>
+<div class="related-skeleton__line related-skeleton__line--title"></div>
+<div class="related-skeleton__line related-skeleton__line--price"></div>
+</div><div class="related-skeleton__card" aria-hidden="true">
+<div class="related-skeleton__media" style="--aspect-ratio: 16/10;"></div>
+<div class="related-skeleton__line related-skeleton__line--title"></div>
+<div class="related-skeleton__line related-skeleton__line--price"></div>
+</div><div class="related-skeleton__card" aria-hidden="true">
+<div class="related-skeleton__media" style="--aspect-ratio: 16/10;"></div>
+<div class="related-skeleton__line related-skeleton__line--title"></div>
+<div class="related-skeleton__line related-skeleton__line--price"></div>
+</div></product-recommendations></div>
+</div>
+</section><section id="shopify-section-final" class="shopify-section section section-edge-bleed" data-section-id="final" data-section-type="banner3"><style>
   #shopify-section-final {
     font-family: var(--body-font, inherit);
     font-size: var(--body-font-size, inherit);
@@ -1828,7 +1946,7 @@ style="--rm-bg: #0e0e10; --rm-gradient: radial-gradient(70% 90% at 50% 120%, rgb
   #shopify-section-footer .arrow-toggle svg{width:var(--footer-arrow-size,14px);height:var(--footer-arrow-size,14px)}
 </style>
 <link href="/theme-previews/_base/a/collapsible.d0962c33f2d4.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/footer-section.37a0b34a1c2e.css" rel="stylesheet" type="text/css" media="all">
+<link href="/theme-previews/_base/a/footer-section.80f1cbc421de.css" rel="stylesheet" type="text/css" media="all">
 <footer
 class="product-sticky-hide footer color-scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9 gradient border-top remove_spacing remove_spacing-on-home"
 data-theme-footer
@@ -2009,7 +2127,7 @@ Your order
 <div class="footer__bottom"><div class="fluid_container">
 <div class="footer_bottom-inner justify-center justify-md-end flex flex-wrap flex-md-nowrap align-center border-top gap-20 gap-xl-30 py-30"><div class="flex flex-wrap gap-10 gap-xl-30 justify-center justify-md-start">
 <div class="footer__copyright" data-ft-copyright>© 2026 Cutroom</div>
-<ul class="footer__policies list-unstyled flex flex-wrap" data-ft-policies><li><a href="/theme-previews/landing-page/policies/refund-policy.html">Refund policy</a></li><li><a href="/theme-previews/landing-page/policies/privacy-policy.html">Privacy policy</a></li><li><a href="/theme-previews/landing-page/policies/terms-of-service.html">Terms of service</a></li></ul></div>
+<ul class="footer__policies list-unstyled flex flex-wrap" data-ft-policies><li><a href="/theme-previews/landing-page/policies/refund-policy.html">Refund policy</a></li><li><a href="/theme-previews/landing-page/policies/privacy-policy.html">Privacy policy</a></li><li><a href="/theme-previews/landing-page/policies/terms-of-service.html">Terms of service</a></li></ul><div class="footer__powered" data-ft-powered><a href="#" data-preview-inert data-storelib-badge="">Powered by Storelib</a></div></div>
 </div>
 </div>
 </div>
@@ -2033,7 +2151,7 @@ Your order
   :where(html:not([data-font-priority='off'])) #shopify-section-back_to_top_pro :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
-</style><style></style><link rel="stylesheet" href="/theme-previews/landing-page/a/i.69bfff3b6d12.css" data-shopify><div class="buttontoppro full_width" data-pg-root="back-to-top-pro" data-pg-section="back_to_top_pro">
+</style><style></style><link rel="stylesheet" href="/theme-previews/landing-page/a/i.aa611fb7b35a.css" data-shopify><div class="buttontoppro full_width" data-pg-root="back-to-top-pro" data-pg-section="back_to_top_pro">
 <button type="button" class="top-back_to_top_pro" data-back-to-top="back_to_top_pro" data-show-after="300" aria-label="Back to top">
 <span class="top-circle-back_to_top_pro color-default" data-pg-scheme>
 <svg class="top-progress-circle-back_to_top_pro" width="100%" height="100%" viewBox="-1 -1 102 102" aria-hidden="true" focusable="false">
@@ -2240,7 +2358,7 @@ Continue Shopping
 <div class="overlayminicart">
 </div>
 <script src="/theme-previews/landing-page/a/i.f50d71910c82.js"></script>
-<script src="/theme-previews/_base/a/animation.8fcd3a124757.js" defer="defer"></script>
+<script src="/theme-previews/_base/a/animation.7fa50ded717b.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/tingle-min.9664ca3641cf.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/cart-discount.6748c8dd9657.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/theme.7a7dd8f80f89.js"  defer="defer" type="module"></script>
@@ -2307,7 +2425,7 @@ Skip to content
   @keyframes materiaMediaFade { from { opacity: 0; } to { opacity: 1; } }
   html.js-media-fade .media-fade-run { animation: materiaMediaFade .4s ease; }
 </style>
-<script src="/theme-previews/landing-page/a/i.078d2107f4f7.js"></script>
+<script src="/theme-previews/landing-page/a/i.83047f4ee031.js"></script>
 <style>
         :root {
           /* Wire the user's Animations & motion settings to the keyframe vars used by animation.css */

@@ -243,6 +243,15 @@ const js = (v: unknown) => JSON.stringify(v).replace(/</g, "\\u003c")
 const BUY_NOW = `(function(){var add=function(b){var f=b.form||b.closest("form");return f&&f.querySelector('button[name="add"],button[type="submit"]:not([name="checkout"]):not([data-storelib-buy-now])')};var sync=function(){document.querySelectorAll("[data-storelib-buy-now]").forEach(function(b){var a=add(b);if(!a)return;var off=a.disabled||a.getAttribute("aria-disabled")==="true";if(b.disabled!==off)b.disabled=off})};var queued=0;var later=function(){if(queued)return;queued=1;requestAnimationFrame(function(){queued=0;sync()})};var watch=function(){sync();new MutationObserver(later).observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:["disabled","aria-disabled"]})};if(document.body)watch();else document.addEventListener("DOMContentLoaded",watch)})();if(!EDITING)document.addEventListener("click",function(e){var b=e.target&&e.target.closest&&e.target.closest("[data-storelib-buy-now]");if(!b)return;if(b.disabled){e.preventDefault();return}if(b.hasAttribute("data-sl-going")){e.preventDefault();e.stopImmediatePropagation();return}b.setAttribute("data-sl-going","");setTimeout(function(){b.removeAttribute("data-sl-going")},4000);var src=b.form||b.closest("form")||document.querySelector('form[action*="/cart/add"]');if(!src)return;e.preventDefault();e.stopImmediatePropagation();var f=document.createElement("form");f.method="post";f.action="/cart/add";f.style.display="none";new FormData(src).forEach(function(v,k){if(typeof v!=="string"||k==="checkout")return;var i=document.createElement("input");i.type="hidden";i.name=k;i.value=v;f.appendChild(i)});var c=document.createElement("input");c.type="hidden";c.name="checkout";c.value="1";f.appendChild(c);document.body.appendChild(f);f.submit()},true);if(!EDITING)addEventListener("pageshow",function(){document.querySelectorAll("[data-sl-going]").forEach(function(x){x.removeAttribute("data-sl-going")})});`
 
 /*
+  A PLAN'S ADD GOES TO JOINING IT. A theme adds by fetch (or XHR) and draws
+  the answer in its drawer; for a membership or a community's tier the cart
+  answers with X-Storelib-Go (site.ts planJoinHref), a path on this site, and
+  the page goes there, so Add to cart opens the plan's checkout instead of an
+  error. Only a path of this site is followed. Not in the builder's canvas.
+*/
+export const PLAN_GO = `if(!EDITING){var GO=function(g){if(typeof g==="string"&&/^\\/(?![\\/\\\\])/.test(g))location.assign(g)};var F=window.fetch;if(typeof F==="function")window.fetch=function(){return F.apply(this,arguments).then(function(r){try{GO(r.headers.get("X-Storelib-Go"))}catch(_){}return r})};var XO=window.XMLHttpRequest&&XMLHttpRequest.prototype.open;if(XO)XMLHttpRequest.prototype.open=function(){this.addEventListener("load",function(){try{GO(this.getResponseHeader("X-Storelib-Go"))}catch(_){}});return XO.apply(this,arguments)}}`
+
+/*
   A CHECKOUT LEFT DISABLED AFTER ITS BOX IS TICKED. A theme can draw its
   "I agree to the terms" box with Check out disabled and leave the script
   that enables it out of the page (Posturex: the drawer's box is drawn by one
@@ -390,7 +399,7 @@ export function shopifyBootstrap(i: BootstrapInput): string {
     storelib: true,
     storelibSignedIn: i.signedIn === true,
   }
-  return `<script data-storelib-head>(function(){var d=${js(data)};var S=window.Shopify=window.Shopify||{};for(var k in d)S[k]=d[k];S.cdnHost="";S.loadFeatures=function(f,cb){if(typeof cb==="function")setTimeout(function(){cb(new Error("This feature is not available on Storelib"))},0)};S.PaymentButton=S.PaymentButton||{init:function(){}};S.analytics=S.analytics||{publish:function(){},visitor:function(){}};var EDITING=${js(i.inBuilder ?? i.designMode)};var SID=${js(i.storeId ?? "")};var CART_AT_DRAW=${js(Math.max(0, Math.floor(i.cartCount ?? 0)))};${HELPERS}${BUY_NOW}${TERMS}${WISHLIST}${ACCOUNT_BUTTON}${FORMS}${PREFETCH}${BACK_FORWARD}${VIEW_TRANSITION}})();</script>`
+  return `<script data-storelib-head>(function(){var d=${js(data)};var S=window.Shopify=window.Shopify||{};for(var k in d)S[k]=d[k];S.cdnHost="";S.loadFeatures=function(f,cb){if(typeof cb==="function")setTimeout(function(){cb(new Error("This feature is not available on Storelib"))},0)};S.PaymentButton=S.PaymentButton||{init:function(){}};S.analytics=S.analytics||{publish:function(){},visitor:function(){}};var EDITING=${js(i.inBuilder ?? i.designMode)};var SID=${js(i.storeId ?? "")};var CART_AT_DRAW=${js(Math.max(0, Math.floor(i.cartCount ?? 0)))};${HELPERS}${BUY_NOW}${PLAN_GO}${TERMS}${WISHLIST}${ACCOUNT_BUTTON}${FORMS}${PREFETCH}${BACK_FORWARD}${VIEW_TRANSITION}})();</script>`
 }
 
 /** Shopify's CDN and its other hosts, which a page drawn by Storelib never loads. */

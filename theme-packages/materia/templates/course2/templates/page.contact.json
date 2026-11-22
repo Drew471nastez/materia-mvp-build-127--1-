@@ -1,0 +1,85 @@
+{
+  "sections": {
+    "contact": {
+      "type": "course2-contact",
+      "settings": {
+        "tag": "Contact",
+        "heading": "We are here to help",
+        "text": "<p>Questions about your machine, the lessons or team seats. We answer within two working days.</p>",
+        "email_label": "Or write to",
+        "email": "hello@slowbloom.coffee",
+        "card_tag": "Get in touch",
+        "card_heading": "Ask about your setup",
+        "card_text": "Tell us your machine and grinder and we will say which lessons to start with.",
+        "ph_first": "First name",
+        "ph_last": "Last name",
+        "ph_email": "Email",
+        "ph_message": "Your machine, your grinder, your question",
+        "agree_text": "",
+        "button_label": "Send message",
+        "thanks": "Thank you. We will write back within two working days.",
+        "error": "Please check the form.",
+        "accent": "#12704f",
+        "padding_top": 56
+      }
+    },
+    "faq": {
+      "type": "course2-faq",
+      "settings": {
+        "tag": "Questions",
+        "heading": "Straight answers",
+        "heading_accent": "before you buy",
+        "text": "<p>The questions people ask most. Anything else, <a href=\"/pages/contact\">write to us</a>.</p>",
+        "accent": "#12704f"
+      },
+      "blocks": {
+        "question_1": {
+          "type": "question",
+          "settings": {
+            "question": "What machine do I need?",
+            "answer": "<p>Any home espresso machine with a steam wand, and a grinder. The lessons use a single boiler machine and a hand grinder, and every step works the same on bigger ones.</p>"
+          }
+        },
+        "question_2": {
+          "type": "question",
+          "settings": {
+            "question": "Do I need a scale?",
+            "answer": "<p>Yes, any kitchen scale that reads to a tenth of a gram. It is the cheapest thing that makes the biggest difference.</p>"
+          }
+        },
+        "question_3": {
+          "type": "question",
+          "settings": {
+            "question": "I only drink filter coffee. Is it for me?",
+            "answer": "<p>The last module and the recipe cards cover pour over and cafetiere. The grinding lessons apply to both.</p>"
+          }
+        },
+        "question_4": {
+          "type": "question",
+          "settings": {
+            "question": "How long do I have access?",
+            "answer": "<p>For good. Watch on a phone, a tablet or a computer, and come back to any lesson whenever you like.</p>"
+          }
+        },
+        "question_5": {
+          "type": "question",
+          "settings": {
+            "question": "What if it is not for me?",
+            "answer": "<p>Write within 30 days and we refund you in full. Replace this with your own terms.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "question_1",
+        "question_2",
+        "question_3",
+        "question_4",
+        "question_5"
+      ]
+    }
+  },
+  "order": [
+    "contact",
+    "faq"
+  ]
+}

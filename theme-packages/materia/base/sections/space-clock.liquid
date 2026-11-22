@@ -1,14 +1,17 @@
 {%- comment -%}
   Space: the date and time under the header's logo, read from the visitor's
   own clock and kept current once a second (no request, no layout change:
-  only the text node changes). Optionally the crosshair mark above it, drawn
-  as an SVG in a colour of your choice, for a store without a logo image.
+  only the text node changes). Optionally a moon mark above it (a crescent in
+  a thin ring), drawn as an SVG in a colour of your choice, for a store
+  without a logo image.
 {%- endcomment -%}
 {%- liquid
   assign s = section.settings
   assign sid = section.id
   assign color = s.text_color | default: '#ffffff'
-  assign mark = s.mark_color | default: '#e0201b'
+  assign mark = s.mark_color | default: '#ffffff'
+  assign mark_weight = s.mark_weight | default: 2
+  assign mark_radius = 48 | minus: mark_weight
 -%}
 <style>
   #shopify-section-{{ sid }} { position: relative; z-index: 2; margin: 0 !important; }
@@ -32,9 +35,9 @@
   {%- if s.show_mark -%}
     <a class="space-clock__mark" href="{{ routes.root_url | default: '/' }}" aria-label="{{ shop.name | escape }}">
       <svg viewBox="0 0 100 100" fill="none" aria-hidden="true" focusable="false">
-        <circle cx="50" cy="50" r="38" stroke="currentColor" stroke-width="{{ s.mark_weight | default: 5 }}"/>
-        <line x1="50" y1="4" x2="50" y2="96" stroke="currentColor" stroke-width="{{ s.mark_weight | default: 5 }}"/>
-        <line x1="4" y1="50" x2="96" y2="50" stroke="currentColor" stroke-width="{{ s.mark_weight | default: 5 }}"/>
+        <defs><mask id="space-moon-{{ sid }}"><rect width="100" height="100" fill="#fff"/><circle cx="63" cy="42" r="27" fill="#000"/></mask></defs>
+        <circle cx="50" cy="50" r="{{ mark_radius }}" stroke="currentColor" stroke-width="{{ mark_weight }}"/>
+        <circle cx="50" cy="50" r="30" fill="currentColor" mask="url(#space-moon-{{ sid }})"/>
       </svg>
     </a>
   {%- endif -%}
@@ -126,12 +129,12 @@
     },
     {
       "type": "header",
-      "content": "Crosshair mark"
+      "content": "Moon mark"
     },
     {
       "type": "checkbox",
       "id": "show_mark",
-      "label": "Draw the crosshair mark above the date",
+      "label": "Draw the moon mark above the date",
       "default": false,
       "info": "For a store without a logo picture. The header's logo stays where it is."
     },
@@ -139,7 +142,7 @@
       "type": "color",
       "id": "mark_color",
       "label": "Mark colour",
-      "default": "#e0201b"
+      "default": "#ffffff"
     },
     {
       "type": "range",
@@ -154,11 +157,11 @@
     {
       "type": "range",
       "id": "mark_weight",
-      "label": "Line weight",
-      "min": 2,
-      "max": 10,
+      "label": "Ring weight",
+      "min": 1,
+      "max": 6,
       "step": 1,
-      "default": 5
+      "default": 2
     },
     {
       "type": "header",

@@ -31,7 +31,10 @@ D.addEventListener("keydown",function(e){var i=e.target;if(e.key!=="Enter"||!i||
 D.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a[data-preview-inert]");if(a)e.preventDefault()},true);
 var told=false;function tell(){if(told)return;told=true;try{parent.postMessage({type:"storelib:template-preview",ready:true,path:location.pathname},"*")}catch(e){}}
 W.addEventListener("load",tell);D.addEventListener("DOMContentLoaded",function(){setTimeout(tell,1200)});
-})();</script><script type="importmap">{"imports":{"@shopify/events":"data:text/javascript;charset=utf-8,const%20StandardEvents%20%3D%20Object.freeze(%7B%0A%20%20pageView%3A%20%22shopify%3Apage%3Aview%22%2C%0A%20%20productView%3A%20%22shopify%3Aproduct%3Aview%22%2C%0A%20%20productSelect%3A%20%22shopify%3Aproduct%3Aselect%22%2C%0A%20%20cartView%3A%20%22shopify%3Acart%3Aview%22%2C%0A%20%20cartError%3A%20%22shopify%3Acart%3Aerror%22%2C%0A%20%20cartLinesUpdate%3A%20%22shopify%3Acart%3Alines-update%22%2C%0A%20%20cartNoteUpdate%3A%20%22shopify%3Acart%3Anote-update%22%2C%0A%20%20cartDiscountUpdate%3A%20%22shopify%3Acart%3Adiscount-update%22%2C%0A%20%20searchUpdate%3A%20%22shopify%3Asearch%3Aupdate%22%2C%0A%20%20collectionView%3A%20%22shopify%3Acollection%3Aview%22%2C%0A%20%20collectionUpdate%3A%20%22shopify%3Acollection%3Aupdate%22%2C%0A%7D)%3B%0Afunction%20createGid(type%2C%20id)%20%7B%0A%20%20const%20s%20%3D%20String(id)%3B%0A%20%20return%20s.startsWith(%22gid%3A%2F%2F%22)%20%3F%20s%20%3A%20%22gid%3A%2F%2Fshopify%2F%22%20%2B%20type%20%2B%20%22%2F%22%20%2B%20s%3B%0A%7D%0Afunction%20money(cents%2C%20code)%20%7B%20return%20%7B%20amount%3A%20((Number(cents)%20%7C%7C%200)%20%2F%20100).toFixed(2)%2C%20currencyCode%3A%20code%20%7C%7C%20%22USD%22%20%7D%3B%20%7D%0Afunction%20fromAjaxCart(cart)%20%7B%0A%20%20const%20c%20%3D%20cart%20%7C%7C%20%7B%7D%3B%0A%20%20const%20code%20%3D%20c.currency%20%7C%7C%20%22USD%22%3B%0A%20%20return%20%7B%0A%20%20%20%20id%3A%20createGid(%22Cart%22%2C%20c.token%20%7C%7C%20%22storelib%22)%2C%0A%20%20%20%20totalQuantity%3A%20Number(c.item_count)%20%7C%7C%200%2C%0A%20%20%20%20cost%3A%20%7B%20totalAmount%3A%20money(c.total_price%2C%20code)%20%7D%2C%0A%20%20%20%20lines%3A%20(c.items%20%7C%7C%20%5B%5D).map((l)%20%3D%3E%20(%7B%20id%3A%20createGid(%22CartLine%22%2C%20l.key)%2C%20quantity%3A%20Number(l.quantity)%20%7C%7C%200%2C%20cost%3A%20%7B%20totalAmount%3A%20money(l.final_line_price%2C%20code)%20%7D%20%7D))%2C%0A%20%20%20%20discountCodes%3A%20%5B%5D%2C%0A%20%20%7D%3B%0A%7D%0Afunction%20parseProductFilters(searchParams)%20%7B%0A%20%20const%20p%20%3D%20searchParams%20%7C%7C%20new%20URLSearchParams(location.search)%3B%0A%20%20const%20out%20%3D%20%5B%5D%3B%0A%20%20for%20(const%20%5Bk%2C%20v%5D%20of%20p.entries())%20%7B%0A%20%20%20%20if%20(!k.startsWith(%22filter.%22))%20continue%3B%0A%20%20%20%20if%20(k%20%3D%3D%3D%20%22filter.v.availability%22)%20out.push(%7B%20available%3A%20v%20%3D%3D%3D%20%221%22%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.gte%22)%20out.push(%7B%20price%3A%20%7B%20min%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.lte%22)%20out.push(%7B%20price%3A%20%7B%20max%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.product_type%22)%20out.push(%7B%20productType%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.vendor%22)%20out.push(%7B%20productVendor%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.tag%22)%20out.push(%7B%20tag%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k.startsWith(%22filter.v.option.%22))%20out.push(%7B%20variantOption%3A%20%7B%20name%3A%20k.slice(16)%2C%20value%3A%20v%20%7D%20%7D)%3B%0A%20%20%7D%0A%20%20return%20out.length%20%3F%20out%20%3A%20undefined%3B%0A%7D%0Afunction%20sortKey(searchParams%2C%20search)%20%7B%0A%20%20const%20v%20%3D%20(searchParams%20%7C%7C%20new%20URLSearchParams(location.search)).get(%22sort_by%22)%20%7C%7C%20%22%22%3B%0A%20%20if%20(v.startsWith(%22price%22))%20return%20%22PRICE%22%3B%0A%20%20if%20(search)%20return%20%22RELEVANCE%22%3B%0A%20%20if%20(v.startsWith(%22title%22))%20return%20%22TITLE%22%3B%0A%20%20if%20(v.startsWith(%22created%22))%20return%20%22CREATED%22%3B%0A%20%20if%20(v%20%3D%3D%3D%20%22best-selling%22)%20return%20%22BEST_SELLING%22%3B%0A%20%20return%20v%20%3F%20%22MANUAL%22%20%3A%20%22COLLECTION_DEFAULT%22%3B%0A%7D%0Afunction%20deferred()%20%7B%0A%20%20let%20resolve%2C%20reject%3B%0A%20%20const%20promise%20%3D%20new%20Promise((a%2C%20b)%20%3D%3E%20%7B%20resolve%20%3D%20a%3B%20reject%20%3D%20b%3B%20%7D)%3B%0A%20%20promise.catch(()%20%3D%3E%20%7B%7D)%3B%0A%20%20return%20%7B%20promise%2C%20resolve%2C%20reject%20%7D%3B%0A%7D%0Aclass%20SlThemeStandardEvent%20extends%20Event%20%7B%0A%20%20constructor(type%2C%20payload%2C%20options)%20%7B%0A%20%20%20%20super(type%2C%20Object.assign(%7B%20bubbles%3A%20true%2C%20composed%3A%20true%20%7D%2C%20options%20%7C%7C%20%7B%7D))%3B%0A%20%20%20%20const%20p%20%3D%20payload%20%7C%7C%20%7B%7D%3B%0A%20%20%20%20for%20(const%20k%20of%20Object.keys(p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20k%2C%20%7B%20value%3A%20p%5Bk%5D%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%2C%20writable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%20%20if%20(!(%22promise%22%20in%20p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20%22promise%22%2C%20%7B%20value%3A%20Promise.resolve(%7B%20detail%3A%20p.detail%20%7D)%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0ASlThemeStandardEvent.createGid%20%3D%20createGid%3B%0Aconst%20make%20%3D%20(name%2C%20extra)%20%3D%3E%20%7B%0A%20%20const%20C%20%3D%20class%20extends%20SlThemeStandardEvent%20%7B%20constructor(payload)%20%7B%20super(StandardEvents%5Bname%5D%2C%20payload)%3B%20%7D%20%7D%3B%0A%20%20C.eventName%20%3D%20StandardEvents%5Bname%5D%3B%0A%20%20C.createPromise%20%3D%20deferred%3B%0A%20%20Object.assign(C%2C%20extra%20%7C%7C%20%7B%7D)%3B%0A%20%20return%20C%3B%0A%7D%3B%0Aexport%20const%20PageViewEvent%20%3D%20make(%22pageView%22)%3B%0Aexport%20const%20ProductViewEvent%20%3D%20make(%22productView%22)%3B%0Aexport%20const%20ProductSelectEvent%20%3D%20make(%22productSelect%22)%3B%0Aexport%20const%20CartViewEvent%20%3D%20make(%22cartView%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartErrorEvent%20%3D%20make(%22cartError%22)%3B%0Aexport%20const%20CartLinesUpdateEvent%20%3D%20make(%22cartLinesUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartNoteUpdateEvent%20%3D%20make(%22cartNoteUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartDiscountUpdateEvent%20%3D%20make(%22cartDiscountUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20SearchUpdateEvent%20%3D%20make(%22searchUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20true)%20%7D)%3B%0Aexport%20const%20CollectionViewEvent%20%3D%20make(%22collectionView%22)%3B%0Aexport%20const%20CollectionUpdateEvent%20%3D%20make(%22collectionUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20false)%20%7D)%3B%0Aconst%20VIEW_EVENTS%20%3D%20%7B%20%22product-component%22%3A%20ProductViewEvent%2C%20%22collection-component%22%3A%20CollectionViewEvent%20%7D%3B%0Aexport%20function%20createViewEventElement(Base%2C%20options)%20%7B%0A%20%20const%20B%20%3D%20Base%20%7C%7C%20HTMLElement%3B%0A%20%20const%20opts%20%3D%20options%20%7C%7C%20%7B%7D%3B%0A%20%20return%20class%20extends%20B%20%7B%0A%20%20%20%20connectedCallback()%20%7B%0A%20%20%20%20%20%20if%20(super.connectedCallback)%20super.connectedCallback()%3B%0A%20%20%20%20%20%20const%20trigger%20%3D%20this.getAttribute(%22view-event-trigger%22)%20%7C%7C%20opts.defaultTrigger%20%7C%7C%20%22connect%22%3B%0A%20%20%20%20%20%20if%20(trigger%20%3D%3D%3D%20%22connect%22)%20this.dispatchViewEvent()%3B%0A%20%20%20%20%20%20else%20if%20(trigger%20%3D%3D%3D%20%22intersect%22%20%26%26%20%22IntersectionObserver%22%20in%20window)%20%7B%0A%20%20%20%20%20%20%20%20const%20io%20%3D%20new%20IntersectionObserver((entries)%20%3D%3E%20%7B%20if%20(entries.some((e)%20%3D%3E%20e.isIntersecting))%20%7B%20io.disconnect()%3B%20this.dispatchViewEvent()%3B%20%7D%20%7D)%3B%0A%20%20%20%20%20%20%20%20io.observe(this)%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%20%20dispatchViewEvent()%20%7B%0A%20%20%20%20%20%20let%20payload%20%3D%20null%3B%0A%20%20%20%20%20%20const%20raw%20%3D%20this.getAttribute(%22view-event-payload%22)%20%7C%7C%20this.querySelector(%22script%5Bdata-view-event-payload%5D%22)%3F.textContent%3B%0A%20%20%20%20%20%20try%20%7B%20payload%20%3D%20raw%20%3F%20JSON.parse(raw)%20%3A%20null%3B%20%7D%20catch%20(e)%20%7B%20payload%20%3D%20null%3B%20%7D%0A%20%20%20%20%20%20if%20(!payload)%20return%3B%0A%20%20%20%20%20%20const%20Kind%20%3D%20payload.cart%20%3F%20CartViewEvent%20%3A%20payload.collection%20%3F%20CollectionViewEvent%20%3A%20payload.product%20%3F%20ProductViewEvent%20%3A%20VIEW_EVENTS%5Bthis.localName%5D%3B%0A%20%20%20%20%20%20if%20(Kind)%20this.dispatchEvent(new%20Kind(payload))%3B%0A%20%20%20%20%7D%0A%20%20%7D%3B%0A%7D%0Aexport%20const%20ViewEventElement%20%3D%20createViewEventElement(HTMLElement)%3B%0Aexport%20%7B%20StandardEvents%2C%20SlThemeStandardEvent%20%7D%3B","@shopify/partial-rendering":"data:text/javascript;charset=utf-8,async%20function%20refresh(name)%20%7B%0A%20%20const%20res%20%3D%20await%20fetch(location.href%2C%20%7B%20headers%3A%20%7B%20Accept%3A%20%22text%2Fhtml%22%20%7D%2C%20credentials%3A%20%22same-origin%22%20%7D)%3B%0A%20%20if%20(!res.ok)%20throw%20new%20Error(%22The%20page%20could%20not%20be%20drawn%20again%22)%3B%0A%20%20const%20doc%20%3D%20new%20DOMParser().parseFromString(await%20res.text()%2C%20%22text%2Fhtml%22)%3B%0A%20%20const%20sel%20%3D%20'%5Bdata-shopify-partial%3D%22'%20%2B%20CSS.escape(String(name))%20%2B%20'%22%5D'%3B%0A%20%20const%20fresh%20%3D%20doc.querySelector(sel)%3B%0A%20%20const%20here%20%3D%20document.querySelector(sel)%3B%0A%20%20if%20(fresh%20%26%26%20here)%20here.replaceWith(document.importNode(fresh%2C%20true))%3B%0A%7D%0Aexport%20const%20partials%20%3D%20%7B%20refresh%20%7D%3B%0Aexport%20default%20partials%3B"}}</script><script src="/theme-previews/digital-products/a/i.fc17d0660d95.js"></script>
+/* The page's own background, as soon as it is known: the frame shows it between two pages instead of its own white (a white flash on a dark shop). */
+function paint(){try{var c=getComputedStyle(D.documentElement).backgroundColor;if(!c||/rgba(0, 0, 0, 0)|transparent/.test(c))c=getComputedStyle(D.body).backgroundColor;if(c&&!/rgba(0, 0, 0, 0)|transparent/.test(c))parent.postMessage({type:"storelib:template-preview-background",background:c},"*")}catch(e){}}
+D.addEventListener("DOMContentLoaded",paint);
+})();</script><script type="importmap">{"imports":{"@shopify/events":"data:text/javascript;charset=utf-8,const%20StandardEvents%20%3D%20Object.freeze(%7B%0A%20%20pageView%3A%20%22shopify%3Apage%3Aview%22%2C%0A%20%20productView%3A%20%22shopify%3Aproduct%3Aview%22%2C%0A%20%20productSelect%3A%20%22shopify%3Aproduct%3Aselect%22%2C%0A%20%20cartView%3A%20%22shopify%3Acart%3Aview%22%2C%0A%20%20cartError%3A%20%22shopify%3Acart%3Aerror%22%2C%0A%20%20cartLinesUpdate%3A%20%22shopify%3Acart%3Alines-update%22%2C%0A%20%20cartNoteUpdate%3A%20%22shopify%3Acart%3Anote-update%22%2C%0A%20%20cartDiscountUpdate%3A%20%22shopify%3Acart%3Adiscount-update%22%2C%0A%20%20searchUpdate%3A%20%22shopify%3Asearch%3Aupdate%22%2C%0A%20%20collectionView%3A%20%22shopify%3Acollection%3Aview%22%2C%0A%20%20collectionUpdate%3A%20%22shopify%3Acollection%3Aupdate%22%2C%0A%7D)%3B%0Afunction%20createGid(type%2C%20id)%20%7B%0A%20%20const%20s%20%3D%20String(id)%3B%0A%20%20return%20s.startsWith(%22gid%3A%2F%2F%22)%20%3F%20s%20%3A%20%22gid%3A%2F%2Fshopify%2F%22%20%2B%20type%20%2B%20%22%2F%22%20%2B%20s%3B%0A%7D%0Afunction%20money(cents%2C%20code)%20%7B%20return%20%7B%20amount%3A%20((Number(cents)%20%7C%7C%200)%20%2F%20100).toFixed(2)%2C%20currencyCode%3A%20code%20%7C%7C%20%22USD%22%20%7D%3B%20%7D%0Afunction%20fromAjaxCart(cart)%20%7B%0A%20%20const%20c%20%3D%20cart%20%7C%7C%20%7B%7D%3B%0A%20%20const%20code%20%3D%20c.currency%20%7C%7C%20%22USD%22%3B%0A%20%20return%20%7B%0A%20%20%20%20id%3A%20createGid(%22Cart%22%2C%20c.token%20%7C%7C%20%22storelib%22)%2C%0A%20%20%20%20totalQuantity%3A%20Number(c.item_count)%20%7C%7C%200%2C%0A%20%20%20%20cost%3A%20%7B%20totalAmount%3A%20money(c.total_price%2C%20code)%20%7D%2C%0A%20%20%20%20lines%3A%20(c.items%20%7C%7C%20%5B%5D).map((l)%20%3D%3E%20(%7B%20id%3A%20createGid(%22CartLine%22%2C%20l.key)%2C%20quantity%3A%20Number(l.quantity)%20%7C%7C%200%2C%20cost%3A%20%7B%20totalAmount%3A%20money(l.final_line_price%2C%20code)%20%7D%20%7D))%2C%0A%20%20%20%20discountCodes%3A%20%5B%5D%2C%0A%20%20%7D%3B%0A%7D%0Afunction%20parseProductFilters(searchParams)%20%7B%0A%20%20const%20p%20%3D%20searchParams%20%7C%7C%20new%20URLSearchParams(location.search)%3B%0A%20%20const%20out%20%3D%20%5B%5D%3B%0A%20%20for%20(const%20%5Bk%2C%20v%5D%20of%20p.entries())%20%7B%0A%20%20%20%20if%20(!k.startsWith(%22filter.%22))%20continue%3B%0A%20%20%20%20if%20(k%20%3D%3D%3D%20%22filter.v.availability%22)%20out.push(%7B%20available%3A%20v%20%3D%3D%3D%20%221%22%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.gte%22)%20out.push(%7B%20price%3A%20%7B%20min%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.lte%22)%20out.push(%7B%20price%3A%20%7B%20max%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.product_type%22)%20out.push(%7B%20productType%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.vendor%22)%20out.push(%7B%20productVendor%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.tag%22)%20out.push(%7B%20tag%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k.startsWith(%22filter.v.option.%22))%20out.push(%7B%20variantOption%3A%20%7B%20name%3A%20k.slice(16)%2C%20value%3A%20v%20%7D%20%7D)%3B%0A%20%20%7D%0A%20%20return%20out.length%20%3F%20out%20%3A%20undefined%3B%0A%7D%0Afunction%20sortKey(searchParams%2C%20search)%20%7B%0A%20%20const%20v%20%3D%20(searchParams%20%7C%7C%20new%20URLSearchParams(location.search)).get(%22sort_by%22)%20%7C%7C%20%22%22%3B%0A%20%20if%20(v.startsWith(%22price%22))%20return%20%22PRICE%22%3B%0A%20%20if%20(search)%20return%20%22RELEVANCE%22%3B%0A%20%20if%20(v.startsWith(%22title%22))%20return%20%22TITLE%22%3B%0A%20%20if%20(v.startsWith(%22created%22))%20return%20%22CREATED%22%3B%0A%20%20if%20(v%20%3D%3D%3D%20%22best-selling%22)%20return%20%22BEST_SELLING%22%3B%0A%20%20return%20v%20%3F%20%22MANUAL%22%20%3A%20%22COLLECTION_DEFAULT%22%3B%0A%7D%0Afunction%20deferred()%20%7B%0A%20%20let%20resolve%2C%20reject%3B%0A%20%20const%20promise%20%3D%20new%20Promise((a%2C%20b)%20%3D%3E%20%7B%20resolve%20%3D%20a%3B%20reject%20%3D%20b%3B%20%7D)%3B%0A%20%20promise.catch(()%20%3D%3E%20%7B%7D)%3B%0A%20%20return%20%7B%20promise%2C%20resolve%2C%20reject%20%7D%3B%0A%7D%0Aclass%20SlThemeStandardEvent%20extends%20Event%20%7B%0A%20%20constructor(type%2C%20payload%2C%20options)%20%7B%0A%20%20%20%20super(type%2C%20Object.assign(%7B%20bubbles%3A%20true%2C%20composed%3A%20true%20%7D%2C%20options%20%7C%7C%20%7B%7D))%3B%0A%20%20%20%20const%20p%20%3D%20payload%20%7C%7C%20%7B%7D%3B%0A%20%20%20%20for%20(const%20k%20of%20Object.keys(p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20k%2C%20%7B%20value%3A%20p%5Bk%5D%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%2C%20writable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%20%20if%20(!(%22promise%22%20in%20p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20%22promise%22%2C%20%7B%20value%3A%20Promise.resolve(%7B%20detail%3A%20p.detail%20%7D)%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0ASlThemeStandardEvent.createGid%20%3D%20createGid%3B%0Aconst%20make%20%3D%20(name%2C%20extra)%20%3D%3E%20%7B%0A%20%20const%20C%20%3D%20class%20extends%20SlThemeStandardEvent%20%7B%20constructor(payload)%20%7B%20super(StandardEvents%5Bname%5D%2C%20payload)%3B%20%7D%20%7D%3B%0A%20%20C.eventName%20%3D%20StandardEvents%5Bname%5D%3B%0A%20%20C.createPromise%20%3D%20deferred%3B%0A%20%20Object.assign(C%2C%20extra%20%7C%7C%20%7B%7D)%3B%0A%20%20return%20C%3B%0A%7D%3B%0Aexport%20const%20PageViewEvent%20%3D%20make(%22pageView%22)%3B%0Aexport%20const%20ProductViewEvent%20%3D%20make(%22productView%22)%3B%0Aexport%20const%20ProductSelectEvent%20%3D%20make(%22productSelect%22)%3B%0Aexport%20const%20CartViewEvent%20%3D%20make(%22cartView%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartErrorEvent%20%3D%20make(%22cartError%22)%3B%0Aexport%20const%20CartLinesUpdateEvent%20%3D%20make(%22cartLinesUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartNoteUpdateEvent%20%3D%20make(%22cartNoteUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartDiscountUpdateEvent%20%3D%20make(%22cartDiscountUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20SearchUpdateEvent%20%3D%20make(%22searchUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20true)%20%7D)%3B%0Aexport%20const%20CollectionViewEvent%20%3D%20make(%22collectionView%22)%3B%0Aexport%20const%20CollectionUpdateEvent%20%3D%20make(%22collectionUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20false)%20%7D)%3B%0Aconst%20VIEW_EVENTS%20%3D%20%7B%20%22product-component%22%3A%20ProductViewEvent%2C%20%22collection-component%22%3A%20CollectionViewEvent%20%7D%3B%0Aexport%20function%20createViewEventElement(Base%2C%20options)%20%7B%0A%20%20const%20B%20%3D%20Base%20%7C%7C%20HTMLElement%3B%0A%20%20const%20opts%20%3D%20options%20%7C%7C%20%7B%7D%3B%0A%20%20return%20class%20extends%20B%20%7B%0A%20%20%20%20connectedCallback()%20%7B%0A%20%20%20%20%20%20if%20(super.connectedCallback)%20super.connectedCallback()%3B%0A%20%20%20%20%20%20const%20trigger%20%3D%20this.getAttribute(%22view-event-trigger%22)%20%7C%7C%20opts.defaultTrigger%20%7C%7C%20%22connect%22%3B%0A%20%20%20%20%20%20if%20(trigger%20%3D%3D%3D%20%22connect%22)%20this.dispatchViewEvent()%3B%0A%20%20%20%20%20%20else%20if%20(trigger%20%3D%3D%3D%20%22intersect%22%20%26%26%20%22IntersectionObserver%22%20in%20window)%20%7B%0A%20%20%20%20%20%20%20%20const%20io%20%3D%20new%20IntersectionObserver((entries)%20%3D%3E%20%7B%20if%20(entries.some((e)%20%3D%3E%20e.isIntersecting))%20%7B%20io.disconnect()%3B%20this.dispatchViewEvent()%3B%20%7D%20%7D)%3B%0A%20%20%20%20%20%20%20%20io.observe(this)%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%20%20dispatchViewEvent()%20%7B%0A%20%20%20%20%20%20let%20payload%20%3D%20null%3B%0A%20%20%20%20%20%20const%20raw%20%3D%20this.getAttribute(%22view-event-payload%22)%20%7C%7C%20this.querySelector(%22script%5Bdata-view-event-payload%5D%22)%3F.textContent%3B%0A%20%20%20%20%20%20try%20%7B%20payload%20%3D%20raw%20%3F%20JSON.parse(raw)%20%3A%20null%3B%20%7D%20catch%20(e)%20%7B%20payload%20%3D%20null%3B%20%7D%0A%20%20%20%20%20%20if%20(!payload)%20return%3B%0A%20%20%20%20%20%20const%20Kind%20%3D%20payload.cart%20%3F%20CartViewEvent%20%3A%20payload.collection%20%3F%20CollectionViewEvent%20%3A%20payload.product%20%3F%20ProductViewEvent%20%3A%20VIEW_EVENTS%5Bthis.localName%5D%3B%0A%20%20%20%20%20%20if%20(Kind)%20this.dispatchEvent(new%20Kind(payload))%3B%0A%20%20%20%20%7D%0A%20%20%7D%3B%0A%7D%0Aexport%20const%20ViewEventElement%20%3D%20createViewEventElement(HTMLElement)%3B%0Aexport%20%7B%20StandardEvents%2C%20SlThemeStandardEvent%20%7D%3B","@shopify/partial-rendering":"data:text/javascript;charset=utf-8,async%20function%20refresh(name)%20%7B%0A%20%20const%20res%20%3D%20await%20fetch(location.href%2C%20%7B%20headers%3A%20%7B%20Accept%3A%20%22text%2Fhtml%22%20%7D%2C%20credentials%3A%20%22same-origin%22%20%7D)%3B%0A%20%20if%20(!res.ok)%20throw%20new%20Error(%22The%20page%20could%20not%20be%20drawn%20again%22)%3B%0A%20%20const%20doc%20%3D%20new%20DOMParser().parseFromString(await%20res.text()%2C%20%22text%2Fhtml%22)%3B%0A%20%20const%20sel%20%3D%20'%5Bdata-shopify-partial%3D%22'%20%2B%20CSS.escape(String(name))%20%2B%20'%22%5D'%3B%0A%20%20const%20fresh%20%3D%20doc.querySelector(sel)%3B%0A%20%20const%20here%20%3D%20document.querySelector(sel)%3B%0A%20%20if%20(fresh%20%26%26%20here)%20here.replaceWith(document.importNode(fresh%2C%20true))%3B%0A%7D%0Aexport%20const%20partials%20%3D%20%7B%20refresh%20%7D%3B%0Aexport%20default%20partials%3B"}}</script><style data-page-background>html{background-color:#ffffff}</style><script src="/theme-previews/digital-products/a/i.63b4697a1622.js"></script>
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -78,7 +81,7 @@ W.addEventListener("load",tell);D.addEventListener("DOMContentLoaded",function()
   .shopify-section[data-perf-offscreen] *,
   .shopify-section[data-perf-offscreen] *::before,
   .shopify-section[data-perf-offscreen] *::after { animation-play-state: paused !important; }
-</style><link rel="stylesheet" href="/theme-previews/digital-products/a/i.bebb8d20d681.css" id="speed-page-landing"><script id="speed-optimization-js" src="/theme-previews/digital-products/a/i.679dcd5ab7c8.js"></script>
+</style><link rel="stylesheet" href="/theme-previews/digital-products/a/i.262074ef9310.css" id="speed-page-landing"><script src="/theme-previews/digital-products/a/i.0bd6d5139503.js"></script><script id="speed-optimization-js" src="/theme-previews/digital-products/a/i.679dcd5ab7c8.js"></script>
 <script>
       (function () {
         try {
@@ -111,11 +114,11 @@ W.addEventListener("load",tell);D.addEventListener("DOMContentLoaded",function()
   }
 </style>
 <link rel="stylesheet" href="/theme-previews/digital-products/a/i.d72057e0bc8c.css" data-shopify>
-<link href="/theme-previews/_base/a/theme.d71f5b96fec8.css" rel="stylesheet" type="text/css" media="all"><noscript><link href="/theme-previews/_base/a/popup.18cdf2513c31.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.1367a426b62b.css">
+<link href="/theme-previews/_base/a/theme.d71f5b96fec8.css" rel="stylesheet" type="text/css" media="all"><noscript><link href="/theme-previews/_base/a/popup.18cdf2513c31.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.9c20c549e3cf.css">
 <link rel="preload" as="style" href="/theme-previews/_base/a/minicart.ac0014483417.css" fetchpriority="low">
 <link rel="preload" as="style" href="/theme-previews/_base/a/materia-experience.b68d6d8152a8.css" fetchpriority="low">
 <link rel="stylesheet" href="/theme-previews/digital-products/a/i.dc0a3f13c3a4.css"><link rel="stylesheet" href="/theme-previews/digital-products/a/i.438bf0cdb6ce.css"><link href="/theme-previews/_base/a/theme-button-contract.7d286d7eee9b.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/localization-controls.9494a0c83131.css" rel="stylesheet" type="text/css" media="all"><link rel="modulepreload" href="/theme-previews/_base/a/theme.7a7dd8f80f89.js" fetchpriority="low"><link rel="preload" as="style" href="/theme-previews/_base/a/main-product.f6cc6e1c565b.css">
-<link rel="preload" as="style" href="/theme-previews/_base/a/product-page-ui.b247d1d435f0.css"><script data-storelib-head src="/theme-previews/digital-products/a/i.d60c3c7ab47c.js"></script>
+<link rel="preload" as="style" href="/theme-previews/_base/a/product-page-ui.b247d1d435f0.css"><script data-storelib-head src="/theme-previews/digital-products/a/i.585ec254f5fd.js"></script>
 <script src="/theme-previews/_base/a/swiper-bundle-min.31d164f7367d.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/motion-min.d1f8eb312b47.js" type="module" defer="defer" fetchpriority="low"></script>
 <script src="/theme-previews/_base/a/utils.90eeb774e439.js" defer="defer" data-cart-count="0"></script>
@@ -131,7 +134,7 @@ W.addEventListener("load",tell);D.addEventListener("DOMContentLoaded",function()
 <link href="/theme-previews/_base/a/hero-image-one.7347eaeaff3f.css" rel="stylesheet" type="text/css" media="all">
 <script src="/theme-previews/_base/a/hero-image-one.1fc574354023.js" defer="defer"></script>
 <link href="/theme-previews/_base/a/before-after-controls.0119d231c0b0.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/text-section-controls.f1a83e444db3.css" rel="stylesheet" type="text/css" media="all"><script src="/theme-previews/digital-products/a/i.c8cec488b26e.js"></script>
+<link href="/theme-previews/_base/a/text-section-controls.f1a83e444db3.css" rel="stylesheet" type="text/css" media="all"><script src="/theme-previews/digital-products/a/i.55032103e897.js"></script>
 <link href="/theme-previews/_base/a/testimonial-quote.d74462f50435.css" rel="stylesheet" type="text/css" media="all">
 <link href="/theme-previews/_base/a/announcement-pro-4.98b829b630a8.css" rel="stylesheet" type="text/css" media="all">
 <link href="/theme-previews/_base/a/product-block-runtime.0c74f3d394a4.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/drift-basic-min.ae15d5c0ab03.css" rel="stylesheet" type="text/css" media="all">
@@ -309,7 +312,7 @@ class="action nav-toggle overlay inline-flex pointer w-44 h-44 hidden-1025 heade
 <path d="M2 8H20C20.2812 8 20.5156 7.90625 20.7031 7.71875C20.9062 7.51562 21.0078 7.27344 21.0078 6.99219C21.0078 6.72656 20.9062 6.5 20.7031 6.3125C20.5156 6.10938 20.2812 6.00781 20 6.00781H2C1.71875 6.00781 1.47656 6.10938 1.27344 6.3125C1.08594 6.5 0.992188 6.72656 0.992188 6.99219C0.992188 7.27344 1.08594 7.51562 1.27344 7.71875C1.47656 7.90625 1.71875 8 2 8ZM2 2H20C20.2812 2 20.5156 1.90625 20.7031 1.71875C20.9062 1.51563 21.0078 1.27344 21.0078 0.992188C21.0078 0.726562 20.9062 0.5 20.7031 0.3125C20.5156 0.109375 20.2812 0.0078125 20 0.0078125H2C1.71875 0.0078125 1.47656 0.109375 1.27344 0.3125C1.08594 0.5 0.992188 0.726562 0.992188 0.992188C0.992188 1.27344 1.08594 1.51563 1.27344 1.71875C1.47656 1.90625 1.71875 2 2 2ZM2 14H20C20.2812 14 20.5156 13.9062 20.7031 13.7188C20.9062 13.5156 21.0078 13.2734 21.0078 12.9922C21.0078 12.7266 20.9062 12.5 20.7031 12.3125C20.5156 12.1094 20.2812 12.0078 20 12.0078H2C1.71875 12.0078 1.47656 12.1094 1.27344 12.3125C1.08594 12.5 0.992188 12.7266 0.992188 12.9922C0.992188 13.2734 1.08594 13.5156 1.27344 13.7188C1.47656 13.9062 1.71875 14 2 14Z" fill="currentColor"/>
 </svg>
 </button>
-<link href="/theme-previews/_base/a/navigation.1367a426b62b.css" rel="stylesheet" type="text/css" media="all">
+<link href="/theme-previews/_base/a/navigation.9c20c549e3cf.css" rel="stylesheet" type="text/css" media="all">
 <nav
 class="flex flex-column block-1025 navigation horizontal fixed static-1025 visible-1025 inset-0 down-to-up"
 data-action-mobile="true"
@@ -723,7 +726,7 @@ data-mt-video="autoplay"
 data-mt-media-viewer
 data-mt-product-id="00000000-0000-4000-8000-000000000010"
 data-mt-gallery-config="thumbnail|thumbnail_bottom|show_thumbnails|1|open_lightbox|inner-1|true|true|true||true||true|true"
-data-mt-gallery-media="[{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/digital-products/a/digital-guide.313956ed887f.webp&quot;,&quot;url&quot;:&quot;/theme-previews/digital-products/a/digital-guide.313956ed887f.webp&quot;,&quot;alt&quot;:&quot;Pricing your work, a guide&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/digital-products/a/digital-guide.313956ed887f.webp&quot;,&quot;url&quot;:&quot;/theme-previews/digital-products/a/digital-guide.313956ed887f.webp&quot;,&quot;alt&quot;:&quot;Pricing your work, a guide&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/digital-products/a/digital-guide.313956ed887f.webp&quot;,&quot;url&quot;:&quot;/theme-previews/digital-products/a/digital-guide.313956ed887f.webp&quot;,&quot;alt&quot;:&quot;Pricing your work, a guide&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/digital-products/a/digital-guide.313956ed887f.webp&quot;,&quot;url&quot;:&quot;/theme-previews/digital-products/a/digital-guide.313956ed887f.webp&quot;,&quot;alt&quot;:&quot;Pricing your work, a guide&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/digital-products/a/digital-guide.313956ed887f.webp&quot;,&quot;url&quot;:&quot;/theme-previews/digital-products/a/digital-guide.313956ed887f.webp&quot;,&quot;alt&quot;:&quot;Pricing your work, a guide&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/digital-products/a/digital-guide.313956ed887f.webp&quot;,&quot;url&quot;:&quot;/theme-previews/digital-products/a/digital-guide.313956ed887f.webp&quot;,&quot;alt&quot;:&quot;Pricing your work, a guide&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:null,&quot;y&quot;:null}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/digital-products/a/digital-guide.313956ed887f.webp&quot;,&quot;url&quot;:&quot;/theme-previews/digital-products/a/digital-guide.313956ed887f.webp&quot;,&quot;alt&quot;:&quot;Pricing your work, a guide&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:null},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:null},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:null,&quot;src&quot;:null,&quot;url&quot;:null,&quot;alt&quot;:null,&quot;width&quot;:null,&quot;height&quot;:null,&quot;aspect_ratio&quot;:null,&quot;media_type&quot;:null,&quot;position&quot;:null,&quot;presentation&quot;:null,&quot;attached_to_variant&quot;:null,&quot;variants&quot;:null,&quot;preview_image&quot;:null}}}}}}}}]"
+data-mt-gallery-media="[{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/digital-products/a/digital-guide.f38508505a35.webp&quot;,&quot;url&quot;:&quot;/theme-previews/digital-products/a/digital-guide.f38508505a35.webp&quot;,&quot;alt&quot;:&quot;Pricing your work, a guide&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/digital-products/a/digital-guide.f38508505a35.webp&quot;,&quot;url&quot;:&quot;/theme-previews/digital-products/a/digital-guide.f38508505a35.webp&quot;,&quot;alt&quot;:&quot;Pricing your work, a guide&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/digital-products/a/digital-guide.f38508505a35.webp&quot;,&quot;url&quot;:&quot;/theme-previews/digital-products/a/digital-guide.f38508505a35.webp&quot;,&quot;alt&quot;:&quot;Pricing your work, a guide&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/digital-products/a/digital-guide.f38508505a35.webp&quot;,&quot;url&quot;:&quot;/theme-previews/digital-products/a/digital-guide.f38508505a35.webp&quot;,&quot;alt&quot;:&quot;Pricing your work, a guide&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/digital-products/a/digital-guide.f38508505a35.webp&quot;,&quot;url&quot;:&quot;/theme-previews/digital-products/a/digital-guide.f38508505a35.webp&quot;,&quot;alt&quot;:&quot;Pricing your work, a guide&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/digital-products/a/digital-guide.f38508505a35.webp&quot;,&quot;url&quot;:&quot;/theme-previews/digital-products/a/digital-guide.f38508505a35.webp&quot;,&quot;alt&quot;:&quot;Pricing your work, a guide&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:null,&quot;y&quot;:null}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/digital-products/a/digital-guide.f38508505a35.webp&quot;,&quot;url&quot;:&quot;/theme-previews/digital-products/a/digital-guide.f38508505a35.webp&quot;,&quot;alt&quot;:&quot;Pricing your work, a guide&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:null},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:null},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:null,&quot;src&quot;:null,&quot;url&quot;:null,&quot;alt&quot;:null,&quot;width&quot;:null,&quot;height&quot;:null,&quot;aspect_ratio&quot;:null,&quot;media_type&quot;:null,&quot;position&quot;:null,&quot;presentation&quot;:null,&quot;attached_to_variant&quot;:null,&quot;variants&quot;:null,&quot;preview_image&quot;:null}}}}}}}}]"
 data-square
 data-mt-lightbox
 >
@@ -740,7 +743,7 @@ data-mobile="1"
 data-tablet="1"
 data-desktop="1"
 data-thumb-direction="horizontal"
-data-thumb-slides-per-view="4"
+data-thumb-slides-per-view="4"data-nothumb="true"
 data-auto-play-video="true"
 >
 <div class="media-main-swiper skeleton-loading">
@@ -751,14 +754,14 @@ tabindex="0" role="button" aria-label="Pricing your work, a guide"
 class="media-gallery__image  swiper-slide media-item rounded-5 pointer"
 data-position="1"
 data-media-id="main-1000"
-data-mt-src="/theme-previews/digital-products/a/digital-guide.313956ed887f.webp"
+data-mt-src="/theme-previews/digital-products/a/digital-guide.f38508505a35.webp"
 data-pswp-width="1600"
 data-pswp-height="1600"
 data-cropped="true"
 style="--aspect-ratio: 1/1"
 data-pane-container
 >
-<img src="/theme-previews/digital-products/a/digital-guide.313956ed887f.webp" srcset="/theme-previews/digital-products/a/digital-guide.313956ed887f.webp 720w, /theme-previews/digital-products/a/digital-guide.313956ed887f.webp 660w, /theme-previews/digital-products/a/digital-guide.313956ed887f.webp 550w, /theme-previews/digital-products/a/digital-guide.313956ed887f.webp 480w, /theme-previews/digital-products/a/digital-guide.313956ed887f.webp 330w, /theme-previews/digital-products/a/digital-guide.313956ed887f.webp 240w, /theme-previews/digital-products/a/digital-guide.313956ed887f.webp 185w" alt="Pricing your work, a guide" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="drift-trigger bls-loaded-image">
+<img src="/theme-previews/digital-products/a/digital-guide.f38508505a35.webp" srcset="/theme-previews/digital-products/a/digital-guide.f38508505a35.webp 720w, /theme-previews/digital-products/a/digital-guide.f38508505a35.webp 660w, /theme-previews/digital-products/a/digital-guide.f38508505a35.webp 550w, /theme-previews/digital-products/a/digital-guide.f38508505a35.webp 480w, /theme-previews/digital-products/a/digital-guide.f38508505a35.webp 330w, /theme-previews/digital-products/a/digital-guide.f38508505a35.webp 240w, /theme-previews/digital-products/a/digital-guide.f38508505a35.webp 185w" alt="Pricing your work, a guide" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="drift-trigger bls-loaded-image">
 <div class="loading_image skeleton">
 </div>
 </a>
@@ -778,25 +781,6 @@ class="swiper-arrow swiper-arrow--next main-slide__navigation transition swiper-
 <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
 <use href="#icon-slider-next" />
 </svg>
-</div>
-</div>
-</div>
-</div>
-<div class="media-thumb-swiper">
-<div
-class="thumbnail-slide swiper mt-10 thumb-bottom"
-style="--gap: 15px;"
->
-<div class="swiper-wrapper">
-<div
-class="media-gallery__image swiper-slide rounded-5 pointer"
-data-position="1"
-data-media-id="main-1000"
-style="--aspect-ratio: 1/1"
->
-<img src="/theme-previews/digital-products/a/digital-guide.313956ed887f.webp" srcset="/theme-previews/digital-products/a/digital-guide.313956ed887f.webp 720w, /theme-previews/digital-products/a/digital-guide.313956ed887f.webp 660w, /theme-previews/digital-products/a/digital-guide.313956ed887f.webp 550w, /theme-previews/digital-products/a/digital-guide.313956ed887f.webp 480w, /theme-previews/digital-products/a/digital-guide.313956ed887f.webp 330w, /theme-previews/digital-products/a/digital-guide.313956ed887f.webp 240w, /theme-previews/digital-products/a/digital-guide.313956ed887f.webp 185w" alt="Pricing your work, a guide" width="1600" height="1600" loading="eager" fetchpriority="auto" decoding="async" sizes="(min-width: 768px) 120px, 80px" class=" bls-loaded-image">
-<div class="loading_image skeleton">
-</div>
 </div>
 </div>
 </div>
@@ -837,7 +821,7 @@ style="--aspect-ratio: 1/1"
 <div id="specs-badge-specs_badge_1" class="specs-badge-block" data-block-id="specs_badge_1">
 <span class="specs-badge">Digital download</span>
 </div>
-</div><div class="pib-own" data-pib-block="title_2" data-pib-type="title" style="display: contents">
+</div><div class="pib-own" data-pib-block="title_1" data-pib-type="title" style="display: contents">
 <motion-element
 data-motion="fade-up"
 data-motion-delay="50"
@@ -845,22 +829,22 @@ class="block opacity-0"
 >            
 <h1
 class="product-detail__title heading-letter-spacing fs-26 mt-0 mb-10"
-data-block-id="title_2"
-style="font-size: 30px;"
+data-block-id="title_1"
+style="font-size: 26px;"
 >Pricing your work, a guide
 </h1>
 <style>
                 @media (min-width: 1024px) {
                   #shopify-section-main .product-detail__title {
-                    font-size: 40px !important;
+                    font-size: 32px !important;
                   }
                 }
               </style>
-</motion-element></div><div class="pib-own" data-pib-block="price_3" data-pib-type="price" style="display: contents">
+</motion-element></div><div class="pib-own" data-pib-block="price_1" data-pib-type="price" style="display: contents">
 <div
 id="price-main"
 class="product-detail__price mb-10"
-data-block-id="price_3"
+data-block-id="price_1"
 style="font-size: 24px; font-weight: 600;"
 ><div class="card-product-price price-large flex align-center flex-wrap gap-5 relative"><div class="price-regular">
 <span class="visually-hidden">Regular price</span>
@@ -870,10 +854,10 @@ $24.00
 </div>
 </div>
 </div>
-<link rel="stylesheet" href="/theme-previews/digital-products/a/i.119fff930b29.css"></div><div class="pib-own" data-pib-block="variant_picker_4" data-pib-type="variant_picker" style="display: contents"><div
-id="variant-picker-variant_picker_4"
+<link rel="stylesheet" href="/theme-previews/digital-products/a/i.4a219998c104.css"></div><div class="pib-own" data-pib-block="variant_picker_1" data-pib-type="variant_picker" style="display: contents"><div
+id="variant-picker-variant_picker_1"
 class="product-detail__variant-picker mb-25"
-data-block-id="variant_picker_4"
+data-block-id="variant_picker_1"
 data-type="swatches"
 >
 <variant-radios-detail
@@ -881,15 +865,15 @@ class="block"
 data-section="main"
 data-url="/theme-previews/digital-products/products/pricing-your-work-a-guide.html"
 >
-<fieldset class="js product-form__input flex flex-wrap mb-25 mx-0 p-0 border-0 gap-10 product-form__input_size">
+<fieldset class="js product-form__input flex flex-wrap mb-25 mx-0 p-0 border-0 gap-10">
 <div class="form__label gap-10 w-full lh-normal flex gap-15 justify-between">
-<span>Size: <span class="option_value heading-style capitalize">Small</span></span
+<span>Edition: <span class="option_value heading-style capitalize">Guide</span></span
 ></div>
 <input
 type="radio"
 id="main-detail-1-0"
-name="Size"
-value="Small"
+name="Edition"
+value="Guide"
 form="product-form-main"
 checked
 class=" visually-hidden"
@@ -898,13 +882,13 @@ class="tooltip pointer product__color-swatches--js product__item-option inline-f
 for="main-detail-1-0"
 >
 <span class="relative z-2 uppercase-first-letter">
-Small</span>
+Guide</span>
 </label>
 <input
 type="radio"
 id="main-detail-1-1"
-name="Size"
-value="Medium"
+name="Edition"
+value="Guide and worksheets"
 form="product-form-main"
 class=" visually-hidden"
 ><label
@@ -912,37 +896,20 @@ class="tooltip pointer product__color-swatches--js product__item-option inline-f
 for="main-detail-1-1"
 >
 <span class="relative z-2 uppercase-first-letter">
-Medium</span>
-</label>
-<input
-type="radio"
-id="main-detail-1-2"
-name="Size"
-value="Large"
-form="product-form-main"
-class="option-disabled visually-hidden"
-><label
-class="tooltip pointer product__color-swatches--js product__item-option inline-flex align-center border rounded-3 subheading_weight btn-hover lh-normal px-20 py-10 transition relative"
-for="main-detail-1-2"
->
-<span class="relative z-2 uppercase-first-letter">
-Large</span>
+Guide and worksheets</span>
 </label>
 </fieldset><script type="application/json" data-variant-data>
-        [{"id":"00000000-0000-4000-8000-000000000100","title":"Small","option1":"Small","option2":null,"option3":null,"sku":"","requires_shipping":false,"taxable":true,"featured_image":null,"available":true,"name":"Pricing your work, a guide - Small","public_title":"Small","options":["Small"],"price":2400,"weight":0,"compare_at_price":null,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}},{"id":"00000000-0000-4000-8000-000000000101","title":"Medium","option1":"Medium","option2":null,"option3":null,"sku":"","requires_shipping":false,"taxable":true,"featured_image":null,"available":true,"name":"Pricing your work, a guide - Medium","public_title":"Medium","options":["Medium"],"price":2400,"weight":0,"compare_at_price":null,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}},{"id":"00000000-0000-4000-8000-000000000102","title":"Large","option1":"Large","option2":null,"option3":null,"sku":"","requires_shipping":false,"taxable":true,"featured_image":null,"available":false,"name":"Pricing your work, a guide - Large","public_title":"Large","options":["Large"],"price":2400,"weight":0,"compare_at_price":null,"inventory_management":"shopify","barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}}]
+        [{"id":"00000000-0000-4000-8000-001000000001","title":"Guide","option1":"Guide","option2":null,"option3":null,"sku":"","requires_shipping":false,"taxable":true,"featured_image":null,"available":true,"name":"Pricing your work, a guide - Guide","public_title":"Guide","options":["Guide"],"price":2400,"weight":0,"compare_at_price":null,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}},{"id":"00000000-0000-4000-8000-001000000002","title":"Guide and worksheets","option1":"Guide and worksheets","option2":null,"option3":null,"sku":"","requires_shipping":false,"taxable":true,"featured_image":null,"available":true,"name":"Pricing your work, a guide - Guide and worksheets","public_title":"Guide and worksheets","options":["Guide and worksheets"],"price":3400,"weight":0,"compare_at_price":null,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}}]
       </script><script type="application/json" data-variant-prices>
-  {"00000000-0000-4000-8000-000000000100": { "price": "$24.00", "compare_at_price": "" },"00000000-0000-4000-8000-000000000101": { "price": "$24.00", "compare_at_price": "" },"00000000-0000-4000-8000-000000000102": { "price": "$24.00", "compare_at_price": "" }}
+  {"00000000-0000-4000-8000-001000000001": { "price": "$24.00", "compare_at_price": "" },"00000000-0000-4000-8000-001000000002": { "price": "$34.00", "compare_at_price": "" }}
 </script>
 </variant-radios-detail>
-</div></div><div class="pib-own" data-pib-block="buy_buttons_5" data-pib-type="buy_buttons" style="display: contents"><div
+</div></div><div class="pib-own" data-pib-block="buy_buttons_1" data-pib-type="buy_buttons" style="display: contents"><div
 class="product-detail__buy-buttons button-trigger__sticky mb-20"
 data-atc-appearance="theme" data-buy-appearance="theme"
 data-bb-width="full"
 data-bb-quantity="left"
-data-block-id="buy_buttons_5"
-data-custom-button-text="true"
-data-atc-text="Add to cart"
-data-buy-text="Buy now"
+data-block-id="buy_buttons_1"
 data-section-currency="USD"
 >
 <div class="product__submit-form buy-btn-js d-flex flex-wrap btn-large">
@@ -961,7 +928,7 @@ data-section-id="main"
 <form id="product-form-main" accept-charset="UTF-8" class="feature-product-form" novalidate="novalidate" data-type="add-to-cart-form" data-type="add-to-cart-form" data-preview-form><input type="hidden" name="form_type" value="product"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="product-id" value="00000000-0000-4000-8000-000000000010"><input
 type="hidden"
 name="id"
-value="00000000-0000-4000-8000-000000000100"
+value="00000000-0000-4000-8000-001000000001"
 disabled
 class="product-variant-id"
 ><div class="product-form__buttons btn-large flex flex-wrap gap-10">
@@ -972,8 +939,8 @@ type="submit"
 name="add"
 class="btn btn-primary w-full product_submit_button product-form__submit word-wrap relative"
 data-sl-button data-button-role="primary" data-theme-button="primary"
-style="--btn-padding-x: 2.5rem; --mb-weight: 600;"
-><span class="btn-label hidden-on-load" data-btn-label>Add to cart</span>
+style="--btn-padding-x: 2.5rem;"
+><span class="btn-label hidden-on-load" data-btn-label>Add to Cart</span>
 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="spin opacity-0 icon-load">
 <use href="#icon-load"></use>
 </svg>
@@ -988,16 +955,43 @@ formnovalidate
 class="shopify-payment-button__button shopify-payment-button__button--unbranded"
 data-storelib-buy-now
 data-sl-button data-button-role="secondary" data-theme-button="secondary"
-style="--mb-weight: 600;"
-><span class="btn-label" data-btn-label>Buy now</span>
+><span class="btn-label" data-btn-label>Buy it Now</span>
 </button>
 </div>
 </div></div></form></product-form>
 </div>
 </div>
-</div><div class="pib-own" data-pib-block="text_6" data-pib-type="text" style="display: contents">
-<div class="mb-25" data-block-id="text_6"><h3 class="product-detail__text-heading mt-0 h5 heading-letter-spacing">Instant delivery</h3><div class="product-detail__text-content rich__text-m0"><p>The download link is on the order page and in your receipt email the moment you pay. Nothing is posted.</p></div></div></div><div class="pib-own" data-pib-block="text_7" data-pib-type="text" style="display: contents">
-<div class="mb-25" data-block-id="text_7"><h3 class="product-detail__text-heading mt-0 h5 heading-letter-spacing">The file</h3><div class="product-detail__text-content rich__text-m0"><p>Format: PDF and ZIP</p><p>File size: about 25 MB</p><p>Opens in: any PDF reader, Figma, Lightroom</p><p><em>Replace these three lines with the details of this file.</em></p></div></div></div><div class="pib-own" data-pib-block="collapsible_row_8" data-pib-type="collapsible_row" style="display: contents"><details class="mt-acc product-detail__collapsible" data-mt-acc-key="collapsible_row_8" data-block-id="collapsible_row_8" open>
+</div><div class="pib-own" data-pib-block="vertical_benefits_1" data-pib-type="vertical_benefits" style="display: contents"><div id="VerticalBenefits-vertical_benefits_1"
+class="vb"
+data-block-id="vertical_benefits_1"
+style="
+--vb-bg: transparent;
+--vb-icon-color: var(--color-text, #2A2A2A);
+--vb-text-color: var(--color-text, #242424);
+--vb-icon-size: 26px;
+--vb-icon-size-m: 26px;
+--vb-gap: 12px;
+--vb-gap-m: 10px;
+--vb-font-d: 14px;
+--vb-font-m: 14px;
+--vb-pt: 14px;
+--vb-pb: 18px;
+--vb-mt: 0px;
+--vb-mb: 0px;
+--vb-space: 10px;
+--vb-maxw: 100rem;
+--vb-pl: 0px;
+--vb-pr: 0px;
+"
+>
+<div class="vb__inner" style="max-width:var(--vb-maxw);padding-left:var(--vb-pl);padding-right:var(--vb-pr);">
+<ul class="vb__list" role="list"><li class="vb__item">
+<span class="vb__icon" aria-hidden="true"><span class="vb__svg svg-colorize" style="--icon-color: var(--vb-icon-color);"><svg viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span><span class="vb__text">Download link on the order page and by email</span></li><li class="vb__item">
+<span class="vb__icon" aria-hidden="true"><span class="vb__svg svg-colorize" style="--icon-color: var(--vb-icon-color);"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3v6m0 6v6M3 12h6m6 0h6M6 6l4 4m4 4l4 4M6 18l4-4m4-4l4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span></span><span class="vb__text">PDF and ZIP, about 25 MB</span></li><li class="vb__item">
+<span class="vb__icon" aria-hidden="true"><span class="vb__svg svg-colorize" style="--icon-color: var(--vb-icon-color);"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span><span class="vb__text">Refund within 14 days if it is not for you</span></li></ul>
+</div>
+<link rel="stylesheet" href="/theme-previews/digital-products/a/i.126031abf356.css">
+</div></div><div class="pib-own" data-pib-block="collapsible_row_1" data-pib-type="collapsible_row" style="display: contents"><details class="mt-acc product-detail__collapsible" data-mt-acc-key="collapsible_row_1" data-block-id="collapsible_row_1" open>
 <summary>
 <h3 class="mt-acc__title">What is included</h3>
 <svg class="mt-acc__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
@@ -1005,23 +999,38 @@ style="--mb-weight: 600;"
 <div class="mt-acc__body">
 <div class="mt-acc__inner rte product_description"><p>A 64 page PDF guide with a pricing worksheet and three proposal templates. Work out a day rate, price a project and say the number with confidence.</p></div>
 </div>
-</details></div><div class="pib-own" data-pib-block="collapsible_row_9" data-pib-type="collapsible_row" style="display: contents"><details class="mt-acc product-detail__collapsible" data-mt-acc-key="collapsible_row_9" data-block-id="collapsible_row_9">
+</details></div><div class="pib-own" data-pib-block="collapsible_row_2" data-pib-type="collapsible_row" style="display: contents"><details class="mt-acc product-detail__collapsible" data-mt-acc-key="collapsible_row_2" data-block-id="collapsible_row_2">
+<summary>
+<h3 class="mt-acc__title">Format and file size</h3>
+<svg class="mt-acc__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+</summary>
+<div class="mt-acc__body">
+<div class="mt-acc__inner rte"><p>Say which formats are in the download and how big it is, and what opens it: any PDF reader, Figma, Lightroom.</p></div>
+</div>
+</details></div><div class="pib-own" data-pib-block="collapsible_row_3" data-pib-type="collapsible_row" style="display: contents"><details class="mt-acc product-detail__collapsible" data-mt-acc-key="collapsible_row_3" data-block-id="collapsible_row_3">
 <summary>
 <h3 class="mt-acc__title">Licence</h3>
 <svg class="mt-acc__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
 </summary>
 <div class="mt-acc__body">
-<div class="mt-acc__inner rte"><p>Use the files in personal and client projects, as often as you like. You cannot resell, share or give away the files themselves. <a href="/theme-previews/digital-products/pages/licence.html">Read the full licence</a>.</p></div>
+<div class="mt-acc__inner rte"><p>Personal use, and client work you are paid for. You cannot resell or share the files themselves. <a href="/theme-previews/digital-products/pages/licence.html">The licence in full</a></p></div>
 </div>
-</details></div><div class="pib-own" data-pib-block="collapsible_row_10" data-pib-type="collapsible_row" style="display: contents"><details class="mt-acc product-detail__collapsible" data-mt-acc-key="collapsible_row_10" data-block-id="collapsible_row_10">
+</details></div><div class="pib-own" data-pib-block="collapsible_row_4" data-pib-type="collapsible_row" style="display: contents"><details class="mt-acc product-detail__collapsible" data-mt-acc-key="collapsible_row_4" data-block-id="collapsible_row_4">
 <summary>
 <h3 class="mt-acc__title">Refunds</h3>
 <svg class="mt-acc__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
 </summary>
 <div class="mt-acc__body">
-<div class="mt-acc__inner rte"><p>A download cannot be returned. If a file is broken or not what this page describes, write to us and we will fix it or refund you.</p></div>
+<div class="mt-acc__inner rte"><p>If a file does not work for you, write within 14 days and we refund you.</p></div>
 </div>
-</details></div></div>
+</details></div><div class="pib-own" data-pib-block="product_addons_1" data-pib-type="product_addons" style="display: contents"><div class="product-addons mt-product-actions" data-block-id="product_addons_1"><button type="button" class="mt-product-actions__link" aria-haspopup="dialog" aria-expanded="false" aria-controls="SharePanel-main-product_addons_1" data-product-share data-share-title="Pricing your work, a guide" data-share-url="/products/pricing-your-work-a-guide" data-share-panel="SharePanel-main-product_addons_1">Share</button>
+<div id="SharePanel-main-product_addons_1" class="mt-product-dialog" popover role="dialog" aria-labelledby="ShareTitle-main-product_addons_1">
+<header><h2 id="ShareTitle-main-product_addons_1">Share</h2><button type="button" popovertarget="SharePanel-main-product_addons_1" popovertargetaction="hide" aria-label="Close">×</button></header>
+<label for="ShareUrl-main-product_addons_1">Copy the link below to share this product.</label>
+<input id="ShareUrl-main-product_addons_1" data-share-value value="/products/pricing-your-work-a-guide" readonly>
+<button type="button" class="btn-primary" data-copy-product-url>Copy link</button>
+<p role="status" data-copy-status data-copied="Link copied" data-copy-error="Select and copy the link above."></p>
+</div></div></div></div>
 </motion-element>
 </div>
 <sticky-add-cart id="StickyCart-main" data-section-id="main" class="fixed z-10 inset-x-0 bottom-0 shadow color-default sticky_desktop--show sticky_mobile--show" role="region" aria-label="Pricing your work, a guide">
@@ -1049,7 +1058,7 @@ aria-label="Pricing your work, a guide"
 class="product__media product-item__media--ratio rounded block"
 style="--aspect-ratio: 1/1;"
 >
-<img src="/theme-previews/digital-products/a/digital-guide.313956ed887f.webp" srcset="/theme-previews/digital-products/a/digital-guide.313956ed887f.webp 720w, /theme-previews/digital-products/a/digital-guide.313956ed887f.webp 660w, /theme-previews/digital-products/a/digital-guide.313956ed887f.webp 550w, /theme-previews/digital-products/a/digital-guide.313956ed887f.webp 480w, /theme-previews/digital-products/a/digital-guide.313956ed887f.webp 330w, /theme-previews/digital-products/a/digital-guide.313956ed887f.webp 240w, /theme-previews/digital-products/a/digital-guide.313956ed887f.webp 185w" alt="Pricing your work, a guide" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/digital-products/a/digital-guide.f38508505a35.webp" srcset="/theme-previews/digital-products/a/digital-guide.f38508505a35.webp 720w, /theme-previews/digital-products/a/digital-guide.f38508505a35.webp 660w, /theme-previews/digital-products/a/digital-guide.f38508505a35.webp 550w, /theme-previews/digital-products/a/digital-guide.f38508505a35.webp 480w, /theme-previews/digital-products/a/digital-guide.f38508505a35.webp 330w, /theme-previews/digital-products/a/digital-guide.f38508505a35.webp 240w, /theme-previews/digital-products/a/digital-guide.f38508505a35.webp 185w" alt="Pricing your work, a guide" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
 </a><div class="pc-corner" data-pc-corner>
@@ -1066,10 +1075,10 @@ href="/theme-previews/digital-products/products/pricing-your-work-a-guide.html"
 </div>
 </div>
 <script type="application/json" class="product-variant__quantity">
-            [{ "option":"Small","qty":11,"available":true,"mamagement":""},{ "option":"Medium","qty":11,"available":true,"mamagement":""},{ "option":"Large","qty":0,"available":false,"mamagement":"shopify"}]
+            [{ "option":"Guide","qty":11,"available":true,"mamagement":""},{ "option":"Guide and worksheets","qty":11,"available":true,"mamagement":""}]
           </script>
 </motion-element><script type="application/json" class="productItemVariantsQty">
-        [{ "option":"Small","qty":11,"available":true,"mamagement":""},{ "option":"Medium","qty":11,"available":true,"mamagement":""},{ "option":"Large","qty":0,"available":false,"mamagement":"shopify"}]
+        [{ "option":"Guide","qty":11,"available":true,"mamagement":""},{ "option":"Guide and worksheets","qty":11,"available":true,"mamagement":""}]
       </script></div>
 <div class="sticky__item-info flex gap-10 w-full w-md-unset">
 <div class="product-detail__variant-picker text-size heading-color w-full">
@@ -1078,46 +1087,35 @@ data-section="main"
 data-url="/theme-previews/digital-products/products/pricing-your-work-a-guide.html"
 >
 <div class="mt-select-wrap mt-sticky-select">
-<select class="mt-select select__sticky" aria-label="Size">
+<select class="mt-select select__sticky" aria-label="Edition">
 <option
 class="color product-sticky-js"
-data-variant-id="00000000-0000-4000-8000-000000000100"
-data-name="Size"
+data-variant-id="00000000-0000-4000-8000-001000000001"
+data-name="Edition"
 data-color-value=""
-data-value="Small"
-value="Small"
+data-value="Guide"
+value="Guide"
 selected="true"
 >
-Small -
+Guide -
 $24.00
 </option>
 <option
 class="color product-sticky-js"
-data-variant-id="00000000-0000-4000-8000-000000000101"
-data-name="Size"
-data-color-value="Medium"
-data-value="Medium"
-value="Medium"
+data-variant-id="00000000-0000-4000-8000-001000000002"
+data-name="Edition"
+data-color-value="Guide and worksheets"
+data-value="Guide and worksheets"
+value="Guide and worksheets"
 >
-Medium -
-$24.00
-</option>
-<option
-class="color product-sticky-js"
-data-variant-id="00000000-0000-4000-8000-000000000102"
-data-name="Size"
-data-color-value="Large"
-data-value="Large"
-value="Large"
->
-Large -
-$24.00
+Guide and worksheets -
+$34.00
 </option>
 </select>
 <svg class="mt-select-wrap__chev" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m2.5 4.5 3.5 3.5 3.5-3.5"/></svg>
 </div>
 <script type="application/json" data-variant-data>
-    [{"id":"00000000-0000-4000-8000-000000000100","title":"Small","option1":"Small","option2":null,"option3":null,"sku":"","requires_shipping":false,"taxable":true,"featured_image":null,"available":true,"name":"Pricing your work, a guide - Small","public_title":"Small","options":["Small"],"price":2400,"weight":0,"compare_at_price":null,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}},{"id":"00000000-0000-4000-8000-000000000101","title":"Medium","option1":"Medium","option2":null,"option3":null,"sku":"","requires_shipping":false,"taxable":true,"featured_image":null,"available":true,"name":"Pricing your work, a guide - Medium","public_title":"Medium","options":["Medium"],"price":2400,"weight":0,"compare_at_price":null,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}},{"id":"00000000-0000-4000-8000-000000000102","title":"Large","option1":"Large","option2":null,"option3":null,"sku":"","requires_shipping":false,"taxable":true,"featured_image":null,"available":false,"name":"Pricing your work, a guide - Large","public_title":"Large","options":["Large"],"price":2400,"weight":0,"compare_at_price":null,"inventory_management":"shopify","barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}}]
+    [{"id":"00000000-0000-4000-8000-001000000001","title":"Guide","option1":"Guide","option2":null,"option3":null,"sku":"","requires_shipping":false,"taxable":true,"featured_image":null,"available":true,"name":"Pricing your work, a guide - Guide","public_title":"Guide","options":["Guide"],"price":2400,"weight":0,"compare_at_price":null,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}},{"id":"00000000-0000-4000-8000-001000000002","title":"Guide and worksheets","option1":"Guide and worksheets","option2":null,"option3":null,"sku":"","requires_shipping":false,"taxable":true,"featured_image":null,"available":true,"name":"Pricing your work, a guide - Guide and worksheets","public_title":"Guide and worksheets","options":["Guide and worksheets"],"price":3400,"weight":0,"compare_at_price":null,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}}]
   </script>
 </variant-radios-sticky>
 </div>
@@ -1131,7 +1129,7 @@ data-section-id="main"
 <form id="sticky-addcart-form-main" accept-charset="UTF-8" class="feature-product-form" novalidate="novalidate" data-type="add-to-cart-form" data-type="add-to-cart-form" data-preview-form><input type="hidden" name="form_type" value="product"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="product-id" value="00000000-0000-4000-8000-000000000010"><input
 type="hidden"
 name="id"
-value="00000000-0000-4000-8000-000000000100"
+value="00000000-0000-4000-8000-001000000001"
 disabled
 class="product-variant-id"
 ><div class="product-form__buttons btn-large flex flex-wrap gap-10">
@@ -1200,11 +1198,11 @@ style="--btn-padding-x: 2.5rem;"
       data-product-json
       class="productJson"
     >
-      {"id":"00000000-0000-4000-8000-000000000010","title":"Pricing your work, a guide","handle":"pricing-your-work-a-guide","description":"<p>A 64 page PDF guide with a pricing worksheet and three proposal templates. Work out a day rate, price a project and say the number with confidence.<\/p>","published_at":null,"created_at":null,"vendor":"","type":"","tags":[],"price":2400,"price_min":2400,"price_max":2400,"available":true,"price_varies":false,"compare_at_price":null,"compare_at_price_min":0,"compare_at_price_max":0,"compare_at_price_varies":false,"variants":[{"id":"00000000-0000-4000-8000-000000000100","title":"Small","option1":"Small","option2":null,"option3":null,"sku":"","requires_shipping":false,"taxable":true,"featured_image":null,"available":true,"name":"Pricing your work, a guide - Small","public_title":"Small","options":["Small"],"price":2400,"weight":0,"compare_at_price":null,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}},{"id":"00000000-0000-4000-8000-000000000101","title":"Medium","option1":"Medium","option2":null,"option3":null,"sku":"","requires_shipping":false,"taxable":true,"featured_image":null,"available":true,"name":"Pricing your work, a guide - Medium","public_title":"Medium","options":["Medium"],"price":2400,"weight":0,"compare_at_price":null,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}},{"id":"00000000-0000-4000-8000-000000000102","title":"Large","option1":"Large","option2":null,"option3":null,"sku":"","requires_shipping":false,"taxable":true,"featured_image":null,"available":false,"name":"Pricing your work, a guide - Large","public_title":"Large","options":["Large"],"price":2400,"weight":0,"compare_at_price":null,"inventory_management":"shopify","barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}}],"images":["/theme-previews/digital-products/a/digital-guide.313956ed887f.webp"],"featured_image":"/theme-previews/digital-products/a/digital-guide.313956ed887f.webp","options":["Size"],"media":[{"alt":"Pricing your work, a guide","id":1000,"position":1,"preview_image":{"aspect_ratio":1,"height":1600,"width":1600,"src":"/theme-previews/digital-products/a/digital-guide.313956ed887f.webp"},"aspect_ratio":1,"height":1600,"media_type":"image","src":"/theme-previews/digital-products/a/digital-guide.313956ed887f.webp","width":1600}],"requires_selling_plan":false,"selling_plan_groups":[],"content":"<p>A 64 page PDF guide with a pricing worksheet and three proposal templates. Work out a day rate, price a project and say the number with confidence.<\/p>"}
+      {"id":"00000000-0000-4000-8000-000000000010","title":"Pricing your work, a guide","handle":"pricing-your-work-a-guide","description":"<p>A 64 page PDF guide with a pricing worksheet and three proposal templates. Work out a day rate, price a project and say the number with confidence.<\/p>","published_at":null,"created_at":null,"vendor":"","type":"","tags":[],"price":2400,"price_min":2400,"price_max":3400,"available":true,"price_varies":true,"compare_at_price":null,"compare_at_price_min":0,"compare_at_price_max":0,"compare_at_price_varies":false,"variants":[{"id":"00000000-0000-4000-8000-001000000001","title":"Guide","option1":"Guide","option2":null,"option3":null,"sku":"","requires_shipping":false,"taxable":true,"featured_image":null,"available":true,"name":"Pricing your work, a guide - Guide","public_title":"Guide","options":["Guide"],"price":2400,"weight":0,"compare_at_price":null,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}},{"id":"00000000-0000-4000-8000-001000000002","title":"Guide and worksheets","option1":"Guide and worksheets","option2":null,"option3":null,"sku":"","requires_shipping":false,"taxable":true,"featured_image":null,"available":true,"name":"Pricing your work, a guide - Guide and worksheets","public_title":"Guide and worksheets","options":["Guide and worksheets"],"price":3400,"weight":0,"compare_at_price":null,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}}],"images":["/theme-previews/digital-products/a/digital-guide.f38508505a35.webp"],"featured_image":"/theme-previews/digital-products/a/digital-guide.f38508505a35.webp","options":["Edition"],"media":[{"alt":"Pricing your work, a guide","id":1000,"position":1,"preview_image":{"aspect_ratio":1,"height":1600,"width":1600,"src":"/theme-previews/digital-products/a/digital-guide.f38508505a35.webp"},"aspect_ratio":1,"height":1600,"media_type":"image","src":"/theme-previews/digital-products/a/digital-guide.f38508505a35.webp","width":1600}],"requires_selling_plan":false,"selling_plan_groups":[],"content":"<p>A 64 page PDF guide with a pricing worksheet and three proposal templates. Work out a day rate, price a project and say the number with confidence.<\/p>"}
     </script><script type="application/json" data-variant-media>
-  {"00000000-0000-4000-8000-000000000100": { "id": "", "src": "" },"00000000-0000-4000-8000-000000000101": { "id": "", "src": "" },"00000000-0000-4000-8000-000000000102": { "id": "", "src": "" }}
+  {"00000000-0000-4000-8000-001000000001": { "id": "", "src": "" },"00000000-0000-4000-8000-001000000002": { "id": "", "src": "" }}
 </script><script type="application/json" class="productVariantsQty">
-      [{ "id": "00000000-0000-4000-8000-000000000100", "option": "Small", "qty": 11, "available": true, "mamagement": "", "incoming": false, "incoming_date": "" },{ "id": "00000000-0000-4000-8000-000000000101", "option": "Medium", "qty": 11, "available": true, "mamagement": "", "incoming": false, "incoming_date": "" },{ "id": "00000000-0000-4000-8000-000000000102", "option": "Large", "qty": 0, "available": false, "mamagement": "shopify", "incoming": false, "incoming_date": "" }]
+      [{ "id": "00000000-0000-4000-8000-001000000001", "option": "Guide", "qty": 11, "available": true, "mamagement": "", "incoming": false, "incoming_date": "" },{ "id": "00000000-0000-4000-8000-001000000002", "option": "Guide and worksheets", "qty": 11, "available": true, "mamagement": "", "incoming": false, "incoming_date": "" }]
     </script><script>
     document.addEventListener('DOMContentLoaded', function () {
       function isIE() {
@@ -1266,10 +1264,10 @@ style="--btn-padding-x: 2.5rem;"
   })();
 </script><style data-rs-bulletproof>#shopify-section-how { margin-top: 0 !important; margin-bottom: 0 !important; }
     #shopify-section-how + .shopify-section { margin-top: 0 !important; }</style><link rel="stylesheet" href="/theme-previews/digital-products/a/i.2605b9b86e64.css">
-<div class="section iws-steps remove_spacing color-scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976 gradient" data-msr="steps" data-msr-section="how" data-msr-settings="{&quot;color_scheme&quot;:{&quot;id&quot;:&quot;scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976&quot;,&quot;settings&quot;:{&quot;page_colors&quot;:null,&quot;background&quot;:{&quot;red&quot;:244,&quot;green&quot;:243,&quot;blue&quot;:239,&quot;alpha&quot;:1,&quot;hue&quot;:48,&quot;saturation&quot;:19,&quot;lightness&quot;:95,&quot;rgb&quot;:&quot;244 243 239&quot;,&quot;rgba&quot;:&quot;244 243 239 / 1&quot;,&quot;hex&quot;:&quot;#f4f3ef&quot;},&quot;text_color&quot;:{&quot;red&quot;:75,&quot;green&quot;:75,&quot;blue&quot;:82,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:4,&quot;lightness&quot;:31,&quot;rgb&quot;:&quot;75 75 82&quot;,&quot;rgba&quot;:&quot;75 75 82 / 1&quot;,&quot;hex&quot;:&quot;#4b4b52&quot;},&quot;heading_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;primary_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;border_color&quot;:{&quot;red&quot;:223,&quot;green&quot;:221,&quot;blue&quot;:213,&quot;alpha&quot;:1,&quot;hue&quot;:48,&quot;saturation&quot;:14,&quot;lightness&quot;:85,&quot;rgb&quot;:&quot;223 221 213&quot;,&quot;rgba&quot;:&quot;223 221 213 / 1&quot;,&quot;hex&quot;:&quot;#dfddd5&quot;},&quot;badge_background&quot;:null,&quot;badge_text&quot;:null,&quot;primary_button_colors&quot;:null,&quot;btn_primary_background&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;btn_primary_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_primary_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_primary_hover_background&quot;:{&quot;red&quot;:36,&quot;green&quot;:64,&quot;blue&quot;:230,&quot;alpha&quot;:1,&quot;hue&quot;:231,&quot;saturation&quot;:80,&quot;lightness&quot;:52,&quot;rgb&quot;:&quot;36 64 230&quot;,&quot;rgba&quot;:&quot;36 64 230 / 1&quot;,&quot;hex&quot;:&quot;#2440e6&quot;},&quot;btn_primary_hover_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_primary_hover_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;secondary_button_colors&quot;:null,&quot;btn_secondary_background&quot;:{&quot;red&quot;:244,&quot;green&quot;:243,&quot;blue&quot;:239,&quot;alpha&quot;:1,&quot;hue&quot;:48,&quot;saturation&quot;:19,&quot;lightness&quot;:95,&quot;rgb&quot;:&quot;244 243 239&quot;,&quot;rgba&quot;:&quot;244 243 239 / 1&quot;,&quot;hex&quot;:&quot;#f4f3ef&quot;},&quot;btn_secondary_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;btn_secondary_border&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;btn_secondary_hover_background&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;btn_secondary_hover_color&quot;:{&quot;red&quot;:244,&quot;green&quot;:243,&quot;blue&quot;:239,&quot;alpha&quot;:1,&quot;hue&quot;:48,&quot;saturation&quot;:19,&quot;lightness&quot;:95,&quot;rgb&quot;:&quot;244 243 239&quot;,&quot;rgba&quot;:&quot;244 243 239 / 1&quot;,&quot;hex&quot;:&quot;#f4f3ef&quot;},&quot;btn_secondary_hover_border_color&quot;:null,&quot;background_gradient&quot;:&quot;&quot;,&quot;btn_primary_gradient&quot;:&quot;&quot;,&quot;btn_primary_hover_background_gradient&quot;:&quot;&quot;,&quot;btn_secondary_hover_border&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_outline_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;btn_outline_border_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;button_link_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;button_link_hover_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;}}},&quot;section_width&quot;:&quot;container&quot;,&quot;reset_spacing&quot;:true,&quot;image_position&quot;:&quot;right&quot;,&quot;column_valign&quot;:&quot;center&quot;,&quot;image_width_pct&quot;:50,&quot;gap_desktop&quot;:88,&quot;text_gap&quot;:18,&quot;image&quot;:{&quot;id&quot;:394662181,&quot;src&quot;:&quot;/theme-previews/digital-products/a/digital-email.99045d893446.webp&quot;,&quot;url&quot;:&quot;/theme-previews/digital-products/a/digital-email.99045d893446.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:394662181,&quot;src&quot;:&quot;/theme-previews/digital-products/a/digital-email.99045d893446.webp&quot;,&quot;url&quot;:&quot;/theme-previews/digital-products/a/digital-email.99045d893446.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:394662181,&quot;src&quot;:&quot;/theme-previews/digital-products/a/digital-email.99045d893446.webp&quot;,&quot;url&quot;:&quot;/theme-previews/digital-products/a/digital-email.99045d893446.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:394662181,&quot;src&quot;:&quot;/theme-previews/digital-products/a/digital-email.99045d893446.webp&quot;,&quot;url&quot;:&quot;/theme-previews/digital-products/a/digital-email.99045d893446.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:394662181,&quot;src&quot;:&quot;/theme-previews/digital-products/a/digital-email.99045d893446.webp&quot;,&quot;url&quot;:&quot;/theme-previews/digital-products/a/digital-email.99045d893446.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:394662181,&quot;src&quot;:&quot;/theme-previews/digital-products/a/digital-email.99045d893446.webp&quot;,&quot;url&quot;:&quot;/theme-previews/digital-products/a/digital-email.99045d893446.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:null,&quot;y&quot;:null}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:394662181,&quot;src&quot;:&quot;/theme-previews/digital-products/a/digital-email.99045d893446.webp&quot;,&quot;url&quot;:&quot;/theme-previews/digital-products/a/digital-email.99045d893446.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:null},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:null},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:null,&quot;src&quot;:null,&quot;url&quot;:null,&quot;alt&quot;:null,&quot;width&quot;:null,&quot;height&quot;:null,&quot;aspect_ratio&quot;:null,&quot;media_type&quot;:null,&quot;position&quot;:null,&quot;presentation&quot;:null,&quot;attached_to_variant&quot;:null,&quot;variants&quot;:null,&quot;preview_image&quot;:null}}}}}}}},&quot;image_alt&quot;:&quot;A receipt email with two files and a Download all button&quot;,&quot;placeholder_url&quot;:null,&quot;image_aspect_desktop&quot;:&quot;4 / 5&quot;,&quot;image_radius&quot;:12,&quot;step_style&quot;:&quot;numbered&quot;,&quot;marker_size&quot;:36,&quot;marker_font_size&quot;:14,&quot;line_style&quot;:&quot;solid&quot;,&quot;line_thickness&quot;:2,&quot;step_gap_inline&quot;:16,&quot;step_gap_below&quot;:22,&quot;steps_margin_top&quot;:12,&quot;custom_colors&quot;:true,&quot;section_bg&quot;:null,&quot;marker_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;marker_text_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;line_color&quot;:{&quot;red&quot;:216,&quot;green&quot;:214,&quot;blue&quot;:207,&quot;alpha&quot;:1,&quot;hue&quot;:47,&quot;saturation&quot;:10,&quot;lightness&quot;:83,&quot;rgb&quot;:&quot;216 214 207&quot;,&quot;rgba&quot;:&quot;216 214 207 / 1&quot;,&quot;hex&quot;:&quot;#d8d6cf&quot;},&quot;step_title_color&quot;:null,&quot;step_desc_color&quot;:null,&quot;image_bg&quot;:null,&quot;step_title_size&quot;:20,&quot;step_desc_size&quot;:16,&quot;button_bg&quot;:null,&quot;button_color&quot;:null,&quot;button_bg_hover&quot;:null,&quot;use_theme_button&quot;:true,&quot;button_size&quot;:15,&quot;button_pad_x&quot;:26,&quot;button_pad_y&quot;:14,&quot;button_radius&quot;:999,&quot;button_margin_top&quot;:8,&quot;enable_custom_fonts&quot;:false,&quot;heading_font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;body_font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;padding_top&quot;:88,&quot;padding_bottom&quot;:88,&quot;side_padding_desktop&quot;:24,&quot;image_aspect&quot;:&quot;4 / 5&quot;,&quot;gap_mobile&quot;:32,&quot;side_padding_mobile&quot;:16}" data-msr-defaults='{"color_scheme":"default-color-scheme","section_width":"container","reset_spacing":true,"image_position":"left","column_valign":"center","image_width_pct":50,"gap_desktop":64,"text_gap":18,"image_alt":"","image_aspect_desktop":"4 / 5","image_radius":16,"step_style":"dot","marker_size":32,"marker_font_size":14,"line_style":"solid","line_thickness":2,"step_gap_inline":16,"step_gap_below":22,"steps_margin_top":12,"custom_colors":false,"step_title_size":18,"step_desc_size":14,"use_theme_button":true,"button_size":15,"button_pad_x":26,"button_pad_y":14,"button_radius":100,"button_margin_top":8,"enable_custom_fonts":false,"heading_font":"assistant_n4","body_font":"assistant_n4","padding_top":60,"padding_bottom":60,"side_padding_desktop":24,"image_aspect":"4 / 5","gap_mobile":32,"side_padding_mobile":16}' data-msr-block-defaults='{"eyebrow":{"text":"Why us","custom_style":false,"size":12},"heading":{"text":"Built for results.","tag":"h2","custom_style":false,"weight":"700","size_desktop":40,"size_mobile":28},"subheading":{"text":"&lt;p>Quality you can feel, simplicity you can trust.&lt;/p>","max_width":560,"custom_style":false,"size":15},"step":{"title":"Step title","description":"&lt;p>Add a short description that explains this step.&lt;/p>","enable_custom_style":false},"button":{"label":"Shop now"}}' data-msr-placeholder="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Cg fill=%22%23000000%22 fill-opacity=%220.18%22%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22/%3E%3C/g%3E%3C/svg%3E" style="--st-max: var(--theme-page-width, var(--page-width, 1300px)); --st-pt: 88px; --st-pb: 88px;--st-px-m: 16px; --st-px-d: 24px;--st-gap-m: 32px; --st-gap-d: 88px;--st-dir: row-reverse; --st-valign: center;--st-img-w: 50%; --st-text-gap: 18px;--st-ratio-m: 4 / 5; --st-ratio-d: 4 / 5; --st-radius: 12px;--st-mk: 36px; --st-mk-font: 14px; --st-line-style: solid; --st-line-w: 2px;--st-gap-inline: 16px; --st-gap-below: 22px; --st-steps-mt: 12px; --st-btn-mt: 8px;--st-mk-color: #111113;--st-mk-text: #ffffff;--st-line-color: #d8d6cf;--st-title-size: 20px; --st-desc-size: 16px;">
+<div class="section iws-steps remove_spacing color-scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976 gradient" data-msr="steps" data-msr-section="how" data-msr-settings="{&quot;color_scheme&quot;:{&quot;id&quot;:&quot;scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976&quot;,&quot;settings&quot;:{&quot;page_colors&quot;:null,&quot;background&quot;:{&quot;red&quot;:244,&quot;green&quot;:243,&quot;blue&quot;:239,&quot;alpha&quot;:1,&quot;hue&quot;:48,&quot;saturation&quot;:19,&quot;lightness&quot;:95,&quot;rgb&quot;:&quot;244 243 239&quot;,&quot;rgba&quot;:&quot;244 243 239 / 1&quot;,&quot;hex&quot;:&quot;#f4f3ef&quot;},&quot;text_color&quot;:{&quot;red&quot;:75,&quot;green&quot;:75,&quot;blue&quot;:82,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:4,&quot;lightness&quot;:31,&quot;rgb&quot;:&quot;75 75 82&quot;,&quot;rgba&quot;:&quot;75 75 82 / 1&quot;,&quot;hex&quot;:&quot;#4b4b52&quot;},&quot;heading_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;primary_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;border_color&quot;:{&quot;red&quot;:223,&quot;green&quot;:221,&quot;blue&quot;:213,&quot;alpha&quot;:1,&quot;hue&quot;:48,&quot;saturation&quot;:14,&quot;lightness&quot;:85,&quot;rgb&quot;:&quot;223 221 213&quot;,&quot;rgba&quot;:&quot;223 221 213 / 1&quot;,&quot;hex&quot;:&quot;#dfddd5&quot;},&quot;badge_background&quot;:null,&quot;badge_text&quot;:null,&quot;primary_button_colors&quot;:null,&quot;btn_primary_background&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;btn_primary_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_primary_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_primary_hover_background&quot;:{&quot;red&quot;:36,&quot;green&quot;:64,&quot;blue&quot;:230,&quot;alpha&quot;:1,&quot;hue&quot;:231,&quot;saturation&quot;:80,&quot;lightness&quot;:52,&quot;rgb&quot;:&quot;36 64 230&quot;,&quot;rgba&quot;:&quot;36 64 230 / 1&quot;,&quot;hex&quot;:&quot;#2440e6&quot;},&quot;btn_primary_hover_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_primary_hover_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;secondary_button_colors&quot;:null,&quot;btn_secondary_background&quot;:{&quot;red&quot;:244,&quot;green&quot;:243,&quot;blue&quot;:239,&quot;alpha&quot;:1,&quot;hue&quot;:48,&quot;saturation&quot;:19,&quot;lightness&quot;:95,&quot;rgb&quot;:&quot;244 243 239&quot;,&quot;rgba&quot;:&quot;244 243 239 / 1&quot;,&quot;hex&quot;:&quot;#f4f3ef&quot;},&quot;btn_secondary_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;btn_secondary_border&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;btn_secondary_hover_background&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;btn_secondary_hover_color&quot;:{&quot;red&quot;:244,&quot;green&quot;:243,&quot;blue&quot;:239,&quot;alpha&quot;:1,&quot;hue&quot;:48,&quot;saturation&quot;:19,&quot;lightness&quot;:95,&quot;rgb&quot;:&quot;244 243 239&quot;,&quot;rgba&quot;:&quot;244 243 239 / 1&quot;,&quot;hex&quot;:&quot;#f4f3ef&quot;},&quot;btn_secondary_hover_border_color&quot;:null,&quot;background_gradient&quot;:&quot;&quot;,&quot;btn_primary_gradient&quot;:&quot;&quot;,&quot;btn_primary_hover_background_gradient&quot;:&quot;&quot;,&quot;btn_secondary_hover_border&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_outline_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;btn_outline_border_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;button_link_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;button_link_hover_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;}}},&quot;section_width&quot;:&quot;container&quot;,&quot;reset_spacing&quot;:true,&quot;image_position&quot;:&quot;right&quot;,&quot;column_valign&quot;:&quot;center&quot;,&quot;image_width_pct&quot;:50,&quot;gap_desktop&quot;:88,&quot;text_gap&quot;:18,&quot;image&quot;:{&quot;id&quot;:394662181,&quot;src&quot;:&quot;/theme-previews/digital-products/a/digital-email.21574480f7bb.webp&quot;,&quot;url&quot;:&quot;/theme-previews/digital-products/a/digital-email.21574480f7bb.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:394662181,&quot;src&quot;:&quot;/theme-previews/digital-products/a/digital-email.21574480f7bb.webp&quot;,&quot;url&quot;:&quot;/theme-previews/digital-products/a/digital-email.21574480f7bb.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:394662181,&quot;src&quot;:&quot;/theme-previews/digital-products/a/digital-email.21574480f7bb.webp&quot;,&quot;url&quot;:&quot;/theme-previews/digital-products/a/digital-email.21574480f7bb.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:394662181,&quot;src&quot;:&quot;/theme-previews/digital-products/a/digital-email.21574480f7bb.webp&quot;,&quot;url&quot;:&quot;/theme-previews/digital-products/a/digital-email.21574480f7bb.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:394662181,&quot;src&quot;:&quot;/theme-previews/digital-products/a/digital-email.21574480f7bb.webp&quot;,&quot;url&quot;:&quot;/theme-previews/digital-products/a/digital-email.21574480f7bb.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:394662181,&quot;src&quot;:&quot;/theme-previews/digital-products/a/digital-email.21574480f7bb.webp&quot;,&quot;url&quot;:&quot;/theme-previews/digital-products/a/digital-email.21574480f7bb.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:null,&quot;y&quot;:null}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:394662181,&quot;src&quot;:&quot;/theme-previews/digital-products/a/digital-email.21574480f7bb.webp&quot;,&quot;url&quot;:&quot;/theme-previews/digital-products/a/digital-email.21574480f7bb.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:null},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:null},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:null,&quot;src&quot;:null,&quot;url&quot;:null,&quot;alt&quot;:null,&quot;width&quot;:null,&quot;height&quot;:null,&quot;aspect_ratio&quot;:null,&quot;media_type&quot;:null,&quot;position&quot;:null,&quot;presentation&quot;:null,&quot;attached_to_variant&quot;:null,&quot;variants&quot;:null,&quot;preview_image&quot;:null}}}}}}}},&quot;image_alt&quot;:&quot;A receipt email with two files and a Download all button&quot;,&quot;placeholder_url&quot;:null,&quot;image_aspect_desktop&quot;:&quot;4 / 5&quot;,&quot;image_radius&quot;:12,&quot;step_style&quot;:&quot;numbered&quot;,&quot;marker_size&quot;:36,&quot;marker_font_size&quot;:14,&quot;line_style&quot;:&quot;solid&quot;,&quot;line_thickness&quot;:2,&quot;step_gap_inline&quot;:16,&quot;step_gap_below&quot;:22,&quot;steps_margin_top&quot;:12,&quot;custom_colors&quot;:true,&quot;section_bg&quot;:null,&quot;marker_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;marker_text_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;line_color&quot;:{&quot;red&quot;:216,&quot;green&quot;:214,&quot;blue&quot;:207,&quot;alpha&quot;:1,&quot;hue&quot;:47,&quot;saturation&quot;:10,&quot;lightness&quot;:83,&quot;rgb&quot;:&quot;216 214 207&quot;,&quot;rgba&quot;:&quot;216 214 207 / 1&quot;,&quot;hex&quot;:&quot;#d8d6cf&quot;},&quot;step_title_color&quot;:null,&quot;step_desc_color&quot;:null,&quot;image_bg&quot;:null,&quot;step_title_size&quot;:20,&quot;step_desc_size&quot;:16,&quot;button_bg&quot;:null,&quot;button_color&quot;:null,&quot;button_bg_hover&quot;:null,&quot;use_theme_button&quot;:true,&quot;button_size&quot;:15,&quot;button_pad_x&quot;:26,&quot;button_pad_y&quot;:14,&quot;button_radius&quot;:999,&quot;button_margin_top&quot;:8,&quot;enable_custom_fonts&quot;:false,&quot;heading_font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;body_font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;padding_top&quot;:88,&quot;padding_bottom&quot;:88,&quot;side_padding_desktop&quot;:24,&quot;image_aspect&quot;:&quot;4 / 5&quot;,&quot;gap_mobile&quot;:32,&quot;side_padding_mobile&quot;:16}" data-msr-defaults='{"color_scheme":"default-color-scheme","section_width":"container","reset_spacing":true,"image_position":"left","column_valign":"center","image_width_pct":50,"gap_desktop":64,"text_gap":18,"image_alt":"","image_aspect_desktop":"4 / 5","image_radius":16,"step_style":"dot","marker_size":32,"marker_font_size":14,"line_style":"solid","line_thickness":2,"step_gap_inline":16,"step_gap_below":22,"steps_margin_top":12,"custom_colors":false,"step_title_size":18,"step_desc_size":14,"use_theme_button":true,"button_size":15,"button_pad_x":26,"button_pad_y":14,"button_radius":100,"button_margin_top":8,"enable_custom_fonts":false,"heading_font":"assistant_n4","body_font":"assistant_n4","padding_top":60,"padding_bottom":60,"side_padding_desktop":24,"image_aspect":"4 / 5","gap_mobile":32,"side_padding_mobile":16}' data-msr-block-defaults='{"eyebrow":{"text":"Why us","custom_style":false,"size":12},"heading":{"text":"Built for results.","tag":"h2","custom_style":false,"weight":"700","size_desktop":40,"size_mobile":28},"subheading":{"text":"&lt;p>Quality you can feel, simplicity you can trust.&lt;/p>","max_width":560,"custom_style":false,"size":15},"step":{"title":"Step title","description":"&lt;p>Add a short description that explains this step.&lt;/p>","enable_custom_style":false},"button":{"label":"Shop now"}}' data-msr-placeholder="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Cg fill=%22%23000000%22 fill-opacity=%220.18%22%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22/%3E%3C/g%3E%3C/svg%3E" style="--st-max: var(--theme-page-width, var(--page-width, 1300px)); --st-pt: 88px; --st-pb: 88px;--st-px-m: 16px; --st-px-d: 24px;--st-gap-m: 32px; --st-gap-d: 88px;--st-dir: row-reverse; --st-valign: center;--st-img-w: 50%; --st-text-gap: 18px;--st-ratio-m: 4 / 5; --st-ratio-d: 4 / 5; --st-radius: 12px;--st-mk: 36px; --st-mk-font: 14px; --st-line-style: solid; --st-line-w: 2px;--st-gap-inline: 16px; --st-gap-below: 22px; --st-steps-mt: 12px; --st-btn-mt: 8px;--st-mk-color: #111113;--st-mk-text: #ffffff;--st-line-color: #d8d6cf;--st-title-size: 20px; --st-desc-size: 16px;">
 <div class="iws" data-section-id="how" data-width="container">
 <div class="iws__inner">
-<div class="iws__media"><img src="/theme-previews/digital-products/a/digital-email.99045d893446.webp" srcset="/theme-previews/digital-products/a/digital-email.99045d893446.webp 480w, /theme-previews/digital-products/a/digital-email.99045d893446.webp 720w, /theme-previews/digital-products/a/digital-email.99045d893446.webp 960w, /theme-previews/digital-products/a/digital-email.99045d893446.webp 1200w, /theme-previews/digital-products/a/digital-email.99045d893446.webp 1600w" alt="A receipt email with two files and a Download all button" loading="lazy" decoding="async" sizes="(max-width: 767px) 100vw, 50vw"></div>
+<div class="iws__media"><img src="/theme-previews/digital-products/a/digital-email.21574480f7bb.webp" srcset="/theme-previews/digital-products/a/digital-email.21574480f7bb.webp 480w, /theme-previews/digital-products/a/digital-email.21574480f7bb.webp 720w, /theme-previews/digital-products/a/digital-email.21574480f7bb.webp 960w, /theme-previews/digital-products/a/digital-email.21574480f7bb.webp 1200w, /theme-previews/digital-products/a/digital-email.21574480f7bb.webp 1600w" alt="A receipt email with two files and a Download all button" loading="lazy" decoding="async" sizes="(max-width: 767px) 100vw, 50vw"></div>
 <div class="iws__col"><p class="iws__eyebrow" data-msr-block="eyebrow_1" data-msr-type="eyebrow" data-msr-settings="{&quot;text&quot;:&quot;How it works&quot;,&quot;custom_style&quot;:false,&quot;color&quot;:null,&quot;size&quot;:12}"
 style=""
 data-block-id="eyebrow_1">How it works</p><h2 class="iws__heading" data-msr-block="heading_2" data-msr-type="heading" data-msr-settings="{&quot;text&quot;:&quot;Pay, open the email, download&quot;,&quot;tag&quot;:&quot;h2&quot;,&quot;custom_style&quot;:false,&quot;color&quot;:null,&quot;weight&quot;:&quot;700&quot;,&quot;size_desktop&quot;:48,&quot;size_mobile&quot;:32}"
@@ -1300,301 +1298,207 @@ data-block-id="subheading_3"><p>There is nothing to wait for and nothing posted.
 </li></ol><a class="iws__btn btn-primary inline-flex no-underline" data-sl-button data-theme-button="primary" data-button-role="primary" data-button-appearance="solid" data-msr-block="button_7" data-msr-type="button" data-msr-settings="{&quot;label&quot;:&quot;Browse all files&quot;,&quot;url&quot;:&quot;/theme-previews/digital-products/collections/all.html&quot;}" style="" href="/theme-previews/digital-products/collections/all.html" data-block-id="button_7">Browse all files</a></div>
 </div>
 </div>
-</div></section><section id="shopify-section-more" class="shopify-section section" data-section-id="more" data-section-type="products-grid"><style>
-  #shopify-section-more {
+</div></section><section id="shopify-section-related" class="shopify-section" data-section-id="related" data-section-type="related-products"><script src="/theme-previews/_base/a/live-product-extras.d9413cbad72b.js" defer="defer"></script>
+<style>
+  #shopify-section-related {
     font-family: var(--body-font, inherit);
     font-size: var(--body-font-size, inherit);
     font-weight: var(--body-weight, inherit);
     line-height: var(--body-line-height, inherit);
     color: var(--color-text);
   }
-  #shopify-section-more :is(h1, h2, h3, h4, h5, h6) {
+  #shopify-section-related :is(h1, h2, h3, h4, h5, h6) {
     font-family: var(--heading-font, inherit);
     font-weight: var(--heading-weight, inherit);
     letter-spacing: var(--heading-letter-spacing, normal);
     line-height: var(--heading-line-height, 1.2);
     text-transform: var(--heading-text-transform, none);
   }
-  :where(html:not([data-font-priority='off'])) #shopify-section-more :where(.subheading, .sub-heading, [class*='__subheading']) {
+  :where(html:not([data-font-priority='off'])) #shopify-section-related :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
-</style><link rel="stylesheet" href="/theme-previews/digital-products/a/i.64eaee881275.css">
-<div class="pg section color-default gradient" data-section-type="products-grid" data-section-id="more">
-<div class="container"><div class="pg__head"><h2 class="pg__heading h2">More files</h2></div><div class="pg__grid">
-<div
-class="product-item product__item-js  style-as-standard"
+</style><link rel="stylesheet" href="/theme-previews/digital-products/a/i.daa1cae7a180.css"><style>
+  #shopify-section-related { isolation: isolate; position: relative; }
+</style><style>
+  #shopify-section-related [data-rp-root] .section__header-heading { color: var(--rp-heading-color, var(--color-heading)); }
+  #shopify-section-related [data-rp-root] .section__header-des { color: var(--rp-text-color, var(--color-text)); }
+  #shopify-section-related [data-rp-root][data-rp-bg] { background: var(--rp-bg); }
+  #shopify-section-related [data-rp-root] .section__header-heading[data-own-font] { font-family: var(--rp-heading-font); }
+  #shopify-section-related [data-rp-root] .section__header-des[data-own-font],
+  #shopify-section-related [data-rp-root] .section__header-des[data-own-font] * { font-family: var(--rp-body-font); }
+  #shopify-section-related [data-rp-root] [data-rp-hidden] { display: none; }
+  #shopify-section-related:has(> [data-rp-reset]),
+  #shopify-section-related > [data-rp-reset] { margin-top: 0 !important; margin-bottom: 0 !important; }
+  #shopify-section-related:has(> [data-rp-reset]) + .shopify-section { margin-top: 0 !important; }
+</style><div
+class="section sec__related-product color-default gradient remove_spacing overflow-hidden"
+style="--section-pt: 80; --section-pb: 48;"
+data-rp-root
+data-rp-section="related"
+data-rp-reset
 >
+<div class="container" data-rp-width><div class="section__header mb-33 mb-sm-20 text-left">
+<div class="secion__header-inner">
 <motion-element
-class="product-item__wrapper block  hover_zoom product-grid  scroll-trigger subtle_rise "
-data-cascade
-data-motion="fade-up-lg"
-hold
-data-motion-delay="0"
-style="--animation-order: 1;  "
->
-<div class="product-item__inner hover-effect overflow-hidden relative">
-<a
-draggable="false"
-href="/theme-previews/digital-products/products/pricing-your-work-a-guide.html"
-aria-label="Pricing your work, a guide"
-class="product__media product-item__media--ratio rounded block"
-style="--aspect-ratio: 1/1;"
->
-<img src="/theme-previews/digital-products/a/digital-guide.313956ed887f.webp" srcset="/theme-previews/digital-products/a/digital-guide.313956ed887f.webp 720w, /theme-previews/digital-products/a/digital-guide.313956ed887f.webp 660w, /theme-previews/digital-products/a/digital-guide.313956ed887f.webp 550w, /theme-previews/digital-products/a/digital-guide.313956ed887f.webp 480w, /theme-previews/digital-products/a/digital-guide.313956ed887f.webp 330w, /theme-previews/digital-products/a/digital-guide.313956ed887f.webp 240w, /theme-previews/digital-products/a/digital-guide.313956ed887f.webp 185w" alt="Pricing your work, a guide" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  24px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 24px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
-<div class="loading_image skeleton">
-</div>
-</a><div class="pc-corner" data-pc-corner>
-<div
-class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
-data-max="4"
-data-sale-color="#ffffff"
-data-sold-out-color="#ffffff"
-data-pre-order-color="#ffffff"
-data-sale-bg="#353535"
-data-sold-out-bg="#666666"
-data-pre-order-bg="#6a33d8"
-data-show-sale="true"
-data-show-sold-out="true"
-data-show-preorder="true"
-data-sale-badge-type="percent"
->
-</div>
-</div>
-<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
-</div>
-</div>
-<div class="product-item__information word-break text-start mt-15">
-<a
-aria-label="Pricing your work, a guide"
-class="product-item__name unset heading-style no-underline fs-custom block lh-normal"
-style="--font-size: 17;"            
-href="/theme-previews/digital-products/products/pricing-your-work-a-guide.html"
->Pricing your work, a guide</a>
-<div
-class="product-item__price justify-content-start fs-custom flex gap-custom lh-normal "
-style="--font-size: 15; --gap: 3px;"
-><div class="card-product-price  flex align-center flex-wrap gap-5 relative"><div class="price-regular">
-<span class="visually-hidden">Regular price</span>
-<span class="price price-same-style heading-style">
-$24.00
-</span>
-</div>
-</div>
-</div>
-</div>
-<script type="application/json" class="product-variant__quantity">
-            [{ "option":"Small","qty":11,"available":true,"mamagement":""},{ "option":"Medium","qty":11,"available":true,"mamagement":""},{ "option":"Large","qty":0,"available":false,"mamagement":"shopify"}]
-          </script>
-</motion-element><script type="application/json" class="productItemVariantsQty">
-        [{ "option":"Small","qty":11,"available":true,"mamagement":""},{ "option":"Medium","qty":11,"available":true,"mamagement":""},{ "option":"Large","qty":0,"available":false,"mamagement":"shopify"}]
-      </script></div>
-<div
-class="product-item product__item-js  style-as-standard"
->
-<motion-element
-class="product-item__wrapper block  hover_zoom product-grid  scroll-trigger subtle_rise "
-data-cascade
 data-motion="fade-up-lg"
 hold
 data-motion-delay="50"
-style="--animation-order: 2;  "
+class="block  scroll-trigger subtle_rise"
+style="--animation-order: 0;"
 >
-<div class="product-item__inner hover-effect overflow-hidden relative">
-<a
-draggable="false"
-href="/theme-previews/digital-products/products/social-post-templates.html"
-aria-label="Social post templates"
-class="product__media product-item__media--ratio rounded block"
-style="--aspect-ratio: 1/1;"
->
-<img src="/theme-previews/digital-products/a/digital-templates.3a682d7f2ab0.webp" srcset="/theme-previews/digital-products/a/digital-templates.3a682d7f2ab0.webp 720w, /theme-previews/digital-products/a/digital-templates.3a682d7f2ab0.webp 660w, /theme-previews/digital-products/a/digital-templates.3a682d7f2ab0.webp 550w, /theme-previews/digital-products/a/digital-templates.3a682d7f2ab0.webp 480w, /theme-previews/digital-products/a/digital-templates.3a682d7f2ab0.webp 330w, /theme-previews/digital-products/a/digital-templates.3a682d7f2ab0.webp 240w, /theme-previews/digital-products/a/digital-templates.3a682d7f2ab0.webp 185w" alt="Social post templates" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  24px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 24px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
-<div class="loading_image skeleton">
-</div>
-</a><div class="pc-corner" data-pc-corner>
-<div
-class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
-data-max="4"
-data-sale-color="#ffffff"
-data-sold-out-color="#ffffff"
-data-pre-order-color="#ffffff"
-data-sale-bg="#353535"
-data-sold-out-bg="#666666"
-data-pre-order-bg="#6a33d8"
-data-show-sale="true"
-data-show-sold-out="true"
-data-show-preorder="true"
-data-sale-badge-type="percent"
-><div
-class="product__badges-sale product__badges-type-percent product__badges-inner align-self-start px-15 sale inline-flex content-center subheading_weight text-center lh-normal"
->-20%
-</div>
-</div>
-</div>
-<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
-</div>
-</div>
-<div class="product-item__information word-break text-start mt-15">
-<a
-aria-label="Social post templates"
-class="product-item__name unset heading-style no-underline fs-custom block lh-normal"
-style="--font-size: 17;"            
-href="/theme-previews/digital-products/products/social-post-templates.html"
->Social post templates</a>
-<div
-class="product-item__price justify-content-start fs-custom flex gap-custom lh-normal "
-style="--font-size: 15; --gap: 3px;"
-><div class="card-product-price  flex align-center flex-wrap gap-5 relative"><div class="price-regular primary-color">
-<span class="visually-hidden">Sale price</span>
-<span class="price heading_weight primary-color price-same-style price--special">
-$29.00
-</span>
-</div>
-<div class="price-regular">
-<span class="visually-hidden">Regular price</span>
-<s class="price-item compare-price dark-grey">$36.25</s>
-</div>
-</div>
-</div>
-</div>
-<script type="application/json" class="product-variant__quantity">
-            [{ "option":"Default Title","qty":11,"available":true,"mamagement":""}]
-          </script>
-</motion-element></div>
-<div
-class="product-item product__item-js  style-as-standard"
->
+<h2 class="section__header-heading heading-letter-spacing h3 mt-0 mb-0">
+More files
+</h2>
+</motion-element>
 <motion-element
-class="product-item__wrapper block  hover_zoom product-grid  scroll-trigger subtle_rise "
-data-cascade
 data-motion="fade-up-lg"
-hold
-data-motion-delay="100"
-style="--animation-order: 3;  "
->
-<div class="product-item__inner hover-effect overflow-hidden relative">
-<a
-draggable="false"
-href="/theme-previews/digital-products/products/line-icons-240.html"
-aria-label="Line icons, 240"
-class="product__media product-item__media--ratio rounded block"
-style="--aspect-ratio: 1/1;"
->
-<img src="/theme-previews/digital-products/a/digital-icons.708d2045857b.webp" srcset="/theme-previews/digital-products/a/digital-icons.708d2045857b.webp 720w, /theme-previews/digital-products/a/digital-icons.708d2045857b.webp 660w, /theme-previews/digital-products/a/digital-icons.708d2045857b.webp 550w, /theme-previews/digital-products/a/digital-icons.708d2045857b.webp 480w, /theme-previews/digital-products/a/digital-icons.708d2045857b.webp 330w, /theme-previews/digital-products/a/digital-icons.708d2045857b.webp 240w, /theme-previews/digital-products/a/digital-icons.708d2045857b.webp 185w" alt="Line icons, 240" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  24px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 24px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
-<div class="loading_image skeleton">
-</div>
-</a><div class="pc-corner" data-pc-corner>
-<div
-class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
-data-max="4"
-data-sale-color="#ffffff"
-data-sold-out-color="#ffffff"
-data-pre-order-color="#ffffff"
-data-sale-bg="#353535"
-data-sold-out-bg="#666666"
-data-pre-order-bg="#6a33d8"
-data-show-sale="true"
-data-show-sold-out="true"
-data-show-preorder="true"
-data-sale-badge-type="percent"
->
-</div>
-</div>
-<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
-</div>
-</div>
-<div class="product-item__information word-break text-start mt-15">
-<a
-aria-label="Line icons, 240"
-class="product-item__name unset heading-style no-underline fs-custom block lh-normal"
-style="--font-size: 17;"            
-href="/theme-previews/digital-products/products/line-icons-240.html"
->Line icons, 240</a>
-<div
-class="product-item__price justify-content-start fs-custom flex gap-custom lh-normal "
-style="--font-size: 15; --gap: 3px;"
-><div class="card-product-price  flex align-center flex-wrap gap-5 relative"><div class="price-regular">
-<span class="visually-hidden">Regular price</span>
-<span class="price price-same-style heading-style">
-$19.00
-</span>
-</div>
-</div>
-</div>
-</div>
-<script type="application/json" class="product-variant__quantity">
-            [{ "option":"Default Title","qty":11,"available":true,"mamagement":""}]
-          </script>
-</motion-element></div>
-<div
-class="product-item product__item-js  style-as-standard"
->
-<motion-element
-class="product-item__wrapper block  hover_zoom product-grid  scroll-trigger subtle_rise "
-data-cascade
-data-motion="fade-up-lg"
-hold
 data-motion-delay="150"
-style="--animation-order: 4;  "
+hold
+class="section__header-des block rich__text-m0"
+style="--animation-order: 1"
+data-rp-hidden
 >
-<div class="product-item__inner hover-effect overflow-hidden relative">
-<a
-draggable="false"
-href="/theme-previews/digital-products/products/soft-film-presets.html"
-aria-label="Soft Film presets"
-class="product__media product-item__media--ratio rounded block"
-style="--aspect-ratio: 1/1;"
+</motion-element>
+</div>
+</div><product-recommendations
+data-section-id="related"
+data-rp-grid
+style="--col-desktop: 4;--col-number: 2;--col-tablet: 3;  --col-gap: 15px;--col-gap-desktop: 20px;--repeat: 4; --col-mobile: 2"
+class="products-grid__items flex flex-cols row-gap-20 row-gap-md-30 flex-wrap "
+data-url="#"
+data-arrow-centerimage="1"
+><div class="related-skeleton__card" aria-hidden="true">
+<div class="related-skeleton__media" style="--aspect-ratio: 1/1;"></div>
+<div class="related-skeleton__line related-skeleton__line--title"></div>
+<div class="related-skeleton__line related-skeleton__line--price"></div>
+</div><div class="related-skeleton__card" aria-hidden="true">
+<div class="related-skeleton__media" style="--aspect-ratio: 1/1;"></div>
+<div class="related-skeleton__line related-skeleton__line--title"></div>
+<div class="related-skeleton__line related-skeleton__line--price"></div>
+</div><div class="related-skeleton__card" aria-hidden="true">
+<div class="related-skeleton__media" style="--aspect-ratio: 1/1;"></div>
+<div class="related-skeleton__line related-skeleton__line--title"></div>
+<div class="related-skeleton__line related-skeleton__line--price"></div>
+</div><div class="related-skeleton__card" aria-hidden="true">
+<div class="related-skeleton__media" style="--aspect-ratio: 1/1;"></div>
+<div class="related-skeleton__line related-skeleton__line--title"></div>
+<div class="related-skeleton__line related-skeleton__line--price"></div>
+</div></product-recommendations></div>
+</div>
+</section><div id="shopify-section-faq" class="shopify-section section-faq7" data-section-id="faq" data-section-type="faq-pro"><script src="/theme-previews/_base/a/live-faq.15551f08943f.js" defer="defer"></script>
+<style>
+  #shopify-section-faq {
+    font-family: var(--body-font, inherit);
+    font-size: var(--body-font-size, inherit);
+    font-weight: var(--body-weight, inherit);
+    line-height: var(--body-line-height, inherit);
+    color: var(--color-text);
+  }
+  #shopify-section-faq :is(h1, h2, h3, h4, h5, h6) {
+    font-family: var(--heading-font, inherit);
+    font-weight: var(--heading-weight, inherit);
+    letter-spacing: var(--heading-letter-spacing, normal);
+    line-height: var(--heading-line-height, 1.2);
+    text-transform: var(--heading-text-transform, none);
+  }
+  :where(html:not([data-font-priority='off'])) #shopify-section-faq :where(.subheading, .sub-heading, [class*='__subheading']) {
+    font-weight: var(--subheading-weight, 500);
+  }
+</style><style>
+  #shopify-section-faq.scroll-trigger {
+    --animation-duration: 950ms;
+    --animation-delay: 80ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-faq');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', "subtle_rise");
+  })();
+</script><style>
+  #shopify-section-faq,#shopify-section-faq>.section,#shopify-section-faq>section,#shopify-section-faq>div,#shopify-section-faq>div>.section{margin-top:0!important;margin-bottom:0!important}
+  #shopify-section-faq+.shopify-section,#shopify-section-faq+section,.shopify-section+#shopify-section-faq{margin-top:0!important}
+  #shopify-section-faq{isolation:isolate;position:relative;margin-top:0px;margin-bottom:0px}
+  :where(#shopify-section-faq){font-family:var(--body-font,inherit)}
+  :where(#shopify-section-faq) :where(button,input,textarea,select,optgroup){font-family:inherit}
+  #shopify-section-faq *,#shopify-section-faq *:before,#shopify-section-faq *:after{box-sizing:border-box}
+  :where(#shopify-section-faq) :is(h1,h2,h3,h4,h5,h6){font-family:var(--heading-font,inherit);font-weight:var(--heading-weight,inherit)}
+  @media (min-width:768px){#shopify-section-faq{margin-top:0px;margin-bottom:0px}}
+</style>
+<link href="/theme-previews/_base/a/faq-pro.b7e810b1d391.css" rel="stylesheet" type="text/css" media="all"><div class="faq7 color-default gradient" data-faq7-root data-faq-root="faq-pro" data-faq-section="faq" data-faq-settings="{&quot;color_scheme&quot;:{&quot;id&quot;:&quot;default&quot;,&quot;settings&quot;:{&quot;page_colors&quot;:null,&quot;background&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;text_color&quot;:{&quot;red&quot;:75,&quot;green&quot;:75,&quot;blue&quot;:82,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:4,&quot;lightness&quot;:31,&quot;rgb&quot;:&quot;75 75 82&quot;,&quot;rgba&quot;:&quot;75 75 82 / 1&quot;,&quot;hex&quot;:&quot;#4b4b52&quot;},&quot;heading_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;primary_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;border_color&quot;:{&quot;red&quot;:230,&quot;green&quot;:228,&quot;blue&quot;:222,&quot;alpha&quot;:1,&quot;hue&quot;:45,&quot;saturation&quot;:14,&quot;lightness&quot;:89,&quot;rgb&quot;:&quot;230 228 222&quot;,&quot;rgba&quot;:&quot;230 228 222 / 1&quot;,&quot;hex&quot;:&quot;#e6e4de&quot;},&quot;badge_background&quot;:null,&quot;badge_text&quot;:null,&quot;primary_button_colors&quot;:null,&quot;btn_primary_background&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;btn_primary_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_primary_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_primary_hover_background&quot;:{&quot;red&quot;:36,&quot;green&quot;:64,&quot;blue&quot;:230,&quot;alpha&quot;:1,&quot;hue&quot;:231,&quot;saturation&quot;:80,&quot;lightness&quot;:52,&quot;rgb&quot;:&quot;36 64 230&quot;,&quot;rgba&quot;:&quot;36 64 230 / 1&quot;,&quot;hex&quot;:&quot;#2440e6&quot;},&quot;btn_primary_hover_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_primary_hover_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;secondary_button_colors&quot;:null,&quot;btn_secondary_background&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_secondary_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;btn_secondary_border&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;btn_secondary_hover_background&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;btn_secondary_hover_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_secondary_hover_border_color&quot;:null,&quot;background_gradient&quot;:&quot;&quot;,&quot;btn_primary_gradient&quot;:&quot;&quot;,&quot;btn_primary_hover_background_gradient&quot;:&quot;&quot;,&quot;btn_secondary_hover_border&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_outline_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;btn_outline_border_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;button_link_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;button_link_hover_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;}}},&quot;section_width&quot;:&quot;container&quot;,&quot;reset_spacing&quot;:true,&quot;structured_data&quot;:false,&quot;heading&quot;:&quot;Frequently asked questions&quot;,&quot;subheading&quot;:&quot;&lt;p&gt;Have a question? We&#39;re here to help.&lt;\/p&gt;&quot;,&quot;first_item_open&quot;:false,&quot;allow_multiple_open&quot;:false,&quot;open_icon&quot;:&quot;plus&quot;,&quot;content_alignment&quot;:&quot;left&quot;,&quot;max_content_width&quot;:800,&quot;col_gap&quot;:60,&quot;gap_header_to_items&quot;:32,&quot;gap_heading_to_subheading&quot;:12,&quot;gap_between_items&quot;:19,&quot;item_padding_y&quot;:20,&quot;item_padding_x&quot;:14,&quot;item_radius&quot;:11,&quot;show_dividers&quot;:true,&quot;enable_custom_style&quot;:false,&quot;section_bg&quot;:null,&quot;card_bg&quot;:null,&quot;card_border_color&quot;:null,&quot;divider_color&quot;:null,&quot;question_color&quot;:null,&quot;hover_color&quot;:null,&quot;icon_color&quot;:null,&quot;answer_color&quot;:null,&quot;heading_color&quot;:null,&quot;subheading_color&quot;:null,&quot;enable_custom_fonts&quot;:false,&quot;heading_font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;body_font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;heading_size_desktop&quot;:36,&quot;heading_size_mobile&quot;:26,&quot;enable_custom_heading_weight&quot;:false,&quot;heading_weight&quot;:&quot;600&quot;,&quot;subheading_size_desktop&quot;:16,&quot;subheading_size_mobile&quot;:14,&quot;question_size_desktop&quot;:18,&quot;question_size_mobile&quot;:15,&quot;enable_custom_question_weight&quot;:false,&quot;question_weight&quot;:&quot;600&quot;,&quot;answer_size_desktop&quot;:15,&quot;answer_size_mobile&quot;:14,&quot;reveal&quot;:true,&quot;scroll_animation&quot;:&quot;inherit&quot;,&quot;padding_top&quot;:48,&quot;padding_bottom&quot;:96,&quot;section_margin_top_desktop&quot;:0,&quot;section_margin_bottom_desktop&quot;:0,&quot;section_margin_top_mobile&quot;:0,&quot;section_margin_bottom_mobile&quot;:0}" data-faq7-anim="subtle_rise" data-faq7-width="container" data-faq7-reveal="subtle_rise" style="--faq7-bg:var(--color-background);--faq7-pt:48px;--faq7-pb:96px;--faq7-col-gap:60px;--faq7-align:left;--faq7-mi:0;--faq7-cta-justify:flex-start;--faq7-gap-header:32px;--faq7-maxw:800px;--faq7-h-m:26px;--faq7-h-d:36px;--faq7-heading-color:var(--color-heading);--faq7-gap-sub:12px;--faq7-sub-m:14px;--faq7-sub-d:16px;--faq7-sub-color:var(--color-text);--faq7-gap-items:19px;--faq7-card-bg:rgba(var(--color-heading-rgb), 0.04);--faq7-card-border:transparent;--faq7-radius:11px;--faq7-divider:var(--color-border);--faq7-py:20px;--faq7-px:14px;--faq7-q-color:var(--color-heading);--faq7-q-m:15px;--faq7-q-d:18px;--faq7-hover:var(--color-primary);--faq7-icon-color:var(--color-heading);--faq7-a-color:var(--color-text);--faq7-a-m:14px;--faq7-a-d:15px;">
+<div class="faq7__inner">
+<div class="faq7__layout"><div class="faq7__header"><h2 class="faq7__heading" id="block-heading" data-faq-block="heading" data-faq-type="heading" data-faq-settings="{&quot;text&quot;:&quot;Before you buy&quot;,&quot;tag&quot;:&quot;h2&quot;,&quot;enable_custom_style&quot;:false,&quot;color&quot;:null,&quot;enable_custom_fonts&quot;:false,&quot;font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;weight_enable&quot;:false,&quot;weight&quot;:&quot;700&quot;,&quot;size_enable&quot;:false,&quot;size_desktop&quot;:36,&quot;size_mobile&quot;:26,&quot;line_height&quot;:1.15,&quot;tracking&quot;:0}" data-block-id="heading">Before you buy</h2><div class="faq7__subheading" id="block-subheading" data-faq-block="subheading" data-faq-type="subheading" data-faq-settings="{&quot;text&quot;:&quot;&lt;p&gt;The questions people ask about downloads. Anything else, write to us.&lt;\/p&gt;&quot;,&quot;enable_custom_style&quot;:false,&quot;color&quot;:null,&quot;enable_custom_fonts&quot;:false,&quot;font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;weight_enable&quot;:false,&quot;weight&quot;:&quot;400&quot;,&quot;size_enable&quot;:false,&quot;size&quot;:16,&quot;line_height&quot;:1.5}" data-block-id="subheading"><p>The questions people ask about downloads. Anything else, write to us.</p></div></div><template data-faq-icons>
+<svg data-icon="chevron" class="faq7__icon-chevron" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+<svg data-icon="arrow" class="faq7__icon-chevron" viewBox="0 0 24 24"><path d="M12 4v16M4 12h16" stroke-linecap="round"/></svg>
+<span data-icon="plus" class="faq7__icon-plus"><span class="v"></span><span class="h"></span></span></template><div class="faq7__list" data-faq7-list data-faq-list data-multiple="false"><div class="faq7__item"  data-faq7-item data-faq-item id="block-faq_item_1" data-faq-block="faq_item_1" data-faq-type="faq_item" data-faq-settings="{&quot;question&quot;:&quot;How do I get my files?&quot;,&quot;answer&quot;:&quot;&lt;p&gt;A download link appears on the order page the moment you pay, and the same link arrives by email.&lt;\/p&gt;&quot;}" data-block-id="faq_item_1">
+<button
+type="button"
+class="faq7__q"
+aria-expanded="false"
+aria-controls="faq7-a-faq-1"
+data-faq7-trigger data-faq-trigger
 >
-<img src="/theme-previews/digital-products/a/digital-presets.56d5b0ab5861.webp" srcset="/theme-previews/digital-products/a/digital-presets.56d5b0ab5861.webp 720w, /theme-previews/digital-products/a/digital-presets.56d5b0ab5861.webp 660w, /theme-previews/digital-products/a/digital-presets.56d5b0ab5861.webp 550w, /theme-previews/digital-products/a/digital-presets.56d5b0ab5861.webp 480w, /theme-previews/digital-products/a/digital-presets.56d5b0ab5861.webp 330w, /theme-previews/digital-products/a/digital-presets.56d5b0ab5861.webp 240w, /theme-previews/digital-products/a/digital-presets.56d5b0ab5861.webp 185w" alt="Soft Film presets" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  24px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 24px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
-<div class="loading_image skeleton">
+<span data-faq-question>How do I get my files?</span>
+<span class="faq7__icon" aria-hidden="true" data-faq-icon="plus"><span class="faq7__icon-plus"><span class="v"></span><span class="h"></span></span></span>
+</button>
+<div class="faq7__a-wrap" id="faq7-a-faq-1" data-faq-panel>
+<div class="faq7__a-inner">
+<div class="faq7__a" data-faq-answer><p>A download link appears on the order page the moment you pay, and the same link arrives by email.</p></div>
 </div>
-</a><div class="pc-corner" data-pc-corner>
-<div
-class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
-data-max="4"
-data-sale-color="#ffffff"
-data-sold-out-color="#ffffff"
-data-pre-order-color="#ffffff"
-data-sale-bg="#353535"
-data-sold-out-bg="#666666"
-data-pre-order-bg="#6a33d8"
-data-show-sale="true"
-data-show-sold-out="true"
-data-show-preorder="true"
-data-sale-badge-type="percent"
+</div>
+</div><div class="faq7__item"  data-faq7-item data-faq-item id="block-faq_item_2" data-faq-block="faq_item_2" data-faq-type="faq_item" data-faq-settings="{&quot;question&quot;:&quot;Can I use them for client work?&quot;,&quot;answer&quot;:&quot;&lt;p&gt;Yes, for work you are paid for. You cannot resell or share the files themselves.&lt;\/p&gt;&quot;}" data-block-id="faq_item_2">
+<button
+type="button"
+class="faq7__q"
+aria-expanded="false"
+aria-controls="faq7-a-faq-2"
+data-faq7-trigger data-faq-trigger
 >
+<span data-faq-question>Can I use them for client work?</span>
+<span class="faq7__icon" aria-hidden="true" data-faq-icon="plus"><span class="faq7__icon-plus"><span class="v"></span><span class="h"></span></span></span>
+</button>
+<div class="faq7__a-wrap" id="faq7-a-faq-2" data-faq-panel>
+<div class="faq7__a-inner">
+<div class="faq7__a" data-faq-answer><p>Yes, for work you are paid for. You cannot resell or share the files themselves.</p></div>
 </div>
 </div>
-<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
+</div><div class="faq7__item"  data-faq7-item data-faq-item id="block-faq_item_3" data-faq-block="faq_item_3" data-faq-type="faq_item" data-faq-settings="{&quot;question&quot;:&quot;What if a file will not open?&quot;,&quot;answer&quot;:&quot;&lt;p&gt;Write to us with the file name and what you see. We send a fixed file or refund you.&lt;\/p&gt;&quot;}" data-block-id="faq_item_3">
+<button
+type="button"
+class="faq7__q"
+aria-expanded="false"
+aria-controls="faq7-a-faq-3"
+data-faq7-trigger data-faq-trigger
+>
+<span data-faq-question>What if a file will not open?</span>
+<span class="faq7__icon" aria-hidden="true" data-faq-icon="plus"><span class="faq7__icon-plus"><span class="v"></span><span class="h"></span></span></span>
+</button>
+<div class="faq7__a-wrap" id="faq7-a-faq-3" data-faq-panel>
+<div class="faq7__a-inner">
+<div class="faq7__a" data-faq-answer><p>Write to us with the file name and what you see. We send a fixed file or refund you.</p></div>
 </div>
 </div>
-<div class="product-item__information word-break text-start mt-15">
-<a
-aria-label="Soft Film presets"
-class="product-item__name unset heading-style no-underline fs-custom block lh-normal"
-style="--font-size: 17;"            
-href="/theme-previews/digital-products/products/soft-film-presets.html"
->Soft Film presets</a>
-<div
-class="product-item__price justify-content-start fs-custom flex gap-custom lh-normal "
-style="--font-size: 15; --gap: 3px;"
-><div class="card-product-price  flex align-center flex-wrap gap-5 relative"><div class="price-regular">
-<span class="visually-hidden">Regular price</span>
-<span class="price price-same-style heading-style">
-$22.00
-</span>
+</div><div class="faq7__item"  data-faq7-item data-faq-item id="block-faq_item_4" data-faq-block="faq_item_4" data-faq-type="faq_item" data-faq-settings="{&quot;question&quot;:&quot;Do I get updates?&quot;,&quot;answer&quot;:&quot;&lt;p&gt;Yes. When a file changes you get an email with a new link, free.&lt;\/p&gt;&quot;}" data-block-id="faq_item_4">
+<button
+type="button"
+class="faq7__q"
+aria-expanded="false"
+aria-controls="faq7-a-faq-4"
+data-faq7-trigger data-faq-trigger
+>
+<span data-faq-question>Do I get updates?</span>
+<span class="faq7__icon" aria-hidden="true" data-faq-icon="plus"><span class="faq7__icon-plus"><span class="v"></span><span class="h"></span></span></span>
+</button>
+<div class="faq7__a-wrap" id="faq7-a-faq-4" data-faq-panel>
+<div class="faq7__a-inner">
+<div class="faq7__a" data-faq-answer><p>Yes. When a file changes you get an email with a new link, free.</p></div>
 </div>
 </div>
+</div></div></div>
 </div>
 </div>
-<script type="application/json" class="product-variant__quantity">
-            [{ "option":"Default Title","qty":11,"available":true,"mamagement":""}]
-          </script>
-</motion-element></div>
-</div><div class="pg__foot">
-<a class="button inline-block btn-primary" data-theme-button="primary" href="/theme-previews/digital-products/collections/all.html">See all files</a>
-</div></div>
-</div>
-</section>
+<script src="/theme-previews/_base/a/faq-pro.aa0329bc0bd7.js" defer></script></div>
 </main><script src="/theme-previews/digital-products/a/i.3221b11617b1.js"></script>
 <div id="shopify-section-footer" class="shopify-section shopify-section-group-footer-group" data-section-id="footer" data-section-type="theme-footer"><style>
   #shopify-section-footer {
@@ -1635,7 +1539,7 @@ $22.00
   #shopify-section-footer .arrow-toggle svg{width:var(--footer-arrow-size,14px);height:var(--footer-arrow-size,14px)}
 </style>
 <link href="/theme-previews/_base/a/collapsible.d0962c33f2d4.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/footer-section.37a0b34a1c2e.css" rel="stylesheet" type="text/css" media="all">
+<link href="/theme-previews/_base/a/footer-section.80f1cbc421de.css" rel="stylesheet" type="text/css" media="all">
 <footer
 class="product-sticky-hide footer color-scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976 gradient border-top remove_spacing remove_spacing-on-home"
 data-theme-footer
@@ -1785,7 +1689,7 @@ Search
 <div class="footer__bottom"><div class="container">
 <div class="footer_bottom-inner justify-center justify-md-end flex flex-wrap flex-md-nowrap align-center border-top gap-20 gap-xl-30 py-30"><div class="flex flex-wrap gap-10 gap-xl-30 justify-center justify-md-start">
 <div class="footer__copyright" data-ft-copyright>© 2026 Plainfile</div>
-<ul class="footer__policies list-unstyled flex flex-wrap" data-ft-policies><li><a href="/theme-previews/digital-products/policies/refund-policy.html">Refund policy</a></li><li><a href="/theme-previews/digital-products/policies/privacy-policy.html">Privacy policy</a></li><li><a href="/theme-previews/digital-products/policies/terms-of-service.html">Terms of service</a></li></ul></div>
+<ul class="footer__policies list-unstyled flex flex-wrap" data-ft-policies><li><a href="/theme-previews/digital-products/policies/refund-policy.html">Refund policy</a></li><li><a href="/theme-previews/digital-products/policies/privacy-policy.html">Privacy policy</a></li><li><a href="/theme-previews/digital-products/policies/terms-of-service.html">Terms of service</a></li></ul><div class="footer__powered" data-ft-powered><a href="#" data-preview-inert data-storelib-badge="">Powered by Storelib</a></div></div>
 <div class="footer__payment flex grow-1 align-center max-w-100" style="justify-content: flex-end; --pb-width: 100%; margin-left: auto;" data-ft-block="payment_badges_1" data-ft-type="payment_badges" data-block-id="payment_badges_1">
 <ul class="footer__payment-badges"><li class="payment-badge" aria-label="Visa"><svg class="icon icon--full-color" viewBox="0 0 38 24" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Visa">
 <title>Visa</title>
@@ -2045,7 +1949,7 @@ Continue Shopping
 <div class="overlayminicart">
 </div>
 <script src="/theme-previews/digital-products/a/i.f50d71910c82.js"></script>
-<script src="/theme-previews/_base/a/animation.8fcd3a124757.js" defer="defer"></script>
+<script src="/theme-previews/_base/a/animation.7fa50ded717b.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/tingle-min.9664ca3641cf.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/cart-discount.6748c8dd9657.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/theme.7a7dd8f80f89.js"  defer="defer" type="module"></script>
@@ -2112,7 +2016,7 @@ Skip to content
   @keyframes materiaMediaFade { from { opacity: 0; } to { opacity: 1; } }
   html.js-media-fade .media-fade-run { animation: materiaMediaFade .4s ease; }
 </style>
-<script src="/theme-previews/digital-products/a/i.078d2107f4f7.js"></script>
+<script src="/theme-previews/digital-products/a/i.83047f4ee031.js"></script>
 <style>
         :root {
           /* Wire the user's Animations & motion settings to the keyframe vars used by animation.css */

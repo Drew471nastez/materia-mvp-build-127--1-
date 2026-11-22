@@ -1,0 +1,289 @@
+{%- comment -%}
+  Pricing table: up to four plans as columns, what each includes as rows.
+  Each row is a block (a label and a value per plan; "yes" draws a tick,
+  "no" or nothing a dash, anything else is written as it is), and a group
+  block starts a new run of rows under a small heading. On a phone the
+  plans become a switch above the table and one plan's column shows at a
+  time, beside the labels. Colours, type, buttons and spacing follow the
+  theme settings.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign sid = section.id
+  assign scheme = s.color_scheme.id | default: s.color_scheme | default: 'default-color-scheme'
+  assign cols = 0
+  for n in (1..4)
+    assign key = 'plan_' | append: n | append: '_name'
+    if s[key] != blank
+      assign cols = n
+    endif
+  endfor
+  assign hl = s.highlight | plus: 0
+  assign first_shown = 1
+  if hl > 0 and hl <= cols
+    assign first_shown = hl
+  endif
+  assign animation = settings.scroll_animation | default: 'none'
+-%}
+<style>
+  #shopify-section-{{ sid }} { margin-top: 0 !important; margin-bottom: 0 !important; }
+  .ptab-{{ sid }} {
+    --pb-line: rgba(var(--color-heading-rgb), .12);
+    --pb-tint: rgba(var(--color-heading-rgb), .045);
+    background: var(--color-background);
+    color: var(--color-text);
+    padding-block: {% if s.use_theme_spacing %}var(--section-spacing, 64px){% else %}{{ s.padding_top_mobile }}px {{ s.padding_bottom_mobile }}px{% endif %};
+  }
+  @media (min-width: 768px) {
+    .ptab-{{ sid }} { padding-block: {% if s.use_theme_spacing %}var(--section-spacing, 90px){% else %}{{ s.padding_top }}px {{ s.padding_bottom }}px{% endif %}; }
+  }
+  .ptab-{{ sid }} .ptab__inner { margin-inline: auto; padding-inline: var(--container-gutter, 20px); max-width: {% case s.section_width %}{% when 'narrow' %}calc(960px + var(--container-gutter, 20px) * 2){% when 'fluid_container' %}calc(var(--fluid-container-width, 1410px) + var(--container-gutter, 20px) * 2){% else %}calc(var(--page-width, 1200px) + var(--container-gutter, 20px) * 2){% endcase %}; }
+  .ptab-{{ sid }} .ptab__head { max-width: 640px; margin: 0 0 clamp(24px, 4vw, 44px); text-align: {{ s.heading_align }}; {% if s.heading_align == 'center' %}margin-inline: auto;{% endif %} }
+  .ptab-{{ sid }} .ptab__title { margin: 0; }
+  .ptab-{{ sid }} .ptab__intro { margin-top: 12px; font-size: 1.5rem; line-height: 1.6; }
+  .ptab-{{ sid }} .ptab__intro p { margin: 0; }
+  .ptab-{{ sid }} table { width: 100%; margin: 0; border: 0; border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 1.45rem; background: none; }
+  .ptab-{{ sid }} :is(thead, tbody, tr, th, td) { border: 0; background: none; }
+  .ptab-{{ sid }} :is(th, td) { padding: 14px 16px; text-align: center; vertical-align: middle; border-bottom: 1px solid var(--pb-line); color: var(--color-text); }
+  .ptab-{{ sid }} th[scope='row'] { text-align: left; font-weight: 400; color: var(--color-text); padding-left: 0; }
+  .ptab-{{ sid }} .ptab__label-note { display: block; margin-top: 2px; font-size: 1.25rem; color: rgba(var(--color-text-rgb), .65); }
+  .ptab-{{ sid }} thead th { vertical-align: bottom; border-bottom-color: rgba(var(--color-heading-rgb), .3); padding-top: 22px; padding-bottom: 22px; }
+  .ptab-{{ sid }} thead th:first-child { text-align: left; padding-left: 0; }
+  .ptab-{{ sid }} .ptab__plan { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .ptab-{{ sid }} .ptab__badge { margin-bottom: 4px; padding: 3px 8px; border-radius: var(--bages-radius, 4px); background: var(--badge-background); color: var(--badge-text); font-size: 1.1rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+  .ptab-{{ sid }} .ptab__name { margin: 0; --size: 1.8rem; }
+  .ptab-{{ sid }} .ptab__price { font-family: var(--heading-font); font-weight: var(--heading-weight); color: var(--color-heading); font-size: 2.8rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .ptab-{{ sid }} .ptab__note { font-size: 1.25rem; font-weight: 400; color: rgba(var(--color-text-rgb), .7); }
+  .ptab-{{ sid }} .ptab__plan [data-theme-button] { margin-top: 10px; width: 100%; max-width: 220px; }
+  .ptab-{{ sid }} .ptab__group th { padding-top: 28px; padding-bottom: 10px; text-align: left; padding-left: 0; font-size: 1.2rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--color-heading); border-bottom-color: rgba(var(--color-heading-rgb), .3); }
+  .ptab-{{ sid }} [data-hl] { background: var(--pb-tint); }
+  .ptab-{{ sid }} thead [data-hl] { border-radius: var(--card-radius, 6px) var(--card-radius, 6px) 0 0; }
+  .ptab-{{ sid }} tbody tr:last-child [data-hl] { border-radius: 0 0 var(--card-radius, 6px) var(--card-radius, 6px); }
+  .ptab-{{ sid }} .ptab__yes { width: 18px; height: 18px; color: var(--color-heading); vertical-align: middle; }
+  .ptab-{{ sid }} .ptab__no { width: 14px; height: 14px; color: rgba(var(--color-text-rgb), .4); vertical-align: middle; }
+  .ptab-{{ sid }} .ptab__switch { display: none; }
+  .ptab-{{ sid }} .ptab__foot { margin-top: 20px; font-size: 1.3rem; color: rgba(var(--color-text-rgb), .72); text-align: {{ s.heading_align }}; }
+  .ptab-{{ sid }} .ptab__foot p { margin: 0; }
+  @media (max-width: 749px) {
+    .ptab-{{ sid }} .ptab__switch { display: flex; gap: 4px; margin-bottom: 8px; padding: 4px; border-radius: var(--btn-radius, 999px); background: var(--pb-tint); box-shadow: inset 0 0 0 1px var(--pb-line); }
+    .ptab-{{ sid }} .ptab__switch button { flex: 1 1 0; min-width: 0; min-height: 40px; padding: 8px 10px; border: 0; border-radius: inherit; background: none; color: var(--color-heading); font: inherit; font-size: 1.35rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; transition: background-color .25s, color .25s; }
+    .ptab-{{ sid }} .ptab__switch button[aria-pressed='true'] { background: var(--btn-primary-bg-color, var(--color-heading)); color: var(--btn-primary-color, var(--color-background)); }
+    .ptab-{{ sid }}[data-js] :is(table, thead, tbody) { display: block; }
+    .ptab-{{ sid }}[data-js] tr { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 42%); }
+    .ptab-{{ sid }}[data-js] [data-col] { display: none; }
+    {%- for n in (1..4) %}
+    .ptab-{{ sid }}[data-js][data-show='{{ n }}'] [data-col='{{ n }}'] { display: flex; align-items: center; justify-content: flex-end; }
+    {%- endfor %}
+    .ptab-{{ sid }}[data-js] thead th:first-child { display: none; }
+    .ptab-{{ sid }}[data-js] thead [data-col] { grid-column: 1 / -1; padding: 18px 0; }
+    .ptab-{{ sid }}[data-js] .ptab__group th { grid-column: 1 / -1; }
+    .ptab-{{ sid }}[data-js] [data-hl] { background: none; border-radius: 0; }
+    .ptab-{{ sid }}[data-js] .ptab__plan { width: 100%; align-items: flex-start; text-align: left; }
+    .ptab-{{ sid }}[data-js] .ptab__plan [data-theme-button] { max-width: none; }
+    .ptab-{{ sid }}[data-js] td { text-align: right; padding-right: 0; }
+    .ptab-{{ sid }}[data-js] th[scope='row'] { padding-right: 12px; }
+    .ptab-{{ sid }}:not([data-js]) .ptab__scroll { overflow-x: auto; }
+    .ptab-{{ sid }}:not([data-js]) table { min-width: {{ cols | times: 140 | plus: 160 }}px; }
+  }
+</style>
+<section class="ptab ptab-{{ sid }} color-{{ scheme }} gradient" data-show="{{ first_shown }}" aria-labelledby="ptab-title-{{ sid }}">
+  <div class="ptab__inner">
+    {%- if s.heading != blank or s.intro != blank -%}
+      <header class="ptab__head">
+        {%- if s.heading != blank -%}<h2 class="ptab__title {{ s.heading_size | default: 'h2' }}" id="ptab-title-{{ sid }}">{{ s.heading | escape }}</h2>{%- endif -%}
+        {%- if s.intro != blank -%}<div class="ptab__intro">{{ s.intro }}</div>{%- endif -%}
+      </header>
+    {%- endif -%}
+    {%- if cols > 0 -%}
+      <div class="ptab__switch" role="group" aria-label="Show plan">
+        {%- for n in (1..cols) -%}
+          {%- assign key = 'plan_' | append: n | append: '_name' -%}
+          <button type="button" data-to="{{ n }}" aria-pressed="{% if n == first_shown %}true{% else %}false{% endif %}">{{ s[key] | escape }}</button>
+        {%- endfor -%}
+      </div>
+      <div class="ptab__scroll">
+        <table>
+          <caption class="visually-hidden">{{ s.heading | default: 'Plans compared' | escape }}</caption>
+          <thead>
+            <tr>
+              <th scope="col">{%- if s.corner_text != blank -%}<span class="ptab__note">{{ s.corner_text | escape }}</span>{%- else -%}<span class="visually-hidden">Feature</span>{%- endif -%}</th>
+              {%- for n in (1..cols) -%}
+                {%- liquid
+                  assign pre = 'plan_' | append: n
+                  assign k_name = pre | append: '_name'
+                  assign k_price = pre | append: '_price'
+                  assign k_note = pre | append: '_note'
+                  assign k_badge = pre | append: '_badge'
+                  assign k_label = pre | append: '_button_label'
+                  assign k_link = pre | append: '_button_link'
+                -%}
+                <th scope="col" data-col="{{ n }}"{% if n == hl %} data-hl{% endif %}>
+                  <div class="ptab__plan">
+                    {%- if s[k_badge] != blank -%}<span class="ptab__badge">{{ s[k_badge] | escape }}</span>{%- endif -%}
+                    <span class="ptab__name h6">{{ s[k_name] | escape }}</span>
+                    {%- if s[k_price] != blank -%}<span class="ptab__price">{{ s[k_price] | escape }}</span>{%- endif -%}
+                    {%- if s[k_note] != blank -%}<span class="ptab__note">{{ s[k_note] | escape }}</span>{%- endif -%}
+                    {%- if s[k_label] != blank -%}
+                      <a {% if s[k_link] != blank %}href="{{ s[k_link] }}"{% else %}role="link" aria-disabled="true"{% endif %} data-theme-button="{% if n == hl %}primary{% else %}secondary{% endif %}" data-sl-button>{{ s[k_label] | escape }}</a>
+                    {%- endif -%}
+                  </div>
+                </th>
+              {%- endfor -%}
+            </tr>
+          </thead>
+          <tbody>
+            {%- for block in section.blocks -%}
+              {%- if block.type == 'group' -%}
+                <tr class="ptab__group" {{ block.shopify_attributes }}><th scope="colgroup" colspan="{{ cols | plus: 1 }}">{{ block.settings.title | escape }}</th></tr>
+              {%- else -%}
+                <tr {{ block.shopify_attributes }}>
+                  <th scope="row">{{ block.settings.label | escape }}{% if block.settings.label_note != blank %}<span class="ptab__label-note">{{ block.settings.label_note | escape }}</span>{% endif %}</th>
+                  {%- for n in (1..cols) -%}
+                    {%- liquid
+                      assign vk = 'value_' | append: n
+                      assign v = block.settings[vk] | strip
+                      assign vd = v | downcase
+                    -%}
+                    <td data-col="{{ n }}"{% if n == hl %} data-hl{% endif %}>
+                      {%- if vd == 'yes' or vd == 'y' or vd == 'true' -%}
+                        <svg class="ptab__yes" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Included"><path d="M3.5 9.5l3.5 3.5 7.5-8"/></svg>
+                      {%- elsif vd == 'no' or vd == 'n' or vd == 'false' or v == blank -%}
+                        <svg class="ptab__no" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" role="img" aria-label="Not included"><path d="M3 7h8"/></svg>
+                      {%- else -%}
+                        {{ v | escape }}
+                      {%- endif -%}
+                    </td>
+                  {%- endfor -%}
+                </tr>
+              {%- endif -%}
+            {%- endfor -%}
+          </tbody>
+        </table>
+      </div>
+    {%- elsif request.design_mode -%}
+      <p class="ptab__foot">Name a plan in the section's settings to start the table.</p>
+    {%- endif -%}
+    {%- if s.footnote != blank -%}<div class="ptab__foot">{{ s.footnote }}</div>{%- endif -%}
+  </div>
+</section>
+<script>
+  (function () {
+    var root = document.querySelector('.ptab-{{ sid }}');
+    if (!root || root.__ptab) return;
+    root.__ptab = true;
+    root.setAttribute('data-js', '');
+    var buttons = root.querySelectorAll('.ptab__switch button');
+    for (var i = 0; i < buttons.length; i++) {
+      buttons[i].addEventListener('click', function () {
+        root.setAttribute('data-show', this.getAttribute('data-to'));
+        for (var k = 0; k < buttons.length; k++) buttons[k].setAttribute('aria-pressed', buttons[k] === this ? 'true' : 'false');
+      });
+    }
+  })();
+</script>
+{%- if animation != 'none' -%}
+<style>#shopify-section-{{ sid }}.scroll-trigger { --animation-duration: {{ settings.animation_duration | default: 700 }}ms; --animation-delay: {{ settings.animation_delay | default: 0 }}ms; }</style>
+<script>(function(){var el=document.getElementById('shopify-section-{{ sid }}');if(!el||el.classList.contains('scroll-trigger'))return;el.classList.add('scroll-trigger',{{ animation | json }});})();</script>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Pricing table",
+  "tag": "div",
+  "class": "pricing-table-section",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "default" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Compare the plans" },
+    { "type": "richtext", "id": "intro", "label": "Text under the heading" },
+    {
+      "type": "select", "id": "heading_size", "label": "Heading size", "default": "h2",
+      "options": [ { "value": "h3", "label": "Small" }, { "value": "h2", "label": "Medium" }, { "value": "h1", "label": "Large" } ]
+    },
+    {
+      "type": "select", "id": "heading_align", "label": "Heading alignment", "default": "left",
+      "options": [ { "value": "left", "label": "Left" }, { "value": "center", "label": "Centre" } ]
+    },
+    { "type": "text", "id": "corner_text", "label": "Text above the row labels" },
+    {
+      "type": "select", "id": "highlight", "label": "Plan to stand out", "default": "2",
+      "options": [ { "value": "0", "label": "None" }, { "value": "1", "label": "Plan 1" }, { "value": "2", "label": "Plan 2" }, { "value": "3", "label": "Plan 3" }, { "value": "4", "label": "Plan 4" } ]
+    },
+    { "type": "richtext", "id": "footnote", "label": "Small print under the table" },
+    { "type": "header", "content": "Plan 1" },
+    { "type": "text", "id": "plan_1_name", "label": "Name", "default": "Template", "info": "Leave a plan's name empty to hide its column." },
+    { "type": "text", "id": "plan_1_price", "label": "Price", "default": "$29" },
+    { "type": "text", "id": "plan_1_note", "label": "Note", "default": "One person" },
+    { "type": "text", "id": "plan_1_badge", "label": "Badge" },
+    { "type": "text", "id": "plan_1_button_label", "label": "Button label", "default": "Choose" },
+    { "type": "url", "id": "plan_1_button_link", "label": "Button link" },
+    { "type": "header", "content": "Plan 2" },
+    { "type": "text", "id": "plan_2_name", "label": "Name", "default": "Team" },
+    { "type": "text", "id": "plan_2_price", "label": "Price", "default": "$59" },
+    { "type": "text", "id": "plan_2_note", "label": "Note", "default": "Up to five people" },
+    { "type": "text", "id": "plan_2_badge", "label": "Badge", "default": "Most chosen" },
+    { "type": "text", "id": "plan_2_button_label", "label": "Button label", "default": "Choose" },
+    { "type": "url", "id": "plan_2_button_link", "label": "Button link" },
+    { "type": "header", "content": "Plan 3" },
+    { "type": "text", "id": "plan_3_name", "label": "Name", "default": "Studio" },
+    { "type": "text", "id": "plan_3_price", "label": "Price", "default": "$99" },
+    { "type": "text", "id": "plan_3_note", "label": "Note", "default": "Any number of people" },
+    { "type": "text", "id": "plan_3_badge", "label": "Badge" },
+    { "type": "text", "id": "plan_3_button_label", "label": "Button label", "default": "Choose" },
+    { "type": "url", "id": "plan_3_button_link", "label": "Button link" },
+    { "type": "header", "content": "Plan 4" },
+    { "type": "text", "id": "plan_4_name", "label": "Name" },
+    { "type": "text", "id": "plan_4_price", "label": "Price" },
+    { "type": "text", "id": "plan_4_note", "label": "Note" },
+    { "type": "text", "id": "plan_4_badge", "label": "Badge" },
+    { "type": "text", "id": "plan_4_button_label", "label": "Button label" },
+    { "type": "url", "id": "plan_4_button_link", "label": "Button link" },
+    { "type": "header", "content": "Layout" },
+    {
+      "type": "select", "id": "section_width", "label": "Width", "default": "container",
+      "options": [ { "value": "narrow", "label": "Narrow" }, { "value": "container", "label": "Default" }, { "value": "fluid_container", "label": "Wide" } ]
+    },
+    { "type": "checkbox", "id": "use_theme_spacing", "label": "Use the theme's space between sections", "default": true },
+    { "type": "range", "id": "padding_top", "label": "Space above on desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 80 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below on desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 80 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above on phones", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 48 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below on phones", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 48 }
+  ],
+  "blocks": [
+    {
+      "type": "row",
+      "name": "Row",
+      "settings": [
+        { "type": "text", "id": "label", "label": "Label", "default": "Feature" },
+        { "type": "text", "id": "label_note", "label": "Small text under the label" },
+        { "type": "text", "id": "value_1", "label": "Plan 1", "default": "yes", "info": "Write yes for a tick and no for a dash, or any short text." },
+        { "type": "text", "id": "value_2", "label": "Plan 2", "default": "yes" },
+        { "type": "text", "id": "value_3", "label": "Plan 3", "default": "yes" },
+        { "type": "text", "id": "value_4", "label": "Plan 4" }
+      ]
+    },
+    {
+      "type": "group",
+      "name": "Group heading",
+      "settings": [
+        { "type": "text", "id": "title", "label": "Heading", "default": "Support" }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Pricing table",
+      "category": "Pricing",
+      "blocks": [
+        { "type": "group", "settings": { "title": "What you get" } },
+        { "type": "row", "settings": { "label": "The template", "value_1": "yes", "value_2": "yes", "value_3": "yes" } },
+        { "type": "row", "settings": { "label": "Free updates", "value_1": "yes", "value_2": "yes", "value_3": "yes" } },
+        { "type": "row", "settings": { "label": "People who can use it", "value_1": "1", "value_2": "5", "value_3": "Any number" } },
+        { "type": "group", "settings": { "title": "Help" } },
+        { "type": "row", "settings": { "label": "Setup guide", "value_1": "yes", "value_2": "yes", "value_3": "yes" } },
+        { "type": "row", "settings": { "label": "Setup call", "label_note": "30 minutes on video", "value_1": "no", "value_2": "no", "value_3": "yes" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

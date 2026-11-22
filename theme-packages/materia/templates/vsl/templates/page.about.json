@@ -1,0 +1,141 @@
+{
+  "sections": {
+    "intro": {
+      "type": "vsl-split",
+      "settings": {
+        "image": "shopify://shop_images/vsl-host.webp",
+        "image_alt": "The course host laughing at a microphone",
+        "image_side": "left",
+        "ratio": "4 / 5",
+        "eyebrow": "About",
+        "heading": "I run workshops for a living. *Now I teach it.*",
+        "heading_tag": "h1",
+        "text": "<p>Write your story here: what you have done for clients, for how long, and the moment you started teaching it.</p><p>Keep it short and plain. People join a course because of the person running it, so say who you are.</p>",
+        "signature": "Your name",
+        "button_label": "Book a free call",
+        "button_link": "/pages/book-a-call",
+        "line_above": false,
+        "padding_top": 64,
+        "padding_bottom": 96,
+        "padding_top_mobile": 32,
+        "padding_bottom_mobile": 56
+      }
+    },
+    "how": {
+      "type": "vsl-cards",
+      "settings": {
+        "eyebrow": "How I teach",
+        "heading": "Short lessons, *real work*",
+        "text": "",
+        "columns": "3",
+        "number_style": "tile",
+        "line_above": true,
+        "padding_top": 96,
+        "padding_bottom": 96,
+        "padding_top_mobile": 64,
+        "padding_bottom_mobile": 56
+      },
+      "blocks": {
+        "card_1": {
+          "type": "card",
+          "settings": {
+            "title": "One idea per lesson",
+            "text": "<p>Every lesson is under twenty minutes and ends with one thing to do that week.</p>"
+          }
+        },
+        "card_2": {
+          "type": "card",
+          "settings": {
+            "title": "Your own material",
+            "text": "<p>You work on your workshop from day one, not on a made up example.</p>"
+          }
+        },
+        "card_3": {
+          "type": "card",
+          "settings": {
+            "title": "Live every Thursday",
+            "text": "<p>Bring what you made. We look at it together and you leave with changes.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "card_1",
+        "card_2",
+        "card_3"
+      ]
+    },
+    "figures": {
+      "type": "vsl-stats",
+      "settings": {
+        "eyebrow": "",
+        "heading": "",
+        "text": "",
+        "line_above": false,
+        "padding_top": 0,
+        "padding_bottom": 96,
+        "padding_top_mobile": 16,
+        "padding_bottom_mobile": 64
+      },
+      "blocks": {
+        "figure_1": {
+          "type": "figure",
+          "settings": {
+            "value": "6 weeks",
+            "label": "Course length",
+            "note": "About two hours a week",
+            "icon": "clock"
+          }
+        },
+        "figure_2": {
+          "type": "figure",
+          "settings": {
+            "value": "6 calls",
+            "label": "Live on Thursdays",
+            "note": "Recorded if you miss one",
+            "icon": "calendar"
+          }
+        },
+        "figure_3": {
+          "type": "figure",
+          "settings": {
+            "value": "30 days",
+            "label": "Refund window",
+            "note": "From the day you join",
+            "icon": "shield"
+          }
+        }
+      },
+      "block_order": [
+        "figure_1",
+        "figure_2",
+        "figure_3"
+      ]
+    },
+    "final": {
+      "type": "vsl-cta",
+      "settings": {
+        "eyebrow": "",
+        "heading": "Start with a *conversation*",
+        "text": "",
+        "size": "big",
+        "button_label": "Book a free call",
+        "button_link": "/pages/book-a-call",
+        "button2_label": "",
+        "button2_link": "",
+        "note": "",
+        "glow": true,
+        "line_above": true,
+        "padding_top": 112,
+        "padding_bottom": 112,
+        "padding_top_mobile": 72,
+        "padding_bottom_mobile": 72
+      }
+    }
+  },
+  "order": [
+    "intro",
+    "how",
+    "figures",
+    "final"
+  ]
+}

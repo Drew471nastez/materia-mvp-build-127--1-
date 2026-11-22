@@ -63,7 +63,7 @@ import { accountNoticeIn, accountWord, wordedCustomer } from "@/lib/site-account
 import { inLang } from "@/lib/site-accounts/lang-path"
 import { countryChoices } from "@/lib/site-accounts/countries"
 import { siteTabTitle, withTabTitle, type TabPage } from "@/lib/website-builder/tab-title"
-import { ownedBanner } from "./owned-banner"
+import { coursePlayerHref, ownedBanner } from "./owned-banner"
 import { commerceMarkup, withBodyStart, type CompatCommerce } from "./site-commerce-markup"
 import { withProductPageReviews } from "./storelib-reviews"
 import { countryCookieHeader } from "@/lib/markets/visitor-country"
@@ -73,6 +73,7 @@ import { articleObject, blogObject, sameTag } from "./objects"
 import { blogPath, categoryPath, postPath, tagPath } from "@/lib/site-blog/urls"
 import { SITE_BLOG_ARTICLE_CSS } from "@/lib/site-blog/render-html"
 import type { PublicPost, PublicPostCard, SiteBlogSettings } from "@/lib/site-blog/types"
+import { hideAsked, poweredByShown, withPoweredBy } from "./powered-by"
 
 type O = Record<string, unknown>
 
@@ -114,6 +115,13 @@ export interface SiteData {
   ownFavicon?: boolean
   /** Put in every live page's head (lib/website-builder/live-navigation.ts: links fetched ahead, pages that cross-fade). */
   extraHead?: string
+  /**
+   * Whether the owner's plan may remove Storelib's branding (lib/sites/plan.ts
+   * removeBranding, read by lib/website-builder/compat-site.ts). Only then does
+   * Theme settings' "Show Powered by Storelib" off take the line away
+   * (./powered-by.ts). Absent or null: not paid for.
+   */
+  removeBranding?: boolean | null
   /** What a page tells a search engine, by page key (lib/website-builder/page-seo.ts pageSeoForSite): the theme's page_title and page_description, a share picture, noindex. */
   seo?: (pageKey: string) => { title?: string; description?: string; image?: string; noindex?: boolean } | null
   /** What a drawn page's head is missing for search engines and share cards (./search-head.ts), from the server (lib/website-builder/compat-search.ts). Absent in the builder. */
@@ -507,7 +515,10 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
   const bodyEnd = `${site.extraBodyEnd ?? ""}${route.bodyEnd ?? ""}${shop.bodyEnd}`
   const drawn = drawPage(site.theme, route.page, route.sections, { scripts: true, extraHead: head || undefined, extraBodyEnd: bodyEnd || undefined, content: route.content })
   /* What the theme's head left out for search engines and share cards: a description, a picture, structured data, noindex (./search-head.ts). */
-  const out = withSearchHead(route.page.template === "password" ? withoutShopifyMark(drawn.html) : drawn.html, site.searchHead?.(route.page, path))
+  /* And it says "Powered by Storelib" where the plan has it said, whatever the theme's own code printed (./powered-by.ts). */
+  /* In the builder (no server decision) the setting decides, as powered_by_link does. */
+  const shown = route.page.poweredBy ?? !hideAsked(site.theme.settingsValues)
+  const out = withSearchHead(withPoweredBy(route.page.template === "password" ? withoutShopifyMark(drawn.html) : drawn.html, shown), site.searchHead?.(route.page, path))
   /* The tab says what SEO & Social shows, whatever the theme's own <title> writes (lib/website-builder/tab-title.ts). */
   const done: SiteResponse = { ...pageHtml(tidyHead(withSiteIcon(withBodyStart(withTabTitle(out, tabTitleOf(site, route.page, route.ownTitle)), shop.bodyStart), site.icon, { ownFavicon: site.ownFavicon })), path, route.status ?? 200), personal: drawn.personal }
   /* A post's preview is its editor's: never kept by anyone, never a search result. */
@@ -881,6 +892,8 @@ const siteKeys = (site: SiteData): string[] => site.pageKeys ?? Object.keys(site
 function basePage(site: SiteData, req: SiteRequest, extra: Partial<CompatPage> & { template: string; path: string }): CompatPage {
   return {
     designMode: site.designMode === true,
+    /* "Powered by Storelib", decided here on the server from the plan (./powered-by.ts); the builder draws what its setting says. */
+    ...(site.designMode === true ? {} : { poweredBy: poweredByShown(site.theme.settingsValues, site.removeBranding) }),
     ...(site.themeDesignMode !== undefined ? { themeDesignMode: site.themeDesignMode } : {}),
     pageKeys: siteKeys(site),
     host: site.host,
@@ -1039,7 +1052,9 @@ async function pageFor(site: SiteData, path: string, req: SiteRequest): Promise<
     const owned = route && req.owned ? await req.owned(card.id).catch(() => null) : null
     if (route && owned) {
       const first = (productObject(card).selected_or_first_available_variant as O | null)?.id
-      route.bodyEnd = ownedBanner(owned, selectedVariantId ?? (typeof first === "string" ? first : null), owned.href)
+      /* A course's notice opens its player on Storelib (owned-banner.ts coursePlayerHref). */
+      const course = String(card.settings.kind ?? "") === "course" ? coursePlayerHref(getMainDomain(), card.id) : null
+      route.bodyEnd = ownedBanner(owned, selectedVariantId ?? (typeof first === "string" ? first : null), owned.href, { course })
     }
     return route
   }
@@ -1341,7 +1356,7 @@ async function notFound(site: SiteData, req: SiteRequest): Promise<SiteResponse>
   const many = req.query.get("sections")
   if (one) return sectionsAnswer(site, page, sections, [one], false)
   if (many) return sectionsAnswer(site, page, sections, many.split(",").map((x) => x.trim()).filter(Boolean).slice(0, 5), true)
-  return html(withTabTitle(drawPage(site.theme, page, sections, { scripts: true, extraHead: site.extraHead, extraBodyEnd: site.extraBodyEnd }).html, tabTitleOf(site, page)), 404)
+  return html(withTabTitle(withPoweredBy(drawPage(site.theme, page, sections, { scripts: true, extraHead: site.extraHead, extraBodyEnd: site.extraBodyEnd }).html, page.poweredBy ?? !hideAsked(site.theme.settingsValues)), tabTitleOf(site, page)), 404)
 }
 
 /**
@@ -1605,6 +1620,56 @@ function variantIndex(site: SiteData): Map<string, Indexed> {
   return out
 }
 
+/** The response header a theme's script is answered with when its add goes somewhere else instead (./shims.ts PLAN_GO follows it). */
+export const PLAN_GO_HEADER = "X-Storelib-Go"
+
+/** A membership or a community's tier: joined on Storelib's own checkout, never put in a cart (lib/checkout/pricing drops both). */
+export function isPlanCard(card: CardLike): boolean {
+  const kind = String(card.settings?.kind ?? "")
+  return kind === "membership" || kind === "community"
+}
+
+/**
+ * Where Add to cart on a plan goes: Storelib checkout for that plan, from
+ * this website (src=website, site=), with the page it was pressed on to come
+ * back to and to cancel to (lib/checkout/return-url.ts checks both against
+ * the creator's own hosts). The website's /checkout?productId= sends a plan
+ * on to storelib.com, where its account and its recurring price are.
+ * Null for anything that is not a plan, which goes in the cart as before.
+ */
+export function planJoinHref(site: Pick<SiteData, "products" | "pickable" | "host">, id: string, back: string): { href: string; message: string } | null {
+  if (!id) return null
+  let card: CardLike | undefined
+  let variantId: string | null = null
+  for (const c of [...site.products, ...(site.pickable ?? [])]) {
+    if (c.id === id) card = c
+    else {
+      const v = (Array.isArray(c.settings.variants) ? (c.settings.variants as O[]) : []).find((x) => x.id === id)
+      if (v) {
+        card = c
+        variantId = String(v.id)
+      }
+    }
+    if (card) break
+  }
+  if (!card || !isPlanCard(card) || card.settings.available === false) return null
+  const q = new URLSearchParams({ productId: card.id })
+  if (variantId) q.set("variantId", variantId)
+  q.set("src", "website")
+  const host = String(site.host ?? "").toLowerCase()
+  if (/^[a-z0-9.-]+$/.test(host)) {
+    /* Back to the page it was pressed on; a press with no page of its own (Back reads "/cart") comes back to the plan's page. */
+    const own = String(card.settings.url ?? "")
+    const from = back && back !== "/cart" && back.startsWith("/") && !back.startsWith("//") ? back : own.startsWith("/") && !own.startsWith("//") ? own : "/"
+    const page = `https://${host}${from}`
+    q.set("site", host)
+    q.set("return", page)
+    q.set("cancel", page)
+  }
+  const title = String(card.settings.title ?? "This plan")
+  return { href: `/checkout?${q.toString()}`, message: `${title} is joined on its own page.` }
+}
+
 /** The name of a product's option that is sold out, or null when it is in stock. */
 function variantSoldOut(card: CardLike, variantId: string): string | null {
   const variants = Array.isArray(card.settings.variants) ? (card.settings.variants as O[]) : []
@@ -1769,9 +1834,21 @@ async function cartAction(site: SiteData, req: SiteRequest, action: string, ajax
     /* What was asked for, alone and at the quantity asked: what Buy it now sends to checkout. */
     const asked: CartEntry[] = []
     const buyNow = !ajax && field(req.body, "checkout") !== undefined
+    /*
+      A PLAN IS JOINED, NEVER CARRIED. A membership or a community's tier
+      needs a Storelib account and its own recurring price, so the website's
+      checkout drops it from a cart ("can't be bought right now") and a tier
+      picked for a featured product was not in the cart's index at all ("not
+      available"). Add to cart and Buy it now on one go straight to joining
+      it (planJoinHref): a plain post by redirect, a theme's script by the
+      X-Storelib-Go header its page follows (./shims.ts PLAN_GO).
+    */
+    const plan = items.length === 1 ? planJoinHref(site, items[0].id, backOf(req)) : null
+    if (plan) return ajax ? json({ status: 422, message: plan.message, description: plan.message }, 422, { headers: { "Cache-Control": "private, no-store", [PLAN_GO_HEADER]: plan.href } }) : redirect(plan.href)
     for (const item of items) {
       const hit = index.get(item.id)
       if (!hit) return error("This product is not available.", 404)
+      if (isPlanCard(hit.card)) return error(`${String(hit.card.settings.title)} is joined on its own. Add it by itself.`)
       if (hit.card.settings.available === false) return error(`${String(hit.card.settings.title)} is sold out.`)
       const v = hit.variantId === hit.card.id ? null : hit.variantId
       /* An option that is sold out is refused as Shopify refuses it (422), even when the product's other options are in stock: the picker's Sold out is never in the cart. */

@@ -66,6 +66,31 @@
   endif
   assign transparent_hover_color = section_st.transparent_text_hover_color | default: '#131D2E'
   assign transparent_hover_fill = section_st.transparent_hover_fill_color | default: '#FFFFFF'
+  comment
+    The bar fills on hover, so its words and icons take the solid bar's
+    colours on that fill. A hover colour that does not read on the fill
+    (Ochre Editions had white words on a white fill: the bar went blank)
+    gives way to the colour scheme's heading colour, else to near black or
+    white, whichever reads.
+  endcomment
+  assign hover_contrast = transparent_hover_color | color_contrast: transparent_hover_fill
+  if hover_contrast < 3
+    assign solid_heading = section_st.color_scheme.settings.heading_color
+    assign solid_contrast = 0
+    if solid_heading != blank
+      assign solid_contrast = solid_heading | color_contrast: transparent_hover_fill
+    endif
+    if solid_contrast >= 3
+      assign transparent_hover_color = solid_heading
+    else
+      assign fill_brightness = transparent_hover_fill | color_brightness
+      if fill_brightness > 128
+        assign transparent_hover_color = '#131D2E'
+      else
+        assign transparent_hover_color = '#FFFFFF'
+      endif
+    endif
+  endif
   assign disable_hover_fill = section_st.disable_white_fill_on_hover
   assign sticky_header_type = section_st.sticky_header_type
   assign sticky_mobile = section_st.sticky_header_mobile
@@ -613,6 +638,28 @@
         transition: color .38s cubic-bezier(.4, 0, .2, 1);
       }
     }
+    {%- comment %}One pace for the fill and for what sits on it. The bar's own background, its
+       ::before fill, the logo, the menu words and the icons ran on four different
+       timings (0.42s, 0.42s, 0.38s and 0.4s on other curves, the icons not at all),
+       so for a moment the words were the old colour on the new fill. All of them
+       now change over --hs-fill-t from the same frame. The menu's own opacity
+       (Fade the others) keeps its timing through --menu-fade-t.{% endcomment %}
+    #shopify-section-{{ section.id }} {
+      --hs-fill-t: .34s cubic-bezier(.4, 0, .2, 1);
+    }
+    #shopify-section-{{ section.id }} > header.header:is(.transparent, .transparent-mobile),
+    #shopify-section-{{ section.id }} > header.header:is(.transparent, .transparent-mobile)::before {
+      transition: background-color var(--hs-fill-t), opacity var(--hs-fill-t), box-shadow var(--hs-fill-t), border-color var(--hs-fill-t) !important;
+    }
+    #shopify-section-{{ section.id }} > header.header:is(.transparent, .transparent-mobile) :is(.logo-img, .header__logo-text, .header-color, .header__action, header-inner .button-localization) {
+      transition: color var(--hs-fill-t), border-color var(--hs-fill-t), background-color var(--hs-fill-t), var(--menu-fade-t, opacity 0s) !important;
+    }
+    #shopify-section-{{ section.id }} > header.header:is(.transparent, .transparent-mobile) :is(.level0 > menu-item > a, .level0 > menu-item open-children-toggle) {
+      transition: color var(--hs-fill-t), var(--menu-fade-t, opacity 0s) !important;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #shopify-section-{{ section.id }} { --hs-fill-t: 0s linear; }
+    }
     {%- comment %}Hover text/icon colour for the transparent header (independent of color scheme,
        so text stays visible when the header fills on hover). Applies at any width.{% endcomment %}
     @media screen and (min-width: 1025px) {
@@ -943,7 +990,10 @@
       display: block;
       box-sizing: border-box;
       width: 100%;
-      max-width: {{ pill_max }}%;
+      {%- comment %}As wide as the page's content (Theme settings > Page width), never more than
+         Max pill width of the screen: a share of the screen alone lined up with the
+         content at one width only (Course).{% endcomment %}
+      max-width: min({{ pill_max }}%, var(--page-width, 1310px));
       margin: 0 auto !important;
       border-radius: {{ header_corner_radius }}px !important;
       overflow: visible;
@@ -3746,7 +3796,8 @@
           "max": 100,
           "step": 1,
           "unit": "%",
-          "default": 94
+          "default": 94,
+          "info": "A share of the screen, never wider than the page width (Theme settings > Layout & spacing), so the bar lines up with the page."
         },
         {
           "type": "range",

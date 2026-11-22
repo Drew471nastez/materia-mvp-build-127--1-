@@ -118,7 +118,8 @@
         data-desktop="1"
         data-thumb-direction="{% if desktop_layout == 'thumbnail_left' %}vertical{% else %}horizontal{% endif %}"
         data-thumb-slides-per-view="4"
-        {%- if type == 'quickview' -%}
+        {%- comment -%} One picture needs no strip of one thumbnail under it (round 20). {%- endcomment -%}
+        {%- if type == 'quickview' or images.size < 2 -%}
           data-nothumb="true"
         {%- endif -%}
         {% if desktop_layout == 'thumbnail_left' %}
@@ -154,7 +155,7 @@
           </div>
         </div>
         {% comment %} {%- render 'swiper-navigation' -%} {% endcomment %}
-        {% if desktop_layout == 'thumbnail_left' or desktop_layout == 'thumbnail_bottom' %}
+        {% if images.size > 1 and desktop_layout == 'thumbnail_left' or images.size > 1 and desktop_layout == 'thumbnail_bottom' %}
           <div class="media-thumb-swiper{% if desktop_layout == 'thumbnail_left' %} mt-10{% endif %}{% if mobile_options == 'hidden_thumbnail' %} thumbnail-slide__mobile--hidden{% endif %}">
             <div
               class="thumbnail-slide swiper{% if desktop_layout == 'thumbnail_bottom' %} mt-10 thumb-bottom{% endif %}"
@@ -177,13 +178,14 @@
               </div>
             </div>
           </div>
-          {% if section_st.mobile_options == 'hidden_thumbnail' and is_shopable_video == false %}
+          {% if section_st.mobile_options == 'hidden_thumbnail' and is_shopable_video == false and images.size > 1 %}
             <div
               class="swiper-pagination hidden-md"
             ></div>
           {% endif %}
         {% else %}
-          {% if is_shopable_video == false %}
+          {%- comment -%} No "1/1" over a single picture (round 20). {%- endcomment -%}
+          {% if is_shopable_video == false and images.size > 1 %}
             <div
               class="swiper-pagination hidden-md"
             ></div>

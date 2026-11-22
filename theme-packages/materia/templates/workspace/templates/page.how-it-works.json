@@ -125,70 +125,57 @@
       ]
     },
     "included": {
-      "type": "image-with-text-bento",
+      "type": "text-columns",
       "settings": {
-        "heading": "Good to know",
-        "subheading": "The fine print, in plain words.",
-        "columns": "3",
-        "gap_desktop": 16,
-        "row_height_desktop": 200,
-        "card_padding": 32,
-        "card_radius": 18,
-        "section_heading_size_desktop": 36,
-        "card_heading_size_desktop": 20,
-        "card_body_size": 15,
-        "padding_top_desktop": 40,
-        "padding_bottom_desktop": 72,
-        "row_height_mobile": 180
+        "color_scheme": "default",
+        "section_width": "container",
+        "columns_desktop": 3,
+        "column_gap": 48,
+        "header_gap": 48,
+        "show_dividers": true,
+        "item_heading_size": 20,
+        "padding_top": 88,
+        "padding_bottom": 96,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56
       },
       "blocks": {
-        "text_card_1": {
-          "type": "text_card",
+        "heading_1": {
+          "type": "heading",
           "settings": {
-            "caption": "",
+            "text": "Good to know"
+          }
+        },
+        "column_2": {
+          "type": "column",
+          "settings": {
+            "label": "Licence",
             "heading": "One person, one workspace",
-            "heading_tag": "h3",
-            "body": "Use your copy for yourself or your own small team. Please do not resell it or share the link in public.",
-            "card_style": "tint",
-            "enable_custom_style": true,
-            "bg": "#f2f1ee",
-            "text_color": "#1f1f1d",
-            "col_span_desktop": "1",
-            "row_span_desktop": "1"
+            "text": "<p>Use your copy for yourself or your own small team. Please do not resell it or share the link in public.</p>"
           }
         },
-        "text_card_2": {
-          "type": "text_card",
+        "column_3": {
+          "type": "column",
           "settings": {
-            "caption": "",
+            "label": "Updates",
             "heading": "New versions are free",
-            "heading_tag": "h3",
-            "body": "When a template improves, buyers get the new link by email. Your old copy keeps working.",
-            "card_style": "tint",
-            "enable_custom_style": true,
-            "bg": "#f2f1ee",
-            "text_color": "#1f1f1d",
-            "col_span_desktop": "1",
-            "row_span_desktop": "1"
+            "text": "<p>When a template improves, buyers get the new link by email. Your old copy keeps working.</p>"
           }
         },
-        "text_card_3": {
-          "type": "text_card",
+        "column_4": {
+          "type": "column",
           "settings": {
-            "caption": "",
+            "label": "Refunds",
             "heading": "14 days to change your mind",
-            "heading_tag": "h3",
-            "body": "Reply to your receipt within 14 days and you get your money back.",
-            "card_style": "inverse",
-            "col_span_desktop": "1",
-            "row_span_desktop": "1"
+            "text": "<p>Reply to your receipt within 14 days and you get your money back.</p>"
           }
         }
       },
       "block_order": [
-        "text_card_1",
-        "text_card_2",
-        "text_card_3"
+        "heading_1",
+        "column_2",
+        "column_3",
+        "column_4"
       ]
     },
     "ask": {

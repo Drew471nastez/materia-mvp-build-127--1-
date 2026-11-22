@@ -6,19 +6,19 @@
         "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
         "section_width": "full_width",
         "reset_spacing": true,
-        "elements_alignment_desktop": "center",
+        "elements_alignment_desktop": "flex-start",
         "elements_alignment_mobile": "center",
-        "desktop_width": 1180,
+        "desktop_width": 1240,
         "texts_reveal_animation": "fade",
         "animation": "theme",
         "background_height_desktop": 100,
         "padding_top": 150,
         "padding_bottom": 110,
-        "hero_content_padding_left_desktop": 40,
+        "hero_content_padding_left_desktop": 56,
         "hero_content_padding_right_desktop": 40,
         "background_height_mobile": 92,
-        "padding_top_mobile": 120,
-        "padding_bottom_mobile": 56,
+        "padding_top_mobile": 96,
+        "padding_bottom_mobile": 470,
         "hero_content_padding_left_mobile": 20,
         "hero_content_padding_right_mobile": 20
       },
@@ -26,9 +26,9 @@
         "background_1": {
           "type": "background",
           "settings": {
-            "background_image": "shopify://shop_images/streetwear-hero-dusk.webp",
-            "background_image_mobile": "shopify://shop_images/streetwear-hero-dusk-phone.webp",
-            "background_brightness": 0.78,
+            "background_image": "shopify://shop_images/streetwear-hero-promenade.webp",
+            "background_image_mobile": "shopify://shop_images/streetwear-hero-promenade-phone.webp",
+            "background_brightness": 0.72,
             "enable_parallax_mouse": false,
             "image_reveal_animation": "fade"
           }
@@ -36,7 +36,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "title_text": "Made for long summer days, warm nights and the last swim",
+            "title_text": "Made for long summer days",
             "enable_custom_style": true,
             "title_text_color": "#ffffff",
             "title_line_height_desktop": 0.98,
@@ -44,9 +44,9 @@
             "font_source": "heading",
             "text_case": "uppercase",
             "letter_spacing": -2,
-            "title_size_desktop": 76,
-            "title_size_mobile": 36,
-            "title_width_desktop": 100,
+            "title_size_desktop": 60,
+            "title_size_mobile": 32,
+            "title_width_desktop": 52,
             "title_font_weight": "inherit"
           }
         },

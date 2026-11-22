@@ -1,0 +1,121 @@
+{%- comment -%}
+  Ebook: a free chapter or a reading letter by email. A deep band with a
+  picture on one side and on the other a small label, a heading, a line,
+  the email field and its button on one line (stacked on a phone) and a
+  small note. Sign-ups reach the store's subscribers with the tag below.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+-%}
+{%- assign ebook_hf = settings.font_heading_google_family -%}
+{%- if ebook_hf != blank and ebook_hf != 'none' -%}<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family={{ ebook_hf | replace: ' ', '+' }}:ital@1&display=swap">{%- endif -%}
+<style>
+  #shopify-section-{{ sid }} .ebs {
+    --ebs-bg: {{ st.background | default: '#1f3b33' }};
+    --ebs-ink: {{ st.heading_color | default: '#f7f4ee' }};
+    --ebs-accent: {{ st.accent_color | default: '#d9b27a' }};
+    background: var(--ebs-bg); color: {{ st.text_color | default: '#cdd8cf' }};
+    padding: {{ st.padding_top_mobile | default: 0 }}px 0 {{ st.padding_bottom_mobile | default: 0 }}px;
+  }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .ebs { padding: {{ st.padding_top | default: 0 }}px 0 {{ st.padding_bottom | default: 0 }}px; } }
+  #shopify-section-{{ sid }} .ebs__inner { display: grid; grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .ebs__inner { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); min-height: 520px; } }
+  #shopify-section-{{ sid }} .ebs__media { position: relative; margin: 0; min-height: 260px; }
+  #shopify-section-{{ sid }} .ebs__media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; margin: 0; }
+  #shopify-section-{{ sid }} .ebs--noimg .ebs__inner { grid-template-columns: minmax(0, 1fr); min-height: 0; }
+  #shopify-section-{{ sid }} .ebs__body { padding: 48px 20px 56px; align-self: center; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .ebs__body { padding: 80px 72px; max-width: 640px; } }
+  #shopify-section-{{ sid }} .ebs--noimg .ebs__body { margin: 0 auto; text-align: center; }
+  #shopify-section-{{ sid }} .ebs__eyebrow { margin: 0 0 14px; color: var(--ebs-accent); font-size: 13px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; }
+  #shopify-section-{{ sid }} .ebs__heading { margin: 0; color: var(--ebs-ink); font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, 500); font-size: {{ st.heading_size_mobile | default: 36 }}px; line-height: 1.08; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .ebs__heading { font-size: {{ st.heading_size | default: 52 }}px; } }
+  #shopify-section-{{ sid }} .ebs__heading em { font-style: italic; color: var(--ebs-accent); }
+  #shopify-section-{{ sid }} .ebs__text { margin-top: 16px; font-size: 16.5px; line-height: 1.65; max-width: 44ch; }
+  #shopify-section-{{ sid }} .ebs--noimg .ebs__text { margin-left: auto; margin-right: auto; }
+  #shopify-section-{{ sid }} .ebs__text p { margin: 0; }
+  #shopify-section-{{ sid }} .ebs__form { margin-top: 26px; max-width: 480px; }
+  #shopify-section-{{ sid }} .ebs--noimg .ebs__form { margin-left: auto; margin-right: auto; }
+  #shopify-section-{{ sid }} .ebs__row { display: flex; flex-direction: column; gap: 10px; }
+  @media (min-width: 600px) { #shopify-section-{{ sid }} .ebs__row { flex-direction: row; gap: 8px; } }
+  #shopify-section-{{ sid }} .ebs__input {
+    flex: 1 1 auto; min-width: 0; height: 52px; margin: 0; padding: 0 18px; border: 1px solid color-mix(in srgb, var(--ebs-ink) 30%, transparent); border-radius: 6px;
+    background: color-mix(in srgb, var(--ebs-ink) 8%, transparent); color: var(--ebs-ink); font: inherit; font-size: 15px;
+  }
+  #shopify-section-{{ sid }} .ebs__input::placeholder { color: color-mix(in srgb, var(--ebs-ink) 65%, transparent); opacity: 1; }
+  #shopify-section-{{ sid }} .ebs__input:focus-visible { outline: 2px solid var(--ebs-accent); outline-offset: 1px; }
+  #shopify-section-{{ sid }} .ebs__submit {
+    flex: 0 0 auto; height: 52px; margin: 0; padding: 0 24px; border: 0; border-radius: 6px; cursor: pointer;
+    background: var(--ebs-ink); color: var(--ebs-bg); font: inherit; font-size: 15px; font-weight: 600; white-space: nowrap;
+    transition: background-color 0.25s ease;
+  }
+  #shopify-section-{{ sid }} .ebs__submit:hover { background: var(--ebs-accent); }
+  #shopify-section-{{ sid }} .ebs__note { margin: 12px 0 0; font-size: 13px; opacity: 0.85; }
+  #shopify-section-{{ sid }} .ebs__msg { margin: 12px 0 0; color: var(--ebs-ink); font-size: 14px; }
+  #shopify-section-{{ sid }} .ebs__hp, #shopify-section-{{ sid }} .ebs__vh { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+
+<div class="ebs color-{{ color_scheme }}{% if st.image == blank %} ebs--noimg{% endif %}" data-section-id="{{ sid }}">
+  <div class="ebs__inner">
+    {%- if st.image != blank -%}
+      <figure class="ebs__media">
+        <img src="{{ st.image | image_url: width: 1200 }}" srcset="{{ st.image | image_url: width: 600 }} 600w, {{ st.image | image_url: width: 1200 }} 1200w" sizes="(min-width: 990px) 50vw, 100vw" width="{{ st.image.width | default: 1200 }}" height="{{ st.image.height | default: 900 }}" alt="{{ st.image_alt | default: st.image.alt | escape }}" loading="lazy" decoding="async">
+      </figure>
+    {%- endif -%}
+    <div class="ebs__body">
+      {%- if st.eyebrow != blank -%}<p class="ebs__eyebrow">{{ st.eyebrow | escape }}</p>{%- endif -%}
+      {%- if st.heading != blank -%}<h2 class="ebs__heading">{{ st.heading }}</h2>{%- endif -%}
+      {%- if st.text != blank -%}<div class="ebs__text">{{ st.text }}</div>{%- endif -%}
+      {%- form 'customer', id: 'EbookSignupForm-' | append: sid, class: 'ebs__form', data-storelib-form: 'subscribe' -%}
+        <input type="hidden" name="contact[tags]" value="{{ st.tag | default: 'newsletter' | escape }}">
+        <span hidden data-mt-words data-success-message="{{ st.success_text | default: 'Thank you. Check your inbox.' | escape }}" data-invalid-message="{{ st.invalid_text | default: 'Enter a valid email address.' | escape }}"></span>
+        <div class="ebs__hp" aria-hidden="true" data-mt-trap>
+          <label for="EbookSignupHp-{{ sid }}">Leave this field empty</label>
+          <input id="EbookSignupHp-{{ sid }}" type="text" name="company" tabindex="-1" autocomplete="off" pattern="^$" maxlength="0" value="">
+        </div>
+        <div class="ebs__row">
+          <label class="ebs__vh" for="EbookSignupEmail-{{ sid }}">{{ st.email_placeholder | default: 'Your email' | escape }}</label>
+          <input class="ebs__input" id="EbookSignupEmail-{{ sid }}" type="email" name="contact[email]" required inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" maxlength="254" placeholder="{{ st.email_placeholder | default: 'Your email' | escape }}">
+          <button type="submit" class="ebs__submit">{{ st.button_label | default: 'Send it to me' | escape }}</button>
+        </div>
+        {%- if form.posted_successfully? -%}<p class="ebs__msg form-status--success">{{ st.success_text | default: 'Thank you. Check your inbox.' | escape }}</p>{%- endif -%}
+        {%- if form.errors -%}<p class="ebs__msg" role="alert">{{ st.invalid_text | default: 'Enter a valid email address.' | escape }}</p>{%- endif -%}
+      {%- endform -%}
+      {%- if st.note != blank -%}<p class="ebs__note">{{ st.note | escape }}</p>{%- endif -%}
+    </div>
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Ebook email signup",
+  "tag": "section",
+  "class": "section sec__ebook-signup",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default-color-scheme" },
+    { "type": "color", "id": "background", "label": "Background", "default": "#1f3b33" },
+    { "type": "color", "id": "heading_color", "label": "Heading colour", "default": "#f7f4ee" },
+    { "type": "color", "id": "text_color", "label": "Text colour", "default": "#cdd8cf" },
+    { "type": "color", "id": "accent_color", "label": "Accent colour", "default": "#d9b27a" },
+    { "type": "image_picker", "id": "image", "label": "Picture", "info": "Leave empty for a centred band." },
+    { "type": "text", "id": "image_alt", "label": "Alt text" },
+    { "type": "text", "id": "eyebrow", "label": "Small label", "default": "Free chapter" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "Read the first chapter <em>free</em>" },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Say what arrives in the inbox and how often you write.</p>" },
+    { "type": "text", "id": "email_placeholder", "label": "Email field", "default": "Your email" },
+    { "type": "text", "id": "button_label", "label": "Button", "default": "Send it to me" },
+    { "type": "text", "id": "tag", "label": "Tag for the people who sign up", "default": "free-chapter" },
+    { "type": "text", "id": "note", "label": "Small note", "default": "No spam. Leave whenever you like." },
+    { "type": "text", "id": "success_text", "label": "Message after signing up", "default": "Thank you. Check your inbox." },
+    { "type": "text", "id": "invalid_text", "label": "Message for an address that will not work", "default": "Enter a valid email address." },
+    { "type": "range", "id": "heading_size", "label": "Heading size, desktop", "min": 28, "max": 72, "step": 2, "unit": "px", "default": 52 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size, phone", "min": 24, "max": 48, "step": 2, "unit": "px", "default": 36 },
+    { "type": "range", "id": "padding_top", "label": "Space above, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 0 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 0 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 0 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 0 }
+  ],
+  "presets": [ { "name": "Ebook email signup" } ]
+}
+{% endschema %}

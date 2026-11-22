@@ -82,7 +82,7 @@ async function main() {
   console.log("\nListings\n")
   const builtin = builtinListings()
   /* Changed on purpose (templates round 16, then 17, then 18): the code lists twelve templates (Skincare removed and Creator Landing added in round 18) made from one theme, the default first; the native Storelib Default is no longer listed (tests/theme-templates.test.ts holds the rest). */
-  check("Storelib's own templates are listed from code, free, by Storelib, the default first", builtin.length === 15 /* Changed on purpose (templates round 19): Art books, Night shop and Poster shop added, fifteen. */ && builtin[0].slug === DEFAULT_LISTING_SLUG && builtin.every((b) => b.tier === "free" && b.author === "Storelib" && !b.builtinThemeId && !!b.codePackage && b.hasPackage))
+  check("Storelib's own templates are listed from code, free, by Storelib, the default first", builtin.length === 19 /* Changed on purpose (templates round 20): Tour merch removed; Coach, Video sales letter, Online course, Course landing and Retro desktop added, nineteen (round 19 had added Art books, Night shop and Poster shop). */ && builtin[0].slug === DEFAULT_LISTING_SLUG && builtin.every((b) => b.tier === "free" && b.author === "Storelib" && !b.builtinThemeId && !!b.codePackage && b.hasPackage))
   const codeSlugs = builtin.map((b) => b.slug).join(",")
   const merged = mergeListings([listing({ slug: "b", sortOrder: 2 }), listing({ slug: "a", sortOrder: 1 }), listing({ slug: "hidden", published: false })])
   /* Changed on purpose (templates round 16, then 17, then 18): twelve code listings lead, not one. */
@@ -118,7 +118,8 @@ async function main() {
   check("the add route asks who is signed in before anything else", asks > 0 && asks < add.indexOf("listingRowBySlug(slug"))
   check("  checks Pro on the server with the plan every check reads", /creatorSitePlan\(creator\.id/.test(add) && /addVerdict\(listing, plan === "growth" \|\| plan === "pro"\)/.test(add))
   /* Changed on purpose (templates round 16): Storelib's own are templates composed on the server and imported; the registry add is not called from here. */
-  check("  adds Storelib's own templates by composing their zip, and an uploaded zip through the import pipeline", /composeTemplateZip\(listing\.codePackage\)/.test(add) && !/addRegistryTheme/.test(add) && /importThemePackage\(forward\("\/api\/website-builder\/themes\/import", \{ path: copy \}\)\)/.test(add))
+  /* Changed on purpose (theme releases): a theme with published releases is added at the newest one (tests/theme-releases.test.ts); without, the code's template as before. */
+  check("  adds Storelib's own templates by composing their zip, and an uploaded zip through the import pipeline", /composeTemplateZip\(listing\.codePackage!?\)/.test(add) && /released\?\.zip \?\?/.test(add) && !/addRegistryTheme/.test(add) && /importThemePackage\(forward\("\/api\/website-builder\/themes\/import", \{ path: copy \}\)\)/.test(add))
   check("  hands the import a copy in the creator's own upload folder, never the listing's zip", /importPathFor\(user\.id, randomUUID\(\)\)/.test(add) && /\.copy\(source, copy\)/.test(add) && /PACKAGE_PATH_RE\.test\(source\)/.test(add))
   check("  renames only the creator's own new install", /\.eq\("id", made\.install_id\)\.eq\("creator_id", creator\.id\)/.test(add))
 
@@ -248,7 +249,8 @@ async function main() {
   const market = read("app/(storelib)/(marketing)/themes/themes-marketplace.tsx")
   check("the marketplace has search, Free Paid Pro, categories and sort", /placeholder="Search themes"/.test(market) && /\{ id: "paid", label: "Paid" \}/.test(market) && /aria-label="Categories"/.test(market) && /THEME_SORTS\.map/.test(market))
   const detail = read("app/(storelib)/(marketing)/themes/[slug]/theme-detail.tsx")
-  check("a theme's page: live preview in a frame, desktop and phone, screenshots, Add, no description", /<iframe/.test(detail) && /"desktop" \? "Desktop" : "Phone"/.test(detail) && /listing\.screenshots\.map/.test(detail) && /Add to my library/.test(detail) && !/description/i.test(stripComments(detail)))
+  /* Changed on purpose (the owner, theme releases round): a listing has a description written in /admin/themes, shown under the name only when there is one. */
+  check("a theme's page: live preview in a frame, desktop and phone, screenshots, Add, the description only when written", /<iframe/.test(detail) && /"desktop" \? "Desktop" : "Phone"/.test(detail) && /listing\.screenshots\.map/.test(detail) && /Add to my library/.test(detail) && /\{listing\.description \? <p/.test(detail))
   check("  signed out goes to sign in and back", /\/login\?next=\$\{encodeURIComponent\(`\$\{listingPath\(slug\)\}\?add=1`\)\}/.test(read("components/themes/use-add-theme.ts")) && /p\.get\("add"\) !== "1"/.test(detail))
   check("the preview page has no creator and is never indexed", /const NOBODY = "00000000-0000-0000-0000-000000000000"/.test(read("app/(site)/theme-preview/[slug]/page.tsx")) && /robots: \{ index: false/.test(read("app/(site)/theme-preview/[slug]/page.tsx")))
   check("  framed by storelib.com only, with ?embedded=1", /url\.pathname\.startsWith\("\/theme-preview\/"\) \|\|/.test(read("proxy.ts")))

@@ -193,6 +193,11 @@
       width: {{ circle_size }}px;
       height: {{ circle_size }}px;
     }
+    {%- comment %}At the very end of the page the button sat over the footer's last line (Terms of
+       service, the payment badges). That line keeps its side clear.{% endcomment %}
+    {%- unless horizontal_position == 'center' %}
+    .footer__bottom .footer_bottom-inner { padding-inline-{% if horizontal_position == 'left' %}start{% else %}end{% endif %}: {{ circle_size | plus: 16 }}px; }
+    {%- endunless %}
   }
 
   {%- if hide_on_mobile %}

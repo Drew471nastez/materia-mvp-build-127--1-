@@ -1,0 +1,40 @@
+{
+  "sections": {
+    "main": {
+      "type": "retro-window",
+      "settings": {
+        "title": "Error",
+        "icon": "help",
+        "look": "dialog",
+        "dialog_icon": "help",
+        "image": "",
+        "image_alt": "",
+        "image_side": "left",
+        "image_ratio": "1 / 1",
+        "image_share": 50,
+        "image_loading": "lazy",
+        "eyebrow": "",
+        "heading": "File not found",
+        "heading_tag": "h2",
+        "heading_size": 30,
+        "text": "<p>The page you asked for is not here. It may have been moved, renamed or never existed.</p>",
+        "button_label": "OK",
+        "button_link": "/",
+        "button2_label": "Open the shop",
+        "button2_link": "/collections/all",
+        "status_left": "",
+        "status_right": "",
+        "draggable": true,
+        "width": 560,
+        "offset": "center",
+        "padding_top": 48,
+        "padding_bottom": 40,
+        "padding_top_mobile": 24,
+        "padding_bottom_mobile": 24
+      }
+    }
+  },
+  "order": [
+    "main"
+  ]
+}

@@ -14,6 +14,7 @@ import {
 } from "@/lib/website-builder/snapshot"
 import { ensureStarterWebsite } from "@/lib/website-builder/starter-website"
 import { publishedListings } from "@/lib/themes/marketplace-server"
+import { publishedReleases } from "@/lib/themes/releases-server"
 import { builtinListings } from "@/lib/themes/marketplace-shared"
 import { agentEnabledFor } from "@/lib/website-builder/ai-site/agent-access"
 
@@ -134,6 +135,8 @@ export async function WebsitePage({ create = false }: { /** The Create a website
     Website, it shows the loading thing because the page takes long to load."
   */
   const listings = publishedListings().catch(() => builtinListings())
+  /* The theme versions the library's Update available reads; none before RUN_THEME_RELEASES.sql has run. */
+  const releases = publishedReleases().catch(() => [])
   const handle = websiteHandleOf(storeId)
   const [{ data: creator }, { data: profile }, library] = await Promise.all([
     supabase.from("creators").select("id, slug").eq("id", storeId).maybeSingle(),
@@ -171,7 +174,7 @@ export async function WebsitePage({ create = false }: { /** The Create a website
     owner. The same check themes/create makes; it reads the creator's names only when the allowlist has names.
   */
   const aiAgent = access.isOwner ? await agentEnabledFor(createAdminClient(), { ownerUserId: access.ownerUserId, creatorId: storeId }).catch(() => false) : false
-  return <WebsiteBuilderClient installs={installs} username={username} siteHandle={siteHandle} listings={await listings} account={access.viewer} teamMember={!access.isOwner} aiAgent={aiAgent} create={create} />
+  return <WebsiteBuilderClient installs={installs} username={username} siteHandle={siteHandle} listings={await listings} releases={await releases} account={access.viewer} teamMember={!access.isOwner} aiAgent={aiAgent} create={create} />
 }
 
 /**

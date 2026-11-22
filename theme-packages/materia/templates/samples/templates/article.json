@@ -95,22 +95,22 @@
     "free": {
       "type": "newsletter-split",
       "settings": {
-        "color_scheme": "default",
+        "color_scheme": "scheme-tr-panel",
         "section_width": "container",
-        "image": "shopify://shop_images/samples-free.webp",
-        "image_alt": "Free Ambience Sample Pack Vol I",
+        "image": "shopify://shop_images/samples-free-pair.webp",
+        "image_alt": "Free Ambience Sample Pack Vol I and Tech House Drum Kit Vol I",
         "image_position": "left",
-        "image_ratio": "square",
-        "image_width": 46,
+        "image_ratio": "landscape",
+        "image_width": 44,
         "column_gap": 64,
         "form_layout": "horizontal",
         "email_placeholder": "Your email address",
-        "btn_text": "Send me the pack",
+        "btn_text": "Subscribe",
         "button_radius": 8,
-        "note": "One email when a new pack is out. Unsubscribe from any email.",
-        "success_text": "Check your inbox. The download link is on its way.",
-        "padding_top": 80,
-        "padding_bottom": 80,
+        "note": "No spam. Unsubscribe from any email.",
+        "success_text": "Thank you for subscribing!",
+        "padding_top": 72,
+        "padding_bottom": 72,
         "padding_top_mobile": 48,
         "padding_bottom_mobile": 52
       },
@@ -118,16 +118,16 @@
         "heading": {
           "type": "heading",
           "settings": {
-            "text": "Free Ambience Sample Pack Vol I",
+            "text": "Get weekly sounds",
             "size_enable": true,
-            "size_desktop": 44,
+            "size_desktop": 40,
             "size_mobile": 30
           }
         },
         "subheading": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Pads, drones and textures, free and royalty free. Leave your email and the download link arrives in a minute.</p>"
+            "text": "<p>New packs and sales by email. Two packs are free today: the Ambience Sample Pack Vol I and the Tech House Drum Kit Vol I.</p>"
           }
         }
       },

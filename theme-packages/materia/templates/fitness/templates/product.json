@@ -19,237 +19,6 @@
         "padding_bottom_desktop": 26
       }
     },
-    "main": {
-      "type": "main-product",
-      "settings": {
-        "image_zoom": "open_lightbox",
-        "padding_top": 0,
-        "color_scheme": "default",
-        "media_square": true,
-        "reset_spacing": true,
-        "section_width": "container",
-        "sticky_bar_bg": "",
-        "desktop_layout": "thumbnail_bottom",
-        "mobile_options": "show_thumbnails",
-        "padding_bottom": 100,
-        "sticky_top_gap": 24,
-        "enable_on_mobile": true,
-        "sticky_padding_y": 12,
-        "enable_on_desktop": true,
-        "sticky_show_image": true,
-        "sticky_show_title": true,
-        "content_gap_desktop": 40,
-        "desktop_media_width": 50,
-        "padding_left_mobile": 0,
-        "sticky_border_color": "",
-        "enable_video_looping": true,
-        "padding_left_desktop": 0,
-        "padding_right_mobile": 0,
-        "section_width_mobile": "fluid_container",
-        "sticky_button_radius": 8,
-        "sticky_show_quantity": true,
-        "enable_custom_padding": false,
-        "enable_video_autoplay": true,
-        "padding_right_desktop": 0,
-        "enable_nav_dots_mobile": false,
-        "mobile_slides_per_view": "1",
-        "enable_custom_media_gap": false,
-        "sticky_show_variant_picker": true,
-        "enable_sticky_content_on_desktop": true
-      },
-      "name": "Main product",
-      "blocks": {
-        "title_1": {
-          "type": "title",
-          "settings": {
-            "show_vendor": false,
-            "title_font_size_mobile": 32,
-            "title_font_size_desktop": 33
-          }
-        },
-        "product_description_2": {
-          "type": "product_description",
-          "settings": {
-            "pb_d": 0,
-            "pb_m": 16,
-            "pl_d": 0,
-            "pl_m": 0,
-            "pr_d": 0,
-            "pr_m": 0,
-            "pt_d": 0,
-            "pt_m": 0,
-            "text_color": "",
-            "font_size_d": 16,
-            "font_size_m": 15,
-            "line_height": 150,
-            "custom_description": "",
-            "enable_custom_description": false
-          }
-        },
-        "short_description_3": {
-          "type": "short_description",
-          "settings": {
-            "excerpt_length": 204
-          }
-        },
-        "price_4": {
-          "type": "price",
-          "settings": {
-            "price_font_weight": "600",
-            "compare_font_weight": "400",
-            "price_font_size_mobile": 31,
-            "price_font_size_desktop": 28,
-            "compare_font_size_mobile": 14,
-            "compare_font_size_desktop": 16
-          }
-        },
-        "variant_picker_5": {
-          "type": "variant_picker",
-          "settings": {
-            "variant_type": "swatches",
-            "show_size_guide": false,
-            "size_guide_page": "",
-            "size_guide_label": "Size guide",
-            "picker_text_hover": "#0f0f0f",
-            "picker_bg_selected": "#1d1d1d",
-            "picker_border_color": "#cecece",
-            "enable_picker_custom": false,
-            "picker_bg_unselected": "#ffffff",
-            "picker_border_radius": 6,
-            "picker_text_selected": "#ffffff",
-            "picker_text_unselected": "#0f0f0f"
-          }
-        },
-        "buy_buttons_6": {
-          "type": "buy_buttons",
-          "settings": {
-            "atc_icon": "bag",
-            "buy_icon": "check",
-            "atc_bg_color": "",
-            "atc_hover_bg": "",
-            "buy_bg_color": "",
-            "buy_hover_bg": "",
-            "show_quantity": true,
-            "atc_appearance": "theme",
-            "atc_hover_text": "",
-            "atc_icon_color": "transparent",
-            "atc_text_color": "",
-            "buy_appearance": "theme",
-            "buy_hover_text": "",
-            "buy_text_color": "",
-            "atc_button_text": "Add to cart",
-            "atc_font_weight": "600",
-            "atc_icon_enable": true,
-            "buy_button_text": "Buy Now",
-            "buy_font_weight": "600",
-            "buy_icon_enable": true,
-            "show_add_to_cart": true,
-            "show_price_in_atc": false,
-            "show_variant_picker": true,
-            "enable_custom_colors": false,
-            "atc_redirect_checkout": false,
-            "quantity_right_of_atc": false,
-            "show_dynamic_checkout": true,
-            "show_price_in_buy_now": false,
-            "estimated_delivery_text": "",
-            "estimated_delivery_color": "",
-            "show_gift_card_recipient": true,
-            "enable_custom_button_text": true,
-            "enable_estimated_delivery": false,
-            "enable_custom_button_typography": true
-          }
-        },
-        "product_grouped_7": {
-          "type": "product_grouped",
-          "settings": {
-            "heading": "Also available as"
-          }
-        },
-        "more_colors_8": {
-          "type": "more_colors",
-          "settings": {
-            "heading": "More colours",
-            "image_width": 40
-          }
-        },
-        "collapsible_row_9": {
-          "type": "collapsible_row",
-          "settings": {
-            "open": false,
-            "content": "<p>List what the buyer gets: the number of weeks, sessions per week, videos and any extras.</p>",
-            "heading": "What is included",
-            "use_product_description": false
-          }
-        },
-        "collapsible_row_10": {
-          "type": "collapsible_row",
-          "settings": {
-            "open": false,
-            "content": "<p>Say what equipment this program needs.</p>",
-            "heading": "Equipment",
-            "use_product_description": false
-          }
-        },
-        "payment_badges_11": {
-          "type": "payment_badges",
-          "settings": {
-            "h_main": "",
-            "sec_bg": "rgba(0,0,0,0)",
-            "sec_mb": 0,
-            "sec_mt": 0,
-            "sec_pb": 22,
-            "sec_pl": 0,
-            "sec_pr": 0,
-            "sec_pt": 22,
-            "badge_h": 31,
-            "badge_w": 47,
-            "sub_url": "",
-            "sec_maxw": 116,
-            "sec_pl_m": 0,
-            "sec_pr_m": 0,
-            "sub_text": "",
-            "badge_h_m": 22,
-            "badge_w_m": 68,
-            "h_main_mb": 16,
-            "h_main_mt": 0,
-            "show_amex": true,
-            "show_visa": true,
-            "sub_color": "#333333",
-            "sub_hover": "#111111",
-            "a11y_label": "Payment badges",
-            "sec_maxw_m": 150,
-            "sec_radius": 0,
-            "sub_newtab": false,
-            "text_align": "left",
-            "h_main_size": 16,
-            "show_paypal": false,
-            "sub_uline_w": 1,
-            "badges_align": "auto",
-            "h_main_color": "#2c2c2c",
-            "text_align_m": "center",
-            "toggle_icons": true,
-            "show_unionpay": true,
-            "sub_underline": false,
-            "show_apple_pay": true,
-            "show_google_pay": true,
-            "show_mastercard": true
-          }
-        }
-      },
-      "block_order": [
-        "title_1",
-        "product_description_2",
-        "short_description_3",
-        "price_4",
-        "variant_picker_5",
-        "buy_buttons_6",
-        "product_grouped_7",
-        "more_colors_8",
-        "collapsible_row_9",
-        "collapsible_row_10",
-        "payment_badges_11"
-      ]
-    },
     "steps_1": {
       "type": "steps",
       "settings": {
@@ -349,32 +118,251 @@
         "testimonial_6"
       ]
     },
-    "products_listing_3": {
-      "type": "products-listing",
+    "main": {
+      "type": "main-product",
       "settings": {
-        "items_to_show": 3,
-        "items_per_row": 3,
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976"
+        "image_zoom": "open_lightbox",
+        "padding_top": 0,
+        "color_scheme": "default",
+        "media_square": true,
+        "reset_spacing": true,
+        "section_width": "container",
+        "sticky_bar_bg": "",
+        "desktop_layout": "thumbnail_bottom",
+        "mobile_options": "show_thumbnails",
+        "padding_bottom": 100,
+        "sticky_top_gap": 24,
+        "enable_on_mobile": true,
+        "sticky_padding_y": 12,
+        "enable_on_desktop": true,
+        "sticky_show_image": true,
+        "sticky_show_title": true,
+        "content_gap_desktop": 40,
+        "desktop_media_width": 50,
+        "padding_left_mobile": 0,
+        "sticky_border_color": "",
+        "enable_video_looping": true,
+        "padding_left_desktop": 0,
+        "padding_right_mobile": 0,
+        "section_width_mobile": "fluid_container",
+        "sticky_button_radius": 8,
+        "sticky_show_quantity": true,
+        "enable_custom_padding": false,
+        "enable_video_autoplay": true,
+        "padding_right_desktop": 0,
+        "enable_nav_dots_mobile": false,
+        "mobile_slides_per_view": "1",
+        "enable_custom_media_gap": false,
+        "sticky_show_variant_picker": true,
+        "enable_sticky_content_on_desktop": true
       },
       "blocks": {
-        "heading_1": {
-          "type": "heading",
+        "title_1": {
+          "type": "title",
           "settings": {
-            "text": "Other programs"
+            "show_vendor": false,
+            "title_font_size_desktop": 36,
+            "title_font_size_mobile": 30
           }
         },
-        "button_2": {
-          "type": "button",
+        "price_1": {
+          "type": "price",
           "settings": {
-            "text": "All programs",
-            "link": "/collections/all"
+            "price_font_size_desktop": 26,
+            "price_font_size_mobile": 24,
+            "price_font_weight": "600",
+            "compare_font_size_desktop": 16,
+            "compare_font_size_mobile": 14,
+            "compare_font_weight": "400"
+          }
+        },
+        "short_description_1": {
+          "type": "short_description",
+          "settings": {
+            "excerpt_length": 200
+          }
+        },
+        "variant_picker_1": {
+          "type": "variant_picker",
+          "settings": {
+            "variant_type": "swatches",
+            "show_size_guide": false,
+            "picker_swatch_style": "theme"
+          }
+        },
+        "buy_buttons_1": {
+          "type": "buy_buttons",
+          "settings": {
+            "show_add_to_cart": true,
+            "show_dynamic_checkout": true,
+            "show_quantity": false,
+            "buttons_full_width": true,
+            "quantity_right_of_atc": false,
+            "show_wishlist_button": false,
+            "atc_appearance": "theme",
+            "buy_appearance": "theme",
+            "atc_icon_enable": true,
+            "atc_icon": "bag",
+            "buy_icon_enable": false,
+            "show_gift_card_recipient": false
+          }
+        },
+        "vertical_benefits_1": {
+          "type": "vertical_benefits",
+          "settings": {
+            "vb_pt": 14,
+            "vb_pb": 18,
+            "vb_mt": 0,
+            "vb_mb": 0,
+            "vb_item_space": 10,
+            "vb_maxw": 100,
+            "vb_pl": 0,
+            "vb_pr": 0,
+            "vb_text_size_d": 14,
+            "vb_text_size_m": 14,
+            "vb_icon_gap": 12,
+            "vb_icon_gap_m": 10,
+            "vb_icon_size": 26,
+            "vb_icon_size_m": 26,
+            "vb_text_color": "",
+            "vb_bg": "",
+            "vb_icon_color": "",
+            "item1_title": "Start the day you buy",
+            "item1_icon_library": "clock",
+            "item1_use_image": false,
+            "item1_image_size": 50,
+            "item2_title": "Video for every exercise",
+            "item2_icon_library": "check",
+            "item2_use_image": false,
+            "item2_image_size": 50,
+            "item3_title": "14 days to ask for a refund",
+            "item3_icon_library": "shield",
+            "item3_use_image": false,
+            "item3_image_size": 50
+          }
+        },
+        "collapsible_row_1": {
+          "type": "collapsible_row",
+          "settings": {
+            "heading": "What is included",
+            "content": "<p>The plan as a PDF and in the app, a video for every lift, and a weekly check in by email.</p>",
+            "use_product_description": false,
+            "open": true
+          }
+        },
+        "collapsible_row_2": {
+          "type": "collapsible_row",
+          "settings": {
+            "heading": "Who it is for",
+            "content": "<p>Anyone who can train three times a week. Every session says how to make it easier or harder.</p>",
+            "use_product_description": false,
+            "open": false
+          }
+        },
+        "collapsible_row_3": {
+          "type": "collapsible_row",
+          "settings": {
+            "heading": "Equipment",
+            "content": "<p>A barbell, a bench and a pair of dumbbells. Each lift has a swap for a home set up.</p>",
+            "use_product_description": false,
+            "open": false
+          }
+        },
+        "collapsible_row_4": {
+          "type": "collapsible_row",
+          "settings": {
+            "heading": "Refunds",
+            "content": "<p>Started and changed your mind? Write within 14 days for a full refund.</p>",
+            "use_product_description": false,
+            "open": false
+          }
+        },
+        "payment_badges_1": {
+          "type": "payment_badges",
+          "settings": {
+            "h_main": "",
+            "sec_bg": "rgba(0,0,0,0)",
+            "sec_mb": 0,
+            "sec_mt": 0,
+            "sec_pb": 22,
+            "sec_pl": 0,
+            "sec_pr": 0,
+            "sec_pt": 22,
+            "badge_h": 31,
+            "badge_w": 47,
+            "sub_url": "",
+            "sec_maxw": 116,
+            "sec_pl_m": 0,
+            "sec_pr_m": 0,
+            "sub_text": "",
+            "badge_h_m": 22,
+            "badge_w_m": 68,
+            "h_main_mb": 16,
+            "h_main_mt": 0,
+            "show_amex": true,
+            "show_visa": true,
+            "sub_color": "#333333",
+            "sub_hover": "#111111",
+            "a11y_label": "Payment badges",
+            "sec_maxw_m": 150,
+            "sec_radius": 0,
+            "sub_newtab": false,
+            "text_align": "left",
+            "h_main_size": 16,
+            "show_paypal": false,
+            "sub_uline_w": 1,
+            "badges_align": "auto",
+            "h_main_color": "#2c2c2c",
+            "text_align_m": "center",
+            "toggle_icons": true,
+            "show_unionpay": true,
+            "sub_underline": false,
+            "show_apple_pay": true,
+            "show_google_pay": true,
+            "show_mastercard": true
           }
         }
       },
       "block_order": [
-        "heading_1",
-        "button_2"
+        "title_1",
+        "price_1",
+        "short_description_1",
+        "variant_picker_1",
+        "buy_buttons_1",
+        "vertical_benefits_1",
+        "collapsible_row_1",
+        "collapsible_row_2",
+        "collapsible_row_3",
+        "collapsible_row_4",
+        "payment_badges_1"
       ]
+    },
+    "related": {
+      "type": "related-products",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "heading": "OTHER PROGRAMS",
+        "description": "",
+        "header_size": "small",
+        "header_alignment": "left",
+        "items_per_row": 3,
+        "items_per_row_mobile": 2,
+        "column_gap": 20,
+        "intent": "related",
+        "items_to_show": 3,
+        "show_badges": true,
+        "show_vendor": false,
+        "show_rating": false,
+        "show_swatches": false,
+        "show_price": true,
+        "show_add_to_cart": false,
+        "show_action": false,
+        "reveal": true,
+        "padding_top": 64,
+        "padding_bottom": 88
+      }
     }
   },
   "order": [
@@ -382,6 +370,6 @@
     "main",
     "steps_1",
     "testimonials_2",
-    "products_listing_3"
+    "related"
   ]
 }

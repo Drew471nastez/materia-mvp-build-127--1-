@@ -1,0 +1,86 @@
+{
+  "type": "header",
+  "name": "t:sections.header.name",
+  "sections": {
+    "header": {
+      "type": "retro-desktop",
+      "settings": {
+        "wallpaper": "teal",
+        "wall_color": "#008080",
+        "skin": true,
+        "home_title": "",
+        "related_title": "You may also like",
+        "start_label": "Start",
+        "menu_title": "",
+        "menu": "main-menu",
+        "menu_2": "footer",
+        "search_label": "Search",
+        "account_label": "Account",
+        "cart_label": "Cart",
+        "taskbar_label": "Taskbar",
+        "icons_home_only": true
+      },
+      "blocks": {
+        "icon_1": {
+          "type": "icon",
+          "settings": {
+            "icon": "folder",
+            "label": "Shop",
+            "link": "/collections/all"
+          }
+        },
+        "icon_2": {
+          "type": "icon",
+          "settings": {
+            "icon": "note",
+            "label": "readme.txt",
+            "link": "/pages/about"
+          }
+        },
+        "icon_3": {
+          "type": "icon",
+          "settings": {
+            "icon": "help",
+            "label": "Help",
+            "link": "/pages/faqs"
+          }
+        },
+        "icon_4": {
+          "type": "icon",
+          "settings": {
+            "icon": "disk",
+            "label": "Shipping",
+            "link": "/pages/shipping"
+          }
+        },
+        "icon_5": {
+          "type": "icon",
+          "settings": {
+            "icon": "mail",
+            "label": "Write to us",
+            "link": "/pages/contact"
+          }
+        },
+        "icon_6": {
+          "type": "icon",
+          "settings": {
+            "icon": "cart",
+            "label": "Cart",
+            "link": "/cart"
+          }
+        }
+      },
+      "block_order": [
+        "icon_1",
+        "icon_2",
+        "icon_3",
+        "icon_4",
+        "icon_5",
+        "icon_6"
+      ]
+    }
+  },
+  "order": [
+    "header"
+  ]
+}

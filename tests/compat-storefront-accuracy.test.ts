@@ -212,7 +212,7 @@ async function main() {
     const get = (path: string, account: unknown, q = "") => answer(site, { method: "GET", path, query: new URLSearchParams(q), body: null, cart: [], account: account as never })
     const page = await get(`/account/orders/${OID}`, { customer, order })
     const html = String(page.body)
-    check("an order's page draws on the website, in the theme, with each file and a Download on this host", page.status === 200 && /class="hdr"/.test(html) && /apron\.pdf/.test(html) && html.includes(`href="/api/site-account/download?order=${OID}&amp;file=f1" download`) && !/storelib\.com/.test(html), html.slice(0, 400))
+    check("an order's page draws on the website, in the theme, with each file and a Download on this host", page.status === 200 && /class="hdr"/.test(html) && /apron\.pdf/.test(html) && html.includes(`href="/api/site-account/download?order=${OID}&amp;file=f1" download`) && !/storelib\.com/.test(html.replace(/<p data-storelib-badge-line[\s\S]*?<\/p>/g, "")), html.slice(0, 400)) /* Changed on purpose (templates round 20): the page says Powered by Storelib, linked to storelib.com (lib/storelib-theme/compat/powered-by.ts); nothing else on it leaves the site. */
     const refused = String((await get(`/account/orders/${OID}`, { customer, order }, "download=refunded")).body)
     check("  why a download went back to it, as a fixed sentence", /This order was refunded, so its files are closed\./.test(refused))
     check("  an address that is not a reason prints nothing", !/role="alert"/.test(String((await get(`/account/orders/${OID}`, { customer, order }, "download=<b>x</b>")).body)))

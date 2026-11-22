@@ -62,6 +62,7 @@ import { usePhoneChromeTone } from "@/components/website-builder/native-chrome"
 import { LeaveConfirm, hasSomethingToLose, type LeaveReason } from "@/components/website-builder/leave-confirm"
 import { CanvasHover } from "@/components/website-builder/canvas-hover"
 import { backThen } from "@/lib/navigation/go-back"
+import { canReturnTo } from "@/lib/navigation/in-app-history"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { PageList, PageSwitcher, type SwitcherPage } from "@/components/website-builder/page-switcher"
@@ -3229,7 +3230,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (v === "code" || v === "settings") setPreviewMode(v)
     /* The switch alone drew the Settings segment as selected over a canvas
        with no settings on it: the page itself has to be opened too. */
-    if (v === "settings") setProjectSettingsOpen(true)
+    if (v === "settings") {
+      setProjectSettingsOpen(true)
+      setSettingsFromWebsite(canReturnTo("/app/website-builder"))
+    }
     /* Once, on arrival: left on the address, every reload (the one after a
        backup is restored among them) would open the pane again. */
     if (v !== null) {
@@ -3238,6 +3242,18 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }
   }, [])
   const [projectSettingsOpen, setProjectSettingsOpen] = useState(false)
+  /**
+   * WEBSITE SETTINGS WAS THE REASON FOR COMING. The Website page's Settings
+   * (and its tabs) open the editor straight onto Website settings. Its way
+   * out said Back to editor and dropped the creator into a builder they had
+   * not asked for, whose own Back then held "Going back" for three seconds
+   * before the Website page came. Arrived that way, with the Website page
+   * the page behind, the way out says Back and goes back to it, the way the
+   * system's back already did: one traversal to a page the app keeps. Once
+   * settings hands over to the builder (a page to edit, the menu), it is the
+   * builder's own Back to editor again.
+   */
+  const [settingsFromWebsite, setSettingsFromWebsite] = useState(false)
   /** Website settings opened on one subject (a tab on the website page, or
       GitHub sending a creator back), and what GitHub said. */
   const [settingsSection, setSettingsSection] = useState<SettingsSection | null>(null)
@@ -3258,6 +3274,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setSettingsSection(wanted)
     setPreviewMode("settings")
     setProjectSettingsOpen(true)
+    /* GitHub sending a creator back is not the Website page behind. */
+    if (!url.searchParams.get("github")) setSettingsFromWebsite(canReturnTo("/app/website-builder"))
     url.searchParams.delete("settings")
     url.searchParams.delete("github")
     window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash)
@@ -11088,6 +11106,23 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     /* The Going back screen goes up with leaveFor, once the browser has stepped off the guard entry. */
     backThen(() => leaveFor("/app/website-builder"))
   }, [leaveFor])
+  /** Website settings' Back, when the Website page sent the creator here for it: back to that page. */
+  const leaveSettingsForWebsite = useCallback(() => {
+    if (hasSomethingToLose({ draft: isDirty, code: codeDirty, busy: saving || publishing })) {
+      /* Something to keep first: the builder's own question, over the builder. */
+      setSettingsFromWebsite(false)
+      setProjectSettingsOpen(false)
+      setPreviewMode("preview")
+      requestExit("/app/website-builder")
+      return
+    }
+    goingBack.current = true
+    leaveAnswered.current = true
+    /* A leave guard left on top from an earlier edit is this editor's own entry: back over it too. */
+    const steps = guardArmed.current ? 2 : 1
+    guardArmed.current = false
+    backThen(() => leaveFor("/app/website-builder"), undefined, steps)
+  }, [isDirty, codeDirty, saving, publishing, requestExit, leaveFor])
   useEffect(() => {
     const onPop = () => {
       /*
@@ -12167,7 +12202,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
       <ProjectSettings
         open={projectSettingsOpen}
+        exitLabel={settingsFromWebsite ? tt("Back") : undefined}
+        onExit={settingsFromWebsite ? leaveSettingsForWebsite : undefined}
         onClose={() => {
+          setSettingsFromWebsite(false)
           setProjectSettingsOpen(false)
           setSettingsSection(null)
           setGithubReturned(null)
@@ -12569,11 +12607,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           /**
            * AND NOTHING OF THE EDITOR IS LEFT OVER A PAGE THAT COVERS THE
            * SCREEN. Website settings is a full surface; the sheet is a
-           * separate layer in the body, so it kept its place at the bottom
-           * of the screen and printed itself over the settings page. It is
-           * not rendered while that page is open.
+           * separate layer in the body, and it once printed itself over the
+           * settings page, so it was taken out of the page while settings
+           * was open. Putting it back was the cost of Back to editor: its
+           * sections, rows and pictures, 1,349 elements, styled and laid out
+           * from nothing in the tap's frame, a 500 to 1,100ms freeze at a
+           * quarter speed before settings went (scripts/check-website-
+           * settings-back.mjs). It stays now, closed (openSettings closes
+           * it) and under the settings page, which is z-[150] over its 50.
            */
-          previewMode !== "code" && !projectSettingsOpen && (
+          previewMode !== "code" && (
           <MobileEditorSheet
             open={mobileSidebarOpen}
             restKey={sheetRestKey}

@@ -1,0 +1,86 @@
+{
+  "main-menu": {
+    "title": "Main menu",
+    "links": [
+      {
+        "title": "About",
+        "url": "/pages/about"
+      },
+      {
+        "title": "Work with me",
+        "url": "/collections/all"
+      },
+      {
+        "title": "Journal",
+        "url": "/blogs/news"
+      },
+      {
+        "title": "FAQ",
+        "url": "/pages/faqs"
+      },
+      {
+        "title": "Contact",
+        "url": "/pages/contact"
+      }
+    ]
+  },
+  "footer": {
+    "title": "Explore",
+    "links": [
+      {
+        "title": "About",
+        "url": "/pages/about"
+      },
+      {
+        "title": "Work with me",
+        "url": "/collections/all"
+      },
+      {
+        "title": "Book a call",
+        "url": "/pages/book"
+      },
+      {
+        "title": "Journal",
+        "url": "/blogs/news"
+      }
+    ]
+  },
+  "footer-help": {
+    "title": "Good to know",
+    "links": [
+      {
+        "title": "Questions",
+        "url": "/pages/faqs"
+      },
+      {
+        "title": "Contact",
+        "url": "/pages/contact"
+      },
+      {
+        "title": "Free guide",
+        "url": "/pages/guide"
+      },
+      {
+        "title": "Your basket",
+        "url": "/cart"
+      }
+    ]
+  },
+  "footer-hello": {
+    "title": "Say hello",
+    "links": [
+      {
+        "title": "Send a message",
+        "url": "/pages/contact"
+      },
+      {
+        "title": "Book a free call",
+        "url": "/pages/book"
+      },
+      {
+        "title": "Instagram",
+        "url": "https://www.instagram.com"
+      }
+    ]
+  }
+}

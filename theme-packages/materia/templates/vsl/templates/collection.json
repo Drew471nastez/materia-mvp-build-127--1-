@@ -1,0 +1,106 @@
+{
+  "sections": {
+    "main-collection-heading": {
+      "type": "main-collection-heading",
+      "settings": {
+        "height": "adapt",
+        "alignment": "left",
+        "padding_top": 48,
+        "color_scheme": "default",
+        "reset_spacing": true,
+        "section_width": "fluid_container",
+        "padding_bottom": 24,
+        "show_collection_image": false
+      },
+      "name": "main-collection-heading",
+      "blocks": {
+        "breadcrumb": {
+          "type": "breadcrumb",
+          "settings": {}
+        },
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "header_size": "default"
+          }
+        },
+        "description": {
+          "type": "description",
+          "settings": {}
+        }
+      },
+      "block_order": [
+        "breadcrumb",
+        "heading",
+        "description"
+      ]
+    },
+    "main-collection-product": {
+      "type": "main-collection-product",
+      "settings": {
+        "sorting": true,
+        "column_gap": 30,
+        "pagination": "default",
+        "padding_top": 0,
+        "color_scheme": "default",
+        "filter_layout": "horizontal",
+        "items_per_row": 3,
+        "items_to_show": 12,
+        "reset_spacing": true,
+        "section_width": "fluid_container",
+        "default_filter": "open_all",
+        "empty_link_url": "/collections/all",
+        "padding_bottom": 60,
+        "vertical_posion": "left",
+        "button_show_more": "Show more",
+        "enable_filtering": false,
+        "show_filter_counts": true,
+        "items_per_row_mobile": "1",
+        "toolbar_button_style": "minimal",
+        "number_products_per_page": true
+      },
+      "name": "main-collection-product",
+      "blocks": {
+        "block-mvmkffsh-1-pcnzc": {
+          "type": "categories",
+          "settings": {
+            "title": "Category"
+          }
+        },
+        "block-mvmkfj68-2-iqqos": {
+          "type": "filter",
+          "settings": {}
+        }
+      },
+      "block_order": [
+        "block-mvmkffsh-1-pcnzc",
+        "block-mvmkfj68-2-iqqos"
+      ]
+    },
+    "call": {
+      "type": "vsl-cta",
+      "settings": {
+        "eyebrow": "",
+        "heading": "Which one is *for you?*",
+        "text": "<p>Book a call and we point you to the right one.</p>",
+        "size": "normal",
+        "button_label": "Book a free call",
+        "button_link": "/pages/book-a-call",
+        "button2_label": "",
+        "button2_link": "",
+        "note": "",
+        "glow": true,
+        "line_above": true,
+        "padding_top": 88,
+        "padding_bottom": 112,
+        "padding_top_mobile": 72,
+        "padding_bottom_mobile": 72
+      }
+    }
+  },
+  "order": [
+    "main-collection-heading",
+    "main-collection-product",
+    "call"
+  ]
+}

@@ -1,173 +1,136 @@
 {
   "sections": {
-    "faq": {
-      "type": "faq-pro",
+    "heading": {
+      "type": "page-heading",
       "settings": {
-        "color_scheme": "default",
-        "section_width": "container",
-        "structured_data": true,
-        "content_alignment": "left",
-        "max_content_width": 1200,
-        "col_gap": 80,
-        "first_item_open": true,
-        "allow_multiple_open": false,
-        "open_icon": "plus",
-        "item_padding_y": 18,
-        "item_padding_x": 22,
-        "item_radius": 10,
-        "gap_between_items": 10,
-        "show_dividers": false,
-        "heading_size_desktop": 40,
-        "heading_size_mobile": 30,
-        "question_size_desktop": 17,
-        "padding_top": 80,
-        "padding_bottom": 96
+        "height": "adapt",
+        "alignment": "center",
+        "padding_top": 72,
+        "padding_bottom": 56,
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "reset_spacing": true,
+        "section_width": "fluid_container",
+        "overlay_opacity": 0
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Questions",
-            "tag": "h1"
+            "page_title": "Questions",
+            "header_size": "default",
+            "vertical_gap": 10,
+            "heading_font_size": 46,
+            "enable_heading_color": false
           }
         },
-        "subheading_2": {
-          "type": "subheading",
+        "description_1": {
+          "type": "description",
           "settings": {
-            "text": "<p>About the book, the files and refunds. Anything else, write to us and you will hear back within two working days.</p>"
-          }
-        },
-        "faq_item_3": {
-          "type": "faq_item",
-          "settings": {
-            "question": "What format is the book in?",
-            "answer": "<p>You get a PDF and an EPUB. The PDF is laid out for reading on a laptop or printing. The EPUB works on phones, tablets and most e-readers.</p>"
-          }
-        },
-        "faq_item_4": {
-          "type": "faq_item",
-          "settings": {
-            "question": "How do I get it?",
-            "answer": "<p>The download links are on the confirmation page and in your receipt email, a minute after you pay. They stay in your account too.</p>"
-          }
-        },
-        "faq_item_5": {
-          "type": "faq_item",
-          "settings": {
-            "question": "Do I need to be good with computers?",
-            "answer": "<p>No. If you can send an email and take a photo with your phone, you can follow every chapter.</p>"
-          }
-        },
-        "faq_item_6": {
-          "type": "faq_item",
-          "settings": {
-            "question": "Will this work outside the US?",
-            "answer": "<p>Yes. The map listings and review sites in the book work the same way in most countries. Where something differs, the book says so.</p>"
-          }
-        },
-        "faq_item_7": {
-          "type": "faq_item",
-          "settings": {
-            "question": "What if it is not for me?",
-            "answer": "<p>Write within 30 days and you get your money back. No form to fill in.</p>"
-          }
-        },
-        "faq_item_8": {
-          "type": "faq_item",
-          "settings": {
-            "question": "Can I read it on a Kindle?",
-            "answer": "<p>Yes. Send the EPUB to your Kindle with Send to Kindle and it appears in your library within a few minutes.</p>"
-          }
-        },
-        "faq_item_9": {
-          "type": "faq_item",
-          "settings": {
-            "question": "Is the workbook a separate file?",
-            "answer": "<p>Yes. The bundle adds a printable PDF with every exercise and checklist on its own page, ready to fill in by hand.</p>"
-          }
-        },
-        "faq_item_10": {
-          "type": "faq_item",
-          "settings": {
-            "question": "Can I share it with my staff?",
-            "answer": "<p>One copy covers everyone working in the same business. For a group or a class, write to us about a team licence.</p>"
-          }
-        },
-        "faq_item_11": {
-          "type": "faq_item",
-          "settings": {
-            "question": "Will there be a new edition?",
-            "answer": "<p>When search changes enough to matter. Buyers of this edition get the updates to it for free.</p>"
-          }
-        },
-        "button_12": {
-          "type": "button",
-          "settings": {
-            "label": "Contact us",
-            "link": "/pages/contact",
-            "style": "primary",
-            "size": "medium",
-            "radius": 8
+            "description": "<p>About formats, downloads, gifts and refunds.</p>",
+            "enable_custom_style": false,
+            "description_font_size": 16
           }
         }
       },
       "block_order": [
         "heading_1",
-        "subheading_2",
-        "faq_item_3",
-        "faq_item_4",
-        "faq_item_5",
-        "faq_item_6",
-        "faq_item_7",
-        "faq_item_8",
-        "faq_item_9",
-        "faq_item_10",
-        "faq_item_11",
-        "button_12"
+        "description_1"
       ]
     },
-    "letter": {
-      "type": "newsletter",
+    "faq": {
+      "type": "ebook-faq",
       "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "section_width": "full_width",
-        "heading": "",
-        "email_label": "Email address",
-        "email_placeholder": "Your email address",
-        "btn_text": "Send me chapter one",
-        "note": "One email a month with a short tip. Unsubscribe any time.",
-        "success_text": "Thanks. Chapter one is on its way.",
-        "header_alignment": "center",
-        "form_layout": "horizontal",
-        "show_icon": false,
-        "use_theme_button": true,
-        "use_theme_fields": true,
-        "header_size": "medium",
-        "padding_top": 88,
-        "padding_bottom": 88
+        "color_scheme": "default",
+        "background": "#f7f4ee",
+        "accent_color": "#9a6a32",
+        "eyebrow": "Questions",
+        "heading": "Before you <em>buy</em>",
+        "text": "<p>Anything else? <a href=\"/pages/contact\">Write to me</a>. I answer every message myself.</p>",
+        "first_open": true,
+        "promise_seal": "30",
+        "promise_title": "Read it for 30 days",
+        "promise_text": "If it is not for you, reply to your receipt within 30 days and you get every penny back. No questions.",
+        "card_color": "#1f3b33",
+        "card_heading_color": "#f7f4ee",
+        "card_text_color": "#dfe6df",
+        "padding_top": 56
       },
       "blocks": {
-        "heading_1": {
-          "type": "heading",
+        "question_1": {
+          "type": "question",
           "settings": {
-            "text": "Read the first chapter free"
+            "question": "Which formats do I get?",
+            "answer": "<p>PDF and EPUB, so it reads well on phones, tablets, laptops and most e-readers. The complete set adds an MP3 audiobook.</p>"
           }
         },
-        "subheading_2": {
-          "type": "subheading",
+        "question_2": {
+          "type": "question",
           "settings": {
-            "text": "<p>Leave your email and chapter one arrives today, with a short tip once a month after that.</p>"
+            "question": "How do I get the book after paying?",
+            "answer": "<p>The download links are on the confirmation page and in your receipt email straight away. They also stay in your account.</p>"
+          }
+        },
+        "question_3": {
+          "type": "question",
+          "settings": {
+            "question": "Can I read it on a Kindle?",
+            "answer": "<p>Yes. Send the EPUB to your Kindle with Send to Kindle, or open the PDF on any Kindle app.</p>"
+          }
+        },
+        "question_4": {
+          "type": "question",
+          "settings": {
+            "question": "Is there a printed copy?",
+            "answer": "<p>Not yet. The PDF prints well at A5 if you like paper.</p>"
+          }
+        },
+        "question_5": {
+          "type": "question",
+          "settings": {
+            "question": "Can I buy it as a gift?",
+            "answer": "<p>Yes. Choose more than one copy, or forward the receipt email to the person it is for.</p>"
+          }
+        },
+        "question_6": {
+          "type": "question",
+          "settings": {
+            "question": "Do you offer copies for teams?",
+            "answer": "<p>Yes, for groups of five or more. <a href=\"/pages/contact\">Write to me</a> and I will send a price.</p>"
           }
         }
       },
       "block_order": [
-        "heading_1",
-        "subheading_2"
+        "question_1",
+        "question_2",
+        "question_3",
+        "question_4",
+        "question_5",
+        "question_6"
       ]
+    },
+    "signup": {
+      "type": "ebook-signup",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "background": "#1f3b33",
+        "heading_color": "#f7f4ee",
+        "text_color": "#cdd8cf",
+        "accent_color": "#d9b27a",
+        "image": "shopify://shop_images/ebooks-table.webp",
+        "image_alt": "Reading on an e-reader at a wooden table with coffee",
+        "eyebrow": "Free chapter",
+        "heading": "Read the first chapter <em>free</em>",
+        "text": "<p>The whole of chapter one as a PDF, then a short letter about reading and work every other Sunday.</p>",
+        "email_placeholder": "Your email",
+        "button_label": "Send it to me",
+        "tag": "free-chapter",
+        "note": "No spam. Leave whenever you like."
+      }
     }
   },
   "order": [
+    "heading",
     "faq",
-    "letter"
+    "signup"
   ]
 }

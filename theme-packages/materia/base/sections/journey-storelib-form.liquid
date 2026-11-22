@@ -1,0 +1,70 @@
+{%- comment -%}
+  Materia Themes. Storelib form.
+  One of the store's own Storelib forms or booking pages (Contacts > Forms),
+  live on the page: a booking keeps its time, a paid booking goes on to
+  checkout, every answer reaches Leads. The form is drawn by Storelib on this
+  website's own address and takes the section's colour scheme and the
+  theme's fonts (lib/storelib-theme/compat/storelib-form.ts). The same form
+  can also be added as the "Storelib form" app block inside any section that
+  takes app blocks.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign align = st.text_align | default: 'center'
+-%}
+<style>
+  #shopify-section-{{ sid }} { isolation: isolate; position: relative; }
+  :where(#shopify-section-{{ sid }}) { font-family: var(--body-font, inherit); }
+  :where(#shopify-section-{{ sid }}) :is(h2, h3) { font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, inherit); }
+  #shopify-section-{{ sid }} .jsf {
+    background: var(--color-background);
+    color: var(--color-text);
+    padding: {{ st.padding_top_mobile | default: 48 }}px 20px {{ st.padding_bottom_mobile | default: 48 }}px;
+  }
+  #shopify-section-{{ sid }} .jsf__inner { max-width: {{ st.max_width | default: 640 }}px; margin: 0 auto; }
+  #shopify-section-{{ sid }} .jsf__head { text-align: {{ align }}; margin: 0 0 24px; }
+  #shopify-section-{{ sid }} .jsf__title { margin: 0; color: var(--color-heading, inherit); font-size: clamp(26px, 4vw, 36px); line-height: 1.15; }
+  #shopify-section-{{ sid }} .jsf__text { margin: 10px 0 0; opacity: .8; line-height: 1.6; }
+  #shopify-section-{{ sid }} .jsf__text > :first-child { margin-top: 0; }
+  #shopify-section-{{ sid }} .jsf__text > :last-child { margin-bottom: 0; }
+  @media (min-width: 768px) {
+    #shopify-section-{{ sid }} .jsf { padding-top: {{ st.padding_top_desktop | default: 80 }}px; padding-bottom: {{ st.padding_bottom_desktop | default: 80 }}px; }
+  }
+</style>
+<div class="jsf color-{{ color_scheme }} gradient" data-journey-storelib-form>
+  <div class="jsf__inner">
+    {%- if st.heading != blank or st.text != blank -%}
+      <div class="jsf__head">
+        {%- if st.heading != blank -%}<h2 class="jsf__title">{{ st.heading }}</h2>{%- endif -%}
+        {%- if st.text != blank -%}<div class="jsf__text">{{ st.text }}</div>{%- endif -%}
+      </div>
+    {%- endif -%}
+    {{ st.form | storelib_form: st.heading }}
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Storelib form",
+  "tag": "section",
+  "class": "journey-storelib-form",
+  "settings": [
+    { "type": "form_picker", "id": "form", "label": "Form or booking page" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Book a call" },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Pick a time that suits you. You get a confirmation by email.</p>" },
+    { "type": "select", "id": "text_align", "label": "Heading alignment", "default": "center", "options": [ { "value": "left", "label": "Left" }, { "value": "center", "label": "Center" } ] },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default-color-scheme" },
+    { "type": "range", "id": "max_width", "label": "Width", "min": 420, "max": 960, "step": 20, "unit": "px", "default": 640 },
+    { "type": "header", "content": "Spacing" },
+    { "type": "range", "id": "padding_top_desktop", "label": "Top padding (desktop)", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 80 },
+    { "type": "range", "id": "padding_bottom_desktop", "label": "Bottom padding (desktop)", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 80 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Top padding (mobile)", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 48 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Bottom padding (mobile)", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 48 }
+  ],
+  "presets": [
+    { "name": "Storelib form", "category": "Forms" }
+  ]
+}
+{% endschema %}

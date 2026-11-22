@@ -185,7 +185,7 @@ export async function loadReceiptByToken(admin: SupabaseClient, token: string): 
       .in("id", productIds),
     readTax(admin, rows.map((r) => r.id)),
   ])
-  const snapshots = await readSnapshots(admin, rows.map((r) => r.id))
+  const [snapshots, opensCommunities] = await Promise.all([readSnapshots(admin, rows.map((r) => r.id)), communitiesOpenedBy(admin, rows.filter((r) => accessStateOf(r) === "open").map((r) => r.product_id))])
 
   const products = new Map<string, any>(((productsRes as any).data ?? []).map((p: any) => [p.id, p]))
   const filesByProduct = new Map<string, Array<ReceiptFile & { productId: string }>>()
@@ -266,6 +266,7 @@ export async function loadReceiptByToken(admin: SupabaseClient, token: string): 
       refundedAt: (r.refunded_at as string) ?? null,
       files,
       courseHref: state === "open" && type === "course" ? `/account/library/courses/${r.product_id}` : null,
+      ...(state === "open" && opensCommunities.get(r.product_id)?.length ? { communities: opensCommunities.get(r.product_id) } : {}),
       priceInterval: type === "membership" ? intervals.get(r.id) ?? "month" : null,
       refundPolicy: refundPolicyOf(policies.get(r.product_id)),
       ...(snapshots.get(r.id) ?? {}),
@@ -348,4 +349,38 @@ export async function loadReceiptByToken(admin: SupabaseClient, token: string): 
   }
 
   return { view, buyerIds: [...new Set(rows.map((r) => r.buyer_id).filter(Boolean) as string[])] }
+}
+
+/**
+ * THE COMMUNITIES A PURCHASE OPENS (community_access_products), by product:
+ * a course or a download the creator named in a community's access lets its
+ * buyer in when it is paid (lib/communities/server/payment-hooks), and the
+ * receipt is where the buyer learns it. Published communities only, by name
+ * and address. Never throws: a database without communities has none.
+ */
+async function communitiesOpenedBy(admin: SupabaseClient, productIds: string[]): Promise<Map<string, { name: string; slug: string }[]>> {
+  const out = new Map<string, { name: string; slug: string }[]>()
+  const ids = [...new Set(productIds.filter(Boolean))]
+  if (ids.length === 0) return out
+  try {
+    const { data: links, error } = await admin.from("community_access_products").select("community_id, product_id").in("product_id", ids)
+    const rows = (error ? [] : (links ?? [])) as { community_id: string; product_id: string }[]
+    if (rows.length === 0) return out
+    const { data: communities, error: cError } = await admin.from("communities").select("id, name, slug, status").in("id", [...new Set(rows.map((l) => l.community_id))])
+    if (cError) return out
+    const byId = new Map<string, { name: string; slug: string }>()
+    for (const c of (communities ?? []) as { id: string; name?: string | null; slug?: unknown; status?: unknown }[]) {
+      if (c.status === "published" && typeof c.slug === "string" && /^[a-z0-9][a-z0-9-]{0,79}$/.test(c.slug)) byId.set(c.id, { name: String(c.name || c.slug).slice(0, 120), slug: c.slug })
+    }
+    for (const l of rows) {
+      const c = byId.get(l.community_id)
+      if (!c) continue
+      const list = out.get(l.product_id) ?? []
+      if (!list.some((x) => x.slug === c.slug)) list.push(c)
+      out.set(l.product_id, list)
+    }
+  } catch {
+    /* None shown. */
+  }
+  return out
 }

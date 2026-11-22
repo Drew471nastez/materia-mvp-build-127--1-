@@ -1,0 +1,119 @@
+{
+  "sections": {
+    "faq": {
+      "type": "vsl-faq",
+      "settings": {
+        "eyebrow": "Questions",
+        "heading": "Before you *join*",
+        "text": "<p>Anything not here, write to us and you hear back within a working day.</p>",
+        "first_open": true,
+        "max_width": 760,
+        "line_above": false,
+        "padding_top": 64,
+        "padding_bottom": 96,
+        "padding_top_mobile": 64,
+        "padding_bottom_mobile": 56
+      },
+      "blocks": {
+        "question_1": {
+          "type": "question",
+          "settings": {
+            "question": "Do I need an audience first?",
+            "answer": "<p>No. A list of past clients is enough for a first round of five to ten people. Week four covers where else to find them.</p>"
+          }
+        },
+        "question_2": {
+          "type": "question",
+          "settings": {
+            "question": "How much time does it take?",
+            "answer": "<p>About two hours a week: one short lesson, one exercise and the Thursday call.</p>"
+          }
+        },
+        "question_3": {
+          "type": "question",
+          "settings": {
+            "question": "What exactly do I get?",
+            "answer": "<p>Twelve short lessons, templates for the outline, the sales page and the emails, six live calls and their recordings.</p>"
+          }
+        },
+        "question_4": {
+          "type": "question",
+          "settings": {
+            "question": "What happens on the free call?",
+            "answer": "<p>You tell us what you do and who for. We tell you honestly whether the course fits. If it does not, there is no pitch.</p>"
+          }
+        },
+        "question_5": {
+          "type": "question",
+          "settings": {
+            "question": "When does the next round start?",
+            "answer": "<p>On the first Monday of the month. Change this to your own dates.</p>"
+          }
+        },
+        "question_6": {
+          "type": "question",
+          "settings": {
+            "question": "Can I get a refund?",
+            "answer": "<p>Yes. Within 30 days of joining, for any reason, write to us and you get your money back.</p>"
+          }
+        },
+        "question_7": {
+          "type": "question",
+          "settings": {
+            "question": "Is it live or recorded?",
+            "answer": "<p>Both. Lessons are recorded so you watch when it suits you. The Thursday calls are live and recorded.</p>"
+          }
+        },
+        "question_8": {
+          "type": "question",
+          "settings": {
+            "question": "Do I need special software?",
+            "answer": "<p>No. A video call app and a document editor are enough. The templates open in any of them.</p>"
+          }
+        },
+        "question_9": {
+          "type": "question",
+          "settings": {
+            "question": "Can I join from any time zone?",
+            "answer": "<p>Yes. Calls are at a set time, and the recording is up the same day.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "question_1",
+        "question_2",
+        "question_3",
+        "question_4",
+        "question_5",
+        "question_6",
+        "question_7",
+        "question_8",
+        "question_9"
+      ]
+    },
+    "call": {
+      "type": "vsl-cta",
+      "settings": {
+        "eyebrow": "",
+        "heading": "Still deciding? *Talk it through*",
+        "text": "",
+        "size": "normal",
+        "button_label": "Book a free call",
+        "button_link": "/pages/book-a-call",
+        "button2_label": "",
+        "button2_link": "",
+        "note": "",
+        "glow": true,
+        "line_above": true,
+        "padding_top": 96,
+        "padding_bottom": 112,
+        "padding_top_mobile": 72,
+        "padding_bottom_mobile": 72
+      }
+    }
+  },
+  "order": [
+    "faq",
+    "call"
+  ]
+}

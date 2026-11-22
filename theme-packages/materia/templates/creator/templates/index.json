@@ -8,7 +8,7 @@
         "heading_plain": "Draw a little",
         "heading_serif": "every morning.",
         "underline_color": "#5ec3ea",
-        "intro": "<p>I'm Ines. I teach grown ups who stopped drawing at school, and I wrote <a href=\"/collections/all\">Draw Before Breakfast</a>, forty exercises of ten minutes each.</p>",
+        "intro": "<p>I'm Ines. I teach grown ups who stopped drawing at school, mostly with coloured pencils, and I wrote <a href=\"/collections/all\">Draw Before Breakfast</a>, forty exercises of ten minutes each.</p>",
         "show_arrow": true,
         "arrow_color": "#f6a27c",
         "card_eyebrow": "The six week course",
@@ -18,8 +18,8 @@
         "card_button_link": "/collections/all",
         "button_color": "#5ec3ea",
         "button_text_color": "#1c1b2b",
-        "card_image": "shopify://shop_images/creator-sketchbook-pages.webp",
-        "card_image_alt": "An open sketchbook with a painted gate and trees",
+        "card_image": "shopify://shop_images/creator-ines-at-desk.webp",
+        "card_image_alt": "Ines drawing with coloured pencils at her studio desk",
         "image_ratio": "4 / 3",
         "press_label": "As featured in",
         "heading_size": 80,
@@ -119,8 +119,8 @@
           "settings": {
             "doodle": "brush",
             "doodle_color": "#f6a27c",
-            "title": "Add watercolour",
-            "text": "One brush, six paints and a few honest mistakes to learn from.",
+            "title": "Add colour",
+            "text": "Six pencils, one sheet of dark paper and a few honest mistakes to learn from.",
             "link_label": "Get started",
             "link": "/collections/all"
           }
@@ -148,8 +148,8 @@
       "type": "Image-and-video-text",
       "settings": {
         "color_scheme": "default",
-        "image": "shopify://shop_images/creator-botanical.webp",
-        "image_alt": "Leaf and flower studies in a spiral sketchbook, with pencils",
+        "image": "shopify://shop_images/creator-ines-studio.webp",
+        "image_alt": "Ines at her desk under the attic roof, with pencils and paper spread out",
         "image_position": "left",
         "image_radius": 18,
         "aspect_w": 1,
@@ -194,15 +194,15 @@
         "heading_plain": "Why I",
         "heading_serif": "teach drawing",
         "underline_color": "#5ec3ea",
-        "text": "<p>I stopped drawing at eleven, when a teacher held my picture up as the one not to copy. I started again at twenty nine, on a train, in the back of a work notebook.</p><p>Since then I have filled a shelf of sketchbooks, taught workshops in libraries and cafés, and written a book about the ten minutes before breakfast that changed how I see.</p><p>Everything I have learned is on this site. Most of it is free, and it will stay that way.</p>",
+        "text": "<p>I stopped drawing at eleven, when a teacher held my picture up as the one not to copy. I started again at twenty nine, on a train, in the back of a work notebook.</p><p>Since then I have filled a shelf of sketchbooks, moved into an attic with good light, taught workshops in libraries and cafés, and written a book about the ten minutes before breakfast that changed how I see.</p><p>Everything I have learned is on this site. Most of it is free, and it will stay that way.</p>",
         "link_label": "Read the full story",
         "link": "/pages/about",
-        "image_1": "shopify://shop_images/creator-desk-sketches.webp",
-        "image_1_alt": "Small ink sketches filling a page beside a keyboard",
-        "image_2": "shopify://shop_images/creator-pillow-sketches.webp",
-        "image_2_alt": "Pencil studies of cushions in a spiral sketchbook",
-        "image_3": "shopify://shop_images/creator-morning-desk.webp",
-        "image_3_alt": "A small drawing on a wooden desk with pens and a bowl of oranges",
+        "image_1": "shopify://shop_images/creator-ines-hands-frame.webp",
+        "image_1_alt": "Ines shading a flower in coloured pencil on dark paper",
+        "image_2": "shopify://shop_images/creator-ines-side.webp",
+        "image_2_alt": "Ines at work at a desk covered in pencils and paper",
+        "image_3": "shopify://shop_images/creator-ines-attic.webp",
+        "image_3_alt": "The attic studio where Ines draws and films her lessons",
         "thread_color": "#f6a27c",
         "button_color": "#5ec3ea",
         "button_text_color": "#1c1b2b"
@@ -258,10 +258,10 @@
         "card_1": {
           "type": "card",
           "settings": {
-            "image": "shopify://shop_images/creator-lesson-pen.webp",
-            "alt": "A dip pen drawing a small house",
+            "image": "shopify://shop_images/creator-lesson-grip.webp",
+            "alt": "Ines's hands holding a pencil over a drawing",
             "meta": "Lesson, 9 minutes",
-            "title": "How I hold a pen now",
+            "title": "How I hold a pencil now",
             "link_label": "Watch",
             "link": "/blogs/news"
           }
@@ -269,10 +269,10 @@
         "card_2": {
           "type": "card",
           "settings": {
-            "image": "shopify://shop_images/creator-lesson-watercolour.webp",
-            "alt": "Painting outdoors from a small watercolour box",
+            "image": "shopify://shop_images/creator-lesson-layers.webp",
+            "alt": "Ines drawing at her desk, in black and white",
             "meta": "Lesson, 22 minutes",
-            "title": "Watercolour with one brush",
+            "title": "Layering colour without mud",
             "link_label": "Watch",
             "link": "/blogs/news"
           }
@@ -280,10 +280,10 @@
         "card_3": {
           "type": "card",
           "settings": {
-            "image": "shopify://shop_images/creator-lesson-ink.webp",
-            "alt": "An ink drawing of flowers in an open sketchbook",
+            "image": "shopify://shop_images/creator-lesson-dark-paper.webp",
+            "alt": "Looking over Ines's shoulder at her pencils and a drawing on dark paper",
             "meta": "Lesson, 14 minutes",
-            "title": "Ink without an undo button",
+            "title": "Drawing light on dark paper",
             "link_label": "Watch",
             "link": "/blogs/news"
           }
@@ -291,10 +291,10 @@
         "card_4": {
           "type": "card",
           "settings": {
-            "image": "shopify://shop_images/creator-lesson-plants.webp",
-            "alt": "A pencil drawing of berries in a vase",
+            "image": "shopify://shop_images/creator-lesson-flower.webp",
+            "alt": "A flower study taking shape under the pencil",
             "meta": "Lesson, 12 minutes",
-            "title": "Drawing plants from the window",
+            "title": "A flower in ten minutes",
             "link_label": "Watch",
             "link": "/blogs/news"
           }
@@ -302,10 +302,10 @@
         "card_5": {
           "type": "card",
           "settings": {
-            "image": "shopify://shop_images/creator-lesson-owl.webp",
-            "alt": "A sketch of an owl with colour notes",
+            "image": "shopify://shop_images/creator-lesson-setup.webp",
+            "alt": "Ines at her desk with a pot of pencils",
             "meta": "Lesson, 18 minutes",
-            "title": "Fill a page with one animal",
+            "title": "A small desk that works",
             "link_label": "Watch",
             "link": "/blogs/news"
           }

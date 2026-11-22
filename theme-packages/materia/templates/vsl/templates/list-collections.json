@@ -1,0 +1,71 @@
+{
+  "sections": {
+    "heading": {
+      "type": "page-heading",
+      "settings": {
+        "height": "adapt",
+        "alignment": "center",
+        "padding_top": 67,
+        "color_scheme": "",
+        "reset_spacing": true,
+        "section_width": "fluid_container",
+        "padding_bottom": 67,
+        "overlay_opacity": 0
+      },
+      "blocks": {
+        "heading_B3DXTc": {
+          "type": "heading",
+          "settings": {
+            "page_title": "Courses",
+            "header_size": "default",
+            "vertical_gap": 8,
+            "heading_color": "",
+            "heading_font_size": 34,
+            "enable_heading_color": false
+          }
+        },
+        "description_tLPCVn": {
+          "type": "description",
+          "settings": {
+            "description": "<p>Everything we teach, grouped.</p>",
+            "description_color": "#a3a3a8",
+            "enable_custom_style": true,
+            "description_font_size": 15
+          }
+        }
+      },
+      "block_order": [
+        "heading_B3DXTc",
+        "description_tLPCVn"
+      ]
+    },
+    "main": {
+      "type": "main-list-collections",
+      "settings": {
+        "type": "all",
+        "design": "default",
+        "font_size": 16,
+        "column_gap": 30,
+        "pagination": "default",
+        "image_ratio": "adapt",
+        "padding_top": 20,
+        "color_scheme": "default",
+        "items_per_row": 4,
+        "items_to_show": 8,
+        "reset_spacing": true,
+        "section_width": "fluid_container",
+        "padding_bottom": 112,
+        "text_alignment": "center",
+        "button_show_more": "Load more",
+        "sort_collections": "alphabetical",
+        "show_product_count": false
+      },
+      "blocks": {},
+      "block_order": []
+    }
+  },
+  "order": [
+    "heading",
+    "main"
+  ]
+}

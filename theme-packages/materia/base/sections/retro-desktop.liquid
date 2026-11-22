@@ -1,0 +1,532 @@
+{%- comment -%}
+Retro desktop: the computer the whole website sits on. Placed in the
+  header group, so every page has it:
+
+  the wallpaper, drawn here (a teal screen, green hills under a blue sky, or
+  a dusk), fixed behind the page and painted once;
+
+  the taskbar along the bottom with a Start button (the main menu, the
+  footer menu, search, account and cart), the cart with its count and a
+  clock;
+
+  desktop icons (blocks) down the left of a wide screen, or in a row above
+  the first window on a narrow one;
+
+  and, with "Draw every section as a window", the theme's own sections (the
+  product, the cart, search, the blog) in a grey window with a title bar.
+  The title bar names the page. Nothing here is a picture file: the icons
+  are drawn pixel by pixel in SVG.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+-%}
+{%- capture r98_title -%}
+  {%- case request.page_type -%}
+    {%- when 'index' -%}{{ st.home_title | default: shop.name }}
+    {%- when 'product' -%}{{ product.title }}
+    {%- when 'collection' -%}{{ collection.title | default: 'Shop' }}
+    {%- when 'list-collections' -%}Collections
+    {%- when 'cart' -%}Cart
+    {%- when 'search' -%}Search
+    {%- when 'page' -%}{{ page.title }}
+    {%- when 'blog' -%}{{ blog.title | default: 'Journal' }}
+    {%- when 'article' -%}{{ article.title }}
+    {%- when '404' -%}Not found
+    {%- when 'policy' -%}{{ page_title }}
+    {%- else -%}{{ page_title | default: shop.name }}
+  {%- endcase -%}
+{%- endcapture -%}
+{%- assign r98_title = r98_title | strip | strip_newlines | replace: '\', '' | replace: '"', "'" | replace: '<', '' | replace: '>', '' -%}
+{%- assign r98_shop = shop.name | replace: '\', '' | replace: '"', "'" | replace: '<', '' | replace: '>', '' -%}
+{%- liquid
+  assign wall = st.wallpaper | default: 'teal'
+  assign wall_color = st.wall_color | default: '#008080'
+  assign show_icons = true
+  if st.icons_home_only and request.page_type != 'index'
+    assign show_icons = false
+  endif
+  assign menu = st.menu
+  assign menu2 = st.menu_2
+-%}
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&display=swap" data-r98-font>
+<style>
+  .r98 { --r-face: #c0c0c0; --r-light: #dfdfdf; --r-hi: #ffffff; --r-shadow: #808080; --r-dark: #0a0a0a; --r-t1: #000080; --r-t2: #1084d0; --r-sel: #000080;
+    --r-px: 'Pixelify Sans', ui-monospace, 'Courier New', monospace; color: #111; font-family: var(--body-font, Arial, sans-serif); font-size: 14px; line-height: 1.5; }
+  .r98 *, .r98 *::before, .r98 *::after { box-sizing: border-box; }
+  .r98-win { position: relative; background: var(--r-face); padding: 3px; box-shadow: inset -1px -1px var(--r-dark), inset 1px 1px var(--r-light), inset -2px -2px var(--r-shadow), inset 2px 2px var(--r-hi), 6px 6px 0 rgba(0,0,0,.18); }
+  .r98-bar { display: flex; align-items: center; gap: 6px; min-height: 26px; padding: 2px 3px 2px 5px; background: linear-gradient(90deg, var(--r-t1), var(--r-t2)); color: #fff; font-family: var(--r-px); font-size: 15px; font-weight: 600; letter-spacing: .01em; user-select: none; -webkit-user-select: none; }
+  .r98-bar .r98-ico { width: 16px; height: 16px; flex: none; }
+  .r98-bar__title { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; margin: 0; font: inherit; color: inherit; }
+  .r98-bar__btns { display: flex; gap: 2px; flex: none; }
+  .r98-ctl { display: grid; place-items: center; width: 22px; height: 20px; margin: 0; padding: 0; border: 0; border-radius: 0; cursor: pointer; color: #000; background: var(--r-face);
+    box-shadow: inset -1px -1px var(--r-dark), inset 1px 1px var(--r-hi), inset -2px -2px var(--r-shadow), inset 2px 2px var(--r-light); }
+  .r98-ctl svg { width: 10px; height: 10px; }
+  .r98-ctl:active { box-shadow: inset 1px 1px var(--r-dark), inset -1px -1px var(--r-hi), inset 2px 2px var(--r-shadow), inset -2px -2px var(--r-light); }
+  .r98-ctl:active svg { transform: translate(1px, 1px); }
+  .r98-ctl:focus-visible, .r98-btn:focus-visible { outline: 1px dotted #000; outline-offset: -5px; }
+  .r98-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 36px; min-width: 96px; margin: 0; padding: 0 18px; border: 0; border-radius: 0; cursor: pointer;
+    background: var(--r-face); color: #111; font-family: var(--r-px); font-size: 16px; font-weight: 500; line-height: 1; text-decoration: none; white-space: nowrap;
+    box-shadow: inset -1px -1px var(--r-dark), inset 1px 1px var(--r-hi), inset -2px -2px var(--r-shadow), inset 2px 2px var(--r-light); }
+  .r98-btn:hover { background: #cacaca; color: #111; }
+  .r98-btn:active, .r98-btn[aria-pressed="true"] { box-shadow: inset 1px 1px var(--r-dark), inset -1px -1px var(--r-hi), inset 2px 2px var(--r-shadow), inset -2px -2px var(--r-light); padding-top: 2px; padding-left: 20px; padding-right: 16px; }
+  .r98-btn--default { outline: 1px solid #000; outline-offset: 0; }
+  .r98-btn--blue { background: var(--r-t1); color: #fff; box-shadow: inset -1px -1px var(--r-dark), inset 1px 1px #5a7ad8, inset -2px -2px #00004a, inset 2px 2px #2f4fb0; }
+  .r98-btn--blue:hover { background: #0a0a9a; color: #fff; }
+  .r98-btn .r98-ico { width: 20px; height: 20px; }
+  .r98-field { background: #fff; box-shadow: inset -1px -1px var(--r-hi), inset 1px 1px var(--r-shadow), inset -2px -2px var(--r-light), inset 2px 2px var(--r-dark); }
+  .r98-sunken { box-shadow: inset -1px -1px var(--r-hi), inset 1px 1px var(--r-shadow); }
+  .r98-raised { box-shadow: inset -1px -1px var(--r-shadow), inset 1px 1px var(--r-hi); }
+  .r98-h { margin: 0; font-family: var(--r-px); font-weight: 600; color: #000; line-height: 1.1; letter-spacing: 0; }
+  .r98 .r98-ico { image-rendering: pixelated; }
+  .r98-win.is-min .r98-body, .r98-win.is-min .r98-hide-min { display: none; }
+  .r98-win.is-max { position: relative; z-index: 3; }
+  .r98-win[data-r98-window] { transition: transform .35s cubic-bezier(.2,.8,.2,1), opacity .25s; }
+  .r98-win.is-closing { opacity: 0; transform: scale(.96); }
+  html.r98-js .r98 [data-motion] { opacity: 0; transform: translate3d(0, 14px, 0) scale(.985); transition: opacity .55s cubic-bezier(.2,.7,.2,1), transform .55s cubic-bezier(.2,.7,.2,1); transition-delay: var(--d, 0ms); }
+  html.r98-js .r98 [data-motion].is-in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) {
+    html.r98-js .r98 [data-motion] { opacity: 1; transform: none; transition: none; }
+    .r98-win[data-r98-window] { transition: none; }
+  }
+
+  html { background-color: {{ wall_color }} !important; scroll-behavior: auto; }
+  body { background: transparent !important; padding-bottom: calc(46px + env(safe-area-inset-bottom, 0px)); }
+  #shopify-section-{{ sid }} { position: static !important; margin: 0 !important; padding: 0 !important; }
+  #shopify-section-{{ sid }} .r98-wall { position: fixed; inset: 0; z-index: -1; pointer-events: none; background: {{ wall_color }}; }
+  {%- if wall == 'hills' %}
+  .r98-wall { background: #7fb4f0 url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 1600 1000%22 preserveAspectRatio=%22xMidYMax slice%22%3E%3Cdefs%3E%3ClinearGradient id=%22s%22 x1=%220%22 y1=%220%22 x2=%220%22 y2=%221%22%3E%3Cstop offset=%220%22 stop-color=%22%232f6fd6%22/%3E%3Cstop offset=%22.55%22 stop-color=%22%237fb4f0%22/%3E%3Cstop offset=%221%22 stop-color=%22%23c9e3ff%22/%3E%3C/linearGradient%3E%3ClinearGradient id=%22h%22 x1=%220%22 y1=%220%22 x2=%220%22 y2=%221%22%3E%3Cstop offset=%220%22 stop-color=%22%237cc84a%22/%3E%3Cstop offset=%22.5%22 stop-color=%22%234f9a2c%22/%3E%3Cstop offset=%221%22 stop-color=%22%232f6b18%22/%3E%3C/linearGradient%3E%3ClinearGradient id=%22h2%22 x1=%220%22 y1=%220%22 x2=%220%22 y2=%221%22%3E%3Cstop offset=%220%22 stop-color=%22%235aa83a%22/%3E%3Cstop offset=%221%22 stop-color=%22%232a5e15%22/%3E%3C/linearGradient%3E%3Cfilter id=%22b%22%3E%3CfeGaussianBlur stdDeviation=%2218%22/%3E%3C/filter%3E%3C/defs%3E%3Crect width=%221600%22 height=%221000%22 fill=%22url%28%23s%29%22/%3E%3Cg fill=%22%23fff%22 opacity=%22.85%22 filter=%22url%28%23b%29%22%3E%3Cellipse cx=%22300%22 cy=%22230%22 rx=%22190%22 ry=%2246%22/%3E%3Cellipse cx=%22420%22 cy=%22205%22 rx=%22120%22 ry=%2240%22/%3E%3Cellipse cx=%221150%22 cy=%22170%22 rx=%22230%22 ry=%2250%22/%3E%3Cellipse cx=%221290%22 cy=%22150%22 rx=%22110%22 ry=%2238%22/%3E%3Cellipse cx=%22760%22 cy=%22320%22 rx=%22160%22 ry=%2230%22/%3E%3C/g%3E%3Cpath d=%22M0 760 C260 690 520 640 820 660 S1360 720 1600 690 V1000 H0Z%22 fill=%22url%28%23h2%29%22/%3E%3Cpath d=%22M0 820 C300 620 700 560 1000 600 C1250 632 1450 700 1600 740 V1000 H0Z%22 fill=%22url%28%23h%29%22/%3E%3C/svg%3E") center bottom / cover no-repeat; }
+  {%- elsif wall == 'dusk' %}
+  .r98-wall { background: #6b3a8e url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 1600 1000%22 preserveAspectRatio=%22xMidYMax slice%22%3E%3Cdefs%3E%3ClinearGradient id=%22s%22 x1=%220%22 y1=%220%22 x2=%220%22 y2=%221%22%3E%3Cstop offset=%220%22 stop-color=%22%231b1446%22/%3E%3Cstop offset=%22.5%22 stop-color=%22%236b3a8e%22/%3E%3Cstop offset=%22.85%22 stop-color=%22%23f08a5d%22/%3E%3Cstop offset=%221%22 stop-color=%22%23ffc48a%22/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width=%221600%22 height=%221000%22 fill=%22url%28%23s%29%22/%3E%3Ccircle cx=%221180%22 cy=%22760%22 r=%22120%22 fill=%22%23ffd58a%22 opacity=%22.9%22/%3E%3Cpath d=%22M0 800 L180 700 L330 780 L520 640 L720 790 L900 700 L1100 800 L1300 690 L1600 820 V1000 H0Z%22 fill=%22%232a1a4a%22/%3E%3Cpath d=%22M0 880 C400 820 800 860 1200 830 S1500 860 1600 850 V1000 H0Z%22 fill=%22%23150c2b%22/%3E%3C/svg%3E") center bottom / cover no-repeat; }
+  {%- elsif wall == 'dots' %}
+  #shopify-section-{{ sid }} .r98-wall { background-color: {{ wall_color }}; background-image: radial-gradient(rgba(255,255,255,.12) 1px, transparent 1.2px); background-size: 6px 6px; }
+  {%- endif %}
+  {%- if st.skin %}
+  /* The theme's own sections, each in a window. */
+  main#MainContent { padding: 8px 10px 0; }
+  main#MainContent > .shopify-section:not([class*="retro-"]) {
+    position: relative; isolation: isolate; width: auto; max-width: 1180px; margin: 0 auto 26px; padding: 31px 4px 4px; background: #c0c0c0;
+    box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #dfdfdf, inset -2px -2px #808080, inset 2px 2px #fff, 6px 6px 0 rgba(0,0,0,.18);
+    --r98-t: "{{ r98_title }}";
+  }
+  main#MainContent > .shopify-section:not([class*="retro-"])::before {
+    content: var(--r98-t); position: absolute; z-index: 2; left: 3px; right: 3px; top: 3px; height: 26px; padding: 0 84px 0 27px;
+    background: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22 width=%2216%22 height=%2216%22 shape-rendering=%22crispEdges%22%3E%3Cpath fill=%22%23000000%22 d=%22M2 1h10v1H2zM2 2h1v1H2zM11 2h2v1H11zM2 3h1v1H2zM4 3h5v1H4zM11 3h1v1H11zM13 3h1v1H13zM2 4h1v1H2zM11 4h4v1H11zM2 5h1v1H2zM4 5h7v1H4zM14 5h1v1H14zM2 6h1v1H2zM14 6h1v1H14zM2 7h1v1H2zM4 7h8v1H4zM14 7h1v1H14zM2 8h1v1H2zM14 8h1v1H14zM2 9h1v1H2zM4 9h6v1H4zM14 9h1v1H14zM2 10h1v1H2zM14 10h1v1H14zM2 11h1v1H2zM4 11h8v1H4zM14 11h1v1H14zM2 12h1v1H2zM14 12h1v1H14zM2 13h13v1H2z%22/%3E%3Cpath fill=%22%23ffffff%22 d=%22M3 2h8v1H3zM3 3h1v1H3zM9 3h2v1H9zM12 3h1v1H12zM3 4h8v1H3zM3 5h1v1H3zM11 5h3v1H11zM3 6h11v1H3zM3 7h1v1H3zM12 7h2v1H12zM3 8h11v1H3zM3 9h1v1H3zM10 9h4v1H10zM3 10h11v1H3zM3 11h1v1H3zM12 11h2v1H12zM3 12h11v1H3z%22/%3E%3Cpath fill=%22%23808080%22 d=%22M15 12h1v1H15zM15 13h1v1H15zM3 14h13v1H3z%22/%3E%3C/svg%3E") 6px 50% / 16px 16px no-repeat, linear-gradient(90deg, #000080, #1084d0);
+    color: #fff; font: 600 15px/26px 'Pixelify Sans', ui-monospace, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  main#MainContent > .shopify-section:not([class*="retro-"])::after {
+    content: ""; position: absolute; z-index: 3; top: 6px; right: 6px; width: 70px; height: 20px; background: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2270%22 height=%2220%22 shape-rendering=%22crispEdges%22%3E%3Cg transform=%22translate%280,0%29%22%3E%3Crect width=%2222%22 height=%2220%22 fill=%22%23c0c0c0%22/%3E%3Crect width=%2222%22 height=%221%22 fill=%22%23fff%22/%3E%3Crect width=%221%22 height=%2220%22 fill=%22%23fff%22/%3E%3Crect x=%2221%22 width=%221%22 height=%2220%22 fill=%22%230a0a0a%22/%3E%3Crect y=%2219%22 width=%2222%22 height=%221%22 fill=%22%230a0a0a%22/%3E%3Crect x=%2220%22 y=%221%22 width=%221%22 height=%2218%22 fill=%22%23808080%22/%3E%3Crect x=%221%22 y=%2218%22 width=%2220%22 height=%221%22 fill=%22%23808080%22/%3E%3Crect x=%227%22 y=%2213%22 width=%226%22 height=%222%22 fill=%22%23000%22/%3E%3C/g%3E%3Cg transform=%22translate%2824,0%29%22%3E%3Crect width=%2222%22 height=%2220%22 fill=%22%23c0c0c0%22/%3E%3Crect width=%2222%22 height=%221%22 fill=%22%23fff%22/%3E%3Crect width=%221%22 height=%2220%22 fill=%22%23fff%22/%3E%3Crect x=%2221%22 width=%221%22 height=%2220%22 fill=%22%230a0a0a%22/%3E%3Crect y=%2219%22 width=%2222%22 height=%221%22 fill=%22%230a0a0a%22/%3E%3Crect x=%2220%22 y=%221%22 width=%221%22 height=%2218%22 fill=%22%23808080%22/%3E%3Crect x=%221%22 y=%2218%22 width=%2220%22 height=%221%22 fill=%22%23808080%22/%3E%3Crect x=%226%22 y=%225%22 width=%2210%22 height=%229%22 fill=%22none%22 stroke=%22%23000%22/%3E%3Crect x=%226%22 y=%225%22 width=%2210%22 height=%222%22 fill=%22%23000%22/%3E%3C/g%3E%3Cg transform=%22translate%2848,0%29%22%3E%3Crect width=%2222%22 height=%2220%22 fill=%22%23c0c0c0%22/%3E%3Crect width=%2222%22 height=%221%22 fill=%22%23fff%22/%3E%3Crect width=%221%22 height=%2220%22 fill=%22%23fff%22/%3E%3Crect x=%2221%22 width=%221%22 height=%2220%22 fill=%22%230a0a0a%22/%3E%3Crect y=%2219%22 width=%2222%22 height=%221%22 fill=%22%230a0a0a%22/%3E%3Crect x=%2220%22 y=%221%22 width=%221%22 height=%2218%22 fill=%22%23808080%22/%3E%3Crect x=%221%22 y=%2218%22 width=%2220%22 height=%221%22 fill=%22%23808080%22/%3E%3Cpath d=%22M7 5h2v1h1v1h2V6h1V5h2v2h-1v1h-1v2h1v1h1v2h-2v-1h-1v-1h-2v1H9v1H7v-2h1v-1h1V8H8V7H7z%22 fill=%22%23000%22/%3E%3C/g%3E%3C/svg%3E") no-repeat;
+  }
+  main#MainContent > .shopify-section:not([class*="retro-"]) > * { background-color: var(--color-background, #fff); }
+  main#MainContent > [data-section-type="related-products"], main#MainContent > [data-section-type="products-carousel"], main#MainContent > [data-section-type="recently-viewed"] { --r98-t: "{{ st.related_title | default: 'You may also like' | replace: '"', "'" }}"; }
+  main#MainContent > [data-section-type="main-cart-items"] { --r98-t: "Cart"; }
+  main#MainContent > [data-section-type="main-search"] { --r98-t: "Search"; }
+  main#MainContent > [data-section-type="page-404"] { --r98-t: "Error"; }
+  main#MainContent > [data-section-type="main-collection-product"] { --r98-t: "{{ r98_title }}"; }
+  main#MainContent > [data-section-type="contactformsimple2"], main#MainContent > [data-section-type="page-contact"], main#MainContent > [data-section-type="contact-form-simple"] { --r98-t: "New message"; }
+  main#MainContent > [data-section-type="blog-posts"] { --r98-t: "More from the journal"; }
+  /* A heading section and the section under it are one window: the title bar on the first, one frame round both. */
+  main#MainContent > :is([data-section-type="main-collection-heading"], [data-section-type="page-heading"]):has(+ .shopify-section:not([class*="retro-"])) {
+    margin-bottom: 0; padding-bottom: 0; box-shadow: inset -1px 0 #0a0a0a, inset 1px 1px #dfdfdf, inset -2px 0 #808080, inset 2px 2px #fff, 6px 0 0 rgba(0,0,0,.18);
+  }
+  main#MainContent > :is([data-section-type="main-collection-heading"], [data-section-type="page-heading"]) + .shopify-section:not([class*="retro-"]) {
+    margin-top: 0; padding-top: 0; box-shadow: inset -1px -1px #0a0a0a, inset 1px 0 #dfdfdf, inset -2px -2px #808080, inset 2px 0 #fff, 6px 6px 0 rgba(0,0,0,.18);
+  }
+  main#MainContent > :is([data-section-type="main-collection-heading"], [data-section-type="page-heading"]) + .shopify-section:not([class*="retro-"]) > * { margin-top: 0 !important; }
+  main#MainContent > :is([data-section-type="main-collection-heading"], [data-section-type="page-heading"]) + .shopify-section:not([class*="retro-"])::before,
+  main#MainContent > :is([data-section-type="main-collection-heading"], [data-section-type="page-heading"]) + .shopify-section:not([class*="retro-"])::after { display: none; }
+  @media (max-width: 749px) {
+    main#MainContent { padding: 6px 6px 0; }
+    main#MainContent > .shopify-section:not([class*="retro-"]) { margin-bottom: 16px; padding-top: 30px; box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #dfdfdf, inset -2px -2px #808080, inset 2px 2px #fff, 4px 4px 0 rgba(0,0,0,.18); }
+  }
+  /* Buttons, fields and choices across the theme, in the same grey. */
+  main#MainContent .btn, main#MainContent .button, main#MainContent button.btn-primary, main#MainContent .btn-primary, main#MainContent .btn-secondary, main#MainContent .shopify-payment-button__button, main#MainContent [type="submit"]:not(.r98-btn):not(.r98-ctl) {
+    border-radius: 0 !important; font-family: 'Pixelify Sans', ui-monospace, monospace !important; letter-spacing: 0 !important; text-transform: none !important;
+  }
+  main#MainContent :is(h1, h2, h3, .h1, .h2, .h3, .product__title, .heading-style) { font-family: 'Pixelify Sans', ui-monospace, monospace !important; letter-spacing: 0 !important; }
+  /* The theme's buttons take their paint from --mb-* tokens (theme-button-contract.css): given here, they are grey and bevelled. */
+  main#MainContent :is(.btn, .btn-primary, .btn-secondary, .btn-outline, .product-form__submit, .shopify-payment-button__button, [data-theme-button], [data-sl-button]):not(.r98-btn):not(.r98-ctl) {
+    --mb-bg: #c0c0c0; --mb-rest: #c0c0c0; --mb-ink: #000; --mb-line: transparent; --mb-text: #000; --mb-border: transparent; --mb-border-width: 0px; --mb-radius: 0px; --mb-hover-bg: #cacaca; --mb-hover-text: #000; --mb-hover-border: transparent;
+    --mb-font: 'Pixelify Sans', ui-monospace, monospace; --btn-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #fff, inset -2px -2px #808080, inset 2px 2px #dfdfdf;
+    background: #c0c0c0; color: #000; border: 0; border-radius: 0; box-shadow: var(--btn-shadow); min-height: 44px;
+  }
+  main#MainContent :is(.btn, .btn-primary, .btn-secondary, .btn-outline, .product-form__submit, .shopify-payment-button__button, [data-theme-button], [data-sl-button]):not(.r98-btn):not(.r98-ctl):active {
+    --btn-shadow: inset 1px 1px #0a0a0a, inset -1px -1px #fff, inset 2px 2px #808080, inset -2px -2px #dfdfdf;
+  }
+  main#MainContent :is(.product-form__submit, .btn-checkout, [name="checkout"]):not(.shopify-payment-button__button) { outline: 1px solid #000; outline-offset: 0; }
+  main#MainContent .quantity { border: 0 !important; border-radius: 0 !important; background: #fff !important; box-shadow: inset -1px -1px #fff, inset 1px 1px #808080, inset -2px -2px #dfdfdf, inset 2px 2px #0a0a0a; }
+  main#MainContent .quantity__button { background: #c0c0c0 !important; border-radius: 0 !important; margin: 2px; box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #fff, inset -2px -2px #808080, inset 2px 2px #dfdfdf; }
+  main#MainContent .product__item-option { border-radius: 0 !important; border: 0 !important; background: #c0c0c0 !important; color: #000 !important; font-family: 'Pixelify Sans', ui-monospace, monospace;
+    box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #fff, inset -2px -2px #808080, inset 2px 2px #dfdfdf !important; }
+  main#MainContent input:checked + .product__item-option { background: #000080 !important; color: #fff !important; box-shadow: inset 1px 1px #0a0a0a, inset -1px -1px #fff, inset 2px 2px #808080, inset -2px -2px #dfdfdf !important; }
+  main#MainContent .product__color-swatch { border-radius: 0 !important; }
+  main#MainContent .product__media, main#MainContent .media-gallery__image, main#MainContent .product-media { border-radius: 0 !important; }
+  main#MainContent input[type="text"], main#MainContent input[type="email"], main#MainContent input[type="search"], main#MainContent input[type="number"], main#MainContent input[type="tel"], main#MainContent textarea, main#MainContent select {
+    border-radius: 0 !important;
+  }
+  {%- endif %}
+
+  .r98-icons { position: relative; z-index: 2; display: flex; flex-wrap: wrap; gap: 4px; padding: 14px 10px 2px; margin: 0 auto; max-width: 1180px; list-style: none; }
+  .r98-icon { width: 84px; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 2px; color: #fff; text-decoration: none; text-align: center; outline: none; }
+  .r98-icon .r98-ico { width: 36px; height: 36px; }
+  .r98-icon span { padding: 1px 3px; font-family: var(--r-px); font-size: 13px; line-height: 1.2; text-shadow: 1px 1px 0 rgba(0,0,0,.55); border: 1px dotted transparent; }
+  .r98-icon:hover span, .r98-icon:focus-visible span { background: var(--r-sel); border-color: #ffff80; text-shadow: none; }
+  .r98-icon:hover .r98-ico, .r98-icon:focus-visible .r98-ico { filter: brightness(.7) sepia(1) hue-rotate(190deg) saturate(3); }
+  @media (min-width: 1400px) {
+    .r98-icons { position: absolute; left: 14px; top: 18px; flex-direction: column; padding: 0; gap: 10px; max-width: none; }
+  }
+  @media (max-width: 749px) {
+    .r98-icons { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 12px 6px 4px; gap: 6px 0; }
+    .r98-icon { width: auto; }
+  }
+
+  .r98-task { position: fixed; left: 0; right: 0; bottom: 0; z-index: 60; background: var(--r-face); padding-bottom: env(safe-area-inset-bottom, 0px); box-shadow: inset 0 1px var(--r-light), inset 0 2px var(--r-hi); font-family: var(--r-px); }
+  .r98-task__in { display: flex; align-items: center; gap: 4px; height: 44px; padding: 4px 4px 2px; }
+  .r98-start { display: inline-flex; align-items: center; gap: 6px; height: 34px; min-width: 0; padding: 0 10px 0 6px; font-weight: 700; font-size: 17px; }
+  .r98-start .r98-ico { width: 22px; height: 22px; }
+  .r98-task__sep { align-self: stretch; width: 2px; margin: 2px 2px; box-shadow: inset 1px 0 var(--r-shadow), inset -1px 0 var(--r-hi); }
+  .r98-task__wins { flex: 1; min-width: 0; display: flex; gap: 4px; overflow: hidden; }
+  .r98-tw { cursor: default; justify-content: flex-start; min-width: 0; max-width: 200px; flex: 0 1 200px; height: 34px; padding: 0 8px; font-size: 14px; }
+  button.r98-tw { cursor: pointer; }
+  .r98-tw span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .r98-tw .r98-ico { width: 16px; height: 16px; flex: none; }
+  .r98-tw.is-current { background-image: repeating-conic-gradient(#c0c0c0 0 25%, #fff 0 50%); background-size: 2px 2px; font-weight: 700; }
+  .r98-tray { display: flex; align-items: center; gap: 2px; height: 34px; padding: 0 6px 0 4px; flex: none; }
+  .r98-tray a { position: relative; display: grid; place-items: center; width: 30px; height: 30px; color: #000; }
+  .r98-tray a:focus-visible { outline: 1px dotted #000; }
+  .r98-tray .r98-ico { width: 20px; height: 20px; }
+  .r98-count { position: absolute; top: 0; right: -2px; min-width: 16px; height: 15px; padding: 0 3px; background: #e0201b; color: #fff; font-size: 11px; line-height: 15px; text-align: center; box-shadow: 1px 1px 0 #000; }
+  .r98-count[hidden] { display: none; }
+  .r98-clock { min-width: 62px; padding: 0 4px 0 6px; font-size: 14px; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .r98-menu { position: fixed; left: 2px; bottom: calc(44px + env(safe-area-inset-bottom, 0px)); z-index: 61; display: flex; width: min(300px, calc(100vw - 4px)); max-height: calc(100vh - 60px); overflow: auto;
+    transform-origin: 0 100%; transition: transform .16s steps(4), opacity .16s steps(4); }
+  .r98-menu[hidden] { display: none; }
+  .r98-menu.is-opening { transform: translateY(12px); opacity: 0; }
+  .r98-menu__side { flex: 0 0 30px; display: flex; align-items: flex-end; justify-content: center; padding: 8px 0; background: linear-gradient(0deg, var(--r-t1), var(--r-t2)); }
+  .r98-menu__side span { writing-mode: vertical-rl; transform: rotate(180deg); color: #fff; font-family: var(--r-px); font-weight: 700; font-size: 20px; letter-spacing: .02em; white-space: nowrap; }
+  .r98-menu__list { flex: 1; min-width: 0; margin: 0; padding: 2px 0; list-style: none; }
+  .r98-menu__list a { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 4px 12px 4px 8px; color: #000; text-decoration: none; font-family: var(--r-px); font-size: 16px; }
+  .r98-menu__list a:hover, .r98-menu__list a:focus-visible { background: var(--r-sel); color: #fff; outline: none; }
+  .r98-menu__list .r98-ico { width: 28px; height: 28px; flex: none; }
+  .r98-menu__rule { height: 2px; margin: 3px 4px; box-shadow: inset 0 1px var(--r-shadow), inset 0 -1px var(--r-hi); }
+  @media (max-width: 749px) {
+    .r98-task__wins { display: none; }
+    .r98-task__sep { display: none; }
+    .r98-tray { margin-left: auto; }
+    .r98-tray .r98-tray__acc { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { .r98-menu { transition: none; } }
+</style>
+<div class="r98-wall" aria-hidden="true"></div>
+{%- if show_icons and section.blocks.size > 0 -%}
+  <div data-own-font class="r98" data-r98-desk>
+    <ul class="r98-icons" role="list">
+      {%- for block in section.blocks -%}
+        <li {{ block.shopify_attributes }}><a class="r98-icon" href="{{ block.settings.link | default: '/' }}">{%- case block.settings.icon -%}{%- when 'tee' -%}<svg class="r98-ico" viewBox="0 0 16 16" width="36" height="36" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path fill="#000000" d="M4 1h3v1H4zM9 1h3v1H9zM2 2h2v1H2zM7 2h2v1H7zM12 2h2v1H12zM1 3h1v1H1zM14 3h1v1H14zM0 4h1v1H0zM15 4h1v1H15zM0 5h1v1H0zM15 5h1v1H15zM1 6h3v1H1zM12 6h3v1H12zM3 7h1v1H3zM12 7h1v1H12zM3 8h1v1H3zM12 8h1v1H12zM3 9h1v1H3zM12 9h1v1H12zM3 10h1v1H3zM12 10h1v1H12zM3 11h1v1H3zM12 11h1v1H12zM3 12h1v1H3zM12 12h1v1H12zM3 13h1v1H3zM12 13h1v1H12zM3 14h10v1H3z"/><path fill="#ffffff" d="M4 2h3v1H4zM9 2h3v1H9zM2 3h12v1H2zM1 4h14v1H1zM1 5h2v1H1zM4 5h8v1H4zM13 5h2v1H13zM4 6h8v1H4zM4 7h8v1H4zM4 8h2v1H4zM10 8h2v1H10zM4 9h2v1H4zM10 9h2v1H10zM4 10h2v1H4zM10 10h2v1H10zM4 11h8v1H4zM4 12h8v1H4zM5 13h6v1H5z"/><path fill="#e8e8e8" d="M3 5h1v1H3zM12 5h1v1H12zM4 13h1v1H4zM11 13h1v1H11z"/><path fill="#000080" d="M6 8h4v1H6zM6 9h1v1H6zM6 10h4v1H6z"/><path fill="#1084d0" d="M7 9h3v1H7z"/><path fill="#808080" d="M13 13h1v1H13zM13 14h1v1H13zM4 15h10v1H4z"/></svg>{%- when 'hoodie' -%}<svg class="r98-ico" viewBox="0 0 16 16" width="36" height="36" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path fill="#000000" d="M5 0h6v1H5zM4 1h1v1H4zM11 1h1v1H11zM3 2h1v1H3zM6 2h4v1H6zM12 2h1v1H12zM2 3h2v1H2zM6 3h1v1H6zM9 3h1v1H9zM12 3h2v1H12zM1 4h1v1H1zM6 4h4v1H6zM14 4h1v1H14zM0 5h1v1H0zM15 5h1v1H15zM0 6h1v1H0zM15 6h1v1H15zM0 7h1v1H0zM3 7h1v1H3zM12 7h1v1H12zM15 7h1v1H15zM0 8h1v1H0zM3 8h1v1H3zM12 8h1v1H12zM15 8h1v1H15zM0 9h1v1H0zM3 9h1v1H3zM5 9h1v1H5zM10 9h1v1H10zM12 9h1v1H12zM15 9h1v1H15zM0 10h1v1H0zM3 10h1v1H3zM5 10h1v1H5zM10 10h1v1H10zM12 10h1v1H12zM15 10h1v1H15zM0 11h1v1H0zM3 11h1v1H3zM5 11h1v1H5zM10 11h1v1H10zM12 11h1v1H12zM15 11h1v1H15zM1 12h2v1H1zM5 12h1v1H5zM10 12h1v1H10zM13 12h2v1H13zM5 13h1v1H5zM10 13h1v1H10zM5 14h6v1H5z"/><path fill="#2b2b2b" d="M5 1h6v1H5zM4 2h2v1H4zM10 2h2v1H10zM4 3h2v1H4zM10 3h2v1H10zM2 4h4v1H2zM10 4h4v1H10zM1 5h5v1H1zM7 5h2v1H7zM10 5h5v1H10zM1 6h5v1H1zM7 6h2v1H7zM10 6h5v1H10zM1 7h2v1H1zM4 7h8v1H4zM13 7h2v1H13zM1 8h2v1H1zM4 8h8v1H4zM13 8h2v1H13zM1 9h2v1H1zM6 9h4v1H6zM13 9h2v1H13zM1 10h2v1H1zM6 10h4v1H6zM13 10h2v1H13zM6 12h4v1H6z"/><path fill="#808080" d="M7 3h2v1H7zM1 11h2v1H1zM6 11h4v1H6zM13 11h2v1H13zM6 13h4v1H6z"/><path fill="#ffffff" d="M6 5h1v1H6zM9 5h1v1H9zM6 6h1v1H6zM9 6h1v1H9z"/></svg>{%- when 'cap' -%}<svg class="r98-ico" viewBox="0 0 16 16" width="36" height="36" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path fill="#000000" d="M6 3h4v1H6zM4 4h2v1H4zM10 4h2v1H10zM3 5h1v1H3zM12 5h1v1H12zM2 6h1v1H2zM13 6h1v1H13zM2 7h1v1H2zM13 7h1v1H13zM1 8h1v1H1zM14 8h1v1H14zM1 9h1v1H1zM14 9h1v1H14zM1 10h15v1H1zM2 11h1v1H2zM15 11h1v1H15zM3 12h12v1H3z"/><path fill="#2b2b2b" d="M6 4h4v1H6zM4 5h8v1H4zM3 6h3v1H3zM8 6h5v1H8zM3 7h3v1H3zM8 7h5v1H8zM2 8h12v1H2zM2 9h12v1H2zM3 11h12v1H3z"/><path fill="#ffffff" d="M6 6h2v1H6zM6 7h2v1H6z"/></svg>{%- when 'sticker' -%}<svg class="r98-ico" viewBox="0 0 16 16" width="36" height="36" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path fill="#000000" d="M3 1h9v1H3zM2 2h1v1H2zM12 2h1v1H12zM1 3h1v1H1zM13 3h1v1H13zM1 4h1v1H1zM4 4h1v1H4zM9 4h1v1H9zM13 4h1v1H13zM1 5h1v1H1zM4 5h1v1H4zM9 5h1v1H9zM13 5h1v1H13zM1 6h1v1H1zM13 6h1v1H13zM1 7h1v1H1zM4 7h1v1H4zM9 7h1v1H9zM13 7h1v1H13zM1 8h1v1H1zM5 8h4v1H5zM12 8h1v1H12zM1 9h1v1H1zM12 9h1v1H12zM2 10h1v1H2zM11 10h1v1H11zM14 10h1v1H14zM3 11h8v1H3zM14 11h1v1H14zM11 12h1v1H11zM13 12h1v1H13zM12 13h1v1H12z"/><path fill="#ffd84a" d="M3 2h9v1H3zM2 3h11v1H2zM2 4h2v1H2zM5 4h4v1H5zM10 4h3v1H10zM2 5h2v1H2zM5 5h4v1H5zM10 5h3v1H10zM2 6h11v1H2zM2 7h2v1H2zM5 7h4v1H5zM10 7h3v1H10zM2 8h3v1H2zM9 8h3v1H9zM2 9h10v1H2zM3 10h8v1H3z"/><path fill="#ffffff" d="M13 9h1v1H13zM12 10h2v1H12zM11 11h3v1H11zM12 12h1v1H12z"/></svg>{%- when 'cart' -%}<svg class="r98-ico" viewBox="0 0 16 16" width="36" height="36" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path fill="#000000" d="M0 1h3v1H0zM1 2h2v1H1zM2 3h13v1H2zM2 4h1v1H2zM13 4h1v1H13zM2 5h1v1H2zM4 5h1v1H4zM6 5h1v1H6zM8 5h1v1H8zM10 5h1v1H10zM13 5h1v1H13zM3 6h1v1H3zM12 6h1v1H12zM3 7h2v1H3zM6 7h1v1H6zM8 7h1v1H8zM10 7h3v1H10zM4 8h1v1H4zM11 8h1v1H11zM4 9h8v1H4zM5 10h1v1H5zM10 10h1v1H10zM4 11h10v1H4zM4 13h2v1H4zM10 13h2v1H10zM3 14h1v1H3zM6 14h1v1H6zM9 14h1v1H9zM12 14h1v1H12zM4 15h2v1H4zM10 15h2v1H10z"/><path fill="#ffffff" d="M3 4h10v1H3zM3 5h1v1H3zM5 5h1v1H5zM7 5h1v1H7zM9 5h1v1H9zM11 5h2v1H11zM4 6h8v1H4zM5 7h1v1H5zM7 7h1v1H7zM9 7h1v1H9zM5 8h6v1H5z"/><path fill="#808080" d="M4 14h2v1H4zM10 14h2v1H10z"/></svg>{%- when 'mail' -%}<svg class="r98-ico" viewBox="0 0 16 16" width="36" height="36" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path fill="#000000" d="M1 3h14v1H1zM1 4h1v1H1zM3 4h1v1H3zM12 4h1v1H12zM14 4h1v1H14zM1 5h1v1H1zM4 5h1v1H4zM11 5h1v1H11zM14 5h1v1H14zM1 6h1v1H1zM5 6h1v1H5zM10 6h1v1H10zM14 6h1v1H14zM1 7h1v1H1zM6 7h1v1H6zM9 7h1v1H9zM14 7h1v1H14zM1 8h1v1H1zM7 8h2v1H7zM14 8h1v1H14zM1 9h1v1H1zM14 9h1v1H14zM1 10h1v1H1zM14 10h1v1H14zM1 11h1v1H1zM14 11h1v1H14zM1 12h14v1H1z"/><path fill="#ffffff" d="M2 4h1v1H2zM4 4h8v1H4zM13 4h1v1H13zM2 5h2v1H2zM5 5h6v1H5zM12 5h2v1H12zM2 6h3v1H2zM6 6h4v1H6zM11 6h3v1H11zM2 7h4v1H2zM7 7h2v1H7zM10 7h4v1H10zM2 8h5v1H2zM9 8h5v1H9zM2 9h12v1H2zM2 10h12v1H2zM2 11h12v1H2z"/><path fill="#808080" d="M15 11h1v1H15zM15 12h1v1H15zM2 13h14v1H2z"/></svg>{%- when 'note' -%}<svg class="r98-ico" viewBox="0 0 16 16" width="36" height="36" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path fill="#000000" d="M2 1h10v1H2zM2 2h1v1H2zM11 2h2v1H11zM2 3h1v1H2zM4 3h5v1H4zM11 3h1v1H11zM13 3h1v1H13zM2 4h1v1H2zM11 4h4v1H11zM2 5h1v1H2zM4 5h7v1H4zM14 5h1v1H14zM2 6h1v1H2zM14 6h1v1H14zM2 7h1v1H2zM4 7h8v1H4zM14 7h1v1H14zM2 8h1v1H2zM14 8h1v1H14zM2 9h1v1H2zM4 9h6v1H4zM14 9h1v1H14zM2 10h1v1H2zM14 10h1v1H14zM2 11h1v1H2zM4 11h8v1H4zM14 11h1v1H14zM2 12h1v1H2zM14 12h1v1H14zM2 13h13v1H2z"/><path fill="#ffffff" d="M3 2h8v1H3zM3 3h1v1H3zM9 3h2v1H9zM12 3h1v1H12zM3 4h8v1H3zM3 5h1v1H3zM11 5h3v1H11zM3 6h11v1H3zM3 7h1v1H3zM12 7h2v1H12zM3 8h11v1H3zM3 9h1v1H3zM10 9h4v1H10zM3 10h11v1H3zM3 11h1v1H3zM12 11h2v1H12zM3 12h11v1H3z"/><path fill="#808080" d="M15 12h1v1H15zM15 13h1v1H15zM3 14h13v1H3z"/></svg>{%- when 'help' -%}<svg class="r98-ico" viewBox="0 0 16 16" width="36" height="36" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path fill="#000000" d="M5 1h6v1H5zM3 2h2v1H3zM11 2h2v1H11zM2 3h1v1H2zM13 3h1v1H13zM1 4h1v1H1zM13 4h1v1H13zM1 5h1v1H1zM14 5h1v1H14zM0 6h1v1H0zM15 6h1v1H15zM0 7h1v1H0zM15 7h1v1H15zM0 8h1v1H0zM15 8h1v1H15zM0 9h1v1H0zM1 10h1v1H1zM14 10h1v1H14zM1 11h1v1H1zM14 11h1v1H14zM2 12h1v1H2zM13 12h1v1H13zM3 13h2v1H3zM11 13h2v1H11zM5 14h6v1H5z"/><path fill="#1084d0" d="M5 2h6v1H5zM3 3h10v1H3zM2 4h4v1H2zM10 4h3v1H10zM2 5h3v1H2zM7 5h2v1H7zM11 5h3v1H11zM1 6h8v1H1zM11 6h4v1H11zM1 7h7v1H1zM10 7h5v1H10zM1 8h6v1H1zM9 8h6v1H9zM1 9h15v1H1zM2 10h5v1H2zM9 10h5v1H9zM2 11h5v1H2zM9 11h5v1H9zM3 12h10v1H3zM5 13h6v1H5z"/><path fill="#ffffff" d="M6 4h4v1H6zM5 5h2v1H5zM9 5h2v1H9zM9 6h2v1H9zM8 7h2v1H8zM7 8h2v1H7zM7 10h2v1H7zM7 11h2v1H7z"/></svg>{%- when 'search' -%}<svg class="r98-ico" viewBox="0 0 16 16" width="36" height="36" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path fill="#000000" d="M4 1h4v1H4zM3 2h1v1H3zM9 2h1v1H9zM2 3h1v1H2zM10 3h1v1H10zM1 4h1v1H1zM12 4h1v1H12zM1 5h1v1H1zM11 5h1v1H11zM1 6h1v1H1zM11 6h1v1H11zM1 7h1v1H1zM11 7h1v1H11zM2 8h1v1H2zM10 8h1v1H10zM3 9h1v1H3zM9 9h2v1H9zM4 10h5v1H4zM10 10h2v1H10zM9 11h1v1H9zM12 11h1v1H12zM10 12h1v1H10zM13 12h1v1H13zM11 13h1v1H11zM14 13h1v1H14zM12 14h3v1H12z"/><path fill="#9fd6ff" d="M4 2h5v1H4zM3 3h2v1H3zM7 3h3v1H7zM2 4h2v1H2zM5 4h7v1H5zM2 5h1v1H2zM4 5h7v1H4zM2 6h9v1H2zM2 7h9v1H2zM3 8h7v1H3zM4 9h5v1H4z"/><path fill="#ffffff" d="M5 3h2v1H5zM4 4h1v1H4zM3 5h1v1H3z"/><path fill="#808080" d="M9 10h1v1H9zM10 11h2v1H10zM11 12h2v1H11zM12 13h2v1H12z"/></svg>{%- when 'user' -%}<svg class="r98-ico" viewBox="0 0 16 16" width="36" height="36" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path fill="#000000" d="M6 1h4v1H6zM5 2h1v1H5zM10 2h1v1H10zM4 3h1v1H4zM11 3h1v1H11zM4 4h1v1H4zM11 4h1v1H11zM4 5h1v1H4zM11 5h1v1H11zM5 6h1v1H5zM10 6h1v1H10zM6 7h4v1H6zM4 8h2v1H4zM10 8h2v1H10zM3 9h1v1H3zM12 9h1v1H12zM2 10h1v1H2zM13 10h1v1H13zM2 11h1v1H2zM13 11h1v1H13zM2 12h1v1H2zM13 12h1v1H13zM2 13h12v1H2z"/><path fill="#ffffff" d="M6 2h4v1H6zM5 3h6v1H5zM5 4h6v1H5zM5 5h6v1H5zM6 6h4v1H6z"/><path fill="#1084d0" d="M6 8h4v1H6zM4 9h8v1H4zM3 10h10v1H3zM3 11h10v1H3zM3 12h10v1H3z"/></svg>{%- when 'disk' -%}<svg class="r98-ico" viewBox="0 0 16 16" width="36" height="36" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path fill="#000000" d="M1 1h13v1H1zM1 2h1v1H1zM4 2h1v1H4zM11 2h1v1H11zM14 2h1v1H14zM1 3h1v1H1zM4 3h1v1H4zM11 3h1v1H11zM15 3h1v1H15zM1 4h1v1H1zM4 4h1v1H4zM8 4h1v1H8zM11 4h1v1H11zM15 4h1v1H15zM1 5h1v1H1zM4 5h1v1H4zM8 5h1v1H8zM11 5h1v1H11zM15 5h1v1H15zM1 6h1v1H1zM4 6h8v1H4zM15 6h1v1H15zM1 7h1v1H1zM15 7h1v1H15zM1 8h1v1H1zM15 8h1v1H15zM1 9h1v1H1zM5 9h7v1H5zM15 9h1v1H15zM1 10h1v1H1zM15 10h1v1H15zM1 11h1v1H1zM5 11h6v1H5zM15 11h1v1H15zM1 12h1v1H1zM15 12h1v1H15zM1 13h15v1H1z"/><path fill="#000080" d="M2 2h2v1H2zM12 2h2v1H12zM2 3h2v1H2zM12 3h3v1H12zM2 4h2v1H2zM12 4h3v1H12zM2 5h2v1H2zM12 5h3v1H12zM2 6h2v1H2zM12 6h3v1H12zM2 7h13v1H2zM2 8h2v1H2zM13 8h2v1H13zM2 9h2v1H2zM13 9h2v1H13zM2 10h2v1H2zM13 10h2v1H13zM2 11h2v1H2zM13 11h2v1H13zM2 12h2v1H2zM13 12h2v1H13z"/><path fill="#ffffff" d="M5 2h6v1H5zM5 3h6v1H5zM5 4h3v1H5zM9 4h2v1H9zM5 5h3v1H5zM9 5h2v1H9zM4 8h9v1H4zM4 9h1v1H4zM12 9h1v1H12zM4 10h9v1H4zM4 11h1v1H4zM11 11h2v1H11zM4 12h9v1H4z"/></svg>{%- when 'smile' -%}<svg class="r98-ico" viewBox="0 0 16 16" width="36" height="36" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path fill="#000000" d="M5 1h6v1H5zM3 2h2v1H3zM11 2h2v1H11zM2 3h1v1H2zM13 3h1v1H13zM1 4h1v1H1zM14 4h1v1H14zM1 5h1v1H1zM5 5h1v1H5zM10 5h1v1H10zM14 5h1v1H14zM0 6h1v1H0zM5 6h1v1H5zM10 6h1v1H10zM15 6h1v1H15zM0 7h1v1H0zM15 7h1v1H15zM0 8h1v1H0zM15 8h1v1H15zM0 9h1v1H0zM3 9h1v1H3zM12 9h1v1H12zM15 9h1v1H15zM1 10h1v1H1zM4 10h1v1H4zM11 10h1v1H11zM14 10h1v1H14zM1 11h1v1H1zM5 11h6v1H5zM14 11h1v1H14zM2 12h1v1H2zM13 12h1v1H13zM3 13h2v1H3zM11 13h2v1H11zM5 14h6v1H5z"/><path fill="#ffd84a" d="M5 2h6v1H5zM3 3h10v1H3zM2 4h12v1H2zM2 5h3v1H2zM6 5h4v1H6zM11 5h3v1H11zM1 6h4v1H1zM6 6h4v1H6zM11 6h4v1H11zM1 7h14v1H1zM1 8h14v1H1zM1 9h2v1H1zM4 9h8v1H4zM13 9h2v1H13zM2 10h2v1H2zM5 10h6v1H5zM12 10h2v1H12zM2 11h3v1H2zM11 11h3v1H11zM3 12h10v1H3zM5 13h6v1H5z"/></svg>{%- else -%}<svg class="r98-ico" viewBox="0 0 16 16" width="36" height="36" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path fill="#000000" d="M2 2h5v1H2zM1 3h1v1H1zM7 3h1v1H7zM1 4h1v1H1zM8 4h7v1H8zM1 5h1v1H1zM14 5h1v1H14zM1 6h1v1H1zM14 6h1v1H14zM1 7h1v1H1zM14 7h1v1H14zM1 8h1v1H1zM14 8h1v1H14zM1 9h1v1H1zM14 9h1v1H14zM1 10h1v1H1zM14 10h1v1H14zM1 11h1v1H1zM14 11h1v1H14zM1 12h1v1H1zM14 12h1v1H14zM1 13h14v1H1z"/><path fill="#ffd84a" d="M2 3h5v1H2zM2 4h6v1H2zM3 6h11v1H3zM3 7h11v1H3zM3 8h11v1H3zM3 9h11v1H3zM3 10h11v1H3zM3 11h11v1H3z"/><path fill="#ffffff" d="M2 5h12v1H2zM2 6h1v1H2zM2 7h1v1H2zM2 8h1v1H2zM2 9h1v1H2zM2 10h1v1H2zM2 11h1v1H2z"/><path fill="#808080" d="M15 5h1v1H15zM15 6h1v1H15zM15 7h1v1H15zM15 8h1v1H15zM15 9h1v1H15zM15 10h1v1H15zM15 11h1v1H15zM15 13h1v1H15zM2 14h14v1H2z"/><path fill="#c9971c" d="M2 12h12v1H2zM15 12h1v1H15z"/></svg>{%- endcase -%}<span>{{ block.settings.label | escape }}</span></a></li>
+      {%- endfor -%}
+    </ul>
+  </div>
+{%- endif -%}
+<nav data-own-font class="r98 r98-task" aria-label="{{ st.taskbar_label | default: 'Taskbar' | escape }}" data-r98-task>
+  <div class="r98-win r98-menu" id="R98Menu-{{ sid }}" hidden data-r98-menu>
+    <div class="r98-menu__side" aria-hidden="true"><span>{{ st.menu_title | default: shop.name | escape }}</span></div>
+    <ul class="r98-menu__list" role="list">
+      {%- if menu != blank -%}{%- for link in menu.links -%}<li><a href="{{ link.url }}"><svg class="r98-ico" viewBox="0 0 16 16" width="28" height="28" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path fill="#000000" d="M2 2h5v1H2zM1 3h1v1H1zM7 3h1v1H7zM1 4h1v1H1zM8 4h7v1H8zM1 5h1v1H1zM14 5h1v1H14zM1 6h1v1H1zM14 6h1v1H14zM1 7h1v1H1zM14 7h1v1H14zM1 8h1v1H1zM14 8h1v1H14zM1 9h1v1H1zM14 9h1v1H14zM1 10h1v1H1zM14 10h1v1H14zM1 11h1v1H1zM14 11h1v1H14zM1 12h1v1H1zM14 12h1v1H14zM1 13h14v1H1z"/><path fill="#ffd84a" d="M2 3h5v1H2zM2 4h6v1H2zM3 6h11v1H3zM3 7h11v1H3zM3 8h11v1H3zM3 9h11v1H3zM3 10h11v1H3zM3 11h11v1H3z"/><path fill="#ffffff" d="M2 5h12v1H2zM2 6h1v1H2zM2 7h1v1H2zM2 8h1v1H2zM2 9h1v1H2zM2 10h1v1H2zM2 11h1v1H2z"/><path fill="#808080" d="M15 5h1v1H15zM15 6h1v1H15zM15 7h1v1H15zM15 8h1v1H15zM15 9h1v1H15zM15 10h1v1H15zM15 11h1v1H15zM15 13h1v1H15zM2 14h14v1H2z"/><path fill="#c9971c" d="M2 12h12v1H2zM15 12h1v1H15z"/></svg>{{ link.title | escape }}</a></li>{%- endfor -%}{%- endif -%}
+      <li class="r98-menu__rule" aria-hidden="true"></li>
+      {%- if menu2 != blank -%}{%- for link in menu2.links -%}<li><a href="{{ link.url }}"><svg class="r98-ico" viewBox="0 0 16 16" width="28" height="28" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path fill="#000000" d="M2 1h10v1H2zM2 2h1v1H2zM11 2h2v1H11zM2 3h1v1H2zM4 3h5v1H4zM11 3h1v1H11zM13 3h1v1H13zM2 4h1v1H2zM11 4h4v1H11zM2 5h1v1H2zM4 5h7v1H4zM14 5h1v1H14zM2 6h1v1H2zM14 6h1v1H14zM2 7h1v1H2zM4 7h8v1H4zM14 7h1v1H14zM2 8h1v1H2zM14 8h1v1H14zM2 9h1v1H2zM4 9h6v1H4zM14 9h1v1H14zM2 10h1v1H2zM14 10h1v1H14zM2 11h1v1H2zM4 11h8v1H4zM14 11h1v1H14zM2 12h1v1H2zM14 12h1v1H14zM2 13h13v1H2z"/><path fill="#ffffff" d="M3 2h8v1H3zM3 3h1v1H3zM9 3h2v1H9zM12 3h1v1H12zM3 4h8v1H3zM3 5h1v1H3zM11 5h3v1H11zM3 6h11v1H3zM3 7h1v1H3zM12 7h2v1H12zM3 8h11v1H3zM3 9h1v1H3zM10 9h4v1H10zM3 10h11v1H3zM3 11h1v1H3zM12 11h2v1H12zM3 12h11v1H3z"/><path fill="#808080" d="M15 12h1v1H15zM15 13h1v1H15zM3 14h13v1H3z"/></svg>{{ link.title | escape }}</a></li>{%- endfor -%}<li class="r98-menu__rule" aria-hidden="true"></li>{%- endif -%}
+      <li><a href="{{ routes.search_url }}"><svg class="r98-ico" viewBox="0 0 16 16" width="28" height="28" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path fill="#000000" d="M4 1h4v1H4zM3 2h1v1H3zM9 2h1v1H9zM2 3h1v1H2zM10 3h1v1H10zM1 4h1v1H1zM12 4h1v1H12zM1 5h1v1H1zM11 5h1v1H11zM1 6h1v1H1zM11 6h1v1H11zM1 7h1v1H1zM11 7h1v1H11zM2 8h1v1H2zM10 8h1v1H10zM3 9h1v1H3zM9 9h2v1H9zM4 10h5v1H4zM10 10h2v1H10zM9 11h1v1H9zM12 11h1v1H12zM10 12h1v1H10zM13 12h1v1H13zM11 13h1v1H11zM14 13h1v1H14zM12 14h3v1H12z"/><path fill="#9fd6ff" d="M4 2h5v1H4zM3 3h2v1H3zM7 3h3v1H7zM2 4h2v1H2zM5 4h7v1H5zM2 5h1v1H2zM4 5h7v1H4zM2 6h9v1H2zM2 7h9v1H2zM3 8h7v1H3zM4 9h5v1H4z"/><path fill="#ffffff" d="M5 3h2v1H5zM4 4h1v1H4zM3 5h1v1H3z"/><path fill="#808080" d="M9 10h1v1H9zM10 11h2v1H10zM11 12h2v1H11zM12 13h2v1H12z"/></svg>{{ st.search_label | default: 'Search' | escape }}</a></li>
+      {%- if shop.customer_accounts_enabled -%}<li><a href="{{ routes.account_url }}"><svg class="r98-ico" viewBox="0 0 16 16" width="28" height="28" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path fill="#000000" d="M6 1h4v1H6zM5 2h1v1H5zM10 2h1v1H10zM4 3h1v1H4zM11 3h1v1H11zM4 4h1v1H4zM11 4h1v1H11zM4 5h1v1H4zM11 5h1v1H11zM5 6h1v1H5zM10 6h1v1H10zM6 7h4v1H6zM4 8h2v1H4zM10 8h2v1H10zM3 9h1v1H3zM12 9h1v1H12zM2 10h1v1H2zM13 10h1v1H13zM2 11h1v1H2zM13 11h1v1H13zM2 12h1v1H2zM13 12h1v1H13zM2 13h12v1H2z"/><path fill="#ffffff" d="M6 2h4v1H6zM5 3h6v1H5zM5 4h6v1H5zM5 5h6v1H5zM6 6h4v1H6z"/><path fill="#1084d0" d="M6 8h4v1H6zM4 9h8v1H4zM3 10h10v1H3zM3 11h10v1H3zM3 12h10v1H3z"/></svg>{{ st.account_label | default: 'Account' | escape }}</a></li>{%- endif -%}
+      <li><a href="{{ routes.cart_url }}"><svg class="r98-ico" viewBox="0 0 16 16" width="28" height="28" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path fill="#000000" d="M0 1h3v1H0zM1 2h2v1H1zM2 3h13v1H2zM2 4h1v1H2zM13 4h1v1H13zM2 5h1v1H2zM4 5h1v1H4zM6 5h1v1H6zM8 5h1v1H8zM10 5h1v1H10zM13 5h1v1H13zM3 6h1v1H3zM12 6h1v1H12zM3 7h2v1H3zM6 7h1v1H6zM8 7h1v1H8zM10 7h3v1H10zM4 8h1v1H4zM11 8h1v1H11zM4 9h8v1H4zM5 10h1v1H5zM10 10h1v1H10zM4 11h10v1H4zM4 13h2v1H4zM10 13h2v1H10zM3 14h1v1H3zM6 14h1v1H6zM9 14h1v1H9zM12 14h1v1H12zM4 15h2v1H4zM10 15h2v1H10z"/><path fill="#ffffff" d="M3 4h10v1H3zM3 5h1v1H3zM5 5h1v1H5zM7 5h1v1H7zM9 5h1v1H9zM11 5h2v1H11zM4 6h8v1H4zM5 7h1v1H5zM7 7h1v1H7zM9 7h1v1H9zM5 8h6v1H5z"/><path fill="#808080" d="M4 14h2v1H4zM10 14h2v1H10z"/></svg>{{ st.cart_label | default: 'Cart' | escape }}</a></li>
+    </ul>
+  </div>
+  <div class="r98-task__in">
+    <button class="r98-btn r98-start" type="button" aria-expanded="false" aria-controls="R98Menu-{{ sid }}" data-r98-start><svg class="r98-ico" viewBox="0 0 16 16" width="22" height="22" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path fill="#000000" d="M5 1h6v1H5zM3 2h2v1H3zM11 2h2v1H11zM2 3h1v1H2zM13 3h1v1H13zM1 4h1v1H1zM14 4h1v1H14zM1 5h1v1H1zM5 5h1v1H5zM10 5h1v1H10zM14 5h1v1H14zM0 6h1v1H0zM5 6h1v1H5zM10 6h1v1H10zM15 6h1v1H15zM0 7h1v1H0zM15 7h1v1H15zM0 8h1v1H0zM15 8h1v1H15zM0 9h1v1H0zM3 9h1v1H3zM12 9h1v1H12zM15 9h1v1H15zM1 10h1v1H1zM4 10h1v1H4zM11 10h1v1H11zM14 10h1v1H14zM1 11h1v1H1zM5 11h6v1H5zM14 11h1v1H14zM2 12h1v1H2zM13 12h1v1H13zM3 13h2v1H3zM11 13h2v1H11zM5 14h6v1H5z"/><path fill="#ffd84a" d="M5 2h6v1H5zM3 3h10v1H3zM2 4h12v1H2zM2 5h3v1H2zM6 5h4v1H6zM11 5h3v1H11zM1 6h4v1H1zM6 6h4v1H6zM11 6h4v1H11zM1 7h14v1H1zM1 8h14v1H1zM1 9h2v1H1zM4 9h8v1H4zM13 9h2v1H13zM2 10h2v1H2zM5 10h6v1H5zM12 10h2v1H12zM2 11h3v1H2zM11 11h3v1H11zM3 12h10v1H3zM5 13h6v1H5z"/></svg><span>{{ st.start_label | default: 'Start' | escape }}</span></button>
+    <span class="r98-task__sep" aria-hidden="true"></span>
+    <div class="r98-task__wins" data-r98-wins>
+      <span class="r98-btn r98-tw is-current" aria-current="page"><svg class="r98-ico" viewBox="0 0 16 16" width="16" height="16" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path fill="#000000" d="M2 1h10v1H2zM2 2h1v1H2zM11 2h2v1H11zM2 3h1v1H2zM4 3h5v1H4zM11 3h1v1H11zM13 3h1v1H13zM2 4h1v1H2zM11 4h4v1H11zM2 5h1v1H2zM4 5h7v1H4zM14 5h1v1H14zM2 6h1v1H2zM14 6h1v1H14zM2 7h1v1H2zM4 7h8v1H4zM14 7h1v1H14zM2 8h1v1H2zM14 8h1v1H14zM2 9h1v1H2zM4 9h6v1H4zM14 9h1v1H14zM2 10h1v1H2zM14 10h1v1H14zM2 11h1v1H2zM4 11h8v1H4zM14 11h1v1H14zM2 12h1v1H2zM14 12h1v1H14zM2 13h13v1H2z"/><path fill="#ffffff" d="M3 2h8v1H3zM3 3h1v1H3zM9 3h2v1H9zM12 3h1v1H12zM3 4h8v1H3zM3 5h1v1H3zM11 5h3v1H11zM3 6h11v1H3zM3 7h1v1H3zM12 7h2v1H12zM3 8h11v1H3zM3 9h1v1H3zM10 9h4v1H10zM3 10h11v1H3zM3 11h1v1H3zM12 11h2v1H12zM3 12h11v1H3z"/><path fill="#808080" d="M15 12h1v1H15zM15 13h1v1H15zM3 14h13v1H3z"/></svg><span>{{ r98_title | escape }}</span></span>
+    </div>
+    <div class="r98-tray r98-sunken">
+      <a href="{{ routes.search_url }}" aria-label="{{ st.search_label | default: 'Search' | escape }}"><svg class="r98-ico" viewBox="0 0 16 16" width="20" height="20" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path fill="#000000" d="M4 1h4v1H4zM3 2h1v1H3zM9 2h1v1H9zM2 3h1v1H2zM10 3h1v1H10zM1 4h1v1H1zM12 4h1v1H12zM1 5h1v1H1zM11 5h1v1H11zM1 6h1v1H1zM11 6h1v1H11zM1 7h1v1H1zM11 7h1v1H11zM2 8h1v1H2zM10 8h1v1H10zM3 9h1v1H3zM9 9h2v1H9zM4 10h5v1H4zM10 10h2v1H10zM9 11h1v1H9zM12 11h1v1H12zM10 12h1v1H10zM13 12h1v1H13zM11 13h1v1H11zM14 13h1v1H14zM12 14h3v1H12z"/><path fill="#9fd6ff" d="M4 2h5v1H4zM3 3h2v1H3zM7 3h3v1H7zM2 4h2v1H2zM5 4h7v1H5zM2 5h1v1H2zM4 5h7v1H4zM2 6h9v1H2zM2 7h9v1H2zM3 8h7v1H3zM4 9h5v1H4z"/><path fill="#ffffff" d="M5 3h2v1H5zM4 4h1v1H4zM3 5h1v1H3z"/><path fill="#808080" d="M9 10h1v1H9zM10 11h2v1H10zM11 12h2v1H11zM12 13h2v1H12z"/></svg></a>
+      {%- if shop.customer_accounts_enabled -%}<a class="r98-tray__acc" href="{{ routes.account_url }}" aria-label="{{ st.account_label | default: 'Account' | escape }}"><svg class="r98-ico" viewBox="0 0 16 16" width="20" height="20" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path fill="#000000" d="M6 1h4v1H6zM5 2h1v1H5zM10 2h1v1H10zM4 3h1v1H4zM11 3h1v1H11zM4 4h1v1H4zM11 4h1v1H11zM4 5h1v1H4zM11 5h1v1H11zM5 6h1v1H5zM10 6h1v1H10zM6 7h4v1H6zM4 8h2v1H4zM10 8h2v1H10zM3 9h1v1H3zM12 9h1v1H12zM2 10h1v1H2zM13 10h1v1H13zM2 11h1v1H2zM13 11h1v1H13zM2 12h1v1H2zM13 12h1v1H13zM2 13h12v1H2z"/><path fill="#ffffff" d="M6 2h4v1H6zM5 3h6v1H5zM5 4h6v1H5zM5 5h6v1H5zM6 6h4v1H6z"/><path fill="#1084d0" d="M6 8h4v1H6zM4 9h8v1H4zM3 10h10v1H3zM3 11h10v1H3zM3 12h10v1H3z"/></svg></a>{%- endif -%}
+      <a href="{{ routes.cart_url }}" aria-label="{{ st.cart_label | default: 'Cart' | escape }}"><svg class="r98-ico" viewBox="0 0 16 16" width="20" height="20" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path fill="#000000" d="M0 1h3v1H0zM1 2h2v1H1zM2 3h13v1H2zM2 4h1v1H2zM13 4h1v1H13zM2 5h1v1H2zM4 5h1v1H4zM6 5h1v1H6zM8 5h1v1H8zM10 5h1v1H10zM13 5h1v1H13zM3 6h1v1H3zM12 6h1v1H12zM3 7h2v1H3zM6 7h1v1H6zM8 7h1v1H8zM10 7h3v1H10zM4 8h1v1H4zM11 8h1v1H11zM4 9h8v1H4zM5 10h1v1H5zM10 10h1v1H10zM4 11h10v1H4zM4 13h2v1H4zM10 13h2v1H10zM3 14h1v1H3zM6 14h1v1H6zM9 14h1v1H9zM12 14h1v1H12zM4 15h2v1H4zM10 15h2v1H10z"/><path fill="#ffffff" d="M3 4h10v1H3zM3 5h1v1H3zM5 5h1v1H5zM7 5h1v1H7zM9 5h1v1H9zM11 5h2v1H11zM4 6h8v1H4zM5 7h1v1H5zM7 7h1v1H7zM9 7h1v1H9zM5 8h6v1H5z"/><path fill="#808080" d="M4 14h2v1H4zM10 14h2v1H10z"/></svg><span class="r98-count" data-r98-count{% if cart.item_count == 0 %} hidden{% endif %}>{{ cart.item_count }}</span></a>
+      <span class="r98-clock" data-r98-clock aria-hidden="true"></span>
+    </div>
+  </div>
+</nav>
+
+<script>
+  (function () {
+    var root = document.getElementById('shopify-section-{{ section.id }}');
+    if (!root) return;
+    var task = root.querySelector('[data-r98-task]');
+    /* The taskbar sits at the very bottom of the page, outside the header's own layer. */
+    if (task && task.parentNode !== document.body) {
+      document.querySelectorAll('body > [data-r98-task]').forEach(function (old) { if (old !== task) old.remove(); });
+      document.body.appendChild(task);
+    }
+    var wall = root.querySelector('.r98-wall');
+    if (wall && wall.parentNode !== document.body) {
+      document.querySelectorAll('body > .r98-wall').forEach(function (old) { if (old !== wall) old.remove(); });
+      document.body.insertBefore(wall, document.body.firstChild);
+    }
+    if (!task) return;
+    var start = task.querySelector('[data-r98-start]'), menu = task.querySelector('[data-r98-menu]');
+    function open(on) {
+      start.setAttribute('aria-expanded', on ? 'true' : 'false'); start.setAttribute('aria-pressed', on ? 'true' : 'false');
+      if (on) { menu.hidden = false; menu.classList.add('is-opening'); requestAnimationFrame(function () { requestAnimationFrame(function () { menu.classList.remove('is-opening'); }); }); var f = menu.querySelector('a'); if (f) f.focus({ preventScroll: true }); }
+      else menu.hidden = true;
+    }
+    start.addEventListener('click', function (e) { e.stopPropagation(); open(menu.hidden); });
+    document.addEventListener('click', function (e) { if (!menu.hidden && !menu.contains(e.target)) open(false); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !menu.hidden) { open(false); start.focus(); } });
+    /* The clock, in the visitor's own time. */
+    var clock = task.querySelector('[data-r98-clock]');
+    function tick() { if (clock) clock.textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }
+    tick(); clearInterval(window.__r98Clock); window.__r98Clock = setInterval(tick, 15000);
+    /* The cart's count, after anything on the page adds to it. */
+    var count = task.querySelector('[data-r98-count]');
+    function recount() { fetch('/cart.js', { headers: { Accept: 'application/json' } }).then(function (r) { return r.json(); }).then(function (c) { if (!count) return; count.textContent = c.item_count; count.hidden = !c.item_count; }).catch(function () {}); }
+    document.addEventListener('r98:cart', recount); document.addEventListener('cart:refresh', recount);
+    /* A window minimised or closed waits here, as a button that brings it back. */
+    var wins = task.querySelector('[data-r98-wins]');
+    window.__r98Park = function (win) {
+      var title = (win.querySelector('.r98-bar__title') || {}).textContent || 'Window';
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'r98-btn r98-tw';
+      b.innerHTML = '<span></span>'; b.firstChild.textContent = title.trim();
+      b.addEventListener('click', function () { win.hidden = false; win.classList.remove('is-min', 'is-closed'); b.remove(); win.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); });
+      wins.appendChild(b);
+    };
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Desktop and taskbar",
+  "tag": "section",
+  "class": "retro-desktop-section",
+  "limit": 1,
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "The wallpaper, the taskbar with the Start menu, cart and clock, and the desktop icons. Add icons as blocks."
+    },
+    {
+      "type": "select",
+      "id": "wallpaper",
+      "label": "Wallpaper",
+      "default": "teal",
+      "options": [
+        {
+          "value": "teal",
+          "label": "Plain colour"
+        },
+        {
+          "value": "dots",
+          "label": "Colour with a fine dot"
+        },
+        {
+          "value": "hills",
+          "label": "Green hills"
+        },
+        {
+          "value": "dusk",
+          "label": "Dusk"
+        }
+      ]
+    },
+    {
+      "type": "color",
+      "id": "wall_color",
+      "label": "Wallpaper colour",
+      "default": "#008080"
+    },
+    {
+      "type": "checkbox",
+      "id": "skin",
+      "label": "Draw every section as a window",
+      "default": true,
+      "info": "The product, cart, search, blog and other theme sections get a grey window and a title bar."
+    },
+    {
+      "type": "text",
+      "id": "home_title",
+      "label": "Window title on the home page",
+      "info": "Empty: the store's name."
+    },
+    {
+      "type": "text",
+      "id": "related_title",
+      "label": "Window title over related products",
+      "default": "You may also like"
+    },
+    {
+      "type": "header",
+      "content": "Taskbar"
+    },
+    {
+      "type": "text",
+      "id": "start_label",
+      "label": "Start button",
+      "default": "Start"
+    },
+    {
+      "type": "text",
+      "id": "menu_title",
+      "label": "Name down the side of the Start menu",
+      "info": "Empty: the store's name."
+    },
+    {
+      "type": "link_list",
+      "id": "menu",
+      "label": "Start menu",
+      "default": "main-menu"
+    },
+    {
+      "type": "link_list",
+      "id": "menu_2",
+      "label": "Second part of the Start menu",
+      "default": "footer"
+    },
+    {
+      "type": "text",
+      "id": "search_label",
+      "label": "Search",
+      "default": "Search"
+    },
+    {
+      "type": "text",
+      "id": "account_label",
+      "label": "Account",
+      "default": "Account"
+    },
+    {
+      "type": "text",
+      "id": "cart_label",
+      "label": "Cart",
+      "default": "Cart"
+    },
+    {
+      "type": "text",
+      "id": "taskbar_label",
+      "label": "Taskbar name for screen readers",
+      "default": "Taskbar"
+    },
+    {
+      "type": "header",
+      "content": "Desktop icons"
+    },
+    {
+      "type": "checkbox",
+      "id": "icons_home_only",
+      "label": "Show the icons on the home page only",
+      "default": true
+    }
+  ],
+  "blocks": [
+    {
+      "type": "icon",
+      "name": "Desktop icon",
+      "settings": [
+        {
+          "type": "select",
+          "id": "icon",
+          "label": "Icon",
+          "default": "folder",
+          "options": [
+            {
+              "value": "folder",
+              "label": "Folder"
+            },
+            {
+              "value": "tee",
+              "label": "Tee"
+            },
+            {
+              "value": "hoodie",
+              "label": "Hoodie"
+            },
+            {
+              "value": "cap",
+              "label": "Cap"
+            },
+            {
+              "value": "sticker",
+              "label": "Sticker"
+            },
+            {
+              "value": "cart",
+              "label": "Cart"
+            },
+            {
+              "value": "mail",
+              "label": "Letter"
+            },
+            {
+              "value": "note",
+              "label": "Text file"
+            },
+            {
+              "value": "help",
+              "label": "Help"
+            },
+            {
+              "value": "search",
+              "label": "Search"
+            },
+            {
+              "value": "user",
+              "label": "Person"
+            },
+            {
+              "value": "disk",
+              "label": "Floppy disk"
+            },
+            {
+              "value": "smile",
+              "label": "Smiley"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "label",
+          "label": "Label",
+          "default": "Shop"
+        },
+        {
+          "type": "url",
+          "id": "link",
+          "label": "Link",
+          "default": "/collections/all"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Desktop and taskbar",
+      "category": "Retro desktop",
+      "blocks": [
+        {
+          "type": "icon",
+          "settings": {
+            "icon": "folder",
+            "label": "Shop",
+            "link": "/collections/all"
+          }
+        },
+        {
+          "type": "icon",
+          "settings": {
+            "icon": "note",
+            "label": "About",
+            "link": "/pages/about"
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

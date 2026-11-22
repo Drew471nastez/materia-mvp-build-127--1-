@@ -11,6 +11,8 @@
  *               with no photograph yet (settings.compat.listing)
  *   ?land=1     an Add's new website arrives in the library 300ms after the
  *               answer, as the page's refresh would bring it
+ *   ?covers=each  every listing on a cover of its own (/cover.svg?l=slug),
+ *               so the script can count each picture's requests
  *
  * The listings are whatever builtinListings() returns today, on the cover
  * the script serves (their desktop and phone screenshots stay the real
@@ -60,7 +62,7 @@ const EXTRA: [string, string, ThemeListing["tier"]][] = [
 ]
 
 const listings: ThemeListing[] = [
-  ...builtinListings().map((l) => ({ ...l, cover })),
+  ...builtinListings().map((l) => ({ ...l, cover: q.has("covers") ? `${cover}?l=${l.slug}` : cover })),
   ...EXTRA.map(([name, category, tier], i) => ({
     id: `00000000-0000-4000-8000-00000000000${i}`,
     slug: name.toLowerCase().replace(/\s+/g, "-"),
@@ -70,7 +72,7 @@ const listings: ThemeListing[] = [
     category,
     tier,
     priceCents: tier === "paid" ? 4900 : 0,
-    cover,
+    cover: q.has("covers") ? `${cover}?l=${name.toLowerCase().replace(/\s+/g, "-")}` : cover,
     screenshots: [],
     builtinThemeId: null,
     codePackage: null,

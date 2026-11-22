@@ -1,0 +1,35 @@
+{
+  "sections": {
+    "main": {
+      "type": "page-default",
+      "settings": {
+        "padding_top": 64,
+        "reset_spacing": true,
+        "section_width": "container",
+        "padding_bottom": 72
+      }
+    },
+    "next": {
+      "type": "coach-cta",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "background": "#3a2a21",
+        "heading_color": "#faf6f0",
+        "text_color": "#d8c8b7",
+        "accent_color": "#e2a271",
+        "button_color": "#b8693a",
+        "eyebrow": "Your next step",
+        "heading": "Ready when <em>you are</em>",
+        "text": "<p>Book a free 20 minute call. No pressure and no pitch, just a real conversation about where you want to go.</p>",
+        "button_label": "Book your free call",
+        "button_link": "/pages/book",
+        "button2_label": "Ask a question",
+        "button2_link": "/pages/contact"
+      }
+    }
+  },
+  "order": [
+    "main",
+    "next"
+  ]
+}

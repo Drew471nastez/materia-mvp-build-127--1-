@@ -1,0 +1,246 @@
+{%- comment -%}
+Video sales letter: questions that open in place (details and summary, so
+  keyboards and screen readers work as everywhere), with a plus that turns
+  into a minus. Where the browser can, the answer slides open smoothly.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+-%}
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" data-vsl-font>
+<style>
+  .vsl { position: relative; color: var(--vsl-text, #a3a3a8); font-family: var(--body-font, inherit); -webkit-font-smoothing: antialiased; }
+  .vsl *, .vsl *::before, .vsl *::after { box-sizing: border-box; }
+  .vsl__inner { position: relative; max-width: var(--vsl-max, 1120px); margin: 0 auto; padding: 0 20px; }
+  .vsl__head { text-align: center; margin: 0 auto 44px; max-width: 760px; }
+  .vsl__eyebrow { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 0 0 18px; font-size: 11px; font-weight: 500; letter-spacing: .24em; text-transform: uppercase; color: rgba(255,255,255,.6); }
+  .vsl__eyebrow::before, .vsl__eyebrow::after { content: ""; flex: 0 0 34px; height: 1px; background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.5)); }
+  .vsl__eyebrow::after { background: linear-gradient(270deg, rgba(255,255,255,0), rgba(255,255,255,.5)); }
+  .vsl__title { margin: 0; color: var(--vsl-head, #fff); font-family: var(--body-font, inherit); font-weight: 700; font-size: clamp(32px, 4.6vw, 52px); line-height: 1.06; letter-spacing: -.035em; text-wrap: balance; }
+  .vsl__title em, .vsl em.vsl-serif { font-family: 'Instrument Serif', Georgia, 'Times New Roman', serif; font-style: italic; font-weight: 400; letter-spacing: -.01em; }
+  .vsl__lede { margin: 16px auto 0; max-width: 580px; font-size: 15px; line-height: 1.65; }
+  .vsl__lede p { margin: 0; }
+  .vsl-btn {
+    position: relative; isolation: isolate; overflow: hidden;
+    display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 48px; padding: 0 24px;
+    border-radius: 999px; border: 1px solid rgba(255,255,255,.24); background: rgba(10,10,12,.85); color: #fff;
+    font-family: var(--body-font, inherit); font-size: 14px; font-weight: 600; letter-spacing: -.005em; text-decoration: none; white-space: nowrap;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.22), 0 0 0 4px rgba(255,255,255,.03), 0 14px 40px -14px rgba(255,255,255,.35);
+    transition: transform .35s cubic-bezier(.2,.7,.2,1), border-color .35s, box-shadow .35s;
+  }
+  .vsl-btn::before { content: ""; position: absolute; z-index: -1; top: -1px; left: -40%; width: 40%; height: 2px; background: linear-gradient(90deg, transparent, #fff, transparent); opacity: .9; transition: transform 1.1s cubic-bezier(.2,.7,.2,1); }
+  .vsl-btn:hover { transform: translateY(-1px); border-color: rgba(255,255,255,.5); box-shadow: inset 0 1px 0 rgba(255,255,255,.3), 0 0 0 4px rgba(255,255,255,.05), 0 18px 50px -14px rgba(255,255,255,.45); }
+  .vsl-btn:hover::before { transform: translateX(350%); }
+  .vsl-btn:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+  .vsl-btn svg { width: 16px; height: 16px; flex: none; transition: transform .35s cubic-bezier(.2,.7,.2,1); }
+  .vsl-btn:hover svg { transform: translateX(3px); }
+  .vsl-btn--light { background: #fff; color: #0a0a0a; border-color: #fff; box-shadow: 0 14px 40px -14px rgba(255,255,255,.5); }
+  .vsl-btn--light::before { display: none; }
+  .vsl-btn--ghost { background: transparent; box-shadow: none; border-color: rgba(255,255,255,.16); }
+  .vsl__actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px; margin-top: 30px; }
+  .vsl-card {
+    position: relative; border-radius: 18px; border: 1px solid rgba(255,255,255,.09);
+    background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.015) 60%), rgba(12,12,14,.72);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 30px 60px -40px rgba(0,0,0,.9);
+  }
+  .vsl--line { padding-top: 1px; }
+  .vsl--line::before { content: ""; position: absolute; left: 50%; top: 0; width: min(1120px, calc(100% - 40px)); height: 1px; transform: translateX(-50%); background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.26) 50%, rgba(255,255,255,0)); }
+  .vsl--line::after { content: ""; position: absolute; left: 50%; top: 0; width: min(900px, 90%); height: 180px; transform: translateX(-50%); pointer-events: none; background: radial-gradient(50% 100% at 50% 0, rgba(255,255,255,.07), rgba(255,255,255,0)); }
+  @media (max-width: 749px) { .vsl__eyebrow { letter-spacing: .18em; gap: 10px; } .vsl__eyebrow::before, .vsl__eyebrow::after { flex-basis: 22px; } .vsl__head { margin-bottom: 32px; } }
+  html.vsl-js .vsl [data-motion] { opacity: 0; transform: translate3d(0, 22px, 0); transition: opacity .9s cubic-bezier(.2,.65,.2,1), transform .9s cubic-bezier(.2,.65,.2,1); transition-delay: var(--d, 0ms); }
+  html.vsl-js .vsl [data-motion].is-in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) {
+    html.vsl-js .vsl [data-motion] { opacity: 1; transform: none; transition: none; }
+    .vsl-btn, .vsl-btn::before, .vsl-btn svg { transition: none; }
+  }
+
+  #shopify-section-{{ sid }} .vsl { padding-top: {{ st.padding_top_mobile | default: 64 }}px; padding-bottom: {{ st.padding_bottom_mobile | default: 64 }}px; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .vsl { padding-top: {{ st.padding_top | default: 96 }}px; padding-bottom: {{ st.padding_bottom | default: 96 }}px; } }
+
+  #shopify-section-{{ sid }} { interpolate-size: allow-keywords; }
+  #shopify-section-{{ sid }} .vsl-faq__list { max-width: {{ st.max_width | default: 760 }}px; margin: 0 auto; }
+  .vsl-faq details { border-bottom: 1px solid rgba(255,255,255,.1); }
+  .vsl-faq summary { list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 20px 2px; cursor: pointer; color: #fff; font-size: 15px; font-weight: 500; line-height: 1.45; }
+  .vsl-faq summary::-webkit-details-marker { display: none; }
+  .vsl-faq summary:focus-visible { outline: 2px solid #fff; outline-offset: 2px; border-radius: 6px; }
+  .vsl-faq__icon { position: relative; flex: none; width: 30px; height: 30px; border-radius: 9px; border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.04); transition: background-color .3s; }
+  .vsl-faq__icon::before, .vsl-faq__icon::after { content: ""; position: absolute; left: 50%; top: 50%; width: 12px; height: 1.5px; margin: -.75px 0 0 -6px; background: #fff; border-radius: 1px; transition: transform .35s cubic-bezier(.2,.7,.2,1); }
+  .vsl-faq__icon::after { transform: rotate(90deg); }
+  .vsl-faq details[open] .vsl-faq__icon { background: rgba(255,255,255,.12); }
+  .vsl-faq details[open] .vsl-faq__icon::after { transform: rotate(0deg); }
+  .vsl-faq details::details-content { block-size: 0; overflow: hidden; transition: block-size .4s cubic-bezier(.2,.7,.2,1), content-visibility .4s allow-discrete; }
+  .vsl-faq details[open]::details-content { block-size: auto; }
+  .vsl-faq__a { padding: 0 56px 22px 2px; font-size: 14px; line-height: 1.7; }
+  .vsl-faq__a p { margin: 0 0 .7em; }
+  .vsl-faq__a p:last-child { margin: 0; }
+  @media (max-width: 749px) { .vsl-faq__a { padding-right: 8px; } }
+  @media (prefers-reduced-motion: reduce) { .vsl-faq details::details-content, .vsl-faq__icon::before, .vsl-faq__icon::after { transition: none; } }
+</style>
+<div data-own-font class="vsl{% if st.line_above %} vsl--line{% endif %} vsl-faq">
+  <div class="vsl__inner">
+    {%- if st.eyebrow != blank or st.heading != blank or st.text != blank -%}
+      <div class="vsl__head" data-motion>
+        {%- if st.eyebrow != blank -%}<p class="vsl__eyebrow"><span>{{ st.eyebrow | escape }}</span></p>{%- endif -%}
+        {%- if st.heading != blank -%}<h2 class="vsl__title">{%- assign vsl_parts = st.heading | escape | split: '*' -%}{%- for vsl_part in vsl_parts -%}{%- assign vsl_odd = forloop.index0 | modulo: 2 -%}{%- if vsl_odd == 1 -%}<em>{{ vsl_part | replace: '|', '<br>' }}</em>{%- else -%}{{ vsl_part | replace: '|', '<br>' }}{%- endif -%}{%- endfor -%}</h2>{%- endif -%}
+        {%- if st.text != blank -%}<div class="vsl__lede">{{ st.text }}</div>{%- endif -%}
+      </div>
+    {%- endif -%}
+    <div class="vsl-faq__list" data-motion>
+      {%- for block in section.blocks -%}
+        <details {{ block.shopify_attributes }}{% if forloop.first and st.first_open %} open{% endif %}>
+          <summary><span>{{ block.settings.question | escape }}</span><span class="vsl-faq__icon" aria-hidden="true"></span></summary>
+          <div class="vsl-faq__a">{{ block.settings.answer }}</div>
+        </details>
+      {%- endfor -%}
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var root = document.getElementById('shopify-section-{{ section.id }}');
+    if (!root) return;
+    var still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!('IntersectionObserver' in window) || still) return;
+    document.documentElement.classList.add('vsl-js');
+    if (!window.__vslSeen) {
+      window.__vslSeen = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('is-in'); window.__vslSeen.unobserve(e.target); } });
+      }, { rootMargin: '0px 0px -8% 0px', threshold: 0.08 });
+    }
+    root.querySelectorAll('[data-motion]:not(.is-in)').forEach(function (el) { window.__vslSeen.observe(el); });
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Questions",
+  "tag": "section",
+  "class": "vsl-faq-section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Small label",
+      "default": "Questions"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Frequently asked *questions*",
+      "info": "Words between asterisks are set in italic serif, like *this*. A | starts a new line."
+    },
+    {
+      "type": "richtext",
+      "id": "text",
+      "label": "Text",
+      "default": ""
+    },
+    {
+      "type": "checkbox",
+      "id": "first_open",
+      "label": "First question open",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "max_width",
+      "label": "Width",
+      "min": 560,
+      "max": 1000,
+      "step": 20,
+      "unit": "px",
+      "default": 760
+    },
+    {
+      "type": "header",
+      "content": "Spacing"
+    },
+    {
+      "type": "checkbox",
+      "id": "line_above",
+      "label": "Thin glowing line above",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Space above, desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 96
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Space below, desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 96
+    },
+    {
+      "type": "range",
+      "id": "padding_top_mobile",
+      "label": "Space above, phone",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 64
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom_mobile",
+      "label": "Space below, phone",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 64
+    }
+  ],
+  "blocks": [
+    {
+      "type": "question",
+      "name": "Question",
+      "settings": [
+        {
+          "type": "text",
+          "id": "question",
+          "label": "Question",
+          "default": "A question people ask"
+        },
+        {
+          "type": "richtext",
+          "id": "answer",
+          "label": "Answer",
+          "default": "<p>A short, plain answer.</p>"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Questions",
+      "category": "Video sales letter",
+      "blocks": [
+        {
+          "type": "question"
+        },
+        {
+          "type": "question"
+        },
+        {
+          "type": "question"
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

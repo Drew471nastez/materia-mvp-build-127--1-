@@ -1,268 +1,445 @@
 {%- comment -%}
-  Materia Themes. Audio tracks (Sample packs template): a list of tracks a
-  visitor can play in the page, each with its title, a line under it (BPM
-  and key), an optional cover and an optional link to the pack.
+  Materia Themes. Audio tracks (Sample packs template): sound previews a
+  visitor plays in the page, one at a time across the whole page.
+
+  Layouts
+    List      rows with a cover, the title and its BPM and key, the player
+              and a link to the pack.
+    Grid      a panel of small players in three columns, the title under
+              each wave (a product page's "hear what is inside").
+    Feature   one large player, for the top of a product page.
+    Compact   short rows without covers.
 
   The file: each track's "Audio file" is an upload in the editor (mp3, wav,
-  m4a, ogg, aac or flac, stored in the creator's Storelib storage) or a
-  pasted https address. A file of the theme's own assets, written as
-  shopify://shop_images/<name> or as a bare name, is how the template
-  ships its demo loops.
+  m4a, ogg, aac or flac) or a pasted https address. A file of the theme's
+  own assets (shopify://shop_images/<name> or a bare name) is how the
+  template ships its demos.
 
-  The player: play and pause, a waveform you can click, drag or move with
-  the arrow keys to seek, the time, and one track playing at a time across
-  the whole page. Nothing downloads until play is pressed (preload none).
-  The waveform is drawn from the track's title, so it is a look, not the
-  file's real peaks: reading those would mean downloading every file.
+  The waveform is the file's own: "Waveform peaks" holds 120 numbers from
+  0 to 100 read from the audio ahead of time. Left empty, the row draws a
+  flat line and the player reads the peaks from the file the first time
+  the track plays, then keeps them in the visitor's browser. Nothing
+  downloads before play is pressed: the audio element is made on the
+  first press.
 
-  Layout "Compact" is the product page version: smaller rows, no covers. A
-  track with a product chosen shows only on that product's page.
+  A track tied to a product (picked, or named by the product's name)
+  shows on that product's page only, and on pages that are not a
+  product's. A track tied to nothing shows everywhere.
 {%- endcomment -%}
 {%- liquid
   assign s = section.settings
   assign sid = section.id
-  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default'
   assign section_width = s.section_width | default: 'container'
-  assign compact = false
-  if s.layout == 'compact'
-    assign compact = true
-  endif
+  assign layout = s.layout | default: 'list'
   assign pt = s.padding_top | default: 72
   assign pb = s.padding_bottom | default: 72
-  if compact
-    assign pt = s.padding_top | default: 24
-    assign pb = s.padding_bottom | default: 24
-  endif
   assign shown = 0
   for block in section.blocks
-    if block.settings.product != blank and product != blank and block.settings.product.id != product.id
-      continue
+    assign mine = true
+    if product != blank
+      if block.settings.for_product != blank
+        if block.settings.for_product.id != product.id
+          assign mine = false
+        endif
+      elsif block.settings.for_name != blank
+        assign want = block.settings.for_name | handleize
+        if want != product.handle
+          assign mine = false
+        endif
+      endif
     endif
-    assign shown = shown | plus: 1
+    if mine
+      assign shown = shown | plus: 1
+    endif
   endfor
+  assign cols = s.columns | default: 3
 -%}
+{%- if shown > 0 or request.design_mode -%}
 <style>
-  #shopify-section-{{ sid }} .sat { padding-block: {{ pt | times: 0.65 | round }}px {{ pb | times: 0.65 | round }}px; }
-  #shopify-section-{{ sid }} .sat__inner { max-width: {% if compact %}760px{% else %}{{ s.max_width | default: 1040 }}px{% endif %}; margin-inline: {% if compact %}0{% else %}auto{% endif %}; }
-  #shopify-section-{{ sid }} .sat__head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 32px; margin-bottom: {% if compact %}14px{% else %}28px{% endif %}; }
-  #shopify-section-{{ sid }} .sat__eyebrow { margin: 0 0 10px; font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--btn-primary-bg-color); }
-  #shopify-section-{{ sid }} .sat__heading { margin: 0; overflow-wrap: anywhere; {% if compact %}font-size: 18px;{% else %}font-size: {{ s.heading_size_mobile | default: 30 }}px;{% endif %} line-height: 1.1; }
-  #shopify-section-{{ sid }} .sat__text { margin: 10px 0 0; max-width: 56ch; color: var(--color-text); font-size: {% if compact %}14px{% else %}16px{% endif %}; }
+  .ssp { --ssp-p: 0%; --ssp-h: 0%; --ssp-sw: 1.6px; --ssp-btn: 36px; --ssp-wave: 36px; --ssp-base: rgba(var(--color-heading-rgb), .24); --ssp-done: rgb(var(--color-heading-rgb)); display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .ssp__btn { position: relative; flex: none; width: var(--ssp-btn); height: var(--ssp-btn); margin: 0; padding: 0; border-radius: 50%; border: 1.5px solid rgba(var(--color-heading-rgb), .5); background: transparent; color: var(--color-heading); display: grid; place-items: center; cursor: pointer; transition: background-color .2s ease, border-color .2s ease, color .2s ease, transform .2s ease; -webkit-tap-highlight-color: transparent; }
+  .ssp__btn:hover { border-color: rgb(var(--color-heading-rgb)); }
+  .ssp__btn:active { transform: scale(.94); }
+  .ssp__btn:focus-visible, .ssp__wave:focus-visible { outline: 2px solid var(--ssp-done); outline-offset: 3px; }
+  .ssp__btn[disabled] { cursor: default; opacity: .35; transform: none; }
+  .ssp__i { grid-area: 1 / 1; width: 42%; height: 42%; display: block; transition: opacity .15s ease, transform .2s ease; }
+  .ssp__i--pause { opacity: 0; transform: scale(.6); }
+  .ssp.is-playing .ssp__i--play { opacity: 0; transform: scale(.6); }
+  .ssp.is-playing .ssp__i--pause { opacity: 1; transform: none; }
+  .ssp.is-playing .ssp__btn { background: rgb(var(--color-heading-rgb)); border-color: transparent; color: var(--color-background); }
+  .ssp__btn::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 1.5px solid transparent; border-top-color: rgb(var(--color-heading-rgb)); opacity: 0; transition: opacity .2s ease; }
+  .ssp.is-loading .ssp__btn::after { opacity: 1; animation: ssp-spin .8s linear infinite; }
+  .ssp__wave { position: relative; flex: 1 1 auto; min-width: 0; height: var(--ssp-wave); cursor: pointer; touch-action: pan-y; -webkit-tap-highlight-color: transparent; border-radius: 2px; }
+  .ssp--off .ssp__wave { cursor: default; }
+  .ssp__svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; fill: none; stroke: var(--ssp-base); stroke-width: var(--ssp-sw); stroke-linecap: round; pointer-events: none; transform-origin: 50% 50%; }
+  .ssp__svg--hover { stroke: rgba(var(--color-heading-rgb), .5); clip-path: inset(0 calc(100% - var(--ssp-h)) 0 0); opacity: 0; transition: opacity .15s ease; }
+  .ssp__svg--done { stroke: var(--ssp-done); clip-path: inset(0 calc(100% - var(--ssp-p)) 0 0); }
+  .ssp:not(.is-started) .ssp__svg--done { visibility: hidden; }
+  .ssp--flat .ssp__svg { stroke: rgba(var(--color-heading-rgb), .18); }
+  .ssp--off .ssp__svg { stroke: rgba(var(--color-heading-rgb), .1); }
+  .ssp--drawn .ssp__svg { animation: ssp-grow .5s cubic-bezier(.2,.7,.2,1) both; }
+  .ssp__time { flex: none; min-width: 4.2em; text-align: right; font-size: 13px; line-height: 1; color: var(--color-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ssp.is-started .ssp__time { color: var(--color-heading); }
+  @media (hover: hover) and (pointer: fine) {
+    .ssp:not(.ssp--off) .ssp__wave:hover .ssp__svg--hover { opacity: 1; }
+    .ssp__btn:hover { transform: scale(1.05); }
+  }
+  @keyframes ssp-spin { to { transform: rotate(360deg); } }
+  @keyframes ssp-grow { from { transform: scaleY(.08); } to { transform: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .ssp__btn, .ssp__i, .ssp__svg--hover { transition: none; }
+    .ssp--drawn .ssp__svg { animation: none; }
+    .ssp.is-loading .ssp__btn::after { animation-duration: 2s; }
+  }
+  #shopify-section-{{ sid }} .sat { padding-block: {{ pt | times: 0.7 | round }}px {{ pb | times: 0.7 | round }}px; }
+  #shopify-section-{{ sid }} .sat__inner { max-width: {{ s.max_width | default: 1040 }}px; margin-inline: auto; }
+  #shopify-section-{{ sid }} .sat__head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 32px; margin-bottom: 28px; }
+  #shopify-section-{{ sid }} .sat__head--center { flex-direction: column; align-items: center; text-align: center; }
+  #shopify-section-{{ sid }} .sat__eyebrow { margin: 0 0 10px; font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--color-text); }
+  #shopify-section-{{ sid }} .sat__heading { margin: 0; overflow-wrap: anywhere; font-size: {{ s.heading_size_mobile | default: 30 }}px; line-height: 1.1; }
+  #shopify-section-{{ sid }} .sat__text { margin: 10px 0 0; max-width: 56ch; color: var(--color-text); font-size: 15px; }
+  #shopify-section-{{ sid }} .sat__head--center .sat__text { margin-inline: auto; }
   #shopify-section-{{ sid }} .sat__text > :first-child { margin-top: 0; }
   #shopify-section-{{ sid }} .sat__text > :last-child { margin-bottom: 0; }
   #shopify-section-{{ sid }} .sat__more { font-size: 15px; font-weight: 600; color: var(--color-heading); text-decoration: underline; text-underline-offset: 4px; text-decoration-color: rgba(var(--color-heading-rgb), .35); white-space: nowrap; }
   #shopify-section-{{ sid }} .sat__more:hover { text-decoration-color: currentColor; }
+  #shopify-section-{{ sid }} .sat__empty { margin: 0; padding: 20px 0; font-size: 15px; color: var(--color-text); border-block: 1px solid var(--color-border); }
+  #shopify-section-{{ sid }} .sat__note { margin: 6px 0 0; font-size: 13px; color: var(--color-text); }
+  /* List */
   #shopify-section-{{ sid }} .sat__list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--color-border); }
-  #shopify-section-{{ sid }} .sat__row { --sat-accent: var(--btn-primary-bg-color); display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; grid-template-areas: "cover play meta link" "wave wave wave wave"; align-items: center; column-gap: 14px; row-gap: 12px; padding: 14px 4px; border-bottom: 1px solid var(--color-border); position: relative; }
-  #shopify-section-{{ sid }} .sat__row--nocover { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "play meta link" "wave wave wave"; }
-  #shopify-section-{{ sid }} .sat__cover { grid-area: cover; width: 52px; height: 52px; border-radius: 6px; overflow: hidden; background: rgba(var(--color-heading-rgb), .06); flex: none; }
-  #shopify-section-{{ sid }} .sat__cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  #shopify-section-{{ sid }} .sat__play { grid-area: play; width: 44px; height: 44px; border-radius: 50%; border: 0; padding: 0; display: grid; place-items: center; cursor: pointer; background: var(--sat-accent); color: var(--btn-primary-color); transition: transform .15s ease, opacity .15s ease, background-color .15s ease; flex: none; }
-  #shopify-section-{{ sid }} .sat__play:hover { transform: scale(1.06); }
-  #shopify-section-{{ sid }} .sat__play:focus-visible, #shopify-section-{{ sid }} .sat__wave:focus-visible { outline: 2px solid var(--sat-accent); outline-offset: 3px; }
-  #shopify-section-{{ sid }} .sat__play[disabled] { cursor: default; background: rgba(var(--color-heading-rgb), .12); color: rgba(var(--color-heading-rgb), .45); transform: none; }
-  #shopify-section-{{ sid }} .sat__play svg { width: 16px; height: 16px; display: block; }
-  #shopify-section-{{ sid }} .sat__play .sat__i-pause, #shopify-section-{{ sid }} .sat__row.is-playing .sat__play .sat__i-play { display: none; }
-  #shopify-section-{{ sid }} .sat__row.is-playing .sat__play .sat__i-pause { display: block; }
-  #shopify-section-{{ sid }} .sat__row.is-loading .sat__play { opacity: .7; }
+  #shopify-section-{{ sid }} .sat__row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "cover meta link" "player player player"; align-items: center; column-gap: 14px; row-gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--color-border); transition: background-color .2s ease; }
+  #shopify-section-{{ sid }} .sat__row--nocover { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "meta link" "player player"; }
+  #shopify-section-{{ sid }} .sat__cover { grid-area: cover; width: 52px; height: 52px; display: block; }
+  #shopify-section-{{ sid }} .sat__cover img { width: 100%; height: 100%; object-fit: contain; display: block; }
   #shopify-section-{{ sid }} .sat__meta { grid-area: meta; min-width: 0; }
-  #shopify-section-{{ sid }} .sat__title { margin: 0; font-size: 16px; font-weight: 600; line-height: 1.3; color: var(--color-heading); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  #shopify-section-{{ sid }} .sat__sub { margin: 2px 0 0; font-size: 13px; line-height: 1.4; color: var(--color-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  #shopify-section-{{ sid }} .sat__link { grid-area: link; display: none; font-size: 14px; font-weight: 600; color: var(--color-heading); text-decoration: none; white-space: nowrap; padding: 8px 0; }
+  #shopify-section-{{ sid }} .sat__title { margin: 0; font-size: 16px; font-weight: 600; line-height: 1.3; color: var(--color-heading); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: color .2s ease; }
   #shopify-section-{{ sid }} .sat__title a { color: inherit; text-decoration: none; }
   #shopify-section-{{ sid }} .sat__title a:hover { text-decoration: underline; text-underline-offset: 3px; }
+  #shopify-section-{{ sid }} .sat__sub { margin: 3px 0 0; font-size: 13px; line-height: 1.4; color: var(--color-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  #shopify-section-{{ sid }} .sat__player { grid-area: player; min-width: 0; }
+  #shopify-section-{{ sid }} .sat__link { grid-area: link; font-size: 14px; font-weight: 600; color: var(--color-heading); text-decoration: none; white-space: nowrap; padding: 8px 0; }
   #shopify-section-{{ sid }} .sat__link:hover { text-decoration: underline; text-underline-offset: 4px; }
-  #shopify-section-{{ sid }} .sat__wavewrap { grid-area: wave; display: flex; align-items: center; gap: 12px; min-width: 0; }
-  #shopify-section-{{ sid }} .sat__wave { position: relative; flex: 1 1 auto; min-width: 0; height: {% if compact %}30px{% else %}36px{% endif %}; cursor: pointer; touch-action: none; border-radius: 2px; }
-  #shopify-section-{{ sid }} .sat__wave::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: rgba(var(--color-heading-rgb), .16); }
-  #shopify-section-{{ sid }} .sat__bars { position: absolute; inset: 0; display: flex; align-items: center; gap: 2px; pointer-events: none; }
-  #shopify-section-{{ sid }} .sat__bars i { flex: 1 1 0; min-width: 1px; border-radius: 2px; background: rgba(var(--color-heading-rgb), .24); }
-  #shopify-section-{{ sid }} .sat__bars--done { clip-path: inset(0 calc(100% - var(--sat-p, 0%)) 0 0); }
-  #shopify-section-{{ sid }} .sat__bars--done i { background: var(--sat-accent); }
-  #shopify-section-{{ sid }} .sat__row:not(.is-started) .sat__bars--done { visibility: hidden; }
-  #shopify-section-{{ sid }} .sat__wave.is-empty { cursor: default; }
-  #shopify-section-{{ sid }} .sat__wave.is-empty .sat__bars i { background: rgba(var(--color-heading-rgb), .1); }
-  #shopify-section-{{ sid }} .sat__time { flex: none; min-width: 6.5em; text-align: right; font-size: 13px; color: var(--color-text); font-variant-numeric: tabular-nums; }
-  #shopify-section-{{ sid }} .sat__note { grid-column: 1 / -1; margin: -4px 0 0; font-size: 13px; color: var(--color-text); }
-  #shopify-section-{{ sid }} .sat__empty { margin: 0; padding: 20px 0; font-size: 15px; color: var(--color-text); border-top: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border); }
-  {%- if compact -%}
-  #shopify-section-{{ sid }} .sat__row { padding: 10px 0; column-gap: 12px; row-gap: 8px; }
-  #shopify-section-{{ sid }} .sat__play { width: 38px; height: 38px; }
-  #shopify-section-{{ sid }} .sat__play svg { width: 14px; height: 14px; }
-  #shopify-section-{{ sid }} .sat__title { font-size: 15px; }
-  {%- endif -%}
+  #shopify-section-{{ sid }} .sat__row:has(.ssp.is-started) .sat__title { color: var(--sat-accent, var(--color-heading)); }
+  /* Grid */
+  #shopify-section-{{ sid }} .sat__panel { border-radius: 16px; background: rgba(var(--color-heading-rgb), .035); border: 1px solid rgba(var(--color-heading-rgb), .07); padding: 28px 18px 30px; }
+  #shopify-section-{{ sid }} .sat__grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px 40px; }
+  #shopify-section-{{ sid }} .sat__cell .ssp { --ssp-btn: 30px; --ssp-wave: 34px; gap: 10px; }
+  #shopify-section-{{ sid }} .sat__cell .ssp__btn { border-color: transparent; background: transparent; }
+  #shopify-section-{{ sid }} .sat__cell .ssp__i { width: 50%; height: 50%; }
+  #shopify-section-{{ sid }} .sat__cell .ssp.is-playing .ssp__btn { background: rgb(var(--color-heading-rgb)); }
+  #shopify-section-{{ sid }} .sat__cell .ssp__time { display: none; }
+  #shopify-section-{{ sid }} .sat__cap { margin: 6px 0 0 40px; font-size: 13px; line-height: 1.35; color: var(--color-text); text-align: left; white-space: nowrap; }
+  #shopify-section-{{ sid }} .sat__cap b, #shopify-section-{{ sid }} .sat__cap span { display: block; overflow: hidden; text-overflow: ellipsis; }
+  #shopify-section-{{ sid }} .sat__cap b { font-weight: 600; color: var(--color-heading); }
+  /* Feature */
+  #shopify-section-{{ sid }} .sat__feature { border-radius: 16px; background: rgba(var(--color-heading-rgb), .035); border: 1px solid rgba(var(--color-heading-rgb), .07); padding: 22px 18px; }
+  #shopify-section-{{ sid }} .sat__fitem { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: center; }
+  #shopify-section-{{ sid }} .sat__fitem + .sat__fitem { margin-top: 22px; padding-top: 22px; border-top: 1px solid rgba(var(--color-heading-rgb), .08); }
+  #shopify-section-{{ sid }} .sat__fcover { display: none; }
+  #shopify-section-{{ sid }} .sat__fcover img { width: 100%; height: auto; display: block; filter: drop-shadow(0 10px 16px rgba(0, 0, 0, .45)); }
+  #shopify-section-{{ sid }} .sat__feature .sat__ftop { display: flex; align-items: baseline; justify-content: space-between; gap: 6px 16px; flex-wrap: wrap; margin-bottom: 14px; }
+  #shopify-section-{{ sid }} .sat__feature .sat__title { font-size: 17px; white-space: normal; }
+  #shopify-section-{{ sid }} .sat__feature .ssp { --ssp-btn: 52px; --ssp-wave: 84px; gap: 16px; }
+  /* Compact */
+  #shopify-section-{{ sid }} .sat--compact .sat__row { padding: 10px 0; row-gap: 8px; }
+  #shopify-section-{{ sid }} .sat--compact .sat__title { font-size: 15px; }
+  #shopify-section-{{ sid }} .sat--compact .ssp { --ssp-btn: 34px; --ssp-wave: 30px; }
   @media (min-width: 750px) {
     #shopify-section-{{ sid }} .sat { padding-block: {{ pt }}px {{ pb }}px; }
-    #shopify-section-{{ sid }} .sat__heading { {% if compact %}font-size: 20px;{% else %}font-size: {{ s.heading_size | default: 44 }}px;{% endif %} }
-    #shopify-section-{{ sid }} .sat__row { grid-template-columns: auto auto minmax(140px, 260px) minmax(0, 1fr) auto; grid-template-areas: "cover play meta wave link"; column-gap: 18px; padding: {% if compact %}10px 0{% else %}16px 8px{% endif %}; }
-    #shopify-section-{{ sid }} .sat__row--nocover { grid-template-columns: auto minmax(120px, 220px) minmax(0, 1fr) auto; grid-template-areas: "play meta wave link"; }
-    #shopify-section-{{ sid }} .sat__link { display: block; padding-left: 8px; }
+    #shopify-section-{{ sid }} .sat__heading { font-size: {{ s.heading_size | default: 44 }}px; }
+    #shopify-section-{{ sid }} .sat__head { margin-bottom: 36px; }
+    #shopify-section-{{ sid }} .sat__row { grid-template-columns: auto minmax(150px, 250px) minmax(0, 1fr) auto; grid-template-areas: "cover meta player link"; column-gap: 20px; padding: 14px 8px; }
+    #shopify-section-{{ sid }} .sat__row--nocover { grid-template-columns: minmax(140px, 240px) minmax(0, 1fr) auto; grid-template-areas: "meta player link"; }
+    #shopify-section-{{ sid }} .sat__panel { padding: 40px 44px 44px; }
+    #shopify-section-{{ sid }} .sat__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    #shopify-section-{{ sid }} .sat__feature { padding: 30px 34px 32px; }
+    #shopify-section-{{ sid }} .sat__feature .ssp { --ssp-btn: 60px; --ssp-wave: 110px; gap: 22px; }
+    #shopify-section-{{ sid }} .sat__feature .sat__title { font-size: 19px; }
+    #shopify-section-{{ sid }} .sat__fitem--cover { grid-template-columns: 96px minmax(0, 1fr); gap: 28px; }
+    #shopify-section-{{ sid }} .sat__fcover { display: block; }
+  }
+  @media (min-width: 1000px) {
+    #shopify-section-{{ sid }} .sat__grid { grid-template-columns: repeat({{ cols }}, minmax(0, 1fr)); }
   }
   @media (hover: hover) {
-    #shopify-section-{{ sid }} .sat__row:hover { background: rgba(var(--color-heading-rgb), .035); }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    #shopify-section-{{ sid }} .sat__play { transition: none; }
-    #shopify-section-{{ sid }} .sat__play:hover { transform: none; }
+    #shopify-section-{{ sid }} .sat__row:hover { background: rgba(var(--color-heading-rgb), .03); }
   }
 </style>
-<div class="sat section color-{{ color_scheme }} gradient{% if compact %} sat--compact{% endif %}" data-sat data-section-id="{{ sid }}">
-  <div class="{% if compact %}{{ section_width }}{% else %}{{ section_width }}{% endif %}">
+<div class="sat sat--{{ layout }} section color-{{ color_scheme }} gradient" data-section-id="{{ sid }}"{% if s.accent != blank %} style="--sat-accent: {{ s.accent }};"{% endif %}>
+  <div class="{{ section_width }}">
     <div class="sat__inner">
-      {%- if s.heading != blank or s.text != blank or s.eyebrow != blank or s.link_label != blank -%}
-        <div class="sat__head">
-          <div>
-            {%- if s.eyebrow != blank -%}<p class="sat__eyebrow">{{ s.eyebrow | escape }}</p>{%- endif -%}
-            {%- if s.heading != blank -%}<h2 class="sat__heading h2">{{ s.heading }}</h2>{%- endif -%}
-            {%- if s.text != blank -%}<div class="sat__text rte">{{ s.text }}</div>{%- endif -%}
+      {%- capture head -%}
+        {%- if s.heading != blank or s.text != blank or s.eyebrow != blank -%}
+          <div class="sat__head{% if layout == 'grid' or layout == 'feature' %} sat__head--center{% endif %}">
+            <div>
+              {%- if s.eyebrow != blank -%}<p class="sat__eyebrow">{{ s.eyebrow | escape }}</p>{%- endif -%}
+              {%- if s.heading != blank -%}<h2 class="sat__heading h2">{{ s.heading }}</h2>{%- endif -%}
+              {%- if s.text != blank -%}<div class="sat__text rte">{{ s.text }}</div>{%- endif -%}
+            </div>
+            {%- if s.link_label != blank and s.link_url != blank and layout != 'grid' and layout != 'feature' -%}<a class="sat__more" href="{{ s.link_url }}">{{ s.link_label | escape }}</a>{%- endif -%}
           </div>
-          {%- if s.link_label != blank and s.link_url != blank -%}<a class="sat__more" href="{{ s.link_url }}">{{ s.link_label | escape }}</a>{%- endif -%}
-        </div>
-      {%- endif -%}
+        {%- endif -%}
+      {%- endcapture -%}
+      {%- if layout == 'grid' -%}<div class="sat__panel">{%- endif -%}
+      {{ head }}
       {%- if shown > 0 -%}
-        <ul class="sat__list" role="list">
-          {%- for block in section.blocks -%}
-            {%- liquid
-              if block.settings.product != blank and product != blank and block.settings.product.id != product.id
-                continue
-              endif
-              assign b = block.settings
-              assign src = b.audio | strip
-              if src != blank
-                if src contains 'shopify://shop_images/'
-                  assign src = src | remove_first: 'shopify://shop_images/' | asset_url
-                elsif src contains '/'
-                else
-                  assign src = src | asset_url
+        {%- if layout == 'grid' -%}<ul class="sat__grid" role="list">{%- elsif layout == 'feature' -%}<div class="sat__feature">{%- else -%}<ul class="sat__list" role="list">{%- endif -%}
+        {%- assign drawn = 0 -%}
+        {%- for block in section.blocks -%}
+          {%- liquid
+            assign b = block.settings
+            if product != blank
+              if b.for_product != blank
+                if b.for_product.id != product.id
+                  continue
+                endif
+              elsif b.for_name != blank
+                assign want = b.for_name | handleize
+                if want != product.handle
+                  continue
                 endif
               endif
-              assign title = b.title | default: 'Untitled track'
-              assign has_cover = false
-              if compact == false and b.cover != blank
-                assign has_cover = true
+            endif
+            assign drawn = drawn | plus: 1
+            assign ssp_src = b.audio | strip
+            if ssp_src != blank
+              if ssp_src contains 'shopify://shop_images/'
+                assign ssp_src = ssp_src | remove_first: 'shopify://shop_images/' | asset_url
+              elsif ssp_src contains '/'
+              else
+                assign ssp_src = ssp_src | asset_url
               endif
-            -%}
-            <li class="sat__row{% unless has_cover %} sat__row--nocover{% endunless %}" data-sat-row data-seed="{{ title | escape }}" {{ block.shopify_attributes }}>
+            endif
+            assign ssp_title = b.title | default: 'Untitled track'
+            assign ssp_peaks = b.peaks
+            assign ssp_len = b.seconds
+            assign ssp_id = 'ssp-' | append: sid | append: '-' | append: block.id
+            assign ssp_empty = 'No audio'
+            assign link = b.link
+            if link == blank and b.for_product != blank
+              assign link = b.for_product.url
+            endif
+            assign has_cover = false
+            if layout != 'grid' and layout != 'compact' and b.cover != blank
+              assign has_cover = true
+            endif
+          -%}
+          {%- capture player -%}
+{%- liquid
+  assign ssp_d = ''
+  assign ssp_pk = ssp_peaks | strip | split: ','
+  assign ssp_n = ssp_pk.size
+  assign ssp_flat = false
+  if ssp_n < 16
+    assign ssp_n = 120
+    assign ssp_flat = true
+    for i in (1..120)
+      assign ssp_x = i | minus: 0.5
+      assign ssp_d = ssp_d | append: 'M' | append: ssp_x | append: ' 48.6V51.4'
+    endfor
+  else
+    for ssp_v in ssp_pk
+      assign ssp_hh = ssp_v | strip | plus: 0 | times: 0.46 | at_least: 1.4 | round: 1
+      assign ssp_x = forloop.index | minus: 0.5
+      assign ssp_y1 = 50 | minus: ssp_hh | round: 1
+      assign ssp_y2 = 50 | plus: ssp_hh | round: 1
+      assign ssp_d = ssp_d | append: 'M' | append: ssp_x | append: ' ' | append: ssp_y1 | append: 'V' | append: ssp_y2
+    endfor
+  endif
+  assign ssp_label = ssp_title | default: 'track' | escape
+  assign ssp_clock = '0:00'
+  assign ssp_secs = ssp_len | plus: 0 | round
+  if ssp_secs > 0
+    assign ssp_m = ssp_secs | divided_by: 60
+    assign ssp_s = ssp_secs | modulo: 60 | prepend: '0' | slice: -2, 2
+    assign ssp_clock = ssp_m | append: ':' | append: ssp_s
+  endif
+-%}
+<div class="ssp{% if ssp_src == blank %} ssp--off{% endif %}{% if ssp_flat %} ssp--flat{% endif %}" data-ssp{% if ssp_src != blank %} data-src="{{ ssp_src }}"{% endif %} data-title="{{ ssp_label }}">
+  <button class="ssp__btn" type="button" data-ssp-btn aria-label="Play {{ ssp_label }}"{% if ssp_src == blank %} disabled{% endif %}>
+    <svg class="ssp__i ssp__i--play" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M5.2 3.1v9.8c0 .5.5.8.9.5l7.5-4.9c.4-.2.4-.8 0-1L6.1 2.6c-.4-.3-.9 0-.9.5Z" fill="currentColor"/></svg>
+    <svg class="ssp__i ssp__i--pause" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="4" y="3" width="2.7" height="10" rx=".8" fill="currentColor"/><rect x="9.3" y="3" width="2.7" height="10" rx=".8" fill="currentColor"/></svg>
+  </button>
+  <div class="ssp__wave" data-ssp-wave{% if ssp_src != blank %} role="slider" tabindex="0" aria-label="Seek in {{ ssp_label }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="0:00"{% endif %}>
+    <svg class="ssp__svg" viewBox="0 0 {{ ssp_n }} 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path id="{{ ssp_id }}" d="{{ ssp_d }}" vector-effect="non-scaling-stroke"/></svg>
+    <svg class="ssp__svg ssp__svg--hover" viewBox="0 0 {{ ssp_n }} 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#{{ ssp_id }}"/></svg>
+    <svg class="ssp__svg ssp__svg--done" viewBox="0 0 {{ ssp_n }} 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#{{ ssp_id }}"/></svg>
+  </div>
+  <span class="ssp__time" data-ssp-time>{% if ssp_src == blank %}{{ ssp_empty | default: 'No preview' }}{% else %}{{ ssp_clock }}{% endif %}</span>
+</div>
+          {%- endcapture -%}
+          {%- if layout == 'grid' -%}
+            <li class="sat__cell" {{ block.shopify_attributes }}>
+              {{ player }}
+              <p class="sat__cap"><b>{{ ssp_title | escape }}</b>{% if b.subtitle != blank %}<span>{{ b.subtitle | escape }}</span>{% endif %}</p>
+            </li>
+          {%- elsif layout == 'feature' -%}
+            <div class="sat__fitem{% if has_cover %} sat__fitem--cover{% endif %}" {{ block.shopify_attributes }}>
+              {%- if has_cover -%}<span class="sat__fcover">{{ b.cover | image_url: width: 240 | image_tag: loading: 'lazy', width: 96, height: 120, alt: '' }}</span>{%- endif -%}
+              <div class="sat__fbody">
+                <div class="sat__ftop">
+                  <p class="sat__title">{% if link != blank %}<a href="{{ link }}">{{ ssp_title | escape }}</a>{% else %}{{ ssp_title | escape }}{% endif %}</p>
+                  {%- if b.subtitle != blank -%}<p class="sat__sub">{{ b.subtitle | escape }}</p>{%- endif -%}
+                </div>
+                {{ player }}
+              </div>
+            </div>
+          {%- else -%}
+            <li class="sat__row{% unless has_cover %} sat__row--nocover{% endunless %}" {{ block.shopify_attributes }}>
               {%- if has_cover -%}
-                <div class="sat__cover">{{ b.cover | image_url: width: 160 | image_tag: loading: 'lazy', width: 52, height: 52, alt: '' }}</div>
+                {%- if link != blank -%}<a class="sat__cover" href="{{ link }}" tabindex="-1" aria-hidden="true">{%- else -%}<span class="sat__cover">{%- endif -%}
+                {{ b.cover | image_url: width: 160 | image_tag: loading: 'lazy', width: 52, height: 52, alt: '' }}
+                {%- if link != blank -%}</a>{%- else -%}</span>{%- endif -%}
               {%- endif -%}
-              <button class="sat__play" type="button" data-sat-play aria-label="Play {{ title | escape }}"{% if src == blank %} disabled{% endif %}>
-                <svg class="sat__i-play" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4.5 2.6v10.8c0 .5.5.8.9.5l8.3-5.4c.4-.2.4-.8 0-1L5.4 2.1c-.4-.3-.9 0-.9.5Z" fill="currentColor"/></svg>
-                <svg class="sat__i-pause" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="3.5" y="2.5" width="3" height="11" rx="1" fill="currentColor"/><rect x="9.5" y="2.5" width="3" height="11" rx="1" fill="currentColor"/></svg>
-              </button>
               <div class="sat__meta">
-                <p class="sat__title">{% if b.link != blank %}<a href="{{ b.link }}">{{ title | escape }}</a>{% else %}{{ title | escape }}{% endif %}</p>
+                <p class="sat__title">{% if link != blank %}<a href="{{ link }}">{{ ssp_title | escape }}</a>{% else %}{{ ssp_title | escape }}{% endif %}</p>
                 {%- if b.subtitle != blank -%}<p class="sat__sub">{{ b.subtitle | escape }}</p>{%- endif -%}
               </div>
-              <div class="sat__wavewrap">
-                <div class="sat__wave{% if src == blank %} is-empty{% endif %}" data-sat-wave{% if src != blank %} role="slider" tabindex="0" aria-label="Seek {{ title | escape }}" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="0:00"{% endif %}>
-                  <div class="sat__bars" aria-hidden="true"></div>
-                  <div class="sat__bars sat__bars--done" aria-hidden="true"></div>
-                </div>
-                <span class="sat__time" data-sat-time aria-hidden="true">{% if src == blank %}No audio{% else %}{{ b.length | default: '0:00' | escape }}{% endif %}</span>
-              </div>
-              {%- if compact == false and b.link_label != blank and b.link != blank -%}
-                <a class="sat__link" href="{{ b.link }}" tabindex="-1" aria-hidden="true">{{ b.link_label | escape }}</a>
-              {%- endif -%}
-              {%- if src != blank -%}
-                <audio preload="none" src="{{ src }}" data-sat-audio></audio>
-              {%- elsif request.design_mode -%}
-                <p class="sat__note">Add an audio file to this track to make it play.</p>
+              <div class="sat__player">{{ player }}</div>
+              {%- if layout == 'list' and b.link_label != blank and link != blank -%}
+                <a class="sat__link" href="{{ link }}">{{ b.link_label | escape }}</a>
               {%- endif -%}
             </li>
-          {%- endfor -%}
-        </ul>
+          {%- endif -%}
+          {%- if ssp_src == blank and request.design_mode -%}<p class="sat__note">Add an audio file to "{{ ssp_title | escape }}" to make it play.</p>{%- endif -%}
+        {%- endfor -%}
+        {%- if layout == 'grid' or layout == 'list' or layout == 'compact' -%}</ul>{%- else -%}</div>{%- endif -%}
       {%- elsif request.design_mode -%}
         <p class="sat__empty">Add a track to this section. Each track takes an audio file, a title and a line for its BPM and key.</p>
       {%- endif -%}
+      {%- if layout == 'grid' -%}</div>{%- endif -%}
     </div>
   </div>
 </div>
 <script>
+  /* The sample players (samples-audio-tracks, samples-pack-cards, samples-release-hero): one copy runs, whichever section loads first. */
   (function () {
-    if (window.__samplesAudio) { window.__samplesAudio.scan(); return; }
-    var current = null;
+    var V = 4;
+    if (window.__ssp && window.__ssp.v >= V) { window.__ssp.scan(); return; }
+    var current = null, N = 120, KEY = 'ssp-peaks:', reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
     function fmt(t) { if (!isFinite(t) || t < 0) t = 0; var m = Math.floor(t / 60), s = Math.floor(t % 60); return m + ':' + (s < 10 ? '0' : '') + s; }
-    function seeded(str) { var h = 2166136261; for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return function () { h += 0x6D2B79F5; var t = h; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
-    function bars(row) {
-      var wave = row.querySelector('[data-sat-wave]'); if (!wave) return;
-      var n = Math.max(24, Math.min(96, Math.round(wave.clientWidth / 5))) || 64;
-      var rnd = seeded(row.getAttribute('data-seed') || ''), html = '';
-      var beat = 4 + Math.floor(rnd() * 3);
-      for (var i = 0; i < n; i++) {
-        var x = i / n, shape = 0.55 + 0.35 * Math.sin(x * Math.PI * (1.2 + rnd() * 0.2)) + (i % beat === 0 ? 0.25 : 0);
-        var h = Math.max(0.12, Math.min(1, shape * (0.45 + rnd() * 0.6)));
-        html += '<i style="height:' + Math.round(h * 100) + '%"></i>';
-      }
-      row.querySelectorAll('.sat__bars').forEach(function (b) { b.innerHTML = html; });
+    function remember(k, v) { try { localStorage.setItem(KEY + k, v); } catch (e) {} }
+    function recall(k) { try { return localStorage.getItem(KEY + k); } catch (e) { return null; } }
+    function pathOf(list) { var d = ''; for (var i = 0; i < list.length; i++) { var h = Math.max(1.4, list[i] * 0.46); d += 'M' + (i + 0.5) + ' ' + (50 - h).toFixed(1) + 'V' + (50 + h).toFixed(1); } return d; }
+    function draw(el, list) {
+      var path = el.querySelector('.ssp__svg path'); if (!path || !list.length) return;
+      path.setAttribute('d', pathOf(list));
+      el.querySelectorAll('.ssp__svg').forEach(function (s) { s.setAttribute('viewBox', '0 0 ' + list.length + ' 100'); });
+      el.classList.remove('ssp--flat'); if (!reduce) el.classList.add('ssp--drawn');
     }
-    function setup(row) {
-      if (row.__sat) return; row.__sat = true;
-      bars(row);
-      var audio = row.querySelector('[data-sat-audio]'), btn = row.querySelector('[data-sat-play]'), wave = row.querySelector('[data-sat-wave]'), time = row.querySelector('[data-sat-time]');
-      if (!audio || !btn || !wave) return;
-      var title = row.querySelector('.sat__title'), name = title ? title.textContent : '';
-      var raf = 0, dragging = false;
-      function paint() {
-        var d = audio.duration, t = audio.currentTime, p = d > 0 ? Math.min(100, (t / d) * 100) : 0;
-        wave.style.setProperty('--sat-p', p + '%');
-        if (d > 0) { time.textContent = fmt(t) + ' / ' + fmt(d); wave.setAttribute('aria-valuemax', Math.round(d)); }
-        wave.setAttribute('aria-valuenow', Math.round(t));
-        wave.setAttribute('aria-valuetext', fmt(t) + (d > 0 ? ' of ' + fmt(d) : ''));
-      }
-      function loop() { paint(); if (!audio.paused) raf = requestAnimationFrame(loop); }
-      function play() {
-        if (current && current !== audio) current.pause();
-        current = audio; row.classList.add('is-started');
-        var p = audio.play(); if (p && p.catch) p.catch(function () { row.classList.remove('is-loading'); });
-      }
-      btn.addEventListener('click', function () { if (audio.paused) play(); else audio.pause(); });
-      audio.addEventListener('play', function () { row.classList.add('is-playing', 'is-started'); btn.setAttribute('aria-label', 'Pause ' + name); cancelAnimationFrame(raf); loop(); });
-      audio.addEventListener('waiting', function () { row.classList.add('is-loading'); });
-      audio.addEventListener('playing', function () { row.classList.remove('is-loading'); });
-      audio.addEventListener('pause', function () { row.classList.remove('is-playing', 'is-loading'); btn.setAttribute('aria-label', 'Play ' + name); cancelAnimationFrame(raf); paint(); });
-      audio.addEventListener('ended', function () { audio.currentTime = 0; paint(); });
-      audio.addEventListener('loadedmetadata', paint);
-      audio.addEventListener('error', function () { row.classList.remove('is-playing', 'is-loading'); time.textContent = 'Could not play'; btn.disabled = true; });
-      function seekTo(clientX) {
-        var r = wave.getBoundingClientRect(), x = Math.max(0, Math.min(1, (clientX - r.left) / r.width));
-        if (audio.readyState < 1) { audio.addEventListener('loadedmetadata', function once() { audio.removeEventListener('loadedmetadata', once); audio.currentTime = x * audio.duration; paint(); }); play(); return; }
-        audio.currentTime = x * (audio.duration || 0); row.classList.add('is-started'); paint();
-      }
-      wave.addEventListener('pointerdown', function (e) { dragging = true; try { wave.setPointerCapture(e.pointerId); } catch (_) {} seekTo(e.clientX); });
-      wave.addEventListener('pointermove', function (e) { if (dragging && audio.readyState >= 1) seekTo(e.clientX); });
-      wave.addEventListener('pointerup', function () { dragging = false; });
-      wave.addEventListener('pointercancel', function () { dragging = false; });
-      wave.addEventListener('keydown', function (e) {
-        var d = audio.duration || 0, t = audio.currentTime, step = 5;
-        if (e.key === 'ArrowRight' || e.key === 'ArrowUp') t += step;
-        else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') t -= step;
-        else if (e.key === 'Home') t = 0;
-        else if (e.key === 'End') t = d;
-        else if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); btn.click(); return; }
-        else return;
-        e.preventDefault();
-        if (audio.readyState < 1) { play(); return; }
-        audio.currentTime = Math.max(0, Math.min(d, t)); row.classList.add('is-started'); paint();
+    /* A track saved without its peaks: read them from the file after it starts playing, when the browser has it anyway, and keep them for the next visit. */
+    function measure(el) {
+      var src = el.getAttribute('data-src'), AC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+      if (!src || el.__measured || !AC || !window.fetch || !el.classList.contains('ssp--flat')) return;
+      el.__measured = true;
+      (window.requestIdleCallback || function (f) { return setTimeout(f, 400); })(function () {
+        fetch(src, { credentials: 'same-origin' }).then(function (r) { if (!r.ok) throw new Error('fetch'); return r.arrayBuffer(); }).then(function (buf) {
+          var ctx = new AC(1, 1, 22050);
+          return new Promise(function (res, rej) { var p = ctx.decodeAudioData(buf, res, rej); if (p && p.then) p.then(res, rej); });
+        }).then(function (ab) {
+          var ch = ab.getChannelData(0), step = Math.max(1, Math.floor(ch.length / N)), out = [], max = 0;
+          for (var i = 0; i < N; i++) { var m = 0, end = Math.min(ch.length, (i + 1) * step); for (var j = i * step; j < end; j += 4) { var v = ch[j] < 0 ? -ch[j] : ch[j]; if (v > m) m = v; } out.push(m); if (m > max) max = m; }
+          out = out.map(function (v) { return max ? Math.round(Math.pow(v / max, 0.8) * 100) : 0; });
+          remember(src, out.join(','));
+          document.querySelectorAll('[data-ssp].ssp--flat').forEach(function (o) { if (o.getAttribute('data-src') === src) draw(o, out); });
+        }).catch(function () {});
       });
     }
-    function scan() { document.querySelectorAll('[data-sat] [data-sat-row]').forEach(setup); }
-    window.__samplesAudio = { scan: scan };
-    document.addEventListener('play', function (e) { if (e.target && e.target.hasAttribute && e.target.hasAttribute('data-sat-audio') && current && current !== e.target) current.pause(); }, true);
-    document.addEventListener('shopify:section:load', scan);
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', scan); else scan();
+    function setup(el) {
+      if (el.__ssp) return; el.__ssp = true;
+      var src = el.getAttribute('data-src'), btn = el.querySelector('[data-ssp-btn]'), wave = el.querySelector('[data-ssp-wave]'), time = el.querySelector('[data-ssp-time]');
+      var path = el.querySelector('.ssp__svg path'), n = path ? (el.querySelector('.ssp__svg').getAttribute('viewBox') || '0 0 120').split(' ')[2] * 1 : N;
+      if (wave && window.ResizeObserver) new ResizeObserver(function () { var w = wave.clientWidth; if (w) el.style.setProperty('--ssp-sw', Math.max(1, Math.min(3, (w / n) * 0.52)).toFixed(2) + 'px'); }).observe(wave);
+      if (!src || !btn || !wave) return;
+      if (el.classList.contains('ssp--flat')) { var kept = recall(src); if (kept) draw(el, kept.split(',').map(Number)); }
+      var audio = null, raf = 0, shown = -1, dragging = false, pending = -1, title = el.getAttribute('data-title') || '';
+      function pct() { return audio && audio.duration > 0 ? Math.min(100, (audio.currentTime / audio.duration) * 100) : 0; }
+      function paint(force) {
+        var d = audio ? audio.duration : 0, t = audio ? audio.currentTime : 0;
+        el.style.setProperty('--ssp-p', pct().toFixed(2) + '%');
+        var sec = Math.floor(t);
+        if (force || sec !== shown) {
+          shown = sec;
+          if (d > 0) time.textContent = fmt(t) + ' / ' + fmt(d);
+          wave.setAttribute('aria-valuenow', Math.round(pct()));
+          wave.setAttribute('aria-valuetext', fmt(t) + (d > 0 ? ' of ' + fmt(d) : ''));
+        }
+      }
+      function loop() { paint(); if (audio && !audio.paused) raf = requestAnimationFrame(loop); }
+      function make() {
+        if (audio) return audio;
+        audio = new Audio(); audio.preload = 'auto'; audio.src = src; el.__audio = audio;
+        audio.addEventListener('play', function () {
+          if (current && current !== audio) current.pause();
+          current = audio; el.classList.add('is-playing', 'is-started'); btn.setAttribute('aria-label', 'Pause ' + title);
+          if ('mediaSession' in navigator && window.MediaMetadata) try { navigator.mediaSession.metadata = new MediaMetadata({ title: title, artist: document.title }); } catch (e) {}
+          cancelAnimationFrame(raf); loop();
+        });
+        audio.addEventListener('waiting', function () { el.classList.add('is-loading'); });
+        audio.addEventListener('playing', function () { el.classList.remove('is-loading'); measure(el); });
+        audio.addEventListener('pause', function () { el.classList.remove('is-playing', 'is-loading'); btn.setAttribute('aria-label', 'Play ' + title); cancelAnimationFrame(raf); paint(true); });
+        audio.addEventListener('ended', function () { el.classList.remove('is-started'); audio.currentTime = 0; paint(true); });
+        audio.addEventListener('loadedmetadata', function () { if (pending >= 0) { audio.currentTime = pending * audio.duration; pending = -1; } paint(true); });
+        audio.addEventListener('error', function () { el.classList.remove('is-playing', 'is-loading', 'is-started'); el.classList.add('ssp--off'); time.textContent = 'Could not play'; btn.disabled = true; });
+        return audio;
+      }
+      function play(at) {
+        make(); el.classList.add('is-loading');
+        if (at >= 0) { if (audio.readyState >= 1 && audio.duration) audio.currentTime = at * audio.duration; else pending = at; }
+        var p = audio.play(); if (p && p.catch) p.catch(function () { el.classList.remove('is-loading'); });
+      }
+      btn.addEventListener('click', function () { if (!audio || audio.paused) play(-1); else audio.pause(); });
+      function at(x) { var r = wave.getBoundingClientRect(); return r.width ? Math.max(0, Math.min(1, (x - r.left) / r.width)) : 0; }
+      function seekable() { var r = audio.seekable; return r && r.length > 0 && r.end(r.length - 1) > 0; }
+      /* A server that does not answer range requests gives a file the browser cannot seek in: fetch it whole once (a preview is small) and play it from memory. */
+      function rescue(f) {
+        pending = f; el.style.setProperty('--ssp-p', (f * 100).toFixed(2) + '%');
+        if (el.__rescued || !window.fetch || !window.URL) return; el.__rescued = true;
+        var going = !audio.paused; el.classList.add('is-loading');
+        fetch(src, { credentials: 'same-origin' }).then(function (r) { if (!r.ok) throw new Error('fetch'); return r.blob(); }).then(function (blob) {
+          audio.src = URL.createObjectURL(blob); audio.load(); if (going) audio.play().catch(function () {});
+        }).catch(function () { el.classList.remove('is-loading'); });
+      }
+      function seek(f) {
+        if (!audio || audio.readyState < 1 || !audio.duration) { play(f); return; }
+        el.classList.add('is-started');
+        if (!seekable()) { rescue(f); return; }
+        audio.currentTime = f * audio.duration; paint(true);
+      }
+      wave.addEventListener('pointerdown', function (e) { if (e.button > 0) return; dragging = true; try { wave.setPointerCapture(e.pointerId); } catch (x) {} seek(at(e.clientX)); });
+      wave.addEventListener('pointermove', function (e) {
+        var f = at(e.clientX);
+        if (e.pointerType === 'mouse') el.style.setProperty('--ssp-h', (f * 100).toFixed(2) + '%');
+        if (dragging && audio && audio.duration) { if (seekable()) { audio.currentTime = f * audio.duration; paint(); } else rescue(f); }
+      });
+      function stop() { dragging = false; }
+      wave.addEventListener('pointerup', stop); wave.addEventListener('pointercancel', stop); wave.addEventListener('lostpointercapture', stop);
+      wave.addEventListener('keydown', function (e) {
+        var k = e.key;
+        if (k === ' ' || k === 'Enter') { e.preventDefault(); btn.click(); return; }
+        if (['ArrowRight', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].indexOf(k) < 0) return;
+        e.preventDefault();
+        var f = pct() / 100, step = k === 'PageUp' || k === 'PageDown' ? 0.2 : 0.05;
+        if (k === 'ArrowRight' || k === 'ArrowUp' || k === 'PageUp') f += step; else if (k === 'ArrowLeft' || k === 'ArrowDown' || k === 'PageDown') f -= step; else if (k === 'Home') f = 0; else f = 0.999;
+        seek(Math.max(0, Math.min(0.999, f)));
+      });
+    }
+    function scan(root) { (root && root.querySelectorAll ? root : document).querySelectorAll('[data-ssp]').forEach(setup); }
+    window.__ssp = { v: V, scan: scan, pauseIn: function (root) { root.querySelectorAll('[data-ssp]').forEach(function (el) { if (el.__audio) el.__audio.pause(); }); } };
+    document.addEventListener('shopify:section:load', function (e) { scan(e.target); });
+    document.addEventListener('shopify:section:unload', function (e) { window.__ssp.pauseIn(e.target); });
+    scan(); if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { scan(); });
   })();
 </script>
+{%- endif -%}
 {% schema %}
 {
   "name": "Audio tracks",
   "tag": "section",
   "class": "section",
   "settings": [
-    {
-      "type": "header",
-      "content": "Content"
-    },
+    { "type": "header", "content": "Content" },
     {
       "type": "select",
       "id": "layout",
@@ -270,80 +447,24 @@
       "default": "list",
       "options": [
         { "value": "list", "label": "List, with covers" },
-        { "value": "compact", "label": "Compact, for a product page" }
-      ],
-      "info": "Compact rows leave out covers and pack links. On a product page, a track with a product chosen shows only on that product."
+        { "value": "grid", "label": "Grid of small players" },
+        { "value": "feature", "label": "One large player" },
+        { "value": "compact", "label": "Compact list" }
+      ]
     },
-    {
-      "type": "text",
-      "id": "eyebrow",
-      "label": "Eyebrow"
-    },
-    {
-      "type": "inline_richtext",
-      "id": "heading",
-      "label": "Heading",
-      "default": "Hear the packs"
-    },
-    {
-      "type": "richtext",
-      "id": "text",
-      "label": "Text"
-    },
-    {
-      "type": "text",
-      "id": "link_label",
-      "label": "Link label"
-    },
-    {
-      "type": "url",
-      "id": "link_url",
-      "label": "Link"
-    },
-    {
-      "type": "header",
-      "content": "Layout"
-    },
-    {
-      "type": "range",
-      "id": "max_width",
-      "label": "List width",
-      "min": 600,
-      "max": 1400,
-      "step": 20,
-      "unit": "px",
-      "default": 1040
-    },
-    {
-      "type": "range",
-      "id": "heading_size",
-      "label": "Heading size",
-      "min": 18,
-      "max": 72,
-      "step": 2,
-      "unit": "px",
-      "default": 44
-    },
-    {
-      "type": "range",
-      "id": "heading_size_mobile",
-      "label": "Heading size on phones",
-      "min": 16,
-      "max": 48,
-      "step": 2,
-      "unit": "px",
-      "default": 30
-    },
-    {
-      "type": "header",
-      "content": "General"
-    },
-    {
-      "type": "color_scheme",
-      "id": "color_scheme",
-      "label": "Color scheme",
-      "default": "default-color-scheme"
-    },
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "Hear the packs" },
+    { "type": "richtext", "id": "text", "label": "Text" },
+    { "type": "text", "id": "link_label", "label": "Link label", "info": "List layouts only." },
+    { "type": "url", "id": "link_url", "label": "Link" },
+    { "type": "header", "content": "Layout" },
+    { "type": "range", "id": "columns", "label": "Columns in the grid", "min": 2, "max": 4, "step": 1, "default": 3 },
+    { "type": "range", "id": "max_width", "label": "Width", "min": 600, "max": 1400, "step": 20, "unit": "px", "default": 1040 },
+    { "type": "range", "id": "heading_size", "label": "Heading size", "min": 18, "max": 72, "step": 2, "unit": "px", "default": 44 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size on phones", "min": 16, "max": 48, "step": 2, "unit": "px", "default": 30 },
+    { "type": "color", "id": "accent", "label": "Playing title colour", "info": "Left empty, the heading colour." },
+    { "type": "header", "content": "General" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default" },
     {
       "type": "select",
       "id": "section_width",
@@ -356,81 +477,35 @@
         { "value": "full_width", "label": "Full width" }
       ]
     },
-    {
-      "type": "range",
-      "id": "padding_top",
-      "label": "Top padding",
-      "min": 0,
-      "max": 160,
-      "step": 4,
-      "unit": "px",
-      "default": 72
-    },
-    {
-      "type": "range",
-      "id": "padding_bottom",
-      "label": "Bottom padding",
-      "min": 0,
-      "max": 160,
-      "step": 4,
-      "unit": "px",
-      "default": 72
-    }
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 72 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 72 }
   ],
   "blocks": [
     {
       "type": "track",
       "name": "Track",
       "settings": [
-        {
-          "type": "text",
-          "id": "title",
-          "label": "Title",
-          "default": "Track title"
-        },
-        {
-          "type": "text",
-          "id": "subtitle",
-          "label": "Line under the title",
-          "default": "124 BPM, A minor",
-          "info": "BPM and key, or what the loop is."
-        },
+        { "type": "text", "id": "title", "label": "Title", "default": "Track title" },
+        { "type": "text", "id": "subtitle", "label": "BPM and key", "default": "124 BPM, A minor", "info": "Or a few words on what the loop is." },
         {
           "type": "file_picker",
           "id": "audio",
           "label": "Audio file",
           "accept": ["audio"],
-          "info": "Upload an mp3, wav, m4a, ogg, aac or flac file, or paste an https link. Short previews load fastest."
+          "info": "An mp3, wav, m4a, ogg, aac or flac file, or an https link. A short preview loads fastest."
         },
+        { "type": "number", "id": "seconds", "label": "Length in seconds", "info": "Shown before play. Nothing downloads until play is pressed." },
         {
-          "type": "text",
-          "id": "length",
-          "label": "Length shown before play",
-          "placeholder": "0:30",
-          "info": "Nothing downloads until play is pressed, so the real length appears then."
+          "type": "textarea",
+          "id": "peaks",
+          "label": "Waveform peaks",
+          "info": "Optional: 120 numbers from 0 to 100, separated by commas. Left empty, the waveform is read from the file the first time it plays."
         },
-        {
-          "type": "image_picker",
-          "id": "cover",
-          "label": "Cover"
-        },
-        {
-          "type": "text",
-          "id": "link_label",
-          "label": "Link label",
-          "default": "Get the pack"
-        },
-        {
-          "type": "url",
-          "id": "link",
-          "label": "Link"
-        },
-        {
-          "type": "product",
-          "id": "product",
-          "label": "Only on this product's page",
-          "info": "Left empty, the track shows wherever the section is."
-        }
+        { "type": "image_picker", "id": "cover", "label": "Cover", "info": "List and large player layouts." },
+        { "type": "text", "id": "link_label", "label": "Link label", "default": "Get the pack" },
+        { "type": "url", "id": "link", "label": "Link", "info": "Left empty, the picked product's page." },
+        { "type": "product", "id": "for_product", "label": "Only on this product's page", "info": "Pages that are not a product's show every track." },
+        { "type": "text", "id": "for_name", "label": "Or the product's name", "info": "The track shows on the page of the product with this exact name." }
       ]
     }
   ],
@@ -445,10 +520,19 @@
       ]
     },
     {
-      "name": "Audio preview, compact",
-      "settings": { "layout": "compact", "heading": "Hear it", "padding_top": 24, "padding_bottom": 24 },
+      "name": "Audio tracks, grid",
+      "settings": { "layout": "grid", "heading": "Hear what is inside" },
       "blocks": [
-        { "type": "track", "settings": { "title": "Preview", "subtitle": "124 BPM, A minor" } }
+        { "type": "track", "settings": { "title": "Drum loop", "subtitle": "126 BPM" } },
+        { "type": "track", "settings": { "title": "Bass loop", "subtitle": "126 BPM, F minor" } },
+        { "type": "track", "settings": { "title": "Chord loop", "subtitle": "122 BPM, A minor" } }
+      ]
+    },
+    {
+      "name": "Audio preview, large",
+      "settings": { "layout": "feature", "heading": "Hear the pack" },
+      "blocks": [
+        { "type": "track", "settings": { "title": "Pack demo", "subtitle": "124 BPM, A minor" } }
       ]
     }
   ]

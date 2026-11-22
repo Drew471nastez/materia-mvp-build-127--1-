@@ -1,0 +1,428 @@
+{
+  "sections": {
+    "hero": {
+      "type": "vsl-hero",
+      "settings": {
+        "badge": "Six week course, live calls on Thursdays",
+        "heading": "Turn what you know into a *workshop people pay for*",
+        "text": "<p>A course for consultants, designers and coaches. You shape one workshop, price it, fill the first round and run it live, with us on a call every week.</p>",
+        "button_label": "Book a free call",
+        "button_link": "/pages/book-a-call",
+        "button2_label": "",
+        "button2_link": "",
+        "show_video": true,
+        "poster": "shopify://shop_images/vsl-video-poster.webp",
+        "poster_alt": "The course host talking into a microphone",
+        "poster_grey": true,
+        "length_label": "12 min",
+        "video_title": "Watch the course introduction",
+        "play_label": "Play the introduction",
+        "empty_text": "The introduction plays here once it is added in the editor.",
+        "video_width": 1000,
+        "line_above": false,
+        "padding_top": 56,
+        "padding_bottom": 88,
+        "padding_top_mobile": 32,
+        "padding_bottom_mobile": 48
+      }
+    },
+    "for-whom": {
+      "type": "vsl-logos",
+      "settings": {
+        "label": "Made for people who sell what they know",
+        "speed": 45,
+        "logo_height": 28,
+        "line_above": false,
+        "padding_top": 8,
+        "padding_bottom": 88,
+        "padding_top_mobile": 0,
+        "padding_bottom_mobile": 56
+      },
+      "blocks": {
+        "logo_1": {
+          "type": "logo",
+          "settings": {
+            "text": "Consultants"
+          }
+        },
+        "logo_2": {
+          "type": "logo",
+          "settings": {
+            "text": "Designers"
+          }
+        },
+        "logo_3": {
+          "type": "logo",
+          "settings": {
+            "text": "Coaches"
+          }
+        },
+        "logo_4": {
+          "type": "logo",
+          "settings": {
+            "text": "Therapists"
+          }
+        },
+        "logo_5": {
+          "type": "logo",
+          "settings": {
+            "text": "Developers"
+          }
+        },
+        "logo_6": {
+          "type": "logo",
+          "settings": {
+            "text": "Writers"
+          }
+        },
+        "logo_7": {
+          "type": "logo",
+          "settings": {
+            "text": "Photographers"
+          }
+        },
+        "logo_8": {
+          "type": "logo",
+          "settings": {
+            "text": "Trainers"
+          }
+        }
+      },
+      "block_order": [
+        "logo_1",
+        "logo_2",
+        "logo_3",
+        "logo_4",
+        "logo_5",
+        "logo_6",
+        "logo_7",
+        "logo_8"
+      ]
+    },
+    "why": {
+      "type": "vsl-cards",
+      "settings": {
+        "eyebrow": "Why this course",
+        "heading": "Why it *works*",
+        "text": "<p>Most courses teach you to build a library. This one gets one workshop sold and run.</p>",
+        "columns": "3",
+        "number_style": "tile",
+        "line_above": true,
+        "padding_top": 96,
+        "padding_bottom": 96,
+        "padding_top_mobile": 64,
+        "padding_bottom_mobile": 56
+      },
+      "blocks": {
+        "card_1": {
+          "type": "card",
+          "settings": {
+            "title": "One workshop, not an academy",
+            "text": "<p>You build one thing people can buy this month. No membership site, no twenty module curriculum.</p>"
+          }
+        },
+        "card_2": {
+          "type": "card",
+          "settings": {
+            "title": "Sold before it is built",
+            "text": "<p>You pitch the outline first and take payments, so you only build what people already want.</p>"
+          }
+        },
+        "card_3": {
+          "type": "card",
+          "settings": {
+            "title": "Run live, then reused",
+            "text": "<p>The first round is live on video. Its recording becomes the version you sell next.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "card_1",
+        "card_2",
+        "card_3"
+      ]
+    },
+    "inside": {
+      "type": "vsl-cards",
+      "settings": {
+        "eyebrow": "Inside the course",
+        "heading": "What you will *actually make*",
+        "text": "",
+        "columns": "2",
+        "number_style": "inline",
+        "line_above": true,
+        "padding_top": 96,
+        "padding_bottom": 96,
+        "padding_top_mobile": 64,
+        "padding_bottom_mobile": 56
+      },
+      "blocks": {
+        "card_1": {
+          "type": "card",
+          "settings": {
+            "title": "The promise",
+            "text": "<p>Weeks one and two. Pick the one result clients already pay you for, and cut everything else.</p>"
+          }
+        },
+        "card_2": {
+          "type": "card",
+          "settings": {
+            "title": "The outline",
+            "text": "<p>Week three. Four sessions, each built around one exercise. A shape you can teach without slides.</p>"
+          }
+        },
+        "card_3": {
+          "type": "card",
+          "settings": {
+            "title": "The sales page",
+            "text": "<p>Week four. The page, the price and the email to your list, from our templates.</p>"
+          }
+        },
+        "card_4": {
+          "type": "card",
+          "settings": {
+            "title": "The first round",
+            "text": "<p>Weeks five and six. Run it live, collect feedback and keep the recording.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "card_1",
+        "card_2",
+        "card_3",
+        "card_4"
+      ]
+    },
+    "fit": {
+      "type": "vsl-fit",
+      "settings": {
+        "eyebrow": "Who it is for",
+        "heading": "Is this *for you?*",
+        "text": "",
+        "yes_title": "A fit if you",
+        "yes_list": "Already do the work for paying clients\nCan name one result people ask you for\nCan give it two hours a week for six weeks",
+        "no_title": "Not a fit if you",
+        "no_list": "Want someone to build it for you\nHave not done the work for anyone yet\nNeed income from it next week",
+        "line_above": true,
+        "padding_top": 96,
+        "padding_bottom": 16,
+        "padding_top_mobile": 64,
+        "padding_bottom_mobile": 16
+      }
+    },
+    "figures": {
+      "type": "vsl-stats",
+      "settings": {
+        "eyebrow": "",
+        "heading": "",
+        "text": "",
+        "line_above": false,
+        "padding_top": 24,
+        "padding_bottom": 96,
+        "padding_top_mobile": 16,
+        "padding_bottom_mobile": 64
+      },
+      "blocks": {
+        "figure_1": {
+          "type": "figure",
+          "settings": {
+            "value": "6 weeks",
+            "label": "Course length",
+            "note": "About two hours a week",
+            "icon": "clock"
+          }
+        },
+        "figure_2": {
+          "type": "figure",
+          "settings": {
+            "value": "6 calls",
+            "label": "Live on Thursdays",
+            "note": "Recorded if you miss one",
+            "icon": "calendar"
+          }
+        },
+        "figure_3": {
+          "type": "figure",
+          "settings": {
+            "value": "30 days",
+            "label": "Refund window",
+            "note": "From the day you join",
+            "icon": "shield"
+          }
+        }
+      },
+      "block_order": [
+        "figure_1",
+        "figure_2",
+        "figure_3"
+      ]
+    },
+    "call": {
+      "type": "vsl-cta",
+      "settings": {
+        "eyebrow": "Schedule a call",
+        "heading": "Not sure yet? *Talk it through*",
+        "text": "<p>Thirty minutes on video. Bring your idea and we tell you honestly whether the course fits.</p>",
+        "size": "normal",
+        "button_label": "Book a free call",
+        "button_link": "/pages/book-a-call",
+        "button2_label": "",
+        "button2_link": "",
+        "note": "",
+        "glow": true,
+        "line_above": true,
+        "padding_top": 112,
+        "padding_bottom": 112,
+        "padding_top_mobile": 72,
+        "padding_bottom_mobile": 72
+      }
+    },
+    "reviews": {
+      "type": "vsl-reviews",
+      "settings": {
+        "eyebrow": "Students",
+        "heading": "What students *say*",
+        "text": "<p>Sample reviews. Swap them for what your own students send you.</p>",
+        "columns": "3",
+        "line_above": true,
+        "padding_top": 96,
+        "padding_bottom": 96,
+        "padding_top_mobile": 64,
+        "padding_bottom_mobile": 56
+      },
+      "blocks": {
+        "review_1": {
+          "type": "review",
+          "settings": {
+            "stars": 5,
+            "quote": "<p>I had run the same client project for years and never thought of it as something to teach. My first workshop had nine people in it.</p>",
+            "name": "Student name",
+            "role": "Brand designer"
+          }
+        },
+        "review_2": {
+          "type": "review",
+          "settings": {
+            "stars": 5,
+            "quote": "<p>The outline week was the one I needed. I stopped making slides and started making exercises people actually do.</p>",
+            "name": "Student name",
+            "role": "Leadership coach"
+          }
+        },
+        "review_3": {
+          "type": "review",
+          "settings": {
+            "stars": 5,
+            "quote": "<p>I sold the first round with one email to past clients, before I had recorded a single lesson.</p>",
+            "name": "Student name",
+            "role": "Data consultant"
+          }
+        }
+      },
+      "block_order": [
+        "review_1",
+        "review_2",
+        "review_3"
+      ]
+    },
+    "faq": {
+      "type": "vsl-faq",
+      "settings": {
+        "eyebrow": "Questions",
+        "heading": "Frequently asked *questions*",
+        "text": "",
+        "first_open": true,
+        "max_width": 760,
+        "line_above": true,
+        "padding_top": 96,
+        "padding_bottom": 96,
+        "padding_top_mobile": 64,
+        "padding_bottom_mobile": 56
+      },
+      "blocks": {
+        "question_1": {
+          "type": "question",
+          "settings": {
+            "question": "Do I need an audience first?",
+            "answer": "<p>No. A list of past clients is enough for a first round of five to ten people. Week four covers where else to find them.</p>"
+          }
+        },
+        "question_2": {
+          "type": "question",
+          "settings": {
+            "question": "How much time does it take?",
+            "answer": "<p>About two hours a week: one short lesson, one exercise and the Thursday call.</p>"
+          }
+        },
+        "question_3": {
+          "type": "question",
+          "settings": {
+            "question": "What exactly do I get?",
+            "answer": "<p>Twelve short lessons, templates for the outline, the sales page and the emails, six live calls and their recordings.</p>"
+          }
+        },
+        "question_4": {
+          "type": "question",
+          "settings": {
+            "question": "What happens on the free call?",
+            "answer": "<p>You tell us what you do and who for. We tell you honestly whether the course fits. If it does not, there is no pitch.</p>"
+          }
+        },
+        "question_5": {
+          "type": "question",
+          "settings": {
+            "question": "When does the next round start?",
+            "answer": "<p>On the first Monday of the month. Change this to your own dates.</p>"
+          }
+        },
+        "question_6": {
+          "type": "question",
+          "settings": {
+            "question": "Can I get a refund?",
+            "answer": "<p>Yes. Within 30 days of joining, for any reason, write to us and you get your money back.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "question_1",
+        "question_2",
+        "question_3",
+        "question_4",
+        "question_5",
+        "question_6"
+      ]
+    },
+    "final": {
+      "type": "vsl-cta",
+      "settings": {
+        "eyebrow": "",
+        "heading": "You already know enough.|*Now teach it.*",
+        "text": "",
+        "size": "big",
+        "button_label": "Book a free call",
+        "button_link": "/pages/book-a-call",
+        "button2_label": "See the course",
+        "button2_link": "/collections/all",
+        "note": "",
+        "glow": true,
+        "line_above": true,
+        "padding_top": 128,
+        "padding_bottom": 120,
+        "padding_top_mobile": 72,
+        "padding_bottom_mobile": 72
+      }
+    }
+  },
+  "order": [
+    "hero",
+    "for-whom",
+    "why",
+    "inside",
+    "fit",
+    "figures",
+    "call",
+    "reviews",
+    "faq",
+    "final"
+  ]
+}
