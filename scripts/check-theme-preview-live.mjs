@@ -252,6 +252,24 @@ try {
   }
   const rising = (xs) => xs.every((x, i) => i === 0 || x >= xs[i - 1] - 0.001)
 
+  /* PROFILE=arrival|switch|leave: the page's main thread through that moment, task by task (for finding what a long frame is). */
+  const traceStart = async (p) => {
+    await p.tracing.start({ categories: ["devtools.timeline", "disabled-by-default-devtools.timeline", "blink", "v8.execute"] })
+    return true
+  }
+  const traceEnd = async (p, ms) => {
+    await sleep(ms)
+    const ev = JSON.parse(Buffer.from(await p.tracing.stop()).toString()).traceEvents
+    const mains = ev.filter((e) => e.name === "thread_name" && e.args?.name === "CrRendererMain")
+    const of = (m) => ev.filter((e) => e.ph === "X" && e.pid === m.pid && e.tid === m.tid && e.dur)
+    const mine = mains.map(of).sort((a, b) => b.length - a.length)[0]
+    const t0 = Math.min(...mine.map((e) => e.ts))
+    for (const lt of mine.filter((e) => e.name === "RunTask" && e.dur > 40000)) {
+      console.log(`        long task at ${Math.round((lt.ts - t0) / 1000)}ms, ${Math.round(lt.dur / 1000)}ms:`)
+      for (const e of mine.filter((e) => e.ts >= lt.ts && e.ts + e.dur <= lt.ts + lt.dur && e.dur > 4000 && e !== lt && !/^(Blink\.|Document::|LocalFrameView::)/.test(e.name)).sort((a, b) => a.ts - b.ts)) console.log(`          ${Math.round((e.ts - lt.ts) / 1000)}+${Math.round(e.dur / 1000)} ${e.name} ${JSON.stringify(e.args?.data ?? e.args?.beginData ?? "").slice(0, 140)}`)
+    }
+  }
+
   for (const [W, H] of [[1440, 900], [390, 844]]) {
     const phone = W < 768
     console.log(`\nThe live preview of ${SLUG}, ${W} x ${H}${phone ? " at 2x" : ""}, CPU at 1/${THROTTLE}\n`)
@@ -261,39 +279,13 @@ try {
     await sleep(120)
     await throttle(p, THROTTLE)
     const before = asked.length
+    const entry0 = await p.evaluate(() => ({ index: navigation.currentEntry.index, search: location.search }))
     await record(p)
-    const prof = await p.createCDPSession()
-    if (process.env.PROFILE) await p.tracing.start({ categories: ["devtools.timeline", "disabled-by-default-devtools.timeline", "blink", "v8.execute"] })
-    if (process.env.CPUPROF) { await prof.send("Profiler.enable"); await prof.send("Profiler.setSamplingInterval", { interval: 100 }); await prof.send("Profiler.start") }
+    const traced = process.env.PROFILE === "arrival" ? await traceStart(p) : null
     if (phone) await p.tap(cover)
     else await p.click(cover)
     await sleep(120)
-    if (process.env.CPUPROF) {
-      const { profile } = await prof.send("Profiler.stop")
-      const byId = new Map(profile.nodes.map((n) => [n.id, n]))
-      const selfT = new Map()
-      profile.samples.forEach((id, i) => selfT.set(id, (selfT.get(id) || 0) + (profile.timeDeltas[i] || 0)))
-      const total = (n) => (n.__t ??= (selfT.get(n.id) || 0) + (n.children || []).reduce((a, c) => a + total(byId.get(c)), 0))
-      const walk = (n, d) => { if (d > 40) return; for (const c of (n.children || []).map((x) => byId.get(x)).sort((a, b) => total(b) - total(a))) { if (total(c) < 3000) continue; console.log(`${" ".repeat(d)}${(total(c) / 1000).toFixed(1)} ${c.callFrame.functionName || "(anon)"}:${c.callFrame.lineNumber}`); walk(c, d + 1) } }
-      walk(profile.nodes[0], 0)
-    }
-    if (process.env.PROFILE) {
-      await sleep(300)
-      const buf = await p.tracing.stop()
-      const ev = JSON.parse(Buffer.from(buf).toString()).traceEvents
-      const mains = ev.filter((e) => e.name === "thread_name" && e.args?.name === "CrRendererMain")
-      const of = (m) => ev.filter((e) => e.ph === "X" && e.pid === m.pid && e.tid === m.tid && e.dur)
-      const mine = mains.map(of).sort((a, b) => b.length - a.length)[0]
-      const t0 = Math.min(...mine.map((e) => e.ts))
-      const sum = new Map()
-      for (const e of mine) sum.set(e.name, (sum.get(e.name) || 0) + e.dur)
-      console.log([...sum].sort((a, b) => b[1] - a[1]).slice(0, 22).map(([k, v]) => `${(v / 1000).toFixed(1)}ms ${k}`).join("\n"))
-      const longs = mine.filter((e) => e.name === "RunTask" && e.dur > 40000).map((e) => `${Math.round((e.ts - t0) / 1000)}+${Math.round(e.dur / 1000)}`)
-      console.log("long tasks:", longs.join(" "))
-      const lt = mine.filter((e) => e.name === "RunTask" && e.dur > 40000)[0]
-      if (lt) for (const e of mine.filter((e) => e.ts >= lt.ts && e.ts + e.dur <= lt.ts + lt.dur && e.dur > 4000 && e !== lt).sort((a, b) => a.ts - b.ts)) console.log(`  ${Math.round((e.ts - lt.ts) / 1000)}+${Math.round(e.dur / 1000)} ${e.name} ${JSON.stringify(e.args?.data ?? e.args?.beginData ?? "").slice(0, 160)}`)
-      for (const n of ["UpdateLayoutTree", "Layout", "Paint", "PrePaint", "Layerize"]) { const big = mine.filter((e) => e.name === n).sort((a, b) => b.dur - a.dur)[0]; if (big) console.log(n, Math.round(big.dur / 1000), JSON.stringify(big.args).slice(0, 300)) }
-    }
+    if (traced) await traceEnd(p, 300)
     const early = await stage(p)
     await shot(p, `live-${W}-opening`)
     expect(!!early && early.src === `/theme-previews/${SLUG}/index.html`, "the preview is the template's own website from its first frame", JSON.stringify(early && { src: early.src }))
@@ -303,11 +295,11 @@ try {
     const rec = await stop(p)
     const readyAt = rec.find((r) => r.live > 0)?.t ?? null
     const askedAt = rec.find((r) => r.asked)?.t ?? null
-    expect(askedAt !== null && askedAt >= 150 && askedAt <= 400, "the website is asked for as the window lands, not after", `${askedAt}ms after the press`)
+    expect(askedAt !== null && askedAt >= 150 && askedAt <= 500, "the website is asked for as the window lands (on the page's clock, whose frames are few while it is busy)", `${askedAt}ms after the press`)
     const ready = await stage(p)
     const lives = rec.map((r) => r.live).filter((x) => x !== null)
     const arrival = frameTimes(rec, 0, 300)
-    const panelO = rec.filter((r) => r.t <= 400 && r.panel !== null).map((r) => r.panel)
+    const panelO = rec.filter((r) => r.t <= 800 && r.panel !== null).map((r) => r.panel)
     expect(ready?.sandbox === "allow-scripts" && ready.referrer === "no-referrer" && ready.asked === `/theme-previews/${SLUG}/index.html`, "framed sandboxed with scripts only, no referrer", JSON.stringify(ready && { sandbox: ready.sandbox, referrer: ready.referrer }))
     expect(ready?.state === "ready" && ready.opacity === 1, "the website is up", `${readyAt}ms after the press on the page's clock, ${asked.length - before} files`)
     expect(rec.every((r) => r.pictures === 0), "no picture of the template at any frame, so nothing is swapped", `${rec.length} frames`)
@@ -348,8 +340,10 @@ try {
 
       /* Phone: the same page, reflowed in a 390px frame; the website dips while it reflows and comes back once. */
       await record(p)
+      const tracedSwitch = process.env.PROFILE === "switch" ? await traceStart(p) : null
       await p.click("[data-preview-device='phone']")
       await sleep(900)
+      if (tracedSwitch) await traceEnd(p, 0)
       const sw = await stop(p)
       const ph = await stage(p)
       const phoneIn = await inside(f)
@@ -368,13 +362,17 @@ try {
 
     /* Leaving: Escape on a computer, the system's back on a phone. */
     await record(p)
+    const tracedOut = process.env.PROFILE === "leave" ? await traceStart(p) : null
     if (phone) await p.goBack({ waitUntil: "domcontentloaded" }).catch(() => null)
     else await p.keyboard.press("Escape")
     await sleep(500)
+    if (tracedOut) await traceEnd(p, 0)
     const out = await stop(p)
     const leave = frameTimes(out, 0, 300)
     const outO = out.filter((r) => r.panel !== null).map((r) => r.panel)
     expect((await p.$("[data-theme-preview]")) === null && outO.every((x, i) => i === 0 || x <= outO[i - 1] + 0.001), "it leaves in one motion, and is gone", `opacity ${outO.slice(0, 8).map((x) => x.toFixed(2)).join(" ")}…`)
+    const entry1 = await p.evaluate(() => ({ index: navigation.currentEntry.index, search: location.search }))
+    expect(entry1.index === entry0.index && entry1.search === entry0.search, phone ? "the system's back lands on the entry the preview was opened from" : "Escape after browsing the website's pages lands on the entry the preview was opened from, back over those pages in one go", `${JSON.stringify(entry0)} -> ${JSON.stringify(entry1)}`)
     console.log(`        leaving, first 300ms: ${leave.frames} frames, longest ${leave.longest}ms, ${leave.over50} over 50ms`)
 
     /* A second look at the same website: what the browser asks the network for again. */

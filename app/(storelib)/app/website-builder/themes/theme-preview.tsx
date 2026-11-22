@@ -393,6 +393,43 @@ function askWhetherThere(src: string) {
       ASKED.delete(src)
     })
 }
+/*
+  ===========================================================================
+   THE WEBSITE'S OWN PAGES IN THE TAB'S HISTORY
+  ===========================================================================
+  A link followed inside the frame is a history entry of the tab's, after
+  the preview's own (&preview=slug). Back in the bar went back one entry,
+  which was the website's previous page, not the grid: the frame changed
+  page as the window left, a 318ms parse at a quarter speed in the middle of
+  the leaving, and the entries stayed behind with no frame to show, so the
+  system's back afterwards did nothing for as many presses as pages had been
+  browsed (scripts/check-theme-preview-live.mjs). So the website's pages are
+  counted as the frame reports each one (its shim says so on every page),
+  against the tab's history length: a page that grew the history is a step
+  forward, one that did not and is the page before is a step back. Leaving
+  goes back over all of them at once (framedSteps, read by the Website page).
+*/
+const FRAMED: { pages: string[]; at: number; length: number } = { pages: [], at: 0, length: 0 }
+function framedPage(path: string) {
+  const length = window.history.length
+  if (FRAMED.pages.length === 0) {
+    FRAMED.pages = [path]
+    FRAMED.at = 0
+  } else if (length > FRAMED.length) {
+    FRAMED.pages = [...FRAMED.pages.slice(0, FRAMED.at + 1), path]
+    FRAMED.at = FRAMED.pages.length - 1
+  } else if (FRAMED.pages[FRAMED.at - 1] === path) {
+    FRAMED.at -= 1
+  } else if (FRAMED.pages[FRAMED.at + 1] === path) {
+    FRAMED.at += 1
+  }
+  FRAMED.length = length
+}
+/** How many of the tab's history entries the open preview's website has put after the preview's own. */
+export function framedSteps(): number {
+  return Math.max(0, FRAMED.at)
+}
+
 /** How long a website may take to say it drew before its address is checked. */
 const LIVE_CHECK_MS = 2500
 
@@ -444,11 +481,31 @@ function LiveSite({ src, device, name, openedAt }: { src: string; device: Previe
     return () => window.clearTimeout(t)
   }, [openedAt])
 
+  /* A new website: none of its pages are in the history yet. */
+  React.useEffect(() => {
+    FRAMED.pages = []
+    FRAMED.at = 0
+    FRAMED.length = window.history.length
+  }, [src])
+  /*
+    THE WEBSITE'S OWN BACKGROUND BEHIND IT. Between two of its pages the
+    frame shows only itself for a moment, and it was white: a dark template
+    (Night shop) flashed white on every click. Each page says its background
+    as it starts (scripts/build-template-previews.ts) and the frame takes it.
+  */
+  const [siteBackground, setSiteBackground] = React.useState<string | null>(null)
+  React.useEffect(() => setSiteBackground(null), [src])
   React.useEffect(() => {
     const onMessage = (e: MessageEvent) => {
       if (!frame.current || e.source !== frame.current.contentWindow) return
-      const data = e.data as { type?: unknown } | null
+      const data = e.data as { type?: unknown; path?: unknown; background?: unknown } | null
+      if (data && data.type === "storelib:template-preview-background") {
+        const c = typeof data.background === "string" ? data.background.trim() : ""
+        if (/^rgba?\([\d.,\s/%]+\)$|^#[0-9a-f]{3,8}$/i.test(c)) setSiteBackground(c)
+        return
+      }
       if (!data || data.type !== "storelib:template-preview") return
+      if (typeof data.path === "string") framedPage(data.path)
       /* Still arriving: the window's own fade shows it. Later: a fade of its own, once. */
       const early = performance.now() - (openedAt.current ?? 0) < PREVIEW_IN_MS * 0.6
       setReady((r) => r ?? (early ? "with-window" : "fade"))
@@ -476,10 +533,13 @@ function LiveSite({ src, device, name, openedAt }: { src: string; device: Previe
 
   /*
     THE SWITCH. The frame's new width is set in this commit and the website
-    lays itself out again in it; that takes the frame a moment, and the
-    frames in between are the old layout cut or stretched. So the website
-    dips to nothing on the press, holds there for that moment, and comes
-    back: one fade, on opacity, on the compositor.
+    lays itself out again in it; until it has, the frames in between are
+    the old layout cut or stretched. So the website goes clear on the
+    press's frame and fades back in only once two frames have been drawn
+    after it: a frame in the same process as this page is laid out with the
+    page, so by then it has its new layout (at a quarter speed that layout
+    took 300ms, and a fade on a timer showed the old one through it). One
+    fade, on opacity, on the compositor.
   */
   const lastDevice = React.useRef(device)
   React.useLayoutEffect(() => {
@@ -488,13 +548,25 @@ function LiveSite({ src, device, name, openedAt }: { src: string; device: Previe
     const el = frame.current
     if (!el || !ready || typeof el.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
     el.getAnimations().forEach((a) => a.cancel())
-    el.animate([{ opacity: 0 }, { opacity: 0, offset: 0.4 }, { opacity: 1 }], { duration: PREVIEW_SWAP_MS + 120, easing: "cubic-bezier(0.33, 1, 0.68, 1)" })
+    const hold = el.animate([{ opacity: 0 }, { opacity: 0 }], { duration: 1000, fill: "forwards" })
+    let id = requestAnimationFrame(() => {
+      id = requestAnimationFrame(() => {
+        hold.cancel()
+        el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: PREVIEW_SWAP_MS, easing: "cubic-bezier(0.33, 1, 0.68, 1)" })
+      })
+    })
+    return () => {
+      cancelAnimationFrame(id)
+      hold.cancel()
+    }
   }, [device, ready])
 
   /* Desktop on a narrow screen: the desktop layout, scaled to fit. */
   const scale = device === "desktop" && stage && stage.w > 0 && stage.w < LIVE_DESKTOP_MIN ? stage.w / LIVE_DESKTOP_WIDTH : 1
-  const frameStyle: React.CSSProperties =
-    scale < 1 && stage ? { width: LIVE_DESKTOP_WIDTH, height: Math.ceil(stage.h / scale), transform: `scale(${scale})`, transformOrigin: "0 0" } : {}
+  const frameStyle: React.CSSProperties = {
+    ...(scale < 1 && stage ? { width: LIVE_DESKTOP_WIDTH, height: Math.ceil(stage.h / scale), transform: `scale(${scale})`, transformOrigin: "0 0" } : {}),
+    ...(siteBackground ? { backgroundColor: siteBackground } : {}),
+  }
 
   return (
     <div className={cn("absolute inset-0 flex justify-center pb-[env(safe-area-inset-bottom)] md:pb-0", device === "phone" && "md:py-6")}>

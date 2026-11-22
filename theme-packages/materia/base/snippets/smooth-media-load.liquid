@@ -17,6 +17,8 @@
     * Never on what the visitor sees first: pictures in the first screen when
       the page is read, and the priority (fetchpriority=high) picture, show the
       moment they arrive. A fade there read as the hero flashing or popping.
+    * Never twice (round 20): not on a picture whose section reveal will show
+      it (animation.js waits for it), and not on one that lands off screen.
 {%- endcomment -%}
 <style>
   @keyframes materiaMediaFade { from { opacity: 0; } to { opacity: 1; } }
@@ -42,13 +44,23 @@
     return true;
   }
 
+  // One fade per picture. A picture inside a section that is still to
+  // reveal, or revealing now, is shown by that reveal: fading it as well
+  // made it appear twice (the section came in, then the picture again). One
+  // that arrives off screen is simply there when it is scrolled to.
+  function shows(el) {
+    if (el.closest && el.closest('.scroll-trigger--armed')) { return false; }
+    var r = el.getBoundingClientRect();
+    return r.width > 0 && r.bottom > 0 && r.top < window.innerHeight;
+  }
+
   function prep(el) {
     if (!eligible(el)) { return; }
     if (seen) { if (seen.has(el)) { return; } seen.add(el); }
     var ready = el.tagName === 'IMG' ? (el.complete && el.naturalWidth > 0) : (el.readyState >= 2);
     if (ready) { return; }                          // already painted — leave it, no flash
     var ev = el.tagName === 'IMG' ? 'load' : 'loadeddata';
-    el.addEventListener(ev, function () { el.classList.add('media-fade-run'); }, { once: true });
+    el.addEventListener(ev, function () { if (shows(el)) { el.classList.add('media-fade-run'); } }, { once: true });
   }
 
   function scan(ctx) {

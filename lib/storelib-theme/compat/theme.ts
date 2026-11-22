@@ -73,6 +73,7 @@ import { blocksIntoDetails, contentForStatics } from "@/lib/website-builder/prod
 import { REVIEWS_WIDGET_LIQUID, isReviewsAppBlock, ratingOfProduct, reviewAppBlockKind, reviewStarsHtml, reviewsBlockSettings, storelibReviewWidgetFilter } from "./storelib-reviews"
 import { REVIEWS_LIST_BLOCK, REVIEW_STARS_BLOCK } from "./review-app-blocks"
 import { ESTIMATED_DELIVERY_BLOCK, STOCK_STATUS_BLOCK, estimatedDeliveryHtml, isStorelibProductAppBlock, stockStatusHtml } from "./product-app-blocks"
+import { formIdOf, isFormAppBlock, siteFormEmbedHtml, storelibFormFilterOf } from "./storelib-form"
 import { OFFERS_APP_BLOCK, offersBlockHtml, type OffersShown } from "./offers-app-block"
 import { shopWords } from "@/lib/markets/ui-words"
 import { faqsOf, withFaqTab, themeReadsFaqs, withFaqUnderDescription, type Faq } from "./product-faq"
@@ -139,6 +140,7 @@ import { MISSING_IMAGE_HEAD } from "@/lib/media/missing-image"
 import { COVER_TRIM_HEAD } from "@/lib/images/cover-trim"
 import { BUSY_BUTTON_FIX } from "./busy-buttons"
 import { SEALED_NOTE, sealMarkup } from "./seal"
+import { hideAsked, poweredByLink } from "./powered-by"
 
 /** One resolver per page drawn, each address worked out once: a menu is read by the header, its drawer and the footer. */
 const linksOfPage = new WeakMap<object, (url: string) => string>()
@@ -444,6 +446,8 @@ export interface CompatPage {
   i18n?: SiteI18n
   /** The password page's "Log in here": Storelib's owner sign in for this website (app/api/site-password/owner), never Shopify's admin. */
   ownerUrl?: string
+  /** Whether the page says "Powered by Storelib" (./powered-by.ts poweredByShown, the server's decision). Absent: the theme setting decides (the builder's canvas). */
+  poweredBy?: boolean
   search?: { terms: string; results: CardLike[]; performed: boolean } | null
   /** `page` on a page template: its title and its body. */
   pageObject?: { title: string; content: string; handle: string; url: string } | null
@@ -956,7 +960,8 @@ export class CompatTheme {
       pages: {},
       images: {},
       metaobjects: {},
-      powered_by_link: "",
+      /* "Powered by Storelib": what the server decided for this page (./powered-by.ts), else, in the builder's canvas, the creator's setting. */
+      powered_by_link: (page.poweredBy ?? !hideAsked(this.settingsValues)) ? poweredByLink() : "",
       current_page: Number(page.query?.page ?? 1) || 1,
       /* Nil unless a collection or blog is narrowed by tag, as on Shopify: Dawn's <title> writes ` – tagged "…"` whenever it is anything else, and an empty list is not nothing in Liquid. */
       current_tags: page.blogData?.tags?.length ? [...page.blogData.tags] : null,
@@ -1015,7 +1020,7 @@ export class CompatTheme {
         return name === SIZE_CHART_SNIPPET_NAME ? parsedMarkup(SIZE_CHART_SNIPPET).tree : name === PERSONALIZATION_SNIPPET_NAME ? parsedMarkup(PERSONALIZATION_SNIPPET).tree : null
       },
       /* Storelib Reviews widgets (./storelib-reviews.ts) and the size chart (./size-chart.ts): Storelib's own filters, beside the theme's. */
-      filter: (name) => (name === "storelib_review_widget" ? storelibReviewWidgetFilter : name === "storelib_size_chart" ? this.sizeChartFilter : name === "storelib_personalization" ? this.personalizationFilter : compatFilter(name)),
+      filter: (name) => (name === "storelib_review_widget" ? storelibReviewWidgetFilter : name === "storelib_size_chart" ? this.sizeChartFilter : name === "storelib_personalization" ? this.personalizationFilter : name === "storelib_form" ? storelibFormFilter : compatFilter(name)),
       section: (ctx, name) => this.renderStaticSection(ctx, name),
       sections: (ctx, group) => this.renderGroup(ctx, group),
       contentFor: (ctx, what, args) => this.contentFor(ctx, what, args),
@@ -1024,6 +1029,7 @@ export class CompatTheme {
         if (isSizeChartAppBlock(type)) return this.sizeChartBlock(ctx, { id: String(block.id ?? ""), type, settings: (block.__instance as CompatBlockInstance | undefined)?.settings ?? {} }, ctx.registers.closest as O | undefined)
         if (isPersonalizationAppBlock(type)) return this.personalizationBlock(ctx, { id: String(block.id ?? ""), type, settings: (block.__instance as CompatBlockInstance | undefined)?.settings ?? {} }, ctx.registers.closest as O | undefined)
         if (isStorelibProductAppBlock(type)) return this.productAppBlock(ctx, { id: String(block.id ?? ""), type, settings: (block.__instance as CompatBlockInstance | undefined)?.settings ?? {} }, ctx.registers.closest as O | undefined)
+        if (isFormAppBlock(type)) return formAppBlock(ctx, { id: String(block.id ?? ""), settings: (block.__instance as CompatBlockInstance | undefined)?.settings ?? {} })
         if (!isReviewsAppBlock(type)) return null
         const own = (block.__instance as CompatBlockInstance | undefined)?.settings
         return this.reviewsBlock(ctx, { id: String(block.id ?? ""), type, settings: own ?? {} }, ctx.registers.closest as O | undefined)
@@ -1509,7 +1515,7 @@ export class CompatTheme {
     const draw = (b: CompatBlockInstance) => {
       const path = this.fileFor("blocks", b.type)
       const tree = path ? this.tree(path) : null
-      if (!tree) return isReviewsAppBlock(b.type) ? this.reviewsBlock(ctx, b, closest) : isStorelibProductAppBlock(b.type) ? this.productAppBlock(ctx, b, closest) : isSizeChartAppBlock(b.type) ? this.sizeChartBlock(ctx, b, closest) : isPersonalizationAppBlock(b.type) ? this.personalizationBlock(ctx, b, closest) : ""
+      if (!tree) return isReviewsAppBlock(b.type) ? this.reviewsBlock(ctx, b, closest) : isStorelibProductAppBlock(b.type) ? this.productAppBlock(ctx, b, closest) : isSizeChartAppBlock(b.type) ? this.sizeChartBlock(ctx, b, closest) : isPersonalizationAppBlock(b.type) ? this.personalizationBlock(ctx, b, closest) : isFormAppBlock(b.type) ? formAppBlock(ctx, b) : ""
       let holder: Ctx | null = null
       const block = this.blockObject(b, [], res, resolverFor(() => holder))
       const c = ctx.child({ block, closest, ...extra })
@@ -1578,6 +1584,7 @@ export class CompatTheme {
       } else if (isReviewsAppBlock(block.type)) html = this.reviewsBlock(child, block, closest)
       else if (isStorelibProductAppBlock(block.type)) html = this.productAppBlock(child, block, closest)
       else if (isSizeChartAppBlock(block.type)) html = this.sizeChartBlock(child, block, closest)
+      else if (isFormAppBlock(block.type)) html = formAppBlock(child, block)
       else {
         const sectionPath = this.fileFor("sections", sectionType)
         const sectionTree = sectionPath ? this.tree(sectionPath) : null
@@ -2165,3 +2172,16 @@ export function shopMoney(cents: number, format = "${{amount}}"): string {
 
 /** A setting value's font, for code outside a template. */
 export { fontObject }
+
+/* ── A Storelib form (./storelib-form.ts) ─────────────────────────────────── */
+
+/** Drawn for the builder's canvas, where the form is a still card. */
+const formInEditor = (ctx: unknown) => ((ctx as Ctx).registers?.page as CompatPage | undefined)?.designMode === true
+const storelibFormFilter = storelibFormFilterOf(formInEditor)
+
+/** The "Storelib form" app block: the form its picker names, framed from the website's host. */
+function formAppBlock(ctx: Ctx, b: { id: string; settings?: unknown }): string {
+  const settings = b.settings && typeof b.settings === "object" ? (b.settings as O) : {}
+  const html = siteFormEmbedHtml({ formId: formIdOf(settings.form), title: typeof settings.title === "string" ? settings.title : "", inEditor: formInEditor(ctx) })
+  return html ? `<div class="shopify-app-block" ${blockAttributes(b.id)}>${html}</div>` : ""
+}

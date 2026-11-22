@@ -3,13 +3,16 @@
 Every starter photograph in these templates is from Unsplash, used under the Unsplash License
 (https://unsplash.com/license): free to use, commercially too, with no permission or credit required.
 Each was downloaded from the address beside it, resized and saved as WebP. None is from Unsplash+.
-No picture came with the Materia theme's own starter content.
+No picture came with the Materia theme's own starter content. The Sample packs shop draws nothing: its pack boxes and logo are Loudlib's own artwork, used with the owner's permission.
 
 Rows marked "Drawn for this template" were drawn for Storelib and are Storelib's own (round 20 adds the Night shop's moon logo and every poster design in the Poster shop, framed or cropped; the Poster shop's hero and room photographs are Unsplash photographs with those poster designs set into their frames): the Notion templates' Notion
-screens, product pictures and how-it-works steps, Storelib Default's planner pictures, every picture in the Digital products shop, and the Sample packs shop's Serum presets tile (its pack boxes are Loudlib's own artwork, used with the owner's permission), and the Creator Landing's book, course, club, letter and prompt covers and its shelf banners. The Course template's course covers and three lesson thumbnails are its Unsplash photographs with a title set on them; their rows say so.
+screens, Storelib Default's planner pictures, the screens on the Digital products shop's devices, and the Creator Landing's book, course, club, letter and prompt covers and its shelf banners. The Course template's course covers and three lesson thumbnails are its Unsplash photographs with a title set on them; their rows say so.
 Storelib Default's product pictures are Unsplash photographs set on one even grey background; their rows say so. Its Downloads picture has a planner page drawn onto the tablet's blank screen.
 The Merch template's product pictures are Unsplash photographs cropped and set on one even grey, and its hero's foggy sky is extended upward from its photograph.
 The Art books template's book covers, open book spreads and tablet are drawn around public domain paintings, prints and photographs that The Metropolitan Museum of Art shares on Unsplash; their rows name each source.
+
+The Notion templates' and the Digital products shop's device pictures are Unsplash photographs of laptops, tablets and a phone with a screen drawn for the template set into the display in perspective; their rows name the photograph. The Digital products bundle screen shows a small crop of https://images.unsplash.com/photo-1693328787539-1477754c01b7 (Unsplash License).
+The Creator Landing's photographs are one session by one photographer (Jonathan Borba): the same artist at her desk, used as the creator, Ines Hart.
 
 Rows marked "cover only" are sample product pictures for the listing covers (scripts/theme-templates/shops.ts).
 They are not part of a template and are never added to a creator's website.
@@ -66,16 +69,18 @@ They are not part of a template and are never added to a creator's website.
 | merch (cover only) | scripts/theme-templates/products/merch/merch-tee-fitted-black.webp | https://images.unsplash.com/photo-1590750093844-bc3ae9e48f9c (cropped, background evened to one grey) | Unsplash License |
 | merch (cover only) | scripts/theme-templates/products/merch/merch-tank-white.webp | https://images.unsplash.com/photo-1789110853802-905f3d5c654c (cropped, background evened to one grey) | Unsplash License |
 | merch (cover only) | scripts/theme-templates/products/merch/merch-short-black.webp | https://images.unsplash.com/photo-1789110519705-a4b8e6d69a9f (cropped, background evened to one grey) | Unsplash License |
-| digital | assets/digital-templates.webp | Drawn for this template | Storelib |
-| digital | assets/digital-hero-books.webp | Drawn for this template | Storelib |
-| digital | assets/digital-icons.webp | Drawn for this template | Storelib |
-| digital | assets/digital-bundle.webp | Drawn for this template | Storelib |
-| digital | assets/digital-email.webp | Drawn for this template | Storelib |
-| digital (cover only) | scripts/theme-templates/products/digital/digital-guide.webp | Drawn for this template | Storelib |
-| digital (cover only) | scripts/theme-templates/products/digital/digital-presets.webp | Drawn for this template | Storelib |
-| digital (cover only) | scripts/theme-templates/products/digital/digital-font.webp | Drawn for this template | Storelib |
-| digital (cover only) | scripts/theme-templates/products/digital/digital-planner.webp | Drawn for this template | Storelib |
-| digital (cover only) | scripts/theme-templates/products/digital/digital-luts.webp | Drawn for this template | Storelib |
+| digital | assets/digital-hero-guide.webp | https://images.unsplash.com/photo-1625864667451-bd05ac7e633a | Unsplash License |
+| digital | assets/digital-hero-laptop.webp | https://images.unsplash.com/photo-1484788984921-03950022c9ef | Unsplash License |
+| digital | assets/digital-hero-icons.webp | https://images.unsplash.com/photo-1589739900266-43b2843f4c12 | Unsplash License |
+| digital | assets/digital-bundle.webp | https://images.unsplash.com/photo-1654124803058-c814dc42f60c | Unsplash License |
+| digital | assets/digital-email.webp | https://images.unsplash.com/photo-1663524789649-c7abbb378561 | Unsplash License |
+| digital (cover only) | scripts/theme-templates/products/digital/digital-templates.webp | https://images.unsplash.com/photo-1654124803058-c814dc42f60c, screen drawn for this template | Unsplash License |
+| digital (cover only) | scripts/theme-templates/products/digital/digital-icons.webp | https://images.unsplash.com/photo-1654124803058-c814dc42f60c, screen drawn for this template | Unsplash License |
+| digital (cover only) | scripts/theme-templates/products/digital/digital-guide.webp | https://images.unsplash.com/photo-1654124803058-c814dc42f60c, screen drawn for this template | Unsplash License |
+| digital (cover only) | scripts/theme-templates/products/digital/digital-presets.webp | https://images.unsplash.com/photo-1654124803058-c814dc42f60c, screen drawn around https://images.unsplash.com/photo-1693328787539-1477754c01b7 | Unsplash License |
+| digital (cover only) | scripts/theme-templates/products/digital/digital-font.webp | https://images.unsplash.com/photo-1654124803058-c814dc42f60c, screen drawn for this template | Unsplash License |
+| digital (cover only) | scripts/theme-templates/products/digital/digital-planner.webp | https://images.unsplash.com/photo-1654124803058-c814dc42f60c, screen drawn for this template | Unsplash License |
+| digital (cover only) | scripts/theme-templates/products/digital/digital-luts.webp | https://images.unsplash.com/photo-1654124803058-c814dc42f60c, screen drawn around https://images.unsplash.com/photo-1793050759704-62a86a6ffe01 | Unsplash License |
 | artbooks | assets/artbooks-hero-cezanne.webp | https://images.unsplash.com/photo-1782850672347-9bbad75f71df (Paul Cézanne, Still Life with a Ginger Jar and Eggplants, The Metropolitan Museum of Art, public domain) | Unsplash License |
 | artbooks | assets/artbooks-hero-utamaro.webp | https://images.unsplash.com/photo-1787076113534-4c92b390981b | Unsplash License |
 | artbooks | assets/artbooks-tile-japan.webp | https://images.unsplash.com/photo-1787487283519-ca25e4142eb9 | Unsplash License |
@@ -134,9 +139,8 @@ They are not part of a template and are never added to a creator's website.
 | fitness | assets/fitness-class.webp | https://images.unsplash.com/photo-1518611012118-696072aa579a | Unsplash License |
 | fitness | assets/fitness-floor-work.webp | https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b | Unsplash License |
 | fitness | assets/fitness-stretch.webp | https://images.unsplash.com/photo-1544367567-0f2fcb009e0b | Unsplash License |
-| fitness | assets/fitness-gym.webp | https://images.unsplash.com/photo-1540497077202-7c8a3999166f | Unsplash License |
 | fitness | assets/fitness-dumbbells.webp | https://images.unsplash.com/photo-1534438327276-14e5300c3a48 | Unsplash License |
-| landing | assets/landing-hero-suite.webp | https://images.unsplash.com/photo-1779896412277-c4fd15c7a89c | Unsplash License |
+| landing | assets/landing-hero-desk.webp | https://images.unsplash.com/photo-1546663250-e28569a9706d, speaker badges painted out | Unsplash License |
 | landing | assets/landing-starter-desk.webp | https://images.unsplash.com/photo-1627244714766-94dab62ed964 | Unsplash License |
 | landing | assets/landing-behind-camera.webp | https://images.unsplash.com/photo-1497015289639-54688650d173 | Unsplash License |
 | landing | assets/landing-studio-shoot.webp | https://images.unsplash.com/photo-1601506521937-0121a7fc2a6b | Unsplash License |
@@ -205,45 +209,45 @@ They are not part of a template and are never added to a creator's website.
 | streetwear (cover only) | scripts/theme-templates/products/streetwear/streetwear-linen-tee-stone.webp | https://images.unsplash.com/photo-1693443688057-85f57b872a3c | Unsplash License |
 | samples | assets/samples-keys.webp | https://images.unsplash.com/photo-1598653222000-6b7b7a552625 | Unsplash License |
 | samples | assets/samples-producer.webp | https://images.unsplash.com/photo-1563330232-57114bb0823c | Unsplash License |
-| samples | assets/samples-hero.webp | Loudlib's own pack box, owner's artwork: three Loudlib boxes set on a drawn stage | Loudlib (the owner) |
-| samples | assets/samples-hero-phone.webp | Loudlib's own pack box, owner's artwork: three Loudlib boxes set on a drawn stage | Loudlib (the owner) |
-| samples | assets/samples-free.webp | Loudlib's own pack box, owner's artwork: Ambience Kit Vol I on a drawn stage | Loudlib (the owner) |
-| samples | assets/samples-genre-tech-house.webp | Loudlib's own pack box, owner's artwork: the cover art of Tech House Master Bundle, lifted off the box | Loudlib (the owner) |
-| samples | assets/samples-genre-deep-house.webp | Loudlib's own pack box, owner's artwork: the cover art of Deep House Production Suite I, lifted off the box | Loudlib (the owner) |
-| samples | assets/samples-genre-ambience.webp | Loudlib's own pack box, owner's artwork: the cover art of Ambience Kit Vol I, lifted off the box | Loudlib (the owner) |
-| samples | assets/samples-genre-drums.webp | Loudlib's own pack box, owner's artwork: the cover art of Drums One Shots Vol I, lifted off the box | Loudlib (the owner) |
-| samples | assets/samples-genre-free.webp | Loudlib's own pack box, owner's artwork: the cover art of Tech House Unitech Vol I, lifted off the box | Loudlib (the owner) |
-| samples | assets/samples-genre-presets.webp | Drawn for this template | Storelib |
-| samples | assets/samples-thumb-tech-house-master-bundle.webp | Loudlib's own pack box, owner's artwork: Tech House Master Bundle | Loudlib (the owner) |
-| samples | assets/samples-thumb-serum-presets.webp | Loudlib's own pack box, owner's artwork: Serum Presets Vol 1 | Loudlib (the owner) |
-| samples | assets/samples-thumb-drums-one-shots.webp | Loudlib's own pack box, owner's artwork: Drums One Shots Vol I | Loudlib (the owner) |
-| samples | assets/samples-thumb-ambience-kit.webp | Loudlib's own pack box, owner's artwork: Ambience Kit Vol I | Loudlib (the owner) |
-| samples | assets/samples-thumb-deep-house-production-suite.webp | Loudlib's own pack box, owner's artwork: Deep House Production Suite I | Loudlib (the owner) |
-| samples | assets/samples-thumb-tech-house-unitech.webp | Loudlib's own pack box, owner's artwork: Tech House Unitech Vol I | Loudlib (the owner) |
-| samples | assets/samples-demo-tech-house-master-bundle.mp4 | Synthesised for this template (sound, no samples used) | Storelib |
-| samples | assets/samples-demo-serum-presets.mp4 | Synthesised for this template (sound, no samples used) | Storelib |
-| samples | assets/samples-demo-drums-one-shots.mp4 | Synthesised for this template (sound, no samples used) | Storelib |
-| samples | assets/samples-demo-ambience-kit.mp4 | Synthesised for this template (sound, no samples used) | Storelib |
-| samples | assets/samples-demo-deep-house-production-suite.mp4 | Synthesised for this template (sound, no samples used) | Storelib |
-| samples | assets/samples-demo-tech-house-unitech.mp4 | Synthesised for this template (sound, no samples used) | Storelib |
-| samples (cover only) | scripts/theme-templates/products/samples/samples-pack-tech-house-master-bundle.webp | Loudlib's own pack box, owner's artwork: Tech House Master Bundle on a drawn stage | Loudlib (the owner) |
-| samples (cover only) | scripts/theme-templates/products/samples/samples-pack-serum-presets.webp | Loudlib's own pack box, owner's artwork: Serum Presets Vol 1 on a drawn stage | Loudlib (the owner) |
-| samples (cover only) | scripts/theme-templates/products/samples/samples-pack-drums-one-shots.webp | Loudlib's own pack box, owner's artwork: Drums One Shots Vol I on a drawn stage | Loudlib (the owner) |
-| samples (cover only) | scripts/theme-templates/products/samples/samples-pack-ambience-kit.webp | Loudlib's own pack box, owner's artwork: Ambience Kit Vol I on a drawn stage | Loudlib (the owner) |
-| samples (cover only) | scripts/theme-templates/products/samples/samples-pack-deep-house-production-suite.webp | Loudlib's own pack box, owner's artwork: Deep House Production Suite I on a drawn stage | Loudlib (the owner) |
-| samples (cover only) | scripts/theme-templates/products/samples/samples-pack-tech-house-unitech.webp | Loudlib's own pack box, owner's artwork: Tech House Unitech Vol I on a drawn stage | Loudlib (the owner) |
-| workspace | assets/workspace-hero.webp | Drawn for this template | Storelib |
-| workspace | assets/workspace-feature-projects.webp | Drawn for this template | Storelib |
-| workspace | assets/workspace-feature-invoices.webp | Drawn for this template | Storelib |
-| workspace | assets/workspace-cta.webp | Drawn for this template | Storelib |
-| workspace | assets/workspace-step-receipt.webp | Drawn for this template | Storelib |
-| workspace | assets/workspace-step-duplicate.webp | Drawn for this template | Storelib |
-| workspace (cover only) | scripts/theme-templates/products/workspace/workspace-freelance-desk.webp | Drawn for this template | Storelib |
-| workspace (cover only) | scripts/theme-templates/products/workspace/workspace-meal-planner.webp | Drawn for this template | Storelib |
-| workspace (cover only) | scripts/theme-templates/products/workspace/workspace-reading-log.webp | Drawn for this template | Storelib |
-| workspace (cover only) | scripts/theme-templates/products/workspace/workspace-home-budget.webp | Drawn for this template | Storelib |
-| workspace (cover only) | scripts/theme-templates/products/workspace/workspace-habit-tracker.webp | Drawn for this template | Storelib |
-| workspace (cover only) | scripts/theme-templates/products/workspace/workspace-study-planner.webp | Drawn for this template | Storelib |
+| samples | assets/samples-logo.webp | Loudlib's own logo, the owner's: the white "loud LIB." wordmark from its Payhip store, background removed | Loudlib (the owner) |
+| samples | assets/samples-box-serum-presets.webp | Loudlib's own pack box, owner's artwork from its Payhip store (pe56d.s3.amazonaws.com): Serum Presets Vol 1, cut out | Loudlib (the owner) |
+| samples | assets/samples-box-tech-house-master-bundle.webp | Loudlib's own pack box, owner's artwork from its Payhip store (pe56d.s3.amazonaws.com): Tech House Master Bundle, cut out | Loudlib (the owner) |
+| samples | assets/samples-box-drum-kit.webp | Loudlib's own pack box, owner's artwork from its Payhip store (pe56d.s3.amazonaws.com): Drums One Shots Vol I (Tech House Drum Kit Vol I), cut out | Loudlib (the owner) |
+| samples | assets/samples-box-ambience-kit.webp | Loudlib's own pack box, owner's artwork from its Payhip store (pe56d.s3.amazonaws.com): Ambience Kit Vol I, cut out | Loudlib (the owner) |
+| samples | assets/samples-box-deep-house-production-suite.webp | Loudlib's own pack box, owner's artwork from its Payhip store (pe56d.s3.amazonaws.com): Deep House Production Suite I (Serenade), cut out | Loudlib (the owner) |
+| samples | assets/samples-box-tech-house-unitech.webp | Loudlib's own pack box, owner's artwork from its Payhip store (pe56d.s3.amazonaws.com): Tech House Unitech Vol I, cut out | Loudlib (the owner) |
+| samples | assets/samples-box-drums-collection.webp | Loudlib's own pack box, owner's artwork from its Payhip store (pe56d.s3.amazonaws.com): Drums Collection (Tech House Drums Collection Vol I), cut out | Loudlib (the owner) |
+| samples | assets/samples-box-bass-collection.webp | Loudlib's own pack box, owner's artwork from its Payhip store (pe56d.s3.amazonaws.com): Bass Collection (Tech House Bass Collection Vol I), cut out | Loudlib (the owner) |
+| samples | assets/samples-box-tech-house-master-bundle-lg.webp | Loudlib's own pack box, owner's artwork from its Payhip store (pe56d.s3.amazonaws.com): Tech House Master Bundle, cut out, large | Loudlib (the owner) |
+| samples | assets/samples-free-pair.webp | Loudlib's own pack box, owner's artwork from its Payhip store (pe56d.s3.amazonaws.com): Ambience Kit Vol I and Drums One Shots Vol I side by side | Loudlib (the owner) |
+| samples | assets/samples-thumb-ambience-kit.webp | Loudlib's own pack box, owner's artwork from its Payhip store (pe56d.s3.amazonaws.com): Ambience Kit Vol I, small | Loudlib (the owner) |
+| samples | assets/samples-thumb-drum-kit.webp | Loudlib's own pack box, owner's artwork from its Payhip store (pe56d.s3.amazonaws.com): Drums One Shots Vol I (Tech House Drum Kit Vol I), small | Loudlib (the owner) |
+| samples | assets/samples-demo-tech-house-master-bundle.mp4 | Synthesised for this template (sound, no samples used), a stand in until Loudlib's own demos are uploaded | Storelib |
+| samples | assets/samples-demo-serum-presets.mp4 | Synthesised for this template (sound, no samples used), a stand in until Loudlib's own demos are uploaded | Storelib |
+| samples | assets/samples-demo-drums-one-shots.mp4 | Synthesised for this template (sound, no samples used), a stand in until Loudlib's own demos are uploaded | Storelib |
+| samples | assets/samples-demo-ambience-kit.mp4 | Synthesised for this template (sound, no samples used), a stand in until Loudlib's own demos are uploaded | Storelib |
+| samples | assets/samples-demo-deep-house-production-suite.mp4 | Synthesised for this template (sound, no samples used), a stand in until Loudlib's own demos are uploaded | Storelib |
+| samples | assets/samples-demo-tech-house-unitech.mp4 | Synthesised for this template (sound, no samples used), a stand in until Loudlib's own demos are uploaded | Storelib |
+| samples (cover only) | scripts/theme-templates/products/samples/samples-pack-serum-presets.webp | Loudlib's own pack box, owner's artwork from its Payhip store (pe56d.s3.amazonaws.com): Serum Presets Vol 1 on a plain dark background | Loudlib (the owner) |
+| samples (cover only) | scripts/theme-templates/products/samples/samples-pack-tech-house-master-bundle.webp | Loudlib's own pack box, owner's artwork from its Payhip store (pe56d.s3.amazonaws.com): Tech House Master Bundle on a plain dark background | Loudlib (the owner) |
+| samples (cover only) | scripts/theme-templates/products/samples/samples-pack-drum-kit.webp | Loudlib's own pack box, owner's artwork from its Payhip store (pe56d.s3.amazonaws.com): Drums One Shots Vol I (Tech House Drum Kit Vol I) on a plain dark background | Loudlib (the owner) |
+| samples (cover only) | scripts/theme-templates/products/samples/samples-pack-ambience-kit.webp | Loudlib's own pack box, owner's artwork from its Payhip store (pe56d.s3.amazonaws.com): Ambience Kit Vol I on a plain dark background | Loudlib (the owner) |
+| samples (cover only) | scripts/theme-templates/products/samples/samples-pack-deep-house-production-suite.webp | Loudlib's own pack box, owner's artwork from its Payhip store (pe56d.s3.amazonaws.com): Deep House Production Suite I (Serenade) on a plain dark background | Loudlib (the owner) |
+| samples (cover only) | scripts/theme-templates/products/samples/samples-pack-tech-house-unitech.webp | Loudlib's own pack box, owner's artwork from its Payhip store (pe56d.s3.amazonaws.com): Tech House Unitech Vol I on a plain dark background | Loudlib (the owner) |
+| samples (cover only) | scripts/theme-templates/products/samples/samples-pack-drums-collection.webp | Loudlib's own pack box, owner's artwork from its Payhip store (pe56d.s3.amazonaws.com): Drums Collection (Tech House Drums Collection Vol I) on a plain dark background | Loudlib (the owner) |
+| samples (cover only) | scripts/theme-templates/products/samples/samples-pack-bass-collection.webp | Loudlib's own pack box, owner's artwork from its Payhip store (pe56d.s3.amazonaws.com): Bass Collection (Tech House Bass Collection Vol I) on a plain dark background | Loudlib (the owner) |
+| workspace | assets/workspace-hero.webp | https://images.unsplash.com/photo-1597672996375-4d21cad0cbb9 | Unsplash License |
+| workspace | assets/workspace-feature-projects.webp | https://images.unsplash.com/photo-1597673030062-0a0f1a801a31 | Unsplash License |
+| workspace | assets/workspace-feature-invoices.webp | https://images.unsplash.com/photo-1559163499-413811fb2344 | Unsplash License |
+| workspace | assets/workspace-cta.webp | https://images.unsplash.com/photo-1618826908215-bf5c44ca24af | Unsplash License |
+| workspace | assets/workspace-step-receipt.webp | https://images.unsplash.com/photo-1663524789649-c7abbb378561 | Unsplash License |
+| workspace | assets/workspace-step-duplicate.webp | https://images.unsplash.com/photo-1612367990403-73ef3e67bc4f | Unsplash License |
+| workspace (cover only) | scripts/theme-templates/products/workspace/workspace-freelance-desk.webp | https://images.unsplash.com/photo-1612367990403-73ef3e67bc4f, turned a quarter, screen drawn for this template | Unsplash License |
+| workspace (cover only) | scripts/theme-templates/products/workspace/workspace-meal-planner.webp | https://images.unsplash.com/photo-1612367990403-73ef3e67bc4f, turned a quarter, screen drawn for this template | Unsplash License |
+| workspace (cover only) | scripts/theme-templates/products/workspace/workspace-reading-log.webp | https://images.unsplash.com/photo-1612367990403-73ef3e67bc4f, turned a quarter, screen drawn for this template | Unsplash License |
+| workspace (cover only) | scripts/theme-templates/products/workspace/workspace-home-budget.webp | https://images.unsplash.com/photo-1612367990403-73ef3e67bc4f, turned a quarter, screen drawn for this template | Unsplash License |
+| workspace (cover only) | scripts/theme-templates/products/workspace/workspace-habit-tracker.webp | https://images.unsplash.com/photo-1612367990403-73ef3e67bc4f, turned a quarter, screen drawn for this template | Unsplash License |
+| workspace (cover only) | scripts/theme-templates/products/workspace/workspace-study-planner.webp | https://images.unsplash.com/photo-1612367990403-73ef3e67bc4f, turned a quarter, screen drawn for this template | Unsplash License |
 | space | assets/space-moon.webp | Drawn for this template | Storelib |
 | space | assets/space-look-red-jacket.webp | https://images.unsplash.com/photo-1770192988725-2ddf1b4d6ee4 | Unsplash License |
 | space | assets/space-look-puffer.webp | https://images.unsplash.com/photo-1793383828034-7cc59606dc6f | Unsplash License |

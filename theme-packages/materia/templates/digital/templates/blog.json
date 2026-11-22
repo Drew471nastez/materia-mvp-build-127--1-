@@ -72,7 +72,7 @@
         "email_placeholder": "Your email",
         "note": "Unsubscribe whenever you like.",
         "header_alignment": "center",
-        "form_layout": "vertical",
+        "form_layout": "horizontal",
         "button_radius": 999,
         "field_radius": 999,
         "padding_top": 88,

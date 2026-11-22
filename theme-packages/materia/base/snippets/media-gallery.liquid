@@ -178,13 +178,14 @@
               </div>
             </div>
           </div>
-          {% if section_st.mobile_options == 'hidden_thumbnail' and is_shopable_video == false %}
+          {% if section_st.mobile_options == 'hidden_thumbnail' and is_shopable_video == false and images.size > 1 %}
             <div
               class="swiper-pagination hidden-md"
             ></div>
           {% endif %}
         {% else %}
-          {% if is_shopable_video == false %}
+          {%- comment -%} No "1/1" over a single picture (round 20). {%- endcomment -%}
+          {% if is_shopable_video == false and images.size > 1 %}
             <div
               class="swiper-pagination hidden-md"
             ></div>

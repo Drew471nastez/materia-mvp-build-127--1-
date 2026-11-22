@@ -74,30 +74,57 @@ function armReveal(entries) {
   });
 }
 
+// A section comes in with its pictures. On a slow connection it faded in
+// empty and each picture then faded in again on its own as it arrived: the
+// pictures seemed to load twice. The pictures in view that are still on their
+// way are waited for, PICTURE_WAIT_MS at most, so the section fades in once,
+// pictures included; one later than that simply appears (smooth-media-load).
+const PICTURE_WAIT_MS = 450;
+function picturesReady(el) {
+  const loading = [...el.querySelectorAll('img')].filter(img => !(img.complete && img.naturalWidth > 0));
+  if (!loading.length) return null;
+  const fold = window.innerHeight * 1.25;
+  const inView = loading.filter(img => { const r = img.getBoundingClientRect(); return r.width > 0 && r.top < fold && r.bottom > 0; });
+  if (!inView.length) return null;
+  return Promise.race([
+    Promise.all(inView.map(img => new Promise(done => { img.addEventListener('load', done, {once: true}); img.addEventListener('error', done, {once: true}); }))),
+    new Promise(done => setTimeout(done, PICTURE_WAIT_MS))
+  ]);
+}
+
+// Every class change first, then the styles read in one pass.
+function reveal(targets) {
+  targets.forEach(target => target.classList.remove('scroll-trigger--offscreen'));
+  targets.forEach(follow);
+}
+function follow(target) {
+  const end = event => {
+    if (event.target !== target) return;
+    target.removeEventListener('animationend', end);
+    markDone(target);
+  };
+  target.addEventListener('animationend', end);
+  const css = getComputedStyle(target);
+  const duration = Math.max(...css.animationDuration.split(',').map(msOf), 0);
+  const delay = Math.max(...css.animationDelay.split(',').map(msOf), 0);
+  setTimeout(() => { target.removeEventListener('animationend', end); markDone(target); }, duration + delay + 100);
+}
+
 const revealObserver = 'IntersectionObserver' in window ? new IntersectionObserver((entries) => {
   entries = armReveal(entries);
   // Things that come into view together play in reading order, a short
   // stagger apart; the order comes from the observer's own boxes.
   const entering = entries.filter(entry => entry.isIntersecting)
     .sort((a, b) => (a.boundingClientRect.top - b.boundingClientRect.top) || (a.boundingClientRect.left - b.boundingClientRect.left));
+  const now = [];
   entering.forEach(({target}, index) => {
     revealObserver.unobserve(target);
     if (index) target.style.setProperty('--reveal-order', String(Math.min(index, REVEAL_MAX_STAGGER)));
-    target.classList.remove('scroll-trigger--offscreen');
+    const waiting = picturesReady(target);
+    if (waiting) waiting.then(() => requestAnimationFrame(() => reveal([target])));
+    else now.push(target);
   });
-  // Styles are read after every class change, in one pass.
-  entering.forEach(({target}) => {
-    const end = event => {
-      if (event.target !== target) return;
-      target.removeEventListener('animationend', end);
-      markDone(target);
-    };
-    target.addEventListener('animationend', end);
-    const css = getComputedStyle(target);
-    const duration = Math.max(...css.animationDuration.split(',').map(msOf), 0);
-    const delay = Math.max(...css.animationDelay.split(',').map(msOf), 0);
-    setTimeout(() => { target.removeEventListener('animationend', end); markDone(target); }, duration + delay + 100);
-  });
+  if (now.length) reveal(now);
 }, {threshold: 0, rootMargin: '0px 0px -6% 0px'}) : null;
 
 function initializeScrollAnimationTrigger(root = document, editorEvent = false) {

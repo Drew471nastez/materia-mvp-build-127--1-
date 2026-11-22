@@ -73,6 +73,7 @@ import { articleObject, blogObject, sameTag } from "./objects"
 import { blogPath, categoryPath, postPath, tagPath } from "@/lib/site-blog/urls"
 import { SITE_BLOG_ARTICLE_CSS } from "@/lib/site-blog/render-html"
 import type { PublicPost, PublicPostCard, SiteBlogSettings } from "@/lib/site-blog/types"
+import { poweredByShown, withPoweredBy } from "./powered-by"
 
 type O = Record<string, unknown>
 
@@ -114,6 +115,13 @@ export interface SiteData {
   ownFavicon?: boolean
   /** Put in every live page's head (lib/website-builder/live-navigation.ts: links fetched ahead, pages that cross-fade). */
   extraHead?: string
+  /**
+   * Whether the owner's plan may remove Storelib's branding (lib/sites/plan.ts
+   * removeBranding, read by lib/website-builder/compat-site.ts). Only then does
+   * Theme settings' "Show Powered by Storelib" off take the line away
+   * (./powered-by.ts). Absent or null: not paid for.
+   */
+  removeBranding?: boolean | null
   /** What a page tells a search engine, by page key (lib/website-builder/page-seo.ts pageSeoForSite): the theme's page_title and page_description, a share picture, noindex. */
   seo?: (pageKey: string) => { title?: string; description?: string; image?: string; noindex?: boolean } | null
   /** What a drawn page's head is missing for search engines and share cards (./search-head.ts), from the server (lib/website-builder/compat-search.ts). Absent in the builder. */
@@ -507,7 +515,8 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
   const bodyEnd = `${site.extraBodyEnd ?? ""}${route.bodyEnd ?? ""}${shop.bodyEnd}`
   const drawn = drawPage(site.theme, route.page, route.sections, { scripts: true, extraHead: head || undefined, extraBodyEnd: bodyEnd || undefined, content: route.content })
   /* What the theme's head left out for search engines and share cards: a description, a picture, structured data, noindex (./search-head.ts). */
-  const out = withSearchHead(route.page.template === "password" ? withoutShopifyMark(drawn.html) : drawn.html, site.searchHead?.(route.page, path))
+  /* And it says "Powered by Storelib" where the plan has it said, whatever the theme's own code printed (./powered-by.ts). */
+  const out = withSearchHead(withPoweredBy(route.page.template === "password" ? withoutShopifyMark(drawn.html) : drawn.html, route.page.poweredBy === true), site.searchHead?.(route.page, path))
   /* The tab says what SEO & Social shows, whatever the theme's own <title> writes (lib/website-builder/tab-title.ts). */
   const done: SiteResponse = { ...pageHtml(tidyHead(withSiteIcon(withBodyStart(withTabTitle(out, tabTitleOf(site, route.page, route.ownTitle)), shop.bodyStart), site.icon, { ownFavicon: site.ownFavicon })), path, route.status ?? 200), personal: drawn.personal }
   /* A post's preview is its editor's: never kept by anyone, never a search result. */
@@ -881,6 +890,8 @@ const siteKeys = (site: SiteData): string[] => site.pageKeys ?? Object.keys(site
 function basePage(site: SiteData, req: SiteRequest, extra: Partial<CompatPage> & { template: string; path: string }): CompatPage {
   return {
     designMode: site.designMode === true,
+    /* "Powered by Storelib", decided here on the server from the plan (./powered-by.ts); the builder draws what its setting says. */
+    ...(site.designMode === true ? {} : { poweredBy: poweredByShown(site.theme.settingsValues, site.removeBranding) }),
     ...(site.themeDesignMode !== undefined ? { themeDesignMode: site.themeDesignMode } : {}),
     pageKeys: siteKeys(site),
     host: site.host,
@@ -1343,7 +1354,7 @@ async function notFound(site: SiteData, req: SiteRequest): Promise<SiteResponse>
   const many = req.query.get("sections")
   if (one) return sectionsAnswer(site, page, sections, [one], false)
   if (many) return sectionsAnswer(site, page, sections, many.split(",").map((x) => x.trim()).filter(Boolean).slice(0, 5), true)
-  return html(withTabTitle(drawPage(site.theme, page, sections, { scripts: true, extraHead: site.extraHead, extraBodyEnd: site.extraBodyEnd }).html, tabTitleOf(site, page)), 404)
+  return html(withTabTitle(withPoweredBy(drawPage(site.theme, page, sections, { scripts: true, extraHead: site.extraHead, extraBodyEnd: site.extraBodyEnd }).html, page.poweredBy === true), tabTitleOf(site, page)), 404)
 }
 
 /**

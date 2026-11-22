@@ -68,7 +68,7 @@
       "type": "image-2",
       "settings": {
         "image": "shopify://shop_images/workspace-hero.webp",
-        "image_alt": "The Freelance desk template open in Notion on a tablet",
+        "image_alt": "The Freelance desk template open in Notion on a laptop",
         "aspect_w": 50,
         "aspect_h": 31,
         "radius": 0,
@@ -130,76 +130,63 @@
       ]
     },
     "rules": {
-      "type": "image-with-text-bento",
+      "type": "text-columns",
       "settings": {
-        "heading": "How I build them",
-        "subheading": "Three rules every template follows.",
-        "columns": "3",
-        "gap_desktop": 16,
-        "row_height_desktop": 190,
-        "card_padding": 32,
-        "card_radius": 18,
-        "section_heading_size_desktop": 36,
-        "card_heading_size_desktop": 20,
-        "card_body_size": 15,
-        "padding_top_desktop": 24,
-        "padding_bottom_desktop": 88,
-        "row_height_mobile": 170
+        "color_scheme": "default",
+        "section_width": "container",
+        "columns_desktop": 3,
+        "column_gap": 48,
+        "header_gap": 48,
+        "show_dividers": true,
+        "item_heading_size": 20,
+        "padding_top": 88,
+        "padding_bottom": 96,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56
       },
       "blocks": {
-        "text_card_1": {
-          "type": "text_card",
+        "heading_1": {
+          "type": "heading",
           "settings": {
-            "caption": "",
+            "text": "How I build them"
+          }
+        },
+        "column_2": {
+          "type": "column",
+          "settings": {
+            "label": "One",
             "heading": "Used for a month first",
-            "heading_tag": "h3",
-            "body": "Nothing goes on sale until I, or someone who does that job, has used it every day for a month.",
-            "card_style": "tint",
-            "enable_custom_style": true,
-            "bg": "#f2f1ee",
-            "text_color": "#1f1f1d",
-            "col_span_desktop": "1",
-            "row_span_desktop": "1"
+            "text": "<p>Nothing goes on sale until I, or someone who does that job, has used it every day for a month.</p>"
           }
         },
-        "text_card_2": {
-          "type": "text_card",
+        "column_3": {
+          "type": "column",
           "settings": {
-            "caption": "",
+            "label": "Two",
             "heading": "As few columns as possible",
-            "heading_tag": "h3",
-            "body": "Every property has to earn its place. You can always add more; it is harder to know what to delete.",
-            "card_style": "tint",
-            "enable_custom_style": true,
-            "bg": "#f2f1ee",
-            "text_color": "#1f1f1d",
-            "col_span_desktop": "1",
-            "row_span_desktop": "1"
+            "text": "<p>Every property has to earn its place. You can always add more; it is hard to know what to delete.</p>"
           }
         },
-        "text_card_3": {
-          "type": "text_card",
+        "column_4": {
+          "type": "column",
           "settings": {
-            "caption": "",
+            "label": "Three",
             "heading": "Free plan only",
-            "heading_tag": "h3",
-            "body": "If it needs a paid Notion plan or an outside tool, it does not ship.",
-            "card_style": "inverse",
-            "col_span_desktop": "1",
-            "row_span_desktop": "1"
+            "text": "<p>If it needs a paid Notion plan or an outside tool, it does not ship.</p>"
           }
         }
       },
       "block_order": [
-        "text_card_1",
-        "text_card_2",
-        "text_card_3"
+        "heading_1",
+        "column_2",
+        "column_3",
+        "column_4"
       ]
     },
     "newsletter": {
       "type": "newsletter",
       "settings": {
-        "form_layout": "vertical",
+        "form_layout": "horizontal",
         "email_placeholder": "you@example.com",
         "btn_text": "Sign up",
         "note": "One email per new template. Unsubscribe from any of them.",

@@ -63,22 +63,22 @@
         "image_6": {
           "type": "image",
           "settings": {
-            "image": "shopify://shop_images/digital-hero-books.webp",
-            "alt": "Two guides, Pricing your work and Sell your first file"
+            "image": "shopify://shop_images/digital-hero-guide.webp",
+            "alt": "The Pricing your work guide open on a tablet, lying on black cloth"
           }
         },
         "image_7": {
           "type": "image",
           "settings": {
-            "image": "shopify://shop_images/digital-templates.webp",
-            "alt": "Social post templates and a business card"
+            "image": "shopify://shop_images/digital-hero-laptop.webp",
+            "alt": "Social post templates open on a laptop on a cafe table"
           }
         },
         "image_8": {
           "type": "image",
           "settings": {
-            "image": "shopify://shop_images/digital-icons.webp",
-            "alt": "A sheet of sixteen line icons"
+            "image": "shopify://shop_images/digital-hero-icons.webp",
+            "alt": "The line icon set on a tablet, on an old wooden table"
           }
         }
       },
@@ -181,7 +181,7 @@
         "section_width": "container",
         "image_position": "right",
         "image": "shopify://shop_images/digital-email.webp",
-        "image_alt": "A receipt email with two files and a Download all button",
+        "image_alt": "A phone in a hand showing the receipt email, with two files and a Download all button",
         "image_aspect_desktop": "4 / 5",
         "image_aspect": "4 / 5",
         "image_radius": 12,
@@ -266,7 +266,7 @@
         "image_position": "left",
         "text_column_width": 44,
         "image": "shopify://shop_images/digital-bundle.webp",
-        "image_alt": "Four product covers: a guide, an icon set, photo presets and a typeface",
+        "image_alt": "The starter bundle open on a tablet: a guide, an icon set, photo presets and a typeface",
         "aspect_w": 1,
         "aspect_h": 1,
         "image_radius": 14,
@@ -447,7 +447,7 @@
         "email_placeholder": "Your email",
         "note": "Unsubscribe whenever you like.",
         "header_alignment": "center",
-        "form_layout": "vertical",
+        "form_layout": "horizontal",
         "header_size": "large",
         "button_radius": 999,
         "field_radius": 999,

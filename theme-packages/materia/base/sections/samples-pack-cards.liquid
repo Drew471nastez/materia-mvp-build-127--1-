@@ -86,7 +86,7 @@
   #shopify-section-{{ sid }} .spc__pill:hover { border-color: rgba(var(--color-heading-rgb), .4); color: var(--color-heading); }
   #shopify-section-{{ sid }} .spc__pill[aria-pressed="true"] { background: rgb(var(--color-heading-rgb)); border-color: transparent; color: var(--color-background); }
   #shopify-section-{{ sid }} .spc__pill:focus-visible { outline: 2px solid rgb(var(--color-heading-rgb)); outline-offset: 2px; }
-  #shopify-section-{{ sid }} .spc__grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  #shopify-section-{{ sid }} .spc__grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat({{ s.columns_mobile | default: 2 }}, minmax(0, 1fr)); gap: 10px; }
   #shopify-section-{{ sid }} .spc__card { display: flex; flex-direction: column; min-width: 0; border-radius: 14px; padding: 10px 10px 12px; background: rgba(var(--color-heading-rgb), .035); border: 1px solid rgba(var(--color-heading-rgb), .07); transition: opacity .25s ease, transform .25s ease, border-color .2s ease; }
   #shopify-section-{{ sid }} .spc__card[hidden] { display: none; }
   #shopify-section-{{ sid }} .spc__card.is-in { animation: spc-in .3s ease both; }
@@ -102,8 +102,7 @@
   #shopify-section-{{ sid }} .spc__card .ssp { --ssp-btn: 30px; --ssp-wave: 30px; gap: 10px; margin-top: 2px; }
   #shopify-section-{{ sid }} .spc__card .ssp__i { width: 44%; height: 44%; }
   #shopify-section-{{ sid }} .spc__card .ssp__time { min-width: 0; font-size: 12px; }
-  #shopify-section-{{ sid }} .spc__card .ssp:not(.is-started) .ssp__time { display: none; }
-  #shopify-section-{{ sid }} .spc__card .ssp.is-started .ssp__time { min-width: 6.6em; }
+  #shopify-section-{{ sid }} .spc__card .ssp__time { display: none; }
   #shopify-section-{{ sid }} .spc__card .ssp--off .ssp__time { display: block; }
   #shopify-section-{{ sid }} .spc__foot { margin-top: auto; display: flex; flex-direction: column; gap: 10px; padding-top: 4px; }
   #shopify-section-{{ sid }} .spc__price { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; font-size: 15px; font-weight: 600; color: var(--color-heading); font-variant-numeric: tabular-nums; min-height: 24px; }
@@ -120,14 +119,11 @@
   #shopify-section-{{ sid }} .spc__btn .icon-load { display: none; }
   #shopify-section-{{ sid }} .spc__foot-link { display: flex; justify-content: center; margin-top: 32px; }
   @keyframes spc-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-  @media (min-width: 560px) {
-    #shopify-section-{{ sid }} .spc__grid { grid-template-columns: repeat({{ s.columns_mobile | default: 2 }}, minmax(0, 1fr)); }
-  }
   @media (min-width: 750px) {
     #shopify-section-{{ sid }} .spc { padding-block: {{ pt }}px {{ pb }}px; }
     #shopify-section-{{ sid }} .spc__heading { font-size: {{ s.heading_size | default: 40 }}px; }
     #shopify-section-{{ sid }} .spc__head { margin-bottom: 28px; }
-    #shopify-section-{{ sid }} .spc__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+    #shopify-section-{{ sid }} .spc__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
   }
   @media (min-width: 1000px) {
     #shopify-section-{{ sid }} .spc__grid { grid-template-columns: repeat({{ cols }}, minmax(0, 1fr)); }
@@ -167,13 +163,11 @@
           {%- liquid
             assign b = block.settings
             assign p = blank
-            if b.product != blank
-              assign p = b.product
+            if b.pack_product != blank
+              assign p = b.pack_product
             elsif source != blank and source.products_count > 0
               assign at = forloop.index0
-              for candidate in source.products offset: at limit: 1
-                assign p = candidate
-              endfor
+              assign p = source.products[at]
             endif
             assign ssp_src = b.audio | strip
             if ssp_src != blank
@@ -255,7 +249,7 @@
                       <span>{{ p.price | money }}</span>
                       {%- if p.compare_at_price > p.price -%}
                         <s>{{ p.compare_at_price | money }}</s>
-                        {%- assign off = p.compare_at_price | minus: p.price | times: 100 | divided_by: p.compare_at_price | round -%}
+                        {%- assign off = p.compare_at_price | minus: p.price | times: 100.0 | divided_by: p.compare_at_price | round -%}
                         {%- if off > 0 -%}<span class="spc__off">-{{ off }}%</span>{%- endif -%}
                       {%- endif -%}
                     {%- endif -%}
@@ -437,7 +431,7 @@
     { "type": "text", "id": "free_button", "label": "Button for a free pack", "default": "Get it free" },
     { "type": "text", "id": "view_label", "label": "Button when a card has no price", "default": "See the pack" },
     { "type": "range", "id": "columns", "label": "Cards in a row", "min": 2, "max": 5, "step": 1, "default": 4 },
-    { "type": "range", "id": "columns_mobile", "label": "Cards in a row on small screens", "min": 1, "max": 2, "step": 1, "default": 2 },
+    { "type": "range", "id": "columns_mobile", "label": "Cards in a row on phones", "min": 1, "max": 2, "step": 1, "default": 2 },
     { "type": "text", "id": "button_label", "label": "Button below the cards" },
     { "type": "url", "id": "button_link", "label": "Button link" },
     { "type": "range", "id": "heading_size", "label": "Heading size", "min": 20, "max": 72, "step": 2, "unit": "px", "default": 40 },
@@ -464,7 +458,7 @@
       "type": "pack",
       "name": "Pack",
       "settings": [
-        { "type": "product", "id": "product", "label": "Product", "info": "Left empty, the collection's product in this card's place." },
+        { "type": "product", "id": "pack_product", "label": "Product", "info": "Left empty, the collection's product in this card's place." },
         { "type": "text", "id": "title", "label": "Title when there is no product", "default": "Pack name" },
         { "type": "image_picker", "id": "cover", "label": "Cover when there is no product" },
         { "type": "url", "id": "link", "label": "Link when there is no product" },

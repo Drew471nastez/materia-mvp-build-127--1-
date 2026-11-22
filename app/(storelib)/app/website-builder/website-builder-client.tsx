@@ -103,7 +103,7 @@ import { backThen } from "@/lib/navigation/go-back"
 import { builtinListings, installedListingSlugs, listingPath, listingSlugOfSettings, type ThemeListing } from "@/lib/themes/marketplace-shared"
 import { SITE_PICTURE_QUALITY, optimizedImageUrl } from "@/lib/images/optimized-url"
 import { THEME_PARAM, THEMES_PARAM, ThemeMarketplace } from "./themes/themes-client"
-import { PREVIEW_PARAM, ThemePreview } from "./themes/theme-preview"
+import { PREVIEW_PARAM, ThemePreview, framedSteps } from "./themes/theme-preview"
 import { relativeTime } from "@/lib/website-builder/relative-time"
 import { type Cover, coverBeingWatched, latestCover, requestCover, savedAt, seedCover, watchCover } from "@/lib/website-builder/cover-refresh"
 import { pagesBehind } from "@/lib/website-builder/page-refresh"
@@ -1077,10 +1077,16 @@ export function WebsiteBuilderClient({
   }
   /** Back, Escape, a press on the dim: the grid (or the page) under the preview. */
   const closePreview = () => {
+    /* The website's own pages, browsed inside the preview, are entries after the preview's: back over them too, in the same traversal. */
+    const browsed = framedSteps()
     setPreviewSlug(null)
     if (previewPushed.current) {
       previewPushed.current = false
-      backThen(clearPreviewAddress)
+      backThen(clearPreviewAddress, undefined, 1 + browsed)
+      return
+    }
+    if (browsed > 0) {
+      backThen(clearPreviewAddress, undefined, browsed)
       return
     }
     clearPreviewAddress()
@@ -1088,9 +1094,10 @@ export function WebsiteBuilderClient({
   /** The preview's close button: the preview and the marketplace under it, back over both entries in one traversal. */
   const closePreviewAndThemes = () => {
     if (!themesOpen) return closePreview()
+    const browsed = framedSteps()
     setPreviewSlug(null)
     setThemesOpen(false)
-    const steps = (previewPushed.current ? 1 : 0) + (themesPushed.current ? 1 : 0)
+    const steps = browsed + (previewPushed.current ? 1 : 0) + (themesPushed.current ? 1 : 0)
     previewPushed.current = false
     themesPushed.current = false
     /* The focus goes to what opened the marketplace, not to a card that is leaving with it. */

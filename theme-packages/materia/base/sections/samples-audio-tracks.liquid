@@ -37,11 +37,11 @@
   assign own = 0
   assign loose = 0
   for block in section.blocks
-    if block.settings.product != blank and product != blank
-      if block.settings.product.id == product.id
+    if block.settings.for_product != blank and product != blank
+      if block.settings.for_product.id == product.id
         assign own = own | plus: 1
       endif
-    elsif block.settings.product == blank
+    elsif block.settings.for_product == blank
       assign loose = loose | plus: 1
     endif
   endfor
@@ -132,7 +132,8 @@
   #shopify-section-{{ sid }} .sat__cell .ssp__i { width: 50%; height: 50%; }
   #shopify-section-{{ sid }} .sat__cell .ssp.is-playing .ssp__btn { background: rgb(var(--color-heading-rgb)); }
   #shopify-section-{{ sid }} .sat__cell .ssp__time { display: none; }
-  #shopify-section-{{ sid }} .sat__cap { margin: 6px 0 0 40px; font-size: 13px; line-height: 1.35; color: var(--color-text); text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #shopify-section-{{ sid }} .sat__cap { margin: 6px 0 0 40px; font-size: 13px; line-height: 1.35; color: var(--color-text); text-align: left; white-space: nowrap; }
+  #shopify-section-{{ sid }} .sat__cap b, #shopify-section-{{ sid }} .sat__cap span { display: block; overflow: hidden; text-overflow: ellipsis; }
   #shopify-section-{{ sid }} .sat__cap b { font-weight: 600; color: var(--color-heading); }
   /* Feature */
   #shopify-section-{{ sid }} .sat__feature { border-radius: 16px; background: rgba(var(--color-heading-rgb), .035); border: 1px solid rgba(var(--color-heading-rgb), .07); padding: 22px 18px; }
@@ -185,10 +186,10 @@
         {%- for block in section.blocks -%}
           {%- liquid
             assign b = block.settings
-            if b.product != blank and product != blank and b.product.id != product.id
+            if b.for_product != blank and product != blank and b.for_product.id != product.id
               continue
             endif
-            if strict and b.product == blank
+            if strict and b.for_product == blank
               continue
             endif
             if layout == 'feature' and drawn > 0
@@ -210,8 +211,8 @@
             assign ssp_id = 'ssp-' | append: sid | append: '-' | append: block.id
             assign ssp_empty = 'No audio'
             assign link = b.link
-            if link == blank and b.product != blank
-              assign link = b.product.url
+            if link == blank and b.for_product != blank
+              assign link = b.for_product.url
             endif
             assign has_cover = false
             if layout == 'list' and b.cover != blank
@@ -258,7 +259,7 @@
           {%- if layout == 'grid' -%}
             <li class="sat__cell" {{ block.shopify_attributes }}>
               {{ player }}
-              <p class="sat__cap"><b>{{ ssp_title | escape }}</b>{% if b.subtitle != blank %} · {{ b.subtitle | escape }}{% endif %}</p>
+              <p class="sat__cap"><b>{{ ssp_title | escape }}</b>{% if b.subtitle != blank %}<span>{{ b.subtitle | escape }}</span>{% endif %}</p>
             </li>
           {%- elsif layout == 'feature' -%}
             <div class="sat__ftop" {{ block.shopify_attributes }}>
@@ -480,7 +481,7 @@
         { "type": "image_picker", "id": "cover", "label": "Cover", "info": "List layout only." },
         { "type": "text", "id": "link_label", "label": "Link label", "default": "Get the pack" },
         { "type": "url", "id": "link", "label": "Link", "info": "Left empty, the picked product's page." },
-        { "type": "product", "id": "product", "label": "Product", "info": "Picked, the track shows on that product's page and on pages without a product." }
+        { "type": "product", "id": "for_product", "label": "Product", "info": "Picked, the track shows on that product's page and on pages without a product." }
       ]
     }
   ],

@@ -43,6 +43,8 @@ import type { CompatTheme } from "@/lib/storelib-theme/compat/theme"
 import type { CollectionLike } from "@/lib/storelib-theme/compat/objects"
 import { compatMenus } from "@/lib/storelib-theme/compat/menus"
 import { liveNavigationEnd, liveNavigationMarkup } from "./live-navigation"
+import { creatorSitePlan } from "@/lib/sites/plan-server"
+import { siteLimits } from "@/lib/sites/plan"
 import { siteVitalsScript } from "@/lib/perf/site-vitals-inline"
 import { storeIdentity } from "@/lib/store/identity-server"
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
@@ -504,6 +506,15 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
     address is answered as before. A failed read is no blog for this page.
   */
   const blogAsked = quiet(part("blog", blogFor(creator.creatorId).catch(() => null), null))
+  /*
+    WHETHER THE PLAN MAY HIDE "POWERED BY STORELIB" (lib/sites/plan.ts
+    removeBranding, from the owner's subscription as a OnePage's badge reads
+    it). Only then does the theme setting take the line away
+    (lib/storelib-theme/compat/powered-by.ts). A read that failed or came
+    late is null: this page keeps the line and is not held (partial).
+  */
+  const planRead = creatorSitePlan(creator.creatorId, admin).then((plan) => siteLimits(plan).removeBranding)
+  const brandingAsked = quiet(live ? part("plan", planRead, null) : planRead.catch(() => null))
   /* A preview link holds nothing: it is the person checking their unpublished work. */
   const install = previewToken !== null
     ? await readInstall(admin, creator.creatorId)
@@ -784,6 +795,7 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
     /* A live page's links are fetched ahead and its pages cross-fade (lib/website-builder/live-navigation.ts). */
     /* A live page also measures its own speed for Published websites (lib/perf/site-vitals-inline.ts); a preview never does. */
     extraHead: draft ? undefined : liveNavigationMarkup() + siteVitalsScript(),
+    removeBranding: await brandingAsked,
     /* The favicon (Website settings, Branding and the theme's own Logos & Favicon are one value), or the logo: drawn when the theme's layout draws no icon (./site-icon.ts). */
     /* At the site's own host, square (./site-favicon.ts, round 41). */
     icon: ownIconPath(siteIconUrl(settings as Record<string, unknown>)) || undefined,

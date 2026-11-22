@@ -16,7 +16,7 @@
   assign stats = 0
   assign parts = 0
   for block in section.blocks
-    if block.settings.product != blank and product != blank and block.settings.product.id != product.id
+    if block.settings.for_product != blank and product != blank and block.settings.for_product.id != product.id
       continue
     endif
     if block.type == 'stat'
@@ -74,7 +74,7 @@
         <ul class="spk__stats" role="list">
           {%- for block in section.blocks -%}
             {%- if block.type != 'stat' -%}{%- continue -%}{%- endif -%}
-            {%- if block.settings.product != blank and product != blank and block.settings.product.id != product.id -%}{%- continue -%}{%- endif -%}
+            {%- if block.settings.for_product != blank and product != blank and block.settings.for_product.id != product.id -%}{%- continue -%}{%- endif -%}
             <li class="spk__stat" {{ block.shopify_attributes }}><span class="spk__value">{{ block.settings.value | escape }}</span><span class="spk__label">{{ block.settings.label | escape }}</span></li>
           {%- endfor -%}
         </ul>
@@ -83,7 +83,7 @@
         <ul class="spk__parts" role="list">
           {%- for block in section.blocks -%}
             {%- if block.type != 'part' -%}{%- continue -%}{%- endif -%}
-            {%- if block.settings.product != blank and product != blank and block.settings.product.id != product.id -%}{%- continue -%}{%- endif -%}
+            {%- if block.settings.for_product != blank and product != blank and block.settings.for_product.id != product.id -%}{%- continue -%}{%- endif -%}
             <li class="spk__part" {{ block.shopify_attributes }}>
               <div class="spk__ptop">
                 <h3 class="spk__name">{{ block.settings.title | escape }}</h3>
@@ -133,7 +133,7 @@
       "settings": [
         { "type": "text", "id": "value", "label": "Figure", "default": "500+" },
         { "type": "text", "id": "label", "label": "What it counts", "default": "Sounds" },
-        { "type": "product", "id": "product", "label": "Product", "info": "Picked, the figure shows only on that product's page." }
+        { "type": "product", "id": "for_product", "label": "Product", "info": "Picked, the figure shows only on that product's page." }
       ]
     },
     {
@@ -143,7 +143,7 @@
         { "type": "text", "id": "title", "label": "Name", "default": "Drum loops" },
         { "type": "text", "id": "count", "label": "Count", "default": "120 files" },
         { "type": "richtext", "id": "list", "label": "What it holds", "info": "A bulleted list shows as tags." },
-        { "type": "product", "id": "product", "label": "Product", "info": "Picked, the part shows only on that product's page." }
+        { "type": "product", "id": "for_product", "label": "Product", "info": "Picked, the part shows only on that product's page." }
       ]
     }
   ],

@@ -11,7 +11,7 @@ export const SAMPLE_SHOPS: Record<string, { name: string; products: SampleProduc
   default: {
     name: "Sundry",
     products: [
-      { title: "Stoneware mug", price: "$28.00", image: "default-mug.webp", description: "A wide, heavy mug in white stoneware. Holds 350 ml and goes in the dishwasher.", options: [{ name: "Colour", values: ["White", "Sand"] }], soldOut: ["Sand"] },
+      { title: "Stoneware mug", price: "$28.00", image: "default-mug.webp", description: "A wide, heavy mug in white stoneware. Holds 350 ml and goes in the dishwasher.", options: [{ name: "Colour", values: ["White", "Sand"] }] },
       { title: "Cotton cap, mustard", price: "$32.00", image: "default-cap.webp" },
       { title: "Desk Planner, printable PDF", price: "$12.00", image: "default-planner.webp", kind: "digital", description: "A week on one page, with a column for notes." },
       { title: "Steel bottle, 600 ml", price: "$34.00", image: "default-bottle.webp" },
