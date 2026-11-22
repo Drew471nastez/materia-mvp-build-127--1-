@@ -225,7 +225,7 @@ for (const [name, how] of [
   expect((await p.$$eval("button", (bs) => bs.some((b) => b.textContent.trim() === "Back to editor"))), "opened in the builder, its way out is Back to editor")
   /* PROFILE=1: what the main thread does in the tap's task, by React component, for finding a long frame. */
   if (process.env.PROFILE) { await c.send("Profiler.enable"); await c.send("Profiler.setSamplingInterval", { interval: 1000 }); await c.send("Profiler.start") }
-  if (process.env.TRACE) await p.tracing.start({ categories: ["devtools.timeline", "disabled-by-default-devtools.timeline", "blink", "v8.execute"] })
+  if (process.env.TRACE) await p.tracing.start({ categories: ["devtools.timeline", "disabled-by-default-devtools.timeline", "disabled-by-default-devtools.timeline.invalidationTracking", "blink", "v8.execute"] })
   await p.tap("[data-settings-exit]")
   if (process.env.TRACE) {
     await sleep(900)
@@ -234,6 +234,15 @@ for (const [name, how] of [
     const of = (m) => ev.filter((e) => e.ph === "X" && e.pid === m.pid && e.tid === m.tid && e.dur)
     const mine = mains.map(of).sort((a, b) => b.length - a.length)[0]
     const t0 = Math.min(...mine.map((e) => e.ts))
+    const inv = ev.filter((e) => /InvalidationTracking/.test(e.name))
+    const why = new Map()
+    for (const e of inv) {
+      const d = e.args?.data ?? {}
+      const k = `${e.name.replace("InvalidationTracking", "")} ${d.reason ?? ""} ${d.nodeName ?? ""} ${JSON.stringify(d.invalidationSet ?? d.changedClass ?? d.changedAttribute ?? d.changedId ?? d.changedPseudo ?? "").slice(0, 80)}`
+      why.set(k, (why.get(k) || 0) + 1)
+    }
+    console.log([...why].sort((a, b) => b[1] - a[1]).slice(0, 25).map(([k, v]) => `          ${v} ${k}`).join("\n"))
+    for (const e of mine.filter((e) => e.name === "UpdateLayoutTree" && e.dur > 20000)) console.log("          recalc", Math.round(e.dur / 1000), JSON.stringify(e.args).slice(0, 200))
     for (const lt of mine.filter((e) => e.name === "RunTask" && e.dur > 50000)) {
       console.log(`        long task at ${Math.round((lt.ts - t0) / 1000)}ms, ${Math.round(lt.dur / 1000)}ms:`)
       for (const e of mine.filter((e) => e.ts >= lt.ts && e.ts + e.dur <= lt.ts + lt.dur && e.dur > 8000 && e !== lt && !/^(Blink\.|Document::|LocalFrameView::)/.test(e.name)).sort((a, b) => a.ts - b.ts)) console.log(`          ${Math.round((e.ts - lt.ts) / 1000)}+${Math.round(e.dur / 1000)} ${e.name} ${JSON.stringify(e.args?.data ?? e.args?.beginData ?? "").slice(0, 150)}`)

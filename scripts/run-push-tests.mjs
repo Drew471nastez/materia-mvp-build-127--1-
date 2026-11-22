@@ -1916,8 +1916,10 @@ const STRICT_SUITES = [
   "tests/free-basket-retry-ax-journey.test.ts",
   /* Round AY (AY-2): a free shipped cart through /api/physical/checkout and the website checkout, pressed again: one order, one email, the code once, one stock hold. Strict: tests/_journey. */
   "tests/free-shipped-retry-ay-journey.test.ts",
-  /* Buyer journey audit: a course that opens a community and a download, one cart on the creator's website checkout (quote, intent, confirm, webhook): both lines on the buyer's account and in their library, the community lets the buyer in at once (a basket wrote the library row only), one receipt email whose link opens on the website; a guest's same order joins them and the community once they sign up with that email. Strict: it drives the real routes through tests/_journey. */
+  /* Buyer journey audit: a course that opens a community and a download, one cart on the creator's website checkout (quote, intent, confirm, webhook): both lines on the buyer's account and in their library, the community lets the buyer in at once (a basket wrote the library row only), one receipt email whose link opens on the website, naming each line with Open course, Open community and Download straight from the email; a guest's same order joins them and the community once they sign up with that email. Strict: it drives the real routes through tests/_journey. */
   "tests/journey-course-community-site.test.ts",
+  /* Buyer journey follow-up: a Storelib form or booking page on a Materia website. The base section journey-storelib-form (its setting the forms picker) and the Storelib form app block draw the form framed from the website's own host (/checkout/forms/<id>, framed by that origin only), a still card in the builder, nothing without a form; that page is this website's creator's form only; slots, a submit from the website kept with the website's page as its source, the hold, Pay to confirm through Storelib's checkout back to the page, the webhook, the booking confirmed. Strict: it drives the real routes through tests/_journey. */
+  "tests/journey-site-form.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

@@ -8,7 +8,7 @@ No picture came with the Materia theme's own starter content. The Sample packs s
 Rows marked "Drawn for this template" were drawn for Storelib and are Storelib's own (round 20 adds the Night shop's moon logo and every poster design in the Poster shop, framed or cropped; the Poster shop's hero and room photographs are Unsplash photographs with those poster designs set into their frames): the Notion templates' Notion
 screens, Storelib Default's planner pictures, the screens on the Digital products shop's devices, and the Creator Landing's book, course, club, letter and prompt covers and its shelf banners. The Course template's course covers and three lesson thumbnails are its Unsplash photographs with a title set on them; their rows say so.
 Storelib Default's product pictures are Unsplash photographs set on one even grey background; their rows say so. Its Downloads picture has a planner page drawn onto the tablet's blank screen.
-The Merch template's product pictures are Unsplash photographs cropped and set on one even grey, and its hero's foggy sky is extended upward from its photograph.
+The Merch template's product pictures are Unsplash photographs cropped and set on one even grey, and its hero's foggy sky is extended upward and to the sides from its photograph. The Course template's hero has the badges on its two speakers painted out. The Art books hero's left picture is Paul Cézanne's Still Life with a Ginger Jar and Eggplants, which The Metropolitan Museum of Art shares as public domain.
 The Art books template's book covers, open book spreads and tablet are drawn around public domain paintings, prints and photographs that The Metropolitan Museum of Art shares on Unsplash; their rows name each source.
 
 The Notion templates' and the Digital products shop's device pictures are Unsplash photographs of laptops, tablets and a phone with a screen drawn for the template set into the display in perspective; their rows name the photograph. The Digital products bundle screen shows a small crop of https://images.unsplash.com/photo-1693328787539-1477754c01b7 (Unsplash License).
@@ -47,8 +47,8 @@ They are not part of a template and are never added to a creator's website.
 | clothing (cover only) | scripts/theme-templates/products/clothing/clothing-long-blazer.webp | https://images.unsplash.com/photo-1779400202380-ae490bd3b995 | Unsplash License |
 | clothing (cover only) | scripts/theme-templates/products/clothing/clothing-boxy-tee.webp | https://images.unsplash.com/photo-1780566759997-6a4eabceaa10 | Unsplash License |
 | clothing (cover only) | scripts/theme-templates/products/clothing/clothing-wool-blazer.webp | https://images.unsplash.com/photo-1612275857880-57d3b7676179 | Unsplash License |
-| merch | assets/merch-hero-fog.webp | https://images.unsplash.com/photo-1631437699383-a9cfb4685e9e, fog extended upward | Unsplash License |
-| merch | assets/merch-hero-fog-phone.webp | https://images.unsplash.com/photo-1631437699383-a9cfb4685e9e, fog extended upward | Unsplash License |
+| merch | assets/merch-hero-fog.webp | https://images.unsplash.com/photo-1631437699383-a9cfb4685e9e | Unsplash License |
+| merch | assets/merch-hero-fog-phone.webp | https://images.unsplash.com/photo-1631437699383-a9cfb4685e9e | Unsplash License |
 | merch | assets/merch-cat-hoodies.webp | https://images.unsplash.com/photo-1590759483822-b2fee5aa6bd3 | Unsplash License |
 | merch | assets/merch-cat-trackpants.webp | https://images.unsplash.com/photo-1789110519766-117eb0e35bea | Unsplash License |
 | merch | assets/merch-cat-tees.webp | https://images.unsplash.com/photo-1590750093844-bc3ae9e48f9c | Unsplash License |
@@ -81,7 +81,7 @@ They are not part of a template and are never added to a creator's website.
 | digital (cover only) | scripts/theme-templates/products/digital/digital-font.webp | https://images.unsplash.com/photo-1654124803058-c814dc42f60c, screen drawn for this template | Unsplash License |
 | digital (cover only) | scripts/theme-templates/products/digital/digital-planner.webp | https://images.unsplash.com/photo-1654124803058-c814dc42f60c, screen drawn for this template | Unsplash License |
 | digital (cover only) | scripts/theme-templates/products/digital/digital-luts.webp | https://images.unsplash.com/photo-1654124803058-c814dc42f60c, screen drawn around https://images.unsplash.com/photo-1793050759704-62a86a6ffe01 | Unsplash License |
-| artbooks | assets/artbooks-hero-cezanne.webp | https://images.unsplash.com/photo-1782850672347-9bbad75f71df (Paul Cézanne, Still Life with a Ginger Jar and Eggplants, The Metropolitan Museum of Art, public domain) | Unsplash License |
+| artbooks | assets/artbooks-hero-cezanne.webp | https://images.unsplash.com/photo-1782850672347-9bbad75f71df | Unsplash License |
 | artbooks | assets/artbooks-hero-utamaro.webp | https://images.unsplash.com/photo-1787076113534-4c92b390981b | Unsplash License |
 | artbooks | assets/artbooks-tile-japan.webp | https://images.unsplash.com/photo-1787487283519-ca25e4142eb9 | Unsplash License |
 | artbooks | assets/artbooks-tile-portraits.webp | https://images.unsplash.com/photo-1784209062311-50a32e2d8e0e | Unsplash License |
@@ -140,7 +140,7 @@ They are not part of a template and are never added to a creator's website.
 | fitness | assets/fitness-floor-work.webp | https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b | Unsplash License |
 | fitness | assets/fitness-stretch.webp | https://images.unsplash.com/photo-1544367567-0f2fcb009e0b | Unsplash License |
 | fitness | assets/fitness-dumbbells.webp | https://images.unsplash.com/photo-1534438327276-14e5300c3a48 | Unsplash License |
-| landing | assets/landing-hero-desk.webp | https://images.unsplash.com/photo-1546663250-e28569a9706d, speaker badges painted out | Unsplash License |
+| landing | assets/landing-hero-desk.webp | https://images.unsplash.com/photo-1546663250-e28569a9706d | Unsplash License |
 | landing | assets/landing-starter-desk.webp | https://images.unsplash.com/photo-1627244714766-94dab62ed964 | Unsplash License |
 | landing | assets/landing-behind-camera.webp | https://images.unsplash.com/photo-1497015289639-54688650d173 | Unsplash License |
 | landing | assets/landing-studio-shoot.webp | https://images.unsplash.com/photo-1601506521937-0121a7fc2a6b | Unsplash License |

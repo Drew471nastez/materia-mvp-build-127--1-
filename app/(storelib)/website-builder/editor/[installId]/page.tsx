@@ -12607,11 +12607,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           /**
            * AND NOTHING OF THE EDITOR IS LEFT OVER A PAGE THAT COVERS THE
            * SCREEN. Website settings is a full surface; the sheet is a
-           * separate layer in the body, so it kept its place at the bottom
-           * of the screen and printed itself over the settings page. It is
-           * not rendered while that page is open.
+           * separate layer in the body, and it once printed itself over the
+           * settings page, so it was taken out of the page while settings
+           * was open. Putting it back was the cost of Back to editor: its
+           * sections, rows and pictures, 1,349 elements, styled and laid out
+           * from nothing in the tap's frame, a 500 to 1,100ms freeze at a
+           * quarter speed before settings went (scripts/check-website-
+           * settings-back.mjs). It stays now, closed (openSettings closes
+           * it) and under the settings page, which is z-[150] over its 50.
            */
-          previewMode !== "code" && !projectSettingsOpen && (
+          previewMode !== "code" && (
           <MobileEditorSheet
             open={mobileSidebarOpen}
             restKey={sheetRestKey}

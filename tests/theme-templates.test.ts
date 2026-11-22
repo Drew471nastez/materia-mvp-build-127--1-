@@ -122,7 +122,8 @@ async function main() {
   /* Changed on purpose (templates round 18): Streetwear drop is now the Lifestyle label template (same slug). */
   /* Changed on purpose (templates round 18): Creator Landing sits right after Landing page. */
   check("then Creator Landing, right after Landing page", listings[8]?.slug === "creator-landing" && listings[8]?.name === "Creator Landing") /* Changed on purpose (templates round 19): one place later, after Art books. */
-  check("then the four narrower ones: Lifestyle label, Tour merch, Sample packs and Notion templates", listings.slice(9, 13).map((l) => l.name).join("|") === "Lifestyle label|Tour merch|Sample packs|Notion templates") /* Changed on purpose (templates round 19): one place later, after Art books; round 19 templates follow them. */
+  /* Changed on purpose (templates round 20): Tour merch was removed, three narrower ones remain. */
+  check("then the three narrower ones: Lifestyle label, Sample packs and Notion templates", listings.slice(9, 12).map((l) => l.name).join("|") === "Lifestyle label|Sample packs|Notion templates") /* Changed on purpose (templates round 19): one place later, after Art books; round 19 templates follow them. */
   check("no two share an address or an overlay folder", new Set(listings.map((l) => l.slug)).size === listings.length && new Set(CODE_TEMPLATES.map((t) => t.template)).size === CODE_TEMPLATES.length)
   check("the native Storelib Default is not offered: no listing names a registry theme", listings.every((l) => l.builtinThemeId === null) && !mergeListings([]).some((l) => l.builtinThemeId === STORELIB_DEFAULT_ID))
   check("each is free, by Storelib, and adds a package the code ships", listings.every((l) => l.tier === "free" && l.author === "Storelib" && l.hasPackage && l.packageKind === null && isCodePackageId(l.codePackage)))
