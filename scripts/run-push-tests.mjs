@@ -1910,6 +1910,8 @@ const STRICT_SUITES = [
   "tests/free-basket-retry-ax-journey.test.ts",
   /* Round AY (AY-2): a free shipped cart through /api/physical/checkout and the website checkout, pressed again: one order, one email, the code once, one stock hold. Strict: tests/_journey. */
   "tests/free-shipped-retry-ay-journey.test.ts",
+  /* Round 57 (e5): log in and sign up draw Continue with Google and Continue with Apple first, then OR, then the email form; Apple is Google's twin (Apple's HIG); the native plugin paths, /auth/start with the carry, the locks and the error line kept; no other screen draws its own social button (scripts/check-auth-social-first-r57.mjs measures it in Chromium at 360, 390, 768 and 1280). */
+  "tests/auth-social-first-r57.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))
