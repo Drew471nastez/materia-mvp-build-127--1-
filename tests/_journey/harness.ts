@@ -64,6 +64,9 @@ const ROUTES: Record<string, () => Promise<RouteModule>> = {
   "/api/physical/shipping/profiles": () => import("@/app/api/physical/shipping/profiles/route"),
   "/api/physical/shipping/zones": () => import("@/app/api/physical/shipping/zones/route"),
   "/api/physical/shipping/rates": () => import("@/app/api/physical/shipping/rates/route"),
+  /* Round 57 (e1): a zone's places and a rate edited or removed in Settings > Shipping (tests/commerce-e2e-r57.test.ts). */
+  "/api/physical/shipping/zones/[id]": () => import("@/app/api/physical/shipping/zones/[id]/route"),
+  "/api/physical/shipping/rates/[id]": () => import("@/app/api/physical/shipping/rates/[id]/route"),
   "/api/physical/shipping/quick-setup": () => import("@/app/api/physical/shipping/quick-setup/route"),
   "/api/physical/tax-rates": () => import("@/app/api/physical/tax-rates/route"),
   "/api/physical/products/[id]": () => import("@/app/api/physical/products/[id]/route"),
@@ -168,6 +171,9 @@ const ROUTES: Record<string, () => Promise<RouteModule>> = {
   "/api/website-builder/themes/[installId]/backups": () => import("@/app/api/website-builder/themes/[installId]/backups/route"),
   "/api/website-builder/themes/[installId]/backups/[backupId]": () => import("@/app/api/website-builder/themes/[installId]/backups/[backupId]/route"),
   "/api/website-builder/themes/[installId]/backups/[backupId]/restore": () => import("@/app/api/website-builder/themes/[installId]/backups/[backupId]/restore/route"),
+  /* Round 57 (e1): a Materia website as the proxy hands it on (its pages, its cart, its scripts' calls), and the theme's files (tests/commerce-e2e-r57.test.ts). Catch-all segments match the rest of the path. */
+  "/api/site-theme/site/[username]/[[...path]]": () => import("@/app/api/site-theme/site/[username]/[[...path]]/route"),
+  "/api/site-theme/assets/[installId]/[version]/[...name]": () => import("@/app/api/site-theme/assets/[installId]/[version]/[...name]/route"),
 }
 
 /* Columns production has that no SQL file created were added by run-now part 165; none are taken on trust any more. */
@@ -233,6 +239,18 @@ export class Journey {
     const parts = path.split("/").filter(Boolean)
     for (const [pattern, load] of Object.entries(ROUTES)) {
       const p = pattern.split("/").filter(Boolean)
+      /* A catch-all last segment ([...name], or [[...path]] which also takes none): the rest of the path, as an array, as Next hands it. */
+      const rest = /^\[{1,2}\.\.\.(\w+)\]{1,2}$/.exec(p[p.length - 1] ?? "")
+      if (rest) {
+        const fixed = p.slice(0, -1)
+        const optional = p[p.length - 1].startsWith("[[")
+        if (parts.length < fixed.length + (optional ? 0 : 1)) continue
+        const params: Record<string, any> = {}
+        if (!fixed.every((seg, i) => (seg.startsWith("[") ? ((params[seg.slice(1, -1)] = decodeURIComponent(parts[i])), true) : seg === parts[i]))) continue
+        const tail = parts.slice(fixed.length).map(decodeURIComponent)
+        if (tail.length) params[rest[1]] = tail
+        return { load, params }
+      }
       if (p.length !== parts.length) continue
       const params: Record<string, string> = {}
       if (p.every((seg, i) => (seg.startsWith("[") ? ((params[seg.slice(1, -1)] = decodeURIComponent(parts[i])), true) : seg === parts[i]))) return { load, params }

@@ -3954,7 +3954,7 @@
         "id": "cd_payments_show_paypal",
         "label": "PayPal",
         "info": "Storelib checkout takes cards, Apple Pay and Google Pay, not PayPal, Klarna or Afterpay.",
-        "default": true
+        "default": false
       },
       {
         "type": "checkbox",

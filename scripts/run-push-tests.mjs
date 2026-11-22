@@ -1918,6 +1918,8 @@ const STRICT_SUITES = [
   "tests/money-fees-r57.test.ts",
   /* Round 57 (e5): log in and sign up draw Continue with Google and Continue with Apple first, then OR, then the email form; Apple is Google's twin (Apple's HIG); the native plugin paths, /auth/start with the carry, the locks and the error line kept; no other screen draws its own social button (scripts/check-auth-social-first-r57.mjs measures it in Chromium at 360, 390, 768 and 1280). */
   "tests/auth-social-first-r57.test.ts",
+  /* Round 57 (e1): a buyer on a Materia website (the Clothing template, through the real site route) from the product page to a paid order: variants, compare at, sold out, 4 per order, Continue selling, the cart cookie, Estimate shipping, two zones (flat, by weight), free over 60 EUR, the US refused, a download alone and in a mixed cart, a 10% code from the theme's cart, GBP shown and charged, CHF shown and charged in euros, the last one bought twice at once, a declined card and a lapsed hold, the seller's rate and zone edits charged at once, and no PayPal badge. scripts/check-commerce-e2e-r57.mjs drives the same pages in Chromium. Strict: tests/_journey. */
+  "tests/commerce-e2e-r57.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))
