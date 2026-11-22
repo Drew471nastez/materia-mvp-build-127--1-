@@ -7,7 +7,8 @@
  */
 import type { SampleProduct } from "./site"
 
-export const SAMPLE_SHOPS: Record<string, { name: string; products: SampleProduct[] }> = {
+/** `currency`: a shop that sells in another currency than dollars draws its prices with its own symbol (Loudlib sells in euros). */
+export const SAMPLE_SHOPS: Record<string, { name: string; products: SampleProduct[]; currency?: { code: string; format: string } }> = {
   default: {
     name: "Sundry",
     products: [
@@ -124,16 +125,17 @@ export const SAMPLE_SHOPS: Record<string, { name: string; products: SampleProduc
   },
   samples: {
     name: "Loudlib",
-    /* Templates round 20: Loudlib's own catalogue, as loudlib.net lists it (names, prices, contents and box art from its Payhip store). The prices there are euros; this preview draws dollars. */
+    currency: { code: "EUR", format: "€{{amount}}" },
+    /* Templates round 20: Loudlib's own catalogue, as loudlib.net lists it (names, prices, contents and box art from its Payhip store). The prices there are euros, and so are these. */
     products: [
-      { title: "Serum Presets Vol 1", price: "$8.99", compare: "$22.47", image: "samples-pack-serum-presets.webp", kind: "digital", description: "26 ready to use bass presets for Xfer Serum, made for tech house, deep house, melodic house and afro house. Needs Serum 1.368 or later, which is not included. Also part of the Tech House Master Bundle and the Deep House Production Suite.", options: [{ name: "Download", values: ["ZIP", "RAR"] }] },
-      { title: "Tech House Sample Pack, Master Bundle 2025", price: "$19.98", compare: "$49.96", image: "samples-pack-tech-house-master-bundle.webp", kind: "digital", description: "Over 1,000 tech house sounds, 1.7 GB unzipped: drum one shots and loops, 100 bass loops, 26 Serum bass presets, FX, vocals and melody loops. Released in limited runs, twice a year. Plug and play in every major DAW.", options: [{ name: "Download", values: ["ZIP, 1 GB", "RAR, 930 MB"] }] },
-      { title: "Tech House Drum Kit Vol I", price: "$0.00", image: "samples-pack-drum-kit.webp", kind: "digital", description: "280 hand picked one shots for tech house: 35 kicks, 43 claps, 31 hats, 35 open hats, 63 percs, 21 crashes, 11 rides, 21 shakers and 20 snares. 71.9 MB unzipped.", options: [{ name: "Pack", values: ["Full pack", "Free preview pack"] }] },
-      { title: "Free Ambience Sample Pack Vol I", price: "$0.00", image: "samples-pack-ambience-kit.webp", kind: "digital", description: "16 atmospheric loops: calm drones, soft textures and gentle tunes for intros, breakdowns and film. ZIP 59 MB or RAR 45 MB.", options: [{ name: "Download", values: ["ZIP", "RAR"] }] },
-      { title: "Deep House Production Suite, Serenade", price: "$9.98", compare: "$24.94", image: "samples-pack-deep-house-production-suite.webp", kind: "digital", description: "223 sounds for deep house, 311 MB unzipped: 64 drum one shots, 64 drum loops, 52 bass sounds with Serum bass presets, 12 FX and 47 melody, ambience and instrument sounds. One ZIP, 246 MB." },
-      { title: "Tech House Sample Pack, Unitech", price: "$6.20", image: "samples-pack-tech-house-unitech.webp", kind: "digital", description: "165 WAV files for the new wave of tech house, inspired by John Summit, Fisher, Matroda and Dom Dolla: kicks, top loops, full drum loops, hats, claps, percs, 20 Serum bass presets, FX and buildups. One RAR, about 104 MB." },
-      { title: "Tech House Drums Collection Vol I", price: "$5.00", compare: "$10.00", image: "samples-pack-drums-collection.webp", kind: "digital", description: "177 drum loops for tech house: 122 top loops and 55 full drum loops, 620 MB unzipped. One ZIP, 517 MB." },
-      { title: "Tech House Bass Collection Vol I", price: "$4.00", compare: "$10.00", image: "samples-pack-bass-collection.webp", kind: "digital", description: "Over 100 bass loops for tech house, 238 MB unzipped. One ZIP, 169 MB." },
+      { title: "Serum Presets Vol 1", price: "€8.99", compare: "€22.47", image: "samples-pack-serum-presets.webp", kind: "digital", description: "26 ready to use bass presets for Xfer Serum, made for tech house, deep house, melodic house and afro house. Needs Serum 1.368 or later, which is not included. Also part of the Tech House Master Bundle and the Deep House Production Suite.", options: [{ name: "Download", values: ["ZIP", "RAR"] }] },
+      { title: "Tech House Sample Pack, Master Bundle 2025", price: "€19.98", compare: "€49.96", image: "samples-pack-tech-house-master-bundle.webp", kind: "digital", description: "Over 1,000 tech house sounds, 1.7 GB unzipped: drum one shots and loops, 100 bass loops, 26 Serum bass presets, FX, vocals and melody loops. Released in limited runs, twice a year. Plug and play in every major DAW.", options: [{ name: "Download", values: ["ZIP, 1 GB", "RAR, 930 MB"] }] },
+      { title: "Tech House Drum Kit Vol I", price: "€0.00", image: "samples-pack-drum-kit.webp", kind: "digital", description: "280 hand picked one shots for tech house: 35 kicks, 43 claps, 31 hats, 35 open hats, 63 percs, 21 crashes, 11 rides, 21 shakers and 20 snares. 71.9 MB unzipped.", options: [{ name: "Pack", values: ["Full pack", "Free preview pack"] }] },
+      { title: "Free Ambience Sample Pack Vol I", price: "€0.00", image: "samples-pack-ambience-kit.webp", kind: "digital", description: "16 atmospheric loops: calm drones, soft textures and gentle tunes for intros, breakdowns and film. ZIP 59 MB or RAR 45 MB.", options: [{ name: "Download", values: ["ZIP", "RAR"] }] },
+      { title: "Deep House Production Suite, Serenade", price: "€9.98", compare: "€24.94", image: "samples-pack-deep-house-production-suite.webp", kind: "digital", description: "223 sounds for deep house, 311 MB unzipped: 64 drum one shots, 64 drum loops, 52 bass sounds with Serum bass presets, 12 FX and 47 melody, ambience and instrument sounds. One ZIP, 246 MB." },
+      { title: "Tech House Sample Pack, Unitech", price: "€6.20", image: "samples-pack-tech-house-unitech.webp", kind: "digital", description: "165 WAV files for the new wave of tech house, inspired by John Summit, Fisher, Matroda and Dom Dolla: kicks, top loops, full drum loops, hats, claps, percs, 20 Serum bass presets, FX and buildups. One RAR, about 104 MB." },
+      { title: "Tech House Drums Collection Vol I", price: "€5.00", compare: "€10.00", image: "samples-pack-drums-collection.webp", kind: "digital", description: "177 drum loops for tech house: 122 top loops and 55 full drum loops, 620 MB unzipped. One ZIP, 517 MB." },
+      { title: "Tech House Bass Collection Vol I", price: "€4.00", compare: "€10.00", image: "samples-pack-bass-collection.webp", kind: "digital", description: "Over 100 bass loops for tech house, 238 MB unzipped. One ZIP, 169 MB." },
     ],
   },
   workspace: {

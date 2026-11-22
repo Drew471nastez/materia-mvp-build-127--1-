@@ -289,7 +289,7 @@ async function main() {
   const config = read("next.config.mjs")
   check("the build carries theme-packages/ with the route that reads it, folded or not", /'\/api\/themes\/\*\*': \['\.\/theme-packages\/\*\*\/\*'\]/.test(config))
   const add = read("app/api/themes/marketplace/add/route.ts")
-  check("Add composes a code template on the server and hands it to the import as an upload", /composeTemplateZip\(listing\.codePackage\)/.test(add) && /form\.set\("file"/.test(add) && /importThemePackage\(new Request\(/.test(add))
+  check("Add composes a code template on the server and hands it to the import as an upload", /composeTemplateZip\(listing\.codePackage!?\)/.test(add) /* Changed on purpose (templates round 20): a published release's zip is used first (lib/themes/releases-server.ts), the code template otherwise. */ && /form\.set\("file"/.test(add) && /importThemePackage\(new Request\(/.test(add))
   check("  it never adds the native theme, and it notes the listing on the new website", !/addRegistryTheme|website-builder\/themes\/add\/route/.test(add) && /listing: listing\.slug/.test(add))
   check("  a store with no menus yet is given the template's; a store with menus keeps its own", /readStoreMenus\(.*\.kind === "none"\) await writeStoreMenus/.test(add))
   check("settings are laid over the base's key by key", JSON.parse(mergeSettingsData('{"current":{"a":1,"b":2}}', '{"current":{"b":3}}')).current.a === 1 && JSON.parse(mergeSettingsData('{"current":{"a":1,"b":2}}', '{"current":{"b":3}}')).current.b === 3)

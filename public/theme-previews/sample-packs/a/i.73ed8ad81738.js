@@ -15,9 +15,9 @@
     no_shipping: `We do not ship to this address.`,
     shipping_rate: `Shipping rate for {{address}}`,
     quantityError: `You can only add [quantity] of this item to your cart.`,
-    money_format: "${{amount}}",
+    money_format: "€{{amount}}",
     quick_edit: `Edit option`,
-    cart_symbol: '$',
+    cart_symbol: '€',
     discount_removed: `Discount code has been removed.`,
     discount_applied: `Discount code has been applied.`,
     discount_already: `Discount code already applied`,
@@ -26,7 +26,7 @@
       
   window.themeGlobalVariables = {
     settings: {
-      money_format: "${{amount}}",
+      money_format: "€{{amount}}",
     }
   }
   window.variantStrings = {

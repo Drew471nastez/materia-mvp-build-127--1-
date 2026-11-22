@@ -20,6 +20,7 @@ import { themeOfInstall } from "../../lib/storelib-theme/compat/page"
 import { answer, themeAsset, type CartEntry, type SiteData } from "../../lib/storelib-theme/compat/site"
 import { compatMenus } from "../../lib/storelib-theme/compat/menus"
 import type { CompatTheme } from "../../lib/storelib-theme/compat/theme"
+import { SAMPLE_SHOPS } from "./shops"
 
 export const MEDIA_PREFIX = "/__media/"
 const MIME: Record<string, string> = { ".webp": "image/webp", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".svg": "image/svg+xml", ".avif": "image/avif" }
@@ -91,7 +92,7 @@ function variantsOf(p: SampleProduct, i: number, imageUrl: (name: string) => str
   })
 }
 
-function card(p: SampleProduct, i: number, imageUrl: (name: string) => string) {
+function card(p: SampleProduct, i: number, imageUrl: (name: string) => string, currency = "USD") {
   const slug = p.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
   const image = p.image ? imageUrl(p.image) : ""
   const variants = variantsOf(p, i, imageUrl)
@@ -99,7 +100,7 @@ function card(p: SampleProduct, i: number, imageUrl: (name: string) => string) {
   return {
     id: `00000000-0000-4000-8000-0000000000${String(i + 10)}`,
     settings: {
-      title: p.title, slug, url: `/products/${slug}`, price: p.price, compare_price: p.compare ?? "", currency: "USD", free: false, pay_what_you_want: false,
+      title: p.title, slug, url: `/products/${slug}`, price: p.price, compare_price: p.compare ?? "", currency, free: false, pay_what_you_want: false,
       image, images, kind: p.kind ?? "physical", available: true, tag: "", checkout_url: `/checkout/${slug}`,
       description: p.description ?? "", description_html: p.description ? `<p>${p.description}</p>` : "", variants, options: (p.options ?? []).slice(0, 3), category: "",
     },
@@ -122,7 +123,9 @@ export function siteFor(imported: ImportedTemplate, shop: { name: string; produc
     imageUrl: (v) => (/^https?:\/\//.test(v) || v.startsWith("/") ? v : media[decodeURIComponent(v.match(/^shopify:\/\/shop_images\/([^?#]+)/)?.[1] ?? "")] ?? ""),
   })
   const pages = Object.fromEntries(imported.theme.pages.map((p) => [p.page_key, p.sections])) as unknown as SiteData["pages"]
-  const products = shop.products.map((p, i) => card(p, i, (name) => media[name] ?? `/__product/${encodeURIComponent(name)}`))
+  /* A sample shop that sells in its own currency (SAMPLE_SHOPS[template].currency) draws its prices with that symbol. */
+  const cur = SAMPLE_SHOPS[imported.id.split("/").pop() ?? ""]?.currency
+  const products = shop.products.map((p, i) => card(p, i, (name) => media[name] ?? `/__product/${encodeURIComponent(name)}`, cur?.code ?? "USD"))
   const collections = products.length ? [{ id: "c-all", title: "All products", handle: "frontpage", description: "", image: "", url: "/collections/frontpage", products, products_count: products.length }] : []
   const site: SiteData = {
     creatorId: "c",
@@ -131,7 +134,7 @@ export function siteFor(imported: ImportedTemplate, shop: { name: string; produc
     products: products as never,
     collections: collections as never,
     menus: compatMenus(templateMenus(imported.id) as never, Object.keys(pages)),
-    shop: { name: shop.name, currency: "USD", moneyFormat: "${{amount}}" },
+    shop: { name: shop.name, currency: cur?.code ?? "USD", moneyFormat: cur?.format ?? "${{amount}}" },
     host: "127.0.0.1",
   }
   return { site, theme, imported }
