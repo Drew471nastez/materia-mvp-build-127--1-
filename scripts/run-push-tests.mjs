@@ -1910,6 +1910,8 @@ const STRICT_SUITES = [
   "tests/free-basket-retry-ax-journey.test.ts",
   /* Round AY (AY-2): a free shipped cart through /api/physical/checkout and the website checkout, pressed again: one order, one email, the code once, one stock hold. Strict: tests/_journey. */
   "tests/free-shipped-retry-ay-journey.test.ts",
+  /* Round 57 (e3, money): the fee on every plan state (Free, Grow and Pro; active, trialing, past due, cancelled, unpaid, legacy) x digital, ships and mixed x amount x currency, held to the published pricing written as literals; the real checkouts' PaymentIntents (single product, tip, code, a plan change, a lapsed plan, a cart that ships, a mixed cart), the payment limit, a refund keeping the fee, and a membership renewal's fee on the price, not on the tax Stripe adds (lib/memberships/webhook-fee.ts). Strict: tests/_journey. */
+  "tests/money-fees-r57.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))
