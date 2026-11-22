@@ -459,6 +459,44 @@ async function main() {
   const intentFr = await checkout(lou, { action: "intent", items: louItems, email: "lou@example.com", firstName: "Lou", lastName: "Lenz", agreedToTerms: true, clientKey: "r57-s-lou-fr-01", paymentMethods: ["card"], address: { line1: "2 rue de Rivoli", city: "Paris", postalCode: "75001", country: "FR" }, deliveryOptionId: j.rows("shipping_rates").find((r) => r.name === "Colissimo")?.id, shownTotal: { cents: 9000, currency: "EUR" } })
   check("France taken out of its zone: no delivery to France, Italy still Colissimo, and Pay to Paris refused with the old rate's id", moved.status === 200 && quoteFr.json?.delivery?.ok === false && (quoteIt.json?.delivery?.options ?? []).some((o: any) => o.name === "Colissimo") && intentFr.status >= 400 && intentFr.status < 500 && !intentFr.json?.paymentIntentId, { moved: [moved.status, moved.json?.error], fr: quoteFr.json?.delivery, it: quoteIt.json?.delivery, intent: [intentFr.status, intentFr.json] })
 
+  section("P. Local pickup at the Lager in Hamburg")
+  const pickupOn = await j.call(`PATCH /api/physical/locations/${loc}`, { as: seller, body: { name: "Lager", kind: "home", addressLine1: "Hafenstr. 3", city: "Hamburg", postalCode: "20457", country: "DE", pickupEnabled: true, pickupReady: "24h", pickupInstructions: "Ring at the side door.", pickupHours: "Mon to Fri, 9:00 to 17:00" } })
+  const max = visitor("198.51.100.97", "DE")
+  await add(max, tv("S", "Black").id, 1)
+  const maxItems = (await handoff(max)).items
+  const qp = await checkout(max, { action: "quote", items: maxItems, country: "DE", postalCode: "20095" })
+  const pickup = (qp.json?.pickups ?? [])[0]
+  check("pickup switched on: the quote offers the Lager beside the rates, with its hours", pickupOn.status === 200 && !!pickup && /Lager/.test(pickup.name) && pickup.hours === "Mon to Fri, 9:00 to 17:00", { status: pickupOn.status, pickups: qp.json?.pickups })
+  const qp2 = pickup ? await checkout(max, { action: "quote", items: maxItems, country: "DE", postalCode: "20095", deliveryOptionId: pickup.id }) : null
+  const orderP = pickup ? await pay(max, { items: maxItems, email: "max@example.com", first: "Max", last: "Mohr", address: { line1: "Jungfernstieg 2", city: "Hamburg", postalCode: "20095", country: "DE" }, key: "r57-p-max-0001", option: pickup.id }) : null
+  /* 29 EUR, nothing for delivery, VAT 19% = 5.51 EUR: 34.51 EUR. */
+  check("  chosen: no delivery charge, 34.51 EUR paid, the order is a pickup at the Lager", qp2?.json?.totals?.shippingCents === 0 && qp2?.json?.totals?.totalCents === 3451 && orderP?.intent?.amount === 3451 && orderP?.co?.delivery_method === "pickup" && orderP?.co?.pickup_location_id === loc, { q: qp2?.json?.totals, charged: orderP && charged(orderP), co: orderP && { ...totalsOf(orderP.co), method: orderP.co?.delivery_method, at: orderP.co?.pickup_location_id }, err: orderP?.intentAnswer.json })
+
+  section("Q. A download is one copy, however many are asked for")
+  const ned = visitor("198.51.100.98", "DE")
+  const many = await add(ned, bookVariant, 3)
+  const nedCart = await cartOf(ned)
+  const nedItems = (await handoff(ned)).items
+  const qn = await checkout(ned, { action: "quote", items: [{ ...nedItems[0], quantity: 3 }], country: "DE" })
+  /* Before round 57 the cart said 3 x 12 = 36 EUR and the checkout charged 12 EUR: the total shown was not the total charged. */
+  check("three of the book asked for: Materia's cart holds one, 12 EUR, as the checkout charges (12 EUR + 2.28 VAT)", many.status === 200 && nedCart?.item_count === 1 && nedCart?.total_price === 1200 && qn.json?.lines?.[0]?.quantity === 1 && qn.json?.totals?.totalCents === 1428, { add: many.status, cart: [nedCart?.item_count, nedCart?.total_price], line: qn.json?.lines?.[0]?.quantity, totals: qn.json?.totals })
+  const twice = await add(ned, bookVariant, 1)
+  const nedKey = (await cartOf(ned))?.items?.[0]?.key
+  await site(ned, "POST", "/cart/change.js", { id: nedKey, quantity: 4 }, ajax)
+  const nedAfter = await cartOf(ned)
+  check("  another refused (422), and /cart/change.js to four keeps one", twice.status === 422 && nedAfter?.item_count === 1, { twice: [twice.status, twice.json], n: nedAfter?.item_count })
+
+  section("T. Prices include VAT (Settings > Taxes)")
+  const incl = await j.call("PUT /api/store/taxes", { as: seller, body: { enabled: true, included: true, onShipping: true, digital: true } })
+  const ola = visitor("198.51.100.99", "DE")
+  await add(ola, tv("M", "Sand").id, 1)
+  const olaItems = (await handoff(ola)).items
+  const qo = await checkout(ola, { action: "quote", items: olaItems, country: "DE", postalCode: "20095" })
+  /* 29 + 5.90 = 34.90 EUR with VAT inside: 29 x 19/119 = 4.63, 5.90 x 19/119 = 0.94, 5.57 EUR of it. */
+  check("29 EUR and Standard 5.90 EUR, VAT inside: the buyer pays 34.90 EUR, of which 5.57 EUR is VAT", incl.status === 200 && qo.json?.totals?.taxIncluded === true && qo.json?.totals?.totalCents === 3490 && qo.json?.totals?.taxCents === 557, { status: incl.status, totals: qo.json?.totals })
+  const orderO = await pay(ola, { items: olaItems, email: "ola@example.com", first: "Ola", last: "Ott", address: { line1: "Jungfernstieg 3", city: "Hamburg", postalCode: "20095", country: "DE" }, key: "r57-t-ola-0001", option: stdRate.id })
+  check("  charged 34.90 EUR, the order's VAT 5.57 EUR inside it", orderO.intent?.amount === 3490 && orderO.co?.total_cents === 3490 && orderO.co?.tax_cents === 557, { charged: charged(orderO), co: totalsOf(orderO.co), err: orderO.intentAnswer.json })
+
   check("no route answered with a server error", j.serverErrors.length === 0, j.serverErrors)
   check("no after() work threw", j.afterErrors.length === 0, j.afterErrors)
   if (fails.length) console.log("\nFailed:\n  " + fails.join("\n  "))
