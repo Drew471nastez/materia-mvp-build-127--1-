@@ -478,6 +478,15 @@ export async function fulfilParcels(
   const keyOf = (n: number) => (key ? (multi ? `fulfil:${checkoutId}:${key}:${n + 1}` : `fulfil:${checkoutId}:${key}`) : null)
   /* Pressed again: the parcels already saved under these keys are neither checked nor saved twice. */
   const saved = new Set<string>()
+  /*
+    One parcel pressed again with its key (an answer lost on a phone, a second tab): the shipment saved the first time
+    stands and is the answer. It used to be checked first and refused as "Only 0 left to fulfil", so the page said the
+    Fulfill had failed when it had gone through (round 57).
+  */
+  if (!multi && key) {
+    const { data: had } = await db.from("fulfillments").select("id").eq("checkout_id", checkoutId).eq("idempotency_key", keyOf(0)).maybeSingle()
+    if (had) return { ok: true, order }
+  }
   if (multi && key) {
     const { data: had } = await db.from("fulfillments").select("idempotency_key").eq("checkout_id", checkoutId).in("idempotency_key", input.parcels.map((_, n) => keyOf(n)))
     for (const r of (had ?? []) as { idempotency_key: string }[]) saved.add(r.idempotency_key)

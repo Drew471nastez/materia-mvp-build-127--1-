@@ -102,6 +102,8 @@ const ROUTES: Record<string, () => Promise<RouteModule>> = {
   /* Round 51: a partner says it shipped, from the supplier email's page or a 3PL's own system (tests/fulfilment-modes-r51.test.ts). */
   "/api/physical/partner-tracking": () => import("@/app/api/physical/partner-tracking/route"),
   "/api/physical/orders/[id]/label": () => import("@/app/api/physical/orders/[id]/label/route"),
+  /* Round 57: a download bought beside things that ship, opened by its receipt link (tests/fulfilment-e2e-r57.test.ts). */
+  "/api/download/[assetId]": () => import("@/app/api/download/[assetId]/route"),
   "/api/integrations/shipstation/[token]": () => import("@/app/api/integrations/shipstation/[token]/route"),
   "/api/integrations/webhooks/[provider]/[token]": () => import("@/app/api/integrations/webhooks/[provider]/[token]/route"),
   "/api/physical/coupons/[id]": () => import("@/app/api/physical/coupons/[id]/route"),

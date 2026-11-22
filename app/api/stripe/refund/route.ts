@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { formatStoreMoney } from "@/lib/store/currency"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
 import { paidElsewhere, syncChargeRefund } from "@/lib/stripe/refund-sync"
 import { fullyRefunded, REFUND_CHANGED, refundChangedMessage, refundEchoStale } from "@/lib/orders/refund-state"
@@ -9,9 +10,14 @@ import { PAST_PROVIDER_REFUND_NOTE, paidThroughAirwallex } from "@/lib/payments/
 import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 import { ownerAddress } from "@/lib/businesses/email-alias"
 
+/*
+  The service client, or null when it can't be made (no service key). It was a require() inside the function, which
+  the bundle resolves but plain ESM does not: there it was always null, so the journey suites ran this route without
+  the order's restate, the ledger sync or the library revoke that production runs (round 57). A static import is the
+  same client either way.
+*/
 function tryCreateAdminClient() {
   try {
-    const { createAdminClient } = require("@/lib/supabase/admin")
     return createAdminClient()
   } catch {
     return null
