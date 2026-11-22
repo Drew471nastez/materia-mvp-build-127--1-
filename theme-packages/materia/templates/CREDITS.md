@@ -5,7 +5,7 @@ Every starter photograph in these templates is from Unsplash, used under the Uns
 Each was downloaded from the address beside it, resized and saved as WebP. None is from Unsplash+.
 No picture came with the Materia theme's own starter content.
 
-Rows marked "Drawn for this template" were drawn for Storelib and are Storelib's own (round 19 adds the Night shop's crosshair logo and every poster design in the Poster shop, framed or cropped): the Notion templates' Notion
+Rows marked "Drawn for this template" were drawn for Storelib and are Storelib's own (round 19 adds the Night shop's crosshair logo and every poster design in the Poster shop, framed or cropped; the Poster shop's hero and room photographs are Unsplash photographs with those poster designs set into their frames): the Notion templates' Notion
 screens, product pictures and how-it-works steps, Storelib Default's planner pictures, every picture in the Digital products shop, and the Sample packs shop's Serum presets tile (its pack boxes are Loudlib's own artwork, used with the owner's permission), and the Creator Landing's book, course, club, letter and prompt covers and its shelf banners. The Course template's course covers and three lesson thumbnails are its Unsplash photographs with a title set on them; their rows say so.
 Storelib Default's product pictures are Unsplash photographs set on one even grey background; their rows say so. Its Downloads picture has a planner page drawn onto the tablet's blank screen.
 The Tour merch template's album cover, vinyl, CD and poster are drawn around one Unsplash photograph (https://images.unsplash.com/photo-1778154997569-8d10cab6df66), and its clothing pictures have the tour print drawn onto Unsplash photographs; their rows say so. The Merch template's product pictures are Unsplash photographs cropped and set on one even grey, and its hero's wall is extended upward from its photograph.
@@ -266,11 +266,11 @@ They are not part of a template and are never added to a creator's website.
 | space (cover only) | scripts/theme-templates/products/space/space-grey-beanie.webp | https://images.unsplash.com/photo-1576529598261-96e376f6aabb, cut out to a transparent background and recoloured grey | Unsplash License |
 | space (cover only) | scripts/theme-templates/products/space/space-pink-bag.webp | https://images.unsplash.com/photo-1640901556395-f0e709c33494, cut out to a transparent background and recoloured pink | Unsplash License |
 | space (cover only) | scripts/theme-templates/products/space/space-black-cap.webp | https://images.unsplash.com/photo-1645266729222-17cd32e06fd0, cut out to a transparent background and recoloured black | Unsplash License |
-| posters | assets/posters-hero-wall.webp | https://images.unsplash.com/photo-1771287490586-356754be24dc, with the template's own poster designs set into its six frames | Unsplash License |
-| posters | assets/posters-room-chair.webp | https://images.unsplash.com/photo-1586023492125-27b2c045efd7, with a poster design set into its frame | Unsplash License |
-| posters | assets/posters-room-bed.webp | https://images.unsplash.com/photo-1714399518678-0d244ea921cb, with a poster design set into its frame | Unsplash License |
-| posters | assets/posters-room-shelf.webp | https://images.unsplash.com/photo-1610566725828-5e945c71393d, with a poster design set into its frame | Unsplash License |
-| posters | assets/posters-room-sofa.webp | https://images.unsplash.com/photo-1543487945-139a97f387d5, with a poster design set into its frame | Unsplash License |
+| posters | assets/posters-hero-wall.webp | https://images.unsplash.com/photo-1771287490586-356754be24dc | Unsplash License |
+| posters | assets/posters-room-chair.webp | https://images.unsplash.com/photo-1586023492125-27b2c045efd7 | Unsplash License |
+| posters | assets/posters-room-bed.webp | https://images.unsplash.com/photo-1714399518678-0d244ea921cb | Unsplash License |
+| posters | assets/posters-room-shelf.webp | https://images.unsplash.com/photo-1610566725828-5e945c71393d | Unsplash License |
+| posters | assets/posters-room-sofa.webp | https://images.unsplash.com/photo-1543487945-139a97f387d5 | Unsplash License |
 | posters | assets/posters-band-pair.webp | Drawn for this template | Storelib |
 | posters | assets/posters-collage.webp | Drawn for this template | Storelib |
 | posters | assets/posters-cat-flowers.webp | Drawn for this template | Storelib |

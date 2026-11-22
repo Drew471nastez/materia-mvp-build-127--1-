@@ -210,6 +210,8 @@ async function main() {
       }
     }
     check("  uses only sections the theme has", [...used].every((s) => sectionTypes.has(s)), [...used].filter((s) => !sectionTypes.has(s)))
+    /* Changed on purpose (templates round 19): a picture the theme settings name (Night shop's logo) is used too. */
+    if (own.includes("config/settings_data.json")) for (const [, v] of strings(JSON.parse(read(join(overlay, "config/settings_data.json"))))) { const m = v.match(/^shopify:\/\/shop_images\/(.+)$/); if (m) pictures.add(m[1]) }
     const assets = own.filter((f) => f.startsWith("assets/")).map((f) => f.slice(7))
     check("  names only pictures it carries, and carries none it does not use", [...pictures].every((p) => assets.includes(p)) && assets.every((a) => pictures.has(a)), { missing: [...pictures].filter((p) => !assets.includes(p)), unused: assets.filter((a) => !pictures.has(a)) })
     check("  every picture is credited: a photograph with its source and licence, or a drawing made for the template", assets.every((a) => new RegExp(`\\| ${t.template} \\| assets/${a} \\| (https://images\\.unsplash\\.com/photo-[\\w-]+ \\| Unsplash License|Drawn for this template \\| Storelib${t.template === "samples" ? "|Loudlib's own pack box[^|]* \\| Loudlib \\(the owner\\)|Synthesised for this template[^|]* \\| Storelib" : ""}) \\|`).test(credits)) /* Changed on purpose (templates round 19): Sample packs uses Loudlib's own pack art, the owner's store, and demo loops synthesised for it. */, assets.filter((a) => !credits.includes(`assets/${a}`)))
