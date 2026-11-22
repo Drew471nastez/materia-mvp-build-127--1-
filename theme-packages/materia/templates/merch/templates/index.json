@@ -392,77 +392,30 @@
       ]
     },
     "banner": {
-      "type": "promo-banner-2",
+      "type": "merch-hero",
       "settings": {
-        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
-        "section_width": "full_width",
-        "reset_spacing": true,
-        "display_section_on": "all",
-        "content_alignment_h": "right",
-        "content_alignment_v": "center",
-        "content_max_width": 520,
-        "background_image": "shopify://shop_images/merch-banner.webp",
-        "image_position_x": 35,
-        "image_position_y": 50,
-        "enable_overlay": true,
+        "image": "shopify://shop_images/merch-banner.webp",
+        "image_alt": "A man in a black cap and hood, in profile",
+        "focal_x": 40,
+        "focal_y": 50,
+        "background": "#0b0b0b",
         "overlay_color": "#000000",
-        "overlay_opacity": 20,
-        "content_gap": 16,
-        "min_height_desktop": 620,
-        "padding_top_desktop": 72,
-        "padding_bottom_desktop": 72,
-        "side_padding_desktop": 96,
-        "content_alignment_mobile": "center",
-        "min_height_mobile": 520,
-        "padding_top_mobile": 48,
-        "padding_bottom_mobile": 48,
-        "side_padding_mobile": 24,
-        "reveal": true,
-        "animation": "fade"
-      },
-      "blocks": {
-        "heading": {
-          "type": "heading",
-          "settings": {
-            "text": "Quiet on the outside",
-            "enable_custom_style": true,
-            "color": "#ffffff",
-            "weight": "800",
-            "text_case": "uppercase",
-            "letter_spacing": -1,
-            "line_height": 1.05,
-            "size_desktop": 52,
-            "size_mobile": 32,
-            "tag": "h2"
-          }
-        },
-        "subtext": {
-          "type": "subtext",
-          "settings": {
-            "text": "<p>No logos on the chest, no slogans. Just good cuts in black, made to be worn hard.</p>",
-            "enable_custom_style": true,
-            "color": "#e6e6e6",
-            "size_desktop": 16,
-            "size_mobile": 15
-          }
-        },
-        "buttons": {
-          "type": "buttons",
-          "settings": {
-            "primary_label": "",
-            "primary_link": "",
-            "secondary_label": "Explore now",
-            "secondary_link": "/collections/all",
-            "use_theme_button": true,
-            "gap_top": 8
-          }
-        }
-      },
-      "block_order": [
-        "heading",
-        "subtext",
-        "buttons"
-      ]
+        "overlay_opacity": 35,
+        "eyebrow": "",
+        "heading": "Quiet on the outside",
+        "heading_tag": "h2",
+        "text": "<p>No logos on the chest, no slogans. Just good cuts in black, made to be worn hard.</p>",
+        "button_label": "Explore now",
+        "button_style": "outline",
+        "button_link": "/collections/all",
+        "content_position": "center",
+        "text_color": "#ffffff",
+        "heading_size_desktop": 52,
+        "heading_size_mobile": 32,
+        "heading_weight": "800",
+        "height_desktop": 600,
+        "height_mobile": 480
+      }
     },
     "reviews": {
       "type": "merch-reviews",
