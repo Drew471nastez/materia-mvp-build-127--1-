@@ -91,7 +91,8 @@ async function main() {
     /* Changed on purpose (offers round): and Storelib's Bundles and upsells app block (lib/storelib-theme/compat/offers-app-block.ts). */
     const APP = ["shopify://apps/storelib-reviews/blocks/reviews/storelib", "shopify://apps/storelib-reviews/blocks/star-rating/storelib", "shopify://apps/storelib/blocks/estimated-delivery/storelib", "shopify://apps/storelib/blocks/stock-status/storelib", "shopify://apps/storelib-size-charts/blocks/size-chart/storelib", "shopify://apps/storelib-personalization/blocks/personalization/storelib", "shopify://apps/storelib/blocks/offers/storelib"].sort().join(",")
     check("the catalog is the theme's own blocks and Storelib Reviews' app blocks, none of Storelib's theme blocks", types(Object.values(compatCatalog)) === `_price,card,${APP}`)
-    check('"@theme" lists the theme\'s public blocks; "@app" adds Storelib Reviews\' two', types(addableBlocks(compatSections.hero, compatCatalog)) === `card,${APP}`)
+    /* Changed on purpose (templates round 19): a theme section named like one of Storelib's own ("hero") is stored as theme-hero (lib/storelib-theme/shopify/convert.ts storedName), so Add section offers it. */
+    check('"@theme" lists the theme\'s public blocks; "@app" adds Storelib Reviews\' two', types(addableBlocks(compatSections["theme-hero"], compatCatalog)) === `card,${APP}`)
     check('a section of "@app" alone lists Storelib Reviews\' two', types(addableBlocks(compatSections.apps, compatCatalog)) === APP)
     check('a section of its own blocks and "@app" lists its own, then Storelib Reviews\' two', types(addableBlocks(compatSections.faq, compatCatalog)) === `question,${APP}`)
     check("a private block named by the section is listed there, the static block is not", types(addableBlocks(compatSections.pricing, compatCatalog)) === "_price" && (compatSections.pricing.statics ?? []).some((s) => s.type === "card"))
@@ -117,7 +118,7 @@ async function main() {
     check("  a private block where it is not named is refused, with what is taken", priv.ok === false && /does not take a "_slide" block/.test(priv.error) && /badge/.test(priv.error))
 
     const compat = schemaMapFor(t.files)
-    const compatPage = page([{ id: "s1", type: "hero", settings: {}, blocks: [{ id: "c1", type: "card", settings: {} }] }])
+    const compatPage = page([{ id: "s1", type: "theme-hero", /* Changed on purpose (templates round 19): stored as theme-hero. */ settings: {}, blocks: [{ id: "c1", type: "card", settings: {} }] }])
     const card = checkOps(compatPage, [{ op: "add_block", section_id: "s1", block_type: "card", settings: { title: "Two" } }, { op: "add_block", section_id: "s1", block_type: "card", parent_block_id: "c1" }], compat, mint)
     check("an imported theme's block is added, at the top and inside a block", card.ok === true, card)
     const builtIn = checkOps(compatPage, [{ op: "add_block", section_id: "s1", block_type: "heading" }], compat, mint)

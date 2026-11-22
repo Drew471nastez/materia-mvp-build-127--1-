@@ -11,7 +11,7 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "09", file: "09_email_automation_tables.sql", sha256: "a58c3921a88d2ba5c88e10290c47093048ee1dedac0e079264397dfa2edda3fa" },
   { part: "10", file: "10_email_automation_functions.sql", sha256: "70235850df5c3e9ad08f6bdf5a7c229899060deb379dd88d5237a64c08ce4027" },
   { part: "11", file: "11_agent_mcp.sql", sha256: "fa49943a9fba7109dfdd808c8ebc07fc80e795e42059db01ee0f1fc4f869aa89" },
-  { part: "12", file: "12_library_limit_and_privacy.sql", sha256: "879795e645abd46b7400e2357703132ae1d3f08445673d24180bcb8b50679eae" },
+  { part: "12", file: "12_library_limit_and_privacy.sql", sha256: "60234d84f7f80e3ede125c4cc67a7987d585d5a4394a430aaed8e3498a0830af" },
   { part: "13", file: "13_checkout_contacts.sql", sha256: "099dcff04fd36187ce649e5bbe09a81661a733ae0d0bdb3e4851fd7dc77b669b" },
   { part: "14", file: "14_product_bundles.sql", sha256: "4e441a42a276cfca8ac806c5fed0751229a19a85ccd1b0456955196db84fa970" },
   { part: "15", file: "15_upload_functions.sql", sha256: "f5b08383da01d9a5d9a0eacf4e0b7eba4e7cf9d9f545d82b9274efa272dd8a4d" },

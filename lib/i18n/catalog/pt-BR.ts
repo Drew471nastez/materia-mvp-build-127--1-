@@ -13144,6 +13144,7 @@ const words: Record<string, string> = {
  "{name} · {price}": "{name} · {price}",
  "{name}, as it comes": "{name}, como está",
  "{name}, position {value} of {length}": "{name}, posição {value} de {length}",
+ "{name}, live website": "{name}, site ao vivo",
  "{name}, preparing preview": "{name}, preparando a prévia",
  "{name}, {amount}/month": "{name}, {amount}/mês",
  "{name}, {length} days": "{name}, {length} dias",

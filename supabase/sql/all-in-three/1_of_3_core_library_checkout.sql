@@ -230,7 +230,7 @@ alter table public.profiles add column if not exists personalized_recommendation
 alter table public.email_change_codes add column if not exists current_email_code text;
 alter table public.email_change_codes add column if not exists attempts integer not null default 0;
 alter table public.account_delete_codes add column if not exists attempts integer not null default 0;
-INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('12', '12_library_limit_and_privacy.sql', '879795e645abd46b7400e2357703132ae1d3f08445673d24180bcb8b50679eae') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('12', '12_library_limit_and_privacy.sql', '60234d84f7f80e3ede125c4cc67a7987d585d5a4394a430aaed8e3498a0830af') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 -- part 13_checkout_contacts.sql
 /* Buyers kept as contacts, one contact per address, and started checkouts for the checkout reminder. */
