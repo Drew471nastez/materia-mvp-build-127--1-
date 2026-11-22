@@ -22,7 +22,7 @@
   #shopify-section-{{ sid }} .eba__inner { max-width: 1040px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 32px; align-items: center; }
   @media (min-width: 750px) { #shopify-section-{{ sid }} .eba__inner { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 72px; } }
   @media (min-width: 750px) { #shopify-section-{{ sid }} .eba--right .eba__media { order: 2; } }
-  #shopify-section-{{ sid }} .eba__media { margin: 0; position: relative; aspect-ratio: 4 / 5; overflow: hidden; border-radius: {{ st.image_radius | default: 6 }}px; background: #e2e5dd; }
+  #shopify-section-{{ sid }} .eba__media { margin: 0; position: relative; aspect-ratio: {{ st.image_ratio | default: '4 / 5' }}; overflow: hidden; border-radius: {{ st.image_radius | default: 6 }}px; background: #e2e5dd; }
   #shopify-section-{{ sid }} .eba__media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; margin: 0; }
   #shopify-section-{{ sid }} .eba__eyebrow { margin: 0 0 12px; color: var(--eba-accent); font-size: 13px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; }
   #shopify-section-{{ sid }} .eba__name { margin: 0 0 18px; color: var(--color-heading); font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, 500); font-size: {{ st.heading_size_mobile | default: 36 }}px; line-height: 1.08; }
@@ -58,7 +58,7 @@
 
 {% schema %}
 {
-  "name": "Ebook author",
+  "name": "Ebook author or story",
   "tag": "section",
   "class": "section sec__ebook-author",
   "settings": [
@@ -68,6 +68,7 @@
     { "type": "image_picker", "id": "image", "label": "Portrait" },
     { "type": "text", "id": "image_alt", "label": "Alt text" },
     { "type": "select", "id": "image_position", "label": "Portrait side", "options": [ { "value": "left", "label": "Left" }, { "value": "right", "label": "Right" } ], "default": "left" },
+    { "type": "select", "id": "image_ratio", "label": "Picture proportions", "options": [ { "value": "4 / 5", "label": "Portrait" }, { "value": "1 / 1", "label": "Square" }, { "value": "4 / 3", "label": "Landscape" } ], "default": "4 / 5" },
     { "type": "range", "id": "image_radius", "label": "Portrait corners", "min": 0, "max": 30, "step": 1, "unit": "px", "default": 6 },
     { "type": "text", "id": "eyebrow", "label": "Small label", "default": "The author" },
     { "type": "inline_richtext", "id": "name", "label": "Name or heading", "default": "Your name" },
@@ -82,6 +83,6 @@
     { "type": "range", "id": "padding_top_mobile", "label": "Space above, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 },
     { "type": "range", "id": "padding_bottom_mobile", "label": "Space below, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 }
   ],
-  "presets": [ { "name": "Ebook author" } ]
+  "presets": [ { "name": "Ebook author or story" } ]
 }
 {% endschema %}

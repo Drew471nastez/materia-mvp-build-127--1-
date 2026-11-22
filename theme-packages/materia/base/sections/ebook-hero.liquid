@@ -88,7 +88,7 @@
           <p class="ebh__price"><span class="ebh__now">{{ st.price | escape }}</span>{%- if st.compare_price != blank -%}<span class="ebh__was">{{ st.compare_price | escape }}</span>{%- endif -%}</p>
         {%- endif -%}
         {%- if st.button_label != blank -%}<a class="ebh__btn" href="{{ st.button_link | default: '/collections/all' }}">{{ st.button_label | escape }}</a>{%- endif -%}
-        {%- if st.link_label != blank -%}<a class="ebh__link" href="{{ st.link_url | default: '#' }}">{{ st.link_label | escape }}</a>{%- endif -%}
+        {%- if st.link_label != blank -%}<a class="ebh__link" href="{{ st.link_url | default: '/collections/all' }}">{{ st.link_label | escape }}</a>{%- endif -%}
       </div>
       {%- if st.note != blank -%}<p class="ebh__note">{{ st.note | escape }}</p>{%- endif -%}
     </div>

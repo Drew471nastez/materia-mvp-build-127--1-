@@ -36,7 +36,7 @@
           "/theme-previews/_base/a/live-cart-search.38431e33ef4e.js",
           "/theme-previews/_base/a/hero-benefits.d959a017d863.js",
           "/theme-previews/_base/a/scroll-text-reveal.41a5761b36b6.js",
-          "/theme-previews/_base/a/text-section-controls.f64949db41f0.js",
+          "/theme-previews/_base/a/text-section-controls.366876919d55.js",
           "/theme-previews/_base/a/live-text.6de0dd9c0fb6.js",
           "/theme-previews/_base/a/testimonial-quote.8fd967b19bcd.js",
           "/theme-previews/_base/a/announcement-pro-4.a4ec4257fe15.js",
