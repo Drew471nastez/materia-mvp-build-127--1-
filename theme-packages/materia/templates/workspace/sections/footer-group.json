@@ -5,16 +5,16 @@
     "footer": {
       "type": "footer",
       "settings": {
-        "custom_text": "Sunday Systems",
-        "padding_top": 48,
+        "custom_text": "Wellkept",
+        "padding_top": 64,
         "show_social": false,
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "color_scheme": "default",
         "custom_image": "",
         "reset_spacing": true,
         "section_width": "fluid_container",
         "copyright_text": "© {{ 'now' | date: '%Y' }} {{ shop.name }}. All rights reserved.",
         "heading_weight": "600",
-        "padding_bottom": 24,
+        "padding_bottom": 28,
         "separator_line": "all-page",
         "arrow_icon_size": 14,
         "link_hover_color": "",
@@ -40,19 +40,19 @@
             "top_offset": 0,
             "image_width": 110,
             "store_email": true,
-            "store_phone": true,
-            "content_width": "30%",
-            "store_address": true,
-            "store_heading": "",
-            "store_description": "<p>Notion templates for planning a week, a budget and a launch. Made by one person who uses them every day.</p>"
+            "store_phone": false,
+            "content_width": "36%",
+            "store_address": false,
+            "store_heading": "Wellkept",
+            "store_description": "<p>Notion templates for freelancers, home and study, made by Ada Lind. Every one works on Notion's free plan.</p>"
           }
         },
         "link_list_1": {
           "type": "link_list",
           "settings": {
             "menu": "main-menu",
-            "heading": "Shop",
-            "content_width": "16%"
+            "heading": "Templates",
+            "content_width": "18%"
           }
         },
         "link_list_2": {
@@ -60,7 +60,7 @@
           "settings": {
             "menu": "footer",
             "heading": "Help",
-            "content_width": "16%"
+            "content_width": "18%"
           }
         },
         "payment_badges_1": {

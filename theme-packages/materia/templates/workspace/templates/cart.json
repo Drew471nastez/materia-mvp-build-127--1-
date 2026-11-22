@@ -57,7 +57,7 @@
           "type": "faq",
           "settings": {
             "question": "How do I get the template?",
-            "answer": "<p>A link is on your receipt and in your inbox. Open it and press Duplicate.</p>"
+            "answer": "<p>The link is on your receipt and in the email that follows. Open it while signed in to Notion and press Duplicate.</p>"
           }
         },
         "faq_2": {
@@ -70,8 +70,8 @@
         "faq_3": {
           "type": "faq",
           "settings": {
-            "question": "Can I change it?",
-            "answer": "<p>Yes. Once duplicated, it is your page.</p>"
+            "question": "What if it is not right for me?",
+            "answer": "<p>Reply to your receipt within 14 days for a refund.</p>"
           }
         },
         "payment_badges_67Mgyc": {

@@ -1,121 +1,101 @@
 {
   "sections": {
-    "faq5_1": {
-      "type": "faq5",
+    "faq": {
+      "type": "faq-search",
       "settings": {
-        "color_scheme": "default",
-        "section_width": "fluid_container",
-        "reset_spacing": true,
-        "structured_data": false,
-        "heading": "Frequently asked questions",
-        "subheading": "<p>Everything you need to know about our products and services.</p>",
-        "first_item_open": false,
-        "allow_multiple_open": false,
-        "open_icon": "plus",
-        "content_alignment": "left",
-        "gap_desktop": 60,
-        "gap_header_to_items": 24,
-        "gap_heading_to_subheading": 12,
-        "gap_between_items": 19,
-        "item_padding_y": 18,
-        "item_padding_x": 14,
-        "item_radius": 0,
-        "show_dividers": true,
-        "image_position": "right",
-        "image_ratio": "portrait",
-        "image_radius": 16,
-        "enable_custom_style": false,
-        "enable_custom_fonts": false,
-        "heading_font": "assistant_n4",
-        "body_font": "assistant_n4",
-        "heading_size_desktop": 36,
-        "heading_size_mobile": 26,
-        "enable_custom_heading_weight": false,
-        "heading_weight": "600",
-        "subheading_size_desktop": 16,
-        "subheading_size_mobile": 14,
-        "question_size_desktop": 18,
-        "question_size_mobile": 15,
-        "enable_custom_question_weight": false,
-        "question_weight": "600",
-        "answer_size_desktop": 15,
-        "answer_size_mobile": 14,
-        "reveal": true,
-        "scroll_animation": "inherit",
-        "padding_top": 60,
-        "padding_bottom": 60,
-        "section_margin_top_desktop": 0,
-        "section_margin_bottom_desktop": 0,
-        "gap_mobile": 30,
-        "section_margin_top_mobile": 0,
-        "section_margin_bottom_mobile": 0,
-        "image": "shopify://shop_images/workspace-binder.webp"
+        "search_label": "Search the questions",
+        "open_icon": "chevron",
+        "max_content_width": 720,
+        "padding_top": 88,
+        "padding_bottom": 40,
+        "padding_top_mobile": 64,
+        "padding_bottom_mobile": 64,
+        "content_alignment": "center",
+        "first_item_open": false
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Help",
-            "tag": "h2",
-            "enable_custom_style": false,
-            "enable_custom_fonts": false,
-            "font": "assistant_n4",
-            "weight_enable": false,
-            "weight": "700",
-            "size_enable": false,
-            "size_desktop": 36,
-            "size_mobile": 26,
-            "line_height": 1.15,
-            "tracking": 0
+            "text": "Questions and answers"
           }
         },
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Not here? <a href=\"/pages/contact\">Send a message</a>.</p>",
-            "enable_custom_style": false,
-            "enable_custom_fonts": false,
-            "font": "assistant_n4",
-            "weight_enable": false,
-            "weight": "400",
-            "size_enable": false,
-            "size": 16,
-            "line_height": 1.5
+            "text": "<p>Type a word, or scroll. Everything about buying, using and changing a template.</p>"
           }
         },
         "faq_item_1": {
           "type": "faq_item",
           "settings": {
-            "question": "The link will not open",
-            "answer": "<p>Sign in to Notion first, then open the link again. If it still fails, write to us with your order email.</p>"
+            "question": "Do I need a paid Notion plan?",
+            "answer": "<p>No. Every template works on Notion's free plan. You only need an account.</p>",
+            "keywords": "free, plan, price, account"
           }
         },
         "faq_item_2": {
           "type": "faq_item",
           "settings": {
-            "question": "Where did my copy go?",
-            "answer": "<p>After Duplicate it sits at the top of your sidebar, under Private.</p>"
+            "question": "How do I get the template after I pay?",
+            "answer": "<p>Your receipt has a link to the template. Open it while signed in to Notion and press Duplicate. It is in your workspace a few seconds later.</p>",
+            "keywords": "download, link, duplicate, receipt"
           }
         },
         "faq_item_3": {
           "type": "faq_item",
           "settings": {
-            "question": "Does it work on the phone app?",
-            "answer": "<p>Yes. Say here if any view is better on a larger screen.</p>"
+            "question": "Can I change it?",
+            "answer": "<p>Yes. Once you duplicate it, it is your page. Rename columns, add properties, change the colours, delete what you do not use.</p>",
+            "keywords": "edit, customise, change"
           }
         },
         "faq_item_4": {
           "type": "faq_item",
           "settings": {
-            "question": "Can I use it with my team?",
-            "answer": "<p>Say whether one purchase covers one person or a whole workspace.</p>"
+            "question": "Does it work on my phone?",
+            "answer": "<p>Yes. It works anywhere Notion does: the Mac and Windows apps, the browser, and the iPhone and Android apps.</p>",
+            "keywords": "mobile, phone, app, ipad"
           }
         },
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "How do I get updates?",
-            "answer": "<p>Say how buyers receive a new version.</p>"
+            "question": "Can I share it with my team?",
+            "answer": "<p>You can share your copy inside your own workspace. Please do not resell it or post the duplicate link publicly.</p>",
+            "keywords": "share, team, licence, resell"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What if it is not right for me?",
+            "answer": "<p>Write within 14 days and you get your money back. No form, just reply to your receipt.</p>",
+            "keywords": "refund, return, money back"
+          }
+        },
+        "faq_item_7": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Is there a bundle?",
+            "answer": "<p>Not yet. If you buy two templates and want a third, write to me and I will send a discount code.</p>",
+            "keywords": "bundle, discount, all"
+          }
+        },
+        "faq_item_8": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I use it for a client?",
+            "answer": "<p>Yes, you can set it up inside a client's workspace for them. Each client needs their own copy.</p>",
+            "keywords": "client, agency, licence"
+          }
+        },
+        "faq_item_9": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do you make custom templates?",
+            "answer": "<p>Sometimes, between new templates. Write with what you need and when, and I will tell you honestly if I can help.</p>",
+            "keywords": "custom, hire, commission"
           }
         }
       },
@@ -126,11 +106,64 @@
         "faq_item_2",
         "faq_item_3",
         "faq_item_4",
-        "faq_item_5"
+        "faq_item_5",
+        "faq_item_6",
+        "faq_item_7",
+        "faq_item_8",
+        "faq_item_9"
+      ]
+    },
+    "ask": {
+      "type": "banner3",
+      "settings": {
+        "section_width": "container",
+        "banner_surface": "soft",
+        "banner_tint": 0,
+        "use_custom_bg": true,
+        "bg_color": "#f2f1ee",
+        "max_width": 640,
+        "text_align": "center",
+        "use_theme_radius": false,
+        "section_border_radius": 20,
+        "pad_top_desktop": 56,
+        "pad_bottom_desktop": 56,
+        "pad_top_mobile": 40,
+        "pad_bottom_mobile": 40,
+        "section_padding_top": 24,
+        "section_padding_bottom": 96,
+        "section_padding_top_mobile": 16,
+        "section_padding_bottom_mobile": 64
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Still have a question?"
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "Write to me. I read every message and answer within two working days."
+          }
+        },
+        "button_1": {
+          "type": "button",
+          "settings": {
+            "label": "Write to me",
+            "link": "/pages/contact"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_1",
+        "button_1"
       ]
     }
   },
   "order": [
-    "faq5_1"
+    "faq",
+    "ask"
   ]
 }

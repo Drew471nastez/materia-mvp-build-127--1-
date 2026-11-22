@@ -7,7 +7,7 @@
         "url": "/collections/all"
       },
       {
-        "title": "How it works",
+        "title": "How they work",
         "url": "/pages/how-it-works"
       },
       {
@@ -15,7 +15,7 @@
         "url": "/pages/about"
       },
       {
-        "title": "Help",
+        "title": "FAQ",
         "url": "/pages/faqs"
       }
     ]
@@ -24,16 +24,16 @@
     "title": "Footer",
     "links": [
       {
-        "title": "How it works",
-        "url": "/pages/how-it-works"
-      },
-      {
-        "title": "Help",
+        "title": "Questions",
         "url": "/pages/faqs"
       },
       {
         "title": "Contact",
         "url": "/pages/contact"
+      },
+      {
+        "title": "Notes",
+        "url": "/blogs/news"
       },
       {
         "title": "Search",

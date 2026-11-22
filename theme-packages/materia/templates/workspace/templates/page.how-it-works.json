@@ -1,131 +1,119 @@
 {
   "sections": {
-    "page_heading_1": {
-      "type": "page-heading",
+    "intro": {
+      "type": "banner3",
       "settings": {
-        "color_scheme": "default",
         "section_width": "stretch_width",
-        "reset_spacing": true,
-        "alignment": "center",
-        "height": "adapt",
-        "overlay_opacity": 0,
-        "padding_top": 80,
-        "padding_bottom": 40
+        "banner_surface": "section",
+        "max_width": 760,
+        "text_align": "center",
+        "heading_tag": "h1",
+        "stack_gap": 16,
+        "sub_btn_gap": 28,
+        "pad_top_desktop": 88,
+        "pad_bottom_desktop": 40,
+        "pad_top_mobile": 56,
+        "pad_bottom_mobile": 24,
+        "section_padding_top": 0,
+        "section_padding_bottom": 0,
+        "section_padding_top_mobile": 0,
+        "section_padding_bottom_mobile": 0,
+        "reveal": false
       },
       "blocks": {
-        "breadcrumb_1": {
-          "type": "breadcrumb",
+        "eyebrow_1": {
+          "type": "eyebrow",
           "settings": {
-            "separator": "chevron",
-            "font_size": 13,
-            "uppercase": false
+            "text": "How they work"
           }
         },
         "heading_1": {
           "type": "heading",
           "settings": {
-            "enable_heading_color": false,
-            "enable_custom_fonts": false,
-            "font": "assistant_n4",
-            "header_size": "default",
-            "heading_font_size": 34,
-            "vertical_gap": 8,
-            "page_title": "How it works"
+            "text": "From checkout to a working page in a few minutes",
+            "enable_custom_style": true,
+            "font": "heading",
+            "weight": "700",
+            "transform": "none",
+            "letterspace": -0.02,
+            "lineheight": "1.1",
+            "size_d": 48,
+            "size_m": 32,
+            "max_width": 0
           }
         },
-        "description_1": {
-          "type": "description",
+        "subheading_1": {
+          "type": "subheading",
           "settings": {
-            "enable_custom_style": false,
-            "enable_custom_fonts": false,
-            "font": "assistant_n4",
-            "description_font_size": 15,
-            "description": "<p>From checkout to a working page, in three steps.</p>"
+            "text": "There is nothing to install and nothing to download. A template is a Notion page you copy into your own workspace.",
+            "enable_custom_style": true,
+            "font": "body",
+            "weight": "theme",
+            "transform": "none",
+            "lineheight": "1.6",
+            "size_d": 18,
+            "size_m": 16,
+            "max_width": 640,
+            "opacity": 100
           }
         }
       },
       "block_order": [
-        "breadcrumb_1",
+        "eyebrow_1",
         "heading_1",
-        "description_1"
+        "subheading_1"
       ]
     },
-    "how_to_use_1": {
+    "steps": {
       "type": "how-to-use",
       "settings": {
-        "color_scheme": "default",
-        "section_width": "container",
-        "reset_spacing": true,
         "cols_desktop": 3,
         "content_align": "left",
         "image_ratio": "4/3",
         "image_fit": "cover",
-        "image_radius": 10,
-        "image_border": true,
-        "enable_custom_style": false,
-        "enable_custom_fonts": false,
-        "heading_font": "assistant_n4",
-        "body_font": "assistant_n4",
-        "number_size": 22,
+        "image_radius": 16,
+        "image_border": false,
         "title_size_desktop": 20,
-        "desc_size_desktop": 16,
-        "reveal": true,
-        "col_gap_desktop": 32,
-        "gap_desktop": 32,
-        "padding_top_desktop": 64,
-        "padding_bottom_desktop": 64,
-        "margin_top": 0,
-        "margin_bottom": 0,
-        "enable_mobile_carousel": true,
-        "mobile_items_per_view": 1.1,
-        "carousel_autoplay": false,
-        "carousel_autoplay_speed": 4,
-        "title_size_mobile": 18,
-        "desc_size_mobile": 15,
-        "col_gap_mobile": 16,
-        "gap_mobile": 24,
-        "padding_top_mobile": 40,
-        "padding_bottom_mobile": 40
+        "desc_size_desktop": 15,
+        "col_gap_desktop": 24,
+        "gap_desktop": 24,
+        "padding_top_desktop": 40,
+        "padding_bottom_desktop": 88
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Buy, duplicate, make it yours",
-            "enable_accent": false,
-            "accent_italic": false,
+            "text": "Three steps",
             "align": "center",
-            "gap_below": 48,
-            "enable_custom_style": false,
-            "size_desktop": 40,
-            "size_mobile": 28
+            "gap_below": 40
           }
         },
         "step_1": {
           "type": "step",
           "settings": {
-            "title": "Buy",
-            "description": "<p>Pay once at checkout. Your link is on the receipt and in the email that follows.</p>",
-            "image": "shopify://shop_images/workspace-mock-budget.webp",
-            "number": "1"
+            "image": "shopify://shop_images/workspace-step-receipt.webp",
+            "number": " ",
+            "title": "Pay once",
+            "description": "<p>Checkout takes card, Apple Pay or PayPal. The receipt, with your link, is in your inbox a minute later.</p>"
           }
         },
         "step_2": {
           "type": "step",
           "settings": {
-            "title": "Duplicate",
-            "description": "<p>Open the link, press Duplicate and choose your workspace. Signing up to Notion is free.</p>",
-            "image": "shopify://shop_images/workspace-mock-calendar.webp",
-            "number": "2"
+            "image": "shopify://shop_images/workspace-step-duplicate.webp",
+            "number": " ",
+            "title": "Press Duplicate",
+            "description": "<p>Open the link while signed in to Notion and press Duplicate in the top right. Choose your workspace and it is copied in.</p>"
           }
         },
         "step_3": {
           "type": "step",
           "settings": {
-            "title": "Make it yours",
-            "description": "<p>Follow the five minute guide, then change whatever you like.</p>",
-            "image": "shopify://shop_images/workspace-mock-planner.webp",
-            "number": "3"
+            "image": "shopify://shop_images/workspace-feature-invoices.webp",
+            "number": " ",
+            "title": "Fill it in",
+            "description": "<p>Follow the start page: add a client, a project, an invoice. Change anything that does not fit how you work.</p>"
           }
         }
       },
@@ -136,90 +124,126 @@
         "step_3"
       ]
     },
-    "text_columns_1": {
-      "type": "text-columns",
+    "included": {
+      "type": "image-with-text-bento",
       "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "section_width": "fluid_container",
-        "reset_spacing": true,
-        "content_alignment": "left",
-        "columns_desktop": 3,
-        "columns_tablet": 2,
-        "column_gap": 48,
-        "header_gap": 48,
-        "show_dividers": true,
-        "enable_custom_style": false,
-        "enable_custom_fonts": false,
-        "heading_font": "assistant_n4",
-        "body_font": "assistant_n4",
-        "item_heading_size": 22,
-        "reveal": true,
-        "padding_top": 80,
-        "padding_bottom": 80,
-        "section_margin_top_desktop": 0,
-        "section_margin_bottom_desktop": 0,
-        "show_on_mobile": true,
-        "mobile_layout": "stack",
-        "show_arrows": true,
-        "item_heading_size_mobile": 20,
-        "padding_top_mobile": 56,
-        "padding_bottom_mobile": 56,
-        "section_margin_top_mobile": 0,
-        "section_margin_bottom_mobile": 0
+        "heading": "Good to know",
+        "subheading": "The fine print, in plain words.",
+        "columns": "3",
+        "gap_desktop": 16,
+        "row_height_desktop": 200,
+        "card_padding": 32,
+        "card_radius": 18,
+        "section_heading_size_desktop": 36,
+        "card_heading_size_desktop": 20,
+        "card_body_size": 15,
+        "padding_top_desktop": 40,
+        "padding_bottom_desktop": 72,
+        "row_height_mobile": 180
+      },
+      "blocks": {
+        "text_card_1": {
+          "type": "text_card",
+          "settings": {
+            "caption": "",
+            "heading": "One person, one workspace",
+            "heading_tag": "h3",
+            "body": "Use your copy for yourself or your own small team. Please do not resell it or share the link in public.",
+            "card_style": "tint",
+            "enable_custom_style": true,
+            "bg": "#f2f1ee",
+            "text_color": "#1f1f1d",
+            "col_span_desktop": "1",
+            "row_span_desktop": "1"
+          }
+        },
+        "text_card_2": {
+          "type": "text_card",
+          "settings": {
+            "caption": "",
+            "heading": "New versions are free",
+            "heading_tag": "h3",
+            "body": "When a template improves, buyers get the new link by email. Your old copy keeps working.",
+            "card_style": "tint",
+            "enable_custom_style": true,
+            "bg": "#f2f1ee",
+            "text_color": "#1f1f1d",
+            "col_span_desktop": "1",
+            "row_span_desktop": "1"
+          }
+        },
+        "text_card_3": {
+          "type": "text_card",
+          "settings": {
+            "caption": "",
+            "heading": "14 days to change your mind",
+            "heading_tag": "h3",
+            "body": "Reply to your receipt within 14 days and you get your money back.",
+            "card_style": "inverse",
+            "col_span_desktop": "1",
+            "row_span_desktop": "1"
+          }
+        }
+      },
+      "block_order": [
+        "text_card_1",
+        "text_card_2",
+        "text_card_3"
+      ]
+    },
+    "ask": {
+      "type": "banner3",
+      "settings": {
+        "section_width": "container",
+        "banner_surface": "soft",
+        "banner_tint": 0,
+        "use_custom_bg": true,
+        "bg_color": "#f2f1ee",
+        "max_width": 640,
+        "text_align": "center",
+        "use_theme_radius": false,
+        "section_border_radius": 20,
+        "pad_top_desktop": 56,
+        "pad_bottom_desktop": 56,
+        "pad_top_mobile": 40,
+        "pad_bottom_mobile": 40,
+        "section_padding_top": 24,
+        "section_padding_bottom": 96,
+        "section_padding_top_mobile": 16,
+        "section_padding_bottom_mobile": 64
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Good to know",
-            "enable_custom_style": false,
-            "enable_custom_fonts": false,
-            "font": "assistant_n4",
-            "weight_enable": false,
-            "weight": "700",
-            "size_enable": false,
-            "size_desktop": 36,
-            "size_mobile": 28,
-            "line_height": 1.15,
-            "tracking": 0
+            "text": "Not sure which one to start with?"
           }
         },
-        "column_1": {
-          "type": "column",
+        "subheading_1": {
+          "type": "subheading",
           "settings": {
-            "label": "Licence",
-            "heading": "One person, one workspace",
-            "text": "<p>Say what a team should buy.</p>"
+            "text": "Tell me how your week looks and I will point you to one. Or start with Freelance desk, the one most people buy first."
           }
         },
-        "column_2": {
-          "type": "column",
+        "button_1": {
+          "type": "button",
           "settings": {
-            "label": "Updates",
-            "heading": "Free for buyers",
-            "text": "<p>Say how you send new versions.</p>"
-          }
-        },
-        "column_3": {
-          "type": "column",
-          "settings": {
-            "label": "Refunds",
-            "heading": "Your terms here",
-            "text": "<p>Say what applies once a template is duplicated.</p>"
+            "label": "See the templates",
+            "link": "/collections/all"
           }
         }
       },
       "block_order": [
         "heading_1",
-        "column_1",
-        "column_2",
-        "column_3"
+        "subheading_1",
+        "button_1"
       ]
     }
   },
   "order": [
-    "page_heading_1",
-    "how_to_use_1",
-    "text_columns_1"
+    "intro",
+    "steps",
+    "included",
+    "ask"
   ]
 }

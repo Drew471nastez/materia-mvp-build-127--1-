@@ -59,7 +59,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Get in touch",
+            "text": "Write to me",
             "tag": "h1",
             "enable_custom_style": false,
             "enable_custom_fonts": false,
@@ -75,7 +75,7 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>A link that will not open, a question before you buy, or a template you wish existed.</p>",
+            "text": "<p>A link that will not open, a question before you buy, or a template you wish existed. I read every message myself.</p>",
             "max_width": 600,
             "enable_custom_style": false,
             "enable_custom_fonts": false,
@@ -131,7 +131,7 @@
           "settings": {
             "icon": "mail",
             "label": "Email",
-            "value": "Replace with your email"
+            "value": "hello@yourdomain.com"
           }
         },
         "info_2": {

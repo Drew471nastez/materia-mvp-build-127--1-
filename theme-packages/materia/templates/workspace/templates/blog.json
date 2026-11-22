@@ -26,7 +26,7 @@
         "description_YRWpkt": {
           "type": "description",
           "settings": {
-            "description": "<p>Short guides on planning a week, a budget and a launch.</p>",
+            "description": "<p>Notes on planning a week, keeping a budget and running a small business in Notion.</p>",
             "enable_custom_style": false,
             "description_font_size": 16
           }
@@ -59,7 +59,7 @@
         "items_to_show": 12,
         "margin_bottom": 0,
         "readmore_line": "style",
-        "readmore_text": "Read article",
+        "readmore_text": "Read the note",
         "readmore_type": "underline",
         "reset_spacing": true,
         "section_width": "fluid_container",

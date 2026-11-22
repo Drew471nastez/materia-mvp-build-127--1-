@@ -16,7 +16,7 @@
         "heading_6nj4md": {
           "type": "heading",
           "settings": {
-            "heading": "That page is not here",
+            "heading": "This page is not here",
             "font_size": 36,
             "uppercase": false,
             "font_weight": "heading_weight",
@@ -28,7 +28,7 @@
           "settings": {
             "font_size": 15,
             "uppercase": false,
-            "subheading": "The template may have a new name. All of them are on one page.",
+            "subheading": "The template may have moved. Every one of them is on the templates page.",
             "font_weight": "body_weight",
             "spacing_bottom": 40
           }
