@@ -4,6 +4,7 @@ import { navigateInApp } from "@/lib/native-bridge"
 import { appRouter } from "@/lib/navigation/app-router-handle"
 import { Capacitor } from "@capacitor/core"
 import { pushTapTarget } from "./tap"
+import { PUSH_FORGET_EVENT } from "./unregister"
 
 /**
  * Initialise push notifications for the native app.
@@ -95,6 +96,8 @@ async function sessionUser(): Promise<string | null> {
 /** Sends the phone's token for whoever is signed in now. Never twice for the same person and token. */
 async function sendToken(token: string, platform: "ios" | "android"): Promise<void> {
   knownToken = token
+  /* For Log out, which takes this token off the account without loading this file (lib/push/unregister.ts, r57). */
+  ;(window as unknown as { __storelibPushToken?: string }).__storelibPushToken = token
   const who = await session()
   if (!who) return
   const key = `${who.id}:${token}`
@@ -151,6 +154,29 @@ export async function registerDevice(): Promise<void> {
   }
   listening = true
   const { PushNotifications } = await import("@capacitor/push-notifications")
+
+  /* Log out took this phone off the account (lib/push/unregister.ts): the next sign in sends the token again, even for the same person. */
+  window.addEventListener(PUSH_FORGET_EVENT, () => {
+    sentAs = null
+    state.saved = null
+  })
+
+  /*
+    THE BADGE (r57). Every push sets the app icon's badge to 1 (lib/push/
+    sender fcmMessage) and nothing ever set it back, so an iPhone showed a
+    red 1 on Storelib for good after its first sale. Opening the app is
+    seeing them: the delivered notifications are cleared and the badge with
+    them, at launch and each time the app comes forward. iOS only; Android
+    has no number on its icon and keeps its tray as the person left it.
+  */
+  if (platform === "ios") {
+    const clear = () => void PushNotifications.removeAllDeliveredNotifications().catch(() => undefined)
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") clear()
+    })
+    document.addEventListener("resume", clear)
+    window.setTimeout(clear, 1500)
+  }
 
   PushNotifications.addListener("registration", ({ value: token }) => {
     /* On iOS this is the raw APNs token, which Firebase cannot send to; the FCM token arrives as fcmTokenReady. */

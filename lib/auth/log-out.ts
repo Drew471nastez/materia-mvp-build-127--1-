@@ -26,7 +26,22 @@
  * `auth`, and the forgetting is loaded when a Log out happens.
  */
 
-type SignOut = { signOut: (options: { scope: "local" | "global" }) => Promise<{ error: unknown }> }
+type SignOut = {
+  signOut: (options: { scope: "local" | "global" }) => Promise<{ error: unknown }>
+  getSession?: () => Promise<{ data: { session: { access_token?: string | null } | null } }>
+}
+
+/*
+  FIRST, THIS PHONE LEAVES THE ACCOUNT'S PUSHES (r57, lib/push/unregister.ts),
+  while the session is still there to say whose token it is. A phone that
+  never registered (every browser) asks nothing.
+*/
+async function forgetPushDefault(auth: SignOut, scope: "local" | "global"): Promise<void> {
+  if (typeof window === "undefined") return
+  const access = await auth.getSession?.().then((r) => r?.data?.session?.access_token ?? null).catch(() => null)
+  const { forgetThisDevicePush } = await import("@/lib/push/unregister")
+  await forgetThisDevicePush(access ?? null, undefined, scope === "global")
+}
 
 export const LOGOUT_ROUTE = "/api/auth/logout"
 
@@ -35,7 +50,9 @@ export async function endDeviceSession(
   auth: SignOut,
   fetchImpl: typeof fetch = (input, init) => fetch(input, init),
   forget: () => Promise<void> = () => import("@/lib/auth/forget-device-sign-in").then((m) => m.forgetDeviceSignIn()),
+  forgetPush: () => Promise<void> = () => forgetPushDefault(auth, scope),
 ): Promise<{ ended: boolean; everywhere: boolean }> {
+  await forgetPush().catch(() => undefined)
   const browser = await auth
     .signOut({ scope })
     .then((r) => !r?.error)

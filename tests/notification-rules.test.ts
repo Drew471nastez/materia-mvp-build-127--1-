@@ -820,7 +820,8 @@ function wiringSuite() {
   /* A connected account's own events are handled in lib/stripe/connect-webhook.ts, which both webhook endpoints call. */
   check("account.updated, payouts and disputes tell the engine, after the answer", /after\(async \(\) => \(await import\("@\/lib\/notifications\/events"\)\)\.noteStripeAccount\(accountCreatorId, account as any\)\)/.test(read("lib/stripe/connect-webhook.ts")) && /handleConnectAccountEvent\(event\)/.test(hook)
     && /\.notePayout\(payoutCreatorId\)/.test(hook) && /\.noteDispute\(disputeCreatorId\)/.test(hook))
-  check("a review tells it too (the first is a milestone)", /\.noteReview\(reviewCreatorId\)/.test(read("app/api/reviews/route.ts")))
+  /* Changed on purpose (r57): the review is handed over too, so the seller's phone hears every review once (the first titled as the milestone). */
+  check("a review tells it too (the first is a milestone)", /\.noteReview\(reviewCreatorId, push\)/.test(read("app/api/reviews/route.ts")))
   const sale = read("lib/push/notifications.ts")
   /* The words are lib/push/sale-text.ts now; a free claim is never a sales milestone. */
   check("a sale that is a milestone is one push, titled as the milestone", /const milestone = opts\.amountCents > 0 \? await milestoneTitle\(userId\) : null/.test(sale) && /title: milestone \?\? "🎉 You made a sale!"/.test(read("lib/push/sale-text.ts")))

@@ -51,8 +51,11 @@ export async function notifySellerOfReview(
       console.error("[reviews] notification not written:", error.message)
     } else {
       const creatorId = product.creator_id
+      const userId = product.creatorUserId
+      /* With the review, the seller's phone hears it once (r57); a website review held for the digest stays in the bell, as its email waits for the digest. */
+      const push = digest ? undefined : { userId, reviewId, rating, productTitle: product.title, pending, url: pending ? `/app/reviews?status=pending&review=${reviewId}` : `/app/reviews?review=${reviewId}` }
       try {
-        after(async () => (await import("@/lib/notifications/events")).noteReview(creatorId))
+        after(async () => (await import("@/lib/notifications/events")).noteReview(creatorId, push))
       } catch {
         /* Outside a request: the milestone is noted by the hourly rules instead. */
       }
