@@ -1,0 +1,146 @@
+{
+  "sections": {
+    "story": {
+      "type": "coach-split",
+      "settings": {
+        "color_scheme": "default",
+        "background": "#faf6f0",
+        "accent_color": "#a5582a",
+        "image": "shopify://shop_images/coach-desk.webp",
+        "image_alt": "Leah at her desk in the studio",
+        "image_position": "right",
+        "image_shape": "arch",
+        "image_ratio": "4 / 5",
+        "eyebrow": "About",
+        "heading": "I'm Leah. I help women <em>change course</em> without burning it all down",
+        "text": "<p>For eleven years I worked in HR, sitting across the desk from people at the turning points of their careers. I noticed that the ones who did well were rarely the boldest. They were the ones who got clear first.</p><p>I trained as a coach in 2019 and opened my practice in Bristol a year later. Most of the women I work with are between jobs, starting something of their own, or simply done with a week that runs them.</p>",
+        "signature": "Leah",
+        "button_label": "",
+        "heading_size": 50,
+        "padding_top": 72,
+        "padding_bottom": 88
+      }
+    },
+    "believe": {
+      "type": "coach-steps",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "background": "#f2e8dc",
+        "accent_color": "#a5582a",
+        "line_color": "#d9c6b0",
+        "eyebrow": "What I believe",
+        "heading": "Three things I hold <em>every session</em> to"
+      },
+      "blocks": {
+        "step_1": {
+          "type": "step",
+          "settings": {
+            "title": "Clarity before courage",
+            "text": "Brave moves are easier once you know exactly what you are moving towards."
+          }
+        },
+        "step_2": {
+          "type": "step",
+          "settings": {
+            "title": "Small steps, kept",
+            "text": "A plan you can keep on a hard week beats a perfect plan you drop by Friday."
+          }
+        },
+        "step_3": {
+          "type": "step",
+          "settings": {
+            "title": "Your life, your pace",
+            "text": "No templates. We build around your work, your family and your energy."
+          }
+        }
+      },
+      "block_order": [
+        "step_1",
+        "step_2",
+        "step_3"
+      ]
+    },
+    "facts": {
+      "type": "coach-stats",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "background": "#3a2a21",
+        "figure_color": "#faf6f0",
+        "text_color": "#d8c8b7",
+        "line_color": "#55433a"
+      },
+      "blocks": {
+        "fact_1": {
+          "type": "fact",
+          "settings": {
+            "value": "11 years",
+            "label": "In HR before coaching"
+          }
+        },
+        "fact_2": {
+          "type": "fact",
+          "settings": {
+            "value": "2019",
+            "label": "Trained as a coach"
+          }
+        },
+        "fact_3": {
+          "type": "fact",
+          "settings": {
+            "value": "Bristol",
+            "label": "And online, anywhere"
+          }
+        }
+      },
+      "block_order": [
+        "fact_1",
+        "fact_2",
+        "fact_3"
+      ]
+    },
+    "life": {
+      "type": "coach-split",
+      "settings": {
+        "color_scheme": "default",
+        "background": "#faf6f0",
+        "accent_color": "#a5582a",
+        "image": "shopify://shop_images/coach-about.webp",
+        "image_alt": "Leah with a cup of coffee at her desk",
+        "image_position": "left",
+        "image_shape": "rect",
+        "image_ratio": "4 / 5",
+        "eyebrow": "Outside the sessions",
+        "heading": "Slow mornings, <em>long walks</em> and too many notebooks",
+        "text": "<p>I live in Bristol with my partner and a very loud cat. I start most days with coffee and ten minutes of writing, and I think best on the coastal path.</p><p>Write to me about anything on this site. I read every message myself.</p>",
+        "signature": "",
+        "button_label": "Send a message",
+        "button_link": "/pages/contact"
+      }
+    },
+    "next": {
+      "type": "coach-cta",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "background": "#3a2a21",
+        "heading_color": "#faf6f0",
+        "text_color": "#d8c8b7",
+        "accent_color": "#e2a271",
+        "button_color": "#b8693a",
+        "eyebrow": "Your next step",
+        "heading": "Ready when <em>you are</em>",
+        "text": "<p>Book a free 20 minute call. No pressure and no pitch, just a real conversation about where you want to go.</p>",
+        "button_label": "Book your free call",
+        "button_link": "/pages/book",
+        "button2_label": "Ask a question",
+        "button2_link": "/pages/contact"
+      }
+    }
+  },
+  "order": [
+    "story",
+    "believe",
+    "facts",
+    "life",
+    "next"
+  ]
+}

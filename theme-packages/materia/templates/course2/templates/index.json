@@ -1,0 +1,557 @@
+{
+  "sections": {
+    "hero": {
+      "type": "course2-hero",
+      "settings": {
+        "tag": "Home barista course",
+        "heading": "Make the coffee you queue for,",
+        "heading_accent": "in your own kitchen",
+        "text": "<p>A seven module course by a working barista. Dial in espresso, steam milk that pours, and brew filter by weight, with every gram and second written down.</p>",
+        "button_label": "Buy the course",
+        "to_checkout": true,
+        "button_link": "/collections/all",
+        "show_price": true,
+        "price_note": "one payment",
+        "notes": "Lifetime access\nWorks with any home machine\n30 day refund",
+        "image": "shopify://shop_images/course2-hero-espresso.webp",
+        "image_alt": "Espresso running into a red cup on a small scale reading 27 seconds",
+        "image_side": "left",
+        "image_ratio": "15 / 16",
+        "image_ground": "#2b211b",
+        "accent": "#12704f"
+      }
+    },
+    "facts": {
+      "type": "course2-facts",
+      "settings": {
+        "accent": "#12704f"
+      },
+      "blocks": {
+        "fact_1": {
+          "type": "fact",
+          "settings": {
+            "icon": "list",
+            "figure": "7",
+            "label": "modules, bean to cup"
+          }
+        },
+        "fact_2": {
+          "type": "fact",
+          "settings": {
+            "icon": "play",
+            "figure": "46",
+            "label": "video lessons"
+          }
+        },
+        "fact_3": {
+          "type": "fact",
+          "settings": {
+            "icon": "clock",
+            "figure": "6h",
+            "label": "of video, in short parts"
+          }
+        },
+        "fact_4": {
+          "type": "fact",
+          "settings": {
+            "icon": "shield",
+            "figure": "30",
+            "label": "days to ask for a refund"
+          }
+        }
+      },
+      "block_order": [
+        "fact_1",
+        "fact_2",
+        "fact_3",
+        "fact_4"
+      ]
+    },
+    "why": {
+      "type": "course2-split",
+      "settings": {
+        "tag": "Why this course",
+        "heading": "Coffee you would",
+        "heading_accent": "pay for",
+        "text": "<p>Home coffee goes wrong in the same few places. Each module fixes one of them, at a home machine, with the numbers on screen.</p>",
+        "image": "shopify://shop_images/course2-pour-copper.webp",
+        "image_alt": "Hot water poured from a kettle into a copper filter cone over a glass jug",
+        "image_side": "right",
+        "image_ratio": "9 / 10",
+        "anchor": "why",
+        "accent": "#12704f"
+      },
+      "blocks": {
+        "row_1": {
+          "type": "row",
+          "settings": {
+            "icon": "target",
+            "title": "Dial in by taste",
+            "text": "<p>Learn what sour and bitter tell you, and which one setting to change next. Most bags are right in three shots.</p>"
+          }
+        },
+        "row_2": {
+          "type": "row",
+          "settings": {
+            "icon": "drop",
+            "title": "Milk that pours",
+            "text": "<p>Stretch, then spin. Silky milk for a flat white, and the pour for a heart and a tulip.</p>"
+          }
+        },
+        "row_3": {
+          "type": "row",
+          "settings": {
+            "icon": "scale",
+            "title": "Brew by weight",
+            "text": "<p>One recipe for pour over and one for a cafetiere, both by grams, so a good cup happens every morning.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "row_1",
+        "row_2",
+        "row_3"
+      ]
+    },
+    "time": {
+      "type": "course2-gauges",
+      "settings": {
+        "tag": "How the time is spent",
+        "heading": "Less theory,",
+        "heading_accent": "more cups",
+        "text": "<p>Every lesson ends at your own machine. Here is how the six hours divide.</p>",
+        "image": "shopify://shop_images/course2-espresso-drip.webp",
+        "image_alt": "A drop of espresso falling from a portafilter into a yellow cup",
+        "accent": "#12704f"
+      },
+      "blocks": {
+        "gauge_1": {
+          "type": "gauge",
+          "settings": {
+            "percent": 70,
+            "title": "Brewing along with the lesson",
+            "text": "Pause, pull the shot or steam the milk, then carry on."
+          }
+        },
+        "gauge_2": {
+          "type": "gauge",
+          "settings": {
+            "percent": 30,
+            "title": "Tasting and fixing what went wrong",
+            "text": "What each mistake looks like and the one change that fixes it."
+          }
+        }
+      },
+      "block_order": [
+        "gauge_1",
+        "gauge_2"
+      ]
+    },
+    "who": {
+      "type": "course2-audience",
+      "settings": {
+        "tag": "Who it is for",
+        "heading": "For anyone with a machine",
+        "heading_accent": "and a morning habit",
+        "text": "<p>From a first espresso machine to a small café team, the lessons start at the beginning and go all the way to latte art.</p>",
+        "anchor": "who",
+        "accent": "#12704f"
+      },
+      "blocks": {
+        "group_1": {
+          "type": "group",
+          "settings": {
+            "name": "New machine owners",
+            "lead": "The machine was a big purchase and the coffee still tastes sour or bitter.",
+            "points": "Dial in a new bag in three shots\nRead a shot by its colour and time\nClean the machine so it lasts"
+          }
+        },
+        "group_2": {
+          "type": "group",
+          "settings": {
+            "name": "Pour over people",
+            "lead": "You weigh your beans but every cup tastes a little different.",
+            "points": "One recipe that works every morning\nGrind size you can repeat\nBrew for two without guessing"
+          }
+        },
+        "group_3": {
+          "type": "group",
+          "settings": {
+            "name": "Small café teams",
+            "lead": "New staff need to make the house coffee the same way on their first week.",
+            "points": "Lessons they can watch between shifts\nThe same recipe cards for everyone\nTeam seats on one account"
+          }
+        }
+      },
+      "block_order": [
+        "group_1",
+        "group_2",
+        "group_3"
+      ]
+    },
+    "offer": {
+      "type": "course2-offer",
+      "settings": {
+        "tag": "The course",
+        "heading": "Everything from bean to cup, in one course",
+        "text": "<p>Forty six short lessons filmed at a home machine, the printed recipe cards and a grind chart for the common grinders. Watch on any device, as often as you like.</p>",
+        "anchor": "buy",
+        "to_checkout": true,
+        "price": "$149",
+        "compare_price": "$199",
+        "price_badge": "Launch price",
+        "button_label": "Buy the course",
+        "button_link": "/collections/all",
+        "note": "One payment. Lessons open as soon as you pay.",
+        "features_heading": "What you get",
+        "features": "46 video lessons\nPrintable recipe cards\nGrind and dose charts\nLifetime access\nNew lessons included\nQuestions answered by email",
+        "promise_title": "30 day refund",
+        "promise_text": "Watch the first two modules. If it is not for you, write and get every cent back.",
+        "image": "shopify://shop_images/course2-pour-over-scale.webp",
+        "image_alt": "Pour over coffee brewing on a scale, a gooseneck kettle pouring",
+        "image_ratio": "4 / 5",
+        "image_ground": "#2b211b",
+        "accent": "#12704f"
+      }
+    },
+    "curriculum": {
+      "type": "course2-curriculum",
+      "settings": {
+        "tag": "Curriculum",
+        "heading": "Seven modules,",
+        "heading_accent": "in the order you need them",
+        "text": "<p>Each module is a handful of short lessons. Watch one, go to the machine, come back for the next.</p>",
+        "totals": "7 modules, 46 lessons, 6 hours",
+        "first_open": true,
+        "anchor": "curriculum",
+        "accent": "#12704f"
+      },
+      "blocks": {
+        "module_1": {
+          "type": "module",
+          "settings": {
+            "title": "Beans and freshness",
+            "meta": "5 lessons, 32 min",
+            "lessons": "Reading a coffee bag\nRoast dates and resting\nStoring beans at home\nOne bag, three brews\nWhat to buy next"
+          }
+        },
+        "module_2": {
+          "type": "module",
+          "settings": {
+            "title": "Grinding and dose",
+            "meta": "6 lessons, 48 min",
+            "lessons": "Why the grinder matters most\nSetting a starting point\nWeighing the dose\nDistribution without tools\nTamping, briefly\nCleaning the burrs"
+          }
+        },
+        "module_3": {
+          "type": "module",
+          "settings": {
+            "title": "Espresso: the first shot",
+            "meta": "8 lessons, 64 min",
+            "lessons": "What a shot should taste like\nDose, yield and time\nPull your first shot\nRead the colour\nWhen it runs too fast\nWhen it chokes\nTemperature and your machine\nA shot log that helps"
+          }
+        },
+        "module_4": {
+          "type": "module",
+          "settings": {
+            "title": "Dialling in",
+            "meta": "7 lessons, 55 min",
+            "lessons": "Sour or bitter?\nOne change at a time\nThree shots to a new bag\nRatios for milk drinks\nRatios for black coffee\nWhen to give up on a bag\nPractice: dial in live"
+          }
+        },
+        "module_5": {
+          "type": "module",
+          "settings": {
+            "title": "Milk and steaming",
+            "meta": "8 lessons, 60 min",
+            "lessons": "Cold milk, clean jug\nWhere the wand goes\nStretch, then spin\nMilk for a flat white\nMilk for a cappuccino\nOat and other milks\nCleaning the wand\nCommon mistakes"
+          }
+        },
+        "module_6": {
+          "type": "module",
+          "settings": {
+            "title": "Latte art",
+            "meta": "7 lessons, 58 min",
+            "lessons": "Holding the cup\nThe pour height\nPour a heart\nPour a tulip\nPour a rosetta\nPractising with water and soap\nWhen the milk is wrong"
+          }
+        },
+        "module_7": {
+          "type": "module",
+          "settings": {
+            "title": "Filter and pour over",
+            "meta": "5 lessons, 44 min",
+            "lessons": "Grind for filter\nBloom and wait\nThe four pour recipe\nCafetiere, properly\nTaste and adjust"
+          }
+        }
+      },
+      "block_order": [
+        "module_1",
+        "module_2",
+        "module_3",
+        "module_4",
+        "module_5",
+        "module_6",
+        "module_7"
+      ]
+    },
+    "teacher": {
+      "type": "course2-split",
+      "settings": {
+        "tag": "Your teacher",
+        "heading": "Mara Lind,",
+        "heading_accent": "head barista",
+        "text": "<p>Nine years behind the bar in two cafés, the last three training every new barista they hired. This course is what she shows them, filmed at a home machine instead of a café one.</p>",
+        "image": "shopify://shop_images/course2-teacher-bar.webp",
+        "image_alt": "A smiling barista in a mustard beanie holding a portafilter behind a café counter",
+        "image_side": "left",
+        "image_ratio": "9 / 10",
+        "image_focus": "right",
+        "anchor": "teacher",
+        "accent": "#12704f"
+      },
+      "blocks": {
+        "row_1": {
+          "type": "row",
+          "settings": {
+            "icon": "pin",
+            "title": "Where she learned",
+            "text": "<p>Two busy cafés, a roastery training bar and thousands of flat whites. Write your own story here.</p>"
+          }
+        },
+        "row_2": {
+          "type": "row",
+          "settings": {
+            "icon": "chat",
+            "title": "How she teaches",
+            "text": "<p>One idea per lesson, shown at full speed, then slowly. Every number is on screen.</p>"
+          }
+        },
+        "row_3": {
+          "type": "row",
+          "settings": {
+            "icon": "home",
+            "title": "What she uses at home",
+            "text": "<p>A single boiler machine, a hand grinder and a scale. Nothing you need to buy to start.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "row_1",
+        "row_2",
+        "row_3"
+      ]
+    },
+    "reviews": {
+      "type": "course2-reviews",
+      "settings": {
+        "tag": "Students",
+        "heading": "What students",
+        "heading_accent": "tell us",
+        "text": "<p>These quotes are samples to show the layout. Replace them with words from your own students.</p>",
+        "sample_label": "Sample",
+        "anchor": "reviews",
+        "image": "shopify://shop_images/course2-cup-window.webp",
+        "image_alt": "A cup of coffee steaming on a wooden sill by a window",
+        "quote": "I had the machine for a year and never liked a shot. By the fourth module I was pulling ones I would order in a café.",
+        "name": "Sample student",
+        "role": "Home espresso, single boiler machine",
+        "accent": "#12704f"
+      },
+      "blocks": {
+        "quote_1": {
+          "type": "quote",
+          "settings": {
+            "quote": "The milk lessons alone were worth it. I finally get a flat white that looks like one.",
+            "name": "Jonas",
+            "role": "Home espresso"
+          }
+        },
+        "quote_2": {
+          "type": "quote",
+          "settings": {
+            "quote": "Short lessons I could watch before work, then try the same morning. That is why I finished it.",
+            "name": "Priya",
+            "role": "Pour over at home"
+          }
+        },
+        "quote_3": {
+          "type": "quote",
+          "settings": {
+            "quote": "We use the recipe cards for every new starter at our café. Everyone pours the same shot now.",
+            "name": "Tom",
+            "role": "Café owner"
+          }
+        }
+      },
+      "block_order": [
+        "quote_1",
+        "quote_2",
+        "quote_3"
+      ]
+    },
+    "pricing": {
+      "type": "pricing-cards",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "eyebrow": "Pricing",
+        "heading": "Learn on your own or as a team",
+        "intro": "<p>One payment, no subscription. Team seats share one bill.</p>",
+        "heading_size": "h2",
+        "heading_align": "center",
+        "footnote": "<p>Both come with the 30 day refund.</p>",
+        "card_style": "outline",
+        "use_theme_corners": true,
+        "card_gap": 24,
+        "price_size": 48,
+        "mobile_layout": "stack",
+        "section_width": "container",
+        "use_theme_spacing": false,
+        "padding_top": 96,
+        "padding_bottom": 96,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56
+      },
+      "blocks": {
+        "plan_1": {
+          "type": "plan",
+          "settings": {
+            "name": "The course",
+            "description": "<p>Everything for one person, at your own pace.</p>",
+            "badge": "Most people start here",
+            "featured": true,
+            "plan_product": "home-barista-course",
+            "price": "$149",
+            "compare_price": "$199",
+            "note": "One payment",
+            "features": "All 46 video lessons\nPrintable recipe cards\nGrind and dose charts\nLifetime access\nQuestions by email",
+            "button_label": "See the course",
+            "button_link": "/collections/all",
+            "button_style": "primary"
+          }
+        },
+        "plan_2": {
+          "type": "plan",
+          "settings": {
+            "name": "Café team",
+            "description": "<p>For a café training new staff on one recipe.</p>",
+            "featured": false,
+            "price": "$399",
+            "note": "Up to five people",
+            "features": "Everything in the course\nFive seats on one bill\nA call to set your house recipe\nNew seats any time",
+            "button_label": "Ask about team seats",
+            "button_link": "/pages/contact",
+            "button_style": "secondary"
+          }
+        }
+      },
+      "block_order": [
+        "plan_1",
+        "plan_2"
+      ]
+    },
+    "faq": {
+      "type": "course2-faq",
+      "settings": {
+        "tag": "Questions",
+        "heading": "Straight answers",
+        "heading_accent": "before you buy",
+        "text": "<p>The questions people ask most. Anything else, <a href=\"/pages/contact\">write to us</a>.</p>",
+        "accent": "#12704f"
+      },
+      "blocks": {
+        "question_1": {
+          "type": "question",
+          "settings": {
+            "question": "What machine do I need?",
+            "answer": "<p>Any home espresso machine with a steam wand, and a grinder. The lessons use a single boiler machine and a hand grinder, and every step works the same on bigger ones.</p>"
+          }
+        },
+        "question_2": {
+          "type": "question",
+          "settings": {
+            "question": "Do I need a scale?",
+            "answer": "<p>Yes, any kitchen scale that reads to a tenth of a gram. It is the cheapest thing that makes the biggest difference.</p>"
+          }
+        },
+        "question_3": {
+          "type": "question",
+          "settings": {
+            "question": "I only drink filter coffee. Is it for me?",
+            "answer": "<p>The last module and the recipe cards cover pour over and cafetiere. The grinding lessons apply to both.</p>"
+          }
+        },
+        "question_4": {
+          "type": "question",
+          "settings": {
+            "question": "How long do I have access?",
+            "answer": "<p>For good. Watch on a phone, a tablet or a computer, and come back to any lesson whenever you like.</p>"
+          }
+        },
+        "question_5": {
+          "type": "question",
+          "settings": {
+            "question": "What if it is not for me?",
+            "answer": "<p>Write within 30 days and we refund you in full. Replace this with your own terms.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "question_1",
+        "question_2",
+        "question_3",
+        "question_4",
+        "question_5"
+      ]
+    },
+    "cta": {
+      "type": "course2-cta",
+      "settings": {
+        "heading": "Tomorrow morning, make the good one",
+        "text": "<p>46 lessons, the recipe cards and a 30 day refund, for one payment.</p>",
+        "button_label": "Buy the course",
+        "to_checkout": true,
+        "button_link": "/collections/all",
+        "note": "Lifetime access. Watch on any device.",
+        "panel_color": "#12704f",
+        "button_text_color": "#12704f"
+      }
+    },
+    "contact": {
+      "type": "course2-contact",
+      "settings": {
+        "tag": "Contact",
+        "heading": "We are here to help",
+        "text": "<p>Questions about your machine, the lessons or team seats. We answer within two working days.</p>",
+        "email_label": "Or write to",
+        "email": "hello@slowbloom.coffee",
+        "card_tag": "Get in touch",
+        "card_heading": "Ask about your setup",
+        "card_text": "Tell us your machine and grinder and we will say which lessons to start with.",
+        "ph_first": "First name",
+        "ph_last": "Last name",
+        "ph_email": "Email",
+        "ph_message": "Your machine, your grinder, your question",
+        "agree_text": "",
+        "button_label": "Send message",
+        "thanks": "Thank you. We will write back within two working days.",
+        "error": "Please check the form.",
+        "accent": "#12704f"
+      }
+    }
+  },
+  "order": [
+    "hero",
+    "facts",
+    "why",
+    "time",
+    "who",
+    "offer",
+    "curriculum",
+    "teacher",
+    "reviews",
+    "pricing",
+    "faq",
+    "cta",
+    "contact"
+  ]
+}

@@ -38,6 +38,7 @@
   #shopify-section-{{ sid }} .c2r__media img { display: block; width: 100%; height: 100%; object-fit: cover; margin: 0; }
   #shopify-section-{{ sid }} .c2r__big { position: relative; display: flex; flex-direction: column; justify-content: space-between; gap: 28px; padding: 28px 24px; border-radius: 18px; background: linear-gradient(120deg, color-mix(in srgb, var(--c2-panel) 60%, #ffffff), var(--c2-panel)); }
   @media (min-width: 990px) { #shopify-section-{{ sid }} .c2r__big { padding: 40px 44px; } }
+  #shopify-section-{{ sid }} .c2r blockquote { margin: 0; padding: 0; border: 0; border-radius: 0; background: none; quotes: none; }
   #shopify-section-{{ sid }} .c2r__bigq { margin: 0; color: var(--c2-ink); font-family: var(--heading-font, inherit); font-weight: 700; font-size: 23px; line-height: 1.22; letter-spacing: -.03em; }
   @media (min-width: 990px) { #shopify-section-{{ sid }} .c2r__bigq { font-size: 32px; } }
   #shopify-section-{{ sid }} .c2r__stars { display: flex; gap: 4px; color: var(--c2-accent); margin-bottom: 18px; }
@@ -52,7 +53,7 @@
   @media (min-width: 990px) { #shopify-section-{{ sid }} .c2r__grid { margin-top: 24px; gap: 24px; } }
   #shopify-section-{{ sid }} .c2r__card { position: relative; display: flex; flex-direction: column; justify-content: space-between; gap: 26px; padding: 28px 24px 26px; border: 1px solid var(--c2-line); border-radius: 18px; background: #fff; }
   @media (min-width: 990px) { #shopify-section-{{ sid }} .c2r__card { padding: 32px 32px 30px; } }
-  #shopify-section-{{ sid }} .c2r__q { margin: 0; font-size: 17px; line-height: 1.55; color: var(--c2-ink); }
+  #shopify-section-{{ sid }} .c2r__q { margin: 0; font-family: var(--body-font, inherit); font-weight: 400; letter-spacing: 0; font-size: 17px; line-height: 1.55; color: var(--c2-ink); }
   #shopify-section-{{ sid }} [data-c2r].c2r-wait { opacity: 0; transform: translate3d(0, 22px, 0); }
   #shopify-section-{{ sid }} [data-c2r].c2r-in { opacity: 1; transform: none; transition: opacity .8s cubic-bezier(.2,.65,.25,1) var(--d, 0ms), transform .8s cubic-bezier(.2,.65,.25,1) var(--d, 0ms); }
 </style>

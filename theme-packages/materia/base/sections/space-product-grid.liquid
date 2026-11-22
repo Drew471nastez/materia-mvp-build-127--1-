@@ -111,7 +111,12 @@
             <a class="space-grid__link" href="{{ product.url }}">
               <div class="space-grid__media">
                 {%- if image != blank -%}
-                  {{ image | image_url: width: 800 | image_tag: widths: '360, 540, 720, 900', sizes: '(min-width: 990px) 25vw, 50vw', alt: product.title, loading: 'lazy' }}
+                  {%- comment -%} The first two rows are on screen when the page opens: they load at once, so a page change never shows the names before the pictures. {%- endcomment -%}
+                  {%- if forloop.index <= 8 -%}
+                    {{ image | image_url: width: 800 | image_tag: widths: '360, 540, 720, 900', sizes: '(min-width: 990px) 25vw, 50vw', alt: product.title, loading: 'eager', fetchpriority: 'high', decoding: 'async' }}
+                  {%- else -%}
+                    {{ image | image_url: width: 800 | image_tag: widths: '360, 540, 720, 900', sizes: '(min-width: 990px) 25vw, 50vw', alt: product.title, loading: 'lazy' }}
+                  {%- endif -%}
                 {%- else -%}
                   {{ 'product-1' | placeholder_svg_tag }}
                 {%- endif -%}

@@ -1,0 +1,31 @@
+{
+  "sections": {
+    "main": {
+      "type": "page-default",
+      "settings": {
+        "padding_top": 48,
+        "reset_spacing": true,
+        "section_width": "container",
+        "padding_bottom": 72
+      }
+    },
+    "cta": {
+      "type": "course2-cta",
+      "settings": {
+        "heading": "Tomorrow morning, make the good one",
+        "text": "<p>46 lessons, the recipe cards and a 30 day refund, for one payment.</p>",
+        "button_label": "Buy the course",
+        "to_checkout": true,
+        "button_link": "/collections/all",
+        "note": "Lifetime access. Watch on any device.",
+        "panel_color": "#12704f",
+        "button_text_color": "#12704f",
+        "padding_bottom": 72
+      }
+    }
+  },
+  "order": [
+    "main",
+    "cta"
+  ]
+}

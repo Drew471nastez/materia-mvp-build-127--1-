@@ -172,4 +172,34 @@ export const SAMPLE_SHOPS: Record<string, { name: string; products: SampleProduc
       { title: "Slow Sundays print", price: "$32.00", image: "posters-wavy-checks.webp", options: [{ name: "Size", values: ["A4", "A3", "50 x 70 cm"] }, { name: "Frame", values: ["Unframed", "Black frame", "Oak frame"] }], add: { "A3": 10, "50 x 70 cm": 26, "Black frame": 45, "Oak frame": 45 } },
     ],
   },
+  /* Templates round 20: a life and business coach; sessions and programmes sell as products. */
+  coach: {
+    name: "Leah Morgan Coaching",
+    products: [
+      { title: "One to one coaching", price: "$160.00", image: "coach-offer-one.webp", kind: "digital", description: "Private 50 minute sessions to untangle one big decision and leave with a plan you will keep. Notes after every session and a short check in between calls.", options: [{ name: "Sessions", values: ["One session", "Six sessions"] }, { name: "Where", values: ["In Bristol", "Online"] }], add: { "Six sessions": 720 } },
+      { title: "The Clear Path group", price: "$480.00", compare: "$560.00", image: "coach-offer-group.webp", kind: "digital", description: "Eight Tuesday evenings online with five other women at the same crossroads. Early places are $480." },
+      { title: "Online session", price: "$140.00", image: "coach-offer-online.webp", kind: "digital", description: "One coaching session on a video call, wherever you are.", options: [{ name: "Length", values: ["50 minutes", "80 minutes"] }], add: { "80 minutes": 70 } },
+      { title: "The clarity workbook", price: "$24.00", image: "coach-guide.webp", kind: "digital", description: "A printable workbook of the exercises I use in first sessions: forty pages to fill in at your own pace." },
+      { title: "Gift a session", price: "$160.00", image: "coach-grid-4.webp", kind: "digital", description: "One 50 minute session for someone else, with a card to print or send." },
+    ],
+  },
+  /* Templates round 20: one home barista course sold as a product, with two short courses and a call beside it; covers are drawn screens with real photographs in them. */
+  course2: {
+    name: "Slow Bloom",
+    products: [
+      { title: "Home Barista Course", price: "$149.00", compare: "$199.00", image: "course2-home-barista.webp", kind: "digital", description: "Seven modules and 46 short lessons, filmed at a home machine: beans, grinding, espresso, dialling in, milk, latte art and pour over. With printable recipe cards and grind charts.", options: [{ name: "Edition", values: ["Self paced", "With feedback"] }, { name: "Seats", values: ["Just me", "Team of 3"] }], add: { "With feedback": 80, "Team of 3": 200 }, pictures: { "Self paced": "course2-home-barista.webp", "With feedback": "course2-home-barista-feedback.webp" } },
+      { title: "Milk and Latte Art", price: "$49.00", image: "course2-latte-art.webp", kind: "digital", description: "A short course of 12 lessons on steaming milk and pouring a heart, a tulip and a rosetta." },
+      { title: "Pour Over at Home", price: "$39.00", image: "course2-pour-over.webp", kind: "digital", description: "Eight lessons and one recipe for pour over and cafetiere, by weight." },
+      { title: "One to One Dial In", price: "$60.00", image: "course2-one-to-one.webp", kind: "digital", description: "A 45 minute video call on your own machine and grinder, with a written plan after." },
+    ],
+  },
+  /* Templates round 20: one course sold by a video sales letter; the course, its templates and a review call. */
+  vsl: {
+    name: "Nightdesk",
+    products: [
+      { title: "The Workshop Course", price: "$490.00", compare: "$590.00", image: "vsl-course.webp", kind: "digital", description: "Six weeks to shape, price, sell and run one paid workshop: twelve short lessons, templates for the outline, the sales page and the emails, and six live calls on Thursdays.", options: [{ name: "Access", values: ["Course", "Course and two private calls"] }, { name: "Payment", values: ["In full", "In three parts"] }], add: { "Course and two private calls": 240 } },
+      { title: "Workshop templates", price: "$49.00", image: "vsl-templates.webp", kind: "digital", description: "The outline, sales page and email templates from the course, on their own." },
+      { title: "Workshop review call", price: "$150.00", image: "vsl-review-call.webp", kind: "digital", description: "A 45 minute video call on your own workshop outline or sales page, with written notes after." },
+    ],
+  },
 }

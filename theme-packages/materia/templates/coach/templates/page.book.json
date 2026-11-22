@@ -1,0 +1,92 @@
+{
+  "sections": {
+    "intro": {
+      "type": "coach-split",
+      "settings": {
+        "color_scheme": "default",
+        "background": "#faf6f0",
+        "accent_color": "#a5582a",
+        "image": "shopify://shop_images/coach-grid-5.webp",
+        "image_alt": "Leah smiling at her desk",
+        "image_position": "right",
+        "image_shape": "arch",
+        "image_ratio": "1 / 1",
+        "eyebrow": "Free first call",
+        "heading": "Book a <em>20 minute</em> call",
+        "text": "<p>Pick a time below. We talk about where you are, what you want to change and whether working together makes sense. No preparation needed, and no pitch at the end.</p>",
+        "signature": "",
+        "button_label": "",
+        "heading_size": 52,
+        "padding_top": 64,
+        "padding_bottom": 24,
+        "padding_top_mobile": 40,
+        "padding_bottom_mobile": 8
+      }
+    },
+    "form": {
+      "type": "journey-storelib-form",
+      "settings": {
+        "heading": "Choose a time",
+        "text": "<p>Calls are by video. You get a confirmation and a link by email.</p>",
+        "text_align": "center",
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "max_width": 720,
+        "padding_top_desktop": 72,
+        "padding_bottom_desktop": 72,
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 48
+      }
+    },
+    "ask": {
+      "type": "contactformsimple2",
+      "settings": {
+        "color_scheme": "default",
+        "btn_text": "Send message",
+        "ph_website": "Which session you are thinking about (optional)",
+        "label_website": "Session",
+        "success_text": "Thank you. I reply within two working days."
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Rather write first?"
+          }
+        },
+        "description_2": {
+          "type": "description",
+          "settings": {
+            "text": "<p>Ask anything about the sessions, prices or timing. I reply myself, usually within two working days.</p>"
+          }
+        },
+        "info_3": {
+          "type": "info",
+          "settings": {
+            "icon": "mail",
+            "line1": "hello@example.com",
+            "line2": "Or use the form on this page"
+          }
+        },
+        "info_4": {
+          "type": "info",
+          "settings": {
+            "icon": "map",
+            "line1": "Bristol and online",
+            "line2": "Studio sessions by appointment"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_2",
+        "info_3",
+        "info_4"
+      ]
+    }
+  },
+  "order": [
+    "intro",
+    "form",
+    "ask"
+  ]
+}

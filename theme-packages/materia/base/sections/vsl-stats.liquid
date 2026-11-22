@@ -53,6 +53,7 @@ Video sales letter: small cards with a figure, what it is and a note, each
   .vsl--line { padding-top: 1px; }
   .vsl--line::before { content: ""; position: absolute; left: 50%; top: 0; width: min(1120px, calc(100% - 40px)); height: 1px; transform: translateX(-50%); background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.26) 50%, rgba(255,255,255,0)); }
   .vsl--line::after { content: ""; position: absolute; left: 50%; top: 0; width: min(900px, 90%); height: 180px; transform: translateX(-50%); pointer-events: none; background: radial-gradient(50% 100% at 50% 0, rgba(255,255,255,.07), rgba(255,255,255,0)); }
+  @media (max-width: 749px) { .vsl__eyebrow { letter-spacing: .18em; gap: 10px; } .vsl__eyebrow::before, .vsl__eyebrow::after { flex-basis: 22px; } .vsl__head { margin-bottom: 32px; } }
   html.vsl-js .vsl [data-motion] { opacity: 0; transform: translate3d(0, 22px, 0); transition: opacity .9s cubic-bezier(.2,.65,.2,1), transform .9s cubic-bezier(.2,.65,.2,1); transition-delay: var(--d, 0ms); }
   html.vsl-js .vsl [data-motion].is-in { opacity: 1; transform: none; }
   @media (prefers-reduced-motion: reduce) {
@@ -64,8 +65,8 @@ Video sales letter: small cards with a figure, what it is and a note, each
   @media (min-width: 750px) { #shopify-section-{{ sid }} .vsl { padding-top: {{ st.padding_top | default: 96 }}px; padding-bottom: {{ st.padding_bottom | default: 96 }}px; } }
 
   .vsl-stats__grid { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
-  @media (min-width: 750px) { .vsl-stats__grid { grid-template-columns: repeat({% if count > 3 %}2{% else %}{{ count }}{% endif %}, minmax(0, 1fr)); } }
-  @media (min-width: 990px) { .vsl-stats__grid { grid-template-columns: repeat({{ count }}, minmax(0, 1fr)); } }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .vsl-stats__grid { grid-template-columns: repeat({% if count > 3 %}2{% else %}{{ count }}{% endif %}, minmax(0, 1fr)); } }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .vsl-stats__grid { grid-template-columns: repeat({{ count }}, minmax(0, 1fr)); } }
   .vsl-stats .vsl-card { display: flex; flex-direction: column; padding: 24px 24px 22px; min-height: 150px; }
   .vsl-stats__top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
   .vsl-stats__value { color: #fff; font-size: 28px; font-weight: 600; letter-spacing: -.03em; line-height: 1; font-variant-numeric: tabular-nums; }
@@ -75,7 +76,7 @@ Video sales letter: small cards with a figure, what it is and a note, each
   .vsl-stats__label { margin: auto 0 0; padding-top: 26px; color: rgba(255,255,255,.88); font-size: 14px; font-weight: 500; }
   .vsl-stats__note { margin: 4px 0 0; font-size: 13px; color: rgba(255,255,255,.5); }
 </style>
-<div class="vsl{% if st.line_above %} vsl--line{% endif %} vsl-stats">
+<div data-own-font class="vsl{% if st.line_above %} vsl--line{% endif %} vsl-stats">
   <div class="vsl__inner">
     {%- if st.eyebrow != blank or st.heading != blank or st.text != blank -%}
       <div class="vsl__head" data-motion>

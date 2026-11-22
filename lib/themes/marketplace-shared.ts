@@ -131,6 +131,10 @@ export const CODE_TEMPLATES: readonly CodeTemplate[] = [
   { slug: "posters", template: "posters", name: "Poster shop", category: "design" },
   /* Templates round 20: a life and business coach, an arched portrait, ways to work together with prices and a free first call, after the owner's reference. */
   { slug: "coach", template: "coach", name: "Coach", category: "coaching" },
+  /* Templates round 20: one course sold by a video sales letter on a starry black page, then a call to book, after the owner's reference. */
+  { slug: "vsl-course", template: "vsl", name: "Video sales letter", category: "courses" },
+  /* Templates round 20: a one page course site, outlined labels and accent words, a curriculum that opens and a form card, after the owner's onepage reference. */
+  { slug: "online-course", template: "course2", name: "Online course", category: "courses" },
 ]
 
 /** Where a template's pictures live: its home page whole at 1440 wide, and at a phone's width (scripts/build-theme-template-covers.ts takes both). */

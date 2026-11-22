@@ -1,0 +1,120 @@
+{%- comment -%}
+  Ebook: questions and the guarantee. On the left a heading, a line and a
+  card with the refund promise; on the right the questions, each opening
+  in place (no script). Stacked on a phone, guarantee last.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+-%}
+{%- assign ebook_hf = settings.font_heading_google_family -%}
+{%- if ebook_hf != blank and ebook_hf != 'none' -%}<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family={{ ebook_hf | replace: ' ', '+' }}:ital@1&display=swap">{%- endif -%}
+<style>
+  #shopify-section-{{ sid }} .ebf {
+    --ebf-accent: {{ st.accent_color | default: '#9a6a32' }};
+    background: {{ st.background | default: '#f7f4ee' }};
+    padding: {{ st.padding_top_mobile | default: 56 }}px 20px {{ st.padding_bottom_mobile | default: 56 }}px;
+  }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .ebf { padding: {{ st.padding_top | default: 96 }}px 40px {{ st.padding_bottom | default: 96 }}px; } }
+  #shopify-section-{{ sid }} .ebf__inner { max-width: 1120px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 32px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .ebf__inner { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 88px; align-items: start; } }
+  #shopify-section-{{ sid }} .ebf__eyebrow { margin: 0 0 12px; color: var(--ebf-accent); font-size: 13px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; }
+  #shopify-section-{{ sid }} .ebf__heading { margin: 0; color: var(--color-heading); font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, 500); font-size: {{ st.heading_size_mobile | default: 36 }}px; line-height: 1.08; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .ebf__heading { font-size: {{ st.heading_size | default: 52 }}px; } }
+  #shopify-section-{{ sid }} .ebf__heading em { font-style: italic; color: var(--ebf-accent); }
+  #shopify-section-{{ sid }} .ebf__text { margin-top: 16px; color: var(--color-text); font-size: 16px; line-height: 1.65; max-width: 38ch; }
+  #shopify-section-{{ sid }} .ebf__text p { margin: 0; }
+  #shopify-section-{{ sid }} .ebf__text a { color: var(--color-heading); text-underline-offset: 3px; }
+  #shopify-section-{{ sid }} .ebf__promise { margin-top: 28px; padding: 24px; border-radius: 10px; background: {{ st.card_color | default: '#1f3b33' }}; color: {{ st.card_text_color | default: '#dfe6df' }}; }
+  #shopify-section-{{ sid }} .ebf__seal { display: inline-grid; place-items: center; width: 54px; height: 54px; margin-bottom: 14px; border: 1px solid currentColor; border-radius: 50%; font-family: var(--heading-font, inherit); font-size: 18px; font-variant-numeric: lining-nums; color: {{ st.card_heading_color | default: '#f7f4ee' }}; }
+  #shopify-section-{{ sid }} .ebf__promise h3 { margin: 0 0 8px; color: {{ st.card_heading_color | default: '#f7f4ee' }}; font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, 500); font-size: 26px; line-height: 1.15; }
+  #shopify-section-{{ sid }} .ebf__promise p { margin: 0; font-size: 15px; line-height: 1.6; }
+  @media (max-width: 989px) { #shopify-section-{{ sid }} .ebf__side { display: contents; } #shopify-section-{{ sid }} .ebf__promise { order: 3; margin-top: 0; } }
+  #shopify-section-{{ sid }} .ebf__list { border-top: 1px solid var(--color-border, #e2ddd2); }
+  #shopify-section-{{ sid }} .ebf__item { border-bottom: 1px solid var(--color-border, #e2ddd2); }
+  #shopify-section-{{ sid }} .ebf__q {
+    list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 22px 0;
+    color: var(--color-heading); font-size: 17.5px; font-weight: 500; line-height: 1.4;
+  }
+  #shopify-section-{{ sid }} .ebf__q::-webkit-details-marker { display: none; }
+  #shopify-section-{{ sid }} .ebf__icon { position: relative; flex: 0 0 auto; width: 14px; height: 14px; }
+  #shopify-section-{{ sid }} .ebf__icon::before, #shopify-section-{{ sid }} .ebf__icon::after { content: ""; position: absolute; left: 0; top: 6.5px; width: 14px; height: 1.5px; background: currentColor; transition: transform 0.25s ease; }
+  #shopify-section-{{ sid }} .ebf__icon::after { transform: rotate(90deg); }
+  #shopify-section-{{ sid }} .ebf__item[open] .ebf__icon::after { transform: rotate(0deg); }
+  #shopify-section-{{ sid }} .ebf__a { padding: 0 32px 22px 0; color: var(--color-text); font-size: 16px; line-height: 1.7; }
+  #shopify-section-{{ sid }} .ebf__a p { margin: 0 0 10px; }
+  #shopify-section-{{ sid }} .ebf__a a { color: var(--color-heading); }
+  @media (prefers-reduced-motion: reduce) { #shopify-section-{{ sid }} .ebf__icon::after { transition: none; } }
+</style>
+
+<div class="ebf color-{{ color_scheme }}" data-section-id="{{ sid }}">
+  <div class="ebf__inner">
+    <div class="ebf__side">
+      <div class="ebf__head">
+        {%- if st.eyebrow != blank -%}<p class="ebf__eyebrow">{{ st.eyebrow | escape }}</p>{%- endif -%}
+        {%- if st.heading != blank -%}<h2 class="ebf__heading">{{ st.heading }}</h2>{%- endif -%}
+        {%- if st.text != blank -%}<div class="ebf__text">{{ st.text }}</div>{%- endif -%}
+      </div>
+      {%- if st.promise_title != blank -%}
+        <div class="ebf__promise">
+          {%- if st.promise_seal != blank -%}<span class="ebf__seal" aria-hidden="true">{{ st.promise_seal | escape }}</span>{%- endif -%}
+          <h3>{{ st.promise_title | escape }}</h3>
+          {%- if st.promise_text != blank -%}<p>{{ st.promise_text | escape }}</p>{%- endif -%}
+        </div>
+      {%- endif -%}
+    </div>
+    <div class="ebf__list">
+      {%- for block in section.blocks -%}
+        <details class="ebf__item" {{ block.shopify_attributes }}{% if forloop.first and st.first_open %} open{% endif %}>
+          <summary class="ebf__q">{{ block.settings.question | escape }}<span class="ebf__icon" aria-hidden="true"></span></summary>
+          <div class="ebf__a">{{ block.settings.answer }}</div>
+        </details>
+      {%- endfor -%}
+    </div>
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Ebook questions",
+  "tag": "section",
+  "class": "section sec__ebook-faq",
+  "max_blocks": 16,
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default-color-scheme" },
+    { "type": "color", "id": "background", "label": "Background", "default": "#f7f4ee" },
+    { "type": "color", "id": "accent_color", "label": "Accent colour", "default": "#9a6a32" },
+    { "type": "text", "id": "eyebrow", "label": "Small label", "default": "Questions" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "Before you <em>buy</em>" },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Anything else, write to me.</p>" },
+    { "type": "checkbox", "id": "first_open", "label": "Open the first question", "default": true },
+    { "type": "header", "content": "Guarantee" },
+    { "type": "text", "id": "promise_seal", "label": "Seal", "default": "30" },
+    { "type": "text", "id": "promise_title", "label": "Title", "default": "Read it for 30 days" },
+    { "type": "textarea", "id": "promise_text", "label": "Text", "default": "If it is not for you, reply to your receipt and you get every penny back." },
+    { "type": "color", "id": "card_color", "label": "Card colour", "default": "#1f3b33" },
+    { "type": "color", "id": "card_heading_color", "label": "Card heading", "default": "#f7f4ee" },
+    { "type": "color", "id": "card_text_color", "label": "Card text", "default": "#dfe6df" },
+    { "type": "range", "id": "heading_size", "label": "Heading size, desktop", "min": 28, "max": 72, "step": 2, "unit": "px", "default": 52 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size, phone", "min": 24, "max": 48, "step": 2, "unit": "px", "default": 36 },
+    { "type": "range", "id": "padding_top", "label": "Space above, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 }
+  ],
+  "blocks": [
+    {
+      "type": "question",
+      "name": "Question",
+      "settings": [
+        { "type": "text", "id": "question", "label": "Question", "default": "A question readers ask" },
+        { "type": "richtext", "id": "answer", "label": "Answer", "default": "<p>A short, plain answer.</p>" }
+      ]
+    }
+  ],
+  "presets": [
+    { "name": "Ebook questions", "blocks": [ { "type": "question" }, { "type": "question" }, { "type": "question" } ] }
+  ]
+}
+{% endschema %}

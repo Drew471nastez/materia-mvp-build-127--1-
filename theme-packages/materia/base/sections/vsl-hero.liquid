@@ -74,6 +74,7 @@ Video sales letter: the opening. A small label, a two part heading (words
   .vsl--line { padding-top: 1px; }
   .vsl--line::before { content: ""; position: absolute; left: 50%; top: 0; width: min(1120px, calc(100% - 40px)); height: 1px; transform: translateX(-50%); background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.26) 50%, rgba(255,255,255,0)); }
   .vsl--line::after { content: ""; position: absolute; left: 50%; top: 0; width: min(900px, 90%); height: 180px; transform: translateX(-50%); pointer-events: none; background: radial-gradient(50% 100% at 50% 0, rgba(255,255,255,.07), rgba(255,255,255,0)); }
+  @media (max-width: 749px) { .vsl__eyebrow { letter-spacing: .18em; gap: 10px; } .vsl__eyebrow::before, .vsl__eyebrow::after { flex-basis: 22px; } .vsl__head { margin-bottom: 32px; } }
   html.vsl-js .vsl [data-motion] { opacity: 0; transform: translate3d(0, 22px, 0); transition: opacity .9s cubic-bezier(.2,.65,.2,1), transform .9s cubic-bezier(.2,.65,.2,1); transition-delay: var(--d, 0ms); }
   html.vsl-js .vsl [data-motion].is-in { opacity: 1; transform: none; }
   @media (prefers-reduced-motion: reduce) {
@@ -87,6 +88,7 @@ Video sales letter: the opening. A small label, a two part heading (words
   .vsl-hero .vsl__title { font-size: clamp(36px, 6vw, 68px); line-height: 1.02; }
   .vsl-hero .vsl__lede { font-size: 16px; max-width: 620px; }
   .vsl-hero__badge { display: inline-flex; align-items: center; gap: 10px; margin: 0 0 22px; padding: 6px 14px 6px 8px; border-radius: 999px; border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.03); font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: rgba(255,255,255,.7); }
+  @media (max-width: 749px) { .vsl-hero__badge { font-size: 10px; letter-spacing: .1em; } .vsl-logos__label { letter-spacing: .16em; } }
   .vsl-hero__dot { position: relative; width: 8px; height: 8px; border-radius: 50%; background: #fff; box-shadow: 0 0 10px #fff; }
   .vsl-hero__dot::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 1px solid rgba(255,255,255,.6); animation: vsl-ping 2.4s cubic-bezier(.2,.7,.2,1) infinite; }
   @keyframes vsl-ping { 0% { transform: scale(.6); opacity: 1; } 80%, 100% { transform: scale(1.8); opacity: 0; } }
@@ -96,7 +98,7 @@ Video sales letter: the opening. A small label, a two part heading (words
   .vsl-hero__in > :nth-child(4) { animation-delay: .24s; }
   .vsl-hero__in > :nth-child(5) { animation-delay: .32s; }
   @keyframes vsl-rise { from { opacity: 0; transform: translate3d(0, 18px, 0); } to { opacity: 1; transform: none; } }
-  .vsl-video { position: relative; max-width: {{ st.video_width | default: 1000 }}px; margin: 64px auto 0; padding-top: 34px; animation: vsl-frame 1.3s cubic-bezier(.2,.65,.2,1) .3s both; }
+  #shopify-section-{{ sid }} .vsl-video { position: relative; max-width: {{ st.video_width | default: 1000 }}px; margin: 64px auto 0; padding-top: 34px; animation: vsl-frame 1.3s cubic-bezier(.2,.65,.2,1) .3s both; }
   @keyframes vsl-frame { from { opacity: 0; transform: translate3d(0, 40px, 0) scale(.96); } to { opacity: 1; transform: none; } }
   .vsl-video__back {
     position: absolute; left: 7%; right: 7%; top: 0; height: 60%; border-radius: 18px 18px 0 0; overflow: hidden;
@@ -108,7 +110,7 @@ Video sales letter: the opening. A small label, a two part heading (words
     border: 1px solid rgba(255,255,255,.16);
     box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 0 0 6px rgba(255,255,255,.025), 0 50px 120px -50px rgba(255,255,255,.22);
   }
-  .vsl-video__poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 1.2s cubic-bezier(.2,.65,.2,1), opacity .5s; {% if st.poster_grey %}filter: grayscale(1);{% endif %} }
+  #shopify-section-{{ sid }} .vsl-video__poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 1.2s cubic-bezier(.2,.65,.2,1), opacity .5s; {% if st.poster_grey %}filter: grayscale(1);{% endif %} }
   .vsl-video__frame::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(120% 90% at 50% 40%, rgba(0,0,0,0) 40%, rgba(0,0,0,.55)); transition: opacity .5s; }
   .vsl-video__play {
     position: absolute; z-index: 2; left: 50%; top: 50%; width: 76px; height: 76px; margin: -38px 0 0 -38px; padding: 0; cursor: pointer;
@@ -142,7 +144,7 @@ Video sales letter: the opening. A small label, a two part heading (words
     .vsl-video__poster, .vsl-video__play { transition: none; }
   }
 </style>
-<div class="vsl{% if st.line_above %} vsl--line{% endif %} vsl-hero">
+<div data-own-font class="vsl{% if st.line_above %} vsl--line{% endif %} vsl-hero">
   <div class="vsl__inner">
     <div class="vsl__head vsl-hero__in">
       {%- if st.badge != blank -%}<p class="vsl-hero__badge"><span class="vsl-hero__dot" aria-hidden="true"></span>{{ st.badge | escape }}</p>{%- endif -%}

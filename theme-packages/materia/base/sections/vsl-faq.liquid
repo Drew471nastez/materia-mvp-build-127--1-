@@ -47,6 +47,7 @@ Video sales letter: questions that open in place (details and summary, so
   .vsl--line { padding-top: 1px; }
   .vsl--line::before { content: ""; position: absolute; left: 50%; top: 0; width: min(1120px, calc(100% - 40px)); height: 1px; transform: translateX(-50%); background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.26) 50%, rgba(255,255,255,0)); }
   .vsl--line::after { content: ""; position: absolute; left: 50%; top: 0; width: min(900px, 90%); height: 180px; transform: translateX(-50%); pointer-events: none; background: radial-gradient(50% 100% at 50% 0, rgba(255,255,255,.07), rgba(255,255,255,0)); }
+  @media (max-width: 749px) { .vsl__eyebrow { letter-spacing: .18em; gap: 10px; } .vsl__eyebrow::before, .vsl__eyebrow::after { flex-basis: 22px; } .vsl__head { margin-bottom: 32px; } }
   html.vsl-js .vsl [data-motion] { opacity: 0; transform: translate3d(0, 22px, 0); transition: opacity .9s cubic-bezier(.2,.65,.2,1), transform .9s cubic-bezier(.2,.65,.2,1); transition-delay: var(--d, 0ms); }
   html.vsl-js .vsl [data-motion].is-in { opacity: 1; transform: none; }
   @media (prefers-reduced-motion: reduce) {
@@ -58,7 +59,7 @@ Video sales letter: questions that open in place (details and summary, so
   @media (min-width: 750px) { #shopify-section-{{ sid }} .vsl { padding-top: {{ st.padding_top | default: 96 }}px; padding-bottom: {{ st.padding_bottom | default: 96 }}px; } }
 
   #shopify-section-{{ sid }} { interpolate-size: allow-keywords; }
-  .vsl-faq__list { max-width: {{ st.max_width | default: 760 }}px; margin: 0 auto; }
+  #shopify-section-{{ sid }} .vsl-faq__list { max-width: {{ st.max_width | default: 760 }}px; margin: 0 auto; }
   .vsl-faq details { border-bottom: 1px solid rgba(255,255,255,.1); }
   .vsl-faq summary { list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 20px 2px; cursor: pointer; color: #fff; font-size: 15px; font-weight: 500; line-height: 1.45; }
   .vsl-faq summary::-webkit-details-marker { display: none; }
@@ -76,7 +77,7 @@ Video sales letter: questions that open in place (details and summary, so
   @media (max-width: 749px) { .vsl-faq__a { padding-right: 8px; } }
   @media (prefers-reduced-motion: reduce) { .vsl-faq details::details-content, .vsl-faq__icon::before, .vsl-faq__icon::after { transition: none; } }
 </style>
-<div class="vsl{% if st.line_above %} vsl--line{% endif %} vsl-faq">
+<div data-own-font class="vsl{% if st.line_above %} vsl--line{% endif %} vsl-faq">
   <div class="vsl__inner">
     {%- if st.eyebrow != blank or st.heading != blank or st.text != blank -%}
       <div class="vsl__head" data-motion>

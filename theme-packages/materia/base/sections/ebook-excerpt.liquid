@@ -1,0 +1,108 @@
+{%- comment -%}
+  Ebook: a sample to read before buying. On one side a label, a heading, a
+  line and buttons (the whole chapter as a free download, and the book). On
+  the other a page set as in the book: the chapter's number and name and
+  its first paragraphs with a drop capital, fading out at the bottom.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+-%}
+{%- assign ebook_hf = settings.font_heading_google_family -%}
+{%- if ebook_hf != blank and ebook_hf != 'none' -%}<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family={{ ebook_hf | replace: ' ', '+' }}:ital@1&display=swap">{%- endif -%}
+<style>
+  #shopify-section-{{ sid }} .ebx {
+    --ebx-accent: {{ st.accent_color | default: '#9a6a32' }};
+    --ebx-paper: {{ st.paper_color | default: '#fffdf8' }};
+    background: {{ st.background | default: '#e6ebe2' }};
+    padding: {{ st.padding_top_mobile | default: 56 }}px 20px {{ st.padding_bottom_mobile | default: 56 }}px;
+  }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .ebx { padding: {{ st.padding_top | default: 96 }}px 40px {{ st.padding_bottom | default: 96 }}px; } }
+  #shopify-section-{{ sid }} .ebx__inner { max-width: 1120px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 36px; align-items: center; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .ebx__inner { grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr); gap: 88px; } }
+  #shopify-section-{{ sid }} .ebx__eyebrow { margin: 0 0 14px; color: var(--ebx-accent); font-size: 13px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; }
+  #shopify-section-{{ sid }} .ebx__heading { margin: 0; color: var(--color-heading); font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, 500); font-size: {{ st.heading_size_mobile | default: 36 }}px; line-height: 1.08; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .ebx__heading { font-size: {{ st.heading_size | default: 52 }}px; } }
+  #shopify-section-{{ sid }} .ebx__heading em { font-style: italic; color: var(--ebx-accent); }
+  #shopify-section-{{ sid }} .ebx__text { margin-top: 18px; color: var(--color-text); font-size: 16.5px; line-height: 1.7; max-width: 42ch; }
+  #shopify-section-{{ sid }} .ebx__text p { margin: 0 0 10px; }
+  #shopify-section-{{ sid }} .ebx__actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 26px; }
+  #shopify-section-{{ sid }} .ebx__btn { display: inline-flex; align-items: center; justify-content: center; min-height: 50px; padding: 0 24px; border-radius: 6px; font-size: 15px; font-weight: 600; text-decoration: none; transition: background-color 0.25s ease, color 0.25s ease; }
+  #shopify-section-{{ sid }} .ebx__btn--solid { background: {{ st.button_color | default: '#1f3b33' }}; color: {{ st.button_text_color | default: '#f7f4ee' }}; }
+  #shopify-section-{{ sid }} .ebx__btn--solid:hover { background: var(--color-heading); }
+  #shopify-section-{{ sid }} .ebx__btn--line { border: 1px solid var(--color-heading); color: var(--color-heading); }
+  #shopify-section-{{ sid }} .ebx__btn--line:hover { background: var(--color-heading); color: var(--ebx-paper); }
+  @media (max-width: 520px) { #shopify-section-{{ sid }} .ebx__btn { flex: 1 1 100%; } }
+  #shopify-section-{{ sid }} .ebx__page {
+    position: relative; margin: 0; padding: 40px 28px 0; max-height: {{ st.page_height_mobile | default: 520 }}px; overflow: hidden;
+    background: var(--ebx-paper); border-radius: 4px;
+    box-shadow: 0 1px 2px rgba(20, 30, 25, 0.06), 0 30px 60px -36px rgba(20, 30, 25, 0.35);
+  }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .ebx__page { padding: 64px 64px 0; max-height: {{ st.page_height | default: 600 }}px; } }
+  #shopify-section-{{ sid }} .ebx__page::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 160px; background: linear-gradient(to bottom, color-mix(in srgb, var(--ebx-paper) 0%, transparent), var(--ebx-paper) 85%); pointer-events: none; }
+  #shopify-section-{{ sid }} .ebx__chapter { margin: 0 0 6px; text-align: center; color: var(--ebx-accent); font-size: 12px; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; }
+  #shopify-section-{{ sid }} .ebx__title { margin: 0 0 28px; text-align: center; color: var(--color-heading); font-family: var(--heading-font, inherit); font-style: italic; font-weight: var(--heading-weight, 500); font-size: 30px; line-height: 1.2; }
+  #shopify-section-{{ sid }} .ebx__body { color: #2a302d; font-family: var(--heading-font, Georgia, serif); font-size: 18.5px; line-height: 1.7; hyphens: auto; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .ebx__body { font-size: 20px; } }
+  #shopify-section-{{ sid }} .ebx__body p { margin: 0; text-align: justify; }
+  #shopify-section-{{ sid }} .ebx__body p + p { text-indent: 1.5em; }
+  #shopify-section-{{ sid }} .ebx__body > p:first-child::first-letter { float: left; margin: 0.08em 0.1em 0 0; color: var(--ebx-accent); font-size: 3.4em; line-height: 0.8; }
+</style>
+
+<div class="ebx color-{{ color_scheme }}" data-section-id="{{ sid }}">
+  <div class="ebx__inner">
+    <div class="ebx__side">
+      {%- if st.eyebrow != blank -%}<p class="ebx__eyebrow">{{ st.eyebrow | escape }}</p>{%- endif -%}
+      {%- if st.heading != blank -%}<h2 class="ebx__heading">{{ st.heading }}</h2>{%- endif -%}
+      {%- if st.text != blank -%}<div class="ebx__text">{{ st.text }}</div>{%- endif -%}
+      {%- if st.button_label != blank or st.button2_label != blank -%}
+        <div class="ebx__actions">
+          {%- if st.button_label != blank -%}<a class="ebx__btn ebx__btn--solid" href="{{ st.button_link | default: '/collections/all' }}">{{ st.button_label | escape }}</a>{%- endif -%}
+          {%- if st.button2_label != blank -%}<a class="ebx__btn ebx__btn--line" href="{{ st.button2_link | default: '/collections/all' }}">{{ st.button2_label | escape }}</a>{%- endif -%}
+        </div>
+      {%- endif -%}
+    </div>
+    <article class="ebx__page" aria-label="{{ st.chapter_title | escape }}">
+      {%- if st.chapter_label != blank -%}<p class="ebx__chapter">{{ st.chapter_label | escape }}</p>{%- endif -%}
+      {%- if st.chapter_title != blank -%}<h3 class="ebx__title">{{ st.chapter_title | escape }}</h3>{%- endif -%}
+      <div class="ebx__body">{{ st.excerpt }}</div>
+    </article>
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Ebook sample pages",
+  "tag": "section",
+  "class": "section sec__ebook-excerpt",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default-color-scheme" },
+    { "type": "color", "id": "background", "label": "Background", "default": "#e6ebe2" },
+    { "type": "color", "id": "paper_color", "label": "Page colour", "default": "#fffdf8" },
+    { "type": "color", "id": "accent_color", "label": "Accent colour", "default": "#9a6a32" },
+    { "type": "text", "id": "eyebrow", "label": "Small label", "default": "Read a sample" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "Start with <em>chapter one</em>" },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Say what the sample is and how to get the whole chapter.</p>" },
+    { "type": "text", "id": "button_label", "label": "First button", "default": "Get the free chapter" },
+    { "type": "url", "id": "button_link", "label": "First button link", "info": "A free product, a download or a sign-up page." },
+    { "type": "text", "id": "button2_label", "label": "Second button", "default": "Buy the book" },
+    { "type": "url", "id": "button2_link", "label": "Second button link" },
+    { "type": "color", "id": "button_color", "label": "Button colour", "default": "#1f3b33" },
+    { "type": "color", "id": "button_text_color", "label": "Button text colour", "default": "#f7f4ee" },
+    { "type": "header", "content": "The page" },
+    { "type": "text", "id": "chapter_label", "label": "Chapter number", "default": "Chapter one" },
+    { "type": "text", "id": "chapter_title", "label": "Chapter name", "default": "Where it begins" },
+    { "type": "richtext", "id": "excerpt", "label": "Opening paragraphs", "default": "<p>Paste the first paragraphs of the chapter here. They fade out at the bottom of the page.</p>" },
+    { "type": "range", "id": "page_height", "label": "Page height, desktop", "min": 360, "max": 900, "step": 20, "unit": "px", "default": 600 },
+    { "type": "range", "id": "page_height_mobile", "label": "Page height, phone", "min": 300, "max": 800, "step": 20, "unit": "px", "default": 520 },
+    { "type": "range", "id": "heading_size", "label": "Heading size, desktop", "min": 28, "max": 72, "step": 2, "unit": "px", "default": 52 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size, phone", "min": 24, "max": 48, "step": 2, "unit": "px", "default": 36 },
+    { "type": "range", "id": "padding_top", "label": "Space above, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 }
+  ],
+  "presets": [ { "name": "Ebook sample pages" } ]
+}
+{% endschema %}

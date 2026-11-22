@@ -49,6 +49,7 @@ Video sales letter: reviews as cards, stars, the words, then who said it
   .vsl--line { padding-top: 1px; }
   .vsl--line::before { content: ""; position: absolute; left: 50%; top: 0; width: min(1120px, calc(100% - 40px)); height: 1px; transform: translateX(-50%); background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.26) 50%, rgba(255,255,255,0)); }
   .vsl--line::after { content: ""; position: absolute; left: 50%; top: 0; width: min(900px, 90%); height: 180px; transform: translateX(-50%); pointer-events: none; background: radial-gradient(50% 100% at 50% 0, rgba(255,255,255,.07), rgba(255,255,255,0)); }
+  @media (max-width: 749px) { .vsl__eyebrow { letter-spacing: .18em; gap: 10px; } .vsl__eyebrow::before, .vsl__eyebrow::after { flex-basis: 22px; } .vsl__head { margin-bottom: 32px; } }
   html.vsl-js .vsl [data-motion] { opacity: 0; transform: translate3d(0, 22px, 0); transition: opacity .9s cubic-bezier(.2,.65,.2,1), transform .9s cubic-bezier(.2,.65,.2,1); transition-delay: var(--d, 0ms); }
   html.vsl-js .vsl [data-motion].is-in { opacity: 1; transform: none; }
   @media (prefers-reduced-motion: reduce) {
@@ -61,7 +62,7 @@ Video sales letter: reviews as cards, stars, the words, then who said it
 
   .vsl-reviews__grid { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
   @media (min-width: 750px) { .vsl-reviews__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-  @media (min-width: 990px) { .vsl-reviews__grid { grid-template-columns: repeat({{ cols }}, minmax(0, 1fr)); } }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .vsl-reviews__grid { grid-template-columns: repeat({{ cols }}, minmax(0, 1fr)); } }
   .vsl-reviews .vsl-card { display: flex; flex-direction: column; padding: 24px 24px 22px; }
   .vsl-reviews__stars { display: flex; gap: 3px; margin-bottom: 16px; color: #fff; }
   .vsl-reviews__stars svg { width: 15px; height: 15px; }
@@ -75,7 +76,7 @@ Video sales letter: reviews as cards, stars, the words, then who said it
   .vsl-reviews__role { margin: 2px 0 0; font-size: 12px; color: rgba(255,255,255,.5); }
   .vsl-reviews__mark { margin-left: auto; width: 26px; height: 26px; color: rgba(255,255,255,.14); flex: none; }
 </style>
-<div class="vsl{% if st.line_above %} vsl--line{% endif %} vsl-reviews">
+<div data-own-font class="vsl{% if st.line_above %} vsl--line{% endif %} vsl-reviews">
   <div class="vsl__inner">
     {%- if st.eyebrow != blank or st.heading != blank or st.text != blank -%}
       <div class="vsl__head" data-motion>
@@ -93,7 +94,7 @@ Video sales letter: reviews as cards, stars, the words, then who said it
               {%- for i in (1..5) -%}<svg viewBox="0 0 20 20" class="{% if i > stars %}is-off{% endif %}" aria-hidden="true" focusable="false"><path d="M10 1.8l2.5 5.2 5.7.8-4.1 4 1 5.6L10 14.7l-5.1 2.7 1-5.6-4.1-4 5.7-.8z" fill="currentColor"/></svg>{%- endfor -%}
             </div>
           {%- endif -%}
-          <blockquote class="vsl-reviews__quote">{{ block.settings.quote }}</blockquote>
+          <div class="vsl-reviews__quote">{{ block.settings.quote }}</div>
           <figcaption class="vsl-reviews__who">
             <span class="vsl-reviews__pic" aria-hidden="true">
               {%- if block.settings.image != blank -%}{{ block.settings.image | image_url: width: 120 | image_tag: loading: 'lazy', alt: '' }}{%- else -%}{{ block.settings.name | slice: 0 | upcase | escape }}{%- endif -%}

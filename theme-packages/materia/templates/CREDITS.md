@@ -281,3 +281,11 @@ They are not part of a template and are never added to a creator's website.
 | posters (cover only) | scripts/theme-templates/products/posters/posters-tulips.webp | Drawn for this template | Storelib |
 | posters (cover only) | scripts/theme-templates/products/posters/posters-daisies.webp | Drawn for this template | Storelib |
 | posters (cover only) | scripts/theme-templates/products/posters/posters-wavy-checks.webp | Drawn for this template | Storelib |
+
+Video sales letter (round 20): the host photographs are one session, used in black and white with the edges darkened; a small logo on the headphones is painted out.
+
+| vsl | assets/vsl-video-poster.webp | https://images.unsplash.com/photo-1694881227503-ddc502d4b4cc | Unsplash License |
+| vsl | assets/vsl-host.webp | https://images.unsplash.com/photo-1694881227511-ca3b9f69ea91 | Unsplash License |
+| vsl (cover only) | scripts/theme-templates/products/vsl/vsl-course.webp | https://images.unsplash.com/photo-1478737270239-2f02b77fc618 (black and white) | Unsplash License |
+| vsl (cover only) | scripts/theme-templates/products/vsl/vsl-templates.webp | https://images.unsplash.com/photo-1789922129938-f02af2785d19 (black and white) | Unsplash License |
+| vsl (cover only) | scripts/theme-templates/products/vsl/vsl-review-call.webp | https://images.unsplash.com/photo-1694881227503-ddc502d4b4cc (black and white) | Unsplash License |

@@ -67,7 +67,7 @@
             "text_6": "",
             "columns": "1",
             "enable_custom_style": true,
-            "icon_color": "#ff5f1f"
+            "icon_color": "#ffffff"
           }
         },
         "buy_buttons_1": {
@@ -84,7 +84,14 @@
             "buy_bg_color": "#ffffff",
             "buy_text_color": "#0a0a0a",
             "buy_hover_bg": "#e4e4e7",
-            "buy_hover_text": "#0a0a0a"
+            "buy_hover_text": "#0a0a0a",
+            "atc_appearance": "outline",
+            "atc_text_color": "#ffffff",
+            "atc_bg_color": "rgba(0,0,0,0)",
+            "atc_hover_bg": "#ffffff",
+            "atc_hover_text": "#0a0a0a",
+            "enable_custom_button_text": true,
+            "atc_button_text": "Add to cart"
           }
         },
         "money_back_guarantee_1": {
@@ -343,7 +350,7 @@
         "heading": "Also from us",
         "description": "",
         "header_size": "small",
-        "header_alignment": "left",
+        "header_alignment": "center",
         "items_per_row": 4,
         "items_per_row_mobile": 2,
         "column_gap": 20,

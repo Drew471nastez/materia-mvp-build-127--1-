@@ -182,7 +182,7 @@ try {
             opacity: +getComputedStyle(live).opacity,
             sandbox: iframe?.getAttribute("sandbox") ?? null,
             referrer: iframe?.getAttribute("referrerpolicy") ?? null,
-            src: live.getAttribute("data-preview-src"),
+            src: (iframe?.getAttribute("src") ?? null),
             asked: iframe?.getAttribute("src") ?? null,
             frame: box ? [box.width, box.height].map(Math.round) : null,
             frameBg: document.querySelector("[data-preview-live-frame]") ? getComputedStyle(document.querySelector("[data-preview-live-frame]")).backgroundColor : null,
@@ -299,7 +299,7 @@ try {
     const ready = await stage(p)
     const lives = rec.map((r) => r.live).filter((x) => x !== null)
     const arrival = frameTimes(rec, 0, 300)
-    const panelO = rec.filter((r) => r.t <= 800 && r.panel !== null).map((r) => r.panel)
+    const panelO = rec.filter((r) => r.panel !== null).map((r) => r.panel)
     expect(ready?.sandbox === "allow-scripts" && ready.referrer === "no-referrer" && ready.asked === `/theme-previews/${SLUG}/index.html`, "framed sandboxed with scripts only, no referrer", JSON.stringify(ready && { sandbox: ready.sandbox, referrer: ready.referrer }))
     expect(ready?.state === "ready" && ready.opacity === 1, "the website is up", `${readyAt}ms after the press on the page's clock, ${asked.length - before} files`)
     expect(rec.every((r) => r.pictures === 0), "no picture of the template at any frame, so nothing is swapped", `${rec.length} frames`)

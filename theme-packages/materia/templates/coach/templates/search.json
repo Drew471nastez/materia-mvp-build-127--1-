@@ -1,0 +1,90 @@
+{
+  "sections": {
+    "main": {
+      "type": "main-search",
+      "settings": {
+        "sorting": true,
+        "column_gap": 28,
+        "pagination": "infinit_scrolling",
+        "padding_top": 24,
+        "filter_layout": "horizontal",
+        "items_per_row": 3,
+        "items_to_show": 12,
+        "section_width": "container",
+        "default_filter": "open_all",
+        "padding_bottom": 48,
+        "vertical_posion": "left",
+        "button_show_more": "Show more",
+        "enable_filtering": false,
+        "show_filter_counts": true,
+        "items_per_row_mobile": 1,
+        "number_products_per_page": true
+      }
+    },
+    "offers": {
+      "type": "coach-offers",
+      "settings": {
+        "color_scheme": "default",
+        "background": "#faf6f0",
+        "card_color": "#ffffff",
+        "accent_color": "#a5582a",
+        "eyebrow": "Not sure where to start?",
+        "heading": "Three ways to <em>work together</em>",
+        "columns": "3",
+        "image_ratio": "4 / 3",
+        "card_radius": 4,
+        "padding_top": 48
+      },
+      "blocks": {
+        "offer_1": {
+          "type": "offer",
+          "settings": {
+            "image": "shopify://shop_images/coach-offer-one.webp",
+            "alt": "Two armchairs side by side in a quiet room",
+            "label": "Six sessions",
+            "title": "One to one coaching",
+            "text": "Private sessions to untangle one big decision and leave with a plan you will actually keep.",
+            "price": "From $160",
+            "link_label": "See the details",
+            "link": "/collections/all"
+          }
+        },
+        "offer_2": {
+          "type": "offer",
+          "settings": {
+            "image": "shopify://shop_images/coach-offer-group.webp",
+            "alt": "Four women talking around a café table",
+            "label": "Eight weeks",
+            "title": "The Clear Path group",
+            "text": "Eight Tuesday evenings with five other women at the same crossroads, online.",
+            "price": "$480",
+            "link_label": "See the details",
+            "link": "/collections/all"
+          }
+        },
+        "offer_3": {
+          "type": "offer",
+          "settings": {
+            "image": "shopify://shop_images/coach-offer-online.webp",
+            "alt": "Leah on a video call at her desk",
+            "label": "Anywhere",
+            "title": "Online sessions",
+            "text": "The same focus and follow up as in person, on a video call that fits around your day.",
+            "price": "From $140",
+            "link_label": "See the details",
+            "link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "offer_1",
+        "offer_2",
+        "offer_3"
+      ]
+    }
+  },
+  "order": [
+    "main",
+    "offers"
+  ]
+}

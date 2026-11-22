@@ -50,28 +50,28 @@
           "type": "faq_section",
           "settings": {
             "show_faq": true,
-            "faq_heading": "Before you check out"
+            "faq_heading": "Before you pay"
           }
         },
         "faq_1": {
           "type": "faq",
           "settings": {
-            "question": "When can I start?",
-            "answer": "<p>Courses and downloads open as soon as you pay. The link is in your receipt email too.</p>"
+            "question": "When do I choose my times?",
+            "answer": "<p>Straight after you pay. The confirmation email has a link to my calendar.</p>"
           }
         },
         "faq_2": {
           "type": "faq",
           "settings": {
-            "question": "Can I cancel the membership?",
-            "answer": "<p>Yes, any time. You keep access until the end of the month you paid for.</p>"
+            "question": "Can I move a session?",
+            "answer": "<p>Yes, up to 24 hours before it starts.</p>"
           }
         },
         "faq_3": {
           "type": "faq",
           "settings": {
-            "question": "When does the paper book arrive?",
-            "answer": "<p>It ships within a few days. You get tracking by email.</p>"
+            "question": "Is the first call really free?",
+            "answer": "<p>Yes. Twenty minutes by video, booked from the <a href=\"/pages/book\">booking page</a>.</p>"
           }
         },
         "payment_badges_67Mgyc": {

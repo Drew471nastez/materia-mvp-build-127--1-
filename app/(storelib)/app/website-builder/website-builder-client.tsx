@@ -41,7 +41,6 @@ import { liveSiteLink } from "@/lib/website-builder/live-site-link"
 import { AnalyticsSummaryFact } from "@/components/app/analytics-summary-line"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
-  ArrowUpCircle,
   ArrowUpRight,
   Check,
   ChevronDown,
@@ -103,7 +102,7 @@ import { backThen } from "@/lib/navigation/go-back"
 import { builtinListings, installedListingSlugs, listingPath, listingSlugOfSettings, type ThemeListing } from "@/lib/themes/marketplace-shared"
 import { SITE_PICTURE_QUALITY, optimizedImageUrl } from "@/lib/images/optimized-url"
 import { THEME_PARAM, THEMES_PARAM, ThemeMarketplace } from "./themes/themes-client"
-import { PREVIEW_PARAM, ThemePreview, framedSteps } from "./themes/theme-preview"
+import { PREVIEW_PARAM, ThemePreview } from "./themes/theme-preview"
 import { relativeTime } from "@/lib/website-builder/relative-time"
 import { type Cover, coverBeingWatched, latestCover, requestCover, savedAt, seedCover, watchCover } from "@/lib/website-builder/cover-refresh"
 import { pagesBehind } from "@/lib/website-builder/page-refresh"
@@ -113,8 +112,6 @@ import { HelpLabel } from "@/components/app/help-label"
 import type { SettingsSection } from "@/components/website-builder/website-settings/types"
 import { LIBRARY_FULL_CODE, LIBRARY_RULE, LIBRARY_RULE_TITLE } from "@/lib/website-builder/library-limit"
 import { LibraryFullDialog, type LibraryAction } from "./library-full-dialog"
-import { ThemeVersionDialog, ThemeVersionFact, type UpdateResult } from "./theme-version"
-import { hasUpdate, versionState, type ThemeRelease, type VersionState } from "@/lib/themes/releases-shared"
 import { StartWebsite } from "./start-website"
 import { StartingShell } from "@/components/website-builder/ai-generation/building-canvas"
 import { newStartKey, saveStartPrompt, withJobParam, withStartParam } from "@/lib/website-builder/start-handoff"
@@ -759,39 +756,6 @@ export function coverIsStale(i: Pick<WebsiteSummary, "snapshot_url" | "snapshot_
   return Date.parse(i.saved_at) > Date.parse(i.snapshot_updated_at) + 5000
 }
 
-/** One value and whoever reads it: the previewed template's slug, set by the page and read by PreviewHost alone. */
-type SlugStore = { get: () => string | null; set: (next: string | null) => void; subscribe: (cb: () => void) => () => void }
-function createSlugStore(): SlugStore {
-  let slug: string | null = null
-  const readers = new Set<() => void>()
-  return {
-    get: () => slug,
-    set: (next) => {
-      if (next === slug) return
-      slug = next
-      for (const cb of readers) cb()
-    },
-    subscribe: (cb) => {
-      readers.add(cb)
-      return () => {
-        readers.delete(cb)
-      }
-    },
-  }
-}
-
-/** The preview (./themes/theme-preview.tsx) for whichever template the store names. */
-function PreviewHost({
-  store,
-  listings,
-  stateOf,
-  ...rest
-}: { store: SlugStore; listings: ThemeListing[]; stateOf: (l: ThemeListing) => TemplateCardState } & Omit<React.ComponentProps<typeof ThemePreview>, "listing" | "state" | "viewHref">) {
-  const slug = React.useSyncExternalStore(store.subscribe, store.get, () => null)
-  const listing = slug ? (listings.find((l) => l.slug === slug) ?? null) : null
-  return <ThemePreview listing={listing} state={listing ? stateOf(listing) : "add"} viewHref={listing && listing.tier !== "free" ? listingPath(listing.slug) : null} {...rest} />
-}
-
 export function WebsiteBuilderClient({
   installs: given,
   username,
@@ -801,11 +765,8 @@ export function WebsiteBuilderClient({
   teamMember = false,
   aiAgent = false,
   create = false,
-  releases = [],
 }: {
   installs: WebsiteSummary[]
-  /** Published theme releases (lib/themes/releases-server.ts): which websites have an update, and its notes. */
-  releases?: ThemeRelease[]
   /** Create a website at the top (Start with AI, Start from blank): /app/website-builder/ai only (./ai/page.tsx). */
   create?: boolean
   /** The new AI builder (the agent engine) is on for this account (lib/website-builder/ai-site/agent-access.ts, round N). */
@@ -932,9 +893,6 @@ export function WebsiteBuilderClient({
   const [unpublishing, setUnpublishing] = React.useState<WebsiteSummary | null>(null)
   /** Which way into a full library was just tried. See ./library-full-dialog. */
   const [full, setFull] = React.useState<LibraryAction | null>(null)
-  /** The website whose theme version is open (./theme-version.tsx), and what its Update made. */
-  const [versionOf, setVersionOf] = React.useState<WebsiteSummary | null>(null)
-  const [updated, setUpdated] = React.useState<UpdateResult | null>(null)
   const fileInput = React.useRef<HTMLInputElement>(null)
 
   /*
@@ -982,15 +940,7 @@ export function WebsiteBuilderClient({
     close button goes back over the marketplace's entry as well, in one
     traversal.
   */
-  /*
-    Which template is previewed is kept outside this page's own state
-    (createSlugStore, below): opening the preview redraws the preview and
-    nothing else. As page state it redrew the whole page, the library and
-    every card in the marketplace under it, in the press: 142ms of the
-    first frame's 200 at a quarter speed (scripts/check-theme-preview-live.mjs).
-  */
-  const [previewStore] = React.useState(createSlugStore)
-  const setPreviewSlug = previewStore.set
+  const [previewSlug, setPreviewSlug] = React.useState<string | null>(null)
   const previewPushed = React.useRef(false)
   const previewOpener = React.useRef<HTMLElement | null>(null)
   /** The close button's back over two entries is on its way: the entry it lands on is not read as Forward. */
@@ -1077,16 +1027,10 @@ export function WebsiteBuilderClient({
   }
   /** Back, Escape, a press on the dim: the grid (or the page) under the preview. */
   const closePreview = () => {
-    /* The website's own pages, browsed inside the preview, are entries after the preview's: back over them too, in the same traversal. */
-    const browsed = framedSteps()
     setPreviewSlug(null)
     if (previewPushed.current) {
       previewPushed.current = false
-      backThen(clearPreviewAddress, undefined, 1 + browsed)
-      return
-    }
-    if (browsed > 0) {
-      backThen(clearPreviewAddress, undefined, browsed)
+      backThen(clearPreviewAddress)
       return
     }
     clearPreviewAddress()
@@ -1094,10 +1038,9 @@ export function WebsiteBuilderClient({
   /** The preview's close button: the preview and the marketplace under it, back over both entries in one traversal. */
   const closePreviewAndThemes = () => {
     if (!themesOpen) return closePreview()
-    const browsed = framedSteps()
     setPreviewSlug(null)
     setThemesOpen(false)
-    const steps = browsed + (previewPushed.current ? 1 : 0) + (themesPushed.current ? 1 : 0)
+    const steps = (previewPushed.current ? 1 : 0) + (themesPushed.current ? 1 : 0)
     previewPushed.current = false
     themesPushed.current = false
     /* The focus goes to what opened the marketplace, not to a card that is leaving with it. */
@@ -1475,40 +1418,6 @@ export function WebsiteBuilderClient({
     )
   }
 
-  /*
-    UPDATE, AS A COPY. The theme's newest version and this website's own
-    content, made as a new draft the way Duplicate makes one (its row first,
-    then the website), so a full library opens the same sheet. The website
-    it is pressed on is never changed (lib/themes/theme-update.ts).
-  */
-  const updateTheme = (i: WebsiteSummary): Promise<void> | undefined => {
-    if (slotsLeft === 0) {
-      setVersionOf(null)
-      setFull("duplicate")
-      return
-    }
-    if (making) return
-    const again = () => void updateTheme(i)
-    const next = versions.get(i.id)?.latest?.version ?? ""
-    return make(
-      "duplicate",
-      `${i.name} (${next})`,
-      async () => {
-        const res = await fetch(`/api/website-builder/themes/${i.id}/update`, json("POST", {}))
-        const data = await res.json().catch(() => ({}))
-        if (data?.code === LIBRARY_FULL_CODE) setVersionOf(null)
-        return { ok: res.ok, data }
-      },
-      (data) => {
-        const made = { installId: String(data.install_id ?? ""), name: String(data.name ?? i.name), version: String(data.version ?? next), kept: Array.isArray(data.kept) ? (data.kept as UpdateResult["kept"]) : [] }
-        setUpdated(made)
-        return tt("Added {name} as a draft.", { name: made.name })
-      },
-      tt("Could not update"),
-      again,
-    )
-  }
-
   const rename = (i: WebsiteSummary, name: string) =>
     run(`${i.id}:rename`, () => fetch(`/api/website-builder/themes/${i.id}`, json("PATCH", { name })), tt("Renamed"), tt("Could not rename"))
 
@@ -1574,13 +1483,6 @@ export function WebsiteBuilderClient({
 
   /* A template added on an earlier visit: the install remembers its listing (settings.compat.listing). */
   const listedSlugs = React.useMemo(() => installedListingSlugs(installs), [installs])
-  /* Each website's theme version against the published releases; none for a website not added from the marketplace. */
-  const versions = React.useMemo(() => new Map<string, VersionState | null>(installs.map((i) => [i.id, versionState(i.settings, releases)])), [installs, releases])
-  const themeNameOf = (st: VersionState | null | undefined, fallback: string) => (st ? (listings.find((l) => l.slug === st.slug)?.name ?? fallback) : fallback)
-  const openVersion = (i: WebsiteSummary) => {
-    setUpdated(null)
-    setVersionOf(i)
-  }
   /** Add, Adding or In library for one theme: the same answer on its card in the row and on its card in the popup. */
   const templateState = (l: ThemeListing): TemplateCardState => {
     if ((!!l.builtinThemeId && installedThemeIds.has(l.builtinThemeId)) || addedSlugs.has(l.slug) || listedSlugs.has(l.slug)) return "in-library"
@@ -1819,7 +1721,6 @@ export function WebsiteBuilderClient({
       ...(i.status === "published" ? [] : [{ label: tt("Website settings"), icon: <Settings2 />, onClick: () => go(editorHref(username, i.id, "settings")) }]),
       { label: tt("Rename"), icon: <Pencil />, onClick: () => setRenaming(i) },
       { label: tt("Duplicate"), icon: <Layers />, onClick: () => void duplicate(i) },
-      ...(versions.get(i.id) ? [{ label: hasUpdate(versions.get(i.id)) ? tt("Update theme") : tt("Theme version"), icon: <ArrowUpCircle />, onClick: () => openVersion(i) }] : []),
       ...(teamMember ? [] : [{ label: tt("Export theme"), icon: <Download />, onClick: () => void exportTheme(i) }]),
     )
     if (i.status === "published") {
@@ -1859,6 +1760,7 @@ export function WebsiteBuilderClient({
   /* Browse themes: the first six of the marketplace's themes, then Show more, which opens all of them. */
   const explore = listings.slice(0, ROW_THEME_CARDS)
   /* The template a preview names, among the ones this page was given; a slug it does not know opens nothing. */
+  const previewListing = previewSlug ? (listings.find((l) => l.slug === previewSlug) ?? null) : null
   /*
     BROWSE THEMES WAITS FOR THE PAGE'S FIRST FRAME, ON A PHONE. It is a
     screen below the fold there, and a drawn cover with a dozen lines of SVG
@@ -2014,10 +1916,7 @@ export function WebsiteBuilderClient({
                       </div>
                       {/* Its visitors and orders in the last 30 days, opening Analytics filtered to this website (components/app/analytics-summary-line). */}
                       <AnalyticsSummaryFact property={`website:${live.id}`} account={account} />
-                      {versions.get(live.id) ? (
-                        /* A marketplace theme with releases: its version and Update available, Shopify's line (./theme-version.tsx). */
-                        <ThemeVersionFact state={versions.get(live.id)!} onOpen={() => openVersion(live)} />
-                      ) : live.theme && live.theme.name !== live.name && (
+                      {live.theme && live.theme.name !== live.name && (
                         <div className="flex items-center justify-between gap-4 py-2.5">
                           <dt className="text-[#6b7280]">{tt("Theme")}</dt>
                           <dd className="min-w-0 truncate text-right font-medium text-[#1a1a2e]">
@@ -2124,8 +2023,7 @@ export function WebsiteBuilderClient({
                       <dt className="text-[#6b7280]">{tt("Last edited")}</dt>
                       <dd className="text-right font-medium text-[#1a1a2e]">{since(starter.saved_at)}</dd>
                     </div>
-                    {versions.get(starter.id) ? <ThemeVersionFact state={versions.get(starter.id)!} onOpen={() => openVersion(starter)} /> : null}
-                    {!versions.get(starter.id) && starter.theme && starter.theme.name !== starter.name && (
+                    {starter.theme && starter.theme.name !== starter.name && (
                       <div className="flex items-center justify-between gap-4 py-2.5">
                         <dt className="text-[#6b7280]">{tt("Theme")}</dt>
                         <dd className="min-w-0 truncate text-right font-medium text-[#1a1a2e]">{starter.theme.name}</dd>
@@ -2402,7 +2300,6 @@ export function WebsiteBuilderClient({
                                     edit time is the fact worth the room. */}
                                 <span className="hidden sm:inline">{def ? getIndustry(def.industry).label : i.theme?.name ?? tt("Theme")}</span>
                                 <span className="sm:hidden">{i.id === offline?.id ? tt("Offline") : tt("Draft")} · {tt("Edited {saved_at}", { saved_at: since(i.saved_at) })}</span>
-                                {hasUpdate(versions.get(i.id)) ? <span className="font-medium text-[#1a1a2e]" data-row-update=""> · {tt("Update available")}</span> : null}
                               </span>
                             </span>
                           </button>
@@ -2538,11 +2435,11 @@ export function WebsiteBuilderClient({
       />
 
       {/* ── A template's preview, over the marketplace or the page ── */}
-      <PreviewHost
-        store={previewStore}
-        listings={listings}
-        stateOf={templateState}
+      <ThemePreview
+        listing={previewListing}
+        state={previewListing ? templateState(previewListing) : "add"}
         waiting={making}
+        viewHref={previewListing && previewListing.tier !== "free" ? listingPath(previewListing.slug) : null}
         onAdd={(l) => void addListing(l)}
         onBack={closePreview}
         onClose={closePreviewAndThemes}
@@ -2607,22 +2504,6 @@ export function WebsiteBuilderClient({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <ThemeVersionDialog
-        state={versionOf ? (versions.get(versionOf.id) ?? null) : null}
-        themeName={themeNameOf(versionOf ? versions.get(versionOf.id) : null, versionOf?.name ?? "")}
-        busy={making && !updated}
-        result={updated}
-        onUpdate={() => versionOf && void updateTheme(versionOf)}
-        onOpenCopy={(id) => {
-          setVersionOf(null)
-          go(editorHref(username, id))
-        }}
-        onClose={() => {
-          setVersionOf(null)
-          setUpdated(null)
-        }}
-      />
 
       <LibraryFullDialog
         action={full}

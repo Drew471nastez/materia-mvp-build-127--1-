@@ -53,6 +53,7 @@ Video sales letter: the header of a one offer page. The name or logo on
   .vsl--line { padding-top: 1px; }
   .vsl--line::before { content: ""; position: absolute; left: 50%; top: 0; width: min(1120px, calc(100% - 40px)); height: 1px; transform: translateX(-50%); background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.26) 50%, rgba(255,255,255,0)); }
   .vsl--line::after { content: ""; position: absolute; left: 50%; top: 0; width: min(900px, 90%); height: 180px; transform: translateX(-50%); pointer-events: none; background: radial-gradient(50% 100% at 50% 0, rgba(255,255,255,.07), rgba(255,255,255,0)); }
+  @media (max-width: 749px) { .vsl__eyebrow { letter-spacing: .18em; gap: 10px; } .vsl__eyebrow::before, .vsl__eyebrow::after { flex-basis: 22px; } .vsl__head { margin-bottom: 32px; } }
   html.vsl-js .vsl [data-motion] { opacity: 0; transform: translate3d(0, 22px, 0); transition: opacity .9s cubic-bezier(.2,.65,.2,1), transform .9s cubic-bezier(.2,.65,.2,1); transition-delay: var(--d, 0ms); }
   html.vsl-js .vsl [data-motion].is-in { opacity: 1; transform: none; }
   @media (prefers-reduced-motion: reduce) {
@@ -65,7 +66,7 @@ Video sales letter: the header of a one offer page. The name or logo on
   .vsl-head.is-scrolled { background: rgba(5,5,6,.72); -webkit-backdrop-filter: blur(12px) saturate(140%); backdrop-filter: blur(12px) saturate(140%); border-bottom-color: rgba(255,255,255,.07); }
   .vsl-head .vsl__inner { display: flex; align-items: center; gap: 24px; min-height: 76px; max-width: 1200px; }
   .vsl-head__brand { display: inline-flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; font-weight: 700; font-size: 17px; letter-spacing: .14em; text-transform: uppercase; }
-  .vsl-head__brand img { display: block; height: auto; width: {{ logo_w }}px; }
+  #shopify-section-{{ sid }} .vsl-head__brand img { display: block; height: auto; width: {{ logo_w }}px; }
   .vsl-head__mark { width: 22px; height: 22px; flex: none; }
   .vsl-head__nav { display: none; margin-left: auto; gap: 28px; }
   .vsl-head__nav a { color: rgba(255,255,255,.66); font-size: 14px; text-decoration: none; transition: color .25s; }
@@ -78,7 +79,7 @@ Video sales letter: the header of a one offer page. The name or logo on
   }
   @media (max-width: 420px) { .vsl-head__brand { font-size: 15px; letter-spacing: .1em; } .vsl-head .vsl-btn { padding: 0 14px; } .vsl-head .vsl-btn svg { display: none; } }
 </style>
-<header class="vsl vsl-head" data-vsl-head>
+<header data-own-font class="vsl vsl-head" data-vsl-head>
   <div class="vsl__inner">
     <a class="vsl-head__brand" href="{{ routes.root_url }}">
       {%- if st.logo != blank -%}

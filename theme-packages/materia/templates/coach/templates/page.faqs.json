@@ -1,0 +1,138 @@
+{
+  "sections": {
+    "heading": {
+      "type": "page-heading",
+      "settings": {
+        "height": "adapt",
+        "alignment": "center",
+        "padding_top": 72,
+        "padding_bottom": 56,
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "reset_spacing": true,
+        "section_width": "fluid_container",
+        "overlay_opacity": 0
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "page_title": "Questions",
+            "header_size": "default",
+            "vertical_gap": 10,
+            "heading_font_size": 44,
+            "enable_heading_color": false
+          }
+        },
+        "description_1": {
+          "type": "description",
+          "settings": {
+            "description": "<p>About sessions, booking and what coaching is.</p>",
+            "enable_custom_style": false,
+            "description_font_size": 16
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_1"
+      ]
+    },
+    "faq": {
+      "type": "faq-side-image",
+      "settings": {
+        "color_scheme": "default",
+        "image": "shopify://shop_images/coach-grid-3.webp",
+        "image_position": "right"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Before you book"
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>If your question is not here, <a href=\"/pages/contact\">write to me</a>.</p>"
+          }
+        },
+        "faq_item_1": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What happens on the free call?",
+            "answer": "<p>We talk for 20 minutes about where you are and what you want to change. You leave with one clear next step, whether or not we work together.</p>"
+          }
+        },
+        "faq_item_2": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Is coaching the same as therapy?",
+            "answer": "<p>No. Coaching looks forward: decisions, plans and habits. If something from the past keeps getting in the way, I will say so and suggest someone who can help.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do sessions happen online or in person?",
+            "answer": "<p>Both. In person at my studio in Bristol, or on a video call from wherever you are. The programmes are the same either way.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How do I book my times?",
+            "answer": "<p>After you pay, you get an email with a link to choose your session times. You can book them all at once or one at a time.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I move a session?",
+            "answer": "<p>Yes, up to 24 hours before it starts, as often as you need. Closer than that, the session counts unless something urgent comes up.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What if it is not right for me?",
+            "answer": "<p>If you decide after the first paid session that it is not for you, tell me and I refund the sessions you have not used.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_1",
+        "faq_item_1",
+        "faq_item_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6"
+      ]
+    },
+    "next": {
+      "type": "coach-cta",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "background": "#3a2a21",
+        "heading_color": "#faf6f0",
+        "text_color": "#d8c8b7",
+        "accent_color": "#e2a271",
+        "button_color": "#b8693a",
+        "eyebrow": "Your next step",
+        "heading": "Ready when <em>you are</em>",
+        "text": "<p>Book a free 20 minute call. No pressure and no pitch, just a real conversation about where you want to go.</p>",
+        "button_label": "Book your free call",
+        "button_link": "/pages/book",
+        "button2_label": "Ask a question",
+        "button2_link": "/pages/contact"
+      }
+    }
+  },
+  "order": [
+    "heading",
+    "faq",
+    "next"
+  ]
+}

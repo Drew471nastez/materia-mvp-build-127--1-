@@ -1,0 +1,87 @@
+{%- comment -%}
+  Ebook: the author. A portrait beside a small label, the name, a short
+  bio, a few plain facts in a list and a link. Works for one writer or a
+  small team (put the studio's picture and story in).
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign facts = st.facts | newline_to_br | split: '<br />'
+  assign placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 800 1000%22%3E%3Crect width=%22800%22 height=%221000%22 fill=%22%23e2e5dd%22/%3E%3C/svg%3E'
+-%}
+{%- assign ebook_hf = settings.font_heading_google_family -%}
+{%- if ebook_hf != blank and ebook_hf != 'none' -%}<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family={{ ebook_hf | replace: ' ', '+' }}:ital@1&display=swap">{%- endif -%}
+<style>
+  #shopify-section-{{ sid }} .eba {
+    --eba-accent: {{ st.accent_color | default: '#9a6a32' }};
+    background: {{ st.background | default: '#f7f4ee' }};
+    padding: {{ st.padding_top_mobile | default: 56 }}px 20px {{ st.padding_bottom_mobile | default: 56 }}px;
+  }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .eba { padding: {{ st.padding_top | default: 96 }}px 40px {{ st.padding_bottom | default: 96 }}px; } }
+  #shopify-section-{{ sid }} .eba__inner { max-width: 1040px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 32px; align-items: center; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .eba__inner { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 72px; } }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .eba--right .eba__media { order: 2; } }
+  #shopify-section-{{ sid }} .eba__media { margin: 0; position: relative; aspect-ratio: 4 / 5; overflow: hidden; border-radius: {{ st.image_radius | default: 6 }}px; background: #e2e5dd; }
+  #shopify-section-{{ sid }} .eba__media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; margin: 0; }
+  #shopify-section-{{ sid }} .eba__eyebrow { margin: 0 0 12px; color: var(--eba-accent); font-size: 13px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; }
+  #shopify-section-{{ sid }} .eba__name { margin: 0 0 18px; color: var(--color-heading); font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, 500); font-size: {{ st.heading_size_mobile | default: 36 }}px; line-height: 1.08; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .eba__name { font-size: {{ st.heading_size | default: 52 }}px; } }
+  #shopify-section-{{ sid }} .eba__name em { font-style: italic; color: var(--eba-accent); }
+  #shopify-section-{{ sid }} .eba__bio { color: var(--color-text); font-size: 17px; line-height: 1.75; max-width: 52ch; }
+  #shopify-section-{{ sid }} .eba__bio p { margin: 0 0 14px; }
+  #shopify-section-{{ sid }} .eba__facts { list-style: none; margin: 22px 0 0; padding: 0; border-top: 1px solid var(--color-border, #e2ddd2); }
+  #shopify-section-{{ sid }} .eba__facts li { padding: 12px 0; border-bottom: 1px solid var(--color-border, #e2ddd2); color: var(--color-heading); font-size: 15px; }
+  #shopify-section-{{ sid }} .eba__link { display: inline-block; margin-top: 22px; color: var(--color-heading); font-size: 15px; font-weight: 600; text-decoration: underline; text-underline-offset: 5px; text-decoration-thickness: 1px; }
+</style>
+
+<div class="eba color-{{ color_scheme }}{% if st.image_position == 'right' %} eba--right{% endif %}" data-section-id="{{ sid }}">
+  <div class="eba__inner">
+    <figure class="eba__media">
+      {%- if st.image != blank -%}
+        <img src="{{ st.image | image_url: width: 900 }}" srcset="{{ st.image | image_url: width: 500 }} 500w, {{ st.image | image_url: width: 900 }} 900w" sizes="(min-width: 750px) 400px, 92vw" width="{{ st.image.width | default: 900 }}" height="{{ st.image.height | default: 1125 }}" alt="{{ st.image_alt | default: st.image.alt | escape }}" loading="lazy" decoding="async">
+      {%- else -%}
+        <img src="{{ placeholder }}" width="800" height="1000" alt="">
+      {%- endif -%}
+    </figure>
+    <div class="eba__body">
+      {%- if st.eyebrow != blank -%}<p class="eba__eyebrow">{{ st.eyebrow | escape }}</p>{%- endif -%}
+      {%- if st.name != blank -%}<h2 class="eba__name">{{ st.name }}</h2>{%- endif -%}
+      {%- if st.bio != blank -%}<div class="eba__bio">{{ st.bio }}</div>{%- endif -%}
+      {%- if st.facts != blank -%}
+        <ul class="eba__facts">{%- for f in facts -%}{%- assign line = f | strip -%}{%- if line != blank -%}<li>{{ line | escape }}</li>{%- endif -%}{%- endfor -%}</ul>
+      {%- endif -%}
+      {%- if st.link_label != blank -%}<a class="eba__link" href="{{ st.link | default: '/pages/about' }}">{{ st.link_label | escape }}</a>{%- endif -%}
+    </div>
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Ebook author",
+  "tag": "section",
+  "class": "section sec__ebook-author",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default-color-scheme" },
+    { "type": "color", "id": "background", "label": "Background", "default": "#f7f4ee" },
+    { "type": "color", "id": "accent_color", "label": "Accent colour", "default": "#9a6a32" },
+    { "type": "image_picker", "id": "image", "label": "Portrait" },
+    { "type": "text", "id": "image_alt", "label": "Alt text" },
+    { "type": "select", "id": "image_position", "label": "Portrait side", "options": [ { "value": "left", "label": "Left" }, { "value": "right", "label": "Right" } ], "default": "left" },
+    { "type": "range", "id": "image_radius", "label": "Portrait corners", "min": 0, "max": 30, "step": 1, "unit": "px", "default": 6 },
+    { "type": "text", "id": "eyebrow", "label": "Small label", "default": "The author" },
+    { "type": "inline_richtext", "id": "name", "label": "Name or heading", "default": "Your name" },
+    { "type": "richtext", "id": "bio", "label": "Bio", "default": "<p>Who you are, why you wrote this book and why a reader can trust you on it.</p>" },
+    { "type": "textarea", "id": "facts", "label": "Facts, one per line", "default": "Where you live\nWhat else you have written" },
+    { "type": "text", "id": "link_label", "label": "Link", "default": "More about me" },
+    { "type": "url", "id": "link", "label": "Link address" },
+    { "type": "range", "id": "heading_size", "label": "Heading size, desktop", "min": 28, "max": 72, "step": 2, "unit": "px", "default": 52 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size, phone", "min": 24, "max": 48, "step": 2, "unit": "px", "default": 36 },
+    { "type": "range", "id": "padding_top", "label": "Space above, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 }
+  ],
+  "presets": [ { "name": "Ebook author" } ]
+}
+{% endschema %}

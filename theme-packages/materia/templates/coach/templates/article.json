@@ -48,7 +48,7 @@
         "author_highlight_n4CqbT": {
           "type": "author_highlight",
           "settings": {
-            "author_text": "Thank you for reading.",
+            "author_text": "Thank you for reading. If this helped, the free 20 minute call is a good next step.",
             "author_image_size": 65
           }
         }
@@ -66,7 +66,7 @@
       "type": "blog-posts",
       "settings": {
         "reveal": false,
-        "heading": "More to read",
+        "heading": "Keep reading",
         "autoplay": false,
         "infinite": false,
         "show_date": true,
@@ -78,8 +78,8 @@
         "color_scheme": "",
         "custom_ratio": "16:9",
         "vertical_gap": 30,
-        "items_per_row": 4,
-        "items_to_show": 4,
+        "items_per_row": 3,
+        "items_to_show": 3,
         "section_width": "fluid_container",
         "show_view_all": true,
         "padding_bottom": 56,

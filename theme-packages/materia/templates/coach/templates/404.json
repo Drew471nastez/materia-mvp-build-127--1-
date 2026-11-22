@@ -16,7 +16,7 @@
         "heading_6nj4md": {
           "type": "heading",
           "settings": {
-            "heading": "Nothing drawn here yet",
+            "heading": "This page has moved on",
             "font_size": 36,
             "uppercase": false,
             "font_weight": "heading_weight",
@@ -28,7 +28,7 @@
           "settings": {
             "font_size": 15,
             "uppercase": false,
-            "subheading": "This page has moved or never existed. The home page has everything.",
+            "subheading": "It may have changed its name. The home page has everything, and the free call is one click away.",
             "font_weight": "body_weight",
             "spacing_bottom": 40
           }
