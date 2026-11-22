@@ -13688,7 +13688,19 @@ const words: Record<string, string> = {
  "Books & ebooks": "Książki i e-booki",
  "Design & templates": "Design i szablony",
  "Music & audio": "Muzyka i audio",
- "Software & tools": "Oprogramowanie i narzędzia"
+ "Software & tools": "Oprogramowanie i narzędzia",
+ "Theme version": "Wersja motywu",
+ "Update available": "Dostępna aktualizacja",
+ "Release notes": "Informacje o wersji",
+ "Kept as you edited them": "Zachowane z twoimi zmianami",
+ "{name} version {version}": "{name} wersja {version}",
+ "Added {name} as a draft.": "Dodano {name} jako wersję roboczą.",
+ "Version {version} is available.": "Dostępna jest wersja {version}.",
+ "This theme is up to date.": "Ten motyw jest aktualny.",
+ "Update adds a copy with the new version and your content. Your website stays as it is until you publish the copy.": "Aktualizacja dodaje kopię z nową wersją i twoimi treściami. Twoja strona zostaje bez zmian, dopóki nie opublikujesz kopii.",
+ "Open copy": "Otwórz kopię",
+ "Could not update": "Nie udało się zaktualizować",
+ "Update theme": "Zaktualizuj motyw"
 }
 
 export default words
