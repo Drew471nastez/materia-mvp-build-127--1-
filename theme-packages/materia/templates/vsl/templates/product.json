@@ -1,453 +1,5 @@
 {
   "sections": {
-    "story": {
-      "type": "Image-and-video-text",
-      "settings": {
-        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
-        "section_width": "container",
-        "image_position": "left",
-        "text_column_width": 56,
-        "content_align": "left",
-        "media_type": "image",
-        "image": "shopify://shop_images/landing-behind-camera.webp",
-        "image_alt": "A camera rig filming an interview in a library",
-        "aspect_w": 4,
-        "aspect_h": 5,
-        "image_fit": "cover",
-        "image_radius": 14,
-        "padding_top_desktop": 72,
-        "padding_bottom_desktop": 72,
-        "mobile_order": "media_first"
-      },
-      "blocks": {
-        "heading_1": {
-          "type": "heading",
-          "settings": {
-            "text": "Wait, why pay for this?",
-            "tag": "h2",
-            "size_desktop": 40
-          }
-        },
-        "heading_2": {
-          "type": "heading",
-          "settings": {
-            "text": "There are free videos everywhere.",
-            "tag": "h3",
-            "size_desktop": 40,
-            "enable_custom_style": true,
-            "color": "#ff5f1f"
-          }
-        },
-        "subheading_3": {
-          "type": "subheading",
-          "settings": {
-            "text": "<p>There are, and I learned from them too. The trouble is they teach one trick at a time, on footage you do not have.</p><p>Here every lesson comes with the clips, in an order that builds. You cut along, then bring your edit to a call where I tell you what to change. That is the part a free video cannot do.</p>"
-          }
-        },
-        "eyebrow_4": {
-          "type": "eyebrow",
-          "settings": {
-            "text": "Your name, editor and teacher"
-          }
-        }
-      },
-      "block_order": [
-        "heading_1",
-        "heading_2",
-        "subheading_3",
-        "eyebrow_4"
-      ]
-    },
-    "how-it-works": {
-      "type": "feature-timeline",
-      "settings": {
-        "color_scheme": "default",
-        "section_width": "container",
-        "layout": "alternate",
-        "text_align": "left",
-        "image_ratio": "landscape",
-        "marker_style": "number",
-        "fill_on_scroll": true,
-        "enable_custom_style": true,
-        "line_color": "#dcd9d2",
-        "marker_color": "#ff5f1f",
-        "label_color": "#c2410c"
-      },
-      "blocks": {
-        "heading_1": {
-          "type": "heading",
-          "settings": {
-            "text": "How it works"
-          }
-        },
-        "item_2": {
-          "type": "item",
-          "settings": {
-            "label": "Step 1",
-            "title": "Watch a short lesson",
-            "text": "Each lesson is one idea, shown on real footage, in about ten minutes.",
-            "image": "shopify://shop_images/landing-step-lesson.webp",
-            "image_alt": "Watching a lesson on a desk monitor at night"
-          }
-        },
-        "item_3": {
-          "type": "item",
-          "settings": {
-            "label": "Step 2",
-            "title": "Cut the same clips yourself",
-            "text": "Download the raw footage and project file, then make the edit you just watched.",
-            "image": "shopify://shop_images/landing-step-edit.webp",
-            "image_alt": "Cutting the lesson footage on a laptop"
-          }
-        },
-        "item_4": {
-          "type": "item",
-          "settings": {
-            "label": "Step 3",
-            "title": "Get notes on your cut",
-            "text": "Bring your edit to the monthly feedback call and leave with notes at the exact timecode.",
-            "image": "shopify://shop_images/landing-step-feedback.webp",
-            "image_alt": "A feedback call with other students on a laptop"
-          }
-        },
-        "button_5": {
-          "type": "button",
-          "settings": {
-            "label": "Get The Whole Edit",
-            "link": "#MainContent"
-          }
-        }
-      },
-      "block_order": [
-        "heading_1",
-        "item_2",
-        "item_3",
-        "item_4",
-        "button_5"
-      ]
-    },
-    "value": {
-      "type": "comparison-table-3",
-      "settings": {
-        "color_scheme": "default",
-        "section_width": "container",
-        "section_max_width_desktop": 1200,
-        "content_align": "left",
-        "left_col_fr": 0.8,
-        "right_col_fr": 1.7,
-        "col_a_width": 0.55,
-        "col_b_width": 0.55,
-        "col_header_pad": 22,
-        "label_pad_x": 20,
-        "cell_pad_y": 16,
-        "enable_custom_style": true,
-        "check_bg": "#ff5f1f",
-        "check_color": "#111113",
-        "icon_size": 26,
-        "col_title_size_desktop": 18,
-        "col_title_size_mobile": 15,
-        "cell_size": 15,
-        "label_weight": "600"
-      },
-      "blocks": {
-        "heading_1": {
-          "type": "heading",
-          "settings": {
-            "text": "Everything in the bundle. One price."
-          }
-        },
-        "subheading_2": {
-          "type": "subheading",
-          "settings": {
-            "text": "What you get with The Whole Edit, priced as if you bought each part on its own. Sample values, set your own."
-          }
-        },
-        "col_a_3": {
-          "type": "col_a",
-          "settings": {
-            "title": "Inside",
-            "enable_custom_style": true,
-            "bg": "#111113",
-            "text_color": "#ffffff",
-            "radius": 18
-          }
-        },
-        "col_b_4": {
-          "type": "col_b",
-          "settings": {
-            "title": "Value"
-          }
-        },
-        "row_5": {
-          "type": "row",
-          "settings": {
-            "label": "Six video courses, about 130 lessons",
-            "type_a": "check-circle",
-            "type_b": "text",
-            "text_b": "$594"
-          }
-        },
-        "row_6": {
-          "type": "row",
-          "settings": {
-            "label": "Raw footage and project files for every lesson",
-            "type_a": "check-circle",
-            "type_b": "text",
-            "text_b": "$120"
-          }
-        },
-        "row_7": {
-          "type": "row",
-          "settings": {
-            "label": "Monthly feedback call on your own edit",
-            "type_a": "check-circle",
-            "type_b": "text",
-            "text_b": "$300"
-          }
-        },
-        "row_8": {
-          "type": "row",
-          "settings": {
-            "label": "Title templates, LUTs and sound effects pack",
-            "type_a": "check-circle",
-            "type_b": "text",
-            "text_b": "$80"
-          }
-        },
-        "row_9": {
-          "type": "row",
-          "settings": {
-            "label": "Total value",
-            "type_a": "none",
-            "type_b": "text",
-            "text_b": "$1,094"
-          }
-        },
-        "row_10": {
-          "type": "row",
-          "settings": {
-            "label": "Your price this week",
-            "type_a": "none",
-            "type_b": "text",
-            "text_b": "$249"
-          }
-        }
-      },
-      "block_order": [
-        "heading_1",
-        "subheading_2",
-        "col_a_3",
-        "col_b_4",
-        "row_5",
-        "row_6",
-        "row_7",
-        "row_8",
-        "row_9",
-        "row_10"
-      ]
-    },
-    "reviews": {
-      "type": "testimonial-wall",
-      "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "section_width": "container",
-        "text_align": "center",
-        "columns": 3,
-        "card_style": "filled",
-        "collapse": "none",
-        "enable_custom_style": true,
-        "star_color": "#ff5f1f",
-        "star_empty_color": "#e4e2dd",
-        "card_bg": "#f4f3f0",
-        "padding_top": 88,
-        "padding_bottom": 40
-      },
-      "blocks": {
-        "heading_1": {
-          "type": "heading",
-          "settings": {
-            "text": "What students say"
-          }
-        },
-        "subheading_2": {
-          "type": "subheading",
-          "settings": {
-            "text": "Sample reviews. Replace them with your own."
-          }
-        },
-        "testimonial_3": {
-          "type": "testimonial",
-          "settings": {
-            "body": "I had a folder of trip footage for a year. Lesson three got me to a finished cut that weekend.",
-            "name": "Student name",
-            "role": "Cutting 101",
-            "rating": 5
-          }
-        },
-        "testimonial_4": {
-          "type": "testimonial",
-          "settings": {
-            "body": "The feedback call was worth the price on its own. Three notes and my cut felt twice as tight.",
-            "name": "Student name",
-            "role": "The Whole Edit",
-            "rating": 5
-          }
-        },
-        "testimonial_5": {
-          "type": "testimonial",
-          "settings": {
-            "body": "Clear, short, and every lesson has the clips. I stopped pausing videos to copy settings.",
-            "name": "Student name",
-            "role": "Colour Grading",
-            "rating": 5
-          }
-        }
-      },
-      "block_order": [
-        "heading_1",
-        "subheading_2",
-        "testimonial_3",
-        "testimonial_4",
-        "testimonial_5"
-      ]
-    },
-    "faq": {
-      "type": "faq-pro",
-      "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "section_width": "container",
-        "structured_data": true,
-        "first_item_open": false,
-        "allow_multiple_open": false,
-        "open_icon": "plus",
-        "content_alignment": "left",
-        "max_content_width": 760,
-        "reveal": true
-      },
-      "blocks": {
-        "heading_1": {
-          "type": "heading",
-          "settings": {
-            "text": "Questions before you start"
-          }
-        },
-        "subheading_2": {
-          "type": "subheading",
-          "settings": {
-            "text": "If yours is not here, write to us and you will hear back within a day."
-          }
-        },
-        "faq_item_3": {
-          "type": "faq_item",
-          "settings": {
-            "question": "Which editing app do I need?",
-            "answer": "<p>Any of the common ones. Lessons show the idea first and the clicks second, and each lesson has notes for the three most used apps.</p>"
-          }
-        },
-        "faq_item_4": {
-          "type": "faq_item",
-          "settings": {
-            "question": "I have never edited before. Where do I start?",
-            "answer": "<p>The 7 Day Starter. It assumes nothing and ends with a finished one minute video.</p>"
-          }
-        },
-        "faq_item_5": {
-          "type": "faq_item",
-          "settings": {
-            "question": "How long do I have access?",
-            "answer": "<p>For as long as the school is open. Watch at your own pace and come back to any lesson.</p>"
-          }
-        },
-        "faq_item_6": {
-          "type": "faq_item",
-          "settings": {
-            "question": "Do I get the footage?",
-            "answer": "<p>Yes. Every lesson comes with the raw clips, music and project files you see on screen.</p>"
-          }
-        },
-        "faq_item_7": {
-          "type": "faq_item",
-          "settings": {
-            "question": "How do the feedback calls work?",
-            "answer": "<p>Once a month you send a cut of up to three minutes. On the call I go through a few of them on screen, with notes you can rewatch.</p>"
-          }
-        },
-        "faq_item_8": {
-          "type": "faq_item",
-          "settings": {
-            "question": "What if it is not for me?",
-            "answer": "<p>Write within 30 days and you get your money back. Replace this with your own refund terms.</p>"
-          }
-        }
-      },
-      "block_order": [
-        "heading_1",
-        "subheading_2",
-        "faq_item_3",
-        "faq_item_4",
-        "faq_item_5",
-        "faq_item_6",
-        "faq_item_7",
-        "faq_item_8"
-      ]
-    },
-    "final": {
-      "type": "banner3",
-      "settings": {
-        "color_scheme": "default",
-        "use_custom_bg": true,
-        "bg_color": "#0e0e10",
-        "use_custom_text": true,
-        "heading_color": "#ffffff",
-        "text_color": "#b4b4bb",
-        "use_theme_radius": true,
-        "enable_bg_gradient": true,
-        "bg_gradient": "radial-gradient(70% 90% at 50% 120%, rgba(255,95,31,0.55) 0%, rgba(255,95,31,0.12) 45%, #0e0e10 75%)",
-        "pad_top_desktop": 88,
-        "pad_bottom_desktop": 88,
-        "section_padding_top": 40,
-        "section_padding_bottom": 96,
-        "section_width": "container",
-        "text_align": "center",
-        "max_width": 720,
-        "banner_surface": "soft",
-        "reveal": true
-      },
-      "blocks": {
-        "eyebrow_1": {
-          "type": "eyebrow",
-          "settings": {
-            "text": "The Whole Edit",
-            "color": "#ff5f1f"
-          }
-        },
-        "heading_2": {
-          "type": "heading",
-          "settings": {
-            "text": "Your next video starts with the first lesson"
-          }
-        },
-        "subheading_3": {
-          "type": "subheading",
-          "settings": {
-            "text": "All six courses, the footage and the monthly feedback call, for one payment."
-          }
-        },
-        "button_4": {
-          "type": "button",
-          "settings": {
-            "label": "Get all courses",
-            "link": "/collections/all"
-          }
-        }
-      },
-      "block_order": [
-        "eyebrow_1",
-        "heading_2",
-        "subheading_3",
-        "button_4"
-      ]
-    },
     "main": {
       "type": "main-product",
       "settings": {
@@ -504,11 +56,11 @@
         "benefits_stack_1": {
           "type": "benefits_stack",
           "settings": {
-            "text_1": "Watch on any device, at your own pace",
+            "text_1": "Six weeks of short video lessons",
             "icon_1": "check_circle",
-            "text_2": "Raw footage and project files included",
+            "text_2": "Six live calls, recorded",
             "icon_2": "check_circle",
-            "text_3": "Works with any editing app",
+            "text_3": "Templates for the outline, page and emails",
             "icon_3": "check_circle",
             "text_4": "",
             "text_5": "",
@@ -521,36 +73,36 @@
         "buy_buttons_1": {
           "type": "buy_buttons",
           "settings": {
-            "show_add_to_cart": false,
+            "show_add_to_cart": true,
             "show_dynamic_checkout": true,
-            "show_quantity": false,
+            "show_quantity": true,
             "show_wishlist_button": false,
             "buttons_full_width": true,
-            "buy_button_text": "Get instant access",
+            "buy_button_text": "Join the course",
             "buy_appearance": "solid",
             "enable_custom_colors": true,
-            "buy_bg_color": "#ff5f1f",
-            "buy_text_color": "#111113",
-            "buy_hover_bg": "#ff7a42",
-            "buy_hover_text": "#111113"
+            "buy_bg_color": "#ffffff",
+            "buy_text_color": "#0a0a0a",
+            "buy_hover_bg": "#e4e4e7",
+            "buy_hover_text": "#0a0a0a"
           }
         },
         "money_back_guarantee_1": {
           "type": "money_back_guarantee",
           "settings": {
             "enable_container": false,
-            "primary_text": "Refund within 30 days if it is not for you",
+            "primary_text": "Refund within 30 days, for any reason",
             "secondary_text": "",
             "alignment": "left",
             "icon": "shield_check",
-            "icon_color": "#ff5f1f"
+            "icon_color": "#ffffff"
           }
         },
         "collapsible_row_1": {
           "type": "collapsible_row",
           "settings": {
             "heading": "What is inside",
-            "content": "<p>Short video lessons, the raw clips and project file for each one, and notes for the most used editing apps. Write your own module list here.</p>",
+            "content": "<p>Twelve lessons over six weeks, each under twenty minutes, with one exercise each. Templates for the outline, the sales page and three emails. Write your own module list here.</p>",
             "open": false
           }
         },
@@ -558,7 +110,7 @@
           "type": "collapsible_row",
           "settings": {
             "heading": "Who it is for",
-            "content": "<p>People who film their own videos and want them to feel finished. No editing experience needed for beginner courses.</p>",
+            "content": "<p>Consultants, designers and coaches who already do the work for clients and want one workshop to sell.</p>",
             "open": false
           }
         },
@@ -566,7 +118,7 @@
           "type": "collapsible_row",
           "settings": {
             "heading": "Refunds",
-            "content": "<p>Watch the first week. If it is not for you, write within 30 days and we refund you in full.</p>",
+            "content": "<p>Write within 30 days of joining and you get your money back in full.</p>",
             "use_product_description": false,
             "open": false
           }
@@ -585,13 +137,210 @@
         "collapsible_row_3"
       ]
     },
+    "inside": {
+      "type": "vsl-cards",
+      "settings": {
+        "eyebrow": "Inside the course",
+        "heading": "Six weeks, *one workshop*",
+        "text": "",
+        "columns": "2",
+        "number_style": "inline",
+        "line_above": true,
+        "padding_top": 96,
+        "padding_bottom": 96,
+        "padding_top_mobile": 64,
+        "padding_bottom_mobile": 56
+      },
+      "blocks": {
+        "card_1": {
+          "type": "card",
+          "settings": {
+            "title": "The promise",
+            "text": "<p>Weeks one and two. Pick the one result clients already pay you for.</p>"
+          }
+        },
+        "card_2": {
+          "type": "card",
+          "settings": {
+            "title": "The outline",
+            "text": "<p>Week three. Four sessions, each around one exercise.</p>"
+          }
+        },
+        "card_3": {
+          "type": "card",
+          "settings": {
+            "title": "The sales page",
+            "text": "<p>Week four. The page, the price and the email to your list.</p>"
+          }
+        },
+        "card_4": {
+          "type": "card",
+          "settings": {
+            "title": "The first round",
+            "text": "<p>Weeks five and six. Run it live and keep the recording.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "card_1",
+        "card_2",
+        "card_3",
+        "card_4"
+      ]
+    },
+    "figures": {
+      "type": "vsl-stats",
+      "settings": {
+        "eyebrow": "",
+        "heading": "",
+        "text": "",
+        "line_above": false,
+        "padding_top": 0,
+        "padding_bottom": 72,
+        "padding_top_mobile": 16,
+        "padding_bottom_mobile": 64
+      },
+      "blocks": {
+        "figure_1": {
+          "type": "figure",
+          "settings": {
+            "value": "6 weeks",
+            "label": "Course length",
+            "note": "About two hours a week",
+            "icon": "clock"
+          }
+        },
+        "figure_2": {
+          "type": "figure",
+          "settings": {
+            "value": "6 calls",
+            "label": "Live on Thursdays",
+            "note": "Recorded if you miss one",
+            "icon": "calendar"
+          }
+        },
+        "figure_3": {
+          "type": "figure",
+          "settings": {
+            "value": "30 days",
+            "label": "Refund window",
+            "note": "From the day you join",
+            "icon": "shield"
+          }
+        }
+      },
+      "block_order": [
+        "figure_1",
+        "figure_2",
+        "figure_3"
+      ]
+    },
+    "reviews": {
+      "type": "vsl-reviews",
+      "settings": {
+        "eyebrow": "Students",
+        "heading": "What students *say*",
+        "text": "<p>Sample reviews. Swap them for what your own students send you.</p>",
+        "columns": "3",
+        "line_above": true,
+        "padding_top": 96,
+        "padding_bottom": 96,
+        "padding_top_mobile": 64,
+        "padding_bottom_mobile": 56
+      },
+      "blocks": {
+        "review_1": {
+          "type": "review",
+          "settings": {
+            "stars": 5,
+            "quote": "<p>I had run the same client project for years and never thought of it as something to teach. My first workshop had nine people in it.</p>",
+            "name": "Student name",
+            "role": "Brand designer"
+          }
+        },
+        "review_2": {
+          "type": "review",
+          "settings": {
+            "stars": 5,
+            "quote": "<p>The outline week was the one I needed. I stopped making slides and started making exercises people actually do.</p>",
+            "name": "Student name",
+            "role": "Leadership coach"
+          }
+        },
+        "review_3": {
+          "type": "review",
+          "settings": {
+            "stars": 5,
+            "quote": "<p>I sold the first round with one email to past clients, before I had recorded a single lesson.</p>",
+            "name": "Student name",
+            "role": "Data consultant"
+          }
+        }
+      },
+      "block_order": [
+        "review_1",
+        "review_2",
+        "review_3"
+      ]
+    },
+    "faq": {
+      "type": "vsl-faq",
+      "settings": {
+        "eyebrow": "Questions",
+        "heading": "Before you *join*",
+        "text": "",
+        "first_open": true,
+        "max_width": 760,
+        "line_above": true,
+        "padding_top": 96,
+        "padding_bottom": 96,
+        "padding_top_mobile": 64,
+        "padding_bottom_mobile": 56
+      },
+      "blocks": {
+        "question_1": {
+          "type": "question",
+          "settings": {
+            "question": "Do I need an audience first?",
+            "answer": "<p>No. A list of past clients is enough for a first round of five to ten people. Week four covers where else to find them.</p>"
+          }
+        },
+        "question_2": {
+          "type": "question",
+          "settings": {
+            "question": "How much time does it take?",
+            "answer": "<p>About two hours a week: one short lesson, one exercise and the Thursday call.</p>"
+          }
+        },
+        "question_3": {
+          "type": "question",
+          "settings": {
+            "question": "What exactly do I get?",
+            "answer": "<p>Twelve short lessons, templates for the outline, the sales page and the emails, six live calls and their recordings.</p>"
+          }
+        },
+        "question_4": {
+          "type": "question",
+          "settings": {
+            "question": "What happens on the free call?",
+            "answer": "<p>You tell us what you do and who for. We tell you honestly whether the course fits. If it does not, there is no pitch.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "question_1",
+        "question_2",
+        "question_3",
+        "question_4"
+      ]
+    },
     "related": {
       "type": "related-products",
       "settings": {
         "color_scheme": "default",
         "section_width": "container",
         "reset_spacing": true,
-        "heading": "More courses",
+        "heading": "Also from us",
         "description": "",
         "header_size": "small",
         "header_alignment": "left",
@@ -611,16 +360,35 @@
         "padding_top": 88,
         "padding_bottom": 24
       }
+    },
+    "call": {
+      "type": "vsl-cta",
+      "settings": {
+        "eyebrow": "",
+        "heading": "Not sure yet? *Talk it through*",
+        "text": "",
+        "size": "normal",
+        "button_label": "Book a free call",
+        "button_link": "/pages/book-a-call",
+        "button2_label": "",
+        "button2_link": "",
+        "note": "",
+        "glow": true,
+        "line_above": true,
+        "padding_top": 96,
+        "padding_bottom": 112,
+        "padding_top_mobile": 72,
+        "padding_bottom_mobile": 72
+      }
     }
   },
   "order": [
     "main",
-    "story",
-    "how-it-works",
-    "value",
+    "inside",
+    "figures",
     "reviews",
     "faq",
     "related",
-    "final"
+    "call"
   ]
 }

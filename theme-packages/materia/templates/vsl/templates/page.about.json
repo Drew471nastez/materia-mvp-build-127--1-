@@ -1,237 +1,141 @@
 {
   "sections": {
     "intro": {
-      "type": "Image-and-video-text",
+      "type": "vsl-split",
       "settings": {
-        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
-        "section_width": "container",
-        "image_position": "right",
-        "text_column_width": 52,
-        "content_align": "left",
-        "media_type": "image",
-        "image": "shopify://shop_images/landing-studio-shoot.webp",
-        "image_alt": "Filming a dancer in a studio lit with coloured light tubes",
-        "aspect_w": 5,
-        "aspect_h": 4,
-        "image_fit": "cover",
-        "image_radius": 14,
-        "padding_top_desktop": 96,
-        "padding_bottom_desktop": 96,
-        "mobile_order": "media_first"
+        "image": "shopify://shop_images/vsl-host.webp",
+        "image_alt": "The course host laughing at a microphone",
+        "image_side": "left",
+        "ratio": "4 / 5",
+        "eyebrow": "About",
+        "heading": "I run workshops for a living. *Now I teach it.*",
+        "heading_tag": "h1",
+        "text": "<p>Write your story here: what you have done for clients, for how long, and the moment you started teaching it.</p><p>Keep it short and plain. People join a course because of the person running it, so say who you are.</p>",
+        "signature": "Your name",
+        "button_label": "Book a free call",
+        "button_link": "/pages/book-a-call",
+        "line_above": false,
+        "padding_top": 64,
+        "padding_bottom": 96,
+        "padding_top_mobile": 32,
+        "padding_bottom_mobile": 56
+      }
+    },
+    "how": {
+      "type": "vsl-cards",
+      "settings": {
+        "eyebrow": "How I teach",
+        "heading": "Short lessons, *real work*",
+        "text": "",
+        "columns": "3",
+        "number_style": "tile",
+        "line_above": true,
+        "padding_top": 96,
+        "padding_bottom": 96,
+        "padding_top_mobile": 64,
+        "padding_bottom_mobile": 56
       },
       "blocks": {
-        "eyebrow_1": {
-          "type": "eyebrow",
+        "card_1": {
+          "type": "card",
           "settings": {
-            "text": "About Cutroom"
+            "title": "One idea per lesson",
+            "text": "<p>Every lesson is under twenty minutes and ends with one thing to do that week.</p>"
           }
         },
-        "heading_2": {
-          "type": "heading",
+        "card_2": {
+          "type": "card",
           "settings": {
-            "text": "I edit for a living. Cutroom is how I teach it.",
-            "tag": "h1",
-            "size_desktop": 48
+            "title": "Your own material",
+            "text": "<p>You work on your workshop from day one, not on a made up example.</p>"
           }
         },
-        "subheading_3": {
-          "type": "subheading",
+        "card_3": {
+          "type": "card",
           "settings": {
-            "text": "<p>Write your story here: what you cut, for whom, and why you started teaching. Keep it to a few lines. People buy a course from a person, so say who you are.</p><p>Every course here is built the same way. Short lessons, the real footage, and notes on your own cut.</p>"
-          }
-        },
-        "button_4": {
-          "type": "button",
-          "settings": {
-            "label": "See the courses",
-            "link": "/collections/all",
-            "button_style": "primary"
+            "title": "Live every Thursday",
+            "text": "<p>Bring what you made. We look at it together and you leave with changes.</p>"
           }
         }
       },
       "block_order": [
-        "eyebrow_1",
-        "heading_2",
-        "subheading_3",
-        "button_4"
+        "card_1",
+        "card_2",
+        "card_3"
       ]
     },
-    "how-i-teach": {
-      "type": "text-columns",
+    "figures": {
+      "type": "vsl-stats",
       "settings": {
-        "color_scheme": "default",
-        "section_width": "container",
-        "content_alignment": "left",
-        "columns_desktop": 3,
-        "columns_tablet": 3,
-        "mobile_layout": "stack"
+        "eyebrow": "",
+        "heading": "",
+        "text": "",
+        "line_above": false,
+        "padding_top": 0,
+        "padding_bottom": 96,
+        "padding_top_mobile": 16,
+        "padding_bottom_mobile": 64
       },
       "blocks": {
-        "heading_1": {
-          "type": "heading",
+        "figure_1": {
+          "type": "figure",
           "settings": {
-            "text": "How the courses work"
+            "value": "6 weeks",
+            "label": "Course length",
+            "note": "About two hours a week",
+            "icon": "clock"
           }
         },
-        "column_2": {
-          "type": "column",
+        "figure_2": {
+          "type": "figure",
           "settings": {
-            "label": "01",
-            "heading": "Real footage",
-            "text": "<p>Every lesson comes with the clips I use on screen, so you make the same cut rather than watch it.</p>"
+            "value": "6 calls",
+            "label": "Live on Thursdays",
+            "note": "Recorded if you miss one",
+            "icon": "calendar"
           }
         },
-        "column_3": {
-          "type": "column",
+        "figure_3": {
+          "type": "figure",
           "settings": {
-            "label": "02",
-            "heading": "Short lessons",
-            "text": "<p>One idea per lesson, ten minutes or so. Watch it on a break, try it the same evening.</p>"
-          }
-        },
-        "column_4": {
-          "type": "column",
-          "settings": {
-            "label": "03",
-            "heading": "Notes on your cut",
-            "text": "<p>Once a month, bring your edit to a call and leave with notes at the exact timecode.</p>"
+            "value": "30 days",
+            "label": "Refund window",
+            "note": "From the day you join",
+            "icon": "shield"
           }
         }
       },
       "block_order": [
-        "heading_1",
-        "column_2",
-        "column_3",
-        "column_4"
-      ]
-    },
-    "reviews": {
-      "type": "testimonial-wall",
-      "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "section_width": "container",
-        "text_align": "center",
-        "columns": 3,
-        "card_style": "filled",
-        "collapse": "none",
-        "enable_custom_style": true,
-        "star_color": "#ff5f1f",
-        "star_empty_color": "#e4e2dd",
-        "card_bg": "#f4f3f0",
-        "padding_top": 88,
-        "padding_bottom": 40
-      },
-      "blocks": {
-        "heading_1": {
-          "type": "heading",
-          "settings": {
-            "text": "What students say"
-          }
-        },
-        "subheading_2": {
-          "type": "subheading",
-          "settings": {
-            "text": "Sample reviews. Replace them with your own."
-          }
-        },
-        "testimonial_3": {
-          "type": "testimonial",
-          "settings": {
-            "body": "I had a folder of trip footage for a year. Lesson three got me to a finished cut that weekend.",
-            "name": "Student name",
-            "role": "Cutting 101",
-            "rating": 5
-          }
-        },
-        "testimonial_4": {
-          "type": "testimonial",
-          "settings": {
-            "body": "The feedback call was worth the price on its own. Three notes and my cut felt twice as tight.",
-            "name": "Student name",
-            "role": "The Whole Edit",
-            "rating": 5
-          }
-        },
-        "testimonial_5": {
-          "type": "testimonial",
-          "settings": {
-            "body": "Clear, short, and every lesson has the clips. I stopped pausing videos to copy settings.",
-            "name": "Student name",
-            "role": "Colour Grading",
-            "rating": 5
-          }
-        }
-      },
-      "block_order": [
-        "heading_1",
-        "subheading_2",
-        "testimonial_3",
-        "testimonial_4",
-        "testimonial_5"
+        "figure_1",
+        "figure_2",
+        "figure_3"
       ]
     },
     "final": {
-      "type": "banner3",
+      "type": "vsl-cta",
       "settings": {
-        "color_scheme": "default",
-        "use_custom_bg": true,
-        "bg_color": "#0e0e10",
-        "use_custom_text": true,
-        "heading_color": "#ffffff",
-        "text_color": "#b4b4bb",
-        "use_theme_radius": true,
-        "enable_bg_gradient": true,
-        "bg_gradient": "radial-gradient(70% 90% at 50% 120%, rgba(255,95,31,0.55) 0%, rgba(255,95,31,0.12) 45%, #0e0e10 75%)",
-        "pad_top_desktop": 88,
-        "pad_bottom_desktop": 88,
-        "section_padding_top": 40,
-        "section_padding_bottom": 96,
-        "section_width": "container",
-        "text_align": "center",
-        "max_width": 720,
-        "banner_surface": "soft",
-        "reveal": true
-      },
-      "blocks": {
-        "eyebrow_1": {
-          "type": "eyebrow",
-          "settings": {
-            "text": "The Whole Edit",
-            "color": "#ff5f1f"
-          }
-        },
-        "heading_2": {
-          "type": "heading",
-          "settings": {
-            "text": "Your next video starts with the first lesson"
-          }
-        },
-        "subheading_3": {
-          "type": "subheading",
-          "settings": {
-            "text": "All six courses, the footage and the monthly feedback call, for one payment."
-          }
-        },
-        "button_4": {
-          "type": "button",
-          "settings": {
-            "label": "Get all courses",
-            "link": "/collections/all"
-          }
-        }
-      },
-      "block_order": [
-        "eyebrow_1",
-        "heading_2",
-        "subheading_3",
-        "button_4"
-      ]
+        "eyebrow": "",
+        "heading": "Start with a *conversation*",
+        "text": "",
+        "size": "big",
+        "button_label": "Book a free call",
+        "button_link": "/pages/book-a-call",
+        "button2_label": "",
+        "button2_link": "",
+        "note": "",
+        "glow": true,
+        "line_above": true,
+        "padding_top": 112,
+        "padding_bottom": 112,
+        "padding_top_mobile": 72,
+        "padding_bottom_mobile": 72
+      }
     }
   },
   "order": [
     "intro",
-    "how-i-teach",
-    "reviews",
+    "how",
+    "figures",
     "final"
   ]
 }

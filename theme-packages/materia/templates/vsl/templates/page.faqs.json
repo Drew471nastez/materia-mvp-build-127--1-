@@ -1,172 +1,119 @@
 {
   "sections": {
     "faq": {
-      "type": "faq-pro",
+      "type": "vsl-faq",
       "settings": {
-        "color_scheme": "default",
-        "section_width": "container",
-        "structured_data": true,
-        "first_item_open": true,
-        "allow_multiple_open": false,
-        "open_icon": "plus",
-        "content_alignment": "left",
-        "max_content_width": 760,
-        "reveal": true
+        "eyebrow": "Questions",
+        "heading": "Before you *join*",
+        "text": "<p>Anything not here, write to us and you hear back within a working day.</p>",
+        "first_open": true,
+        "max_width": 760,
+        "line_above": false,
+        "padding_top": 64,
+        "padding_bottom": 96,
+        "padding_top_mobile": 64,
+        "padding_bottom_mobile": 56
       },
       "blocks": {
-        "heading_1": {
-          "type": "heading",
+        "question_1": {
+          "type": "question",
           "settings": {
-            "text": "Questions",
-            "tag": "h1"
+            "question": "Do I need an audience first?",
+            "answer": "<p>No. A list of past clients is enough for a first round of five to ten people. Week four covers where else to find them.</p>"
           }
         },
-        "subheading_2": {
-          "type": "subheading",
+        "question_2": {
+          "type": "question",
           "settings": {
-            "text": "About the courses, access and refunds. Anything else, write to us."
+            "question": "How much time does it take?",
+            "answer": "<p>About two hours a week: one short lesson, one exercise and the Thursday call.</p>"
           }
         },
-        "faq_item_3": {
-          "type": "faq_item",
+        "question_3": {
+          "type": "question",
           "settings": {
-            "question": "Which editing app do I need?",
-            "answer": "<p>Any of the common ones. Lessons show the idea first and the clicks second, and each lesson has notes for the three most used apps.</p>"
+            "question": "What exactly do I get?",
+            "answer": "<p>Twelve short lessons, templates for the outline, the sales page and the emails, six live calls and their recordings.</p>"
           }
         },
-        "faq_item_4": {
-          "type": "faq_item",
+        "question_4": {
+          "type": "question",
           "settings": {
-            "question": "I have never edited before. Where do I start?",
-            "answer": "<p>The 7 Day Starter. It assumes nothing and ends with a finished one minute video.</p>"
+            "question": "What happens on the free call?",
+            "answer": "<p>You tell us what you do and who for. We tell you honestly whether the course fits. If it does not, there is no pitch.</p>"
           }
         },
-        "faq_item_5": {
-          "type": "faq_item",
+        "question_5": {
+          "type": "question",
           "settings": {
-            "question": "How long do I have access?",
-            "answer": "<p>For as long as the school is open. Watch at your own pace and come back to any lesson.</p>"
+            "question": "When does the next round start?",
+            "answer": "<p>On the first Monday of the month. Change this to your own dates.</p>"
           }
         },
-        "faq_item_6": {
-          "type": "faq_item",
+        "question_6": {
+          "type": "question",
           "settings": {
-            "question": "Do I get the footage?",
-            "answer": "<p>Yes. Every lesson comes with the raw clips, music and project files you see on screen.</p>"
+            "question": "Can I get a refund?",
+            "answer": "<p>Yes. Within 30 days of joining, for any reason, write to us and you get your money back.</p>"
           }
         },
-        "faq_item_7": {
-          "type": "faq_item",
+        "question_7": {
+          "type": "question",
           "settings": {
-            "question": "How do the feedback calls work?",
-            "answer": "<p>Once a month you send a cut of up to three minutes. On the call I go through a few of them on screen, with notes you can rewatch.</p>"
+            "question": "Is it live or recorded?",
+            "answer": "<p>Both. Lessons are recorded so you watch when it suits you. The Thursday calls are live and recorded.</p>"
           }
         },
-        "faq_item_8": {
-          "type": "faq_item",
+        "question_8": {
+          "type": "question",
           "settings": {
-            "question": "What if it is not for me?",
-            "answer": "<p>Write within 30 days and you get your money back. Replace this with your own refund terms.</p>"
+            "question": "Do I need special software?",
+            "answer": "<p>No. A video call app and a document editor are enough. The templates open in any of them.</p>"
           }
         },
-        "faq_item_9": {
-          "type": "faq_item",
+        "question_9": {
+          "type": "question",
           "settings": {
-            "question": "Can I buy one course and upgrade later?",
-            "answer": "<p>Yes. Write to us and what you paid for single courses comes off the price of The Whole Edit.</p>"
-          }
-        },
-        "faq_item_10": {
-          "type": "faq_item",
-          "settings": {
-            "question": "Do I need a fast computer?",
-            "answer": "<p>No. The project files are light, and every lesson notes a lower resolution proxy if your computer struggles.</p>"
-          }
-        },
-        "faq_item_11": {
-          "type": "faq_item",
-          "settings": {
-            "question": "Can I use the footage in my own work?",
-            "answer": "<p>The clips are for practice. Your edits are yours to share as course work. Write your own licence terms here.</p>"
-          }
-        },
-        "button_12": {
-          "type": "button",
-          "settings": {
-            "label": "Contact us",
-            "link": "/pages/contact",
-            "style": "secondary"
+            "question": "Can I join from any time zone?",
+            "answer": "<p>Yes. Calls are at a set time, and the recording is up the same day.</p>"
           }
         }
       },
       "block_order": [
-        "heading_1",
-        "subheading_2",
-        "faq_item_3",
-        "faq_item_4",
-        "faq_item_5",
-        "faq_item_6",
-        "faq_item_7",
-        "faq_item_8",
-        "faq_item_9",
-        "faq_item_10",
-        "faq_item_11",
-        "button_12"
+        "question_1",
+        "question_2",
+        "question_3",
+        "question_4",
+        "question_5",
+        "question_6",
+        "question_7",
+        "question_8",
+        "question_9"
       ]
     },
-    "starter": {
-      "type": "promo-banner-4",
+    "call": {
+      "type": "vsl-cta",
       "settings": {
-        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
-        "section_width": "container",
-        "layout": "image_left",
-        "text_align": "left",
-        "card_style": "flat",
-        "image": "shopify://shop_images/landing-starter-desk.webp",
-        "image_aspect_ratio": "4-3",
-        "enable_image_zoom": false,
-        "mobile_image_first": true,
-        "reveal": true
-      },
-      "blocks": {
-        "eyebrow_1": {
-          "type": "eyebrow",
-          "settings": {
-            "text": "New to editing?"
-          }
-        },
-        "heading_2": {
-          "type": "heading",
-          "settings": {
-            "text": "Start with the 7 Day Starter"
-          }
-        },
-        "description_3": {
-          "type": "description",
-          "settings": {
-            "text": "<p>One short lesson a day for a week. By Sunday you have cut a one minute video from the clips we send you, with music and titles.</p><ul><li>Seven lessons, about 15 minutes each</li><li>Raw clips, music and a title template</li><li>Works with any editing app</li></ul>"
-          }
-        },
-        "buttons_4": {
-          "type": "buttons",
-          "settings": {
-            "primary_label": "Start for $27",
-            "primary_link": "/collections/all",
-            "secondary_label": "",
-            "secondary_link": ""
-          }
-        }
-      },
-      "block_order": [
-        "eyebrow_1",
-        "heading_2",
-        "description_3",
-        "buttons_4"
-      ]
+        "eyebrow": "",
+        "heading": "Still deciding? *Talk it through*",
+        "text": "",
+        "size": "normal",
+        "button_label": "Book a free call",
+        "button_link": "/pages/book-a-call",
+        "button2_label": "",
+        "button2_link": "",
+        "note": "",
+        "glow": true,
+        "line_above": true,
+        "padding_top": 96,
+        "padding_bottom": 112,
+        "padding_top_mobile": 72,
+        "padding_bottom_mobile": 72
+      }
     }
   },
   "order": [
     "faq",
-    "starter"
+    "call"
   ]
 }

@@ -48,7 +48,7 @@
         "author_highlight_n4CqbT": {
           "type": "author_highlight",
           "settings": {
-            "author_text": "Want the footage for lessons like this? Every course comes with it.",
+            "author_text": "Want to work through this with us? Book a free call.",
             "author_image_size": 65
           }
         }
@@ -91,60 +91,30 @@
         "items_per_row_mobile": 1
       }
     },
-    "starter": {
-      "type": "promo-banner-4",
+    "call": {
+      "type": "vsl-cta",
       "settings": {
-        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
-        "section_width": "container",
-        "layout": "image_left",
-        "text_align": "left",
-        "card_style": "flat",
-        "image": "shopify://shop_images/landing-starter-desk.webp",
-        "image_aspect_ratio": "4-3",
-        "enable_image_zoom": false,
-        "mobile_image_first": true,
-        "reveal": true
-      },
-      "blocks": {
-        "eyebrow_1": {
-          "type": "eyebrow",
-          "settings": {
-            "text": "New to editing?"
-          }
-        },
-        "heading_2": {
-          "type": "heading",
-          "settings": {
-            "text": "Start with the 7 Day Starter"
-          }
-        },
-        "description_3": {
-          "type": "description",
-          "settings": {
-            "text": "<p>One short lesson a day for a week. By Sunday you have cut a one minute video from the clips we send you, with music and titles.</p><ul><li>Seven lessons, about 15 minutes each</li><li>Raw clips, music and a title template</li><li>Works with any editing app</li></ul>"
-          }
-        },
-        "buttons_4": {
-          "type": "buttons",
-          "settings": {
-            "primary_label": "Start for $27",
-            "primary_link": "/collections/all",
-            "secondary_label": "",
-            "secondary_link": ""
-          }
-        }
-      },
-      "block_order": [
-        "eyebrow_1",
-        "heading_2",
-        "description_3",
-        "buttons_4"
-      ]
+        "eyebrow": "",
+        "heading": "Ready for the *next step?*",
+        "text": "",
+        "size": "normal",
+        "button_label": "Book a free call",
+        "button_link": "/pages/book-a-call",
+        "button2_label": "",
+        "button2_link": "",
+        "note": "",
+        "glow": true,
+        "line_above": true,
+        "padding_top": 88,
+        "padding_bottom": 112,
+        "padding_top_mobile": 72,
+        "padding_bottom_mobile": 72
+      }
     }
   },
   "order": [
     "main",
     "blog_posts_bRcpan",
-    "starter"
+    "call"
   ]
 }

@@ -5,8 +5,8 @@
       "settings": {
         "color_scheme": "default",
         "btn_text": "Send message",
-        "ph_website": "Course name (optional)",
-        "label_website": "Course",
+        "ph_website": "Your website (optional)",
+        "label_website": "Website",
         "success_text": "Thanks. You will hear back within a working day."
       },
       "blocks": {
@@ -19,7 +19,7 @@
         "description_2": {
           "type": "description",
           "settings": {
-            "text": "<p>A question before you buy, trouble with a lesson, or a note on the footage. It all comes to the same inbox.</p>"
+            "text": "<p>A question about the course, the calls or a payment. It all reaches the same inbox.</p>"
           }
         },
         "info_3": {
@@ -45,9 +45,30 @@
         "info_3",
         "info_4"
       ]
+    },
+    "call": {
+      "type": "vsl-cta",
+      "settings": {
+        "eyebrow": "",
+        "heading": "Faster on a *call?*",
+        "text": "",
+        "size": "normal",
+        "button_label": "Book a free call",
+        "button_link": "/pages/book-a-call",
+        "button2_label": "",
+        "button2_link": "",
+        "note": "",
+        "glow": true,
+        "line_above": true,
+        "padding_top": 72,
+        "padding_bottom": 96,
+        "padding_top_mobile": 72,
+        "padding_bottom_mobile": 72
+      }
     }
   },
   "order": [
-    "contactformsimple2_1"
+    "contactformsimple2_1",
+    "call"
   ]
 }

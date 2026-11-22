@@ -1,0 +1,108 @@
+{
+  "sections": {
+    "intro": {
+      "type": "vsl-cta",
+      "settings": {
+        "eyebrow": "Book a call",
+        "heading": "Thirty minutes, *no pitch*",
+        "text": "<p>Pick a time below. You get a confirmation by email with the video link.</p>",
+        "size": "normal",
+        "button_label": "",
+        "button_link": "/pages/book-a-call",
+        "button2_label": "",
+        "button2_link": "",
+        "note": "",
+        "glow": true,
+        "line_above": false,
+        "padding_top": 72,
+        "padding_bottom": 8,
+        "padding_top_mobile": 72,
+        "padding_bottom_mobile": 72
+      }
+    },
+    "form": {
+      "type": "journey-storelib-form",
+      "settings": {
+        "form": "",
+        "heading": "",
+        "text": "",
+        "text_align": "center",
+        "color_scheme": "default",
+        "max_width": 760,
+        "padding_top_desktop": 24,
+        "padding_bottom_desktop": 40,
+        "padding_top_mobile": 16,
+        "padding_bottom_mobile": 32
+      }
+    },
+    "on-the-call": {
+      "type": "vsl-cards",
+      "settings": {
+        "eyebrow": "On the call",
+        "heading": "What *happens*",
+        "text": "",
+        "columns": "3",
+        "number_style": "tile",
+        "line_above": true,
+        "padding_top": 88,
+        "padding_bottom": 88,
+        "padding_top_mobile": 64,
+        "padding_bottom_mobile": 56
+      },
+      "blocks": {
+        "card_1": {
+          "type": "card",
+          "settings": {
+            "title": "You say what you do",
+            "text": "<p>Who your clients are and the result they pay you for. Five minutes.</p>"
+          }
+        },
+        "card_2": {
+          "type": "card",
+          "settings": {
+            "title": "We shape one idea",
+            "text": "<p>Together we sketch the workshop you could run first, and what to charge.</p>"
+          }
+        },
+        "card_3": {
+          "type": "card",
+          "settings": {
+            "title": "You decide",
+            "text": "<p>If the course fits, we say so. If it does not, we tell you what would.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "card_1",
+        "card_2",
+        "card_3"
+      ]
+    },
+    "write": {
+      "type": "vsl-cta",
+      "settings": {
+        "eyebrow": "",
+        "heading": "Rather *write to us?*",
+        "text": "<p>Questions about the course reach the same inbox.</p>",
+        "size": "normal",
+        "button_label": "Send a message",
+        "button_link": "/pages/contact",
+        "button2_label": "",
+        "button2_link": "",
+        "note": "",
+        "glow": true,
+        "line_above": true,
+        "padding_top": 88,
+        "padding_bottom": 96,
+        "padding_top_mobile": 72,
+        "padding_bottom_mobile": 72
+      }
+    }
+  },
+  "order": [
+    "intro",
+    "form",
+    "on-the-call",
+    "write"
+  ]
+}
