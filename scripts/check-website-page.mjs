@@ -533,7 +533,7 @@ async function livePage(W) {
         expect(s.box.w <= 440, `  compact, ${s.box.w}px wide`)
       }
       expect(s.overflow === 0 && s.panelOverflow === 0, `  nothing wider than the screen (page ${s.overflow}px, surface ${s.panelOverflow}px over)`)
-      expect(s.removes === 4, `  a Remove on each of the 4 drafts and not on the live one (${s.removes})`)
+      expect(s.removes === 6, `  a Remove on each of the 6 drafts and not on the live one (${s.removes})`)
     }
     expect(errors.length === 0, "no errors on the page", errors.slice(0, 2).join(" / "))
     await p.close()

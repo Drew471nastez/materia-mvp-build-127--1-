@@ -99,7 +99,8 @@ import {
 } from "@/lib/website-builder/theme-registry"
 import { ThemeTemplateCard, type TemplateCardState } from "@/components/website-builder/theme-template-card"
 import { backThen } from "@/lib/navigation/go-back"
-import { builtinListings, installedListingSlugs, listingPath, type ThemeListing } from "@/lib/themes/marketplace-shared"
+import { builtinListings, installedListingSlugs, listingPath, listingSlugOfSettings, type ThemeListing } from "@/lib/themes/marketplace-shared"
+import { SITE_PICTURE_QUALITY, optimizedImageUrl } from "@/lib/images/optimized-url"
 import { THEME_PARAM, THEMES_PARAM, ThemeMarketplace } from "./themes/themes-client"
 import { PREVIEW_PARAM, ThemePreview } from "./themes/theme-preview"
 import { relativeTime } from "@/lib/website-builder/relative-time"
@@ -306,7 +307,46 @@ function firstFace(installId: string, current: string | null): Face {
   return { url: current }
 }
 
-function WebsiteCover({ install, eager = false, preparing = false }: { install: WebsiteSummary; eager?: boolean; preparing?: boolean }) {
+/**
+ * ===========================================================================
+ *  A TEMPLATE'S WEBSITE WEARS THE TEMPLATE'S COVER UNTIL IT HAS ITS OWN
+ * ===========================================================================
+ * Templates round 17, the owner: a template added to the library showed a
+ * grey box with "Clothing" written on it. A website added from a listing
+ * looks like that listing until its first edit, so until the server has
+ * photographed it the row draws the listing's own cover: on the row being
+ * made (./incoming.tsx), on the row that replaces it, and after a reload,
+ * from the listing the website remembers (settings.compat.listing, read by
+ * listingSlugOfSettings). The photograph, when it lands, crossfades in over
+ * it like any new cover. The name on grey is left for a website with no
+ * listing behind it.
+ */
+export function listingCoverUrl(src: string, wide = false): string {
+  return optimizedImageUrl(src, wide ? 640 : 128, SITE_PICTURE_QUALITY)
+}
+
+function StandInPicture({ url }: { url: string }) {
+  const known = isDecoded(url)
+  const fade = useCoverFade(known)
+  return (
+    /* eslint-disable-next-line @next/next/no-img-element */
+    <img
+      src={url}
+      alt=""
+      loading="eager"
+      decoding={known ? "sync" : "async"}
+      draggable={false}
+      data-cover-stand-in=""
+      className="block h-full w-full object-cover object-top"
+      ref={fade.ref}
+      onLoad={fade.onLoad}
+      onError={fade.onLoad}
+      style={fade.style}
+    />
+  )
+}
+
+function WebsiteCover({ install, eager = false, preparing = false, standIn = null }: { install: WebsiteSummary; eager?: boolean; preparing?: boolean; /** The listing's cover, for a website made from one, until it has a photograph of its own. */ standIn?: string | null }) {
   const current = install.snapshot_url
   const [face, setFace] = React.useState<Face>(() => firstFace(install.id, current))
   /* What was on screen before the last swap, fading out under the new one. */
@@ -354,7 +394,7 @@ function WebsiteCover({ install, eager = false, preparing = false }: { install: 
   }, [wantsMini])
   const keyOf = (f: Face) => f.url ?? `pending:${install.id}`
   const draw = (f: Face) =>
-    f.url ? <CoverPicture installId={install.id} url={f.url} eager={eager} onBroken={setBroken} /> : <PendingCover name={install.name} preparing={preparing} />
+    f.url ? <CoverPicture installId={install.id} url={f.url} eager={eager} onBroken={setBroken} /> : standIn ? <StandInPicture url={standIn} /> : <PendingCover name={install.name} preparing={preparing} />
   /* The name on grey has already faded off the small page: it does not come back under the photograph. */
   const pendingGone = (f: Face) => !f.url && miniShown
   return (
@@ -878,6 +918,16 @@ export function WebsiteBuilderClient({
   const marketButton = React.useRef<HTMLButtonElement>(null)
   /** Themes added from a package in this visit (see addListing). */
   const [addedSlugs, setAddedSlugs] = React.useState<Set<string>>(() => new Set())
+  /** Websites added from a listing in this visit, by id: their stand in cover before a reload has their settings. */
+  const [addedFrom, setAddedFrom] = React.useState<Record<string, string>>({})
+  const listingBySlug = React.useMemo(() => new Map(listings.map((l) => [l.slug, l])), [listings])
+  /** A website made from a listing: that listing's cover, until it has a photograph of its own (WebsiteCover). */
+  const standInFor = (i: WebsiteSummary, wide = false): string | null => {
+    const slug = addedFrom[i.id] ?? listingSlugOfSettings(i.settings)
+    const l = slug ? listingBySlug.get(slug) : undefined
+    const src = l ? (l.cover ?? l.screenshots[0] ?? null) : null
+    return src ? listingCoverUrl(src, wide) : null
+  }
   const search = useSearchParams()
   const themesInAddress = search?.has(THEMES_PARAM) ?? false
 
@@ -1226,11 +1276,13 @@ export function WebsiteBuilderClient({
       done: (data: Record<string, unknown>) => string,
       fail: string,
       again: () => void,
+      /** What the row being made shows: a listing's cover, for a template. */
+      cover: string | null = null,
     ) => {
       if (inFlight.current) return
       inFlight.current = true
       retryRef.current = again
-      setIncoming({ kind, name, phase: kind === "import" ? "uploading" : "working", progress: 0 })
+      setIncoming({ kind, name, phase: kind === "import" ? "uploading" : "working", progress: 0, cover })
       let result: { ok: boolean; data: Record<string, unknown> }
       try {
         result = await request(
@@ -1404,6 +1456,10 @@ export function WebsiteBuilderClient({
       return
     }
     if (making) return
+    /* The listing's cover, on the row from its first frame: fetched and decoded now, while the request runs. */
+    const src = l.cover ?? l.screenshots[0] ?? null
+    const cover = src ? listingCoverUrl(src) : null
+    if (cover) void decodeCover(cover)
     return make(
       "add",
       l.name,
@@ -1411,13 +1467,17 @@ export function WebsiteBuilderClient({
         const res = await fetch("/api/themes/marketplace/add", json("POST", { slug: l.slug }))
         return { ok: res.ok, data: await res.json().catch(() => ({})) }
       },
-      () => {
+      (data) => {
         /* A theme from a package has no theme id to find it by in the library: this visit remembers that it went in. */
         setAddedSlugs((prev) => new Set(prev).add(l.slug))
+        const install = data.install as { id?: string } | undefined
+        const id = typeof data.install_id === "string" ? data.install_id : install?.id
+        if (id) setAddedFrom((prev) => ({ ...prev, [id]: l.slug }))
         return tt("{name} added", { name: l.name })
       },
       tt("Could not add theme"),
       () => void addListing(l),
+      cover,
     )
   }
 
@@ -1832,7 +1892,7 @@ export function WebsiteBuilderClient({
                       data-picture-press=""
                       className={COVER_FRAME}
                     >
-                      <WebsiteCover install={live} eager preparing={!!preparing[live.id]} />
+                      <WebsiteCover install={live} eager preparing={!!preparing[live.id]} standIn={standInFor(live, true)} />
                     </button>
                   </div>
                   <div className="flex min-w-0 flex-col px-4 pb-4 pt-2 lg:p-6 lg:pl-4">
@@ -1946,7 +2006,7 @@ export function WebsiteBuilderClient({
                     data-picture-press=""
                     className={COVER_FRAME}
                   >
-                    <WebsiteCover install={starter} eager preparing={!!preparing[starter.id]} />
+                    <WebsiteCover install={starter} eager preparing={!!preparing[starter.id]} standIn={standInFor(starter, true)} />
                   </button>
                 </div>
                 <div className="flex min-w-0 flex-col px-4 pb-4 pt-2 lg:p-6 lg:pl-4">
@@ -2230,7 +2290,7 @@ export function WebsiteBuilderClient({
                           >
                             <span className="relative block w-24 shrink-0 overflow-hidden rounded-lg border border-[#e5e7eb] bg-[#f3f4f6] sm:w-28">
                               <span className="block aspect-[16/10]">
-                                <WebsiteCover install={i} preparing={!!preparing[i.id]} />
+                                <WebsiteCover install={i} preparing={!!preparing[i.id]} standIn={standInFor(i)} />
                               </span>
                             </span>
                             <span className="min-w-0 flex-1">

@@ -298,8 +298,8 @@ function main() {
   const publishing = pageText("publishing")
   const sharing = pageText("sharing-themes")
   check("the library holds as many websites as the registry allows",
-    THEME_INSTALL_LIMIT === 5 && themes.includes("up to five websites: **one live and four drafts**")
-      && publishing.includes("| Websites in the library | 5: one live and four drafts |") && sharing.includes("It holds five: one live and four drafts."),
+    THEME_INSTALL_LIMIT === 7 && themes.includes("up to seven websites: **one live and six drafts**")
+      && publishing.includes("| Websites in the library | 7: one live and six drafts |") && sharing.includes("It holds seven: one live and six drafts."),
     `the registry allows ${THEME_INSTALL_LIMIT}`)
   const backups = Number(read("lib/website-builder/backups.ts").match(/export const BACKUPS_TO_KEEP = (\d+)/)?.[1])
   check("as many backups are kept as the page says", backups > 0 && publishing.includes(`| Backups kept for each website | The newest ${backups} |`), `${backups}`)

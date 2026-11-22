@@ -30,7 +30,7 @@ In **Websites**, press **Import theme** and choose the file. It takes a `.storel
 
 Before anything is written, the whole package is checked, and **one failure refuses all of it** with the list of reasons:
 
-1. The library has room for another website. It holds five: one live and four drafts.
+1. The library has room for another website. It holds seven: one live and six drafts.
 2. The file is a zip, and 50 MB or less.
 3. It holds 2000 files or fewer. By the sizes the zip declares, before anything is unpacked, each text file is 5000 KB or less, each asset 15 MB or less, and the whole 200 MB or less.
 4. Every path is `theme.json`, `manifest.json`, or inside `config`, `layout`, `templates`, `sections`, `blocks`, `snippets`, `assets` or `locales`. The files sit at the root of the zip, not inside a folder.

@@ -96,7 +96,7 @@ Around the builder:
 | What | Most allowed |
 | --- | --- |
 | A file saved from the code editor or an agent | 1 MB |
-| Websites in the library | 5: one live and four drafts |
+| Websites in the library | 7: one live and six drafts |
 | Backups kept for each website | The newest 30 |
 | Versions kept of each section file | The newest 50 |
 | Products a template can read | 24 on the live site |

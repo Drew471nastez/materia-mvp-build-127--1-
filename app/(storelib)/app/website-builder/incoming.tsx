@@ -43,6 +43,8 @@ export interface Incoming {
   /** Set once the server has answered: the row the page waits for. */
   installId?: string
   error?: string
+  /** A template's own cover, drawn on the row from its first frame (website-builder-client listingCoverUrl). */
+  cover?: string | null
 }
 
 /** How long the ring around an arrived website lasts. Read by the CSS too, through the inline style. */
@@ -298,6 +300,26 @@ export function scrollToRow(el: HTMLElement, block: "center" | "nearest" = "cent
   })
 }
 
+/** The template's cover on the row being made: faded in once it has loaded, unless it was ready on the first frame. */
+function IncomingCover({ url }: { url: string }) {
+  const [shown, setShown] = React.useState(false)
+  return (
+    /* eslint-disable-next-line @next/next/no-img-element */
+    <img
+      src={url}
+      alt=""
+      loading="eager"
+      draggable={false}
+      data-incoming-cover=""
+      ref={(img) => {
+        if (img?.complete && img.naturalWidth > 0) setShown(true)
+      }}
+      onLoad={() => setShown(true)}
+      className={cn("absolute inset-0 block h-full w-full object-cover object-top transition-opacity duration-300 motion-reduce:transition-none", shown ? "opacity-100" : "opacity-0")}
+    />
+  )
+}
+
 /**
  * The row for the website being made. The same four cells as a real library
  * row, with the same classes for which of them a phone hides: a table lays
@@ -349,7 +371,8 @@ export function IncomingRow({
         <div className="wb-incoming-in flex w-full min-w-0 items-center gap-3 sm:gap-4">
           <span className="relative block w-24 shrink-0 overflow-hidden rounded-lg border border-[#e5e7eb] bg-[#f3f4f6] sm:w-28">
             <span className="block aspect-[16/10]" />
-            {!failed && <span aria-hidden className="wb-incoming-pulse absolute inset-0 bg-[#e6e8ec]" />}
+            {/* A template: its own cover at once, the one the row that replaces this one draws too. Anything else breathes on grey. */}
+            {incoming.cover ? <IncomingCover url={incoming.cover} /> : !failed && <span aria-hidden className="wb-incoming-pulse absolute inset-0 bg-[#e6e8ec]" />}
           </span>
           <span className="min-w-0 flex-1">
             <span className={cn("block truncate text-[14px] font-semibold", failed ? "text-[#1a1a2e]" : "text-[#4b5563]")}>

@@ -308,4 +308,4 @@ Every website has its own settings. Anything marked below as part of the draft i
 - The home page carries structured data naming the website and its owner. A product page carries the product with its price, which is what lets a search result show the price and picture.
 - With search engines switched off, pages say `noindex` and the sitemap is not offered. Crawlers are still let in, so they read the `noindex` and drop the pages.
 
-A creator keeps up to five websites: one live and four drafts. Add theme, Duplicate and Import all refuse a sixth, on the server, and the Websites page shows which websites are taking the room with **Remove** beside each draft. See [Themes](/developers/themes#the-website-library).
+A creator keeps up to seven websites: one live and six drafts. Add theme, Duplicate and Import all refuse an eighth, on the server, and the Websites page shows which websites are taking the room with **Remove** beside each draft. See [Themes](/developers/themes#the-website-library).

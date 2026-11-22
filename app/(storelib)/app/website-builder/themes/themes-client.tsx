@@ -59,6 +59,8 @@ export const POPUP_IN_MS = 260
 export const POPUP_OUT_MS = 200
 export const SUBPAGE_IN_MS = 280
 export const SUBPAGE_OUT_MS = 240
+/** Another category or order: the grid fades and rises into place. */
+export const GRID_SWAP_MS = 200
 
 /*
   The window's motion. Keyframes rather than a transition: Radix keeps the
@@ -109,6 +111,7 @@ export function ThemeMarketplace({ open, onClose, listings, stateOf, waiting = f
   const scrim = React.useRef<HTMLDivElement>(null)
   const panel = React.useRef<HTMLDivElement>(null)
   const grid = React.useRef<HTMLDivElement>(null)
+  const scroller = React.useRef<HTMLDivElement>(null)
 
   /*
     Only the categories that have a theme in them (an empty one is a dead
@@ -122,6 +125,27 @@ export function ThemeMarketplace({ open, onClose, listings, stateOf, waiting = f
   )
   /* A category whose last theme went (the list changed under it) is not kept. */
   if (category !== "all" && !categories.includes(category)) setCategory("all")
+
+  /*
+    ANOTHER CATEGORY OR ORDER: THE SAME CARDS, FADED IN AT THE TOP. The
+    cards are kept by their address, so a theme in both lists is the same
+    element with its picture already decoded, and nothing is mounted again.
+    Before the new list is painted the scroll goes to its top (the old place
+    means nothing in another list), and the grid rises 6px as it fades up
+    from a quarter, on opacity and transform alone, so the window, the bar
+    and the pills do not move by a pixel.
+  */
+  const view = `${category}|${sort}`
+  const lastView = React.useRef(view)
+  React.useLayoutEffect(() => {
+    if (lastView.current === view) return
+    lastView.current = view
+    if (scroller.current) scroller.current.scrollTop = 0
+    const g = grid.current
+    if (!g || typeof g.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+    g.getAnimations().forEach((x) => x.cancel())
+    g.animate([{ opacity: 0.25, transform: "translate3d(0, 6px, 0)" }, { opacity: 1, transform: "translate3d(0, 0, 0)" }], { duration: GRID_SWAP_MS, easing: "cubic-bezier(0.33, 1, 0.68, 1)" })
+  }, [view])
 
   /* A theme a link named: in view, once the window is there. */
   React.useEffect(() => {
@@ -206,7 +230,7 @@ export function ThemeMarketplace({ open, onClose, listings, stateOf, waiting = f
                   value={sort}
                   data-themes-sort=""
                   onChange={(e) => setSort(e.target.value as ThemeSort)}
-                  className="h-9 appearance-none rounded-lg border border-[#e5e7eb] bg-white pl-3 pr-8 text-[13px] font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.04)] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 md:h-8"
+                  className="h-9 appearance-none rounded-lg border border-[#e5e7eb] bg-white pl-3 pr-8 text-[13px] font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.04)] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20"
                 >
                   {THEME_SORTS.map((s) => (
                     <option key={s.id} value={s.id}>
@@ -221,6 +245,7 @@ export function ThemeMarketplace({ open, onClose, listings, stateOf, waiting = f
 
           {/* ── The themes ────────────────────────────────────────────── */}
           <div
+            ref={scroller}
             data-themes-scroll=""
             className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[calc(28px+env(safe-area-inset-bottom))] pl-[max(16px,env(safe-area-inset-left))] pr-[max(16px,env(safe-area-inset-right))] pt-5 md:px-6 md:pb-8 md:pt-6"
           >
@@ -254,46 +279,46 @@ export function ThemeMarketplace({ open, onClose, listings, stateOf, waiting = f
 
 /*
   ===========================================================================
-   THE CATEGORIES, AS STORELIB'S OWN CHIPS
+   THE CATEGORIES, AS SETTINGS' PILLS ON A PHONE
   ===========================================================================
-  The chips of Analytics' All / Digital / Physical / Communities
-  (components/app/segmented-pills.tsx, variant "chips"): quiet words on the
-  page, the chosen one on a dark pill that slides to the next by transform
-  and takes its width, 220ms on the /app curve, so nothing is laid out
-  again. Under a mouse a chip takes a faint shade, a press a deeper one, and
-  the words ease to white as the pill arrives. Until the pill has been
-  measured, the chosen chip draws its own.
+  Templates round 17, the owner: "the switching is not smooth, make it feel
+  like the Settings tab pills". These are those pills (components/app/
+  settings-form-new.tsx, the row below 1024px), with their look and their
+  motion: words on the bar, the chosen one on a soft grey fill with a
+  hairline, and the pill easing its own background, hairline and colour in
+  place, 150ms on the same ease out. Nothing slides across from the last
+  one and nothing is stacked over the words, so nothing is put on a layer
+  and the words are never painted twice. The pressed pill glides to the
+  middle of the row, as in Settings. Under a mouse an unchosen pill's words
+  darken; a finger gets no fill, as in Settings, so a swipe along the row
+  lights nothing.
 
   NOTHING IS CLIPPED. The row scrolls sideways when it does not fit, and a
   scroller clips on every side, so the row keeps 4px of room around its
-  chips for the focus ring, and fades where it is cut (.edge-fade) rather
-  than slicing a word. The chosen chip is kept in view.
+  pills for the focus ring, and fades where it is cut (.edge-fade) rather
+  than slicing a word.
 */
+/** Settings' pill fade (settings-form-new TAB_FADE_MS, TAB_EASE). scripts/check-theme-popup.mjs reads it. */
+export const CATEGORY_FADE_MS = 150
+const CATEGORY_EASE = "cubic-bezier(0.33, 1, 0.68, 1)"
+
 function CategoryPills({ categories, value, onChange }: { categories: string[]; value: string; onChange: (c: string) => void }) {
   const row = useEdgeFade<HTMLDivElement>()
   const refs = React.useRef<(HTMLButtonElement | null)[]>([])
   const options = React.useMemo(() => ["all", ...categories], [categories])
   const index = Math.max(0, options.indexOf(value))
-  const [box, setBox] = React.useState<{ x: number; w: number } | null>(null)
+  /* The first placing is not a glide: the row opens with the chosen pill already where it belongs. */
+  const placed = React.useRef(false)
 
-  React.useLayoutEffect(() => {
-    const measure = () => {
-      const el = refs.current[index]
-      if (!el) return
-      setBox((b) => (b && b.x === el.offsetLeft && b.w === el.offsetWidth ? b : { x: el.offsetLeft, w: el.offsetWidth }))
-    }
-    measure()
+  React.useEffect(() => {
     const strip = row.current
     const el = refs.current[index]
-    if (strip && el && strip.scrollWidth > strip.clientWidth) {
-      const left = Math.max(0, Math.min(strip.scrollWidth - strip.clientWidth, el.offsetLeft - (strip.clientWidth - el.offsetWidth) / 2))
-      const still = !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
-      if (typeof strip.scrollTo === "function") strip.scrollTo({ left, behavior: still ? ("instant" as ScrollBehavior) : "smooth" })
-    }
-    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null
-    if (ro && strip) ro.observe(strip)
-    return () => ro?.disconnect()
-  }, [index, options.length, row])
+    if (!strip || !el || strip.scrollWidth <= strip.clientWidth || typeof strip.scrollTo !== "function") return
+    const left = Math.max(0, Math.min(strip.scrollWidth - strip.clientWidth, el.offsetLeft - (strip.clientWidth - el.offsetWidth) / 2))
+    const still = !placed.current || !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    strip.scrollTo({ left, behavior: still ? ("instant" as ScrollBehavior) : "smooth" })
+    placed.current = true
+  }, [index, row])
 
   const pick = (i: number) => {
     const c = options[i]
@@ -308,17 +333,9 @@ function CategoryPills({ categories, value, onChange }: { categories: string[]; 
       role="group"
       aria-label={tt("Category")}
       data-themes-categories=""
-      className="edge-fade relative -my-1 -ml-4 flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto py-1 pl-4 pr-1 [scrollbar-width:none] md:-ml-1 md:pl-1 [&::-webkit-scrollbar]:hidden"
+      className="edge-fade relative -my-1 -ml-4 flex min-w-0 flex-1 items-center gap-1 overflow-x-auto py-1 pl-4 pr-1 [scrollbar-width:none] md:-ml-1 md:pl-1 [&::-webkit-scrollbar]:hidden"
       style={{ touchAction: "pan-x pan-y", overscrollBehaviorX: "contain" }}
     >
-      {box ? (
-        <span
-          aria-hidden
-          data-themes-category-pill=""
-          className="pointer-events-none absolute left-0 top-1 h-9 rounded-full bg-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.18)] transition-[translate,width] duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none md:h-8"
-          style={{ translate: `${box.x}px 0`, width: box.w }}
-        />
-      ) : null}
       {options.map((c, i) => {
         const on = i === index
         return (
@@ -330,6 +347,7 @@ function CategoryPills({ categories, value, onChange }: { categories: string[]; 
             type="button"
             aria-pressed={on}
             data-themes-category={c}
+            data-themes-category-on={on ? "" : undefined}
             onClick={() => pick(i)}
             onKeyDown={(e) => {
               if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return
@@ -338,12 +356,12 @@ function CategoryPills({ categories, value, onChange }: { categories: string[]; 
               refs.current[next]?.focus()
               pick(next)
             }}
+            style={{ transitionDuration: `${CATEGORY_FADE_MS}ms`, transitionTimingFunction: CATEGORY_EASE }}
             className={cn(
-              "relative z-[1] h-9 shrink-0 whitespace-nowrap rounded-full px-3.5 text-[13px] font-semibold outline-none md:h-8 [-webkit-tap-highlight-color:transparent]",
-              "transition-[color,background-color] duration-200 ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25",
+              "flex h-9 shrink-0 items-center whitespace-nowrap rounded-full px-3 text-[13px] font-medium outline-none transition-[color,background-color,box-shadow] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]",
               on
-                ? cn("text-white", !box && "bg-[#1a1a2e]")
-                : "bg-[#1a1a2e]/0 text-[#4b5563] pointer-fine:hover:bg-[#1a1a2e]/[0.05] pointer-fine:hover:text-[#1a1a2e] active:bg-[#1a1a2e]/[0.09] pointer-fine:active:bg-[#1a1a2e]/[0.09] active:text-[#1a1a2e] pointer-fine:active:text-[#1a1a2e]",
+                ? "bg-[#f3f4f6] text-[#1a1a2e] shadow-[inset_0_0_0_1px_#d1d5db,0_1px_2px_rgba(0,0,0,0.04)]"
+                : "bg-[#f3f4f6]/0 text-[#6b7280] shadow-[inset_0_0_0_1px_rgba(209,213,219,0),0_1px_2px_rgba(0,0,0,0)] pointer-fine:hover:text-[#1a1a2e]",
             )}
           >
             {c === "all" ? tt("All") : tt(c)}

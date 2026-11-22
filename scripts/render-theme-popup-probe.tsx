@@ -7,6 +7,10 @@
  *   ?create=1   the page as /app/website-builder/ai draws it
  *   ?full=1     a library with no room, for the full library sheet
  *   ?empty=1    no website at all
+ *   ?listed=1   a draft added from the Clothing template on an earlier visit,
+ *               with no photograph yet (settings.compat.listing)
+ *   ?land=1     an Add's new website arrives in the library 300ms after the
+ *               answer, as the page's refresh would bring it
  *
  * The listings are whatever builtinListings() returns today, on the cover
  * the script serves (their desktop and phone screenshots stay the real
@@ -20,6 +24,7 @@ import { createRoot } from "react-dom/client"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { WebsiteBuilderClient, type WebsiteSummary } from "@/app/(storelib)/app/website-builder/website-builder-client"
 import { builtinListings, type ThemeListing } from "@/lib/themes/marketplace-shared"
+import { THEME_INSTALL_LIMIT } from "@/lib/website-builder/theme-registry"
 
 const q = new URLSearchParams(window.location.search)
 const cover = "/cover.svg"
@@ -44,8 +49,8 @@ const site = (id: string, name: string, status: WebsiteSummary["status"]): Websi
 const installs: WebsiteSummary[] = q.has("empty")
   ? []
   : q.has("full")
-    ? [site("s1", "Candle shop", "published"), site("s2", "Autumn sale", "draft"), site("s3", "Gift guide", "draft"), site("s4", "Wholesale", "draft"), site("s5", "Old look", "draft")]
-    : [site("s1", "Candle shop", "published"), site("s2", "Autumn sale", "draft")]
+    ? [site("s1", "Candle shop", "published"), ...["Autumn sale", "Gift guide", "Wholesale", "Old look", "Spring", "Studio", "Market", "Atelier"].slice(0, THEME_INSTALL_LIMIT - 1).map((n, i) => site(`s${i + 2}`, n, "draft"))]
+    : [site("s1", "Candle shop", "published"), site("s2", "Autumn sale", "draft"), ...(q.has("listed") ? [{ ...site("s3", "Clothing", "draft"), settings: { compat: { listing: "clothing" } } as unknown as WebsiteSummary["settings"] }] : [])]
 
 const EXTRA: [string, string, ThemeListing["tier"]][] = [
   ["Fern", "photography", "free"],
@@ -81,6 +86,25 @@ const listings: ThemeListing[] = [
 /* What the page was given, so the script can check the popup lists every one of them. */
 ;(window as unknown as { __probeListings: string[] }).__probeListings = listings.map((l) => l.slug)
 
-createRoot(document.getElementById("root")!).render(
-  createElement(TooltipProvider, null, createElement(WebsiteBuilderClient, { installs, username: "candleshop", listings, create: q.has("create") })),
-)
+const root = createRoot(document.getElementById("root")!)
+let library = installs
+const draw = () => root.render(createElement(TooltipProvider, null, createElement(WebsiteBuilderClient, { installs: library, username: "candleshop", listings, create: q.has("create") })))
+draw()
+
+/* ?land=1: the refreshed library has the website an Add made, with no photograph and no settings yet. */
+if (q.has("land")) {
+  const real = window.fetch.bind(window)
+  window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const res = await real(input, init)
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url
+    if (/\/marketplace\/add$/.test(url)) {
+      const slug = (JSON.parse(String(init?.body ?? "{}")) as { slug?: string }).slug
+      const name = listings.find((l) => l.slug === slug)?.name ?? "New"
+      setTimeout(() => {
+        library = [...library, site("new-1", name, "draft")]
+        draw()
+      }, 300)
+    }
+    return res
+  }
+}

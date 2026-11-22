@@ -56,7 +56,7 @@ function site(id: string, name: string, status: WebsiteSummary["status"], minute
   }
 }
 w.__server = [site("live-1", "Northwind", "published", 4), site("lib-0", "Studio", "draft", 120), site("lib-1", "Atelier", "draft", 180)]
-/* Three of the library's five places: room for the two copies the probe makes (THEME_INSTALL_LIMIT). */
+/* Three of the library's seven places: room for the copies the probe makes (THEME_INSTALL_LIMIT). */
 w.__serverMs = 450
 w.__refreshes = []
 w.__mounts = 0

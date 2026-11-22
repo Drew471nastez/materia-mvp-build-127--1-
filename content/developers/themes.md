@@ -15,7 +15,7 @@ Change a section file and every page that uses the section changes how it looks,
 
 ## The website library
 
-The library holds up to five websites: **one live and four drafts**. Add theme, Duplicate and Import each refuse a sixth, checked on the server, and the library shows which websites are taking the room.
+The library holds up to seven websites: **one live and six drafts**. Add theme, Duplicate and Import each refuse an eighth, checked on the server, and the library shows which websites are taking the room.
 
 - **Add theme** makes a new draft from a theme Storelib ships. Browse themes offers one today, Storelib Default. A new website starts with its home page and its product page; the policy pages are added the first time it opens in the builder.
 - **Duplicate** copies a website as it stands, drafts included. See [Sharing themes](/developers/sharing-themes#duplicate).

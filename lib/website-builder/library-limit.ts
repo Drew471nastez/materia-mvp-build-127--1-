@@ -23,10 +23,10 @@ import { THEME_INSTALL_LIMIT } from "./theme-registry"
 /** Drafts a creator can keep beside the live website. */
 export const DRAFT_LIMIT = THEME_INSTALL_LIMIT - 1
 
-/** "You can keep 5 websites: one live and 4 drafts." */
+/** "You can keep 7 websites: one live and 6 drafts." */
 export const LIBRARY_RULE = `You can keep ${THEME_INSTALL_LIMIT} websites: one live and ${DRAFT_LIMIT} ${DRAFT_LIMIT === 1 ? "draft" : "drafts"}.`
 
-/** "One live website and 4 drafts", for a heading. */
+/** "One live website and 6 drafts", for a heading. */
 export const LIBRARY_RULE_TITLE = `One live website and ${DRAFT_LIMIT} ${DRAFT_LIMIT === 1 ? "draft" : "drafts"}`
 
 export const LIBRARY_FULL_MESSAGE = `${LIBRARY_RULE} Remove one to add another.`
@@ -36,11 +36,11 @@ export const LIBRARY_FULL_CODE = "library_full"
 
 /**
  * ===========================================================================
- *  TWO AT ONCE STILL MAKE FIVE
+ *  TWO AT ONCE STILL MAKE SEVEN
  * ===========================================================================
  * librarySlotsLeft, below, counts before the insert. Two requests at the same
- * moment (an import and a duplicate, two tabs, a double tap) both read 4 and
- * both insert, and the library holds 6. Two guards close that:
+ * moment (an import and a duplicate, two tabs, a double tap) both read 6 and
+ * both insert, and the library holds 8. Two guards close that:
  *
  *   1. The database refuses the insert itself once a creator has
  *      THEME_INSTALL_LIMIT websites (supabase/sql/RUN_THEME_LIBRARY_LIMIT.sql).

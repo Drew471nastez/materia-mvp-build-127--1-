@@ -366,24 +366,86 @@ try {
     const readShot = () => p.evaluate(() => {
       const img = document.querySelector("[data-themes-grid] img[data-template-shot]")
       const c = getComputedStyle(img)
-      return { y: new DOMMatrix(c.transform).m42, prop: c.transitionProperty, top: c.top }
+      return { y: new DOMMatrix(c.transform).m42, transition: c.transitionDuration, willChange: c.willChange, running: img.getAnimations().length }
     })
     const hintOf = () => p.evaluate(() => {
       const h = document.querySelector("[data-themes-grid] [data-template-hint]")
       const t = getComputedStyle(h).translate.split(" ")
-      return { o: +getComputedStyle(h).opacity, y: Math.round(parseFloat(t[1] ?? "0") * 10) / 10 }
+      return { o: +getComputedStyle(h).opacity, y: Math.round(parseFloat(t[1] ?? "0") * 10) / 10, props: getComputedStyle(h).transitionProperty, ms: getComputedStyle(h).transitionDuration }
     })
     const hint0 = await hintOf()
+    const rest0 = await readShot()
+    /* Every switch of the hover while the pointer wanders the cover, over the label and the picture as it moves. */
+    await p.evaluate(() => {
+      const box = document.querySelector("[data-themes-grid] [data-template-cover]")
+      window.__hoverFlips = 0
+      new MutationObserver((l) => { window.__hoverFlips += l.length }).observe(box, { attributes: true, attributeFilter: ["data-hover"] })
+    })
     await p.mouse.move(fb.x + fb.width / 2, fb.y + fb.height / 2)
-    await sleep(700)
+    await sleep(350)
+    const hintMid = await hintOf()
+    await p.mouse.move(fb.x + fb.width / 2, fb.y + fb.height - 22, { steps: 8 })
+    await p.mouse.move(fb.x + 12, fb.y + 12, { steps: 12 })
+    await p.mouse.move(fb.x + fb.width / 2, fb.y + fb.height / 2, { steps: 8 })
+    await sleep(350)
     const hov = await readShot()
     const hint1 = await hintOf()
+    const flips = await p.evaluate(() => window.__hoverFlips)
     await shot(p, "popup-1440-hover")
-    expect(hint0.o === 0 && hint1.o === 1 && hint1.y === 0 && hint0.y > 0, "under a mouse a Preview label rises onto the cover", `opacity ${hint0.o} -> ${hint1.o}, y ${hint0.y} -> ${hint1.y}`)
+    expect(rest0.willChange === "auto" && hov.willChange === "transform" && hov.running === 1 && hov.transition === "0s", "the slide is an animation of its own, with will-change only while it moves", `at rest ${rest0.willChange}, sliding ${hov.willChange}, ${hov.running} animation, CSS transition ${hov.transition}`)
+    expect(hint0.o === 0 && hint1.o === 1 && hint1.y === 0 && hint0.y > 0 && hintMid.o > 0 && /translate/.test(hint1.props) && /opacity/.test(hint1.props), "under a mouse a Preview label rises onto the cover, its rise animated as well as its fade", `opacity ${hint0.o} -> ${hint1.o}, y ${hint0.y} -> ${hint1.y}, on ${hint1.props} ${hint1.ms}`)
+    expect(flips === 1, "the hover switched on once and stayed on while the pointer crossed the label and the moving picture", `${flips} switches`)
+
+    /*
+      THE OWNER'S CASE: a second on the card, then out in 50ms. Every frame of
+      the way back is read: it starts where the picture was, never jumps, and
+      takes its time; the label goes on the same clock as the shadow.
+    */
     await p.mouse.move(5, 5)
-    await sleep(1100)
+    await sleep(900)
+    await p.mouse.move(fb.x + fb.width / 2, fb.y + fb.height / 2)
+    await sleep(1000)
+    await p.evaluate(() => {
+      const img = document.querySelector("[data-themes-grid] img[data-template-shot]")
+      const hint = document.querySelector("[data-themes-grid] [data-template-hint]")
+      const lift = document.querySelector("[data-themes-grid] [data-template-lift]")
+      const box = document.querySelector("[data-themes-grid] [data-template-cover]")
+      window.__frames = []
+      let t0 = null
+      /* The frame's own time, which the animation runs on, not when this callback got to run. */
+      const tick = (ts) => {
+        if (t0 === null) t0 = ts
+        window.__frames.push({ t: ts - t0, on: box.hasAttribute("data-hover"), y: new DOMMatrix(getComputedStyle(img).transform).m42, h: +getComputedStyle(hint).opacity, s: +getComputedStyle(lift).opacity })
+        if (ts - t0 < 1500) requestAnimationFrame(tick)
+      }
+      requestAnimationFrame(tick)
+    })
+    await p.mouse.move(fb.x + fb.width / 2, fb.y - 40, { steps: 3 })
+    await sleep(1600)
+    const all = await p.evaluate(() => window.__frames)
     const left = await readShot()
-    expect(hov.y < -40 && hov.prop === "transform" && Math.abs(left.y) < 1, "under a mouse the cover slides up by transform, and comes back", `${Math.round(hov.y)}px after 700ms, ${Math.round(left.y)}px after leaving, transition-property ${hov.prop}`)
+    /* From the last frame drawn under the hover: where the picture was when the pointer left. */
+    const from = all.map((f) => f.on).lastIndexOf(true)
+    const frames = all.slice(Math.max(0, from))
+    const ys = frames.map((f) => f.y)
+    const steps = frames.slice(1).map((f, i) => ({ d: f.y - frames[i].y, dt: Math.max(1, f.t - frames[i].t) }))
+    const backBy = Math.abs(ys[0] ?? 0)
+    const moving = steps.filter((x) => Math.abs(x.d) > 0.05)
+    const ends = frames.findIndex((f, i) => i > 0 && Math.abs(f.y) < 0.05)
+    const backMs = ends > 0 ? Math.round(frames[ends].t - frames[0].t) : 0
+    /* The fastest it went, against the speed it would need to cover the way back evenly: an in and out curve peaks near twice that. A jump is many times it. */
+    const even = backMs ? backBy / backMs : 0
+    const fastest = Math.max(0, ...moving.map((x) => Math.abs(x.d) / x.dt))
+    const reversed = steps.filter((x) => x.d < -0.05).length
+    const hintFrames = frames.filter((f) => f.h > 0.02 && f.h < 0.98).length
+    const hintDown = frames.slice(1).every((f, i) => f.h <= frames[i].h + 0.001)
+    const together = frames.every((f) => Math.abs(f.h - f.s) < 0.12)
+    expect(from > 0 && backBy > 40, "a second of hover: the page had slid", `${Math.round(ys[0] ?? 0)}px when the pointer left`)
+    expect(reversed === 0 && fastest <= even * 3.2, "leaving in 50ms: the way back starts where the picture was and never jumps", `from ${Math.round(ys[0])}px over ${frames.length} frames, fastest ${fastest.toFixed(2)}px/ms against ${even.toFixed(2)}px/ms even, ${reversed} frames the wrong way`)
+    expect(backMs >= 380 && backMs <= 1000 && Math.abs(left.y) < 0.5 && left.willChange === "auto", "it comes back in its own time, then rests at the top without will-change", `${backMs}ms, ends at ${left.y.toFixed(2)}px, will-change ${left.willChange}`)
+    expect(hintFrames >= 4 && hintDown && together, "the label fades back over several frames, on the same clock as the shadow", `${hintFrames} frames between, monotonic ${hintDown}, label and shadow together ${together}`)
+    writeFileSync(join(out, "hover-frames.json"), JSON.stringify(frames))
+    if (SHOTS) writeFileSync(join(SHOTS, "hover-leave-frames.json"), JSON.stringify(all, null, 1))
 
     /* ── Focus stays inside ────────────────────────────────────────────── */
     let escaped = 0
@@ -393,51 +455,95 @@ try {
     }
     expect(escaped === 0, "forty Tabs never leave the window", `${escaped} outside`)
 
-    /* ── The category chips: chosen, hover, press, no clipping ─────────── */
+    /* ── The category pills: Settings' pills, their look and their motion ─ */
     const chips = () => p.evaluate(() => {
       const row = document.querySelector("[data-themes-categories]")
       const rr = row.getBoundingClientRect()
-      const pill = row.querySelector("[data-themes-category-pill]")
       const btns = [...row.querySelectorAll("[data-themes-category]")]
       const on = btns.find((b) => b.getAttribute("aria-pressed") === "true")
-      const pr = pill?.getBoundingClientRect()
-      const or = on.getBoundingClientRect()
+      const c = getComputedStyle(on)
       return {
         on: on.getAttribute("data-themes-category"),
-        onColor: getComputedStyle(on).color,
-        pillOver: !!pr && Math.abs(pr.left - or.left) < 1 && Math.abs(pr.width - or.width) < 1 && Math.abs(pr.top - or.top) < 1 && Math.abs(pr.height - or.height) < 1,
-        pillBg: pill ? getComputedStyle(pill).backgroundColor : null,
-        pillMotion: pill ? getComputedStyle(pill).transitionProperty + " " + getComputedStyle(pill).transitionDuration : null,
+        onColor: c.color,
+        onBg: c.backgroundColor,
+        onShadow: c.boxShadow,
+        motion: `${c.transitionProperty} ${c.transitionDuration}`,
+        slider: !!row.querySelector("[data-themes-category-pill]"),
+        offBg: getComputedStyle(btns.find((b) => b !== on)).backgroundColor,
         clipped: btns.filter((b) => { const r = b.getBoundingClientRect(); return r.top < rr.top + 3 || r.bottom > rr.bottom - 3 }).length,
         radius: getComputedStyle(btns[0]).borderRadius,
-        bgs: btns.map((b) => getComputedStyle(b).backgroundColor),
+        widths: btns.map((b) => Math.round(b.getBoundingClientRect().width * 10) / 10),
       }
     })
     /* Forty Tabs above walked the focus along the row and scrolled it: back to its start. */
     await p.evaluate(() => document.querySelector("[data-themes-categories]").scrollTo({ left: 0, behavior: "instant" }))
     await sleep(60)
     const c0 = await chips()
-    expect(c0.on === "all" && c0.pillOver && c0.pillBg === "rgb(26, 26, 46)" && c0.onColor === "rgb(255, 255, 255)" && /translate/.test(c0.pillMotion) && /0\.22s/.test(c0.pillMotion), "the chosen chip: white words on the dark pill, which slides by translate in 220ms", `${c0.on}, pill over it ${c0.pillOver}, ${c0.pillBg}, ${c0.pillMotion}`)
-    expect(c0.clipped === 0 && parseFloat(c0.radius) > 100, "chips are round and none is clipped by the row (room for the focus ring)", `${c0.clipped} clipped, radius ${c0.radius}`)
+    expect(c0.on === "all" && c0.onBg === "rgb(243, 244, 246)" && /inset/.test(c0.onShadow) && c0.onColor === "rgb(26, 26, 46)" && !c0.slider && /background-color/.test(c0.motion) && /0\.15s/.test(c0.motion), "the chosen pill is Settings': a soft grey fill with a hairline, easing in place in 150ms, nothing sliding across", `${c0.on}, ${c0.onBg}, ${c0.onShadow}, ${c0.motion}`)
+    expect(c0.clipped === 0 && parseFloat(c0.radius) > 100, "pills are round and none is clipped by the row (room for the focus ring)", `${c0.clipped} clipped, radius ${c0.radius}`)
     const second = await p.$("[data-themes-category]:nth-of-type(2)")
     const sb = await second.boundingBox()
     await p.mouse.move(sb.x + sb.width / 2, sb.y + sb.height / 2)
-    await sleep(260)
-    const hoverBg = await second.evaluate((b) => getComputedStyle(b).backgroundColor)
+    await sleep(200)
+    const hoverLook = await second.evaluate((b) => `${getComputedStyle(b).backgroundColor} ${getComputedStyle(b).color}`)
+    /* The switch, frame by frame: the old pill's fill and the new one's cross in place; the grid fades up, its box never laid out again. */
+    await p.evaluate(() => {
+      const btns = [...document.querySelectorAll("[data-themes-category]")]
+      const grid = document.querySelector("[data-themes-grid]")
+      const scroll = document.querySelector("[data-themes-scroll]")
+      window.__swap = []
+      const t0 = performance.now()
+      const tick = () => {
+        window.__swap.push({
+          t: performance.now() - t0,
+          a: getComputedStyle(btns[0]).backgroundColor,
+          b: getComputedStyle(btns[1]).backgroundColor,
+          o: +getComputedStyle(grid).opacity,
+          top: grid.offsetTop,
+          left: grid.offsetLeft,
+          scroll: [scroll.getBoundingClientRect().top, scroll.clientHeight].join(),
+          widths: btns.map((x) => Math.round(x.getBoundingClientRect().width * 10) / 10).join(),
+        })
+        if (performance.now() - t0 < 500) requestAnimationFrame(tick)
+      }
+      requestAnimationFrame(tick)
+    })
     await p.mouse.down()
-    await sleep(260)
-    const pressBg = await second.evaluate((b) => getComputedStyle(b).backgroundColor)
+    await sleep(40)
     await p.mouse.up()
-    await sleep(80)
-    const sliding = await p.evaluate(() => document.querySelector("[data-themes-category-pill]").getAnimations().length + " " + new DOMMatrix(getComputedStyle(document.querySelector("[data-themes-category-pill]")).transform).m41)
-    await sleep(300)
+    await sleep(560)
+    const swap = await p.evaluate(() => window.__swap)
     const c1 = await chips()
-    const alpha = (c) => parseFloat(c.match(/\/ ([\d.]+)\)$/)?.[1] ?? c.match(/, ([\d.]+)\)$/)?.[1] ?? "0")
-    expect(Math.abs(alpha(hoverBg) - 0.05) < 0.005 && Math.abs(alpha(pressBg) - 0.09) < 0.005, "a hover shades a chip, a press shades it more", `hover ${hoverBg}, press ${pressBg}`)
-    expect(c1.on !== "all" && c1.pillOver, "a press moves the pill to that chip", `${c1.on}, pill over it ${c1.pillOver}, mid-slide ${sliding}`)
+    const between = swap.filter((f) => f.b !== swap[0].b && f.b !== swap[swap.length - 1].b).length
+    const faded = swap.filter((f) => f.o > 0.2 && f.o < 0.99).length
+    const steady = new Set(swap.map((f) => `${f.top}|${f.left}|${f.scroll}|${f.widths}`)).size === 1
+    expect(c1.on !== "all" && /(?:, 0\)|\/ 0\)) rgb/.test(hoverLook) && /rgb\(26, 26, 46\)$/.test(hoverLook), "under a mouse a pill's words darken with no fill, and a press makes it the chosen one", `hover ${hoverLook}; chosen ${c1.on}`)
+    expect(between >= 3, "the new pill's fill eases in over several frames, in place", `${between} frames between`)
+    expect(faded >= 3 && steady, "the grid fades up into place: no box in the window, the bar or the row moves, no pill changes width", `${faded} frames fading, steady ${steady}`)
     await shot(p, "popup-1440-chips")
     await p.click("[data-themes-category='all']")
     await sleep(300)
+
+    /* The same cards are kept, the scroll goes to the top of the new list, and the grid's motion is opacity and transform. */
+    await p.evaluate(() => document.querySelector("[data-themes-scroll]").scrollTo(0, 900))
+    await sleep(80)
+    const catsNow = await p.$$eval("[data-themes-category]", (b) => b.map((x) => x.getAttribute("data-themes-category")))
+    await p.click(`[data-themes-category='${catsNow[1]}']`)
+    await sleep(30)
+    const swapMotion = await p.evaluate(() => document.querySelector("[data-themes-grid]").getAnimations().map((a) => ({ ms: a.effect.getTiming().duration, props: [...new Set(a.effect.getKeyframes().flatMap((k) => Object.keys(k)).filter((k) => !["offset", "easing", "composite", "computedOffset"].includes(k)))].sort().join() })))
+    const scrolled = await p.evaluate(() => document.querySelector("[data-themes-scroll]").scrollTop)
+    await sleep(300)
+    const kept = await p.evaluate(() => {
+      const card = document.querySelector("[data-themes-grid] [data-template-card]")
+      card.__probe = 1
+      return card.getAttribute("data-template-card")
+    })
+    await p.click("[data-themes-category='all']")
+    await sleep(300)
+    const same1 = await p.evaluate((slug) => [...document.querySelectorAll("[data-themes-grid] [data-template-card]")].find((c) => c.getAttribute("data-template-card") === slug)?.__probe === 1, kept)
+    expect(swapMotion.length === 1 && swapMotion[0].props === "opacity,transform" && swapMotion[0].ms >= 150 && swapMotion[0].ms <= 260, "another category: the grid's motion is opacity and transform, 150 to 260ms", JSON.stringify(swapMotion))
+    expect(scrolled === 0, "the new list starts at its top, not at the old list's scroll", `scrollTop ${scrolled}`)
+    expect(same1, "a card in both lists is the same element after the switch, its picture not loaded again", kept)
 
     /* ── Filter and order ──────────────────────────────────────────────── */
     const cats = await p.$$eval("[data-themes-category]", (b) => b.map((x) => x.getAttribute("data-themes-category")))
@@ -527,6 +633,49 @@ try {
     await sleep(700)
     const after = await p.evaluate(() => ({ full: !!document.querySelector("[data-library-full]") && !!document.querySelector("[role='alertdialog'], [data-app-sheet='open']"), popup: document.querySelector("[data-themes-popup]")?.getAttribute("data-state") }))
     expect(!after.full && after.popup === "open", "its Close closes the sheet alone", JSON.stringify(after))
+    await p.close()
+  }
+
+  /* ══ 2b. A template's cover in the library, from the first frame ═══════ */
+  for (const [W, H] of [[1440, 900], [390, 844]]) {
+    console.log(`\nA template's cover in the library, ${W} x ${H}\n`)
+    const p = await open("/app/website-builder?land=1&listed=1", W, H)
+    const row = (id) => p.evaluate((id) => {
+      const tr = id ? document.querySelector(`[data-install-row='${id}']`) : document.querySelector("tr[data-incoming]")
+      if (!tr) return null
+      const img = tr.querySelector("img[data-cover-stand-in], img[data-incoming-cover], img[data-cover-picture]")
+      return { img: img ? [...img.attributes].find((a) => a.name.startsWith("data-"))?.name : null, src: img?.getAttribute("src") ?? null, loaded: !!img && img.complete && img.naturalWidth > 0, o: img ? +getComputedStyle(img).opacity : 0, text: !!tr.querySelector("[data-cover-pending]") }
+    }, id)
+    /* After a reload: the draft made from Clothing on an earlier visit. */
+    await p.$eval("[data-install-row='s3']", (r) => r.scrollIntoView({ block: "center" }))
+    await sleep(500)
+    const listed = await row("s3")
+    expect(!!listed && listed.img === "data-cover-stand-in" && /cover\.svg/.test(decodeURIComponent(listed.src ?? "")) && listed.loaded && !listed.text, "a website added from a template on an earlier visit shows the template's cover, not its name on grey", JSON.stringify(listed))
+    const plain = await row("s2")
+    expect(!!plain && plain.text, "a website with no template behind it keeps its name on grey until it is photographed", JSON.stringify(plain))
+
+    await scrollToThemes(p)
+    await (W < 768 ? p.tap(openButton) : p.click(openButton))
+    await sleep(450)
+    const addSel = "[data-themes-grid] [data-template-card='fern'] :is(button, span)[data-template-action]"
+    await p.$eval(addSel, (b) => b.scrollIntoView({ block: "center" }))
+    await sleep(80)
+    await (W < 768 ? p.tap(addSel) : p.click(addSel))
+    await sleep(60)
+    const making = await row(null)
+    await sleep(400)
+    const making2 = (await row(null)) ?? (await row("new-1"))
+    expect(!!making && making.img === "data-incoming-cover" && /cover\.svg/.test(decodeURIComponent(making.src ?? "")) && !making.text, "the row being made shows the template's cover from its first frame", JSON.stringify(making))
+    expect(!!making2 && making2.loaded && making2.o === 1, "  and it is there whole a moment later", JSON.stringify(making2))
+    await (W < 768 ? p.tap("[data-themes-close]") : p.click("[data-themes-close]"))
+    await sleep(450)
+    await p.waitForSelector("[data-install-row='new-1']", { timeout: 5000 }).catch(() => null)
+    const landed = await row("new-1")
+    const incomingLeft = await row(null)
+    expect(!!landed && landed.img === "data-cover-stand-in" && /cover\.svg/.test(decodeURIComponent(landed.src ?? "")) && landed.loaded && landed.o === 1 && !landed.text && !incomingLeft, "the website that lands in its place keeps the same cover, whole, no name on grey", JSON.stringify(landed))
+    await p.$eval("[data-install-row='new-1']", (r) => r.scrollIntoView({ block: "center" }))
+    await sleep(120)
+    await shot(p, `library-cover-${W}`)
     await p.close()
   }
 

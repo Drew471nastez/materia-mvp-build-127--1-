@@ -155,7 +155,7 @@ check(
   THEME_INDUSTRIES.every((i) => THEME_REGISTRY.some((t) => t.industry === i.key)),
   THEME_INDUSTRIES.filter((i) => !THEME_REGISTRY.some((t) => t.industry === i.key)).map((i) => i.key).join(", "),
 )
-check("the limit is five websites, as asked", THEME_INSTALL_LIMIT === 5)
+check("the limit is seven websites, as asked", THEME_INSTALL_LIMIT === 7)
 check(
   "the old non-UUID theme ids are gone from the app",
   !/ebook-author-theme-001|course-creator-theme-001|designer-portfolio-theme-001/.test(
@@ -425,7 +425,7 @@ section("The page")
       !/(^|\s)group(\s|$)/.test(frame) && /pointer-fine:hover:before:bg-\[#1a1a2e\]\/\[0\.04\]/.test(frame) &&
         /focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2/.test(frame) && !/group-hover|group-focus/.test(live.slice(live.indexOf("data-cover"), live.indexOf("</button>", live.indexOf("data-cover")))))
     check("  and it is one picture: no stage, no browser window, no phone, anywhere on the page",
-      /<WebsiteCover install=\{live\} eager preparing=\{!!preparing\[live\.id\]\} \/>/.test(live) && !/CoverStage|PHONE_FRAME|ThemeCoverPair|ThemePhoneCover|snapshot_mobile_url \?/.test(client) &&
+      /* Changed on purpose (templates round 17): a website made from a template wears the template's cover until it has its own (standIn). */ /<WebsiteCover install=\{live\} eager preparing=\{!!preparing\[live\.id\]\} standIn=\{standInFor\(live, true\)\} \/>/.test(live) && !/CoverStage|PHONE_FRAME|ThemeCoverPair|ThemePhoneCover|snapshot_mobile_url \?/.test(client) &&
         !/export function CoverStage|export const PHONE_FRAME|export function ThemeCoverPair|data-cover-stage|data-cover-window|data-cover-phone/.test(read("components/website-builder/theme-cover.tsx")))
     check("  the screenshot is cut from the top, so the site's header and hero are what shows",
       /data-cover-picture=""\s*className="block h-full w-full object-cover object-top"/.test(src))
@@ -445,7 +445,7 @@ section("The page")
   check("every cover on the page is the desktop picture alone: the live card, the library rows and Browse themes",
     /* Round Z5: Browse themes' cards are drawn by components/themes/theme-card.tsx, a screenshot or the drawn desktop cover. */
     !/ThemeCoverPair|ThemePhoneCover/.test(client) && !/ThemePhoneCover/.test(read("components/themes/theme-card.tsx")) && /<ThemeCover spec=\{coverSpecFromDefinition\(def\)\} className="absolute inset-0 h-full w-full" \/>/.test(read("components/themes/theme-card.tsx")) &&
-      /<WebsiteCover install=\{i\} preparing=\{!!preparing\[i\.id\]\} \/>/.test(client))
+      /* Changed on purpose (templates round 17): the template's cover stands in until the photograph. */ /<WebsiteCover install=\{i\} preparing=\{!!preparing\[i\.id\]\} standIn=\{standInFor\(i\)\} \/>/.test(client))
   check("publishing over a live website asks first and says what happens to the old one", /Publish “\{publishing\?\.name\}”\?/.test(client) && /It replaces “\$?\{(live\.name|name)\}”/.test(client))
   check("every install action is still here: rename, duplicate, code, settings, export, publish, unpublish, delete, import, add", [
     // The file is a .storelib-theme package now, so the two labels name the
@@ -481,7 +481,7 @@ section("The page")
       /if \(data\.code === LIBRARY_FULL_CODE\) \{\s*if \(!mounted\.current\) return\s*setIncoming\(null\)\s*retryRef\.current = null\s*setFull\(kind\)/.test(client))
     /* Changed on purpose (templates round 16): an Add in the marketplace popup is the page's own make(), whose refusal opens the sheet (the check above), and the popup lets a press on that sheet through. */
     check("  the marketplace popup opens the same sheet on the server's refusal, not a toast",
-      /const addListing = [\s\S]{0,400}return make\(\s*"add"/.test(client) && /if \(e\.target !== scrim\.current\) e\.preventDefault\(\)/.test(read("app/(storelib)/app/website-builder/themes/themes-client.tsx")))
+      /* Changed on purpose (templates round 17): the listing's cover is decoded before the request, so the reach is longer. */ /const addListing = [\s\S]{0,700}return make\(\s*"add"/.test(client) && /if \(e\.target !== scrim\.current\) e\.preventDefault\(\)/.test(read("app/(storelib)/app/website-builder/themes/themes-client.tsx")))
     check("  each website in it says Live, Offline or Draft", /live \? "Live" : offline \? "Offline" : "Draft"/.test(fullDialog) && /offline: i\.id === offline\?\.id/.test(client))
   }
   {
@@ -1459,7 +1459,7 @@ section("Two at once still make five, and an import that says what went wrong")
     /before insert on public\.store_theme_installs/.test(sql) && /pg_advisory_xact_lock\(hashtextextended\('store_theme_installs:' \|\| new\.creator_id::text, 0\)\)/.test(sql) &&
       sql.indexOf("pg_advisory_xact_lock") < sql.indexOf("select count(*) into kept"))
   check("  its refusal is the code the page opens the sheet for", /raise exception 'library_full'/.test(sql) && LIBRARY_FULL_CODE === "library_full")
-  check("  the migration is the same file", read("supabase/migrations/20260928_theme_library_limit.sql") === sql)
+  check("  the latest migration is the same file", read("supabase/migrations/20271477_theme_library_limit_seven.sql") === sql)
   check("isLibraryFullError reads the database's refusal and nothing else",
     isLibraryFullError({ message: "library_full" }) && !isLibraryFullError({ message: "duplicate key" }) && !isLibraryFullError(null) && !isLibraryFullError({}))
 

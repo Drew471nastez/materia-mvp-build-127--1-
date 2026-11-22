@@ -30,6 +30,24 @@
  * the pointer leaves: a transform and nothing else, so it is the
  * compositor's work. Reduced motion: it stays where it is.
  *
+ * ONE HOVER, ONE SWITCH (templates round 17). "When the mouse leaves a card
+ * quickly, the card goes back glitchy." The slide was a CSS transition of
+ * several seconds, and a transition sent back to where it started is cut
+ * short by the browser in proportion to how far it had got (the spec's
+ * reversing shortening): a second into a nine second slide, the way back
+ * lasted a few milliseconds, a jump. The slide is now an animation of its
+ * own (the Web Animations API) from wherever the picture is to where it is
+ * going, both ways on the same in and out curve, so it starts from still
+ * and never jumps. will-change is put on only while it moves.
+ *
+ * Everything else the hover does (the deeper shadow, the faint dim and the
+ * Preview label rising) reads one attribute, data-hover on the card's cover,
+ * set by the pointer entering and leaving that box, which never moves: a
+ * child moving under the pointer cannot switch it off and on. All three run
+ * HOVER_MS on one curve both ways, on opacity and translate only. The label
+ * used to transition `transform` while Tailwind moves it with `translate`,
+ * so its rise was not animated at all, only its fade.
+ *
  * THE PICTURE IS ASKED FOR AT THE SIZE IT IS DRAWN. It goes through the
  * optimizer (lib/images/optimized-url.ts) with the widths a card can have
  * and a `sizes` that says which, and it is lazy unless the card says it is
@@ -52,6 +70,22 @@ import { SITE_PICTURE_QUALITY, isOptimizableImage, optimizedImageUrl, optimizedS
 const PAN_SPEED = 240
 const PAN_MIN_MS = 1600
 const PAN_MAX_MS = 9000
+/** The way back to the top, from wherever the picture is. scripts/check-theme-popup.mjs measures it frame by frame. */
+const PAN_BACK_MIN_MS = 420
+const PAN_BACK_MAX_MS = 900
+/** In and out: the picture starts from still and stops still, so turning round halfway never jerks. */
+const PAN_EASE = "cubic-bezier(0.37, 0, 0.25, 1)"
+
+/** The hover's shadow, dim and Preview label, the same length and curve in and out. */
+export const HOVER_MS = 240
+const HOVER_EASE = "cubic-bezier(0.33, 1, 0.68, 1)"
+const HOVER_TIMING: React.CSSProperties = { transitionDuration: `${HOVER_MS}ms`, transitionTimingFunction: HOVER_EASE }
+
+/** Where the picture is now, mid slide included. */
+function offsetOf(img: HTMLElement): number {
+  const t = getComputedStyle(img).transform
+  return t && t !== "none" ? new DOMMatrixReadOnly(t).m42 : 0
+}
 
 /** The widths a cover is ever drawn at, times two for a dense screen. All are sizes the optimizer accepts. */
 const COVER_WIDTHS = [384, 640, 750, 828, 1080]
@@ -65,7 +99,11 @@ export const TEMPLATE_CARD_SIZES = {
 export type TemplateCardState = "add" | "adding" | "in-library" | "full"
 
 const FRAME =
-  "group/frame relative block w-full overflow-hidden rounded-xl bg-[#eef0f3] text-left shadow-[0_0_0_1px_rgba(17,24,39,0.06),0_1px_2px_rgba(17,24,39,0.04),0_8px_20px_-14px_rgba(17,24,39,0.16)] outline-none transition-shadow duration-300 pointer-fine:hover:shadow-[0_0_0_1px_rgba(17,24,39,0.09),0_2px_4px_rgba(17,24,39,0.05),0_16px_32px_-16px_rgba(17,24,39,0.24)] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/30 focus-visible:ring-offset-2 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]"
+  "relative block w-full overflow-hidden rounded-xl bg-[#eef0f3] text-left shadow-[0_0_0_1px_rgba(17,24,39,0.06),0_1px_2px_rgba(17,24,39,0.04),0_8px_20px_-14px_rgba(17,24,39,0.16)] outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/30 focus-visible:ring-offset-2 [-webkit-tap-highlight-color:transparent]"
+
+/** The deeper shadow under a mouse: drawn once, behind the frame, and faded in rather than a box-shadow eased frame by frame. */
+const LIFT_SHADOW =
+  "pointer-events-none absolute inset-0 rounded-xl opacity-0 shadow-[0_0_0_1px_rgba(17,24,39,0.09),0_2px_4px_rgba(17,24,39,0.05),0_16px_32px_-16px_rgba(17,24,39,0.24)] transition-opacity motion-reduce:transition-none pointer-fine:group-data-[hover]/frame:opacity-100"
 
 /** Every state of the action shares this box: the same height, the same corners, the colour eased between them. */
 const ACTION =
@@ -176,31 +214,59 @@ export function ThemeTemplateCard({
   onAdd: () => void
   className?: string
 }) {
+  const box = React.useRef<HTMLDivElement>(null)
   const frame = React.useRef<HTMLElement | null>(null)
   const shot = React.useRef<HTMLImageElement>(null)
+  const slide = React.useRef<Animation | null>(null)
+  /** The mouse is over the cover: a blur does not take the hover away from under it. */
+  const inside = React.useRef(false)
   const [broken, setBroken] = React.useState(false)
   const picture = !broken ? (listing.cover ?? listing.screenshots[0] ?? null) : null
   const def = listing.builtinThemeId ? getThemeDefinition(listing.builtinThemeId) : null
   const lg = size === "lg"
 
+  React.useEffect(() => () => slide.current?.cancel(), [])
+
+  /* The page slides from wherever it is to the foot (on) or the top (off), never from a fixed start. */
   const pan = (on: boolean) => {
     const f = frame.current
     const img = shot.current
-    if (!f || !img) return
+    if (!f || !img || typeof img.animate !== "function") return
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
-    const distance = Math.max(0, img.getBoundingClientRect().height - f.getBoundingClientRect().height)
-    const ms = on ? Math.min(PAN_MAX_MS, Math.max(PAN_MIN_MS, (distance / PAN_SPEED) * 1000)) : Math.min(900, Math.max(450, distance / 3))
-    img.style.transitionDuration = `${Math.round(ms)}ms`
-    img.style.transform = on ? `translate3d(0, ${-Math.round(distance)}px, 0)` : "translate3d(0, 0, 0)"
+    const distance = Math.max(0, img.offsetHeight - f.clientHeight)
+    const from = offsetOf(img)
+    const to = on ? -Math.round(distance) : 0
+    slide.current?.cancel()
+    slide.current = null
+    const span = Math.abs(to - from)
+    /* Where it comes to rest; the animation below draws the way there. */
+    img.style.transform = to ? `translate3d(0, ${to}px, 0)` : ""
+    if (span < 0.5) {
+      img.style.willChange = ""
+      return
+    }
+    const ms = on
+      ? Math.min(PAN_MAX_MS, Math.max(PAN_MIN_MS, (span / PAN_SPEED) * 1000))
+      : Math.min(PAN_BACK_MAX_MS, Math.max(PAN_BACK_MIN_MS, PAN_BACK_MIN_MS + span * 0.12))
+    img.style.willChange = "transform"
+    const a = img.animate([{ transform: `translate3d(0, ${from}px, 0)` }, { transform: `translate3d(0, ${to}px, 0)` }], { duration: Math.round(ms), easing: PAN_EASE })
+    slide.current = a
+    a.onfinish = () => {
+      if (slide.current !== a) return
+      slide.current = null
+      img.style.willChange = ""
+    }
+  }
+
+  const hover = (on: boolean) => {
+    const b = box.current
+    if (!b || (on ? b.hasAttribute("data-hover") : !b.hasAttribute("data-hover"))) return
+    if (on) b.setAttribute("data-hover", "")
+    else b.removeAttribute("data-hover")
+    pan(on)
   }
 
   const frameProps = {
-    onPointerEnter: (e: React.PointerEvent) => {
-      if (e.pointerType === "mouse") pan(true)
-    },
-    onPointerLeave: (e: React.PointerEvent) => {
-      if (e.pointerType === "mouse") pan(false)
-    },
     "data-template-frame": "",
     /* The shape is the frame's own, so the line under it is where it will be before any picture has come. */
     className: cn(FRAME, lg ? "aspect-[5/4]" : "aspect-[4/3]"),
@@ -219,7 +285,7 @@ export function ThemeTemplateCard({
       draggable={false}
       onError={() => setBroken(true)}
       data-template-shot=""
-      className="absolute inset-x-0 top-0 block h-auto min-h-full w-full select-none object-cover object-top [transition-property:transform] [transition-timing-function:cubic-bezier(0.37,0,0.25,1)] will-change-transform"
+      className="absolute inset-x-0 top-0 block h-auto min-h-full w-full select-none object-cover object-top"
     />
   ) : def ? (
     <ThemeCover spec={coverSpecFromDefinition(def)} className="absolute inset-0 h-full w-full" />
@@ -229,48 +295,76 @@ export function ThemeTemplateCard({
 
   return (
     <article data-template-card={listing.slug} data-size={size} className={cn("min-w-0", className)}>
-      {onPreview ? (
-        <button
-          {...frameProps}
-          ref={(node) => {
-            frame.current = node
-          }}
-          type="button"
-          aria-haspopup="dialog"
-          aria-label={tt("Preview {name}", { name: listing.name })}
-          data-template-preview=""
-          onClick={(e) => onPreview(e.currentTarget)}
-          onFocus={() => pan(true)}
-          onBlur={() => pan(false)}
-        >
-          {cover}
-          {/* A faint dim under a mouse, so the label reads on a white page as well as a dark one. */}
-          <span aria-hidden className="pointer-events-none absolute inset-0 z-[1] bg-[#1a1a2e]/0 transition-colors duration-200 pointer-fine:group-hover/frame:bg-[#1a1a2e]/[0.05] motion-reduce:transition-none" />
-          <span
-            aria-hidden
-            data-template-hint=""
-            className={cn(
-              "pointer-events-none absolute z-[2] inline-flex items-center rounded-full bg-white/95 font-semibold text-[#1a1a2e] shadow-[0_0_0_1px_rgba(17,24,39,0.06),0_6px_16px_-6px_rgba(17,24,39,0.35)] [backface-visibility:hidden]",
-              "transition-[opacity,transform] duration-200 ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none",
-              /* A finger: always there, small, in the corner. */
-              "bottom-2.5 right-2.5 h-8 px-3 text-[12.5px]",
-              /* A mouse: centred at the foot of the cover, risen into place on hover or a key's focus. */
-              "pointer-fine:bottom-3.5 pointer-fine:left-1/2 pointer-fine:right-auto pointer-fine:h-9 pointer-fine:-translate-x-1/2 pointer-fine:translate-y-1.5 pointer-fine:px-4 pointer-fine:text-[13.5px] pointer-fine:opacity-0 pointer-fine:group-hover/frame:translate-y-0 pointer-fine:group-hover/frame:opacity-100 pointer-fine:group-focus-visible/frame:translate-y-0 pointer-fine:group-focus-visible/frame:opacity-100",
-            )}
+      {/* The box the pointer is in or not: it never moves, so nothing moving inside it can switch the hover off and on. */}
+      <div
+        ref={box}
+        data-template-cover=""
+        className="group/frame relative"
+        onPointerEnter={(e) => {
+          if (e.pointerType !== "mouse") return
+          inside.current = true
+          hover(true)
+        }}
+        onPointerLeave={(e) => {
+          if (e.pointerType !== "mouse") return
+          inside.current = false
+          hover(false)
+        }}
+      >
+        <span aria-hidden data-template-lift="" className={LIFT_SHADOW} style={HOVER_TIMING} />
+        {onPreview ? (
+          <button
+            {...frameProps}
+            ref={(node) => {
+              frame.current = node
+            }}
+            type="button"
+            aria-haspopup="dialog"
+            aria-label={tt("Preview {name}", { name: listing.name })}
+            data-template-preview=""
+            onClick={(e) => onPreview(e.currentTarget)}
+            /* A key's focus shows what a mouse's hover does; a click's focus changes nothing. */
+            onFocus={(e) => {
+              if (e.currentTarget.matches(":focus-visible")) hover(true)
+            }}
+            onBlur={() => {
+              if (!inside.current) hover(false)
+            }}
           >
-            {tt("Preview")}
-          </span>
-        </button>
-      ) : (
-        <div
-          {...frameProps}
-          ref={(node) => {
-            frame.current = node
-          }}
-        >
-          {cover}
-        </div>
-      )}
+            {cover}
+            {/* A faint dim under a mouse, so the label reads on a white page as well as a dark one. */}
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-0 z-[1] bg-[#1a1a2e]/[0.05] opacity-0 transition-opacity motion-reduce:transition-none pointer-fine:group-data-[hover]/frame:opacity-100"
+              style={HOVER_TIMING}
+            />
+            <span
+              aria-hidden
+              data-template-hint=""
+              style={HOVER_TIMING}
+              className={cn(
+                "pointer-events-none absolute z-[2] inline-flex items-center rounded-full bg-white/95 font-semibold text-[#1a1a2e] shadow-[0_0_0_1px_rgba(17,24,39,0.06),0_6px_16px_-6px_rgba(17,24,39,0.35)] [backface-visibility:hidden]",
+                "transition-[opacity,translate] motion-reduce:transition-none",
+                /* A finger: always there, small, in the corner. */
+                "bottom-2.5 right-2.5 h-8 px-3 text-[12.5px]",
+                /* A mouse: centred at the foot of the cover, risen into place on hover or a key's focus. */
+                "pointer-fine:bottom-3.5 pointer-fine:left-1/2 pointer-fine:right-auto pointer-fine:h-9 pointer-fine:-translate-x-1/2 pointer-fine:translate-y-1.5 pointer-fine:px-4 pointer-fine:text-[13.5px] pointer-fine:opacity-0 pointer-fine:group-data-[hover]/frame:translate-y-0 pointer-fine:group-data-[hover]/frame:opacity-100",
+              )}
+            >
+              {tt("Preview")}
+            </span>
+          </button>
+        ) : (
+          <div
+            {...frameProps}
+            ref={(node) => {
+              frame.current = node
+            }}
+          >
+            {cover}
+          </div>
+        )}
+      </div>
 
       <div className={cn("flex items-center justify-between gap-3", lg ? "mt-3.5" : "mt-3")}>
         <div className="min-w-0">
