@@ -844,6 +844,8 @@ const SUITES = [
   "tests/sold-count25.test.ts",
   "tests/compat-files25.test.ts",
   "tests/notify-engine.test.ts",
+  /* Round 57 (e4): every commerce message through the real code, stubbed at the network edge (fetch for PostgREST and Mailgun, firebase-admin's send): the engine's new push channel once per job and retry, preferences and required notices, the sale and order event pushes, the FCM v1 message for iOS and Android, tap targets, Log out taking the phone's token off, every engine email's parts and links; scripts/check-notify-e2e-r57.mjs is the phone's side in Chromium. */
+  "tests/notify-e2e-r57.test.ts",
   "tests/notify-webhook.test.ts",
   "tests/rich-text.test.ts",
   "tests/upload-security.test.ts",

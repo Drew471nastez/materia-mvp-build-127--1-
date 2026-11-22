@@ -203,7 +203,8 @@ function seedTables() {
   T("orders").push({ id: ORDER, checkout_id: CHECKOUT, creator_id: CREATOR, created_at: "2026-11-01T10:00:00Z" })
 }
 
-const fcm = (globalThis as unknown as { __fcm: { sent: any[]; refuse: Set<string> } }).__fcm = { sent: [], refuse: new Set() } // eslint-disable-line @typescript-eslint/no-explicit-any
+const fcm: { sent: any[]; refuse: Set<string> } = { sent: [], refuse: new Set() } // eslint-disable-line @typescript-eslint/no-explicit-any
+;(globalThis as unknown as { __fcm: typeof fcm }).__fcm = fcm
 /* next/server's after() in this harness hands its task here (scripts/push-test-loader.mjs); settle() runs them as Next does once a response has gone. */
 const afterTasks: (() => unknown)[] = []
 ;(globalThis as unknown as { __PUSH_TEST_AFTER__: (t: () => unknown) => void }).__PUSH_TEST_AFTER__ = (t) => void afterTasks.push(t)
