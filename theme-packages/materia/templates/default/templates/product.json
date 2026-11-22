@@ -107,7 +107,7 @@
           "type": "variant_picker",
           "settings": {
             "variant_type": "swatches",
-            "show_size_guide": true,
+            "show_size_guide": false,
             "size_guide_page": "",
             "size_guide_label": "Size guide",
             "picker_text_hover": "#0f0f0f",
@@ -169,8 +169,8 @@
           "type": "collapsible_row",
           "settings": {
             "open": true,
-            "content": "<p>Prints and paper goods are sent tracked within three working days. Downloads and the course arrive by email the moment you pay.</p>",
-            "heading": "How it reaches you",
+            "content": "<p>Physical items leave the studio within two working days, sent tracked. Downloads arrive by email the moment you pay.</p>",
+            "heading": "Delivery",
             "use_product_description": false
           }
         },
@@ -178,7 +178,7 @@
           "type": "collapsible_row",
           "settings": {
             "open": false,
-            "content": "<p>Physical items can come back unused within 30 days. Downloads and the course can be refunded within 14 days if you have not opened them.</p>",
+            "content": "<p>Send anything physical back unused within 30 days. Downloads can be refunded within 14 days if you have not opened them.</p>",
             "heading": "Returns",
             "use_product_description": false
           }
@@ -252,31 +252,31 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "From the studio, either way"
+            "text": "How we work"
           }
         },
         "column_2": {
           "type": "column",
           "settings": {
-            "label": "Physical",
-            "heading": "Packed by hand",
-            "text": "<p>Flat or rolled, wrapped in paper, sent tracked.</p>"
+            "label": "Made",
+            "heading": "In small runs",
+            "text": "<p>Fifty to a few hundred of each, from workshops we know.</p>"
           }
         },
         "column_3": {
           "type": "column",
           "settings": {
-            "label": "Digital",
-            "heading": "Yours straight away",
-            "text": "<p>A download link by email, and again in your account.</p>"
+            "label": "Sent",
+            "heading": "Within two days",
+            "text": "<p>Packed in paper and card, sent tracked. Downloads arrive straight away.</p>"
           }
         },
         "column_4": {
           "type": "column",
           "settings": {
             "label": "Help",
-            "heading": "A real reply",
-            "text": "<p>Write any time. I answer within two working days.</p>"
+            "heading": "From a person",
+            "text": "<p>Write with any question and one of us replies, usually the same day.</p>"
           }
         }
       },
@@ -304,13 +304,13 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "More from the studio"
+            "text": "You may also like"
           }
         },
         "button_2": {
           "type": "button",
           "settings": {
-            "text": "See everything",
+            "text": "Shop all",
             "link": "/collections/all"
           }
         }

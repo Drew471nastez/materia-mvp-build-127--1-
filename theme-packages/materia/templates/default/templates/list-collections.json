@@ -27,8 +27,8 @@
         "description_tLPCVn": {
           "type": "description",
           "settings": {
-            "description": "<p>Prints, paper goods, downloads and the course, each in its own place.</p>",
-            "description_color": "#6b6b70",
+            "description": "<p>Everything we make, sorted into collections.</p>",
+            "description_color": "#6b6b6b",
             "enable_custom_style": true,
             "description_font_size": 15
           }

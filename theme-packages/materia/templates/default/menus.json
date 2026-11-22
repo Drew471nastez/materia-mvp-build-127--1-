@@ -11,7 +11,7 @@
         "url": "/pages/about"
       },
       {
-        "title": "Questions",
+        "title": "Help",
         "url": "/pages/faqs"
       },
       {
@@ -24,11 +24,11 @@
     "title": "Footer",
     "links": [
       {
-        "title": "Shipping and downloads",
+        "title": "Shipping and returns",
         "url": "/pages/shipping"
       },
       {
-        "title": "Questions",
+        "title": "Help",
         "url": "/pages/faqs"
       },
       {

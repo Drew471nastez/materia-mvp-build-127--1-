@@ -12,7 +12,7 @@
         "heading_6nj4md": {
           "type": "heading",
           "settings": {
-            "heading": "Nothing printed here",
+            "heading": "Page not found",
             "font_size": 44,
             "uppercase": false,
             "font_weight": "heading_weight",
@@ -24,7 +24,7 @@
           "settings": {
             "font_size": 15,
             "uppercase": false,
-            "subheading": "This link may be old, or the page has moved. Everything in the shop is one click away.",
+            "subheading": "The link may be old, or the page has moved. Everything we sell is one click away.",
             "font_weight": "body_weight",
             "spacing_bottom": 40
           }
@@ -36,7 +36,7 @@
             "spacing_bottom": 0,
             "first_button_link": "/collections/all",
             "first_button_type": "primary",
-            "first_button_label": "Back to the shop"
+            "first_button_label": "Shop all"
           }
         }
       },

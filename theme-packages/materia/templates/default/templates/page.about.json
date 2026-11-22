@@ -7,10 +7,10 @@
         "section_width": "container",
         "image_position": "right",
         "image": "shopify://shop_images/default-studio.webp",
-        "image_alt": "The print room, with a press, shelves of paper and drawers of type",
+        "image_alt": "A wooden work table and a stool in the studio",
         "aspect_w": 4,
         "aspect_h": 5,
-        "image_radius": 4,
+        "image_radius": 6,
         "padding_top_desktop": 72,
         "padding_bottom_desktop": 72
       },
@@ -24,7 +24,7 @@
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Hi, I'm Juno",
+            "text": "We make a few good things",
             "tag": "h1",
             "size_desktop": 56,
             "size_mobile": 36
@@ -33,13 +33,13 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>I started printing at my kitchen table with a sponge and a spoon. Ten years later it is a small room with a proper press, and it is still just me in it.</p><p>Everything here starts as a drawing. Some drawings become prints and totes, some become brushes and wallpapers you can download, and the way I make all of them is in the course.</p>"
+            "text": "<p>Arden started in 2019 with one mug we could not find anywhere else. Now it is three of us in a small studio, making the things we use every day: something to drink from, something to carry, something to write in.</p><p>We keep the range short and the runs small, and we would rather make one thing well than ten things quickly.</p>"
           }
         },
         "button_4": {
           "type": "button",
           "settings": {
-            "label": "Shop everything",
+            "label": "Shop all",
             "link": "/collections/all"
           }
         }
@@ -61,31 +61,31 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "How the work gets made"
+            "text": "How we work"
           }
         },
         "column_2": {
           "type": "column",
           "settings": {
-            "label": "Drawn",
-            "heading": "On paper first",
-            "text": "<p>Every design starts as a pencil drawing, then gets cut into a block.</p>"
+            "label": "Designed",
+            "heading": "Here, by us",
+            "text": "<p>Every piece starts on the studio table and goes through a few rounds of samples.</p>"
           }
         },
         "column_3": {
           "type": "column",
           "settings": {
-            "label": "Printed",
-            "heading": "One colour at a time",
-            "text": "<p>Small editions on heavy cotton paper, signed and numbered.</p>"
+            "label": "Made",
+            "heading": "In small runs",
+            "text": "<p>By workshops we know and visit, in batches of fifty to a few hundred.</p>"
           }
         },
         "column_4": {
           "type": "column",
           "settings": {
-            "label": "Shared",
-            "heading": "Files and lessons",
-            "text": "<p>The same shapes become brushes, wallpapers and the course.</p>"
+            "label": "Sent",
+            "heading": "By the same hands",
+            "text": "<p>We pack every order ourselves, in paper and card, within two working days.</p>"
           }
         }
       },
@@ -102,11 +102,11 @@
         "color_scheme": "default",
         "section_width": "container",
         "image_position": "left",
-        "image": "shopify://shop_images/default-press.webp",
-        "image_alt": "A gloved hand lays a sheet on an inked block at the press",
+        "image": "shopify://shop_images/default-mug-still.webp",
+        "image_alt": "A white mug on a white table",
         "aspect_w": 4,
-        "aspect_h": 5,
-        "image_radius": 4,
+        "aspect_h": 3,
+        "image_radius": 6,
         "padding_top_desktop": 72,
         "padding_bottom_desktop": 96
       },
@@ -114,25 +114,25 @@
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "Visits"
+            "text": "Say hello"
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Come and see the press"
+            "text": "Questions, ideas, wholesale"
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>The studio opens on the first Saturday of each month. Write first and I will tell you where to find it.</p>"
+            "text": "<p>We read everything that comes in and reply within a working day.</p>"
           }
         },
         "button_4": {
           "type": "button",
           "settings": {
-            "label": "Write to me",
+            "label": "Contact us",
             "link": "/pages/contact"
           }
         }

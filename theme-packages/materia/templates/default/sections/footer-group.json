@@ -6,18 +6,18 @@
       "type": "footer",
       "settings": {
         "custom_text": "",
-        "padding_top": 64,
+        "padding_top": 72,
         "show_social": false,
-        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
         "custom_image": "",
         "reset_spacing": true,
         "section_width": "fluid_container",
         "copyright_text": "© {{ 'now' | date: '%Y' }} {{ shop.name }}",
         "heading_weight": "600",
-        "padding_bottom": 28,
+        "padding_bottom": 32,
         "separator_line": "all-page",
         "arrow_icon_size": 14,
-        "link_hover_color": "#d9432b",
+        "link_hover_color": "#2b44a8",
         "heading_transform": "none",
         "custom_text_italic": false,
         "custom_elements_gap": 22,
@@ -36,15 +36,15 @@
         "store_info_1": {
           "type": "store_info",
           "settings": {
-            "show_logo": true,
+            "show_logo": false,
             "top_offset": 0,
             "image_width": 110,
             "store_email": true,
             "store_phone": false,
             "content_width": "34%",
             "store_address": false,
-            "store_heading": "",
-            "store_description": "<p>Hand printed posters and paper goods, Procreate brushes, phone wallpapers and a course on printmaking. All made in one small studio.</p>"
+            "store_heading": "Arden",
+            "store_description": "<p>Everyday goods and a few things to download, made in small batches by a small studio.</p>"
           }
         },
         "link_list_1": {

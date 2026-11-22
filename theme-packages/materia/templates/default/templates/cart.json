@@ -56,8 +56,8 @@
         "faq_1": {
           "type": "faq",
           "settings": {
-            "question": "When will physical items ship?",
-            "answer": "<p>Within three working days, tracked. You get the tracking link by email.</p>"
+            "question": "When will my order ship?",
+            "answer": "<p>Within two working days, tracked. The tracking link comes by email.</p>"
           }
         },
         "faq_2": {
@@ -71,7 +71,7 @@
           "type": "faq",
           "settings": {
             "question": "Is checkout secure?",
-            "answer": "<p>Yes. Payment is handled by the payment provider, and your card details never reach the studio.</p>"
+            "answer": "<p>Yes. Payment is handled by the payment provider, and your card details never reach us.</p>"
           }
         },
         "payment_badges_67Mgyc": {

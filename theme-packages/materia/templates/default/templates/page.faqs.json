@@ -5,10 +5,10 @@
       "settings": {
         "color_scheme": "default",
         "section_width": "container",
-        "tab_1_label": "Orders and shipping",
+        "tab_1_label": "Orders and delivery",
         "tab_2_label": "Downloads",
-        "tab_3_label": "The course",
-        "tab_4_label": "Returns",
+        "tab_3_label": "Returns",
+        "tab_4_label": "Your account",
         "open_first": true,
         "header_align": "left",
         "padding_top_desktop": 72,
@@ -18,22 +18,22 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Questions",
+            "text": "Help",
             "tag": "h1"
           }
         },
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Pick a topic. If your question is not here, <a href=\"/pages/contact\">write to me</a>.</p>"
+            "text": "<p>Pick a topic. If your question is not here, <a href=\"/pages/contact\">write to us</a>.</p>"
           }
         },
         "faq_item_3": {
           "type": "faq_item",
           "settings": {
             "tab": "1",
-            "question": "When will my print arrive?",
-            "answer": "<p>Prints and paper goods leave the studio within three working days, packed flat or rolled in a tube, with tracking. Most parcels arrive within a week.</p>"
+            "question": "When will my order arrive?",
+            "answer": "<p>We pack orders within two working days and send them tracked. Most arrive three to five days later.</p>"
           }
         },
         "faq_item_4": {
@@ -41,15 +41,15 @@
           "settings": {
             "tab": "1",
             "question": "Do you ship abroad?",
-            "answer": "<p>Yes, to most countries. The delivery price for yours is shown at checkout before you pay. Downloads and the course work anywhere.</p>"
+            "answer": "<p>To most countries. You see the delivery price for yours at checkout, before you pay.</p>"
           }
         },
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
             "tab": "1",
-            "question": "How are prints packed?",
-            "answer": "<p>Small prints go flat between card. Large prints are rolled in a tube with tissue. Totes and sketch pads go in a paper mailer.</p>"
+            "question": "Can I change my order?",
+            "answer": "<p>Write to us within a few hours of ordering and we will change it before it is packed.</p>"
           }
         },
         "faq_item_6": {
@@ -57,55 +57,47 @@
           "settings": {
             "tab": "2",
             "question": "How do I get a download?",
-            "answer": "<p>Brushes, wallpapers and other files arrive as a download link by email the moment you pay. The link stays in your account, so you can download again on a new device.</p>"
+            "answer": "<p>The download link appears on the confirmation page and in your receipt email as soon as you pay. It also stays in your account.</p>"
           }
         },
         "faq_item_7": {
           "type": "faq_item",
           "settings": {
             "tab": "2",
-            "question": "Which apps do the brushes work in?",
-            "answer": "<p>Procreate on iPad. Each set says which version it needs on its page.</p>"
+            "question": "Can I download it again?",
+            "answer": "<p>Yes. Sign in to your account and download it as often as you need, on any device.</p>"
           }
         },
         "faq_item_8": {
           "type": "faq_item",
           "settings": {
             "tab": "2",
-            "question": "Can I use the files for my own work?",
-            "answer": "<p>Yes, for anything you make and sell yourself. You cannot resell or share the files as they are.</p>"
+            "question": "Can I share or resell the files?",
+            "answer": "<p>They are for your own use. Please do not share or resell them as they are.</p>"
           }
         },
         "faq_item_9": {
           "type": "faq_item",
           "settings": {
             "tab": "3",
-            "question": "How long can I watch the course?",
-            "answer": "<p>The course is yours once you pay: every lesson, as often as you like, including lessons added later.</p>"
+            "question": "Can I return something?",
+            "answer": "<p>Send anything physical back unused within 30 days for a full refund. Downloads can be refunded within 14 days if you have not opened them.</p>"
           }
         },
         "faq_item_10": {
           "type": "faq_item",
           "settings": {
             "tab": "3",
-            "question": "What do I need to start?",
-            "answer": "<p>A lino block, a cutting tool, a roller, block printing ink and paper. The first lesson lists all of it, with prices.</p>"
+            "question": "Something arrived damaged",
+            "answer": "<p>Send us a photo and your order number and we will send a new one.</p>"
           }
         },
         "faq_item_11": {
           "type": "faq_item",
           "settings": {
             "tab": "4",
-            "question": "Can I return something?",
-            "answer": "<p>Send a print or paper item back unused within 30 days for a full refund. Downloads and the course can be refunded within 14 days if you have not opened them.</p>"
-          }
-        },
-        "faq_item_12": {
-          "type": "faq_item",
-          "settings": {
-            "tab": "4",
-            "question": "My print arrived damaged",
-            "answer": "<p>Send a photo with your order number and I will print and send a new one.</p>"
+            "question": "Do I need an account to order?",
+            "answer": "<p>No. You can check out as a guest. An account keeps your orders and downloads in one place.</p>"
           }
         }
       },
@@ -120,8 +112,7 @@
         "faq_item_8",
         "faq_item_9",
         "faq_item_10",
-        "faq_item_11",
-        "faq_item_12"
+        "faq_item_11"
       ]
     }
   },

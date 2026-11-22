@@ -26,7 +26,7 @@
         "description_YRWpkt": {
           "type": "description",
           "settings": {
-            "description": "<p>Notes from the studio: new editions, work in progress and how a print gets made.</p>",
+            "description": "<p>Notes from the studio: new things, how they are made and what we are working on next.</p>",
             "enable_custom_style": false,
             "description_font_size": 16
           }
