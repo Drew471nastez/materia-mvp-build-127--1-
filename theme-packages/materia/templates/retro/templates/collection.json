@@ -1,5 +1,35 @@
 {
   "sections": {
+    "main-collection-heading": {
+      "type": "main-collection-heading",
+      "settings": {
+        "height": "adapt",
+        "alignment": "left",
+        "padding_top": 24,
+        "color_scheme": "default",
+        "reset_spacing": true,
+        "section_width": "fluid_container",
+        "padding_bottom": 8,
+        "show_collection_image": false
+      },
+      "name": "main-collection-heading",
+      "blocks": {
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "header_size": "default"
+          }
+        },
+        "description": {
+          "type": "description",
+          "settings": {}
+        }
+      },
+      "block_order": [
+        "heading",
+        "description"
+      ]
+    },
     "main-collection-product": {
       "type": "main-collection-product",
       "settings": {
@@ -65,6 +95,7 @@
     }
   },
   "order": [
+    "main-collection-heading",
     "main-collection-product",
     "newsletter"
   ]

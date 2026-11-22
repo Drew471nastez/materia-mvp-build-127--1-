@@ -127,6 +127,7 @@ Retro desktop: products in a file window, a menu line, an address bar,
   .r98-ok__row .r98-ico { width: 40px; height: 40px; flex: none; }
   .r98-ok__text { margin: 4px 0 0; font-size: 15px; line-height: 1.5; }
   .r98-ok__acts { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; flex-wrap: wrap; }
+  .r98-ok.is-error [data-r98-ok-cart] { display: none; }
   .r98-more { display: flex; justify-content: center; padding: 14px 0 6px; }
   @media (prefers-reduced-motion: reduce) { .r98-dlg[open] .r98-win { animation: none; } .r98-file__pic img { transition: none; } }
 </style>
@@ -198,11 +199,11 @@ Retro desktop: products in a file window, a menu line, an address bar,
   </dialog>
   <dialog class="r98-dlg r98-ok" data-r98-ok aria-labelledby="R98OkTitle-{{ sid }}">
     <div class="r98-win">
-      <div class="r98-bar"><svg class="r98-ico" viewBox="0 0 16 16" width="16" height="16" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path fill="#000000" d="M0 1h3v1H0zM1 2h2v1H1zM2 3h13v1H2zM2 4h1v1H2zM13 4h1v1H13zM2 5h1v1H2zM4 5h1v1H4zM6 5h1v1H6zM8 5h1v1H8zM10 5h1v1H10zM13 5h1v1H13zM3 6h1v1H3zM12 6h1v1H12zM3 7h2v1H3zM6 7h1v1H6zM8 7h1v1H8zM10 7h3v1H10zM4 8h1v1H4zM11 8h1v1H11zM4 9h8v1H4zM5 10h1v1H5zM10 10h1v1H10zM4 11h10v1H4zM4 13h2v1H4zM10 13h2v1H10zM3 14h1v1H3zM6 14h1v1H6zM9 14h1v1H9zM12 14h1v1H12zM4 15h2v1H4zM10 15h2v1H10z"/><path fill="#ffffff" d="M3 4h10v1H3zM3 5h1v1H3zM5 5h1v1H5zM7 5h1v1H7zM9 5h1v1H9zM11 5h2v1H11zM4 6h8v1H4zM5 7h1v1H5zM7 7h1v1H7zM9 7h1v1H9zM5 8h6v1H5z"/><path fill="#808080" d="M4 14h2v1H4zM10 14h2v1H10z"/></svg><span class="r98-bar__title" id="R98OkTitle-{{ sid }}">{{ st.added_title | default: 'Added to cart' | escape }}</span><span class="r98-bar__btns"><button class="r98-ctl" type="button" data-r98-dismiss aria-label="Close"><svg viewBox="0 0 10 10" aria-hidden="true" focusable="false"><path d="M1 1h2v1h1v1h2V2h1V1h2v2H8v1H7v2h1v1h1v2H7V8H6V7H4v1H3v1H1V7h1V6h1V4H2V3H1z" fill="currentColor"/></svg></button></span></div>
+      <div class="r98-bar"><svg class="r98-ico" viewBox="0 0 16 16" width="16" height="16" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path fill="#000000" d="M0 1h3v1H0zM1 2h2v1H1zM2 3h13v1H2zM2 4h1v1H2zM13 4h1v1H13zM2 5h1v1H2zM4 5h1v1H4zM6 5h1v1H6zM8 5h1v1H8zM10 5h1v1H10zM13 5h1v1H13zM3 6h1v1H3zM12 6h1v1H12zM3 7h2v1H3zM6 7h1v1H6zM8 7h1v1H8zM10 7h3v1H10zM4 8h1v1H4zM11 8h1v1H11zM4 9h8v1H4zM5 10h1v1H5zM10 10h1v1H10zM4 11h10v1H4zM4 13h2v1H4zM10 13h2v1H10zM3 14h1v1H3zM6 14h1v1H6zM9 14h1v1H9zM12 14h1v1H12zM4 15h2v1H4zM10 15h2v1H10z"/><path fill="#ffffff" d="M3 4h10v1H3zM3 5h1v1H3zM5 5h1v1H5zM7 5h1v1H7zM9 5h1v1H9zM11 5h2v1H11zM4 6h8v1H4zM5 7h1v1H5zM7 7h1v1H7zM9 7h1v1H9zM5 8h6v1H5z"/><path fill="#808080" d="M4 14h2v1H4zM10 14h2v1H10z"/></svg><span class="r98-bar__title" id="R98OkTitle-{{ sid }}" data-r98-ok-title>{{ st.added_title | default: 'Added to cart' | escape }}</span><span class="r98-bar__btns"><button class="r98-ctl" type="button" data-r98-dismiss aria-label="Close"><svg viewBox="0 0 10 10" aria-hidden="true" focusable="false"><path d="M1 1h2v1h1v1h2V2h1V1h2v2H8v1H7v2h1v1h1v2H7V8H6V7H4v1H3v1H1V7h1V6h1V4H2V3H1z" fill="currentColor"/></svg></button></span></div>
       <div class="r98-body">
         <div class="r98-ok__row"><svg class="r98-ico" viewBox="0 0 16 16" width="40" height="40" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path fill="#000000" d="M5 1h6v1H5zM3 2h2v1H3zM11 2h2v1H11zM2 3h1v1H2zM13 3h1v1H13zM1 4h1v1H1zM14 4h1v1H14zM1 5h1v1H1zM5 5h1v1H5zM10 5h1v1H10zM14 5h1v1H14zM0 6h1v1H0zM5 6h1v1H5zM10 6h1v1H10zM15 6h1v1H15zM0 7h1v1H0zM15 7h1v1H15zM0 8h1v1H0zM15 8h1v1H15zM0 9h1v1H0zM3 9h1v1H3zM12 9h1v1H12zM15 9h1v1H15zM1 10h1v1H1zM4 10h1v1H4zM11 10h1v1H11zM14 10h1v1H14zM1 11h1v1H1zM5 11h6v1H5zM14 11h1v1H14zM2 12h1v1H2zM13 12h1v1H13zM3 13h2v1H3zM11 13h2v1H11zM5 14h6v1H5z"/><path fill="#ffd84a" d="M5 2h6v1H5zM3 3h10v1H3zM2 4h12v1H2zM2 5h3v1H2zM6 5h4v1H6zM11 5h3v1H11zM1 6h4v1H1zM6 6h4v1H6zM11 6h4v1H11zM1 7h14v1H1zM1 8h14v1H1zM1 9h2v1H1zM4 9h8v1H4zM13 9h2v1H13zM2 10h2v1H2zM5 10h6v1H5zM12 10h2v1H12zM2 11h3v1H2zM11 11h3v1H11zM3 12h10v1H3zM5 13h6v1H5z"/></svg><p class="r98-ok__text" data-r98-ok-text></p></div>
         <div class="r98-ok__acts">
-          <a class="r98-btn r98-btn--default" href="{{ routes.cart_url }}">{{ st.view_cart_label | default: 'View cart' | escape }}</a>
+          <a class="r98-btn r98-btn--default" href="{{ routes.cart_url }}" data-r98-ok-cart>{{ st.view_cart_label | default: 'View cart' | escape }}</a>
           <button class="r98-btn" type="button" data-r98-dismiss>{{ st.keep_label | default: 'Keep shopping' | escape }}</button>
         </div>
       </div>
@@ -263,7 +264,7 @@ Retro desktop: products in a file window, a menu line, an address bar,
     if (!root || root.__shop) return; root.__shop = true;
     var qv = root.querySelector('[data-r98-qv]'), ok = root.querySelector('[data-r98-ok]');
     var fmt = root.getAttribute('data-money') || ('$' + '{' + '{amount}' + '}');
-    var words = { added: {{ st.added_text | default: '[product] is in your cart.' | json }}, sold: {{ st.unavailable_label | default: 'That one is sold out.' | json }}, err: {{ st.error_label | default: 'That did not work. Try again.' | json }} };
+    var words = { added: {{ st.added_text | default: '[product] is in your cart.' | json }}, sold: {{ st.unavailable_label | default: 'That one is sold out.' | json }}, err: {{ st.error_label | default: 'That did not work. Try again.' | json }}, addedTitle: {{ st.added_title | default: 'Added to cart' | json }}, errTitle: {{ st.error_title | default: 'Not added' | json }} };
     function money(c) { var a = (Number(c) || 0) / 100; return fmt.replace(/\{\{\s*(\w+)\s*\}\}/, function (_, k) { return /no_decimals/.test(k) ? String(Math.round(a)) : /comma/.test(k) ? a.toFixed(2).replace('.', ',') : a.toFixed(2); }); }
     function show(d) { if (d.showModal) { if (!d.open) d.showModal(); } else d.setAttribute('open', ''); }
     function hide(d) { if (d.close && d.open) d.close(); else d.removeAttribute('open'); }
@@ -307,15 +308,24 @@ Retro desktop: products in a file window, a menu line, an address bar,
     function add(v, qty, title, btn) {
       if (btn) btn.disabled = true;
       return fetch('/cart/add.js', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ items: [{ id: v.id, quantity: qty }] }) })
-        .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+        .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) { var e = new Error(r.status); e.say = j && (j.description || j.message); throw e; } return j; }); })
         .then(function () {
           hide(qv);
           var name = title + (v.title && v.title !== 'Default Title' ? ' (' + v.title + ')' : '');
+          ok.classList.remove('is-error');
+          ok.querySelector('[data-r98-ok-title]').textContent = words.addedTitle;
           ok.querySelector('[data-r98-ok-text]').textContent = words.added.replace('[product]', name);
           show(ok);
           document.dispatchEvent(new CustomEvent('r98:cart')); document.dispatchEvent(new CustomEvent('cart:refresh', { detail: { source: 'retro-shop' } }));
         })
-        .catch(function () { var m = qv.querySelector('[data-r98-qv-msg]'); if (qv.open) m.textContent = words.err; else alert(words.err); })
+        .catch(function (e) {
+          var say = (e && e.say) || words.err;
+          if (qv.open) { qv.querySelector('[data-r98-qv-msg]').textContent = say; return; }
+          ok.classList.add('is-error');
+          ok.querySelector('[data-r98-ok-title]').textContent = words.errTitle;
+          ok.querySelector('[data-r98-ok-text]').textContent = say;
+          show(ok);
+        })
         .then(function () { if (btn) btn.disabled = false; });
     }
     root.querySelectorAll('.r98-file').forEach(function (li) {
@@ -560,6 +570,12 @@ Retro desktop: products in a file window, a menu line, an address bar,
       "id": "error_label",
       "label": "When adding fails",
       "default": "That did not work. Try again."
+    },
+    {
+      "type": "text",
+      "id": "error_title",
+      "label": "Title when adding fails",
+      "default": "Not added"
     },
     {
       "type": "text",

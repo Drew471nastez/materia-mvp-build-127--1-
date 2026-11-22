@@ -1,5 +1,42 @@
 {
   "sections": {
+    "heading": {
+      "type": "page-heading",
+      "settings": {
+        "height": "adapt",
+        "alignment": "left",
+        "padding_top": 28,
+        "color_scheme": "",
+        "reset_spacing": true,
+        "section_width": "container",
+        "padding_bottom": 8,
+        "overlay_opacity": 0
+      },
+      "blocks": {
+        "heading_xwFKKa": {
+          "type": "heading",
+          "settings": {
+            "page_title": "",
+            "header_size": "medium",
+            "vertical_gap": 14,
+            "heading_font_size": 36,
+            "enable_heading_color": false
+          }
+        },
+        "description_YRWpkt": {
+          "type": "description",
+          "settings": {
+            "description": "<p>How the prints are drawn, printed and packed.</p>",
+            "enable_custom_style": false,
+            "description_font_size": 16
+          }
+        }
+      },
+      "block_order": [
+        "heading_xwFKKa",
+        "description_YRWpkt"
+      ]
+    },
     "main": {
       "type": "main-blog",
       "settings": {
@@ -41,6 +78,7 @@
     }
   },
   "order": [
+    "heading",
     "main"
   ]
 }
