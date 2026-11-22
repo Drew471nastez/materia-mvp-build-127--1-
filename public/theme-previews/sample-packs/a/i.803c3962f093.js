@@ -1,7 +1,7 @@
 
   /* The sample players (samples-audio-tracks, samples-pack-cards, samples-release-hero): one copy runs, whichever section loads first. */
   (function () {
-    var V = 3;
+    var V = 4;
     if (window.__ssp && window.__ssp.v >= V) { window.__ssp.scan(); return; }
     var current = null, N = 120, KEY = 'ssp-peaks:', reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
     function fmt(t) { if (!isFinite(t) || t < 0) t = 0; var m = Math.floor(t / 60), s = Math.floor(t % 60); return m + ':' + (s < 10 ? '0' : '') + s; }
@@ -77,15 +77,27 @@
       }
       btn.addEventListener('click', function () { if (!audio || audio.paused) play(-1); else audio.pause(); });
       function at(x) { var r = wave.getBoundingClientRect(); return r.width ? Math.max(0, Math.min(1, (x - r.left) / r.width)) : 0; }
+      function seekable() { var r = audio.seekable; return r && r.length > 0 && r.end(r.length - 1) > 0; }
+      /* A server that does not answer range requests gives a file the browser cannot seek in: fetch it whole once (a preview is small) and play it from memory. */
+      function rescue(f) {
+        pending = f; el.style.setProperty('--ssp-p', (f * 100).toFixed(2) + '%');
+        if (el.__rescued || !window.fetch || !window.URL) return; el.__rescued = true;
+        var going = !audio.paused; el.classList.add('is-loading');
+        fetch(src, { credentials: 'same-origin' }).then(function (r) { if (!r.ok) throw new Error('fetch'); return r.blob(); }).then(function (blob) {
+          audio.src = URL.createObjectURL(blob); audio.load(); if (going) audio.play().catch(function () {});
+        }).catch(function () { el.classList.remove('is-loading'); });
+      }
       function seek(f) {
         if (!audio || audio.readyState < 1 || !audio.duration) { play(f); return; }
-        audio.currentTime = f * audio.duration; el.classList.add('is-started'); paint(true);
+        el.classList.add('is-started');
+        if (!seekable()) { rescue(f); return; }
+        audio.currentTime = f * audio.duration; paint(true);
       }
       wave.addEventListener('pointerdown', function (e) { if (e.button > 0) return; dragging = true; try { wave.setPointerCapture(e.pointerId); } catch (x) {} seek(at(e.clientX)); });
       wave.addEventListener('pointermove', function (e) {
         var f = at(e.clientX);
         if (e.pointerType === 'mouse') el.style.setProperty('--ssp-h', (f * 100).toFixed(2) + '%');
-        if (dragging && audio && audio.duration) { audio.currentTime = f * audio.duration; paint(); }
+        if (dragging && audio && audio.duration) { if (seekable()) { audio.currentTime = f * audio.duration; paint(); } else rescue(f); }
       });
       function stop() { dragging = false; }
       wave.addEventListener('pointerup', stop); wave.addEventListener('pointercancel', stop); wave.addEventListener('lostpointercapture', stop);

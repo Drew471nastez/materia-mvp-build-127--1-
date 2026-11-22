@@ -27,15 +27,14 @@
           "settings": {
             "eyebrow": "Master Bundle 2025",
             "heading": "Tech House Master Bundle 2025",
-            "title": "Tech House Master Bundle 2025",
+            "title": "Tech House Sample Pack, Master Bundle 2025",
             "image": "shopify://shop_images/samples-box-tech-house-master-bundle.webp",
             "text": "Over 1,000 tech house sounds in one download: drums, loops, bass, vocals, FX and Serum presets. 1.7 GB unzipped.",
             "button_label": "Get the pack",
             "audio": "shopify://shop_images/samples-demo-tech-house-master-bundle.mp4",
             "track_title": "Groove loop, Tech House Master Bundle 2025",
-            "length": "0:08",
-            "peaks": "99,60,50,90,77,55,78,87,70,53,92,76,66,71,71,60,52,89,70,79,78,85,73,63,84,76,51,68,68,61,49,92,72,53,83,90,67,52,84,72,68,70,68,58,46,100,59,80,84,84,75,61,84,77,51,69,66,56,46,88,68,42,89,84,62,49,94,67,63,71,65,56,44,89,77,78,85,81,76,58,85,60,42,68,64,55,64,89,65,43,88,84,60,61,90,66,62,71,65,55,90,90,80,62,84,78,71,83,84,61,42,1,0,0,0,0,0,0,0,0",
-            "pack_product": "tech-house-sample-pack-master-bundle-2025"
+            "seconds": 8,
+            "peaks": "99,60,50,90,77,55,78,87,70,53,92,76,66,71,71,60,52,89,70,79,78,85,73,63,84,76,51,68,68,61,49,92,72,53,83,90,67,52,84,72,68,70,68,58,46,100,59,80,84,84,75,61,84,77,51,69,66,56,46,88,68,42,89,84,62,49,94,67,63,71,65,56,44,89,77,78,85,81,76,58,85,60,42,68,64,55,64,89,65,43,88,84,60,61,90,66,62,71,65,55,90,90,80,62,84,78,71,83,84,61,42,1,0,0,0,0,0,0,0,0"
           }
         },
         "r_deep": {
@@ -49,9 +48,8 @@
             "button_label": "Get the pack",
             "audio": "shopify://shop_images/samples-demo-deep-house-production-suite.mp4",
             "track_title": "Chord loop, Deep House Production Suite, Serenade",
-            "length": "0:08",
-            "peaks": "74,63,62,91,79,54,77,79,59,50,92,75,51,59,63,57,50,93,87,56,67,79,62,52,99,77,47,63,92,61,54,90,79,53,76,85,58,47,92,75,45,64,64,50,47,99,81,60,75,78,57,48,92,79,46,71,71,64,56,89,76,51,74,84,57,44,100,72,51,63,62,53,45,100,77,56,84,73,57,45,93,61,46,66,77,64,55,90,79,51,78,73,55,41,91,63,42,63,58,50,38,100,70,47,84,73,52,79,94,64,39,1,1,1,0,0,0,0,0,0",
-            "pack_product": "deep-house-production-suite-serenade"
+            "seconds": 8,
+            "peaks": "74,63,62,91,79,54,77,79,59,50,92,75,51,59,63,57,50,93,87,56,67,79,62,52,99,77,47,63,92,61,54,90,79,53,76,85,58,47,92,75,45,64,64,50,47,99,81,60,75,78,57,48,92,79,46,71,71,64,56,89,76,51,74,84,57,44,100,72,51,63,62,53,45,100,77,56,84,73,57,45,93,61,46,66,77,64,55,90,79,51,78,73,55,41,91,63,42,63,58,50,38,100,70,47,84,73,52,79,94,64,39,1,1,1,0,0,0,0,0,0"
           }
         },
         "r_unitech": {
@@ -65,9 +63,8 @@
             "button_label": "Get the pack",
             "audio": "shopify://shop_images/samples-demo-tech-house-unitech.mp4",
             "track_title": "Bass loop, Tech House Sample Pack, Unitech",
-            "length": "0:08",
-            "peaks": "100,87,86,88,73,84,79,84,80,85,92,86,85,67,67,91,81,90,63,79,79,94,90,79,85,62,89,70,72,89,79,89,75,85,81,92,84,75,89,73,85,67,64,95,75,92,81,78,91,84,90,70,80,88,86,67,63,88,68,87,85,82,87,75,83,78,88,86,80,67,63,95,69,90,79,62,90,76,92,66,84,89,63,67,63,88,89,89,87,67,86,75,83,92,75,84,60,69,93,92,90,77,79,62,83,91,92,88,80,89,59,5,2,2,1,1,1,1,0,0",
-            "pack_product": "tech-house-sample-pack-unitech"
+            "seconds": 8,
+            "peaks": "100,87,86,88,73,84,79,84,80,85,92,86,85,67,67,91,81,90,63,79,79,94,90,79,85,62,89,70,72,89,79,89,75,85,81,92,84,75,89,73,85,67,64,95,75,92,81,78,91,84,90,70,80,88,86,67,63,88,68,87,85,82,87,75,83,78,88,86,80,67,63,95,69,90,79,62,90,76,92,66,84,89,63,67,63,88,89,89,87,67,86,75,83,92,75,84,60,69,93,92,90,77,79,62,83,91,92,88,80,89,59,5,2,2,1,1,1,1,0,0"
           }
         }
       },
@@ -111,21 +108,21 @@
             "group": "Presets",
             "audio": "shopify://shop_images/samples-demo-serum-presets.mp4",
             "track_title": "Pluck preset, Serum Presets Vol 1",
-            "length": "0:09",
+            "seconds": 9,
             "peaks": "100,86,82,84,68,79,89,88,88,71,78,81,72,90,88,89,77,87,77,62,90,85,86,80,77,79,56,89,87,87,85,69,77,77,88,89,79,81,66,74,87,84,81,79,75,70,69,92,84,84,72,84,75,63,86,82,89,80,72,78,53,89,85,84,77,67,73,73,91,87,83,83,62,74,90,83,89,74,81,78,73,86,87,92,72,82,80,63,90,82,85,80,77,72,58,90,88,90,85,74,77,85,90,85,78,79,76,80,46,22,9,6,2,1,1,0,0,0,0,0"
           }
         },
         "c_tech_house_master_bundle": {
           "type": "pack",
           "settings": {
-            "title": "Tech House Master Bundle 2025",
+            "title": "Tech House Sample Pack, Master Bundle 2025",
             "cover": "shopify://shop_images/samples-box-tech-house-master-bundle.webp",
             "link": "/collections/all",
             "text": "Over 1,000 sounds: drums, loops, bass, vocals, FX and Serum presets. 1.7 GB.",
             "group": "Sample packs",
             "audio": "shopify://shop_images/samples-demo-tech-house-master-bundle.mp4",
             "track_title": "Groove loop, Tech House Master Bundle 2025",
-            "length": "0:08",
+            "seconds": 8,
             "peaks": "99,60,50,90,77,55,78,87,70,53,92,76,66,71,71,60,52,89,70,79,78,85,73,63,84,76,51,68,68,61,49,92,72,53,83,90,67,52,84,72,68,70,68,58,46,100,59,80,84,84,75,61,84,77,51,69,66,56,46,88,68,42,89,84,62,49,94,67,63,71,65,56,44,89,77,78,85,81,76,58,85,60,42,68,64,55,64,89,65,43,88,84,60,61,90,66,62,71,65,55,90,90,80,62,84,78,71,83,84,61,42,1,0,0,0,0,0,0,0,0"
           }
         },
@@ -139,7 +136,7 @@
             "group": "Free",
             "audio": "shopify://shop_images/samples-demo-drums-one-shots.mp4",
             "track_title": "One shots, then a beat, Tech House Drum Kit Vol I",
-            "length": "0:08",
+            "seconds": 8,
             "peaks": "99,62,49,37,28,74,65,49,40,28,65,51,25,14,8,57,62,24,17,7,25,21,9,1,1,2,21,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,66,64,53,44,38,25,20,91,87,58,47,38,25,19,67,64,50,43,39,24,18,100,82,59,45,40,25,18,65,64,50,41,35,23,18,95,79,57,44,33,25,18,66,60,50,39,32,23,17,100,77,62,47,31,25,16,2,1,0,0,0,0,0,0,0"
           }
         },
@@ -153,7 +150,7 @@
             "group": "Free",
             "audio": "shopify://shop_images/samples-demo-ambience-kit.mp4",
             "track_title": "Pad texture, Free Ambience Sample Pack Vol I",
-            "length": "0:09",
+            "seconds": 9,
             "peaks": "8,11,13,16,19,23,27,31,41,44,48,50,55,50,61,65,61,68,73,85,89,80,84,89,90,92,85,79,83,91,95,83,64,79,77,81,75,74,66,68,65,63,59,56,70,80,82,71,59,55,57,54,58,65,63,60,55,49,49,60,66,64,50,58,57,58,67,67,61,68,78,82,78,78,81,77,75,68,66,77,86,82,77,83,90,85,68,81,92,91,93,100,98,93,72,68,65,60,59,58,63,60,49,37,40,41,40,37,32,25,24,22,16,14,12,10,6,4,2,1"
           }
         },
@@ -167,7 +164,7 @@
             "group": "Sample packs",
             "audio": "shopify://shop_images/samples-demo-deep-house-production-suite.mp4",
             "track_title": "Chord loop, Deep House Production Suite, Serenade",
-            "length": "0:08",
+            "seconds": 8,
             "peaks": "74,63,62,91,79,54,77,79,59,50,92,75,51,59,63,57,50,93,87,56,67,79,62,52,99,77,47,63,92,61,54,90,79,53,76,85,58,47,92,75,45,64,64,50,47,99,81,60,75,78,57,48,92,79,46,71,71,64,56,89,76,51,74,84,57,44,100,72,51,63,62,53,45,100,77,56,84,73,57,45,93,61,46,66,77,64,55,90,79,51,78,73,55,41,91,63,42,63,58,50,38,100,70,47,84,73,52,79,94,64,39,1,1,1,0,0,0,0,0,0"
           }
         },
@@ -181,7 +178,7 @@
             "group": "Sample packs",
             "audio": "shopify://shop_images/samples-demo-tech-house-unitech.mp4",
             "track_title": "Bass loop, Tech House Sample Pack, Unitech",
-            "length": "0:08",
+            "seconds": 8,
             "peaks": "100,87,86,88,73,84,79,84,80,85,92,86,85,67,67,91,81,90,63,79,79,94,90,79,85,62,89,70,72,89,79,89,75,85,81,92,84,75,89,73,85,67,64,95,75,92,81,78,91,84,90,70,80,88,86,67,63,88,68,87,85,82,87,75,83,78,88,86,80,67,63,95,69,90,79,62,90,76,92,66,84,89,63,67,63,88,89,89,87,67,86,75,83,92,75,84,60,69,93,92,90,77,79,62,83,91,92,88,80,89,59,5,2,2,1,1,1,1,0,0"
           }
         },
@@ -234,15 +231,14 @@
           "settings": {
             "eyebrow": "One download",
             "heading": "Tech House Master Bundle 2025",
-            "title": "Tech House Master Bundle 2025",
+            "title": "Tech House Sample Pack, Master Bundle 2025",
             "image": "shopify://shop_images/samples-box-tech-house-master-bundle-lg.webp",
             "text": "Every part of a tech house track in one place, from drum one shots to vocals and Serum presets. Plug and play in every major DAW.",
             "button_label": "Get the bundle",
             "audio": "shopify://shop_images/samples-demo-tech-house-master-bundle.mp4",
             "track_title": "Groove loop, Tech House Master Bundle 2025",
-            "length": "0:08",
+            "seconds": 8,
             "peaks": "99,60,50,90,77,55,78,87,70,53,92,76,66,71,71,60,52,89,70,79,78,85,73,63,84,76,51,68,68,61,49,92,72,53,83,90,67,52,84,72,68,70,68,58,46,100,59,80,84,84,75,61,84,77,51,69,66,56,46,88,68,42,89,84,62,49,94,67,63,71,65,56,44,89,77,78,85,81,76,58,85,60,42,68,64,55,64,89,65,43,88,84,60,61,90,66,62,71,65,55,90,90,80,62,84,78,71,83,84,61,42,1,0,0,0,0,0,0,0,0",
-            "pack_product": "tech-house-sample-pack-master-bundle-2025",
             "note": "RAR 930 MB or ZIP 1 GB. Instant download, yours to keep.",
             "list": "<ul><li>280 drum one shots and 361 drum loops</li><li>154 bass sounds, with 26 Serum bass presets</li><li>126 FX: impacts, risers, reverses and downfilters</li><li>57 vocal phrases and one shots</li><li>44 melody loops and 25 synth one shots</li></ul>"
           }

@@ -196,7 +196,7 @@
     "rounded_corner": 0,
     "enable_rounded": false,
     "card_radius": 0,
-    "input_radius": 0,
+    "input_radius": 24,
     "search_input_radius": 100,
     "product_image_ratio": "square",
     "product_alignment": "center",

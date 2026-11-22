@@ -311,7 +311,8 @@ export function ThemeTemplateCard({
         shot.current = img
         arrived(img)
       }}
-      src={optimizedImageUrl(picture, lg ? 414 : 368, SITE_PICTURE_QUALITY)}
+      /* One fallback for both sizes: the same picture, whichever card a browser without srcset draws it in first. */
+      src={optimizedImageUrl(picture, 414, SITE_PICTURE_QUALITY)}
       srcSet={isOptimizableImage(picture) ? optimizedSrcSet(picture, COVER_WIDTHS, SITE_PICTURE_QUALITY) : undefined}
       sizes={isOptimizableImage(picture) ? TEMPLATE_CARD_SIZES[size] : undefined}
       alt=""

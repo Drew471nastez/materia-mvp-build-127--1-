@@ -1,0 +1,120 @@
+{%- comment -%}
+  Coach: a picture beside a short piece of writing. A small label, a serif
+  heading with italic words in the accent colour, a few paragraphs, an
+  optional signature in italics and a button. The picture can sit on either
+  side and the band can take its own colour. Used for the hello on the home
+  page and for the story on the About page.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 800 1000%22%3E%3Crect width=%22800%22 height=%221000%22 fill=%22%23eadfd1%22/%3E%3C/svg%3E'
+-%}
+{%- assign coach_hf = settings.font_heading_google_family -%}
+{%- if coach_hf != blank and coach_hf != 'none' -%}<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family={{ coach_hf | replace: ' ', '+' }}:ital@1&display=swap">{%- endif -%}
+<style>
+  #shopify-section-{{ sid }} .cos {
+    --cos-bg: {{ st.background | default: '#f2e8dc' }};
+    --cos-accent: {{ st.accent_color | default: '#a5582a' }};
+    background: var(--cos-bg);
+    padding: {{ st.padding_top_mobile | default: 56 }}px 20px {{ st.padding_bottom_mobile | default: 56 }}px;
+  }
+  @media (min-width: 990px) {
+    #shopify-section-{{ sid }} .cos { padding: {{ st.padding_top | default: 96 }}px 40px {{ st.padding_bottom | default: 96 }}px; }
+  }
+  #shopify-section-{{ sid }} .cos__inner {
+    max-width: 1120px; margin: 0 auto;
+    display: grid; grid-template-columns: minmax(0, 1fr); gap: 36px; align-items: center;
+  }
+  @media (min-width: 990px) {
+    #shopify-section-{{ sid }} .cos__inner { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 88px; }
+    #shopify-section-{{ sid }} .cos--right .cos__inner { grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); }
+    #shopify-section-{{ sid }} .cos--right .cos__media { order: 2; }
+  }
+  #shopify-section-{{ sid }} .cos__media { margin: 0; }
+  #shopify-section-{{ sid }} .cos__frame {
+    position: relative; overflow: hidden; aspect-ratio: {{ st.image_ratio | default: '4 / 5' }};
+    border-radius: {% if st.image_shape == 'arch' %}999px 999px 14px 14px{% else %}{{ st.image_radius | default: 6 }}px{% endif %};
+    background: #eadfd1;
+  }
+  #shopify-section-{{ sid }} .cos__frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; margin: 0; }
+  #shopify-section-{{ sid }} .cos__eyebrow { margin: 0 0 18px; color: var(--cos-accent); font-size: 12px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; }
+  #shopify-section-{{ sid }} .cos__heading {
+    margin: 0 0 22px; color: var(--color-heading);
+    font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, 500);
+    font-size: {{ st.heading_size_mobile | default: 34 }}px; line-height: 1.12; max-width: 20ch;
+  }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cos__heading { font-size: {{ st.heading_size | default: 44 }}px; } }
+  #shopify-section-{{ sid }} .cos__heading em { font-style: italic; color: var(--cos-accent); }
+  #shopify-section-{{ sid }} .cos__text { color: var(--color-text); font-size: 16.5px; line-height: 1.75; max-width: 54ch; }
+  #shopify-section-{{ sid }} .cos__text p { margin: 0 0 14px; }
+  #shopify-section-{{ sid }} .cos__text a { color: var(--color-heading); text-underline-offset: 3px; }
+  #shopify-section-{{ sid }} .cos__sign {
+    margin: 18px 0 0; color: var(--cos-accent);
+    font-family: var(--heading-font, inherit); font-style: italic; font-size: 30px; line-height: 1;
+  }
+  #shopify-section-{{ sid }} .cos__btn {
+    display: inline-flex; align-items: center; min-height: 46px; margin-top: 28px; padding: 0 22px;
+    border: 1px solid var(--color-heading); border-radius: 2px; color: var(--color-heading); background: transparent;
+    font-size: 12px; font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase; text-decoration: none;
+    transition: background-color 0.25s ease, color 0.25s ease;
+  }
+  #shopify-section-{{ sid }} .cos__btn:hover { background: var(--color-heading); color: var(--cos-bg); }
+</style>
+
+<div class="cos color-{{ color_scheme }}{% if st.image_position == 'right' %} cos--right{% endif %}" data-section-id="{{ sid }}">
+  <div class="cos__inner">
+    <figure class="cos__media">
+      <div class="cos__frame">
+        {%- if st.image != blank -%}
+          <img src="{{ st.image | image_url: width: 900 }}" srcset="{{ st.image | image_url: width: 500 }} 500w, {{ st.image | image_url: width: 900 }} 900w" sizes="(min-width: 990px) 460px, 92vw" width="{{ st.image.width | default: 900 }}" height="{{ st.image.height | default: 1125 }}" alt="{{ st.image_alt | default: st.image.alt | escape }}" loading="lazy" decoding="async">
+        {%- else -%}
+          <img src="{{ placeholder }}" width="800" height="1000" alt="">
+        {%- endif -%}
+      </div>
+    </figure>
+    <div class="cos__body">
+      {%- if st.eyebrow != blank -%}<p class="cos__eyebrow">{{ st.eyebrow | escape }}</p>{%- endif -%}
+      {%- if st.heading != blank -%}<h2 class="cos__heading">{{ st.heading }}</h2>{%- endif -%}
+      {%- if st.text != blank -%}<div class="cos__text">{{ st.text }}</div>{%- endif -%}
+      {%- if st.signature != blank -%}<p class="cos__sign">{{ st.signature | escape }}</p>{%- endif -%}
+      {%- if st.button_label != blank -%}<a class="cos__btn" href="{{ st.button_link | default: '/pages/about' }}">{{ st.button_label | escape }}</a>{%- endif -%}
+    </div>
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Coach picture and text",
+  "tag": "section",
+  "class": "section sec__coach-split",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default-color-scheme" },
+    { "type": "color", "id": "background", "label": "Background", "default": "#f2e8dc" },
+    { "type": "color", "id": "accent_color", "label": "Accent colour", "default": "#a5582a" },
+    { "type": "header", "content": "Picture" },
+    { "type": "image_picker", "id": "image", "label": "Picture" },
+    { "type": "text", "id": "image_alt", "label": "Alt text" },
+    { "type": "select", "id": "image_position", "label": "Picture side, desktop", "options": [ { "value": "left", "label": "Left" }, { "value": "right", "label": "Right" } ], "default": "left" },
+    { "type": "select", "id": "image_shape", "label": "Shape", "options": [ { "value": "rect", "label": "Rectangle" }, { "value": "arch", "label": "Arch" } ], "default": "rect" },
+    { "type": "select", "id": "image_ratio", "label": "Proportions", "options": [ { "value": "4 / 5", "label": "Portrait" }, { "value": "1 / 1", "label": "Square" }, { "value": "4 / 3", "label": "Landscape" } ], "default": "4 / 5" },
+    { "type": "range", "id": "image_radius", "label": "Corners", "min": 0, "max": 30, "step": 1, "unit": "px", "default": 6 },
+    { "type": "header", "content": "Text" },
+    { "type": "text", "id": "eyebrow", "label": "Small label", "default": "Hello, I'm Leah" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "info": "Put the words you want in italic in italics.", "default": "A heading with a <em>few words</em> in italics" },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>A few lines in your own voice: who you are, how you got here and who you work with.</p>" },
+    { "type": "text", "id": "signature", "label": "Signature", "default": "Leah" },
+    { "type": "text", "id": "button_label", "label": "Button", "default": "More about me" },
+    { "type": "url", "id": "button_link", "label": "Button link" },
+    { "type": "header", "content": "Size and space" },
+    { "type": "range", "id": "heading_size", "label": "Heading size, desktop", "min": 28, "max": 72, "step": 2, "unit": "px", "default": 44 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size, phone", "min": 24, "max": 48, "step": 2, "unit": "px", "default": 34 },
+    { "type": "range", "id": "padding_top", "label": "Space above, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 }
+  ],
+  "presets": [ { "name": "Coach picture and text" } ]
+}
+{% endschema %}

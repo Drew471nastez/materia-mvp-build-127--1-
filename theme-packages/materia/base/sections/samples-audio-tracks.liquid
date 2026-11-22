@@ -22,9 +22,9 @@
   downloads before play is pressed: the audio element is made on the
   first press.
 
-  On a product page, a track with a product picked shows only on that
-  product's page. "Only this product's tracks" leaves out the tracks with
-  no product whenever the product has its own.
+  A track tied to a product (picked, or named by the product's name)
+  shows on that product's page only, and on pages that are not a
+  product's. A track tied to nothing shows everywhere.
 {%- endcomment -%}
 {%- liquid
   assign s = section.settings
@@ -34,28 +34,25 @@
   assign layout = s.layout | default: 'list'
   assign pt = s.padding_top | default: 72
   assign pb = s.padding_bottom | default: 72
-  assign own = 0
-  assign loose = 0
+  assign shown = 0
   for block in section.blocks
-    if block.settings.for_product != blank and product != blank
-      if block.settings.for_product.id == product.id
-        assign own = own | plus: 1
+    assign mine = true
+    if product != blank
+      if block.settings.for_product != blank
+        if block.settings.for_product.id != product.id
+          assign mine = false
+        endif
+      elsif block.settings.for_name != blank
+        assign want = block.settings.for_name | handleize
+        if want != product.handle
+          assign mine = false
+        endif
       endif
-    elsif block.settings.for_product == blank
-      assign loose = loose | plus: 1
+    endif
+    if mine
+      assign shown = shown | plus: 1
     endif
   endfor
-  assign strict = false
-  if s.match_product and product != blank and own > 0
-    assign strict = true
-  endif
-  assign shown = loose | plus: own
-  if strict
-    assign shown = own
-  endif
-  if layout == 'feature' and shown > 1
-    assign shown = 1
-  endif
   assign cols = s.columns | default: 3
 -%}
 {%- if shown > 0 or request.design_mode -%}
@@ -137,6 +134,10 @@
   #shopify-section-{{ sid }} .sat__cap b { font-weight: 600; color: var(--color-heading); }
   /* Feature */
   #shopify-section-{{ sid }} .sat__feature { border-radius: 16px; background: rgba(var(--color-heading-rgb), .035); border: 1px solid rgba(var(--color-heading-rgb), .07); padding: 22px 18px; }
+  #shopify-section-{{ sid }} .sat__fitem { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: center; }
+  #shopify-section-{{ sid }} .sat__fitem + .sat__fitem { margin-top: 22px; padding-top: 22px; border-top: 1px solid rgba(var(--color-heading-rgb), .08); }
+  #shopify-section-{{ sid }} .sat__fcover { display: none; }
+  #shopify-section-{{ sid }} .sat__fcover img { width: 100%; height: auto; display: block; filter: drop-shadow(0 10px 16px rgba(0, 0, 0, .45)); }
   #shopify-section-{{ sid }} .sat__feature .sat__ftop { display: flex; align-items: baseline; justify-content: space-between; gap: 6px 16px; flex-wrap: wrap; margin-bottom: 14px; }
   #shopify-section-{{ sid }} .sat__feature .sat__title { font-size: 17px; white-space: normal; }
   #shopify-section-{{ sid }} .sat__feature .ssp { --ssp-btn: 52px; --ssp-wave: 84px; gap: 16px; }
@@ -155,6 +156,8 @@
     #shopify-section-{{ sid }} .sat__feature { padding: 30px 34px 32px; }
     #shopify-section-{{ sid }} .sat__feature .ssp { --ssp-btn: 60px; --ssp-wave: 110px; gap: 22px; }
     #shopify-section-{{ sid }} .sat__feature .sat__title { font-size: 19px; }
+    #shopify-section-{{ sid }} .sat__fitem--cover { grid-template-columns: 96px minmax(0, 1fr); gap: 28px; }
+    #shopify-section-{{ sid }} .sat__fcover { display: block; }
   }
   @media (min-width: 1000px) {
     #shopify-section-{{ sid }} .sat__grid { grid-template-columns: repeat({{ cols }}, minmax(0, 1fr)); }
@@ -186,14 +189,17 @@
         {%- for block in section.blocks -%}
           {%- liquid
             assign b = block.settings
-            if b.for_product != blank and product != blank and b.for_product.id != product.id
-              continue
-            endif
-            if strict and b.for_product == blank
-              continue
-            endif
-            if layout == 'feature' and drawn > 0
-              continue
+            if product != blank
+              if b.for_product != blank
+                if b.for_product.id != product.id
+                  continue
+                endif
+              elsif b.for_name != blank
+                assign want = b.for_name | handleize
+                if want != product.handle
+                  continue
+                endif
+              endif
             endif
             assign drawn = drawn | plus: 1
             assign ssp_src = b.audio | strip
@@ -207,7 +213,7 @@
             endif
             assign ssp_title = b.title | default: 'Untitled track'
             assign ssp_peaks = b.peaks
-            assign ssp_len = b.length
+            assign ssp_len = b.seconds
             assign ssp_id = 'ssp-' | append: sid | append: '-' | append: block.id
             assign ssp_empty = 'No audio'
             assign link = b.link
@@ -215,7 +221,7 @@
               assign link = b.for_product.url
             endif
             assign has_cover = false
-            if layout == 'list' and b.cover != blank
+            if layout != 'grid' and layout != 'compact' and b.cover != blank
               assign has_cover = true
             endif
           -%}
@@ -242,6 +248,13 @@
     endfor
   endif
   assign ssp_label = ssp_title | default: 'track' | escape
+  assign ssp_clock = '0:00'
+  assign ssp_secs = ssp_len | plus: 0 | round
+  if ssp_secs > 0
+    assign ssp_m = ssp_secs | divided_by: 60
+    assign ssp_s = ssp_secs | modulo: 60 | prepend: '0' | slice: -2, 2
+    assign ssp_clock = ssp_m | append: ':' | append: ssp_s
+  endif
 -%}
 <div class="ssp{% if ssp_src == blank %} ssp--off{% endif %}{% if ssp_flat %} ssp--flat{% endif %}" data-ssp{% if ssp_src != blank %} data-src="{{ ssp_src }}"{% endif %} data-title="{{ ssp_label }}">
   <button class="ssp__btn" type="button" data-ssp-btn aria-label="Play {{ ssp_label }}"{% if ssp_src == blank %} disabled{% endif %}>
@@ -253,7 +266,7 @@
     <svg class="ssp__svg ssp__svg--hover" viewBox="0 0 {{ ssp_n }} 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#{{ ssp_id }}"/></svg>
     <svg class="ssp__svg ssp__svg--done" viewBox="0 0 {{ ssp_n }} 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#{{ ssp_id }}"/></svg>
   </div>
-  <span class="ssp__time" data-ssp-time>{% if ssp_src == blank %}{{ ssp_empty | default: 'No preview' }}{% else %}{{ ssp_len | default: '0:00' | escape }}{% endif %}</span>
+  <span class="ssp__time" data-ssp-time>{% if ssp_src == blank %}{{ ssp_empty | default: 'No preview' }}{% else %}{{ ssp_clock }}{% endif %}</span>
 </div>
           {%- endcapture -%}
           {%- if layout == 'grid' -%}
@@ -262,11 +275,16 @@
               <p class="sat__cap"><b>{{ ssp_title | escape }}</b>{% if b.subtitle != blank %}<span>{{ b.subtitle | escape }}</span>{% endif %}</p>
             </li>
           {%- elsif layout == 'feature' -%}
-            <div class="sat__ftop" {{ block.shopify_attributes }}>
-              <p class="sat__title">{% if link != blank %}<a href="{{ link }}">{{ ssp_title | escape }}</a>{% else %}{{ ssp_title | escape }}{% endif %}</p>
-              {%- if b.subtitle != blank -%}<p class="sat__sub">{{ b.subtitle | escape }}</p>{%- endif -%}
+            <div class="sat__fitem{% if has_cover %} sat__fitem--cover{% endif %}" {{ block.shopify_attributes }}>
+              {%- if has_cover -%}<span class="sat__fcover">{{ b.cover | image_url: width: 240 | image_tag: loading: 'lazy', width: 96, height: 120, alt: '' }}</span>{%- endif -%}
+              <div class="sat__fbody">
+                <div class="sat__ftop">
+                  <p class="sat__title">{% if link != blank %}<a href="{{ link }}">{{ ssp_title | escape }}</a>{% else %}{{ ssp_title | escape }}{% endif %}</p>
+                  {%- if b.subtitle != blank -%}<p class="sat__sub">{{ b.subtitle | escape }}</p>{%- endif -%}
+                </div>
+                {{ player }}
+              </div>
             </div>
-            {{ player }}
           {%- else -%}
             <li class="sat__row{% unless has_cover %} sat__row--nocover{% endunless %}" {{ block.shopify_attributes }}>
               {%- if has_cover -%}
@@ -297,7 +315,7 @@
 <script>
   /* The sample players (samples-audio-tracks, samples-pack-cards, samples-release-hero): one copy runs, whichever section loads first. */
   (function () {
-    var V = 3;
+    var V = 4;
     if (window.__ssp && window.__ssp.v >= V) { window.__ssp.scan(); return; }
     var current = null, N = 120, KEY = 'ssp-peaks:', reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
     function fmt(t) { if (!isFinite(t) || t < 0) t = 0; var m = Math.floor(t / 60), s = Math.floor(t % 60); return m + ':' + (s < 10 ? '0' : '') + s; }
@@ -373,15 +391,27 @@
       }
       btn.addEventListener('click', function () { if (!audio || audio.paused) play(-1); else audio.pause(); });
       function at(x) { var r = wave.getBoundingClientRect(); return r.width ? Math.max(0, Math.min(1, (x - r.left) / r.width)) : 0; }
+      function seekable() { var r = audio.seekable; return r && r.length > 0 && r.end(r.length - 1) > 0; }
+      /* A server that does not answer range requests gives a file the browser cannot seek in: fetch it whole once (a preview is small) and play it from memory. */
+      function rescue(f) {
+        pending = f; el.style.setProperty('--ssp-p', (f * 100).toFixed(2) + '%');
+        if (el.__rescued || !window.fetch || !window.URL) return; el.__rescued = true;
+        var going = !audio.paused; el.classList.add('is-loading');
+        fetch(src, { credentials: 'same-origin' }).then(function (r) { if (!r.ok) throw new Error('fetch'); return r.blob(); }).then(function (blob) {
+          audio.src = URL.createObjectURL(blob); audio.load(); if (going) audio.play().catch(function () {});
+        }).catch(function () { el.classList.remove('is-loading'); });
+      }
       function seek(f) {
         if (!audio || audio.readyState < 1 || !audio.duration) { play(f); return; }
-        audio.currentTime = f * audio.duration; el.classList.add('is-started'); paint(true);
+        el.classList.add('is-started');
+        if (!seekable()) { rescue(f); return; }
+        audio.currentTime = f * audio.duration; paint(true);
       }
       wave.addEventListener('pointerdown', function (e) { if (e.button > 0) return; dragging = true; try { wave.setPointerCapture(e.pointerId); } catch (x) {} seek(at(e.clientX)); });
       wave.addEventListener('pointermove', function (e) {
         var f = at(e.clientX);
         if (e.pointerType === 'mouse') el.style.setProperty('--ssp-h', (f * 100).toFixed(2) + '%');
-        if (dragging && audio && audio.duration) { audio.currentTime = f * audio.duration; paint(); }
+        if (dragging && audio && audio.duration) { if (seekable()) { audio.currentTime = f * audio.duration; paint(); } else rescue(f); }
       });
       function stop() { dragging = false; }
       wave.addEventListener('pointerup', stop); wave.addEventListener('pointercancel', stop); wave.addEventListener('lostpointercapture', stop);
@@ -427,13 +457,6 @@
     { "type": "richtext", "id": "text", "label": "Text" },
     { "type": "text", "id": "link_label", "label": "Link label", "info": "List layouts only." },
     { "type": "url", "id": "link_url", "label": "Link" },
-    {
-      "type": "checkbox",
-      "id": "match_product",
-      "label": "Only this product's tracks",
-      "default": false,
-      "info": "On a product page, tracks with no product are left out when the product has tracks of its own."
-    },
     { "type": "header", "content": "Layout" },
     { "type": "range", "id": "columns", "label": "Columns in the grid", "min": 2, "max": 4, "step": 1, "default": 3 },
     { "type": "range", "id": "max_width", "label": "Width", "min": 600, "max": 1400, "step": 20, "unit": "px", "default": 1040 },
@@ -471,17 +494,18 @@
           "accept": ["audio"],
           "info": "An mp3, wav, m4a, ogg, aac or flac file, or an https link. A short preview loads fastest."
         },
-        { "type": "text", "id": "length", "label": "Length shown before play", "placeholder": "0:30" },
+        { "type": "number", "id": "seconds", "label": "Length in seconds", "info": "Shown before play. Nothing downloads until play is pressed." },
         {
           "type": "textarea",
           "id": "peaks",
           "label": "Waveform peaks",
           "info": "Optional: 120 numbers from 0 to 100, separated by commas. Left empty, the waveform is read from the file the first time it plays."
         },
-        { "type": "image_picker", "id": "cover", "label": "Cover", "info": "List layout only." },
+        { "type": "image_picker", "id": "cover", "label": "Cover", "info": "List and large player layouts." },
         { "type": "text", "id": "link_label", "label": "Link label", "default": "Get the pack" },
         { "type": "url", "id": "link", "label": "Link", "info": "Left empty, the picked product's page." },
-        { "type": "product", "id": "for_product", "label": "Product", "info": "Picked, the track shows on that product's page and on pages without a product." }
+        { "type": "product", "id": "for_product", "label": "Only on this product's page", "info": "Pages that are not a product's show every track." },
+        { "type": "text", "id": "for_name", "label": "Or the product's name", "info": "The track shows on the page of the product with this exact name." }
       ]
     }
   ],
@@ -506,7 +530,7 @@
     },
     {
       "name": "Audio preview, large",
-      "settings": { "layout": "feature", "heading": "Hear the pack", "match_product": true },
+      "settings": { "layout": "feature", "heading": "Hear the pack" },
       "blocks": [
         { "type": "track", "settings": { "title": "Pack demo", "subtitle": "124 BPM, A minor" } }
       ]

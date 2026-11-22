@@ -1,0 +1,168 @@
+{%- comment -%}
+  Online course: the course as a product. A large rounded picture on one
+  side; on the other a label, a heading, a paragraph, the price (and compare
+  at price) read from the course product, a button straight to checkout, a
+  line under it, and the key features as ticked items in columns, with an
+  optional refund promise in a soft box. With no product the price and link
+  typed here are used.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign sid = section.id
+  assign p = s.product
+  assign buy = s.button_link | default: '/collections/all'
+  assign amount = s.price
+  assign was = s.compare_price
+  if p != blank and p.title != blank
+    assign amount = p.price | money_without_trailing_zeros
+    assign was = ''
+    if p.compare_at_price > p.price
+      assign was = p.compare_at_price | money_without_trailing_zeros
+    endif
+    assign v = p.selected_or_first_available_variant
+    if s.to_checkout and v.id != blank
+      assign buy = '/cart/' | append: v.id | append: ':1'
+    else
+      assign buy = p.url
+    endif
+  endif
+  assign features = s.features | newline_to_br | split: '<br />'
+-%}
+<style>
+  #shopify-section-{{ sid }} .c2o {
+    --c2-accent: {{ s.accent | default: '#12704f' }};
+    --c2-ink: {{ s.heading_color | default: '#15171a' }};
+    --c2-text: {{ s.text_color | default: '#3f444c' }};
+    background: {{ s.background | default: '#ffffff' }};
+    color: var(--c2-text);
+    padding: {{ s.padding_top_mobile | default: 48 }}px 0 {{ s.padding_bottom_mobile | default: 48 }}px;
+    scroll-margin-top: 80px;
+  }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .c2o { padding: {{ s.padding_top | default: 96 }}px 0 {{ s.padding_bottom | default: 96 }}px; } }
+  #shopify-section-{{ sid }} .c2o__in { max-width: 1200px; margin: 0 auto; padding: 0 20px; display: grid; gap: 32px; align-items: start; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .c2o__in { padding: 0 40px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 72px; } }
+  #shopify-section-{{ sid }} .c2o__media { margin: 0; border-radius: 18px; overflow: hidden; background: {{ s.image_ground | default: '#12704f' }}; aspect-ratio: {{ s.image_ratio | default: '4 / 5' }}; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .c2o__media { position: sticky; top: 96px; } }
+  #shopify-section-{{ sid }} .c2o__media img { display: block; width: 100%; height: 100%; object-fit: cover; margin: 0; }
+  #shopify-section-{{ sid }} .c2-tag { display: inline-block; margin: 0 0 22px; padding: 8px 12px; border: 1px solid #d9dce1; border-radius: 6px; font-size: 13px; line-height: 1; letter-spacing: .05em; text-transform: uppercase; color: var(--c2-ink); }
+  #shopify-section-{{ sid }} .c2o__title { margin: 0 0 22px; color: var(--c2-ink); font-family: var(--heading-font, inherit); font-weight: 700; font-size: 34px; line-height: 1.06; letter-spacing: -.035em; text-wrap: balance; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .c2o__title { margin-top: 12px; font-size: {{ s.heading_size | default: 48 }}px; } }
+  #shopify-section-{{ sid }} .c2o__text { font-size: 17px; line-height: 1.6; max-width: 34em; }
+  #shopify-section-{{ sid }} .c2o__text p { margin: 0 0 12px; }
+  #shopify-section-{{ sid }} .c2o__price { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 14px; margin: 26px 0 22px; }
+  #shopify-section-{{ sid }} .c2o__amount { color: var(--c2-ink); font-family: var(--heading-font, inherit); font-weight: 700; font-size: 44px; letter-spacing: -.04em; line-height: 1; font-variant-numeric: tabular-nums; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .c2o__amount { font-size: 52px; } }
+  #shopify-section-{{ sid }} .c2o__was { font-size: 20px; opacity: .6; }
+  #shopify-section-{{ sid }} .c2o__save { padding: 5px 10px; border-radius: 6px; background: color-mix(in srgb, var(--c2-accent) 12%, #ffffff); color: var(--c2-accent); font-size: 13px; font-weight: 600; }
+  #shopify-section-{{ sid }} .c2-btn { display: inline-flex; align-items: center; justify-content: center; min-height: 56px; padding: 0 34px; border-radius: 10px; background: var(--c2-accent); color: #fff; font-size: 16px; font-weight: 600; text-decoration: none; transition: transform .25s ease, filter .25s ease; }
+  #shopify-section-{{ sid }} .c2-btn:hover { transform: translateY(-1px); filter: brightness(.92); }
+  @media (max-width: 989px) { #shopify-section-{{ sid }} .c2-btn { width: 100%; } }
+  #shopify-section-{{ sid }} .c2o__note { margin: 14px 0 0; font-size: 14px; color: #6b7079; }
+  #shopify-section-{{ sid }} .c2o__feat { margin-top: 34px; padding-top: 30px; border-top: 1px solid #e3e5e8; }
+  #shopify-section-{{ sid }} .c2o__feat h3 { margin: 0 0 18px; color: var(--c2-ink); font-family: var(--heading-font, inherit); font-weight: 700; font-size: 22px; letter-spacing: -.02em; }
+  #shopify-section-{{ sid }} .c2o__list { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 20px; font-size: 15px; line-height: 1.4; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .c2o__list { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  #shopify-section-{{ sid }} .c2o__list li { display: grid; grid-template-columns: 16px 1fr; gap: 9px; align-items: start; }
+  #shopify-section-{{ sid }} .c2o__list svg { width: 16px; height: 16px; margin-top: 2px; color: var(--c2-accent); }
+  #shopify-section-{{ sid }} .c2o__promise { display: grid; grid-template-columns: 40px 1fr; gap: 14px; align-items: center; margin-top: 30px; padding: 18px 20px; border-radius: 14px; background: color-mix(in srgb, var(--c2-accent) 7%, #ffffff); }
+  #shopify-section-{{ sid }} .c2o__promise svg { width: 40px; height: 40px; color: var(--c2-accent); }
+  #shopify-section-{{ sid }} .c2o__promise strong { display: block; color: var(--c2-ink); font-size: 16px; }
+  #shopify-section-{{ sid }} .c2o__promise span { font-size: 14px; line-height: 1.5; }
+  #shopify-section-{{ sid }} [data-c2r].c2r-wait { opacity: 0; transform: translate3d(0, 22px, 0); }
+  #shopify-section-{{ sid }} [data-c2r].c2r-in { opacity: 1; transform: none; transition: opacity .8s cubic-bezier(.2,.65,.25,1) var(--d, 0ms), transform .8s cubic-bezier(.2,.65,.25,1) var(--d, 0ms); }
+  @media (prefers-reduced-motion: reduce) { #shopify-section-{{ sid }} .c2-btn { transition: none; } }
+</style>
+<section class="c2o"{% if s.anchor != blank %} id="{{ s.anchor | handleize }}"{% endif %}>
+  <div class="c2o__in">
+    <figure class="c2o__media" data-c2r>
+      {%- if s.image != blank -%}
+        <img src="{{ s.image | image_url: width: 1400 }}" srcset="{{ s.image | image_url: width: 700 }} 700w, {{ s.image | image_url: width: 1000 }} 1000w, {{ s.image | image_url: width: 1400 }} 1400w" sizes="(min-width: 990px) 560px, 92vw" width="{{ s.image.width | default: 1200 }}" height="{{ s.image.height | default: 1500 }}" alt="{{ s.image_alt | default: s.image.alt | escape }}" loading="lazy" decoding="async">
+      {%- elsif p != blank and p.featured_image != blank -%}
+        <img src="{{ p.featured_image | image_url: width: 1200 }}" width="1200" height="1500" alt="{{ p.title | escape }}" loading="lazy" decoding="async">
+      {%- endif -%}
+    </figure>
+    <div class="c2o__body">
+      {%- if s.tag != blank -%}<p class="c2-tag" data-c2r>{{ s.tag | escape }}</p>{%- endif -%}
+      <h2 class="c2o__title" data-c2r style="--d: 60ms">{{ s.heading | escape }}</h2>
+      {%- if s.text != blank -%}<div class="c2o__text" data-c2r style="--d: 120ms">{{ s.text }}</div>{%- endif -%}
+      <div data-c2r style="--d: 180ms">
+        {%- if amount != blank -%}
+          <div class="c2o__price">
+            <span class="c2o__amount">{{ amount }}</span>
+            {%- if was != blank -%}<s class="c2o__was"><span class="visually-hidden">Was </span>{{ was }}</s>{%- endif -%}
+            {%- if s.price_badge != blank -%}<span class="c2o__save">{{ s.price_badge | escape }}</span>{%- endif -%}
+          </div>
+        {%- endif -%}
+        {%- if s.button_label != blank -%}<a class="c2-btn" href="{{ buy }}">{{ s.button_label | escape }}</a>{%- endif -%}
+        {%- if s.note != blank -%}<p class="c2o__note">{{ s.note | escape }}</p>{%- endif -%}
+      </div>
+      {%- if s.features != blank -%}
+        <div class="c2o__feat" data-c2r>
+          {%- if s.features_heading != blank -%}<h3>{{ s.features_heading | escape }}</h3>{%- endif -%}
+          <ul class="c2o__list" role="list">
+            {%- for line in features -%}
+              {%- assign t = line | strip -%}
+              {%- if t != blank -%}<li><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 8.5l3.2 3L13 4.5"/></svg><span>{{ t | escape }}</span></li>{%- endif -%}
+            {%- endfor -%}
+          </ul>
+        </div>
+      {%- endif -%}
+      {%- if s.promise_title != blank -%}
+        <div class="c2o__promise" data-c2r>
+          <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 4l13 5v9c0 8.5-5.5 14.5-13 18-7.5-3.5-13-9.5-13-18V9z"/><path d="M14 20l4.5 4.5L27 16"/></svg>
+          <div><strong>{{ s.promise_title | escape }}</strong>{%- if s.promise_text != blank -%}<span>{{ s.promise_text | escape }}</span>{%- endif -%}</div>
+        </div>
+      {%- endif -%}
+    </div>
+  </div>
+</section>
+{%- unless request.design_mode -%}
+<script>(function(){var r=document.getElementById('shopify-section-{{ sid }}');if(!r||!('IntersectionObserver' in window)||matchMedia('(prefers-reduced-motion: reduce)').matches)return;var h=innerHeight,io=new IntersectionObserver(function(es){es.forEach(function(e){if(!e.isIntersecting)return;var t=e.target;io.unobserve(t);requestAnimationFrame(function(){t.classList.add('c2r-in')})})},{rootMargin:'0px 0px -6% 0px'});r.querySelectorAll('[data-c2r]').forEach(function(el){if(el.getBoundingClientRect().top<h*.92)return;el.classList.add('c2r-wait');io.observe(el)})})();</script>
+{%- endunless -%}
+
+{% schema %}
+{
+  "name": "Course offer",
+  "tag": "section",
+  "class": "course2-offer-section",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "settings": [
+    { "type": "text", "id": "tag", "label": "Label above", "default": "The course" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Everything you need, in one course" },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Say what someone gets the moment they buy.</p>" },
+    { "type": "text", "id": "anchor", "label": "Address on the page", "default": "buy", "info": "A word a menu link or button can jump to, as /#word." },
+    { "type": "header", "content": "Price and button" },
+    { "type": "product", "id": "product", "label": "Course", "info": "Price and link come from this product. Your first product when none is picked." },
+    { "type": "checkbox", "id": "to_checkout", "label": "Button goes straight to checkout", "default": true },
+    { "type": "text", "id": "price", "label": "Price when there is no product", "default": "$99" },
+    { "type": "text", "id": "compare_price", "label": "Compare at price when there is no product" },
+    { "type": "text", "id": "price_badge", "label": "Small badge beside the price" },
+    { "type": "text", "id": "button_label", "label": "Button label", "default": "Buy the course" },
+    { "type": "url", "id": "button_link", "label": "Link when there is no product" },
+    { "type": "text", "id": "note", "label": "Line under the button", "default": "One payment. Yours to keep." },
+    { "type": "header", "content": "Key features" },
+    { "type": "text", "id": "features_heading", "label": "Heading", "default": "What you get" },
+    { "type": "textarea", "id": "features", "label": "Features", "info": "One per line.", "default": "Every video lesson\nNotes to print\nFree updates" },
+    { "type": "header", "content": "Promise" },
+    { "type": "text", "id": "promise_title", "label": "Title", "default": "30 day refund" },
+    { "type": "text", "id": "promise_text", "label": "Text", "default": "Watch the first lessons. If it is not for you, write and get your money back." },
+    { "type": "header", "content": "Picture" },
+    { "type": "image_picker", "id": "image", "label": "Picture", "info": "The course product's picture when empty." },
+    { "type": "text", "id": "image_alt", "label": "Picture description" },
+    { "type": "select", "id": "image_ratio", "label": "Picture shape", "default": "4 / 5", "options": [ { "value": "1 / 1", "label": "Square" }, { "value": "4 / 5", "label": "Portrait" }, { "value": "2 / 3", "label": "Tall" } ] },
+    { "type": "color", "id": "image_ground", "label": "Ground behind the picture", "default": "#12704f" },
+    { "type": "range", "id": "heading_size", "label": "Heading size on desktop", "min": 28, "max": 72, "step": 2, "unit": "px", "default": 48 },
+    { "type": "header", "content": "Colours" },
+    { "type": "color", "id": "background", "label": "Background", "default": "#ffffff" },
+    { "type": "color", "id": "accent", "label": "Accent", "default": "#12704f" },
+    { "type": "color", "id": "heading_color", "label": "Heading", "default": "#15171a" },
+    { "type": "color", "id": "text_color", "label": "Text", "default": "#3f444c" },
+    { "type": "header", "content": "Spacing" },
+    { "type": "range", "id": "padding_top", "label": "Space above on desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below on desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above on phones", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 48 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below on phones", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 48 }
+  ],
+  "presets": [ { "name": "Course offer", "category": "Online course" } ]
+}
+{% endschema %}

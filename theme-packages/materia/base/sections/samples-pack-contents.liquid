@@ -3,9 +3,10 @@
   as a row of figures (1,000+ sounds, 1.7 GB) above cards for each part of
   the pack (drum loops, bass, presets), each with its count and its list.
 
-  Each figure and card can be tied to a product: on that product's page
-  only its own figures and cards show, and the ones tied to no product
-  show on every product page. A page with nothing to show draws nothing.
+  Each figure and card can be tied to a product, picked or named by the
+  product's name: on a product's page only its own figures and cards show,
+  with the ones tied to no product. A page with nothing to show draws
+  nothing.
 {%- endcomment -%}
 {%- liquid
   assign s = section.settings
@@ -16,8 +17,17 @@
   assign stats = 0
   assign parts = 0
   for block in section.blocks
-    if block.settings.for_product != blank and product != blank and block.settings.for_product.id != product.id
-      continue
+    if product != blank
+      if block.settings.for_product != blank
+        if block.settings.for_product.id != product.id
+          continue
+        endif
+      elsif block.settings.for_name != blank
+        assign want = block.settings.for_name | handleize
+        if want != product.handle
+          continue
+        endif
+      endif
     endif
     if block.type == 'stat'
       assign stats = stats | plus: 1
@@ -74,7 +84,20 @@
         <ul class="spk__stats" role="list">
           {%- for block in section.blocks -%}
             {%- if block.type != 'stat' -%}{%- continue -%}{%- endif -%}
-            {%- if block.settings.for_product != blank and product != blank and block.settings.for_product.id != product.id -%}{%- continue -%}{%- endif -%}
+            {%- liquid
+              if product != blank
+                if block.settings.for_product != blank
+                  if block.settings.for_product.id != product.id
+                    continue
+                  endif
+                elsif block.settings.for_name != blank
+                  assign want = block.settings.for_name | handleize
+                  if want != product.handle
+                    continue
+                  endif
+                endif
+              endif
+            -%}
             <li class="spk__stat" {{ block.shopify_attributes }}><span class="spk__value">{{ block.settings.value | escape }}</span><span class="spk__label">{{ block.settings.label | escape }}</span></li>
           {%- endfor -%}
         </ul>
@@ -83,7 +106,20 @@
         <ul class="spk__parts" role="list">
           {%- for block in section.blocks -%}
             {%- if block.type != 'part' -%}{%- continue -%}{%- endif -%}
-            {%- if block.settings.for_product != blank and product != blank and block.settings.for_product.id != product.id -%}{%- continue -%}{%- endif -%}
+            {%- liquid
+              if product != blank
+                if block.settings.for_product != blank
+                  if block.settings.for_product.id != product.id
+                    continue
+                  endif
+                elsif block.settings.for_name != blank
+                  assign want = block.settings.for_name | handleize
+                  if want != product.handle
+                    continue
+                  endif
+                endif
+              endif
+            -%}
             <li class="spk__part" {{ block.shopify_attributes }}>
               <div class="spk__ptop">
                 <h3 class="spk__name">{{ block.settings.title | escape }}</h3>
@@ -133,7 +169,8 @@
       "settings": [
         { "type": "text", "id": "value", "label": "Figure", "default": "500+" },
         { "type": "text", "id": "label", "label": "What it counts", "default": "Sounds" },
-        { "type": "product", "id": "for_product", "label": "Product", "info": "Picked, the figure shows only on that product's page." }
+        { "type": "product", "id": "for_product", "label": "Only on this product's page" },
+        { "type": "text", "id": "for_name", "label": "Or the product's name", "info": "Shows on the page of the product with this exact name." }
       ]
     },
     {
@@ -143,7 +180,8 @@
         { "type": "text", "id": "title", "label": "Name", "default": "Drum loops" },
         { "type": "text", "id": "count", "label": "Count", "default": "120 files" },
         { "type": "richtext", "id": "list", "label": "What it holds", "info": "A bulleted list shows as tags." },
-        { "type": "product", "id": "for_product", "label": "Product", "info": "Picked, the part shows only on that product's page." }
+        { "type": "product", "id": "for_product", "label": "Only on this product's page" },
+        { "type": "text", "id": "for_name", "label": "Or the product's name", "info": "Shows on the page of the product with this exact name." }
       ]
     }
   ],

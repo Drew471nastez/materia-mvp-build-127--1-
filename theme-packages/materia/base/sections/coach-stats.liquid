@@ -1,0 +1,81 @@
+{%- comment -%}
+  Coach: a dark band of plain facts, a large serif figure over a small
+  label, four across on desktop and two by two on a phone. Use it for what
+  is true of the practice (session length, programme length, a free first
+  call), not for numbers nobody can check.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+-%}
+{%- assign coach_hf = settings.font_heading_google_family -%}
+{%- if coach_hf != blank and coach_hf != 'none' -%}<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family={{ coach_hf | replace: ' ', '+' }}:ital@1&display=swap">{%- endif -%}
+<style>
+  #shopify-section-{{ sid }} .cst {
+    background: {{ st.background | default: '#3a2a21' }};
+    color: {{ st.text_color | default: '#d8c8b7' }};
+    padding: {{ st.padding_top_mobile | default: 44 }}px 20px {{ st.padding_bottom_mobile | default: 44 }}px;
+  }
+  @media (min-width: 990px) {
+    #shopify-section-{{ sid }} .cst { padding: {{ st.padding_top | default: 56 }}px 40px {{ st.padding_bottom | default: 56 }}px; }
+  }
+  #shopify-section-{{ sid }} .cst__grid {
+    max-width: 1120px; margin: 0 auto; padding: 0; list-style: none;
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px 16px;
+  }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .cst__grid { grid-template-columns: repeat({{ section.blocks.size | at_least: 1 | at_most: 5 }}, minmax(0, 1fr)); } }
+  #shopify-section-{{ sid }} .cst__item { text-align: center; margin: 0; padding: 0 8px; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .cst__item + .cst__item { border-left: 1px solid {{ st.line_color | default: '#55433a' }}; } }
+  #shopify-section-{{ sid }} .cst__value {
+    display: block; color: {{ st.figure_color | default: '#faf6f0' }};
+    font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, 500);
+    font-size: 40px; line-height: 1; font-variant-numeric: lining-nums;
+  }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cst__value { font-size: 52px; } }
+  #shopify-section-{{ sid }} .cst__label { display: block; margin-top: 12px; font-size: 11.5px; letter-spacing: 0.18em; text-transform: uppercase; line-height: 1.5; }
+</style>
+
+<div class="cst color-{{ color_scheme }}" data-section-id="{{ sid }}">
+  <ul class="cst__grid">
+    {%- for block in section.blocks -%}
+      <li class="cst__item" {{ block.shopify_attributes }}>
+        <span class="cst__value">{{ block.settings.value | escape }}</span>
+        <span class="cst__label">{{ block.settings.label | escape }}</span>
+      </li>
+    {%- endfor -%}
+  </ul>
+</div>
+
+{% schema %}
+{
+  "name": "Coach facts band",
+  "tag": "section",
+  "class": "section sec__coach-stats",
+  "max_blocks": 5,
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default-color-scheme" },
+    { "type": "color", "id": "background", "label": "Background", "default": "#3a2a21" },
+    { "type": "color", "id": "figure_color", "label": "Figure colour", "default": "#faf6f0" },
+    { "type": "color", "id": "text_color", "label": "Label colour", "default": "#d8c8b7" },
+    { "type": "color", "id": "line_color", "label": "Divider colour", "default": "#55433a" },
+    { "type": "range", "id": "padding_top", "label": "Space above, desktop", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below, desktop", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above, phone", "min": 0, "max": 100, "step": 4, "unit": "px", "default": 44 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below, phone", "min": 0, "max": 100, "step": 4, "unit": "px", "default": 44 }
+  ],
+  "blocks": [
+    {
+      "type": "fact",
+      "name": "Fact",
+      "settings": [
+        { "type": "text", "id": "value", "label": "Figure", "default": "50 min" },
+        { "type": "text", "id": "label", "label": "Label", "default": "Each session" }
+      ]
+    }
+  ],
+  "presets": [
+    { "name": "Coach facts band", "blocks": [ { "type": "fact" }, { "type": "fact" }, { "type": "fact" }, { "type": "fact" } ] }
+  ]
+}
+{% endschema %}

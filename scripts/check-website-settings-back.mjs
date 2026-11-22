@@ -119,6 +119,8 @@ const record = (p) =>
     window.__rec = []
     window.__on = true
     window.__sheets = 0
+    window.__events = []
+    window.addEventListener("click", () => window.__events.push(Math.round(performance.now() - t0)), { capture: true, once: true })
     const mo = new MutationObserver((list) => {
       for (const m of list) for (const n of m.addedNodes) if (n.nodeType === 1 && (n.matches?.("[data-mobile-bottom-sheet]") || n.querySelector?.("[data-mobile-bottom-sheet]"))) window.__sheets++
     })
@@ -145,7 +147,7 @@ const record = (p) =>
     }
     requestAnimationFrame(tick)
   })
-const stop = (p) => p.evaluate(() => { window.__on = false; window.__mo.disconnect(); return { rec: window.__rec, sheets: window.__sheets } })
+const stop = (p) => p.evaluate(() => { window.__on = false; window.__mo.disconnect(); return { rec: window.__rec, sheets: window.__sheets, events: window.__events } })
 
 /* The compositor's frames: a frame that is one flat colour is a blank flash. */
 async function screencast(p) {
@@ -198,14 +200,23 @@ for (const [name, how] of [
     const label = await p.$eval("[data-settings-exit]", (b) => b.textContent.trim())
     const len = await p.evaluate(() => history.length)
     await c.send("Emulation.setCPUThrottlingRate", { rate: THROTTLE })
-    const t = Date.now()
+    /* Here the page behind is a document of its own, so going back is a page load: what is measured is how soon the editor lets go, and how. */
+    await p.evaluate(() => {
+      let t0 = performance.now()
+      window.addEventListener("click", () => { t0 = performance.now() }, { capture: true, once: true })
+      const note = (how) => sessionStorage.setItem("left", JSON.stringify({ how, ms: Math.round(performance.now() - t0), pushes: window.probePushes ?? [], loader: /Going back/.test(document.body.innerText) }))
+      const back = history.back.bind(history)
+      const go = history.go.bind(history)
+      history.back = () => { note("back"); back() }
+      history.go = (n) => { note(`go(${n})`); go(n) }
+    })
     await p.tap("[data-settings-exit]")
-    await p.waitForFunction(() => location.pathname === "/app/website-builder", { timeout: 5000 }).catch(() => null)
-    const took = Date.now() - t
+    await p.waitForFunction(() => location.pathname === "/app/website-builder", { timeout: 8000 }).catch(() => null)
     await c.send("Emulation.setCPUThrottlingRate", { rate: 1 })
     const at = await p.evaluate(() => location.pathname)
+    const left = await p.evaluate(() => JSON.parse(sessionStorage.getItem("left") ?? "null")).catch(() => null)
     expect(label === "Back", "its way out says Back, not Back to editor", label)
-    expect(at === "/app/website-builder" && took < 1500, "Back goes back to the Website page in one traversal, with no Going back hold", `${at} after ${took}ms, history ${len}`)
+    expect(at === "/app/website-builder" && !!left && left.ms < 200 && left.pushes.length === 0 && !left.loader, "Back goes back to the Website page: a traversal of the history (no push), at once, with no Going back hold", `${at}; ${left?.how} ${left?.ms}ms after the tap, pushes ${JSON.stringify(left?.pushes)}, Going back shown: ${left?.loader}, history ${len}`)
     expect(errors.length === 0, "no script errors", errors.slice(0, 2).join(" | "))
     await p.close()
     continue
@@ -218,53 +229,23 @@ for (const [name, how] of [
     await sleep(700)
   }
   const under = await builder(p)
+  /* The builder's sheet stays in the page, closed, under settings: nothing of it is on top anywhere along the foot of the screen. */
+  const over = await p.evaluate(() => [20, 195, 370].map((x) => document.elementFromPoint(x, 836)).filter((el) => !el?.closest("[role=dialog][aria-label='Website settings']")).map((el) => el?.tagName))
+  expect(!!(await p.$("[data-mobile-bottom-sheet]")) && over.length === 0, "the builder's sheet is kept, closed, and settings is on top of it", over.join(", ") || "settings on top")
   await c.send("Emulation.setCPUThrottlingRate", { rate: THROTTLE })
   await record(p)
   const film = await screencast(p)
   await sleep(150)
   expect((await p.$$eval("button", (bs) => bs.some((b) => b.textContent.trim() === "Back to editor"))), "opened in the builder, its way out is Back to editor")
-  /* PROFILE=1: what the main thread does in the tap's task, by React component, for finding a long frame. */
-  if (process.env.PROFILE) { await c.send("Profiler.enable"); await c.send("Profiler.setSamplingInterval", { interval: 1000 }); await c.send("Profiler.start") }
-  if (process.env.TRACE) await p.tracing.start({ categories: ["devtools.timeline", "disabled-by-default-devtools.timeline", "disabled-by-default-devtools.timeline.invalidationTracking", "blink", "v8.execute"] })
   await p.tap("[data-settings-exit]")
-  if (process.env.TRACE) {
-    await sleep(900)
-    const ev = JSON.parse(Buffer.from(await p.tracing.stop()).toString()).traceEvents
-    const mains = ev.filter((e) => e.name === "thread_name" && e.args?.name === "CrRendererMain")
-    const of = (m) => ev.filter((e) => e.ph === "X" && e.pid === m.pid && e.tid === m.tid && e.dur)
-    const mine = mains.map(of).sort((a, b) => b.length - a.length)[0]
-    const t0 = Math.min(...mine.map((e) => e.ts))
-    const inv = ev.filter((e) => /InvalidationTracking/.test(e.name))
-    const why = new Map()
-    for (const e of inv) {
-      const d = e.args?.data ?? {}
-      const k = `${e.name.replace("InvalidationTracking", "")} ${d.reason ?? ""} ${d.nodeName ?? ""} ${JSON.stringify(d.invalidationSet ?? d.changedClass ?? d.changedAttribute ?? d.changedId ?? d.changedPseudo ?? "").slice(0, 80)}`
-      why.set(k, (why.get(k) || 0) + 1)
-    }
-    console.log([...why].sort((a, b) => b[1] - a[1]).slice(0, 25).map(([k, v]) => `          ${v} ${k}`).join("\n"))
-    for (const e of mine.filter((e) => e.name === "UpdateLayoutTree" && e.dur > 20000)) console.log("          recalc", Math.round(e.dur / 1000), JSON.stringify(e.args).slice(0, 200))
-    for (const lt of mine.filter((e) => e.name === "RunTask" && e.dur > 50000)) {
-      console.log(`        long task at ${Math.round((lt.ts - t0) / 1000)}ms, ${Math.round(lt.dur / 1000)}ms:`)
-      for (const e of mine.filter((e) => e.ts >= lt.ts && e.ts + e.dur <= lt.ts + lt.dur && e.dur > 8000 && e !== lt && !/^(Blink\.|Document::|LocalFrameView::)/.test(e.name)).sort((a, b) => a.ts - b.ts)) console.log(`          ${Math.round((e.ts - lt.ts) / 1000)}+${Math.round(e.dur / 1000)} ${e.name} ${JSON.stringify(e.args?.data ?? e.args?.beginData ?? "").slice(0, 150)}`)
-    }
-  }
-  if (process.env.PROFILE) {
-    await sleep(900)
-    const { profile } = await c.send("Profiler.stop")
-    const byId = new Map(profile.nodes.map((n) => [n.id, n]))
-    const selfT = new Map()
-    profile.samples.forEach((id, i) => selfT.set(id, (selfT.get(id) || 0) + (profile.timeDeltas[i] || 0)))
-    const total = (n) => (n.__t ??= (selfT.get(n.id) || 0) + (n.children || []).reduce((a, x) => a + total(byId.get(x)), 0))
-    const walk = (n, d) => { if (d > 60) return; for (const k of (n.children || []).map((x) => byId.get(x)).sort((a, b) => total(b) - total(a))) { if (total(k) < 8000) continue; const name = k.callFrame.functionName || "(anon)"; if (!/^(recursivelyTraverse|commit\w*OnFiber|commitPassiveMountOnFiber)/.test(name)) console.log(`        ${" ".repeat(Math.min(d, 30))}${(total(k) / 1000).toFixed(1)} ${name}:${k.callFrame.lineNumber}`); walk(k, d + 1) } }
-    walk(profile.nodes[0], 0)
-  }
   await sleep(1400)
   const frames = await film()
-  const { rec: all, sheets } = await stop(p)
+  const { rec: all, sheets, events } = await stop(p)
   await c.send("Emulation.setCPUThrottlingRate", { rate: 1 })
   if (shots) await p.screenshot({ path: join(shots, `settings-back-${how ?? "list"}.png`) })
-  const t0 = all.length ? all[0].t : 0
-  const after = all.filter((r) => r.t >= 150 - 20 + t0)
+  /* From the tap's click, on the page's clock. */
+  const tapT = events[0] ?? 150
+  const after = all.filter((r) => r.t >= tapT - 17)
   const shown = after.filter((r) => r.settings !== null)
   const gone = after.filter((r) => r.settings === null)
   const opac = shown.map((r) => r.settings)
@@ -274,7 +255,7 @@ for (const [name, how] of [
   const moved = gone.filter((r) => r.canvas !== firstGone?.canvas || r.scroll !== firstGone?.scroll || r.sheet !== firstGone?.sheet || r.height !== firstGone?.height)
   const props = [...new Set(shown.map((r) => r.moving).filter(Boolean).join(",").split(",").filter(Boolean))]
   expect(gone.length > 0 && last.settings === null, "the settings page is gone after Back to editor", `${shown.length} frames with it drawn, then ${gone.length} without`)
-  expect(opac.every((o, i) => i === 0 || o <= opac[i - 1] + 0.001) && (opac.length < 2 || opac[opac.length - 1] < opac[0]), "it leaves in one motion: its opacity only falls", opac.slice(0, 14).map((o) => o.toFixed(2)).join(" "))
+  expect(opac.every((o, i) => i === 0 || o <= opac[i - 1] + 0.001) && (opac.length < 2 || opac[opac.length - 1] < opac[0]), "it leaves in one motion: its opacity only falls", shown.filter((r, i) => i === 0 || r.settings !== shown[i - 1].settings).map((r) => `${r.t - tapT}:${r.settings.toFixed(2)}`).join(" "))
   expect(props.length > 0 && props.every((x) => x.split("+").every((k) => k === "opacity" || k === "transform")), "on transform and opacity only", props.join(" | "))
   expect(after.every((r) => r.sections >= 3), "the builder's canvas has its sections under it on every frame", `${Math.min(...after.map((r) => r.sections))} at the fewest`)
   expect(moved.length === 0, "nothing of the builder moves once it has gone: canvas, scroll and sheet hold their place", moved.length ? `${JSON.stringify(firstGone)} -> ${JSON.stringify(moved[0])}` : `canvas at ${firstGone?.canvas}, scroll ${firstGone?.scroll}, sheet at ${firstGone?.sheet}`)
@@ -285,8 +266,9 @@ for (const [name, how] of [
   const blank = flat.filter((n) => n <= 2).length
   expect(frames.length > 0 && blank === 0, "no compositor frame is a bare screen", `${frames.length} frames, distinct colours at the fewest ${Math.min(...flat)}`)
   const g = gaps(after.slice(0, Math.max(2, after.findIndex((r) => r.t > (firstGone?.t ?? 0) + 200))))
-  console.log(`        leaving: ${shown.length + gone.length} frames, longest ${g.length ? Math.max(...g) : 0}ms, ${g.filter((x) => x > 50).length} over 50ms; settings gone ${firstGone ? firstGone.t - after[0].t : "never"}ms after the first frame`)
-  console.log(`        frames over 50ms, at (ms from the tap): ${after.slice(1).map((r, i) => [after[i].t - after[0].t, r.t - after[i].t]).filter(([, d]) => d > 50).map(([t, d]) => `${t}+${d}`).join(" ") || "none"}`)
+  const startedAt = shown.find((r) => r.settings < 1)
+  const longest = g.length ? Math.max(...g) : 0
+  expect(!!startedAt && startedAt.t - tapT <= 120 && !!firstGone && firstGone.t - tapT <= 450 && longest <= 120, "the tap is answered at once and settings is gone within the leaving", `fading ${startedAt ? startedAt.t - tapT : "never"}ms after the tap, gone at ${firstGone ? firstGone.t - tapT : "never"}ms; leaving: ${shown.length + gone.length} frames, longest ${longest}ms, ${g.filter((x) => x > 50).length} over 50ms`)
   expect(errors.length === 0, "no script errors", errors.slice(0, 2).join(" | "))
   await p.close()
 }

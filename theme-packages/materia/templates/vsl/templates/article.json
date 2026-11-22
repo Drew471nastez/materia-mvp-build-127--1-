@@ -1,0 +1,150 @@
+{
+  "sections": {
+    "main": {
+      "type": "main-article",
+      "settings": {
+        "padding_top": 48,
+        "section_width": "container",
+        "padding_bottom": 30,
+        "author_margin_left": -140,
+        "author_margin_right": 0,
+        "content_width_desktop": 1100
+      },
+      "name": "Main Blog Article",
+      "blocks": {
+        "category_8bHVa7": {
+          "type": "category",
+          "settings": {
+            "enable_custom_style": false,
+            "category_border_radius": 36
+          }
+        },
+        "title_8UcLB3": {
+          "type": "title",
+          "settings": {
+            "blog_title_font_size": 38
+          }
+        },
+        "featured_image_ne7Ufj": {
+          "type": "featured_image",
+          "settings": {
+            "image_height": "medium",
+            "featured_image_top_padding": 12,
+            "featured_image_border_radius": 7,
+            "featured_image_bottom_padding": 10
+          }
+        },
+        "blog_meta_Gdcegm": {
+          "type": "blog_meta",
+          "settings": {
+            "enable_custom_style": false,
+            "blog_meta_border_radius": 29
+          }
+        },
+        "content_article_nGLPt4": {
+          "type": "content_article",
+          "settings": {}
+        },
+        "author_highlight_n4CqbT": {
+          "type": "author_highlight",
+          "settings": {
+            "author_text": "Want the footage for lessons like this? Every course comes with it.",
+            "author_image_size": 65
+          }
+        }
+      },
+      "block_order": [
+        "category_8bHVa7",
+        "title_8UcLB3",
+        "featured_image_ne7Ufj",
+        "blog_meta_Gdcegm",
+        "content_article_nGLPt4",
+        "author_highlight_n4CqbT"
+      ]
+    },
+    "blog_posts_bRcpan": {
+      "type": "blog-posts",
+      "settings": {
+        "reveal": false,
+        "heading": "More free lessons",
+        "autoplay": false,
+        "infinite": false,
+        "show_date": true,
+        "column_gap": 30,
+        "description": "",
+        "image_ratio": "custom",
+        "padding_top": 24,
+        "show_author": true,
+        "color_scheme": "",
+        "custom_ratio": "16:9",
+        "vertical_gap": 30,
+        "items_per_row": 3,
+        "items_to_show": 3,
+        "section_width": "fluid_container",
+        "show_view_all": true,
+        "padding_bottom": 56,
+        "autorotate_speed": 5,
+        "content_alignment": "left",
+        "heading_font_size": 24,
+        "carousel_pagination": "disable",
+        "enable_custom_style": false,
+        "items_per_row_mobile": 1
+      }
+    },
+    "starter": {
+      "type": "promo-banner-4",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "section_width": "container",
+        "layout": "image_left",
+        "text_align": "left",
+        "card_style": "flat",
+        "image": "shopify://shop_images/landing-starter-desk.webp",
+        "image_aspect_ratio": "4-3",
+        "enable_image_zoom": false,
+        "mobile_image_first": true,
+        "reveal": true
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "New to editing?"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Start with the 7 Day Starter"
+          }
+        },
+        "description_3": {
+          "type": "description",
+          "settings": {
+            "text": "<p>One short lesson a day for a week. By Sunday you have cut a one minute video from the clips we send you, with music and titles.</p><ul><li>Seven lessons, about 15 minutes each</li><li>Raw clips, music and a title template</li><li>Works with any editing app</li></ul>"
+          }
+        },
+        "buttons_4": {
+          "type": "buttons",
+          "settings": {
+            "primary_label": "Start for $27",
+            "primary_link": "/collections/all",
+            "secondary_label": "",
+            "secondary_link": ""
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "description_3",
+        "buttons_4"
+      ]
+    }
+  },
+  "order": [
+    "main",
+    "blog_posts_bRcpan",
+    "starter"
+  ]
+}

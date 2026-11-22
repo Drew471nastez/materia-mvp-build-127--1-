@@ -10,9 +10,10 @@
   Layout "Feature": one release large, its picture beside the name, the
   text, a list of what is inside, the price, the preview and a button.
 
-  A release's product is the one picked in its block. Its price, compare
-  at price and link come from the product; with none picked, the block's
-  own name, picture and link are drawn, without a price. The preview works
+  A release's product is the one picked in its block, else the product
+  with the block's product name. Its price, compare at price and link come
+  from the product; with none, the block's own name, picture and link are
+  drawn, without a price. The preview works
   as in the Audio tracks section: nothing downloads before play.
 {%- endcomment -%}
 {%- liquid
@@ -151,6 +152,15 @@
           {%- liquid
             assign b = block.settings
             assign p = b.pack_product
+            if p == blank and b.title != blank
+              assign want = b.title | handleize
+              for candidate in collections.all.products
+                if candidate.handle == want
+                  assign p = candidate
+                  break
+                endif
+              endfor
+            endif
             assign name = b.title
             assign url = b.link | default: routes.all_products_collection_url
             if p != blank
@@ -174,7 +184,7 @@
             endif
             assign ssp_title = b.track_title | default: name
             assign ssp_peaks = b.peaks
-            assign ssp_len = b.length
+            assign ssp_len = b.seconds
             assign ssp_id = 'ssp-' | append: sid | append: '-' | append: block.id
             assign ssp_empty = 'No preview yet'
           -%}
@@ -215,6 +225,13 @@
     endfor
   endif
   assign ssp_label = ssp_title | default: 'track' | escape
+  assign ssp_clock = '0:00'
+  assign ssp_secs = ssp_len | plus: 0 | round
+  if ssp_secs > 0
+    assign ssp_m = ssp_secs | divided_by: 60
+    assign ssp_s = ssp_secs | modulo: 60 | prepend: '0' | slice: -2, 2
+    assign ssp_clock = ssp_m | append: ':' | append: ssp_s
+  endif
 -%}
 <div class="ssp{% if ssp_src == blank %} ssp--off{% endif %}{% if ssp_flat %} ssp--flat{% endif %}" data-ssp{% if ssp_src != blank %} data-src="{{ ssp_src }}"{% endif %} data-title="{{ ssp_label }}">
   <button class="ssp__btn" type="button" data-ssp-btn aria-label="Play {{ ssp_label }}"{% if ssp_src == blank %} disabled{% endif %}>
@@ -226,7 +243,7 @@
     <svg class="ssp__svg ssp__svg--hover" viewBox="0 0 {{ ssp_n }} 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#{{ ssp_id }}"/></svg>
     <svg class="ssp__svg ssp__svg--done" viewBox="0 0 {{ ssp_n }} 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#{{ ssp_id }}"/></svg>
   </div>
-  <span class="ssp__time" data-ssp-time>{% if ssp_src == blank %}{{ ssp_empty | default: 'No preview' }}{% else %}{{ ssp_len | default: '0:00' | escape }}{% endif %}</span>
+  <span class="ssp__time" data-ssp-time>{% if ssp_src == blank %}{{ ssp_empty | default: 'No preview' }}{% else %}{{ ssp_clock }}{% endif %}</span>
 </div>
           {%- endcapture -%}
           {%- if layout == 'feature' -%}
@@ -280,7 +297,7 @@
 <script>
   /* The sample players (samples-audio-tracks, samples-pack-cards, samples-release-hero): one copy runs, whichever section loads first. */
   (function () {
-    var V = 3;
+    var V = 4;
     if (window.__ssp && window.__ssp.v >= V) { window.__ssp.scan(); return; }
     var current = null, N = 120, KEY = 'ssp-peaks:', reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
     function fmt(t) { if (!isFinite(t) || t < 0) t = 0; var m = Math.floor(t / 60), s = Math.floor(t % 60); return m + ':' + (s < 10 ? '0' : '') + s; }
@@ -356,15 +373,27 @@
       }
       btn.addEventListener('click', function () { if (!audio || audio.paused) play(-1); else audio.pause(); });
       function at(x) { var r = wave.getBoundingClientRect(); return r.width ? Math.max(0, Math.min(1, (x - r.left) / r.width)) : 0; }
+      function seekable() { var r = audio.seekable; return r && r.length > 0 && r.end(r.length - 1) > 0; }
+      /* A server that does not answer range requests gives a file the browser cannot seek in: fetch it whole once (a preview is small) and play it from memory. */
+      function rescue(f) {
+        pending = f; el.style.setProperty('--ssp-p', (f * 100).toFixed(2) + '%');
+        if (el.__rescued || !window.fetch || !window.URL) return; el.__rescued = true;
+        var going = !audio.paused; el.classList.add('is-loading');
+        fetch(src, { credentials: 'same-origin' }).then(function (r) { if (!r.ok) throw new Error('fetch'); return r.blob(); }).then(function (blob) {
+          audio.src = URL.createObjectURL(blob); audio.load(); if (going) audio.play().catch(function () {});
+        }).catch(function () { el.classList.remove('is-loading'); });
+      }
       function seek(f) {
         if (!audio || audio.readyState < 1 || !audio.duration) { play(f); return; }
-        audio.currentTime = f * audio.duration; el.classList.add('is-started'); paint(true);
+        el.classList.add('is-started');
+        if (!seekable()) { rescue(f); return; }
+        audio.currentTime = f * audio.duration; paint(true);
       }
       wave.addEventListener('pointerdown', function (e) { if (e.button > 0) return; dragging = true; try { wave.setPointerCapture(e.pointerId); } catch (x) {} seek(at(e.clientX)); });
       wave.addEventListener('pointermove', function (e) {
         var f = at(e.clientX);
         if (e.pointerType === 'mouse') el.style.setProperty('--ssp-h', (f * 100).toFixed(2) + '%');
-        if (dragging && audio && audio.duration) { audio.currentTime = f * audio.duration; paint(); }
+        if (dragging && audio && audio.duration) { if (seekable()) { audio.currentTime = f * audio.duration; paint(); } else rescue(f); }
       });
       function stop() { dragging = false; }
       wave.addEventListener('pointerup', stop); wave.addEventListener('pointercancel', stop); wave.addEventListener('lostpointercapture', stop);
@@ -465,10 +494,10 @@
       "name": "Release",
       "limit": 6,
       "settings": [
-        { "type": "product", "id": "pack_product", "label": "Product", "info": "Its price and link fill the card." },
+        { "type": "product", "id": "pack_product", "label": "Product", "info": "Its price and link fill the card. Left empty, the product with the name below." },
         { "type": "text", "id": "eyebrow", "label": "Label", "default": "New release" },
         { "type": "text", "id": "heading", "label": "Name", "info": "Left empty, the product's name." },
-        { "type": "text", "id": "title", "label": "Name when there is no product", "default": "Pack name" },
+        { "type": "text", "id": "title", "label": "Product name", "default": "Pack name" },
         { "type": "image_picker", "id": "image", "label": "Picture", "info": "Left empty, the product's picture." },
         { "type": "textarea", "id": "text", "label": "Text" },
         { "type": "richtext", "id": "list", "label": "What is inside", "info": "One release, large: a bulleted list under the text." },
@@ -478,7 +507,7 @@
         { "type": "header", "content": "Preview" },
         { "type": "file_picker", "id": "audio", "label": "Audio file", "accept": ["audio"], "info": "An mp3, wav, m4a, ogg, aac or flac file, or an https link." },
         { "type": "text", "id": "track_title", "label": "Preview name", "info": "Read out to screen readers. Left empty, the pack's name." },
-        { "type": "text", "id": "length", "label": "Length", "placeholder": "0:30" },
+        { "type": "number", "id": "seconds", "label": "Length in seconds", "info": "Shown before play. Nothing downloads until play is pressed." },
         { "type": "textarea", "id": "peaks", "label": "Waveform peaks", "info": "Optional: 120 numbers from 0 to 100. Left empty, the waveform is read from the file the first time it plays." }
       ]
     }

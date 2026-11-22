@@ -1,0 +1,80 @@
+{
+  "sections": {
+    "main": {
+      "type": "page-404",
+      "settings": {
+        "padding_top": 58,
+        "reset_spacing": false,
+        "section_width": "fluid_container",
+        "padding_bottom": 56
+      },
+      "blocks": {
+        "image_VQTRFT": {
+          "type": "image",
+          "settings": {}
+        },
+        "heading_6nj4md": {
+          "type": "heading",
+          "settings": {
+            "heading": "This page was cut",
+            "font_size": 36,
+            "uppercase": false,
+            "font_weight": "heading_weight",
+            "spacing_bottom": 20
+          }
+        },
+        "subheading_yFdKEQ": {
+          "type": "subheading",
+          "settings": {
+            "font_size": 15,
+            "uppercase": false,
+            "subheading": "The link may be old. The courses and free lessons are still here.",
+            "font_weight": "body_weight",
+            "spacing_bottom": 40
+          }
+        },
+        "button_4yrfiE": {
+          "type": "button",
+          "settings": {
+            "open_link": false,
+            "spacing_bottom": 0,
+            "first_button_link": "/collections/all",
+            "first_button_type": "primary",
+            "first_button_label": "See all courses"
+          }
+        }
+      },
+      "block_order": [
+        "image_VQTRFT",
+        "heading_6nj4md",
+        "subheading_yFdKEQ",
+        "button_4yrfiE"
+      ]
+    },
+    "courses": {
+      "type": "products-listing",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "items_to_show": 3,
+        "items_per_row": 3,
+        "items_per_row_mobile": 1,
+        "heading": "Start here",
+        "show_view_all": false,
+        "show_badges": false,
+        "show_rating": false,
+        "show_short_description": true,
+        "show_swatches": false,
+        "show_price": true,
+        "show_add_to_cart": false,
+        "header_alignment": "left",
+        "padding_top": 24,
+        "padding_bottom": 88
+      }
+    }
+  },
+  "order": [
+    "main",
+    "courses"
+  ]
+}

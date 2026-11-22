@@ -1,0 +1,280 @@
+{%- comment -%}
+Video sales letter: reviews as cards, stars, the words, then who said it
+  with a small round picture (or their initial when there is none).
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+-%}
+{%- liquid
+  assign cols = st.columns | default: 3
+-%}
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" data-vsl-font>
+<style>
+  .vsl { position: relative; color: var(--vsl-text, #a3a3a8); font-family: var(--body-font, inherit); -webkit-font-smoothing: antialiased; }
+  .vsl *, .vsl *::before, .vsl *::after { box-sizing: border-box; }
+  .vsl__inner { position: relative; max-width: var(--vsl-max, 1120px); margin: 0 auto; padding: 0 20px; }
+  .vsl__head { text-align: center; margin: 0 auto 44px; max-width: 760px; }
+  .vsl__eyebrow { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 0 0 18px; font-size: 11px; font-weight: 500; letter-spacing: .24em; text-transform: uppercase; color: rgba(255,255,255,.6); }
+  .vsl__eyebrow::before, .vsl__eyebrow::after { content: ""; flex: 0 0 34px; height: 1px; background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.5)); }
+  .vsl__eyebrow::after { background: linear-gradient(270deg, rgba(255,255,255,0), rgba(255,255,255,.5)); }
+  .vsl__title { margin: 0; color: var(--vsl-head, #fff); font-family: var(--body-font, inherit); font-weight: 700; font-size: clamp(32px, 4.6vw, 52px); line-height: 1.06; letter-spacing: -.035em; text-wrap: balance; }
+  .vsl__title em, .vsl em.vsl-serif { font-family: 'Instrument Serif', Georgia, 'Times New Roman', serif; font-style: italic; font-weight: 400; letter-spacing: -.01em; }
+  .vsl__lede { margin: 16px auto 0; max-width: 580px; font-size: 15px; line-height: 1.65; }
+  .vsl__lede p { margin: 0; }
+  .vsl-btn {
+    position: relative; isolation: isolate; overflow: hidden;
+    display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 48px; padding: 0 24px;
+    border-radius: 999px; border: 1px solid rgba(255,255,255,.24); background: rgba(10,10,12,.85); color: #fff;
+    font-family: var(--body-font, inherit); font-size: 14px; font-weight: 600; letter-spacing: -.005em; text-decoration: none; white-space: nowrap;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.22), 0 0 0 4px rgba(255,255,255,.03), 0 14px 40px -14px rgba(255,255,255,.35);
+    transition: transform .35s cubic-bezier(.2,.7,.2,1), border-color .35s, box-shadow .35s;
+  }
+  .vsl-btn::before { content: ""; position: absolute; z-index: -1; top: -1px; left: -40%; width: 40%; height: 2px; background: linear-gradient(90deg, transparent, #fff, transparent); opacity: .9; transition: transform 1.1s cubic-bezier(.2,.7,.2,1); }
+  .vsl-btn:hover { transform: translateY(-1px); border-color: rgba(255,255,255,.5); box-shadow: inset 0 1px 0 rgba(255,255,255,.3), 0 0 0 4px rgba(255,255,255,.05), 0 18px 50px -14px rgba(255,255,255,.45); }
+  .vsl-btn:hover::before { transform: translateX(350%); }
+  .vsl-btn:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+  .vsl-btn svg { width: 16px; height: 16px; flex: none; transition: transform .35s cubic-bezier(.2,.7,.2,1); }
+  .vsl-btn:hover svg { transform: translateX(3px); }
+  .vsl-btn--light { background: #fff; color: #0a0a0a; border-color: #fff; box-shadow: 0 14px 40px -14px rgba(255,255,255,.5); }
+  .vsl-btn--light::before { display: none; }
+  .vsl-btn--ghost { background: transparent; box-shadow: none; border-color: rgba(255,255,255,.16); }
+  .vsl__actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px; margin-top: 30px; }
+  .vsl-card {
+    position: relative; border-radius: 18px; border: 1px solid rgba(255,255,255,.09);
+    background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.015) 60%), rgba(12,12,14,.72);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 30px 60px -40px rgba(0,0,0,.9);
+  }
+  .vsl--line { padding-top: 1px; }
+  .vsl--line::before { content: ""; position: absolute; left: 50%; top: 0; width: min(1120px, calc(100% - 40px)); height: 1px; transform: translateX(-50%); background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.26) 50%, rgba(255,255,255,0)); }
+  .vsl--line::after { content: ""; position: absolute; left: 50%; top: 0; width: min(900px, 90%); height: 180px; transform: translateX(-50%); pointer-events: none; background: radial-gradient(50% 100% at 50% 0, rgba(255,255,255,.07), rgba(255,255,255,0)); }
+  html.vsl-js .vsl [data-motion] { opacity: 0; transform: translate3d(0, 22px, 0); transition: opacity .9s cubic-bezier(.2,.65,.2,1), transform .9s cubic-bezier(.2,.65,.2,1); transition-delay: var(--d, 0ms); }
+  html.vsl-js .vsl [data-motion].is-in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) {
+    html.vsl-js .vsl [data-motion] { opacity: 1; transform: none; transition: none; }
+    .vsl-btn, .vsl-btn::before, .vsl-btn svg { transition: none; }
+  }
+
+  #shopify-section-{{ sid }} .vsl { padding-top: {{ st.padding_top_mobile | default: 64 }}px; padding-bottom: {{ st.padding_bottom_mobile | default: 64 }}px; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .vsl { padding-top: {{ st.padding_top | default: 96 }}px; padding-bottom: {{ st.padding_bottom | default: 96 }}px; } }
+
+  .vsl-reviews__grid { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 750px) { .vsl-reviews__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (min-width: 990px) { .vsl-reviews__grid { grid-template-columns: repeat({{ cols }}, minmax(0, 1fr)); } }
+  .vsl-reviews .vsl-card { display: flex; flex-direction: column; padding: 24px 24px 22px; }
+  .vsl-reviews__stars { display: flex; gap: 3px; margin-bottom: 16px; color: #fff; }
+  .vsl-reviews__stars svg { width: 15px; height: 15px; }
+  .vsl-reviews__stars .is-off { opacity: .22; }
+  .vsl-reviews__quote { margin: 0 0 24px; color: rgba(255,255,255,.82); font-size: 15px; line-height: 1.65; }
+  .vsl-reviews__quote p { margin: 0; }
+  .vsl-reviews__who { display: flex; align-items: center; gap: 12px; margin-top: auto; }
+  .vsl-reviews__pic { width: 38px; height: 38px; border-radius: 50%; overflow: hidden; flex: none; display: grid; place-items: center; background: linear-gradient(180deg, rgba(255,255,255,.2), rgba(255,255,255,.05)); border: 1px solid rgba(255,255,255,.16); color: #fff; font-weight: 600; font-size: 14px; }
+  .vsl-reviews__pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .vsl-reviews__name { margin: 0; color: #fff; font-size: 14px; font-weight: 600; }
+  .vsl-reviews__role { margin: 2px 0 0; font-size: 12px; color: rgba(255,255,255,.5); }
+  .vsl-reviews__mark { margin-left: auto; width: 26px; height: 26px; color: rgba(255,255,255,.14); flex: none; }
+</style>
+<div class="vsl{% if st.line_above %} vsl--line{% endif %} vsl-reviews">
+  <div class="vsl__inner">
+    {%- if st.eyebrow != blank or st.heading != blank or st.text != blank -%}
+      <div class="vsl__head" data-motion>
+        {%- if st.eyebrow != blank -%}<p class="vsl__eyebrow"><span>{{ st.eyebrow | escape }}</span></p>{%- endif -%}
+        {%- if st.heading != blank -%}<h2 class="vsl__title">{%- assign vsl_parts = st.heading | escape | split: '*' -%}{%- for vsl_part in vsl_parts -%}{%- assign vsl_odd = forloop.index0 | modulo: 2 -%}{%- if vsl_odd == 1 -%}<em>{{ vsl_part | replace: '|', '<br>' }}</em>{%- else -%}{{ vsl_part | replace: '|', '<br>' }}{%- endif -%}{%- endfor -%}</h2>{%- endif -%}
+        {%- if st.text != blank -%}<div class="vsl__lede">{{ st.text }}</div>{%- endif -%}
+      </div>
+    {%- endif -%}
+    <div class="vsl-reviews__grid">
+      {%- for block in section.blocks -%}
+        {%- assign stars = block.settings.stars | default: 5 -%}
+        <figure class="vsl-card" data-motion style="--d: {{ forloop.index0 | modulo: cols | times: 90 }}ms; margin: 0" {{ block.shopify_attributes }}>
+          {%- if stars > 0 -%}
+            <div class="vsl-reviews__stars" role="img" aria-label="{{ stars }} / 5">
+              {%- for i in (1..5) -%}<svg viewBox="0 0 20 20" class="{% if i > stars %}is-off{% endif %}" aria-hidden="true" focusable="false"><path d="M10 1.8l2.5 5.2 5.7.8-4.1 4 1 5.6L10 14.7l-5.1 2.7 1-5.6-4.1-4 5.7-.8z" fill="currentColor"/></svg>{%- endfor -%}
+            </div>
+          {%- endif -%}
+          <blockquote class="vsl-reviews__quote">{{ block.settings.quote }}</blockquote>
+          <figcaption class="vsl-reviews__who">
+            <span class="vsl-reviews__pic" aria-hidden="true">
+              {%- if block.settings.image != blank -%}{{ block.settings.image | image_url: width: 120 | image_tag: loading: 'lazy', alt: '' }}{%- else -%}{{ block.settings.name | slice: 0 | upcase | escape }}{%- endif -%}
+            </span>
+            <span>
+              <p class="vsl-reviews__name">{{ block.settings.name | escape }}</p>
+              {%- if block.settings.role != blank -%}<p class="vsl-reviews__role">{{ block.settings.role | escape }}</p>{%- endif -%}
+            </span>
+            <svg class="vsl-reviews__mark" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M10 6c-3.3 1-5.5 3.8-5.5 7.6V18H10v-5H7.2c.1-2 1.3-3.6 3.3-4.4zM19.5 6c-3.3 1-5.5 3.8-5.5 7.6V18h5.5v-5h-2.8c.1-2 1.3-3.6 3.3-4.4z" fill="currentColor"/></svg>
+          </figcaption>
+        </figure>
+      {%- endfor -%}
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var root = document.getElementById('shopify-section-{{ section.id }}');
+    if (!root) return;
+    var still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!('IntersectionObserver' in window) || still) return;
+    document.documentElement.classList.add('vsl-js');
+    if (!window.__vslSeen) {
+      window.__vslSeen = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('is-in'); window.__vslSeen.unobserve(e.target); } });
+      }, { rootMargin: '0px 0px -8% 0px', threshold: 0.08 });
+    }
+    root.querySelectorAll('[data-motion]:not(.is-in)').forEach(function (el) { window.__vslSeen.observe(el); });
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Review cards",
+  "tag": "section",
+  "class": "vsl-reviews-section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Small label",
+      "default": "Students"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "What students *say*",
+      "info": "Words between asterisks are set in italic serif, like *this*. A | starts a new line."
+    },
+    {
+      "type": "richtext",
+      "id": "text",
+      "label": "Text",
+      "default": "<p>Sample reviews. Swap them for what your own students send you.</p>"
+    },
+    {
+      "type": "select",
+      "id": "columns",
+      "label": "Cards in a row",
+      "default": "3",
+      "options": [
+        {
+          "value": "2",
+          "label": "2"
+        },
+        {
+          "value": "3",
+          "label": "3"
+        }
+      ]
+    },
+    {
+      "type": "header",
+      "content": "Spacing"
+    },
+    {
+      "type": "checkbox",
+      "id": "line_above",
+      "label": "Thin glowing line above",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Space above, desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 96
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Space below, desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 96
+    },
+    {
+      "type": "range",
+      "id": "padding_top_mobile",
+      "label": "Space above, phone",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 64
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom_mobile",
+      "label": "Space below, phone",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 64
+    }
+  ],
+  "blocks": [
+    {
+      "type": "review",
+      "name": "Review",
+      "settings": [
+        {
+          "type": "range",
+          "id": "stars",
+          "label": "Stars",
+          "min": 0,
+          "max": 5,
+          "step": 1,
+          "default": 5
+        },
+        {
+          "type": "richtext",
+          "id": "quote",
+          "label": "Review",
+          "default": "<p>What changed for them, in their words.</p>"
+        },
+        {
+          "type": "text",
+          "id": "name",
+          "label": "Name",
+          "default": "Student name"
+        },
+        {
+          "type": "text",
+          "id": "role",
+          "label": "What they do",
+          "default": "What they do"
+        },
+        {
+          "type": "image_picker",
+          "id": "image",
+          "label": "Picture",
+          "info": "Only with their permission. Without one, their initial is shown."
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Review cards",
+      "category": "Video sales letter",
+      "blocks": [
+        {
+          "type": "review"
+        },
+        {
+          "type": "review"
+        },
+        {
+          "type": "review"
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,142 @@
+{
+  "sections": {
+    "heading": {
+      "type": "page-heading",
+      "settings": {
+        "height": "adapt",
+        "alignment": "center",
+        "padding_top": 66,
+        "color_scheme": "",
+        "reset_spacing": true,
+        "section_width": "container",
+        "padding_bottom": 55,
+        "overlay_opacity": 0
+      },
+      "blocks": {
+        "heading_xwFKKa": {
+          "type": "heading",
+          "settings": {
+            "page_title": "",
+            "header_size": "medium",
+            "vertical_gap": 14,
+            "heading_font_size": 36,
+            "enable_heading_color": false
+          }
+        },
+        "description_YRWpkt": {
+          "type": "description",
+          "settings": {
+            "description": "<p>A short lesson every week on cutting, colour and sound. Watch one, then try it on your own footage.</p>",
+            "enable_custom_style": false,
+            "description_font_size": 16
+          }
+        }
+      },
+      "block_order": [
+        "heading_xwFKKa",
+        "description_YRWpkt"
+      ]
+    },
+    "main": {
+      "type": "main-blog",
+      "settings": {
+        "layout": "grid",
+        "row_gap": 64,
+        "show_date": true,
+        "column_gap": 40,
+        "margin_top": 32,
+        "title_size": 22,
+        "badge_width": 70,
+        "image_ratio": "adapt",
+        "title_hover": "underline",
+        "badge_height": 30,
+        "custom_ratio": "16:10",
+        "hover_effect": "lift",
+        "image_radius": 14,
+        "show_excerpt": true,
+        "excerpt_lines": 2,
+        "items_per_row": 3,
+        "items_to_show": 12,
+        "margin_bottom": 0,
+        "readmore_line": "style",
+        "readmore_text": "Watch the lesson",
+        "readmore_type": "underline",
+        "reset_spacing": true,
+        "section_width": "fluid_container",
+        "show_category": true,
+        "show_readmore": true,
+        "button_show_more": "Load more",
+        "content_alignment": "left",
+        "badge_border_radius": 19,
+        "enable_custom_style": true,
+        "badge_text_font_size": 14,
+        "items_per_row_mobile": 1,
+        "badge_vertical_position": 16,
+        "badge_horizontal_position": 16
+      },
+      "name": "Main blog"
+    },
+    "final": {
+      "type": "banner3",
+      "settings": {
+        "color_scheme": "default",
+        "use_custom_bg": true,
+        "bg_color": "#0e0e10",
+        "use_custom_text": true,
+        "heading_color": "#ffffff",
+        "text_color": "#b4b4bb",
+        "use_theme_radius": true,
+        "enable_bg_gradient": true,
+        "bg_gradient": "radial-gradient(70% 90% at 50% 120%, rgba(255,95,31,0.55) 0%, rgba(255,95,31,0.12) 45%, #0e0e10 75%)",
+        "pad_top_desktop": 88,
+        "pad_bottom_desktop": 88,
+        "section_padding_top": 40,
+        "section_padding_bottom": 96,
+        "section_width": "container",
+        "text_align": "center",
+        "max_width": 720,
+        "banner_surface": "soft",
+        "reveal": true
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "The Whole Edit",
+            "color": "#ff5f1f"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Your next video starts with the first lesson"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "All six courses, the footage and the monthly feedback call, for one payment."
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "Get all courses",
+            "link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
+    }
+  },
+  "order": [
+    "heading",
+    "main",
+    "final"
+  ]
+}

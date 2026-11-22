@@ -129,6 +129,8 @@ export const CODE_TEMPLATES: readonly CodeTemplate[] = [
   { slug: "space-clothing", template: "space", name: "Night shop", category: "fashion" },
   /* Templates round 19: a pastel poster shop with wavy bands and framed prints, after the owner's reference. */
   { slug: "posters", template: "posters", name: "Poster shop", category: "design" },
+  /* Templates round 20: a life and business coach, an arched portrait, ways to work together with prices and a free first call, after the owner's reference. */
+  { slug: "coach", template: "coach", name: "Coach", category: "coaching" },
 ]
 
 /** Where a template's pictures live: its home page whole at 1440 wide, and at a phone's width (scripts/build-theme-template-covers.ts takes both). */

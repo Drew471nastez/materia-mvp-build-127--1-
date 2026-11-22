@@ -1,0 +1,136 @@
+{%- comment -%}
+  Online course: a picture beside a label, a heading and two or three half
+  circle gauges, each with a percentage, a short title and a sentence. The
+  gauges fill once when they come into view (stroke offset, no script work
+  beyond adding a class); with reduced motion or in the editor they are
+  drawn full at once. Meant for how the course is made (how much of it is
+  practice), not for claims about students.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign sid = section.id
+-%}
+<style>
+  #shopify-section-{{ sid }} .c2g {
+    --c2-accent: {{ s.accent | default: '#12704f' }};
+    --c2-ink: {{ s.heading_color | default: '#15171a' }};
+    --c2-text: {{ s.text_color | default: '#5b616b' }};
+    --c2-track: {{ s.track_color | default: '#e4eee9' }};
+    background: {{ s.background | default: '#ffffff' }};
+    color: var(--c2-text);
+    padding: {{ s.padding_top_mobile | default: 48 }}px 0 {{ s.padding_bottom_mobile | default: 48 }}px;
+  }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .c2g { padding: {{ s.padding_top | default: 96 }}px 0 {{ s.padding_bottom | default: 96 }}px; } }
+  #shopify-section-{{ sid }} .c2g__in { max-width: 1200px; margin: 0 auto; padding: 0 20px; display: grid; gap: 36px; align-items: center; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .c2g__in { padding: 0 40px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 56px; } }
+  #shopify-section-{{ sid }} .c2g__media { margin: 0; border-radius: 18px; overflow: hidden; background: #1b1c1e; aspect-ratio: 1 / 1; }
+  @media (max-width: 989px) { #shopify-section-{{ sid }} .c2g__media { aspect-ratio: 4 / 3; } }
+  #shopify-section-{{ sid }} .c2g__media img { display: block; width: 100%; height: 100%; object-fit: cover; margin: 0; }
+  #shopify-section-{{ sid }} .c2-tag { display: inline-block; margin: 0 0 22px; padding: 8px 12px; border: 1px solid #d9dce1; border-radius: 6px; font-size: 13px; line-height: 1; letter-spacing: .05em; text-transform: uppercase; color: var(--c2-ink); }
+  #shopify-section-{{ sid }} .c2g__title { margin: 0 0 18px; color: var(--c2-ink); font-family: var(--heading-font, inherit); font-weight: 700; font-size: 34px; line-height: 1.06; letter-spacing: -.035em; text-wrap: balance; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .c2g__title { font-size: {{ s.heading_size | default: 48 }}px; } }
+  #shopify-section-{{ sid }} .c2g__title em { font-style: normal; color: var(--c2-accent); }
+  #shopify-section-{{ sid }} .c2g__text { max-width: 32em; font-size: 17px; line-height: 1.6; color: #3f444c; }
+  #shopify-section-{{ sid }} .c2g__text p { margin: 0; }
+  #shopify-section-{{ sid }} .c2g__row { margin-top: 36px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; list-style: none; padding: 0; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .c2g__row { gap: 36px; } }
+  #shopify-section-{{ sid }} .c2g__item { border-top: 1px solid #e3e5e8; padding-top: 26px; min-width: 0; }
+  #shopify-section-{{ sid }} .c2g__dial { position: relative; width: 100%; max-width: 168px; }
+  #shopify-section-{{ sid }} .c2g__dial svg { display: block; width: 100%; height: auto; overflow: visible; }
+  #shopify-section-{{ sid }} .c2g__track { stroke: var(--c2-track); }
+  #shopify-section-{{ sid }} .c2g__fill { stroke: var(--c2-accent); stroke-dasharray: 100 100; stroke-dashoffset: calc(100 - var(--p)); }
+  #shopify-section-{{ sid }} .c2g__item.c2r-wait .c2g__fill { stroke-dashoffset: 100; }
+  #shopify-section-{{ sid }} .c2g__item.c2r-wait.c2r-in .c2g__fill { stroke-dashoffset: calc(100 - var(--p)); transition: stroke-dashoffset 1.4s cubic-bezier(.3,.6,.2,1) calc(var(--d, 0ms) + 200ms); }
+  #shopify-section-{{ sid }} .c2g__num { position: absolute; left: 0; right: 0; bottom: 0; text-align: center; color: var(--c2-ink); font-family: var(--heading-font, inherit); font-weight: 700; font-size: 30px; letter-spacing: -.03em; line-height: 1; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .c2g__num { font-size: 36px; } }
+  #shopify-section-{{ sid }} .c2g__num span { color: var(--c2-accent); }
+  #shopify-section-{{ sid }} .c2g__name { margin: 20px 0 10px; color: var(--c2-ink); font-family: var(--heading-font, inherit); font-weight: 700; font-size: 17px; line-height: 1.3; letter-spacing: -.01em; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .c2g__name { font-size: 20px; } }
+  #shopify-section-{{ sid }} .c2g__desc { margin: 0; font-size: 15px; line-height: 1.55; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .c2g__desc { font-size: 16px; } }
+  #shopify-section-{{ sid }} [data-c2r].c2r-wait { opacity: 0; transform: translate3d(0, 22px, 0); }
+  #shopify-section-{{ sid }} [data-c2r].c2r-in { opacity: 1; transform: none; transition: opacity .8s cubic-bezier(.2,.65,.25,1) var(--d, 0ms), transform .8s cubic-bezier(.2,.65,.25,1) var(--d, 0ms); }
+</style>
+<section class="c2g">
+  <div class="c2g__in">
+    <figure class="c2g__media" data-c2r>
+      {%- if s.image != blank -%}
+        <img src="{{ s.image | image_url: width: 1200 }}" srcset="{{ s.image | image_url: width: 700 }} 700w, {{ s.image | image_url: width: 1200 }} 1200w" sizes="(min-width: 990px) 560px, 92vw" width="{{ s.image.width | default: 1200 }}" height="{{ s.image.height | default: 1200 }}" alt="{{ s.image_alt | default: s.image.alt | escape }}" loading="lazy" decoding="async">
+      {%- endif -%}
+    </figure>
+    <div class="c2g__body">
+      {%- if s.tag != blank -%}<p class="c2-tag" data-c2r>{{ s.tag | escape }}</p>{%- endif -%}
+      <h2 class="c2g__title" data-c2r style="--d: 60ms">{{ s.heading | escape }}{% if s.heading_accent != blank %} <em>{{ s.heading_accent | escape }}</em>{% endif %}</h2>
+      {%- if s.text != blank -%}<div class="c2g__text" data-c2r style="--d: 120ms">{{ s.text }}</div>{%- endif -%}
+      <ul class="c2g__row" role="list">
+        {%- for block in section.blocks limit: 2 -%}
+          {%- assign b = block.settings -%}
+          {%- assign pct = b.percent | at_least: 0 | at_most: 100 -%}
+          <li class="c2g__item" data-c2r style="--d: {{ forloop.index0 | times: 120 | plus: 160 }}ms; --p: {{ pct }}" {{ block.shopify_attributes }}>
+            <div class="c2g__dial">
+              <svg viewBox="0 0 120 68" aria-hidden="true" focusable="false"><path class="c2g__track" d="M10 62a50 50 0 0 1 100 0" fill="none" stroke-width="9" stroke-linecap="round" pathLength="100"/><path class="c2g__fill" d="M10 62a50 50 0 0 1 100 0" fill="none" stroke-width="9" stroke-linecap="round" pathLength="100"/></svg>
+              <div class="c2g__num">{{ pct }}<span>%</span></div>
+            </div>
+            <h3 class="c2g__name">{{ b.title | escape }}</h3>
+            {%- if b.text != blank -%}<p class="c2g__desc">{{ b.text | escape }}</p>{%- endif -%}
+          </li>
+        {%- endfor -%}
+      </ul>
+    </div>
+  </div>
+</section>
+{%- unless request.design_mode -%}
+<script>(function(){var r=document.getElementById('shopify-section-{{ sid }}');if(!r||!('IntersectionObserver' in window)||matchMedia('(prefers-reduced-motion: reduce)').matches)return;var h=innerHeight,io=new IntersectionObserver(function(es){es.forEach(function(e){if(!e.isIntersecting)return;var t=e.target;io.unobserve(t);requestAnimationFrame(function(){t.classList.add('c2r-in')})})},{rootMargin:'0px 0px -6% 0px'});r.querySelectorAll('[data-c2r]').forEach(function(el){if(el.getBoundingClientRect().top<h*.92)return;el.classList.add('c2r-wait');io.observe(el)})})();</script>
+{%- endunless -%}
+
+{% schema %}
+{
+  "name": "Picture with gauges",
+  "tag": "section",
+  "class": "course2-gauges-section",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "settings": [
+    { "type": "paragraph", "content": "Use percentages that describe the course itself, such as how much of it is practice." },
+    { "type": "text", "id": "tag", "label": "Label above", "default": "How it is made" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Less talk," },
+    { "type": "text", "id": "heading_accent", "label": "Heading words in the accent colour", "default": "more doing" },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Say how the time in the course is spent.</p>" },
+    { "type": "image_picker", "id": "image", "label": "Picture" },
+    { "type": "text", "id": "image_alt", "label": "Picture description" },
+    { "type": "range", "id": "heading_size", "label": "Heading size on desktop", "min": 28, "max": 72, "step": 2, "unit": "px", "default": 48 },
+    { "type": "header", "content": "Colours" },
+    { "type": "color", "id": "background", "label": "Background", "default": "#ffffff" },
+    { "type": "color", "id": "accent", "label": "Accent", "default": "#12704f" },
+    { "type": "color", "id": "track_color", "label": "Gauge track", "default": "#e4eee9" },
+    { "type": "color", "id": "heading_color", "label": "Heading", "default": "#15171a" },
+    { "type": "color", "id": "text_color", "label": "Text", "default": "#5b616b" },
+    { "type": "header", "content": "Spacing" },
+    { "type": "range", "id": "padding_top", "label": "Space above on desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below on desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above on phones", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 48 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below on phones", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 48 }
+  ],
+  "blocks": [
+    {
+      "type": "gauge",
+      "name": "Gauge",
+      "limit": 2,
+      "settings": [
+        { "type": "range", "id": "percent", "label": "Percentage", "min": 0, "max": 100, "step": 1, "unit": "%", "default": 70 },
+        { "type": "text", "id": "title", "label": "Title", "default": "Of each lesson is practice" },
+        { "type": "textarea", "id": "text", "label": "Text", "default": "Say what students do in that time." }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Picture with gauges",
+      "category": "Online course",
+      "blocks": [
+        { "type": "gauge", "settings": { "percent": 70 } },
+        { "type": "gauge", "settings": { "percent": 30, "title": "Is explaining why", "text": "Say what the rest of the time covers." } }
+      ]
+    }
+  ]
+}
+{% endschema %}

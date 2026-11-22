@@ -759,7 +759,7 @@ class="no-underline minicart__action header-icon header-color w-44 h-44 inline-f
 </article></div><div class="srh__dots" role="group" aria-label="Releases"><button class="srh__dot" type="button" data-srh-dot="0" aria-controls="srh-hero-1" aria-label="Release 1" aria-current="true"></button><button class="srh__dot" type="button" data-srh-dot="1" aria-controls="srh-hero-2" aria-label="Release 2" aria-current="false"></button><button class="srh__dot" type="button" data-srh-dot="2" aria-controls="srh-hero-3" aria-label="Release 3" aria-current="false"></button></div></div></div>
 </div>
 </div>
-<script src="/theme-previews/sample-packs/a/i.f8e223bad523.js"></script>
+<script src="/theme-previews/sample-packs/a/i.06e9eba56c81.js"></script>
 </section><section id="shopify-section-packs" class="shopify-section section" data-section-id="packs" data-section-type="samples-pack-cards"><style>
   .ssp { --ssp-p: 0%; --ssp-h: 0%; --ssp-sw: 1.6px; --ssp-btn: 36px; --ssp-wave: 36px; --ssp-base: rgba(var(--color-heading-rgb), .24); --ssp-done: rgb(var(--color-heading-rgb)); display: flex; align-items: center; gap: 12px; min-width: 0; }
   .ssp__btn { position: relative; flex: none; width: var(--ssp-btn); height: var(--ssp-btn); margin: 0; padding: 0; border-radius: 50%; border: 1.5px solid rgba(var(--color-heading-rgb), .5); background: transparent; color: var(--color-heading); display: grid; place-items: center; cursor: pointer; transition: background-color .2s ease, border-color .2s ease, color .2s ease, transform .2s ease; -webkit-tap-highlight-color: transparent; }
@@ -1013,7 +1013,7 @@ class="no-underline minicart__action header-icon header-color w-44 h-44 inline-f
 <script>
   /* The sample players (samples-audio-tracks, samples-pack-cards, samples-release-hero): one copy runs, whichever section loads first. */
   (function () {
-    var V = 3;
+    var V = 4;
     if (window.__ssp && window.__ssp.v >= V) { window.__ssp.scan(); return; }
     var current = null, N = 120, KEY = 'ssp-peaks:', reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
     function fmt(t) { if (!isFinite(t) || t < 0) t = 0; var m = Math.floor(t / 60), s = Math.floor(t % 60); return m + ':' + (s < 10 ? '0' : '') + s; }
@@ -1089,15 +1089,27 @@ class="no-underline minicart__action header-icon header-color w-44 h-44 inline-f
       }
       btn.addEventListener('click', function () { if (!audio || audio.paused) play(-1); else audio.pause(); });
       function at(x) { var r = wave.getBoundingClientRect(); return r.width ? Math.max(0, Math.min(1, (x - r.left) / r.width)) : 0; }
+      function seekable() { var r = audio.seekable; return r && r.length > 0 && r.end(r.length - 1) > 0; }
+      /* A server that does not answer range requests gives a file the browser cannot seek in: fetch it whole once (a preview is small) and play it from memory. */
+      function rescue(f) {
+        pending = f; el.style.setProperty('--ssp-p', (f * 100).toFixed(2) + '%');
+        if (el.__rescued || !window.fetch || !window.URL) return; el.__rescued = true;
+        var going = !audio.paused; el.classList.add('is-loading');
+        fetch(src, { credentials: 'same-origin' }).then(function (r) { if (!r.ok) throw new Error('fetch'); return r.blob(); }).then(function (blob) {
+          audio.src = URL.createObjectURL(blob); audio.load(); if (going) audio.play().catch(function () {});
+        }).catch(function () { el.classList.remove('is-loading'); });
+      }
       function seek(f) {
         if (!audio || audio.readyState < 1 || !audio.duration) { play(f); return; }
-        audio.currentTime = f * audio.duration; el.classList.add('is-started'); paint(true);
+        el.classList.add('is-started');
+        if (!seekable()) { rescue(f); return; }
+        audio.currentTime = f * audio.duration; paint(true);
       }
       wave.addEventListener('pointerdown', function (e) { if (e.button > 0) return; dragging = true; try { wave.setPointerCapture(e.pointerId); } catch (x) {} seek(at(e.clientX)); });
       wave.addEventListener('pointermove', function (e) {
         var f = at(e.clientX);
         if (e.pointerType === 'mouse') el.style.setProperty('--ssp-h', (f * 100).toFixed(2) + '%');
-        if (dragging && audio && audio.duration) { audio.currentTime = f * audio.duration; paint(); }
+        if (dragging && audio && audio.duration) { if (seekable()) { audio.currentTime = f * audio.duration; paint(); } else rescue(f); }
       });
       function stop() { dragging = false; }
       wave.addEventListener('pointerup', stop); wave.addEventListener('pointercancel', stop); wave.addEventListener('lostpointercapture', stop);
@@ -1256,7 +1268,7 @@ class="no-underline minicart__action header-icon header-color w-44 h-44 inline-f
 <a class="srh__go" href="/theme-previews/sample-packs/products/tech-house-sample-pack-master-bundle-2025.html">Get the bundle</a><p class="srh__note">RAR 930 MB or ZIP 1 GB. Instant download, yours to keep.</p></div></div>
 </div>
 </div>
-<script src="/theme-previews/sample-packs/a/i.f8e223bad523.js"></script>
+<script src="/theme-previews/sample-packs/a/i.06e9eba56c81.js"></script>
 </section><section id="shopify-section-reviews" class="shopify-section" data-section-id="reviews" data-section-type="theme-testimonials"><script src="/theme-previews/_base/a/live-testimonials.6e78f70ae7ca.js" defer="defer"></script>
 <style>
   #shopify-section-reviews {

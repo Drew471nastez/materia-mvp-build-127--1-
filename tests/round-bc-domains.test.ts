@@ -58,7 +58,7 @@ async function main() {
     const page = Number(settings.match(/wb-settings-in fixed inset-0 z-\[(\d+)\]/)?.[1] ?? Infinity)
     check("the list's layer is above Website settings' page", z > page, { z, page })
     check("and not under the popovers either", z >= 2147483640, z)
-    check("Escape in an open list closes the list, not Website settings", /e\.key === "Escape" && !e\.defaultPrevented\) onClose\(\)/.test(settings))
+    check("Escape in an open list closes the list, not Website settings", /* Changed on purpose (templates round 21): the way out is onExit when the Website page sent the creator here. */ /e\.key === "Escape" && !e\.defaultPrevented\) \(onExit \?\? onClose\)\(\)/.test(settings))
   }
 
   console.log("\nPublish › Website URL › + Add domain\n")
