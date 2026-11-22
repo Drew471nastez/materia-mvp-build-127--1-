@@ -75,7 +75,7 @@
             "show_visa": true,
             "show_amazon": false,
             "show_klarna": false,
-            "show_paypal": true,
+            "show_paypal": false,
             "show_discover": false,
             "show_apple_pay": true,
             "show_google_pay": true,

@@ -251,6 +251,22 @@ async function main() {
   const page2 = await site(ada, "GET", "/cart")
   check("  the cart page draws the line from the same cookie", page2.status === 200 && /Organic Tee/.test(String(page2.json)) && /Size: M Colour: Black/.test(words(String(page2.json))) && /€58\.00/.test(words(String(page2.json))), words(String(page2.json)).match(/Organic Tee.{0,200}/)?.[0])
 
+  /*
+    No PayPal badge on the cart or the product page (round 57): Storelib's checkout takes cards, Apple Pay and
+    Google Pay only, and Materia showed PayPal by default in the cart drawer, the cart page and the product page.
+  */
+  const cartHtml = String(page2.json).replace(/\s+/g, " ")
+  if (process.env.R57_DUMP) (await import("node:fs")).writeFileSync(process.env.R57_DUMP + "/cart.html", String(page2.json))
+  /* A PayPal mark that shows: its title or label, once the cart's badges switched off (`hidden`) are taken out. */
+  const paypalShown = (h: string) => /<title>PayPal<\/title>|aria-label="PayPal"/.test(h.replace(/<span class="lcs-badge" data-lcs-badge="\w+" hidden>.*?<\/span>/g, ""))
+  check("  no PayPal badge in Materia's cart or on the product page: the checkout cannot take it", !paypalShown(cartHtml) && !paypalShown(flat), { cart: cartHtml.match(/.{0,200}paypal.{0,200}/i)?.[0], pdp: flat.match(/.{0,200}paypal.{0,200}/i)?.[0] })
+  const est = await site(ada, "GET", "/cart/shipping_rates.json?shipping_address%5Bcountry%5D=Germany&shipping_address%5Bzip%5D=20095", undefined, ajax)
+  const estJson = typeof est.json === "string" ? JSON.parse(est.json) : est.json
+  check("  Materia's Estimate shipping for Germany: Standard at 4.90, the checkout's own rate", est.status === 200 && (estJson?.shipping_rates ?? []).map((r: any) => `${r.name}:${r.price}`).join(",") === "Standard:4.90", { status: est.status, body: estJson })
+  const estUs = await site(ada, "GET", "/cart/shipping_rates.json?shipping_address%5Bcountry%5D=United%20States&shipping_address%5Bzip%5D=10001", undefined, ajax)
+  const estUsJson = typeof estUs.json === "string" ? JSON.parse(estUs.json) : estUs.json
+  check("  and for the US: no rate, said as Shopify says it", (estUs.status === 422 || estUs.status === 200) && (estUsJson?.shipping_rates ?? []).length === 0, { status: estUs.status, body: estUsJson })
+
   section("A. Two M Black tees to Germany: Standard 4.90 EUR, VAT 19% on top")
   const go = await site(ada, "POST", "/cart", "updates%5B%5D=2&checkout=")
   const to = new URL(go.location ?? "/", `https://${HOST}`)
@@ -447,7 +463,68 @@ async function main() {
   check("no after() work threw", j.afterErrors.length === 0, j.afterErrors)
   if (fails.length) console.log("\nFailed:\n  " + fails.join("\n  "))
   console.log(`\n${passed} passed, ${failed} failed`)
+  if (process.env.COMMERCE_R57_SERVE) await serve(j, site, visitor, { tee, sBlack: tv("S", "Black").id, mBlack: tv("M", "Black").id, lSand: tv("L", "Sand").id })
   if (failed) process.exit(1)
+}
+
+/**
+ * THE STORE OVER HTTP, for scripts/check-commerce-e2e-r57.mjs: every request
+ * a browser makes to http://localhost:<port> goes to the website as the proxy
+ * hands it on (the same `site` call the suite uses), with the browser's own
+ * cookies. x-r57-country names where the browser is (GB is the UK market).
+ * The theme's files go to the assets route. /checkout is answered with the
+ * address it was asked at, so the script can read what Check out sent.
+ */
+async function serve(j: Journey, site: (v: Visitor, method: string, path: string, body?: Record<string, unknown> | string, extra?: Record<string, string>) => Promise<Answer>, visitor: (ip: string, country: string, market?: string | null) => Visitor, facts: Record<string, string>) {
+  const { createServer } = await import("node:http")
+  const server = createServer(async (req, res) => {
+    try {
+      const url = req.url ?? "/"
+      const chunks: Buffer[] = []
+      for await (const c of req) chunks.push(c as Buffer)
+      const raw = Buffer.concat(chunks).toString("utf8")
+      if (url.startsWith("/__facts")) {
+        res.writeHead(200, { "content-type": "application/json" })
+        return res.end(JSON.stringify(facts))
+      }
+      if (url.startsWith("/checkout")) {
+        res.writeHead(200, { "content-type": "text/html; charset=utf-8" })
+        return res.end(`<!doctype html><title>Checkout</title><pre id="asked">${url.replace(/</g, "&lt;")}</pre>`)
+      }
+      if (/^\/(?:__media|_next|cdn)\//.test(url) || url.includes("cdn.example.com")) {
+        res.writeHead(404)
+        return res.end()
+      }
+      const country = String(req.headers["x-r57-country"] ?? "DE")
+      const v = visitor(String(req.headers["x-forwarded-for"] ?? "198.51.100.200"), country, country === "GB" ? "uk" : null)
+      for (const part of String(req.headers.cookie ?? "").split(/;\s*/)) {
+        const at = part.indexOf("=")
+        if (at > 0) v.jar.set(part.slice(0, at), part.slice(at + 1))
+      }
+      const extra: Record<string, string> = {}
+      for (const h of ["x-requested-with", "accept", "content-type"]) if (req.headers[h]) extra[h] = String(req.headers[h])
+      let answer: Answer
+      if (url.startsWith("/api/site-theme/assets/")) answer = await j.call(`GET ${url}`, { host: HOST })
+      else answer = await site(v, String(req.method), url, raw ? raw : undefined, extra)
+      const headers: Record<string, string | string[]> = {}
+      answer.headers.forEach((value, key) => {
+        if (key !== "set-cookie" && key !== "content-length" && key !== "content-encoding") headers[key] = value
+      })
+      const cookies = (answer.headers as unknown as { getSetCookie?: () => string[] }).getSetCookie?.() ?? []
+      /* Secure cookies are kept by Chromium on localhost; the Domain is the website's, so it is dropped here. */
+      if (cookies.length) headers["set-cookie"] = cookies.map((c) => c.replace(/;\s*Domain=[^;]*/i, ""))
+      const body = typeof answer.json === "string" ? answer.json : answer.json === null ? "" : JSON.stringify(answer.json)
+      res.writeHead(answer.status, headers)
+      res.end(body)
+    } catch (e) {
+      res.writeHead(500, { "content-type": "text/plain" })
+      res.end(String(e instanceof Error ? e.stack : e))
+    }
+  })
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
+  const address = server.address()
+  console.log(`SERVING ${typeof address === "object" && address ? address.port : 0}`)
+  await new Promise(() => {})
 }
 
 /** Pay on the website's checkout as its page does: intent with the address, Stripe's card confirm, the page's confirm and Stripe's webhook. */
