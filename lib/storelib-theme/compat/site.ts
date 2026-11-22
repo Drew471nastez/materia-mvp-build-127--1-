@@ -516,7 +516,9 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
   const drawn = drawPage(site.theme, route.page, route.sections, { scripts: true, extraHead: head || undefined, extraBodyEnd: bodyEnd || undefined, content: route.content })
   /* What the theme's head left out for search engines and share cards: a description, a picture, structured data, noindex (./search-head.ts). */
   /* And it says "Powered by Storelib" where the plan has it said, whatever the theme's own code printed (./powered-by.ts). */
-  const out = withSearchHead(withPoweredBy(route.page.template === "password" ? withoutShopifyMark(drawn.html) : drawn.html, route.page.poweredBy ?? !hideAsked(site.theme.settingsValues)) /* In the builder (no server decision) the setting decides, as powered_by_link does. */, site.searchHead?.(route.page, path))
+  /* In the builder (no server decision) the setting decides, as powered_by_link does. */
+  const shown = route.page.poweredBy ?? !hideAsked(site.theme.settingsValues)
+  const out = withSearchHead(withPoweredBy(route.page.template === "password" ? withoutShopifyMark(drawn.html) : drawn.html, shown), site.searchHead?.(route.page, path))
   /* The tab says what SEO & Social shows, whatever the theme's own <title> writes (lib/website-builder/tab-title.ts). */
   const done: SiteResponse = { ...pageHtml(tidyHead(withSiteIcon(withBodyStart(withTabTitle(out, tabTitleOf(site, route.page, route.ownTitle)), shop.bodyStart), site.icon, { ownFavicon: site.ownFavicon })), path, route.status ?? 200), personal: drawn.personal }
   /* A post's preview is its editor's: never kept by anyone, never a search result. */

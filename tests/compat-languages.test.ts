@@ -65,7 +65,7 @@ async function main() {
     const html = String(page.body)
     check("drawn by the theme, never a blank page", page.status === 200 && /class="pw"/.test(html) && /type="password"/.test(html), html.slice(0, 300))
     check("its form posts to Storelib's own password check, with the page to go back to", /action="\/api\/site-password"/.test(html) && /name="return" value="\/products\/mug"/.test(html))
-    check("no Shopify on it: not its words, not its logo, not its admin link", !/powered by|www\.shopify\.com|icon-shopify|href="\/admin"/i.test(html), html.match(/<footer>[\s\S]*?<\/footer>/)?.[0])
+    check("no Shopify on it: not its words, not its logo, not its admin link", !/powered by|www\.shopify\.com|icon-shopify|href="\/admin"/i.test(html.replace(/<p data-storelib-badge-line[\s\S]*?<\/p>/g, "")) /* Changed on purpose (templates round 20): Powered by Storelib is the one powered by line, added by the engine. */, html.match(/<footer>[\s\S]*?<\/footer>/)?.[0])
     check("  \"Log in here\" is Storelib's owner sign in for this website", /href="https:\/\/[^"]*\/api\/site-password\/owner\?host=mugs\.storelib\.com&amp;return=%2Fproducts%2Fmug"/.test(html), html.match(/.{0,60}Log in here.{0,20}/)?.[0])
     check("never kept by any cache", /no-store/.test(String(page.headers?.["Cache-Control"])))
     const wrong = String((await get(base, "/password", "error=wrong&return=%2F")).body)

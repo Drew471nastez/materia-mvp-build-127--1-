@@ -54,7 +54,8 @@ export function poweredByShown(settings: Record<string, unknown> | null | undefi
  * leaves it alone there), else at the end of the body. Small and centred.
  */
 export function withPoweredBy(html: string, shown: boolean): string {
-  if (!shown || html.includes(BADGE_MARK)) return html
+  /* A fragment (a ?view= alternate template, a section drawn alone) has no body and gets no line: the page it lands in has one. */
+  if (!shown || html.includes(BADGE_MARK) || !/<\/body>/i.test(html)) return html
   const line = `<p data-storelib-badge-line style="margin:0;padding:12px 16px;text-align:center;font-size:12px;line-height:1.5;opacity:.62">${poweredByLink().replace("<a ", '<a style="color:inherit;text-decoration:none" ')}</p>`
   const lower = html.toLowerCase()
   const footer = lower.lastIndexOf("</footer>")

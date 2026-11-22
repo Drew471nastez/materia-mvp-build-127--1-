@@ -45,6 +45,7 @@ import { compatMenus } from "@/lib/storelib-theme/compat/menus"
 import { liveNavigationEnd, liveNavigationMarkup } from "./live-navigation"
 import { creatorSitePlan } from "@/lib/sites/plan-server"
 import { siteLimits } from "@/lib/sites/plan"
+import { hideAsked } from "@/lib/storelib-theme/compat/powered-by"
 import { siteVitalsScript } from "@/lib/perf/site-vitals-inline"
 import { storeIdentity } from "@/lib/store/identity-server"
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
@@ -506,15 +507,6 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
     address is answered as before. A failed read is no blog for this page.
   */
   const blogAsked = quiet(part("blog", blogFor(creator.creatorId).catch(() => null), null))
-  /*
-    WHETHER THE PLAN MAY HIDE "POWERED BY STORELIB" (lib/sites/plan.ts
-    removeBranding, from the owner's subscription as a OnePage's badge reads
-    it). Only then does the theme setting take the line away
-    (lib/storelib-theme/compat/powered-by.ts). A read that failed or came
-    late is null: this page keeps the line and is not held (partial).
-  */
-  const planRead = creatorSitePlan(creator.creatorId, admin).then((plan) => siteLimits(plan).removeBranding)
-  const brandingAsked = quiet(live ? part("plan", planRead, null) : planRead.catch(() => null))
   /* A preview link holds nothing: it is the person checking their unpublished work. */
   const install = previewToken !== null
     ? await readInstall(admin, creator.creatorId)
@@ -536,6 +528,17 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
   const settingsRow = release ? settingsRowOf(release.manifest) : Array.isArray(row.store_theme_settings) ? (row.store_theme_settings[0] ?? null) : (row.store_theme_settings ?? null)
   const settings = themeSettingsOf(settingsRow as never, draft) ?? {}
   if (!compatOf(settings)) return { kind: "missing" }
+  /*
+    WHETHER THE PLAN MAY HIDE "POWERED BY STORELIB" (lib/sites/plan.ts
+    removeBranding, from the owner's subscription as a OnePage's badge reads
+    it). Asked only when the theme setting asks for the line to go
+    (lib/storelib-theme/compat/powered-by.ts hideAsked): every other page
+    keeps the line and makes no read for it. A read that failed or came late
+    is null: this page keeps the line and is not held (partial).
+  */
+  const brandingAsked: Promise<boolean | null> = hideAsked(settings as Record<string, unknown>)
+    ? ((read) => quiet(live ? part("plan", read, null) : read.catch(() => null)))(creatorSitePlan(creator.creatorId, admin).then((plan) => siteLimits(plan).removeBranding))
+    : Promise.resolve(null)
 
   /* A preview's draft files with their pass (./draft-asset-pass.ts): this page may show the draft, so its assets may too. */
   const version = draft ? withDraftPass(`draft-${Date.now()}`, draftAssetPass(row.id)) : String(row.published_at ?? "1").replace(/[^0-9A-Za-z]/g, "")
