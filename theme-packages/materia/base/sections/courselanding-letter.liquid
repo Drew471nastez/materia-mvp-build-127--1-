@@ -1,0 +1,89 @@
+{%- comment -%}
+  Course landing: a short letter from the teacher on a dark rounded panel.
+  A picture on one side; on the other a two line heading (the second line in
+  the accent colour), the letter, a thin rule and the teacher's name and
+  role. Rises in once when scrolled to.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign sid = section.id
+-%}
+<style>
+  #shopify-section-{{ sid }} .cll {
+    --cl-accent: {{ s.accent | default: '#2f5bea' }};
+    background: {{ s.background | default: '#f6f6f4' }};
+    padding: {{ s.padding_top_mobile | default: 24 }}px 0 {{ s.padding_bottom_mobile | default: 40 }}px;
+    scroll-margin-top: 100px;
+  }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cll { padding: {{ s.padding_top | default: 40 }}px 0 {{ s.padding_bottom | default: 72 }}px; } }
+  #shopify-section-{{ sid }} .cll__in { max-width: 1104px; margin: 0 auto; padding: 0 12px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cll__in { padding: 0 32px; } }
+  #shopify-section-{{ sid }} .cll__panel { display: grid; gap: 28px; align-items: center; padding: 14px 14px 28px; border-radius: 24px; background: {{ s.panel_color | default: '#151517' }}; color: {{ s.text_color | default: '#b9b9c0' }}; box-shadow: 0 30px 60px -40px rgba(0,0,0,.5); }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cll__panel { grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 56px; padding: 48px; border-radius: 28px; } }
+  #shopify-section-{{ sid }} .cll__media { margin: 0; border-radius: 16px; overflow: hidden; aspect-ratio: 4 / 3; background: #222; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cll__media { aspect-ratio: 4 / 4.4; } }
+  #shopify-section-{{ sid }} .cll__media img { display: block; width: 100%; height: 100%; object-fit: cover; margin: 0; }
+  #shopify-section-{{ sid }} .cll__body { padding: 0 8px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cll__body { padding: 0 8px 0 0; } }
+  #shopify-section-{{ sid }} .cll__title { margin: 0 0 22px; color: {{ s.heading_color | default: '#ffffff' }}; font-family: var(--heading-font, inherit); font-weight: 600; font-size: 28px; line-height: 1.15; letter-spacing: -.03em; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cll__title { font-size: 38px; } }
+  #shopify-section-{{ sid }} .cll__title span { display: block; color: var(--cl-accent); }
+  #shopify-section-{{ sid }} .cll__text { font-size: 16px; line-height: 1.7; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cll__text { font-size: 17px; } }
+  #shopify-section-{{ sid }} .cll__text p { margin: 0 0 16px; }
+  #shopify-section-{{ sid }} .cll__text strong { color: {{ s.heading_color | default: '#ffffff' }}; font-weight: 600; }
+  #shopify-section-{{ sid }} .cll__text em { font-style: normal; color: color-mix(in srgb, var(--cl-accent) 55%, #ffffff); }
+  #shopify-section-{{ sid }} .cll__sign { margin-top: 26px; padding-top: 22px; border-top: 1px solid rgba(255,255,255,.12); }
+  #shopify-section-{{ sid }} .cll__name { display: block; color: {{ s.heading_color | default: '#ffffff' }}; font-size: 16px; font-weight: 600; }
+  #shopify-section-{{ sid }} .cll__role { display: block; margin-top: 3px; font-size: 14px; opacity: .8; }
+  #shopify-section-{{ sid }} [data-clr].clr-wait { opacity: 0; transform: translate3d(0, 24px, 0); }
+  #shopify-section-{{ sid }} [data-clr].clr-in { opacity: 1; transform: none; transition: opacity .85s cubic-bezier(.2,.65,.25,1) var(--d, 0ms), transform .85s cubic-bezier(.2,.65,.25,1) var(--d, 0ms); }
+</style>
+<section class="cll"{% if s.anchor != blank %} id="{{ s.anchor | handleize }}"{% endif %}>
+  <div class="cll__in">
+    <div class="cll__panel" data-clr>
+      <figure class="cll__media">
+        {%- if s.image != blank -%}<img src="{{ s.image | image_url: width: 1100 }}" srcset="{{ s.image | image_url: width: 600 }} 600w, {{ s.image | image_url: width: 1100 }} 1100w" sizes="(min-width: 990px) 440px, 92vw" width="{{ s.image.width | default: 1100 }}" height="{{ s.image.height | default: 1100 }}" alt="{{ s.image_alt | default: s.image.alt | escape }}" loading="lazy" decoding="async">{%- endif -%}
+      </figure>
+      <div class="cll__body">
+        <h2 class="cll__title">{{ s.heading | escape }}{% if s.heading_accent != blank %}<span>{{ s.heading_accent | escape }}</span>{% endif %}</h2>
+        <div class="cll__text">{{ s.text }}</div>
+        {%- if s.name != blank -%}<div class="cll__sign"><span class="cll__name">{{ s.name | escape }}</span>{%- if s.role != blank -%}<span class="cll__role">{{ s.role | escape }}</span>{%- endif -%}</div>{%- endif -%}
+      </div>
+    </div>
+  </div>
+</section>
+{%- unless request.design_mode -%}
+<script>(function(){var r=document.getElementById('shopify-section-{{ sid }}');if(!r||!('IntersectionObserver' in window)||matchMedia('(prefers-reduced-motion: reduce)').matches)return;var h=innerHeight,io=new IntersectionObserver(function(es){es.forEach(function(e){if(!e.isIntersecting)return;var t=e.target;io.unobserve(t);requestAnimationFrame(function(){t.classList.add('clr-in')})})},{rootMargin:'0px 0px -6% 0px'});r.querySelectorAll('[data-clr]').forEach(function(el){if(el.getBoundingClientRect().top<h*.92)return;el.classList.add('clr-wait');io.observe(el)})})();</script>
+{%- endunless -%}
+
+{% schema %}
+{
+  "name": "Letter on a dark panel",
+  "tag": "section",
+  "class": "courselanding-letter-section",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "A note before you start." },
+    { "type": "text", "id": "heading_accent", "label": "Second line, in the accent colour", "default": "Why I made this course" },
+    { "type": "richtext", "id": "text", "label": "Letter", "default": "<p>Write a few short paragraphs in your own voice: who you are, why you teach this and what is different about the course.</p>" },
+    { "type": "text", "id": "name", "label": "Name", "default": "Your name" },
+    { "type": "text", "id": "role", "label": "Role", "default": "Teacher" },
+    { "type": "image_picker", "id": "image", "label": "Picture" },
+    { "type": "text", "id": "image_alt", "label": "Picture description" },
+    { "type": "text", "id": "anchor", "label": "Address on the page", "info": "A word a menu link can jump to, as /#word." },
+    { "type": "header", "content": "Colours" },
+    { "type": "color", "id": "background", "label": "Background around the panel", "default": "#f6f6f4" },
+    { "type": "color", "id": "panel_color", "label": "Panel", "default": "#151517" },
+    { "type": "color", "id": "accent", "label": "Accent", "default": "#2f5bea" },
+    { "type": "color", "id": "heading_color", "label": "Heading", "default": "#ffffff" },
+    { "type": "color", "id": "text_color", "label": "Text", "default": "#b9b9c0" },
+    { "type": "header", "content": "Spacing" },
+    { "type": "range", "id": "padding_top", "label": "Space above on desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 40 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below on desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 72 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above on phones", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 24 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below on phones", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 40 }
+  ],
+  "presets": [ { "name": "Letter on a dark panel", "category": "Course landing" } ]
+}
+{% endschema %}

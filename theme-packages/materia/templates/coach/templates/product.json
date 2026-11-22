@@ -97,9 +97,9 @@
             "atc_icon_enable": false,
             "buy_icon_enable": false,
             "show_gift_card_recipient": false,
+            "enable_custom_button_text": true,
             "atc_button_text": "Add to basket",
-            "buy_button_text": "Book now",
-            "enable_custom_button_text": true
+            "buy_button_text": "Book now"
           }
         },
         "vertical_benefits_1": {
@@ -243,6 +243,7 @@
       "type": "related-products",
       "settings": {
         "heading": "Other ways to work together",
+        "description": "",
         "color_scheme": "default",
         "items_per_row": 3,
         "items_to_show": 3,
@@ -250,8 +251,7 @@
         "show_vendor": false,
         "padding_top": 72,
         "padding_bottom": 88,
-        "header_alignment": "left",
-        "description": ""
+        "header_alignment": "left"
       }
     }
   },

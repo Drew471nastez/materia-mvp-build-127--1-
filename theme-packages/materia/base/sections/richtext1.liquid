@@ -201,7 +201,7 @@
     {% endif %}
 
     <!-- Pill Shaped Badge Above Title -->
-    {% if section.settings.enable_badge %}
+    {% if section.settings.enable_badge and section.settings.badge_text != blank %}
       <div
         class="rt-elements-pro-1-badge"
         style="
