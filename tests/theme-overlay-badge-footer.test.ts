@@ -228,7 +228,7 @@ async function main() {
   check("the check finds a cut out product's transparent corners, and none in an opaque picture", rgbaHasTransparency(rgba) && !rgbaHasTransparency(Buffer.alloc(16, 255)))
   check("  PNG, WebP and AVIF are looked at; JPEG, which cannot be see-through, is not", ["image/png", "image/webp", "image/avif"].every(mayBeTransparent) && !mayBeTransparent("image/jpeg"))
   /* Next's own optimizer, as /_next/image runs it (next.config.mjs formats: AVIF, WebP). */
-  const { optimizeImage } = (await import("next/dist/server/image-optimizer")) as unknown as { optimizeImage: (o: { buffer: Buffer; contentType: string; quality: number; width: number; height?: number }) => Promise<Buffer> }
+  const { optimizeImage } = (await import("next/dist/server/image-optimizer.js")) as unknown as { optimizeImage: (o: { buffer: Buffer; contentType: string; quality: number; width: number; height?: number }) => Promise<Buffer> }
   for (const contentType of ["image/avif", "image/webp", "image/png"]) {
     const out = await optimizeImage({ buffer: png, contentType, quality: 90, width: 48 })
     const meta = await sharp(out).metadata()
