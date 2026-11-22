@@ -1679,6 +1679,8 @@ const SUITES = [
   "tests/home-landing-r21-pictures.test.ts",
   /* Round AU: a products read that failed is not an empty Explore or a 404. Explore's and the category pages' products read bounded per try and asked once more, this instance's last good catalogue shown when it fails (never held as the catalogue, forgotten by a takedown), with none the grid says the products did not load and the browser asks again; a creator page's held reads answer the last good one; a product page whose read failed is the error screen, never a 404 held as "no product"; SQL part 451, the partial index the catalogue reads by. */
   "tests/explore-resilience-au.test.ts",
+  /* Buyer journey audit: a membership or a community's tier on an imported theme's product form goes to joining it (a plain post and Buy it now by redirect, a theme's fetch by X-Storelib-Go, followed only to a path of the site and never in the builder), never into a cart the website's checkout then refused; a course still goes in the cart, and a course already bought says so on its page with Open course to its player on Storelib. */
+  "tests/journey-theme-plans.test.ts",
 ]
 
 /**
@@ -1910,6 +1912,8 @@ const STRICT_SUITES = [
   "tests/free-basket-retry-ax-journey.test.ts",
   /* Round AY (AY-2): a free shipped cart through /api/physical/checkout and the website checkout, pressed again: one order, one email, the code once, one stock hold. Strict: tests/_journey. */
   "tests/free-shipped-retry-ay-journey.test.ts",
+  /* Buyer journey audit: a course that opens a community and a download, one cart on the creator's website checkout (quote, intent, confirm, webhook): both lines on the buyer's account and in their library, the community lets the buyer in at once (a basket wrote the library row only), one receipt email whose link opens on the website; a guest's same order joins them and the community once they sign up with that email. Strict: it drives the real routes through tests/_journey. */
+  "tests/journey-course-community-site.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

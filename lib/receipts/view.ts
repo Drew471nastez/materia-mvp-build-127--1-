@@ -33,6 +33,12 @@ export interface ReceiptItem {
   files: ReceiptFile[]
   /** Where a course is taken, when the product is one. Needs an account. */
   courseHref: string | null
+  /**
+   * The communities this product lets its buyer into (Community › Access
+   * names it), published ones only, while the line is open: the receipt says
+   * so and opens each on Storelib. Absent when there are none.
+   */
+  communities?: { name: string; slug: string }[]
   /** A membership's line is one period of it: "$9.00/month". Null for anything bought once. */
   priceInterval?: "month" | "year" | null
   /**

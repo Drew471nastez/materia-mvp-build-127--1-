@@ -411,6 +411,7 @@ export const CHECKOUT_SENTENCES: readonly string[] = [
   "Open course",
   "The course is in your library. {link} to open it.",
   "Sign in with the email you paid with",
+  "Open community",
   "Sent. It can take a minute to arrive, and it may land in spam.",
   "The email did not go out. Try again in a minute.",
   "No connection. Try again.",

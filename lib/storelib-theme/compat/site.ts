@@ -63,7 +63,7 @@ import { accountNoticeIn, accountWord, wordedCustomer } from "@/lib/site-account
 import { inLang } from "@/lib/site-accounts/lang-path"
 import { countryChoices } from "@/lib/site-accounts/countries"
 import { siteTabTitle, withTabTitle, type TabPage } from "@/lib/website-builder/tab-title"
-import { ownedBanner } from "./owned-banner"
+import { coursePlayerHref, ownedBanner } from "./owned-banner"
 import { commerceMarkup, withBodyStart, type CompatCommerce } from "./site-commerce-markup"
 import { withProductPageReviews } from "./storelib-reviews"
 import { countryCookieHeader } from "@/lib/markets/visitor-country"
@@ -1039,7 +1039,9 @@ async function pageFor(site: SiteData, path: string, req: SiteRequest): Promise<
     const owned = route && req.owned ? await req.owned(card.id).catch(() => null) : null
     if (route && owned) {
       const first = (productObject(card).selected_or_first_available_variant as O | null)?.id
-      route.bodyEnd = ownedBanner(owned, selectedVariantId ?? (typeof first === "string" ? first : null), owned.href)
+      /* A course's notice opens its player on Storelib (owned-banner.ts coursePlayerHref). */
+      const course = String(card.settings.kind ?? "") === "course" ? coursePlayerHref(getMainDomain(), card.id) : null
+      route.bodyEnd = ownedBanner(owned, selectedVariantId ?? (typeof first === "string" ? first : null), owned.href, { course })
     }
     return route
   }
@@ -1605,6 +1607,56 @@ function variantIndex(site: SiteData): Map<string, Indexed> {
   return out
 }
 
+/** The response header a theme's script is answered with when its add goes somewhere else instead (./shims.ts PLAN_GO follows it). */
+export const PLAN_GO_HEADER = "X-Storelib-Go"
+
+/** A membership or a community's tier: joined on Storelib's own checkout, never put in a cart (lib/checkout/pricing drops both). */
+export function isPlanCard(card: CardLike): boolean {
+  const kind = String(card.settings?.kind ?? "")
+  return kind === "membership" || kind === "community"
+}
+
+/**
+ * Where Add to cart on a plan goes: Storelib checkout for that plan, from
+ * this website (src=website, site=), with the page it was pressed on to come
+ * back to and to cancel to (lib/checkout/return-url.ts checks both against
+ * the creator's own hosts). The website's /checkout?productId= sends a plan
+ * on to storelib.com, where its account and its recurring price are.
+ * Null for anything that is not a plan, which goes in the cart as before.
+ */
+export function planJoinHref(site: Pick<SiteData, "products" | "pickable" | "host">, id: string, back: string): { href: string; message: string } | null {
+  if (!id) return null
+  let card: CardLike | undefined
+  let variantId: string | null = null
+  for (const c of [...site.products, ...(site.pickable ?? [])]) {
+    if (c.id === id) card = c
+    else {
+      const v = (Array.isArray(c.settings.variants) ? (c.settings.variants as O[]) : []).find((x) => x.id === id)
+      if (v) {
+        card = c
+        variantId = String(v.id)
+      }
+    }
+    if (card) break
+  }
+  if (!card || !isPlanCard(card) || card.settings.available === false) return null
+  const q = new URLSearchParams({ productId: card.id })
+  if (variantId) q.set("variantId", variantId)
+  q.set("src", "website")
+  const host = String(site.host ?? "").toLowerCase()
+  if (/^[a-z0-9.-]+$/.test(host)) {
+    /* Back to the page it was pressed on; a press with no page of its own (Back reads "/cart") comes back to the plan's page. */
+    const own = String(card.settings.url ?? "")
+    const from = back && back !== "/cart" && back.startsWith("/") && !back.startsWith("//") ? back : own.startsWith("/") && !own.startsWith("//") ? own : "/"
+    const page = `https://${host}${from}`
+    q.set("site", host)
+    q.set("return", page)
+    q.set("cancel", page)
+  }
+  const title = String(card.settings.title ?? "This plan")
+  return { href: `/checkout?${q.toString()}`, message: `${title} is joined on its own page.` }
+}
+
 /** The name of a product's option that is sold out, or null when it is in stock. */
 function variantSoldOut(card: CardLike, variantId: string): string | null {
   const variants = Array.isArray(card.settings.variants) ? (card.settings.variants as O[]) : []
@@ -1769,9 +1821,21 @@ async function cartAction(site: SiteData, req: SiteRequest, action: string, ajax
     /* What was asked for, alone and at the quantity asked: what Buy it now sends to checkout. */
     const asked: CartEntry[] = []
     const buyNow = !ajax && field(req.body, "checkout") !== undefined
+    /*
+      A PLAN IS JOINED, NEVER CARRIED. A membership or a community's tier
+      needs a Storelib account and its own recurring price, so the website's
+      checkout drops it from a cart ("can't be bought right now") and a tier
+      picked for a featured product was not in the cart's index at all ("not
+      available"). Add to cart and Buy it now on one go straight to joining
+      it (planJoinHref): a plain post by redirect, a theme's script by the
+      X-Storelib-Go header its page follows (./shims.ts PLAN_GO).
+    */
+    const plan = items.length === 1 ? planJoinHref(site, items[0].id, backOf(req)) : null
+    if (plan) return ajax ? json({ status: 422, message: plan.message, description: plan.message }, 422, { headers: { "Cache-Control": "private, no-store", [PLAN_GO_HEADER]: plan.href } }) : redirect(plan.href)
     for (const item of items) {
       const hit = index.get(item.id)
       if (!hit) return error("This product is not available.", 404)
+      if (isPlanCard(hit.card)) return error(`${String(hit.card.settings.title)} is joined on its own. Add it by itself.`)
       if (hit.card.settings.available === false) return error(`${String(hit.card.settings.title)} is sold out.`)
       const v = hit.variantId === hit.card.id ? null : hit.variantId
       /* An option that is sold out is refused as Shopify refuses it (422), even when the product's other options are in stock: the picker's Sold out is never in the cart. */

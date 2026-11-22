@@ -5,7 +5,7 @@ import { OrderHelp } from "@/components/support/order-help"
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowDownToLine, ArrowRight, Check, Copy, FileText, Loader2, Mail, PlayCircle, Printer } from "lucide-react"
+import { ArrowDownToLine, ArrowRight, Check, Copy, FileText, Loader2, Mail, PlayCircle, Printer, Users } from "lucide-react"
 import { downloadEntitledFile } from "@/components/download-button"
 import { downloadFile, downloadKey } from "@/lib/downloads/download-file"
 import { displayEmail } from "@/lib/businesses/email-alias"
@@ -240,19 +240,23 @@ function ItemBlock({
   locale,
   viewer,
   signInHref,
+  platformBase = "",
 }: {
   item: ReceiptItem
   currency: string
   locale: string
   viewer: ReceiptViewer
   signInHref: string
+  /** "" on storelib.com; storelib.com's own address on a creator's website, where a community is not served. */
+  platformBase?: string
 }) {
   /* In the buyer's language (components/checkout/parts/words.tsx). */
   const ct = useCt()
   const status = item.state === "open" ? null : LINE_STATUS[item.state]
   const open = item.state === "open"
   const count = item.files.length
-  const nothing = open && count === 0 && !item.courseHref
+  const communities = open ? (item.communities ?? []) : []
+  const nothing = open && count === 0 && !item.courseHref && communities.length === 0
   const meta = [
     item.variantName,
     open && count > 1 ? ct("{count} files", { count }) : null,
@@ -293,7 +297,7 @@ function ItemBlock({
         </p>
       </div>
 
-      {open && (count > 0 || item.courseHref) ? (
+      {open && (count > 0 || item.courseHref || communities.length > 0) ? (
         <ul className="mt-3 border-t border-[#eef0f3]">
           {item.files.map((f) => (
             <FileRow key={f.id} file={f} token={item.token} />
@@ -321,6 +325,18 @@ function ItemBlock({
               )}
             </li>
           ) : null}
+          {/* The communities this purchase let the buyer into (lib/receipts/load.ts communitiesOpenedBy): each opens on Storelib, which asks them to sign in with the email they paid with. */}
+          {communities.map((c) => (
+            <li key={c.slug} data-receipt-community="" className="flex items-center gap-3 border-b border-[#eef0f3] py-3 last:border-b-0 last:pb-0">
+              <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#e9ecf0] bg-[#f7f8fa] text-[#6b7280]">
+                <Users className="h-4 w-4" />
+              </span>
+              <p className="min-w-0 flex-1 text-[14px] font-medium text-[#1a1a2e] [overflow-wrap:anywhere]">{c.name}</p>
+              <a href={`${platformBase}/community/${encodeURIComponent(c.slug)}`} className={cn(PRIMARY, SMALL, "whitespace-nowrap sm:w-[124px] print:hidden")}>
+                {ct("Open community")}
+              </a>
+            </li>
+          ))}
         </ul>
       ) : null}
     </section>
@@ -669,6 +685,7 @@ export function ReceiptView({
                 locale={locale}
                 viewer={viewer}
                 signInHref={loginHref}
+                platformBase={authBase}
               />
             ))}
           </div>
