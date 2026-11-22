@@ -246,6 +246,7 @@ export { queueSellerEmail } from "@/lib/physical/jobs-server"
 export { sellerOrderPush } from "@/lib/physical/seller-push"
 export { sellerCommerceEmail } from "@/lib/notify/seller-commerce"
 export { reviewPush } from "@/lib/reviews/review-push"
+export { notifyCreatorOfMessage } from "@/lib/site-contact/notify"
 export { endDeviceSession } from "@/lib/auth/log-out"
 export { createAdminClient } from "@/lib/supabase/admin"
 export { MemoryNotifyStore } from "./tests/notify-memory-store"
@@ -447,6 +448,18 @@ export * as tokenRoute from "@/app/api/push/register/route"
   }
 
   /* ── A review ───────────────────────────────────────────────────────── */
+  say("\nA message from the seller's website")
+  {
+    seedTables()
+    fcm.sent.length = 0
+    const ok = await M.notifyCreatorOfMessage(M.createAdminClient(), { creatorId: CREATOR, messageId: "msg-1", name: "Ana Pop", email: "ana@example.com", subject: "Wholesale order", message: "Hi, I would like 40 mugs", site: "maralind.storelib.com" })
+    await settle()
+    const ios = fcm.sent.find((m) => m.token === "ios-token-A")
+    check("the bell row is written and each phone gets one push", ok && T("seller_notifications").length === 1 && fcm.sent.length === 2, { ok, push: fcm.sent.length })
+    check("  the lock screen has no visitor's name, address or words", !/Ana|ana@|mugs|Wholesale/.test(JSON.stringify(ios?.notification)), ios?.notification)
+    check("  a tap opens the message", M.pushTapTarget(ios?.data) === "/app/contacts/forms?message=msg-1", ios?.data)
+  }
+
   say("\nA review")
   {
     const r = { userId: SELLER, reviewId: "rv1", rating: 5, productTitle: "Mug", pending: false, url: "/app/reviews?review=rv1" }

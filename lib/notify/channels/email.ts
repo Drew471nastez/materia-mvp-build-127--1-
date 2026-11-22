@@ -111,7 +111,7 @@ export function emailChannel(o: EmailChannelOptions): EmailSend {
         and nothing was turned off. RFC 8058 asks for the header only when the
         address takes that POST: the signed route (app/api/notify/unsubscribe).
       */
-      if (/\/api\/notify\/unsubscribe\?token=/.test(unsubscribe)) headers["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
+      if (/\/api\/notify\/unsubscribe\?/.test(unsubscribe)) headers["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
     }
     headers["X-Storelib-Notification"] = entry.type
     const domain = o.messageDomain || "storelib.com"
