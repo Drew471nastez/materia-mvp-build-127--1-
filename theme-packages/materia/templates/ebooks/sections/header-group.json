@@ -11,9 +11,9 @@
         "show_close": false,
         "show_separator_line": false,
         "enable_custom_style": true,
-        "background_color": "#151517",
-        "text_color": "#e9e9ec",
-        "accent_color": "#ff8a7c",
+        "background_color": "#1f3b33",
+        "text_color": "#e6ece4",
+        "accent_color": "#d9b27a",
         "uppercase": false,
         "font_size": 13,
         "change_every": 5
@@ -22,13 +22,13 @@
         "announcement_1": {
           "type": "announcement",
           "settings": {
-            "text": "Plain Sight, second edition: <strong>$29</strong> this month, usually $49"
+            "text": "The first chapter is free. <a href=\"/pages/sample\">Read it now</a>"
           }
         },
         "announcement_2": {
           "type": "announcement",
           "settings": {
-            "text": "PDF and EPUB, in your inbox a minute after you pay"
+            "text": "Read it for 30 days, or get your money back"
           }
         }
       },
@@ -65,7 +65,7 @@
         "menu_hover_style": "inherit",
         "redirect_to_link": true,
         "logo_width_mobile": 78,
-        "menu_link_spacing": 14,
+        "menu_link_spacing": 28,
         "menu_mobile_color": "#ffffff",
         "show_account_icon": false,
         "action_text_weight": "400",
@@ -158,11 +158,25 @@
             "label_background_custom_1": "#143274",
             "label_background_custom_2": "#8b5cf6"
           }
+        },
+        "header_button_1": {
+          "type": "header_button",
+          "settings": {
+            "button_text": "Get the book",
+            "button_link": "/collections/all",
+            "button_style": "primary",
+            "show_on_mobile": false,
+            "mobile_placement": "in_row",
+            "mobile_size": "small",
+            "button_position": "after_icons",
+            "button_gap": 20
+          }
         }
       },
       "block_order": [
         "pill_glass_1",
-        "menu_badges_1"
+        "menu_badges_1",
+        "header_button_1"
       ]
     }
   },

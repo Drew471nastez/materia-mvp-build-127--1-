@@ -1,0 +1,97 @@
+{
+  "sections": {
+    "faq": {
+      "type": "courselanding-faq",
+      "settings": {
+        "heading": "Questions",
+        "anchor": "",
+        "accent": "#2f5bea",
+        "padding_top": 56,
+        "text": "<p>Anything else? <a href=\"/pages/contact\">Write to us</a>.</p>"
+      },
+      "blocks": {
+        "question_1": {
+          "type": "question",
+          "settings": {
+            "question": "Which phone do I need?",
+            "answer": "<p>Any phone from the last five years. Every lesson works on both kinds of phone, and nothing needs the newest model.</p>"
+          }
+        },
+        "question_2": {
+          "type": "question",
+          "settings": {
+            "question": "Do I need to buy an editing app?",
+            "answer": "<p>No. The editing lessons and presets use free apps that come with your phone or cost nothing.</p>"
+          }
+        },
+        "question_3": {
+          "type": "question",
+          "settings": {
+            "question": "How much time does it take?",
+            "answer": "<p>About twenty minutes a day: a short lesson and a few pictures. You can pause and pick it up a week later.</p>"
+          }
+        },
+        "question_4": {
+          "type": "question",
+          "settings": {
+            "question": "How do the live critiques work?",
+            "answer": "<p>Post your best picture of the week by Wednesday. On Thursday evening Teo looks at them on a video call. Recordings stay in the course.</p>"
+          }
+        },
+        "question_5": {
+          "type": "question",
+          "settings": {
+            "question": "What if it is not for me?",
+            "answer": "<p>Write within 30 days and you get every cent back. Replace this with your own terms.</p>"
+          }
+        },
+        "question_6": {
+          "type": "question",
+          "settings": {
+            "question": "Can I buy it as a gift?",
+            "answer": "<p>Yes. Buy it with the recipient’s email in the note and we send them their login.</p>"
+          }
+        },
+        "question_7": {
+          "type": "question",
+          "settings": {
+            "question": "Is there a group price?",
+            "answer": "<p>Five people or more pay less each and get a private critique call. <a href=\"/pages/contact\">Ask us</a>.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "question_1",
+        "question_2",
+        "question_3",
+        "question_4",
+        "question_5",
+        "question_6",
+        "question_7"
+      ]
+    },
+    "cta": {
+      "type": "courselanding-cta",
+      "settings": {
+        "promise_days": "30",
+        "promise_unit": "days",
+        "promise_title": "Watch the first week, then decide",
+        "promise_text": "If the course is not for you, write within 30 days and you get every cent back. No form to fill in.",
+        "heading": "Your next good photo is",
+        "heading_accent": "one lesson",
+        "heading_after": "away",
+        "text": "<p>Twenty four lessons, four live critiques, the presets and the shot list cards.</p>",
+        "button_label": "Join the course",
+        "to_checkout": true,
+        "button_link": "/collections/all",
+        "note": "One payment. Lifetime access.",
+        "accent": "#2f5bea",
+        "padding_top": 24
+      }
+    }
+  },
+  "order": [
+    "faq",
+    "cta"
+  ]
+}

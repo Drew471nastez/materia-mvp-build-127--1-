@@ -1,0 +1,71 @@
+{
+  "sections": {
+    "main-collection-product": {
+      "type": "main-collection-product",
+      "settings": {
+        "sorting": true,
+        "column_gap": 30,
+        "pagination": "default",
+        "padding_top": 0,
+        "color_scheme": "default",
+        "filter_layout": "horizontal",
+        "items_per_row": 4,
+        "items_to_show": 16,
+        "reset_spacing": true,
+        "section_width": "fluid_container",
+        "default_filter": "open_all",
+        "empty_link_url": "/collections/all",
+        "padding_bottom": 60,
+        "vertical_posion": "left",
+        "button_show_more": "Show more",
+        "enable_filtering": true,
+        "show_filter_counts": true,
+        "items_per_row_mobile": "2",
+        "toolbar_button_style": "minimal",
+        "number_products_per_page": true
+      },
+      "name": "main-collection-product",
+      "blocks": {
+        "block-mvmkffsh-1-pcnzc": {
+          "type": "categories",
+          "settings": {
+            "title": "Category"
+          }
+        },
+        "block-mvmkfj68-2-iqqos": {
+          "type": "filter",
+          "settings": {}
+        }
+      },
+      "block_order": [
+        "block-mvmkffsh-1-pcnzc",
+        "block-mvmkfj68-2-iqqos"
+      ]
+    },
+    "newsletter": {
+      "type": "retro-dialog",
+      "settings": {
+        "title": "Subscribe",
+        "icon": "mail",
+        "dialog_icon": "mail",
+        "heading": "New drop, first.",
+        "text": "<p>One email when something new is printed. Nothing else, and never sold on.</p>",
+        "email_placeholder": "Email address",
+        "button_label": "OK",
+        "note": "Leave whenever you like.",
+        "success_text": "You're on the list.",
+        "invalid_text": "Enter a valid email address.",
+        "width": 580,
+        "draggable": true,
+        "padding_top": 0,
+        "padding_bottom": 32,
+        "padding_top_mobile": 0,
+        "padding_bottom_mobile": 16
+      }
+    }
+  },
+  "order": [
+    "main-collection-product",
+    "newsletter"
+  ]
+}

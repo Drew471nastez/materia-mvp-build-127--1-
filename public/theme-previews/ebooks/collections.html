@@ -34,7 +34,7 @@ W.addEventListener("load",tell);D.addEventListener("DOMContentLoaded",function()
 /* The page's own background, as soon as it is known: the frame shows it between two pages instead of its own white (a white flash on a dark shop). */
 function paint(){try{var c=getComputedStyle(D.documentElement).backgroundColor;if(!c||/rgba(0, 0, 0, 0)|transparent/.test(c))c=getComputedStyle(D.body).backgroundColor;if(c&&!/rgba(0, 0, 0, 0)|transparent/.test(c))parent.postMessage({type:"storelib:template-preview-background",background:c},"*")}catch(e){}}
 D.addEventListener("DOMContentLoaded",paint);
-})();</script><script type="importmap">{"imports":{"@shopify/events":"data:text/javascript;charset=utf-8,const%20StandardEvents%20%3D%20Object.freeze(%7B%0A%20%20pageView%3A%20%22shopify%3Apage%3Aview%22%2C%0A%20%20productView%3A%20%22shopify%3Aproduct%3Aview%22%2C%0A%20%20productSelect%3A%20%22shopify%3Aproduct%3Aselect%22%2C%0A%20%20cartView%3A%20%22shopify%3Acart%3Aview%22%2C%0A%20%20cartError%3A%20%22shopify%3Acart%3Aerror%22%2C%0A%20%20cartLinesUpdate%3A%20%22shopify%3Acart%3Alines-update%22%2C%0A%20%20cartNoteUpdate%3A%20%22shopify%3Acart%3Anote-update%22%2C%0A%20%20cartDiscountUpdate%3A%20%22shopify%3Acart%3Adiscount-update%22%2C%0A%20%20searchUpdate%3A%20%22shopify%3Asearch%3Aupdate%22%2C%0A%20%20collectionView%3A%20%22shopify%3Acollection%3Aview%22%2C%0A%20%20collectionUpdate%3A%20%22shopify%3Acollection%3Aupdate%22%2C%0A%7D)%3B%0Afunction%20createGid(type%2C%20id)%20%7B%0A%20%20const%20s%20%3D%20String(id)%3B%0A%20%20return%20s.startsWith(%22gid%3A%2F%2F%22)%20%3F%20s%20%3A%20%22gid%3A%2F%2Fshopify%2F%22%20%2B%20type%20%2B%20%22%2F%22%20%2B%20s%3B%0A%7D%0Afunction%20money(cents%2C%20code)%20%7B%20return%20%7B%20amount%3A%20((Number(cents)%20%7C%7C%200)%20%2F%20100).toFixed(2)%2C%20currencyCode%3A%20code%20%7C%7C%20%22USD%22%20%7D%3B%20%7D%0Afunction%20fromAjaxCart(cart)%20%7B%0A%20%20const%20c%20%3D%20cart%20%7C%7C%20%7B%7D%3B%0A%20%20const%20code%20%3D%20c.currency%20%7C%7C%20%22USD%22%3B%0A%20%20return%20%7B%0A%20%20%20%20id%3A%20createGid(%22Cart%22%2C%20c.token%20%7C%7C%20%22storelib%22)%2C%0A%20%20%20%20totalQuantity%3A%20Number(c.item_count)%20%7C%7C%200%2C%0A%20%20%20%20cost%3A%20%7B%20totalAmount%3A%20money(c.total_price%2C%20code)%20%7D%2C%0A%20%20%20%20lines%3A%20(c.items%20%7C%7C%20%5B%5D).map((l)%20%3D%3E%20(%7B%20id%3A%20createGid(%22CartLine%22%2C%20l.key)%2C%20quantity%3A%20Number(l.quantity)%20%7C%7C%200%2C%20cost%3A%20%7B%20totalAmount%3A%20money(l.final_line_price%2C%20code)%20%7D%20%7D))%2C%0A%20%20%20%20discountCodes%3A%20%5B%5D%2C%0A%20%20%7D%3B%0A%7D%0Afunction%20parseProductFilters(searchParams)%20%7B%0A%20%20const%20p%20%3D%20searchParams%20%7C%7C%20new%20URLSearchParams(location.search)%3B%0A%20%20const%20out%20%3D%20%5B%5D%3B%0A%20%20for%20(const%20%5Bk%2C%20v%5D%20of%20p.entries())%20%7B%0A%20%20%20%20if%20(!k.startsWith(%22filter.%22))%20continue%3B%0A%20%20%20%20if%20(k%20%3D%3D%3D%20%22filter.v.availability%22)%20out.push(%7B%20available%3A%20v%20%3D%3D%3D%20%221%22%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.gte%22)%20out.push(%7B%20price%3A%20%7B%20min%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.lte%22)%20out.push(%7B%20price%3A%20%7B%20max%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.product_type%22)%20out.push(%7B%20productType%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.vendor%22)%20out.push(%7B%20productVendor%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.tag%22)%20out.push(%7B%20tag%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k.startsWith(%22filter.v.option.%22))%20out.push(%7B%20variantOption%3A%20%7B%20name%3A%20k.slice(16)%2C%20value%3A%20v%20%7D%20%7D)%3B%0A%20%20%7D%0A%20%20return%20out.length%20%3F%20out%20%3A%20undefined%3B%0A%7D%0Afunction%20sortKey(searchParams%2C%20search)%20%7B%0A%20%20const%20v%20%3D%20(searchParams%20%7C%7C%20new%20URLSearchParams(location.search)).get(%22sort_by%22)%20%7C%7C%20%22%22%3B%0A%20%20if%20(v.startsWith(%22price%22))%20return%20%22PRICE%22%3B%0A%20%20if%20(search)%20return%20%22RELEVANCE%22%3B%0A%20%20if%20(v.startsWith(%22title%22))%20return%20%22TITLE%22%3B%0A%20%20if%20(v.startsWith(%22created%22))%20return%20%22CREATED%22%3B%0A%20%20if%20(v%20%3D%3D%3D%20%22best-selling%22)%20return%20%22BEST_SELLING%22%3B%0A%20%20return%20v%20%3F%20%22MANUAL%22%20%3A%20%22COLLECTION_DEFAULT%22%3B%0A%7D%0Afunction%20deferred()%20%7B%0A%20%20let%20resolve%2C%20reject%3B%0A%20%20const%20promise%20%3D%20new%20Promise((a%2C%20b)%20%3D%3E%20%7B%20resolve%20%3D%20a%3B%20reject%20%3D%20b%3B%20%7D)%3B%0A%20%20promise.catch(()%20%3D%3E%20%7B%7D)%3B%0A%20%20return%20%7B%20promise%2C%20resolve%2C%20reject%20%7D%3B%0A%7D%0Aclass%20SlThemeStandardEvent%20extends%20Event%20%7B%0A%20%20constructor(type%2C%20payload%2C%20options)%20%7B%0A%20%20%20%20super(type%2C%20Object.assign(%7B%20bubbles%3A%20true%2C%20composed%3A%20true%20%7D%2C%20options%20%7C%7C%20%7B%7D))%3B%0A%20%20%20%20const%20p%20%3D%20payload%20%7C%7C%20%7B%7D%3B%0A%20%20%20%20for%20(const%20k%20of%20Object.keys(p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20k%2C%20%7B%20value%3A%20p%5Bk%5D%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%2C%20writable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%20%20if%20(!(%22promise%22%20in%20p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20%22promise%22%2C%20%7B%20value%3A%20Promise.resolve(%7B%20detail%3A%20p.detail%20%7D)%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0ASlThemeStandardEvent.createGid%20%3D%20createGid%3B%0Aconst%20make%20%3D%20(name%2C%20extra)%20%3D%3E%20%7B%0A%20%20const%20C%20%3D%20class%20extends%20SlThemeStandardEvent%20%7B%20constructor(payload)%20%7B%20super(StandardEvents%5Bname%5D%2C%20payload)%3B%20%7D%20%7D%3B%0A%20%20C.eventName%20%3D%20StandardEvents%5Bname%5D%3B%0A%20%20C.createPromise%20%3D%20deferred%3B%0A%20%20Object.assign(C%2C%20extra%20%7C%7C%20%7B%7D)%3B%0A%20%20return%20C%3B%0A%7D%3B%0Aexport%20const%20PageViewEvent%20%3D%20make(%22pageView%22)%3B%0Aexport%20const%20ProductViewEvent%20%3D%20make(%22productView%22)%3B%0Aexport%20const%20ProductSelectEvent%20%3D%20make(%22productSelect%22)%3B%0Aexport%20const%20CartViewEvent%20%3D%20make(%22cartView%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartErrorEvent%20%3D%20make(%22cartError%22)%3B%0Aexport%20const%20CartLinesUpdateEvent%20%3D%20make(%22cartLinesUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartNoteUpdateEvent%20%3D%20make(%22cartNoteUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartDiscountUpdateEvent%20%3D%20make(%22cartDiscountUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20SearchUpdateEvent%20%3D%20make(%22searchUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20true)%20%7D)%3B%0Aexport%20const%20CollectionViewEvent%20%3D%20make(%22collectionView%22)%3B%0Aexport%20const%20CollectionUpdateEvent%20%3D%20make(%22collectionUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20false)%20%7D)%3B%0Aconst%20VIEW_EVENTS%20%3D%20%7B%20%22product-component%22%3A%20ProductViewEvent%2C%20%22collection-component%22%3A%20CollectionViewEvent%20%7D%3B%0Aexport%20function%20createViewEventElement(Base%2C%20options)%20%7B%0A%20%20const%20B%20%3D%20Base%20%7C%7C%20HTMLElement%3B%0A%20%20const%20opts%20%3D%20options%20%7C%7C%20%7B%7D%3B%0A%20%20return%20class%20extends%20B%20%7B%0A%20%20%20%20connectedCallback()%20%7B%0A%20%20%20%20%20%20if%20(super.connectedCallback)%20super.connectedCallback()%3B%0A%20%20%20%20%20%20const%20trigger%20%3D%20this.getAttribute(%22view-event-trigger%22)%20%7C%7C%20opts.defaultTrigger%20%7C%7C%20%22connect%22%3B%0A%20%20%20%20%20%20if%20(trigger%20%3D%3D%3D%20%22connect%22)%20this.dispatchViewEvent()%3B%0A%20%20%20%20%20%20else%20if%20(trigger%20%3D%3D%3D%20%22intersect%22%20%26%26%20%22IntersectionObserver%22%20in%20window)%20%7B%0A%20%20%20%20%20%20%20%20const%20io%20%3D%20new%20IntersectionObserver((entries)%20%3D%3E%20%7B%20if%20(entries.some((e)%20%3D%3E%20e.isIntersecting))%20%7B%20io.disconnect()%3B%20this.dispatchViewEvent()%3B%20%7D%20%7D)%3B%0A%20%20%20%20%20%20%20%20io.observe(this)%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%20%20dispatchViewEvent()%20%7B%0A%20%20%20%20%20%20let%20payload%20%3D%20null%3B%0A%20%20%20%20%20%20const%20raw%20%3D%20this.getAttribute(%22view-event-payload%22)%20%7C%7C%20this.querySelector(%22script%5Bdata-view-event-payload%5D%22)%3F.textContent%3B%0A%20%20%20%20%20%20try%20%7B%20payload%20%3D%20raw%20%3F%20JSON.parse(raw)%20%3A%20null%3B%20%7D%20catch%20(e)%20%7B%20payload%20%3D%20null%3B%20%7D%0A%20%20%20%20%20%20if%20(!payload)%20return%3B%0A%20%20%20%20%20%20const%20Kind%20%3D%20payload.cart%20%3F%20CartViewEvent%20%3A%20payload.collection%20%3F%20CollectionViewEvent%20%3A%20payload.product%20%3F%20ProductViewEvent%20%3A%20VIEW_EVENTS%5Bthis.localName%5D%3B%0A%20%20%20%20%20%20if%20(Kind)%20this.dispatchEvent(new%20Kind(payload))%3B%0A%20%20%20%20%7D%0A%20%20%7D%3B%0A%7D%0Aexport%20const%20ViewEventElement%20%3D%20createViewEventElement(HTMLElement)%3B%0Aexport%20%7B%20StandardEvents%2C%20SlThemeStandardEvent%20%7D%3B","@shopify/partial-rendering":"data:text/javascript;charset=utf-8,async%20function%20refresh(name)%20%7B%0A%20%20const%20res%20%3D%20await%20fetch(location.href%2C%20%7B%20headers%3A%20%7B%20Accept%3A%20%22text%2Fhtml%22%20%7D%2C%20credentials%3A%20%22same-origin%22%20%7D)%3B%0A%20%20if%20(!res.ok)%20throw%20new%20Error(%22The%20page%20could%20not%20be%20drawn%20again%22)%3B%0A%20%20const%20doc%20%3D%20new%20DOMParser().parseFromString(await%20res.text()%2C%20%22text%2Fhtml%22)%3B%0A%20%20const%20sel%20%3D%20'%5Bdata-shopify-partial%3D%22'%20%2B%20CSS.escape(String(name))%20%2B%20'%22%5D'%3B%0A%20%20const%20fresh%20%3D%20doc.querySelector(sel)%3B%0A%20%20const%20here%20%3D%20document.querySelector(sel)%3B%0A%20%20if%20(fresh%20%26%26%20here)%20here.replaceWith(document.importNode(fresh%2C%20true))%3B%0A%7D%0Aexport%20const%20partials%20%3D%20%7B%20refresh%20%7D%3B%0Aexport%20default%20partials%3B"}}</script><style data-page-background>html{background-color:#ffffff}</style><script src="/theme-previews/ebooks/a/i.63b4697a1622.js"></script>
+})();</script><script type="importmap">{"imports":{"@shopify/events":"data:text/javascript;charset=utf-8,const%20StandardEvents%20%3D%20Object.freeze(%7B%0A%20%20pageView%3A%20%22shopify%3Apage%3Aview%22%2C%0A%20%20productView%3A%20%22shopify%3Aproduct%3Aview%22%2C%0A%20%20productSelect%3A%20%22shopify%3Aproduct%3Aselect%22%2C%0A%20%20cartView%3A%20%22shopify%3Acart%3Aview%22%2C%0A%20%20cartError%3A%20%22shopify%3Acart%3Aerror%22%2C%0A%20%20cartLinesUpdate%3A%20%22shopify%3Acart%3Alines-update%22%2C%0A%20%20cartNoteUpdate%3A%20%22shopify%3Acart%3Anote-update%22%2C%0A%20%20cartDiscountUpdate%3A%20%22shopify%3Acart%3Adiscount-update%22%2C%0A%20%20searchUpdate%3A%20%22shopify%3Asearch%3Aupdate%22%2C%0A%20%20collectionView%3A%20%22shopify%3Acollection%3Aview%22%2C%0A%20%20collectionUpdate%3A%20%22shopify%3Acollection%3Aupdate%22%2C%0A%7D)%3B%0Afunction%20createGid(type%2C%20id)%20%7B%0A%20%20const%20s%20%3D%20String(id)%3B%0A%20%20return%20s.startsWith(%22gid%3A%2F%2F%22)%20%3F%20s%20%3A%20%22gid%3A%2F%2Fshopify%2F%22%20%2B%20type%20%2B%20%22%2F%22%20%2B%20s%3B%0A%7D%0Afunction%20money(cents%2C%20code)%20%7B%20return%20%7B%20amount%3A%20((Number(cents)%20%7C%7C%200)%20%2F%20100).toFixed(2)%2C%20currencyCode%3A%20code%20%7C%7C%20%22USD%22%20%7D%3B%20%7D%0Afunction%20fromAjaxCart(cart)%20%7B%0A%20%20const%20c%20%3D%20cart%20%7C%7C%20%7B%7D%3B%0A%20%20const%20code%20%3D%20c.currency%20%7C%7C%20%22USD%22%3B%0A%20%20return%20%7B%0A%20%20%20%20id%3A%20createGid(%22Cart%22%2C%20c.token%20%7C%7C%20%22storelib%22)%2C%0A%20%20%20%20totalQuantity%3A%20Number(c.item_count)%20%7C%7C%200%2C%0A%20%20%20%20cost%3A%20%7B%20totalAmount%3A%20money(c.total_price%2C%20code)%20%7D%2C%0A%20%20%20%20lines%3A%20(c.items%20%7C%7C%20%5B%5D).map((l)%20%3D%3E%20(%7B%20id%3A%20createGid(%22CartLine%22%2C%20l.key)%2C%20quantity%3A%20Number(l.quantity)%20%7C%7C%200%2C%20cost%3A%20%7B%20totalAmount%3A%20money(l.final_line_price%2C%20code)%20%7D%20%7D))%2C%0A%20%20%20%20discountCodes%3A%20%5B%5D%2C%0A%20%20%7D%3B%0A%7D%0Afunction%20parseProductFilters(searchParams)%20%7B%0A%20%20const%20p%20%3D%20searchParams%20%7C%7C%20new%20URLSearchParams(location.search)%3B%0A%20%20const%20out%20%3D%20%5B%5D%3B%0A%20%20for%20(const%20%5Bk%2C%20v%5D%20of%20p.entries())%20%7B%0A%20%20%20%20if%20(!k.startsWith(%22filter.%22))%20continue%3B%0A%20%20%20%20if%20(k%20%3D%3D%3D%20%22filter.v.availability%22)%20out.push(%7B%20available%3A%20v%20%3D%3D%3D%20%221%22%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.gte%22)%20out.push(%7B%20price%3A%20%7B%20min%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.lte%22)%20out.push(%7B%20price%3A%20%7B%20max%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.product_type%22)%20out.push(%7B%20productType%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.vendor%22)%20out.push(%7B%20productVendor%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.tag%22)%20out.push(%7B%20tag%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k.startsWith(%22filter.v.option.%22))%20out.push(%7B%20variantOption%3A%20%7B%20name%3A%20k.slice(16)%2C%20value%3A%20v%20%7D%20%7D)%3B%0A%20%20%7D%0A%20%20return%20out.length%20%3F%20out%20%3A%20undefined%3B%0A%7D%0Afunction%20sortKey(searchParams%2C%20search)%20%7B%0A%20%20const%20v%20%3D%20(searchParams%20%7C%7C%20new%20URLSearchParams(location.search)).get(%22sort_by%22)%20%7C%7C%20%22%22%3B%0A%20%20if%20(v.startsWith(%22price%22))%20return%20%22PRICE%22%3B%0A%20%20if%20(search)%20return%20%22RELEVANCE%22%3B%0A%20%20if%20(v.startsWith(%22title%22))%20return%20%22TITLE%22%3B%0A%20%20if%20(v.startsWith(%22created%22))%20return%20%22CREATED%22%3B%0A%20%20if%20(v%20%3D%3D%3D%20%22best-selling%22)%20return%20%22BEST_SELLING%22%3B%0A%20%20return%20v%20%3F%20%22MANUAL%22%20%3A%20%22COLLECTION_DEFAULT%22%3B%0A%7D%0Afunction%20deferred()%20%7B%0A%20%20let%20resolve%2C%20reject%3B%0A%20%20const%20promise%20%3D%20new%20Promise((a%2C%20b)%20%3D%3E%20%7B%20resolve%20%3D%20a%3B%20reject%20%3D%20b%3B%20%7D)%3B%0A%20%20promise.catch(()%20%3D%3E%20%7B%7D)%3B%0A%20%20return%20%7B%20promise%2C%20resolve%2C%20reject%20%7D%3B%0A%7D%0Aclass%20SlThemeStandardEvent%20extends%20Event%20%7B%0A%20%20constructor(type%2C%20payload%2C%20options)%20%7B%0A%20%20%20%20super(type%2C%20Object.assign(%7B%20bubbles%3A%20true%2C%20composed%3A%20true%20%7D%2C%20options%20%7C%7C%20%7B%7D))%3B%0A%20%20%20%20const%20p%20%3D%20payload%20%7C%7C%20%7B%7D%3B%0A%20%20%20%20for%20(const%20k%20of%20Object.keys(p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20k%2C%20%7B%20value%3A%20p%5Bk%5D%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%2C%20writable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%20%20if%20(!(%22promise%22%20in%20p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20%22promise%22%2C%20%7B%20value%3A%20Promise.resolve(%7B%20detail%3A%20p.detail%20%7D)%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0ASlThemeStandardEvent.createGid%20%3D%20createGid%3B%0Aconst%20make%20%3D%20(name%2C%20extra)%20%3D%3E%20%7B%0A%20%20const%20C%20%3D%20class%20extends%20SlThemeStandardEvent%20%7B%20constructor(payload)%20%7B%20super(StandardEvents%5Bname%5D%2C%20payload)%3B%20%7D%20%7D%3B%0A%20%20C.eventName%20%3D%20StandardEvents%5Bname%5D%3B%0A%20%20C.createPromise%20%3D%20deferred%3B%0A%20%20Object.assign(C%2C%20extra%20%7C%7C%20%7B%7D)%3B%0A%20%20return%20C%3B%0A%7D%3B%0Aexport%20const%20PageViewEvent%20%3D%20make(%22pageView%22)%3B%0Aexport%20const%20ProductViewEvent%20%3D%20make(%22productView%22)%3B%0Aexport%20const%20ProductSelectEvent%20%3D%20make(%22productSelect%22)%3B%0Aexport%20const%20CartViewEvent%20%3D%20make(%22cartView%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartErrorEvent%20%3D%20make(%22cartError%22)%3B%0Aexport%20const%20CartLinesUpdateEvent%20%3D%20make(%22cartLinesUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartNoteUpdateEvent%20%3D%20make(%22cartNoteUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartDiscountUpdateEvent%20%3D%20make(%22cartDiscountUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20SearchUpdateEvent%20%3D%20make(%22searchUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20true)%20%7D)%3B%0Aexport%20const%20CollectionViewEvent%20%3D%20make(%22collectionView%22)%3B%0Aexport%20const%20CollectionUpdateEvent%20%3D%20make(%22collectionUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20false)%20%7D)%3B%0Aconst%20VIEW_EVENTS%20%3D%20%7B%20%22product-component%22%3A%20ProductViewEvent%2C%20%22collection-component%22%3A%20CollectionViewEvent%20%7D%3B%0Aexport%20function%20createViewEventElement(Base%2C%20options)%20%7B%0A%20%20const%20B%20%3D%20Base%20%7C%7C%20HTMLElement%3B%0A%20%20const%20opts%20%3D%20options%20%7C%7C%20%7B%7D%3B%0A%20%20return%20class%20extends%20B%20%7B%0A%20%20%20%20connectedCallback()%20%7B%0A%20%20%20%20%20%20if%20(super.connectedCallback)%20super.connectedCallback()%3B%0A%20%20%20%20%20%20const%20trigger%20%3D%20this.getAttribute(%22view-event-trigger%22)%20%7C%7C%20opts.defaultTrigger%20%7C%7C%20%22connect%22%3B%0A%20%20%20%20%20%20if%20(trigger%20%3D%3D%3D%20%22connect%22)%20this.dispatchViewEvent()%3B%0A%20%20%20%20%20%20else%20if%20(trigger%20%3D%3D%3D%20%22intersect%22%20%26%26%20%22IntersectionObserver%22%20in%20window)%20%7B%0A%20%20%20%20%20%20%20%20const%20io%20%3D%20new%20IntersectionObserver((entries)%20%3D%3E%20%7B%20if%20(entries.some((e)%20%3D%3E%20e.isIntersecting))%20%7B%20io.disconnect()%3B%20this.dispatchViewEvent()%3B%20%7D%20%7D)%3B%0A%20%20%20%20%20%20%20%20io.observe(this)%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%20%20dispatchViewEvent()%20%7B%0A%20%20%20%20%20%20let%20payload%20%3D%20null%3B%0A%20%20%20%20%20%20const%20raw%20%3D%20this.getAttribute(%22view-event-payload%22)%20%7C%7C%20this.querySelector(%22script%5Bdata-view-event-payload%5D%22)%3F.textContent%3B%0A%20%20%20%20%20%20try%20%7B%20payload%20%3D%20raw%20%3F%20JSON.parse(raw)%20%3A%20null%3B%20%7D%20catch%20(e)%20%7B%20payload%20%3D%20null%3B%20%7D%0A%20%20%20%20%20%20if%20(!payload)%20return%3B%0A%20%20%20%20%20%20const%20Kind%20%3D%20payload.cart%20%3F%20CartViewEvent%20%3A%20payload.collection%20%3F%20CollectionViewEvent%20%3A%20payload.product%20%3F%20ProductViewEvent%20%3A%20VIEW_EVENTS%5Bthis.localName%5D%3B%0A%20%20%20%20%20%20if%20(Kind)%20this.dispatchEvent(new%20Kind(payload))%3B%0A%20%20%20%20%7D%0A%20%20%7D%3B%0A%7D%0Aexport%20const%20ViewEventElement%20%3D%20createViewEventElement(HTMLElement)%3B%0Aexport%20%7B%20StandardEvents%2C%20SlThemeStandardEvent%20%7D%3B","@shopify/partial-rendering":"data:text/javascript;charset=utf-8,async%20function%20refresh(name)%20%7B%0A%20%20const%20res%20%3D%20await%20fetch(location.href%2C%20%7B%20headers%3A%20%7B%20Accept%3A%20%22text%2Fhtml%22%20%7D%2C%20credentials%3A%20%22same-origin%22%20%7D)%3B%0A%20%20if%20(!res.ok)%20throw%20new%20Error(%22The%20page%20could%20not%20be%20drawn%20again%22)%3B%0A%20%20const%20doc%20%3D%20new%20DOMParser().parseFromString(await%20res.text()%2C%20%22text%2Fhtml%22)%3B%0A%20%20const%20sel%20%3D%20'%5Bdata-shopify-partial%3D%22'%20%2B%20CSS.escape(String(name))%20%2B%20'%22%5D'%3B%0A%20%20const%20fresh%20%3D%20doc.querySelector(sel)%3B%0A%20%20const%20here%20%3D%20document.querySelector(sel)%3B%0A%20%20if%20(fresh%20%26%26%20here)%20here.replaceWith(document.importNode(fresh%2C%20true))%3B%0A%7D%0Aexport%20const%20partials%20%3D%20%7B%20refresh%20%7D%3B%0Aexport%20default%20partials%3B"}}</script><style data-page-background>html{background-color:#f7f4ee}</style><script src="/theme-previews/ebooks/a/i.63b4697a1622.js"></script>
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -55,13 +55,13 @@ D.addEventListener("DOMContentLoaded",paint);
     }, true);
   });
 })();
-</script><title>Collections | Plain Sight</title>
-<meta property="og:site_name" content="Plain Sight">
-<meta property="og:title" content="Collections | Plain Sight">
+</script><title>Collections | The Quiet Hour</title>
+<meta property="og:site_name" content="The Quiet Hour">
+<meta property="og:title" content="Collections | The Quiet Hour">
 <meta property="og:type" content="website">
-<meta property="og:description" content="Plain Sight"><meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Collections | Plain Sight">
-<meta name="twitter:description" content="Plain Sight">
+<meta property="og:description" content="The Quiet Hour"><meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Collections | The Quiet Hour">
+<meta name="twitter:description" content="The Quiet Hour">
 <style id="speed-optimization-css">
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
@@ -79,7 +79,7 @@ D.addEventListener("DOMContentLoaded",paint);
   .shopify-section[data-perf-offscreen] *,
   .shopify-section[data-perf-offscreen] *::before,
   .shopify-section[data-perf-offscreen] *::after { animation-play-state: paused !important; }
-</style><link rel="stylesheet" href="/theme-previews/ebooks/a/i.bebb8d20d681.css" id="speed-page-landing"><script id="speed-optimization-js" src="/theme-previews/ebooks/a/i.679dcd5ab7c8.js"></script>
+</style><link rel="stylesheet" href="/theme-previews/ebooks/a/i.262074ef9310.css" id="speed-page-landing"><script src="/theme-previews/ebooks/a/i.0bd6d5139503.js"></script><script id="speed-optimization-js" src="/theme-previews/ebooks/a/i.679dcd5ab7c8.js"></script>
 <script>
       (function () {
         try {
@@ -102,20 +102,20 @@ D.addEventListener("DOMContentLoaded",paint);
     document.addEventListener('DOMContentLoaded',function(){setTimeout(go,4000)},{once:true})}
     ['pointerdown','click','keydown','scroll','touchstart'].forEach(function(n){addEventListener(n,go,{once:true,passive:true,capture:true})})})(["/theme-previews/_base/a/popup.18cdf2513c31.css","/theme-previews/_base/a/tingle-min.ed947d9dd1c7.css"]);</script><link rel="stylesheet" href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" media="print" onload="this.media='all'">
 <noscript><link href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" rel="stylesheet" type="text/css" media="all"></noscript>
-<link rel="stylesheet" href="/theme-previews/_base/a/fonts.6f858d790015.css" data-materia-fonts>
-<style data-materia-font-fallbacks>@font-face{font-family:"Inter Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:107.9%;ascent-override:89.8%;descent-override:22.3%;line-gap-override:0%}@font-face{font-family:"Inter Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:107.9%;ascent-override:89.8%;descent-override:22.3%;line-gap-override:0%}@font-face{font-family:"Poppins Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:111%;ascent-override:94.6%;descent-override:31.5%;line-gap-override:9%}@font-face{font-family:"Poppins Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:111%;ascent-override:94.6%;descent-override:31.5%;line-gap-override:9%}</style><style data-shopify>
+<link rel="stylesheet" href="/theme-previews/_base/a/fonts.fb761a1f88dc.css" data-materia-fonts>
+<style data-materia-font-fallbacks>@font-face{font-family:"Albert Sans Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:104.4%;ascent-override:91%;descent-override:23.9%;line-gap-override:0%}@font-face{font-family:"Albert Sans Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:104.4%;ascent-override:91%;descent-override:23.9%;line-gap-override:0%}@font-face{font-family:"EB Garamond Fallback";src:local("Times New Roman"), local("TimesNewRomanPSMT"), local("Liberation Serif");font-weight:100 549;size-adjust:93.8%;ascent-override:107.3%;descent-override:31.8%;line-gap-override:0%}@font-face{font-family:"EB Garamond Fallback";src:local("Times New Roman Bold"), local("TimesNewRomanPS-BoldMT"), local("Liberation Serif Bold");font-weight:550 1000;size-adjust:93.8%;ascent-override:107.3%;descent-override:31.8%;line-gap-override:0%}</style><style data-shopify>
   :root {
-    --body-font: "Inter", "Inter Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    --heading-font: "Poppins", "Poppins Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --body-font: "Albert Sans", "Albert Sans Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --heading-font: "EB Garamond", "EB Garamond Fallback", Georgia, "Times New Roman", serif, sans-serif;
     --menu-font: var(--body-font);
     --btn-font: var(--body-font);
   }
 </style>
-<link rel="stylesheet" href="/theme-previews/ebooks/a/i.89581e873865.css" data-shopify>
+<link rel="stylesheet" href="/theme-previews/ebooks/a/i.d22ccd18693a.css" data-shopify>
 <link href="/theme-previews/_base/a/theme.d71f5b96fec8.css" rel="stylesheet" type="text/css" media="all"><noscript><link href="/theme-previews/_base/a/popup.18cdf2513c31.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.9c20c549e3cf.css">
 <link rel="preload" as="style" href="/theme-previews/_base/a/minicart.ac0014483417.css" fetchpriority="low">
 <link rel="preload" as="style" href="/theme-previews/_base/a/materia-experience.b68d6d8152a8.css" fetchpriority="low">
-<link rel="stylesheet" href="/theme-previews/ebooks/a/i.28cfcd9bf59c.css"><link rel="stylesheet" href="/theme-previews/ebooks/a/i.0f64d724d341.css"><link href="/theme-previews/_base/a/theme-button-contract.7d286d7eee9b.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/localization-controls.9494a0c83131.css" rel="stylesheet" type="text/css" media="all"><link rel="modulepreload" href="/theme-previews/_base/a/theme.7a7dd8f80f89.js" fetchpriority="low"><script data-storelib-head src="/theme-previews/ebooks/a/i.585ec254f5fd.js"></script>
+<link rel="stylesheet" href="/theme-previews/ebooks/a/i.4776fb16c78a.css"><link rel="stylesheet" href="/theme-previews/ebooks/a/i.0f64d724d341.css"><link href="/theme-previews/_base/a/theme-button-contract.7d286d7eee9b.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/localization-controls.9494a0c83131.css" rel="stylesheet" type="text/css" media="all"><link rel="modulepreload" href="/theme-previews/_base/a/theme.7a7dd8f80f89.js" fetchpriority="low"><script data-storelib-head src="/theme-previews/ebooks/a/i.585ec254f5fd.js"></script>
 <script src="/theme-previews/_base/a/swiper-bundle-min.31d164f7367d.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/motion-min.d1f8eb312b47.js" type="module" defer="defer" fetchpriority="low"></script>
 <script src="/theme-previews/_base/a/utils.90eeb774e439.js" defer="defer" data-cart-count="0"></script>
@@ -131,7 +131,7 @@ D.addEventListener("DOMContentLoaded",paint);
 <link href="/theme-previews/_base/a/hero-image-one.7347eaeaff3f.css" rel="stylesheet" type="text/css" media="all">
 <script src="/theme-previews/_base/a/hero-image-one.1fc574354023.js" defer="defer"></script>
 <link href="/theme-previews/_base/a/before-after-controls.0119d231c0b0.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/text-section-controls.f1a83e444db3.css" rel="stylesheet" type="text/css" media="all"><script src="/theme-previews/ebooks/a/i.c8cec488b26e.js"></script>
+<link href="/theme-previews/_base/a/text-section-controls.f1a83e444db3.css" rel="stylesheet" type="text/css" media="all"><script src="/theme-previews/ebooks/a/i.55032103e897.js"></script>
 <link href="/theme-previews/_base/a/testimonial-quote.d74462f50435.css" rel="stylesheet" type="text/css" media="all">
 <link href="/theme-previews/_base/a/announcement-pro-4.98b829b630a8.css" rel="stylesheet" type="text/css" media="all">
 <link href="/theme-previews/_base/a/product-block-runtime.0c74f3d394a4.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/drift-basic-min.ae15d5c0ab03.css" rel="stylesheet" type="text/css" media="all">
@@ -159,7 +159,7 @@ D.addEventListener("DOMContentLoaded",paint);
 class="gradient rounded-style  list-collections"
 data-btn-style="solid"
 data-btn-secondary-style="solid"
-data-scroll-animation="subtle_rise"
+data-scroll-animation="fade_in"
 data-btn-shape="rounded"
 data-btn-hover="fade"
 data-sl-btn-hover="none"
@@ -212,14 +212,14 @@ data-menu-hover="none"
   (function(){
     var el = document.getElementById('shopify-section-offer_bar');
     if (!el || el.classList.contains('scroll-trigger')) return;
-    el.classList.add('scroll-trigger', "subtle_rise");
+    el.classList.add('scroll-trigger', "fade_in");
   })();
-</script><link rel="stylesheet" href="/theme-previews/ebooks/a/i.19de36c766d9.css"><link rel="stylesheet" href="/theme-previews/ebooks/a/i.cc58a5bc059a.css"><div id="announcement-bar-pro-2-offer_bar" class="ab2 announcement-bar-pro-2 color-scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9 gradient" role="region" aria-label="Announcements" data-an-root="announcement-bar" data-an-section="offer_bar" data-width="full_width" data-reset="true" data-mode="slide" data-multi="true" data-page="list-collections" data-home-only="false" data-show-mobile="true" data-close="false" data-icon="none" data-interval="5" data-sticky-announcement="false" style="--ab2-fs: 13px;--ab2-pt: 12px;--ab2-pb: 12px;--ab2-speed: 15s;--ab2-gap: 50px;--ab2-fw: var(--subheading-weight, 600);--ab2-tt: none;--ab2-ff: var(--body-font);--ab2-text: #e9e9ec;--ab2-bg: #151517;--ab2-accent: #ff8a7c;--ab2-line: var(--color-border);--ab2-lw: 0px;">
+</script><link rel="stylesheet" href="/theme-previews/ebooks/a/i.19de36c766d9.css"><link rel="stylesheet" href="/theme-previews/ebooks/a/i.cc58a5bc059a.css"><div id="announcement-bar-pro-2-offer_bar" class="ab2 announcement-bar-pro-2 color-scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9 gradient" role="region" aria-label="Announcements" data-an-root="announcement-bar" data-an-section="offer_bar" data-width="full_width" data-reset="true" data-mode="slide" data-multi="true" data-page="list-collections" data-home-only="false" data-show-mobile="true" data-close="false" data-icon="none" data-interval="5" data-sticky-announcement="false" style="--ab2-fs: 13px;--ab2-pt: 12px;--ab2-pb: 12px;--ab2-speed: 15s;--ab2-gap: 50px;--ab2-fw: var(--subheading-weight, 600);--ab2-tt: none;--ab2-ff: var(--body-font);--ab2-text: #e6ece4;--ab2-bg: #1f3b33;--ab2-accent: #d9b27a;--ab2-line: var(--color-border);--ab2-lw: 0px;">
 <div class="ab2__inner">
 <div class="ab2__slides" data-an-slides>
 <button type="button" class="ab2__arrow" data-an-prev aria-label="Previous announcement"><svg width="8" height="14" viewBox="0 0 8 14" aria-hidden="true" focusable="false"><path d="M7 1 1 7l6 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
 <div class="ab2__viewport" aria-live="off"><div class="ab2__slide" data-an-block="announcement_1" data-an-type="announcement" data-block-id="announcement_1" data-active>
-<span class="ab2__msg" style=""><span class="ab2__text" data-an-text>Plain Sight, second edition: <strong>$29</strong> this month, usually $49</span>
+<span class="ab2__msg" style=""><span class="ab2__text" data-an-text>The first chapter is free. <a href="/theme-previews/ebooks/pages/sample.html">Read it now</a></span>
 <span class="ab2__timer" data-an-timer data-end="" role="timer" aria-live="off" hidden>
 <span class="ab2__unit"><span class="ab2__num" data-u="d">00</span><span class="ab2__lbl" data-l="label_days">Days</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="h">00</span><span class="ab2__lbl" data-l="label_hours">Hours</span></span>
@@ -228,7 +228,7 @@ data-menu-hover="none"
 <span class="ab2__ended" data-an-ended hidden></span>
 </span></span>
 </div><div class="ab2__slide" data-an-block="announcement_2" data-an-type="announcement" data-block-id="announcement_2" aria-hidden="true">
-<span class="ab2__msg" style=""><span class="ab2__text" data-an-text>PDF and EPUB, in your inbox a minute after you pay</span>
+<span class="ab2__msg" style=""><span class="ab2__text" data-an-text>Read it for 30 days, or get your money back</span>
 <span class="ab2__timer" data-an-timer data-end="" role="timer" aria-live="off" hidden>
 <span class="ab2__unit"><span class="ab2__num" data-u="d">00</span><span class="ab2__lbl" data-l="label_days">Days</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="h">00</span><span class="ab2__lbl" data-l="label_hours">Hours</span></span>
@@ -239,56 +239,56 @@ data-menu-hover="none"
 </div></div>
 <button type="button" class="ab2__arrow" data-an-next aria-label="Next announcement"><svg width="8" height="14" viewBox="0 0 8 14" aria-hidden="true" focusable="false"><path d="m1 1 6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
 </div>
-<div class="ab2__marquee" data-an-track><div class="ab2__group" data-an-group><span class="ab2__item" data-an-copy="announcement_1"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>Plain Sight, second edition: <strong>$29</strong> this month, usually $49</span>
+<div class="ab2__marquee" data-an-track><div class="ab2__group" data-an-group><span class="ab2__item" data-an-copy="announcement_1"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>The first chapter is free. <a href="/theme-previews/ebooks/pages/sample.html">Read it now</a></span>
 <span class="ab2__timer" data-an-timer data-end="" role="timer" aria-live="off" hidden>
 <span class="ab2__unit"><span class="ab2__num" data-u="d">00</span><span class="ab2__lbl" data-l="label_days">Days</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="h">00</span><span class="ab2__lbl" data-l="label_hours">Hours</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="m">00</span><span class="ab2__lbl" data-l="label_minutes">Mins</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="s">00</span><span class="ab2__lbl" data-l="label_seconds">Secs</span></span>
 <span class="ab2__ended" data-an-ended hidden></span>
-</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span><span class="ab2__item" data-an-copy="announcement_2"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>PDF and EPUB, in your inbox a minute after you pay</span>
+</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span><span class="ab2__item" data-an-copy="announcement_2"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>Read it for 30 days, or get your money back</span>
 <span class="ab2__timer" data-an-timer data-end="" role="timer" aria-live="off" hidden>
 <span class="ab2__unit"><span class="ab2__num" data-u="d">00</span><span class="ab2__lbl" data-l="label_days">Days</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="h">00</span><span class="ab2__lbl" data-l="label_hours">Hours</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="m">00</span><span class="ab2__lbl" data-l="label_minutes">Mins</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="s">00</span><span class="ab2__lbl" data-l="label_seconds">Secs</span></span>
 <span class="ab2__ended" data-an-ended hidden></span>
-</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span></div><div class="ab2__group" aria-hidden="true" data-an-copies><span class="ab2__item" data-an-copy="announcement_1"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>Plain Sight, second edition: <strong>$29</strong> this month, usually $49</span>
+</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span></div><div class="ab2__group" aria-hidden="true" data-an-copies><span class="ab2__item" data-an-copy="announcement_1"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>The first chapter is free. <a href="/theme-previews/ebooks/pages/sample.html">Read it now</a></span>
 <span class="ab2__timer" data-an-timer data-end="" role="timer" aria-live="off" hidden>
 <span class="ab2__unit"><span class="ab2__num" data-u="d">00</span><span class="ab2__lbl" data-l="label_days">Days</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="h">00</span><span class="ab2__lbl" data-l="label_hours">Hours</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="m">00</span><span class="ab2__lbl" data-l="label_minutes">Mins</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="s">00</span><span class="ab2__lbl" data-l="label_seconds">Secs</span></span>
 <span class="ab2__ended" data-an-ended hidden></span>
-</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span><span class="ab2__item" data-an-copy="announcement_2"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>PDF and EPUB, in your inbox a minute after you pay</span>
+</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span><span class="ab2__item" data-an-copy="announcement_2"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>Read it for 30 days, or get your money back</span>
 <span class="ab2__timer" data-an-timer data-end="" role="timer" aria-live="off" hidden>
 <span class="ab2__unit"><span class="ab2__num" data-u="d">00</span><span class="ab2__lbl" data-l="label_days">Days</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="h">00</span><span class="ab2__lbl" data-l="label_hours">Hours</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="m">00</span><span class="ab2__lbl" data-l="label_minutes">Mins</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="s">00</span><span class="ab2__lbl" data-l="label_seconds">Secs</span></span>
 <span class="ab2__ended" data-an-ended hidden></span>
-</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span></div><div class="ab2__group" aria-hidden="true" data-an-copies><span class="ab2__item" data-an-copy="announcement_1"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>Plain Sight, second edition: <strong>$29</strong> this month, usually $49</span>
+</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span></div><div class="ab2__group" aria-hidden="true" data-an-copies><span class="ab2__item" data-an-copy="announcement_1"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>The first chapter is free. <a href="/theme-previews/ebooks/pages/sample.html">Read it now</a></span>
 <span class="ab2__timer" data-an-timer data-end="" role="timer" aria-live="off" hidden>
 <span class="ab2__unit"><span class="ab2__num" data-u="d">00</span><span class="ab2__lbl" data-l="label_days">Days</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="h">00</span><span class="ab2__lbl" data-l="label_hours">Hours</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="m">00</span><span class="ab2__lbl" data-l="label_minutes">Mins</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="s">00</span><span class="ab2__lbl" data-l="label_seconds">Secs</span></span>
 <span class="ab2__ended" data-an-ended hidden></span>
-</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span><span class="ab2__item" data-an-copy="announcement_2"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>PDF and EPUB, in your inbox a minute after you pay</span>
+</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span><span class="ab2__item" data-an-copy="announcement_2"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>Read it for 30 days, or get your money back</span>
 <span class="ab2__timer" data-an-timer data-end="" role="timer" aria-live="off" hidden>
 <span class="ab2__unit"><span class="ab2__num" data-u="d">00</span><span class="ab2__lbl" data-l="label_days">Days</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="h">00</span><span class="ab2__lbl" data-l="label_hours">Hours</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="m">00</span><span class="ab2__lbl" data-l="label_minutes">Mins</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="s">00</span><span class="ab2__lbl" data-l="label_seconds">Secs</span></span>
 <span class="ab2__ended" data-an-ended hidden></span>
-</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span></div><div class="ab2__group" aria-hidden="true" data-an-copies><span class="ab2__item" data-an-copy="announcement_1"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>Plain Sight, second edition: <strong>$29</strong> this month, usually $49</span>
+</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span></div><div class="ab2__group" aria-hidden="true" data-an-copies><span class="ab2__item" data-an-copy="announcement_1"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>The first chapter is free. <a href="/theme-previews/ebooks/pages/sample.html">Read it now</a></span>
 <span class="ab2__timer" data-an-timer data-end="" role="timer" aria-live="off" hidden>
 <span class="ab2__unit"><span class="ab2__num" data-u="d">00</span><span class="ab2__lbl" data-l="label_days">Days</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="h">00</span><span class="ab2__lbl" data-l="label_hours">Hours</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="m">00</span><span class="ab2__lbl" data-l="label_minutes">Mins</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="s">00</span><span class="ab2__lbl" data-l="label_seconds">Secs</span></span>
 <span class="ab2__ended" data-an-ended hidden></span>
-</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span><span class="ab2__item" data-an-copy="announcement_2"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>PDF and EPUB, in your inbox a minute after you pay</span>
+</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span><span class="ab2__item" data-an-copy="announcement_2"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>Read it for 30 days, or get your money back</span>
 <span class="ab2__timer" data-an-timer data-end="" role="timer" aria-live="off" hidden>
 <span class="ab2__unit"><span class="ab2__num" data-u="d">00</span><span class="ab2__lbl" data-l="label_days">Days</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="h">00</span><span class="ab2__lbl" data-l="label_hours">Hours</span></span>
@@ -318,15 +318,15 @@ data-menu-hover="none"
     --count-bubble-animation: mt-count-pop;
   }
 </style><style data-shopify>#shopify-section-header {
-    --hs-mnav-bg: #ffffff;
-    --hs-mnav-heading: #151517;
-    --hs-mnav-text: #5c5c63;
+    --hs-mnav-bg: #f7f4ee;
+    --hs-mnav-heading: #18241f;
+    --hs-mnav-text: #4c5450;
     --hs-hover-fill: #ffffff;
     --hs-logo-width: 78px;
     --hs-logo-width-mobile: 78px;
     --hs-logo-max-height: 60px;
     --hs-logo-box-height: 76px;
-  }#shopify-section-header { --hs-menu-gap: 14px; --hs-icon-gap: 10px; --hs-icon-gap-mobile: 6px; --hs-logo-x: 0px; --hs-logo-x-mobile: 0px; }@media (max-width: 1024.98px) {
+  }#shopify-section-header { --hs-menu-gap: 28px; --hs-icon-gap: 10px; --hs-icon-gap-mobile: 6px; --hs-logo-x: 0px; --hs-logo-x-mobile: 0px; }@media (max-width: 1024.98px) {
     #shopify-section-header {
       --hs-logo-max-height: 46px;
       --hs-logo-box-height: 62px;
@@ -344,7 +344,7 @@ data-section-id="header"
 data-sticky="always"
 data-sticky-mobile="true" data-reset-spacing
 data-menu-hover="none" data-menu-hover-theme data-theme-hover="none"
-data-header-blocks="pill_glass_1:pill_glass menu_badges_1:menu_badges " data-menu-type='{"on":false,"font":&quot;Poppins, sans-serif&quot;,"size":15,"weight":&quot;theme&quot;}'
+data-header-blocks="pill_glass_1:pill_glass menu_badges_1:menu_badges header_button_1:header_button " data-menu-type='{"on":false,"font":&quot;Poppins, sans-serif&quot;,"size":15,"weight":&quot;theme&quot;}'
 data-mega-label="button" data-dd-tinted data-logo-m="left" data-hs-flush data-logo-x="0 0"
 style="--section-pt: 0;--section-pb: 0;--transparent-color: #1a1a1a;--menu-hover-color: var(--color-link-hover, currentColor);--dd-duration: 400ms;--dd-ease: cubic-bezier(0.187, 0.775, 0.435, 0.925);--dd-shadow: 0 5px 30px 0 rgba(0, 0, 0, 0.05);--dd-width: 260px;--dd-pad-y: 20px;--dd-pad-x: 30px;--dd-link-space: 3px;--dd-radius: 0px;--mega-gap: 32px;--mega-card-radius: 0px;--hs-act-size: 16px;--hs-act-weight: 400;--hs-act-case: none;--hs-logo-gap-m: 0px;"
 ><div class="header__inner header__layout-1" id="header-sticky">
@@ -353,12 +353,12 @@ style="--section-pt: 0;--section-pb: 0;--transparent-color: #1a1a1a;--menu-hover
 <div class="header__logo text-center text-left-1025 inline-flex align-center"><a
 class="logo-img no-underline inline-flex align-center h1 my-0"
 href="/theme-previews/ebooks/index.html"
-aria-label="Plain Sight"
+aria-label="The Quiet Hour"
 >
 <span
 class="header__logo inline-flex align-center"
 style="--header-logo-width: 208px; --header-logo-width-mobile: 78px;"
-><span class="header__logo-text" style="font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, 600); font-size: clamp(20px, 2.2vw, 28px); line-height: 1; letter-spacing: -0.01em; color: inherit; white-space: nowrap;">Plain Sight</span></span>
+><span class="header__logo-text" style="font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, 600); font-size: clamp(20px, 2.2vw, 28px); line-height: 1; letter-spacing: -0.01em; color: inherit; white-space: nowrap;">The Quiet Hour</span></span>
 </a>
 </div>
 <div class="header__menu"><button
@@ -408,7 +408,15 @@ class="level0 single"
 <a
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/ebooks/collections/all.html"
-><span>The book</span></a></menu-item></li>
+><span>The books</span></a></menu-item></li>
+<li
+class="level0 single"
+>
+<menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
+<a
+class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
+href="/theme-previews/ebooks/pages/sample.html"
+><span>Free chapter</span></a></menu-item></li>
 <li
 class="level0 single"
 >
@@ -433,14 +441,6 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/ebooks/pages/faqs.html"
 ><span>FAQ</span></a></menu-item></li>
-<li
-class="level0 single"
->
-<menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
-<a
-class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
-href="/theme-previews/ebooks/pages/contact.html"
-><span>Contact</span></a></menu-item></li>
 </ul>
 </div>
 </nav>
@@ -507,7 +507,15 @@ class="level0 single"
 <a
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/ebooks/collections/all.html"
-><span>The book</span></a></menu-item></li>
+><span>The books</span></a></menu-item></li>
+<li
+class="level0 single"
+>
+<menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
+<a
+class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
+href="/theme-previews/ebooks/pages/sample.html"
+><span>Free chapter</span></a></menu-item></li>
 <li
 class="level0 single"
 >
@@ -532,14 +540,6 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/ebooks/pages/faqs.html"
 ><span>FAQ</span></a></menu-item></li>
-<li
-class="level0 single"
->
-<menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
-<a
-class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
-href="/theme-previews/ebooks/pages/contact.html"
-><span>Contact</span></a></menu-item></li>
 </ul>
 </div><div class="lang__currency-on-nav flex flex-wrap hidden-1025 border-top"></div>
 </nav></div>
@@ -584,7 +584,7 @@ class="no-underline minicart__action header-icon header-color w-44 h-44 inline-f
 </div>
 </div>
 </div>
-</div>
+<a class="hs-cta hs-cta--pos-after_icons hs-cta--m-in_row hs-cta--primary hs-cta--theme hs-cta--desktop hs-cta--ms-small hs-cta--font-body" href="/theme-previews/ebooks/collections/all.html" data-theme-button="primary" data-sl-button style="--mb-bg: var(--btn-primary-bg-color); --mb-text: var(--btn-primary-color); --mb-hover-bg: var(--btn-primary-hover-bg-color); --mb-hover-text: var(--btn-primary-hover-color); --hs-cta-gap: 20px; --hs-cta-gap-mobile: 12px; --hs-cta-x: 0px; --hs-cta-y: 0px; --hs-cta-bg: #1f3b33; --hs-cta-fg: #f7f4ee; --hs-cta-bd: #1f3b33; --hs-cta-bw: 0px; --hs-cta-radius: 6px; --hs-cta-fs: 16px; --hs-cta-fw: 600; --hs-cta-tt: none; --hs-cta-ls: 0px; --hs-cta-py: 14px; --hs-cta-px: 26px; --hs-cta-deco: none; --hs-cta-shadow: none; --hs-cta-dur: 225ms; --hs-cta-ease: cubic-bezier(0.2, 0.7, 0.2, 1); --hs-cta-hbg: #18241f; --hs-cta-hfg: #f7f4ee; --hs-cta-hbd: #18241f; --hs-cta-htransform: none; --hs-cta-hshadow: none; --hs-cta-hfilter: none; --hs-cta-hdeco: none;" data-lh-block="header_button_1" data-block-id="header_button_1">Get the book</a></div>
 </header-inner>
 </div>
 </div></header>
@@ -618,7 +618,7 @@ class="no-underline minicart__action header-icon header-color w-44 h-44 inline-f
   (function(){
     var el = document.getElementById('shopify-section-heading');
     if (!el || el.classList.contains('scroll-trigger')) return;
-    el.classList.add('scroll-trigger', "subtle_rise");
+    el.classList.add('scroll-trigger', "fade_in");
   })();
 </script><style data-rs-bulletproof>/* reset_spacing: bulletproof override of ALL section spacing mechanisms */
     #shopify-section-heading,
@@ -665,7 +665,7 @@ data-block-id="heading_B3DXTc"
 class="heading-title heading-letter-spacing mt-8 mb-0 h2"
 data-lcp-fallback="Collections"
 style="margin-bottom: 8px;"
->The book and bundle
+>The books
 </h1>
 </motion-element>
 <motion-element
@@ -676,9 +676,9 @@ class="heading-description block  mt-10 rich__text-m0"
 data-lcp-block="description_tLPCVn"
 data-lcp-block-type="description"
 data-block-id="description_tLPCVn"
-style="color: #5c5c63; --ph-desc-size: 15px;"
+style="color: #767676; --ph-desc-size: 15px;"
 >
-<p>The ebook on its own, or with the workbook.</p>
+<p>Ebooks, workbooks and the audiobook, grouped.</p>
 </motion-element>
 </div>
 </div>
@@ -811,7 +811,7 @@ style="--section-pt: 20; --section-pb: 112;"
 data-lcp="main-list-collections"
 data-lcp-id="main"
 >
-<div class="container">
+<div class="fluid_container">
 <div
 class="collection-list grid col-3 hover_lift"
 ><grid-list
@@ -826,7 +826,7 @@ style="--col-desktop: 3;--col-number:2;--col-tablet: 3;--col-gap: 15px;--col-gap
 data-motion="fade-up-lg"
 hold
 data-motion-delay="0"
-class="collection-item grid-custom-item  scroll-trigger subtle_rise  hover_lift"style="--animation-order: 1;">
+class="collection-item grid-custom-item  scroll-trigger fade_in  hover_lift"style="--animation-order: 1;">
 <div
 class="collection-item__wrapper relative"
 >
@@ -840,7 +840,7 @@ href="/theme-previews/ebooks/collections/gifts.html"
 aria-label="Gifts"
 style="--aspect-ratio: 1.0;"
 >
-<img src="/theme-previews/ebooks/a/ebooks-product-bundle.06fe47ff1a1c.webp" srcset="/theme-previews/ebooks/a/ebooks-product-bundle.06fe47ff1a1c.webp 720w, /theme-previews/ebooks/a/ebooks-product-bundle.06fe47ff1a1c.webp 660w, /theme-previews/ebooks/a/ebooks-product-bundle.06fe47ff1a1c.webp 550w, /theme-previews/ebooks/a/ebooks-product-bundle.06fe47ff1a1c.webp 480w, /theme-previews/ebooks/a/ebooks-product-bundle.06fe47ff1a1c.webp 360w, /theme-previews/ebooks/a/ebooks-product-bundle.06fe47ff1a1c.webp 240w, /theme-previews/ebooks/a/ebooks-product-bundle.06fe47ff1a1c.webp 185w, /theme-previews/ebooks/a/ebooks-product-bundle.06fe47ff1a1c.webp 120w, /theme-previews/ebooks/a/ebooks-product-bundle.06fe47ff1a1c.webp 60w" alt="Gifts" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * 0 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="rounded">
+<img src="/theme-previews/ebooks/a/ebooks-product-bundle.7c6469fb02c6.webp" srcset="/theme-previews/ebooks/a/ebooks-product-bundle.7c6469fb02c6.webp 720w, /theme-previews/ebooks/a/ebooks-product-bundle.7c6469fb02c6.webp 660w, /theme-previews/ebooks/a/ebooks-product-bundle.7c6469fb02c6.webp 550w, /theme-previews/ebooks/a/ebooks-product-bundle.7c6469fb02c6.webp 480w, /theme-previews/ebooks/a/ebooks-product-bundle.7c6469fb02c6.webp 360w, /theme-previews/ebooks/a/ebooks-product-bundle.7c6469fb02c6.webp 240w, /theme-previews/ebooks/a/ebooks-product-bundle.7c6469fb02c6.webp 185w, /theme-previews/ebooks/a/ebooks-product-bundle.7c6469fb02c6.webp 120w, /theme-previews/ebooks/a/ebooks-product-bundle.7c6469fb02c6.webp 60w" alt="Gifts" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * 0 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="rounded">
 </a>
 </div>
 <div
@@ -861,7 +861,7 @@ href="/theme-previews/ebooks/collections/gifts.html"
 data-motion="fade-up-lg"
 hold
 data-motion-delay="50"
-class="collection-item grid-custom-item  scroll-trigger subtle_rise  hover_lift"style="--animation-order: 2;">
+class="collection-item grid-custom-item  scroll-trigger fade_in  hover_lift"style="--animation-order: 2;">
 <div
 class="collection-item__wrapper relative"
 >
@@ -875,7 +875,7 @@ href="/theme-previews/ebooks/collections/new-in.html"
 aria-label="New in"
 style="--aspect-ratio: 1.0;"
 >
-<img src="/theme-previews/ebooks/a/ebooks-product-book.3eea74b808e1.webp" srcset="/theme-previews/ebooks/a/ebooks-product-book.3eea74b808e1.webp 720w, /theme-previews/ebooks/a/ebooks-product-book.3eea74b808e1.webp 660w, /theme-previews/ebooks/a/ebooks-product-book.3eea74b808e1.webp 550w, /theme-previews/ebooks/a/ebooks-product-book.3eea74b808e1.webp 480w, /theme-previews/ebooks/a/ebooks-product-book.3eea74b808e1.webp 360w, /theme-previews/ebooks/a/ebooks-product-book.3eea74b808e1.webp 240w, /theme-previews/ebooks/a/ebooks-product-book.3eea74b808e1.webp 185w, /theme-previews/ebooks/a/ebooks-product-book.3eea74b808e1.webp 120w, /theme-previews/ebooks/a/ebooks-product-book.3eea74b808e1.webp 60w" alt="New in" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * 0 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="rounded">
+<img src="/theme-previews/ebooks/a/ebooks-product-book.d10a524f2df3.webp" srcset="/theme-previews/ebooks/a/ebooks-product-book.d10a524f2df3.webp 720w, /theme-previews/ebooks/a/ebooks-product-book.d10a524f2df3.webp 660w, /theme-previews/ebooks/a/ebooks-product-book.d10a524f2df3.webp 550w, /theme-previews/ebooks/a/ebooks-product-book.d10a524f2df3.webp 480w, /theme-previews/ebooks/a/ebooks-product-book.d10a524f2df3.webp 360w, /theme-previews/ebooks/a/ebooks-product-book.d10a524f2df3.webp 240w, /theme-previews/ebooks/a/ebooks-product-book.d10a524f2df3.webp 185w, /theme-previews/ebooks/a/ebooks-product-book.d10a524f2df3.webp 120w, /theme-previews/ebooks/a/ebooks-product-book.d10a524f2df3.webp 60w" alt="New in" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * 0 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="rounded">
 </a>
 </div>
 <div
@@ -896,7 +896,7 @@ href="/theme-previews/ebooks/collections/new-in.html"
 data-motion="fade-up-lg"
 hold
 data-motion-delay="100"
-class="collection-item grid-custom-item  scroll-trigger subtle_rise  hover_lift"style="--animation-order: 3;">
+class="collection-item grid-custom-item  scroll-trigger fade_in  hover_lift"style="--animation-order: 3;">
 <div
 class="collection-item__wrapper relative"
 >
@@ -910,7 +910,7 @@ href="/theme-previews/ebooks/collections/best-sellers.html"
 aria-label="Best sellers"
 style="--aspect-ratio: 1.0;"
 >
-<img src="/theme-previews/ebooks/a/ebooks-product-bundle.06fe47ff1a1c.webp" srcset="/theme-previews/ebooks/a/ebooks-product-bundle.06fe47ff1a1c.webp 720w, /theme-previews/ebooks/a/ebooks-product-bundle.06fe47ff1a1c.webp 660w, /theme-previews/ebooks/a/ebooks-product-bundle.06fe47ff1a1c.webp 550w, /theme-previews/ebooks/a/ebooks-product-bundle.06fe47ff1a1c.webp 480w, /theme-previews/ebooks/a/ebooks-product-bundle.06fe47ff1a1c.webp 360w, /theme-previews/ebooks/a/ebooks-product-bundle.06fe47ff1a1c.webp 240w, /theme-previews/ebooks/a/ebooks-product-bundle.06fe47ff1a1c.webp 185w, /theme-previews/ebooks/a/ebooks-product-bundle.06fe47ff1a1c.webp 120w, /theme-previews/ebooks/a/ebooks-product-bundle.06fe47ff1a1c.webp 60w" alt="Best sellers" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * 0 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="rounded">
+<img src="/theme-previews/ebooks/a/ebooks-product-mornings.59494ff4b363.webp" srcset="/theme-previews/ebooks/a/ebooks-product-mornings.59494ff4b363.webp 720w, /theme-previews/ebooks/a/ebooks-product-mornings.59494ff4b363.webp 660w, /theme-previews/ebooks/a/ebooks-product-mornings.59494ff4b363.webp 550w, /theme-previews/ebooks/a/ebooks-product-mornings.59494ff4b363.webp 480w, /theme-previews/ebooks/a/ebooks-product-mornings.59494ff4b363.webp 360w, /theme-previews/ebooks/a/ebooks-product-mornings.59494ff4b363.webp 240w, /theme-previews/ebooks/a/ebooks-product-mornings.59494ff4b363.webp 185w, /theme-previews/ebooks/a/ebooks-product-mornings.59494ff4b363.webp 120w, /theme-previews/ebooks/a/ebooks-product-mornings.59494ff4b363.webp 60w" alt="Best sellers" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * 0 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="rounded">
 </a>
 </div>
 <div
@@ -961,7 +961,7 @@ href="/theme-previews/ebooks/collections/best-sellers.html"
   (function(){
     var el = document.getElementById('shopify-section-footer');
     if (!el || el.classList.contains('scroll-trigger') || document.documentElement.classList.contains('shopify-design-mode') || (window.SlTheme && window.SlTheme.designMode)) return;
-    el.classList.add('scroll-trigger', "subtle_rise");
+    el.classList.add('scroll-trigger', "fade_in");
   })();
 </script><style>
   #shopify-section-footer,#shopify-section-footer>.section,#shopify-section-footer>section,#shopify-section-footer>div,#shopify-section-footer>div>.section{margin-top:0!important;margin-bottom:0!important}
@@ -989,12 +989,12 @@ data-block-id="store_info_1"
 class="footer__block-heading fs-custom my-0 py-20 mb-md-5"
 style="--font-size: 15"
 >
-<span data-ft-heading>Plain Sight</span>
+<span data-ft-heading>The Quiet Hour</span>
 </h3>
 <div
 class="store-info-content"
 ><div class="footer__block-info rich__text-mt-0 mb-20" data-ft-desc>
-<p>A field guide to local search by Maren Holt, for small businesses that want to be found without hiring an agency.</p>
+<p>A short book about doing your best work in a busy life, by Clara Wynn.</p>
 </div>
 </div>
 </div><div
@@ -1021,10 +1021,18 @@ style="--font-size: 15"
 <ul class="list-unstyled"><li class="pb-8">
 <a
 href="/theme-previews/ebooks/collections/all.html"
-aria-label="Get the ebook"
+aria-label="All editions"
 class="no-underline word-break reversed-links relative"
 >
-Get the ebook
+All editions
+</a>
+</li><li class="pb-8">
+<a
+href="/theme-previews/ebooks/pages/sample.html"
+aria-label="Free chapter"
+class="no-underline word-break reversed-links relative"
+>
+Free chapter
 </a>
 </li><li class="pb-8">
 <a
@@ -1110,7 +1118,7 @@ Search
 </div>
 <div class="footer__bottom"><div class="fluid_container">
 <div class="footer_bottom-inner justify-center justify-md-end flex flex-wrap flex-md-nowrap align-center border-top gap-20 gap-xl-30 py-30"><div class="flex flex-wrap gap-10 gap-xl-30 justify-center justify-md-start">
-<div class="footer__copyright" data-ft-copyright>© 2026 Plain Sight</div>
+<div class="footer__copyright" data-ft-copyright>© 2026 The Quiet Hour</div>
 <ul class="footer__policies list-unstyled flex flex-wrap" data-ft-policies><li><a href="/theme-previews/ebooks/policies/refund-policy.html">Refund policy</a></li><li><a href="/theme-previews/ebooks/policies/privacy-policy.html">Privacy policy</a></li><li><a href="/theme-previews/ebooks/policies/terms-of-service.html">Terms of service</a></li></ul><div class="footer__powered" data-ft-powered><a href="#" data-preview-inert data-storelib-badge="">Powered by Storelib</a></div></div>
 <div class="footer__payment flex grow-1 align-center max-w-100" style="justify-content: flex-end; --pb-width: 25%; margin-left: auto;" data-ft-block="payment_badges_4" data-ft-type="payment_badges" data-block-id="payment_badges_4">
 <ul class="footer__payment-badges"><li class="payment-badge" aria-label="Visa"><svg class="icon icon--full-color" viewBox="0 0 38 24" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Visa">
@@ -1221,11 +1229,11 @@ aria-modal="true"
 aria-label="Search"
 data-search-mode="popup"
 class="search-overlay search-overlay--popup search__type-popup search__popup-anim--fade color-default"
-style="--color-background: #ffffff;          --color-text: #5c5c63;          --color-heading: #151517;          --color-primary: #151517;          --color-border: #ebe7e0;          --gradient-background: #ffffff;          background-color: #ffffff;          color: #5c5c63;"
+style="--color-background: #f7f4ee;          --color-text: #4c5450;          --color-heading: #18241f;          --color-primary: #18241f;          --color-border: #e2ddd2;          --gradient-background: #f7f4ee;          background-color: #f7f4ee;          color: #4c5450;"
 ><div
 class="search__type-popup search__popup-anim--fade color-default h-full overflow-auto px-15 custom-scrollbar"
 data-search-popup-anim="fade"
-style="--color-background: #ffffff;    --color-text: #5c5c63;    --color-heading: #151517;    --color-primary: #151517;    --color-border: #ebe7e0;    --gradient-background: #ffffff;    background-color: #ffffff;    color: #5c5c63;"
+style="--color-background: #f7f4ee;    --color-text: #4c5450;    --color-heading: #18241f;    --color-primary: #18241f;    --color-border: #e2ddd2;    --gradient-background: #f7f4ee;    background-color: #f7f4ee;    color: #4c5450;"
 >
 <div class="fluid_container">
 <h3 class="search-title search-title--animated text-center h4 m-0 hidden block-sm" aria-label="Search"><span class="search-title__char" style="--char-i: 0;" aria-hidden="true">S</span><span class="search-title__char" style="--char-i: 1;" aria-hidden="true">e</span><span class="search-title__char" style="--char-i: 2;" aria-hidden="true">a</span><span class="search-title__char" style="--char-i: 3;" aria-hidden="true">r</span><span class="search-title__char" style="--char-i: 4;" aria-hidden="true">c</span><span class="search-title__char" style="--char-i: 5;" aria-hidden="true">h</span></h3>
@@ -1356,13 +1364,13 @@ style=" ;--col-number: 1;--col-tablet: 1;--col-desktop-small:3;--col-desktop: 5;
     --materia-cart-control: 40px;
     --materia-cart-recommend-gap: 12px;
   }
-</style><link href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" rel="stylesheet" type="text/css" media="all"><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/ebooks/a/i.fc8e5164bccc.css" data-cart-drawer-style="paint">
+</style><link href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" rel="stylesheet" type="text/css" media="all"><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/ebooks/a/i.05658ac648d3.css" data-cart-drawer-style="paint">
 <cart-notification data-cart-drawer-version="20261021-2"
 data-show-quantity="true"
 data-show-shipping-estimator="false"
 data-show-free-shipping="false"
-id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #5c5c63;    --color-heading: #151517;    --color-primary: #151517;    --color-border: #ebe7e0;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #151517;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #e2402f;    --btn-secondary-color: #151517;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #d9d4cb;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #151517;    --btn-outline-color: #151517;    --btn-outline-border-color: #151517;    background-color: #ffffff !important;    color: #5c5c63 !important;">
-<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #5c5c63;    --color-heading: #151517;    --color-primary: #151517;    --color-border: #ebe7e0;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #151517;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #e2402f;    --btn-secondary-color: #151517;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #d9d4cb;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #151517;    --btn-outline-color: #151517;    --btn-outline-border-color: #151517;    background-color: #ffffff !important;    color: #5c5c63 !important;">
+id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #f7f4ee;    --color-text: #4c5450;    --color-heading: #18241f;    --color-primary: #18241f;    --color-border: #e2ddd2;    --gradient-background: #f7f4ee;    --btn-primary-color: #f7f4ee;    --btn-primary-bg-color: #1f3b33;    --btn-primary-hover-color: #f7f4ee;    --btn-primary-hover-bg-color: #18241f;    --btn-secondary-color: #18241f;    --btn-secondary-bg-color: #f7f4ee;    --btn-secondary-border-color: #18241f;    --btn-secondary-hover-color: #f7f4ee;    --btn-secondary-hover-bg-color: #18241f;    --btn-outline-color: #18241f;    --btn-outline-border-color: #18241f;    background-color: #f7f4ee !important;    color: #4c5450 !important;">
+<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #f7f4ee;    --color-text: #4c5450;    --color-heading: #18241f;    --color-primary: #18241f;    --color-border: #e2ddd2;    --gradient-background: #f7f4ee;    --btn-primary-color: #f7f4ee;    --btn-primary-bg-color: #1f3b33;    --btn-primary-hover-color: #f7f4ee;    --btn-primary-hover-bg-color: #18241f;    --btn-secondary-color: #18241f;    --btn-secondary-bg-color: #f7f4ee;    --btn-secondary-border-color: #18241f;    --btn-secondary-hover-color: #f7f4ee;    --btn-secondary-hover-bg-color: #18241f;    --btn-outline-color: #18241f;    --btn-outline-border-color: #18241f;    background-color: #f7f4ee !important;    color: #4c5450 !important;">
 <button type="button" class="cart-drawer-sheet-scrim" aria-label="Cancel"></button>
 <div class="minicart__header flex gap-10 align-center justify-between px-30 py-18 color-default">
 <div class="h5 minicart-heading my-0">
@@ -1471,7 +1479,7 @@ Skip to content
   @keyframes materiaMediaFade { from { opacity: 0; } to { opacity: 1; } }
   html.js-media-fade .media-fade-run { animation: materiaMediaFade .4s ease; }
 </style>
-<script src="/theme-previews/ebooks/a/i.83047f4ee031.js"></script>
+<script src="/theme-previews/ebooks/a/i.dfcb99e2686f.js"></script>
 <style>
         :root {
           /* Wire the user's Animations & motion settings to the keyframe vars used by animation.css */
@@ -1485,7 +1493,7 @@ Skip to content
            reduced motion are drawn by animation.css for every .scroll-trigger
            (theme-wide sections below and cards inside sections alike). */
       </style>
-<script src="/theme-previews/ebooks/a/i.e621815690c9.js"></script><link rel="stylesheet" href="/theme-previews/ebooks/a/i.7c52d5318a5a.css">
+<script src="/theme-previews/ebooks/a/i.1e7544fc58cb.js"></script><link rel="stylesheet" href="/theme-previews/ebooks/a/i.7c52d5318a5a.css">
 <script src="/theme-previews/ebooks/a/i.a459fa2d52ff.js"></script><script id="materia-shipping-data" type="application/json">
   {
     "rates": "",
@@ -1512,13 +1520,13 @@ Skip to content
     --materia-cart-control: 40px;
     --materia-cart-recommend-gap: 12px;
   }
-</style><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/ebooks/a/i.fc8e5164bccc.css" data-cart-drawer-style="paint">
+</style><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/ebooks/a/i.05658ac648d3.css" data-cart-drawer-style="paint">
 <cart-notification data-cart-drawer-version="20261021-2"
 data-show-quantity="true"
 data-show-shipping-estimator="false"
 data-show-free-shipping="false"
-id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #5c5c63;    --color-heading: #151517;    --color-primary: #151517;    --color-border: #ebe7e0;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #151517;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #e2402f;    --btn-secondary-color: #151517;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #d9d4cb;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #151517;    --btn-outline-color: #151517;    --btn-outline-border-color: #151517;    background-color: #ffffff !important;    color: #5c5c63 !important;">
-<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #5c5c63;    --color-heading: #151517;    --color-primary: #151517;    --color-border: #ebe7e0;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #151517;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #e2402f;    --btn-secondary-color: #151517;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #d9d4cb;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #151517;    --btn-outline-color: #151517;    --btn-outline-border-color: #151517;    background-color: #ffffff !important;    color: #5c5c63 !important;">
+id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #f7f4ee;    --color-text: #4c5450;    --color-heading: #18241f;    --color-primary: #18241f;    --color-border: #e2ddd2;    --gradient-background: #f7f4ee;    --btn-primary-color: #f7f4ee;    --btn-primary-bg-color: #1f3b33;    --btn-primary-hover-color: #f7f4ee;    --btn-primary-hover-bg-color: #18241f;    --btn-secondary-color: #18241f;    --btn-secondary-bg-color: #f7f4ee;    --btn-secondary-border-color: #18241f;    --btn-secondary-hover-color: #f7f4ee;    --btn-secondary-hover-bg-color: #18241f;    --btn-outline-color: #18241f;    --btn-outline-border-color: #18241f;    background-color: #f7f4ee !important;    color: #4c5450 !important;">
+<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #f7f4ee;    --color-text: #4c5450;    --color-heading: #18241f;    --color-primary: #18241f;    --color-border: #e2ddd2;    --gradient-background: #f7f4ee;    --btn-primary-color: #f7f4ee;    --btn-primary-bg-color: #1f3b33;    --btn-primary-hover-color: #f7f4ee;    --btn-primary-hover-bg-color: #18241f;    --btn-secondary-color: #18241f;    --btn-secondary-bg-color: #f7f4ee;    --btn-secondary-border-color: #18241f;    --btn-secondary-hover-color: #f7f4ee;    --btn-secondary-hover-bg-color: #18241f;    --btn-outline-color: #18241f;    --btn-outline-border-color: #18241f;    background-color: #f7f4ee !important;    color: #4c5450 !important;">
 <button type="button" class="cart-drawer-sheet-scrim" aria-label="Cancel"></button>
 <div class="minicart__header flex gap-10 align-center justify-between px-30 py-18 color-default">
 <div class="h5 minicart-heading my-0">

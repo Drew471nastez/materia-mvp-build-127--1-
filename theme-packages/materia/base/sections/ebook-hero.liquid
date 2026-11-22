@@ -72,6 +72,7 @@
     background: var(--ebh-bg); color: var(--color-heading); font-size: 13px; font-weight: 600;
   }
   @media (prefers-reduced-motion: reduce) { #shopify-section-{{ sid }} .ebh__btn { transition: none; } #shopify-section-{{ sid }} .ebh__btn:hover { transform: none; } }
+  @media (max-width: 989px) { #shopify-section-{{ sid }} .ebh__stage { order: -1; aspect-ratio: 5 / 4; } #shopify-section-{{ sid }} .ebh__stage .ebh__cover { position: absolute; top: 0; bottom: 0; left: 0; right: 0; margin: auto; width: auto; height: 92%; max-width: 92%; object-fit: contain; } }
 </style>
 
 <div class="ebh color-{{ color_scheme }}" data-section-id="{{ sid }}">

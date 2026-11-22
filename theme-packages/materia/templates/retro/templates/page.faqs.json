@@ -1,0 +1,77 @@
+{
+  "sections": {
+    "faq": {
+      "type": "retro-help",
+      "settings": {
+        "title": "Help",
+        "icon": "help",
+        "heading": "Questions",
+        "heading_tag": "h1",
+        "text": "<p>Anything not here, write to us and we answer within two working days.</p>",
+        "first_open": true,
+        "draggable": false,
+        "width": 900,
+        "offset": "center",
+        "padding_top": 28,
+        "padding_bottom": 40,
+        "padding_top_mobile": 10,
+        "padding_bottom_mobile": 24
+      },
+      "blocks": {
+        "question_1": {
+          "type": "question",
+          "settings": {
+            "question": "How do the sizes run?",
+            "answer": "<p>Tees and hoodies are cut a little boxy. If you are between two sizes, take the smaller one. Each product page has a size chart.</p>"
+          }
+        },
+        "question_2": {
+          "type": "question",
+          "settings": {
+            "question": "How are the prints made?",
+            "answer": "<p>Printed to order on heavy cotton with water based ink, so it stays soft and does not crack in the wash.</p>"
+          }
+        },
+        "question_3": {
+          "type": "question",
+          "settings": {
+            "question": "When will my order arrive?",
+            "answer": "<p>Orders are printed and sent within three working days, tracked. Add your own delivery times here.</p>"
+          }
+        },
+        "question_4": {
+          "type": "question",
+          "settings": {
+            "question": "Can I send it back?",
+            "answer": "<p>Yes, within 30 days if it is unworn. Write to us and we send a return label.</p>"
+          }
+        },
+        "question_5": {
+          "type": "question",
+          "settings": {
+            "question": "How do I wash it?",
+            "answer": "<p>Inside out, cold, and hang it to dry. The print lasts longer that way.</p>"
+          }
+        },
+        "question_6": {
+          "type": "question",
+          "settings": {
+            "question": "Are the stickers waterproof?",
+            "answer": "<p>Yes. They are vinyl with a matte finish, fine on a bottle or a laptop.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "question_1",
+        "question_2",
+        "question_3",
+        "question_4",
+        "question_5",
+        "question_6"
+      ]
+    }
+  },
+  "order": [
+    "faq"
+  ]
+}

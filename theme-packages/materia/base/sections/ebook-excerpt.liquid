@@ -45,7 +45,8 @@
   #shopify-section-{{ sid }} .ebx__title { margin: 0 0 28px; text-align: center; color: var(--color-heading); font-family: var(--heading-font, inherit); font-style: italic; font-weight: var(--heading-weight, 500); font-size: 30px; line-height: 1.2; }
   #shopify-section-{{ sid }} .ebx__body { color: #2a302d; font-family: var(--heading-font, Georgia, serif); font-size: 18.5px; line-height: 1.7; hyphens: auto; }
   @media (min-width: 990px) { #shopify-section-{{ sid }} .ebx__body { font-size: 20px; } }
-  #shopify-section-{{ sid }} .ebx__body p { margin: 0; text-align: justify; }
+  #shopify-section-{{ sid }} .ebx__body p { margin: 0; text-align: left; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .ebx__body p { text-align: justify; } }
   #shopify-section-{{ sid }} .ebx__body p + p { text-indent: 1.5em; }
   #shopify-section-{{ sid }} .ebx__body > p:first-child::first-letter { float: left; margin: 0.08em 0.1em 0 0; color: var(--ebx-accent); font-size: 3.4em; line-height: 0.8; }
 </style>
@@ -63,7 +64,7 @@
         </div>
       {%- endif -%}
     </div>
-    <article class="ebx__page" aria-label="{{ st.chapter_title | escape }}">
+    <article class="ebx__page" data-own-font aria-label="{{ st.chapter_title | escape }}">
       {%- if st.chapter_label != blank -%}<p class="ebx__chapter">{{ st.chapter_label | escape }}</p>{%- endif -%}
       {%- if st.chapter_title != blank -%}<h3 class="ebx__title">{{ st.chapter_title | escape }}</h3>{%- endif -%}
       <div class="ebx__body">{{ st.excerpt }}</div>

@@ -67,6 +67,8 @@ Video sales letter: a small footer. The name or logo on the left, a few
   .vsl-foot__links { display: flex; flex-wrap: wrap; gap: 10px 26px; margin: 0; padding: 0; list-style: none; }
   .vsl-foot__links a { color: rgba(255,255,255,.62); font-size: 13px; text-decoration: none; transition: color .25s; }
   .vsl-foot__links a:hover { color: #fff; }
+  .vsl-foot__pol { justify-content: center; margin-top: 18px; }
+  .vsl-foot__pol a { font-size: 12px; color: rgba(255,255,255,.5); }
   .vsl-foot__copy { margin: 22px 0 0; text-align: center; font-size: 12px; color: rgba(255,255,255,.42); }
   @media (max-width: 749px) { .vsl-foot__row { flex-direction: column; align-items: flex-start; } }
 </style>
@@ -87,6 +89,9 @@ Video sales letter: a small footer. The name or logo on the left, a few
         </ul>
       {%- endif -%}
     </div>
+    {%- if st.show_policies and shop.policies.size > 0 -%}
+      <ul class="vsl-foot__links vsl-foot__pol" role="list">{%- for policy in shop.policies -%}<li><a href="{{ policy.url }}">{{ policy.title | escape }}</a></li>{%- endfor -%}</ul>
+    {%- endif -%}
     <p class="vsl-foot__copy">&copy; {{ 'now' | date: '%Y' }} {{ st.copyright | default: shop.name | escape }}</p>
   </div>
 </footer>
@@ -145,6 +150,13 @@ Video sales letter: a small footer. The name or logo on the left, a few
       "id": "menu",
       "label": "Links",
       "default": "footer"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_policies",
+      "label": "Links to the store's policies",
+      "default": true,
+      "info": "Each one the store has written in Website settings."
     },
     {
       "type": "text",

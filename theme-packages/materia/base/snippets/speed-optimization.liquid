@@ -140,7 +140,11 @@
       assign pt_ms = 120
     endif
     assign pt_out = pt_ms | divided_by: 2
-    assign pt_gap = pt_ms | divided_by: 3
+    comment
+      The new page starts as the old one has gone (no overlap: two pages
+      half seen at once read as a ghost).
+    endcomment
+    assign pt_gap = pt_out
   -%}
   <style id="speed-page-landing">
     /* The old page stays painted until the new one is ready (Storelib holds it), then a short
@@ -165,14 +169,59 @@
       html:root::view-transition-group(mt-site-header),
       html:root::view-transition-old(mt-site-header),
       html:root::view-transition-new(mt-site-header) { animation: none; mix-blend-mode: normal; }
-      html:root::view-transition-old(mt-site-header) { display: none; }
+      /* The old header stays under the new one until the change is over: hidden, the bar went blank
+         (a frame of bare sky on Night shop) whenever the arriving page was not drawn yet. */
+      html:root::view-transition-old(mt-site-header) { animation: none; opacity: 1; }
     }
     @media (prefers-reduced-motion: reduce) {
       html:root::view-transition-old(root),
       html:root::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
     }
     {%- endif %}
+    /* Held, the page being left still on screen, while the arriving page's first pictures come in (below). */
+    html[data-mt-wait-pictures]::view-transition-group(*),
+    html[data-mt-wait-pictures]::view-transition-old(*),
+    html[data-mt-wait-pictures]::view-transition-new(*) { animation-play-state: paused !important; }
   </style>
+  {%- comment -%}
+    THE NEXT PAGE COMES IN WITH ITS PICTURES. The page change showed the
+    arriving page as soon as it was read, and its first pictures came in
+    after it: product names half a second before the products (Night shop,
+    contact to home). The pictures in its first screen that are still on
+    their way are waited for, 450ms at most, with the page being left held
+    on screen; then the change plays and they are there. Only when a view
+    transition runs (a link followed on this site); a tap ends it at once.
+  {%- endcomment -%}
+  <script>
+    (function () {
+      var root = document.documentElement;
+      addEventListener('pagereveal', function (e) {
+        var t = e.viewTransition;
+        if (!t) return;
+        root.setAttribute('data-mt-wait-pictures', '');
+        var done = false;
+        function go() { if (done) return; done = true; root.removeAttribute('data-mt-wait-pictures'); }
+        setTimeout(go, 900);
+        t.finished.then(go, go);
+        ['pointerdown', 'keydown'].forEach(function (n) { document.addEventListener(n, go, { once: true, capture: true }); });
+        function wait() {
+          var fold = innerHeight, list = document.querySelectorAll('img'), waiting = [];
+          for (var i = 0; i < list.length && waiting.length < 12; i++) {
+            var img = list[i];
+            if (img.complete && img.naturalWidth > 0) continue;
+            var r = img.getBoundingClientRect();
+            if (r.width > 0 && r.top < fold && r.bottom > 0) waiting.push(img);
+          }
+          if (!waiting.length) return go();
+          var left = waiting.length;
+          waiting.forEach(function (img) { var one = function () { if (--left <= 0) requestAnimationFrame(go); }; img.addEventListener('load', one, { once: true }); img.addEventListener('error', one, { once: true }); });
+          setTimeout(go, 450);
+        }
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { setTimeout(wait, 0); }, { once: true });
+        else wait();
+      });
+    })();
+  </script>
 {%- endif -%}
 
 <script id="speed-optimization-js">

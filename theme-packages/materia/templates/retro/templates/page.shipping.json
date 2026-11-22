@@ -1,0 +1,40 @@
+{
+  "sections": {
+    "shipping": {
+      "type": "retro-window",
+      "settings": {
+        "title": "shipping.txt",
+        "icon": "disk",
+        "look": "notepad",
+        "dialog_icon": "help",
+        "image": "",
+        "image_alt": "",
+        "image_side": "left",
+        "image_ratio": "1 / 1",
+        "image_share": 50,
+        "image_loading": "lazy",
+        "eyebrow": "",
+        "heading": "Shipping and returns",
+        "heading_tag": "h1",
+        "heading_size": 34,
+        "text": "<p><strong>Printing.</strong> Every piece is printed to order and leaves within three working days.</p><p><strong>Delivery.</strong> Tracked post. Add your own delivery times and prices here.</p><p><strong>Returns.</strong> Free within 30 days if unworn. Write to us with your order number and we send a label.</p><p><strong>Exchanges.</strong> Wrong size? Send it back and order the right one; the refund goes back to your card.</p>",
+        "button_label": "Ask a question",
+        "button_link": "/pages/contact",
+        "button2_label": "",
+        "button2_link": "",
+        "status_left": "",
+        "status_right": "",
+        "draggable": true,
+        "width": 780,
+        "offset": "center",
+        "padding_top": 28,
+        "padding_bottom": 40,
+        "padding_top_mobile": 10,
+        "padding_bottom_mobile": 24
+      }
+    }
+  },
+  "order": [
+    "shipping"
+  ]
+}

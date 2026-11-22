@@ -1,0 +1,46 @@
+{
+  "sections": {
+    "main": {
+      "type": "main-blog",
+      "settings": {
+        "layout": "grid",
+        "row_gap": 64,
+        "show_date": true,
+        "column_gap": 40,
+        "margin_top": 32,
+        "title_size": 22,
+        "badge_width": 70,
+        "image_ratio": "adapt",
+        "title_hover": "underline",
+        "badge_height": 30,
+        "custom_ratio": "16:10",
+        "hover_effect": "lift",
+        "image_radius": 14,
+        "show_excerpt": true,
+        "excerpt_lines": 2,
+        "items_per_row": 3,
+        "items_to_show": 12,
+        "margin_bottom": 0,
+        "readmore_line": "style",
+        "readmore_text": "Read article",
+        "readmore_type": "underline",
+        "reset_spacing": true,
+        "section_width": "fluid_container",
+        "show_category": true,
+        "show_readmore": true,
+        "button_show_more": "Load more",
+        "content_alignment": "left",
+        "badge_border_radius": 19,
+        "enable_custom_style": true,
+        "badge_text_font_size": 14,
+        "items_per_row_mobile": 1,
+        "badge_vertical_position": 16,
+        "badge_horizontal_position": 16
+      },
+      "name": "Main blog"
+    }
+  },
+  "order": [
+    "main"
+  ]
+}

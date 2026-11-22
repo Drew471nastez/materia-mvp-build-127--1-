@@ -70,11 +70,14 @@ export const SAMPLE_SHOPS: Record<string, { name: string; products: SampleProduc
       { title: "Cross. Watercolours of the South", price: "$22.00", image: "artbooks-cross.webp", kind: "digital", description: "A 72 page PDF of watercolours in dabs of pure colour, painted on the Mediterranean coast." },
     ],
   },
+  /* Templates round 20: remade as one calm book site, The Quiet Hour, with its editions; the covers are drawn for the template. */
   ebooks: {
-    name: "Plain Sight",
+    name: "The Quiet Hour",
     products: [
-      { title: "Plain Sight, the ebook", price: "$29.00", compare: "$49.00", image: "ebooks-product-book.webp", kind: "digital", description: "A field guide to local search for small businesses. 212 pages in PDF and EPUB, twelve chapters, forty checklists.", options: [{ name: "Edition", values: ["Ebook", "Ebook and workbook"] }], add: { "Ebook and workbook": 10 } },
-      { title: "Plain Sight with the workbook", price: "$39.00", compare: "$64.00", image: "ebooks-product-bundle.webp", kind: "digital", description: "The ebook plus the printable workbook: every exercise and checklist on its own page, ready to fill in." },
+      { title: "The Quiet Hour", price: "$18.00", compare: "$22.00", image: "ebooks-product-book.webp", kind: "digital", description: "A calm, practical guide to doing your best work in a busy life. 196 pages in nine short chapters, each ending with one small thing to try the next day.", options: [{ name: "Format", values: ["PDF and EPUB", "With the audiobook"] }], add: { "With the audiobook": 9 } },
+      { title: "The Quiet Hour, complete set", price: "$39.00", compare: "$50.00", image: "ebooks-product-bundle.webp", kind: "digital", description: "The ebook, the printable workbook, the audiobook read by the author and Ten Quiet Mornings." },
+      { title: "The Quiet Hour Workbook", price: "$12.00", image: "ebooks-product-workbook.webp", kind: "digital", description: "A 40 page printable workbook with every exercise from the book and weekly planning pages." },
+      { title: "Ten Quiet Mornings", price: "$9.00", image: "ebooks-product-mornings.webp", kind: "digital", description: "A short companion: ten mornings, ten small changes, one page each." },
     ],
   },
   fitness: {
@@ -200,6 +203,28 @@ export const SAMPLE_SHOPS: Record<string, { name: string; products: SampleProduc
       { title: "The Workshop Course", price: "$490.00", compare: "$590.00", image: "vsl-course.webp", kind: "digital", description: "Six weeks to shape, price, sell and run one paid workshop: twelve short lessons, templates for the outline, the sales page and the emails, and six live calls on Thursdays.", options: [{ name: "Access", values: ["Course", "Course and two private calls"] }, { name: "Payment", values: ["In full", "In three parts"] }], add: { "Course and two private calls": 240 } },
       { title: "Workshop templates", price: "$49.00", image: "vsl-templates.webp", kind: "digital", description: "The outline, sales page and email templates from the course, on their own." },
       { title: "Workshop review call", price: "$150.00", image: "vsl-review-call.webp", kind: "digital", description: "A 45 minute video call on your own workshop outline or sales page, with written notes after." },
+    ],
+  },
+  /* Templates round 20: one phone photography course sold on a one offer page; the course and its extras, drawn as phone screens with real photographs in them. */
+  courselanding: {
+    name: "Pocket Light",
+    products: [
+      { title: "Pocket Light", price: "$89.00", compare: "$119.00", image: "courselanding-course.webp", kind: "digital", description: "A four week phone photography course: 24 short lessons on light, framing, people and editing, a live critique every Thursday, editing presets and printable shot lists.", options: [{ name: "Edition", values: ["Course", "With critiques"] }, { name: "Seats", values: ["Just me", "Two people"] }], add: { "With critiques": 60, "Two people": 60 }, pictures: { Course: "courselanding-course.webp", "With critiques": "courselanding-course-critiques.webp" } },
+      { title: "Editing presets", price: "$19.00", image: "courselanding-presets.webp", kind: "digital", description: "Twelve looks for the free editing apps, with a short video on each." },
+      { title: "Portfolio review call", price: "$45.00", image: "courselanding-review-call.webp", kind: "digital", description: "A 30 minute video call on ten of your photos, with notes after." },
+      { title: "Shot list cards", price: "$11.00", image: "courselanding-shot-list.webp", kind: "digital", description: "A printable brief for every day of the course." },
+    ],
+  },
+  /* Templates round 20: merch on an old desktop; plain tees, a hoodie, a cap and a beanie with pixel prints drawn on, and a drawn sticker sheet. */
+  retro: {
+    name: "Lowres Club",
+    products: [
+      { title: "Loading tee", price: "$34.00", image: "retro-loading-tee-white.webp", description: "An hourglass and a progress bar that never finishes, printed on heavy 240 gsm cotton with water based ink. Cut a little boxy with a dropped shoulder.", options: [{ name: "Size", values: ["S", "M", "L", "XL"] }, { name: "Colour", values: ["White", "Black"] }], soldOut: ["XL"], pictures: { White: "retro-loading-tee-white.webp", Black: "retro-loading-tee-black.webp" } },
+      { title: "Fatal error hoodie", price: "$68.00", compare: "$80.00", image: "retro-error-hoodie.webp", description: "Brushed back fleece with a double layer hood. The error dialog is printed big across the chest.", options: [{ name: "Size", values: ["S", "M", "L", "XL"] }] },
+      { title: "Save me tee", price: "$34.00", image: "retro-floppy-tee.webp", description: "A floppy disk in navy on sky blue cotton.", options: [{ name: "Size", values: ["S", "M", "L", "XL"] }] },
+      { title: "Cursor cap", price: "$28.00", image: "retro-cursor-cap.webp", description: "Six panel cotton cap with the arrow cursor stitched in white. One size, with a strap at the back." },
+      { title: "Icon sticker sheet", price: "$8.00", image: "retro-sticker-pack.webp", description: "Nine die cut vinyl stickers, matte and waterproof." },
+      { title: "Smiley beanie", price: "$26.00", image: "retro-smiley-beanie.webp", description: "Cable knit with a pom and a woven smiley label." },
     ],
   },
 }

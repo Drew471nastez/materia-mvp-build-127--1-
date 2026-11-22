@@ -135,6 +135,10 @@ export const CODE_TEMPLATES: readonly CodeTemplate[] = [
   { slug: "vsl-course", template: "vsl", name: "Video sales letter", category: "courses" },
   /* Templates round 20: a one page course site, outlined labels and accent words, a curriculum that opens and a form card, after the owner's onepage reference. */
   { slug: "online-course", template: "course2", name: "Online course", category: "courses" },
+  /* Templates round 20: a one offer course sales page on a soft grey ground, dark panels, a timeline of screens and everything in the offer, after the owner's reference. */
+  { slug: "course-landing", template: "courselanding", name: "Course landing", category: "courses" },
+  /* Templates round 20: a merch shop on an old desktop, product windows, a taskbar with a Start menu, quick view and added to cart dialogs. */
+  { slug: "retro-merch", template: "retro", name: "Retro desktop", category: "creators" },
 ]
 
 /** Where a template's pictures live: its home page whole at 1440 wide, and at a phone's width (scripts/build-theme-template-covers.ts takes both). */

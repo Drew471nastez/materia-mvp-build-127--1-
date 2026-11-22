@@ -48,7 +48,7 @@
         "author_highlight_n4CqbT": {
           "type": "author_highlight",
           "settings": {
-            "author_text": "Notes like this one come from Plain Sight, the book. Chapter one is free if you join the letter.",
+            "author_text": "Thank you for reading. The first chapter of The Quiet Hour is free on the sample page.",
             "author_image_size": 65
           }
         }
@@ -66,7 +66,7 @@
       "type": "blog-posts",
       "settings": {
         "reveal": false,
-        "heading": "More notes",
+        "heading": "Keep reading",
         "autoplay": false,
         "infinite": false,
         "show_date": true,
@@ -90,68 +90,10 @@
         "enable_custom_style": false,
         "items_per_row_mobile": 1
       }
-    },
-    "final": {
-      "type": "banner3",
-      "settings": {
-        "color_scheme": "default",
-        "use_custom_bg": true,
-        "bg_color": "#151517",
-        "use_custom_text": true,
-        "heading_color": "#ffffff",
-        "text_color": "#b9b9c0",
-        "use_theme_radius": true,
-        "enable_bg_gradient": true,
-        "bg_gradient": "radial-gradient(70% 90% at 50% 120%, rgba(226,64,47,0.55) 0%, rgba(226,64,47,0.12) 45%, #151517 75%)",
-        "pad_top_desktop": 88,
-        "pad_bottom_desktop": 88,
-        "section_padding_top": 40,
-        "section_padding_bottom": 96,
-        "section_width": "container",
-        "text_align": "center",
-        "max_width": 720,
-        "banner_surface": "soft",
-        "reveal": true
-      },
-      "blocks": {
-        "eyebrow_1": {
-          "type": "eyebrow",
-          "settings": {
-            "text": "Plain Sight",
-            "color": "#ff8a7c"
-          }
-        },
-        "heading_2": {
-          "type": "heading",
-          "settings": {
-            "text": "Be the shop people find first"
-          }
-        },
-        "subheading_3": {
-          "type": "subheading",
-          "settings": {
-            "text": "The ebook in PDF and EPUB, $29 this month. Refund within 30 days."
-          }
-        },
-        "button_4": {
-          "type": "button",
-          "settings": {
-            "label": "Get the ebook",
-            "link": "/collections/all"
-          }
-        }
-      },
-      "block_order": [
-        "eyebrow_1",
-        "heading_2",
-        "subheading_3",
-        "button_4"
-      ]
     }
   },
   "order": [
     "main",
-    "blog_posts_bRcpan",
-    "final"
+    "blog_posts_bRcpan"
   ]
 }

@@ -1,0 +1,100 @@
+{%- comment -%}
+  Course landing: what students say. A centred heading, then white cards
+  with stars, the quote and the student's name and where they are from. A
+  small "sample" mark sits on every card until the creator clears it, so a
+  new store never shows invented reviews as real ones.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign sid = section.id
+-%}
+<style>
+  #shopify-section-{{ sid }} .clr {
+    --cl-accent: {{ s.accent | default: '#2f5bea' }};
+    --cl-ink: {{ s.heading_color | default: '#141416' }};
+    background: {{ s.background | default: '#f6f6f4' }};
+    color: {{ s.text_color | default: '#3c3c43' }};
+    padding: {{ s.padding_top_mobile | default: 48 }}px 0 {{ s.padding_bottom_mobile | default: 48 }}px;
+    scroll-margin-top: 100px;
+  }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .clr { padding: {{ s.padding_top | default: 88 }}px 0 {{ s.padding_bottom | default: 88 }}px; } }
+  #shopify-section-{{ sid }} .clr__in { max-width: 1164px; margin: 0 auto; padding: 0 20px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .clr__in { padding: 0 32px; } }
+  #shopify-section-{{ sid }} .clr__head { max-width: 640px; margin: 0 auto 32px; text-align: center; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .clr__head { margin-bottom: 44px; } }
+  #shopify-section-{{ sid }} .clr__title { margin: 0 0 10px; color: var(--cl-ink); font-family: var(--heading-font, inherit); font-weight: 600; font-size: 32px; line-height: 1.1; letter-spacing: -.03em; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .clr__title { font-size: 44px; } }
+  #shopify-section-{{ sid }} .clr__text { font-size: 16px; line-height: 1.6; color: #5a5a62; }
+  #shopify-section-{{ sid }} .clr__text p { margin: 0; }
+  #shopify-section-{{ sid }} .clr__grid { margin: 0; padding: 0; list-style: none; display: grid; gap: 14px; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .clr__grid { grid-template-columns: repeat({{ section.blocks.size | at_least: 1 | at_most: 3 }}, minmax(0, 1fr)); gap: 20px; } }
+  #shopify-section-{{ sid }} .clr__card { position: relative; display: flex; flex-direction: column; justify-content: space-between; gap: 22px; padding: 26px 24px; border-radius: 18px; background: #fff; border: 1px solid #e6e6e2; }
+  #shopify-section-{{ sid }} .clr__stars { display: flex; gap: 3px; margin-bottom: 16px; color: {{ s.star_color | default: '#f2a516' }}; }
+  #shopify-section-{{ sid }} .clr__stars svg { width: 18px; height: 18px; }
+  #shopify-section-{{ sid }} .clr blockquote { margin: 0; padding: 0; border: 0; border-radius: 0; background: none; quotes: none; color: var(--cl-ink); font-family: var(--body-font, inherit); font-weight: 400; letter-spacing: 0; font-size: 16px; line-height: 1.6; }
+  #shopify-section-{{ sid }} .clr__name { color: var(--cl-ink); font-size: 15px; font-weight: 700; }
+  #shopify-section-{{ sid }} .clr__sample { position: absolute; top: 18px; right: 18px; padding: 3px 8px; border-radius: 5px; border: 1px dashed #c9c9cf; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: #6d6d74; }
+  #shopify-section-{{ sid }} [data-clr].clr-wait { opacity: 0; transform: translate3d(0, 24px, 0); }
+  #shopify-section-{{ sid }} [data-clr].clr-in { opacity: 1; transform: none; transition: opacity .85s cubic-bezier(.2,.65,.25,1) var(--d, 0ms), transform .85s cubic-bezier(.2,.65,.25,1) var(--d, 0ms); }
+</style>
+<section class="clr"{% if s.anchor != blank %} id="{{ s.anchor | handleize }}"{% endif %}>
+  <div class="clr__in">
+    <div class="clr__head" data-clr>
+      <h2 class="clr__title">{{ s.heading | escape }}</h2>
+      {%- if s.text != blank -%}<div class="clr__text">{{ s.text }}</div>{%- endif -%}
+    </div>
+    <ul class="clr__grid" role="list">
+      {%- for block in section.blocks limit: 3 -%}
+        <li class="clr__card" data-clr style="--d: {{ forloop.index0 | times: 90 }}ms" {{ block.shopify_attributes }}>
+          {%- if s.sample_label != blank -%}<span class="clr__sample">{{ s.sample_label | escape }}</span>{%- endif -%}
+          <div>
+            <div class="clr__stars" role="img" aria-label="5 stars">{%- for i in (1..5) -%}<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M10 1.8l2.5 5.2 5.7.8-4.1 4 1 5.6L10 14.8 4.9 17.4l1-5.6-4.1-4 5.7-.8z"/></svg>{%- endfor -%}</div>
+            <blockquote>{{ block.settings.quote | escape }}</blockquote>
+          </div>
+          <span class="clr__name">{{ block.settings.name | escape }}</span>
+        </li>
+      {%- endfor -%}
+    </ul>
+  </div>
+</section>
+{%- unless request.design_mode -%}
+<script>(function(){var r=document.getElementById('shopify-section-{{ sid }}');if(!r||!('IntersectionObserver' in window)||matchMedia('(prefers-reduced-motion: reduce)').matches)return;var h=innerHeight,io=new IntersectionObserver(function(es){es.forEach(function(e){if(!e.isIntersecting)return;var t=e.target;io.unobserve(t);requestAnimationFrame(function(){t.classList.add('clr-in')})})},{rootMargin:'0px 0px -6% 0px'});r.querySelectorAll('[data-clr]').forEach(function(el){if(el.getBoundingClientRect().top<h*.92)return;el.classList.add('clr-wait');io.observe(el)})})();</script>
+{%- endunless -%}
+
+{% schema %}
+{
+  "name": "Quote cards",
+  "tag": "section",
+  "class": "courselanding-reviews-section",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "What students say" },
+    { "type": "richtext", "id": "text", "label": "Text" },
+    { "type": "text", "id": "sample_label", "label": "Mark on every card", "default": "Sample", "info": "Keep it until the quotes are real ones from your students, then clear it." },
+    { "type": "text", "id": "anchor", "label": "Address on the page", "default": "reviews", "info": "A word a menu link can jump to, as /#word." },
+    { "type": "header", "content": "Colours" },
+    { "type": "color", "id": "background", "label": "Background", "default": "#f6f6f4" },
+    { "type": "color", "id": "accent", "label": "Accent", "default": "#2f5bea" },
+    { "type": "color", "id": "star_color", "label": "Stars", "default": "#f2a516" },
+    { "type": "color", "id": "heading_color", "label": "Heading", "default": "#141416" },
+    { "type": "color", "id": "text_color", "label": "Text", "default": "#3c3c43" },
+    { "type": "header", "content": "Spacing" },
+    { "type": "range", "id": "padding_top", "label": "Space above on desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 88 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below on desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 88 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above on phones", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 48 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below on phones", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 48 }
+  ],
+  "blocks": [
+    {
+      "type": "quote",
+      "name": "Quote",
+      "limit": 3,
+      "settings": [
+        { "type": "textarea", "id": "quote", "label": "Quote", "default": "Write what a student said, in their words." },
+        { "type": "text", "id": "name", "label": "Name and place", "default": "Student, City" }
+      ]
+    }
+  ],
+  "presets": [ { "name": "Quote cards", "category": "Course landing", "blocks": [ { "type": "quote" }, { "type": "quote" }, { "type": "quote" } ] } ]
+}
+{% endschema %}

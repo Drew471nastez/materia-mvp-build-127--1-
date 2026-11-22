@@ -1,0 +1,96 @@
+{
+  "sections": {
+    "about": {
+      "type": "retro-window",
+      "settings": {
+        "title": "about.txt",
+        "icon": "note",
+        "look": "notepad",
+        "dialog_icon": "help",
+        "image": "shopify://shop_images/retro-about.webp",
+        "image_alt": "The icon sticker sheet beside a black Please Wait tee",
+        "image_side": "left",
+        "image_ratio": "4 / 3",
+        "image_share": 50,
+        "image_loading": "eager",
+        "eyebrow": "",
+        "heading": "Two people, one tiny grid.",
+        "heading_tag": "h1",
+        "heading_size": 40,
+        "text": "<p>Write your story here: who draws the prints, where they are printed and why. Keep it short and plain.</p><p>Lowres Club started with one hourglass drawn on squared paper. Now every design is drawn on the same 16 by 16 grid and printed to order, a few at a time.</p>",
+        "button_label": "Open the shop",
+        "button_link": "/collections/all",
+        "button2_label": "Write to us",
+        "button2_link": "/pages/contact",
+        "status_left": "",
+        "status_right": "",
+        "draggable": true,
+        "width": 1100,
+        "offset": "center",
+        "padding_top": 28,
+        "padding_bottom": 18,
+        "padding_top_mobile": 10,
+        "padding_bottom_mobile": 8
+      }
+    },
+    "facts": {
+      "type": "retro-window",
+      "settings": {
+        "title": "Properties",
+        "icon": "disk",
+        "look": "dialog",
+        "dialog_icon": "disk",
+        "image": "",
+        "image_alt": "",
+        "image_side": "left",
+        "image_ratio": "1 / 1",
+        "image_share": 50,
+        "image_loading": "lazy",
+        "eyebrow": "",
+        "heading": "Printed to order",
+        "heading_tag": "h2",
+        "heading_size": 26,
+        "text": "<p>Heavy cotton, water based ink, sent in a recycled mailer. Nothing is made until you order it, so a print can take three working days.</p>",
+        "button_label": "",
+        "button_link": "",
+        "button2_label": "",
+        "button2_link": "",
+        "status_left": "",
+        "status_right": "",
+        "draggable": true,
+        "width": 640,
+        "offset": "right",
+        "padding_top": 18,
+        "padding_bottom": 18,
+        "padding_top_mobile": 8,
+        "padding_bottom_mobile": 8
+      }
+    },
+    "newsletter": {
+      "type": "retro-dialog",
+      "settings": {
+        "title": "Subscribe",
+        "icon": "mail",
+        "dialog_icon": "mail",
+        "heading": "New drop, first.",
+        "text": "<p>One email when something new is printed. Nothing else, and never sold on.</p>",
+        "email_placeholder": "Email address",
+        "button_label": "OK",
+        "note": "Leave whenever you like.",
+        "success_text": "You're on the list.",
+        "invalid_text": "Enter a valid email address.",
+        "width": 580,
+        "draggable": true,
+        "padding_top": 0,
+        "padding_bottom": 40,
+        "padding_top_mobile": 8,
+        "padding_bottom_mobile": 24
+      }
+    }
+  },
+  "order": [
+    "about",
+    "facts",
+    "newsletter"
+  ]
+}

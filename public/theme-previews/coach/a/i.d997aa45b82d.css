@@ -1,0 +1,21 @@
+
+  #shopify-section-quote .coq {
+    --coq-accent: #a5582a;
+    background: #faf6f0;
+    padding: 56px 24px 56px;
+    text-align: center;
+  }
+  @media (min-width: 990px) {
+    #shopify-section-quote .coq { padding: 80px 40px 40px; }
+  }
+  #shopify-section-quote .coq__inner { max-width: 860px; margin: 0 auto; }
+  #shopify-section-quote .coq__eyebrow { margin: 0 0 22px; color: var(--coq-accent); font-size: 12px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; }
+  #shopify-section-quote .coq__quote { margin: 0; }
+  #shopify-section-quote .coq__text {
+    margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; quotes: none; color: var(--color-heading);
+    font-family: var(--heading-font, inherit); font-style: italic; font-weight: var(--heading-weight, 500);
+    font-size: 26px; line-height: 1.32;
+  }
+  @media (min-width: 990px) { #shopify-section-quote .coq__text { font-size: 36px; } }
+  #shopify-section-quote .coq__who { display: block; margin-top: 24px; color: var(--color-text); font-style: normal; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; }
+  #shopify-section-quote .coq__note { margin: 14px 0 0; color: var(--color-text); font-size: 13px; opacity: 0.75; }

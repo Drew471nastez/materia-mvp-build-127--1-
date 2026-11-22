@@ -1,171 +1,66 @@
 {
   "sections": {
     "author": {
-      "type": "Image-and-video-text",
+      "type": "ebook-author",
       "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "section_width": "container",
-        "image_position": "left",
-        "text_column_width": 52,
-        "content_align": "left",
-        "media_type": "image",
+        "color_scheme": "default",
+        "background": "#f7f4ee",
+        "accent_color": "#9a6a32",
         "image": "shopify://shop_images/ebooks-author.webp",
-        "image_alt": "Sample author photo: a woman with short blonde hair, smiling",
-        "aspect_w": 1,
-        "aspect_h": 1,
-        "image_fit": "cover",
-        "image_radius": 16,
-        "gap_desktop": 72,
-        "side_padding_desktop": 48,
-        "padding_top_desktop": 104,
-        "padding_bottom_desktop": 104,
-        "mobile_order": "media_first",
-        "padding_top_mobile": 56,
-        "padding_bottom_mobile": 56
-      },
-      "blocks": {
-        "eyebrow_1": {
-          "type": "eyebrow",
-          "settings": {
-            "text": "The author",
-            "size": 13
-          }
-        },
-        "heading_2": {
-          "type": "heading",
-          "settings": {
-            "text": "By Maren Holt",
-            "tag": "h1",
-            "size_desktop": 44,
-            "size_mobile": 32
-          }
-        },
-        "subheading_3": {
-          "type": "subheading",
-          "settings": {
-            "text": "<p><strong>Author of Plain Sight</strong></p><p>Maren ran a bike repair shop for nine years before she started helping other shop owners get found online. She has worked with bakeries, dentists, garages and one very busy locksmith.</p><p>Plain Sight is everything she shows them, in the order she shows it, so you can do it yourself in the evenings.</p><p><em>Sample photo and bio. Put your own here.</em></p>",
-            "size_desktop": 16
-          }
-        }
-      },
-      "block_order": [
-        "eyebrow_1",
-        "heading_2",
-        "subheading_3"
-      ]
+        "image_alt": "Clara Wynn sitting in a sunny room",
+        "image_position": "left",
+        "image_ratio": "4 / 5",
+        "eyebrow": "About",
+        "name": "Hello, I'm <em>Clara</em>",
+        "bio": "<p>I spent ten years as an editor at a busy newsroom, where the most important work always happened before nine in the morning, while the building was still quiet.</p><p>When I left, I wanted to keep that hour. The Quiet Hour is what I learned from trying, failing and trying again, written for people with full days and families and too many tabs open.</p><p>I live in Edinburgh, write in the mornings and send a short letter every other Sunday.</p>",
+        "facts": "Editor for ten years\nWrites from Edinburgh\nAlso wrote Ten Quiet Mornings",
+        "link_label": "",
+        "link": "/pages/about",
+        "padding_top": 72
+      }
     },
-    "why": {
-      "type": "text-columns",
+    "desk": {
+      "type": "ebook-author",
       "settings": {
-        "color_scheme": "default",
-        "section_width": "container",
-        "content_alignment": "left",
-        "columns_desktop": 3,
-        "columns_tablet": 3,
-        "mobile_layout": "stack",
-        "padding_top": 96,
-        "padding_bottom": 96
-      },
-      "blocks": {
-        "heading_1": {
-          "type": "heading",
-          "settings": {
-            "text": "Why she wrote it"
-          }
-        },
-        "column_2": {
-          "type": "column",
-          "settings": {
-            "label": "01",
-            "heading": "Agencies cost too much",
-            "text": "<p>Most small shops cannot spend a few hundred a month on search. Most of the work is simple enough to do yourself.</p>"
-          }
-        },
-        "column_3": {
-          "type": "column",
-          "settings": {
-            "label": "02",
-            "heading": "Advice was scattered",
-            "text": "<p>Good tips live in a hundred blog posts. The book puts them in the order you need them.</p>"
-          }
-        },
-        "column_4": {
-          "type": "column",
-          "settings": {
-            "label": "03",
-            "heading": "It is a habit, not a trick",
-            "text": "<p>Being found is mostly showing up every week. The book gives you a routine short enough to keep.</p>"
-          }
-        }
-      },
-      "block_order": [
-        "heading_1",
-        "column_2",
-        "column_3",
-        "column_4"
-      ]
+        "color_scheme": "scheme-b0fae5fa-c388-4a42-acd3-92cf8fe0b1fb",
+        "background": "#ffffff",
+        "accent_color": "#9a6a32",
+        "image": "shopify://shop_images/ebooks-reading-nook.webp",
+        "image_alt": "A woman reading by a window in the morning",
+        "image_position": "right",
+        "image_ratio": "4 / 3",
+        "image_radius": 6,
+        "eyebrow": "How I write",
+        "name": "Small books, <em>written slowly</em>",
+        "bio": "<p>Every book starts as a letter to one reader. I test each chapter on twenty of them before it goes out, and I keep the books short on purpose: you should be able to finish one in a weekend and use it for years.</p>",
+        "facts": "",
+        "link_label": "See the books",
+        "link": "/collections/all"
+      }
     },
-    "final": {
-      "type": "banner3",
+    "signup": {
+      "type": "ebook-signup",
       "settings": {
-        "color_scheme": "default",
-        "use_custom_bg": true,
-        "bg_color": "#151517",
-        "use_custom_text": true,
-        "heading_color": "#ffffff",
-        "text_color": "#b9b9c0",
-        "use_theme_radius": true,
-        "enable_bg_gradient": true,
-        "bg_gradient": "radial-gradient(70% 90% at 50% 120%, rgba(226,64,47,0.55) 0%, rgba(226,64,47,0.12) 45%, #151517 75%)",
-        "pad_top_desktop": 88,
-        "pad_bottom_desktop": 88,
-        "section_padding_top": 0,
-        "section_padding_bottom": 96,
-        "section_width": "container",
-        "text_align": "center",
-        "max_width": 720,
-        "banner_surface": "soft",
-        "reveal": true
-      },
-      "blocks": {
-        "eyebrow_1": {
-          "type": "eyebrow",
-          "settings": {
-            "text": "Plain Sight",
-            "color": "#ff8a7c"
-          }
-        },
-        "heading_2": {
-          "type": "heading",
-          "settings": {
-            "text": "Be the shop people find first"
-          }
-        },
-        "subheading_3": {
-          "type": "subheading",
-          "settings": {
-            "text": "The ebook in PDF and EPUB, $29 this month. Refund within 30 days."
-          }
-        },
-        "button_4": {
-          "type": "button",
-          "settings": {
-            "label": "Get the ebook",
-            "link": "/collections/all"
-          }
-        }
-      },
-      "block_order": [
-        "eyebrow_1",
-        "heading_2",
-        "subheading_3",
-        "button_4"
-      ]
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "background": "#1f3b33",
+        "heading_color": "#f7f4ee",
+        "text_color": "#cdd8cf",
+        "accent_color": "#d9b27a",
+        "image": "shopify://shop_images/ebooks-table.webp",
+        "image_alt": "Reading on an e-reader at a wooden table with coffee",
+        "eyebrow": "Free chapter",
+        "heading": "Read the first chapter <em>free</em>",
+        "text": "<p>The whole of chapter one as a PDF, then a short letter about reading and work every other Sunday.</p>",
+        "email_placeholder": "Your email",
+        "button_label": "Send it to me",
+        "tag": "free-chapter",
+        "note": "No spam. Leave whenever you like."
+      }
     }
   },
   "order": [
     "author",
-    "why",
-    "final"
+    "desk",
+    "signup"
   ]
 }

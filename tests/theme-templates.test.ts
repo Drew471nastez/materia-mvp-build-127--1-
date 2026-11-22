@@ -113,7 +113,10 @@ async function main() {
   /* Changed on purpose (templates round 18): Skincare was removed and Creator Landing was added, twelve are listed. */
   /* Changed on purpose (templates round 19): Art books added after Digital products; with Night shop and Poster shop at the end, fifteen are listed. */
   /* Changed on purpose (templates round 20): Tour merch was removed, fourteen are listed. */
-  check("fourteen templates are listed, with no table and nothing uploaded", listings.length === 14 && CODE_TEMPLATES.length === 14, listings.map((l) => l.slug))
+  /* Changed on purpose (templates round 20): Coach and Video sales letter were added at the end, sixteen are listed. */
+  /* Changed on purpose (templates round 20): Online course and Course landing were added at the end, eighteen are listed. */
+  /* Changed on purpose (templates round 20): Retro desktop was added at the end, nineteen are listed. */
+  check("nineteen templates are listed, with no table and nothing uploaded", listings.length === 19 && CODE_TEMPLATES.length === 19, listings.map((l) => l.slug))
   check("Storelib Default is first, at the default address", listings[0]?.slug === DEFAULT_LISTING_SLUG && listings[0]?.name === "Storelib Default" && mergeListings([])[0]?.slug === DEFAULT_LISTING_SLUG)
   /* Changed on purpose (templates round 18): Landing page is now called Course (same slug, landing-page). */
   /* Changed on purpose (templates round 19): Art books sits right after Digital products. */
@@ -131,7 +134,8 @@ async function main() {
   /* Two clothing stores and two merch stores now: a category may hold two templates, never three, and the filter has more than a handful of rows. */
   const perCategory = listings.reduce<Record<string, number>>((n, l) => ({ ...n, [l.category]: (n[l.category] ?? 0) + 1 }), {})
   /* Changed on purpose (templates round 19): Night shop is a third fashion store, so a category may hold three. */
-  check("  no category holds more than three, and both kinds of product are covered", Object.values(perCategory).every((n) => n <= 3) && Object.keys(perCategory).length >= 9 && ["fashion", "creators", "music", "design", "digital"].every((c) => perCategory[c]), perCategory) /* Changed on purpose (templates round 18): no "beauty" since Skincare was removed. */
+  /* Changed on purpose (templates round 20): Online course and Course landing join Course, Creator Landing and Video sales letter, so courses holds five; every other category still holds at most three. */
+  check("  no category holds more than three (courses five), and both kinds of product are covered", Object.entries(perCategory).every(([c, n]) => n <= (c === "courses" ? 5 : 3)) && Object.keys(perCategory).length >= 9 && ["fashion", "creators", "music", "design", "digital"].every((c) => perCategory[c]), perCategory) /* Changed on purpose (templates round 18): no "beauty" since Skincare was removed. */
   check("each has its cover and its phone screenshot in public/themes", listings.every((l) => !!l.cover && existsSync(join("public", l.cover)) && l.screenshots.length === 2 && l.screenshots.every((s) => existsSync(join("public", s)))), listings.filter((l) => !l.cover || !existsSync(join("public", l.cover))).map((l) => l.cover))
   check("no listing name says where the theme came from", listings.every((l) => !/shopify|materia/i.test(`${l.name} ${l.author} ${l.slug}`)))
   check("a website remembers the listing it was added from, in its settings", [...installedListingSlugs([{ settings: { compat: { kind: "shopify", listing: "clothing" } } }, { settings: { marketplace_listing: "merch" } }, { settings: { compat: { listing: "Not A Slug" } } }, { settings: null }])].join() === "clothing,merch" && compatOf({ compat: { kind: "shopify", version: 1, theme: "x", listing: "fitness" } })?.listing === "fitness")
@@ -252,7 +256,8 @@ async function main() {
     const dead: string[] = []
     for (const path of links) {
       /* Changed on purpose (templates round 19): a menu link with a search in it (/search?q=prints) is asked as the address and its query, as a browser asks it. */
-      const [bare, search = ""] = path.split("?")
+      /* Changed on purpose (templates round 20): a menu link to a place on a page (/#curriculum) is asked without its #, as a browser asks it. */
+      const [bare, search = ""] = path.split("#")[0].split("?")
       const out = await answer(linked, { method: "GET", path: bare, query: new URLSearchParams(search), body: null, cart: [] })
       if (out.status !== 200) dead.push(`${path} ${out.status}`)
     }

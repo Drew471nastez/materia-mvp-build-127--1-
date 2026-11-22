@@ -1,0 +1,395 @@
+{
+  "sections": {
+    "main": {
+      "type": "main-product",
+      "settings": {
+        "image_zoom": "open_lightbox",
+        "padding_top": 32,
+        "color_scheme": "default",
+        "media_square": false,
+        "reset_spacing": true,
+        "section_width": "container",
+        "sticky_bar_bg": "",
+        "desktop_layout": "thumbnail_bottom",
+        "mobile_options": "show_thumbnails",
+        "padding_bottom": 80,
+        "sticky_top_gap": 24,
+        "enable_on_mobile": true,
+        "sticky_padding_y": 12,
+        "enable_on_desktop": true,
+        "sticky_show_image": true,
+        "sticky_show_title": true,
+        "content_gap_desktop": 56,
+        "desktop_media_width": 50,
+        "padding_left_mobile": 0,
+        "sticky_border_color": "",
+        "enable_video_looping": true,
+        "padding_left_desktop": 0,
+        "padding_right_mobile": 0,
+        "section_width_mobile": "fluid_container",
+        "sticky_button_radius": 8,
+        "sticky_show_quantity": true,
+        "enable_custom_padding": true,
+        "enable_video_autoplay": true,
+        "padding_right_desktop": 0,
+        "enable_nav_dots_mobile": false,
+        "mobile_slides_per_view": "1",
+        "enable_custom_media_gap": false,
+        "sticky_show_variant_picker": true,
+        "enable_sticky_content_on_desktop": true
+      },
+      "blocks": {
+        "title_1": {
+          "type": "title",
+          "settings": {
+            "show_vendor": false,
+            "title_font_size_desktop": 40,
+            "title_font_size_mobile": 30
+          }
+        },
+        "price_1": {
+          "type": "price",
+          "settings": {
+            "price_font_size_desktop": 28,
+            "price_font_size_mobile": 24,
+            "price_font_weight": "700",
+            "compare_font_size_desktop": 18,
+            "compare_font_size_mobile": 14,
+            "compare_font_weight": "400"
+          }
+        },
+        "variant_picker_1": {
+          "type": "variant_picker",
+          "settings": {
+            "variant_type": "swatches",
+            "show_size_guide": false,
+            "picker_swatch_style": "theme"
+          }
+        },
+        "buy_buttons_1": {
+          "type": "buy_buttons",
+          "settings": {
+            "show_add_to_cart": true,
+            "show_dynamic_checkout": true,
+            "show_quantity": true,
+            "buttons_full_width": true,
+            "quantity_right_of_atc": false,
+            "show_wishlist_button": false,
+            "atc_appearance": "theme",
+            "buy_appearance": "theme",
+            "atc_icon_enable": false,
+            "atc_icon": "bag",
+            "buy_icon_enable": false,
+            "show_gift_card_recipient": false
+          }
+        },
+        "vertical_benefits_1": {
+          "type": "vertical_benefits",
+          "settings": {
+            "vb_pt": 14,
+            "vb_pb": 18,
+            "vb_mt": 0,
+            "vb_mb": 0,
+            "vb_item_space": 10,
+            "vb_maxw": 100,
+            "vb_pl": 0,
+            "vb_pr": 0,
+            "vb_text_size_d": 14,
+            "vb_text_size_m": 14,
+            "vb_icon_gap": 12,
+            "vb_icon_gap_m": 10,
+            "vb_icon_size": 26,
+            "vb_icon_size_m": 26,
+            "vb_text_color": "",
+            "vb_bg": "",
+            "vb_icon_color": "#2f5bea",
+            "item1_title": "Lessons open as soon as you pay",
+            "item1_icon_library": "check",
+            "item1_use_image": false,
+            "item1_image_size": 50,
+            "item2_title": "Live critique every Thursday",
+            "item2_icon_library": "check",
+            "item2_use_image": false,
+            "item2_image_size": 50,
+            "item3_title": "30 day refund",
+            "item3_icon_library": "check",
+            "item3_use_image": false,
+            "item3_image_size": 50
+          }
+        },
+        "collapsible_row_1": {
+          "type": "collapsible_row",
+          "settings": {
+            "heading": "What is inside",
+            "content": "",
+            "use_product_description": true,
+            "open": true
+          }
+        },
+        "collapsible_row_2": {
+          "type": "collapsible_row",
+          "settings": {
+            "heading": "Editions and seats",
+            "content": "<p>The course is all 24 lessons and the presets. With critiques adds a private review of five of your photos at the end. Two people gives a second login, for a friend or a partner.</p>",
+            "use_product_description": false,
+            "open": false
+          }
+        },
+        "collapsible_row_3": {
+          "type": "collapsible_row",
+          "settings": {
+            "heading": "Access and refunds",
+            "content": "<p>Your login arrives by email straight after payment and stays open for good. Write within 30 days for a full refund.</p>",
+            "use_product_description": false,
+            "open": false
+          }
+        },
+        "payment_badges_1": {
+          "type": "payment_badges",
+          "settings": {
+            "h_main": "",
+            "sec_bg": "rgba(0,0,0,0)",
+            "sec_mb": 0,
+            "sec_mt": 0,
+            "sec_pb": 22,
+            "sec_pl": 0,
+            "sec_pr": 0,
+            "sec_pt": 22,
+            "badge_h": 31,
+            "badge_w": 47,
+            "sub_url": "",
+            "sec_maxw": 116,
+            "sec_pl_m": 0,
+            "sec_pr_m": 0,
+            "sub_text": "",
+            "badge_h_m": 22,
+            "badge_w_m": 68,
+            "h_main_mb": 16,
+            "h_main_mt": 0,
+            "show_amex": true,
+            "show_visa": true,
+            "sub_color": "#333333",
+            "sub_hover": "#111111",
+            "a11y_label": "Payment badges",
+            "sec_maxw_m": 150,
+            "sec_radius": 0,
+            "sub_newtab": false,
+            "text_align": "left",
+            "h_main_size": 16,
+            "show_paypal": true,
+            "sub_uline_w": 1,
+            "badges_align": "auto",
+            "h_main_color": "#2c2c2c",
+            "text_align_m": "center",
+            "toggle_icons": true,
+            "show_unionpay": true,
+            "sub_underline": false,
+            "show_apple_pay": true,
+            "show_google_pay": true,
+            "show_mastercard": true
+          }
+        },
+        "collapsible_row_4": {
+          "type": "collapsible_row",
+          "settings": {
+            "heading": "Questions",
+            "content": "<p>Any phone from the last five years works, and the editing lessons use free apps. About twenty minutes a day.</p>",
+            "use_product_description": false,
+            "open": false
+          }
+        }
+      },
+      "block_order": [
+        "title_1",
+        "price_1",
+        "variant_picker_1",
+        "buy_buttons_1",
+        "vertical_benefits_1",
+        "collapsible_row_1",
+        "collapsible_row_2",
+        "collapsible_row_3",
+        "collapsible_row_4",
+        "payment_badges_1"
+      ]
+    },
+    "modules": {
+      "type": "courselanding-modules",
+      "settings": {
+        "heading": "Four weeks,",
+        "heading_accent": "one idea each",
+        "text": "<p>Every week builds on the one before. Do them in order, at your own pace.</p>",
+        "anchor": "",
+        "accent": "#2f5bea",
+        "padding_top": 56
+      },
+      "blocks": {
+        "module_1": {
+          "type": "module",
+          "settings": {
+            "label": "Week 1",
+            "title": "Light",
+            "text": "Where to stand, when to shoot, and how to expose for the part that matters.",
+            "lessons": "Find the light first\nExpose for the bright part\nWindow light at home\nGolden hour, briefly\nShade and overcast days\nBrief: one object, three times a day"
+          }
+        },
+        "module_2": {
+          "type": "module",
+          "settings": {
+            "label": "Week 2",
+            "title": "Framing",
+            "text": "Simple rules for where things go, and when to break them.",
+            "lessons": "Fill the frame\nEdges and corners\nLines that lead\nHeight: crouch or climb\nSpace around a subject\nBrief: one street, ten frames"
+          }
+        },
+        "module_3": {
+          "type": "module",
+          "settings": {
+            "label": "Week 3",
+            "title": "People and places",
+            "text": "Photographing people kindly and places honestly.",
+            "lessons": "Asking, and not asking\nHands and details\nWaiting for the moment\nPortrait mode, carefully\nRooms and interiors\nBrief: a day in one place"
+          }
+        },
+        "module_4": {
+          "type": "module",
+          "settings": {
+            "label": "Week 4",
+            "title": "Editing and choosing",
+            "text": "Finish the pictures, then pick the few worth sharing.",
+            "lessons": "A light first edit\nWarmth and colour\nCropping for a reason\nThe presets, explained\nPicking your best five\nBrief: a set of five"
+          }
+        }
+      },
+      "block_order": [
+        "module_1",
+        "module_2",
+        "module_3",
+        "module_4"
+      ]
+    },
+    "reviews": {
+      "type": "courselanding-reviews",
+      "settings": {
+        "heading": "What students say",
+        "text": "<p>Sample quotes to show the layout. Replace them with your students’ own words.</p>",
+        "sample_label": "Sample",
+        "anchor": "",
+        "accent": "#2f5bea"
+      },
+      "blocks": {
+        "quote_1": {
+          "type": "quote",
+          "settings": {
+            "quote": "I stopped taking forty pictures of everything. I wait for the light now, take three, and one of them is good.",
+            "name": "Hanna, Leipzig"
+          }
+        },
+        "quote_2": {
+          "type": "quote",
+          "settings": {
+            "quote": "The Thursday calls are the part I would pay for alone. One comment about my horizon fixed half my pictures.",
+            "name": "Marco, Turin"
+          }
+        },
+        "quote_3": {
+          "type": "quote",
+          "settings": {
+            "quote": "My phone is three years old. The course never once told me to buy a new one.",
+            "name": "Ada, Leeds"
+          }
+        }
+      },
+      "block_order": [
+        "quote_1",
+        "quote_2",
+        "quote_3"
+      ]
+    },
+    "faq": {
+      "type": "courselanding-faq",
+      "settings": {
+        "heading": "Questions",
+        "anchor": "",
+        "accent": "#2f5bea"
+      },
+      "blocks": {
+        "question_1": {
+          "type": "question",
+          "settings": {
+            "question": "Which phone do I need?",
+            "answer": "<p>Any phone from the last five years. Every lesson works on both kinds of phone, and nothing needs the newest model.</p>"
+          }
+        },
+        "question_2": {
+          "type": "question",
+          "settings": {
+            "question": "Do I need to buy an editing app?",
+            "answer": "<p>No. The editing lessons and presets use free apps that come with your phone or cost nothing.</p>"
+          }
+        },
+        "question_3": {
+          "type": "question",
+          "settings": {
+            "question": "How much time does it take?",
+            "answer": "<p>About twenty minutes a day: a short lesson and a few pictures. You can pause and pick it up a week later.</p>"
+          }
+        },
+        "question_4": {
+          "type": "question",
+          "settings": {
+            "question": "How do the live critiques work?",
+            "answer": "<p>Post your best picture of the week by Wednesday. On Thursday evening Teo looks at them on a video call. Recordings stay in the course.</p>"
+          }
+        },
+        "question_5": {
+          "type": "question",
+          "settings": {
+            "question": "What if it is not for me?",
+            "answer": "<p>Write within 30 days and you get every cent back. Replace this with your own terms.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "question_1",
+        "question_2",
+        "question_3",
+        "question_4",
+        "question_5"
+      ]
+    },
+    "related": {
+      "type": "related-products",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "heading": "Add to the course",
+        "description": "",
+        "header_size": "small",
+        "header_alignment": "left",
+        "items_per_row": 4,
+        "items_per_row_mobile": 2,
+        "column_gap": 20,
+        "intent": "related",
+        "items_to_show": 4,
+        "show_badges": true,
+        "show_vendor": false,
+        "show_rating": false,
+        "show_swatches": false,
+        "show_price": true,
+        "show_add_to_cart": false,
+        "show_action": false,
+        "reveal": true,
+        "padding_top": 72,
+        "padding_bottom": 72
+      }
+    }
+  },
+  "order": [
+    "main",
+    "modules",
+    "reviews",
+    "faq",
+    "related"
+  ]
+}

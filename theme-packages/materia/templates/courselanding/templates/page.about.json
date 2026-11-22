@@ -1,0 +1,97 @@
+{
+  "sections": {
+    "letter": {
+      "type": "courselanding-letter",
+      "settings": {
+        "heading": "About the course,",
+        "heading_accent": "and who teaches it",
+        "text": "<p>I taught camera courses for eight years. Every time, people went home with a heavy bag and took their best pictures on their phone anyway.</p><p>So this course starts with the camera you carry. <strong>Light, framing and timing</strong> matter far more than the lens, and a phone is the one you have with you when the light is good.</p><p>Four weeks, twenty minutes a day. <em>You will look at light differently by the end of the first week.</em></p>",
+        "name": "Teo Varga",
+        "role": "Photographer and teacher. Write your own letter here.",
+        "image": "shopify://shop_images/courselanding-indoor-shot.webp",
+        "image_alt": "Hands holding a phone sideways to photograph a bright room",
+        "anchor": "",
+        "accent": "#2f5bea",
+        "padding_top": 32
+      }
+    },
+    "modules": {
+      "type": "courselanding-modules",
+      "settings": {
+        "heading": "Four weeks,",
+        "heading_accent": "one idea each",
+        "text": "<p>Every week builds on the one before. Do them in order, at your own pace.</p>",
+        "anchor": "",
+        "accent": "#2f5bea"
+      },
+      "blocks": {
+        "module_1": {
+          "type": "module",
+          "settings": {
+            "label": "Week 1",
+            "title": "Light",
+            "text": "Where to stand, when to shoot, and how to expose for the part that matters.",
+            "lessons": "Find the light first\nExpose for the bright part\nWindow light at home\nGolden hour, briefly\nShade and overcast days\nBrief: one object, three times a day"
+          }
+        },
+        "module_2": {
+          "type": "module",
+          "settings": {
+            "label": "Week 2",
+            "title": "Framing",
+            "text": "Simple rules for where things go, and when to break them.",
+            "lessons": "Fill the frame\nEdges and corners\nLines that lead\nHeight: crouch or climb\nSpace around a subject\nBrief: one street, ten frames"
+          }
+        },
+        "module_3": {
+          "type": "module",
+          "settings": {
+            "label": "Week 3",
+            "title": "People and places",
+            "text": "Photographing people kindly and places honestly.",
+            "lessons": "Asking, and not asking\nHands and details\nWaiting for the moment\nPortrait mode, carefully\nRooms and interiors\nBrief: a day in one place"
+          }
+        },
+        "module_4": {
+          "type": "module",
+          "settings": {
+            "label": "Week 4",
+            "title": "Editing and choosing",
+            "text": "Finish the pictures, then pick the few worth sharing.",
+            "lessons": "A light first edit\nWarmth and colour\nCropping for a reason\nThe presets, explained\nPicking your best five\nBrief: a set of five"
+          }
+        }
+      },
+      "block_order": [
+        "module_1",
+        "module_2",
+        "module_3",
+        "module_4"
+      ]
+    },
+    "cta": {
+      "type": "courselanding-cta",
+      "settings": {
+        "promise_days": "30",
+        "promise_unit": "days",
+        "promise_title": "Watch the first week, then decide",
+        "promise_text": "If the course is not for you, write within 30 days and you get every cent back. No form to fill in.",
+        "heading": "Your next good photo is",
+        "heading_accent": "one lesson",
+        "heading_after": "away",
+        "text": "<p>Twenty four lessons, four live critiques, the presets and the shot list cards.</p>",
+        "button_label": "Join the course",
+        "to_checkout": true,
+        "button_link": "/collections/all",
+        "note": "One payment. Lifetime access.",
+        "accent": "#2f5bea",
+        "padding_top": 24
+      }
+    }
+  },
+  "order": [
+    "letter",
+    "modules",
+    "cta"
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "main-menu": {
+    "title": "Main menu",
+    "links": [
+      {
+        "title": "Why phones",
+        "url": "/#teacher"
+      },
+      {
+        "title": "How it works",
+        "url": "/#how-it-works"
+      },
+      {
+        "title": "Curriculum",
+        "url": "/#curriculum"
+      },
+      {
+        "title": "Reviews",
+        "url": "/#reviews"
+      },
+      {
+        "title": "Questions",
+        "url": "/#questions"
+      }
+    ]
+  },
+  "footer": {
+    "title": "Pages",
+    "links": [
+      {
+        "title": "About the course",
+        "url": "/pages/about"
+      },
+      {
+        "title": "Questions",
+        "url": "/pages/faqs"
+      },
+      {
+        "title": "Contact",
+        "url": "/pages/contact"
+      },
+      {
+        "title": "Everything for sale",
+        "url": "/collections/all"
+      }
+    ]
+  }
+}

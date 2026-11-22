@@ -1,0 +1,79 @@
+{
+  "sections": {
+    "main": {
+      "type": "page-404",
+      "settings": {
+        "padding_top": 58,
+        "reset_spacing": false,
+        "section_width": "fluid_container",
+        "padding_bottom": 56
+      },
+      "blocks": {
+        "image_VQTRFT": {
+          "type": "image",
+          "settings": {}
+        },
+        "heading_6nj4md": {
+          "type": "heading",
+          "settings": {
+            "heading": "This page is out of focus",
+            "font_size": 36,
+            "uppercase": false,
+            "font_weight": "heading_weight",
+            "spacing_bottom": 20
+          }
+        },
+        "subheading_yFdKEQ": {
+          "type": "subheading",
+          "settings": {
+            "font_size": 15,
+            "uppercase": false,
+            "subheading": "The link may be old. The course is still here.",
+            "font_weight": "body_weight",
+            "spacing_bottom": 40
+          }
+        },
+        "button_4yrfiE": {
+          "type": "button",
+          "settings": {
+            "open_link": false,
+            "spacing_bottom": 0,
+            "first_button_link": "/",
+            "first_button_type": "primary",
+            "first_button_label": "Back to the course"
+          }
+        }
+      },
+      "block_order": [
+        "image_VQTRFT",
+        "heading_6nj4md",
+        "subheading_yFdKEQ",
+        "button_4yrfiE"
+      ]
+    },
+    "cta": {
+      "type": "courselanding-cta",
+      "settings": {
+        "promise_days": "30",
+        "promise_unit": "days",
+        "promise_title": "",
+        "promise_text": "If the course is not for you, write within 30 days and you get every cent back. No form to fill in.",
+        "heading": "Your next good photo is",
+        "heading_accent": "one lesson",
+        "heading_after": "away",
+        "text": "<p>Twenty four lessons, four live critiques, the presets and the shot list cards.</p>",
+        "button_label": "Join the course",
+        "to_checkout": true,
+        "button_link": "/collections/all",
+        "note": "One payment. Lifetime access.",
+        "accent": "#2f5bea",
+        "padding_top": 24,
+        "padding_bottom": 72
+      }
+    }
+  },
+  "order": [
+    "main",
+    "cta"
+  ]
+}
