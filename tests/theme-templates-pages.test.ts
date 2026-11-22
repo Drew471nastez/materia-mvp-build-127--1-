@@ -296,7 +296,10 @@ async function editsOf(built: BuiltSite, key: string, at: number): Promise<EditR
 const KNOWN_ISSUES: Record<string, string> = {}
 
 /* Sections that draw nothing by themselves, by design: said here so "drew nothing" is a decision and not an accident. */
-const DRAWS_NOTHING_ALONE: Record<string, string> = {}
+const DRAWS_NOTHING_ALONE: Record<string, string> = {
+  /* Changed on purpose (templates round 19): Night shop's sky is a fixed layer behind the whole page, drawn by its script; the section itself has no height. */
+  "space-starfield": "the night sky is a fixed background behind every page, drawn by its script, and takes no room of its own",
+}
 
 async function main() {
   /* ── The engine's two fixes ─────────────────────────────────────────── */

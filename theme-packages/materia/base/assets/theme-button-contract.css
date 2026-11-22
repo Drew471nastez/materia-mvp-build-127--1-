@@ -27,6 +27,7 @@
     --mb-rest: var(--mb-bg, var(--mb-role-bg));
     --mb-ink: var(--mb-text, var(--mb-role-text));
     --mb-line: var(--mb-border, var(--mb-role-border));
+    --mb-role-border-width: var(--btn-border-width, 1px);
     position: relative !important; isolation: isolate !important; overflow: hidden !important;
     display: inline-flex; align-items: center; justify-content: center; gap: 8px;
     box-sizing: border-box; max-width: 100%; min-width: 0; min-height: 44px;
@@ -35,7 +36,7 @@
     letter-spacing: var(--btn-letter-spacing, 0px) !important;
     text-transform: var(--btn-text-transform, none) !important;
     line-height: 1.4 !important; text-decoration: none !important;
-    border: var(--mb-border-width, var(--btn-border-width, 1px)) solid var(--mb-line) !important;
+    border: var(--mb-border-width, var(--mb-role-border-width)) solid var(--mb-line) !important;
     background: var(--mb-rest) !important; color: var(--mb-ink) !important;
     transform: none !important;
     box-shadow: var(--btn-shadow, none) !important;
@@ -62,6 +63,8 @@
     --mb-role-hover-bg: var(--btn-secondary-hover-bg-color, var(--mb-role-text));
     --mb-role-hover-text: var(--btn-secondary-hover-color, var(--color-background, #fff));
     --mb-role-hover-border: var(--btn-secondary-hover-border-color, var(--mb-role-hover-bg));
+    /* A secondary button is see-through by default: with the theme's button border at 0 it was bare text ("Buy now" under Add to cart). Its outline is at least 1px; a section's own border width (--mb-border-width) still wins. */
+    --mb-role-border-width: max(1px, var(--btn-border-width, 1px));
   }
   [data-theme-button].fw__action { --mb-bg: var(--fw-button); --mb-text: var(--fw-button-text); }
   [data-theme-button] :is(span, svg) { color: inherit !important; background: transparent !important; }

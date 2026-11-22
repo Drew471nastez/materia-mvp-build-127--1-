@@ -91,7 +91,7 @@
         "custom_text_font_size_mobile": 96,
         "custom_text_font_size_desktop": 240,
         "custom_header_position": "bottom",
-        "show_policy_links": false
+        "show_policy_links": true
       },
       "blocks": {
         "link_list_1": {

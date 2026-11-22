@@ -543,13 +543,16 @@
         color: var(--color-heading);
       }
     }
+    {%- comment %}The shop's name written as the logo (no logo picture) takes the transparent bar's colour as the icons do: it was the heading colour, dark on a dark hero.{% endcomment %}
     .section-header:not(.shopify-section-header-sticky) .transparent-mobile .header-color,
-    .section-header:not(.shopify-section-header-sticky) .transparent-mobile header-inner .button-localization {
+    .section-header:not(.shopify-section-header-sticky) .transparent-mobile header-inner .button-localization,
+    .section-header:not(.shopify-section-header-sticky) .transparent-mobile .logo-img {
       color: var(--transparent-color);
     }
     @media screen and (min-width: 1025px) {
       .section-header:not(.shopify-section-header-sticky) .transparent .header-color,
-      .section-header:not(.shopify-section-header-sticky) .transparent header-inner .button-localization {
+      .section-header:not(.shopify-section-header-sticky) .transparent header-inner .button-localization,
+      .section-header:not(.shopify-section-header-sticky) .transparent .logo-img {
         color: var(--transparent-color);
       }
       .section-header:not(.shopify-section-header-sticky) .transparent .level0 > menu-item > a {
