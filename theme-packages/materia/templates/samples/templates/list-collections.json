@@ -5,18 +5,18 @@
       "settings": {
         "height": "adapt",
         "alignment": "center",
-        "padding_top": 67,
-        "color_scheme": "",
+        "padding_top": 64,
+        "color_scheme": "default",
         "reset_spacing": true,
         "section_width": "fluid_container",
-        "padding_bottom": 67,
+        "padding_bottom": 40,
         "overlay_opacity": 0
       },
       "blocks": {
         "heading_B3DXTc": {
           "type": "heading",
           "settings": {
-            "page_title": "Collections",
+            "page_title": "Genres and series",
             "header_size": "default",
             "vertical_gap": 8,
             "heading_color": "",
@@ -27,7 +27,7 @@
         "description_tLPCVn": {
           "type": "description",
           "settings": {
-            "description": "<p>The catalogue, by genre and by instrument.</p>",
+            "description": "<p>The packs grouped by genre, tempo and series.</p>",
             "description_color": "#767676",
             "enable_custom_style": false,
             "description_font_size": 15
@@ -54,7 +54,7 @@
         "items_to_show": 8,
         "reset_spacing": true,
         "section_width": "fluid_container",
-        "padding_bottom": 112,
+        "padding_bottom": 88,
         "text_alignment": "center",
         "button_show_more": "Load more",
         "sort_collections": "alphabetical",
@@ -62,10 +62,123 @@
       },
       "blocks": {},
       "block_order": []
+    },
+    "genres": {
+      "type": "category-banners-2",
+      "settings": {
+        "color_scheme": "scheme-tr-panel",
+        "section_width": "fluid_container",
+        "layout": "grid_3",
+        "gap": 12,
+        "aspect_ratio_desktop": "16 / 9",
+        "aspect_ratio_mobile": "4 / 5",
+        "header_alignment": "left",
+        "text_position": "bottom",
+        "sub_visibility": "always",
+        "corner_style": "custom",
+        "border_radius": 8,
+        "overlay_opacity": 50,
+        "overlay_opacity_hover": 20,
+        "title_style": "md",
+        "heading_size_desktop": 28,
+        "heading_size_mobile": 22,
+        "heading_uppercase": false,
+        "heading_letter_spacing": 0,
+        "sub_size": 13,
+        "padding_top": 72,
+        "padding_bottom": 72,
+        "side_padding_desktop": 0,
+        "mobile_layout": "grid_2",
+        "side_padding_mobile": 16
+      },
+      "blocks": {
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "heading": "Browse by genre",
+            "heading_size": "h2",
+            "custom_style": true,
+            "heading_font_size_desktop": 44,
+            "heading_font_size_mobile": 30,
+            "space_below_desktop": 12
+          }
+        },
+        "subheading": {
+          "type": "subheading",
+          "settings": {
+            "subheading": "<p>Each genre opens the packs made for it, with the tempo range they were cut at.</p>"
+          }
+        },
+        "g_garage": {
+          "type": "banner",
+          "settings": {
+            "heading": "UK garage",
+            "subheading": "130 to 134 BPM",
+            "link": "/search?q=garage",
+            "image": "shopify://shop_images/samples-genre-garage.webp"
+          }
+        },
+        "g_techno": {
+          "type": "banner",
+          "settings": {
+            "heading": "Techno",
+            "subheading": "126 to 132 BPM",
+            "link": "/search?q=techno",
+            "image": "shopify://shop_images/samples-genre-techno.webp"
+          }
+        },
+        "g_trap": {
+          "type": "banner",
+          "settings": {
+            "heading": "Trap",
+            "subheading": "808s and kicks",
+            "link": "/search?q=trap",
+            "image": "shopify://shop_images/samples-genre-trap.webp"
+          }
+        },
+        "g_lo-fi": {
+          "type": "banner",
+          "settings": {
+            "heading": "Lo-fi",
+            "subheading": "70 to 90 BPM",
+            "link": "/search?q=lo-fi",
+            "image": "shopify://shop_images/samples-genre-lo-fi.webp"
+          }
+        },
+        "g_drill": {
+          "type": "banner",
+          "settings": {
+            "heading": "Drill",
+            "subheading": "140 to 144 BPM",
+            "link": "/search?q=drill",
+            "image": "shopify://shop_images/samples-genre-drill.webp"
+          }
+        },
+        "g_house": {
+          "type": "banner",
+          "settings": {
+            "heading": "House",
+            "subheading": "122 to 125 BPM",
+            "link": "/search?q=house",
+            "image": "shopify://shop_images/samples-genre-house.webp"
+          }
+        }
+      },
+      "block_order": [
+        "heading",
+        "subheading",
+        "g_garage",
+        "g_techno",
+        "g_trap",
+        "g_lo-fi",
+        "g_drill",
+        "g_house"
+      ]
     }
   },
   "order": [
     "heading",
-    "main"
+    "main",
+    "genres"
   ]
 }

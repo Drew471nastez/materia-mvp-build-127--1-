@@ -1,0 +1,165 @@
+{
+  "sections": {
+    "signup": {
+      "type": "newsletter-split",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "image": "shopify://shop_images/samples-free.webp",
+        "image_alt": "The Free 40 sampler pack",
+        "image_position": "left",
+        "image_ratio": "square",
+        "image_width": 46,
+        "column_gap": 64,
+        "form_layout": "horizontal",
+        "email_placeholder": "Your email address",
+        "btn_text": "Send me the sounds",
+        "button_radius": 6,
+        "note": "One email when a new pack is out. Unsubscribe from any email.",
+        "success_text": "Check your inbox. The download link is on its way.",
+        "padding_top": 72,
+        "padding_bottom": 72,
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 52
+      },
+      "blocks": {
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "40 free sounds, one from every pack",
+            "size_enable": true,
+            "size_desktop": 44,
+            "size_mobile": 30
+          }
+        },
+        "subheading": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Hear the quality before you buy. Leave your email and the download link arrives in a minute: kicks, loops and MIDI at full 24 bit.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading",
+        "subheading"
+      ]
+    },
+    "inside": {
+      "type": "image-with-text-steps",
+      "settings": {
+        "color_scheme": "scheme-tr-panel",
+        "section_width": "container",
+        "image_position": "left",
+        "image_width_pct": 46,
+        "gap_desktop": 72,
+        "image": "shopify://shop_images/samples-inside.webp",
+        "image_alt": "The folders of Night Bus Garage: drums, bass, loops and MIDI, with file counts",
+        "image_aspect_desktop": "4 / 5",
+        "image_aspect": "4 / 5",
+        "image_radius": 10,
+        "step_style": "numbered",
+        "marker_size": 30,
+        "marker_font_size": 13,
+        "step_title_size": 19,
+        "step_desc_size": 15,
+        "padding_top": 80,
+        "padding_bottom": 80,
+        "gap_mobile": 32
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Every pack, the same layout",
+            "size": 13
+          }
+        },
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Laid out like the full packs",
+            "tag": "h2",
+            "size_desktop": 44,
+            "size_mobile": 30
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Open any Tape Room pack and you already know where the kicks are.</p>",
+            "size": 16
+          }
+        },
+        "step_1": {
+          "type": "step",
+          "settings": {
+            "title": "Drums, sorted by part",
+            "description": "<p>Kicks, snares, claps, hats and percussion each get a folder, tuned and trimmed to the transient.</p>"
+          }
+        },
+        "step_2": {
+          "type": "step",
+          "settings": {
+            "title": "Key and BPM in every loop name",
+            "description": "<p>Your DAW can sort and sync them before you hear a note, like TR_NBG_Organ_132_Fmin.wav.</p>"
+          }
+        },
+        "step_3": {
+          "type": "step",
+          "settings": {
+            "title": "MIDI for every melodic loop",
+            "description": "<p>Keep the idea and swap the sound. Each MIDI file sits next to the loop it plays.</p>"
+          }
+        },
+        "step_4": {
+          "type": "step",
+          "settings": {
+            "title": "The file list on the pack page",
+            "description": "<p>Folder counts and the size in GB are listed before you pay, so nothing is a surprise.</p>"
+          }
+        },
+        "button_1": {
+          "type": "button",
+          "settings": {
+            "label": "See all packs",
+            "url": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_1",
+        "subheading_1",
+        "step_1",
+        "step_2",
+        "step_3",
+        "step_4",
+        "button_1"
+      ]
+    },
+    "packs": {
+      "type": "products-grid",
+      "settings": {
+        "heading": "The packs they come from",
+        "text": "",
+        "items_to_show": 8,
+        "show_add_to_cart": false,
+        "button_label": "See all packs",
+        "button_link": "/collections/all",
+        "items_per_row": 4,
+        "items_per_row_mobile": 2,
+        "column_gap": 20,
+        "header_alignment": "left",
+        "color_scheme": "default",
+        "section_width": "fluid_container",
+        "padding_top": 72,
+        "padding_bottom": 80
+      }
+    }
+  },
+  "order": [
+    "signup",
+    "inside",
+    "packs"
+  ]
+}

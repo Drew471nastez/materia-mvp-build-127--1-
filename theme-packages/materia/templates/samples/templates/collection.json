@@ -4,12 +4,12 @@
       "type": "main-collection-heading",
       "settings": {
         "height": "adapt",
-        "alignment": "center",
-        "padding_top": 40,
+        "alignment": "left",
+        "padding_top": 48,
         "color_scheme": "default",
         "reset_spacing": true,
         "section_width": "fluid_container",
-        "padding_bottom": 24,
+        "padding_bottom": 20,
         "show_collection_image": false
       },
       "name": "main-collection-heading",
@@ -39,7 +39,7 @@
       "type": "main-collection-product",
       "settings": {
         "sorting": true,
-        "column_gap": 30,
+        "column_gap": 20,
         "pagination": "default",
         "padding_top": 0,
         "color_scheme": "default",
@@ -76,10 +76,127 @@
         "block-mvmkffsh-1-pcnzc",
         "block-mvmkfj68-2-iqqos"
       ]
+    },
+    "bundle": {
+      "type": "promo-banner-4",
+      "settings": {
+        "color_scheme": "scheme-tr-lime",
+        "section_width": "container",
+        "layout": "image_left",
+        "text_align": "left",
+        "vertical_alignment": "center",
+        "card_style": "flat",
+        "card_radius": 10,
+        "image": "shopify://shop_images/samples-bundle.webp",
+        "image_aspect_ratio": "4-3",
+        "enable_image_zoom": false,
+        "enable_badge_pulse": false,
+        "card_gap": 48,
+        "card_padding": 12,
+        "content_gap": 16,
+        "padding_top_desktop": 72,
+        "padding_bottom_desktop": 72,
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 52
+      },
+      "blocks": {
+        "badge": {
+          "type": "badge",
+          "settings": {
+            "text": "Save $72",
+            "position": "top-left",
+            "enable_custom_style": true,
+            "bg": "#121214",
+            "color": "#c8f542"
+          }
+        },
+        "eyebrow": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "The full shelf"
+          }
+        },
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "All eight packs for $119",
+            "size_desktop": 48,
+            "size_mobile": 32
+          }
+        },
+        "description": {
+          "type": "description",
+          "settings": {
+            "text": "<p>1,550 sounds across garage, techno, trap, lo-fi, drill, house, ambient and synth. Bought one by one they come to $191.</p>"
+          }
+        },
+        "buttons": {
+          "type": "buttons",
+          "settings": {
+            "primary_label": "Get the bundle",
+            "primary_link": "/collections/all",
+            "secondary_label": "What is in each pack",
+            "secondary_link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "badge",
+        "eyebrow",
+        "heading",
+        "description",
+        "buttons"
+      ]
+    },
+    "free": {
+      "type": "newsletter-split",
+      "settings": {
+        "color_scheme": "scheme-tr-panel",
+        "section_width": "container",
+        "image": "shopify://shop_images/samples-free.webp",
+        "image_alt": "The Free 40 sampler pack",
+        "image_position": "left",
+        "image_ratio": "square",
+        "image_width": 46,
+        "column_gap": 64,
+        "form_layout": "horizontal",
+        "email_placeholder": "Your email address",
+        "btn_text": "Send me the sounds",
+        "button_radius": 6,
+        "note": "One email when a new pack is out. Unsubscribe from any email.",
+        "success_text": "Check your inbox. The download link is on its way.",
+        "padding_top": 72,
+        "padding_bottom": 72,
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 52
+      },
+      "blocks": {
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "Not sure yet? Hear 40 sounds free",
+            "size_enable": true,
+            "size_desktop": 44,
+            "size_mobile": 30
+          }
+        },
+        "subheading": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Hear the quality before you buy. Leave your email and the download link arrives in a minute: kicks, loops and MIDI at full 24 bit.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading",
+        "subheading"
+      ]
     }
   },
   "order": [
     "main-collection-heading",
-    "main-collection-product"
+    "main-collection-product",
+    "bundle",
+    "free"
   ]
 }

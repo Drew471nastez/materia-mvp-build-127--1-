@@ -1,6 +1,6 @@
 {
   "sections": {
-    "image_and_video_text_1": {
+    "intro": {
       "type": "Image-and-video-text",
       "settings": {
         "color_scheme": "default",
@@ -14,10 +14,10 @@
         "video_autoplay": true,
         "video_loop": true,
         "video_controls": false,
-        "aspect_w": 5,
+        "aspect_w": 4,
         "aspect_h": 5,
         "image_fit": "cover",
-        "image_radius": 12,
+        "image_radius": 10,
         "enable_overlay": false,
         "overlay_opacity": 30,
         "enable_custom_style": false,
@@ -38,13 +38,13 @@
         "side_padding_mobile": 20,
         "section_margin_top_mobile": 0,
         "section_margin_bottom_mobile": 0,
-        "image": "shopify://shop_images/samples-controller.webp"
+        "image": "shopify://shop_images/samples-producer.webp"
       },
       "blocks": {
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "About",
+            "text": "About Tape Room",
             "enable_custom_style": false,
             "size": 12
           }
@@ -52,7 +52,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Say who records the sounds",
+            "text": "Sounds recorded through tape, then cut by hand",
             "tag": "h1",
             "enable_custom_style": false,
             "size_desktop": 44,
@@ -62,7 +62,7 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Two or three sentences about you: what you produce, the gear you record through and why you started selling packs.</p>",
+            "text": "<p>Tape Room is one producer, a four track cassette deck and a cupboard of old drum machines. Every sound in a pack is played or programmed here, printed to tape, then cut, tuned and named before it goes anywhere near the shop.</p><p>The packs are made for producers who finish records, so the folders are tidy and the names tell you the key and tempo.</p>",
             "enable_custom_style": false,
             "size_desktop": 17,
             "size_mobile": 15
@@ -71,14 +71,14 @@
         "button_1": {
           "type": "button",
           "settings": {
-            "label": "Browse packs",
+            "label": "Browse the packs",
             "button_style": "primary",
             "full_width": false,
             "enable_custom_style": false,
             "use_theme_button": true,
             "padding_x": 26,
             "padding_y": 14,
-            "radius": 8,
+            "radius": 6,
             "border_width": 1,
             "font_size": 14,
             "font_weight": "600",
@@ -94,10 +94,10 @@
         "button_1"
       ]
     },
-    "text_columns_1": {
+    "process": {
       "type": "text-columns",
       "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "color_scheme": "scheme-tr-panel",
         "section_width": "fluid_container",
         "reset_spacing": true,
         "content_alignment": "left",
@@ -147,7 +147,7 @@
           "settings": {
             "label": "01",
             "heading": "Recorded",
-            "text": "<p>Name the machines, the room and the chain.</p>"
+            "text": "<p>Drum machines, a Rhodes, a bass synth and a room mic, through the cassette deck and a small desk.</p>"
           }
         },
         "column_2": {
@@ -155,7 +155,7 @@
           "settings": {
             "label": "02",
             "heading": "Cut and tuned",
-            "text": "<p>Say how you edit, tune and level every file.</p>"
+            "text": "<p>Every one shot is trimmed to its transient and tuned to a note. Every loop is cut on the bar.</p>"
           }
         },
         "column_3": {
@@ -163,7 +163,7 @@
           "settings": {
             "label": "03",
             "heading": "Tested in tracks",
-            "text": "<p>Say how you check a pack before it goes on sale.</p>"
+            "text": "<p>Before a pack goes on sale, three beats are made with nothing but its sounds.</p>"
           }
         }
       },
@@ -174,7 +174,7 @@
         "column_3"
       ]
     },
-    "image_and_video_text_2": {
+    "records": {
       "type": "Image-and-video-text",
       "settings": {
         "color_scheme": "default",
@@ -188,10 +188,10 @@
         "video_autoplay": true,
         "video_loop": true,
         "video_controls": false,
-        "aspect_w": 5,
-        "aspect_h": 5,
+        "aspect_w": 4,
+        "aspect_h": 3,
         "image_fit": "cover",
-        "image_radius": 12,
+        "image_radius": 10,
         "enable_overlay": false,
         "overlay_opacity": 30,
         "enable_custom_style": false,
@@ -212,13 +212,13 @@
         "side_padding_mobile": 20,
         "section_margin_top_mobile": 0,
         "section_margin_bottom_mobile": 0,
-        "image": "shopify://shop_images/samples-speaker.webp"
+        "image": "shopify://shop_images/samples-keys.webp"
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Made to be used",
+            "text": "Made to end up on records",
             "tag": "h2",
             "enable_custom_style": false,
             "size_desktop": 44,
@@ -228,7 +228,7 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Add a short paragraph about who the packs are for and what kind of records they end up on.</p>",
+            "text": "<p>The licence is short on purpose: use the sounds in your music, sell that music, keep the money. If a use is not covered, <a href=\"/pages/contact\">ask</a> and you get a straight answer.</p>",
             "enable_custom_style": false,
             "size_desktop": 17,
             "size_mobile": 15
@@ -239,11 +239,56 @@
         "heading_1",
         "subheading_1"
       ]
+    },
+    "free": {
+      "type": "newsletter-split",
+      "settings": {
+        "color_scheme": "scheme-tr-panel",
+        "section_width": "container",
+        "image": "shopify://shop_images/samples-free.webp",
+        "image_alt": "The Free 40 sampler pack",
+        "image_position": "left",
+        "image_ratio": "square",
+        "image_width": 46,
+        "column_gap": 64,
+        "form_layout": "horizontal",
+        "email_placeholder": "Your email address",
+        "btn_text": "Send me the sounds",
+        "button_radius": 6,
+        "note": "One email when a new pack is out. Unsubscribe from any email.",
+        "success_text": "Check your inbox. The download link is on its way.",
+        "padding_top": 80,
+        "padding_bottom": 80,
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 52
+      },
+      "blocks": {
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "40 free sounds, one from every pack",
+            "size_enable": true,
+            "size_desktop": 44,
+            "size_mobile": 30
+          }
+        },
+        "subheading": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Hear the quality before you buy. Leave your email and the download link arrives in a minute: kicks, loops and MIDI at full 24 bit.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading",
+        "subheading"
+      ]
     }
   },
   "order": [
-    "image_and_video_text_1",
-    "text_columns_1",
-    "image_and_video_text_2"
+    "intro",
+    "process",
+    "records",
+    "free"
   ]
 }

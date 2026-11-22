@@ -28,9 +28,9 @@
             "enable_custom_fonts": false,
             "font": "assistant_n4",
             "header_size": "default",
-            "heading_font_size": 34,
+            "heading_font_size": 52,
             "vertical_gap": 8,
-            "page_title": "Licence"
+            "page_title": "The Tape Room licence"
           }
         },
         "description_1": {
@@ -40,7 +40,7 @@
             "enable_custom_fonts": false,
             "font": "assistant_n4",
             "description_font_size": 15,
-            "description": "<p>One licence for every pack. Replace it with your own terms.</p>"
+            "description": "<p>One licence for every pack, free and sample. It does not expire.</p>"
           }
         }
       },
@@ -177,7 +177,7 @@
     "text_columns_1": {
       "type": "text-columns",
       "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "color_scheme": "scheme-tr-panel",
         "section_width": "fluid_container",
         "reset_spacing": true,
         "content_alignment": "left",
@@ -227,7 +227,7 @@
           "settings": {
             "label": "Who",
             "heading": "One licence per person",
-            "text": "<p>Say whether a studio or a label needs more than one.</p>"
+            "text": "<p>A duo or a studio sharing one pack needs one licence each. Labels can <a href=\"/pages/contact\">write to us</a> for a team licence.</p>"
           }
         },
         "column_2": {
@@ -235,15 +235,15 @@
           "settings": {
             "label": "How long",
             "heading": "It does not expire",
-            "text": "<p>Tracks you release stay cleared.</p>"
+            "text": "<p>Tracks you release stay cleared, even if the pack leaves the shop.</p>"
           }
         },
         "column_3": {
           "type": "column",
           "settings": {
-            "label": "Questions",
-            "heading": "Ask us first",
-            "text": "<p>If a use is not covered here, <a href=\"/pages/contact\">write to us</a>.</p>"
+            "label": "Anything else",
+            "heading": "Ask first",
+            "text": "<p>If a use is not covered here, <a href=\"/pages/contact\">write to us</a> before you release.</p>"
           }
         }
       },
@@ -253,11 +253,134 @@
         "column_2",
         "column_3"
       ]
+    },
+    "faq": {
+      "type": "faq-tabs",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "full_width",
+        "tab_1_label": "Downloads",
+        "tab_2_label": "Licence",
+        "tab_3_label": "Your DAW",
+        "open_first": true,
+        "allow_multiple_open": false,
+        "header_align": "center",
+        "q_size": 17,
+        "a_size": 15,
+        "padding_top_desktop": 80,
+        "padding_bottom_desktop": 80,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Licence questions",
+            "tag": "h2",
+            "size_enable": true,
+            "size_desktop": 44,
+            "size_mobile": 30
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>The ones producers ask most.</p>"
+          }
+        },
+        "faq_1": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "1",
+            "question": "How do I get the files?",
+            "answer": "<p>The download link is on the page straight after you pay, and in the receipt email. It works on any computer, as often as you need it.</p>"
+          }
+        },
+        "faq_2": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "1",
+            "question": "What format are the sounds?",
+            "answer": "<p>24 bit WAV at 44.1 kHz. Loops carry their key and BPM in the file name, and MIDI files sit next to the loops they play.</p>"
+          }
+        },
+        "faq_3": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "1",
+            "question": "I lost my download. Can I get it again?",
+            "answer": "<p>Yes. Open the link in your receipt email again, or <a href=\"/pages/contact\">write to us</a> with your order number and we send a fresh one.</p>"
+          }
+        },
+        "faq_4": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "2",
+            "question": "Can I release songs made with these sounds?",
+            "answer": "<p>Yes, on every platform, and the royalties are all yours. You do not need to credit Tape Room.</p>"
+          }
+        },
+        "faq_5": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "2",
+            "question": "Can I use them in paid client work?",
+            "answer": "<p>Yes. Beats for artists, sync, adverts, games and film are all covered.</p>"
+          }
+        },
+        "faq_6": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "2",
+            "question": "What is not allowed?",
+            "answer": "<p>Selling or sharing the sounds as they are, putting them in another sample pack or library, and registering a sound on its own with a content ID service. <a href=\"/pages/licence\">Read the licence</a>.</p>"
+          }
+        },
+        "faq_7": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "3",
+            "question": "Which DAWs do the packs work in?",
+            "answer": "<p>All of them. WAV and MIDI open in Ableton Live, FL Studio, Logic Pro, Cubase, Studio One, Reaper and Bitwig.</p>"
+          }
+        },
+        "faq_8": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "3",
+            "question": "Do I need a plugin?",
+            "answer": "<p>No. Every sound is audio or MIDI, so nothing needs installing or activating.</p>"
+          }
+        },
+        "faq_9": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "3",
+            "question": "Can I hear a pack before I buy?",
+            "answer": "<p>Get the <a href=\"/pages/free\">free sampler</a>: 40 sounds, at least one from every pack, at full quality.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_1",
+        "faq_1",
+        "faq_2",
+        "faq_3",
+        "faq_4",
+        "faq_5",
+        "faq_6",
+        "faq_7",
+        "faq_8",
+        "faq_9"
+      ]
     }
   },
   "order": [
     "page_heading_1",
     "comparison_text_1",
-    "text_columns_1"
+    "text_columns_1",
+    "faq"
   ]
 }

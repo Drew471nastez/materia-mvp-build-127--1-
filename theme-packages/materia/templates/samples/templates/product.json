@@ -64,32 +64,7 @@
           "settings": {
             "show_vendor": false,
             "title_font_size_mobile": 32,
-            "title_font_size_desktop": 33
-          }
-        },
-        "product_description_2": {
-          "type": "product_description",
-          "settings": {
-            "pb_d": 0,
-            "pb_m": 16,
-            "pl_d": 0,
-            "pl_m": 0,
-            "pr_d": 0,
-            "pr_m": 0,
-            "pt_d": 0,
-            "pt_m": 0,
-            "text_color": "#a9a8b0",
-            "font_size_d": 16,
-            "font_size_m": 15,
-            "line_height": 150,
-            "custom_description": "",
-            "enable_custom_description": false
-          }
-        },
-        "short_description_3": {
-          "type": "short_description",
-          "settings": {
-            "excerpt_length": 204
+            "title_font_size_desktop": 40
           }
         },
         "price_4": {
@@ -101,6 +76,12 @@
             "price_font_size_desktop": 28,
             "compare_font_size_mobile": 14,
             "compare_font_size_desktop": 16
+          }
+        },
+        "short_description_3": {
+          "type": "short_description",
+          "settings": {
+            "excerpt_length": 204
           }
         },
         "variant_picker_5": {
@@ -129,7 +110,7 @@
             "atc_hover_bg": "",
             "buy_bg_color": "",
             "buy_hover_bg": "",
-            "show_quantity": true,
+            "show_quantity": false,
             "atc_appearance": "theme",
             "atc_hover_text": "",
             "atc_icon_color": "transparent",
@@ -159,35 +140,50 @@
             "enable_custom_button_typography": true
           }
         },
-        "product_grouped_7": {
-          "type": "product_grouped",
+        "product_description_2": {
+          "type": "product_description",
           "settings": {
-            "heading": "Also available as"
+            "pb_d": 0,
+            "pb_m": 16,
+            "pl_d": 0,
+            "pl_m": 0,
+            "pr_d": 0,
+            "pr_m": 0,
+            "pt_d": 0,
+            "pt_m": 0,
+            "text_color": "#a9a8b0",
+            "font_size_d": 16,
+            "font_size_m": 15,
+            "line_height": 150,
+            "custom_description": "",
+            "enable_custom_description": false
           }
         },
-        "more_colors_8": {
-          "type": "more_colors",
+        "row_inside": {
+          "type": "collapsible_row",
           "settings": {
-            "heading": "More colours",
-            "image_width": 40
+            "open": true,
+            "heading": "Folders and file counts",
+            "use_product_description": false,
+            "content": "<p>Drums: kicks, snares and claps, hats and percussion. Bass: one shots tuned to their note. Loops: drums and music, labelled with key and BPM. MIDI: one file for every melodic loop. Plus a PDF file list.</p>"
           }
         },
-        "collapsible_row_9": {
+        "row_format": {
           "type": "collapsible_row",
           "settings": {
             "open": false,
-            "content": "<p>List the folders: how many one shots, loops and MIDI files, the tempo range, the keys and the total size.</p>",
-            "heading": "What is in the pack",
-            "use_product_description": false
+            "heading": "Format and download",
+            "use_product_description": false,
+            "content": "<p>24 bit WAV at 44.1 kHz, in one zip. The link is on the page after you pay and in your receipt email, and it keeps working.</p>"
           }
         },
-        "collapsible_row_10": {
+        "row_licence": {
           "type": "collapsible_row",
           "settings": {
             "open": false,
-            "content": "<p>Royalty free for your own releases and paid work. You cannot resell or share the files. <a href=\"/pages/licence\">Read the licence</a>.</p>",
             "heading": "Licence",
-            "use_product_description": false
+            "use_product_description": false,
+            "content": "<p>Royalty free for your own releases and paid work, with no credit needed. You cannot resell or share the files. <a href=\"/pages/licence\">Read the licence</a>.</p>"
           }
         },
         "payment_badges_11": {
@@ -238,211 +234,314 @@
       },
       "block_order": [
         "title_1",
-        "product_description_2",
-        "short_description_3",
         "price_4",
+        "short_description_3",
         "variant_picker_5",
         "buy_buttons_6",
-        "product_grouped_7",
-        "more_colors_8",
-        "collapsible_row_9",
-        "collapsible_row_10",
+        "product_description_2",
+        "row_inside",
+        "row_format",
+        "row_licence",
         "payment_badges_11"
       ]
     },
-    "benefits_bar_2_1": {
-      "type": "benefits-bar-2",
+    "inside": {
+      "type": "image-with-text-steps",
       "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "section_width": "fluid_container",
-        "reset_spacing": true,
-        "layout": "vertical",
-        "alignment": "center",
-        "cols_desktop": 4,
-        "item_gap": 12,
-        "item_padding": 0,
-        "item_pad_x": 16,
-        "gap_desktop": 0,
-        "col_gap_desktop": 0,
-        "show_dividers": true,
-        "show_top_border": true,
-        "show_bottom_border": true,
-        "enable_custom_style": false,
-        "icon_box_size": 40,
-        "icon_box_radius": 50,
-        "icon_size": 22,
-        "enable_custom_fonts": false,
-        "heading_font": "helvetica_n4",
-        "body_font": "helvetica_n4",
-        "title_size": 14,
-        "title_letter_spacing": 1,
-        "title_uppercase": true,
-        "desc_size": 13,
-        "reveal": true,
-        "padding_top_desktop": 48,
-        "padding_bottom_desktop": 48,
-        "section_margin_top_desktop": 0,
-        "section_margin_bottom_desktop": 0,
-        "cols_mobile": "2",
-        "gap_mobile": 24,
-        "col_gap_mobile": 16,
-        "enable_mobile_carousel": false,
-        "mobile_items_per_view": 1.2,
-        "carousel_autoplay": false,
-        "carousel_autoplay_speed": 4,
-        "padding_top_mobile": 32,
-        "padding_bottom_mobile": 32,
-        "section_margin_top_mobile": 0,
-        "section_margin_bottom_mobile": 0
+        "color_scheme": "scheme-tr-panel",
+        "section_width": "container",
+        "image_position": "left",
+        "image_width_pct": 46,
+        "gap_desktop": 72,
+        "image": "shopify://shop_images/samples-inside.webp",
+        "image_alt": "The folders of Night Bus Garage: drums, bass, loops and MIDI, with file counts",
+        "image_aspect_desktop": "4 / 5",
+        "image_aspect": "4 / 5",
+        "image_radius": 10,
+        "step_style": "numbered",
+        "marker_size": 30,
+        "marker_font_size": 13,
+        "step_title_size": 19,
+        "step_desc_size": 15,
+        "padding_top": 88,
+        "padding_bottom": 88,
+        "gap_mobile": 32
       },
       "blocks": {
-        "item_1": {
-          "type": "item",
+        "eyebrow_1": {
+          "type": "eyebrow",
           "settings": {
-            "icon_source": "icon",
-            "icon": "headphones",
-            "title": "24 bit WAV",
-            "description": "44.1kHz, with headroom left.",
-            "enable_custom_style": false,
-            "icon_color": "#0F0F0F",
-            "icon_box_bg": "rgba(0,0,0,0)",
-            "title_color": "#0F0F0F",
-            "desc_color": "#555555"
+            "text": "Every pack, the same layout",
+            "size": 13
           }
         },
-        "item_2": {
-          "type": "item",
+        "heading_1": {
+          "type": "heading",
           "settings": {
-            "icon_source": "icon",
-            "icon": "tag",
-            "title": "Key and BPM labelled",
-            "description": "In every file name.",
-            "enable_custom_style": false,
-            "icon_color": "#0F0F0F",
-            "icon_box_bg": "rgba(0,0,0,0)",
-            "title_color": "#0F0F0F",
-            "desc_color": "#555555"
+            "text": "How every pack is laid out",
+            "tag": "h2",
+            "size_desktop": 44,
+            "size_mobile": 30
           }
         },
-        "item_3": {
-          "type": "item",
+        "subheading_1": {
+          "type": "subheading",
           "settings": {
-            "icon_source": "icon",
-            "icon": "check",
-            "title": "Royalty free",
-            "description": "For releases and paid work.",
-            "enable_custom_style": false,
-            "icon_color": "#0F0F0F",
-            "icon_box_bg": "rgba(0,0,0,0)",
-            "title_color": "#0F0F0F",
-            "desc_color": "#555555"
+            "text": "<p>Open any Tape Room pack and you already know where the kicks are.</p>",
+            "size": 16
           }
         },
-        "item_4": {
-          "type": "item",
+        "step_1": {
+          "type": "step",
           "settings": {
-            "icon_source": "icon",
-            "icon": "lock",
-            "title": "Instant download",
-            "description": "From your receipt.",
-            "enable_custom_style": false,
-            "icon_color": "#0F0F0F",
-            "icon_box_bg": "rgba(0,0,0,0)",
-            "title_color": "#0F0F0F",
-            "desc_color": "#555555"
+            "title": "Drums, sorted by part",
+            "description": "<p>Kicks, snares, claps, hats and percussion each get a folder, tuned and trimmed to the transient.</p>"
+          }
+        },
+        "step_2": {
+          "type": "step",
+          "settings": {
+            "title": "Key and BPM in every loop name",
+            "description": "<p>Your DAW can sort and sync them before you hear a note, like TR_NBG_Organ_132_Fmin.wav.</p>"
+          }
+        },
+        "step_3": {
+          "type": "step",
+          "settings": {
+            "title": "MIDI for every melodic loop",
+            "description": "<p>Keep the idea and swap the sound. Each MIDI file sits next to the loop it plays.</p>"
+          }
+        },
+        "step_4": {
+          "type": "step",
+          "settings": {
+            "title": "The file list on the pack page",
+            "description": "<p>Folder counts and the size in GB are listed before you pay, so nothing is a surprise.</p>"
+          }
+        },
+        "button_1": {
+          "type": "button",
+          "settings": {
+            "label": "See all packs",
+            "url": "/collections/all"
           }
         }
       },
       "block_order": [
-        "item_1",
-        "item_2",
-        "item_3",
-        "item_4"
+        "eyebrow_1",
+        "heading_1",
+        "subheading_1",
+        "step_1",
+        "step_2",
+        "step_3",
+        "step_4",
+        "button_1"
       ]
     },
-    "products_carousel_2": {
-      "type": "products-carousel",
+    "licence": {
+      "type": "comparison-cards",
       "settings": {
         "color_scheme": "default",
-        "section_width": "fluid_container",
-        "reset_spacing": true,
-        "items_to_show": 5,
-        "heading": "Best Selling",
-        "header_size": "medium",
-        "header_alignment": "left",
-        "heading_underline": false,
-        "header_spacing": 32,
-        "items_per_row": 4,
-        "column_gap": 30,
-        "show_banner": false,
-        "banner_type": "image",
-        "video_autoplay": true,
-        "banner_width": 30,
-        "position": "left",
-        "sticky_banner": false,
-        "show_arrow": false,
-        "carousel_pagination": "show_dots_on_mobile",
-        "pagination_style": "dot",
-        "pagination_position": "center",
-        "infinite": false,
-        "autoplay": false,
-        "autorotate_speed": 5,
-        "reveal": false,
-        "enable_custom_style": false,
-        "enable_custom_fonts": false,
-        "heading_font": "assistant_n4",
-        "body_font": "assistant_n4",
-        "padding_top": 50,
-        "padding_bottom": 50,
-        "gap_products_to_pagination": 24,
-        "gap_pagination_to_button": 24,
-        "gap_products_to_button": 32,
-        "section_margin_top_desktop": 0,
-        "section_margin_bottom_desktop": 0,
-        "items_per_row_mobile": 2,
-        "section_margin_top_mobile": 0,
-        "section_margin_bottom_mobile": 0
+        "section_width": "full_width",
+        "header_align": "center",
+        "card_radius": 10,
+        "card_title_size_desktop": 24,
+        "card_title_size_mobile": 21,
+        "row_text_size": 15,
+        "cards_gap_desktop": 16,
+        "card_padding_desktop": 36,
+        "card_padding_x_desktop": 32,
+        "us_card_shadow": "0 0 0 rgba(0,0,0,0)",
+        "enable_custom_style": true,
+        "section_bg": "#0d0d0f",
+        "us_card_bg": "#c8f542",
+        "us_card_text": "#121214",
+        "them_card_bg": "#16161a",
+        "them_card_text": "#f2f0ea",
+        "them_card_border": "#2a2a31",
+        "check_color": "#121214",
+        "cross_color": "#8e8d96",
+        "cross_color_them": "#8e8d96",
+        "check_label": "You can",
+        "cross_label": "You cannot",
+        "padding_top_desktop": 88,
+        "padding_bottom_desktop": 88,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Works well with",
-            "enable_custom_style": false,
-            "size_desktop": 32,
-            "size_mobile": 26
+            "text": "The licence, in plain words",
+            "tag": "h2",
+            "size_desktop": 44,
+            "size_mobile": 30
           }
         },
-        "view_all_1": {
-          "type": "view_all",
+        "subheading_1": {
+          "type": "subheading",
           "settings": {
-            "enabled": true,
-            "label": "All packs",
-            "position": "header",
-            "full_width": false,
-            "uppercase": false,
-            "enable_custom_style": false,
-            "use_theme_button": true,
-            "radius": 6,
-            "padding_x": 26,
-            "padding_y": 14,
-            "font_size": 14,
-            "font_weight": "600",
-            "border_width": 1,
-            "link": "/collections/all"
+            "text": "<p>One licence covers every pack. Buy once and the sounds are cleared for your music for good. <a href=\"/pages/licence\">Read the full licence</a></p>"
+          }
+        },
+        "card_us": {
+          "type": "card_us",
+          "settings": {
+            "title": "You can"
+          }
+        },
+        "card_them": {
+          "type": "card_them",
+          "settings": {
+            "title": "You cannot"
+          }
+        },
+        "row_1": {
+          "type": "row",
+          "settings": {
+            "label_us": "Release music made with them, on every platform",
+            "icon_us": "check",
+            "label_them": "Sell or share the sounds as they are",
+            "icon_them": "cross"
+          }
+        },
+        "row_2": {
+          "type": "row",
+          "settings": {
+            "label_us": "Keep all the royalties, with no credit needed",
+            "icon_us": "check",
+            "label_them": "Put them in another sample pack or library",
+            "icon_them": "cross"
+          }
+        },
+        "row_3": {
+          "type": "row",
+          "settings": {
+            "label_us": "Use them in paid work: beats, sync, adverts, games",
+            "icon_us": "check",
+            "label_them": "Upload a loop on its own as your track",
+            "icon_them": "cross"
+          }
+        },
+        "row_4": {
+          "type": "row",
+          "settings": {
+            "label_us": "Chop, pitch, layer and resample as much as you like",
+            "icon_us": "check",
+            "label_them": "Register a sound on its own with content ID",
+            "icon_them": "cross"
           }
         }
       },
       "block_order": [
         "heading_1",
-        "view_all_1"
+        "subheading_1",
+        "card_us",
+        "card_them",
+        "row_1",
+        "row_2",
+        "row_3",
+        "row_4"
       ]
+    },
+    "bundle": {
+      "type": "promo-banner-4",
+      "settings": {
+        "color_scheme": "scheme-tr-lime",
+        "section_width": "container",
+        "layout": "image_left",
+        "text_align": "left",
+        "vertical_alignment": "center",
+        "card_style": "flat",
+        "card_radius": 10,
+        "image": "shopify://shop_images/samples-bundle.webp",
+        "image_aspect_ratio": "4-3",
+        "enable_image_zoom": false,
+        "enable_badge_pulse": false,
+        "card_gap": 48,
+        "card_padding": 12,
+        "content_gap": 16,
+        "padding_top_desktop": 72,
+        "padding_bottom_desktop": 72,
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 52
+      },
+      "blocks": {
+        "badge": {
+          "type": "badge",
+          "settings": {
+            "text": "Save $72",
+            "position": "top-left",
+            "enable_custom_style": true,
+            "bg": "#121214",
+            "color": "#c8f542"
+          }
+        },
+        "eyebrow": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "The full shelf"
+          }
+        },
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "All eight packs for $119",
+            "size_desktop": 48,
+            "size_mobile": 32
+          }
+        },
+        "description": {
+          "type": "description",
+          "settings": {
+            "text": "<p>1,550 sounds across garage, techno, trap, lo-fi, drill, house, ambient and synth. Bought one by one they come to $191.</p>"
+          }
+        },
+        "buttons": {
+          "type": "buttons",
+          "settings": {
+            "primary_label": "Get the bundle",
+            "primary_link": "/collections/all",
+            "secondary_label": "What is in each pack",
+            "secondary_link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "badge",
+        "eyebrow",
+        "heading",
+        "description",
+        "buttons"
+      ]
+    },
+    "more": {
+      "type": "products-grid",
+      "settings": {
+        "heading": "More packs",
+        "text": "",
+        "items_to_show": 4,
+        "show_add_to_cart": false,
+        "button_label": "See all packs",
+        "button_link": "/collections/all",
+        "items_per_row": 4,
+        "items_per_row_mobile": 2,
+        "column_gap": 20,
+        "header_alignment": "left",
+        "color_scheme": "default",
+        "section_width": "fluid_container",
+        "padding_top": 72,
+        "padding_bottom": 80
+      }
     }
   },
   "order": [
     "breadcrumb",
     "main",
-    "benefits_bar_2_1",
-    "products_carousel_2"
+    "inside",
+    "licence",
+    "bundle",
+    "more"
   ]
 }

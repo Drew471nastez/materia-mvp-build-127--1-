@@ -71,49 +71,89 @@
         "faq_item_1": {
           "type": "faq_item",
           "settings": {
-            "question": "Where is my download?",
-            "answer": "<p>On your receipt, and in the email sent straight after. Check spam, then <a href=\"/pages/contact\">write to us</a>.</p>",
-            "keywords": "link email receipt missing"
+            "question": "How do I get the files?",
+            "answer": "<p>The download link is on the page straight after you pay, and in the receipt email. It works on any computer, as often as you need it.</p>",
+            "keywords": "link email download"
           }
         },
         "faq_item_2": {
           "type": "faq_item",
           "settings": {
-            "question": "Which software do I need?",
-            "answer": "<p>Any DAW or sampler that opens WAV and MIDI: Ableton Live, FL Studio, Logic Pro, Bitwig, Reaper and the rest.</p>",
-            "keywords": "daw ableton fl studio logic compatible"
+            "question": "What format are the sounds?",
+            "answer": "<p>24 bit WAV at 44.1 kHz. Loops carry their key and BPM in the file name, and MIDI files sit next to the loops they play.</p>",
+            "keywords": "wav format quality bit"
           }
         },
         "faq_item_3": {
           "type": "faq_item",
           "settings": {
-            "question": "Can I use the sounds in music I sell?",
-            "answer": "<p>Yes. The packs are royalty free for your own releases and paid work. See the <a href=\"/pages/licence\">licence</a>.</p>",
-            "keywords": "commercial royalty release licence"
+            "question": "I lost my download. Can I get it again?",
+            "answer": "<p>Yes. Open the link in your receipt email again, or <a href=\"/pages/contact\">write to us</a> with your order number and we send a fresh one.</p>",
+            "keywords": "lost again redownload"
           }
         },
         "faq_item_4": {
           "type": "faq_item",
           "settings": {
-            "question": "Can I download a pack again later?",
-            "answer": "<p>Say how long your links last and how a buyer gets a fresh one.</p>",
-            "keywords": "again redownload expire"
+            "question": "Can I release songs made with these sounds?",
+            "answer": "<p>Yes, on every platform, and the royalties are all yours. You do not need to credit Tape Room.</p>",
+            "keywords": "release royalties streaming"
           }
         },
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "Do you offer refunds?",
-            "answer": "<p>Say what your terms are once a file has been downloaded.</p>",
-            "keywords": "refund money back"
+            "question": "Can I use them in paid client work?",
+            "answer": "<p>Yes. Beats for artists, sync, adverts, games and film are all covered.</p>",
+            "keywords": "client sync paid"
           }
         },
         "faq_item_6": {
           "type": "faq_item",
           "settings": {
+            "question": "What is not allowed?",
+            "answer": "<p>Selling or sharing the sounds as they are, putting them in another sample pack or library, and registering a sound on its own with a content ID service. <a href=\"/pages/licence\">Read the licence</a>.</p>",
+            "keywords": "not allowed resell share"
+          }
+        },
+        "faq_item_7": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Which DAWs do the packs work in?",
+            "answer": "<p>All of them. WAV and MIDI open in Ableton Live, FL Studio, Logic Pro, Cubase, Studio One, Reaper and Bitwig.</p>",
+            "keywords": "daw ableton fl logic"
+          }
+        },
+        "faq_item_8": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do I need a plugin?",
+            "answer": "<p>No. Every sound is audio or MIDI, so nothing needs installing or activating.</p>",
+            "keywords": "plugin install"
+          }
+        },
+        "faq_item_9": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I hear a pack before I buy?",
+            "answer": "<p>Get the <a href=\"/pages/free\">free sampler</a>: 40 sounds, at least one from every pack, at full quality.</p>",
+            "keywords": "demo listen preview free"
+          }
+        },
+        "faq_item_10": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do you give refunds?",
+            "answer": "<p>Downloads cannot be returned, so we refund a pack that has not been downloaded. If a file is broken, we fix it or refund it.</p>",
+            "keywords": "refund money back"
+          }
+        },
+        "faq_item_11": {
+          "type": "faq_item",
+          "settings": {
             "question": "Do packs get updated?",
-            "answer": "<p>Say whether buyers get new versions free.</p>",
-            "keywords": "update version"
+            "answer": "<p>When a pack gets new sounds, everyone who bought it gets them at no cost through the same link.</p>",
+            "keywords": "update new version"
           }
         }
       },
@@ -125,11 +165,65 @@
         "faq_item_3",
         "faq_item_4",
         "faq_item_5",
-        "faq_item_6"
+        "faq_item_6",
+        "faq_item_7",
+        "faq_item_8",
+        "faq_item_9",
+        "faq_item_10",
+        "faq_item_11"
+      ]
+    },
+    "contact": {
+      "type": "promo-banner-4",
+      "settings": {
+        "color_scheme": "scheme-tr-panel",
+        "section_width": "container",
+        "layout": "image_left",
+        "card_style": "flat",
+        "card_radius": 10,
+        "image": "shopify://shop_images/samples-cassette.webp",
+        "image_aspect_ratio": "4-3",
+        "enable_image_zoom": false,
+        "enable_badge_pulse": false,
+        "card_gap": 48,
+        "card_padding": 12,
+        "padding_top_desktop": 72,
+        "padding_bottom_desktop": 72,
+        "padding_top_mobile": 44,
+        "padding_bottom_mobile": 48
+      },
+      "blocks": {
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "Still stuck?",
+            "size_desktop": 36,
+            "size_mobile": 28
+          }
+        },
+        "description": {
+          "type": "description",
+          "settings": {
+            "text": "<p>Send your order number and what went wrong. A person answers, within two working days.</p>"
+          }
+        },
+        "buttons": {
+          "type": "buttons",
+          "settings": {
+            "primary_label": "Contact us",
+            "primary_link": "/pages/contact"
+          }
+        }
+      },
+      "block_order": [
+        "heading",
+        "description",
+        "buttons"
       ]
     }
   },
   "order": [
-    "faq_search_1"
+    "faq_search_1",
+    "contact"
   ]
 }

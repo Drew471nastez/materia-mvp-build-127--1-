@@ -7,12 +7,12 @@
         "url": "/collections/all"
       },
       {
-        "title": "Licence",
-        "url": "/pages/licence"
+        "title": "Free sounds",
+        "url": "/pages/free"
       },
       {
-        "title": "About",
-        "url": "/pages/about"
+        "title": "Licence",
+        "url": "/pages/licence"
       },
       {
         "title": "Help",
@@ -24,20 +24,24 @@
     "title": "Footer",
     "links": [
       {
-        "title": "Licence",
-        "url": "/pages/licence"
+        "title": "About Tape Room",
+        "url": "/pages/about"
       },
       {
         "title": "Downloads and help",
         "url": "/pages/faqs"
       },
       {
+        "title": "Licence",
+        "url": "/pages/licence"
+      },
+      {
         "title": "Contact",
         "url": "/pages/contact"
       },
       {
-        "title": "Search",
-        "url": "/search"
+        "title": "Journal",
+        "url": "/blogs/news"
       }
     ]
   }

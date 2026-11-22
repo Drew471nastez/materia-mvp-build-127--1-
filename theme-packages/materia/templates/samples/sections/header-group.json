@@ -11,7 +11,7 @@
         "show_search": true,
         "color_scheme": "default",
         "icon_spacing": 10,
-        "header_height": 84,
+        "header_height": 76,
         "header_layout": "stretch_width",
         "logo_offset_x": 0,
         "logo_position": "left",
@@ -36,7 +36,7 @@
         "action_text_weight": "400",
         "logo_width_desktop": 78,
         "show_shopping_cart": true,
-        "show_wishlist_icon": true,
+        "show_wishlist_icon": false,
         "sticky_header_type": "always",
         "transparent_header": false,
         "transparent_mobile": false,
@@ -46,7 +46,7 @@
         "header_height_mobile": 64,
         "logo_custom_position": false,
         "logo_offset_x_mobile": 0,
-        "logo_position_mobile": "center",
+        "logo_position_mobile": "left",
         "menu_mobile_chevrons": false,
         "sticky_header_mobile": true,
         "dropdown_link_spacing": 3,
@@ -129,13 +129,13 @@
           "settings": {
             "new_tab": false,
             "button_gap": 20,
-            "button_link": "/collections/all",
-            "button_text": "Browse packs",
+            "button_link": "/pages/free",
+            "button_text": "Free 40 sounds",
             "custom_text": "#111111",
             "mobile_size": "compact",
             "button_style": "primary",
             "custom_border": "#ffffff",
-            "custom_radius": 8,
+            "custom_radius": 6,
             "show_on_mobile": false,
             "button_offset_x": 0,
             "button_offset_y": 0,
@@ -160,9 +160,63 @@
         "menu_badges_1",
         "header_button_1"
       ]
+    },
+    "top_bar": {
+      "type": "top-bar",
+      "name": "Announcement bar",
+      "settings": {
+        "reveal": true,
+        "font_size": 13,
+        "uppercase": false,
+        "sticky_top": false,
+        "text_align": "center",
+        "font_weight": "body_weight",
+        "padding_top": 8,
+        "show_arrows": false,
+        "show_mobile": true,
+        "border_color": "#e5e5e5",
+        "border_width": 0,
+        "color_scheme": "scheme-tr-lime",
+        "reset_spacing": true,
+        "section_width": "full_width",
+        "letter_spacing": 0,
+        "padding_bottom": 8,
+        "border_position": "bottom",
+        "custom_bg_color": "",
+        "transition_speed": 700,
+        "custom_link_color": "",
+        "custom_text_color": "",
+        "custom_arrow_color": "",
+        "show_arrows_mobile": false,
+        "enable_custom_position": false,
+        "desktop_horizontal_offset": 0,
+        "section_margin_top_mobile": 0,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_mobile": 0,
+        "section_margin_bottom_desktop": 0
+      },
+      "blocks": {
+        "text_slider_1": {
+          "type": "text_slider",
+          "settings": {
+            "text1": "Night Bus Garage is out: 214 UK garage sounds, $29 for launch week",
+            "text2": "Every sound is royalty free, with key and BPM in the file name",
+            "text3": "",
+            "change_every": 5,
+            "text1_mobile": "Night Bus Garage is out",
+            "text2_mobile": "Royalty free, key and BPM labelled",
+            "text3_mobile": "",
+            "hidden_on_mobile": false
+          }
+        }
+      },
+      "block_order": [
+        "text_slider_1"
+      ]
     }
   },
   "order": [
+    "top_bar",
     "header"
   ]
 }

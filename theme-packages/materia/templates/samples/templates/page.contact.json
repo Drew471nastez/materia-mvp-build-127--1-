@@ -8,7 +8,7 @@
         "show_section_on": "all",
         "reset_spacing": true,
         "submit_label": "Send message",
-        "success_message": "Thanks. We answer within two working days.",
+        "success_message": "Got it. A real person reads every message, within two working days.",
         "error_message": "Please check the following:",
         "header_align": "center",
         "section_max_width_desktop": 960,
@@ -59,7 +59,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Get in touch",
+            "text": "Write to Tape Room",
             "tag": "h1",
             "enable_custom_style": false,
             "enable_custom_fonts": false,
@@ -75,7 +75,7 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>A missing download, a licence question or a custom pack? Write to us.</p>",
+            "text": "<p>A download that will not open, a licence question or a sound you want made. It all lands in one inbox.</p>",
             "max_width": 600,
             "enable_custom_style": false,
             "enable_custom_fonts": false,
@@ -118,7 +118,7 @@
             "placeholder": "Pick one",
             "required": false,
             "half_width": false,
-            "options": "A download\nThe licence\nA custom pack\nSomething else"
+            "options": "A download\nThe licence\nA pack request\nSomething else"
           }
         },
         "field_4": {
@@ -143,7 +143,7 @@
           "settings": {
             "icon": "mail",
             "label": "Email",
-            "value": "Replace with your email"
+            "value": "hello@example.com, replace with yours"
           }
         },
         "info_2": {
