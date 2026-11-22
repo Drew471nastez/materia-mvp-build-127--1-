@@ -1,0 +1,415 @@
+/* Explicitly opted-in controls share one paint/motion contract. Important
+   declarations in this layer beat legacy unlayered section overrides; custom
+   settings enter through --mb-* tokens instead of competing hover selectors. */
+@layer materia-controls {
+  @layer reduced-motion, extra-movement;
+  @layer cart-tools {
+    .cart-discount-remove {
+      position:relative !important; display:inline-flex !important;
+      align-items:center; justify-content:center;
+      flex:0 0 44px !important; width:44px !important; min-width:44px !important; max-width:44px !important;
+      height:44px !important; min-height:44px !important;
+      margin:0 !important; padding:0 !important; border:0 !important; border-radius:6px !important;
+      background:transparent !important; color:var(--color-text) !important; box-shadow:none !important;
+    }
+    .cart-discount-remove::before, .cart-discount-remove::after { content:none !important; }
+    .cart-discount-remove .remove-icon { width:16px !important; height:16px !important; }
+    .cart-discount-remove.loading .remove-icon { opacity:.55 !important; }
+    .cart-discount-remove.loading .icon-rotator { display:none !important; }
+  }
+  [data-theme-button] {
+    --mb-role-bg: var(--btn-primary-bg-color, #222);
+    --mb-role-text: var(--btn-primary-color, #fff);
+    --mb-role-border: var(--btn-primary-border-color, var(--mb-role-bg));
+    --mb-role-hover-bg: var(--btn-primary-hover-bg-color, var(--mb-role-text));
+    --mb-role-hover-text: var(--btn-primary-hover-color, var(--mb-role-bg));
+    --mb-role-hover-border: var(--btn-primary-hover-border-color, var(--mb-role-hover-bg));
+    --mb-rest: var(--mb-bg, var(--mb-role-bg));
+    --mb-ink: var(--mb-text, var(--mb-role-text));
+    --mb-line: var(--mb-border, var(--mb-role-border));
+    --mb-role-border-width: var(--btn-border-width, 1px);
+    position: relative !important; isolation: isolate !important; overflow: hidden !important;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    box-sizing: border-box; max-width: 100%; min-width: 0; min-height: 44px;
+    font-family: var(--mb-font, var(--btn-font, var(--body-font, sans-serif))) !important;
+    font-weight: var(--mb-weight, var(--btn-font-weight, 500)) !important;
+    letter-spacing: var(--btn-letter-spacing, 0px) !important;
+    text-transform: var(--btn-text-transform, none) !important;
+    line-height: 1.4 !important; text-decoration: none !important;
+    border: var(--mb-border-width, var(--mb-role-border-width)) solid var(--mb-line) !important;
+    background: var(--mb-rest) !important; color: var(--mb-ink) !important;
+    transform: none !important;
+    box-shadow: var(--btn-shadow, none) !important;
+    transition: background-color var(--btn-anim-duration, 300ms) var(--btn-anim-ease, ease), color var(--btn-anim-duration, 300ms) var(--btn-anim-ease, ease), border-color var(--btn-anim-duration, 300ms) var(--btn-anim-ease, ease), transform var(--btn-anim-duration, 300ms) var(--btn-anim-ease, ease), translate var(--btn-anim-duration, 300ms) var(--btn-anim-ease, ease), filter var(--btn-anim-duration, 300ms) var(--btn-anim-ease, ease), box-shadow var(--btn-anim-duration, 300ms) var(--btn-anim-ease, ease), opacity var(--btn-anim-duration, 300ms) var(--btn-anim-ease, ease) !important;
+  }
+  /* Theme settings > Buttons > Use shared button size and shape. On (no
+     attribute): text size, padding and corners are the shared ones. Off
+     (data-button-priority="off" on <html>): the same values without
+     !important, so a section's own size and corners win where it sets them. */
+  :where(html:not([data-button-priority='off'])) [data-theme-button] {
+    font-size: var(--mb-font-size, var(--btn-font-size, 14px)) !important;
+    padding: var(--mb-padding-y, var(--btn-padding-y, 14px)) var(--mb-padding-x, var(--btn-padding-x, 26px)) !important;
+    border-radius: var(--mb-radius, var(--btn-radius, 8px)) !important;
+  }
+  :where(html[data-button-priority='off']) [data-theme-button] {
+    font-size: var(--mb-font-size, var(--btn-font-size, 14px));
+    padding: var(--mb-padding-y, var(--btn-padding-y, 14px)) var(--mb-padding-x, var(--btn-padding-x, 26px));
+    border-radius: var(--mb-radius, var(--btn-radius, 8px));
+  }
+  [data-theme-button='secondary'] {
+    --mb-role-bg: var(--btn-secondary-bg-color, transparent);
+    --mb-role-text: var(--btn-secondary-color, var(--color-heading, #222));
+    --mb-role-border: var(--btn-secondary-border-color, var(--mb-role-text));
+    --mb-role-hover-bg: var(--btn-secondary-hover-bg-color, var(--mb-role-text));
+    --mb-role-hover-text: var(--btn-secondary-hover-color, var(--color-background, #fff));
+    --mb-role-hover-border: var(--btn-secondary-hover-border-color, var(--mb-role-hover-bg));
+    /* A secondary button is see-through by default: with the theme's button border at 0 it was bare text ("Buy now" under Add to cart). Its outline is at least 1px; a section's own border width (--mb-border-width) still wins. */
+    --mb-role-border-width: max(1px, var(--btn-border-width, 1px));
+  }
+  [data-theme-button].fw__action { --mb-bg: var(--fw-button); --mb-text: var(--fw-button-text); }
+  [data-theme-button] :is(span, svg) { color: inherit !important; background: transparent !important; }
+  /* Preserve the label/icon footprint but display only the centred loader.
+     This also covers cards, featured products and portaled sticky controls. */
+  [data-theme-button]:not(.loading) > .icon-load { display:none !important; }
+  [data-theme-button].loading:has(> .icon-load) > :is(.hidden-on-load,.btn-icon,.icon-cart,svg:not(.icon-load)) {
+    opacity:0 !important;
+  }
+  [data-theme-button].loading:has(> .icon-load) > :is(.btn-icon,.icon-cart,svg:not(.icon-load)) { visibility:hidden !important; }
+  [data-theme-button].loading > .icon-load {
+    position:absolute !important; inset:0 !important; margin:auto !important;
+    width:16px !important; height:16px !important;
+    visibility:visible !important; opacity:1 !important; display:block !important;
+    pointer-events:none;
+  }
+  /* One continuous ring replaces the old dotted SVG sprite. */
+  .icon-load {
+    box-sizing:border-box !important;
+    border:2px solid color-mix(in srgb,currentColor 22%,transparent) !important;
+    border-top-color:currentColor !important;
+    border-radius:50% !important;
+    animation:materia-busy-spin .75s linear infinite !important;
+    transform-origin:center;
+  }
+  .icon-load > * { display:none !important; }
+  @keyframes materia-busy-spin { to { transform:rotate(360deg); } }
+  [data-theme-button]::after { content: none !important; }
+  [data-theme-button]::before {
+    content: '' !important; position: absolute !important; inset: 0 !important;
+    border-radius: inherit !important; z-index: -1 !important; pointer-events: none !important;
+    background: var(--mb-hover-bg, var(--mb-role-hover-bg)) !important;
+    transform: scaleX(0) !important; transform-origin: left center !important;
+    transition: transform var(--btn-anim-duration, 300ms) var(--btn-anim-ease, ease) !important;
+  }
+  [dir='rtl'] [data-theme-button]::before { transform-origin: right center !important; }
+  [data-theme-button][data-button-appearance='outline'] {
+    --mb-rest: transparent; --mb-ink: var(--mb-text, var(--mb-role-bg));
+    --mb-line: var(--mb-border, var(--mb-role-border));
+    border-width: max(1px, var(--btn-border-width, 1px)) !important;
+  }
+  /* An outline secondary reads in its border colour, as Theme settings >
+     Buttons > Outline draws it: the secondary text colour is chosen for the
+     filled button and may not show on the page. */
+  [data-theme-button='secondary'][data-button-appearance='outline'] { --mb-ink: var(--mb-text, var(--mb-role-border)); }
+  [data-theme-button][data-button-appearance='ghost'] {
+    --mb-rest: transparent; --mb-ink: var(--mb-text, var(--mb-role-border)); --mb-line: transparent;
+  }
+  [data-theme-button][data-button-appearance='soft'] {
+    --mb-rest: color-mix(in srgb, var(--mb-bg, var(--mb-role-border)) 14%, transparent);
+    --mb-ink: var(--mb-text, var(--mb-role-border)); --mb-line: transparent;
+  }
+  [data-theme-button][data-button-appearance='underline'] {
+    --mb-rest: transparent; --mb-ink: var(--mb-text, var(--mb-role-border));
+    border: 0 !important; border-bottom: 1px solid currentColor !important;
+    border-radius: 0 !important; padding-inline: 0 !important;
+  }
+  [data-theme-button]:focus-visible { outline: 2px solid currentColor !important; outline-offset: 3px; }
+  @media (hover: hover) {
+    [data-theme-button][data-button-hover='darken']:not(:disabled):hover { filter: brightness(.9); }
+    [data-theme-button][data-button-hover='underline']:not(:disabled):hover { text-decoration: underline !important; text-underline-offset: .2em; }
+    /* Replaced input elements cannot draw ::before; retain a smooth color
+       transition rather than leaving a white label on an unpainted fill. */
+    :is(body[data-btn-hover='slide'] input[data-theme-button]:not([data-button-hover]), input[data-theme-button][data-button-hover='slide']):not(:disabled):hover {
+      background: var(--mb-hover-bg, var(--mb-role-hover-bg)) !important;
+    }
+    [data-theme-button]:not(:disabled):not([aria-disabled='true']):hover {
+      background: var(--mb-hover-bg, var(--mb-role-hover-bg)) !important;
+      color: var(--mb-hover-text, var(--mb-role-hover-text)) !important;
+      border-color: var(--mb-hover-border, var(--mb-role-hover-border)) !important;
+    }
+    /* Slide: the sweep covers the button, then (starting when it ends)
+       the button's own fill takes the hover colour, so no rest colour is left
+       anti-aliased under the sweep's rounded edge as a dark corner fringe. */
+    :is(body[data-btn-hover='slide'] [data-theme-button]:not([data-button-hover]), [data-theme-button][data-button-hover='slide']):not(:disabled):not([aria-disabled='true']):hover {
+      transition-delay: var(--btn-anim-duration, 300ms), 0s, 0s, 0s, 0s, 0s, 0s, 0s !important;
+    }
+    :is(body[data-btn-hover='slide'] [data-theme-button]:not([data-button-hover]), [data-theme-button][data-button-hover='slide']):not(:disabled):not([aria-disabled='true']):hover::before { transform: scaleX(1) !important; }
+    :is(body[data-btn-hover='scale'] [data-theme-button]:not([data-button-hover]), [data-theme-button][data-button-hover='scale']):not(:disabled):hover { transform: scale(1.035) !important; }
+    :is(body[data-btn-hover='lift'] [data-theme-button]:not([data-button-hover]), [data-theme-button][data-button-hover='lift']):not(:disabled):hover { transform: translateY(-2px) !important; box-shadow: 0 10px 22px -8px rgb(0 0 0 / .25) !important; }
+    :is(body[data-btn-hover='fade'] [data-theme-button]:not([data-button-hover]), [data-theme-button][data-button-hover='fade']):not(:disabled):hover { opacity: .88; }
+    :is(body[data-btn-hover='reverse'] [data-theme-button]:not([data-button-hover]), [data-theme-button][data-button-hover='reverse']):not(:disabled):hover { background: var(--mb-ink) !important; color: var(--mb-rest) !important; }
+    :is(body[data-btn-hover='reverse'] [data-theme-button]:not([data-button-hover]), [data-theme-button][data-button-hover='reverse'])[data-button-appearance='outline']:not(:disabled):hover { background: var(--mb-ink) !important; color: var(--mb-role-text) !important; }
+    :is(body[data-btn-hover='reverse'] [data-theme-button]:not([data-button-hover]), [data-theme-button][data-button-hover='reverse'])[data-theme-button='secondary'][data-button-appearance='outline']:not(:disabled):hover { color: var(--mb-bg,var(--mb-role-bg)) !important; }
+    :is(body[data-btn-hover='glow'] [data-theme-button]:not([data-button-hover]), [data-theme-button][data-button-hover='glow']):not(:disabled):hover { box-shadow: 0 0 0 3px color-mix(in srgb, var(--mb-line) 28%, transparent) !important; }
+    /* A section's own hover fade gives way to the theme's hover effect. */
+    [data-theme-button][data-button-hover]:not([data-button-hover='fade']):not(:disabled):hover { opacity: 1 !important; }
+    /* Underline and ghost read as text: no fill on hover (nor the slide's
+       sweep or reverse's swap), the label takes the hover colour instead. */
+    html body [data-theme-button][data-theme-button]:is([data-button-appearance='underline'], [data-button-appearance='ghost']):not(:disabled):not([aria-disabled='true']):hover {
+      background: transparent !important; color: var(--mb-hover-bg, var(--mb-role-hover-bg)) !important;
+    }
+    html body [data-theme-button][data-theme-button]:is([data-button-appearance='underline'], [data-button-appearance='ghost']):not(:disabled):not([aria-disabled='true']):hover::before { transform: scaleX(0) !important; }
+    /* "None" under Extra movement adds nothing; the main effect still runs. */
+  }
+  @layer extra-movement {
+    @media (hover: hover) {
+      body[data-sl-btn-hover='lift'] [data-theme-button]:not(:disabled):not([aria-disabled='true']):hover { translate: 0 -2px !important; }
+      body[data-sl-btn-hover='lift'] [data-theme-button][data-button-hover='lift']:hover { translate: none !important; }
+      body[data-sl-btn-hover='darken'] [data-theme-button]:not(:disabled):not([aria-disabled='true']):hover { filter: brightness(.9) !important; }
+      body[data-sl-btn-hover='underline'] [data-theme-button]:not(:disabled):not([aria-disabled='true']):hover { text-decoration: underline !important; text-underline-offset: .2em; }
+    }
+  }
+  /* Important rules in this sublayer outrank the main effect selectors,
+     regardless of which base and extra movement are combined. */
+  @layer reduced-motion {
+    @media (prefers-reduced-motion: reduce) {
+      [data-theme-button], [data-theme-button]::before { transition: none !important; }
+      [data-theme-button]:hover { transform: none !important; translate: none !important; }
+      .icon-load { animation:none !important; }
+    }
+  }
+  html.sl-live-tweak [data-theme-button], html.sl-live-tweak [data-theme-button]::before { transition: none !important; }
+  [data-theme-button].materia-form-pending::after {
+    content: '' !important; position: static !important; display: inline-block;
+    width: 14px; height: 14px; flex: 0 0 14px; border: 2px solid currentColor;
+    border-right-color: transparent; border-radius: 50%; animation: materia-form-spin .7s linear infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    [data-theme-button].materia-form-pending::after { animation: none !important; }
+  }
+}
+
+/* Shared quantity controls: scheme and form tokens unless explicitly overridden. */
+:is(quantity-input,quantity-input-bundle).quantity {
+  display:inline-flex; align-items:center; max-width:100%; min-width:0;
+  min-height:44px; padding:0!important; gap:0;
+  background:var(--quantity-bg,var(--input-bg,var(--color-background)))!important;
+  color:var(--quantity-text,var(--field-text,var(--color-text)))!important;
+  border:var(--quantity-border-width,var(--inputs-border-width,var(--input-border-width,1px))) solid var(--quantity-border,var(--input-border-color,var(--color-border)))!important;
+  border-radius:var(--quantity-radius,var(--input-border-radius,4px))!important;
+  font-family:var(--body-font,inherit); line-height:1.2;
+}
+:is(quantity-input,quantity-input-bundle).quantity > button {
+  flex:0 0 44px; width:44px!important; height:44px!important; min-width:44px; min-height:44px;
+  display:inline-flex; align-items:center; justify-content:center; padding:0!important; margin:0!important;
+  color:inherit!important; background:transparent!important; border:0!important; border-radius:0!important;
+  touch-action:manipulation; cursor:pointer; transition:background-color var(--btn-anim-duration,180ms) ease;
+}
+:is(quantity-input,quantity-input-bundle).quantity > input {
+  flex:1 1 auto; width:calc(var(--quantity-digits,3ch) + 16px)!important; min-width:3ch!important; max-width:100%; height:44px!important;
+  padding:0 4px!important; margin:0!important; border:0!important; background:transparent!important; color:inherit!important;
+  font:inherit!important; font-variant-numeric:tabular-nums; text-align:center; appearance:textfield; box-shadow:none!important;
+}
+:is(quantity-input,quantity-input-bundle).quantity > input::-webkit-inner-spin-button,:is(quantity-input,quantity-input-bundle).quantity > input::-webkit-outer-spin-button { appearance:none; margin:0; }
+:is(quantity-input,quantity-input-bundle).quantity > button:disabled { opacity:.4; cursor:default; }
+:is(quantity-input,quantity-input-bundle).quantity > button svg [fill]:not([fill="none"]) { fill:currentColor; }
+:is(quantity-input,quantity-input-bundle).quantity > button svg [stroke]:not([stroke="none"]) { stroke:currentColor; }
+:is(quantity-input,quantity-input-bundle).quantity > button:focus-visible,:is(quantity-input,quantity-input-bundle).quantity > input:focus-visible { outline:2px solid currentColor; outline-offset:-3px; }
+@media (hover:hover) { :is(quantity-input,quantity-input-bundle).quantity > button:not(:disabled):hover { background:color-mix(in srgb,currentColor 7%,transparent)!important; } }
+/* Actual text-entry controls only; never restyle quantity actions, checkboxes,
+   swatches, file pickers or purchase buttons as a text field. */
+/* Colours: --field-text, --field-placeholder and --field-surface are worked out
+   per colour scheme in snippets/field-colors (Theme settings > Forms and
+   fields), so the typed text always reads on the field. A picked Text colour
+   only arrives there when it passes 4.5:1; --mt-select-* are a picker's own
+   colours (variant picker settings). --field-text-override (the builder's
+   older live preview) is read only where no scheme has --field-text.
+   Field style sets --field-border-widths.
+   Search fields that sit inside a sheet's own search pill
+   (.loc-sheet-search, .mcp-search, [data-sheet-search]) are not fields here:
+   the pill is the field, and it is drawn once, at the end of this layer. */
+@layer materia-fields {
+  :is(cart-discount,minicart-discount,.cart__discount) input[name='discount'] {
+    box-shadow:inset 0 1px 2px rgb(0 0 0 / .035), 0 1px 2px rgb(0 0 0 / .025) !important;
+  }
+  :is(input,select,textarea):not([type='hidden'],[type='checkbox'],[type='radio'],[type='range'],[type='color'],[type='file'],[type='submit'],[type='button'],[type='reset'],[type='image'],[name='quantity'],[name='updates[]'],.quantity__input):not(:where(.loc-sheet-search,.mcp-search,[data-sheet-search]) *) {
+    box-sizing: border-box;
+    min-height: 44px;
+    font-family: var(--body-font, sans-serif) !important;
+    font-size: var(--mt-field-font-size, var(--body-font-size, 16px)) !important;
+    font-weight: var(--mt-field-weight, var(--body-weight, 400)) !important;
+    color: var(--mt-select-text, var(--field-text, var(--field-text-override, var(--color-text)))) !important;
+    -webkit-text-fill-color: currentColor;
+    caret-color: currentColor;
+    opacity: 1;
+    background-color: var(--mt-select-bg, var(--input-bg, var(--color-background))) !important;
+    border-style: solid !important;
+    border-color: var(--mt-select-border, var(--input-border-color, var(--color-border))) !important;
+    border-width: var(--field-border-widths, var(--inputs-border-width, 1px)) !important;
+    border-radius: var(--mt-select-radius, var(--input-border-radius, 4px)) !important;
+    padding: var(--input-padding, 10px 16px) !important;
+  }
+  :is(input,select):not([type='hidden'],[type='checkbox'],[type='radio'],[type='range'],[type='color'],[type='file'],[type='submit'],[type='button'],[type='reset'],[type='image'],[name='quantity'],[name='updates[]'],.quantity__input):not(:where(.loc-sheet-search,.mcp-search,[data-sheet-search]) *) { height: max(44px,var(--input-height,48px)) !important; }
+  .mt-select.mt-select { padding-inline-end: 44px !important; }
+  .mt-select-wrap > .mt-select-wrap__chev,
+  .mt-select-wrap > .mt-select-wrap__chev path {
+    color:var(--mt-select-text,var(--field-text,var(--field-text-override,var(--color-text)))) !important;
+    stroke:currentColor !important;
+    fill:none !important;
+  }
+  :is(input,select,textarea):not([type='hidden'],[type='checkbox'],[type='radio'],[type='range'],[type='color'],[type='file'],[type='submit'],[type='button'],[type='reset']):not(:where(.loc-sheet-search,.mcp-search,[data-sheet-search]) *):focus-visible {
+    outline: 2px solid var(--input-focus-color, var(--color-primary, currentColor)) !important;
+    outline-offset: 2px;
+  }
+  form label:where(:not([data-own-font], [data-own-font] *)) { font-family:var(--body-font,sans-serif) !important; }
+  form label:where(:not([data-own-weight], [data-own-weight] *)) { font-weight: var(--body-weight,400) !important; }
+  :is(input,textarea):not([name='quantity'],[name='updates[]'],.quantity__input)::placeholder {
+    color: var(--field-placeholder, currentColor) !important;
+    -webkit-text-fill-color: currentColor;
+    opacity: var(--field-placeholder-opacity, .6) !important;
+  }
+  :is(input,textarea,select):-webkit-autofill {
+    -webkit-text-fill-color: var(--field-text, var(--color-text)) !important;
+    box-shadow: 0 0 0 1000px var(--field-surface, var(--color-background)) inset !important;
+  }
+  @media (max-width: 767.98px) {
+    :is(input,select,textarea):not([type='hidden'],[type='checkbox'],[type='radio'],[type='range'],[type='color'],[type='file'],[type='submit'],[type='button'],[type='reset'],[name='quantity'],[name='updates[]'],.quantity__input) { font-size: max(16px,var(--mt-field-font-size-mobile,var(--mt-field-font-size,var(--body-font-size,16px)))) !important; }
+  }
+
+  /* Search inside a sheet or dropdown list (country, language and currency
+     sheets, the shipping country picker, any [data-sheet-search]): one quiet
+     pill, the input bare inside it. These are !important so the unlayered
+     sheet rules in theme.css and materia-experience.css draw the same pill. */
+  :is(.loc-sheet-search,.mcp-search,[data-sheet-search]) {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    box-sizing: border-box !important;
+    width: 100%;
+    height: 44px !important;
+    min-height: 44px !important;
+    margin: 0 !important;
+    padding: 0 14px !important;
+    border: 1px solid transparent !important;
+    border-radius: var(--search-input-radius, 999px) !important;
+    background: color-mix(in srgb, var(--color-heading, #111) 7%, var(--color-background, #fff)) !important;
+    color: color-mix(in srgb, var(--color-heading, #111) 62%, var(--color-background, #fff)) !important;
+    box-shadow: none !important;
+    cursor: text;
+    transition: border-color .18s ease, background-color .18s ease;
+  }
+  :is(.loc-sheet-search,.mcp-search,[data-sheet-search]):focus-within {
+    border-color: color-mix(in srgb, var(--color-heading, #111) 45%, transparent) !important;
+    background: var(--color-background, #fff) !important;
+    box-shadow: none !important;
+  }
+  :is(.loc-sheet-search,.mcp-search,[data-sheet-search]) > svg { flex: none; }
+  :is(.loc-sheet-search,.mcp-search,[data-sheet-search]) input {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    width: auto !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    outline: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    color: var(--color-heading, #111) !important;
+    -webkit-text-fill-color: currentColor;
+    caret-color: currentColor;
+    font-family: inherit !important;
+    font-size: 16px !important;
+    line-height: 1.2 !important;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  :is(.loc-sheet-search,.mcp-search,[data-sheet-search]) input::placeholder {
+    color: color-mix(in srgb, var(--color-heading, #111) 62%, var(--color-background, #fff)) !important;
+    opacity: 1 !important;
+  }
+  :is(.loc-sheet-search,.mcp-search,[data-sheet-search]) input::-webkit-search-decoration { display: none; }
+  @media (prefers-reduced-motion: reduce) {
+    :is(.loc-sheet-search,.mcp-search,[data-sheet-search]) { transition: none; }
+  }
+}
+
+@layer materia-icons {
+  .slideshow .swiper-arrow { isolation:isolate !important; overflow:hidden !important; }
+  .slideshow .swiper-arrow svg { color:inherit !important; }
+  .slideshow .swiper-arrow::before {
+    content:'' !important; display:block !important; position:absolute; inset:0;
+    background:var(--btn-primary-hover-bg-color,var(--color-heading));
+    transform:scaleX(0); transform-origin:left center; z-index:-1; pointer-events:none;
+    transition:transform var(--btn-anim-duration,300ms) var(--btn-anim-ease,ease);
+  }
+  :is(.icon-btn,.btn-icon--circle,.slideshow .swiper-arrow) {
+    box-sizing: border-box;
+    width: max(44px,var(--icon-btn-size,44px)) !important;
+    height: max(44px,var(--icon-btn-size,44px)) !important;
+    padding: 0 !important;
+    border-radius: var(--btn-radius,8px) !important;
+    box-shadow: var(--btn-shadow,none) !important;
+    transition: background-color var(--btn-anim-duration,300ms) var(--btn-anim-ease,ease), color var(--btn-anim-duration,300ms) var(--btn-anim-ease,ease), border-color var(--btn-anim-duration,300ms) var(--btn-anim-ease,ease), opacity var(--btn-anim-duration,300ms) var(--btn-anim-ease,ease) !important;
+  }
+  @media (hover:hover) {
+    :is(.icon-btn,.btn-icon--circle,.slideshow .swiper-arrow):not(:disabled,[aria-disabled='true']):hover {
+      background-color: var(--btn-primary-hover-bg-color,var(--color-heading)) !important;
+      color: var(--btn-primary-hover-color,var(--color-background)) !important;
+      border-color: var(--btn-primary-hover-border-color,var(--color-heading)) !important;
+    }
+    body[data-btn-hover='slide'] .slideshow .swiper-arrow:hover { background-color:var(--color-background) !important; }
+    body[data-btn-hover='slide'] .slideshow .swiper-arrow:hover::before { transform:scaleX(1); }
+  }
+  @media (prefers-reduced-motion:reduce) { :is(.icon-btn,.btn-icon--circle,.slideshow .swiper-arrow), .slideshow .swiper-arrow::before { transition:none !important; } }
+
+  /* Slideshow arrow buttons ([data-ss-arrow]): the colour scheme, icon button
+     size, button shape and the theme's hover effect and timing by default.
+     The section's Arrows settings enter only through --ss-arrow-* tokens.
+     Motion is opacity, scale and translate; the arrow's own centring
+     transform is never touched. */
+  .slideshow .swiper-actions .swiper-arrow[data-ss-arrow] {
+    -webkit-appearance:none; appearance:none; margin:0; font:inherit; cursor:pointer;
+    width: max(44px,var(--ss-arrow-size,var(--icon-btn-size,44px))) !important;
+    height: max(44px,var(--ss-arrow-size,var(--icon-btn-size,44px))) !important;
+    border-radius: var(--ss-arrow-radius,var(--btn-radius,8px)) !important;
+    background-color: var(--ss-arrow-bg,var(--color-background)) !important;
+    color: var(--ss-arrow-icon,var(--color-heading)) !important;
+    border: var(--btn-border-width,1px) solid var(--ss-arrow-border,var(--btn-primary-border-color,var(--color-border))) !important;
+    transition: opacity var(--btn-anim-duration,300ms) var(--btn-anim-ease,ease), visibility var(--btn-anim-duration,300ms) var(--btn-anim-ease,ease), background-color var(--btn-anim-duration,300ms) var(--btn-anim-ease,ease), color var(--btn-anim-duration,300ms) var(--btn-anim-ease,ease), border-color var(--btn-anim-duration,300ms) var(--btn-anim-ease,ease), scale var(--btn-anim-duration,300ms) var(--btn-anim-ease,ease), translate var(--btn-anim-duration,300ms) var(--btn-anim-ease,ease), box-shadow var(--btn-anim-duration,300ms) var(--btn-anim-ease,ease) !important;
+  }
+  .slideshow .swiper-actions .swiper-arrow[data-ss-arrow]::before {
+    border-radius: inherit;
+    background: var(--ss-arrow-hover-bg,var(--btn-primary-hover-bg-color,var(--color-heading)));
+  }
+  .slideshow .swiper-actions .swiper-arrow[data-ss-arrow] svg { width: max(10px,calc(var(--ss-arrow-size,var(--icon-btn-size,44px)) * .26)) !important; height: auto !important; }
+  .slideshow .swiper-actions .swiper-arrow[data-ss-arrow]:focus-visible { outline: 2px solid var(--ss-arrow-icon,var(--color-heading)) !important; outline-offset: 3px; }
+  @media (hover:hover) {
+    .slideshow .swiper-actions .swiper-arrow[data-ss-arrow]:not(:disabled):hover {
+      background-color: var(--ss-arrow-hover-bg,var(--btn-primary-hover-bg-color,var(--color-heading))) !important;
+      color: var(--ss-arrow-hover-icon,var(--btn-primary-hover-color,var(--color-background))) !important;
+      border-color: var(--ss-arrow-hover-bg,var(--btn-primary-hover-border-color,var(--color-heading))) !important;
+    }
+    body[data-btn-hover='slide'] .slideshow .swiper-actions .swiper-arrow[data-ss-arrow]:not(:disabled):hover { background-color: var(--ss-arrow-bg,var(--color-background)) !important; }
+    body[data-btn-hover='slide'] .slideshow .swiper-actions .swiper-arrow[data-ss-arrow]:not(:disabled):hover::before { transform: scaleX(1); }
+    body[data-btn-hover='scale'] .slideshow .swiper-actions .swiper-arrow[data-ss-arrow]:not(:disabled):hover { scale: 1.06; }
+    body[data-btn-hover='lift'] .slideshow .swiper-actions .swiper-arrow[data-ss-arrow]:not(:disabled):hover { translate: 0 -2px; box-shadow: 0 10px 22px -8px rgb(0 0 0 / .25) !important; }
+    body[data-btn-hover='glow'] .slideshow .swiper-actions .swiper-arrow[data-ss-arrow]:not(:disabled):hover { box-shadow: 0 0 0 3px color-mix(in srgb,var(--ss-arrow-icon,var(--color-heading)) 28%,transparent) !important; }
+    body[data-btn-hover='reverse'] .slideshow .swiper-actions .swiper-arrow[data-ss-arrow]:not(:disabled):hover { background-color: var(--ss-arrow-icon,var(--color-heading)) !important; color: var(--ss-arrow-bg,var(--color-background)) !important; }
+  }
+  html.sl-live-tweak .slideshow .swiper-actions .swiper-arrow[data-ss-arrow] { transition: none !important; }
+  @media (prefers-reduced-motion:reduce) {
+    .slideshow .swiper-actions .swiper-arrow[data-ss-arrow], .slideshow .swiper-actions .swiper-arrow[data-ss-arrow]::before { transition: none !important; }
+    .slideshow .swiper-actions .swiper-arrow[data-ss-arrow]:hover { scale: none !important; translate: none !important; }
+  }
+}
+
+/* A button whose own size and shape switch is on (data-own-shape) keeps its
+   own values when Theme settings > Buttons "Use shared button size and shape"
+   is off too. Outside the layers, so the theme's base button rules do not win. */
+:where(html[data-button-priority='off']) [data-theme-button][data-own-shape] {
+  font-size: var(--mb-font-size, var(--btn-font-size, 14px));
+  padding: var(--mb-padding-y, var(--btn-padding-y, 14px)) var(--mb-padding-x, var(--btn-padding-x, 26px));
+  border-radius: var(--mb-radius, var(--btn-radius, 8px));
+}

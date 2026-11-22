@@ -796,8 +796,6 @@
         "display_on_devices": "all_devices",
         "show_currency_symbol": false,
         "currency": "",
-        "original_price": "$49",
-        "discounted_price": "$29",
         "section_height": 160,
         "overall_size_desktop": 100,
         "enable_custom_style": true,
