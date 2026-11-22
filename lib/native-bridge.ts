@@ -382,6 +382,11 @@ export async function nativeLogout(
   supabaseClient: import("@supabase/supabase-js").SupabaseClient,
   router: { replace: (url: string) => void },
 ): Promise<void> {
+  /* First, while the session can still say whose it is, this phone leaves the account's pushes (lib/push/unregister.ts, r57). */
+  try {
+    const access = (await supabaseClient.auth.getSession()).data.session?.access_token ?? null
+    await (await import("@/lib/push/unregister")).forgetThisDevicePush(access)
+  } catch { /* ignore */ }
   try { await supabaseClient.auth.signOut({ scope: "local" }) } catch { /* ignore */ }
   try { localStorage.removeItem("sb-native-home") } catch { /* ignore */ }
   forgetLastPlace()

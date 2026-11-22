@@ -295,7 +295,9 @@ async function tellSeller(
     } else {
       /* The creator's first review is a milestone: that row becomes it, and pushes (lib/notifications/events.ts). */
       const reviewCreatorId = product.creator_id as string
-      after(async () => (await import("@/lib/notifications/events")).noteReview(reviewCreatorId))
+      /* With the review, the seller's phone hears it once (r57; the first is titled as the milestone). */
+      const push = { userId: creatorUserId as string, reviewId: review.id as string, rating, productTitle: (product.title as string | null) ?? null, pending: false, url: `/app/reviews?review=${review.id}` }
+      after(async () => (await import("@/lib/notifications/events")).noteReview(reviewCreatorId, push))
     }
 
     sendReviewNotificationEmail(admin, {

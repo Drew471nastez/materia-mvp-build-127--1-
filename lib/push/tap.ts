@@ -6,7 +6,7 @@
  * browsers (lib/push/sender.ts, the notification's url) read a push's data
  * here, so both open the same page:
  *
- *   type "sale"              /app/sales
+ *   type "sale"              the order, /app/orders?order=<orderId>
  *   type "payout_available"  /app/payouts
  *   type "notification"      its page inside /app (lib/notifications/push.ts)
  *   type "inbox"             its page anywhere on storelib.com: a community
@@ -38,7 +38,13 @@ function appTarget(url: unknown): string {
 /** The page a tap on this push opens, or null when it opens nothing. */
 export function pushTapTarget(data: Record<string, unknown> | null | undefined): string | null {
   const type = typeof data?.type === "string" ? data.type : ""
-  if (type === "sale") return "/app/sales"
+  /*
+    The order, not the list (r57). "/app/sales" is a server redirect to
+    /app/orders that drops which order it was, so a tap on "You sold Mug"
+    opened the list a second load later and the seller had to find the order;
+    a browser's click on the same push already opened it.
+  */
+  if (type === "sale") return typeof data?.orderId === "string" && /^[A-Za-z0-9_-]{1,80}$/.test(data.orderId) ? `/app/orders?order=${encodeURIComponent(data.orderId)}` : "/app/orders"
   if (type === "payout_available") return "/app/payouts"
   if (type === "notification") return appTarget(data?.url)
   if (type === "inbox") return inboxTapTarget(data?.url)
