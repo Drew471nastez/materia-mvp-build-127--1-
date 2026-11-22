@@ -3,7 +3,7 @@
     "title": "Main menu",
     "links": [
       {
-        "title": "Drop 07",
+        "title": "Shop",
         "url": "/collections/all"
       },
       {
@@ -28,7 +28,7 @@
         "url": "/pages/shipping"
       },
       {
-        "title": "Sizing and FAQ",
+        "title": "FAQ",
         "url": "/pages/faqs"
       },
       {

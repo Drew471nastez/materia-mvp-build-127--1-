@@ -78,7 +78,7 @@
             "pr_m": 0,
             "pt_d": 0,
             "pt_m": 0,
-            "text_color": "#2a2a2c",
+            "text_color": "#55544f",
             "font_size_d": 16,
             "font_size_m": 15,
             "line_height": 150,
@@ -140,7 +140,7 @@
             "atc_button_text": "Add to cart",
             "atc_font_weight": "600",
             "atc_icon_enable": true,
-            "buy_button_text": "Buy Now",
+            "buy_button_text": "Buy now",
             "buy_font_weight": "600",
             "buy_icon_enable": true,
             "show_add_to_cart": true,
@@ -176,7 +176,7 @@
           "type": "collapsible_row",
           "settings": {
             "open": false,
-            "content": "<p>Say how this piece fits, the fabric weight and where it was sewn.</p>",
+            "content": "<p>Say how this shirt fits, the linen weight and where it was sewn.</p>",
             "heading": "Fit and fabric",
             "use_product_description": false
           }
@@ -185,7 +185,7 @@
           "type": "collapsible_row",
           "settings": {
             "open": false,
-            "content": "<p>Sent within 48 hours, tracked. Returns accepted for 14 days, unworn, with the tags on.</p>",
+            "content": "<p>Sent within two working days, tracked. Returns accepted for 30 days, unworn and unwashed.</p>",
             "heading": "Shipping and returns",
             "use_product_description": false
           }
@@ -285,7 +285,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "On every piece",
+            "text": "On every shirt",
             "enable_custom_style": false,
             "enable_custom_fonts": false,
             "font": "assistant_n4",
@@ -302,24 +302,24 @@
           "type": "column",
           "settings": {
             "label": "01",
-            "heading": "Numbered",
-            "text": "<p>The run size and the number of yours are on the inside label.</p>"
+            "heading": "Washed linen",
+            "text": "<p>Washed before it ships, so it is soft from the first day and never shrinks.</p>"
           }
         },
         "column_2": {
           "type": "column",
           "settings": {
             "label": "02",
-            "heading": "Heavy cotton",
-            "text": "<p>400gsm loopback for fleece, 280gsm for tees.</p>"
+            "heading": "Cut loose",
+            "text": "<p>Room through the body and shoulders, so air moves on hot days.</p>"
           }
         },
         "column_3": {
           "type": "column",
           "settings": {
             "label": "03",
-            "heading": "Never restocked",
-            "text": "<p>When a size is gone, it is gone.</p>"
+            "heading": "Easy returns",
+            "text": "<p>30 days to send it back if the size is wrong.</p>"
           }
         }
       },
@@ -377,7 +377,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Still in stock",
+            "text": "More shirts",
             "enable_custom_style": false,
             "size_desktop": 32,
             "size_mobile": 26

@@ -40,7 +40,7 @@
             "enable_custom_fonts": false,
             "font": "assistant_n4",
             "description_font_size": 15,
-            "description": "<p>Drop 07, Night shift. Shot after closing.</p>"
+            "description": "<p>Summer 26. Shot by the sea and in the old town.</p>"
           }
         }
       },
@@ -84,7 +84,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Night shift",
+            "text": "Summer 26",
             "enable_custom_style": false,
             "size_desktop": 40,
             "size_mobile": 28
@@ -93,7 +93,7 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Tap a picture to open it large.</p>",
+            "text": "<p>Tap a picture to see it large.</p>",
             "enable_custom_style": false,
             "size_desktop": 17,
             "size_mobile": 15
@@ -102,57 +102,57 @@
         "image_1": {
           "type": "image",
           "settings": {
-            "image": "shopify://shop_images/streetwear-hero-crewneck.webp",
-            "caption": "Crewneck, black"
+            "image": "shopify://shop_images/streetwear-hero-dusk.webp",
+            "caption": "After dark"
           }
         },
         "image_2": {
           "type": "image",
           "settings": {
-            "image": "shopify://shop_images/streetwear-look-leather.webp",
-            "caption": "Shell jacket"
+            "image": "shopify://shop_images/streetwear-fortress.webp",
+            "caption": "Henley, white"
           }
         },
         "image_3": {
           "type": "image",
           "settings": {
-            "image": "shopify://shop_images/streetwear-hero-bucket-hat.webp",
-            "caption": "Bucket hat, sand"
+            "image": "shopify://shop_images/streetwear-beach-shirt.webp",
+            "caption": "Band collar shirt"
           }
         },
         "image_4": {
           "type": "image",
           "settings": {
-            "image": "shopify://shop_images/streetwear-look-red-tee.webp",
-            "caption": "Coach jacket over box tee"
+            "image": "shopify://shop_images/streetwear-cafe-street.webp",
+            "caption": "Linen shirt and trousers"
           }
         },
         "image_5": {
           "type": "image",
           "settings": {
-            "image": "shopify://shop_images/streetwear-hero-mural.webp",
-            "caption": "Track jacket"
+            "image": "shopify://shop_images/streetwear-sea-dusk.webp",
+            "caption": "Summer 26"
           }
         },
         "image_6": {
           "type": "image",
           "settings": {
-            "image": "shopify://shop_images/streetwear-look-denim.webp",
-            "caption": "Loose denim"
+            "image": "shopify://shop_images/streetwear-hill-palms.webp",
+            "caption": "Chapter one"
           }
         },
         "image_7": {
           "type": "image",
           "settings": {
-            "image": "shopify://shop_images/streetwear-hero-beanie.webp",
-            "caption": "Beanie and crew"
+            "image": "shopify://shop_images/streetwear-street-sun.webp",
+            "caption": "Into town"
           }
         },
         "image_8": {
           "type": "image",
           "settings": {
-            "image": "shopify://shop_images/streetwear-look-window.webp",
-            "caption": "Work jacket"
+            "image": "shopify://shop_images/streetwear-deck.webp",
+            "caption": "Short sleeves, black"
           }
         }
       },
@@ -223,7 +223,7 @@
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "Drop 07",
+            "text": "Summer 26",
             "enable_custom_style": false,
             "font": "body",
             "weight": "500",
@@ -238,11 +238,11 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Every piece in the pictures",
+            "text": "Every shirt in the pictures",
             "enable_custom_style": false,
             "font": "heading",
             "weight": "700",
-            "transform": "uppercase",
+            "transform": "none",
             "letterspace": 0,
             "lineheight": "1.15",
             "size_d": 34,
@@ -253,7 +253,7 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "Live Friday at 18:00. One run.",
+            "text": "Washed linen in five colours.",
             "enable_custom_style": false,
             "font": "body",
             "weight": "theme",
@@ -269,7 +269,7 @@
         "button_1": {
           "type": "button",
           "settings": {
-            "label": "Shop the drop",
+            "label": "Shop shirts",
             "link": "/collections/all",
             "enable_custom_style": false,
             "use_theme_button": true,

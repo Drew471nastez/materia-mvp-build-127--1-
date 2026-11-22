@@ -8,8 +8,8 @@
         "reset_spacing": true,
         "show_section_on": "all",
         "structured_data": false,
-        "tab_1_label": "Drops",
-        "tab_2_label": "Sizing",
+        "tab_1_label": "Fit and care",
+        "tab_2_label": "Orders",
         "tab_3_label": "Shipping and returns",
         "open_first": false,
         "allow_multiple_open": true,
@@ -72,32 +72,32 @@
           "type": "faq_item",
           "settings": {
             "tab": "1",
-            "question": "When is the next drop?",
-            "answer": "<p>The date goes to the email list first, a day before the store opens.</p>"
+            "question": "How do the shirts fit?",
+            "answer": "<p>Loose through the body and shoulders. Say what to do between sizes.</p>"
           }
         },
         "faq_item_2": {
           "type": "faq_item",
           "settings": {
             "tab": "1",
-            "question": "Will a sold out piece come back?",
-            "answer": "<p>No. Each piece is made once. Say here if you ever make an exception.</p>"
+            "question": "Will the linen shrink?",
+            "answer": "<p>Every shirt is washed before it ships. Wash it cool and hang it to dry.</p>"
           }
         },
         "faq_item_3": {
           "type": "faq_item",
           "settings": {
             "tab": "1",
-            "question": "Can I buy more than one?",
-            "answer": "<p>One of each size per order, so a run reaches more people.</p>"
+            "question": "Does it need ironing?",
+            "answer": "<p>No. Washed linen is meant to look lived in. Hang it while it is still damp.</p>"
           }
         },
         "faq_item_4": {
           "type": "faq_item",
           "settings": {
             "tab": "2",
-            "question": "How do the pieces fit?",
-            "answer": "<p>Say whether your cut runs boxy, true to size or small, and what to do between sizes.</p>"
+            "question": "Can I change my order?",
+            "answer": "<p>Write to us within a few hours of ordering and we will change the size or colour.</p>"
           }
         },
         "faq_item_5": {
@@ -105,7 +105,7 @@
           "settings": {
             "tab": "2",
             "question": "Where is the size chart?",
-            "answer": "<p>On every product page, under the size options. Measurements are of the garment, laid flat.</p>"
+            "answer": "<p>On every product page, under the size options. Measurements are of the shirt, laid flat.</p>"
           }
         },
         "faq_item_6": {
@@ -113,15 +113,15 @@
           "settings": {
             "tab": "3",
             "question": "How long does shipping take?",
-            "answer": "<p>Orders leave within 48 hours. Add your delivery times by region.</p>"
+            "answer": "<p>Orders leave within two working days. Add your delivery times by region.</p>"
           }
         },
         "faq_item_7": {
           "type": "faq_item",
           "settings": {
             "tab": "3",
-            "question": "Can I return a piece?",
-            "answer": "<p>Yes, for 14 days, unworn and with the tags on. Say who pays for the return.</p>"
+            "question": "Can I return a shirt?",
+            "answer": "<p>Yes, within 30 days, unworn and unwashed. Say who pays for the return.</p>"
           }
         }
       },

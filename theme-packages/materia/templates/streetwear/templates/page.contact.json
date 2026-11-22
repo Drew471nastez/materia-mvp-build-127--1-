@@ -75,7 +75,7 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Wrong size, late parcel or a question about a drop? Write to us.</p>",
+            "text": "<p>A question about sizing, an order or a return? Write to us.</p>",
             "max_width": 600,
             "enable_custom_style": false,
             "enable_custom_fonts": false,

@@ -40,7 +40,7 @@
             "enable_custom_fonts": false,
             "font": "assistant_n4",
             "description_font_size": 15,
-            "description": "<p>One workshop, one run at a time.</p>"
+            "description": "<p>Linen shirts for long summer days.</p>"
           }
         }
       },
@@ -88,7 +88,7 @@
         "side_padding_mobile": 20,
         "section_margin_top_mobile": 0,
         "section_margin_bottom_mobile": 0,
-        "image": "shopify://shop_images/streetwear-leather-jacket.webp"
+        "image": "shopify://shop_images/streetwear-cream-shirt.webp"
       },
       "blocks": {
         "eyebrow_1": {
@@ -102,7 +102,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "A small workshop that makes one run at a time",
+            "text": "We make one kind of shirt, in a few colours, every summer",
             "tag": "h2",
             "enable_custom_style": false,
             "size_desktop": 44,
@@ -112,7 +112,7 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Say who you are and where the pieces are made. Then say why the runs are small: what it lets you do with fabric, fit and price that a big order would not.</p>",
+            "text": "<p>Say who you are and where the shirts are made. Then say why linen: it dries fast, gets softer with every wash and keeps you cool on the hottest days.</p>",
             "enable_custom_style": false,
             "size_desktop": 17,
             "size_mobile": 15
@@ -176,21 +176,21 @@
           "type": "image",
           "settings": {
             "link_label": "View details",
-            "background_image": "shopify://shop_images/streetwear-look-seated.webp"
+            "background_image": "shopify://shop_images/streetwear-beach-shirt.webp"
           }
         },
         "image_2": {
           "type": "image",
           "settings": {
             "link_label": "View details",
-            "background_image": "shopify://shop_images/streetwear-hoodie-back.webp"
+            "background_image": "shopify://shop_images/streetwear-deck.webp"
           }
         },
         "image_3": {
           "type": "image",
           "settings": {
             "link_label": "View details",
-            "background_image": "shopify://shop_images/streetwear-cap.webp"
+            "background_image": "shopify://shop_images/streetwear-cafe-street.webp"
           }
         }
       },
@@ -235,7 +235,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "How we make it",
+            "text": "How the shirts are made",
             "enable_custom_style": false,
             "enable_custom_fonts": false,
             "font": "assistant_n4",
@@ -251,25 +251,25 @@
         "column_1": {
           "type": "column",
           "settings": {
-            "label": "Fabric",
-            "heading": "Bought by the roll",
-            "text": "<p>Name the mill and the weight you use.</p>"
+            "label": "Linen",
+            "heading": "The linen",
+            "text": "<p>Name the mill, the weight and where the flax was grown.</p>"
           }
         },
         "column_2": {
           "type": "column",
           "settings": {
             "label": "Cut",
-            "heading": "Sewn in one room",
-            "text": "<p>Say where, and by how many people.</p>"
+            "heading": "The cut",
+            "text": "<p>Say who draws the patterns and why the shirts are cut loose.</p>"
           }
         },
         "column_3": {
           "type": "column",
           "settings": {
-            "label": "Run",
-            "heading": "Counted, then closed",
-            "text": "<p>Say how many of each piece you make.</p>"
+            "label": "Wash",
+            "heading": "The wash",
+            "text": "<p>Say how each shirt is washed before it ships, so it never shrinks at home.</p>"
           }
         }
       },

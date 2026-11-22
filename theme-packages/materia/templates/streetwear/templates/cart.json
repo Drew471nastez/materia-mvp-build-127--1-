@@ -56,22 +56,22 @@
         "faq_1": {
           "type": "faq",
           "settings": {
-            "question": "Is my size held while I browse?",
-            "answer": "<p>No. A piece is yours once the order is paid.</p>"
+            "question": "Which size should I take?",
+            "answer": "<p>The shirts are cut loose. If you are between sizes, take the smaller one.</p>"
           }
         },
         "faq_2": {
           "type": "faq",
           "settings": {
-            "question": "How fast does it ship?",
-            "answer": "<p>Within 48 hours, tracked.</p>"
+            "question": "When will it arrive?",
+            "answer": "<p>Orders leave within two working days, tracked. Add your delivery times here.</p>"
           }
         },
         "faq_3": {
           "type": "faq",
           "settings": {
             "question": "Can I send it back?",
-            "answer": "<p>Yes, for 14 days, unworn and with the tags on.</p>"
+            "answer": "<p>Yes, within 30 days, unworn and unwashed.</p>"
           }
         },
         "payment_badges_67Mgyc": {
