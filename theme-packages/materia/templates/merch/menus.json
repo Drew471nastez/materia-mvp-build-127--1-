@@ -2,43 +2,19 @@
   "main-menu": {
     "title": "Main menu",
     "links": [
-      {
-        "title": "Shop Season 4",
-        "url": "/collections/all"
-      },
-      {
-        "title": "The channel",
-        "url": "/pages/about"
-      },
-      {
-        "title": "Kitchen notes",
-        "url": "/blogs/news"
-      },
-      {
-        "title": "Help",
-        "url": "/pages/faqs"
-      }
+      { "title": "Shop", "url": "/collections/all" },
+      { "title": "About", "url": "/pages/about" },
+      { "title": "Blog", "url": "/blogs/news" },
+      { "title": "Contact", "url": "/pages/contact" }
     ]
   },
   "footer": {
     "title": "Footer",
     "links": [
-      {
-        "title": "Shipping and sizing",
-        "url": "/pages/faqs"
-      },
-      {
-        "title": "Contact",
-        "url": "/pages/contact"
-      },
-      {
-        "title": "All collections",
-        "url": "/collections"
-      },
-      {
-        "title": "Search",
-        "url": "/search"
-      }
+      { "title": "Shipping and returns", "url": "/pages/shipping" },
+      { "title": "FAQ", "url": "/pages/faqs" },
+      { "title": "Contact", "url": "/pages/contact" },
+      { "title": "Search", "url": "/search" }
     ]
   }
 }

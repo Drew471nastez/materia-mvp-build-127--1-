@@ -50,28 +50,28 @@
           "type": "faq_section",
           "settings": {
             "show_faq": true,
-            "faq_heading": "Before you order"
+            "faq_heading": "Before you check out"
           }
         },
         "faq_1": {
           "type": "faq",
           "settings": {
-            "question": "How is vinyl packed?",
-            "answer": "<p>In a rigid mailer with corner protection.</p>"
+            "question": "When will my record ship?",
+            "answer": "<p>Records in stock ship within two working days. Pre-orders ship together on release day, so order them on their own if you want the rest sooner.</p>"
           }
         },
         "faq_2": {
           "type": "faq",
           "settings": {
-            "question": "When will it ship?",
-            "answer": "<p>Within three working days. Preorders ship on the release date.</p>"
+            "question": "When will it arrive?",
+            "answer": "<p>Orders leave within two working days, tracked. Add your delivery times here.</p>"
           }
         },
         "faq_3": {
           "type": "faq",
           "settings": {
-            "question": "Do I get a download?",
-            "answer": "<p>Yes, with every record. The link is on your receipt.</p>"
+            "question": "Can I send it back?",
+            "answer": "<p>Yes, within 30 days, unworn and unwashed.</p>"
           }
         },
         "payment_badges_67Mgyc": {

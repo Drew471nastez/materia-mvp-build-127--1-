@@ -44,7 +44,7 @@
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "About Tape Room",
+            "text": "About Loudlib",
             "enable_custom_style": false,
             "size": 12
           }
@@ -52,7 +52,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Sounds recorded through tape, then cut by hand",
+            "text": "Sample packs made for the club",
             "tag": "h1",
             "enable_custom_style": false,
             "size_desktop": 44,
@@ -62,7 +62,7 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Tape Room is one producer, a four track cassette deck and a cupboard of old drum machines. Every sound in a pack is played or programmed here, printed to tape, then cut, tuned and named before it goes anywhere near the shop.</p><p>The packs are made for producers who finish records, so the folders are tidy and the names tell you the key and tempo.</p>",
+            "text": "<p>Loudlib makes sample packs and Serum presets for tech house, deep house and ambient producers. Drums, basslines, chords and textures, cut on the bar and named with their key and tempo so they drop straight into a session.</p><p>Every pack is royalty free under one short licence, and a demo of each one plays on its page before you buy.</p>",
             "enable_custom_style": false,
             "size_desktop": 17,
             "size_mobile": 15
@@ -71,7 +71,7 @@
         "button_1": {
           "type": "button",
           "settings": {
-            "label": "Browse the packs",
+            "label": "Shop the packs",
             "button_style": "primary",
             "full_width": false,
             "enable_custom_style": false,
@@ -146,24 +146,24 @@
           "type": "column",
           "settings": {
             "label": "01",
-            "heading": "Recorded",
-            "text": "<p>Drum machines, a Rhodes, a bass synth and a room mic, through the cassette deck and a small desk.</p>"
+            "heading": "Made in the studio",
+            "text": "<p>Drum hits, basslines, chords and textures, programmed and recorded for one genre at a time.</p>"
           }
         },
         "column_2": {
           "type": "column",
           "settings": {
             "label": "02",
-            "heading": "Cut and tuned",
-            "text": "<p>Every one shot is trimmed to its transient and tuned to a note. Every loop is cut on the bar.</p>"
+            "heading": "Cut and named",
+            "text": "<p>Every one shot is trimmed to its transient. Every loop is cut on the bar, with key and BPM in its name.</p>"
           }
         },
         "column_3": {
           "type": "column",
           "settings": {
             "label": "03",
-            "heading": "Tested in tracks",
-            "text": "<p>Before a pack goes on sale, three beats are made with nothing but its sounds.</p>"
+            "heading": "Used in tracks",
+            "text": "<p>Before a pack goes on sale, its sounds are used to finish real tracks, so the gaps show up early.</p>"
           }
         }
       },
@@ -246,15 +246,15 @@
         "color_scheme": "scheme-tr-panel",
         "section_width": "container",
         "image": "shopify://shop_images/samples-free.webp",
-        "image_alt": "The Free 40 sampler pack",
+        "image_alt": "Free Ambience Sample Pack Vol I",
         "image_position": "left",
         "image_ratio": "square",
         "image_width": 46,
         "column_gap": 64,
         "form_layout": "horizontal",
         "email_placeholder": "Your email address",
-        "btn_text": "Send me the sounds",
-        "button_radius": 6,
+        "btn_text": "Send me the pack",
+        "button_radius": 8,
         "note": "One email when a new pack is out. Unsubscribe from any email.",
         "success_text": "Check your inbox. The download link is on its way.",
         "padding_top": 80,
@@ -266,7 +266,7 @@
         "heading": {
           "type": "heading",
           "settings": {
-            "text": "40 free sounds, one from every pack",
+            "text": "Free Ambience Sample Pack Vol I",
             "size_enable": true,
             "size_desktop": 44,
             "size_mobile": 30
@@ -275,7 +275,7 @@
         "subheading": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Hear the quality before you buy. Leave your email and the download link arrives in a minute: kicks, loops and MIDI at full 24 bit.</p>"
+            "text": "<p>Pads, drones and textures, free and royalty free. Leave your email and the download link arrives in a minute.</p>"
           }
         }
       },

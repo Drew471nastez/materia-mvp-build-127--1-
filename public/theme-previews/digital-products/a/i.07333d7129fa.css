@@ -1,0 +1,140 @@
+
+  #shopify-section-faq { isolation: isolate; position: relative; }
+  :where(#shopify-section-faq) { font-family: var(--body-font, inherit); }
+  :where(#shopify-section-faq) :where(button, input, textarea, select, optgroup) { font-family: inherit; }
+  #shopify-section-faq *, #shopify-section-faq *:before, #shopify-section-faq *:after { box-sizing: border-box; }
+  :where(#shopify-section-faq) :is(h1,h2,h3,h4,h5,h6) { font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, inherit); }
+
+  #shopify-section-faq {
+    margin-top: 0px;
+    margin-bottom: 0px;
+  }
+  @media (min-width: 768px) {
+    #shopify-section-faq {
+      margin-top: 0px;
+      margin-bottom: 0px;
+    }
+  }#shopify-section-faq, #shopify-section-faq > .section, #shopify-section-faq > section, #shopify-section-faq > div { margin-top: 0 !important; margin-bottom: 0 !important; }
+    #shopify-section-faq + .shopify-section, .shopify-section + #shopify-section-faq { margin-top: 0 !important; }#shopify-section-faq .faq6 {
+    background-color: var(--faq6-bg) !important;
+    padding-top: var(--faq6-pt);
+    padding-bottom: var(--faq6-pb);
+  }
+  #shopify-section-faq .faq6__inner { width: 100%; margin-inline: auto; padding-inline: 1.5rem; }
+  #shopify-section-faq .faq6[data-faq6-width="container"] .faq6__inner { max-width: calc(var(--page-width, 1300px) + 3rem); }
+  #shopify-section-faq .faq6[data-faq6-width="fluid_container"] .faq6__inner { max-width: calc(var(--fluid-container-width, 1500px) + 3rem); }
+  @media (min-width: 1200px) { #shopify-section-faq .faq6[data-faq6-width="stretch_width"] .faq6__inner { padding-inline: 3rem; } }
+  #shopify-section-faq .faq6__header {
+    text-align: var(--faq6-align);
+    margin-bottom: var(--faq6-gap-header);
+    max-width: var(--faq6-maxw);
+    margin-inline: var(--faq6-mi);
+  }
+  #shopify-section-faq .faq6__header > [hidden] { display: none; }
+  #shopify-section-faq .faq6__heading {
+    margin: 0;
+    font-family: var(--fb-ff, var(--faq6-hf, var(--heading-font, inherit)));
+    font-size: var(--fb-fs-m, var(--faq6-h-m));
+    line-height: var(--fb-lh, 1.15);
+    color: var(--fb-c, var(--faq6-heading-color)) !important;
+  }
+  #shopify-section-faq .faq6[data-faq6-hw] .faq6__heading { font-weight: var(--faq6-hw); }
+  #shopify-section-faq .faq6__heading[data-own-weight] { font-weight: var(--fb-fw, var(--faq6-hw, var(--heading-weight))); }
+  #shopify-section-faq .faq6__heading[data-own-size] { letter-spacing: var(--fb-ls, normal); }
+  #shopify-section-faq .faq6__subheading {
+    margin: var(--faq6-gap-sub) 0 0;
+    font-family: var(--fb-ff, var(--faq6-bf, inherit));
+    font-size: var(--fb-fs, var(--faq6-sub-m));
+    line-height: var(--fb-lh, 1.5);
+    color: var(--fb-c, var(--faq6-sub-color)) !important;
+  }
+  #shopify-section-faq .faq6__subheading[data-own-weight] { font-weight: var(--fb-fw); }
+  #shopify-section-faq :is(.faq6__subheading, .faq6__a) :is(p, li, strong, em) { font-family: inherit; }
+  @media (min-width: 768px) {
+    #shopify-section-faq .faq6__heading { font-size: var(--fb-fs-d, var(--faq6-h-d)); }
+    #shopify-section-faq .faq6__subheading { font-size: var(--fb-fs, var(--faq6-sub-d)); }
+  }
+
+  #shopify-section-faq .faq6__list {
+    max-width: var(--faq6-maxw);
+    margin-inline: var(--faq6-mi);
+    display: flex;
+    flex-direction: column;
+    gap: var(--faq6-gap-items);
+    margin: 0;
+    padding: 0;
+  }
+  #shopify-section-faq .faq6__item {
+    background: var(--faq6-card-bg) !important;
+    border: 1px solid var(--faq6-card-border);
+    border-radius: var(--faq6-radius);
+  }
+  #shopify-section-faq .faq6[data-faq6-dividers] .faq6__item { border-bottom: 1px solid var(--faq6-divider); }
+  #shopify-section-faq .faq6[data-faq6-dividers] .faq6__item:first-child { border-top: 1px solid var(--faq6-divider); }
+  #shopify-section-faq .faq6__q {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    width: 100%;
+    min-height: 44px;
+    background: transparent;
+    border: 0;
+    border-radius: inherit;
+    cursor: pointer;
+    padding: var(--faq6-py) var(--faq6-px);
+    text-align: start;
+    color: var(--faq6-q-color) !important;
+    font-family: var(--faq6-hf, inherit);
+    font-size: var(--faq6-q-m);
+    line-height: 1.4;
+    font-weight: var(--heading-weight, 600);
+    transition: color .2s ease;
+  }
+  #shopify-section-faq .faq6[data-faq6-qw] .faq6__q { font-weight: var(--faq6-qw); }
+  #shopify-section-faq .faq6__q:hover { color: var(--faq6-hover) !important; }
+  #shopify-section-faq .faq6__q:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; }
+  @media (min-width: 768px) {
+    #shopify-section-faq .faq6__q { font-size: var(--faq6-q-d); }
+  }
+  #shopify-section-faq .faq6__icon {
+    flex-shrink: 0; width: 22px; height: 22px;
+    color: var(--faq6-icon-color) !important;
+    display: inline-flex; align-items: center; justify-content: center;
+    position: relative;
+  }
+  #shopify-section-faq .faq6__icon svg { width: 100%; height: 100%; stroke: currentColor; stroke-width: 2; fill: none; transition: transform .35s cubic-bezier(.4,0,.2,1); }
+  #shopify-section-faq .faq6__item[open] .faq6__icon-chevron { transform: rotate(180deg); }
+  #shopify-section-faq .faq6__icon-plus .v,
+  #shopify-section-faq .faq6__icon-plus .h { position: absolute; background: currentColor; left: 50%; top: 50%; transform: translate(-50%, -50%); transition: transform .35s cubic-bezier(.4,0,.2,1), opacity .25s ease; }
+  #shopify-section-faq .faq6__icon-plus .v { width: 2px; height: 14px; }
+  #shopify-section-faq .faq6__icon-plus .h { width: 14px; height: 2px; }
+  #shopify-section-faq .faq6__item[open] .faq6__icon-plus .v { transform: translate(-50%, -50%) rotate(90deg); opacity: 0; }
+
+  /* Smooth open and close: the answer's row grows from 0fr to 1fr, so the page below moves with it and never jumps. */
+  #shopify-section-faq .faq6__a-wrap { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .42s cubic-bezier(.4,0,.2,1); }
+  #shopify-section-faq .faq6__item[open] .faq6__a-wrap { grid-template-rows: 1fr; }
+  #shopify-section-faq .faq6__a-inner { overflow: hidden; min-height: 0; }
+  #shopify-section-faq .faq6__a {
+    margin: 0;
+    padding: 0 var(--faq6-px) var(--faq6-py);
+    color: var(--faq6-a-color) !important;
+    font-family: var(--faq6-bf, inherit);
+    font-size: var(--faq6-a-m);
+    line-height: 1.6;
+  }
+  #shopify-section-faq .faq6__a > :first-child { margin-top: 0; }
+  #shopify-section-faq .faq6__a > :last-child { margin-bottom: 0; }
+  @media (min-width: 768px) {
+    #shopify-section-faq .faq6__a { font-size: var(--faq6-a-d); }
+  }
+  #shopify-section-faq .faq6__a a { color: inherit; text-decoration: underline; }#shopify-section-faq .faq6 {
+      opacity: 0;
+      transition: opacity .8s ease, transform .8s ease, filter .8s ease, clip-path .8s ease;
+      will-change: opacity, transform;
+    }#shopify-section-faq .faq6.is-revealed { opacity: 1; }
+    @media (prefers-reduced-motion: reduce) {
+      #shopify-section-faq .faq6 { transition: none !important; transform: none !important; opacity: 1 !important; filter: none !important; clip-path: none !important; }
+    }@media (prefers-reduced-motion: reduce) {
+    #shopify-section-faq :is(.faq6__a-wrap, .faq6__icon svg, .faq6__icon-plus *, .faq6__q) { transition: none !important; }
+  }

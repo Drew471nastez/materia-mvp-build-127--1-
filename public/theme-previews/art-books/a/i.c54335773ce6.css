@@ -1,0 +1,58 @@
+
+  #shopify-section-products_listing_2 { isolation: isolate; position: relative; }
+  #shopify-section-products_listing_2, .shopify-section + #shopify-section-products_listing_2 {
+    margin-top: 0px !important;
+    margin-bottom: 0px !important;
+  }
+  @media (min-width: 768px) {
+    #shopify-section-products_listing_2, .shopify-section + #shopify-section-products_listing_2 {
+      margin-top: 0px !important;
+      margin-bottom: 0px !important;
+    }
+  }#shopify-section-products_listing_2 .pl {
+    background: var(--pb-bg, var(--gradient-background, var(--color-background)));
+    color: var(--color-text);
+    font-family: var(--body-font);
+  }
+  #shopify-section-products_listing_2 .pl-grid {
+    display: grid;
+    grid-template-columns: repeat(var(--pl-cols-mb), minmax(0, 1fr));
+    column-gap: var(--pl-col-gap);
+    row-gap: var(--pl-row-gap);
+  }
+  #shopify-section-products_listing_2 .pl-grid > [hidden] { display: none !important; }
+  #shopify-section-products_listing_2 .pl-header { margin-bottom: 30px; }
+  #shopify-section-products_listing_2 .pl-header[hidden] { display: none; }
+  #shopify-section-products_listing_2 .pl-header__row {
+    display: flex; flex-wrap: wrap; gap: 16px 24px;
+    align-items: flex-end; justify-content: space-between;
+  }
+  #shopify-section-products_listing_2 .pl-header__text {
+    display: flex; flex-direction: column; gap: var(--pl-hgap, 8px);
+    min-width: 0; max-width: 720px;
+  }
+  #shopify-section-products_listing_2 .pl[data-align='center'] .pl-header__row { flex-direction: column; align-items: center; text-align: center; }
+  #shopify-section-products_listing_2 .pl[data-align='center'] .pl-header__text { align-items: center; }
+  #shopify-section-products_listing_2 .pl[data-align='right'] .pl-header__row { flex-direction: row-reverse; text-align: right; }
+  #shopify-section-products_listing_2 .pl[data-align='right'] .pl-header__text { align-items: flex-end; }
+  #shopify-section-products_listing_2 .pl-header__actions:not(:has(> :not([hidden]))),
+  #shopify-section-products_listing_2 .pl-bottom:not(:has(> :not([hidden]))) { display: none; }
+  #shopify-section-products_listing_2 .pl-header__actions,
+  #shopify-section-products_listing_2 .pl-bottom { display: flex; flex-wrap: wrap; gap: 12px; }
+  #shopify-section-products_listing_2 .pl-bottom { justify-content: center; margin-top: 30px; }
+  #shopify-section-products_listing_2 .pb-eyebrow { margin: 0; font-size: var(--pb-fs, 13px); color: var(--pb-c, var(--color-text)); text-transform: uppercase; letter-spacing: .12em; font-weight: var(--subheading-weight, 500); }
+  #shopify-section-products_listing_2 .pb-heading { margin: 0; font-size: var(--pb-fs-m, 26px); color: var(--pb-c, var(--color-heading)); line-height: var(--heading-line-height, 1.2); }
+  #shopify-section-products_listing_2 .pb-sub { margin: 0; font-size: var(--pb-fs, 16px); color: var(--pb-c, var(--color-text)); }
+  #shopify-section-products_listing_2 .pb-sub p { margin: 0 0 .5em; }
+  #shopify-section-products_listing_2 .pb-sub p:last-child { margin: 0; }
+  #shopify-section-products_listing_2 [hidden].pb-eyebrow,
+  #shopify-section-products_listing_2 [hidden].pb-heading,
+  #shopify-section-products_listing_2 [hidden].pb-sub,
+  #shopify-section-products_listing_2 [hidden].pl-btn { display: none !important; }
+  /* Its own size and shape also with Theme settings > Buttons > Use shared button size and shape off (the contract's rule is then layered and loses to critical.css). */
+  #shopify-section-products_listing_2 .pl-btn[data-own-shape] { font-size: var(--mb-font-size); padding: var(--mb-padding-y) var(--mb-padding-x); border-radius: var(--mb-radius); }
+  @media (min-width: 768px) {
+    #shopify-section-products_listing_2 .pl-grid { grid-template-columns: repeat(var(--pl-cols), minmax(0, 1fr)); }
+    #shopify-section-products_listing_2 .pl-header { margin-bottom: 40px; }
+    #shopify-section-products_listing_2 .pb-heading { font-size: var(--pb-fs-d, 32px); }
+  }

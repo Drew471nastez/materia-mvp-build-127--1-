@@ -26,7 +26,7 @@
         "description_YRWpkt": {
           "type": "description",
           "settings": {
-            "description": "<p>How the packs are recorded, what went into the newest one and tips for using them.</p>",
+            "description": "<p>Mixing tips, production guides and what went into the newest packs.</p>",
             "enable_custom_style": false,
             "description_font_size": 16
           }
@@ -83,15 +83,15 @@
         "color_scheme": "scheme-tr-panel",
         "section_width": "container",
         "image": "shopify://shop_images/samples-free.webp",
-        "image_alt": "The Free 40 sampler pack",
+        "image_alt": "Free Ambience Sample Pack Vol I",
         "image_position": "left",
         "image_ratio": "square",
         "image_width": 46,
         "column_gap": 64,
         "form_layout": "horizontal",
         "email_placeholder": "Your email address",
-        "btn_text": "Send me the sounds",
-        "button_radius": 6,
+        "btn_text": "Send me the pack",
+        "button_radius": 8,
         "note": "One email when a new pack is out. Unsubscribe from any email.",
         "success_text": "Check your inbox. The download link is on its way.",
         "padding_top": 80,
@@ -103,7 +103,7 @@
         "heading": {
           "type": "heading",
           "settings": {
-            "text": "40 free sounds, one from every pack",
+            "text": "Free Ambience Sample Pack Vol I",
             "size_enable": true,
             "size_desktop": 44,
             "size_mobile": 30
@@ -112,7 +112,7 @@
         "subheading": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Hear the quality before you buy. Leave your email and the download link arrives in a minute: kicks, loops and MIDI at full 24 bit.</p>"
+            "text": "<p>Pads, drones and textures, free and royalty free. Leave your email and the download link arrives in a minute.</p>"
           }
         }
       },

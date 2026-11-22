@@ -8,8 +8,8 @@
         "image_position": "left",
         "text_column_width": 52,
         "gap_columns": 56,
-        "featured_image": "shopify://shop_images/landing-hero-box.webp",
-        "image_alt": "The Whole Edit, a boxed set of six video editing courses",
+        "featured_image": "shopify://shop_images/landing-hero-suite.webp",
+        "image_alt": "An editor grading footage at a desk with three monitors",
         "image_fit": "cover",
         "image_height_desktop": 580,
         "image_height_mobile": 340,
@@ -36,7 +36,7 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>All six Cutroom courses in one box, yours to keep. <strong>$249 this week</strong> usually $594.</p>",
+            "text": "<p>All six Cutroom courses in one bundle, yours to keep. <strong>$249 this week</strong> usually $594.</p>",
             "font_size_desktop": 18,
             "max_width": 560,
             "margin_bottom": 20
@@ -324,7 +324,7 @@
         "layout": "image_left",
         "text_align": "left",
         "card_style": "flat",
-        "image": "shopify://shop_images/landing-starter-box.webp",
+        "image": "shopify://shop_images/landing-starter-desk.webp",
         "image_aspect_ratio": "4-3",
         "enable_image_zoom": false,
         "mobile_image_first": true,

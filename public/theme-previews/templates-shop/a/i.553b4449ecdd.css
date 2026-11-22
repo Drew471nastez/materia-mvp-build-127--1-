@@ -1,0 +1,176 @@
+
+    /* Outer wrapper: carries this section's own colour scheme, background and section padding */
+    #rm3-ask {
+      --rm-font-heading: var(--heading-font, var(--theme-font-heading, inherit));
+      --rm-font-body: var(--body-font, var(--theme-font-body, inherit));
+      --rm-weight-heading: var(--heading-weight, 700);
+      --rm-weight-body: var(--body-weight, 400);
+      position: relative;
+      box-sizing: border-box;
+      color: var(--rm-text-c);
+      background-color: var(--rm3-bg);
+      padding-top: var(--rm3-pt-m);
+      padding-bottom: var(--rm3-pb-m);
+      overflow-x: clip;
+    }
+    @media (min-width: 750px) {
+      #rm3-ask {
+        padding-top: var(--rm3-pt-d);
+        padding-bottom: var(--rm3-pb-d);
+      }
+    }
+
+    /* Section width, from the theme's page width and side padding */
+    #rm3-ask .rm3__container { box-sizing: border-box; width: 100%; margin-inline: auto; }
+    #rm3-ask .rm3__container--container { max-width: calc(var(--page-width, var(--theme-page-width, 1300px)) + 3rem); padding-inline: var(--theme-padding-x, 1.5rem); }
+    #rm3-ask .rm3__container--fluid_container { max-width: calc(var(--fluid-container-width, 1500px) + 3rem); padding-inline: var(--theme-padding-x, 1.5rem); }
+    #rm3-ask .rm3__container--stretch_width { padding-inline: 1.5rem; }
+    @media (min-width: 1200px) { #rm3-ask .rm3__container--stretch_width { padding-inline: 3rem; } }
+    #rm3-ask .rm3__container--full_width { max-width: none; padding-inline: 0; }
+
+    /* Blocks with custom styling off follow the theme */
+    #rm-hero-ask .rm-hero__eyebrow:not([data-custom]) { --rm-eyebrow-color:var(--rm-heading-c);--rm-eyebrow-font:var(--rm-font-body);--rm-eyebrow-weight:var(--rm-weight-body);--rm-eyebrow-transform:none;--rm-eyebrow-letterspace:normal;--rm-eyebrow-lineheight:var(--body-line-height,1.6);--rm-eyebrow-opacity:1;--rm-eyebrow-size-d:var(--body-font-size,16px);--rm-eyebrow-size-m:var(--body-font-size,16px); }
+    #rm-hero-ask .rm-hero__heading:not([data-custom]) { --rm-heading-color:var(--rm-heading-c);--rm-heading-font:var(--rm-font-heading);--rm-heading-weight:var(--rm-weight-heading);--rm-heading-transform:var(--heading-text-transform,none);--rm-heading-lineheight:var(--heading-line-height,1.15);--rm-heading-letterspace:var(--heading-letter-spacing,normal);--rm-heading-size-d:var(--h2-size,2.4rem);--rm-heading-size-m:var(--h2-size,2.4rem); }
+    #rm-hero-ask .rm-hero__sub:not([data-custom]) { --rm-sub-color:var(--rm-text-c);--rm-sub-font:var(--rm-font-body);--rm-sub-weight:var(--rm-weight-body);--rm-sub-transform:none;--rm-sub-letterspace:normal;--rm-sub-lineheight:var(--body-line-height,1.6);--rm-sub-opacity:1;--rm-sub-size-d:var(--body-font-size,16px);--rm-sub-size-m:var(--body-font-size,16px); }
+    /* Explicit block choices override the theme priority, only while custom styling is on */
+    #rm-hero-ask .rm-hero__eyebrow[data-custom] { font-family:var(--rm-eyebrow-font)!important;font-weight:var(--rm-eyebrow-weight)!important;line-height:var(--rm-eyebrow-lineheight)!important;letter-spacing:var(--rm-eyebrow-letterspace)!important;text-transform:var(--rm-eyebrow-transform)!important; }
+    #rm-hero-ask .rm-hero__heading[data-custom] { font-family:var(--rm-heading-font)!important;font-weight:var(--rm-heading-weight)!important;line-height:var(--rm-heading-lineheight)!important;letter-spacing:var(--rm-heading-letterspace)!important;text-transform:var(--rm-heading-transform)!important; }
+    #rm-hero-ask .rm-hero__sub[data-custom] { font-family:var(--rm-sub-font)!important;font-weight:var(--rm-sub-weight)!important;line-height:var(--rm-sub-lineheight)!important;letter-spacing:var(--rm-sub-letterspace)!important;text-transform:var(--rm-sub-transform)!important; }
+    #rm-hero-ask .rm-hero__btn[data-custom] { font-weight:var(--mb-weight,var(--btn-font-weight,500))!important;font-size:var(--mb-font-size,var(--btn-font-size,14px))!important;border-radius:var(--mb-radius,var(--theme-button-radius,var(--btn-radius,8px)))!important;padding:var(--mb-padding-y,var(--theme-button-padding-y,14px)) var(--mb-padding-x,var(--theme-button-padding-x,26px))!important; }
+    #rm-hero-ask .rm-hero__btn[data-custom][data-own-shape] { --mb-font-size: var(--rm-btn-size-d); border-style: solid; border-width: var(--btn-border-width); }
+    @media (max-width: 749px) {
+      #rm-hero-ask .rm-hero__btn[data-custom][data-own-shape] { --mb-font-size: var(--rm-btn-size-m); }
+    }
+
+    #rm-hero-ask{
+      position: relative;
+      box-sizing: border-box;
+      width: auto;
+      max-width: none;
+      margin: 0 var(--rm-section-pad-right-m) 0 var(--rm-section-pad-left-m);
+      background-color: var(--rm-bg);
+      background-image: var(--rm-gradient);
+      padding: var(--rm-pt-m) var(--rm-inner-pad) var(--rm-pb-m);
+      border-radius: var(--rm-section-radius);
+      border: var(--rm-border-w) solid var(--rm-border-c);
+      box-shadow: var(--rm-shadow);
+      overflow: hidden;
+    }
+    #rm-hero-ask[data-hover-lift]{ transition: transform 300ms cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 300ms ease; }
+    @media (min-width: 750px){
+      #rm-hero-ask{
+        margin-left: var(--rm-section-pad-left);
+        margin-right: var(--rm-section-pad-right);
+        padding: var(--rm-pt) var(--rm-inner-pad) var(--rm-pb);
+      }
+    }
+    @media (hover: hover){
+      #rm-hero-ask[data-hover-lift]:hover{ transform: translateY(-4px); box-shadow: 0 16px 40px rgba(0,0,0,0.12); }
+    }
+    #rm-hero-ask::before{
+      content:"";
+      position:absolute; inset:0;
+      background: var(--rm-overlay);
+      opacity: var(--rm-overlay-opacity);
+      pointer-events:none;
+    }
+    #rm-hero-ask .rm-hero__inner{
+      position: relative;
+      z-index: 1;
+      max-width: var(--rm-content-max);
+      margin-inline: auto;
+      text-align: var(--rm-align-m);
+      display: flex;
+      flex-direction: column;
+      align-items: var(--rm-flex-m);
+      gap: var(--rm-gap);
+      min-width: 0;
+    }
+    @media (min-width: 750px){
+      #rm-hero-ask .rm-hero__inner{ text-align: var(--rm-align); align-items: var(--rm-flex); }
+    }
+
+    #rm-hero-ask .rm-hero__eyebrow{
+      margin: 0;
+      font-family: var(--rm-eyebrow-font, var(--rm-font-body));
+      font-weight: var(--rm-eyebrow-weight);
+      letter-spacing: var(--rm-eyebrow-letterspace);
+      line-height: var(--rm-eyebrow-lineheight, 1.4);
+      text-transform: var(--rm-eyebrow-transform);
+      opacity: var(--rm-eyebrow-opacity);
+      color: var(--rm-eyebrow-color, var(--rm-heading-c));
+      font-size: var(--rm-eyebrow-size-m);
+    }
+    #rm-hero-ask .rm-hero__heading{
+      margin: 0;
+      font-family: var(--rm-heading-font, var(--rm-font-heading));
+      line-height: var(--rm-heading-lineheight);
+      font-weight: var(--rm-heading-weight);
+      text-transform: var(--rm-heading-transform, none);
+      color: var(--rm-heading-color, var(--rm-heading-c)) !important;
+      letter-spacing: var(--rm-heading-letterspace);
+      font-size: var(--rm-heading-size-m);
+      overflow-wrap: break-word;
+    }
+    #rm-hero-ask .rm-hero__sub{
+      margin: 0;
+      font-family: var(--rm-sub-font, var(--rm-font-body));
+      font-weight: var(--rm-sub-weight, var(--rm-weight-body));
+      text-transform: var(--rm-sub-transform, none);
+      letter-spacing: var(--rm-sub-letterspace, 0);
+      line-height: var(--rm-sub-lineheight);
+      color: var(--rm-sub-color, var(--rm-text-c));
+      opacity: var(--rm-sub-opacity);
+      font-size: var(--rm-sub-size-m);
+      overflow-wrap: break-word;
+    }
+    #rm-hero-ask .rm-hero__inner > :last-child{ margin-bottom: 0; }
+    #rm-hero-ask .rm-hero__inner > [hidden]{ display: none !important; }
+    @media (min-width: 750px){
+      #rm-hero-ask .rm-hero__eyebrow{ font-size: var(--rm-eyebrow-size-d); }
+      #rm-hero-ask .rm-hero__heading{ font-size: var(--rm-heading-size-d); }
+      #rm-hero-ask .rm-hero__sub{ font-size: var(--rm-sub-size-d); }
+    }
+
+    /* Button: a theme button (Theme settings > Buttons) */
+    #rm-hero-ask .rm-hero__btn{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: .5rem;
+      min-height: 44px;
+      margin: calc(var(--rm-sub-btn-gap) - var(--rm-gap)) 0 0;
+      width: fit-content;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      max-width: 100%;
+      text-align: center;
+    }
+    #rm-hero-ask .rm-hero__inner > .rm-hero__btn:not(:not([hidden]) ~ .rm-hero__btn){ margin-top: 0; }
+    #rm-hero-ask .rm-hero__btn:focus-visible{
+      outline: 2px solid var(--rm-heading-c);
+      outline-offset: 3px;
+    }
+    @media (max-width: 749px){
+      #rm-hero-ask[data-button-full-mobile] .rm-hero__btn{ width: 100%; }
+    }
+
+    html:is(.shopify-design-mode,.mt-editor) #rm-hero-ask{animation:none!important;opacity:1!important;translate:none!important;scale:none!important;}
+    /* Reveal on scroll (CSS only), used when the theme's own scroll animation is off */
+    @keyframes rm3-in-ask {
+      from { opacity: 0; translate: var(--rm-reveal-from-y, none); scale: var(--rm-reveal-from-scale, none); }
+      to { opacity: 1; translate: none; scale: none; }
+    }
+    #rm-hero-ask[data-reveal="fade_up"] { --rm-reveal-from-y: 0 32px; }
+    #rm-hero-ask[data-reveal="zoom"] { --rm-reveal-from-scale: 0.96; }
+    @supports (animation-timeline: view()) {
+      #rm-hero-ask[data-reveal] {
+        animation: rm3-in-ask linear both;
+        animation-timeline: view();
+        animation-range: entry 0% entry var(--rm-reveal-range, 60%);
+      }
+    }
+    @media (prefers-reduced-motion: reduce){
+      #rm-hero-ask { animation: none !important; transition: none !important; transform: none !important; translate: none !important; scale: none !important; }
+    }
+  

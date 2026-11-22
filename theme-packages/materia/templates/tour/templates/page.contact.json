@@ -59,7 +59,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Store help",
+            "text": "Get in touch",
             "tag": "h1",
             "enable_custom_style": false,
             "enable_custom_fonts": false,
@@ -75,7 +75,7 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>For orders from this store. For bookings and press, use the contacts on the right.</p>",
+            "text": "<p>A question about an order, a pre-order or a size? Write to the store team.</p>",
             "max_width": 600,
             "enable_custom_style": false,
             "enable_custom_fonts": false,
@@ -126,7 +126,7 @@
             "field_type": "textarea",
             "label": "Message",
             "name": "Message",
-            "placeholder": "What happened with your order?",
+            "placeholder": "How can we help?",
             "required": true,
             "half_width": false
           }
@@ -141,16 +141,16 @@
           "type": "info",
           "settings": {
             "icon": "mail",
-            "label": "Store",
-            "value": "Replace with your store email"
+            "label": "Email",
+            "value": "Replace with your email"
           }
         },
         "info_2": {
           "type": "info",
           "settings": {
-            "icon": "message",
-            "label": "Bookings and press",
-            "value": "Replace with your management contact"
+            "icon": "clock",
+            "label": "Replies",
+            "value": "Within two working days"
           }
         }
       },

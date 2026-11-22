@@ -1,0 +1,92 @@
+{%- comment -%}
+  Merch template: a row of what the clothes are made like, each with a
+  line drawing, an uppercase title and a short line. Four across on a
+  desktop, two on a phone. Nothing moves.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+-%}
+<style>
+  #shopify-section-{{ sid }} .mfeat { background: {{ st.background | default: '#f6f6f6' }}; color: {{ st.text_color | default: '#111111' }}; padding: {{ st.padding_mobile | default: 44 }}px 16px; }
+  #shopify-section-{{ sid }} .mfeat__grid { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 36px 16px; }
+  #shopify-section-{{ sid }} .mfeat__item { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  #shopify-section-{{ sid }} .mfeat__icon { width: 52px; height: 52px; color: inherit; }
+  #shopify-section-{{ sid }} .mfeat__icon svg { width: 100%; height: 100%; display: block; }
+  #shopify-section-{{ sid }} .mfeat__title { margin: 6px 0 0; font-family: var(--heading-font, inherit); font-weight: 800; font-size: 15px; letter-spacing: 0; text-transform: uppercase; color: inherit; line-height: 1.2; }
+  #shopify-section-{{ sid }} .mfeat__text { margin: 0; font-size: 13px; line-height: 1.5; color: {{ st.muted_color | default: '#5c5c5c' }}; max-width: 24ch; }
+  @media (min-width: 768px) {
+    #shopify-section-{{ sid }} .mfeat { padding: {{ st.padding | default: 64 }}px 32px; }
+    #shopify-section-{{ sid }} .mfeat__grid { grid-template-columns: repeat({{ section.blocks.size | at_least: 1 | at_most: 4 }}, minmax(0, 1fr)); gap: 32px; }
+    #shopify-section-{{ sid }} .mfeat__title { font-size: 17px; }
+    #shopify-section-{{ sid }} .mfeat__text { font-size: 14px; }
+  }
+</style>
+
+<div class="mfeat">
+  <div class="mfeat__grid">
+    {%- for block in section.blocks -%}
+      {%- assign b = block.settings -%}
+      <div class="mfeat__item" {{ block.shopify_attributes }}>
+        <div class="mfeat__icon" aria-hidden="true">
+          {%- case b.icon -%}
+            {%- when 'weave' -%}
+              <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M8 18c6-6 10-6 16 0s10 6 16 0M8 30c6-6 10-6 16 0s10 6 16 0"/><path d="M18 8c-6 6-6 10 0 16s6 10 0 16M30 8c-6 6-6 10 0 16s6 10 0 16"/></svg>
+            {%- when 'tee' -%}
+              <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M18 8l-10 5-4 9 7 3 2-4v19h22V21l2 4 7-3-4-9-10-5c-1 3-3 5-6 5s-5-2-6-5z"/><path d="M4 40h40M8 37v6M40 37v6" stroke-linecap="round"/></svg>
+            {%- when 'needle' -%}
+              <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M40 6L12 34"/><path d="M42 8c-2-4-6-3-6-3" /><path d="M12 34l-4 8 8-4"/><path d="M10 20c8 2 18 8 20 18 1 4-2 6-5 4-4-3-3-10 3-14"/></svg>
+            {%- when 'hoodie' -%}
+              <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M17 12c0-5 3-8 7-8s7 3 7 8"/><path d="M17 12l-8 4-4 22h6l2-14v20h22V24l2 14h6l-4-22-8-4c-1 4-4 6-7 6s-6-2-7-6z"/><path d="M22 18v6M26 18v6" stroke-linecap="round"/><path d="M18 34h12v8"/></svg>
+            {%- when 'box' -%}
+              <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M6 14l18-8 18 8v20l-18 8-18-8z"/><path d="M6 14l18 8 18-8M24 22v20"/></svg>
+            {%- when 'return' -%}
+              <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 18h22a10 10 0 010 20H16"/><path d="M16 10l-8 8 8 8"/></svg>
+            {%- else -%}
+              <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 30h36v8H6z"/><path d="M12 30v4M18 30v5M24 30v4M30 30v5M36 30v4"/></svg>
+          {%- endcase -%}
+        </div>
+        {%- if b.title != blank -%}<h3 class="mfeat__title">{{ b.title | escape }}</h3>{%- endif -%}
+        {%- if b.text != blank -%}<p class="mfeat__text">{{ b.text | escape }}</p>{%- endif -%}
+      </div>
+    {%- endfor -%}
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Fabric notes",
+  "tag": "section",
+  "class": "section sec__merch-features",
+  "max_blocks": 4,
+  "settings": [
+    { "type": "color", "id": "background", "label": "Background", "default": "#f6f6f6" },
+    { "type": "color", "id": "text_color", "label": "Titles and drawings", "default": "#111111" },
+    { "type": "color", "id": "muted_color", "label": "Text", "default": "#5c5c5c" },
+    { "type": "range", "id": "padding", "label": "Space above and below, desktop", "min": 16, "max": 140, "step": 4, "unit": "px", "default": 64 },
+    { "type": "range", "id": "padding_mobile", "label": "Space above and below, phone", "min": 16, "max": 100, "step": 4, "unit": "px", "default": 44 }
+  ],
+  "blocks": [
+    {
+      "type": "feature",
+      "name": "Feature",
+      "settings": [
+        { "type": "select", "id": "icon", "label": "Drawing", "options": [ { "value": "weave", "label": "Woven fabric" }, { "value": "tee", "label": "T-shirt with a measure" }, { "value": "needle", "label": "Needle and thread" }, { "value": "hoodie", "label": "Hoodie" }, { "value": "box", "label": "Parcel" }, { "value": "return", "label": "Return arrow" }, { "value": "ruler", "label": "Ruler" } ], "default": "weave" },
+        { "type": "text", "id": "title", "label": "Title", "default": "Heavy fabric" },
+        { "type": "text", "id": "text", "label": "Text", "default": "Say in a few words what it means." }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Fabric notes",
+      "blocks": [
+        { "type": "feature", "settings": { "icon": "weave", "title": "Heavy fabric" } },
+        { "type": "feature", "settings": { "icon": "tee", "title": "True to size" } },
+        { "type": "feature", "settings": { "icon": "needle", "title": "Double stitched" } },
+        { "type": "feature", "settings": { "icon": "hoodie", "title": "Made to last" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

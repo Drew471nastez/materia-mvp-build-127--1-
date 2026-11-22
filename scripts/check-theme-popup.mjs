@@ -140,6 +140,8 @@ try {
       res.writeHead(200, { "content-type": "image/webp", "cache-control": "no-store" })
       return res.end(readFileSync(join(root, "public", url.pathname)))
     }
+    /* The templates' live websites are scripts/check-theme-preview-live.mjs's: here the preview stays on its pictures. */
+    if (url.pathname.startsWith("/theme-previews/")) { res.writeHead(404); return res.end() }
     if (url.pathname === "/live.js") { res.writeHead(200, { "content-type": "text/javascript" }); return res.end(js) }
     if (url.pathname.startsWith("/api/")) {
       /* Add: a moment, then the new website's id. /api/website-builder/themes/[id]/cover and the rest answer nothing useful. */

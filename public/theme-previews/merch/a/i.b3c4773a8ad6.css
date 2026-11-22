@@ -1,0 +1,14 @@
+
+  #shopify-section-features .mfeat { background: #f6f6f6; color: #111111; padding: 44px 16px; }
+  #shopify-section-features .mfeat__grid { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 36px 16px; }
+  #shopify-section-features .mfeat__item { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  #shopify-section-features .mfeat__icon { width: 52px; height: 52px; color: inherit; }
+  #shopify-section-features .mfeat__icon svg { width: 100%; height: 100%; display: block; }
+  #shopify-section-features .mfeat__title { margin: 6px 0 0; font-family: var(--heading-font, inherit); font-weight: 800; font-size: 15px; letter-spacing: 0; text-transform: uppercase; color: inherit; line-height: 1.2; }
+  #shopify-section-features .mfeat__text { margin: 0; font-size: 13px; line-height: 1.5; color: #5c5c5c; max-width: 24ch; }
+  @media (min-width: 768px) {
+    #shopify-section-features .mfeat { padding: 64px 32px; }
+    #shopify-section-features .mfeat__grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 32px; }
+    #shopify-section-features .mfeat__title { font-size: 17px; }
+    #shopify-section-features .mfeat__text { font-size: 14px; }
+  }

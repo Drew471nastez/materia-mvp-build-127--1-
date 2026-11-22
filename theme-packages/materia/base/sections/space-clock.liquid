@@ -1,0 +1,195 @@
+{%- comment -%}
+  Space: the date and time under the header's logo, read from the visitor's
+  own clock and kept current once a second (no request, no layout change:
+  only the text node changes). Optionally the crosshair mark above it, drawn
+  as an SVG in a colour of your choice, for a store without a logo image.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign sid = section.id
+  assign color = s.text_color | default: '#ffffff'
+  assign mark = s.mark_color | default: '#e0201b'
+-%}
+<style>
+  #shopify-section-{{ sid }} { position: relative; z-index: 2; margin: 0 !important; }
+  .space-clock-{{ sid }} {
+    display: flex; flex-direction: column; align-items: {{ s.alignment | default: 'center' }}; gap: 10px;
+    padding: {{ s.padding_top | default: 0 }}px 20px {{ s.padding_bottom | default: 16 }}px;
+    color: {{ color }}; text-align: center;
+    font-family: var(--body-font, inherit);
+    font-size: {{ s.text_size | default: 12 }}px; line-height: 1.2;
+    letter-spacing: .04em; font-variant-numeric: tabular-nums;
+  }
+  .space-clock-{{ sid }} .space-clock__mark { display: block; width: {{ s.mark_size | default: 46 }}px; height: {{ s.mark_size | default: 46 }}px; color: {{ mark }}; }
+  .space-clock-{{ sid }} .space-clock__mark svg { width: 100%; height: 100%; display: block; }
+  .space-clock-{{ sid }} time { opacity: .92; white-space: nowrap; }
+  {%- if s.alignment == 'flex-start' -%}.space-clock-{{ sid }} { text-align: left; padding-left: max(20px, calc((100vw - var(--page-width, 1280px)) / 2)); }{%- endif -%}
+  @media (max-width: 767px) {
+    .space-clock-{{ sid }} { font-size: {{ s.text_size | default: 12 | minus: 1 }}px; padding-bottom: {{ s.padding_bottom | default: 16 | times: 0.75 | round }}px; }
+  }
+</style>
+<div class="space-clock space-clock-{{ sid }}" data-space-clock="{{ s.format | default: 'date_time' }}" data-hours="{{ s.hours | default: '24' }}">
+  {%- if s.show_mark -%}
+    <a class="space-clock__mark" href="{{ routes.root_url | default: '/' }}" aria-label="{{ shop.name | escape }}">
+      <svg viewBox="0 0 100 100" fill="none" aria-hidden="true" focusable="false">
+        <circle cx="50" cy="50" r="38" stroke="currentColor" stroke-width="{{ s.mark_weight | default: 5 }}"/>
+        <line x1="50" y1="4" x2="50" y2="96" stroke="currentColor" stroke-width="{{ s.mark_weight | default: 5 }}"/>
+        <line x1="4" y1="50" x2="96" y2="50" stroke="currentColor" stroke-width="{{ s.mark_weight | default: 5 }}"/>
+      </svg>
+    </a>
+  {%- endif -%}
+  {%- if s.format != 'none' -%}
+    <time datetime="{{ 'now' | date: '%Y-%m-%dT%H:%M' }}">{{ 'now' | date: '%d/%m/%Y %H:%M' }}</time>
+  {%- endif -%}
+</div>
+<script>
+  (function () {
+    var root = document.querySelector('.space-clock-{{ sid }}');
+    if (!root) return;
+    var el = root.querySelector('time');
+    if (!el) return;
+    var format = root.dataset.spaceClock;
+    var h12 = root.dataset.hours === '12';
+    function two(n) { return (n < 10 ? '0' : '') + n; }
+    function draw() {
+      var d = new Date();
+      var date = two(d.getDate()) + '/' + two(d.getMonth() + 1) + '/' + d.getFullYear();
+      var h = d.getHours();
+      var time = h12 ? ((h % 12) || 12) + ':' + two(d.getMinutes()) + (h < 12 ? ' AM' : ' PM') : two(h) + ':' + two(d.getMinutes());
+      var text = format === 'time' ? time : format === 'date' ? date : date + ' ' + time;
+      if (el.textContent !== text) el.textContent = text;
+      el.setAttribute('datetime', d.toISOString());
+    }
+    draw();
+    if (root.__timer) clearInterval(root.__timer);
+    root.__timer = setInterval(function () { if (!document.hidden) draw(); }, 1000);
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Date and time",
+  "tag": "section",
+  "class": "space-clock-section",
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Shows the visitor's own date and time, live, under the logo."
+    },
+    {
+      "type": "select",
+      "id": "format",
+      "label": "Show",
+      "default": "date_time",
+      "options": [
+        { "value": "date_time", "label": "Date and time" },
+        { "value": "date", "label": "Date" },
+        { "value": "time", "label": "Time" },
+        { "value": "none", "label": "Nothing" }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "hours",
+      "label": "Clock",
+      "default": "12",
+      "options": [
+        { "value": "12", "label": "12 hour, with AM and PM" },
+        { "value": "24", "label": "24 hour" }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "alignment",
+      "label": "Alignment",
+      "default": "center",
+      "options": [
+        { "value": "center", "label": "Centre" },
+        { "value": "flex-start", "label": "Left" }
+      ]
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text colour",
+      "default": "#ffffff"
+    },
+    {
+      "type": "range",
+      "id": "text_size",
+      "label": "Text size",
+      "min": 10,
+      "max": 20,
+      "step": 1,
+      "unit": "px",
+      "default": 12
+    },
+    {
+      "type": "header",
+      "content": "Crosshair mark"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_mark",
+      "label": "Draw the crosshair mark above the date",
+      "default": false,
+      "info": "For a store without a logo picture. The header's logo stays where it is."
+    },
+    {
+      "type": "color",
+      "id": "mark_color",
+      "label": "Mark colour",
+      "default": "#e0201b"
+    },
+    {
+      "type": "range",
+      "id": "mark_size",
+      "label": "Mark size",
+      "min": 24,
+      "max": 120,
+      "step": 2,
+      "unit": "px",
+      "default": 46
+    },
+    {
+      "type": "range",
+      "id": "mark_weight",
+      "label": "Line weight",
+      "min": 2,
+      "max": 10,
+      "step": 1,
+      "default": 5
+    },
+    {
+      "type": "header",
+      "content": "Spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Space above",
+      "min": 0,
+      "max": 60,
+      "step": 2,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Space below",
+      "min": 0,
+      "max": 80,
+      "step": 2,
+      "unit": "px",
+      "default": 16
+    }
+  ],
+  "presets": [
+    {
+      "name": "Date and time",
+      "category": "Space"
+    }
+  ]
+}
+{% endschema %}

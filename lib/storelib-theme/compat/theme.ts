@@ -1669,7 +1669,16 @@ export class CompatTheme {
     /* Another group the page holds (an overlay, an aside): its sections are the Overlay group's that name it. */
     /* A group is the page's when the import said so (slots) or when the page holds its sections (an install whose Overlay group was filled in later). */
     const isSlot = this.opts.slots?.includes(group) || (page.groups?.overlay ?? []).some((s) => s.slot === group)
-    const own = key === "header" || key === "footer" ? page.groups?.[key] : isSlot ? (page.groups?.overlay ?? []).filter((s) => s.slot === group) : undefined
+    const listed = key === "header" || key === "footer" ? page.groups?.[key] : isSlot ? (page.groups?.overlay ?? []).filter((s) => s.slot === group) : undefined
+    /*
+      A HEADER OR FOOTER GROUP THE PAGE HOLDS NOTHING OF is the theme's own
+      group file, not an empty group. The builder never deletes the header or
+      the footer (it hides them: lib/website-builder/pinned-sections.ts), so a
+      page row with no footer section is a row stored without its chrome (a
+      home page saved before the groups were, a draft, a row a migration
+      touched), and every page of the site lost its footer with it.
+    */
+    const own = (key === "header" || key === "footer") && listed && listed.length === 0 && this.files[`sections/${group}.json`] !== undefined ? undefined : listed
     const list: CompatSectionInstance[] = own ?? groupSections(this.files[`sections/${group}.json`]).map((s) => ({ ...s, type: this.typeOf(s.type) }))
     return list.filter((s) => !s.disabled && !s.hidden).map((s, i) => this.renderSectionRaw(ctx, s, i, group).html).join("")
   }

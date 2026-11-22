@@ -1,0 +1,332 @@
+{
+  "sections": {
+    "hero": {
+      "type": "artbooks-diptych",
+      "settings": {
+        "color_scheme": "default",
+        "image_left": "shopify://shop_images/artbooks-hero-vermeer.webp",
+        "image_left_alt": "A painted study of a young woman in a blue shawl, looking over her shoulder",
+        "left_focal_x": 50,
+        "left_focal_y": 30,
+        "image_right": "shopify://shop_images/artbooks-hero-utamaro.webp",
+        "image_right_alt": "A Japanese woodblock print of two women in kimono on a yellow ground",
+        "right_focal_x": 50,
+        "right_focal_y": 25,
+        "heading": "Look closer",
+        "text": "<p>Art books in full colour, made to read on a screen and keep for good.</p>",
+        "button_label": "Browse the books",
+        "button_link": "/collections/all",
+        "content_position": "center",
+        "text_color": "#ffffff",
+        "overlay_opacity": 30,
+        "heading_size_desktop": 76,
+        "heading_size_mobile": 48,
+        "heading_weight": 500,
+        "text_size": 18,
+        "height_desktop": 700,
+        "height_mobile": 580
+      }
+    },
+    "books": {
+      "type": "products-grid",
+      "settings": {
+        "heading": "The books",
+        "text": "<p>Every plate scanned large enough to zoom into a brushstroke.</p>",
+        "items_to_show": 8,
+        "show_add_to_cart": false,
+        "button_label": "See all books",
+        "button_link": "/collections/all",
+        "items_per_row": 4,
+        "items_per_row_mobile": 2,
+        "column_gap": 32,
+        "header_alignment": "center",
+        "color_scheme": "default",
+        "section_width": "container",
+        "padding_top": 80,
+        "padding_bottom": 72,
+        "reset_spacing": true
+      }
+    },
+    "subjects": {
+      "type": "artbooks-editorial",
+      "settings": {
+        "color_scheme": "default",
+        "heading": "Browse by subject",
+        "large_share": 66,
+        "radius": 0,
+        "max_width": 1264,
+        "heading_size": 32,
+        "heading_size_mobile": 26,
+        "padding_top": 48,
+        "padding_bottom": 72,
+        "padding_top_mobile": 32,
+        "padding_bottom_mobile": 48
+      },
+      "blocks": {
+        "tile_1": {
+          "type": "tile",
+          "settings": {
+            "image": "shopify://shop_images/artbooks-tile-japan.webp",
+            "alt": "A red parrot on a branch of oak leaves, printed on a black ground",
+            "focal_x": 45,
+            "focal_y": 50,
+            "label": "Prints from Japan",
+            "note": "Woodblock prints, landscapes and birds",
+            "link": "/search?q=prints"
+          }
+        },
+        "tile_2": {
+          "type": "tile",
+          "settings": {
+            "image": "shopify://shop_images/artbooks-tile-portraits.webp",
+            "alt": "A painted head of a woman in a dark veil",
+            "focal_x": 50,
+            "focal_y": 30,
+            "label": "Portraits",
+            "note": "Faces in oil and in pencil",
+            "link": "/search?q=portraits"
+          }
+        },
+        "tile_3": {
+          "type": "tile",
+          "settings": {
+            "image": "shopify://shop_images/artbooks-tile-photographs.webp",
+            "alt": "A seaweed printed white on a deep blue cyanotype",
+            "focal_x": 50,
+            "focal_y": 45,
+            "label": "Photographs",
+            "note": "Early prints made with sunlight",
+            "link": "/search?q=photographs"
+          }
+        }
+      },
+      "block_order": [
+        "tile_1",
+        "tile_2",
+        "tile_3"
+      ]
+    },
+    "inside": {
+      "type": "artbooks-spreads",
+      "settings": {
+        "color_scheme": "default",
+        "heading": "A look inside",
+        "text": "<p>Real pages from the books. Turn through a few before you buy.</p>",
+        "ratio": "16 / 10",
+        "stage_color": "#e9e6e0",
+        "radius": 0,
+        "max_width": 1264,
+        "heading_size": 32,
+        "heading_size_mobile": 26,
+        "previous_label": "Previous spread",
+        "next_label": "Next spread",
+        "padding_top": 72,
+        "padding_bottom": 88,
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 56
+      },
+      "blocks": {
+        "spread_1": {
+          "type": "spread",
+          "settings": {
+            "image": "shopify://shop_images/artbooks-spread-hokusai.webp",
+            "alt": "An open book showing a snowy Japanese landscape across both pages",
+            "title": "Hokusai. Prints of Mount Fuji",
+            "caption": "Pages 24 and 25",
+            "link_label": "See the book",
+            "link": "/search?q=hokusai"
+          }
+        },
+        "spread_2": {
+          "type": "spread",
+          "settings": {
+            "image": "shopify://shop_images/artbooks-spread-atkins.webp",
+            "alt": "An open book with two blue cyanotype plates of seaweed",
+            "title": "British Algae. Anna Atkins",
+            "caption": "Pages 62 and 63",
+            "link_label": "See the book",
+            "link": "/search?q=algae"
+          }
+        },
+        "spread_3": {
+          "type": "spread",
+          "settings": {
+            "image": "shopify://shop_images/artbooks-spread-egypt.webp",
+            "alt": "An open book with a copied Egyptian tomb painting on the left and text on the right",
+            "title": "Egypt. Tomb paintings in colour",
+            "caption": "Pages 40 and 41",
+            "link_label": "See the book",
+            "link": "/search?q=egypt"
+          }
+        },
+        "spread_4": {
+          "type": "spread",
+          "settings": {
+            "image": "shopify://shop_images/artbooks-spread-van-gogh.webp",
+            "alt": "An open book with a painting of blue irises in a white vase across both pages",
+            "title": "Van Gogh. Self-portraits and flowers",
+            "caption": "Pages 88 and 89",
+            "link_label": "See the book",
+            "link": "/search?q=van%20gogh"
+          }
+        }
+      },
+      "block_order": [
+        "spread_1",
+        "spread_2",
+        "spread_3",
+        "spread_4"
+      ]
+    },
+    "reviews": {
+      "type": "testimonials",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "display_mode": "grid",
+        "show_quote_mark": false,
+        "show_rating": true,
+        "columns": 2,
+        "column_gap": 56,
+        "header_alignment": "center",
+        "card_style": "clean",
+        "card_align": "left",
+        "card_padding": 8,
+        "card_content_gap": 12,
+        "card_radius": 0,
+        "columns_mobile": 1,
+        "padding_top": 72,
+        "padding_bottom": 80,
+        "header_spacing_desktop": 44
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "enabled": true,
+            "text": "What readers say"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "enabled": true,
+            "text": "Sample reviews. Swap them for what your own readers write to you."
+          }
+        },
+        "t_3": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "I bought the Hokusai book for one print and stayed for the details. You can zoom right into the grain of the paper.",
+            "rating": 5,
+            "name": "Reader name",
+            "role": "Hokusai. Prints of Mount Fuji"
+          }
+        },
+        "t_4": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "The download link was in my inbox before I had closed the page. It reads beautifully on a tablet.",
+            "rating": 5,
+            "name": "Reader name",
+            "role": "British Algae"
+          }
+        },
+        "t_5": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "The text is short and the plates are huge, which is exactly the right way round for an art book.",
+            "rating": 5,
+            "name": "Reader name",
+            "role": "Vermeer. Light at the window"
+          }
+        },
+        "t_6": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "I teach drawing and put the Sargent pages on the big screen in class. Every student could see the brushwork.",
+            "rating": 5,
+            "name": "Reader name",
+            "role": "Sargent. Portraits in black"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "t_3",
+        "t_4",
+        "t_5",
+        "t_6"
+      ]
+    },
+    "pdf": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "image_position": "right",
+        "text_column_width": 40,
+        "content_align": "left",
+        "content_gap": 16,
+        "media_type": "image",
+        "image": "shopify://shop_images/artbooks-tablet.webp",
+        "image_alt": "A tablet showing two pages of a Hokusai book side by side",
+        "aspect_w": 16,
+        "aspect_h": 13,
+        "image_fit": "cover",
+        "image_radius": 0,
+        "gap_desktop": 72,
+        "padding_top_desktop": 96,
+        "padding_bottom_desktop": 96,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "mobile_order": "media_first"
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "How the books arrive"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Every book is a PDF",
+            "size_desktop": 44,
+            "size_mobile": 34
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Pay once and the download link is in your inbox a moment later. Open it on a tablet, a laptop or a large screen, and zoom in as far as you like.</p><p>Keep the file for good and download it again whenever you need to.</p>"
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "Questions about downloads",
+            "link": "/pages/faqs",
+            "button_style": "primary"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
+    }
+  },
+  "order": [
+    "hero",
+    "books",
+    "subjects",
+    "inside",
+    "reviews",
+    "pdf"
+  ]
+}

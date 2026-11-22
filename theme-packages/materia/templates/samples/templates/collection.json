@@ -80,14 +80,14 @@
     "bundle": {
       "type": "promo-banner-4",
       "settings": {
-        "color_scheme": "scheme-tr-lime",
+        "color_scheme": "scheme-tr-panel",
         "section_width": "container",
         "layout": "image_left",
         "text_align": "left",
         "vertical_alignment": "center",
         "card_style": "flat",
         "card_radius": 10,
-        "image": "shopify://shop_images/samples-bundle.webp",
+        "image": "shopify://shop_images/samples-hero-phone.webp",
         "image_aspect_ratio": "4-3",
         "enable_image_zoom": false,
         "enable_badge_pulse": false,
@@ -103,23 +103,23 @@
         "badge": {
           "type": "badge",
           "settings": {
-            "text": "Save $72",
+            "text": "Save 60%",
             "position": "top-left",
             "enable_custom_style": true,
-            "bg": "#121214",
-            "color": "#c8f542"
+            "bg": "#7c3aed",
+            "color": "#ffffff"
           }
         },
         "eyebrow": {
           "type": "eyebrow",
           "settings": {
-            "text": "The full shelf"
+            "text": "The bundle"
           }
         },
         "heading": {
           "type": "heading",
           "settings": {
-            "text": "All eight packs for $119",
+            "text": "Tech House Master Bundle 2025",
             "size_desktop": 48,
             "size_mobile": 32
           }
@@ -127,15 +127,15 @@
         "description": {
           "type": "description",
           "settings": {
-            "text": "<p>1,550 sounds across garage, techno, trap, lo-fi, drill, house, ambient and synth. Bought one by one they come to $191.</p>"
+            "text": "<p>Every Loudlib tech house pack in one download. $19.98 this week, down from $49.96.</p>"
           }
         },
         "buttons": {
           "type": "buttons",
           "settings": {
             "primary_label": "Get the bundle",
-            "primary_link": "/collections/all",
-            "secondary_label": "What is in each pack",
+            "primary_link": "/search?q=master+bundle",
+            "secondary_label": "Shop every pack",
             "secondary_link": "/collections/all"
           }
         }
@@ -154,15 +154,15 @@
         "color_scheme": "scheme-tr-panel",
         "section_width": "container",
         "image": "shopify://shop_images/samples-free.webp",
-        "image_alt": "The Free 40 sampler pack",
-        "image_position": "left",
+        "image_alt": "Free Ambience Sample Pack Vol I",
+        "image_position": "right",
         "image_ratio": "square",
         "image_width": 46,
         "column_gap": 64,
         "form_layout": "horizontal",
         "email_placeholder": "Your email address",
-        "btn_text": "Send me the sounds",
-        "button_radius": 6,
+        "btn_text": "Send me the pack",
+        "button_radius": 8,
         "note": "One email when a new pack is out. Unsubscribe from any email.",
         "success_text": "Check your inbox. The download link is on its way.",
         "padding_top": 72,
@@ -174,7 +174,7 @@
         "heading": {
           "type": "heading",
           "settings": {
-            "text": "Not sure yet? Hear 40 sounds free",
+            "text": "Not sure yet? Start with a free pack",
             "size_enable": true,
             "size_desktop": 44,
             "size_mobile": 30
@@ -183,7 +183,7 @@
         "subheading": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Hear the quality before you buy. Leave your email and the download link arrives in a minute: kicks, loops and MIDI at full 24 bit.</p>"
+            "text": "<p>Pads, drones and textures, free and royalty free. Leave your email and the download link arrives in a minute.</p>"
           }
         }
       },

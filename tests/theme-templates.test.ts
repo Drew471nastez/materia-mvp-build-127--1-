@@ -111,22 +111,25 @@ async function main() {
   console.log("\nListed from code\n")
   const listings = builtinListings()
   /* Changed on purpose (templates round 18): Skincare was removed and Creator Landing was added, twelve are listed. */
-  check("twelve templates are listed, with no table and nothing uploaded", listings.length === 12 && CODE_TEMPLATES.length === 12, listings.map((l) => l.slug))
+  /* Changed on purpose (templates round 19): Art books added after Digital products; with Night shop and Poster shop at the end, fifteen are listed. */
+  check("fifteen templates are listed, with no table and nothing uploaded", listings.length === 15 && CODE_TEMPLATES.length === 15, listings.map((l) => l.slug))
   check("Storelib Default is first, at the default address", listings[0]?.slug === DEFAULT_LISTING_SLUG && listings[0]?.name === "Storelib Default" && mergeListings([])[0]?.slug === DEFAULT_LISTING_SLUG)
   /* Changed on purpose (templates round 18): Landing page is now called Course (same slug, landing-page). */
-  check("then Clothing, Merch, Digital products, Ebooks, Fitness and Course", listings.slice(0, 7).map((l) => l.name).join("|") === "Storelib Default|Clothing|Merch|Digital products|Ebooks|Fitness|Course")
+  /* Changed on purpose (templates round 19): Art books sits right after Digital products. */
+  check("then Clothing, Merch, Digital products, Art books, Ebooks, Fitness and Course", listings.slice(0, 8).map((l) => l.name).join("|") === "Storelib Default|Clothing|Merch|Digital products|Art books|Ebooks|Fitness|Course")
   /* Changed on purpose (templates round 18): Skincare was removed and Templates shop is now called Notion templates. */
   /* Changed on purpose (templates round 18): Streetwear drop is now the Lifestyle label template (same slug). */
   /* Changed on purpose (templates round 18): Creator Landing sits right after Landing page. */
-  check("then Creator Landing, right after Landing page", listings[7]?.slug === "creator-landing" && listings[7]?.name === "Creator Landing")
-  check("then the four narrower ones: Lifestyle label, Tour merch, Sample packs and Notion templates", listings.slice(8).map((l) => l.name).join("|") === "Lifestyle label|Tour merch|Sample packs|Notion templates")
+  check("then Creator Landing, right after Landing page", listings[8]?.slug === "creator-landing" && listings[8]?.name === "Creator Landing") /* Changed on purpose (templates round 19): one place later, after Art books. */
+  check("then the four narrower ones: Lifestyle label, Tour merch, Sample packs and Notion templates", listings.slice(9, 13).map((l) => l.name).join("|") === "Lifestyle label|Tour merch|Sample packs|Notion templates") /* Changed on purpose (templates round 19): one place later, after Art books; round 19 templates follow them. */
   check("no two share an address or an overlay folder", new Set(listings.map((l) => l.slug)).size === listings.length && new Set(CODE_TEMPLATES.map((t) => t.template)).size === CODE_TEMPLATES.length)
   check("the native Storelib Default is not offered: no listing names a registry theme", listings.every((l) => l.builtinThemeId === null) && !mergeListings([]).some((l) => l.builtinThemeId === STORELIB_DEFAULT_ID))
   check("each is free, by Storelib, and adds a package the code ships", listings.every((l) => l.tier === "free" && l.author === "Storelib" && l.hasPackage && l.packageKind === null && isCodePackageId(l.codePackage)))
   check("each is filed under a category the filter has", listings.every((l) => THEME_CATEGORIES.some((c) => c.key === l.category)), listings.map((l) => l.category))
   /* Two clothing stores and two merch stores now: a category may hold two templates, never three, and the filter has more than a handful of rows. */
   const perCategory = listings.reduce<Record<string, number>>((n, l) => ({ ...n, [l.category]: (n[l.category] ?? 0) + 1 }), {})
-  check("  no category holds more than two, and both kinds of product are covered", Object.values(perCategory).every((n) => n <= 2) && Object.keys(perCategory).length >= 9 && ["fashion", "creators", "music", "design", "digital"].every((c) => perCategory[c]), perCategory) /* Changed on purpose (templates round 18): no "beauty" since Skincare was removed. */
+  /* Changed on purpose (templates round 19): Night shop is a third fashion store, so a category may hold three. */
+  check("  no category holds more than three, and both kinds of product are covered", Object.values(perCategory).every((n) => n <= 3) && Object.keys(perCategory).length >= 9 && ["fashion", "creators", "music", "design", "digital"].every((c) => perCategory[c]), perCategory) /* Changed on purpose (templates round 18): no "beauty" since Skincare was removed. */
   check("each has its cover and its phone screenshot in public/themes", listings.every((l) => !!l.cover && existsSync(join("public", l.cover)) && l.screenshots.length === 2 && l.screenshots.every((s) => existsSync(join("public", s)))), listings.filter((l) => !l.cover || !existsSync(join("public", l.cover))).map((l) => l.cover))
   check("no listing name says where the theme came from", listings.every((l) => !/shopify|materia/i.test(`${l.name} ${l.author} ${l.slug}`)))
   check("a website remembers the listing it was added from, in its settings", [...installedListingSlugs([{ settings: { compat: { kind: "shopify", listing: "clothing" } } }, { settings: { marketplace_listing: "merch" } }, { settings: { compat: { listing: "Not A Slug" } } }, { settings: null }])].join() === "clothing,merch" && compatOf({ compat: { kind: "shopify", version: 1, theme: "x", listing: "fitness" } })?.listing === "fitness")
@@ -174,7 +177,7 @@ async function main() {
     const own = walk(overlay)
     const composed = composeTemplateFiles(id)
     check("composes: the base with its overlay over it", composed.size >= baseFiles.length && composed.has("templates/index.json") && composed.has("layout/theme.liquid") && !composed.has("menus.json"))
-    check("  its overlay is small: pages, groups, settings and pictures only", own.every((f) => /^(templates\/[\w.-]+\.json|sections\/(header|footer|overlay)-group\.json|config\/settings_data\.json|assets\/[\w-]+\.webp|menus\.json)$/.test(f)) && own.reduce((n, f) => n + statSync(join(overlay, f)).size, 0) < 1.5 * 1024 * 1024, own.filter((f) => !/^(templates|sections|config|assets)\/|^menus\.json$/.test(f)))
+    check("  its overlay is small: pages, groups, settings and pictures only", own.every((f) => /^(templates\/[\w.-]+\.json|sections\/(header|footer|overlay)-group\.json|config\/settings_data\.json|assets\/[\w-]+\.webp|menus\.json)$/.test(f) || (t.template === "samples" && /^assets\/samples-demo-[\w-]+\.mp4$/.test(f))) /* Changed on purpose (templates round 19): Sample packs carries six short synthesised demo loops for its audio players, as audio-only .mp4 (the converter keeps mp4, not mp3). */ && own.reduce((n, f) => n + statSync(join(overlay, f)).size, 0) < 1.5 * 1024 * 1024, own.filter((f) => !/^(templates|sections|config|assets)\/|^menus\.json$/.test(f)))
     const zipBytes = await composeTemplateZip(id)
     const zip = await JSZip.loadAsync(zipBytes)
     const rules = checkThemeZipEntries(Object.values(zip.files).map((f) => ({ name: f.name, dir: f.dir, unixPermissions: typeof f.unixPermissions === "number" ? f.unixPermissions : null })))
@@ -209,7 +212,7 @@ async function main() {
     check("  uses only sections the theme has", [...used].every((s) => sectionTypes.has(s)), [...used].filter((s) => !sectionTypes.has(s)))
     const assets = own.filter((f) => f.startsWith("assets/")).map((f) => f.slice(7))
     check("  names only pictures it carries, and carries none it does not use", [...pictures].every((p) => assets.includes(p)) && assets.every((a) => pictures.has(a)), { missing: [...pictures].filter((p) => !assets.includes(p)), unused: assets.filter((a) => !pictures.has(a)) })
-    check("  every picture is credited: a photograph with its source and licence, or a drawing made for the template", assets.every((a) => new RegExp(`\\| ${t.template} \\| assets/${a} \\| (https://images\\.unsplash\\.com/photo-[\\w-]+ \\| Unsplash License|Drawn for this template \\| Storelib) \\|`).test(credits)), assets.filter((a) => !credits.includes(`assets/${a}`)))
+    check("  every picture is credited: a photograph with its source and licence, or a drawing made for the template", assets.every((a) => new RegExp(`\\| ${t.template} \\| assets/${a} \\| (https://images\\.unsplash\\.com/photo-[\\w-]+ \\| Unsplash License|Drawn for this template \\| Storelib${t.template === "samples" ? "|Loudlib's own pack box[^|]* \\| Loudlib \\(the owner\\)|Synthesised for this template[^|]* \\| Storelib" : ""}) \\|`).test(credits)) /* Changed on purpose (templates round 19): Sample packs uses Loudlib's own pack art, the owner's store, and demo loops synthesised for it. */, assets.filter((a) => !credits.includes(`assets/${a}`)))
     const all = copy.join("\n")
     check("  none of the theme's old starter content", !OLD_STARTER.test(all) && !OLD_STARTER.test(read(join(overlay, "config/settings_data.json"))))
     check("  its copy never says Shopify, has no placeholder Latin and no dash standing in for a comma", !vendorIn(all) && !/lorem ipsum/i.test(all) && !/[—–]/.test(all), all.match(/.{0,30}(shopify|lorem ipsum|[—–]).{0,30}/i)?.[0])
@@ -244,7 +247,9 @@ async function main() {
     const linked = siteOf(id, imported, true)
     const dead: string[] = []
     for (const path of links) {
-      const out = await answer(linked, { method: "GET", path, query: new URLSearchParams(), body: null, cart: [] })
+      /* Changed on purpose (templates round 19): a menu link with a search in it (/search?q=prints) is asked as the address and its query, as a browser asks it. */
+      const [bare, search = ""] = path.split("?")
+      const out = await answer(linked, { method: "GET", path: bare, query: new URLSearchParams(search), body: null, cart: [] })
       if (out.status !== 200) dead.push(`${path} ${out.status}`)
     }
     check(`  every link it carries opens a page (${links.size})`, links.size >= 4 && dead.length === 0, dead)

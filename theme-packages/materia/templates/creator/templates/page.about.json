@@ -1,52 +1,32 @@
 {
   "sections": {
     "intro": {
-      "type": "Image-and-video-text",
+      "type": "creator-story",
       "settings": {
         "color_scheme": "default",
-        "image": "shopify://shop_images/creator-portrait.webp",
-        "image_alt": "Robin laughing against a white wall",
-        "image_position": "left",
-        "image_radius": 16,
-        "aspect_w": 4,
-        "aspect_h": 5,
-        "padding_top_desktop": 72,
-        "padding_bottom_desktop": 88
+        "panel_color": "#f4f1ec",
+        "heading_plain": "The long",
+        "heading_serif": "version",
+        "heading_tag": "h1",
+        "underline_color": "#5ec3ea",
+        "text": "<p>Write your story here in your own words: where you started, what you make now and who it is for.</p><p>I teach drawing to grown ups who stopped at school. I write the Sunday Sketch letter, run The Drawing Table and make short videos about pens, paper and patience. I live with a cat who sits on whatever page I am working on.</p>",
+        "link_label": "Get Sunday Sketch",
+        "link": "/pages/newsletter",
+        "image_1": "shopify://shop_images/creator-sketchbook-pages.webp",
+        "image_1_alt": "An open sketchbook with a painted gate and trees",
+        "image_2": "shopify://shop_images/creator-lesson-owl.webp",
+        "image_2_alt": "A sketch of an owl with colour notes",
+        "image_3": "shopify://shop_images/creator-botanical.webp",
+        "image_3_alt": "Botanical studies in a spiral sketchbook with pencils",
+        "thread_color": "#f6a27c",
+        "button_color": "#5ec3ea",
+        "button_text_color": "#1c1b2b",
+        "padding_top": 12,
+        "padding_bottom": 40,
+        "padding_top_mobile": 8
       },
-      "blocks": {
-        "eyebrow_1": {
-          "type": "eyebrow",
-          "settings": {
-            "text": "About"
-          }
-        },
-        "heading_2": {
-          "type": "heading",
-          "settings": {
-            "text": "I'm Robin. I draw before breakfast.",
-            "tag": "h1"
-          }
-        },
-        "subheading_3": {
-          "type": "subheading",
-          "settings": {
-            "text": "<p>Write your story here in your own words: where you started, what you make now and who it is for.</p><p>I teach drawing to adults who stopped at school. I write the Sunday Sketch letter, run The Drawing Table and make short videos about pens, paper and patience.</p>"
-          }
-        },
-        "button_4": {
-          "type": "button",
-          "settings": {
-            "label": "Get Sunday Sketch",
-            "link": "/pages/newsletter"
-          }
-        }
-      },
-      "block_order": [
-        "eyebrow_1",
-        "heading_2",
-        "subheading_3",
-        "button_4"
-      ]
+      "blocks": {},
+      "block_order": []
     },
     "timeline": {
       "type": "feature-timeline",

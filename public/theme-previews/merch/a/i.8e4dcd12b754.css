@@ -1,0 +1,57 @@
+
+      html, body { overflow-x: clip; }
+      body { max-width: 100%; }
+      img, svg, video, iframe, canvas, table, pre,
+      lite-youtube, model-viewer, .shopify-installments {
+        max-width: 100%;
+      }
+      /* The page keeps its scrollbar space while a drawer, search or popup
+         locks scrolling, so nothing shifts and the fixed header is not cut.
+         The old compensation (body padding, header margin) is switched off. */
+      html { scrollbar-gutter: stable; --mat-sbw: 0px !important; }
+      body { padding-right: 0 !important; }
+      /* Buttons press and release smoothly; a loading button keeps its size and
+         swaps its label for the spinner with a fade instead of snapping. */
+      /* Every theme button eases its colours with Theme settings > Buttons
+         (hover transition time and feel), in and out, from the resting state.
+         The label and icons inside are painted directly by the button text
+         rules above, so they get the same transition or they would snap while
+         the fill fades. Only paint and transform move. */
+      body :where(.btn, .btn-primary, .btn-outline, .btn-white, .btn-secondary, [data-sl-button], .btn-link, .btn-checkout, .shopify-payment-button__button--unbranded, .shopify-payment-button__more-options, .shopify-challenge__button, .dmp_discount-form button) {
+        transition-property: background-color, color, border-color, box-shadow, opacity, transform, filter, text-decoration-color, visibility;
+        transition-duration: var(--btn-anim-duration, 300ms);
+        transition-timing-function: var(--btn-anim-ease, cubic-bezier(0.2, 0.7, 0.2, 1));
+      }
+      body :is(.btn-primary, .btn-outline, .btn-white, .btn-secondary, .btn-checkout, .shopify-payment-button__button--unbranded, .shopify-payment-button__more-options, .shopify-challenge__button, .dmp_discount-form button) :where(*) {
+        transition-property: color, opacity, transform;
+        transition-duration: var(--btn-anim-duration, 300ms);
+        transition-timing-function: var(--btn-anim-ease, cubic-bezier(0.2, 0.7, 0.2, 1));
+      }
+      /* The card's add to cart button had its own fixed .3s and a label that
+         snapped; it follows the same setting. */
+      html body .product-item :is(button[name="add"], .product__add-cart, .product-item__button-submit) {
+        transition-property: background-color, color, border-color, box-shadow, opacity, transform !important;
+        transition-duration: var(--btn-anim-duration, 300ms) !important;
+        transition-timing-function: var(--btn-anim-ease, cubic-bezier(0.2, 0.7, 0.2, 1)) !important;
+      }
+      html body .product-item :is(button[name="add"], .product__add-cart, .product-item__button-submit) * {
+        transition: color var(--btn-anim-duration, 300ms) var(--btn-anim-ease, cubic-bezier(0.2, 0.7, 0.2, 1));
+      }
+      body :where(.btn, .btn-primary, .btn-outline, .btn-white, .btn-secondary, [data-sl-button]).loading { transform: none; }
+      body :where(.btn, .btn-primary, .btn-outline, .btn-white, .btn-secondary, [data-sl-button]) :is(.hidden-on-load, .icon-load) { transition: opacity .2s ease; }
+      /* Cart reservation timer (drawer and cart page): the label wraps, the
+         time stays on its line, digits keep one width so it never jumps. */
+      countdown-timer[data-minutes-left] { display: flex; flex-wrap: nowrap !important; align-items: baseline; gap: 8px; }
+      countdown-timer[data-minutes-left] > :first-child { flex: 1 1 auto; min-width: 0; margin: 0 !important; }
+      countdown-timer[data-minutes-left] .countdown-inner { flex: 0 0 auto; display: inline-flex; gap: .45em; white-space: nowrap; font-variant-numeric: tabular-nums; }
+      countdown-timer[data-minutes-left] .countdown--container { display: inline-flex; align-items: baseline; margin: 0 !important; padding: 0 !important; }
+      countdown-timer[data-minutes-left] .countdown--container::after { content: none !important; }
+      countdown-timer[data-minutes-left] .countdown--container > :first-child { display: inline-block; min-width: 2ch; text-align: end; font-kerning: none; }
+      @media (prefers-reduced-motion: reduce) {
+        body :where(.btn, .btn-primary, .btn-outline, .btn-white, .btn-secondary, [data-sl-button], .btn-link, .btn-checkout) { transition: none; }
+        body :is(.btn-primary, .btn-outline, .btn-white, .btn-secondary, .btn-checkout) :where(*),
+        html body .product-item :is(button[name="add"], .product__add-cart, .product-item__button-submit),
+        html body .product-item :is(button[name="add"], .product__add-cart, .product-item__button-submit) * { transition: none !important; }
+        body :where(.btn, .btn-primary, .btn-outline, .btn-white, .btn-secondary, [data-sl-button]):active { transform: none; }
+      }
+    

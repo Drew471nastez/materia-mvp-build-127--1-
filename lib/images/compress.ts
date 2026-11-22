@@ -200,8 +200,10 @@ export async function compressImage(file: File, profile: CompressProfile): Promi
     // name. The original goes instead, without its metadata.
     if (blob.size >= file.size) return (await withoutMetadata(file)) as File
 
-    return new File([blob], withExtension(file.name, "webp"), {
-      type: "image/webp",
+    /* A browser with no WebP encoder answers PNG: named and typed as what it is (both keep transparency). */
+    const type = blob.type === "image/png" ? "image/png" : "image/webp"
+    return new File([blob], withExtension(file.name, type === "image/png" ? "png" : "webp"), {
+      type,
       lastModified: Date.now(),
     })
   } catch {

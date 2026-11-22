@@ -1,0 +1,91 @@
+{
+  "type": "footer",
+  "name": "t:sections.footer.name",
+  "sections": {
+    "footer": {
+      "type": "footer",
+      "settings": {
+        "custom_text": "",
+        "padding_top": 72,
+        "show_social": true,
+        "color_scheme": "default",
+        "custom_image": "",
+        "reset_spacing": true,
+        "section_width": "container",
+        "copyright_text": "\u00a9 {{ 'now' | date: '%Y' }} {{ shop.name }}",
+        "heading_weight": "500",
+        "padding_bottom": 28,
+        "separator_line": "all-page",
+        "arrow_icon_size": 14,
+        "link_hover_color": "",
+        "heading_transform": "none",
+        "custom_text_italic": false,
+        "custom_elements_gap": 22,
+        "enable_custom_image": false,
+        "enable_custom_style": false,
+        "footer_heading_size": 15,
+        "enable_custom_text_big": false,
+        "enable_country_selector": false,
+        "custom_image_size_mobile": 168,
+        "enable_language_selector": false,
+        "custom_image_size_desktop": 144,
+        "custom_text_font_size_mobile": 94,
+        "custom_text_font_size_desktop": 264,
+        "show_policy_links": true
+      },
+      "blocks": {
+        "link_list_1": {
+          "type": "link_list",
+          "settings": {
+            "menu": "subjects",
+            "heading": "Books",
+            "content_width": "18%"
+          }
+        },
+        "link_list_2": {
+          "type": "link_list",
+          "settings": {
+            "menu": "footer",
+            "heading": "Info",
+            "content_width": "18%"
+          }
+        },
+        "store_info_1": {
+          "type": "store_info",
+          "settings": {
+            "show_logo": false,
+            "image_width": 110,
+            "store_email": true,
+            "store_phone": false,
+            "store_address": false,
+            "content_width": "30%",
+            "store_heading": "Buying a book",
+            "store_description": "<p>Every book is a PDF. Pay once and the download link arrives by email straight away, with no account to make.</p>"
+          }
+        },
+        "newsletter_1": {
+          "type": "newsletter",
+          "settings": {
+            "heading": "New books by email",
+            "description": "<p>One short email when a new book is out.</p>",
+            "email_placeholder": "Email address",
+            "button_label": "Sign up",
+            "note": "",
+            "success_text": "Thanks, you are on the list.",
+            "error_text": "Please check the email address.",
+            "content_width": "34%"
+          }
+        }
+      },
+      "block_order": [
+        "link_list_1",
+        "link_list_2",
+        "store_info_1",
+        "newsletter_1"
+      ]
+    }
+  },
+  "order": [
+    "footer"
+  ]
+}

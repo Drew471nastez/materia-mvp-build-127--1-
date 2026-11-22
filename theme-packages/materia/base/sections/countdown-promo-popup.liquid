@@ -1098,6 +1098,104 @@
       ]
     }
   ],
-  "presets": []
+  "presets": [
+    {
+      "name": "Countdown Promo Popup",
+      "settings": {
+        "cd_gap": 8,
+        "card_bg": "#1d1d1f",
+        "delay_s": 12,
+        "hide_days": 6,
+        "open_mode": "delay",
+        "cd_cell_bg": "#2a2a2c",
+        "image_side": "image-left",
+        "text_color": "#ffffff",
+        "close_color": "#ffffff",
+        "editor_mode": false,
+        "popup_width": 900,
+        "popup_radius": 12,
+        "after_dismiss": "after_days",
+        "cd_cell_color": "#ffffff",
+        "gap_after_cta": 16,
+        "mobile_gutter": 32,
+        "overlay_color": "#000000",
+        "cd_cell_radius": 4,
+        "cd_status_color": "#cccccc",
+        "overlay_opacity": 60,
+        "gap_after_coupon": 24,
+        "gap_after_eyebrow": 18,
+        "gap_after_headline": 22,
+        "enable_custom_style": true,
+        "gap_after_countdown": 24,
+        "mobile_image_position": "above"
+      },
+      "blocks": [
+        {
+          "type": "eyebrow",
+          "settings": {
+            "size": 13,
+            "text": "OFFER ENDS SOON",
+            "color": "#ffffff",
+            "enable_custom_style": true
+          }
+        },
+        {
+          "type": "headline",
+          "settings": {
+            "size": 32,
+            "text": "LAST CHANCE AT THIS PRICE",
+            "color": "#ffffff",
+            "enable_custom_style": true
+          }
+        },
+        {
+          "type": "coupon",
+          "settings": {
+            "code": "DISC100",
+            "color": "#ffffff",
+            "enable_custom_style": true
+          }
+        },
+        {
+          "type": "countdown",
+          "settings": {
+            "labels": "DAYS|HOURS|MIN|SEC",
+            "end_datetime": "2026-12-31T23:59:59",
+            "completed_text": "Completed"
+          }
+        },
+        {
+          "type": "cta",
+          "settings": {
+            "bg": "#f2f2f2",
+            "link": "",
+            "size": 13,
+            "label": "SHOP NOW",
+            "radius": 4,
+            "bg_hover": "#cecece",
+            "padding_x": 36,
+            "padding_y": 12,
+            "text_color": "#0d0d0d",
+            "text_hover": "#000000",
+            "enable_custom_style": true
+          }
+        },
+        {
+          "type": "disclaimer",
+          "settings": {
+            "text": "Final discount, cannot be combined with other offers.",
+            "color": "#cccccc",
+            "enable_custom_style": true
+          }
+        },
+        {
+          "type": "image",
+          "settings": {
+            "alt": "Promotion"
+          }
+        }
+      ]
+    }
+  ]
 }
 {% endschema %}

@@ -104,6 +104,8 @@ export const RESERVED_ROOT_SEGMENTS: readonly string[] = [
   "terms",
   /* The theme marketplace (storelib.com/themes) and its live preview frame (/theme-preview/<slug>). */
   "theme-preview",
+  /* The templates' prerendered websites, framed by the marketplace's Preview (public/theme-previews). */
+  "theme-previews",
   "themes",
   "u",
   "unsubscribe",

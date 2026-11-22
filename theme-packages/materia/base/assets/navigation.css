@@ -200,7 +200,9 @@
     border-radius: 50%;
     font-size: 1rem;
     font-weight: 600;
-    background: var(--count-bubble-wishlist-bg, var(--color-primary, #353535));
+    --cb-fill: var(--count-bubble-wishlist-bg, var(--color-primary, #353535));
+    --cb-text: var(--count-bubble-wishlist-color);
+    background: var(--cb-fill);
     color: var(--count-bubble-wishlist-color, #fff);
     line-height: 1;
     box-sizing: border-box;

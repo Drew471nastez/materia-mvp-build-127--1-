@@ -167,6 +167,22 @@ html body .wishlist-count-header {
   border: var(--count-bubble-border-width, 0px) solid var(--count-bubble-border-color, var(--color-background, #fff));
   translate: var(--count-bubble-offset-x, 0px) var(--count-bubble-offset-y, 0px);
 }
+/* THE NUMBER IS WORKED OUT FROM THE BUBBLE. Each place that paints a bubble
+   names its fill as --cb-fill (critical.css, mobile-navigation-bar.css,
+   cart-drawer-scheme.css, navigation.css), and a colour picked for the
+   number as --cb-text. With no pick, the number is white on a dark fill and
+   near black on a light one, so a scheme whose primary colour is its
+   background colour (white on white, black on black) still reads. */
+/* In srgb-linear r, g and b are linear light, so their weighted sum is the
+   fill's luminance: under 0.179 (where white and black read alike, 4.58 to
+   1) the number is white, at or over it black, every channel the same. */
+@supports (color: color(from red srgb-linear r g b)) {
+  html body .h-count:not(.header-action-text .h-count),
+  html body .wishlist-count-header {
+    --cb-auto: clamp(0, (0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)) * 100000, 1);
+    color: var(--cb-text, color(from var(--cb-fill, var(--color-primary, #111)) srgb-linear var(--cb-auto) var(--cb-auto) var(--cb-auto))) !important;
+  }
+}
 html body .h-count.is-count-bump:not(.header-action-text .h-count) {
   animation: var(--count-bubble-animation, mt-count-pop) 0.45s cubic-bezier(0.3, 0.7, 0.4, 1.3);
 }

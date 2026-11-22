@@ -3158,5 +3158,11 @@ export const config = {
     the CDN from holding it. vercel.json lets the CDN hold the rewrite's
     answer as Supabase says (x-vercel-enable-rewrite-caching).
   */
-  matcher: ["/((?!_next/static|_next/image|media/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
+  /*
+    /theme-previews/ IS LEFT OUT (the live template preview): the templates'
+    prerendered websites are static files with their own headers
+    (next.config.mjs), opened page by page in the marketplace's frame. A
+    middleware run per file would be a function call per stylesheet.
+  */
+  matcher: ["/((?!_next/static|_next/image|media/|theme-previews/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
 }

@@ -6,15 +6,15 @@
         "color_scheme": "default",
         "section_width": "container",
         "image": "shopify://shop_images/samples-free.webp",
-        "image_alt": "The Free 40 sampler pack",
+        "image_alt": "Free Ambience Sample Pack Vol I",
         "image_position": "left",
         "image_ratio": "square",
         "image_width": 46,
         "column_gap": 64,
         "form_layout": "horizontal",
         "email_placeholder": "Your email address",
-        "btn_text": "Send me the sounds",
-        "button_radius": 6,
+        "btn_text": "Send me the pack",
+        "button_radius": 8,
         "note": "One email when a new pack is out. Unsubscribe from any email.",
         "success_text": "Check your inbox. The download link is on its way.",
         "padding_top": 72,
@@ -26,7 +26,7 @@
         "heading": {
           "type": "heading",
           "settings": {
-            "text": "40 free sounds, one from every pack",
+            "text": "Free Ambience Sample Pack Vol I",
             "size_enable": true,
             "size_desktop": 44,
             "size_mobile": 30
@@ -35,7 +35,7 @@
         "subheading": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Hear the quality before you buy. Leave your email and the download link arrives in a minute: kicks, loops and MIDI at full 24 bit.</p>"
+            "text": "<p>Pads, drones and textures, free and royalty free. Leave your email and the download link arrives in a minute.</p>"
           }
         }
       },
@@ -44,107 +44,14 @@
         "subheading"
       ]
     },
-    "inside": {
-      "type": "image-with-text-steps",
-      "settings": {
-        "color_scheme": "scheme-tr-panel",
-        "section_width": "container",
-        "image_position": "left",
-        "image_width_pct": 46,
-        "gap_desktop": 72,
-        "image": "shopify://shop_images/samples-inside.webp",
-        "image_alt": "The folders of Night Bus Garage: drums, bass, loops and MIDI, with file counts",
-        "image_aspect_desktop": "4 / 5",
-        "image_aspect": "4 / 5",
-        "image_radius": 10,
-        "step_style": "numbered",
-        "marker_size": 30,
-        "marker_font_size": 13,
-        "step_title_size": 19,
-        "step_desc_size": 15,
-        "padding_top": 80,
-        "padding_bottom": 80,
-        "gap_mobile": 32
-      },
-      "blocks": {
-        "eyebrow_1": {
-          "type": "eyebrow",
-          "settings": {
-            "text": "Every pack, the same layout",
-            "size": 13
-          }
-        },
-        "heading_1": {
-          "type": "heading",
-          "settings": {
-            "text": "Laid out like the full packs",
-            "tag": "h2",
-            "size_desktop": 44,
-            "size_mobile": 30
-          }
-        },
-        "subheading_1": {
-          "type": "subheading",
-          "settings": {
-            "text": "<p>Open any Tape Room pack and you already know where the kicks are.</p>",
-            "size": 16
-          }
-        },
-        "step_1": {
-          "type": "step",
-          "settings": {
-            "title": "Drums, sorted by part",
-            "description": "<p>Kicks, snares, claps, hats and percussion each get a folder, tuned and trimmed to the transient.</p>"
-          }
-        },
-        "step_2": {
-          "type": "step",
-          "settings": {
-            "title": "Key and BPM in every loop name",
-            "description": "<p>Your DAW can sort and sync them before you hear a note, like TR_NBG_Organ_132_Fmin.wav.</p>"
-          }
-        },
-        "step_3": {
-          "type": "step",
-          "settings": {
-            "title": "MIDI for every melodic loop",
-            "description": "<p>Keep the idea and swap the sound. Each MIDI file sits next to the loop it plays.</p>"
-          }
-        },
-        "step_4": {
-          "type": "step",
-          "settings": {
-            "title": "The file list on the pack page",
-            "description": "<p>Folder counts and the size in GB are listed before you pay, so nothing is a surprise.</p>"
-          }
-        },
-        "button_1": {
-          "type": "button",
-          "settings": {
-            "label": "See all packs",
-            "url": "/collections/all"
-          }
-        }
-      },
-      "block_order": [
-        "eyebrow_1",
-        "heading_1",
-        "subheading_1",
-        "step_1",
-        "step_2",
-        "step_3",
-        "step_4",
-        "button_1"
-      ]
-    },
     "packs": {
       "type": "products-grid",
       "settings": {
-        "heading": "The packs they come from",
+        "heading": "Packs on sale",
         "text": "",
-        "items_to_show": 8,
+        "items_to_show": 4,
         "show_add_to_cart": false,
-        "button_label": "See all packs",
+        "button_label": "Shop every pack",
         "button_link": "/collections/all",
         "items_per_row": 4,
         "items_per_row_mobile": 2,
@@ -155,11 +62,72 @@
         "padding_top": 72,
         "padding_bottom": 80
       }
+    },
+    "listen": {
+      "type": "samples-audio-tracks",
+      "settings": {
+        "layout": "list",
+        "eyebrow": "Listen first",
+        "heading": "Hear the free packs",
+        "text": "<p>The ambience pack is free. Hear the drum kit and the bundle before you buy.</p>",
+        "link_label": "",
+        "link_url": "",
+        "max_width": 1200,
+        "heading_size": 44,
+        "heading_size_mobile": 30,
+        "color_scheme": "scheme-tr-panel",
+        "section_width": "fluid_container",
+        "padding_top": 88,
+        "padding_bottom": 88
+      },
+      "blocks": {
+        "t_ambience_kit": {
+          "type": "track",
+          "settings": {
+            "title": "Free Ambience Sample Pack Vol I",
+            "subtitle": "Pad texture, D minor",
+            "audio": "shopify://shop_images/samples-demo-ambience-kit.mp4",
+            "length": "0:09",
+            "cover": "shopify://shop_images/samples-thumb-ambience-kit.webp",
+            "link_label": "Get the pack",
+            "link": "/search?q=ambience"
+          }
+        },
+        "t_drums_one_shots": {
+          "type": "track",
+          "settings": {
+            "title": "Tech House Drum Kit Vol I",
+            "subtitle": "One shots, then a beat, 125 BPM",
+            "audio": "shopify://shop_images/samples-demo-drums-one-shots.mp4",
+            "length": "0:08",
+            "cover": "shopify://shop_images/samples-thumb-drums-one-shots.webp",
+            "link_label": "Get the pack",
+            "link": "/search?q=drum+kit"
+          }
+        },
+        "t_tech_house_master_bundle": {
+          "type": "track",
+          "settings": {
+            "title": "Tech House Master Bundle",
+            "subtitle": "Groove loop, 126 BPM, F minor",
+            "audio": "shopify://shop_images/samples-demo-tech-house-master-bundle.mp4",
+            "length": "0:08",
+            "cover": "shopify://shop_images/samples-thumb-tech-house-master-bundle.webp",
+            "link_label": "Get the pack",
+            "link": "/search?q=master+bundle"
+          }
+        }
+      },
+      "block_order": [
+        "t_ambience_kit",
+        "t_drums_one_shots",
+        "t_tech_house_master_bundle"
+      ]
     }
   },
   "order": [
     "signup",
-    "inside",
+    "listen",
     "packs"
   ]
 }

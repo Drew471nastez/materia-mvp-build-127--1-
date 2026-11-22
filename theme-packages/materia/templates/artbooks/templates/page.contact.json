@@ -1,0 +1,53 @@
+{
+  "sections": {
+    "contactformsimple2_1": {
+      "type": "contactformsimple2",
+      "settings": {
+        "color_scheme": "default",
+        "btn_text": "Send",
+        "ph_website": "Order number (optional)",
+        "label_website": "Order number",
+        "success_text": "Thanks. We reply within two working days."
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Write to us"
+          }
+        },
+        "description_2": {
+          "type": "description",
+          "settings": {
+            "text": "<p>A download that will not open, a book you would like to see made, or a question about using the pictures.</p>"
+          }
+        },
+        "info_3": {
+          "type": "info",
+          "settings": {
+            "icon": "mail",
+            "line1": "hello@example.com",
+            "line2": "Replace with your shop's email."
+          }
+        },
+        "info_4": {
+          "type": "info",
+          "settings": {
+            "icon": "map",
+            "line1": "Replies",
+            "line2": "Within two working days"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_2",
+        "info_3",
+        "info_4"
+      ]
+    }
+  },
+  "order": [
+    "contactformsimple2_1"
+  ]
+}

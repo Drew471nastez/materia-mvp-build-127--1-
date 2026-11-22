@@ -1,0 +1,381 @@
+{%- comment -%}
+  Space: products floating on the dark page. No cards, no frames: each
+  picture sits on the sky with a soft glow around it, the name under it
+  (underlined on hover) and the price. A product that is sold out says so
+  in a small pill.
+
+  Product pictures should be uploaded with a transparent background (PNG or
+  WebP cut-outs): the glow then follows the garment's outline. A picture
+  with a white background shows as a white square.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign sid = section.id
+  assign collection_obj = s.collection
+  assign count = s.products_to_show | default: 8
+  assign cols = s.columns_desktop | default: 4
+  assign cols_m = s.columns_mobile | default: 2
+  assign glow = s.glow_strength | default: 0
+  assign glow_color = s.glow_color | default: '#ffffff'
+  assign text = s.text_color
+  assign text_soft = 'rgba(127,127,127,.5)'
+  if text == blank or text == 'rgba(0,0,0,0)'
+    assign text = 'var(--color-heading, currentColor)'
+  else
+    assign text_soft = text | color_modify: 'alpha', 0.5
+  endif
+  assign glow_alpha = s.glow_opacity | default: 55 | divided_by: 100.0
+  assign view_all = routes.all_products_collection_url | default: '/collections/all'
+  if collection_obj != blank and collection_obj.url != blank
+    assign view_all = collection_obj.url
+  endif
+-%}
+<style>
+  .space-grid-{{ sid }} {
+    --sg-text: {{ text }};
+    padding: {{ s.padding_top | default: 40 }}px 0 {{ s.padding_bottom | default: 40 }}px;
+    color: var(--sg-text);
+  }
+  .space-grid-{{ sid }} .space-grid__inner { max-width: {{ s.max_width | default: 1200 }}px; margin: 0 auto; padding: 0 24px; }
+  .space-grid-{{ sid }} .space-grid__heading { margin: 0 0 32px; font-size: 13px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--sg-text); text-align: {{ s.heading_alignment | default: 'center' }}; }
+  .space-grid-{{ sid }} .space-grid__list {
+    list-style: none; margin: 0; padding: 0;
+    display: grid; grid-template-columns: repeat({{ cols }}, minmax(0, 1fr));
+    column-gap: {{ s.column_gap | default: 28 }}px; row-gap: {{ s.row_gap | default: 64 }}px;
+  }
+  .space-grid-{{ sid }} .space-grid__item { position: relative; text-align: center; }
+  .space-grid-{{ sid }} .space-grid__link { display: block; color: inherit; text-decoration: none; }
+  .space-grid-{{ sid }} .space-grid__media {
+    position: relative; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center;
+    padding: {{ s.image_padding | default: 10 }}%;
+  }
+  .space-grid-{{ sid }} .space-grid__media img,
+  .space-grid-{{ sid }} .space-grid__media svg {
+    width: 100%; height: 100%; object-fit: contain; display: block;
+    {%- if glow > 0 %}
+    filter: drop-shadow(0 0 {{ glow | times: 0.35 | round }}px {{ glow_color | color_modify: 'alpha', glow_alpha }}) drop-shadow(0 0 {{ glow }}px {{ glow_color | color_modify: 'alpha', 0.22 }});
+    {%- endif %}
+    transition: transform .5s cubic-bezier(.2,.7,.2,1);
+  }
+  .space-grid-{{ sid }} .space-grid__media svg { fill: none; stroke: {{ text_soft }}; filter: none; }
+  .space-grid-{{ sid }} .space-grid__link:hover .space-grid__media img { transform: translateY(-4px) scale(1.02); }
+  .space-grid-{{ sid }} .space-grid__name {
+    display: inline-block; margin-top: 18px; font-size: {{ s.name_size | default: 13 }}px; font-weight: 700; line-height: 1.3;
+    text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 4px; text-decoration-thickness: 1px;
+    transition: text-decoration-color .2s;
+  }
+  .space-grid-{{ sid }} .space-grid__link:hover .space-grid__name,
+  .space-grid-{{ sid }} .space-grid__link:focus-visible .space-grid__name { text-decoration-color: currentColor; }
+  .space-grid-{{ sid }} .space-grid__price { margin-top: 6px; font-size: {{ s.price_size | default: 12 }}px; opacity: .85; font-variant-numeric: tabular-nums; }
+  .space-grid-{{ sid }} .space-grid__price s { opacity: .55; margin-right: 6px; }
+  .space-grid-{{ sid }} .space-grid__pill {
+    position: absolute; top: 0; left: 50%; transform: translateX(-50%); z-index: 1;
+    padding: 3px 10px; border-radius: 99px; font-size: 10px; font-weight: 600; letter-spacing: .02em; white-space: nowrap;
+    background: {{ s.pill_background | default: '#ffffff' }}; color: {{ s.pill_text | default: '#000000' }};
+  }
+  .space-grid-{{ sid }} .space-grid__item.is-sold-out .space-grid__media img { opacity: .55; }
+  .space-grid-{{ sid }} .space-grid__more { margin-top: 56px; text-align: center; }
+  .space-grid-{{ sid }} .space-grid__more a {
+    display: inline-block; padding: 10px 22px; border: 1px solid {{ text_soft }}; border-radius: 99px;
+    color: var(--sg-text); font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; text-decoration: none;
+    transition: background .2s, color .2s;
+  }
+  .space-grid-{{ sid }} .space-grid__more a:hover { opacity: .75; }
+  @media (max-width: 989px) {
+    .space-grid-{{ sid }} .space-grid__list { grid-template-columns: repeat({% if cols > 3 %}3{% else %}{{ cols }}{% endif %}, minmax(0, 1fr)); }
+  }
+  @media (max-width: 749px) {
+    .space-grid-{{ sid }} { padding: {{ s.padding_top | default: 40 | times: 0.6 | round }}px 0 {{ s.padding_bottom | default: 40 | times: 0.6 | round }}px; }
+    .space-grid-{{ sid }} .space-grid__inner { padding: 0 16px; }
+    .space-grid-{{ sid }} .space-grid__list { grid-template-columns: repeat({{ cols_m }}, minmax(0, 1fr)); column-gap: 14px; row-gap: 40px; }
+    .space-grid-{{ sid }} .space-grid__name { margin-top: 12px; font-size: 12px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .space-grid-{{ sid }} .space-grid__media img { transition: none; }
+    .space-grid-{{ sid }} .space-grid__link:hover .space-grid__media img { transform: none; }
+  }
+</style>
+<div class="space-grid space-grid-{{ sid }}">
+  <div class="space-grid__inner">
+    {%- if s.heading != blank -%}
+      <h2 class="space-grid__heading">{{ s.heading | escape }}</h2>
+    {%- endif -%}
+    <ul class="space-grid__list" role="list">
+      {%- if collection_obj != blank and collection_obj.products_count > 0 -%}
+        {%- for product in collection_obj.products limit: count -%}
+          {%- assign image = product.featured_media.preview_image | default: product.featured_image -%}
+          <li class="space-grid__item{% unless product.available %} is-sold-out{% endunless %}">
+            {%- unless product.available -%}
+              <span class="space-grid__pill">{{ s.sold_out_label | default: 'Sold out' | escape }}</span>
+            {%- endunless -%}
+            <a class="space-grid__link" href="{{ product.url }}">
+              <div class="space-grid__media">
+                {%- if image != blank -%}
+                  {{ image | image_url: width: 800 | image_tag: widths: '360, 540, 720, 900', sizes: '(min-width: 990px) 25vw, 50vw', alt: product.title, loading: 'lazy' }}
+                {%- else -%}
+                  {{ 'product-1' | placeholder_svg_tag }}
+                {%- endif -%}
+              </div>
+              <span class="space-grid__name">{{ product.title | escape }}</span>
+              {%- if s.show_price -%}
+                <div class="space-grid__price">
+                  {%- if product.compare_at_price > product.price -%}<s>{{ product.compare_at_price | money }}</s>{%- endif -%}
+                  {{ product.price | money }}
+                </div>
+              {%- endif -%}
+            </a>
+          </li>
+        {%- endfor -%}
+      {%- else -%}
+        {%- for i in (1..count) -%}
+          {%- assign ph = i | modulo: 6 | plus: 1 -%}
+          <li class="space-grid__item">
+            <div class="space-grid__link">
+              <div class="space-grid__media">{{ 'product-' | append: ph | placeholder_svg_tag }}</div>
+              <span class="space-grid__name">{{ s.empty_name | default: 'Your product' | escape }}</span>
+              {%- if s.show_price -%}<div class="space-grid__price">{{ 0 | money }}</div>{%- endif -%}
+            </div>
+          </li>
+        {%- endfor -%}
+      {%- endif -%}
+    </ul>
+    {%- if s.view_all_label != blank -%}
+      <div class="space-grid__more"><a href="{{ view_all }}">{{ s.view_all_label | escape }}</a></div>
+    {%- endif -%}
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Floating products",
+  "tag": "section",
+  "class": "space-product-grid-section",
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Upload product pictures with a transparent background (PNG or WebP cut-outs) so each one floats with a glow around its outline."
+    },
+    {
+      "type": "collection",
+      "id": "collection",
+      "label": "Collection",
+      "info": "Empty: every product."
+    },
+    {
+      "type": "range",
+      "id": "products_to_show",
+      "label": "Products to show",
+      "min": 1,
+      "max": 24,
+      "step": 1,
+      "default": 8
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": ""
+    },
+    {
+      "type": "select",
+      "id": "heading_alignment",
+      "label": "Heading alignment",
+      "default": "center",
+      "options": [
+        { "value": "left", "label": "Left" },
+        { "value": "center", "label": "Centre" }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "view_all_label",
+      "label": "Link to the collection",
+      "default": "",
+      "info": "Empty: no link."
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "range",
+      "id": "columns_desktop",
+      "label": "Columns on a computer",
+      "min": 2,
+      "max": 6,
+      "step": 1,
+      "default": 4
+    },
+    {
+      "type": "range",
+      "id": "columns_mobile",
+      "label": "Columns on a phone",
+      "min": 1,
+      "max": 3,
+      "step": 1,
+      "default": 2
+    },
+    {
+      "type": "range",
+      "id": "column_gap",
+      "label": "Space between columns",
+      "min": 0,
+      "max": 80,
+      "step": 2,
+      "unit": "px",
+      "default": 28
+    },
+    {
+      "type": "range",
+      "id": "row_gap",
+      "label": "Space between rows",
+      "min": 16,
+      "max": 140,
+      "step": 4,
+      "unit": "px",
+      "default": 64
+    },
+    {
+      "type": "range",
+      "id": "image_padding",
+      "label": "Space around each picture",
+      "min": 0,
+      "max": 25,
+      "step": 1,
+      "unit": "%",
+      "default": 10
+    },
+    {
+      "type": "range",
+      "id": "max_width",
+      "label": "Grid width",
+      "min": 800,
+      "max": 1600,
+      "step": 20,
+      "unit": "px",
+      "default": 1200
+    },
+    {
+      "type": "header",
+      "content": "Glow"
+    },
+    {
+      "type": "range",
+      "id": "glow_strength",
+      "label": "Glow strength",
+      "min": 0,
+      "max": 60,
+      "step": 2,
+      "unit": "px",
+      "default": 26
+    },
+    {
+      "type": "color",
+      "id": "glow_color",
+      "label": "Glow colour",
+      "default": "#ffffff"
+    },
+    {
+      "type": "range",
+      "id": "glow_opacity",
+      "label": "Glow brightness",
+      "min": 10,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "default": 55
+    },
+    {
+      "type": "header",
+      "content": "Text"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text colour",
+      "info": "Empty: the colour scheme's heading colour."
+    },
+    {
+      "type": "range",
+      "id": "name_size",
+      "label": "Name size",
+      "min": 11,
+      "max": 20,
+      "step": 1,
+      "unit": "px",
+      "default": 13
+    },
+    {
+      "type": "checkbox",
+      "id": "show_price",
+      "label": "Show prices",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "price_size",
+      "label": "Price size",
+      "min": 10,
+      "max": 18,
+      "step": 1,
+      "unit": "px",
+      "default": 12
+    },
+    {
+      "type": "text",
+      "id": "sold_out_label",
+      "label": "Sold out label",
+      "default": "Sold out"
+    },
+    {
+      "type": "color",
+      "id": "pill_background",
+      "label": "Sold out label background",
+      "default": "#ffffff"
+    },
+    {
+      "type": "color",
+      "id": "pill_text",
+      "label": "Sold out label text",
+      "default": "#000000"
+    },
+    {
+      "type": "text",
+      "id": "empty_name",
+      "label": "Name on an empty card",
+      "default": "Your product",
+      "info": "Shown while the store has no products yet."
+    },
+    {
+      "type": "header",
+      "content": "Spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Space above",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Space below",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 40
+    }
+  ],
+  "presets": [
+    {
+      "name": "Floating products",
+      "category": "Space"
+    }
+  ]
+}
+{% endschema %}

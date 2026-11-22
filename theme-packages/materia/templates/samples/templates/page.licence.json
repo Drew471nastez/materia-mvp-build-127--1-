@@ -30,7 +30,7 @@
             "header_size": "default",
             "heading_font_size": 52,
             "vertical_gap": 8,
-            "page_title": "The Tape Room licence"
+            "page_title": "The Loudlib licence"
           }
         },
         "description_1": {
@@ -302,7 +302,7 @@
           "settings": {
             "tab": "1",
             "question": "What format are the sounds?",
-            "answer": "<p>24 bit WAV at 44.1 kHz. Loops carry their key and BPM in the file name, and MIDI files sit next to the loops they play.</p>"
+            "answer": "<p>24 bit WAV at 44.1 kHz. Loops carry their key and BPM in the file name, and MIDI files sit next to the loops they play. Serum presets come as .fxp files.</p>"
           }
         },
         "faq_3": {
@@ -318,7 +318,7 @@
           "settings": {
             "tab": "2",
             "question": "Can I release songs made with these sounds?",
-            "answer": "<p>Yes, on every platform, and the royalties are all yours. You do not need to credit Tape Room.</p>"
+            "answer": "<p>Yes, on every platform, and the royalties are all yours. You do not need to credit Loudlib.</p>"
           }
         },
         "faq_5": {
@@ -350,7 +350,7 @@
           "settings": {
             "tab": "3",
             "question": "Do I need a plugin?",
-            "answer": "<p>No. Every sound is audio or MIDI, so nothing needs installing or activating.</p>"
+            "answer": "<p>Not for the sample packs: every sound is audio or MIDI. The Serum presets need Xfer Serum.</p>"
           }
         },
         "faq_9": {
@@ -358,7 +358,7 @@
           "settings": {
             "tab": "3",
             "question": "Can I hear a pack before I buy?",
-            "answer": "<p>Get the <a href=\"/pages/free\">free sampler</a>: 40 sounds, at least one from every pack, at full quality.</p>"
+            "answer": "<p>Yes. Every pack has a demo on its page, and the <a href=\"/pages/free\">free downloads</a> are full quality.</p>"
           }
         }
       },

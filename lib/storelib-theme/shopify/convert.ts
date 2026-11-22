@@ -49,6 +49,7 @@ import { parseCompat } from "../compat/parser"
 import { COMPAT_PREFIX, compatPageKey, type CompatSettings } from "../compat/install"
 import { SECTION_CSS_KEY, splitCompatFile, wrapCompatTemplate } from "../compat/theme"
 import { floatsOverPage } from "../section-groups"
+import { DEFAULT_STORELIB_SECTION_TYPES } from "../../../themes/default/section-types.generated"
 import { isReviewsAppBlock } from "../compat/storelib-reviews"
 import { isSizeChartAppBlock } from "../compat/size-chart"
 import { STORELIB_APP_SECTION_NAMES, isStorelibNativeSection } from "../compat/native-sections"
@@ -194,6 +195,17 @@ const SECTION_TYPE = /^[a-z][a-z0-9_-]{0,63}$/
 const BLOCK_REF = /^_?[a-z][a-z0-9_-]*$/
 /** Shopify names its header and footer sections `header` and `footer`; in Storelib those names are the built-in ones. */
 const RENAMED: Record<string, string> = { header: "theme-header", footer: "theme-footer" }
+/*
+  A THEME SECTION NAMED LIKE ONE OF STORELIB'S OWN (a theme's "testimonials",
+  "hero", "contact") is stored as theme-<name>. Under its own name the builder
+  took it for Storelib's section of that name: Add section never offered it
+  (lib/website-builder/storelib-schemas.ts, customSectionSchemas leaves out
+  every type Storelib ships), so a section the theme has was missing from the
+  library. The rename is kept with the install (compat.renamed), so an export
+  writes the theme's own name back.
+*/
+const STORELIB_TYPES: ReadonlySet<string> = new Set(DEFAULT_STORELIB_SECTION_TYPES)
+const storedName = (type: string): string => RENAMED[type] ?? (STORELIB_TYPES.has(type) ? `theme-${type}` : type)
 
 function declaredSize(file: JSZip.JSZipObject): number {
   const internal = (file as unknown as { _data?: { uncompressedSize?: number } })._data
@@ -338,11 +350,12 @@ async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<Conve
     const mode = folder === "sections" ? "section" : "block"
     let type = mode === "block" ? base : base.toLowerCase().replace(/[^a-z0-9_-]+/g, "_")
     if (mode === "section") {
-      if (RENAMED[type]) type = RENAMED[type]
+      const named = type
+      type = storedName(type)
       /* `_blocks`: a section's name starts with a letter in Storelib. */
       if (!/^[a-z]/.test(type)) type = `s${type.startsWith("_") || type.startsWith("-") ? "" : "-"}${type}`
       if (!SECTION_TYPE.test(type)) { report.skip(path, `"${base}" cannot be made into a section name`); continue }
-      if (RENAMED[base]) report.note(path, `Stored as sections/${type}.storelib: "${base}" is the name of Storelib's own ${base}`)
+      if (type !== named && type === storedName(named)) report.note(path, `Stored as sections/${type}.storelib: "${named}" is the name of Storelib's own ${RENAMED[named] ? named : "section"}`)
       else if (type !== base) report.note(path, `Stored as sections/${type}.storelib: a section's name starts with a letter and is lowercase letters, digits, - and _`)
       sectionTypes.set(base, type)
     } else if (!BLOCK_REF.test(type)) {
@@ -1224,7 +1237,7 @@ export function compatSchemaWords(files: Record<string, string>): SchemaWords {
 
 /** The name the theme gave a section Storelib stores under another one (theme-header is the theme's header). */
 function originalName(type: string): string {
-  return Object.keys(RENAMED).find((k) => RENAMED[k] === type) ?? type
+  return Object.keys(RENAMED).find((k) => RENAMED[k] === type) ?? (type.startsWith("theme-") && STORELIB_TYPES.has(type.slice(6)) ? type.slice(6) : type)
 }
 
 /** A section's or block's panel schema from the theme's own schema, and every note the import would write about it. The theme's schema is not changed. */

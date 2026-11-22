@@ -1,8 +1,8 @@
 [
  {
-  "type": "landing",
+  "type": "artbooks",
   "addable": false,
-  "schema": "sections/landing.storelib is not in the theme",
+  "schema": "sections/artbooks.storelib is not in the theme",
   "fields": 0,
   "blocks": 0,
   "status": 200,
@@ -15,7 +15,7 @@
   "footer": true,
   "bad": [
    "not drawn",
-   "schema sections/landing.storelib is not in the theme"
+   "schema sections/artbooks.storelib is not in the theme"
   ]
  }
 ]

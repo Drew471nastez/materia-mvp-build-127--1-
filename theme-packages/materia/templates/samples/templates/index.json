@@ -30,13 +30,13 @@
         "heading": {
           "type": "heading",
           "settings": {
-            "heading": "Night Bus Garage",
+            "heading": "Tech House Master Bundle 2025",
             "enable_custom_style": true,
-            "font_color": "#f2f0ea",
+            "font_color": "#f4f4f5",
             "enable_custom_font_weight": true,
             "font_weight": "700",
-            "font_size_desktop": 76,
-            "font_size_mobile": 46,
+            "font_size_desktop": 64,
+            "font_size_mobile": 40,
             "line_height_desktop": 1.0,
             "line_height_mobile": 1.02
           }
@@ -44,9 +44,9 @@
         "paragraph": {
           "type": "paragraph",
           "settings": {
-            "text": "The new UK garage pack: 214 sounds from late sessions on the night bus route. Shuffled hats, organ stabs, warm subs and full drum loops at 130 to 134 BPM. $29 in launch week, then $39.",
+            "text": "Every Loudlib tech house pack in one download: drum loops, one shots, basslines, vocal chops and MIDI. $19.98 this week, down from $49.96.",
             "enable_custom_style": true,
-            "font_color": "#a3a2ab",
+            "font_color": "#a1a1aa",
             "font_size_desktop": 18,
             "font_size_mobile": 16
           }
@@ -54,24 +54,24 @@
         "b1": {
           "type": "benefit",
           "settings": {
-            "benefit_text": "24 bit WAV, key and BPM in every file name",
+            "benefit_text": "24 bit WAV, key and BPM in every loop name",
             "icon_source": "preset",
             "icon_preset": "check",
             "enable_custom_style": true,
-            "icon_color": "#c8f542",
-            "font_color": "#f2f0ea",
+            "icon_color": "#a78bfa",
+            "font_color": "#f4f4f5",
             "font_size_desktop": 15
           }
         },
         "b2": {
           "type": "benefit",
           "settings": {
-            "benefit_text": "MIDI for every melodic loop",
+            "benefit_text": "MIDI for the melodic loops",
             "icon_source": "preset",
             "icon_preset": "check",
             "enable_custom_style": true,
-            "icon_color": "#c8f542",
-            "font_color": "#f2f0ea",
+            "icon_color": "#a78bfa",
+            "font_color": "#f4f4f5",
             "font_size_desktop": 15
           }
         },
@@ -82,20 +82,20 @@
             "icon_source": "preset",
             "icon_preset": "check",
             "enable_custom_style": true,
-            "icon_color": "#c8f542",
-            "font_color": "#f2f0ea",
+            "icon_color": "#a78bfa",
+            "font_color": "#f4f4f5",
             "font_size_desktop": 15
           }
         },
         "button": {
           "type": "button",
           "settings": {
-            "button_label": "Get the pack for $29",
-            "button_link": "/collections/all",
+            "button_label": "Get the bundle for $19.98",
+            "button_link": "/search?q=master+bundle",
             "use_theme_button": true,
             "padding_vertical": 15,
             "padding_horizontal": 28,
-            "border_radius": 6,
+            "border_radius": 8,
             "font_size_desktop": 15
           }
         },
@@ -120,7 +120,7 @@
     "genres": {
       "type": "category-banners-2",
       "settings": {
-        "color_scheme": "scheme-tr-panel",
+        "color_scheme": "default",
         "section_width": "fluid_container",
         "layout": "grid_3",
         "gap": 12,
@@ -131,8 +131,8 @@
         "sub_visibility": "always",
         "corner_style": "custom",
         "border_radius": 8,
-        "overlay_opacity": 50,
-        "overlay_opacity_hover": 20,
+        "overlay_opacity": 30,
+        "overlay_opacity_hover": 10,
         "title_style": "md",
         "heading_size_desktop": 28,
         "heading_size_mobile": 22,
@@ -149,7 +149,7 @@
         "heading": {
           "type": "heading",
           "settings": {
-            "heading": "Browse by genre",
+            "heading": "Shop by sound",
             "heading_size": "h2",
             "custom_style": true,
             "heading_font_size_desktop": 44,
@@ -160,338 +160,93 @@
         "subheading": {
           "type": "subheading",
           "settings": {
-            "subheading": "<p>Each genre opens the packs made for it, with the tempo range they were cut at.</p>"
+            "subheading": "<p>Drums, basslines, chords, presets and textures, sorted by what you are making.</p>"
           }
         },
-        "g_garage": {
+        "g_tech": {
           "type": "banner",
           "settings": {
-            "heading": "UK garage",
-            "subheading": "130 to 134 BPM",
-            "link": "/search?q=garage",
-            "image": "shopify://shop_images/samples-genre-garage.webp"
+            "heading": "Tech house",
+            "subheading": "125 to 128 BPM",
+            "link": "/search?q=tech+house",
+            "image": "shopify://shop_images/samples-genre-tech-house.webp"
           }
         },
-        "g_techno": {
+        "g_deep": {
           "type": "banner",
           "settings": {
-            "heading": "Techno",
-            "subheading": "126 to 132 BPM",
-            "link": "/search?q=techno",
-            "image": "shopify://shop_images/samples-genre-techno.webp"
+            "heading": "Deep house",
+            "subheading": "120 to 124 BPM",
+            "link": "/search?q=deep+house",
+            "image": "shopify://shop_images/samples-genre-deep-house.webp"
           }
         },
-        "g_trap": {
+        "g_amb": {
           "type": "banner",
           "settings": {
-            "heading": "Trap",
-            "subheading": "808s and kicks",
-            "link": "/search?q=trap",
-            "image": "shopify://shop_images/samples-genre-trap.webp"
+            "heading": "Ambience",
+            "subheading": "Pads and textures",
+            "link": "/search?q=ambience",
+            "image": "shopify://shop_images/samples-genre-ambience.webp"
           }
         },
-        "g_lo-fi": {
+        "g_drums": {
           "type": "banner",
           "settings": {
-            "heading": "Lo-fi",
-            "subheading": "70 to 90 BPM",
-            "link": "/search?q=lo-fi",
-            "image": "shopify://shop_images/samples-genre-lo-fi.webp"
+            "heading": "Drums",
+            "subheading": "One shots and loops",
+            "link": "/search?q=drum",
+            "image": "shopify://shop_images/samples-genre-drums.webp"
           }
         },
-        "g_drill": {
+        "g_presets": {
           "type": "banner",
           "settings": {
-            "heading": "Drill",
-            "subheading": "140 to 144 BPM",
-            "link": "/search?q=drill",
-            "image": "shopify://shop_images/samples-genre-drill.webp"
+            "heading": "Serum presets",
+            "subheading": "Basses, plucks, pads",
+            "link": "/search?q=serum",
+            "image": "shopify://shop_images/samples-genre-presets.webp"
           }
         },
-        "g_house": {
+        "g_free": {
           "type": "banner",
           "settings": {
-            "heading": "House",
-            "subheading": "122 to 125 BPM",
-            "link": "/search?q=house",
-            "image": "shopify://shop_images/samples-genre-house.webp"
+            "heading": "Free downloads",
+            "subheading": "Royalty free",
+            "link": "/pages/free",
+            "image": "shopify://shop_images/samples-genre-free.webp"
           }
         }
       },
       "block_order": [
         "heading",
         "subheading",
-        "g_garage",
-        "g_techno",
-        "g_trap",
-        "g_lo-fi",
-        "g_drill",
-        "g_house"
+        "g_tech",
+        "g_deep",
+        "g_amb",
+        "g_drums",
+        "g_presets",
+        "g_free"
       ]
     },
     "packs": {
       "type": "products-grid",
       "settings": {
-        "heading": "New and best selling",
-        "text": "<p>Every pack lists its folders, tempos and size on its page.</p>",
-        "items_to_show": 8,
+        "heading": "Bestselling",
+        "text": "",
+        "items_to_show": 6,
         "show_add_to_cart": false,
-        "button_label": "See all packs",
+        "button_label": "Shop every pack",
         "button_link": "/collections/all",
-        "items_per_row": 4,
+        "items_per_row": 3,
         "items_per_row_mobile": 2,
-        "column_gap": 20,
+        "column_gap": 24,
         "header_alignment": "left",
         "color_scheme": "default",
         "section_width": "fluid_container",
-        "padding_top": 80,
-        "padding_bottom": 72
+        "padding_top": 88,
+        "padding_bottom": 40
       }
-    },
-    "inside": {
-      "type": "image-with-text-steps",
-      "settings": {
-        "color_scheme": "scheme-tr-panel",
-        "section_width": "container",
-        "image_position": "left",
-        "image_width_pct": 46,
-        "gap_desktop": 72,
-        "image": "shopify://shop_images/samples-inside.webp",
-        "image_alt": "The folders of Night Bus Garage: drums, bass, loops and MIDI, with file counts",
-        "image_aspect_desktop": "4 / 5",
-        "image_aspect": "4 / 5",
-        "image_radius": 10,
-        "step_style": "numbered",
-        "marker_size": 30,
-        "marker_font_size": 13,
-        "step_title_size": 19,
-        "step_desc_size": 15,
-        "padding_top": 96,
-        "padding_bottom": 96,
-        "gap_mobile": 32
-      },
-      "blocks": {
-        "eyebrow_1": {
-          "type": "eyebrow",
-          "settings": {
-            "text": "Every pack, the same layout",
-            "size": 13
-          }
-        },
-        "heading_1": {
-          "type": "heading",
-          "settings": {
-            "text": "What is inside a pack",
-            "tag": "h2",
-            "size_desktop": 44,
-            "size_mobile": 30
-          }
-        },
-        "subheading_1": {
-          "type": "subheading",
-          "settings": {
-            "text": "<p>Open any Tape Room pack and you already know where the kicks are.</p>",
-            "size": 16
-          }
-        },
-        "step_1": {
-          "type": "step",
-          "settings": {
-            "title": "Drums, sorted by part",
-            "description": "<p>Kicks, snares, claps, hats and percussion each get a folder, tuned and trimmed to the transient.</p>"
-          }
-        },
-        "step_2": {
-          "type": "step",
-          "settings": {
-            "title": "Key and BPM in every loop name",
-            "description": "<p>Your DAW can sort and sync them before you hear a note, like TR_NBG_Organ_132_Fmin.wav.</p>"
-          }
-        },
-        "step_3": {
-          "type": "step",
-          "settings": {
-            "title": "MIDI for every melodic loop",
-            "description": "<p>Keep the idea and swap the sound. Each MIDI file sits next to the loop it plays.</p>"
-          }
-        },
-        "step_4": {
-          "type": "step",
-          "settings": {
-            "title": "The file list on the pack page",
-            "description": "<p>Folder counts and the size in GB are listed before you pay, so nothing is a surprise.</p>"
-          }
-        },
-        "button_1": {
-          "type": "button",
-          "settings": {
-            "label": "See all packs",
-            "url": "/collections/all"
-          }
-        }
-      },
-      "block_order": [
-        "eyebrow_1",
-        "heading_1",
-        "subheading_1",
-        "step_1",
-        "step_2",
-        "step_3",
-        "step_4",
-        "button_1"
-      ]
-    },
-    "bundle": {
-      "type": "image-with-text-icons",
-      "settings": {
-        "color_scheme": "scheme-tr-lime",
-        "section_width": "container",
-        "image_position": "left",
-        "content_align": "left",
-        "text_column_width": 50,
-        "gap_desktop": 56,
-        "features_columns_desktop": "4",
-        "features_columns_mobile": "4",
-        "features_gap_desktop": 16,
-        "features_gap": 10,
-        "features_margin_top": 12,
-        "icon_size": 64,
-        "icon_radius_style": "rounded",
-        "icon_glyph_size": 90,
-        "feature_label_size": 12,
-        "feature_label_weight": "600",
-        "padding_top_desktop": 96,
-        "padding_bottom_desktop": 96,
-        "padding_top_mobile": 56,
-        "padding_bottom_mobile": 60
-      },
-      "blocks": {
-        "image": {
-          "type": "image",
-          "settings": {
-            "image": "shopify://shop_images/samples-bundle.webp",
-            "aspect_w": 4,
-            "aspect_h": 3,
-            "fit": "cover",
-            "radius": 10
-          }
-        },
-        "eyebrow": {
-          "type": "eyebrow",
-          "settings": {
-            "text": "The full shelf  ·  save $72",
-            "size": 13
-          }
-        },
-        "heading": {
-          "type": "heading",
-          "settings": {
-            "text": "All eight packs for $119",
-            "size_desktop": 48,
-            "size_mobile": 32
-          }
-        },
-        "subheading": {
-          "type": "subheading",
-          "settings": {
-            "text": "<p>1,550 sounds in one download. Bought one by one they come to $191.</p>",
-            "size_desktop": 17,
-            "size_mobile": 16
-          }
-        },
-        "features_row": {
-          "type": "features_row",
-          "settings": {}
-        },
-        "f_night_bus_garage": {
-          "type": "feature",
-          "settings": {
-            "label": "Night Bus Garage",
-            "icon_type": "image",
-            "icon_image": "shopify://shop_images/samples-thumb-night-bus-garage.webp"
-          }
-        },
-        "f_factory_floor": {
-          "type": "feature",
-          "settings": {
-            "label": "Factory Floor",
-            "icon_type": "image",
-            "icon_image": "shopify://shop_images/samples-thumb-factory-floor.webp"
-          }
-        },
-        "f_low_end_kit": {
-          "type": "feature",
-          "settings": {
-            "label": "Low End Kit",
-            "icon_type": "image",
-            "icon_image": "shopify://shop_images/samples-thumb-low-end-kit.webp"
-          }
-        },
-        "f_dusty_keys": {
-          "type": "feature",
-          "settings": {
-            "label": "Dusty Keys",
-            "icon_type": "image",
-            "icon_image": "shopify://shop_images/samples-thumb-dusty-keys.webp"
-          }
-        },
-        "f_cold_concrete": {
-          "type": "feature",
-          "settings": {
-            "label": "Cold Concrete",
-            "icon_type": "image",
-            "icon_image": "shopify://shop_images/samples-thumb-cold-concrete.webp"
-          }
-        },
-        "f_sunday_club": {
-          "type": "feature",
-          "settings": {
-            "label": "Sunday Club",
-            "icon_type": "image",
-            "icon_image": "shopify://shop_images/samples-thumb-sunday-club.webp"
-          }
-        },
-        "f_tape_textures": {
-          "type": "feature",
-          "settings": {
-            "label": "Tape Textures",
-            "icon_type": "image",
-            "icon_image": "shopify://shop_images/samples-thumb-tape-textures.webp"
-          }
-        },
-        "f_soft_machines": {
-          "type": "feature",
-          "settings": {
-            "label": "Soft Machines",
-            "icon_type": "image",
-            "icon_image": "shopify://shop_images/samples-thumb-soft-machines.webp"
-          }
-        },
-        "button": {
-          "type": "button",
-          "settings": {
-            "label": "Get the bundle",
-            "link": "/collections/all",
-            "radius": 6
-          }
-        }
-      },
-      "block_order": [
-        "image",
-        "eyebrow",
-        "heading",
-        "subheading",
-        "features_row",
-        "f_night_bus_garage",
-        "f_factory_floor",
-        "f_low_end_kit",
-        "f_dusty_keys",
-        "f_cold_concrete",
-        "f_sunday_club",
-        "f_tape_textures",
-        "f_soft_machines",
-        "button"
-      ]
     },
     "licence": {
       "type": "comparison-cards",
@@ -508,15 +263,15 @@
         "card_padding_x_desktop": 32,
         "us_card_shadow": "0 0 0 rgba(0,0,0,0)",
         "enable_custom_style": true,
-        "section_bg": "#0d0d0f",
-        "us_card_bg": "#c8f542",
-        "us_card_text": "#121214",
-        "them_card_bg": "#16161a",
-        "them_card_text": "#f2f0ea",
-        "them_card_border": "#2a2a31",
-        "check_color": "#121214",
-        "cross_color": "#8e8d96",
-        "cross_color_them": "#8e8d96",
+        "section_bg": "#0b0b0e",
+        "us_card_bg": "#6d28d9",
+        "us_card_text": "#ffffff",
+        "them_card_bg": "#131317",
+        "them_card_text": "#f4f4f5",
+        "them_card_border": "#26262e",
+        "check_color": "#ffffff",
+        "cross_color": "#8b8b94",
+        "cross_color_them": "#8b8b94",
         "check_label": "You can",
         "cross_label": "You cannot",
         "padding_top_desktop": 96,
@@ -648,7 +403,7 @@
           "settings": {
             "tab": "1",
             "question": "What format are the sounds?",
-            "answer": "<p>24 bit WAV at 44.1 kHz. Loops carry their key and BPM in the file name, and MIDI files sit next to the loops they play.</p>"
+            "answer": "<p>24 bit WAV at 44.1 kHz. Loops carry their key and BPM in the file name, and MIDI files sit next to the loops they play. Serum presets come as .fxp files.</p>"
           }
         },
         "faq_3": {
@@ -664,7 +419,7 @@
           "settings": {
             "tab": "2",
             "question": "Can I release songs made with these sounds?",
-            "answer": "<p>Yes, on every platform, and the royalties are all yours. You do not need to credit Tape Room.</p>"
+            "answer": "<p>Yes, on every platform, and the royalties are all yours. You do not need to credit Loudlib.</p>"
           }
         },
         "faq_5": {
@@ -696,7 +451,7 @@
           "settings": {
             "tab": "3",
             "question": "Do I need a plugin?",
-            "answer": "<p>No. Every sound is audio or MIDI, so nothing needs installing or activating.</p>"
+            "answer": "<p>Not for the sample packs: every sound is audio or MIDI. The Serum presets need Xfer Serum.</p>"
           }
         },
         "faq_9": {
@@ -704,7 +459,7 @@
           "settings": {
             "tab": "3",
             "question": "Can I hear a pack before I buy?",
-            "answer": "<p>Get the <a href=\"/pages/free\">free sampler</a>: 40 sounds, at least one from every pack, at full quality.</p>"
+            "answer": "<p>Every pack has a demo on its page, and the <a href=\"/pages/free\">free downloads</a> are full quality.</p>"
           }
         }
       },
@@ -725,18 +480,18 @@
     "free": {
       "type": "newsletter-split",
       "settings": {
-        "color_scheme": "default",
+        "color_scheme": "scheme-tr-panel",
         "section_width": "container",
         "image": "shopify://shop_images/samples-free.webp",
-        "image_alt": "The Free 40 sampler pack",
+        "image_alt": "Free Ambience Sample Pack Vol I",
         "image_position": "left",
         "image_ratio": "square",
         "image_width": 46,
         "column_gap": 64,
         "form_layout": "horizontal",
         "email_placeholder": "Your email address",
-        "btn_text": "Send me the sounds",
-        "button_radius": 6,
+        "btn_text": "Send me the pack",
+        "button_radius": 8,
         "note": "One email when a new pack is out. Unsubscribe from any email.",
         "success_text": "Check your inbox. The download link is on its way.",
         "padding_top": 80,
@@ -748,7 +503,7 @@
         "heading": {
           "type": "heading",
           "settings": {
-            "text": "40 free sounds, one from every pack",
+            "text": "Free Ambience Sample Pack Vol I",
             "size_enable": true,
             "size_desktop": 44,
             "size_mobile": 30
@@ -757,7 +512,7 @@
         "subheading": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Hear the quality before you buy. Leave your email and the download link arrives in a minute: kicks, loops and MIDI at full 24 bit.</p>"
+            "text": "<p>Pads, drones and textures, free and royalty free. Leave your email and the download link arrives in a minute.</p>"
           }
         }
       },
@@ -765,16 +520,115 @@
         "heading",
         "subheading"
       ]
+    },
+    "listen": {
+      "type": "samples-audio-tracks",
+      "settings": {
+        "layout": "list",
+        "eyebrow": "Demos",
+        "heading": "Hear every pack",
+        "text": "<p>One loop from each pack. Press play, then drag along the wave to skip ahead.</p>",
+        "link_label": "Shop every pack",
+        "link_url": "/collections/all",
+        "max_width": 1200,
+        "heading_size": 44,
+        "heading_size_mobile": 30,
+        "color_scheme": "scheme-tr-panel",
+        "section_width": "fluid_container",
+        "padding_top": 88,
+        "padding_bottom": 88
+      },
+      "blocks": {
+        "t_tech_house_master_bundle": {
+          "type": "track",
+          "settings": {
+            "title": "Tech House Master Bundle",
+            "subtitle": "Groove loop, 126 BPM, F minor",
+            "audio": "shopify://shop_images/samples-demo-tech-house-master-bundle.mp4",
+            "length": "0:08",
+            "cover": "shopify://shop_images/samples-thumb-tech-house-master-bundle.webp",
+            "link_label": "Get the pack",
+            "link": "/search?q=master+bundle"
+          }
+        },
+        "t_deep_house_production_suite": {
+          "type": "track",
+          "settings": {
+            "title": "Deep House Production Suite I",
+            "subtitle": "Chord loop, 122 BPM, A minor",
+            "audio": "shopify://shop_images/samples-demo-deep-house-production-suite.mp4",
+            "length": "0:08",
+            "cover": "shopify://shop_images/samples-thumb-deep-house-production-suite.webp",
+            "link_label": "Get the pack",
+            "link": "/search?q=deep+house"
+          }
+        },
+        "t_serum_presets": {
+          "type": "track",
+          "settings": {
+            "title": "Serum Presets Vol 1",
+            "subtitle": "Pluck preset, 124 BPM, C minor",
+            "audio": "shopify://shop_images/samples-demo-serum-presets.mp4",
+            "length": "0:08",
+            "cover": "shopify://shop_images/samples-thumb-serum-presets.webp",
+            "link_label": "Get the pack",
+            "link": "/search?q=serum"
+          }
+        },
+        "t_tech_house_unitech": {
+          "type": "track",
+          "settings": {
+            "title": "Tech House Unitech Vol I",
+            "subtitle": "Bass loop, 127 BPM, G minor",
+            "audio": "shopify://shop_images/samples-demo-tech-house-unitech.mp4",
+            "length": "0:08",
+            "cover": "shopify://shop_images/samples-thumb-tech-house-unitech.webp",
+            "link_label": "Get the pack",
+            "link": "/search?q=unitech"
+          }
+        },
+        "t_drums_one_shots": {
+          "type": "track",
+          "settings": {
+            "title": "Tech House Drum Kit Vol I",
+            "subtitle": "One shots, then a beat, 125 BPM",
+            "audio": "shopify://shop_images/samples-demo-drums-one-shots.mp4",
+            "length": "0:08",
+            "cover": "shopify://shop_images/samples-thumb-drums-one-shots.webp",
+            "link_label": "Get the pack",
+            "link": "/search?q=drum+kit"
+          }
+        },
+        "t_ambience_kit": {
+          "type": "track",
+          "settings": {
+            "title": "Free Ambience Sample Pack Vol I",
+            "subtitle": "Pad texture, D minor",
+            "audio": "shopify://shop_images/samples-demo-ambience-kit.mp4",
+            "length": "0:09",
+            "cover": "shopify://shop_images/samples-thumb-ambience-kit.webp",
+            "link_label": "Get the pack",
+            "link": "/search?q=ambience"
+          }
+        }
+      },
+      "block_order": [
+        "t_tech_house_master_bundle",
+        "t_deep_house_production_suite",
+        "t_serum_presets",
+        "t_tech_house_unitech",
+        "t_drums_one_shots",
+        "t_ambience_kit"
+      ]
     }
   },
   "order": [
     "hero",
-    "genres",
     "packs",
-    "inside",
-    "bundle",
+    "listen",
+    "genres",
+    "free",
     "licence",
-    "faq",
-    "free"
+    "faq"
   ]
 }

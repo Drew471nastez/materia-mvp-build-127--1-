@@ -1,0 +1,17 @@
+
+  :is(#_, [data-fa]) { box-sizing: border-box; background: var(--fa-bg, var(--color-background)); color: var(--color-text); padding-block: var(--fa-pt-m) var(--fa-pb-m); margin-block: var(--fa-mt-m) var(--fa-mb-m); }
+  :is(#_, [data-fa]) *, :is(#_, [data-fa]) ::before, :is(#_, [data-fa]) ::after { box-sizing: border-box; }
+  :is(#_, [data-fa]) .fa-inner { width: 100%; margin-inline: auto; padding-inline: 20px; }
+  :is(#_, [data-fa][data-width="container"]) .fa-inner { max-width: calc(var(--page-width, 1300px) + 3rem); }
+  :is(#_, [data-fa][data-width="fluid_container"]) .fa-inner { max-width: calc(var(--fluid-container-width, 1500px) + 3rem); }
+  :is(#_, [data-fa]) .fa-h { font-family: var(--fa-hf); }
+  :is(#_, [data-fa]) .fa-t, :is(#_, [data-fa]) .fa-t :is(p, li, span, strong, em, a) { font-family: var(--fa-bf); }
+  :is(#_, [data-fa]) .fa-rich > :first-child { margin-top: 0; }
+  :is(#_, [data-fa]) .fa-rich > :last-child { margin-bottom: 0; }
+  :is(#_, [data-fa]) [hidden] { display: none !important; }
+  :is(#_, [data-fa]) :is(a, button, summary):focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+  @media (min-width: 768px) {
+    :is(#_, [data-fa]) { padding-block: var(--fa-pt-d) var(--fa-pb-d); margin-block: var(--fa-mt-d) var(--fa-mb-d); }
+    :is(#_, [data-fa]) .fa-inner { padding-inline: 1.5rem; }
+  }
+  @media (min-width: 1200px) { :is(#_, [data-fa][data-width="stretch_width"]) .fa-inner { padding-inline: 3rem; } }

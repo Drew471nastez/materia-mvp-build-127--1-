@@ -1,0 +1,154 @@
+{%- comment -%}
+  Art books template: an editorial spread of subjects. The first tile is
+  large on the left, the next ones stack on the right, each with a short
+  label and an arrow under the picture. On a phone the first tile runs the
+  full width and the others sit two to a row.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Crect width=%22400%22 height=%22300%22 fill=%22%23e6e2da%22/%3E%3Cg fill=%22%23aaa294%22%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22/%3E%3C/g%3E%3C/svg%3E'
+-%}
+<style>
+  #shopify-section-{{ sid }} .abe {
+    padding: {{ st.padding_top_mobile | default: 56 }}px 16px {{ st.padding_bottom_mobile | default: 56 }}px;
+    background: var(--color-background);
+    color: var(--color-text);
+  }
+  @media (min-width: 768px) {
+    #shopify-section-{{ sid }} .abe { padding: {{ st.padding_top | default: 96 }}px 32px {{ st.padding_bottom | default: 96 }}px; }
+  }
+  #shopify-section-{{ sid }} .abe__inner { max-width: {{ st.max_width | default: 1120 }}px; margin: 0 auto; }
+  #shopify-section-{{ sid }} .abe__head { margin: 0 0 24px; }
+  #shopify-section-{{ sid }} .abe__heading {
+    margin: 0; color: var(--color-heading);
+    font-size: {{ st.heading_size_mobile | default: 26 }}px; line-height: 1.15; font-weight: 400;
+  }
+  #shopify-section-{{ sid }} .abe__sub { margin: 8px 0 0; max-width: 56ch; font-size: 15px; line-height: 1.55; }
+  #shopify-section-{{ sid }} .abe__sub p { margin: 0; }
+  @media (min-width: 768px) {
+    #shopify-section-{{ sid }} .abe__heading { font-size: {{ st.heading_size | default: 32 }}px; }
+    #shopify-section-{{ sid }} .abe__head { margin-bottom: 28px; }
+  }
+  #shopify-section-{{ sid }} .abe__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px 14px; }
+  #shopify-section-{{ sid }} .abe__tile { display: flex; flex-direction: column; gap: 12px; color: inherit; text-decoration: none; min-width: 0; }
+  #shopify-section-{{ sid }} .abe__tile:first-child { grid-column: 1 / -1; }
+  #shopify-section-{{ sid }} .abe__media { position: relative; overflow: hidden; background: color-mix(in srgb, var(--color-text) 8%, var(--color-background)); aspect-ratio: 4 / 5; border-radius: {{ st.radius | default: 0 }}px; }
+  #shopify-section-{{ sid }} .abe__tile:first-child .abe__media { aspect-ratio: 4 / 3; }
+  #shopify-section-{{ sid }} .abe__media img {
+    position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; margin: 0;
+    transition: transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  #shopify-section-{{ sid }} .abe__label { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--color-heading); }
+  #shopify-section-{{ sid }} .abe__label svg { width: 14px; height: 14px; transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1); }
+  #shopify-section-{{ sid }} .abe__note { display: block; font-size: 13px; color: var(--color-text); opacity: 0.8; margin-top: -6px; }
+  @media (hover: hover) {
+    #shopify-section-{{ sid }} a.abe__tile:hover .abe__media img { transform: scale(1.035); }
+    #shopify-section-{{ sid }} a.abe__tile:hover .abe__label svg { transform: translateX(4px); }
+  }
+  #shopify-section-{{ sid }} a.abe__tile:focus-visible { outline: 2px solid var(--color-heading); outline-offset: 4px; }
+  @media (min-width: 768px) {
+    #shopify-section-{{ sid }} .abe__grid {
+      grid-template-columns: {{ st.large_share | default: 66 }}fr {{ 100 | minus: st.large_share | default: 34 }}fr;
+      grid-auto-rows: 1fr;
+      gap: 28px 24px;
+    }
+    #shopify-section-{{ sid }} .abe__tile:first-child { grid-column: 1; grid-row: 1 / span {{ section.blocks.size | minus: 1 | at_least: 1 }}; }
+    #shopify-section-{{ sid }} .abe__tile:first-child .abe__media { aspect-ratio: auto; flex: 1; min-height: 420px; }
+    #shopify-section-{{ sid }} .abe__tile:not(:first-child) { grid-column: 2; }
+    #shopify-section-{{ sid }} .abe__tile:not(:first-child) .abe__media { aspect-ratio: auto; flex: 1; min-height: 200px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #shopify-section-{{ sid }} .abe__media img, #shopify-section-{{ sid }} .abe__label svg { transition: none; }
+  }
+</style>
+
+<div class="abe color-{{ color_scheme }}" data-section-id="{{ sid }}">
+  <div class="abe__inner">
+    {%- if st.heading != blank or st.text != blank -%}
+      <div class="abe__head">
+        {%- if st.heading != blank -%}<h2 class="abe__heading">{{ st.heading | escape }}</h2>{%- endif -%}
+        {%- if st.text != blank -%}<div class="abe__sub">{{ st.text }}</div>{%- endif -%}
+      </div>
+    {%- endif -%}
+    <div class="abe__grid">
+      {%- for block in section.blocks -%}
+        {%- liquid
+          assign b = block.settings
+          assign tag = 'div'
+          if b.link != blank
+            assign tag = 'a'
+          endif
+        -%}
+        <{{ tag }} class="abe__tile"{% if tag == 'a' %} href="{{ b.link }}"{% endif %} {{ block.shopify_attributes }}>
+          <div class="abe__media">
+            {%- if b.image != blank -%}
+              <img
+                src="{{ b.image | image_url: width: 1400 }}"
+                srcset="{{ b.image | image_url: width: 600 }} 600w, {{ b.image | image_url: width: 1000 }} 1000w, {{ b.image | image_url: width: 1400 }} 1400w"
+                sizes="(min-width: 768px) {% if forloop.first %}66vw{% else %}34vw{% endif %}, {% if forloop.first %}100vw{% else %}50vw{% endif %}"
+                width="{{ b.image.width | default: 1200 }}"
+                height="{{ b.image.height | default: 900 }}"
+                alt="{{ b.alt | default: b.image.alt | escape }}"
+                style="object-position: {{ b.focal_x | default: 50 }}% {{ b.focal_y | default: 50 }}%;"
+                loading="lazy" decoding="async">
+            {%- else -%}
+              <img src="{{ placeholder }}" width="400" height="300" alt="" loading="lazy">
+            {%- endif -%}
+          </div>
+          <span class="abe__label">{{ b.label | escape }}{% if tag == 'a' %} <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>{% endif %}</span>
+          {%- if b.note != blank -%}<span class="abe__note">{{ b.note | escape }}</span>{%- endif -%}
+        </{{ tag }}>
+      {%- endfor -%}
+    </div>
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Editorial tiles",
+  "tag": "section",
+  "class": "section sec__artbooks-editorial",
+  "max_blocks": 4,
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default-color-scheme" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Browse by subject" },
+    { "type": "richtext", "id": "text", "label": "Text" },
+    { "type": "range", "id": "large_share", "label": "Width of the large tile", "min": 50, "max": 75, "step": 1, "unit": "%", "default": 66 },
+    { "type": "range", "id": "radius", "label": "Corner radius", "min": 0, "max": 24, "step": 1, "unit": "px", "default": 0 },
+    { "type": "range", "id": "max_width", "label": "Maximum width", "min": 800, "max": 1600, "step": 20, "unit": "px", "default": 1120 },
+    { "type": "range", "id": "heading_size", "label": "Heading size, desktop", "min": 18, "max": 56, "step": 1, "unit": "px", "default": 32 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size, phone", "min": 18, "max": 40, "step": 1, "unit": "px", "default": 26 },
+    { "type": "range", "id": "padding_top", "label": "Space above, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 }
+  ],
+  "blocks": [
+    {
+      "type": "tile",
+      "name": "Tile",
+      "settings": [
+        { "type": "image_picker", "id": "image", "label": "Picture" },
+        { "type": "text", "id": "alt", "label": "Alt text" },
+        { "type": "range", "id": "focal_x", "label": "Focal point, across", "min": 0, "max": 100, "step": 1, "unit": "%", "default": 50 },
+        { "type": "range", "id": "focal_y", "label": "Focal point, down", "min": 0, "max": 100, "step": 1, "unit": "%", "default": 50 },
+        { "type": "text", "id": "label", "label": "Label", "default": "Subject" },
+        { "type": "text", "id": "note", "label": "Small line under the label" },
+        { "type": "url", "id": "link", "label": "Link" }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Editorial tiles",
+      "blocks": [
+        { "type": "tile", "settings": { "label": "First subject" } },
+        { "type": "tile", "settings": { "label": "Second subject" } },
+        { "type": "tile", "settings": { "label": "Third subject" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

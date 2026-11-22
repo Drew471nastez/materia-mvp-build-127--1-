@@ -22,6 +22,13 @@
  *
  * Prints what the import reported, what the page asked for and did not get,
  * and what the theme's scripts threw. No database, no live store.
+ *
+ * REBUILD THE LIVE PREVIEWS WITH THE COVERS. The marketplace's Preview frames
+ * each template's real website, prerendered to public/theme-previews/ by
+ *
+ *   npx tsx scripts/build-template-previews.ts [template ...]
+ *
+ * A template changed here is changed there only once that has run too.
  */
 import { mkdirSync, writeFileSync } from "node:fs"
 import { join } from "node:path"

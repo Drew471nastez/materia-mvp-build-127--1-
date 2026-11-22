@@ -60,6 +60,8 @@ const ROOT = join(process.cwd(), "theme-packages", CODE_THEME_PACKAGE)
 const visibleText = (html: string) => html.replace(/<(script|style|template|noscript)\b[\s\S]*?<\/\1\s*>/gi, " ").replace(/<!--[\s\S]*?-->/g, " ").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ")
 /* What the old starter and the theme's first owner left behind, and placeholder copy nobody wrote over. */
 const LEFTOVER = /Prime ?Clarity|loudlib|FL Studio vs Ableton|DAW comparisons|tech space|Question goes here|Answer goes here|Oops\.\.\.|Stay tuned for something amazing|Materia Modern|lorem ipsum|translation missing/i
+/* Changed on purpose (templates round 19): Sample packs is built around Loudlib, the owner's own store, so its name there is the store's name and not leftover starter content. */
+const leftoverFor = (template: string) => (template === "samples" ? new RegExp(LEFTOVER.source.replace("loudlib|", ""), "i") : LEFTOVER)
 /* A countdown nobody set and a claim the store never made. */
 const URGENCY = /items are reserved for|You've got free shipping|away from free shipping/i
 const RAW = /\{\{|\{%|%\}|Liquid error/
@@ -93,7 +95,7 @@ async function pagesOf(template: string, imported: ImportedTemplate) {
     check(`${state}: ${rows.length} pages are answered, the missing address as a 404 page`, wrong((r) => r.status === (r.name === "404" ? 404 : 200)).length === 0, rows.filter((r) => r.status !== (r.name === "404" ? 404 : 200)).map((r) => `${r.name} ${r.status}`))
     check("  each is a whole page: its header, its footer and something between them", wrong((r) => r.name === "password" ? r.html.length > 8000 && r.main.trim().length > 20 : /id="shopify-section-(theme-)?header"/.test(r.html) && /id="shopify-section-(theme-)?footer"/.test(r.html) && r.main.trim().length >= 5).length === 0, wrong((r) => r.name === "password" ? r.html.length > 8000 && r.main.trim().length > 20 : /id="shopify-section-(theme-)?header"/.test(r.html) && /id="shopify-section-(theme-)?footer"/.test(r.html) && r.main.trim().length >= 5))
     check("  no template code is left in the text of any", wrong((r) => !RAW.test(r.text)).length === 0, rows.filter((r) => RAW.test(r.text)).map((r) => `${r.name}: ${r.text.match(/.{0,40}(\{\{|\{%|%\}|Liquid error).{0,40}/)?.[0]}`))
-    check("  none says Shopify, and none carries the old starter's or a placeholder's words", wrong((r) => !/shopify/i.test(r.text) && !LEFTOVER.test(r.text)).length === 0, rows.filter((r) => /shopify/i.test(r.text) || LEFTOVER.test(r.text)).map((r) => `${r.name}: ${r.text.match(new RegExp(`.{0,30}(shopify|${LEFTOVER.source}).{0,30}`, "i"))?.[0]}`))
+    check("  none says Shopify, and none carries the old starter's or a placeholder's words", wrong((r) => !/shopify/i.test(r.text) && !leftoverFor(template).test(r.text)).length === 0, rows.filter((r) => /shopify/i.test(r.text) || leftoverFor(template).test(r.text)).map((r) => `${r.name}: ${r.text.match(new RegExp(`.{0,30}(shopify|${LEFTOVER.source}).{0,30}`, "i"))?.[0]}`))
     check("  no countdown nobody set and no free shipping the store never promised", wrong((r) => !URGENCY.test(r.text)).length === 0, rows.filter((r) => URGENCY.test(r.text)).map((r) => `${r.name}: ${r.text.match(new RegExp(`.{0,30}(${URGENCY.source}).{0,30}`, "i"))?.[0]}`))
     check("  no section fails to draw", wrong((r) => !/data-storelib-section-error|Could not draw this section/i.test(r.html)).length === 0)
 
@@ -336,7 +338,7 @@ async function main() {
     const own = SHARED.filter((f) => existsSync(join(overlay, "templates", `${f}.json`)))
     if (OWN_PAGES.has(template)) check("  its own 404, cart, collections, blog, article and password pages", own.length === SHARED.length, SHARED.filter((f) => !own.includes(f)))
     const ownCopy = own.map((f) => readFileSync(join(overlay, "templates", `${f}.json`), "utf8")).join("\n")
-    check("  written in its own words, none of the banned ones, no dash for a comma, no old content", !BANNED.test(ownCopy.replace(/"[a-z_0-9]+":/g, "")) && !LEFTOVER.test(ownCopy) && !/shopify/i.test(ownCopy.replace(/shopify:\/\/[^\s"]*/g, "")), ownCopy.replace(/"[a-z_0-9]+":/g, "").match(new RegExp(`.{0,40}(${BANNED.source}).{0,40}`, "i"))?.[0])
+    check("  written in its own words, none of the banned ones, no dash for a comma, no old content", !BANNED.test(ownCopy.replace(/"[a-z_0-9]+":/g, "")) && !leftoverFor(template).test(ownCopy) && !/shopify/i.test(ownCopy.replace(/shopify:\/\/[^\s"]*/g, "")), ownCopy.replace(/"[a-z_0-9]+":/g, "").match(new RegExp(`.{0,40}(${BANNED.source}).{0,40}`, "i"))?.[0])
     if (template !== "default" && OWN_PAGES.has(template)) {
       const defaults = SHARED.map((f) => readFileSync(join(ROOT, "templates", "default", "templates", `${f}.json`), "utf8"))
       check("  and not the default template's 404, cart or password page over again", ["404", "cart", "password"].every((f) => readFileSync(join(overlay, "templates", `${f}.json`), "utf8") !== defaults[SHARED.indexOf(f)]))

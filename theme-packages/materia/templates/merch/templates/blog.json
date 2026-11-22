@@ -4,12 +4,12 @@
       "type": "page-heading",
       "settings": {
         "height": "adapt",
-        "alignment": "left",
-        "padding_top": 64,
-        "color_scheme": "default",
+        "alignment": "center",
+        "padding_top": 66,
+        "color_scheme": "",
         "reset_spacing": true,
-        "section_width": "fluid_container",
-        "padding_bottom": 40,
+        "section_width": "container",
+        "padding_bottom": 55,
         "overlay_opacity": 0
       },
       "blocks": {
@@ -26,7 +26,7 @@
         "description_YRWpkt": {
           "type": "description",
           "settings": {
-            "description": "<p>Recipes from the show written down, notes from filming and what is coming next season.</p>",
+            "description": "<p>New drops, how the fabric is made and what we are working on.</p>",
             "enable_custom_style": false,
             "description_font_size": 16
           }
@@ -52,14 +52,14 @@
         "badge_height": 30,
         "custom_ratio": "16:10",
         "hover_effect": "lift",
-        "image_radius": 8,
+        "image_radius": 14,
         "show_excerpt": true,
         "excerpt_lines": 2,
         "items_per_row": 3,
         "items_to_show": 12,
         "margin_bottom": 0,
         "readmore_line": "style",
-        "readmore_text": "Read it",
+        "readmore_text": "Read article",
         "readmore_type": "underline",
         "reset_spacing": true,
         "section_width": "fluid_container",
@@ -72,8 +72,7 @@
         "badge_text_font_size": 14,
         "items_per_row_mobile": 1,
         "badge_vertical_position": 16,
-        "badge_horizontal_position": 16,
-        "color_scheme": "default"
+        "badge_horizontal_position": 16
       },
       "name": "Main blog"
     }

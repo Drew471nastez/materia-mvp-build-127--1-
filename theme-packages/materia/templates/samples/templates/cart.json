@@ -71,8 +71,8 @@
         "faq_3": {
           "type": "faq",
           "settings": {
-            "question": "Buying three or more?",
-            "answer": "<p>The full shelf bundle has all eight packs for $119.</p>"
+            "question": "Buying more than one tech house pack?",
+            "answer": "<p>The <a href=\"/search?q=master+bundle\">Tech House Master Bundle</a> has them all in one download for $19.98.</p>"
           }
         },
         "payment_badges_67Mgyc": {

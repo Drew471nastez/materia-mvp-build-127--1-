@@ -122,12 +122,16 @@ mobile-navigation-bar:is(#_, *) :is(a, button, [role='button'], summary):focus-v
   border-radius: 8px;
 }
 .mobile-navigation-bar .h-count {
-  background: var(--count-bubble-bg, var(--mnb-active));
-  color: var(--count-bubble-color, #ffffff);
+  --cb-fill: var(--count-bubble-bg, var(--mnb-active));
+  --cb-text: var(--count-bubble-color);
+  background: var(--cb-fill);
+  color: var(--count-bubble-color, var(--mnb-bg, #ffffff));
 }
 .mobile-navigation-bar .wishlist-count {
-  background: var(--count-bubble-wishlist-bg, var(--count-bubble-bg, var(--mnb-active)));
-  color: var(--count-bubble-wishlist-color, var(--count-bubble-color, #ffffff));
+  --cb-fill: var(--count-bubble-wishlist-bg, var(--count-bubble-bg, var(--mnb-active)));
+  --cb-text: var(--count-bubble-wishlist-color, var(--count-bubble-color));
+  background: var(--cb-fill);
+  color: var(--count-bubble-wishlist-color, var(--count-bubble-color, var(--mnb-bg, #ffffff)));
 }
 /* Custom fonts (Enable custom fonts): the labels use the picked family. */
 mobile-navigation-bar[data-own-font]:is(#_, *) .mnb-label { font-family: var(--mnb-font, inherit); }

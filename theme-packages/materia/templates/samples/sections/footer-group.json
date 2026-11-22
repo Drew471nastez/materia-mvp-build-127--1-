@@ -5,7 +5,7 @@
     "footer": {
       "type": "footer",
       "settings": {
-        "custom_text": "Tape Room",
+        "custom_text": "loudlib",
         "padding_top": 64,
         "show_social": true,
         "color_scheme": "scheme-tr-black",
@@ -43,15 +43,15 @@
             "store_phone": false,
             "content_width": "33.333%",
             "store_address": false,
-            "store_heading": "Tape Room",
-            "store_description": "<p>Sample packs recorded through tape and old hardware, then cut, tuned and named by hand. One licence, royalty free, for your own records.</p>"
+            "store_heading": "Loudlib",
+            "store_description": "<p>Sample packs and Serum presets for tech house, deep house and ambient producers. Royalty free, one licence for every pack.</p>"
           }
         },
         "link_list_1": {
           "type": "link_list",
           "settings": {
             "menu": "main-menu",
-            "heading": "Sounds",
+            "heading": "Shop",
             "content_width": "16%"
           }
         },
@@ -59,7 +59,7 @@
           "type": "link_list",
           "settings": {
             "menu": "footer",
-            "heading": "Tape Room",
+            "heading": "Loudlib",
             "content_width": "16%"
           }
         },

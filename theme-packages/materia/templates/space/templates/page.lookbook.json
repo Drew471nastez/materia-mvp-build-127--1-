@@ -1,0 +1,175 @@
+{
+  "sections": {
+    "page_heading_1": {
+      "type": "page-heading",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "stretch_width",
+        "reset_spacing": true,
+        "alignment": "center",
+        "height": "adapt",
+        "overlay_opacity": 0,
+        "padding_top": 80,
+        "padding_bottom": 40
+      },
+      "blocks": {
+        "breadcrumb_1": {
+          "type": "breadcrumb",
+          "settings": {
+            "separator": "chevron",
+            "font_size": 13,
+            "uppercase": false
+          }
+        },
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "enable_heading_color": false,
+            "enable_custom_fonts": false,
+            "font": "assistant_n4",
+            "header_size": "default",
+            "heading_font_size": 34,
+            "vertical_gap": 8,
+            "page_title": "Lookbook"
+          }
+        },
+        "description_1": {
+          "type": "description",
+          "settings": {
+            "enable_custom_style": false,
+            "enable_custom_fonts": false,
+            "font": "assistant_n4",
+            "description_font_size": 15,
+            "description": "<p>Drop 04, shot at night across the city.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "breadcrumb_1",
+        "heading_1",
+        "description_1"
+      ]
+    },
+    "media_lightbox_gallery_1": {
+      "type": "media-lightbox-gallery",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "fluid_container",
+        "reset_spacing": true,
+        "content_align": "left",
+        "content_gap": 12,
+        "columns_desktop": 4,
+        "gap_desktop": 12,
+        "image_ratio": "portrait",
+        "image_radius": 0,
+        "enable_custom_style": false,
+        "enable_custom_fonts": false,
+        "heading_font": "assistant_n4",
+        "body_font": "assistant_n4",
+        "padding_top_desktop": 40,
+        "padding_bottom_desktop": 60,
+        "side_padding_desktop": 32,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "content_align_mobile": "left",
+        "columns_mobile": 2,
+        "gap_mobile": 8,
+        "padding_top_mobile": 60,
+        "padding_bottom_mobile": 60,
+        "side_padding_mobile": 20,
+        "section_margin_top_mobile": 0,
+        "section_margin_bottom_mobile": 0
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Drop 04",
+            "enable_custom_style": false,
+            "size_desktop": 40,
+            "size_mobile": 28
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Tap a picture to see it large.</p>",
+            "enable_custom_style": false,
+            "size_desktop": 17,
+            "size_mobile": 15
+          }
+        },
+        "image_1": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/space-look-red-jacket.webp",
+            "caption": "After the show"
+          }
+        },
+        "image_2": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/space-look-puffer.webp",
+            "caption": "Puffer, navy"
+          }
+        },
+        "image_3": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/space-look-maroon.webp",
+            "caption": "Long sleeve, maroon"
+          }
+        },
+        "image_4": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/space-look-neon.webp",
+            "caption": "Late, downtown"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_1",
+        "image_1",
+        "image_2",
+        "image_3",
+        "image_4"
+      ]
+    },
+    "worn": {
+      "type": "space-product-grid",
+      "settings": {
+        "collection": "",
+        "products_to_show": 4,
+        "heading": "Worn in the pictures",
+        "heading_alignment": "center",
+        "view_all_label": "Shop the drop",
+        "columns_desktop": 4,
+        "columns_mobile": 2,
+        "column_gap": 28,
+        "row_gap": 56,
+        "image_padding": 10,
+        "max_width": 1200,
+        "glow_strength": 26,
+        "glow_color": "#ffffff",
+        "glow_opacity": 55,
+        "text_color": "#ffffff",
+        "name_size": 13,
+        "show_price": true,
+        "price_size": 12,
+        "sold_out_label": "Sold out",
+        "pill_background": "#ffffff",
+        "pill_text": "#000000",
+        "empty_name": "Your product",
+        "padding_top": 40,
+        "padding_bottom": 80
+      }
+    }
+  },
+  "order": [
+    "page_heading_1",
+    "media_lightbox_gallery_1",
+    "worn"
+  ]
+}

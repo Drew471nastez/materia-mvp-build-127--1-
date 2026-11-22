@@ -106,6 +106,7 @@ import { ReadinessNote } from "@/components/physical/readiness-banner"
 import { msg, tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
 import { nudgeNotifications } from "@/lib/notifications/nudge"
+import { hasTransparency, mayBeTransparent } from "@/lib/images/transparency"
 
 /*
   The cards a failed check scrolls to (handleSaveChanges). There is no row of
@@ -1335,13 +1336,21 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
           return
         }
 
-        // Fill with light gray gradient background (smooth white to very light gray)
-        const gradient = ctx.createLinearGradient(0, 0, targetWidth, targetHeight)
-        gradient.addColorStop(0, "#f8f8f8")
-        gradient.addColorStop(0.5, "#f0f0f0")
-        gradient.addColorStop(1, "#e8e8e8")
-        ctx.fillStyle = gradient
-        ctx.fillRect(0, 0, targetWidth, targetHeight)
+        /*
+          A picture with see-through parts (a product cut out as a PNG or WebP, shown on a dark or animated
+          background) keeps them: its copy is padded with nothing and saved as WebP, never flattened onto
+          grey in a JPEG (lib/images/transparency.ts).
+        */
+        const clear = mayBeTransparent(file.type) && hasTransparency(img)
+        if (!clear) {
+          // Fill with light gray gradient background (smooth white to very light gray)
+          const gradient = ctx.createLinearGradient(0, 0, targetWidth, targetHeight)
+          gradient.addColorStop(0, "#f8f8f8")
+          gradient.addColorStop(0.5, "#f0f0f0")
+          gradient.addColorStop(1, "#e8e8e8")
+          ctx.fillStyle = gradient
+          ctx.fillRect(0, 0, targetWidth, targetHeight)
+        }
 
         // Calculate dimensions to fit image within the canvas while maintaining aspect ratio
         let drawWidth: number
@@ -1372,17 +1381,19 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
               return
             }
 
-            // Create new file with same name but as PNG for lossless quality
+            /* What the browser made: a browser without a WebP encoder answers PNG, which keeps the see-through parts too. */
+            const type = blob.type || (clear ? "image/png" : "image/jpeg")
             const processedFile = new File(
               [blob],
-              file.name.replace(/\.[^/.]+$/, "") + "_processed.jpg",
-              { type: "image/jpeg" }
+              /* Not "_processed": that name is a grey padded JPEG, which lib/images/cover-trim.ts holds unseen until it cuts the grey off. */
+              file.name.replace(/\.[^/.]+$/, "") + (type === "image/jpeg" ? "_processed.jpg" : type === "image/webp" ? "_wide.webp" : "_wide.png"),
+              { type }
             )
 
             resolve({ processedFile, wasProcessed: true, originalRatio })
           },
-          "image/jpeg",
-          0.92 // High quality JPEG
+          clear ? "image/webp" : "image/jpeg",
+          clear ? 0.9 : 0.92
         )
       }
 

@@ -1,0 +1,250 @@
+{%- comment -%}
+  Creator Landing: a shelf of things to watch, read or buy. "Row" is a
+  sideways row of cards (picture, a small line such as a date or a length,
+  a serif title, a short text and a link) that runs off the right edge, with
+  two round arrow buttons; "Tiles" is a quiet grid of framed pictures with an
+  underlined name and a line under each, for a closing list of products.
+  The arrows scroll by one card; the row also scrolls by touch or trackpad.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign layout = st.layout | default: 'row'
+  assign placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 480 300%22%3E%3Crect width=%22480%22 height=%22300%22 fill=%22%23e6e0d5%22/%3E%3Cg fill=%22%23b9b0a2%22%3E%3Ccircle cx=%22200%22 cy=%22128%22 r=%2216%22/%3E%3Cpath d=%22M150 210l56-64 36 38 28-24 56 50z%22/%3E%3C/g%3E%3C/svg%3E'
+-%}
+<style>
+  #shopify-section-{{ sid }} .chf {
+    --chf-card: {{ st.card_color | default: '#f4f1ec' }};
+    --chf-line: {{ st.underline_color | default: '#fbd462' }};
+    --chf-arrow: {{ st.arrow_color | default: '#fbd462' }};
+    --chf-btn: {{ st.button_color | default: '#1c1b2b' }};
+    --chf-btn-text: {{ st.button_text_color | default: '#ffffff' }};
+    padding: {{ st.padding_top_mobile | default: 56 }}px 0 {{ st.padding_bottom_mobile | default: 56 }}px;
+    overflow: hidden;
+  }
+  @media (min-width: 990px) {
+    #shopify-section-{{ sid }} .chf { padding: {{ st.padding_top | default: 88 }}px 0 {{ st.padding_bottom | default: 88 }}px; }
+  }
+  #shopify-section-{{ sid }} .chf__inner { max-width: 1216px; margin: 0 auto; padding: 0 16px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .chf__inner { padding: 0 28px; } }
+  #shopify-section-{{ sid }} .chf__head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 32px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .chf__head { margin-bottom: 44px; } }
+  #shopify-section-{{ sid }} .chf__heading {
+    margin: 0; color: var(--color-heading);
+    font-size: {{ st.heading_size_mobile | default: 38 }}px; line-height: 1.04; letter-spacing: -0.03em;
+  }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .chf__heading { font-size: {{ st.heading_size | default: 64 }}px; } }
+  #shopify-section-{{ sid }} .chf__plain { display: block; font-family: var(--body-font, inherit); font-weight: 400; letter-spacing: -0.04em; }
+  #shopify-section-{{ sid }} .chf__serif { position: relative; display: inline-block; font-family: var(--heading-font, inherit); font-weight: var(--heading-font-weight, 600); }
+  #shopify-section-{{ sid }} .chf__swash { position: absolute; left: 30%; bottom: -0.2em; width: 70%; height: 0.3em; overflow: visible; }
+  #shopify-section-{{ sid }} .chf__swash path { fill: none; stroke: var(--chf-line); stroke-width: 7; stroke-linecap: round; }
+  #shopify-section-{{ sid }} .chf__arrows { display: none; gap: 12px; flex: none; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .chf__arrows { display: flex; } }
+  #shopify-section-{{ sid }} .chf__arrow {
+    width: 48px; height: 48px; border-radius: 50%; border: 0; padding: 0; cursor: pointer;
+    display: grid; place-items: center; background: var(--chf-arrow); color: #1c1b2b;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+  }
+  #shopify-section-{{ sid }} .chf__arrow:hover { transform: scale(1.06); }
+  #shopify-section-{{ sid }} .chf__arrow[disabled] { opacity: 0.4; cursor: default; transform: none; }
+  #shopify-section-{{ sid }} .chf__arrow svg { width: 18px; height: 18px; }
+  #shopify-section-{{ sid }} .chf__row {
+    display: grid; grid-auto-flow: column; grid-auto-columns: 82%; gap: 16px;
+    overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-left: 16px;
+    padding: 0 16px 8px; margin: 0 -16px; scrollbar-width: none;
+  }
+  #shopify-section-{{ sid }} .chf__row::-webkit-scrollbar { display: none; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .chf__row { grid-auto-columns: 46%; } }
+  @media (min-width: 990px) {
+    #shopify-section-{{ sid }} .chf__row { grid-auto-columns: calc((100% - 48px) / 3.15); gap: 24px; padding: 0 28px 8px; margin: 0 -28px; scroll-padding-left: 28px; }
+  }
+  #shopify-section-{{ sid }} .chf__card {
+    scroll-snap-align: start; display: flex; flex-direction: column; overflow: hidden;
+    background: var(--chf-card); border-radius: 20px; color: inherit; text-decoration: none;
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+  }
+  #shopify-section-{{ sid }} a.chf__card:hover { transform: translateY(-3px); box-shadow: 0 18px 40px -26px rgba(60,44,20,0.4); }
+  #shopify-section-{{ sid }} .chf__media { margin: 0; aspect-ratio: {{ st.image_ratio | default: '16 / 10' }}; overflow: hidden; background: #e6e0d5; }
+  #shopify-section-{{ sid }} .chf__media img { display: block; width: 100%; height: 100%; object-fit: cover; margin: 0; transition: transform 0.6s ease; }
+  #shopify-section-{{ sid }} a.chf__card:hover .chf__media img { transform: scale(1.03); }
+  #shopify-section-{{ sid }} .chf__body { display: flex; flex-direction: column; flex: 1; padding: 22px 24px 26px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .chf__body { padding: 28px 30px 30px; } }
+  #shopify-section-{{ sid }} .chf__meta { margin: 0 0 12px; font-size: 13px; font-weight: 500; color: var(--color-text); }
+  #shopify-section-{{ sid }} .chf__title {
+    margin: 0 0 10px; color: var(--color-heading); font-family: var(--heading-font, inherit); font-weight: var(--heading-font-weight, 600);
+    font-size: 24px; line-height: 1.15; letter-spacing: -0.02em;
+  }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .chf__title { font-size: 26px; } }
+  #shopify-section-{{ sid }} .chf__text { margin: 0 0 18px; color: var(--color-heading); opacity: 0.84; font-size: 15px; line-height: 1.55; }
+  #shopify-section-{{ sid }} .chf__more {
+    margin-top: auto; padding-top: 14px; display: inline-flex; align-items: center; gap: 10px;
+    font-size: 14px; font-weight: 600; color: var(--color-heading); text-decoration: underline; text-underline-offset: 4px;
+  }
+  #shopify-section-{{ sid }} .chf__more svg { width: 14px; height: 14px; }
+  #shopify-section-{{ sid }} .chf__foot { display: flex; justify-content: center; margin-top: 40px; }
+  #shopify-section-{{ sid }} .chf__btn {
+    display: inline-flex; align-items: center; min-height: 46px; padding: 0 24px; border-radius: 999px;
+    background: var(--chf-btn); color: var(--chf-btn-text); font-size: 15px; font-weight: 600; text-decoration: none;
+  }
+  #shopify-section-{{ sid }} .chf__tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 16px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .chf__tiles { grid-template-columns: repeat({{ st.tiles_per_row | default: 4 }}, minmax(0, 1fr)); gap: 24px; } }
+  #shopify-section-{{ sid }} .chf__tile { display: block; text-align: center; color: inherit; text-decoration: none; }
+  #shopify-section-{{ sid }} .chf__frame {
+    margin: 0 0 16px; aspect-ratio: 1 / 1; overflow: hidden; border-radius: 16px;
+    background: #fff; border: 1px solid rgba(28,27,43,0.1);
+  }
+  #shopify-section-{{ sid }} .chf__frame img { display: block; width: 100%; height: 100%; object-fit: cover; margin: 0; transition: transform 0.6s ease; }
+  #shopify-section-{{ sid }} a.chf__tile:hover .chf__frame img { transform: scale(1.03); }
+  #shopify-section-{{ sid }} .chf__tile-name {
+    display: inline-block; margin: 0 0 8px; font-size: 16px; font-weight: 600; color: var(--color-heading);
+    text-decoration: underline; text-underline-offset: 4px;
+  }
+  #shopify-section-{{ sid }} .chf__tile-text { margin: 0 auto; max-width: 28ch; font-size: 14px; line-height: 1.5; color: var(--color-text); }
+  @media (prefers-reduced-motion: reduce) {
+    #shopify-section-{{ sid }} .chf__card, #shopify-section-{{ sid }} .chf__media img, #shopify-section-{{ sid }} .chf__frame img, #shopify-section-{{ sid }} .chf__arrow { transition: none; }
+    #shopify-section-{{ sid }} .chf__row { scroll-behavior: auto; }
+  }
+</style>
+
+{%- capture arrow -%}<svg viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><path d="M1 7h11M8 3l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>{%- endcapture -%}
+
+<div class="chf chf--{{ layout }} color-{{ color_scheme }}" data-section-id="{{ sid }}">
+  <div class="chf__inner">
+    {%- if st.heading_plain != blank or st.heading_serif != blank -%}
+      <div class="chf__head">
+        <h2 class="chf__heading">
+          {%- if st.heading_plain != blank -%}<span class="chf__plain">{{ st.heading_plain | escape }}</span>{%- endif -%}
+          {%- if st.heading_serif != blank -%}<span class="chf__serif">{{ st.heading_serif | escape }}<svg class="chf__swash" viewBox="0 0 300 30" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path d="M4 16 C 90 8, 200 8, 296 18"/></svg></span>{%- endif -%}
+        </h2>
+        {%- if layout == 'row' and section.blocks.size > 1 -%}
+          <div class="chf__arrows">
+            <button type="button" class="chf__arrow" data-chf-prev aria-label="{{ st.previous_label | default: 'Previous' | escape }}" aria-controls="ChfRow-{{ sid }}"><svg viewBox="0 0 18 18" fill="none" aria-hidden="true" focusable="false"><path d="M15 9H3M7 4L2.5 9 7 14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <button type="button" class="chf__arrow" data-chf-next aria-label="{{ st.next_label | default: 'Next' | escape }}" aria-controls="ChfRow-{{ sid }}"><svg viewBox="0 0 18 18" fill="none" aria-hidden="true" focusable="false"><path d="M3 9h12M11 4l4.5 5L11 14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          </div>
+        {%- endif -%}
+      </div>
+    {%- endif -%}
+
+    {%- if layout == 'row' -%}
+      <div class="chf__row" id="ChfRow-{{ sid }}" tabindex="0" role="region" aria-label="{{ st.heading_plain | append: ' ' | append: st.heading_serif | strip | escape }}">
+        {%- for block in section.blocks -%}
+          {%- assign b = block.settings -%}
+          {%- if b.link != blank -%}<a class="chf__card" href="{{ b.link }}" {{ block.shopify_attributes }}>{%- else -%}<div class="chf__card" {{ block.shopify_attributes }}>{%- endif -%}
+            <figure class="chf__media">
+              {%- if b.image != blank -%}
+                <img src="{{ b.image | image_url: width: 900 }}" srcset="{{ b.image | image_url: width: 500 }} 500w, {{ b.image | image_url: width: 900 }} 900w" sizes="(min-width: 990px) 380px, 82vw" width="{{ b.image.width | default: 900 }}" height="{{ b.image.height | default: 560 }}" alt="{{ b.alt | default: b.image.alt | escape }}" loading="lazy" decoding="async">
+              {%- else -%}
+                <img src="{{ placeholder }}" width="480" height="300" alt="">
+              {%- endif -%}
+            </figure>
+            <div class="chf__body">
+              {%- if b.meta != blank -%}<p class="chf__meta">{{ b.meta | escape }}</p>{%- endif -%}
+              {%- if b.title != blank -%}<h3 class="chf__title">{{ b.title | escape }}</h3>{%- endif -%}
+              {%- if b.text != blank -%}<p class="chf__text">{{ b.text | escape }}</p>{%- endif -%}
+              {%- if b.link_label != blank -%}<span class="chf__more">{{ b.link_label | escape }}{{ arrow }}</span>{%- endif -%}
+            </div>
+          {%- if b.link != blank -%}</a>{%- else -%}</div>{%- endif -%}
+        {%- endfor -%}
+      </div>
+    {%- else -%}
+      <div class="chf__tiles">
+        {%- for block in section.blocks -%}
+          {%- assign b = block.settings -%}
+          {%- if b.link != blank -%}<a class="chf__tile" href="{{ b.link }}" {{ block.shopify_attributes }}>{%- else -%}<div class="chf__tile" {{ block.shopify_attributes }}>{%- endif -%}
+            <figure class="chf__frame">
+              {%- if b.image != blank -%}
+                <img src="{{ b.image | image_url: width: 600 }}" width="{{ b.image.width | default: 600 }}" height="{{ b.image.height | default: 600 }}" alt="{{ b.alt | default: b.image.alt | escape }}" loading="lazy" decoding="async">
+              {%- else -%}
+                <img src="{{ placeholder }}" width="480" height="300" alt="">
+              {%- endif -%}
+            </figure>
+            {%- if b.title != blank -%}<span class="chf__tile-name">{{ b.title | escape }}</span>{%- endif -%}
+            {%- if b.text != blank -%}<p class="chf__tile-text">{{ b.text | escape }}</p>{%- endif -%}
+          {%- if b.link != blank -%}</a>{%- else -%}</div>{%- endif -%}
+        {%- endfor -%}
+      </div>
+    {%- endif -%}
+
+    {%- if st.button_label != blank -%}
+      <div class="chf__foot"><a class="chf__btn" href="{{ st.button_link | default: '/collections/all' }}">{{ st.button_label | escape }}</a></div>
+    {%- endif -%}
+  </div>
+</div>
+
+{%- if layout == 'row' -%}
+<script>
+  (function () {
+    var root = document.querySelector('[data-section-id="{{ sid }}"]');
+    if (!root) return;
+    var row = root.querySelector('.chf__row');
+    var prev = root.querySelector('[data-chf-prev]');
+    var next = root.querySelector('[data-chf-next]');
+    if (!row || !prev || !next) return;
+    var still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    function step() { var c = row.querySelector('.chf__card'); return c ? c.getBoundingClientRect().width + 24 : row.clientWidth * 0.8; }
+    function sync() {
+      prev.disabled = row.scrollLeft <= 4;
+      next.disabled = row.scrollLeft + row.clientWidth >= row.scrollWidth - 4;
+    }
+    prev.addEventListener('click', function () { row.scrollBy({ left: -step(), behavior: still ? 'auto' : 'smooth' }); });
+    next.addEventListener('click', function () { row.scrollBy({ left: step(), behavior: still ? 'auto' : 'smooth' }); });
+    row.addEventListener('scroll', sync, { passive: true });
+    window.addEventListener('resize', sync);
+    sync();
+  })();
+</script>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Creator shelf",
+  "tag": "section",
+  "class": "section sec__creator-shelf",
+  "max_blocks": 12,
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default-color-scheme" },
+    { "type": "select", "id": "layout", "label": "Layout", "options": [ { "value": "row", "label": "Row with arrows" }, { "value": "tiles", "label": "Tiles" } ], "default": "row" },
+    { "type": "text", "id": "heading_plain", "label": "Heading, plain line", "default": "Start with" },
+    { "type": "text", "id": "heading_serif", "label": "Heading, underlined line", "default": "these" },
+    { "type": "color", "id": "underline_color", "label": "Underline colour", "default": "#fbd462" },
+    { "type": "color", "id": "card_color", "label": "Card colour", "default": "#f4f1ec" },
+    { "type": "select", "id": "image_ratio", "label": "Picture shape in the row", "options": [ { "value": "16 / 10", "label": "Wide" }, { "value": "16 / 9", "label": "Video" }, { "value": "4 / 3", "label": "Standard" }, { "value": "1 / 1", "label": "Square" } ], "default": "16 / 10" },
+    { "type": "range", "id": "tiles_per_row", "label": "Tiles per row, desktop", "min": 2, "max": 5, "step": 1, "default": 4 },
+    { "type": "color", "id": "arrow_color", "label": "Arrow buttons", "default": "#fbd462" },
+    { "type": "text", "id": "previous_label", "label": "Previous button label", "default": "Previous" },
+    { "type": "text", "id": "next_label", "label": "Next button label", "default": "Next" },
+    { "type": "text", "id": "button_label", "label": "Button under the shelf" },
+    { "type": "url", "id": "button_link", "label": "Button link" },
+    { "type": "color", "id": "button_color", "label": "Button colour", "default": "#1c1b2b" },
+    { "type": "color", "id": "button_text_color", "label": "Button text colour", "default": "#ffffff" },
+    { "type": "range", "id": "heading_size", "label": "Heading size, desktop", "min": 28, "max": 96, "step": 2, "unit": "px", "default": 64 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size, phone", "min": 24, "max": 56, "step": 2, "unit": "px", "default": 38 },
+    { "type": "range", "id": "padding_top", "label": "Space above, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 88 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 88 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 }
+  ],
+  "blocks": [
+    {
+      "type": "card",
+      "name": "Card",
+      "settings": [
+        { "type": "image_picker", "id": "image", "label": "Picture" },
+        { "type": "text", "id": "alt", "label": "Alt text" },
+        { "type": "text", "id": "meta", "label": "Small line above the title", "info": "A date, a length or a kind of thing" },
+        { "type": "text", "id": "title", "label": "Title", "default": "Title" },
+        { "type": "textarea", "id": "text", "label": "Text" },
+        { "type": "text", "id": "link_label", "label": "Link label", "default": "View" },
+        { "type": "url", "id": "link", "label": "Link" }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Creator shelf",
+      "blocks": [ { "type": "card" }, { "type": "card" }, { "type": "card" }, { "type": "card" } ]
+    }
+  ]
+}
+{% endschema %}

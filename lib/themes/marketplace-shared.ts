@@ -109,6 +109,8 @@ export const CODE_TEMPLATES: readonly CodeTemplate[] = [
   { slug: "clothing", template: "clothing", name: "Clothing", category: "fashion" },
   { slug: "merch", template: "merch", name: "Merch", category: "creators" },
   { slug: "digital-products", template: "digital", name: "Digital products", category: "digital" },
+  /* Templates round 19: digital art books, a diptych hero, subjects and a look inside, after the owner's Echoes reference. */
+  { slug: "art-books", template: "artbooks", name: "Art books", category: "ebooks" },
   { slug: "ebooks", template: "ebooks", name: "Ebooks", category: "ebooks" },
   { slug: "fitness", template: "fitness", name: "Fitness", category: "fitness" },
   /* Templates round 18: remade as a course school, a flagship course with smaller ones beside it. */
@@ -120,11 +122,26 @@ export const CODE_TEMPLATES: readonly CodeTemplate[] = [
   { slug: "tour-merch", template: "tour", name: "Tour merch", category: "creators" },
   { slug: "sample-packs", template: "samples", name: "Sample packs", category: "music" },
   { slug: "templates-shop", template: "workspace", name: "Notion templates", category: "design" },
+  /* Templates round 19: a clothing shop on a night sky, products floating with a glow, after the owner's reference. */
+  { slug: "space-clothing", template: "space", name: "Night shop", category: "fashion" },
+  /* Templates round 19: a pastel poster shop with wavy bands and framed prints, after the owner's reference. */
+  { slug: "posters", template: "posters", name: "Poster shop", category: "design" },
 ]
 
 /** Where a template's pictures live: its home page whole at 1440 wide, and at a phone's width (scripts/build-theme-template-covers.ts takes both). */
 export const templateCoverPath = (template: string) => `/themes/${CODE_THEME_PACKAGE}/${template}.webp`
 export const templatePhonePath = (template: string) => `/themes/${CODE_THEME_PACKAGE}/${template}-phone.webp`
+/**
+ * Where a template's website is, prerendered: its pages, styles, scripts and
+ * pictures as static files the CDN serves (scripts/build-template-previews.ts
+ * writes them). The marketplace's Preview frames <root>/<slug>/index.html.
+ */
+export const TEMPLATE_PREVIEW_ROOT = "/theme-previews"
+/** The home page of a code template's prerendered website, or null for a listing that is not one. */
+export function templatePreviewPath(l: Pick<ThemeListing, "codePackage">): string | null {
+  const t = l.codePackage ? CODE_TEMPLATES.find((c) => `${CODE_THEME_PACKAGE}/${c.template}` === l.codePackage) : null
+  return t ? `${TEMPLATE_PREVIEW_ROOT}/${t.slug}/index.html` : null
+}
 /** The default template's cover. */
 export const DEFAULT_LISTING_COVER = templateCoverPath("default")
 

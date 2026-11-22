@@ -31,16 +31,16 @@ export const SAMPLE_SHOPS: Record<string, { name: string; products: SampleProduc
     ],
   },
   merch: {
-    name: "Soup Season",
+    name: "OKTAV",
     products: [
-      { title: "Stir Clockwise tee", price: "$34.00", image: "merch-stir-tee.webp", description: "Bone white organic cotton with the clockwise ladle on the front.", options: [{ name: "Size", values: ["S", "M", "L", "XL", "XXL"] }] },
-      { title: "Soup Season hoodie, tomato", price: "$68.00", image: "merch-wordmark-hoodie.webp" },
-      { title: "Ladle cap", price: "$30.00", image: "merch-ladle-cap.webp" },
-      { title: "Slurp test mug", price: "$24.00", image: "merch-slurp-mug.webp" },
-      { title: "Taste It First tee, navy", price: "$34.00", image: "merch-taste-tee.webp" },
-      { title: "Sticker sheet No. 4", price: "$8.00", image: "merch-sticker-sheet.webp" },
-      { title: "Sunday Broth print", price: "$28.00", image: "merch-broth-print.webp" },
-      { title: "Season 4 apron", price: "$46.00", image: "merch-season-apron.webp" },
+      { title: "Heavyweight hoodie, black", price: "$79.00", compare: "$95.00", image: "merch-hoodie-black.webp", description: "Brushed back fleece at 450 gsm, a double layer hood and a kangaroo pocket. Cut boxy with dropped shoulders.", options: [{ name: "Size", values: ["XS", "S", "M", "L", "XL"] }] },
+      { title: "Loop trackpant, heather grey", price: "$59.00", compare: "$72.00", image: "merch-trackpant-grey.webp" },
+      { title: "Oversized tee, black", price: "$38.00", image: "merch-tee-oversized-black.webp" },
+      { title: "Cargo trackpant, bone", price: "$74.00", image: "merch-cargo-trackpant-ecru.webp" },
+      { title: "Oversized tee, white", price: "$38.00", image: "merch-tee-oversized-white.webp" },
+      { title: "Twill short, black", price: "$44.00", compare: "$55.00", image: "merch-short-black.webp" },
+      { title: "Rib tank, white", price: "$29.00", image: "merch-tank-white.webp" },
+      { title: "Fitted tee, black", price: "$34.00", image: "merch-tee-fitted-black.webp" },
     ],
   },
   digital: {
@@ -56,12 +56,25 @@ export const SAMPLE_SHOPS: Record<string, { name: string; products: SampleProduc
       { title: "The starter bundle", price: "$79.00", compare: "$112.00", image: "digital-bundle.webp", kind: "digital", description: "The guide, the icons, the presets and Marlow in one download." },
     ],
   },
-  ebooks: {
-    name: "Your Name",
+  /* Templates round 19: digital art books, after the owner's Echoes reference. */
+  artbooks: {
+    name: "Ochre Editions",
     products: [
-      { title: "Book title one", price: "$12.00", image: "ebooks-book-stack.webp", kind: "digital", description: "A short line about this book." },
-      { title: "Book title two", price: "$9.00", image: "ebooks-library-curve.webp", kind: "digital" },
-      { title: "Book title three", price: "$9.00", image: "ebooks-book-tunnel.webp", kind: "digital" },
+      { title: "Hokusai. Prints of Mount Fuji", price: "$22.00", image: "artbooks-hokusai.webp", kind: "digital", description: "A 168 page PDF of landscape prints, each plate on its own page with a short note on where it was made. Read it on a tablet or a large screen and zoom into the woodgrain.", options: [{ name: "Edition", values: ["PDF", "PDF and print files"] }] },
+      { title: "Sargent. Portraits in Black", price: "$28.00", compare: "$36.00", image: "artbooks-sargent.webp", kind: "digital", description: "A 144 page PDF of portraits and studies in oil, with close details of the brushwork." },
+      { title: "British Algae. Anna Atkins Photographs", price: "$16.00", image: "artbooks-atkins.webp", kind: "digital", description: "A 96 page PDF of cyanotypes, seaweeds pressed and printed in sunlight." },
+      { title: "Van Gogh. Self-Portraits and Flowers", price: "$24.00", image: "artbooks-van-gogh.webp", kind: "digital", description: "A 192 page PDF of self-portraits and flower paintings, with full page details." },
+      { title: "Egypt. Tomb Paintings in Colour", price: "$26.00", image: "artbooks-egypt.webp", kind: "digital", description: "A 120 page PDF of tomb paintings copied by hand at full size." },
+      { title: "Vermeer. Light at the Window", price: "$18.00", image: "artbooks-vermeer.webp", kind: "digital", description: "An 80 page PDF of interiors, with each painting shown whole and in detail." },
+      { title: "Birds and Flowers. Japanese Prints on Black", price: "$20.00", image: "artbooks-birds.webp", kind: "digital", description: "A 64 page PDF of prints made on a black ground, birds and blossom in fine lines." },
+      { title: "Cross. Watercolours of the South", price: "$22.00", image: "artbooks-cross.webp", kind: "digital", description: "A 72 page PDF of watercolours in dabs of pure colour, painted on the Mediterranean coast." },
+    ],
+  },
+  ebooks: {
+    name: "Plain Sight",
+    products: [
+      { title: "Plain Sight, the ebook", price: "$29.00", compare: "$49.00", image: "ebooks-product-book.webp", kind: "digital", description: "A field guide to local search for small businesses. 212 pages in PDF and EPUB, twelve chapters, forty checklists." },
+      { title: "Plain Sight with the workbook", price: "$39.00", compare: "$64.00", image: "ebooks-product-bundle.webp", kind: "digital", description: "The ebook plus the printable workbook: every exercise and checklist on its own page, ready to fill in." },
     ],
   },
   fitness: {
@@ -75,7 +88,7 @@ export const SAMPLE_SHOPS: Record<string, { name: string; products: SampleProduc
   landing: {
     name: "Cutroom",
     products: [
-      { title: "The Whole Edit", price: "$249.00", compare: "$594.00", image: "landing-cover-whole-edit.webp", kind: "digital", description: "All six courses in one box, with the raw footage and a monthly feedback call." },
+      { title: "The Whole Edit", price: "$249.00", compare: "$594.00", image: "landing-cover-whole-edit.webp", kind: "digital", description: "All six courses in one bundle, with the raw footage and a monthly feedback call." },
       { title: "Cutting 101", price: "$47.00", compare: "$97.00", image: "landing-cover-cutting.webp", kind: "digital", description: "Beginner. 24 lessons. Go from a folder of clips to a cut that holds attention." },
       { title: "Colour Grading", price: "$97.00", compare: "$147.00", image: "landing-cover-colour.webp", kind: "digital", description: "Intermediate. 30 lessons. Balance, match and build a look that lasts a whole video." },
       { title: "Sound for Video", price: "$67.00", compare: "$97.00", image: "landing-cover-sound.webp", kind: "digital", description: "Intermediate. 18 lessons. Clean dialogue, music that sits under it, and a final mix." },
@@ -86,7 +99,7 @@ export const SAMPLE_SHOPS: Record<string, { name: string; products: SampleProduc
     ],
   },
   creator: {
-    name: "Robin Avery",
+    name: "Ines Hart",
     products: [
       { title: "Draw Before Breakfast", price: "$24.00", image: "creator-book.webp", description: "The book. Forty drawing exercises of ten minutes each, for mornings before work.", options: [{ name: "Format", values: ["Paperback", "PDF"] }] },
       { title: "Sketchbook Basics", price: "$129.00", image: "creator-course.webp", kind: "digital", description: "A six week video course for adults who have not drawn since school." },
@@ -107,27 +120,25 @@ export const SAMPLE_SHOPS: Record<string, { name: string; products: SampleProduc
     ],
   },
   tour: {
-    name: "Vela Moon",
+    name: "Elio Marsh",
     products: [
-      { title: "Slow Lights, 180g vinyl", price: "$34.00", image: "tour-vinyl-hand.webp", description: "The album on heavyweight black vinyl, with a printed inner sleeve." },
-      { title: "Tour tee, white", price: "$35.00", image: "tour-tee-hanger.webp", options: [{ name: "Size", values: ["S", "M", "L", "XL"] }] },
-      { title: "Tour hoodie, rust", price: "$70.00", image: "tour-hoodie.webp" },
-      { title: "Canvas tote", price: "$18.00", image: "tour-tote.webp" },
-      { title: "Tour tee, flat lay", price: "$35.00", image: "tour-tee-flat.webp" },
-      { title: "Night hoodie, black", price: "$70.00", image: "tour-hoodie-dark.webp" },
+      { title: "Night Swimmer, vinyl LP", price: "$32.00", image: "tour-vinyl-lp.webp", description: "The album on 180g black vinyl with a printed inner sleeve and the lyrics. Eleven songs, two sides.", options: [{ name: "Format", values: ["Black vinyl", "Signed black vinyl"] }] },
+      { title: "Night Swimmer tour tee", price: "$35.00", image: "tour-tee-black.webp", options: [{ name: "Size", values: ["S", "M", "L", "XL"] }] },
+      { title: "Night Swimmer, CD", price: "$14.00", image: "tour-cd.webp" },
+      { title: "Tour poster, spring 2027", price: "$20.00", image: "tour-poster.webp" },
+      { title: "Night Swimmer crew sweatshirt", price: "$65.00", image: "tour-crew.webp" },
+      { title: "Elio Marsh long sleeve", price: "$45.00", compare: "$52.00", image: "tour-longsleeve.webp" },
     ],
   },
   samples: {
-    name: "Tape Room",
+    name: "Loudlib",
     products: [
-      { title: "Night Bus Garage", price: "$29.00", compare: "$39.00", image: "samples-pack-night-bus-garage.webp", kind: "digital", description: "UK garage, 214 sounds at 130 to 134 BPM: shuffled hats, organ stabs, subs and drum loops. 24 bit WAV and MIDI." },
-      { title: "Factory Floor", price: "$29.00", compare: "$39.00", image: "samples-pack-factory-floor.webp", kind: "digital", description: "Techno drums, 310 one shots and 80 loops at 126 to 132 BPM. 24 bit WAV." },
-      { title: "Low End Kit", price: "$19.00", image: "samples-pack-low-end-kit.webp", kind: "digital", description: "Trap 808s, kicks and sub hits, 120 sounds tuned to their note. 24 bit WAV." },
-      { title: "Dusty Keys", price: "$24.00", image: "samples-pack-dusty-keys.webp", kind: "digital", description: "Lo-fi keys, 96 Rhodes and piano loops at 70 to 90 BPM, with MIDI." },
-      { title: "Cold Concrete", price: "$27.00", image: "samples-pack-cold-concrete.webp", kind: "digital", description: "Drill, 180 sounds at 140 to 144 BPM: slides, hats, bells and dark pads, with MIDI." },
-      { title: "Sunday Club", price: "$24.00", image: "samples-pack-sunday-club.webp", kind: "digital", description: "House, 250 sounds at 122 to 125 BPM: organ bass, chords and swung drums." },
-      { title: "Tape Textures", price: "$15.00", image: "samples-pack-tape-textures.webp", kind: "digital", description: "Ambient, 160 textures of hiss, hum, room tone and worn tape loops." },
-      { title: "Soft Machines", price: "$24.00", image: "samples-pack-soft-machines.webp", kind: "digital", description: "Synth, 140 one shots and MIDI from analogue polys and a bass synth." },
+      { title: "Serum Presets Vol 1", price: "$8.99", compare: "$22.47", image: "samples-pack-serum-presets.webp", kind: "digital", description: "Serum presets for tech house and deep house: basses, plucks, leads and pads, each named by what it does. Needs Xfer Serum." },
+      { title: "Tech House Sample Pack, Master Bundle 2025", price: "$19.98", compare: "$49.96", image: "samples-pack-tech-house-master-bundle.webp", kind: "digital", description: "The tech house packs in one download: drum loops, one shots, basslines, vocal chops and MIDI, with key and BPM in every loop name. 24 bit WAV." },
+      { title: "Tech House Drum Kit Vol I", price: "$4.99", image: "samples-pack-drums-one-shots.webp", kind: "digital", description: "Drum one shots for tech house: kicks, claps, snares, hats and percussion, trimmed to the transient. 24 bit WAV." },
+      { title: "Free Ambience Sample Pack Vol I", price: "$0.00", image: "samples-pack-ambience-kit.webp", kind: "digital", description: "Pads, drones and textures for intros, breakdowns and film. Free to download and royalty free." },
+      { title: "Deep House Production Suite I", price: "$14.99", image: "samples-pack-deep-house-production-suite.webp", kind: "digital", description: "Deep house chords, basslines, drum loops and MIDI at 120 to 124 BPM. 24 bit WAV." },
+      { title: "Tech House Unitech Vol I", price: "$12.99", image: "samples-pack-tech-house-unitech.webp", kind: "digital", description: "Rolling basslines, top loops and percussion for peak time tech house at 125 to 128 BPM. 24 bit WAV and MIDI." },
     ],
   },
   workspace: {
@@ -139,6 +150,34 @@ export const SAMPLE_SHOPS: Record<string, { name: string; products: SampleProduc
       { title: "Home budget", price: "$15.00", image: "workspace-home-budget.webp", kind: "digital" },
       { title: "Habit tracker", price: "$9.00", image: "workspace-habit-tracker.webp", kind: "digital" },
       { title: "Study planner", price: "$12.00", image: "workspace-study-planner.webp", kind: "digital" },
+    ],
+  },
+  /* Templates round 19: product pictures are transparent cut-outs, as the template asks creators to upload them. */
+  space: {
+    name: "Nadir",
+    products: [
+      { title: "White Tee", price: "$55.00", image: "space-white-tee.webp", description: "Heavy cotton jersey, boxy through the body with a dropped shoulder. Washed once before it ships, so it keeps its size.", options: [{ name: "Size", values: ["S", "M", "L", "XL"] }] },
+      { title: "Denim Jacket", price: "$140.00", image: "space-denim-jacket.webp" },
+      { title: "Rust Bomber", price: "$155.00", image: "space-bomber.webp" },
+      { title: "Pink Bag", price: "$50.00", image: "space-pink-bag.webp" },
+      { title: "Light Jeans", price: "$95.00", image: "space-light-jeans.webp" },
+      { title: "Grey Beanie", price: "$35.00", image: "space-grey-beanie.webp" },
+      { title: "Black Cap", price: "$40.00", image: "space-black-cap.webp" },
+      { title: "Black Tee", price: "$55.00", image: "space-black-tee.webp" },
+    ],
+  },
+  /* Templates round 19: poster designs drawn for the template, shown framed on a soft card. */
+  posters: {
+    name: "Daydream Prints",
+    products: [
+      { title: "Blue Hour print", price: "$32.00", image: "posters-blue-petals.webp", description: "A cobalt flower on warm cream, printed on thick matte paper. Sent flat, ready for a frame.", options: [{ name: "Size", values: ["A4", "A3", "50 x 70 cm"] }] },
+      { title: "Good Morning print", price: "$32.00", image: "posters-sunburst.webp" },
+      { title: "In Full Bloom print", price: "$28.00", compare: "$36.00", image: "posters-big-bloom.webp" },
+      { title: "Squeeze the Day print", price: "$32.00", image: "posters-citrus.webp" },
+      { title: "After the Rain print", price: "$28.00", image: "posters-rainbow-arches.webp" },
+      { title: "Tulip Season print", price: "$32.00", image: "posters-tulips.webp" },
+      { title: "Pick Me print", price: "$28.00", image: "posters-daisies.webp" },
+      { title: "Slow Sundays print", price: "$32.00", image: "posters-wavy-checks.webp" },
     ],
   },
 }

@@ -154,6 +154,23 @@
       assign cb_wish_text = settings.wishlist_bubble_color
     endif
   endif
+  comment
+    A number picked in the same colour as its bubble (black on black) is
+    dropped, and the number is worked out from the bubble instead
+    (header-section.css).
+  endcomment
+  if cb_cart_bg != blank and cb_cart_text != blank
+    assign cb_ratio = cb_cart_bg | color_contrast: cb_cart_text
+    if cb_ratio < 3
+      assign cb_cart_text = ''
+    endif
+  endif
+  if cb_wish_bg != blank and cb_wish_text != blank
+    assign cb_ratio = cb_wish_bg | color_contrast: cb_wish_text
+    if cb_ratio < 3
+      assign cb_wish_text = ''
+    endif
+  endif
   assign cb_border_color = ''
   if settings.bubble_border_color != blank and settings.bubble_border_color.alpha != 0
     assign cb_border_color = settings.bubble_border_color
@@ -181,7 +198,7 @@
     {%- if cb_cart_text != blank %}--count-bubble-color: {{ cb_cart_text }};{% endif -%}
     {%- comment -%} The wishlist never borrows the cart's own colour (the stylesheets fall back from one to the other). {%- endcomment -%}
     {%- if cb_wish_bg != blank %}--count-bubble-wishlist-bg: {{ cb_wish_bg }};{% elsif cb_cart_bg != blank %}--count-bubble-wishlist-bg: var(--color-primary);{% endif -%}
-    {%- if cb_wish_text != blank %}--count-bubble-wishlist-color: {{ cb_wish_text }};{% elsif cb_cart_text != blank %}--count-bubble-wishlist-color: var(--color-background, #fff);{% endif -%}
+    {%- if cb_wish_text != blank %}--count-bubble-wishlist-color: {{ cb_wish_text }};{% endif -%}
     {%- if cb_border_color != blank %}--count-bubble-border-color: {{ cb_border_color }};{% endif %}
     --count-bubble-size: {{ settings.bubble_size | default: 18 }}px;
     --count-bubble-font-size: {{ settings.bubble_font_size | default: 10 }}px;

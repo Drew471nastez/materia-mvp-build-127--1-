@@ -1,0 +1,166 @@
+{%- comment -%}
+  Art books template: a hero of two pictures side by side, like two facing
+  plates, with one heading, a line and a button laid across the middle.
+  Each half has its own picture and focal point. The pictures settle in
+  with a slow scale on load; nothing moves with reduced motion.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 500%22%3E%3Crect width=%22400%22 height=%22500%22 fill=%22%23d9d4cb%22/%3E%3Cg fill=%22%23a59d90%22%3E%3Ccircle cx=%22172%22 cy=%22214%22 r=%2216%22/%3E%3Cpath d=%22M128 300l52-60 32 36 26-22 46 46z%22/%3E%3C/g%3E%3C/svg%3E'
+  assign overlay = st.overlay_opacity | default: 0 | divided_by: 100.0
+-%}
+<style>
+  #shopify-section-{{ sid }} { position: relative; isolation: isolate; }
+  {%- comment -%} A shop name written as text (no logo picture yet) takes the transparent header's colour while it sits over these pictures, like the menu and icons do. {%- endcomment -%}
+  @media (min-width: 1025px) {
+    body:has(.abd) .section-header:not(.shopify-section-header-sticky) header.transparent .header__logo-text { color: var(--transparent-color) !important; }
+  }
+  @media (max-width: 1024.98px) {
+    body:has(.abd) .section-header:not(.shopify-section-header-sticky) header.transparent-mobile .header__logo-text { color: var(--transparent-color) !important; }
+  }
+  #shopify-section-{{ sid }} .abd {
+    --abd-h: {{ st.height_mobile | default: 560 }}px;
+    --abd-text: {{ st.text_color | default: '#ffffff' }};
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-height: var(--abd-h);
+    overflow: hidden;
+    background: #1b1a18;
+    color: var(--abd-text);
+  }
+  @media (min-width: 768px) {
+    #shopify-section-{{ sid }} .abd { --abd-h: {{ st.height_desktop | default: 720 }}px; }
+  }
+  #shopify-section-{{ sid }} .abd__half { position: relative; overflow: hidden; min-height: var(--abd-h); }
+  #shopify-section-{{ sid }} .abd__half img {
+    position: absolute; inset: 0; width: 100%; height: 100%; display: block; margin: 0;
+    object-fit: cover;
+    transform: scale(1.06);
+    animation: abd-settle-{{ sid }} 1.8s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+  }
+  #shopify-section-{{ sid }} .abd__half--right img { animation-delay: 0.12s; }
+  #shopify-section-{{ sid }} .abd__half img[data-placeholder] { animation: none; transform: none; }
+  @keyframes abd-settle-{{ sid }} { to { transform: scale(1); } }
+  #shopify-section-{{ sid }} .abd::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background:
+      linear-gradient(180deg, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0) 22%),
+      rgba(0,0,0,{{ overlay }});
+  }
+  #shopify-section-{{ sid }} .abd__content {
+    position: absolute; inset: 0; z-index: 1;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center;
+    padding: 96px 20px 48px;
+    gap: 14px;
+  }
+  #shopify-section-{{ sid }} .abd__content[data-position="bottom"] { justify-content: flex-end; padding-bottom: 56px; }
+  #shopify-section-{{ sid }} .abd__heading {
+    margin: 0; color: var(--abd-text);
+    font-family: var(--font-heading-family, inherit);
+    font-weight: {{ st.heading_weight | default: 400 }};
+    font-size: {{ st.heading_size_mobile | default: 40 }}px;
+    line-height: 1.05; letter-spacing: -0.01em;
+    max-width: 16ch;
+    text-shadow: 0 1px 24px rgba(0,0,0,0.25);
+  }
+  #shopify-section-{{ sid }} .abd__text {
+    margin: 0; max-width: 42ch; color: var(--abd-text); opacity: 0.92;
+    font-size: {{ st.text_size | default: 17 }}px; line-height: 1.5;
+    text-shadow: 0 1px 16px rgba(0,0,0,0.3);
+  }
+  #shopify-section-{{ sid }} .abd__text p { margin: 0; }
+  @media (min-width: 768px) {
+    #shopify-section-{{ sid }} .abd__heading { font-size: {{ st.heading_size_desktop | default: 64 }}px; }
+  }
+  #shopify-section-{{ sid }} .abd__button { margin-top: 10px; }
+  #shopify-section-{{ sid }} .abd__heading,
+  #shopify-section-{{ sid }} .abd__text,
+  #shopify-section-{{ sid }} .abd__button {
+    opacity: 0; transform: translateY(10px);
+    animation: abd-rise-{{ sid }} 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+  }
+  #shopify-section-{{ sid }} .abd__text { animation-delay: 0.12s; }
+  #shopify-section-{{ sid }} .abd__button { animation-delay: 0.24s; }
+  @keyframes abd-rise-{{ sid }} { to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    #shopify-section-{{ sid }} .abd__half img,
+    #shopify-section-{{ sid }} .abd__heading,
+    #shopify-section-{{ sid }} .abd__text,
+    #shopify-section-{{ sid }} .abd__button { animation: none; transform: none; opacity: 1; }
+  }
+</style>
+
+<div class="abd color-{{ color_scheme }}" data-section-id="{{ sid }}">
+  {%- for side in (1..2) -%}
+    {%- if side == 1 -%}
+      {%- assign pic = st.image_left -%}{%- assign alt = st.image_left_alt -%}{%- assign px = st.left_focal_x -%}{%- assign py = st.left_focal_y -%}{%- assign cls = 'left' -%}
+    {%- else -%}
+      {%- assign pic = st.image_right -%}{%- assign alt = st.image_right_alt -%}{%- assign px = st.right_focal_x -%}{%- assign py = st.right_focal_y -%}{%- assign cls = 'right' -%}
+    {%- endif -%}
+    <div class="abd__half abd__half--{{ cls }}">
+      {%- if pic != blank -%}
+        <img
+          src="{{ pic | image_url: width: 1400 }}"
+          srcset="{{ pic | image_url: width: 600 }} 600w, {{ pic | image_url: width: 1000 }} 1000w, {{ pic | image_url: width: 1400 }} 1400w"
+          sizes="50vw"
+          width="{{ pic.width | default: 1400 }}"
+          height="{{ pic.height | default: 1750 }}"
+          alt="{{ alt | default: pic.alt | escape }}"
+          style="object-position: {{ px | default: 50 }}% {{ py | default: 50 }}%;"
+          fetchpriority="high"
+          decoding="async">
+      {%- else -%}
+        <img src="{{ placeholder }}" data-placeholder width="400" height="500" alt="">
+      {%- endif -%}
+    </div>
+  {%- endfor -%}
+  <div class="abd__content" data-position="{{ st.content_position | default: 'center' }}">
+    {%- if st.heading != blank -%}<h1 class="abd__heading">{{ st.heading | escape }}</h1>{%- endif -%}
+    {%- if st.text != blank -%}<div class="abd__text">{{ st.text }}</div>{%- endif -%}
+    {%- if st.button_label != blank -%}
+      <div class="abd__button"><a class="button inline-block btn-primary" href="{{ st.button_link | default: '/collections/all' }}">{{ st.button_label | escape }}</a></div>
+    {%- endif -%}
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Diptych hero",
+  "tag": "section",
+  "class": "section sec__artbooks-diptych",
+  "settings": [
+    { "type": "header", "content": "General" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default-color-scheme" },
+    { "type": "header", "content": "Left picture" },
+    { "type": "image_picker", "id": "image_left", "label": "Picture" },
+    { "type": "text", "id": "image_left_alt", "label": "Alt text" },
+    { "type": "range", "id": "left_focal_x", "label": "Focal point, across", "min": 0, "max": 100, "step": 1, "unit": "%", "default": 50 },
+    { "type": "range", "id": "left_focal_y", "label": "Focal point, down", "min": 0, "max": 100, "step": 1, "unit": "%", "default": 30 },
+    { "type": "header", "content": "Right picture" },
+    { "type": "image_picker", "id": "image_right", "label": "Picture" },
+    { "type": "text", "id": "image_right_alt", "label": "Alt text" },
+    { "type": "range", "id": "right_focal_x", "label": "Focal point, across", "min": 0, "max": 100, "step": 1, "unit": "%", "default": 50 },
+    { "type": "range", "id": "right_focal_y", "label": "Focal point, down", "min": 0, "max": 100, "step": 1, "unit": "%", "default": 30 },
+    { "type": "header", "content": "Text" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Art books to keep" },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Say in one line what your shop sells.</p>" },
+    { "type": "text", "id": "button_label", "label": "Button label", "default": "Browse the books" },
+    { "type": "url", "id": "button_link", "label": "Button link" },
+    { "type": "select", "id": "content_position", "label": "Text position", "options": [ { "value": "center", "label": "Middle" }, { "value": "bottom", "label": "Bottom" } ], "default": "center" },
+    { "type": "color", "id": "text_color", "label": "Text colour", "default": "#ffffff" },
+    { "type": "range", "id": "overlay_opacity", "label": "Darken the pictures", "min": 0, "max": 70, "step": 1, "unit": "%", "default": 24 },
+    { "type": "header", "content": "Size" },
+    { "type": "range", "id": "heading_size_desktop", "label": "Heading size, desktop", "min": 28, "max": 120, "step": 2, "unit": "px", "default": 64 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size, phone", "min": 24, "max": 72, "step": 2, "unit": "px", "default": 40 },
+    { "type": "range", "id": "heading_weight", "label": "Heading weight", "min": 300, "max": 800, "step": 100, "default": 400 },
+    { "type": "range", "id": "text_size", "label": "Text size", "min": 13, "max": 24, "step": 1, "unit": "px", "default": 17 },
+    { "type": "range", "id": "height_desktop", "label": "Height, desktop", "min": 400, "max": 1000, "step": 10, "unit": "px", "default": 720 },
+    { "type": "range", "id": "height_mobile", "label": "Height, phone", "min": 320, "max": 800, "step": 10, "unit": "px", "default": 560 }
+  ],
+  "presets": [ { "name": "Diptych hero" } ]
+}
+{% endschema %}

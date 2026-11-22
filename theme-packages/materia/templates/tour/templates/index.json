@@ -1,685 +1,320 @@
 {
   "sections": {
-    "hero_section_pro_1": {
-      "type": "hero-section-pro",
+    "release": {
+      "type": "tour-release",
       "settings": {
-        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
-        "section_width": "full_width",
-        "reset_spacing": true,
-        "elements_alignment_desktop": "flex-start",
-        "elements_alignment_mobile": "flex-start",
-        "desktop_width": 760,
-        "enable_custom_style": false,
-        "enable_custom_fonts": false,
-        "heading_font": "assistant_n4",
-        "body_font": "assistant_n4",
-        "texts_reveal_animation": "none",
-        "reveal_speed": 700,
-        "reveal_stagger": 100,
-        "reveal_easing": "cubic-bezier(.22,.61,.36,1)",
-        "animation": "theme",
-        "editor_replay_label": "Replay animation",
-        "background_height_desktop": 78,
-        "padding_top": 120,
-        "padding_bottom": 60,
-        "hero_content_padding_left_desktop": 80,
-        "hero_content_padding_right_desktop": 100,
-        "background_height_mobile": 88,
-        "padding_top_mobile": 30,
-        "padding_bottom_mobile": 20,
-        "hero_content_padding_left_mobile": 22,
-        "hero_content_padding_right_mobile": 22
+        "image": "shopify://shop_images/tour-cover.webp",
+        "image_alt": "Night Swimmer album cover: a lit swimming pool in the dark",
+        "show_disc": true,
+        "label_color": "#1c345c",
+        "eyebrow": "New album",
+        "title": "Night Swimmer",
+        "title_italic": true,
+        "artist": "Elio Marsh. Out now.",
+        "text": "<p>Eleven songs written between two winters, recorded live in one room. On 180g vinyl, CD and everywhere you listen.</p>",
+        "button_label": "Shop the record",
+        "button_link": "/collections/all",
+        "button_2_label": "Tour dates",
+        "button_2_link": "/pages/tour",
+        "background": "#f3f1ec",
+        "text_color": "#141414",
+        "muted_color": "#5d5a54",
+        "accent_color": "#1c345c",
+        "line_color": "#d9d5cc",
+        "title_size": 112,
+        "title_size_mobile": 60,
+        "padding_top": 64,
+        "padding_bottom": 88
       },
       "blocks": {
-        "background_1": {
-          "type": "background",
+        "f1": {
+          "type": "format",
           "settings": {
-            "enable_parallax_mouse": false,
-            "enable_split_images": false,
-            "enable_video_on_mobile": true,
-            "enable_background_color": false,
-            "enable_custom_style": false,
-            "enable_background_color_gradient": false,
-            "background_color_gradient_1": "#ffffff",
-            "background_color_gradient_2": "#ffffff",
-            "background_color_gradient_3": "#ffffff",
-            "background_color_gradient_degrees": "90deg",
-            "background_brightness": 0.5,
-            "video_brightness": 1,
-            "image_reveal_animation": "none",
-            "video_autoplay": true,
-            "video_loop": true,
-            "video_controls": false,
-            "background_image": "shopify://shop_images/tour-hero-stage.webp"
+            "label": "Vinyl LP",
+            "detail": "180g black vinyl, printed inner sleeve",
+            "link": "/collections/all"
           }
         },
-        "top_text_1": {
-          "type": "top_text",
+        "f2": {
+          "type": "format",
           "settings": {
-            "enable_custom_style": true,
-            "font_source": "body",
-            "text_case": "uppercase",
-            "letter_spacing": 2,
-            "line_height": 1.5,
-            "top_text_size_desktop": 15,
-            "top_text_size_mobile": 13,
-            "font_weight": "theme",
-            "top_text_gap_from_title": 10,
-            "top_text": "Slow Lights tour, spring 2027",
-            "top_text_color": "#ff6a4d"
+            "label": "CD",
+            "detail": "Card wallet with the lyrics",
+            "link": "/collections/all"
           }
         },
-        "heading_1": {
-          "type": "heading",
+        "f3": {
+          "type": "format",
           "settings": {
-            "title_text": "The official store",
-            "enable_special_word": false,
-            "enable_custom_style": true,
-            "title_line_height_desktop": 0.95,
-            "title_line_height_mobile": 1.1,
-            "title_font_weight": "inherit",
-            "enable_title_custom_font": false,
-            "custom_title_font": "assistant_n4",
-            "enable_title_gradient": false,
-            "gradient_start_color": "#ff0000",
-            "gradient_middle_color": "#00ff00",
-            "gradient_end_color": "#0000ff",
-            "gradient_degrees": "90deg",
-            "font_source": "heading",
-            "text_case": "theme",
-            "letter_spacing": 0,
-            "line_height": 1.2,
-            "title_size_desktop": 104,
-            "title_size_mobile": 52,
-            "title_left_padding_desktop": 0,
-            "title_right_padding_desktop": 0,
-            "title_left_padding_mobile": 0,
-            "title_right_padding_mobile": 0,
-            "title_width_desktop": 74,
-            "title_text_color": "#ffffff"
-          }
-        },
-        "subheading_1": {
-          "type": "subheading",
-          "settings": {
-            "enable_custom_style": true,
-            "subheading_font_weight": "400",
-            "subheading_line_height_desktop": "1.4",
-            "subheading_line_height_mobile": "1.3",
-            "font_source": "body",
-            "text_case": "theme",
-            "letter_spacing": 0,
-            "line_height": 1.5,
-            "subheading_text_size_desktop": 19,
-            "subheading_text_size_mobile": 16,
-            "subheading_left_padding_desktop": 0,
-            "subheading_right_padding_desktop": 0,
-            "subheading_left_padding_mobile": 0,
-            "subheading_right_padding_mobile": 0,
-            "subheading_vertical_gap": 20,
-            "subheading_to_button_gap": 20,
-            "subheading_text": "The record on vinyl, this tour's tees and what is left from the merch desk.",
-            "subheading_text_color": "#ffffff"
-          }
-        },
-        "primary_button_1": {
-          "type": "primary_button",
-          "settings": {
-            "button_text": "Shop the tour collection",
-            "selected_icon": "none",
-            "enable_custom_style": false,
-            "button_font_size": 15,
-            "button_border_enabled": true,
-            "button_border_thickness": 1,
-            "button_border_radius": 6,
-            "enable_button_custom_font_weight": false,
-            "button_font_weight": "700",
-            "button_hover_animation": "none",
-            "use_theme_button": true,
-            "icon_size": 16,
-            "button_size_desktop": 10,
-            "button_size_mobile": 12,
-            "button_width_desktop": 20,
-            "button_width_mobile": 20,
-            "button_vertical_gap": 20,
-            "button_link": "/collections/all"
-          }
-        },
-        "secondary_button_1": {
-          "type": "secondary_button",
-          "settings": {
-            "enable_secondary_button": true,
-            "secondary_button_text": "See the dates",
-            "enable_custom_style": false,
-            "secondary_button_border_radius": 5,
-            "secondary_button_border_thickness": 0,
-            "secondary_button_font_size": 15,
-            "secondary_button_font_weight": "400",
-            "use_theme_button": true,
-            "secondary_button_horizontal_gap": 15,
-            "secondary_button_link": "/pages/tour"
-          }
-        }
-      },
-      "block_order": [
-        "background_1",
-        "top_text_1",
-        "heading_1",
-        "subheading_1",
-        "primary_button_1",
-        "secondary_button_1"
-      ]
-    },
-    "category_banners_2_1": {
-      "type": "category-banners-2",
-      "settings": {
-        "color_scheme": "default",
-        "section_width": "full_width",
-        "reset_spacing": true,
-        "layout": "grid_2",
-        "gap": 6,
-        "aspect_ratio_desktop": "16 / 9",
-        "header_alignment": "center",
-        "text_position": "bottom",
-        "sub_visibility": "always",
-        "corner_style": "custom",
-        "border_radius": 0,
-        "image_base_scale": 100,
-        "enable_custom_styling": false,
-        "overlay_opacity": 35,
-        "title_style": "md",
-        "heading_style": "h2",
-        "sub_style": "body",
-        "heading_size_desktop": 42,
-        "heading_weight": 700,
-        "sub_size": 14,
-        "heading_uppercase": false,
-        "heading_letter_spacing": 0,
-        "heading_shadow": "0 2px 8px rgba(0,0,0,0.25)",
-        "enable_custom_fonts": false,
-        "heading_font": "assistant_n4",
-        "body_font": "assistant_n4",
-        "overlay_opacity_hover": 45,
-        "image_hover_scale": 105,
-        "hover_duration": 700,
-        "underline_thickness": 2,
-        "underline_offset": 6,
-        "underline_duration": 350,
-        "underline_origin": "left",
-        "padding_top": 6,
-        "padding_bottom": 0,
-        "side_padding_desktop": 0,
-        "mobile_layout": "grid_2",
-        "aspect_ratio_mobile": "4 / 5",
-        "heading_size_mobile": 28,
-        "side_padding_mobile": 0
-      },
-      "blocks": {
-        "banner_1": {
-          "type": "banner",
-          "settings": {
-            "custom_style": false,
-            "overlay_opacity": 25,
-            "heading": "Vinyl",
-            "subheading": "<p>180g, with the lyric sheet</p>",
-            "link": "/collections/all",
-            "image": "shopify://shop_images/tour-turntable.webp"
-          }
-        },
-        "banner_2": {
-          "type": "banner",
-          "settings": {
-            "custom_style": false,
-            "overlay_opacity": 25,
-            "heading": "Tees",
-            "subheading": "<p>This tour's prints</p>",
-            "link": "/collections/all",
-            "image": "shopify://shop_images/tour-tee-hanger.webp"
-          }
-        },
-        "banner_3": {
-          "type": "banner",
-          "settings": {
-            "custom_style": false,
-            "overlay_opacity": 25,
-            "heading": "Hoodies",
-            "subheading": "<p>Heavy fleece, two colours</p>",
-            "link": "/collections/all",
-            "image": "shopify://shop_images/tour-hoodie.webp"
-          }
-        },
-        "banner_4": {
-          "type": "banner",
-          "settings": {
-            "custom_style": false,
-            "overlay_opacity": 25,
-            "heading": "Bundles",
-            "subheading": "<p>Record, tee and tote together</p>",
-            "link": "/collections/all",
-            "image": "shopify://shop_images/tour-vinyl-window.webp"
-          }
-        }
-      },
-      "block_order": [
-        "banner_1",
-        "banner_2",
-        "banner_3",
-        "banner_4"
-      ]
-    },
-    "products_carousel_1": {
-      "type": "products-carousel",
-      "settings": {
-        "color_scheme": "default",
-        "section_width": "fluid_container",
-        "reset_spacing": true,
-        "items_to_show": 5,
-        "heading": "Best Selling",
-        "header_size": "medium",
-        "header_alignment": "left",
-        "heading_underline": false,
-        "header_spacing": 32,
-        "items_per_row": 4,
-        "column_gap": 30,
-        "show_banner": false,
-        "banner_type": "image",
-        "video_autoplay": true,
-        "banner_width": 30,
-        "position": "left",
-        "sticky_banner": false,
-        "show_arrow": false,
-        "carousel_pagination": "show_dots_on_mobile",
-        "pagination_style": "dot",
-        "pagination_position": "center",
-        "infinite": false,
-        "autoplay": false,
-        "autorotate_speed": 5,
-        "reveal": false,
-        "enable_custom_style": false,
-        "enable_custom_fonts": false,
-        "heading_font": "assistant_n4",
-        "body_font": "assistant_n4",
-        "padding_top": 50,
-        "padding_bottom": 50,
-        "gap_products_to_pagination": 24,
-        "gap_pagination_to_button": 24,
-        "gap_products_to_button": 32,
-        "section_margin_top_desktop": 0,
-        "section_margin_bottom_desktop": 0,
-        "items_per_row_mobile": 2,
-        "section_margin_top_mobile": 0,
-        "section_margin_bottom_mobile": 0
-      },
-      "blocks": {
-        "eyebrow_1": {
-          "type": "eyebrow",
-          "settings": {
-            "text": "Tour collection",
-            "enable_custom_style": false,
-            "size": 13
-          }
-        },
-        "heading_1": {
-          "type": "heading",
-          "settings": {
-            "text": "On the merch desk this spring",
-            "enable_custom_style": false,
-            "size_desktop": 32,
-            "size_mobile": 26
-          }
-        },
-        "subheading_1": {
-          "type": "subheading",
-          "settings": {
-            "text": "<p>The same pieces we carry to every show, sent from our own stock room.</p>",
-            "enable_custom_style": false,
-            "size": 16
-          }
-        },
-        "view_all_1": {
-          "type": "view_all",
-          "settings": {
-            "enabled": true,
-            "label": "View all",
-            "position": "header",
-            "full_width": false,
-            "uppercase": false,
-            "enable_custom_style": false,
-            "use_theme_button": true,
-            "radius": 6,
-            "padding_x": 26,
-            "padding_y": 14,
-            "font_size": 14,
-            "font_weight": "600",
-            "border_width": 1,
+            "label": "Tour poster",
+            "detail": "Every date, on heavy matte paper",
             "link": "/collections/all"
           }
         }
       },
       "block_order": [
-        "eyebrow_1",
-        "heading_1",
-        "subheading_1",
-        "view_all_1"
+        "f1",
+        "f2",
+        "f3"
       ]
     },
-    "featured_product2_1": {
-      "type": "featured-product2",
+    "merch": {
+      "type": "products-grid",
       "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "heading": "The store",
+        "text": "<p>Records, tour clothing and prints. Only made for this record.</p>",
+        "collection": "",
+        "items_to_show": 8,
+        "show_add_to_cart": false,
+        "button_label": "Shop all",
+        "button_link": "/collections/all",
+        "items_per_row": 4,
+        "items_per_row_mobile": 2,
+        "column_gap": 16,
+        "header_alignment": "left",
+        "color_scheme": "default",
+        "section_width": "fluid_container",
+        "padding_top": 24,
+        "padding_bottom": 80,
+        "reset_spacing": true
+      }
+    },
+    "stage": {
+      "type": "promo-banner-2",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
         "section_width": "full_width",
         "reset_spacing": true,
-        "image_position": "right",
-        "image_width_pct": 50,
-        "column_valign": "center",
-        "text_align": "left",
-        "enable_sticky_content_on_desktop": true,
-        "gap_desktop": 56,
-        "text_gap": 14,
-        "sub_max_width": 560,
-        "desc_max_width": 560,
-        "cta_margin_top": 12,
-        "image_aspect_desktop": "1 / 1",
-        "image_radius": 20,
-        "enable_custom_style": false,
-        "rating_star_color": "#E2A938",
-        "use_theme_button": true,
-        "cta_size": 15,
-        "cta_pad_x": 24,
-        "cta_pad_y": 14,
-        "cta_radius": 100,
-        "enable_custom_fonts": false,
-        "heading_font": "assistant_n4",
-        "body_font": "assistant_n4",
-        "rating_size": 13,
-        "padding_top": 49,
-        "padding_bottom": 49,
-        "side_padding_desktop": 24,
-        "image_aspect_mobile": "1 / 1",
-        "gap_mobile": 24,
-        "side_padding_mobile": 16,
-        "image": "shopify://shop_images/tour-vinyl-hand.webp"
+        "display_section_on": "all",
+        "content_alignment_h": "left",
+        "content_alignment_v": "bottom",
+        "content_max_width": 640,
+        "background_image": "shopify://shop_images/tour-stage.webp",
+        "image_position_x": 50,
+        "image_position_y": 50,
+        "enable_overlay": true,
+        "overlay_color": "#000000",
+        "overlay_opacity": 22,
+        "content_gap": 14,
+        "min_height_desktop": 680,
+        "padding_top_desktop": 64,
+        "padding_bottom_desktop": 64,
+        "side_padding_desktop": 56,
+        "content_alignment_mobile": "left",
+        "min_height_mobile": 540,
+        "padding_top_mobile": 40,
+        "padding_bottom_mobile": 40,
+        "side_padding_mobile": 20,
+        "reveal": true,
+        "animation": "fade"
       },
       "blocks": {
-        "eyebrow_1": {
-          "type": "eyebrow",
-          "settings": {
-            "text": "The record",
-            "enable_custom_style": false,
-            "size": 12
-          }
-        },
-        "heading_1": {
+        "heading": {
           "type": "heading",
           "settings": {
-            "tag": "h2",
-            "enable_custom_style": false,
-            "size_desktop": 52,
-            "size_mobile": 32,
-            "text": "Slow Lights, on 180g vinyl"
+            "text": "The Night Swimmer Tour",
+            "enable_custom_style": true,
+            "color": "#ffffff",
+            "weight": "400",
+            "text_case": "none",
+            "letter_spacing": -1,
+            "line_height": 1.0,
+            "size_desktop": 76,
+            "size_mobile": 42,
+            "tag": "h2"
           }
         },
-        "description_1": {
-          "type": "description",
+        "subtext": {
+          "type": "subtext",
           "settings": {
-            "use_product_description": false,
-            "truncate_chars": 220,
-            "enable_custom_style": false,
-            "size": 15,
-            "text": "<p>Eleven songs across two sides, cut at half speed. Comes with a printed inner sleeve, the lyric sheet and a download of the album.</p><p>Choose your record in the section settings and its price and Add to cart appear here.</p>"
+            "text": "<p>Eight cities in four weeks. The tour shirt and poster are only sold at the shows and here.</p>",
+            "enable_custom_style": true,
+            "color": "#e4e4e0",
+            "size_desktop": 17,
+            "size_mobile": 15
           }
         },
-        "buttons_1": {
+        "buttons": {
           "type": "buttons",
           "settings": {
-            "primary_action": "link",
-            "primary_label": "See the record",
-            "primary_url": "/collections/all",
-            "secondary_label": "Bundle it with a tee",
-            "secondary_url": "/collections/all"
+            "primary_label": "See all dates",
+            "primary_link": "/pages/tour",
+            "secondary_label": "",
+            "secondary_link": "",
+            "use_theme_button": true,
+            "gap_top": 10
           }
         }
       },
       "block_order": [
-        "eyebrow_1",
-        "heading_1",
-        "description_1",
-        "buttons_1"
+        "heading",
+        "subtext",
+        "buttons"
       ]
     },
-    "feature_timeline_1": {
-      "type": "feature-timeline",
+    "dates": {
+      "type": "tour-dates",
       "settings": {
-        "color_scheme": "default",
-        "section_width": "full_width",
-        "show_section_on": "all",
-        "reset_spacing": true,
-        "layout": "side",
-        "text_align": "left",
-        "content_max_width": 860,
-        "head_gap": 48,
-        "item_gap_desktop": 56,
-        "image_ratio": "adapt",
-        "marker_style": "ring",
-        "marker_size": 14,
-        "line_thickness": 2,
-        "enable_custom_style": false,
-        "enable_custom_fonts": false,
-        "heading_font": "assistant_n4",
-        "body_font": "assistant_n4",
-        "fill_on_scroll": true,
-        "padding_top_desktop": 96,
-        "padding_bottom_desktop": 96,
-        "section_margin_top_desktop": 0,
-        "section_margin_bottom_desktop": 0,
-        "item_gap_mobile": 36,
-        "padding_top_mobile": 56,
-        "padding_bottom_mobile": 56,
-        "section_margin_top_mobile": 0,
-        "section_margin_bottom_mobile": 0
+        "heading": "Tour dates",
+        "note": "Sample dates. Replace them with your own.",
+        "ticket_label": "Tickets",
+        "few_label": "Last tickets",
+        "sold_out_label": "Sold out",
+        "button_label": "All dates",
+        "button_link": "/pages/tour",
+        "background": "#141414",
+        "text_color": "#f3f1ec",
+        "muted_color": "#a6a39c",
+        "accent_color": "#7fb4d6",
+        "line_color": "#2f2f2f",
+        "heading_size": 72,
+        "heading_size_mobile": 44,
+        "padding": 88,
+        "padding_mobile": 52
       },
       "blocks": {
-        "eyebrow_1": {
-          "type": "eyebrow",
+        "d1": {
+          "type": "date",
           "settings": {
-            "text": "On the road",
-            "enable_custom_style": false
+            "day": "12",
+            "month": "Mar",
+            "city": "Manchester",
+            "venue": "Albert Hall",
+            "status": "sold_out",
+            "link": "/pages/tour"
           }
         },
-        "heading_1": {
-          "type": "heading",
+        "d2": {
+          "type": "date",
           "settings": {
-            "text": "Tour dates",
-            "enable_custom_style": false,
-            "weight_enable": false,
-            "weight": "700",
-            "size_enable": false,
-            "size_desktop": 40,
-            "size_mobile": 28,
-            "line_height": 1.2,
-            "tracking": 0
+            "day": "14",
+            "month": "Mar",
+            "city": "Glasgow",
+            "venue": "Barrowland Ballroom",
+            "status": "few",
+            "link": "/pages/tour"
           }
         },
-        "subheading_1": {
-          "type": "subheading",
+        "d3": {
+          "type": "date",
           "settings": {
-            "text": "<p>Sample dates. Replace them with your own.</p>",
-            "enable_custom_style": false,
-            "size_enable": false,
-            "size": 17
+            "day": "17",
+            "month": "Mar",
+            "city": "Dublin",
+            "venue": "Vicar Street",
+            "status": "on_sale",
+            "link": "/pages/tour"
           }
         },
-        "item_1": {
-          "type": "item",
+        "d4": {
+          "type": "date",
           "settings": {
-            "label": "12 MAR",
-            "title": "Manchester, Albert Hall",
-            "text": "<p>Doors 7pm. Merch desk opens with doors.</p>",
-            "enable_custom_style": false
+            "day": "21",
+            "month": "Mar",
+            "city": "London",
+            "venue": "Roundhouse",
+            "status": "few",
+            "link": "/pages/tour"
           }
         },
-        "item_2": {
-          "type": "item",
+        "d5": {
+          "type": "date",
           "settings": {
-            "label": "14 MAR",
-            "title": "Glasgow, Barrowland",
-            "text": "<p>Doors 7pm. Signed vinyl at the desk, 50 copies.</p>",
-            "enable_custom_style": false
+            "day": "25",
+            "month": "Mar",
+            "city": "Paris",
+            "venue": "La Cigale",
+            "status": "on_sale",
+            "link": "/pages/tour"
           }
         },
-        "item_3": {
-          "type": "item",
+        "d6": {
+          "type": "date",
           "settings": {
-            "label": "17 MAR",
-            "title": "Dublin, Vicar Street",
-            "text": "<p>Doors 7.30pm.</p>",
-            "enable_custom_style": false
-          }
-        },
-        "item_4": {
-          "type": "item",
-          "settings": {
-            "label": "21 MAR",
-            "title": "London, Roundhouse",
-            "text": "<p>Doors 7pm. Tour poster only sold here.</p>",
-            "enable_custom_style": false
-          }
-        },
-        "button_1": {
-          "type": "button",
-          "settings": {
-            "label": "All dates and tickets",
-            "style": "secondary",
-            "enable_custom_style": false,
-            "use_theme_button": true,
-            "radius": 100,
-            "size": 16,
-            "pad_x": 28,
-            "pad_y": 14,
+            "day": "28",
+            "month": "Mar",
+            "city": "Amsterdam",
+            "venue": "Paradiso",
+            "status": "on_sale",
             "link": "/pages/tour"
           }
         }
       },
       "block_order": [
-        "eyebrow_1",
-        "heading_1",
-        "subheading_1",
-        "item_1",
-        "item_2",
-        "item_3",
-        "item_4",
-        "button_1"
+        "d1",
+        "d2",
+        "d3",
+        "d4",
+        "d5",
+        "d6"
       ]
     },
-    "social_follow_cta_1": {
-      "type": "social-follow-cta",
+    "live": {
+      "type": "tour-photos",
       "settings": {
-        "color_scheme": "scheme-7dae8b89-7a81-4c2c-b8e2-92533766f8ca",
-        "section_width": "fluid_container",
-        "show_section_on": "all",
-        "reset_spacing": true,
-        "content_alignment": "center",
-        "buttons_layout": "inline",
-        "image_ratio": "square",
-        "image_gap": 12,
-        "show_arrows": true,
-        "button_style": "secondary",
-        "use_theme_button": true,
-        "button_size": "medium",
-        "button_radius": 4,
-        "enable_custom_style": false,
-        "enable_custom_fonts": false,
-        "heading_font": "assistant_n4",
-        "body_font": "assistant_n4",
-        "reveal": true,
-        "padding_top": 60,
-        "padding_bottom": 60,
-        "section_margin_top_desktop": 0,
-        "section_margin_bottom_desktop": 0,
-        "padding_top_mobile": 40,
-        "padding_bottom_mobile": 40,
-        "section_margin_top_mobile": 0,
-        "section_margin_bottom_mobile": 0
+        "heading": "From the road",
+        "subheading": "Pictures from the last run of shows.",
+        "heading_case": "none",
+        "heading_weight": "400",
+        "background": "#f3f1ec",
+        "heading_color": "#141414",
+        "muted_color": "#5d5a54",
+        "heading_size": 48,
+        "heading_size_mobile": 34,
+        "padding": 80,
+        "padding_mobile": 52
       },
       "blocks": {
-        "heading_1": {
-          "type": "heading",
+        "g1": {
+          "type": "picture",
           "settings": {
-            "text": "From the road",
-            "enable_custom_style": false,
-            "enable_custom_fonts": false,
-            "font": "assistant_n4",
-            "weight_enable": false,
-            "weight": "700",
-            "size_enable": false,
-            "size_desktop": 36,
-            "size_mobile": 26,
-            "line_height": 1.15,
-            "tracking": 0
+            "image": "shopify://shop_images/tour-live-1.webp",
+            "alt": "A singer at the microphone in blue light",
+            "link": "/pages/tour"
           }
         },
-        "subheading_1": {
-          "type": "subheading",
+        "g2": {
+          "type": "picture",
           "settings": {
-            "text": "<p>Soundchecks, load ins and the view from the desk.</p>",
-            "enable_custom_style": false,
-            "enable_custom_fonts": false,
-            "font": "assistant_n4",
-            "weight_enable": false,
-            "weight": "400",
-            "size_enable": false,
-            "size": 16,
-            "line_height": 1.5
+            "image": "shopify://shop_images/tour-live-2.webp",
+            "alt": "A singer under two spotlights",
+            "link": "/pages/tour"
           }
         },
-        "image_1": {
-          "type": "image",
+        "g3": {
+          "type": "picture",
           "settings": {
-            "image": "shopify://shop_images/tour-live-guitar.webp",
-            "alt": "Guitar under blue stage light"
+            "image": "shopify://shop_images/tour-live-3.webp",
+            "alt": "A singer on an empty stage",
+            "link": "/pages/tour"
           }
         },
-        "image_2": {
-          "type": "image",
+        "g4": {
+          "type": "picture",
           "settings": {
-            "image": "shopify://shop_images/tour-live-crowd.webp",
-            "alt": "The room from the stage"
-          }
-        },
-        "image_3": {
-          "type": "image",
-          "settings": {
-            "image": "shopify://shop_images/tour-live-drums.webp",
-            "alt": "Sticks on a snare drum"
-          }
-        },
-        "image_4": {
-          "type": "image",
-          "settings": {
-            "image": "shopify://shop_images/tour-live-haze.webp",
-            "alt": "The stage in haze"
+            "image": "shopify://shop_images/tour-live-4.webp",
+            "alt": "A crowd under blue stage lights",
+            "link": "/pages/tour"
           }
         }
       },
       "block_order": [
-        "heading_1",
-        "subheading_1",
-        "image_1",
-        "image_2",
-        "image_3",
-        "image_4"
+        "g1",
+        "g2",
+        "g3",
+        "g4"
       ]
     },
-    "newsletter_split_1": {
+    "newsletter": {
       "type": "newsletter-split",
       "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "section_width": "fluid_container",
+        "color_scheme": "scheme-b0fae5fa-c388-4a42-acd3-92cf8fe0b1fb",
+        "section_width": "full_width",
         "show_section_on": "all",
         "reset_spacing": true,
         "email_label": "Email address",
         "email_placeholder": "Your email address",
-        "btn_text": "Join the list",
+        "btn_text": "Sign up",
         "note": "A few emails a tour. Unsubscribe whenever you like.",
         "subscribed_button_text": "Subscribed",
         "success_text": "Thanks, you're on the list.",
@@ -689,10 +324,10 @@
         "error_text": "That did not go through. Check your connection and try again.",
         "image_position": "right",
         "content_alignment": "left",
-        "form_layout": "horizontal",
+        "form_layout": "vertical",
         "image_width": 50,
         "column_gap": 64,
-        "image_ratio": "square",
+        "image_ratio": "landscape",
         "button_style": "primary",
         "use_theme_button": true,
         "button_radius": 4,
@@ -704,8 +339,8 @@
         "heading_font": "assistant_n4",
         "body_font": "assistant_n4",
         "reveal": true,
-        "padding_top": 60,
-        "padding_bottom": 60,
+        "padding_top": 80,
+        "padding_bottom": 80,
         "section_margin_top_desktop": 0,
         "section_margin_bottom_desktop": 0,
         "show_image_mobile": true,
@@ -713,8 +348,8 @@
         "padding_bottom_mobile": 40,
         "section_margin_top_mobile": 0,
         "section_margin_bottom_mobile": 0,
-        "image": "shopify://shop_images/tour-live-silhouette.webp",
-        "image_alt": "A guitarist in stage light"
+        "image": "shopify://shop_images/tour-moon-pool.webp",
+        "image_alt": "A lit pool under a full moon"
       },
       "blocks": {
         "heading_1": {
@@ -736,7 +371,7 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>The list hears about new dates, signed copies and second pressings before they go public.</p>",
+            "text": "<p>New dates, signed copies and second pressings, before anyone else.</p>",
             "enable_custom_style": false,
             "enable_custom_fonts": false,
             "font": "assistant_n4",
@@ -755,12 +390,11 @@
     }
   },
   "order": [
-    "hero_section_pro_1",
-    "category_banners_2_1",
-    "products_carousel_1",
-    "featured_product2_1",
-    "feature_timeline_1",
-    "social_follow_cta_1",
-    "newsletter_split_1"
+    "release",
+    "merch",
+    "stage",
+    "dates",
+    "live",
+    "newsletter"
   ]
 }

@@ -82,7 +82,7 @@ async function main() {
   console.log("\nListings\n")
   const builtin = builtinListings()
   /* Changed on purpose (templates round 16, then 17, then 18): the code lists twelve templates (Skincare removed and Creator Landing added in round 18) made from one theme, the default first; the native Storelib Default is no longer listed (tests/theme-templates.test.ts holds the rest). */
-  check("Storelib's own templates are listed from code, free, by Storelib, the default first", builtin.length === 12 && builtin[0].slug === DEFAULT_LISTING_SLUG && builtin.every((b) => b.tier === "free" && b.author === "Storelib" && !b.builtinThemeId && !!b.codePackage && b.hasPackage))
+  check("Storelib's own templates are listed from code, free, by Storelib, the default first", builtin.length === 15 /* Changed on purpose (templates round 19): Art books, Night shop and Poster shop added, fifteen. */ && builtin[0].slug === DEFAULT_LISTING_SLUG && builtin.every((b) => b.tier === "free" && b.author === "Storelib" && !b.builtinThemeId && !!b.codePackage && b.hasPackage))
   const codeSlugs = builtin.map((b) => b.slug).join(",")
   const merged = mergeListings([listing({ slug: "b", sortOrder: 2 }), listing({ slug: "a", sortOrder: 1 }), listing({ slug: "hidden", published: false })])
   /* Changed on purpose (templates round 16, then 17, then 18): twelve code listings lead, not one. */

@@ -134,6 +134,21 @@
   }
   /* Only a value that changes is written: an unchanged one would still touch
      <html>'s style attribute and wake every observer of it. */
+  /* A picked colour for a bubble's number, or '' when it is under 3 to 1 against a picked fill. */
+  function readable(fill, text) {
+    if (!text) return '';
+    if (!fill) return text;
+    var lum = function (c) {
+      var m = /^#?([0-9a-f]{3}|[0-9a-f]{6})/i.exec(String(c).trim());
+      if (!m) return null;
+      var h = m[1].length === 3 ? m[1].replace(/./g, '$&$&') : m[1];
+      var f = function (i) { var v = parseInt(h.substr(i, 2), 16) / 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+      return 0.2126 * f(0) + 0.7152 * f(2) + 0.0722 * f(4);
+    };
+    var a = lum(fill), b = lum(text);
+    if (a == null || b == null) return text;
+    return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05) < 3 ? '' : text;
+  }
   function set(name, value) {
     var now = root.style.getPropertyValue(name);
     if (value == null || value === '') { if (now !== '') root.style.removeProperty(name); }
@@ -540,10 +555,12 @@
     if (BUBBLE_KEYS.some(function (key) { return Object.prototype.hasOwnProperty.call(s, key); })) {
       var bubbleBg = colour(state.bubble_bg), bubbleText = colour(state.bubble_text);
       var cartOwn = yes(state.cart_bubble_custom), wishOwn = yes(state.wishlist_bubble_custom);
-      set('--count-bubble-bg', (cartOwn && colour(state.cart_bubble_bg)) || bubbleBg || 'var(--color-primary)');
-      set('--count-bubble-color', (cartOwn && colour(state.cart_bubble_color)) || bubbleText || 'var(--color-white, #fff)');
-      set('--count-bubble-wishlist-bg', (wishOwn && colour(state.wishlist_bubble_bg)) || bubbleBg || 'var(--color-primary)');
-      set('--count-bubble-wishlist-color', (wishOwn && colour(state.wishlist_bubble_color)) || bubbleText || 'var(--color-white, #fff)');
+      /* No colour for the number (or one as dark or light as its bubble) is "initial": the stylesheets then work it out from the bubble (header-section.css). */
+      var cartBg = (cartOwn && colour(state.cart_bubble_bg)) || bubbleBg, wishBg = (wishOwn && colour(state.wishlist_bubble_bg)) || bubbleBg;
+      set('--count-bubble-bg', cartBg || 'var(--color-primary)');
+      set('--count-bubble-color', readable(cartBg, (cartOwn && colour(state.cart_bubble_color)) || bubbleText) || 'initial');
+      set('--count-bubble-wishlist-bg', wishBg || 'var(--color-primary)');
+      set('--count-bubble-wishlist-color', readable(wishBg, (wishOwn && colour(state.wishlist_bubble_color)) || bubbleText) || 'initial');
     }
     if (has(s, 'bubble_size')) set('--count-bubble-size', px(s.bubble_size));
     if (has(s, 'bubble_font_size')) set('--count-bubble-font-size', px(s.bubble_font_size));

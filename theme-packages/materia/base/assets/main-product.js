@@ -1414,7 +1414,9 @@ customElements.define("product-bought-together", ProductBoughtTogether);
 
 document.addEventListener("DOMContentLoaded", function () {
   function addProductEntry(productJson, storedProducts) {
-    if (storedProducts === null) storedProducts = [];
+    /* A product page with no product yet (the builder's sample page, an empty shop) writes its JSON as null: nothing to remember. */
+    if (!productJson || productJson.id == null) return;
+    if (!Array.isArray(storedProducts)) storedProducts = [];
 
     var currentProductID = productJson.id.toString();
     if (!storedProducts.includes(currentProductID)) {
@@ -1441,11 +1443,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
   const prodData = document.querySelector("[data-product-json]");
   if (prodData != null) {
-    var productJson = JSON.parse(prodData.innerHTML);
-    var storedProducts = JSON.parse(
-      localStorage.getItem("materia__recently-viewed-products")
-    );
-    addProductEntry(productJson, storedProducts);
+    try {
+      var productJson = JSON.parse(prodData.innerHTML);
+      var storedProducts = JSON.parse(
+        localStorage.getItem("materia__recently-viewed-products")
+      );
+      addProductEntry(productJson, storedProducts);
+    } catch (e) {}
   }
 });
 var BlsDropDownProduct = (function () {

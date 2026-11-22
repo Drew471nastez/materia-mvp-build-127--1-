@@ -1,0 +1,147 @@
+{
+  "sections": {
+    "intro": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "default",
+        "image": "shopify://shop_images/artbooks-about-letter-rack.webp",
+        "image_alt": "A painted letter rack with cards and envelopes tucked behind pink tape",
+        "image_position": "left",
+        "image_radius": 0,
+        "aspect_w": 4,
+        "aspect_h": 5,
+        "padding_top_desktop": 72,
+        "padding_bottom_desktop": 88
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "About"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Art books made for the screen",
+            "tag": "h1"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Write your own story here: who you are, what you publish and why.</p><p>We make digital art books. Each one gathers the work of one artist or one tradition, scanned large, with short notes and plenty of room for the pictures. They are PDFs, so they arrive the moment you buy them and you can read them on any screen.</p>"
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "Browse the books",
+            "link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
+    },
+    "work": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "default",
+        "image": "shopify://shop_images/artbooks-spread-atkins.webp",
+        "image_alt": "An open book with two blue cyanotype plates",
+        "image_position": "right",
+        "image_radius": 0,
+        "aspect_w": 16,
+        "aspect_h": 10
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Where the pictures come from"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Say where your pictures come from and what readers may do with them. Many museums now share images of works in the public domain, free to use.</p>"
+          }
+        },
+        "button_3": {
+          "type": "button",
+          "settings": {
+            "label": "Questions",
+            "link": "/pages/faqs"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "button_3"
+      ]
+    },
+    "made": {
+      "type": "text-columns",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "columns_desktop": 3,
+        "column_gap": 48,
+        "header_gap": 40,
+        "show_dividers": true,
+        "item_heading_size": 24,
+        "padding_top": 88,
+        "padding_bottom": 88
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "How a book is made"
+          }
+        },
+        "column_2": {
+          "type": "column",
+          "settings": {
+            "label": "First",
+            "heading": "Choose the pictures",
+            "text": "<p>One artist or one tradition, and the pictures that show it best. Say how you choose yours.</p>"
+          }
+        },
+        "column_3": {
+          "type": "column",
+          "settings": {
+            "label": "Then",
+            "heading": "Give them room",
+            "text": "<p>A plate gets a whole page, and the details that matter get a page of their own.</p>"
+          }
+        },
+        "column_4": {
+          "type": "column",
+          "settings": {
+            "label": "Last",
+            "heading": "Write a little",
+            "text": "<p>A short note for each picture: who made it, when, and what to look at.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "column_2",
+        "column_3",
+        "column_4"
+      ]
+    }
+  },
+  "order": [
+    "intro",
+    "made",
+    "work"
+  ]
+}

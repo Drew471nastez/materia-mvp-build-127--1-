@@ -1,0 +1,139 @@
+{%- comment -%}
+  Merch template: the shop's categories as a stack of large uppercase links
+  beside one picture. Pointing at or focusing a link brings up its own
+  picture and underlines it; the others stay grey. The pictures cross fade
+  (opacity only) and swap at once with reduced motion.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 500%22%3E%3Crect width=%22400%22 height=%22500%22 fill=%22%23ececec%22/%3E%3C/svg%3E'
+-%}
+<style>
+  #shopify-section-{{ sid }} .mcat {
+    background: {{ st.background | default: '#ffffff' }};
+    padding: {{ st.padding_top_mobile | default: 40 }}px 16px {{ st.padding_bottom_mobile | default: 40 }}px;
+  }
+  #shopify-section-{{ sid }} .mcat__inner {
+    max-width: 1200px; margin: 0 auto;
+    display: grid; grid-template-columns: 1fr; gap: 28px; align-items: center;
+  }
+  #shopify-section-{{ sid }} .mcat__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+  #shopify-section-{{ sid }} .mcat__link {
+    display: inline-block; text-decoration: none;
+    font-family: var(--heading-font, inherit); font-weight: 800;
+    font-size: {{ st.label_size_mobile | default: 30 }}px; line-height: 1.12; letter-spacing: -0.01em; text-transform: uppercase;
+    color: {{ st.muted_color | default: '#767676' }};
+    border-bottom: 2px solid transparent; padding-bottom: 2px;
+    transition: color 0.25s ease, border-color 0.25s ease;
+  }
+  #shopify-section-{{ sid }} .mcat__link[aria-current="true"],
+  #shopify-section-{{ sid }} .mcat__link:hover,
+  #shopify-section-{{ sid }} .mcat__link:focus-visible {
+    color: {{ st.active_color | default: '#111111' }}; border-bottom-color: currentColor;
+  }
+  #shopify-section-{{ sid }} .mcat__media { position: relative; aspect-ratio: 4 / 5; overflow: hidden; background: #ececec; }
+  #shopify-section-{{ sid }} .mcat__media img {
+    position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; margin: 0;
+    opacity: 0; transition: opacity 0.45s ease;
+  }
+  #shopify-section-{{ sid }} .mcat__media img[data-active="true"] { opacity: 1; }
+  @media (min-width: 768px) {
+    #shopify-section-{{ sid }} .mcat { padding: {{ st.padding_top | default: 72 }}px 32px {{ st.padding_bottom | default: 72 }}px; }
+    #shopify-section-{{ sid }} .mcat__inner { grid-template-columns: 1fr 1.15fr; gap: 56px; }
+    #shopify-section-{{ sid }} .mcat__list { align-items: flex-end; text-align: right; gap: 10px; }
+    #shopify-section-{{ sid }} .mcat__link { font-size: {{ st.label_size | default: 44 }}px; }
+    #shopify-section-{{ sid }} .mcat__inner[data-image="left"] .mcat__media { order: -1; }
+    #shopify-section-{{ sid }} .mcat__inner[data-image="left"] .mcat__list { align-items: flex-start; text-align: left; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #shopify-section-{{ sid }} .mcat__media img, #shopify-section-{{ sid }} .mcat__link { transition: none; }
+  }
+</style>
+
+<div class="mcat" data-mcat="{{ sid }}">
+  <div class="mcat__inner" data-image="{{ st.image_position | default: 'right' }}">
+    <ul class="mcat__list">
+      {%- for block in section.blocks -%}
+        <li {{ block.shopify_attributes }}>
+          <a class="mcat__link" href="{{ block.settings.link | default: '/collections/all' }}" data-index="{{ forloop.index0 }}" aria-current="{% if forloop.first %}true{% else %}false{% endif %}">{{ block.settings.label | escape }}</a>
+        </li>
+      {%- endfor -%}
+    </ul>
+    <div class="mcat__media">
+      {%- for block in section.blocks -%}
+        {%- if block.settings.image != blank -%}
+          <img
+            src="{{ block.settings.image | image_url: width: 1200 }}"
+            srcset="{{ block.settings.image | image_url: width: 600 }} 600w, {{ block.settings.image | image_url: width: 1000 }} 1000w, {{ block.settings.image | image_url: width: 1400 }} 1400w"
+            sizes="(min-width: 768px) 50vw, 100vw"
+            width="{{ block.settings.image.width | default: 1200 }}" height="{{ block.settings.image.height | default: 1500 }}"
+            alt="{{ block.settings.label | escape }}"
+            loading="lazy" decoding="async"
+            data-index="{{ forloop.index0 }}" data-active="{% if forloop.first %}true{% else %}false{% endif %}">
+        {%- else -%}
+          <img src="{{ placeholder }}" alt="" width="400" height="500" data-index="{{ forloop.index0 }}" data-active="{% if forloop.first %}true{% else %}false{% endif %}">
+        {%- endif -%}
+      {%- endfor -%}
+    </div>
+  </div>
+</div>
+<script>
+  (function () {
+    var root = document.querySelector('[data-mcat="{{ sid }}"]');
+    if (!root || root.dataset.ready) return;
+    root.dataset.ready = '1';
+    var links = root.querySelectorAll('.mcat__link');
+    var pics = root.querySelectorAll('.mcat__media img');
+    function show(i) {
+      links.forEach(function (a) { a.setAttribute('aria-current', a.dataset.index === i ? 'true' : 'false'); });
+      pics.forEach(function (p) { p.dataset.active = p.dataset.index === i ? 'true' : 'false'; });
+    }
+    links.forEach(function (a) {
+      a.addEventListener('mouseenter', function () { show(a.dataset.index); });
+      a.addEventListener('focus', function () { show(a.dataset.index); });
+    });
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Category list",
+  "tag": "section",
+  "class": "section sec__merch-categories",
+  "max_blocks": 8,
+  "settings": [
+    { "type": "select", "id": "image_position", "label": "Picture", "options": [ { "value": "right", "label": "On the right" }, { "value": "left", "label": "On the left" } ], "default": "right" },
+    { "type": "color", "id": "background", "label": "Background", "default": "#ffffff" },
+    { "type": "color", "id": "active_color", "label": "Chosen category", "default": "#111111" },
+    { "type": "color", "id": "muted_color", "label": "Other categories", "default": "#767676" },
+    { "type": "range", "id": "label_size", "label": "Text size, desktop", "min": 24, "max": 80, "step": 2, "unit": "px", "default": 44 },
+    { "type": "range", "id": "label_size_mobile", "label": "Text size, phone", "min": 18, "max": 48, "step": 2, "unit": "px", "default": 30 },
+    { "type": "range", "id": "padding_top", "label": "Space above, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 72 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 72 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 40 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 40 }
+  ],
+  "blocks": [
+    {
+      "type": "category",
+      "name": "Category",
+      "settings": [
+        { "type": "text", "id": "label", "label": "Name", "default": "Hoodies" },
+        { "type": "url", "id": "link", "label": "Link" },
+        { "type": "image_picker", "id": "image", "label": "Picture" }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Category list",
+      "blocks": [
+        { "type": "category", "settings": { "label": "Hoodies" } },
+        { "type": "category", "settings": { "label": "Trackpants" } },
+        { "type": "category", "settings": { "label": "T-shirts" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

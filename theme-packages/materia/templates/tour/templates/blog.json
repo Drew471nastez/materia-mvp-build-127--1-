@@ -26,7 +26,7 @@
         "description_YRWpkt": {
           "type": "description",
           "settings": {
-            "description": "<p>Tour diaries, studio notes and news about the record.</p>",
+            "description": "<p>News from the road, the studio and the next record.</p>",
             "enable_custom_style": false,
             "description_font_size": 16
           }

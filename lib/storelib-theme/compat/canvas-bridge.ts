@@ -1034,7 +1034,8 @@ export const CANVAS_BRIDGE = `
         if (es[i].isIntersecting || !t.isConnected) { if (t.hasAttribute("data-sl-far")) t.removeAttribute("data-sl-far"); }
         else if (!t.hasAttribute("data-sl-far")) t.setAttribute("data-sl-far", "");
       }
-    }, { rootMargin: "150% 0px 150% 0px" });
+    /* root: document. With no root, inside the canvas frame the observer measures against the editor's own window and drops rootMargin, so a resting section in view stayed hidden until a zoom measured again. */
+    }, { root: document, rootMargin: "150% 0px 150% 0px" });
     /* A section at a time, when the page has a moment: each is read for anything fixed or sticky in it. */
     var list = Array.prototype.slice.call(document.querySelectorAll(".shopify-section"));
     var next = function () {
@@ -1079,7 +1080,7 @@ export const CANVAS_BRIDGE = `
         el.classList.remove("scroll-trigger--offscreen");
         if (el.hasAttribute("data-cascade")) el.style.setProperty("--animation-order", String(i));
       });
-    }, { rootMargin: "0px 0px -50px 0px" });
+    }, { root: document, rootMargin: "0px 0px -50px 0px" });
     marked.forEach(function (el) {
       if (el.getBoundingClientRect().top < innerHeight) return;
       el.classList.remove("scroll-trigger--design-mode");

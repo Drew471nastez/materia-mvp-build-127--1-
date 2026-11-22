@@ -1183,6 +1183,144 @@
       ]
     }
   ],
-  "presets": []
+  "presets": [
+    {
+      "name": "Spin Wheel Popup",
+      "settings": {
+        "card_bg": "#ffffff",
+        "delay_s": 5,
+        "hub_text": "%",
+        "hide_days": 1,
+        "hub_color": "#ffffff",
+        "open_mode": "delay",
+        "win_label": "YOU WON!",
+        "text_align": "left",
+        "text_color": "#111111",
+        "wheel_side": "wheel-left",
+        "close_color": "#111111",
+        "editor_mode": true,
+        "max_respins": 2,
+        "popup_width": 780,
+        "spin_btn_bg": "#111111",
+        "label_radius": 68,
+        "no_win_label": "Better luck next time",
+        "popup_radius": 16,
+        "respin_label": "Spin again",
+        "after_dismiss": "after_days",
+        "dismiss_align": "center",
+        "mobile_gutter": 32,
+        "overlay_color": "#000000",
+        "pointer_color": "#111111",
+        "spin_btn_text": "#ffffff",
+        "wheel_panel_bg": "#f8f6ff",
+        "copy_done_label": "Copied!",
+        "label_font_size": 10,
+        "overlay_opacity": 60,
+        "segment_divider": "#0000000f",
+        "spin_duration_s": 5,
+        "spin_full_turns": 5,
+        "close_after_copy": true,
+        "spin_btn_bg_hover": "#000000",
+        "enable_custom_style": true,
+        "spin_btn_text_hover": "#ffffff",
+        "close_after_copy_delay_s": 10
+      },
+      "blocks": [
+        {
+          "type": "heading",
+          "settings": {
+            "text": "Spin to reveal your discount",
+            "color": "#111111",
+            "enable_custom_style": true
+          }
+        },
+        {
+          "type": "description",
+          "settings": {
+            "text": "Enter your email for a chance to win up to 15% off your order.",
+            "color": "#444444",
+            "enable_custom_style": true
+          }
+        },
+        {
+          "type": "prize",
+          "settings": {
+            "code": "SPIN5",
+            "color": "#ffd6e0",
+            "label": "5%",
+            "weight": 1,
+            "text_color": "#111111"
+          }
+        },
+        {
+          "type": "prize",
+          "settings": {
+            "code": "SPIN10",
+            "color": "#d6ecff",
+            "label": "10%",
+            "weight": 1,
+            "text_color": "#111111"
+          }
+        },
+        {
+          "type": "prize",
+          "settings": {
+            "code": "",
+            "color": "#eeeeee",
+            "label": "TRY",
+            "weight": 1,
+            "text_color": "#111111"
+          }
+        },
+        {
+          "type": "prize",
+          "settings": {
+            "code": "SPIN15",
+            "color": "#fff3c4",
+            "label": "15%",
+            "weight": 1,
+            "text_color": "#111111"
+          }
+        },
+        {
+          "type": "prize",
+          "settings": {
+            "code": "FREESHIP",
+            "color": "#e0ffd6",
+            "label": "FREE",
+            "weight": 1,
+            "text_color": "#111111"
+          }
+        },
+        {
+          "type": "prize",
+          "settings": {
+            "code": "",
+            "color": "#f0e0ff",
+            "label": "TRY",
+            "weight": 1,
+            "text_color": "#111111"
+          }
+        },
+        {
+          "type": "form",
+          "settings": {
+            "spin_label": "Spin to win",
+            "collect_phone": false,
+            "phone_required": false,
+            "email_placeholder": "Enter your email",
+            "phone_placeholder": "Phone number",
+            "phone_default_country": "US"
+          }
+        },
+        {
+          "type": "dismiss",
+          "settings": {
+            "text": "No thanks"
+          }
+        }
+      ]
+    }
+  ]
 }
 {% endschema %}

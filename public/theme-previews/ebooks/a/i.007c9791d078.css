@@ -1,0 +1,9 @@
+
+  #shopify-section-learn,#shopify-section-learn>.section,#shopify-section-learn>section,#shopify-section-learn>div,#shopify-section-learn>div>.section{margin-top:0!important;margin-bottom:0!important}
+  #shopify-section-learn+.shopify-section,#shopify-section-learn+section,.shopify-section+#shopify-section-learn{margin-top:0!important}
+  #shopify-section-learn#shopify-section-learn{isolation:isolate;position:relative;--fd-mt-m:0px;--fd-mb-m:0px;--fd-mt-d:0px;--fd-mb-d:0px;margin-top:var(--fd-mt-m)!important;margin-bottom:var(--fd-mb-m)!important}
+  :where(#shopify-section-learn){font-family:var(--body-font,inherit)}
+  :where(#shopify-section-learn) :is(h1,h2,h3,h4,h5,h6){font-family:var(--heading-font,inherit)}
+  :where(#shopify-section-learn) :where(button,input,textarea,select,optgroup){font-family:inherit}
+  #shopify-section-learn *,#shopify-section-learn *:before,#shopify-section-learn *:after{box-sizing:border-box}
+  @media (min-width:768px){#shopify-section-learn#shopify-section-learn{margin-top:var(--fd-mt-d)!important;margin-bottom:var(--fd-mb-d)!important}}

@@ -1,163 +1,144 @@
 {
   "sections": {
-    "faq": {
-      "type": "faq-contact-card",
+    "faq_tabs_1": {
+      "type": "faq-tabs",
       "settings": {
         "color_scheme": "default",
-        "section_width": "fluid_container",
-        "first_item_open": true,
-        "allow_multiple_open": false,
-        "open_icon": "plus",
-        "card_position": "right",
-        "card_sticky": true,
-        "padding_top": 72,
-        "padding_bottom": 88,
-        "padding_top_mobile": 48,
+        "section_width": "full_width",
+        "reset_spacing": true,
+        "show_section_on": "all",
+        "structured_data": false,
+        "tab_1_label": "Fit and care",
+        "tab_2_label": "Orders",
+        "tab_3_label": "Shipping and returns",
+        "open_first": false,
+        "allow_multiple_open": true,
+        "header_align": "center",
+        "section_max_width_desktop": 920,
+        "section_max_width_tablet": 800,
+        "heading_sub_gap_desktop": 16,
+        "gap_subheading_tabs": 32,
+        "gap_tabs_list": 32,
+        "item_padding_y": 22,
+        "enable_custom_style": false,
+        "tabs_shadow": "0 4px 16px -8px rgba(15, 23, 42, .08)",
+        "enable_custom_fonts": false,
+        "heading_font": "assistant_n4",
+        "body_font": "assistant_n4",
+        "tab_size": 15,
+        "tab_weight": "600",
+        "q_size": 18,
+        "q_weight": "700",
+        "a_size": 16,
+        "padding_top_desktop": 96,
+        "padding_bottom_desktop": 96,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "section_max_width_mobile": 560,
+        "heading_sub_gap_mobile": 12,
+        "gap_subheading_tabs_mobile": 24,
+        "padding_top_mobile": 56,
         "padding_bottom_mobile": 56
       },
       "blocks": {
-        "heading": {
+        "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Help with your order"
+            "text": "Questions before you buy",
+            "tag": "h1",
+            "enable_custom_style": false,
+            "enable_custom_fonts": false,
+            "font": "assistant_n4",
+            "weight": "theme",
+            "size_desktop": 56,
+            "size_mobile": 36,
+            "size_enable": false,
+            "line_height": 1.2,
+            "tracking": 0
           }
         },
-        "subheading": {
+        "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Shipping, sizing, returns and what the shop pays for.</p>"
+            "text": "<p>Still stuck? <a href=\"/pages/contact\">Write to us</a>.</p>",
+            "max_width": 540,
+            "enable_custom_style": false,
+            "enable_custom_fonts": false,
+            "font": "assistant_n4",
+            "size": 16
           }
         },
-        "faq_1": {
+        "faq_item_1": {
           "type": "faq_item",
           "settings": {
-            "question": "How long does an order take?",
-            "answer": "<p>Orders leave the kitchen within three working days. The delivery time for your country is shown at checkout, and a tracking link follows by email.</p>"
+            "tab": "1",
+            "question": "How do the hoodies and tees fit?",
+            "answer": "<p>Boxy, with dropped shoulders. Take your usual size for the intended fit, one down for a closer one.</p>"
           }
         },
-        "faq_2": {
+        "faq_item_2": {
           "type": "faq_item",
           "settings": {
-            "question": "Do you ship outside the UK?",
-            "answer": "<p>Yes, to most countries. Any duties for your country are shown at checkout before you pay.</p>"
-          }
-        },
-        "faq_3": {
-          "type": "faq_item",
-          "settings": {
-            "question": "Can I send something back?",
-            "answer": "<p>Unworn clothes can come back within 30 days. A mug or print that arrives broken is replaced: send a photo of it.</p>"
-          }
-        },
-        "faq_4": {
-          "type": "faq_item",
-          "settings": {
-            "question": "How do the tees fit?",
-            "answer": "<p>Regular fit, true to size. Each product page has a size guide in centimetres, measured flat.</p>"
-          }
-        },
-        "faq_5": {
-          "type": "faq_item",
-          "settings": {
-            "question": "Is the hoodie oversized?",
-            "answer": "<p>Roomy, not oversized. Size down for a closer fit, or stay true to size to wear it over a tee.</p>"
-          }
-        },
-        "faq_6": {
-          "type": "faq_item",
-          "settings": {
+            "tab": "1",
             "question": "Will it shrink?",
-            "answer": "<p>The cotton is washed before printing. Wash cold, hang it to dry and it keeps its size and print.</p>"
+            "answer": "<p>The fleece and jersey are washed before cutting. Wash at 30 degrees, inside out, and skip the dryer.</p>"
           }
         },
-        "faq_7": {
+        "faq_item_3": {
           "type": "faq_item",
           "settings": {
-            "question": "Does my order support the channel?",
-            "answer": "<p>Yes. The shop pays for the ingredients, the studio rent and the editor. That is how the episodes stay free and ad light.</p>"
+            "tab": "1",
+            "question": "Will the black fade?",
+            "answer": "<p>Every piece is garment dyed. Wash dark colours together, inside out, and the black stays black.</p>"
           }
         },
-        "faq_8": {
+        "faq_item_4": {
           "type": "faq_item",
           "settings": {
-            "question": "Will sold out pieces come back?",
-            "answer": "<p>The tees, hoodie, cap and mug are reprinted between seasons. Limited pieces like the Season 4 apron are made once.</p>"
-          }
-        },
-        "faq_9": {
-          "type": "faq_item",
-          "settings": {
-            "question": "Can I send a photo of my soup?",
-            "answer": "<p>Please do. Use the contact page or tag #bowlclub. A few end up in the Sunday episode.</p>"
-          }
-        },
-        "faq_10": {
-          "type": "faq_item",
-          "settings": {
+            "tab": "2",
             "question": "Can I change my order?",
-            "answer": "<p>Write within a day of ordering and we will change the size or the address before it is packed.</p>"
+            "answer": "<p>Write to us within a few hours of ordering and we will change the size or colour.</p>"
           }
         },
-        "faq_11": {
+        "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "Do you sell wholesale?",
-            "answer": "<p>For cafes and kitchen shops, yes. Use the contact page and tell us where you are.</p>"
+            "tab": "2",
+            "question": "Where is the size chart?",
+            "answer": "<p>On every product page, under the size options. Measurements are of the garment, laid flat.</p>"
           }
         },
-        "card": {
-          "type": "card_text",
+        "faq_item_6": {
+          "type": "faq_item",
           "settings": {
-            "heading": "Still stuck?",
-            "text": "<p>Write to the kitchen. A real person answers, usually within two working days.</p>"
+            "tab": "3",
+            "question": "How long does shipping take?",
+            "answer": "<p>Orders leave within two working days. Add your delivery times by region.</p>"
           }
         },
-        "button": {
-          "type": "button",
+        "faq_item_7": {
+          "type": "faq_item",
           "settings": {
-            "label": "Contact the shop",
-            "link": "/pages/contact",
-            "style": "primary",
-            "full_width": true
-          }
-        },
-        "line_1": {
-          "type": "contact_line",
-          "settings": {
-            "label": "Email",
-            "text": "shop@example.com"
-          }
-        },
-        "line_2": {
-          "type": "contact_line",
-          "settings": {
-            "label": "Not on",
-            "text": "Sundays, that is filming day"
+            "tab": "3",
+            "question": "Can I return something?",
+            "answer": "<p>Yes, within 30 days, unworn and unwashed. Say who pays for the return.</p>"
           }
         }
       },
       "block_order": [
-        "heading",
-        "subheading",
-        "faq_1",
-        "faq_2",
-        "faq_3",
-        "faq_4",
-        "faq_5",
-        "faq_6",
-        "faq_7",
-        "faq_8",
-        "faq_9",
-        "faq_10",
-        "faq_11",
-        "card",
-        "button",
-        "line_1",
-        "line_2"
+        "heading_1",
+        "subheading_1",
+        "faq_item_1",
+        "faq_item_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6",
+        "faq_item_7"
       ]
     }
   },
   "order": [
-    "faq"
+    "faq_tabs_1"
   ]
 }

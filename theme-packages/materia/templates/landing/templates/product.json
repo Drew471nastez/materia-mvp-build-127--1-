@@ -205,7 +205,7 @@
             "title": "Watch a short lesson",
             "text": "Each lesson is one idea, shown on real footage, in about ten minutes.",
             "image": "shopify://shop_images/landing-step-lesson.webp",
-            "image_alt": "A lesson playing next to the module list"
+            "image_alt": "Watching a lesson on a desk monitor at night"
           }
         },
         "item_3": {
@@ -215,7 +215,7 @@
             "title": "Cut the same clips yourself",
             "text": "Download the raw footage and project file, then make the edit you just watched.",
             "image": "shopify://shop_images/landing-step-edit.webp",
-            "image_alt": "An editing timeline with video and audio tracks"
+            "image_alt": "Cutting the lesson footage on a laptop"
           }
         },
         "item_4": {
@@ -225,7 +225,7 @@
             "title": "Get notes on your cut",
             "text": "Bring your edit to the monthly feedback call and leave with notes at the exact timecode.",
             "image": "shopify://shop_images/landing-step-feedback.webp",
-            "image_alt": "A feedback call with timecoded notes beside the video"
+            "image_alt": "A feedback call with other students on a laptop"
           }
         },
         "button_5": {
@@ -271,7 +271,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Everything in the box. One price."
+            "text": "Everything in the bundle. One price."
           }
         },
         "subheading_2": {

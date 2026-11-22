@@ -1,167 +1,140 @@
 {
   "sections": {
-    "image_and_video_text_1": {
-      "type": "Image-and-video-text",
+    "heading": {
+      "type": "page-heading",
       "settings": {
         "color_scheme": "default",
-        "section_width": "container",
+        "section_width": "stretch_width",
         "reset_spacing": true,
-        "image_position": "left",
-        "text_column_width": 50,
-        "content_align": "left",
-        "content_gap": 16,
-        "media_type": "image",
-        "video_autoplay": true,
-        "video_loop": true,
-        "video_controls": false,
-        "aspect_w": 5,
-        "aspect_h": 5,
-        "image_fit": "cover",
-        "image_radius": 12,
-        "enable_overlay": false,
-        "overlay_opacity": 30,
-        "enable_custom_style": false,
-        "enable_custom_fonts": false,
-        "heading_font": "assistant_n4",
-        "body_font": "assistant_n4",
-        "gap_desktop": 64,
-        "padding_top_desktop": 100,
-        "padding_bottom_desktop": 100,
-        "side_padding_desktop": 32,
-        "section_margin_top_desktop": 0,
-        "section_margin_bottom_desktop": 0,
-        "content_align_mobile": "left",
-        "mobile_order": "media_first",
-        "gap_mobile": 32,
-        "padding_top_mobile": 60,
-        "padding_bottom_mobile": 60,
-        "side_padding_mobile": 20,
-        "section_margin_top_mobile": 0,
-        "section_margin_bottom_mobile": 0,
-        "image": "shopify://shop_images/tour-hoodie-dark.webp"
+        "alignment": "center",
+        "height": "adapt",
+        "overlay_opacity": 0,
+        "padding_top": 80,
+        "padding_bottom": 40
       },
       "blocks": {
-        "eyebrow_1": {
-          "type": "eyebrow",
+        "breadcrumb_1": {
+          "type": "breadcrumb",
           "settings": {
-            "text": "About",
-            "enable_custom_style": false,
-            "size": 12
+            "separator": "chevron",
+            "font_size": 13,
+            "uppercase": false
           }
         },
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Introduce the artist",
-            "tag": "h2",
-            "enable_custom_style": false,
-            "size_desktop": 44,
-            "size_mobile": 32
+            "enable_heading_color": false,
+            "enable_custom_fonts": false,
+            "font": "assistant_n4",
+            "header_size": "default",
+            "heading_font_size": 34,
+            "vertical_gap": 8,
+            "page_title": "About"
           }
         },
-        "subheading_1": {
-          "type": "subheading",
+        "description_1": {
+          "type": "description",
           "settings": {
-            "text": "<p>Three or four sentences: who you are, where you are from, what the new record is and who made it with you.</p>",
             "enable_custom_style": false,
-            "size_desktop": 17,
-            "size_mobile": 15
+            "enable_custom_fonts": false,
+            "font": "assistant_n4",
+            "description_font_size": 15,
+            "description": "<p>The official store of Elio Marsh.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "breadcrumb_1",
+        "heading_1",
+        "description_1"
+      ]
+    },
+    "story": {
+      "type": "merch-image-text",
+      "settings": {
+        "image": "shopify://shop_images/tour-artist.webp",
+        "image_alt": "A singer at a microphone stand on a lit stage",
+        "focal_x": 50,
+        "focal_y": 40,
+        "image_position": "left",
+        "eyebrow": "Elio Marsh",
+        "heading": "Songs for the hour after midnight",
+        "text": "<p>Say who you are, where you are from and how the record was made. Two or three short paragraphs are enough.</p><p>Then say who runs the store and who packs the orders.</p>",
+        "button_label": "Shop the record",
+        "button_link": "/collections/all",
+        "background": "#f3f1ec",
+        "panel_color": "#e9e6df",
+        "heading_color": "#141414",
+        "text_color": "#4a4740",
+        "heading_size": 52,
+        "heading_size_mobile": 36,
+        "padding": 56,
+        "padding_mobile": 32,
+        "heading_case": "none",
+        "heading_weight": "400"
+      }
+    },
+    "gallery": {
+      "type": "tour-photos",
+      "settings": {
+        "heading": "On stage",
+        "subheading": "Replace these with your own pictures.",
+        "heading_case": "none",
+        "heading_weight": "400",
+        "background": "#f3f1ec",
+        "heading_color": "#141414",
+        "muted_color": "#5d5a54",
+        "heading_size": 48,
+        "heading_size_mobile": 34,
+        "padding": 64,
+        "padding_mobile": 52
+      },
+      "blocks": {
+        "g1": {
+          "type": "picture",
+          "settings": {
+            "image": "shopify://shop_images/tour-live-1.webp",
+            "alt": "A singer at the microphone in blue light",
+            "link": "/pages/tour"
           }
         },
-        "button_1": {
-          "type": "button",
+        "g2": {
+          "type": "picture",
           "settings": {
-            "label": "See the tour dates",
-            "button_style": "primary",
-            "full_width": false,
-            "enable_custom_style": false,
-            "use_theme_button": true,
-            "padding_x": 26,
-            "padding_y": 14,
-            "radius": 8,
-            "border_width": 1,
-            "font_size": 14,
-            "font_weight": "600",
-            "uppercase": false,
+            "image": "shopify://shop_images/tour-live-2.webp",
+            "alt": "A singer under two spotlights",
+            "link": "/pages/tour"
+          }
+        },
+        "g3": {
+          "type": "picture",
+          "settings": {
+            "image": "shopify://shop_images/tour-live-3.webp",
+            "alt": "A singer on an empty stage",
+            "link": "/pages/tour"
+          }
+        },
+        "g4": {
+          "type": "picture",
+          "settings": {
+            "image": "shopify://shop_images/tour-live-4.webp",
+            "alt": "A crowd under blue stage lights",
             "link": "/pages/tour"
           }
         }
       },
       "block_order": [
-        "eyebrow_1",
-        "heading_1",
-        "subheading_1",
-        "button_1"
-      ]
-    },
-    "quotebanner_1": {
-      "type": "quotebanner",
-      "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "section_width": "full_width",
-        "reset_spacing": true,
-        "text_align_desktop": "center",
-        "max_width": "custom",
-        "custom_max_width": 1080,
-        "text_max_width": 1200,
-        "gap_top": 28,
-        "enable_custom_style": false,
-        "radius": 28,
-        "enable_shadow": true,
-        "enable_custom_fonts": false,
-        "heading_font": "assistant_n4",
-        "body_font": "assistant_n4",
-        "reveal": true,
-        "top_padding_desktop": 72,
-        "bottom_padding_desktop": 72,
-        "pad_x_desktop": 72,
-        "section_margin_top_desktop": 0,
-        "section_margin_bottom_desktop": 0,
-        "text_align_mobile": "left",
-        "top_padding_mobile": 42,
-        "bottom_padding_mobile": 42,
-        "pad_x_mobile": 24,
-        "section_margin_top_mobile": 0,
-        "section_margin_bottom_mobile": 0
-      },
-      "blocks": {
-        "quote_1": {
-          "type": "quote",
-          "settings": {
-            "quote_text": "Add a line from a review of the record.",
-            "use_curly_quotes": true,
-            "enable_custom_style": false,
-            "quote_weight": "theme",
-            "quote_size": 32,
-            "quote_size_mobile": 20,
-            "enable_custom_fonts": false,
-            "font": "assistant_n4"
-          }
-        },
-        "author_1": {
-          "type": "author",
-          "settings": {
-            "author_name": "Publication name",
-            "author_role": "Month and year",
-            "enable_signature": false,
-            "signature_position": "right",
-            "signature_size_desktop": 150,
-            "signature_size_mobile": 100,
-            "enable_custom_style": false,
-            "author_size": 18,
-            "author_size_mobile": 16,
-            "avatar_size": 44
-          }
-        }
-      },
-      "block_order": [
-        "quote_1",
-        "author_1"
+        "g1",
+        "g2",
+        "g3",
+        "g4"
       ]
     }
   },
   "order": [
-    "image_and_video_text_1",
-    "quotebanner_1"
+    "heading",
+    "story",
+    "gallery"
   ]
 }

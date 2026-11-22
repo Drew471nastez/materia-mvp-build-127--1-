@@ -1,0 +1,313 @@
+{%- comment -%}
+  Poster shop: a coloured band with soft wavy edges. Text beside a picture,
+  a picture across the whole band (a wall of prints), or text alone. The
+  waves are one SVG path drawn from the settings (how many waves, how tall),
+  so they stay sharp at any width and cost nothing to draw.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign sid = section.id
+  assign band = s.band_color | default: '#f7e3a1'
+  assign count = s.wave_count | default: 5
+  assign amp = s.wave_depth | default: 40
+  assign layout = s.layout | default: 'text_image'
+  assign step = 1200.0 | divided_by: count
+  assign half = step | divided_by: 2.0
+  assign quarter = step | divided_by: 4.0
+  capture wave_path
+    echo 'M0 50 Q' | append: ' ' | append: quarter | append: ' 0 ' | append: half | append: ' 50'
+    for i in (1..count)
+      assign x = step | times: i
+      assign xh = x | plus: half
+      echo ' T ' | append: x | append: ' 50'
+      if i < count
+        echo ' T ' | append: xh | append: ' 50'
+      endif
+    endfor
+    echo ' L1200 100 L0 100 Z'
+  endcapture
+  assign wave_path = wave_path | strip_newlines | strip
+-%}
+<style>
+  #shopify-section-{{ sid }} { position: relative; }
+  .pwb-{{ sid }} { --pwb-band: {{ band }}; --pwb-wave: {{ amp }}px; position: relative; color: {{ s.text_color | default: '#2b2b2b' }}; }
+  .pwb-{{ sid }} .pwb__wave { display: block; width: 100%; height: var(--pwb-wave); fill: var(--pwb-band); }
+  .pwb-{{ sid }} .pwb__wave--bottom { transform: scaleY(-1); }
+  .pwb-{{ sid }} .pwb__body { background: var(--pwb-band); padding: {{ s.padding_top | default: 48 }}px 0 {{ s.padding_bottom | default: 48 }}px; margin: -1px 0; }
+  .pwb-{{ sid }} .pwb__inner { max-width: {{ s.max_width | default: 1240 }}px; margin: 0 auto; padding: 0 32px; display: flex; align-items: center; gap: 56px; }
+  .pwb-{{ sid }}.pwb--image-left .pwb__inner { flex-direction: row-reverse; }
+  .pwb-{{ sid }} .pwb__text { flex: 1 1 0; max-width: 520px; }
+  .pwb-{{ sid }}.pwb--text_only .pwb__inner { justify-content: center; text-align: center; }
+  .pwb-{{ sid }}.pwb--text_only .pwb__text { max-width: 720px; }
+  .pwb-{{ sid }} .pwb__media { flex: 1 1 0; display: flex; justify-content: center; }
+  .pwb-{{ sid }} .pwb__media img { width: 100%; max-width: {{ s.image_max_width | default: 560 }}px; height: auto; display: block; }
+  .pwb-{{ sid }} .pwb__eyebrow { margin: 0 0 12px; font-size: 12px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; opacity: .8; }
+  .pwb-{{ sid }} .pwb__heading {
+    margin: 0 0 16px; color: {{ s.heading_color | default: '#1f1f1f' }};
+    font-size: {{ s.heading_size | default: 40 }}px; line-height: 1.08; letter-spacing: -.01em;
+    {%- if s.heading_uppercase %} text-transform: uppercase;{% endif %}
+  }
+  .pwb-{{ sid }} .pwb__copy { font-size: 16px; line-height: 1.55; }
+  .pwb-{{ sid }} .pwb__copy p { margin: 0 0 .6em; }
+  .pwb-{{ sid }} .pwb__button {
+    display: inline-block; margin-top: 18px; padding: 12px 26px; border-radius: 999px;
+    background: {{ s.button_color | default: '#c9b6f2' }}; color: {{ s.button_text_color | default: '#1f1f1f' }};
+    font-size: 14px; font-weight: 600; text-decoration: none; transition: transform .2s, filter .2s;
+  }
+  .pwb-{{ sid }} .pwb__button:hover { transform: translateY(-1px); filter: brightness(.96); }
+  .pwb-{{ sid }}.pwb--image_only .pwb__inner { max-width: none; padding: 0; display: block; overflow: hidden; }
+  .pwb-{{ sid }}.pwb--image_only .pwb__media { display: block; }
+  .pwb-{{ sid }}.pwb--image_only .pwb__media img { max-width: none; width: max(100%, {{ s.collage_min_width | default: 1100 }}px); margin-left: 50%; transform: translateX(-50%); }
+  @media (max-width: 749px) {
+    .pwb-{{ sid }} .pwb__wave { height: calc(var(--pwb-wave) * .55); }
+    .pwb-{{ sid }} .pwb__body { padding: {{ s.padding_top | default: 48 | times: 0.65 | round }}px 0 {{ s.padding_bottom | default: 48 | times: 0.65 | round }}px; }
+    .pwb-{{ sid }} .pwb__inner, .pwb-{{ sid }}.pwb--image-left .pwb__inner { flex-direction: column; gap: 28px; padding: 0 20px; text-align: left; }
+    .pwb-{{ sid }} .pwb__heading { font-size: {{ s.heading_size | default: 40 | times: 0.7 | round }}px; }
+    .pwb-{{ sid }}.pwb--image_only .pwb__media img { width: max(100%, {{ s.collage_min_width | default: 1100 | times: 0.6 | round }}px); }
+  }
+</style>
+<div class="pwb pwb-{{ sid }} pwb--{{ layout }}{% if s.image_position == 'left' %} pwb--image-left{% endif %}">
+  {%- if s.wave_top -%}
+    <svg class="pwb__wave pwb__wave--top" viewBox="0 0 1200 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path d="{{ wave_path }}"/></svg>
+  {%- endif -%}
+  <div class="pwb__body">
+    <div class="pwb__inner">
+      {%- if layout != 'image_only' -%}
+        <div class="pwb__text">
+          {%- if s.eyebrow != blank -%}<p class="pwb__eyebrow">{{ s.eyebrow | escape }}</p>{%- endif -%}
+          {%- if s.heading != blank -%}<h2 class="pwb__heading">{{ s.heading | escape }}</h2>{%- endif -%}
+          {%- if s.text != blank -%}<div class="pwb__copy">{{ s.text }}</div>{%- endif -%}
+          {%- if s.button_label != blank -%}<a class="pwb__button" href="{{ s.button_link | default: routes.all_products_collection_url }}">{{ s.button_label | escape }}</a>{%- endif -%}
+        </div>
+      {%- endif -%}
+      {%- if layout != 'text_only' -%}
+        <div class="pwb__media">
+          {%- if s.image != blank -%}
+            {{ s.image | image_url: width: 2000 | image_tag: widths: '600, 900, 1200, 1600, 2000', sizes: '(min-width: 750px) 50vw, 100vw', loading: 'lazy', alt: s.image.alt | default: s.heading }}
+          {%- else -%}
+            {{ 'image' | placeholder_svg_tag: 'pwb__placeholder' }}
+          {%- endif -%}
+        </div>
+      {%- endif -%}
+    </div>
+  </div>
+  {%- if s.wave_bottom -%}
+    <svg class="pwb__wave pwb__wave--bottom" viewBox="0 0 1200 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path d="{{ wave_path }}"/></svg>
+  {%- endif -%}
+</div>
+
+{% schema %}
+{
+  "name": "Wavy band",
+  "tag": "section",
+  "class": "posters-wave-band-section",
+  "settings": [
+    {
+      "type": "select",
+      "id": "layout",
+      "label": "Layout",
+      "default": "text_image",
+      "options": [
+        { "value": "text_image", "label": "Text and picture" },
+        { "value": "image_only", "label": "Picture across the band" },
+        { "value": "text_only", "label": "Text only" }
+      ]
+    },
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "Picture",
+      "info": "A PNG or WebP with a transparent background sits straight on the band."
+    },
+    {
+      "type": "select",
+      "id": "image_position",
+      "label": "Picture position",
+      "default": "right",
+      "options": [
+        { "value": "right", "label": "Right" },
+        { "value": "left", "label": "Left" }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "image_max_width",
+      "label": "Picture width",
+      "min": 240,
+      "max": 900,
+      "step": 20,
+      "unit": "px",
+      "default": 560
+    },
+    {
+      "type": "range",
+      "id": "collage_min_width",
+      "label": "Smallest width of a picture across the band",
+      "min": 600,
+      "max": 2400,
+      "step": 50,
+      "unit": "px",
+      "default": 1100,
+      "info": "On narrow screens the picture is cropped at the sides rather than shrunk below this."
+    },
+    {
+      "type": "header",
+      "content": "Text"
+    },
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Small line above",
+      "default": ""
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Prints for the wall you look at most"
+    },
+    {
+      "type": "checkbox",
+      "id": "heading_uppercase",
+      "label": "Heading in capitals",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "heading_size",
+      "label": "Heading size",
+      "min": 20,
+      "max": 72,
+      "step": 2,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "richtext",
+      "id": "text",
+      "label": "Text",
+      "default": "<p>Say what makes your prints yours: the paper, the colours, who draws them.</p>"
+    },
+    {
+      "type": "text",
+      "id": "button_label",
+      "label": "Button label",
+      "default": "Shop prints"
+    },
+    {
+      "type": "url",
+      "id": "button_link",
+      "label": "Button link"
+    },
+    {
+      "type": "header",
+      "content": "Colours"
+    },
+    {
+      "type": "color",
+      "id": "band_color",
+      "label": "Band",
+      "default": "#f7e3a1"
+    },
+    {
+      "type": "color",
+      "id": "heading_color",
+      "label": "Heading",
+      "default": "#1f1f1f"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text",
+      "default": "#2b2b2b"
+    },
+    {
+      "type": "color",
+      "id": "button_color",
+      "label": "Button",
+      "default": "#c9b6f2"
+    },
+    {
+      "type": "color",
+      "id": "button_text_color",
+      "label": "Button text",
+      "default": "#1f1f1f"
+    },
+    {
+      "type": "header",
+      "content": "Waves"
+    },
+    {
+      "type": "checkbox",
+      "id": "wave_top",
+      "label": "Wavy top edge",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "wave_bottom",
+      "label": "Wavy bottom edge",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "wave_count",
+      "label": "Number of waves",
+      "min": 1,
+      "max": 14,
+      "step": 1,
+      "default": 5
+    },
+    {
+      "type": "range",
+      "id": "wave_depth",
+      "label": "Wave height",
+      "min": 12,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "header",
+      "content": "Spacing"
+    },
+    {
+      "type": "range",
+      "id": "max_width",
+      "label": "Content width",
+      "min": 800,
+      "max": 1600,
+      "step": 20,
+      "unit": "px",
+      "default": 1240
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Space above",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 48
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Space below",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 48
+    }
+  ],
+  "presets": [
+    {
+      "name": "Wavy band",
+      "category": "Poster shop"
+    }
+  ]
+}
+{% endschema %}

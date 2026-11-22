@@ -3,20 +3,20 @@
     "title": "Main menu",
     "links": [
       {
-        "title": "Shop",
+        "title": "Store",
         "url": "/collections/all"
       },
       {
-        "title": "Tour dates",
+        "title": "Tour",
         "url": "/pages/tour"
+      },
+      {
+        "title": "News",
+        "url": "/blogs/news"
       },
       {
         "title": "About",
         "url": "/pages/about"
-      },
-      {
-        "title": "Help",
-        "url": "/pages/faqs"
       }
     ]
   },
@@ -28,7 +28,7 @@
         "url": "/pages/shipping"
       },
       {
-        "title": "Help",
+        "title": "FAQ",
         "url": "/pages/faqs"
       },
       {

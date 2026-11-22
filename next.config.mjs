@@ -472,6 +472,28 @@ const nextConfig = {
           { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
         ],
       },
+      /*
+        THE TEMPLATES' PRERENDERED WEBSITES (public/theme-previews, scripts/build-template-previews.ts), framed by the
+        theme marketplace's Preview with `sandbox="allow-scripts"` and no allow-same-origin, for the reason the Sites
+        preview above has none. So the frame's origin is "null" and its fonts and module scripts are cross-origin
+        requests: they need Access-Control-Allow-Origin. The same sandbox is sent as a header, so a page opened on its
+        own is no more than it is in the frame, and only storelib.com may frame it (frame-ancestors, which wins over
+        vercel.json's X-Frame-Options). The pages keep their names between builds and are checked each time; every
+        file under a/ is named by its content and kept a year.
+      */
+      {
+        source: '/theme-previews/:path*',
+        headers: [
+          { key: 'Access-Control-Allow-Origin', value: '*' },
+          { key: 'Content-Security-Policy', value: "sandbox allow-scripts; frame-ancestors 'self'" },
+          { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },
+          { key: 'X-Robots-Tag', value: 'noindex' },
+        ],
+      },
+      {
+        source: '/theme-previews/:dir/a/:file*',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+      },
       {
         /**
          * Product pages, the /p/<slug> address. NOT PUBLICLY CACHEABLE, for the

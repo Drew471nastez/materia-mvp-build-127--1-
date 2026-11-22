@@ -1,0 +1,36 @@
+{
+  "sections": {
+    "drop": {
+      "type": "space-product-grid",
+      "settings": {
+        "collection": "",
+        "products_to_show": 8,
+        "heading": "",
+        "heading_alignment": "center",
+        "view_all_label": "",
+        "columns_desktop": 4,
+        "columns_mobile": 2,
+        "column_gap": 28,
+        "row_gap": 64,
+        "image_padding": 10,
+        "max_width": 1200,
+        "glow_strength": 26,
+        "glow_color": "#ffffff",
+        "glow_opacity": 55,
+        "text_color": "#ffffff",
+        "name_size": 13,
+        "show_price": true,
+        "price_size": 12,
+        "sold_out_label": "Sold out",
+        "pill_background": "#ffffff",
+        "pill_text": "#000000",
+        "empty_name": "Your product",
+        "padding_top": 44,
+        "padding_bottom": 72
+      }
+    }
+  },
+  "order": [
+    "drop"
+  ]
+}

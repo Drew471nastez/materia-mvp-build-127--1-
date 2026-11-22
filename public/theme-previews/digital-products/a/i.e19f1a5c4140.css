@@ -1,0 +1,44 @@
+
+  @media screen and (min-width: 768px) {
+    #shopify-section-news [data-nl-layout="horizontal"] .sec__newsletter .section__header { flex: 0 0 30%; }
+    #shopify-section-news [data-nl-layout="horizontal"] .sec_newsletter_note { width: 83%; }
+  }
+  #shopify-section-news .newsletter-icon { color: var(--nl-icon-c, var(--color-heading)); }
+  #shopify-section-news .newsletter-icon[hidden] { display: none !important; }
+  #shopify-section-news .newsletter-icon :is(svg, img) { width: var(--nl-icon, 40px); height: var(--nl-icon, 40px); }
+  #shopify-section-news .newsletter-icon img { height: auto; }
+  #shopify-section-news .nl-overlay { background: var(--nl-ov-c, #000000); opacity: var(--nl-ov, 0); }
+  #shopify-section-news .ct-header[hidden] { display: none !important; }
+  #shopify-section-news .newsletter-note[hidden] { display: none !important; }
+  #shopify-section-news .subcribe-input[data-own-font] { --body-font: var(--ct-bf); }
+  #shopify-section-news .newsletter-note[data-own-font] { font-family: var(--ct-bf, var(--body-font)); }
+  /* Sign-up states, driven by the data-state materia-forms.js puts on the form (sending, done, error) */
+  #shopify-section-news [data-nl-form] .nl-msg { margin: 0; font-size: 14px; line-height: 1.5; }
+  #shopify-section-news [data-nl-form] [data-nl-result] .nl-msg { display: none; }
+  #shopify-section-news [data-nl-form][data-state="error"] [data-nl-msg="error"] { display: block; color: #b91c1c; }
+  #shopify-section-news [data-nl-form][data-state="done"] [data-nl-msg="done"] { display: block; color: var(--color-heading, currentColor); animation: nl-done-out-news 400ms ease 5s forwards; }
+  @keyframes nl-done-out-news { to { opacity: 0; visibility: hidden; } }
+  @media (prefers-reduced-motion: reduce) { #shopify-section-news [data-nl-form][data-state="done"] [data-nl-msg="done"] { animation-duration: 1ms; } }
+  #shopify-section-news .nl-success { margin: 12px 0 0; font-size: 15px; line-height: 1.5; font-weight: 600; }
+  #shopify-section-news .nl-success:not([hidden]) { display: block; width: 100%; color: var(--color-heading, currentColor); }
+  #shopify-section-news .nl-success[hidden] { display: none !important; }
+  #shopify-section-news [data-nl-submit], #shopify-section-news [data-nl-form], #shopify-section-news [data-nl-form] .nl-button, #shopify-section-news [data-nl-form] .nl-input { position: relative; z-index: 2; pointer-events: auto; }
+  #shopify-section-news [data-nl-form] .nl-button { cursor: pointer; }
+  #shopify-section-news [data-nl-form][data-state="sending"] .nl-button { opacity: .85; cursor: progress; pointer-events: none; }
+  /* Honeypot: off screen, never focusable, bots that fill it fail validation and the form never sends */
+  #shopify-section-news .nl-hp { position: absolute !important; left: -10000px !important; top: auto !important; width: 1px !important; height: 1px !important; overflow: hidden !important; clip-path: inset(50%) !important; pointer-events: none !important; }
+  #shopify-section-news .nl-form .nl-input:user-invalid { border-color: #b91c1c; }
+  #shopify-section-news [data-nl-hint] { display: none; margin: 6px 0 0; font-size: 14px; line-height: 1.5; color: #b91c1c; width: 100%; }
+  #shopify-section-news [data-nl-form]:has(.nl-input:user-invalid) [data-nl-hint], #shopify-section-news [data-nl-form]:has(.nl-input[aria-invalid="true"]) [data-nl-hint] { display: block; }
+  #shopify-section-news [data-nl-form][data-state="sending"] [data-nl-label] { visibility: hidden; }
+  #shopify-section-news .nl-spinner { animation-play-state: paused; }
+  #shopify-section-news [data-nl-form][data-state="sending"] .nl-spinner { visibility: visible; animation-play-state: running; }
+  /* After a sign-up the button reads Subscribed, then returns to Subscribe so another address can be sent */
+  #shopify-section-news [data-nl-form][data-state="done"] [data-nl-label] { visibility: hidden; animation: nl-show-news 1ms linear 5s forwards; }
+  #shopify-section-news [data-nl-form][data-state="done"] [data-nl-subscribed] { visibility: visible; animation: nl-hide-news 1ms linear 5s forwards; }
+  #shopify-section-news [data-nl-form][data-state="done"]:has(.nl-input:focus) [data-nl-label] { visibility: visible; animation: none; }
+  #shopify-section-news [data-nl-form][data-state="done"]:has(.nl-input:focus) [data-nl-subscribed] { visibility: hidden; animation: none; }
+  #shopify-section-news [data-nl-form][data-state="done"]:has(.nl-input:focus) [data-nl-msg="done"] { display: none; }
+  @keyframes nl-show-news { to { visibility: visible; } }
+  @keyframes nl-hide-news { to { visibility: hidden; } }
+  #shopify-section-news .nl-button:focus-visible { outline: 2px solid var(--color-heading); outline-offset: 2px; }

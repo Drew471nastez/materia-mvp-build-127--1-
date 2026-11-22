@@ -10,14 +10,20 @@
  * button the card has, and a close button; under it the template's home
  * page, whole, scrolling.
  *
- * THE HOME PAGE IS ITS PICTURE. A live render per preview is a storefront
- * mounted for one look, so the preview draws the template's own full page
- * screenshots instead (public/themes/materia/<template>.webp at desktop
- * width, <template>-phone.webp at a phone's), each at the width it was
- * taken at so it is as sharp as the file allows. Both are asked for when
- * the preview opens, so the switch is a crossfade between two pictures that
- * are already there, each keeping its own scroll. A listing with no phone
- * picture has no switch.
+ * THE TEMPLATE'S REAL WEBSITE. A code template's pages are prerendered to
+ * static files (scripts/build-template-previews.ts, public/theme-previews/
+ * <slug>/) and framed here (LiveSite below): home, products, collections,
+ * about and the rest, browsable, at the desktop width or in a 390px phone
+ * frame, its own responsive layout either way. Rendering it per request
+ * would mount a storefront for one look; these are files the CDN serves.
+ *
+ * ITS PICTURES ARE THERE FIRST. The template's full page screenshots
+ * (public/themes/materia/<template>.webp at desktop width, <template>-phone
+ * .webp at a phone's) are drawn at once, each at the width it was taken at,
+ * and the website fades in over them when it has drawn. A listing with no
+ * prerendered website (an uploaded theme) keeps the pictures: the switch is
+ * a crossfade between two pictures that are already there, each keeping its
+ * own scroll. A listing with no phone picture has no switch.
  *
  * ON A COMPUTER it is a large window over the marketplace (or the page),
  * arriving with a fade and a slight rise. ON A PHONE it is a page that
@@ -39,7 +45,7 @@ import { SCRIM } from "@/components/ui/scrim"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { TemplateAction, type TemplateCardState } from "@/components/website-builder/theme-template-card"
-import type { ThemeListing } from "@/lib/themes/marketplace-shared"
+import { templatePreviewPath, type ThemeListing } from "@/lib/themes/marketplace-shared"
 
 /** In the address while a preview is open: &preview=slug, one history entry over the grid or the page. */
 export const PREVIEW_PARAM = "preview"
@@ -122,6 +128,10 @@ export function ThemePreview({ listing, state, waiting = false, viewHref = null,
   const shots = shown ? previewShots(shown) : { desktop: null, phone: null }
   const canSwitch = !!shots.desktop && !!shots.phone
   const on: PreviewDevice = canSwitch ? device : shots.desktop ? "desktop" : "phone"
+  /* The template's real website, prerendered (scripts/build-template-previews.ts); its pictures stay under it until it has drawn. */
+  const live = shown ? templatePreviewPath(shown) : null
+  const [liveReady, setLiveReady] = React.useState<string | null>(null)
+  const liveShown = !!live && liveReady === live
 
   return (
     <>
@@ -236,8 +246,8 @@ export function ThemePreview({ listing, state, waiting = false, viewHref = null,
                       <div
                         key={`${shown.slug}-${d}`}
                         data-preview-layer={d}
-                        aria-hidden={!active || undefined}
-                        inert={!active}
+                        aria-hidden={!active || liveShown || undefined}
+                        inert={!active || liveShown}
                         className={cn(
                           "absolute inset-0 overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)] transition-opacity ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none md:pb-0",
                           active ? "opacity-100" : "pointer-events-none opacity-0",
@@ -251,6 +261,7 @@ export function ThemePreview({ listing, state, waiting = false, viewHref = null,
                     )
                   })
                 : null}
+              {shown && live ? <LiveSite key={live} src={live} device={on} name={shown.name} ready={liveShown} onReady={setLiveReady} /> : null}
             </div>
           </DialogPrimitive.Content>
         </DialogPrimitive.Portal>
@@ -287,5 +298,125 @@ function PreviewShot({ src, device, name, eager }: { src: string; device: Previe
         className={cn("block h-auto w-full select-none transition-opacity duration-200 motion-reduce:transition-none", ready ? "opacity-100" : "opacity-0")}
       />
     </div>
+  )
+}
+
+/** Narrower than this (a phone or a small tablet holding Desktop), the desktop website is drawn at LIVE_DESKTOP_WIDTH and scaled down to the stage. */
+const LIVE_DESKTOP_MIN = 1024
+const LIVE_DESKTOP_WIDTH = 1280
+
+const LIVE_MOTION = `
+@keyframes wb-live-load { from { transform: translate3d(-100%, 0, 0); } to { transform: translate3d(300%, 0, 0); } }
+`
+
+/**
+ * THE TEMPLATE'S REAL WEBSITE, in a frame over its pictures. Static files
+ * (public/theme-previews/<slug>/, scripts/build-template-previews.ts): every
+ * page a visitor can reach, its links between them, nothing that buys,
+ * signs in or posts. The frame runs scripts and nothing else; it is not
+ * this origin, so it can read nothing of Storelib's.
+ *
+ * The pictures under it are there at once; the frame fades in over them
+ * when its first page says it has drawn (a message from the page's shim).
+ * A frame that never says so (offline, a file not built) leaves the
+ * pictures. Desktop is the stage's whole width, the website's own desktop
+ * layout; Phone is a 390px frame on a computer and the whole screen on a
+ * phone, the website's own phone layout. A switch
+ * reflows the same page in place and fades it back in, so a visitor keeps
+ * the page they had browsed to.
+ */
+function LiveSite({ src, device, name, ready, onReady }: { src: string; device: PreviewDevice; name: string; ready: boolean; onReady: (src: string) => void }) {
+  const frame = React.useRef<HTMLIFrameElement>(null)
+  const stageRef = React.useRef<HTMLDivElement>(null)
+  const [stage, setStage] = React.useState<{ w: number; h: number } | null>(null)
+
+  React.useEffect(() => {
+    const onMessage = (e: MessageEvent) => {
+      if (!frame.current || e.source !== frame.current.contentWindow) return
+      const data = e.data as { type?: unknown } | null
+      if (data && data.type === "storelib:template-preview") onReady(src)
+    }
+    window.addEventListener("message", onMessage)
+    return () => window.removeEventListener("message", onMessage)
+  }, [src, onReady])
+
+  React.useLayoutEffect(() => {
+    const el = stageRef.current
+    if (!el || typeof ResizeObserver === "undefined") return
+    const measure = () => setStage({ w: el.clientWidth, h: el.clientHeight })
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  /* The switch: the page reflows to its new width, then fades back in, instead of jumping. */
+  const lastDevice = React.useRef(device)
+  React.useEffect(() => {
+    if (lastDevice.current === device) return
+    lastDevice.current = device
+    const el = frame.current
+    if (!el || !ready || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+    el.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: PREVIEW_SWAP_MS, easing: "cubic-bezier(0.33, 1, 0.68, 1)" })
+  }, [device, ready])
+
+  /* Desktop on a narrow screen: the desktop layout, scaled to fit. */
+  const scale = device === "desktop" && stage && stage.w > 0 && stage.w < LIVE_DESKTOP_MIN ? stage.w / LIVE_DESKTOP_WIDTH : 1
+  const frameStyle: React.CSSProperties =
+    scale < 1 && stage ? { width: LIVE_DESKTOP_WIDTH, height: Math.ceil(stage.h / scale), transform: `scale(${scale})`, transformOrigin: "0 0" } : {}
+
+  return (
+    <>
+      <style href="wb-preview-live" precedence="default">{LIVE_MOTION}</style>
+      {/* Until the website has drawn: a thin line moving along the top of its pictures. */}
+      <div
+        aria-hidden
+        data-preview-live-loading=""
+        className={cn(
+          "pointer-events-none absolute inset-x-0 top-0 z-[2] h-[2px] overflow-hidden transition-opacity duration-200 motion-reduce:transition-none",
+          ready ? "opacity-0" : "opacity-100",
+        )}
+      >
+        <div className="h-full w-1/3 bg-[#1a1a2e]/30 [animation:wb-live-load_1.1s_cubic-bezier(0.45,0,0.55,1)_infinite] motion-reduce:[animation:none]" />
+      </div>
+      <div
+        data-preview-live={ready ? "ready" : "loading"}
+        aria-hidden={!ready || undefined}
+        inert={!ready}
+        className={cn(
+          "absolute inset-0 z-[1] bg-[#eef0f3] transition-opacity ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none",
+          ready ? "opacity-100" : "pointer-events-none opacity-0",
+        )}
+        style={{ transitionDuration: `${PREVIEW_SWAP_MS}ms` }}
+      >
+        <div
+          className={cn(
+            "absolute inset-0 flex justify-center pb-[env(safe-area-inset-bottom)] md:pb-0",
+            device === "phone" && "md:py-6",
+          )}
+        >
+          <div
+            ref={stageRef}
+            data-preview-live-frame={device}
+            className={cn(
+              "relative h-full w-full overflow-hidden bg-white",
+              device === "phone" && "md:max-w-[390px] md:rounded-[22px] md:shadow-[0_0_0_1px_rgba(17,24,39,0.08),0_16px_40px_-20px_rgba(17,24,39,0.35)]",
+            )}
+          >
+            <iframe
+              ref={frame}
+              src={src}
+              title={tt("{name}, live website", { name })}
+              sandbox="allow-scripts"
+              referrerPolicy="no-referrer"
+              loading="eager"
+              data-preview-live-site=""
+              className="block h-full w-full border-0 bg-white"
+              style={frameStyle}
+            />
+          </div>
+        </div>
+      </div>
+    </>
   )
 }

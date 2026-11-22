@@ -1,226 +1,181 @@
 {
   "sections": {
-    "hero": {
-      "type": "newsletter-split",
+    "hello": {
+      "type": "creator-hello",
       "settings": {
         "color_scheme": "default",
-        "image": "shopify://shop_images/creator-portrait.webp",
-        "image_alt": "Robin laughing against a white wall",
-        "image_position": "left",
-        "image_ratio": "portrait",
-        "image_width": 46,
-        "column_gap": 72,
-        "btn_text": "Get Sunday Sketch",
-        "email_placeholder": "Your email",
-        "note": "Free, every Sunday. Join [number] readers.",
-        "padding_top": 56,
-        "padding_bottom": 72,
-        "padding_top_mobile": 24,
-        "padding_bottom_mobile": 48
+        "panel_color": "#f4f1ec",
+        "heading_plain": "Draw a little",
+        "heading_serif": "every morning.",
+        "underline_color": "#5ec3ea",
+        "intro": "<p>I'm Ines. I teach grown ups who stopped drawing at school, and I wrote <a href=\"/collections/all\">Draw Before Breakfast</a>, forty exercises of ten minutes each.</p>",
+        "show_arrow": true,
+        "arrow_color": "#f6a27c",
+        "card_eyebrow": "The six week course",
+        "card_title": "Sketchbook Basics",
+        "card_text": "<p>A drawing only helps if you do it again tomorrow.</p><p>Short video lessons, a prompt for every day and a live critique at the end of each week. By the last one you will have filled a sketchbook.</p>",
+        "card_button_label": "See the course",
+        "card_button_link": "/collections/all",
+        "button_color": "#5ec3ea",
+        "button_text_color": "#1c1b2b",
+        "card_image": "shopify://shop_images/creator-sketchbook-pages.webp",
+        "card_image_alt": "An open sketchbook with a painted gate and trees",
+        "image_ratio": "4 / 3",
+        "press_label": "As featured in",
+        "heading_size": 80,
+        "heading_size_mobile": 44
       },
       "blocks": {
-        "heading_1": {
-          "type": "heading",
+        "logo_1": {
+          "type": "logo",
           "settings": {
-            "text": "Hi, I'm Robin."
-          }
-        },
-        "subheading_2": {
-          "type": "subheading",
-          "settings": {
-            "text": "<p>I draw every day and teach people who think they can't. Each Sunday I send one prompt, one page from my sketchbook and the pens I'm using that week.</p>"
-          }
-        }
-      },
-      "block_order": [
-        "heading_1",
-        "subheading_2"
-      ]
-    },
-    "press": {
-      "type": "logo-grid-heading",
-      "settings": {
-        "color_scheme": "default",
-        "columns": 5,
-        "tile_style": "plain",
-        "logo_style": "mono",
-        "logo_height": 30,
-        "logo_height_mobile": 20,
-        "columns_mobile": 3,
-        "padding_top": 16,
-        "padding_bottom": 56,
-        "padding_top_mobile": 8,
-        "padding_bottom_mobile": 40
-      },
-      "blocks": {
-        "subheading_1": {
-          "type": "subheading",
-          "settings": {
-            "text": "<p>As featured in</p>"
+            "image": "shopify://shop_images/creator-press-1.webp",
+            "alt": "Publication"
           }
         },
         "logo_2": {
           "type": "logo",
           "settings": {
-            "logo": "shopify://shop_images/creator-press-1.webp",
-            "alt": "Placeholder logo, replace with a place that featured you",
-            "url": ""
+            "image": "shopify://shop_images/creator-press-2.webp",
+            "alt": "Magazine"
           }
         },
         "logo_3": {
           "type": "logo",
           "settings": {
-            "logo": "shopify://shop_images/creator-press-2.webp",
-            "alt": "Placeholder logo, replace with a place that featured you",
-            "url": ""
+            "image": "shopify://shop_images/creator-press-3.webp",
+            "alt": "The Podcast"
           }
         },
         "logo_4": {
           "type": "logo",
           "settings": {
-            "logo": "shopify://shop_images/creator-press-3.webp",
-            "alt": "Placeholder logo, replace with a place that featured you",
-            "url": ""
+            "image": "shopify://shop_images/creator-press-4.webp",
+            "alt": "Radio show"
           }
         },
         "logo_5": {
           "type": "logo",
           "settings": {
-            "logo": "shopify://shop_images/creator-press-4.webp",
-            "alt": "Placeholder logo, replace with a place that featured you",
-            "url": ""
-          }
-        },
-        "logo_6": {
-          "type": "logo",
-          "settings": {
-            "logo": "shopify://shop_images/creator-press-5.webp",
-            "alt": "Placeholder logo, replace with a place that featured you",
-            "url": ""
+            "image": "shopify://shop_images/creator-press-5.webp",
+            "alt": "Newspaper"
           }
         }
       },
       "block_order": [
-        "subheading_1",
+        "logo_1",
         "logo_2",
         "logo_3",
         "logo_4",
-        "logo_5",
-        "logo_6"
+        "logo_5"
       ]
     },
-    "book": {
-      "type": "Image-and-video-text",
+    "help": {
+      "type": "creator-help",
       "settings": {
-        "color_scheme": "scheme-b0fae5fa-c388-4a42-acd3-92cf8fe0b1fb",
-        "image": "shopify://shop_images/creator-book.webp",
-        "image_alt": "The cover of Draw Before Breakfast",
-        "image_position": "right",
-        "image_radius": 16,
-        "aspect_w": 1,
-        "aspect_h": 1,
-        "content_gap": 18,
-        "padding_top_desktop": 88,
-        "padding_bottom_desktop": 88
+        "color_scheme": "default",
+        "heading_plain": "Where should",
+        "heading_serif": "you start?",
+        "underline_color": "#5ec3ea",
+        "card_color": "#f4f1ec",
+        "text": "Pick the one that sounds most like you."
       },
       "blocks": {
-        "eyebrow_1": {
-          "type": "eyebrow",
+        "card_1": {
+          "type": "card",
           "settings": {
-            "text": "The book"
+            "doodle": "pencil",
+            "doodle_color": "#f6a27c",
+            "title": "Start a daily habit",
+            "text": "Five minute prompts for people who think they cannot draw. No talent or good paper needed.",
+            "link_label": "Get started",
+            "link": "/blogs/news"
           }
         },
-        "heading_2": {
-          "type": "heading",
+        "card_2": {
+          "type": "card",
           "settings": {
-            "text": "Draw Before Breakfast"
+            "doodle": "book",
+            "doodle_color": "#5ec3ea",
+            "title": "Find your own line",
+            "text": "Stop copying tutorials and draw the way your hand already moves.",
+            "link_label": "Get started",
+            "link": "/blogs/news"
           }
         },
-        "subheading_3": {
-          "type": "subheading",
+        "card_3": {
+          "type": "card",
           "settings": {
-            "text": "<p>Ten minutes a day, one cup of coffee, any pen in the house. Forty small exercises that got me from stick figures to a full sketchbook every month.</p>"
-          }
-        },
-        "button_4": {
-          "type": "button",
-          "settings": {
-            "label": "Read the first chapter",
+            "doodle": "pin",
+            "doodle_color": "#fbd462",
+            "title": "Sketch on location",
+            "text": "What to carry, where to sit and how to finish before the light changes.",
+            "link_label": "Get started",
             "link": "/collections/all"
+          }
+        },
+        "card_4": {
+          "type": "card",
+          "settings": {
+            "doodle": "brush",
+            "doodle_color": "#f6a27c",
+            "title": "Add watercolour",
+            "text": "One brush, six paints and a few honest mistakes to learn from.",
+            "link_label": "Get started",
+            "link": "/collections/all"
+          }
+        },
+        "card_5": {
+          "type": "card",
+          "settings": {
+            "doodle": "none",
+            "title": "... and more",
+            "text": "",
+            "link_label": "See every free lesson",
+            "link": "/blogs/news"
           }
         }
       },
       "block_order": [
-        "eyebrow_1",
-        "heading_2",
-        "subheading_3",
-        "button_4"
+        "card_1",
+        "card_2",
+        "card_3",
+        "card_4",
+        "card_5"
       ]
     },
-    "start": {
-      "type": "text-columns",
+    "club": {
+      "type": "Image-and-video-text",
       "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "columns_desktop": 4,
-        "columns_tablet": 2,
-        "show_dividers": false,
-        "column_gap": 32,
-        "header_gap": 40,
-        "item_heading_size": 24,
-        "padding_top": 88,
-        "padding_bottom": 88,
-        "mobile_layout": "stack"
+        "color_scheme": "default",
+        "image": "shopify://shop_images/creator-botanical.webp",
+        "image_alt": "Leaf and flower studies in a spiral sketchbook, with pencils",
+        "image_position": "left",
+        "image_radius": 18,
+        "aspect_w": 1,
+        "aspect_h": 1,
+        "content_gap": 18,
+        "padding_top_desktop": 56,
+        "padding_bottom_desktop": 72,
+        "text_column_width": 50
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Where would you like to start?"
+            "text": "I run a drawing club"
           }
         },
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Pick the one that sounds most like you.</p>"
+            "text": "<p>The Drawing Table meets online on the first Sunday of every month. We draw the same thing for an hour, then hold our pages up to the camera.</p><p>No critique unless you ask for it. Bring a pen.</p>"
           }
         },
-        "column_3": {
-          "type": "column",
+        "button_3": {
+          "type": "button",
           "settings": {
-            "label": "Never drawn",
-            "heading": "Start a daily habit",
-            "text": "<p>Five minute prompts that need no talent and no good paper.</p>",
-            "link_label": "Start here",
-            "link": "/blogs/news"
-          }
-        },
-        "column_4": {
-          "type": "column",
-          "settings": {
-            "label": "Stuck",
-            "heading": "Find your own line",
-            "text": "<p>Stop copying and start drawing the way your hand already wants to.</p>",
-            "link_label": "Read the guides",
-            "link": "/blogs/news"
-          }
-        },
-        "column_5": {
-          "type": "column",
-          "settings": {
-            "label": "Outdoors",
-            "heading": "Sketch on location",
-            "text": "<p>What to carry, where to sit and how to finish before the light changes.</p>",
-            "link_label": "See the course",
-            "link": "/collections/all"
-          }
-        },
-        "column_6": {
-          "type": "column",
-          "settings": {
-            "label": "Colour",
-            "heading": "Add watercolour",
-            "text": "<p>One brush, six paints and a few honest mistakes to learn from.</p>",
-            "link_label": "See the course",
+            "label": "Join the table",
             "link": "/collections/all"
           }
         }
@@ -228,256 +183,315 @@
       "block_order": [
         "heading_1",
         "subheading_2",
-        "column_3",
-        "column_4",
-        "column_5",
-        "column_6"
+        "button_3"
       ]
     },
-    "made": {
-      "type": "slideshow-cards",
+    "story": {
+      "type": "creator-story",
       "settings": {
         "color_scheme": "default",
-        "card_style": "below",
-        "image_ratio": "portrait",
-        "card_width": 27,
-        "card_width_mobile": 78,
-        "gap": 24,
-        "show_dots": false,
-        "heading_size": "medium",
-        "padding_top": 88,
-        "padding_bottom": 88,
-        "padding_top_mobile": 56,
-        "padding_bottom_mobile": 56
+        "panel_color": "#f4f1ec",
+        "heading_plain": "Why I",
+        "heading_serif": "teach drawing",
+        "underline_color": "#5ec3ea",
+        "text": "<p>I stopped drawing at eleven, when a teacher held my picture up as the one not to copy. I started again at twenty nine, on a train, in the back of a work notebook.</p><p>Since then I have filled a shelf of sketchbooks, taught workshops in libraries and cafés, and written a book about the ten minutes before breakfast that changed how I see.</p><p>Everything I have learned is on this site. Most of it is free, and it will stay that way.</p>",
+        "link_label": "Read the full story",
+        "link": "/pages/about",
+        "image_1": "shopify://shop_images/creator-desk-sketches.webp",
+        "image_1_alt": "Small ink sketches filling a page beside a keyboard",
+        "image_2": "shopify://shop_images/creator-pillow-sketches.webp",
+        "image_2_alt": "Pencil studies of cushions in a spiral sketchbook",
+        "image_3": "shopify://shop_images/creator-morning-desk.webp",
+        "image_3_alt": "A small drawing on a wooden desk with pens and a bowl of oranges",
+        "thread_color": "#f6a27c",
+        "button_color": "#5ec3ea",
+        "button_text_color": "#1c1b2b"
       },
       "blocks": {
-        "heading_1": {
-          "type": "heading",
-          "settings": {
-            "heading": "Things I've made"
-          }
-        },
-        "card_2": {
-          "type": "card",
-          "settings": {
-            "image": "shopify://shop_images/creator-book.webp",
-            "heading": "Draw Before Breakfast",
-            "text": "The book. Forty ten minute exercises.",
-            "button_label": "Get the book",
-            "button_link": "/collections/all"
-          }
-        },
-        "card_3": {
-          "type": "card",
-          "settings": {
-            "image": "shopify://shop_images/creator-course.webp",
-            "heading": "Sketchbook Basics",
-            "text": "A six week video course for beginners.",
-            "button_label": "See the course",
-            "button_link": "/collections/all"
-          }
-        },
-        "card_4": {
-          "type": "card",
-          "settings": {
-            "image": "shopify://shop_images/creator-community.webp",
-            "heading": "The Drawing Table",
-            "text": "Monthly members club with live sessions.",
-            "button_label": "Join the table",
-            "button_link": "/collections/all"
-          }
-        },
-        "card_5": {
-          "type": "card",
-          "settings": {
-            "image": "shopify://shop_images/creator-newsletter.webp",
-            "heading": "Sunday Sketch",
-            "text": "The free weekly letter.",
-            "button_label": "Subscribe",
-            "button_link": "/pages/newsletter"
-          }
-        },
-        "card_6": {
-          "type": "card",
-          "settings": {
-            "image": "shopify://shop_images/creator-prompts.webp",
-            "heading": "100 drawing prompts",
-            "text": "A printable deck for slow days.",
-            "button_label": "Get the deck",
-            "button_link": "/collections/all"
-          }
-        }
-      },
-      "block_order": [
-        "heading_1",
-        "card_2",
-        "card_3",
-        "card_4",
-        "card_5",
-        "card_6"
-      ]
-    },
-    "about": {
-      "type": "Image-and-video-text",
-      "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "image": "shopify://shop_images/creator-desk-sketches.webp",
-        "image_alt": "Small pencil sketches filling a page beside a keyboard",
-        "image_position": "right",
-        "image_radius": 16,
-        "aspect_w": 4,
-        "aspect_h": 5,
-        "padding_top_desktop": 96,
-        "padding_bottom_desktop": 96
-      },
-      "blocks": {
-        "eyebrow_1": {
-          "type": "eyebrow",
-          "settings": {
-            "text": "About"
-          }
-        },
-        "heading_2": {
-          "type": "heading",
-          "settings": {
-            "text": "Hey, I'm Robin Avery"
-          }
-        },
-        "subheading_3": {
-          "type": "subheading",
-          "settings": {
-            "text": "<p>I started drawing at 29, on a train, in the back of a work notebook. Nobody had told me it was a skill you could practise like any other.</p><p>Since then I have filled more than [number] sketchbooks, taught [number] people in workshops and written a book about the ten minutes before breakfast that changed how I see.</p><p>This site is where I keep everything I make. Most of it is free.</p>"
-          }
-        },
-        "button_4": {
+        "button_1": {
           "type": "button",
           "settings": {
-            "label": "Read my story",
-            "link": "/pages/about"
+            "label": "Free lessons",
+            "link": "/blogs/news"
+          }
+        },
+        "button_2": {
+          "type": "button",
+          "settings": {
+            "label": "The book",
+            "link": "/collections/all"
+          }
+        },
+        "button_3": {
+          "type": "button",
+          "settings": {
+            "label": "The Sunday letter",
+            "link": "/pages/newsletter"
           }
         }
       },
       "block_order": [
-        "eyebrow_1",
-        "heading_2",
-        "subheading_3",
-        "button_4"
+        "button_1",
+        "button_2",
+        "button_3"
       ]
     },
-    "videos": {
-      "type": "slideshow-cards",
+    "lessons": {
+      "type": "creator-shelf",
       "settings": {
         "color_scheme": "default",
-        "card_style": "below",
-        "image_ratio": "landscape",
-        "card_width": 36,
-        "card_width_mobile": 85,
-        "gap": 24,
-        "show_dots": false,
-        "heading_size": "small",
-        "padding_top": 88,
-        "padding_bottom": 40,
-        "padding_top_mobile": 56,
-        "padding_bottom_mobile": 24
+        "layout": "row",
+        "heading_plain": "Watch the",
+        "heading_serif": "free lessons",
+        "underline_color": "#fbd462",
+        "card_color": "#f4f1ec",
+        "image_ratio": "16 / 10",
+        "arrow_color": "#fbd462",
+        "button_label": "See all lessons",
+        "button_link": "/blogs/news",
+        "button_color": "#1c1b2b",
+        "button_text_color": "#ffffff",
+        "padding_top": 72,
+        "padding_bottom": 48
       },
       "blocks": {
-        "heading_1": {
-          "type": "heading",
+        "card_1": {
+          "type": "card",
           "settings": {
-            "heading": "Latest videos"
+            "image": "shopify://shop_images/creator-lesson-pen.webp",
+            "alt": "A dip pen drawing a small house",
+            "meta": "Lesson, 9 minutes",
+            "title": "How I hold a pen now",
+            "link_label": "Watch",
+            "link": "/blogs/news"
           }
         },
         "card_2": {
           "type": "card",
           "settings": {
-            "image": "shopify://shop_images/creator-cafe-sketch.webp",
-            "heading": "Sketching a café in twenty minutes",
-            "text": "14 minutes",
-            "button_label": "Watch",
-            "button_link": "https://www.youtube.com"
+            "image": "shopify://shop_images/creator-lesson-watercolour.webp",
+            "alt": "Painting outdoors from a small watercolour box",
+            "meta": "Lesson, 22 minutes",
+            "title": "Watercolour with one brush",
+            "link_label": "Watch",
+            "link": "/blogs/news"
           }
         },
         "card_3": {
           "type": "card",
           "settings": {
-            "image": "shopify://shop_images/creator-watercolour-desk.webp",
-            "heading": "Watercolour with one brush",
-            "text": "22 minutes",
-            "button_label": "Watch",
-            "button_link": "https://www.youtube.com"
+            "image": "shopify://shop_images/creator-lesson-ink.webp",
+            "alt": "An ink drawing of flowers in an open sketchbook",
+            "meta": "Lesson, 14 minutes",
+            "title": "Ink without an undo button",
+            "link_label": "Watch",
+            "link": "/blogs/news"
           }
         },
         "card_4": {
           "type": "card",
           "settings": {
-            "image": "shopify://shop_images/creator-hand-sketching.webp",
-            "heading": "How I hold a pencil now",
-            "text": "9 minutes",
-            "button_label": "Watch",
-            "button_link": "https://www.youtube.com"
+            "image": "shopify://shop_images/creator-lesson-plants.webp",
+            "alt": "A pencil drawing of berries in a vase",
+            "meta": "Lesson, 12 minutes",
+            "title": "Drawing plants from the window",
+            "link_label": "Watch",
+            "link": "/blogs/news"
           }
         },
         "card_5": {
           "type": "card",
           "settings": {
-            "image": "shopify://shop_images/creator-ink-sketchbook.webp",
-            "heading": "Five pens I keep buying",
-            "text": "17 minutes",
-            "button_label": "Watch",
-            "button_link": "https://www.youtube.com"
+            "image": "shopify://shop_images/creator-lesson-owl.webp",
+            "alt": "A sketch of an owl with colour notes",
+            "meta": "Lesson, 18 minutes",
+            "title": "Fill a page with one animal",
+            "link_label": "Watch",
+            "link": "/blogs/news"
           }
         }
       },
       "block_order": [
-        "heading_1",
+        "card_1",
         "card_2",
         "card_3",
         "card_4",
         "card_5"
       ]
     },
-    "newsletter": {
-      "type": "newsletter-split",
+    "made": {
+      "type": "creator-shelf",
       "settings": {
-        "color_scheme": "scheme-7dae8b89-7a81-4c2c-b8e2-92533766f8ca",
-        "image": "shopify://shop_images/creator-newsletter-sky.webp",
-        "image_alt": "A sample issue of the Sunday Sketch letter",
-        "image_position": "right",
-        "image_ratio": "square",
-        "btn_text": "Subscribe",
-        "email_placeholder": "Your email",
-        "note": "Free. One email a week. Leave whenever you like.",
-        "padding_top": 88,
-        "padding_bottom": 88
+        "color_scheme": "default",
+        "layout": "row",
+        "heading_plain": "Things I",
+        "heading_serif": "have made",
+        "underline_color": "#fbd462",
+        "card_color": "#f4f1ec",
+        "image_ratio": "16 / 10",
+        "arrow_color": "#fbd462",
+        "button_label": "",
+        "padding_top": 48,
+        "padding_bottom": 40
       },
       "blocks": {
-        "heading_1": {
-          "type": "heading",
+        "card_1": {
+          "type": "card",
           "settings": {
-            "text": "Subscribe to Sunday Sketch"
+            "image": "shopify://shop_images/creator-shelf-course.webp",
+            "alt": "Sketchbook Basics",
+            "meta": "Video course",
+            "title": "Sketchbook Basics",
+            "text": "Six weeks of short lessons for adults who have not drawn since school.",
+            "link_label": "View",
+            "link": "/collections/all"
           }
         },
-        "subheading_2": {
-          "type": "subheading",
+        "card_2": {
+          "type": "card",
           "settings": {
-            "text": "<p>Every Sunday morning: one drawing prompt, one page from my sketchbook and one thing I learned that week. Read by [number] people. Free, and it stays free.</p>"
+            "image": "shopify://shop_images/creator-shelf-book.webp",
+            "alt": "Draw Before Breakfast",
+            "meta": "Book",
+            "title": "Draw Before Breakfast",
+            "text": "Forty exercises of ten minutes each, for the start of the day.",
+            "link_label": "View",
+            "link": "/collections/all"
+          }
+        },
+        "card_3": {
+          "type": "card",
+          "settings": {
+            "image": "shopify://shop_images/creator-shelf-club.webp",
+            "alt": "The Drawing Table",
+            "meta": "Members club",
+            "title": "The Drawing Table",
+            "text": "A live drawing session on the first Sunday of every month.",
+            "link_label": "View",
+            "link": "/collections/all"
+          }
+        },
+        "card_4": {
+          "type": "card",
+          "settings": {
+            "image": "shopify://shop_images/creator-shelf-prompts.webp",
+            "alt": "100 drawing prompts",
+            "meta": "Printable",
+            "title": "100 drawing prompts",
+            "text": "A deck to keep by the sketchbook for days with no ideas.",
+            "link_label": "View",
+            "link": "/collections/all"
+          }
+        },
+        "card_5": {
+          "type": "card",
+          "settings": {
+            "image": "shopify://shop_images/creator-shelf-letter.webp",
+            "alt": "Sunday Sketch",
+            "meta": "Free letter",
+            "title": "Sunday Sketch",
+            "text": "One prompt and one page from my sketchbook, every Sunday.",
+            "link_label": "View",
+            "link": "/pages/newsletter"
           }
         }
       },
       "block_order": [
-        "heading_1",
-        "subheading_2"
+        "card_1",
+        "card_2",
+        "card_3",
+        "card_4",
+        "card_5"
+      ]
+    },
+    "letter": {
+      "type": "creator-letter",
+      "settings": {
+        "color_scheme": "default",
+        "panel_color": "#f4f1ec",
+        "heading_plain": "Subscribe to",
+        "heading_serif": "Sunday Sketch",
+        "show_plane": true,
+        "plane_color": "#c8bce8",
+        "side_text": "Free, every Sunday morning, from Ines.",
+        "text": "<p>One drawing prompt, one page from my sketchbook and one thing I learned that week. It is free and it stays free.</p>",
+        "email_placeholder": "Your email",
+        "button_label": "Subscribe",
+        "button_color": "#5ec3ea",
+        "button_text_color": "#1c1b2b",
+        "note": "<p>One email a week. Every letter has a link to leave, and nobody else gets your address.</p>"
+      }
+    },
+    "shelf": {
+      "type": "creator-shelf",
+      "settings": {
+        "color_scheme": "default",
+        "layout": "tiles",
+        "heading_plain": "",
+        "heading_serif": "",
+        "tiles_per_row": 4,
+        "button_label": "",
+        "padding_top": 40,
+        "padding_bottom": 80
+      },
+      "blocks": {
+        "card_1": {
+          "type": "card",
+          "settings": {
+            "image": "shopify://shop_images/creator-book.webp",
+            "alt": "Draw Before Breakfast",
+            "title": "Draw Before Breakfast",
+            "text": "The book. Ten minutes a day, any pen in the house.",
+            "link": "/collections/all"
+          }
+        },
+        "card_2": {
+          "type": "card",
+          "settings": {
+            "image": "shopify://shop_images/creator-course.webp",
+            "alt": "Sketchbook Basics",
+            "title": "Sketchbook Basics",
+            "text": "The six week course, from stick figures to a full sketchbook.",
+            "link": "/collections/all"
+          }
+        },
+        "card_3": {
+          "type": "card",
+          "settings": {
+            "image": "shopify://shop_images/creator-community.webp",
+            "alt": "The Drawing Table",
+            "title": "The Drawing Table",
+            "text": "The club. One live session a month, drawing together.",
+            "link": "/collections/all"
+          }
+        },
+        "card_4": {
+          "type": "card",
+          "settings": {
+            "image": "shopify://shop_images/creator-newsletter.webp",
+            "alt": "Sunday Sketch",
+            "title": "Sunday Sketch",
+            "text": "The letter. Free, every Sunday.",
+            "link": "/pages/newsletter"
+          }
+        }
+      },
+      "block_order": [
+        "card_1",
+        "card_2",
+        "card_3",
+        "card_4"
       ]
     }
   },
   "order": [
-    "hero",
-    "press",
-    "book",
-    "start",
+    "hello",
+    "help",
+    "club",
+    "story",
+    "lessons",
     "made",
-    "about",
-    "videos",
-    "newsletter"
+    "letter",
+    "shelf"
   ]
 }

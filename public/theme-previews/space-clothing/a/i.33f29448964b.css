@@ -1,0 +1,28 @@
+
+  /* Theme editor: force popup-style sections (fixed/centered) to render inline so a preview shows */
+  .shopify-design-mode #shopify-section-newsletter *[class*="-popup"],
+  .shopify-design-mode #shopify-section-newsletter .popup,
+  .shopify-design-mode #shopify-section-newsletter .modal,
+  .shopify-design-mode #shopify-section-newsletter [data-popup],
+  .shopify-design-mode #shopify-section-newsletter > .promotional,
+  .shopify-design-mode #shopify-section-newsletter .age-verifier-popup,
+  .shopify-design-mode #shopify-section-newsletter .promotion-popup,
+  .shopify-design-mode #shopify-section-newsletter .promobanner,
+  .shopify-design-mode #shopify-section-newsletter .newsletter-popup,
+  .shopify-design-mode #shopify-section-newsletter .promo-newsletter-popup,
+  .shopify-design-mode #shopify-section-newsletter .promotional-image-popup,
+  .shopify-design-mode #shopify-section-newsletter .promotional-popup {
+    position: static !important;
+    inset: auto !important;
+    transform: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    display: block !important;
+    margin: 20px auto !important;
+    z-index: auto !important;
+    pointer-events: auto !important;
+  }
+  .shopify-design-mode #shopify-section-newsletter *[class*="overlay"],
+  .shopify-design-mode #shopify-section-newsletter *[class*="backdrop"] {
+    display: none !important;
+  }

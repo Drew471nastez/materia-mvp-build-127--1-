@@ -1,0 +1,108 @@
+{
+  "sections": {
+    "page_heading_1": {
+      "type": "page-heading",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "page_title": "Questions"
+          }
+        },
+        "description_2": {
+          "type": "description",
+          "settings": {
+            "description": "<p>About downloads, reading the books and using the pictures.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_2"
+      ]
+    },
+    "faq_side_image_2": {
+      "type": "faq-side-image",
+      "settings": {
+        "color_scheme": "default",
+        "image": "shopify://shop_images/artbooks-hero-utamaro.webp",
+        "image_position": "right",
+        "open_first": true,
+        "section_width": "container"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Before you buy"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>If your question is not here, write to us.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How do I get the book?",
+            "answer": "<p>As soon as you pay, the download link is on the order page and in your receipt email. Nothing is posted.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What format is it?",
+            "answer": "<p>A PDF with a fixed layout, so every page looks the way it was designed. Each product page lists the number of pages and the file size.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What can I read it on?",
+            "answer": "<p>Anything that opens a PDF. A tablet or a large screen shows the plates best, and you can zoom right in.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "The email did not arrive. What now?",
+            "answer": "<p>Look in your spam folder first. If it is not there, write to us with the email you used at checkout and we will send the link again.</p>"
+          }
+        },
+        "faq_item_7": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I print the pages?",
+            "answer": "<p>Yes, for yourself. The books are made for screens, so a home print will not match a printed art book.</p>"
+          }
+        },
+        "faq_item_8": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I share the file?",
+            "answer": "<p>Please do not. Send friends the link to the book instead. If you teach, write to us about a class licence.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6",
+        "faq_item_7",
+        "faq_item_8"
+      ]
+    }
+  },
+  "order": [
+    "page_heading_1",
+    "faq_side_image_2"
+  ]
+}

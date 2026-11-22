@@ -2839,7 +2839,10 @@ header-inner .button-localization {
   letter-spacing: 0 !important;
   text-align: center;
   font-variant-numeric: tabular-nums;
-  background-color: var(--count-bubble-bg, var(--color-primary));
+  /* The bubble's fill, named once so its number can be worked out from it (header-section.css). */
+  --cb-fill: var(--count-bubble-bg, var(--color-primary));
+  --cb-text: var(--count-bubble-color);
+  background-color: var(--cb-fill);
   color: var(--count-bubble-color, var(--color-background, #fff));
 }
 .h-count .visually-hidden {
@@ -2847,7 +2850,9 @@ header-inner .button-localization {
 }
 .header__wishlist .h-count,
 .wishlist-count-header {
-  background-color: var(--count-bubble-wishlist-bg, var(--count-bubble-bg, var(--color-primary)));
+  --cb-fill: var(--count-bubble-wishlist-bg, var(--count-bubble-bg, var(--color-primary)));
+  --cb-text: var(--count-bubble-wishlist-color, var(--count-bubble-color));
+  background-color: var(--cb-fill);
   color: var(--count-bubble-wishlist-color, var(--count-bubble-color, var(--color-background, #fff)));
 }
 .header__minicart .h-count {

@@ -3,12 +3,12 @@
     "title": "Main menu",
     "links": [
       {
-        "title": "Courses",
-        "url": "/collections/all"
+        "title": "Free lessons",
+        "url": "/blogs/news"
       },
       {
-        "title": "Articles",
-        "url": "/blogs/news"
+        "title": "Things I make",
+        "url": "/collections/all"
       },
       {
         "title": "About",
@@ -45,7 +45,7 @@
         "url": "/pages/newsletter"
       },
       {
-        "title": "Articles",
+        "title": "Lessons and articles",
         "url": "/blogs/news"
       }
     ]
@@ -54,7 +54,7 @@
     "title": "Things I make",
     "links": [
       {
-        "title": "Everything",
+        "title": "Everything I make",
         "url": "/collections/all"
       },
       {

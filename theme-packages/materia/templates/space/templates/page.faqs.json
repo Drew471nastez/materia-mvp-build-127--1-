@@ -1,0 +1,144 @@
+{
+  "sections": {
+    "faq_tabs_1": {
+      "type": "faq-tabs",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "full_width",
+        "reset_spacing": true,
+        "show_section_on": "all",
+        "structured_data": false,
+        "tab_1_label": "Fit and care",
+        "tab_2_label": "Orders",
+        "tab_3_label": "Shipping and returns",
+        "open_first": false,
+        "allow_multiple_open": true,
+        "header_align": "center",
+        "section_max_width_desktop": 920,
+        "section_max_width_tablet": 800,
+        "heading_sub_gap_desktop": 16,
+        "gap_subheading_tabs": 32,
+        "gap_tabs_list": 32,
+        "item_padding_y": 22,
+        "enable_custom_style": false,
+        "tabs_shadow": "0 4px 16px -8px rgba(15, 23, 42, .08)",
+        "enable_custom_fonts": false,
+        "heading_font": "assistant_n4",
+        "body_font": "assistant_n4",
+        "tab_size": 15,
+        "tab_weight": "600",
+        "q_size": 18,
+        "q_weight": "700",
+        "a_size": 16,
+        "padding_top_desktop": 96,
+        "padding_bottom_desktop": 96,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "section_max_width_mobile": 560,
+        "heading_sub_gap_mobile": 12,
+        "gap_subheading_tabs_mobile": 24,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Questions",
+            "tag": "h1",
+            "enable_custom_style": false,
+            "enable_custom_fonts": false,
+            "font": "assistant_n4",
+            "weight": "theme",
+            "size_desktop": 56,
+            "size_mobile": 36,
+            "size_enable": false,
+            "line_height": 1.2,
+            "tracking": 0
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Still stuck? <a href=\"/pages/contact\">Write to us</a>.</p>",
+            "max_width": 540,
+            "enable_custom_style": false,
+            "enable_custom_fonts": false,
+            "font": "assistant_n4",
+            "size": 16
+          }
+        },
+        "faq_item_1": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "1",
+            "question": "How do the clothes fit?",
+            "answer": "<p>Tees and hoodies are cut boxy, with a dropped shoulder. Take your usual size for that shape, one down for a closer fit.</p>"
+          }
+        },
+        "faq_item_2": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "1",
+            "question": "How do I wash them?",
+            "answer": "<p>Cold, inside out, and hang to dry. The cotton is washed before it ships, so it keeps its size.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "1",
+            "question": "Will a sold out piece come back?",
+            "answer": "<p>Some do, most do not. Each drop is a small run. Sign up to the emails to hear first.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "2",
+            "question": "Can I change my order?",
+            "answer": "<p>Write to us within a few hours of ordering and we will change the size or colour.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "2",
+            "question": "Where is the size chart?",
+            "answer": "<p>On every product page, under the sizes. Measurements are of the garment, laid flat.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "3",
+            "question": "How long does shipping take?",
+            "answer": "<p>Orders leave within two working days. Add your delivery times by region.</p>"
+          }
+        },
+        "faq_item_7": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "3",
+            "question": "Can I return something?",
+            "answer": "<p>Yes, within 30 days, unworn and with the tags on. Say who pays for the return.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_1",
+        "faq_item_1",
+        "faq_item_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6",
+        "faq_item_7"
+      ]
+    }
+  },
+  "order": [
+    "faq_tabs_1"
+  ]
+}

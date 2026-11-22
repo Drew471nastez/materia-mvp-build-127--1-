@@ -1,128 +1,127 @@
 {
   "sections": {
-    "faq5_1": {
-      "type": "faq5",
+    "faq_tabs_1": {
+      "type": "faq-tabs",
       "settings": {
         "color_scheme": "default",
-        "section_width": "fluid_container",
+        "section_width": "full_width",
         "reset_spacing": true,
+        "show_section_on": "all",
         "structured_data": false,
-        "heading": "Frequently asked questions",
-        "subheading": "<p>Everything you need to know about our products and services.</p>",
-        "first_item_open": false,
-        "allow_multiple_open": false,
-        "open_icon": "plus",
-        "content_alignment": "left",
-        "gap_desktop": 60,
-        "gap_header_to_items": 24,
-        "gap_heading_to_subheading": 12,
-        "gap_between_items": 19,
-        "item_padding_y": 18,
-        "item_padding_x": 14,
-        "item_radius": 0,
-        "show_dividers": true,
-        "image_position": "right",
-        "image_ratio": "portrait",
-        "image_radius": 16,
+        "tab_1_label": "Records",
+        "tab_2_label": "Orders",
+        "tab_3_label": "Shipping and returns",
+        "open_first": false,
+        "allow_multiple_open": true,
+        "header_align": "center",
+        "section_max_width_desktop": 920,
+        "section_max_width_tablet": 800,
+        "heading_sub_gap_desktop": 16,
+        "gap_subheading_tabs": 32,
+        "gap_tabs_list": 32,
+        "item_padding_y": 22,
         "enable_custom_style": false,
+        "tabs_shadow": "0 4px 16px -8px rgba(15, 23, 42, .08)",
         "enable_custom_fonts": false,
         "heading_font": "assistant_n4",
         "body_font": "assistant_n4",
-        "heading_size_desktop": 36,
-        "heading_size_mobile": 26,
-        "enable_custom_heading_weight": false,
-        "heading_weight": "600",
-        "subheading_size_desktop": 16,
-        "subheading_size_mobile": 14,
-        "question_size_desktop": 18,
-        "question_size_mobile": 15,
-        "enable_custom_question_weight": false,
-        "question_weight": "600",
-        "answer_size_desktop": 15,
-        "answer_size_mobile": 14,
-        "reveal": true,
-        "scroll_animation": "inherit",
-        "padding_top": 60,
-        "padding_bottom": 60,
+        "tab_size": 15,
+        "tab_weight": "600",
+        "q_size": 18,
+        "q_weight": "700",
+        "a_size": 16,
+        "padding_top_desktop": 96,
+        "padding_bottom_desktop": 96,
         "section_margin_top_desktop": 0,
         "section_margin_bottom_desktop": 0,
-        "gap_mobile": 30,
-        "section_margin_top_mobile": 0,
-        "section_margin_bottom_mobile": 0,
-        "image": "shopify://shop_images/tour-tote.webp"
+        "section_max_width_mobile": 560,
+        "heading_sub_gap_mobile": 12,
+        "gap_subheading_tabs_mobile": 24,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Help with an order",
-            "tag": "h2",
+            "text": "Questions before you buy",
+            "tag": "h1",
             "enable_custom_style": false,
             "enable_custom_fonts": false,
             "font": "assistant_n4",
-            "weight_enable": false,
-            "weight": "700",
+            "weight": "theme",
+            "size_desktop": 56,
+            "size_mobile": 36,
             "size_enable": false,
-            "size_desktop": 36,
-            "size_mobile": 26,
-            "line_height": 1.15,
+            "line_height": 1.2,
             "tracking": 0
           }
         },
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Not here? <a href=\"/pages/contact\">Send us a message</a>.</p>",
+            "text": "<p>Still stuck? <a href=\"/pages/contact\">Write to us</a>.</p>",
+            "max_width": 540,
             "enable_custom_style": false,
             "enable_custom_fonts": false,
             "font": "assistant_n4",
-            "weight_enable": false,
-            "weight": "400",
-            "size_enable": false,
-            "size": 16,
-            "line_height": 1.5
+            "size": 16
           }
         },
         "faq_item_1": {
           "type": "faq_item",
           "settings": {
-            "question": "When will my order ship?",
-            "answer": "<p>Within three working days. Preorders ship on the release date shown on the product page.</p>"
+            "tab": "1",
+            "question": "When do pre-orders ship?",
+            "answer": "<p>On release day. Say when the record comes out and how long delivery takes after that.</p>"
           }
         },
         "faq_item_2": {
           "type": "faq_item",
           "settings": {
-            "question": "How is vinyl packed?",
-            "answer": "<p>In a rigid mailer with corner protection. If a record arrives warped or cracked, send a photo and we replace it.</p>"
+            "tab": "1",
+            "question": "Is the vinyl signed?",
+            "answer": "<p>Only where the product says so. Signed copies are limited and sell out first.</p>"
           }
         },
         "faq_item_3": {
           "type": "faq_item",
           "settings": {
-            "question": "Is this the same merch as at the shows?",
-            "answer": "<p>Yes. Say here if any design is only sold at the desk.</p>"
+            "tab": "1",
+            "question": "My record arrived damaged",
+            "answer": "<p>Send a photo of the sleeve and the box to the store team within 14 days and a new copy goes out.</p>"
           }
         },
         "faq_item_4": {
           "type": "faq_item",
           "settings": {
-            "question": "Do I get a download with the record?",
-            "answer": "<p>Yes, a link arrives with your receipt.</p>"
+            "tab": "2",
+            "question": "Can I change my order?",
+            "answer": "<p>Write to us within a few hours of ordering and we will change the size or colour.</p>"
           }
         },
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "Can I return a tee that does not fit?",
-            "answer": "<p>Yes, within 30 days, unworn. Say who pays for the return.</p>"
+            "tab": "2",
+            "question": "Where is the size chart?",
+            "answer": "<p>On every clothing page, under the size options. Measurements are of the garment, laid flat.</p>"
           }
         },
         "faq_item_6": {
           "type": "faq_item",
           "settings": {
-            "question": "Do you ship worldwide?",
-            "answer": "<p>List the countries you send to and what delivery costs.</p>"
+            "tab": "3",
+            "question": "How long does shipping take?",
+            "answer": "<p>Orders leave within two working days. Add your delivery times by region.</p>"
+          }
+        },
+        "faq_item_7": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "3",
+            "question": "Can I return something?",
+            "answer": "<p>Yes, within 30 days, unworn and unwashed. Say who pays for the return.</p>"
           }
         }
       },
@@ -134,11 +133,12 @@
         "faq_item_3",
         "faq_item_4",
         "faq_item_5",
-        "faq_item_6"
+        "faq_item_6",
+        "faq_item_7"
       ]
     }
   },
   "order": [
-    "faq5_1"
+    "faq_tabs_1"
   ]
 }

@@ -16,7 +16,7 @@
         "heading_B3DXTc": {
           "type": "heading",
           "settings": {
-            "page_title": "Genres and series",
+            "page_title": "Genres",
             "header_size": "default",
             "vertical_gap": 8,
             "heading_color": "",
@@ -27,7 +27,7 @@
         "description_tLPCVn": {
           "type": "description",
           "settings": {
-            "description": "<p>The packs grouped by genre, tempo and series.</p>",
+            "description": "<p>The packs grouped by genre and what is inside.</p>",
             "description_color": "#767676",
             "enable_custom_style": false,
             "description_font_size": 15
@@ -77,8 +77,8 @@
         "sub_visibility": "always",
         "corner_style": "custom",
         "border_radius": 8,
-        "overlay_opacity": 50,
-        "overlay_opacity_hover": 20,
+        "overlay_opacity": 30,
+        "overlay_opacity_hover": 10,
         "title_style": "md",
         "heading_size_desktop": 28,
         "heading_size_mobile": 22,
@@ -95,7 +95,7 @@
         "heading": {
           "type": "heading",
           "settings": {
-            "heading": "Browse by genre",
+            "heading": "Shop by sound",
             "heading_size": "h2",
             "custom_style": true,
             "heading_font_size_desktop": 44,
@@ -106,73 +106,73 @@
         "subheading": {
           "type": "subheading",
           "settings": {
-            "subheading": "<p>Each genre opens the packs made for it, with the tempo range they were cut at.</p>"
+            "subheading": "<p>Drums, basslines, chords, presets and textures, sorted by what you are making.</p>"
           }
         },
-        "g_garage": {
+        "g_tech": {
           "type": "banner",
           "settings": {
-            "heading": "UK garage",
-            "subheading": "130 to 134 BPM",
-            "link": "/search?q=garage",
-            "image": "shopify://shop_images/samples-genre-garage.webp"
+            "heading": "Tech house",
+            "subheading": "125 to 128 BPM",
+            "link": "/search?q=tech+house",
+            "image": "shopify://shop_images/samples-genre-tech-house.webp"
           }
         },
-        "g_techno": {
+        "g_deep": {
           "type": "banner",
           "settings": {
-            "heading": "Techno",
-            "subheading": "126 to 132 BPM",
-            "link": "/search?q=techno",
-            "image": "shopify://shop_images/samples-genre-techno.webp"
+            "heading": "Deep house",
+            "subheading": "120 to 124 BPM",
+            "link": "/search?q=deep+house",
+            "image": "shopify://shop_images/samples-genre-deep-house.webp"
           }
         },
-        "g_trap": {
+        "g_amb": {
           "type": "banner",
           "settings": {
-            "heading": "Trap",
-            "subheading": "808s and kicks",
-            "link": "/search?q=trap",
-            "image": "shopify://shop_images/samples-genre-trap.webp"
+            "heading": "Ambience",
+            "subheading": "Pads and textures",
+            "link": "/search?q=ambience",
+            "image": "shopify://shop_images/samples-genre-ambience.webp"
           }
         },
-        "g_lo-fi": {
+        "g_drums": {
           "type": "banner",
           "settings": {
-            "heading": "Lo-fi",
-            "subheading": "70 to 90 BPM",
-            "link": "/search?q=lo-fi",
-            "image": "shopify://shop_images/samples-genre-lo-fi.webp"
+            "heading": "Drums",
+            "subheading": "One shots and loops",
+            "link": "/search?q=drum",
+            "image": "shopify://shop_images/samples-genre-drums.webp"
           }
         },
-        "g_drill": {
+        "g_presets": {
           "type": "banner",
           "settings": {
-            "heading": "Drill",
-            "subheading": "140 to 144 BPM",
-            "link": "/search?q=drill",
-            "image": "shopify://shop_images/samples-genre-drill.webp"
+            "heading": "Serum presets",
+            "subheading": "Basses, plucks, pads",
+            "link": "/search?q=serum",
+            "image": "shopify://shop_images/samples-genre-presets.webp"
           }
         },
-        "g_house": {
+        "g_free": {
           "type": "banner",
           "settings": {
-            "heading": "House",
-            "subheading": "122 to 125 BPM",
-            "link": "/search?q=house",
-            "image": "shopify://shop_images/samples-genre-house.webp"
+            "heading": "Free downloads",
+            "subheading": "Royalty free",
+            "link": "/pages/free",
+            "image": "shopify://shop_images/samples-genre-free.webp"
           }
         }
       },
       "block_order": [
         "heading",
         "subheading",
-        "g_garage",
-        "g_techno",
-        "g_trap",
-        "g_lo-fi",
-        "g_drill",
-        "g_house"
+        "g_tech",
+        "g_deep",
+        "g_amb",
+        "g_drums",
+        "g_presets",
+        "g_free"
       ]
     }
   },

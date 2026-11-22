@@ -3,7 +3,7 @@
     "page_heading_1": {
       "type": "page-heading",
       "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "color_scheme": "default",
         "section_width": "stretch_width",
         "reset_spacing": true,
         "alignment": "center",
@@ -50,31 +50,31 @@
         "description_1"
       ]
     },
-    "text_columns_1": {
-      "type": "text-columns",
+    "sticky_heading_text_1": {
+      "type": "sticky-heading-text",
       "settings": {
         "color_scheme": "default",
         "section_width": "fluid_container",
         "reset_spacing": true,
-        "content_alignment": "left",
-        "columns_desktop": 3,
-        "columns_tablet": 2,
-        "column_gap": 48,
-        "header_gap": 48,
+        "heading_position": "left",
+        "heading_width": 40,
+        "column_gap": 80,
+        "sticky": true,
+        "sticky_offset": 32,
+        "item_gap": 32,
         "show_dividers": true,
+        "show_numbers": false,
         "enable_custom_style": false,
         "enable_custom_fonts": false,
         "heading_font": "assistant_n4",
         "body_font": "assistant_n4",
-        "item_heading_size": 22,
+        "item_heading_size": 24,
         "reveal": true,
         "padding_top": 80,
         "padding_bottom": 80,
         "section_margin_top_desktop": 0,
         "section_margin_bottom_desktop": 0,
         "show_on_mobile": true,
-        "mobile_layout": "stack",
-        "show_arrows": true,
         "item_heading_size_mobile": 20,
         "padding_top_mobile": 56,
         "padding_bottom_mobile": 56,
@@ -85,176 +85,97 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Sending your order",
+            "text": "What happens after you order",
             "enable_custom_style": false,
             "enable_custom_fonts": false,
             "font": "assistant_n4",
             "weight_enable": false,
             "weight": "700",
             "size_enable": false,
-            "size_desktop": 36,
-            "size_mobile": 28,
+            "size_desktop": 44,
+            "size_mobile": 32,
             "line_height": 1.15,
             "tracking": 0
-          }
-        },
-        "column_1": {
-          "type": "column",
-          "settings": {
-            "label": "Dispatch",
-            "heading": "Within three working days",
-            "text": "<p>Preorders ship on the release date.</p>"
-          }
-        },
-        "column_2": {
-          "type": "column",
-          "settings": {
-            "label": "Delivery",
-            "heading": "Tracked, worldwide",
-            "text": "<p>List your delivery times and prices by region.</p>"
-          }
-        },
-        "column_3": {
-          "type": "column",
-          "settings": {
-            "label": "Returns",
-            "heading": "30 days",
-            "text": "<p>Unplayed or unworn. Say how a return is started and when the refund is sent.</p>"
-          }
-        }
-      },
-      "block_order": [
-        "heading_1",
-        "column_1",
-        "column_2",
-        "column_3"
-      ]
-    },
-    "banner3_1": {
-      "type": "banner3",
-      "settings": {
-        "color_scheme": "default",
-        "section_width": "stretch_width",
-        "reset_spacing": true,
-        "text_align": "center",
-        "max_width": 970,
-        "heading_tag": "h2",
-        "use_custom_text": false,
-        "heading_color": "#000000",
-        "text_color": "#0f0f0f",
-        "use_custom_bg": false,
-        "enable_bg_gradient": false,
-        "overlay_opacity": 0,
-        "banner_surface": "soft",
-        "banner_tint": 6,
-        "use_theme_radius": false,
-        "section_border_radius": 50,
-        "banner_border_width": 0,
-        "banner_shadow": "none",
-        "reveal": true,
-        "reveal_style": "fade_up",
-        "reveal_range": 60,
-        "hover_lift": false,
-        "show_desktop": true,
-        "stack_gap": 14,
-        "sub_btn_gap": 32,
-        "side_padding": 28,
-        "pad_top_desktop": 70,
-        "pad_bottom_desktop": 60,
-        "section_padding_top": 60,
-        "section_padding_bottom": 60,
-        "section_pad_left": 120,
-        "section_pad_right": 120,
-        "section_margin_top_desktop": 0,
-        "section_margin_bottom_desktop": 0,
-        "mobile_text_align": "inherit",
-        "mobile_button_full": false,
-        "show_mobile": true,
-        "pad_top_mobile": 50,
-        "pad_bottom_mobile": 52,
-        "section_padding_top_mobile": 40,
-        "section_padding_bottom_mobile": 40,
-        "section_pad_left_mobile": 0,
-        "section_pad_right_mobile": 0,
-        "section_margin_top_mobile": 0,
-        "section_margin_bottom_mobile": 0,
-        "bg_gradient": ""
-      },
-      "blocks": {
-        "eyebrow_1": {
-          "type": "eyebrow",
-          "settings": {
-            "text": "Still unsure?",
-            "enable_custom_style": false,
-            "font": "body",
-            "weight": "500",
-            "transform": "uppercase",
-            "letterspace": 0.6,
-            "lineheight": "1.4",
-            "size_d": 17,
-            "opacity": 100,
-            "size_m": 17
-          }
-        },
-        "heading_1": {
-          "type": "heading",
-          "settings": {
-            "text": "Ask before you order",
-            "enable_custom_style": false,
-            "font": "heading",
-            "weight": "700",
-            "transform": "none",
-            "letterspace": 0,
-            "lineheight": "1.15",
-            "size_d": 34,
-            "max_width": 0,
-            "size_m": 28
           }
         },
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "We answer within two working days.",
+            "text": "<p>Every order is packed and tracked to your door.</p>",
             "enable_custom_style": false,
-            "font": "body",
-            "weight": "theme",
-            "transform": "none",
-            "letterspace": 0,
-            "lineheight": "1.5",
-            "size_d": 16,
-            "opacity": 100,
-            "max_width": 0,
-            "size_m": 16
+            "enable_custom_fonts": false,
+            "font": "assistant_n4",
+            "weight_enable": false,
+            "weight": "400",
+            "size_enable": false,
+            "size": 18,
+            "line_height": 1.5
           }
         },
         "button_1": {
           "type": "button",
           "settings": {
-            "label": "Contact the store",
+            "label": "Ask a question",
             "link": "/pages/contact",
+            "style": "secondary",
             "enable_custom_style": false,
             "use_theme_button": true,
-            "border_width": 0,
-            "radius": 40,
-            "pad_h": 20,
-            "pad_v": 10,
-            "weight": "600",
-            "size_d": 17,
-            "size_m": 17
+            "radius": 6,
+            "size": 16,
+            "pad_x": 28,
+            "pad_y": 14
+          }
+        },
+        "text_1": {
+          "type": "text",
+          "settings": {
+            "heading": "Dispatch",
+            "text": "<p>Orders leave within two working days. Records go in a rigid mailer so the corners arrive sharp. Say which carrier you use.</p>"
+          }
+        },
+        "text_2": {
+          "type": "text",
+          "settings": {
+            "heading": "Delivery times",
+            "text": "<p>List your delivery times and prices for each region you send to.</p>"
+          }
+        },
+        "text_3": {
+          "type": "text",
+          "settings": {
+            "heading": "Customs",
+            "text": "<p>Say whether duties are paid at checkout or on delivery.</p>"
+          }
+        },
+        "text_4": {
+          "type": "text",
+          "settings": {
+            "heading": "Returns",
+            "text": "<p>30 days from delivery for clothing, unworn and unwashed. Records can be returned sealed. Say how a return is started and when the refund is sent.</p>"
+          }
+        },
+        "text_5": {
+          "type": "text",
+          "settings": {
+            "heading": "Exchanges",
+            "text": "<p>Want another size or colour? Say whether you swap it for free or treat it as a new order.</p>"
           }
         }
       },
       "block_order": [
-        "eyebrow_1",
         "heading_1",
         "subheading_1",
-        "button_1"
+        "button_1",
+        "text_1",
+        "text_2",
+        "text_3",
+        "text_4",
+        "text_5"
       ]
     }
   },
   "order": [
     "page_heading_1",
-    "text_columns_1",
-    "banner3_1"
+    "sticky_heading_text_1"
   ]
 }

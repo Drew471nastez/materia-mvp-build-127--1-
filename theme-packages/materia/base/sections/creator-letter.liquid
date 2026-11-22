@@ -1,0 +1,130 @@
+{%- comment -%}
+  Creator Landing: the newsletter sign-up as one white card on a soft panel.
+  Left: a two part heading with a drawn paper plane and a short line. Right:
+  what each letter holds, a round email field with the button inside it, and
+  a small note. The form is a Storelib sign-up (data-storelib-form
+  "subscribe") to the creator's Subscribers; materia-forms.js sends it once
+  and shows the toast, in the section's own words.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+-%}
+<style>
+  #shopify-section-{{ sid }} .chl {
+    --chl-panel: {{ st.panel_color | default: '#f4f1ec' }};
+    --chl-btn: {{ st.button_color | default: '#5ec3ea' }};
+    --chl-btn-text: {{ st.button_text_color | default: '#1c1b2b' }};
+    --chl-plane: {{ st.plane_color | default: '#c8bce8' }};
+    padding: {{ st.padding_top_mobile | default: 40 }}px 12px {{ st.padding_bottom_mobile | default: 40 }}px;
+  }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .chl { padding: {{ st.padding_top | default: 72 }}px 28px {{ st.padding_bottom | default: 72 }}px; } }
+  #shopify-section-{{ sid }} .chl__panel {
+    position: relative; max-width: 1280px; margin: 0 auto; padding: 48px 12px 36px;
+    background: var(--chl-panel); border-radius: 24px; overflow: hidden;
+  }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .chl__panel { padding: 64px 88px; border-radius: 32px; } }
+  #shopify-section-{{ sid }} .chl__panel::before {
+    content: ""; position: absolute; pointer-events: none; width: 1100px; height: 1100px; left: 50%; top: -980px; margin-left: -550px;
+    border-radius: 50%; border: 90px solid rgba(255,255,255,0.45);
+  }
+  #shopify-section-{{ sid }} .chl__card {
+    position: relative; display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; max-width: 1010px; margin: 0 auto;
+    background: #fff; border-radius: 20px; padding: 32px 22px;
+    box-shadow: 0 1px 2px rgba(28,27,43,0.04), 0 28px 60px -30px rgba(60,44,20,0.3);
+  }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .chl__card { grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr); gap: 56px; padding: 56px 64px; } }
+  #shopify-section-{{ sid }} .chl__heading { position: relative; margin: 0 0 16px; color: var(--color-heading); font-size: 34px; line-height: 1.04; letter-spacing: -0.03em; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .chl__heading { font-size: 44px; } }
+  #shopify-section-{{ sid }} .chl__plain { display: block; font-family: var(--body-font, inherit); font-weight: 400; letter-spacing: -0.04em; }
+  #shopify-section-{{ sid }} .chl__serif { font-family: var(--heading-font, inherit); font-weight: var(--heading-font-weight, 600); }
+  #shopify-section-{{ sid }} .chl__plane { position: absolute; right: -6px; top: -6px; width: 64px; height: 48px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .chl__plane { right: 8%; } }
+  #shopify-section-{{ sid }} .chl__side { margin: 0; color: var(--color-heading); font-size: 15px; line-height: 1.55; max-width: 30ch; }
+  #shopify-section-{{ sid }} .chl__lede { margin: 0 0 22px; color: var(--color-heading); font-size: 18px; line-height: 1.5; letter-spacing: -0.01em; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .chl__lede { font-size: 20px; } }
+  #shopify-section-{{ sid }} .chl__lede p { margin: 0; }
+  #shopify-section-{{ sid }} .chl__field {
+    display: flex; align-items: center; gap: 6px; padding: 6px; border-radius: 999px; background: #f4f1ec;
+  }
+  #shopify-section-{{ sid }} .chl__field:focus-within { box-shadow: 0 0 0 2px var(--chl-btn); }
+  #shopify-section-{{ sid }} .chl__field input.chl__input[type="email"] {
+    flex: 1; min-width: 0; height: 46px; margin: 0; padding: 0 18px;
+    border-width: 0; border-style: none; border-radius: 999px; background-color: transparent; background-image: none;
+    --field-border-widths: 0px; --mt-select-bg: transparent; --mt-select-radius: 999px; --input-padding: 0 18px; --input-height: 46px; --mt-select-border: transparent;
+    font-family: inherit; font-size: 16px; color: var(--color-heading); outline: none; box-shadow: none;
+  }
+  #shopify-section-{{ sid }} .chl__submit {
+    flex: none; height: 46px; margin: 0; padding: 0 22px; border: 0; border-radius: 999px; cursor: pointer;
+    background: var(--chl-btn); color: var(--chl-btn-text); font: inherit; font-size: 15px; font-weight: 600;
+  }
+  #shopify-section-{{ sid }} .chl__note { margin: 14px 0 0; font-size: 13px; line-height: 1.5; color: var(--color-text); }
+  #shopify-section-{{ sid }} .chl__note p { margin: 0; }
+  #shopify-section-{{ sid }} .chl__vh, #shopify-section-{{ sid }} .chl__hp { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  #shopify-section-{{ sid }} .chl__msg { margin: 12px 0 0; font-size: 14px; color: var(--color-heading); }
+</style>
+
+<div class="chl color-{{ color_scheme }}" data-section-id="{{ sid }}">
+  <div class="chl__panel">
+    <div class="chl__card">
+      <div class="chl__left">
+        <h2 class="chl__heading">
+          {%- if st.heading_plain != blank -%}<span class="chl__plain">{{ st.heading_plain | escape }}</span>{%- endif -%}
+          {%- if st.heading_serif != blank -%}<span class="chl__serif">{{ st.heading_serif | escape }}</span>{%- endif -%}
+          {%- if st.show_plane -%}<svg class="chl__plane" viewBox="0 0 64 48" fill="none" aria-hidden="true" focusable="false"><path d="M4 22L60 4 40 44 30 28z" fill="var(--chl-plane)" stroke="#1c1b2b" stroke-width="2" stroke-linejoin="round"/><path d="M30 28L60 4" stroke="#1c1b2b" stroke-width="2"/><path d="M2 34c6-2 10-2 14 0M6 42c5-2 9-2 12 0" stroke="#1c1b2b" stroke-width="2" stroke-linecap="round"/></svg>{%- endif -%}
+        </h2>
+        {%- if st.side_text != blank -%}<p class="chl__side">{{ st.side_text | escape }}</p>{%- endif -%}
+      </div>
+      <div class="chl__right">
+        {%- if st.text != blank -%}<div class="chl__lede">{{ st.text }}</div>{%- endif -%}
+        {%- form 'customer', id: 'CreatorLetterForm-' | append: sid, class: 'chl__form', data-storelib-form: 'subscribe' -%}
+          <input type="hidden" name="contact[tags]" value="newsletter">
+          <span hidden data-mt-words data-success-message="{{ st.success_text | default: "Thanks, you're on the list." | escape }}" data-invalid-message="{{ st.invalid_text | default: 'Enter a valid email address.' | escape }}"></span>
+          <div class="chl__hp" aria-hidden="true" data-mt-trap>
+            <label for="CreatorLetterHp-{{ sid }}">Leave this field empty</label>
+            <input id="CreatorLetterHp-{{ sid }}" type="text" name="company" tabindex="-1" autocomplete="off" pattern="^$" maxlength="0" value="">
+          </div>
+          <div class="chl__field">
+            <label class="chl__vh" for="CreatorLetterEmail-{{ sid }}">{{ st.email_placeholder | default: 'Your email' | escape }}</label>
+            <input class="chl__input" id="CreatorLetterEmail-{{ sid }}" type="email" name="contact[email]" required inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" maxlength="254" placeholder="{{ st.email_placeholder | default: 'Your email' | escape }}">
+            <button type="submit" class="chl__submit">{{ st.button_label | default: 'Subscribe' | escape }}</button>
+          </div>
+          {%- if form.posted_successfully? -%}<p class="chl__msg form-status--success">{{ st.success_text | default: "Thanks, you're on the list." | escape }}</p>{%- endif -%}
+          {%- if form.errors -%}<p class="chl__msg" role="alert">{{ st.invalid_text | default: 'Enter a valid email address.' | escape }}</p>{%- endif -%}
+        {%- endform -%}
+        {%- if st.note != blank -%}<div class="chl__note">{{ st.note }}</div>{%- endif -%}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Creator letter",
+  "tag": "section",
+  "class": "section sec__creator-letter",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default-color-scheme" },
+    { "type": "color", "id": "panel_color", "label": "Panel colour", "default": "#f4f1ec" },
+    { "type": "text", "id": "heading_plain", "label": "Heading, plain line", "default": "Subscribe to" },
+    { "type": "text", "id": "heading_serif", "label": "Heading, serif line", "default": "the letter" },
+    { "type": "checkbox", "id": "show_plane", "label": "Show the paper plane", "default": true },
+    { "type": "color", "id": "plane_color", "label": "Paper plane colour", "default": "#c8bce8" },
+    { "type": "text", "id": "side_text", "label": "Line under the heading", "default": "Free, once a week." },
+    { "type": "richtext", "id": "text", "label": "What each letter holds", "default": "<p>Say what a reader gets each week and how often it comes.</p>" },
+    { "type": "text", "id": "email_placeholder", "label": "Email field", "default": "Your email" },
+    { "type": "text", "id": "button_label", "label": "Button label", "default": "Subscribe" },
+    { "type": "color", "id": "button_color", "label": "Button colour", "default": "#5ec3ea" },
+    { "type": "color", "id": "button_text_color", "label": "Button text colour", "default": "#1c1b2b" },
+    { "type": "richtext", "id": "note", "label": "Small note", "default": "<p>One email a week. Leave whenever you like.</p>" },
+    { "type": "text", "id": "success_text", "label": "Message after signing up", "default": "Thanks, you're on the list." },
+    { "type": "text", "id": "invalid_text", "label": "Message for an address that will not work", "default": "Enter a valid email address." },
+    { "type": "range", "id": "padding_top", "label": "Space above, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 72 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 72 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 40 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 40 }
+  ],
+  "presets": [ { "name": "Creator letter" } ]
+}
+{% endschema %}

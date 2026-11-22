@@ -1,0 +1,113 @@
+{%- comment -%}
+  Merch template: a dark bar with an offer, a countdown and a discount code
+  the visitor can copy. The countdown runs to the date set here, or to the
+  end of the current month when no date is set. When it has run out the
+  bar says so instead of showing zeros. The digits only change text; there
+  is no animation to turn off.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+-%}
+<style>
+  #shopify-section-{{ sid }} .moffer {
+    background: {{ st.background | default: '#0b0b0b' }};
+    color: {{ st.text_color | default: '#ffffff' }};
+    padding: 28px 16px;
+  }
+  #shopify-section-{{ sid }} .moffer__inner {
+    max-width: 1100px; margin: 0 auto;
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 18px 32px;
+  }
+  #shopify-section-{{ sid }} .moffer__title { margin: 0; font-family: var(--heading-font, inherit); font-weight: 700; font-size: 18px; color: inherit; letter-spacing: -0.01em; }
+  #shopify-section-{{ sid }} .moffer__timer { display: flex; gap: 10px; }
+  #shopify-section-{{ sid }} .moffer__unit { display: flex; flex-direction: column; align-items: center; min-width: 46px; padding-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.22); }
+  #shopify-section-{{ sid }} .moffer__num { font-family: var(--heading-font, inherit); font-weight: 800; font-size: 26px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  #shopify-section-{{ sid }} .moffer__label { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.7; margin-top: 2px; }
+  #shopify-section-{{ sid }} .moffer__deal { margin: 0; font-size: 13px; opacity: 0.85; }
+  #shopify-section-{{ sid }} .moffer__ended { margin: 0; font-size: 14px; }
+  #shopify-section-{{ sid }} .moffer__code {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 11px 16px; border: 1px dashed rgba(255,255,255,0.55);
+    background: transparent; color: inherit; cursor: pointer;
+    font: inherit; font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  #shopify-section-{{ sid }} .moffer__code:hover, #shopify-section-{{ sid }} .moffer__code:focus-visible { border-style: solid; border-color: currentColor; }
+  #shopify-section-{{ sid }} .moffer__code svg { width: 15px; height: 15px; }
+  @media (min-width: 768px) {
+    #shopify-section-{{ sid }} .moffer { padding: 34px 32px; }
+    #shopify-section-{{ sid }} .moffer__title { font-size: 20px; }
+    #shopify-section-{{ sid }} .moffer__num { font-size: 30px; }
+  }
+</style>
+
+<div class="moffer" data-moffer="{{ sid }}" data-end="{{ st.end_date | escape }}">
+  <div class="moffer__inner">
+    {%- if st.title != blank -%}<p class="moffer__title">{{ st.title | escape }}</p>{%- endif -%}
+    <div class="moffer__timer" data-timer role="timer" aria-label="{{ st.title | escape }}">
+      <div class="moffer__unit"><span class="moffer__num" data-d>00</span><span class="moffer__label">{{ st.label_days | default: 'Days' | escape }}</span></div>
+      <div class="moffer__unit"><span class="moffer__num" data-h>00</span><span class="moffer__label">{{ st.label_hours | default: 'Hrs' | escape }}</span></div>
+      <div class="moffer__unit"><span class="moffer__num" data-m>00</span><span class="moffer__label">{{ st.label_minutes | default: 'Min' | escape }}</span></div>
+      <div class="moffer__unit"><span class="moffer__num" data-s>00</span><span class="moffer__label">{{ st.label_seconds | default: 'Sec' | escape }}</span></div>
+    </div>
+    <p class="moffer__ended" data-ended hidden>{{ st.ended_text | escape }}</p>
+    {%- if st.deal != blank -%}<p class="moffer__deal">{{ st.deal | escape }}</p>{%- endif -%}
+    {%- if st.code != blank -%}
+      <button type="button" class="moffer__code" data-code="{{ st.code | escape }}" data-copied="{{ st.copied_text | default: 'Copied' | escape }}">
+        <span data-code-label>{{ st.copy_label | escape }} {{ st.code | escape }}</span>
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="5" y="5" width="9" height="9"/><path d="M11 5V2H2v9h3"/></svg>
+      </button>
+    {%- endif -%}
+  </div>
+</div>
+<script>
+  (function () {
+    var root = document.querySelector('[data-moffer="{{ sid }}"]');
+    if (!root || root.dataset.ready) return;
+    root.dataset.ready = '1';
+    var raw = (root.dataset.end || '').trim();
+    var end = raw ? new Date(raw.length <= 10 ? raw + 'T23:59:59' : raw) : null;
+    if (!end || isNaN(end.getTime())) { var n = new Date(); end = new Date(n.getFullYear(), n.getMonth() + 1, 1, 0, 0, 0); }
+    var timer = root.querySelector('[data-timer]'), ended = root.querySelector('[data-ended]');
+    var el = { d: root.querySelector('[data-d]'), h: root.querySelector('[data-h]'), m: root.querySelector('[data-m]'), s: root.querySelector('[data-s]') };
+    function pad(v) { return (v < 10 ? '0' : '') + v; }
+    function tick() {
+      var left = Math.max(0, Math.floor((end.getTime() - Date.now()) / 1000));
+      if (left <= 0) { timer.hidden = true; if (ended.textContent.trim()) ended.hidden = false; return false; }
+      el.d.textContent = pad(Math.floor(left / 86400)); el.h.textContent = pad(Math.floor(left % 86400 / 3600));
+      el.m.textContent = pad(Math.floor(left % 3600 / 60)); el.s.textContent = pad(left % 60);
+      return true;
+    }
+    if (tick()) { var t = setInterval(function () { if (!tick()) clearInterval(t); }, 1000); }
+    var btn = root.querySelector('[data-code]');
+    if (btn) btn.addEventListener('click', function () {
+      var label = btn.querySelector('[data-code-label]'), before = label.textContent;
+      var done = function () { label.textContent = btn.dataset.copied; setTimeout(function () { label.textContent = before; }, 1800); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(btn.dataset.code).then(done, done); else done();
+    });
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Offer bar with code",
+  "tag": "section",
+  "class": "section sec__merch-offer-bar",
+  "settings": [
+    { "type": "text", "id": "title", "label": "Title", "default": "Limited time offer" },
+    { "type": "text", "id": "end_date", "label": "Ends on", "info": "A date like 2027-03-31. Empty: the end of the current month." },
+    { "type": "text", "id": "ended_text", "label": "Text once it has ended", "default": "This offer has ended." },
+    { "type": "text", "id": "deal", "label": "What the code gives", "default": "20% off your order" },
+    { "type": "text", "id": "code", "label": "Discount code", "default": "SAVE20", "info": "Create the same code under Discounts so it works at checkout." },
+    { "type": "text", "id": "copy_label", "label": "Button text before the code", "default": "Copy code:" },
+    { "type": "text", "id": "copied_text", "label": "Text after copying", "default": "Copied" },
+    { "type": "text", "id": "label_days", "label": "Days label", "default": "Days" },
+    { "type": "text", "id": "label_hours", "label": "Hours label", "default": "Hrs" },
+    { "type": "text", "id": "label_minutes", "label": "Minutes label", "default": "Min" },
+    { "type": "text", "id": "label_seconds", "label": "Seconds label", "default": "Sec" },
+    { "type": "color", "id": "background", "label": "Background", "default": "#0b0b0b" },
+    { "type": "color", "id": "text_color", "label": "Text", "default": "#ffffff" }
+  ],
+  "presets": [ { "name": "Offer bar with code" } ]
+}
+{% endschema %}

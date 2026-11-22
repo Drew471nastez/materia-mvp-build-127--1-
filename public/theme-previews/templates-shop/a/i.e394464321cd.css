@@ -1,0 +1,153 @@
+
+  /* Isolation: keep this section in the base stacking layer (below the
+     sticky header) and stop CSS bleed between sections. */
+  #shopify-section-how_to_use_1 {
+    isolation: isolate;
+    position: relative;
+    z-index: 0;
+  }
+  #shopify-section-how_to_use_1 *, #shopify-section-how_to_use_1 *::before, #shopify-section-how_to_use_1 *::after { box-sizing: border-box; }#shopify-section-how_to_use_1 { margin-top: 0 !important; margin-bottom: 0 !important; }
+    #shopify-section-how_to_use_1 + .shopify-section { margin-top: 0 !important; }#shopify-section-how_to_use_1 .htu-wrap {
+    display: block;
+    margin-top: var(--htu-mt);
+    margin-bottom: var(--htu-mb);
+    font-family: var(--htu-bf);
+  }
+  #shopify-section-how_to_use_1 .htu {
+    background: var(--htu-bg);
+    padding-top: var(--htu-pt-m);
+    padding-bottom: var(--htu-pb-m);
+  }
+  @media (min-width: 768px) {
+    #shopify-section-how_to_use_1 .htu { padding-top: var(--htu-pt-d); padding-bottom: var(--htu-pb-d); }
+  }
+
+  /* Width */
+  #shopify-section-how_to_use_1 .htu__inner { padding-inline: 1.5rem; }
+  #shopify-section-how_to_use_1 [data-width='container'] .htu__inner { max-width: calc(var(--page-width, 1300px) + 3rem); margin-inline: auto; }
+  #shopify-section-how_to_use_1 [data-width='fluid_container'] .htu__inner { max-width: calc(var(--fluid-container-width, 1500px) + 3rem); margin-inline: auto; }
+  @media (min-width: 1200px) { #shopify-section-how_to_use_1 [data-width='stretch_width'] .htu__inner { padding-inline: 3rem; } }
+
+  #shopify-section-how_to_use_1 .htu__heading {
+    font-family: var(--htu-hf);
+    font-weight: var(--heading-weight, 700);
+    line-height: 1.15;
+    text-align: var(--htu-h-align);
+    color: var(--htu-h-color);
+    font-size: var(--htu-h-m);
+    margin: 0 0 var(--htu-h-gap);
+  }
+  #shopify-section-how_to_use_1 .htu__heading[hidden] { display: none; }
+  #shopify-section-how_to_use_1 .htu__accent { color: var(--htu-acc-color); font-style: var(--htu-acc-style); }
+  @media (min-width: 768px) {
+    #shopify-section-how_to_use_1 .htu__heading { font-size: var(--htu-h-d); }
+  }
+
+  /* Grid (mobile: stacked; desktop: N columns) */
+  #shopify-section-how_to_use_1 .htu__grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--htu-rgap-m) var(--htu-cgap-m);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  @media (min-width: 768px) {
+    #shopify-section-how_to_use_1 .htu__grid {
+      grid-template-columns: repeat(var(--htu-cols), minmax(0, 1fr));
+      gap: var(--htu-rgap-d) var(--htu-cgap-d);
+    }
+  }
+  /* Mobile carousel: one swipeable scroll-snap row */
+  @media (max-width: 767px) {
+    #shopify-section-how_to_use_1 [data-carousel='true'] .htu__grid {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: var(--htu-cgap-m);
+      overflow-x: auto;
+      overscroll-behavior-x: contain;
+      scroll-snap-type: x mandatory;
+      scroll-behavior: smooth;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      padding-bottom: 4px;
+    }
+    #shopify-section-how_to_use_1 [data-carousel='true'] .htu__grid::-webkit-scrollbar { display: none; }
+    #shopify-section-how_to_use_1 [data-carousel='true'] .htu__step {
+      scroll-snap-align: start;
+      flex: 0 0 calc((100% - var(--htu-cgap-m) * (var(--htu-ipv) - 1)) / var(--htu-ipv));
+    }
+    #shopify-section-how_to_use_1 [data-carousel='true'] .htu__grid:focus-visible { outline: 2px solid var(--color-heading); outline-offset: 4px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #shopify-section-how_to_use_1 .htu__grid { scroll-behavior: auto !important; }
+  }
+
+  /* Step */
+  #shopify-section-how_to_use_1 .htu__step {
+    display: flex;
+    flex-direction: column;
+    text-align: var(--htu-align);
+    align-items: var(--htu-items);
+    min-width: 0;
+  }
+
+  /* Image frame */
+  #shopify-section-how_to_use_1 .htu__media {
+    position: relative;
+    width: 100%;
+    aspect-ratio: var(--htu-ratio);
+    background: var(--htu-media-bg);
+    border-radius: var(--htu-radius);
+    overflow: hidden;
+    border: var(--htu-bw) solid var(--htu-bc);
+  }
+  #shopify-section-how_to_use_1 .htu__img {
+    position: absolute;
+    inset: 0;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+    object-fit: var(--htu-fit);
+    object-position: center;
+    display: block;
+  }
+
+  /* Number + title */
+  #shopify-section-how_to_use_1 .htu__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: var(--htu-justify);
+    gap: 10px;
+    margin: 18px 0 0;
+  }
+  #shopify-section-how_to_use_1 .htu__num {
+    font-family: var(--htu-hf);
+    font-weight: var(--heading-weight, 700);
+    line-height: 1;
+    color: var(--htu-num-color);
+    font-size: var(--htu-num-size);
+  }
+  #shopify-section-how_to_use_1 .htu__title {
+    margin: 0;
+    font-family: var(--htu-hf);
+    font-weight: var(--heading-weight, 700);
+    line-height: 1.2;
+    color: var(--htu-title-color);
+    font-size: var(--htu-title-m);
+  }
+  #shopify-section-how_to_use_1 .htu__desc {
+    margin: 10px 0 0;
+    line-height: 1.6;
+    font-family: var(--htu-bf);
+    color: var(--htu-desc-color);
+    font-size: var(--htu-desc-m);
+  }
+  #shopify-section-how_to_use_1 .htu__desc :is(p, li) { font-size: inherit; color: inherit; font-family: inherit; }
+  #shopify-section-how_to_use_1 .htu__desc > :first-child { margin-top: 0; }
+  #shopify-section-how_to_use_1 .htu__desc > :last-child { margin-bottom: 0; }
+  #shopify-section-how_to_use_1 :is(.htu__title, .htu__desc)[hidden] { display: none; }
+  @media (min-width: 768px) {
+    #shopify-section-how_to_use_1 .htu__title { font-size: var(--htu-title-d); }
+    #shopify-section-how_to_use_1 .htu__desc { font-size: var(--htu-desc-d); }
+  }

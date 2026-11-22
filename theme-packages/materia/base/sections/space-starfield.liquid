@@ -1,0 +1,350 @@
+{%- comment -%}
+  Space: a night sky behind every page. Placed in the header group, so it is
+  on the home page, the product, the collection, the cart and every other
+  page alike.
+
+  How it moves, and why it is cheap: three layers of stars, each one tile
+  drawn once on a canvas when the page opens, repeated and slid upwards
+  with a CSS transform at its own pace (the near layer faster than the far
+  one). A few stars twinkle with an opacity animation. Nothing is redrawn
+  while it runs: the browser only moves layers it already painted. It stops
+  while the tab is hidden and stands still for visitors who ask for less
+  motion.
+
+  It also gives product pictures across the site a soft glow on the dark
+  page (Glow on product pictures). Pictures with a transparent background
+  glow around the garment's own outline; a picture with a white background
+  glows as a square.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign sid = section.id
+  assign sky = s.sky_color | default: '#000000'
+  assign star = s.star_color | default: '#ffffff'
+  assign glow = s.product_glow | default: 0
+  assign glow_color = s.glow_color | default: '#ffffff'
+  assign glow_alpha = s.glow_opacity | default: 55 | divided_by: 100.0
+  assign glow_rgba = glow_color | color_modify: 'alpha', glow_alpha
+  assign see = s.see_through_scheme.id | default: s.see_through_scheme | default: 'default'
+-%}
+<style>
+  html { background-color: {{ sky }} !important; }
+  body { background-color: transparent !important; }
+  #shopify-section-{{ sid }} { position: static !important; margin: 0 !important; padding: 0 !important; height: 0; isolation: auto !important; }
+  .space-sky-{{ sid }} {
+    position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none;
+    background-color: {{ sky }};
+    /* Before the script has drawn its layers: a still handful of stars. */
+    background-image:
+      radial-gradient(1px 1px at 12% 18%, {{ star }} 50%, transparent 51%),
+      radial-gradient(1px 1px at 68% 32%, {{ star }} 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 38% 74%, {{ star }} 50%, transparent 51%),
+      radial-gradient(1px 1px at 86% 82%, {{ star }} 50%, transparent 51%),
+      radial-gradient(1px 1px at 52% 48%, {{ star }} 50%, transparent 51%),
+      radial-gradient(1px 1px at 22% 58%, {{ star }} 50%, transparent 51%);
+  }
+  .space-sky-{{ sid }}[data-ready] { background-image: none; }
+  {%- if s.see_through -%}
+    /* Sections in the sky's colour scheme let the stars show through them. Drawers and pop ups keep their own colour. */
+    main .color-{{ see }},
+    main .color-{{ see }}.gradient,
+    .shopify-section-group-footer-group .color-{{ see }},
+    .shopify-section-group-header-group .header.color-{{ see }},
+    .shopify-section-group-header-group > .shopify-section > .section.color-{{ see }} { background: transparent !important; }
+  {%- endif -%}
+  .space-sky-{{ sid }} .space-sky__layer {
+    position: absolute; left: 0; top: 0; width: 100%;
+    background-repeat: repeat; will-change: transform;
+    animation-name: space-sky-drift-{{ sid }}; animation-timing-function: linear; animation-iteration-count: infinite;
+  }
+  .space-sky-{{ sid }} .space-sky__twinkle {
+    position: absolute; border-radius: 50%; background: {{ star }};
+    box-shadow: 0 0 6px 1px {{ star | color_modify: 'alpha', 0.7 }};
+    opacity: .15; will-change: opacity;
+    animation: space-sky-twinkle-{{ sid }} var(--tw, 4s) ease-in-out var(--td, 0s) infinite;
+  }
+  @keyframes space-sky-drift-{{ sid }} {
+    from { transform: translate3d(0, 0, 0); }
+    to { transform: translate3d(var(--dx, 0px), var(--dy, -512px), 0); }
+  }
+  @keyframes space-sky-twinkle-{{ sid }} {
+    0%, 100% { opacity: .12; }
+    50% { opacity: 1; }
+  }
+  .space-sky-{{ sid }}[data-paused] .space-sky__layer,
+  .space-sky-{{ sid }}[data-paused] .space-sky__twinkle { animation-play-state: paused; }
+  @media (prefers-reduced-motion: reduce) {
+    .space-sky-{{ sid }} .space-sky__layer,
+    .space-sky-{{ sid }} .space-sky__twinkle { animation: none; }
+    .space-sky-{{ sid }} .space-sky__twinkle { opacity: .6; }
+  }
+  {%- if glow > 0 -%}
+    /* Product pictures float on the sky: no card behind them, a soft light around them. */
+    {%- assign g1 = glow | times: 0.35 | round -%}
+    {%- assign g2 = glow -%}
+    :root { --space-glow: drop-shadow(0 0 {{ g1 }}px {{ glow_rgba }}) drop-shadow(0 0 {{ g2 }}px {{ glow_color | color_modify: 'alpha', 0.22 }}); }
+    {%- if s.glow_everywhere -%}
+      .product-item .product-item__inner,
+      .product-item .product__media,
+      .product-item .product-item__media--ratio,
+      .product-item .product-item__media { background: transparent !important; box-shadow: none !important; }
+      .product-item .product__media img,
+      .product-item .product-item__media img,
+      .product__media-item img,
+      .media-gallery__image img,
+      .product-media img,
+      .space-glow img { filter: var(--space-glow); }
+      .product-item .product__media img { object-fit: contain !important; }
+      .media-gallery__image, .media-gallery__image .media { background: transparent !important; }
+      .media-gallery__image img { object-fit: contain !important; transform: scale(.86); }
+      .product-item .product__media { overflow: visible !important; }
+      .product-item .product-item__inner.overflow-hidden { overflow: visible !important; }
+    {%- endif -%}
+  {%- endif -%}
+</style>
+<div
+  class="space-sky space-sky-{{ sid }}"
+  aria-hidden="true"
+  data-space-sky
+  data-density="{{ s.star_density | default: 60 }}"
+  data-size="{{ s.star_size | default: 100 }}"
+  data-speed="{{ s.drift_speed | default: 40 }}"
+  data-direction="{{ s.drift_direction | default: 'up' }}"
+  data-twinkles="{{ s.twinkle_count | default: 14 }}"
+  data-star="{{ star }}"
+></div>
+<script>
+  (function () {
+    var fresh = document.querySelector('#shopify-section-{{ sid }} .space-sky-{{ sid }}');
+    /* The sky sits at the very back of the page, outside the header (whose own layer would put it over the page). A redraw on an edit replaces the one already there. */
+    document.querySelectorAll('body > .space-sky-{{ sid }}').forEach(function (old) { if (old !== fresh) old.remove(); });
+    var root = fresh || document.querySelector('.space-sky-{{ sid }}');
+    if (!root) return;
+    if (root.parentNode !== document.body) document.body.insertBefore(root, document.body.firstChild);
+    root.innerHTML = '';
+    var density = Math.max(0, Number(root.dataset.density) || 0);
+    var sizeScale = Math.max(0.3, (Number(root.dataset.size) || 100) / 100);
+    var speed = Math.max(0, Number(root.dataset.speed) || 0);
+    var dir = root.dataset.direction || 'up';
+    var twinkles = Math.max(0, Math.min(60, Number(root.dataset.twinkles) || 0));
+    var color = root.dataset.star || '#ffffff';
+    var TILES = [557, 743, 911];
+    var dpr = Math.min(2, window.devicePixelRatio || 1);
+    /* A fixed seed, so the sky is the same on every page and every visit. */
+    var seed = 7;
+    function rnd() { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }
+    function tile(TILE, count, rMin, rMax, alphaMin, alphaMax) {
+      var c = document.createElement('canvas');
+      c.width = c.height = TILE * dpr;
+      var x = c.getContext('2d');
+      if (!x) return '';
+      x.scale(dpr, dpr);
+      x.fillStyle = color;
+      for (var i = 0; i < count; i++) {
+        var r = (rMin + rnd() * (rMax - rMin)) * sizeScale;
+        x.globalAlpha = alphaMin + rnd() * (alphaMax - alphaMin);
+        var px = rnd() * TILE, py = rnd() * TILE;
+        x.beginPath(); x.arc(px, py, r, 0, Math.PI * 2); x.fill();
+        /* A star on the tile's edge is drawn on the other side too, so the seam never shows. */
+        if (px < r + 1) { x.beginPath(); x.arc(px + TILE, py, r, 0, Math.PI * 2); x.fill(); }
+        if (py < r + 1) { x.beginPath(); x.arc(px, py + TILE, r, 0, Math.PI * 2); x.fill(); }
+        if (px > TILE - r - 1) { x.beginPath(); x.arc(px - TILE, py, r, 0, Math.PI * 2); x.fill(); }
+        if (py > TILE - r - 1) { x.beginPath(); x.arc(px, py - TILE, r, 0, Math.PI * 2); x.fill(); }
+      }
+      return c.toDataURL('image/png');
+    }
+    /* Far, middle and near: more small faint stars far away, a few brighter ones close. */
+    var per = density / 100;
+    var layers = [
+      { n: Math.round(170 * per), r: [0.3, 0.65], a: [0.2, 0.55], secs: 260 },
+      { n: Math.round(70 * per), r: [0.55, 0.95], a: [0.4, 0.8], secs: 180 },
+      { n: Math.round(16 * per), r: [0.85, 1.4], a: [0.65, 1], secs: 120 }
+    ];
+    var factor = speed > 0 ? 40 / speed : 0;
+    layers.forEach(function (l, li) {
+      if (l.n <= 0) return;
+      var TILE = TILES[li];
+      var url = tile(TILE, Math.round(l.n * TILE * TILE / (640 * 640)), l.r[0], l.r[1], l.a[0], l.a[1]);
+      if (!url) return;
+      var d = document.createElement('div');
+      d.className = 'space-sky__layer';
+      d.style.backgroundImage = 'url(' + url + ')';
+      d.style.backgroundSize = TILE + 'px ' + TILE + 'px';
+      d.style.height = 'calc(100% + ' + TILE + 'px)';
+      d.style.width = 'calc(100% + ' + TILE + 'px)';
+      d.style.left = (dir === 'right' ? -TILE : 0) + 'px';
+      var dx = dir === 'left' ? -TILE : dir === 'right' ? TILE : dir === 'diagonal' ? -TILE : 0;
+      var dy = dir === 'left' || dir === 'right' ? 0 : -TILE;
+      d.style.setProperty('--dx', dx + 'px');
+      d.style.setProperty('--dy', dy + 'px');
+      if (factor > 0) d.style.animationDuration = Math.round(l.secs * factor) + 's';
+      else d.style.animation = 'none';
+      root.appendChild(d);
+    });
+    for (var i = 0; i < twinkles; i++) {
+      var t = document.createElement('span');
+      t.className = 'space-sky__twinkle';
+      var size = (1.2 + rnd() * 1.6) * sizeScale;
+      t.style.width = t.style.height = size.toFixed(2) + 'px';
+      t.style.left = (rnd() * 100).toFixed(2) + '%';
+      t.style.top = (rnd() * 100).toFixed(2) + '%';
+      t.style.setProperty('--tw', (3 + rnd() * 5).toFixed(2) + 's');
+      t.style.setProperty('--td', (-rnd() * 8).toFixed(2) + 's');
+      root.appendChild(t);
+    }
+    root.setAttribute('data-ready', '');
+    function sync() { if (document.hidden) root.setAttribute('data-paused', ''); else root.removeAttribute('data-paused'); }
+    if (!window.__spaceSkyVisibility) {
+      window.__spaceSkyVisibility = true;
+      document.addEventListener('visibilitychange', function () {
+        document.querySelectorAll('[data-space-sky]').forEach(function (el) {
+          if (document.hidden) el.setAttribute('data-paused', ''); else el.removeAttribute('data-paused');
+        });
+      });
+    }
+    sync();
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Night sky",
+  "tag": "section",
+  "class": "space-starfield-section",
+  "limit": 1,
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Stars drift slowly behind every page. Visitors who ask their device for less motion see them standing still."
+    },
+    {
+      "type": "header",
+      "content": "Sky"
+    },
+    {
+      "type": "color",
+      "id": "sky_color",
+      "label": "Sky colour",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "star_color",
+      "label": "Star colour",
+      "default": "#ffffff"
+    },
+    {
+      "type": "range",
+      "id": "star_density",
+      "label": "How many stars",
+      "min": 0,
+      "max": 200,
+      "step": 10,
+      "unit": "%",
+      "default": 60
+    },
+    {
+      "type": "range",
+      "id": "star_size",
+      "label": "Star size",
+      "min": 50,
+      "max": 250,
+      "step": 10,
+      "unit": "%",
+      "default": 100
+    },
+    {
+      "type": "range",
+      "id": "twinkle_count",
+      "label": "Twinkling stars",
+      "min": 0,
+      "max": 40,
+      "step": 1,
+      "default": 14
+    },
+    {
+      "type": "checkbox",
+      "id": "see_through",
+      "label": "Let the stars show through sections",
+      "default": true
+    },
+    {
+      "type": "color_scheme",
+      "id": "see_through_scheme",
+      "label": "Sections in this colour scheme",
+      "default": "default-color-scheme",
+      "info": "Sections in any other colour scheme keep their own background."
+    },
+    {
+      "type": "header",
+      "content": "Movement"
+    },
+    {
+      "type": "range",
+      "id": "drift_speed",
+      "label": "Drift speed",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "default": 40,
+      "info": "0 keeps the sky still."
+    },
+    {
+      "type": "select",
+      "id": "drift_direction",
+      "label": "Drift direction",
+      "default": "up",
+      "options": [
+        { "value": "up", "label": "Up" },
+        { "value": "left", "label": "Left" },
+        { "value": "right", "label": "Right" },
+        { "value": "diagonal", "label": "Up and left" }
+      ]
+    },
+    {
+      "type": "header",
+      "content": "Glow on product pictures"
+    },
+    {
+      "type": "range",
+      "id": "product_glow",
+      "label": "Glow strength",
+      "min": 0,
+      "max": 60,
+      "step": 2,
+      "unit": "px",
+      "default": 26,
+      "info": "Works best with product pictures that have a transparent background (PNG or WebP cut-outs)."
+    },
+    {
+      "type": "color",
+      "id": "glow_color",
+      "label": "Glow colour",
+      "default": "#ffffff"
+    },
+    {
+      "type": "range",
+      "id": "glow_opacity",
+      "label": "Glow brightness",
+      "min": 10,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "default": 55
+    },
+    {
+      "type": "checkbox",
+      "id": "glow_everywhere",
+      "label": "Glow and no card behind product pictures on every page",
+      "default": true,
+      "info": "Product grids, collection pages, search and the product page."
+    }
+  ],
+  "presets": [
+    {
+      "name": "Night sky",
+      "category": "Space"
+    }
+  ]
+}
+{% endschema %}

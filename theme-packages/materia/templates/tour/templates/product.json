@@ -78,7 +78,7 @@
             "pr_m": 0,
             "pt_d": 0,
             "pt_m": 0,
-            "text_color": "#c9d2c4",
+            "text_color": "#55544f",
             "font_size_d": 16,
             "font_size_m": 15,
             "line_height": 150,
@@ -140,7 +140,7 @@
             "atc_button_text": "Add to cart",
             "atc_font_weight": "600",
             "atc_icon_enable": true,
-            "buy_button_text": "Buy Now",
+            "buy_button_text": "Buy now",
             "buy_font_weight": "600",
             "buy_icon_enable": true,
             "show_add_to_cart": true,
@@ -176,7 +176,7 @@
           "type": "collapsible_row",
           "settings": {
             "open": false,
-            "content": "<p>For a record: weight, colour, what is in the sleeve. For clothing: fabric, fit and how the print is made.</p>",
+            "content": "<p>Say what this is: the pressing and sleeve for a record, the fit and fabric for clothing, the paper and size for a print.</p>",
             "heading": "Details",
             "use_product_description": false
           }
@@ -185,7 +185,7 @@
           "type": "collapsible_row",
           "settings": {
             "open": false,
-            "content": "<p>Sent within three working days. Vinyl travels in a rigid mailer. Returns accepted for 30 days if the item is unplayed or unworn.</p>",
+            "content": "<p>Sent within two working days, tracked. Returns accepted for 30 days, unworn and unwashed.</p>",
             "heading": "Shipping and returns",
             "use_product_description": false
           }
@@ -285,7 +285,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "When you buy here",
+            "text": "From the store",
             "enable_custom_style": false,
             "enable_custom_fonts": false,
             "font": "assistant_n4",
@@ -301,25 +301,25 @@
         "column_1": {
           "type": "column",
           "settings": {
-            "label": "Direct",
-            "heading": "It goes to the artist",
-            "text": "<p>No marketplace in the middle.</p>"
+            "label": "01",
+            "heading": "Packed with care",
+            "text": "<p>Records ship in rigid mailers, prints in tubes.</p>"
           }
         },
         "column_2": {
           "type": "column",
           "settings": {
-            "label": "Packed by us",
-            "heading": "Sent from our stock room",
-            "text": "<p>The same crew that runs the merch desk.</p>"
+            "label": "02",
+            "heading": "Made for the tour",
+            "text": "<p>Every design is only made for this record and this tour.</p>"
           }
         },
         "column_3": {
           "type": "column",
           "settings": {
-            "label": "Download",
-            "heading": "Music with every record",
-            "text": "<p>A link to the album arrives with your receipt.</p>"
+            "label": "03",
+            "heading": "Easy returns",
+            "text": "<p>30 days to send it back if the size is wrong.</p>"
           }
         }
       },
@@ -377,7 +377,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Goes with it",
+            "text": "More from the store",
             "enable_custom_style": false,
             "size_desktop": 32,
             "size_mobile": 26

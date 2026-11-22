@@ -1,0 +1,106 @@
+{
+  "sections": {
+    "heading": {
+      "type": "page-heading",
+      "settings": {
+        "height": "adapt",
+        "alignment": "center",
+        "padding_top": 80,
+        "color_scheme": "",
+        "reset_spacing": true,
+        "section_width": "stretch_width",
+        "padding_bottom": 0,
+        "overlay_opacity": 0
+      },
+      "blocks": {
+        "breadcrumb_fkLpBa": {
+          "type": "breadcrumb",
+          "settings": {}
+        },
+        "heading_f6yAbL": {
+          "type": "heading",
+          "settings": {
+            "page_title": "",
+            "header_size": "default",
+            "vertical_gap": 8,
+            "heading_color": "",
+            "heading_font_size": 34,
+            "enable_heading_color": false
+          }
+        }
+      },
+      "block_order": [
+        "breadcrumb_fkLpBa",
+        "heading_f6yAbL"
+      ]
+    },
+    "cart-items": {
+      "type": "main-cart-items",
+      "settings": {
+        "padding_top": 40,
+        "reset_spacing": true,
+        "section_width": "container",
+        "padding_bottom": 60,
+        "enable_cart_note": false,
+        "enable_discount_code": true,
+        "show_estimate_shipping": false
+      },
+      "blocks": {
+        "faq_section_1": {
+          "type": "faq_section",
+          "settings": {
+            "show_faq": true,
+            "faq_heading": "Before you check out"
+          }
+        },
+        "faq_1": {
+          "type": "faq",
+          "settings": {
+            "question": "When do I get the book?",
+            "answer": "<p>Straight away. The download link is on the order page and in your receipt email.</p>"
+          }
+        },
+        "faq_2": {
+          "type": "faq",
+          "settings": {
+            "question": "Which devices can I read it on?",
+            "answer": "<p>Any that opens a PDF: a tablet, a phone, a laptop or a large screen. A tablet or a big screen shows the plates best.</p>"
+          }
+        },
+        "faq_3": {
+          "type": "faq",
+          "settings": {
+            "question": "Can I download it again later?",
+            "answer": "<p>Yes. The link in your receipt keeps working, so you can download the file again on a new device.</p>"
+          }
+        },
+        "payment_badges_67Mgyc": {
+          "type": "payment_badges",
+          "settings": {
+            "show_amex": true,
+            "show_visa": true,
+            "show_amazon": false,
+            "show_klarna": false,
+            "show_paypal": true,
+            "show_discover": false,
+            "show_apple_pay": true,
+            "show_google_pay": true,
+            "show_mastercard": true,
+            "show_payment_badges": true
+          }
+        }
+      },
+      "block_order": [
+        "faq_section_1",
+        "faq_1",
+        "faq_2",
+        "faq_3",
+        "payment_badges_67Mgyc"
+      ]
+    }
+  },
+  "order": [
+    "heading",
+    "cart-items"
+  ]
+}

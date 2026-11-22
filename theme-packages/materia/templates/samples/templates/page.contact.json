@@ -59,7 +59,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Write to Tape Room",
+            "text": "Write to Loudlib",
             "tag": "h1",
             "enable_custom_style": false,
             "enable_custom_fonts": false,
@@ -75,7 +75,7 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>A download that will not open, a licence question or a sound you want made. It all lands in one inbox.</p>",
+            "text": "<p>A download that will not open, a licence question or a pack you want made. It all lands in one inbox.</p>",
             "max_width": 600,
             "enable_custom_style": false,
             "enable_custom_fonts": false,

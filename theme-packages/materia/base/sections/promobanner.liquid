@@ -1632,6 +1632,137 @@
       ]
     }
   ],
-  "presets": []
+  "presets": [
+    {
+      "name": "Promotion Popup Discount",
+      "settings": {
+        "radius": 10,
+        "reveal": true,
+        "card_bg": "#ffffff",
+        "col_gap": 28,
+        "delay_s": 20,
+        "hide_days": 2,
+        "open_mode": "exit",
+        "text_color": "#111111",
+        "close_color": "#111111",
+        "exit_intent": true,
+        "popup_width": 750,
+        "top_padding": 20,
+        "align_mobile": "center",
+        "card_padding": 30,
+        "inactivity_s": 10,
+        "popup_radius": 10,
+        "align_desktop": "center",
+        "overlay_color": "#000000",
+        "reset_spacing": true,
+        "section_width": "fluid_container",
+        "show_as_popup": true,
+        "bottom_padding": 20,
+        "overlay_opacity": 50,
+        "enable_edit_mode": true,
+        "mobile_h_padding": 20,
+        "once_per_session": true,
+        "mobile_side_gutter": 32,
+        "mobile_top_padding": 36,
+        "enable_custom_style": true,
+        "text_left_pad_mobile": 0,
+        "mobile_bottom_padding": 38,
+        "text_left_pad_desktop": 36,
+        "text_right_pad_mobile": 0,
+        "text_right_pad_desktop": 10,
+        "section_margin_top_mobile": 0,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_mobile": 0,
+        "section_margin_bottom_desktop": 0
+      },
+      "blocks": [
+        {
+          "type": "eyebrow",
+          "settings": {
+            "text": "LIMITED TIME OFFER",
+            "color": "#111111",
+            "size_mobile": 14,
+            "size_desktop": 12,
+            "letter_spacing": 0.1,
+            "enable_custom_style": true
+          }
+        },
+        {
+          "type": "headline",
+          "settings": {
+            "text": "20% OFF",
+            "color": "#111111",
+            "weight": "700",
+            "size_mobile": 40,
+            "size_desktop": 56,
+            "enable_custom_style": true
+          }
+        },
+        {
+          "type": "body",
+          "settings": {
+            "text": "Use this code at checkout for 20% off every product.",
+            "color": "#111111",
+            "size_mobile": 16,
+            "size_desktop": 16,
+            "enable_custom_style": true
+          }
+        },
+        {
+          "type": "coupon",
+          "settings": {
+            "code": "SAVE20",
+            "label": "USE",
+            "code_bg": "#ffffff",
+            "copy_bg": "#ffffff",
+            "code_size": 18,
+            "code_color": "#515151",
+            "copy_color": "#999999",
+            "code_border": "#999999",
+            "copy_border": "#999999",
+            "code_bg_copied": "#f0f0f0",
+            "copy_bg_copied": "#000000",
+            "code_color_copied": "#e11b1c",
+            "copy_color_copied": "#f9f9f9",
+            "code_border_copied": "#000000",
+            "copy_border_copied": "#000000",
+            "enable_custom_style": true
+          }
+        },
+        {
+          "type": "button",
+          "settings": {
+            "bg": "#222222",
+            "link": "",
+            "size": 14,
+            "label": "VIEW PRODUCTS",
+            "width": 230,
+            "radius": 4,
+            "bg_hover": "#000000",
+            "text_color": "#ffffff",
+            "text_hover": "#ffffff",
+            "append_discount": true,
+            "hover_transition": 200,
+            "enable_custom_style": true
+          }
+        },
+        {
+          "type": "image",
+          "settings": {
+            "alt": "Promotion image",
+            "side": "image-right",
+            "radius": 8,
+            "mobile_h": 260,
+            "mobile_w": 360,
+            "desktop_h": 360,
+            "desktop_w": 420,
+            "mobile_position": "above",
+            "enable_custom_mobile": false,
+            "enable_custom_desktop": false
+          }
+        }
+      ]
+    }
+  ]
 }
 {% endschema %}

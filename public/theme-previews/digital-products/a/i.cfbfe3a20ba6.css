@@ -1,0 +1,16 @@
+
+  #shopify-section-news .ct-header > :not([hidden]) ~ :not([hidden]) { margin-top: 1rem; }
+  #shopify-section-news .ct-header [data-ct-block][hidden],
+  #shopify-section-news .ct-header[hidden] { display: none !important; }
+  #shopify-section-news .ct-h { color: var(--ch-c, var(--color-heading)); margin-block: 0; }
+  #shopify-section-news .ct-h[data-own-font] { font-family: var(--ch-ff, var(--ct-hf, var(--heading-font))); }
+  #shopify-section-news .ct-h[data-own-weight] { font-weight: var(--ch-fw, var(--heading-weight)); }
+  #shopify-section-news .ct-h[data-own-size] { font-size: var(--ch-fs-m); line-height: var(--ch-lh); letter-spacing: var(--ch-ls); }
+  #shopify-section-news .ct-s { color: var(--ch-c, inherit); }
+  #shopify-section-news .ct-s[data-own-font] { font-family: var(--ch-ff, var(--ct-bf, var(--body-font))); }
+  #shopify-section-news .ct-s[data-own-weight] { font-weight: var(--ch-fw); }
+  #shopify-section-news .ct-s[data-own-size] { font-size: var(--ch-fs); line-height: var(--ch-lh); }
+  #shopify-section-news .ct-s[data-own-size] :is(p, li, span, strong, em) { font-size: inherit; line-height: inherit; }
+  @media (min-width: 768px) {
+    #shopify-section-news .ct-h[data-own-size] { font-size: var(--ch-fs-d); }
+  }

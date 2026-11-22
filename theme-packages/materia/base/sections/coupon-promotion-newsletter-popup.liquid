@@ -1267,6 +1267,108 @@
       ]
     }
   ],
-  "presets": []
+  "presets": [
+    {
+      "name": "Coupon Promo Popup",
+      "settings": {
+        "card_bg": "#ffffff",
+        "delay_s": 5,
+        "hide_days": 1,
+        "image_fit": "cover",
+        "open_mode": "delay",
+        "image_side": "image-right",
+        "text_align": "left",
+        "text_color": "#111111",
+        "close_color": "#111111",
+        "editor_mode": true,
+        "gate_coupon": true,
+        "image_ratio": "auto",
+        "popup_width": 770,
+        "popup_radius": 12,
+        "after_dismiss": "after_days",
+        "dismiss_align": "center",
+        "mobile_gutter": 32,
+        "overlay_color": "#000000",
+        "card_padding_h": 36,
+        "card_padding_v": 36,
+        "image_position": "center",
+        "overlay_opacity": 50,
+        "enable_custom_style": true,
+        "mobile_image_height": 180,
+        "mobile_image_position": "above",
+        "mobile_image_height_mode": "auto",
+        "post_subscribe_duration_s": 15
+      },
+      "blocks": [
+        {
+          "type": "eyebrow",
+          "settings": {
+            "text": "LIMITED TIME OFFER",
+            "color": "#111111",
+            "size_desktop": 12,
+            "enable_custom_style": true
+          }
+        },
+        {
+          "type": "headline",
+          "settings": {
+            "text": "15% off your first order",
+            "color": "#111111",
+            "weight": "800",
+            "size_desktop": 32,
+            "enable_custom_style": true
+          }
+        },
+        {
+          "type": "subheading",
+          "settings": {
+            "text": "Subscribe and get your coupon.",
+            "color": "#444444",
+            "size_desktop": 15,
+            "enable_custom_style": true
+          }
+        },
+        {
+          "type": "coupon",
+          "settings": {
+            "code": "WELCOME15",
+            "label": "USE CODE"
+          }
+        },
+        {
+          "type": "form",
+          "settings": {
+            "button_bg": "#111111",
+            "button_text": "Subscribe",
+            "placeholder": "Enter your email",
+            "input_radius": 8,
+            "success_text": "Thanks! Here is your code:",
+            "button_radius": 8,
+            "button_weight": "700",
+            "collect_phone": false,
+            "phone_required": false,
+            "button_bg_hover": "#000000",
+            "button_text_color": "#ffffff",
+            "button_text_hover": "#ffffff",
+            "phone_placeholder": "Phone number",
+            "enable_custom_style": true,
+            "phone_default_country": "US"
+          }
+        },
+        {
+          "type": "image",
+          "settings": {
+            "alt": "Promotion"
+          }
+        },
+        {
+          "type": "dismiss",
+          "settings": {
+            "text": "No thanks"
+          }
+        }
+      ]
+    }
+  ]
 }
 {% endschema %}

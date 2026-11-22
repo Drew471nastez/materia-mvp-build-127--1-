@@ -1,0 +1,28 @@
+
+  /* Theme editor: force popup-style sections (fixed/centered) to render inline so a preview shows */
+  .shopify-design-mode #shopify-section-news *[class*="-popup"],
+  .shopify-design-mode #shopify-section-news .popup,
+  .shopify-design-mode #shopify-section-news .modal,
+  .shopify-design-mode #shopify-section-news [data-popup],
+  .shopify-design-mode #shopify-section-news > .promotional,
+  .shopify-design-mode #shopify-section-news .age-verifier-popup,
+  .shopify-design-mode #shopify-section-news .promotion-popup,
+  .shopify-design-mode #shopify-section-news .promobanner,
+  .shopify-design-mode #shopify-section-news .newsletter-popup,
+  .shopify-design-mode #shopify-section-news .promo-newsletter-popup,
+  .shopify-design-mode #shopify-section-news .promotional-image-popup,
+  .shopify-design-mode #shopify-section-news .promotional-popup {
+    position: static !important;
+    inset: auto !important;
+    transform: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    display: block !important;
+    margin: 20px auto !important;
+    z-index: auto !important;
+    pointer-events: auto !important;
+  }
+  .shopify-design-mode #shopify-section-news *[class*="overlay"],
+  .shopify-design-mode #shopify-section-news *[class*="backdrop"] {
+    display: none !important;
+  }

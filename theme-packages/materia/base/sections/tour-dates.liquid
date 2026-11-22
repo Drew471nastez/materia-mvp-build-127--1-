@@ -1,0 +1,128 @@
+{%- comment -%}
+  Tour merch template: the tour as a list of dates. Each row has the date,
+  the city and venue, and a ticket link or a sold out mark. Rows lighten on
+  hover; nothing moves with reduced motion.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+-%}
+<style>
+  #shopify-section-{{ sid }} .tdates { background: {{ st.background | default: '#141414' }}; color: {{ st.text_color | default: '#f3f1ec' }}; padding: {{ st.padding_mobile | default: 52 }}px 20px; }
+  #shopify-section-{{ sid }} .tdates__inner { max-width: 1120px; margin: 0 auto; }
+  #shopify-section-{{ sid }} .tdates__head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 32px; margin-bottom: 28px; }
+  #shopify-section-{{ sid }} .tdates__heading { margin: 0; font-family: var(--heading-font, inherit); font-weight: 400; font-size: {{ st.heading_size_mobile | default: 40 }}px; line-height: 1; letter-spacing: -0.02em; color: inherit; }
+  #shopify-section-{{ sid }} .tdates__note { margin: 0; font-size: 14px; color: {{ st.muted_color | default: '#a6a39c' }}; max-width: 40ch; }
+  #shopify-section-{{ sid }} .tdates__list { list-style: none; margin: 0; padding: 0; border-top: 1px solid {{ st.line_color | default: '#2f2f2f' }}; }
+  #shopify-section-{{ sid }} .tdates__row {
+    display: grid; grid-template-columns: 74px 1fr; gap: 4px 16px; align-items: center;
+    padding: 18px 0; border-bottom: 1px solid {{ st.line_color | default: '#2f2f2f' }};
+    transition: background-color 0.25s ease;
+  }
+  #shopify-section-{{ sid }} .tdates__row:hover { background-color: rgba(255,255,255,0.03); }
+  #shopify-section-{{ sid }} .tdates__date { grid-row: span 2; font-size: 14px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: {{ st.muted_color | default: '#a6a39c' }}; }
+  #shopify-section-{{ sid }} .tdates__date b { display: block; font-family: var(--heading-font, inherit); font-weight: 400; font-size: 30px; line-height: 1; letter-spacing: -0.01em; color: {{ st.text_color | default: '#f3f1ec' }}; }
+  #shopify-section-{{ sid }} .tdates__place { min-width: 0; }
+  #shopify-section-{{ sid }} .tdates__city { margin: 0; font-size: 18px; font-weight: 600; color: inherit; }
+  #shopify-section-{{ sid }} .tdates__venue { margin: 2px 0 0; font-size: 14px; color: {{ st.muted_color | default: '#a6a39c' }}; }
+  #shopify-section-{{ sid }} .tdates__action { justify-self: start; }
+  #shopify-section-{{ sid }} .tdates__ticket {
+    display: inline-block; padding: 9px 18px; border: 1px solid currentColor; border-radius: 100px;
+    font-size: 13px; font-weight: 600; text-decoration: none; color: inherit; white-space: nowrap;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+  #shopify-section-{{ sid }} .tdates__ticket:hover, #shopify-section-{{ sid }} .tdates__ticket:focus-visible { background: {{ st.text_color | default: '#f3f1ec' }}; color: {{ st.background | default: '#141414' }}; }
+  #shopify-section-{{ sid }} .tdates__ticket[data-status="few"]::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: {{ st.accent_color | default: '#7fb4d6' }}; margin-right: 8px; vertical-align: 2px; }
+  #shopify-section-{{ sid }} .tdates__sold { font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: {{ st.muted_color | default: '#a6a39c' }}; text-decoration: line-through; }
+  #shopify-section-{{ sid }} .tdates__foot { margin-top: 28px; }
+  #shopify-section-{{ sid }} .tdates__all { padding: 12px 24px; font-size: 14px; }
+  @media (min-width: 768px) {
+    #shopify-section-{{ sid }} .tdates { padding: {{ st.padding | default: 88 }}px 40px; }
+    #shopify-section-{{ sid }} .tdates__heading { font-size: {{ st.heading_size | default: 64 }}px; }
+    #shopify-section-{{ sid }} .tdates__row { grid-template-columns: 120px 1fr auto; gap: 24px; padding: 22px 12px; }
+    #shopify-section-{{ sid }} .tdates__date { grid-row: auto; }
+    #shopify-section-{{ sid }} .tdates__date b { display: inline; font-size: 34px; margin-right: 8px; }
+    #shopify-section-{{ sid }} .tdates__city { font-size: 20px; }
+    #shopify-section-{{ sid }} .tdates__place { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+    #shopify-section-{{ sid }} .tdates__venue { margin: 0; }
+    #shopify-section-{{ sid }} .tdates__action { justify-self: end; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #shopify-section-{{ sid }} .tdates__row, #shopify-section-{{ sid }} .tdates__ticket { transition: none; }
+  }
+</style>
+
+<div class="tdates">
+  <div class="tdates__inner">
+    <div class="tdates__head">
+      {%- if st.heading != blank -%}<h2 class="tdates__heading">{{ st.heading | escape }}</h2>{%- endif -%}
+      {%- if st.note != blank -%}<p class="tdates__note">{{ st.note | escape }}</p>{%- endif -%}
+    </div>
+    <ul class="tdates__list">
+      {%- for block in section.blocks -%}
+        {%- assign b = block.settings -%}
+        <li class="tdates__row" {{ block.shopify_attributes }}>
+          <div class="tdates__date"><b>{{ b.day | escape }}</b>{{ b.month | escape }}</div>
+          <div class="tdates__place">
+            <p class="tdates__city">{{ b.city | escape }}</p>
+            {%- if b.venue != blank -%}<p class="tdates__venue">{{ b.venue | escape }}</p>{%- endif -%}
+          </div>
+          <div class="tdates__action">
+            {%- if b.status == 'sold_out' -%}
+              <span class="tdates__sold">{{ st.sold_out_label | default: 'Sold out' | escape }}</span>
+            {%- else -%}
+              <a class="tdates__ticket" data-status="{{ b.status }}" href="{{ b.link | default: '/pages/tour' }}">{% if b.status == 'few' %}{{ st.few_label | default: 'Last tickets' | escape }}{% else %}{{ st.ticket_label | default: 'Tickets' | escape }}{% endif %}</a>
+            {%- endif -%}
+          </div>
+        </li>
+      {%- endfor -%}
+    </ul>
+    {%- if st.button_label != blank -%}
+      <div class="tdates__foot"><a class="tdates__ticket tdates__all" href="{{ st.button_link | default: '/pages/tour' }}">{{ st.button_label | escape }}</a></div>
+    {%- endif -%}
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Tour dates",
+  "tag": "section",
+  "class": "section sec__tour-dates",
+  "max_blocks": 40,
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Tour dates" },
+    { "type": "text", "id": "note", "label": "Line beside the heading", "default": "Sample dates. Replace them with your own." },
+    { "type": "text", "id": "ticket_label", "label": "Ticket link text", "default": "Tickets" },
+    { "type": "text", "id": "few_label", "label": "Text when few are left", "default": "Last tickets" },
+    { "type": "text", "id": "sold_out_label", "label": "Sold out text", "default": "Sold out" },
+    { "type": "text", "id": "button_label", "label": "Button under the list" },
+    { "type": "url", "id": "button_link", "label": "Button link" },
+    { "type": "color", "id": "background", "label": "Background", "default": "#141414" },
+    { "type": "color", "id": "text_color", "label": "Text", "default": "#f3f1ec" },
+    { "type": "color", "id": "muted_color", "label": "Quiet text", "default": "#a6a39c" },
+    { "type": "color", "id": "accent_color", "label": "Last tickets dot", "default": "#7fb4d6" },
+    { "type": "color", "id": "line_color", "label": "Lines", "default": "#2f2f2f" },
+    { "type": "range", "id": "heading_size", "label": "Heading size, desktop", "min": 24, "max": 120, "step": 4, "unit": "px", "default": 64 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size, phone", "min": 22, "max": 64, "step": 2, "unit": "px", "default": 40 },
+    { "type": "range", "id": "padding", "label": "Space above and below, desktop", "min": 16, "max": 160, "step": 4, "unit": "px", "default": 88 },
+    { "type": "range", "id": "padding_mobile", "label": "Space above and below, phone", "min": 16, "max": 120, "step": 4, "unit": "px", "default": 52 }
+  ],
+  "blocks": [
+    {
+      "type": "date",
+      "name": "Date",
+      "settings": [
+        { "type": "text", "id": "day", "label": "Day", "default": "12" },
+        { "type": "text", "id": "month", "label": "Month", "default": "Mar" },
+        { "type": "text", "id": "city", "label": "City", "default": "City" },
+        { "type": "text", "id": "venue", "label": "Venue", "default": "Venue" },
+        { "type": "select", "id": "status", "label": "Tickets", "options": [ { "value": "on_sale", "label": "On sale" }, { "value": "few", "label": "Last tickets" }, { "value": "sold_out", "label": "Sold out" } ], "default": "on_sale" },
+        { "type": "url", "id": "link", "label": "Ticket link" }
+      ]
+    }
+  ],
+  "presets": [
+    { "name": "Tour dates", "blocks": [ { "type": "date" }, { "type": "date" }, { "type": "date" } ] }
+  ]
+}
+{% endschema %}
