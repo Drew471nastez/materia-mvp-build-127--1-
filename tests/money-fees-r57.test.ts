@@ -201,6 +201,24 @@ async function partB() {
   const call = j.world.calls.filter((c) => c.method === "refunds.create").pop()?.args[0] as any
   check("a $4 refund: 400c, reverse_transfer on, the application fee not refunded (as the help says)", refund.status === 200 && call?.amount === 400 && call?.reverse_transfer === true && !call?.refund_application_fee, { status: refund.status, call })
 
+  section("B3b. Payouts shows Stripe's balance, as Stripe holds it")
+  const day = (d: number) => Math.floor(Date.UTC(2026, 11, d, 12) / 1000)
+  ;(stripe as any).balance.retrieve = async () => ({ object: "balance", available: [{ amount: 12345, currency: "usd" }], pending: [{ amount: 6789, currency: "usd" }] })
+  ;(stripe as any).balanceTransactions.list = async () => ({
+    object: "list",
+    has_more: false,
+    data: [
+      { id: "txn_1", status: "pending", available_on: day(2), net: 4000, currency: "usd" },
+      { id: "txn_2", status: "pending", available_on: day(2), net: 789, currency: "usd" },
+      { id: "txn_3", status: "pending", available_on: day(5), net: 2000, currency: "usd" },
+      { id: "txn_4", status: "available", available_on: day(1), net: 999, currency: "usd" },
+    ],
+  })
+  const payouts = await j.call("GET /api/stripe/payouts", { as: seller })
+  const bal = payouts.json?.balance
+  check("Available 123.45 and Arriving soon 67.89 are Stripe's own figures, in dollars", payouts.status === 200 && bal?.available?.[0]?.amount === 12345 && bal?.pending?.[0]?.amount === 6789 && payouts.json?.balanceCurrency === "usd", { status: payouts.status, bal, cur: payouts.json?.balanceCurrency })
+  check("  and each day it becomes available is Stripe's: 47.89 on 2 Dec, 20.00 on 5 Dec, adding up to the pending 67.89", JSON.stringify(payouts.json?.upcoming) === JSON.stringify([{ date: "2026-12-02", amount: 4789, currency: "usd" }, { date: "2026-12-05", amount: 2000, currency: "usd" }]), payouts.json?.upcoming)
+
   section("B4. A basket on the website (digital) and a cart that ships")
   setPlan("growth", "active")
   await j.call("PUT /api/store/currency", { as: seller, body: { country: "US", currency: "USD", key: "fay-usd-1" } })
