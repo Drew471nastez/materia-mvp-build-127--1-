@@ -1,25 +1,25 @@
 {
   "sections": {
-    "contactformsimple2_1": {
+    "form": {
       "type": "contactformsimple2",
       "settings": {
         "color_scheme": "default",
         "btn_text": "Send message",
         "ph_website": "Order number (optional)",
         "label_website": "Order number",
-        "success_text": "Thanks. Your message is on its way."
+        "success_text": "Thanks. We will reply within one working day."
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Get in touch"
+            "text": "Contact"
           }
         },
         "description_2": {
           "type": "description",
           "settings": {
-            "text": "<p>A download that will not open, or a question about the licence? Send a message and include your order number.</p>"
+            "text": "<p>A file that will not open, a missing email or a question about the licence: send a message and include your order number if you have one.</p>"
           }
         },
         "info_3": {
@@ -45,9 +45,56 @@
         "info_3",
         "info_4"
       ]
+    },
+    "faq": {
+      "type": "faq",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "content_alignment": "left",
+        "max_content_width": 880,
+        "first_item_open": true,
+        "open_icon": "plus",
+        "item_padding_x": 0,
+        "gap_between_items": 0,
+        "heading_size_desktop": 40,
+        "heading_size_mobile": 30,
+        "question_size_desktop": 18,
+        "question_size_mobile": 16,
+        "padding_top": 96,
+        "padding_bottom": 96
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Before you write"
+          }
+        },
+        "faq_item_2": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What if the email does not arrive?",
+            "answer": "<p>Check your spam folder first. If it is not there, write to us with the email you used at checkout and we will send the link again.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Which apps open the files?",
+            "answer": "<p>Every product page lists the format, the file size and the apps it works with. If you are not sure, ask before you buy.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "faq_item_2",
+        "faq_item_3"
+      ]
     }
   },
   "order": [
-    "contactformsimple2_1"
+    "form",
+    "faq"
   ]
 }

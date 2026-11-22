@@ -1,12 +1,22 @@
 {
   "sections": {
-    "image_and_video_text_1": {
+    "intro": {
       "type": "Image-and-video-text",
       "settings": {
         "color_scheme": "default",
-        "image": "shopify://shop_images/digital-studio-room.webp",
-        "image_alt": "A home studio with guitars and a keyboard by a window",
-        "image_position": "right"
+        "section_width": "container",
+        "image_position": "right",
+        "text_column_width": 46,
+        "image": "shopify://shop_images/digital-bundle.webp",
+        "image_alt": "Four product covers: a guide, an icon set, photo presets and a typeface",
+        "aspect_w": 1,
+        "aspect_h": 1,
+        "image_radius": 14,
+        "padding_top_desktop": 80,
+        "padding_bottom_desktop": 96,
+        "gap_desktop": 80,
+        "content_align": "left",
+        "mobile_order": "text_first"
       },
       "blocks": {
         "eyebrow_1": {
@@ -18,19 +28,21 @@
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Made by people who use them"
+            "text": "Files we made for our own work first",
+            "size_desktop": 52,
+            "size_mobile": 34
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Say who makes these packs and what you make with them yourself. Two or three sentences is enough.</p>"
+            "text": "<p>Plainfile is a small shop run by a designer and a photographer. Everything here started as something we built for our own projects and kept using. Tell your story here in two or three sentences: who you are, what you make, and why someone should trust your files.</p>"
           }
         },
         "button_4": {
           "type": "button",
           "settings": {
-            "label": "Browse packs",
+            "label": "Browse all files",
             "link": "/collections/all"
           }
         }
@@ -42,55 +54,82 @@
         "button_4"
       ]
     },
-    "image_with_text_multirow_2": {
-      "type": "image-with-text-multirow",
+    "values": {
+      "type": "text-columns",
       "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976"
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "columns_desktop": 3,
+        "column_gap": 56,
+        "header_gap": 48,
+        "show_dividers": true,
+        "item_heading_size": 22,
+        "padding_top": 96,
+        "padding_bottom": 96
       },
       "blocks": {
-        "row_1": {
-          "type": "row",
+        "heading_1": {
+          "type": "heading",
           "settings": {
-            "caption": "Presets",
-            "heading": "For photographers",
-            "image": "shopify://shop_images/digital-photographer.webp",
-            "body": "<p>Describe your presets and the look they give.</p>",
-            "btn_label": "See presets",
-            "btn_link": "/collections/all"
+            "text": "How we make them"
           }
         },
-        "row_2": {
-          "type": "row",
+        "column_2": {
+          "type": "column",
           "settings": {
-            "caption": "Templates",
-            "heading": "For designers",
-            "image": "shopify://shop_images/digital-desk.webp",
-            "body": "<p>Describe your templates and which apps open them.</p>",
-            "btn_label": "See templates",
-            "btn_link": "/collections/all"
+            "label": "Used first",
+            "heading": "Tested on real jobs",
+            "text": "<p>Nothing goes on sale until we have used it on paid work of our own.</p>"
           }
         },
-        "row_3": {
-          "type": "row",
+        "column_3": {
+          "type": "column",
           "settings": {
-            "caption": "Sample packs",
-            "heading": "For producers",
-            "image": "shopify://shop_images/digital-code.webp",
-            "body": "<p>Describe your sounds and how they are recorded.</p>",
-            "btn_label": "See sample packs",
-            "btn_link": "/collections/all"
+            "label": "Kept up",
+            "heading": "Updated, not abandoned",
+            "text": "<p>When an app changes, we update the file and you download it again for free.</p>"
+          }
+        },
+        "column_4": {
+          "type": "column",
+          "settings": {
+            "label": "Answered",
+            "heading": "A person replies",
+            "text": "<p>Questions go to the two of us, and we answer within one working day.</p>"
           }
         }
       },
       "block_order": [
-        "row_1",
-        "row_2",
-        "row_3"
+        "heading_1",
+        "column_2",
+        "column_3",
+        "column_4"
       ]
+    },
+    "new": {
+      "type": "products-grid",
+      "settings": {
+        "heading": "Start here",
+        "text": "",
+        "items_to_show": 4,
+        "show_add_to_cart": false,
+        "button_label": "See all files",
+        "button_link": "/collections/all",
+        "items_per_row": 4,
+        "items_per_row_mobile": 2,
+        "column_gap": 24,
+        "header_alignment": "left",
+        "color_scheme": "default",
+        "section_width": "container",
+        "padding_top": 96,
+        "padding_bottom": 96,
+        "reset_spacing": true
+      }
     }
   },
   "order": [
-    "image_and_video_text_1",
-    "image_with_text_multirow_2"
+    "intro",
+    "values",
+    "new"
   ]
 }

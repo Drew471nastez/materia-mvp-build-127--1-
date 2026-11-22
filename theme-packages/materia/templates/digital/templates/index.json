@@ -1,49 +1,84 @@
 {
   "sections": {
-    "hero_image1_1": {
-      "type": "hero-image1",
+    "hero": {
+      "type": "hero-collage",
       "settings": {
         "color_scheme": "default",
-        "image": "shopify://shop_images/digital-hero-studio.webp",
-        "image_alt": "A music studio with guitars on the wall and a mixing desk",
-        "min_height_desktop": 680,
-        "min_height_mobile": 520,
-        "overlay_opacity": 62
+        "section_width": "container",
+        "image_position": "right",
+        "media_width_desktop": 54,
+        "content_max_width": 540,
+        "content_gap": 22,
+        "image_aspect_ratio": "square",
+        "collage_gap": 16,
+        "collage_offset_desktop": 48,
+        "image_radius": 14,
+        "padding_top_desktop": 72,
+        "padding_bottom_desktop": 96,
+        "padding_top_mobile": 28,
+        "padding_bottom_mobile": 56
       },
       "blocks": {
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "Presets, templates, sample packs"
+            "text": "Instant download"
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Tools for your next project",
-            "enable_custom_style": true,
+            "text": "Templates, presets and guides you can use today",
+            "size_enable": true,
             "size_desktop": 72,
-            "size_mobile": 40
+            "size_mobile": 42,
+            "line_height": 1.0,
+            "tracking": -2
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Download in seconds. Use them in personal and client work.</p>"
+            "text": "<p>Pay once and the files are in your inbox a moment later. Use them in your own work and your clients'.</p>",
+            "size_enable": true,
+            "size": 18,
+            "line_height": 1.5
           }
         },
-        "primary_button_4": {
-          "type": "primary_button",
+        "button_4": {
+          "type": "button",
           "settings": {
-            "label": "Browse all packs",
+            "text": "Browse all files",
             "link": "/collections/all"
           }
         },
-        "secondary_button_5": {
-          "type": "secondary_button",
+        "button_5": {
+          "type": "button",
           "settings": {
-            "label": "How the licence works",
-            "link": "/pages/faqs"
+            "text": "How downloads work",
+            "link": "/pages/faqs",
+            "button_style": "secondary"
+          }
+        },
+        "image_6": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/digital-hero-books.webp",
+            "alt": "Two guides, Pricing your work and Sell your first file"
+          }
+        },
+        "image_7": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/digital-templates.webp",
+            "alt": "Social post templates and a business card"
+          }
+        },
+        "image_8": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/digital-icons.webp",
+            "alt": "A sheet of sixteen line icons"
           }
         }
       },
@@ -51,155 +86,117 @@
         "eyebrow_1",
         "heading_2",
         "subheading_3",
-        "primary_button_4",
-        "secondary_button_5"
+        "button_4",
+        "button_5",
+        "image_6",
+        "image_7",
+        "image_8"
       ]
     },
-    "benefits_bar_2": {
-      "type": "benefits-bar",
+    "new": {
+      "type": "products-grid",
       "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976"
-      },
-      "blocks": {
-        "icon_1": {
-          "type": "icon",
-          "settings": {
-            "icon": "shipping_fast",
-            "icon_title": "Instant download"
-          }
-        },
-        "icon_2": {
-          "type": "icon",
-          "settings": {
-            "icon": "undo_alt",
-            "icon_title": "Free updates"
-          }
-        },
-        "icon_3": {
-          "type": "icon",
-          "settings": {
-            "icon": "lock",
-            "icon_title": "Commercial licence"
-          }
-        },
-        "icon_4": {
-          "type": "icon",
-          "settings": {
-            "icon": "headset",
-            "icon_title": "Secure checkout"
-          }
-        }
-      },
-      "block_order": [
-        "icon_1",
-        "icon_2",
-        "icon_3",
-        "icon_4"
-      ]
-    },
-    "products_carousel_3": {
-      "type": "products-carousel",
-      "settings": {
-        "color_scheme": "default",
+        "heading": "New files",
+        "text": "<p>Every one of these downloads the moment you pay.</p>",
         "items_to_show": 8,
-        "items_per_row": 3
+        "show_add_to_cart": false,
+        "button_label": "See all files",
+        "button_link": "/collections/all",
+        "items_per_row": 4,
+        "items_per_row_mobile": 2,
+        "column_gap": 24,
+        "header_alignment": "left",
+        "color_scheme": "default",
+        "section_width": "container",
+        "padding_top": 24,
+        "padding_bottom": 96,
+        "reset_spacing": true
+      }
+    },
+    "every": {
+      "type": "text-columns",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "columns_desktop": 4,
+        "column_gap": 40,
+        "header_gap": 48,
+        "show_dividers": true,
+        "item_heading_size": 20,
+        "padding_top": 88,
+        "padding_bottom": 88
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Latest releases"
+            "text": "What comes with every file"
           }
         },
-        "subheading_2": {
-          "type": "subheading",
+        "column_2": {
+          "type": "column",
           "settings": {
-            "text": "<p>New packs, added every month.</p>"
+            "label": "Delivery",
+            "heading": "Instant, by email",
+            "text": "<p>The download link is on the order page and in your receipt.</p>"
           }
         },
-        "view_all_3": {
-          "type": "view_all",
+        "column_3": {
+          "type": "column",
           "settings": {
-            "label": "View all",
-            "position": "header",
-            "link": "/collections/all"
+            "label": "Format",
+            "heading": "Listed on every page",
+            "text": "<p>File type, size and the apps it opens in, before you pay.</p>"
+          }
+        },
+        "column_4": {
+          "type": "column",
+          "settings": {
+            "label": "Updates",
+            "heading": "Free, for good",
+            "text": "<p>When a file improves, download the new version from the same email.</p>"
+          }
+        },
+        "column_5": {
+          "type": "column",
+          "settings": {
+            "label": "Licence",
+            "heading": "Personal and client work",
+            "text": "<p>Use the files in anything you make. Just do not resell them.</p>"
           }
         }
       },
       "block_order": [
         "heading_1",
-        "subheading_2",
-        "view_all_3"
+        "column_2",
+        "column_3",
+        "column_4",
+        "column_5"
       ]
     },
-    "imagewithtextgrid_4": {
-      "type": "imagewithtextgrid",
-      "settings": {
-        "color_scheme": "scheme-7dae8b89-7a81-4c2c-b8e2-92533766f8ca",
-        "layout": "thumbs_left"
-      },
-      "blocks": {
-        "thumb_image_1": {
-          "type": "thumb_image",
-          "settings": {
-            "image": "shopify://shop_images/digital-camera.webp"
-          }
-        },
-        "thumb_image_2": {
-          "type": "thumb_image",
-          "settings": {
-            "image": "shopify://shop_images/digital-tablet.webp"
-          }
-        },
-        "thumb_image_3": {
-          "type": "thumb_image",
-          "settings": {
-            "image": "shopify://shop_images/digital-headphones.webp"
-          }
-        },
-        "main_image_4": {
-          "type": "main_image",
-          "settings": {
-            "image": "shopify://shop_images/digital-swatches.webp"
-          }
-        },
-        "heading_5": {
-          "type": "heading",
-          "settings": {
-            "text": "Three kinds of download"
-          }
-        },
-        "subheading_6": {
-          "type": "subheading",
-          "settings": {
-            "text": "<p>Photo presets for one click edits, design templates you can change in minutes, and royalty free sample packs for producers.</p>"
-          }
-        },
-        "button_7": {
-          "type": "button",
-          "settings": {
-            "label": "See everything",
-            "link": "/collections/all"
-          }
-        }
-      },
-      "block_order": [
-        "thumb_image_1",
-        "thumb_image_2",
-        "thumb_image_3",
-        "main_image_4",
-        "heading_5",
-        "subheading_6",
-        "button_7"
-      ]
-    },
-    "image_with_text_steps_5": {
+    "how": {
       "type": "image-with-text-steps",
       "settings": {
         "color_scheme": "default",
-        "image": "shopify://shop_images/digital-decks.webp",
-        "image_alt": "A hand on a DJ controller lit in purple",
-        "image_position": "right"
+        "section_width": "container",
+        "image_position": "right",
+        "image": "shopify://shop_images/digital-email.webp",
+        "image_alt": "A receipt email with two files and a Download all button",
+        "image_aspect_desktop": "4 / 5",
+        "image_aspect": "4 / 5",
+        "image_radius": 12,
+        "step_style": "numbered",
+        "marker_size": 36,
+        "padding_top": 96,
+        "padding_bottom": 96,
+        "gap_desktop": 88,
+        "step_title_size": 20,
+        "step_desc_size": 16,
+        "button_radius": 999,
+        "custom_colors": true,
+        "marker_color": "#111113",
+        "marker_text_color": "#ffffff",
+        "line_color": "#d8d6cf"
       },
       "blocks": {
         "eyebrow_1": {
@@ -211,40 +208,42 @@
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "From checkout to project in a minute"
+            "text": "Pay, open the email, download",
+            "size_desktop": 48,
+            "size_mobile": 32
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>No account needed and nothing to wait for.</p>"
+            "text": "<p>There is nothing to wait for and nothing posted. You can start using the files a minute after checkout.</p>"
           }
         },
         "step_4": {
           "type": "step",
           "settings": {
             "title": "Buy",
-            "description": "<p>Pay by card, Apple Pay or PayPal.</p>"
+            "description": "<p>Check out by card, Apple Pay, Google Pay or PayPal. No account needed.</p>"
           }
         },
         "step_5": {
           "type": "step",
           "settings": {
-            "title": "Download",
-            "description": "<p>Your files are ready on the next page and in your email.</p>"
+            "title": "Get the email",
+            "description": "<p>Your receipt arrives straight away with a link to every file. The same link is on the order page.</p>"
           }
         },
         "step_6": {
           "type": "step",
           "settings": {
-            "title": "Create",
-            "description": "<p>Open them in your app and start working.</p>"
+            "title": "Download and keep",
+            "description": "<p>Save the files to your computer. The link keeps working, so you can download them again later.</p>"
           }
         },
         "button_7": {
           "type": "button",
           "settings": {
-            "label": "Browse packs",
+            "label": "Browse all files",
             "url": "/collections/all"
           }
         }
@@ -259,130 +258,212 @@
         "button_7"
       ]
     },
-    "quotebanner_6": {
-      "type": "quotebanner",
+    "bundle": {
+      "type": "Image-and-video-text",
       "settings": {
-        "color_scheme": "default"
+        "color_scheme": "scheme-b0fae5fa-c388-4a42-acd3-92cf8fe0b1fb",
+        "section_width": "container",
+        "image_position": "left",
+        "text_column_width": 44,
+        "image": "shopify://shop_images/digital-bundle.webp",
+        "image_alt": "Four product covers: a guide, an icon set, photo presets and a typeface",
+        "aspect_w": 1,
+        "aspect_h": 1,
+        "image_radius": 14,
+        "padding_top_desktop": 96,
+        "padding_bottom_desktop": 96,
+        "gap_desktop": 80,
+        "content_align": "left",
+        "mobile_order": "media_first"
       },
       "blocks": {
-        "quote_1": {
-          "type": "quote",
+        "eyebrow_1": {
+          "type": "eyebrow",
           "settings": {
-            "quote_text": "Add a line a customer wrote about your packs."
+            "text": "Bundle"
           }
         },
-        "author_2": {
-          "type": "author",
+        "heading_2": {
+          "type": "heading",
           "settings": {
-            "author_name": "Customer name",
-            "author_role": "What they make"
+            "text": "The starter bundle",
+            "size_desktop": 52,
+            "size_mobile": 34
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>The pricing guide, the line icons, the Soft Film presets and the Marlow typeface in one download. <strong>$79</strong> instead of $112 bought one by one.</p><p>Put your own best sellers together here and link the button to the bundle.</p>"
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "See what is inside",
+            "link": "/collections/all"
           }
         }
       },
       "block_order": [
-        "quote_1",
-        "author_2"
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
       ]
     },
-    "faq_pro_7": {
-      "type": "faq-pro",
+    "licence": {
+      "type": "text-columns",
       "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976"
+        "color_scheme": "default",
+        "section_width": "container",
+        "columns_desktop": 3,
+        "column_gap": 56,
+        "header_gap": 48,
+        "show_dividers": true,
+        "item_heading_size": 24,
+        "padding_top": 96,
+        "padding_bottom": 96
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Licence and downloads"
+            "text": "The licence, in plain words"
           }
         },
-        "subheading_2": {
-          "type": "subheading",
+        "column_2": {
+          "type": "column",
           "settings": {
-            "text": "<p>What you can do with the files, and how you get them.</p>"
+            "label": "You can",
+            "heading": "Use it in your own and client work",
+            "text": "<p>Websites, social posts, printed pieces, videos and products you sell, as many times as you like.</p>"
+          }
+        },
+        "column_3": {
+          "type": "column",
+          "settings": {
+            "label": "You cannot",
+            "heading": "Pass the files on",
+            "text": "<p>Reselling, sharing or giving away the files, even changed, is not allowed. Send people here instead.</p>"
+          }
+        },
+        "column_4": {
+          "type": "column",
+          "settings": {
+            "label": "Teams",
+            "heading": "One licence per person",
+            "text": "<p>Buying for a team? Buy one per person who uses the files, or write to us for a team price.</p>",
+            "link_label": "Read the full licence",
+            "link": "/pages/licence"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "column_2",
+        "column_3",
+        "column_4"
+      ]
+    },
+    "faq": {
+      "type": "faq",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "content_alignment": "left",
+        "max_content_width": 880,
+        "first_item_open": true,
+        "open_icon": "plus",
+        "item_padding_x": 0,
+        "gap_between_items": 0,
+        "heading_size_desktop": 40,
+        "heading_size_mobile": 30,
+        "question_size_desktop": 18,
+        "question_size_mobile": 16,
+        "padding_top": 96,
+        "padding_bottom": 96
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Questions before you buy"
+          }
+        },
+        "faq_item_2": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How do I get my files?",
+            "answer": "<p>As soon as you pay, the download link is on the order page and in your receipt email. Nothing is posted.</p>"
           }
         },
         "faq_item_3": {
           "type": "faq_item",
           "settings": {
-            "question": "How do I get my files?",
-            "answer": "<p>The download link is on the confirmation page and in your receipt email, as soon as you pay.</p>"
+            "question": "What if the email does not arrive?",
+            "answer": "<p>Check your spam folder first. If it is not there, write to us with the email you used at checkout and we will send the link again.</p>"
           }
         },
         "faq_item_4": {
           "type": "faq_item",
           "settings": {
-            "question": "Which software do I need?",
-            "answer": "<p>Each product page lists the apps and versions the files work with.</p>"
+            "question": "Which apps open the files?",
+            "answer": "<p>Every product page lists the format, the file size and the apps it works with. If you are not sure, ask before you buy.</p>"
           }
         },
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "Can I use these in client work?",
-            "answer": "<p>Yes. The standard licence covers personal and commercial projects. You cannot resell the files themselves.</p>"
+            "question": "Can I use the files in client work?",
+            "answer": "<p>Yes. The licence covers personal and commercial projects. You cannot resell or share the files themselves.</p>"
           }
         },
         "faq_item_6": {
           "type": "faq_item",
           "settings": {
             "question": "Do I get updates?",
-            "answer": "<p>Yes. When a pack is updated you can download the new version free from your receipt.</p>"
-          }
-        },
-        "button_7": {
-          "type": "button",
-          "settings": {
-            "label": "Read the full FAQ",
-            "link": "/pages/faqs"
+            "answer": "<p>Yes. When a file is updated, the new version is free. Download it from the same email.</p>"
           }
         }
       },
       "block_order": [
         "heading_1",
-        "subheading_2",
+        "faq_item_2",
         "faq_item_3",
         "faq_item_4",
         "faq_item_5",
-        "faq_item_6",
-        "button_7"
+        "faq_item_6"
       ]
     },
-    "newsletter_8": {
+    "news": {
       "type": "newsletter",
       "settings": {
-        "color_scheme": "scheme-6da511c0-ea26-4213-b3d3-e09320840636",
-        "btn_text": "Send me the pack",
-        "note": "One email a month. Unsubscribe any time."
-      },
-      "blocks": {
-        "heading_1": {
-          "type": "heading",
-          "settings": {
-            "text": "Get a free pack every month"
-          }
-        },
-        "subheading_2": {
-          "type": "subheading",
-          "settings": {
-            "text": "<p>Join the list and we send one free download a month.</p>"
-          }
-        }
-      },
-      "block_order": [
-        "heading_1",
-        "subheading_2"
-      ]
+        "color_scheme": "default",
+        "section_width": "container",
+        "heading": "New files, once a month",
+        "description": "<p>One short email when something new is ready, with an early price for people on the list.</p>",
+        "btn_text": "Sign up",
+        "email_placeholder": "Your email",
+        "note": "Unsubscribe whenever you like.",
+        "header_alignment": "center",
+        "form_layout": "vertical",
+        "header_size": "large",
+        "button_radius": 999,
+        "field_radius": 999,
+        "padding_top": 104,
+        "padding_bottom": 104
+      }
     }
   },
   "order": [
-    "hero_image1_1",
-    "benefits_bar_2",
-    "products_carousel_3",
-    "imagewithtextgrid_4",
-    "image_with_text_steps_5",
-    "quotebanner_6",
-    "faq_pro_7",
-    "newsletter_8"
+    "hero",
+    "new",
+    "every",
+    "how",
+    "bundle",
+    "licence",
+    "faq",
+    "news"
   ]
 }

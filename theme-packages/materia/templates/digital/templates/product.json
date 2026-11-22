@@ -5,18 +5,17 @@
       "settings": {
         "alignment": "left",
         "font_size": 14,
-        "next_prev": true,
-        "separator": "dot",
+        "next_prev": false,
+        "separator": "slash",
         "uppercase": false,
         "color_scheme": "default",
         "reset_spacing": true,
         "section_width": "container",
-        "next_prev_icon": "chevron",
-        "padding_top_mobile": 9,
-        "padding_top_desktop": 26,
-        "enable_custom_padding": true,
-        "padding_bottom_mobile": 9,
-        "padding_bottom_desktop": 26
+        "padding_top_mobile": 12,
+        "padding_top_desktop": 28,
+        "padding_bottom_mobile": 12,
+        "padding_bottom_desktop": 28,
+        "enable_custom_padding": true
       }
     },
     "main": {
@@ -28,121 +27,79 @@
         "media_square": true,
         "reset_spacing": true,
         "section_width": "container",
-        "sticky_bar_bg": "",
         "desktop_layout": "thumbnail_bottom",
         "mobile_options": "show_thumbnails",
-        "padding_bottom": 100,
+        "padding_bottom": 96,
         "sticky_top_gap": 24,
         "enable_on_mobile": true,
         "sticky_padding_y": 12,
         "enable_on_desktop": true,
         "sticky_show_image": true,
         "sticky_show_title": true,
-        "content_gap_desktop": 40,
-        "desktop_media_width": 50,
-        "padding_left_mobile": 0,
-        "sticky_border_color": "",
-        "enable_video_looping": true,
-        "padding_left_desktop": 0,
-        "padding_right_mobile": 0,
+        "content_gap_desktop": 56,
+        "desktop_media_width": 55,
         "section_width_mobile": "fluid_container",
-        "sticky_button_radius": 8,
-        "sticky_show_quantity": true,
-        "enable_custom_padding": false,
+        "sticky_button_radius": 999,
+        "sticky_show_quantity": false,
         "enable_video_autoplay": true,
-        "padding_right_desktop": 0,
-        "enable_nav_dots_mobile": false,
+        "enable_video_looping": true,
         "mobile_slides_per_view": "1",
-        "enable_custom_media_gap": false,
         "sticky_show_variant_picker": true,
         "enable_sticky_content_on_desktop": true
       },
-      "name": "Main product",
       "blocks": {
-        "title_1": {
+        "specs_badge_1": {
+          "type": "specs_badge",
+          "settings": {
+            "text": "Digital download",
+            "alignment": "left",
+            "font_size": 13,
+            "font_weight": "600",
+            "padding_top": 0,
+            "padding_bottom": 10
+          }
+        },
+        "title_2": {
           "type": "title",
           "settings": {
             "show_vendor": false,
-            "title_font_size_mobile": 32,
-            "title_font_size_desktop": 33
+            "title_font_size_mobile": 30,
+            "title_font_size_desktop": 40
           }
         },
-        "product_description_2": {
-          "type": "product_description",
-          "settings": {
-            "pb_d": 0,
-            "pb_m": 16,
-            "pl_d": 0,
-            "pl_m": 0,
-            "pr_d": 0,
-            "pr_m": 0,
-            "pt_d": 0,
-            "pt_m": 0,
-            "text_color": "",
-            "font_size_d": 16,
-            "font_size_m": 15,
-            "line_height": 150,
-            "custom_description": "",
-            "enable_custom_description": false
-          }
-        },
-        "short_description_3": {
-          "type": "short_description",
-          "settings": {
-            "excerpt_length": 204
-          }
-        },
-        "price_4": {
+        "price_3": {
           "type": "price",
           "settings": {
             "price_font_weight": "600",
             "compare_font_weight": "400",
-            "price_font_size_mobile": 31,
-            "price_font_size_desktop": 28,
-            "compare_font_size_mobile": 14,
+            "price_font_size_mobile": 24,
+            "price_font_size_desktop": 26,
+            "compare_font_size_mobile": 15,
             "compare_font_size_desktop": 16
           }
         },
-        "variant_picker_5": {
+        "variant_picker_4": {
           "type": "variant_picker",
           "settings": {
             "variant_type": "swatches",
             "show_size_guide": false,
-            "size_guide_page": "",
-            "size_guide_label": "Size guide",
-            "picker_text_hover": "#0f0f0f",
-            "picker_bg_selected": "#1d1d1d",
-            "picker_border_color": "#cecece",
-            "enable_picker_custom": false,
-            "picker_bg_unselected": "#ffffff",
-            "picker_border_radius": 6,
-            "picker_text_selected": "#ffffff",
-            "picker_text_unselected": "#0f0f0f"
+            "picker_border_radius": 999
           }
         },
-        "buy_buttons_6": {
+        "buy_buttons_5": {
           "type": "buy_buttons",
           "settings": {
             "atc_icon": "bag",
             "buy_icon": "check",
-            "atc_bg_color": "",
-            "atc_hover_bg": "",
-            "buy_bg_color": "",
-            "buy_hover_bg": "",
-            "show_quantity": true,
+            "show_quantity": false,
             "atc_appearance": "theme",
-            "atc_hover_text": "",
-            "atc_icon_color": "transparent",
-            "atc_text_color": "",
             "buy_appearance": "theme",
-            "buy_hover_text": "",
-            "buy_text_color": "",
             "atc_button_text": "Add to cart",
             "atc_font_weight": "600",
-            "atc_icon_enable": true,
-            "buy_button_text": "Buy Now",
+            "atc_icon_enable": false,
+            "buy_button_text": "Buy now",
             "buy_font_weight": "600",
-            "buy_icon_enable": true,
+            "buy_icon_enable": false,
             "show_add_to_cart": true,
             "show_price_in_atc": false,
             "show_variant_picker": true,
@@ -151,33 +108,41 @@
             "quantity_right_of_atc": false,
             "show_dynamic_checkout": true,
             "show_price_in_buy_now": false,
-            "estimated_delivery_text": "",
-            "estimated_delivery_color": "",
-            "show_gift_card_recipient": true,
+            "show_gift_card_recipient": false,
             "enable_custom_button_text": true,
             "enable_estimated_delivery": false,
             "enable_custom_button_typography": true
           }
         },
-        "product_grouped_7": {
-          "type": "product_grouped",
+        "text_6": {
+          "type": "text",
           "settings": {
-            "heading": "Also available as"
+            "heading": "Instant delivery",
+            "content": "<p>The download link is on the order page and in your receipt email the moment you pay. Nothing is posted.</p>"
           }
         },
-        "more_colors_8": {
-          "type": "more_colors",
+        "text_7": {
+          "type": "text",
           "settings": {
-            "heading": "More colours",
-            "image_width": 40
+            "heading": "The file",
+            "content": "<p>Format: PDF and ZIP</p><p>File size: about 25 MB</p><p>Opens in: any PDF reader, Figma, Lightroom</p><p><em>Replace these three lines with the details of this file.</em></p>"
+          }
+        },
+        "collapsible_row_8": {
+          "type": "collapsible_row",
+          "settings": {
+            "open": true,
+            "heading": "What is included",
+            "use_product_description": true,
+            "content": ""
           }
         },
         "collapsible_row_9": {
           "type": "collapsible_row",
           "settings": {
             "open": false,
-            "content": "<p>List the files in this pack: how many, which formats and the total size.</p>",
-            "heading": "What you get",
+            "heading": "Licence",
+            "content": "<p>Use the files in personal and client projects, as often as you like. You cannot resell, share or give away the files themselves. <a href=\"/pages/licence\">Read the full licence</a>.</p>",
             "use_product_description": false
           }
         },
@@ -185,147 +150,134 @@
           "type": "collapsible_row",
           "settings": {
             "open": false,
-            "content": "<p>Use these files in personal and commercial projects. You cannot resell or share the files themselves.</p>",
-            "heading": "Licence",
+            "heading": "Refunds",
+            "content": "<p>A download cannot be returned. If a file is broken or not what this page describes, write to us and we will fix it or refund you.</p>",
             "use_product_description": false
           }
-        },
-        "payment_badges_11": {
-          "type": "payment_badges",
-          "settings": {
-            "h_main": "",
-            "sec_bg": "rgba(0,0,0,0)",
-            "sec_mb": 0,
-            "sec_mt": 0,
-            "sec_pb": 22,
-            "sec_pl": 0,
-            "sec_pr": 0,
-            "sec_pt": 22,
-            "badge_h": 31,
-            "badge_w": 47,
-            "sub_url": "",
-            "sec_maxw": 116,
-            "sec_pl_m": 0,
-            "sec_pr_m": 0,
-            "sub_text": "",
-            "badge_h_m": 22,
-            "badge_w_m": 68,
-            "h_main_mb": 16,
-            "h_main_mt": 0,
-            "show_amex": true,
-            "show_visa": true,
-            "sub_color": "#333333",
-            "sub_hover": "#111111",
-            "a11y_label": "Payment badges",
-            "sec_maxw_m": 150,
-            "sec_radius": 0,
-            "sub_newtab": false,
-            "text_align": "left",
-            "h_main_size": 16,
-            "show_paypal": true,
-            "sub_uline_w": 1,
-            "badges_align": "auto",
-            "h_main_color": "#2c2c2c",
-            "text_align_m": "center",
-            "toggle_icons": true,
-            "show_unionpay": true,
-            "sub_underline": false,
-            "show_apple_pay": true,
-            "show_google_pay": true,
-            "show_mastercard": true
-          }
         }
       },
       "block_order": [
-        "title_1",
-        "product_description_2",
-        "short_description_3",
-        "price_4",
-        "variant_picker_5",
-        "buy_buttons_6",
-        "product_grouped_7",
-        "more_colors_8",
+        "specs_badge_1",
+        "title_2",
+        "price_3",
+        "variant_picker_4",
+        "buy_buttons_5",
+        "text_6",
+        "text_7",
+        "collapsible_row_8",
         "collapsible_row_9",
-        "collapsible_row_10",
-        "payment_badges_11"
+        "collapsible_row_10"
       ]
     },
-    "text_columns_1": {
-      "type": "text-columns",
+    "how": {
+      "type": "image-with-text-steps",
       "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976"
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "image_position": "right",
+        "image": "shopify://shop_images/digital-email.webp",
+        "image_alt": "A receipt email with two files and a Download all button",
+        "image_aspect_desktop": "4 / 5",
+        "image_aspect": "4 / 5",
+        "image_radius": 12,
+        "step_style": "numbered",
+        "marker_size": 36,
+        "padding_top": 88,
+        "padding_bottom": 88,
+        "gap_desktop": 88,
+        "step_title_size": 20,
+        "step_desc_size": 16,
+        "button_radius": 999,
+        "custom_colors": true,
+        "marker_color": "#111113",
+        "marker_text_color": "#ffffff",
+        "line_color": "#d8d6cf"
       },
       "blocks": {
-        "heading_1": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "How it works"
+          }
+        },
+        "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "With every download"
+            "text": "Pay, open the email, download",
+            "size_desktop": 48,
+            "size_mobile": 32
           }
         },
-        "column_2": {
-          "type": "column",
+        "subheading_3": {
+          "type": "subheading",
           "settings": {
-            "label": "Delivery",
-            "heading": "Instant download",
-            "text": "<p>Your files are ready as soon as you pay.</p>"
+            "text": "<p>There is nothing to wait for and nothing posted. You can start using the files a minute after checkout.</p>"
           }
         },
-        "column_3": {
-          "type": "column",
+        "step_4": {
+          "type": "step",
           "settings": {
-            "label": "Updates",
-            "heading": "Free updates",
-            "text": "<p>Download new versions from your receipt.</p>"
+            "title": "Buy",
+            "description": "<p>Check out by card, Apple Pay, Google Pay or PayPal. No account needed.</p>"
           }
         },
-        "column_4": {
-          "type": "column",
+        "step_5": {
+          "type": "step",
           "settings": {
-            "label": "Licence",
-            "heading": "Commercial use",
-            "text": "<p>Use the files in client work.</p>"
+            "title": "Get the email",
+            "description": "<p>Your receipt arrives straight away with a link to every file. The same link is on the order page.</p>"
+          }
+        },
+        "step_6": {
+          "type": "step",
+          "settings": {
+            "title": "Download and keep",
+            "description": "<p>Save the files to your computer. The link keeps working, so you can download them again later.</p>"
+          }
+        },
+        "button_7": {
+          "type": "button",
+          "settings": {
+            "label": "Browse all files",
+            "url": "/collections/all"
           }
         }
       },
       "block_order": [
-        "heading_1",
-        "column_2",
-        "column_3",
-        "column_4"
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "step_4",
+        "step_5",
+        "step_6",
+        "button_7"
       ]
     },
-    "products_carousel_2": {
-      "type": "products-carousel",
+    "more": {
+      "type": "products-grid",
       "settings": {
+        "heading": "More files",
+        "text": "",
+        "items_to_show": 4,
+        "show_add_to_cart": false,
+        "button_label": "See all files",
+        "button_link": "/collections/all",
+        "items_per_row": 4,
+        "items_per_row_mobile": 2,
+        "column_gap": 24,
+        "header_alignment": "left",
         "color_scheme": "default",
-        "items_per_row": 3
-      },
-      "blocks": {
-        "heading_1": {
-          "type": "heading",
-          "settings": {
-            "text": "More packs"
-          }
-        },
-        "view_all_2": {
-          "type": "view_all",
-          "settings": {
-            "label": "View all",
-            "position": "header",
-            "link": "/collections/all"
-          }
-        }
-      },
-      "block_order": [
-        "heading_1",
-        "view_all_2"
-      ]
+        "section_width": "container",
+        "padding_top": 88,
+        "padding_bottom": 96,
+        "reset_spacing": true
+      }
     }
   },
   "order": [
     "breadcrumb",
     "main",
-    "text_columns_1",
-    "products_carousel_2"
+    "how",
+    "more"
   ]
 }

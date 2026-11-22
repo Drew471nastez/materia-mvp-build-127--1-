@@ -4,53 +4,52 @@
       "type": "main-collection-heading",
       "settings": {
         "height": "adapt",
-        "alignment": "center",
-        "padding_top": 40,
+        "alignment": "left",
+        "padding_top": 56,
         "color_scheme": "default",
         "reset_spacing": true,
-        "section_width": "fluid_container",
+        "section_width": "container",
         "padding_bottom": 24,
         "show_collection_image": false
       },
-      "name": "main-collection-heading",
       "blocks": {
-        "breadcrumb": {
+        "breadcrumb_1": {
           "type": "breadcrumb",
           "settings": {}
         },
-        "heading": {
+        "heading_2": {
           "type": "heading",
           "settings": {
             "header_size": "default"
           }
         },
-        "description": {
+        "description_3": {
           "type": "description",
           "settings": {}
         }
       },
       "block_order": [
-        "breadcrumb",
-        "heading",
-        "description"
+        "breadcrumb_1",
+        "heading_2",
+        "description_3"
       ]
     },
     "main-collection-product": {
       "type": "main-collection-product",
       "settings": {
         "sorting": true,
-        "column_gap": 30,
+        "column_gap": 24,
         "pagination": "default",
         "padding_top": 0,
         "color_scheme": "default",
         "filter_layout": "horizontal",
-        "items_per_row": 3,
-        "items_to_show": 12,
+        "items_per_row": 4,
+        "items_to_show": 16,
         "reset_spacing": true,
-        "section_width": "fluid_container",
+        "section_width": "container",
         "default_filter": "open_all",
         "empty_link_url": "/collections/all",
-        "padding_bottom": 60,
+        "padding_bottom": 96,
         "vertical_posion": "left",
         "button_show_more": "Show more",
         "enable_filtering": true,
@@ -59,27 +58,81 @@
         "toolbar_button_style": "minimal",
         "number_products_per_page": true
       },
-      "name": "main-collection-product",
       "blocks": {
-        "block-mvmkffsh-1-pcnzc": {
+        "categories_1": {
           "type": "categories",
           "settings": {
-            "title": "Category"
+            "title": "Kind"
           }
         },
-        "block-mvmkfj68-2-iqqos": {
+        "filter_2": {
           "type": "filter",
           "settings": {}
         }
       },
       "block_order": [
-        "block-mvmkffsh-1-pcnzc",
-        "block-mvmkfj68-2-iqqos"
+        "categories_1",
+        "filter_2"
+      ]
+    },
+    "every": {
+      "type": "text-columns",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "columns_desktop": 3,
+        "column_gap": 48,
+        "header_gap": 40,
+        "show_dividers": true,
+        "item_heading_size": 20,
+        "padding_top": 72,
+        "padding_bottom": 72
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "With every file"
+          }
+        },
+        "column_2": {
+          "type": "column",
+          "settings": {
+            "label": "Delivery",
+            "heading": "Instant, by email",
+            "text": "<p>The link arrives with your receipt.</p>"
+          }
+        },
+        "column_3": {
+          "type": "column",
+          "settings": {
+            "label": "Updates",
+            "heading": "Free, for good",
+            "text": "<p>New versions from the same email.</p>"
+          }
+        },
+        "column_4": {
+          "type": "column",
+          "settings": {
+            "label": "Licence",
+            "heading": "Personal and client work",
+            "text": "<p>Use them in anything you make.</p>",
+            "link_label": "The licence",
+            "link": "/pages/licence"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "column_2",
+        "column_3",
+        "column_4"
       ]
     }
   },
   "order": [
     "main-collection-heading",
-    "main-collection-product"
+    "main-collection-product",
+    "every"
   ]
 }

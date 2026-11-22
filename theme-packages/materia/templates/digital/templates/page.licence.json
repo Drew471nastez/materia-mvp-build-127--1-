@@ -1,0 +1,168 @@
+{
+  "sections": {
+    "heading": {
+      "type": "page-heading",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "alignment": "left",
+        "padding_top": 64,
+        "padding_bottom": 24
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "page_title": "Licence",
+            "heading_font_size": 48,
+            "header_size": "default"
+          }
+        },
+        "description_2": {
+          "type": "description",
+          "settings": {
+            "description": "<p>What you can do with the files you buy here, without the legal language.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_2"
+      ]
+    },
+    "cols": {
+      "type": "text-columns",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "columns_desktop": 3,
+        "column_gap": 56,
+        "header_gap": 48,
+        "show_dividers": true,
+        "item_heading_size": 24,
+        "padding_top": 96,
+        "padding_bottom": 96
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "The short version"
+          }
+        },
+        "column_2": {
+          "type": "column",
+          "settings": {
+            "label": "You can",
+            "heading": "Use it in your own and client work",
+            "text": "<p>Websites, social posts, printed pieces, videos and products you sell, as many times as you like.</p>"
+          }
+        },
+        "column_3": {
+          "type": "column",
+          "settings": {
+            "label": "You cannot",
+            "heading": "Pass the files on",
+            "text": "<p>Reselling, sharing or giving away the files, even changed, is not allowed. Send people here instead.</p>"
+          }
+        },
+        "column_4": {
+          "type": "column",
+          "settings": {
+            "label": "Teams",
+            "heading": "One licence per person",
+            "text": "<p>Buying for a team? Buy one per person who uses the files, or write to us for a team price.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "column_2",
+        "column_3",
+        "column_4"
+      ]
+    },
+    "detail": {
+      "type": "faq",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "content_alignment": "left",
+        "max_content_width": 880,
+        "first_item_open": true,
+        "open_icon": "plus",
+        "item_padding_x": 0,
+        "gap_between_items": 0,
+        "heading_size_desktop": 40,
+        "heading_size_mobile": 30,
+        "question_size_desktop": 18,
+        "question_size_mobile": 16,
+        "padding_top": 96,
+        "padding_bottom": 96
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "In more detail"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Edit this page to match how your files may be used.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What counts as client work?",
+            "answer": "<p>Anything you make for someone else, paid or not: a logo, a website, a set of photos, a printed menu. The finished work belongs to them; the files stay yours.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I sell things I made with the files?",
+            "answer": "<p>Yes. You can sell prints, products, videos or designs made with the files, as long as the files themselves cannot be pulled back out and reused.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I post the files online?",
+            "answer": "<p>Not the files themselves. Post the work you made with them as much as you like.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Does the licence expire?",
+            "answer": "<p>No. Once you have paid, the licence is yours for good, including future updates of the same file.</p>"
+          }
+        },
+        "faq_item_7": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What about fonts?",
+            "answer": "<p>Fonts come with a desktop licence for one person. Using a font on a website or in an app needs the web licence, which is sold on the font's page.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6",
+        "faq_item_7"
+      ]
+    }
+  },
+  "order": [
+    "heading",
+    "cols",
+    "detail"
+  ]
+}

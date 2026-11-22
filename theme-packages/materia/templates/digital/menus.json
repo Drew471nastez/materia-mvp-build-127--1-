@@ -3,20 +3,20 @@
     "title": "Main menu",
     "links": [
       {
-        "title": "Browse",
+        "title": "All files",
         "url": "/collections/all"
       },
       {
-        "title": "Licence and FAQ",
+        "title": "Licence",
+        "url": "/pages/licence"
+      },
+      {
+        "title": "Questions",
         "url": "/pages/faqs"
       },
       {
         "title": "About",
         "url": "/pages/about"
-      },
-      {
-        "title": "Support",
-        "url": "/pages/contact"
       }
     ]
   },
@@ -24,11 +24,19 @@
     "title": "Footer",
     "links": [
       {
-        "title": "Licence and FAQ",
+        "title": "Questions",
         "url": "/pages/faqs"
       },
       {
-        "title": "Support",
+        "title": "Licence",
+        "url": "/pages/licence"
+      },
+      {
+        "title": "Journal",
+        "url": "/blogs/news"
+      },
+      {
+        "title": "Contact",
         "url": "/pages/contact"
       },
       {

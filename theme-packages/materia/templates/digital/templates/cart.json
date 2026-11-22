@@ -4,43 +4,35 @@
       "type": "page-heading",
       "settings": {
         "height": "adapt",
-        "alignment": "center",
-        "padding_top": 80,
-        "color_scheme": "",
+        "alignment": "left",
+        "padding_top": 56,
+        "color_scheme": "default",
         "reset_spacing": true,
-        "section_width": "stretch_width",
-        "padding_bottom": 0,
-        "overlay_opacity": 0
+        "section_width": "container",
+        "padding_bottom": 0
       },
       "blocks": {
-        "breadcrumb_fkLpBa": {
-          "type": "breadcrumb",
-          "settings": {}
-        },
-        "heading_f6yAbL": {
+        "heading_1": {
           "type": "heading",
           "settings": {
-            "page_title": "",
+            "page_title": "Your cart",
             "header_size": "default",
             "vertical_gap": 8,
-            "heading_color": "",
-            "heading_font_size": 34,
-            "enable_heading_color": false
+            "heading_font_size": 44
           }
         }
       },
       "block_order": [
-        "breadcrumb_fkLpBa",
-        "heading_f6yAbL"
+        "heading_1"
       ]
     },
     "cart-items": {
       "type": "main-cart-items",
       "settings": {
-        "padding_top": 40,
+        "padding_top": 32,
         "reset_spacing": true,
-        "section_width": "fluid_container",
-        "padding_bottom": 60,
+        "section_width": "container",
+        "padding_bottom": 96,
         "enable_cart_note": false,
         "enable_discount_code": true,
         "show_estimate_shipping": false
@@ -50,31 +42,31 @@
           "type": "faq_section",
           "settings": {
             "show_faq": true,
-            "faq_heading": "Before you buy"
-          }
-        },
-        "faq_1": {
-          "type": "faq",
-          "settings": {
-            "question": "How do I get my files?",
-            "answer": "<p>The download link is on the confirmation page and in your receipt email, as soon as you pay.</p>"
+            "faq_heading": "Before you pay"
           }
         },
         "faq_2": {
           "type": "faq",
           "settings": {
-            "question": "Can I use these in client work?",
-            "answer": "<p>Yes. The standard licence covers personal and commercial projects.</p>"
+            "question": "When do I get the files?",
+            "answer": "<p>Straight away. The download link is on the order page and in your receipt email.</p>"
           }
         },
         "faq_3": {
           "type": "faq",
           "settings": {
-            "question": "What if a file does not open?",
-            "answer": "<p>Write to us with your order number. We fix it or refund you.</p>"
+            "question": "Is anything posted?",
+            "answer": "<p>No. Everything here is a download, so there is no shipping to pay.</p>"
           }
         },
-        "payment_badges_67Mgyc": {
+        "faq_4": {
+          "type": "faq",
+          "settings": {
+            "question": "Can I use them for clients?",
+            "answer": "<p>Yes. The licence covers personal and client work. You cannot resell the files.</p>"
+          }
+        },
+        "payment_badges_5": {
           "type": "payment_badges",
           "settings": {
             "show_amex": true,
@@ -92,15 +84,36 @@
       },
       "block_order": [
         "faq_section_1",
-        "faq_1",
         "faq_2",
         "faq_3",
-        "payment_badges_67Mgyc"
+        "faq_4",
+        "payment_badges_5"
       ]
+    },
+    "more": {
+      "type": "products-grid",
+      "settings": {
+        "heading": "You might also want",
+        "text": "",
+        "items_to_show": 4,
+        "show_add_to_cart": false,
+        "button_label": "See all files",
+        "button_link": "/collections/all",
+        "items_per_row": 4,
+        "items_per_row_mobile": 2,
+        "column_gap": 24,
+        "header_alignment": "left",
+        "color_scheme": "default",
+        "section_width": "container",
+        "padding_top": 24,
+        "padding_bottom": 96,
+        "reset_spacing": true
+      }
     }
   },
   "order": [
     "heading",
-    "cart-items"
+    "cart-items",
+    "more"
   ]
 }
