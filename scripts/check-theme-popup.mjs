@@ -8,15 +8,19 @@
  *
  *   THE PAGE
  *   • no Create a website section; it is there with `create` (the /ai page)
- *   • Browse themes: three template cards and the Explore more themes card,
- *     four to a row on a laptop, one on a phone, none cut off
+ *   • Browse themes: six template cards, three to a row on a laptop, one on
+ *     a phone, none cut off, then Show more, which opens the popup
  *   • a cover's frame has its shape before the picture arrives and nothing
  *     under it moves when it does; the picture is asked for through the
  *     optimizer with a srcset and sizes, lazily
  *
  *   THE POPUP ON A COMPUTER
- *   • opens from the heading's button and from the card; three cards to a
- *     row at 1440, two at 1024, every card whole inside the window
+ *   • opens from the heading's button and from Show more; lists every
+ *     listing the page was given; three cards to a row at 1440, two at 1024,
+ *     every card whole inside the window
+ *   • the category chips: the chosen one on a dark pill that slides to the
+ *     next by transform; a hover and a press each shade a chip; no chip is
+ *     clipped by the row
  *   • the page behind does not move by a pixel, open or closed
  *   • the window animates transform and opacity only, 200 to 280ms each way
  *   • the focus goes into the window, Tab stays inside it, Escape and a
@@ -28,6 +32,18 @@
  *   • the category filter narrows the grid and the order sorts it
  *   • ?themes=1 on arrival opens it; closing leaves the page, not the site
  *   • reduced motion: no animation at all
+ *
+ *   THE PREVIEW
+ *   • a cover opens it over the popup, on transform and opacity, 200 to
+ *     280ms, one history entry; the popup and the page under it do not move
+ *   • its bar: Back, the name, the desktop and phone switch, Add, close;
+ *     the desktop picture drawn at the width it was taken at, crisp
+ *   • the switch crossfades to the phone picture at 390px
+ *   • Escape and Back land on the grid with the focus on the cover; close
+ *     closes the popup too, the address is the page's own and the focus is
+ *     on what opened the marketplace
+ *   • on a phone: the whole screen, sliding in from the right, inside the
+ *     safe areas, on the phone picture; the system's back lands on the grid
  *
  *   THE POPUP ON A PHONE
  *   • covers the whole screen, one card to a row, 44px controls
@@ -120,6 +136,10 @@ try {
       res.writeHead(200, { "content-type": "image/svg+xml", "cache-control": "no-store" })
       return res.end(tall)
     }
+    if (url.pathname.startsWith("/themes/") && /^[\w/.-]+$/.test(url.pathname) && existsSync(join(root, "public", url.pathname))) {
+      res.writeHead(200, { "content-type": "image/webp", "cache-control": "no-store" })
+      return res.end(readFileSync(join(root, "public", url.pathname)))
+    }
     if (url.pathname === "/live.js") { res.writeHead(200, { "content-type": "text/javascript" }); return res.end(js) }
     if (url.pathname.startsWith("/api/")) {
       /* Add: a moment, then the new website's id. /api/website-builder/themes/[id]/cover and the rest answer nothing useful. */
@@ -143,12 +163,27 @@ try {
     p.on("pageerror", (e) => expect(false, `no script error at ${W}`, String(e).slice(0, 200)))
     await p.goto(`${origin}${path}`, { waitUntil: "networkidle0", timeout: 60_000 })
     await p.waitForSelector("[data-wb-page]")
+    if (!phone) await asMouse(p)
     /* Browse themes waits two frames on a phone before it is laid out. */
     await sleep(120)
     return p
   }
+  /*
+    A MOUSE. Headless Chromium says it has no hover and no fine pointer, so
+    every `pointer-fine:` rule (a hover's shade, the cover's Preview label)
+    would never apply. On a computer's width the page's stylesheet is read
+    as a mouse's: those media conditions are made true.
+  */
+  const asMouse = (p) =>
+    p.evaluate(() => {
+      for (const el of document.querySelectorAll("style")) {
+        if (!el.textContent.includes("(hover: hover)")) continue
+        el.textContent = el.textContent.replaceAll("(hover: hover) and (pointer: fine)", "all").replaceAll("@media (hover: hover)", "@media all")
+      }
+      return matchMedia("(hover: hover)").matches
+    })
   const shot = async (p, name) => {
-    if (SHOTS) await p.screenshot({ path: join(SHOTS, `${name}.png`) })
+    if (SHOTS) await p.screenshot({ path: join(SHOTS, `${name}.png`), captureBeyondViewport: false })
   }
   /* Where the page's own things are: read before, during and after, and compared. */
   const pageRects = (p) =>
@@ -220,6 +255,7 @@ try {
     await p.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 })
     await p.goto(`${origin}/app/website-builder`, { waitUntil: "domcontentloaded" })
     await p.waitForSelector("[data-wb-page]")
+    await asMouse(p)
     await scrollToThemes(p)
     await sleep(150)
     const before = await pageRects(p)
@@ -244,6 +280,7 @@ try {
         blocks,
         firstBlock: first?.getAttribute("aria-labelledby"),
         count: cards.length,
+        more: document.querySelector("[data-theme-marketplace-open='more']")?.textContent.trim() ?? null,
         explore: cards.filter((c) => c.getAttribute("data-template-card") === "explore").length,
         columns: new Set(rects.map((c) => Math.round(c.left))).size,
         widths: [...new Set(rects.map((c) => Math.round(c.width)))],
@@ -260,7 +297,7 @@ try {
     })
     expect(!page.start && !page.text, "no Create a website section on the page", `blocks: ${page.blocks.join(", ")}`)
     expect(page.firstBlock === "live-heading", "the page starts with the websites", `first block: ${page.firstBlock}`)
-    expect(page.count === 4 && page.explore === 1 && page.columns === 4 && page.widths.length === 1, "Browse themes: three templates and Explore more themes, four to a row, equal", `${page.count} cards, ${page.columns} columns, ${page.widths.join("/")}px wide`)
+    expect(page.count === 6 && page.explore === 0 && page.columns === 3 && page.widths.length === 1 && page.more === "Show more", "Browse themes: six templates, three to a row, equal, then Show more", `${page.count} cards, ${page.columns} columns, ${page.widths.join("/")}px wide, button "${page.more}"`)
     expect(Math.abs(page.ratio - 4 / 3) < 0.01, "a small card's cover is 4:3", String(page.ratio))
     expect(page.optimizer && page.srcset >= 4 && !!page.sizes && page.lazy === "lazy", "covers come through the optimizer, with a srcset and sizes, lazily", `${page.srcset} widths, loading=${page.lazy}, sizes="${page.sizes}"`)
     expect(Number(page.current) >= page.drawn * 2 && Number(page.current) <= page.drawn * 2 * 1.6, "the picture asked for fits the size drawn at 2x", `drawn ${page.drawn}px, asked for w=${page.current}`)
@@ -288,6 +325,12 @@ try {
     expect(m.title === "Theme marketplace" && m.titleLeft <= 24 && m.closeRight <= 24, "the title at the top left, the close button at the top right", `title ${m.titleLeft}px from the left, close ${m.closeRight}px from the right`)
     expect(m.rect[0] === Math.round((1440 - m.rect[2]) / 2) && m.rect[1] === Math.round((900 - m.rect[3]) / 2), "the window is in the middle", `${m.rect.join(", ")}`)
     expect(m.focusInside, "the focus is inside the window")
+    const below = await p.evaluate(() => {
+      const r = document.querySelector("[data-themes-popup]").getBoundingClientRect()
+      const at = document.elementFromPoint(r.left + 200, r.bottom + 8)
+      return at?.hasAttribute("data-themes-scrim") ? "scrim" : at?.outerHTML.slice(0, 120)
+    })
+    expect(below === "scrim", "nothing of the grid is under the pointer past the window's foot", below)
     expect((await p.evaluate(() => location.search)) === "?themes=1" && (await p.evaluate(() => history.length)) === hist0 + 1, "the address says ?themes=1 on one new history entry")
     await shot(p, "popup-1440")
 
@@ -305,13 +348,16 @@ try {
         by: c.querySelector("p").textContent,
         price: c.querySelector("[data-template-price]").textContent,
         actions: [...c.querySelectorAll("[data-template-action]")].map((a) => `${a.getAttribute("data-template-action")}:${a.textContent.trim()}`),
+        preview: c.querySelector("[data-template-preview]")?.getAttribute("aria-label") ?? null,
         eager: img.getAttribute("loading"),
         drawn: Math.round(ir.width),
         current: img.currentSrc.match(/[?&]w=(\d+)/)?.[1],
       }
     })
     expect(Math.abs(card.ratio - 1.25) < 0.01 && card.top === 0 && card.taller, "a big card's cover is 5:4, the page from its top", `ratio ${card.ratio}, picture ${card.top}px from the frame's top`)
-    expect(!!card.name && /^by /.test(card.by) && !!card.price && card.actions.length === 2, "name, author, price, Preview and Add to library", `${card.name} / ${card.by} / ${card.price} / ${card.actions.join(", ")}`)
+    expect(!!card.name && /^by /.test(card.by) && !!card.price && card.actions.length === 1 && card.actions[0] === "add:Add to library" && card.preview === `Preview ${card.name}`, "name, author, price, one Add to library, and the cover is Preview", `${card.name} / ${card.by} / ${card.price} / ${card.actions.join(", ")} / ${card.preview}`)
+    const listed = await p.evaluate(() => ({ given: window.__probeListings, shown: [...document.querySelectorAll("[data-themes-grid] > [data-template-card]")].map((c) => c.getAttribute("data-template-card")), count: document.querySelector("[data-themes-popup] h2 + span")?.textContent }))
+    expect(listed.given.length === listed.shown.length && listed.given.every((g) => listed.shown.includes(g)) && listed.count === String(listed.given.length), "the popup lists every listing the page was given, and says how many", `${listed.shown.length} of ${listed.given.length} shown, count "${listed.count}"`)
     expect(Number(card.current) >= card.drawn * 2 && Number(card.current) <= card.drawn * 2 * 1.6, "its picture fits the size drawn at 2x", `drawn ${card.drawn}px, asked for w=${card.current}`)
 
     /* ── Hover: the page slides, by transform ──────────────────────────── */
@@ -322,9 +368,18 @@ try {
       const c = getComputedStyle(img)
       return { y: new DOMMatrix(c.transform).m42, prop: c.transitionProperty, top: c.top }
     })
+    const hintOf = () => p.evaluate(() => {
+      const h = document.querySelector("[data-themes-grid] [data-template-hint]")
+      const t = getComputedStyle(h).translate.split(" ")
+      return { o: +getComputedStyle(h).opacity, y: Math.round(parseFloat(t[1] ?? "0") * 10) / 10 }
+    })
+    const hint0 = await hintOf()
     await p.mouse.move(fb.x + fb.width / 2, fb.y + fb.height / 2)
     await sleep(700)
     const hov = await readShot()
+    const hint1 = await hintOf()
+    await shot(p, "popup-1440-hover")
+    expect(hint0.o === 0 && hint1.o === 1 && hint1.y === 0 && hint0.y > 0, "under a mouse a Preview label rises onto the cover", `opacity ${hint0.o} -> ${hint1.o}, y ${hint0.y} -> ${hint1.y}`)
     await p.mouse.move(5, 5)
     await sleep(1100)
     const left = await readShot()
@@ -337,6 +392,52 @@ try {
       if (!(await p.evaluate(() => document.querySelector("[data-themes-popup]").contains(document.activeElement)))) escaped++
     }
     expect(escaped === 0, "forty Tabs never leave the window", `${escaped} outside`)
+
+    /* ── The category chips: chosen, hover, press, no clipping ─────────── */
+    const chips = () => p.evaluate(() => {
+      const row = document.querySelector("[data-themes-categories]")
+      const rr = row.getBoundingClientRect()
+      const pill = row.querySelector("[data-themes-category-pill]")
+      const btns = [...row.querySelectorAll("[data-themes-category]")]
+      const on = btns.find((b) => b.getAttribute("aria-pressed") === "true")
+      const pr = pill?.getBoundingClientRect()
+      const or = on.getBoundingClientRect()
+      return {
+        on: on.getAttribute("data-themes-category"),
+        onColor: getComputedStyle(on).color,
+        pillOver: !!pr && Math.abs(pr.left - or.left) < 1 && Math.abs(pr.width - or.width) < 1 && Math.abs(pr.top - or.top) < 1 && Math.abs(pr.height - or.height) < 1,
+        pillBg: pill ? getComputedStyle(pill).backgroundColor : null,
+        pillMotion: pill ? getComputedStyle(pill).transitionProperty + " " + getComputedStyle(pill).transitionDuration : null,
+        clipped: btns.filter((b) => { const r = b.getBoundingClientRect(); return r.top < rr.top + 3 || r.bottom > rr.bottom - 3 }).length,
+        radius: getComputedStyle(btns[0]).borderRadius,
+        bgs: btns.map((b) => getComputedStyle(b).backgroundColor),
+      }
+    })
+    /* Forty Tabs above walked the focus along the row and scrolled it: back to its start. */
+    await p.evaluate(() => document.querySelector("[data-themes-categories]").scrollTo({ left: 0, behavior: "instant" }))
+    await sleep(60)
+    const c0 = await chips()
+    expect(c0.on === "all" && c0.pillOver && c0.pillBg === "rgb(26, 26, 46)" && c0.onColor === "rgb(255, 255, 255)" && /translate/.test(c0.pillMotion) && /0\.22s/.test(c0.pillMotion), "the chosen chip: white words on the dark pill, which slides by translate in 220ms", `${c0.on}, pill over it ${c0.pillOver}, ${c0.pillBg}, ${c0.pillMotion}`)
+    expect(c0.clipped === 0 && parseFloat(c0.radius) > 100, "chips are round and none is clipped by the row (room for the focus ring)", `${c0.clipped} clipped, radius ${c0.radius}`)
+    const second = await p.$("[data-themes-category]:nth-of-type(2)")
+    const sb = await second.boundingBox()
+    await p.mouse.move(sb.x + sb.width / 2, sb.y + sb.height / 2)
+    await sleep(260)
+    const hoverBg = await second.evaluate((b) => getComputedStyle(b).backgroundColor)
+    await p.mouse.down()
+    await sleep(260)
+    const pressBg = await second.evaluate((b) => getComputedStyle(b).backgroundColor)
+    await p.mouse.up()
+    await sleep(80)
+    const sliding = await p.evaluate(() => document.querySelector("[data-themes-category-pill]").getAnimations().length + " " + new DOMMatrix(getComputedStyle(document.querySelector("[data-themes-category-pill]")).transform).m41)
+    await sleep(300)
+    const c1 = await chips()
+    const alpha = (c) => parseFloat(c.match(/\/ ([\d.]+)\)$/)?.[1] ?? c.match(/, ([\d.]+)\)$/)?.[1] ?? "0")
+    expect(Math.abs(alpha(hoverBg) - 0.05) < 0.005 && Math.abs(alpha(pressBg) - 0.09) < 0.005, "a hover shades a chip, a press shades it more", `hover ${hoverBg}, press ${pressBg}`)
+    expect(c1.on !== "all" && c1.pillOver, "a press moves the pill to that chip", `${c1.on}, pill over it ${c1.pillOver}, mid-slide ${sliding}`)
+    await shot(p, "popup-1440-chips")
+    await p.click("[data-themes-category='all']")
+    await sleep(300)
 
     /* ── Filter and order ──────────────────────────────────────────────── */
     const cats = await p.$$eval("[data-themes-category]", (b) => b.map((x) => x.getAttribute("data-themes-category")))
@@ -366,14 +467,21 @@ try {
     expect(await p.evaluate((s) => document.activeElement === document.querySelector(s), openButton), "the focus is back on Theme marketplace")
     expect((await p.evaluate(() => location.search)) === "", "the address is the page's own again")
 
-    /* ── The dim closes it; the card opens it ──────────────────────────── */
-    await p.click("[data-theme-marketplace-open='card']")
-    await sleep(420)
-    const viaCard = await popup(p)
+    /* ── The dim closes it; Show more opens it ─────────────────────────── */
+    await p.$eval("[data-theme-marketplace-open='more']", (b) => b.scrollIntoView({ block: "center" }))
+    await sleep(80)
+    const beforeMore = await pageRects(p)
+    await p.click("[data-theme-marketplace-open='more']")
+    await sleep(60)
+    const moreMotion = await motion(p)
+    await sleep(380)
+    const viaMore = await popup(p)
+    const underMore = await pageRects(p)
     await p.mouse.click(12, 12)
     await sleep(420)
-    expect(!!viaCard && (await popup(p)) === null, "Explore more themes opens it, and a press on the dim closes it")
-    expect(await p.evaluate(() => document.activeElement === document.querySelector("[data-theme-marketplace-open='card']")), "the focus is back on the card's button")
+    expect(!!viaMore && viaMore.count === (await p.evaluate(() => window.__probeListings.length)) && moreMotion[0]?.[0]?.name === "wb-themes-in" && (await popup(p)) === null, "Show more opens it with every theme, smoothly, and a press on the dim closes it", `${viaMore?.count} cards, ${JSON.stringify(moreMotion[0])}`)
+    expect(same(beforeMore, underMore), "the page did not move under it")
+    expect(await p.evaluate(() => document.activeElement === document.querySelector("[data-theme-marketplace-open='more']")), "the focus is back on Show more")
 
     /* ── Add ───────────────────────────────────────────────────────────── */
     await p.click(openButton)
@@ -484,9 +592,210 @@ try {
       templates: document.querySelectorAll("[data-theme-grid] > [data-template-card]").length,
       market: !!document.querySelector("[data-theme-marketplace-open='heading']"),
     }))
-    expect(empty.card === "first" && empty.add.length === 2 && empty.templates === 4 && empty.market, "an empty library: a template in one press, Start from blank, and the templates under it", JSON.stringify(empty))
+    expect(empty.card === "first" && empty.add.length === 2 && empty.templates === 6 && empty.market, "an empty library: a template in one press, Start from blank, and the templates under it", JSON.stringify(empty))
     await shot(e, "empty-1440")
     await e.close()
+  }
+
+  /* ══ 4b. The preview, 1440 ═════════════════════════════════════════════ */
+  const preview = (p) =>
+    p.evaluate(() => {
+      const el = document.querySelector("[data-theme-preview]")
+      if (!el) return null
+      const r = el.getBoundingClientRect()
+      const bar = el.querySelector("[data-preview-bar]").getBoundingClientRect()
+      const layers = [...el.querySelectorAll("[data-preview-layer]")].map((l) => {
+        const img = l.querySelector("img")
+        const ir = img.getBoundingClientRect()
+        return { d: l.getAttribute("data-preview-layer"), o: +getComputedStyle(l).opacity, inert: l.inert, w: Math.round(ir.width), natural: img.naturalWidth, src: img.getAttribute("src"), scroll: l.scrollHeight > l.clientHeight }
+      })
+      const sw = el.querySelector("[data-preview-switch]")
+      return {
+        rect: [r.left, r.top, r.width, r.height].map(Math.round),
+        state: el.getAttribute("data-state"),
+        device: el.getAttribute("data-device"),
+        bar: Math.round(bar.height),
+        title: el.querySelector("h2")?.textContent,
+        back: !!el.querySelector("[data-preview-back]"),
+        close: !!el.querySelector("[data-preview-close]"),
+        add: el.querySelector("[data-preview-bar] [data-template-action]")?.innerText.trim() ?? null,
+        switch: sw ? [...sw.querySelectorAll("[data-preview-device]")].map((b) => `${b.getAttribute("data-preview-device")}:${b.getAttribute("aria-pressed")}`) : null,
+        switchCentre: sw ? Math.round(sw.getBoundingClientRect().left + sw.getBoundingClientRect().width / 2 - (r.left + r.width / 2)) : null,
+        layers,
+        focusInside: el.contains(document.activeElement),
+        safe: ["safe-area-inset-top", "safe-area-inset-left", "safe-area-inset-right"].filter((k) => !el.querySelector("[data-preview-bar]").className.includes(k)),
+      }
+    })
+  const previewMotion = (p) =>
+    p.evaluate(() =>
+      ["[data-theme-preview]", "[data-preview-scrim]"].map((sel) => {
+        const el = document.querySelector(sel)
+        if (!el) return null
+        return el.getAnimations().filter((a) => a.animationName).map((a) => ({
+          name: a.animationName,
+          ms: a.effect.getTiming().duration,
+          props: [...new Set(a.effect.getKeyframes().flatMap((k) => Object.keys(k)).filter((k) => !["offset", "easing", "composite", "computedOffset"].includes(k)))].sort(),
+        }))
+      }),
+    )
+  const gridRect = (p) => p.evaluate(() => {
+    const g = document.querySelector("[data-themes-grid]")
+    const r = g?.getBoundingClientRect()
+    return r ? [r.left, r.top, r.width, r.height, document.querySelector("[data-themes-scroll]").scrollTop].map((n) => Math.round(n * 100) / 100) : null
+  })
+  {
+    console.log("\nThe preview, 1440 x 900\n")
+    const p = await open("/app/website-builder", 1440, 900)
+    await scrollToThemes(p)
+    await p.click(openButton)
+    await sleep(450)
+    const cover = "[data-themes-grid] [data-template-card='clothing'] [data-template-preview]"
+    await p.$eval(cover, (b) => b.scrollIntoView({ block: "center" }))
+    await sleep(100)
+    const page0 = await pageRects(p)
+    const grid0 = await gridRect(p)
+    const len = await p.evaluate(() => history.length)
+    await p.click(cover)
+    await sleep(60)
+    const inMotion = await previewMotion(p)
+    await shot(p, "preview-1440-opening")
+    await sleep(500)
+    await p.waitForFunction(() => [...document.querySelectorAll("[data-preview-layer] img")].every((i) => i.complete), { timeout: 10_000 }).catch(() => null)
+    await sleep(250)
+    const v = await preview(p)
+    const desk = v?.layers.find((l) => l.d === "desktop")
+    const mob = v?.layers.find((l) => l.d === "phone")
+    const win = inMotion[0]?.[0]
+    expect(!!v && v.state === "open" && v.title === "Clothing", "a cover opens its preview over the popup", v ? `${v.rect.join(", ")}, "${v.title}"` : "no preview")
+    expect(!!win && win.name === "wb-preview-in" && win.ms >= 200 && win.ms <= 280 && onlyCompositor(inMotion), "it arrives on transform and opacity only, in 200 to 280ms", JSON.stringify(inMotion))
+    expect(v.back && v.close && v.add === "Add to library" && same(v.switch, ["desktop:true", "phone:false"]) && Math.abs(v.switchCentre) <= 1, "its bar: Back, the name, the switch in the middle on Desktop, Add to library, close", `${v.bar}px tall, switch ${v.switch}, ${v.switchCentre}px off centre, add "${v.add}"`)
+    expect(!!desk && desk.o === 1 && !desk.inert && desk.natural > 0 && desk.w === Math.min(desk.natural, 1200) && desk.scroll && mob.o === 0 && mob.inert && mob.natural > 0, "the desktop home page at the width it was taken at, scrolling; the phone one already loaded, hidden", `desktop drawn ${desk?.w}px of ${desk?.natural}, phone loaded ${mob?.natural}px`)
+    expect(v.focusInside, "the focus is inside the preview")
+    expect((await p.evaluate(() => location.search)) === "?themes=1&preview=clothing" && (await p.evaluate(() => history.length)) === len + 1, "the address names it on one new history entry", await p.evaluate(() => location.search))
+    expect(same(page0, await pageRects(p)) && same(grid0, await gridRect(p)) && (await popup(p))?.state === "open", "the page and the popup's grid under it did not move")
+    await shot(p, "preview-1440")
+    await p.evaluate(() => document.querySelector("[data-preview-layer='desktop']").scrollTo(0, 1400))
+    await sleep(120)
+    await shot(p, "preview-1440-scrolled")
+
+    let escaped = 0
+    for (let i = 0; i < 16; i++) {
+      await p.keyboard.press("Tab")
+      if (!(await p.evaluate(() => document.querySelector("[data-theme-preview]").contains(document.activeElement)))) escaped++
+    }
+    expect(escaped === 0, "sixteen Tabs never leave the preview", `${escaped} outside`)
+
+    /* The switch: a crossfade, the phone picture at 390. */
+    await p.click("[data-preview-device='phone']")
+    await sleep(110)
+    const mid = await preview(p)
+    const midO = mid.layers.map((l) => `${l.d}:${l.o.toFixed(2)}`).join(" ")
+    await sleep(320)
+    const ph = await preview(p)
+    const phone = ph.layers.find((l) => l.d === "phone")
+    const pressed = ph.switch
+    expect(mid.layers.every((l) => l.o > 0.02 && l.o < 0.98), "the switch crossfades one picture into the other", midO)
+    expect(ph.device === "phone" && phone.o === 1 && phone.w === 390 && same(pressed, ["desktop:false", "phone:true"]), "and shows the phone home page at 390px", `${phone.w}px, ${pressed}`)
+    await shot(p, "preview-1440-phone")
+    await p.click("[data-preview-device='desktop']")
+    await sleep(320)
+
+    /* Escape: the grid, the focus on the cover, the entry gone. */
+    await p.keyboard.press("Escape")
+    await sleep(60)
+    const out = (await previewMotion(p))[0]?.[0]
+    await sleep(400)
+    expect((await preview(p)) === null && (await popup(p))?.state === "open", "Escape closes the preview and leaves the grid", JSON.stringify(out))
+    expect(!!out && out.name === "wb-preview-out" && out.ms >= 200 && out.ms <= 280, "leaving in 200 to 280ms")
+    expect(await p.evaluate((s) => document.activeElement === document.querySelector(s), cover), "the focus is back on the cover")
+    expect((await p.evaluate(() => location.search)) === "?themes=1" && (await p.evaluate(() => history.length)) === len + 1, "and the address is the popup's again", await p.evaluate(() => location.search))
+    expect(same(grid0, await gridRect(p)), "the grid is where it was")
+
+    /* Back. */
+    await p.click(cover)
+    await sleep(450)
+    await p.click("[data-preview-back]")
+    await sleep(450)
+    expect((await preview(p)) === null && (await popup(p))?.state === "open" && (await p.evaluate(() => location.search)) === "?themes=1", "Back lands on the grid")
+
+    /* Add from the preview: the same states as the card. */
+    await p.click(cover)
+    await sleep(450)
+    await p.click("[data-preview-bar] [data-template-action]")
+    await sleep(150)
+    const addingTop = await p.$eval("[data-preview-bar] [data-template-action]", (b) => `${b.getAttribute("data-template-action")}:${b.textContent.trim()}`)
+    await sleep(900)
+    const addedTop = await p.$eval("[data-preview-bar] [data-template-action]", (b) => `${b.getAttribute("data-template-action")}:${b.textContent.trim()}`)
+    const cardNow = await p.$eval("[data-themes-grid] [data-template-card='clothing'] [data-template-action]", (b) => b.getAttribute("data-template-action"))
+    expect(addingTop === "adding:Adding" && addedTop === "in-library:In library" && cardNow === "in-library", "Add in the preview: Adding, then In library, and the card under it agrees", `${addingTop} -> ${addedTop}, card ${cardNow}`)
+    await shot(p, "preview-1440-added")
+
+    /* Close: the preview and the popup, the focus on what opened the marketplace. */
+    await p.click("[data-preview-close]")
+    await sleep(1100)
+    const gone = { preview: await preview(p), popup: await popup(p), search: await p.evaluate(() => location.search), len: await p.evaluate(() => history.length) }
+    expect(gone.preview === null && gone.popup === null && gone.search === "", "close closes the preview and the popup, and the address is the page's own", JSON.stringify({ ...gone, preview: !!gone.preview, popup: !!gone.popup }))
+    expect(await p.evaluate((s) => document.activeElement === document.querySelector(s), openButton), "the focus is on Theme marketplace, which opened the popup")
+    const after = await pageRects(p)
+    expect(after.scrollerWidth === page0.scrollerWidth && after.bodyPadding === page0.bodyPadding && after.docWidth === page0.docWidth, "the page's width never changed under it", `${page0.scrollerWidth} -> ${after.scrollerWidth}`)
+
+    /* From the page's own grid: the preview over the page, Back to the page. */
+    await p.$eval("[data-theme-grid] [data-template-preview]", (b) => b.scrollIntoView({ block: "center" }))
+    await sleep(100)
+    const pageOwn = await pageRects(p)
+    await p.click("[data-theme-grid] [data-template-preview]")
+    await sleep(450)
+    const overPage = await preview(p)
+    await p.keyboard.press("Escape")
+    await sleep(450)
+    expect(!!overPage && (await popup(p)) === null && (await preview(p)) === null && same(pageOwn, await pageRects(p)) && (await p.evaluate(() => document.activeElement?.hasAttribute("data-template-preview"))), "a cover on the page previews over the page, and Escape gives the cover the focus back")
+    await p.close()
+  }
+
+  /* ══ 4c. The preview on a phone ═════════════════════════════════════════ */
+  {
+    console.log("\nThe preview, 390 x 844 at 2x\n")
+    const p = await open("/app/website-builder", 390, 844)
+    await scrollToThemes(p)
+    await p.tap(openButton)
+    await sleep(450)
+    const cover = "[data-themes-grid] [data-template-card='clothing'] [data-template-preview]"
+    await p.$eval(cover, (b) => b.scrollIntoView({ block: "center" }))
+    await sleep(100)
+    await shot(p, "popup-390-cards")
+    const grid0 = await gridRect(p)
+    await p.tap(cover)
+    await sleep(90)
+    const inMotion = await previewMotion(p)
+    await shot(p, "preview-390-opening")
+    await sleep(500)
+    await p.waitForFunction(() => [...document.querySelectorAll("[data-preview-layer] img")].every((i) => i.complete), { timeout: 10_000 }).catch(() => null)
+    await sleep(250)
+    const v = await preview(p)
+    const push = inMotion[0]?.[0]
+    const phone = v.layers.find((l) => l.d === "phone")
+    expect(same(v.rect, [0, 0, 390, 844]), "it covers the whole screen", v.rect.join(", "))
+    expect(!!push && push.name === "wb-preview-push" && push.ms >= 200 && push.ms <= 280 && push.props.join() === "transform", "it slides in from the side by transform, in 200 to 280ms", JSON.stringify(inMotion[0]))
+    expect(v.device === "phone" && phone.o === 1 && phone.w === 390, "on the phone picture, at 390px", `${v.device}, ${phone.w}px`)
+    expect(v.safe.length === 0 && v.bar >= 56 && v.back && v.close && v.add === "Add", "the bar is compact, inside the safe areas: Back, the name, the switch, Add, close", `${v.bar}px, add "${v.add}", missing ${v.safe.join(", ")}`)
+    const small = await p.evaluate(() => [...document.querySelectorAll("[data-preview-bar] button")].map((b) => ({ t: (b.getAttribute("aria-label") || b.textContent).trim(), h: Math.round(b.getBoundingClientRect().height), r: Math.round(b.getBoundingClientRect().right) })))
+    expect(small.every((b) => b.h >= 36 && b.r <= 390), "every control in the bar is whole and 36px or taller", small.map((b) => `${b.t} ${b.h}`).join(", "))
+    await shot(p, "preview-390")
+    await p.evaluate(() => document.querySelector("[data-preview-layer='phone']").scrollTo(0, 1600))
+    await sleep(120)
+    await shot(p, "preview-390-scrolled")
+
+    await p.goBack({ waitUntil: "domcontentloaded" }).catch(() => null)
+    await sleep(60)
+    const pop = (await previewMotion(p))[0]?.[0]
+    await sleep(450)
+    expect((await preview(p)) === null && (await popup(p))?.state === "open" && (await p.evaluate(() => location.search)) === "?themes=1", "the system's back lands on the grid", await p.evaluate(() => location.search))
+    expect(!!pop && pop.name === "wb-preview-pop" && pop.ms >= 200 && pop.ms <= 280, "sliding away by transform, in 200 to 280ms", JSON.stringify(pop))
+    expect(same(grid0, await gridRect(p)), "the grid is where it was")
+    await p.goBack({ waitUntil: "domcontentloaded" }).catch(() => null)
+    await sleep(450)
+    expect((await popup(p)) === null && (await p.evaluate(() => location.pathname + location.search)) === "/app/website-builder", "and a second back closes the popup, on the Website page")
+    await p.close()
   }
 
   /* ══ 5. Reduced motion ══════════════════════════════════════════════════ */

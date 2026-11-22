@@ -5,9 +5,23 @@
  *  A TEMPLATE, AS A CARD: ITS HOME PAGE, ITS NAME, WHO MADE IT, WHAT IT COSTS
  * ===========================================================================
  * One card for both places a creator meets a template in /app: the Browse
- * themes row on the Website page (size "sm", the action at the end of the
- * name row) and the theme marketplace popup (size "lg", Preview and Add to
- * library as two buttons under the name).
+ * themes grid on the Website page (size "sm", a 4:3 cover) and the theme
+ * marketplace popup (size "lg", a 5:4 cover). Both draw the same parts in
+ * the same places: the cover, then the name, who made it and what it costs,
+ * with the one action at the end of that line.
+ *
+ * ONE ACTION, ITS STATES IN ONE PLACE. Add to library (Add on the small
+ * card) is the dark button; it turns into Adding with a spinner, then into
+ * a quiet In library with a check, all in the same box so the line does not
+ * jump. With the library full it reads Library full and still answers a
+ * press, with the full library sheet. A theme with a price or a plan has
+ * View instead, to the page that says its terms.
+ *
+ * PREVIEW IS THE COVER. A press on the picture opens the template's preview
+ * over the page (app/(storelib)/app/website-builder/themes/theme-preview.tsx).
+ * Under a mouse a white Preview label rises onto the cover while the page
+ * slides; on a touch screen the label is there all the time, smaller, so a
+ * finger knows the picture is a button.
  *
  * THE COVER IS THE PAGE, FROM ITS TOP. A listing's cover is a tall full page
  * screenshot. The frame keeps a fixed shape, so nothing under it moves when
@@ -45,27 +59,102 @@ const COVER_WIDTHS = [384, 640, 750, 828, 1080]
 /** How wide a card is at each window width: the popup's grid, and the page's row. */
 export const TEMPLATE_CARD_SIZES = {
   lg: "(min-width: 1280px) 356px, (min-width: 1024px) 31vw, (min-width: 768px) 46vw, 100vw",
-  sm: "(min-width: 1024px) 272px, (min-width: 640px) 46vw, 100vw",
+  sm: "(min-width: 1200px) 368px, (min-width: 1024px) 31vw, (min-width: 640px) 46vw, 100vw",
 } as const
 
-export type TemplateCardState = "add" | "adding" | "in-library"
+export type TemplateCardState = "add" | "adding" | "in-library" | "full"
 
 const FRAME =
-  "group/frame relative block w-full overflow-hidden rounded-xl bg-[#eef0f3] shadow-[0_0_0_1px_rgba(17,24,39,0.06),0_1px_2px_rgba(17,24,39,0.04),0_8px_20px_-14px_rgba(17,24,39,0.16)] outline-none ring-offset-2 transition-shadow duration-300 pointer-fine:hover:shadow-[0_0_0_1px_rgba(17,24,39,0.09),0_2px_4px_rgba(17,24,39,0.05),0_16px_32px_-16px_rgba(17,24,39,0.24)] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/30 motion-reduce:transition-none"
+  "group/frame relative block w-full overflow-hidden rounded-xl bg-[#eef0f3] text-left shadow-[0_0_0_1px_rgba(17,24,39,0.06),0_1px_2px_rgba(17,24,39,0.04),0_8px_20px_-14px_rgba(17,24,39,0.16)] outline-none transition-shadow duration-300 pointer-fine:hover:shadow-[0_0_0_1px_rgba(17,24,39,0.09),0_2px_4px_rgba(17,24,39,0.05),0_16px_32px_-16px_rgba(17,24,39,0.24)] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/30 focus-visible:ring-offset-2 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]"
 
-const SECONDARY =
-  "inline-flex items-center justify-center gap-1.5 rounded-lg border border-[#e5e7eb] bg-white font-semibold text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.05)] outline-none transition-colors duration-150 pointer-fine:hover:border-[#d1d5db] pointer-fine:hover:bg-[#f8f9fa] active:bg-[#f3f4f6] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 [-webkit-tap-highlight-color:transparent]"
+/** Every state of the action shares this box: the same height, the same corners, the colour eased between them. */
+const ACTION =
+  "inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full font-semibold outline-none transition-[background-color,color,box-shadow] duration-200 ease-[cubic-bezier(0.33,1,0.68,1)] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 focus-visible:ring-offset-2 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]"
 
 const PRIMARY =
-  "inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#1a1a2e] font-semibold text-white shadow-[0_1px_2px_rgba(16,24,40,0.18),inset_0_1px_0_rgba(255,255,255,0.08)] outline-none transition-colors duration-150 pointer-fine:hover:bg-[#2d2d44] active:bg-[#2d2d44] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 [-webkit-tap-highlight-color:transparent]"
+  "bg-[#1a1a2e] text-white shadow-[0_1px_2px_rgba(16,24,40,0.18),inset_0_1px_0_rgba(255,255,255,0.08)] pointer-fine:hover:bg-[#2d2d44] active:bg-[#383852] pointer-fine:active:bg-[#383852] disabled:cursor-default"
 
-const IN_LIBRARY = "inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#f1f2f4] font-medium text-[#3f3f46]"
+const QUIET = "bg-[#f1f2f4] text-[#3f3f46]"
+
+const SECONDARY =
+  "bg-white text-[#1a1a2e] shadow-[0_0_0_1px_rgba(17,24,39,0.1),0_1px_2px_rgba(16,24,40,0.05)] pointer-fine:hover:bg-[#f8f9fa] active:bg-[#f1f2f4] pointer-fine:active:bg-[#f1f2f4]"
+
+/**
+ * The action of a template, in every state: the card's and the preview's top
+ * bar's, so the two can never disagree. `long` says Add to library where
+ * there is room, Add where there is not.
+ */
+export function TemplateAction({
+  state,
+  viewHref = null,
+  waiting = false,
+  onAdd,
+  long = true,
+  className,
+}: {
+  state: TemplateCardState
+  viewHref?: string | null
+  waiting?: boolean
+  onAdd: () => void
+  /** Add to library, or Add; "md" says Add on a phone and Add to library from 768px. */
+  long?: boolean | "md"
+  className?: string
+}) {
+  if (state === "in-library") {
+    return (
+      <span data-template-action="in-library" className={cn(ACTION, QUIET, className)}>
+        <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
+        {tt("In library")}
+      </span>
+    )
+  }
+  if (viewHref) {
+    return (
+      <a href={viewHref} target="_blank" rel="noopener" data-template-action="view" className={cn(ACTION, SECONDARY, className)}>
+        {tt("View")}
+      </a>
+    )
+  }
+  if (state === "full") {
+    /* Never dead: the press says why, with the full library sheet. */
+    return (
+      <button type="button" onClick={onAdd} aria-haspopup="dialog" data-template-action="full" className={cn(ACTION, SECONDARY, "text-[#6b7280]", className)}>
+        {tt("Library full")}
+      </button>
+    )
+  }
+  const adding = state === "adding"
+  return (
+    <button
+      type="button"
+      onClick={onAdd}
+      disabled={adding || waiting}
+      aria-busy={adding || undefined}
+      data-template-action={adding ? "adding" : "add"}
+      className={cn(ACTION, PRIMARY, waiting && !adding && "opacity-60", className)}
+    >
+      {adding ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : <Plus className="h-4 w-4" strokeWidth={2.25} />}
+      {adding ? (
+        tt("Adding")
+      ) : long === "md" ? (
+        <>
+          <span className="md:hidden">{tt("Add")}</span>
+          <span className="max-md:hidden">{tt("Add to library")}</span>
+        </>
+      ) : long ? (
+        tt("Add to library")
+      ) : (
+        tt("Add")
+      )}
+    </button>
+  )
+}
 
 export function ThemeTemplateCard({
   listing,
   size = "lg",
   state,
-  previewHref = null,
+  onPreview,
   viewHref = null,
   waiting = false,
   priority = false,
@@ -73,11 +162,11 @@ export function ThemeTemplateCard({
   className,
 }: {
   listing: ThemeListing
-  /** "lg" in the marketplace popup, "sm" in the Browse themes row. */
+  /** "lg" in the marketplace popup, "sm" in the Browse themes grid. */
   size?: "sm" | "lg"
   state: TemplateCardState
-  /** The theme's own page with its live preview, in a new tab. Absent: the picture is not a link and there is no Preview. */
-  previewHref?: string | null
+  /** Opens the template's preview over the page; given the cover, which takes the focus back after. Absent: the cover is only a picture. */
+  onPreview?: ((opener: HTMLElement) => void) | null
   /** A theme that cannot be added here (a price, a plan): where its terms are, instead of Add. */
   viewHref?: string | null
   /** Another website is being made: Add waits for it. */
@@ -113,7 +202,7 @@ export function ThemeTemplateCard({
       if (e.pointerType === "mouse") pan(false)
     },
     "data-template-frame": "",
-    /* The shape is the frame's own, so the row under it is where it will be before any picture has come. */
+    /* The shape is the frame's own, so the line under it is where it will be before any picture has come. */
     className: cn(FRAME, lg ? "aspect-[5/4]" : "aspect-[4/3]"),
   }
 
@@ -121,7 +210,7 @@ export function ThemeTemplateCard({
     // eslint-disable-next-line @next/next/no-img-element
     <img
       ref={shot}
-      src={optimizedImageUrl(picture, lg ? 414 : 320, SITE_PICTURE_QUALITY)}
+      src={optimizedImageUrl(picture, lg ? 414 : 368, SITE_PICTURE_QUALITY)}
       srcSet={isOptimizableImage(picture) ? optimizedSrcSet(picture, COVER_WIDTHS, SITE_PICTURE_QUALITY) : undefined}
       sizes={isOptimizableImage(picture) ? TEMPLATE_CARD_SIZES[size] : undefined}
       alt=""
@@ -138,49 +227,40 @@ export function ThemeTemplateCard({
     <span className="absolute inset-0 flex items-center justify-center px-6 text-center text-[15px] font-semibold text-[#9ca3af]">{listing.name}</span>
   )
 
-  const action = (() => {
-    const box = lg ? "h-11 px-3.5 text-[14px] md:h-10 md:text-[13.5px]" : "h-11 shrink-0 px-3.5 text-[13px] sm:h-9"
-    if (state === "in-library") {
-      return (
-        <span data-template-action="in-library" className={cn(IN_LIBRARY, lg ? "h-11 px-3 text-[13.5px] md:h-10" : "h-9 px-3 text-[12.5px]")}>
-          <Check className="h-3.5 w-3.5" strokeWidth={2.25} />
-          {tt("In library")}
-        </span>
-      )
-    }
-    if (viewHref) {
-      return (
-        <a href={viewHref} target="_blank" rel="noopener" data-template-action="view" className={cn(SECONDARY, box)}>
-          {tt("View")}
-        </a>
-      )
-    }
-    const adding = state === "adding"
-    return (
-      <button type="button" onClick={onAdd} disabled={adding || waiting} aria-busy={adding || undefined} data-template-action={adding ? "adding" : "add"} className={cn(PRIMARY, box)}>
-        {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" strokeWidth={2.25} />}
-        {lg ? (adding ? tt("Adding") : tt("Add to library")) : tt("Add")}
-      </button>
-    )
-  })()
-
   return (
     <article data-template-card={listing.slug} data-size={size} className={cn("min-w-0", className)}>
-      {previewHref ? (
-        <a
+      {onPreview ? (
+        <button
           {...frameProps}
           ref={(node) => {
             frame.current = node
           }}
-          href={previewHref}
-          target="_blank"
-          rel="noopener"
+          type="button"
+          aria-haspopup="dialog"
           aria-label={tt("Preview {name}", { name: listing.name })}
+          data-template-preview=""
+          onClick={(e) => onPreview(e.currentTarget)}
           onFocus={() => pan(true)}
           onBlur={() => pan(false)}
         >
           {cover}
-        </a>
+          {/* A faint dim under a mouse, so the label reads on a white page as well as a dark one. */}
+          <span aria-hidden className="pointer-events-none absolute inset-0 z-[1] bg-[#1a1a2e]/0 transition-colors duration-200 pointer-fine:group-hover/frame:bg-[#1a1a2e]/[0.05] motion-reduce:transition-none" />
+          <span
+            aria-hidden
+            data-template-hint=""
+            className={cn(
+              "pointer-events-none absolute z-[2] inline-flex items-center rounded-full bg-white/95 font-semibold text-[#1a1a2e] shadow-[0_0_0_1px_rgba(17,24,39,0.06),0_6px_16px_-6px_rgba(17,24,39,0.35)] [backface-visibility:hidden]",
+              "transition-[opacity,transform] duration-200 ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none",
+              /* A finger: always there, small, in the corner. */
+              "bottom-2.5 right-2.5 h-8 px-3 text-[12.5px]",
+              /* A mouse: centred at the foot of the cover, risen into place on hover or a key's focus. */
+              "pointer-fine:bottom-3.5 pointer-fine:left-1/2 pointer-fine:right-auto pointer-fine:h-9 pointer-fine:-translate-x-1/2 pointer-fine:translate-y-1.5 pointer-fine:px-4 pointer-fine:text-[13.5px] pointer-fine:opacity-0 pointer-fine:group-hover/frame:translate-y-0 pointer-fine:group-hover/frame:opacity-100 pointer-fine:group-focus-visible/frame:translate-y-0 pointer-fine:group-focus-visible/frame:opacity-100",
+            )}
+          >
+            {tt("Preview")}
+          </span>
+        </button>
       ) : (
         <div
           {...frameProps}
@@ -192,52 +272,23 @@ export function ThemeTemplateCard({
         </div>
       )}
 
-      {lg ? (
-        <div className="mt-3.5">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h3 className="truncate text-[16px] font-semibold leading-tight text-[#1a1a2e]">{listing.name}</h3>
-              <p className="mt-1 truncate text-[13px] leading-tight text-[#6b7280]">{tt("by {author}", { author: listing.author })}</p>
-            </div>
-            <span data-template-price="" className="shrink-0 pt-px text-[14px] font-semibold leading-tight text-[#1a1a2e]">
-              {tt(tierLabel(listing))}
-            </span>
-          </div>
-          <div className={cn("mt-3 grid gap-2", previewHref ? "grid-cols-2" : "grid-cols-1")}>
-            {previewHref ? (
-              <a href={previewHref} target="_blank" rel="noopener" data-template-action="preview" className={cn(SECONDARY, "h-11 px-3 text-[14px] md:h-10 md:text-[13.5px]")}>
-                {tt("Preview")}
-              </a>
-            ) : null}
-            {action}
-          </div>
+      <div className={cn("flex items-center justify-between gap-3", lg ? "mt-3.5" : "mt-3")}>
+        <div className="min-w-0">
+          <h3 className={cn("truncate font-semibold leading-tight text-[#1a1a2e]", lg ? "text-[16px]" : "text-[15px]")}>{listing.name}</h3>
+          <p className="mt-1 truncate text-[13px] leading-tight text-[#6b7280]">
+            {tt("by {author}", { author: listing.author })}
+            <span className="text-[#c4c8cf]"> · </span>
+            <span data-template-price="">{tt(tierLabel(listing))}</span>
+          </p>
         </div>
-      ) : (
-        <div className="mt-3 flex min-h-9 items-start justify-between gap-3">
-          <div className="min-w-0 pt-0.5">
-            <h3 className="truncate text-[15px] font-semibold leading-tight text-[#1a1a2e]">{listing.name}</h3>
-            <p className="mt-1 truncate text-[13px] leading-tight text-[#6b7280]">
-              {tt("by {author}", { author: listing.author })}
-              <span className="text-[#9ca3af]"> · </span>
-              {tt(tierLabel(listing))}
-            </p>
-          </div>
-          <div className="shrink-0">{action}</div>
-        </div>
-      )}
-    </article>
-  )
-}
-
-/** The last card of the Browse themes row: the rest of the themes, in the popup. */
-export function MoreThemesCard({ onOpen, className }: { onOpen: (opener: HTMLElement) => void; className?: string }) {
-  return (
-    <article data-template-card="explore" className={cn("min-w-0", className)}>
-      <div className="flex aspect-[4/3] flex-col items-center justify-center gap-4 rounded-xl bg-[#f1f2f4] px-6 text-center shadow-[0_0_0_1px_rgba(17,24,39,0.05)]">
-        <p className="text-[16px] font-semibold text-[#1a1a2e]">{tt("Explore more themes")}</p>
-        <button type="button" aria-haspopup="dialog" data-theme-marketplace-open="card" onClick={(e) => onOpen(e.currentTarget)} className={cn(PRIMARY, "h-11 px-4 text-[13.5px] sm:h-10")}>
-          {tt("Theme marketplace")}
-        </button>
+        <TemplateAction
+          state={state}
+          viewHref={viewHref}
+          waiting={waiting}
+          onAdd={onAdd}
+          long={lg}
+          className={lg ? "h-11 px-4 text-[14px] md:h-10 md:text-[13.5px]" : "h-11 px-4 text-[13.5px] sm:h-9 sm:px-3.5 sm:text-[13px]"}
+        />
       </div>
     </article>
   )

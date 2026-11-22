@@ -9,8 +9,10 @@
  *   ?empty=1    no website at all
  *
  * The listings are whatever builtinListings() returns today, on the cover
- * the script serves, then four more from packages (two free, one with a
- * plan, one with a price), so every state of a card has something to show.
+ * the script serves (their desktop and phone screenshots stay the real
+ * files in public/themes, which the preview draws), then four more from
+ * packages (two free, one with a plan, one with a price) with no pictures of
+ * their own, so every state of a card and of the preview has something to show.
  */
 import { createElement } from "react"
 import { createRoot } from "react-dom/client"
@@ -75,6 +77,9 @@ const listings: ThemeListing[] = [
     createdAt: new Date(Date.UTC(2026, 8, 1 + i)).toISOString(),
   })),
 ]
+
+/* What the page was given, so the script can check the popup lists every one of them. */
+;(window as unknown as { __probeListings: string[] }).__probeListings = listings.map((l) => l.slug)
 
 createRoot(document.getElementById("root")!).render(
   createElement(TooltipProvider, null, createElement(WebsiteBuilderClient, { installs, username: "candleshop", listings, create: q.has("create") })),

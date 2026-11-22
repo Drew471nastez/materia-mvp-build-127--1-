@@ -11,8 +11,10 @@
  *      in all), each with Publish, Edit and the long tail in a menu. A
  *      website being imported, added or copied has its row there from the
  *      first moment (./incoming.tsx), and the page scrolls to it when it lands.
- *   3. Browse themes: the first few templates as cards, and the theme
- *      marketplace as a popup over this page (./themes/themes-client.tsx).
+ *   3. Browse themes: six templates as cards, then Show more, which opens
+ *      the theme marketplace as a popup over this page with every theme
+ *      (./themes/themes-client.tsx). A card's cover opens the template's
+ *      preview over the page (./themes/theme-preview.tsx).
  *
  * Templates round 16: Create a website (./start-website.tsx) is no longer at
  * the top of this page. It is drawn only where the page is asked for with
@@ -95,10 +97,11 @@ import {
   getThemeDefinition,
   type ThemeDefinition,
 } from "@/lib/website-builder/theme-registry"
-import { MoreThemesCard, ThemeTemplateCard, type TemplateCardState } from "@/components/website-builder/theme-template-card"
+import { ThemeTemplateCard, type TemplateCardState } from "@/components/website-builder/theme-template-card"
 import { backThen } from "@/lib/navigation/go-back"
 import { builtinListings, installedListingSlugs, listingPath, type ThemeListing } from "@/lib/themes/marketplace-shared"
 import { THEME_PARAM, THEMES_PARAM, ThemeMarketplace } from "./themes/themes-client"
+import { PREVIEW_PARAM, ThemePreview } from "./themes/theme-preview"
 import { relativeTime } from "@/lib/website-builder/relative-time"
 import { type Cover, coverBeingWatched, latestCover, requestCover, savedAt, seedCover, watchCover } from "@/lib/website-builder/cover-refresh"
 import { pagesBehind } from "@/lib/website-builder/page-refresh"
@@ -697,8 +700,16 @@ async function decodedFirst(url: string | null, within = 10_000): Promise<void> 
 /** Saves this tab has already fetched the page again for. */
 const REFRESHED = new Set<string>()
 
-/** How many templates the Browse themes row shows before the card that opens the marketplace: one row of four on a laptop. */
-const ROW_THEME_CARDS = 3
+/** How many templates Browse themes shows before Show more opens the marketplace: two rows of three on a laptop. */
+const ROW_THEME_CARDS = 6
+
+/** The marketplace's and the preview's words out of the address, without a history entry. */
+function clearThemesAddress() {
+  const url = new URL(window.location.href)
+  if (![PREVIEW_PARAM, THEMES_PARAM, THEME_PARAM].some((k) => url.searchParams.has(k))) return
+  for (const k of [PREVIEW_PARAM, THEMES_PARAM, THEME_PARAM]) url.searchParams.delete(k)
+  window.history.replaceState({}, "", `${url.pathname}${url.search}`)
+}
 
 export function coverIsStale(i: Pick<WebsiteSummary, "snapshot_url" | "snapshot_updated_at" | "saved_at">): boolean {
   if (!i.snapshot_url || !i.snapshot_updated_at) return true
@@ -870,11 +881,28 @@ export function WebsiteBuilderClient({
   const search = useSearchParams()
   const themesInAddress = search?.has(THEMES_PARAM) ?? false
 
+  /*
+    A TEMPLATE'S PREVIEW IS ONE MORE ENTRY (./themes/theme-preview.tsx).
+    Preview on a card pushes &preview=slug over whatever the address says,
+    so the system's back, a phone's edge swipe included, lands on the grid
+    under it (or the page, from a card on the page). Back in its bar goes
+    back over that entry through the same watched back as the popup; its
+    close button goes back over the marketplace's entry as well, in one
+    traversal.
+  */
+  const [previewSlug, setPreviewSlug] = React.useState<string | null>(null)
+  const previewPushed = React.useRef(false)
+  const previewOpener = React.useRef<HTMLElement | null>(null)
+  /** The close button's back over two entries is on its way: the entry it lands on is not read as Forward. */
+  const closingAll = React.useRef(false)
+
   const readThemesAddress = React.useCallback(() => {
     const p = new URLSearchParams(window.location.search)
     const on = p.has(THEMES_PARAM)
     setThemesOpen(on)
     setThemeAsked(on ? p.get(THEME_PARAM) : null)
+    const preview = p.get(PREVIEW_PARAM)
+    setPreviewSlug(preview && /^[a-z0-9-]{1,64}$/.test(preview) ? preview : null)
     return on
   }, [])
   /* The address on arrival, and whenever the router changes it under the page (the search box's Themes row, the old address's redirect). */
@@ -884,7 +912,14 @@ export function WebsiteBuilderClient({
   /* Back and Forward. Going forward onto the popup's entry leaves this page's entry behind it, so closing goes back over it. */
   React.useEffect(() => {
     const onPop = () => {
+      if (closingAll.current) {
+        /* The close button went back over both; whatever is left of them in the address goes too, and nothing opens again. */
+        closingAll.current = false
+        clearThemesAddress()
+        return
+      }
       themesPushed.current = readThemesAddress()
+      previewPushed.current = new URLSearchParams(window.location.search).has(PREVIEW_PARAM)
     }
     window.addEventListener("popstate", onPop)
     return () => window.removeEventListener("popstate", onPop)
@@ -920,6 +955,52 @@ export function WebsiteBuilderClient({
       return
     }
     clearAddress()
+  }
+
+  const openPreview = (l: ThemeListing, opener: HTMLElement) => {
+    previewOpener.current = opener
+    const url = new URL(window.location.href)
+    url.searchParams.set(PREVIEW_PARAM, l.slug)
+    if (previewPushed.current) {
+      window.history.replaceState({ ...window.history.state, wbThemePreview: 1 }, "", `${url.pathname}${url.search}`)
+    } else {
+      window.history.pushState({ wbThemePreview: 1 }, "", `${url.pathname}${url.search}`)
+      previewPushed.current = true
+    }
+    setPreviewSlug(l.slug)
+  }
+  const clearPreviewAddress = () => {
+    const url = new URL(window.location.href)
+    if (!url.searchParams.has(PREVIEW_PARAM)) return
+    url.searchParams.delete(PREVIEW_PARAM)
+    window.history.replaceState({}, "", `${url.pathname}${url.search}`)
+  }
+  /** Back, Escape, a press on the dim: the grid (or the page) under the preview. */
+  const closePreview = () => {
+    setPreviewSlug(null)
+    if (previewPushed.current) {
+      previewPushed.current = false
+      backThen(clearPreviewAddress)
+      return
+    }
+    clearPreviewAddress()
+  }
+  /** The preview's close button: the preview and the marketplace under it, back over both entries in one traversal. */
+  const closePreviewAndThemes = () => {
+    if (!themesOpen) return closePreview()
+    setPreviewSlug(null)
+    setThemesOpen(false)
+    const steps = (previewPushed.current ? 1 : 0) + (themesPushed.current ? 1 : 0)
+    previewPushed.current = false
+    themesPushed.current = false
+    /* The focus goes to what opened the marketplace, not to a card that is leaving with it. */
+    previewOpener.current = null
+    if (steps === 0) return clearThemesAddress()
+    closingAll.current = true
+    backThen(() => {
+      closingAll.current = false
+      clearThemesAddress()
+    }, undefined, steps)
   }
   /** The website being imported, added or copied: its row is drawn before it exists. See ./incoming. */
   const [incoming, setIncoming] = React.useState<Incoming | null>(null)
@@ -1345,7 +1426,9 @@ export function WebsiteBuilderClient({
   /** Add, Adding or In library for one theme: the same answer on its card in the row and on its card in the popup. */
   const templateState = (l: ThemeListing): TemplateCardState => {
     if ((!!l.builtinThemeId && installedThemeIds.has(l.builtinThemeId)) || addedSlugs.has(l.slug) || listedSlugs.has(l.slug)) return "in-library"
-    return making && incoming?.kind === "add" && incoming.name === l.name ? "adding" : "add"
+    if (making && incoming?.kind === "add" && incoming.name === l.name) return "adding"
+    /* No room: the button says so, and its press opens the full library sheet (addListing). */
+    return slotsLeft === 0 ? "full" : "add"
   }
 
   /**
@@ -1614,8 +1697,10 @@ export function WebsiteBuilderClient({
         }
       : null
 
-  /* Browse themes: the first few of the marketplace's themes, then a card that opens the rest. */
+  /* Browse themes: the first six of the marketplace's themes, then Show more, which opens all of them. */
   const explore = listings.slice(0, ROW_THEME_CARDS)
+  /* The template a preview names, among the ones this page was given; a slug it does not know opens nothing. */
+  const previewListing = previewSlug ? (listings.find((l) => l.slug === previewSlug) ?? null) : null
   /*
     BROWSE THEMES WAITS FOR THE PAGE'S FIRST FRAME, ON A PHONE. It is a
     screen below the fold there, and a drawn cover with a dozen lines of SVG
@@ -2244,7 +2329,7 @@ export function WebsiteBuilderClient({
             </button>
           </SectionHeading>
           <h2 id="explore-heading" className="sr-only">{tt("Browse themes")}</h2>
-          <div data-theme-grid="" className="grid grid-cols-1 gap-x-5 gap-y-7 sm:grid-cols-2 lg:grid-cols-4">
+          <div data-theme-grid="" className="grid grid-cols-1 gap-x-5 gap-y-7 sm:grid-cols-2 lg:grid-cols-3">
             {explore.map((t) => (
               <ThemeTemplateCard
                 key={t.slug}
@@ -2252,15 +2337,27 @@ export function WebsiteBuilderClient({
                 size="sm"
                 state={templateState(t)}
                 waiting={making}
-                previewHref={listingPath(t.slug)}
+                onPreview={(opener) => openPreview(t, opener)}
                 /* A price or a plan: its page says the terms, rather than Add failing here. */
                 viewHref={t.tier !== "free" ? listingPath(t.slug) : null}
                 onAdd={() => void addListing(t)}
               />
             ))}
-            <MoreThemesCard onOpen={openThemes} />
           </div>
-
+          {listings.length > explore.length ? (
+            <div className="flex justify-center pt-3">
+              {/* The rest, in the marketplace popup: the same window the heading's button opens, and the focus comes back here. */}
+              <button
+                type="button"
+                aria-haspopup="dialog"
+                data-theme-marketplace-open="more"
+                onClick={(e) => openThemes(e.currentTarget)}
+                className="inline-flex h-11 min-w-[160px] items-center justify-center rounded-full bg-white px-6 text-[14px] font-semibold text-[#1a1a2e] shadow-[0_0_0_1px_rgba(17,24,39,0.1),0_1px_2px_rgba(16,24,40,0.05)] outline-none transition-[background-color,box-shadow] duration-200 ease-[cubic-bezier(0.33,1,0.68,1)] pointer-fine:hover:bg-[#f8f9fa] pointer-fine:hover:shadow-[0_0_0_1px_rgba(17,24,39,0.14),0_4px_12px_-6px_rgba(16,24,40,0.18)] active:bg-[#f1f2f4] pointer-fine:active:bg-[#f1f2f4] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 focus-visible:ring-offset-2 motion-reduce:transition-none sm:h-10 [-webkit-tap-highlight-color:transparent]"
+              >
+                {tt("Show more")}
+              </button>
+            </div>
+          ) : null}
         </section>
       </div>
 
@@ -2272,8 +2369,21 @@ export function WebsiteBuilderClient({
         stateOf={templateState}
         waiting={making}
         onAdd={(l) => void addListing(l)}
+        onPreview={openPreview}
         focusSlug={themeAsked}
         returnFocus={() => themesOpener.current ?? marketButton.current}
+      />
+
+      {/* ── A template's preview, over the marketplace or the page ── */}
+      <ThemePreview
+        listing={previewListing}
+        state={previewListing ? templateState(previewListing) : "add"}
+        waiting={making}
+        viewHref={previewListing && previewListing.tier !== "free" ? listingPath(previewListing.slug) : null}
+        onAdd={(l) => void addListing(l)}
+        onBack={closePreview}
+        onClose={closePreviewAndThemes}
+        returnFocus={() => (previewOpener.current?.isConnected ? previewOpener.current : null)}
       />
 
       {/* ── Dialogs ──────────────────────────────────────────────── */}

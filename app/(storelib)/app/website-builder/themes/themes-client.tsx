@@ -6,8 +6,14 @@
  * ===========================================================================
  * It was a page of its own (/app/website-builder/themes), reached by leaving
  * the Website page. It is a layer over that page now: "Theme marketplace"
- * beside Browse themes, and the Explore more themes card, open it where the
- * creator is, and closing it leaves them where they were.
+ * beside Browse themes, and Show more under its six cards, open it where the
+ * creator is, and closing it leaves them where they were. It lists every
+ * theme the page was given: every published listing and every template
+ * that ships with the code (lib/themes/marketplace-server publishedListings),
+ * with no page of them held back.
+ *
+ * A card's cover opens the template's preview over this window
+ * (./theme-preview.tsx); its Back lands on this grid again.
  *
  * ON A COMPUTER it is a large window: the title at the top left, a close
  * button at the top right, the categories and the order under them, and a
@@ -35,6 +41,8 @@ import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { ChevronDown, X } from "lucide-react"
 
 import { SCRIM } from "@/components/ui/scrim"
+import { useEdgeFade } from "@/components/app/use-edge-fade"
+import { hapticTap } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { ThemeTemplateCard, type TemplateCardState } from "@/components/website-builder/theme-template-card"
@@ -87,13 +95,15 @@ export interface ThemeMarketplaceProps {
   /** Another website is being made: every Add waits for it. */
   waiting?: boolean
   onAdd: (listing: ThemeListing) => void
+  /** Preview on a card: the template's preview over this window (./theme-preview.tsx), given the cover that opened it. */
+  onPreview: (listing: ThemeListing, opener: HTMLElement) => void
   /** A theme a link named (&theme=slug): brought into view when the popup opens. */
   focusSlug?: string | null
   /** What takes the focus back when it closes: the button that opened it. */
   returnFocus?: () => HTMLElement | null
 }
 
-export function ThemeMarketplace({ open, onClose, listings, stateOf, waiting = false, onAdd, focusSlug = null, returnFocus }: ThemeMarketplaceProps) {
+export function ThemeMarketplace({ open, onClose, listings, stateOf, waiting = false, onAdd, onPreview, focusSlug = null, returnFocus }: ThemeMarketplaceProps) {
   const [category, setCategory] = React.useState<string>("all")
   const [sort, setSort] = React.useState<ThemeSort>("featured")
   const scrim = React.useRef<HTMLDivElement>(null)
@@ -178,7 +188,7 @@ export function ThemeMarketplace({ open, onClose, listings, stateOf, waiting = f
               <DialogPrimitive.Close
                 data-themes-close=""
                 aria-label={tt("Close")}
-                className="-mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-[#4b5563] outline-none transition-colors duration-150 pointer-fine:hover:bg-[#f3f4f6] pointer-fine:hover:text-[#1a1a2e] active:bg-[#eceef1] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 md:h-9 md:w-9 md:rounded-lg [-webkit-tap-highlight-color:transparent]"
+                className="-mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-[#4b5563] outline-none transition-colors duration-150 pointer-fine:hover:bg-[#f3f4f6] pointer-fine:hover:text-[#1a1a2e] active:bg-[#eceef1] pointer-fine:active:bg-[#eceef1] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 md:h-9 md:w-9 md:rounded-lg [-webkit-tap-highlight-color:transparent]"
               >
                 <X className="h-5 w-5 md:h-[18px] md:w-[18px]" strokeWidth={2} />
               </DialogPrimitive.Close>
@@ -186,28 +196,7 @@ export function ThemeMarketplace({ open, onClose, listings, stateOf, waiting = f
 
             <div className="flex items-center gap-3 pb-3">
               {categories.length > 1 ? (
-                <div
-                  role="group"
-                  aria-label={tt("Category")}
-                  data-themes-categories=""
-                  className="-ml-4 flex min-w-0 flex-1 gap-1.5 overflow-x-auto pl-4 [scrollbar-width:none] md:ml-0 md:pl-0 [&::-webkit-scrollbar]:hidden"
-                >
-                  {["all", ...categories].map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      aria-pressed={category === c}
-                      data-themes-category={c}
-                      onClick={() => setCategory(c)}
-                      className={cn(
-                        "h-9 shrink-0 rounded-lg px-3 text-[13px] font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 md:h-8 [-webkit-tap-highlight-color:transparent]",
-                        category === c ? "bg-[#1a1a2e] text-white" : "bg-[#f3f4f6] text-[#4b5563] pointer-fine:hover:bg-[#eceef1] pointer-fine:hover:text-[#1a1a2e]",
-                      )}
-                    >
-                      {c === "all" ? tt("All") : tt(c)}
-                    </button>
-                  ))}
-                </div>
+                <CategoryPills categories={categories} value={category} onChange={setCategory} />
               ) : (
                 <span className="flex-1" />
               )}
@@ -246,8 +235,8 @@ export function ThemeMarketplace({ open, onClose, listings, stateOf, waiting = f
                     state={state}
                     priority={i < 3}
                     waiting={waiting}
-                    /* Its own page: the live preview where the theme has one, its demo store or its pictures where it does not. */
-                    previewHref={listingPath(l.slug)}
+                    /* Its preview over this window: the home page at a computer's width and a phone's. */
+                    onPreview={(opener) => onPreview(l, opener)}
                     /* A price or a plan: its page says the terms, as the Browse themes row does. */
                     viewHref={l.tier !== "free" ? listingPath(l.slug) : null}
                     onAdd={() => onAdd(l)}
@@ -260,5 +249,107 @@ export function ThemeMarketplace({ open, onClose, listings, stateOf, waiting = f
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>
     </>
+  )
+}
+
+/*
+  ===========================================================================
+   THE CATEGORIES, AS STORELIB'S OWN CHIPS
+  ===========================================================================
+  The chips of Analytics' All / Digital / Physical / Communities
+  (components/app/segmented-pills.tsx, variant "chips"): quiet words on the
+  page, the chosen one on a dark pill that slides to the next by transform
+  and takes its width, 220ms on the /app curve, so nothing is laid out
+  again. Under a mouse a chip takes a faint shade, a press a deeper one, and
+  the words ease to white as the pill arrives. Until the pill has been
+  measured, the chosen chip draws its own.
+
+  NOTHING IS CLIPPED. The row scrolls sideways when it does not fit, and a
+  scroller clips on every side, so the row keeps 4px of room around its
+  chips for the focus ring, and fades where it is cut (.edge-fade) rather
+  than slicing a word. The chosen chip is kept in view.
+*/
+function CategoryPills({ categories, value, onChange }: { categories: string[]; value: string; onChange: (c: string) => void }) {
+  const row = useEdgeFade<HTMLDivElement>()
+  const refs = React.useRef<(HTMLButtonElement | null)[]>([])
+  const options = React.useMemo(() => ["all", ...categories], [categories])
+  const index = Math.max(0, options.indexOf(value))
+  const [box, setBox] = React.useState<{ x: number; w: number } | null>(null)
+
+  React.useLayoutEffect(() => {
+    const measure = () => {
+      const el = refs.current[index]
+      if (!el) return
+      setBox((b) => (b && b.x === el.offsetLeft && b.w === el.offsetWidth ? b : { x: el.offsetLeft, w: el.offsetWidth }))
+    }
+    measure()
+    const strip = row.current
+    const el = refs.current[index]
+    if (strip && el && strip.scrollWidth > strip.clientWidth) {
+      const left = Math.max(0, Math.min(strip.scrollWidth - strip.clientWidth, el.offsetLeft - (strip.clientWidth - el.offsetWidth) / 2))
+      const still = !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+      if (typeof strip.scrollTo === "function") strip.scrollTo({ left, behavior: still ? ("instant" as ScrollBehavior) : "smooth" })
+    }
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null
+    if (ro && strip) ro.observe(strip)
+    return () => ro?.disconnect()
+  }, [index, options.length, row])
+
+  const pick = (i: number) => {
+    const c = options[i]
+    if (c === undefined || c === value) return
+    hapticTap("soft")
+    onChange(c)
+  }
+
+  return (
+    <div
+      ref={row}
+      role="group"
+      aria-label={tt("Category")}
+      data-themes-categories=""
+      className="edge-fade relative -my-1 -ml-4 flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto py-1 pl-4 pr-1 [scrollbar-width:none] md:-ml-1 md:pl-1 [&::-webkit-scrollbar]:hidden"
+      style={{ touchAction: "pan-x pan-y", overscrollBehaviorX: "contain" }}
+    >
+      {box ? (
+        <span
+          aria-hidden
+          data-themes-category-pill=""
+          className="pointer-events-none absolute left-0 top-1 h-9 rounded-full bg-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.18)] transition-[translate,width] duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none md:h-8"
+          style={{ translate: `${box.x}px 0`, width: box.w }}
+        />
+      ) : null}
+      {options.map((c, i) => {
+        const on = i === index
+        return (
+          <button
+            key={c}
+            ref={(el) => {
+              refs.current[i] = el
+            }}
+            type="button"
+            aria-pressed={on}
+            data-themes-category={c}
+            onClick={() => pick(i)}
+            onKeyDown={(e) => {
+              if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return
+              e.preventDefault()
+              const next = (i + (e.key === "ArrowRight" ? 1 : options.length - 1)) % options.length
+              refs.current[next]?.focus()
+              pick(next)
+            }}
+            className={cn(
+              "relative z-[1] h-9 shrink-0 whitespace-nowrap rounded-full px-3.5 text-[13px] font-semibold outline-none md:h-8 [-webkit-tap-highlight-color:transparent]",
+              "transition-[color,background-color] duration-200 ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25",
+              on
+                ? cn("text-white", !box && "bg-[#1a1a2e]")
+                : "bg-[#1a1a2e]/0 text-[#4b5563] pointer-fine:hover:bg-[#1a1a2e]/[0.05] pointer-fine:hover:text-[#1a1a2e] active:bg-[#1a1a2e]/[0.09] pointer-fine:active:bg-[#1a1a2e]/[0.09] active:text-[#1a1a2e] pointer-fine:active:text-[#1a1a2e]",
+            )}
+          >
+            {c === "all" ? tt("All") : tt(c)}
+          </button>
+        )
+      })}
+    </div>
   )
 }
