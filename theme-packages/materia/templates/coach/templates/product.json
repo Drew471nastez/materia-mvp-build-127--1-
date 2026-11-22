@@ -98,7 +98,8 @@
             "buy_icon_enable": false,
             "show_gift_card_recipient": false,
             "atc_button_text": "Add to basket",
-            "buy_button_text": "Book now"
+            "buy_button_text": "Book now",
+            "enable_custom_button_text": true
           }
         },
         "vertical_benefits_1": {
@@ -249,7 +250,8 @@
         "show_vendor": false,
         "padding_top": 72,
         "padding_bottom": 88,
-        "header_alignment": "left"
+        "header_alignment": "left",
+        "description": ""
       }
     }
   },

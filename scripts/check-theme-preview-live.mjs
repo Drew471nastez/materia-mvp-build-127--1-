@@ -182,7 +182,7 @@ try {
             opacity: +getComputedStyle(live).opacity,
             sandbox: iframe?.getAttribute("sandbox") ?? null,
             referrer: iframe?.getAttribute("referrerpolicy") ?? null,
-            src: (iframe?.getAttribute("src") ?? null),
+            src: live.getAttribute("data-preview-src"),
             asked: iframe?.getAttribute("src") ?? null,
             frame: box ? [box.width, box.height].map(Math.round) : null,
             frameBg: document.querySelector("[data-preview-live-frame]") ? getComputedStyle(document.querySelector("[data-preview-live-frame]")).backgroundColor : null,
