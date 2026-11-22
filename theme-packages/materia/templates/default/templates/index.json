@@ -6,19 +6,19 @@
         "color_scheme": "default",
         "section_width": "full_width",
         "image_position": "right",
-        "media_width_desktop": 54,
+        "media_width_desktop": 55,
         "content_align": "left",
         "vertical_align": "center",
         "content_max_width": 520,
-        "content_gap": 20,
-        "min_height_desktop": 680,
+        "content_gap": 22,
+        "min_height_desktop": 640,
         "image": "shopify://shop_images/default-hero.webp",
-        "image_alt": "A wooden table and a stool in a white studio, lit by a low sun",
-        "image_position_x": 50,
-        "image_position_y": 55,
-        "padding_top_desktop": 64,
-        "padding_bottom_desktop": 64,
-        "side_padding_desktop": 52,
+        "image_alt": "A speckled stoneware bottle and two cups on a white table",
+        "image_position_x": 62,
+        "image_position_y": 50,
+        "padding_top_desktop": 56,
+        "padding_bottom_desktop": 56,
+        "side_padding_desktop": 87,
         "mobile_image_first": true,
         "media_height_mobile": 360,
         "padding_top_mobile": 28,
@@ -31,10 +31,10 @@
           "settings": {
             "text": "Arden",
             "size_enable": true,
-            "size_desktop": 104,
+            "size_desktop": 92,
             "size_mobile": 64,
             "line_height": 0.95,
-            "tracking": -3,
+            "tracking": -2.5,
             "weight_enable": true,
             "weight": "600"
           }
@@ -44,8 +44,8 @@
           "settings": {
             "text": "<p>Good everyday things, made in small batches. Mugs, bags, paper goods and a few things to download.</p>",
             "size_enable": true,
-            "size": 19,
-            "line_height": 1.5
+            "size": 18,
+            "line_height": 1.55
           }
         },
         "button_3": {
@@ -79,22 +79,22 @@
         "items_to_show": 4,
         "items_per_row": 4,
         "items_per_row_mobile": 2,
-        "column_gap": 20,
+        "column_gap": 24,
         "row_gap": 40,
         "show_rating": false,
         "show_swatches": false,
         "show_add_to_cart": false,
         "show_badges": true,
         "header_alignment": "left",
-        "padding_top": 88,
-        "padding_bottom": 40
+        "padding_top": 96,
+        "padding_bottom": 56
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
             "text": "New in",
-            "size_desktop": 32,
+            "size_desktop": 30,
             "size_mobile": 26
           }
         },
@@ -117,27 +117,29 @@
       "type": "category-banners",
       "settings": {
         "color_scheme": "default",
-        "section_width": "container",
+        "section_width": "full_width",
         "layout": "grid_3",
-        "gap": 20,
+        "gap": 24,
         "aspect_ratio_desktop": "4 / 5",
         "text_position": "bottom",
         "sub_visibility": "always",
         "border_radius": 6,
-        "overlay_opacity": 30,
-        "heading_size_desktop": 26,
+        "overlay_opacity": 18,
+        "heading_size_desktop": 24,
         "heading_weight": 600,
-        "sub_size": 15,
+        "sub_size": 14,
         "heading_uppercase": false,
         "heading_letter_spacing": 0,
-        "heading_shadow": "0 2px 8px rgba(0,0,0,0.25)",
-        "overlay_opacity_hover": 40,
+        "heading_shadow": "0 1px 10px rgba(0,0,0,0.35)",
+        "overlay_opacity_hover": 30,
         "image_hover_scale": 104,
-        "padding_top": 48,
-        "padding_bottom": 96,
+        "padding_top": 24,
+        "padding_bottom": 112,
         "aspect_ratio_mobile": "1 / 1",
-        "heading_size_mobile": 22,
-        "side_padding_mobile": 0
+        "heading_size_mobile": 21,
+        "side_padding_mobile": 16,
+        "enable_custom_style": true,
+        "side_padding_desktop": 80
       },
       "blocks": {
         "banner_1": {
@@ -155,7 +157,10 @@
             "heading": "Bags and caps",
             "subheading": "Canvas and cotton",
             "link": "/collections/all",
-            "image": "shopify://shop_images/default-cat-bags.webp"
+            "image": "shopify://shop_images/default-cat-bags.webp",
+            "enable_custom_style": true,
+            "overlay_color": "#1c1a17",
+            "overlay_opacity": 42
           }
         },
         "banner_3": {
@@ -198,14 +203,15 @@
         "benefit_heading_gap": 4,
         "benefit_heading_size": 17,
         "benefit_text_size": 15,
-        "gap_desktop": 96,
+        "gap_desktop": 104,
         "benefit_gap_desktop": 20,
-        "padding_top_desktop": 96,
-        "padding_bottom_desktop": 96,
+        "padding_top_desktop": 104,
+        "padding_bottom_desktop": 104,
         "mobile_order": "media_first",
         "gap_mobile": 32,
         "padding_top_mobile": 56,
-        "padding_bottom_mobile": 56
+        "padding_bottom_mobile": 56,
+        "side_padding_desktop": 80
       },
       "blocks": {
         "media_1": {
@@ -221,7 +227,7 @@
           "settings": {
             "text": "A small studio, start to finish",
             "uppercase": false,
-            "size_desktop": 44,
+            "size_desktop": 40,
             "size_mobile": 32
           }
         },
@@ -287,11 +293,12 @@
         "aspect_h": 1,
         "image_radius": 6,
         "gap_desktop": 96,
-        "padding_top_desktop": 104,
-        "padding_bottom_desktop": 104,
+        "padding_top_desktop": 112,
+        "padding_bottom_desktop": 112,
         "mobile_order": "media_first",
         "padding_top_mobile": 56,
-        "padding_bottom_mobile": 56
+        "padding_bottom_mobile": 56,
+        "side_padding_desktop": 80
       },
       "blocks": {
         "eyebrow_1": {
@@ -305,7 +312,7 @@
           "type": "heading",
           "settings": {
             "text": "The Desk Planner",
-            "size_desktop": 48,
+            "size_desktop": 44,
             "size_mobile": 34
           }
         },
@@ -335,11 +342,11 @@
       "settings": {
         "color_scheme": "default",
         "section_width": "container",
-        "padding_top": 96,
-        "padding_bottom": 104,
+        "padding_top": 104,
+        "padding_bottom": 112,
         "card_sticky": true,
         "question_size_desktop": 18,
-        "max_content_width": 1160
+        "max_content_width": 1252
       },
       "blocks": {
         "heading_1": {

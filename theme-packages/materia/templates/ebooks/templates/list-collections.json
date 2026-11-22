@@ -16,7 +16,7 @@
         "heading_B3DXTc": {
           "type": "heading",
           "settings": {
-            "page_title": "Series and collections",
+            "page_title": "The book and bundle",
             "header_size": "default",
             "vertical_gap": 8,
             "heading_color": "",
@@ -27,8 +27,8 @@
         "description_tLPCVn": {
           "type": "description",
           "settings": {
-            "description": "<p>The books, grouped by series.</p>",
-            "description_color": "#767676",
+            "description": "<p>The ebook on its own, or with the workbook.</p>",
+            "description_color": "#5c5c63",
             "enable_custom_style": true,
             "description_font_size": 15
           }
@@ -50,10 +50,10 @@
         "image_ratio": "adapt",
         "padding_top": 20,
         "color_scheme": "default",
-        "items_per_row": 4,
+        "items_per_row": 3,
         "items_to_show": 8,
         "reset_spacing": true,
-        "section_width": "fluid_container",
+        "section_width": "container",
         "padding_bottom": 112,
         "text_alignment": "center",
         "button_show_more": "Load more",

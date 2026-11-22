@@ -1,141 +1,171 @@
 {
   "sections": {
-    "page_heading_1": {
-      "type": "page-heading",
+    "author": {
+      "type": "Image-and-video-text",
       "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976"
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "image_position": "left",
+        "text_column_width": 52,
+        "content_align": "left",
+        "media_type": "image",
+        "image": "shopify://shop_images/ebooks-author.webp",
+        "image_alt": "Sample author photo: a woman with short blonde hair, smiling",
+        "aspect_w": 1,
+        "aspect_h": 1,
+        "image_fit": "cover",
+        "image_radius": 16,
+        "gap_desktop": 72,
+        "side_padding_desktop": 48,
+        "padding_top_desktop": 104,
+        "padding_bottom_desktop": 104,
+        "mobile_order": "media_first",
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56
       },
       "blocks": {
-        "heading_1": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "The author",
+            "size": 13
+          }
+        },
+        "heading_2": {
           "type": "heading",
           "settings": {
-            "page_title": "About the author"
+            "text": "By Maren Holt",
+            "tag": "h1",
+            "size_desktop": 44,
+            "size_mobile": 32
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p><strong>Author of Plain Sight</strong></p><p>Maren ran a bike repair shop for nine years before she started helping other shop owners get found online. She has worked with bakeries, dentists, garages and one very busy locksmith.</p><p>Plain Sight is everything she shows them, in the order she shows it, so you can do it yourself in the evenings.</p><p><em>Sample photo and bio. Put your own here.</em></p>",
+            "size_desktop": 16
           }
         }
       },
       "block_order": [
-        "heading_1"
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3"
       ]
     },
-    "image_and_video_text_2": {
-      "type": "Image-and-video-text",
+    "why": {
+      "type": "text-columns",
       "settings": {
         "color_scheme": "default",
-        "image": "shopify://shop_images/ebooks-library-curve.webp",
-        "image_alt": "Curved library shelves full of books",
-        "image_position": "right"
+        "section_width": "container",
+        "content_alignment": "left",
+        "columns_desktop": 3,
+        "columns_tablet": 3,
+        "mobile_layout": "stack",
+        "padding_top": 96,
+        "padding_bottom": 96
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Your name"
+            "text": "Why she wrote it"
           }
         },
-        "subheading_2": {
+        "column_2": {
+          "type": "column",
+          "settings": {
+            "label": "01",
+            "heading": "Agencies cost too much",
+            "text": "<p>Most small shops cannot spend a few hundred a month on search. Most of the work is simple enough to do yourself.</p>"
+          }
+        },
+        "column_3": {
+          "type": "column",
+          "settings": {
+            "label": "02",
+            "heading": "Advice was scattered",
+            "text": "<p>Good tips live in a hundred blog posts. The book puts them in the order you need them.</p>"
+          }
+        },
+        "column_4": {
+          "type": "column",
+          "settings": {
+            "label": "03",
+            "heading": "It is a habit, not a trick",
+            "text": "<p>Being found is mostly showing up every week. The book gives you a routine short enough to keep.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "column_2",
+        "column_3",
+        "column_4"
+      ]
+    },
+    "final": {
+      "type": "banner3",
+      "settings": {
+        "color_scheme": "default",
+        "use_custom_bg": true,
+        "bg_color": "#151517",
+        "use_custom_text": true,
+        "heading_color": "#ffffff",
+        "text_color": "#b9b9c0",
+        "use_theme_radius": true,
+        "enable_bg_gradient": true,
+        "bg_gradient": "radial-gradient(70% 90% at 50% 120%, rgba(226,64,47,0.55) 0%, rgba(226,64,47,0.12) 45%, #151517 75%)",
+        "pad_top_desktop": 88,
+        "pad_bottom_desktop": 88,
+        "section_padding_top": 0,
+        "section_padding_bottom": 96,
+        "section_width": "container",
+        "text_align": "center",
+        "max_width": 720,
+        "banner_surface": "soft",
+        "reveal": true
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Plain Sight",
+            "color": "#ff8a7c"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Be the shop people find first"
+          }
+        },
+        "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Write your biography here. Say what you write, what you have published and what you are working on now.</p>"
+            "text": "The ebook in PDF and EPUB, $29 this month. Refund within 30 days."
           }
         },
-        "button_3": {
+        "button_4": {
           "type": "button",
           "settings": {
-            "label": "See the books",
+            "label": "Get the ebook",
             "link": "/collections/all"
           }
         }
       },
       "block_order": [
-        "heading_1",
-        "subheading_2",
-        "button_3"
-      ]
-    },
-    "feature_timeline_3": {
-      "type": "feature-timeline",
-      "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "layout": "side"
-      },
-      "blocks": {
-        "heading_1": {
-          "type": "heading",
-          "settings": {
-            "text": "Books so far"
-          }
-        },
-        "subheading_2": {
-          "type": "subheading",
-          "settings": {
-            "text": "<p>In the order they were written.</p>"
-          }
-        },
-        "item_3": {
-          "type": "item",
-          "settings": {
-            "label": "Year",
-            "title": "First book",
-            "text": "<p>One line about your first book.</p>"
-          }
-        },
-        "item_4": {
-          "type": "item",
-          "settings": {
-            "label": "Year",
-            "title": "Second book",
-            "text": "<p>One line about your second book.</p>"
-          }
-        },
-        "item_5": {
-          "type": "item",
-          "settings": {
-            "label": "Now",
-            "title": "Work in progress",
-            "text": "<p>What you are writing at the moment.</p>"
-          }
-        }
-      },
-      "block_order": [
-        "heading_1",
-        "subheading_2",
-        "item_3",
-        "item_4",
-        "item_5"
-      ]
-    },
-    "image_and_video_text_4": {
-      "type": "Image-and-video-text",
-      "settings": {
-        "color_scheme": "scheme-7dae8b89-7a81-4c2c-b8e2-92533766f8ca",
-        "image": "shopify://shop_images/ebooks-book-row.webp",
-        "image_alt": "A row of old books seen from above",
-        "image_position": "left"
-      },
-      "blocks": {
-        "heading_1": {
-          "type": "heading",
-          "settings": {
-            "text": "Why I sell direct"
-          }
-        },
-        "subheading_2": {
-          "type": "subheading",
-          "settings": {
-            "text": "<p>Buying here means more of the price reaches the author, and you get files with no locks on them.</p>"
-          }
-        }
-      },
-      "block_order": [
-        "heading_1",
-        "subheading_2"
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
       ]
     }
   },
   "order": [
-    "page_heading_1",
-    "image_and_video_text_2",
-    "feature_timeline_3",
-    "image_and_video_text_4"
+    "author",
+    "why",
+    "final"
   ]
 }

@@ -2,19 +2,54 @@
   "type": "header",
   "name": "t:sections.header.name",
   "sections": {
+    "offer_bar": {
+      "type": "announcement-bar",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "homepage_only": false,
+        "announcement_actions": "slide",
+        "show_close": false,
+        "show_separator_line": false,
+        "enable_custom_style": true,
+        "background_color": "#151517",
+        "text_color": "#e9e9ec",
+        "accent_color": "#ff8a7c",
+        "uppercase": false,
+        "font_size": 13,
+        "change_every": 5
+      },
+      "blocks": {
+        "announcement_1": {
+          "type": "announcement",
+          "settings": {
+            "text": "Plain Sight, second edition: <strong>$29</strong> this month, usually $49"
+          }
+        },
+        "announcement_2": {
+          "type": "announcement",
+          "settings": {
+            "text": "PDF and EPUB, in your inbox a minute after you pay"
+          }
+        }
+      },
+      "block_order": [
+        "announcement_1",
+        "announcement_2"
+      ]
+    },
     "header": {
       "type": "header",
       "settings": {
         "reveal": true,
         "menu_tab": "unset",
         "mega_menu": "main-menu",
-        "show_search": true,
+        "show_search": false,
         "color_scheme": "default",
         "icon_spacing": 10,
-        "header_height": 84,
+        "header_height": 76,
         "header_layout": "stretch_width",
         "logo_offset_x": 0,
-        "logo_position": "center",
+        "logo_position": "left",
         "reset_spacing": true,
         "section_width": "fluid_container",
         "show_currency": false,
@@ -26,27 +61,27 @@
         "mega_column_gap": 32,
         "uppercase_first": false,
         "action_text_size": 16,
-        "menu_custom_font": "bodoni_moda_n4",
+        "menu_custom_font": "poppins_n5",
         "menu_hover_style": "inherit",
         "redirect_to_link": true,
         "logo_width_mobile": 78,
-        "menu_link_spacing": 8,
+        "menu_link_spacing": 14,
         "menu_mobile_color": "#ffffff",
-        "show_account_icon": true,
+        "show_account_icon": false,
         "action_text_weight": "400",
         "logo_width_desktop": 78,
         "show_shopping_cart": true,
-        "show_wishlist_icon": true,
-        "sticky_header_type": "on-scroll-up",
+        "show_wishlist_icon": false,
+        "sticky_header_type": "always",
         "transparent_header": false,
         "transparent_mobile": false,
         "dropdowns_animation": "down-to-up",
         "enable_custom_fonts": false,
         "icon_spacing_mobile": 6,
-        "header_height_mobile": 64,
+        "header_height_mobile": 62,
         "logo_custom_position": false,
         "logo_offset_x_mobile": 0,
-        "logo_position_mobile": "center",
+        "logo_position_mobile": "left",
         "menu_mobile_chevrons": false,
         "sticky_header_mobile": true,
         "dropdown_link_spacing": 3,
@@ -132,6 +167,7 @@
     }
   },
   "order": [
+    "offer_bar",
     "header"
   ]
 }

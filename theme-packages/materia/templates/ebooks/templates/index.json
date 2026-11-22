@@ -1,333 +1,988 @@
 {
   "sections": {
-    "hero_split_media_1": {
-      "type": "hero-split-media",
+    "hero": {
+      "type": "hero-product3",
       "settings": {
         "color_scheme": "default",
-        "image": "shopify://shop_images/ebooks-hero-open-book.webp",
-        "image_alt": "An open book beside a coffee and a pair of glasses",
-        "image_position": "left",
-        "min_height_desktop": 620
+        "section_width": "container",
+        "image_position": "right",
+        "text_column_width": 54,
+        "gap_columns": 48,
+        "featured_image": "shopify://shop_images/ebooks-hero-book.webp",
+        "image_alt": "Plain Sight by Maren Holt, the book standing upright",
+        "image_fit": "contain",
+        "image_height_desktop": 600,
+        "image_height_mobile": 320,
+        "image_radius": 0,
+        "padding_top_desktop": 72,
+        "padding_bottom_desktop": 64,
+        "padding_top_mobile": 28,
+        "padding_bottom_mobile": 48,
+        "image_position_mobile": "top",
+        "reveal": false
       },
       "blocks": {
-        "eyebrow_1": {
-          "type": "eyebrow",
+        "pill_badge_1": {
+          "type": "pill_badge",
           "settings": {
-            "text": "The new book"
+            "text": "Field guide",
+            "icon": "",
+            "style_preset": "custom",
+            "enable_custom_style": true,
+            "bg_color": "#151517",
+            "text_color": "#ffffff",
+            "uppercase": false,
+            "font_size": 13,
+            "font_weight": "600",
+            "border_radius": 6,
+            "padding_x": 12,
+            "padding_y": 6,
+            "margin_bottom": 8
           }
         },
-        "heading_2": {
+        "pill_badge_2": {
+          "type": "pill_badge",
+          "settings": {
+            "text": "Second edition",
+            "icon": "",
+            "style_preset": "custom",
+            "enable_custom_style": true,
+            "bg_color": "#e2402f",
+            "text_color": "#ffffff",
+            "uppercase": false,
+            "font_size": 13,
+            "font_weight": "600",
+            "border_radius": 6,
+            "padding_x": 12,
+            "padding_y": 6,
+            "margin_bottom": 20
+          }
+        },
+        "heading_3": {
           "type": "heading",
           "settings": {
-            "text": "Put your book title here"
+            "heading_text": "Show up first, even when you are the smallest shop in town",
+            "font_size_desktop": 54,
+            "font_size_mobile": 34,
+            "line_height_desktop": 1.08,
+            "max_width": 620,
+            "margin_bottom": 18
           }
         },
-        "subheading_3": {
+        "subheading_4": {
           "type": "subheading",
           "settings": {
-            "text": "<p>One or two sentences that say what the book is about and who it is for.</p>"
+            "text": "<p>Plain Sight is a short, practical book on local search. Follow it for a few weeks and the people nearby who need you will find you before they find the chain down the road.</p>",
+            "font_size_desktop": 18,
+            "max_width": 540,
+            "margin_bottom": 22
           }
         },
-        "button_4": {
-          "type": "button",
+        "bullet_checklist_5": {
+          "type": "bullet_checklist",
           "settings": {
-            "text": "Get the ebook",
-            "link": "/collections/all"
+            "items": "Set up a profile that gets clicks\nGet reviews without the awkward ask\nShow up on maps for the words people type",
+            "icon_style": "check_circle",
+            "font_size_desktop": 16,
+            "margin_bottom": 26
           }
         },
-        "button_5": {
-          "type": "button",
+        "primary_button_6": {
+          "type": "primary_button",
           "settings": {
-            "text": "Read a sample",
-            "button_style": "secondary",
-            "link": "/pages/about"
+            "label": "Buy the ebook, $29",
+            "link": "/collections/all",
+            "full_width": false,
+            "uppercase": false,
+            "margin_bottom": 14
+          }
+        },
+        "accent_block_7": {
+          "type": "accent_block",
+          "settings": {
+            "text": "PDF and EPUB. Refund within 30 days if it is not for you.",
+            "font_size": 14,
+            "margin_top": 0
           }
         }
       },
       "block_order": [
-        "eyebrow_1",
-        "heading_2",
-        "subheading_3",
-        "button_4",
-        "button_5"
+        "pill_badge_1",
+        "pill_badge_2",
+        "heading_3",
+        "subheading_4",
+        "bullet_checklist_5",
+        "primary_button_6",
+        "accent_block_7"
       ]
     },
-    "quotebanner_2": {
-      "type": "quotebanner",
+    "band": {
+      "type": "benefits-icons2",
       "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976"
+        "color_scheme": "scheme-6da511c0-ea26-4213-b3d3-e09320840636",
+        "section_width": "full_width",
+        "inner_width": 86,
+        "icons_per_row_desktop": 3,
+        "space_between_icons": 40,
+        "enable_custom_style": true,
+        "section_background": "#e2402f",
+        "icon_color": "#ffffff",
+        "icon_title_color": "#ffffff",
+        "icon_description_color": "#ffe3dd",
+        "make_icons_circle": false,
+        "icon_size": 40,
+        "icon_title_size": 22,
+        "icon_description_size": 15,
+        "padding_top_desktop": 64,
+        "padding_bottom_desktop": 64,
+        "icons_mobile_layout": "1",
+        "icon_size_mobile": 34,
+        "icon_title_size_mobile": 19,
+        "icon_description_size_mobile": 14,
+        "padding_top_mobile": 44,
+        "padding_bottom_mobile": 44,
+        "reveal": true
       },
       "blocks": {
-        "quote_1": {
-          "type": "quote",
+        "icon_1": {
+          "type": "icon",
           "settings": {
-            "quote_text": "Add a line from a reader or a review of your book."
+            "icon": "receipt",
+            "icon_title": "212 pages",
+            "icon_description": "Plain words and screenshots, no theory chapters to wade through."
           }
         },
-        "author_2": {
-          "type": "author",
+        "icon_2": {
+          "type": "icon",
           "settings": {
-            "author_name": "Reader name",
-            "author_role": "Where the review appeared"
+            "icon": "calendar_check",
+            "icon_title": "12 chapters",
+            "icon_description": "One a week. Each ends with a task you can finish in an evening."
+          }
+        },
+        "icon_3": {
+          "type": "icon",
+          "settings": {
+            "icon": "pencil_ruler",
+            "icon_title": "40 checklists",
+            "icon_description": "Printable checklists and message templates you can copy as they are."
           }
         }
       },
       "block_order": [
-        "quote_1",
-        "author_2"
+        "icon_1",
+        "icon_2",
+        "icon_3"
       ]
     },
-    "products_listing_3": {
-      "type": "products-listing",
-      "settings": {
-        "items_to_show": 3,
-        "items_per_row": 3,
-        "color_scheme": "default"
-      },
-      "blocks": {
-        "eyebrow_1": {
-          "type": "eyebrow",
-          "settings": {
-            "text": "The shelf"
-          }
-        },
-        "heading_2": {
-          "type": "heading",
-          "settings": {
-            "text": "All the books"
-          }
-        },
-        "subheading_3": {
-          "type": "subheading",
-          "settings": {
-            "text": "<p>Ebooks in EPUB and PDF, yours to keep.</p>"
-          }
-        },
-        "button_4": {
-          "type": "button",
-          "settings": {
-            "text": "See every title",
-            "link": "/collections/all"
-          }
-        }
-      },
-      "block_order": [
-        "eyebrow_1",
-        "heading_2",
-        "subheading_3",
-        "button_4"
-      ]
-    },
-    "image_with_text_steps_4": {
-      "type": "image-with-text-steps",
-      "settings": {
-        "color_scheme": "scheme-7dae8b89-7a81-4c2c-b8e2-92533766f8ca",
-        "image": "shopify://shop_images/ebooks-book-stack.webp",
-        "image_alt": "A stack of open books on a tan background",
-        "image_position": "right"
-      },
-      "blocks": {
-        "eyebrow_1": {
-          "type": "eyebrow",
-          "settings": {
-            "text": "Inside the book"
-          }
-        },
-        "heading_2": {
-          "type": "heading",
-          "settings": {
-            "text": "What you will read"
-          }
-        },
-        "subheading_3": {
-          "type": "subheading",
-          "settings": {
-            "text": "<p>Give readers a feel for the chapters.</p>"
-          }
-        },
-        "step_4": {
-          "type": "step",
-          "settings": {
-            "title": "Part one",
-            "description": "<p>Say what the first part covers.</p>"
-          }
-        },
-        "step_5": {
-          "type": "step",
-          "settings": {
-            "title": "Part two",
-            "description": "<p>Say what the second part covers.</p>"
-          }
-        },
-        "step_6": {
-          "type": "step",
-          "settings": {
-            "title": "Part three",
-            "description": "<p>Say how the book ends, without giving it away.</p>"
-          }
-        },
-        "button_7": {
-          "type": "button",
-          "settings": {
-            "label": "Get the ebook",
-            "url": "/collections/all"
-          }
-        }
-      },
-      "block_order": [
-        "eyebrow_1",
-        "heading_2",
-        "subheading_3",
-        "step_4",
-        "step_5",
-        "step_6",
-        "button_7"
-      ]
-    },
-    "image_and_video_text_5": {
-      "type": "Image-and-video-text",
+    "press": {
+      "type": "logos-list",
       "settings": {
         "color_scheme": "default",
-        "image": "shopify://shop_images/ebooks-writing.webp",
-        "image_alt": "Hands typing on a laptop",
-        "image_position": "left"
-      },
-      "blocks": {
-        "eyebrow_1": {
-          "type": "eyebrow",
-          "settings": {
-            "text": "About the author"
-          }
-        },
-        "heading_2": {
-          "type": "heading",
-          "settings": {
-            "text": "Written by your name"
-          }
-        },
-        "subheading_3": {
-          "type": "subheading",
-          "settings": {
-            "text": "<p>A short biography: what you write about, where your work has appeared and where you live.</p>"
-          }
-        },
-        "button_4": {
-          "type": "button",
-          "settings": {
-            "label": "More about the author",
-            "link": "/pages/about"
-          }
-        }
-      },
-      "block_order": [
-        "eyebrow_1",
-        "heading_2",
-        "subheading_3",
-        "button_4"
-      ]
-    },
-    "testimonials_6": {
-      "type": "testimonials",
-      "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976"
-      },
-      "blocks": {
-        "eyebrow_1": {
-          "type": "eyebrow",
-          "settings": {
-            "text": "Readers"
-          }
-        },
-        "heading_2": {
-          "type": "heading",
-          "settings": {
-            "text": "What readers say"
-          }
-        },
-        "subheading_3": {
-          "type": "subheading",
-          "settings": {
-            "text": "<p>Replace these with words from your own readers.</p>"
-          }
-        },
-        "testimonial_4": {
-          "type": "testimonial",
-          "settings": {
-            "quote": "<p>Write what this customer said about your product.</p>",
-            "name": "Reader name",
-            "role": ""
-          }
-        },
-        "testimonial_5": {
-          "type": "testimonial",
-          "settings": {
-            "quote": "<p>Write what this customer said about your product.</p>",
-            "name": "Reader name",
-            "role": ""
-          }
-        },
-        "testimonial_6": {
-          "type": "testimonial",
-          "settings": {
-            "quote": "<p>Write what this customer said about your product.</p>",
-            "name": "Reader name",
-            "role": ""
-          }
-        }
-      },
-      "block_order": [
-        "eyebrow_1",
-        "heading_2",
-        "subheading_3",
-        "testimonial_4",
-        "testimonial_5",
-        "testimonial_6"
-      ]
-    },
-    "faq_7": {
-      "type": "faq",
-      "settings": {
-        "color_scheme": "default"
+        "section_width": "container",
+        "header_alignment": "center",
+        "heading": "",
+        "items_per_row": 5,
+        "column_gap": 40,
+        "image_width_desktop": 170,
+        "image_ratio": "adapt",
+        "padding_top": 64,
+        "padding_bottom": 40,
+        "items_per_row_mobile": 2.5,
+        "image_width_mobile": 130
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Formats and delivery"
+            "text": "As featured in",
+            "tag": "h2",
+            "size_desktop": 20,
+            "size_mobile": 18
           }
         },
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>How the ebooks reach you.</p>"
+            "text": "<p>Placeholder logos. Swap in the places that wrote about your book.</p>",
+            "size_desktop": 14,
+            "size_mobile": 13
+          }
+        },
+        "collection_3": {
+          "type": "collection",
+          "settings": {
+            "logo_image": "shopify://shop_images/ebooks-press-1.webp",
+            "collection_url": ""
+          }
+        },
+        "collection_4": {
+          "type": "collection",
+          "settings": {
+            "logo_image": "shopify://shop_images/ebooks-press-2.webp",
+            "collection_url": ""
+          }
+        },
+        "collection_5": {
+          "type": "collection",
+          "settings": {
+            "logo_image": "shopify://shop_images/ebooks-press-3.webp",
+            "collection_url": ""
+          }
+        },
+        "collection_6": {
+          "type": "collection",
+          "settings": {
+            "logo_image": "shopify://shop_images/ebooks-press-4.webp",
+            "collection_url": ""
+          }
+        },
+        "collection_7": {
+          "type": "collection",
+          "settings": {
+            "logo_image": "shopify://shop_images/ebooks-press-5.webp",
+            "collection_url": ""
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "collection_3",
+        "collection_4",
+        "collection_5",
+        "collection_6",
+        "collection_7"
+      ]
+    },
+    "learn": {
+      "type": "product-benefits-4",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "image_size_desktop": 440,
+        "product_image": "shopify://shop_images/ebooks-learn-book.webp",
+        "product_radius": 0,
+        "thumb_size": 72,
+        "thumb_radius": 14,
+        "thumb_shadow": false,
+        "heading_size_desktop": 40,
+        "heading_size_mobile": 30,
+        "title_size": 18,
+        "desc_size": 14,
+        "enable_custom_style": true,
+        "line_color": "#e9c9c2",
+        "product_bg": "#ffffff",
+        "thumb_bg": "#fbe9e5",
+        "mobile_card_bg": "#f6f3ee",
+        "heading_color": "#151517",
+        "heading_accent_color": "#e2402f",
+        "padding_top_desktop": 96,
+        "padding_bottom_desktop": 56,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 32,
+        "product_image_animation": "float_up"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "What you will learn inside",
+            "accent": "inside"
+          }
+        },
+        "spot_2": {
+          "type": "spot",
+          "settings": {
+            "thumb": "shopify://shop_images/ebooks-icon-pin.webp",
+            "title": "Your map listing",
+            "description": "Fill in every field that matters and skip the ones that do not."
+          }
+        },
+        "spot_3": {
+          "type": "spot",
+          "settings": {
+            "thumb": "shopify://shop_images/ebooks-icon-search.webp",
+            "title": "Words people type",
+            "description": "Find the phrases nearby customers search for, and use them."
+          }
+        },
+        "spot_4": {
+          "type": "spot",
+          "settings": {
+            "thumb": "shopify://shop_images/ebooks-icon-star.webp",
+            "title": "Reviews",
+            "description": "Ask at the right moment, and answer every review in two lines."
+          }
+        },
+        "spot_5": {
+          "type": "spot",
+          "settings": {
+            "thumb": "shopify://shop_images/ebooks-icon-calendar.webp",
+            "title": "A weekly habit",
+            "description": "Thirty minutes a week that keeps you near the top."
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "spot_2",
+        "spot_3",
+        "spot_4",
+        "spot_5"
+      ]
+    },
+    "numbers": {
+      "type": "stat-counter",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "layout": "cards",
+        "columns": 3,
+        "columns_mobile": 1,
+        "custom_max_width": 1100,
+        "divider": false,
+        "card_radius": 16,
+        "value_size": 56,
+        "label_size": 15,
+        "enable_custom_style": true,
+        "card_bg": "#f6f3ee",
+        "accent_color": "#151517",
+        "custom_label_color": "#5c5c63",
+        "value_weight": "700",
+        "animate": true,
+        "padding_top": 32,
+        "padding_bottom": 96
+      },
+      "blocks": {
+        "stat_1": {
+          "type": "stat",
+          "settings": {
+            "value": "30",
+            "suffix": " min",
+            "label": "a week, once the setup is done"
+          }
+        },
+        "stat_2": {
+          "type": "stat",
+          "settings": {
+            "value": "3",
+            "label": "places to fix before anything else"
+          }
+        },
+        "stat_3": {
+          "type": "stat",
+          "settings": {
+            "value": "90",
+            "suffix": " days",
+            "label": "the plan in the book, week by week"
+          }
+        }
+      },
+      "block_order": [
+        "stat_1",
+        "stat_2",
+        "stat_3"
+      ]
+    },
+    "author": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "image_position": "left",
+        "text_column_width": 52,
+        "content_align": "left",
+        "media_type": "image",
+        "image": "shopify://shop_images/ebooks-author.webp",
+        "image_alt": "Sample author photo: a woman with short blonde hair, smiling",
+        "aspect_w": 1,
+        "aspect_h": 1,
+        "image_fit": "cover",
+        "image_radius": 16,
+        "gap_desktop": 72,
+        "side_padding_desktop": 48,
+        "padding_top_desktop": 96,
+        "padding_bottom_desktop": 96,
+        "mobile_order": "media_first",
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "The author",
+            "size": 13
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "By Maren Holt",
+            "tag": "h2",
+            "size_desktop": 44,
+            "size_mobile": 32
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p><strong>Author of Plain Sight</strong></p><p>Maren ran a bike repair shop for nine years before she started helping other shop owners get found online. She has worked with bakeries, dentists, garages and one very busy locksmith.</p><p>Plain Sight is everything she shows them, in the order she shows it, so you can do it yourself in the evenings.</p><p><em>Sample photo and bio. Put your own here.</em></p>",
+            "size_desktop": 16
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3"
+      ]
+    },
+    "ticker": {
+      "type": "scrolling-text",
+      "settings": {
+        "color_scheme": "scheme-6da511c0-ea26-4213-b3d3-e09320840636",
+        "section_width": "full_width",
+        "separator": "dot",
+        "item_gap": 40,
+        "repeat_count": 3,
+        "edge_fade": 0,
+        "use_custom_text_color": true,
+        "text_color": "#ffffff",
+        "separator_color": "#ffd2ca",
+        "base_font": "heading",
+        "text_size": 18,
+        "text_size_mobile": 15,
+        "font_weight": "600",
+        "text_transform": "uppercase",
+        "letter_spacing": 1,
+        "separator_size": 30,
+        "duration": 45,
+        "padding_top": 18,
+        "padding_bottom": 18,
+        "padding_top_mobile": 14,
+        "padding_bottom_mobile": 14,
+        "reveal": false
+      },
+      "blocks": {
+        "word_1": {
+          "type": "word",
+          "settings": {
+            "text": "Get found on maps"
+          }
+        },
+        "word_2": {
+          "type": "word",
+          "settings": {
+            "text": "Write a profile people click"
+          }
+        },
+        "word_3": {
+          "type": "word",
+          "settings": {
+            "text": "Ask for reviews without the awkward bit"
+          }
+        },
+        "word_4": {
+          "type": "word",
+          "settings": {
+            "text": "Plain Sight, second edition"
+          }
+        },
+        "word_5": {
+          "type": "word",
+          "settings": {
+            "text": "$29 this month"
+          }
+        }
+      },
+      "block_order": [
+        "word_1",
+        "word_2",
+        "word_3",
+        "word_4",
+        "word_5"
+      ]
+    },
+    "inside": {
+      "type": "hero-product3",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "image_position": "right",
+        "text_column_width": 50,
+        "gap_columns": 72,
+        "featured_image": "shopify://shop_images/ebooks-inside-spread.webp",
+        "image_alt": "Plain Sight open at chapter 3, with a weekly checklist on the right page",
+        "image_fit": "cover",
+        "image_height_desktop": 460,
+        "image_height_mobile": 280,
+        "image_radius": 16,
+        "padding_top_desktop": 104,
+        "padding_bottom_desktop": 104,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "image_position_mobile": "top",
+        "reveal": true
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "heading_text": "Take a look inside",
+            "font_size_desktop": 44,
+            "font_size_mobile": 32,
+            "margin_bottom": 16
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Every chapter is short and ends with something to do. No jargon you have to look up.</p>",
+            "font_size_desktop": 17,
+            "margin_bottom": 22
+          }
+        },
+        "bullet_checklist_3": {
+          "type": "bullet_checklist",
+          "settings": {
+            "items": "Step by step screens for the map listing\nA weekly checklist you can print\nReady to send review requests by text and email\nA worked example from a real shop, start to finish",
+            "icon_style": "check_circle",
+            "font_size_desktop": 16,
+            "margin_bottom": 8
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "bullet_checklist_3"
+      ]
+    },
+    "results": {
+      "type": "hero-product3",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "image_position": "left",
+        "text_column_width": 50,
+        "gap_columns": 72,
+        "featured_image": "shopify://shop_images/ebooks-results.webp",
+        "image_alt": "Plain Sight standing on a light grey table",
+        "image_fit": "cover",
+        "image_height_desktop": 460,
+        "image_height_mobile": 280,
+        "image_radius": 16,
+        "padding_top_desktop": 104,
+        "padding_bottom_desktop": 104,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "image_position_mobile": "top",
+        "reveal": true
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "heading_text": "Results you can expect",
+            "font_size_desktop": 44,
+            "font_size_mobile": 32,
+            "margin_bottom": 16
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Plain Sight will not get you to the top overnight, and it will not tell you it can. What it gives you is a routine that works on the things search engines check for a local business.</p><p>Most readers notice more calls and direction requests within a couple of months. You will know exactly what you changed, and what to keep doing.</p>",
+            "font_size_desktop": 17,
+            "margin_bottom": 22
+          }
+        },
+        "primary_button_3": {
+          "type": "primary_button",
+          "settings": {
+            "label": "Get the book",
+            "link": "/collections/all",
+            "full_width": false,
+            "uppercase": false,
+            "margin_bottom": 0
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "primary_button_3"
+      ]
+    },
+    "who": {
+      "type": "benefits-icons2",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "full_width",
+        "inner_width": 86,
+        "icons_per_row_desktop": 3,
+        "space_between_icons": 40,
+        "enable_custom_style": true,
+        "section_background": "#ffffff",
+        "icon_color": "#e2402f",
+        "icon_title_color": "#151517",
+        "icon_description_color": "#5c5c63",
+        "make_icons_circle": false,
+        "icon_size": 36,
+        "icon_title_size": 20,
+        "icon_description_size": 15,
+        "padding_top_desktop": 104,
+        "padding_bottom_desktop": 88,
+        "icons_mobile_layout": "1",
+        "icon_size_mobile": 32,
+        "icon_title_size_mobile": 18,
+        "icon_description_size_mobile": 14,
+        "padding_top_mobile": 64,
+        "padding_bottom_mobile": 48,
+        "reveal": true
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Who is this for?",
+            "heading_alignment": "center",
+            "heading_size": 40,
+            "heading_size_mobile": 30,
+            "enable_custom_style": true,
+            "heading_color": "#151517",
+            "heading_style": "bold",
+            "space_below": 48
+          }
+        },
+        "icon_2": {
+          "type": "icon",
+          "settings": {
+            "icon": "store",
+            "icon_title": "Shop owners",
+            "icon_description": "A shop with a door and opening hours, and no time to become a marketer."
+          }
+        },
+        "icon_3": {
+          "type": "icon",
+          "settings": {
+            "icon": "map_marker_alt",
+            "icon_title": "Local services",
+            "icon_description": "Plumbers, salons, tutors, dentists. Anyone people search for with \"near me\"."
+          }
+        },
+        "icon_4": {
+          "type": "icon",
+          "settings": {
+            "icon": "users",
+            "icon_title": "People who help them",
+            "icon_description": "Friends, staff or freelancers who look after a small business online."
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "icon_2",
+        "icon_3",
+        "icon_4"
+      ]
+    },
+    "reviews": {
+      "type": "testimonial-wall",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "text_align": "left",
+        "columns": 3,
+        "card_style": "filled",
+        "collapse": "mobile",
+        "collapsed_part": 50,
+        "more_label": "See more",
+        "less_label": "See less",
+        "enable_custom_style": true,
+        "star_color": "#e2402f",
+        "star_empty_color": "#e4ded4",
+        "card_bg": "#ffffff",
+        "card_radius": 14,
+        "padding_top": 96,
+        "padding_bottom": 96
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "What readers say"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Sample reviews. Replace them with what your own readers send you.</p>"
+          }
+        },
+        "testimonial_3": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Clear and short. I did chapter two on a Sunday night and had my listing sorted before Monday opening.",
+            "name": "Reader name",
+            "role": "Bakery owner",
+            "rating": 5
+          }
+        },
+        "testimonial_4": {
+          "type": "testimonial",
+          "settings": {
+            "body": "The review request templates alone were worth it. I send the text one after every job now.",
+            "name": "Reader name",
+            "role": "Electrician",
+            "rating": 5
+          }
+        },
+        "testimonial_5": {
+          "type": "testimonial",
+          "settings": {
+            "body": "I had paid an agency for a year and learned more from the first three chapters.",
+            "name": "Reader name",
+            "role": "Hair salon",
+            "rating": 5
+          }
+        },
+        "testimonial_6": {
+          "type": "testimonial",
+          "settings": {
+            "body": "No fluff, no pretending it is magic. Just what to do this week, and next week.",
+            "name": "Reader name",
+            "role": "Dental practice",
+            "rating": 5
+          }
+        },
+        "testimonial_7": {
+          "type": "testimonial",
+          "settings": {
+            "body": "The weekly checklist lives on our fridge. Thirty minutes on a Friday and it is done.",
+            "name": "Reader name",
+            "role": "Bike shop",
+            "rating": 5
+          }
+        },
+        "testimonial_8": {
+          "type": "testimonial",
+          "settings": {
+            "body": "I bought it for my mum's florist. She read it herself and did most of it.",
+            "name": "Reader name",
+            "role": "Florist, helped by family",
+            "rating": 5
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "testimonial_3",
+        "testimonial_4",
+        "testimonial_5",
+        "testimonial_6",
+        "testimonial_7",
+        "testimonial_8"
+      ]
+    },
+    "price": {
+      "type": "dynamic-pricing",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "display_on_devices": "all_devices",
+        "show_currency_symbol": false,
+        "currency": "",
+        "original_price": "$49",
+        "discounted_price": "$29",
+        "section_height": 160,
+        "overall_size_desktop": 100,
+        "enable_custom_style": true,
+        "original_price_color": "#77726a",
+        "original_price_line_color": "#e2402f",
+        "discounted_price_color": "#151517",
+        "currency_color": "#151517",
+        "original_price_line_weight": 4,
+        "original_price_font_weight": "500",
+        "discounted_price_font_weight": "700",
+        "original_price_size_desktop": 4,
+        "discounted_price_size_desktop": 5,
+        "section_height_mobile": 110,
+        "overall_size_mobile": 90,
+        "original_price_size_mobile": 3.5,
+        "discounted_price_size_mobile": 4,
+        "desktop_padding": 40,
+        "mobile_padding": 24
+      }
+    },
+    "buy": {
+      "type": "featured-product",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "product": "",
+        "show_view_link": false,
+        "desktop_layout": "hidden_thumbnail",
+        "desktop_media_width": 48,
+        "desktop_main_image_position": "left",
+        "show_thumbnails": false,
+        "enable_dynamic_checkout": true,
+        "enable_image_square": true,
+        "enable_lightbox": false,
+        "padding_top": 24,
+        "padding_bottom": 64
+      },
+      "blocks": {
+        "text_1": {
+          "type": "text",
+          "settings": {
+            "heading": "Get your copy",
+            "content": "<p>Pick the ebook on its own, or with the printable workbook.</p>"
+          }
+        },
+        "title_2": {
+          "type": "title",
+          "settings": {
+            "show_vendor": false,
+            "title_font_size_desktop": 34,
+            "title_font_size_mobile": 28
+          }
+        },
+        "price_3": {
+          "type": "price",
+          "settings": {
+            "price_font_size_desktop": 24,
+            "price_font_size_mobile": 22,
+            "price_font_weight": "700"
+          }
+        },
+        "short_description_4": {
+          "type": "short_description",
+          "settings": {}
+        },
+        "benefits_stack_5": {
+          "type": "benefits_stack",
+          "settings": {
+            "text_1": "PDF and EPUB, sent the minute you pay",
+            "icon_1": "check_circle",
+            "text_2": "Free updates to this edition",
+            "icon_2": "check_circle",
+            "text_3": "Refund within 30 days",
+            "icon_3": "check_circle",
+            "text_4": "",
+            "text_5": "",
+            "text_6": "",
+            "columns": "1",
+            "enable_custom_style": true,
+            "icon_color": "#e2402f"
+          }
+        },
+        "buy_buttons_6": {
+          "type": "buy_buttons",
+          "settings": {
+            "show_add_to_cart": true,
+            "show_dynamic_checkout": true,
+            "show_quantity": false,
+            "show_wishlist_button": false,
+            "buttons_full_width": true,
+            "atc_button_text": "Add to cart",
+            "buy_button_text": "Buy it now"
+          }
+        }
+      },
+      "block_order": [
+        "text_1",
+        "title_2",
+        "price_3",
+        "short_description_4",
+        "benefits_stack_5",
+        "buy_buttons_6"
+      ]
+    },
+    "faq": {
+      "type": "faq-pro",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "structured_data": true,
+        "content_alignment": "left",
+        "max_content_width": 1200,
+        "col_gap": 80,
+        "first_item_open": true,
+        "allow_multiple_open": false,
+        "open_icon": "plus",
+        "item_padding_y": 18,
+        "item_padding_x": 22,
+        "item_radius": 10,
+        "gap_between_items": 10,
+        "show_dividers": false,
+        "heading_size_desktop": 40,
+        "heading_size_mobile": 30,
+        "question_size_desktop": 17,
+        "padding_top": 96,
+        "padding_bottom": 96
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Questions",
+            "tag": "h2"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>The ones readers ask before they buy. Anything else, write to us.</p>"
           }
         },
         "faq_item_3": {
           "type": "faq_item",
           "settings": {
-            "question": "Which formats do I get?",
-            "answer": "<p>Every ebook comes as EPUB and PDF. EPUB works on most e-readers and phones, PDF on anything.</p>"
+            "question": "What format is the book in?",
+            "answer": "<p>You get a PDF and an EPUB. The PDF is laid out for reading on a laptop or printing. The EPUB works on phones, tablets and most e-readers.</p>"
           }
         },
         "faq_item_4": {
           "type": "faq_item",
           "settings": {
-            "question": "How do I read it on a Kindle?",
-            "answer": "<p>Use Send to Kindle with the EPUB file. It appears in your library in a few minutes.</p>"
+            "question": "How do I get it?",
+            "answer": "<p>The download links are on the confirmation page and in your receipt email, a minute after you pay. They stay in your account too.</p>"
           }
         },
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "When do I get the files?",
-            "answer": "<p>Straight away. The download link is on the confirmation page and in your receipt email.</p>"
+            "question": "Do I need to be good with computers?",
+            "answer": "<p>No. If you can send an email and take a photo with your phone, you can follow every chapter.</p>"
           }
         },
         "faq_item_6": {
           "type": "faq_item",
           "settings": {
-            "question": "Can I buy a copy as a gift?",
-            "answer": "<p>Yes. Forward the receipt email, or write to us and we will send the files to them.</p>"
+            "question": "Will this work outside the US?",
+            "answer": "<p>Yes. The map listings and review sites in the book work the same way in most countries. Where something differs, the book says so.</p>"
+          }
+        },
+        "faq_item_7": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What if it is not for me?",
+            "answer": "<p>Write within 30 days and you get your money back. No form to fill in.</p>"
+          }
+        },
+        "button_8": {
+          "type": "button",
+          "settings": {
+            "label": "Contact us",
+            "link": "/pages/contact",
+            "style": "primary",
+            "size": "medium",
+            "radius": 8
           }
         }
       },
@@ -337,19 +992,30 @@
         "faq_item_3",
         "faq_item_4",
         "faq_item_5",
-        "faq_item_6"
+        "faq_item_6",
+        "faq_item_7",
+        "button_8"
       ]
     },
-    "newsletter_split_8": {
-      "type": "newsletter-split",
+    "letter": {
+      "type": "newsletter",
       "settings": {
-        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
-        "image": "shopify://shop_images/ebooks-library.webp",
-        "image_alt": "A long library aisle lit by hanging bulbs",
-        "image_position": "right",
-        "image_ratio": "landscape",
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "full_width",
+        "heading": "",
+        "email_label": "Email address",
+        "email_placeholder": "Your email address",
         "btn_text": "Send me chapter one",
-        "note": "One letter a month. Unsubscribe any time."
+        "note": "One email a month with a short tip. Unsubscribe any time.",
+        "success_text": "Thanks. Chapter one is on its way.",
+        "header_alignment": "center",
+        "form_layout": "horizontal",
+        "show_icon": false,
+        "use_theme_button": true,
+        "use_theme_fields": true,
+        "header_size": "medium",
+        "padding_top": 88,
+        "padding_bottom": 88
       },
       "blocks": {
         "heading_1": {
@@ -361,7 +1027,7 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Join the letter and get chapter one in your inbox today.</p>"
+            "text": "<p>Leave your email and chapter one arrives today, with a short tip once a month after that.</p>"
           }
         }
       },
@@ -372,13 +1038,20 @@
     }
   },
   "order": [
-    "hero_split_media_1",
-    "quotebanner_2",
-    "products_listing_3",
-    "image_with_text_steps_4",
-    "image_and_video_text_5",
-    "testimonials_6",
-    "faq_7",
-    "newsletter_split_8"
+    "hero",
+    "band",
+    "press",
+    "learn",
+    "numbers",
+    "author",
+    "ticker",
+    "inside",
+    "results",
+    "who",
+    "reviews",
+    "price",
+    "buy",
+    "faq",
+    "letter"
   ]
 }

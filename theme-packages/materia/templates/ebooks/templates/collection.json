@@ -4,11 +4,11 @@
       "type": "main-collection-heading",
       "settings": {
         "height": "adapt",
-        "alignment": "center",
-        "padding_top": 40,
+        "alignment": "left",
+        "padding_top": 56,
         "color_scheme": "default",
         "reset_spacing": true,
-        "section_width": "fluid_container",
+        "section_width": "container",
         "padding_bottom": 24,
         "show_collection_image": false
       },
@@ -38,48 +38,189 @@
     "main-collection-product": {
       "type": "main-collection-product",
       "settings": {
-        "sorting": true,
-        "column_gap": 30,
+        "sorting": false,
+        "column_gap": 32,
         "pagination": "default",
         "padding_top": 0,
         "color_scheme": "default",
         "filter_layout": "horizontal",
-        "items_per_row": 3,
+        "items_per_row": 2,
         "items_to_show": 12,
         "reset_spacing": true,
-        "section_width": "fluid_container",
+        "section_width": "container",
         "default_filter": "open_all",
         "empty_link_url": "/collections/all",
-        "padding_bottom": 60,
+        "padding_bottom": 96,
         "vertical_posion": "left",
         "button_show_more": "Show more",
-        "enable_filtering": true,
+        "enable_filtering": false,
         "show_filter_counts": true,
-        "items_per_row_mobile": "2",
+        "items_per_row_mobile": "1",
         "toolbar_button_style": "minimal",
         "number_products_per_page": true
       },
       "name": "main-collection-product",
+      "blocks": {},
+      "block_order": []
+    },
+    "band": {
+      "type": "benefits-icons2",
+      "settings": {
+        "color_scheme": "scheme-6da511c0-ea26-4213-b3d3-e09320840636",
+        "section_width": "full_width",
+        "inner_width": 86,
+        "icons_per_row_desktop": 3,
+        "space_between_icons": 40,
+        "enable_custom_style": true,
+        "section_background": "#e2402f",
+        "icon_color": "#ffffff",
+        "icon_title_color": "#ffffff",
+        "icon_description_color": "#ffe3dd",
+        "make_icons_circle": false,
+        "icon_size": 40,
+        "icon_title_size": 22,
+        "icon_description_size": 15,
+        "padding_top_desktop": 64,
+        "padding_bottom_desktop": 64,
+        "icons_mobile_layout": "1",
+        "icon_size_mobile": 34,
+        "icon_title_size_mobile": 19,
+        "icon_description_size_mobile": 14,
+        "padding_top_mobile": 44,
+        "padding_bottom_mobile": 44,
+        "reveal": true
+      },
       "blocks": {
-        "block-mvmkffsh-1-pcnzc": {
-          "type": "categories",
+        "icon_1": {
+          "type": "icon",
           "settings": {
-            "title": "Category"
+            "icon": "receipt",
+            "icon_title": "212 pages",
+            "icon_description": "Plain words and screenshots, no theory chapters to wade through."
           }
         },
-        "block-mvmkfj68-2-iqqos": {
-          "type": "filter",
-          "settings": {}
+        "icon_2": {
+          "type": "icon",
+          "settings": {
+            "icon": "calendar_check",
+            "icon_title": "12 chapters",
+            "icon_description": "One a week. Each ends with a task you can finish in an evening."
+          }
+        },
+        "icon_3": {
+          "type": "icon",
+          "settings": {
+            "icon": "pencil_ruler",
+            "icon_title": "40 checklists",
+            "icon_description": "Printable checklists and message templates you can copy as they are."
+          }
         }
       },
       "block_order": [
-        "block-mvmkffsh-1-pcnzc",
-        "block-mvmkfj68-2-iqqos"
+        "icon_1",
+        "icon_2",
+        "icon_3"
+      ]
+    },
+    "faq": {
+      "type": "faq-pro",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "structured_data": true,
+        "content_alignment": "left",
+        "max_content_width": 1200,
+        "col_gap": 80,
+        "first_item_open": true,
+        "allow_multiple_open": false,
+        "open_icon": "plus",
+        "item_padding_y": 18,
+        "item_padding_x": 22,
+        "item_radius": 10,
+        "gap_between_items": 10,
+        "show_dividers": false,
+        "heading_size_desktop": 40,
+        "heading_size_mobile": 30,
+        "question_size_desktop": 17,
+        "padding_top": 96,
+        "padding_bottom": 96
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Questions",
+            "tag": "h2"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>The ones readers ask before they buy. Anything else, write to us.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What format is the book in?",
+            "answer": "<p>You get a PDF and an EPUB. The PDF is laid out for reading on a laptop or printing. The EPUB works on phones, tablets and most e-readers.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How do I get it?",
+            "answer": "<p>The download links are on the confirmation page and in your receipt email, a minute after you pay. They stay in your account too.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do I need to be good with computers?",
+            "answer": "<p>No. If you can send an email and take a photo with your phone, you can follow every chapter.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Will this work outside the US?",
+            "answer": "<p>Yes. The map listings and review sites in the book work the same way in most countries. Where something differs, the book says so.</p>"
+          }
+        },
+        "faq_item_7": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What if it is not for me?",
+            "answer": "<p>Write within 30 days and you get your money back. No form to fill in.</p>"
+          }
+        },
+        "button_8": {
+          "type": "button",
+          "settings": {
+            "label": "Contact us",
+            "link": "/pages/contact",
+            "style": "primary",
+            "size": "medium",
+            "radius": 8
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6",
+        "faq_item_7",
+        "button_8"
       ]
     }
   },
   "order": [
     "main-collection-heading",
-    "main-collection-product"
+    "main-collection-product",
+    "band",
+    "faq"
   ]
 }

@@ -3,23 +3,23 @@
     "contactformsimple2_1": {
       "type": "contactformsimple2",
       "settings": {
-        "color_scheme": "default",
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
         "btn_text": "Send message",
         "ph_website": "Order number (optional)",
         "label_website": "Order number",
-        "success_text": "Thanks. Your message is on its way."
+        "success_text": "Thanks. You will hear back within two working days."
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Get in touch"
+            "text": "Write to Maren"
           }
         },
         "description_2": {
           "type": "description",
           "settings": {
-            "text": "<p>For questions about an order, events or rights, write here.</p>"
+            "text": "<p>A question about the book, a problem with a download, or a team licence. It all comes to the same inbox.</p>"
           }
         },
         "info_3": {
@@ -27,7 +27,7 @@
           "settings": {
             "icon": "mail",
             "line1": "hello@example.com",
-            "line2": "Replace with your email."
+            "line2": "Replace with your own address"
           }
         },
         "info_4": {
@@ -35,7 +35,7 @@
           "settings": {
             "icon": "map",
             "line1": "Replies",
-            "line2": "Within a few days"
+            "line2": "Within two working days"
           }
         }
       },

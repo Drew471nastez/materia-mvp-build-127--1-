@@ -7,12 +7,13 @@
         "section_width": "container",
         "image_position": "right",
         "image": "shopify://shop_images/default-studio.webp",
-        "image_alt": "A wooden work table and a stool in the studio",
+        "image_alt": "Three handmade clay vessels on a plaster plinth",
         "aspect_w": 4,
         "aspect_h": 5,
         "image_radius": 6,
         "padding_top_desktop": 72,
-        "padding_bottom_desktop": 72
+        "padding_bottom_desktop": 72,
+        "side_padding_desktop": 80
       },
       "blocks": {
         "eyebrow_1": {
@@ -108,7 +109,8 @@
         "aspect_h": 3,
         "image_radius": 6,
         "padding_top_desktop": 72,
-        "padding_bottom_desktop": 96
+        "padding_bottom_desktop": 96,
+        "side_padding_desktop": 80
       },
       "blocks": {
         "eyebrow_1": {

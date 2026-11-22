@@ -20,7 +20,7 @@
         "heading_f6yAbL": {
           "type": "heading",
           "settings": {
-            "page_title": "",
+            "page_title": "Your order",
             "header_size": "default",
             "vertical_gap": 8,
             "heading_color": "",
@@ -50,28 +50,28 @@
           "type": "faq_section",
           "settings": {
             "show_faq": true,
-            "faq_heading": "Before you buy"
+            "faq_heading": "Before you pay"
           }
         },
         "faq_1": {
           "type": "faq",
           "settings": {
-            "question": "Which formats do I get?",
-            "answer": "<p>Every ebook comes as EPUB and PDF.</p>"
+            "question": "What do I get?",
+            "answer": "<p>A PDF and an EPUB of the book, and the workbook PDF if you chose the bundle.</p>"
           }
         },
         "faq_2": {
           "type": "faq",
           "settings": {
             "question": "When do I get the files?",
-            "answer": "<p>Straight away. The download link is on the confirmation page and in your receipt email.</p>"
+            "answer": "<p>A minute after you pay. The links are on the confirmation page and in your receipt email.</p>"
           }
         },
         "faq_3": {
           "type": "faq",
           "settings": {
-            "question": "Will it work on my e-reader?",
-            "answer": "<p>EPUB opens on most e-readers and phones. For a Kindle, use Send to Kindle.</p>"
+            "question": "What if it is not for me?",
+            "answer": "<p>Write within 30 days and you get your money back.</p>"
           }
         },
         "payment_badges_67Mgyc": {

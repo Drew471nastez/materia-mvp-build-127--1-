@@ -3,12 +3,16 @@
     "title": "Main menu",
     "links": [
       {
-        "title": "Books",
+        "title": "The book",
         "url": "/collections/all"
       },
       {
-        "title": "About the author",
+        "title": "The author",
         "url": "/pages/about"
+      },
+      {
+        "title": "Notes",
+        "url": "/blogs/news"
       },
       {
         "title": "FAQ",
@@ -20,8 +24,25 @@
       }
     ]
   },
+  "footer-book": {
+    "title": "The book",
+    "links": [
+      {
+        "title": "Get the ebook",
+        "url": "/collections/all"
+      },
+      {
+        "title": "The author",
+        "url": "/pages/about"
+      },
+      {
+        "title": "Notes",
+        "url": "/blogs/news"
+      }
+    ]
+  },
   "footer": {
-    "title": "Footer",
+    "title": "Help",
     "links": [
       {
         "title": "FAQ",
@@ -30,6 +51,10 @@
       {
         "title": "Contact",
         "url": "/pages/contact"
+      },
+      {
+        "title": "Your order",
+        "url": "/cart"
       },
       {
         "title": "Search",
