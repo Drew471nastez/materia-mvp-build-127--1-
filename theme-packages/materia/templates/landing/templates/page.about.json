@@ -1,37 +1,51 @@
 {
   "sections": {
-    "image_and_video_text_1": {
+    "intro": {
       "type": "Image-and-video-text",
       "settings": {
-        "color_scheme": "default",
-        "image": "shopify://shop_images/landing-desk.webp",
-        "image_alt": "A laptop and a monitor on a tidy desk",
-        "image_position": "right"
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "section_width": "container",
+        "image_position": "right",
+        "text_column_width": 52,
+        "content_align": "left",
+        "media_type": "image",
+        "image": "shopify://shop_images/landing-studio-shoot.webp",
+        "image_alt": "Filming a dancer in a studio lit with coloured light tubes",
+        "aspect_w": 5,
+        "aspect_h": 4,
+        "image_fit": "cover",
+        "image_radius": 14,
+        "padding_top_desktop": 96,
+        "padding_bottom_desktop": 96,
+        "mobile_order": "media_first"
       },
       "blocks": {
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "About"
+            "text": "About Cutroom"
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Who is behind this"
+            "text": "I edit for a living. Cutroom is how I teach it.",
+            "tag": "h1",
+            "size_desktop": 48
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Say who you are, what you have done and why you made this.</p>"
+            "text": "<p>Write your story here: what you cut, for whom, and why you started teaching. Keep it to a few lines. People buy a course from a person, so say who you are.</p><p>Every course here is built the same way. Short lessons, the real footage, and notes on your own cut.</p>"
           }
         },
         "button_4": {
           "type": "button",
           "settings": {
-            "label": "Get the course",
-            "link": "/#shopify-section-offer"
+            "label": "See the courses",
+            "link": "/collections/all",
+            "button_style": "primary"
           }
         }
       },
@@ -42,50 +56,182 @@
         "button_4"
       ]
     },
-    "steps_2": {
-      "type": "steps",
+    "how-i-teach": {
+      "type": "text-columns",
       "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976"
+        "color_scheme": "default",
+        "section_width": "container",
+        "content_alignment": "left",
+        "columns_desktop": 3,
+        "columns_tablet": 3,
+        "mobile_layout": "stack"
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "How I work"
+            "text": "How the courses work"
           }
         },
-        "step_2": {
-          "type": "step",
+        "column_2": {
+          "type": "column",
           "settings": {
-            "title": "Teach one thing",
-            "description": "<p>Say what you focus on.</p>"
+            "label": "01",
+            "heading": "Real footage",
+            "text": "<p>Every lesson comes with the clips I use on screen, so you make the same cut rather than watch it.</p>"
           }
         },
-        "step_3": {
-          "type": "step",
+        "column_3": {
+          "type": "column",
           "settings": {
-            "title": "Show the work",
-            "description": "<p>Say how you teach it.</p>"
+            "label": "02",
+            "heading": "Short lessons",
+            "text": "<p>One idea per lesson, ten minutes or so. Watch it on a break, try it the same evening.</p>"
           }
         },
-        "step_4": {
-          "type": "step",
+        "column_4": {
+          "type": "column",
           "settings": {
-            "title": "Stay available",
-            "description": "<p>Say how buyers can reach you.</p>"
+            "label": "03",
+            "heading": "Notes on your cut",
+            "text": "<p>Once a month, bring your edit to a call and leave with notes at the exact timecode.</p>"
           }
         }
       },
       "block_order": [
         "heading_1",
-        "step_2",
-        "step_3",
-        "step_4"
+        "column_2",
+        "column_3",
+        "column_4"
+      ]
+    },
+    "reviews": {
+      "type": "testimonial-wall",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "text_align": "center",
+        "columns": 3,
+        "card_style": "filled",
+        "collapse": "none",
+        "enable_custom_style": true,
+        "star_color": "#ff5f1f",
+        "star_empty_color": "#e4e2dd",
+        "card_bg": "#f4f3f0",
+        "padding_top": 88,
+        "padding_bottom": 40
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "What students say"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "Sample reviews. Replace them with your own."
+          }
+        },
+        "testimonial_3": {
+          "type": "testimonial",
+          "settings": {
+            "body": "I had a folder of trip footage for a year. Lesson three got me to a finished cut that weekend.",
+            "name": "Student name",
+            "role": "Cutting 101",
+            "rating": 5
+          }
+        },
+        "testimonial_4": {
+          "type": "testimonial",
+          "settings": {
+            "body": "The feedback call was worth the price on its own. Three notes and my cut felt twice as tight.",
+            "name": "Student name",
+            "role": "The Whole Edit",
+            "rating": 5
+          }
+        },
+        "testimonial_5": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Clear, short, and every lesson has the clips. I stopped pausing videos to copy settings.",
+            "name": "Student name",
+            "role": "Colour Grading",
+            "rating": 5
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "testimonial_3",
+        "testimonial_4",
+        "testimonial_5"
+      ]
+    },
+    "final": {
+      "type": "banner3",
+      "settings": {
+        "color_scheme": "default",
+        "use_custom_bg": true,
+        "bg_color": "#0e0e10",
+        "use_custom_text": true,
+        "heading_color": "#ffffff",
+        "text_color": "#b4b4bb",
+        "use_theme_radius": true,
+        "enable_bg_gradient": true,
+        "bg_gradient": "radial-gradient(70% 90% at 50% 120%, rgba(255,95,31,0.55) 0%, rgba(255,95,31,0.12) 45%, #0e0e10 75%)",
+        "pad_top_desktop": 88,
+        "pad_bottom_desktop": 88,
+        "section_padding_top": 40,
+        "section_padding_bottom": 96,
+        "section_width": "container",
+        "text_align": "center",
+        "max_width": 720,
+        "banner_surface": "soft",
+        "reveal": true
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "The Whole Edit",
+            "color": "#ff5f1f"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Your next video starts with the first lesson"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "All six courses, the footage and the monthly feedback call, for one payment."
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "Get all courses",
+            "link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
       ]
     }
   },
   "order": [
-    "image_and_video_text_1",
-    "steps_2"
+    "intro",
+    "how-i-teach",
+    "reviews",
+    "final"
   ]
 }

@@ -26,7 +26,7 @@
         "description_YRWpkt": {
           "type": "description",
           "settings": {
-            "description": "<p>Lessons and notes.</p>",
+            "description": "<p>A short lesson every week on cutting, colour and sound. Watch one, then try it on your own footage.</p>",
             "enable_custom_style": false,
             "description_font_size": 16
           }
@@ -59,7 +59,7 @@
         "items_to_show": 12,
         "margin_bottom": 0,
         "readmore_line": "style",
-        "readmore_text": "Read article",
+        "readmore_text": "Watch the lesson",
         "readmore_type": "underline",
         "reset_spacing": true,
         "section_width": "fluid_container",
@@ -75,10 +75,68 @@
         "badge_horizontal_position": 16
       },
       "name": "Main blog"
+    },
+    "final": {
+      "type": "banner3",
+      "settings": {
+        "color_scheme": "default",
+        "use_custom_bg": true,
+        "bg_color": "#0e0e10",
+        "use_custom_text": true,
+        "heading_color": "#ffffff",
+        "text_color": "#b4b4bb",
+        "use_theme_radius": true,
+        "enable_bg_gradient": true,
+        "bg_gradient": "radial-gradient(70% 90% at 50% 120%, rgba(255,95,31,0.55) 0%, rgba(255,95,31,0.12) 45%, #0e0e10 75%)",
+        "pad_top_desktop": 88,
+        "pad_bottom_desktop": 88,
+        "section_padding_top": 40,
+        "section_padding_bottom": 96,
+        "section_width": "container",
+        "text_align": "center",
+        "max_width": 720,
+        "banner_surface": "soft",
+        "reveal": true
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "The Whole Edit",
+            "color": "#ff5f1f"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Your next video starts with the first lesson"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "All six courses, the footage and the monthly feedback call, for one payment."
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "Get all courses",
+            "link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
     }
   },
   "order": [
     "heading",
-    "main"
+    "main",
+    "final"
   ]
 }

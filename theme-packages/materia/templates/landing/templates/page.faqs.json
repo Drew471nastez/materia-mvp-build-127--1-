@@ -1,63 +1,101 @@
 {
   "sections": {
-    "faq_pro_1": {
+    "faq": {
       "type": "faq-pro",
       "settings": {
-        "color_scheme": "default"
+        "color_scheme": "default",
+        "section_width": "container",
+        "structured_data": true,
+        "first_item_open": true,
+        "allow_multiple_open": false,
+        "open_icon": "plus",
+        "content_alignment": "left",
+        "max_content_width": 760,
+        "reveal": true
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Frequently asked questions"
+            "text": "Questions",
+            "tag": "h1"
           }
         },
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>If your question is not here, write to us.</p>"
+            "text": "About the courses, access and refunds. Anything else, write to us."
           }
         },
         "faq_item_3": {
           "type": "faq_item",
           "settings": {
-            "question": "Who is this for?",
-            "answer": "<p>Say who gets the most from your offer, and who should skip it.</p>"
+            "question": "Which editing app do I need?",
+            "answer": "<p>Any of the common ones. Lessons show the idea first and the clicks second, and each lesson has notes for the three most used apps.</p>"
           }
         },
         "faq_item_4": {
           "type": "faq_item",
           "settings": {
-            "question": "How long do I have access?",
-            "answer": "<p>Say how long access lasts and whether updates are included.</p>"
+            "question": "I have never edited before. Where do I start?",
+            "answer": "<p>The 7 Day Starter. It assumes nothing and ends with a finished one minute video.</p>"
           }
         },
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "What if it is not for me?",
-            "answer": "<p>State your refund terms plainly: how many days and how to ask.</p>"
+            "question": "How long do I have access?",
+            "answer": "<p>For as long as the school is open. Watch at your own pace and come back to any lesson.</p>"
           }
         },
         "faq_item_6": {
           "type": "faq_item",
           "settings": {
-            "question": "How is it delivered?",
-            "answer": "<p>Say what the buyer receives and how soon after paying.</p>"
+            "question": "Do I get the footage?",
+            "answer": "<p>Yes. Every lesson comes with the raw clips, music and project files you see on screen.</p>"
           }
         },
         "faq_item_7": {
           "type": "faq_item",
           "settings": {
-            "question": "Can I pay in instalments?",
-            "answer": "<p>Say whether you offer a payment plan and what it costs.</p>"
+            "question": "How do the feedback calls work?",
+            "answer": "<p>Once a month you send a cut of up to three minutes. On the call I go through a few of them on screen, with notes you can rewatch.</p>"
           }
         },
-        "button_8": {
+        "faq_item_8": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What if it is not for me?",
+            "answer": "<p>Write within 30 days and you get your money back. Replace this with your own refund terms.</p>"
+          }
+        },
+        "faq_item_9": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I buy one course and upgrade later?",
+            "answer": "<p>Yes. Write to us and what you paid for single courses comes off the price of The Whole Edit.</p>"
+          }
+        },
+        "faq_item_10": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do I need a fast computer?",
+            "answer": "<p>No. The project files are light, and every lesson notes a lower resolution proxy if your computer struggles.</p>"
+          }
+        },
+        "faq_item_11": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I use the footage in my own work?",
+            "answer": "<p>The clips are for practice. Your edits are yours to share as course work. Write your own licence terms here.</p>"
+          }
+        },
+        "button_12": {
           "type": "button",
           "settings": {
             "label": "Contact us",
-            "link": "/pages/contact"
+            "link": "/pages/contact",
+            "style": "secondary"
           }
         }
       },
@@ -69,47 +107,66 @@
         "faq_item_5",
         "faq_item_6",
         "faq_item_7",
-        "button_8"
+        "faq_item_8",
+        "faq_item_9",
+        "faq_item_10",
+        "faq_item_11",
+        "button_12"
       ]
     },
-    "image_and_video_text_2": {
-      "type": "Image-and-video-text",
+    "starter": {
+      "type": "promo-banner-4",
       "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "image": "shopify://shop_images/landing-laptop.webp",
-        "image_alt": "Hands pointing at a laptop screen",
-        "image_position": "right"
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "section_width": "container",
+        "layout": "image_left",
+        "text_align": "left",
+        "card_style": "flat",
+        "image": "shopify://shop_images/landing-starter-box.webp",
+        "image_aspect_ratio": "4-3",
+        "enable_image_zoom": false,
+        "mobile_image_first": true,
+        "reveal": true
       },
       "blocks": {
-        "heading_1": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "New to editing?"
+          }
+        },
+        "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Still deciding?"
+            "text": "Start with the 7 Day Starter"
           }
         },
-        "subheading_2": {
-          "type": "subheading",
+        "description_3": {
+          "type": "description",
           "settings": {
-            "text": "<p>Tell us what you want to achieve and we will say honestly whether this fits.</p>"
+            "text": "<p>One short lesson a day for a week. By Sunday you have cut a one minute video from the clips we send you, with music and titles.</p><ul><li>Seven lessons, about 15 minutes each</li><li>Raw clips, music and a title template</li><li>Works with any editing app</li></ul>"
           }
         },
-        "button_3": {
-          "type": "button",
+        "buttons_4": {
+          "type": "buttons",
           "settings": {
-            "label": "Ask a question",
-            "link": "/pages/contact"
+            "primary_label": "Start for $27",
+            "primary_link": "/collections/all",
+            "secondary_label": "",
+            "secondary_link": ""
           }
         }
       },
       "block_order": [
-        "heading_1",
-        "subheading_2",
-        "button_3"
+        "eyebrow_1",
+        "heading_2",
+        "description_3",
+        "buttons_4"
       ]
     }
   },
   "order": [
-    "faq_pro_1",
-    "image_and_video_text_2"
+    "faq",
+    "starter"
   ]
 }

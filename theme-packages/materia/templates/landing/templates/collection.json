@@ -4,8 +4,8 @@
       "type": "main-collection-heading",
       "settings": {
         "height": "adapt",
-        "alignment": "center",
-        "padding_top": 40,
+        "alignment": "left",
+        "padding_top": 48,
         "color_scheme": "default",
         "reset_spacing": true,
         "section_width": "fluid_container",
@@ -53,9 +53,9 @@
         "padding_bottom": 60,
         "vertical_posion": "left",
         "button_show_more": "Show more",
-        "enable_filtering": true,
+        "enable_filtering": false,
         "show_filter_counts": true,
-        "items_per_row_mobile": "2",
+        "items_per_row_mobile": "1",
         "toolbar_button_style": "minimal",
         "number_products_per_page": true
       },
@@ -76,10 +76,68 @@
         "block-mvmkffsh-1-pcnzc",
         "block-mvmkfj68-2-iqqos"
       ]
+    },
+    "final": {
+      "type": "banner3",
+      "settings": {
+        "color_scheme": "default",
+        "use_custom_bg": true,
+        "bg_color": "#0e0e10",
+        "use_custom_text": true,
+        "heading_color": "#ffffff",
+        "text_color": "#b4b4bb",
+        "use_theme_radius": true,
+        "enable_bg_gradient": true,
+        "bg_gradient": "radial-gradient(70% 90% at 50% 120%, rgba(255,95,31,0.55) 0%, rgba(255,95,31,0.12) 45%, #0e0e10 75%)",
+        "pad_top_desktop": 88,
+        "pad_bottom_desktop": 88,
+        "section_padding_top": 40,
+        "section_padding_bottom": 96,
+        "section_width": "container",
+        "text_align": "center",
+        "max_width": 720,
+        "banner_surface": "soft",
+        "reveal": true
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "The Whole Edit",
+            "color": "#ff5f1f"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Your next video starts with the first lesson"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "All six courses, the footage and the monthly feedback call, for one payment."
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "Get all courses",
+            "link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
     }
   },
   "order": [
     "main-collection-heading",
-    "main-collection-product"
+    "main-collection-product",
+    "final"
   ]
 }

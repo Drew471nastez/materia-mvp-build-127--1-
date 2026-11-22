@@ -3,21 +3,59 @@
     "title": "Main menu",
     "links": [
       {
-        "title": "Home",
-        "url": "/"
+        "title": "Courses",
+        "url": "/collections/all"
+      },
+      {
+        "title": "Free lessons",
+        "url": "/blogs/news"
+      },
+      {
+        "title": "About",
+        "url": "/pages/about"
       },
       {
         "title": "FAQ",
         "url": "/pages/faqs"
+      }
+    ]
+  },
+  "footer-learn": {
+    "title": "Learn",
+    "links": [
+      {
+        "title": "All courses",
+        "url": "/collections/all"
+      },
+      {
+        "title": "Free lessons",
+        "url": "/blogs/news"
+      },
+      {
+        "title": "Questions",
+        "url": "/pages/faqs"
+      }
+    ]
+  },
+  "footer-school": {
+    "title": "School",
+    "links": [
+      {
+        "title": "About",
+        "url": "/pages/about"
       },
       {
         "title": "Contact",
         "url": "/pages/contact"
+      },
+      {
+        "title": "Search",
+        "url": "/search"
       }
     ]
   },
   "footer": {
-    "title": "Footer",
+    "title": "Help",
     "links": [
       {
         "title": "FAQ",
@@ -26,6 +64,10 @@
       {
         "title": "Contact",
         "url": "/pages/contact"
+      },
+      {
+        "title": "Your order",
+        "url": "/cart"
       }
     ]
   }

@@ -2,16 +2,51 @@
   "type": "header",
   "name": "t:sections.header.name",
   "sections": {
+    "offer_bar": {
+      "type": "announcement-bar",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "homepage_only": false,
+        "announcement_actions": "slide",
+        "show_close": false,
+        "show_separator_line": false,
+        "enable_custom_style": true,
+        "background_color": "#000000",
+        "text_color": "#d4d4d8",
+        "accent_color": "#ff5f1f",
+        "uppercase": false,
+        "font_size": 13,
+        "change_every": 5
+      },
+      "blocks": {
+        "announcement_1": {
+          "type": "announcement",
+          "settings": {
+            "text": "<strong>The Whole Edit</strong> is $249 this week, all six courses in one box"
+          }
+        },
+        "announcement_2": {
+          "type": "announcement",
+          "settings": {
+            "text": "New free lesson every Thursday. Write your own news here"
+          }
+        }
+      },
+      "block_order": [
+        "announcement_1",
+        "announcement_2"
+      ]
+    },
     "header": {
       "type": "header",
       "settings": {
         "reveal": true,
         "menu_tab": "unset",
-        "mega_menu": "",
+        "mega_menu": "main-menu",
         "show_search": false,
-        "color_scheme": "default",
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
         "icon_spacing": 10,
-        "header_height": 84,
+        "header_height": 76,
         "header_layout": "stretch_width",
         "logo_offset_x": 0,
         "logo_position": "left",
@@ -26,16 +61,16 @@
         "mega_column_gap": 32,
         "uppercase_first": false,
         "action_text_size": 16,
-        "menu_custom_font": "bodoni_moda_n4",
+        "menu_custom_font": "assistant_n4",
         "menu_hover_style": "inherit",
         "redirect_to_link": true,
         "logo_width_mobile": 78,
-        "menu_link_spacing": 8,
+        "menu_link_spacing": 28,
         "menu_mobile_color": "#ffffff",
         "show_account_icon": false,
         "action_text_weight": "400",
         "logo_width_desktop": 78,
-        "show_shopping_cart": true,
+        "show_shopping_cart": false,
         "show_wishlist_icon": false,
         "sticky_header_type": "always",
         "transparent_header": false,
@@ -46,7 +81,7 @@
         "header_height_mobile": 64,
         "logo_custom_position": false,
         "logo_offset_x_mobile": 0,
-        "logo_position_mobile": "center",
+        "logo_position_mobile": "left",
         "menu_mobile_chevrons": false,
         "sticky_header_mobile": true,
         "dropdown_link_spacing": 3,
@@ -63,7 +98,8 @@
         "transparent_hover_fill_color": "#ffffff",
         "transparent_text_hover_color": "#1a1a1a",
         "section_margin_bottom_desktop": 0,
-        "transparent_bottom_border_color": "#020202"
+        "transparent_bottom_border_color": "#020202",
+        "menu_mobile_background": "#18181b"
       },
       "blocks": {
         "pill_glass_1": {
@@ -78,25 +114,25 @@
             "glass_opacity": 64,
             "header_radius": 50,
             "glass_contrast": 110,
-            "header_pill_bg": "#ffffff",
+            "header_pill_bg": "#18181b",
             "glass_brightness": 98,
             "glass_saturation": 135,
             "glass_text_color": "#bc9494",
-            "header_max_width": 94,
-            "header_padding_x": 22,
+            "header_max_width": 86,
+            "header_padding_x": 12,
             "header_padding_y": 0,
             "header_pill_blur": false,
             "glass_text_enable": false,
-            "header_top_offset": 14,
-            "header_pill_enable": false,
-            "header_pill_mobile": false,
+            "header_top_offset": 12,
+            "header_pill_enable": true,
+            "header_pill_mobile": true,
             "header_side_offset": 16,
-            "header_bottom_offset": 0,
-            "header_pill_mobile_top": 7,
+            "header_bottom_offset": 12,
+            "header_pill_mobile_top": 8,
             "header_pill_blur_amount": 7,
-            "header_pill_mobile_side": 10,
-            "header_pill_border_color": "#692e2e",
-            "header_pill_border_width": 0,
+            "header_pill_mobile_side": 12,
+            "header_pill_border_color": "#2c2c31",
+            "header_pill_border_width": 1,
             "header_pill_mobile_radius": 50
           }
         },
@@ -129,14 +165,14 @@
           "settings": {
             "new_tab": false,
             "button_gap": 20,
-            "button_link": "/#shopify-section-offer",
-            "button_text": "Get the course",
+            "button_link": "/collections/all",
+            "button_text": "Get all courses",
             "custom_text": "#111111",
             "mobile_size": "small",
             "button_style": "primary",
             "custom_border": "#ffffff",
             "custom_radius": 8,
-            "show_on_mobile": true,
+            "show_on_mobile": false,
             "button_offset_x": 0,
             "button_offset_y": 0,
             "button_position": "after_icons",
@@ -163,6 +199,7 @@
     }
   },
   "order": [
+    "offer_bar",
     "header"
   ]
 }

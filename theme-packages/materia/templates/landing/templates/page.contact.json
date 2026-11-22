@@ -5,21 +5,21 @@
       "settings": {
         "color_scheme": "default",
         "btn_text": "Send message",
-        "ph_website": "Order number (optional)",
-        "label_website": "Order number",
-        "success_text": "Thanks. Your message is on its way."
+        "ph_website": "Course name (optional)",
+        "label_website": "Course",
+        "success_text": "Thanks. You will hear back within a working day."
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Get in touch"
+            "text": "Write to us"
           }
         },
         "description_2": {
           "type": "description",
           "settings": {
-            "text": "<p>A question before you buy, or trouble with access? Write here.</p>"
+            "text": "<p>A question before you buy, trouble with a lesson, or a note on the footage. It all comes to the same inbox.</p>"
           }
         },
         "info_3": {
@@ -27,7 +27,7 @@
           "settings": {
             "icon": "mail",
             "line1": "hello@example.com",
-            "line2": "Replace with your email."
+            "line2": "Replace with your own address"
           }
         },
         "info_4": {
