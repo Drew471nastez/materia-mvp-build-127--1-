@@ -58,12 +58,24 @@ const STAGE: Record<string, ProviderOrderStage> = {
 export function readPrintfulOrder(o: any): ProviderOrderState {
   const status = String(o?.status ?? "pending")
   const stage = STAGE[status] ?? "pending"
-  const shipments = (Array.isArray(o?.shipments) ? o.shipments : []).map((s: any) => ({
-    carrier: typeof s?.carrier === "string" ? s.carrier : null,
-    trackingNumber: s?.tracking_number != null && String(s.tracking_number) !== "0" ? String(s.tracking_number) : null,
-    trackingUrl: typeof s?.tracking_url === "string" ? s.tracking_url.trim() : null,
-    delivered: false,
-  }))
+  /* Printful's own item id to the line id Storelib sent as the item's external_id (submit below). */
+  const lineOf = new Map<string, string>()
+  for (const it of Array.isArray(o?.items) ? o.items : []) {
+    const ext = typeof it?.external_id === "string" ? it.external_id.trim().toLowerCase() : ""
+    if (it?.id != null && /^[0-9a-f]{32}$/.test(ext)) lineOf.set(String(it.id), ext)
+  }
+  const shipments = (Array.isArray(o?.shipments) ? o.shipments : []).map((s: any) => {
+    /* The parcel's items, only when every one of them is a line Storelib sent: otherwise it ships what is open, as before. */
+    const listed = (Array.isArray(s?.items) ? s.items : []).map((i: any) => ({ lineId: lineOf.get(String(i?.item_id ?? "")) ?? "", quantity: Math.max(0, Math.floor(Number(i?.quantity) || 0)) }))
+    const items = listed.length > 0 && listed.every((i: { lineId: string; quantity: number }) => i.lineId && i.quantity > 0) ? listed : null
+    return {
+      carrier: typeof s?.carrier === "string" ? s.carrier : null,
+      trackingNumber: s?.tracking_number != null && String(s.tracking_number) !== "0" ? String(s.tracking_number) : null,
+      trackingUrl: typeof s?.tracking_url === "string" ? s.tracking_url.trim() : null,
+      delivered: false,
+      items,
+    }
+  })
   return {
     providerOrderId: o?.id != null ? String(o.id) : "",
     externalId: typeof o?.external_id === "string" ? o.external_id : null,
