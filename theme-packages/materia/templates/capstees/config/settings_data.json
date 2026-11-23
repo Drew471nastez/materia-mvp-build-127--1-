@@ -242,7 +242,10 @@
     "cart_page_product_recommendations_heading": "Goes with",
     "page_transition_style": "none",
     "logo": "shopify://shop_images/capstees-logo.webp",
-    "desktop_logo_width": 92,
-    "sold_out_color": "#ffffff"
+    "desktop_logo_width": 196,
+    "sold_out_color": "#ffffff",
+    "instagram": "https://www.instagram.com",
+    "tiktok": "https://www.tiktok.com",
+    "pinterest": "https://www.pinterest.com"
   }
 }

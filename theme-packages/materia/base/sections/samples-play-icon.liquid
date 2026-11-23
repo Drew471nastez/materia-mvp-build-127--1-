@@ -1,0 +1,28 @@
+{%- comment -%}
+  Sample packs: where the play triangle sits in every round player of the
+  template (pack cards, the release hero, track lists, the product page).
+  The players' own sections nudge it right by 6% of the button; with this
+  section it sits in the middle of the circle, set halfway between the
+  triangle's box and its centre of mass, which is where the eye reads the
+  middle of a play sign. Placed once in the footer group, so it covers
+  every page and every player a creator adds.
+{%- endcomment -%}
+{%- assign shift = section.settings.nudge | default: 0 | divided_by: 10.0 | minus: 3.1 -%}
+<style>
+  .ssp .ssp__btn .ssp__i--play { margin: 0 !important; transform: translateX({{ shift }}%); }
+</style>
+{% schema %}
+{
+  "name": "Play button centring",
+  "tag": "div",
+  "class": "samples-play-icon-section",
+  "limit": 1,
+  "settings": [
+    { "type": "paragraph", "content": "Keeps the play sign in the middle of every round player on the website. It draws nothing of its own." },
+    { "type": "range", "id": "nudge", "label": "Move the play sign right", "min": -20, "max": 40, "step": 1, "default": 0, "info": "In tenths of a percent of the sign's width. 0 is the middle." }
+  ],
+  "presets": [
+    { "name": "Play button centring" }
+  ]
+}
+{% endschema %}

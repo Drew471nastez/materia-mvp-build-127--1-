@@ -71,7 +71,7 @@
             "enable_visa": true,
             "content_width": "100%",
             "enable_klarna": false,
-            "enable_paypal": false,
+            "enable_paypal": true,
             "enable_apple_pay": true,
             "enable_google_pay": true,
             "enable_mastercard": true
@@ -84,9 +84,16 @@
         "link_list_2",
         "payment_badges_1"
       ]
+    },
+    "play_icon": {
+      "type": "samples-play-icon",
+      "settings": {
+        "nudge": 0
+      }
     }
   },
   "order": [
-    "footer"
+    "footer",
+    "play_icon"
   ]
 }

@@ -3,6 +3,10 @@
     "title": "Shop",
     "links": [
       {
+        "title": "Shop all",
+        "url": "/collections/all"
+      },
+      {
         "title": "Caps",
         "url": "/search?q=cap"
       },
@@ -15,12 +19,12 @@
         "url": "/search?q=crewneck"
       },
       {
-        "title": "Everything",
-        "url": "/collections/all"
-      },
-      {
         "title": "About",
         "url": "/pages/about"
+      },
+      {
+        "title": "Contact",
+        "url": "/pages/contact"
       }
     ]
   },

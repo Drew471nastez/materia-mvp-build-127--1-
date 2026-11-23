@@ -5,7 +5,7 @@
     "header": {
       "type": "xpshop-desktop",
       "settings": {
-        "wallpaper": "shopify://shop_images/xpshop-wallpaper.webp",
+        "wallpaper": "",
         "focal": "50% 72%",
         "wall_shade": 0,
         "menu": "main-menu",
@@ -94,9 +94,19 @@
         "icon_5",
         "icon_6"
       ]
+    },
+    "wallpaper": {
+      "type": "xpshop-wallpaper",
+      "settings": {
+        "wallpaper": "shopify://shop_images/xpshop-wallpaper.webp",
+        "focal": "50% 72%",
+        "wall_shade": 0,
+        "page_color": "#6fa3e3"
+      }
     }
   },
   "order": [
-    "header"
+    "header",
+    "wallpaper"
   ]
 }

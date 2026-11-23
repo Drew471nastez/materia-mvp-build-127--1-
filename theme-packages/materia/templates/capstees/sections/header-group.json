@@ -37,6 +37,12 @@
       },
       "name": "Announcement bar",
       "blocks": {
+        "socials_1": {
+          "type": "socials",
+          "settings": {
+            "hidden_on_mobile": true
+          }
+        },
         "text_slider_1": {
           "type": "text_slider",
           "settings": {
@@ -52,6 +58,7 @@
         }
       },
       "block_order": [
+        "socials_1",
         "text_slider_1"
       ]
     },
@@ -60,7 +67,7 @@
       "settings": {
         "reveal": true,
         "menu_tab": "unset",
-        "mega_menu": "",
+        "mega_menu": "main-menu",
         "show_search": true,
         "color_scheme": "default",
         "icon_spacing": 10,
@@ -82,12 +89,12 @@
         "menu_custom_font": "assistant_n4",
         "menu_hover_style": "underline",
         "redirect_to_link": true,
-        "logo_width_mobile": 56,
+        "logo_width_mobile": 136,
         "menu_link_spacing": 26,
         "menu_mobile_color": "#111111",
         "show_account_icon": false,
         "action_text_weight": "400",
-        "logo_width_desktop": 64,
+        "logo_width_desktop": 196,
         "show_shopping_cart": true,
         "show_wishlist_icon": false,
         "sticky_header_type": "on-scroll-up",
