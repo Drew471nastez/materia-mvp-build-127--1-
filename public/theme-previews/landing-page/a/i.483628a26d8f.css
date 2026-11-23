@@ -1,0 +1,130 @@
+
+  :root {
+    --btn-radius: 999px;
+    --btn-font-size: 16px;
+    --btn-font-weight: 700;
+    --btn-padding-x: 26px;
+    --btn-padding-y: 14px;
+    --btn-border-width: 0px;
+    --btn-letter-spacing: 0px;
+    --btn-text-transform: none;
+    --theme-button-radius: 999px;
+    --theme-button-padding-x: 26px;
+    --theme-button-padding-y: 14px;
+    --body-line-height: 1.7;
+    --heading-line-height: 1.2;
+    --theme-font-body: var(--body-font);
+    --theme-font-heading: var(--heading-font);
+    --section-heading-font: var(--heading-font);
+    --section-heading-weight: var(--heading-weight);
+    --section-heading-size: calc(32px * var(--heading-font-scale, 1));
+    --section-heading-line-height: var(--heading-line-height);
+    --section-heading-tracking: var(--heading-letter-spacing);
+    --section-heading-transform: var(--heading-text-transform);
+    --section-text-size: var(--body-font-size);
+    --section-text-line-height: var(--body-line-height);
+    --theme-page-width: var(--page-width);
+  }
+  body, input, textarea, select { font-family: var(--body-font, sans-serif); }
+  :where(h1, h2, h3, h4, h5, h6, .h0, .h1, .h2, .h3, .h4, .h5, .h6) {
+    line-height: var(--heading-line-height);
+    letter-spacing: var(--heading-letter-spacing);
+  }
+    :where(html:not([data-font-priority='off'])) .shopify-section { font-family: var(--body-font, sans-serif) !important; }
+    :where(html:not([data-font-priority='off'])) .shopify-section :is(p, li, input, textarea, select, label):where(:not([data-own-font], [data-own-font] *)) { font-family: var(--body-font, sans-serif) !important; }
+    :where(html:not([data-font-priority='off'])) .shopify-section :is(h1, h2, h3, h4, h5, h6, .h0, .h1, .h2, .h3, .h4, .h5, .h6, .heading, .heading-font, .product-detail__title) {
+      text-transform: var(--heading-text-transform) !important;
+    }
+    :where(html:not([data-font-priority='off'])) .shopify-section :is(h1, h2, h3, h4, h5, h6, .h0, .h1, .h2, .h3, .h4, .h5, .h6, .heading, .heading-font, .product-detail__title):where(:not([data-own-font], [data-own-font] *)) {
+      font-family: var(--heading-font, sans-serif) !important;
+    }
+    :where(html:not([data-font-priority='off'])) .shopify-section :is(h1, h2, h3, h4, h5, h6, .h0, .h1, .h2, .h3, .h4, .h5, .h6, .heading, .heading-font, .product-detail__title):where(:not([data-own-weight], [data-own-weight] *)) {
+      font-weight: var(--heading-weight, 600) !important;
+    }
+    :where(html:not([data-font-priority='off'])) .shopify-section :is(h1, h2, h3, h4, h5, h6, .h0, .h1, .h2, .h3, .h4, .h5, .h6, .heading, .heading-font, .product-detail__title):where(:not([data-own-size], [data-own-size] *)) {
+      line-height: var(--heading-line-height) !important;
+      letter-spacing: var(--heading-letter-spacing) !important;
+    }
+    :where(html:not([data-font-priority='off'])) .shopify-section :is(.navigation, .horizontal-list, .submenu, .submenu-vertical) a { font-family: var(--menu-font, var(--body-font)) !important; }:where(html:not([data-button-priority='off'])) .shopify-section :is(.btn, .btn-primary, .btn-outline, .btn-white, .btn-secondary, [data-sl-button]):not(.btn-reset):not(.icon-btn):not(.btn-icon--circle):not(.cart-discount-remove):where(:not([data-own-shape])) {
+      font-size: var(--btn-font-size, 14px) !important;
+      border-radius: var(--theme-button-radius, var(--btn-radius, 8px)) !important;
+      padding: var(--theme-button-padding-y, 14px) var(--theme-button-padding-x, 26px) !important;
+    }
+    .shopify-section :is(.btn, .btn-primary, .btn-outline, .btn-white, .btn-secondary, [data-sl-button]):not(.btn-reset):not(.icon-btn):not(.btn-icon--circle):not(.cart-discount-remove):where(:not([data-own-font])) { font-family: var(--btn-font, var(--body-font)) !important; }
+    .shopify-section :is(.btn, .btn-primary, .btn-outline, .btn-white, .btn-secondary, [data-sl-button]):not(.btn-reset):not(.icon-btn):not(.btn-icon--circle):not(.cart-discount-remove):where(:not([data-own-weight])) { font-weight: var(--btn-font-weight, 500) !important; }
+    .shopify-section :is(.btn, .btn-primary, .btn-outline, .btn-white, .btn-secondary, [data-sl-button]):not(.btn-reset):not(.icon-btn):not(.btn-icon--circle):not(.cart-discount-remove):where(:not([data-own-shape])) { border-width: var(--btn-border-width, 1px) !important; }
+    .shopify-section :is(.btn, .btn-primary, .btn-outline, .btn-white, .btn-secondary, [data-sl-button]):not(.btn-reset):not(.icon-btn):not(.btn-icon--circle):not(.cart-discount-remove) {
+      letter-spacing: var(--btn-letter-spacing, 0px) !important;
+      text-transform: var(--btn-text-transform, none) !important;
+      min-height: 44px;
+      box-sizing: border-box;
+      min-width: 0;
+      max-width: 100%;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+  :where(.shopify-section [data-sl-button]:not(.btn-outline):not(.btn-white):not(.btn-secondary)) {
+    --btn-bg: var(--btn-primary-bg-color);
+    --btn-rest-bg: var(--btn-primary-bg-color);
+    --btn-bg-gradient: var(--btn-primary-bg-graident-color, var(--btn-primary-bg-color));
+    --btn-color: var(--btn-primary-color);
+    --btn-border-color: var(--btn-primary-border-color, transparent);
+    background: var(--btn-bg-gradient);
+  }
+  .btn-secondary {
+    --btn-color: var(--btn-secondary-color);
+    --btn-bg: var(--btn-secondary-bg-color);
+    --btn-rest-bg: var(--btn-secondary-bg-color);
+    --btn-border-color: var(--btn-secondary-border-color);
+    color: var(--btn-color);
+    background: var(--btn-bg);
+    border: var(--btn-border-width, 1px) solid var(--btn-border-color);
+  }
+  .shopify-section [data-button-role='primary'] {
+    --button-role-bg: var(--btn-primary-bg-color);
+    --button-role-color: var(--btn-primary-color);
+    --button-role-border: var(--btn-primary-border-color, var(--btn-primary-bg-color));
+  }
+  .shopify-section [data-button-role='secondary'] {
+    --button-role-bg: var(--btn-secondary-bg-color);
+    --button-role-color: var(--btn-secondary-color);
+    --button-role-border: var(--btn-secondary-border-color, currentColor);
+    --btn-hover-fill: var(--btn-secondary-hover-bg-color);
+  }
+  .shopify-section :is(.btn-outline, [data-sl-button].btn-outline) {
+    --btn-color: var(--btn-outline-color, var(--color-heading, currentColor));
+    --btn-bg: transparent;
+    --btn-rest-bg: transparent;
+    --btn-border-color: var(--btn-outline-border-color, currentColor);
+    color: var(--btn-color) !important;
+    background: transparent !important;
+    border-style: solid !important;
+    border-width: max(1px, var(--btn-border-width, 1px)) !important;
+    border-color: var(--btn-border-color) !important;
+  }
+  .shopify-section [data-button-role][data-button-outline='true'] {
+    color: var(--button-role-border) !important;
+    background: transparent !important;
+    border: max(1px, var(--btn-border-width, 1px)) solid var(--button-role-border) !important;
+  }
+  :is(.btn, .btn-primary, .btn-outline, .btn-white, .btn-secondary, [data-sl-button]):focus-visible { outline: 2px solid var(--color-heading, currentColor); outline-offset: 3px; }.shopify-section .btn-outline:not(.btn-reset):not(.icon-btn):not(.btn-icon--circle):not([data-theme-button]),
+  body[data-btn-style='outline'] .shopify-section :is(.btn, .btn-primary):not(.btn-outline):not(.btn-secondary):not(.btn-white):not(.btn-reset):not(.icon-btn):not(.btn-icon--circle):not(.cart-discount-remove):not([data-theme-button]) {
+    border-style: solid !important;
+    border-width: max(1px, var(--btn-border-width, 1px)) !important;
+  }
+  body[data-btn-style='underline'] .shopify-section :is(.btn, .btn-primary, [data-sl-button]):not(.btn-outline):not(.btn-secondary):not(.btn-white):not(.btn-reset):not(.icon-btn):not(.btn-icon--circle):not(.cart-discount-remove) { padding-inline: 0 !important; border-radius: 0 !important; }
+  @media (hover: hover) {
+    .btn-secondary:hover {
+      --btn-color: var(--btn-secondary-hover-color);
+      --btn-bg: var(--btn-secondary-hover-bg-color);
+      --btn-border-color: var(--btn-secondary-hover-border-color);
+    }}
+  @media (prefers-reduced-motion: reduce) {
+    .animate--zoom-in { --zoom-in-ratio: 1 !important; }
+    .scroll-trigger, motion-element { opacity: 1 !important; transform: none !important; animation: none !important; }
+    :is(.btn, .btn-primary, .btn-outline, .btn-white, .btn-secondary, [data-sl-button], .btn-link, .btn-hover),
+    :is(.btn, .btn-primary, .btn-outline, .btn-white, .btn-secondary, [data-sl-button], .btn-link, .btn-hover) *,
+    :is(.btn, .btn-primary, .btn-outline, .btn-white, .btn-secondary, [data-sl-button], .btn-link)::before { transition-duration: 0.01ms !important; transition-delay: 0s !important; }
+    :is(.btn, .btn-primary, .btn-outline, .btn-white, .btn-secondary, [data-sl-button]):is(:hover, :active) { transform: none !important; }
+  }
+  

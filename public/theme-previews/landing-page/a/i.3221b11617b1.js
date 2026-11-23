@@ -1,0 +1,7 @@
+(function(){if(!('IntersectionObserver' in window)||!Element.prototype.getAnimations)return;var seen=new WeakSet();
+function sweep(s,on){var list;try{list=s.getAnimations({subtree:true})}catch(x){return}for(var i=0;i<list.length;i++){var a=list[i],t=a.effect&&a.effect.getTiming?a.effect.getTiming():null;if(!t||t.iterations!==Infinity)continue;if(on){if(a.__slHeld){a.__slHeld=0;a.play()}}else if(a.playState==='running'){a.__slHeld=1;a.pause()}}}
+var io=new IntersectionObserver(function(es){for(var i=0;i<es.length;i++){var e=es[i];e.target.__slOn=e.isIntersecting;sweep(e.target,e.isIntersecting)}},{rootMargin:'200px 0px'});
+function watch(){var ss=document.querySelectorAll('main .shopify-section');for(var i=0;i<ss.length;i++){if(!seen.has(ss[i])){seen.add(ss[i]);io.observe(ss[i])}}}
+watch();document.addEventListener('DOMContentLoaded',watch,{once:true});
+document.addEventListener('animationstart',function(e){var s=e.target&&e.target.closest&&e.target.closest('main .shopify-section');if(s&&s.__slOn===false)sweep(s,false)},true);
+['storelib:section-load','shopify:section:load'].forEach(function(n){document.addEventListener(n,function(e){var s=e.target&&e.target.closest?e.target.closest('main .shopify-section'):null;if(s){io.unobserve(s);seen.delete(s)}watch()})});})();

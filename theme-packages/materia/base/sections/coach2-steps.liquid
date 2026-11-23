@@ -16,7 +16,7 @@
   #shopify-section-{{ sid }} .c2s__inner { max-width: var(--page-width, 1310px); margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 36px; }
   @media (min-width: 990px) { #shopify-section-{{ sid }} .c2s--pic .c2s__inner { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 80px; align-items: start; } }
   #shopify-section-{{ sid }} .c2s__media { position: relative; margin: 0; aspect-ratio: 4 / 5; border-radius: 8px; overflow: hidden; background: #e8eaee; }
-  @media (min-width: 990px) { #shopify-section-{{ sid }} .c2s__media { position: sticky; top: 100px; } }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .c2s__stick { position: sticky; top: 100px; } }
   #shopify-section-{{ sid }} .c2s__media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: {{ st.image_focus }}; margin: 0; }
   #shopify-section-{{ sid }} .c2s__eyebrow { margin: 0 0 12px; color: var(--accent); font-size: 13px; font-weight: 600; letter-spacing: .04em; }
   #shopify-section-{{ sid }} .c2s__h { margin: 0; color: var(--ink); font-family: var(--heading-font, inherit); font-weight: 700; letter-spacing: -0.035em; line-height: 1.04; font-size: 34px; text-wrap: balance; }
@@ -39,9 +39,11 @@
 <div class="c2s color-{{ color_scheme }}{% if st.image != blank %} c2s--pic{% else %} c2s--wide{% endif %}">
   <div class="c2s__inner">
     {%- if st.image != blank -%}
+      <div class="c2s__stick">
       <figure class="c2s__media">
         <img src="{{ st.image | image_url: width: 1000 }}" srcset="{{ st.image | image_url: width: 600 }} 600w, {{ st.image | image_url: width: 1000 }} 1000w" sizes="(min-width: 990px) 600px, 94vw" width="{{ st.image.width | default: 1000 }}" height="{{ st.image.height | default: 1250 }}" alt="{{ st.image_alt | escape }}" decoding="async">
       </figure>
+      </div>
     {%- endif -%}
     <div>
       {%- if st.eyebrow != blank -%}<p class="c2s__eyebrow">{{ st.eyebrow | escape }}</p>{%- endif -%}
