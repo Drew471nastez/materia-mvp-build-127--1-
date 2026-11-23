@@ -37,7 +37,7 @@ function Root() {
   const saved = w.__panel === "offer-edit"
   return (
     <div style={{ height: "100vh" }}>
-      <OfferEditor offer={saved ? OFFER : null} kind="bundle" askKind={!saved} products={products} collections={[]} others={[]} currency="USD" physical ready settingsReady breaksReady sold={saved ? 4 : 0} />
+      <OfferEditor open target={saved ? { offer: OFFER } : { offer: null, kind: null }} onClose={() => undefined} onSaved={() => undefined} onDeleted={() => undefined} products={products} collections={[]} others={[]} currency="USD" physical ready settingsReady breaksReady sold={saved ? { [OFFER.id]: 4 } : {}} />
     </div>
   )
 }
