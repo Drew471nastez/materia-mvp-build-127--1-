@@ -17,7 +17,18 @@ import { PageLayer } from "@/components/app/page-layer"
  * It is still a route under /app, so the session checks, the router and the
  * shell's landing (components/app/app-stage.tsx) are the same as everywhere
  * else.
+ *
+ * ROUND 58, THE OWNER: "it must open and close smoothly and cleanly". On a
+ * phone it rises from the bottom over Billing and drops back down on X or
+ * Billing, the product editor's move (`moves`, components/app/page-layer.tsx):
+ * transform only, on the compositor, nothing under reduced motion. From 768px
+ * it is drawn whole on its first frame, as before, and its cards rise in the
+ * way /pricing's do.
  */
 export default function UpgradeLayout({ children }: { children: React.ReactNode }) {
-  return <PageLayer inset="white">{children}</PageLayer>
+  return (
+    <PageLayer inset="white" moves>
+      {children}
+    </PageLayer>
+  )
 }

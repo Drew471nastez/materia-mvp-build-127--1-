@@ -1,6 +1,6 @@
 "use client"
 
-import { useLayoutEffect, useState, useSyncExternalStore, type MouseEvent } from "react"
+import { useLayoutEffect, useState, useSyncExternalStore } from "react"
 import { PricingSection, type PaidCheckoutPlanId } from "@/components/marketing/pricing-section"
 import { FaqSection } from "@/components/marketing/faq-section"
 import { FinalCta } from "@/components/marketing/home/final-cta"
@@ -9,7 +9,8 @@ import { PRO_CHECKOUT_PLAN_ID, PRO_PRICE_CENTS, SCALE_CHECKOUT_PLAN_ID, formatPl
 import { readAuthSnapshot, subscribeAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { SheetStack } from "./pricing-sheets"
 import { PricingBento } from "./pricing-bento"
-import { ComparePlans, COMPARE_HEADING } from "./compare-plans"
+/* The compare table and its link are shared with the plans page in the app (components/app/billing/upgrade-page-client.tsx, round 58). */
+import { ComparePlans, CompareLink } from "./compare-plans"
 
 /** Pro checkout sends the internal plan id "growth" (the Grow Stripe price, $14), Scale sends SCALE_CHECKOUT_PLAN_ID (the existing $99 price). */
 type CheckoutPlanId = PaidCheckoutPlanId
@@ -51,40 +52,6 @@ function readUpgradeQuery(): { source?: string; returnTo?: string } {
                             (components/marketing/home/final-cta), on its dark
                             ground, rounded at the top, running into the footer.
 */
-
-/** Whether to move without animation (the visitor asked for less motion). */
-const reduceMotion = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches
-
-/**
- * "COMPARE ALL FEATURES" at the top right of the cards (landing round 14).
- * A real link to #compare (it works without script); with script the page
- * glides there, the table's heading coming to rest just under the site's
- * bar. The compare sheet is the stack's last, never sticky, so where it sits
- * in the page is where it is drawn: one read on the click, nothing on scroll.
- */
-function CompareLink() {
-  const go = (e: MouseEvent<HTMLAnchorElement>) => {
-    const title = document.getElementById("pz-cmp-title")
-    if (!title) return
-    e.preventDefault()
-    const stack = title.closest<HTMLElement>("[data-pz-stack]")
-    const head = stack ? parseFloat(getComputedStyle(stack).getPropertyValue("--pz-head")) || 0 : 0
-    /* The table rises in along the scroll (compare-plans.tsx, .pz-cmp-in): where it will rest is where it is drawn less that lift. */
-    const lift = title.parentElement ? getComputedStyle(title.parentElement).transform : "none"
-    const dy = lift && lift !== "none" && typeof DOMMatrixReadOnly === "function" ? new DOMMatrixReadOnly(lift).m42 : 0
-    const top = Math.max(0, title.getBoundingClientRect().top - dy + window.scrollY - head - 28)
-    window.scrollTo({ top, behavior: reduceMotion() ? "auto" : "smooth" })
-    history.replaceState(null, "", "#compare")
-  }
-  return (
-    <a href="#compare" onClick={go} data-pricing-compare-link="" className="group inline-flex items-center gap-1.5 rounded-md text-[14.5px] font-medium text-[#18181b] underline decoration-[#d4d4d8] decoration-1 underline-offset-[5px] transition-colors duration-200 hover:decoration-[#18181b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#18181b]/25">
-      {COMPARE_HEADING}
-      <svg aria-hidden="true" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="transition-transform duration-300 ease-[cubic-bezier(.2,.8,.2,1)] group-hover:translate-y-[2px] motion-reduce:transition-none">
-        <path d="M8 3.5v8.5M4.5 8.5 8 12l3.5-3.5" />
-      </svg>
-    </a>
-  )
-}
 
 export function PricingPageClient() {
   /*

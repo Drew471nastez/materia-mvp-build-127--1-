@@ -67,8 +67,8 @@ const OFFER_SURFACES = [
   "app/(storelib)/(marketing)/pricing/loading.tsx",
   "components/app/billing/upgrade-page-client.tsx",
   "components/app/billing/billing-page-client.tsx",
-  "components/billing/compare-plans.tsx",
-  "components/billing/plan-faq.tsx",
+  /* Changed on purpose (r58): the upgrade page draws /pricing's own compare table; its separate table and questions are gone. */
+  "app/(storelib)/(marketing)/pricing/compare-plans.tsx",
 ]
 
 /**

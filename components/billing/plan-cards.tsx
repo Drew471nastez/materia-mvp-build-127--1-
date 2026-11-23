@@ -48,6 +48,7 @@ import {
   ArrowRight,
   BadgeCheck,
   ChartColumn,
+  Check,
   CreditCard,
   Files,
   EyeOff,
@@ -193,8 +194,15 @@ function PlanButton({ action, featured, compact }: { action: PlanCardAction; fea
     `group relative inline-flex w-full h-11 items-center justify-center gap-2 rounded-full ${disc ? (compact ? "px-11" : "px-12") : "px-5"} ` +
     "text-[14px] no-underline select-none transition-[background-color,border-color,color,box-shadow] duration-200 " +
     "focus-visible:outline-none focus-visible:ring-4 " +
+    /*
+      ROUND 58, THE OWNER: the current plan's button "must not turn white or
+      outlined". A settled button (the plan somebody is on, a change already
+      scheduled) keeps its plan's filled shape and colour, quieter, with no
+      arrow and no light crossing it, and takes no press. The current plan
+      says so with a check.
+    */
     (action.settled
-      ? "border border-[#e4e4e7] bg-white font-medium text-[#6b7280] cursor-default"
+      ? `${featured ? "bg-[#7c3aed]" : "bg-[#0f0e13]"} font-semibold text-white opacity-70 cursor-default`
       : featured
         ? "bg-[#7c3aed] font-semibold text-white shadow-[0_1px_2px_rgba(76,29,149,0.20),0_8px_20px_-12px_rgba(76,29,149,0.55)] focus-visible:ring-[#7c3aed]/30 disabled:cursor-not-allowed disabled:opacity-70"
         : "bg-[#0f0e13] font-semibold text-white hover:bg-[#2a2833] active:bg-[#2a2833] focus-visible:ring-[#18181b]/20 disabled:cursor-not-allowed disabled:opacity-70")
@@ -205,6 +213,7 @@ function PlanButton({ action, featured, compact }: { action: PlanCardAction; fea
     </>
   ) : (
     <>
+      {action.settled && action.current ? <Check className="h-4 w-4 shrink-0" strokeWidth={2.25} aria-hidden="true" /> : null}
       <span className="min-w-0 truncate">{action.label}</span>
       {/* Landing round 14: Grow's purple button carries the white disc with its purple arrow; Free's and Pro's dark ones keep their plain arrow. */}
       {disc ? <DiscArrow compact={compact} /> : live ? <DarkArrow /> : null}
@@ -233,6 +242,7 @@ function PlanButton({ action, featured, compact }: { action: PlanCardAction; fea
       className={className + shine}
       data-plan-action
       data-plan-button={kind}
+      data-plan-current={action.current ? "" : undefined}
     >
       {content}
     </button>

@@ -16,6 +16,7 @@
 */
 
 import Link from "next/link"
+import type { MouseEvent } from "react"
 import { OFFERED_PLANS, planComparison, PRO_CHECKOUT_PLAN_ID, SCALE_CHECKOUT_PLAN_ID, type ComparisonValue, type OfferedPlanId } from "@/lib/billing/plans"
 import type { PlanCardAction } from "@/components/billing/plan-cards"
 import { tt } from "@/lib/i18n/text"
@@ -54,17 +55,31 @@ function Value({ v }: { v: ComparisonValue }) {
   is no longer an arrow alone. Two lines whether stuck or not, so nothing
   moves when the row starts to stick.
 */
+/*
+  ROUND 58: the plans page in the app draws this same table with its own
+  actions. The plan somebody is on (and a change already scheduled) is
+  `settled`: the same filled button, quieter, a check in place of the arrow
+  for the current plan, and no press. Never white, never outlined.
+*/
 function PlanButton({ action, featured }: { action: PlanCardAction; featured: boolean }) {
-  const cls = `pz-cmp-btn${featured ? " pz-cmp-btn-on" : ""}`
+  const cls = `pz-cmp-btn${featured ? " pz-cmp-btn-on" : ""}${action.settled ? " pz-cmp-btn-settled" : ""}`
   const inner = (
     <>
       <span className="pz-cmp-btn-t">{action.loading ? tt("Processing") : action.label}</span>
-      <svg className="pz-cmp-btn-a" viewBox="0 0 16 16" aria-hidden="true">
-        <path d="M3.5 8h8.5M8.5 4.5 12 8l-3.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
+      {action.settled ? (
+        action.current ? (
+          <svg className="pz-cmp-btn-a" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M3.5 8.4 6.6 11.4 12.5 5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        ) : null
+      ) : (
+        <svg className="pz-cmp-btn-a" viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M3.5 8h8.5M8.5 4.5 12 8l-3.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      )}
     </>
   )
-  if (action.href && !action.disabled) {
+  if (action.href && !action.disabled && !action.settled) {
     return (
       <Link href={action.href} className={cls}>
         {inner}
@@ -72,9 +87,50 @@ function PlanButton({ action, featured }: { action: PlanCardAction; featured: bo
     )
   }
   return (
-    <button type="button" className={cls} onClick={action.onClick} disabled={action.disabled || action.loading} aria-busy={action.loading || undefined}>
+    <button type="button" className={cls} onClick={action.onClick} disabled={action.disabled || action.settled || action.loading} aria-busy={action.loading || undefined} data-pz-current={action.current ? "" : undefined}>
       {inner}
     </button>
+  )
+}
+
+/** Whether to move without animation (the visitor asked for less motion). */
+const reduceMotion = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches
+
+/**
+ * "COMPARE ALL FEATURES" at the top right of the cards (landing round 14).
+ * A real link to #compare (it works without script); with script the page
+ * glides there, the table's heading coming to rest just under the bar that
+ * stays at the top (--pz-head: the site's bar on /pricing, the plans page's
+ * own bar in the app). Round 58: it scrolls whichever box the page scrolls
+ * in, the window on /pricing and the layer's scroller in the app.
+ */
+export function CompareLink() {
+  const go = (e: MouseEvent<HTMLAnchorElement>) => {
+    const title = document.getElementById("pz-cmp-title")
+    if (!title) return
+    e.preventDefault()
+    const head = parseFloat(getComputedStyle(title).getPropertyValue("--pz-head")) || 0
+    /* The table rises in along the scroll (.pz-cmp-in): where it will rest is where it is drawn less that lift. */
+    const lift = title.parentElement ? getComputedStyle(title.parentElement).transform : "none"
+    const dy = lift && lift !== "none" && typeof DOMMatrixReadOnly === "function" ? new DOMMatrixReadOnly(lift).m42 : 0
+    const behavior: ScrollBehavior = reduceMotion() ? "auto" : "smooth"
+    const box = title.closest<HTMLElement>("[data-page-layer-scroll]")
+    if (box) {
+      const top = Math.max(0, title.getBoundingClientRect().top - dy - box.getBoundingClientRect().top + box.scrollTop - head - 28)
+      box.scrollTo({ top, behavior })
+    } else {
+      const top = Math.max(0, title.getBoundingClientRect().top - dy + window.scrollY - head - 28)
+      window.scrollTo({ top, behavior })
+      history.replaceState(null, "", "#compare")
+    }
+  }
+  return (
+    <a href="#compare" onClick={go} data-pricing-compare-link="" className="group inline-flex items-center gap-1.5 rounded-md text-[14.5px] font-medium text-[#18181b] underline decoration-[#d4d4d8] decoration-1 underline-offset-[5px] transition-colors duration-200 hover:decoration-[#18181b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#18181b]/25">
+      {COMPARE_HEADING}
+      <svg aria-hidden="true" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="transition-transform duration-300 ease-[cubic-bezier(.2,.8,.2,1)] group-hover:translate-y-[2px] motion-reduce:transition-none">
+        <path d="M8 3.5v8.5M4.5 8.5 8 12l3.5-3.5" />
+      </svg>
+    </a>
   )
 }
 
@@ -165,6 +221,10 @@ export const COMPARE_CSS = `
 .pz-cmp-btn-on:hover{background:#6d28d9}
 .pz-cmp-btn:focus-visible{outline:2px solid #18181b;outline-offset:3px}
 .pz-cmp-btn:disabled{opacity:.7;cursor:not-allowed}
+.pz-cmp-btn-settled,.pz-cmp-btn-settled:disabled{opacity:.7;cursor:default}
+.pz-cmp-btn-settled:hover{background:#0f0e13}
+.pz-cmp-btn-on.pz-cmp-btn-settled:hover{background:#7c3aed}
+.pz-cmp-btn-settled:hover .pz-cmp-btn-a{transform:none}
 @media(prefers-reduced-motion:reduce){.pz-cmp-btn-a{transition:none}}
 .pz-cmp-gtitle{padding:36px 0 10px}
 .pz-cmp-gname{grid-column:1/-1;font-size:clamp(20px,2vw,26px);font-weight:500;letter-spacing:-.03em}
