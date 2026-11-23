@@ -12,6 +12,8 @@
  * template in CODE_TEMPLATES, into public/themes/materia/seo/:
  *
  *   <t>-card-480.webp, <t>-card-800.webp   the top of the page at 4:5
+ *   <t>-scroll.webp                        the whole page at 640 wide (6400 tall at
+ *                                          most), the card's hover slides through it
  *   <t>-hero.webp                          the top at 1200 by 750, the gallery's first picture
  *   <t>-phone.webp                         the phone page's first screen, 390 by 844
  *   <t>-og.jpg                             the 1200 by 630 share card: the
@@ -82,6 +84,11 @@ for (const t of CODE_TEMPLATES) {
   for (const w of seo.CARD_WIDTHS) {
     await sharp(desktop).extract({ left: 0, top: 0, width: W, height: Math.min(cardH, meta.height) }).resize(w, Math.round((w * seo.CARD_RATIO.h) / seo.CARD_RATIO.w), { fit: "cover", position: "top" }).webp({ quality: 74, effort: 6 }).toFile(out(`card-${w}.webp`))
   }
+  /* The card's hover (round 23): the whole home page at 640 wide, so the card can slide through it. Its top is the card's picture. */
+  const scrollW = seo.SCROLL_WIDTH ?? 640
+  const scrollMax = seo.SCROLL_MAX_HEIGHT ?? 6400
+  const scrollTop = Math.min(meta.height, Math.round((scrollMax * W) / scrollW))
+  await sharp(desktop).extract({ left: 0, top: 0, width: W, height: scrollTop }).resize(scrollW).webp({ quality: 70, effort: 6 }).toFile(out("scroll.webp"))
   /* The hero: the first screen at 8:5. */
   const heroH = Math.round((W * seo.HERO_SIZE.h) / seo.HERO_SIZE.w)
   await sharp(desktop).extract({ left: 0, top: 0, width: W, height: Math.min(heroH, meta.height) }).resize(seo.HERO_SIZE.w, seo.HERO_SIZE.h, { fit: "cover", position: "top" }).webp({ quality: 78, effort: 6 }).toFile(out("hero.webp"))
@@ -118,7 +125,7 @@ for (const t of CODE_TEMPLATES) {
   await sharp(png).jpeg({ quality: 82, mozjpeg: true }).toFile(out("og.jpg"))
 
   const kb = (f) => Math.round(statSync(out(f)).size / 1024)
-  report.push(`${t.template.padEnd(14)} card ${kb("card-480.webp")}/${kb("card-800.webp")} KB, hero ${kb("hero.webp")} KB, phone ${kb("phone.webp")} KB, og ${kb("og.jpg")} KB (cover was ${Math.round(statSync(desktop).size / 1024)} KB)`)
+  report.push(`${t.template.padEnd(14)} card ${kb("card-480.webp")}/${kb("card-800.webp")} KB, scroll ${kb("scroll.webp")} KB, hero ${kb("hero.webp")} KB, phone ${kb("phone.webp")} KB, og ${kb("og.jpg")} KB (cover was ${Math.round(statSync(desktop).size / 1024)} KB)`)
 }
 await browser.close()
 rmSync(tmp, { recursive: true, force: true })

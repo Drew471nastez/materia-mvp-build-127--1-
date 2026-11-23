@@ -28,7 +28,24 @@
  * runs along its top only if the wait passes half a second. The website
  * fades in once, out of that same colour, when its first screen's pictures
  * and fonts are in, so nothing on it still pops in or reflows after the
- * fade. No screenshot is drawn under it, so nothing is swapped. A listing with no prerendered website (an uploaded theme), or one
+ * fade.
+ *
+ * NEVER A BLANK WHILE IT LOADS (marketplace round 23, the owner: "if the
+ * preview takes time, never a white blank: a smooth blurred placeholder,
+ * the template's cover blurred, then the live page fades in"). Over that
+ * ground, the first screen of the template's own picture, blurred well
+ * past reading (BLUR_PX) and a little larger than the stage so its edges
+ * do not show (the same picture its card on the marketplace drew, so it is
+ * usually in the browser already). The website fades in over it once, so
+ * the page reads as coming into focus. Nothing in it can be read or
+ * pressed, so it is never taken for the website. A switch between desktop
+ * and phone dips the website onto the other size's picture.
+ *
+ * "THIS IS A PREVIEW" (round 23): a small dark note at the foot of the
+ * stage, a moment after the window opens, gone by itself a few seconds
+ * later (PreviewNote). It takes no press and covers nothing that matters.
+ *
+ * A listing with no prerendered website (an uploaded theme), or one
  * whose website does not answer, shows its full page screenshots instead
  * (public/themes/materia/<template>.webp and -phone.webp): the switch is a
  * crossfade between two pictures that are already there.
@@ -55,7 +72,7 @@ import { SCRIM } from "@/components/ui/scrim"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { TemplateAction, type TemplateCardState } from "@/components/website-builder/theme-template-card"
-import { templatePreviewPath, type ThemeListing } from "@/lib/themes/marketplace-shared"
+import { CODE_TEMPLATES, CODE_THEME_PACKAGE, templatePreviewPath, type ThemeListing } from "@/lib/themes/marketplace-shared"
 import { TEMPLATE_PREVIEW_GROUNDS } from "@/lib/themes/template-preview-grounds"
 
 /** In the address while a preview is open: &preview=slug, one history entry over the grid or the page. */
@@ -73,6 +90,11 @@ export const PREVIEW_SWAP_MS = 240
 export const PREVIEW_LIVE_FADE_MS = 340
 /** Before this, a wait for the website shows nothing at all; after it, a faint line. */
 export const PREVIEW_QUIET_MS = 500
+/** How far the placeholder is blurred: the page's colours and shapes, none of its words. */
+export const BLUR_PX = 28
+/** "This is a preview": up this long after the window opens, and for this long. */
+export const PREVIEW_NOTE_AFTER_MS = 900
+export const PREVIEW_NOTE_FOR_MS = 2800
 
 const MOTION = `
 @keyframes wb-preview-in { from { opacity: 0; transform: translate3d(0, 12px, 0) scale(0.985); } to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } }
@@ -108,6 +130,19 @@ export function previewShots(l: Pick<ThemeListing, "cover" | "screenshots">): { 
     desktop: l.screenshots.find((s) => !PHONE_SHOT.test(s)) ?? l.cover ?? null,
     phone: l.screenshots.find((s) => PHONE_SHOT.test(s)) ?? null,
   }
+}
+
+/**
+ * The picture under the website while it loads, blurred (NEVER A BLANK): a
+ * built template's first screen (the marketplace card's picture for a
+ * computer, the phone's first screen for a phone), or an uploaded one's own
+ * screenshots.
+ */
+export function blurPictureOf(l: Pick<ThemeListing, "codePackage" | "cover" | "screenshots">, device: PreviewDevice): string | null {
+  const t = l.codePackage ? CODE_TEMPLATES.find((c) => `${CODE_THEME_PACKAGE}/${c.template}` === l.codePackage) : null
+  if (t) return `/themes/${CODE_THEME_PACKAGE}/seo/${t.template}-${device === "phone" ? "phone" : "card-480"}.webp`
+  const shots = previewShots(l)
+  return device === "phone" ? (shots.phone ?? shots.desktop) : shots.desktop
 }
 
 const phoneScreen = () => typeof window !== "undefined" && !!window.matchMedia?.("(max-width: 767.98px)").matches
@@ -309,7 +344,7 @@ export function ThemePreview({ listing, state, waiting = false, viewHref = null,
             {/* ── The website, or the home page's pictures when there is none ── */}
             <div data-preview-stage="" className="relative min-h-0 flex-1 bg-[#eef0f3]">
               {shown && live ? (
-                <LiveSite key={live} src={live} device={on} name={shown.name} openedAt={openedAt} ground={TEMPLATE_PREVIEW_GROUNDS[shown.slug]?.[on] ?? null} />
+                <LiveSite key={live} src={live} device={on} name={shown.name} openedAt={openedAt} ground={TEMPLATE_PREVIEW_GROUNDS[shown.slug]?.[on] ?? null} blur={blurPictureOf(shown, on)} />
               ) : shown ? (
                 (["desktop", "phone"] as const).map((d) => {
                   const src = shots[d]
@@ -334,11 +369,43 @@ export function ThemePreview({ listing, state, waiting = false, viewHref = null,
                   )
                 })
               ) : null}
+              {listing ? <PreviewNote key={`${listing.slug}`} /> : null}
             </div>
           </DialogPrimitive.Content>
         </DialogPrimitive.Portal>
       </DialogPrimitive.Root>
     </>
+  )
+}
+
+/**
+ * "This is a preview", said once each time a template opens: up a moment
+ * after the window, gone by itself. A fade and a small rise, opacity and
+ * transform only; with reduced motion it is simply there and then not.
+ * It takes no press, so nothing under it is ever out of reach.
+ */
+function PreviewNote() {
+  const [phase, setPhase] = React.useState<"waiting" | "shown" | "gone">("waiting")
+  React.useEffect(() => {
+    const up = window.setTimeout(() => setPhase("shown"), PREVIEW_NOTE_AFTER_MS)
+    const down = window.setTimeout(() => setPhase("gone"), PREVIEW_NOTE_AFTER_MS + PREVIEW_NOTE_FOR_MS)
+    return () => {
+      window.clearTimeout(up)
+      window.clearTimeout(down)
+    }
+  }, [])
+  return (
+    <div aria-live="polite" className="pointer-events-none absolute inset-x-0 bottom-[calc(20px+env(safe-area-inset-bottom))] z-[2] flex justify-center px-4 md:bottom-6">
+      <p
+        data-preview-note={phase}
+        className={cn(
+          "rounded-full bg-[#111114]/90 px-4 py-2 text-[13.5px] font-medium text-white shadow-[0_1px_2px_rgba(0,0,0,0.2),0_10px_28px_-10px_rgba(0,0,0,0.45)] transition-[opacity,transform] duration-[280ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+          phase === "shown" ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0",
+        )}
+      >
+        {phase === "waiting" ? null : tt("This is a preview")}
+      </p>
+    </div>
   )
 }
 
@@ -474,7 +541,7 @@ const LIVE_DESKTOP_WIDTH = 1280
  * had browsed to: the website dips for a moment while it lays itself out
  * at the new width and comes back, rather than being seen to jump.
  */
-function LiveSite({ src, device, name, openedAt, ground }: { src: string; device: PreviewDevice; name: string; openedAt: React.RefObject<number>; ground: string | null }) {
+function LiveSite({ src, device, name, openedAt, ground, blur }: { src: string; device: PreviewDevice; name: string; openedAt: React.RefObject<number>; ground: string | null; blur: string | null }) {
   /* The website's pages, each in its own frame: the one on show, and the next while it draws behind it (see GOING TO ANOTHER PAGE). */
   const [pages, setPages] = React.useState<FramedPage[]>(() => [{ key: 0, src }])
   const [front, setFront] = React.useState(0)
@@ -668,6 +735,8 @@ function LiveSite({ src, device, name, openedAt, ground }: { src: string; device
         )}
         style={background ? { backgroundColor: background } : undefined}
       >
+        {/* NEVER A BLANK: the template's first screen, blurred, on its own ground, until the website has come up over it. */}
+        {blur ? <BlurPlaceholder key={blur} src={blur} /> : null}
         {/* The wait, said quietly and only once it is long enough to notice: a thin line along the top, light on a dark ground. */}
         {!ready || going ? (
           <div aria-hidden data-preview-live-loading="" className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-[2px] overflow-hidden">
@@ -716,6 +785,31 @@ function LiveSite({ src, device, name, openedAt, ground }: { src: string; device
         </div>
       </div>
     </div>
+  )
+}
+
+/** The blurred picture under the website: faded in when it has arrived (at once when it was already here), never read or pressed. */
+function BlurPlaceholder({ src }: { src: string }) {
+  const [shown, setShown] = React.useState(false)
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- a small picture already cut to size, blurred: the optimizer would only resize it again
+    <img
+      src={src}
+      alt=""
+      aria-hidden
+      decoding="async"
+      draggable={false}
+      data-preview-blur={shown ? "shown" : "loading"}
+      ref={(img) => {
+        if (img?.complete && img.naturalWidth > 0 && !shown) setShown(true)
+      }}
+      onLoad={() => setShown(true)}
+      className={cn(
+        "pointer-events-none absolute inset-0 h-full w-full select-none object-cover object-top transition-opacity duration-200 ease-out motion-reduce:transition-none",
+        shown ? "opacity-100" : "opacity-0",
+      )}
+      style={{ filter: `blur(${BLUR_PX}px) saturate(1.05)`, transform: "scale(1.12)" }}
+    />
   )
 }
 
