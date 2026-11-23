@@ -1,0 +1,86 @@
+{%- comment -%}
+  Digital Renaissance: what is inside. A heading, a line and a button that
+  stay in place on a computer while, beside them, each part of the course
+  (a block) is a row: a small gold number, a title, a line and an optional
+  tag. Rows are divided by hairlines, no boxes.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+-%}
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap">
+<style>
+  #shopify-section-{{ sid }} .rnf { --gold: {{ st.gold | default: '#f2bd4f' }}; --lapis: {{ st.accent | default: '#3d5afe' }}; background: {{ st.background | default: '#0b0c12' }}; color: {{ st.text_color | default: '#a7adbf' }}; padding: {{ st.padding_top_mobile | default: 56 }}px 20px {{ st.padding_bottom_mobile | default: 56 }}px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .rnf { padding: {{ st.padding_top | default: 112 }}px 40px {{ st.padding_bottom | default: 112 }}px; } }
+  #shopify-section-{{ sid }} .rnf__in { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 32px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .rnf__in { grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 96px; align-items: start; } #shopify-section-{{ sid }} .rnf__side { position: sticky; top: 120px; } }
+  #shopify-section-{{ sid }} .rnf__eyebrow { margin: 0 0 12px; color: var(--gold); font-size: 12px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; }
+  #shopify-section-{{ sid }} .rnf__title { margin: 0 0 16px; color: #fff; font-family: var(--heading-font, sans-serif); font-weight: 600; font-size: 34px; line-height: 1.06; letter-spacing: -.035em; text-wrap: balance; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .rnf__title { font-size: 52px; } }
+  #shopify-section-{{ sid }} .rnf__title em { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; color: var(--gold); }
+  #shopify-section-{{ sid }} .rnf__text { font-size: 16.5px; line-height: 1.6; max-width: 26em; }
+  #shopify-section-{{ sid }} .rnf__text p { margin: 0; }
+  #shopify-section-{{ sid }} .rnf__btn { display: inline-flex; align-items: center; gap: 10px; min-height: 52px; margin-top: 26px; padding: 0 24px; border-radius: 12px; background: var(--lapis); color: #fff; font-size: 15.5px; font-weight: 600; text-decoration: none; transition: transform .25s ease; }
+  #shopify-section-{{ sid }} .rnf__btn:hover { transform: translateY(-2px); }
+  #shopify-section-{{ sid }} .rnf__list { margin: 0; padding: 0; list-style: none; border-top: 1px solid rgba(255,255,255,.09); }
+  #shopify-section-{{ sid }} .rnf__row { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 10px 14px; padding: 24px 0; border-bottom: 1px solid rgba(255,255,255,.09); }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .rnf__row { grid-template-columns: 64px minmax(0, 1fr) auto; padding: 30px 0; align-items: baseline; } }
+  #shopify-section-{{ sid }} .rnf__n { color: var(--gold); font-family: 'Instrument Serif', Georgia, serif; font-style: italic; font-size: 24px; line-height: 1; }
+  #shopify-section-{{ sid }} .rnf__name { margin: 0 0 6px; color: #fff; font-family: var(--heading-font, sans-serif); font-size: 20px; font-weight: 600; letter-spacing: -.02em; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .rnf__name { font-size: 23px; } }
+  #shopify-section-{{ sid }} .rnf__desc { margin: 0; font-size: 15.5px; line-height: 1.55; }
+  #shopify-section-{{ sid }} .rnf__tag { grid-column: 2; justify-self: start; padding: 5px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,.14); color: #d6d9e3; font-size: 12px; font-weight: 500; white-space: nowrap; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .rnf__tag { grid-column: 3; } }
+</style>
+<section data-own-size class="rnf"{% if st.anchor != blank %} id="{{ st.anchor | handleize }}"{% endif %}>
+  <div class="rnf__in">
+    <div class="rnf__side">
+      {%- if st.eyebrow != blank -%}<p class="rnf__eyebrow">{{ st.eyebrow | escape }}</p>{%- endif -%}
+      {%- if st.heading != blank -%}<h2 class="rnf__title">{{ st.heading }}</h2>{%- endif -%}
+      {%- if st.text != blank -%}<div class="rnf__text">{{ st.text }}</div>{%- endif -%}
+      {%- if st.button_label != blank -%}<a class="rnf__btn" href="{{ st.button_link | default: '#' }}">{{ st.button_label | escape }}</a>{%- endif -%}
+    </div>
+    <ol class="rnf__list">
+      {%- for block in section.blocks -%}
+        <li class="rnf__row" {{ block.shopify_attributes }}>
+          <span class="rnf__n">{{ forloop.index | prepend: '0' | slice: -2, 2 }}</span>
+          <div><h3 class="rnf__name">{{ block.settings.title | escape }}</h3><p class="rnf__desc">{{ block.settings.text | escape }}</p></div>
+          {%- if block.settings.tag != blank -%}<span class="rnf__tag">{{ block.settings.tag | escape }}</span>{%- endif -%}
+        </li>
+      {%- endfor -%}
+    </ol>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Renaissance what you get",
+  "tag": "section",
+  "class": "renaissance-features-section",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "settings": [
+    { "type": "text", "id": "anchor", "label": "Name for links to this place", "default": "inside" },
+    { "type": "text", "id": "eyebrow", "label": "Small line above", "default": "Inside the course" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "What you <em>get</em>" },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>One line on how the parts fit together.</p>" },
+    { "type": "text", "id": "button_label", "label": "Button", "default": "See the plans" },
+    { "type": "url", "id": "button_link", "label": "Button link" },
+    { "type": "color", "id": "background", "label": "Background", "default": "#0b0c12" },
+    { "type": "color", "id": "accent", "label": "Accent", "default": "#3d5afe" },
+    { "type": "color", "id": "gold", "label": "Highlight", "default": "#f2bd4f" },
+    { "type": "color", "id": "text_color", "label": "Text", "default": "#a7adbf" },
+    { "type": "range", "id": "padding_top", "label": "Space above on a computer", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 112 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below on a computer", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 112 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above on a phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below on a phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 }
+  ],
+  "blocks": [
+    { "type": "item", "name": "Part of the course", "limit": 10, "settings": [
+      { "type": "text", "id": "title", "label": "Title", "default": "Short video lessons" },
+      { "type": "text", "id": "text", "label": "Line", "default": "What it is and why it helps." },
+      { "type": "text", "id": "tag", "label": "Tag", "default": "Included" }
+    ] }
+  ],
+  "presets": [ { "name": "Renaissance what you get", "category": "Digital Renaissance", "blocks": [ { "type": "item" }, { "type": "item" }, { "type": "item" } ] } ]
+}
+{% endschema %}

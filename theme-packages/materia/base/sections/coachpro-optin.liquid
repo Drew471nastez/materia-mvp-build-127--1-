@@ -33,7 +33,7 @@
   #shopify-section-{{ sid }} .cpf__points svg { flex: 0 0 auto; width: 20px; height: 20px; margin-top: 1px; color: var(--cpf-accent); }
   #shopify-section-{{ sid }} .cpf__row { display: flex; flex-direction: column; gap: 10px; max-width: 620px; }
   @media (min-width: 750px) { #shopify-section-{{ sid }} .cpf__row { flex-direction: row; gap: 8px; } }
-  #shopify-section-{{ sid }} .cpf__input { flex: 1 1 0; min-width: 0; height: 54px; margin: 0; padding: 0 18px; border: 1px solid rgba(255,255,255,.16); border-radius: 999px; background: rgba(255,255,255,.06); color: #fff; font: inherit; font-size: 15px; }
+  #shopify-section-{{ sid }} .cpf__input { --mt-select-bg: rgba(255,255,255,.06); --mt-select-radius: 999px; --mt-select-text: #fff; --mt-select-border: rgba(255,255,255,.18); --input-padding: 0 18px; --input-height: 54px; flex: 1 1 0; min-width: 0; height: 54px; margin: 0; padding: 0 18px; border: 1px solid rgba(255,255,255,.16); border-radius: 999px; background: rgba(255,255,255,.06); color: #fff; font: inherit; font-size: 15px; }
   #shopify-section-{{ sid }} .cpf__input::placeholder { color: rgba(255,255,255,.55); }
   #shopify-section-{{ sid }} .cpf__input:focus-visible { outline: 2px solid var(--cpf-accent); outline-offset: 1px; }
   #shopify-section-{{ sid }} .cpf__submit { flex: 0 0 auto; height: 54px; margin: 0; padding: 0 26px; border: 0; border-radius: 999px; background: var(--cpf-accent); color: {{ st.button_text_color | default: '#16120f' }}; font: inherit; font-size: 15.5px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: transform .25s ease; }
@@ -42,7 +42,7 @@
   #shopify-section-{{ sid }} .cpf__msg { margin: 12px 0 0; color: #fff; font-size: 14px; }
   #shopify-section-{{ sid }} .cpf__hp, #shopify-section-{{ sid }} .cpf__vh { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 </style>
-<section class="cpf" id="{{ st.anchor | default: 'free-guide' | handleize }}">
+<section data-own-size class="cpf" id="{{ st.anchor | default: 'free-guide' | handleize }}">
   <div class="cpf__panel">
     <figure class="cpf__media">
       {%- if st.image != blank -%}

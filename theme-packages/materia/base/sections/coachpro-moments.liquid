@@ -18,7 +18,7 @@
   #shopify-section-{{ sid }} .cpm__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; max-width: 1240px; margin: 0 auto; }
   @media (min-width: 990px) { #shopify-section-{{ sid }} .cpm__grid { grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 14px; } }
   #shopify-section-{{ sid }} .cpm__item { position: relative; margin: 0; overflow: hidden; border-radius: 14px; background: #e8ddd0; aspect-ratio: 4 / 5; }
-  #shopify-section-{{ sid }} .cpm__item:nth-child(6n+1) { grid-column: span 2; aspect-ratio: 3 / 2; }
+  #shopify-section-{{ sid }} .cpm__item:nth-child(6n+1), #shopify-section-{{ sid }} .cpm__item:nth-child(6n) { grid-column: span 2; aspect-ratio: 3 / 2; }
   @media (min-width: 990px) {
     #shopify-section-{{ sid }} .cpm__item { border-radius: 18px; }
     #shopify-section-{{ sid }} .cpm__item:nth-child(6n+1) { grid-column: span 5; aspect-ratio: auto; }
@@ -34,7 +34,7 @@
   @media (hover: hover) and (min-width: 990px) { #shopify-section-{{ sid }} .cpm__cap { opacity: 0; transform: translateY(6px); transition: opacity .3s ease, transform .3s ease; } #shopify-section-{{ sid }} .cpm__item:hover .cpm__cap { opacity: 1; transform: none; } }
   @media (prefers-reduced-motion: reduce) { #shopify-section-{{ sid }} .cpm__item img, #shopify-section-{{ sid }} .cpm__cap { transition: none; } }
 </style>
-<section class="cpm">
+<section data-own-size class="cpm">
   {%- if st.heading != blank or st.link_label != blank -%}
     <div class="cpm__head">
       {%- if st.heading != blank -%}<h2 class="cpm__title">{{ st.heading | escape }}</h2>{%- endif -%}

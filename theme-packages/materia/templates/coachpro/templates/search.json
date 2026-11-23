@@ -21,70 +21,87 @@
         "number_products_per_page": true
       }
     },
-    "offers": {
-      "type": "coach-offers",
+    "programmes": {
+      "type": "coachpro-programmes",
       "settings": {
-        "color_scheme": "default",
-        "background": "#faf6f0",
-        "card_color": "#ffffff",
-        "accent_color": "#a5582a",
-        "eyebrow": "Not sure where to start?",
-        "heading": "Three ways to <em>work together</em>",
-        "columns": "3",
-        "image_ratio": "4 / 3",
-        "card_radius": 4,
-        "padding_top": 48
+        "eyebrow": "Not found it?",
+        "heading": "Or start with one of <em>these</em>",
+        "alternate": false,
+        "background": "#fbf8f4",
+        "card_color": "#f2ebe2",
+        "eyebrow_color": "#c2421f",
+        "heading_color": "#16120f",
+        "text_color": "#4a4038",
+        "padding_top": 104,
+        "padding_bottom": 64,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 40
       },
       "blocks": {
-        "offer_1": {
-          "type": "offer",
+        "programme_1": {
+          "type": "programme",
           "settings": {
-            "image": "shopify://shop_images/coach-offer-one.webp",
-            "alt": "Two armchairs side by side in a quiet room",
-            "label": "Six sessions",
-            "title": "One to one coaching",
-            "text": "Private sessions to untangle one big decision and leave with a plan you will actually keep.",
-            "price": "From $160",
-            "link_label": "See the details",
-            "link": "/collections/all"
+            "label": "Studio Foundations",
+            "heading": "A studio that runs on <em>purpose</em>, not on overtime",
+            "text": "<p>Twelve weeks in a small group to set prices you can say out loud, find two or three clients worth keeping, and build a week with real edges. One live call every Tuesday, short lessons in between, and me in your corner.</p>",
+            "facts": "12 weeks | Live calls on Tuesdays | 12 places",
+            "color": "#c2421f",
+            "button_label": "See the programme",
+            "button_link": "/pages/programmes",
+            "link_label": "Read the stories",
+            "link_url": "/pages/programmes#stories",
+            "image": "shopify://shop_images/coachpro-foundations.webp",
+            "image_alt": "Camila Duarte, Studio Foundations",
+            "pin_title": "Next round starts 3 March",
+            "pin_text": "Twelve places, applications open"
           }
         },
-        "offer_2": {
-          "type": "offer",
+        "programme_2": {
+          "type": "programme",
           "settings": {
-            "image": "shopify://shop_images/coach-offer-group.webp",
-            "alt": "Four women talking around a café table",
-            "label": "Eight weeks",
-            "title": "The Clear Path group",
-            "text": "Eight Tuesday evenings with five other women at the same crossroads, online.",
-            "price": "$480",
-            "link_label": "See the details",
-            "link": "/collections/all"
+            "label": "Price It Right",
+            "heading": "Price your next project <em>in an afternoon</em>",
+            "text": "<p>A short self paced course on the numbers behind a fair quote: your real hourly cost, a day rate that holds, and how to present a price without apologising for it. Comes with the calculator I still use.</p>",
+            "facts": "Self paced | About three hours | Calculator included",
+            "color": "#2f5d50",
+            "button_label": "Start the course",
+            "button_link": "/collections/all",
+            "link_label": "What is inside",
+            "link_url": "/pages/programmes",
+            "image": "shopify://shop_images/coachpro-pricing.webp",
+            "image_alt": "Camila Duarte, Price It Right",
+            "pin_title": "Start today",
+            "pin_text": "Watch the first lesson free"
           }
         },
-        "offer_3": {
-          "type": "offer",
+        "programme_3": {
+          "type": "programme",
           "settings": {
-            "image": "shopify://shop_images/coach-offer-online.webp",
-            "alt": "Leah on a video call at her desk",
-            "label": "Anywhere",
-            "title": "Online sessions",
-            "text": "The same focus and follow up as in person, on a video call that fits around your day.",
-            "price": "From $140",
-            "link_label": "See the details",
-            "link": "/collections/all"
+            "label": "One to one",
+            "heading": "Three months of <em>private</em> mentoring",
+            "text": "<p>For studio owners making a bigger move: hiring a first person, raising every price at once, or changing what the studio does. Fortnightly calls, a shared notebook and quick answers between calls.</p>",
+            "facts": "Three months | Fortnightly calls | Two places a quarter",
+            "color": "#16120f",
+            "button_label": "Apply for a place",
+            "button_link": "/pages/contact",
+            "link_label": "Ask a question",
+            "link_url": "/pages/faqs",
+            "image": "shopify://shop_images/coachpro-mentoring.webp",
+            "image_alt": "Camila Duarte, One to one",
+            "pin_title": "Two places each quarter",
+            "pin_text": "Short application, reply within a week"
           }
         }
       },
       "block_order": [
-        "offer_1",
-        "offer_2",
-        "offer_3"
+        "programme_1",
+        "programme_2",
+        "programme_3"
       ]
     }
   },
   "order": [
     "main",
-    "offers"
+    "programmes"
   ]
 }

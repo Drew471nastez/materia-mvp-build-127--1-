@@ -1,0 +1,88 @@
+{%- comment -%}
+  Coach, second look: a numbered list on a band. A heading and a line on
+  the left, then two or three columns of short points, each with its
+  number. Used for "if this is your week" on the home page and for what
+  changes after working together. The band takes its own colours.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign items = section.blocks | where: 'type', 'item'
+-%}
+<style>
+  #shopify-section-{{ sid }} .c2l { background: {{ st.background }}; color: {{ st.text_color }}; padding: {{ st.padding_top_mobile }}px 16px {{ st.padding_bottom_mobile }}px; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .c2l { padding: {{ st.padding_top }}px 32px {{ st.padding_bottom }}px; } }
+  #shopify-section-{{ sid }} .c2l__inner { max-width: var(--page-width, 1310px); margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 36px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .c2l__inner { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.6fr); gap: 72px; } }
+  #shopify-section-{{ sid }} .c2l__eyebrow { margin: 0 0 14px; color: {{ st.accent }}; font-size: 13px; font-weight: 600; letter-spacing: .04em; }
+  #shopify-section-{{ sid }} .c2l__h { margin: 0; color: {{ st.heading_color }}; font-family: var(--heading-font, inherit); font-weight: 700; letter-spacing: -0.035em; line-height: 1.04; font-size: 34px; text-wrap: balance; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .c2l__h { font-size: {{ st.heading_size }}px; } }
+  #shopify-section-{{ sid }} .c2l__t { margin: 18px 0 0; font-size: 16.5px; line-height: 1.6; max-width: 40ch; }
+  #shopify-section-{{ sid }} .c2l__t p { margin: 0; }
+  #shopify-section-{{ sid }} .c2l__btn { display: inline-flex; align-items: center; min-height: 50px; margin-top: 26px; padding: 0 22px; border-radius: 6px; background: {{ st.accent }}; color: {{ st.button_text }}; font-size: 15px; font-weight: 600; text-decoration: none; transition: opacity .2s ease; }
+  #shopify-section-{{ sid }} .c2l__btn:hover { opacity: .88; }
+  #shopify-section-{{ sid }} .c2l__grid { display: grid; grid-template-columns: minmax(0, 1fr); margin: 0; padding: 0; list-style: none; border-top: 1px solid {{ st.line_color }}; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .c2l__grid { grid-template-columns: repeat({{ st.columns }}, minmax(0, 1fr)); column-gap: 40px; } }
+  #shopify-section-{{ sid }} .c2l__item { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 4px; padding: 22px 0; border-bottom: 1px solid {{ st.line_color }}; }
+  #shopify-section-{{ sid }} .c2l__n { color: {{ st.accent }}; font-family: var(--heading-font, inherit); font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; padding-top: 3px; }
+  #shopify-section-{{ sid }} .c2l__title { margin: 0; color: {{ st.heading_color }}; font-size: 18px; font-weight: 600; line-height: 1.35; letter-spacing: -0.01em; }
+  #shopify-section-{{ sid }} .c2l__text { margin: 6px 0 0; font-size: 15px; line-height: 1.55; }
+</style>
+
+<div class="c2l color-{{ color_scheme }}">
+  <div class="c2l__inner">
+    <div>
+      {%- if st.eyebrow != blank -%}<p class="c2l__eyebrow">{{ st.eyebrow | escape }}</p>{%- endif -%}
+      {%- if st.heading != blank -%}<h2 class="c2l__h">{{ st.heading }}</h2>{%- endif -%}
+      {%- if st.text != blank -%}<div class="c2l__t">{{ st.text }}</div>{%- endif -%}
+      {%- if st.button_label != blank -%}<a class="c2l__btn" href="{{ st.button_link | default: '/pages/book' }}">{{ st.button_label | escape }}</a>{%- endif -%}
+    </div>
+    <ol class="c2l__grid">
+      {%- for b in items -%}
+        <li class="c2l__item" {{ b.shopify_attributes }}>
+          <span class="c2l__n">{% if forloop.index < 10 %}0{% endif %}{{ forloop.index }}</span>
+          <div>
+            <p class="c2l__title">{{ b.settings.title | escape }}</p>
+            {%- if b.settings.text != blank -%}<p class="c2l__text">{{ b.settings.text | escape }}</p>{%- endif -%}
+          </div>
+        </li>
+      {%- endfor -%}
+    </ol>
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Coach numbered list",
+  "tag": "section",
+  "class": "section sec__coach2-list",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default-color-scheme" },
+    { "type": "color", "id": "background", "label": "Background", "default": "#0f1115" },
+    { "type": "color", "id": "heading_color", "label": "Headings", "default": "#ffffff" },
+    { "type": "color", "id": "text_color", "label": "Text", "default": "#b7bcc8" },
+    { "type": "color", "id": "accent", "label": "Accent", "default": "#6f80ff" },
+    { "type": "color", "id": "button_text", "label": "Button text", "default": "#ffffff" },
+    { "type": "color", "id": "line_color", "label": "Lines", "default": "#2a2e37" },
+    { "type": "text", "id": "eyebrow", "label": "Small label", "default": "Sound familiar?" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "If this is your week, we should talk" },
+    { "type": "richtext", "id": "text", "label": "Text" },
+    { "type": "text", "id": "button_label", "label": "Button" },
+    { "type": "url", "id": "button_link", "label": "Button link" },
+    { "type": "select", "id": "columns", "label": "Columns, desktop", "options": [ { "value": "1", "label": "One" }, { "value": "2", "label": "Two" }, { "value": "3", "label": "Three" } ], "default": "2" },
+    { "type": "range", "id": "heading_size", "label": "Heading size, desktop", "min": 28, "max": 72, "step": 2, "unit": "px", "default": 48 },
+    { "type": "range", "id": "padding_top", "label": "Space above, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 104 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 104 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 64 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 64 }
+  ],
+  "blocks": [
+    { "type": "item", "name": "Point", "settings": [
+      { "type": "text", "id": "title", "label": "Point", "default": "A short point" },
+      { "type": "textarea", "id": "text", "label": "Under it" }
+    ] }
+  ],
+  "presets": [ { "name": "Coach numbered list", "blocks": [ { "type": "item" }, { "type": "item" }, { "type": "item" }, { "type": "item" } ] } ]
+}
+{% endschema %}

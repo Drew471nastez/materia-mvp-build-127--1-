@@ -1,5 +1,7 @@
 {%- comment -%}
-Video sales letter: the header of a one offer page. The name or logo on
+Video sales letter: the header of a one offer page, and the background
+  behind every page (stars, a plain colour, a soft gradient, the creator's
+  picture or video, with an optional glow and grain; see Page background). The name or logo on
   the left, a few quiet links, one button on the right. It stays at the top
   and gains a dark glass background once the page is scrolled. No cart,
   account or search: a page that sells one thing does not need them. On a
@@ -13,6 +15,145 @@ Video sales letter: the header of a one offer page. The name or logo on
   assign menu = st.menu
   assign logo_w = st.logo_width | default: 120
 -%}
+{%- if section.settings.bg_on != false -%}
+{%- liquid
+  assign s = section.settings
+  assign kind = s.bg_style | default: 'stars'
+  assign base = s.bg_base_color | default: '#050506'
+  assign star = s.bg_star_color | default: '#ffffff'
+  assign g1 = s.bg_gradient_from | default: '#1b1f3b'
+  assign g2 = s.bg_gradient_to | default: '#3a1d2e'
+  assign glow = s.bg_glow_color | default: '#ffffff'
+  assign glow_a = s.bg_glow_strength | default: 14 | divided_by: 100.0
+  assign grain_a = s.bg_grain_amount | default: 8 | divided_by: 100.0
+  assign wash = s.bg_overlay | default: 62 | divided_by: 100.0
+  assign wash2 = wash | plus: 0.2 | at_most: 1
+  assign see = s.bg_see_through_scheme.id | default: s.bg_see_through_scheme | default: 'default'
+  assign vsrc = ''
+  if kind == 'video' and s.bg_video != blank
+    assign vsrc = s.bg_video.sources[0].url
+    for src in s.bg_video.sources
+      if src.mime_type == 'video/mp4'
+        assign vsrc = src.url
+        break
+      endif
+    endfor
+  endif
+  assign still = s.bg_image
+  if still == blank and s.bg_video != blank
+    assign still = s.bg_video.preview_image
+  endif
+-%}
+<style>
+  html { background-color: {{ base }} !important; }
+  body { background-color: transparent !important; }
+    .vsl-bg-{{ sid }} { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; background-color: {{ base }}; contain: strict; }
+  .vsl-bg-{{ sid }} > * { position: absolute; inset: 0; }
+  {%- if s.bg_see_through %}
+  /* Sections in this colour scheme let the background show through. Drawers and pop ups keep their own colour. */
+  main .color-{{ see }}, main .color-{{ see }}.gradient,
+  .shopify-section-group-footer-group .color-{{ see }},
+  .shopify-section-group-header-group .header.color-{{ see }},
+  .shopify-section-group-header-group > .shopify-section > .section.color-{{ see }} { background: transparent !important; }
+  {%- endif %}
+
+  /* Stars: a still sprinkle until the script has drawn its tile. */
+  .vsl-bg-{{ sid }} .vsl-bg__stars { background-image:
+      radial-gradient(1px 1px at 12% 18%, {{ star }} 50%, transparent 51%), radial-gradient(1px 1px at 68% 32%, {{ star }} 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 38% 74%, {{ star }} 50%, transparent 51%), radial-gradient(1px 1px at 86% 82%, {{ star }} 50%, transparent 51%),
+      radial-gradient(1px 1px at 52% 48%, {{ star }} 50%, transparent 51%), radial-gradient(1px 1px at 22% 58%, {{ star }} 50%, transparent 51%); opacity: .8; }
+  .vsl-bg-{{ sid }} .vsl-bg__stars[data-ready] { inset: 0 0 -620px 0; background-repeat: repeat; background-size: 620px 620px; }
+  .vsl-bg-{{ sid }} .vsl-bg__stars.is-moving { animation: vsl-bg-drift-{{ sid }} {{ s.bg_drift_seconds | default: 160 }}s linear infinite; will-change: transform; }
+  @keyframes vsl-bg-drift-{{ sid }} { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(0, -620px, 0); } }
+  .vsl-bg-{{ sid }} .vsl-bg__tw { position: absolute; inset: auto; width: 2px; height: 2px; border-radius: 50%; background: {{ star }}; box-shadow: 0 0 6px 1px {{ star | color_modify: 'alpha', 0.6 }}; opacity: .15; animation: vsl-bg-tw-{{ sid }} var(--tw, 5s) ease-in-out var(--td, 0s) infinite; }
+  @keyframes vsl-bg-tw-{{ sid }} { 0%, 100% { opacity: .12; } 50% { opacity: .95; } }
+
+  /* Gradient: two soft lights that drift past each other. */
+  .vsl-bg-{{ sid }} .vsl-bg__mesh { inset: -20%; background:
+      radial-gradient(40% 45% at 25% 30%, {{ g1 }}, transparent 70%),
+      radial-gradient(45% 50% at 78% 65%, {{ g2 }}, transparent 72%);
+    animation: vsl-bg-mesh-{{ sid }} 38s ease-in-out infinite alternate; will-change: transform; }
+  @keyframes vsl-bg-mesh-{{ sid }} { from { transform: translate3d(-3%, -2%, 0) rotate(0deg); } to { transform: translate3d(3%, 3%, 0) rotate(8deg); } }
+
+  /* The creator's picture or video, under a dark wash so the words stay readable. */
+  .vsl-bg-{{ sid }} .vsl-bg__media img, .vsl-bg-{{ sid }} .vsl-bg__media video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .vsl-bg-{{ sid }} .vsl-bg__media video { opacity: 0; transition: opacity 1.2s ease; }
+  .vsl-bg-{{ sid }} .vsl-bg__media video.is-on { opacity: 1; }
+  .vsl-bg-{{ sid }} .vsl-bg__wash { background: linear-gradient(180deg, {{ base | color_modify: 'alpha', wash }}, {{ base | color_modify: 'alpha', wash2 }}); }
+  {%- if s.bg_media_grey %}.vsl-bg-{{ sid }} .vsl-bg__media { filter: grayscale(1); }{% endif %}
+
+  /* Glow from the top of the screen, and grain over everything. */
+  .vsl-bg-{{ sid }} .vsl-bg__glow { background: radial-gradient(70% 55% at 50% -8%, {{ glow | color_modify: 'alpha', glow_a }}, transparent 70%); }
+  .vsl-bg-{{ sid }} .vsl-bg__grain { opacity: {{ grain_a }}; mix-blend-mode: overlay; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1.4 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); background-size: 180px 180px; }
+  .vsl-bg-{{ sid }}[data-paused] * { animation-play-state: paused !important; }
+  @media (prefers-reduced-motion: reduce) {
+    .vsl-bg-{{ sid }} .vsl-bg__stars.is-moving, .vsl-bg-{{ sid }} .vsl-bg__mesh, .vsl-bg-{{ sid }} .vsl-bg__tw { animation: none; }
+  }
+</style>
+<div class="vsl-bg vsl-bg-{{ sid }}" aria-hidden="true" data-vsl-bg data-kind="{{ kind }}" data-density="{{ s.bg_star_density | default: 40 }}" data-star="{{ star }}" data-drift="{% if s.bg_drift %}1{% endif %}" data-twinkles="{{ s.bg_twinkles | default: 12 }}">
+  {%- case kind -%}
+    {%- when 'stars' -%}<div class="vsl-bg__stars"></div>
+    {%- when 'gradient' -%}<div class="vsl-bg__mesh"></div>
+    {%- when 'image' -%}
+      {%- if still != blank -%}<div class="vsl-bg__media">{{ still | image_url: width: 2400 | image_tag: widths: '800, 1200, 1600, 2000, 2400', sizes: '100vw', loading: 'eager', alt: '' }}</div><div class="vsl-bg__wash"></div>{%- endif -%}
+    {%- when 'video' -%}
+      <div class="vsl-bg__media">
+        {%- if still != blank -%}{{ still | image_url: width: 2000 | image_tag: widths: '800, 1200, 1600, 2000', sizes: '100vw', loading: 'eager', alt: '' }}{%- endif -%}
+        {%- if vsrc != blank -%}<video muted loop playsinline preload="none" data-src="{{ vsrc | escape }}" style="position:absolute;inset:0"></video>{%- endif -%}
+      </div>
+      {%- if still != blank or vsrc != blank -%}<div class="vsl-bg__wash"></div>{%- endif -%}
+  {%- endcase -%}
+  {%- if s.bg_glow -%}<div class="vsl-bg__glow"></div>{%- endif -%}
+  {%- if s.bg_grain -%}<div class="vsl-bg__grain"></div>{%- endif -%}
+</div>
+<script>
+  (function () {
+    var fresh = document.querySelector('#shopify-section-{{ sid }} .vsl-bg-{{ sid }}');
+    /* The background sits at the very back of the page, outside the header's own layer. A redraw in the editor replaces the one already there. */
+    document.querySelectorAll('body > .vsl-bg').forEach(function (old) { if (old !== fresh) old.remove(); });
+    var root = fresh || document.querySelector('.vsl-bg-{{ sid }}');
+    if (!root) return;
+    if (root.parentNode !== document.body) document.body.insertBefore(root, document.body.firstChild);
+    var still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var stars = root.querySelector('.vsl-bg__stars');
+    if (stars && !stars.hasAttribute('data-ready')) {
+      var T = 620, dpr = Math.min(2, window.devicePixelRatio || 1), seed = 11;
+      var rnd = function () { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+      var c = document.createElement('canvas'); c.width = c.height = T * dpr;
+      var x = c.getContext('2d');
+      if (x) {
+        x.scale(dpr, dpr); x.fillStyle = root.dataset.star || '#fff';
+        var n = Math.round(Math.max(0, Number(root.dataset.density) || 0) * 2.4);
+        for (var i = 0; i < n; i++) {
+          var r = rnd() < .9 ? .45 + rnd() * .5 : 1 + rnd() * .5, px = rnd() * T, py = rnd() * T;
+          x.globalAlpha = .25 + rnd() * .65;
+          [[0, 0], [T, 0], [-T, 0], [0, T], [0, -T]].forEach(function (o) { x.beginPath(); x.arc(px + o[0], py + o[1], r, 0, Math.PI * 2); x.fill(); });
+        }
+        stars.style.backgroundImage = 'url(' + c.toDataURL('image/png') + ')';
+        stars.setAttribute('data-ready', '');
+        if (root.dataset.drift && !still) stars.classList.add('is-moving');
+        var tw = Math.min(40, Number(root.dataset.twinkles) || 0);
+        for (var k = 0; k < tw; k++) {
+          var d = document.createElement('i'); d.className = 'vsl-bg__tw';
+          d.style.left = (rnd() * 100).toFixed(2) + '%'; d.style.top = (rnd() * 100).toFixed(2) + '%';
+          d.style.setProperty('--tw', (3 + rnd() * 5).toFixed(2) + 's'); d.style.setProperty('--td', (-rnd() * 6).toFixed(2) + 's');
+          root.appendChild(d);
+        }
+      }
+    }
+    var v = root.querySelector('video[data-src]');
+    if (v && !still) {
+      var go = function () { if (!v.src) v.src = v.getAttribute('data-src'); var p = v.play(); if (p && p.catch) p.catch(function () {}); };
+      v.addEventListener('playing', function () { v.classList.add('is-on'); });
+      if (document.readyState === 'complete') setTimeout(go, 300); else window.addEventListener('load', function () { setTimeout(go, 300); }, { once: true });
+    }
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) { root.setAttribute('data-paused', ''); if (v && v.src) v.pause(); }
+      else { root.removeAttribute('data-paused'); if (v && v.src && !still) { var p = v.play(); if (p && p.catch) p.catch(function () {}); } }
+    });
+  })();
+</script>
+{%- endif -%}
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" data-vsl-font>
 <style>
@@ -200,6 +341,201 @@ Video sales letter: the header of a one offer page. The name or logo on
       "id": "button_link",
       "label": "Button link",
       "default": "/pages/book-a-call"
+    },
+    {
+      "type": "header",
+      "content": "Page background"
+    },
+    {
+      "type": "checkbox",
+      "id": "bg_on",
+      "label": "Draw the background behind every page",
+      "default": true,
+      "info": "Pick one background, then add a glow or grain over it."
+    },
+    {
+      "type": "select",
+      "id": "bg_style",
+      "label": "Background",
+      "default": "stars",
+      "options": [
+        {
+          "value": "plain",
+          "label": "Plain colour"
+        },
+        {
+          "value": "stars",
+          "label": "Stars"
+        },
+        {
+          "value": "gradient",
+          "label": "Soft gradient"
+        },
+        {
+          "value": "image",
+          "label": "Your picture"
+        },
+        {
+          "value": "video",
+          "label": "Your video"
+        }
+      ]
+    },
+    {
+      "type": "color",
+      "id": "bg_base_color",
+      "label": "Base colour",
+      "default": "#050506"
+    },
+    {
+      "type": "header",
+      "content": "Background: stars"
+    },
+    {
+      "type": "color",
+      "id": "bg_star_color",
+      "label": "Star colour",
+      "default": "#ffffff"
+    },
+    {
+      "type": "range",
+      "id": "bg_star_density",
+      "label": "How many",
+      "min": 5,
+      "max": 100,
+      "step": 5,
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "bg_twinkles",
+      "label": "Stars that twinkle",
+      "min": 0,
+      "max": 40,
+      "step": 1,
+      "default": 12
+    },
+    {
+      "type": "checkbox",
+      "id": "bg_drift",
+      "label": "Drift slowly upwards",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "bg_drift_seconds",
+      "label": "Drift speed (seconds per loop)",
+      "min": 60,
+      "max": 400,
+      "step": 10,
+      "unit": "s",
+      "default": 160
+    },
+    {
+      "type": "header",
+      "content": "Background: soft gradient"
+    },
+    {
+      "type": "color",
+      "id": "bg_gradient_from",
+      "label": "First light",
+      "default": "#1b1f3b"
+    },
+    {
+      "type": "color",
+      "id": "bg_gradient_to",
+      "label": "Second light",
+      "default": "#3a1d2e"
+    },
+    {
+      "type": "header",
+      "content": "Background: your picture or video"
+    },
+    {
+      "type": "image_picker",
+      "id": "bg_image",
+      "label": "Picture",
+      "info": "Shown for Your picture, and before the video starts."
+    },
+    {
+      "type": "video",
+      "id": "bg_video",
+      "label": "Video",
+      "info": "A short muted loop works best: 10 to 20 seconds, under 8 MB."
+    },
+    {
+      "type": "range",
+      "id": "bg_overlay",
+      "label": "Darken it",
+      "min": 0,
+      "max": 90,
+      "step": 2,
+      "unit": "%",
+      "default": 62
+    },
+    {
+      "type": "checkbox",
+      "id": "bg_media_grey",
+      "label": "Black and white",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "Background: over the background"
+    },
+    {
+      "type": "checkbox",
+      "id": "bg_glow",
+      "label": "Glow from the top",
+      "default": true
+    },
+    {
+      "type": "color",
+      "id": "bg_glow_color",
+      "label": "Glow colour",
+      "default": "#ffffff"
+    },
+    {
+      "type": "range",
+      "id": "bg_glow_strength",
+      "label": "Glow strength",
+      "min": 2,
+      "max": 50,
+      "step": 1,
+      "unit": "%",
+      "default": 14
+    },
+    {
+      "type": "checkbox",
+      "id": "bg_grain",
+      "label": "Film grain",
+      "default": false
+    },
+    {
+      "type": "range",
+      "id": "bg_grain_amount",
+      "label": "Grain strength",
+      "min": 2,
+      "max": 30,
+      "step": 1,
+      "unit": "%",
+      "default": 8
+    },
+    {
+      "type": "header",
+      "content": "Background: sections"
+    },
+    {
+      "type": "checkbox",
+      "id": "bg_see_through",
+      "label": "Show the background through sections",
+      "default": true
+    },
+    {
+      "type": "color_scheme",
+      "id": "bg_see_through_scheme",
+      "label": "In this colour scheme",
+      "default": "default"
     }
   ],
   "presets": [

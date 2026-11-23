@@ -99,7 +99,7 @@
             "show_gift_card_recipient": false,
             "enable_custom_button_text": true,
             "atc_button_text": "Add to basket",
-            "buy_button_text": "Book now"
+            "buy_button_text": "Join now"
           }
         },
         "vertical_benefits_1": {
@@ -121,16 +121,16 @@
             "vb_icon_size_m": 22,
             "vb_text_color": "",
             "vb_bg": "",
-            "vb_icon_color": "#a5582a",
-            "item1_title": "Choose your times after you pay",
+            "vb_icon_color": "#c2421f",
+            "item1_title": "Online, join from anywhere",
             "item1_icon_library": "clock",
             "item1_use_image": false,
             "item1_image_size": 50,
-            "item2_title": "Move a session up to 24 hours before",
+            "item2_title": "Pay in full or in three parts",
             "item2_icon_library": "check",
             "item2_use_image": false,
             "item2_image_size": 50,
-            "item3_title": "Unused sessions refunded if it is not for you",
+            "item3_title": "Full refund in the first two weeks",
             "item3_icon_library": "shield",
             "item3_use_image": false,
             "item3_image_size": 50
@@ -148,8 +148,8 @@
         "collapsible_row_2": {
           "type": "collapsible_row",
           "settings": {
-            "heading": "How booking works",
-            "content": "<p>After you pay you get an email with a link to choose your times. Sessions are 50 minutes, in Bristol or on a video call, and you get short notes after each one.</p>",
+            "heading": "How it works",
+            "content": "<p>After you pay you get an email with your login and, for live programmes, the call dates for your calendar. Everything is online, so you can join from anywhere.</p>",
             "use_product_description": false,
             "open": false
           }
@@ -157,8 +157,8 @@
         "collapsible_row_3": {
           "type": "collapsible_row",
           "settings": {
-            "heading": "Moving sessions and refunds",
-            "content": "<p>Move a session up to 24 hours before it starts. If you decide after the first session that coaching is not for you, the sessions you have not used are refunded.</p>",
+            "heading": "Refunds",
+            "content": "<p>Programmes: tell me within the first two weeks and I refund you in full. Courses: within 30 days. No forms, just an email.</p>",
             "use_product_description": false,
             "open": false
           }
@@ -166,8 +166,8 @@
         "collapsible_row_4": {
           "type": "collapsible_row",
           "settings": {
-            "heading": "Not sure yet?",
-            "content": "<p>Book the free 20 minute call first. We talk about where you are and which way of working fits. <a href=\"/pages/book\">Book a free call</a></p>",
+            "heading": "Not sure which one?",
+            "content": "<p>Start with the <a href=\"/#free-guide\">free pricing worksheet</a>, or <a href=\"/pages/contact\">send me a question</a> and I will tell you honestly which fits.</p>",
             "use_product_description": false,
             "open": false
           }
@@ -186,58 +186,164 @@
         "collapsible_row_4"
       ]
     },
-    "after": {
-      "type": "coach-steps",
+    "stories": {
+      "type": "coachpro-stories",
       "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "background": "#f2e8dc",
-        "accent_color": "#a5582a",
-        "line_color": "#d9c6b0",
-        "eyebrow": "Next",
-        "heading": "What happens <em>after you book</em>"
+        "anchor": "stories",
+        "eyebrow": "Client stories",
+        "heading": "What clients <em>say</em>",
+        "sample_label": "Sample",
+        "footnote": "Sample stories to show the layout. Replace them with your clients' own words and photos, with their permission.",
+        "prev_label": "Previous story",
+        "next_label": "Next story",
+        "background": "#ffffff",
+        "card_color": "#f5efe7",
+        "accent_color": "#c2421f",
+        "heading_color": "#16120f",
+        "text_color": "#4a4038",
+        "padding_top": 104,
+        "padding_bottom": 104,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56
       },
       "blocks": {
-        "step_1": {
-          "type": "step",
+        "story_1": {
+          "type": "story",
           "settings": {
-            "title": "Choose your times",
-            "text": "A link in your confirmation email opens my calendar. Pick the first session or all of them."
+            "programme": "Studio Foundations",
+            "quote": "I raised my day rate by a third and the clients I actually wanted stayed. The worksheet alone paid for the programme.",
+            "avatar": "shopify://shop_images/coachpro-client-1.webp",
+            "name": "Mei L.",
+            "role": "Ceramics studio",
+            "sample": true
           }
         },
-        "step_2": {
-          "type": "step",
+        "story_2": {
+          "type": "story",
           "settings": {
-            "title": "A short form",
-            "text": "Five questions about where you are now, so our first hour starts in the right place."
+            "programme": "Price It Right",
+            "quote": "For the first time I know what a project earns before I say yes to it, not three months after.",
+            "avatar": "shopify://shop_images/coachpro-client-2.webp",
+            "name": "Hanna V.",
+            "role": "Brand designer",
+            "sample": true
           }
         },
-        "step_3": {
-          "type": "step",
+        "story_3": {
+          "type": "story",
           "settings": {
-            "title": "We begin",
-            "text": "In Bristol or on a video call, with notes in your inbox after every session."
+            "programme": "One to one",
+            "quote": "We went from four day weeks that ran to ten hours each to a proper Friday off, and the studio earns more.",
+            "avatar": "shopify://shop_images/coachpro-client-3.webp",
+            "name": "Rosa M.",
+            "role": "Interior studio owner",
+            "sample": true
+          }
+        },
+        "story_4": {
+          "type": "story",
+          "settings": {
+            "programme": "Studio Foundations",
+            "quote": "Camila asks the question you were hoping nobody would ask, then helps you answer it. Every single Tuesday.",
+            "avatar": "shopify://shop_images/coachpro-client-4.webp",
+            "name": "Joan P.",
+            "role": "Architect",
+            "sample": true
+          }
+        },
+        "story_5": {
+          "type": "story",
+          "settings": {
+            "programme": "Price It Right",
+            "quote": "I stopped offering a discount on the first call. That one change was worth the whole course.",
+            "avatar": "shopify://shop_images/coachpro-client-5.webp",
+            "name": "Tom R.",
+            "role": "Furniture maker",
+            "sample": true
           }
         }
       },
       "block_order": [
-        "step_1",
-        "step_2",
-        "step_3"
+        "story_1",
+        "story_2",
+        "story_3",
+        "story_4",
+        "story_5"
       ]
     },
-    "quote": {
-      "type": "coach-quote",
+    "faq": {
+      "type": "faq-side-image",
       "settings": {
         "color_scheme": "default",
-        "background": "#faf6f0",
-        "accent_color": "#a5582a",
-        "eyebrow": "Client words",
-        "quote": "Working with Leah was the first time a plan felt like mine. Three months later I have a new role and my Sundays back.",
-        "author": "Hannah, product manager",
-        "note": "Sample quote. Replace it with a client's own words, with their permission.",
-        "padding_top": 80,
-        "padding_bottom": 40
-      }
+        "image": "shopify://shop_images/coachpro-moment-floor.webp",
+        "image_position": "right"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Questions people ask"
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Something else on your mind? <a href=\"/pages/contact\">Write to me</a>, I read every message.</p>"
+          }
+        },
+        "faq_item_1": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Who are the programmes for?",
+            "answer": "<p>Designers, makers, architects, photographers and small studio owners who sell their own work or time. Most clients have been in business for at least a year and are busy but not earning what they should.</p>"
+          }
+        },
+        "faq_item_2": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How much time does Studio Foundations take?",
+            "answer": "<p>About three hours a week: the Tuesday call, one short lesson and one piece of homework you do on your own business. Calls are recorded if you miss one.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What if I am not ready for a programme?",
+            "answer": "<p>Start with the free worksheet and the show. Price It Right is a good next step: it takes an afternoon and you keep it for good.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I pay in instalments?",
+            "answer": "<p>Yes. Studio Foundations and mentoring can be paid in three monthly parts at checkout, with no extra cost.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What if it is not working for me?",
+            "answer": "<p>Tell me within the first two weeks of any programme and I refund you in full. For Price It Right, within 30 days.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do you work with teams?",
+            "answer": "<p>Yes, for studios of up to ten people. Write to me with what is going on and I will suggest the best way in.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_1",
+        "faq_item_1",
+        "faq_item_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6"
+      ]
     },
     "related": {
       "type": "related-products",
@@ -258,8 +364,8 @@
   "order": [
     "breadcrumb",
     "main",
-    "after",
-    "quote",
+    "stories",
+    "faq",
     "related"
   ]
 }

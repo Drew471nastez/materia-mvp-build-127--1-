@@ -17,6 +17,7 @@
   #shopify-section-{{ sid }} .cpo__eyebrow { margin: 0 0 14px; color: var(--cpo-accent); font-size: 12px; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; }
   #shopify-section-{{ sid }} .cpo__name { margin: 0 0 26px; color: {{ st.heading_color | default: '#16120f' }}; font-family: var(--heading-font, serif); font-weight: 400; font-size: {{ st.name_size_mobile | default: 76 }}px; line-height: .86; letter-spacing: -.02em; text-transform: uppercase; }
   @media (min-width: 990px) { #shopify-section-{{ sid }} .cpo__name { font-size: {{ st.name_size | default: 136 }}px; } }
+  #shopify-section-{{ sid }} .cpo__line { display: block; }
   #shopify-section-{{ sid }} .cpo__name em { font-style: italic; text-transform: none; color: var(--cpo-accent); }
   #shopify-section-{{ sid }} .cpo__text { max-width: 33em; font-size: 17px; line-height: 1.7; }
   #shopify-section-{{ sid }} .cpo__text p { margin: 0 0 14px; }
@@ -34,11 +35,11 @@
   #shopify-section-{{ sid }} .cpo__tag::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--cpo-accent); }
   .cpo__vh { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 </style>
-<section class="cpo">
+<section data-own-size class="cpo">
   <div class="cpo__in">
     <div class="cpo__body">
       {%- if st.eyebrow != blank -%}<p class="cpo__eyebrow">{{ st.eyebrow | escape }}</p>{%- endif -%}
-      <h2 class="cpo__name">{{ st.name }}</h2>
+      <h2 class="cpo__name"><span class="cpo__line">{{ st.name }}</span>{%- if st.name_second != blank -%}<span class="cpo__line">{{ st.name_second }}</span>{%- endif -%}</h2>
       {%- if st.text != blank -%}<div class="cpo__text">{{ st.text }}</div>{%- endif -%}
       <div class="cpo__row">
         {%- if st.button_label != blank -%}<a class="cpo__btn" href="{{ st.button_link | default: '#' }}">{{ st.button_label | escape }}</a>{%- endif -%}
@@ -80,7 +81,8 @@
   "disabled_on": { "groups": ["header", "footer"] },
   "settings": [
     { "type": "text", "id": "eyebrow", "label": "Small line above", "default": "Hello" },
-    { "type": "inline_richtext", "id": "name", "label": "Name", "default": "I'm<br>Alex.", "info": "Use a line break between the two lines." },
+    { "type": "inline_richtext", "id": "name", "label": "First line", "default": "I'm" },
+    { "type": "inline_richtext", "id": "name_second", "label": "Second line", "default": "Alex." },
     { "type": "richtext", "id": "text", "label": "Text", "default": "<p>A few lines in your own voice: how people usually find you, and what they will find here.</p>" },
     { "type": "text", "id": "button_label", "label": "Button", "default": "My story" },
     { "type": "url", "id": "button_link", "label": "Button link" },

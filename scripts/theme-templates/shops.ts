@@ -247,4 +247,24 @@ export const SAMPLE_SHOPS: Record<string, { name: string; products: SampleProduc
       { title: "The Reading Journal", price: "$9.00", image: "authorbook-journal.webp", kind: "digital", description: "A printable reading log and a one page notes sheet for every book you finish." },
     ],
   },
+  /* Templates round 21: a business coach for creative founders; a group programme, a short course, private mentoring and a pricing calculator, pictured with the coach's own photographs. */
+  coachpro: {
+    name: "Camila Duarte",
+    products: [
+      { title: "Studio Foundations", price: "$1,450.00", compare: "$1,750.00", image: "coachpro-foundations.webp", kind: "digital", description: "Twelve weeks in a small group to set prices you can say out loud, find clients worth keeping and build a week with real edges. A live call every Tuesday, short lessons between calls and a private group of twelve.", options: [{ name: "Round", values: ["March round", "September round"] }, { name: "Payment", values: ["In full", "Three monthly parts"] }], add: { "Three monthly parts": 90 } },
+      { title: "Price It Right", price: "$149.00", compare: "$199.00", image: "coachpro-pricing.webp", kind: "digital", description: "A self paced course on the numbers behind a fair quote: your real hourly cost, a day rate that holds and how to present a price. About three hours, with the calculator." },
+      { title: "One to one mentoring", price: "$2,400.00", image: "coachpro-mentoring.webp", kind: "digital", description: "Three months of private mentoring for a bigger move: a first hire, a price change or a new direction. Fortnightly calls and answers between them.", options: [{ name: "Calls", values: ["Fortnightly", "Weekly"] }], add: { Weekly: 1200 } },
+      { title: "Studio pricing calculator", price: "$29.00", image: "coachpro-moment-desk.webp", kind: "digital", description: "The spreadsheet behind the free worksheet: costs, day rate, project quote and a margin check, with a short video." },
+    ],
+  },
+  /* Templates round 21: a content creator's courses, a Notion template and a call; covers drawn around the creator's own photographs. */
+  creatorpro: {
+    name: "Nina Brooks",
+    products: [
+      { title: "Launch Lab", price: "$249.00", compare: "$349.00", image: "creatorpro-course-launch.webp", kind: "digital", description: "Eight weeks from an idea to your first paid digital product: the offer, the sales page, the emails and the launch. 32 short lessons, templates for every step and a live call every Thursday.", options: [{ name: "Access", values: ["Course", "Course and two private calls"] }, { name: "Payment", values: ["In full", "In three parts"] }], add: { "Course and two private calls": 300 } },
+      { title: "YouTube from Zero", price: "$129.00", image: "creatorpro-course-youtube.webp", kind: "digital", description: "Plan, film and edit your first ten videos with a phone and a lamp. 24 lessons, about five hours." },
+      { title: "The Creator OS", price: "$29.00", image: "creatorpro-course-os.webp", kind: "digital", description: "The Notion workspace Nina runs her business from: ideas, a content plan, offers and sponsors, with a video walkthrough." },
+      { title: "Strategy call", price: "$180.00", image: "creatorpro-call.webp", kind: "digital", description: "One hour on a video call about your offer, your audience or your launch plan, with written notes after." },
+    ],
+  },
 }

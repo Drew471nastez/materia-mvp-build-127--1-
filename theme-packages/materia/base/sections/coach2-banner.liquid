@@ -1,0 +1,78 @@
+{%- comment -%}
+  Coach, second look: a wide photograph with words over its darker side.
+  A label, a heading, a line, a button and up to three short items in a
+  row at the foot. Used for talks and workshops.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+-%}
+<style>
+  #shopify-section-{{ sid }} .c2b { background: {{ st.background }}; padding: {{ st.padding_top_mobile }}px 16px {{ st.padding_bottom_mobile }}px; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .c2b { padding: {{ st.padding_top }}px 32px {{ st.padding_bottom }}px; } }
+  #shopify-section-{{ sid }} .c2b__box { position: relative; max-width: var(--page-width, 1310px); margin: 0 auto; min-height: {{ st.height_mobile }}px; border-radius: 10px; overflow: hidden; background: #0f1115; display: flex; align-items: flex-end; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .c2b__box { min-height: {{ st.height }}px; align-items: center; } }
+  #shopify-section-{{ sid }} .c2b__box > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: {{ st.image_focus }}; margin: 0; }
+  #shopify-section-{{ sid }} .c2b__box::after { content: ""; position: absolute; inset: 0; background: linear-gradient(0deg, rgba(10,12,16,.88) 0%, rgba(10,12,16,.55) 55%, rgba(10,12,16,.25) 100%); }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .c2b__box::after { background: linear-gradient(90deg, rgba(10,12,16,.9) 0%, rgba(10,12,16,.7) 42%, rgba(10,12,16,.1) 78%); } }
+  #shopify-section-{{ sid }} .c2b__copy { position: relative; z-index: 1; max-width: 560px; padding: 28px 22px; color: #d5d8e0; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .c2b__copy { padding: 56px; } }
+  #shopify-section-{{ sid }} .c2b__eyebrow { margin: 0 0 12px; color: {{ st.accent }}; font-size: 13px; font-weight: 600; letter-spacing: .04em; }
+  #shopify-section-{{ sid }} .c2b__h { margin: 0; color: #fff; font-family: var(--heading-font, inherit); font-weight: 700; letter-spacing: -0.035em; line-height: 1.04; font-size: 32px; text-wrap: balance; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .c2b__h { font-size: 48px; } }
+  #shopify-section-{{ sid }} .c2b__t { margin: 16px 0 0; font-size: 16.5px; line-height: 1.6; }
+  #shopify-section-{{ sid }} .c2b__t p { margin: 0; }
+  #shopify-section-{{ sid }} .c2b__items { display: flex; flex-wrap: wrap; gap: 8px; margin: 22px 0 0; padding: 0; list-style: none; }
+  #shopify-section-{{ sid }} .c2b__items li { padding: 7px 12px; border: 1px solid rgba(255,255,255,.22); border-radius: 6px; color: #fff; font-size: 13.5px; }
+  #shopify-section-{{ sid }} .c2b__btn { display: inline-flex; align-items: center; min-height: 50px; margin-top: 26px; padding: 0 22px; border-radius: 6px; background: #fff; color: #0f1115; font-size: 15px; font-weight: 600; text-decoration: none; transition: background-color .2s ease, color .2s ease; }
+  #shopify-section-{{ sid }} .c2b__btn:hover { background: {{ st.accent }}; color: #fff; }
+</style>
+
+<div class="c2b color-{{ color_scheme }}">
+  <div class="c2b__box">
+    {%- if st.image != blank -%}
+      <img src="{{ st.image | image_url: width: 1800 }}" srcset="{{ st.image | image_url: width: 800 }} 800w, {{ st.image | image_url: width: 1300 }} 1300w, {{ st.image | image_url: width: 1800 }} 1800w" sizes="(min-width: 1400px) 1310px, 94vw" width="{{ st.image.width | default: 1800 }}" height="{{ st.image.height | default: 900 }}" alt="{{ st.image_alt | escape }}" loading="lazy" decoding="async">
+    {%- endif -%}
+    <div class="c2b__copy">
+      {%- if st.eyebrow != blank -%}<p class="c2b__eyebrow">{{ st.eyebrow | escape }}</p>{%- endif -%}
+      {%- if st.heading != blank -%}<h2 class="c2b__h">{{ st.heading }}</h2>{%- endif -%}
+      {%- if st.text != blank -%}<div class="c2b__t">{{ st.text }}</div>{%- endif -%}
+      {%- if st.item_1 != blank or st.item_2 != blank or st.item_3 != blank -%}
+        <ul class="c2b__items">{%- for f in (1..3) -%}{%- assign k = 'item_' | append: f -%}{%- if st[k] != blank -%}<li>{{ st[k] | escape }}</li>{%- endif -%}{%- endfor -%}</ul>
+      {%- endif -%}
+      {%- if st.button_label != blank -%}<a class="c2b__btn" href="{{ st.button_link | default: '/pages/contact' }}">{{ st.button_label | escape }}</a>{%- endif -%}
+    </div>
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Coach photo banner",
+  "tag": "section",
+  "class": "section sec__coach2-banner",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default-color-scheme" },
+    { "type": "color", "id": "background", "label": "Around the banner", "default": "#ffffff" },
+    { "type": "color", "id": "accent", "label": "Accent", "default": "#8c9aff" },
+    { "type": "image_picker", "id": "image", "label": "Photograph" },
+    { "type": "text", "id": "image_alt", "label": "Alt text" },
+    { "type": "select", "id": "image_focus", "label": "Keep in view", "options": [ { "value": "center", "label": "Middle" }, { "value": "right center", "label": "Right" }, { "value": "left center", "label": "Left" } ], "default": "right center" },
+    { "type": "text", "id": "eyebrow", "label": "Small label", "default": "Talks and workshops" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "Bring it to your team" },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>A line on what you run and for whom.</p>" },
+    { "type": "text", "id": "item_1", "label": "Item 1", "default": "Half day" },
+    { "type": "text", "id": "item_2", "label": "Item 2", "default": "Full day" },
+    { "type": "text", "id": "item_3", "label": "Item 3" },
+    { "type": "text", "id": "button_label", "label": "Button", "default": "Ask about dates" },
+    { "type": "url", "id": "button_link", "label": "Button link" },
+    { "type": "range", "id": "height", "label": "Height, desktop", "min": 360, "max": 760, "step": 20, "unit": "px", "default": 540 },
+    { "type": "range", "id": "height_mobile", "label": "Height, phone", "min": 360, "max": 720, "step": 20, "unit": "px", "default": 560 },
+    { "type": "range", "id": "padding_top", "label": "Space above, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 32 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 32 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 16 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 16 }
+  ],
+  "presets": [ { "name": "Coach photo banner" } ]
+}
+{% endschema %}

@@ -24,8 +24,8 @@
     #shopify-section-{{ sid }} .cph__grid { grid-template-columns: minmax(0, 1.08fr) minmax(0, .92fr); min-height: min(88vh, {{ st.height | default: 780 }}px); }
     #shopify-section-{{ sid }} .cph--left .cph__media { order: -1; }
   }
-  #shopify-section-{{ sid }} .cph__media { position: relative; margin: 0; aspect-ratio: 4 / 4.4; overflow: hidden; }
-  @media (min-width: 990px) { #shopify-section-{{ sid }} .cph__media { aspect-ratio: auto; } }
+  #shopify-section-{{ sid }} .cph__media { position: relative; order: -1; margin: 0; aspect-ratio: 4 / 4.4; overflow: hidden; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cph__media { order: 0; aspect-ratio: auto; } }
   #shopify-section-{{ sid }} .cph__media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% {{ st.focus_y | default: 18 }}%; }
   #shopify-section-{{ sid }} .cph__media::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to bottom, transparent 55%, var(--cph-bg) 99%); }
   @media (min-width: 990px) {
@@ -57,7 +57,7 @@
   #shopify-section-{{ sid }} [data-cpr].cpr-in { opacity: 1; transform: none; transition: opacity .9s cubic-bezier(.2,.65,.25,1) var(--d, 0ms), transform .9s cubic-bezier(.2,.65,.25,1) var(--d, 0ms); }
   @media (prefers-reduced-motion: reduce) { #shopify-section-{{ sid }} .cph__btn { transition: none; } }
 </style>
-<section class="cph cph--{{ side }}">
+<section data-own-size class="cph cph--{{ side }}">
   <div class="cph__grid">
     <div class="cph__body">
       {%- if st.eyebrow != blank -%}<p class="cph__eyebrow" data-cpr>{{ st.eyebrow | escape }}</p>{%- endif -%}

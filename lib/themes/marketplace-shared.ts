@@ -141,6 +141,12 @@ export const CODE_TEMPLATES: readonly CodeTemplate[] = [
   { slug: "retro-merch", template: "retro", name: "Retro desktop", category: "creators" },
   /* Templates round 21: an author's book landing page, the book in front of two open pages with a free chapter by email, then "Hi, I'm ...", the chapters, editions and a free email course. */
   { slug: "author-book", template: "authorbook", name: "Author", category: "ebooks" },
+  /* Templates round 21: a content creator teaching online business, a hero with her photo and floating video and podcast cards, start here steps, videos, courses, a newsletter band, the podcast and where to follow. */
+  { slug: "content-creator", template: "creatorpro", name: "Content creator", category: "creators" },
+  /* Templates round 21: a coach and creator's personal brand site, a dark hero with the person, the show, programmes as wide panels, a free worksheet and client stories, after the owner's reference. */
+  { slug: "coach-creator", template: "coachpro", name: "Coach creator", category: "coaching" },
+  /* Templates round 21: Digital Renaissance, a dark course funnel for using AI in a business: offer, problem and fix, curriculum, bonuses, instructor, pricing, guarantee and questions, with a sign up window. */
+  { slug: "digital-renaissance", template: "renaissance", name: "Digital Renaissance", category: "courses" },
 ]
 
 /** Where a template's pictures live: its home page whole at 1440 wide, and at a phone's width (scripts/build-theme-template-covers.ts takes both). */

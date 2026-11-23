@@ -84,7 +84,7 @@
   #shopify-section-{{ sid }} .abh__form { margin: 22px auto 0; max-width: 520px; }
   #shopify-section-{{ sid }} .abh__row { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
   @media (min-width: 600px) { #shopify-section-{{ sid }} .abh__row { flex-direction: row; gap: 0; } }
-  #shopify-section-{{ sid }} .abh__input {
+  #shopify-section-{{ sid }} .abh__input { --input-height: 56px; height: 56px !important; min-height: 56px !important;
     flex: 1 1 auto; min-width: 0; box-sizing: border-box; height: 56px !important; min-height: 56px; margin: 0; padding: 0 20px; font: inherit; font-size: 16px; color: var(--color-heading);
     background: #fff; border: 1.5px solid {{ st.field_border | default: '#d9d4c8' }}; border-radius: {{ st.radius | default: 6 }}px;
   }

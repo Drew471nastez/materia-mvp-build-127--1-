@@ -72,8 +72,8 @@ They are not part of a template and are never added to a creator's website.
 | merch (cover only) | scripts/theme-templates/products/merch/merch-tee-fitted-black.webp | https://images.unsplash.com/photo-1590750093844-bc3ae9e48f9c (cropped, background evened to one grey) | Unsplash License |
 | merch (cover only) | scripts/theme-templates/products/merch/merch-tank-white.webp | https://images.unsplash.com/photo-1789110853802-905f3d5c654c (cropped, background evened to one grey) | Unsplash License |
 | merch (cover only) | scripts/theme-templates/products/merch/merch-short-black.webp | https://images.unsplash.com/photo-1789110519705-a4b8e6d69a9f (cropped, background evened to one grey) | Unsplash License |
-| digital | assets/digital-hero-studio.webp | https://images.unsplash.com/photo-1744686909434-fd158fca1c35, jacket badge painted out | Unsplash License |
-| digital | assets/digital-pricing-guide.webp | https://images.unsplash.com/photo-1625864667451-bd05ac7e633a, screen drawn for this template | Unsplash License |
+| digital | assets/digital-hero-studio.webp | https://images.unsplash.com/photo-1744686909434-fd158fca1c35 | Unsplash License |
+| digital | assets/digital-pricing-guide.webp | https://images.unsplash.com/photo-1625864667451-bd05ac7e633a | Unsplash License |
 | digital | assets/digital-hero-laptop.webp | https://images.unsplash.com/photo-1484788984921-03950022c9ef | Unsplash License |
 | digital | assets/digital-hero-icons.webp | https://images.unsplash.com/photo-1589739900266-43b2843f4c12 | Unsplash License |
 | digital | assets/digital-bundle.webp | https://images.unsplash.com/photo-1654124803058-c814dc42f60c | Unsplash License |
@@ -227,7 +227,7 @@ They are not part of a template and are never added to a creator's website.
 | samples | assets/samples-demo-drums-collection.mp4 | https://freesound.org/people/Teacoma/sounds/360375/ : "Minimal Tech House Beat" by Teacoma, its 4 bar loop played one and a half times; trimmed, faded out, levelled to -14 LUFS, AAC mono. A stand in until Loudlib's own demos are uploaded | CC0 1.0 (public domain) |
 | samples | assets/samples-demo-bass-collection.mp4 | https://freesound.org/people/Johnnie_Holiday/sounds/688234/ : "Tech House 808 Bass Loop.wav" by Johnnie_Holiday, first 6 bars; trimmed, faded out, levelled to -14 LUFS, AAC mono. A stand in until Loudlib's own demos are uploaded | CC0 1.0 (public domain) |
 | samples | assets/samples-dj-hands.webp | https://images.unsplash.com/photo-1470225620780-dba8ba36b745 | Unsplash License |
-| samples | assets/samples-studio.webp | https://images.unsplash.com/photo-1598488035139-bdbb2231ce04 (cropped to the desk and rack) | Unsplash License |
+| samples | assets/samples-studio.webp | https://images.unsplash.com/photo-1598488035139-bdbb2231ce04 | Unsplash License |
 | samples (blog only) | scripts/theme-templates/products/samples/samples-post-kick.webp | https://images.unsplash.com/photo-1563330232-57114bb0823c | Unsplash License |
 | samples (blog only) | scripts/theme-templates/products/samples/samples-post-sidechain.webp | https://images.unsplash.com/photo-1617994452722-4145e196248b | Unsplash License |
 | samples (blog only) | scripts/theme-templates/products/samples/samples-post-vocal-chops.webp | https://images.unsplash.com/photo-1516280440614-37939bbacd81 | Unsplash License |
@@ -376,3 +376,19 @@ Author (round 21): the author, Theo Marlow, is two photographs from one session 
 | authorbook | assets/authorbook-shelf-audio.webp | Drawn for this template | Storelib |
 | authorbook | assets/authorbook-shelf-journal.webp | Drawn for this template | Storelib |
 | authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-journal.webp | Drawn for this template | Storelib |
+
+Content creator (round 21): the creator, Nina Brooks, is one session by one photographer (Videodeck): the same woman in her studio. A small logo on her hoodie, the maker's name on the microphone and a logo on the laptop are painted out. The video thumbnails and course covers are those photographs (two of them mirrored) with titles set on them; the Notion style workspace is drawn for the template.
+
+| creatorpro | assets/creatorpro-hero.webp | https://images.unsplash.com/photo-1676380367878-c79a5f40edb6 | Unsplash License |
+| creatorpro | assets/creatorpro-face.webp | https://images.unsplash.com/photo-1676380367878-c79a5f40edb6 | Unsplash License |
+| creatorpro | assets/creatorpro-podcast.webp | https://images.unsplash.com/photo-1676380363734-f2f932ff5981 | Unsplash License |
+| creatorpro | assets/creatorpro-studio.webp | https://images.unsplash.com/photo-1664277497087-51787d2b9d15 | Unsplash License |
+| creatorpro | assets/creatorpro-wide.webp | https://images.unsplash.com/photo-1673767298275-769b08b4f675 | Unsplash License |
+| creatorpro | assets/creatorpro-video-1.webp | https://images.unsplash.com/photo-1664277497087-51787d2b9d15 | Unsplash License |
+| creatorpro | assets/creatorpro-video-2.webp | https://images.unsplash.com/photo-1676380363734-f2f932ff5981 | Unsplash License |
+| creatorpro | assets/creatorpro-video-3.webp | https://images.unsplash.com/photo-1673767298275-769b08b4f675 | Unsplash License |
+| creatorpro | assets/creatorpro-video-4.webp | https://images.unsplash.com/photo-1676380367878-c79a5f40edb6 | Unsplash License |
+| creatorpro | assets/creatorpro-course-launch.webp | https://images.unsplash.com/photo-1664277497087-51787d2b9d15 | Unsplash License |
+| creatorpro | assets/creatorpro-course-youtube.webp | https://images.unsplash.com/photo-1673767298275-769b08b4f675 | Unsplash License |
+| creatorpro | assets/creatorpro-course-os.webp | Drawn for this template | Storelib |
+| creatorpro (cover only) | scripts/theme-templates/products/creatorpro/creatorpro-call.webp | https://images.unsplash.com/photo-1676380363734-f2f932ff5981 (title set on it) | Unsplash License |

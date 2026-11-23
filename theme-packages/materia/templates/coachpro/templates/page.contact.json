@@ -19,7 +19,7 @@
         "description_2": {
           "type": "description",
           "settings": {
-            "text": "<p>Questions about coaching, the group, speaking or anything else. I read every message myself.</p>"
+            "text": "<p>Questions about the programmes, a podcast idea, a speaking invitation or anything else. I read every message myself.</p>"
           }
         },
         "info_3": {
@@ -34,8 +34,8 @@
           "type": "info",
           "settings": {
             "icon": "map",
-            "line1": "Bristol and online",
-            "line2": "Studio sessions by appointment"
+            "line1": "Lisbon and online",
+            "line2": "Calls on weekdays, Lisbon time"
           }
         }
       },
@@ -46,27 +46,56 @@
         "info_4"
       ]
     },
-    "next": {
-      "type": "coach-cta",
+    "start": {
+      "type": "coachpro-start",
       "settings": {
-        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
-        "background": "#3a2a21",
-        "heading_color": "#faf6f0",
-        "text_color": "#d8c8b7",
-        "accent_color": "#e2a271",
-        "button_color": "#b8693a",
-        "eyebrow": "Rather talk?",
-        "heading": "A free call is <em>quicker</em>",
-        "text": "<p>Twenty minutes, by video, at a time that suits you.</p>",
-        "button_label": "Book your free call",
-        "button_link": "/pages/book",
-        "button2_label": "",
-        "button2_link": "/pages/contact"
-      }
+        "eyebrow": "New here",
+        "heading": "Not sure where to <em>start</em>?",
+        "text": "<p>Three good first steps, depending on how much time you have this week.</p>",
+        "background": "#16120f",
+        "accent_color": "#ff6a3d",
+        "heading_color": "#ffffff",
+        "text_color": "#cfc6bc",
+        "padding_top": 112,
+        "padding_bottom": 112,
+        "padding_top_mobile": 64,
+        "padding_bottom_mobile": 64
+      },
+      "blocks": {
+        "step_1": {
+          "type": "step",
+          "settings": {
+            "title": "Listen to the show",
+            "text": "Start with episode #112, on the busy month that pays the least.",
+            "url": "/pages/podcast"
+          }
+        },
+        "step_2": {
+          "type": "step",
+          "settings": {
+            "title": "Get the free worksheet",
+            "text": "Price your next project in twenty minutes.",
+            "url": "/#free-guide"
+          }
+        },
+        "step_3": {
+          "type": "step",
+          "settings": {
+            "title": "Work with me",
+            "text": "A group programme, a short course or private mentoring.",
+            "url": "/pages/programmes"
+          }
+        }
+      },
+      "block_order": [
+        "step_1",
+        "step_2",
+        "step_3"
+      ]
     }
   },
   "order": [
     "contact",
-    "next"
+    "start"
   ]
 }

@@ -30,7 +30,7 @@
   #shopify-section-{{ sid }} .cpl__form { margin-top: 28px; max-width: 500px; position: relative; z-index: 1; }
   #shopify-section-{{ sid }} .cpl__row { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
   @media (min-width: 600px) { #shopify-section-{{ sid }} .cpl__row { flex-direction: row; gap: 8px; } }
-  #shopify-section-{{ sid }} .cpl__input { flex: 1 1 auto; min-width: 0; box-sizing: border-box; height: 56px !important; margin: 0; padding: 0 20px; border: 1.5px solid rgba(255,255,255,0.18); border-radius: {{ st.button_radius | default: 12 }}px; background: rgba(255,255,255,0.07); color: #fff; font: inherit; font-size: 16px; }
+  #shopify-section-{{ sid }} .cpl__input { --input-height: 56px; height: 56px !important; min-height: 56px !important; flex: 1 1 auto; min-width: 0; box-sizing: border-box; height: 56px !important; margin: 0; padding: 0 20px; border: 1.5px solid rgba(255,255,255,0.18); border-radius: {{ st.button_radius | default: 12 }}px; background: rgba(255,255,255,0.07) !important; color: #fff !important; font: inherit; font-size: 16px; }
   #shopify-section-{{ sid }} .cpl__input::placeholder { color: rgba(255,255,255,0.62); opacity: 1; }
   #shopify-section-{{ sid }} .cpl__input:focus-visible { outline: 2px solid var(--cpl-accent); outline-offset: 1px; }
   #shopify-section-{{ sid }} .cpl__submit { flex: 0 0 auto; height: 56px; margin: 0; padding: 0 24px; border: 0; border-radius: {{ st.button_radius | default: 12 }}px; cursor: pointer; white-space: nowrap; background: var(--cpl-accent); color: {{ st.button_text_color | default: '#101114' }}; font: inherit; font-size: 15.5px; font-weight: 700; transition: filter 0.2s ease; }

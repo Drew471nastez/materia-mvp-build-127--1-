@@ -34,7 +34,7 @@
   #shopify-section-{{ sid }} .cpx__row a:hover .cpx__go { background: var(--cpx-accent); border-color: var(--cpx-accent); color: #16120f; transform: translateX(4px); }
   @media (prefers-reduced-motion: reduce) { #shopify-section-{{ sid }} .cpx__go { transition: none; } }
 </style>
-<section class="cpx">
+<section data-own-size class="cpx">
   <div class="cpx__in">
     <div>
       {%- if st.eyebrow != blank -%}<p class="cpx__eyebrow">{{ st.eyebrow | escape }}</p>{%- endif -%}

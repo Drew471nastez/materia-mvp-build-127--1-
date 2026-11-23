@@ -3,24 +3,24 @@
     "title": "Main menu",
     "links": [
       {
+        "title": "Coaching",
+        "url": "/collections/all"
+      },
+      {
+        "title": "How it works",
+        "url": "/pages/about#how"
+      },
+      {
         "title": "About",
         "url": "/pages/about"
       },
       {
-        "title": "Work with me",
-        "url": "/collections/all"
-      },
-      {
-        "title": "Journal",
+        "title": "Notes",
         "url": "/blogs/news"
       },
       {
         "title": "FAQ",
         "url": "/pages/faqs"
-      },
-      {
-        "title": "Contact",
-        "url": "/pages/contact"
       }
     ]
   },
@@ -28,20 +28,20 @@
     "title": "Explore",
     "links": [
       {
+        "title": "Coaching",
+        "url": "/collections/all"
+      },
+      {
         "title": "About",
         "url": "/pages/about"
       },
       {
-        "title": "Work with me",
-        "url": "/collections/all"
-      },
-      {
-        "title": "Book a call",
-        "url": "/pages/book"
-      },
-      {
-        "title": "Journal",
+        "title": "Notes",
         "url": "/blogs/news"
+      },
+      {
+        "title": "Book a free call",
+        "url": "/pages/book"
       }
     ]
   },
@@ -57,25 +57,21 @@
         "url": "/pages/contact"
       },
       {
-        "title": "Free guide",
-        "url": "/pages/guide"
-      },
-      {
-        "title": "Your basket",
-        "url": "/cart"
+        "title": "Search",
+        "url": "/search"
       }
     ]
   },
   "footer-hello": {
-    "title": "Say hello",
+    "title": "Get in touch",
     "links": [
       {
         "title": "Send a message",
         "url": "/pages/contact"
       },
       {
-        "title": "Book a free call",
-        "url": "/pages/book"
+        "title": "LinkedIn",
+        "url": "https://www.linkedin.com"
       },
       {
         "title": "Instagram",

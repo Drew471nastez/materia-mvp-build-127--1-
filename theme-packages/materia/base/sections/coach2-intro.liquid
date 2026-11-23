@@ -1,0 +1,83 @@
+{%- comment -%}
+  Coach, second look: a page's opening. A small label, the page's main
+  heading, a line, and up to three facts in a row with a round photo of
+  the coach beside them. Plain and short, so the form or list under it
+  is the point of the page.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+-%}
+<style>
+  #shopify-section-{{ sid }} .c2i { background: {{ st.background }}; padding: {{ st.padding_top_mobile }}px 16px {{ st.padding_bottom_mobile }}px; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .c2i { padding: {{ st.padding_top }}px 32px {{ st.padding_bottom }}px; } }
+  #shopify-section-{{ sid }} .c2i__inner { max-width: var(--page-width, 1310px); margin: 0 auto; }
+  #shopify-section-{{ sid }} .c2i__eyebrow { display: inline-flex; align-items: center; gap: 10px; margin: 0 0 18px; color: {{ st.ink }}; font-size: 13px; font-weight: 600; }
+  #shopify-section-{{ sid }} .c2i__eyebrow::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: {{ st.accent }}; }
+  #shopify-section-{{ sid }} .c2i__h { margin: 0; max-width: 18ch; color: {{ st.ink }}; font-family: var(--heading-font, inherit); font-weight: 700; letter-spacing: -0.045em; line-height: 1; font-size: 40px; text-wrap: balance; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .c2i__h { font-size: {{ st.heading_size }}px; } }
+  #shopify-section-{{ sid }} .c2i__h em { font-style: normal; color: {{ st.accent }}; }
+  #shopify-section-{{ sid }} .c2i__t { margin: 20px 0 0; max-width: 58ch; color: {{ st.muted }}; font-size: 18px; line-height: 1.6; }
+  #shopify-section-{{ sid }} .c2i__t p { margin: 0; }
+  #shopify-section-{{ sid }} .c2i__row { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 28px; margin-top: 32px; padding-top: 22px; border-top: 1px solid {{ st.line_color }}; }
+  #shopify-section-{{ sid }} .c2i__who { display: flex; align-items: center; gap: 12px; }
+  #shopify-section-{{ sid }} .c2i__who img { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; margin: 0; }
+  #shopify-section-{{ sid }} .c2i__who b { display: block; color: {{ st.ink }}; font-size: 15px; }
+  #shopify-section-{{ sid }} .c2i__who span { display: block; color: {{ st.muted }}; font-size: 13.5px; }
+  #shopify-section-{{ sid }} .c2i__facts { display: flex; flex-wrap: wrap; gap: 10px 24px; margin: 0; padding: 0; list-style: none; color: {{ st.ink }}; font-size: 15px; font-weight: 500; }
+  #shopify-section-{{ sid }} .c2i__facts li { display: inline-flex; align-items: center; gap: 8px; }
+  #shopify-section-{{ sid }} .c2i__facts svg { width: 18px; height: 18px; color: {{ st.accent }}; }
+</style>
+
+<div class="c2i color-{{ color_scheme }}">
+  <div class="c2i__inner">
+    {%- if st.eyebrow != blank -%}<p class="c2i__eyebrow">{{ st.eyebrow | escape }}</p>{%- endif -%}
+    {%- if st.heading != blank -%}<h1 class="c2i__h">{{ st.heading }}</h1>{%- endif -%}
+    {%- if st.text != blank -%}<div class="c2i__t">{{ st.text }}</div>{%- endif -%}
+    {%- if st.name != blank or st.fact_1 != blank -%}
+      <div class="c2i__row">
+        {%- if st.name != blank -%}
+          <div class="c2i__who">
+            {%- if st.avatar != blank -%}<img src="{{ st.avatar | image_url: width: 120 }}" width="48" height="48" alt="" fetchpriority="high">{%- endif -%}
+            <div><b>{{ st.name | escape }}</b>{%- if st.role != blank -%}<span>{{ st.role | escape }}</span>{%- endif -%}</div>
+          </div>
+        {%- endif -%}
+        <ul class="c2i__facts">
+          {%- for f in (1..3) -%}{%- assign k = 'fact_' | append: f -%}{%- if st[k] != blank -%}<li><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10.5l4 4 8-9"/></svg>{{ st[k] | escape }}</li>{%- endif -%}{%- endfor -%}
+        </ul>
+      </div>
+    {%- endif -%}
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Coach page opening",
+  "tag": "section",
+  "class": "section sec__coach2-intro",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default-color-scheme" },
+    { "type": "color", "id": "background", "label": "Background", "default": "#ffffff" },
+    { "type": "color", "id": "ink", "label": "Heading colour", "default": "#0f1115" },
+    { "type": "color", "id": "muted", "label": "Text colour", "default": "#4b5160" },
+    { "type": "color", "id": "accent", "label": "Accent", "default": "#2b44ff" },
+    { "type": "color", "id": "line_color", "label": "Lines", "default": "#e4e6ea" },
+    { "type": "text", "id": "eyebrow", "label": "Small label", "default": "Book a call" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "info": "Words in italics show in the accent colour.", "default": "Pick a <em>time</em> that suits you" },
+    { "type": "richtext", "id": "text", "label": "Text" },
+    { "type": "image_picker", "id": "avatar", "label": "Round photo" },
+    { "type": "text", "id": "name", "label": "Name" },
+    { "type": "text", "id": "role", "label": "Under the name" },
+    { "type": "text", "id": "fact_1", "label": "Fact 1", "default": "20 minutes" },
+    { "type": "text", "id": "fact_2", "label": "Fact 2", "default": "On video" },
+    { "type": "text", "id": "fact_3", "label": "Fact 3", "default": "Free" },
+    { "type": "range", "id": "heading_size", "label": "Heading size, desktop", "min": 36, "max": 96, "step": 2, "unit": "px", "default": 72 },
+    { "type": "range", "id": "padding_top", "label": "Space above, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 72 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 40 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 40 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 24 }
+  ],
+  "presets": [ { "name": "Coach page opening" } ]
+}
+{% endschema %}

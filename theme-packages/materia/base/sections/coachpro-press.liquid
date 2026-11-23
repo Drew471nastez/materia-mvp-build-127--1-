@@ -28,7 +28,7 @@
   #shopify-section-{{ sid }} .cpp__w--round { font-family: var(--body-font, sans-serif); font-weight: 700; font-size: 22px; letter-spacing: -.03em; text-transform: lowercase; }
   #shopify-section-{{ sid }} .cpp__note { margin: 26px 0 0; color: {{ st.note_color | default: '#a39a90' }}; font-size: 13px; }
 </style>
-<section class="cpp">
+<section data-own-size class="cpp">
   {%- if st.heading != blank -%}<h2 class="cpp__title">{{ st.heading | escape }}</h2>{%- endif -%}
   <ul class="cpp__row">
     {%- for block in section.blocks -%}

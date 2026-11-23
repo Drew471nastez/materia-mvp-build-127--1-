@@ -1,146 +1,264 @@
 {
   "sections": {
-    "story": {
-      "type": "coach-split",
+    "about": {
+      "type": "coach2-about",
       "settings": {
-        "color_scheme": "default",
-        "background": "#faf6f0",
-        "accent_color": "#a5582a",
-        "image": "shopify://shop_images/coach-desk.webp",
-        "image_alt": "Leah at her desk in the studio",
-        "image_position": "right",
-        "image_shape": "arch",
+        "background": "#ffffff",
+        "image": "shopify://shop_images/coach-mateo-table.webp",
+        "image_alt": "Mateo Cruz smiling at a meeting table",
         "image_ratio": "4 / 5",
-        "eyebrow": "About",
-        "heading": "I'm Leah. I help women <em>change course</em> without burning it all down",
-        "text": "<p>For eleven years I worked in HR, sitting across the desk from people at the turning points of their careers. I noticed that the ones who did well were rarely the boldest. They were the ones who got clear first.</p><p>I trained as a coach in 2019 and opened my practice in Bristol a year later. Most of the women I work with are between jobs, starting something of their own, or simply done with a week that runs them.</p>",
-        "signature": "Leah",
-        "button_label": "",
-        "heading_size": 50,
-        "padding_top": 72,
+        "image_focus": "center",
+        "image_position": "left",
+        "main_heading": true,
+        "eyebrow": "Hi, I'm Mateo",
+        "heading": "I ran a small company before I <em>coached</em> them",
+        "text": "<p>For eleven years I ran a print and signage business that grew from two people to sixteen. I made most of the mistakes my clients make now, usually twice.</p><p>Since selling it, I have worked with owners of bakeries, agencies, cleaning companies and workshops. The problems are almost always the same: prices, cash, hiring and an owner doing too much.</p>",
+        "fact_1": "Based in: Austin, Texas",
+        "fact_2": "Works with: Companies of 2 to 20",
+        "fact_3": "Sessions: On video or in person",
+        "fact_4": "Languages: English and Spanish",
+        "button_label": "Book a free call",
+        "button_link": "/pages/book",
+        "linkedin": "https://www.linkedin.com",
+        "instagram": "https://www.instagram.com",
+        "youtube": "https://www.youtube.com",
+        "heading_size": 60,
+        "padding_top": 56,
         "padding_bottom": 88
       }
     },
-    "believe": {
-      "type": "coach-steps",
+    "how": {
+      "type": "coach2-steps",
       "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "background": "#f2e8dc",
-        "accent_color": "#a5582a",
-        "line_color": "#d9c6b0",
-        "eyebrow": "What I believe",
-        "heading": "Three things I hold <em>every session</em> to"
+        "background": "#f3f4f6",
+        "eyebrow": "How we work",
+        "heading": "From the first call to a plan you use",
+        "text": "<p>No long questionnaire and no theory. We work on your real numbers and your real calendar from week one.</p>",
+        "button_label": "Book a free call",
+        "button_link": "/pages/book",
+        "heading_size": 52,
+        "padding_top": 104,
+        "padding_bottom": 104
       },
       "blocks": {
         "step_1": {
           "type": "step",
           "settings": {
-            "title": "Clarity before courage",
-            "text": "Brave moves are easier once you know exactly what you are moving towards."
+            "title": "A free call",
+            "time": "20 min",
+            "text": "You tell me where the business is stuck. I tell you honestly whether I can help, and how."
           }
         },
         "step_2": {
           "type": "step",
           "settings": {
-            "title": "Small steps, kept",
-            "text": "A plan you can keep on a hard week beats a perfect plan you drop by Friday."
+            "title": "Look at the numbers",
+            "time": "Week 1",
+            "text": "Sales, margins, cash and where your hours go. One page that shows what is really happening."
           }
         },
         "step_3": {
           "type": "step",
           "settings": {
-            "title": "Your life, your pace",
-            "text": "No templates. We build around your work, your family and your energy."
+            "title": "Pick three changes",
+            "time": "Week 2",
+            "text": "Not twenty. Three changes with the most effect, each with an owner and a date."
+          }
+        },
+        "step_4": {
+          "type": "step",
+          "settings": {
+            "title": "Do the work, check in",
+            "time": "Every month",
+            "text": "We meet, look at what moved and what did not, and adjust. You keep the plan between calls."
           }
         }
       },
       "block_order": [
         "step_1",
         "step_2",
-        "step_3"
+        "step_3",
+        "step_4"
       ]
     },
-    "facts": {
-      "type": "coach-stats",
+    "changes": {
+      "type": "coach2-list",
       "settings": {
-        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
-        "background": "#3a2a21",
-        "figure_color": "#faf6f0",
-        "text_color": "#d8c8b7",
-        "line_color": "#55433a"
+        "eyebrow": "What usually changes",
+        "heading": "Six months in, owners tell me",
+        "text": "<p>Every business is different, so these are examples from past work, not promises.</p>",
+        "button_label": "",
+        "button_link": "/pages/book",
+        "columns": "2",
+        "heading_size": 52
       },
       "blocks": {
-        "fact_1": {
-          "type": "fact",
+        "item_1": {
+          "type": "item",
           "settings": {
-            "value": "11 years",
-            "label": "In HR before coaching"
+            "title": "They know their numbers every week",
+            "text": "Cash, margins and sales on one page, read on Mondays."
           }
         },
-        "fact_2": {
-          "type": "fact",
+        "item_2": {
+          "type": "item",
           "settings": {
-            "value": "2019",
-            "label": "Trained as a coach"
+            "title": "Their prices match their costs",
+            "text": "Raised with a plan, not with a deep breath."
           }
         },
-        "fact_3": {
-          "type": "fact",
+        "item_3": {
+          "type": "item",
           "settings": {
-            "value": "Bristol",
-            "label": "And online, anywhere"
+            "title": "The team decides more on its own",
+            "text": "Clear jobs and written answers to the usual questions."
+          }
+        },
+        "item_4": {
+          "type": "item",
+          "settings": {
+            "title": "Hiring has a process",
+            "text": "A role, a scorecard and a first month plan."
+          }
+        },
+        "item_5": {
+          "type": "item",
+          "settings": {
+            "title": "There is a plan for the year",
+            "text": "Written down, shared, and looked at every month."
+          }
+        },
+        "item_6": {
+          "type": "item",
+          "settings": {
+            "title": "Evenings are back",
+            "text": "Not every one. Most of them."
           }
         }
       },
       "block_order": [
-        "fact_1",
-        "fact_2",
-        "fact_3"
+        "item_1",
+        "item_2",
+        "item_3",
+        "item_4",
+        "item_5",
+        "item_6"
       ]
     },
-    "life": {
-      "type": "coach-split",
+    "clients": {
+      "type": "coach2-reviews",
       "settings": {
-        "color_scheme": "default",
-        "background": "#faf6f0",
-        "accent_color": "#a5582a",
-        "image": "shopify://shop_images/coach-about.webp",
-        "image_alt": "Leah with a cup of coffee at her desk",
-        "image_position": "left",
-        "image_shape": "rect",
-        "image_ratio": "4 / 5",
-        "eyebrow": "Outside the sessions",
-        "heading": "Slow mornings, <em>long walks</em> and too many notebooks",
-        "text": "<p>I live in Bristol with my partner and a very loud cat. I start most days with coffee and ten minutes of writing, and I think best on the coastal path.</p><p>Write to me about anything on this site. I read every message myself.</p>",
-        "signature": "",
-        "button_label": "Send a message",
-        "button_link": "/pages/contact"
+        "background": "#ffffff",
+        "eyebrow": "Clients",
+        "heading": "What changed for them",
+        "note": "<p>Sample quotes and photos, to show the layout. Replace them with your clients' words, with their permission.</p>",
+        "padding_top": 104,
+        "padding_bottom": 104
+      },
+      "blocks": {
+        "quote_1": {
+          "type": "quote",
+          "settings": {
+            "quote": "<p>Sample quote. We raised our prices for the first time in four years, lost two small clients and had our best quarter. I wish I had done it sooner.</p>",
+            "avatar": "shopify://shop_images/coach-client-1.webp",
+            "name": "Sample client",
+            "role": "Owner, print studio with 6 people",
+            "result": "Prices up, best quarter"
+          }
+        },
+        "quote_2": {
+          "type": "quote",
+          "settings": {
+            "quote": "<p>Sample quote. I used to answer every question myself. Now there is a page for most of them and a person for the rest. I took a week off in August.</p>",
+            "avatar": "shopify://shop_images/coach-client-2.webp",
+            "name": "Sample client",
+            "role": "Founder, cleaning company",
+            "result": "A week off, phone off"
+          }
+        },
+        "quote_3": {
+          "type": "quote",
+          "settings": {
+            "quote": "<p>Sample quote. The Growth Sprint gave me a room of owners with the same problems. Hiring my first manager was the week that changed everything.</p>",
+            "avatar": "shopify://shop_images/coach-client-3.webp",
+            "name": "Sample client",
+            "role": "Owner, two coffee shops",
+            "result": "First manager hired"
+          }
+        },
+        "quote_4": {
+          "type": "quote",
+          "settings": {
+            "quote": "<p>Sample quote. One strategy day with my partners did more than a year of meetings. We still use the plan from the whiteboard.</p>",
+            "avatar": "shopify://shop_images/coach-client-4.webp",
+            "name": "Sample client",
+            "role": "Partner, design agency",
+            "result": "One plan for the year"
+          }
+        },
+        "quote_5": {
+          "type": "quote",
+          "settings": {
+            "quote": "<p>Sample quote. For the first time I know on a Monday how much cash we will have at the end of the month.</p>",
+            "avatar": "shopify://shop_images/coach-client-5.webp",
+            "name": "Sample client",
+            "role": "Owner, bike repair shop",
+            "result": "Cash known every Monday"
+          }
+        }
+      },
+      "block_order": [
+        "quote_1",
+        "quote_2",
+        "quote_3",
+        "quote_4",
+        "quote_5"
+      ]
+    },
+    "talks": {
+      "type": "coach2-banner",
+      "settings": {
+        "image": "shopify://shop_images/coach-mateo-room.webp",
+        "image_alt": "Mateo giving a talk to a room of business owners",
+        "image_focus": "right center",
+        "eyebrow": "Talks and workshops",
+        "heading": "Bring it to your team or your event",
+        "text": "<p>Half day and full day workshops on pricing, cash and delegation, for teams, business groups and conferences.</p>",
+        "item_1": "Half day",
+        "item_2": "Full day",
+        "item_3": "Keynote, 45 minutes",
+        "button_label": "Ask about dates",
+        "button_link": "/pages/contact",
+        "padding_top": 32,
+        "padding_bottom": 32
       }
     },
-    "next": {
-      "type": "coach-cta",
+    "cta": {
+      "type": "coach2-cta",
       "settings": {
-        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
-        "background": "#3a2a21",
-        "heading_color": "#faf6f0",
-        "text_color": "#d8c8b7",
-        "accent_color": "#e2a271",
-        "button_color": "#b8693a",
-        "eyebrow": "Your next step",
-        "heading": "Ready when <em>you are</em>",
-        "text": "<p>Book a free 20 minute call. No pressure and no pitch, just a real conversation about where you want to go.</p>",
-        "button_label": "Book your free call",
+        "background": "#ffffff",
+        "eyebrow": "Free first call",
+        "heading": "Let's look at your week",
+        "text": "<p>Twenty minutes on video. You say where the business is stuck; I say whether I can help.</p>",
+        "button_label": "Book a free call",
         "button_link": "/pages/book",
-        "button2_label": "Ask a question",
-        "button2_link": "/pages/contact"
+        "note": "No pitch. If we are not a fit, I will say so.",
+        "avatar": "shopify://shop_images/coach-mateo-avatar.webp",
+        "name": "Mateo Cruz",
+        "role": "Business coach",
+        "points": "Where the business is now\nWhat is taking your time\nOne next step, either way",
+        "heading_size": 64,
+        "padding_top": 32,
+        "padding_bottom": 96
       }
     }
   },
   "order": [
-    "story",
-    "believe",
-    "facts",
-    "life",
-    "next"
+    "about",
+    "how",
+    "changes",
+    "clients",
+    "talks",
+    "cta"
   ]
 }

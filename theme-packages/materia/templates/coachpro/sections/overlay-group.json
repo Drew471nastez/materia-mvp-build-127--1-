@@ -898,7 +898,7 @@
         "products": {
           "type": "products",
           "settings": {
-            "fake_user": "Liam (USA) | Ethan (USA) | Matteo (USA) | Owen (Canada) | Lucas (Canada) | Rafael (USA) | Mason (USA) | Alex (UK) | Luca (Italy) | Hugo (France) | Elias (Germany) | Sofia (Spain) | Jakob (Sweden) | Matei (Romania) | Ivan (Russia) | Niko (Greece) | Marko (Croatia) | Erik (Norway) | Felix (Denmark) | Tom\u00e1\u0161 (Czech Republic) | Arnaud (Belgium) | Finn (Ireland)",
+            "fake_user": "Liam (USA) | Ethan (USA) | Matteo (USA) | Owen (Canada) | Lucas (Canada) | Rafael (USA) | Mason (USA) | Alex (UK) | Luca (Italy) | Hugo (France) | Elias (Germany) | Sofia (Spain) | Jakob (Sweden) | Matei (Romania) | Ivan (Russia) | Niko (Greece) | Marko (Croatia) | Erik (Norway) | Felix (Denmark) | Tomáš (Czech Republic) | Arnaud (Belgium) | Finn (Ireland)",
             "fake_product": [
               "red-light-therapy-wand"
             ]

@@ -1,0 +1,121 @@
+{%- comment -%}
+  Digital Renaissance: the problem and the fix. A heading, then two cards
+  joined by a thin bracket and a "vs" seal: the way most people try it
+  (quiet outline card, what it costs, the lines that go wrong, a dead end
+  button) and the course (a lit card, what it costs, what changes, the
+  real button). Lines are one per row in a text box.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign bad = st.left_points | newline_to_br | split: '<br />'
+  assign good = st.right_points | newline_to_br | split: '<br />'
+-%}
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap">
+<style>
+  #shopify-section-{{ sid }} .rnp { --gold: {{ st.gold | default: '#f2bd4f' }}; --lapis: {{ st.accent | default: '#3d5afe' }}; background: {{ st.background | default: '#07080d' }}; color: {{ st.text_color | default: '#a7adbf' }}; padding: {{ st.padding_top_mobile | default: 56 }}px 20px {{ st.padding_bottom_mobile | default: 56 }}px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .rnp { padding: {{ st.padding_top | default: 96 }}px 40px {{ st.padding_bottom | default: 104 }}px; } }
+  #shopify-section-{{ sid }} .rnp__in { max-width: 1080px; margin: 0 auto; }
+  #shopify-section-{{ sid }} .rnp__eyebrow { margin: 0 0 12px; color: var(--gold); font-size: 12px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; text-align: center; }
+  #shopify-section-{{ sid }} .rnp__title { margin: 0 auto 14px; max-width: 18em; color: #fff; font-family: var(--heading-font, sans-serif); font-weight: 600; font-size: 32px; line-height: 1.08; letter-spacing: -.03em; text-align: center; text-wrap: balance; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .rnp__title { font-size: 48px; } }
+  #shopify-section-{{ sid }} .rnp__title em { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; color: var(--gold); }
+  #shopify-section-{{ sid }} .rnp__intro { max-width: 40em; margin: 0 auto; text-align: center; font-size: 16.5px; line-height: 1.6; }
+  #shopify-section-{{ sid }} .rnp__intro p { margin: 0; }
+  #shopify-section-{{ sid }} .rnp__brace { display: none; height: 34px; margin: 28px 25% 0; border: 1px dashed color-mix(in srgb, var(--gold) 45%, transparent); border-bottom: 0; border-radius: 10px 10px 0 0; position: relative; }
+  #shopify-section-{{ sid }} .rnp__brace::after { content: ""; position: absolute; left: 50%; top: -5px; width: 9px; height: 9px; margin-left: -4.5px; border-radius: 50%; background: var(--gold); }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .rnp__brace { display: block; } }
+  #shopify-section-{{ sid }} .rnp__cards { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; margin-top: 32px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .rnp__cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 64px; margin-top: 0; } }
+  #shopify-section-{{ sid }} .rnp__vs { position: absolute; left: 50%; top: 50%; z-index: 2; display: grid; place-items: center; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; border: 1px solid color-mix(in srgb, var(--gold) 55%, transparent); background: {{ st.background | default: '#07080d' }}; color: var(--gold); font-family: 'Instrument Serif', Georgia, serif; font-style: italic; font-size: 20px; }
+  #shopify-section-{{ sid }} .rnp__card { position: relative; display: flex; flex-direction: column; padding: 30px 24px 26px; border-radius: 20px; text-align: left; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .rnp__card { padding: 40px 38px 34px; } }
+  #shopify-section-{{ sid }} .rnp__card--old { border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.02); }
+  #shopify-section-{{ sid }} .rnp__card--new { border: 1px solid color-mix(in srgb, var(--lapis) 70%, transparent); background: radial-gradient(120% 80% at 100% 0%, color-mix(in srgb, var(--lapis) 55%, transparent), transparent 60%), linear-gradient(180deg, #121633, #0c0e1c); box-shadow: 0 30px 80px -40px color-mix(in srgb, var(--lapis) 90%, transparent); }
+  #shopify-section-{{ sid }} .rnp__label { margin: 0 0 6px; font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
+  #shopify-section-{{ sid }} .rnp__card--new .rnp__label { color: #c9d2ff; }
+  #shopify-section-{{ sid }} .rnp__big { margin: 0 0 14px; color: #fff; font-family: var(--heading-font, sans-serif); font-size: 40px; font-weight: 600; line-height: 1; letter-spacing: -.04em; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .rnp__big { font-size: 52px; } }
+  #shopify-section-{{ sid }} .rnp__card--old .rnp__big { color: #d6d9e3; }
+  #shopify-section-{{ sid }} .rnp__desc { margin: 0 0 22px; font-size: 15.5px; line-height: 1.55; }
+  #shopify-section-{{ sid }} .rnp__card--new .rnp__desc { color: #d5d9ea; }
+  #shopify-section-{{ sid }} .rnp__list { flex: 1 1 auto; display: grid; gap: 11px; align-content: start; margin: 0 0 28px; padding: 22px 0 0; border-top: 1px solid rgba(255,255,255,.09); list-style: none; }
+  #shopify-section-{{ sid }} .rnp__list li { display: flex; gap: 11px; align-items: flex-start; font-size: 15px; line-height: 1.45; }
+  #shopify-section-{{ sid }} .rnp__card--new .rnp__list li { color: #fff; }
+  #shopify-section-{{ sid }} .rnp__list svg { flex: 0 0 auto; width: 18px; height: 18px; margin-top: 1px; }
+  #shopify-section-{{ sid }} .rnp__card--old .rnp__list svg { color: #6b7185; }
+  #shopify-section-{{ sid }} .rnp__card--new .rnp__list svg { color: var(--gold); }
+  #shopify-section-{{ sid }} .rnp__dead { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; border-radius: 12px; border: 1px solid rgba(255,255,255,.1); color: #8a90a3; font-size: 14.5px; font-weight: 600; }
+  #shopify-section-{{ sid }} .rnp__dead svg { width: 16px; height: 16px; }
+  #shopify-section-{{ sid }} .rnp__go { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 52px; border-radius: 12px; background: #fff; color: #0b0c12; font-size: 15.5px; font-weight: 600; text-decoration: none; transition: transform .25s ease; }
+  #shopify-section-{{ sid }} .rnp__go:hover { transform: translateY(-2px); }
+  #shopify-section-{{ sid }} .rnp__go svg { width: 16px; height: 16px; }
+</style>
+<section data-own-size class="rnp"{% if st.anchor != blank %} id="{{ st.anchor | handleize }}"{% endif %}>
+  <div class="rnp__in">
+    {%- if st.eyebrow != blank -%}<p class="rnp__eyebrow">{{ st.eyebrow | escape }}</p>{%- endif -%}
+    {%- if st.heading != blank -%}<h2 class="rnp__title">{{ st.heading }}</h2>{%- endif -%}
+    {%- if st.intro != blank -%}<div class="rnp__intro">{{ st.intro }}</div>{%- endif -%}
+    <div class="rnp__brace" aria-hidden="true"></div>
+    <div class="rnp__cards">
+      <div class="rnp__card rnp__card--old">
+        <p class="rnp__label">{{ st.left_label | escape }}</p>
+        <p class="rnp__big">{{ st.left_value | escape }}</p>
+        <p class="rnp__desc">{{ st.left_text | escape }}</p>
+        <ul class="rnp__list">
+          {%- for p in bad -%}{%- assign line = p | strip -%}{%- if line != blank -%}<li><svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="9" r="7.5"/><path d="M6.3 6.3l5.4 5.4M11.7 6.3l-5.4 5.4"/></svg>{{ line | escape }}</li>{%- endif -%}{%- endfor -%}
+        </ul>
+        {%- if st.left_button != blank -%}<span class="rnp__dead"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><path d="M3.4 3.4l9.2 9.2"/></svg>{{ st.left_button | escape }}</span>{%- endif -%}
+      </div>
+      <span class="rnp__vs" aria-hidden="true">{{ st.vs_label | default: 'vs' | escape }}</span>
+      <div class="rnp__card rnp__card--new">
+        <p class="rnp__label">{{ st.right_label | escape }}</p>
+        <p class="rnp__big">{{ st.right_value | escape }}</p>
+        <p class="rnp__desc">{{ st.right_text | escape }}</p>
+        <ul class="rnp__list">
+          {%- for p in good -%}{%- assign line = p | strip -%}{%- if line != blank -%}<li><svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="9" r="7.5"/><path d="M5.8 9.2l2.2 2.2 4.2-4.6"/></svg>{{ line | escape }}</li>{%- endif -%}{%- endfor -%}
+        </ul>
+        {%- if st.right_button != blank -%}<a class="rnp__go" href="{{ st.right_link | default: '#' }}">{{ st.right_button | escape }}<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg></a>{%- endif -%}
+      </div>
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Renaissance two ways",
+  "tag": "section",
+  "class": "renaissance-paths-section",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "settings": [
+    { "type": "text", "id": "anchor", "label": "Name for links to this place", "default": "why" },
+    { "type": "text", "id": "eyebrow", "label": "Small line above", "default": "The problem" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "Two ways, <em>one choice</em>" },
+    { "type": "richtext", "id": "intro", "label": "Text" },
+    { "type": "header", "content": "The usual way" },
+    { "type": "text", "id": "left_label", "label": "Label", "default": "On your own" },
+    { "type": "text", "id": "left_value", "label": "What it costs", "default": "Months" },
+    { "type": "text", "id": "left_text", "label": "Line", "default": "What trying it alone usually looks like." },
+    { "type": "textarea", "id": "left_points", "label": "What goes wrong, one per line", "default": "First problem\nSecond problem\nThird problem" },
+    { "type": "text", "id": "left_button", "label": "Dead end button", "default": "Keep guessing" },
+    { "type": "text", "id": "vs_label", "label": "Word in the seal", "default": "vs" },
+    { "type": "header", "content": "The course" },
+    { "type": "text", "id": "right_label", "label": "Label", "default": "With the course" },
+    { "type": "text", "id": "right_value", "label": "What it costs", "default": "Six weeks" },
+    { "type": "text", "id": "right_text", "label": "Line", "default": "What changes with the course." },
+    { "type": "textarea", "id": "right_points", "label": "What changes, one per line", "default": "First change\nSecond change\nThird change" },
+    { "type": "text", "id": "right_button", "label": "Button", "default": "Show me the plans" },
+    { "type": "url", "id": "right_link", "label": "Button link" },
+    { "type": "header", "content": "Look" },
+    { "type": "color", "id": "background", "label": "Background", "default": "#07080d" },
+    { "type": "color", "id": "accent", "label": "Accent", "default": "#3d5afe" },
+    { "type": "color", "id": "gold", "label": "Highlight", "default": "#f2bd4f" },
+    { "type": "color", "id": "text_color", "label": "Text", "default": "#a7adbf" },
+    { "type": "range", "id": "padding_top", "label": "Space above on a computer", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below on a computer", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 104 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above on a phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below on a phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 }
+  ],
+  "presets": [ { "name": "Renaissance two ways", "category": "Digital Renaissance" } ]
+}
+{% endschema %}

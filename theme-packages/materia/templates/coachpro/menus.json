@@ -3,19 +3,19 @@
     "title": "Main menu",
     "links": [
       {
+        "title": "The show",
+        "url": "/pages/podcast"
+      },
+      {
+        "title": "Programmes",
+        "url": "/pages/programmes"
+      },
+      {
         "title": "About",
         "url": "/pages/about"
       },
       {
-        "title": "Work with me",
-        "url": "/collections/all"
-      },
-      {
-        "title": "Journal",
-        "url": "/blogs/news"
-      },
-      {
-        "title": "FAQ",
+        "title": "Questions",
         "url": "/pages/faqs"
       },
       {
@@ -28,26 +28,34 @@
     "title": "Explore",
     "links": [
       {
-        "title": "About",
-        "url": "/pages/about"
+        "title": "The Studio Hours",
+        "url": "/pages/podcast"
       },
       {
-        "title": "Work with me",
+        "title": "Programmes",
+        "url": "/pages/programmes"
+      },
+      {
+        "title": "Shop",
         "url": "/collections/all"
-      },
-      {
-        "title": "Book a call",
-        "url": "/pages/book"
       },
       {
         "title": "Journal",
         "url": "/blogs/news"
+      },
+      {
+        "title": "About Camila",
+        "url": "/pages/about"
       }
     ]
   },
   "footer-help": {
     "title": "Good to know",
     "links": [
+      {
+        "title": "Free worksheet",
+        "url": "/#free-guide"
+      },
       {
         "title": "Questions",
         "url": "/pages/faqs"
@@ -57,29 +65,8 @@
         "url": "/pages/contact"
       },
       {
-        "title": "Free guide",
-        "url": "/pages/guide"
-      },
-      {
         "title": "Your basket",
         "url": "/cart"
-      }
-    ]
-  },
-  "footer-hello": {
-    "title": "Say hello",
-    "links": [
-      {
-        "title": "Send a message",
-        "url": "/pages/contact"
-      },
-      {
-        "title": "Book a free call",
-        "url": "/pages/book"
-      },
-      {
-        "title": "Instagram",
-        "url": "https://www.instagram.com"
       }
     ]
   }

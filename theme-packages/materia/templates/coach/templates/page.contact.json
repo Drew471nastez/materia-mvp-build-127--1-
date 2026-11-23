@@ -1,6 +1,20 @@
 {
   "sections": {
-    "contact": {
+    "intro": {
+      "type": "coach2-intro",
+      "settings": {
+        "eyebrow": "Contact",
+        "heading": "Send me a <em>message</em>",
+        "text": "<p>A question before you book, a workshop for your team or a talk for your event. I answer within a working day.</p>",
+        "avatar": "shopify://shop_images/coach-mateo-avatar.webp",
+        "name": "Mateo Cruz",
+        "role": "Business coach",
+        "fact_1": "Answers within a working day",
+        "fact_2": "English and Spanish",
+        "fact_3": ""
+      }
+    },
+    "form": {
       "type": "contactformsimple2",
       "settings": {
         "color_scheme": "default",
@@ -46,27 +60,94 @@
         "info_4"
       ]
     },
-    "next": {
-      "type": "coach-cta",
+    "faq": {
+      "type": "coach2-faq",
       "settings": {
-        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
-        "background": "#3a2a21",
-        "heading_color": "#faf6f0",
-        "text_color": "#d8c8b7",
-        "accent_color": "#e2a271",
-        "button_color": "#b8693a",
-        "eyebrow": "Rather talk?",
-        "heading": "A free call is <em>quicker</em>",
-        "text": "<p>Twenty minutes, by video, at a time that suits you.</p>",
-        "button_label": "Book your free call",
+        "background": "#f3f4f6",
+        "main_heading": false,
+        "eyebrow": "Questions",
+        "heading": "Before you book",
+        "text": "<p>Anything else? <a href=\"/pages/contact\">Send me a message</a> and I will answer within a working day.</p>",
+        "padding_top": 104,
+        "padding_bottom": 104
+      },
+      "blocks": {
+        "question_1": {
+          "type": "question",
+          "settings": {
+            "question": "Who do you work with?",
+            "answer": "<p>Owners of companies with roughly two to twenty people: shops, studios, agencies, trades and services. If you are just starting out, the Growth Sprint is a good first step.</p>"
+          }
+        },
+        "question_2": {
+          "type": "question",
+          "settings": {
+            "question": "What happens on the free call?",
+            "answer": "<p>Twenty minutes on video. You tell me where the business is stuck, I ask a few questions, and I say honestly whether I can help. There is no pitch at the end.</p>"
+          }
+        },
+        "question_3": {
+          "type": "question",
+          "settings": {
+            "question": "How long do clients usually stay?",
+            "answer": "<p>Most stay four to six months on monthly coaching. You can stop or pause any month, with no notice period.</p>"
+          }
+        },
+        "question_4": {
+          "type": "question",
+          "settings": {
+            "question": "Do you work in person?",
+            "answer": "<p>Monthly coaching and the Growth Sprint are on video. Strategy days can be in person in Austin, at your place for a travel fee, or online.</p>"
+          }
+        },
+        "question_5": {
+          "type": "question",
+          "settings": {
+            "question": "Can my business pay for it?",
+            "answer": "<p>Yes. You get an invoice in the company's name for every payment.</p>"
+          }
+        },
+        "question_6": {
+          "type": "question",
+          "settings": {
+            "question": "What if it is not working?",
+            "answer": "<p>Tell me. If after the first month you feel it is not worth it, I refund that month.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "question_1",
+        "question_2",
+        "question_3",
+        "question_4",
+        "question_5",
+        "question_6"
+      ]
+    },
+    "cta": {
+      "type": "coach2-cta",
+      "settings": {
+        "background": "#ffffff",
+        "eyebrow": "Free first call",
+        "heading": "Let's look at your week",
+        "text": "<p>Twenty minutes on video. You say where the business is stuck; I say whether I can help.</p>",
+        "button_label": "Book a free call",
         "button_link": "/pages/book",
-        "button2_label": "",
-        "button2_link": "/pages/contact"
+        "note": "No pitch. If we are not a fit, I will say so.",
+        "avatar": "shopify://shop_images/coach-mateo-avatar.webp",
+        "name": "Mateo Cruz",
+        "role": "Business coach",
+        "points": "Where the business is now\nWhat is taking your time\nOne next step, either way",
+        "heading_size": 64,
+        "padding_top": 96,
+        "padding_bottom": 96
       }
     }
   },
   "order": [
-    "contact",
-    "next"
+    "intro",
+    "form",
+    "faq",
+    "cta"
   ]
 }

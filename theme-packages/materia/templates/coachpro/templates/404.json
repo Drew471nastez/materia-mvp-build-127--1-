@@ -16,7 +16,7 @@
         "heading_6nj4md": {
           "type": "heading",
           "settings": {
-            "heading": "This page has moved on",
+            "heading": "This page is not here",
             "font_size": 36,
             "uppercase": false,
             "font_weight": "heading_weight",
@@ -28,7 +28,7 @@
           "settings": {
             "font_size": 15,
             "uppercase": false,
-            "subheading": "It may have changed its name. The home page has everything, and the free call is one click away.",
+            "subheading": "It may have moved. The home page has the show, the programmes and the free worksheet.",
             "font_weight": "body_weight",
             "spacing_bottom": 40
           }
@@ -50,9 +50,57 @@
         "subheading_yFdKEQ",
         "button_4yrfiE"
       ]
+    },
+    "start": {
+      "type": "coachpro-start",
+      "settings": {
+        "eyebrow": "New here",
+        "heading": "Not sure where to <em>start</em>?",
+        "text": "<p>Three good first steps, depending on how much time you have this week.</p>",
+        "background": "#16120f",
+        "accent_color": "#ff6a3d",
+        "heading_color": "#ffffff",
+        "text_color": "#cfc6bc",
+        "padding_top": 112,
+        "padding_bottom": 112,
+        "padding_top_mobile": 64,
+        "padding_bottom_mobile": 64
+      },
+      "blocks": {
+        "step_1": {
+          "type": "step",
+          "settings": {
+            "title": "Listen to the show",
+            "text": "Start with episode #112, on the busy month that pays the least.",
+            "url": "/pages/podcast"
+          }
+        },
+        "step_2": {
+          "type": "step",
+          "settings": {
+            "title": "Get the free worksheet",
+            "text": "Price your next project in twenty minutes.",
+            "url": "/#free-guide"
+          }
+        },
+        "step_3": {
+          "type": "step",
+          "settings": {
+            "title": "Work with me",
+            "text": "A group programme, a short course or private mentoring.",
+            "url": "/pages/programmes"
+          }
+        }
+      },
+      "block_order": [
+        "step_1",
+        "step_2",
+        "step_3"
+      ]
     }
   },
   "order": [
-    "main"
+    "main",
+    "start"
   ]
 }

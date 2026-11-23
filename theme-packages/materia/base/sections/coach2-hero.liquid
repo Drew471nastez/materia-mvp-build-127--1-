@@ -1,0 +1,127 @@
+{%- comment -%}
+  Coach, second look: the opening. A short label, a large tight heading
+  with a few words in the accent colour, a line on who it is for, two
+  buttons and three short facts under a rule. On the right, a tall
+  photograph with a small card over its corner that leads to booking.
+  Drawn as it arrives, with no motion, so nothing jumps while it loads.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+-%}
+<style>
+  #shopify-section-{{ sid }} .c2h { --ink: {{ st.ink }}; --muted: {{ st.muted }}; --accent: {{ st.accent }}; --line: {{ st.line_color }}; background: {{ st.background }}; padding: {{ st.padding_top_mobile }}px 16px {{ st.padding_bottom_mobile }}px; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .c2h { padding: {{ st.padding_top }}px 32px {{ st.padding_bottom }}px; } }
+  #shopify-section-{{ sid }} .c2h__inner { max-width: var(--page-width, 1310px); margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 36px; align-items: center; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .c2h__inner { grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); gap: 64px; } }
+  #shopify-section-{{ sid }} .c2h__label { display: inline-flex; align-items: center; gap: 10px; margin: 0 0 22px; color: var(--ink); font-size: 13px; font-weight: 600; letter-spacing: .02em; }
+  #shopify-section-{{ sid }} .c2h__label::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent); }
+  #shopify-section-{{ sid }} .c2h__h { margin: 0; color: var(--ink); font-family: var(--heading-font, inherit); font-weight: 700; letter-spacing: -0.045em; line-height: .98; font-size: {{ st.heading_size_mobile }}px; text-wrap: balance; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .c2h__h { font-size: {{ st.heading_size }}px; } }
+  #shopify-section-{{ sid }} .c2h__h em { font-style: normal; color: var(--accent); }
+  #shopify-section-{{ sid }} .c2h__t { max-width: 52ch; margin: 24px 0 0; color: var(--muted); font-size: 18px; line-height: 1.6; }
+  #shopify-section-{{ sid }} .c2h__t p { margin: 0; }
+  #shopify-section-{{ sid }} .c2h__btns { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 32px; }
+  #shopify-section-{{ sid }} .c2h__btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 54px; padding: 0 26px; border-radius: 6px; font-size: 16px; font-weight: 600; text-decoration: none; transition: background-color .2s ease, color .2s ease, border-color .2s ease; }
+  #shopify-section-{{ sid }} .c2h__btn--a { background: var(--accent); color: #fff; }
+  #shopify-section-{{ sid }} .c2h__btn--a:hover { background: var(--ink); }
+  #shopify-section-{{ sid }} .c2h__btn--b { border: 1.5px solid var(--ink); color: var(--ink); }
+  #shopify-section-{{ sid }} .c2h__btn--b:hover { background: var(--ink); color: #fff; }
+  #shopify-section-{{ sid }} .c2h__btn svg { width: 18px; height: 18px; transition: transform .2s ease; }
+  #shopify-section-{{ sid }} .c2h__btn:hover svg { transform: translateX(3px); }
+  @media (max-width: 749px) { #shopify-section-{{ sid }} .c2h__btn { flex: 1 1 100%; } }
+  #shopify-section-{{ sid }} .c2h__facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 40px 0 0; padding: 22px 0 0; border-top: 1px solid var(--line); list-style: none; }
+  #shopify-section-{{ sid }} .c2h__facts b { display: block; color: var(--ink); font-family: var(--heading-font, inherit); font-size: 22px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .c2h__facts b { font-size: 26px; } }
+  #shopify-section-{{ sid }} .c2h__facts span { display: block; margin-top: 4px; color: var(--muted); font-size: 13.5px; line-height: 1.4; }
+  #shopify-section-{{ sid }} .c2h__media { position: relative; margin: 0; }
+  #shopify-section-{{ sid }} .c2h__frame { position: relative; aspect-ratio: 4 / 5; border-radius: 8px; overflow: hidden; background: #e8eaee; }
+  #shopify-section-{{ sid }} .c2h__frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: {{ st.image_focus }}; margin: 0; }
+  #shopify-section-{{ sid }} .c2h__card { position: absolute; left: 16px; right: 16px; bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 16px 18px; border-radius: 8px; background: #fff; color: var(--ink); text-decoration: none; box-shadow: 0 10px 30px rgba(15,17,21,.14); transition: transform .25s ease; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .c2h__card { left: -32px; right: auto; bottom: 32px; max-width: 320px; } }
+  #shopify-section-{{ sid }} .c2h__card:hover { transform: translateY(-2px); }
+  #shopify-section-{{ sid }} .c2h__card small { display: block; color: var(--muted); font-size: 12.5px; }
+  #shopify-section-{{ sid }} .c2h__card strong { display: block; margin-top: 2px; font-size: 15.5px; font-weight: 600; line-height: 1.3; }
+  #shopify-section-{{ sid }} .c2h__card i { display: grid; place-items: center; width: 38px; height: 38px; flex: none; border-radius: 50%; background: var(--accent); color: #fff; }
+  #shopify-section-{{ sid }} .c2h__card i svg { width: 16px; height: 16px; }
+</style>
+
+<div class="c2h color-{{ color_scheme }}">
+  <div class="c2h__inner">
+    <div>
+      {%- if st.label != blank -%}<p class="c2h__label">{{ st.label | escape }}</p>{%- endif -%}
+      {%- if st.heading != blank -%}<h1 class="c2h__h">{{ st.heading }}</h1>{%- endif -%}
+      {%- if st.text != blank -%}<div class="c2h__t">{{ st.text }}</div>{%- endif -%}
+      <div class="c2h__btns">
+        {%- if st.button_label != blank -%}<a class="c2h__btn c2h__btn--a" href="{{ st.button_link | default: '/pages/book' }}">{{ st.button_label | escape }}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>{%- endif -%}
+        {%- if st.button2_label != blank -%}<a class="c2h__btn c2h__btn--b" href="{{ st.button2_link | default: '/collections/all' }}">{{ st.button2_label | escape }}</a>{%- endif -%}
+      </div>
+      <ul class="c2h__facts">
+        {%- for f in (1..3) -%}
+          {%- assign kv = 'fact_' | append: f | append: '_value' -%}
+          {%- assign kl = 'fact_' | append: f | append: '_label' -%}
+          {%- if st[kv] != blank -%}<li><b>{{ st[kv] | escape }}</b><span>{{ st[kl] | escape }}</span></li>{%- endif -%}
+        {%- endfor -%}
+      </ul>
+    </div>
+    <figure class="c2h__media">
+      <div class="c2h__frame">
+        {%- if st.image != blank -%}
+          <img src="{{ st.image | image_url: width: 1000 }}" srcset="{{ st.image | image_url: width: 600 }} 600w, {{ st.image | image_url: width: 1000 }} 1000w, {{ st.image | image_url: width: 1300 }} 1300w" sizes="(min-width: 990px) 520px, 94vw" width="{{ st.image.width | default: 1000 }}" height="{{ st.image.height | default: 1250 }}" alt="{{ st.image_alt | default: st.image.alt | escape }}" fetchpriority="high" decoding="async">
+        {%- endif -%}
+      </div>
+      {%- if st.card_title != blank -%}
+        <a class="c2h__card" href="{{ st.card_link | default: '/pages/book' }}">
+          <span><small>{{ st.card_note | escape }}</small><strong>{{ st.card_title | escape }}</strong></span>
+          <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></i>
+        </a>
+      {%- endif -%}
+    </figure>
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Coach opening, bold",
+  "tag": "section",
+  "class": "section sec__coach2-hero",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default-color-scheme" },
+    { "type": "color", "id": "background", "label": "Background", "default": "#ffffff" },
+    { "type": "color", "id": "ink", "label": "Heading colour", "default": "#0f1115" },
+    { "type": "color", "id": "muted", "label": "Text colour", "default": "#4b5160" },
+    { "type": "color", "id": "accent", "label": "Accent", "default": "#2b44ff" },
+    { "type": "color", "id": "line_color", "label": "Lines", "default": "#e4e6ea" },
+    { "type": "text", "id": "label", "label": "Small label", "default": "Coach for small business owners" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "info": "Words in italics show in the accent colour.", "default": "Say what you help people <em>do</em>" },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Who you work with and what changes for them, in one or two lines.</p>" },
+    { "type": "text", "id": "button_label", "label": "First button", "default": "Book a free call" },
+    { "type": "url", "id": "button_link", "label": "First button link" },
+    { "type": "text", "id": "button2_label", "label": "Second button", "default": "Ways to work together" },
+    { "type": "url", "id": "button2_link", "label": "Second button link" },
+    { "type": "header", "content": "Facts under the buttons" },
+    { "type": "text", "id": "fact_1_value", "label": "Fact 1", "default": "20 min" },
+    { "type": "text", "id": "fact_1_label", "label": "Fact 1, under it", "default": "First call, free" },
+    { "type": "text", "id": "fact_2_value", "label": "Fact 2", "default": "1:1" },
+    { "type": "text", "id": "fact_2_label", "label": "Fact 2, under it", "default": "Or in a small group" },
+    { "type": "text", "id": "fact_3_value", "label": "Fact 3", "default": "Online" },
+    { "type": "text", "id": "fact_3_label", "label": "Fact 3, under it", "default": "Or in person" },
+    { "type": "header", "content": "Photograph" },
+    { "type": "image_picker", "id": "image", "label": "Photograph", "info": "Tall, about 4 by 5." },
+    { "type": "text", "id": "image_alt", "label": "Alt text" },
+    { "type": "select", "id": "image_focus", "label": "Keep in view", "options": [ { "value": "center", "label": "Middle" }, { "value": "center top", "label": "Top" }, { "value": "left center", "label": "Left" }, { "value": "right center", "label": "Right" } ], "default": "center" },
+    { "type": "text", "id": "card_note", "label": "Card, small line", "default": "Not sure yet?" },
+    { "type": "text", "id": "card_title", "label": "Card, main line", "default": "Book a free 20 minute call" },
+    { "type": "url", "id": "card_link", "label": "Card link" },
+    { "type": "header", "content": "Size and space" },
+    { "type": "range", "id": "heading_size", "label": "Heading size, desktop", "min": 40, "max": 104, "step": 2, "unit": "px", "default": 80 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size, phone", "min": 30, "max": 60, "step": 2, "unit": "px", "default": 44 },
+    { "type": "range", "id": "padding_top", "label": "Space above, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 56 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 88 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 28 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 }
+  ],
+  "presets": [ { "name": "Coach opening, bold" } ]
+}
+{% endschema %}

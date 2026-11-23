@@ -1,185 +1,543 @@
 {
   "sections": {
     "hero": {
-      "type": "coach-hero",
+      "type": "coachpro-hero",
       "settings": {
-        "color_scheme": "default",
-        "background": "#faf6f0",
-        "accent_color": "#a5582a",
-        "eyebrow": "Life and business coach",
-        "heading": "Make room for the life you <em>actually</em> want",
-        "text": "<p>I help women who are changing course get clear on what they want, make the braver decision, and build a business and a week with space in them.</p>",
-        "button_label": "Book a free call",
-        "button_link": "/pages/book",
-        "button2_label": "See the sessions",
-        "button2_link": "/collections/all",
-        "note": "In Bristol and online. The first call is free.",
-        "image": "shopify://shop_images/coach-hero.webp",
-        "image_alt": "Leah at her desk in her studio, laptop open, smiling",
-        "image_shape": "arch",
-        "image_focus": "55% 30%",
-        "heading_size": 74,
-        "heading_size_mobile": 44,
-        "padding_top": 48,
-        "padding_bottom": 88
+        "image": "shopify://shop_images/coachpro-hero.webp",
+        "image_alt": "Camila Duarte in a white suit, smiling, against a dark wall",
+        "focus_y": 14,
+        "image_side": "right",
+        "eyebrow": "Business coach for creative founders",
+        "heading": "Run a creative business that <em>pays you</em> properly",
+        "text": "<p>I help designers, makers and studio owners price with confidence, win better clients and get their evenings back. Ten years running my own interior studio taught me most of it the hard way.</p>",
+        "button_label": "Get the free pricing worksheet",
+        "button_link": "/#free-guide",
+        "link_label": "Watch the show",
+        "link_url": "/#show",
+        "note": "<strong>New episodes every Tuesday.</strong> The Studio Hours, on video and wherever you listen.",
+        "background": "#16120f",
+        "accent_color": "#ff6a3d",
+        "heading_color": "#ffffff",
+        "text_color": "#cfc6bc",
+        "eyebrow_color": "#f3ece4",
+        "button_text_color": "#16120f",
+        "heading_size": 100,
+        "heading_size_mobile": 50,
+        "height": 800
       }
     },
     "hello": {
-      "type": "coach-split",
+      "type": "coachpro-hello",
       "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "background": "#f2e8dc",
-        "accent_color": "#a5582a",
-        "image": "shopify://shop_images/coach-about.webp",
-        "image_alt": "Leah holding a cup of coffee at her desk",
-        "image_position": "left",
-        "image_shape": "rect",
-        "image_ratio": "4 / 5",
-        "image_radius": 4,
-        "eyebrow": "Hello, I'm Leah",
-        "heading": "For the woman who has <em>outgrown the plan</em>",
-        "text": "<p>You did what was expected: the degree, the promotion, the full diary. Now something is asking for more room, and a clearer idea of what comes next.</p><p>I spent eleven years in HR helping other people change jobs before I trained as a coach. Today I help women turn that restless feeling into a plan, one honest conversation and one small step at a time.</p>",
-        "signature": "Leah",
-        "button_label": "More about me",
-        "button_link": "/pages/about"
+        "eyebrow": "Hello there",
+        "name": "I'm",
+        "name_second": "Camila.",
+        "text": "<p>Maybe a friend sent you a clip from the show, or you found the pricing worksheet late one night with a quote you did not know how to send. Either way, I am glad you are here.</p><p>I ran an interior design studio for ten years. The design was the easy part. Pricing, saying no and getting home before nine took me much longer, so now I teach exactly that.</p>",
+        "button_label": "My story",
+        "button_link": "/pages/about",
+        "handle": "@camiladuarte.studio",
+        "image": "shopify://shop_images/coachpro-hello.webp",
+        "image_alt": "Camila Duarte at her desk in the studio",
+        "tag": "Lisbon studio, clients everywhere",
+        "background": "#efe6da",
+        "accent_color": "#c2421f",
+        "heading_color": "#16120f",
+        "text_color": "#4a4038",
+        "name_size": 140,
+        "name_size_mobile": 78,
+        "padding_top": 96,
+        "padding_top_mobile": 64
+      },
+      "blocks": {
+        "social_1": {
+          "type": "social",
+          "settings": {
+            "platform": "instagram",
+            "url": "https://www.instagram.com"
+          }
+        },
+        "social_2": {
+          "type": "social",
+          "settings": {
+            "platform": "youtube",
+            "url": "https://www.youtube.com"
+          }
+        },
+        "social_3": {
+          "type": "social",
+          "settings": {
+            "platform": "linkedin",
+            "url": "https://www.linkedin.com"
+          }
+        },
+        "social_4": {
+          "type": "social",
+          "settings": {
+            "platform": "podcast",
+            "url": "/pages/podcast"
+          }
+        }
+      },
+      "block_order": [
+        "social_1",
+        "social_2",
+        "social_3",
+        "social_4"
+      ]
+    },
+    "press": {
+      "type": "coachpro-press",
+      "settings": {
+        "heading": "You might have heard me on",
+        "note": "Placeholder names. Put the shows and papers that featured you here.",
+        "background": "#16120f",
+        "heading_color": "#ffffff",
+        "logo_color": "#f3ece4",
+        "note_color": "#a39a90",
+        "padding": 60,
+        "padding_mobile": 48
+      },
+      "blocks": {
+        "outlet_1": {
+          "type": "outlet",
+          "settings": {
+            "name": "The Journal",
+            "style": "serif"
+          }
+        },
+        "outlet_2": {
+          "type": "outlet",
+          "settings": {
+            "name": "Podcast",
+            "style": "caps"
+          }
+        },
+        "outlet_3": {
+          "type": "outlet",
+          "settings": {
+            "name": "Magazine",
+            "style": "italic"
+          }
+        },
+        "outlet_4": {
+          "type": "outlet",
+          "settings": {
+            "name": "Radio",
+            "style": "box"
+          }
+        },
+        "outlet_5": {
+          "type": "outlet",
+          "settings": {
+            "name": "Design Weekly",
+            "style": "wide"
+          }
+        },
+        "outlet_6": {
+          "type": "outlet",
+          "settings": {
+            "name": "newsletter",
+            "style": "round"
+          }
+        },
+        "outlet_7": {
+          "type": "outlet",
+          "settings": {
+            "name": "Live Stage",
+            "style": "caps"
+          }
+        }
+      },
+      "block_order": [
+        "outlet_1",
+        "outlet_2",
+        "outlet_3",
+        "outlet_4",
+        "outlet_5",
+        "outlet_6",
+        "outlet_7"
+      ]
+    },
+    "programmes": {
+      "type": "coachpro-programmes",
+      "settings": {
+        "eyebrow": "Work with me",
+        "heading": "Three ways to <em>work together</em>",
+        "alternate": false,
+        "background": "#fbf8f4",
+        "card_color": "#f2ebe2",
+        "eyebrow_color": "#c2421f",
+        "heading_color": "#16120f",
+        "text_color": "#4a4038",
+        "padding_top": 104,
+        "padding_bottom": 64,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 40
+      },
+      "blocks": {
+        "programme_1": {
+          "type": "programme",
+          "settings": {
+            "label": "Studio Foundations",
+            "heading": "A studio that runs on <em>purpose</em>, not on overtime",
+            "text": "<p>Twelve weeks in a small group to set prices you can say out loud, find two or three clients worth keeping, and build a week with real edges. One live call every Tuesday, short lessons in between, and me in your corner.</p>",
+            "facts": "12 weeks | Live calls on Tuesdays | 12 places",
+            "color": "#c2421f",
+            "button_label": "See the programme",
+            "button_link": "/pages/programmes",
+            "link_label": "Read the stories",
+            "link_url": "/pages/programmes#stories",
+            "image": "shopify://shop_images/coachpro-foundations.webp",
+            "image_alt": "Camila Duarte, Studio Foundations",
+            "pin_title": "Next round starts 3 March",
+            "pin_text": "Twelve places, applications open"
+          }
+        },
+        "programme_2": {
+          "type": "programme",
+          "settings": {
+            "label": "Price It Right",
+            "heading": "Price your next project <em>in an afternoon</em>",
+            "text": "<p>A short self paced course on the numbers behind a fair quote: your real hourly cost, a day rate that holds, and how to present a price without apologising for it. Comes with the calculator I still use.</p>",
+            "facts": "Self paced | About three hours | Calculator included",
+            "color": "#2f5d50",
+            "button_label": "Start the course",
+            "button_link": "/collections/all",
+            "link_label": "What is inside",
+            "link_url": "/pages/programmes",
+            "image": "shopify://shop_images/coachpro-pricing.webp",
+            "image_alt": "Camila Duarte, Price It Right",
+            "pin_title": "Start today",
+            "pin_text": "Watch the first lesson free"
+          }
+        },
+        "programme_3": {
+          "type": "programme",
+          "settings": {
+            "label": "One to one",
+            "heading": "Three months of <em>private</em> mentoring",
+            "text": "<p>For studio owners making a bigger move: hiring a first person, raising every price at once, or changing what the studio does. Fortnightly calls, a shared notebook and quick answers between calls.</p>",
+            "facts": "Three months | Fortnightly calls | Two places a quarter",
+            "color": "#16120f",
+            "button_label": "Apply for a place",
+            "button_link": "/pages/contact",
+            "link_label": "Ask a question",
+            "link_url": "/pages/faqs",
+            "image": "shopify://shop_images/coachpro-mentoring.webp",
+            "image_alt": "Camila Duarte, One to one",
+            "pin_title": "Two places each quarter",
+            "pin_text": "Short application, reply within a week"
+          }
+        }
+      },
+      "block_order": [
+        "programme_1",
+        "programme_2",
+        "programme_3"
+      ]
+    },
+    "show": {
+      "type": "coachpro-show",
+      "settings": {
+        "anchor": "show",
+        "image": "shopify://shop_images/coachpro-show.webp",
+        "image_alt": "Camila Duarte in profile against a dark wall",
+        "kind": "Podcast and video",
+        "show_name": "The Studio Hours",
+        "host": "with Camila Duarte",
+        "eyebrow": "Every Tuesday",
+        "heading": "Watch it. Listen to it. <em>Use it on Monday.</em>",
+        "text": "<p>Straight talk on pricing, clients and running a small creative business, with the occasional guest who has done it well. Watch on video or take it with you as a podcast.</p>",
+        "youtube_label": "Watch on YouTube",
+        "youtube_url": "https://www.youtube.com",
+        "apple_label": "Apple Podcasts",
+        "apple_url": "https://podcasts.apple.com",
+        "spotify_label": "Spotify",
+        "spotify_url": "https://open.spotify.com",
+        "list_heading": "The latest",
+        "all_label": "All episodes",
+        "all_url": "/pages/podcast",
+        "background": "#f8ddd2",
+        "accent_color": "#c2421f",
+        "heading_color": "#16120f",
+        "text_color": "#4a3a33",
+        "padding_top": 104,
+        "padding_bottom": 104,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56
+      },
+      "blocks": {
+        "episode_1": {
+          "type": "episode",
+          "settings": {
+            "number": "#112",
+            "title": "Why your busiest month made the least money",
+            "meta": "Solo episode, 38 min",
+            "url": "https://www.youtube.com"
+          }
+        },
+        "episode_2": {
+          "type": "episode",
+          "settings": {
+            "number": "#111",
+            "title": "Raising prices without losing the clients you love",
+            "meta": "With a furniture maker from Porto, 44 min",
+            "url": "https://www.youtube.com"
+          }
+        },
+        "episode_3": {
+          "type": "episode",
+          "settings": {
+            "number": "#110",
+            "title": "The one page plan I write every January",
+            "meta": "Solo episode, 29 min",
+            "url": "https://www.youtube.com"
+          }
+        },
+        "episode_4": {
+          "type": "episode",
+          "settings": {
+            "number": "#109",
+            "title": "Saying no to the wrong project, kindly",
+            "meta": "With a brand designer, 33 min",
+            "url": "https://www.youtube.com"
+          }
+        }
+      },
+      "block_order": [
+        "episode_1",
+        "episode_2",
+        "episode_3",
+        "episode_4"
+      ]
+    },
+    "stories": {
+      "type": "coachpro-stories",
+      "settings": {
+        "anchor": "stories",
+        "eyebrow": "Client stories",
+        "heading": "Will you be the next <em>success story</em>?",
+        "sample_label": "Sample",
+        "footnote": "Sample stories to show the layout. Replace them with your clients' own words and photos, with their permission.",
+        "prev_label": "Previous story",
+        "next_label": "Next story",
+        "background": "#ffffff",
+        "card_color": "#f5efe7",
+        "accent_color": "#c2421f",
+        "heading_color": "#16120f",
+        "text_color": "#4a4038",
+        "padding_top": 104,
+        "padding_bottom": 104,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56
+      },
+      "blocks": {
+        "story_1": {
+          "type": "story",
+          "settings": {
+            "programme": "Studio Foundations",
+            "quote": "I raised my day rate by a third and the clients I actually wanted stayed. The worksheet alone paid for the programme.",
+            "avatar": "shopify://shop_images/coachpro-client-1.webp",
+            "name": "Mei L.",
+            "role": "Ceramics studio",
+            "sample": true
+          }
+        },
+        "story_2": {
+          "type": "story",
+          "settings": {
+            "programme": "Price It Right",
+            "quote": "For the first time I know what a project earns before I say yes to it, not three months after.",
+            "avatar": "shopify://shop_images/coachpro-client-2.webp",
+            "name": "Hanna V.",
+            "role": "Brand designer",
+            "sample": true
+          }
+        },
+        "story_3": {
+          "type": "story",
+          "settings": {
+            "programme": "One to one",
+            "quote": "We went from four day weeks that ran to ten hours each to a proper Friday off, and the studio earns more.",
+            "avatar": "shopify://shop_images/coachpro-client-3.webp",
+            "name": "Rosa M.",
+            "role": "Interior studio owner",
+            "sample": true
+          }
+        },
+        "story_4": {
+          "type": "story",
+          "settings": {
+            "programme": "Studio Foundations",
+            "quote": "Camila asks the question you were hoping nobody would ask, then helps you answer it. Every single Tuesday.",
+            "avatar": "shopify://shop_images/coachpro-client-4.webp",
+            "name": "Joan P.",
+            "role": "Architect",
+            "sample": true
+          }
+        },
+        "story_5": {
+          "type": "story",
+          "settings": {
+            "programme": "Price It Right",
+            "quote": "I stopped offering a discount on the first call. That one change was worth the whole course.",
+            "avatar": "shopify://shop_images/coachpro-client-5.webp",
+            "name": "Tom R.",
+            "role": "Furniture maker",
+            "sample": true
+          }
+        }
+      },
+      "block_order": [
+        "story_1",
+        "story_2",
+        "story_3",
+        "story_4",
+        "story_5"
+      ]
+    },
+    "guide": {
+      "type": "coachpro-optin",
+      "settings": {
+        "anchor": "free-guide",
+        "image": "shopify://shop_images/coachpro-guide.webp",
+        "image_alt": "Camila Duarte reading a large plan on the floor of her studio",
+        "focus_y": 44,
+        "label": "Free worksheet",
+        "heading": "Price your next project in <em>twenty minutes</em>",
+        "text": "<p>The same worksheet I use with every client: your real cost per hour, a day rate you can defend, and a short script for sending the number.</p>",
+        "points": "A two page worksheet to print or fill in\nA ten minute video walking through it\nThe Sunday letter, one idea a week",
+        "show_name": true,
+        "name_placeholder": "First name",
+        "email_placeholder": "Your email",
+        "button_label": "Send me the worksheet",
+        "tag": "pricing-worksheet",
+        "note": "No spam. Unsubscribe in one click.",
+        "success_text": "Thank you. The worksheet is on its way to your inbox.",
+        "invalid_text": "Enter a valid email address.",
+        "background": "#fbf8f4",
+        "panel_color": "#16120f",
+        "accent_color": "#ff6a3d",
+        "heading_color": "#ffffff",
+        "text_color": "#cfc6bc",
+        "note_color": "#a39a90",
+        "button_text_color": "#16120f",
+        "padding_top": 40,
+        "padding_bottom": 104,
+        "padding_top_mobile": 24,
+        "padding_bottom_mobile": 56
       }
     },
-    "offers": {
-      "type": "coach-offers",
+    "moments": {
+      "type": "coachpro-moments",
       "settings": {
-        "color_scheme": "default",
-        "background": "#faf6f0",
-        "card_color": "#ffffff",
-        "accent_color": "#a5582a",
-        "eyebrow": "Ways to work together",
-        "heading": "Coaching that fits <em>your week</em>",
-        "columns": "3",
-        "image_ratio": "4 / 3",
-        "card_radius": 4
+        "heading": "Behind the scenes",
+        "link_label": "Follow along on Instagram",
+        "link_url": "https://www.instagram.com",
+        "background": "#fbf8f4",
+        "heading_color": "#16120f",
+        "padding_top": 88,
+        "padding_bottom": 88,
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 48
       },
       "blocks": {
-        "offer_1": {
-          "type": "offer",
+        "photo_1": {
+          "type": "photo",
           "settings": {
-            "image": "shopify://shop_images/coach-offer-one.webp",
-            "alt": "Two armchairs side by side in a quiet room",
-            "label": "Six sessions",
-            "title": "One to one coaching",
-            "text": "Private sessions to untangle one big decision and leave with a plan you will actually keep.",
-            "price": "From $160",
-            "link_label": "See the details",
-            "link": "/collections/all"
+            "image": "shopify://shop_images/coachpro-moment-sofa.webp",
+            "alt": "Camila on a white sofa in the studio",
+            "caption": "The studio, Lisbon"
           }
         },
-        "offer_2": {
-          "type": "offer",
+        "photo_2": {
+          "type": "photo",
           "settings": {
-            "image": "shopify://shop_images/coach-offer-group.webp",
-            "alt": "Four women talking around a café table",
-            "label": "Eight weeks",
-            "title": "The Clear Path group",
-            "text": "Eight Tuesday evenings with five other women at the same crossroads, online.",
-            "price": "$480",
-            "link_label": "See the details",
-            "link": "/collections/all"
+            "image": "shopify://shop_images/coachpro-moment-plans.webp",
+            "alt": "Camila holding rolled plans",
+            "caption": "Ten years of floor plans"
           }
         },
-        "offer_3": {
-          "type": "offer",
+        "photo_3": {
+          "type": "photo",
           "settings": {
-            "image": "shopify://shop_images/coach-offer-online.webp",
-            "alt": "Leah on a video call at her desk",
-            "label": "Anywhere",
-            "title": "Online sessions",
-            "text": "The same focus and follow up as in person, on a video call that fits around your day.",
-            "price": "From $140",
-            "link_label": "See the details",
-            "link": "/collections/all"
+            "image": "shopify://shop_images/coachpro-moment-studio.webp",
+            "alt": "Camila sitting in the studio in the evening",
+            "caption": "Recording day"
+          }
+        },
+        "photo_4": {
+          "type": "photo",
+          "settings": {
+            "image": "shopify://shop_images/coachpro-moment-floor.webp",
+            "alt": "Camila on the floor with plans and drawings",
+            "caption": "Planning the next round"
+          }
+        },
+        "photo_5": {
+          "type": "photo",
+          "settings": {
+            "image": "shopify://shop_images/coachpro-moment-desk.webp",
+            "alt": "Camila writing at her desk",
+            "caption": "Writing the Sunday letter"
+          }
+        },
+        "photo_6": {
+          "type": "photo",
+          "settings": {
+            "image": "shopify://shop_images/coachpro-moment-reading.webp",
+            "alt": "Camila reading on the sofa",
+            "caption": "Saturday reading"
           }
         }
       },
       "block_order": [
-        "offer_1",
-        "offer_2",
-        "offer_3"
+        "photo_1",
+        "photo_2",
+        "photo_3",
+        "photo_4",
+        "photo_5",
+        "photo_6"
       ]
     },
-    "facts": {
-      "type": "coach-stats",
+    "start": {
+      "type": "coachpro-start",
       "settings": {
-        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
-        "background": "#3a2a21",
-        "figure_color": "#faf6f0",
-        "text_color": "#d8c8b7",
-        "line_color": "#55433a"
-      },
-      "blocks": {
-        "fact_1": {
-          "type": "fact",
-          "settings": {
-            "value": "50 min",
-            "label": "Each session"
-          }
-        },
-        "fact_2": {
-          "type": "fact",
-          "settings": {
-            "value": "6",
-            "label": "Sessions in a programme"
-          }
-        },
-        "fact_3": {
-          "type": "fact",
-          "settings": {
-            "value": "20 min",
-            "label": "Free first call"
-          }
-        },
-        "fact_4": {
-          "type": "fact",
-          "settings": {
-            "value": "3",
-            "label": "Ways to work together"
-          }
-        }
-      },
-      "block_order": [
-        "fact_1",
-        "fact_2",
-        "fact_3",
-        "fact_4"
-      ]
-    },
-    "steps": {
-      "type": "coach-steps",
-      "settings": {
-        "color_scheme": "default",
-        "background": "#faf6f0",
-        "accent_color": "#a5582a",
-        "line_color": "#d9c6b0",
-        "eyebrow": "How it works",
-        "heading": "From stuck to <em>started</em> in three steps"
+        "eyebrow": "New here",
+        "heading": "Not sure where to <em>start</em>?",
+        "text": "<p>Three good first steps, depending on how much time you have this week.</p>",
+        "background": "#16120f",
+        "accent_color": "#ff6a3d",
+        "heading_color": "#ffffff",
+        "text_color": "#cfc6bc",
+        "padding_top": 112,
+        "padding_bottom": 112,
+        "padding_top_mobile": 64,
+        "padding_bottom_mobile": 64
       },
       "blocks": {
         "step_1": {
           "type": "step",
           "settings": {
-            "title": "Talk",
-            "text": "A free 20 minute call to hear where you are, what you want to change and whether we are a good fit."
+            "title": "Listen to the show",
+            "text": "Start with episode #112, on the busy month that pays the least.",
+            "url": "/pages/podcast"
           }
         },
         "step_2": {
           "type": "step",
           "settings": {
-            "title": "Plan",
-            "text": "Together we shape a plan around your real life: clear goals, honest priorities and the first few steps."
+            "title": "Get the free worksheet",
+            "text": "Price your next project in twenty minutes.",
+            "url": "/#free-guide"
           }
         },
         "step_3": {
           "type": "step",
           "settings": {
-            "title": "Do",
-            "text": "Regular sessions keep you moving, with notes after each one and a short check in between calls."
+            "title": "Work with me",
+            "text": "A group programme, a short course or private mentoring.",
+            "url": "/pages/programmes"
           }
         }
       },
@@ -188,177 +546,17 @@
         "step_2",
         "step_3"
       ]
-    },
-    "quote": {
-      "type": "coach-quote",
-      "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "background": "#f2e8dc",
-        "accent_color": "#a5582a",
-        "eyebrow": "Client words",
-        "quote": "Working with Leah was the first time a plan felt like mine. Three months later I have a new role and my Sundays back.",
-        "author": "Hannah, product manager",
-        "note": "Sample quote. Replace it with a client's own words, with their permission."
-      }
-    },
-    "next": {
-      "type": "coach-cta",
-      "settings": {
-        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
-        "background": "#3a2a21",
-        "heading_color": "#faf6f0",
-        "text_color": "#d8c8b7",
-        "accent_color": "#e2a271",
-        "button_color": "#b8693a",
-        "eyebrow": "Your next step",
-        "heading": "Ready when <em>you are</em>",
-        "text": "<p>Book a free 20 minute call. No pressure and no pitch, just a real conversation about where you want to go.</p>",
-        "button_label": "Book your free call",
-        "button_link": "/pages/book",
-        "button2_label": "Ask a question",
-        "button2_link": "/pages/contact"
-      }
-    },
-    "journal": {
-      "type": "coach-journal",
-      "settings": {
-        "color_scheme": "default",
-        "background": "#faf6f0",
-        "accent_color": "#a5582a",
-        "eyebrow": "From the journal",
-        "heading": "Notes for <em>busy minds</em>",
-        "more_label": "Read more",
-        "button_label": "Read the journal",
-        "button_link": "/blogs/news"
-      },
-      "blocks": {
-        "post_1": {
-          "type": "post",
-          "settings": {
-            "image": "shopify://shop_images/coach-journal-1.webp",
-            "alt": "Coffee and an open planner on a white table",
-            "topic": "Mindset",
-            "title": "Five small habits that make Mondays lighter",
-            "text": "Little things done on Sunday evening that take the weight off the week ahead.",
-            "link": "/blogs/news"
-          }
-        },
-        "post_2": {
-          "type": "post",
-          "settings": {
-            "image": "shopify://shop_images/coach-journal-2.webp",
-            "alt": "An open planner on a wooden desk beside a mug",
-            "topic": "Goals",
-            "title": "How to set goals you still care about in March",
-            "text": "Goals stick when they belong to you. Three questions to check yours.",
-            "link": "/blogs/news"
-          }
-        },
-        "post_3": {
-          "type": "post",
-          "settings": {
-            "image": "shopify://shop_images/coach-journal-3.webp",
-            "alt": "A notebook and a pen on a blanket",
-            "topic": "Business",
-            "title": "The 20 minute review I do every Friday",
-            "text": "What worked, what did not, and the one thing to carry into next week.",
-            "link": "/blogs/news"
-          }
-        }
-      },
-      "block_order": [
-        "post_1",
-        "post_2",
-        "post_3"
-      ]
-    },
-    "gallery": {
-      "type": "coach-gallery",
-      "settings": {
-        "color_scheme": "default",
-        "background": "#faf6f0",
-        "accent_color": "#a5582a",
-        "label": "Follow along @leahmorgan.coaching",
-        "link": "https://www.instagram.com",
-        "gap": 4,
-        "padding_top": 24,
-        "padding_top_mobile": 8
-      },
-      "blocks": {
-        "picture_1": {
-          "type": "picture",
-          "settings": {
-            "image": "shopify://shop_images/coach-grid-1.webp",
-            "alt": "Leah working at her desk"
-          }
-        },
-        "picture_2": {
-          "type": "picture",
-          "settings": {
-            "image": "shopify://shop_images/coach-grid-2.webp",
-            "alt": "Tea on an open book beside a blanket"
-          }
-        },
-        "picture_3": {
-          "type": "picture",
-          "settings": {
-            "image": "shopify://shop_images/coach-grid-3.webp",
-            "alt": "Coffee and a notebook in morning light"
-          }
-        },
-        "picture_4": {
-          "type": "picture",
-          "settings": {
-            "image": "shopify://shop_images/coach-grid-4.webp",
-            "alt": "An armchair in warm evening light"
-          }
-        },
-        "picture_5": {
-          "type": "picture",
-          "settings": {
-            "image": "shopify://shop_images/coach-grid-5.webp",
-            "alt": "Leah smiling at her desk with her phone in her hands"
-          }
-        }
-      },
-      "block_order": [
-        "picture_1",
-        "picture_2",
-        "picture_3",
-        "picture_4",
-        "picture_5"
-      ]
-    },
-    "guide": {
-      "type": "coach-guide",
-      "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "background": "#f2e8dc",
-        "accent_color": "#a5582a",
-        "image": "shopify://shop_images/coach-guide.webp",
-        "image_alt": "Hands writing in a journal",
-        "eyebrow": "Free guide",
-        "heading": "The seven day <em>clarity reset</em>",
-        "text": "<p>Seven short exercises, one a day, to name what you want and choose your next step with confidence.</p>",
-        "points": "Ten minutes a day\nPrintable worksheets\nA simple plan for the month ahead",
-        "email_placeholder": "Your email",
-        "button_label": "Send me the guide",
-        "button_color": "#a5582a",
-        "tag": "free-guide",
-        "note": "After the guide, a short letter on Sundays. Leave whenever you like."
-      }
     }
   },
   "order": [
     "hero",
     "hello",
-    "offers",
-    "facts",
-    "steps",
-    "quote",
-    "next",
-    "journal",
-    "gallery",
-    "guide"
+    "press",
+    "programmes",
+    "show",
+    "stories",
+    "guide",
+    "moments",
+    "start"
   ]
 }

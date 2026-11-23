@@ -47,18 +47,18 @@
   @media (max-width: 599px) { #shopify-section-{{ sid }} .cpg__btn { flex: 1 1 100%; } }
   #shopify-section-{{ sid }} .cpg__media { position: relative; margin: 0; aspect-ratio: 5 / 4; border-radius: 16px; overflow: hidden; background: #e3d7c8; }
   @media (min-width: 990px) { #shopify-section-{{ sid }} .cpg__media { aspect-ratio: 22 / 25; border-radius: 18px; } }
-  #shopify-section-{{ sid }} .cpg__media img, #shopify-section-{{ sid }} .cpg__media svg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform 1.2s cubic-bezier(.2,.65,.25,1); }
+  #shopify-section-{{ sid }} .cpg__media > img, #shopify-section-{{ sid }} .cpg__media > svg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform 1.2s cubic-bezier(.2,.65,.25,1); }
   #shopify-section-{{ sid }} .cpg__card:hover .cpg__media img { transform: scale(1.03); }
   #shopify-section-{{ sid }} .cpg__pin { position: absolute; left: 14px; bottom: 14px; right: 14px; display: flex; align-items: center; gap: 12px; max-width: 300px; padding: 12px 14px; border-radius: 14px; background: rgba(255,255,255,.94); box-shadow: 0 10px 30px -12px rgba(0,0,0,.35); }
   #shopify-section-{{ sid }} .cpg__dot { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 50%; background: var(--c); display: grid; place-items: center; color: #fff; }
-  #shopify-section-{{ sid }} .cpg__dot svg { width: 16px; height: 16px; }
+  #shopify-section-{{ sid }} .cpg__dot svg { position: static; display: block; width: 16px; height: 16px; }
   #shopify-section-{{ sid }} .cpg__pin b { display: block; color: #16120f; font-size: 14px; font-weight: 600; line-height: 1.25; }
   #shopify-section-{{ sid }} .cpg__pin span { display: block; color: #6a5f55; font-size: 12.5px; line-height: 1.3; }
   #shopify-section-{{ sid }} [data-cpr].cpr-wait { opacity: 0; transform: translate3d(0, 24px, 0); }
   #shopify-section-{{ sid }} [data-cpr].cpr-in { opacity: 1; transform: none; transition: opacity .9s cubic-bezier(.2,.65,.25,1), transform .9s cubic-bezier(.2,.65,.25,1); }
   @media (prefers-reduced-motion: reduce) { #shopify-section-{{ sid }} .cpg__media img, #shopify-section-{{ sid }} .cpg__btn { transition: none; } }
 </style>
-<section class="cpg{% if st.alternate %} cpg--alt{% endif %}">
+<section data-own-size class="cpg{% if st.alternate %} cpg--alt{% endif %}">
   {%- if st.heading != blank or st.eyebrow != blank -%}
     <div class="cpg__head">
       {%- if st.eyebrow != blank -%}<p class="cpg__eyebrow">{{ st.eyebrow | escape }}</p>{%- endif -%}

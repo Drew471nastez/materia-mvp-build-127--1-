@@ -1,0 +1,100 @@
+{%- comment -%}
+  Digital Renaissance: the promise and who it is for. A large centred
+  paragraph where the bold words are lit with a gold underline as it comes
+  into view, then a heading and up to four cards (blocks), each with a
+  small line icon, a title and a line.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign n = section.blocks.size
+  if n > 4
+    assign n = 4
+  endif
+  if n < 1
+    assign n = 1
+  endif
+-%}
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap">
+<style>
+  #shopify-section-{{ sid }} .rna { --gold: {{ st.gold | default: '#f2bd4f' }}; --lapis: {{ st.accent | default: '#3d5afe' }}; background: {{ st.background | default: '#07080d' }}; color: {{ st.text_color | default: '#a7adbf' }}; padding: {{ st.padding_top_mobile | default: 48 }}px 20px {{ st.padding_bottom_mobile | default: 56 }}px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .rna { padding: {{ st.padding_top | default: 64 }}px 40px {{ st.padding_bottom | default: 104 }}px; } }
+  #shopify-section-{{ sid }} .rna__in { max-width: 1180px; margin: 0 auto; }
+  #shopify-section-{{ sid }} .rna__lead { max-width: 980px; margin: 0 auto 72px; color: #e9ebf2; font-size: 21px; line-height: 1.55; text-align: center; letter-spacing: -.01em; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .rna__lead { font-size: 27px; margin-bottom: 112px; } }
+  #shopify-section-{{ sid }} .rna__lead p { margin: 0; }
+  #shopify-section-{{ sid }} .rna__lead strong { color: #fff; font-weight: 600; background: linear-gradient(transparent 62%, color-mix(in srgb, var(--gold) 55%, transparent) 62%, color-mix(in srgb, var(--gold) 55%, transparent) 92%, transparent 92%) no-repeat 0 0 / 100% 100%; }
+  #shopify-section-{{ sid }} .rna.is-armed .rna__lead strong { background-size: 0% 100%; transition: background-size 1s cubic-bezier(.2,.65,.25,1); }
+  #shopify-section-{{ sid }} .rna.is-armed.is-lit .rna__lead strong { background-size: 100% 100%; }
+  #shopify-section-{{ sid }} .rna.is-lit .rna__lead strong:nth-of-type(2) { transition-delay: .25s; }
+  #shopify-section-{{ sid }} .rna.is-lit .rna__lead strong:nth-of-type(3) { transition-delay: .5s; }
+  #shopify-section-{{ sid }} .rna__title { margin: 0 0 32px; color: #fff; font-family: var(--heading-font, sans-serif); font-weight: 600; font-size: 32px; line-height: 1.08; letter-spacing: -.03em; text-align: center; text-wrap: balance; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .rna__title { font-size: 48px; margin-bottom: 44px; } }
+  #shopify-section-{{ sid }} .rna__title em { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; color: var(--gold); }
+  #shopify-section-{{ sid }} .rna__grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin: 0; padding: 0; list-style: none; }
+  @media (min-width: 600px) { #shopify-section-{{ sid }} .rna__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .rna__grid { grid-template-columns: repeat({{ n }}, minmax(0, 1fr)); gap: 16px; } }
+  #shopify-section-{{ sid }} .rna__card { padding: 24px 22px 26px; border-radius: 16px; border: 1px solid rgba(255,255,255,.08); background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.015)); transition: border-color .3s ease, transform .3s ease; }
+  #shopify-section-{{ sid }} .rna__card:hover { border-color: color-mix(in srgb, var(--lapis) 60%, transparent); transform: translateY(-3px); }
+  #shopify-section-{{ sid }} .rna__ico { display: grid; place-items: center; width: 42px; height: 42px; margin-bottom: 18px; border-radius: 11px; background: color-mix(in srgb, var(--lapis) 22%, transparent); color: #c9d2ff; }
+  #shopify-section-{{ sid }} .rna__ico svg { width: 20px; height: 20px; }
+  #shopify-section-{{ sid }} .rna__name { margin: 0 0 8px; color: #fff; font-family: var(--heading-font, sans-serif); font-size: 18px; font-weight: 600; letter-spacing: -.02em; }
+  #shopify-section-{{ sid }} .rna__text { margin: 0; font-size: 15px; line-height: 1.55; }
+  @media (prefers-reduced-motion: reduce) { #shopify-section-{{ sid }} .rna__card { transition: none; } }
+</style>
+<section data-own-size class="rna" data-rna{% if st.anchor != blank %} id="{{ st.anchor | handleize }}"{% endif %}>
+  <div class="rna__in">
+    {%- if st.lead != blank -%}<div class="rna__lead">{{ st.lead }}</div>{%- endif -%}
+    {%- if st.heading != blank -%}<h2 class="rna__title">{{ st.heading }}</h2>{%- endif -%}
+    <ul class="rna__grid">
+      {%- for block in section.blocks -%}
+        <li class="rna__card" {{ block.shopify_attributes }}>
+          <span class="rna__ico" aria-hidden="true">
+            {%- case block.settings.icon -%}
+              {%- when 'store' -%}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5 5.5 4h13L20 9.5M4 9.5h16M4 9.5v10h16v-10M9.5 19.5v-5h5v5"/></svg>
+              {%- when 'team' -%}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8.5" r="3"/><path d="M3.5 19c.6-3 2.8-4.8 5.5-4.8s4.9 1.8 5.5 4.8"/><circle cx="17" cy="9.5" r="2.4"/><path d="M15.8 14.4c2.3.2 4 1.7 4.7 4.6"/></svg>
+              {%- when 'chat' -%}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5h16v10H9l-5 4v-14z"/><path d="M8 10.5h8"/></svg>
+              {%- when 'pen' -%}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l1-4.5L15.5 5a2.1 2.1 0 0 1 3 3L8 18.5 4 20z"/><path d="M13.5 7l3 3"/></svg>
+              {%- else -%}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7.5" r="3.5"/><path d="M5 20c.8-4 3.5-6.2 7-6.2s6.2 2.2 7 6.2"/></svg>
+            {%- endcase -%}
+          </span>
+          <h3 class="rna__name">{{ block.settings.title | escape }}</h3>
+          <p class="rna__text">{{ block.settings.text | escape }}</p>
+        </li>
+      {%- endfor -%}
+    </ul>
+  </div>
+</section>
+{%- unless request.design_mode -%}
+<script>(function(){var r=document.querySelector('#shopify-section-{{ sid }} [data-rna]');if(!r||!('IntersectionObserver' in window)||matchMedia('(prefers-reduced-motion: reduce)').matches)return;var l=r.querySelector('.rna__lead');if(!l||l.getBoundingClientRect().top<innerHeight*.85)return;r.classList.add('is-armed');var io=new IntersectionObserver(function(es){if(!es[0].isIntersecting)return;io.disconnect();r.classList.add('is-lit')},{rootMargin:'0px 0px -20% 0px'});io.observe(l)})();</script>
+{%- endunless -%}
+
+{% schema %}
+{
+  "name": "Renaissance promise and audience",
+  "tag": "section",
+  "class": "renaissance-audience-section",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "settings": [
+    { "type": "text", "id": "anchor", "label": "Name for links to this place", "default": "for-you" },
+    { "type": "richtext", "id": "lead", "label": "Large paragraph", "default": "<p>Say what the course is in plain words. <strong>Bold words</strong> are underlined in gold as the paragraph comes into view.</p>" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "Who it is <em>for</em>" },
+    { "type": "color", "id": "background", "label": "Background", "default": "#07080d" },
+    { "type": "color", "id": "accent", "label": "Accent", "default": "#3d5afe" },
+    { "type": "color", "id": "gold", "label": "Highlight", "default": "#f2bd4f" },
+    { "type": "color", "id": "text_color", "label": "Text", "default": "#a7adbf" },
+    { "type": "range", "id": "padding_top", "label": "Space above on a computer", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 64 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below on a computer", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 104 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above on a phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 48 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below on a phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 }
+  ],
+  "blocks": [
+    { "type": "who", "name": "Who it is for", "limit": 4, "settings": [
+      { "type": "select", "id": "icon", "label": "Icon", "default": "person", "options": [ { "value": "person", "label": "Person" }, { "value": "team", "label": "Team" }, { "value": "store", "label": "Shop" }, { "value": "chat", "label": "Conversation" }, { "value": "pen", "label": "Pen" } ] },
+      { "type": "text", "id": "title", "label": "Title", "default": "Solo founders" },
+      { "type": "text", "id": "text", "label": "Line", "default": "What they get out of it." }
+    ] }
+  ],
+  "presets": [ { "name": "Renaissance promise and audience", "category": "Digital Renaissance", "blocks": [ { "type": "who" }, { "type": "who", "settings": { "icon": "team", "title": "Small teams" } }, { "type": "who", "settings": { "icon": "store", "title": "Shop owners" } } ] } ]
+}
+{% endschema %}

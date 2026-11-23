@@ -28,7 +28,7 @@
   #shopify-section-{{ sid }} .cph__form { margin-top: 28px; max-width: 500px; }
   #shopify-section-{{ sid }} .cph__row { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
   @media (min-width: 600px) { #shopify-section-{{ sid }} .cph__row { flex-direction: row; gap: 8px; } }
-  #shopify-section-{{ sid }} .cph__input { flex: 1 1 auto; min-width: 0; box-sizing: border-box; height: 56px !important; margin: 0; padding: 0 20px; border: 1.5px solid {{ st.field_border | default: '#dedcd5' }}; border-radius: {{ st.radius | default: 12 }}px; background: #fff; font: inherit; font-size: 16px; color: var(--color-heading); }
+  #shopify-section-{{ sid }} .cph__input { --input-height: 56px; height: 56px !important; min-height: 56px !important; flex: 1 1 auto; min-width: 0; box-sizing: border-box; height: 56px !important; margin: 0; padding: 0 20px; border: 1.5px solid {{ st.field_border | default: '#dedcd5' }}; border-radius: {{ st.radius | default: 12 }}px; background: #fff; font: inherit; font-size: 16px; color: var(--color-heading); }
   #shopify-section-{{ sid }} .cph__input:focus-visible { outline: 2px solid var(--cph-accent); outline-offset: 1px; }
   #shopify-section-{{ sid }} .cph__submit { flex: 0 0 auto; height: 56px; margin: 0; padding: 0 24px; border: 0; border-radius: {{ st.radius | default: 12 }}px; cursor: pointer; white-space: nowrap; background: var(--cph-btn); color: var(--cph-btn-text); font: inherit; font-size: 15.5px; font-weight: 700; transition: transform 0.2s ease, background-color 0.2s ease; }
   #shopify-section-{{ sid }} .cph__submit:hover { background: var(--cph-accent); }

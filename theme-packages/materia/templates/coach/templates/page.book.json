@@ -1,92 +1,145 @@
 {
   "sections": {
     "intro": {
-      "type": "coach-split",
+      "type": "coach2-intro",
       "settings": {
-        "color_scheme": "default",
-        "background": "#faf6f0",
-        "accent_color": "#a5582a",
-        "image": "shopify://shop_images/coach-grid-5.webp",
-        "image_alt": "Leah smiling at her desk",
-        "image_position": "right",
-        "image_shape": "arch",
-        "image_ratio": "1 / 1",
         "eyebrow": "Free first call",
-        "heading": "Book a <em>20 minute</em> call",
-        "text": "<p>Pick a time below. We talk about where you are, what you want to change and whether working together makes sense. No preparation needed, and no pitch at the end.</p>",
-        "signature": "",
-        "button_label": "",
-        "heading_size": 52,
-        "padding_top": 64,
-        "padding_bottom": 24,
-        "padding_top_mobile": 40,
-        "padding_bottom_mobile": 8
+        "heading": "Pick a <em>time</em> for your free call",
+        "text": "<p>Twenty minutes on video. Choose a time below and you get a confirmation and a link by email. Nothing to prepare.</p>",
+        "avatar": "shopify://shop_images/coach-mateo-avatar.webp",
+        "name": "Mateo Cruz",
+        "role": "Business coach",
+        "fact_1": "20 minutes",
+        "fact_2": "On video",
+        "fact_3": "Free, no pitch"
       }
     },
     "form": {
       "type": "journey-storelib-form",
       "settings": {
         "heading": "Choose a time",
-        "text": "<p>Calls are by video, with a confirmation and a link by email. If no times show here yet, write to me below and I will send you a few.</p>",
-        "text_align": "center",
+        "text": "<p>If no times show here yet, write to me below and I will send you a few.</p>",
+        "text_align": "left",
         "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "max_width": 720,
-        "padding_top_desktop": 72,
+        "max_width": 880,
+        "padding_top_desktop": 56,
         "padding_bottom_desktop": 72,
-        "padding_top_mobile": 48,
+        "padding_top_mobile": 40,
         "padding_bottom_mobile": 48
       }
     },
-    "ask": {
-      "type": "contactformsimple2",
+    "after": {
+      "type": "coach2-steps",
       "settings": {
-        "color_scheme": "default",
-        "btn_text": "Send message",
-        "ph_website": "Which session you are thinking about (optional)",
-        "label_website": "Session",
-        "success_text": "Thank you. I reply within two working days."
+        "background": "#ffffff",
+        "eyebrow": "After you book",
+        "heading": "What happens next",
+        "text": "",
+        "heading_size": 44,
+        "padding_top": 88,
+        "padding_bottom": 40
       },
       "blocks": {
-        "heading_1": {
-          "type": "heading",
+        "step_1": {
+          "type": "step",
           "settings": {
-            "text": "Rather write first?"
+            "title": "You get a confirmation",
+            "time": "Right away",
+            "text": "With the video link and a button to move the time if you need to."
           }
         },
-        "description_2": {
-          "type": "description",
+        "step_2": {
+          "type": "step",
           "settings": {
-            "text": "<p>Ask anything about the sessions, prices or timing. I reply myself, usually within two working days.</p>"
+            "title": "A short question",
+            "time": "The day before",
+            "text": "One email asking what you most want to talk about. Two lines is plenty."
           }
         },
-        "info_3": {
-          "type": "info",
+        "step_3": {
+          "type": "step",
           "settings": {
-            "icon": "mail",
-            "line1": "hello@example.com",
-            "line2": "Or use the form on this page"
-          }
-        },
-        "info_4": {
-          "type": "info",
-          "settings": {
-            "icon": "map",
-            "line1": "Bristol and online",
-            "line2": "Studio sessions by appointment"
+            "title": "We talk",
+            "time": "20 minutes",
+            "text": "Where the business is, what is stuck, and whether working together makes sense."
           }
         }
       },
       "block_order": [
-        "heading_1",
-        "description_2",
-        "info_3",
-        "info_4"
+        "step_1",
+        "step_2",
+        "step_3"
+      ]
+    },
+    "faq": {
+      "type": "coach2-faq",
+      "settings": {
+        "background": "#ffffff",
+        "main_heading": false,
+        "eyebrow": "Questions",
+        "heading": "Before you book",
+        "text": "<p>Anything else? <a href=\"/pages/contact\">Send me a message</a> and I will answer within a working day.</p>",
+        "padding_top": 72,
+        "padding_bottom": 104
+      },
+      "blocks": {
+        "question_1": {
+          "type": "question",
+          "settings": {
+            "question": "Who do you work with?",
+            "answer": "<p>Owners of companies with roughly two to twenty people: shops, studios, agencies, trades and services. If you are just starting out, the Growth Sprint is a good first step.</p>"
+          }
+        },
+        "question_2": {
+          "type": "question",
+          "settings": {
+            "question": "What happens on the free call?",
+            "answer": "<p>Twenty minutes on video. You tell me where the business is stuck, I ask a few questions, and I say honestly whether I can help. There is no pitch at the end.</p>"
+          }
+        },
+        "question_3": {
+          "type": "question",
+          "settings": {
+            "question": "How long do clients usually stay?",
+            "answer": "<p>Most stay four to six months on monthly coaching. You can stop or pause any month, with no notice period.</p>"
+          }
+        },
+        "question_4": {
+          "type": "question",
+          "settings": {
+            "question": "Do you work in person?",
+            "answer": "<p>Monthly coaching and the Growth Sprint are on video. Strategy days can be in person in Austin, at your place for a travel fee, or online.</p>"
+          }
+        },
+        "question_5": {
+          "type": "question",
+          "settings": {
+            "question": "Can my business pay for it?",
+            "answer": "<p>Yes. You get an invoice in the company's name for every payment.</p>"
+          }
+        },
+        "question_6": {
+          "type": "question",
+          "settings": {
+            "question": "What if it is not working?",
+            "answer": "<p>Tell me. If after the first month you feel it is not worth it, I refund that month.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "question_1",
+        "question_2",
+        "question_3",
+        "question_4",
+        "question_5",
+        "question_6"
       ]
     }
   },
   "order": [
     "intro",
     "form",
-    "ask"
+    "after",
+    "faq"
   ]
 }

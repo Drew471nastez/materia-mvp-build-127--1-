@@ -6,24 +6,24 @@
       "type": "footer",
       "settings": {
         "custom_text": "",
-        "padding_top": 72,
+        "padding_top": 80,
         "show_social": true,
         "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
         "custom_image": "",
         "reset_spacing": true,
         "section_width": "fluid_container",
-        "copyright_text": "\u00a9 {{ 'now' | date: '%Y' }} {{ shop.name }}. All rights reserved.",
+        "copyright_text": "© {{ 'now' | date: '%Y' }} {{ shop.name }}. All rights reserved.",
         "heading_weight": "500",
         "padding_bottom": 28,
         "separator_line": "all-page",
         "arrow_icon_size": 14,
         "link_hover_color": "",
-        "heading_transform": "uppercase",
+        "heading_transform": "none",
         "custom_text_italic": false,
         "custom_elements_gap": 22,
         "enable_custom_image": false,
         "enable_custom_style": false,
-        "footer_heading_size": 13,
+        "footer_heading_size": 24,
         "enable_custom_text_big": false,
         "enable_country_selector": false,
         "custom_image_size_mobile": 168,
@@ -42,9 +42,22 @@
             "store_email": false,
             "store_phone": false,
             "store_address": false,
-            "content_width": "40%",
-            "store_heading": "Leah Morgan Coaching",
-            "store_description": "<p>Life and business coaching for women changing course: a new role, a business of their own, a calmer week.</p>"
+            "content_width": "30%",
+            "store_heading": "Camila Duarte",
+            "store_description": "<p>Business coaching for designers, makers and studio owners. Better prices, better clients, calmer weeks.</p>"
+          }
+        },
+        "newsletter_1": {
+          "type": "newsletter",
+          "settings": {
+            "heading": "The Sunday letter",
+            "description": "<p>One idea for your studio every Sunday morning. Short enough to read with a coffee.</p>",
+            "email_placeholder": "Your email",
+            "button_label": "Sign me up",
+            "note": "<p>No spam. Unsubscribe in one click.</p>",
+            "success_text": "You are in. The next letter arrives on Sunday.",
+            "error_text": "Enter a valid email address.",
+            "content_width": "30%"
           }
         },
         "link_list_1": {
@@ -62,21 +75,13 @@
             "heading": "Good to know",
             "content_width": "18%"
           }
-        },
-        "link_list_3": {
-          "type": "link_list",
-          "settings": {
-            "menu": "footer-hello",
-            "heading": "Say hello",
-            "content_width": "18%"
-          }
         }
       },
       "block_order": [
         "store_info_1",
+        "newsletter_1",
         "link_list_1",
-        "link_list_2",
-        "link_list_3"
+        "link_list_2"
       ]
     }
   },

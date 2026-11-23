@@ -527,18 +527,6 @@
         "padding_top_mobile": 72,
         "padding_bottom_mobile": 88
       }
-    },
-    "sticky": {
-      "type": "vsl-sticky",
-      "settings": {
-        "product": "the-podcast-launch-course",
-        "text": "",
-        "show_price": true,
-        "button_label": "Join",
-        "button_link": "#join",
-        "after": 760,
-        "phone_only": false
-      }
     }
   },
   "order": [
@@ -552,7 +540,6 @@
     "offer",
     "reviews",
     "faq",
-    "final",
-    "sticky"
+    "final"
   ]
 }

@@ -2,30 +2,6 @@
   "type": "header",
   "name": "t:sections.header.name",
   "sections": {
-    "background": {
-      "type": "vsl-backdrop",
-      "settings": {
-        "style": "stars",
-        "base_color": "#050506",
-        "star_color": "#ffffff",
-        "star_density": 40,
-        "twinkles": 12,
-        "drift": true,
-        "drift_seconds": 180,
-        "gradient_from": "#1b1f3b",
-        "gradient_to": "#3a1d2e",
-        "image": "",
-        "overlay": 62,
-        "media_grey": false,
-        "glow": true,
-        "glow_color": "#ffffff",
-        "glow_strength": 12,
-        "grain": true,
-        "grain_amount": 6,
-        "see_through": true,
-        "see_through_scheme": "default"
-      }
-    },
     "header": {
       "type": "vsl-header",
       "settings": {
@@ -35,12 +11,30 @@
         "menu": "main-menu",
         "button_label": "Join the course",
         "button_link": "/#join",
-        "mark": "wave"
+        "mark": "wave",
+        "bg_on": true,
+        "bg_style": "stars",
+        "bg_base_color": "#050506",
+        "bg_star_color": "#ffffff",
+        "bg_star_density": 40,
+        "bg_twinkles": 12,
+        "bg_drift": true,
+        "bg_drift_seconds": 180,
+        "bg_gradient_from": "#1b1f3b",
+        "bg_gradient_to": "#3a1d2e",
+        "bg_overlay": 62,
+        "bg_media_grey": false,
+        "bg_glow": true,
+        "bg_glow_color": "#ffffff",
+        "bg_glow_strength": 12,
+        "bg_grain": true,
+        "bg_grain_amount": 6,
+        "bg_see_through": true,
+        "bg_see_through_scheme": "default"
       }
     }
   },
   "order": [
-    "background",
     "header"
   ]
 }

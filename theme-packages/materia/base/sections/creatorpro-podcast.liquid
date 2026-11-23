@@ -17,10 +17,9 @@
   @media (min-width: 990px) { #shopify-section-{{ sid }} .cpp__inner { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 80px; } }
   #shopify-section-{{ sid }} .cpp__cover { position: relative; overflow: hidden; aspect-ratio: 1 / 1; border-radius: {{ st.radius | default: 24 }}px; background: #222; }
   #shopify-section-{{ sid }} .cpp__cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: {{ st.image_focus | default: '50% 30%' }}; margin: 0; }
-  #shopify-section-{{ sid }} .cpp__cover::after { content: ""; position: absolute; inset: 45% 0 0; background: linear-gradient(to top, rgba(10,10,12,0.85), rgba(10,10,12,0)); }
-  #shopify-section-{{ sid }} .cpp__show { position: absolute; z-index: 1; left: 22px; right: 22px; bottom: 20px; color: #fff; }
+    #shopify-section-{{ sid }} .cpp__show { position: absolute; z-index: 1; left: 16px; bottom: 16px; max-width: calc(100% - 32px); padding: 14px 18px 16px; border-radius: 14px; background: rgba(16,17,20,0.88); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); color: #fff; }
   #shopify-section-{{ sid }} .cpp__show small { display: block; color: var(--cpp-accent); font-size: 12.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
-  #shopify-section-{{ sid }} .cpp__show strong { display: block; margin-top: 4px; font-family: var(--heading-font, inherit); font-size: 34px; line-height: 1; letter-spacing: -0.03em; }
+  #shopify-section-{{ sid }} .cpp__show strong { display: block; margin-top: 4px; font-family: var(--heading-font, inherit); font-size: 28px; line-height: 1; letter-spacing: -0.03em; }
   #shopify-section-{{ sid }} .cpp__where { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 0; padding: 0; list-style: none; }
   #shopify-section-{{ sid }} .cpp__where a { display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; border-radius: 999px; background: #fff; color: var(--color-heading); font-size: 14px; font-weight: 600; text-decoration: none; border: 1px solid {{ st.line_color | default: '#e3e1da' }}; transition: border-color 0.2s ease; }
   #shopify-section-{{ sid }} .cpp__where a:hover { border-color: var(--color-heading); }
