@@ -149,7 +149,7 @@ console.log("\n── Contact sales ──")
   check("the bar under the cards, typos fixed", /data-plan-contact=""/.test(html) && html.includes("Want a unique solution to meet your needs?") && />Contact sales</.test(html))
   check("it opens the contact form on Plan and billing", /href="\/help\/contact\?about=billing"/.test(html))
   check("not on the compact cards (onboarding, Billing tab, OnePage settings)", !/data-plan-contact/.test(compact))
-  check("the home page, /pricing and the upgrade page ask for it", /contactSales( aside=\{cardsAside\})? \/>/.test(read("components/marketing/pricing-section.tsx")) /* Changed on purpose (landing round 14): /pricing hands the cards its Compare all features link. */ /* Changed on purpose (r58): the upgrade page draws PricingSection, which asks for it. */ && /<PricingSection\b/.test(read("components/app/billing/upgrade-page-client.tsx")))
+  check("the home page, /pricing and the upgrade page ask for it", /contactSales( aside=\{cardsAside\})?( fit=\{fit\})? \/>/.test(read("components/marketing/pricing-section.tsx")) /* Changed on purpose (landing round 14): /pricing hands the cards its Compare all features link. */ /* Changed on purpose (r58): the upgrade page draws PricingSection, which asks for it. */ /* Changed on purpose (r60): the upgrade page hands its fit through. */ && /<PricingSection\b/.test(read("components/app/billing/upgrade-page-client.tsx")))
 }
 
 console.log("\n── Monthly and yearly kept ──")
