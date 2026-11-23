@@ -18,7 +18,7 @@ import { usePathname } from "next/navigation"
 
 import { hasConsent } from "@/lib/consent/client"
 import { LIVE_SEND_EVERY_MS, liveSampleRate, sampledIn, type HostKind } from "@/lib/live/live"
-import { LIVE_EVENT, actionOfRequest, createLiveQueue, receiptTokenOf, sourceOf, tabSid, type LiveQueue } from "@/lib/live/live-client"
+import { LIVE_EVENT, LIVE_SID_KEY, actionOfRequest, createLiveQueue, receiptTokenOf, sourceOf, tabSid, type LiveQueue } from "@/lib/live/live-client"
 
 const URL_PATH = "/api/live"
 
@@ -82,9 +82,18 @@ export function LiveBeacon({ host = "storelib" }: { host?: HostKind }) {
   React.useEffect(() => {
     if (!ready) return
     const main = (process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com").toLowerCase()
-    const sid = tabSid(storage(), random)
+    /* Before a yes to analytics nothing is stored on the device (the privacy policy's promise): the id lives in this page's memory only, and one kept from an earlier yes is removed. With a yes it is kept in sessionStorage for the tab. */
+    const consented = hasConsent("analytics")
+    if (!consented) {
+      try {
+        storage()?.removeItem(LIVE_SID_KEY)
+      } catch {
+        /* blocked */
+      }
+    }
+    const sid = tabSid(consented ? storage() : null, random)
     /* Sampled out (only ever below 1 when NEXT_PUBLIC_LIVE_ANON_SAMPLE says so): an anonymous tab sends nothing at all. */
-    if (!hasConsent("analytics") && !sampledIn(sid, liveSampleRate(process.env.NEXT_PUBLIC_LIVE_ANON_SAMPLE))) return
+    if (!consented && !sampledIn(sid, liveSampleRate(process.env.NEXT_PUBLIC_LIVE_ANON_SAMPLE))) return
     const queue = createLiveQueue({
       now: Date.now,
       sid,

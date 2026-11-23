@@ -192,6 +192,7 @@ async function main() {
     const a = tabSid(st, rnd)
     const b = tabSid(st, () => new Uint8Array(16))
     check("the tab's id is made once and kept in sessionStorage, sixteen of [a-z0-9]", a === b && /^[a-z0-9]{16}$/.test(a) && store.get("sl_live") === a && newSid(rnd) === a)
+    check("before a yes to analytics nothing is stored on the device: the id is in memory and an earlier one is removed (r62 coordinator)", /const sid = tabSid\(consented \? storage\(\) : null, random\)/.test(read("components/platform/live-beacon.tsx")) && /if \(!consented\)[\s\S]{0,80}removeItem\(LIVE_SID_KEY\)/.test(read("components/platform/live-beacon.tsx")) && /^[a-z0-9]{16}$/.test(tabSid(null, rnd)))
     check("with storage blocked the id lives in memory", /^[a-z0-9]{16}$/.test(tabSid({ getItem: () => { throw new Error("blocked") }, setItem: () => { throw new Error("blocked") } }, rnd)))
     check("the source: utm_source first, an outside referrer's host, never our own", sourceOf("https://google.com/x", "https://storelib.com/?utm_source=Newsletter", ["storelib.com"]) === "newsletter" && sourceOf("https://www.google.com/search?q=secret", "https://storelib.com/", ["storelib.com"]) === "google.com" && sourceOf("https://ana.storelib.com/", "https://storelib.com/", ["storelib.com"]) === null)
     const src = read("components/platform/live-beacon.tsx")
@@ -263,7 +264,7 @@ async function main() {
     let kept = 0
     for (let i = 0; i < 10_000; i++) if (sampledIn(newSid((n) => crypto.getRandomValues(new Uint8Array(n))), 0.1)) kept++
     check("a 10% sample keeps about one tab in ten", kept > 700 && kept < 1300, kept)
-    check("a sampled-out anonymous tab's beacon sends nothing at all, the same test as the server", /!hasConsent\("analytics"\) && !sampledIn\(sid, liveSampleRate\(process\.env\.NEXT_PUBLIC_LIVE_ANON_SAMPLE\)\)\) return/.test(read("components/platform/live-beacon.tsx")) && /liveSampleRate\(process\.env\.NEXT_PUBLIC_LIVE_ANON_SAMPLE\)/.test(read("lib/live/live-server.ts")))
+    check("a sampled-out anonymous tab's beacon sends nothing at all, the same test as the server", /!consented && !sampledIn\(sid, liveSampleRate\(process\.env\.NEXT_PUBLIC_LIVE_ANON_SAMPLE\)\)\) return/.test(read("components/platform/live-beacon.tsx")) && /liveSampleRate\(process\.env\.NEXT_PUBLIC_LIVE_ANON_SAMPLE\)/.test(read("lib/live/live-server.ts")))
     const outOf = await ingestLive(db, { ...base, body: { v: 1, s: "zzzzzzzzzzzzzzzz", e: [[0, "p", "/"]] }, cookie: () => undefined, sample: 0.000001 })
     check("a sampled-out anonymous tab costs no call", outOf.outcome === "sampled_out")
   }
