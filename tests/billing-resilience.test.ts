@@ -370,7 +370,8 @@ async function main() {
     check("a member's Stripe customer is replaced only when Stripe says it is gone, and made once per press",
       /if \(!isStripeNotFound\(error\)\) throw error/.test(membershipBilling) && /stripe\.customers\.create\(params, \{\s*idempotencyKey: stripeIdempotencyKey\("membership-buyer"/.test(membershipBilling))
     check("a membership confirm that cannot reach Stripe says try again (503), never 'not found'", /if \(!isStripeNotFound\(error\)\) return NextResponse\.json\([^)]*\{ status: 503 \}\)/.test(code("app/api/memberships/confirm/route.ts")))
-    check("a creator's payout account is opened once per press", /stripe\.accounts\.create\(params, options\.keyParts \? \{ idempotencyKey: stripeIdempotencyKey\("connect-account"/.test(code("lib/payments/stripe/connect.ts")))
+    /* Nov 23 2026: two minutes, not ten (Stripe replays a refused create for the same key), and a guarded save drops a second account from another tab (tests/stripe-connect-onboarding). */
+    check("a creator's payout account is opened once per press", /stripe\.accounts\.create\(params, keyed\(params\)\)/.test(code("lib/payments/stripe/connect.ts")) && /idempotencyKey: stripeIdempotencyKey\("connect-account", keyParts, p, \{ windowMs: 2 \* 60_000 \}\)/.test(code("lib/payments/stripe/connect.ts")))
     const keyed: [string, RegExp][] = [
       /* PAY-9: the product checkout's key is the attempt's (stripeIdentityKey of its row and the exact params) or, with no attempt, the short one from the exact params. */
       ["app/api/checkout/stripe-session/route.ts", /paymentIntents\.create\(params, \{ idempotencyKey: intentIdempotencyKey\(\) \}\)/g],

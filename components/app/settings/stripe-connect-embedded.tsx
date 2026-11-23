@@ -5,6 +5,7 @@ import type { CollectionOptions } from "@stripe/connect-js"
 import { WaitingArea } from "@/components/ui/activity-spinner"
 import { keepStripeFramesInApp } from "@/lib/payments/stripe-frames-in-app"
 import { appHoldsStripeWindows, isNativeApp } from "@/lib/native-bridge"
+import { readsLikeStripe } from "@/lib/payments/verify-id"
 import { cn } from "@/lib/utils"
 import { tt, msg } from "@/lib/i18n/text"
 
@@ -12,9 +13,42 @@ export type EmbeddedPurpose = "stripe_onboarding" | "stripe_management" | "strip
 
 const LOAD_FAILED = msg("Try again in a moment.")
 
+/*
+ * The server's own sentence is shown as it is: it says what to do (lib/payments/stripe/setup-errors).
+ * Only Stripe's wire (ids, keys, codes) is kept out (lib/payments/verify-id readsLikeStripe). This
+ * used to drop every sentence with the word "Stripe" in it, so "Payouts to your country are not open
+ * yet, write to support" reached the seller as "Try again in a moment".
+ */
 function shownError(message: string): string {
-  if (!message || /invalid_request|acct_|accs_|capability|requirement|sk_|whsec|stripe/i.test(message)) return tt(LOAD_FAILED)
+  if (!message || readsLikeStripe(message)) return tt(LOAD_FAILED)
   return message
+}
+
+/*
+ * When Stripe's frame itself cannot load, what it says decides what the
+ * seller reads, and the type goes to the server log (/api/client-errors) so
+ * a failure that only happens in one browser is seen, not guessed at.
+ */
+type LoadErrorType = "api_connection_error" | "authentication_error" | "account_session_create_error" | "invalid_request_error" | "rate_limit_error" | "api_error" | string
+
+function loadErrorLine(type: LoadErrorType): string {
+  if (type === "api_connection_error") return tt("Your browser could not reach Stripe. Check your connection, turn off any content blocker for storelib.com, then try again.")
+  if (type === "rate_limit_error" || type === "api_error") return tt("Stripe did not answer just now. Try again in a minute.")
+  if (type === "authentication_error" || type === "account_session_create_error") return tt("The form's sign in ran out. Try again to open a fresh one.")
+  return tt("The form could not open here. Try again, and if it keeps happening write to support@storelib.com.")
+}
+
+function reportLoadError(purpose: EmbeddedPurpose, type: string, message: string | undefined) {
+  try {
+    void fetch("/api/client-errors", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ message: `[stripe embed] ${purpose} load error ${type}: ${(message ?? "").slice(0, 160)} (${navigator.userAgent.slice(0, 80)})`, path: window.location.pathname }),
+      keepalive: true,
+    }).catch(() => {})
+  } catch {
+    /* reporting is best effort */
+  }
 }
 
 /**
@@ -28,6 +62,8 @@ async function openSession(purpose: EmbeddedPurpose): Promise<{ clientSecret: st
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ purpose }),
     cache: "no-store",
+  }).catch(() => {
+    throw new Error(tt("Your connection dropped. Check you are online, then try again."))
   })
   const data = (await res.json().catch(() => ({}))) as { clientSecret?: unknown; publishableKey?: unknown; stripeSignIn?: unknown; error?: unknown }
   const clientSecret = typeof data.clientSecret === "string" ? data.clientSecret.trim() : ""
@@ -177,18 +213,27 @@ export function StripeConnectEmbedded({
           onboarding.setOnExit(() => void handlers.current.onExit?.())
           onboarding.setOnStepChange(({ step }) => handlers.current.onStep?.(step))
           onboarding.setOnLoaderStart(() => !gone && setReady(true))
-          onboarding.setOnLoadError(() => !gone && setFailed(tt(LOAD_FAILED)))
+          onboarding.setOnLoadError(({ error }) => {
+            reportLoadError(purpose, error?.type ?? "unknown", error?.message)
+            if (!gone) setFailed(loadErrorLine(error?.type ?? ""))
+          })
           component = onboarding
         } else if (purpose === "stripe_management") {
           const management = connect.create("account-management")
           management.setCollectionOptions(options)
           management.setOnLoaderStart(() => !gone && setReady(true))
-          management.setOnLoadError(() => !gone && setFailed(tt(LOAD_FAILED)))
+          management.setOnLoadError(({ error }) => {
+            reportLoadError(purpose, error?.type ?? "unknown", error?.message)
+            if (!gone) setFailed(loadErrorLine(error?.type ?? ""))
+          })
           component = management
         } else {
           const payouts = connect.create("payouts")
           payouts.setOnLoaderStart(() => !gone && setReady(true))
-          payouts.setOnLoadError(() => !gone && setFailed(tt(LOAD_FAILED)))
+          payouts.setOnLoadError(({ error }) => {
+            reportLoadError(purpose, error?.type ?? "unknown", error?.message)
+            if (!gone) setFailed(loadErrorLine(error?.type ?? ""))
+          })
           component = payouts
         }
         host.current.replaceChildren(component)

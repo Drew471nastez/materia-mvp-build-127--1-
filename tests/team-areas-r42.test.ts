@@ -242,7 +242,7 @@ async function main() {
     const page = read("app/(storelib)/app/payouts/page.tsx")
     check("Payouts reads the store for a member with Payouts, by the store's id", /teamPageStore\("payouts"\)/.test(page) && /\.eq\("id", access\.creatorId\)/.test(page))
     check("  Cash out and the bank are drawn only with Change payouts", /canManage=\{canManage\}/.test(page) && /payoutsEnabled && canManage \?/.test(read("app/(storelib)/app/payouts/payouts-client.tsx")) && /if \(!canManage\) return;/.test(read("app/(storelib)/app/payouts/payouts-client.tsx")))
-    check("  and a member is never shown the payment account's setup", /canManage && access\.isOwner \? \(\s*<StorelibPaymentsInline/.test(page))
+    check("  and a member is never shown the payment account's setup", /canManage && access\.isOwner \? \([\s\S]{0,260}<Suspense fallback=\{<SetupWaiting \/>\}>\s*\{SetupCard\(/.test(page) && /return <StorelibPaymentsInline compact initial=\{initial\} \/>/.test(page))
     check("Plan: the overview says whether the buttons show, and the tab hides them without Change billing", /canManage \}/.test(read("app/api/billing/overview/route.ts")) && /const readOnly = initialData\.canManage === false/.test(read("components/app/billing/billing-page-client.tsx")))
     check("the upgrade page asks for Change billing", /teamPageStore\("billing_manage"\)/.test(read("app/(storelib)/app/settings/billing/upgrade/page.tsx")))
   }

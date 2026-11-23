@@ -39,3 +39,12 @@ export function payoutSupported(a: { country?: string | null; agreement?: string
   if (route === "cross-border" && a.agreement === "recipient") return { ok: false, reason: "recipient service agreement: Stripe does not make cross-border payouts to it" }
   return { ok: true, reason: null }
 }
+
+/**
+ * The sentence for a country Stripe cannot pay out to from this platform,
+ * shared by the server (connect.ts) and setup's country step, so the seller
+ * reads it before anything is opened and the same words if it is pressed anyway.
+ */
+export function cannotPayOutLine(countryName: string): string {
+  return `Stripe can't send payouts from Storelib to a bank in ${countryName} yet. If you also have a bank account in the US, the UK, Canada, Switzerland or a European Economic Area country, choose that country. Otherwise write to support@storelib.com and we will tell you when ${countryName} opens.`
+}

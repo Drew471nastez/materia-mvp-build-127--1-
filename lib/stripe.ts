@@ -25,11 +25,29 @@ export const stripeBreaker: StripeCircuitBreaker = (g.__storelibStripeBreaker ??
     else console.warn(line)
   },
 }))
+/*
+  A STUB STRIPE FOR TESTS. STRIPE_API_BASE points the client at a local
+  double (tests/stripe-connect-onboarding.test.ts), as scripts/stripe-test-purchase.mjs
+  already does. Honoured only with a test key, so a live key always talks to
+  api.stripe.com whatever the environment says.
+*/
+function stubHost(): { host: string; port: number; protocol: "http" | "https" } | null {
+  const base = (process.env.STRIPE_API_BASE ?? "").trim()
+  if (!base || !(process.env.STRIPE_SECRET_KEY ?? "").startsWith("sk_test_")) return null
+  try {
+    const u = new URL(base)
+    const protocol = u.protocol === "http:" ? "http" : "https"
+    return { host: u.hostname, port: Number(u.port) || (protocol === "http" ? 80 : 443), protocol }
+  } catch {
+    return null
+  }
+}
 function stripeClient(): Stripe {
   client ??= new Stripe(process.env.STRIPE_SECRET_KEY as string, {
     timeout: STRIPE_TIMEOUT_MS,
     maxNetworkRetries: STRIPE_MAX_NETWORK_RETRIES,
     httpClient: breakerTransport(Stripe.createNodeHttpClient() as unknown as Transport, stripeBreaker) as unknown as Stripe.HttpClient,
+    ...(stubHost() ?? {}),
   })
   return client
 }

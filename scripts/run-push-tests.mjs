@@ -1748,6 +1748,8 @@ const STRICT_SUITES = [
   "tests/round-ao.test.ts",
   /* Round AP: onboarding never opens an account Stripe cannot pay out (no recipient agreement, region only), the Connect audit flags them, the test-mode run opens its own account and ends with a payout */
   "tests/round-ap.test.ts",
+  /* Nov 23 2026, a seller: "it just keeps saying try again". Stripe Connect onboarding against a Stripe double and a database double at the network edge: the country matrix from a Romanian and a US platform (US, GB, DE, FR, RO, ES, IT, NL, PL, CA open; AU, BR, MX, IN, JP, SG, AE, NG told plainly, nothing opened), cards and transfers after Stripe refuses transfers only, never a guessed country, a wrong-country account replaced, two tabs make one account, every refusal with its own next step and a JSON log line, and no server sentence swallowed by the page. scripts/check-payouts-connect.mjs measures the page in Chromium at 390 and 1440. */
+  "tests/stripe-connect-onboarding.test.ts",
   /* Cash on delivery in a lei store: the fee, a country refused, the order, the emails, Mark as paid, a parcel refused and restocked (tests/_journey) */
   "tests/e2e-cash-on-delivery.test.ts",
   /* More currencies: a lei store with euros for Germany and France, a visitor's card, cart, selector, card and cash checkout, order and emails all in the same euros; zloty shown and charged in lei (tests/_journey) */

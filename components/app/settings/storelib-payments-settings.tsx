@@ -51,7 +51,10 @@ export function StorelibPaymentsSettings({
   openAs = null,
   panelOnly,
   onPanelShown,
+  initial = null,
 }: {
+  /** What the server already knows (no Stripe call): drawn at once, then replaced by the browser's fresh read. */
+  initial?: Overview | null
   statementDescriptorSlot?: React.ReactNode
   compact?: boolean
   /** Raised by the page (Payouts' Update bank, its notices) to open the setup panel from outside. */
@@ -65,7 +68,7 @@ export function StorelibPaymentsSettings({
 }) {
   const router = useRouter()
   const wasOpen = React.useRef<boolean | null>(null)
-  const [data, setShown] = React.useState<Overview | null>(cachedOverview)
+  const [data, setShown] = React.useState<Overview | null>(() => cachedOverview() ?? initial)
   const [error, setError] = React.useState<string | null>(null)
   const [refreshing, setRefreshing] = React.useState(false)
   const [busy, setBusy] = React.useState(false)

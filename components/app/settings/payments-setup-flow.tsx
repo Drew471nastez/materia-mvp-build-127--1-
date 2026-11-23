@@ -39,6 +39,7 @@ import { PhoneField } from "@/components/app/settings/phone-field"
 import { useLightChrome } from "@/lib/ui/light-chrome"
 import { countryLabel, countryOf } from "@/lib/account/country"
 import { personalIssues } from "@/lib/payments/stripe/onboarding-steps"
+import { cannotPayOutLine, payoutRoute } from "@/lib/payments/stripe/payout-regions"
 import { setupStepOf, type StorelibPaymentsStatus } from "@/lib/payments/stripe/status"
 import type { Overview } from "@/components/app/settings/payments-hub-shared"
 import { isNativeApp, openInApp } from "@/lib/native-bridge"
@@ -88,21 +89,46 @@ function safe(message: string): string {
   return message
 }
 
+/**
+ * A failed call, with the server's sentence and what kind of problem it is
+ * (lib/payments/stripe/setup-errors SetupProblemCode), so a screen offers the
+ * step that can work: another country, Try again, or support.
+ */
+class SetupError extends Error {
+  readonly code: string | null
+  constructor(message: string, code: string | null) {
+    super(message)
+    this.code = code
+  }
+}
+
+function codeOf(err: unknown): string | null {
+  return err instanceof SetupError ? err.code : null
+}
+
 async function read<T>(res: Response): Promise<T> {
-  const data = (await res.json().catch(() => ({}))) as T & { error?: string }
-  if (!res.ok) throw new Error(safe(data.error || tt("Something went wrong. Try again in a moment.")))
+  const data = (await res.json().catch(() => ({}))) as T & { error?: string; code?: string | null }
+  if (!res.ok) {
+    const code = typeof data.code === "string" ? data.code : res.status === 429 ? "retry" : null
+    throw new SetupError(safe(data.error || tt("Something went wrong. Try again in a moment.")), code)
+  }
   return data
 }
 
 async function post<T>(path: string, body: unknown = {}): Promise<T> {
-  return read<T>(
-    await fetch(`/api/payments/${path}`, {
+  let res: Response
+  try {
+    res = await fetch(`/api/payments/${path}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
       cache: "no-store",
-    }),
-  )
+    })
+  } catch {
+    /* No answer at all: the connection, not Storelib or Stripe. */
+    throw new SetupError(tt("Your connection dropped. Check you are online, then try again."), "retry")
+  }
+  return read<T>(res)
 }
 
 
@@ -789,6 +815,7 @@ export function PaymentsSetupFlow({
         data={data}
         bankOnly={mode === "bank"}
         onData={onData}
+        onCancel={onClose}
         onExit={async () => {
           /* Stripe's own back and Continue stay in charge until payouts are actually on. */
           const next = await post<Overview>("refresh")
@@ -948,16 +975,26 @@ function AppBrowserSetup({
   onClose: () => void
   onFinished: () => void
 }) {
-  const [error, setError] = React.useState<string | null>(null)
+  const [error, setError] = React.useState<{ message: string; code: string | null } | null>(null)
   const [attempt, setAttempt] = React.useState(0)
   /* The small "opening" mark shows only until the sheet is up. */
   const [launched, setLaunched] = React.useState(false)
+  /* No account yet: the country is asked here first, in the app, like on the web (CountryStep). */
+  const needsCountry = mode !== "bank" && (data.beat ?? "personal") === "personal"
+  const [country, setCountry] = React.useState<string | null>(null)
+  const [countryProblem, setCountryProblem] = React.useState<string | null>(null)
   const latest = React.useRef({ data, onData, onClose, onFinished })
   latest.current = { data, onData, onClose, onFinished }
+  React.useEffect(() => {
+    if (open) return
+    setCountry(null)
+    setCountryProblem(null)
+  }, [open])
+  const asking = open && needsCountry && !country
 
   React.useEffect(() => {
     setLaunched(false)
-    if (!open) return
+    if (!open || asking) return
     let gone = false
     let shown = false
     let poll = 0
@@ -987,13 +1024,7 @@ function AppBrowserSetup({
       try {
         const current = latest.current.data
         if (form === "setup" && (current.beat ?? "personal") === "personal") {
-          latest.current.onData(
-            await post<Overview>("start", {
-              agree: true,
-              kind: "individual",
-              country: current.prefill?.country || current.payoutHint?.country || "",
-            }),
-          )
+          latest.current.onData(await post<Overview>("start", { agree: true, kind: "individual", country: country ?? "" }))
         }
         const { url } = await post<{ url: string }>("app-sheet", { form })
         if (gone) return
@@ -1019,7 +1050,15 @@ function AppBrowserSetup({
           }, 4000)
         }
       } catch (err) {
-        if (!gone) setError(safe(err instanceof Error ? err.message : tt("We could not start setup just now.")))
+        if (gone) return
+        const message = safe(err instanceof Error ? err.message : tt("We could not start setup just now."))
+        const code = codeOf(err)
+        if (code === "country_unsupported" || code === "country_required") {
+          setCountryProblem(message)
+          setCountry(null)
+          return
+        }
+        setError({ message, code })
       }
     })()
 
@@ -1029,11 +1068,16 @@ function AppBrowserSetup({
       listener?.remove()
       if (shown) void import("@capacitor/browser").then(({ Browser }) => Browser.close()).catch(() => {})
     }
-  }, [open, mode, attempt])
+  }, [open, mode, attempt, asking, country])
 
   return (
     <>
-      {open && !error && !launched ? (
+      <BottomSheet isOpen={asking} onClose={onClose} label={tt("Set up payouts")} hideFrom={null} zIndex={PANEL_Z} header={<SheetBar title={tt("Set up payouts")} onClose={onClose} />}>
+        <div className="flex flex-col pt-2">
+          <CountryStep data={data} problem={countryProblem} onCancel={onClose} onChoose={(code) => { setCountryProblem(null); setCountry(code) }} />
+        </div>
+      </BottomSheet>
+      {open && !asking && !error && !launched ? (
         <div aria-live="polite" className="pointer-events-none fixed inset-0 z-[80] flex items-center justify-center">
           <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-[0_8px_30px_rgba(16,24,40,0.12)]">
             <span aria-label={tt("Opening")} className="h-5 w-5 animate-spin rounded-full border-2 border-[#1a1a2e]/10 border-t-[#1a1a2e]/60" />
@@ -1043,8 +1087,12 @@ function AppBrowserSetup({
       <BottomSheet isOpen={open && !!error} onClose={() => { setError(null); onClose() }} label={tt("Set up payouts")} hideFrom={null} zIndex={PANEL_Z}>
         <div className="flex flex-col items-center px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4 text-center">
           <p className="text-[15px] font-semibold text-[#1a1a2e]">{tt("Couldn't open setup")}</p>
-          <p className="mt-1 text-[14px] text-[#6b7280]">{error}</p>
-          <button type="button" className={cn(SECONDARY, "mt-4")} onClick={() => { setError(null); setAttempt((n) => n + 1) }}>{tt("Try again")}</button>
+          <p className="mt-1 text-[14px] text-[#6b7280]">{error?.message}</p>
+          {error && (error.code === "retry" || error.code === null) ? (
+            <button type="button" className={cn(SECONDARY, "mt-4")} onClick={() => { setError(null); setAttempt((n) => n + 1) }}>{tt("Try again")}</button>
+          ) : (
+            <a href="mailto:support@storelib.com?subject=Payouts%20setup" className={cn(SECONDARY, "mt-4 inline-flex items-center justify-center")}>{tt("Email support")}</a>
+          )}
         </div>
       </BottomSheet>
     </>
@@ -1080,47 +1128,141 @@ function SheetBar({ title, onClose }: { title: string; onClose: () => void }) {
 const OWN_STEPS_IN_APP = false
 
 
-function SetupEmbed({ data, onData, onExit, bankOnly = false }: { data: Overview; onData: (next: Overview) => void; onExit: () => void | Promise<void>; bankOnly?: boolean }) {
+/*
+ * THE COUNTRY, ASKED ONCE, BEFORE ANYTHING IS OPENED (Nov 23 2026). Setup
+ * used to open the Stripe account straight away in the country on the
+ * seller's profile, or in Romania (the platform's own) when the profile had
+ * none. Stripe never changes an account's country, so a seller in Germany,
+ * the US or the UK was asked for a Romanian address and bank, and a seller
+ * whose country Stripe cannot pay out to got an error with only Try again
+ * under it, which could never work. Now the first screen is the one question
+ * that decides everything after it, prefilled from the profile or the
+ * browser, and a country Stripe cannot pay out to is said before Continue.
+ */
+function guessCountry(data: Overview): string {
+  const known = data.prefill?.country || data.payoutHint?.country
+  if (known) return countryLabel(known)
+  try {
+    const region = new Intl.Locale(navigator.language || "").maximize().region
+    if (region && countryOf(region)) return countryLabel(region)
+  } catch {
+    /* an old browser: the field starts empty */
+  }
+  return ""
+}
+
+function CountryStep({ data, problem, onChoose, onCancel }: { data: Overview; problem: string | null; onChoose: (code: string) => void; onCancel: () => void }) {
+  const [countryName, setCountryName] = React.useState(() => guessCountry(data))
+  const [tried, setTried] = React.useState(false)
+  const code = countryOf(countryName)
+  const platform = data.platformCountry ?? null
+  const blocked = !!code && !!platform && payoutRoute(platform, code) === "unsupported"
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault()
+    setTried(true)
+    if (!code || blocked) return
+    onChoose(code)
+  }
+  return (
+    <form onSubmit={submit} noValidate data-setup-country="" className="flex min-h-full flex-1 flex-col">
+      <div className="flex-1 space-y-4 px-5 sm:px-7">
+        <div>
+          <label htmlFor="payout-country" className="mb-1.5 block text-[13px] font-medium text-[#1a1a2e]">{tt("Where is your bank account?")}</label>
+          <CountryPicker
+            id="payout-country"
+            value={countryName}
+            onChange={setCountryName}
+            sheetZIndex={SHEET_Z}
+            fieldClassName="rounded-[10px] border-[#e3e5e8] text-[16px] shadow-none sm:h-10 sm:rounded-lg sm:text-[14px]"
+          />
+          {tried && !code ? (
+            <span className="mt-1.5 block text-[12px] text-[#c4290c]">{tt("Choose a country.")}</span>
+          ) : (
+            <span className="mt-1.5 block text-[12px] leading-[17px] text-[#6b7280]">{tt("Your payouts go to a bank in this country, in its currency. It can't be changed later.")}</span>
+          )}
+        </div>
+        {blocked && code ? <ErrorLine message={cannotPayOutLine(countryLabel(code))} /> : problem ? <ErrorLine message={problem} /> : null}
+      </div>
+      <Footer>
+        <button type="button" className={SECONDARY} onClick={onCancel}>{tt("Cancel")}</button>
+        <button type="submit" className={PRIMARY} disabled={blocked}>{tt("Continue")}</button>
+      </Footer>
+    </form>
+  )
+}
+
+/* What a failed start offers: the one next step that can work. */
+function SetupProblemView({ message, code, onRetry, onClose }: { message: string; code: string | null; onRetry: () => void; onClose: () => void }) {
+  const retry = code === "retry" || code === null
+  return (
+    <div role="alert" data-setup-problem={code ?? "unknown"} className="flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">
+      <p className="text-[15px] font-semibold text-[#1a1a2e]">{tt("Payouts are not set up yet")}</p>
+      <p className="mx-auto mt-1.5 max-w-[420px] text-[14px] leading-5 text-[#6b7280]">{message}</p>
+      <div className="mt-5 flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row">
+        {retry ? (
+          <>
+            <button type="button" className={SECONDARY} onClick={onClose}>{tt("Close")}</button>
+            <button type="button" className={PRIMARY} onClick={onRetry}>{tt("Try again")}</button>
+          </>
+        ) : (
+          <>
+            <button type="button" className={SECONDARY} onClick={onClose}>{tt("Close")}</button>
+            <a href="mailto:support@storelib.com?subject=Payouts%20setup" className={cn(PRIMARY, "inline-flex items-center justify-center")}>{tt("Email support")}</a>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function SetupEmbed({ data, onData, onExit, onCancel, bankOnly = false }: { data: Overview; onData: (next: Overview) => void; onExit: () => void | Promise<void>; onCancel: () => void; bankOnly?: boolean }) {
+  /* An account already exists: resume on Stripe's form where it was left, never ask the country again. */
   const existed = React.useRef((data.beat ?? "personal") !== "personal")
   const [ready, setReady] = React.useState(existed.current)
-  const [error, setError] = React.useState<string | null>(null)
+  const [country, setCountry] = React.useState<string | null>(null)
+  const [countryProblem, setCountryProblem] = React.useState<string | null>(null)
+  const [error, setError] = React.useState<{ message: string; code: string | null } | null>(null)
   const [attempt, setAttempt] = React.useState(0)
   React.useEffect(() => {
-    if (existed.current) return
+    if (existed.current || !country) return
     let gone = false
     void (async () => {
       try {
-        const next = await post<Overview>("start", {
-          agree: true,
-          kind: "individual",
-          country: data.prefill?.country || data.payoutHint?.country || "",
-        })
+        const next = await post<Overview>("start", { agree: true, kind: "individual", country })
         if (gone) return
         onData(next)
         setReady(true)
       } catch (err) {
-        if (!gone) setError(safe(err instanceof Error ? err.message : tt("We could not start setup just now.")))
+        if (gone) return
+        const message = safe(err instanceof Error ? err.message : tt("We could not start setup just now."))
+        const code = codeOf(err)
+        /* The country is the problem: back to the question, with the answer under it. */
+        if (code === "country_unsupported" || code === "country_required") {
+          setCountryProblem(message)
+          setCountry(null)
+          return
+        }
+        setError({ message, code })
       }
     })()
     return () => {
       gone = true
     }
-    // The account is opened once, from the profile already on file.
+    // The account is opened once per Continue.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [attempt])
+  }, [attempt, country])
   useWhenPayoutsOn(ready, onData, onExit)
   if (error) {
-    return (
-      <div className="flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">
-        <p className="text-[14px] text-[#6b7280]">{error}</p>
-        <button type="button" className={cn(SECONDARY, "mt-4")} onClick={() => { setError(null); setAttempt((n) => n + 1) }}>{tt("Try again")}</button>
-      </div>
-    )
+    return <SetupProblemView message={error.message} code={error.code} onClose={onCancel} onRetry={() => { setError(null); setAttempt((n) => n + 1) }} />
+  }
+  if (!existed.current && !country) {
+    return <CountryStep data={data} problem={countryProblem} onCancel={onCancel} onChoose={(code) => { setCountryProblem(null); setCountry(code) }} />
   }
   if (!ready) {
     return (
-      <div className="flex flex-1 items-center justify-center py-16">
-        <span aria-label={tt("Loading")} className="h-5 w-5 animate-spin rounded-full border-2 border-[#1a1a2e]/10 border-t-[#1a1a2e]/60" />
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 py-16" aria-live="polite">
+        <span aria-hidden className="h-5 w-5 animate-spin rounded-full border-2 border-[#1a1a2e]/10 border-t-[#1a1a2e]/60" />
+        <span className="text-[13px] text-[#6b7280]">{tt("Opening your payments account")}</span>
       </div>
     )
   }

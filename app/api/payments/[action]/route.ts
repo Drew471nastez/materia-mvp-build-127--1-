@@ -74,10 +74,21 @@ async function paymentsCreator(action: string, body: Record<string, unknown>): P
   return { creator: { id: who.creatorId, userId: who.ownerUserId, email: who.ownerEmail }, who }
 }
 
-function problem(e: unknown): NextResponse {
-  if (e instanceof PaymentsProblem) return NextResponse.json({ error: e.userMessage }, { status: e.status, headers: NO_STORE })
-  console.error("[payments api]", describe(e))
-  return NextResponse.json({ error: "Something went wrong. Nothing was changed. Try again in a moment." }, { status: 500, headers: NO_STORE })
+/*
+ * Every answer that is not a success is one JSON line in the Vercel log:
+ * which action, what the seller was told and its code. A 4xx is a warning
+ * (the seller can act on it), a 5xx an error. Search the log for
+ * "payments_api_problem" to see what sellers are being told.
+ */
+function problem(e: unknown, action: string, creatorId: string): NextResponse {
+  if (e instanceof PaymentsProblem) {
+    const line = JSON.stringify({ evt: "payments_api_problem", action, creator: creatorId, status: e.status, code: e.code, shown: e.userMessage.slice(0, 200) })
+    if (e.status >= 500) console.error(line)
+    else console.warn(line)
+    return NextResponse.json({ error: e.userMessage, code: e.code }, { status: e.status, headers: NO_STORE })
+  }
+  console.error(JSON.stringify({ evt: "payments_api_problem", action, creator: creatorId, status: 500, code: "unexpected", msg: describe(e) }))
+  return NextResponse.json({ error: "Something went wrong on our side. Nothing was changed. Try again in a minute, and if it keeps happening write to support@storelib.com.", code: "retry" }, { status: 500, headers: NO_STORE })
 }
 
 export async function GET(_request: NextRequest, context: { params: Promise<{ action: string }> }) {
@@ -90,7 +101,7 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ ac
     /* Opening Payouts: the webhook keeps the account current, so Stripe is only asked when the copy is old. */
     return NextResponse.json(await overview(creator, { sync: "stale" }), { headers: NO_STORE })
   } catch (e) {
-    return problem(e)
+    return problem(e, "overview", creator.id)
   }
 }
 
@@ -138,7 +149,10 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
         const form = body.form === "bank" ? "bank" : "setup"
         const token = signSheetLink({ c: creator.id, u: creator.userId, f: form })
         await recordTeamAction(found.who, found.who.userId, "payouts_manage", "payout_account_opened", { action: "app-sheet", form })
-        if (!token) return NextResponse.json({ error: "Try again in a moment." }, { status: 503, headers: NO_STORE })
+        if (!token) {
+          console.error(JSON.stringify({ evt: "payments_api_problem", action, creator: creator.id, status: 503, code: "platform_setup", msg: "app sheet link not signed: set ORDER_LINK_SECRET (or SUPABASE_SERVICE_ROLE_KEY) in Vercel" }))
+          return NextResponse.json({ error: "Setup can't open in the app right now because of a setting on our side. Open storelib.com/app/payouts in your browser to finish, or write to support@storelib.com.", code: "platform_setup" }, { status: 503, headers: NO_STORE })
+        }
         return NextResponse.json({ url: `${originOf(request)}/payouts-sheet#f=${form}&t=${encodeURIComponent(token)}` }, { headers: NO_STORE })
       }
       case "begin": {
@@ -231,7 +245,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
         return NextResponse.json({ error: "Not found." }, { status: 404, headers: NO_STORE })
     }
   } catch (e) {
-    return problem(e)
+    return problem(e, action, creator.id)
   }
 }
 
