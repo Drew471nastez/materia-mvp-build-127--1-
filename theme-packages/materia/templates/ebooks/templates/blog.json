@@ -16,7 +16,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "page_title": "Recipes",
+            "page_title": "",
             "header_size": "default",
             "heading_font_size": 40,
             "vertical_gap": 12,

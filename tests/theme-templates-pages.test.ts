@@ -351,7 +351,7 @@ async function main() {
     if (["digital", "ebooks", "fitness", "landing"].includes(template)) check("  it sells downloads: no delivery estimate in the cart or its drawer", settings.cart_page_show_estimate_shipping_rates === false && settings.cart_drawer_show_shipping_estimator === false && settings.show_estimate_shipping_rates === false)
 
     /* Nothing a new store cannot stand behind, and no colour set against its own scheme. */
-    const pageJson = ["index", "product", "collection", "page.about", "page.contact", "page.faqs"].filter((f) => existsSync(join(overlay, "templates", `${f}.json`))).map((f) => [f, JSON.parse(readFileSync(join(overlay, "templates", `${f}.json`), "utf8")) as { sections: Record<string, { type: string; settings?: Record<string, unknown>; blocks?: Record<string, { type: string; settings?: Record<string, unknown> }> }> }] as const)
+    const pageJson = ["index", "product", "collection", "page.about", "page.contact", "page.faqs"].filter((f) => existsSync(join(overlay, "templates", `${f}.json`))).map((f) => [f, JSON.parse(readFileSync(join(overlay, "templates", `${f}.json`), "utf8").replace(/^\s*\/\*[\s\S]*?\*\//, "")) /* Changed on purpose (templates round 22): a template file may open with a comment. */ as { sections: Record<string, { type: string; settings?: Record<string, unknown>; blocks?: Record<string, { type: string; settings?: Record<string, unknown> }> }> }] as const)
     const promises: string[] = []
     for (const [f, json] of pageJson) for (const sec of Object.values(json.sections)) {
       for (const [k, v] of Object.entries(sec.settings ?? {})) if (/^(end_iso|countdown_date|end_date|deadline)$/.test(k) && typeof v === "string" && v.trim() !== "") promises.push(`${f}: ${sec.type} counts down to ${v}`)

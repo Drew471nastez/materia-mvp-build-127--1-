@@ -56,22 +56,22 @@
         "faq_1": {
           "type": "faq",
           "settings": {
-            "question": "When do I get the files?",
-            "answer": "<p>Straight after payment. A download link arrives by email.</p>"
+            "question": "When does my book arrive?",
+            "answer": "<p>Paperbacks ship within two working days. Ebooks and audiobooks arrive by email at once.</p>"
           }
         },
         "faq_2": {
           "type": "faq",
           "settings": {
-            "question": "When do I get the files?",
-            "answer": "<p>Straight after payment. A download link arrives by email.</p>"
+            "question": "Can I return it?",
+            "answer": "<p>Yes, within 30 days, for any edition.</p>"
           }
         },
         "faq_3": {
           "type": "faq",
           "settings": {
-            "question": "When do I get the files?",
-            "answer": "<p>Straight after payment. A download link arrives by email.</p>"
+            "question": "Buying for a group?",
+            "answer": "<p>Write to me from the contact page for a group price.</p>"
           }
         },
         "payment_badges_67Mgyc": {

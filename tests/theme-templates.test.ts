@@ -40,6 +40,9 @@ import { cleanMenus } from "../lib/storelib-theme/values"
 import { LIMITS } from "../lib/storelib-theme/types"
 import { STORELIB_DEFAULT_ID } from "../lib/website-builder/theme-registry"
 
+/* Changed on purpose (templates round 22): a template file may open with a comment, as the theme's own generated files do (the import reads past it). */
+const parseJson = (text: string) => JSON.parse(text.replace(/^\s*\/\*[\s\S]*?\*\//, ""))
+
 let passed = 0
 let failed = 0
 function check(label: string, ok: boolean, detail?: unknown) {
@@ -210,7 +213,7 @@ async function main() {
     const pictures = new Set<string>()
     const copy: string[] = []
     for (const f of pageFiles) {
-      const json = JSON.parse(read(join(overlay, f))) as { sections?: Record<string, { type?: string }> }
+      const json = parseJson(read(join(overlay, f))) as { sections?: Record<string, { type?: string }> }
       for (const s of Object.values(json.sections ?? {})) if (s.type) used.add(s.type)
       for (const [k, v] of strings(json)) {
         const m = v.match(/^shopify:\/\/shop_images\/(.+)$/)
@@ -220,7 +223,7 @@ async function main() {
     }
     check("  uses only sections the theme has", [...used].every((s) => sectionTypes.has(s)), [...used].filter((s) => !sectionTypes.has(s)))
     /* Changed on purpose (templates round 19): a picture the theme settings name (Night shop's logo) is used too. */
-    if (own.includes("config/settings_data.json")) for (const [, v] of strings(JSON.parse(read(join(overlay, "config/settings_data.json"))))) { const m = v.match(/^shopify:\/\/shop_images\/(.+)$/); if (m) pictures.add(m[1]) }
+    if (own.includes("config/settings_data.json")) for (const [, v] of strings(parseJson(read(join(overlay, "config/settings_data.json"))))) { const m = v.match(/^shopify:\/\/shop_images\/(.+)$/); if (m) pictures.add(m[1]) }
     const assets = own.filter((f) => f.startsWith("assets/")).map((f) => f.slice(7))
     check("  names only pictures it carries, and carries none it does not use", [...pictures].every((p) => assets.includes(p)) && assets.every((a) => pictures.has(a)), { missing: [...pictures].filter((p) => !assets.includes(p)), unused: assets.filter((a) => !pictures.has(a)) })
     check("  every picture is credited: a photograph with its source and licence, or a drawing made for the template", assets.every((a) => new RegExp(`\\| ${t.template} \\| assets/${a} \\| (https://images\\.unsplash\\.com/photo-[\\w-]+ \\| Unsplash License|Drawn for this template \\| Storelib${t.template === "samples" ? "|Loudlib's own (pack box|logo)[^|]* \\| Loudlib \\(the owner\\)|Synthesised for this template[^|]* \\| Storelib|https://freesound\\.org/people/[^|]+/sounds/\\d+/[^|]* \\| CC0 1\\.0 \\(public domain\\)" : ""}) \\|`).test(credits)) /* Changed on purpose (templates round 19): Sample packs uses Loudlib's own pack art, the owner's store, and demo loops synthesised for it. */ /* Changed on purpose (templates round 20): and Loudlib's own logo. */ /* Changed on purpose (templates round 21): and CC0 loops from freesound.org, each with its address. */, assets.filter((a) => !credits.includes(`assets/${a}`)))
@@ -250,7 +253,7 @@ async function main() {
     }
     /* Every link the template's pages, groups and menus carry is a page of the website. */
     const links = new Set<string>()
-    for (const f of pageFiles) for (const [, v] of strings(JSON.parse(read(join(overlay, f))))) {
+    for (const f of pageFiles) for (const [, v] of strings(parseJson(read(join(overlay, f))))) {
       if (/^\/[\w/-]*$/.test(v)) links.add(v)
       for (const m of v.matchAll(/href="(\/[^"#?]*)"/g)) links.add(m[1])
     }
@@ -265,9 +268,9 @@ async function main() {
       if (out.status !== 200) dead.push(`${path} ${out.status}`)
     }
     check(`  every link it carries opens a page (${links.size})`, links.size >= 4 && dead.length === 0, dead)
-    const home = JSON.parse(read(join(overlay, "templates/index.json"))) as { sections: Record<string, { type: string }>; order: string[] }
+    const home = parseJson(read(join(overlay, "templates/index.json"))) as { sections: Record<string, { type: string }>; order: string[] }
     homes[t.template] = home.order.map((k) => home.sections[k].type).join(",")
-    const current = (JSON.parse(read(join(overlay, "config/settings_data.json"))) as { current: Record<string, unknown> }).current
+    const current = (parseJson(read(join(overlay, "config/settings_data.json"))) as { current: Record<string, unknown> }).current
     const scheme = ((current.color_schemes as Record<string, { settings: Record<string, string> }>).default ?? { settings: {} }).settings
     looks[t.template] = [current.font_heading_google_family, current.font_body_google_family, scheme.background, scheme.btn_primary_background].join("|")
   }
