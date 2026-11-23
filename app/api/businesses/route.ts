@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { addressSubject, rateLimit } from "@/lib/api/rate-limit"
-import { canAddBusiness, createBusinessAccount, listBusinesses, recordSwitch, requestUser, sessionFor, signedOutAnswer } from "@/lib/businesses/server"
+import { MAX_BUSINESSES, canAddBusiness, createBusinessAccount, listBusinesses, recordSwitch, requestUser, sessionFor, signedOutAnswer } from "@/lib/businesses/server"
 import { setSessionCookies } from "@/lib/businesses/session-cookies"
 
 /**
@@ -10,8 +10,9 @@ import { setSessionCookies } from "@/lib/businesses/session-cookies"
  * session for it, so the browser can go straight into its onboarding. Three
  * an hour: nobody opens businesses faster than that, and each one is an auth
  * account. How many a login can have is MAX_BUSINESSES (lib/businesses/
- * rules); the database holds the same number (business_links, run-now part
- * 38), and this route only says it nicely.
+ * rules), or its own number in business_limits (SQL part 446, written only
+ * by Storelib); the database holds the same number (the business_links
+ * trigger), and this route only says it nicely.
  */
 
 export const dynamic = "force-dynamic"
@@ -22,8 +23,10 @@ export async function GET(request: Request) {
   if (!user) return signedOutAnswer(request, NextResponse.json({ error: "Sign in first." }, { status: 401, headers: NO_STORE }))
   const businesses = await listBusinesses(user.id)
   const me = businesses.find((b) => b.current)
+  /* The login's own limit (business_limits, SQL part 446) rides on every row; null is no limit. */
+  const limit = me ? me.limit : MAX_BUSINESSES
   return NextResponse.json(
-    { businesses, canAdd: !!me && canAddBusiness(businesses.length) },
+    { businesses, limit, canAdd: !!me && canAddBusiness(businesses.length, limit) },
     { headers: NO_STORE },
   )
 }

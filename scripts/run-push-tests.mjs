@@ -1950,6 +1950,8 @@ const STRICT_SUITES = [
   "tests/billing-plan-r60.test.ts",
   /* Round 59 (g1): creator activity in /admin (SQL part 430): paths with ids as :id, pages and named actions only, one request a minute while visible and none while hidden, one database call per batch and a presence write at most every 55 s, country and coarse device from the request, admin only, soft and asked once per period before the part runs, 30 day cleanup in batches. scripts/check-activity-beacon-r59.mjs measures the requests in Chromium; scripts/check-creator-activity-r59.mjs the admin at 390 and 1280. */
   "tests/creator-activity-r59.test.ts",
+  /* Round 60 (h3): a login's business limit set per account by Storelib (SQL part 446, business_limits: NULL the rule of three, -1 no limit, or a number). The real /api/businesses route with the admin client stood in: three and no more without a row, a sixth with -1 and never told three, four at 4, a failed read is the rule; a claim link at -1 is not "limit"; the part's table is server only and nothing in the app writes it. scripts/check-business-limit-sql.sh runs the part on Postgres 16 (who can write it, the trigger and the handoff). */
+  "tests/business-limit-r60.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

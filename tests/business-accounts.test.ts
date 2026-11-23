@@ -476,12 +476,14 @@ function main() {
   */
   check("New business is in the list whatever the count: nothing about the limit sits in the menu at rest",
     /data-business-new=""/.test(switcher) && !/data-business-limit/.test(switcher) && !/canAdd \?/.test(switcher) && !/\{canAdd &&/.test(switcher))
+  /* Changed on purpose (r60): the sentence is limitReached(limit), the login's own number (business_limits, SQL part 446), three unless Storelib set more. */
   check("  a press with three already says so on the press, on the same line a refusal uses, and makes no request",
-    /if \(!canAdd\) \{\s*setError\(LIMIT_REACHED\)\s*return\s*\}/.test(switcher) && /if \(busy\) return/.test(switcher)
-      && switcher.indexOf("setError(LIMIT_REACHED)") < switcher.indexOf("await createBusiness(")
+    /if \(!canAdd\) \{\s*setError\(limitReached\(limit\)\)\s*return\s*\}/.test(switcher) && /if \(busy\) return/.test(switcher)
+      && switcher.indexOf("setError(limitReached(limit))") < switcher.indexOf("await createBusiness(")
       && /<p role="alert"[\s\S]*?\{retry \? error\.replace\(\/\\s\*Try again\\\.\?\$\/, ""\) : error\}/.test(switcher) && (switcher.match(/<p role="alert"/g) ?? []).length === 1)
+  /* Changed on purpose (r60): the server counts to the login's own limit (businessLimitFor its first account), which is MAX_BUSINESSES unless business_limits says otherwise. */
   check("  and the limit is still the server's and the database's to keep, not the menu's",
-    /if \(!canAddBusiness\(groupIds\(group, caller\.id\)\.length\)\) return \{ error: LIMIT_REACHED, status: 409 \}/.test(read("lib/businesses/server.ts"))
+    /const limit = await businessLimitFor\(ownerId, admin\)\s*if \(!canAddBusiness\(groupIds\(group, caller\.id\)\.length, limit\)\) return \{ error: limitReached\(limit\), status: 409 \}/.test(read("lib/businesses/server.ts"))
       && /raise exception 'One login can have at most 3 businesses'/.test(read("supabase/sql/run-now/38_business_limit_three.sql")))
   check("no Businesses label on either menu: the business you are in is one row that opens to the rest",
     !/>Businesses</.test(switcher) && /aria-expanded=\{expanded\}/.test(switcher) && /inert=\{!expanded\}/.test(switcher))

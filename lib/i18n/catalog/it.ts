@@ -11226,7 +11226,6 @@ const words: Record<string, string> = {
  "What happens if somebody cannot come": "Cosa succede se qualcuno non può venire",
  "What happens to it": "Cosa succede",
  "What happens when I move back to Free?": "Cosa succede se torno a Free?",
- "What happens when someone orders": "Cosa succede quando qualcuno ordina",
  "What is in the email now is replaced with the layout. A subject or preview text you typed yourself stays.": "Il contenuto attuale viene sostituito dal layout. Oggetto o testo di anteprima scritti da te restano.",
  "What is inside": "Cosa contiene",
  "What is installed on your store and running on this website. Each one opens in a new tab to change its settings.": "Ciò che è installato nel tuo negozio e attivo su questo sito. Ognuna si apre in una nuova scheda per cambiarne le impostazioni.",

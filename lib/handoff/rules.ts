@@ -27,7 +27,7 @@
  * Pure: no database, no clock but the one passed. tests/business-handoff
  * holds every rule to account.
  */
-import { MAX_BUSINESSES } from "@/lib/businesses/rules"
+import { canAddBusiness, MAX_BUSINESSES, type BusinessLimit } from "@/lib/businesses/rules"
 import { presetPermissions } from "@/lib/team/permissions"
 import { displayEmail } from "@/lib/businesses/email-alias"
 
@@ -222,6 +222,8 @@ export interface Viewer {
   emailVerified: boolean
   /** Every account in the viewer's group, the login first. */
   groupIds: string[]
+  /** How many businesses the login can have (business_limits, SQL part 446): that many, or null for no limit. Missing is MAX_BUSINESSES. */
+  limit?: BusinessLimit
 }
 
 export type ClaimState =
@@ -273,7 +275,7 @@ export function claimStateOf(input: {
     return { kind: "wrong_email", business, email: handoff.recipient_email, signedInAs: displayEmail(viewer.email) }
   }
   if (!viewer.emailVerified) return { kind: "verify_email", business, signedInAs: displayEmail(viewer.email), userId: viewer.loginId }
-  if (viewer.groupIds.length >= MAX_BUSINESSES) return { kind: "limit", business }
+  if (!canAddBusiness(viewer.groupIds.length, viewer.limit === undefined ? MAX_BUSINESSES : viewer.limit)) return { kind: "limit", business }
   if (input.blockers.length > 0) return { kind: "not_ready", business, blockers: input.blockers }
   return { kind: "ready", business, email: handoff.recipient_email, keepFounder: handoff.keep_founder }
 }
