@@ -54,6 +54,7 @@ import { checkCondition, isConditionName } from "./conditions"
 import { ACCOUNT_DAILY_EMAIL_CAP, BUDGETED_TYPES, emailAllowed, emailClass } from "./email-budget"
 import type { EmailSend } from "./channels/email"
 import type { InAppWrite } from "./channels/in-app"
+import { pushes, type PushWrite } from "./channels/push"
 import { notifyLog, reasonText } from "./log"
 import { handle } from "./orchestrator"
 import { decide } from "./preferences"
@@ -84,6 +85,8 @@ export interface EngineDeps {
   store: NotifyStore
   email: EmailSend | null
   inApp: InAppWrite | null
+  /** The seller's phones and browsers (channels/push.ts), for the types it names. Null or absent: no push. */
+  push?: PushWrite | null
   /** The provider's name, for the delivery row. */
   providerName?: string
   worker: string
@@ -234,7 +237,7 @@ export async function processJob(deps: EngineDeps, claimed: JobRow): Promise<Job
   const start = (channel: Channel): DeliveryStart => ({
     jobId: job.id,
     channel,
-    provider: channel === "email" ? (deps.providerName ?? "mailgun") : "storelib",
+    provider: channel === "email" ? (deps.providerName ?? "mailgun") : channel === "push" ? "fcm" : "storelib",
     type: entry.type,
     category: entry.category,
     requirement: entry.requirement,
@@ -249,11 +252,12 @@ export async function processJob(deps: EngineDeps, claimed: JobRow): Promise<Job
 
   const outcomes: { channel: Channel; outcome: ChannelOutcome }[] = []
   /* The bell first: it is idempotent and cannot be sent twice, so a retry for the email costs it nothing. */
-  const ordered = [...channels.filter((c) => c === "in_app"), ...channels.filter((c) => c !== "in_app")]
+  /* Then the phone (r57), which has its own delivery row, so a retry for the email never pushes twice either. */
+  const ordered: Channel[] = [...channels.filter((c) => c === "in_app"), ...(deps.push && pushes(entry) ? (["push"] as const) : []), ...channels.filter((c) => c !== "in_app")]
   for (const channel of ordered) {
     let outcome: ChannelOutcome
     try {
-      outcome = channel === "in_app" ? await deliverInApp() : channel === "email" ? await deliverEmail() : { kind: "skip", reason: "NO_RECIPIENT" }
+      outcome = channel === "in_app" ? await deliverInApp() : channel === "push" ? await deliverPush() : channel === "email" ? await deliverEmail() : { kind: "skip", reason: "NO_RECIPIENT" }
     } catch (error) {
       outcome = { kind: "retry", error: reasonText(error) }
     }
@@ -275,6 +279,34 @@ export async function processJob(deps: EngineDeps, claimed: JobRow): Promise<Job
     }
     await store.finishDelivery(begun.deliveryId, { status: "sent" })
     return { kind: "sent" }
+  }
+
+  /*
+    A courtesy beside the bell and the email: it never retries the job or
+    fails it. It follows the switch the person has for the bell (or, for a
+    type with no bell row, the email) in that category, and a required
+    notice always goes. Written "sending" before the send, so a second
+    worker or a retry finds the row and does not push again.
+  */
+  async function deliverPush(): Promise<ChannelOutcome> {
+    if (!deps.push || entry.recipient !== "creator" || !job.recipient_user_id) return skipChannel("push", "NO_RECIPIENT")
+    const prefs = await preferences()
+    const alongside: Channel = entry.channels.includes("in_app") ? "in_app" : "email"
+    if (!decide(prefs, entry, "push") || !decide(prefs, entry, alongside)) return skipChannel("push", "PREFERENCE_OFF")
+    const begun = await store.beginDelivery(start("push"))
+    if (begun.kind === "unavailable") return { kind: "skip", reason: "NO_RECIPIENT" }
+    if (begun.kind !== "go") return { kind: "skip", reason: "DUPLICATE" }
+    try {
+      const r = await deps.push({ job, entry, recipientName: recipient?.name ?? null })
+      if (r === "sent") {
+        await store.finishDelivery(begun.deliveryId, { status: "sent" })
+        return { kind: "sent" }
+      }
+      await store.finishDelivery(begun.deliveryId, r === "no_device" ? { status: "skipped", skipReason: "NO_RECIPIENT" } : { status: "failed", failureReason: "No phone or browser took it" })
+    } catch (error) {
+      await store.finishDelivery(begun.deliveryId, { status: "failed", failureReason: reasonText(error) })
+    }
+    return { kind: "skip", reason: "NO_RECIPIENT" }
   }
 
   async function deliverEmail(): Promise<ChannelOutcome> {

@@ -820,14 +820,16 @@ function wiringSuite() {
   /* A connected account's own events are handled in lib/stripe/connect-webhook.ts, which both webhook endpoints call. */
   check("account.updated, payouts and disputes tell the engine, after the answer", /after\(async \(\) => \(await import\("@\/lib\/notifications\/events"\)\)\.noteStripeAccount\(accountCreatorId, account as any\)\)/.test(read("lib/stripe/connect-webhook.ts")) && /handleConnectAccountEvent\(event\)/.test(hook)
     && /\.notePayout\(payoutCreatorId\)/.test(hook) && /\.noteDispute\(disputeCreatorId\)/.test(hook))
-  check("a review tells it too (the first is a milestone)", /\.noteReview\(reviewCreatorId\)/.test(read("app/api/reviews/route.ts")))
+  /* Changed on purpose (r57): the review is handed over too, so the seller's phone hears every review once (the first titled as the milestone). */
+  check("a review tells it too (the first is a milestone)", /\.noteReview\(reviewCreatorId, push\)/.test(read("app/api/reviews/route.ts")))
   const sale = read("lib/push/notifications.ts")
   /* The words are lib/push/sale-text.ts now; a free claim is never a sales milestone. */
   check("a sale that is a milestone is one push, titled as the milestone", /const milestone = opts\.amountCents > 0 \? await milestoneTitle\(userId\) : null/.test(sale) && /title: milestone \?\? "🎉 You made a sale!"/.test(read("lib/push/sale-text.ts")))
   const events = read("lib/notifications/events.ts")
   check("account.updated also asks whether a live product can now be paid for, so Connect Stripe resolves at once", /\[stripeRestricted, stripeRequirementsDue, payoutsNotConnected\]/.test(events))
   check("events never wait long and never throw", /export const EVENT_BUDGET_MS = 2_500/.test(events) && /within\(/.test(events) && (events.match(/catch \{/g) ?? []).length >= 2)
-  check("a browser push opens the notification's own page, inside /app only", /data\?\.type === "notification" && typeof data\.url === "string" && \/\^\\\/app/.test(read("lib/push/sender.ts")))
+  /* Changed on purpose (r57): the browser's page is the app's tap target (lib/push/tap.ts appTarget, inside /app only), one function for both. */
+  check("a browser push opens the notification's own page, inside /app only", /return pushTapTarget\(data\) \?\? "\/app"/.test(read("lib/push/sender.ts")) && /\/\^\\\/app\(\?:\[\/\?#\]\|\$\)\/\.test\(u\)/.test(read("lib/push/tap.ts")))
   check("so does a tap on the phone", /pushTapTarget\(data\)/.test(read("lib/push/client.ts")) && /if \(type === "notification"\) return appTarget\(data\?\.url\)/.test(read("lib/push/tap.ts")))
 
   console.log("\nThe SQL: one statement per line, safe twice, the database keeps the promises")

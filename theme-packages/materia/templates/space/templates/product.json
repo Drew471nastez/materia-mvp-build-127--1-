@@ -233,7 +233,7 @@
             "sub_newtab": false,
             "text_align": "left",
             "h_main_size": 16,
-            "show_paypal": true,
+            "show_paypal": false,
             "sub_uline_w": 1,
             "badges_align": "auto",
             "h_main_color": "#ffffff",

@@ -69,3 +69,29 @@ export async function POST(req: Request) {
   console.log(`[push/register] Insert/upsert SUCCESS`)
   return NextResponse.json({ ok: true })
 }
+
+/**
+ * DELETE /api/push/register
+ * Log out on this phone (lib/push/unregister.ts, r57): its token leaves the
+ * signed in account, so the phone stops getting the account's pushes. Only
+ * the session's own row is removed, never another account's.
+ *
+ * Body: { token: string }
+ */
+export async function DELETE(req: Request) {
+  const { user, unavailable } = await pushRequestUser(req)
+  if (!user && unavailable) return authUnavailableResponse()
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const body = (await req.json().catch(() => null)) as { token?: unknown; all?: unknown } | null
+  /* Log out everywhere: every phone and browser of this account, none of which is signed in any more. */
+  const all = body?.all === true
+  const token = typeof body?.token === "string" ? body.token : ""
+  if (!all && (!token || token.length > 4096)) return NextResponse.json({ error: "Missing token" }, { status: 400 })
+  const rows = createAdminClient().from("push_tokens").delete().eq("user_id", user.id)
+  const { data, error } = await (all ? rows : rows.eq("token", token)).select("id")
+  if (error) {
+    console.error("[push/register] delete failed:", error.message)
+    return NextResponse.json({ error: "Failed to remove token" }, { status: 500 })
+  }
+  return NextResponse.json({ ok: true, removed: Array.isArray(data) ? data.length : 0 })
+}

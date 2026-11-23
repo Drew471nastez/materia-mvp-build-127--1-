@@ -27,6 +27,7 @@ import { disputeOpened, payoutFailed, payoutsNotConnected, stripeRequirementsDue
 import { supabaseSnapshots } from "./snapshot"
 import { supabaseNotificationStore } from "./supabase-store"
 import type { Rule, StripeAccountFacts } from "./types"
+import { reviewPush, type ReviewPushInput } from "@/lib/reviews/review-push"
 
 export const EVENT_BUDGET_MS = 2_500
 /** The sale's own push waits for this at most: it is on the way to the buyer's receipt. */
@@ -133,6 +134,23 @@ export async function noteDispute(creatorId: string): Promise<void> {
   await run(creatorId, [disputeOpened])
 }
 
-export async function noteReview(creatorId: string): Promise<void> {
-  await run(creatorId, [firstReview])
+/**
+ * A review the seller was just told about in the bell. With the review
+ * (r57), the seller's phone hears it once: the first review takes the
+ * milestone's title and the milestone row is marked pushed, so the hourly
+ * run does not push it again (as a sale's milestone does).
+ */
+export async function noteReview(creatorId: string, review?: ReviewPushInput): Promise<void> {
+  if (!review) {
+    await run(creatorId, [firstReview])
+    return
+  }
+  const result = await run(creatorId, [firstReview], { pushInline: false })
+  const first = (result?.inserted ?? []).some((x) => x.row.kind === "first_review" && !x.row.baseline)
+  try {
+    const { sendPushToUser } = await import("@/lib/push/sender")
+    await sendPushToUser(review.userId, reviewPush(review, first))
+  } catch {
+    /* The review and its bell row stand; a push is a courtesy. */
+  }
 }

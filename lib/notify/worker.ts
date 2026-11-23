@@ -19,6 +19,7 @@ import { after } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { emailChannel } from "./channels/email"
 import { inAppChannel } from "./channels/in-app"
+import { pushChannel } from "./channels/push"
 import { runWork, type WorkSummary } from "./engine"
 import { notifyLog } from "./log"
 import { emailProvider, mailgunDomain } from "./providers/mailgun"
@@ -51,6 +52,8 @@ export async function runNotificationWork(budgetMs: number, opts: { hardStopMs?:
         ownSender: (creatorId) => verifiedSender(db, creatorId),
       }),
       inApp: inAppChannel(store, { render: renderInApp, baseUrl }),
+      /* The seller's phones and browsers (lib/push/sender), for the types channels/push.ts names (r57). */
+      push: pushChannel({ render: renderInApp, baseUrl, send: (userId, push) => import("@/lib/push/sender").then((m) => m.sendPushToUser(userId, push)) }),
     },
     budgetMs,
     opts,

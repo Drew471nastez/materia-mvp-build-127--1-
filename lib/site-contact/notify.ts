@@ -59,6 +59,17 @@ export function messageNoticeRow(n: MessageNotice, userId: string): Record<strin
   }
 }
 
+/** The push for one message (r57). Pure: who wrote and what they wrote stay behind the sign in. */
+export function messagePush(n: Pick<MessageNotice, "messageId" | "site">) {
+  return {
+    title: "New message from your website",
+    body: n.site ? `On ${oneLine(n.site, 60)}` : "Open Storelib to read it.",
+    data: { type: "notification", kind: "site_message", url: n.messageId ? `/app/contacts/forms?message=${encodeURIComponent(n.messageId)}` : "/app/contacts/forms?inbox=1" },
+    collapseKey: `msg:${n.messageId ?? "inbox"}`.slice(0, 64),
+    threadId: "messages",
+  }
+}
+
 export async function notifyCreatorOfMessage(db: Db, n: MessageNotice): Promise<boolean> {
   try {
     const { data } = await db.from("creators").select("user_id").eq("id", n.creatorId).maybeSingle()
@@ -68,6 +79,15 @@ export async function notifyCreatorOfMessage(db: Db, n: MessageNotice): Promise<
     if (error) {
       console.warn(`[contact] the notification was not written (${typeof error.code === "string" && error.code ? error.code : "error"})`)
       return false
+    }
+    /* And the creator's phone, once per message, after the answer has gone (r57): the bell row's page, no visitor's name or words on the lock screen. */
+    const push = messagePush(n)
+    const send = () => import("@/lib/push/sender").then((m) => m.sendPushToUser(userId, push)).then(() => undefined, () => undefined)
+    try {
+      const { after } = await import("next/server")
+      after(send)
+    } catch {
+      void send()
     }
     return true
   } catch {

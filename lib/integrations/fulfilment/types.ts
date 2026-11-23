@@ -65,6 +65,13 @@ export interface ProviderShipment {
   trackingNumber: string | null
   trackingUrl: string | null
   delivered: boolean
+  /**
+   * The items in this parcel, each by the line id Storelib sent (lineId, externalIdOf the order line), when the
+   * provider says (Printful's shipment items, Gelato's per item fulfilments). Absent or empty: every item still open
+   * at the location ships with it, as before. A provider that splits an order into two parcels used to have the
+   * first one ship every item, and the second number was never kept (round 57).
+   */
+  items?: { lineId: string; quantity: number }[] | null
 }
 
 export type ProviderOrderStage = "draft" | "pending" | "in_production" | "partially_shipped" | "shipped" | "delivered" | "cancelled" | "problem"

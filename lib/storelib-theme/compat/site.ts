@@ -1870,7 +1870,8 @@ async function cartAction(site: SiteData, req: SiteRequest, action: string, ajax
       }
       const k = lineKey(hit.card.id, v, item.properties)
       const existing = cart.find((e) => e.k === k)
-      const qty = Math.max(1, Math.min(MAX_QTY, Math.floor(item.quantity)))
+      /* A download is one copy: a theme's quantity box at 3 adds the one (oneCopy). */
+      const qty = oneCopy(site, hit.card.id) ? 1 : Math.max(1, Math.min(MAX_QTY, Math.floor(item.quantity)))
       /*
         More than the stock, or than Limit sales lets one order take, is refused as Shopify refuses it (422), and nothing is added.
         Not for Buy it now: the checkout it goes to counts the stock and the limit again and says it on the line ("Only 2 left",
@@ -2180,22 +2181,40 @@ function backOf(req: SiteRequest): string {
  * stock not counted, no limit).
  */
 async function roomFor(site: SiteData, productId: string, variantId: string | null, cart: CartEntry[]): Promise<number | null> {
+  const ofProduct = cart.filter((e) => e.p === productId).reduce((n, e) => n + e.q, 0)
+  /* A download is one copy (the checkout's own rule): never more of it in the cart than the checkout charges. */
+  if (oneCopy(site, productId)) return Math.max(0, 1 - ofProduct)
   const s = site.stock ? await site.stock(productId).catch(() => null) : null
   if (!s) return null
   const most = s.variants[variantId ?? productId]
   const ofOption = cart.filter((e) => e.p === productId && e.v === variantId).reduce((n, e) => n + e.q, 0)
-  const ofProduct = cart.filter((e) => e.p === productId).reduce((n, e) => n + e.q, 0)
   const limits = [typeof most === "number" ? most - ofOption : null, s.perOrder !== null ? s.perOrder - ofProduct : null].filter((n): n is number => n !== null)
   return limits.length ? Math.max(0, Math.min(...limits)) : null
 }
 
+/**
+ * A DOWNLOAD IS ONE COPY. The website's checkout charges one of a digital
+ * product however many the cart asks for (lib/checkout/site-quote-server,
+ * maxQuantity 1), so a theme's cart that kept "3 x Pattern Book, 36 EUR"
+ * showed a total the checkout then did not charge (round 57). The cart
+ * holds it to one, as it holds a physical line to its stock.
+ */
+function oneCopy(site: Pick<SiteData, "products">, productId: string): boolean {
+  return site.products.some((p) => p.id === productId && String(p.settings.kind ?? "") === "digital")
+}
+
 /** The cart with each line brought down to what is left of it and to Limit sales, lines that come to nothing removed. */
 async function heldToStock(site: SiteData, cart: CartEntry[]): Promise<CartEntry[]> {
-  if (!site.stock || cart.length === 0) return cart
-  const ids = [...new Set(cart.map((e) => e.p))]
-  const stock = new Map(await Promise.all(ids.map(async (id) => [id, await site.stock!(id).catch(() => null)] as const)))
+  if (cart.length === 0) return cart
+  const ids = [...new Set(cart.map((e) => e.p))].filter((id) => !oneCopy(site, id))
+  const stock = new Map(site.stock ? await Promise.all(ids.map(async (id) => [id, await site.stock!(id).catch(() => null)] as const)) : [])
   const out: CartEntry[] = []
   for (const e of cart) {
+    if (oneCopy(site, e.p)) {
+      /* One copy of a download, whichever line asked first. */
+      if (!out.some((x) => x.p === e.p)) out.push(e.q === 1 ? e : { ...e, q: 1 })
+      continue
+    }
     const s = stock.get(e.p)
     if (!s) {
       out.push(e)

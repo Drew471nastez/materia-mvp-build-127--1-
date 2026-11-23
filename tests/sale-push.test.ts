@@ -67,7 +67,8 @@ check("a community program sale pushes its owner once, from the call that grante
 check("a community module sale pushes its owner once, from the call that granted it", /if \(!error\) pushCommunitySale\(db, \{/.test(readCode("lib/communities/server/module-sales.ts")))
 check("a community sale never pushes the buyer, and opens the community's Learn", /userId === s\.buyerId\) return/.test(events) && /url: `\/app\/community\/\$\{s\.communityId\}\/learn`/.test(events))
 check("a tap on a community sale opens its Learn", pushTapTarget({ type: "notification", kind: "sale", url: "/app/community/abc/learn" }) === "/app/community/abc/learn")
-check("a tap on an order's sale opens Sales", pushTapTarget({ type: "sale", orderId: "x" }) === "/app/sales")
+/* Changed on purpose (r57): the order itself, not /app/sales (a redirect to the list that dropped which order it was). */
+check("a tap on an order's sale opens that order", pushTapTarget({ type: "sale", orderId: "x" }) === "/app/orders?order=x" && pushTapTarget({ type: "sale" }) === "/app/orders")
 
 console.log("\nThe words")
 const one = saleText({ productName: "Preset pack", amountCents: 1240, currency: "usd" }, null)

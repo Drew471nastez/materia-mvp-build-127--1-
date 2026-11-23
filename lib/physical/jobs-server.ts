@@ -52,6 +52,7 @@ import { lowStockEmail, sellerCommerceEmail, sellerKindForEvent } from "@/lib/no
 import { variantLowStockLines } from "./inventory-server"
 import { lowForAlert, lowStockAt } from "./inventory-rules"
 import { sellerOrderNumber } from "@/lib/orders/order-number-server"
+import { pushSellerOrderEvent } from "./seller-push"
 import { EMAIL_REPLY_TO } from "@/lib/mail"
 import { connectorFor, forwardToProvider, syncProviderTracking } from "@/lib/integrations/fulfilment/forward-server"
 import { HELD_BACK, HOLD, HOLD_RELEASED, RESENT, heldBackJob, holdOf, type OrderHold } from "./fulfilment-state"
@@ -67,6 +68,11 @@ import { realShipStationDeps } from "@/lib/integrations/shipping/shipping-deps-s
 export type JobKind = "forward_fulfillment" | "supplier_email" | "webhook_delivery" | "tracking_sync" | "inventory_sync" | "send_email" | "shipstation_push" | "shipstation_sync" | "marketing_sync"
 
 export async function enqueueJob(db: Db, j: { creatorId: string | null; kind: JobKind; key: string; payload: Record<string, unknown>; runNow?: boolean; runAfter?: Date }): Promise<void> {
+  await queueJobOnce(db, j)
+}
+
+/** enqueueJob, saying whether this call queued it: the same key again (23505) is false, so a caller can do something once per job (r57). */
+async function queueJobOnce(db: Db, j: { creatorId: string | null; kind: JobKind; key: string; payload: Record<string, unknown>; runNow?: boolean; runAfter?: Date }): Promise<boolean> {
   const { data, error } = await db
     .from("commerce_jobs")
     .insert({ creator_id: j.creatorId, kind: j.kind, payload: j.payload, idempotency_key: j.key, ...(j.runAfter ? { run_after: j.runAfter.toISOString() } : {}) })
@@ -79,6 +85,17 @@ export async function enqueueJob(db: Db, j: { creatorId: string | null; kind: Jo
     } catch {
       /* Outside a request: the cron picks it up. */
     }
+  }
+  return !!data?.id
+}
+
+/** After the response has gone, inside a request; outside one (a script, a test) now. Never throws. */
+function soon(task: () => Promise<unknown>): void {
+  const safe = () => task().catch((e) => console.error("[push] order event:", e instanceof Error ? e.message : e))
+  try {
+    after(safe)
+  } catch {
+    void safe()
   }
 }
 
@@ -435,6 +452,8 @@ async function queueDailyLowStock(db: Db, creatorId: string, low: LowItem[], now
           } catch {
             /* Outside a request: the cron picks it up. */
           }
+          /* The phone hears today's first, once (r57); what joins it later in the day is in the same email. Tomorrow's is quiet. */
+          soon(() => pushSellerOrderEvent(db, { creatorId, kind: "low_stock", key, lowItems: low }))
         }
         return
       }
@@ -456,9 +475,12 @@ async function queueDailyLowStock(db: Db, creatorId: string, low: LowItem[], now
  * by the event's own key, so the same event never mails twice.
  */
 export async function queueSellerEmail(db: Db, e: { checkoutId: string; creatorId: string; kind: string; message: string; detail: Record<string, unknown> | null; key: string | null }): Promise<void> {
-  if (!sellerKindForEvent(e.kind)) return
+  const kind = sellerKindForEvent(e.kind)
+  if (!kind) return
   const key = `email:seller:${e.kind}:${e.key ?? e.checkoutId}`.slice(0, 200)
-  await enqueueJob(db, { creatorId: e.creatorId, kind: "send_email", key, payload: { template: "seller", event: e.kind, checkoutId: e.checkoutId, message: e.message.slice(0, 300), detail: e.detail ?? null } })
+  const fresh = await queueJobOnce(db, { creatorId: e.creatorId, kind: "send_email", key, payload: { template: "seller", event: e.kind, checkoutId: e.checkoutId, message: e.message.slice(0, 300), detail: e.detail ?? null } })
+  /* And the seller's phone, once: only the call that queued the email (lib/physical/seller-push.ts, r57). */
+  if (fresh) soon(() => pushSellerOrderEvent(db, { creatorId: e.creatorId, kind, key, checkoutId: e.checkoutId }))
 }
 
 /**

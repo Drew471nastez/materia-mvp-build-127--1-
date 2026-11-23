@@ -71,7 +71,7 @@
             "enable_visa": true,
             "content_width": "50%",
             "enable_klarna": false,
-            "enable_paypal": true,
+            "enable_paypal": false,
             "enable_apple_pay": true,
             "enable_google_pay": true,
             "enable_mastercard": true

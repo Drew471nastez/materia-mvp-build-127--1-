@@ -95,6 +95,8 @@ export interface ShipInput {
   trackingUrl?: unknown
   status?: unknown
   partner: { provider: string; name: string }
+  /** The parcel's items by the line id sent to the provider (externalIdOf the order line), when it said; absent: every item open there. */
+  items?: { lineId: string; quantity: number }[] | null
 }
 /** What these functions reach outside themselves (./forward-deps-server.ts), so a test can watch them. */
 export interface ForwardDeps {
@@ -501,6 +503,7 @@ export async function applyProviderState(
       trackingUrl: s.trackingUrl && /^https:\/\//.test(s.trackingUrl) ? s.trackingUrl : null,
       status: s.delivered ? "delivered" : "shipped",
       partner: { provider: ctx.provider, name },
+      items: s.items?.length ? s.items : null,
     })
     if (r.ok && r.kind !== "unchanged") shipped++
   }

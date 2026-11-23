@@ -36,6 +36,7 @@ import type Stripe from "stripe"
 import { isMembershipSubscription } from "./state"
 import { isMembershipInvoice, recordFailedInvoice, recordPaidInvoice, subscriptionIdOf, syncSubscription } from "./sync"
 import { membershipFee } from "./billing"
+import { renewalFeeBaseCents } from "./webhook-fee"
 import { stripe } from "@/lib/stripe"
 import type { Db } from "./server"
 
@@ -112,8 +113,11 @@ async function exactRenewalFee(admin: Db, invoice: Stripe.Invoice): Promise<void
   const creatorId = invoice.parent?.subscription_details?.metadata?.creator_id
   if (!creatorId) return
   try {
-    /* In the invoice's own currency (the plan's, dollars): the fee rule for that currency, never another's. */
-    const fee = await membershipFee(admin, creatorId, invoice.amount_due, (invoice.currency || "").toUpperCase() || undefined)
+    /*
+      In the invoice's own currency (the plan's, dollars): the fee rule for that currency, never another's.
+      On the price, not on a tax Stripe adds on top (./webhook-fee.ts): it was amount_due, tax and all (r57).
+    */
+    const fee = await membershipFee(admin, creatorId, renewalFeeBaseCents(invoice), (invoice.currency || "").toUpperCase() || undefined)
     await stripe.invoices.update(invoice.id, { application_fee_amount: fee.cents })
   } catch (e) {
     console.warn(`[memberships] renewal fee left as a percent on ${invoice.id}:`, e instanceof Error ? e.message : e)

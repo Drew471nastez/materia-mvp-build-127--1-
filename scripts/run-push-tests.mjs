@@ -848,6 +848,8 @@ const SUITES = [
   "tests/sold-count25.test.ts",
   "tests/compat-files25.test.ts",
   "tests/notify-engine.test.ts",
+  /* Round 57 (e4): every commerce message through the real code, stubbed at the network edge (fetch for PostgREST and Mailgun, firebase-admin's send): the engine's new push channel once per job and retry, preferences and required notices, the sale and order event pushes, the FCM v1 message for iOS and Android, tap targets, Log out taking the phone's token off, every engine email's parts and links; scripts/check-notify-e2e-r57.mjs is the phone's side in Chromium. */
+  "tests/notify-e2e-r57.test.ts",
   "tests/notify-webhook.test.ts",
   "tests/rich-text.test.ts",
   "tests/upload-security.test.ts",
@@ -1756,6 +1758,8 @@ const STRICT_SUITES = [
   "tests/e2e-fulfilment-ae3.test.ts",
   /* Round 51: every answer to "How you fulfil orders" from checkout to delivered over the journey (self, own warehouse, Printify by its signed webhooks, dropshipping, a supplier, a fulfillment center by their email and page, a mix), and the zone, flat and free rates at checkout. */
   "tests/fulfilment-modes-r51.test.ts",
+  /* Round 57 (E2): after an order is paid, over the journey with Printful, Storage and a 3PL stubbed at the network: connect sealed, one mixed order (lamp, two prints, an ebook) routed once, Printful's two parcels each with its own items and number, the buyer's page in step, retries and refusals shown, partial and full refunds (Printful cancelled, stock released), a signed 3PL webhook and its tracking, disconnect. */
+  "tests/fulfilment-e2e-r57.test.ts",
   /* Quick setup through the real routes: explicit prices, whole or nothing, once */
   "tests/e2e-shipsetup.test.ts",
   /* Shipping quick setup, the summary, one fulfilment question, carrier rates gated (strict: it renders the settings component, which narrows on api() results) */
@@ -1916,6 +1920,12 @@ const STRICT_SUITES = [
   "tests/free-basket-retry-ax-journey.test.ts",
   /* Round AY (AY-2): a free shipped cart through /api/physical/checkout and the website checkout, pressed again: one order, one email, the code once, one stock hold. Strict: tests/_journey. */
   "tests/free-shipped-retry-ay-journey.test.ts",
+  /* Round 57 (e3, money): the fee on every plan state (Free, Grow and Pro; active, trialing, past due, cancelled, unpaid, legacy) x digital, ships and mixed x amount x currency, held to the published pricing written as literals; the real checkouts' PaymentIntents (single product, tip, code, a plan change, a lapsed plan, a cart that ships, a mixed cart), the payment limit, a refund keeping the fee, and a membership renewal's fee on the price, not on the tax Stripe adds (lib/memberships/webhook-fee.ts). Strict: tests/_journey. */
+  "tests/money-fees-r57.test.ts",
+  /* Round 57 (e5): log in and sign up draw Continue with Google and Continue with Apple first, then OR, then the email form; Apple is Google's twin (Apple's HIG); the native plugin paths, /auth/start with the carry, the locks and the error line kept; no other screen draws its own social button (scripts/check-auth-social-first-r57.mjs measures it in Chromium at 360, 390, 768 and 1280). */
+  "tests/auth-social-first-r57.test.ts",
+  /* Round 57 (e1): a buyer on a Materia website (the Clothing template, through the real site route) from the product page to a paid order: variants, compare at, sold out, 4 per order, Continue selling, the cart cookie, Estimate shipping, two zones (flat, by weight), free over 60 EUR, the US refused, a download alone and in a mixed cart, a 10% code from the theme's cart, GBP shown and charged, CHF shown and charged in euros, the last one bought twice at once, a declined card and a lapsed hold, the seller's rate and zone edits charged at once, and no PayPal badge. scripts/check-commerce-e2e-r57.mjs drives the same pages in Chromium. Strict: tests/_journey. */
+  "tests/commerce-e2e-r57.test.ts",
   /* Buyer journey audit: a course that opens a community and a download, one cart on the creator's website checkout (quote, intent, confirm, webhook): both lines on the buyer's account and in their library, the community lets the buyer in at once (a basket wrote the library row only), one receipt email whose link opens on the website, naming each line with Open course, Open community and Download straight from the email; a guest's same order joins them and the community once they sign up with that email. Strict: it drives the real routes through tests/_journey. */
   "tests/journey-course-community-site.test.ts",
   /* Buyer journey follow-up: a Storelib form or booking page on a Materia website. The base section journey-storelib-form (its setting the forms picker) and the Storelib form app block draw the form framed from the website's own host (/checkout/forms/<id>, framed by that origin only), a still card in the builder, nothing without a form; that page is this website's creator's form only; slots, a submit from the website kept with the website's page as its source, the hold, Pay to confirm through Storelib's checkout back to the page, the webhook, the booking confirmed. Strict: it drives the real routes through tests/_journey. */
