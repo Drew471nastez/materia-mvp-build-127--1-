@@ -39,7 +39,8 @@ const read = (p: string) => readFileSync(p, "utf8")
 const TEXT = /\.(html|css|js|json|svg)$/
 
 const MB = 1048576
-const BUDGET_TOTAL = 110 * MB
+/* Changed on purpose (templates round 21): 25 templates now, each still within its own 10 MB. */
+const BUDGET_TOTAL = 160 * MB
 const BUDGET_TEMPLATE = 10 * MB
 
 function main() {
