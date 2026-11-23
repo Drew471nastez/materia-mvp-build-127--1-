@@ -150,8 +150,8 @@ export const THEME_SEO_CATEGORIES: readonly ThemeSeoCategory[] = [
     description: "Website templates for coaches and consultants on Storelib: a coaching site with packages, a fitness coach site, a personal brand page and a video sales letter.",
     h1: "Website templates for coaches",
     intro: "Templates for people who sell their time and expertise. They show who you are, what working together costs and how to book, and they sell programmes or guides beside it.",
-    primaryKeyword: "coaching website template",
-    secondaryKeywords: ["coach website design", "consultant website template", "life coach website"],
+    primaryKeyword: "consultant website template",
+    secondaryKeywords: ["coach website design", "life coach website"],
     members: ["coach", "fitness", "creator-landing", "vsl-course"],
     faqs: [
       { q: "Can clients book a call from the site?", a: "Coach and Video sales letter include a book a call page, and you put your booking link or calendar on it." },
@@ -748,4 +748,25 @@ export const MARKETPLACE_SEO = {
     `Storelib has ${count} website templates for online stores, courses, coaching and digital products. Each is a whole website with its pages, works on phones and sells through Storelib checkout.`,
   primaryKeyword: "website templates",
   secondaryKeywords: ["free website templates", "website builder templates", "online store templates"],
+}
+
+/* ── The sitemap ──────────────────────────────────────────────────────── */
+
+/**
+ * The marketplace's addresses for storelib.com/sitemap/pages.xml
+ * (lib/seo/sitemaps.ts pagesSitemap): every category page that has a
+ * template on it, and every template's page with its pictures for Google
+ * Images. Absolute addresses; no date, because nothing here records when a
+ * template's page last changed (lib/seo/indexing: a lastmod is left out
+ * when nothing real is known).
+ */
+export function themeSitemapEntries(listings: readonly ThemeListing[], origin = "https://storelib.com"): { url: string; images?: string[] }[] {
+  const abs = (p: string) => (/^https?:\/\//i.test(p) ? p : `${origin}${p}`)
+  const cats = THEME_SEO_CATEGORIES.filter((c) => listingsInCategory(listings, c.slug).length > 0).map((c) => ({ url: abs(themeCategoryPath(c.slug)) }))
+  const pages = listings.map((l) => {
+    const img = themeImages(l)
+    const images = [img.hero?.src, img.phone?.src, img.og?.src].filter((s): s is string => !!s).map(abs)
+    return { url: abs(listingPath(l.slug)), ...(images.length ? { images } : {}) }
+  })
+  return [...cats, ...pages]
 }
