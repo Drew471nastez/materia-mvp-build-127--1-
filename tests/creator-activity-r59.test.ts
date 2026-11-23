@@ -217,7 +217,7 @@ async function main() {
     check(`more than ${PER_MINUTE} a minute from one person is dropped`, refused === 4, refused)
   }
 
-  console.log("\nBefore part 430: soft, and asked once per period")
+  console.log("\nBefore part 430: soft; ingest asks again after a minute, the admin on every read")
   {
     forgetIngestMemory()
     forgetMissing()
@@ -226,7 +226,7 @@ async function main() {
     const now = Date.UTC(2026, 10, 23, 12, 0, 0)
     const a = await ingestBatch(db, { userId: "u1", body: { v: 1, e: [[0, "p", "/app"]] }, headers: headers({}), now })
     const b = await ingestBatch(db, { userId: "u3", body: { v: 1, e: [[0, "p", "/app"]] }, headers: headers({}), now: now + 1000 })
-    check("the first batch learns it is missing; the next asks nothing", a.outcome === "missing" && b.outcome === "missing" && db.calls.length === 1)
+    check("the first batch learns it is missing; the next asks nothing for a minute", a.outcome === "missing" && b.outcome === "missing" && db.calls.length === 1)
     check("missing is a missing function or table, not any error", isMissingActivity({ code: "42P01" }) && isMissingActivity({ code: "PGRST205" }) && !isMissingActivity({ code: "57014" }))
 
     forgetMissing()
@@ -239,7 +239,14 @@ async function main() {
     const o = await onlineCreators(r)
     const f = await activityFeed(r, {})
     check("the summary, the list and the feed say missing, with no problem raised", s1.missing && s2.missing && o.missing && f.missing && r.problems.length === 0, r.problems)
-    check("and the database is asked once per read per period, not on every 30 s poll", askedOnce === 3 && tdb.calls.length === 3 + 2, tdb.calls.length)
+    /* Changed on purpose (r61): the admin asks on every read and shows Supabase's own words, so the console changes the moment part 430 runs (an owner ran it and kept seeing the note for the remembered period). */
+    check("and the admin asks the database on every read, never a remembered answer", askedOnce === 3 && tdb.calls.length === 3 + 3 + 1 + 1, tdb.calls.length)
+    const { missingReason } = await import("@/lib/admin/views/activity")
+    check("  with Supabase's own words for what it could not find", /^creator_[a-z_]+: 42P01 relation "public.creator_presence" does not exist$/.test(missingReason() ?? ""), missingReason())
+    const ok = fakeDb(() => ({ data: [], error: null, count: 0 }))
+    ;(r as unknown as { client: unknown }).client = ok
+    const s3 = await activitySummary(r)
+    check("  and the next read after the part runs is no longer missing", !s3.missing && s3.summary.onlineNow === 0, s3)
   }
 
   console.log("\nThe admin's reads")

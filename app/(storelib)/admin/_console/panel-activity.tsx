@@ -100,11 +100,12 @@ function Country({ code }: { code: string | null }) {
   )
 }
 
-export function MissingNote() {
+export function MissingNote({ reason }: { reason?: string | null }) {
   return (
-    <p className="px-4 py-6 text-[13px] leading-5 text-[#9b9ba6]" data-activity-missing>
-      Activity starts recording once SQL part 430 has run (supabase/sql/run-now/430_creator_activity.sql). Nothing is lost until then except the activity itself.
-    </p>
+    <div className="px-4 py-6 text-[13px] leading-5 text-[#9b9ba6]" data-activity-missing>
+      <p>Activity starts recording once SQL part 430 has run (supabase/sql/run-now/430_creator_activity.sql). Nothing is lost until then except the activity itself.</p>
+      {reason ? <p className="mt-2 break-words font-mono text-[12px] text-[#7d7d88]" data-activity-missing-reason>Supabase answered: {reason}</p> : null}
+    </div>
   )
 }
 
@@ -157,7 +158,7 @@ export function OnlineList({ data, error, go }: { data: ActivityPayload | null; 
     <Panel title="Online now" meta={data?.online ? `${num(data.online.length)}${data.online.length >= 100 ? ", most recent" : ""}, refreshed every 30 s` : undefined}>
       <div data-activity-online>
         {data?.missing ? (
-          <MissingNote />
+          <MissingNote reason={data.missingReason} />
         ) : data?.online ? (
           <DataList label="Creators online now" columns={columns} rows={data.online} rowKey={(r) => r.userId} empty="Nobody is online right now." onOpen={open} />
         ) : (
@@ -222,7 +223,7 @@ export function ActivityFeed({ go }: { go: Go }) {
       <Panel title="Activity" meta="Every creator, newest first">
         <div data-activity-feed>
           {state?.body.missing ? (
-            <MissingNote />
+            <MissingNote reason={state.body.missingReason} />
           ) : feed ? (
             <>
               <DataList label="Creator activity" columns={columns} rows={feed.rows} rowKey={(r) => String(r.id)} empty="Nothing recorded for this filter in the last 30 days." onOpen={(r) => (r.creator ? go({ view: "creator", id: r.creator.id, q: "", filter: "", page: 1 }) : undefined)} />
@@ -308,7 +309,7 @@ export function CreatorActivityPanel({ creatorId }: { creatorId: string }) {
         {!body ? (
           <p className="px-4 py-6 text-[13px] text-[#9b9ba6]">{error ? `Could not be read. ${error}` : "Reading activity"}</p>
         ) : body.missing ? (
-          <MissingNote />
+          <MissingNote reason={body.missingReason} />
         ) : (
           <>
             <div className="grid min-w-0 grid-cols-1 lg:grid-cols-2 lg:divide-x lg:divide-white/[0.06]">

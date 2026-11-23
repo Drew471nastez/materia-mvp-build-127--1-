@@ -5715,8 +5715,12 @@ REVOKE ALL ON FUNCTION public.creator_activity_purge(integer) FROM PUBLIC, anon,
 GRANT EXECUTE ON FUNCTION public.creator_activity_live_since(uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.creator_activity_ingest(uuid, jsonb, text, text, text, text, text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.creator_activity_purge(integer) TO service_role;
+/* The live_since backfill, in its own block: if any creator cannot be read the tables and functions above stay, and a notice says why (r61: an owner's run must never roll back to nothing). */
+DO $backfill$ BEGIN
 INSERT INTO public.creator_presence (user_id, creator_id, live_since) SELECT x.user_id, x.id, x.live_since FROM (SELECT DISTINCT ON (c.user_id) c.user_id, c.id, public.creator_activity_live_since(c.id) AS live_since FROM public.creators c WHERE c.user_id IS NOT NULL ORDER BY c.user_id, c.created_at) x WHERE x.live_since IS NOT NULL ON CONFLICT (user_id) DO UPDATE SET live_since = coalesce(public.creator_presence.live_since, EXCLUDED.live_since);
-INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('430', '430_creator_activity.sql', '4bf6a1796bbe24fdce7d9e378959c5eef0d71dffb30cac4ff9858fff169916bc') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+EXCEPTION WHEN others THEN RAISE NOTICE 'creator activity: live_since backfill skipped (%), activity still records', SQLERRM;
+END $backfill$;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('430', '430_creator_activity.sql', 'a60fccc7e5965a394a704ee770b813ff51433a6ad5de031f0afefd8c8c59715c') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 -- part 431_design_references.sql
 /* Design intelligence round O, part 431: the AI's visual reference library (lib/storelib-ai/references). public.design_references holds one row per screenshot the Storelib admin uploads at /admin/design-references (keyed by the picture's SHA-256, so the same picture twice is one reference), the vision model's analysis as a jsonb record, the admin's note, and where its pictures are. The pictures go in a PRIVATE bucket design-references (JPEG, PNG or WebP, 5 MB each). Server only: row level security on with no policy and no grant to anon or authenticated, and no storage policy on the bucket, so only the service role behind the admin cookie, or an AI job on the server, can read or write either. No existing rows change. Safe to run again. */

@@ -360,6 +360,8 @@ export type ActivityFeedRow = {
 export type ActivityPayload = Base & {
   /** Part 430 has not run: nothing is recorded yet. */
   missing: boolean
+  /** What Supabase answered when it could not find part 430's table or function. */
+  missingReason?: string | null
   summary: ActivitySummary | null
   online: PresenceRow[] | null
   feed: { rows: ActivityFeedRow[]; next: string | null } | null
@@ -369,6 +371,7 @@ export type TimelineRow = { id: string; at: string; kind: "page" | "action" | "s
 
 export type CreatorActivityPayload = Base & {
   missing: boolean
+  missingReason?: string | null
   presence: (ActivityPlace & { firstSeen: string | null; lastSeen: string | null; sessionStarted: string | null; lastPath: string | null; lastAction: string | null; lastActionAt: string | null }) | null
   liveSince: string | null
   sessions7: Figure
