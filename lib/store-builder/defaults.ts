@@ -2116,7 +2116,8 @@ export const defaultAboutSettings: AboutSettings = {
   productsCount: undefined,
   maxContentHeight: 150,
   showPaymentMethods: true,
-  paymentMethods: ["paypal", "visa", "mastercard", "amex", "applepay", "googlepay"],
+  /* What checkout takes (lib/store-builder/payment-methods.ts); PayPal is not one. */
+  paymentMethods: ["visa", "mastercard", "amex", "applepay", "googlepay"],
   spacing: {
     paddingTop: 48,
     paddingBottom: 48,
