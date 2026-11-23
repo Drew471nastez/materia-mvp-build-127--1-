@@ -25,16 +25,18 @@
  * in the last 90 days that the offer saved on or that a theme added through
  * it (lib/offers/offers-server soldThrough).
  *
- * Round 58: an offer opens in a modal over this list (./offer-editor.tsx),
- * the Add product modal's shell: a dialog from 768px, the shared bottom
- * sheet on a phone. New offer asks the kind first, as Add product does.
- * /app/offers/new (?kind=) and /app/offers/<id> are still addresses: they
- * draw this list with the modal open on them (`opening`), and closing it
- * puts the address back to /app/offers without a reload. A save or a delete
- * changes the row in place, says so and tints it.
+ * Round 60: New offer asks the kind in a small modal over this list, Add
+ * product's shell (./offer-kind-chooser.tsx): a dialog from 768px, the
+ * shared bottom sheet on a phone. The pick goes to the offer's own page,
+ * /app/offers/new?kind=, and a row opens /app/offers/<id> (./offer-editor.tsx),
+ * a layer rising over this list on a phone (./list-return). A save or a
+ * delete there comes back here, laid over the rows, said in the pill, and
+ * the row is tinted. /app/offers?choose=1 (where /app/offers/new with no
+ * kind goes) lands with the modal open.
  */
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import { Plus, Search } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
@@ -45,10 +47,13 @@ import { offerState, type Offer, type OfferKind, type OfferState } from "@/lib/o
 import { GUTTER, LIST_BAR, PaneBar, RowMenuButton, StatusBadge } from "../orders/order-parts"
 import { useConfirm } from "../products/new/confirm-sheet"
 import { Pill, usePill } from "../coupons/coupon-parts"
-import { tintReturnedRow } from "@/components/app/list-return"
+import { LAYER_LEAVE_MS } from "@/components/app/page-layer"
+import { rowsWithReturn, tintReturnedRow } from "@/components/app/list-return"
+import { holdLanding, prefetchAppPage } from "@/lib/ui/app-navigation"
+import { whenIdle } from "../products/list-return"
 import { sendOffer as send } from "./offer-api"
-import { OFFERS_HREF } from "./list-return"
-import { OfferEditor, type OfferOpen } from "./offer-editor"
+import { OFFERS_HREF, newOfferHref, offerHref, offersReturn } from "./list-return"
+import { useNewOfferChooser } from "./offer-kind-chooser"
 import { KIND_WORD, OfferThumbs, STATE_TONE, STATE_WORD, contentsText, datesText, discountText, placesText, type OfferCollection, type OfferProduct } from "./offer-parts"
 
 /* The products page's own measures, as Collections takes them, so the three pages are one place. */
@@ -69,9 +74,8 @@ const VIEWS: { value: View; label: () => string }[] = [
 ]
 const viewOf = (s: OfferState): Exclude<View, "all"> => (s === "active" ? "active" : s === "scheduled" ? "scheduled" : "off")
 
-
-/** What the address opens the modal on: /app/offers/new (with its kind) or /app/offers/<id>. */
-export type OffersOpening = { new: true; kind: OfferKind | null } | { id: string } | null
+/** The view the list was left on, taken up again only on a way back from an offer (./list-return isReturning). Kept for the tab, never stored. */
+let leftAt: View | null = null
 
 export function OffersClient({
   initialOffers,
@@ -79,11 +83,8 @@ export function OffersClient({
   collections,
   currency,
   ready,
-  settingsReady,
-  breaksReady,
   sold,
-  physical,
-  opening = null,
+  choose = false,
 }: {
   initialOffers: Offer[]
   products: OfferProduct[]
@@ -91,17 +92,20 @@ export function OffersClient({
   currency: string
   /** SQL part 116 has run. */
   ready: boolean
-  /** SQL part 230 has run. */
-  settingsReady: boolean
-  /** SQL part 304 has run: quantity breaks can be saved. */
-  breaksReady: boolean
+  /** SQL part 230 has run (read by the offer's page; the list does not need it). */
+  settingsReady?: boolean
+  /** SQL part 304 has run (read by the offer's page). */
+  breaksReady?: boolean
   /** Units each offer sold in the last 90 days, by its id. */
   sold: Record<string, number>
-  physical: boolean
-  /** The modal open on this when the page lands (the address was /app/offers/new or /app/offers/<id>). */
-  opening?: OffersOpening
+  /** Physical commerce is on (the offer page offers free shipping); the list does not need it. */
+  physical?: boolean
+  /** Land with the kind chooser open (the address was /app/offers/new with no kind). */
+  choose?: boolean
 }) {
-  const [list, setList] = React.useState(initialOffers)
+  const router = useRouter()
+  /* A save or a delete on an offer's page, laid over the rows the router kept (./list-return). */
+  const [list, setList] = React.useState(() => rowsWithReturn(initialOffers, offersReturn.peek()))
   /* The server's list again (a refresh: a change of the store's currency converts fixed amounts): it is the truth from here, as Coupons does. */
   const [seen, setSeen] = React.useState(initialOffers)
   if (seen !== initialOffers) {
@@ -112,24 +116,47 @@ export function OffersClient({
   const [notice, say] = usePill()
   const [ask, confirmSheet] = useConfirm()
   const sectionRef = React.useRef<HTMLElement>(null)
-  const [view, setView] = React.useState<View>("all")
+  /* Back to the list is the list as it was, with no landing (the Coupons list's reason). */
+  const [returning] = React.useState(() => offersReturn.isReturning())
+  React.useLayoutEffect(() => {
+    if (returning) holdLanding()
+  }, [returning])
+  const [view, setView] = React.useState<View>(() => (returning && leftAt ? leftAt : "all"))
+  React.useEffect(() => {
+    leftAt = view
+  }, [view])
   const [query, setQuery] = React.useState("")
 
-  /* THE MODAL: what it is on, and whether it is open (kept apart, so its content leaves with it). */
-  const [target, setTarget] = React.useState<OfferOpen | null>(() => {
-    if (!opening) return null
-    if ("id" in opening) {
-      const o = initialOffers.find((x) => x.id === opening.id)
-      return o ? { offer: o } : null
-    }
-    return { offer: null, kind: opening.kind }
-  })
-  const [open, setOpen] = React.useState(target !== null)
-  /* An address for an offer that is not this store's (or is gone) lands on the list. */
+  /* BACK FROM AN OFFER: say what happened, tint the row, and ask the server for the list again. */
   React.useEffect(() => {
-    if (opening && !target) closeAddress()
+    const back = offersReturn.take()
+    if (!back) return
+    if (back.message) say(back.message)
+    if (back.saved || back.deleted) router.refresh()
+    if (back.id && !back.deleted) tintReturnedRow(sectionRef.current, back.id, LAYER_LEAVE_MS)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, as the list comes back
+  }, [])
+
+  /* NEW OFFER: the kind, asked in a modal over this list (./offer-kind-chooser.tsx). */
+  const { open: openChooser, warm: warmChooser, chooser } = useNewOfferChooser()
+  React.useEffect(() => {
+    if (!choose) return
+    try {
+      window.history.replaceState(window.history.state, "", OFFERS_HREF)
+    } catch {
+      /* The list still works on the address it had. */
+    }
+    openChooser()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, as the page lands
   }, [])
+
+  /* An offer's page, fetched whole when its row is hovered or touched, so the press finds it here. */
+  const warmed = React.useRef(new Set<string>())
+  const warm = (href: string) => {
+    if (warmed.current.has(href)) return
+    warmed.current.add(href)
+    prefetchAppPage(router, href)
+  }
 
   /* One clock for the render, so an offer does not change view between two rows. */
   const [now] = React.useState(() => new Date())
@@ -142,23 +169,23 @@ export function OffersClient({
   const words = query.trim().toLowerCase()
   const shown = rows.filter((r) => (view === "all" || viewOf(r.state) === view) && (!words || r.offer.title.toLowerCase().includes(words) || r.offer.productIds.some((id) => byId.get(id)?.title.toLowerCase().includes(words))))
 
-  /* OPENING AN OFFER: the modal over this list. */
+  /* Once the list has drawn and the browser is idle, the three new offer pages and the first rows: a phone has no hover to start them. */
+  const firstShown = React.useRef<string[]>([])
+  firstShown.current = shown.slice(0, 3).map((r) => r.offer.id)
+  React.useEffect(
+    () =>
+      whenIdle(() => {
+        warmChooser()
+        for (const id of firstShown.current) warm(offerHref(id))
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, after the first paint
+    [],
+  )
+
+  /* OPENING AN OFFER: its own page; a new one with its kind named goes straight there, New offer asks first. */
   const start = (offer: Offer | null, kind?: OfferKind) => {
-    setTarget(offer ? { offer } : { offer: null, kind: kind ?? null })
-    setOpen(true)
-  }
-  const closeModal = () => {
-    setOpen(false)
-    closeAddress()
-  }
-  const saved = (o: Offer, created: boolean) => {
-    setList((l) => (created ? [...l, o] : l.map((x) => (x.id === o.id ? o : x))))
-    say(created ? tt("{value} created", { value: o.title }) : tt("{value} saved", { value: o.title }))
-    window.setTimeout(() => tintReturnedRow(sectionRef.current, o.id, 0), 60)
-  }
-  const deleted = (o: Offer) => {
-    setList((l) => l.filter((x) => x.id !== o.id))
-    say(tt("{title} deleted", { title: o.title }))
+    if (!offer && !kind) return openChooser()
+    offersReturn.open(router, offer ? offerHref(offer.id) : newOfferHref(kind))
   }
 
   const setActive = async (o: Offer, active: boolean) => {
@@ -214,7 +241,7 @@ export function OffersClient({
       <PaneBar width={PAGE_WIDTH} className={cn(LIST_BAR, PAGE_BAR, PAGE_GUTTER)}>
         <h1 className="min-w-0 truncate text-[22px] font-bold leading-7 text-[#1a1a2e] sm:text-[25px] sm:leading-8 lg:text-[28px] lg:leading-[35px]">{tt("Upsells and bundles")}</h1>
         {list.length > 0 && ready ? (
-          <button type="button" data-offer-new="" className={NEW_LOOK} onClick={() => start(null)}>
+          <button type="button" data-offer-new="" className={NEW_LOOK} onClick={() => start(null)} onPointerEnter={warmChooser} onFocus={warmChooser}>
             <Plus aria-hidden className="h-4 w-4" />
             {tt("New offer")}
           </button>
@@ -286,7 +313,7 @@ export function OffersClient({
                       const i = list.indexOf(o)
                       return (
                         <li key={o.id} data-row={o.id} className="relative flex min-h-[72px] items-center gap-3 py-2.5 pl-3 pr-1.5 data-[pressed]:bg-[#eef0f2] [li+&]:before:absolute [li+&]:before:left-[64px] [li+&]:before:right-0 [li+&]:before:top-0 [li+&]:before:h-px [li+&]:before:bg-[#eceef1]">
-                          <button type="button" data-row-open="" aria-label={o.title} onClick={() => start(o)} {...pressMark} className="absolute inset-0 z-0 cursor-pointer outline-none [-webkit-tap-highlight-color:transparent] focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e]" />
+                          <button type="button" data-row-open="" aria-label={o.title} onClick={() => start(o)} onPointerDown={() => warm(offerHref(o.id))} {...pressMark} className="absolute inset-0 z-0 cursor-pointer outline-none [-webkit-tap-highlight-color:transparent] focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e]" />
                           <OfferThumbs offer={o} byId={byId} />
                           <span className="pointer-events-none min-w-0 flex-1">
                             <span className="flex items-center gap-2">
@@ -327,6 +354,7 @@ export function OffersClient({
                           <tr
                             key={o.id}
                             data-row={o.id}
+                            onMouseEnter={() => warm(offerHref(o.id))}
                             onClick={(e) => {
                               const target = e.target as HTMLElement
                               if (!e.currentTarget.contains(target) || target.closest("a,button,input,label")) return
@@ -373,32 +401,8 @@ export function OffersClient({
         </section>
       </div>
 
-      <OfferEditor
-        open={open}
-        target={target}
-        onClose={closeModal}
-        onSaved={saved}
-        onDeleted={deleted}
-        products={products}
-        collections={collections}
-        others={list}
-        currency={currency}
-        physical={physical}
-        ready={ready}
-        settingsReady={settingsReady}
-        breaksReady={breaksReady}
-        sold={sold}
-      />
+      {chooser}
       {confirmSheet}
     </div>
   )
-}
-
-/** The address back to the list, in place: closing a modal a link opened is not a page load. */
-function closeAddress() {
-  try {
-    if (window.location.pathname !== OFFERS_HREF) window.history.replaceState(window.history.state, "", OFFERS_HREF)
-  } catch {
-    /* The list still works on the address it had. */
-  }
 }

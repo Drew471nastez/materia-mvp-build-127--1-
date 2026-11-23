@@ -5,7 +5,7 @@
  *   node scripts/check-offers-r58.mjs      (SHOTS=<dir> keeps the screenshots)
  *   PART=admin or PART=materia runs one half.
  *
- * ADMIN. Products › Upsells and bundles (scripts/render-offers-r58.tsx, the
+ * ADMIN (round 58, retired in round 60 for scripts/check-offers-flow-r60.mjs). Products › Upsells and bundles (scripts/render-offers-r58.tsx, the
  * real OffersClient and its modal against a stubbed API) at 360, 390, 768
  * and 1280. New offer opens the modal (a centred dialog from 768px, the
  * bottom sheet on a phone): how long it takes to settle, the layout shift
@@ -34,7 +34,8 @@ const require = createRequire(join(root, "package.json"))
 const { chromium } = require("playwright")
 const SHOTS = process.env.SHOTS || mkdtempSync(join(tmpdir(), "offers-r58-shots-"))
 mkdirSync(SHOTS, { recursive: true })
-const PART = process.env.PART ?? "all"
+/* Changed on purpose (r60): the offer is no longer made in a modal; the admin half is scripts/check-offers-flow-r60.mjs now, and this script runs the Materia half. */
+const PART = "materia"
 let broken = 0
 const expect = (ok, what, got) => {
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${what}${got === undefined ? "" : `   (${JSON.stringify(got)?.slice(0, 600)})`}`)

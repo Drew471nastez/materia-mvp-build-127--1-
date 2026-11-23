@@ -167,21 +167,23 @@ async function main() {
     /* Offers */
     /* Changed on purpose (r58): the owner asked for the offer editor to be a modal like Add product's (a dialog on a computer, the app's sheet on a phone); /app/offers/new and /app/offers/<id> stay as addresses that draw the list with the modal open (tests/offers-r58.test.ts, scripts/check-offers-r58.mjs). */
     for (const f of ["app/(storelib)/app/offers/new/page.tsx", "app/(storelib)/app/offers/[id]/page.tsx", "app/(storelib)/app/offers/offers-screen.tsx"]) check(`offers: ${f} exists`, has(f))
-    check("offers: no page layer of their own any more, the list is under the modal", !has("app/(storelib)/app/offers/new/layout.tsx") && !has("app/(storelib)/app/offers/[id]/layout.tsx"))
+    /* Changed on purpose (r60): the owner asked for New offer to ask the kind in a small modal like Add product's, then go to the offer's own page; the page layers are back (tests/offers-flow-r60.test.ts, scripts/check-offers-flow-r60.mjs). */
+    check("offers: a page layer of their own again, the coupon editor's frame", ["app/(storelib)/app/offers/new/layout.tsx", "app/(storelib)/app/offers/[id]/layout.tsx"].every((f) => has(f) && /<PageLayer pill inset="bar" phoneOnly>/.test(code(f))))
     check("offers: no route loading boundary, as every /app page", !has("app/(storelib)/app/offers/loading.tsx") && !has("app/(storelib)/app/offers/new/loading.tsx") && !has("app/(storelib)/app/offers/[id]/loading.tsx"))
     const newPage = code("app/(storelib)/app/offers/new/page.tsx")
-    check("offers: ?kind= starts a bundle, an upsell or a quantity break; anything else asks the kind", /const KINDS: readonly OfferKind\[\] = \["bundle", "checkout", "quantity_break"\]/.test(newPage) && /opening: \{ new: true, kind: given \}/.test(newPage))
+    const screen = code("app/(storelib)/app/offers/offers-screen.tsx")
+    check("offers: ?kind= starts a bundle, an upsell or a quantity break; anything else asks the kind over the list", /const KINDS: readonly OfferKind\[\] = \["bundle", "checkout", "quantity_break"\]/.test(newPage) && /opening: \{ new: true, kind: given \}/.test(newPage) && /redirect\("\/app\/offers\?choose=1"\)/.test(screen))
     const idPage = code("app/(storelib)/app/offers/[id]/page.tsx")
     const list = code("app/(storelib)/app/offers/offers-client.tsx")
-    check("offers: an id that is not one of this store's opens nothing and the address goes back to the list", /if \(!UUID\.test\(id\)\) redirect\("\/app\/offers"\)/.test(idPage) && /initialOffers\.find\(\(x\) => x\.id === opening\.id\)/.test(list) && /if \(opening && !target\) closeAddress\(\)/.test(list))
-    check("offers: every read is this creator's, for its owner or a team member with Marketing", /offersArea\(createAdminClient\(\), access\.creatorId as string\)/.test(code("app/(storelib)/app/offers/offers-screen.tsx")) && /teamPageStore\("marketing"\)/.test(code("app/(storelib)/app/offers/offers-screen.tsx")))
+    check("offers: an id that is not one of this store's goes back to the list", /if \(!UUID\.test\(id\)\) redirect\("\/app\/offers"\)/.test(idPage) && /area\.offers\.find\(\(o\) => o\.id === opening\.id\)/.test(screen) && /if \("id" in opening && !offer\) redirect\("\/app\/offers"\)/.test(screen))
+    check("offers: every read is this creator's, for its owner or a team member with Marketing", /offersArea\(createAdminClient\(\), access\.creatorId as string\)/.test(screen) && /teamPageStore\("marketing"\)/.test(screen))
     const editor = code("app/(storelib)/app/offers/offer-editor.tsx")
-    check("offers: the editor is Add product's shell, the shared SheetDialog", /<SheetDialog/.test(editor) && /LAYER_PHONE/.test(editor))
-    check("offers: a title row with the close button, a foot with Cancel and Create or Save", /data-offer-head=""/.test(editor) && /data-offer-foot=""/.test(editor) && /data-offer-cancel=""/.test(editor) && /data-offer-save=""/.test(editor))
+    const chooser = code("app/(storelib)/app/offers/offer-kind-chooser.tsx")
+    check("offers: New offer's kind is Add product's shell, the shared SheetDialog", /<SheetDialog/.test(chooser) && /LAYER_PHONE/.test(chooser) && !/<SheetDialog/.test(editor))
+    check("offers: the page has the coupon editor's bar, header and foot", /data-editor-bar=""/.test(editor) && /data-editor-head=""/.test(editor) && /data-editor-foot=""/.test(editor) && /<LeaveButton /.test(editor) && /<CouponSaveButton /.test(editor))
     check("offers: leaving with changes asks, a new one too", /Discard changes\?/.test(editor) && /Discard this offer\?/.test(editor))
-    check("offers: a save and a delete change the row in place and say so", /onSaved\(saved, !offer\)/.test(editor) && /onDeleted\(offer\)/.test(editor) && /say\(created \?/.test(list) && /tintReturnedRow\(sectionRef\.current, o\.id/.test(list))
-    check("offers: closing a modal a link opened puts the address back without a load", /window\.history\.replaceState\(window\.history\.state, "", OFFERS_HREF\)/.test(list))
-    check("offers: the list opens the editor over itself", /<OfferEditor/.test(list) && !/offersReturn\.open/.test(list))
+    check("offers: a save and a delete go back to the list, which says so and tints the row", /offersReturn\.leave\(router, \{ id: saved\?\.id/.test(editor) && /deleted: true/.test(editor) && /offersReturn\.take\(\)/.test(list) && /tintReturnedRow\(sectionRef\.current, back\.id, LAYER_LEAVE_MS\)/.test(list))
+    check("offers: the list opens a page, never a form over itself", /offersReturn\.open\(router/.test(list) && !/<OfferEditor/.test(list))
     check("offers: a slow navigation to it keeps the page you are on", /\^\\\/app\\\/offers\\\/\[\^\/\]\+\(\\\/\|\$\)/.test(read("lib/ui/app-navigation.ts")))
 
     /* Coupons: already sub pages; their physical options now look like the rest of the form. */

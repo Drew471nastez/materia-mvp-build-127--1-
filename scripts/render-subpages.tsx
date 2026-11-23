@@ -63,7 +63,7 @@ const COLLECTION_RULES = { id: "k2", title: "Under $30", description: "", kind: 
 
 function Root() {
   const p = w.__panel
-  const offer = (o: Offer | null, kind: Offer["kind"]) => <OfferEditor open target={o ? { offer: o } : { offer: null, kind }} onClose={() => undefined} onSaved={() => undefined} onDeleted={() => undefined} products={PRODUCTS} collections={[{ id: "k", title: "Kitchen" }]} others={[OFFER]} currency="USD" physical ready settingsReady breaksReady sold={o ? { [o.id]: 14 } : {}} />
+  const offer = (o: Offer | null, kind: Offer["kind"]) => <OfferEditor offer={o} kind={kind} products={PRODUCTS} collections={[{ id: "k", title: "Kitchen" }]} others={[OFFER]} currency="USD" physical ready settingsReady breaksReady sold={o ? 14 : 0} />
   if (p === "offer-edit") return offer(OFFER, "checkout")
   if (p === "break-new") return offer(null, "quantity_break")
   if (p === "chart-new") return <SizeChartPage creatorId="me" chart={null} ready rules targets={{ collections: [{ id: "k", title: "Tees" }], categories: ["Shirts"] }} />

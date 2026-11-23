@@ -128,7 +128,7 @@ export function TierEditor({ tiers, onChange, problems, problem, sign, money, cu
               <div className="flex items-center justify-between gap-3">
                 <span className="text-[13px] font-medium text-[#4b5563]">{tt("Tier {n}", { n: i + 1 })}</span>
                 {tiers.length > 1 ? (
-                  <button type="button" data-tier-remove={i} onClick={() => onChange(tiers.filter((_, n) => n !== i))} className="-my-1.5 h-9 cursor-pointer rounded-lg px-2 text-[13px] text-[#6b7280] outline-none hover:bg-[#f4f5f7] hover:text-[#1a1a2e] focus-visible:bg-[#f4f5f7] sm:h-7">
+                  <button type="button" data-tier-remove={i} onClick={() => onChange(tiers.filter((_, n) => n !== i))} className="-my-2.5 h-11 cursor-pointer rounded-lg px-2.5 text-[14px] sm:-my-1.5 sm:px-2 sm:text-[13px] text-[#6b7280] outline-none hover:bg-[#f4f5f7] hover:text-[#1a1a2e] focus-visible:bg-[#f4f5f7] sm:h-7">
                     {tt("Remove")}
                   </button>
                 ) : null}
@@ -306,7 +306,7 @@ export function ChoiceGrid<T extends string>({ value, options, onChange, label }
               if (!on) onChange(o.value)
             }}
             className={cn(
-              "relative h-10 min-w-0 flex-1 basis-0 cursor-pointer truncate rounded-lg px-3 text-[15px] font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[#8b5cf6] sm:h-8 sm:rounded-md sm:text-[13px] [-webkit-tap-highlight-color:transparent]",
+              "relative h-11 min-w-0 flex-1 basis-0 cursor-pointer truncate rounded-lg px-3 text-[15px] font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[#8b5cf6] sm:h-8 sm:rounded-md sm:text-[13px] [-webkit-tap-highlight-color:transparent]",
               on ? "text-[#1a1a2e]" : "text-[#4b5563] hover:text-[#1a1a2e]",
             )}
           >
