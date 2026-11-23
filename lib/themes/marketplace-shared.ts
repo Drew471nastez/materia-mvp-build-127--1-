@@ -139,6 +139,8 @@ export const CODE_TEMPLATES: readonly CodeTemplate[] = [
   { slug: "course-landing", template: "courselanding", name: "Course landing", category: "courses" },
   /* Templates round 20: a merch shop on an old desktop, product windows, a taskbar with a Start menu, quick view and added to cart dialogs. */
   { slug: "retro-merch", template: "retro", name: "Retro desktop", category: "creators" },
+  /* Templates round 21: an author's book landing page, the book in front of two open pages with a free chapter by email, then "Hi, I'm ...", the chapters, editions and a free email course. */
+  { slug: "author-book", template: "authorbook", name: "Author", category: "ebooks" },
 ]
 
 /** Where a template's pictures live: its home page whole at 1440 wide, and at a phone's width (scripts/build-theme-template-covers.ts takes both). */

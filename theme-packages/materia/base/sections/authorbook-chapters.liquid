@@ -1,0 +1,105 @@
+{%- comment -%}
+  Author: what is inside the book. On a computer the heading, a line and a
+  picture of the open book stay in view on the left while the chapters run
+  down the right, each a large number, a title and one line on what the
+  reader takes from it. On a phone everything stacks. Nothing moves.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+-%}
+<style>
+  #shopify-section-{{ sid }} .abc { background: {{ st.background | default: '#f5f2ec' }}; padding: {{ st.padding_top_mobile | default: 56 }}px 20px {{ st.padding_bottom_mobile | default: 56 }}px; scroll-margin-top: 80px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .abc { padding: {{ st.padding_top | default: 104 }}px 40px {{ st.padding_bottom | default: 104 }}px; } }
+  #shopify-section-{{ sid }} .abc__inner { max-width: 1140px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 36px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .abc__inner { grid-template-columns: minmax(0, 0.85fr) minmax(0, 1fr); gap: 88px; align-items: start; } }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .abc__intro { position: sticky; top: 110px; } }
+  #shopify-section-{{ sid }} .abc__eyebrow { margin: 0 0 14px; font-size: 13px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: {{ st.accent_color | default: '#c4471f' }}; }
+  #shopify-section-{{ sid }} .abc__heading { margin: 0; color: var(--color-heading); font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, 400); font-size: {{ st.heading_size_mobile | default: 38 }}px; line-height: 1.06; letter-spacing: -0.01em; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .abc__heading { font-size: {{ st.heading_size | default: 52 }}px; } }
+  #shopify-section-{{ sid }} .abc__heading em { font-style: italic; color: {{ st.accent_color | default: '#c4471f' }}; }
+  #shopify-section-{{ sid }} .abc__text { margin-top: 18px; color: var(--color-text); font-size: 17px; line-height: 1.65; max-width: 42ch; }
+  #shopify-section-{{ sid }} .abc__text p { margin: 0; }
+  #shopify-section-{{ sid }} .abc__media { margin: 30px 0 0; }
+  #shopify-section-{{ sid }} .abc__media img { display: block; width: 100%; height: auto; margin: 0; border-radius: {{ st.image_radius | default: 8 }}px; }
+  #shopify-section-{{ sid }} .abc__list { list-style: none; margin: 0; padding: 0; counter-reset: abc; }
+  #shopify-section-{{ sid }} .abc__item {
+    display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 6px 16px; padding: 22px 0;
+    border-top: 1px solid {{ st.line_color | default: '#ddd6c8' }};
+  }
+  #shopify-section-{{ sid }} .abc__item:last-child { border-bottom: 1px solid {{ st.line_color | default: '#ddd6c8' }}; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .abc__item { grid-template-columns: 76px minmax(0, 1fr); padding: 26px 0; } }
+  #shopify-section-{{ sid }} .abc__num { grid-row: span 2; color: {{ st.accent_color | default: '#c4471f' }}; font-family: var(--heading-font, inherit); font-size: 34px; line-height: 1; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .abc__num { font-size: 44px; } }
+  #shopify-section-{{ sid }} .abc__title { margin: 0; color: var(--color-heading); font-size: 19px; font-weight: 700; line-height: 1.3; }
+  #shopify-section-{{ sid }} .abc__line { margin: 0; color: var(--color-text); font-size: 16px; line-height: 1.55; }
+  #shopify-section-{{ sid }} .abc__btn {
+    display: inline-flex; align-items: center; justify-content: center; min-height: 50px; margin-top: 28px; padding: 0 24px; border-radius: {{ st.button_radius | default: 6 }}px;
+    background: {{ st.button_color | default: '#1d2b4f' }}; color: {{ st.button_text_color | default: '#ffffff' }}; font-size: 15px; font-weight: 700; text-decoration: none; transition: filter 0.2s ease;
+  }
+  #shopify-section-{{ sid }} .abc__btn:hover { filter: brightness(1.15); }
+</style>
+<div class="abc color-{{ color_scheme }}" id="{{ st.anchor | default: 'inside' | handleize }}" data-section-id="{{ sid }}">
+  <div class="abc__inner">
+    <div class="abc__intro">
+      {%- if st.eyebrow != blank -%}<p class="abc__eyebrow">{{ st.eyebrow | escape }}</p>{%- endif -%}
+      {%- if st.heading != blank -%}<h2 class="abc__heading">{{ st.heading }}</h2>{%- endif -%}
+      {%- if st.text != blank -%}<div class="abc__text">{{ st.text }}</div>{%- endif -%}
+      {%- if st.image != blank -%}
+        <figure class="abc__media"><img src="{{ st.image | image_url: width: 1000 }}" srcset="{{ st.image | image_url: width: 600 }} 600w, {{ st.image | image_url: width: 1000 }} 1000w" sizes="(min-width: 990px) 480px, 90vw" width="{{ st.image.width | default: 1000 }}" height="{{ st.image.height | default: 700 }}" alt="{{ st.image_alt | default: st.image.alt | escape }}" loading="lazy" decoding="async"></figure>
+      {%- endif -%}
+    </div>
+    <div>
+      <ol class="abc__list" role="list">
+        {%- for block in section.blocks -%}
+          <li class="abc__item" {{ block.shopify_attributes }}>
+            <span class="abc__num" aria-hidden="true">{% if forloop.index < 10 %}0{% endif %}{{ forloop.index }}</span>
+            <h3 class="abc__title">{{ block.settings.title | escape }}</h3>
+            <p class="abc__line">{{ block.settings.line | escape }}</p>
+          </li>
+        {%- endfor -%}
+      </ol>
+      {%- if st.button_label != blank -%}<a class="abc__btn" href="{{ st.button_link | default: '/collections/all' }}">{{ st.button_label | escape }}</a>{%- endif -%}
+    </div>
+  </div>
+</div>
+{% schema %}
+{
+  "name": "Author chapters",
+  "tag": "section",
+  "class": "section sec__authorbook-chapters",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default-color-scheme" },
+    { "type": "color", "id": "background", "label": "Background", "default": "#f5f2ec" },
+    { "type": "color", "id": "accent_color", "label": "Accent (numbers)", "default": "#c4471f" },
+    { "type": "color", "id": "line_color", "label": "Lines", "default": "#ddd6c8" },
+    { "type": "text", "id": "anchor", "label": "Name for links to this section", "default": "inside" },
+    { "type": "text", "id": "eyebrow", "label": "Small label", "default": "What is inside" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "Short chapters, <em>one idea</em> each" },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Say how the book is put together and what a reader can do after each part.</p>" },
+    { "type": "image_picker", "id": "image", "label": "Picture", "info": "The open book works well." },
+    { "type": "text", "id": "image_alt", "label": "Alt text" },
+    { "type": "range", "id": "image_radius", "label": "Picture corners", "min": 0, "max": 32, "step": 2, "unit": "px", "default": 8 },
+    { "type": "text", "id": "button_label", "label": "Button under the list", "default": "Get the book" },
+    { "type": "url", "id": "button_link", "label": "Button link" },
+    { "type": "color", "id": "button_color", "label": "Button colour", "default": "#1d2b4f" },
+    { "type": "color", "id": "button_text_color", "label": "Button text colour", "default": "#ffffff" },
+    { "type": "range", "id": "button_radius", "label": "Button corners", "min": 0, "max": 30, "step": 1, "unit": "px", "default": 6 },
+    { "type": "range", "id": "heading_size", "label": "Heading size, desktop", "min": 32, "max": 80, "step": 2, "unit": "px", "default": 52 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size, phone", "min": 26, "max": 52, "step": 2, "unit": "px", "default": 38 },
+    { "type": "range", "id": "padding_top", "label": "Space above, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 104 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 104 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 }
+  ],
+  "blocks": [
+    { "type": "chapter", "name": "Chapter", "settings": [
+      { "type": "text", "id": "title", "label": "Title", "default": "Chapter title" },
+      { "type": "text", "id": "line", "label": "What the reader takes from it", "default": "One line on what changes after reading it." }
+    ] }
+  ],
+  "max_blocks": 14,
+  "presets": [ { "name": "Author chapters", "blocks": [ { "type": "chapter" }, { "type": "chapter" }, { "type": "chapter" }, { "type": "chapter" } ] } ]
+}
+{% endschema %}

@@ -97,6 +97,10 @@ Video sales letter: the opening. A small label, a two part heading (words
   .vsl-hero__in > :nth-child(3) { animation-delay: .16s; }
   .vsl-hero__in > :nth-child(4) { animation-delay: .24s; }
   .vsl-hero__in > :nth-child(5) { animation-delay: .32s; }
+  .vsl-hero__note { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 20px; margin: 20px 0 0; padding: 0; list-style: none; font-size: 13px; color: rgba(255,255,255,.6); }
+  .vsl-hero__note li { display: inline-flex; align-items: center; gap: 7px; }
+  .vsl-hero__note svg { width: 14px; height: 14px; color: #fff; }
+  .vsl-hero__in > :nth-child(6) { animation-delay: .4s; }
   @keyframes vsl-rise { from { opacity: 0; transform: translate3d(0, 18px, 0); } to { opacity: 1; transform: none; } }
   #shopify-section-{{ sid }} .vsl-video { position: relative; max-width: {{ st.video_width | default: 1000 }}px; margin: 64px auto 0; padding-top: 34px; animation: vsl-frame 1.3s cubic-bezier(.2,.65,.2,1) .3s both; }
   @keyframes vsl-frame { from { opacity: 0; transform: translate3d(0, 40px, 0) scale(.96); } to { opacity: 1; transform: none; } }
@@ -155,6 +159,9 @@ Video sales letter: the opening. A small label, a two part heading (words
           {%- if st.button_label != blank -%}<a class="vsl-btn" href="{{ st.button_link | default: '#' }}">{{ st.button_label | escape }}<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 8h10M9 4l4 4-4 4"/></svg></a>{%- endif -%}
           {%- if st.button2_label != blank -%}<a class="vsl-btn vsl-btn--ghost" href="{{ st.button2_link | default: '#' }}">{{ st.button2_label | escape }}</a>{%- endif -%}
         </div>
+      {%- endif -%}
+      {%- if st.note != blank -%}
+        <ul class="vsl-hero__note" role="list">{%- assign hn = st.note | split: ',' -%}{%- for n in hn -%}<li><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3.5 8.4l3 3 6-6.4"/></svg>{{ n | strip | escape }}</li>{%- endfor -%}</ul>
       {%- endif -%}
     </div>
     {%- if st.show_video -%}
@@ -278,6 +285,12 @@ Video sales letter: the opening. A small label, a two part heading (words
       "type": "url",
       "id": "button2_link",
       "label": "Second button link"
+    },
+    {
+      "type": "text",
+      "id": "note",
+      "label": "Small points under the buttons",
+      "info": "Separate them with commas. Facts only, like when it starts or the refund window."
     },
     {
       "type": "header",

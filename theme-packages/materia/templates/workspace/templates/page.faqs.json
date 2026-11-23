@@ -113,57 +113,37 @@
         "faq_item_9"
       ]
     },
-    "ask": {
-      "type": "banner3",
+    "maker": {
+      "type": "workspace-creator",
       "settings": {
-        "section_width": "container",
-        "banner_surface": "soft",
-        "banner_tint": 0,
-        "use_custom_bg": true,
-        "bg_color": "#f2f1ee",
-        "max_width": 640,
-        "text_align": "center",
-        "use_theme_radius": false,
-        "section_border_radius": 20,
-        "pad_top_desktop": 56,
-        "pad_bottom_desktop": 56,
-        "pad_top_mobile": 40,
-        "pad_bottom_mobile": 40,
-        "section_padding_top": 24,
-        "section_padding_bottom": 96,
-        "section_padding_top_mobile": 16,
-        "section_padding_bottom_mobile": 64
-      },
-      "blocks": {
-        "heading_1": {
-          "type": "heading",
-          "settings": {
-            "text": "Still have a question?"
-          }
-        },
-        "subheading_1": {
-          "type": "subheading",
-          "settings": {
-            "text": "Write to me. I read every message and answer within two working days."
-          }
-        },
-        "button_1": {
-          "type": "button",
-          "settings": {
-            "label": "Write to me",
-            "link": "/pages/contact"
-          }
-        }
-      },
-      "block_order": [
-        "heading_1",
-        "subheading_1",
-        "button_1"
-      ]
+        "background": "#f2f1ee",
+        "image": "shopify://shop_images/workspace-adda-desk.webp",
+        "image_alt": "Adda Lind at her desk with a laptop and a notebook",
+        "image_ratio": "4 / 3",
+        "image_focus": "center",
+        "image_position": "left",
+        "avatar": "shopify://shop_images/workspace-adda-avatar.webp",
+        "name": "Adda Lind",
+        "role": "Designer, makes the Wellkept templates",
+        "heading": "Ask me anything about the templates",
+        "text": "<p>I answer every message myself, usually within two working days. If you are not sure which template fits, tell me how your week looks.</p>",
+        "button_label": "Write to me",
+        "button_link": "/pages/contact",
+        "instagram": "https://instagram.com",
+        "tiktok": "https://tiktok.com",
+        "youtube": "https://youtube.com",
+        "pinterest": "https://pinterest.com",
+        "heading_size": 40,
+        "heading_size_mobile": 30,
+        "padding_top": 88,
+        "padding_bottom": 88,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56
+      }
     }
   },
   "order": [
     "faq",
-    "ask"
+    "maker"
   ]
 }

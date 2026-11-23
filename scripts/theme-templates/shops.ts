@@ -8,7 +8,9 @@
 import type { SampleProduct } from "./site"
 
 /** `currency`: a shop that sells in another currency than dollars draws its prices with its own symbol (Loudlib sells in euros). */
-export const SAMPLE_SHOPS: Record<string, { name: string; products: SampleProduct[]; currency?: { code: string; format: string } }> = {
+/** `posts` (templates round 21): a shop's own three blog posts, each with a picture from scripts/theme-templates/products/<template>/; without them the blog shows the shared sample posts. */
+export interface SamplePost { title: string; excerpt: string; image: string; tag: string; html: string }
+export const SAMPLE_SHOPS: Record<string, { name: string; products: SampleProduct[]; currency?: { code: string; format: string }; posts?: SamplePost[] }> = {
   default: {
     name: "Sundry",
     products: [
@@ -126,6 +128,12 @@ export const SAMPLE_SHOPS: Record<string, { name: string; products: SampleProduc
   samples: {
     name: "Loudlib",
     currency: { code: "EUR", format: "€{{amount}}" },
+    /* Templates round 21: Loudlib's blog is about producing, with studio photographs (Unsplash License, theme-packages/materia/templates/CREDITS.md). */
+    posts: [
+      { title: "Layering a tech house kick", tag: "Drums", image: "samples-post-kick.webp", excerpt: "A punchy kick is usually two or three sounds: a click on top, a body and a short sub. How to stack them without the low end turning to mud.", html: `<p>Most tech house kicks you hear in a club are not one sample. They are a click for the top, a body for the punch and a short sub underneath, each cut to do one job.</p><h2 id="three">Three layers, three jobs</h2><p>Pick the body first. It decides the pitch and the length. Then add a click that only lives above 2 kHz, and a sine sub that stops before the next off beat.</p><ul><li>High pass the click at 1.5 to 2 kHz</li><li>Keep the body between 60 and 200 Hz</li><li>Tune the sub to the key of the track</li></ul><blockquote>If the layers fight, flip the phase of one and listen again before you reach for an EQ.</blockquote><h2 id="glue">Glue them</h2><p>Bus the three layers, add a little saturation and a fast compressor, then bounce the result to one sample. A single file is easier to sidechain against later.</p>` },
+      { title: "Sidechain that breathes, for deep house", tag: "Mixing", image: "samples-post-sidechain.webp", excerpt: "Pumping is a sound, not a fix. Where to put the ducking in a deep house mix, and how long the release should be at 120 BPM.", html: `<p>Deep house sits slower and warmer than tech house, so the sidechain should move the pads and the bass without anyone noticing it as an effect.</p><h2 id="where">Where to duck</h2><p>Duck the bass hard and short, the chords softly and longer. Leave the hats alone: they carry the groove the kick leaves behind.</p><ul><li>Bass: 6 to 8 dB, release about 80 ms</li><li>Chords and pads: 2 to 3 dB, release about 200 ms</li><li>Vocals: usually none</li></ul><blockquote>At 120 BPM one sixteenth note is 125 ms. A release just under that keeps the pump in time.</blockquote><h2 id="ghost">Use a ghost kick</h2><p>Trigger the compressor from a muted kick on its own track, so the pump keeps going in breakdowns where the real kick drops out.</p>` },
+      { title: "A vocal chop hook from one phrase", tag: "Sound design", image: "samples-post-vocal-chops.webp", excerpt: "Take one sung phrase, slice it to the transients and play it back as an instrument. A hook in ten minutes, and it is yours.", html: `<p>A short sung phrase holds more than one hook. Sliced and replayed, the same few syllables turn into a rhythm part that nobody else has.</p><h2 id="slice">Slice to the transients</h2><p>Drop the phrase in a sampler, slice it at each consonant and map the slices across the keyboard. Play a simple rhythm in the off beats first.</p><ul><li>Keep slices short, under a sixteenth note</li><li>Fade each slice out to avoid clicks</li><li>Transpose by octaves, not by odd intervals</li></ul><blockquote>Formant shifting keeps the voice human when you pitch it up an octave.</blockquote><h2 id="space">Give it space</h2><p>A send to a short reverb and a dotted eighth delay, both high passed, puts the chops behind the drums instead of on top of them.</p>` },
+    ],
     /* Templates round 20: Loudlib's own catalogue, as loudlib.net lists it (names, prices, contents and box art from its Payhip store). The prices there are euros, and so are these. */
     products: [
       { title: "Serum Presets Vol 1", price: "€8.99", compare: "€22.47", image: "samples-pack-serum-presets.webp", kind: "digital", description: "26 ready to use bass presets for Xfer Serum, made for tech house, deep house, melodic house and afro house. Needs Serum 1.368 or later, which is not included. Also part of the Tech House Master Bundle and the Deep House Production Suite.", options: [{ name: "Download", values: ["ZIP", "RAR"] }] },
@@ -198,23 +206,23 @@ export const SAMPLE_SHOPS: Record<string, { name: string; products: SampleProduc
       { title: "One to One Dial In", price: "$60.00", image: "course2-one-to-one.webp", kind: "digital", description: "A 45 minute video call on your own machine and grinder, with a written plan after." },
     ],
   },
-  /* Templates round 20: one course sold by a video sales letter; the course, its templates and a review call. */
+  /* Templates round 21: a podcast launch course sold by a video sales letter; the course, its starter kit and a review call. */
   vsl: {
-    name: "Nightdesk",
+    name: "Longwave",
     products: [
-      { title: "The Workshop Course", price: "$490.00", compare: "$590.00", image: "vsl-course.webp", kind: "digital", description: "Six weeks to shape, price, sell and run one paid workshop: twelve short lessons, templates for the outline, the sales page and the emails, and six live calls on Thursdays.", options: [{ name: "Access", values: ["Course", "Course and two private calls"] }, { name: "Payment", values: ["In full", "In three parts"] }], add: { "Course and two private calls": 240 } },
-      { title: "Workshop templates", price: "$49.00", image: "vsl-templates.webp", kind: "digital", description: "The outline, sales page and email templates from the course, on their own." },
-      { title: "Workshop review call", price: "$150.00", image: "vsl-review-call.webp", kind: "digital", description: "A 45 minute video call on your own workshop outline or sales page, with written notes after." },
+      { title: "The Podcast Launch Course", price: "$397.00", compare: "$497.00", image: "vsl-course.webp", kind: "digital", description: "Eight weeks from idea to ten published episodes: 24 short lessons on format, gear, recording, editing and launch, the show starter kit, notes on your first episode and eight live calls on Thursdays.", options: [{ name: "Access", values: ["Course", "Course and two coaching calls"] }, { name: "Payment", values: ["In full", "In three parts"] }], add: { "Course and two coaching calls": 200 } },
+      { title: "Show starter kit", price: "$49.00", image: "vsl-templates.webp", kind: "digital", description: "The episode outlines, guest email, show notes and launch checklist from the course, on their own." },
+      { title: "Episode review call", price: "$150.00", image: "vsl-review-call.webp", kind: "digital", description: "A 45 minute video call on one of your episodes: sound, pace and structure, with written notes after." },
     ],
   },
-  /* Templates round 20: one phone photography course sold on a one offer page; the course and its extras, drawn as phone screens with real photographs in them. */
+  /* Templates round 20: one course sold on a one offer page. Round 21: the topic is now personal finance (Evenly); the course and its extras drawn as phone screens, with real photographs in the lesson and call screens. */
   courselanding: {
-    name: "Pocket Light",
+    name: "Evenly",
     products: [
-      { title: "Pocket Light", price: "$89.00", compare: "$119.00", image: "courselanding-course.webp", kind: "digital", description: "A four week phone photography course: 24 short lessons on light, framing, people and editing, a live critique every Thursday, editing presets and printable shot lists.", options: [{ name: "Edition", values: ["Course", "With critiques"] }, { name: "Seats", values: ["Just me", "Two people"] }], add: { "With critiques": 60, "Two people": 60 }, pictures: { Course: "courselanding-course.webp", "With critiques": "courselanding-course-critiques.webp" } },
-      { title: "Editing presets", price: "$19.00", image: "courselanding-presets.webp", kind: "digital", description: "Twelve looks for the free editing apps, with a short video on each." },
-      { title: "Portfolio review call", price: "$45.00", image: "courselanding-review-call.webp", kind: "digital", description: "A 30 minute video call on ten of your photos, with notes after." },
-      { title: "Shot list cards", price: "$11.00", image: "courselanding-shot-list.webp", kind: "digital", description: "A printable brief for every day of the course." },
+      { title: "Evenly", price: "$89.00", compare: "$119.00", image: "courselanding-course.webp", kind: "digital", description: "A four week course on everyday money: 24 short lessons on tracking spending, a budget you keep, debt, saving and investing, a live Q&A every Thursday, the budget spreadsheet and a printable workbook.", options: [{ name: "Edition", values: ["Course", "With a money review"] }, { name: "Seats", values: ["Just me", "Two people"] }], add: { "With a money review": 60, "Two people": 60 }, pictures: { Course: "courselanding-course.webp", "With a money review": "courselanding-course-review.webp" } },
+      { title: "Budget spreadsheet", price: "$19.00", image: "courselanding-spreadsheet.webp", kind: "digital", description: "The spreadsheet from the course: income, bills, three pots and a payoff plan, with a short video on each tab." },
+      { title: "Money review call", price: "$45.00", image: "courselanding-review-call.webp", kind: "digital", description: "A 30 minute video call to go through your budget and plan, with notes after. Teaching, not personal financial advice." },
+      { title: "Printable workbook", price: "$11.00", image: "courselanding-workbook.webp", kind: "digital", description: "A worksheet for every lesson, to print or fill in on screen." },
     ],
   },
   /* Templates round 20: merch on an old desktop; plain tees, a hoodie, a cap and a beanie with pixel prints drawn on, and a drawn sticker sheet. */
@@ -227,6 +235,16 @@ export const SAMPLE_SHOPS: Record<string, { name: string; products: SampleProduc
       { title: "Cursor cap", price: "$28.00", image: "retro-cursor-cap.webp", description: "Six panel cotton cap with the arrow cursor stitched in white. One size, with a strap at the back." },
       { title: "Icon sticker sheet", price: "$8.00", image: "retro-sticker-pack.webp", description: "Nine die cut vinyl stickers, matte and waterproof." },
       { title: "Smiley beanie", price: "$26.00", image: "retro-smiley-beanie.webp", description: "Cable knit with a pom and a woven smiley label." },
+    ],
+  },
+  /* Templates round 21: an author's book in three editions and a printable journal; the cover, phone and pages are drawn for the template. */
+  authorbook: {
+    name: "Theo Marlow",
+    products: [
+      { title: "Read More, Keep More", price: "$16.00", compare: "$20.00", image: "authorbook-ed-ebook.webp", kind: "digital", description: "A simple way to read more books and remember what is in them. Twelve short chapters, each ending with one small thing to try the same day. 240 pages as PDF and EPUB.", options: [{ name: "Format", values: ["Ebook", "Ebook and audiobook"] }], add: { "Ebook and audiobook": 9 }, pictures: { Ebook: "authorbook-ed-ebook.webp", "Ebook and audiobook": "authorbook-ed-audio.webp" } },
+      { title: "The complete reading set", price: "$34.00", compare: "$46.00", image: "authorbook-ed-set.webp", kind: "digital", description: "The ebook, the audiobook read by Theo and the printable Reading Journal, with notes templates for fifty books." },
+      { title: "Read More, Keep More, audiobook", price: "$14.00", image: "authorbook-ed-audio.webp", kind: "digital", description: "Six hours, read by the author, as MP3 files chapter by chapter." },
+      { title: "The Reading Journal", price: "$9.00", image: "authorbook-journal.webp", kind: "digital", description: "A printable reading log and a one page notes sheet for every book you finish." },
     ],
   },
 }

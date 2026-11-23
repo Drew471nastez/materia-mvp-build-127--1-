@@ -1,0 +1,168 @@
+{%- comment -%}
+  Author: what readers say, as a carousel. A centred heading and a line,
+  then cards that slide sideways: five stars, the words, and the reader
+  with a round picture (or their initials when there is none), their name
+  and a short line. Arrows move one card at a time on a computer; on a
+  phone the cards are swiped. The track scrolls natively with snap points,
+  so it works without the script; the script only drives the arrows.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+-%}
+<style>
+  #shopify-section-{{ sid }} .abr { background: {{ st.background | default: '#ffffff' }}; padding: {{ st.padding_top_mobile | default: 56 }}px 0 {{ st.padding_bottom_mobile | default: 56 }}px; scroll-margin-top: 80px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .abr { padding: {{ st.padding_top | default: 104 }}px 0 {{ st.padding_bottom | default: 104 }}px; } }
+  #shopify-section-{{ sid }} .abr__head { max-width: 1140px; margin: 0 auto; padding: 0 20px; display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 20px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .abr__head { padding: 0 40px; } }
+  #shopify-section-{{ sid }} .abr__eyebrow { margin: 0 0 12px; font-size: 13px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: {{ st.accent_color | default: '#c4471f' }}; }
+  #shopify-section-{{ sid }} .abr__heading { margin: 0; color: var(--color-heading); font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, 400); font-size: {{ st.heading_size_mobile | default: 36 }}px; line-height: 1.08; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .abr__heading { font-size: {{ st.heading_size | default: 48 }}px; } }
+  #shopify-section-{{ sid }} .abr__heading em { font-style: italic; color: {{ st.accent_color | default: '#c4471f' }}; }
+  #shopify-section-{{ sid }} .abr__text { margin: 10px 0 0; color: var(--color-text); font-size: 15px; max-width: 52ch; }
+  #shopify-section-{{ sid }} .abr__arrows { display: none; gap: 10px; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .abr__arrows { display: flex; } }
+  #shopify-section-{{ sid }} .abr__arrow {
+    width: 50px; height: 50px; border-radius: 50%; border: 1px solid {{ st.line_color | default: '#e1dbcf' }}; background: #fff; color: var(--color-heading);
+    display: grid; place-items: center; cursor: pointer; transition: background-color 0.2s ease, color 0.2s ease, opacity 0.2s ease;
+  }
+  #shopify-section-{{ sid }} .abr__arrow:hover:not([disabled]) { background: var(--color-heading); color: #fff; }
+  #shopify-section-{{ sid }} .abr__arrow[disabled] { opacity: 0.35; cursor: default; }
+  #shopify-section-{{ sid }} .abr__arrow svg { width: 18px; height: 18px; }
+  #shopify-section-{{ sid }} .abr__track {
+    list-style: none; margin: 36px 0 0; padding: 4px max(20px, calc((100vw - 1140px) / 2 + 0px)) 24px;
+    display: grid; grid-auto-flow: column; grid-auto-columns: 86%; gap: 16px;
+    overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-inline: max(20px, calc((100vw - 1140px) / 2)); scrollbar-width: none; overscroll-behavior-x: contain;
+  }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .abr__track { grid-auto-columns: calc((min(100vw, 1140px) - 80px - 48px) / 3); gap: 24px; padding-inline: max(40px, calc((100vw - 1140px) / 2 + 40px)); scroll-padding-inline: max(40px, calc((100vw - 1140px) / 2 + 40px)); } }
+  #shopify-section-{{ sid }} .abr__track::-webkit-scrollbar { display: none; }
+  #shopify-section-{{ sid }} .abr__card {
+    scroll-snap-align: start; display: flex; flex-direction: column; gap: 18px; padding: 26px 24px; border-radius: {{ st.card_radius | default: 12 }}px;
+    background: {{ st.card_color | default: '#f5f2ec' }}; min-height: 100%;
+  }
+  #shopify-section-{{ sid }} .abr__stars { display: flex; gap: 3px; color: {{ st.star_color | default: '#f0643a' }}; }
+  #shopify-section-{{ sid }} .abr__stars svg { width: 17px; height: 17px; }
+  #shopify-section-{{ sid }} .abr__quote { margin: 0; flex: 1 1 auto; color: var(--color-heading); font-size: 17px; line-height: 1.6; }
+  #shopify-section-{{ sid }} .abr__who { display: flex; align-items: center; gap: 12px; }
+  #shopify-section-{{ sid }} .abr__avatar { width: 46px; height: 46px; flex: 0 0 46px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; background: {{ st.avatar_color | default: '#1d2b4f' }}; color: #fff; font-size: 15px; font-weight: 700; letter-spacing: 0.02em; }
+  #shopify-section-{{ sid }} .abr__avatar img { width: 100%; height: 100%; object-fit: cover; margin: 0; }
+  #shopify-section-{{ sid }} .abr__name { margin: 0; color: var(--color-heading); font-size: 15px; font-weight: 700; }
+  #shopify-section-{{ sid }} .abr__role { margin: 2px 0 0; color: var(--color-text); font-size: 13.5px; }
+  #shopify-section-{{ sid }} .abr__tag { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 4px; background: rgba(20,22,28,0.07); font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; vertical-align: 2px; }
+  #shopify-section-{{ sid }} .abr__dots { display: flex; justify-content: center; gap: 6px; margin-top: 4px; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .abr__dots { display: none; } }
+  #shopify-section-{{ sid }} .abr__dot { width: 7px; height: 7px; border-radius: 50%; background: {{ st.line_color | default: '#e1dbcf' }}; transition: background-color 0.2s ease, width 0.2s ease; }
+  #shopify-section-{{ sid }} .abr__dot.is-on { width: 20px; border-radius: 4px; background: var(--color-heading); }
+  @media (prefers-reduced-motion: reduce) { #shopify-section-{{ sid }} .abr__track { scroll-behavior: auto; } }
+</style>
+<div class="abr color-{{ color_scheme }}" id="{{ st.anchor | default: 'reviews' | handleize }}" data-section-id="{{ sid }}">
+  <div class="abr__head">
+    <div>
+      {%- if st.eyebrow != blank -%}<p class="abr__eyebrow">{{ st.eyebrow | escape }}</p>{%- endif -%}
+      {%- if st.heading != blank -%}<h2 class="abr__heading">{{ st.heading }}</h2>{%- endif -%}
+      {%- if st.text != blank -%}<p class="abr__text">{{ st.text | escape }}</p>{%- endif -%}
+    </div>
+    {%- if section.blocks.size > 1 -%}
+      <div class="abr__arrows">
+        <button type="button" class="abr__arrow" data-abr-prev aria-label="Previous"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4l-6 6 6 6"/></svg></button>
+        <button type="button" class="abr__arrow" data-abr-next aria-label="Next"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 4l6 6-6 6"/></svg></button>
+      </div>
+    {%- endif -%}
+  </div>
+  <ul class="abr__track" role="list" data-abr-track tabindex="0" aria-label="{{ st.heading | strip_html | escape }}">
+    {%- for block in section.blocks -%}
+      {%- liquid
+        assign b = block.settings
+        assign initials = ''
+        assign parts = b.name | split: ' '
+        for part in parts limit: 2
+          assign first_letter = part | slice: 0, 1
+          assign initials = initials | append: first_letter
+        endfor
+      -%}
+      <li class="abr__card" {{ block.shopify_attributes }}>
+        <div class="abr__stars" aria-label="{{ b.stars | default: 5 }} out of 5">
+          {%- for i in (1..5) -%}<svg viewBox="0 0 20 20" fill="{% if i <= b.stars %}currentColor{% else %}none{% endif %}" stroke="currentColor" stroke-width="1.2" aria-hidden="true"><path d="M10 1.8l2.5 5.2 5.7.8-4.1 4 1 5.6L10 14.8l-5.1 2.6 1-5.6-4.1-4 5.7-.8z"/></svg>{%- endfor -%}
+        </div>
+        <p class="abr__quote">{{ b.quote | escape }}</p>
+        <div class="abr__who">
+          <span class="abr__avatar" aria-hidden="true">
+            {%- if b.image != blank -%}<img src="{{ b.image | image_url: width: 120 }}" width="120" height="120" alt="" loading="lazy" decoding="async">{%- else -%}{{ initials | upcase }}{%- endif -%}
+          </span>
+          <div>
+            <p class="abr__name">{{ b.name | escape }}{%- if b.tag != blank -%}<span class="abr__tag">{{ b.tag | escape }}</span>{%- endif -%}</p>
+            {%- if b.role != blank -%}<p class="abr__role">{{ b.role | escape }}</p>{%- endif -%}
+          </div>
+        </div>
+      </li>
+    {%- endfor -%}
+  </ul>
+  {%- if section.blocks.size > 1 -%}
+    <div class="abr__dots" aria-hidden="true">{%- for block in section.blocks -%}<span class="abr__dot{% if forloop.first %} is-on{% endif %}"></span>{%- endfor -%}</div>
+  {%- endif -%}
+</div>
+<script>
+  (function () {
+    var root = document.querySelector('#shopify-section-{{ sid }} .abr');
+    if (!root || root.dataset.ready) return; root.dataset.ready = '1';
+    var track = root.querySelector('[data-abr-track]'); if (!track) return;
+    var prev = root.querySelector('[data-abr-prev]'), next = root.querySelector('[data-abr-next]');
+    var dots = root.querySelectorAll('.abr__dot');
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    function step() { var c = track.querySelector('.abr__card'); if (!c) return 0; var gap = parseFloat(getComputedStyle(track).columnGap) || 0; return c.getBoundingClientRect().width + gap; }
+    function update() {
+      var max = track.scrollWidth - track.clientWidth - 2;
+      if (prev) prev.disabled = track.scrollLeft <= 2;
+      if (next) next.disabled = track.scrollLeft >= max;
+      var s = step(); var i = s ? Math.round(track.scrollLeft / s) : 0;
+      if (track.scrollLeft >= max) i = dots.length - 1;
+      for (var k = 0; k < dots.length; k++) dots[k].classList.toggle('is-on', k === i);
+    }
+    function go(d) { track.scrollBy({ left: d * step(), behavior: reduce ? 'auto' : 'smooth' }); }
+    if (prev) prev.addEventListener('click', function () { go(-1); });
+    if (next) next.addEventListener('click', function () { go(1); });
+    var raf = 0; track.addEventListener('scroll', function () { if (raf) return; raf = requestAnimationFrame(function () { raf = 0; update(); }); }, { passive: true });
+    window.addEventListener('resize', update);
+    update();
+  })();
+</script>
+{% schema %}
+{
+  "name": "Author reviews",
+  "tag": "section",
+  "class": "section sec__authorbook-reviews",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default-color-scheme" },
+    { "type": "color", "id": "background", "label": "Background", "default": "#ffffff" },
+    { "type": "color", "id": "card_color", "label": "Cards", "default": "#f5f2ec" },
+    { "type": "color", "id": "accent_color", "label": "Accent", "default": "#c4471f" },
+    { "type": "color", "id": "star_color", "label": "Stars", "default": "#f0643a" },
+    { "type": "color", "id": "avatar_color", "label": "Initials circle", "default": "#1d2b4f" },
+    { "type": "color", "id": "line_color", "label": "Lines and dots", "default": "#e1dbcf" },
+    { "type": "range", "id": "card_radius", "label": "Card corners", "min": 0, "max": 32, "step": 2, "unit": "px", "default": 12 },
+    { "type": "text", "id": "anchor", "label": "Name for links to this section", "default": "reviews" },
+    { "type": "text", "id": "eyebrow", "label": "Small label", "default": "Readers" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "What readers <em>say</em>" },
+    { "type": "text", "id": "text", "label": "Line under the heading" },
+    { "type": "range", "id": "heading_size", "label": "Heading size, desktop", "min": 28, "max": 72, "step": 2, "unit": "px", "default": 48 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size, phone", "min": 24, "max": 48, "step": 2, "unit": "px", "default": 36 },
+    { "type": "range", "id": "padding_top", "label": "Space above, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 104 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 104 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 }
+  ],
+  "blocks": [
+    { "type": "review", "name": "Review", "settings": [
+      { "type": "textarea", "id": "quote", "label": "Words", "default": "A sentence or two from a reader, in their own words." },
+      { "type": "range", "id": "stars", "label": "Stars", "min": 1, "max": 5, "step": 1, "default": 5 },
+      { "type": "image_picker", "id": "image", "label": "Picture", "info": "Their initials show when empty." },
+      { "type": "text", "id": "name", "label": "Name", "default": "Reader name" },
+      { "type": "text", "id": "tag", "label": "Small tag beside the name", "info": "For example: Sample." },
+      { "type": "text", "id": "role", "label": "Line under the name", "default": "Read the ebook" }
+    ] }
+  ],
+  "max_blocks": 12,
+  "presets": [ { "name": "Author reviews", "blocks": [ { "type": "review" }, { "type": "review" }, { "type": "review" }, { "type": "review" } ] } ]
+}
+{% endschema %}

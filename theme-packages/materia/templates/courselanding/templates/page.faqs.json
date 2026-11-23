@@ -5,7 +5,7 @@
       "settings": {
         "heading": "Questions",
         "anchor": "",
-        "accent": "#2f5bea",
+        "accent": "#17804c",
         "padding_top": 56,
         "text": "<p>Anything else? <a href=\"/pages/contact\">Write to us</a>.</p>"
       },
@@ -13,29 +13,29 @@
         "question_1": {
           "type": "question",
           "settings": {
-            "question": "Which phone do I need?",
-            "answer": "<p>Any phone from the last five years. Every lesson works on both kinds of phone, and nothing needs the newest model.</p>"
+            "question": "Do I need to be good with numbers?",
+            "answer": "<p>No. If you can add up a shopping receipt, you can do this course. The spreadsheet does the sums.</p>"
           }
         },
         "question_2": {
           "type": "question",
           "settings": {
-            "question": "Do I need to buy an editing app?",
-            "answer": "<p>No. The editing lessons and presets use free apps that come with your phone or cost nothing.</p>"
+            "question": "Do I need to buy an app?",
+            "answer": "<p>No. Everything runs in a free spreadsheet app, or on the printed workbook if you prefer paper.</p>"
           }
         },
         "question_3": {
           "type": "question",
           "settings": {
             "question": "How much time does it take?",
-            "answer": "<p>About twenty minutes a day: a short lesson and a few pictures. You can pause and pick it up a week later.</p>"
+            "answer": "<p>About twenty minutes a day: a short lesson and one small task. You can pause and pick it up a week later.</p>"
           }
         },
         "question_4": {
           "type": "question",
           "settings": {
-            "question": "How do the live critiques work?",
-            "answer": "<p>Post your best picture of the week by Wednesday. On Thursday evening Teo looks at them on a video call. Recordings stay in the course.</p>"
+            "question": "How do the live calls work?",
+            "answer": "<p>Send a question by Wednesday. On Thursday evening Nina answers them on a video call. Recordings stay in the course. This is teaching, not personal financial advice.</p>"
           }
         },
         "question_5": {
@@ -56,7 +56,7 @@
           "type": "question",
           "settings": {
             "question": "Is there a group price?",
-            "answer": "<p>Five people or more pay less each and get a private critique call. <a href=\"/pages/contact\">Ask us</a>.</p>"
+            "answer": "<p>Five people or more pay less each and get a private Q&amp;A call. <a href=\"/pages/contact\">Ask us</a>.</p>"
           }
         }
       },
@@ -77,15 +77,15 @@
         "promise_unit": "days",
         "promise_title": "Watch the first week, then decide",
         "promise_text": "If the course is not for you, write within 30 days and you get every cent back. No form to fill in.",
-        "heading": "Your next good photo is",
+        "heading": "Your first real budget is",
         "heading_accent": "one lesson",
         "heading_after": "away",
-        "text": "<p>Twenty four lessons, four live critiques, the presets and the shot list cards.</p>",
+        "text": "<p>Twenty four lessons, four live calls, the budget spreadsheet and the workbook.</p>",
         "button_label": "Join the course",
         "to_checkout": true,
         "button_link": "/collections/all",
         "note": "One payment. Lifetime access.",
-        "accent": "#2f5bea",
+        "accent": "#17804c",
         "padding_top": 24
       }
     }

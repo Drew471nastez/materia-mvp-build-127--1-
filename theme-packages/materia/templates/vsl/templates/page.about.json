@@ -8,12 +8,20 @@
         "image_side": "left",
         "ratio": "4 / 5",
         "eyebrow": "About",
-        "heading": "I run workshops for a living. *Now I teach it.*",
+        "heading": "I make a podcast every week. *Now I teach it.*",
         "heading_tag": "h1",
-        "text": "<p>Write your story here: what you have done for clients, for how long, and the moment you started teaching it.</p><p>Keep it short and plain. People join a course because of the person running it, so say who you are.</p>",
+        "text": "<p>Write your story here: the show you host, how long you have made it, and the moment you started teaching it.</p><p>Keep it short and plain. People join a course because of the person running it, so say who you are.</p>",
+        "points": "Hosts a weekly interview show\nProduces shows for coaches and small studios\nRuns every Thursday call himself",
+        "social_instagram": "https://www.instagram.com/",
+        "social_youtube": "https://www.youtube.com/",
+        "social_spotify": "https://open.spotify.com/",
+        "social_tiktok": "",
+        "social_x": "",
+        "social_linkedin": "",
+        "social_website": "",
         "signature": "Your name",
-        "button_label": "Book a free call",
-        "button_link": "/pages/book-a-call",
+        "button_label": "Join the course",
+        "button_link": "/products/the-podcast-launch-course",
         "line_above": false,
         "padding_top": 64,
         "padding_bottom": 96,
@@ -25,7 +33,7 @@
       "type": "vsl-cards",
       "settings": {
         "eyebrow": "How I teach",
-        "heading": "Short lessons, *real work*",
+        "heading": "Short lessons, *real episodes*",
         "text": "",
         "columns": "3",
         "number_style": "tile",
@@ -40,21 +48,21 @@
           "type": "card",
           "settings": {
             "title": "One idea per lesson",
-            "text": "<p>Every lesson is under twenty minutes and ends with one thing to do that week.</p>"
+            "text": "<p>Every lesson is under twelve minutes and ends with one thing to record or fix that week.</p>"
           }
         },
         "card_2": {
           "type": "card",
           "settings": {
-            "title": "Your own material",
-            "text": "<p>You work on your workshop from day one, not on a made up example.</p>"
+            "title": "Your own show",
+            "text": "<p>You work on your podcast from day one, not on a made up example.</p>"
           }
         },
         "card_3": {
           "type": "card",
           "settings": {
             "title": "Live every Thursday",
-            "text": "<p>Bring what you made. We look at it together and you leave with changes.</p>"
+            "text": "<p>Bring an episode. We listen together and you leave with changes.</p>"
           }
         }
       },
@@ -80,16 +88,16 @@
         "figure_1": {
           "type": "figure",
           "settings": {
-            "value": "6 weeks",
+            "value": "8 weeks",
             "label": "Course length",
-            "note": "About two hours a week",
+            "note": "About three hours a week",
             "icon": "clock"
           }
         },
         "figure_2": {
           "type": "figure",
           "settings": {
-            "value": "6 calls",
+            "value": "8 calls",
             "label": "Live on Thursdays",
             "note": "Recorded if you miss one",
             "icon": "calendar"
@@ -111,6 +119,84 @@
         "figure_3"
       ]
     },
+    "reviews": {
+      "type": "vsl-reviews",
+      "settings": {
+        "layout": "carousel",
+        "autoplay": true,
+        "eyebrow": "Students",
+        "heading": "What students *say*",
+        "text": "",
+        "sample_note": "Sample reviews. Replace them with your students’ own words.",
+        "prev_label": "Previous",
+        "next_label": "Next",
+        "columns": "3",
+        "line_above": true,
+        "padding_top": 96,
+        "padding_bottom": 96,
+        "padding_top_mobile": 64,
+        "padding_bottom_mobile": 56
+      },
+      "blocks": {
+        "review_1": {
+          "type": "review",
+          "settings": {
+            "stars": 5,
+            "headline": "Episode one out in two weeks",
+            "quote": "<p>I had been planning a show for two years. The format week made me pick one idea and record it, and the first episode was out by week two.</p>",
+            "name": "Maya Ruiz",
+            "role": "Career coach"
+          }
+        },
+        "review_2": {
+          "type": "review",
+          "settings": {
+            "stars": 5,
+            "headline": "Editing stopped eating my weekend",
+            "quote": "<p>The one hour edit is the reason I am still publishing. Cut, level, export, done. I used to lose a whole Sunday to it.</p>",
+            "name": "Daniel Kim",
+            "role": "Founder, design studio"
+          }
+        },
+        "review_3": {
+          "type": "review",
+          "settings": {
+            "stars": 5,
+            "headline": "Guests said yes",
+            "quote": "<p>I used the guest email from the kit word for word. Four of the six people I asked said yes in the first month.</p>",
+            "name": "Priya Shah",
+            "role": "Nutritionist"
+          }
+        },
+        "review_4": {
+          "type": "review",
+          "settings": {
+            "stars": 5,
+            "headline": "Sounds like a real show",
+            "quote": "<p>I bought the cheapest microphone on the gear list and recorded in a wardrobe. Nobody can tell.</p>",
+            "name": "Tom Becker",
+            "role": "Secondary school teacher"
+          }
+        },
+        "review_5": {
+          "type": "review",
+          "settings": {
+            "stars": 5,
+            "headline": "A reason to keep going",
+            "quote": "<p>The Thursday calls kept me going after the launch buzz wore off. Ten episodes out and I still look forward to recording.</p>",
+            "name": "Ana Lima",
+            "role": "Therapist"
+          }
+        }
+      },
+      "block_order": [
+        "review_1",
+        "review_2",
+        "review_3",
+        "review_4",
+        "review_5"
+      ]
+    },
     "final": {
       "type": "vsl-cta",
       "settings": {
@@ -120,8 +206,8 @@
         "size": "big",
         "button_label": "Book a free call",
         "button_link": "/pages/book-a-call",
-        "button2_label": "",
-        "button2_link": "",
+        "button2_label": "See the course",
+        "button2_link": "/products/the-podcast-launch-course",
         "note": "",
         "glow": true,
         "line_above": true,
@@ -136,6 +222,7 @@
     "intro",
     "how",
     "figures",
+    "reviews",
     "final"
   ]
 }

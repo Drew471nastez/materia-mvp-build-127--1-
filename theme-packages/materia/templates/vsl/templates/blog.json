@@ -26,7 +26,7 @@
         "description_YRWpkt": {
           "type": "description",
           "settings": {
-            "description": "<p>Notes on shaping, pricing and running a workshop. One a week.</p>",
+            "description": "<p>Notes on planning, recording and growing a podcast. One a week.</p>",
             "enable_custom_style": false,
             "description_font_size": 16
           }
@@ -59,7 +59,7 @@
         "items_to_show": 12,
         "margin_bottom": 0,
         "readmore_line": "style",
-        "readmore_text": "Watch the lesson",
+        "readmore_text": "Read the note",
         "readmore_type": "underline",
         "reset_spacing": true,
         "section_width": "fluid_container",
@@ -80,13 +80,13 @@
       "type": "vsl-cta",
       "settings": {
         "eyebrow": "",
-        "heading": "Ready for the *next step?*",
+        "heading": "Ready to *press record?*",
         "text": "",
         "size": "normal",
-        "button_label": "Book a free call",
-        "button_link": "/pages/book-a-call",
-        "button2_label": "",
-        "button2_link": "",
+        "button_label": "Join the course",
+        "button_link": "/products/the-podcast-launch-course",
+        "button2_label": "Book a free call",
+        "button2_link": "/pages/book-a-call",
         "note": "",
         "glow": true,
         "line_above": true,

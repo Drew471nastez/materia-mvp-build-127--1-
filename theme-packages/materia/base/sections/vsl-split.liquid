@@ -70,6 +70,15 @@ Video sales letter: a picture in the same rounded frame as the video,
   .vsl-split .vsl__lede { margin-left: 0; }
   .vsl-split .vsl__lede p + p { margin-top: .9em; }
   .vsl-split .vsl__actions { justify-content: flex-start; }
+  .vsl-split__points { list-style: none; margin: 22px 0 0; padding: 0; display: grid; gap: 10px; }
+  .vsl-split__points li { display: flex; gap: 12px; align-items: flex-start; color: rgba(255,255,255,.82); font-size: 14px; line-height: 1.5; }
+  .vsl-split__points svg { width: 18px; height: 18px; flex: none; margin-top: 1px; color: #fff; }
+  .vsl-split__social { display: flex; flex-wrap: wrap; gap: 8px; margin: 26px 0 0; padding: 0; list-style: none; }
+  .vsl-split__social a { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; color: #fff; border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.04); transition: background-color .3s, border-color .3s, transform .3s; }
+  .vsl-split__social a:hover { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.34); transform: translateY(-1px); }
+  .vsl-split__social a:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+  .vsl-split__social svg { width: 17px; height: 17px; }
+  @media (prefers-reduced-motion: reduce) { .vsl-split__social a { transition: none; } }
   .vsl-split__sign { margin: 22px 0 0; font-family: 'Instrument Serif', Georgia, serif; font-style: italic; font-size: 26px; color: #fff; }
 </style>
 <div data-own-font class="vsl{% if st.line_above %} vsl--line{% endif %} vsl-split{% if st.image_side == 'right' %} vsl-split--right{% endif %}">
@@ -86,7 +95,14 @@ Video sales letter: a picture in the same rounded frame as the video,
         {%- if st.eyebrow != blank -%}<p class="vsl__eyebrow"><span>{{ st.eyebrow | escape }}</span></p>{%- endif -%}
         {%- if st.heading != blank -%}<{{ st.heading_tag | default: 'h2' }} class="vsl__title">{%- assign vsl_parts = st.heading | escape | split: '*' -%}{%- for vsl_part in vsl_parts -%}{%- assign vsl_odd = forloop.index0 | modulo: 2 -%}{%- if vsl_odd == 1 -%}<em>{{ vsl_part | replace: '|', '<br>' }}</em>{%- else -%}{{ vsl_part | replace: '|', '<br>' }}{%- endif -%}{%- endfor -%}</{{ st.heading_tag | default: 'h2' }}>{%- endif -%}
         {%- if st.text != blank -%}<div class="vsl__lede">{{ st.text }}</div>{%- endif -%}
+        {%- if st.points != blank -%}
+          <ul class="vsl-split__points" role="list">
+            {%- assign sp_lines = st.points | newline_to_br | split: '<br />' -%}
+            {%- for sp in sp_lines -%}{%- assign sp_t = sp | strip -%}{%- if sp_t != blank -%}<li><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="10" cy="10" r="8.2" opacity=".35"/><path d="M6.4 10.2l2.4 2.4 4.8-5"/></svg><span>{{ sp_t | escape }}</span></li>{%- endif -%}{%- endfor -%}
+          </ul>
+        {%- endif -%}
         {%- if st.signature != blank -%}<p class="vsl-split__sign">{{ st.signature | escape }}</p>{%- endif -%}
+        {%- if st.social_instagram != blank or st.social_youtube != blank or st.social_tiktok != blank or st.social_x != blank or st.social_linkedin != blank or st.social_spotify != blank or st.social_website != blank -%}<ul class="vsl-split__social" role="list">{%- if st.social_instagram != blank -%}<li><a href="{{ st.social_instagram }}" target="_blank" rel="noopener" aria-label="Instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r=".6" fill="currentColor"/></svg></a></li>{%- endif -%}{%- if st.social_youtube != blank -%}<li><a href="{{ st.social_youtube }}" target="_blank" rel="noopener" aria-label="YouTube"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="2.5" y="5.5" width="19" height="13" rx="4"/><path d="M10 9.2v5.6l4.8-2.8z" fill="currentColor"/></svg></a></li>{%- endif -%}{%- if st.social_tiktok != blank -%}<li><a href="{{ st.social_tiktok }}" target="_blank" rel="noopener" aria-label="TikTok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14 3.5v11a3.5 3.5 0 1 1-3.5-3.5"/><path d="M14 3.5c.4 2.6 2.2 4.3 5 4.5"/></svg></a></li>{%- endif -%}{%- if st.social_x != blank -%}<li><a href="{{ st.social_x }}" target="_blank" rel="noopener" aria-label="X"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4.5 4.5l15 15M19.5 4.5l-15 15"/></svg></a></li>{%- endif -%}{%- if st.social_linkedin != blank -%}<li><a href="{{ st.social_linkedin }}" target="_blank" rel="noopener" aria-label="LinkedIn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M8 10.5V16M8 7.6v.1M11.5 16v-5.5M11.5 13c0-1.8 1-2.6 2.2-2.6s2.3.7 2.3 2.6V16"/></svg></a></li>{%- endif -%}{%- if st.social_spotify != blank -%}<li><a href="{{ st.social_spotify }}" target="_blank" rel="noopener" aria-label="Spotify"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M7.5 9.5c3-1 6.4-.8 9 .7M8 12.6c2.5-.7 5.2-.5 7.3.7M8.6 15.4c2-.5 3.9-.3 5.6.5"/></svg></a></li>{%- endif -%}{%- if st.social_website != blank -%}<li><a href="{{ st.social_website }}" target="_blank" rel="noopener" aria-label="Website"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.7 2.6 15.3 0 18M12 3c-2.6 2.7-2.6 15.3 0 18"/></svg></a></li>{%- endif -%}</ul>{%- endif -%}
         {%- if st.button_label != blank -%}<div class="vsl__actions"><a class="vsl-btn" href="{{ st.button_link | default: '#' }}">{{ st.button_label | escape }}<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 8h10M9 4l4 4-4 4"/></svg></a></div>{%- endif -%}
       </div>
     </div>
@@ -200,6 +216,55 @@ Video sales letter: a picture in the same rounded frame as the video,
       "type": "text",
       "id": "signature",
       "label": "Signature line"
+    },
+    {
+      "type": "textarea",
+      "id": "points",
+      "label": "Ticked points",
+      "info": "One per line. Leave empty for none."
+    },
+    {
+      "type": "header",
+      "content": "Social links"
+    },
+    {
+      "type": "paragraph",
+      "content": "Each one shows as a round icon. Leave empty to hide it."
+    },
+    {
+      "type": "url",
+      "id": "social_instagram",
+      "label": "Instagram"
+    },
+    {
+      "type": "url",
+      "id": "social_youtube",
+      "label": "YouTube"
+    },
+    {
+      "type": "url",
+      "id": "social_tiktok",
+      "label": "TikTok"
+    },
+    {
+      "type": "url",
+      "id": "social_x",
+      "label": "X"
+    },
+    {
+      "type": "url",
+      "id": "social_linkedin",
+      "label": "LinkedIn"
+    },
+    {
+      "type": "url",
+      "id": "social_spotify",
+      "label": "Spotify"
+    },
+    {
+      "type": "url",
+      "id": "social_website",
+      "label": "Website"
     },
     {
       "type": "text",

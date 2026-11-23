@@ -1,0 +1,241 @@
+{
+  "sections": {
+    "about": {
+      "type": "authorbook-hello",
+      "settings": {
+        "eyebrow": "About",
+        "heading": "Ten years of <em>twenty pages</em> a day",
+        "text": "<p>I grew up in a house with more books than shelves, and for most of my twenties I hardly read any of them. I worked long days, read the news on my phone and bought books I meant to start on holiday.</p><p>Then I tried something smaller: twenty pages before bed, and one page of notes when a book was done. A decade later I have read more than four hundred books and still remember most of them. Write your own story here.</p>",
+        "image": "shopify://shop_images/authorbook-theo-reading.webp",
+        "image_alt": "Theo Marlow sitting on a sofa next to a shelf of books",
+        "image_focus": "60% 40%",
+        "frame_color": "#f0643a",
+        "accent_color": "#c4471f",
+        "button_label": "Read Marginalia",
+        "button_link": "/pages/newsletter",
+        "button_color": "#1d2b4f",
+        "instagram": "https://www.instagram.com",
+        "youtube": "https://www.youtube.com",
+        "x": "https://x.com",
+        "linkedin": "",
+        "letters_title": "Recent letters",
+        "image_ratio": "4 / 3",
+        "padding_top": 72
+      },
+      "blocks": {},
+      "block_order": []
+    },
+    "facts": {
+      "type": "authorbook-facts",
+      "settings": {
+        "padding_top": 0
+      },
+      "blocks": {
+        "fact_1": {
+          "type": "fact",
+          "settings": {
+            "figure": "12",
+            "label": "short chapters"
+          }
+        },
+        "fact_2": {
+          "type": "fact",
+          "settings": {
+            "figure": "240",
+            "label": "pages"
+          }
+        },
+        "fact_3": {
+          "type": "fact",
+          "settings": {
+            "figure": "6 h",
+            "label": "audiobook, read by Theo"
+          }
+        },
+        "fact_4": {
+          "type": "fact",
+          "settings": {
+            "figure": "20",
+            "label": "pages a day is all it asks"
+          }
+        }
+      },
+      "block_order": [
+        "fact_1",
+        "fact_2",
+        "fact_3",
+        "fact_4"
+      ]
+    },
+    "habits": {
+      "type": "authorbook-chapters",
+      "settings": {
+        "eyebrow": "How I read",
+        "heading": "Five habits I <em>keep</em>",
+        "anchor": "habits",
+        "text": "<p>None of them take more than a few minutes a day. All of them are in the book, with the reasons behind them.</p>",
+        "image": "shopify://shop_images/authorbook-table.webp",
+        "image_alt": "An open book, a notebook, a pencil and a cup of coffee on a dark wooden table",
+        "accent_color": "#c4471f",
+        "background": "#ffffff",
+        "button_label": "Get the book",
+        "button_link": "/#buy",
+        "button_color": "#1d2b4f"
+      },
+      "blocks": {
+        "chapter_1": {
+          "type": "chapter",
+          "settings": {
+            "title": "Twenty pages, same time every day",
+            "line": "Mine are after dinner, before any screen."
+          }
+        },
+        "chapter_2": {
+          "type": "chapter",
+          "settings": {
+            "title": "Always know the next book",
+            "line": "A short list of three, so a finished book never leaves a gap."
+          }
+        },
+        "chapter_3": {
+          "type": "chapter",
+          "settings": {
+            "title": "A pencil in every book",
+            "line": "Three marks only: a line, a star and a question."
+          }
+        },
+        "chapter_4": {
+          "type": "chapter",
+          "settings": {
+            "title": "One page of notes, the day I finish",
+            "line": "Three ideas and one thing to try that week."
+          }
+        },
+        "chapter_5": {
+          "type": "chapter",
+          "settings": {
+            "title": "Quit without guilt",
+            "line": "Fifty pages is enough to know."
+          }
+        }
+      },
+      "block_order": [
+        "chapter_1",
+        "chapter_2",
+        "chapter_3",
+        "chapter_4",
+        "chapter_5"
+      ]
+    },
+    "quote": {
+      "type": "authorbook-quote",
+      "settings": {
+        "image": "shopify://shop_images/authorbook-cover.webp",
+        "image_alt": "Read More, Keep More",
+        "quote": "Twenty pages is small enough to start tonight and <em>large enough</em> to finish twenty books by next winter.",
+        "source": "From chapter one, The Twenty Page Day"
+      }
+    },
+    "cta": {
+      "type": "authorbook-cta",
+      "settings": {
+        "band_color": "#c4471f",
+        "image": "shopify://shop_images/authorbook-cover.webp",
+        "image_alt": "Read More, Keep More",
+        "heading": "Start with chapter one tonight",
+        "text": "<p>Twenty five minutes of reading and the first habit of the book, free.</p>",
+        "button_label": "Send me chapter one",
+        "button_link": "#open-form-chapter",
+        "button_color": "#1d2b4f",
+        "button2_label": "Buy the book",
+        "button2_link": "/#buy",
+        "button2_text_color": "#1d2b4f",
+        "padding_top": 72
+      }
+    },
+    "chapter_form": {
+      "type": "form-modal",
+      "settings": {
+        "form_key": "chapter",
+        "sends_to": "subscribe",
+        "accent_color": "#c4471f",
+        "text_align": "center",
+        "width": 480,
+        "corners": "theme",
+        "success_heading": "Chapter one is on its way",
+        "success_text": "<p>Check your inbox in a minute. If nothing arrives, look in spam.</p>"
+      },
+      "blocks": {
+        "image_1": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/authorbook-cover.webp",
+            "fit": "contain",
+            "max_height": 190
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "eyebrow": "Free chapter",
+            "heading": "Read chapter one *free*",
+            "size": 30
+          }
+        },
+        "text_3": {
+          "type": "text",
+          "settings": {
+            "text": "<p>The Twenty Page Day, as a PDF. Plus Marginalia on Sundays.</p>"
+          }
+        },
+        "field_4": {
+          "type": "field",
+          "settings": {
+            "kind": "name",
+            "label": "First name",
+            "required": false
+          }
+        },
+        "field_5": {
+          "type": "field",
+          "settings": {
+            "kind": "email",
+            "label": "Email address"
+          }
+        },
+        "button_6": {
+          "type": "button",
+          "settings": {
+            "label": "Send me chapter one",
+            "arrow": true
+          }
+        },
+        "note_7": {
+          "type": "note",
+          "settings": {
+            "icon": "lock",
+            "text": "Your email stays private.",
+            "small": "<p>Leave whenever you like.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "image_1",
+        "heading_2",
+        "text_3",
+        "field_4",
+        "field_5",
+        "button_6",
+        "note_7"
+      ]
+    }
+  },
+  "order": [
+    "about",
+    "facts",
+    "habits",
+    "quote",
+    "cta",
+    "chapter_form"
+  ]
+}

@@ -2,20 +2,26 @@
   "type": "header",
   "name": "t:sections.header.name",
   "sections": {
-    "sky": {
-      "type": "space-starfield",
+    "background": {
+      "type": "vsl-backdrop",
       "settings": {
-        "sky_color": "#050506",
+        "style": "stars",
+        "base_color": "#050506",
         "star_color": "#ffffff",
-        "star_density": 45,
-        "star_size": 90,
-        "twinkle_count": 16,
-        "drift_speed": 20,
-        "drift_direction": "up",
-        "product_glow": 0,
+        "star_density": 40,
+        "twinkles": 12,
+        "drift": true,
+        "drift_seconds": 180,
+        "gradient_from": "#1b1f3b",
+        "gradient_to": "#3a1d2e",
+        "image": "",
+        "overlay": 62,
+        "media_grey": false,
+        "glow": true,
         "glow_color": "#ffffff",
-        "glow_opacity": 40,
-        "glow_everywhere": false,
+        "glow_strength": 12,
+        "grain": true,
+        "grain_amount": 6,
         "see_through": true,
         "see_through_scheme": "default"
       }
@@ -27,13 +33,14 @@
         "brand_text": "",
         "show_mark": true,
         "menu": "main-menu",
-        "button_label": "Book a free call",
-        "button_link": "/pages/book-a-call"
+        "button_label": "Join the course",
+        "button_link": "/#join",
+        "mark": "wave"
       }
     }
   },
   "order": [
-    "sky",
+    "background",
     "header"
   ]
 }

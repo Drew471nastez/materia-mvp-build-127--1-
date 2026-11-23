@@ -62,16 +62,16 @@
           "type": "title",
           "settings": {
             "show_vendor": false,
-            "title_font_size_desktop": 32,
-            "title_font_size_mobile": 26
+            "title_font_size_desktop": 38,
+            "title_font_size_mobile": 28
           }
         },
         "price_1": {
           "type": "price",
           "settings": {
-            "price_font_size_desktop": 26,
-            "price_font_size_mobile": 24,
-            "price_font_weight": "600",
+            "price_font_size_desktop": 30,
+            "price_font_size_mobile": 26,
+            "price_font_weight": "700",
             "compare_font_size_desktop": 16,
             "compare_font_size_mobile": 14,
             "compare_font_weight": "400"
@@ -134,15 +134,6 @@
             "item3_icon_library": "lock",
             "item3_use_image": false,
             "item3_image_size": 50
-          }
-        },
-        "collapsible_row_1": {
-          "type": "collapsible_row",
-          "settings": {
-            "heading": "About this pack",
-            "content": "",
-            "use_product_description": true,
-            "open": true
           }
         },
         "collapsible_row_2": {
@@ -216,17 +207,68 @@
             "use_product_description": false,
             "content": "<p>Write to <a href=\"mailto:team@loudlib.net\">team@loudlib.net</a> or use the <a href=\"/pages/contact\">contact page</a>.</p>"
           }
+        },
+        "specs_1": {
+          "type": "specs_badge",
+          "settings": {
+            "text": "Instant download · WAV · Royalty free",
+            "padding_x": 12,
+            "padding_y": 6,
+            "padding_top": 0,
+            "padding_bottom": 10,
+            "alignment": "left",
+            "font_size": 12,
+            "font_size_mobile": 12,
+            "font_weight": "600",
+            "text_color": "#c4b5fd",
+            "bg_color": "rgba(124,58,237,0.14)",
+            "border_color": "rgba(124,58,237,0.4)",
+            "border_width": 1,
+            "border_radius": 100
+          }
+        },
+        "short_1": {
+          "type": "short_description",
+          "settings": {
+            "excerpt_length": 320
+          }
+        },
+        "hearlink_1": {
+          "type": "text",
+          "settings": {
+            "heading": "",
+            "content": "<p><a href=\"#hear\">Play the preview</a> before you buy. Only one sound plays at a time.</p>"
+          }
+        },
+        "collapsible_row_5": {
+          "type": "collapsible_row",
+          "settings": {
+            "heading": "Which DAWs and plugins?",
+            "content": "<p>The loops and one shots are WAV files, so they open in Ableton Live, FL Studio, Logic Pro, Bitwig, Cubase and every other DAW. Presets need Xfer Serum 1.368 or later, which is not included.</p>",
+            "use_product_description": false,
+            "open": false
+          }
+        },
+        "badges_1": {
+          "type": "badges",
+          "settings": {
+            "position_next_to_price": true
+          }
         }
       },
       "block_order": [
+        "specs_1",
         "title_1",
         "price_1",
+        "badges_1",
+        "short_1",
+        "hearlink_1",
         "variant_picker_1",
         "buy_buttons_1",
         "vertical_benefits_1",
-        "collapsible_row_1",
         "collapsible_row_2",
         "collapsible_row_3",
+        "collapsible_row_5",
         "collapsible_row_4",
         "payment_badges_1"
       ]
@@ -242,80 +284,113 @@
         "heading_size_mobile": 26,
         "color_scheme": "default",
         "section_width": "container",
-        "padding_top": 24,
-        "padding_bottom": 40
+        "padding_top": 40,
+        "padding_bottom": 40,
+        "anchor": "hear"
       },
       "blocks": {
         "t_serum_presets": {
           "type": "track",
           "settings": {
-            "title": "Pluck preset",
-            "subtitle": "124 BPM, C minor",
+            "title": "Synth bass loop",
+            "subtitle": "125 BPM",
             "audio": "shopify://shop_images/samples-demo-serum-presets.mp4",
-            "seconds": 9,
-            "peaks": "100,86,82,84,68,79,89,88,88,71,78,81,72,90,88,89,77,87,77,62,90,85,86,80,77,79,56,89,87,87,85,69,77,77,88,89,79,81,66,74,87,84,81,79,75,70,69,92,84,84,72,84,75,63,86,82,89,80,72,78,53,89,85,84,77,67,73,73,91,87,83,83,62,74,90,83,89,74,81,78,73,86,87,92,72,82,80,63,90,82,85,80,77,72,58,90,88,90,85,74,77,85,90,85,78,79,76,80,46,22,9,6,2,1,1,0,0,0,0,0",
+            "seconds": 11.49,
+            "peaks": "88,97,92,83,2,2,89,69,2,71,89,98,70,81,80,46,95,55,2,77,89,92,91,66,2,75,87,10,2,82,97,90,4,97,67,87,80,4,2,92,100,99,91,4,2,87,75,2,29,92,91,72,78,91,7,99,67,2,74,91,99,99,81,2,70,89,48,2,79,90,89,7,87,74,76,91,9,2,2,79,91,89,89,65,2,77,85,8,2,83,93,87,3,95,57,84,83,4,2,90,90,89,86,3,2,77,62,2,45,62,55,42,38,39,3,30,17,2,7,5",
             "link_label": "",
-            "for_name": "Serum Presets Vol 1"
+            "for_name": "Serum Presets Vol 1",
+            "cover": "shopify://shop_images/samples-box-serum-presets.webp"
           }
         },
         "t_tech_house_master_bundle": {
           "type": "track",
           "settings": {
             "title": "Groove loop",
-            "subtitle": "126 BPM, F minor",
+            "subtitle": "120 BPM, E minor",
             "audio": "shopify://shop_images/samples-demo-tech-house-master-bundle.mp4",
-            "seconds": 8,
-            "peaks": "99,60,50,90,77,55,78,87,70,53,92,76,66,71,71,60,52,89,70,79,78,85,73,63,84,76,51,68,68,61,49,92,72,53,83,90,67,52,84,72,68,70,68,58,46,100,59,80,84,84,75,61,84,77,51,69,66,56,46,88,68,42,89,84,62,49,94,67,63,71,65,56,44,89,77,78,85,81,76,58,85,60,42,68,64,55,64,89,65,43,88,84,60,61,90,66,62,71,65,55,90,90,80,62,84,78,71,83,84,61,42,1,0,0,0,0,0,0,0,0",
+            "seconds": 12.0,
+            "peaks": "94,43,19,10,95,57,23,13,9,91,56,23,94,67,21,96,50,91,81,24,14,91,76,31,15,92,44,16,11,98,51,20,93,73,22,99,39,90,61,28,16,87,83,45,17,95,50,25,13,92,49,22,94,71,21,14,91,79,27,12,91,46,21,11,93,56,23,13,9,93,52,21,92,60,25,97,89,100,77,30,93,44,20,12,97,51,21,12,9,95,51,24,92,78,22,97,48,88,75,23,14,87,77,25,15,98,46,16,9,77,32,11,56,34,10,41,12,22,10,2",
             "link_label": "",
-            "for_name": "Tech House Sample Pack, Master Bundle 2025"
+            "for_name": "Tech House Sample Pack, Master Bundle 2025",
+            "cover": "shopify://shop_images/samples-box-tech-house-master-bundle.webp"
           }
         },
         "t_drum_kit": {
           "type": "track",
           "settings": {
-            "title": "One shots, then a beat",
-            "subtitle": "125 BPM",
+            "title": "Drum loop",
+            "subtitle": "124 BPM",
             "audio": "shopify://shop_images/samples-demo-drums-one-shots.mp4",
-            "seconds": 8,
-            "peaks": "99,62,49,37,28,74,65,49,40,28,65,51,25,14,8,57,62,24,17,7,25,21,9,1,1,2,21,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,66,64,53,44,38,25,20,91,87,58,47,38,25,19,67,64,50,43,39,24,18,100,82,59,45,40,25,18,65,64,50,41,35,23,18,95,79,57,44,33,25,18,66,60,50,39,32,23,17,100,77,62,47,31,25,16,2,1,0,0,0,0,0,0,0",
+            "seconds": 11.63,
+            "peaks": "95,64,33,18,38,94,66,35,8,22,94,66,31,7,35,93,76,48,9,43,96,65,37,9,55,95,64,48,7,39,100,60,36,8,52,91,62,37,9,45,95,59,35,6,46,96,67,34,7,55,100,56,35,18,56,95,73,38,9,52,99,67,32,24,59,96,63,38,6,48,96,67,42,5,69,95,61,36,10,54,96,55,34,5,65,96,59,33,5,56,98,56,37,5,65,94,62,36,9,59,98,56,33,6,62,93,52,23,4,41,60,31,17,3,28,36,17,7,2,2",
             "link_label": "",
-            "for_name": "Tech House Drum Kit Vol I"
+            "for_name": "Tech House Drum Kit Vol I",
+            "cover": "shopify://shop_images/samples-box-drum-kit.webp"
           }
         },
         "t_ambience_kit": {
           "type": "track",
           "settings": {
-            "title": "Pad texture",
-            "subtitle": "D minor",
+            "title": "Pluck loop with delay",
+            "subtitle": "Minor key",
             "audio": "shopify://shop_images/samples-demo-ambience-kit.mp4",
-            "seconds": 9,
-            "peaks": "8,11,13,16,19,23,27,31,41,44,48,50,55,50,61,65,61,68,73,85,89,80,84,89,90,92,85,79,83,91,95,83,64,79,77,81,75,74,66,68,65,63,59,56,70,80,82,71,59,55,57,54,58,65,63,60,55,49,49,60,66,64,50,58,57,58,67,67,61,68,78,82,78,78,81,77,75,68,66,77,86,82,77,83,90,85,68,81,92,91,93,100,98,93,72,68,65,60,59,58,63,60,49,37,40,41,40,37,32,25,24,22,16,14,12,10,6,4,2,1",
+            "seconds": 12.52,
+            "peaks": "76,42,79,59,71,65,52,72,63,73,62,67,65,51,77,60,81,68,77,69,56,73,69,77,68,67,66,66,88,60,75,61,81,67,55,91,62,78,63,71,69,69,77,64,65,52,76,78,60,87,67,90,71,72,76,55,80,64,75,58,82,69,55,69,51,79,72,70,74,50,90,68,78,67,68,72,58,86,74,81,62,89,81,67,100,70,79,68,83,79,76,77,73,76,63,90,86,76,88,68,82,72,81,78,83,77,62,65,53,57,56,43,51,34,32,25,19,16,9,5",
             "link_label": "",
-            "for_name": "Free Ambience Sample Pack Vol I"
+            "for_name": "Free Ambience Sample Pack Vol I",
+            "cover": "shopify://shop_images/samples-box-ambience-kit.webp"
           }
         },
         "t_deep_house_production_suite": {
           "type": "track",
           "settings": {
-            "title": "Chord loop",
-            "subtitle": "122 BPM, A minor",
+            "title": "Deep house loop",
+            "subtitle": "120 BPM",
             "audio": "shopify://shop_images/samples-demo-deep-house-production-suite.mp4",
-            "seconds": 8,
-            "peaks": "74,63,62,91,79,54,77,79,59,50,92,75,51,59,63,57,50,93,87,56,67,79,62,52,99,77,47,63,92,61,54,90,79,53,76,85,58,47,92,75,45,64,64,50,47,99,81,60,75,78,57,48,92,79,46,71,71,64,56,89,76,51,74,84,57,44,100,72,51,63,62,53,45,100,77,56,84,73,57,45,93,61,46,66,77,64,55,90,79,51,78,73,55,41,91,63,42,63,58,50,38,100,70,47,84,73,52,79,94,64,39,1,1,1,0,0,0,0,0,0",
+            "seconds": 12.0,
+            "peaks": "95,59,64,31,15,99,62,33,2,6,98,56,65,32,14,96,57,29,2,3,100,56,59,45,13,99,63,36,3,5,98,57,57,54,17,98,56,34,2,11,99,56,69,52,20,98,59,68,62,13,96,57,68,53,27,96,58,77,56,30,99,55,79,48,21,96,62,71,53,27,99,55,68,59,24,97,56,73,56,34,95,50,63,56,56,99,58,80,51,50,95,52,68,47,51,95,55,65,52,68,89,53,65,57,73,87,52,59,48,53,67,31,38,30,34,37,16,14,8,2",
             "link_label": "",
-            "for_name": "Deep House Production Suite, Serenade"
+            "for_name": "Deep House Production Suite, Serenade",
+            "cover": "shopify://shop_images/samples-box-deep-house-production-suite.webp"
           }
         },
         "t_tech_house_unitech": {
           "type": "track",
           "settings": {
-            "title": "Bass loop",
-            "subtitle": "127 BPM, G minor",
+            "title": "Bass and chords loop",
+            "subtitle": "122 BPM",
             "audio": "shopify://shop_images/samples-demo-tech-house-unitech.mp4",
-            "seconds": 8,
-            "peaks": "100,87,86,88,73,84,79,84,80,85,92,86,85,67,67,91,81,90,63,79,79,94,90,79,85,62,89,70,72,89,79,89,75,85,81,92,84,75,89,73,85,67,64,95,75,92,81,78,91,84,90,70,80,88,86,67,63,88,68,87,85,82,87,75,83,78,88,86,80,67,63,95,69,90,79,62,90,76,92,66,84,89,63,67,63,88,89,89,87,67,86,75,83,92,75,84,60,69,93,92,90,77,79,62,83,91,92,88,80,89,59,5,2,2,1,1,1,1,0,0",
+            "seconds": 11.82,
+            "peaks": "92,81,75,65,55,90,80,75,89,82,73,64,92,76,74,63,62,90,88,91,99,80,75,71,66,100,83,76,71,63,93,83,74,94,92,93,83,93,87,78,91,80,69,61,75,84,72,63,88,85,80,69,89,75,70,59,56,86,77,80,95,78,72,66,88,82,81,73,71,86,87,80,77,91,88,89,77,98,89,89,93,80,73,64,80,90,80,73,91,80,73,64,91,76,73,63,61,91,87,92,93,80,74,71,87,78,73,57,49,61,55,47,37,44,37,32,23,18,11,5",
             "link_label": "",
-            "for_name": "Tech House Sample Pack, Unitech"
+            "for_name": "Tech House Sample Pack, Unitech",
+            "cover": "shopify://shop_images/samples-box-tech-house-unitech.webp"
+          }
+        },
+        "t_drums_collection": {
+          "type": "track",
+          "settings": {
+            "title": "Minimal drum loop",
+            "subtitle": "123 BPM",
+            "audio": "shopify://shop_images/samples-demo-drums-collection.mp4",
+            "seconds": 11.7,
+            "peaks": "2,2,44,20,31,40,3,60,18,6,2,2,58,17,41,41,3,48,19,66,94,46,47,14,72,89,45,44,16,79,98,45,56,14,78,86,43,57,13,80,93,42,48,86,94,84,40,87,88,95,79,81,67,87,95,75,38,52,90,100,80,31,55,89,94,83,37,93,87,93,87,95,65,92,94,64,41,49,11,3,2,38,42,11,45,10,42,41,10,3,2,45,42,10,45,6,63,41,8,96,69,49,36,8,89,59,39,24,6,73,40,25,14,4,39,21,13,5,2,5",
+            "link_label": "",
+            "for_name": "Tech House Drums Collection Vol I",
+            "cover": "shopify://shop_images/samples-box-drums-collection.webp"
+          }
+        },
+        "t_bass_collection": {
+          "type": "track",
+          "settings": {
+            "title": "808 bass loop",
+            "subtitle": "127 BPM, F sharp minor",
+            "audio": "shopify://shop_images/samples-demo-bass-collection.mp4",
+            "seconds": 11.35,
+            "peaks": "100,38,27,61,69,36,22,70,48,15,72,37,71,48,32,73,37,28,19,48,86,69,35,62,69,84,64,72,68,62,84,71,75,46,57,82,80,77,46,59,84,67,37,63,70,85,64,79,58,53,82,61,74,44,61,81,67,80,71,63,85,66,38,65,73,86,63,80,66,64,84,72,74,40,58,84,77,83,44,60,81,62,38,66,69,84,66,76,52,57,83,63,75,45,65,82,79,67,83,63,83,73,61,70,78,80,51,61,61,49,50,42,38,35,28,28,21,16,10,4",
+            "link_label": "",
+            "for_name": "Tech House Bass Collection Vol I",
+            "cover": "shopify://shop_images/samples-box-bass-collection.webp"
           }
         }
       },
@@ -325,7 +400,9 @@
         "t_drum_kit",
         "t_ambience_kit",
         "t_deep_house_production_suite",
-        "t_tech_house_unitech"
+        "t_tech_house_unitech",
+        "t_drums_collection",
+        "t_bass_collection"
       ]
     },
     "contents": {
@@ -805,8 +882,8 @@
         "layout": "grid",
         "heading": "Hear every pack",
         "text": "<p>One preview from each Loudlib pack. Only one plays at a time.</p>",
-        "columns": 3,
-        "max_width": 1100,
+        "columns": 4,
+        "max_width": 1200,
         "heading_size": 32,
         "heading_size_mobile": 26,
         "color_scheme": "default",
@@ -819,10 +896,10 @@
           "type": "track",
           "settings": {
             "title": "Serum Presets Vol 1",
-            "subtitle": "Pluck preset, 124 BPM, C minor",
+            "subtitle": "Synth bass loop, 125 BPM",
             "audio": "shopify://shop_images/samples-demo-serum-presets.mp4",
-            "seconds": 9,
-            "peaks": "100,86,82,84,68,79,89,88,88,71,78,81,72,90,88,89,77,87,77,62,90,85,86,80,77,79,56,89,87,87,85,69,77,77,88,89,79,81,66,74,87,84,81,79,75,70,69,92,84,84,72,84,75,63,86,82,89,80,72,78,53,89,85,84,77,67,73,73,91,87,83,83,62,74,90,83,89,74,81,78,73,86,87,92,72,82,80,63,90,82,85,80,77,72,58,90,88,90,85,74,77,85,90,85,78,79,76,80,46,22,9,6,2,1,1,0,0,0,0,0",
+            "seconds": 11.49,
+            "peaks": "88,97,92,83,2,2,89,69,2,71,89,98,70,81,80,46,95,55,2,77,89,92,91,66,2,75,87,10,2,82,97,90,4,97,67,87,80,4,2,92,100,99,91,4,2,87,75,2,29,92,91,72,78,91,7,99,67,2,74,91,99,99,81,2,70,89,48,2,79,90,89,7,87,74,76,91,9,2,2,79,91,89,89,65,2,77,85,8,2,83,93,87,3,95,57,84,83,4,2,90,90,89,86,3,2,77,62,2,45,62,55,42,38,39,3,30,17,2,7,5",
             "link_label": "Get the pack"
           }
         },
@@ -830,10 +907,10 @@
           "type": "track",
           "settings": {
             "title": "Tech House Master Bundle 2025",
-            "subtitle": "Groove loop, 126 BPM, F minor",
+            "subtitle": "Groove loop, 120 BPM, E minor",
             "audio": "shopify://shop_images/samples-demo-tech-house-master-bundle.mp4",
-            "seconds": 8,
-            "peaks": "99,60,50,90,77,55,78,87,70,53,92,76,66,71,71,60,52,89,70,79,78,85,73,63,84,76,51,68,68,61,49,92,72,53,83,90,67,52,84,72,68,70,68,58,46,100,59,80,84,84,75,61,84,77,51,69,66,56,46,88,68,42,89,84,62,49,94,67,63,71,65,56,44,89,77,78,85,81,76,58,85,60,42,68,64,55,64,89,65,43,88,84,60,61,90,66,62,71,65,55,90,90,80,62,84,78,71,83,84,61,42,1,0,0,0,0,0,0,0,0",
+            "seconds": 12.0,
+            "peaks": "94,43,19,10,95,57,23,13,9,91,56,23,94,67,21,96,50,91,81,24,14,91,76,31,15,92,44,16,11,98,51,20,93,73,22,99,39,90,61,28,16,87,83,45,17,95,50,25,13,92,49,22,94,71,21,14,91,79,27,12,91,46,21,11,93,56,23,13,9,93,52,21,92,60,25,97,89,100,77,30,93,44,20,12,97,51,21,12,9,95,51,24,92,78,22,97,48,88,75,23,14,87,77,25,15,98,46,16,9,77,32,11,56,34,10,41,12,22,10,2",
             "link_label": "Get the pack"
           }
         },
@@ -841,10 +918,10 @@
           "type": "track",
           "settings": {
             "title": "Tech House Drum Kit Vol I",
-            "subtitle": "One shots, then a beat, 125 BPM",
+            "subtitle": "Drum loop, 124 BPM",
             "audio": "shopify://shop_images/samples-demo-drums-one-shots.mp4",
-            "seconds": 8,
-            "peaks": "99,62,49,37,28,74,65,49,40,28,65,51,25,14,8,57,62,24,17,7,25,21,9,1,1,2,21,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,66,64,53,44,38,25,20,91,87,58,47,38,25,19,67,64,50,43,39,24,18,100,82,59,45,40,25,18,65,64,50,41,35,23,18,95,79,57,44,33,25,18,66,60,50,39,32,23,17,100,77,62,47,31,25,16,2,1,0,0,0,0,0,0,0",
+            "seconds": 11.63,
+            "peaks": "95,64,33,18,38,94,66,35,8,22,94,66,31,7,35,93,76,48,9,43,96,65,37,9,55,95,64,48,7,39,100,60,36,8,52,91,62,37,9,45,95,59,35,6,46,96,67,34,7,55,100,56,35,18,56,95,73,38,9,52,99,67,32,24,59,96,63,38,6,48,96,67,42,5,69,95,61,36,10,54,96,55,34,5,65,96,59,33,5,56,98,56,37,5,65,94,62,36,9,59,98,56,33,6,62,93,52,23,4,41,60,31,17,3,28,36,17,7,2,2",
             "link_label": "Get the pack"
           }
         },
@@ -852,10 +929,10 @@
           "type": "track",
           "settings": {
             "title": "Free Ambience Sample Pack Vol I",
-            "subtitle": "Pad texture, D minor",
+            "subtitle": "Pluck loop with delay, Minor key",
             "audio": "shopify://shop_images/samples-demo-ambience-kit.mp4",
-            "seconds": 9,
-            "peaks": "8,11,13,16,19,23,27,31,41,44,48,50,55,50,61,65,61,68,73,85,89,80,84,89,90,92,85,79,83,91,95,83,64,79,77,81,75,74,66,68,65,63,59,56,70,80,82,71,59,55,57,54,58,65,63,60,55,49,49,60,66,64,50,58,57,58,67,67,61,68,78,82,78,78,81,77,75,68,66,77,86,82,77,83,90,85,68,81,92,91,93,100,98,93,72,68,65,60,59,58,63,60,49,37,40,41,40,37,32,25,24,22,16,14,12,10,6,4,2,1",
+            "seconds": 12.52,
+            "peaks": "76,42,79,59,71,65,52,72,63,73,62,67,65,51,77,60,81,68,77,69,56,73,69,77,68,67,66,66,88,60,75,61,81,67,55,91,62,78,63,71,69,69,77,64,65,52,76,78,60,87,67,90,71,72,76,55,80,64,75,58,82,69,55,69,51,79,72,70,74,50,90,68,78,67,68,72,58,86,74,81,62,89,81,67,100,70,79,68,83,79,76,77,73,76,63,90,86,76,88,68,82,72,81,78,83,77,62,65,53,57,56,43,51,34,32,25,19,16,9,5",
             "link_label": "Get the pack"
           }
         },
@@ -863,10 +940,10 @@
           "type": "track",
           "settings": {
             "title": "Deep House Production Suite, Serenade",
-            "subtitle": "Chord loop, 122 BPM, A minor",
+            "subtitle": "Deep house loop, 120 BPM",
             "audio": "shopify://shop_images/samples-demo-deep-house-production-suite.mp4",
-            "seconds": 8,
-            "peaks": "74,63,62,91,79,54,77,79,59,50,92,75,51,59,63,57,50,93,87,56,67,79,62,52,99,77,47,63,92,61,54,90,79,53,76,85,58,47,92,75,45,64,64,50,47,99,81,60,75,78,57,48,92,79,46,71,71,64,56,89,76,51,74,84,57,44,100,72,51,63,62,53,45,100,77,56,84,73,57,45,93,61,46,66,77,64,55,90,79,51,78,73,55,41,91,63,42,63,58,50,38,100,70,47,84,73,52,79,94,64,39,1,1,1,0,0,0,0,0,0",
+            "seconds": 12.0,
+            "peaks": "95,59,64,31,15,99,62,33,2,6,98,56,65,32,14,96,57,29,2,3,100,56,59,45,13,99,63,36,3,5,98,57,57,54,17,98,56,34,2,11,99,56,69,52,20,98,59,68,62,13,96,57,68,53,27,96,58,77,56,30,99,55,79,48,21,96,62,71,53,27,99,55,68,59,24,97,56,73,56,34,95,50,63,56,56,99,58,80,51,50,95,52,68,47,51,95,55,65,52,68,89,53,65,57,73,87,52,59,48,53,67,31,38,30,34,37,16,14,8,2",
             "link_label": "Get the pack"
           }
         },
@@ -874,11 +951,35 @@
           "type": "track",
           "settings": {
             "title": "Tech House Sample Pack, Unitech",
-            "subtitle": "Bass loop, 127 BPM, G minor",
+            "subtitle": "Bass and chords loop, 122 BPM",
             "audio": "shopify://shop_images/samples-demo-tech-house-unitech.mp4",
-            "seconds": 8,
-            "peaks": "100,87,86,88,73,84,79,84,80,85,92,86,85,67,67,91,81,90,63,79,79,94,90,79,85,62,89,70,72,89,79,89,75,85,81,92,84,75,89,73,85,67,64,95,75,92,81,78,91,84,90,70,80,88,86,67,63,88,68,87,85,82,87,75,83,78,88,86,80,67,63,95,69,90,79,62,90,76,92,66,84,89,63,67,63,88,89,89,87,67,86,75,83,92,75,84,60,69,93,92,90,77,79,62,83,91,92,88,80,89,59,5,2,2,1,1,1,1,0,0",
+            "seconds": 11.82,
+            "peaks": "92,81,75,65,55,90,80,75,89,82,73,64,92,76,74,63,62,90,88,91,99,80,75,71,66,100,83,76,71,63,93,83,74,94,92,93,83,93,87,78,91,80,69,61,75,84,72,63,88,85,80,69,89,75,70,59,56,86,77,80,95,78,72,66,88,82,81,73,71,86,87,80,77,91,88,89,77,98,89,89,93,80,73,64,80,90,80,73,91,80,73,64,91,76,73,63,61,91,87,92,93,80,74,71,87,78,73,57,49,61,55,47,37,44,37,32,23,18,11,5",
             "link_label": "Get the pack"
+          }
+        },
+        "g_drums_collection": {
+          "type": "track",
+          "settings": {
+            "title": "Tech House Drums Collection Vol I",
+            "subtitle": "Minimal drum loop, 123 BPM",
+            "audio": "shopify://shop_images/samples-demo-drums-collection.mp4",
+            "seconds": 11.7,
+            "peaks": "2,2,44,20,31,40,3,60,18,6,2,2,58,17,41,41,3,48,19,66,94,46,47,14,72,89,45,44,16,79,98,45,56,14,78,86,43,57,13,80,93,42,48,86,94,84,40,87,88,95,79,81,67,87,95,75,38,52,90,100,80,31,55,89,94,83,37,93,87,93,87,95,65,92,94,64,41,49,11,3,2,38,42,11,45,10,42,41,10,3,2,45,42,10,45,6,63,41,8,96,69,49,36,8,89,59,39,24,6,73,40,25,14,4,39,21,13,5,2,5",
+            "link_label": "Get the pack",
+            "link": "/products/tech-house-drums-collection-vol-i"
+          }
+        },
+        "g_bass_collection": {
+          "type": "track",
+          "settings": {
+            "title": "Tech House Bass Collection Vol I",
+            "subtitle": "808 bass loop, 127 BPM",
+            "audio": "shopify://shop_images/samples-demo-bass-collection.mp4",
+            "seconds": 11.35,
+            "peaks": "100,38,27,61,69,36,22,70,48,15,72,37,71,48,32,73,37,28,19,48,86,69,35,62,69,84,64,72,68,62,84,71,75,46,57,82,80,77,46,59,84,67,37,63,70,85,64,79,58,53,82,61,74,44,61,81,67,80,71,63,85,66,38,65,73,86,63,80,66,64,84,72,74,40,58,84,77,83,44,60,81,62,38,66,69,84,66,76,52,57,83,63,75,45,65,82,79,67,83,63,83,73,61,70,78,80,51,61,61,49,50,42,38,35,28,28,21,16,10,4",
+            "link_label": "Get the pack",
+            "link": "/products/tech-house-bass-collection-vol-i"
           }
         }
       },
@@ -888,7 +989,9 @@
         "g_drum_kit",
         "g_ambience_kit",
         "g_deep_house_production_suite",
-        "g_tech_house_unitech"
+        "g_tech_house_unitech",
+        "g_drums_collection",
+        "g_bass_collection"
       ]
     },
     "licence": {
@@ -1110,6 +1213,68 @@
         "padding_top": 72,
         "padding_bottom": 80
       }
+    },
+    "reviews": {
+      "type": "samples-reviews",
+      "settings": {
+        "eyebrow": "Reviews",
+        "heading": "What producers wrote",
+        "text": "<p>Left by buyers on the Loudlib store, word for word.</p>",
+        "image": "shopify://shop_images/samples-dj-hands.webp",
+        "image_alt": "A hand over a lit DJ controller in purple light",
+        "caption": "Tested on a dance floor first",
+        "caption_sub": "Every loop is played out in a real set before it ships.",
+        "image_position": "left",
+        "image_width": 42,
+        "heading_size": 44,
+        "heading_size_mobile": 30,
+        "quote_size": 30,
+        "quote_size_mobile": 22,
+        "color_scheme": "default",
+        "section_width": "container",
+        "padding_top": 72,
+        "padding_bottom": 72
+      },
+      "blocks": {
+        "testimonial_4": {
+          "type": "review",
+          "settings": {
+            "quote": "<p>crisp sounds, good packaging, love this pack</p>",
+            "name": "Tasha.Detroit",
+            "role": "On Tech House Sample Pack, Unitech",
+            "link": "/products/tech-house-sample-pack-unitech",
+            "pack_image": "shopify://shop_images/samples-box-tech-house-unitech.webp",
+            "rating": 0
+          }
+        },
+        "testimonial_5": {
+          "type": "review",
+          "settings": {
+            "quote": "<p>Great pack, but the demo pack is too small, i bought the full pack after all and its super nice</p>",
+            "name": "Tony Vicc",
+            "role": "On Deep House Production Suite, Serenade",
+            "link": "/products/deep-house-production-suite-serenade",
+            "pack_image": "shopify://shop_images/samples-box-deep-house-production-suite.webp",
+            "rating": 0
+          }
+        },
+        "testimonial_6": {
+          "type": "review",
+          "settings": {
+            "quote": "<p>Love the suite, waiting for the update</p>",
+            "name": "Sasha N",
+            "role": "On Deep House Production Suite",
+            "link": "/products/deep-house-production-suite-serenade",
+            "pack_image": "shopify://shop_images/samples-box-deep-house-production-suite.webp",
+            "rating": 0
+          }
+        }
+      },
+      "block_order": [
+        "testimonial_4",
+        "testimonial_5",
+        "testimonial_6"
+      ]
     }
   },
   "order": [
@@ -1118,6 +1283,7 @@
     "hear",
     "contents",
     "grid",
+    "reviews",
     "licence",
     "faq",
     "more"

@@ -1,0 +1,149 @@
+{%- comment -%}
+  Author: the ways to buy the book. A centred heading, then a card per
+  edition: its picture on a soft ground, the name, a line, the price (and
+  the old price) read from the product when one is picked, a few ticked
+  points and a button to the product. One card can be marked as the one
+  most readers choose: it is dark and carries a small label. Three across
+  on a computer, stacked on a phone. Nothing moves.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+-%}
+<style>
+  #shopify-section-{{ sid }} .abd { background: {{ st.background | default: '#ffffff' }}; padding: {{ st.padding_top_mobile | default: 56 }}px 20px {{ st.padding_bottom_mobile | default: 56 }}px; scroll-margin-top: 80px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .abd { padding: {{ st.padding_top | default: 104 }}px 40px {{ st.padding_bottom | default: 104 }}px; } }
+  #shopify-section-{{ sid }} .abd__head { max-width: 680px; margin: 0 auto; text-align: center; }
+  #shopify-section-{{ sid }} .abd__eyebrow { margin: 0 0 12px; font-size: 13px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: {{ st.accent_color | default: '#c4471f' }}; }
+  #shopify-section-{{ sid }} .abd__heading { margin: 0; color: var(--color-heading); font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, 400); font-size: {{ st.heading_size_mobile | default: 36 }}px; line-height: 1.08; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .abd__heading { font-size: {{ st.heading_size | default: 48 }}px; } }
+  #shopify-section-{{ sid }} .abd__heading em { font-style: italic; color: {{ st.accent_color | default: '#c4471f' }}; }
+  #shopify-section-{{ sid }} .abd__text { margin: 12px auto 0; color: var(--color-text); font-size: 17px; line-height: 1.6; max-width: 48ch; }
+  #shopify-section-{{ sid }} .abd__text p { margin: 0; }
+  #shopify-section-{{ sid }} .abd__grid { list-style: none; max-width: 1140px; margin: 40px auto 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; align-items: stretch; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .abd__grid { grid-template-columns: repeat({{ section.blocks.size | at_least: 1 | at_most: 3 }}, minmax(0, 1fr)); gap: 24px; margin-top: 52px; } }
+  #shopify-section-{{ sid }} .abd__card { position: relative; display: flex; flex-direction: column; padding: 14px 14px 26px; border-radius: {{ st.card_radius | default: 12 }}px; border: 1px solid {{ st.line_color | default: '#e6e1d6' }}; background: #fff; color: var(--color-text); }
+  #shopify-section-{{ sid }} .abd__card[data-featured] { background: {{ st.featured_color | default: '#1d2b4f' }}; border-color: {{ st.featured_color | default: '#1d2b4f' }}; color: {{ st.featured_text | default: '#c9d0e0' }}; }
+  #shopify-section-{{ sid }} .abd__media { display: grid; place-items: center; aspect-ratio: 4 / 3; border-radius: {{ st.card_radius | default: 12 }}px; background: {{ st.media_color | default: '#f5f2ec' }}; overflow: hidden; }
+  #shopify-section-{{ sid }} .abd__card[data-featured] .abd__media { background: rgba(255,255,255,0.08); }
+  #shopify-section-{{ sid }} .abd__media img { display: block; width: 100%; height: 100%; object-fit: contain; margin: 0; }
+  #shopify-section-{{ sid }} .abd__label { position: absolute; top: 26px; left: 26px; padding: 5px 10px; border-radius: 999px; background: {{ st.badge_color | default: '#f0643a' }}; color: #fff; font-size: 12px; font-weight: 700; letter-spacing: 0.03em; }
+  #shopify-section-{{ sid }} .abd__body { display: flex; flex-direction: column; flex: 1 1 auto; padding: 20px 10px 0; }
+  #shopify-section-{{ sid }} .abd__name { margin: 0; color: var(--color-heading); font-size: 20px; font-weight: 700; }
+  #shopify-section-{{ sid }} .abd__card[data-featured] .abd__name, #shopify-section-{{ sid }} .abd__card[data-featured] .abd__price { color: #fff; }
+  #shopify-section-{{ sid }} .abd__line { margin: 6px 0 0; font-size: 15px; line-height: 1.5; }
+  #shopify-section-{{ sid }} .abd__price { display: flex; align-items: baseline; gap: 10px; margin: 16px 0 0; color: var(--color-heading); font-size: 32px; font-weight: 700; letter-spacing: -0.01em; }
+  #shopify-section-{{ sid }} .abd__was { font-size: 17px; font-weight: 500; text-decoration: line-through; opacity: 0.6; }
+  #shopify-section-{{ sid }} .abd__points { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 9px; font-size: 15px; line-height: 1.45; }
+  #shopify-section-{{ sid }} .abd__points li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 10px; }
+  #shopify-section-{{ sid }} .abd__points svg { width: 18px; height: 18px; margin-top: 1px; color: {{ st.badge_color | default: '#f0643a' }}; }
+  #shopify-section-{{ sid }} .abd__btn {
+    display: flex; align-items: center; justify-content: center; min-height: 52px; margin-top: auto; padding: 0 20px; border-radius: {{ st.button_radius | default: 6 }}px;
+    background: {{ st.button_color | default: '#1d2b4f' }}; color: {{ st.button_text_color | default: '#ffffff' }}; font-size: 15px; font-weight: 700; text-decoration: none; transition: filter 0.2s ease;
+  }
+  #shopify-section-{{ sid }} .abd__btn-wrap { margin-top: auto; padding-top: 24px; }
+  #shopify-section-{{ sid }} .abd__card[data-featured] .abd__btn { background: {{ st.badge_color | default: '#f0643a' }}; color: #fff; }
+  #shopify-section-{{ sid }} .abd__btn:hover { filter: brightness(1.12); }
+  #shopify-section-{{ sid }} .abd__foot { margin: 28px auto 0; text-align: center; color: var(--color-text); font-size: 14px; }
+</style>
+<div class="abd color-{{ color_scheme }}" id="{{ st.anchor | default: 'buy' | handleize }}" data-section-id="{{ sid }}">
+  <div class="abd__head">
+    {%- if st.eyebrow != blank -%}<p class="abd__eyebrow">{{ st.eyebrow | escape }}</p>{%- endif -%}
+    {%- if st.heading != blank -%}<h2 class="abd__heading">{{ st.heading }}</h2>{%- endif -%}
+    {%- if st.text != blank -%}<div class="abd__text">{{ st.text }}</div>{%- endif -%}
+  </div>
+  {%- if section.blocks.size > 0 -%}
+    <ul class="abd__grid" role="list">
+      {%- for block in section.blocks -%}
+        {%- liquid
+          assign b = block.settings
+          assign p = b.product
+          assign amount = b.price
+          assign was = b.compare_price
+          assign href = b.button_link | default: '/collections/all'
+          assign pic = b.image
+          if p != blank and p.title != blank
+            assign amount = p.price | money_without_trailing_zeros
+            assign was = ''
+            if p.compare_at_price > p.price
+              assign was = p.compare_at_price | money_without_trailing_zeros
+            endif
+            assign href = p.url
+            if pic == blank
+              assign pic = p.featured_image
+            endif
+          endif
+          assign lines = b.points | newline_to_br | split: '<br />'
+        -%}
+        <li class="abd__card"{% if b.featured %} data-featured{% endif %} {{ block.shopify_attributes }}>
+          <div class="abd__media">
+            {%- if pic != blank -%}<img src="{{ pic | image_url: width: 800 }}" srcset="{{ pic | image_url: width: 500 }} 500w, {{ pic | image_url: width: 800 }} 800w" sizes="(min-width: 750px) 360px, 90vw" width="800" height="600" alt="{{ b.name | escape }}" loading="lazy" decoding="async">{%- endif -%}
+          </div>
+          {%- if b.label != blank -%}<span class="abd__label">{{ b.label | escape }}</span>{%- endif -%}
+          <div class="abd__body">
+            <h3 class="abd__name">{{ b.name | escape }}</h3>
+            {%- if b.line != blank -%}<p class="abd__line">{{ b.line | escape }}</p>{%- endif -%}
+            {%- if amount != blank -%}<p class="abd__price">{{ amount }}{%- if was != blank -%}<span class="abd__was">{{ was }}</span>{%- endif -%}</p>{%- endif -%}
+            {%- if b.points != blank -%}
+              <ul class="abd__points" role="list">
+                {%- for l in lines -%}{%- assign t = l | strip -%}{%- if t != blank -%}<li><svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5l3 3 7-7.5"/></svg><span>{{ t | escape }}</span></li>{%- endif -%}{%- endfor -%}
+              </ul>
+            {%- endif -%}
+            {%- if b.button_label != blank -%}<div class="abd__btn-wrap"><a class="abd__btn" href="{{ href }}">{{ b.button_label | escape }}</a></div>{%- endif -%}
+          </div>
+        </li>
+      {%- endfor -%}
+    </ul>
+  {%- endif -%}
+  {%- if st.footnote != blank -%}<p class="abd__foot">{{ st.footnote | escape }}</p>{%- endif -%}
+</div>
+{% schema %}
+{
+  "name": "Author editions",
+  "tag": "section",
+  "class": "section sec__authorbook-editions",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default-color-scheme" },
+    { "type": "color", "id": "background", "label": "Background", "default": "#ffffff" },
+    { "type": "color", "id": "accent_color", "label": "Accent", "default": "#c4471f" },
+    { "type": "color", "id": "badge_color", "label": "Label, ticks and featured button", "default": "#f0643a" },
+    { "type": "color", "id": "media_color", "label": "Behind the pictures", "default": "#f5f2ec" },
+    { "type": "color", "id": "featured_color", "label": "Featured card", "default": "#1d2b4f" },
+    { "type": "color", "id": "featured_text", "label": "Featured card text", "default": "#c9d0e0" },
+    { "type": "color", "id": "line_color", "label": "Card border", "default": "#e6e1d6" },
+    { "type": "range", "id": "card_radius", "label": "Card corners", "min": 0, "max": 32, "step": 2, "unit": "px", "default": 12 },
+    { "type": "color", "id": "button_color", "label": "Button colour", "default": "#1d2b4f" },
+    { "type": "color", "id": "button_text_color", "label": "Button text colour", "default": "#ffffff" },
+    { "type": "range", "id": "button_radius", "label": "Button corners", "min": 0, "max": 30, "step": 1, "unit": "px", "default": 6 },
+    { "type": "text", "id": "anchor", "label": "Name for links to this section", "default": "buy" },
+    { "type": "text", "id": "eyebrow", "label": "Small label", "default": "Get the book" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "Pick your <em>edition</em>" },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Say how each edition is delivered.</p>" },
+    { "type": "text", "id": "footnote", "label": "Line under the cards", "default": "Secure checkout. Files arrive by email straight away." },
+    { "type": "range", "id": "heading_size", "label": "Heading size, desktop", "min": 28, "max": 72, "step": 2, "unit": "px", "default": 48 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size, phone", "min": 24, "max": 48, "step": 2, "unit": "px", "default": 36 },
+    { "type": "range", "id": "padding_top", "label": "Space above, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 104 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 104 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 }
+  ],
+  "blocks": [
+    { "type": "edition", "name": "Edition", "settings": [
+      { "type": "product", "id": "product", "label": "Product", "info": "Takes the price, picture and link from the product. Leave empty to type them." },
+      { "type": "image_picker", "id": "image", "label": "Picture" },
+      { "type": "text", "id": "name", "label": "Name", "default": "Ebook" },
+      { "type": "text", "id": "line", "label": "Line", "default": "PDF and EPUB, for any device." },
+      { "type": "text", "id": "price", "label": "Price", "default": "$18" },
+      { "type": "text", "id": "compare_price", "label": "Old price" },
+      { "type": "textarea", "id": "points", "label": "Points, one per line", "default": "Read on any device\nFree updates" },
+      { "type": "text", "id": "label", "label": "Small label", "info": "For example: Most readers pick this." },
+      { "type": "checkbox", "id": "featured", "label": "Make this card stand out", "default": false },
+      { "type": "text", "id": "button_label", "label": "Button", "default": "Buy the ebook" },
+      { "type": "url", "id": "button_link", "label": "Button link", "info": "Used when no product is picked." }
+    ] }
+  ],
+  "max_blocks": 3,
+  "presets": [ { "name": "Author editions", "blocks": [ { "type": "edition" }, { "type": "edition", "settings": { "featured": true, "name": "Complete set" } }, { "type": "edition", "settings": { "name": "Audiobook" } } ] } ]
+}
+{% endschema %}

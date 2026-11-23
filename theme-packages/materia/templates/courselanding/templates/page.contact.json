@@ -26,7 +26,7 @@
           "type": "info",
           "settings": {
             "icon": "mail",
-            "line1": "hello@pocketlight.school",
+            "line1": "hello@evenly.school",
             "line2": "Replace with your own address"
           }
         },
@@ -51,36 +51,36 @@
       "settings": {
         "heading": "Questions",
         "anchor": "",
-        "accent": "#2f5bea",
+        "accent": "#17804c",
         "padding_top": 24
       },
       "blocks": {
         "question_1": {
           "type": "question",
           "settings": {
-            "question": "Which phone do I need?",
-            "answer": "<p>Any phone from the last five years. Every lesson works on both kinds of phone, and nothing needs the newest model.</p>"
+            "question": "Do I need to be good with numbers?",
+            "answer": "<p>No. If you can add up a shopping receipt, you can do this course. The spreadsheet does the sums.</p>"
           }
         },
         "question_2": {
           "type": "question",
           "settings": {
-            "question": "Do I need to buy an editing app?",
-            "answer": "<p>No. The editing lessons and presets use free apps that come with your phone or cost nothing.</p>"
+            "question": "Do I need to buy an app?",
+            "answer": "<p>No. Everything runs in a free spreadsheet app, or on the printed workbook if you prefer paper.</p>"
           }
         },
         "question_3": {
           "type": "question",
           "settings": {
             "question": "How much time does it take?",
-            "answer": "<p>About twenty minutes a day: a short lesson and a few pictures. You can pause and pick it up a week later.</p>"
+            "answer": "<p>About twenty minutes a day: a short lesson and one small task. You can pause and pick it up a week later.</p>"
           }
         },
         "question_4": {
           "type": "question",
           "settings": {
-            "question": "How do the live critiques work?",
-            "answer": "<p>Post your best picture of the week by Wednesday. On Thursday evening Teo looks at them on a video call. Recordings stay in the course.</p>"
+            "question": "How do the live calls work?",
+            "answer": "<p>Send a question by Wednesday. On Thursday evening Nina answers them on a video call. Recordings stay in the course. This is teaching, not personal financial advice.</p>"
           }
         },
         "question_5": {

@@ -18,7 +18,14 @@
         "account_label": "Account",
         "cart_label": "Cart",
         "taskbar_label": "Taskbar",
-        "icons_home_only": true
+        "icons_home_only": true,
+        "show_topbar": true,
+        "top_label": "Main menu",
+        "shop_label": "Shop",
+        "shop_link": "/collections/all",
+        "align_windows": true,
+        "column_width": 1120,
+        "window_gap": 24
       },
       "blocks": {
         "icon_1": {

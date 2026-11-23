@@ -16,10 +16,12 @@
         "image_opacity": 22,
         "color_scheme": "default",
         "section_width": "container",
-        "heading_size": 66,
-        "heading_size_mobile": 42,
+        "heading_size": 72,
+        "heading_size_mobile": 44,
         "padding_top": 72,
-        "padding_bottom": 80
+        "padding_bottom": 80,
+        "decor": "glow_grain",
+        "show_wave": true
       },
       "blocks": {
         "r_master": {
@@ -33,8 +35,8 @@
             "button_label": "Get the pack",
             "audio": "shopify://shop_images/samples-demo-tech-house-master-bundle.mp4",
             "track_title": "Groove loop, Tech House Master Bundle 2025",
-            "seconds": 8,
-            "peaks": "99,60,50,90,77,55,78,87,70,53,92,76,66,71,71,60,52,89,70,79,78,85,73,63,84,76,51,68,68,61,49,92,72,53,83,90,67,52,84,72,68,70,68,58,46,100,59,80,84,84,75,61,84,77,51,69,66,56,46,88,68,42,89,84,62,49,94,67,63,71,65,56,44,89,77,78,85,81,76,58,85,60,42,68,64,55,64,89,65,43,88,84,60,61,90,66,62,71,65,55,90,90,80,62,84,78,71,83,84,61,42,1,0,0,0,0,0,0,0,0"
+            "seconds": 12.0,
+            "peaks": "94,43,19,10,95,57,23,13,9,91,56,23,94,67,21,96,50,91,81,24,14,91,76,31,15,92,44,16,11,98,51,20,93,73,22,99,39,90,61,28,16,87,83,45,17,95,50,25,13,92,49,22,94,71,21,14,91,79,27,12,91,46,21,11,93,56,23,13,9,93,52,21,92,60,25,97,89,100,77,30,93,44,20,12,97,51,21,12,9,95,51,24,92,78,22,97,48,88,75,23,14,87,77,25,15,98,46,16,9,77,32,11,56,34,10,41,12,22,10,2"
           }
         },
         "r_deep": {
@@ -47,9 +49,9 @@
             "text": "223 sounds for deep house: drums, loops, basslines, melodies and Serum bass presets. 311 MB unzipped.",
             "button_label": "Get the pack",
             "audio": "shopify://shop_images/samples-demo-deep-house-production-suite.mp4",
-            "track_title": "Chord loop, Deep House Production Suite, Serenade",
-            "seconds": 8,
-            "peaks": "74,63,62,91,79,54,77,79,59,50,92,75,51,59,63,57,50,93,87,56,67,79,62,52,99,77,47,63,92,61,54,90,79,53,76,85,58,47,92,75,45,64,64,50,47,99,81,60,75,78,57,48,92,79,46,71,71,64,56,89,76,51,74,84,57,44,100,72,51,63,62,53,45,100,77,56,84,73,57,45,93,61,46,66,77,64,55,90,79,51,78,73,55,41,91,63,42,63,58,50,38,100,70,47,84,73,52,79,94,64,39,1,1,1,0,0,0,0,0,0"
+            "track_title": "Deep house loop, Deep House Production Suite, Serenade",
+            "seconds": 12.0,
+            "peaks": "95,59,64,31,15,99,62,33,2,6,98,56,65,32,14,96,57,29,2,3,100,56,59,45,13,99,63,36,3,5,98,57,57,54,17,98,56,34,2,11,99,56,69,52,20,98,59,68,62,13,96,57,68,53,27,96,58,77,56,30,99,55,79,48,21,96,62,71,53,27,99,55,68,59,24,97,56,73,56,34,95,50,63,56,56,99,58,80,51,50,95,52,68,47,51,95,55,65,52,68,89,53,65,57,73,87,52,59,48,53,67,31,38,30,34,37,16,14,8,2"
           }
         },
         "r_unitech": {
@@ -62,9 +64,9 @@
             "text": "165 WAV files built around the new wave of tech house, inspired by John Summit, Fisher, Matroda and Dom Dolla.",
             "button_label": "Get the pack",
             "audio": "shopify://shop_images/samples-demo-tech-house-unitech.mp4",
-            "track_title": "Bass loop, Tech House Sample Pack, Unitech",
-            "seconds": 8,
-            "peaks": "100,87,86,88,73,84,79,84,80,85,92,86,85,67,67,91,81,90,63,79,79,94,90,79,85,62,89,70,72,89,79,89,75,85,81,92,84,75,89,73,85,67,64,95,75,92,81,78,91,84,90,70,80,88,86,67,63,88,68,87,85,82,87,75,83,78,88,86,80,67,63,95,69,90,79,62,90,76,92,66,84,89,63,67,63,88,89,89,87,67,86,75,83,92,75,84,60,69,93,92,90,77,79,62,83,91,92,88,80,89,59,5,2,2,1,1,1,1,0,0"
+            "track_title": "Bass and chords loop, Tech House Sample Pack, Unitech",
+            "seconds": 11.82,
+            "peaks": "92,81,75,65,55,90,80,75,89,82,73,64,92,76,74,63,62,90,88,91,99,80,75,71,66,100,83,76,71,63,93,83,74,94,92,93,83,93,87,78,91,80,69,61,75,84,72,63,88,85,80,69,89,75,70,59,56,86,77,80,95,78,72,66,88,82,81,73,71,86,87,80,77,91,88,89,77,98,89,89,93,80,73,64,80,90,80,73,91,80,73,64,91,76,73,63,61,91,87,92,93,80,74,71,87,78,73,57,49,61,55,47,37,44,37,32,23,18,11,5"
           }
         }
       },
@@ -90,8 +92,8 @@
         "view_label": "See the pack",
         "columns": 4,
         "columns_mobile": 2,
-        "heading_size": 44,
-        "heading_size_mobile": 30,
+        "heading_size": 48,
+        "heading_size_mobile": 32,
         "color_scheme": "default",
         "section_width": "container",
         "padding_top": 72,
@@ -107,9 +109,9 @@
             "text": "26 bass presets for tech, deep, melodic and afro house. Needs Serum 1.368 or later.",
             "group": "Presets",
             "audio": "shopify://shop_images/samples-demo-serum-presets.mp4",
-            "track_title": "Pluck preset, Serum Presets Vol 1",
-            "seconds": 9,
-            "peaks": "100,86,82,84,68,79,89,88,88,71,78,81,72,90,88,89,77,87,77,62,90,85,86,80,77,79,56,89,87,87,85,69,77,77,88,89,79,81,66,74,87,84,81,79,75,70,69,92,84,84,72,84,75,63,86,82,89,80,72,78,53,89,85,84,77,67,73,73,91,87,83,83,62,74,90,83,89,74,81,78,73,86,87,92,72,82,80,63,90,82,85,80,77,72,58,90,88,90,85,74,77,85,90,85,78,79,76,80,46,22,9,6,2,1,1,0,0,0,0,0"
+            "track_title": "Synth bass loop, Serum Presets Vol 1",
+            "seconds": 11.49,
+            "peaks": "88,97,92,83,2,2,89,69,2,71,89,98,70,81,80,46,95,55,2,77,89,92,91,66,2,75,87,10,2,82,97,90,4,97,67,87,80,4,2,92,100,99,91,4,2,87,75,2,29,92,91,72,78,91,7,99,67,2,74,91,99,99,81,2,70,89,48,2,79,90,89,7,87,74,76,91,9,2,2,79,91,89,89,65,2,77,85,8,2,83,93,87,3,95,57,84,83,4,2,90,90,89,86,3,2,77,62,2,45,62,55,42,38,39,3,30,17,2,7,5"
           }
         },
         "c_tech_house_master_bundle": {
@@ -122,8 +124,8 @@
             "group": "Sample packs",
             "audio": "shopify://shop_images/samples-demo-tech-house-master-bundle.mp4",
             "track_title": "Groove loop, Tech House Master Bundle 2025",
-            "seconds": 8,
-            "peaks": "99,60,50,90,77,55,78,87,70,53,92,76,66,71,71,60,52,89,70,79,78,85,73,63,84,76,51,68,68,61,49,92,72,53,83,90,67,52,84,72,68,70,68,58,46,100,59,80,84,84,75,61,84,77,51,69,66,56,46,88,68,42,89,84,62,49,94,67,63,71,65,56,44,89,77,78,85,81,76,58,85,60,42,68,64,55,64,89,65,43,88,84,60,61,90,66,62,71,65,55,90,90,80,62,84,78,71,83,84,61,42,1,0,0,0,0,0,0,0,0"
+            "seconds": 12.0,
+            "peaks": "94,43,19,10,95,57,23,13,9,91,56,23,94,67,21,96,50,91,81,24,14,91,76,31,15,92,44,16,11,98,51,20,93,73,22,99,39,90,61,28,16,87,83,45,17,95,50,25,13,92,49,22,94,71,21,14,91,79,27,12,91,46,21,11,93,56,23,13,9,93,52,21,92,60,25,97,89,100,77,30,93,44,20,12,97,51,21,12,9,95,51,24,92,78,22,97,48,88,75,23,14,87,77,25,15,98,46,16,9,77,32,11,56,34,10,41,12,22,10,2"
           }
         },
         "c_drum_kit": {
@@ -135,9 +137,9 @@
             "text": "280 one shots: kicks, claps, hats, percs, rides, shakers and snares.",
             "group": "Free",
             "audio": "shopify://shop_images/samples-demo-drums-one-shots.mp4",
-            "track_title": "One shots, then a beat, Tech House Drum Kit Vol I",
-            "seconds": 8,
-            "peaks": "99,62,49,37,28,74,65,49,40,28,65,51,25,14,8,57,62,24,17,7,25,21,9,1,1,2,21,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,66,64,53,44,38,25,20,91,87,58,47,38,25,19,67,64,50,43,39,24,18,100,82,59,45,40,25,18,65,64,50,41,35,23,18,95,79,57,44,33,25,18,66,60,50,39,32,23,17,100,77,62,47,31,25,16,2,1,0,0,0,0,0,0,0"
+            "track_title": "Drum loop, Tech House Drum Kit Vol I",
+            "seconds": 11.63,
+            "peaks": "95,64,33,18,38,94,66,35,8,22,94,66,31,7,35,93,76,48,9,43,96,65,37,9,55,95,64,48,7,39,100,60,36,8,52,91,62,37,9,45,95,59,35,6,46,96,67,34,7,55,100,56,35,18,56,95,73,38,9,52,99,67,32,24,59,96,63,38,6,48,96,67,42,5,69,95,61,36,10,54,96,55,34,5,65,96,59,33,5,56,98,56,37,5,65,94,62,36,9,59,98,56,33,6,62,93,52,23,4,41,60,31,17,3,28,36,17,7,2,2"
           }
         },
         "c_ambience_kit": {
@@ -149,9 +151,9 @@
             "text": "16 atmospheric loops: calm drones and soft textures for intros and breakdowns.",
             "group": "Free",
             "audio": "shopify://shop_images/samples-demo-ambience-kit.mp4",
-            "track_title": "Pad texture, Free Ambience Sample Pack Vol I",
-            "seconds": 9,
-            "peaks": "8,11,13,16,19,23,27,31,41,44,48,50,55,50,61,65,61,68,73,85,89,80,84,89,90,92,85,79,83,91,95,83,64,79,77,81,75,74,66,68,65,63,59,56,70,80,82,71,59,55,57,54,58,65,63,60,55,49,49,60,66,64,50,58,57,58,67,67,61,68,78,82,78,78,81,77,75,68,66,77,86,82,77,83,90,85,68,81,92,91,93,100,98,93,72,68,65,60,59,58,63,60,49,37,40,41,40,37,32,25,24,22,16,14,12,10,6,4,2,1"
+            "track_title": "Pluck loop with delay, Free Ambience Sample Pack Vol I",
+            "seconds": 12.52,
+            "peaks": "76,42,79,59,71,65,52,72,63,73,62,67,65,51,77,60,81,68,77,69,56,73,69,77,68,67,66,66,88,60,75,61,81,67,55,91,62,78,63,71,69,69,77,64,65,52,76,78,60,87,67,90,71,72,76,55,80,64,75,58,82,69,55,69,51,79,72,70,74,50,90,68,78,67,68,72,58,86,74,81,62,89,81,67,100,70,79,68,83,79,76,77,73,76,63,90,86,76,88,68,82,72,81,78,83,77,62,65,53,57,56,43,51,34,32,25,19,16,9,5"
           }
         },
         "c_deep_house_production_suite": {
@@ -163,9 +165,9 @@
             "text": "223 sounds: drums, loops, basslines, melodies and Serum bass presets.",
             "group": "Sample packs",
             "audio": "shopify://shop_images/samples-demo-deep-house-production-suite.mp4",
-            "track_title": "Chord loop, Deep House Production Suite, Serenade",
-            "seconds": 8,
-            "peaks": "74,63,62,91,79,54,77,79,59,50,92,75,51,59,63,57,50,93,87,56,67,79,62,52,99,77,47,63,92,61,54,90,79,53,76,85,58,47,92,75,45,64,64,50,47,99,81,60,75,78,57,48,92,79,46,71,71,64,56,89,76,51,74,84,57,44,100,72,51,63,62,53,45,100,77,56,84,73,57,45,93,61,46,66,77,64,55,90,79,51,78,73,55,41,91,63,42,63,58,50,38,100,70,47,84,73,52,79,94,64,39,1,1,1,0,0,0,0,0,0"
+            "track_title": "Deep house loop, Deep House Production Suite, Serenade",
+            "seconds": 12.0,
+            "peaks": "95,59,64,31,15,99,62,33,2,6,98,56,65,32,14,96,57,29,2,3,100,56,59,45,13,99,63,36,3,5,98,57,57,54,17,98,56,34,2,11,99,56,69,52,20,98,59,68,62,13,96,57,68,53,27,96,58,77,56,30,99,55,79,48,21,96,62,71,53,27,99,55,68,59,24,97,56,73,56,34,95,50,63,56,56,99,58,80,51,50,95,52,68,47,51,95,55,65,52,68,89,53,65,57,73,87,52,59,48,53,67,31,38,30,34,37,16,14,8,2"
           }
         },
         "c_tech_house_unitech": {
@@ -177,9 +179,9 @@
             "text": "165 WAV files for the new wave of tech house, with 20 Serum bass presets.",
             "group": "Sample packs",
             "audio": "shopify://shop_images/samples-demo-tech-house-unitech.mp4",
-            "track_title": "Bass loop, Tech House Sample Pack, Unitech",
-            "seconds": 8,
-            "peaks": "100,87,86,88,73,84,79,84,80,85,92,86,85,67,67,91,81,90,63,79,79,94,90,79,85,62,89,70,72,89,79,89,75,85,81,92,84,75,89,73,85,67,64,95,75,92,81,78,91,84,90,70,80,88,86,67,63,88,68,87,85,82,87,75,83,78,88,86,80,67,63,95,69,90,79,62,90,76,92,66,84,89,63,67,63,88,89,89,87,67,86,75,83,92,75,84,60,69,93,92,90,77,79,62,83,91,92,88,80,89,59,5,2,2,1,1,1,1,0,0"
+            "track_title": "Bass and chords loop, Tech House Sample Pack, Unitech",
+            "seconds": 11.82,
+            "peaks": "92,81,75,65,55,90,80,75,89,82,73,64,92,76,74,63,62,90,88,91,99,80,75,71,66,100,83,76,71,63,93,83,74,94,92,93,83,93,87,78,91,80,69,61,75,84,72,63,88,85,80,69,89,75,70,59,56,86,77,80,95,78,72,66,88,82,81,73,71,86,87,80,77,91,88,89,77,98,89,89,93,80,73,64,80,90,80,73,91,80,73,64,91,76,73,63,61,91,87,92,93,80,74,71,87,78,73,57,49,61,55,47,37,44,37,32,23,18,11,5"
           }
         },
         "c_drums_collection": {
@@ -189,7 +191,11 @@
             "cover": "shopify://shop_images/samples-box-drums-collection.webp",
             "link": "/collections/all",
             "text": "177 drum loops: 122 top loops and 55 full drum loops. 620 MB.",
-            "group": "Sample packs"
+            "group": "Sample packs",
+            "audio": "shopify://shop_images/samples-demo-drums-collection.mp4",
+            "seconds": 11.7,
+            "peaks": "2,2,44,20,31,40,3,60,18,6,2,2,58,17,41,41,3,48,19,66,94,46,47,14,72,89,45,44,16,79,98,45,56,14,78,86,43,57,13,80,93,42,48,86,94,84,40,87,88,95,79,81,67,87,95,75,38,52,90,100,80,31,55,89,94,83,37,93,87,93,87,95,65,92,94,64,41,49,11,3,2,38,42,11,45,10,42,41,10,3,2,45,42,10,45,6,63,41,8,96,69,49,36,8,89,59,39,24,6,73,40,25,14,4,39,21,13,5,2,5",
+            "track_title": "Minimal drum loop, Tech House Drums Collection Vol I"
           }
         },
         "c_bass_collection": {
@@ -199,7 +205,11 @@
             "cover": "shopify://shop_images/samples-box-bass-collection.webp",
             "link": "/collections/all",
             "text": "Over 100 bass loops for tech house. 238 MB.",
-            "group": "Sample packs"
+            "group": "Sample packs",
+            "audio": "shopify://shop_images/samples-demo-bass-collection.mp4",
+            "seconds": 11.35,
+            "peaks": "100,38,27,61,69,36,22,70,48,15,72,37,71,48,32,73,37,28,19,48,86,69,35,62,69,84,64,72,68,62,84,71,75,46,57,82,80,77,46,59,84,67,37,63,70,85,64,79,58,53,82,61,74,44,61,81,67,80,71,63,85,66,38,65,73,86,63,80,66,64,84,72,74,40,58,84,77,83,44,60,81,62,38,66,69,84,66,76,52,57,83,63,75,45,65,82,79,67,83,63,83,73,61,70,78,80,51,61,61,49,50,42,38,35,28,28,21,16,10,4",
+            "track_title": "808 bass loop, Tech House Bass Collection Vol I"
           }
         }
       },
@@ -220,10 +230,12 @@
         "layout": "feature",
         "color_scheme": "scheme-tr-black",
         "section_width": "container",
-        "heading_size": 44,
+        "heading_size": 48,
         "heading_size_mobile": 32,
         "padding_top": 88,
-        "padding_bottom": 88
+        "padding_bottom": 88,
+        "decor": "glow",
+        "show_wave": false
       },
       "blocks": {
         "bundle": {
@@ -237,8 +249,8 @@
             "button_label": "Get the bundle",
             "audio": "shopify://shop_images/samples-demo-tech-house-master-bundle.mp4",
             "track_title": "Groove loop, Tech House Master Bundle 2025",
-            "seconds": 8,
-            "peaks": "99,60,50,90,77,55,78,87,70,53,92,76,66,71,71,60,52,89,70,79,78,85,73,63,84,76,51,68,68,61,49,92,72,53,83,90,67,52,84,72,68,70,68,58,46,100,59,80,84,84,75,61,84,77,51,69,66,56,46,88,68,42,89,84,62,49,94,67,63,71,65,56,44,89,77,78,85,81,76,58,85,60,42,68,64,55,64,89,65,43,88,84,60,61,90,66,62,71,65,55,90,90,80,62,84,78,71,83,84,61,42,1,0,0,0,0,0,0,0,0",
+            "seconds": 12.0,
+            "peaks": "94,43,19,10,95,57,23,13,9,91,56,23,94,67,21,96,50,91,81,24,14,91,76,31,15,92,44,16,11,98,51,20,93,73,22,99,39,90,61,28,16,87,83,45,17,95,50,25,13,92,49,22,94,71,21,14,91,79,27,12,91,46,21,11,93,56,23,13,9,93,52,21,92,60,25,97,89,100,77,30,93,44,20,12,97,51,21,12,9,95,51,24,92,78,22,97,48,88,75,23,14,87,77,25,15,98,46,16,9,77,32,11,56,34,10,41,12,22,10,2",
             "note": "RAR 930 MB or ZIP 1 GB. Instant download, yours to keep.",
             "list": "<ul><li>280 drum one shots and 361 drum loops</li><li>154 bass sounds, with 26 Serum bass presets</li><li>126 FX: impacts, risers, reverses and downfilters</li><li>57 vocal phrases and one shots</li><li>44 melody loops and 25 synth one shots</li></ul>"
           }
@@ -249,70 +261,62 @@
       ]
     },
     "reviews": {
-      "type": "testimonials",
+      "type": "samples-reviews",
       "settings": {
+        "eyebrow": "Reviews",
+        "heading": "What producers wrote",
+        "text": "<p>Left by buyers on the Loudlib store, word for word.</p>",
+        "image": "shopify://shop_images/samples-dj-hands.webp",
+        "image_alt": "A hand over a lit DJ controller in purple light",
+        "caption": "Tested on a dance floor first",
+        "caption_sub": "Every loop is played out in a real set before it ships.",
+        "image_position": "left",
+        "image_width": 42,
+        "heading_size": 44,
+        "heading_size_mobile": 30,
+        "quote_size": 30,
+        "quote_size_mobile": 22,
         "color_scheme": "default",
         "section_width": "container",
-        "display_mode": "grid",
-        "show_rating": false,
-        "show_quote_mark": true,
-        "columns": 3,
-        "columns_mobile": 1,
-        "card_style": "outline",
-        "card_radius": 14,
-        "card_padding": 28,
-        "header_alignment": "left",
-        "padding_top": 88,
-        "padding_bottom": 88
+        "padding_top": 96,
+        "padding_bottom": 96
       },
       "blocks": {
-        "eyebrow_1": {
-          "type": "eyebrow",
-          "settings": {
-            "text": "Reviews"
-          }
-        },
-        "heading_2": {
-          "type": "heading",
-          "settings": {
-            "text": "What producers wrote"
-          }
-        },
-        "subheading_3": {
-          "type": "subheading",
-          "settings": {
-            "text": "<p>Left by buyers on the Loudlib store, word for word.</p>"
-          }
-        },
         "testimonial_4": {
-          "type": "testimonial",
+          "type": "review",
           "settings": {
             "quote": "<p>crisp sounds, good packaging, love this pack</p>",
             "name": "Tasha.Detroit",
-            "role": "On Tech House Sample Pack, Unitech"
+            "role": "On Tech House Sample Pack, Unitech",
+            "link": "/products/tech-house-sample-pack-unitech",
+            "pack_image": "shopify://shop_images/samples-box-tech-house-unitech.webp",
+            "rating": 0
           }
         },
         "testimonial_5": {
-          "type": "testimonial",
+          "type": "review",
           "settings": {
             "quote": "<p>Great pack, but the demo pack is too small, i bought the full pack after all and its super nice</p>",
             "name": "Tony Vicc",
-            "role": "On Deep House Production Suite, Serenade"
+            "role": "On Deep House Production Suite, Serenade",
+            "link": "/products/deep-house-production-suite-serenade",
+            "pack_image": "shopify://shop_images/samples-box-deep-house-production-suite.webp",
+            "rating": 0
           }
         },
         "testimonial_6": {
-          "type": "testimonial",
+          "type": "review",
           "settings": {
             "quote": "<p>Love the suite, waiting for the update</p>",
             "name": "Sasha N",
-            "role": "Verified buyer, Deep House Production Suite"
+            "role": "On Deep House Production Suite",
+            "link": "/products/deep-house-production-suite-serenade",
+            "pack_image": "shopify://shop_images/samples-box-deep-house-production-suite.webp",
+            "rating": 0
           }
         }
       },
       "block_order": [
-        "eyebrow_1",
-        "heading_2",
-        "subheading_3",
         "testimonial_4",
         "testimonial_5",
         "testimonial_6"
@@ -465,13 +469,184 @@
         "faq_6",
         "faq_7"
       ]
+    },
+    "ticker": {
+      "type": "samples-ticker",
+      "settings": {
+        "speed": 45,
+        "text_size": 26,
+        "text_size_mobile": 19,
+        "color_scheme": "scheme-tr-black",
+        "padding_top": 20,
+        "padding_bottom": 20
+      },
+      "blocks": {
+        "w0": {
+          "type": "word",
+          "settings": {
+            "text": "Tech house",
+            "soft": false
+          }
+        },
+        "w1": {
+          "type": "word",
+          "settings": {
+            "text": "Deep house",
+            "soft": true
+          }
+        },
+        "w2": {
+          "type": "word",
+          "settings": {
+            "text": "Serum presets",
+            "soft": false
+          }
+        },
+        "w3": {
+          "type": "word",
+          "settings": {
+            "text": "Drum loops",
+            "soft": true
+          }
+        },
+        "w4": {
+          "type": "word",
+          "settings": {
+            "text": "Basslines",
+            "soft": false
+          }
+        },
+        "w5": {
+          "type": "word",
+          "settings": {
+            "text": "Vocal phrases",
+            "soft": true
+          }
+        },
+        "w6": {
+          "type": "word",
+          "settings": {
+            "text": "100% royalty free",
+            "soft": false
+          }
+        },
+        "w7": {
+          "type": "word",
+          "settings": {
+            "text": "Instant download",
+            "soft": true
+          }
+        }
+      },
+      "block_order": [
+        "w0",
+        "w1",
+        "w2",
+        "w3",
+        "w4",
+        "w5",
+        "w6",
+        "w7"
+      ]
+    },
+    "creator": {
+      "type": "samples-creator",
+      "settings": {
+        "image": "shopify://shop_images/samples-studio.webp",
+        "image_alt": "A mixing desk, monitors and outboard gear in a studio lit purple",
+        "badge": "Made by Loudlib",
+        "image_position": "left",
+        "eyebrow": "Who makes the sounds",
+        "heading": "Sounds made for the club, not for a catalogue",
+        "text": "<p>Loudlib makes tech house and deep house packs and Serum presets. Every loop is played, processed and tested in a full track before it goes in a pack, so it sits in a mix the moment you drag it in.</p><p><strong>100% royalty free.</strong> Release what you make with them, anywhere.</p>",
+        "button_label": "About Loudlib",
+        "button_link": "/pages/about",
+        "show_social": true,
+        "heading_size": 48,
+        "heading_size_mobile": 32,
+        "color_scheme": "default",
+        "section_width": "container",
+        "padding_top": 96,
+        "padding_bottom": 96
+      },
+      "blocks": {
+        "f1": {
+          "type": "fact",
+          "settings": {
+            "value": "8",
+            "label": "Packs in the shop"
+          }
+        },
+        "f2": {
+          "type": "fact",
+          "settings": {
+            "value": "1,000+",
+            "label": "Sounds in the Master Bundle"
+          }
+        },
+        "f3": {
+          "type": "fact",
+          "settings": {
+            "value": "2",
+            "label": "Packs free to download"
+          }
+        },
+        "f4": {
+          "type": "fact",
+          "settings": {
+            "value": "WAV",
+            "label": "Works in any DAW"
+          }
+        }
+      },
+      "block_order": [
+        "f1",
+        "f2",
+        "f3",
+        "f4"
+      ]
+    },
+    "journal": {
+      "type": "blog-posts",
+      "settings": {
+        "color_scheme": "scheme-tr-black",
+        "section_width": "container",
+        "reset_spacing": true,
+        "blog": "news",
+        "items_to_show": 3,
+        "heading": "From the blog",
+        "description": "<p>Production notes from the Loudlib studio: kicks, sidechain, vocal chops.</p>",
+        "show_view_all": true,
+        "view_all_label": "All posts",
+        "view_all_link": "/blogs/news",
+        "show_author": false,
+        "show_date": true,
+        "header_alignment": "left",
+        "content_alignment": "left",
+        "items_per_row": 3,
+        "items_per_row_mobile": 1,
+        "column_gap": 24,
+        "vertical_gap": 30,
+        "carousel_pagination": "show_dots_on_mobile",
+        "pagination_style": "pill",
+        "image_ratio": "custom",
+        "custom_ratio": "3:2",
+        "enable_custom_heading_size": true,
+        "heading_font_size": 44,
+        "reveal": false,
+        "padding_top": 96,
+        "padding_bottom": 96
+      }
     }
   },
   "order": [
     "hero",
+    "ticker",
     "packs",
     "bundle",
+    "creator",
     "reviews",
+    "journal",
     "free",
     "faq"
   ]

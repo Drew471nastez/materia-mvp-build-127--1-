@@ -73,6 +73,7 @@
       assign field_radius = 'var(--input-border-radius, min(14px, max(6px, var(--card-radius, 6px))))'
   endcase
   assign form_id = 'FormModal-' | append: sid
+  assign error_words = st.error_text | default: 'That did not send. Check your email address and try again.'
   assign title_id = 'FormModalTitle-' | append: sid
 -%}
 {%- capture fm_icon_name -%}<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="3.6" stroke="currentColor" stroke-width="1.6"/><path d="M4.8 20c.9-3.6 3.7-5.6 7.2-5.6s6.3 2 7.2 5.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>{%- endcapture -%}
@@ -90,7 +91,7 @@
     --fm-radius: {{ radius }};
     --fm-field-radius: {{ field_radius }};
     --fm-w: {{ st.width | default: 500 }}px;
-    --fm-accent: {% render 'scheme-color', color: st.accent_color, fallback: 'var(--color-primary)' %};
+    --fm-accent: {% render 'scheme-color', color: st.accent_color, fallback: 'var(--btn-primary-bg-color, var(--color-primary))' %};
     --fm-scrim: rgba(12, 12, 16, {{ st.overlay_opacity | default: 55 | divided_by: 100.0 }});
     --fm-line: color-mix(in srgb, var(--color-text) 16%, transparent);
     --fm-field-bg: color-mix(in srgb, var(--color-text) 3.5%, var(--color-background));
@@ -141,7 +142,7 @@
     font-size: var(--fm-title, 30px); line-height: 1.15; letter-spacing: -.01em; color: var(--color-heading, var(--color-text));
     text-wrap: balance;
   }
-  #shopify-section-{{ sid }} .fm__body[style*="center"] .fm__title, #shopify-section-{{ sid }} .fm--center .fm__title { padding-inline: 36px; }
+  #shopify-section-{{ sid }} .fm--center .fm__body .fm__title { padding-inline: 36px; }
   #shopify-section-{{ sid }} .fm__title em { font-style: normal; color: var(--fm-accent); }
   #shopify-section-{{ sid }} .fm__text { color: var(--fm-muted); font-size: 15px; line-height: 1.55; }
   #shopify-section-{{ sid }} .fm__text p { margin: 0; }
@@ -154,20 +155,26 @@
   }
   #shopify-section-{{ sid }} .fm__field--area .fm__icon { top: 18px; transform: none; }
   #shopify-section-{{ sid }} .fm__icon svg { width: 100%; height: 100%; display: block; }
+  /* The fields keep Theme settings > Forms and fields (theme-button-contract.css): their colours, border and focus
+     ring. Only the variables that contract reads are set here, for the taller field, the room for the icon and
+     the filled or outline surface. */
   #shopify-section-{{ sid }} .fm__input {
+    --input-padding: 0 18px;
+    --input-height: 56px;
+    --input-bg: var(--fm-field-bg);
+    {%- if st.corners != 'theme' %} --input-border-radius: {{ field_radius }};{% endif %}
     box-sizing: border-box; display: block; width: 100%; min-height: 56px; margin: 0;
-    padding: 0 18px; font: inherit; font-size: 16px; color: var(--color-text);
+    font: inherit; font-size: 16px; color: var(--color-text);
     background: var(--fm-field-bg); border: 1px solid var(--fm-line); border-radius: var(--fm-field-radius);
+    padding: var(--input-padding);
     -webkit-appearance: none; appearance: none; box-shadow: none;
-    transition: border-color .2s ease, box-shadow .2s ease, background-color .2s ease;
   }
-  #shopify-section-{{ sid }} .fm--icons .fm__input { padding-left: 50px; }
-  #shopify-section-{{ sid }} textarea.fm__input { min-height: 120px; padding-top: 16px; padding-bottom: 16px; resize: vertical; line-height: 1.5; }
+  #shopify-section-{{ sid }} .fm--icons .fm__input { --input-padding: 0 18px 0 50px; }
+  #shopify-section-{{ sid }} textarea.fm__input { --input-padding: 16px 18px; min-height: 120px; resize: vertical; line-height: 1.5; }
+  #shopify-section-{{ sid }} .fm--icons textarea.fm__input { --input-padding: 16px 18px 16px 50px; }
   #shopify-section-{{ sid }} .fm__input::placeholder { color: var(--fm-muted); opacity: 1; }
-  #shopify-section-{{ sid }} .fm__input:hover { border-color: color-mix(in srgb, var(--color-text) 28%, transparent); }
-  #shopify-section-{{ sid }} .fm__input:focus { outline: none; border-color: var(--fm-accent); background: var(--color-background); box-shadow: 0 0 0 3px color-mix(in srgb, var(--fm-accent) 22%, transparent); }
   #shopify-section-{{ sid }} .fm__field:focus-within .fm__icon { color: var(--fm-accent); }
-  #shopify-section-{{ sid }} .fm--outline .fm__input { background: transparent; }
+  #shopify-section-{{ sid }} .fm--outline .fm__input { --input-bg: transparent; background: transparent; }
   #shopify-section-{{ sid }} .fm__submit {
     position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
     width: 100%; min-height: 56px; margin-top: 10px; font-size: 17px !important; cursor: pointer;
@@ -212,7 +219,8 @@
     #shopify-section-{{ sid }} .fm__close { top: 12px; right: 12px; width: 36px; height: 36px; }
     #shopify-section-{{ sid }} .fm__title { font-size: min(var(--fm-title, 30px), 26px); }
     #shopify-section-{{ sid }} .fm__form { margin-top: 20px; gap: 12px; }
-    #shopify-section-{{ sid }} .fm__input, #shopify-section-{{ sid }} .fm__submit { min-height: 52px; }
+    #shopify-section-{{ sid }} .fm__input { --input-height: 52px; min-height: 52px; }
+    #shopify-section-{{ sid }} .fm__submit { min-height: 52px; }
   }
   @media (prefers-reduced-motion: reduce) {
     #shopify-section-{{ sid }} .fm__scrim, #shopify-section-{{ sid }} .fm__panel, #shopify-section-{{ sid }} .fm__arrow { transition: none !important; }
@@ -224,7 +232,7 @@
   #shopify-section-{{ sid }} .fm--canvas .fm__panel { opacity: 1; transform: none; max-height: none; overflow: visible; }
   #shopify-section-{{ sid }} .fm--canvas .fm__scrim, #shopify-section-{{ sid }} .fm--canvas .fm__handle { display: none; }
   #shopify-section-{{ sid }} .fm__hint { margin: 0; max-width: var(--fm-w); font: 500 13px/1.45 var(--body-font, inherit); color: #fff; text-align: center; opacity: .9; }
-  #shopify-section-{{ sid }} .fm__hint code { font: inherit; font-weight: 700; }
+  #shopify-section-{{ sid }} .fm__hint code { font: inherit; font-weight: 700; white-space: nowrap; }
   @media (max-width: 640px) {
     #shopify-section-{{ sid }} .fm--canvas { padding: 24px 0 0; justify-content: flex-end; }
     #shopify-section-{{ sid }} .fm--canvas .fm__hint { padding: 0 16px; }
@@ -263,13 +271,15 @@
       {%- if use_storelib -%}
         <div class="fm__sl">{{ st.storelib_form | storelib_form: topic }}</div>
       {%- else -%}
-        {%- form form_type, id: form_id, class: 'fm__form', novalidate: false -%}
+        {%- capture fm_top -%}
+          <div hidden aria-hidden="true" data-mt-trap style="position:absolute;left:-9999px"><label>Company<input type="text" name="company" tabindex="-1" autocomplete="off"></label></div>
           {%- if form_type == 'customer' -%}
             <input type="hidden" name="contact[tags]" value="newsletter">
             <input type="hidden" name="storelib_placement" value="popup">
           {%- else -%}
             {%- if topic != blank -%}<input type="hidden" name="contact[subject]" value="{{ topic | escape }}">{%- endif -%}
             <input type="hidden" name="contact[body]" value="" data-fm-body>
+            <input type="hidden" name="contact[page_url]" value="" data-fm-page>
           {%- endif -%}
           {%- for block in section.blocks -%}
             {%- assign b = block.settings -%}
@@ -330,7 +340,8 @@
               <input class="fm__input" id="fm-email-{{ sid }}" type="email" name="contact[email]" autocomplete="email" placeholder="Email address" required>
             </label>
           {%- endunless -%}
-          <p class="fm__error" role="alert" data-fm-error>{%- if form.errors -%}{{ st.error_text | default: 'That did not send. Check your email address and try again.' | escape }}{%- endif -%}</p>
+        {%- endcapture -%}
+        {%- capture fm_bottom -%}
           {%- for block in section.blocks -%}
             {%- assign b = block.settings -%}
             {%- case block.type -%}
@@ -355,8 +366,22 @@
           {%- unless has_button -%}
             <button type="submit" class="btn btn-primary fm__submit" data-theme-button="primary" data-sl-button><span>Send</span></button>
           {%- endunless -%}
-          {%- if form.posted_successfully? -%}<span hidden data-fm-posted></span>{%- endif -%}
-        {%- endform -%}
+        {%- endcapture -%}
+        {%- if form_type == 'contact' -%}
+          {%- form 'contact', id: form_id, class: 'fm__form', data_mt_inline_contact: true, data_nl_form: true, data_error_message: error_words, data_invalid_message: error_words -%}
+            {{ fm_top }}
+            <p class="fm__error" role="alert" data-fm-error data-nl-msg="error">{%- if form.errors -%}{{ st.error_text | default: 'That did not send. Check your email address and try again.' | escape }}{%- endif -%}</p>
+            {{ fm_bottom }}
+            {%- if form.posted_successfully? -%}<span hidden data-fm-posted></span>{%- endif -%}
+          {%- endform -%}
+        {%- else -%}
+          {%- form 'customer', id: form_id, class: 'fm__form', data_mt_inline_subscribe: true, data_nl_form: true, data_error_message: error_words, data_invalid_message: error_words -%}
+            {{ fm_top }}
+            <p class="fm__error" role="alert" data-fm-error data-nl-msg="error">{%- if form.errors -%}{{ st.error_text | default: 'That did not send. Check your email address and try again.' | escape }}{%- endif -%}</p>
+            {{ fm_bottom }}
+            {%- if form.posted_successfully? -%}<span hidden data-fm-posted></span>{%- endif -%}
+          {%- endform -%}
+        {%- endif -%}
       {%- endif -%}
     </div>
     <div class="fm__done" role="status" tabindex="-1" data-fm-done>
@@ -371,12 +396,12 @@
 {%- endcapture -%}
 
 {%- if design -%}
-  <div class="fm fm--canvas{% if st.show_icons %} fm--icons{% endif %}{% if st.field_style == 'outline' %} fm--outline{% endif %}" data-form-modal="{{ key }}" data-fm-canvas{% if st.editor_view == 'success' %} data-sent{% endif %}>
+  <div class="fm fm--canvas fm--{{ align }}{% if st.show_icons %} fm--icons{% endif %}{% if st.field_style == 'outline' %} fm--outline{% endif %}" data-form-modal="{{ key }}" data-fm-canvas{% if st.editor_view == 'success' %} data-sent{% endif %}>
     <p class="fm__hint">Visitors see this as a popup. Link any button to <code>#open-form-{{ key }}</code> to open it.</p>
     {{ fm_panel }}
   </div>
 {%- else -%}
-  <dialog class="fm{% if st.show_icons %} fm--icons{% endif %}{% if st.field_style == 'outline' %} fm--outline{% endif %}" id="FormModalDialog-{{ sid }}" data-form-modal="{{ key }}" data-section="{{ sid }}" data-kind="{{ kind }}" data-topic="{{ topic | escape }}"{% if topic != blank %} aria-labelledby="{{ title_id }}"{% else %} aria-label="{{ st.form_key | default: 'Form' | escape }}"{% endif %}>
+  <dialog class="fm fm--{{ align }}{% if st.show_icons %} fm--icons{% endif %}{% if st.field_style == 'outline' %} fm--outline{% endif %}" id="FormModalDialog-{{ sid }}" data-form-modal="{{ key }}" data-section="{{ sid }}" data-kind="{{ kind }}" data-topic="{{ topic | escape }}"{% if topic != blank %} aria-labelledby="{{ title_id }}"{% else %} aria-label="{{ st.form_key | default: 'Form' | escape }}"{% endif %}>
     <div class="fm__scrim" data-fm-close></div>
     {{ fm_panel }}
   </dialog>
@@ -403,13 +428,16 @@
         if (i < 0) return null;
         var path = href.slice(0, i), hash = decodeURIComponent(href.slice(i + 1));
         if (path) {
-          try { var u = new URL(path, location.href); if (u.origin !== location.origin || u.pathname.replace(/\/$/, '') !== location.pathname.replace(/\/$/, '')) { return /^open-form-/.test(hash) ? null : null; } } catch (e) { return null; }
+          /* Another page's form opens when that page arrives (scan reads the hash), so only this page's links are caught. */
+          try { var u = new URL(path, location.href); if (u.origin !== location.origin || u.pathname.replace(/\/$/, '') !== location.pathname.replace(/\/$/, '')) return null; } catch (e) { return null; }
         }
         if (/^open-form-/.test(hash)) return hash.slice(10);
         return find(hash) ? hash : null;
       }
       function lockScroll() {
         var de = document.documentElement, gap = innerWidth - de.clientWidth;
+        /* A page that keeps its scrollbar's room (scrollbar-gutter: stable) does not move when the bar goes. */
+        if (/stable/.test(getComputedStyle(de).scrollbarGutter || '')) gap = 0;
         lock = { o: de.style.overflow, p: document.body.style.paddingRight };
         de.style.overflow = 'hidden';
         if (gap > 0) document.body.style.paddingRight = gap + 'px';
@@ -434,8 +462,8 @@
         var panel = d.querySelector('[data-fm-panel]');
         panel.scrollTop = 0;
         requestAnimationFrame(function () { requestAnimationFrame(function () { d.setAttribute('data-state', 'open'); }); });
-        var fine = false;
-        try { fine = matchMedia('(hover: hover) and (pointer: fine)').matches; } catch (e) {}
+        /* A computer: straight into the first field. A phone: the sheet, so the keyboard does not cover it on arrival. */
+        var fine = innerWidth > 640;
         var first = d.hasAttribute('data-sent') ? d.querySelector('[data-fm-done]') : d.querySelector('.fm__input');
         (fine && first ? first : panel).focus({ preventScroll: true });
         try { document.dispatchEvent(new CustomEvent('storelib:form-modal-open', { detail: { key: d.getAttribute('data-form-modal') } })); } catch (e) {}
@@ -468,34 +496,42 @@
         if (!msg || !msg.value.trim()) parts.unshift('Sent from the form "' + (d.getAttribute('data-topic') || 'Form') + '".');
         body.value = parts.join('\n\n');
       }
+      function sent(d) {
+        var f = d.querySelector('form');
+        if (f) f.reset();
+        d.setAttribute('data-sent', '');
+        var done = d.querySelector('[data-fm-done]');
+        if (done && d.contains(document.activeElement)) done.focus({ preventScroll: true });
+        try { document.dispatchEvent(new CustomEvent('storelib:form-modal-sent', { detail: { key: d.getAttribute('data-form-modal') } })); } catch (x) {}
+      }
+      /* The theme's form script (materia-forms.js) sends a form marked data-mt-inline-* itself, from the
+         window's capture phase, and says how it went in the form's data-state; without it, this sends. */
+      function watchState(d, f) {
+        if (!window.MutationObserver) return;
+        new MutationObserver(function () {
+          var s = f.getAttribute('data-state');
+          if (s === 'done' && !d.hasAttribute('data-sent')) sent(d);
+        }).observe(f, { attributes: true, attributeFilter: ['data-state'] });
+      }
       function submit(e) {
         var f = e.target;
         var d = f && f.closest && f.closest('dialog[data-form-modal]');
         if (!d || !f.matches('form')) return;
-        e.preventDefault();
-        if (f.getAttribute('aria-busy') === 'true') return;
-        var err = f.querySelector('[data-fm-error]'), btn = f.querySelector('[type="submit"]');
-        if (err) err.textContent = '';
         if (d.getAttribute('data-kind') === 'contact') sendBody(d, f);
+        if (e.defaultPrevented) return;
+        e.preventDefault();
+        if (f.getAttribute('data-state') === 'sending') return;
+        var err = f.querySelector('[data-fm-error]');
+        if (err) err.textContent = '';
+        var trap = f.querySelector('[name="company"]');
+        if (trap && trap.value) { sent(d); return; }
         var data = new FormData(f);
-        data.set('contact[page_url]', location.pathname);
-        var ok = function () {
-          f.removeAttribute('aria-busy'); if (btn) btn.removeAttribute('aria-busy');
-          f.reset();
-          d.setAttribute('data-sent', '');
-          var done = d.querySelector('[data-fm-done]');
-          if (done) done.focus({ preventScroll: true });
-          try { document.dispatchEvent(new CustomEvent('storelib:form-modal-sent', { detail: { key: d.getAttribute('data-form-modal') } })); } catch (x) {}
-        };
-        var bad = function (m) {
-          f.removeAttribute('aria-busy'); if (btn) btn.removeAttribute('aria-busy');
-          if (err) err.textContent = m || 'That did not send. Try again in a moment.';
-        };
-        f.setAttribute('aria-busy', 'true'); if (btn) btn.setAttribute('aria-busy', 'true');
-        if (design) { ok(); return; }
+        f.setAttribute('data-state', 'sending');
+        var bad = function (m) { f.setAttribute('data-state', 'error'); if (err) err.textContent = m || f.getAttribute('data-error-message') || 'That did not send. Try again in a moment.'; };
+        if (design) { f.setAttribute('data-state', 'done'); sent(d); return; }
         fetch('/contact', { method: 'POST', body: data, credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' } })
           .then(function (r) { return r.json().catch(function () { return { ok: r.ok }; }); })
-          .then(function (x) { if (x && x.ok) ok(); else bad(x && x.message); })
+          .then(function (x) { if (x && x.ok) { f.setAttribute('data-state', 'done'); sent(d); } else bad(x && x.message); })
           .catch(function () { bad(); });
       }
       function drag(d) {
@@ -523,6 +559,21 @@
           else if (!e.shiftKey && document.activeElement === z) { e.preventDefault(); a.focus(); }
         });
         d.addEventListener('submit', submit);
+        var f = d.querySelector('form');
+        if (f) {
+          var pg = f.querySelector('[data-fm-page]');
+          if (pg) pg.value = location.pathname;
+          watchState(d, f);
+          /* The message is written as it is typed, and again on the button's click (Enter in a field clicks it too),
+             because the theme's script reads the form before this section's submit listener runs. */
+          if (d.getAttribute('data-kind') === 'contact') {
+            var sync = function () { sendBody(d, f); };
+            sync();
+            f.addEventListener('input', sync);
+            f.addEventListener('change', sync);
+            f.addEventListener('click', sync, true);
+          }
+        }
         drag(d);
         if (d.querySelector('[data-fm-posted]')) { d.setAttribute('data-sent', ''); open(d); }
       }
@@ -566,7 +617,7 @@
     { "type": "form_picker", "id": "storelib_form", "label": "Storelib form", "info": "Optional. One of your forms or booking pages, shown instead of the fields below." },
     { "type": "header", "content": "Look" },
     { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default-color-scheme" },
-    { "type": "color", "id": "accent_color", "label": "Accent", "info": "The marked heading words, icons on focus and the secure line. Empty uses the scheme's primary colour." },
+    { "type": "color", "id": "accent_color", "label": "Accent", "info": "The marked heading words, icons on focus and the secure line. Empty uses the scheme's button colour." },
     { "type": "select", "id": "text_align", "label": "Heading alignment", "default": "left", "options": [ { "value": "left", "label": "Left" }, { "value": "center", "label": "Center" } ] },
     { "type": "range", "id": "width", "label": "Width on a computer", "min": 380, "max": 680, "step": 10, "unit": "px", "default": 500 },
     { "type": "select", "id": "corners", "label": "Corners", "default": "theme", "options": [

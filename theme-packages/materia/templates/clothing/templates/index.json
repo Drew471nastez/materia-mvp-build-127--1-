@@ -39,7 +39,7 @@
             "second_button_label": "See the lookbook",
             "second_button_link": "/pages/lookbook",
             "second_button_style": true,
-            "image": "shopify://shop_images/clothing-hero-stairwell.webp",
+            "image": "shopify://shop_images/clothing-hero-snow.webp",
             "overlay_opacity": 0,
             "content_position": "middle-left",
             "content_alignment": "left",
@@ -49,7 +49,8 @@
             "content_max_width": 46,
             "content_padding_block": 60,
             "content_padding_inline": 24,
-            "slider_effect": "effect_fadein"
+            "slider_effect": "effect_fadein",
+            "image_mobile": "shopify://shop_images/clothing-hero-snow-phone.webp"
           }
         }
       },

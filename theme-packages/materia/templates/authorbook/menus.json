@@ -1,0 +1,69 @@
+{
+  "main-menu": {
+    "title": "Main menu",
+    "links": [
+      {
+        "title": "The book",
+        "url": "/#inside"
+      },
+      {
+        "title": "About",
+        "url": "/pages/about"
+      },
+      {
+        "title": "Marginalia",
+        "url": "/pages/newsletter"
+      },
+      {
+        "title": "Articles",
+        "url": "/blogs/news"
+      },
+      {
+        "title": "Shop",
+        "url": "/collections/all"
+      }
+    ]
+  },
+  "footer-book": {
+    "title": "The book",
+    "links": [
+      {
+        "title": "What is inside",
+        "url": "/#inside"
+      },
+      {
+        "title": "Editions",
+        "url": "/#buy"
+      },
+      {
+        "title": "Free email course",
+        "url": "/#course"
+      },
+      {
+        "title": "Everything for sale",
+        "url": "/collections/all"
+      }
+    ]
+  },
+  "footer": {
+    "title": "More",
+    "links": [
+      {
+        "title": "About Theo",
+        "url": "/pages/about"
+      },
+      {
+        "title": "Marginalia",
+        "url": "/pages/newsletter"
+      },
+      {
+        "title": "Questions",
+        "url": "/pages/faqs"
+      },
+      {
+        "title": "Contact",
+        "url": "/pages/contact"
+      }
+    ]
+  }
+}

@@ -8,6 +8,10 @@ Video sales letter: reviews as cards, stars, the words, then who said it
 -%}
 {%- liquid
   assign cols = st.columns | default: 3 | plus: 0
+  assign carousel = false
+  if st.layout == 'carousel'
+    assign carousel = true
+  endif
 -%}
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" data-vsl-font>
@@ -75,6 +79,29 @@ Video sales letter: reviews as cards, stars, the words, then who said it
   .vsl-reviews__name { margin: 0; color: #fff; font-size: 14px; font-weight: 600; }
   .vsl-reviews__role { margin: 2px 0 0; font-size: 12px; color: rgba(255,255,255,.5); }
   .vsl-reviews__mark { margin-left: auto; width: 26px; height: 26px; color: rgba(255,255,255,.14); flex: none; }
+  .vsl-reviews__pic { --h: 220; background: linear-gradient(150deg, hsl(var(--h) 38% 42%), hsl(calc(var(--h) + 40) 30% 18%)); letter-spacing: .02em; font-size: 13px; box-shadow: 0 0 0 3px rgba(255,255,255,.04); }
+  .vsl-reviews__head { margin: 0 0 10px; color: #fff; font-size: 16px; font-weight: 600; line-height: 1.35; letter-spacing: -.01em; }
+  .vsl-reviews__note { display: inline-flex; align-items: center; gap: 8px; margin: 18px auto 0; padding: 5px 12px; border-radius: 999px; border: 1px dashed rgba(255,255,255,.22); color: rgba(255,255,255,.6); font-size: 12px; }
+  /* Carousel: a row that scrolls and snaps, with arrows and a bar that shows where you are. */
+  .vsl-rv__wrap { position: relative; }
+  .vsl-rv__track { display: grid; grid-auto-flow: column; grid-auto-columns: calc((100% - 32px) / 3); gap: 16px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: none; -webkit-overflow-scrolling: touch; padding: 4px 2px 8px; margin: -4px -2px 0; scroll-behavior: smooth; }
+  .vsl-rv__track::-webkit-scrollbar { display: none; }
+  .vsl-rv__track > .vsl-card { scroll-snap-align: start; min-height: 100%; }
+  @media (max-width: 989px) { .vsl-rv__track { grid-auto-columns: calc((100% - 16px) / 2); } }
+  @media (max-width: 749px) { .vsl-rv__track { grid-auto-columns: 86%; gap: 12px; } }
+  .vsl-rv__bar { display: flex; align-items: center; gap: 16px; margin-top: 26px; }
+  .vsl-rv__bar[hidden] { display: none; }
+  .vsl-rv__dots { flex: 1; display: flex; gap: 6px; }
+  .vsl-rv__dot { flex: 1; max-width: 48px; height: 3px; padding: 0; border: 0; border-radius: 3px; background: rgba(255,255,255,.14); cursor: pointer; position: relative; overflow: hidden; }
+  .vsl-rv__dot::after { content: ""; position: absolute; inset: 0; background: #fff; transform: scaleX(0); transform-origin: 0 50%; transition: transform .45s cubic-bezier(.2,.7,.2,1); }
+  .vsl-rv__dot[aria-current="true"]::after { transform: scaleX(1); }
+  .vsl-rv__arrows { display: flex; gap: 8px; }
+  .vsl-rv__arrow { display: grid; place-items: center; width: 42px; height: 42px; padding: 0; border-radius: 50%; cursor: pointer; color: #fff; border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.04); transition: background-color .3s, border-color .3s, opacity .3s; }
+  .vsl-rv__arrow:hover { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.35); }
+  .vsl-rv__arrow:disabled { opacity: .35; cursor: default; }
+  .vsl-rv__arrow:focus-visible, .vsl-rv__dot:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+  .vsl-rv__arrow svg { width: 16px; height: 16px; }
+  @media (prefers-reduced-motion: reduce) { .vsl-rv__track { scroll-behavior: auto; } .vsl-rv__dot::after { transition: none; } }
 </style>
 <div data-own-font class="vsl{% if st.line_above %} vsl--line{% endif %} vsl-reviews">
   <div class="vsl__inner">
@@ -83,21 +110,32 @@ Video sales letter: reviews as cards, stars, the words, then who said it
         {%- if st.eyebrow != blank -%}<p class="vsl__eyebrow"><span>{{ st.eyebrow | escape }}</span></p>{%- endif -%}
         {%- if st.heading != blank -%}<h2 class="vsl__title">{%- assign vsl_parts = st.heading | escape | split: '*' -%}{%- for vsl_part in vsl_parts -%}{%- assign vsl_odd = forloop.index0 | modulo: 2 -%}{%- if vsl_odd == 1 -%}<em>{{ vsl_part | replace: '|', '<br>' }}</em>{%- else -%}{{ vsl_part | replace: '|', '<br>' }}{%- endif -%}{%- endfor -%}</h2>{%- endif -%}
         {%- if st.text != blank -%}<div class="vsl__lede">{{ st.text }}</div>{%- endif -%}
+        {%- if st.sample_note != blank -%}<p class="vsl-reviews__note">{{ st.sample_note | escape }}</p>{%- endif -%}
       </div>
     {%- endif -%}
-    <div class="vsl-reviews__grid">
+    {%- if carousel -%}<div class="vsl-rv__wrap" data-vsl-rv data-auto="{% if st.autoplay %}1{% endif %}"><div class="vsl-rv__track" data-track tabindex="0" role="region" aria-label="{{ st.heading | remove: '*' | remove: '|' | default: 'Reviews' | escape }}">{%- else -%}<div class="vsl-reviews__grid">{%- endif -%}
       {%- for block in section.blocks -%}
         {%- assign stars = block.settings.stars | default: 5 -%}
-        <figure class="vsl-card" data-motion style="--d: {{ forloop.index0 | modulo: cols | times: 90 }}ms; margin: 0" {{ block.shopify_attributes }}>
+        <figure class="vsl-card" {% unless carousel %}data-motion {% endunless %}style="--d: {{ forloop.index0 | modulo: cols | times: 90 }}ms; margin: 0" {{ block.shopify_attributes }}>
           {%- if stars > 0 -%}
             <div class="vsl-reviews__stars" role="img" aria-label="{{ stars }} / 5">
               {%- for i in (1..5) -%}<svg viewBox="0 0 20 20" class="{% if i > stars %}is-off{% endif %}" aria-hidden="true" focusable="false"><path d="M10 1.8l2.5 5.2 5.7.8-4.1 4 1 5.6L10 14.7l-5.1 2.7 1-5.6-4.1-4 5.7-.8z" fill="currentColor"/></svg>{%- endfor -%}
             </div>
           {%- endif -%}
+          {%- if block.settings.headline != blank -%}<p class="vsl-reviews__head">{{ block.settings.headline | escape }}</p>{%- endif -%}
           <div class="vsl-reviews__quote">{{ block.settings.quote }}</div>
           <figcaption class="vsl-reviews__who">
-            <span class="vsl-reviews__pic" aria-hidden="true">
-              {%- if block.settings.image != blank -%}{{ block.settings.image | image_url: width: 120 | image_tag: loading: 'lazy', alt: '' }}{%- else -%}{{ block.settings.name | slice: 0 | upcase | escape }}{%- endif -%}
+            {%- liquid
+              assign rv_words = block.settings.name | strip | split: ' '
+              assign rv_ini = rv_words.first | slice: 0 | upcase
+              if rv_words.size > 1
+                assign rv_last = rv_words.last | slice: 0 | upcase
+                assign rv_ini = rv_ini | append: rv_last
+              endif
+              assign rv_hue = forloop.index0 | times: 47 | plus: 200 | modulo: 360
+            -%}
+            <span class="vsl-reviews__pic" aria-hidden="true" style="--h: {{ rv_hue }}">
+              {%- if block.settings.image != blank -%}{{ block.settings.image | image_url: width: 120 | image_tag: loading: 'lazy', alt: '' }}{%- else -%}{{ rv_ini | escape }}{%- endif -%}
             </span>
             <span>
               <p class="vsl-reviews__name">{{ block.settings.name | escape }}</p>
@@ -107,7 +145,15 @@ Video sales letter: reviews as cards, stars, the words, then who said it
           </figcaption>
         </figure>
       {%- endfor -%}
-    </div>
+    {%- if carousel -%}</div>
+      <div class="vsl-rv__bar">
+        <div class="vsl-rv__dots" data-dots></div>
+        <div class="vsl-rv__arrows">
+          <button class="vsl-rv__arrow" type="button" data-prev aria-label="{{ st.prev_label | default: 'Previous' | escape }}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M13 8H3M7 4L3 8l4 4"/></svg></button>
+          <button class="vsl-rv__arrow" type="button" data-next aria-label="{{ st.next_label | default: 'Next' | escape }}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 8h10M9 4l4 4-4 4"/></svg></button>
+        </div>
+      </div>
+    </div>{%- else -%}</div>{%- endif -%}
   </div>
 </div>
 
@@ -127,12 +173,89 @@ Video sales letter: reviews as cards, stars, the words, then who said it
   })();
 </script>
 
+<script>
+  (function () {
+    var box = document.querySelector('#shopify-section-{{ section.id }} [data-vsl-rv]');
+    if (!box || box.hasAttribute('data-ready')) return;
+    box.setAttribute('data-ready', '');
+    var track = box.querySelector('[data-track]'), dots = box.querySelector('[data-dots]');
+    var prev = box.querySelector('[data-prev]'), next = box.querySelector('[data-next]');
+    var cards = Array.prototype.slice.call(track.children);
+    var still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    function perView() { var c = cards[0]; return c ? Math.max(1, Math.round(track.clientWidth / (c.getBoundingClientRect().width + 12))) : 1; }
+    function pages() { return Math.max(1, cards.length - perView() + 1); }
+    function at() { var c = cards[1] || cards[0]; if (!c) return 0; var step = cards[1] ? cards[1].offsetLeft - cards[0].offsetLeft : 1; return Math.round(track.scrollLeft / step); }
+    function go(i) { var n = pages(); i = Math.max(0, Math.min(n - 1, i)); var c = cards[i]; if (c) track.scrollTo({ left: c.offsetLeft - cards[0].offsetLeft, behavior: still ? 'auto' : 'smooth' }); }
+    function draw() {
+      var n = pages();
+      if (dots.children.length !== n) {
+        dots.innerHTML = '';
+        for (var i = 0; i < n; i++) { var b = document.createElement('button'); b.type = 'button'; b.className = 'vsl-rv__dot'; b.setAttribute('aria-label', (i + 1) + ' / ' + n); (function (k) { b.addEventListener('click', function () { go(k); hold(); }); })(i); dots.appendChild(b); }
+      }
+      var cur = Math.min(n - 1, at());
+      Array.prototype.forEach.call(dots.children, function (d, i) { d.setAttribute('aria-current', i === cur ? 'true' : 'false'); });
+      prev.disabled = cur <= 0; next.disabled = cur >= n - 1;
+      box.querySelector('.vsl-rv__bar').hidden = n < 2;
+    }
+    var raf = 0;
+    track.addEventListener('scroll', function () { cancelAnimationFrame(raf); raf = requestAnimationFrame(draw); }, { passive: true });
+    window.addEventListener('resize', function () { cancelAnimationFrame(raf); raf = requestAnimationFrame(draw); });
+    prev.addEventListener('click', function () { go(at() - 1); hold(); });
+    next.addEventListener('click', function () { go(at() + 1); hold(); });
+    track.addEventListener('keydown', function (e) { if (e.key === 'ArrowRight') { e.preventDefault(); go(at() + 1); hold(); } if (e.key === 'ArrowLeft') { e.preventDefault(); go(at() - 1); hold(); } });
+    draw();
+    /* Moves on by itself every few seconds, until the visitor touches it; never for visitors who ask for less motion. */
+    var timer = 0, held = false;
+    function hold() { held = true; clearInterval(timer); }
+    if (box.dataset.auto && !still) {
+      timer = setInterval(function () { if (document.hidden || held) return; var r = box.getBoundingClientRect(); if (r.bottom < 0 || r.top > innerHeight) return; var n = pages(); go(at() >= n - 1 ? 0 : at() + 1); }, 6500);
+      ['pointerdown', 'wheel', 'touchstart', 'focusin'].forEach(function (ev) { box.addEventListener(ev, hold, { passive: true }); });
+      box.addEventListener('mouseenter', function () { held = true; }); box.addEventListener('mouseleave', function () { held = false; });
+    }
+  })();
+</script>
+
 {% schema %}
 {
-  "name": "Review cards",
+  "name": "Reviews carousel",
   "tag": "section",
   "class": "vsl-reviews-section",
   "settings": [
+    {
+      "type": "select",
+      "id": "layout",
+      "label": "Layout",
+      "default": "carousel",
+      "options": [
+        { "value": "carousel", "label": "Carousel" },
+        { "value": "grid", "label": "Grid" }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "autoplay",
+      "label": "Carousel moves on by itself",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "sample_note",
+      "label": "Note under the heading",
+      "info": "Say plainly when the reviews are samples. Clear it once they are your students' own words.",
+      "default": ""
+    },
+    {
+      "type": "text",
+      "id": "prev_label",
+      "label": "Previous button, for screen readers",
+      "default": "Previous"
+    },
+    {
+      "type": "text",
+      "id": "next_label",
+      "label": "Next button, for screen readers",
+      "default": "Next"
+    },
     {
       "type": "text",
       "id": "eyebrow",
@@ -234,6 +357,12 @@ Video sales letter: reviews as cards, stars, the words, then who said it
           "default": 5
         },
         {
+          "type": "text",
+          "id": "headline",
+          "label": "Short headline",
+          "info": "The result in a few words, in bold above the review."
+        },
+        {
           "type": "richtext",
           "id": "quote",
           "label": "Review",
@@ -255,14 +384,14 @@ Video sales letter: reviews as cards, stars, the words, then who said it
           "type": "image_picker",
           "id": "image",
           "label": "Picture",
-          "info": "Only with their permission. Without one, their initial is shown."
+          "info": "Only with their permission. Without one, their initials are shown."
         }
       ]
     }
   ],
   "presets": [
     {
-      "name": "Review cards",
+      "name": "Reviews carousel",
       "category": "Video sales letter",
       "blocks": [
         {

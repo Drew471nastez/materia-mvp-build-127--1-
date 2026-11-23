@@ -204,6 +204,10 @@
       "block_order": [
         "pill_glass_1",
         "menu_badges_1"
+      ],
+      "custom_css": [
+        "header-inner .header__action .header-icon, header-inner .nav-toggle { color: #e0201b !important; transition: color .2s ease; }",
+        "@media (hover: hover) { header-inner .header__action .header-icon:hover, header-inner .nav-toggle:hover { color: #ff4b45 !important; } }"
       ]
     },
     "clock": {
@@ -221,21 +225,12 @@
         "padding_top": 0,
         "padding_bottom": 18
       }
-    },
-    "icons": {
-      "type": "space-header-icons",
-      "settings": {
-        "icon_color": "#e0201b",
-        "icon_hover_color": "#ff4b45",
-        "menu_button": true
-      }
     }
   },
   "order": [
     "sky",
     "welcome",
     "header",
-    "icons",
     "clock"
   ]
 }

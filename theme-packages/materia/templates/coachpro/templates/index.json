@@ -1,0 +1,364 @@
+{
+  "sections": {
+    "hero": {
+      "type": "coach-hero",
+      "settings": {
+        "color_scheme": "default",
+        "background": "#faf6f0",
+        "accent_color": "#a5582a",
+        "eyebrow": "Life and business coach",
+        "heading": "Make room for the life you <em>actually</em> want",
+        "text": "<p>I help women who are changing course get clear on what they want, make the braver decision, and build a business and a week with space in them.</p>",
+        "button_label": "Book a free call",
+        "button_link": "/pages/book",
+        "button2_label": "See the sessions",
+        "button2_link": "/collections/all",
+        "note": "In Bristol and online. The first call is free.",
+        "image": "shopify://shop_images/coach-hero.webp",
+        "image_alt": "Leah at her desk in her studio, laptop open, smiling",
+        "image_shape": "arch",
+        "image_focus": "55% 30%",
+        "heading_size": 74,
+        "heading_size_mobile": 44,
+        "padding_top": 48,
+        "padding_bottom": 88
+      }
+    },
+    "hello": {
+      "type": "coach-split",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "background": "#f2e8dc",
+        "accent_color": "#a5582a",
+        "image": "shopify://shop_images/coach-about.webp",
+        "image_alt": "Leah holding a cup of coffee at her desk",
+        "image_position": "left",
+        "image_shape": "rect",
+        "image_ratio": "4 / 5",
+        "image_radius": 4,
+        "eyebrow": "Hello, I'm Leah",
+        "heading": "For the woman who has <em>outgrown the plan</em>",
+        "text": "<p>You did what was expected: the degree, the promotion, the full diary. Now something is asking for more room, and a clearer idea of what comes next.</p><p>I spent eleven years in HR helping other people change jobs before I trained as a coach. Today I help women turn that restless feeling into a plan, one honest conversation and one small step at a time.</p>",
+        "signature": "Leah",
+        "button_label": "More about me",
+        "button_link": "/pages/about"
+      }
+    },
+    "offers": {
+      "type": "coach-offers",
+      "settings": {
+        "color_scheme": "default",
+        "background": "#faf6f0",
+        "card_color": "#ffffff",
+        "accent_color": "#a5582a",
+        "eyebrow": "Ways to work together",
+        "heading": "Coaching that fits <em>your week</em>",
+        "columns": "3",
+        "image_ratio": "4 / 3",
+        "card_radius": 4
+      },
+      "blocks": {
+        "offer_1": {
+          "type": "offer",
+          "settings": {
+            "image": "shopify://shop_images/coach-offer-one.webp",
+            "alt": "Two armchairs side by side in a quiet room",
+            "label": "Six sessions",
+            "title": "One to one coaching",
+            "text": "Private sessions to untangle one big decision and leave with a plan you will actually keep.",
+            "price": "From $160",
+            "link_label": "See the details",
+            "link": "/collections/all"
+          }
+        },
+        "offer_2": {
+          "type": "offer",
+          "settings": {
+            "image": "shopify://shop_images/coach-offer-group.webp",
+            "alt": "Four women talking around a café table",
+            "label": "Eight weeks",
+            "title": "The Clear Path group",
+            "text": "Eight Tuesday evenings with five other women at the same crossroads, online.",
+            "price": "$480",
+            "link_label": "See the details",
+            "link": "/collections/all"
+          }
+        },
+        "offer_3": {
+          "type": "offer",
+          "settings": {
+            "image": "shopify://shop_images/coach-offer-online.webp",
+            "alt": "Leah on a video call at her desk",
+            "label": "Anywhere",
+            "title": "Online sessions",
+            "text": "The same focus and follow up as in person, on a video call that fits around your day.",
+            "price": "From $140",
+            "link_label": "See the details",
+            "link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "offer_1",
+        "offer_2",
+        "offer_3"
+      ]
+    },
+    "facts": {
+      "type": "coach-stats",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "background": "#3a2a21",
+        "figure_color": "#faf6f0",
+        "text_color": "#d8c8b7",
+        "line_color": "#55433a"
+      },
+      "blocks": {
+        "fact_1": {
+          "type": "fact",
+          "settings": {
+            "value": "50 min",
+            "label": "Each session"
+          }
+        },
+        "fact_2": {
+          "type": "fact",
+          "settings": {
+            "value": "6",
+            "label": "Sessions in a programme"
+          }
+        },
+        "fact_3": {
+          "type": "fact",
+          "settings": {
+            "value": "20 min",
+            "label": "Free first call"
+          }
+        },
+        "fact_4": {
+          "type": "fact",
+          "settings": {
+            "value": "3",
+            "label": "Ways to work together"
+          }
+        }
+      },
+      "block_order": [
+        "fact_1",
+        "fact_2",
+        "fact_3",
+        "fact_4"
+      ]
+    },
+    "steps": {
+      "type": "coach-steps",
+      "settings": {
+        "color_scheme": "default",
+        "background": "#faf6f0",
+        "accent_color": "#a5582a",
+        "line_color": "#d9c6b0",
+        "eyebrow": "How it works",
+        "heading": "From stuck to <em>started</em> in three steps"
+      },
+      "blocks": {
+        "step_1": {
+          "type": "step",
+          "settings": {
+            "title": "Talk",
+            "text": "A free 20 minute call to hear where you are, what you want to change and whether we are a good fit."
+          }
+        },
+        "step_2": {
+          "type": "step",
+          "settings": {
+            "title": "Plan",
+            "text": "Together we shape a plan around your real life: clear goals, honest priorities and the first few steps."
+          }
+        },
+        "step_3": {
+          "type": "step",
+          "settings": {
+            "title": "Do",
+            "text": "Regular sessions keep you moving, with notes after each one and a short check in between calls."
+          }
+        }
+      },
+      "block_order": [
+        "step_1",
+        "step_2",
+        "step_3"
+      ]
+    },
+    "quote": {
+      "type": "coach-quote",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "background": "#f2e8dc",
+        "accent_color": "#a5582a",
+        "eyebrow": "Client words",
+        "quote": "Working with Leah was the first time a plan felt like mine. Three months later I have a new role and my Sundays back.",
+        "author": "Hannah, product manager",
+        "note": "Sample quote. Replace it with a client's own words, with their permission."
+      }
+    },
+    "next": {
+      "type": "coach-cta",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "background": "#3a2a21",
+        "heading_color": "#faf6f0",
+        "text_color": "#d8c8b7",
+        "accent_color": "#e2a271",
+        "button_color": "#b8693a",
+        "eyebrow": "Your next step",
+        "heading": "Ready when <em>you are</em>",
+        "text": "<p>Book a free 20 minute call. No pressure and no pitch, just a real conversation about where you want to go.</p>",
+        "button_label": "Book your free call",
+        "button_link": "/pages/book",
+        "button2_label": "Ask a question",
+        "button2_link": "/pages/contact"
+      }
+    },
+    "journal": {
+      "type": "coach-journal",
+      "settings": {
+        "color_scheme": "default",
+        "background": "#faf6f0",
+        "accent_color": "#a5582a",
+        "eyebrow": "From the journal",
+        "heading": "Notes for <em>busy minds</em>",
+        "more_label": "Read more",
+        "button_label": "Read the journal",
+        "button_link": "/blogs/news"
+      },
+      "blocks": {
+        "post_1": {
+          "type": "post",
+          "settings": {
+            "image": "shopify://shop_images/coach-journal-1.webp",
+            "alt": "Coffee and an open planner on a white table",
+            "topic": "Mindset",
+            "title": "Five small habits that make Mondays lighter",
+            "text": "Little things done on Sunday evening that take the weight off the week ahead.",
+            "link": "/blogs/news"
+          }
+        },
+        "post_2": {
+          "type": "post",
+          "settings": {
+            "image": "shopify://shop_images/coach-journal-2.webp",
+            "alt": "An open planner on a wooden desk beside a mug",
+            "topic": "Goals",
+            "title": "How to set goals you still care about in March",
+            "text": "Goals stick when they belong to you. Three questions to check yours.",
+            "link": "/blogs/news"
+          }
+        },
+        "post_3": {
+          "type": "post",
+          "settings": {
+            "image": "shopify://shop_images/coach-journal-3.webp",
+            "alt": "A notebook and a pen on a blanket",
+            "topic": "Business",
+            "title": "The 20 minute review I do every Friday",
+            "text": "What worked, what did not, and the one thing to carry into next week.",
+            "link": "/blogs/news"
+          }
+        }
+      },
+      "block_order": [
+        "post_1",
+        "post_2",
+        "post_3"
+      ]
+    },
+    "gallery": {
+      "type": "coach-gallery",
+      "settings": {
+        "color_scheme": "default",
+        "background": "#faf6f0",
+        "accent_color": "#a5582a",
+        "label": "Follow along @leahmorgan.coaching",
+        "link": "https://www.instagram.com",
+        "gap": 4,
+        "padding_top": 24,
+        "padding_top_mobile": 8
+      },
+      "blocks": {
+        "picture_1": {
+          "type": "picture",
+          "settings": {
+            "image": "shopify://shop_images/coach-grid-1.webp",
+            "alt": "Leah working at her desk"
+          }
+        },
+        "picture_2": {
+          "type": "picture",
+          "settings": {
+            "image": "shopify://shop_images/coach-grid-2.webp",
+            "alt": "Tea on an open book beside a blanket"
+          }
+        },
+        "picture_3": {
+          "type": "picture",
+          "settings": {
+            "image": "shopify://shop_images/coach-grid-3.webp",
+            "alt": "Coffee and a notebook in morning light"
+          }
+        },
+        "picture_4": {
+          "type": "picture",
+          "settings": {
+            "image": "shopify://shop_images/coach-grid-4.webp",
+            "alt": "An armchair in warm evening light"
+          }
+        },
+        "picture_5": {
+          "type": "picture",
+          "settings": {
+            "image": "shopify://shop_images/coach-grid-5.webp",
+            "alt": "Leah smiling at her desk with her phone in her hands"
+          }
+        }
+      },
+      "block_order": [
+        "picture_1",
+        "picture_2",
+        "picture_3",
+        "picture_4",
+        "picture_5"
+      ]
+    },
+    "guide": {
+      "type": "coach-guide",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "background": "#f2e8dc",
+        "accent_color": "#a5582a",
+        "image": "shopify://shop_images/coach-guide.webp",
+        "image_alt": "Hands writing in a journal",
+        "eyebrow": "Free guide",
+        "heading": "The seven day <em>clarity reset</em>",
+        "text": "<p>Seven short exercises, one a day, to name what you want and choose your next step with confidence.</p>",
+        "points": "Ten minutes a day\nPrintable worksheets\nA simple plan for the month ahead",
+        "email_placeholder": "Your email",
+        "button_label": "Send me the guide",
+        "button_color": "#a5582a",
+        "tag": "free-guide",
+        "note": "After the guide, a short letter on Sundays. Leave whenever you like."
+      }
+    }
+  },
+  "order": [
+    "hero",
+    "hello",
+    "offers",
+    "facts",
+    "steps",
+    "quote",
+    "next",
+    "journal",
+    "gallery",
+    "guide"
+  ]
+}

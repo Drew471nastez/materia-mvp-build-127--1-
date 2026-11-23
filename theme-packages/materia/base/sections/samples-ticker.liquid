@@ -1,0 +1,92 @@
+{%- comment -%}
+  Materia Themes. Ticker (Sample packs template): a slow running line of
+  short words (genres, formats, what every pack includes), each followed
+  by a small waveform mark. It stops while the pointer is on it and stands
+  still for visitors who ask for less motion, where it wraps instead.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign sid = section.id
+  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default'
+  assign speed = s.speed | default: 40
+-%}
+{%- if section.blocks.size > 0 -%}
+<style>
+  #shopify-section-{{ sid }} .stk { position: relative; overflow: hidden; padding-block: {{ s.padding_top | default: 18 }}px {{ s.padding_bottom | default: 18 }}px; border-block: 1px solid rgba(var(--color-heading-rgb), .08); }
+  #shopify-section-{{ sid }} .stk__track { display: flex; width: max-content; animation: stk-run {{ speed }}s linear infinite; }
+  #shopify-section-{{ sid }} .stk:hover .stk__track { animation-play-state: paused; }
+  #shopify-section-{{ sid }} .stk__list { display: flex; align-items: center; flex: none; margin: 0; padding: 0; list-style: none; }
+  #shopify-section-{{ sid }} .stk__item { display: flex; align-items: center; gap: 22px; padding-right: 22px; white-space: nowrap; font-size: {{ s.text_size_mobile | default: 18 }}px; font-weight: 700; letter-spacing: -.01em; color: var(--color-heading); font-family: var(--font-heading-family, inherit); }
+  #shopify-section-{{ sid }} .stk__item--soft { color: rgba(var(--color-heading-rgb), .42); }
+  #shopify-section-{{ sid }} .stk__mark { flex: none; width: 26px; height: 18px; fill: none; stroke: var(--stk-accent, var(--btn-primary-bg-color)); stroke-width: 2.4; stroke-linecap: round; }
+  #shopify-section-{{ sid }} .stk::before, #shopify-section-{{ sid }} .stk::after { content: ""; position: absolute; top: 0; bottom: 0; width: 64px; z-index: 1; pointer-events: none; }
+  #shopify-section-{{ sid }} .stk::before { left: 0; background: linear-gradient(90deg, var(--color-background), transparent); }
+  #shopify-section-{{ sid }} .stk::after { right: 0; background: linear-gradient(270deg, var(--color-background), transparent); }
+  @keyframes stk-run { to { transform: translateX(-50%); } }
+  @media (min-width: 750px) {
+    #shopify-section-{{ sid }} .stk__item { font-size: {{ s.text_size | default: 24 }}px; gap: 30px; padding-right: 30px; }
+    #shopify-section-{{ sid }} .stk__mark { width: 32px; height: 22px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #shopify-section-{{ sid }} .stk__track { animation: none; width: auto; justify-content: center; }
+    #shopify-section-{{ sid }} .stk__list { flex-wrap: wrap; justify-content: center; row-gap: 8px; padding-inline: 16px; }
+    #shopify-section-{{ sid }} .stk__list + .stk__list { display: none; }
+    #shopify-section-{{ sid }} .stk::before, #shopify-section-{{ sid }} .stk::after { display: none; }
+  }
+</style>
+{%- capture items -%}
+  {%- for block in section.blocks -%}
+    <li class="stk__item{% if block.settings.soft %} stk__item--soft{% endif %}" {{ block.shopify_attributes }}>
+      <span>{{ block.settings.text | escape }}</span>
+      <svg class="stk__mark" viewBox="0 0 26 18" aria-hidden="true" focusable="false"><path d="M2 7v4M6.5 3v12M11 6v6M15.5 1.5v15M20 5v8M24 8v2"/></svg>
+    </li>
+  {%- endfor -%}
+{%- endcapture -%}
+<div class="stk section color-{{ color_scheme }} gradient"{% if s.accent != blank %} style="--stk-accent: {{ s.accent }};"{% endif %}>
+  <div class="stk__track">
+    <ul class="stk__list" role="list">{{ items }}</ul>
+    <ul class="stk__list" role="list" aria-hidden="true">{{ items }}</ul>
+    <ul class="stk__list" role="list" aria-hidden="true">{{ items }}</ul>
+    <ul class="stk__list" role="list" aria-hidden="true">{{ items }}</ul>
+  </div>
+</div>
+{%- elsif request.design_mode -%}
+<p style="padding: 20px; text-align: center;">Add words to the ticker.</p>
+{%- endif -%}
+{% schema %}
+{
+  "name": "Ticker",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    { "type": "range", "id": "speed", "label": "Seconds for one pass", "min": 15, "max": 120, "step": 5, "unit": "s", "default": 40 },
+    { "type": "range", "id": "text_size", "label": "Text size", "min": 14, "max": 48, "step": 1, "unit": "px", "default": 24 },
+    { "type": "range", "id": "text_size_mobile", "label": "Text size on phones", "min": 12, "max": 36, "step": 1, "unit": "px", "default": 18 },
+    { "type": "color", "id": "accent", "label": "Waveform mark colour", "info": "Left empty, the button colour." },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default" },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 80, "step": 2, "unit": "px", "default": 18 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 80, "step": 2, "unit": "px", "default": 18 }
+  ],
+  "blocks": [
+    {
+      "type": "word",
+      "name": "Word",
+      "settings": [
+        { "type": "text", "id": "text", "label": "Text", "default": "Tech house" },
+        { "type": "checkbox", "id": "soft", "label": "Paler", "default": false }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Ticker",
+      "blocks": [
+        { "type": "word", "settings": { "text": "Tech house" } },
+        { "type": "word", "settings": { "text": "Deep house", "soft": true } },
+        { "type": "word", "settings": { "text": "Serum presets" } },
+        { "type": "word", "settings": { "text": "Royalty free", "soft": true } }
+      ]
+    }
+  ]
+}
+{% endschema %}

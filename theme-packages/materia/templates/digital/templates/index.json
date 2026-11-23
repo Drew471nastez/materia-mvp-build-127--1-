@@ -63,8 +63,8 @@
         "image_6": {
           "type": "image",
           "settings": {
-            "image": "shopify://shop_images/digital-hero-guide.webp",
-            "alt": "The Pricing your work guide open on a tablet, lying on black cloth"
+            "image": "shopify://shop_images/digital-hero-studio.webp",
+            "alt": "An illustrator drawing on a pen display at a desk covered in sketches"
           }
         },
         "image_7": {
@@ -454,11 +454,66 @@
         "padding_top": 104,
         "padding_bottom": 104
       }
+    },
+    "guide": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "image_position": "left",
+        "text_column_width": 44,
+        "image": "shopify://shop_images/digital-pricing-guide.webp",
+        "image_alt": "The Pricing your work guide open on a tablet, lying on black cloth",
+        "aspect_w": 1,
+        "aspect_h": 1,
+        "image_radius": 14,
+        "padding_top_desktop": 96,
+        "padding_bottom_desktop": 96,
+        "gap_desktop": 80,
+        "content_align": "left",
+        "mobile_order": "media_first"
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Best seller"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Pricing your work",
+            "size_desktop": 52,
+            "size_mobile": 34
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>64 pages on setting a day rate, quoting a project and saying no to work that does not pay. With a pricing worksheet and three proposal templates.</p><p><strong>$24</strong>, a PDF you can read on any screen.</p>"
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "Shop the guide",
+            "link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
     }
   },
   "order": [
     "hero",
     "new",
+    "guide",
     "every",
     "how",
     "bundle",

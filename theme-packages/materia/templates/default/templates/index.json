@@ -4,36 +4,40 @@
       "type": "hero-split-media",
       "settings": {
         "color_scheme": "default",
-        "section_width": "full_width",
+        "section_width": "container",
         "image_position": "right",
-        "media_width_desktop": 55,
+        "media_width_desktop": 52,
         "content_align": "left",
         "vertical_align": "center",
-        "content_max_width": 520,
-        "content_gap": 22,
-        "min_height_desktop": 640,
-        "image": "shopify://shop_images/default-hero-mugs.webp",
-        "image_alt": "Rows of teal, cream and grey mugs on wooden shop shelves",
+        "content_max_width": 560,
+        "content_gap": 24,
+        "min_height_desktop": 680,
+        "image": "shopify://shop_images/default-hero-cream-mugs.webp",
+        "image_alt": "Two cream stoneware mugs on a white table against a plain wall",
         "image_position_x": 50,
-        "image_position_y": 50,
-        "padding_top_desktop": 56,
-        "padding_bottom_desktop": 56,
-        "side_padding_desktop": 87,
+        "image_position_y": 62,
+        "padding_top_desktop": 0,
+        "padding_bottom_desktop": 0,
+        "side_padding_desktop": 0,
         "mobile_image_first": true,
-        "media_height_mobile": 360,
-        "padding_top_mobile": 28,
+        "media_height_mobile": 420,
+        "padding_top_mobile": 24,
         "padding_bottom_mobile": 48,
-        "side_padding_mobile": 20
+        "side_padding_mobile": 0,
+        "image_radius": 16,
+        "section_margin_top_desktop": 32,
+        "section_margin_bottom_desktop": 40,
+        "section_margin_top_mobile": 12
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Sundry",
+            "text": "Good everyday things.",
             "size_enable": true,
-            "size_desktop": 92,
-            "size_mobile": 64,
-            "line_height": 0.95,
+            "size_desktop": 80,
+            "size_mobile": 46,
+            "line_height": 1.0,
             "tracking": -2.5,
             "weight_enable": true,
             "weight": "600"
@@ -42,7 +46,7 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Good everyday things, made in small batches. Mugs, bags, paper goods and a few things to download.</p>",
+            "text": "<p>Mugs, bags, paper goods and a few things to download, designed and packed by a small studio.</p>",
             "size_enable": true,
             "size": 18,
             "line_height": 1.55
@@ -62,9 +66,16 @@
             "link": "/pages/about",
             "button_style": "secondary"
           }
+        },
+        "eyebrow_0": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Made in small batches"
+          }
         }
       },
       "block_order": [
+        "eyebrow_0",
         "heading_1",
         "subheading_2",
         "button_3",
@@ -470,11 +481,66 @@
         "heading_1",
         "sub_1"
       ]
+    },
+    "promises_8": {
+      "type": "text-columns",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "columns_desktop": 4,
+        "column_gap": 40,
+        "header_gap": 40,
+        "show_dividers": true,
+        "item_heading_size": 18,
+        "padding_top": 24,
+        "padding_bottom": 88
+      },
+      "blocks": {
+        "column_1": {
+          "type": "column",
+          "settings": {
+            "label": "Delivery",
+            "heading": "Sent in two days",
+            "text": "<p>Orders leave the studio within two working days, tracked.</p>"
+          }
+        },
+        "column_2": {
+          "type": "column",
+          "settings": {
+            "label": "Returns",
+            "heading": "30 days to decide",
+            "text": "<p>Send anything physical back unused within 30 days for a full refund.</p>"
+          }
+        },
+        "column_3": {
+          "type": "column",
+          "settings": {
+            "label": "Downloads",
+            "heading": "Yours straight away",
+            "text": "<p>Digital files arrive by email the moment you pay.</p>"
+          }
+        },
+        "column_4": {
+          "type": "column",
+          "settings": {
+            "label": "Questions",
+            "heading": "A real reply",
+            "text": "<p>Write to us and one of us answers, usually the same day.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "column_1",
+        "column_2",
+        "column_3",
+        "column_4"
+      ]
     }
   },
   "order": [
     "hero_split_1",
     "products_listing_2",
+    "promises_8",
     "category_banners_3",
     "image_benefits_4",
     "image_text_5",

@@ -1,0 +1,589 @@
+{
+  "sections": {
+    "hero": {
+      "type": "authorbook-hero",
+      "settings": {
+        "band_color": "#f5f2ec",
+        "accent_color": "#f0643a",
+        "eyebrow": "The new book by Theo Marlow",
+        "heading": "Read more books and <em>remember</em> what is in them",
+        "cover": "shopify://shop_images/authorbook-cover.webp",
+        "cover_alt": "The cover of Read More, Keep More by Theo Marlow",
+        "page_left": "shopify://shop_images/authorbook-page-chapter.webp",
+        "page_right": "shopify://shop_images/authorbook-page-figure.webp",
+        "badge": "First chapter free",
+        "lead": "Read the first chapter of <em>Read More, Keep More</em> free, sent straight to your inbox.",
+        "button_label": "Send me chapter one",
+        "button_color": "#1d2b4f",
+        "tag": "free-chapter",
+        "note": "Plus Marginalia on Sundays. Leave whenever you like.",
+        "avatar": "shopify://shop_images/authorbook-theo-face.webp",
+        "avatar_focus": "50% 40%",
+        "by_name": "Theo Marlow",
+        "by_line": "Writes <a href=\"/pages/newsletter\">Marginalia</a>, a weekly letter on reading"
+      }
+    },
+    "facts": {
+      "type": "authorbook-facts",
+      "settings": {},
+      "blocks": {
+        "fact_1": {
+          "type": "fact",
+          "settings": {
+            "figure": "12",
+            "label": "short chapters"
+          }
+        },
+        "fact_2": {
+          "type": "fact",
+          "settings": {
+            "figure": "240",
+            "label": "pages"
+          }
+        },
+        "fact_3": {
+          "type": "fact",
+          "settings": {
+            "figure": "6 h",
+            "label": "audiobook, read by Theo"
+          }
+        },
+        "fact_4": {
+          "type": "fact",
+          "settings": {
+            "figure": "20",
+            "label": "pages a day is all it asks"
+          }
+        }
+      },
+      "block_order": [
+        "fact_1",
+        "fact_2",
+        "fact_3",
+        "fact_4"
+      ]
+    },
+    "hello": {
+      "type": "authorbook-hello",
+      "settings": {
+        "eyebrow": "About the author",
+        "heading": "Hi, I'm <em>Theo Marlow</em>",
+        "text": "<p>I used to buy books faster than I read them. Ten years ago I started reading twenty pages a day and keeping one page of notes for every book. I have kept both habits since.</p><p>I write <a href=\"/pages/newsletter\">Marginalia</a>, a short letter every Sunday on what I am reading and how to make it stick. <em>Read More, Keep More</em> is everything I have learned, in one book.</p>",
+        "image": "shopify://shop_images/authorbook-theo-sofa.webp",
+        "image_alt": "Theo Marlow on a dark sofa with books and records beside him",
+        "image_focus": "50% 30%",
+        "frame_color": "#f0643a",
+        "accent_color": "#c4471f",
+        "button_label": "More about me",
+        "button_link": "/pages/about",
+        "button_color": "#1d2b4f",
+        "instagram": "https://www.instagram.com",
+        "youtube": "https://www.youtube.com",
+        "x": "https://x.com",
+        "linkedin": "",
+        "letters_title": "Recent letters"
+      },
+      "blocks": {
+        "letter_1": {
+          "type": "letter",
+          "settings": {
+            "title": "The case for quitting books halfway",
+            "link": "/blogs/news"
+          }
+        },
+        "letter_2": {
+          "type": "letter",
+          "settings": {
+            "title": "One page of notes for every book",
+            "link": "/blogs/news"
+          }
+        },
+        "letter_3": {
+          "type": "letter",
+          "settings": {
+            "title": "Reading on your phone without the phone",
+            "link": "/blogs/news"
+          }
+        }
+      },
+      "block_order": [
+        "letter_1",
+        "letter_2",
+        "letter_3"
+      ]
+    },
+    "inside": {
+      "type": "authorbook-chapters",
+      "settings": {
+        "eyebrow": "What is inside",
+        "heading": "Twelve short chapters, <em>one habit</em> each",
+        "text": "<p>Each chapter ends with one small thing to try that day. Read one on a train and use it the same evening.</p>",
+        "image": "shopify://shop_images/authorbook-spread.webp",
+        "image_alt": "The book open at the contents page and chapter one, The Twenty Page Day",
+        "accent_color": "#c4471f",
+        "button_label": "Get the book",
+        "button_link": "/#buy",
+        "button_color": "#1d2b4f"
+      },
+      "blocks": {
+        "chapter_1": {
+          "type": "chapter",
+          "settings": {
+            "title": "The Twenty Page Day",
+            "line": "Why a small daily number beats a free hour that never comes."
+          }
+        },
+        "chapter_2": {
+          "type": "chapter",
+          "settings": {
+            "title": "Choosing the Next Book",
+            "line": "A five minute way to pick books you will finish."
+          }
+        },
+        "chapter_3": {
+          "type": "chapter",
+          "settings": {
+            "title": "Reading With a Pencil",
+            "line": "Three marks in the margin that make notes easy later."
+          }
+        },
+        "chapter_4": {
+          "type": "chapter",
+          "settings": {
+            "title": "Notes That Last",
+            "line": "One page per book, written the day you finish it."
+          }
+        },
+        "chapter_5": {
+          "type": "chapter",
+          "settings": {
+            "title": "Quitting Books Well",
+            "line": "When to stop, and how to keep what was good."
+          }
+        },
+        "chapter_6": {
+          "type": "chapter",
+          "settings": {
+            "title": "Reading Out Loud",
+            "line": "Audiobooks, slow reading and remembering more."
+          }
+        },
+        "chapter_7": {
+          "type": "chapter",
+          "settings": {
+            "title": "The Yearly Shelf",
+            "line": "Look back on a year of reading in one evening."
+          }
+        }
+      },
+      "block_order": [
+        "chapter_1",
+        "chapter_2",
+        "chapter_3",
+        "chapter_4",
+        "chapter_5",
+        "chapter_6",
+        "chapter_7"
+      ]
+    },
+    "quote": {
+      "type": "authorbook-quote",
+      "settings": {
+        "image": "shopify://shop_images/authorbook-cover.webp",
+        "image_alt": "Read More, Keep More",
+        "quote": "Twenty pages is small enough to start tonight and <em>large enough</em> to finish twenty books by next winter.",
+        "source": "From chapter one, The Twenty Page Day"
+      }
+    },
+    "reviews": {
+      "type": "authorbook-reviews",
+      "settings": {
+        "eyebrow": "Readers",
+        "heading": "What readers <em>say</em>",
+        "accent_color": "#c4471f",
+        "card_color": "#f5f2ec",
+        "avatar_color": "#1d2b4f",
+        "text": "These words are samples to show the layout. Replace them with what your own readers write."
+      },
+      "blocks": {
+        "review_1": {
+          "type": "review",
+          "settings": {
+            "quote": "I finished more books in the three months after reading this than in the whole year before it. The twenty page rule is so simple it feels like cheating.",
+            "name": "Hannah Keller",
+            "tag": "Sample",
+            "role": "Read the ebook"
+          }
+        },
+        "review_2": {
+          "type": "review",
+          "settings": {
+            "quote": "The chapter on notes changed how I read. One page per book, and I can tell you what every one of them was about.",
+            "name": "Omar Siddiqui",
+            "tag": "Sample",
+            "role": "Listened to the audiobook"
+          }
+        },
+        "review_3": {
+          "type": "review",
+          "settings": {
+            "quote": "Short, practical and kind. No reading challenge guilt, just a habit that fits in a lunch break.",
+            "name": "Julia Brandt",
+            "tag": "Sample",
+            "role": "Bought the complete set"
+          }
+        },
+        "review_4": {
+          "type": "review",
+          "settings": {
+            "quote": "I gave it to my book club and now we all keep the same notes page. Our meetings are better for it.",
+            "name": "Marcus Lee",
+            "tag": "Sample",
+            "role": "Read the ebook"
+          }
+        },
+        "review_5": {
+          "type": "review",
+          "settings": {
+            "quote": "I quit three books I was dragging through and read five I loved instead. Permission to stop was the best part.",
+            "name": "Priya Nair",
+            "tag": "Sample",
+            "role": "Read the ebook"
+          }
+        }
+      },
+      "block_order": [
+        "review_1",
+        "review_2",
+        "review_3",
+        "review_4",
+        "review_5"
+      ]
+    },
+    "course": {
+      "type": "authorbook-course",
+      "settings": {
+        "eyebrow": "Free email course",
+        "heading": "The 7 Day Reading Reset: a reading habit <em>that sticks</em>",
+        "image": "shopify://shop_images/authorbook-course.webp",
+        "image_alt": "Hands holding an open paperback over a green blanket",
+        "card_title": "Join the free course and get day one today",
+        "button_label": "Send me day one",
+        "button_color": "#1d2b4f",
+        "tag": "reading-reset",
+        "note": "One short email a day for a week, then Marginalia on Sundays. Leave whenever you like.",
+        "accent_color": "#c4471f",
+        "tick_color": "#f0643a"
+      },
+      "blocks": {
+        "point_1": {
+          "type": "point",
+          "settings": {
+            "title": "Start tonight with twenty pages.",
+            "text": "Day one sets the time and the place, so reading happens without deciding."
+          }
+        },
+        "point_2": {
+          "type": "point",
+          "settings": {
+            "title": "Pick books you will finish.",
+            "text": "A short list method that takes five minutes and saves weeks."
+          }
+        },
+        "point_3": {
+          "type": "point",
+          "settings": {
+            "title": "Keep what you read.",
+            "text": "A one page notes template, with an example from a real book."
+          }
+        },
+        "point_4": {
+          "type": "point",
+          "settings": {
+            "title": "Works with any kind of book.",
+            "text": "Novels, history, business or poetry. Paper, ebook or audio."
+          }
+        }
+      },
+      "block_order": [
+        "point_1",
+        "point_2",
+        "point_3",
+        "point_4"
+      ]
+    },
+    "editions": {
+      "type": "authorbook-editions",
+      "settings": {
+        "eyebrow": "Get the book",
+        "heading": "Pick your <em>edition</em>",
+        "accent_color": "#c4471f",
+        "badge_color": "#f0643a",
+        "featured_color": "#1d2b4f",
+        "button_color": "#1d2b4f",
+        "text": "<p>Every edition arrives by email the moment you pay. Read on any phone, tablet, laptop or e reader.</p>",
+        "footnote": "Secure checkout. 30 day refund if the book is not for you."
+      },
+      "blocks": {
+        "edition_1": {
+          "type": "edition",
+          "settings": {
+            "product": "read-more-keep-more",
+            "image": "shopify://shop_images/authorbook-ed-ebook.webp",
+            "name": "Ebook",
+            "line": "PDF and EPUB, for any device.",
+            "price": "$16",
+            "compare_price": "$20",
+            "points": "All twelve chapters\nWorks on Kindle and Kobo\nFree updates",
+            "button_label": "Buy the ebook",
+            "button_link": "/collections/all"
+          }
+        },
+        "edition_2": {
+          "type": "edition",
+          "settings": {
+            "product": "the-complete-reading-set",
+            "image": "shopify://shop_images/authorbook-ed-set.webp",
+            "name": "Complete set",
+            "line": "The ebook, the audiobook and the Reading Journal.",
+            "price": "$34",
+            "compare_price": "$46",
+            "points": "Ebook and audiobook\nPrintable Reading Journal\nNotes templates for 50 books",
+            "label": "Most readers pick this",
+            "featured": true,
+            "button_label": "Buy the set",
+            "button_link": "/collections/all"
+          }
+        },
+        "edition_3": {
+          "type": "edition",
+          "settings": {
+            "product": "read-more-keep-more-audiobook",
+            "image": "shopify://shop_images/authorbook-ed-audio.webp",
+            "name": "Audiobook",
+            "line": "Six hours, read by Theo.",
+            "price": "$14",
+            "points": "MP3 files, no app needed\nChapter by chapter\nListen at any speed",
+            "button_label": "Buy the audiobook",
+            "button_link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "edition_1",
+        "edition_2",
+        "edition_3"
+      ]
+    },
+    "faq": {
+      "type": "authorbook-faq",
+      "settings": {
+        "eyebrow": "Questions",
+        "heading": "Before you <em>buy</em>",
+        "accent_color": "#c4471f",
+        "icon_bg": "#f5f2ec",
+        "text": "<p>The questions readers ask most. Anything else, <a href=\"/pages/contact\">write to me</a>.</p>"
+      },
+      "blocks": {
+        "question_1": {
+          "type": "question",
+          "settings": {
+            "question": "Is this a paper book?",
+            "answer": "<p>It is an ebook and an audiobook. The ebook comes as PDF and EPUB, so it opens on a phone, a tablet, a Kindle, a Kobo or a laptop. Replace this with your own formats.</p>"
+          }
+        },
+        "question_2": {
+          "type": "question",
+          "settings": {
+            "question": "How do I get it after paying?",
+            "answer": "<p>A download link arrives by email straight away, and the files stay in your account so you can download them again.</p>"
+          }
+        },
+        "question_3": {
+          "type": "question",
+          "settings": {
+            "question": "I do not read much now. Is it for me?",
+            "answer": "<p>Yes. The book is written for people who used to read and stopped. Chapter one asks for twenty pages a day, nothing more.</p>"
+          }
+        },
+        "question_4": {
+          "type": "question",
+          "settings": {
+            "question": "What is the free chapter?",
+            "answer": "<p>The whole of chapter one, The Twenty Page Day, as a PDF. Leave your email at the top of the page and it arrives in a minute.</p>"
+          }
+        },
+        "question_5": {
+          "type": "question",
+          "settings": {
+            "question": "What if it is not for me?",
+            "answer": "<p>Write within 30 days and you get every cent back. Replace this with your own terms.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "question_1",
+        "question_2",
+        "question_3",
+        "question_4",
+        "question_5"
+      ]
+    },
+    "cta": {
+      "type": "authorbook-cta",
+      "settings": {
+        "band_color": "#c4471f",
+        "image": "shopify://shop_images/authorbook-cover.webp",
+        "image_alt": "Read More, Keep More",
+        "heading": "Start with chapter one tonight",
+        "text": "<p>Twenty five minutes of reading and the first habit of the book, free.</p>",
+        "button_label": "Send me chapter one",
+        "button_link": "#open-form-chapter",
+        "button_color": "#1d2b4f",
+        "button2_label": "Buy the book",
+        "button2_link": "/#buy",
+        "button2_text_color": "#1d2b4f"
+      }
+    },
+    "shelf": {
+      "type": "authorbook-shelf",
+      "settings": {
+        "heading": "More from Theo"
+      },
+      "blocks": {
+        "item_1": {
+          "type": "item",
+          "settings": {
+            "image": "shopify://shop_images/authorbook-shelf-book.webp",
+            "title": "Read More, Keep More",
+            "line": "The book",
+            "link": "/#buy"
+          }
+        },
+        "item_2": {
+          "type": "item",
+          "settings": {
+            "image": "shopify://shop_images/authorbook-shelf-audio.webp",
+            "title": "The audiobook",
+            "line": "Read by Theo",
+            "link": "/collections/all"
+          }
+        },
+        "item_3": {
+          "type": "item",
+          "settings": {
+            "image": "shopify://shop_images/authorbook-shelf-journal.webp",
+            "title": "The Reading Journal",
+            "line": "Printable",
+            "link": "/collections/all"
+          }
+        },
+        "item_4": {
+          "type": "item",
+          "settings": {
+            "image": "shopify://shop_images/authorbook-shelf-letter.webp",
+            "title": "Marginalia",
+            "line": "Free, every Sunday",
+            "link": "/pages/newsletter"
+          }
+        }
+      },
+      "block_order": [
+        "item_1",
+        "item_2",
+        "item_3",
+        "item_4"
+      ]
+    },
+    "chapter_form": {
+      "type": "form-modal",
+      "settings": {
+        "form_key": "chapter",
+        "sends_to": "subscribe",
+        "accent_color": "#c4471f",
+        "text_align": "center",
+        "width": 480,
+        "corners": "theme",
+        "success_heading": "Chapter one is on its way",
+        "success_text": "<p>Check your inbox in a minute. If nothing arrives, look in spam.</p>"
+      },
+      "blocks": {
+        "image_1": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/authorbook-cover.webp",
+            "fit": "contain",
+            "max_height": 190
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "eyebrow": "Free chapter",
+            "heading": "Read chapter one *free*",
+            "size": 30
+          }
+        },
+        "text_3": {
+          "type": "text",
+          "settings": {
+            "text": "<p>The Twenty Page Day, as a PDF. Plus Marginalia on Sundays.</p>"
+          }
+        },
+        "field_4": {
+          "type": "field",
+          "settings": {
+            "kind": "name",
+            "label": "First name",
+            "required": false
+          }
+        },
+        "field_5": {
+          "type": "field",
+          "settings": {
+            "kind": "email",
+            "label": "Email address"
+          }
+        },
+        "button_6": {
+          "type": "button",
+          "settings": {
+            "label": "Send me chapter one",
+            "arrow": true
+          }
+        },
+        "note_7": {
+          "type": "note",
+          "settings": {
+            "icon": "lock",
+            "text": "Your email stays private.",
+            "small": "<p>Leave whenever you like.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "image_1",
+        "heading_2",
+        "text_3",
+        "field_4",
+        "field_5",
+        "button_6",
+        "note_7"
+      ]
+    }
+  },
+  "order": [
+    "hero",
+    "facts",
+    "hello",
+    "inside",
+    "quote",
+    "reviews",
+    "course",
+    "editions",
+    "faq",
+    "cta",
+    "shelf",
+    "chapter_form"
+  ]
+}

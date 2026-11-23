@@ -3,12 +3,12 @@
     "main": {
       "type": "main-article",
       "settings": {
-        "padding_top": 48,
+        "padding_top": 56,
         "section_width": "container",
-        "padding_bottom": 30,
-        "author_margin_left": -140,
+        "padding_bottom": 48,
+        "author_margin_left": 0,
         "author_margin_right": 0,
-        "content_width_desktop": 1100,
+        "content_width_desktop": 780,
         "color_scheme": "default"
       },
       "name": "Main Blog Article",
@@ -23,16 +23,16 @@
         "title_8UcLB3": {
           "type": "title",
           "settings": {
-            "blog_title_font_size": 38
+            "blog_title_font_size": 46
           }
         },
         "featured_image_ne7Ufj": {
           "type": "featured_image",
           "settings": {
-            "image_height": "medium",
-            "featured_image_top_padding": 12,
-            "featured_image_border_radius": 7,
-            "featured_image_bottom_padding": 10
+            "image_height": "large",
+            "featured_image_top_padding": 20,
+            "featured_image_border_radius": 16,
+            "featured_image_bottom_padding": 16
           }
         },
         "blog_meta_Gdcegm": {
@@ -57,8 +57,8 @@
       "block_order": [
         "category_8bHVa7",
         "title_8UcLB3",
-        "featured_image_ne7Ufj",
         "blog_meta_Gdcegm",
+        "featured_image_ne7Ufj",
         "content_article_nGLPt4",
         "author_highlight_n4CqbT"
       ]
@@ -67,26 +67,26 @@
       "type": "blog-posts",
       "settings": {
         "reveal": false,
-        "heading": "More notes",
+        "heading": "More from the blog",
         "autoplay": false,
         "infinite": false,
         "show_date": true,
         "column_gap": 30,
         "description": "",
         "image_ratio": "custom",
-        "padding_top": 56,
-        "show_author": true,
+        "padding_top": 72,
+        "show_author": false,
         "color_scheme": "scheme-tr-panel",
-        "custom_ratio": "16:9",
+        "custom_ratio": "3:2",
         "vertical_gap": 30,
         "items_per_row": 3,
         "items_to_show": 3,
-        "section_width": "fluid_container",
+        "section_width": "container",
         "show_view_all": true,
-        "padding_bottom": 56,
+        "padding_bottom": 72,
         "autorotate_speed": 5,
         "content_alignment": "left",
-        "heading_font_size": 24,
+        "heading_font_size": 36,
         "carousel_pagination": "disable",
         "enable_custom_style": false,
         "items_per_row_mobile": 1
@@ -135,10 +135,75 @@
         "heading",
         "subheading"
       ]
+    },
+    "hear": {
+      "type": "samples-audio-tracks",
+      "settings": {
+        "layout": "list",
+        "eyebrow": "Sounds for this",
+        "heading": "Try it with these loops",
+        "text": "<p>Press play, then drag along the wave to skip ahead.</p>",
+        "link_label": "Shop every pack",
+        "link_url": "/collections/all",
+        "max_width": 1100,
+        "heading_size": 36,
+        "heading_size_mobile": 28,
+        "color_scheme": "default",
+        "section_width": "container",
+        "padding_top": 48,
+        "padding_bottom": 72
+      },
+      "blocks": {
+        "t1": {
+          "type": "track",
+          "settings": {
+            "title": "Tech House Drum Kit Vol I",
+            "subtitle": "Drum loop, 124 BPM",
+            "audio": "shopify://shop_images/samples-demo-drums-one-shots.mp4",
+            "seconds": 11.63,
+            "peaks": "95,64,33,18,38,94,66,35,8,22,94,66,31,7,35,93,76,48,9,43,96,65,37,9,55,95,64,48,7,39,100,60,36,8,52,91,62,37,9,45,95,59,35,6,46,96,67,34,7,55,100,56,35,18,56,95,73,38,9,52,99,67,32,24,59,96,63,38,6,48,96,67,42,5,69,95,61,36,10,54,96,55,34,5,65,96,59,33,5,56,98,56,37,5,65,94,62,36,9,59,98,56,33,6,62,93,52,23,4,41,60,31,17,3,28,36,17,7,2,2",
+            "link_label": "Get the pack",
+            "cover": "shopify://shop_images/samples-box-drum-kit.webp",
+            "link": "/products/tech-house-drum-kit-vol-i"
+          }
+        },
+        "t2": {
+          "type": "track",
+          "settings": {
+            "title": "Serum Presets Vol 1",
+            "subtitle": "Synth bass loop, 125 BPM",
+            "audio": "shopify://shop_images/samples-demo-serum-presets.mp4",
+            "seconds": 11.49,
+            "peaks": "88,97,92,83,2,2,89,69,2,71,89,98,70,81,80,46,95,55,2,77,89,92,91,66,2,75,87,10,2,82,97,90,4,97,67,87,80,4,2,92,100,99,91,4,2,87,75,2,29,92,91,72,78,91,7,99,67,2,74,91,99,99,81,2,70,89,48,2,79,90,89,7,87,74,76,91,9,2,2,79,91,89,89,65,2,77,85,8,2,83,93,87,3,95,57,84,83,4,2,90,90,89,86,3,2,77,62,2,45,62,55,42,38,39,3,30,17,2,7,5",
+            "link_label": "Get the pack",
+            "cover": "shopify://shop_images/samples-box-serum-presets.webp",
+            "link": "/products/serum-presets-vol-1"
+          }
+        },
+        "t3": {
+          "type": "track",
+          "settings": {
+            "title": "Deep House Production Suite, Serenade",
+            "subtitle": "Deep house loop, 120 BPM",
+            "audio": "shopify://shop_images/samples-demo-deep-house-production-suite.mp4",
+            "seconds": 12.0,
+            "peaks": "95,59,64,31,15,99,62,33,2,6,98,56,65,32,14,96,57,29,2,3,100,56,59,45,13,99,63,36,3,5,98,57,57,54,17,98,56,34,2,11,99,56,69,52,20,98,59,68,62,13,96,57,68,53,27,96,58,77,56,30,99,55,79,48,21,96,62,71,53,27,99,55,68,59,24,97,56,73,56,34,95,50,63,56,56,99,58,80,51,50,95,52,68,47,51,95,55,65,52,68,89,53,65,57,73,87,52,59,48,53,67,31,38,30,34,37,16,14,8,2",
+            "link_label": "Get the pack",
+            "cover": "shopify://shop_images/samples-box-deep-house-production-suite.webp",
+            "link": "/products/deep-house-production-suite-serenade"
+          }
+        }
+      },
+      "block_order": [
+        "t1",
+        "t2",
+        "t3"
+      ]
     }
   },
   "order": [
     "main",
+    "hear",
     "blog_posts_bRcpan",
     "free"
   ]

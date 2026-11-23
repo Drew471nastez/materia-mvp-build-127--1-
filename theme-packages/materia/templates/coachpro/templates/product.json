@@ -1,0 +1,265 @@
+{
+  "sections": {
+    "breadcrumb": {
+      "type": "breadcrumb",
+      "settings": {
+        "alignment": "left",
+        "font_size": 13,
+        "next_prev": false,
+        "separator": "slash",
+        "uppercase": false,
+        "color_scheme": "default",
+        "reset_spacing": true,
+        "section_width": "container",
+        "next_prev_icon": "chevron",
+        "padding_top_mobile": 10,
+        "padding_top_desktop": 26,
+        "enable_custom_padding": true,
+        "padding_bottom_mobile": 10,
+        "padding_bottom_desktop": 26
+      }
+    },
+    "main": {
+      "type": "main-product",
+      "settings": {
+        "image_zoom": "open_lightbox",
+        "padding_top": 0,
+        "color_scheme": "default",
+        "media_square": false,
+        "reset_spacing": true,
+        "section_width": "container",
+        "desktop_layout": "thumbnail_bottom",
+        "mobile_options": "show_thumbnails",
+        "padding_bottom": 88,
+        "sticky_top_gap": 24,
+        "enable_on_mobile": true,
+        "enable_on_desktop": true,
+        "sticky_show_image": true,
+        "sticky_show_title": true,
+        "sticky_show_quantity": false,
+        "sticky_show_variant_picker": true,
+        "sticky_padding_y": 12,
+        "sticky_button_radius": 2,
+        "content_gap_desktop": 56,
+        "desktop_media_width": 52,
+        "section_width_mobile": "fluid_container",
+        "padding_left_mobile": 0,
+        "padding_right_mobile": 0,
+        "enable_custom_padding": false,
+        "enable_sticky_content_on_desktop": true,
+        "mobile_slides_per_view": "1"
+      },
+      "blocks": {
+        "title_1": {
+          "type": "title",
+          "settings": {
+            "show_vendor": false,
+            "title_font_size_desktop": 44,
+            "title_font_size_mobile": 34
+          }
+        },
+        "price_1": {
+          "type": "price",
+          "settings": {
+            "price_font_size_desktop": 24,
+            "price_font_size_mobile": 22,
+            "price_font_weight": "500",
+            "compare_font_size_desktop": 16,
+            "compare_font_size_mobile": 14,
+            "compare_font_weight": "400"
+          }
+        },
+        "short_description_1": {
+          "type": "short_description",
+          "settings": {
+            "excerpt_length": 220
+          }
+        },
+        "variant_picker_1": {
+          "type": "variant_picker",
+          "settings": {
+            "variant_type": "swatches",
+            "show_size_guide": false,
+            "picker_swatch_style": "theme"
+          }
+        },
+        "buy_buttons_1": {
+          "type": "buy_buttons",
+          "settings": {
+            "show_add_to_cart": true,
+            "show_dynamic_checkout": true,
+            "show_quantity": true,
+            "buttons_full_width": true,
+            "quantity_right_of_atc": false,
+            "show_wishlist_button": false,
+            "atc_appearance": "theme",
+            "buy_appearance": "theme",
+            "atc_icon_enable": false,
+            "buy_icon_enable": false,
+            "show_gift_card_recipient": false,
+            "enable_custom_button_text": true,
+            "atc_button_text": "Add to basket",
+            "buy_button_text": "Book now"
+          }
+        },
+        "vertical_benefits_1": {
+          "type": "vertical_benefits",
+          "settings": {
+            "vb_pt": 16,
+            "vb_pb": 16,
+            "vb_mt": 0,
+            "vb_mb": 0,
+            "vb_item_space": 10,
+            "vb_maxw": 100,
+            "vb_pl": 0,
+            "vb_pr": 0,
+            "vb_text_size_d": 14,
+            "vb_text_size_m": 14,
+            "vb_icon_gap": 12,
+            "vb_icon_gap_m": 10,
+            "vb_icon_size": 22,
+            "vb_icon_size_m": 22,
+            "vb_text_color": "",
+            "vb_bg": "",
+            "vb_icon_color": "#a5582a",
+            "item1_title": "Choose your times after you pay",
+            "item1_icon_library": "clock",
+            "item1_use_image": false,
+            "item1_image_size": 50,
+            "item2_title": "Move a session up to 24 hours before",
+            "item2_icon_library": "check",
+            "item2_use_image": false,
+            "item2_image_size": 50,
+            "item3_title": "Unused sessions refunded if it is not for you",
+            "item3_icon_library": "shield",
+            "item3_use_image": false,
+            "item3_image_size": 50
+          }
+        },
+        "collapsible_row_1": {
+          "type": "collapsible_row",
+          "settings": {
+            "heading": "What is included",
+            "content": "",
+            "use_product_description": true,
+            "open": true
+          }
+        },
+        "collapsible_row_2": {
+          "type": "collapsible_row",
+          "settings": {
+            "heading": "How booking works",
+            "content": "<p>After you pay you get an email with a link to choose your times. Sessions are 50 minutes, in Bristol or on a video call, and you get short notes after each one.</p>",
+            "use_product_description": false,
+            "open": false
+          }
+        },
+        "collapsible_row_3": {
+          "type": "collapsible_row",
+          "settings": {
+            "heading": "Moving sessions and refunds",
+            "content": "<p>Move a session up to 24 hours before it starts. If you decide after the first session that coaching is not for you, the sessions you have not used are refunded.</p>",
+            "use_product_description": false,
+            "open": false
+          }
+        },
+        "collapsible_row_4": {
+          "type": "collapsible_row",
+          "settings": {
+            "heading": "Not sure yet?",
+            "content": "<p>Book the free 20 minute call first. We talk about where you are and which way of working fits. <a href=\"/pages/book\">Book a free call</a></p>",
+            "use_product_description": false,
+            "open": false
+          }
+        }
+      },
+      "block_order": [
+        "title_1",
+        "price_1",
+        "short_description_1",
+        "variant_picker_1",
+        "buy_buttons_1",
+        "vertical_benefits_1",
+        "collapsible_row_1",
+        "collapsible_row_2",
+        "collapsible_row_3",
+        "collapsible_row_4"
+      ]
+    },
+    "after": {
+      "type": "coach-steps",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "background": "#f2e8dc",
+        "accent_color": "#a5582a",
+        "line_color": "#d9c6b0",
+        "eyebrow": "Next",
+        "heading": "What happens <em>after you book</em>"
+      },
+      "blocks": {
+        "step_1": {
+          "type": "step",
+          "settings": {
+            "title": "Choose your times",
+            "text": "A link in your confirmation email opens my calendar. Pick the first session or all of them."
+          }
+        },
+        "step_2": {
+          "type": "step",
+          "settings": {
+            "title": "A short form",
+            "text": "Five questions about where you are now, so our first hour starts in the right place."
+          }
+        },
+        "step_3": {
+          "type": "step",
+          "settings": {
+            "title": "We begin",
+            "text": "In Bristol or on a video call, with notes in your inbox after every session."
+          }
+        }
+      },
+      "block_order": [
+        "step_1",
+        "step_2",
+        "step_3"
+      ]
+    },
+    "quote": {
+      "type": "coach-quote",
+      "settings": {
+        "color_scheme": "default",
+        "background": "#faf6f0",
+        "accent_color": "#a5582a",
+        "eyebrow": "Client words",
+        "quote": "Working with Leah was the first time a plan felt like mine. Three months later I have a new role and my Sundays back.",
+        "author": "Hannah, product manager",
+        "note": "Sample quote. Replace it with a client's own words, with their permission.",
+        "padding_top": 80,
+        "padding_bottom": 40
+      }
+    },
+    "related": {
+      "type": "related-products",
+      "settings": {
+        "heading": "Other ways to work together",
+        "description": "",
+        "color_scheme": "default",
+        "items_per_row": 3,
+        "items_to_show": 3,
+        "show_add_to_cart": false,
+        "show_vendor": false,
+        "padding_top": 72,
+        "padding_bottom": 88,
+        "header_alignment": "left"
+      }
+    }
+  },
+  "order": [
+    "breadcrumb",
+    "main",
+    "after",
+    "quote",
+    "related"
+  ]
+}

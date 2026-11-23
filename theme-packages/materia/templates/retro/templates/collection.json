@@ -85,12 +85,12 @@
         "note": "Leave whenever you like.",
         "success_text": "You're on the list.",
         "invalid_text": "Enter a valid email address.",
-        "width": 580,
+        "width": 1120,
         "draggable": true,
         "padding_top": 0,
-        "padding_bottom": 32,
+        "padding_bottom": 24,
         "padding_top_mobile": 0,
-        "padding_bottom_mobile": 16
+        "padding_bottom_mobile": 14
       }
     }
   },

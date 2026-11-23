@@ -430,6 +430,13 @@ export function framedSteps(): number {
   return Math.max(0, FRAMED.at)
 }
 
+/** One of the website's pages in its own frame (LiveSite: GOING TO ANOTHER PAGE). */
+type FramedPage = { key: number; src: string }
+/** A page that has drawn comes up over the last one in this long. */
+export const PREVIEW_PAGE_MS = 160
+/** A page that has not said it drew by now is shown as it is. */
+const PAGE_WAIT_MS = 4000
+
 /** How long a website may take to say it drew before its address is checked. */
 const LIVE_CHECK_MS = 2500
 
@@ -459,7 +466,11 @@ const LIVE_DESKTOP_WIDTH = 1280
  * at the new width and comes back, rather than being seen to jump.
  */
 function LiveSite({ src, device, name, openedAt }: { src: string; device: PreviewDevice; name: string; openedAt: React.RefObject<number> }) {
-  const frame = React.useRef<HTMLIFrameElement>(null)
+  /* The website's pages, each in its own frame: the one on show, and the next while it draws behind it (see GOING TO ANOTHER PAGE). */
+  const [pages, setPages] = React.useState<FramedPage[]>(() => [{ key: 0, src }])
+  const [front, setFront] = React.useState(0)
+  /* Each page's frame, by its key: a message counts only from one of these. */
+  const frames = React.useRef(new Map<number, HTMLIFrameElement>())
   const stageRef = React.useRef<HTMLDivElement>(null)
   const [stage, setStage] = React.useState<{ w: number; h: number } | null>(null)
   /** null while it loads; then whether it fades in or is simply there with the window. */
@@ -488,31 +499,87 @@ function LiveSite({ src, device, name, openedAt }: { src: string; device: Previe
     FRAMED.length = window.history.length
   }, [src])
   /*
-    THE WEBSITE'S OWN BACKGROUND BEHIND IT. Between two of its pages the
-    frame shows only itself for a moment, and it was white: a dark template
-    (Night shop) flashed white on every click. Each page says its background
-    as it starts (scripts/build-template-previews.ts) and the frame takes it.
+    THE WEBSITE'S OWN BACKGROUND BEHIND IT. Before its first page has drawn
+    the frame shows only itself, and it was white: a dark template (Night
+    shop) flashed white. Each page says its background as it starts
+    (scripts/build-template-previews.ts) and the frames take it.
   */
   const [siteBackground, setSiteBackground] = React.useState<string | null>(null)
   React.useEffect(() => setSiteBackground(null), [src])
+
+  /*
+    GOING TO ANOTHER PAGE. A frame that follows a link shows neither page
+    for a moment: the old one is gone and the new one is not drawn yet, a
+    blank of the frame's colour (Night shop: its sky for ten frames at a
+    quarter speed, then its header alone for seven). So once a page has
+    said it is there, the marketplace tells it that it takes its links over
+    (storelib:template-preview-handoff); a link to another of the website's
+    pages comes back here (storelib:template-preview-go) and that page is
+    drawn in a second frame behind the first, the first still on show. When
+    it says it has drawn (its first screen's pictures in, 700ms at most) it
+    comes up over the first in PREVIEW_PAGE_MS and the first goes. A page
+    that never says so is shown after PAGE_WAIT_MS all the same. No frame
+    is ever without a page in it. A new frame adds nothing to the tab's
+    history, so Back and the system's back still leave the preview.
+  */
+  const nextKey = React.useRef(1)
+  const going = pages.some((p) => p.key > front)
+  const frontRef = React.useRef(front)
+  frontRef.current = front
+  const show = React.useCallback((key: number) => setFront((f) => Math.max(f, key)), [])
   React.useEffect(() => {
+    /* The last page goes once the new one has come up over it; a new one that never says it drew is shown all the same. */
+    if (pages.some((p) => p.key < front)) {
+      const t = window.setTimeout(() => setPages((ps) => ps.filter((p) => p.key >= front)), PREVIEW_PAGE_MS + 40)
+      return () => window.clearTimeout(t)
+    }
+    const ahead = pages.filter((p) => p.key > front)
+    if (!ahead.length) return
+    const t = window.setTimeout(() => show(ahead[ahead.length - 1].key), PAGE_WAIT_MS)
+    return () => window.clearTimeout(t)
+  }, [pages, front, show])
+
+  React.useEffect(() => {
+    const keyOf = (source: MessageEventSource | null) => {
+      for (const [key, el] of frames.current) if (source && el.contentWindow === source) return key
+      return null
+    }
     const onMessage = (e: MessageEvent) => {
-      if (!frame.current || e.source !== frame.current.contentWindow) return
-      const data = e.data as { type?: unknown; path?: unknown; background?: unknown } | null
-      if (data && data.type === "storelib:template-preview-background") {
+      const key = keyOf(e.source)
+      if (key === null) return
+      const data = e.data as { type?: unknown; path?: unknown; background?: unknown; href?: unknown } | null
+      if (!data || typeof data.type !== "string") return
+      const tell = () => (e.source as Window | null)?.postMessage({ type: "storelib:template-preview-handoff" }, "*")
+      if (data.type === "storelib:template-preview-background") {
         const c = typeof data.background === "string" ? data.background.trim() : ""
         if (/^rgba?\([\d.,\s/%]+\)$|^#[0-9a-f]{3,8}$/i.test(c)) setSiteBackground(c)
+        tell()
         return
       }
-      if (!data || data.type !== "storelib:template-preview") return
+      if (data.type === "storelib:template-preview-go") {
+        /* Only from the page on show, and only to another page of the same website. */
+        const href = typeof data.href === "string" ? data.href : ""
+        const site = src.split("/").slice(0, 3).join("/") + "/"
+        if (key !== frontRef.current || !href.startsWith(site) || !/^\/[\w./%-]+\.html(?:[?#][^\s"'<>]*)?$/.test(href)) return
+        const k = nextKey.current++
+        setPages((ps) => [...ps.filter((p) => p.key === frontRef.current), { key: k, src: href }])
+        return
+      }
+      if (data.type === "storelib:template-preview-drawn") {
+        if (key > frontRef.current) show(key)
+        return
+      }
+      if (data.type !== "storelib:template-preview") return
+      tell()
       if (typeof data.path === "string") framedPage(data.path)
+      if (key > frontRef.current) show(key)
       /* Still arriving: the window's own fade shows it. Later: a fade of its own, once. */
       const early = performance.now() - (openedAt.current ?? 0) < PREVIEW_IN_MS * 0.6
       setReady((r) => r ?? (early ? "with-window" : "fade"))
     }
     window.addEventListener("message", onMessage)
     return () => window.removeEventListener("message", onMessage)
-  }, [src, openedAt])
+  }, [src, openedAt, show])
 
   /* A website that has not drawn after a long wait: is it there at all? */
   React.useEffect(() => {
@@ -545,7 +612,7 @@ function LiveSite({ src, device, name, openedAt }: { src: string; device: Previe
   React.useLayoutEffect(() => {
     if (lastDevice.current === device) return
     lastDevice.current = device
-    const el = frame.current
+    const el = frames.current.get(frontRef.current) ?? null
     if (!el || !ready || typeof el.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
     el.getAnimations().forEach((a) => a.cancel())
     const hold = el.animate([{ opacity: 0 }, { opacity: 0 }], { duration: 1000, fill: "forwards" })
@@ -579,7 +646,7 @@ function LiveSite({ src, device, name, openedAt }: { src: string; device: Previe
         )}
       >
         {/* The wait, said quietly and only once it is long enough to notice: a thin line along the top. */}
-        {!ready ? (
+        {!ready || going ? (
           <div aria-hidden data-preview-live-loading="" className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-[2px] overflow-hidden">
             <div className="h-full w-1/3 bg-[#1a1a2e]/15 [animation:wb-live-load_1.2s_cubic-bezier(0.45,0,0.55,1)_infinite] motion-reduce:[animation:none]" />
           </div>
@@ -593,19 +660,36 @@ function LiveSite({ src, device, name, openedAt }: { src: string; device: Previe
           style={ready === "fade" ? { transitionDuration: `${PREVIEW_LIVE_FADE_MS}ms` } : undefined}
         >
           {/* Not even an empty frame before then: making one is a document of its own, 15ms at a quarter speed. */}
-          {asked ? (
-          <iframe
-            ref={frame}
-            src={src}
-            title={tt("{name}, live website", { name })}
-            sandbox="allow-scripts"
-            referrerPolicy="no-referrer"
-            loading="eager"
-            data-preview-live-site=""
-            className="block h-full w-full border-0 bg-white"
-            style={frameStyle}
-          />
-          ) : null}
+          {asked
+            ? pages.map((page) => {
+                const on = page.key <= front
+                return (
+                  <iframe
+                    key={page.key}
+                    ref={(el) => {
+                      if (el) frames.current.set(page.key, el)
+                      else frames.current.delete(page.key)
+                    }}
+                    src={page.src}
+                    title={tt("{name}, live website", { name })}
+                    sandbox="allow-scripts"
+                    referrerPolicy="no-referrer"
+                    loading="eager"
+                    data-preview-live-site=""
+                    data-preview-page={page.key === front ? "front" : on ? "leaving" : "coming"}
+                    aria-hidden={page.key !== front || undefined}
+                    tabIndex={page.key === front ? undefined : -1}
+                    className={cn(
+                      "absolute inset-0 block h-full w-full border-0 bg-white",
+                      !on && "pointer-events-none opacity-0",
+                      page.key < front && "pointer-events-none",
+                      page.key > 0 && on && "transition-opacity ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none",
+                    )}
+                    style={{ ...frameStyle, ...(page.key > 0 ? { transitionDuration: `${PREVIEW_PAGE_MS}ms` } : null) }}
+                  />
+                )
+              })
+            : null}
         </div>
       </div>
     </div>

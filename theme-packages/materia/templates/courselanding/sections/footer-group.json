@@ -22,13 +22,13 @@
           "type": "store_info",
           "settings": {
             "show_logo": false,
-            "store_heading": "Pocket Light",
+            "store_heading": "Evenly",
             "image_width": 110,
             "store_email": true,
             "store_phone": false,
             "store_address": false,
             "content_width": "50%",
-            "store_description": "<p>A four week phone photography course. Write a line about your own course here.</p>"
+            "store_description": "<p>A four week course on budgeting, saving and investing. Write a line about your own course here.</p>"
           }
         },
         "link_list_2": {

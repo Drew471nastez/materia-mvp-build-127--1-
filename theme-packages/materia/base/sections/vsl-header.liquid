@@ -85,7 +85,7 @@ Video sales letter: the header of a one offer page. The name or logo on
       {%- if st.logo != blank -%}
         {{ st.logo | image_url: width: 480 | image_tag: alt: shop.name, loading: 'eager', widths: '160, 240, 320, 480' }}
       {%- else -%}
-        {%- if st.show_mark -%}<svg class="vsl-head__mark" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M19.5 14.2A8 8 0 1 1 9.8 4.5a6.4 6.4 0 0 0 9.7 9.7z" fill="#fff"/><circle cx="18.3" cy="5.6" r="1.1" fill="#fff"/></svg>{%- endif -%}
+        {%- if st.show_mark -%}{%- case st.mark -%}{%- when 'wave' -%}<svg class="vsl-head__mark" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M3 10v4M7.5 6.5v11M12 3.5v17M16.5 7.5v9M21 10.5v3"/></svg>{%- when 'dot' -%}<svg class="vsl-head__mark" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" fill="none" stroke="#fff" stroke-width="1.6" opacity=".5"/><circle cx="12" cy="12" r="4.5" fill="#fff"/></svg>{%- else -%}<svg class="vsl-head__mark" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M19.5 14.2A8 8 0 1 1 9.8 4.5a6.4 6.4 0 0 0 9.7 9.7z" fill="#fff"/><circle cx="18.3" cy="5.6" r="1.1" fill="#fff"/></svg>{%- endcase -%}{%- endif -%}
         <span>{{ st.brand_text | default: shop.name | escape }}</span>
       {%- endif -%}
     </a>
@@ -162,6 +162,26 @@ Video sales letter: the header of a one offer page. The name or logo on
       "id": "show_mark",
       "label": "Small moon mark before the name",
       "default": true
+    },
+    {
+      "type": "select",
+      "id": "mark",
+      "label": "Mark",
+      "default": "moon",
+      "options": [
+        {
+          "value": "moon",
+          "label": "Moon"
+        },
+        {
+          "value": "wave",
+          "label": "Sound wave"
+        },
+        {
+          "value": "dot",
+          "label": "Dot"
+        }
+      ]
     },
     {
       "type": "link_list",

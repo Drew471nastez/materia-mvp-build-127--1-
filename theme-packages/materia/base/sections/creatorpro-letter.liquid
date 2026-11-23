@@ -1,0 +1,133 @@
+{%- comment -%}
+  Content creator: the newsletter, on a dark rounded band. On the left a
+  label, a heading, a line, the email field and its button on one line
+  (stacked on a phone) and a note. On the right a drawn email: who it is
+  from, the subject, a picture and a few lines of the letter, tilted a
+  little, with a second email behind it. Built in markup, so the words are
+  the creator's own. Nothing moves.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign points = st.points | newline_to_br | split: '<br />'
+-%}
+<style>
+  #shopify-section-{{ sid }} .cpl { --cpl-accent: {{ st.accent_color | default: '#ff5a36' }}; background: {{ st.background | default: '#ffffff' }}; padding: {{ st.padding_top_mobile | default: 24 }}px 12px {{ st.padding_bottom_mobile | default: 24 }}px; scroll-margin-top: 80px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cpl { padding: {{ st.padding_top | default: 32 }}px 40px {{ st.padding_bottom | default: 32 }}px; } }
+  #shopify-section-{{ sid }} .cpl__band { position: relative; overflow: hidden; max-width: 1280px; margin: 0 auto; border-radius: {{ st.radius | default: 32 }}px; background: {{ st.band_color | default: '#101114' }}; color: {{ st.text_color | default: '#b5b7bd' }}; display: grid; grid-template-columns: minmax(0, 1fr); gap: 40px; padding: 48px 22px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cpl__band { grid-template-columns: minmax(0, 1fr) minmax(0, 0.95fr); gap: 64px; padding: 88px 88px; align-items: center; } }
+  #shopify-section-{{ sid }} .cpl__band::after { content: ""; position: absolute; right: -180px; bottom: -220px; width: 560px; height: 560px; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--cpl-accent) 45%, transparent), transparent); opacity: 0.55; pointer-events: none; }
+  #shopify-section-{{ sid }} .cpl__eyebrow { margin: 0 0 14px; color: var(--cpl-accent); font-size: 14px; font-weight: 700; }
+  #shopify-section-{{ sid }} .cpl__heading { margin: 0; color: #fff; font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, 700); font-size: {{ st.heading_size_mobile | default: 34 }}px; line-height: 1.05; letter-spacing: -0.03em; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cpl__heading { font-size: {{ st.heading_size | default: 54 }}px; } }
+  #shopify-section-{{ sid }} .cpl__heading em { font-style: normal; color: var(--cpl-accent); }
+  #shopify-section-{{ sid }} .cpl__text { margin-top: 16px; max-width: 44ch; font-size: 17px; line-height: 1.6; }
+  #shopify-section-{{ sid }} .cpl__text p { margin: 0; }
+  #shopify-section-{{ sid }} .cpl__points { list-style: none; margin: 22px 0 0; padding: 0; display: grid; gap: 10px; color: #e9eaec; font-size: 15.5px; }
+  #shopify-section-{{ sid }} .cpl__points li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px; }
+  #shopify-section-{{ sid }} .cpl__points svg { width: 20px; height: 20px; color: var(--cpl-accent); margin-top: 1px; }
+  #shopify-section-{{ sid }} .cpl__form { margin-top: 28px; max-width: 500px; position: relative; z-index: 1; }
+  #shopify-section-{{ sid }} .cpl__row { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
+  @media (min-width: 600px) { #shopify-section-{{ sid }} .cpl__row { flex-direction: row; gap: 8px; } }
+  #shopify-section-{{ sid }} .cpl__input { flex: 1 1 auto; min-width: 0; box-sizing: border-box; height: 56px !important; margin: 0; padding: 0 20px; border: 1.5px solid rgba(255,255,255,0.18); border-radius: {{ st.button_radius | default: 12 }}px; background: rgba(255,255,255,0.07); color: #fff; font: inherit; font-size: 16px; }
+  #shopify-section-{{ sid }} .cpl__input::placeholder { color: rgba(255,255,255,0.62); opacity: 1; }
+  #shopify-section-{{ sid }} .cpl__input:focus-visible { outline: 2px solid var(--cpl-accent); outline-offset: 1px; }
+  #shopify-section-{{ sid }} .cpl__submit { flex: 0 0 auto; height: 56px; margin: 0; padding: 0 24px; border: 0; border-radius: {{ st.button_radius | default: 12 }}px; cursor: pointer; white-space: nowrap; background: var(--cpl-accent); color: {{ st.button_text_color | default: '#101114' }}; font: inherit; font-size: 15.5px; font-weight: 700; transition: filter 0.2s ease; }
+  #shopify-section-{{ sid }} .cpl__submit:hover { filter: brightness(1.08); }
+  #shopify-section-{{ sid }} .cpl__note { margin: 12px 0 0; font-size: 14px; }
+  #shopify-section-{{ sid }} .cpl__msg { margin: 10px 0 0; color: #fff; font-size: 14px; }
+  #shopify-section-{{ sid }} .cpl__hp, #shopify-section-{{ sid }} .cpl__vh { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  #shopify-section-{{ sid }} .cpl__stack { position: relative; z-index: 1; max-width: 440px; width: 100%; margin: 0 auto; padding: 0 8px 12px; }
+  #shopify-section-{{ sid }} .cpl__mail { position: relative; border-radius: 18px; background: #fff; color: #3d4048; padding: 20px 22px 24px; box-shadow: 0 30px 60px -24px rgba(0,0,0,0.6); transform: rotate(2deg); }
+  #shopify-section-{{ sid }} .cpl__mail--back { position: absolute; inset: 22px -6px auto 18px; height: 88%; transform: rotate(-4deg); background: #2a2c31; box-shadow: none; }
+  #shopify-section-{{ sid }} .cpl__from { display: flex; align-items: center; gap: 10px; padding-bottom: 14px; border-bottom: 1px solid #ecebe7; }
+  #shopify-section-{{ sid }} .cpl__from img, #shopify-section-{{ sid }} .cpl__from i { width: 36px; height: 36px; flex: 0 0 36px; border-radius: 50%; object-fit: cover; margin: 0; background: var(--cpl-accent); }
+  #shopify-section-{{ sid }} .cpl__from strong { display: block; color: #101114; font-size: 14px; }
+  #shopify-section-{{ sid }} .cpl__from small { display: block; font-size: 12px; color: #7a7d85; }
+  #shopify-section-{{ sid }} .cpl__subject { margin: 14px 0 10px; color: #101114; font-size: 19px; font-weight: 700; line-height: 1.25; letter-spacing: -0.01em; }
+  #shopify-section-{{ sid }} .cpl__pic { margin: 0 0 12px; overflow: hidden; border-radius: 12px; aspect-ratio: 16 / 8; background: #eee; }
+  #shopify-section-{{ sid }} .cpl__pic img { width: 100%; height: 100%; object-fit: cover; margin: 0; display: block; }
+  #shopify-section-{{ sid }} .cpl__body { margin: 0; font-size: 14px; line-height: 1.6; }
+  #shopify-section-{{ sid }} .cpl__lines { margin-top: 12px; display: grid; gap: 7px; }
+  #shopify-section-{{ sid }} .cpl__lines span { height: 8px; border-radius: 4px; background: #efeee9; }
+  #shopify-section-{{ sid }} .cpl__lines span:nth-child(2) { width: 88%; } #shopify-section-{{ sid }} .cpl__lines span:nth-child(3) { width: 64%; }
+</style>
+<div class="cpl color-{{ color_scheme }}" id="{{ st.anchor | default: 'newsletter' | handleize }}" data-section-id="{{ sid }}">
+  <div class="cpl__band">
+    <div style="position:relative;z-index:1">
+      {%- if st.eyebrow != blank -%}<p class="cpl__eyebrow">{{ st.eyebrow | escape }}</p>{%- endif -%}
+      {%- if st.heading != blank -%}<h2 class="cpl__heading">{{ st.heading }}</h2>{%- endif -%}
+      {%- if st.text != blank -%}<div class="cpl__text">{{ st.text }}</div>{%- endif -%}
+      {%- if st.points != blank -%}<ul class="cpl__points" role="list">{%- for l in points -%}{%- assign t = l | strip -%}{%- if t != blank -%}<li><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 10.5l3.5 3.5 7.5-8"/></svg><span>{{ t | escape }}</span></li>{%- endif -%}{%- endfor -%}</ul>{%- endif -%}
+      {%- form 'customer', id: 'CreatorLetterForm-' | append: sid, class: 'cpl__form', data-storelib-form: 'subscribe' -%}
+        <input type="hidden" name="contact[tags]" value="{{ st.tag | default: 'newsletter' | escape }}">
+        <span hidden data-mt-words data-success-message="{{ st.success_text | default: 'You are in. Check your inbox.' | escape }}" data-invalid-message="{{ st.invalid_text | default: 'Enter a valid email address.' | escape }}"></span>
+        <div class="cpl__hp" aria-hidden="true" data-mt-trap><label for="CreatorLetterHp-{{ sid }}">Leave this field empty</label><input id="CreatorLetterHp-{{ sid }}" type="text" name="company" tabindex="-1" autocomplete="off" pattern="^$" maxlength="0" value=""></div>
+        <div class="cpl__row">
+          <label class="cpl__vh" for="CreatorLetterEmail-{{ sid }}">{{ st.email_placeholder | default: 'Your email' | escape }}</label>
+          <input class="cpl__input" id="CreatorLetterEmail-{{ sid }}" type="email" name="contact[email]" required inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" maxlength="254" placeholder="{{ st.email_placeholder | default: 'Your email' | escape }}">
+          <button type="submit" class="cpl__submit">{{ st.button_label | default: 'Subscribe' | escape }}</button>
+        </div>
+        {%- if form.posted_successfully? -%}<p class="cpl__msg form-status--success">{{ st.success_text | default: 'You are in. Check your inbox.' | escape }}</p>{%- endif -%}
+        {%- if form.errors -%}<p class="cpl__msg" role="alert">{{ st.invalid_text | default: 'Enter a valid email address.' | escape }}</p>{%- endif -%}
+      {%- endform -%}
+      {%- if st.note != blank -%}<p class="cpl__note">{{ st.note | escape }}</p>{%- endif -%}
+    </div>
+    <div class="cpl__stack" aria-hidden="true">
+      <div class="cpl__mail cpl__mail--back"></div>
+      <div class="cpl__mail">
+        <div class="cpl__from">
+          {%- if st.avatar != blank -%}<img src="{{ st.avatar | image_url: width: 100 }}" width="100" height="100" alt="" loading="lazy">{%- else -%}<i></i>{%- endif -%}
+          <div><strong>{{ st.mail_from | escape }}</strong><small>{{ st.mail_when | escape }}</small></div>
+        </div>
+        <p class="cpl__subject">{{ st.mail_subject | escape }}</p>
+        {%- if st.mail_image != blank -%}<div class="cpl__pic"><img src="{{ st.mail_image | image_url: width: 800 }}" width="800" height="400" alt="" loading="lazy" decoding="async"></div>{%- endif -%}
+        <p class="cpl__body">{{ st.mail_body | escape }}</p>
+        <div class="cpl__lines"><span></span><span></span><span></span></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% schema %}
+{
+  "name": "Creator newsletter",
+  "tag": "section",
+  "class": "section sec__creatorpro-letter",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default-color-scheme" },
+    { "type": "color", "id": "background", "label": "Page behind the band", "default": "#ffffff" },
+    { "type": "color", "id": "band_color", "label": "Band", "default": "#101114" },
+    { "type": "color", "id": "text_color", "label": "Text", "default": "#b5b7bd" },
+    { "type": "color", "id": "accent_color", "label": "Accent and button", "default": "#ff5a36" },
+    { "type": "color", "id": "button_text_color", "label": "Button text", "default": "#101114" },
+    { "type": "range", "id": "radius", "label": "Band corners", "min": 0, "max": 48, "step": 2, "unit": "px", "default": 32 },
+    { "type": "range", "id": "button_radius", "label": "Field and button corners", "min": 0, "max": 28, "step": 1, "unit": "px", "default": 12 },
+    { "type": "text", "id": "anchor", "label": "Name for links to this section", "default": "newsletter" },
+    { "type": "text", "id": "eyebrow", "label": "Small label", "default": "The newsletter" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "One useful email, <em>every week</em>" },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Say what each issue holds and when it arrives.</p>" },
+    { "type": "textarea", "id": "points", "label": "Points, one per line", "default": "One idea you can use this week\nWhat worked and what did not" },
+    { "type": "text", "id": "email_placeholder", "label": "Email field", "default": "Your email" },
+    { "type": "text", "id": "button_label", "label": "Button", "default": "Subscribe" },
+    { "type": "text", "id": "tag", "label": "Tag for the people who sign up", "default": "newsletter" },
+    { "type": "text", "id": "note", "label": "Small note", "default": "Free. Leave whenever you like." },
+    { "type": "text", "id": "success_text", "label": "Message after signing up", "default": "You are in. Check your inbox." },
+    { "type": "text", "id": "invalid_text", "label": "Message for an address that will not work", "default": "Enter a valid email address." },
+    { "type": "header", "content": "The drawn email" },
+    { "type": "image_picker", "id": "avatar", "label": "Sender portrait" },
+    { "type": "text", "id": "mail_from", "label": "From", "default": "Your name" },
+    { "type": "text", "id": "mail_when", "label": "When", "default": "Tuesday, 7:00" },
+    { "type": "text", "id": "mail_subject", "label": "Subject", "default": "A subject line from a recent issue" },
+    { "type": "image_picker", "id": "mail_image", "label": "Picture in the email" },
+    { "type": "textarea", "id": "mail_body", "label": "First lines", "default": "The opening lines of a recent issue." },
+    { "type": "range", "id": "heading_size", "label": "Heading size, desktop", "min": 28, "max": 80, "step": 2, "unit": "px", "default": 54 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size, phone", "min": 24, "max": 52, "step": 2, "unit": "px", "default": 34 },
+    { "type": "range", "id": "padding_top", "label": "Space above, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 32 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 32 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 24 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 24 }
+  ],
+  "presets": [ { "name": "Creator newsletter" } ]
+}
+{% endschema %}

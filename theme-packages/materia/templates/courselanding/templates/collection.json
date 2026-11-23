@@ -84,15 +84,15 @@
         "promise_unit": "days",
         "promise_title": "",
         "promise_text": "If the course is not for you, write within 30 days and you get every cent back. No form to fill in.",
-        "heading": "Your next good photo is",
+        "heading": "Your first real budget is",
         "heading_accent": "one lesson",
         "heading_after": "away",
-        "text": "<p>Twenty four lessons, four live critiques, the presets and the shot list cards.</p>",
+        "text": "<p>Twenty four lessons, four live calls, the budget spreadsheet and the workbook.</p>",
         "button_label": "Join the course",
         "to_checkout": true,
         "button_link": "/collections/all",
         "note": "One payment. Lifetime access.",
-        "accent": "#2f5bea",
+        "accent": "#17804c",
         "padding_top": 24,
         "padding_bottom": 72
       }

@@ -1,0 +1,171 @@
+{
+  "sections": {
+    "letter": {
+      "type": "authorbook-course",
+      "settings": {
+        "eyebrow": "Marginalia",
+        "heading": "A short letter on reading, <em>every Sunday</em>",
+        "image": "shopify://shop_images/authorbook-shelf-letter.webp",
+        "image_alt": "A cup of coffee beside an open book on a wooden table",
+        "card_title": "Get the next letter on Sunday morning",
+        "button_label": "Join Marginalia",
+        "button_color": "#1d2b4f",
+        "tag": "marginalia",
+        "note": "One email a week. No ads, no sponsors. Leave whenever you like.",
+        "accent_color": "#c4471f",
+        "tick_color": "#f0643a",
+        "anchor": "letter",
+        "padding_top": 72
+      },
+      "blocks": {
+        "point_1": {
+          "type": "point",
+          "settings": {
+            "title": "One idea from a book I am reading.",
+            "text": "Quoted, with the page number, and what I did with it."
+          }
+        },
+        "point_2": {
+          "type": "point",
+          "settings": {
+            "title": "One question from a reader.",
+            "text": "Answered in a few paragraphs, about reading, notes or finding time."
+          }
+        },
+        "point_3": {
+          "type": "point",
+          "settings": {
+            "title": "Three books worth your time.",
+            "text": "Short and honest, including the ones I quit."
+          }
+        }
+      },
+      "block_order": [
+        "point_1",
+        "point_2",
+        "point_3"
+      ]
+    },
+    "hello": {
+      "type": "authorbook-hello",
+      "settings": {
+        "eyebrow": "About the author",
+        "heading": "Hi, I'm <em>Theo Marlow</em>",
+        "text": "<p>I used to buy books faster than I read them. Ten years ago I started reading twenty pages a day and keeping one page of notes for every book. I have kept both habits since.</p><p>I write <a href=\"/pages/newsletter\">Marginalia</a>, a short letter every Sunday on what I am reading and how to make it stick. <em>Read More, Keep More</em> is everything I have learned, in one book.</p>",
+        "image": "shopify://shop_images/authorbook-theo-sofa.webp",
+        "image_alt": "Theo Marlow on a dark sofa with books and records beside him",
+        "image_focus": "50% 30%",
+        "frame_color": "#f0643a",
+        "accent_color": "#c4471f",
+        "button_label": "More about me",
+        "button_link": "/pages/about",
+        "button_color": "#1d2b4f",
+        "instagram": "https://www.instagram.com",
+        "youtube": "https://www.youtube.com",
+        "x": "https://x.com",
+        "linkedin": "",
+        "letters_title": "Recent letters",
+        "padding_top": 40
+      },
+      "blocks": {
+        "letter_1": {
+          "type": "letter",
+          "settings": {
+            "title": "The case for quitting books halfway",
+            "link": "/blogs/news"
+          }
+        },
+        "letter_2": {
+          "type": "letter",
+          "settings": {
+            "title": "One page of notes for every book",
+            "link": "/blogs/news"
+          }
+        },
+        "letter_3": {
+          "type": "letter",
+          "settings": {
+            "title": "Reading on your phone without the phone",
+            "link": "/blogs/news"
+          }
+        }
+      },
+      "block_order": [
+        "letter_1",
+        "letter_2",
+        "letter_3"
+      ]
+    },
+    "reviews": {
+      "type": "authorbook-reviews",
+      "settings": {
+        "eyebrow": "Readers",
+        "heading": "What readers <em>say</em>",
+        "accent_color": "#c4471f",
+        "card_color": "#f5f2ec",
+        "avatar_color": "#1d2b4f",
+        "text": "These words are samples to show the layout. Replace them with what your own readers write.",
+        "anchor": ""
+      },
+      "blocks": {
+        "review_1": {
+          "type": "review",
+          "settings": {
+            "quote": "I finished more books in the three months after reading this than in the whole year before it. The twenty page rule is so simple it feels like cheating.",
+            "name": "Hannah Keller",
+            "tag": "Sample",
+            "role": "Read the ebook"
+          }
+        },
+        "review_2": {
+          "type": "review",
+          "settings": {
+            "quote": "The chapter on notes changed how I read. One page per book, and I can tell you what every one of them was about.",
+            "name": "Omar Siddiqui",
+            "tag": "Sample",
+            "role": "Listened to the audiobook"
+          }
+        },
+        "review_3": {
+          "type": "review",
+          "settings": {
+            "quote": "Short, practical and kind. No reading challenge guilt, just a habit that fits in a lunch break.",
+            "name": "Julia Brandt",
+            "tag": "Sample",
+            "role": "Bought the complete set"
+          }
+        },
+        "review_4": {
+          "type": "review",
+          "settings": {
+            "quote": "I gave it to my book club and now we all keep the same notes page. Our meetings are better for it.",
+            "name": "Marcus Lee",
+            "tag": "Sample",
+            "role": "Read the ebook"
+          }
+        },
+        "review_5": {
+          "type": "review",
+          "settings": {
+            "quote": "I quit three books I was dragging through and read five I loved instead. Permission to stop was the best part.",
+            "name": "Priya Nair",
+            "tag": "Sample",
+            "role": "Read the ebook"
+          }
+        }
+      },
+      "block_order": [
+        "review_1",
+        "review_2",
+        "review_3",
+        "review_4",
+        "review_5"
+      ]
+    }
+  },
+  "order": [
+    "letter",
+    "hello",
+    "reviews"
+  ]
+}

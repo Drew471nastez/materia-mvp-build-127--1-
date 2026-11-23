@@ -56,11 +56,11 @@
         "benefits_stack_1": {
           "type": "benefits_stack",
           "settings": {
-            "text_1": "Six weeks of short video lessons",
+            "text_1": "24 short video lessons",
             "icon_1": "check_circle",
-            "text_2": "Six live calls, recorded",
+            "text_2": "Eight live calls, recorded",
             "icon_2": "check_circle",
-            "text_3": "Templates for the outline, page and emails",
+            "text_3": "The show starter kit and gear guide",
             "icon_3": "check_circle",
             "text_4": "",
             "text_5": "",
@@ -109,7 +109,7 @@
           "type": "collapsible_row",
           "settings": {
             "heading": "What is inside",
-            "content": "<p>Twelve lessons over six weeks, each under twenty minutes, with one exercise each. Templates for the outline, the sales page and three emails. Write your own module list here.</p>",
+            "content": "<p>Eight weeks in four parts: the show, the setup, the workflow and the launch. 24 lessons, each under twelve minutes, with one thing to do that week. Write your own module list here.</p>",
             "open": false
           }
         },
@@ -117,7 +117,7 @@
           "type": "collapsible_row",
           "settings": {
             "heading": "Who it is for",
-            "content": "<p>Consultants, designers and coaches who already do the work for clients and want one workshop to sell.</p>",
+            "content": "<p>Coaches, founders, teachers and anyone with a topic they could talk about for a year, who wants a weekly show that supports their work.</p>",
             "open": false
           }
         },
@@ -148,7 +148,7 @@
       "type": "vsl-cards",
       "settings": {
         "eyebrow": "Inside the course",
-        "heading": "Six weeks, *one workshop*",
+        "heading": "Eight weeks, *ten episodes*",
         "text": "",
         "columns": "2",
         "number_style": "inline",
@@ -162,29 +162,29 @@
         "card_1": {
           "type": "card",
           "settings": {
-            "title": "The promise",
-            "text": "<p>Weeks one and two. Pick the one result clients already pay you for.</p>"
+            "title": "The show",
+            "text": "<p>Weeks one and two. Pick a format you can repeat every week, name the show and write your first twenty episode ideas.</p>"
           }
         },
         "card_2": {
           "type": "card",
           "settings": {
-            "title": "The outline",
-            "text": "<p>Week three. Four sessions, each around one exercise.</p>"
+            "title": "The setup",
+            "text": "<p>Week three. One microphone, one quiet room and the settings that make it sound good. A shopping list at three budgets.</p>"
           }
         },
         "card_3": {
           "type": "card",
           "settings": {
-            "title": "The sales page",
-            "text": "<p>Week four. The page, the price and the email to your list.</p>"
+            "title": "The workflow",
+            "text": "<p>Weeks four and five. Record, edit and publish an episode in one afternoon, with our outline and show notes templates.</p>"
           }
         },
         "card_4": {
           "type": "card",
           "settings": {
-            "title": "The first round",
-            "text": "<p>Weeks five and six. Run it live and keep the recording.</p>"
+            "title": "The launch",
+            "text": "<p>Weeks six to eight. A trailer, three episodes on day one, your first guests booked and a plan for your first listeners.</p>"
           }
         }
       },
@@ -211,16 +211,16 @@
         "figure_1": {
           "type": "figure",
           "settings": {
-            "value": "6 weeks",
+            "value": "8 weeks",
             "label": "Course length",
-            "note": "About two hours a week",
+            "note": "About three hours a week",
             "icon": "clock"
           }
         },
         "figure_2": {
           "type": "figure",
           "settings": {
-            "value": "6 calls",
+            "value": "8 calls",
             "label": "Live on Thursdays",
             "note": "Recorded if you miss one",
             "icon": "calendar"
@@ -245,9 +245,14 @@
     "reviews": {
       "type": "vsl-reviews",
       "settings": {
+        "layout": "carousel",
+        "autoplay": true,
         "eyebrow": "Students",
         "heading": "What students *say*",
-        "text": "<p>Sample reviews. Swap them for what your own students send you.</p>",
+        "text": "",
+        "sample_note": "Sample reviews. Replace them with your students’ own words.",
+        "prev_label": "Previous",
+        "next_label": "Next",
         "columns": "3",
         "line_above": true,
         "padding_top": 96,
@@ -260,34 +265,59 @@
           "type": "review",
           "settings": {
             "stars": 5,
-            "quote": "<p>I had run the same client project for years and never thought of it as something to teach. My first workshop had nine people in it.</p>",
-            "name": "Student name",
-            "role": "Brand designer"
+            "headline": "Episode one out in two weeks",
+            "quote": "<p>I had been planning a show for two years. The format week made me pick one idea and record it, and the first episode was out by week two.</p>",
+            "name": "Maya Ruiz",
+            "role": "Career coach"
           }
         },
         "review_2": {
           "type": "review",
           "settings": {
             "stars": 5,
-            "quote": "<p>The outline week was the one I needed. I stopped making slides and started making exercises people actually do.</p>",
-            "name": "Student name",
-            "role": "Leadership coach"
+            "headline": "Editing stopped eating my weekend",
+            "quote": "<p>The one hour edit is the reason I am still publishing. Cut, level, export, done. I used to lose a whole Sunday to it.</p>",
+            "name": "Daniel Kim",
+            "role": "Founder, design studio"
           }
         },
         "review_3": {
           "type": "review",
           "settings": {
             "stars": 5,
-            "quote": "<p>I sold the first round with one email to past clients, before I had recorded a single lesson.</p>",
-            "name": "Student name",
-            "role": "Data consultant"
+            "headline": "Guests said yes",
+            "quote": "<p>I used the guest email from the kit word for word. Four of the six people I asked said yes in the first month.</p>",
+            "name": "Priya Shah",
+            "role": "Nutritionist"
+          }
+        },
+        "review_4": {
+          "type": "review",
+          "settings": {
+            "stars": 5,
+            "headline": "Sounds like a real show",
+            "quote": "<p>I bought the cheapest microphone on the gear list and recorded in a wardrobe. Nobody can tell.</p>",
+            "name": "Tom Becker",
+            "role": "Secondary school teacher"
+          }
+        },
+        "review_5": {
+          "type": "review",
+          "settings": {
+            "stars": 5,
+            "headline": "A reason to keep going",
+            "quote": "<p>The Thursday calls kept me going after the launch buzz wore off. Ten episodes out and I still look forward to recording.</p>",
+            "name": "Ana Lima",
+            "role": "Therapist"
           }
         }
       },
       "block_order": [
         "review_1",
         "review_2",
-        "review_3"
+        "review_3",
+        "review_4",
+        "review_5"
       ]
     },
     "faq": {
@@ -308,29 +338,36 @@
         "question_1": {
           "type": "question",
           "settings": {
-            "question": "Do I need an audience first?",
-            "answer": "<p>No. A list of past clients is enough for a first round of five to ten people. Week four covers where else to find them.</p>"
+            "question": "Do I need expensive gear?",
+            "answer": "<p>No. A USB microphone and a quiet room are enough. Week three has a shopping list at three budgets, the cheapest is about $150.</p>"
           }
         },
         "question_2": {
           "type": "question",
           "settings": {
             "question": "How much time does it take?",
-            "answer": "<p>About two hours a week: one short lesson, one exercise and the Thursday call.</p>"
+            "answer": "<p>About three hours a week: two short lessons, recording one episode and the Thursday call if you can make it.</p>"
           }
         },
         "question_3": {
           "type": "question",
           "settings": {
-            "question": "What exactly do I get?",
-            "answer": "<p>Twelve short lessons, templates for the outline, the sales page and the emails, six live calls and their recordings.</p>"
+            "question": "Audio only, or video too?",
+            "answer": "<p>Both are covered. The lessons start with audio, and one module shows how to film the same conversation for YouTube.</p>"
           }
         },
         "question_4": {
           "type": "question",
           "settings": {
-            "question": "What happens on the free call?",
-            "answer": "<p>You tell us what you do and who for. We tell you honestly whether the course fits. If it does not, there is no pitch.</p>"
+            "question": "Do I need an audience first?",
+            "answer": "<p>No. Week seven covers your first listeners: people you already know, guests who share their episode, and one place to post each week.</p>"
+          }
+        },
+        "question_5": {
+          "type": "question",
+          "settings": {
+            "question": "When does the next round start?",
+            "answer": "<p>On the first Monday of each month. Change this to your own dates.</p>"
           }
         }
       },
@@ -338,7 +375,8 @@
         "question_1",
         "question_2",
         "question_3",
-        "question_4"
+        "question_4",
+        "question_5"
       ]
     },
     "related": {
@@ -387,12 +425,42 @@
         "padding_top_mobile": 72,
         "padding_bottom_mobile": 72
       }
+    },
+    "host": {
+      "type": "vsl-split",
+      "settings": {
+        "image": "shopify://shop_images/vsl-host.webp",
+        "image_alt": "The course host laughing at a microphone",
+        "image_side": "left",
+        "ratio": "4 / 5",
+        "eyebrow": "Your host",
+        "heading": "Taught by someone *still recording every week*",
+        "heading_tag": "h2",
+        "text": "<p>Write a few lines about yourself here: what you host, how long you have made it, and why you teach it. People join a course because of the person running it.</p>",
+        "points": "Hosts a weekly interview show\nProduces shows for coaches and small studios\nRuns every Thursday call himself",
+        "social_instagram": "https://www.instagram.com/",
+        "social_youtube": "https://www.youtube.com/",
+        "social_spotify": "https://open.spotify.com/",
+        "social_tiktok": "",
+        "social_x": "",
+        "social_linkedin": "",
+        "social_website": "",
+        "signature": "",
+        "button_label": "",
+        "button_link": "",
+        "line_above": true,
+        "padding_top": 96,
+        "padding_bottom": 96,
+        "padding_top_mobile": 64,
+        "padding_bottom_mobile": 56
+      }
     }
   },
   "order": [
     "main",
     "inside",
     "figures",
+    "host",
     "reviews",
     "faq",
     "related",

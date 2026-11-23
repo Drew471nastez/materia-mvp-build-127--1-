@@ -39,13 +39,14 @@ const TEMPLATES = process.env.TEMPLATES ? process.env.TEMPLATES.split(",") : COD
 const ROOT = join(process.cwd(), "theme-packages", CODE_THEME_PACKAGE, "base")
 
 /** The "Powered by Storelib" links in a page: where each points and whether it sits in the footer. */
-function badges(html: string): { href: string; inFooter: boolean }[] {
-  const out: { href: string; inFooter: boolean }[] = []
-  for (const m of html.matchAll(/<a\b[^>]*\bhref="([^"]*)"[^>]*>\s*Powered by Storelib\s*<\/a>/gi)) {
+/* Changed on purpose (templates round 21): the link holds the Storelib mark (an inline SVG) before the words, which sit in a span. */
+function badges(html: string): { href: string; inFooter: boolean; mark: boolean }[] {
+  const out: { href: string; inFooter: boolean; mark: boolean }[] = []
+  for (const m of html.matchAll(/<a\b[^>]*\bhref="([^"]*)"[^>]*>\s*(<svg\b(?:(?!<\/?a\b)[\s\S])*?<\/svg>)?\s*(?:<span>)?\s*Powered by Storelib\s*(?:<\/span>)?\s*<\/a>/gi)) {
     const at = m.index ?? 0
     const open = html.toLowerCase().lastIndexOf("<footer", at)
     const close = html.toLowerCase().lastIndexOf("</footer>", at)
-    out.push({ href: m[1], inFooter: open >= 0 && open > close })
+    out.push({ href: m[1], inFooter: open >= 0 && open > close, mark: !!m[2] && /data-storelib-badge-mark/.test(m[2]) && /fill="currentColor"/.test(m[2]) })
   }
   return out
 }
@@ -67,6 +68,7 @@ async function main() {
   const added = withPoweredBy(bare, true)
   check("added inside the theme's footer, linked to storelib.com", badges(added).length === 1 && badges(added)[0].inFooter && badges(added)[0].href === POWERED_BY_URL, added)
   check("  never twice", withPoweredBy(added, true) === added)
+  check("  with the Storelib mark before the words, in the footer's own colour, not read out", badges(added)[0]?.mark === true && /aria-hidden="true"/.test(added) && /width:1\.2em;height:1\.2em/.test(added))
   check("  and not when it is not to be shown", withPoweredBy(bare, false) === bare)
 
   console.log("\nThe theme\n")
@@ -86,8 +88,8 @@ async function main() {
     const product = String(site.products[0]?.settings.slug ?? "")
     const paths = ["/", ...(product ? [`/products/${product}`] : []), "/cart", "/no-such-page"]
     const found = await Promise.all(paths.map(async (p) => ({ p, b: badges(await page(site, p)) })))
-    const wrong = found.filter((f) => f.b.length !== 1 || !f.b[0].inFooter || f.b[0].href !== POWERED_BY_URL).map((f) => ({ path: f.p, found: f.b }))
-    check(`${template}: once, in the footer, linked to storelib.com, on ${paths.length} pages`, wrong.length === 0, wrong)
+    const wrong = found.filter((f) => f.b.length !== 1 || !f.b[0].inFooter || f.b[0].href !== POWERED_BY_URL || !f.b[0].mark).map((f) => ({ path: f.p, found: f.b }))
+    check(`${template}: once, in the footer, with its mark, linked to storelib.com, on ${paths.length} pages`, wrong.length === 0, wrong)
 
     const values = site.theme.settingsValues as O
     const was = values[HIDE_SETTING]

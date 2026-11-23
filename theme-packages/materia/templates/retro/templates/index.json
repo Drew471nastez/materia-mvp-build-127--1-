@@ -16,21 +16,21 @@
         "eyebrow": "New drop is out",
         "heading": "Clothes from a slower internet.",
         "heading_tag": "h1",
-        "heading_size": 52,
+        "heading_size": 46,
         "text": "<p>Tees, caps, hoodies and stickers with prints drawn one pixel at a time. Printed to order on heavy cotton.</p>",
         "button_label": "Open the shop",
         "button_link": "/collections/all",
         "button2_label": "Read me",
         "button2_link": "/pages/about",
         "status_left": "Ready",
-        "status_right": "4 new prints",
-        "draggable": true,
-        "width": 1040,
-        "offset": "left",
-        "padding_top": 28,
-        "padding_bottom": 18,
-        "padding_top_mobile": 10,
-        "padding_bottom_mobile": 8
+        "status_right": "6 prints in this drop",
+        "draggable": false,
+        "width": 1120,
+        "offset": "center",
+        "padding_top": 0,
+        "padding_bottom": 24,
+        "padding_top_mobile": 0,
+        "padding_bottom_mobile": 14
       }
     },
     "shop": {
@@ -39,7 +39,7 @@
         "title": "Shop",
         "icon": "folder",
         "collection": "",
-        "products_to_show": 8,
+        "products_to_show": 6,
         "columns": "3",
         "show_menubar": true,
         "address": "C:\\Shop\\New drop",
@@ -62,12 +62,12 @@
         "object_label": "object",
         "objects_label": "objects",
         "empty_name": "Your product",
-        "width": 1100,
+        "width": 1120,
         "offset": "center",
-        "padding_top": 18,
-        "padding_bottom": 18,
-        "padding_top_mobile": 8,
-        "padding_bottom_mobile": 8
+        "padding_top": 0,
+        "padding_bottom": 24,
+        "padding_top_mobile": 0,
+        "padding_bottom_mobile": 14
       }
     },
     "readme": {
@@ -77,30 +77,30 @@
         "icon": "note",
         "look": "notepad",
         "dialog_icon": "help",
-        "image": "",
-        "image_alt": "",
-        "image_side": "left",
-        "image_ratio": "1 / 1",
-        "image_share": 50,
+        "image": "shopify://shop_images/retro-about.webp",
+        "image_alt": "The icon sticker sheet beside a black Please Wait tee",
+        "image_side": "right",
+        "image_ratio": "4 / 3",
+        "image_share": 46,
         "image_loading": "lazy",
         "eyebrow": "",
         "heading": "How it is made",
         "heading_tag": "h2",
-        "heading_size": 30,
+        "heading_size": 34,
         "text": "<p>Every print starts as a drawing on a 16 by 16 grid. We print it to order on heavy cotton with water based ink, so nothing sits in a warehouse and nothing is thrown away.</p><p>Sizes run a little boxy. If you are between two, take the smaller one.</p>",
         "button_label": "Shipping and returns",
         "button_link": "/pages/shipping",
-        "button2_label": "",
-        "button2_link": "",
+        "button2_label": "About us",
+        "button2_link": "/pages/about",
         "status_left": "",
         "status_right": "",
-        "draggable": true,
-        "width": 720,
-        "offset": "left",
-        "padding_top": 18,
-        "padding_bottom": 18,
-        "padding_top_mobile": 8,
-        "padding_bottom_mobile": 8
+        "draggable": false,
+        "width": 1120,
+        "offset": "center",
+        "padding_top": 0,
+        "padding_bottom": 24,
+        "padding_top_mobile": 0,
+        "padding_bottom_mobile": 14
       }
     },
     "newsletter": {
@@ -116,19 +116,194 @@
         "note": "Leave whenever you like.",
         "success_text": "You're on the list.",
         "invalid_text": "Enter a valid email address.",
-        "width": 580,
+        "width": 1120,
         "draggable": true,
         "padding_top": 0,
-        "padding_bottom": 40,
-        "padding_top_mobile": 8,
-        "padding_bottom_mobile": 24
+        "padding_bottom": 24,
+        "padding_top_mobile": 0,
+        "padding_bottom_mobile": 14
       }
+    },
+    "facts": {
+      "type": "retro-tiles",
+      "settings": {
+        "note": "",
+        "columns": "3",
+        "look": "window",
+        "phone_two": false,
+        "padding_top": 0,
+        "padding_bottom": 24,
+        "padding_top_mobile": 0,
+        "padding_bottom_mobile": 14
+      },
+      "blocks": {
+        "tile_1": {
+          "type": "tile",
+          "settings": {
+            "icon": "disk",
+            "bar_title": "Printing",
+            "title": "Printed to order",
+            "stars": 0,
+            "text": "<p>Heavy 240 gsm cotton and water based ink. Nothing sits in a warehouse.</p>",
+            "who": "",
+            "button_label": "",
+            "button_link": ""
+          }
+        },
+        "tile_2": {
+          "type": "tile",
+          "settings": {
+            "icon": "mail",
+            "bar_title": "Shipping",
+            "title": "Sent in three days",
+            "stars": 0,
+            "text": "<p>Printed and posted within three working days, tracked to your door.</p>",
+            "who": "",
+            "button_label": "Shipping details",
+            "button_link": "/pages/shipping"
+          }
+        },
+        "tile_3": {
+          "type": "tile",
+          "settings": {
+            "icon": "help",
+            "bar_title": "Returns",
+            "title": "Free returns",
+            "stars": 0,
+            "text": "<p>Unworn and within 30 days? Write to us and we send a label.</p>",
+            "who": "",
+            "button_label": "Questions",
+            "button_link": "/pages/faqs"
+          }
+        }
+      },
+      "block_order": [
+        "tile_1",
+        "tile_2",
+        "tile_3"
+      ]
+    },
+    "guestbook": {
+      "type": "retro-tiles",
+      "settings": {
+        "note": "Guestbook. These are sample reviews: replace them with your customers’ own words.",
+        "columns": "3",
+        "look": "note",
+        "phone_two": false,
+        "padding_top": 0,
+        "padding_bottom": 24,
+        "padding_top_mobile": 0,
+        "padding_bottom_mobile": 14
+      },
+      "blocks": {
+        "tile_1": {
+          "type": "tile",
+          "settings": {
+            "icon": "note",
+            "bar_title": "guestbook.txt",
+            "title": "Softer than I expected",
+            "stars": 5,
+            "text": "<p>The loading tee is heavy and the print has not cracked after a dozen washes.</p>",
+            "who": "Sample review, Jo",
+            "button_label": "",
+            "button_link": ""
+          }
+        },
+        "tile_2": {
+          "type": "tile",
+          "settings": {
+            "icon": "note",
+            "bar_title": "guestbook.txt",
+            "title": "People ask about it",
+            "stars": 5,
+            "text": "<p>Wore the error hoodie to the office. Three people asked where it was from.</p>",
+            "who": "Sample review, Sam",
+            "button_label": "",
+            "button_link": ""
+          }
+        },
+        "tile_3": {
+          "type": "tile",
+          "settings": {
+            "icon": "note",
+            "bar_title": "guestbook.txt",
+            "title": "Runs boxy, as it says",
+            "stars": 4,
+            "text": "<p>Took the smaller size like the page said and it fits just right.</p>",
+            "who": "Sample review, Alex",
+            "button_label": "",
+            "button_link": ""
+          }
+        }
+      },
+      "block_order": [
+        "tile_1",
+        "tile_2",
+        "tile_3"
+      ]
+    },
+    "help": {
+      "type": "retro-help",
+      "settings": {
+        "title": "Help",
+        "icon": "help",
+        "heading": "Before you order",
+        "heading_tag": "h2",
+        "text": "",
+        "first_open": true,
+        "draggable": false,
+        "width": 1120,
+        "offset": "center",
+        "padding_top": 0,
+        "padding_bottom": 24,
+        "padding_top_mobile": 0,
+        "padding_bottom_mobile": 14
+      },
+      "blocks": {
+        "question_1": {
+          "type": "question",
+          "settings": {
+            "question": "How do the sizes run?",
+            "answer": "<p>Tees and hoodies are cut a little boxy. If you are between two sizes, take the smaller one. Each product page has a size chart.</p>"
+          }
+        },
+        "question_2": {
+          "type": "question",
+          "settings": {
+            "question": "When will my order arrive?",
+            "answer": "<p>Orders are printed and sent within three working days, tracked. Add your own delivery times here.</p>"
+          }
+        },
+        "question_3": {
+          "type": "question",
+          "settings": {
+            "question": "Can I send it back?",
+            "answer": "<p>Yes, within 30 days if it is unworn. Write to us and we send a return label.</p>"
+          }
+        },
+        "question_4": {
+          "type": "question",
+          "settings": {
+            "question": "How do I wash it?",
+            "answer": "<p>Inside out, cold, and hang it to dry. The print lasts longer that way.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "question_1",
+        "question_2",
+        "question_3",
+        "question_4"
+      ]
     }
   },
   "order": [
     "welcome",
+    "facts",
     "shop",
     "readme",
+    "guestbook",
+    "help",
     "newsletter"
   ]
 }
