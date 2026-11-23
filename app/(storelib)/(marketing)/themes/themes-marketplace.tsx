@@ -167,8 +167,9 @@ export function ThemesMarketplace({
               Filter
               {narrowed ? <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#1a1a2e] px-1.5 text-[12px] font-semibold tabular-nums text-white">{narrowed}</span> : null}
             </button>
-            <label className="relative flex items-center">
-              <span className="sr-only">Sort by</span>
+            <label className="relative flex items-center gap-2">
+              {/* The word on a wider window; a phone keeps the room for the count. */}
+              <span className="sr-only sm:not-sr-only sm:text-[14px] sm:text-[#6b7280]">Sort by</span>
               <select
                 value={f.sort}
                 onChange={(e) => setF((x) => ({ ...x, sort: e.target.value as ThemeSort }))}
@@ -177,7 +178,7 @@ export function ThemesMarketplace({
               >
                 {THEME_SORTS.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.id === "featured" ? "Sort: Featured" : `Sort: ${s.label}`}
+                    {s.label}
                   </option>
                 ))}
               </select>
