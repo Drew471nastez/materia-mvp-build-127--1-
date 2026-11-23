@@ -103,6 +103,7 @@ import type { StorefrontData } from "@/lib/storelib-theme/types"
 import { CompatPreviewBox, CompatPreviewProvider, CompatPreviewSheet, releaseCompatHeld } from "@/components/website-builder/compat/compat-section-preview"
 import type { SectionInstance, SectionSchema, ThemeSettingsValues } from "@/lib/website-builder/types"
 import { tt } from "@/lib/i18n/text"
+import { orderForAll } from "@/lib/website-builder/all-sections-order"
 import { STORELIB_SECTION_APPS, appForSection, appIsOn, installedSectionApps, type SectionApp } from "@/lib/website-builder/app-sections"
 import { ICON_MAP } from "@/components/website-builder/sections/icon-map"
 import { useAppStates } from "./use-app-states"
@@ -1351,7 +1352,16 @@ export const SectionLibrary = memo(function SectionLibrary({
         })
       }
     }
-    return out
+    /*
+      ALL, IN THE ORDER A PAGE IS BUILT (round 58). The theme's own order was
+      its file order, so an imported theme's All opened on its announcement
+      bars and Back to top. Heroes first, then products and collections,
+      image with text, rich text, testimonials and the rest of what makes a
+      page, and the bars, dividers and pop ups last
+      (lib/website-builder/all-sections-order.ts says each kind's place and why).
+      A category shows its own in the same order.
+    */
+    return orderForAll(out, (e) => ({ category: e.category, type: e.type, name: e.schema.name, presetName: e.title, imported: !!(compatInstallId && e.schema.imported && !e.app) }))
   }, [addable, schemas, own, sourcesTag, lookTag, compatInstallId])
 
   /*

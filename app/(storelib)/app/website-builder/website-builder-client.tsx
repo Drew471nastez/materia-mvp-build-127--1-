@@ -2478,7 +2478,7 @@ export function WebsiteBuilderClient({
           data-page-block
         >
           <SectionHeading title={tt("Browse themes")}>
-            {/* The whole marketplace, over this page (./themes/themes-client.tsx): a window on a computer, a full screen page on a phone. */}
+            {/* The whole marketplace, over this page (./themes/themes-client.tsx): a window on a computer, a bottom sheet on a phone. */}
             <button
               ref={marketButton}
               type="button"
