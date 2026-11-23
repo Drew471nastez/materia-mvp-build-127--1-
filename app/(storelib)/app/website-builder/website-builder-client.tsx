@@ -113,7 +113,7 @@ import { HelpLabel } from "@/components/app/help-label"
 import type { SettingsSection } from "@/components/website-builder/website-settings/types"
 import { LIBRARY_FULL_CODE, LIBRARY_RULE, LIBRARY_RULE_TITLE } from "@/lib/website-builder/library-limit"
 import { LibraryFullDialog, type LibraryAction } from "./library-full-dialog"
-import { ThemeVersionDialog, ThemeVersionFact, type UpdateResult } from "./theme-version"
+import { ThemeVersionDialog, ThemeVersionFact, UpdateAvailableLine, type UpdateResult } from "./theme-version"
 import { hasUpdate, versionState, type ThemeRelease, type VersionState } from "@/lib/themes/releases-shared"
 import { StartWebsite } from "./start-website"
 import { StartingShell } from "@/components/website-builder/ai-generation/building-canvas"
@@ -2402,8 +2402,8 @@ export function WebsiteBuilderClient({
                                     edit time is the fact worth the room. */}
                                 <span className="hidden sm:inline">{def ? getIndustry(def.industry).label : i.theme?.name ?? tt("Theme")}</span>
                                 <span className="sm:hidden">{i.id === offline?.id ? tt("Offline") : tt("Draft")} · {tt("Edited {saved_at}", { saved_at: since(i.saved_at) })}</span>
-                                {hasUpdate(versions.get(i.id)) ? <span className="font-medium text-[#1a1a2e]" data-row-update=""> · {tt("Update available")}</span> : null}
                               </span>
+                              {hasUpdate(versions.get(i.id)) ? <UpdateAvailableLine /> : null}
                             </span>
                           </button>
                         </td>

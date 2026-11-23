@@ -151,7 +151,10 @@
                 type: type
               %}
             </div>
-            {%- render 'swiper-navigation', class: 'main-slide__navigation', class_prodcut_mobile: class_prodcut_mobile -%}
+            {%- comment -%} One picture has nowhere to go: no arrows, not even for the moment before the slider starts (round 21). {%- endcomment -%}
+            {%- if images.size > 1 -%}
+              {%- render 'swiper-navigation', class: 'main-slide__navigation', class_prodcut_mobile: class_prodcut_mobile -%}
+            {%- endif -%}
           </div>
         </div>
         {% comment %} {%- render 'swiper-navigation' -%} {% endcomment %}

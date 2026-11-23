@@ -56,6 +56,8 @@ const overflow = (page) => page.evaluate(() => document.documentElement.scrollWi
   const { page, context, errors } = await open("fact", 1280, 400)
   const rows = await page.$$eval("[data-theme-version]", (els) => els.map((e) => e.textContent.trim()))
   check("the version line: version, then Update available or Release notes", rows[0] === "Theme version2.0.1 · Update available" && rows[1] === "Theme version2.1.0 · Release notes", rows)
+  const right = await page.$$eval("[data-theme-version] dd", (els) => els.map((e) => e.scrollWidth <= e.clientWidth + 1))
+  check("  the whole line fits, nothing cut off", right.every(Boolean), right)
   const tall = await page.$eval("[data-theme-version]", (e) => e.getBoundingClientRect().height)
   check("  one row, the height of the facts beside it", tall >= 36 && tall <= 44, tall)
   check("  no script errors", errors.length === 0, errors)
@@ -70,6 +72,10 @@ for (const [width, height, surface] of [[1280, 800, "modal"], [390, 844, "sheet"
   check("  nothing runs off the side", (await overflow(page)) <= 0)
   const notes = await page.$$eval("[data-release-notes] li", (els) => els.map((e) => e.querySelector("h3")?.textContent))
   check("  the notes of every release it lacks, newest first", notes.join() === "Version 2.1.0,Version 2.0.2", notes)
+  if (surface === "modal") {
+    const bg = await page.$eval("[data-theme-version-dialog]", (e) => getComputedStyle(e).backgroundColor)
+    check("  the modal is white, whatever the page's theme variables say", bg === "rgb(255, 255, 255)", bg)
+  }
   const title = await page.evaluate(() => [...document.querySelectorAll("h2")].map((h) => h.textContent).join("|"))
   check("  titled with the theme and the version it has", /Clothing version 2\.0\.1/.test(title ?? ""), title)
   const update = await page.$("[data-update-theme]")
@@ -89,6 +95,15 @@ for (const [width, height, surface] of [[1280, 800, "modal"], [390, 844, "sheet"
   const { page, context } = await open("current", 1280, 800)
   const line = await page.textContent("[role=alertdialog] p")
   check("up to date: said so, no Update, the notes of the version it has", /up to date/.test(line ?? "") && !(await page.$("[data-update-theme]")) && (await page.$$("[data-release-notes] li")).length === 1, line)
+  await context.close()
+}
+for (const width of [1280, 390, 320]) {
+  const { page, context, errors } = await open("row", width, 400)
+  const line = await page.$eval("[data-row-update]", (e) => { const r = e.getBoundingClientRect(); const row = e.closest("[data-row]").getBoundingClientRect(); return { right: r.right, rowRight: row.right, width: e.scrollWidth, shown: e.clientWidth, text: e.textContent } })
+  check(`row ${width}px: Update available on its own line, whole`, line.text === "Update available" && line.width <= line.shown + 1 && line.right <= line.rowRight, line)
+  const h = await page.$eval("[data-row]", (e) => e.getBoundingClientRect().height)
+  check("  the row stays compact", h <= 96, h)
+  check("  nothing runs off the side, no script errors", (await overflow(page)) <= 0 && errors.length === 0, errors)
   await context.close()
 }
 for (const width of [1280, 390]) {

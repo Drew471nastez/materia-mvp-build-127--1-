@@ -48,8 +48,8 @@ They are not part of a template and are never added to a creator's website.
 | clothing (cover only) | scripts/theme-templates/products/clothing/clothing-long-blazer.webp | https://images.unsplash.com/photo-1779400202380-ae490bd3b995 | Unsplash License |
 | clothing (cover only) | scripts/theme-templates/products/clothing/clothing-boxy-tee.webp | https://images.unsplash.com/photo-1780566759997-6a4eabceaa10 | Unsplash License |
 | clothing (cover only) | scripts/theme-templates/products/clothing/clothing-wool-blazer.webp | https://images.unsplash.com/photo-1612275857880-57d3b7676179 | Unsplash License |
-| merch | assets/merch-hero-fog.webp | https://images.unsplash.com/photo-1631437699383-a9cfb4685e9e | Unsplash License |
-| merch | assets/merch-hero-fog-phone.webp | https://images.unsplash.com/photo-1631437699383-a9cfb4685e9e | Unsplash License |
+| merch | assets/merch-hero.webp | https://images.unsplash.com/photo-1529720317453-c8da503f2051 | Unsplash License |
+| merch | assets/merch-hero-phone.webp | https://images.unsplash.com/photo-1529720317453-c8da503f2051 | Unsplash License |
 | merch | assets/merch-cat-hoodies.webp | https://images.unsplash.com/photo-1590759483822-b2fee5aa6bd3 | Unsplash License |
 | merch | assets/merch-cat-trackpants.webp | https://images.unsplash.com/photo-1789110519766-117eb0e35bea | Unsplash License |
 | merch | assets/merch-cat-tees.webp | https://images.unsplash.com/photo-1590750093844-bc3ae9e48f9c | Unsplash License |
@@ -191,8 +191,7 @@ They are not part of a template and are never added to a creator's website.
 | streetwear | assets/streetwear-deck.webp | https://images.unsplash.com/photo-1778500409607-333a0914576e | Unsplash License |
 | streetwear | assets/streetwear-fortress.webp | https://images.unsplash.com/photo-1783853851787-0341b8753815 | Unsplash License |
 | streetwear | assets/streetwear-hero-dusk.webp | https://images.unsplash.com/photo-1752330094889-2b1b31d61485 | Unsplash License |
-| streetwear | assets/streetwear-hero-promenade.webp | https://images.unsplash.com/photo-1655959627626-a51ad677cfdf | Unsplash License |
-| streetwear | assets/streetwear-hero-promenade-phone.webp | https://images.unsplash.com/photo-1655959627626-a51ad677cfdf | Unsplash License |
+| streetwear | assets/streetwear-hero-dusk-phone.webp | https://images.unsplash.com/photo-1753638949322-7135abb71c24 | Unsplash License |
 | streetwear | assets/streetwear-hill-palms.webp | https://images.unsplash.com/photo-1769084783547-9b3da5adefe8 | Unsplash License |
 | streetwear | assets/streetwear-sea-dusk.webp | https://images.unsplash.com/photo-1772352037989-4c5dcabe88e6 | Unsplash License |
 | streetwear | assets/streetwear-street-sun.webp | https://images.unsplash.com/photo-1641071059359-fa5907ae440c | Unsplash License |

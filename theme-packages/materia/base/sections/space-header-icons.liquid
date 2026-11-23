@@ -1,0 +1,67 @@
+{%- comment -%}
+  Space: one colour for the header's icons (search, account, wishlist, cart
+  and the phone menu button), so they can pick up the store's accent while
+  the menu words keep the scheme's colour. Placed in the header group next
+  to the header; it prints a style rule and nothing else. The cart count
+  bubble keeps the header's own bubble colours.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign icon = s.icon_color | default: '#e0201b'
+  assign hover = s.icon_hover_color | default: icon
+-%}
+<style>
+  #shopify-section-{{ section.id }} { display: none !important; }
+  header-inner .header__action .header-icon,
+  header-inner .header__action .header-icon > svg{% if s.menu_button %},
+  header-inner .nav-toggle,
+  header-inner .nav-toggle svg{% endif %} {
+    color: {{ icon }} !important;
+    transition: color .2s ease;
+  }
+  @media (hover: hover) {
+    header-inner .header__action .header-icon:hover,
+    header-inner .header__action .header-icon:hover > svg{% if s.menu_button %},
+    header-inner .nav-toggle:hover,
+    header-inner .nav-toggle:hover svg{% endif %} { color: {{ hover }} !important; }
+  }
+</style>
+
+{% schema %}
+{
+  "name": "Header icon colour",
+  "tag": "section",
+  "class": "space-header-icons-section",
+  "limit": 1,
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Colours the header's search, account, wishlist and cart icons, and the menu button on phones. The menu words keep the header's colour."
+    },
+    {
+      "type": "color",
+      "id": "icon_color",
+      "label": "Icons",
+      "default": "#e0201b"
+    },
+    {
+      "type": "color",
+      "id": "icon_hover_color",
+      "label": "Icons on hover",
+      "default": "#ff4b45"
+    },
+    {
+      "type": "checkbox",
+      "id": "menu_button",
+      "label": "Colour the menu button on phones too",
+      "default": true
+    }
+  ],
+  "presets": [
+    {
+      "name": "Header icon colour",
+      "category": "Space"
+    }
+  ]
+}
+{% endschema %}

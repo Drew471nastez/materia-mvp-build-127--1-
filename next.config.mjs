@@ -201,6 +201,16 @@ const nextConfig = {
     */
     '/api/themes/**': ['./theme-packages/**/*'],
     /*
+      THEME RELEASES read the same files: /admin/themes publishes a release
+      from the code (app/api/admin/themes/releases), and Update composes a
+      template's base and overlay (app/api/website-builder/themes/[id]/update,
+      lib/themes/releases-server.ts). On Vercel each area is one folded entry
+      (/api/admin/[...__fold], /api/website-builder/[...__fold]), which only
+      an area glob matches.
+    */
+    '/api/admin/**': ['./theme-packages/**/*'],
+    '/api/website-builder/**': ['./theme-packages/**/*'],
+    /*
       THE INVOICE'S TYPEFACE. lib/checkout/invoice.ts reads Inter from
       lib/checkout/fonts by path, which tracing cannot see, for every route
       that draws one: the download, and the three that email the receipt
