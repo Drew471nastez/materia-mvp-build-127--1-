@@ -16,7 +16,8 @@
 import * as React from "react"
 import { usePathname } from "next/navigation"
 
-import { LIVE_SEND_EVERY_MS, type HostKind } from "@/lib/live/live"
+import { hasConsent } from "@/lib/consent/client"
+import { LIVE_SEND_EVERY_MS, liveSampleRate, sampledIn, type HostKind } from "@/lib/live/live"
 import { LIVE_EVENT, actionOfRequest, createLiveQueue, receiptTokenOf, sourceOf, tabSid, type LiveQueue } from "@/lib/live/live-client"
 
 const URL_PATH = "/api/live"
@@ -81,9 +82,12 @@ export function LiveBeacon({ host = "storelib" }: { host?: HostKind }) {
   React.useEffect(() => {
     if (!ready) return
     const main = (process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com").toLowerCase()
+    const sid = tabSid(storage(), random)
+    /* Sampled out (only ever below 1 when NEXT_PUBLIC_LIVE_ANON_SAMPLE says so): an anonymous tab sends nothing at all. */
+    if (!hasConsent("analytics") && !sampledIn(sid, liveSampleRate(process.env.NEXT_PUBLIC_LIVE_ANON_SAMPLE))) return
     const queue = createLiveQueue({
       now: Date.now,
-      sid: tabSid(storage(), random),
+      sid,
       host,
       source: sourceOf(document.referrer, location.href, [location.hostname.toLowerCase(), main]),
       app: inApp(),

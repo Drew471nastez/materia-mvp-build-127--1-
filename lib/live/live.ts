@@ -273,6 +273,30 @@ export function isSid(v: unknown): v is string {
   return typeof v === "string" && SID.test(v)
 }
 
+/**
+ * SAMPLING, THE SAME ANSWER IN THE BROWSER AND ON THE SERVER. With
+ * NEXT_PUBLIC_LIVE_ANON_SAMPLE below 1, an anonymous tab is kept when the
+ * FNV-1a hash of its id falls under the rate: the same tab is always in or
+ * always out, a tab that is out sends nothing at all (so it costs no
+ * request either), and the admin scales the counts back up.
+ */
+export function sampledIn(sid: string, rate: number): boolean {
+  if (!(rate < 1)) return true
+  if (!(rate > 0)) return false
+  let h = 0x811c9dc5
+  for (let i = 0; i < sid.length; i++) {
+    h ^= sid.charCodeAt(i)
+    h = Math.imul(h, 0x01000193) >>> 0
+  }
+  return h / 0x1_0000_0000 < rate
+}
+
+/** The rate from NEXT_PUBLIC_LIVE_ANON_SAMPLE: 1 (everyone) unless set to a number in (0, 1]. */
+export function liveSampleRate(raw: string | undefined): number {
+  const n = Number(raw)
+  return raw !== undefined && raw !== "" && Number.isFinite(n) && n > 0 && n <= 1 ? n : 1
+}
+
 /** What the admin shows for a session nobody is signed in to: "Visitor 4k2q". */
 export function shortSid(sid: string): string {
   return sid.slice(0, 4)

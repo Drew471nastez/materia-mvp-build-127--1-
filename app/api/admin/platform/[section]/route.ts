@@ -49,8 +49,8 @@ const VIEWS = [
   "audit",
   "system",
   "ops",
-  /* With no part, the console's "N on Storelib now"; with ?part=overview|sessions|session|feed, the Live view (round 62, part 477). */
   "live",
+  /* (live) With no part, the console's "N on Storelib now"; with ?part=overview|sessions|session|feed, the Live view (round 62, part 477). */
   /* Creator activity (round 59, part 430): ?part=online|summary|feed|creator. */
   "activity",
 ] as const

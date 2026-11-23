@@ -102,9 +102,11 @@ export async function namesFor(reads: LiveReads, userIds: string[]): Promise<Map
   const ids = [...new Set(userIds.filter((u) => UUID_RE.test(u)))].slice(0, 200)
   const out = new Map<string, Named>()
   if (!ids.length) return out
+  /* The service role, behind the admin's lock: the address is read here and only ever shown masked. */
+  const db = reads.r.db
   const [profiles, creators] = await Promise.all([
-    reads.ask("live names", "profiles", () => reads.r.db.from("profiles").select("id, display_name, email").in("id", ids)),
-    reads.ask("live creators", "creators", () => reads.r.db.from("creators").select("id, user_id").in("user_id", ids)),
+    reads.ask("live names", "profiles", () => db.from("profiles").select("id, display_name, email").in("id", ids)),
+    reads.ask("live creators", "creators", () => db.from("creators").select("id, user_id").in("user_id", ids)),
   ])
   const creatorOf = new Map<string, string>()
   for (const c of (creators.data ?? []) as { id: string; user_id: string }[]) if (!creatorOf.has(c.user_id)) creatorOf.set(c.user_id, c.id)

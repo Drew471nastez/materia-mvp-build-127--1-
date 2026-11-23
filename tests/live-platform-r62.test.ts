@@ -260,6 +260,10 @@ async function main() {
     check("an order that is not paid is not a purchase", !JSON.stringify((notPaid.args as { p_events: unknown }).p_events).includes("order.paid"))
     check("the IP address is never sent to the database", !JSON.stringify(yes.args).includes("x-forwarded-for") && !Object.keys(yes.args ?? {}).some((k) => /ip/i.test(k.replace("p_", ""))))
     check("sampling is stable per tab and keeps everyone at 1", sampledIn("abcdefgh12345678", 1) && sampledIn("abcdefgh12345678", 0.5) === sampledIn("abcdefgh12345678", 0.5) && !sampledIn("abcdefgh12345678", 0))
+    let kept = 0
+    for (let i = 0; i < 10_000; i++) if (sampledIn(newSid((n) => crypto.getRandomValues(new Uint8Array(n))), 0.1)) kept++
+    check("a 10% sample keeps about one tab in ten", kept > 700 && kept < 1300, kept)
+    check("a sampled-out anonymous tab's beacon sends nothing at all, the same test as the server", /!hasConsent\("analytics"\) && !sampledIn\(sid, liveSampleRate\(process\.env\.NEXT_PUBLIC_LIVE_ANON_SAMPLE\)\)\) return/.test(read("components/platform/live-beacon.tsx")) && /liveSampleRate\(process\.env\.NEXT_PUBLIC_LIVE_ANON_SAMPLE\)/.test(read("lib/live/live-server.ts")))
     const outOf = await ingestLive(db, { ...base, body: { v: 1, s: "zzzzzzzzzzzzzzzz", e: [[0, "p", "/"]] }, cookie: () => undefined, sample: 0.000001 })
     check("a sampled-out anonymous tab costs no call", outOf.outcome === "sampled_out")
   }

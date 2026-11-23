@@ -23,16 +23,15 @@ import "server-only"
  *      kept as the order's id; the token itself is never stored
  *   9. ONE call: part 477's `platform_live_ingest`
  *
- * SAMPLING. With LIVE_ANON_SAMPLE below 1 (an environment variable, 1 by
- * default), anonymous tabs are kept by a stable hash of their id: the same
- * tab is always in or always out, and the admin scales the counts it shows.
- * Signed in and consenting tabs are always kept. It is the lever for 10,000
- * people online at once (the report has the numbers).
+ * SAMPLING. With NEXT_PUBLIC_LIVE_ANON_SAMPLE below 1 (1 by default),
+ * anonymous tabs are kept by a stable hash of their id (lib/live/live
+ * sampledIn): the beacon of a tab that is out sends nothing, and the server
+ * drops one that slipped through. The admin scales the counts it shows.
+ * Consenting tabs are always kept. It is the lever for 10,000 people online
+ * at once (the report has the numbers).
  *
  * Never throws: the route answers 204 whatever happened.
  */
-import { createHash } from "node:crypto"
-
 import { loggable } from "@/lib/admin/plain-reason"
 import { countryOf, deviceOf } from "@/lib/activity/creator-activity"
 import { isMissingActivity } from "@/lib/activity/creator-activity-server"
@@ -41,7 +40,9 @@ import { CONSENT_COOKIE, allows, parse } from "@/lib/consent/consent"
 import { carriesSignIn } from "@/lib/auth/no-session-paths"
 import { rememberRung, rememberedRung } from "@/lib/supabase/missing-memory"
 
-import { LIVE_PRESENCE_EVERY_MS, parseLiveBatch, type HostKind, type LiveEvent } from "./live"
+import { LIVE_PRESENCE_EVERY_MS, liveSampleRate, parseLiveBatch, sampledIn, type HostKind, type LiveEvent } from "./live"
+
+export { sampledIn }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -113,17 +114,9 @@ export function mayLink(consentCookie: string | undefined, headers: Headers, now
   return allows(parse(consentCookie, now), "analytics") && !optedOut(headers)
 }
 
-/** Kept when its hash falls under the rate: stable per tab. */
-export function sampledIn(sid: string, rate: number): boolean {
-  if (!(rate < 1)) return true
-  if (!(rate > 0)) return false
-  const n = createHash("sha256").update(sid).digest().readUInt32BE(0)
-  return n / 0x1_0000_0000 < rate
-}
-
+/** The same variable the beacon reads, so a tab the browser leaves out is one the server would too. */
 export function sampleRate(): number {
-  const raw = Number(process.env.LIVE_ANON_SAMPLE)
-  return Number.isFinite(raw) && raw > 0 && raw <= 1 ? raw : 1
+  return liveSampleRate(process.env.NEXT_PUBLIC_LIVE_ANON_SAMPLE)
 }
 
 /** The host a creator's website was opened on; Storelib's own is not kept. */

@@ -33,7 +33,7 @@ const out = mkdtempSync(join(tmpdir(), "storelib-live-beacon-"))
 const esbuild = (args) => execFileSync("npx", ["--no-install", "esbuild", ...args], { cwd: root, stdio: ["ignore", "ignore", "inherit"] })
 esbuild([
   join(root, "scripts/render-live-beacon-r62.tsx"), "--bundle", "--format=iife", "--platform=browser", "--jsx=automatic", "--log-level=error",
-  `--outfile=${join(out, "probe.js")}`, '--define:process.env.NODE_ENV="production"', '--define:process.env.NEXT_PUBLIC_MAIN_DOMAIN="storelib.com"', `--alias:@=${root}`,
+  `--outfile=${join(out, "probe.js")}`, '--define:process.env.NODE_ENV="production"', '--define:process.env.NEXT_PUBLIC_MAIN_DOMAIN="storelib.com"', '--define:process.env.NEXT_PUBLIC_LIVE_ANON_SAMPLE=undefined', `--alias:@=${root}`,
   `--alias:next/navigation=${join(root, "scripts/render-live-beacon-r62-navigation.ts")}`,
 ])
 writeFileSync(join(out, "empty.mjs"), "export {}\n")
