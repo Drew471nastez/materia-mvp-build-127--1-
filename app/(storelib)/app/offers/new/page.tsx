@@ -1,9 +1,7 @@
 import type { Metadata } from "next"
-import { OfferEditor } from "../offer-editor"
-import { loadOfferArea } from "../load-offers"
 import type { OfferKind } from "@/lib/offers/offers"
 import { getServerTt } from "@/lib/i18n/server"
-import { noStorePage } from "@/lib/team/server"
+import { OffersScreen } from "../offers-screen"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -15,30 +13,14 @@ export async function generateMetadata(): Promise<Metadata> {
 
 const KINDS: readonly OfferKind[] = ["bundle", "checkout", "quantity_break"]
 
-/** A new offer, `?kind=bundle`, `checkout` (an upsell) or `quantity_break`; with no kind (New offer) the page asks which first. */
+/**
+ * Round 58: /app/offers/new is the list with the New offer modal open over
+ * it, so every link that points here still works. `?kind=bundle`,
+ * `checkout` (an upsell) or `quantity_break` starts on that kind's form;
+ * with no kind the modal asks which first.
+ */
 export default async function NewOfferPage({ searchParams }: { searchParams: Promise<{ kind?: string }> }) {
   const { kind } = await searchParams
-  const load = await loadOfferArea()
-  if (load.state === "signed-out") return null
-  if (load.state === "no-creator") return noStorePage("/app/offers/new")
-  const a = load.area
-  const given = KINDS.includes(kind as OfferKind)
-  const start = given ? (kind as OfferKind) : "bundle"
-  return (
-    <OfferEditor
-      key={start}
-      offer={null}
-      kind={start}
-      products={a.products}
-      collections={a.collections}
-      others={a.offers}
-      currency={a.currency}
-      physical={a.physical}
-      ready={a.ready}
-      settingsReady={a.settings}
-      breaksReady={a.breaks}
-      sold={0}
-      askKind={!given}
-    />
-  )
+  const given = KINDS.includes(kind as OfferKind) ? (kind as OfferKind) : null
+  return OffersScreen({ from: "/app/offers/new", opening: { new: true, kind: given } })
 }

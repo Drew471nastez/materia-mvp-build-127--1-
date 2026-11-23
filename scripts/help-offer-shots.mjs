@@ -101,8 +101,23 @@ window.__rect = (els, pad = 12) => {
 `
 const sel = (...selectors) => (p) => p.evaluate((s) => window.__rect(s.map((x) => document.querySelector(x)), 16), selectors)
 const O = (n) => `a1000000-0000-4000-8000-00000000000${n}`
-/* An offer's own page (/app/offers/new, /app/offers/<id>) as a computer draws it from 1024px: header, two columns and the foot bar with Cancel and Save. */
-const editor = (p) => p.evaluate(() => window.__rect([document.querySelector("[data-offer-editor]")], 0))
+/* Round 58: an offer opens in a modal over the list (app/(storelib)/app/offers/offer-editor.tsx). The picture is the dialog, let out to its whole height so every field the article names is in it. */
+const editor = (p) => p.evaluate(() => {
+  window.scrollTo(0, 0)
+  const d = document.querySelector("[data-offer-editor]")?.closest("[role=dialog]")
+  if (d) {
+    d.style.maxHeight = "none"
+    /* Centred on its middle: put at the top of the window instead, so all of it is in the picture. */
+    d.style.top = "24px"
+    d.style.translate = "-50% 0"
+    d.style.transform = "none"
+    for (const b of d.querySelectorAll("[data-offer-body]")) {
+      b.scrollTop = 0
+      b.style.overflow = "visible"
+    }
+  }
+  return window.__rect([d], 0)
+})
 /* Round 42: where it shows, the dates and the limits fold under More options; a picture of a saved offer opens it, so the article's words are in it. */
 const openMore = async (p) => { await p.evaluate(() => document.querySelector("[data-offer-more] > button")?.click()); await wait(300) }
 
@@ -110,15 +125,10 @@ const SHOTS = [
   { name: "offers-list", view: "list", width: 1200, height: 760, clip: sel("#shot h1", "[data-offers-card]") },
   { name: "offers-list-phone", view: "list", width: 390, height: 844, phone: true, clip: sel("#shot h1", "[data-offers-card]") },
   { name: "offers-empty", view: "empty", width: 1100, height: 700, clip: sel("#shot h1", "[data-offers-card]") },
-  { name: "offer-new", view: "new", q: "kind=bundle", width: 1100, height: 1400, clip: editor },
-  { name: "offer-upsell-editor", view: "offer", q: `id=${O(2)}`, width: 1100, height: 1600, act: [openMore], clip: editor },
-  { name: "offer-bundle-editor", view: "offer", q: `id=${O(1)}`, width: 1100, height: 1400, act: [openMore], clip: editor },
-  { name: "offer-quantity-break-editor", view: "offer", q: `id=${O(3)}`, width: 1100, height: 1600, act: [openMore], clip: editor },
-  {
-    name: "offer-try-cart", view: "offer", q: `id=${O(3)}`, width: 1100, height: 1600,
-    act: [async (p) => { await p.evaluate(() => document.querySelector("[data-try-price]")?.click()); await wait(900) }],
-    clip: (p) => p.evaluate(() => window.__rect([document.querySelector("[data-try-cart]")], 6)),
-  },
+  { name: "offer-new", view: "new", q: "kind=bundle", width: 1100, height: 1400, clip: editor, el: "[role=dialog]" },
+  { name: "offer-upsell-editor", view: "offer", q: `id=${O(2)}`, width: 1100, height: 1600, act: [openMore], clip: editor, el: "[role=dialog]" },
+  { name: "offer-bundle-editor", view: "offer", q: `id=${O(1)}`, width: 1100, height: 1400, act: [openMore], clip: editor, el: "[role=dialog]" },
+  { name: "offer-quantity-break-editor", view: "offer", q: `id=${O(3)}`, width: 1100, height: 1600, act: [openMore], clip: editor, el: "[role=dialog]" },
   { name: "product-page-offers", view: "product", width: 1100, height: 1200, settle: 1800, clip: sel("#shot") },
   { name: "product-page-offers-phone", view: "product", width: 390, height: 844, phone: true, grow: false, settle: 1800, clip: sel("[data-offers-block]") },
   { name: "featured-products-offers", view: "featured", width: 1200, height: 1400, settle: 2400, clip: sel("#shot section") },
@@ -146,7 +156,8 @@ for (const s of SHOTS) {
       clip = await s.clip(page)
     }
     if (!clip || clip.width <= 0 || clip.height <= 0) throw new Error("nothing to crop to")
-    const png = await page.screenshot({ clip, type: "png", fullPage: true })
+    /* Round 58: the offer modal is taken as the element it is, not by a clip of the page under its overlay. */
+    const png = s.el ? await page.locator(s.el).first().screenshot({ type: "png" }) : await page.screenshot({ clip, type: "png", fullPage: true })
     const file = join(dest, `${s.name}.webp`)
     const info = await sharp(png).webp({ quality: 80, effort: 6 }).toFile(file)
     console.log(`ok   ${s.name} ${info.width}x${info.height} ${Math.round(info.size / 1024)}KB${errs.length ? "  errors: " + errs.join(" | ") : ""}`)

@@ -13,7 +13,7 @@
  *   What an offer takes    lib/offers/offers.ts (applyOffers, stackWithCode,
  *                          triggered, suggestionsFor, bundleCompletions)
  *   Quantity breaks        lib/offers/pricing.ts (tiers, blocks, labels)
- *   Try it in a cart       lib/offers/try-cart.ts (and its warnings)
+ *   Warnings               lib/offers/try-cart.ts offerWarnings
  *   What a page shows      lib/offers/offers-public.ts, /api/offers/cart
  *   The website            components/website-builder/sections/renderers/
  *                          product/offers-block.tsx, themes/default/sections/
@@ -73,14 +73,14 @@ const ARTICLES: Article[] = [
       shot("offers-empty", "Upsells and bundles with no offers yet: No offers yet, and the buttons Create bundle, Create upsell and Create quantity break."),
       { type: "h", text: "Open, save and go back" },
       { type: "list", items: [
-        "Press an offer's row, or Edit in its menu, and the offer opens on a page of its own. New offer starts with What do you want to make?: Quantity break, Bundle or Upsell, each with a line on what it does and a small drawing of how it looks. The rest of the page comes in once you pick one, and you can change it until you create the offer. Create bundle, Create upsell and Create quantity break start on that kind.",
+        "Press an offer's row, or Edit in its menu, and the offer opens in a window over the list (a sheet from the bottom on a phone). New offer asks which kind first, as Add product does: Bundle, Upsell or Quantity break, each with a line on what it does and a small drawing. Pick one and its form opens in the same window; the arrow at the top goes back to the kinds. Create bundle, Create upsell and Create quantity break start on that kind.",
         "A new offer starts with what most offers need: a name, the products and the discount, each already set to something sensible. Where it shows, the dates, the limit per order and the code rule are under More options, with what is set said in one line. It opens by itself when something there needs fixing.",
-        "On a computer the offer's name and status are at the top, its settings on the left, and Active, the Preview and Try it in a cart on the right. On a phone it's one column, with Cancel and Save in the bar at the top.",
-        "Press Save, or Create for a new offer. Ctrl or Cmd and S works too. You go back to Upsells and bundles, which says the offer was saved and highlights its row. On a saved offer, Save stays gray until you change something.",
+        "The form is one column: the name, the products, the discount (or the tiers), Active, then More options. Under the discount it says what a buyer pays, like The set costs $68.40 instead of $76.00. Cancel and Create (or Save) are at the foot.",
+        "Press Save, or Create for a new offer. Ctrl or Cmd and S works too. The window closes, Upsells and bundles says the offer was saved and highlights its row. On a saved offer, Save stays gray until you change something.",
         "If something needs fixing, the page says how many things and shows each one under its own field, saying what to do, like Tick 2 to 5 products for the bundle.",
-        "Under the preview, How bundles work (or quantity breaks, or upsells) opens the guide for that kind.",
-        "To leave without saving, press Cancel, or the arrow beside the name on a computer. With changes, it asks Discard changes? first, and Keep editing stays on the page. When nothing has changed the button says Back.",
-        "Delete offer is under the preview. It asks first, then goes back to the list.",
+        "Yellow notes under the discount say what to watch for before you save: a product that is a draft, a tier that costs more per item than the one before it, or another offer on the same products.",
+        "To leave without saving, press Cancel, the X or outside the window. With changes, it asks Discard changes? first, and Keep editing stays where you were.",
+        "Delete is at the foot of a saved offer's window. It asks first, then the offer leaves the list.",
       ] },
       { type: "h", text: "Which one to use" },
       { type: "list", items: [
@@ -112,16 +112,16 @@ const ARTICLES: Article[] = [
       shot("product-page-offers", "A website product page for the Speckled mug with a quantity break box, Buy more mugs, save more: Buy 1 at $32.00, Buy 2 get 1 free at $64.00 marked Most popular, and Buy 4, save 30% at $89.60. Under it the Breakfast set bundle and an apron upsell.", "The quantity break, a bundle and an upsell on one product page.", "product-page-offers-phone"),
       { type: "h", text: "Make a quantity break" },
       { type: "steps", items: [
-        "Open Products > Upsells and bundles and press New offer (or Create quantity break if you have no offers yet). The new offer opens on its own page.",
-        "Under What do you want to make?, choose Quantity break.",
+        "Open Products > Upsells and bundles and press New offer (or Create quantity break if you have no offers yet).",
+        "Pick Quantity break.",
         "Type the Name buyers see. It's the heading above the tiers, like Buy more mugs, save more.",
         "Under Applies to, pick the product. If you have collections, you can choose A collection instead: every product in it gets the same tiers, each at its own price.",
         "Set the tiers, pressing Add tier for each one after the first. Each has Buy (how many they pay for), Free (how many come free), and a Discount of None, Percent off or Amount off on the ones they pay for.",
         "Leave Label empty to use the tier's own words, like Buy 2 get 1 free, or type your own. Add a short Badge, like Most popular, to one tier if you want.",
-        "Check the Preview and press Price this cart under Try it in a cart. On a computer both are on the right.",
+        "Check the yellow notes, if there are any. Tier 3 costs more per item than tier 2 means a bigger tier is worse value.",
         "Press Create. You're back on Upsells and bundles, with the new offer in the list.",
       ] },
-      shot("offer-quantity-break-editor", "The page of the quantity break Buy more mugs, save more: the Speckled mug under Applies to, three tiers (Buy 1; Buy 2 get 1 free with the badge Most popular; Buy 4 with 30% off), Show it on Product page and Cart, and on the right Active, the preview with each tier's total, two warnings and Try it in a cart. Back and Save at the foot."),
+      shot("offer-quantity-break-editor", "The window of the quantity break Buy more mugs, save more: the Speckled mug under Applies to, three tiers (Buy 1; Buy 2 get 1 free with the badge Most popular; Buy 4 with 30% off), Show it on Product page and Cart, Active and More options open with Show it on, then Delete, Cancel and Save at the foot."),
       { type: "h", text: "The rules for tiers" },
       { type: "list", items: [
         "Up to six tiers. Buy is 1 to 99, Free is 0 to 10, a percent is up to 90.",
@@ -131,10 +131,9 @@ const ARTICLES: Article[] = [
       ] },
       { type: "h", text: "How units are counted" },
       { type: "p", text: "The cart is split into the biggest tier that fits, again and again, then the next one down. Units that fit no tier pay full price. With tiers of 2 + 1 free and 3 + 2 free, five mugs are one 3 + 2 block, so the buyer pays for 3. Eight mugs are a 3 + 2 block and a 2 + 1 block, so they pay for 5. When the units have different prices, the free ones are the cheapest." },
-      { type: "h", text: "Try it before you save" },
-      { type: "p", text: "Try it in a cart starts with the units of your last tier. Change the number, press Price this cart, and you see what the checkout would take off and which tier did it. It uses your other offers too, so you see what really happens." },
-      shot("offer-try-cart", "Try it in a cart with 4 Speckled mugs: Buy 4, save 30% takes $38.40 off, so $128 becomes $89.60. Total, $38.40 off."),
-      { type: "note", text: "Watch the yellow notes under the preview. Tier 3 costs more per item than tier 2 means a bigger tier is worse value: in the picture above, 3 mugs for $64.00 is $21.33 each but 4 for $89.60 is $22.40 each. Raise the bigger tier's discount until it costs less per item." },
+      { type: "h", text: "Check it before you save" },
+      { type: "p", text: "Each tier's own words, like Buy 2 get 1 free, are what the product page shows when Label is empty. The product page and the checkout work out every price from the same formula, so a tier's total there is the total the buyer pays." },
+      { type: "note", text: "Watch the yellow notes. Tier 3 costs more per item than tier 2 means a bigger tier is worse value: 3 mugs for $64.00 is $21.33 each but 4 for $89.60 is $22.40 each. Raise the bigger tier's discount until it costs less per item." },
     ],
   },
   {
@@ -147,16 +146,16 @@ const ARTICLES: Article[] = [
       { type: "p", text: "A bundle is a set of two to five of your products at a better price together. Each product's page shows the set, its price together and Add all to cart. A buyer who has only part of the set in the cart is shown the rest, with what they'd save." },
       { type: "h", text: "Make a bundle" },
       { type: "steps", items: [
-        "Open Products > Upsells and bundles and press New offer (or Create bundle). The new offer opens on its own page.",
-        "Under What do you want to make?, choose Bundle.",
+        "Open Products > Upsells and bundles and press New offer (or Create bundle).",
+        "Pick Bundle.",
         "Type the Name buyers see, like Breakfast set.",
         "Under Products in the bundle, tick two to five products.",
         "Choose the Discount: Percent comes off every product in each complete set, Amount comes off each complete set, and None shows the set at its normal price. Free shipping, where selling things that ship is available, makes the whole order ship free once the set is in the cart.",
         "Product page and Cart are both ticked. To change that, open More options and use Show it on.",
-        "Check the Preview. It shows the set's price with the full price struck through.",
+        "Under the discount it says what the set costs, like The set costs $68.40 instead of $76.00.",
         "Press Create. You're back on Upsells and bundles, with the new bundle in the list.",
       ] },
-      shot("offer-new", "The New offer page with Bundle chosen: Name buyers see, Products in the bundle with four products to tick, Discount set to 10 percent off every product in each complete set, Show it on Product page and Cart, Dates and limits, Active and the Preview on the right, and Cancel and Create at the foot."),
+      shot("offer-new", "The New bundle window: Name buyers see, Products in the bundle with four products to tick, Discount set to 10 percent off every product in each complete set, Active, More options folded with Shown on product page and cart, and Cancel and Create at the foot."),
       { type: "h", text: "What the buyer sees" },
       { type: "list", items: [
         "On each product's page: the products in the set, This item first, then Together with both prices and Add all to cart. The product the buyer is on goes in with the option they picked; another product with options gets a small choice of its own.",
@@ -166,7 +165,7 @@ const ARTICLES: Article[] = [
       shot("cart-page-offers", "The website cart page with three Speckled mugs. Under them: Breakfast set, add the Serving bowl and save $7.60 on the set; and Add an apron at $33.00 instead of $38.00. The summary shows Buy 2 get 1 free, minus $32.00."),
       { type: "h", text: "Good to know" },
       { type: "list", items: [
-        "Every complete set gets the discount: two mugs and two bowls are two sets. Set Discounted sets per order under More options, Dates and limits, to stop at a number.",
+        "Every complete set gets the discount: two mugs and two bowls are two sets. Set Discounted sets per order under More options to stop at a number.",
         "An amount off is shared across the set's products by their price.",
         "A pay what you want product can be in a bundle. It counts toward the set, but its price is never discounted: the rest of the set takes the discount.",
         "A bundle shows only while every product in it is published.",
@@ -184,8 +183,8 @@ const ARTICLES: Article[] = [
       { type: "p", text: "An upsell suggests one product to someone already buying, at a lower price. It shows on a product page under the buy buttons, in the cart, and at checkout under Add to your order. One press adds it, and the checkout takes the discount off while the cart still qualifies." },
       { type: "h", text: "Make an upsell" },
       { type: "steps", items: [
-        "Open Products > Upsells and bundles and press New offer (or Create upsell). The new offer opens on its own page.",
-        "Under What do you want to make?, choose Upsell.",
+        "Open Products > Upsells and bundles and press New offer (or Create upsell).",
+        "Pick Upsell.",
         "Type the Name buyers see. It's the line above the product, like Add an apron.",
         "Under Product to offer, pick one product.",
         "Under Show it when the cart has, choose Anything, Certain products, or A collection (when you have collections), and tick the ones that should bring it up.",
@@ -194,7 +193,7 @@ const ARTICLES: Article[] = [
         "Product page, Cart and Checkout are all ticked. To change that, open More options and use Show it on.",
         "Press Create. You're back on Upsells and bundles, with the new upsell in the list.",
       ] },
-      shot("offer-upsell-editor", "The page of the upsell Add an apron: the Linen apron as the product to offer, shown when the cart has the Speckled mug or the Serving bowl and the rest of the order is at least $30.00, $5.00 off, shown on product page, cart and checkout, with a preview at $33 instead of $38 on the right."),
+      shot("offer-upsell-editor", "The window of the upsell Add an apron: the Linen apron as the product to offer, shown when the cart has the Speckled mug or the Serving bowl and the rest of the order is at least $30.00, $5.00 off, shown on product page, cart and checkout, with the line Linen apron is added for $33 instead of $38."),
       { type: "h", text: "Upsell or cross sell" },
       { type: "p", text: "They're the same offer. Anything suggests the product to every cart. Certain products or A collection makes it a cross sell: an apron for people buying mugs, a case for people buying a camera. On a product page, an upsell shows only on the pages of the products that bring it up (every page, with Anything)." },
       { type: "h", text: "Where buyers see it" },
@@ -207,7 +206,7 @@ const ARTICLES: Article[] = [
       shot("checkout-offers", "The website checkout's order summary: three Speckled mugs and a Serving bowl, then Add an apron at $33.00 instead of $38.00 with an Add button, then the savings lines Breakfast set minus $7.60 and Buy 2 get 1 free minus $32.00, Shipping $6.00, Total due $106.40."),
       { type: "h", text: "Limits" },
       { type: "list", items: [
-        "By default one unit of the product gets the discount. Change Discounted items per order under More options, Dates and limits, for more.",
+        "By default one unit of the product gets the discount. Change Discounted items per order under More options for more.",
         "The discount stays only while the cart still has what brought the upsell up. Remove the mug and the apron goes back to its own price.",
         "A pay what you want product can be offered, but its price is never discounted.",
       ] },
@@ -295,9 +294,9 @@ const ARTICLES: Article[] = [
         "Turn it off and a buyer with a code gets whichever saves more on the whole order: the code, or the offer. When the offer wins, checkout says the code can't be used with that offer, which already saves more on this order.",
         "Nothing ever takes an item below zero.",
       ] },
-      shot("offer-bundle-editor", "The page of the Breakfast set bundle: the Speckled mug and the Serving bowl ticked, 10% off, and under Dates and limits the Starts and Ends fields, Discounted sets per order and the switch Discount codes can be used too. On the right the Active switch and a preview of the set at $68.40 instead of $76.00."),
+      shot("offer-bundle-editor", "The window of the Breakfast set bundle: the Speckled mug and the Serving bowl ticked, 10% off, and under More options the Starts and Ends fields, Discounted sets per order and the switch Discount codes can be used too. The set costs $68.40 instead of $76.00, and the Active switch."),
       { type: "h", text: "Dates" },
-      { type: "p", text: "Under More options, Dates and limits, Starts and Ends are optional. Before the start an offer is Scheduled, after the end it's Ended: either way it neither shows nor applies. Turn an offer off without deleting it: Turn off in its menu in the list, or the Active switch on its page, then Save. Deleting stops it at once, and orders already placed keep their discount." },
+      { type: "p", text: "Under More options, Starts and Ends are optional. Before the start an offer is Scheduled, after the end it's Ended: either way it neither shows nor applies. Turn an offer off without deleting it: Turn off in its menu in the list, or the Active switch in its window, then Save. Deleting stops it at once, and orders already placed keep their discount." },
       { type: "h", text: "Currency" },
       { type: "list", items: [
         "You type amounts in your store's currency, set in Settings.",
@@ -330,7 +329,7 @@ const ARTICLES: Article[] = [
       { type: "h", text: "Why did the buyer pay full price for a bundle?" },
       { type: "p", text: "A bundle applies only to complete sets: one of each product in it. Two of the same product and none of the other is no set. Also check Discounted sets per order, and whether another offer saved more on those items." },
       { type: "h", text: "Why does my quantity break say a tier costs more per item?" },
-      { type: "p", text: "A bigger tier is worse value than a smaller one: buyers who take more would pay more each. Raise the bigger tier's discount, or give it more free units, until its price per item is lower. The preview shows each tier's total." },
+      { type: "p", text: "A bigger tier is worse value than a smaller one: buyers who take more would pay more each. Raise the bigger tier's discount, or give it more free units, until its price per item is lower. The product page shows each tier's total." },
       { type: "h", text: "Why didn't a quantity break and a bundle both apply to the same item?" },
       { type: "p", text: "Each item gets one offer, the one that saves more on it. The editor warns you when a product is in two offers. To change which bundle or upsell goes first, use Move up and Move down." },
       { type: "h", text: "Why was a discount code refused?" },
