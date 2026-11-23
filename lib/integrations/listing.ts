@@ -9,13 +9,14 @@
  * installed page lists (what is synced, recent activity). Read by
  * components/app/integrations/* and tests/apps-pages-r58.test.ts.
  *
- * MEDIA. Every entry has a typed `video` that is null until someone has
- * checked a YouTube ID against the provider's own channel: an ID is never
- * guessed. The round 58 check could not reach youtube.com or the providers'
- * sites from its session, so none is filled in yet; the gallery draws
- * Storelib's own illustrations of what the integration does here, which
- * need no rights. A screenshot is only ever a file in /public with its
- * source noted where it is listed.
+ * MEDIA (round 60). Each integration's demo video and up to three more,
+ * every one checked against the provider's own YouTube channel with
+ * YouTube's oEmbed (lib/integrations/videos.ts, with the date it was
+ * checked): an ID is never guessed. The gallery shows them by their own
+ * YouTube thumbnails, loaded from i.ytimg.com when the page is shown; with
+ * none it draws Storelib's own illustrations of what the integration does
+ * here, which need no rights. A screenshot is only ever a file in /public
+ * with its source noted where it is listed.
  *
  * Every word here is a fact the catalog already holds (lib/integrations
  * catalog.ts, lib/integrations/detail-actions.ts) or the hint the key field
@@ -28,16 +29,9 @@
 import { CATEGORY_NAMES, type Integration } from "@/lib/integrations/catalog"
 import { TRACKERS } from "@/lib/store/tracking"
 import { installVerb, oneTapInstall, setupSteps } from "@/lib/integrations/detail-actions"
+import { GALLERY_VIDEOS, VERIFIED_VIDEOS, type VerifiedVideo } from "@/lib/integrations/videos"
 
-/** A YouTube video someone checked: the ID, its title, the channel it is on and when it was checked. */
-export interface VerifiedVideo {
-  youtubeId: string
-  title: string
-  /** The provider's own channel, by name, as YouTube shows it. */
-  channel: string
-  /** YYYY-MM-DD. */
-  checked: string
-}
+export { GALLERY_VIDEOS, VERIFIED_VIDEOS, type VerifiedVideo }
 
 /** A picture in /public that Storelib may show, and where it came from. */
 export interface AppScreenshot {
@@ -52,23 +46,27 @@ export type SceneKind = "orders" | "labels" | "shipments" | "subscribers" | "pix
 
 export interface AppMedia {
   video: VerifiedVideo | null
+  /** More checked videos from the provider, shown as thumbnail tiles. */
+  more: VerifiedVideo[]
   screenshots: AppScreenshot[]
   scene: SceneKind
 }
-
-/**
- * VERIFIED VIDEOS, by catalog id. Empty on purpose (round 58): an ID goes
- * here only once it has been opened on youtube.com and seen on the
- * provider's own channel. The candidates found by search are in the round
- * 58 report, unverified.
- */
-export const VERIFIED_VIDEOS: Partial<Record<string, VerifiedVideo>> = {}
 
 /** Pictures by catalog id. Empty: no press kit image was reachable to check its terms (round 58). */
 export const SCREENSHOTS: Partial<Record<string, AppScreenshot[]>> = {}
 
 /** An 11 character YouTube ID, and nothing else. */
 export const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/
+
+/**
+ * A video's own thumbnail on YouTube's image host, loaded when the page is
+ * shown and never copied into /public. maxresdefault is 1280x720, 16:9, with
+ * no bars; every checked ID's answered 200 the day it was checked.
+ */
+export function youtubeThumbUrl(id: string): string | null {
+  if (!YOUTUBE_ID.test(id)) return null
+  return `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`
+}
 
 /** The privacy-enhanced embed, only for a well formed ID; null for anything else. */
 export function youtubeEmbedUrl(id: string, autoplay = true): string | null {
@@ -92,7 +90,8 @@ export function sceneFor(item: Integration): SceneKind {
 }
 
 export function mediaFor(item: Integration): AppMedia {
-  return { video: VERIFIED_VIDEOS[item.id] ?? null, screenshots: SCREENSHOTS[item.id] ?? [], scene: sceneFor(item) }
+  const video = item.comingSoon || item.kind === "listed" ? null : (VERIFIED_VIDEOS[item.id] ?? null)
+  return { video, more: video ? (GALLERY_VIDEOS[item.id] ?? []) : [], screenshots: SCREENSHOTS[item.id] ?? [], scene: sceneFor(item) }
 }
 
 /** How the page installs it: one press, the provider's own sign in, a sheet with steps, or a request to be told. */
@@ -183,6 +182,16 @@ export function descriptionOf(item: Integration): { lead: string; inStorelib: st
   const lead = item.lead ?? item.about[0] ?? item.summary
   const inStorelib = item.lead ? item.about : item.about.slice(1)
   return { lead, inStorelib }
+}
+
+/**
+ * MORE APPS LIKE THIS (round 60): up to three others in the same category
+ * that can be installed now, in the order the directory lists them. Only
+ * what the catalog holds (a name, what it does, its pricing line); no
+ * ratings, as Storelib has none.
+ */
+export function relatedOf(item: Integration, all: readonly Integration[], max = 3): Integration[] {
+  return all.filter((i) => i.id !== item.id && i.category === item.category && !i.comingSoon && i.kind !== "listed" && !i.paused).slice(0, max)
 }
 
 /** One row of the listing's facts column. */

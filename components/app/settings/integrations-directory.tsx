@@ -660,6 +660,7 @@ export function IntegrationsDirectory({ page = false, only = null, initial: serv
       /* No page title above it (round 27): the page starts with Back, under a little room of its own. */
       <div ref={root} data-integrations="" data-integrations-view="page" className={cn("scroll-mt-4", page && "pt-3 sm:pt-5")}>
         <IntegrationDetail
+          key={current.id}
           item={current}
           status={statusOf(current)}
           installed={installed(current)}
@@ -690,6 +691,8 @@ export function IntegrationsDirectory({ page = false, only = null, initial: serv
           }}
           onBack={only ? undefined : () => open(null)}
           pin={page}
+          others={shownAll}
+          onOpen={only ? undefined : (id) => open(id)}
         />
       </div>
     )
