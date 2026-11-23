@@ -300,6 +300,9 @@ const KNOWN_ISSUES: Record<string, string> = {}
 const DRAWS_NOTHING_ALONE: Record<string, string> = {
   /* Changed on purpose (templates round 19): Night shop's sky is a fixed layer behind the whole page, drawn by its script; the section itself has no height. */
   "space-starfield": "the night sky is a fixed background behind every page, drawn by its script, and takes no room of its own",
+  /* Changed on purpose (templates round 23): XP shop's wallpaper is a pinned layer behind the windows, and Sample packs' play centring is a style for the players other sections draw. */
+  "xpshop-wallpaper": "the wallpaper is a photograph pinned behind every window, and with no photograph chosen there is nothing to pin",
+  "samples-play-icon": "it only sets where the play sign sits in the round players that other sections draw, and takes no room of its own",
 }
 
 async function main() {
@@ -357,7 +360,8 @@ async function main() {
       for (const [k, v] of Object.entries(sec.settings ?? {})) if (/^(end_iso|countdown_date|end_date|deadline)$/.test(k) && typeof v === "string" && v.trim() !== "") promises.push(`${f}: ${sec.type} counts down to ${v}`)
       for (const b of Object.values(sec.blocks ?? {})) {
         if (b.type === "in_stock") promises.push(`${f}: an "In stock, receive it by" line that reads no stock and promises a date`)
-        if (/^(stock_counter|visitors?|viewers?|sold_count|fake_order|urgency)/.test(b.type)) promises.push(`${f}: ${b.type}`)
+        /* Changed on purpose (product page round 23): a Sold counter that reads the product's own count, verified from paid orders (lib/products/sold-counts-server.ts), is real proof; one with a typed number is still made up. */
+        if (/^(stock_counter|visitors?|viewers?|sold_count|fake_order|urgency)/.test(b.type) && !(b.type === "sold_counter" && b.settings?.sold_source === "product")) promises.push(`${f}: ${b.type}`)
         for (const [k, v] of Object.entries(b.settings ?? {})) if (/^(end_iso|countdown_date|end_date|deadline)$/.test(k) && typeof v === "string" && v.trim() !== "") promises.push(`${f}: ${sec.type} ${b.type} counts down to ${v}`)
       }
     }

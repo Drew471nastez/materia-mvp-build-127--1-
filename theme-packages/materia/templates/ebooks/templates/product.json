@@ -37,18 +37,18 @@
           "type": "title",
           "settings": {
             "show_vendor": false,
-            "title_font_size_desktop": 38,
-            "title_font_size_mobile": 28
+            "title_font_size_desktop": 40,
+            "title_font_size_mobile": 30
           }
         },
         "price_1": {
           "type": "price",
           "settings": {
-            "price_font_size_desktop": 17,
-            "price_font_size_mobile": 16,
-            "price_font_weight": "500",
-            "compare_font_size_desktop": 16,
-            "compare_font_size_mobile": 14,
+            "price_font_size_desktop": 26,
+            "price_font_size_mobile": 22,
+            "price_font_weight": "600",
+            "compare_font_size_desktop": 18,
+            "compare_font_size_mobile": 15,
             "compare_font_weight": "400"
           }
         },
@@ -67,7 +67,7 @@
             "show_dynamic_checkout": true,
             "show_quantity": true,
             "buttons_full_width": true,
-            "quantity_right_of_atc": true,
+            "quantity_right_of_atc": false,
             "show_wishlist_button": false,
             "atc_appearance": "theme",
             "buy_appearance": "theme",
@@ -122,20 +122,6 @@
             "share_copied_label": "Link copied"
           }
         },
-        "rating": {
-          "type": "simple_rating",
-          "settings": {
-            "text": "Sample rating, replace with your own",
-            "total_stars": 5,
-            "filled_stars": 5,
-            "star_size": 16,
-            "font_size_desktop": 14,
-            "font_size_mobile": 13,
-            "filled_color": "#c8643c",
-            "padding_top": 0,
-            "padding_bottom": 4
-          }
-        },
         "included": {
           "type": "whats_included",
           "settings": {
@@ -147,32 +133,79 @@
             "spacing_bottom": 8
           }
         },
-        "points": {
-          "type": "guarantee_row",
+        "pp23_rating": {
+          "type": "product_reviews",
           "settings": {
-            "style": "plain",
-            "columns_mobile": "3",
-            "icon_1": "download",
-            "title_1": "Ebook at once",
-            "text_1": "In your inbox",
-            "icon_2": "truck",
-            "title_2": "Free shipping",
-            "text_2": "Print over $50",
-            "icon_3": "return",
-            "title_3": "30 day returns",
-            "text_3": "On printed books",
-            "spacing_top": 12,
-            "spacing_bottom": 8
+            "review_source": "product",
+            "review_label": "reviews",
+            "padding_top": 0,
+            "padding_bottom": 10,
+            "enable_counter_custom": false
+          }
+        },
+        "pp23_sold": {
+          "type": "sold_counter",
+          "settings": {
+            "sold_source": "product",
+            "refresh_sold_count": true,
+            "sold_label": "sold",
+            "show_live_dot": true,
+            "padding_top": 2,
+            "padding_bottom": 16,
+            "enable_counter_custom": false
+          }
+        },
+        "pp23_info": {
+          "type": "infotables",
+          "settings": {
+            "max_width": 760,
+            "center_card": false,
+            "section_pt_d": 6,
+            "section_pb_d": 22,
+            "section_pt_m": 6,
+            "section_pb_m": 18,
+            "pt_d": 16,
+            "pb_d": 16,
+            "pl_d": 20,
+            "pr_d": 20,
+            "pt_m": 14,
+            "pb_m": 14,
+            "pl_m": 16,
+            "pr_m": 16,
+            "font_size_d": 15,
+            "font_size_m": 14,
+            "line_height": 150,
+            "font_weight": 400,
+            "icon_gap": 16,
+            "icon_size": 22,
+            "border_style": "solid",
+            "divider_style": "solid",
+            "enable_custom_style": false,
+            "row1_enable": true,
+            "row2_enable": false,
+            "row3_enable": true,
+            "row1_highlight_weight": 600,
+            "row2_highlight_weight": 600,
+            "row3_highlight_weight": 600,
+            "row1_custom_icon": true,
+            "row2_custom_icon": false,
+            "row3_custom_icon": false,
+            "row1_lead": "Ebook:",
+            "row1_strong": "in your inbox straight after payment.",
+            "row1_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M12 3.5v11.5\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\"/><path d=\"m7.5 10.5 4.5 4.5 4.5-4.5\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M4 15.5v2.5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2.5\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\"/></svg>",
+            "row3_lead": "Hardback:",
+            "row3_strong": "free shipping over $50, 30 day returns."
           }
         }
       },
       "block_order": [
+        "pp23_rating",
         "title_1",
-        "rating",
         "price_1",
         "variant_picker_1",
         "buy_buttons_1",
-        "points",
+        "pp23_sold",
+        "pp23_info",
         "included",
         "collapsible_row_1",
         "collapsible_row_2",

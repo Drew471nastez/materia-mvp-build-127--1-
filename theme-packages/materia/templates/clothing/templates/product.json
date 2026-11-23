@@ -37,18 +37,18 @@
           "type": "title",
           "settings": {
             "show_vendor": false,
-            "title_font_size_desktop": 30,
-            "title_font_size_mobile": 24
+            "title_font_size_desktop": 34,
+            "title_font_size_mobile": 28
           }
         },
         "price_1": {
           "type": "price",
           "settings": {
-            "price_font_size_desktop": 17,
-            "price_font_size_mobile": 16,
+            "price_font_size_desktop": 24,
+            "price_font_size_mobile": 22,
             "price_font_weight": "500",
-            "compare_font_size_desktop": 16,
-            "compare_font_size_mobile": 14,
+            "compare_font_size_desktop": 18,
+            "compare_font_size_mobile": 15,
             "compare_font_weight": "400"
           }
         },
@@ -84,7 +84,7 @@
           "settings": {
             "show_add_to_cart": true,
             "show_dynamic_checkout": true,
-            "show_quantity": false,
+            "show_quantity": true,
             "buttons_full_width": true,
             "quantity_right_of_atc": false,
             "show_wishlist_button": false,
@@ -94,13 +94,6 @@
             "atc_icon": "bag",
             "buy_icon_enable": false,
             "show_gift_card_recipient": false
-          }
-        },
-        "text_2": {
-          "type": "text",
-          "settings": {
-            "heading": "",
-            "content": "<p>Delivered in 2 to 4 working days. Free returns within 30 days.</p>"
           }
         },
         "collapsible_row_1": {
@@ -147,16 +140,84 @@
             "share_copy_label": "Copy link",
             "share_copied_label": "Link copied"
           }
+        },
+        "pp23_rating": {
+          "type": "product_reviews",
+          "settings": {
+            "review_source": "product",
+            "review_label": "reviews",
+            "padding_top": 0,
+            "padding_bottom": 10,
+            "enable_counter_custom": false
+          }
+        },
+        "pp23_sold": {
+          "type": "sold_counter",
+          "settings": {
+            "sold_source": "product",
+            "refresh_sold_count": true,
+            "sold_label": "sold",
+            "show_live_dot": true,
+            "padding_top": 2,
+            "padding_bottom": 16,
+            "enable_counter_custom": false
+          }
+        },
+        "pp23_info": {
+          "type": "infotables",
+          "settings": {
+            "max_width": 760,
+            "center_card": false,
+            "section_pt_d": 6,
+            "section_pb_d": 22,
+            "section_pt_m": 6,
+            "section_pb_m": 18,
+            "pt_d": 16,
+            "pb_d": 16,
+            "pl_d": 20,
+            "pr_d": 20,
+            "pt_m": 14,
+            "pb_m": 14,
+            "pl_m": 16,
+            "pr_m": 16,
+            "font_size_d": 15,
+            "font_size_m": 14,
+            "line_height": 150,
+            "font_weight": 400,
+            "icon_gap": 16,
+            "icon_size": 22,
+            "border_style": "solid",
+            "divider_style": "solid",
+            "enable_custom_style": false,
+            "row1_enable": true,
+            "row2_enable": true,
+            "row3_enable": true,
+            "row1_highlight_weight": 600,
+            "row2_highlight_weight": 600,
+            "row3_highlight_weight": 600,
+            "row1_custom_icon": false,
+            "row2_custom_icon": false,
+            "row3_custom_icon": false,
+            "row1_lead": "Delivery:",
+            "row1_strong": "2 to 4 working days, tracked.",
+            "row2_lead": "Use code",
+            "row2_code": "HALDE10",
+            "row2_tail": "for 10% off your first order.",
+            "row3_lead": "Free shipping & returns:",
+            "row3_strong": "on orders over $200."
+          }
         }
       },
       "block_order": [
+        "pp23_rating",
         "title_1",
         "price_1",
+        "pp23_sold",
         "variant_picker_1",
         "size_guide_1",
         "text_1",
+        "pp23_info",
         "buy_buttons_1",
-        "text_2",
         "collapsible_row_1",
         "collapsible_row_2",
         "collapsible_row_3",

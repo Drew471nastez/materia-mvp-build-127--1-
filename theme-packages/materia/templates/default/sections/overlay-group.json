@@ -764,94 +764,83 @@
       "type": "coupon-promotion-newsletter-popup",
       "settings": {
         "card_bg": "#ffffff",
-        "delay_s": 5,
-        "hide_days": 1,
+        "delay_s": 12,
+        "hide_days": 7,
         "image_fit": "cover",
         "open_mode": "delay",
-        "image_side": "image-right",
+        "image_side": "image-left",
         "text_align": "left",
         "text_color": "#111111",
         "close_color": "#111111",
-        "editor_mode": true,
+        "editor_mode": false,
         "gate_coupon": true,
         "image_ratio": "auto",
-        "popup_width": 770,
+        "popup_width": 760,
         "popup_radius": 12,
         "after_dismiss": "after_days",
-        "dismiss_align": "center",
-        "mobile_gutter": 32,
+        "dismiss_align": "left",
+        "mobile_gutter": 16,
         "overlay_color": "#000000",
-        "card_padding_h": 36,
-        "card_padding_v": 36,
+        "card_padding_h": 40,
+        "card_padding_v": 40,
         "image_position": "center",
-        "overlay_opacity": 50,
-        "enable_custom_style": true,
-        "mobile_image_height": 180,
+        "overlay_opacity": 45,
+        "enable_custom_style": false,
+        "mobile_image_height": 170,
         "mobile_image_position": "above",
-        "mobile_image_height_mode": "auto",
+        "mobile_image_height_mode": "fixed",
         "post_subscribe_duration_s": 15
       },
-      "disabled": true,
       "blocks": {
         "eyebrow": {
           "type": "eyebrow",
           "settings": {
-            "text": "LIMITED TIME OFFER",
-            "color": "#111111",
+            "text": "Your first order",
             "size_desktop": 12,
-            "enable_custom_style": true
+            "enable_custom_style": false
           }
         },
         "headline": {
           "type": "headline",
           "settings": {
-            "text": "15% off your first order",
-            "color": "#111111",
-            "weight": "800",
+            "text": "10% off your first order",
             "size_desktop": 32,
-            "enable_custom_style": true
+            "weight": "theme",
+            "enable_custom_style": false
           }
         },
         "subheading": {
           "type": "subheading",
           "settings": {
-            "text": "Subscribe and get your coupon.",
-            "color": "#444444",
+            "text": "Join the list for new things from the studio, about twice a month. Your code shows as soon as you sign up.",
             "size_desktop": 15,
-            "enable_custom_style": true
+            "enable_custom_style": false
           }
         },
         "coupon": {
           "type": "coupon",
           "settings": {
-            "code": "WELCOME15",
-            "label": "USE CODE"
+            "code": "WELCOME10",
+            "label": "Your code"
           }
         },
         "form": {
           "type": "form",
           "settings": {
-            "button_bg": "#111111",
-            "button_text": "Subscribe",
-            "placeholder": "Enter your email",
-            "input_radius": 8,
-            "success_text": "Thanks! Here is your code:",
-            "button_radius": 8,
-            "button_weight": "700",
+            "placeholder": "Email address",
+            "button_text": "Sign up",
+            "success_text": "Thanks. Your code:",
             "collect_phone": false,
-            "phone_required": false,
-            "button_bg_hover": "#000000",
-            "button_text_color": "#ffffff",
-            "button_text_hover": "#ffffff",
-            "phone_placeholder": "Phone number",
-            "enable_custom_style": true,
-            "phone_default_country": "US"
+            "use_theme_field": true,
+            "use_theme_button": true,
+            "enable_custom_style": false
           }
         },
         "image": {
           "type": "image",
           "settings": {
-            "alt": "Promotion"
+            "image": "shopify://shop_images/default-packing.webp",
+            "alt": "Person taping a parcel shut on a table"
           }
         },
         "dismiss": {

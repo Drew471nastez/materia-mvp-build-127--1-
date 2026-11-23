@@ -22,11 +22,11 @@
         "sticky_show_title": true,
         "content_gap_desktop": 56,
         "desktop_media_width": 50,
-        "padding_left_mobile": 0,
+        "padding_left_mobile": 16,
         "sticky_border_color": "",
         "enable_video_looping": true,
         "padding_left_desktop": 0,
-        "padding_right_mobile": 0,
+        "padding_right_mobile": 16,
         "section_width_mobile": "fluid_container",
         "sticky_button_radius": 8,
         "sticky_show_quantity": true,
@@ -44,18 +44,18 @@
           "type": "title",
           "settings": {
             "show_vendor": false,
-            "title_font_size_desktop": 40,
-            "title_font_size_mobile": 30
+            "title_font_size_desktop": 42,
+            "title_font_size_mobile": 32
           }
         },
         "price_1": {
           "type": "price",
           "settings": {
-            "price_font_size_desktop": 28,
-            "price_font_size_mobile": 24,
+            "price_font_size_desktop": 30,
+            "price_font_size_mobile": 26,
             "price_font_weight": "700",
             "compare_font_size_desktop": 18,
-            "compare_font_size_mobile": 14,
+            "compare_font_size_mobile": 15,
             "compare_font_weight": "400"
           }
         },
@@ -72,7 +72,7 @@
           "settings": {
             "show_add_to_cart": true,
             "show_dynamic_checkout": true,
-            "show_quantity": true,
+            "show_quantity": false,
             "buttons_full_width": true,
             "quantity_right_of_atc": false,
             "show_wishlist_button": false,
@@ -206,24 +206,6 @@
             "excerpt_length": 180
           }
         },
-        "guarantee_1": {
-          "type": "guarantee_row",
-          "settings": {
-            "style": "boxed",
-            "columns_mobile": "3",
-            "icon_1": "download",
-            "title_1": "Instant access",
-            "text_1": "Login by email",
-            "icon_2": "chat",
-            "title_2": "Questions answered",
-            "text_2": "By email",
-            "icon_3": "shield",
-            "title_3": "14 day refund",
-            "text_3": "Full refund",
-            "title_4": "",
-            "text_4": ""
-          }
-        },
         "included_1": {
           "type": "whats_included",
           "settings": {
@@ -232,15 +214,82 @@
             "two_columns": true,
             "boxed": true
           }
+        },
+        "pp23_rating": {
+          "type": "product_reviews",
+          "settings": {
+            "review_source": "product",
+            "review_label": "reviews",
+            "padding_top": 0,
+            "padding_bottom": 10,
+            "enable_counter_custom": false
+          }
+        },
+        "pp23_sold": {
+          "type": "sold_counter",
+          "settings": {
+            "sold_source": "product",
+            "refresh_sold_count": true,
+            "sold_label": "joined",
+            "show_live_dot": true,
+            "padding_top": 2,
+            "padding_bottom": 16,
+            "enable_counter_custom": false
+          }
+        },
+        "pp23_info": {
+          "type": "infotables",
+          "settings": {
+            "max_width": 760,
+            "center_card": false,
+            "section_pt_d": 6,
+            "section_pb_d": 22,
+            "section_pt_m": 6,
+            "section_pb_m": 18,
+            "pt_d": 16,
+            "pb_d": 16,
+            "pl_d": 20,
+            "pr_d": 20,
+            "pt_m": 14,
+            "pb_m": 14,
+            "pl_m": 16,
+            "pr_m": 16,
+            "font_size_d": 15,
+            "font_size_m": 14,
+            "line_height": 150,
+            "font_weight": 400,
+            "icon_gap": 16,
+            "icon_size": 22,
+            "border_style": "solid",
+            "divider_style": "solid",
+            "enable_custom_style": false,
+            "row1_enable": true,
+            "row2_enable": false,
+            "row3_enable": true,
+            "row1_highlight_weight": 600,
+            "row2_highlight_weight": 600,
+            "row3_highlight_weight": 600,
+            "row1_custom_icon": true,
+            "row2_custom_icon": false,
+            "row3_custom_icon": true,
+            "row1_lead": "Access:",
+            "row1_strong": "your login by email, straight after payment.",
+            "row1_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"><rect x=\"3\" y=\"5\" width=\"18\" height=\"14\" rx=\"2\" stroke=\"currentColor\" stroke-width=\"1.5\"/><path d=\"m10 9.2 4.8 2.8-4.8 2.8z\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linejoin=\"round\"/></svg>",
+            "row3_lead": "Refund:",
+            "row3_strong": "within 14 days.",
+            "row3_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M4 12a8 8 0 1 0 2.4-5.7L4 8.5\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M4 4v4.5h4.5\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M12 8v4l2.5 2\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\"/></svg>"
+          }
         }
       },
       "block_order": [
+        "pp23_rating",
         "title_1",
         "price_1",
+        "pp23_sold",
         "short_1",
         "variant_picker_1",
         "buy_buttons_1",
-        "guarantee_1",
+        "pp23_info",
         "included_1",
         "collapsible_row_1",
         "collapsible_row_2",

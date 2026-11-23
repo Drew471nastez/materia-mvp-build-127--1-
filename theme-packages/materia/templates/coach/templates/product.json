@@ -55,18 +55,18 @@
           "type": "title",
           "settings": {
             "show_vendor": false,
-            "title_font_size_desktop": 46,
-            "title_font_size_mobile": 34
+            "title_font_size_desktop": 44,
+            "title_font_size_mobile": 32
           }
         },
         "price_1": {
           "type": "price",
           "settings": {
-            "price_font_size_desktop": 24,
-            "price_font_size_mobile": 22,
-            "price_font_weight": "500",
-            "compare_font_size_desktop": 16,
-            "compare_font_size_mobile": 14,
+            "price_font_size_desktop": 28,
+            "price_font_size_mobile": 24,
+            "price_font_weight": "600",
+            "compare_font_size_desktop": 18,
+            "compare_font_size_mobile": 15,
             "compare_font_weight": "400"
           }
         },
@@ -89,7 +89,7 @@
           "settings": {
             "show_add_to_cart": true,
             "show_dynamic_checkout": true,
-            "show_quantity": true,
+            "show_quantity": false,
             "buttons_full_width": true,
             "quantity_right_of_atc": false,
             "show_wishlist_button": false,
@@ -101,40 +101,6 @@
             "enable_custom_button_text": true,
             "atc_button_text": "Add to cart",
             "buy_button_text": "Buy now"
-          }
-        },
-        "vertical_benefits_1": {
-          "type": "vertical_benefits",
-          "settings": {
-            "vb_pt": 16,
-            "vb_pb": 16,
-            "vb_mt": 0,
-            "vb_mb": 0,
-            "vb_item_space": 10,
-            "vb_maxw": 100,
-            "vb_pl": 0,
-            "vb_pr": 0,
-            "vb_text_size_d": 14,
-            "vb_text_size_m": 14,
-            "vb_icon_gap": 12,
-            "vb_icon_gap_m": 10,
-            "vb_icon_size": 22,
-            "vb_icon_size_m": 22,
-            "vb_text_color": "",
-            "vb_bg": "",
-            "vb_icon_color": "#2b44ff",
-            "item1_title": "Plan and calendar file sent straight away",
-            "item1_icon_library": "clock",
-            "item1_use_image": false,
-            "item1_image_size": 50,
-            "item2_title": "Every session with a time and an effort",
-            "item2_icon_library": "check",
-            "item2_use_image": false,
-            "item2_image_size": 50,
-            "item3_title": "Swap to another plan within 14 days",
-            "item3_icon_library": "shield",
-            "item3_use_image": false,
-            "item3_image_size": 50
           }
         },
         "collapsible_row_1": {
@@ -172,15 +138,82 @@
             "use_product_description": false,
             "open": false
           }
+        },
+        "pp23_rating": {
+          "type": "product_reviews",
+          "settings": {
+            "review_source": "product",
+            "review_label": "reviews",
+            "padding_top": 0,
+            "padding_bottom": 10,
+            "enable_counter_custom": false
+          }
+        },
+        "pp23_sold": {
+          "type": "sold_counter",
+          "settings": {
+            "sold_source": "product",
+            "refresh_sold_count": true,
+            "sold_label": "sold",
+            "show_live_dot": true,
+            "padding_top": 2,
+            "padding_bottom": 16,
+            "enable_counter_custom": false
+          }
+        },
+        "pp23_info": {
+          "type": "infotables",
+          "settings": {
+            "max_width": 760,
+            "center_card": false,
+            "section_pt_d": 6,
+            "section_pb_d": 22,
+            "section_pt_m": 6,
+            "section_pb_m": 18,
+            "pt_d": 16,
+            "pb_d": 16,
+            "pl_d": 20,
+            "pr_d": 20,
+            "pt_m": 14,
+            "pb_m": 14,
+            "pl_m": 16,
+            "pr_m": 16,
+            "font_size_d": 15,
+            "font_size_m": 14,
+            "line_height": 150,
+            "font_weight": 400,
+            "icon_gap": 16,
+            "icon_size": 22,
+            "border_style": "solid",
+            "divider_style": "solid",
+            "enable_custom_style": false,
+            "row1_enable": true,
+            "row2_enable": false,
+            "row3_enable": true,
+            "row1_highlight_weight": 600,
+            "row2_highlight_weight": 600,
+            "row3_highlight_weight": 600,
+            "row1_custom_icon": true,
+            "row2_custom_icon": false,
+            "row3_custom_icon": true,
+            "row1_lead": "Delivery:",
+            "row1_strong": "plan and calendar file sent straight away.",
+            "row1_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"><rect x=\"3.5\" y=\"5\" width=\"17\" height=\"15\" rx=\"2\" stroke=\"currentColor\" stroke-width=\"1.5\"/><path d=\"M3.5 9.5h17M8 3v4M16 3v4\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\"/></svg>",
+            "row3_lead": "Swaps:",
+            "row3_strong": "change to another plan within 14 days.",
+            "row3_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M4 12a8 8 0 1 0 2.4-5.7L4 8.5\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M4 4v4.5h4.5\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M12 8v4l2.5 2\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\"/></svg>"
+          }
         }
       },
       "block_order": [
+        "pp23_rating",
         "title_1",
         "price_1",
+        "pp23_sold",
         "short_description_1",
         "variant_picker_1",
         "buy_buttons_1",
-        "vertical_benefits_1",
+        "pp23_info",
         "collapsible_row_1",
         "collapsible_row_2",
         "collapsible_row_3",
