@@ -46,12 +46,27 @@
             "heading": "Help",
             "content_width": "20%"
           }
+        },
+        "payment_badges_1": {
+          "type": "payment_badges",
+          "settings": {
+            "alignment": "right",
+            "enable_amex": true,
+            "enable_visa": true,
+            "content_width": "100%",
+            "enable_klarna": false,
+            "enable_paypal": false,
+            "enable_apple_pay": true,
+            "enable_google_pay": true,
+            "enable_mastercard": true
+          }
         }
       },
       "block_order": [
         "store_info_1",
         "link_list_2",
-        "link_list_3"
+        "link_list_3",
+        "payment_badges_1"
       ]
     }
   },

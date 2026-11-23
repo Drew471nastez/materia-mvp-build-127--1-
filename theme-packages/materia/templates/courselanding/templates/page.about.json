@@ -10,8 +10,8 @@
         "content_align": "left",
         "content_gap": 18,
         "media_type": "image",
-        "image": "shopify://shop_images/courselanding-coach.webp",
-        "image_alt": "Lena Moritz stretching on a running track before a session",
+        "image": "shopify://shop_images/courselanding-teacher.webp",
+        "image_alt": "Lucía Ferrer, the course teacher, in front of a chalkboard",
         "aspect_w": 4,
         "aspect_h": 5,
         "image_fit": "cover",
@@ -27,7 +27,7 @@
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "Your coach",
+            "text": "Your teacher",
             "enable_custom_style": true,
             "color": "#f25c05",
             "size": 13
@@ -36,7 +36,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "I coach people who never thought they would run",
+            "text": "I teach adults who were told they are bad at languages",
             "tag": "h1",
             "size_desktop": 44,
             "size_mobile": 30
@@ -45,13 +45,13 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Write your own story here. Keep it plain: when you started, what went wrong the first time, and what you do differently with the people you coach now.</p><p>Every Sunday I read the week you logged and answer questions in a short video. That part is not automated, and it is the part runners say helps most.</p>"
+            "text": "<p>Write your own story here in plain words: how you started teaching, what went wrong in the classes you sat through, and what you do differently now.</p><p>I read and answer every voice note myself. That part is not automated, and it is the part students say helps most.</p>"
           }
         },
         "button_1": {
           "type": "button",
           "settings": {
-            "label": "Start the plan",
+            "label": "Start speaking",
             "link": "/#shopify-section-pricing",
             "button_style": "primary",
             "radius": 6
@@ -76,7 +76,7 @@
         "content_gap": 18,
         "media_type": "image",
         "image": "shopify://shop_images/courselanding-group.webp",
-        "image_alt": "Three runners on an easy run together along a park road",
+        "image_alt": "Four friends talking around a café table",
         "aspect_w": 1,
         "aspect_h": 1,
         "image_fit": "cover",
@@ -92,7 +92,7 @@
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "Why this plan",
+            "text": "Why this course",
             "enable_custom_style": true,
             "color": "#f25c05",
             "size": 13
@@ -101,7 +101,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Written for the runners at the back of the group",
+            "text": "Built for the table, not the exam",
             "tag": "h2",
             "size_desktop": 40,
             "size_mobile": 28
@@ -110,7 +110,7 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Most plans are written by fast people for fast people. This one is built on what worked for beginners in nine years of Tuesday night club runs: slow running, small steps up, and a reason for every session.</p>"
+            "text": "<p>Most courses teach you to pass a test. This one teaches you to sit at a table with Spanish speakers and keep up: the phrases people really use, at the speed they really talk.</p>"
           }
         }
       },
@@ -144,7 +144,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "How I coach",
+            "text": "How I teach",
             "size_enable": true,
             "size_desktop": 40,
             "size_mobile": 28,
@@ -156,24 +156,24 @@
           "type": "column",
           "settings": {
             "label": "One",
-            "heading": "Time, not pace",
-            "text": "<p>Runs are set in minutes and by feel. You never chase a number on a watch.</p>"
+            "heading": "Listen first",
+            "text": "<p>Every lesson starts with real Spanish at normal speed. You understand more than you think.</p>"
           }
         },
         "column_2": {
           "type": "column",
           "settings": {
             "label": "Two",
-            "heading": "Easy weeks on purpose",
-            "text": "<p>Every fourth week is lighter. That is where the fitness from the last three settles in.</p>"
+            "heading": "Speak before you are ready",
+            "text": "<p>Mistakes in a small, kind group are how you get fluent. Nobody waits until they are perfect.</p>"
           }
         },
         "column_3": {
           "type": "column",
           "settings": {
             "label": "Three",
-            "heading": "Strength twice a week",
-            "text": "<p>Ten minutes after a run, no gym. It is the cheapest way to stay uninjured.</p>"
+            "heading": "Grammar in small pieces",
+            "text": "<p>One rule at a time, only when you need it to say something you want to say.</p>"
           }
         }
       },
@@ -225,66 +225,66 @@
           "type": "eyebrow",
           "settings": {
             "enabled": true,
-            "text": "Runners"
+            "text": "Students"
           }
         },
         "heading_1": {
           "type": "heading",
           "settings": {
             "enabled": true,
-            "text": "From the start line"
+            "text": "The first real conversation"
           }
         },
         "subheading_1": {
           "type": "subheading",
           "settings": {
             "enabled": true,
-            "text": "<p>Sample quotes to show the layout. Replace them with your runners’ own words.</p>"
+            "text": "<p>Sample quotes to show the layout. Replace them with your students’ own words.</p>"
           }
         },
         "testimonial_1": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I had started couch to 5K three times and quit three times. This was the first plan that told me why the slow runs mattered, so I actually did them.</p>",
+            "quote": "<p>I had used an app for two years and still could not order a coffee without panicking. Six weeks of classes and I chatted with our neighbours in Málaga.</p>",
             "rating": 5,
             "name": "Sample name",
-            "role": "First half marathon at 41"
+            "role": "Started at 52"
           }
         },
         "testimonial_2": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Missing week seven with a cold felt like the end. The Sunday video told me exactly how to pick it back up, and I lost nothing.</p>",
+            "quote": "<p>The voice notes are the best part. Lucía hears the same mistake I make every week and tells me exactly how to fix it.</p>",
             "rating": 5,
             "name": "Sample name",
-            "role": "Nurse, runs before shifts"
+            "role": "Nurse, studies before shifts"
           }
         },
         "testimonial_3": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>The race week checklist is the best page in the course. I knew what to eat, what to wear and when to set off.</p>",
+            "quote": "<p>Twenty minutes in the morning is the only way I could have done this. I do the lesson on the train.</p>",
             "rating": 5,
             "name": "Sample name",
-            "role": "Finished smiling"
+            "role": "Commutes to the city"
           }
         },
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Four runs a week sounded like a lot. Three of them are short, and the long one became my favourite hour of the week.</p>",
+            "quote": "<p>Being in a group of six made me show up. Nobody minded my accent, and by week eight I stopped minding it too.</p>",
             "rating": 5,
             "name": "Sample name",
-            "role": "Father of two"
+            "role": "Moving to Valencia next year"
           }
         },
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I am slow and I will stay slow. Nobody in the course minds, and the plan never made me feel like I was behind.</p>",
+            "quote": "<p>My partner is from Mexico. I can finally talk to his mother on the phone.</p>",
             "rating": 5,
             "name": "Sample name",
-            "role": "Started at 58"
+            "role": "Learning for family"
           }
         }
       },
@@ -327,7 +327,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Your first run is this week",
+            "text": "Say your first real sentence this week",
             "enable_custom_style": true,
             "font": "heading",
             "weight": "700",
@@ -342,7 +342,7 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "Sixteen weeks from now you could be at a start line. It begins with twenty easy minutes.",
+            "text": "Twelve weeks from now you could hold a conversation in Spanish. It starts with twenty minutes tomorrow morning.",
             "enable_custom_style": true,
             "size_d": 18,
             "size_m": 16,
@@ -353,7 +353,7 @@
         "button_1": {
           "type": "button",
           "settings": {
-            "label": "Start the plan",
+            "label": "Start speaking",
             "link": "/#shopify-section-pricing"
           }
         }

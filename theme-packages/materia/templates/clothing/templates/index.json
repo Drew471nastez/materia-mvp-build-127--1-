@@ -9,9 +9,9 @@
         "slide_height": "custom",
         "desktop_height": 780,
         "mobile_height": 460,
-        "show_arrow": false,
+        "show_arrow": true,
         "arrow_show_mobile": false,
-        "carousel_pagination": "show_dots",
+        "carousel_pagination": "show_dots_on_mobile",
         "image_effect": "none",
         "autoplay": true,
         "slide_loop": true,
@@ -29,7 +29,9 @@
         "pagination_style": "line",
         "pagination_position": "left",
         "autorotate_speed": 6,
-        "slide_effect": "fade"
+        "slide_effect": "fade",
+        "arrow_visibility": "hover",
+        "arrow_shape": "circle"
       },
       "blocks": {
         "slide_1": {
@@ -49,7 +51,7 @@
             "content_alignment": "left",
             "content_position_mobile": "bottom-left",
             "content_alignment_mobile": "left",
-            "content_width": "fluid_container",
+            "content_width": "container",
             "content_max_width": 33,
             "content_padding_block": 60,
             "content_padding_inline": 24,
@@ -74,30 +76,21 @@
             "content_alignment": "left",
             "content_position_mobile": "bottom-left",
             "content_alignment_mobile": "left",
-            "content_width": "fluid_container",
-            "content_max_width": 30,
+            "content_width": "container",
+            "content_max_width": 36,
             "content_padding_block": 60,
             "content_padding_inline": 24,
             "slider_effect": "effect_fadein",
             "image_mobile": "shopify://shop_images/clothing-hero-knit-phone.webp",
-            "enable_custom_colors": true,
-            "subheading_color": "#ffffff",
-            "heading_color": "#ffffff",
-            "description_color": "#f1ece6",
-            "first_button_bg": "#ffffff",
-            "first_button_color": "#111111",
-            "first_button_hover_bg": "#e9e4dd",
-            "first_button_hover_color": "#111111"
+            "show_content_background": true,
+            "content_background": "#ffffff",
+            "content_box_opacity": 100
           }
         }
       },
       "block_order": [
         "slide_1",
         "slide_2"
-      ],
-      "custom_css": [
-        "@media (max-width: 767px) { [data-slide-id*=\"slide_2\"][data-slide-id*=\"slide_2\"] :is(h1, h2, h3, .sec__content-heading, .sec__content-subheading, .sec__content-des, .sec__content-des *) { color: #111111 !important; } [data-slide-id*=\"slide_2\"][data-slide-id*=\"slide_2\"] .sec__content-btn > a:nth-of-type(1) { --mb-bg: #111111; --mb-border: #111111; --mb-text: #ffffff; --mb-hover-bg: #333333; --mb-hover-border: #333333; --mb-hover-text: #ffffff; } }",
-        "@media (min-width: 768px) { .slideshow .swiper-pagination { --pg-on: #ffffff; --pg-idle: rgba(255,255,255,0.45); --pg-hover: rgba(255,255,255,0.8); mix-blend-mode: difference; padding-inline: 45px !important; } }"
       ]
     },
     "products_grid_1": {

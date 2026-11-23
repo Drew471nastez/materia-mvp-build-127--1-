@@ -362,7 +362,8 @@ try {
     const changing = steps.filter((x) => x > 0.04).length
     console.log(`        filmed: ${reel.length} frames; the stage at its ground for ${waitFrames}; the website came up over ${changing} frames, biggest step ${(Math.max(...steps) * 100).toFixed(0)}% of the change`)
     expect(landed >= 0 && waitFrames >= 1, "filmed: before the website, the stage is the website's own ground (no white on a dark shop)", `ground rgb(${groundRgb.join(", ")})`)
-    expect(Math.max(...steps) <= 0.5 && changing >= 3, "filmed: the website comes up over several frames, no step more than half the change", steps.filter((x) => x > 0.04).map((x) => x.toFixed(2)).join(" "))
+    /* A ground so close to the website that there is next to nothing to fade (under 8 of 255 on average) has no step to see. */
+    expect(span < 8 || (Math.max(...steps) <= 0.5 && changing >= 3), "filmed: the website comes up over several frames, no step more than half the change", `${steps.filter((x) => x > 0.04).map((x) => x.toFixed(2)).join(" ")} of a change of ${span.toFixed(1)}`)
     const readyAt = rec.find((r) => r.live > 0)?.t ?? null
     const askedAt = rec.find((r) => r.asked)?.t ?? null
     expect(askedAt !== null && askedAt >= 150 && askedAt <= 500, "the website is asked for as the window lands (on the page's clock, whose frames are few while it is busy)", `${askedAt}ms after the press`)

@@ -13,7 +13,8 @@
         "heading_size": 64,
         "heading_size_mobile": 38,
         "padding_top": 56,
-        "padding_bottom": 72
+        "padding_bottom": 72,
+        "more_label": "Also out now"
       },
       "blocks": {
         "r_master": {
@@ -31,10 +32,37 @@
             "peaks": "94,43,19,10,95,57,23,13,9,91,56,23,94,67,21,96,50,91,81,24,14,91,76,31,15,92,44,16,11,98,51,20,93,73,22,99,39,90,61,28,16,87,83,45,17,95,50,25,13,92,49,22,94,71,21,14,91,79,27,12,91,46,21,11,93,56,23,13,9,93,52,21,92,60,25,97,89,100,77,30,93,44,20,12,97,51,21,12,9,95,51,24,92,78,22,97,48,88,75,23,14,87,77,25,15,98,46,16,9,77,32,11,56,34,10,41,12,22,10,2",
             "note": "Instant download. WAV, 1.7 GB unzipped, works in every DAW."
           }
+        },
+        "r_unitech": {
+          "type": "release",
+          "settings": {
+            "title": "Tech House Sample Pack, Unitech",
+            "heading": "Tech House Sample Pack, Unitech",
+            "image": "shopify://shop_images/samples-box-tech-house-unitech.webp"
+          }
+        },
+        "r_serum": {
+          "type": "release",
+          "settings": {
+            "title": "Serum Presets Vol 1",
+            "heading": "Serum Presets Vol 1",
+            "image": "shopify://shop_images/samples-box-serum-presets.webp"
+          }
+        },
+        "r_drums": {
+          "type": "release",
+          "settings": {
+            "title": "Tech House Drum Kit Vol I",
+            "heading": "Tech House Drum Kit Vol I",
+            "image": "shopify://shop_images/samples-box-drum-kit.webp"
+          }
         }
       },
       "block_order": [
-        "r_master"
+        "r_master",
+        "r_unitech",
+        "r_serum",
+        "r_drums"
       ]
     },
     "packs": {

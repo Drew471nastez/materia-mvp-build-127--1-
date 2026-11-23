@@ -8,7 +8,7 @@
         "reset_spacing": true,
         "heading": "Search",
         "sorting": true,
-        "empty_text": "Nothing matched. Try plan, strength or call.",
+        "empty_text": "Nothing matched. Try course, classes or phrasebook.",
         "empty_link_label": "See everything",
         "empty_link_url": "/collections/all",
         "enable_filtering": false,

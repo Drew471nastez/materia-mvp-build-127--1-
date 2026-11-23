@@ -3,7 +3,7 @@
     "hero": {
       "type": "slideshow",
       "settings": {
-        "color_scheme": "default",
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
         "section_width": "full_width",
         "reset_spacing": true,
         "slide_height": "custom",
@@ -107,9 +107,6 @@
       "block_order": [
         "slide_1",
         "slide_2"
-      ],
-      "custom_css": [
-        ".slideshow .swiper-pagination { --pg-on: #ffffff; --pg-idle: rgba(255,255,255,0.5); --pg-hover: rgba(255,255,255,0.8); }"
       ]
     },
     "new_in": {

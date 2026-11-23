@@ -19,14 +19,14 @@
         "description_2": {
           "type": "description",
           "settings": {
-            "text": "<p>A question before you join, a group price, or trouble with a lesson. It all comes to the same inbox.</p>"
+            "text": "<p>A question before you join, a class time that does not work, or trouble with a lesson. It all comes to the same inbox.</p>"
           }
         },
         "info_3": {
           "type": "info",
           "settings": {
             "icon": "mail",
-            "line1": "hello@negativesplit.run",
+            "line1": "hola@charla.school",
             "line2": "Replace with your own address"
           }
         },
@@ -91,36 +91,36 @@
         "faq_item_1": {
           "type": "faq_item",
           "settings": {
-            "question": "Can I do this if I have never run before?",
-            "answer": "<p>If you can walk briskly for 30 minutes, yes. Start with the free run walk week in the first video, then begin week one when twenty minutes of jogging feels possible.</p>"
+            "question": "I have tried before and given up. Why would this be different?",
+            "answer": "<p>Most people give up because they never speak. Here you speak in the first class, in a small group, and someone expects you there twice a week.</p>"
           }
         },
         "faq_item_2": {
           "type": "faq_item",
           "settings": {
-            "question": "Do I need a watch?",
-            "answer": "<p>No. A phone with any free running app is enough, or a normal watch. Every run is set by time and feel, not by pace.</p>"
+            "question": "Which Spanish do you teach?",
+            "answer": "<p>Spanish from Spain in the lessons, with notes on how Latin American Spanish differs. Teachers in the classes come from both.</p>"
           }
         },
         "faq_item_3": {
           "type": "faq_item",
           "settings": {
-            "question": "What if I miss a week?",
-            "answer": "<p>There is a short video for exactly that. Miss a few days and you carry on. Miss a week and you repeat the last one. Miss more and the plan shows where to rejoin.</p>"
+            "question": "What if I miss a class?",
+            "answer": "<p>Join another group that week, or watch the recording and send a voice note instead. Life happens.</p>"
           }
         },
         "faq_item_4": {
           "type": "faq_item",
           "settings": {
-            "question": "Which race should I enter?",
-            "answer": "<p>Any flat or rolling half marathon 16 to 20 weeks from now. Week one has a short guide to picking one.</p>"
+            "question": "When are the classes?",
+            "answer": "<p>Mornings and evenings in European and American time zones. You pick a group when you join. Change this to your own schedule.</p>"
           }
         },
         "card_text_1": {
           "type": "card_text",
           "settings": {
-            "heading": "Not sure it fits you?",
-            "text": "<p>Tell us how much you run now and when your race is. Lena answers within two days.</p>"
+            "heading": "Not sure where you are?",
+            "text": "<p>Tell us what Spanish you have now and why you are learning. Lucía replies within two days.</p>"
           }
         },
         "button_1": {

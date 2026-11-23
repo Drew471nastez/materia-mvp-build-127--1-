@@ -63,61 +63,6 @@
         "button_5"
       ]
     },
-    "topics": {
-      "type": "scrolling-text",
-      "settings": {
-        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
-        "separator": "dot",
-        "duration": 45,
-        "text_transform": "none"
-      },
-      "blocks": {
-        "word_1": {
-          "type": "word",
-          "settings": {
-            "text": "Newsletters"
-          }
-        },
-        "word_2": {
-          "type": "word",
-          "settings": {
-            "text": "YouTube"
-          }
-        },
-        "word_3": {
-          "type": "word",
-          "settings": {
-            "text": "First offers"
-          }
-        },
-        "word_4": {
-          "type": "word",
-          "settings": {
-            "text": "Pricing"
-          }
-        },
-        "word_5": {
-          "type": "word",
-          "settings": {
-            "text": "Launches"
-          }
-        },
-        "word_6": {
-          "type": "word",
-          "settings": {
-            "text": "Simple systems"
-          }
-        }
-      },
-      "block_order": [
-        "word_1",
-        "word_2",
-        "word_3",
-        "word_4",
-        "word_5",
-        "word_6"
-      ]
-    },
     "start": {
       "type": "image-with-text-steps",
       "settings": {
@@ -184,6 +129,61 @@
         "step_5",
         "step_6",
         "button_7"
+      ]
+    },
+    "topics": {
+      "type": "scrolling-text",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "separator": "dot",
+        "duration": 45,
+        "text_transform": "none"
+      },
+      "blocks": {
+        "word_1": {
+          "type": "word",
+          "settings": {
+            "text": "Newsletters"
+          }
+        },
+        "word_2": {
+          "type": "word",
+          "settings": {
+            "text": "YouTube"
+          }
+        },
+        "word_3": {
+          "type": "word",
+          "settings": {
+            "text": "First offers"
+          }
+        },
+        "word_4": {
+          "type": "word",
+          "settings": {
+            "text": "Pricing"
+          }
+        },
+        "word_5": {
+          "type": "word",
+          "settings": {
+            "text": "Launches"
+          }
+        },
+        "word_6": {
+          "type": "word",
+          "settings": {
+            "text": "Simple systems"
+          }
+        }
+      },
+      "block_order": [
+        "word_1",
+        "word_2",
+        "word_3",
+        "word_4",
+        "word_5",
+        "word_6"
       ]
     },
     "flagship": {
@@ -542,8 +542,8 @@
   },
   "order": [
     "hero",
-    "topics",
     "start",
+    "topics",
     "flagship",
     "courses",
     "story",

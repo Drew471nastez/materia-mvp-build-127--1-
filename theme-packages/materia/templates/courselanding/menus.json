@@ -3,11 +3,11 @@
     "title": "Main menu",
     "links": [
       {
-        "title": "The 16 weeks",
+        "title": "The 12 weeks",
         "url": "/#shopify-section-weeks"
       },
       {
-        "title": "Your coach",
+        "title": "Your teacher",
         "url": "/pages/about"
       },
       {
@@ -24,7 +24,7 @@
     "title": "Pages",
     "links": [
       {
-        "title": "About Lena",
+        "title": "About Lucía",
         "url": "/pages/about"
       },
       {
@@ -40,7 +40,7 @@
         "url": "/collections/all"
       },
       {
-        "title": "Running notes",
+        "title": "Notes on Spanish",
         "url": "/blogs/news"
       }
     ]

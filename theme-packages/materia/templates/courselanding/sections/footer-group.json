@@ -22,13 +22,13 @@
           "type": "store_info",
           "settings": {
             "show_logo": false,
-            "store_heading": "Negative Split",
+            "store_heading": "Charla",
             "image_width": 110,
             "store_email": true,
             "store_phone": false,
             "store_address": false,
             "content_width": "50%",
-            "store_description": "<p>A 16 week plan for your first half marathon, with a video for every week and a coach who answers on Sundays.</p>"
+            "store_description": "<p>A 12 week Spanish course for adult beginners: a short lesson every day and two live conversation classes a week.</p>"
           }
         },
         "link_list_2": {

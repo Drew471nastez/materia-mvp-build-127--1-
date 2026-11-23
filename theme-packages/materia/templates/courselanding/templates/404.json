@@ -79,7 +79,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Your first run is this week",
+            "text": "Say your first real sentence this week",
             "enable_custom_style": true,
             "font": "heading",
             "weight": "700",
@@ -94,7 +94,7 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "Sixteen weeks from now you could be at a start line. It begins with twenty easy minutes.",
+            "text": "Twelve weeks from now you could hold a conversation in Spanish. It starts with twenty minutes tomorrow morning.",
             "enable_custom_style": true,
             "size_d": 18,
             "size_m": 16,
@@ -105,8 +105,8 @@
         "button_1": {
           "type": "button",
           "settings": {
-            "label": "Start the plan",
-            "link": "/#shopify-section-pricing"
+            "label": "See the course",
+            "link": "/collections/all"
           }
         }
       },

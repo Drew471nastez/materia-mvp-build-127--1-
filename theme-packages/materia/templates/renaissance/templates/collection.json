@@ -126,8 +126,8 @@
         "button_1": {
           "type": "button",
           "settings": {
-            "label": "Join Digital Renaissance",
-            "link": "/#shopify-section-pricing"
+            "label": "See the editions",
+            "link": "/collections/all"
           }
         }
       },

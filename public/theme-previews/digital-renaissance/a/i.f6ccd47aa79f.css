@@ -1,0 +1,23 @@
+
+  #shopify-section-final {
+    --rm3-mt-m: 0px;
+    --rm3-mb-m: 0px;
+    --rm3-mt-d: 0px;
+    --rm3-mb-d: 0px;
+    isolation: isolate;
+    position: relative;
+    font-weight: var(--body-weight, inherit);
+    font-family: var(--body-font, var(--theme-font-body, inherit));
+    margin-top: var(--rm3-mt-m) !important;
+    margin-bottom: var(--rm3-mb-m) !important;
+  }
+  @media (min-width: 750px) {
+    #shopify-section-final {
+      margin-top: var(--rm3-mt-d) !important;
+      margin-bottom: var(--rm3-mb-d) !important;
+    }
+  }
+  #shopify-section-final:has(#rm3-final[data-reset-spacing]) > :is(.section, section, div) { margin-top: 0 !important; margin-bottom: 0 !important; }
+  @media (max-width: 749px) { #shopify-section-final:has(#rm3-final[data-hide-mobile]) { display: none !important; } }
+  @media (min-width: 750px) { #shopify-section-final:has(#rm3-final[data-hide-desktop]) { display: none !important; } }
+  :where(#shopify-section-final) :where(button, input, textarea, select, optgroup) { font-family: inherit; }

@@ -48,6 +48,7 @@ try {
     const errs = []; p.on("pageerror", (e) => errs.push(String(e).slice(0, 160)))
     await p.goto(`${origin}/theme-previews/${SLUG}/index.html`, { waitUntil: "networkidle0" })
     await sleep(800)
+    if (!(await p.$("header.header.is-pill"))) { console.log(`  skip  ${SLUG} has no pill header at ${W}`); await p.close(); continue }
     if (OUT) await p.screenshot({ path: join(OUT, `top-${W}.png`) })
     const c = await p.createCDPSession()
     await c.send("Emulation.setCPUThrottlingRate", { rate: THROTTLE })

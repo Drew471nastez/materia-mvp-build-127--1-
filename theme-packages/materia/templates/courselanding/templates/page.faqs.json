@@ -45,43 +45,43 @@
         "faq_item_1": {
           "type": "faq_item",
           "settings": {
-            "question": "Can I do this if I have never run before?",
-            "answer": "<p>If you can walk briskly for 30 minutes, yes. Start with the free run walk week in the first video, then begin week one when twenty minutes of jogging feels possible.</p>"
+            "question": "I have tried before and given up. Why would this be different?",
+            "answer": "<p>Most people give up because they never speak. Here you speak in the first class, in a small group, and someone expects you there twice a week.</p>"
           }
         },
         "faq_item_2": {
           "type": "faq_item",
           "settings": {
-            "question": "Do I need a watch?",
-            "answer": "<p>No. A phone with any free running app is enough, or a normal watch. Every run is set by time and feel, not by pace.</p>"
+            "question": "Which Spanish do you teach?",
+            "answer": "<p>Spanish from Spain in the lessons, with notes on how Latin American Spanish differs. Teachers in the classes come from both.</p>"
           }
         },
         "faq_item_3": {
           "type": "faq_item",
           "settings": {
-            "question": "What if I miss a week?",
-            "answer": "<p>There is a short video for exactly that. Miss a few days and you carry on. Miss a week and you repeat the last one. Miss more and the plan shows where to rejoin.</p>"
+            "question": "What if I miss a class?",
+            "answer": "<p>Join another group that week, or watch the recording and send a voice note instead. Life happens.</p>"
           }
         },
         "faq_item_4": {
           "type": "faq_item",
           "settings": {
-            "question": "Which race should I enter?",
-            "answer": "<p>Any flat or rolling half marathon 16 to 20 weeks from now. Week one has a short guide to picking one.</p>"
+            "question": "When are the classes?",
+            "answer": "<p>Mornings and evenings in European and American time zones. You pick a group when you join. Change this to your own schedule.</p>"
           }
         },
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "Is it safe with a past injury?",
-            "answer": "<p>The plan builds slowly, but it is not medical advice. If you have an injury or a health condition, check with a doctor or physio first.</p>"
+            "question": "Do I need to buy books?",
+            "answer": "<p>No. Everything is in the course, including a phrasebook for each stage you can print.</p>"
           }
         },
         "faq_item_6": {
           "type": "faq_item",
           "settings": {
-            "question": "How do I get the plan?",
-            "answer": "<p>Straight after payment you get a login by email. The weeks, videos and checklists open there, on your phone or computer.</p>"
+            "question": "How do I get access?",
+            "answer": "<p>Straight after payment you get a login by email. Lessons work on your phone, and class links arrive before each class.</p>"
           }
         },
         "faq_item_7": {
@@ -94,15 +94,15 @@
         "faq_item_8": {
           "type": "faq_item",
           "settings": {
-            "question": "Does it work for a 10K too?",
-            "answer": "<p>Yes. Follow the first eight weeks and race at the end of week nine. The 10K race week is in the course.</p>"
+            "question": "What comes after the 12 weeks?",
+            "answer": "<p>A monthly conversation club, if you want to keep going. The lessons stay yours either way.</p>"
           }
         },
         "card_text_1": {
           "type": "card_text",
           "settings": {
-            "heading": "Not sure it fits you?",
-            "text": "<p>Tell us how much you run now and when your race is. Lena answers within two days.</p>"
+            "heading": "Not sure where you are?",
+            "text": "<p>Tell us what Spanish you have now and why you are learning. Lucía replies within two days.</p>"
           }
         },
         "button_1": {
@@ -181,7 +181,7 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "Run the first two weeks. If it is not for you, you get your money back.",
+            "text": "Take the first two weeks. If it is not for you, you get your money back.",
             "enable_custom_style": true,
             "size_d": 18,
             "size_m": 16,
@@ -192,7 +192,7 @@
         "button_1": {
           "type": "button",
           "settings": {
-            "label": "Start the plan",
+            "label": "Start speaking",
             "link": "/#shopify-section-pricing"
           }
         }

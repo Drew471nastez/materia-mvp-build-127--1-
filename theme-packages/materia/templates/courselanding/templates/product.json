@@ -107,7 +107,7 @@
             "item1_icon_library": "check",
             "item1_use_image": false,
             "item1_image_size": 50,
-            "item2_title": "Questions answered every Sunday",
+            "item2_title": "Two live classes a week",
             "item2_icon_library": "check",
             "item2_use_image": false,
             "item2_image_size": 50,
@@ -121,7 +121,7 @@
           "type": "collapsible_row",
           "settings": {
             "heading": "What is inside",
-            "content": "<p>16 weeks of runs laid out day by day, a three minute video for each week, two strength routines, a race week checklist and a Sunday question thread with Lena.</p>",
+            "content": "<p>60 short daily lessons in four stages, 24 live conversation classes in a group of six, weekly voice note feedback from your teacher and a printable phrasebook for each stage.</p>",
             "use_product_description": true,
             "open": true
           }
@@ -129,8 +129,8 @@
         "collapsible_row_2": {
           "type": "collapsible_row",
           "settings": {
-            "heading": "Plan or coaching",
-            "content": "<p>The plan is everything you need to train on your own. With coaching, Lena reads your log each week, changes the plan when you miss runs or feel a niggle, and calls you in race week.</p>",
+            "heading": "Lessons or lessons and classes",
+            "content": "<p>Lessons only gives you the daily lessons, voice note feedback and phrasebooks. With classes you also join a group of six for two live conversations a week.</p>",
             "use_product_description": false,
             "open": false
           }
@@ -139,7 +139,7 @@
           "type": "collapsible_row",
           "settings": {
             "heading": "Access and refunds",
-            "content": "<p>Your login arrives by email straight after payment and stays open for good. Write within 14 days of joining and you get your money back.</p>",
+            "content": "<p>Your login arrives by email straight after payment and the lessons stay yours. Write within 14 days of joining and you get your money back.</p>",
             "use_product_description": false,
             "open": false
           }
@@ -193,7 +193,7 @@
           "type": "collapsible_row",
           "settings": {
             "heading": "Questions",
-            "content": "<p>Works for any race 16 to 20 weeks away. A phone and any free running app are enough. Not medical advice: if you have an injury, check with a physio first.</p>",
+            "content": "<p>For complete beginners and people who stopped after school. Lessons work on any phone. Classes run mornings and evenings in European and American time zones.</p>",
             "use_product_description": false,
             "open": false
           }
@@ -253,66 +253,66 @@
           "type": "eyebrow",
           "settings": {
             "enabled": true,
-            "text": "Runners"
+            "text": "Students"
           }
         },
         "heading_1": {
           "type": "heading",
           "settings": {
             "enabled": true,
-            "text": "From the start line"
+            "text": "The first real conversation"
           }
         },
         "subheading_1": {
           "type": "subheading",
           "settings": {
             "enabled": true,
-            "text": "<p>Sample quotes to show the layout. Replace them with your runners’ own words.</p>"
+            "text": "<p>Sample quotes to show the layout. Replace them with your students’ own words.</p>"
           }
         },
         "testimonial_1": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I had started couch to 5K three times and quit three times. This was the first plan that told me why the slow runs mattered, so I actually did them.</p>",
+            "quote": "<p>I had used an app for two years and still could not order a coffee without panicking. Six weeks of classes and I chatted with our neighbours in Málaga.</p>",
             "rating": 5,
             "name": "Sample name",
-            "role": "First half marathon at 41"
+            "role": "Started at 52"
           }
         },
         "testimonial_2": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Missing week seven with a cold felt like the end. The Sunday video told me exactly how to pick it back up, and I lost nothing.</p>",
+            "quote": "<p>The voice notes are the best part. Lucía hears the same mistake I make every week and tells me exactly how to fix it.</p>",
             "rating": 5,
             "name": "Sample name",
-            "role": "Nurse, runs before shifts"
+            "role": "Nurse, studies before shifts"
           }
         },
         "testimonial_3": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>The race week checklist is the best page in the course. I knew what to eat, what to wear and when to set off.</p>",
+            "quote": "<p>Twenty minutes in the morning is the only way I could have done this. I do the lesson on the train.</p>",
             "rating": 5,
             "name": "Sample name",
-            "role": "Finished smiling"
+            "role": "Commutes to the city"
           }
         },
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Four runs a week sounded like a lot. Three of them are short, and the long one became my favourite hour of the week.</p>",
+            "quote": "<p>Being in a group of six made me show up. Nobody minded my accent, and by week eight I stopped minding it too.</p>",
             "rating": 5,
             "name": "Sample name",
-            "role": "Father of two"
+            "role": "Moving to Valencia next year"
           }
         },
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I am slow and I will stay slow. Nobody in the course minds, and the plan never made me feel like I was behind.</p>",
+            "quote": "<p>My partner is from Mexico. I can finally talk to his mother on the phone.</p>",
             "rating": 5,
             "name": "Sample name",
-            "role": "Started at 58"
+            "role": "Learning for family"
           }
         }
       },
@@ -372,50 +372,50 @@
         "faq_item_1": {
           "type": "faq_item",
           "settings": {
-            "question": "Can I do this if I have never run before?",
-            "answer": "<p>If you can walk briskly for 30 minutes, yes. Start with the free run walk week in the first video, then begin week one when twenty minutes of jogging feels possible.</p>"
+            "question": "I have tried before and given up. Why would this be different?",
+            "answer": "<p>Most people give up because they never speak. Here you speak in the first class, in a small group, and someone expects you there twice a week.</p>"
           }
         },
         "faq_item_2": {
           "type": "faq_item",
           "settings": {
-            "question": "Do I need a watch?",
-            "answer": "<p>No. A phone with any free running app is enough, or a normal watch. Every run is set by time and feel, not by pace.</p>"
+            "question": "Which Spanish do you teach?",
+            "answer": "<p>Spanish from Spain in the lessons, with notes on how Latin American Spanish differs. Teachers in the classes come from both.</p>"
           }
         },
         "faq_item_3": {
           "type": "faq_item",
           "settings": {
-            "question": "What if I miss a week?",
-            "answer": "<p>There is a short video for exactly that. Miss a few days and you carry on. Miss a week and you repeat the last one. Miss more and the plan shows where to rejoin.</p>"
+            "question": "What if I miss a class?",
+            "answer": "<p>Join another group that week, or watch the recording and send a voice note instead. Life happens.</p>"
           }
         },
         "faq_item_4": {
           "type": "faq_item",
           "settings": {
-            "question": "Which race should I enter?",
-            "answer": "<p>Any flat or rolling half marathon 16 to 20 weeks from now. Week one has a short guide to picking one.</p>"
+            "question": "When are the classes?",
+            "answer": "<p>Mornings and evenings in European and American time zones. You pick a group when you join. Change this to your own schedule.</p>"
           }
         },
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "Is it safe with a past injury?",
-            "answer": "<p>The plan builds slowly, but it is not medical advice. If you have an injury or a health condition, check with a doctor or physio first.</p>"
+            "question": "Do I need to buy books?",
+            "answer": "<p>No. Everything is in the course, including a phrasebook for each stage you can print.</p>"
           }
         },
         "faq_item_6": {
           "type": "faq_item",
           "settings": {
-            "question": "How do I get the plan?",
-            "answer": "<p>Straight after payment you get a login by email. The weeks, videos and checklists open there, on your phone or computer.</p>"
+            "question": "How do I get access?",
+            "answer": "<p>Straight after payment you get a login by email. Lessons work on your phone, and class links arrive before each class.</p>"
           }
         },
         "card_text_1": {
           "type": "card_text",
           "settings": {
-            "heading": "Not sure it fits you?",
-            "text": "<p>Tell us how much you run now and when your race is. Lena answers within two days.</p>"
+            "heading": "Not sure where you are?",
+            "text": "<p>Tell us what Spanish you have now and why you are learning. Lucía replies within two days.</p>"
           }
         },
         "button_1": {
@@ -455,7 +455,7 @@
         "color_scheme": "default",
         "section_width": "container",
         "reset_spacing": true,
-        "heading": "Add to the plan",
+        "heading": "Add to the course",
         "description": "",
         "header_size": "small",
         "header_alignment": "left",
@@ -504,7 +504,7 @@
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "The 16 weeks",
+            "text": "The 12 weeks",
             "enable_custom_style": true,
             "color": "#f25c05"
           }
@@ -512,7 +512,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Four blocks, one start line",
+            "text": "Four stages, one real conversation",
             "size_enable": true,
             "size_desktop": 44,
             "size_mobile": 30,
@@ -523,45 +523,45 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Each block ends with an easier week, so your body catches up with the work.</p>"
+            "text": "<p>Each stage ends with a class built around one situation you will actually meet.</p>"
           }
         },
         "item_1": {
           "type": "item",
           "settings": {
-            "label": "Weeks 1 to 4",
-            "title": "Base",
-            "text": "<p>Easy running four times a week, a long run of 40 minutes and a first go at strides. You finish the block able to run for an hour.</p>"
+            "label": "Weeks 1 to 3",
+            "title": "Getting by",
+            "text": "<p>Introduce yourself, order food and drink, ask the way and understand the answer. Numbers, times and prices.</p>"
           }
         },
         "item_2": {
           "type": "item",
           "settings": {
-            "label": "Weeks 5 to 8",
-            "title": "Build",
-            "text": "<p>Hills arrive, the long run reaches 75 minutes and you learn to eat and drink on the move.</p>"
+            "label": "Weeks 4 to 6",
+            "title": "Your life",
+            "text": "<p>Talk about your work, your family and your weekend. The past tense you need, and nothing you do not.</p>"
           }
         },
         "item_3": {
           "type": "item",
           "settings": {
-            "label": "Weeks 9 to 12",
-            "title": "Distance",
-            "text": "<p>The long run passes 15 km. One run a week at the pace you want on race day, so it feels familiar.</p>"
+            "label": "Weeks 7 to 9",
+            "title": "Opinions and plans",
+            "text": "<p>Agree, disagree, make plans and tell a short story. You start to follow people speaking at normal speed.</p>"
           }
         },
         "item_4": {
           "type": "item",
           "settings": {
-            "label": "Weeks 13 to 16",
-            "title": "Sharpen and race",
-            "text": "<p>Your longest run, then two weeks of doing less so you arrive fresh. Race week has its own video and checklist.</p>"
+            "label": "Weeks 10 to 12",
+            "title": "Real situations",
+            "text": "<p>A phone call, a pharmacy, a problem with a booking. The last class is twenty minutes with no English at all.</p>"
           }
         },
         "button_1": {
           "type": "button",
           "settings": {
-            "label": "Start the plan",
+            "label": "Start speaking",
             "link": "/#shopify-section-pricing",
             "style": "primary",
             "radius": 6

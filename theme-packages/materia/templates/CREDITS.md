@@ -13,7 +13,7 @@ The Art books template's book covers, open book spreads and tablet are drawn aro
 
 The Notion templates' and the Digital products shop's device pictures are Unsplash photographs of laptops, tablets and a phone with a screen drawn for the template set into the display in perspective; their rows name the photograph. The Digital products bundle screen shows a small crop of https://images.unsplash.com/photo-1693328787539-1477754c01b7 (Unsplash License).
 The Creator Landing's photographs are one session by one photographer (Jonathan Borba): the same artist at her desk, used as the creator, Ines Hart.
-The Coach template's portraits are one session by one photographer (Cabri Caldwell): the same woman in her home office, used as the coach, Leah Morgan. The Cookbook template's (ebooks folder, round 22) book covers and hardback pictures are drawn for it around Unsplash food photographs, which their rows name; its kitchen, table and pasture pictures are Unsplash photographs.
+The Cookbook template's (ebooks folder, round 22) book covers and hardback pictures are drawn for it around Unsplash food photographs, which their rows name; its kitchen, table and pasture pictures are Unsplash photographs.
 
 Rows marked "cover only" are sample product pictures for the listing covers (scripts/theme-templates/shops.ts).
 They are not part of a template and are never added to a creator's website.
@@ -333,21 +333,6 @@ Video sales letter (round 20): the host photographs are one session, used in bla
 | vsl (cover only) | scripts/theme-templates/products/vsl/vsl-course.webp | https://images.unsplash.com/photo-1478737270239-2f02b77fc618 (black and white) | Unsplash License |
 | vsl (cover only) | scripts/theme-templates/products/vsl/vsl-templates.webp | https://images.unsplash.com/photo-1789922129938-f02af2785d19 (black and white) | Unsplash License |
 | vsl (cover only) | scripts/theme-templates/products/vsl/vsl-review-call.webp | https://images.unsplash.com/photo-1694881227503-ddc502d4b4cc (black and white) | Unsplash License |
-| coach | assets/coach-mateo-hero.webp | https://images.unsplash.com/photo-1789757112859-7a907ef6719c | Unsplash License |
-| coach | assets/coach-mateo-table.webp | https://images.unsplash.com/photo-1789757287443-59c4df41e6e5 | Unsplash License |
-| coach | assets/coach-mateo-avatar.webp | https://images.unsplash.com/photo-1789757287443-59c4df41e6e5 | Unsplash License |
-| coach | assets/coach-mateo-board.webp | https://images.unsplash.com/photo-1789757125300-db26cf8520a4 | Unsplash License |
-| coach | assets/coach-mateo-room.webp | https://images.unsplash.com/photo-1789757125300-db26cf8520a4 | Unsplash License |
-| coach | assets/coach-offer-one.webp | https://images.unsplash.com/photo-1789757305077-7bb5b4f54742 | Unsplash License |
-| coach | assets/coach-offer-group.webp | https://images.unsplash.com/photo-1789757099501-2b221a98f9ea | Unsplash License |
-| coach | assets/coach-offer-day.webp | https://images.unsplash.com/photo-1789757125300-db26cf8520a4 | Unsplash License |
-| coach (cover only) | scripts/theme-templates/products/coach/coach-offer-team.webp | https://images.unsplash.com/photo-1789757112859-7a907ef6719c | Unsplash License |
-| coach (cover only) | scripts/theme-templates/products/coach/coach-offer-gift.webp | https://images.unsplash.com/photo-1789757165446-daec9334f72e | Unsplash License |
-| coach | assets/coach-client-1.webp | https://images.unsplash.com/photo-1531750026848-8ada78f641c2 | Unsplash License |
-| coach | assets/coach-client-2.webp | https://images.unsplash.com/photo-1609371497456-3a55a205d5eb | Unsplash License |
-| coach | assets/coach-client-3.webp | https://images.unsplash.com/photo-1592234789031-94bf65f630ed | Unsplash License |
-| coach | assets/coach-client-4.webp | https://images.unsplash.com/photo-1757744705465-ea08b0ddc38a | Unsplash License |
-| coach | assets/coach-client-5.webp | https://images.unsplash.com/photo-1564564244660-5d73c057f2d2 | Unsplash License |
 | course2 | assets/course2-jonas-hero.webp | https://images.unsplash.com/photo-1671776616696-18c8f211918b | Unsplash License |
 | course2 | assets/course2-jonas-sofa.webp | https://images.unsplash.com/photo-1671776616723-364883405546 | Unsplash License |
 | course2 | assets/course2-hands.webp | https://images.unsplash.com/photo-1671776616821-0bf074346c9c | Unsplash License |
@@ -387,44 +372,38 @@ Retro desktop (round 20): the garments are Unsplash photographs cut out, recolou
 | retro (cover only) | scripts/theme-templates/products/retro/retro-smiley-beanie.webp | https://images.unsplash.com/photo-1576529598261-96e376f6aabb (cut out, label drawn on) | Unsplash License |
 | retro (cover only) | scripts/theme-templates/products/retro/retro-sticker-pack.webp | Drawn for this template | Storelib |
 
-Author (round 21): the author, Theo Marlow, is two photographs from one session by one photographer (Les Taylor); his round portrait is a crop of the first. The book cover, its pages, the open spread, the phone, the journal pages and the edition pictures are drawn for the template.
+Author (round 22): the author, Maya Okafor, is two photographs from one session by one photographer (Vitaly Gariev). The book, its audiobook, the workbook and the set are drawn for the template. The other photographs are Unsplash photographs by different photographers.
 
-| authorbook | assets/authorbook-theo-sofa.webp | https://images.unsplash.com/photo-1761957355207-ebca5793f4c5 | Unsplash License |
-| authorbook | assets/authorbook-theo-face.webp | https://images.unsplash.com/photo-1761957355207-ebca5793f4c5 | Unsplash License |
-| authorbook | assets/authorbook-theo-reading.webp | https://images.unsplash.com/photo-1761957355215-a57f71aaa28a | Unsplash License |
-| authorbook | assets/authorbook-course.webp | https://images.unsplash.com/photo-1588243291559-c4a0c36bc2dc | Unsplash License |
-| authorbook | assets/authorbook-shelf-letter.webp | https://images.unsplash.com/photo-1725582204163-46d1f246ecd6 | Unsplash License |
-| authorbook | assets/authorbook-table.webp | https://images.unsplash.com/photo-1576506542790-51244b486a6b | Unsplash License |
-| authorbook | assets/authorbook-cover.webp | Drawn for this template | Storelib |
-| authorbook | assets/authorbook-page-chapter.webp | Drawn for this template | Storelib |
-| authorbook | assets/authorbook-page-figure.webp | Drawn for this template | Storelib |
-| authorbook | assets/authorbook-spread.webp | Drawn for this template | Storelib |
-| authorbook | assets/authorbook-ed-ebook.webp | Drawn for this template | Storelib |
-| authorbook | assets/authorbook-ed-set.webp | Drawn for this template | Storelib |
-| authorbook | assets/authorbook-ed-audio.webp | Drawn for this template | Storelib |
-| authorbook | assets/authorbook-shelf-book.webp | Drawn for this template | Storelib |
-| authorbook | assets/authorbook-shelf-audio.webp | Drawn for this template | Storelib |
-| authorbook | assets/authorbook-shelf-journal.webp | Drawn for this template | Storelib |
-| authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-journal.webp | Drawn for this template | Storelib |
+| authorbook | assets/authorbook-maya-wall.webp | https://images.unsplash.com/photo-1758600435880-d7c0546a69d0 | Unsplash License |
+| authorbook | assets/authorbook-maya-portrait.webp | https://images.unsplash.com/photo-1758600435036-0c958b8b9704 | Unsplash License |
+| authorbook | assets/authorbook-notes.webp | https://images.unsplash.com/photo-1652170228217-eeccbe82bcf4 | Unsplash License |
+| authorbook | assets/authorbook-cash.webp | https://images.unsplash.com/photo-1518458028785-8fbcd101ebb9 | Unsplash License |
+| authorbook | assets/authorbook-paperwork.webp | https://images.unsplash.com/photo-1772588627373-729b0f47e5bb | Unsplash License |
+| authorbook | assets/authorbook-ed-book.webp | Drawn for this template | Storelib |
+| authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-cover.webp | Drawn for this template | Storelib |
+| authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-ed-audio.webp | Drawn for this template | Storelib |
+| authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-ed-set.webp | Drawn for this template | Storelib |
+| authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-workbook.webp | Drawn for this template | Storelib |
 
-Content creator (round 21): the creator, Nina Brooks, is one session by one photographer (Videodeck): the same woman in her studio. A small logo on her hoodie, the maker's name on the microphone and a logo on the laptop are painted out. The video thumbnails and course covers are those photographs (two of them mirrored) with titles set on them; the Notion style workspace is drawn for the template.
+Content creator (round 21, rebuilt round 22): the creator, Nina Brooks, is one session by one photographer (Videodeck): the same woman in her studio. A small logo on her hoodie, the maker's names on the microphone and the light and a logo on the laptop are painted out. The course pictures are those photographs without titles; the Notion style workspace is drawn for the template. The student faces are the Online course template's photographs.
 
 | creatorpro | assets/creatorpro-hero.webp | https://images.unsplash.com/photo-1676380367878-c79a5f40edb6 | Unsplash License |
-| creatorpro | assets/creatorpro-face.webp | https://images.unsplash.com/photo-1676380367878-c79a5f40edb6 | Unsplash License |
 | creatorpro | assets/creatorpro-podcast.webp | https://images.unsplash.com/photo-1676380363734-f2f932ff5981 | Unsplash License |
 | creatorpro | assets/creatorpro-studio.webp | https://images.unsplash.com/photo-1664277497087-51787d2b9d15 | Unsplash License |
 | creatorpro | assets/creatorpro-wide.webp | https://images.unsplash.com/photo-1673767298275-769b08b4f675 | Unsplash License |
-| creatorpro | assets/creatorpro-video-1.webp | https://images.unsplash.com/photo-1664277497087-51787d2b9d15 | Unsplash License |
-| creatorpro | assets/creatorpro-video-2.webp | https://images.unsplash.com/photo-1676380363734-f2f932ff5981 | Unsplash License |
-| creatorpro | assets/creatorpro-video-3.webp | https://images.unsplash.com/photo-1673767298275-769b08b4f675 | Unsplash License |
-| creatorpro | assets/creatorpro-video-4.webp | https://images.unsplash.com/photo-1676380367878-c79a5f40edb6 | Unsplash License |
-| creatorpro | assets/creatorpro-course-launch.webp | https://images.unsplash.com/photo-1664277497087-51787d2b9d15 | Unsplash License |
-| creatorpro | assets/creatorpro-course-youtube.webp | https://images.unsplash.com/photo-1673767298275-769b08b4f675 | Unsplash License |
-| creatorpro | assets/creatorpro-course-os.webp | Drawn for this template | Storelib |
-| creatorpro (cover only) | scripts/theme-templates/products/creatorpro/creatorpro-p-launch.webp | https://images.unsplash.com/photo-1664277497087-51787d2b9d15 (title set under it) | Unsplash License |
-| creatorpro (cover only) | scripts/theme-templates/products/creatorpro/creatorpro-p-youtube.webp | https://images.unsplash.com/photo-1673767298275-769b08b4f675 (title set under it) | Unsplash License |
+| creatorpro | assets/creatorpro-desk.webp | https://images.unsplash.com/photo-1673767298248-b128f17f89af | Unsplash License |
+| creatorpro | assets/creatorpro-ig-1.webp | https://images.unsplash.com/photo-1673767298275-769b08b4f675 | Unsplash License |
+| creatorpro | assets/creatorpro-ig-2.webp | https://images.unsplash.com/photo-1664277497087-51787d2b9d15 | Unsplash License |
+| creatorpro | assets/creatorpro-ig-3.webp | https://images.unsplash.com/photo-1676380363734-f2f932ff5981 | Unsplash License |
+| creatorpro | assets/creatorpro-ig-4.webp | https://images.unsplash.com/photo-1676380367878-c79a5f40edb6 | Unsplash License |
+| creatorpro | assets/creatorpro-student-1.webp | https://images.unsplash.com/photo-1779212508632-673f06f27210 | Unsplash License |
+| creatorpro | assets/creatorpro-student-2.webp | https://images.unsplash.com/photo-1780322195200-64e71db074c2 | Unsplash License |
+| creatorpro | assets/creatorpro-student-3.webp | https://images.unsplash.com/photo-1714750977930-e7a7f4611257 | Unsplash License |
+| creatorpro | assets/creatorpro-student-4.webp | https://images.unsplash.com/photo-1625241152315-4a698f74ceb7 | Unsplash License |
+| creatorpro (cover only) | scripts/theme-templates/products/creatorpro/creatorpro-p-launch.webp | https://images.unsplash.com/photo-1664277497087-51787d2b9d15 | Unsplash License |
+| creatorpro (cover only) | scripts/theme-templates/products/creatorpro/creatorpro-p-youtube.webp | https://images.unsplash.com/photo-1673767298275-769b08b4f675 | Unsplash License |
+| creatorpro (cover only) | scripts/theme-templates/products/creatorpro/creatorpro-p-call.webp | https://images.unsplash.com/photo-1676380367878-c79a5f40edb6 | Unsplash License |
 | creatorpro (cover only) | scripts/theme-templates/products/creatorpro/creatorpro-p-os.webp | Drawn for this template | Storelib |
-| creatorpro (cover only) | scripts/theme-templates/products/creatorpro/creatorpro-p-call.webp | https://images.unsplash.com/photo-1676380363734-f2f932ff5981 (title set under it) | Unsplash License |
 
 Coach creator (round 21): the coach, Camila Duarte, is one session by one photographer (Jonathan Borba): the same woman in her studio, used for every portrait and behind the scenes picture. The client faces on the sample stories are other Unsplash portraits, cropped round and marked as samples on the page.
 
@@ -556,3 +535,27 @@ Templates round 22. The two lifestyle photographs are Unsplash photographs, crop
 | capstees (cover only) | scripts/theme-templates/products/capstees/capstees-crew-black.webp | https://images.unsplash.com/photo-1620799140408-edc6dcb6d633 (cut out, recoloured black, print drawn on) | Unsplash License |
 | capstees (cover only) | scripts/theme-templates/products/capstees/capstees-crew-forest.webp | https://images.unsplash.com/photo-1620799140408-edc6dcb6d633 (cut out, recoloured forest, print drawn on) | Unsplash License |
 | capstees (cover only) | scripts/theme-templates/products/capstees/capstees-crew-brown.webp | https://images.unsplash.com/photo-1620799140408-edc6dcb6d633 (cut out, recoloured brown, print drawn on) | Unsplash License |
+
+Running coach (coach folder, round 22): the coach, Amara Wells, is three photographs from one night session by one photographer (Jadon Johnson); a small maker's logo on her top, her leggings and her shoes is painted out, and the top of the phone hero is darkened. The other running photographs are Unsplash photographs by different photographers; the plan pictures are the same photographs in black and white. The client faces are kept from round 20.
+
+| coach | assets/coach-hero.webp | https://images.unsplash.com/photo-1726195221342-8676de2c5b86 | Unsplash License |
+| coach | assets/coach-hero-phone.webp | https://images.unsplash.com/photo-1726195221342-8676de2c5b86 | Unsplash License |
+| coach | assets/coach-amara-portrait.webp | https://images.unsplash.com/photo-1726195225348-096a00bdd58f | Unsplash License |
+| coach | assets/coach-amara-drills.webp | https://images.unsplash.com/photo-1726195225009-56c724665a49 | Unsplash License |
+| coach | assets/coach-road.webp | https://images.unsplash.com/photo-1486218119243-13883505764c | Unsplash License |
+| coach | assets/coach-group.webp | https://images.unsplash.com/photo-1607962837359-5e7e89f86776 | Unsplash License |
+| coach | assets/coach-race.webp | https://images.unsplash.com/photo-1760315972424-1637530daead | Unsplash License |
+| coach | assets/coach-track.webp | https://images.unsplash.com/photo-1744060204728-f68e434a3edf | Unsplash License |
+| coach | assets/coach-trail.webp | https://images.unsplash.com/photo-1594882645126-14020914d58d | Unsplash License |
+| coach | assets/coach-stride.webp | https://images.unsplash.com/photo-1766970096320-c62c49517226 | Unsplash License |
+| coach | assets/coach-dawn.webp | https://images.unsplash.com/photo-1502224562085-639556652f33 | Unsplash License |
+| coach | assets/coach-client-1.webp | https://images.unsplash.com/photo-1531750026848-8ada78f641c2 | Unsplash License |
+| coach | assets/coach-client-2.webp | https://images.unsplash.com/photo-1609371497456-3a55a205d5eb | Unsplash License |
+| coach | assets/coach-client-3.webp | https://images.unsplash.com/photo-1592234789031-94bf65f630ed | Unsplash License |
+| coach | assets/coach-client-4.webp | https://images.unsplash.com/photo-1757744705465-ea08b0ddc38a | Unsplash License |
+| coach | assets/coach-client-5.webp | https://images.unsplash.com/photo-1564564244660-5d73c057f2d2 | Unsplash License |
+| coach (cover only) | scripts/theme-templates/products/coach/coach-plan-half.webp | https://images.unsplash.com/photo-1607962837359-5e7e89f86776, black and white | Unsplash License |
+| coach (cover only) | scripts/theme-templates/products/coach/coach-plan-5k.webp | https://images.unsplash.com/photo-1480179087180-d9f0ec044897, black and white | Unsplash License |
+| coach (cover only) | scripts/theme-templates/products/coach/coach-plan-marathon.webp | https://images.unsplash.com/photo-1452626038306-9aae5e071dd3, black and white | Unsplash License |
+| coach (cover only) | scripts/theme-templates/products/coach/coach-monthly.webp | https://images.unsplash.com/photo-1726195221342-8676de2c5b86, black and white, logo painted out | Unsplash License |
+| coach (cover only) | scripts/theme-templates/products/coach/coach-form-review.webp | https://images.unsplash.com/photo-1695918425283-eb385c012b7a, black and white | Unsplash License |

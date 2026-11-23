@@ -63,6 +63,56 @@
         "secondary_button_5"
       ]
     },
+    "hello": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "default",
+        "image": "shopify://shop_images/coach-amara-portrait.webp",
+        "image_alt": "Amara Wells on the track, hands on her hips",
+        "image_position": "right",
+        "aspect_w": 4,
+        "aspect_h": 5,
+        "image_radius": 2,
+        "text_column_width": 50,
+        "padding_top_desktop": 112,
+        "padding_bottom_desktop": 112
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Hi, I'm Amara"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "I coach people who run before work",
+            "size_desktop": 48
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>I ran the 400 metres in college, then spent years getting injured doing too much, too fast. These days I coach nurses, teachers, parents and night shift workers who want to run a race and still feel good on Monday.</p><p>Most of my runners run less than they expect and finish stronger than they hoped.</p>"
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "My story",
+            "link": "/pages/about",
+            "button_style": "secondary"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
+    },
     "distances": {
       "type": "marquee-bar",
       "settings": {
@@ -114,56 +164,6 @@
         "marquee_4",
         "marquee_5",
         "marquee_6"
-      ]
-    },
-    "hello": {
-      "type": "Image-and-video-text",
-      "settings": {
-        "color_scheme": "default",
-        "image": "shopify://shop_images/coach-amara-portrait.webp",
-        "image_alt": "Amara Wells on the track, hands on her hips",
-        "image_position": "right",
-        "aspect_w": 4,
-        "aspect_h": 5,
-        "image_radius": 2,
-        "text_column_width": 50,
-        "padding_top_desktop": 112,
-        "padding_bottom_desktop": 112
-      },
-      "blocks": {
-        "eyebrow_1": {
-          "type": "eyebrow",
-          "settings": {
-            "text": "Hi, I'm Amara"
-          }
-        },
-        "heading_2": {
-          "type": "heading",
-          "settings": {
-            "text": "I coach people who run before work",
-            "size_desktop": 48
-          }
-        },
-        "subheading_3": {
-          "type": "subheading",
-          "settings": {
-            "text": "<p>I ran the 400 metres in college, then spent years getting injured doing too much, too fast. These days I coach nurses, teachers, parents and night shift workers who want to run a race and still feel good on Monday.</p><p>Most of my runners run less than they expect and finish stronger than they hoped.</p>"
-          }
-        },
-        "button_4": {
-          "type": "button",
-          "settings": {
-            "label": "My story",
-            "link": "/pages/about",
-            "button_style": "secondary"
-          }
-        }
-      },
-      "block_order": [
-        "eyebrow_1",
-        "heading_2",
-        "subheading_3",
-        "button_4"
       ]
     },
     "plans": {
@@ -578,8 +578,8 @@
   },
   "order": [
     "hero",
-    "distances",
     "hello",
+    "distances",
     "plans",
     "distances_rows",
     "how",
