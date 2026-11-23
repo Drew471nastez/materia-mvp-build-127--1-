@@ -159,7 +159,12 @@ export function IntegrationsMarketplace({ initial }: { initial?: IntegrationStat
 }
 
 /** One provider: its status, its button, and its fields in place. Also the Install part of its page in Settings › Integrations (components/app/settings/integrations-directory.tsx), open from the start. */
-export function IntegrationCard({ provider, state, loading, onSaved, startOpen = false }: { provider: ProviderInfo; state: IntegrationState | null; loading: boolean; onSaved: (s: IntegrationState[]) => void; startOpen?: boolean }) {
+/**
+ * `bare` (round 58): only the fields and Connect, for the install sheet of an integration's page
+ * (components/app/integrations/install-sheet.tsx), which has its own title and steps. The same
+ * fields, the same body to the same route, the same checks: nothing about the key changes.
+ */
+export function IntegrationCard({ provider, state, loading, onSaved, startOpen = false, bare = false }: { provider: ProviderInfo; state: IntegrationState | null; loading: boolean; onSaved: (s: IntegrationState[]) => void; startOpen?: boolean; bare?: boolean }) {
   const comingSoon = provider.availability === "needs_setup"
   const [open, setOpen] = React.useState(startOpen && !comingSoon)
   const [url, setUrl] = React.useState(state?.url ?? "")
@@ -204,6 +209,63 @@ export function IntegrationCard({ provider, state, loading, onSaved, startOpen =
     /* Only the seller's choice keeps the fields open; a key saved or a disconnect closes them. */
     if (body.autoConfirm === undefined && body.shipmentMethod === undefined && body.logistic === undefined && body.fromCountry === undefined) setOpen(false)
   }
+
+  const form = (
+        <div className={bare ? "space-y-3" : "mt-4 space-y-3 border-t border-[#eceef1] pt-4 sm:ml-[58px]"} data-integration-form="">
+          {provider.fields.includes("url") ? (
+            <Field label={tt("Webhook address")} hint={tt("A public https address")}>
+              <TextInput value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com/storelib/orders" inputMode="url" />
+            </Field>
+          ) : null}
+          {provider.fields.includes("webhook_secret") ? (
+            <Field label={tt("Signing secret")} hint={state?.secretHint ? tt("Saved, ends in {secretHint}. Leave empty to keep it.", { secretHint: state.secretHint }) : tt("16 characters or more. Check X-Storelib-Signature against it.")}>
+              <TextInput type="password" autoComplete="off" value={secret} onChange={(e) => setSecret(e.target.value)} />
+            </Field>
+          ) : null}
+          {provider.fields.includes("api_key") ? (
+            <Field
+              label={KEY_FIELD[provider.id]?.label ?? tt("{name} API key", { name: provider.name })}
+              hint={
+                state?.keyHint
+                  ? tt("Saved, ends in {keyHint}. Leave empty to keep it.", { keyHint: state.keyHint })
+                  : KEY_HINT[provider.id]
+                    ? KEY_HINT[provider.id]
+                  : KEY_FIELD[provider.id]
+                    ? KEY_FIELD[provider.id].hint
+                    : provider.verifies
+                        ? tt("Checked with {name} when you save, then stored encrypted and never shown again.", { name: provider.name })
+                        : tt("Stored encrypted and never shown again.")
+              }
+            >
+              <TextInput type="password" autoComplete="off" value={key} onChange={(e) => setKey(e.target.value)} data-integration-key="" />
+            </Field>
+          ) : null}
+          {provider.fields.includes("api_secret") ? (
+            <Field label={tt("{name} API secret", { name: provider.name })} hint={state?.keyHint ? tt("Type both again to replace them.") : tt("Shown next to the key in ShipStation. Stored encrypted with it.")}>
+              <TextInput type="password" autoComplete="off" value={apiSecret} onChange={(e) => setApiSecret(e.target.value)} data-integration-secret="" />
+            </Field>
+          ) : null}
+          {error ? <Notice>{error}</Notice> : null}
+          {open && done ? <p className="text-[13px] text-[#067647]" data-integration-done="">{done}</p> : null}
+          <div className="flex flex-wrap justify-end gap-2">
+            {saved ? (
+              <button type="button" className={BTN_DANGER} disabled={busy} onClick={() => void save({ disconnect: true }, tt("Disconnected."))} data-integration-disconnect="">
+                {tt("Disconnect")}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className={BTN_PRIMARY}
+              disabled={busy || (sendsOrders && !key.trim() && state?.status !== "needs_setup") || (shippingApp && (!key.trim() || (provider.fields.includes("api_secret") && !apiSecret.trim())))}
+              onClick={() => void save({ url, webhookSecret: secret, apiKey: key, ...(provider.fields.includes("api_secret") ? { apiSecret } : {}) }, keyed ? tt("Connected to {name}.", { name: provider.name }) : tt("Saved."))}
+              data-integration-save=""
+            >
+              {busy ? (provider.verifies && (key || state?.status === "needs_setup") ? tt("Checking with {name}", { name: provider.name }) : tt("Saving")) : keyed ? (state?.status === "connected" ? tt("Replace key") : tt("Connect")) : tt("Save")}
+            </button>
+          </div>
+        </div>
+  )
+  if (bare) return connectable ? form : null
 
   return (
     <li className={cn(CARD, "flex flex-col px-4 py-4 sm:px-5")} data-integration={provider.id} data-integration-status={status.label}>
@@ -279,61 +341,7 @@ export function IntegrationCard({ provider, state, loading, onSaved, startOpen =
       {!open && done ? <p className="mt-2 text-[13px] text-[#067647] sm:pl-[58px]" data-integration-done="">{done}</p> : null}
       {!open && error ? <Notice className="mt-3 sm:ml-[58px]">{error}</Notice> : null}
 
-      {open ? (
-        <div className="mt-4 space-y-3 border-t border-[#eceef1] pt-4 sm:ml-[58px]">
-          {provider.fields.includes("url") ? (
-            <Field label={tt("Webhook address")} hint={tt("A public https address")}>
-              <TextInput value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com/storelib/orders" inputMode="url" />
-            </Field>
-          ) : null}
-          {provider.fields.includes("webhook_secret") ? (
-            <Field label={tt("Signing secret")} hint={state?.secretHint ? tt("Saved, ends in {secretHint}. Leave empty to keep it.", { secretHint: state.secretHint }) : tt("16 characters or more. Check X-Storelib-Signature against it.")}>
-              <TextInput type="password" autoComplete="off" value={secret} onChange={(e) => setSecret(e.target.value)} />
-            </Field>
-          ) : null}
-          {provider.fields.includes("api_key") ? (
-            <Field
-              label={KEY_FIELD[provider.id]?.label ?? tt("{name} API key", { name: provider.name })}
-              hint={
-                state?.keyHint
-                  ? tt("Saved, ends in {keyHint}. Leave empty to keep it.", { keyHint: state.keyHint })
-                  : KEY_HINT[provider.id]
-                    ? KEY_HINT[provider.id]
-                  : KEY_FIELD[provider.id]
-                    ? KEY_FIELD[provider.id].hint
-                    : provider.verifies
-                        ? tt("Checked with {name} when you save, then stored encrypted and never shown again.", { name: provider.name })
-                        : tt("Stored encrypted and never shown again.")
-              }
-            >
-              <TextInput type="password" autoComplete="off" value={key} onChange={(e) => setKey(e.target.value)} data-integration-key="" />
-            </Field>
-          ) : null}
-          {provider.fields.includes("api_secret") ? (
-            <Field label={tt("{name} API secret", { name: provider.name })} hint={state?.keyHint ? tt("Type both again to replace them.") : tt("Shown next to the key in ShipStation. Stored encrypted with it.")}>
-              <TextInput type="password" autoComplete="off" value={apiSecret} onChange={(e) => setApiSecret(e.target.value)} data-integration-secret="" />
-            </Field>
-          ) : null}
-          {error ? <Notice>{error}</Notice> : null}
-          {open && done ? <p className="text-[13px] text-[#067647]" data-integration-done="">{done}</p> : null}
-          <div className="flex flex-wrap justify-end gap-2">
-            {saved ? (
-              <button type="button" className={BTN_DANGER} disabled={busy} onClick={() => void save({ disconnect: true }, tt("Disconnected."))} data-integration-disconnect="">
-                {tt("Disconnect")}
-              </button>
-            ) : null}
-            <button
-              type="button"
-              className={BTN_PRIMARY}
-              disabled={busy || (sendsOrders && !key.trim() && state?.status !== "needs_setup") || (shippingApp && (!key.trim() || (provider.fields.includes("api_secret") && !apiSecret.trim())))}
-              onClick={() => void save({ url, webhookSecret: secret, apiKey: key, ...(provider.fields.includes("api_secret") ? { apiSecret } : {}) }, keyed ? tt("Connected to {name}.", { name: provider.name }) : tt("Saved."))}
-              data-integration-save=""
-            >
-              {busy ? (provider.verifies && (key || state?.status === "needs_setup") ? tt("Checking with {name}", { name: provider.name }) : tt("Saving")) : keyed ? (state?.status === "connected" ? tt("Replace key") : tt("Connect")) : tt("Save")}
-            </button>
-          </div>
-        </div>
-      ) : null}
+      {open ? form : null}
     </li>
   )
 }

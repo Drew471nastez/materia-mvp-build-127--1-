@@ -73,6 +73,8 @@ export interface IntegrationSections {
   data: React.ReactNode
   glance: React.ReactNode
   danger: React.ReactNode | null
+  /** Round 58: What is synced, the installed page template's card (components/app/integrations/installed-app.tsx). */
+  synced?: React.ReactNode | null
 }
 
 export interface IntegrationAppBodyProps {
