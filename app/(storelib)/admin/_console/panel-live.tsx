@@ -9,7 +9,7 @@ import type { LiveFeedPayload, LiveFeedRow, LivePayload, LiveSessionPayload, Liv
 import { ago, date, money, num } from "./format"
 import type { Route } from "./nav-state"
 import { ViewHeader } from "./shell"
-import { Button, C, DataList, Facts, Figures, Filters, LinkText, Panel, ReadNotes, type Column } from "./ui"
+import { Button, C, DataList, Delayed, Facts, Figures, Filters, LinkText, Panel, Placeholder, ReadNotes, type Column } from "./ui"
 
 /**
  * ===========================================================================
@@ -111,10 +111,15 @@ function Who({ who }: { who: LiveSessionRow["who"] }) {
 
 /** "Explore", "Product page, blue brushes" on a creator page, the site's host first on a creator's own website. */
 function Place({ area, path, host }: { area: string; path: string | null; host: string | null }) {
-  const page = area === "app" ? (path ? describeEvent({ kind: "page", name: path }) : "") : livePageLabel(path, area)
+  const where = isArea(area) ? AREA_LABEL[area] : area
+  const raw = area === "app" ? (path ? describeEvent({ kind: "page", name: path }) : "") : livePageLabel(path, area)
+  /* "Explore, Explore" says nothing twice: the page only when it adds something. */
+  const lower = raw.toLowerCase()
+  const head = where.toLowerCase()
+  const page = !raw || lower === head ? "" : lower.startsWith(`${head}, `) ? raw.slice(head.length + 2) : raw
   return (
-    <span className="min-w-0 truncate">
-      <span className="text-[#ededf0]">{isArea(area) ? AREA_LABEL[area] : area}</span>
+    <span className="block min-w-0 max-w-full truncate">
+      <span className="text-[#ededf0]">{where}</span>
       {host ? <span className="text-[#6b6b76]"> {host}</span> : null}
       {page ? <span className="text-[#9b9ba6]">, {page}</span> : null}
     </span>
@@ -189,12 +194,21 @@ function LiveNow({ area, go }: { area: string; go: Go }) {
     { key: "time", label: "On site", width: "84px", align: "right", phone: "end", render: (r) => sessionLength(r.started, r.lastSeen) },
   ]
 
+  /* The first read paints once, complete: no empty figures that fill in and push the list down. */
+  if (!data && !error) {
+    return (
+      <Delayed ms={300}>
+        <Placeholder />
+      </Delayed>
+    )
+  }
+
   return (
     <div className="space-y-4">
       {data ? <ReadNotes problems={data.problems} notices={data.notices} /> : null}
       <Figures
         items={[
-          { label: "Online now", value: o && o.online !== null ? num(o.online) : "", sub: o && o.signedIn !== null && o.online !== null ? `${num(o.signedIn)} signed in, ${num(Math.max(0, o.online - o.signedIn))} visitors` : undefined, unreadable: o && o.online === null ? notRead : null },
+          { label: "Online now", value: o && o.online !== null ? num(o.online) : "", sub: o && o.signedIn !== null ? `${num(o.signedIn)} signed in` : undefined, unreadable: o && o.online === null ? notRead : null },
           { label: "Visits today", value: o && o.today !== null ? num(o.today) : "", sub: o && o.todaySignedIn !== null ? `${num(o.todaySignedIn)} signed in` : undefined, unreadable: o && o.today === null ? notRead : null },
           { label: "Creators in /app", value: o ? num(o.areas.app ?? 0) : "", sub: o && o.creatorsToday !== null ? `${num(o.creatorsToday)} today` : undefined },
           { label: "Top country now", value: topNow ? <span className="inline-flex min-w-0 items-center gap-2"><span aria-hidden>{countryFlag(topNow[0])}</span><span className="truncate">{countryName(topNow[0])}</span></span> : "None yet", sub: topNow ? `${num(topNow[1])} online` : undefined },
@@ -276,7 +290,7 @@ function timeOf(iso: string): string {
   return Number.isNaN(d.getTime()) ? "" : d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "UTC" })
 }
 
-type Step = { key: string; at: string; kind: "page" | "action"; label: string; area: string; orderId: string | null }
+type Step = { key: string; at: string; kind: "page" | "action"; label: string; area: string; path: string | null; orderId: string | null }
 
 export function LiveSessionView({ sid, go }: { sid: string; go: Go }) {
   const [state, setState] = React.useState<{ sid: string; body: LiveSessionPayload } | null>(null)
@@ -306,8 +320,8 @@ export function LiveSessionView({ sid, go }: { sid: string; go: Go }) {
   const steps: Step[] = React.useMemo(() => {
     if (!body) return []
     const out: Step[] = [
-      ...body.trail.map((t, i) => ({ key: `p${i}-${t.at}`, at: t.at, kind: "page" as const, label: livePageLabel(t.path, t.area), area: t.area, orderId: null })),
-      ...body.actions.map((a) => ({ key: `a${a.id}`, at: a.at, kind: "action" as const, label: a.label, area: a.area, orderId: a.orderId })),
+      ...body.trail.map((t, i) => ({ key: `p${i}-${t.at}`, at: t.at, kind: "page" as const, label: livePageLabel(t.path, t.area), area: t.area, path: t.path, orderId: null })),
+      ...body.actions.map((a) => ({ key: `a${a.id}`, at: a.at, kind: "action" as const, label: a.label, area: a.area, path: a.path, orderId: a.orderId })),
     ]
     return out.sort((x, y) => Date.parse(y.at) - Date.parse(x.at) || (x.kind === "action" ? -1 : 1))
   }, [body])
@@ -317,6 +331,11 @@ export function LiveSessionView({ sid, go }: { sid: string; go: Go }) {
     <div className="space-y-4">
       <ViewHeader title={s ? s.who.label : "Session"} meta={s ? (online ? "Online now" : `Last seen ${ago(s.lastSeen)}`) : undefined} back={{ label: "Live", onClick: () => go({ id: "" }) }} />
       {body ? <ReadNotes problems={body.problems} notices={body.notices} /> : null}
+      {!body && !error ? (
+        <Delayed ms={300}>
+          <Placeholder />
+        </Delayed>
+      ) : (
       <Panel title="This visit" meta={s ? `Started ${date(s.started)}, ${timeOf(s.started ?? "")} UTC` : undefined}>
         <div data-live-session>
           {!body ? (
@@ -373,10 +392,13 @@ export function LiveSessionView({ sid, go }: { sid: string; go: Go }) {
                   steps.map((e) => (
                     <li key={e.key} className="flex min-w-0 items-baseline gap-3 px-4 py-1.5 text-[13px]" data-row>
                       <span className="w-11 shrink-0 text-[12px] text-[#6b6b76] tabular-nums">{timeOf(e.at)}</span>
-                      <span className={e.kind === "page" ? "min-w-0 flex-1 truncate text-[#9b9ba6]" : "min-w-0 flex-1 truncate text-[#ededf0]"}>
-                        {e.label}
-                        {e.kind === "page" && isArea(e.area) ? <span className="text-[#6b6b76]">, {AREA_LABEL[e.area]}</span> : null}
-                      </span>
+                      {e.kind === "page" ? (
+                        <span className="min-w-0 flex-1">
+                          <Place area={e.area} path={e.path} host={null} />
+                        </span>
+                      ) : (
+                        <span className="min-w-0 flex-1 truncate text-[#ededf0]">{e.label}</span>
+                      )}
                       {e.orderId ? (
                         <LinkText onClick={() => go({ view: "orders", q: e.orderId!, filter: "", page: 1, id: "" })}>Order</LinkText>
                       ) : (
@@ -393,6 +415,7 @@ export function LiveSessionView({ sid, go }: { sid: string; go: Go }) {
         </div>
         <Notes />
       </Panel>
+      )}
     </div>
   )
 }

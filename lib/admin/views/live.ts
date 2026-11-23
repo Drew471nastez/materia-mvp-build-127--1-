@@ -218,9 +218,9 @@ export async function liveSessions(reads: LiveReads, area: string | null, now = 
         )
       : Promise.resolve({ data: [], count: null, missing: false, failed: false } as Asked),
   ])
-  if (tabs.missing) return { rows: [], missing: true }
+  /* Part 477 missing: still the creators in /app, which part 430 records. */
   if (tabs.failed) return { rows: null, missing: false }
-  const sessions = (tabs.data ?? []) as SessionDb[]
+  const sessions = (tabs.missing ? [] : tabs.data ?? []) as SessionDb[]
   const names = await namesFor(reads, sessions.map((s) => s.user_id).filter((u): u is string => !!u))
   const rows = sessions.map((s) => rowOf(s, names))
   for (const p of (app.data ?? []) as PresenceDb[]) {
@@ -245,7 +245,7 @@ export async function liveSessions(reads: LiveReads, area: string | null, now = 
     })
   }
   rows.sort((a, b) => Date.parse(b.lastSeen ?? "") - Date.parse(a.lastSeen ?? ""))
-  return { rows: rows.slice(0, LIVE_LIST_LIMIT), missing: false }
+  return { rows: rows.slice(0, LIVE_LIST_LIMIT), missing: tabs.missing }
 }
 
 /* ── One tab ───────────────────────────────────────────────────────────── */

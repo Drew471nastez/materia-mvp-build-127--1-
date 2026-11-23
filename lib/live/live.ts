@@ -1,6 +1,6 @@
 /**
  * ===========================================================================
- *  WHO IS ON STORELIB NOW, ACROSS THE WHOLE PLATFORM (round 62, SQL part 460)
+ *  WHO IS ON STORELIB NOW, ACROSS THE WHOLE PLATFORM (round 62, SQL part 477)
  * ===========================================================================
  * The owner: "I want to see the live ones on Storelib: who they are, where
  * they are from, what it is, what they do. Not only on creators' pages, across
@@ -41,13 +41,13 @@
 export const LIVE_ONLINE_MS = 2 * 60_000
 /** The browser sends at most this often while visible, never while hidden. */
 export const LIVE_SEND_EVERY_MS = 60_000
-/** A heartbeat with nothing new is written at most this often per session (part 460 says the same). */
+/** A heartbeat with nothing new is written at most this often per session (part 477 says the same). */
 export const LIVE_PRESENCE_EVERY_MS = 55_000
 /** At most this many events in one batch. */
 export const LIVE_MAX_BATCH = 30
 /** A batch body past this is not one of ours. */
 export const LIVE_MAX_BODY_BYTES = 3_000
-/** The pages a session row keeps, newest last (part 460 caps the same). */
+/** The pages a session row keeps, newest last (part 477 caps the same). */
 export const LIVE_TRAIL = 40
 /** Actions and signed in or consenting sessions are deleted after this. */
 export const LIVE_RETENTION_DAYS = 30
