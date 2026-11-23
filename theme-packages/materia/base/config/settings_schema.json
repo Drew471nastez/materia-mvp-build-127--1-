@@ -1803,7 +1803,15 @@
         "type": "checkbox",
         "id": "show_add_cart",
         "label": "Show add to cart",
+        "info": "A product with options (a size, a colour) opens the quick view to choose them; one without adds straight to the cart.",
         "default": true
+      },
+      {
+        "type": "checkbox",
+        "id": "show_quick_view",
+        "label": "Show quick view",
+        "info": "A button on each card opens the product's pictures, options and Add to cart in a window, a sheet from the bottom on phones.",
+        "default": false
       },
       {
         "type": "select",

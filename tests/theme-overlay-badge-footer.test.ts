@@ -79,7 +79,7 @@ const ratio = (a: number, b: number) => (Math.max(a, b) + 0.05) / (Math.min(a, b
 const css = (f: string) => readFileSync(join(ROOT, "base", "assets", f), "utf8")
 
 /* Product page round 23: the shops that open the coupon newsletter popup. */
-const PROMO_POPUP = new Set(["default", "clothing", "merch", "capstees", "podshop", "samples"])
+const PROMO_POPUP = new Set(["default", "clothing", "merch", "capstees", "podshop", "samples", "outerwear"])
 
 async function main() {
   /* ── The Overlay group ──────────────────────────────────────────────── */
