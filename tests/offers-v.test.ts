@@ -257,7 +257,8 @@ async function main() {
     const row = offerRow({ kind: "checkout", product_ids: [C], trigger_collection_ids: [COLL], discount_type: "fixed", discount_value: 350, placements: ["cart", "checkout"], starts_at: saved.startsAt, ends_at: saved.endsAt, combines_with_codes: false, max_per_order: 3, min_subtotal_cents: 2500 })
     const fromRow = offerOf(row as never)
     check("and each column reads back into the same setting (offerOf)", fromRow.triggerCollectionIds!.join() === COLL && fromRow.placements!.join() === "cart,checkout" && fromRow.startsAt === saved.startsAt && fromRow.combinesWithCodes === false && fromRow.maxPerOrder === 3 && fromRow.minSubtotalCents === 2500)
-    const editor = read("app/(storelib)/app/offers/offer-editor.tsx")
+    /* Changed on purpose (r60): the kinds are asked in New offer's chooser (offer-kind-chooser.tsx) before the offer's own page, so both files are the form. */
+    const editor = read("app/(storelib)/app/offers/offer-editor.tsx") + read("app/(storelib)/app/offers/offer-kind-chooser.tsx")
     const rules: [string, RegExp, boolean][] = [
       /* Changed on purpose (r58): the kinds are Add product's rows in the modal. */ ["kind: bundle or upsell", /data-kind=\{k\}/, applyOffers([line(A, 1000), line(B, 1000)], [offer({})]).applied.length === 1 && applyOffers([line(A, 1000), line(C, 1000)], [upsell()]).applied.length === 1],
       ["name buyers see", /id="offer-title"/, readOffer({ kind: "bundle", title: "  ", productIds: [A, B] }).ok === false],
@@ -270,7 +271,7 @@ async function main() {
       ["starts and ends", /id="offer-start"[\s\S]*id="offer-end"/, offerState(upsell({ startsAt: "2099-01-01T00:00:00Z" })) === "scheduled"],
       ["limit per order", /id="offer-limit"/, applyOffers([line(A, 1), line(C, 100, 3)], [upsell({ maxPerOrder: 2 })]).discounts[1] === 100],
       ["codes can be used too", /title=\{tt\("Discount codes can be used too"\)\}/, stackWithCode([line(A, 2000), line(B, 3000)], [offer({ combinesWithCodes: false, discountValue: 50 })], (rem) => ({ discounts: rem.map(() => 1) })).error !== null],
-      ["active", /title=\{tt\("Active"\)\}/, applyOffers([line(A, 1000), line(B, 1000)], [offer({ active: false })]).applied.length === 0 && applyOffers([line(A, 1000), line(B, 1000)], [offer({})]).applied.length === 1],
+      /* Changed on purpose (r60): Active is the side card's switch on the offer's page. */ ["active", /label=\{tt\("Active"\)\}/, applyOffers([line(A, 1000), line(B, 1000)], [offer({ active: false })]).applied.length === 0 && applyOffers([line(A, 1000), line(B, 1000)], [offer({})]).applied.length === 1],
     ]
     for (const [name, inForm, rule] of rules) check(`  ${name}: in the form, and it changes what the checkout does`, inForm.test(editor) && rule, { inForm: inForm.test(editor), rule })
     const bad = problemsOf({ ...draftOf(null, "checkout", "USD"), title: "", condition: "products", amount: "95", placements: [], startsAt: "2026-11-02T10:00", endsAt: "2026-11-01T10:00", maxPerOrder: "500" }, "USD")
@@ -402,8 +403,8 @@ async function main() {
     const client = read("app/(storelib)/app/offers/offers-client.tsx")
     check("the list: views with counts, a search, phone rows, a table, a menu per row", /role="tablist"/.test(client) && /data-offer-search=""/.test(client) && /md:hidden/.test(client) && /md:table/.test(client) && /<ResponsiveActionMenu/.test(client))
     check("no made up numbers: nothing about views, accepts or revenue", !/revenue|accepts|accepted|conversion|impressions/i.test(client.replace(/\/\*[\s\S]*?\*\//g, "")))
-    /* Changed on purpose (r58): the owner asked for the editor to be a modal like Add product's; the addresses stay (tests/offers-subpages.test.ts). */
-    check("the editor: a modal over the list, Save with Ctrl or Cmd and S or Enter", /<SheetDialog/.test(read("app/(storelib)/app/offers/offer-editor.tsx")) && /e\.metaKey \|\| e\.ctrlKey/.test(read("app/(storelib)/app/offers/offer-editor.tsx")) && existsSync(join(root, "app/(storelib)/app/offers/[id]/page.tsx")) && existsSync(join(root, "app/(storelib)/app/offers/new/page.tsx")))
+    /* Changed on purpose (r60): the owner asked for a small modal that asks the kind (Add product's shell) and then the offer's own page, not a modal form. */
+    check("the editor: its own page after New offer's kind modal, Save with Ctrl or Cmd and S or Enter", /<SheetDialog/.test(read("app/(storelib)/app/offers/offer-kind-chooser.tsx")) && /<PageLayer pill inset="bar" phoneOnly>/.test(read("app/(storelib)/app/offers/new/layout.tsx")) && /e\.metaKey \|\| e\.ctrlKey/.test(read("app/(storelib)/app/offers/offer-editor.tsx")) && existsSync(join(root, "app/(storelib)/app/offers/[id]/page.tsx")) && existsSync(join(root, "app/(storelib)/app/offers/new/page.tsx")))
     check("changes kept: leaving with edits asks first", /Discard changes\?/.test(read("app/(storelib)/app/offers/offer-editor.tsx")))
     check("in the menu for every store, beside Coupons", /mainNavItems\.find\(\(item\) => item\.href === "\/app\/products"\)\?\.children\?\.splice\([\s\S]{0,200}\{ href: "\/app\/offers", label: tt\("Upsells and bundles"\) \}/.test(read("components/app/sidebar.tsx")) && !/if \(physicalCommerce\) mainNavItems\.find\(\(item\) => item\.href === "\/app\/products"\)\?\.children\?\.splice\(/.test(read("components/app/sidebar.tsx")))
   }

@@ -122,7 +122,7 @@ const motion = (page, closing = false) => page.evaluate((closing) => new Promise
 const smallTargets = (page) => page.evaluate(() => [...document.querySelectorAll("[data-offer-editor] button, [data-offer-editor] input, [data-offer-editor] [role=radio], [data-offer-editor] [role=checkbox]")]
   .filter((el) => el.getClientRects().length && getComputedStyle(el).visibility !== "hidden")
   .map((el) => {
-    const row = el.getAttribute("role") === "switch" ? el.closest("[data-switch-row], [data-offer-editor] .cursor-pointer") : null
+    const row = el.getAttribute("role") === "switch" ? el.parentElement?.closest("[data-switch-row], [data-offer-editor] div.cursor-pointer") : null
     const r = (row ?? el).getBoundingClientRect()
     const a = getComputedStyle(el, "::after")
     const grow = a.content !== "none" && a.position === "absolute" ? { y: -(parseFloat(a.top) || 0) - (parseFloat(a.bottom) || 0), x: -(parseFloat(a.left) || 0) - (parseFloat(a.right) || 0) } : { x: 0, y: 0 }
@@ -229,6 +229,7 @@ for (const width of [360, 390, 768, 1280]) {
   const before = await page.$eval("[data-save-button]:visible", (b) => b.disabled)
   await page.fill("#offer-title", "Breakfast pair")
   const after = await page.$eval("[data-save-button]:visible", (b) => b.disabled)
+  await settle(page, 300)
   await page.screenshot({ path: join(SHOTS, `page-edit-${width}.png`) })
   await page.keyboard.press("Control+s")
   await page.waitForSelector("[data-offers]", { timeout: 4000 })

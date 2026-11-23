@@ -48,7 +48,7 @@ import { appLocale } from "@/lib/i18n/format"
 import { MAX_BUNDLE, MAX_TRIGGERS, PLACEMENTS_FOR, bundlePrice, offerState, offerUnitPrice, type DiscountType, type Offer, type OfferKind, type Placement } from "@/lib/offers/offers"
 import { DRAFT_ID, offerWarnings } from "@/lib/offers/try-cart"
 import { amountOf, bodyOf, draftOf, problemsOf, type Draft, type Problems } from "./offer-draft"
-import { FormSwitch, SWITCH_GROUP, Segmented, SwitchRow } from "../products/new/editor-controls"
+import { FormSwitch, SWITCH_GROUP, SwitchRow } from "../products/new/editor-controls"
 import { LeaveButton } from "../products/new/editor-buttons"
 import { useConfirm } from "../products/new/confirm-sheet"
 import { StatusBadge, iconButton } from "../orders/order-parts"
@@ -342,10 +342,9 @@ export function OfferEditor({ offer, kind, products, collections, others, curren
               <section className={CARD} {...(shown.products ? { "data-problem": "" } : {})}>
                 <h2 className={CARD_TITLE}>{tt("Applies to")}</h2>
                 {collections.length || d.scope === "collection" ? (
-                  <Segmented
+                  <ChoiceGrid
                     label={tt("Applies to")}
                     value={d.scope}
-                    fit="content"
                     onChange={(scope) => set({ scope })}
                     options={[
                       { value: "product", label: tt("One product") },

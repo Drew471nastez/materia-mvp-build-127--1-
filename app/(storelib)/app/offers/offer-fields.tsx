@@ -128,7 +128,7 @@ export function TierEditor({ tiers, onChange, problems, problem, sign, money, cu
               <div className="flex items-center justify-between gap-3">
                 <span className="text-[13px] font-medium text-[#4b5563]">{tt("Tier {n}", { n: i + 1 })}</span>
                 {tiers.length > 1 ? (
-                  <button type="button" data-tier-remove={i} onClick={() => onChange(tiers.filter((_, n) => n !== i))} className="-my-1.5 h-9 cursor-pointer rounded-lg px-2 text-[13px] text-[#6b7280] outline-none hover:bg-[#f4f5f7] hover:text-[#1a1a2e] focus-visible:bg-[#f4f5f7] sm:h-7">
+                  <button type="button" data-tier-remove={i} onClick={() => onChange(tiers.filter((_, n) => n !== i))} className="-my-2.5 h-11 cursor-pointer rounded-lg px-2.5 text-[14px] sm:-my-1.5 sm:px-2 sm:text-[13px] text-[#6b7280] outline-none hover:bg-[#f4f5f7] hover:text-[#1a1a2e] focus-visible:bg-[#f4f5f7] sm:h-7">
                     {tt("Remove")}
                   </button>
                 ) : null}

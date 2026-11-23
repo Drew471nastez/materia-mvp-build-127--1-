@@ -446,7 +446,8 @@ async function main() {
     const w3 = offerWarnings(BREAK({ id: DRAFT_ID }), [BREAK(), SET({ productIds: [TEE, MUG] })], products, NOW)
     check("another offer on the same product, and which one wins", w3.some((w) => /Only one applies to it: the one that saves more on the whole cart/.test(w)) && w3.some((w) => /Each item gets one offer: the one that saves more on it/.test(w)), w3)
     check("  an offer that is off or ended competes with nothing", offerWarnings(BREAK({ id: DRAFT_ID }), [BREAK({ active: false }), BREAK({ id: "x", endsAt: "2020-01-01T00:00:00Z" })], products, NOW).length === 0)
-    const editor = read("app/(storelib)/app/offers/offer-editor.tsx")
+    /* Changed on purpose (r60): the kinds and their lines are in New offer's chooser (offer-kind-chooser.tsx), the warnings on the offer's page. */
+    const editor = read("app/(storelib)/app/offers/offer-editor.tsx") + read("app/(storelib)/app/offers/offer-kind-chooser.tsx")
     /* Changed on purpose (round 42 offers): the kind's line is drawn in each choice of the kind chooser (offer-fields KindChooser). */
     /* Changed on purpose (r58): the modal asks the kind as Add product does, each with its line; Try it in a cart left the editor to keep it simple (the route stays, tests/offers-r58.test.ts calls it). */
     check("the editor: a line under each kind, the warnings", /data-kind-hint/.test(editor) && /KIND_ORDER\.map/.test(editor) && /data-offer-warnings/.test(editor) && /offerWarnings\(/.test(editor))

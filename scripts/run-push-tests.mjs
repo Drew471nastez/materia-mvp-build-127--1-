@@ -1704,6 +1704,7 @@ const SUITES = [
 const STRICT_SUITES = [
   /* Round 58 (f5): every kind of offer (bundle, upsell and order bump, Buy X get Y, volume tiers, download bundle, free shipping) saved through /api/store/offers as the new modal sends it, then on GET /api/offers, a Materia product page and cart, the website's checkout and Stripe's charge, the download basket and /app's Sold; numbers a browser sends change nothing. */
   "tests/offers-r58.test.ts",
+  "tests/offers-flow-r60.test.ts",
   /* Wave 7: /app/emails never falls over on an answer of another shape ("eN.find is not a function" from the live build): every loader fed objects, { error }, junk lists, HTML and empty bodies answers with lists or an Error to retry; the shapers (lib/emails/shapes.ts) never throw; each part of the page in its own net (components/app/emails/part-boundary). Strict: it draws the panels that read through components/physical/ui, which only narrow strict. */
   "tests/emails-shapes-w7.test.ts",
   /* Round 51: Contacts, one person per creator (an account first, an address only when verified or given here, never a name), Customers or Marketing opens it, another store's row refused through /app/contacts/open, exports of the store's own only, deleting never touches an order or a membership, an import never resubscribes, the legacy addresses redirected (SQL 378; its parity with lib/contacts/identity.ts on Postgres: scripts/check-contacts-sql.mjs). */
