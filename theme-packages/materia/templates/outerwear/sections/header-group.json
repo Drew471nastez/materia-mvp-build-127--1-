@@ -1,0 +1,197 @@
+{
+  "type": "header",
+  "name": "t:sections.header.name",
+  "sections": {
+    "bar": {
+      "type": "marquee-bar",
+      "settings": {
+        "color_scheme": "scheme-6da511c0-ea26-4213-b3d3-e09320840636",
+        "section_width": "full_width",
+        "reset_spacing": true,
+        "desktop_text_size": 13,
+        "mobile_text_size": 12,
+        "text_weight": "theme",
+        "duration": 38,
+        "direction": "normal",
+        "pause_on_hover": true,
+        "repeat_count": 3,
+        "desktop_item_gap": 120,
+        "mobile_item_gap": 48,
+        "desktop_top_padding": 9,
+        "desktop_bottom_padding": 9,
+        "mobile_top_padding": 8,
+        "mobile_bottom_padding": 8,
+        "reveal": false
+      },
+      "blocks": {
+        "m1": {
+          "type": "marquee",
+          "settings": {
+            "text": "Free shipping on orders over $200"
+          }
+        },
+        "m2": {
+          "type": "marquee",
+          "settings": {
+            "text": "Free returns within 30 days"
+          }
+        }
+      },
+      "block_order": [
+        "m1",
+        "m2"
+      ]
+    },
+    "header": {
+      "type": "header",
+      "settings": {
+        "reveal": true,
+        "menu_tab": "unset",
+        "mega_menu": "main-menu",
+        "show_search": true,
+        "color_scheme": "default",
+        "icon_spacing": 16,
+        "header_height": 62,
+        "header_layout": "stretch_width",
+        "logo_offset_x": 0,
+        "logo_position": "center",
+        "reset_spacing": true,
+        "section_width": "stretch_width",
+        "show_currency": false,
+        "show_language": false,
+        "separator_line": "unset",
+        "actions_as_text": true,
+        "collection_list": [],
+        "logo_gap_mobile": 0,
+        "mega_column_gap": 32,
+        "uppercase_first": false,
+        "action_text_size": 13,
+        "menu_custom_font": "assistant_n4",
+        "menu_hover_style": "underline",
+        "redirect_to_link": true,
+        "logo_width_mobile": 112,
+        "menu_link_spacing": 14,
+        "menu_mobile_color": "#111111",
+        "show_account_icon": true,
+        "action_text_weight": "500",
+        "logo_width_desktop": 150,
+        "show_shopping_cart": true,
+        "show_wishlist_icon": false,
+        "sticky_header_type": "on-scroll-up",
+        "transparent_header": true,
+        "transparent_mobile": false,
+        "dropdowns_animation": "soft-slide",
+        "enable_custom_fonts": false,
+        "icon_spacing_mobile": 6,
+        "header_height_mobile": 56,
+        "logo_custom_position": false,
+        "logo_offset_x_mobile": 0,
+        "logo_position_mobile": "center",
+        "menu_mobile_chevrons": false,
+        "sticky_header_mobile": true,
+        "dropdown_link_spacing": 3,
+        "transparent_on_mobile": false,
+        "menu_mobile_title_type": "text",
+        "menu_dropdown_tinted_bg": false,
+        "menu_mobile_logo_height": 30,
+        "section_margin_top_mobile": 0,
+        "transparent_bottom_border": false,
+        "section_margin_top_desktop": 0,
+        "disable_white_fill_on_hover": false,
+        "transparent_text_icon_color": "#111111",
+        "section_margin_bottom_mobile": 0,
+        "transparent_hover_fill_color": "#ffffff",
+        "transparent_text_hover_color": "#111111",
+        "section_margin_bottom_desktop": 0,
+        "transparent_bottom_border_color": "#020202",
+        "menu_font_size": 13,
+        "menu_font_weight": "500",
+        "count_bubble_bg": "#111111",
+        "count_bubble_color": "#ffffff",
+        "menu_mobile_background": "#ffffff",
+        "dropdown_radius": 0,
+        "dropdown_shadow": "soft"
+      },
+      "blocks": {
+        "pill_glass_1": {
+          "type": "pill_glass",
+          "settings": {
+            "glass_blur": 18,
+            "glass_color": "#ffffff",
+            "glass_shine": 79,
+            "glass_border": false,
+            "glass_shadow": 32,
+            "glass_enabled": false,
+            "glass_opacity": 64,
+            "header_radius": 4,
+            "glass_contrast": 110,
+            "header_pill_bg": "#ffffff",
+            "glass_brightness": 98,
+            "glass_saturation": 135,
+            "glass_text_color": "#bc9494",
+            "header_max_width": 99,
+            "header_padding_x": 20,
+            "header_padding_y": 0,
+            "header_pill_blur": false,
+            "glass_text_enable": false,
+            "header_top_offset": 8,
+            "header_pill_enable": true,
+            "header_pill_mobile": false,
+            "header_side_offset": 8,
+            "header_bottom_offset": 0,
+            "header_pill_mobile_top": 7,
+            "header_pill_blur_amount": 7,
+            "header_pill_mobile_side": 10,
+            "header_pill_border_color": "#692e2e",
+            "header_pill_border_width": 0,
+            "header_pill_mobile_radius": 50
+          }
+        },
+        "menu_badges_1": {
+          "type": "menu_badges",
+          "settings": {
+            "hot": "Hot",
+            "new": "New",
+            "sale": "Sale",
+            "popular": "Popular",
+            "custom_1": "Limited",
+            "custom_2": "Trending",
+            "label_color_hot": "#ffffff",
+            "label_color_new": "#ffffff",
+            "label_color_sale": "#ffffff",
+            "menu_badge_style": "ghost",
+            "label_color_popular": "#ffffff",
+            "label_background_hot": "#353535",
+            "label_background_new": "#516cf4",
+            "label_color_custom_1": "#ffffff",
+            "label_color_custom_2": "#ffffff",
+            "label_background_sale": "#353535",
+            "label_background_popular": "#14854e",
+            "label_background_custom_1": "#143274",
+            "label_background_custom_2": "#8b5cf6"
+          }
+        },
+        "contact_button": {
+          "type": "header_button",
+          "settings": {
+            "button_text": "Contact",
+            "button_link": "/pages/contact",
+            "new_tab": false,
+            "button_position": "after_icons",
+            "show_on_mobile": false,
+            "button_style": "secondary"
+          }
+        }
+      },
+      "block_order": [
+        "pill_glass_1",
+        "menu_badges_1",
+        "contact_button"
+      ]
+    }
+  },
+  "order": [
+    "bar",
+    "header"
+  ]
+}

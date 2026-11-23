@@ -1,0 +1,46 @@
+{
+  "main-menu": {
+    "title": "Main menu",
+    "links": [
+      { "title": "Outerwear", "url": "/collections/all", "links": [
+        { "title": "Puffers", "url": "/search?q=puffer" },
+        { "title": "Parkas", "url": "/search?q=parka" },
+        { "title": "Vests", "url": "/search?q=vest" },
+        { "title": "Faux fur", "url": "/search?q=fur" },
+        { "title": "Everything", "url": "/collections/all" }
+      ] },
+      { "title": "Knitwear", "url": "/search?q=merino" },
+      { "title": "Tees", "url": "/search?q=tee" },
+      { "title": "Accessories", "url": "/search?q=beanie" },
+      { "title": "Journal", "url": "/blogs/news" }
+    ]
+  },
+  "footer-shop": {
+    "title": "Shop",
+    "links": [
+      { "title": "Everything", "url": "/collections/all" },
+      { "title": "Puffers", "url": "/search?q=puffer" },
+      { "title": "Parkas", "url": "/search?q=parka" },
+      { "title": "Knitwear", "url": "/search?q=merino" },
+      { "title": "Collections", "url": "/collections" }
+    ]
+  },
+  "footer": {
+    "title": "Info",
+    "links": [
+      { "title": "About", "url": "/pages/about" },
+      { "title": "Shipping and returns", "url": "/pages/shipping" },
+      { "title": "Size and care", "url": "/pages/faqs" },
+      { "title": "Journal", "url": "/blogs/news" },
+      { "title": "Contact", "url": "/pages/contact" }
+    ]
+  },
+  "footer-social": {
+    "title": "Social",
+    "links": [
+      { "title": "Instagram", "url": "https://www.instagram.com/" },
+      { "title": "TikTok", "url": "https://www.tiktok.com/" },
+      { "title": "Pinterest", "url": "https://www.pinterest.com/" }
+    ]
+  }
+}

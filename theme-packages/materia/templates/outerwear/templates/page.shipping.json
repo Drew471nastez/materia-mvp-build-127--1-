@@ -1,0 +1,110 @@
+{
+  "sections": {
+    "heading": {
+      "type": "page-heading",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "fluid_container",
+        "reset_spacing": true,
+        "alignment": "left",
+        "height": "adapt",
+        "overlay_opacity": 0,
+        "padding_top": 56,
+        "padding_bottom": 8
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "page_title": "Shipping and returns",
+            "header_size": "default",
+            "heading_font_size": 40,
+            "vertical_gap": 12,
+            "enable_heading_color": false
+          }
+        },
+        "description_1": {
+          "type": "description",
+          "settings": {
+            "description": "<p>The short version: ships in 1 to 2 working days, free over $200, free returns for 30 days.</p>",
+            "enable_custom_style": false,
+            "description_font_size": 16
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_1"
+      ]
+    },
+    "cols": {
+      "type": "text-columns",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "content_alignment": "left",
+        "columns_desktop": 4,
+        "columns_tablet": 2,
+        "column_gap": 40,
+        "header_gap": 40,
+        "show_dividers": true,
+        "item_heading_size": 20,
+        "item_heading_size_mobile": 18,
+        "padding_top": 40,
+        "padding_bottom": 96,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "mobile_layout": "stack"
+      },
+      "blocks": {
+        "column_1": {
+          "type": "column",
+          "settings": {
+            "label": "Shipping",
+            "heading": "1 to 2 working days",
+            "text": "<p>Every order ships tracked from our studio. Delivery usually takes 2 to 5 working days after that.</p>"
+          }
+        },
+        "column_2": {
+          "type": "column",
+          "settings": {
+            "label": "Cost",
+            "heading": "Free over $200",
+            "text": "<p>Below $200 the price is shown at checkout before you pay. Pick up at the studio is always free.</p>"
+          }
+        },
+        "column_3": {
+          "type": "column",
+          "settings": {
+            "label": "Returns",
+            "heading": "30 days, free",
+            "text": "<p>Send pieces back unworn with the tags on. Start from the link in your order email and we send the label.</p>",
+            "link_label": "Ask about a return",
+            "link": "/pages/contact"
+          }
+        },
+        "column_4": {
+          "type": "column",
+          "settings": {
+            "label": "Payment",
+            "heading": "Cards, PayPal, Apple Pay",
+            "text": "<p>Visa, Mastercard, American Express, PayPal, Apple Pay and Google Pay. Your card is charged when the order ships.</p>",
+            "link_label": "Size and care",
+            "link": "/pages/faqs"
+          }
+        }
+      },
+      "block_order": [
+        "column_1",
+        "column_2",
+        "column_3",
+        "column_4"
+      ]
+    }
+  },
+  "order": [
+    "heading",
+    "cols"
+  ]
+}
