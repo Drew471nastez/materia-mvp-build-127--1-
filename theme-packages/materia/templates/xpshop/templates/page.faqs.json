@@ -40,7 +40,7 @@
           "type": "question",
           "settings": {
             "question": "Can I send something back?",
-            "answer": "<p>Yes, within 30 days if it is unworn and unwashed. Write to us with your order number and we send a return label. See the <a href=\"/policies/refund-policy\">refund policy</a>.</p>"
+            "answer": "<p>Yes, within 30 days if it is unworn and unwashed. Write to us with your order number and we send a return label. See <a href=\"/pages/shipping\">shipping and returns</a>.</p>"
           }
         },
         "q_4": {
@@ -122,8 +122,8 @@
             "picture": "",
             "title": "30 days to return",
             "text": "Unworn and unwashed, we refund it. The label is on us.",
-            "link": "/policies/refund-policy",
-            "link_label": "Refund policy"
+            "link": "/pages/shipping",
+            "link_label": "Returns"
           }
         },
         "tile_4": {

@@ -13,7 +13,7 @@
         "reset_spacing": true,
         "section_width": "fluid_container",
         "copyright_text": "© {{ 'now' | date: '%Y' }} {{ shop.name }}. All rights reserved.",
-        "heading_weight": "500",
+        "heading_weight": "600",
         "padding_bottom": 28,
         "separator_line": "all-page",
         "arrow_icon_size": 14,

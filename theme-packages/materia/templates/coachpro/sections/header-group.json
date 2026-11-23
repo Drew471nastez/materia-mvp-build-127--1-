@@ -25,7 +25,7 @@
         "logo_gap_mobile": 0,
         "mega_column_gap": 32,
         "uppercase_first": false,
-        "action_text_size": 13,
+        "action_text_size": 15,
         "menu_custom_font": "bodoni_moda_n4",
         "menu_hover_style": "inherit",
         "redirect_to_link": true,

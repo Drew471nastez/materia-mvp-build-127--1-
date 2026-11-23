@@ -2,7 +2,7 @@
   Digital Renaissance: bonuses. A heading and line, then each bonus (a
   block) as a wide row: a very large outlined number in the accent
   colour, fading downward, a title, a line, and on the right a
-  small seal with when it unlocks and an optional value.
+  small seal with when it opens and an optional value.
 {%- endcomment -%}
 {%- liquid
   assign st = section.settings
@@ -64,7 +64,7 @@
   "settings": [
     { "type": "text", "id": "anchor", "label": "Name for links to this place", "default": "bonuses" },
     { "type": "text", "id": "eyebrow", "label": "Small line above", "default": "Along the way" },
-    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "Bonuses you <em>unlock</em>" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "Bonuses along the <em>way</em>" },
     { "type": "richtext", "id": "intro", "label": "Text", "default": "<p>Say when and how each bonus becomes available.</p>" },
     { "type": "color", "id": "background", "label": "Background", "default": "#0b0c12" },
     { "type": "color", "id": "accent", "label": "Accent", "default": "#3d5afe" },
@@ -79,7 +79,7 @@
     { "type": "bonus", "name": "Bonus", "limit": 8, "settings": [
       { "type": "text", "id": "title", "label": "Title", "default": "Bonus title" },
       { "type": "text", "id": "text", "label": "Line", "default": "What it is and why it helps." },
-      { "type": "text", "id": "when", "label": "When it unlocks", "default": "Week 1" },
+      { "type": "text", "id": "when", "label": "When it arrives", "default": "Week 1" },
       { "type": "text", "id": "value", "label": "Small line under it" }
     ] }
   ],

@@ -139,13 +139,6 @@
             "name": "newsletter",
             "style": "round"
           }
-        },
-        "outlet_7": {
-          "type": "outlet",
-          "settings": {
-            "name": "Live Stage",
-            "style": "caps"
-          }
         }
       },
       "block_order": [
@@ -154,8 +147,7 @@
         "outlet_3",
         "outlet_4",
         "outlet_5",
-        "outlet_6",
-        "outlet_7"
+        "outlet_6"
       ]
     },
     "programmes": {

@@ -214,8 +214,8 @@
             "picture": "",
             "title": "Returns",
             "text": "30 days, unworn and unwashed.",
-            "link": "/policies/refund-policy",
-            "link_label": "Refund policy"
+            "link": "/pages/shipping",
+            "link_label": "How to return"
           }
         }
       },

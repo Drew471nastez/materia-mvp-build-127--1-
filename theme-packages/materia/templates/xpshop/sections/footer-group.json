@@ -23,7 +23,7 @@
         "note": "Printed to order, sent in 2 days"
       }
     },
-    "newsletter_form": {
+    "newsletter_popup": {
       "type": "form-modal",
       "settings": {
         "form_key": "newsletter",
@@ -104,6 +104,6 @@
   },
   "order": [
     "footer",
-    "newsletter_form"
+    "newsletter_popup"
   ]
 }

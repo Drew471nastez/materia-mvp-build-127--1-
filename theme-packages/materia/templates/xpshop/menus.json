@@ -40,16 +40,8 @@
         "url": "/pages/contact"
       },
       {
-        "title": "Refunds",
-        "url": "/policies/refund-policy"
-      },
-      {
-        "title": "Privacy",
-        "url": "/policies/privacy-policy"
-      },
-      {
-        "title": "Terms",
-        "url": "/policies/terms-of-service"
+        "title": "Journal",
+        "url": "/blogs/news"
       }
     ]
   }

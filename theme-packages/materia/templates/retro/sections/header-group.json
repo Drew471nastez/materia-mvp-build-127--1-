@@ -32,7 +32,7 @@
           "type": "icon",
           "settings": {
             "icon": "folder",
-            "label": "Shop",
+            "label": "Catalogue",
             "link": "/collections/all"
           }
         },

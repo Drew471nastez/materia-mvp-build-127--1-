@@ -128,7 +128,6 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
       })();
     </script>
 <link href="/theme-previews/_base/a/critical.7f3f35898a25.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/section-isolation.3ce7c0f14547.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/animation.d0494c87fafa.css" rel="stylesheet" type="text/css" media="all">
 <link href="/theme-previews/_base/a/product-card.9a3739dc0c4c.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"primary","product_size":17,"price_size":16,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
 <style>html:not([data-card-custom='true']) .product-item .product-item__name { font-size:var(--body-font-size, 16px); text-transform:var(--heading-text-transform, none) !important; } html:not([data-card-custom='true']) .product-item .product-item__price { font-size:var(--body-font-size, 16px); }</style>
 <script>document.documentElement.dataset.cardCustom = false === true ? 'true' : 'false';</script>
@@ -195,7 +194,7 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
 class="gradient rounded-style  article"
 data-btn-style="solid"
 data-btn-secondary-style="solid"
-data-scroll-animation="fade_in"
+data-scroll-animation="none"
 data-btn-shape="pill"
 data-btn-hover="fade"
 data-sl-btn-hover="none"
@@ -267,7 +266,7 @@ data-sticky-mobile="true" data-reset-spacing
 data-menu-hover="none" data-menu-hover-theme data-theme-hover="none"
 data-header-blocks="pill_glass_1:pill_glass menu_badges_1:menu_badges header_button_1:header_button " data-menu-type='{"on":false,"font":&quot;Bodoni Moda, serif&quot;,"size":15,"weight":&quot;theme&quot;}'
 data-mega-label="button" data-dd-tinted data-logo-m="left" data-hs-flush data-logo-x="0 0"
-style="--section-pt: 0;--section-pb: 0;--transparent-color: #1a1a1a;--menu-hover-color: var(--color-link-hover, currentColor);--dd-duration: 400ms;--dd-ease: cubic-bezier(0.187, 0.775, 0.435, 0.925);--dd-shadow: 0 5px 30px 0 rgba(0, 0, 0, 0.05);--dd-width: 260px;--dd-pad-y: 20px;--dd-pad-x: 30px;--dd-link-space: 3px;--dd-radius: 0px;--mega-gap: 32px;--mega-card-radius: 0px;--hs-act-size: 13px;--hs-act-weight: 400;--hs-act-case: none;--hs-logo-gap-m: 0px;"
+style="--section-pt: 0;--section-pb: 0;--transparent-color: #1a1a1a;--menu-hover-color: var(--color-link-hover, currentColor);--dd-duration: 400ms;--dd-ease: cubic-bezier(0.187, 0.775, 0.435, 0.925);--dd-shadow: 0 5px 30px 0 rgba(0, 0, 0, 0.05);--dd-width: 260px;--dd-pad-y: 20px;--dd-pad-x: 30px;--dd-link-space: 3px;--dd-radius: 0px;--mega-gap: 32px;--mega-card-radius: 0px;--hs-act-size: 15px;--hs-act-weight: 400;--hs-act-case: none;--hs-logo-gap-m: 0px;"
 ><div class="header__inner header__layout-1" id="header-sticky">
 <div class="fluid_container">
 <header-inner class="logo-position grid logo-left gap-10 gap-xl-50 header-middle align-center">
@@ -505,19 +504,7 @@ href="/theme-previews/coach-creator/pages/contact.html"
   :where(html:not([data-font-priority='off'])) #shopify-section-main :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
-</style><style>
-  #shopify-section-main.scroll-trigger {
-    --animation-duration: 950ms;
-    --animation-delay: 80ms;
-  }
-</style>
-<script>
-  (function(){
-    var el = document.getElementById('shopify-section-main');
-    if (!el || el.classList.contains('scroll-trigger')) return;
-    el.classList.add('scroll-trigger', "fade_in");
-  })();
-</script><style data-rs-bulletproof>/* reset_spacing: bulletproof override of ALL section spacing mechanisms */
+</style><style data-rs-bulletproof>/* reset_spacing: bulletproof override of ALL section spacing mechanisms */
     #shopify-section-main,
     #shopify-section-main > .section,
     #shopify-section-main > section,
@@ -657,8 +644,8 @@ justify-between
 align-center
 "
 ><div class="secion__header-inner bp-head-old"><h2
-class="section__header-heading heading-letter-spacing mt-0 mb-0 bp-h-old bp-h-own scroll-trigger fade_in"
-style="margin-bottom: -20px !important;--animation-order: 0;"
+class="section__header-heading heading-letter-spacing mt-0 mb-0 bp-h-old bp-h-own"
+style="margin-bottom: -20px !important;"
 >Keep reading</h2>
 </div>
 <a href="/theme-previews/coach-creator/blogs/news.html" class="btn_view-all no-underline inline-flex" data-theme-button="secondary" data-sl-button data-bp-view-all style="">View All</a>
@@ -686,7 +673,7 @@ style="--col-gap: 15px;  --col-gap-desktop: 30px;"
 data-motion="fade-up-lg"
 hold
 data-motion-delay="75"
-class="blog-posts-item   block  scroll-trigger fade_in"
+class="blog-posts-item   block "
 data-cascade
 style="--animation-order: 1;"
 >
@@ -719,7 +706,7 @@ Nov 20 2026
 data-motion="fade-up-lg"
 hold
 data-motion-delay="150"
-class="blog-posts-item   block  scroll-trigger fade_in"
+class="blog-posts-item   block "
 data-cascade
 style="--animation-order: 2;"
 >
@@ -772,18 +759,6 @@ Nov 19 2026
     font-weight: var(--subheading-weight, 500);
   }
 </style><style>
-  #shopify-section-footer.scroll-trigger {
-    --animation-duration: 950ms;
-    --animation-delay: 80ms;
-  }
-</style>
-<script>
-  (function(){
-    var el = document.getElementById('shopify-section-footer');
-    if (!el || el.classList.contains('scroll-trigger') || document.documentElement.classList.contains('shopify-design-mode') || (window.SlTheme && window.SlTheme.designMode)) return;
-    el.classList.add('scroll-trigger', "fade_in");
-  })();
-</script><style>
   #shopify-section-footer,#shopify-section-footer>.section,#shopify-section-footer>section,#shopify-section-footer>div,#shopify-section-footer>div>.section{margin-top:0!important;margin-bottom:0!important}
   #shopify-section-footer+.shopify-section,#shopify-section-footer+section,.shopify-section+#shopify-section-footer{margin-top:0!important}
   #shopify-section-footer{font-weight:var(--body-weight,inherit);isolation:isolate;position:relative}
@@ -798,7 +773,7 @@ class="product-sticky-hide footer color-scheme-4faf0e4d-27f4-4d02-bc51-617383bab
 data-theme-footer
 data-ft-section="footer"
 data-ft-page="article"
-style="--section-pt: 80;--section-pb: 28;--footer-link-hover: var(--color-heading);--footer-heading-weight: 500;--footer-heading-tt: none;--footer-arrow-size: 14px;"
+style="--section-pt: 80;--section-pb: 28;--footer-link-hover: var(--color-heading);--footer-heading-weight: 600;--footer-heading-tt: none;--footer-arrow-size: 14px;"
 ><div class="footer__middle section pb-min remove_spacing">
 <div class="fluid_container"><div class="footer__blocks flex flex-col-custom flex-wrap"><div
 class="footer-block w-full col-md-w-custom-50 col-md-w-custom pb-30 border-bottom border-bottom-md-0 store_info"
@@ -1276,7 +1251,6 @@ Continue Shopping
 <div class="overlayminicart">
 </div>
 <script src="/theme-previews/coach-creator/a/i.f50d71910c82.js"></script>
-<script src="/theme-previews/_base/a/animation.7fa50ded717b.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/tingle-min.9664ca3641cf.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/cart-discount.6748c8dd9657.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/theme.7a7dd8f80f89.js"  defer="defer" type="module"></script>
@@ -1343,21 +1317,8 @@ Skip to content
   @keyframes materiaMediaFade { from { opacity: 0; } to { opacity: 1; } }
   html.js-media-fade .media-fade-run { animation: materiaMediaFade .4s ease; }
 </style>
-<script src="/theme-previews/coach-creator/a/i.dfcb99e2686f.js"></script>
-<style>
-        :root {
-          /* Wire the user's Animations & motion settings to the keyframe vars used by animation.css */
-          --duration-long: 665ms;
-          --duration-extra-long: 950ms;
-          --duration-extra-longer: 950ms;
-          --animation-duration: 950ms;
-          --animation-delay-base: 80ms;
-        }
-        /* Every reveal type, its timing, the first screen, the builder and
-           reduced motion are drawn by animation.css for every .scroll-trigger
-           (theme-wide sections below and cards inside sections alike). */
-      </style>
-<script src="/theme-previews/coach-creator/a/i.1e7544fc58cb.js"></script><link rel="stylesheet" href="/theme-previews/coach-creator/a/i.7c52d5318a5a.css">
+<script src="/theme-previews/coach-creator/a/i.1738a28f6b3c.js"></script>
+<link rel="stylesheet" href="/theme-previews/coach-creator/a/i.7c52d5318a5a.css">
 <script src="/theme-previews/coach-creator/a/i.a459fa2d52ff.js"></script><script id="materia-shipping-data" type="application/json">
   {
     "rates": "",

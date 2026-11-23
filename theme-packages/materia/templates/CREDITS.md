@@ -399,3 +399,41 @@ Content creator (round 21): the creator, Nina Brooks, is one session by one phot
 | creatorpro (cover only) | scripts/theme-templates/products/creatorpro/creatorpro-p-youtube.webp | https://images.unsplash.com/photo-1673767298275-769b08b4f675 (title set under it) | Unsplash License |
 | creatorpro (cover only) | scripts/theme-templates/products/creatorpro/creatorpro-p-os.webp | Drawn for this template | Storelib |
 | creatorpro (cover only) | scripts/theme-templates/products/creatorpro/creatorpro-p-call.webp | https://images.unsplash.com/photo-1676380363734-f2f932ff5981 (title set under it) | Unsplash License |
+
+Coach creator (round 21): the coach, Camila Duarte, is one session by one photographer (Jonathan Borba): the same woman in her studio, used for every portrait and behind the scenes picture. The client faces on the sample stories are other Unsplash portraits, cropped round and marked as samples on the page.
+
+| coachpro | assets/coachpro-hero.webp | https://images.unsplash.com/photo-1781888681811-332968760c2a | Unsplash License |
+| coachpro | assets/coachpro-hello.webp | https://images.unsplash.com/photo-1781888684129-cafe12c620d6 | Unsplash License |
+| coachpro | assets/coachpro-foundations.webp | https://images.unsplash.com/photo-1781888695918-815572e954d7 | Unsplash License |
+| coachpro | assets/coachpro-pricing.webp | https://images.unsplash.com/photo-1781888683081-3ac4b43f21db | Unsplash License |
+| coachpro | assets/coachpro-mentoring.webp | https://images.unsplash.com/photo-1781888683045-d8912c04671b | Unsplash License |
+| coachpro | assets/coachpro-show.webp | https://images.unsplash.com/photo-1781888682938-f19d725a223d | Unsplash License |
+| coachpro | assets/coachpro-guide.webp | https://images.unsplash.com/photo-1781888677296-90df0d568cad | Unsplash License |
+| coachpro | assets/coachpro-moment-sofa.webp | https://images.unsplash.com/photo-1781888691534-0ccaad251fbb | Unsplash License |
+| coachpro | assets/coachpro-moment-plans.webp | https://images.unsplash.com/photo-1781888676849-13ed30c58f9a | Unsplash License |
+| coachpro | assets/coachpro-moment-studio.webp | https://images.unsplash.com/photo-1781888684428-bc7320e7df6c | Unsplash License |
+| coachpro | assets/coachpro-moment-floor.webp | https://images.unsplash.com/photo-1781888696823-b858d8dc50dc | Unsplash License |
+| coachpro | assets/coachpro-moment-reading.webp | https://images.unsplash.com/photo-1781888698628-4ad7bd799185 | Unsplash License |
+| coachpro | assets/coachpro-moment-desk.webp | https://images.unsplash.com/photo-1781888695510-5ef62123bbf6 | Unsplash License |
+| coachpro | assets/coachpro-about.webp | https://images.unsplash.com/photo-1781888695843-c3ed78ec8a46 | Unsplash License |
+| coachpro | assets/coachpro-client-1.webp | https://images.unsplash.com/photo-1765046300927-6c1827612c42 | Unsplash License |
+| coachpro | assets/coachpro-client-2.webp | https://images.unsplash.com/photo-1761046543296-5c3c6abe0db1 | Unsplash License |
+| coachpro | assets/coachpro-client-3.webp | https://images.unsplash.com/photo-1790575187751-bb1f1e01a894 | Unsplash License |
+| coachpro | assets/coachpro-client-4.webp | https://images.unsplash.com/photo-1790574318882-572fa08ee6e6 | Unsplash License |
+| coachpro | assets/coachpro-client-5.webp | https://images.unsplash.com/photo-1608174390996-130c25265b8b | Unsplash License |
+
+Digital Renaissance (round 21): the instructor, Karim Nassar, is two photographs from one session by one photographer (Khaled Elshamy). The student faces on the sample results are other Unsplash studio portraits, cropped round and marked as samples. The logo, its mark and the edition covers are drawn for the template.
+
+| renaissance | assets/renaissance-instructor.webp | https://images.unsplash.com/photo-1764545973653-94c40d993495 | Unsplash License |
+| renaissance | assets/renaissance-instructor-about.webp | https://images.unsplash.com/photo-1764546373114-2d7a87221733 | Unsplash License |
+| renaissance | assets/renaissance-student-1.webp | https://images.unsplash.com/photo-1543075270-17e1257ec612 | Unsplash License |
+| renaissance | assets/renaissance-student-2.webp | https://images.unsplash.com/photo-1790574319098-e77deb163ec9 | Unsplash License |
+| renaissance | assets/renaissance-student-3.webp | https://images.unsplash.com/photo-1683539820365-0714bd628fb1 | Unsplash License |
+| renaissance | assets/renaissance-student-4.webp | https://images.unsplash.com/photo-1765046300927-6c1827612c42 | Unsplash License |
+| renaissance | assets/renaissance-student-5.webp | https://images.unsplash.com/photo-1678282352407-4db11e962159 | Unsplash License |
+| renaissance | assets/renaissance-student-6.webp | https://images.unsplash.com/photo-1630955249686-ebfada69d9ac | Unsplash License |
+| renaissance | assets/renaissance-logo.webp | Drawn for this template | Storelib |
+| renaissance (cover only) | scripts/theme-templates/products/renaissance/renaissance-course.webp | Drawn for this template | Storelib |
+| renaissance (cover only) | scripts/theme-templates/products/renaissance/renaissance-cohort.webp | Drawn for this template | Storelib |
+| renaissance (cover only) | scripts/theme-templates/products/renaissance/renaissance-prompts.webp | Drawn for this template | Storelib |
+| renaissance (cover only) | scripts/theme-templates/products/renaissance/renaissance-audit.webp | Drawn for this template | Storelib |

@@ -1,6 +1,6 @@
 
 (function () {
-  if ("fade_in" === 'none' || false) return;
+  if ("none" === 'none' || false) return;
   if (window.SlTheme && window.SlTheme.designMode) { return; }
   if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) { return; }
 

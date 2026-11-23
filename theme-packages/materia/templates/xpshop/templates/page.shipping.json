@@ -22,8 +22,8 @@
         "heading_size": 40,
         "text": "<p>Every piece is printed when you order it and leaves within two working days. You get a tracking number by email the day it ships.</p><p>Replace these lines with your own carriers, prices and times.</p>",
         "center": false,
-        "button_label": "Read the refund policy",
-        "button_link": "/policies/refund-policy",
+        "button_label": "Questions and answers",
+        "button_link": "/pages/faqs",
         "button_style": "blue",
         "button2_label": "Ask a question",
         "button2_link": "/pages/contact",
@@ -114,7 +114,7 @@
           "type": "question",
           "settings": {
             "question": "Can I send something back?",
-            "answer": "<p>Yes, within 30 days if it is unworn and unwashed. Write to us with your order number and we send a return label. See the <a href=\"/policies/refund-policy\">refund policy</a>.</p>"
+            "answer": "<p>Yes, within 30 days if it is unworn and unwashed. Write to us with your order number and we send a return label. See <a href=\"/pages/shipping\">shipping and returns</a>.</p>"
           }
         }
       },

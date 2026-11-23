@@ -133,7 +133,7 @@
           "type": "collapsible_row",
           "settings": {
             "heading": "How the course works",
-            "content": "<p>Lessons unlock the moment you join, all six modules at once. Watch at your own pace; one module a week works well. Live calls for the cohort edition run on Thursdays for six weeks and are recorded.</p>",
+            "content": "<p>Every lesson opens the moment you join, all six modules at once. Watch at your own pace; one module a week works well. Live calls for the cohort edition run on Thursdays for six weeks and are recorded.</p>",
             "use_product_description": false,
             "open": false
           }
