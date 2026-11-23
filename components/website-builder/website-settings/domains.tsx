@@ -265,6 +265,8 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
                       result={checked[d.id]?.result ?? null}
                       fixes={checked[d.id]?.fixes ?? []}
                       tone={look}
+                      /* Connect's button, so the light look's sheet turns both over together (round 58: Check DNS was dark words on a dark fill). */
+                      checkClassName={cn(primaryButtonClass, "md:h-10")}
                     />
                   </div>
                 )}
