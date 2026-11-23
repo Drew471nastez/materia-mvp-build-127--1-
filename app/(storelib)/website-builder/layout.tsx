@@ -6,6 +6,7 @@ import { SessionRecovery } from "@/components/auth/session-recovery"
 import { EditorToaster } from "@/components/ui/editor-toaster"
 import { EditorFrame } from "@/components/website-builder/editor-frame"
 import { SlimScrollRail } from "@/components/website-builder/editor/slim-scroll-rail"
+import { ActivityBeacon } from "@/components/app/activity-beacon"
 
 /**
  * One signed in person's own screens: never in a search index. robots.txt
@@ -49,6 +50,8 @@ export default async function WebsiteBuilderEditorLayout({
       <EditorToaster />
       {/* The panels' scrollbar, drawn over them so it takes no width. */}
       <SlimScrollRail />
+      {/* Pages and named actions for /admin's creator activity, once a minute (components/app/activity-beacon). */}
+      <ActivityBeacon />
     </EditorFrame>
   )
 }

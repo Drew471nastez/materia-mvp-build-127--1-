@@ -131,6 +131,7 @@ import {
 } from "./incoming"
 import { tt } from "@/lib/i18n/text"
 import { Rich } from "@/lib/i18n/rich"
+import { noteActivity } from "@/lib/activity/creator-activity-client"
 
 export interface WebsiteSummary {
   id: string
@@ -1296,11 +1297,18 @@ export function WebsiteBuilderClient({
     body: body === undefined ? undefined : JSON.stringify(body),
   })
 
+  /* Noted for /admin's creator activity once the server said yes (lib/activity/creator-activity-client). */
   const publish = (i: WebsiteSummary) =>
-    run(`${i.id}:publish`, () => fetch(`/api/website-builder/themes/${i.id}/publish`, json("POST", { action: "publish" })), tt("{name} is live", { name: i.name }), tt("Could not publish"))
+    run(`${i.id}:publish`, () => fetch(`/api/website-builder/themes/${i.id}/publish`, json("POST", { action: "publish" })), tt("{name} is live", { name: i.name }), tt("Could not publish")).then((done) => {
+      if (done) noteActivity("site.publish")
+      return done
+    })
 
   const unpublish = (i: WebsiteSummary) =>
-    run(`${i.id}:unpublish`, () => fetch(`/api/website-builder/themes/${i.id}/publish`, json("POST", { action: "unpublish" })), tt("{name} is offline", { name: i.name }), tt("Could not unpublish"))
+    run(`${i.id}:unpublish`, () => fetch(`/api/website-builder/themes/${i.id}/publish`, json("POST", { action: "unpublish" })), tt("{name} is offline", { name: i.name }), tt("Could not unpublish")).then((done) => {
+      if (done) noteActivity("site.unpublish")
+      return done
+    })
 
   /** Something is on its way in: a second one waits for it. */
   const making = !!incoming && incoming.phase !== "error"

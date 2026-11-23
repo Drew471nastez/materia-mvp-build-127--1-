@@ -232,6 +232,7 @@ import { CanvasProblem, CompatCanvasWaiting } from "@/components/website-builder
 import { usePreviewLanguage } from "@/components/website-builder/use-preview-language"
 import { usePreviewMarket } from "@/components/website-builder/use-preview-market"
 import { tt } from "@/lib/i18n/text"
+import { noteActivity } from "@/lib/activity/creator-activity-client"
 import { PINNED_NOTE, isPinnedSection, missingPageSections } from "@/lib/website-builder/pinned-sections"
 import { returnToRow } from "@/lib/website-builder/list-return"
 import { SharedInAllLanguages, TranslatedFieldEditor, TranslationEditingProvider, TranslationScope, useTranslationEditing, useTranslationEditor, useTranslationScope } from "@/components/website-builder/editor/translation-editing"
@@ -7723,6 +7724,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         setUnpublished(false)
       }
       setHasPublished(true)
+      /* For /admin's creator activity (lib/activity/creator-activity-client). */
+      noteActivity("editor.publish")
       setAgentNote(null)
       snapshotAfterSave()
       showNotification("Changes saved and published")
