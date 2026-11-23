@@ -39,7 +39,9 @@ export const BADGE_MARK = "data-storelib-badge"
 const MARK_MASK = "sl-pb-s"
 /** The S's box in the 200 unit square: the solid mark's (components/brand/storelib-logo.tsx STORELIB_SOLID_S, the letter at 0.9). */
 const S_BOX = { x: 48.97, y: 38.44, w: 102.06, h: 123.12 }
-export const POWERED_BY_MARK = `<svg ${BADGE_MARK}-mark="" aria-hidden="true" focusable="false" viewBox="0 0 200 200" width="14" height="14" style="display:block;flex:none;width:1.2em;height:1.2em;overflow:visible"><mask id="${MARK_MASK}" maskUnits="userSpaceOnUse" x="0" y="0" width="200" height="200"><rect width="200" height="200" fill="#fff"/><svg x="${S_BOX.x}" y="${S_BOX.y}" width="${S_BOX.w}" height="${S_BOX.h}" viewBox="54 43 94.5 114" overflow="visible"><path transform="${STORELIB_S_TRANSFORM}" d="${STORELIB_S_PATH}" fill="#000"/></svg></mask><rect width="200" height="200" rx="48" fill="currentColor" mask="url(#${MARK_MASK})"/></svg>`
+/** The letter's own box (54 43 94.5 x 114 in its outline's units) into S_BOX: one scale, no nested picture (a page's markup stays plain). */
+const S_SCALE = +(S_BOX.w / 94.5).toFixed(4)
+export const POWERED_BY_MARK = `<svg ${BADGE_MARK}-mark="" aria-hidden="true" focusable="false" viewBox="0 0 200 200" width="14" height="14" style="display:block;flex:none;width:1.2em;height:1.2em;overflow:visible"><mask id="${MARK_MASK}" maskUnits="userSpaceOnUse" x="0" y="0" width="200" height="200"><rect width="200" height="200" fill="#fff"/><path transform="translate(${S_BOX.x} ${S_BOX.y}) scale(${S_SCALE}) translate(-54 -43) ${STORELIB_S_TRANSFORM}" d="${STORELIB_S_PATH}" fill="#000"/></mask><rect width="200" height="200" rx="48" fill="currentColor" mask="url(#${MARK_MASK})"/></svg>`
 
 /** The link itself, as `powered_by_link` prints it: the mark, then the words, on one line. */
 export function poweredByLink(): string {

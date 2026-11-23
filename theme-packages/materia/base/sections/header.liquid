@@ -9,6 +9,42 @@
 {%- endcomment -%}
 {{ 'header-section.css' | asset_url | stylesheet_tag }}
 <script src="{{ 'header-section.js' | asset_url }}" defer="defer"></script>
+{%- comment -%}
+  Header > Icons and menu colours (round 21): one colour for the header's
+  icons (search, account, wishlist, cart, and the menu button on phones) and,
+  apart from it, one for the top menu links. Empty follows the colour scheme.
+  The cart and wishlist count bubbles keep Theme settings > Count bubble.
+  A transparent header over a picture keeps its own colour while it is see-through.
+{%- endcomment -%}
+{%- liquid
+  assign hi_icon = section.settings.icon_color
+  assign hi_icon_on = false
+  if hi_icon != blank and hi_icon.alpha != 0
+    assign hi_icon_on = true
+  endif
+  assign hi_icon_hover = section.settings.icon_hover_color
+  if hi_icon_hover == blank or hi_icon_hover.alpha == 0
+    assign hi_icon_hover = hi_icon
+  endif
+  assign hi_link = section.settings.menu_link_color
+  assign hi_link_on = false
+  if hi_link != blank and hi_link.alpha != 0
+    assign hi_link_on = true
+  endif
+-%}
+{%- if hi_icon_on or hi_link_on -%}
+<style data-header-colours>
+  {%- if hi_icon_on %}
+  #shopify-section-{{ section.id }} :is(.header__action .header-icon{% if section.settings.icon_color_menu_button != false %}, .nav-toggle{% endif %}) { color: {{ hi_icon }}; transition: color .2s ease; }
+  @media (hover: hover) {
+    #shopify-section-{{ section.id }} :is(.header__action .header-icon{% if section.settings.icon_color_menu_button != false %}, .nav-toggle{% endif %}):hover { color: {{ hi_icon_hover }}; }
+  }
+  {%- endif %}
+  {%- if hi_link_on %}
+  #shopify-section-{{ section.id }} :is(.level0 > menu-item, .level0 > menu-item > a) { color: {{ hi_link }}; }
+  {%- endif %}
+</style>
+{%- endif -%}
 {%- liquid
   assign __ti_scroll_animation = settings.scroll_animation | default: 'none'
   assign __ti_reveal = section.settings.reveal
@@ -1785,6 +1821,32 @@
         }
       ],
       "info": "How top-level links, dropdown links and mega menu columns react to the pointer. Keep previous choice uses the style that was set in Theme settings > Typography before it moved here."
+    },
+    {
+      "type": "color",
+      "id": "menu_link_color",
+      "label": "Menu link colour",
+      "info": "The top menu links. Leave it empty to follow the colour scheme."
+    },
+    {
+      "type": "color",
+      "id": "icon_color",
+      "label": "Icon colour",
+      "info": "Search, account, wishlist and cart. Leave it empty to follow the colour scheme. The count bubbles keep Theme settings > Count bubble."
+    },
+    {
+      "type": "color",
+      "id": "icon_hover_color",
+      "label": "Icon colour on hover",
+      "info": "Leave it empty to keep the icon colour.",
+      "visible_if": "{{ section.settings.icon_color != blank }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "icon_color_menu_button",
+      "label": "Menu button on phones in the icon colour",
+      "default": true,
+      "visible_if": "{{ section.settings.icon_color != blank }}"
     },
     {
       "type": "color",

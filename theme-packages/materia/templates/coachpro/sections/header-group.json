@@ -131,7 +131,7 @@
             "button_text": "Free worksheet",
             "button_link": "/#free-guide",
             "button_style": "primary",
-            "show_on_mobile": true,
+            "show_on_mobile": false,
             "mobile_placement": "in_row",
             "mobile_size": "small",
             "button_position": "after_icons",
