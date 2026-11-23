@@ -3,7 +3,7 @@
  * scripts/check-editors-r42.mjs:
  *
  *   "collection"   a saved collection's page (app/(storelib)/app/products/collections/collection-editor)
- *   "offer-new"    New offer, opened with no kind (app/(storelib)/app/offers/offer-editor askKind)
+ *   "offer-new"    a new bundle's page (app/(storelib)/app/offers/offer-editor; round 60: the kind is asked over the list first)
  *   "offer-edit"   a saved bundle's page
  */
 import * as React from "react"
@@ -37,7 +37,7 @@ function Root() {
   const saved = w.__panel === "offer-edit"
   return (
     <div style={{ height: "100vh" }}>
-      <OfferEditor open target={saved ? { offer: OFFER } : { offer: null, kind: null }} onClose={() => undefined} onSaved={() => undefined} onDeleted={() => undefined} products={products} collections={[]} others={[]} currency="USD" physical ready settingsReady breaksReady sold={saved ? { [OFFER.id]: 4 } : {}} />
+      <OfferEditor offer={saved ? OFFER : null} kind={saved ? OFFER.kind : "bundle"} products={products} collections={[]} others={[]} currency="USD" physical ready settingsReady breaksReady sold={saved ? 4 : 0} />
     </div>
   )
 }

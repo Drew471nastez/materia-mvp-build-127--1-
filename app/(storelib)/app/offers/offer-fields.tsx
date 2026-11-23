@@ -306,7 +306,7 @@ export function ChoiceGrid<T extends string>({ value, options, onChange, label }
               if (!on) onChange(o.value)
             }}
             className={cn(
-              "relative h-10 min-w-0 flex-1 basis-0 cursor-pointer truncate rounded-lg px-3 text-[15px] font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[#8b5cf6] sm:h-8 sm:rounded-md sm:text-[13px] [-webkit-tap-highlight-color:transparent]",
+              "relative h-11 min-w-0 flex-1 basis-0 cursor-pointer truncate rounded-lg px-3 text-[15px] font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[#8b5cf6] sm:h-8 sm:rounded-md sm:text-[13px] [-webkit-tap-highlight-color:transparent]",
               on ? "text-[#1a1a2e]" : "text-[#4b5563] hover:text-[#1a1a2e]",
             )}
           >
