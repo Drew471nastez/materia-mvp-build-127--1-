@@ -1,0 +1,210 @@
+{%- comment -%}
+  VSL funnel: the opening. A small line, the heading, a short paragraph, then
+  the sales video at full width with the creator's own cover picture and a
+  play button in the middle, and under it the two buttons and a row of short
+  facts. Colours come from the section's colour scheme, so it reads on a light
+  or a dark ground.
+
+  The video is the creator's own: a file uploaded in the editor, or a YouTube
+  or Vimeo link. Until play is pressed only the cover picture loads: no video
+  file, no player script, nothing from YouTube or Vimeo. Pressing play puts the
+  player in the frame and starts it with sound. With no video yet, pressing
+  play says so in one line instead.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign kind = ''
+  assign src = ''
+  assign vid = ''
+  if st.video != blank
+    assign kind = 'file'
+    assign src = st.video.sources[0].url
+    for s in st.video.sources
+      if s.mime_type == 'video/mp4'
+        assign src = s.url
+        break
+      endif
+    endfor
+  elsif st.video_url != blank
+    assign kind = st.video_url.type
+    assign vid = st.video_url.id
+  endif
+  assign poster = st.poster
+  if poster == blank and st.video != blank
+    assign poster = st.video.preview_image
+  endif
+-%}
+<style>
+  #shopify-section-{{ sid }} .vfh { padding: {{ st.padding_top }}px 0 {{ st.padding_bottom }}px; background: var(--color-background); color: var(--color-text); }
+  #shopify-section-{{ sid }} .vfh *, #shopify-section-{{ sid }} .vfh *::before, #shopify-section-{{ sid }} .vfh *::after { box-sizing: border-box; }
+  #shopify-section-{{ sid }} .vfh__in { max-width: calc({{ st.video_width }}px + 40px); margin: 0 auto; padding: 0 20px; }
+  #shopify-section-{{ sid }} .vfh__head { max-width: 860px; margin: 0 auto; text-align: center; }
+  #shopify-section-{{ sid }} .vfh__eyebrow { margin: 0 0 16px; font-size: 13px; font-weight: 600; letter-spacing: .02em; color: var(--color-primary); }
+  #shopify-section-{{ sid }} .vfh__title { margin: 0; font-family: var(--heading-font); font-weight: var(--heading-weight, 700); color: var(--color-heading); font-size: {{ st.heading_size }}px; line-height: 1.12; letter-spacing: -.01em; text-wrap: balance; }
+  #shopify-section-{{ sid }} .vfh__text { max-width: 640px; margin: 18px auto 0; font-size: 18px; line-height: 1.6; }
+  #shopify-section-{{ sid }} .vfh__text p { margin: 0; }
+  #shopify-section-{{ sid }} .vfh__video { margin-top: {{ st.video_gap }}px; }
+  #shopify-section-{{ sid }} .vfh__frame { position: relative; aspect-ratio: 16 / 9; overflow: hidden; border-radius: {{ st.radius }}px; background: color-mix(in srgb, var(--color-heading) 8%, var(--color-background)); box-shadow: 0 1px 2px rgba(16, 24, 16, .06), 0 18px 48px -18px rgba(16, 24, 16, .28); isolation: isolate; }
+  #shopify-section-{{ sid }} .vfh__poster, #shopify-section-{{ sid }} .vfh__media, #shopify-section-{{ sid }} .vfh__frame > svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: cover; border: 0; }
+  #shopify-section-{{ sid }} .vfh__media { z-index: 3; background: #000; }
+  #shopify-section-{{ sid }} .vfh__shade { position: absolute; inset: 0; z-index: 1; background: rgba(0, 0, 0, {{ st.shade | divided_by: 100.0 }}); transition: background-color .3s ease; pointer-events: none; }
+  #shopify-section-{{ sid }} .vfh__play { position: absolute; z-index: 2; inset: 0; margin: 0; padding: 0; border: 0; background: none; cursor: pointer; display: grid; place-items: center; }
+  #shopify-section-{{ sid }} .vfh__disc { width: 88px; height: 88px; border-radius: 50%; display: grid; place-items: center; background: var(--btn-primary-bg-color); color: var(--btn-primary-color); box-shadow: 0 10px 30px -8px rgba(0, 0, 0, .45); transition: transform .3s cubic-bezier(.2, .7, .2, 1); }
+  #shopify-section-{{ sid }} .vfh__disc svg { width: 30px; height: 30px; margin-left: 5px; fill: currentColor; }
+  #shopify-section-{{ sid }} .vfh__play:hover .vfh__disc { transform: scale(1.06); }
+  #shopify-section-{{ sid }} .vfh__play:focus-visible { outline: none; }
+  #shopify-section-{{ sid }} .vfh__play:focus-visible .vfh__disc { outline: 3px solid #fff; outline-offset: 4px; }
+  #shopify-section-{{ sid }} .vfh__len { position: absolute; z-index: 2; left: 16px; bottom: 16px; padding: 6px 11px; border-radius: 6px; background: rgba(0, 0, 0, .62); color: #fff; font-size: 13px; font-weight: 600; line-height: 1; pointer-events: none; }
+  #shopify-section-{{ sid }} .vfh__empty { position: absolute; z-index: 2; left: 50%; bottom: 16px; transform: translateX(-50%); width: max-content; max-width: calc(100% - 32px); margin: 0; padding: 9px 14px; border-radius: 6px; background: rgba(0, 0, 0, .72); color: #fff; font-size: 14px; text-align: center; }
+  #shopify-section-{{ sid }} .vfh__empty[hidden] { display: none; }
+  #shopify-section-{{ sid }} .vfh.is-playing .vfh__play, #shopify-section-{{ sid }} .vfh.is-playing .vfh__len, #shopify-section-{{ sid }} .vfh.is-playing .vfh__shade { opacity: 0; pointer-events: none; }
+  #shopify-section-{{ sid }} .vfh__caption { margin: 14px 0 0; text-align: center; font-size: 14px; opacity: .85; }
+  #shopify-section-{{ sid }} .vfh__actions { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 12px; margin-top: 32px; }
+  #shopify-section-{{ sid }} .vfh__btn { display: inline-flex; align-items: center; justify-content: center; min-height: 54px; padding: 0 30px; border-radius: var(--btn-radius, 8px); border: 1px solid var(--btn-primary-border-color, transparent); background: var(--btn-primary-bg-color); color: var(--btn-primary-color); font-family: var(--btn-font, inherit); font-size: 16px; font-weight: var(--btn-font-weight, 600); text-decoration: none; transition: background-color .25s ease, color .25s ease, border-color .25s ease; }
+  #shopify-section-{{ sid }} .vfh__btn:hover { background: var(--btn-primary-hover-bg-color); color: var(--btn-primary-hover-color); border-color: var(--btn-primary-hover-border-color, transparent); }
+  #shopify-section-{{ sid }} .vfh__btn--ghost { background: var(--btn-secondary-bg-color, transparent); color: var(--btn-secondary-color); border-color: var(--btn-secondary-border-color); }
+  #shopify-section-{{ sid }} .vfh__btn--ghost:hover { background: var(--btn-secondary-hover-bg-color); color: var(--btn-secondary-hover-color); border-color: var(--btn-secondary-hover-border-color, var(--btn-secondary-hover-bg-color)); }
+  #shopify-section-{{ sid }} .vfh__btn:focus-visible { outline: 2px solid var(--color-heading); outline-offset: 3px; }
+  #shopify-section-{{ sid }} .vfh__note { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 22px; margin: 22px 0 0; padding: 0; list-style: none; font-size: 14px; }
+  #shopify-section-{{ sid }} .vfh__note li { display: inline-flex; align-items: center; gap: 7px; }
+  #shopify-section-{{ sid }} .vfh__note svg { width: 16px; height: 16px; flex: none; color: var(--color-primary); }
+  @media (max-width: 749px) {
+    #shopify-section-{{ sid }} .vfh { padding: {{ st.padding_top_mobile }}px 0 {{ st.padding_bottom_mobile }}px; }
+    #shopify-section-{{ sid }} .vfh__in { padding: 0 16px; }
+    #shopify-section-{{ sid }} .vfh__title { font-size: {{ st.heading_size_mobile }}px; line-height: 1.15; }
+    #shopify-section-{{ sid }} .vfh__text { font-size: 16px; margin-top: 14px; }
+    #shopify-section-{{ sid }} .vfh__video { margin-top: 24px; margin-left: -16px; margin-right: -16px; }
+    #shopify-section-{{ sid }} .vfh__frame { border-radius: 0; }
+    #shopify-section-{{ sid }} .vfh__disc { width: 68px; height: 68px; }
+    #shopify-section-{{ sid }} .vfh__disc svg { width: 24px; height: 24px; margin-left: 4px; }
+    #shopify-section-{{ sid }} .vfh__len { left: 12px; bottom: 12px; }
+    #shopify-section-{{ sid }} .vfh__caption { padding: 0 16px; }
+    #shopify-section-{{ sid }} .vfh__actions { flex-direction: column; align-items: stretch; margin-top: 24px; gap: 10px; }
+    #shopify-section-{{ sid }} .vfh__btn { width: 100%; }
+    #shopify-section-{{ sid }} .vfh__note { flex-direction: column; align-items: flex-start; gap: 8px; width: max-content; max-width: 100%; margin-left: auto; margin-right: auto; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #shopify-section-{{ sid }} .vfh__disc, #shopify-section-{{ sid }} .vfh__btn, #shopify-section-{{ sid }} .vfh__shade { transition: none; }
+  }
+</style>
+
+<div class="vfh color-{{ st.color_scheme }} gradient" data-vfh data-kind="{{ kind }}" data-src="{{ src | escape }}" data-id="{{ vid | escape }}" data-title="{{ st.video_title | default: st.heading | escape }}">
+  <div class="vfh__in">
+    <div class="vfh__head">
+      {%- if st.eyebrow != blank -%}<p class="vfh__eyebrow">{{ st.eyebrow | escape }}</p>{%- endif -%}
+      {%- if st.heading != blank -%}<h1 class="vfh__title">{{ st.heading | escape }}</h1>{%- endif -%}
+      {%- if st.text != blank -%}<div class="vfh__text">{{ st.text }}</div>{%- endif -%}
+    </div>
+    {%- if st.show_video -%}
+      <div class="vfh__video">
+        <div class="vfh__frame">
+          {%- if poster != blank -%}
+            {{ poster | image_url: width: 1800 | image_tag: class: 'vfh__poster', widths: '600, 900, 1200, 1500, 1800', sizes: '(min-width: 1080px) 1040px, 100vw', loading: 'eager', fetchpriority: 'high', alt: st.poster_alt }}
+          {%- else -%}
+            {{ 'lifestyle-2' | placeholder_svg_tag }}
+          {%- endif -%}
+          <span class="vfh__shade" aria-hidden="true"></span>
+          <button class="vfh__play" type="button" aria-label="{{ st.play_label | default: 'Play the video' | escape }}"><span class="vfh__disc"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 4.5v15l12.5-7.5z"/></svg></span></button>
+          {%- if st.length_label != blank -%}<span class="vfh__len">{{ st.length_label | escape }}</span>{%- endif -%}
+          <p class="vfh__empty" hidden role="status">{{ st.empty_text | default: 'The video plays here once it is added in the editor.' | escape }}</p>
+        </div>
+        {%- if st.caption != blank -%}<p class="vfh__caption">{{ st.caption | escape }}</p>{%- endif -%}
+      </div>
+    {%- endif -%}
+    {%- if st.button_label != blank or st.button2_label != blank -%}
+      <div class="vfh__actions">
+        {%- if st.button_label != blank -%}<a class="vfh__btn" href="{{ st.button_link | default: '#' }}">{{ st.button_label | escape }}</a>{%- endif -%}
+        {%- if st.button2_label != blank -%}<a class="vfh__btn vfh__btn--ghost" href="{{ st.button2_link | default: '#' }}">{{ st.button2_label | escape }}</a>{%- endif -%}
+      </div>
+    {%- endif -%}
+    {%- if st.note != blank -%}
+      <ul class="vfh__note" role="list">{%- assign notes = st.note | split: ',' -%}{%- for n in notes -%}<li><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3.5 8.4l3 3 6-6.4"/></svg>{{ n | strip | escape }}</li>{%- endfor -%}</ul>
+    {%- endif -%}
+  </div>
+</div>
+
+<script>
+  (function () {
+    var box = document.querySelector('#shopify-section-{{ section.id }} [data-vfh]');
+    if (!box || box.hasAttribute('data-ready')) return;
+    box.setAttribute('data-ready', '');
+    var frame = box.querySelector('.vfh__frame');
+    var play = box.querySelector('.vfh__play');
+    if (!frame || !play) return;
+    var note = box.querySelector('.vfh__empty');
+    var kind = box.getAttribute('data-kind');
+    var id = box.getAttribute('data-id');
+    var src = box.getAttribute('data-src');
+    var title = box.getAttribute('data-title') || '';
+    play.addEventListener('click', function () {
+      if (box.classList.contains('is-playing')) return;
+      var el = null;
+      if (kind === 'file' && src) {
+        el = document.createElement('video');
+        el.src = src; el.controls = true; el.autoplay = true; el.playsInline = true;
+        el.setAttribute('playsinline', ''); el.setAttribute('preload', 'auto');
+        if (title) el.setAttribute('aria-label', title);
+      } else if ((kind === 'youtube' || kind === 'vimeo') && id) {
+        el = document.createElement('iframe');
+        el.src = kind === 'youtube'
+          ? 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(id) + '?autoplay=1&rel=0&playsinline=1&modestbranding=1'
+          : 'https://player.vimeo.com/video/' + encodeURIComponent(id) + '?autoplay=1&dnt=1&title=0&byline=0&portrait=0';
+        el.setAttribute('allow', 'autoplay; fullscreen; picture-in-picture; encrypted-media');
+        el.setAttribute('allowfullscreen', '');
+        el.title = title || 'Video';
+      }
+      if (!el) {
+        if (note) { note.hidden = false; clearTimeout(box.__t); box.__t = setTimeout(function () { note.hidden = true; }, 4000); }
+        return;
+      }
+      el.className = 'vfh__media';
+      frame.appendChild(el);
+      box.classList.add('is-playing');
+      if (el.play) { var p = el.play(); if (p && p.catch) p.catch(function () {}); }
+    });
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "VSL video opening",
+  "tag": "section",
+  "class": "vslfunnel-video-section",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "default" },
+    { "type": "text", "id": "eyebrow", "label": "Small line above", "default": "Free lesson, 14 minutes" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Say what the course does for someone in one sentence" },
+    { "type": "range", "id": "heading_size", "label": "Heading size", "min": 28, "max": 72, "step": 1, "unit": "px", "default": 52 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size on phones", "min": 22, "max": 48, "step": 1, "unit": "px", "default": 32 },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Who it is for and what changes for them, in two lines.</p>" },
+    { "type": "header", "content": "Video" },
+    { "type": "checkbox", "id": "show_video", "label": "Show the video", "default": true },
+    { "type": "video", "id": "video", "label": "Video file" },
+    { "type": "video_url", "id": "video_url", "label": "Or a YouTube or Vimeo link", "accept": ["youtube", "vimeo"], "info": "Nothing is downloaded until a visitor presses play." },
+    { "type": "image_picker", "id": "poster", "label": "Cover picture", "info": "Shown until play is pressed. 16:9, at least 1600px wide." },
+    { "type": "text", "id": "poster_alt", "label": "Cover picture description" },
+    { "type": "range", "id": "shade", "label": "Darken the cover", "min": 0, "max": 50, "step": 2, "unit": "%", "default": 8 },
+    { "type": "text", "id": "length_label", "label": "Length label", "default": "14:02" },
+    { "type": "text", "id": "video_title", "label": "Video title for screen readers" },
+    { "type": "text", "id": "play_label", "label": "Play button label for screen readers", "default": "Play the video" },
+    { "type": "text", "id": "caption", "label": "Line under the video" },
+    { "type": "text", "id": "empty_text", "label": "Message when there is no video yet", "default": "The video plays here once it is added in the editor." },
+    { "type": "range", "id": "video_width", "label": "Video width", "min": 640, "max": 1200, "step": 20, "unit": "px", "default": 1040 },
+    { "type": "range", "id": "radius", "label": "Video corners", "min": 0, "max": 32, "step": 2, "unit": "px", "default": 14 },
+    { "type": "range", "id": "video_gap", "label": "Space above the video", "min": 16, "max": 80, "step": 4, "unit": "px", "default": 40 },
+    { "type": "header", "content": "Buttons" },
+    { "type": "text", "id": "button_label", "label": "First button", "default": "Join the course" },
+    { "type": "url", "id": "button_link", "label": "First button link" },
+    { "type": "text", "id": "button2_label", "label": "Second button", "default": "Book a call" },
+    { "type": "url", "id": "button2_link", "label": "Second button link" },
+    { "type": "text", "id": "note", "label": "Short facts under the buttons", "info": "Separate them with commas.", "default": "Lessons are yours to keep, 30 day refund" },
+    { "type": "header", "content": "Spacing" },
+    { "type": "range", "id": "padding_top", "label": "Top", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 64 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 80 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Top on phones", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 32 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Bottom on phones", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 48 }
+  ],
+  "presets": [{ "name": "VSL video opening" }]
+}
+{% endschema %}

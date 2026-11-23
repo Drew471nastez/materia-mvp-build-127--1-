@@ -1,0 +1,121 @@
+/* Templates round 23: the Smallplot catalogue: the course and its extras, then the free planting calendar. */
+{
+  "sections": {
+    "main-collection-heading": {
+      "type": "main-collection-heading",
+      "settings": {
+        "height": "adapt",
+        "alignment": "left",
+        "padding_top": 48,
+        "color_scheme": "default",
+        "reset_spacing": true,
+        "section_width": "fluid_container",
+        "padding_bottom": 24,
+        "show_collection_image": false
+      },
+      "name": "main-collection-heading",
+      "blocks": {
+        "breadcrumb": {
+          "type": "breadcrumb",
+          "settings": {}
+        },
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "header_size": "default"
+          }
+        },
+        "description": {
+          "type": "description",
+          "settings": {}
+        }
+      },
+      "block_order": [
+        "breadcrumb",
+        "heading",
+        "description"
+      ]
+    },
+    "main-collection-product": {
+      "type": "main-collection-product",
+      "settings": {
+        "sorting": true,
+        "column_gap": 30,
+        "pagination": "default",
+        "padding_top": 0,
+        "color_scheme": "default",
+        "filter_layout": "horizontal",
+        "items_per_row": 4,
+        "items_to_show": 12,
+        "reset_spacing": true,
+        "section_width": "fluid_container",
+        "default_filter": "open_all",
+        "empty_link_url": "/collections/all",
+        "padding_bottom": 60,
+        "vertical_posion": "left",
+        "button_show_more": "Show more",
+        "enable_filtering": false,
+        "show_filter_counts": true,
+        "items_per_row_mobile": "1",
+        "toolbar_button_style": "minimal",
+        "number_products_per_page": true
+      },
+      "name": "main-collection-product",
+      "blocks": {
+        "block-mvmkffsh-1-pcnzc": {
+          "type": "categories",
+          "settings": {
+            "title": "Category"
+          }
+        },
+        "block-mvmkfj68-2-iqqos": {
+          "type": "filter",
+          "settings": {}
+        }
+      },
+      "block_order": [
+        "block-mvmkffsh-1-pcnzc",
+        "block-mvmkfj68-2-iqqos"
+      ]
+    },
+    "chapter": {
+      "type": "newsletter-split",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "image": "shopify://shop_images/vslfunnel-seedlings.webp",
+        "image_alt": "Seedlings coming up in a tray of soil blocks",
+        "image_position": "left",
+        "image_ratio": "landscape",
+        "image_width": 50,
+        "form_layout": "horizontal",
+        "btn_text": "Send me the calendar",
+        "email_placeholder": "Your email",
+        "note": "One email a month at most. Leave whenever you like.",
+        "success_text": "Done. The calendar is on its way to your inbox."
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Get the planting calendar free"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>The calendar from module one as a PDF: what to sow and plant each week, worked out from your last frost date.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2"
+      ]
+    }
+  },
+  "order": [
+    "main-collection-heading",
+    "main-collection-product",
+    "chapter"
+  ]
+}

@@ -1,0 +1,241 @@
+/* Templates round 23: about Maren Holt, the sample teacher: her story, why the course exists, three ideas it is built on, student quotes and the free planting calendar. */
+{
+  "sections": {
+    "story": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "default",
+        "image": "shopify://shop_images/vslfunnel-maren.webp",
+        "image_alt": "Maren Holt on her porch step with a bowl of tomatoes and peppers",
+        "image_position": "left",
+        "aspect_w": 4,
+        "aspect_h": 5,
+        "image_radius": 12,
+        "text_column_width": 50
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "About the teacher"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Maren Holt",
+            "tag": "h1"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Maren started growing food on a third floor balcony with two pots of tomatoes and a bag of compost she carried up the stairs. Nine years later she grows most of her family's summer vegetables on a rented terrace and one shared raised bed.</p><p>For eight years she has run the beginners' class at her community garden. Smallplot is that class, filmed over a whole season. This is sample text. Replace it with your own story.</p>"
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "Join the spring class",
+            "link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
+    },
+    "why": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "default",
+        "image": "shopify://shop_images/vslfunnel-tomatoes.webp",
+        "image_alt": "Cherry tomatoes ripening on a plant in a pot",
+        "image_position": "right",
+        "aspect_w": 1,
+        "aspect_h": 1,
+        "image_radius": 12
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Why the course exists"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Growing books assume you have a garden"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Most growing advice is written for long beds and a shed. People in flats and terraced houses kept asking the same questions in class: which pot, how much sun, what to do about the wind on the fourth floor. The course answers those first.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3"
+      ]
+    },
+    "rules": {
+      "type": "text-columns",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "columns_desktop": 3,
+        "show_dividers": true
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Three ideas the course is built on"
+          }
+        },
+        "column_2": {
+          "type": "column",
+          "settings": {
+            "label": "01",
+            "heading": "Small is easier",
+            "text": "<p>A balcony you look after every day grows more than a big bed you visit on Sundays.</p>"
+          }
+        },
+        "column_3": {
+          "type": "column",
+          "settings": {
+            "label": "02",
+            "heading": "One job a week",
+            "text": "<p>Gardening falls apart when everything is urgent. The season has an order, and the course follows it.</p>"
+          }
+        },
+        "column_4": {
+          "type": "column",
+          "settings": {
+            "label": "03",
+            "heading": "No sprays",
+            "text": "<p>Nets, timing and a few flowers do the work. Nothing in the course needs a chemical.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "column_2",
+        "column_3",
+        "column_4"
+      ]
+    },
+    "reviews": {
+      "type": "testimonial-wall",
+      "settings": {
+        "color_scheme": "default",
+        "columns": 3,
+        "card_style": "plain",
+        "text_align": "left",
+        "collapse": "mobile"
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Students"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "What students say"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Sample reviews to show the layout. Replace them with your own students' words.</p>"
+          }
+        },
+        "testimonial_4": {
+          "type": "testimonial",
+          "settings": {
+            "body": "My balcony was a row of dead herbs. This summer it held tomatoes, beans and more salad than we could eat.",
+            "name": "Amira R.",
+            "role": "Balcony, third floor",
+            "rating": 0
+          }
+        },
+        "testimonial_5": {
+          "type": "testimonial",
+          "settings": {
+            "body": "One Saturday afternoon, two raised beds, and the calendar told me what went in each week.",
+            "name": "Jonas T.",
+            "role": "Small back yard",
+            "rating": 0
+          }
+        },
+        "testimonial_6": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Every week has one job, so I never felt behind.",
+            "name": "Sofia K.",
+            "role": "Windowsill and a shared yard",
+            "rating": 0
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "testimonial_4",
+        "testimonial_5",
+        "testimonial_6"
+      ]
+    },
+    "chapter": {
+      "type": "newsletter-split",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "image": "shopify://shop_images/vslfunnel-seedlings.webp",
+        "image_alt": "Seedlings coming up in a tray of soil blocks",
+        "image_position": "left",
+        "image_ratio": "landscape",
+        "image_width": 50,
+        "form_layout": "horizontal",
+        "btn_text": "Send me the calendar",
+        "email_placeholder": "Your email",
+        "note": "One email a month at most. Leave whenever you like.",
+        "success_text": "Done. The calendar is on its way to your inbox."
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Get the planting calendar free"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>The calendar from module one as a PDF: what to sow and plant each week, worked out from your last frost date.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2"
+      ]
+    }
+  },
+  "order": [
+    "story",
+    "why",
+    "rules",
+    "reviews",
+    "chapter"
+  ]
+}

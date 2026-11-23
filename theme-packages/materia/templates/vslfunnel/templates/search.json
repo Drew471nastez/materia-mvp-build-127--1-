@@ -1,0 +1,83 @@
+/* Templates round 23: Smallplot search, the course and extras, then the free planting calendar. */
+{
+  "sections": {
+    "main": {
+      "type": "main-search",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "fluid_container",
+        "reset_spacing": true,
+        "heading": "Search",
+        "sorting": true,
+        "empty_text": "Nothing matched. Try course, calendar or call.",
+        "empty_link_label": "See everything",
+        "empty_link_url": "/collections/all",
+        "enable_filtering": false,
+        "filter_layout": "drawer",
+        "items_per_row": 3,
+        "items_per_row_mobile": 1,
+        "column_gap": 24,
+        "items_to_show": 12,
+        "pagination": "load_more_button",
+        "button_show_more": "Show more",
+        "padding_top": 56,
+        "padding_bottom": 96,
+        "number_products_per_page": true,
+        "show_filter_counts": false
+      }
+    },
+    "editions": {
+      "type": "products-grid",
+      "settings": {
+        "color_scheme": "default",
+        "heading": "The course and the extras",
+        "text": "<p>The full course, the printable plans on their own, and a call about your space.</p>",
+        "items_to_show": 4,
+        "items_per_row": 4,
+        "show_add_to_cart": true,
+        "button_label": "See all",
+        "button_link": "/collections/all",
+        "header_alignment": "left"
+      }
+    },
+    "chapter": {
+      "type": "newsletter-split",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "image": "shopify://shop_images/vslfunnel-seedlings.webp",
+        "image_alt": "Seedlings coming up in a tray of soil blocks",
+        "image_position": "left",
+        "image_ratio": "landscape",
+        "image_width": 50,
+        "form_layout": "horizontal",
+        "btn_text": "Send me the calendar",
+        "email_placeholder": "Your email",
+        "note": "One email a month at most. Leave whenever you like.",
+        "success_text": "Done. The calendar is on its way to your inbox."
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Get the planting calendar free"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>The calendar from module one as a PDF: what to sow and plant each week, worked out from your last frost date.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2"
+      ]
+    }
+  },
+  "order": [
+    "main",
+    "editions",
+    "chapter"
+  ]
+}
